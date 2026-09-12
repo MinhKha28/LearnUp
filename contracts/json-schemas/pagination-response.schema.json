@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.learnup.com/json-schemas/pagination-response.schema.json",
+  "title": "LearnUP Pagination Metadata Schema",
+  "description": "Offset/page-based pagination metadata returned alongside list data collections.",
+  "type": "object",
+  "required": [
+    "page",
+    "size",
+    "totalElements",
+    "totalPages",
+    "hasNext",
+    "hasPrevious"
+  ],
+  "properties": {
+    "page": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Zero-based current page index.",
+      "examples": [0]
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Number of elements requested per page.",
+      "examples": [20]
+    },
+    "totalElements": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of items matching the query criteria across all pages.",
+      "examples": [142]
+    },
+    "totalPages": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of pages calculated from totalElements and size.",
+      "examples": [8]
+    },
+    "hasNext": {
+      "type": "boolean",
+      "description": "True if there is a subsequent page available.",
+      "examples": [true]
+    },
+    "hasPrevious": {
+      "type": "boolean",
+      "description": "True if there is a preceding page available.",
+      "examples": [false]
+    }
+  },
+  "additionalProperties": false
+}

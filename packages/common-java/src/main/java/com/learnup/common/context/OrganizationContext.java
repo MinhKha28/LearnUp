@@ -1,25 +1,31 @@
 package com.learnup.common.context;
 
 /**
- * ThreadLocal-based holder for the active tenant organization context.
+ * Convenience alias delegating to {@link TenantContext} for organizationId tenant scoping.
  */
 public final class OrganizationContext {
-
-    private static final ThreadLocal<String> CURRENT_ORG_ID = new ThreadLocal<>();
 
     private OrganizationContext() {
         // Prevent instantiation
     }
 
     public static String getOrganizationId() {
-        return CURRENT_ORG_ID.get();
+        return TenantContext.getOrganizationId();
     }
 
     public static void setOrganizationId(String organizationId) {
-        CURRENT_ORG_ID.set(organizationId);
+        TenantContext.setOrganizationId(organizationId);
+    }
+
+    public static String requireOrganizationId() {
+        return TenantContext.requireOrganizationId();
+    }
+
+    public static boolean isSet() {
+        return TenantContext.isSet();
     }
 
     public static void clear() {
-        CURRENT_ORG_ID.remove();
+        TenantContext.clear();
     }
 }

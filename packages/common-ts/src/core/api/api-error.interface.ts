@@ -8,7 +8,8 @@ export type ApiErrorCode =
   | 'RESOURCE_NOT_FOUND'
   | 'CONFLICT'
   | 'RATE_LIMITED'
-  | 'INTERNAL_ERROR';
+  | 'INTERNAL_ERROR'
+  | 'SERVICE_UNAVAILABLE';
 
 export interface ErrorDetail {
   field: string;

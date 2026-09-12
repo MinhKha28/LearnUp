@@ -1,6 +1,13 @@
-// Re-export core framework-neutral interfaces and utilities (usable by Next.js & NestJS)
-export * from './core';
+// Core Cross-Cutting Modules
+export * from './auth';
+export * from './context';
+export * from './response';
+export * from './pagination';
+export * from './exception';
+export * from './correlation';
+export * from './logging';
+export * from './kafka';
 
-// Note: NestJS specific adapters can be imported from '@learnup/common-ts/adapters/nestjs'
-// or used via direct adapter imports.
-export * as NestJsAdapters from './adapters/nestjs';
+// Legacy compatibility exports
+export * as core from './core';
+export * as adapters from './adapters/nestjs';

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.learnup.com/json-schemas/kafka-event-envelope.schema.json",
+  "title": "LearnUP Kafka Event Envelope Contract",
+  "description": "Standardized event envelope wrapping all asynchronous Kafka event messages across LearnUP microservices.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "occurredAt",
+    "producer",
+    "payload"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "description": "Unique identifier for the event instance. Used by consumers to guarantee idempotent execution.",
+      "examples": ["evt_01HGB98A76B5F4E3D2C1", "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"]
+    },
+    "eventType": {
+      "type": "string",
+      "description": "Canonical name and version of the event type following the dot-delimited topic naming standard.",
+      "examples": ["learnup.identity.user-registered.v1", "learnup.course.course-published.v1"]
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp when the domain event occurred in the producer service.",
+      "examples": ["2026-09-12T10:00:00.000Z"]
+    },
+    "producer": {
+      "type": "string",
+      "description": "Originating microservice name that emitted the event.",
+      "examples": ["identity-service", "course-service"]
+    },
+    "payload": {
+      "type": "object",
+      "description": "Domain-specific event payload data.",
+      "additionalProperties": true
+    },
+    "organizationId": {
+      "type": "string",
+      "description": "Standardized tenant organization identifier for tenant-scoped partitioning and multi-tenant routing.",
+      "examples": ["org_01HGB7398A1B2C3D4E5"]
+    },
+    "correlationId": {
+      "type": "string",
+      "description": "Distributed trace correlation token propagated across synchronous HTTP and asynchronous event flows.",
+      "examples": ["c7a31b20-1e82-4f11-9a70-8b77a942001e"]
+    }
+  },
+  "additionalProperties": false
+}

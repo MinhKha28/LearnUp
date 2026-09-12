@@ -11,9 +11,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * CloudEvent-compatible generic event envelope for all Kafka domain events in Java.
+ * Standardized generic event envelope wrapping all asynchronous Kafka event messages across LearnUP.
  *
- * @param <T> Payload domain data type
+ * @param <T> Domain event payload type
  */
 @Data
 @Builder
@@ -23,39 +23,31 @@ import java.util.UUID;
 public class GenericEventEnvelope<T> {
 
     @Builder.Default
-    private String id = UUID.randomUUID().toString();
+    private String eventId = UUID.randomUUID().toString();
 
-    private String source;
-
-    private String type;
-
-    @Builder.Default
-    private String specversion = "1.0";
-
-    @Builder.Default
-    private String datacontenttype = "application/json";
+    private String eventType;
 
     @Builder.Default
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-    private Instant time = Instant.now();
+    private Instant occurredAt = Instant.now();
+
+    private String producer;
+
+    private T payload;
 
     private String organizationId;
 
     private String correlationId;
 
-    private T data;
-
-    public static <T> GenericEventEnvelope<T> of(String source, String type, String organizationId, String correlationId, T data) {
+    public static <T> GenericEventEnvelope<T> of(String eventType, String producer, String organizationId, String correlationId, T payload) {
         return GenericEventEnvelope.<T>builder()
-                .id(UUID.randomUUID().toString())
-                .source(source)
-                .type(type)
-                .specversion("1.0")
-                .datacontenttype("application/json")
-                .time(Instant.now())
+                .eventId(UUID.randomUUID().toString())
+                .eventType(eventType)
+                .occurredAt(Instant.now())
+                .producer(producer)
                 .organizationId(organizationId)
                 .correlationId(correlationId)
-                .data(data)
+                .payload(payload)
                 .build();
     }
 }

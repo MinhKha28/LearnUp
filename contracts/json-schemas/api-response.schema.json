@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.learnup.com/json-schemas/api-response.schema.json",
+  "title": "LearnUP Standard API Response Envelope",
+  "description": "Universal JSON envelope format returned for all synchronous HTTP REST endpoints.",
+  "type": "object",
+  "required": [
+    "success",
+    "timestamp"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Boolean flag indicating whether the operation succeeded (true) or failed (false).",
+      "examples": [true]
+    },
+    "data": {
+      "description": "Payload result for successful responses. Null when success is false or operation has no return data.",
+      "examples": [{"id": "usr_01HGB...", "email": "learner@enterprise.com"}]
+    },
+    "meta": {
+      "$ref": "./pagination-response.schema.json",
+      "description": "Pagination metadata when the endpoint returns a list collection.",
+      "nullable": true
+    },
+    "error": {
+      "$ref": "./api-error.schema.json",
+      "description": "Structured error details when success is false. Null on successful responses.",
+      "nullable": true
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp of response generation.",
+      "examples": ["2026-09-12T10:00:00.000Z"]
+    }
+  },
+  "additionalProperties": false
+}

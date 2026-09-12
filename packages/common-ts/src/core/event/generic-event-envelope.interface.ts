@@ -1,38 +1,34 @@
 import { v4 as uuidv4 } from 'uuid';
 
 /**
- * CloudEvent-compatible generic event envelope for all Kafka domain events in TypeScript.
+ * Standardized generic event envelope wrapping all asynchronous Kafka event messages across LearnUP.
  */
 export interface GenericEventEnvelope<T = unknown> {
-  id: string;
-  source: string;
-  type: string;
-  specversion: '1.0';
-  datacontenttype: 'application/json';
-  time: string;
-  organizationId: string;
-  correlationId: string;
-  data: T;
+  eventId: string;
+  eventType: string;
+  occurredAt: string;
+  producer: string;
+  payload: T;
+  organizationId?: string;
+  correlationId?: string;
 }
 
 export function createEventEnvelope<T>(params: {
-  source: string;
-  type: string;
-  organizationId: string;
-  correlationId: string;
-  data: T;
-  id?: string;
-  time?: string;
+  eventType: string;
+  producer: string;
+  payload: T;
+  organizationId?: string;
+  correlationId?: string;
+  eventId?: string;
+  occurredAt?: string;
 }): GenericEventEnvelope<T> {
   return {
-    id: params.id ?? uuidv4(),
-    source: params.source,
-    type: params.type,
-    specversion: '1.0',
-    datacontenttype: 'application/json',
-    time: params.time ?? new Date().toISOString(),
+    eventId: params.eventId ?? uuidv4(),
+    eventType: params.eventType,
+    occurredAt: params.occurredAt ?? new Date().toISOString(),
+    producer: params.producer,
+    payload: params.payload,
     organizationId: params.organizationId,
     correlationId: params.correlationId,
-    data: params.data,
   };
 }

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.learnup.com/json-schemas/roles.schema.json",
+  "title": "LearnUP Platform Role Enum",
+  "description": "Canonical role definitions for authorization and RBAC across all LearnUP services and client applications.",
+  "type": "string",
+  "enum": [
+    "ADMIN",
+    "ORGANIZER",
+    "INSTRUCTOR",
+    "LEARNER"
+  ]
+}
