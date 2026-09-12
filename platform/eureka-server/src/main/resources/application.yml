@@ -1,22 +1,17 @@
+# ==============================================================================
+# LearnUP Eureka Discovery Server - Base Configuration
+# ==============================================================================
 server:
   port: ${SERVER_PORT:8761}
+  shutdown: graceful
 
 spring:
   application:
     name: eureka-server
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 
-eureka:
-  instance:
-    hostname: ${EUREKA_HOSTNAME:localhost}
-  client:
-    register-with-eureka: false
-    fetch-registry: false
-    service-url:
-      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
-  server:
-    enable-self-preservation: false
-    eviction-interval-timer-in-ms: 5000
-
+# Management & Health Endpoints
 management:
   endpoints:
     web:
@@ -25,3 +20,14 @@ management:
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: "LearnUP Eureka Discovery Server"
+    description: "Dynamic Service Registry & Discovery Engine"
+    version: "1.0.0-SNAPSHOT"
