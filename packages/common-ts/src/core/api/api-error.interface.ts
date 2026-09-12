@@ -1,0 +1,26 @@
+/**
+ * Standard error codes across LearnUP.
+ */
+export type ApiErrorCode =
+  | 'INVALID_INPUT'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'RESOURCE_NOT_FOUND'
+  | 'CONFLICT'
+  | 'RATE_LIMITED'
+  | 'INTERNAL_ERROR';
+
+export interface ErrorDetail {
+  field: string;
+  issue: string;
+}
+
+/**
+ * Standard structured API error payload.
+ */
+export interface ApiError {
+  code: ApiErrorCode | string;
+  message: string;
+  details?: ErrorDetail[];
+  correlationId?: string;
+}

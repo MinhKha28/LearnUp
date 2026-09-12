@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # Eureka Server (Service Registry)
+  # ==========================================
+  eureka-server:
+    build:
+      context: ../../
+      dockerfile: platform/eureka-server/Dockerfile
+    container_name: learnup-eureka-server
+    restart: unless-stopped
+    ports:
+      - "${EUREKA_PORT:-8761}:8761"
+    environment:
+      SERVER_PORT: 8761
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
+      EUREKA_CLIENT_FETCH_REGISTRY: "false"
+    networks:
+      - learnup-network
+
+  # ==========================================
+  # Spring Cloud Gateway (Ingress & Auth Perimeter)
+  # ==========================================
+  gateway:
+    build:
+      context: ../../
+      dockerfile: platform/gateway/Dockerfile
+    container_name: learnup-gateway
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
+    environment:
+      SERVER_PORT: 8000
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-learnup_jwt_secret_key_at_least_256_bits_length_123456}
+    depends_on:
+      - eureka-server
+    networks:
+      - learnup-network
+
+  # ==========================================
+  # Identity Service (User Auth & JWT Issuance)
+  # ==========================================
+  identity-service:
+    build:
+      context: ../../
+      dockerfile: platform/identity-service/Dockerfile
+    container_name: learnup-identity-service
+    restart: unless-stopped
+    ports:
+      - "${IDENTITY_PORT:-8081}:8081"
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-learnup_identity}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-learnup_jwt_secret_key_at_least_256_bits_length_123456}
+    depends_on:
+      - eureka-server
+    networks:
+      - learnup-network
+
+networks:
+  learnup-network:
+    external: true

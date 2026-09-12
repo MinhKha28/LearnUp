@@ -1,0 +1,49 @@
+server:
+  port: ${SERVER_PORT:8000}
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        # Identity Service Public Auth Routes (No JWT Required)
+        - id: identity-public-routes
+          uri: lb://identity-service
+          predicates:
+            - Path=/api/v1/auth/**
+          filters:
+            - StripPrefix=0
+
+        # Identity Service Protected Routes (JWT Required)
+        - id: identity-protected-routes
+          uri: lb://identity-service
+          predicates:
+            - Path=/api/v1/users/**
+          filters:
+            - name: AuthenticationHeaderFilter
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+jwt:
+  secret: ${JWT_SECRET:learnup_super_secret_jwt_signing_key_2026_enterprise_platform_token}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway
+  endpoint:
+    health:
+      show-details: always

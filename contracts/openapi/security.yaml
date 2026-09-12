@@ -1,0 +1,19 @@
+openapi: 3.0.3
+info:
+  title: LearnUP Security Schemes Contract
+  version: 1.0.0
+  description: Authentication and security schemes for the LearnUP platform.
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JSON Web Token passed in the `Authorization: Bearer <token>` header.
+        Validated at the Spring Cloud Gateway perimeter.
+        Required Claims:
+          - `sub`: User identifier
+          - `role`: One of [ADMIN, ORGANIZER, INSTRUCTOR, LEARNER]
+          - `organizationId`: Tenant identifier
