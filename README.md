@@ -117,7 +117,7 @@ learnup/
 * **[x] P4 — API Gateway**: Spring Cloud Gateway routing, JWT validation filter, header propagation, CORS.
 * **[x] P5 — Identity Service**: User entity, Spring Security, BCrypt, JWT generation, `identity_db`.
 * **[x] P6 — ReactJS Foundation**: Authentication context, login/logout, route guards, Gateway integration.
-* **[ ] P7 — Kafka Infrastructure**: Event envelope producer/consumer abstractions and error handling.
+* **[x] P7 — Kafka Infrastructure**: Event envelope producer/consumer abstractions and error handling.
 * **[ ] P8 — Organization Service**: Organizations, memberships, learner tags, search/filter, `organization_db`.
 * **[ ] P9 — Platform Integration**: End-to-end authentication, authorization, REST routing, and event verification.
 * **[ ] P10 — Business Services**: Incremental implementation of Subscription, Payment, Course, Learning, Assessment, Certificate, Specialization, Recommendation, Notification.
