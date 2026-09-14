@@ -1,0 +1,174 @@
+version: '3.8'
+
+services:
+  # ==============================================================================
+  # Database Infrastructure
+  # PostgreSQL instance hosting logical database per service
+  # ==============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: learnup-postgres
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: identity_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
+    networks:
+      - learnup-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==============================================================================
+  # Message Broker Infrastructure
+  # Apache Kafka in KRaft mode (no Zookeeper required)
+  # ==============================================================================
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: learnup-kafka
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - learnup-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:29092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ==============================================================================
+  # Service Discovery Server
+  # Netflix Eureka Server
+  # ==============================================================================
+  eureka-server:
+    build:
+      context: ./infrastructure/eureka-server
+      dockerfile: Dockerfile
+    container_name: learnup-eureka
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    networks:
+      - learnup-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8761/eureka/apps || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ==============================================================================
+  # API Gateway
+  # Spring Cloud Gateway
+  # ==============================================================================
+  api-gateway:
+    build:
+      context: ./gateway/api-gateway
+      dockerfile: Dockerfile
+    container_name: learnup-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong}
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - learnup-network
+
+  # ==============================================================================
+  # Core Platform Services
+  # ==============================================================================
+  identity-service:
+    build:
+      context: ./services/identity-service
+      dockerfile: Dockerfile
+    container_name: learnup-identity-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/identity_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - learnup-network
+
+  organization-service:
+    build:
+      context: ./services/organization-service
+      dockerfile: Dockerfile
+    container_name: learnup-organization-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/organization_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - learnup-network
+
+  # ==============================================================================
+  # Frontend Application
+  # ==============================================================================
+  frontend:
+    build:
+      context: ./frontend/web
+      dockerfile: Dockerfile
+    container_name: learnup-web
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_GATEWAY_URL: http://localhost:8080
+    depends_on:
+      - api-gateway
+    networks:
+      - learnup-network
+
+networks:
+  learnup-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  kafka_data:

@@ -1,0 +1,17 @@
+{
+  "eventId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "eventType": "CourseCompleted",
+  "version": 1,
+  "occurredAt": "2026-09-14T10:30:00Z",
+  "organizationId": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+  "producer": "learning-service",
+  "data": {
+    "learnerId": "123e4567-e89b-12d3-a456-426614174000",
+    "courseId": "987fcdeb-51a2-43d7-b890-abcdef123456",
+    "courseTitle": "Distributed Systems with Microservices",
+    "completionDate": "2026-09-14T10:30:00Z",
+    "finalScore": 95.0,
+    "completedLessonsCount": 12,
+    "totalLessonsCount": 12
+  }
+}

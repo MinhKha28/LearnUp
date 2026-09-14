@@ -1,0 +1,72 @@
+# Database Ownership & Data Isolation Strategy
+
+A core tenet of the LearnUP architecture is the strict implementation of the **Database-per-Service** pattern. Each microservice maintains complete encapsulation over its persistent data.
+
+---
+
+## 1. Database Allocation
+
+Every microservice connects exclusively to its own dedicated PostgreSQL database.
+
+```text
+┌─────────────────────────┬──────────────────────┬───────────────────────────────┐
+│ Service                 │ Database Name        │ Primary Entities              │
+├─────────────────────────┼──────────────────────┼───────────────────────────────┤
+│ Identity Service        │ identity_db          │ User, Role, RefreshToken      │
+│ Organization Service    │ organization_db      │ Organization, Member, Tag     │
+│ Subscription Service    │ subscription_db      │ Plan, Subscription, Limit     │
+│ Payment Service         │ payment_db           │ PaymentTransaction, Invoice   │
+│ Course Service          │ course_db            │ Course, Module, Lesson        │
+│ Learning Service        │ learning_db          │ Enrollment, Progress, Assign  │
+│ Assessment Service      │ assessment_db        │ Assessment, Question, Review  │
+│ Certificate Service     │ certificate_db       │ Certificate, Verification     │
+│ Specialization Service  │ specialization_db    │ Specialization, TrackItem     │
+│ Recommendation Service  │ recommendation_db    │ RecommendationRule, Suggestion│
+│ Notification Service    │ notification_db      │ Notification, UserPreference  │
+└─────────────────────────┴──────────────────────┴───────────────────────────────┘
+```
+
+---
+
+## 2. Strict Data Isolation Rules
+
+### 2.1 No Direct Cross-Database Access
+* Services are strictly prohibited from connecting to, reading from, or writing to another service's database.
+* Database user credentials for each service only have access rights to that service's database.
+
+### 2.2 No Cross-Database Foreign Keys
+* Relational foreign key constraints (`REFERENCES other_db.table`) across service boundaries do **NOT** exist.
+* Database integrity is maintained strictly within each bounded context.
+
+### 2.3 Logical References Only
+* Services store references to external domain entities purely as scalar opaque identifiers:
+  * `organizationId: UUID`
+  * `userId: UUID`
+  * `courseId: UUID`
+  * `learnerId: UUID`
+  * `instructorId: UUID`
+  * `assessmentId: UUID`
+* When a service needs descriptive information about a referenced ID, it calls the owning service via REST or receives cached state through domain events.
+
+```text
+Example in Learning Service:
+┌──────────────────────────────────────────────┐
+│ Table: required_course_assignments           │
+├──────────────────────────────────────────────┤
+│ id                 UUID PRIMARY KEY          │
+│ organization_id    UUID NOT NULL (Scalar)    │  <-- Logical reference to Org Service
+│ course_id          UUID NOT NULL (Scalar)    │  <-- Logical reference to Course Service
+│ learner_id         UUID NOT NULL (Scalar)    │  <-- Logical reference to Org Service
+│ due_date           TIMESTAMP WITH TIME ZONE  │
+│ status             VARCHAR(30)               │
+└──────────────────────────────────────────────┘
+```
+
+---
+
+## 3. Schema Evolution & Migrations
+
+* **Spring Boot Services**: Use **Flyway** (`src/main/resources/db/migration/V1__initial_schema.sql`).
+* **NestJS Services**: Use framework-standard migrations (e.g. TypeORM / Prisma / Knex).
+* All schema changes are tracked in source control and applied automatically on container startup.
+* Migration scripts must be backward-compatible and deterministic.

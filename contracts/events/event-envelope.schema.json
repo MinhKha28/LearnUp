@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LearnUpEventEnvelope",
+  "description": "Canonical envelope schema for all domain events published to Apache Kafka across the LearnUP platform.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "version",
+    "occurredAt",
+    "organizationId",
+    "producer",
+    "data"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event instance (used for deduplication and tracing)."
+    },
+    "eventType": {
+      "type": "string",
+      "description": "PascalCase name of the domain event (e.g., CourseCompleted, RequiredAssignmentCreated)."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version of this event type, starting from 1."
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp when the domain event occurred."
+    },
+    "organizationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Canonical organization/tenant identifier for multi-tenant scoping."
+    },
+    "producer": {
+      "type": "string",
+      "description": "Identifier of the publishing microservice (e.g., learning-service, assessment-service)."
+    },
+    "data": {
+      "type": "object",
+      "description": "Domain-specific payload containing event details."
+    }
+  },
+  "additionalProperties": false
+}
