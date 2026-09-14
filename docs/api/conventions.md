@@ -83,8 +83,8 @@ Paginated endpoints accept standard query parameters:
     "items": [
       {
         "id": "111e4567-e89b-12d3-a456-426614174000",
-        "name": "Nguyen Van B",
-        "email": "learner1@techcorp.com",
+        "name": "Nguyen Van Muoi",
+        "email": "deptrai@fpt.com",
         "tags": ["Sinh viên IT kỳ 4"]
       }
     ],
