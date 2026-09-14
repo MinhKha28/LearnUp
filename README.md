@@ -114,7 +114,7 @@ learnup/
 * **[x] P1 — Java Common Library**: Minimal technical utilities (`CurrentUser`, `OrganizationContext`, `ApiResponse`, exceptions).
 * **[x] P2 — TypeScript Common Library**: Framework-neutral TS utilities (Context, HTTP clients, standard types).
 * **[x] P3 — Eureka Server**: Service discovery server setup and health verification.
-* **[ ] P4 — API Gateway**: Spring Cloud Gateway routing, JWT validation filter, header propagation, CORS.
+* **[x] P4 — API Gateway**: Spring Cloud Gateway routing, JWT validation filter, header propagation, CORS.
 * **[ ] P5 — Identity Service**: User entity, Spring Security, BCrypt, JWT generation, `identity_db`.
 * **[ ] P6 — ReactJS Foundation**: Authentication context, login/logout, route guards, Gateway integration.
 * **[ ] P7 — Kafka Infrastructure**: Event envelope producer/consumer abstractions and error handling.

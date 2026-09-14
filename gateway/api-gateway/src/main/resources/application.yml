@@ -1,0 +1,120 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+      routes:
+        # Identity Service Routes
+        - id: identity-service-auth
+          uri: lb://IDENTITY-SERVICE
+          predicates:
+            - Path=/api/auth/**
+        - id: identity-service-users
+          uri: lb://IDENTITY-SERVICE
+          predicates:
+            - Path=/api/users/**
+
+        # Organization Service Routes
+        - id: organization-service
+          uri: lb://ORGANIZATION-SERVICE
+          predicates:
+            - Path=/api/organizations/**
+
+        # Course Service Routes
+        - id: course-service
+          uri: lb://COURSE-SERVICE
+          predicates:
+            - Path=/api/courses/**
+
+        # Learning Service Routes
+        - id: learning-service
+          uri: lb://LEARNING-SERVICE
+          predicates:
+            - Path=/api/learning/**
+
+        # Assessment Service Routes
+        - id: assessment-service
+          uri: lb://ASSESSMENT-SERVICE
+          predicates:
+            - Path=/api/assessments/**
+
+        # Certificate Service Routes
+        - id: certificate-service
+          uri: lb://CERTIFICATE-SERVICE
+          predicates:
+            - Path=/api/certificates/**
+
+        # Subscription Service Routes
+        - id: subscription-service
+          uri: lb://SUBSCRIPTION-SERVICE
+          predicates:
+            - Path=/api/subscriptions/**
+
+        # Payment Service Routes
+        - id: payment-service
+          uri: lb://PAYMENT-SERVICE
+          predicates:
+            - Path=/api/payments/**
+
+        # Specialization Service Routes
+        - id: specialization-service
+          uri: lb://SPECIALIZATION-SERVICE
+          predicates:
+            - Path=/api/specializations/**
+
+        # Recommendation Service Routes
+        - id: recommendation-service
+          uri: lb://RECOMMENDATION-SERVICE
+          predicates:
+            - Path=/api/recommendations/**
+
+        # Notification Service Routes
+        - id: notification-service
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/api/notifications/**
+
+eureka:
+  instance:
+    prefer-ip-address: true
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+
+jwt:
+  secret: ${JWT_SECRET:devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong}
+  whitelist:
+    - /api/auth/login
+    - /api/auth/register
+    - /api/auth/refresh
+    - /api/certificates/verify/**
+    - /actuator/health
+    - /fallback/**
+
+gateway:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+
+logging:
+  level:
+    com.learnup.gateway: INFO
+    org.springframework.cloud.gateway: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/

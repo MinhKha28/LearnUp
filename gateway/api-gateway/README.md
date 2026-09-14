@@ -1,18 +1,138 @@
-# API Gateway (`gateway/api-gateway`)
+# Spring Cloud API Gateway (`gateway/api-gateway`)
 
-## Technology Stack
-* Spring Boot 3.x
-* Spring Cloud Gateway
-* Java 21
+Central reverse proxy, perimeter security gateway, and dynamic router for the LearnUP microservice platform.
 
-## Port
-* External Entry Port: `8080`
+---
 
-## Responsibilities
-* Single external entry point for the frontend client.
-* Route request mapping using Eureka dynamic service discovery (`lb://<SERVICE-NAME>`).
-* Inbound header sanitization (strips client-spoofed `X-User-ID`, `X-Organization-ID`, `X-User-Role`, `X-Correlation-ID`).
-* JWT signature validation and claim extraction (`sub`, `role`, `organizationId`).
-* Trusted header injection into downstream requests.
-* Global CORS handling and correlation ID tracing.
-* Global error handling for unauthenticated or malformed requests.
+## 1. Architectural Role & Responsibilities
+
+The API Gateway is the single public entry point for all frontend client requests.
+
+### Core Gateway Responsibilities:
+* **Dynamic Routing**: Dispatches incoming `/api/**` HTTP requests to microservices using Eureka service discovery (`lb://<SERVICE-NAME>`).
+* **Perimeter JWT Authentication**: Validates JWT cryptographic signatures, expiration times, and mandatory claims.
+* **Header Sanitization & Spoofing Prevention**: Strips all client-supplied identity headers (`X-User-ID`, `X-Organization-ID`, `X-User-Role`, `X-Correlation-ID`).
+* **Trusted Header Injection**: Injects verified identity claims from the validated JWT downstream.
+* **Correlation ID Propagation**: Preserves or generates `X-Correlation-ID` and echoes it back in responses.
+* **Global CORS**: Handles pre-flight OPTIONS requests and manages origins for the ReactJS frontend.
+* **Gateway Error Handling**: Returns standardized JSON error envelopes (`{ success: false, error: { ... } }`) for 401, 403, 404, 500.
+
+---
+
+## 2. Security Boundaries
+
+> **Client-supplied identity headers are not trusted.**
+
+> **Gateway authenticates requests, while business services enforce fine-grained authorization.**
+
+```text
+ Client (ReactJS)
+       │
+       │ Authorization: Bearer <JWT>
+       ▼
+ ┌─────────────────────────────────────────────────────────────┐
+ │                    Spring Cloud Gateway                     │
+ │  1. Strip incoming client-spoofed X-User-*, X-Org-* headers │
+ │  2. Validate JWT signature, expiration, and issuer          │
+ │  3. Extract sub (userId), role, organizationId              │
+ │  4. Inject trusted headers & forward:                       │
+ │     - X-User-ID: <sub (user-id)>                            │
+ │     - X-Organization-ID: <organization-id>                  │
+ │     - X-User-Role: <ADMIN | ORGANIZER | INSTRUCTOR | LEARNER>│
+ │     - X-Correlation-ID: <uuid>                              │
+ └──────────────────────────────┬──────────────────────────────┘
+                                │
+               ┌────────────────┼────────────────┐
+               │ (Direct REST)  │ (Direct REST)  │ (Direct REST)
+               ▼                ▼                ▼
+        Identity Service   Org Service    Business Services
+        (Business Auth)  (Business Auth)  (Business Auth)
+```
+
+The Gateway does **NOT** enforce business authorization (e.g. whether an `ORGANIZER` can assign a course or an `INSTRUCTOR` can grade an exam). Fine-grained authorization logic resides strictly inside the respective downstream business services.
+
+---
+
+## 3. JWT & Required Claims
+
+The Gateway validates HMAC-SHA256 tokens signed with a shared secret (`JWT_SECRET`).
+
+### Expected JWT Payload:
+```json
+{
+  "sub": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "role": "ORGANIZER",
+  "organizationId": "d8e3b970-13f5-4c07-b2e8-4934a3621415",
+  "iat": 1726310000,
+  "exp": 1726317200
+}
+```
+
+* `sub` (Required): Canonical User UUID string.
+* `role` (Required): Must be exactly one of `ADMIN`, `ORGANIZER`, `INSTRUCTOR`, `LEARNER`. Unapproved or misspelled roles are rejected with 401 Unauthorized.
+* `organizationId` (Optional/Contextual): Canonical organization UUID string.
+
+### Whitelisted Public Routes (No JWT Required):
+* `POST /api/auth/login`
+* `POST /api/auth/register`
+* `POST /api/auth/refresh`
+* `GET /api/certificates/verify/**`
+* `GET /actuator/health`
+
+---
+
+## 4. Route Configuration Catalog
+
+All routes map to dynamic Eureka service identifiers (`lb://<SERVICE-NAME>`):
+
+| Route ID | Path Predicate | Target Service |
+| :--- | :--- | :--- |
+| `identity-service-auth` | `/api/auth/**` | `lb://IDENTITY-SERVICE` |
+| `identity-service-users` | `/api/users/**` | `lb://IDENTITY-SERVICE` |
+| `organization-service` | `/api/organizations/**` | `lb://ORGANIZATION-SERVICE` |
+| `course-service` | `/api/courses/**` | `lb://COURSE-SERVICE` |
+| `learning-service` | `/api/learning/**` | `lb://LEARNING-SERVICE` |
+| `assessment-service` | `/api/assessments/**` | `lb://ASSESSMENT-SERVICE` |
+| `certificate-service` | `/api/certificates/**` | `lb://CERTIFICATE-SERVICE` |
+| `subscription-service` | `/api/subscriptions/**` | `lb://SUBSCRIPTION-SERVICE` |
+| `payment-service` | `/api/payments/**` | `lb://PAYMENT-SERVICE` |
+| `specialization-service` | `/api/specializations/**` | `lb://SPECIALIZATION-SERVICE` |
+| `recommendation-service` | `/api/recommendations/**` | `lb://RECOMMENDATION-SERVICE` |
+| `notification-service` | `/api/notifications/**` | `lb://NOTIFICATION-SERVICE` |
+
+---
+
+## 5. Configuration & Environment Variables
+
+| Variable | Default Value | Description |
+| :--- | :--- | :--- |
+| `SERVER_PORT` | `8080` | External Gateway port |
+| `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | `http://localhost:8761/eureka/` | Eureka registration endpoint |
+| `JWT_SECRET` | `devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong` | 256-bit HMAC secret key |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Comma-separated allowed CORS origins |
+
+---
+
+## 6. Build & Run Instructions
+
+### Prerequisites
+* Java 21 & Maven 3.9+
+* Eureka Server running on port `8761` (Phase P3)
+
+### Build Application
+```bash
+# Run tests
+mvn clean test
+
+# Package JAR
+mvn clean package
+```
+
+### Run Locally
+```bash
+# Run Spring Boot Gateway
+mvn spring-boot:run
+
+# Or run packaged JAR
+java -jar target/api-gateway-1.0.0-SNAPSHOT.jar
+```
