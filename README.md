@@ -111,7 +111,7 @@ learnup/
 ## 5. Implementation Roadmap (Phased Execution)
 
 * **[x] P0 — Architecture Foundation**: Monorepo foundation, ADRs, service boundaries, communication rules, data ownership.
-* **[ ] P1 — Java Common Library**: Minimal technical utilities (`CurrentUser`, `OrganizationContext`, `ApiResponse`, exceptions).
+* **[x] P1 — Java Common Library**: Minimal technical utilities (`CurrentUser`, `OrganizationContext`, `ApiResponse`, exceptions).
 * **[ ] P2 — TypeScript Common Library**: Framework-neutral TS utilities (Context, HTTP clients, standard types).
 * **[ ] P3 — Eureka Server**: Service discovery server setup and health verification.
 * **[ ] P4 — API Gateway**: Spring Cloud Gateway routing, JWT validation filter, header propagation, CORS.
