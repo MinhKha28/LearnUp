@@ -21,7 +21,7 @@ com.learnup.common/
 ├── context/
 │   ├── CurrentUser.java              # Static accessor for user identity and role
 │   ├── OrganizationContext.java      # Static accessor for organization/tenant ID
-│   ├── CorrelationContext.java       # Static accessor for correlation ID tracing
+│   ├── CorrelationContext.java       # Static accessor for correlation ID context
 │   ├── RequestContext.java           # Immutable context model
 │   ├── RequestContextHolder.java     # ThreadLocal context manager
 │   ├── HeaderConstants.java          # Header constants (X-User-ID, X-Organization-ID, etc.)
