@@ -116,7 +116,7 @@ learnup/
 * **[x] P3 — Eureka Server**: Service discovery server setup and health verification.
 * **[x] P4 — API Gateway**: Spring Cloud Gateway routing, JWT validation filter, header propagation, CORS.
 * **[x] P5 — Identity Service**: User entity, Spring Security, BCrypt, JWT generation, `identity_db`.
-* **[ ] P6 — ReactJS Foundation**: Authentication context, login/logout, route guards, Gateway integration.
+* **[x] P6 — ReactJS Foundation**: Authentication context, login/logout, route guards, Gateway integration.
 * **[ ] P7 — Kafka Infrastructure**: Event envelope producer/consumer abstractions and error handling.
 * **[ ] P8 — Organization Service**: Organizations, memberships, learner tags, search/filter, `organization_db`.
 * **[ ] P9 — Platform Integration**: End-to-end authentication, authorization, REST routing, and event verification.
