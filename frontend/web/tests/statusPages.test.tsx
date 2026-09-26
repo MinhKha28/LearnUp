@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { ROUTER_FUTURE_FLAGS } from './routerFuture';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
 import * as UseAuthModule from '@/auth/useAuth';
@@ -26,7 +27,7 @@ describe('status pages', () => {
 
   it('NotFoundPage shows a translated heading and a link home', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <NotFoundPage />
       </MemoryRouter>
     );
@@ -48,7 +49,7 @@ describe('status pages', () => {
     });
 
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <UnauthorizedPage />
       </MemoryRouter>
     );
@@ -62,7 +63,7 @@ describe('status pages', () => {
     mockCurrentUser(null);
 
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <UnauthorizedPage />
       </MemoryRouter>
     );

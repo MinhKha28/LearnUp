@@ -20,7 +20,7 @@ const devRoutes: RouteObject[] = import.meta.env.DEV
     ]
   : [];
 
-export const router = createBrowserRouter([
+const routes: RouteObject[] = [
   {
     path: '/login',
     element: <LoginPage />,
@@ -48,4 +48,8 @@ export const router = createBrowserRouter([
     path: '*',
     element: <NotFoundPage />,
   },
-]);
+];
+
+export const router = createBrowserRouter(routes, {
+  future: { v7_relativeSplatPath: true },
+});

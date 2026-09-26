@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { ROUTER_FUTURE_FLAGS } from './routerFuture';
 import { ProtectedRoute } from '@/auth/ProtectedRoute';
 import { RoleRoute } from '@/auth/RoleRoute';
 import * as UseAuthModule from '@/auth/useAuth';
@@ -17,7 +18,7 @@ describe('Route Protection and Role Guards', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/protected']}>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={['/protected']}>
         <Routes>
           <Route
             path="/protected"
@@ -46,7 +47,7 @@ describe('Route Protection and Role Guards', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/protected']}>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={['/protected']}>
         <Routes>
           <Route
             path="/protected"
@@ -84,7 +85,7 @@ describe('Route Protection and Role Guards', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/dashboard']}>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={['/dashboard']}>
         <Routes>
           <Route
             path="/dashboard"
@@ -119,7 +120,7 @@ describe('Route Protection and Role Guards', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/admin-portal']}>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={['/admin-portal']}>
         <Routes>
           <Route
             path="/admin-portal"
@@ -154,7 +155,7 @@ describe('Route Protection and Role Guards', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/admin-portal']}>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={['/admin-portal']}>
         <Routes>
           <Route
             path="/admin-portal"

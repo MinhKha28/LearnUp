@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation, useNavigationType } from 'react-router-dom';
+import { ROUTER_FUTURE_FLAGS } from './routerFuture';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { LoginPage } from '@/pages/LoginPage';
 import * as UseAuthModule from '@/auth/useAuth';
@@ -20,7 +21,7 @@ const mockLoginRejection = (error: unknown) => {
 
 const submitLoginForm = () => {
   render(
-    <MemoryRouter initialEntries={['/login']}>
+    <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={['/login']}>
       <LoginPage />
     </MemoryRouter>
   );
@@ -77,7 +78,7 @@ const LocationProbe: React.FC = () => {
 
 const renderLoginRoutes = (state?: { from: { pathname: string } }) => {
   render(
-    <MemoryRouter initialEntries={[{ pathname: '/login', state }]}>
+    <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={[{ pathname: '/login', state }]}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<LocationProbe />} />
