@@ -1,0 +1,74 @@
+/* Shared by TextField, Select and Checkbox */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.required::after {
+  content: ' *';
+  color: var(--color-danger-border);
+}
+
+.helper {
+  margin: 0;
+  font-size: var(--text-body-sm);
+  line-height: var(--leading-body-sm);
+  color: var(--color-text-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--text-body-sm);
+  line-height: var(--leading-body-sm);
+  color: var(--color-danger-border);
+}
+
+/* Text-like controls: input, select */
+.control {
+  width: 100%;
+  min-height: var(--size-control-md);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+
+  /* 16px below 768px so mobile Safari does not zoom on focus (Q5) */
+  font-size: var(--text-body-lg);
+  line-height: var(--leading-body);
+  transition: border-color 0.15s ease;
+}
+
+.control::placeholder {
+  color: var(--color-text-subtle);
+}
+
+.control:disabled {
+  background-color: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* Invalid fields keep their red border on hover */
+.control:hover:not(:disabled, [aria-invalid='true']) {
+  border-color: var(--color-text-muted);
+}
+
+.control[aria-invalid='true'] {
+  border-color: var(--color-danger-border);
+}
+
+@media (min-width: 768px) {
+  .control {
+    font-size: var(--text-body);
+  }
+}

@@ -68,35 +68,36 @@ Các màu **đã bỏ:**
 
 ### 1.2 Semantic
 
-| Token                                | Primitive                | Dùng cho                                                                           |
-| ------------------------------------ | ------------------------ | ---------------------------------------------------------------------------------- |
-| `--color-background`                 | slate-50                 | Nền trang                                                                          |
-| `--color-surface`                    | white                    | Card, sidebar, header, input, menu                                                 |
-| `--color-surface-muted`              | slate-100                | Header bảng, badge trung tính, avatar                                              |
-| `--color-border`                     | slate-200                | Viền card, divider, viền sidebar và header (chỉ để trang trí)                      |
-| `--color-border-input`               | slate-450                | Viền input, select, textarea, **nút secondary (outline)**                          |
-| `--color-text`                       | slate-900                | Chữ chính, tiêu đề, nav active                                                     |
-| `--color-text-muted`                 | slate-600                | Subtitle, mô tả, nav thường, chữ trong badge trung tính                            |
-| `--color-text-subtle`                | slate-500                | Placeholder, meta, section label sidebar. **Chỉ đặt trên surface hoặc background** |
-| `--color-primary`                    | amber-500                | Nền nút primary, stepper, progress, vạch nav active, gạch chân nav public          |
-| `--color-primary-hover`              | amber-600                | Hover của nút primary                                                              |
-| `--color-primary-foreground`         | slate-900                | Chữ trên nút primary. **Không bao giờ dùng chữ trắng** (chỉ đạt 2.15:1)            |
-| `--color-primary-subtle`             | amber-50                 | Nền nav item active                                                                |
-| `--color-link`                       | blue-600                 | Link, hành động dạng link trong bảng (M13)                                         |
-| `--color-focus-ring`                 | amber-700                | `:focus-visible` (Q4)                                                              |
-| `--color-danger`                     | red-600                  | Nền nút danger                                                                     |
-| `--color-danger-hover`               | red-700                  | Hover của nút danger                                                               |
-| `--color-danger-foreground`          | white                    | Chữ trên nút danger                                                                |
-| `--color-danger-bg / -fg`            | red-50 / red-700         | Alert lỗi, badge lỗi                                                               |
-| `--color-danger-border`              | red-600                  | Viền input lỗi, chữ lỗi dưới field (trên nền surface), icon ✕                      |
-| `--color-success-bg / -fg`           | emerald-50 / emerald-700 | Badge Active/Available/Completed, callout thành công                               |
-| `--color-warning-bg / -fg`           | amber-50 / amber-800     | Callout và badge warning, "Invitation expired", badge đếm (M10, Q10)               |
-| `--color-warning-border`             | amber-500                | Viền callout warning                                                               |
-| `--color-info-bg / -fg`              | blue-50 / blue-600       | Callout thông tin, badge "Optional"                                                |
-| `--color-inverse-surface`            | slate-900                | Nền panel trái trang Sign in (Q12)                                                 |
-| `--color-inverse-surface-raised`     | slate-800                | Card ngoài trong panel                                                             |
-| `--color-inverse-surface-strong`     | slate-700                | Card con, vòng số thứ tự trong panel                                               |
-| `--color-inverse-text / -text-muted` | white / slate-300        | Chữ trên nền inverse                                                               |
+| Token                                | Primitive                                     | Dùng cho                                                                           |
+| ------------------------------------ | --------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `--color-background`                 | slate-50                                      | Nền trang                                                                          |
+| `--color-surface`                    | white                                         | Card, sidebar, header, input, menu                                                 |
+| `--color-surface-muted`              | slate-100                                     | Header bảng, badge trung tính, avatar                                              |
+| `--color-border`                     | slate-200                                     | Viền card, divider, viền sidebar và header (chỉ để trang trí)                      |
+| `--color-border-input`               | slate-450                                     | Viền input, select, textarea, **nút secondary (outline)**                          |
+| `--color-text`                       | slate-900                                     | Chữ chính, tiêu đề, nav active                                                     |
+| `--color-text-muted`                 | slate-600                                     | Subtitle, mô tả, nav thường, chữ trong badge trung tính                            |
+| `--color-text-subtle`                | slate-500                                     | Placeholder, meta, section label sidebar. **Chỉ đặt trên surface hoặc background** |
+| `--color-primary`                    | amber-500                                     | Nền nút primary, stepper, progress, vạch nav active, gạch chân nav public          |
+| `--color-primary-hover`              | amber-600                                     | Hover của nút primary                                                              |
+| `--color-primary-foreground`         | slate-900                                     | Chữ trên nút primary. **Không bao giờ dùng chữ trắng** (chỉ đạt 2.15:1)            |
+| `--color-primary-subtle`             | amber-50                                      | Nền nav item active                                                                |
+| `--color-link`                       | blue-600                                      | Link, hành động dạng link trong bảng (M13)                                         |
+| `--color-focus-ring`                 | amber-700                                     | `:focus-visible` (Q4)                                                              |
+| `--color-danger`                     | red-600                                       | Nền nút danger                                                                     |
+| `--color-danger-hover`               | red-700                                       | Hover của nút danger                                                               |
+| `--color-danger-foreground`          | white                                         | Chữ trên nút danger                                                                |
+| `--color-danger-bg / -fg`            | red-50 / red-700                              | Alert lỗi, badge lỗi                                                               |
+| `--color-danger-border`              | red-600                                       | Viền input lỗi, chữ lỗi dưới field (trên nền surface), icon ✕                      |
+| `--color-success-bg / -fg`           | emerald-50 / emerald-700                      | Badge Active/Available/Completed, callout thành công                               |
+| `--color-warning-bg / -fg`           | amber-50 / amber-800                          | Callout và badge warning, "Invitation expired", badge đếm (M10, Q10)               |
+| `--color-warning-border`             | amber-500                                     | Viền callout warning                                                               |
+| `--color-info-bg / -fg`              | blue-50 / blue-600                            | Callout thông tin, badge "Optional"                                                |
+| `--color-inverse-surface`            | slate-900                                     | Nền panel trái trang Sign in (Q12)                                                 |
+| `--color-inverse-surface-raised`     | slate-800                                     | Card ngoài trong panel                                                             |
+| `--color-inverse-surface-strong`     | slate-700                                     | Card con, vòng số thứ tự trong panel                                               |
+| `--color-inverse-text / -text-muted` | white / slate-300                             | Chữ trên nền inverse                                                               |
+| `--color-overlay`                    | slate-900 ở độ mờ 50% (`rgb(15 23 42 / 50%)`) | Nền mờ phía sau modal                                                              |
 
 ### 1.3 Bảng tương phản của các cặp semantic cuối cùng
 
@@ -229,17 +230,32 @@ Thang theo bội số 4px:
 
 ## 5. Kích thước layout
 
-| Token                        | Giá trị | Ghi chú                                    |
-| ---------------------------- | ------- | ------------------------------------------ |
-| `--layout-sidebar-width`     | 256px   |                                            |
-| `--layout-header-height`     | 64px    | Header 1 dòng (Q1, Q7)                     |
-| `--layout-content-max-width` | 1600px  | Q8                                         |
-| `--layout-form-max-width`    | 960px   | Form nhiều bước, trang cài đặt (Q8)        |
-| `--layout-auth-form-width`   | 440px   | Q9                                         |
-| `--layout-control-height-md` | 44px    | Nút, input, nav item trong app (M2, M3)    |
-| `--layout-control-height-lg` | 48px    | Nút, input ở trang auth và public (M2, M3) |
-| `--layout-focus-ring-width`  | 2px     | Q4                                         |
-| `--layout-focus-ring-offset` | 2px     | Q4                                         |
+| Token                         | Giá trị           | Ghi chú                                              |
+| ----------------------------- | ----------------- | ---------------------------------------------------- |
+| `--layout-sidebar-width`      | 256px             |                                                      |
+| `--layout-header-height`      | 64px              | Header 1 dòng (Q1, Q7)                               |
+| `--layout-content-max-width`  | 1600px            | Q8                                                   |
+| `--layout-form-max-width`     | 960px             | Form nhiều bước, trang cài đặt (Q8)                  |
+| `--layout-auth-form-width`    | 440px             | Q9                                                   |
+| `--layout-modal-sm / md / lg` | 400 / 560 / 720px | `max-width` của Modal theo `size`                    |
+| `--layout-dropdown-min-width` | 200px             | Độ rộng tối thiểu của DropdownMenu                   |
+| `--layout-tooltip-max-width`  | 280px             | Tooltip xuống dòng khi vượt độ rộng này              |
+| `--layout-card-min-width`     | 280px             | Độ rộng cột tối thiểu của lưới card/form `auto-fill` |
+| `--layout-focus-ring-width`   | 2px               | Q4                                                   |
+| `--layout-focus-ring-offset`  | 2px               | Q4                                                   |
+
+### 5.1 Kích thước thành phần (`--size-*`)
+
+| Token                        | Giá trị        | Dùng cho                                           |
+| ---------------------------- | -------------- | -------------------------------------------------- |
+| `--size-icon-sm`             | 16px           | Icon trong menu item, spinner nhỏ, ô checkbox      |
+| `--size-icon-md`             | 20px           | Icon trong nút, input (chevron của Select), Alert  |
+| `--size-icon-lg`             | 24px           | Icon đứng riêng, icon của EmptyState, spinner vừa  |
+| `--size-avatar-sm / md / lg` | 32 / 40 / 48px | Avatar                                             |
+| `--size-control-md`          | 44px           | Nút, input, nav item, menu item trong app (M2, M3) |
+| `--size-control-lg`          | 48px           | Nút, input ở trang auth và public (M2, M3)         |
+
+**Quy tắc cho `*.module.css`:** mọi kích thước lấy từ token. Chỉ được viết số trực tiếp cho độ dày viền và đường kẻ (1px, 2px, 3px), media query, `%`, `auto` và `0`. Kích thước ghép thì dùng `calc()` trên token, ví dụ `calc(var(--size-icon-lg) + 2 * var(--space-4))`.
 
 ---
 
@@ -262,7 +278,7 @@ CSS variable không dùng được trong `@media`, nên breakpoint chỉ ghi ở
 
 - Trên cùng là logo có icon.
 - Nav được nhóm theo section. Section label dùng `caption`, viết hoa, màu `--color-text-subtle`.
-- Mỗi nav item có icon, cao `--layout-control-height-md`, bo `--radius-sm`, chữ `--color-text-muted`.
+- Mỗi nav item có icon, cao `--size-control-md`, bo `--radius-sm`, chữ `--color-text-muted`.
 - **Item active:**
   - Nền `--color-primary-subtle`, chữ `--color-text` semibold.
   - **Vạch 3px `--color-primary` bên trái.**

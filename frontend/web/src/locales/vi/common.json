@@ -3,7 +3,8 @@
   "appTagline": "Nền tảng học tập B2B đa tổ chức",
   "actions": {
     "signOut": "Đăng xuất",
-    "backToHome": "Về trang chủ"
+    "backToHome": "Về trang chủ",
+    "close": "Đóng"
   },
   "loading": {
     "default": "Đang tải…",
@@ -27,5 +28,9 @@
   },
   "placeholder": {
     "title": "Trang đang được xây dựng"
+  },
+  "password": {
+    "show": "Hiện mật khẩu",
+    "hide": "Ẩn mật khẩu"
   }
 }

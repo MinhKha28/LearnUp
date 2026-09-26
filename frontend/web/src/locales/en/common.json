@@ -3,7 +3,8 @@
   "appTagline": "B2B multi-tenant learning platform",
   "actions": {
     "signOut": "Sign out",
-    "backToHome": "Back to home"
+    "backToHome": "Back to home",
+    "close": "Close"
   },
   "loading": {
     "default": "Loading…",
@@ -27,5 +28,9 @@
   },
   "placeholder": {
     "title": "This page is under construction"
+  },
+  "password": {
+    "show": "Show password",
+    "hide": "Hide password"
   }
 }
