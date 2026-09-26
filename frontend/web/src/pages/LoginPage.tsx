@@ -15,7 +15,8 @@ export const LoginPage: React.FC = () => {
   const location = useLocation();
 
   const from =
-    (location.state as { from?: { pathname: string } })?.from?.pathname || DEFAULT_AUTHENTICATED_PATH;
+    (location.state as { from?: { pathname: string } })?.from?.pathname ||
+    DEFAULT_AUTHENTICATED_PATH;
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -88,7 +89,8 @@ export const LoginPage: React.FC = () => {
 
         <div className="login-footer">
           <p className="auth-note">
-            Communicates through <strong>API Gateway :8080</strong> &rarr; <strong>Identity Service</strong>
+            Communicates through <strong>API Gateway :8080</strong> &rarr;{' '}
+            <strong>Identity Service</strong>
           </p>
         </div>
       </div>

@@ -9,7 +9,8 @@ export const DashboardPage: React.FC = () => {
       <div className="welcome-banner">
         <h2>Welcome, {currentUser?.fullName || currentUser?.username}!</h2>
         <p className="welcome-desc">
-          You are authenticated with role <strong className="role-highlight">{currentUser?.role}</strong>.
+          You are authenticated with role{' '}
+          <strong className="role-highlight">{currentUser?.role}</strong>.
         </p>
       </div>
 

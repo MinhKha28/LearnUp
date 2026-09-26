@@ -1,23 +1,26 @@
 # LearnUP — ReactJS Frontend Foundation (`frontend/web`)
 
 ## 1. Overview
+
 `frontend/web` is the ReactJS web client foundation for the **LearnUP B2B Multi-Tenant Learning Platform**. It provides a single-page application (SPA) foundation for authentication, session handling, protected and role-aware routing, and canonical tenant (`organizationId`) display.
 
 ---
 
 ## 2. Technology Stack
-* **Framework / Core**: ReactJS 18+ (`react`, `react-dom`)
-* **Language**: TypeScript 5.4+
-* **Build Tool & Dev Server**: Vite 5.4+
-* **Routing**: React Router 6.27+ (`react-router-dom`)
-* **HTTP Client**: Axios 1.7+
-* **Testing**: Vitest + `@testing-library/react` + `happy-dom`
-* **Shared Contracts**: `@learnup/ts-common` (reusing `ApiResponse<T>`, `ApiError`, `PageResponse<T>`, `UserRole`)
-* **Styling**: Vanilla CSS design system (no Tailwind, MUI, AntD, or Chakra scaffolding)
+
+- **Framework / Core**: ReactJS 18+ (`react`, `react-dom`)
+- **Language**: TypeScript 5.4+
+- **Build Tool & Dev Server**: Vite 5.4+
+- **Routing**: React Router 6.27+ (`react-router-dom`)
+- **HTTP Client**: Axios 1.7+
+- **Testing**: Vitest + `@testing-library/react` + `happy-dom`
+- **Shared Contracts**: `@learnup/ts-common` (reusing `ApiResponse<T>`, `ApiError`, `PageResponse<T>`, `UserRole`)
+- **Styling**: Vanilla CSS design system (no Tailwind, MUI, AntD, or Chakra scaffolding)
 
 ---
 
 ## 3. Architecture & Gateway Dependency
+
 The frontend communicates **exclusively** through the Spring Cloud API Gateway:
 
 ```text
@@ -31,6 +34,7 @@ Downstream Microservices (Identity Service, Organization Service, Course Service
 ```
 
 ### Constraints & Security Boundaries:
+
 1. **Single Entry Point**: The frontend never calls Eureka (:8761), business microservices, Kafka, or PostgreSQL directly.
 2. **Identity Sanitization & Injection**: The frontend **NEVER** constructs or sends trusted headers (`X-User-ID`, `X-Organization-ID`, `X-User-Role`). These headers are stripped and injected by the API Gateway upon JWT validation.
 3. **Canonical Tenant**: The platform uses `organizationId` exclusively (no `tenantId` / `orgId`).
@@ -40,25 +44,28 @@ Downstream Microservices (Identity Service, Organization Service, Course Service
 ---
 
 ## 4. Platform Roles
-The platform defines exactly **4 roles**:
-* `ADMIN` — Platform administrator (global management)
-* `ORGANIZER` — Tenant administrator (learner cohorts, assignments)
-* `INSTRUCTOR` — Course author and evaluator
-* `LEARNER` — Enrolled student
 
-*(Disallowed roles: `SUPER_ADMIN`, `ORG_ADMIN`, `TENANT_ADMIN`)*
+The platform defines exactly **4 roles**:
+
+- `ADMIN` — Platform administrator (global management)
+- `ORGANIZER` — Tenant administrator (learner cohorts, assignments)
+- `INSTRUCTOR` — Course author and evaluator
+- `LEARNER` — Enrolled student
+
+_(Disallowed roles: `SUPER_ADMIN`, `ORG_ADMIN`, `TENANT_ADMIN`)_
 
 ---
 
 ## 5. Authentication & Token Management
-* **Login Flow**:
+
+- **Login Flow**:
   1. `POST /api/auth/login` with `{ username, password }` through Gateway.
   2. Receives `{ accessToken, refreshToken, tokenType, expiresIn }`.
   3. Tokens persisted in `localStorage` via `authStorage.ts`.
   4. `GET /api/users/me` loads current authenticated user profile (`AuthUser`).
   5. `AuthContext` updates and redirects user to `/dashboard`.
-* **Token Persistence**: Isolated abstraction in `src/auth/authStorage.ts` for clean browser storage access.
-* **Token Refresh**:
+- **Token Persistence**: Isolated abstraction in `src/auth/authStorage.ts` for clean browser storage access.
+- **Token Refresh**:
   1. `apiClient.ts` intercepts `401 Unauthorized` responses on protected endpoints.
   2. A concurrency lock (`isRefreshing`) and queue (`failedQueue`) prevent multiple or infinite refresh loops.
   3. Seamlessly calls `POST /api/auth/refresh` through the Gateway.
@@ -68,12 +75,14 @@ The platform defines exactly **4 roles**:
 ---
 
 ## 6. Route Protection & Guards
-* **`ProtectedRoute`**: Blocks unauthenticated access and redirects visitors to `/login`.
-* **`RoleRoute`**: Enforces required platform role(s) for specific routes; redirects unauthorized roles to `/unauthorized` (403).
+
+- **`ProtectedRoute`**: Blocks unauthenticated access and redirects visitors to `/login`.
+- **`RoleRoute`**: Enforces required platform role(s) for specific routes; redirects unauthorized roles to `/unauthorized` (403).
 
 ---
 
 ## 7. Project Structure
+
 ```text
 frontend/web/
 ├── index.html
@@ -123,15 +132,17 @@ frontend/web/
 ---
 
 ## 8. Environment Variables
+
 Configure environment in `.env` (or copy from `.env.example`):
 
-| Variable | Description | Default |
-|---|---|---|
+| Variable            | Description                          | Default                 |
+| ------------------- | ------------------------------------ | ----------------------- |
 | `VITE_API_BASE_URL` | Base URL of Spring Cloud API Gateway | `http://localhost:8080` |
 
 ---
 
 ## 9. Development Commands
+
 ```bash
 # Install dependencies
 npm install

@@ -18,9 +18,11 @@ describe('apiClient Configuration & Interceptors', () => {
     authStorage.setAccessToken('mocked-access-jwt-token');
 
     // Simulate request interceptor execution
-    const interceptor = (apiClient.interceptors.request as unknown as {
-      handlers: Array<{ fulfilled: (config: any) => any }>;
-    }).handlers[0];
+    const interceptor = (
+      apiClient.interceptors.request as unknown as {
+        handlers: Array<{ fulfilled: (config: any) => any }>;
+      }
+    ).handlers[0];
 
     const config = {
       headers: {},
@@ -31,9 +33,11 @@ describe('apiClient Configuration & Interceptors', () => {
   });
 
   it('should NOT attach Authorization header when access token is absent', async () => {
-    const interceptor = (apiClient.interceptors.request as unknown as {
-      handlers: Array<{ fulfilled: (config: any) => any }>;
-    }).handlers[0];
+    const interceptor = (
+      apiClient.interceptors.request as unknown as {
+        handlers: Array<{ fulfilled: (config: any) => any }>;
+      }
+    ).handlers[0];
 
     const config = {
       headers: {},
@@ -46,9 +50,11 @@ describe('apiClient Configuration & Interceptors', () => {
   it('should NEVER construct or attach trusted identity headers (X-User-ID, X-Organization-ID, X-User-Role)', async () => {
     authStorage.setAccessToken('mocked-jwt');
 
-    const interceptor = (apiClient.interceptors.request as unknown as {
-      handlers: Array<{ fulfilled: (config: any) => any }>;
-    }).handlers[0];
+    const interceptor = (
+      apiClient.interceptors.request as unknown as {
+        handlers: Array<{ fulfilled: (config: any) => any }>;
+      }
+    ).handlers[0];
 
     const config = {
       headers: {},

@@ -4,10 +4,7 @@ import { AuthTokens, AuthUser, LoginCredentials } from '../types/auth.js';
 
 export const authApi = {
   async login(credentials: LoginCredentials): Promise<AuthTokens> {
-    const response = await apiClient.post<ApiResponse<AuthTokens>>(
-      '/api/auth/login',
-      credentials
-    );
+    const response = await apiClient.post<ApiResponse<AuthTokens>>('/api/auth/login', credentials);
     return unwrap(response, 'Login failed');
   },
 
@@ -17,18 +14,14 @@ export const authApi = {
     password: string;
     fullName?: string;
   }): Promise<AuthTokens> {
-    const response = await apiClient.post<ApiResponse<AuthTokens>>(
-      '/api/auth/register',
-      data
-    );
+    const response = await apiClient.post<ApiResponse<AuthTokens>>('/api/auth/register', data);
     return unwrap(response, 'Registration failed');
   },
 
   async refresh(refreshToken: string): Promise<AuthTokens> {
-    const response = await apiClient.post<ApiResponse<AuthTokens>>(
-      '/api/auth/refresh',
-      { refreshToken }
-    );
+    const response = await apiClient.post<ApiResponse<AuthTokens>>('/api/auth/refresh', {
+      refreshToken,
+    });
     return unwrap(response, 'Token refresh failed');
   },
 
