@@ -1,10 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/auth/useAuth';
 
 export const PlaceholderPage: React.FC = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handleLogout = () => {
     logout();
@@ -13,9 +15,9 @@ export const PlaceholderPage: React.FC = () => {
 
   return (
     <main>
-      <h1>Trang đang được xây dựng</h1>
+      <h1>{t('placeholder.title')}</h1>
       <button type="button" onClick={handleLogout}>
-        Đăng xuất
+        {t('actions.signOut')}
       </button>
     </main>
   );

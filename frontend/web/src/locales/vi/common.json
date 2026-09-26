@@ -1,0 +1,31 @@
+{
+  "appName": "LearnUP",
+  "appTagline": "Nền tảng học tập B2B đa tổ chức",
+  "actions": {
+    "signOut": "Đăng xuất",
+    "backToHome": "Về trang chủ"
+  },
+  "loading": {
+    "default": "Đang tải…",
+    "authenticating": "Đang xác thực phiên đăng nhập…",
+    "verifyingAccess": "Đang kiểm tra quyền truy cập…"
+  },
+  "roles": {
+    "admin": "Quản trị viên",
+    "organizer": "Người tổ chức",
+    "instructor": "Giảng viên",
+    "learner": "Học viên",
+    "guest": "Khách"
+  },
+  "notFound": {
+    "title": "404 — Không tìm thấy trang",
+    "description": "Trang bạn yêu cầu không tồn tại."
+  },
+  "forbidden": {
+    "title": "403 — Không có quyền truy cập",
+    "description": "Vai trò hiện tại của bạn (<strong>{{role}}</strong>) không có quyền truy cập khu vực này."
+  },
+  "placeholder": {
+    "title": "Trang đang được xây dựng"
+  }
+}

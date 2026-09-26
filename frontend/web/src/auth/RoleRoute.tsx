@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { UserRole } from '@learnup/ts-common';
 import { useAuth } from './useAuth';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
@@ -12,9 +13,10 @@ interface RoleRouteProps {
 export const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles, children }) => {
   const { currentUser, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
+  const { t } = useTranslation();
 
   if (isLoading) {
-    return <LoadingScreen message="Verifying access..." />;
+    return <LoadingScreen message={t('loading.verifyingAccess')} />;
   }
 
   if (!isAuthenticated) {

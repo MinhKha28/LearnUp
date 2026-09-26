@@ -2,6 +2,8 @@ import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'ax
 import { ApiResponse } from '@learnup/ts-common';
 import { API_BASE_URL } from '@/config/env';
 import { authStorage } from '@/auth/authStorage';
+import { i18n } from '@/i18n';
+import errorsVi from '@/locales/vi/errors.json';
 
 /**
  * Centralized Axios HTTP client communicating exclusively with the Spring Cloud API Gateway.
@@ -14,18 +16,32 @@ export const apiClient = axios.create({
   timeout: 15000,
 });
 
+type TranslatedErrorCode = Exclude<keyof typeof errorsVi, 'generic'>;
+
+/** Error codes are UPPER_SNAKE_CASE, so they never collide with camelCase keys such as 'generic'. */
+const isTranslatedErrorCode = (code: unknown): code is TranslatedErrorCode =>
+  typeof code === 'string' && /^[A-Z][A-Z0-9_]*$/.test(code) && i18n.exists(code, { ns: 'errors' });
+
 /**
- * Extracts the server-provided error message (ApiResponse `error.message`) from an Axios error,
- * falling back to the given message when none is available.
+ * Resolves a user-facing message for a failed request, in order of preference:
+ * 1. the translation of the ApiResponse `error.code` (errors:<CODE>), when one exists;
+ * 2. the server-provided `error.message`;
+ * 3. `fallback`, or errors:generic when no fallback is given.
  */
-export const getApiErrorMessage = (err: unknown, fallback: string): string => {
+export const getApiErrorMessage = (err: unknown, fallback?: string): string => {
   if (axios.isAxiosError<ApiResponse<unknown>>(err)) {
-    const message = err.response?.data?.error?.message;
+    const apiError = err.response?.data?.error;
+
+    if (apiError && isTranslatedErrorCode(apiError.code)) {
+      return i18n.t(`errors:${apiError.code}`);
+    }
+
+    const message = apiError?.message;
     if (typeof message === 'string' && message.trim()) {
       return message;
     }
   }
-  return fallback;
+  return fallback ?? i18n.t('errors:generic');
 };
 
 /**

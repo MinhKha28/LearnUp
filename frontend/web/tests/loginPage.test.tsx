@@ -25,9 +25,11 @@ const submitLoginForm = () => {
     </MemoryRouter>
   );
 
-  fireEvent.change(screen.getByLabelText(/username or email/i), { target: { value: 'learner1' } });
-  fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'wrong-password' } });
-  fireEvent.submit(screen.getByRole('button', { name: /sign in/i }).closest('form')!);
+  fireEvent.change(screen.getByLabelText('Tên đăng nhập hoặc email'), {
+    target: { value: 'learner1' },
+  });
+  fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'wrong-password' } });
+  fireEvent.submit(screen.getByRole('button', { name: 'Đăng nhập' }).closest('form')!);
 };
 
 describe('LoginPage error handling', () => {
@@ -96,9 +98,11 @@ const mockAuth = (isAuthenticated: boolean) => {
 };
 
 const submitCredentials = () => {
-  fireEvent.change(screen.getByLabelText(/username or email/i), { target: { value: 'learner1' } });
-  fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
-  fireEvent.submit(screen.getByRole('button', { name: /sign in/i }).closest('form')!);
+  fireEvent.change(screen.getByLabelText('Tên đăng nhập hoặc email'), {
+    target: { value: 'learner1' },
+  });
+  fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'password123' } });
+  fireEvent.submit(screen.getByRole('button', { name: 'Đăng nhập' }).closest('form')!);
 };
 
 describe('LoginPage redirect', () => {

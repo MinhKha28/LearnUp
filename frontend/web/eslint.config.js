@@ -4,6 +4,7 @@ import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import eslintConfigPrettier from 'eslint-config-prettier';
+import i18next from 'eslint-plugin-i18next';
 
 export default tseslint.config(
   { ignores: ['dist', 'coverage'] },
@@ -22,6 +23,14 @@ export default tseslint.config(
   {
     files: ['src/**/*.tsx'],
     ...reactRefresh.configs.vite,
+  },
+  {
+    // UI text must go through t(); tests may assert on literal strings
+    files: ['src/**/*.tsx'],
+    plugins: { i18next },
+    rules: {
+      'i18next/no-literal-string': ['error', { mode: 'jsx-text-only' }],
+    },
   },
   {
     files: ['*.{js,ts}'],

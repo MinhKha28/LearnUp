@@ -31,7 +31,7 @@ describe('Route Protection and Role Guards', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/authenticating session/i)).toBeDefined();
+    expect(screen.getByRole('status').textContent).toBe('Đang xác thực phiên đăng nhập…');
     expect(screen.queryByText('Secret Content')).toBeNull();
   });
 

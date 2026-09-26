@@ -4,6 +4,7 @@ import { ApiResponse } from '@learnup/ts-common';
 import { apiClient, getApiErrorMessage, unwrap } from '@/services/apiClient';
 import { authStorage } from '@/auth/authStorage';
 import { API_BASE_URL } from '@/config/env';
+import { i18n } from '@/i18n';
 
 type TestRequestConfig = { headers: Record<string, unknown> };
 type RequestInterceptorHandlers = {
@@ -122,6 +123,60 @@ describe('getApiErrorMessage', () => {
   it('should return fallback for non-Axios errors', () => {
     expect(getApiErrorMessage(new Error('boom'), 'fallback')).toBe('fallback');
     expect(getApiErrorMessage(undefined, 'fallback')).toBe('fallback');
+  });
+
+  it('should prefer the errors:<code> translation over the server message', () => {
+    const err = buildAxiosError({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'NullPointerException at UserService.java:42' },
+    });
+    expect(getApiErrorMessage(err, 'fallback')).toBe(
+      'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.'
+    );
+  });
+
+  it('should translate the error code in the current language', async () => {
+    await i18n.changeLanguage('en');
+    const err = buildAxiosError({
+      success: false,
+      error: { code: 'SERVICE_UNAVAILABLE', message: 'Connection refused' },
+    });
+    expect(getApiErrorMessage(err)).toBe(
+      'The service is temporarily unavailable. Please try again later.'
+    );
+  });
+
+  it('should use the server message when the code has no translation', () => {
+    const err = buildAxiosError({
+      success: false,
+      error: { code: 'SOME_NEW_CODE', message: 'Specific server message' },
+    });
+    expect(getApiErrorMessage(err, 'fallback')).toBe('Specific server message');
+  });
+
+  it('should not treat non error-code keys (e.g. "generic") as a code', () => {
+    const err = buildAxiosError({
+      success: false,
+      error: { code: 'generic', message: 'Server message' },
+    });
+    expect(getApiErrorMessage(err, 'fallback')).toBe('Server message');
+  });
+
+  it('should use errors:generic when there is no code, message or fallback', () => {
+    expect(getApiErrorMessage(new AxiosError('Network Error', 'ERR_NETWORK'))).toBe(
+      'Đã có lỗi xảy ra. Vui lòng thử lại.'
+    );
+    expect(getApiErrorMessage(new Error('boom'))).toBe('Đã có lỗi xảy ra. Vui lòng thử lại.');
+  });
+
+  it('should translate the code of an error thrown by unwrap', () => {
+    let thrown: unknown;
+    try {
+      unwrap(asApiResponse({ success: false, error: { code: 'INTERNAL_ERROR', message: 'boom' } }));
+    } catch (err) {
+      thrown = err;
+    }
+    expect(getApiErrorMessage(thrown)).toBe('Hệ thống đang gặp sự cố. Vui lòng thử lại sau.');
   });
 });
 

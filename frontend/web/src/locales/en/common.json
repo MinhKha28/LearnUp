@@ -1,0 +1,31 @@
+{
+  "appName": "LearnUP",
+  "appTagline": "B2B multi-tenant learning platform",
+  "actions": {
+    "signOut": "Sign out",
+    "backToHome": "Back to home"
+  },
+  "loading": {
+    "default": "Loading…",
+    "authenticating": "Checking your session…",
+    "verifyingAccess": "Checking your access…"
+  },
+  "roles": {
+    "admin": "Administrator",
+    "organizer": "Organizer",
+    "instructor": "Instructor",
+    "learner": "Learner",
+    "guest": "Guest"
+  },
+  "notFound": {
+    "title": "404 — Page not found",
+    "description": "The page you requested does not exist."
+  },
+  "forbidden": {
+    "title": "403 — Access denied",
+    "description": "Your current role (<strong>{{role}}</strong>) does not have permission to access this area."
+  },
+  "placeholder": {
+    "title": "This page is under construction"
+  }
+}

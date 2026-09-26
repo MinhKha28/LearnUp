@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/auth/useAuth';
 import { getApiErrorMessage } from '@/services/apiClient';
 import { DEFAULT_AUTHENTICATED_PATH } from '@/config/routes';
@@ -9,6 +10,8 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { t } = useTranslation(['auth', 'common']);
 
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -27,7 +30,7 @@ export const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      setErrorMsg('Please enter both username and password.');
+      setErrorMsg(t('auth:login.missingCredentials'));
       return;
     }
 
@@ -38,7 +41,7 @@ export const LoginPage: React.FC = () => {
       await login({ username: username.trim(), password });
       navigate(from, { replace: true });
     } catch (err: unknown) {
-      setErrorMsg(getApiErrorMessage(err, 'Đăng nhập thất bại. Vui lòng thử lại.'));
+      setErrorMsg(getApiErrorMessage(err, t('auth:login.failed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -47,15 +50,15 @@ export const LoginPage: React.FC = () => {
   return (
     <main>
       <header>
-        <h1>LearnUP</h1>
-        <p>B2B Multi-Tenant Learning Platform</p>
+        <h1>{t('common:appName')}</h1>
+        <p>{t('common:appTagline')}</p>
       </header>
 
       {errorMsg && <div role="alert">{errorMsg}</div>}
 
       <form onSubmit={handleSubmit}>
         <div>
-          <label htmlFor="username">Username or Email</label>
+          <label htmlFor="username">{t('auth:login.usernameLabel')}</label>
           <input
             id="username"
             type="text"
@@ -67,7 +70,7 @@ export const LoginPage: React.FC = () => {
         </div>
 
         <div>
-          <label htmlFor="password">Password</label>
+          <label htmlFor="password">{t('auth:login.passwordLabel')}</label>
           <input
             id="password"
             type="password"
@@ -79,7 +82,7 @@ export const LoginPage: React.FC = () => {
         </div>
 
         <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Signing in...' : 'Sign In'}
+          {isSubmitting ? t('auth:login.submitting') : t('auth:login.submit')}
         </button>
       </form>
     </main>
