@@ -4,7 +4,7 @@ Thư mục này chứa đặc tả các Use Case (UC) mà frontend cần dựng.
 
 - **Bản gốc** là report trên Drive. File ở đây là bản chép để người và AI đọc được ngay trong repo. Khi UC thay đổi, **cập nhật cả hai**.
 - Màn hình cần làm mà chưa có file đặc tả: **DỪNG và yêu cầu** bổ sung, không đoán từ ảnh.
-- Ảnh và đặc tả mâu thuẫn: **đặc tả thắng** (xem `AGENTS.md` §12).
+- Ảnh và đặc tả mâu thuẫn: **đặc tả thắng** (xem `AGENTS.md` §14).
 - Thuật ngữ theo `docs/glossary.md`.
 
 ## Đặt tên file

@@ -1,5 +1,6 @@
 {
   "generic": "Đã có lỗi xảy ra. Vui lòng thử lại.",
   "INTERNAL_ERROR": "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.",
-  "SERVICE_UNAVAILABLE": "Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau."
+  "SERVICE_UNAVAILABLE": "Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.",
+  "VALIDATION_ERROR": "Thông tin chưa hợp lệ. Vui lòng kiểm tra lại các trường được đánh dấu."
 }

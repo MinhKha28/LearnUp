@@ -1,0 +1,8 @@
+{
+  "required": "Vui lòng nhập thông tin này.",
+  "invalid": "Giá trị không hợp lệ.",
+  "email": "Vui lòng nhập địa chỉ email hợp lệ.",
+  "tooShort": "Cần ít nhất {{min}} ký tự.",
+  "tooLong": "Không được vượt quá {{max}} ký tự.",
+  "passwordsDoNotMatch": "Mật khẩu nhập lại không khớp."
+}

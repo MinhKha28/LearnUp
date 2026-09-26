@@ -22,7 +22,7 @@ cd ../../frontend/web && npm install && cp .env.example .env
 | Build                     | `npm run build`                                                |
 | Format                    | `npm run format` (sửa) · `npm run format:check` (chỉ kiểm tra) |
 
-Biến môi trường (`.env.example`): `VITE_API_BASE_URL` (Gateway, mặc định `http://localhost:8080`), `VITE_MILESTONE` (1 | 2 | 3). Muốn làm milestone sau thì đặt trong `.env.local`, không commit.
+Biến môi trường (`.env.example`): `VITE_API_BASE_URL` (Gateway, mặc định `http://localhost:8080`), `VITE_MILESTONE` (1 | 2 | 3), `VITE_USE_MOCKS` / `VITE_MOCKS_INCLUDE` (mock MSW, §10). Giá trị riêng của máy (milestone sau, bật mock) đặt trong `.env.local`, không commit.
 
 Frontend chỉ gọi API Gateway, không bao giờ tự gửi header `X-User-ID`, `X-Organization-ID`, `X-User-Role`. Tenant luôn là `organizationId`. Kiểm tra role ở frontend chỉ để ẩn/hiện giao diện; phân quyền thật do backend.
 
@@ -36,20 +36,22 @@ src/
 ├── components/layout/  AppLayout, AuthLayout, PublicLayout, Sidebar, UserMenu…
 ├── config/         env.ts, milestone.ts, routes.ts (path dùng chung)
 ├── features/<tên>/ (chưa có — tạo khi làm màn đầu tiên của tính năng)
-│   ├── api/        hàm gọi API + dữ liệu giả của tính năng
+│   ├── api/        hàm gọi API của tính năng (qua apiClient)
 │   ├── types/      kiểu dữ liệu của tính năng
+│   ├── <tên>Schema.ts  zod schema + type của từng form (§9)
 │   ├── components/ component chỉ dùng trong tính năng
 │   └── pages/      trang gắn vào route
 ├── i18n/           khởi tạo i18next, resources.ts (đăng ký namespace)
 ├── locales/{vi,en}/<namespace>.json
-├── lib/            tiện ích thuần (cx, format)
+├── lib/            tiện ích (cx, format, form/ — helper form dùng chung, §9)
+├── mocks/          MSW: handlers/<feature>.ts, browser.ts (dev), node.ts (test) — §10
 ├── pages/          trang hệ thống: Login, NotFound, Unauthorized, Placeholder
 ├── services/       apiClient.ts (axios, unwrap, getApiErrorMessage)
 ├── styles/         tokens.css, base.css, index.css
 └── dev/            trang /dev/ui (chỉ có khi DEV, không vào bản build)
-tests/              mọi test; thư mục con ui/, layout/…; helper authMock.ts, routerFuture.ts
-docs/               design-tokens.md, glossary.md, use-cases/
-.design-refs/       ảnh thiết kế (không commit — xem §12)
+tests/              mọi test; thư mục con ui/, layout/, form/, mocks/…; helper authMock.ts, routerFuture.ts
+docs/               design-tokens.md, glossary.md, api-contracts.md, use-cases/
+.design-refs/       ảnh thiết kế (không commit — xem §14)
 ```
 
 ## 3. Quy ước code
@@ -76,7 +78,7 @@ docs/               design-tokens.md, glossary.md, use-cases/
 ## 6. i18n
 
 - Không có chữ hiển thị literal trong JSX (ESLint `i18next/no-literal-string` chặn). Mọi chữ qua `t()`, kể cả `aria-label`, `alt`, `title`, placeholder.
-- Namespace hiện có: `common`, `auth`, `errors`, `nav`. Tính năng mới tạo namespace riêng, đăng ký trong `src/i18n/resources.ts`.
+- Namespace hiện có: `common`, `auth`, `errors`, `nav`, `validation`. Tính năng mới tạo namespace riêng, đăng ký trong `src/i18n/resources.ts`.
 - Key đặt theo màn hình: `<màn>.<khối>.<phần>` (ví dụ `instructors.list.emptyTitle`). Không đặt key theo câu chữ.
 - Luôn thêm **cả `vi` và `en`** cùng lúc; `tests/i18n.test.ts` fail nếu hai bên lệch key. Mặc định là `vi`.
 - Thuật ngữ theo `docs/glossary.md`. Thuật ngữ chưa có trong bảng: đề xuất thêm vào bảng trước.
@@ -95,22 +97,40 @@ docs/               design-tokens.md, glossary.md, use-cases/
 - Chỉ gọi qua `apiClient` (`src/services/apiClient.ts`); đã tự gắn token và refresh khi 401.
 - Lấy payload bằng `unwrap(response)`; hiển thị lỗi bằng `getApiErrorMessage(err, fallback?)` (dịch `errors:<CODE>` nếu có). Mã lỗi mới → thêm vào `locales/*/errors.json`.
 - Kiểu response lấy từ `@learnup/ts-common`: `ApiResponse<T>`, `PageResponse<T>`, `ApiError`, `UserRole`. Không tự khai báo lại.
-- Dữ liệu giả (khi backend chưa có) đặt trong `features/<tên>/api/`, **đúng kiểu** `ApiResponse<T>` / `PageResponse<T>` — dựng bằng `createSuccessResponse`, `createPageResponse`, `createErrorResponse` của ts-common — để thay bằng API thật không phải sửa trang.
+- Code trong `features/` luôn gọi API thật qua `apiClient`; dữ liệu giả chỉ nằm trong MSW (§10), nên khi backend có thì không phải sửa trang.
 
-## 9. Routing
+## 9. Form
+
+- Dùng **react-hook-form + zod**: `useForm({ resolver: formResolver(schema) })` (`src/lib/form`). Không tự validate bằng `useState`.
+- Mỗi form có file `features/<feature>/<tên>Schema.ts` chứa zod schema và type suy ra (`z.infer` / `z.input`). Không khai báo type form riêng tay.
+- Ràng buộc chưa chốt trong đặc tả (độ dài, định dạng…): vẫn đặt tạm trong schema, **thêm một dòng `// TODO(spec): …`** ngay trên ràng buộc đó. Không tự suy diễn thêm quy tắc nghiệp vụ.
+- Thông báo lỗi là **key i18n** namespace `validation`, không phải chữ cứng: để trống thì `formResolver` tự chọn key (`required`, `email`, `tooShort`, `tooLong`, `invalid`); cần key khác thì `vmsg('key', { min: 8 })`. Key mới thêm cả vi và en.
+- Hiển thị lỗi: `const errorText = useFieldErrorText();` → `<TextField {...register('email')} error={errorText(errors.email)} />` (Select, Checkbox tương tự).
+- Lỗi server khi submit: `const alert = applyServerFieldErrors(err, setError, [...fields], { fieldMap? })` — `VALIDATION_ERROR` có field thì hiện dưới field (focus field đầu), phần còn lại trả về chuỗi để hiện trong `Alert`.
+
+## 10. Mock (MSW)
+
+- Mock API bằng **MSW** trong `src/mocks/`, không bằng dữ liệu cứng trong component hay trong `features/*/api/`.
+- Bật ở dev bằng `VITE_USE_MOCKS=true` (`.env.local`). Chỉ chạy khi `import.meta.env.DEV`; bản build production không chứa code mock.
+- Chỉ mock endpoint **backend chưa có**, đặt trong `defaultHandlers` (`src/mocks/handlers/index.ts`), một file mỗi feature. Endpoint backend đã có (vd. `/api/auth/**`) chỉ là nhóm tùy chọn trong `optionalHandlers`, bật bằng `VITE_MOCKS_INCLUDE=auth`.
+- Mock trả đúng `ApiResponse<T>` / `PageResponse<T>` (dựng bằng `createSuccessResponse`, `createPageResponse`, `createErrorResponse` của ts-common); lỗi validate theo dạng `details: ["field: message"]` như backend.
+- Mỗi endpoint mock phải có mục trong `docs/api-contracts.md` với trạng thái **"Giả định — chờ backend xác nhận"** hoặc **"Đã có ở backend"**. Backend xác nhận thì sửa mục và bỏ handler khỏi `defaultHandlers`.
+- Test dùng lại handler qua `msw/node` (`tests/setup.ts` đã `listen`/`resetHandlers`/`close`): `server.use(...optionalHandlers.auth)` hoặc handler riêng của test. Request không có handler làm test **fail**.
+
+## 11. Routing
 
 - Menu và route theo role khai báo **một chỗ**: `NAVIGATION` trong `src/app/navigation.ts` (`labelKey` thuộc namespace `nav`, `path`, `icon`, `useCase`, `availableFrom`). Mục đầu tiên của mỗi role là trang chủ của role.
 - `availableFrom` > `VITE_MILESTONE` thì mục bị ẩn và route trả 404. Không xóa mục của milestone sau để "ẩn".
 - Mỗi khu vực role được bọc `RoleRoute` (403 nếu sai role) bên trong `ProtectedRoute`. Path dùng chung (login, profile…) ở `src/config/routes.ts`.
 - Khi làm xong một màn, thay `PlaceholderPage` của mục đó trong `src/app/routes.tsx` bằng trang thật.
 
-## 10. Test
+## 12. Test
 
 - Mọi test đặt trong `tests/` (không đặt cạnh source). Mock auth bằng `tests/authMock.ts`; router test dùng `tests/routerFuture.ts`.
 - Test **hành vi** người dùng thấy (role, label, text qua Testing Library), không test class CSS hay chi tiết cài đặt.
 - **Số test không được giảm.** Sửa hành vi thì sửa test; xóa test chỉ khi xóa tính năng và phải nói rõ.
 
-## 11. Git
+## 13. Git
 
 - Làm trên nhánh `fe/<việc>` (ví dụ `fe/instructor-list`). **Không commit thẳng** vào `fe/develop` hay `main`.
 - Commit theo Conventional Commits, **tiếng Anh**, scope `web`: `feat(web): …`, `fix(web): …`, `chore(web): …`, `docs(web): …`.
@@ -122,7 +142,7 @@ docs/               design-tokens.md, glossary.md, use-cases/
 - PR vào `fe/develop`/`main` phải **xanh CI** (`.github/workflows/frontend-web.yml`: build ts-common → lint, format:check, typecheck, test, build) mới được merge. Node theo `.nvmrc`.
 - Thay đổi ở các đường dẫn trong `.github/CODEOWNERS` (styles, `components/ui`, `components/layout`, `AGENTS.md`, `docs/design-tokens.md`, `docs/glossary.md`, config ESLint/Stylelint) cần **leader duyệt**.
 
-## 12. Dựng màn hình từ ảnh `.design-refs/`
+## 14. Dựng màn hình từ ảnh `.design-refs/`
 
 Cấu trúc ảnh:
 
@@ -167,10 +187,11 @@ Nguyên tắc quy đổi ảnh → code:
 - Ảnh và Use Case mâu thuẫn: **Use Case thắng**, ghi lại trong báo cáo.
 - Chỉ làm thao tác thuộc milestone hiện tại, nhưng bố cục phải chừa chỗ cho thao tác của milestone sau.
 
-## 13. Tài liệu liên quan
+## 15. Tài liệu liên quan
 
 - `docs/design-tokens.md` — token, typography, spacing, layout, quyết định thiết kế.
 - `docs/glossary.md` — thuật ngữ vi/en.
+- `docs/api-contracts.md` — hợp đồng API đã có / giả định (đi cùng mock MSW).
 - `docs/use-cases/` — đặc tả Use Case theo đợt (mẫu trong `README.md` của thư mục).
 - `README.md` — tổng quan, xác thực, cấu trúc.
 - `../../docs/` — kiến trúc hệ thống, ADR, quy ước API (`docs/api/conventions.md`).

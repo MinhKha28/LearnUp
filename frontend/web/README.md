@@ -8,6 +8,8 @@
 >
 > - [`docs/design-tokens.md`](docs/design-tokens.md) — colors, typography, spacing, layout, design decisions.
 > - [`docs/glossary.md`](docs/glossary.md) — Vietnamese / English terminology.
+> - [`docs/api-contracts.md`](docs/api-contracts.md) — API contracts, existing and assumed (mocked with MSW).
+> - [`docs/use-cases/`](docs/use-cases/) — use case specifications per design batch.
 
 ---
 
@@ -125,10 +127,12 @@ New features go in `src/features/<name>/` — see [`AGENTS.md`](AGENTS.md) §2.
 
 Copy `.env.example` to `.env`:
 
-| Variable            | Description                                       | Default                 |
-| ------------------- | ------------------------------------------------- | ----------------------- |
-| `VITE_API_BASE_URL` | Base URL of the Spring Cloud API Gateway          | `http://localhost:8080` |
-| `VITE_MILESTONE`    | Delivery milestone (`1`, `2`, `3`); invalid → `1` | `1`                     |
+| Variable             | Description                                          | Default                 |
+| -------------------- | ---------------------------------------------------- | ----------------------- |
+| `VITE_API_BASE_URL`  | Base URL of the Spring Cloud API Gateway             | `http://localhost:8080` |
+| `VITE_MILESTONE`     | Delivery milestone (`1`, `2`, `3`); invalid → `1`    | `1`                     |
+| `VITE_USE_MOCKS`     | `true` starts MSW mocks in development (`src/mocks`) | `false`                 |
+| `VITE_MOCKS_INCLUDE` | Also mock endpoints the backend has, e.g. `auth`     | _(empty)_               |
 
 To work on a later milestone locally, set `VITE_MILESTONE` in `.env.local` (not committed).
 

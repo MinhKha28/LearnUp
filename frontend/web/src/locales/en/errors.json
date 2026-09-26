@@ -1,5 +1,6 @@
 {
   "generic": "Something went wrong. Please try again.",
   "INTERNAL_ERROR": "The system ran into a problem. Please try again later.",
-  "SERVICE_UNAVAILABLE": "The service is temporarily unavailable. Please try again later."
+  "SERVICE_UNAVAILABLE": "The service is temporarily unavailable. Please try again later.",
+  "VALIDATION_ERROR": "Some information is not valid. Please check the highlighted fields."
 }
