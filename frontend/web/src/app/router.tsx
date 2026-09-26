@@ -1,10 +1,10 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { LoginPage } from '@/pages/LoginPage';
-import { DashboardPage } from '@/pages/DashboardPage';
+import { PlaceholderPage } from '@/pages/PlaceholderPage';
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { ProtectedRoute } from '@/auth/ProtectedRoute';
-import { MainLayout } from '@/components/layout/MainLayout';
+import { DEFAULT_AUTHENTICATED_PATH } from '@/config/routes';
 
 export const router = createBrowserRouter([
   {
@@ -17,19 +17,15 @@ export const router = createBrowserRouter([
   },
   {
     path: '/',
-    element: (
-      <ProtectedRoute>
-        <MainLayout />
-      </ProtectedRoute>
-    ),
+    element: <ProtectedRoute />,
     children: [
       {
         index: true,
-        element: <Navigate to="/dashboard" replace />,
+        element: <Navigate to={DEFAULT_AUTHENTICATED_PATH} replace />,
       },
       {
-        path: 'dashboard',
-        element: <DashboardPage />,
+        path: DEFAULT_AUTHENTICATED_PATH,
+        element: <PlaceholderPage />,
       },
     ],
   },

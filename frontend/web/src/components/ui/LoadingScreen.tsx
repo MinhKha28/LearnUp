@@ -6,8 +6,7 @@ interface LoadingScreenProps {
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({ message }) => {
   return (
-    <div className="loading-screen">
-      <div className="spinner"></div>
+    <div role="status">
       <p>{message}</p>
     </div>
   );

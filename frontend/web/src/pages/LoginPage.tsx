@@ -45,55 +45,43 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <div className="login-header">
-          <h1 className="login-title">LearnUP</h1>
-          <p className="login-subtitle">B2B Multi-Tenant Learning Platform</p>
+    <main>
+      <header>
+        <h1>LearnUP</h1>
+        <p>B2B Multi-Tenant Learning Platform</p>
+      </header>
+
+      {errorMsg && <div role="alert">{errorMsg}</div>}
+
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="username">Username or Email</label>
+          <input
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            autoFocus
+          />
         </div>
 
-        {errorMsg && <div className="alert alert-error">{errorMsg}</div>}
-
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group">
-            <label htmlFor="username">Username or Email</label>
-            <input
-              id="username"
-              type="text"
-              className="form-control"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. learner1 or organizer1"
-              required
-              autoFocus
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              className="form-control"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
-          </div>
-
-          <button type="submit" className="btn-primary" disabled={isSubmitting}>
-            {isSubmitting ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-
-        <div className="login-footer">
-          <p className="auth-note">
-            Communicates through <strong>API Gateway :8080</strong> &rarr;{' '}
-            <strong>Identity Service</strong>
-          </p>
+        <div>
+          <label htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+          />
         </div>
-      </div>
-    </div>
+
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Signing in...' : 'Sign In'}
+        </button>
+      </form>
+    </main>
   );
 };

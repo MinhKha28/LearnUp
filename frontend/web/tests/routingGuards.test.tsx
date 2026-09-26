@@ -90,7 +90,7 @@ describe('Route Protection and Role Guards', () => {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <div>Dashboard Content</div>
+                <div>Protected Content</div>
               </ProtectedRoute>
             }
           />
@@ -98,7 +98,7 @@ describe('Route Protection and Role Guards', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Dashboard Content')).toBeDefined();
+    expect(screen.getByText('Protected Content')).toBeDefined();
   });
 
   it('should allow authorized role in RoleRoute', () => {

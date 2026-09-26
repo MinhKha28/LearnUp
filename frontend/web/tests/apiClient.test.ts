@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AxiosError, AxiosHeaders, AxiosResponse } from 'axios';
 import { ApiResponse } from '@learnup/ts-common';
 import { apiClient, getApiErrorMessage, unwrap } from '@/services/apiClient';
@@ -14,6 +14,27 @@ type RequestInterceptorHandlers = {
 
 const asApiResponse = <T>(data: unknown) => ({ data }) as AxiosResponse<ApiResponse<T>>;
 
+describe('API base URL configuration', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('should use VITE_API_BASE_URL when it is set', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'https://gateway.example.test');
+    vi.resetModules();
+    const env = await import('@/config/env');
+    expect(env.API_BASE_URL).toBe('https://gateway.example.test');
+  });
+
+  it('should fall back to DEFAULT_API_BASE_URL when VITE_API_BASE_URL is empty', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    vi.resetModules();
+    const env = await import('@/config/env');
+    expect(env.API_BASE_URL).toBe(env.DEFAULT_API_BASE_URL);
+  });
+});
+
 describe('apiClient Configuration & Interceptors', () => {
   beforeEach(() => {
     authStorage.clearTokens();
@@ -21,7 +42,6 @@ describe('apiClient Configuration & Interceptors', () => {
 
   it('should use Gateway base URL', () => {
     expect(apiClient.defaults.baseURL).toBe(API_BASE_URL);
-    expect(API_BASE_URL).toMatch(/localhost:8080/);
   });
 
   it('should attach Bearer token when access token exists', async () => {
