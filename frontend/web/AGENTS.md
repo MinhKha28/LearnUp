@@ -21,6 +21,7 @@ cd ../../frontend/web && npm install && cp .env.example .env
 | Typecheck                 | `npm run typecheck`                                            |
 | Build                     | `npm run build`                                                |
 | Format                    | `npm run format` (sửa) · `npm run format:check` (chỉ kiểm tra) |
+| So với ảnh thiết kế       | `npm run visual-diff` (xem §14)                                |
 
 Biến môi trường (`.env.example`): `VITE_API_BASE_URL` (Gateway, mặc định `http://localhost:8080`), `VITE_MILESTONE` (1 | 2 | 3), `VITE_USE_MOCKS` / `VITE_MOCKS_INCLUDE` (mock MSW, §10). Giá trị riêng của máy (milestone sau, bật mock) đặt trong `.env.local`, không commit.
 
@@ -35,7 +36,7 @@ src/
 ├── components/ui/  component nền dùng chung (Button, TextField, Modal…) — export qua index.ts
 ├── components/layout/  AppLayout, AuthLayout, PublicLayout, Sidebar, UserMenu…
 ├── config/         env.ts, milestone.ts, routes.ts (path dùng chung)
-├── features/<tên>/ (chưa có — tạo khi làm màn đầu tiên của tính năng)
+├── features/<tên>/ (vd. auth/ — tạo khi làm màn đầu tiên của tính năng)
 │   ├── api/        hàm gọi API của tính năng (qua apiClient)
 │   ├── types/      kiểu dữ liệu của tính năng
 │   ├── <tên>Schema.ts  zod schema + type của từng form (§9)
@@ -45,7 +46,7 @@ src/
 ├── locales/{vi,en}/<namespace>.json
 ├── lib/            tiện ích (cx, format, form/ — helper form dùng chung, §9)
 ├── mocks/          MSW: handlers/<feature>.ts, browser.ts (dev), node.ts (test) — §10
-├── pages/          trang hệ thống: Login, NotFound, Unauthorized, Placeholder
+├── pages/          trang hệ thống: NotFound, Unauthorized, Placeholder
 ├── services/       apiClient.ts (axios, unwrap, getApiErrorMessage)
 ├── styles/         tokens.css, base.css, index.css
 └── dev/            trang /dev/ui (chỉ có khi DEV, không vào bản build)
@@ -175,17 +176,24 @@ Quy trình — **bắt buộc theo thứ tự:**
    - Câu hỏi cần người duyệt trả lời.
 3. **Code** sau khi được duyệt.
 4. **Kiểm tra**: `npm run lint`, `npm test`, `npm run typecheck`, `npm run build`.
+5. **So với ảnh**: chạy `npm run visual-diff` (`scripts/visual-diff.ts`; màn mới thì thêm scenario vào `SCENARIOS`, kèm các vùng đặt tên theo ảnh) cho mọi ảnh của màn, kể cả các trạng thái `__…`. Báo cáo:
+   - % điểm ảnh khác của từng ảnh (nếu phải sửa nhiều vòng thì ghi % từng vòng).
+   - Bảng vùng còn khác: **Vùng → % khác → % khi dịch ±1px → Lý do**. Lý do chỉ được là render font/khử răng cưa hoặc một trường hợp được phép khác ảnh (xem dưới).
+   - Ảnh chụp bản `vi` ở 1440, và ở 768×1024, 390×844 để xác nhận không vỡ bố cục.
+
+   **Chưa có báo cáo này thì chưa được báo hoàn thành.**
 
 Nguyên tắc quy đổi ảnh → code:
 
-- Ảnh là **tham khảo bố cục**, không phải thông số pixel.
-- Mọi giá trị làm tròn về **token gần nhất**.
-- Giữ **thứ bậc**: cái lớn/đậm/nổi hơn trong ảnh vẫn lớn/đậm/nổi hơn trong code, không đảo.
-- Cùng vai trò thì cùng style, kể cả khi ảnh vẽ lệch nhau.
-- Được tự sửa lỗi căn lề, tương phản, chính tả — nhưng phải liệt kê trong bảng điều chỉnh.
+- **Mục tiêu là giống ảnh ở 1440×1024.** Chỉ khác ảnh khi:
+  - song ngữ: LanguageSwitcher, độ dài chữ (chữ tiếng Việt xuống dòng khác);
+  - dữ liệu động (nội dung lấy từ API, message server…);
+  - hai ảnh mâu thuẫn nhau: **DỪNG và hỏi**, không tự chọn.
+- Giá trị mới trong ảnh (màu, cỡ chữ, khoảng cách, kích thước) → **thêm token** trong `src/styles/tokens.css` và `docs/design-tokens.md`, không hardcode.
+- Thấy lỗi trong ảnh (tương phản không đạt, chính tả, căn lệch): **không tự sửa** — ghi vào bảng điều chỉnh ở bước Phân tích và hỏi.
 - **Không** tự thêm/bớt field, cột, nút, bước — phải hỏi.
 - Ảnh và Use Case mâu thuẫn: **Use Case thắng**, ghi lại trong báo cáo.
-- Chỉ làm thao tác thuộc milestone hiện tại, nhưng bố cục phải chừa chỗ cho thao tác của milestone sau.
+- **Hiển thị đủ mọi thành phần trong ảnh.** Thao tác chưa làm (milestone sau) thì bấm vào hiện `Alert tone="info"` với `common:comingSoon` ("Tính năng đang được phát triển.") ở ô thông báo của trang — chỗ đặt Alert lỗi — qua hook `useComingSoon` (`src/lib/useComingSoon.ts`). Không dùng toast, không điều hướng tới trang chưa có. Dùng thống nhất cho mọi màn.
 
 ## 15. Tài liệu liên quan
 
