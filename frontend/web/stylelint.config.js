@@ -1,21 +1,19 @@
 /**
  * CSS lint rules. Component styles (*.module.css) must take every visual value from
- * design tokens (see docs/design-tokens.md); tokens.css and base.css define those tokens.
+ * design tokens (see docs/design-tokens.md). That rule targets *.module.css only, so tokens.css and
+ * base.css — where the raw values are defined — follow the standard rules without it.
  *
  * @type {import('stylelint').Config}
  */
 export default {
   extends: ['stylelint-config-standard'],
   plugins: ['stylelint-declaration-strict-value'],
-  ignoreFiles: [
-    'dist/**',
-    'coverage/**',
-    'node_modules/**',
-    // Token and base definitions are the one place raw values belong
-    'src/styles/tokens.css',
-    'src/styles/base.css',
-  ],
+  ignoreFiles: ['dist/**', 'coverage/**', 'node_modules/**'],
   rules: {
+    // Blank lines group related tokens in tokens.css
+    'custom-property-empty-line-before': null,
+    // Keep font family names in their original case (Roboto, SFMono-Regular, …)
+    'value-keyword-case': ['lower', { ignoreProperties: ['font-family', '/^--font-/'] }],
     // Vite resolves plain string imports; url() adds nothing
     'import-notation': 'string',
     // docs/design-tokens.md §6 writes breakpoints as (min-width: …)

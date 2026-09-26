@@ -55,7 +55,7 @@ Giá trị khớp bảng màu Tailwind v3, riêng `slate-450` là màu tự thê
 
 | Nhóm    | Token                              | Giá trị                                 |
 | ------- | ---------------------------------- | --------------------------------------- |
-| Trắng   | `--color-white`                    | `#ffffff`                               |
+| Trắng   | `--color-white`                    | `#fff`                                  |
 | Red     | `--color-red-50 / 100 / 600 / 700` | `#fef2f2 / #fee2e2 / #dc2626 / #b91c1c` |
 | Emerald | `--color-emerald-50 / 700`         | `#ecfdf5 / #047857`                     |
 | Blue    | `--color-blue-50 / 600`            | `#eff6ff / #2563eb`                     |
@@ -217,11 +217,11 @@ Thang theo bội số 4px:
 
 **Shadow:** card dùng viền, **không dùng shadow**. Shadow chỉ dành cho lớp nổi.
 
-| Token         | Giá trị                                                                    | Dùng cho                      |
-| ------------- | -------------------------------------------------------------------------- | ----------------------------- |
-| `--shadow-sm` | `0 1px 2px 0 rgb(15 23 42 / .05)`                                          | Header dính (sticky) khi cuộn |
-| `--shadow-md` | `0 4px 8px -2px rgb(15 23 42 / .10), 0 2px 4px -2px rgb(15 23 42 / .06)`   | Dropdown, menu người dùng     |
-| `--shadow-lg` | `0 12px 24px -4px rgb(15 23 42 / .12), 0 4px 8px -4px rgb(15 23 42 / .08)` | Modal, toast                  |
+| Token         | Giá trị                                                                   | Dùng cho                      |
+| ------------- | ------------------------------------------------------------------------- | ----------------------------- |
+| `--shadow-sm` | `0 1px 2px 0 rgb(15 23 42 / 5%)`                                          | Header dính (sticky) khi cuộn |
+| `--shadow-md` | `0 4px 8px -2px rgb(15 23 42 / 10%), 0 2px 4px -2px rgb(15 23 42 / 6%)`   | Dropdown, menu người dùng     |
+| `--shadow-lg` | `0 12px 24px -4px rgb(15 23 42 / 12%), 0 4px 8px -4px rgb(15 23 42 / 8%)` | Modal, toast                  |
 
 **z-index:** `--z-dropdown` 1000 · `--z-sticky` 1100 · `--z-overlay` 1200 · `--z-modal` 1300 · `--z-toast` 1400
 

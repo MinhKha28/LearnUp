@@ -13,7 +13,7 @@
   /* ---------------------------------------------------------------------------
      Primitive colors — do not reference from components
      ------------------------------------------------------------------------- */
-  --color-white: #ffffff;
+  --color-white: #fff;
 
   --color-slate-50: #f8fafc;
   --color-slate-100: #f1f5f9;
@@ -61,6 +61,7 @@
 
   --color-text: var(--color-slate-900);
   --color-text-muted: var(--color-slate-600);
+
   /* Only on --color-surface or --color-background (fails 4.5:1 on surface-muted). */
   --color-text-subtle: var(--color-slate-500);
 
@@ -151,9 +152,9 @@
   --radius-full: 9999px;
 
   /* Floating layers only (dropdown, modal, toast); cards use --color-border. */
-  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
-  --shadow-md: 0 4px 8px -2px rgb(15 23 42 / 0.1), 0 2px 4px -2px rgb(15 23 42 / 0.06);
-  --shadow-lg: 0 12px 24px -4px rgb(15 23 42 / 0.12), 0 4px 8px -4px rgb(15 23 42 / 0.08);
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 5%);
+  --shadow-md: 0 4px 8px -2px rgb(15 23 42 / 10%), 0 2px 4px -2px rgb(15 23 42 / 6%);
+  --shadow-lg: 0 12px 24px -4px rgb(15 23 42 / 12%), 0 4px 8px -4px rgb(15 23 42 / 8%);
 
   --z-dropdown: 1000;
   --z-sticky: 1100;
