@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../auth/useAuth.js';
+import { useAuth } from '@/auth/useAuth';
 
 export const UnauthorizedPage: React.FC = () => {
   const { currentUser } = useAuth();

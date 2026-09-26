@@ -3,9 +3,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation, useNavigationType } from 'react-router-dom';
 import { AxiosError, AxiosHeaders } from 'axios';
-import { LoginPage } from '../src/pages/LoginPage.js';
-import * as UseAuthModule from '../src/auth/useAuth.js';
-import { DEFAULT_AUTHENTICATED_PATH } from '../src/config/routes.js';
+import { LoginPage } from '@/pages/LoginPage';
+import * as UseAuthModule from '@/auth/useAuth';
+import { DEFAULT_AUTHENTICATED_PATH } from '@/config/routes';
 
 const mockLoginRejection = (error: unknown) => {
   vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({

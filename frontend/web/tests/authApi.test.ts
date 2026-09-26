@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { authApi } from '../src/auth/authApi.js';
-import { apiClient } from '../src/services/apiClient.js';
-import { AuthTokens, AuthUser } from '../src/types/auth.js';
+import { authApi } from '@/auth/authApi';
+import { apiClient } from '@/services/apiClient';
+import { AuthTokens, AuthUser } from '@/types/auth';
 
-vi.mock('../src/services/apiClient.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../src/services/apiClient.js')>()),
+vi.mock('@/services/apiClient', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/services/apiClient')>()),
   apiClient: {
     post: vi.fn(),
     get: vi.fn(),

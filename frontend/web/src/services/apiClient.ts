@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { ApiResponse } from '@learnup/ts-common';
-import { API_BASE_URL } from '../config/env.js';
-import { authStorage } from '../auth/authStorage.js';
+import { API_BASE_URL } from '@/config/env';
+import { authStorage } from '@/auth/authStorage';
 
 /**
  * Centralized Axios HTTP client communicating exclusively with the Spring Cloud API Gateway.

@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import { AuthUser, LoginCredentials } from '../types/auth.js';
+import { AuthUser, LoginCredentials } from '@/types/auth';
 
 export interface AuthContextValue {
   currentUser: AuthUser | null;

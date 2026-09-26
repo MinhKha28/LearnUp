@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../auth/useAuth.js';
+import { useAuth } from '@/auth/useAuth';
 
 export const MainLayout: React.FC = () => {
   const { currentUser, logout } = useAuth();

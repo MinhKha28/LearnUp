@@ -1,10 +1,10 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { LoginPage } from '../pages/LoginPage.js';
-import { DashboardPage } from '../pages/DashboardPage.js';
-import { UnauthorizedPage } from '../pages/UnauthorizedPage.js';
-import { NotFoundPage } from '../pages/NotFoundPage.js';
-import { ProtectedRoute } from '../auth/ProtectedRoute.js';
-import { MainLayout } from '../components/layout/MainLayout.js';
+import { LoginPage } from '@/pages/LoginPage';
+import { DashboardPage } from '@/pages/DashboardPage';
+import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
+import { NotFoundPage } from '@/pages/NotFoundPage';
+import { ProtectedRoute } from '@/auth/ProtectedRoute';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 export const router = createBrowserRouter([
   {

@@ -1,6 +1,6 @@
 import { ApiResponse } from '@learnup/ts-common';
-import { apiClient, unwrap } from '../services/apiClient.js';
-import { AuthTokens, AuthUser, LoginCredentials } from '../types/auth.js';
+import { apiClient, unwrap } from '@/services/apiClient';
+import { AuthTokens, AuthUser, LoginCredentials } from '@/types/auth';
 
 export const authApi = {
   async login(credentials: LoginCredentials): Promise<AuthTokens> {

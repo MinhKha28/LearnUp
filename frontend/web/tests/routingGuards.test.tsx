@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { ProtectedRoute } from '../src/auth/ProtectedRoute.js';
-import { RoleRoute } from '../src/auth/RoleRoute.js';
-import * as UseAuthModule from '../src/auth/useAuth.js';
+import { ProtectedRoute } from '@/auth/ProtectedRoute';
+import { RoleRoute } from '@/auth/RoleRoute';
+import * as UseAuthModule from '@/auth/useAuth';
 
 describe('Route Protection and Role Guards', () => {
   it('should show loading indicator when authentication state is loading', () => {

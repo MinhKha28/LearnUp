@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback, ReactNode } from 'react';
-import { AuthUser, LoginCredentials } from '../types/auth.js';
-import { authStorage } from './authStorage.js';
-import { authApi } from './authApi.js';
-import { AuthContext, AuthContextValue } from './useAuth.js';
+import { AuthUser, LoginCredentials } from '@/types/auth';
+import { authStorage } from './authStorage';
+import { authApi } from './authApi';
+import { AuthContext, AuthContextValue } from './useAuth';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);

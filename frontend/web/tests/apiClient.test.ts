@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { AxiosError, AxiosHeaders, AxiosResponse } from 'axios';
 import { ApiResponse } from '@learnup/ts-common';
-import { apiClient, getApiErrorMessage, unwrap } from '../src/services/apiClient.js';
-import { authStorage } from '../src/auth/authStorage.js';
-import { API_BASE_URL } from '../src/config/env.js';
+import { apiClient, getApiErrorMessage, unwrap } from '@/services/apiClient';
+import { authStorage } from '@/auth/authStorage';
+import { API_BASE_URL } from '@/config/env';
 
 type TestRequestConfig = { headers: Record<string, unknown> };
 type RequestInterceptorHandlers = {

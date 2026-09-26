@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import { apiClient } from '../src/services/apiClient.js';
-import { authStorage } from '../src/auth/authStorage.js';
+import { apiClient } from '@/services/apiClient';
+import { authStorage } from '@/auth/authStorage';
 
 type ResponseInterceptorHandlers = {
   handlers: Array<{ rejected: (error: unknown) => Promise<AxiosResponse> }>;
