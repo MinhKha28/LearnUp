@@ -50,7 +50,7 @@ export const UI_SHOWCASE_COPY = {
       more: 'Thêm thao tác',
     },
     textField: {
-      fullName: 'Họ và tên người tổ chức',
+      fullName: 'Họ và tên quản lý tổ chức',
       fullNamePlaceholder: 'Nguyễn Thị Phương Thảo',
       email: 'Địa chỉ email công việc',
       emailHelper: 'Chúng tôi sẽ gửi liên kết xác minh đến địa chỉ này.',
@@ -63,7 +63,7 @@ export const UI_SHOWCASE_COPY = {
     select: {
       status: 'Trạng thái khóa học',
       placeholder: 'Chọn trạng thái',
-      options: ['Bản nháp', 'Đã gửi duyệt', 'Đã xuất bản', 'Bị từ chối'],
+      options: ['Bản nháp', 'Chờ duyệt', 'Đã xuất bản', 'Bị từ chối'],
       error: 'Vui lòng chọn trạng thái trước khi lưu.',
       disabled: 'Loại khóa học',
     },
@@ -79,7 +79,7 @@ export const UI_SHOWCASE_COPY = {
       infoTitle: 'Khóa học bắt buộc và tự chọn',
       infoBody: 'Khóa học tự chọn không có hạn hoàn thành và không bao giờ bị quá hạn.',
       successTitle: 'Đã kích hoạt tài khoản',
-      successBody: 'Người tổ chức có thể đăng nhập ngay bây giờ.',
+      successBody: 'Quản lý tổ chức có thể đăng nhập ngay bây giờ.',
       warningTitle: 'Thay đổi gói chỉ áp dụng cho các lần gia hạn sau',
       warningBody: 'Các tổ chức đang dùng gói này giữ nguyên giới hạn cũ cho đến hết kỳ hiện tại.',
       dangerTitle: 'Đăng nhập không thành công',
@@ -100,7 +100,7 @@ export const UI_SHOWCASE_COPY = {
       custom: 'Đang đồng bộ tiến độ học tập…',
     },
     emptyState: {
-      title: 'Chưa có gói đăng ký nào đang mở',
+      title: 'Chưa có gói dịch vụ nào đang mở',
       description: 'Hiện chưa có gói nào nhận đăng ký mới. Vui lòng quay lại sau.',
       action: 'Làm mới danh sách',
     },
@@ -202,7 +202,7 @@ export const UI_SHOWCASE_COPY = {
       notify: 'Email a reminder when a required course is almost due',
       notifyHelper: 'Learners get the email 3 days before the deadline.',
       disabled: 'Lock the course after publishing',
-      disabledHelper: 'An administrator has turned this option off.',
+      disabledHelper: 'An admin has turned this option off.',
     },
     alert: {
       infoTitle: 'Required and optional courses',

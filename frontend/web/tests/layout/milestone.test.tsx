@@ -31,8 +31,8 @@ describe('menu and routes follow CURRENT_MILESTONE', () => {
     ).toEqual([
       'Khóa học của tôi',
       'Danh mục khóa học',
-      'Bài cần làm',
-      'Bài cần chấm',
+      'Bài đánh giá cần làm',
+      'Bài cần chấm chéo',
       'Chứng chỉ',
     ]);
     expect(within(nav).getAllByRole('group')).toHaveLength(3);

@@ -15,7 +15,7 @@
     "verifyingAccess": "Checking your access…"
   },
   "roles": {
-    "admin": "Administrator",
+    "admin": "Admin",
     "organizer": "Organizer",
     "instructor": "Instructor",
     "learner": "Learner",

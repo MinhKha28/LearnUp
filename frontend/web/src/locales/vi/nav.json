@@ -27,8 +27,8 @@
   "learner": {
     "courses": "Khóa học của tôi",
     "catalog": "Danh mục khóa học",
-    "assessments": "Bài cần làm",
-    "peerReviews": "Bài cần chấm",
+    "assessments": "Bài đánh giá cần làm",
+    "peerReviews": "Bài cần chấm chéo",
     "certificates": "Chứng chỉ"
   },
   "account": {

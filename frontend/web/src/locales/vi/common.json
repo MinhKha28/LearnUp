@@ -16,7 +16,7 @@
   },
   "roles": {
     "admin": "Quản trị viên",
-    "organizer": "Người tổ chức",
+    "organizer": "Quản lý tổ chức",
     "instructor": "Giảng viên",
     "learner": "Học viên",
     "guest": "Khách"

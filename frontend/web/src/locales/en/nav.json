@@ -17,7 +17,7 @@
     "instructors": "Instructors",
     "learners": "Learners",
     "courses": "Organization courses",
-    "enrollments": "Assignments",
+    "enrollments": "Course assignments",
     "auditLog": "Organization audit log"
   },
   "instructor": {
@@ -27,7 +27,7 @@
   "learner": {
     "courses": "My courses",
     "catalog": "Course catalog",
-    "assessments": "To-do assessments",
+    "assessments": "Assessments to do",
     "peerReviews": "Peer reviews to do",
     "certificates": "Certificates"
   },
