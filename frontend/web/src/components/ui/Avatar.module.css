@@ -4,6 +4,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   background-color: var(--color-surface-muted);
   color: var(--color-text);

@@ -199,7 +199,12 @@ export const UiShowcasePage: React.FC = () => {
             helperText={c.textField.passwordHelper}
             required
           />
-          <TextField label={c.textField.disabled} defaultValue="0123456789" disabled />
+          <TextField
+            label={c.textField.disabled}
+            helperText={c.textField.disabledHelper}
+            defaultValue="0123456789"
+            disabled
+          />
         </div>
       </Section>
 
@@ -233,7 +238,7 @@ export const UiShowcasePage: React.FC = () => {
         <div className={styles.stack}>
           <Checkbox label={c.checkbox.notify} helperText={c.checkbox.notifyHelper} defaultChecked />
           <Checkbox label={c.checkbox.terms} error={c.checkbox.termsError} required />
-          <Checkbox label={c.checkbox.disabled} disabled />
+          <Checkbox label={c.checkbox.disabled} helperText={c.checkbox.disabledHelper} disabled />
         </div>
       </Section>
 
@@ -311,25 +316,27 @@ export const UiShowcasePage: React.FC = () => {
       </Section>
 
       <Section title={c.sections.modal}>
-        <Modal
-          open={isModalOpen}
-          onOpenChange={setIsModalOpen}
-          trigger={<Button variant="secondary">{c.modal.open}</Button>}
-          title={c.modal.title}
-          description={c.modal.description}
-          footer={
-            <>
-              <ModalClose asChild>
-                <Button variant="secondary">{c.modal.cancel}</Button>
-              </ModalClose>
-              <Button variant="danger" onClick={() => setIsModalOpen(false)}>
-                {c.modal.confirm}
-              </Button>
-            </>
-          }
-        >
-          <p className={styles.note}>{c.modal.body}</p>
-        </Modal>
+        <Row>
+          <Modal
+            open={isModalOpen}
+            onOpenChange={setIsModalOpen}
+            trigger={<Button variant="secondary">{c.modal.open}</Button>}
+            title={c.modal.title}
+            description={c.modal.description}
+            footer={
+              <>
+                <ModalClose asChild>
+                  <Button variant="secondary">{c.modal.cancel}</Button>
+                </ModalClose>
+                <Button variant="danger" onClick={() => setIsModalOpen(false)}>
+                  {c.modal.confirm}
+                </Button>
+              </>
+            }
+          >
+            <p className={styles.note}>{c.modal.body}</p>
+          </Modal>
+        </Row>
       </Section>
 
       <Section title={c.sections.dropdownMenu}>

@@ -6,15 +6,18 @@
 
 .row {
   display: flex;
-  align-items: flex-start;
+  align-self: flex-start;
+  align-items: center;
   gap: var(--space-2);
+  min-height: var(--size-target-min);
+  cursor: pointer;
 }
 
 .input {
   flex-shrink: 0;
-  width: var(--size-icon-sm);
-  height: var(--size-icon-sm);
-  margin: var(--space-1) 0 0;
+  width: var(--size-checkbox);
+  height: var(--size-checkbox);
+  margin: 0;
   accent-color: var(--color-primary);
   cursor: pointer;
 }
@@ -33,6 +36,10 @@
   line-height: var(--leading-body);
   color: var(--color-text);
   cursor: pointer;
+}
+
+.row:has(.input:disabled) {
+  cursor: not-allowed;
 }
 
 .input:disabled + .label {

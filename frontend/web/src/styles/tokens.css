@@ -85,7 +85,6 @@
 
   --color-warning-bg: var(--color-amber-50);
   --color-warning-fg: var(--color-amber-800);
-  --color-warning-border: var(--color-amber-500);
 
   --color-info-bg: var(--color-blue-50);
   --color-info-fg: var(--color-blue-600);
@@ -168,9 +167,11 @@
   /* ---------------------------------------------------------------------------
      Sizes
      ------------------------------------------------------------------------- */
-  --size-icon-sm: 16px; /* menu items, small spinner, checkbox box */
+  --size-icon-sm: 16px; /* menu items, small spinner */
   --size-icon-md: 20px; /* icons in buttons, inputs, alerts */
   --size-icon-lg: 24px; /* standalone / empty-state icons */
+  --size-checkbox: 16px; /* checkbox box */
+  --size-target-min: 24px; /* minimum hit area of small controls (checkbox row) */
   --size-avatar-sm: 32px;
   --size-avatar-md: 40px;
   --size-avatar-lg: 48px;

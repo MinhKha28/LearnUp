@@ -24,15 +24,11 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
 
     return (
       <div className={cx(styles.checkboxField, className)}>
-        <div className={styles.row}>
+        {/* The whole row is the label, so clicking the box, the gap or the text toggles it. */}
+        <label htmlFor={controlId} className={styles.row}>
           <input ref={ref} type="checkbox" className={styles.input} {...controlProps} {...rest} />
-          <label
-            htmlFor={controlId}
-            className={cx(styles.label, rest.required && fieldStyles.required)}
-          >
-            {label}
-          </label>
-        </div>
+          <span className={cx(styles.label, rest.required && fieldStyles.required)}>{label}</span>
+        </label>
 
         {helperText && (
           <p id={helperId} className={cx(fieldStyles.helper, styles.message)}>

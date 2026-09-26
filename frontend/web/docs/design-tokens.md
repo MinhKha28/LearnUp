@@ -72,7 +72,7 @@ Các màu **đã bỏ:**
 | ------------------------------------ | --------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `--color-background`                 | slate-50                                      | Nền trang                                                                          |
 | `--color-surface`                    | white                                         | Card, sidebar, header, input, menu                                                 |
-| `--color-surface-muted`              | slate-100                                     | Header bảng, badge trung tính, avatar                                              |
+| `--color-surface-muted`              | slate-100                                     | Header bảng, badge trung tính, avatar (kèm viền `--color-border`)                  |
 | `--color-border`                     | slate-200                                     | Viền card, divider, viền sidebar và header (chỉ để trang trí)                      |
 | `--color-border-input`               | slate-450                                     | Viền input, select, textarea, **nút secondary (outline)**                          |
 | `--color-text`                       | slate-900                                     | Chữ chính, tiêu đề, nav active                                                     |
@@ -91,7 +91,6 @@ Các màu **đã bỏ:**
 | `--color-danger-border`              | red-600                                       | Viền input lỗi, chữ lỗi dưới field (trên nền surface), icon ✕                      |
 | `--color-success-bg / -fg`           | emerald-50 / emerald-700                      | Badge Active/Available/Completed, callout thành công                               |
 | `--color-warning-bg / -fg`           | amber-50 / amber-800                          | Callout và badge warning, "Invitation expired", badge đếm (M10, Q10)               |
-| `--color-warning-border`             | amber-500                                     | Viền callout warning                                                               |
 | `--color-info-bg / -fg`              | blue-50 / blue-600                            | Callout thông tin, badge "Optional"                                                |
 | `--color-inverse-surface`            | slate-900                                     | Nền panel trái trang Sign in (Q12)                                                 |
 | `--color-inverse-surface-raised`     | slate-800                                     | Card ngoài trong panel                                                             |
@@ -156,7 +155,6 @@ Tính theo công thức WCAG 2.x.
 | danger-border / surface                      | 4.83  | ✅                                                                                                                                                        |
 | border / surface                             | 1.23  | Chỉ để trang trí (card, divider), không bắt buộc 3:1. **Không dùng cho viền control**                                                                     |
 | primary (vạch nav active 3px) / surface      | 2.15  | ⚠️ Dưới 3:1. Chấp nhận được vì trạng thái active còn được thể hiện bằng nền amber-50, chữ đậm và `aria-current="page"`. Vạch không phải dấu hiệu duy nhất |
-| warning-border / warning-bg                  | 2.07  | Chỉ để trang trí; callout được nhận biết qua nền và chữ                                                                                                   |
 | primary (progress) / surface-muted           | 1.96  | ⚠️ Thanh progress luôn phải kèm chữ phần trăm                                                                                                             |
 
 ---
@@ -246,14 +244,16 @@ Thang theo bội số 4px:
 
 ### 5.1 Kích thước thành phần (`--size-*`)
 
-| Token                        | Giá trị        | Dùng cho                                           |
-| ---------------------------- | -------------- | -------------------------------------------------- |
-| `--size-icon-sm`             | 16px           | Icon trong menu item, spinner nhỏ, ô checkbox      |
-| `--size-icon-md`             | 20px           | Icon trong nút, input (chevron của Select), Alert  |
-| `--size-icon-lg`             | 24px           | Icon đứng riêng, icon của EmptyState, spinner vừa  |
-| `--size-avatar-sm / md / lg` | 32 / 40 / 48px | Avatar                                             |
-| `--size-control-md`          | 44px           | Nút, input, nav item, menu item trong app (M2, M3) |
-| `--size-control-lg`          | 48px           | Nút, input ở trang auth và public (M2, M3)         |
+| Token                        | Giá trị        | Dùng cho                                                     |
+| ---------------------------- | -------------- | ------------------------------------------------------------ |
+| `--size-icon-sm`             | 16px           | Icon trong menu item, spinner nhỏ                            |
+| `--size-icon-md`             | 20px           | Icon trong nút, input (chevron của Select), Alert            |
+| `--size-icon-lg`             | 24px           | Icon đứng riêng, icon của EmptyState, spinner vừa            |
+| `--size-checkbox`            | 16px           | Ô checkbox                                                   |
+| `--size-target-min`          | 24px           | Chiều cao tối thiểu vùng bấm của control nhỏ (hàng checkbox) |
+| `--size-avatar-sm / md / lg` | 32 / 40 / 48px | Avatar                                                       |
+| `--size-control-md`          | 44px           | Nút, input, nav item, menu item trong app (M2, M3)           |
+| `--size-control-lg`          | 48px           | Nút, input ở trang auth và public (M2, M3)                   |
 
 **Quy tắc cho `*.module.css`:** mọi kích thước lấy từ token. Chỉ được viết số trực tiếp cho độ dày viền và đường kẻ (1px, 2px, 3px), media query, `%`, `auto` và `0`. Kích thước ghép thì dùng `calc()` trên token, ví dụ `calc(var(--size-icon-lg) + 2 * var(--space-4))`.
 
@@ -336,6 +336,12 @@ Mọi đề xuất đã được đồng ý, trừ M4 và M17 có điều chỉn
 | M17 | "View plans" trùng chức năng với "Subscription plans" | **Bỏ nút "View plans"**                                                       |
 | M18 | Dữ liệu demo trong ảnh ("Demo data", "[Limit]", …)    | Không đưa vào UI                                                              |
 | M19 | Viền input quá nhạt                                   | `--color-border-input` = slate-450 (Q3)                                       |
+
+---
+
+## 9. Quy tắc giao diện
+
+- Label chỉ chứa tên trường; ràng buộc, trạng thái, gợi ý đặt ở helperText.
 
 ---
 

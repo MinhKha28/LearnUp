@@ -153,7 +153,7 @@ const UserMenu: React.FC<{ onProfile: () => void; onSignOut: () => void }> = ({
     <DropdownMenuContent>
       <DropdownMenuLabel>Tài khoản</DropdownMenuLabel>
       <DropdownMenuItem onSelect={onProfile}>Hồ sơ</DropdownMenuItem>
-      <DropdownMenuItem disabled>Chuyển tổ chức</DropdownMenuItem>
+      <DropdownMenuItem disabled>Mục không khả dụng</DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem tone="danger" onSelect={onSignOut}>
         Đăng xuất
@@ -175,11 +175,11 @@ describe('DropdownMenu', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Hồ sơ',
-      'Chuyển tổ chức',
+      'Mục không khả dụng',
       'Đăng xuất',
     ]);
     expect(
-      screen.getByRole('menuitem', { name: 'Chuyển tổ chức' }).getAttribute('aria-disabled')
+      screen.getByRole('menuitem', { name: 'Mục không khả dụng' }).getAttribute('aria-disabled')
     ).toBe('true');
   });
 
