@@ -1,6 +1,9 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { API_BASE_URL } from '../config/env.js';
-import { authStorage } from '../auth/authStorage.js';
+import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { ApiResponse } from '@learnup/ts-common';
+import { API_BASE_URL } from '@/config/env';
+import { authStorage } from '@/auth/authStorage';
+import { i18n } from '@/i18n';
+import errorsVi from '@/locales/vi/errors.json';
 
 /**
  * Centralized Axios HTTP client communicating exclusively with the Spring Cloud API Gateway.
@@ -12,6 +15,56 @@ export const apiClient = axios.create({
   },
   timeout: 15000,
 });
+
+type TranslatedErrorCode = Exclude<keyof typeof errorsVi, 'generic'>;
+
+/** Error codes are UPPER_SNAKE_CASE, so they never collide with camelCase keys such as 'generic'. */
+const isTranslatedErrorCode = (code: unknown): code is TranslatedErrorCode =>
+  typeof code === 'string' && /^[A-Z][A-Z0-9_]*$/.test(code) && i18n.exists(code, { ns: 'errors' });
+
+/**
+ * Resolves a user-facing message for a failed request, in order of preference:
+ * 1. the translation of the ApiResponse `error.code` (errors:<CODE>), when one exists;
+ * 2. the server-provided `error.message`;
+ * 3. `fallback`, or errors:generic when no fallback is given.
+ */
+export const getApiErrorMessage = (err: unknown, fallback?: string): string => {
+  if (axios.isAxiosError<ApiResponse<unknown>>(err)) {
+    const apiError = err.response?.data?.error;
+
+    if (apiError && isTranslatedErrorCode(apiError.code)) {
+      return i18n.t(`errors:${apiError.code}`);
+    }
+
+    const message = apiError?.message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+  return fallback ?? i18n.t('errors:generic');
+};
+
+/**
+ * Returns the payload of a successful ApiResponse envelope.
+ * Otherwise throws an AxiosError carrying the response, so that its message is the ApiResponse
+ * `error.message` and getApiErrorMessage can read it like any other server error.
+ */
+export const unwrap = <T>(
+  response: AxiosResponse<ApiResponse<T>>,
+  fallbackMessage = 'Unexpected API response'
+): T => {
+  const body = response.data;
+  if (body?.success && body.data !== undefined && body.data !== null) {
+    return body.data;
+  }
+  throw new AxiosError(
+    body?.error?.message || fallbackMessage,
+    AxiosError.ERR_BAD_RESPONSE,
+    response.config,
+    response.request,
+    response
+  );
+};
 
 // Request Interceptor: Attach Bearer JWT token if present
 apiClient.interceptors.request.use(
@@ -67,6 +120,7 @@ apiClient.interceptors.response.use(
     const refreshToken = authStorage.getRefreshToken();
     if (!refreshToken) {
       authStorage.clearTokens();
+      window.dispatchEvent(new CustomEvent('learnup:auth-expired'));
       return Promise.reject(error);
     }
 

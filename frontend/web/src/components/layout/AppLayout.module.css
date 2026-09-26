@@ -1,0 +1,130 @@
+.shell {
+  min-height: 100vh;
+}
+
+/* Fixed sidebar from lg (1024px); below that it lives in the drawer */
+.sidebar {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .shell {
+    display: grid;
+    grid-template-columns: var(--layout-sidebar-width) minmax(0, 1fr);
+  }
+
+  .shell[data-sidebar-collapsed] {
+    grid-template-columns: var(--layout-sidebar-collapsed-width) minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    display: block;
+    height: 100vh;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .menuButton {
+    display: none;
+  }
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--layout-header-height);
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.organization {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.content {
+  width: 100%;
+  max-width: var(--layout-content-max-width);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+/* Focused only programmatically, by the skip link */
+.content:focus {
+  outline: none;
+}
+
+@media (min-width: 768px) {
+  .header {
+    padding: 0 var(--space-8);
+  }
+
+  .content {
+    padding: var(--space-8);
+  }
+}
+
+/* Drawer (below lg) */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  background-color: var(--color-overlay);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--z-modal);
+  width: min(var(--layout-sidebar-width), calc(100% - var(--space-12)));
+  box-shadow: var(--shadow-lg);
+}
+
+.drawer:focus {
+  outline: none;
+}
+
+@media (min-width: 1024px) {
+  .overlay,
+  .drawer {
+    display: none;
+  }
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import axios from 'axios';
-import { apiClient } from '../src/services/apiClient.js';
-import { authStorage } from '../src/auth/authStorage.js';
+import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { apiClient } from '@/services/apiClient';
+import { authStorage } from '@/auth/authStorage';
+
+type ResponseInterceptorHandlers = {
+  handlers: Array<{ rejected: (error: unknown) => Promise<AxiosResponse> }>;
+};
 
 vi.mock('axios', async () => {
   const actual = await vi.importActual<typeof import('axios')>('axios');
@@ -22,7 +26,9 @@ describe('Token Refresh Interceptor Logic', () => {
   });
 
   it('should not attempt refresh if request URL is an auth endpoint', async () => {
-    const responseInterceptor = (apiClient.interceptors.response as any).handlers[0];
+    const responseInterceptor = (
+      apiClient.interceptors.response as unknown as ResponseInterceptorHandlers
+    ).handlers[0];
 
     const error401 = {
       response: { status: 401 },
@@ -35,7 +41,9 @@ describe('Token Refresh Interceptor Logic', () => {
 
   it('should clear tokens and reject if 401 occurs but no refresh token is stored', async () => {
     authStorage.setAccessToken('expired-access-token');
-    const responseInterceptor = (apiClient.interceptors.response as any).handlers[0];
+    const responseInterceptor = (
+      apiClient.interceptors.response as unknown as ResponseInterceptorHandlers
+    ).handlers[0];
 
     const error401 = {
       response: { status: 401 },
@@ -47,10 +55,31 @@ describe('Token Refresh Interceptor Logic', () => {
     expect(axios.post).not.toHaveBeenCalled();
   });
 
+  it('should dispatch auth-expired if 401 occurs but no refresh token is stored', async () => {
+    authStorage.setAccessToken('expired-access-token');
+
+    const eventListener = vi.fn();
+    window.addEventListener('learnup:auth-expired', eventListener);
+
+    const responseInterceptor = (
+      apiClient.interceptors.response as unknown as ResponseInterceptorHandlers
+    ).handlers[0];
+
+    const error401 = {
+      response: { status: 401 },
+      config: { url: '/api/users/me', headers: {} },
+    };
+
+    await expect(responseInterceptor.rejected(error401)).rejects.toEqual(error401);
+    expect(eventListener).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener('learnup:auth-expired', eventListener);
+  });
+
   it('should attempt refresh and update storage when refresh token is present', async () => {
     authStorage.setTokens('expired-access', 'valid-refresh');
 
-    (axios.post as any).mockResolvedValueOnce({
+    vi.mocked(axios.post).mockResolvedValueOnce({
       data: {
         success: true,
         data: {
@@ -62,12 +91,23 @@ describe('Token Refresh Interceptor Logic', () => {
       },
     });
 
-    // Mock apiClient to resolve retry
-    const responseInterceptor = (apiClient.interceptors.response as any).handlers[0];
+    // Mock the transport of the retried request so the test never hits the network
+    const retryAdapter = vi.fn(async (config: InternalAxiosRequestConfig) => ({
+      data: { success: true, data: 'retried' },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    }));
+
+    const responseInterceptor = (
+      apiClient.interceptors.response as unknown as ResponseInterceptorHandlers
+    ).handlers[0];
 
     const originalRequest = {
       url: '/api/users/me',
       headers: {} as Record<string, string>,
+      adapter: retryAdapter,
     };
 
     const error401 = {
@@ -75,13 +115,11 @@ describe('Token Refresh Interceptor Logic', () => {
       config: originalRequest,
     };
 
-    // Spy on axios call
-    try {
-      await responseInterceptor.rejected(error401);
-    } catch {
-      // apiClient invocation will fail in unit test without network, but refresh was called
-    }
+    const retried = await responseInterceptor.rejected(error401);
 
+    expect(retryAdapter).toHaveBeenCalledTimes(1);
+    expect(retryAdapter.mock.calls[0][0].headers.Authorization).toBe('Bearer fresh-access-token');
+    expect(retried.data).toEqual({ success: true, data: 'retried' });
     expect(axios.post).toHaveBeenCalledWith(
       expect.stringContaining('/api/auth/refresh'),
       { refreshToken: 'valid-refresh' },
@@ -94,12 +132,14 @@ describe('Token Refresh Interceptor Logic', () => {
   it('should clear tokens and dispatch auth-expired when refresh fails', async () => {
     authStorage.setTokens('expired-access', 'invalid-refresh');
 
-    (axios.post as any).mockRejectedValueOnce(new Error('Refresh token invalid'));
+    vi.mocked(axios.post).mockRejectedValueOnce(new Error('Refresh token invalid'));
 
     const eventListener = vi.fn();
     window.addEventListener('learnup:auth-expired', eventListener);
 
-    const responseInterceptor = (apiClient.interceptors.response as any).handlers[0];
+    const responseInterceptor = (
+      apiClient.interceptors.response as unknown as ResponseInterceptorHandlers
+    ).handlers[0];
 
     const error401 = {
       response: { status: 401 },

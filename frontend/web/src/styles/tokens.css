@@ -1,0 +1,198 @@
+/*
+ * Design tokens — source of truth: docs/design-tokens.md
+ *
+ * Two layers:
+ *   1. Primitive (--color-slate-500, --color-amber-500, ...) — raw palette values.
+ *   2. Semantic (--color-text, --color-primary, ...) — the ONLY color tokens components may use.
+ *
+ * Light theme only (no dark mode yet); every token lives on :root.
+ * Breakpoints cannot be CSS variables; see docs/design-tokens.md §6 (sm 640, md 768, lg 1024, xl 1280).
+ */
+
+:root {
+  /* ---------------------------------------------------------------------------
+     Primitive colors — do not reference from components
+     ------------------------------------------------------------------------- */
+  --color-white: #fff;
+
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-450: #7f8ea3;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+
+  --color-amber-50: #fffbeb;
+  --color-amber-100: #fef3c7;
+  --color-amber-200: #fde68a;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+  --color-amber-700: #b45309;
+  --color-amber-800: #92400e;
+  --color-amber-900: #78350f;
+
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+
+  --color-emerald-50: #ecfdf5;
+  --color-emerald-700: #047857;
+
+  --color-blue-50: #eff6ff;
+  --color-blue-600: #2563eb;
+
+  /* ---------------------------------------------------------------------------
+     Semantic colors — use these in components
+     ------------------------------------------------------------------------- */
+  --color-background: var(--color-slate-50);
+  --color-surface: var(--color-white);
+  --color-surface-muted: var(--color-slate-100);
+
+  --color-border: var(--color-slate-200);
+  --color-border-input: var(--color-slate-450);
+
+  --color-text: var(--color-slate-900);
+  --color-text-muted: var(--color-slate-600);
+
+  /* Only on --color-surface or --color-background (fails 4.5:1 on surface-muted). */
+  --color-text-subtle: var(--color-slate-500);
+
+  --color-primary: var(--color-amber-500);
+  --color-primary-hover: var(--color-amber-600);
+  --color-primary-foreground: var(--color-slate-900);
+  --color-primary-subtle: var(--color-amber-50);
+
+  --color-link: var(--color-blue-600);
+  --color-focus-ring: var(--color-amber-700);
+
+  --color-danger: var(--color-red-600);
+  --color-danger-hover: var(--color-red-700);
+  --color-danger-foreground: var(--color-white);
+  --color-danger-bg: var(--color-red-50);
+  --color-danger-fg: var(--color-red-700);
+  --color-danger-border: var(--color-red-600);
+
+  --color-success-bg: var(--color-emerald-50);
+  --color-success-fg: var(--color-emerald-700);
+
+  --color-warning-bg: var(--color-amber-50);
+  --color-warning-fg: var(--color-amber-800);
+
+  --color-info-bg: var(--color-blue-50);
+  --color-info-fg: var(--color-blue-600);
+
+  /* Dark panel on the Sign in page */
+  --color-inverse-surface: var(--color-slate-900);
+  --color-inverse-surface-raised: var(--color-slate-800);
+  --color-inverse-surface-strong: var(--color-slate-700);
+  --color-inverse-text: var(--color-white);
+  --color-inverse-text-muted: var(--color-slate-300);
+
+  /* Modal backdrop */
+  --color-overlay: rgb(15 23 42 / 50%);
+
+  /* ---------------------------------------------------------------------------
+     Typography
+     ------------------------------------------------------------------------- */
+  --font-sans:
+    'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --text-display: 2.25rem; /* 36px */
+  --text-h1: 1.875rem; /* 30px */
+  --text-h2: 1.5rem; /* 24px */
+  --text-h3: 1.125rem; /* 18px */
+  --text-body-lg: 1rem; /* 16px — long-form reading, inputs below 768px */
+  --text-body: 0.875rem; /* 14px */
+  --text-body-sm: 0.8125rem; /* 13px */
+  --text-caption: 0.75rem; /* 12px — never go smaller (Vietnamese diacritics) */
+
+  --leading-display: 2.75rem; /* 44px */
+  --leading-h1: 2.375rem; /* 38px */
+  --leading-h2: 2rem; /* 32px */
+  --leading-h3: 1.75rem; /* 28px */
+  --leading-body-lg: 1.625rem; /* 26px */
+  --leading-body: 1.375rem; /* 22px */
+  --leading-body-sm: 1.25rem; /* 20px */
+  --leading-caption: 1rem; /* 16px */
+
+  --weight-regular: 400;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-tight: -0.02em; /* display, h1 */
+  --tracking-wide: 0.04em; /* uppercase eyebrow, table header */
+
+  /* ---------------------------------------------------------------------------
+     Spacing (4px grid)
+     ------------------------------------------------------------------------- */
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem; /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /* 48px */
+  --space-16: 4rem; /* 64px */
+
+  /* ---------------------------------------------------------------------------
+     Radius, shadow, z-index
+     ------------------------------------------------------------------------- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Floating layers only (dropdown, modal, toast); cards use --color-border. */
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 5%);
+  --shadow-md: 0 4px 8px -2px rgb(15 23 42 / 10%), 0 2px 4px -2px rgb(15 23 42 / 6%);
+  --shadow-lg: 0 12px 24px -4px rgb(15 23 42 / 12%), 0 4px 8px -4px rgb(15 23 42 / 8%);
+
+  --z-dropdown: 1000;
+  --z-sticky: 1100;
+  --z-overlay: 1200;
+  --z-modal: 1300;
+  --z-toast: 1400;
+
+  /* ---------------------------------------------------------------------------
+     Sizes
+     ------------------------------------------------------------------------- */
+  --size-icon-sm: 16px; /* menu items, small spinner */
+  --size-icon-md: 20px; /* icons in buttons, inputs, alerts */
+  --size-icon-lg: 24px; /* standalone / empty-state icons */
+  --size-checkbox: 16px; /* checkbox box */
+  --size-target-min: 24px; /* minimum hit area of small controls (checkbox row) */
+  --size-avatar-sm: 32px;
+  --size-avatar-md: 40px;
+  --size-avatar-lg: 48px;
+  --size-control-md: 44px; /* buttons, inputs, nav and menu items in the app */
+  --size-control-lg: 48px; /* buttons, inputs on auth / public pages */
+
+  /* ---------------------------------------------------------------------------
+     Layout
+     ------------------------------------------------------------------------- */
+  --layout-sidebar-width: 256px;
+  --layout-sidebar-collapsed-width: 72px; /* icon-only sidebar */
+  --layout-header-height: 64px;
+  --layout-content-max-width: 1600px;
+  --layout-form-max-width: 960px;
+  --layout-auth-form-width: 440px;
+  --layout-modal-sm: 400px;
+  --layout-modal-md: 560px;
+  --layout-modal-lg: 720px;
+  --layout-dropdown-min-width: 200px;
+  --layout-tooltip-max-width: 280px;
+  --layout-card-min-width: 280px; /* min column width of auto-fill card / form grids */
+  --layout-focus-ring-width: 2px;
+  --layout-focus-ring-offset: 2px;
+}

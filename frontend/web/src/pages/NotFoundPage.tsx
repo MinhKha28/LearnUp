@@ -1,19 +1,30 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { SearchX } from 'lucide-react';
+import { useAuth } from '@/auth/useAuth';
+import { useHomePath } from '@/app/useHomePath';
+import { ButtonLink } from '@/components/ui/ButtonLink';
+import { EmptyState } from '@/components/ui/EmptyState';
+import styles from './StatusPage.module.css';
 
 export const NotFoundPage: React.FC = () => {
+  const { t } = useTranslation();
+  const { currentUser } = useAuth();
+  const homePath = useHomePath();
+
   return (
-    <div className="status-page-container">
-      <div className="status-card">
-        <div className="status-icon">🔍</div>
-        <h1>404 &mdash; Page Not Found</h1>
-        <p>The requested route or resource does not exist on the platform.</p>
-        <div className="status-actions">
-          <Link to="/dashboard" className="btn-primary">
-            Return to Dashboard
-          </Link>
-        </div>
-      </div>
-    </div>
+    <main className={styles.page}>
+      <EmptyState
+        headingLevel={1}
+        icon={<SearchX />}
+        title={t('notFound.title')}
+        description={t('notFound.description')}
+        action={
+          <ButtonLink to={homePath}>
+            {t(currentUser ? 'actions.backToHome' : 'actions.goToLogin')}
+          </ButtonLink>
+        }
+      />
+    </main>
   );
 };

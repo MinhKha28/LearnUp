@@ -1,0 +1,56 @@
+{
+  "appName": "LearnUP",
+  "appTagline": "Nền tảng học tập B2B đa tổ chức",
+  "actions": {
+    "signOut": "Đăng xuất",
+    "backToHome": "Về trang chủ",
+    "close": "Đóng",
+    "back": "Quay lại",
+    "signIn": "Đăng nhập",
+    "goToLogin": "Đến trang đăng nhập"
+  },
+  "loading": {
+    "default": "Đang tải…",
+    "authenticating": "Đang xác thực phiên đăng nhập…",
+    "verifyingAccess": "Đang kiểm tra quyền truy cập…"
+  },
+  "roles": {
+    "admin": "Quản trị viên",
+    "organizer": "Quản lý tổ chức",
+    "instructor": "Giảng viên",
+    "learner": "Học viên",
+    "guest": "Khách"
+  },
+  "notFound": {
+    "title": "404 — Không tìm thấy trang",
+    "description": "Trang bạn yêu cầu không tồn tại."
+  },
+  "forbidden": {
+    "title": "403 — Không có quyền truy cập",
+    "description": "Vai trò hiện tại của bạn (<strong>{{role}}</strong>) không có quyền truy cập khu vực này."
+  },
+  "placeholder": {
+    "title": "Trang đang được xây dựng",
+    "description": "Tính năng này đang được phát triển và sẽ sớm ra mắt."
+  },
+  "password": {
+    "show": "Hiện mật khẩu",
+    "hide": "Ẩn mật khẩu"
+  },
+  "language": {
+    "label": "Ngôn ngữ"
+  },
+  "layout": {
+    "skipToContent": "Bỏ qua đến nội dung chính",
+    "mainNavigation": "Điều hướng chính",
+    "publicNavigation": "Điều hướng trang công khai",
+    "navigationMenu": "Menu điều hướng",
+    "openMenu": "Mở menu điều hướng",
+    "collapseSidebar": "Thu gọn thanh bên",
+    "expandSidebar": "Mở rộng thanh bên",
+    "notifications": "Thông báo",
+    "accountMenu": "Menu tài khoản",
+    "footer": "© {{year}} LearnUP. Bảo lưu mọi quyền.",
+    "platformAdministration": "Quản trị nền tảng"
+  }
+}

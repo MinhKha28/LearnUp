@@ -1,0 +1,53 @@
+.checkboxField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.row {
+  display: flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--size-target-min);
+  cursor: pointer;
+}
+
+.input {
+  flex-shrink: 0;
+  width: var(--size-checkbox);
+  height: var(--size-checkbox);
+  margin: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.input:disabled {
+  cursor: not-allowed;
+}
+
+.input[aria-invalid='true'] {
+  outline: 1px solid var(--color-danger-border);
+  outline-offset: 1px;
+}
+
+.label {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.row:has(.input:disabled) {
+  cursor: not-allowed;
+}
+
+.input:disabled + .label {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* Align messages with the label text, not the box */
+.message {
+  padding-left: var(--space-6);
+}

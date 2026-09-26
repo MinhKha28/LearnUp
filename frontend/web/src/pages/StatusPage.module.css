@@ -1,0 +1,8 @@
+/* Full-page 404 / 403: the empty state centred on the page background */
+.page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-6) var(--space-4);
+}

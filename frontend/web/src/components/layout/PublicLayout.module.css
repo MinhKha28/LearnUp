@@ -1,0 +1,84 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.container {
+  width: 100%;
+  max-width: var(--layout-content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+.header {
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.headerInner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+  min-height: var(--layout-header-height);
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.nav {
+  display: flex;
+  flex: 1;
+  align-self: stretch;
+  gap: var(--space-6);
+}
+
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.navLink:hover {
+  color: var(--color-text);
+}
+
+/* Active public link: 2px amber underline (docs §7) */
+.navLinkActive {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.content {
+  flex: 1;
+  padding-top: var(--space-8);
+  padding-bottom: var(--space-12);
+}
+
+.content:focus {
+  outline: none;
+}
+
+.footer {
+  padding: var(--space-6) 0;
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  font-size: var(--text-body-sm);
+  line-height: var(--leading-body-sm);
+  color: var(--color-text-muted);
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding: 0 var(--space-8);
+  }
+}

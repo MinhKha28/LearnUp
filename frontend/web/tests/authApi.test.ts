@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { authApi } from '../src/auth/authApi.js';
-import { apiClient } from '../src/services/apiClient.js';
-import { AuthTokens, AuthUser } from '../src/types/auth.js';
+import { authApi } from '@/auth/authApi';
+import { apiClient } from '@/services/apiClient';
+import { AuthTokens, AuthUser } from '@/types/auth';
 
-vi.mock('../src/services/apiClient.js', () => ({
+vi.mock('@/services/apiClient', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/services/apiClient')>()),
   apiClient: {
     post: vi.fn(),
     get: vi.fn(),
@@ -23,7 +24,7 @@ describe('authApi Service', () => {
       expiresIn: 3600,
     };
 
-    (apiClient.post as any).mockResolvedValueOnce({
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
       data: {
         success: true,
         data: mockTokens,
@@ -40,7 +41,7 @@ describe('authApi Service', () => {
   });
 
   it('should throw error when login response success is false', async () => {
-    (apiClient.post as any).mockResolvedValueOnce({
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
       data: {
         success: false,
         error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' },
@@ -64,7 +65,7 @@ describe('authApi Service', () => {
       createdAt: '2026-09-14T12:00:00Z',
     };
 
-    (apiClient.get as any).mockResolvedValueOnce({
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: {
         success: true,
         data: mockUser,
@@ -85,7 +86,7 @@ describe('authApi Service', () => {
       expiresIn: 3600,
     };
 
-    (apiClient.post as any).mockResolvedValueOnce({
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
       data: {
         success: true,
         data: mockTokens,

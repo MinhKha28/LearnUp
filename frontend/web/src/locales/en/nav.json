@@ -1,0 +1,41 @@
+{
+  "sections": {
+    "platform": "Platform",
+    "people": "People",
+    "training": "Training",
+    "teaching": "Teaching",
+    "learning": "Learning",
+    "assessment": "Assessment",
+    "achievements": "Achievements",
+    "monitoring": "Monitoring"
+  },
+  "admin": {
+    "plans": "Subscription plans",
+    "auditLog": "Platform audit log"
+  },
+  "organizer": {
+    "instructors": "Instructors",
+    "learners": "Learners",
+    "courses": "Organization courses",
+    "enrollments": "Course assignments",
+    "auditLog": "Organization audit log"
+  },
+  "instructor": {
+    "courses": "My courses",
+    "peerReviewCycles": "Peer review cycles"
+  },
+  "learner": {
+    "courses": "My courses",
+    "catalog": "Course catalog",
+    "assessments": "Assessments to do",
+    "peerReviews": "Peer reviews to do",
+    "certificates": "Certificates"
+  },
+  "account": {
+    "profile": "Profile",
+    "changePassword": "Change password"
+  },
+  "public": {
+    "pricing": "Pricing"
+  }
+}

@@ -1,0 +1,15 @@
+.content {
+  z-index: var(--z-toast);
+  max-width: var(--layout-tooltip-max-width);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-inverse-surface);
+  color: var(--color-inverse-text);
+  font-size: var(--text-body-sm);
+  line-height: var(--leading-body-sm);
+  box-shadow: var(--shadow-md);
+}
+
+.arrow {
+  fill: var(--color-inverse-surface);
+}

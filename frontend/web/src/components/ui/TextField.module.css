@@ -1,0 +1,19 @@
+.inputWrapper {
+  position: relative;
+}
+
+.withToggle {
+  padding-right: var(--size-control-md);
+}
+
+.toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: var(--color-text-muted);
+}
+
+.toggle:hover:not(:disabled) {
+  background-color: transparent;
+  color: var(--color-text);
+}

@@ -1,15 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { ProtectedRoute } from '../src/auth/ProtectedRoute.js';
-import { RoleRoute } from '../src/auth/RoleRoute.js';
-import * as AuthContextModule from '../src/auth/AuthContext.js';
+import { ROUTER_FUTURE_FLAGS } from './routerFuture';
+import { ProtectedRoute } from '@/auth/ProtectedRoute';
+import { RoleRoute } from '@/auth/RoleRoute';
+import * as UseAuthModule from '@/auth/useAuth';
 
 describe('Route Protection and Role Guards', () => {
   it('should show loading indicator when authentication state is loading', () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
       currentUser: null,
-      accessToken: null,
       isAuthenticated: false,
       isLoading: true,
       login: vi.fn(),
@@ -18,7 +18,7 @@ describe('Route Protection and Role Guards', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/protected']}>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={['/protected']}>
         <Routes>
           <Route
             path="/protected"
@@ -32,14 +32,13 @@ describe('Route Protection and Role Guards', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/authenticating session/i)).toBeDefined();
+    expect(screen.getByRole('status').textContent).toBe('Đang xác thực phiên đăng nhập…');
     expect(screen.queryByText('Secret Content')).toBeNull();
   });
 
   it('should redirect unauthenticated user to /login from ProtectedRoute', () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
       currentUser: null,
-      accessToken: null,
       isAuthenticated: false,
       isLoading: false,
       login: vi.fn(),
@@ -48,7 +47,7 @@ describe('Route Protection and Role Guards', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/protected']}>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={['/protected']}>
         <Routes>
           <Route
             path="/protected"
@@ -68,7 +67,7 @@ describe('Route Protection and Role Guards', () => {
   });
 
   it('should render protected content when user is authenticated', () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
       currentUser: {
         id: 'usr-1',
         username: 'learner1',
@@ -78,7 +77,6 @@ describe('Route Protection and Role Guards', () => {
         enabled: true,
         createdAt: '2026-09-14T00:00:00Z',
       },
-      accessToken: 'valid-jwt',
       isAuthenticated: true,
       isLoading: false,
       login: vi.fn(),
@@ -87,13 +85,13 @@ describe('Route Protection and Role Guards', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/dashboard']}>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={['/dashboard']}>
         <Routes>
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <div>Dashboard Content</div>
+                <div>Protected Content</div>
               </ProtectedRoute>
             }
           />
@@ -101,11 +99,11 @@ describe('Route Protection and Role Guards', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Dashboard Content')).toBeDefined();
+    expect(screen.getByText('Protected Content')).toBeDefined();
   });
 
   it('should allow authorized role in RoleRoute', () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
       currentUser: {
         id: 'usr-admin',
         username: 'admin1',
@@ -114,7 +112,6 @@ describe('Route Protection and Role Guards', () => {
         enabled: true,
         createdAt: '2026-09-14T00:00:00Z',
       },
-      accessToken: 'valid-jwt',
       isAuthenticated: true,
       isLoading: false,
       login: vi.fn(),
@@ -123,7 +120,7 @@ describe('Route Protection and Role Guards', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/admin-portal']}>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={['/admin-portal']}>
         <Routes>
           <Route
             path="/admin-portal"
@@ -141,7 +138,7 @@ describe('Route Protection and Role Guards', () => {
   });
 
   it('should redirect unauthorized role to /unauthorized in RoleRoute', () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
       currentUser: {
         id: 'usr-learner',
         username: 'learner1',
@@ -150,7 +147,6 @@ describe('Route Protection and Role Guards', () => {
         enabled: true,
         createdAt: '2026-09-14T00:00:00Z',
       },
-      accessToken: 'valid-jwt',
       isAuthenticated: true,
       isLoading: false,
       login: vi.fn(),
@@ -159,7 +155,7 @@ describe('Route Protection and Role Guards', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/admin-portal']}>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={['/admin-portal']}>
         <Routes>
           <Route
             path="/admin-portal"

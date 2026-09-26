@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext.js';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/auth/useAuth';
+import { getApiErrorMessage } from '@/services/apiClient';
+import { getPostLoginPath } from '@/app/navigation';
 
 export const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -8,22 +11,24 @@ export const LoginPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login, isAuthenticated } = useAuth();
+  const { t } = useTranslation(['auth', 'common']);
+
+  const { login, currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+    if (currentUser) {
+      navigate(getPostLoginPath(currentUser.role, from), { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [currentUser, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      setErrorMsg('Please enter both username and password.');
+      setErrorMsg(t('auth:login.missingCredentials'));
       return;
     }
 
@@ -31,65 +36,53 @@ export const LoginPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      await login({ username: username.trim(), password });
-      navigate(from, { replace: true });
+      const user = await login({ username: username.trim(), password });
+      navigate(getPostLoginPath(user.role, from), { replace: true });
     } catch (err: unknown) {
-      const error = err as Error;
-      setErrorMsg(error.message || 'Authentication failed. Please check your credentials.');
+      setErrorMsg(getApiErrorMessage(err, t('auth:login.failed')));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <div className="login-header">
-          <h1 className="login-title">LearnUP</h1>
-          <p className="login-subtitle">B2B Multi-Tenant Learning Platform</p>
+    <div>
+      <header>
+        <h1>{t('common:appName')}</h1>
+        <p>{t('common:appTagline')}</p>
+      </header>
+
+      {errorMsg && <div role="alert">{errorMsg}</div>}
+
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="username">{t('auth:login.usernameLabel')}</label>
+          <input
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            autoFocus
+          />
         </div>
 
-        {errorMsg && <div className="alert alert-error">{errorMsg}</div>}
-
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group">
-            <label htmlFor="username">Username or Email</label>
-            <input
-              id="username"
-              type="text"
-              className="form-control"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. learner1 or organizer1"
-              required
-              autoFocus
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              className="form-control"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
-          </div>
-
-          <button type="submit" className="btn-primary" disabled={isSubmitting}>
-            {isSubmitting ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-
-        <div className="login-footer">
-          <p className="auth-note">
-            Communicates through <strong>API Gateway :8080</strong> &rarr; <strong>Identity Service</strong>
-          </p>
+        <div>
+          <label htmlFor="password">{t('auth:login.passwordLabel')}</label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+          />
         </div>
-      </div>
+
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? t('auth:login.submitting') : t('auth:login.submit')}
+        </button>
+      </form>
     </div>
   );
 };

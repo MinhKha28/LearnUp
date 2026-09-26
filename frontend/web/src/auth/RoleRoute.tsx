@@ -1,7 +1,10 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { UserRole } from '@learnup/ts-common';
-import { useAuth } from './AuthContext.js';
+import { useAuth } from './useAuth';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { LOGIN_PATH, UNAUTHORIZED_PATH } from '@/config/routes';
 
 interface RoleRouteProps {
   allowedRoles: UserRole[];
@@ -11,22 +14,18 @@ interface RoleRouteProps {
 export const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles, children }) => {
   const { currentUser, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
+  const { t } = useTranslation();
 
   if (isLoading) {
-    return (
-      <div className="loading-screen">
-        <div className="spinner"></div>
-        <p>Verifying access...</p>
-      </div>
-    );
+    return <LoadingScreen message={t('loading.verifyingAccess')} />;
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to={LOGIN_PATH} state={{ from: location }} replace />;
   }
 
   if (!currentUser || !allowedRoles.includes(currentUser.role)) {
-    return <Navigate to="/unauthorized" replace />;
+    return <Navigate to={UNAUTHORIZED_PATH} replace />;
   }
 
   return children ? <>{children}</> : <Outlet />;

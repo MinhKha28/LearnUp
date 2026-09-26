@@ -1,29 +1,39 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext.js';
+import { Trans, useTranslation } from 'react-i18next';
+import { ShieldAlert } from 'lucide-react';
+import { useAuth } from '@/auth/useAuth';
+import { ROLE_LABEL_KEYS } from '@/auth/roleLabels';
+import { useHomePath } from '@/app/useHomePath';
+import { ButtonLink } from '@/components/ui/ButtonLink';
+import { EmptyState } from '@/components/ui/EmptyState';
+import styles from './StatusPage.module.css';
 
 export const UnauthorizedPage: React.FC = () => {
   const { currentUser } = useAuth();
+  const { t } = useTranslation();
+  const homePath = useHomePath();
+
+  const role = t(currentUser ? ROLE_LABEL_KEYS[currentUser.role] : 'roles.guest');
 
   return (
-    <div className="status-page-container">
-      <div className="status-card">
-        <div className="status-icon">⛔</div>
-        <h1>403 &mdash; Access Restricted</h1>
-        <p>
-          Your current account role (<strong>{currentUser?.role || 'Guest'}</strong>) does not have
-          sufficient permissions to access this specific area.
-        </p>
-        <p className="status-subtext">
-          Business authorization policies are enforced by downstream microservices based on trusted
-          identity context.
-        </p>
-        <div className="status-actions">
-          <Link to="/dashboard" className="btn-primary">
-            Back to Dashboard
-          </Link>
-        </div>
-      </div>
-    </div>
+    <main className={styles.page}>
+      <EmptyState
+        headingLevel={1}
+        icon={<ShieldAlert />}
+        title={t('forbidden.title')}
+        description={
+          <Trans
+            i18nKey="forbidden.description"
+            values={{ role }}
+            components={{ strong: <strong /> }}
+          />
+        }
+        action={
+          <ButtonLink to={homePath}>
+            {t(currentUser ? 'actions.backToHome' : 'actions.goToLogin')}
+          </ButtonLink>
+        }
+      />
+    </main>
   );
 };

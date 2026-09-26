@@ -1,28 +1,15 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { AuthUser, LoginCredentials } from '../types/auth.js';
-import { authStorage } from './authStorage.js';
-import { authApi } from './authApi.js';
-
-interface AuthContextType {
-  currentUser: AuthUser | null;
-  accessToken: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  logout: () => void;
-  loadCurrentUser: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import React, { useEffect, useState, useCallback, ReactNode } from 'react';
+import { AuthUser, LoginCredentials } from '@/types/auth';
+import { authStorage } from './authStorage';
+import { authApi } from './authApi';
+import { AuthContext, AuthContextValue } from './useAuth';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(authStorage.getAccessToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const logout = useCallback(() => {
     authStorage.clearTokens();
-    setAccessToken(null);
     setCurrentUser(null);
   }, []);
 
@@ -40,9 +27,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const tokens = await authApi.login(credentials);
       authStorage.setTokens(tokens.accessToken, tokens.refreshToken);
-      setAccessToken(tokens.accessToken);
       const user = await authApi.getMe();
       setCurrentUser(user);
+      return user;
     } finally {
       setIsLoading(false);
     }
@@ -64,14 +51,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         if (token) {
           const user = await authApi.getMe();
-          if (isMounted) {
-            setCurrentUser(user);
-            setAccessToken(token);
-          }
+          if (isMounted) setCurrentUser(user);
         } else if (refreshToken) {
           const newTokens = await authApi.refresh(refreshToken);
           authStorage.setTokens(newTokens.accessToken, newTokens.refreshToken);
-          if (isMounted) setAccessToken(newTokens.accessToken);
           const user = await authApi.getMe();
           if (isMounted) setCurrentUser(user);
         }
@@ -95,10 +78,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [logout]);
 
-  const value = {
+  const value: AuthContextValue = {
     currentUser,
-    accessToken,
-    isAuthenticated: Boolean(currentUser && accessToken),
+    isAuthenticated: Boolean(currentUser),
     isLoading,
     login,
     logout,
@@ -106,12 +88,4 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
-
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };
