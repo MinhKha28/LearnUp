@@ -1,0 +1,41 @@
+{
+  "sections": {
+    "platform": "Nền tảng",
+    "people": "Thành viên",
+    "training": "Đào tạo",
+    "teaching": "Giảng dạy",
+    "learning": "Học tập",
+    "assessment": "Đánh giá",
+    "achievements": "Thành tích",
+    "monitoring": "Giám sát"
+  },
+  "admin": {
+    "plans": "Gói dịch vụ",
+    "auditLog": "Nhật ký nền tảng"
+  },
+  "organizer": {
+    "instructors": "Giảng viên",
+    "learners": "Học viên",
+    "courses": "Khóa học tổ chức",
+    "enrollments": "Phân công",
+    "auditLog": "Nhật ký tổ chức"
+  },
+  "instructor": {
+    "courses": "Khóa học phụ trách",
+    "peerReviewCycles": "Chu kỳ chấm chéo"
+  },
+  "learner": {
+    "courses": "Khóa học của tôi",
+    "catalog": "Danh mục khóa học",
+    "assessments": "Bài cần làm",
+    "peerReviews": "Bài cần chấm",
+    "certificates": "Chứng chỉ"
+  },
+  "account": {
+    "profile": "Hồ sơ",
+    "changePassword": "Đổi mật khẩu"
+  },
+  "public": {
+    "pricing": "Bảng giá"
+  }
+}

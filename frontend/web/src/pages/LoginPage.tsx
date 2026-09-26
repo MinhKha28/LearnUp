@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/auth/useAuth';
 import { getApiErrorMessage } from '@/services/apiClient';
-import { DEFAULT_AUTHENTICATED_PATH } from '@/config/routes';
+import { getPostLoginPath } from '@/app/navigation';
 
 export const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -13,19 +13,17 @@ export const LoginPage: React.FC = () => {
 
   const { t } = useTranslation(['auth', 'common']);
 
-  const { login, isAuthenticated } = useAuth();
+  const { login, currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from =
-    (location.state as { from?: { pathname: string } })?.from?.pathname ||
-    DEFAULT_AUTHENTICATED_PATH;
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate(from, { replace: true });
+    if (currentUser) {
+      navigate(getPostLoginPath(currentUser.role, from), { replace: true });
     }
-  }, [isAuthenticated, navigate, from]);
+  }, [currentUser, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +36,8 @@ export const LoginPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      await login({ username: username.trim(), password });
-      navigate(from, { replace: true });
+      const user = await login({ username: username.trim(), password });
+      navigate(getPostLoginPath(user.role, from), { replace: true });
     } catch (err: unknown) {
       setErrorMsg(getApiErrorMessage(err, t('auth:login.failed')));
     } finally {
@@ -48,7 +46,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <main>
+    <div>
       <header>
         <h1>{t('common:appName')}</h1>
         <p>{t('common:appTagline')}</p>
@@ -85,6 +83,6 @@ export const LoginPage: React.FC = () => {
           {isSubmitting ? t('auth:login.submitting') : t('auth:login.submit')}
         </button>
       </form>
-    </main>
+    </div>
   );
 };

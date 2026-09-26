@@ -63,7 +63,7 @@ _(Disallowed roles: `SUPER_ADMIN`, `ORG_ADMIN`, `TENANT_ADMIN`)_
   2. Receives `{ accessToken, refreshToken, tokenType, expiresIn }`.
   3. Tokens persisted in `localStorage` via `authStorage.ts`.
   4. `GET /api/users/me` loads current authenticated user profile (`AuthUser`).
-  5. `AuthContext` updates and redirects user to `/dashboard`.
+  5. `AuthContext` updates and `LoginPage` redirects to the page the user came from, or to the role home (`getHomePath(role)` in `src/app/navigation.ts`).
 - **Token Persistence**: Isolated abstraction in `src/auth/authStorage.ts` for clean browser storage access.
 - **Token Refresh**:
   1. `apiClient.ts` intercepts `401 Unauthorized` responses on protected endpoints.

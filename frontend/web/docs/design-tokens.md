@@ -228,19 +228,20 @@ Thang theo bội số 4px:
 
 ## 5. Kích thước layout
 
-| Token                         | Giá trị           | Ghi chú                                              |
-| ----------------------------- | ----------------- | ---------------------------------------------------- |
-| `--layout-sidebar-width`      | 256px             |                                                      |
-| `--layout-header-height`      | 64px              | Header 1 dòng (Q1, Q7)                               |
-| `--layout-content-max-width`  | 1600px            | Q8                                                   |
-| `--layout-form-max-width`     | 960px             | Form nhiều bước, trang cài đặt (Q8)                  |
-| `--layout-auth-form-width`    | 440px             | Q9                                                   |
-| `--layout-modal-sm / md / lg` | 400 / 560 / 720px | `max-width` của Modal theo `size`                    |
-| `--layout-dropdown-min-width` | 200px             | Độ rộng tối thiểu của DropdownMenu                   |
-| `--layout-tooltip-max-width`  | 280px             | Tooltip xuống dòng khi vượt độ rộng này              |
-| `--layout-card-min-width`     | 280px             | Độ rộng cột tối thiểu của lưới card/form `auto-fill` |
-| `--layout-focus-ring-width`   | 2px               | Q4                                                   |
-| `--layout-focus-ring-offset`  | 2px               | Q4                                                   |
+| Token                              | Giá trị           | Ghi chú                                              |
+| ---------------------------------- | ----------------- | ---------------------------------------------------- |
+| `--layout-sidebar-width`           | 256px             |                                                      |
+| `--layout-sidebar-collapsed-width` | 72px              | Sidebar thu gọn, chỉ hiện icon (§7)                  |
+| `--layout-header-height`           | 64px              | Header 1 dòng (Q1, Q7)                               |
+| `--layout-content-max-width`       | 1600px            | Q8                                                   |
+| `--layout-form-max-width`          | 960px             | Form nhiều bước, trang cài đặt (Q8)                  |
+| `--layout-auth-form-width`         | 440px             | Q9                                                   |
+| `--layout-modal-sm / md / lg`      | 400 / 560 / 720px | `max-width` của Modal theo `size`                    |
+| `--layout-dropdown-min-width`      | 200px             | Độ rộng tối thiểu của DropdownMenu                   |
+| `--layout-tooltip-max-width`       | 280px             | Tooltip xuống dòng khi vượt độ rộng này              |
+| `--layout-card-min-width`          | 280px             | Độ rộng cột tối thiểu của lưới card/form `auto-fill` |
+| `--layout-focus-ring-width`        | 2px               | Q4                                                   |
+| `--layout-focus-ring-offset`       | 2px               | Q4                                                   |
 
 ### 5.1 Kích thước thành phần (`--size-*`)
 
@@ -284,11 +285,13 @@ CSS variable không dùng được trong `@media`, nên breakpoint chỉ ghi ở
   - **Vạch 3px `--color-primary` bên trái.**
   - Có `aria-current="page"`.
 - Badge đếm dùng warning hoặc danger (bg/fg).
+- **Thu gọn** (`--layout-sidebar-collapsed-width` 72px): chỉ hiện icon, section label ẩn khỏi mắt nhưng vẫn là tên nhóm cho trình đọc màn hình. Tên mục hiện qua Tooltip bên phải; link giữ `aria-label` và `aria-current`. Nút thu gọn/mở rộng ở cuối sidebar. Lựa chọn lưu trong `localStorage` (`learnup.sidebar-collapsed`). Trang con có thể ép thu gọn tạm thời bằng `useForceSidebarCollapsed()`; khi trang đó unmount, lựa chọn của người dùng được trả lại.
+- **Dưới `lg`:** sidebar thành drawer bên trái (Radix Dialog, nền `--color-overlay`, `--shadow-lg`), luôn ở dạng mở rộng. Đóng bằng Esc, nút ✕, bấm ra ngoài, hoặc khi chọn một mục.
 
 **Header** (`--layout-header-height` 64px, nền surface, viền dưới `--color-border`, **1 dòng**):
 
 - Bên trái: tên tổ chức, hoặc nút mở drawer khi màn hình dưới `lg`.
-- Bên phải: thông báo và **menu người dùng** (avatar, tên, role, Tài khoản, Đăng xuất) dạng dropdown với `--shadow-md` và `--z-dropdown`.
+- Bên phải: thông báo và **menu người dùng** dạng dropdown với `--shadow-md` và `--z-dropdown`. Thứ tự trong menu: tên và role, Hồ sơ, Đổi mật khẩu, chọn ngôn ngữ, Đăng xuất (tone danger).
 - Header không chứa eyebrow tên role và không chứa tiêu đề trang.
 
 **Vùng nội dung:**
@@ -307,7 +310,7 @@ CSS variable không dùng được trong `@media`, nên breakpoint chỉ ghi ở
 - Chia đôi màn hình. Panel trái dùng `--color-inverse-*`. Form rộng `--layout-auth-form-width`.
 - Dưới `md` ẩn panel trái.
 
-**Còn phải thiết kế thêm** (ảnh chưa có): drawer cho mobile và tablet, nội dung menu người dùng, panel thông báo, trạng thái hover và disabled của mọi thành phần.
+**Còn phải thiết kế thêm** (ảnh chưa có): panel thông báo, trạng thái hover và disabled của mọi thành phần. Drawer và menu người dùng đã làm theo mô tả ở trên, cần đối chiếu khi có ảnh thiết kế.
 
 ---
 

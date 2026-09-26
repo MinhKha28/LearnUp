@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './useAuth';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { LOGIN_PATH } from '@/config/routes';
 
 export const ProtectedRoute: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -14,7 +15,7 @@ export const ProtectedRoute: React.FC<{ children?: React.ReactNode }> = ({ child
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to={LOGIN_PATH} state={{ from: location }} replace />;
   }
 
   return children ? <>{children}</> : <Outlet />;

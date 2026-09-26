@@ -14,6 +14,8 @@ export interface AuthUser {
   fullName?: string;
   role: UserRole;
   organizationId?: string;
+  /** Shown in the app header for non-admin roles; not returned by /api/users/me yet. */
+  organizationName?: string;
   enabled: boolean;
   createdAt: string;
 }

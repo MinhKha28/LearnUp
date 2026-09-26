@@ -1,24 +1,28 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '@/auth/useAuth';
+import { Construction } from 'lucide-react';
+import type { NavLabelKey } from '@/app/navigation';
+import { EmptyState } from '@/components/ui/EmptyState';
+import styles from './PlaceholderPage.module.css';
 
-export const PlaceholderPage: React.FC = () => {
-  const { logout } = useAuth();
-  const navigate = useNavigate();
+export interface PlaceholderPageProps {
+  /** Page title, as the key of its menu entry in the "nav" namespace. */
+  titleKey: NavLabelKey;
+}
+
+/** Stand-in for a page that is routed and in the menu but not built yet. */
+export const PlaceholderPage: React.FC<PlaceholderPageProps> = ({ titleKey }) => {
   const { t } = useTranslation();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const { t: tNav } = useTranslation('nav');
 
   return (
-    <main>
-      <h1>{t('placeholder.title')}</h1>
-      <button type="button" onClick={handleLogout}>
-        {t('actions.signOut')}
-      </button>
-    </main>
+    <>
+      <h1 className={styles.title}>{tNav(titleKey)}</h1>
+      <EmptyState
+        icon={<Construction />}
+        title={t('placeholder.title')}
+        description={t('placeholder.description')}
+      />
+    </>
   );
 };

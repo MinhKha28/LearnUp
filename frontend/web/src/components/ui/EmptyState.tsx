@@ -9,8 +9,8 @@ export interface EmptyStateProps {
   icon?: React.ReactNode;
   /** Usually a Button. */
   action?: React.ReactNode;
-  /** Heading level that fits the page outline; defaults to h2. */
-  headingLevel?: 2 | 3 | 4;
+  /** Heading level that fits the page outline; defaults to h2. Use 1 when the state is the whole page. */
+  headingLevel?: 1 | 2 | 3 | 4;
   className?: string;
 }
 

@@ -1,34 +1,39 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
-import { UserRole } from '@learnup/ts-common';
+import { ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/auth/useAuth';
-import { DEFAULT_AUTHENTICATED_PATH } from '@/config/routes';
-
-const ROLE_KEYS = {
-  ADMIN: 'roles.admin',
-  ORGANIZER: 'roles.organizer',
-  INSTRUCTOR: 'roles.instructor',
-  LEARNER: 'roles.learner',
-} as const satisfies Record<UserRole, string>;
+import { ROLE_LABEL_KEYS } from '@/auth/roleLabels';
+import { useHomePath } from '@/app/useHomePath';
+import { ButtonLink } from '@/components/ui/ButtonLink';
+import { EmptyState } from '@/components/ui/EmptyState';
+import styles from './StatusPage.module.css';
 
 export const UnauthorizedPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { t } = useTranslation();
+  const homePath = useHomePath();
 
-  const role = t(currentUser ? ROLE_KEYS[currentUser.role] : 'roles.guest');
+  const role = t(currentUser ? ROLE_LABEL_KEYS[currentUser.role] : 'roles.guest');
 
   return (
-    <main>
-      <h1>{t('forbidden.title')}</h1>
-      <p>
-        <Trans
-          i18nKey="forbidden.description"
-          values={{ role }}
-          components={{ strong: <strong /> }}
-        />
-      </p>
-      <Link to={DEFAULT_AUTHENTICATED_PATH}>{t('actions.backToHome')}</Link>
+    <main className={styles.page}>
+      <EmptyState
+        headingLevel={1}
+        icon={<ShieldAlert />}
+        title={t('forbidden.title')}
+        description={
+          <Trans
+            i18nKey="forbidden.description"
+            values={{ role }}
+            components={{ strong: <strong /> }}
+          />
+        }
+        action={
+          <ButtonLink to={homePath}>
+            {t(currentUser ? 'actions.backToHome' : 'actions.goToLogin')}
+          </ButtonLink>
+        }
+      />
     </main>
   );
 };

@@ -10,6 +10,7 @@
   line-height: var(--leading-body);
   font-weight: var(--weight-semibold);
   white-space: nowrap;
+  text-decoration: none;
   cursor: pointer;
   transition:
     background-color 0.15s ease,

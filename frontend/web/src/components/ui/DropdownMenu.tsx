@@ -1,5 +1,6 @@
 import React, { forwardRef } from 'react';
 import * as Menu from '@radix-ui/react-dropdown-menu';
+import { Check } from 'lucide-react';
 import { cx } from '@/lib/cx';
 import styles from './DropdownMenu.module.css';
 
@@ -71,3 +72,21 @@ export const DropdownMenuSeparator = forwardRef<
   <Menu.Separator ref={ref} className={cx(styles.separator, className)} {...rest} />
 ));
 DropdownMenuSeparator.displayName = 'DropdownMenuSeparator';
+
+export const DropdownMenuRadioGroup = Menu.RadioGroup;
+
+/** A checkable option inside DropdownMenuRadioGroup; the check mark shows on the selected one. */
+export const DropdownMenuRadioItem = forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<typeof Menu.RadioItem>
+>(({ className, children, ...rest }, ref) => (
+  <Menu.RadioItem ref={ref} className={cx(styles.item, className)} {...rest}>
+    <span className={styles.indicator} aria-hidden="true">
+      <Menu.ItemIndicator>
+        <Check />
+      </Menu.ItemIndicator>
+    </span>
+    {children}
+  </Menu.RadioItem>
+));
+DropdownMenuRadioItem.displayName = 'DropdownMenuRadioItem';

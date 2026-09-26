@@ -4,7 +4,10 @@
   "actions": {
     "signOut": "Đăng xuất",
     "backToHome": "Về trang chủ",
-    "close": "Đóng"
+    "close": "Đóng",
+    "back": "Quay lại",
+    "signIn": "Đăng nhập",
+    "goToLogin": "Đến trang đăng nhập"
   },
   "loading": {
     "default": "Đang tải…",
@@ -27,10 +30,27 @@
     "description": "Vai trò hiện tại của bạn (<strong>{{role}}</strong>) không có quyền truy cập khu vực này."
   },
   "placeholder": {
-    "title": "Trang đang được xây dựng"
+    "title": "Trang đang được xây dựng",
+    "description": "Tính năng này đang được phát triển và sẽ sớm ra mắt."
   },
   "password": {
     "show": "Hiện mật khẩu",
     "hide": "Ẩn mật khẩu"
+  },
+  "language": {
+    "label": "Ngôn ngữ"
+  },
+  "layout": {
+    "skipToContent": "Bỏ qua đến nội dung chính",
+    "mainNavigation": "Điều hướng chính",
+    "publicNavigation": "Điều hướng trang công khai",
+    "navigationMenu": "Menu điều hướng",
+    "openMenu": "Mở menu điều hướng",
+    "collapseSidebar": "Thu gọn thanh bên",
+    "expandSidebar": "Mở rộng thanh bên",
+    "notifications": "Thông báo",
+    "accountMenu": "Menu tài khoản",
+    "footer": "© {{year}} LearnUP. Bảo lưu mọi quyền.",
+    "platformAdministration": "Quản trị nền tảng"
   }
 }

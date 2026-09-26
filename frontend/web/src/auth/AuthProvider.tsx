@@ -29,6 +29,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       authStorage.setTokens(tokens.accessToken, tokens.refreshToken);
       const user = await authApi.getMe();
       setCurrentUser(user);
+      return user;
     } finally {
       setIsLoading(false);
     }

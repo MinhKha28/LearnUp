@@ -182,6 +182,7 @@
      Layout
      ------------------------------------------------------------------------- */
   --layout-sidebar-width: 256px;
+  --layout-sidebar-collapsed-width: 72px; /* icon-only sidebar */
   --layout-header-height: 64px;
   --layout-content-max-width: 1600px;
   --layout-form-max-width: 960px;

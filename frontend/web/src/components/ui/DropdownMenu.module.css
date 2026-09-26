@@ -65,3 +65,16 @@
   margin: var(--space-1) 0;
   border-top: 1px solid var(--color-border);
 }
+
+/* Fixed-width slot so checked and unchecked radio items line up */
+.indicator {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: var(--size-icon-sm);
+  height: var(--size-icon-sm);
+}
+
+.indicator svg {
+  width: var(--size-icon-sm);
+  height: var(--size-icon-sm);
+}

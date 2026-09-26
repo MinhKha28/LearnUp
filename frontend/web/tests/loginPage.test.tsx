@@ -6,7 +6,8 @@ import { ROUTER_FUTURE_FLAGS } from './routerFuture';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { LoginPage } from '@/pages/LoginPage';
 import * as UseAuthModule from '@/auth/useAuth';
-import { DEFAULT_AUTHENTICATED_PATH } from '@/config/routes';
+import { getHomePath } from '@/app/navigation';
+import { makeUser, mockAuth } from './authMock';
 
 const mockLoginRejection = (error: unknown) => {
   vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
@@ -87,16 +88,11 @@ const renderLoginRoutes = (state?: { from: { pathname: string } }) => {
   );
 };
 
-const mockAuth = (isAuthenticated: boolean) => {
-  vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
-    currentUser: null,
-    isAuthenticated,
-    isLoading: false,
-    login: vi.fn().mockResolvedValue(undefined),
-    logout: vi.fn(),
-    loadCurrentUser: vi.fn(),
-  });
-};
+const learner = makeUser('LEARNER');
+
+/** Signed out, with login resolving to a learner; or already signed in as that learner. */
+const mockLoginAuth = (signedIn: boolean) =>
+  mockAuth(signedIn ? learner : null, { login: vi.fn().mockResolvedValue(learner) });
 
 const submitCredentials = () => {
   fireEvent.change(screen.getByLabelText('Tên đăng nhập hoặc email'), {
@@ -113,34 +109,43 @@ describe('LoginPage redirect', () => {
   });
 
   it('should redirect to location.state.from after successful submit', async () => {
-    mockAuth(false);
-    renderLoginRoutes({ from: { pathname: '/courses/42' } });
+    mockLoginAuth(false);
+    renderLoginRoutes({ from: { pathname: '/learner/catalog' } });
 
     submitCredentials();
 
-    expect(await screen.findByText('At /courses/42 via REPLACE')).toBeDefined();
+    expect(await screen.findByText('At /learner/catalog via REPLACE')).toBeDefined();
   });
 
-  it('should redirect to DEFAULT_AUTHENTICATED_PATH after successful submit without from', async () => {
-    mockAuth(false);
+  it('should redirect to the role home (getHomePath) after successful submit without from', async () => {
+    mockLoginAuth(false);
     renderLoginRoutes();
 
     submitCredentials();
 
-    expect(await screen.findByText(`At ${DEFAULT_AUTHENTICATED_PATH} via REPLACE`)).toBeDefined();
+    expect(await screen.findByText(`At ${getHomePath('LEARNER')} via REPLACE`)).toBeDefined();
+  });
+
+  it("should ignore a from path in another role's area and go to the role home", async () => {
+    mockLoginAuth(false);
+    renderLoginRoutes({ from: { pathname: '/admin/plans' } });
+
+    submitCredentials();
+
+    expect(await screen.findByText('At /learner/courses via REPLACE')).toBeDefined();
   });
 
   it('should redirect an already authenticated user to location.state.from', async () => {
-    mockAuth(true);
-    renderLoginRoutes({ from: { pathname: '/courses/42' } });
+    mockLoginAuth(true);
+    renderLoginRoutes({ from: { pathname: '/account/profile' } });
 
-    expect(await screen.findByText('At /courses/42 via REPLACE')).toBeDefined();
+    expect(await screen.findByText('At /account/profile via REPLACE')).toBeDefined();
   });
 
-  it('should redirect an already authenticated user to DEFAULT_AUTHENTICATED_PATH without from', async () => {
-    mockAuth(true);
+  it('should redirect an already authenticated user to the role home without from', async () => {
+    mockLoginAuth(true);
     renderLoginRoutes();
 
-    expect(await screen.findByText(`At ${DEFAULT_AUTHENTICATED_PATH} via REPLACE`)).toBeDefined();
+    expect(await screen.findByText('At /learner/courses via REPLACE')).toBeDefined();
   });
 });

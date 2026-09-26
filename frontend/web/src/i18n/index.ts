@@ -8,7 +8,7 @@ import {
   resources,
 } from './resources';
 
-export { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from './resources';
+export { DEFAULT_LANGUAGE, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from './resources';
 export type { Language } from './resources';
 
 export const LANGUAGE_STORAGE_KEY = 'learnup.language';
