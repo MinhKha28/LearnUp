@@ -49,3 +49,5 @@ yarn-error.log*
 # Testing
 coverage/
 .nyc_output/
+
+frontend/web/.design-refs/
