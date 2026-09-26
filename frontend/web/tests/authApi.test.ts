@@ -24,7 +24,7 @@ describe('authApi Service', () => {
       expiresIn: 3600,
     };
 
-    (apiClient.post as any).mockResolvedValueOnce({
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
       data: {
         success: true,
         data: mockTokens,
@@ -41,7 +41,7 @@ describe('authApi Service', () => {
   });
 
   it('should throw error when login response success is false', async () => {
-    (apiClient.post as any).mockResolvedValueOnce({
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
       data: {
         success: false,
         error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' },
@@ -65,7 +65,7 @@ describe('authApi Service', () => {
       createdAt: '2026-09-14T12:00:00Z',
     };
 
-    (apiClient.get as any).mockResolvedValueOnce({
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: {
         success: true,
         data: mockUser,
@@ -86,7 +86,7 @@ describe('authApi Service', () => {
       expiresIn: 3600,
     };
 
-    (apiClient.post as any).mockResolvedValueOnce({
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
       data: {
         success: true,
         data: mockTokens,

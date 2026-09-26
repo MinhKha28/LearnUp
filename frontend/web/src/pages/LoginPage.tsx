@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext.js';
+import { useAuth } from '../auth/useAuth.js';
 import { getApiErrorMessage } from '../services/apiClient.js';
 import { DEFAULT_AUTHENTICATED_PATH } from '../config/routes.js';
 

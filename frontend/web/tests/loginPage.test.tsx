@@ -4,11 +4,11 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation, useNavigationType } from 'react-router-dom';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { LoginPage } from '../src/pages/LoginPage.js';
-import * as AuthContextModule from '../src/auth/AuthContext.js';
+import * as UseAuthModule from '../src/auth/useAuth.js';
 import { DEFAULT_AUTHENTICATED_PATH } from '../src/config/routes.js';
 
 const mockLoginRejection = (error: unknown) => {
-  vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+  vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
     currentUser: null,
     isAuthenticated: false,
     isLoading: false,
@@ -85,7 +85,7 @@ const renderLoginRoutes = (state?: { from: { pathname: string } }) => {
 };
 
 const mockAuth = (isAuthenticated: boolean) => {
-  vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+  vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
     currentUser: null,
     isAuthenticated,
     isLoading: false,

@@ -3,11 +3,11 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { ProtectedRoute } from '../src/auth/ProtectedRoute.js';
 import { RoleRoute } from '../src/auth/RoleRoute.js';
-import * as AuthContextModule from '../src/auth/AuthContext.js';
+import * as UseAuthModule from '../src/auth/useAuth.js';
 
 describe('Route Protection and Role Guards', () => {
   it('should show loading indicator when authentication state is loading', () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
       currentUser: null,
       isAuthenticated: false,
       isLoading: true,
@@ -36,7 +36,7 @@ describe('Route Protection and Role Guards', () => {
   });
 
   it('should redirect unauthenticated user to /login from ProtectedRoute', () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
       currentUser: null,
       isAuthenticated: false,
       isLoading: false,
@@ -66,7 +66,7 @@ describe('Route Protection and Role Guards', () => {
   });
 
   it('should render protected content when user is authenticated', () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
       currentUser: {
         id: 'usr-1',
         username: 'learner1',
@@ -102,7 +102,7 @@ describe('Route Protection and Role Guards', () => {
   });
 
   it('should allow authorized role in RoleRoute', () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
       currentUser: {
         id: 'usr-admin',
         username: 'admin1',
@@ -137,7 +137,7 @@ describe('Route Protection and Role Guards', () => {
   });
 
   it('should redirect unauthorized role to /unauthorized in RoleRoute', () => {
-    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
       currentUser: {
         id: 'usr-learner',
         username: 'learner1',

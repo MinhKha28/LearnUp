@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { UserRole } from '@learnup/ts-common';
-import { useAuth } from './AuthContext.js';
+import { useAuth } from './useAuth.js';
 import { LoadingScreen } from '../components/ui/LoadingScreen.js';
 
 interface RoleRouteProps {

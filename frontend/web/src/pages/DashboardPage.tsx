@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth } from '../auth/AuthContext.js';
+import { useAuth } from '../auth/useAuth.js';
 
 export const DashboardPage: React.FC = () => {
   const { currentUser } = useAuth();

@@ -1,8 +1,18 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AxiosError, AxiosHeaders } from 'axios';
+import { AxiosError, AxiosHeaders, AxiosResponse } from 'axios';
+import { ApiResponse } from '@learnup/ts-common';
 import { apiClient, getApiErrorMessage, unwrap } from '../src/services/apiClient.js';
 import { authStorage } from '../src/auth/authStorage.js';
 import { API_BASE_URL } from '../src/config/env.js';
+
+type TestRequestConfig = { headers: Record<string, unknown> };
+type RequestInterceptorHandlers = {
+  handlers: Array<{
+    fulfilled: (config: TestRequestConfig) => TestRequestConfig | Promise<TestRequestConfig>;
+  }>;
+};
+
+const asApiResponse = <T>(data: unknown) => ({ data }) as AxiosResponse<ApiResponse<T>>;
 
 describe('apiClient Configuration & Interceptors', () => {
   beforeEach(() => {
@@ -18,11 +28,8 @@ describe('apiClient Configuration & Interceptors', () => {
     authStorage.setAccessToken('mocked-access-jwt-token');
 
     // Simulate request interceptor execution
-    const interceptor = (
-      apiClient.interceptors.request as unknown as {
-        handlers: Array<{ fulfilled: (config: any) => any }>;
-      }
-    ).handlers[0];
+    const interceptor = (apiClient.interceptors.request as unknown as RequestInterceptorHandlers)
+      .handlers[0];
 
     const config = {
       headers: {},
@@ -33,11 +40,8 @@ describe('apiClient Configuration & Interceptors', () => {
   });
 
   it('should NOT attach Authorization header when access token is absent', async () => {
-    const interceptor = (
-      apiClient.interceptors.request as unknown as {
-        handlers: Array<{ fulfilled: (config: any) => any }>;
-      }
-    ).handlers[0];
+    const interceptor = (apiClient.interceptors.request as unknown as RequestInterceptorHandlers)
+      .handlers[0];
 
     const config = {
       headers: {},
@@ -50,11 +54,8 @@ describe('apiClient Configuration & Interceptors', () => {
   it('should NEVER construct or attach trusted identity headers (X-User-ID, X-Organization-ID, X-User-Role)', async () => {
     authStorage.setAccessToken('mocked-jwt');
 
-    const interceptor = (
-      apiClient.interceptors.request as unknown as {
-        handlers: Array<{ fulfilled: (config: any) => any }>;
-      }
-    ).handlers[0];
+    const interceptor = (apiClient.interceptors.request as unknown as RequestInterceptorHandlers)
+      .handlers[0];
 
     const config = {
       headers: {},
@@ -106,26 +107,28 @@ describe('getApiErrorMessage', () => {
 
 describe('unwrap', () => {
   it('should return data when the ApiResponse is successful', () => {
-    const response = { data: { success: true, data: { id: 'usr-1' } } } as any;
+    const response = asApiResponse<{ id: string }>({ success: true, data: { id: 'usr-1' } });
     expect(unwrap(response)).toEqual({ id: 'usr-1' });
   });
 
   it('should throw with the ApiResponse error.message when success is false', () => {
-    const response = {
-      data: { success: false, error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } },
-    } as any;
+    const response = asApiResponse({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' },
+    });
     expect(() => unwrap(response, 'Login failed')).toThrow('Invalid credentials');
   });
 
   it('should throw with the fallback message when there is no error message', () => {
-    const response = { data: { success: true } } as any;
+    const response = asApiResponse({ success: true });
     expect(() => unwrap(response, 'Login failed')).toThrow('Login failed');
   });
 
   it('should throw an error whose message getApiErrorMessage can read', () => {
-    const response = {
-      data: { success: false, error: { code: 'CONFLICT', message: 'Username already exists' } },
-    } as any;
+    const response = asApiResponse({
+      success: false,
+      error: { code: 'CONFLICT', message: 'Username already exists' },
+    });
 
     let thrown: unknown;
     try {

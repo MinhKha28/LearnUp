@@ -1,25 +1,8 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  ReactNode,
-} from 'react';
+import React, { useEffect, useState, useCallback, ReactNode } from 'react';
 import { AuthUser, LoginCredentials } from '../types/auth.js';
 import { authStorage } from './authStorage.js';
 import { authApi } from './authApi.js';
-
-interface AuthContextType {
-  currentUser: AuthUser | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  logout: () => void;
-  loadCurrentUser: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext, AuthContextValue } from './useAuth.js';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -94,7 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [logout]);
 
-  const value = {
+  const value: AuthContextValue = {
     currentUser,
     isAuthenticated: Boolean(currentUser),
     isLoading,
@@ -104,12 +87,4 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
-
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };
