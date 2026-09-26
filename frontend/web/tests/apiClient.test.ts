@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { AxiosError, AxiosHeaders } from 'axios';
-import { apiClient, getApiErrorMessage } from '../src/services/apiClient.js';
+import { apiClient, getApiErrorMessage, unwrap } from '../src/services/apiClient.js';
 import { authStorage } from '../src/auth/authStorage.js';
 import { API_BASE_URL } from '../src/config/env.js';
 
@@ -95,5 +95,39 @@ describe('getApiErrorMessage', () => {
   it('should return fallback for non-Axios errors', () => {
     expect(getApiErrorMessage(new Error('boom'), 'fallback')).toBe('fallback');
     expect(getApiErrorMessage(undefined, 'fallback')).toBe('fallback');
+  });
+});
+
+describe('unwrap', () => {
+  it('should return data when the ApiResponse is successful', () => {
+    const response = { data: { success: true, data: { id: 'usr-1' } } } as any;
+    expect(unwrap(response)).toEqual({ id: 'usr-1' });
+  });
+
+  it('should throw with the ApiResponse error.message when success is false', () => {
+    const response = {
+      data: { success: false, error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } },
+    } as any;
+    expect(() => unwrap(response, 'Login failed')).toThrow('Invalid credentials');
+  });
+
+  it('should throw with the fallback message when there is no error message', () => {
+    const response = { data: { success: true } } as any;
+    expect(() => unwrap(response, 'Login failed')).toThrow('Login failed');
+  });
+
+  it('should throw an error whose message getApiErrorMessage can read', () => {
+    const response = {
+      data: { success: false, error: { code: 'CONFLICT', message: 'Username already exists' } },
+    } as any;
+
+    let thrown: unknown;
+    try {
+      unwrap(response);
+    } catch (err) {
+      thrown = err;
+    }
+
+    expect(getApiErrorMessage(thrown, 'fallback')).toBe('Username already exists');
   });
 });

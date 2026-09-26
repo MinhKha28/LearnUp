@@ -81,12 +81,21 @@ describe('Token Refresh Interceptor Logic', () => {
       },
     });
 
-    // Mock apiClient to resolve retry
+    // Mock the transport of the retried request so the test never hits the network
+    const retryAdapter = vi.fn(async (config: any) => ({
+      data: { success: true, data: 'retried' },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    }));
+
     const responseInterceptor = (apiClient.interceptors.response as any).handlers[0];
 
     const originalRequest = {
       url: '/api/users/me',
       headers: {} as Record<string, string>,
+      adapter: retryAdapter,
     };
 
     const error401 = {
@@ -94,13 +103,11 @@ describe('Token Refresh Interceptor Logic', () => {
       config: originalRequest,
     };
 
-    // Spy on axios call
-    try {
-      await responseInterceptor.rejected(error401);
-    } catch {
-      // apiClient invocation will fail in unit test without network, but refresh was called
-    }
+    const retried = await responseInterceptor.rejected(error401);
 
+    expect(retryAdapter).toHaveBeenCalledTimes(1);
+    expect(retryAdapter.mock.calls[0][0].headers.Authorization).toBe('Bearer fresh-access-token');
+    expect(retried.data).toEqual({ success: true, data: 'retried' });
     expect(axios.post).toHaveBeenCalledWith(
       expect.stringContaining('/api/auth/refresh'),
       { refreshToken: 'valid-refresh' },

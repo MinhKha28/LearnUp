@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { UserRole } from '@learnup/ts-common';
 import { useAuth } from './AuthContext.js';
+import { LoadingScreen } from '../components/ui/LoadingScreen.js';
 
 interface RoleRouteProps {
   allowedRoles: UserRole[];
@@ -13,12 +14,7 @@ export const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles, children }) 
   const location = useLocation();
 
   if (isLoading) {
-    return (
-      <div className="loading-screen">
-        <div className="spinner"></div>
-        <p>Verifying access...</p>
-      </div>
-    );
+    return <LoadingScreen message="Verifying access..." />;
   }
 
   if (!isAuthenticated) {

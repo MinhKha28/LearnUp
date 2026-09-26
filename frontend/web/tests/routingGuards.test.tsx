@@ -9,7 +9,6 @@ describe('Route Protection and Role Guards', () => {
   it('should show loading indicator when authentication state is loading', () => {
     vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
       currentUser: null,
-      accessToken: null,
       isAuthenticated: false,
       isLoading: true,
       login: vi.fn(),
@@ -39,7 +38,6 @@ describe('Route Protection and Role Guards', () => {
   it('should redirect unauthenticated user to /login from ProtectedRoute', () => {
     vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
       currentUser: null,
-      accessToken: null,
       isAuthenticated: false,
       isLoading: false,
       login: vi.fn(),
@@ -78,7 +76,6 @@ describe('Route Protection and Role Guards', () => {
         enabled: true,
         createdAt: '2026-09-14T00:00:00Z',
       },
-      accessToken: 'valid-jwt',
       isAuthenticated: true,
       isLoading: false,
       login: vi.fn(),
@@ -114,7 +111,6 @@ describe('Route Protection and Role Guards', () => {
         enabled: true,
         createdAt: '2026-09-14T00:00:00Z',
       },
-      accessToken: 'valid-jwt',
       isAuthenticated: true,
       isLoading: false,
       login: vi.fn(),
@@ -150,7 +146,6 @@ describe('Route Protection and Role Guards', () => {
         enabled: true,
         createdAt: '2026-09-14T00:00:00Z',
       },
-      accessToken: 'valid-jwt',
       isAuthenticated: true,
       isLoading: false,
       login: vi.fn(),

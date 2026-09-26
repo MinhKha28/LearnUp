@@ -1,14 +1,15 @@
+import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation, useNavigationType } from 'react-router-dom';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { LoginPage } from '../src/pages/LoginPage.js';
 import * as AuthContextModule from '../src/auth/AuthContext.js';
+import { DEFAULT_AUTHENTICATED_PATH } from '../src/config/routes.js';
 
 const mockLoginRejection = (error: unknown) => {
   vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
     currentUser: null,
-    accessToken: null,
     isAuthenticated: false,
     isLoading: false,
     login: vi.fn().mockRejectedValue(error),
@@ -63,5 +64,78 @@ describe('LoginPage error handling', () => {
 
     expect(await screen.findByText('Đăng nhập thất bại. Vui lòng thử lại.')).toBeDefined();
     expect(screen.queryByText('Network Error')).toBeNull();
+  });
+});
+
+const LocationProbe: React.FC = () => {
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  return <div>{`At ${location.pathname} via ${navigationType}`}</div>;
+};
+
+const renderLoginRoutes = (state?: { from: { pathname: string } }) => {
+  render(
+    <MemoryRouter initialEntries={[{ pathname: '/login', state }]}>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="*" element={<LocationProbe />} />
+      </Routes>
+    </MemoryRouter>
+  );
+};
+
+const mockAuth = (isAuthenticated: boolean) => {
+  vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+    currentUser: null,
+    isAuthenticated,
+    isLoading: false,
+    login: vi.fn().mockResolvedValue(undefined),
+    logout: vi.fn(),
+    loadCurrentUser: vi.fn(),
+  });
+};
+
+const submitCredentials = () => {
+  fireEvent.change(screen.getByLabelText(/username or email/i), { target: { value: 'learner1' } });
+  fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+  fireEvent.submit(screen.getByRole('button', { name: /sign in/i }).closest('form')!);
+};
+
+describe('LoginPage redirect', () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it('should redirect to location.state.from after successful submit', async () => {
+    mockAuth(false);
+    renderLoginRoutes({ from: { pathname: '/courses/42' } });
+
+    submitCredentials();
+
+    expect(await screen.findByText('At /courses/42 via REPLACE')).toBeDefined();
+  });
+
+  it('should redirect to DEFAULT_AUTHENTICATED_PATH after successful submit without from', async () => {
+    mockAuth(false);
+    renderLoginRoutes();
+
+    submitCredentials();
+
+    expect(await screen.findByText(`At ${DEFAULT_AUTHENTICATED_PATH} via REPLACE`)).toBeDefined();
+  });
+
+  it('should redirect an already authenticated user to location.state.from', async () => {
+    mockAuth(true);
+    renderLoginRoutes({ from: { pathname: '/courses/42' } });
+
+    expect(await screen.findByText('At /courses/42 via REPLACE')).toBeDefined();
+  });
+
+  it('should redirect an already authenticated user to DEFAULT_AUTHENTICATED_PATH without from', async () => {
+    mockAuth(true);
+    renderLoginRoutes();
+
+    expect(await screen.findByText(`At ${DEFAULT_AUTHENTICATED_PATH} via REPLACE`)).toBeDefined();
   });
 });

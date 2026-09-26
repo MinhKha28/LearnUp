@@ -1,4 +1,4 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { ApiResponse } from '@learnup/ts-common';
 import { API_BASE_URL } from '../config/env.js';
 import { authStorage } from '../auth/authStorage.js';
@@ -26,6 +26,28 @@ export const getApiErrorMessage = (err: unknown, fallback: string): string => {
     }
   }
   return fallback;
+};
+
+/**
+ * Returns the payload of a successful ApiResponse envelope.
+ * Otherwise throws an AxiosError carrying the response, so that its message is the ApiResponse
+ * `error.message` and getApiErrorMessage can read it like any other server error.
+ */
+export const unwrap = <T>(
+  response: AxiosResponse<ApiResponse<T>>,
+  fallbackMessage = 'Unexpected API response'
+): T => {
+  const body = response.data;
+  if (body?.success && body.data !== undefined && body.data !== null) {
+    return body.data;
+  }
+  throw new AxiosError(
+    body?.error?.message || fallbackMessage,
+    AxiosError.ERR_BAD_RESPONSE,
+    response.config,
+    response.request,
+    response
+  );
 };
 
 // Request Interceptor: Attach Bearer JWT token if present

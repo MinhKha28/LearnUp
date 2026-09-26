@@ -3,7 +3,8 @@ import { authApi } from '../src/auth/authApi.js';
 import { apiClient } from '../src/services/apiClient.js';
 import { AuthTokens, AuthUser } from '../src/types/auth.js';
 
-vi.mock('../src/services/apiClient.js', () => ({
+vi.mock('../src/services/apiClient.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/services/apiClient.js')>()),
   apiClient: {
     post: vi.fn(),
     get: vi.fn(),

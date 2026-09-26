@@ -1,5 +1,5 @@
 import { ApiResponse } from '@learnup/ts-common';
-import { apiClient } from '../services/apiClient.js';
+import { apiClient, unwrap } from '../services/apiClient.js';
 import { AuthTokens, AuthUser, LoginCredentials } from '../types/auth.js';
 
 export const authApi = {
@@ -8,10 +8,7 @@ export const authApi = {
       '/api/auth/login',
       credentials
     );
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error?.message || 'Login failed');
-    }
-    return response.data.data;
+    return unwrap(response, 'Login failed');
   },
 
   async register(data: {
@@ -24,10 +21,7 @@ export const authApi = {
       '/api/auth/register',
       data
     );
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error?.message || 'Registration failed');
-    }
-    return response.data.data;
+    return unwrap(response, 'Registration failed');
   },
 
   async refresh(refreshToken: string): Promise<AuthTokens> {
@@ -35,17 +29,11 @@ export const authApi = {
       '/api/auth/refresh',
       { refreshToken }
     );
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error?.message || 'Token refresh failed');
-    }
-    return response.data.data;
+    return unwrap(response, 'Token refresh failed');
   },
 
   async getMe(): Promise<AuthUser> {
     const response = await apiClient.get<ApiResponse<AuthUser>>('/api/users/me');
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error?.message || 'Failed to fetch user profile');
-    }
-    return response.data.data;
+    return unwrap(response, 'Failed to fetch user profile');
   },
 };

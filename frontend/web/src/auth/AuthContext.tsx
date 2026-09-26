@@ -5,7 +5,6 @@ import { authApi } from './authApi.js';
 
 interface AuthContextType {
   currentUser: AuthUser | null;
-  accessToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
@@ -17,12 +16,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(authStorage.getAccessToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const logout = useCallback(() => {
     authStorage.clearTokens();
-    setAccessToken(null);
     setCurrentUser(null);
   }, []);
 
@@ -40,7 +37,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const tokens = await authApi.login(credentials);
       authStorage.setTokens(tokens.accessToken, tokens.refreshToken);
-      setAccessToken(tokens.accessToken);
       const user = await authApi.getMe();
       setCurrentUser(user);
     } finally {
@@ -64,14 +60,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         if (token) {
           const user = await authApi.getMe();
-          if (isMounted) {
-            setCurrentUser(user);
-            setAccessToken(token);
-          }
+          if (isMounted) setCurrentUser(user);
         } else if (refreshToken) {
           const newTokens = await authApi.refresh(refreshToken);
           authStorage.setTokens(newTokens.accessToken, newTokens.refreshToken);
-          if (isMounted) setAccessToken(newTokens.accessToken);
           const user = await authApi.getMe();
           if (isMounted) setCurrentUser(user);
         }
@@ -97,8 +89,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const value = {
     currentUser,
-    accessToken,
-    isAuthenticated: Boolean(currentUser && accessToken),
+    isAuthenticated: Boolean(currentUser),
     isLoading,
     login,
     logout,
