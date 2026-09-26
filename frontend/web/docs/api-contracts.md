@@ -73,6 +73,8 @@ interface <Kiểu> {
 | 400  | `VALIDATION_ERROR` | Thiếu username/password (`details`: `username: …`, `password: …`) | Lỗi dưới field                  |
 | 401  | `UNAUTHORIZED`     | Sai thông tin đăng nhập ("Invalid username or password")          | Alert với message server (UC05) |
 
+> **Câu hỏi mở (UC05):** form hiện nhãn "Email" nhưng vẫn gửi `username` và không kiểm tra định dạng email, để tài khoản chỉ có username vẫn đăng nhập được. **Chờ backend xác nhận** có bỏ đăng nhập bằng username (chỉ nhận email) không; nếu bỏ thì thêm kiểm tra email trong `src/features/auth/loginSchema.ts`.
+
 > UC05 cần phân biệt: tài khoản bị vô hiệu hóa, email chưa xác thực, Subscription/Organization hết hiệu lực. Backend chưa có mã riêng — **chờ backend bổ sung**.
 
 ### `POST /api/auth/refresh` — Làm mới token

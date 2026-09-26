@@ -49,6 +49,14 @@
   --color-blue-50: #eff6ff;
   --color-blue-600: #2563eb;
 
+  /* Navy of the Sign in design (UC05); replaces slate on the inverse panel */
+  --color-navy-600: #465873;
+  --color-navy-700: #34465c;
+  --color-navy-800: #26364b;
+  --color-navy-900: #142238;
+
+  --color-google-blue: #4285f4;
+
   /* ---------------------------------------------------------------------------
      Semantic colors — use these in components
      ------------------------------------------------------------------------- */
@@ -89,12 +97,19 @@
   --color-info-bg: var(--color-blue-50);
   --color-info-fg: var(--color-blue-600);
 
-  /* Dark panel on the Sign in page */
-  --color-inverse-surface: var(--color-slate-900);
-  --color-inverse-surface-raised: var(--color-slate-800);
-  --color-inverse-surface-strong: var(--color-slate-700);
+  /* Dark panel on the Sign in page (navy, as in the design) */
+  --color-inverse-surface: var(--color-navy-900);
+  --color-inverse-surface-raised: var(--color-navy-800);
+  --color-inverse-surface-strong: var(--color-navy-700);
+  --color-inverse-surface-accent: var(--color-navy-600); /* number circles */
   --color-inverse-text: var(--color-white);
   --color-inverse-text-muted: var(--color-slate-300);
+  --color-inverse-text-subtle: var(--color-slate-400); /* panel tagline */
+
+  /* Auth pages (design): lighter input border, red-600 alert title, Google mark */
+  --color-border-input-soft: var(--color-slate-200);
+  --color-danger-title: var(--color-red-600);
+  --color-brand-google: var(--color-google-blue);
 
   /* Modal backdrop */
   --color-overlay: rgb(15 23 42 / 50%);
@@ -111,25 +126,35 @@
   --text-h2: 1.5rem; /* 24px */
   --text-h3: 1.125rem; /* 18px */
   --text-body-lg: 1rem; /* 16px — long-form reading, inputs below 768px */
+  --text-body-md: 0.9375rem; /* 15px — auth pages: subtitle, input, button */
   --text-body: 0.875rem; /* 14px */
   --text-body-sm: 0.8125rem; /* 13px */
   --text-caption: 0.75rem; /* 12px — never go smaller (Vietnamese diacritics) */
 
   --leading-display: 2.75rem; /* 44px */
+  --leading-display-loose: 3rem; /* 48px — hero of the auth panel */
   --leading-h1: 2.375rem; /* 38px */
   --leading-h2: 2rem; /* 32px */
   --leading-h3: 1.75rem; /* 28px */
   --leading-body-lg: 1.625rem; /* 26px */
+  --leading-body-md: 1.5rem; /* 24px */
   --leading-body: 1.375rem; /* 22px */
+  --leading-note: 1.3125rem; /* 21px — two-line note under the Google button (design) */
   --leading-body-sm: 1.25rem; /* 20px */
   --leading-caption: 1rem; /* 16px */
 
   --weight-regular: 400;
   --weight-semibold: 600;
   --weight-bold: 700;
+  --weight-label: var(--weight-semibold); /* form labels; bold on auth pages (design) */
 
   --tracking-tight: -0.02em; /* display, h1 */
   --tracking-wide: 0.04em; /* uppercase eyebrow, table header */
+
+  --text-logo-wordmark: 1.75rem; /* 28px — text-only logo of the auth pages */
+  --text-auth-title: 2.1875rem; /* 35px — h1 of the auth pages (design) */
+  --text-google-mark: 1.25rem; /* 20px — the G of the Google button */
+  --text-caption-sm: 0.6875rem; /* 11px — auth panel card eyebrow and numbers (design; below --text-caption) */
 
   /* ---------------------------------------------------------------------------
      Spacing (4px grid)
@@ -158,6 +183,9 @@
   --shadow-md: 0 4px 8px -2px rgb(15 23 42 / 10%), 0 2px 4px -2px rgb(15 23 42 / 6%);
   --shadow-lg: 0 12px 24px -4px rgb(15 23 42 / 12%), 0 4px 8px -4px rgb(15 23 42 / 8%);
 
+  /* Paints over the browser's autofill background (TextField): an inset shadow larger than any input */
+  --shadow-autofill: inset 0 0 0 100vmax var(--color-surface);
+
   --z-dropdown: 1000;
   --z-sticky: 1100;
   --z-overlay: 1200;
@@ -176,7 +204,15 @@
   --size-avatar-md: 40px;
   --size-avatar-lg: 48px;
   --size-control-md: 44px; /* buttons, inputs, nav and menu items in the app */
-  --size-control-lg: 48px; /* buttons, inputs on auth / public pages */
+  --size-control-lg: 48px; /* buttons, inputs on public pages */
+  --size-control-xl: 56px; /* inputs and the Google button on auth pages (design) */
+  --size-button-auth: 52px; /* primary button on auth pages (design) */
+  --size-step-badge: 36px; /* number circle in the auth panel */
+
+  /* xl inputs: the design sets the text a little below the centre */
+  --size-control-xl-padding-top: 18px;
+  --size-control-xl-padding-bottom: 14px;
+  --size-control-xl-padding-inline: 17px;
 
   /* ---------------------------------------------------------------------------
      Layout
@@ -186,7 +222,6 @@
   --layout-header-height: 64px;
   --layout-content-max-width: 1600px;
   --layout-form-max-width: 960px;
-  --layout-auth-form-width: 440px;
   --layout-modal-sm: 400px;
   --layout-modal-md: 560px;
   --layout-modal-lg: 720px;
@@ -195,4 +230,36 @@
   --layout-card-min-width: 280px; /* min column width of auto-fill card / form grids */
   --layout-focus-ring-width: 2px;
   --layout-focus-ring-offset: 2px;
+
+  /* ---------------------------------------------------------------------------
+     Auth pages (AuthLayout) — measured on the UC05 design at 1440×1024
+     ------------------------------------------------------------------------- */
+  --layout-auth-panel-ratio: 47.5%; /* 684 of 1440 */
+  --layout-auth-panel-max-width: 720px;
+  --layout-auth-panel-padding-inline: clamp(var(--space-10), 4.3vw, var(--space-16)); /* 62 @1440 */
+  --layout-auth-panel-padding-block: 47px;
+  --layout-auth-panel-content-width: 472px; /* hero and card, centred in the panel */
+  --layout-auth-panel-hero-offset: 104px; /* logo → hero */
+  --layout-auth-hero-title-width: 400px; /* the design breaks the hero title before "to" */
+  --layout-auth-hero-gap: 22px; /* hero title → description */
+  --layout-auth-hero-card-gap: 63px; /* hero → card */
+  --layout-auth-card-padding: 31px;
+  --layout-auth-card-padding-top: 34px;
+  --layout-auth-card-padding-bottom: 50px;
+  --layout-auth-card-gap: 27px; /* eyebrow → items */
+  --layout-auth-card-item-gap: 18px;
+  --layout-auth-card-item-height: 78px;
+  --layout-auth-form-width: 600px; /* content column on the right */
+  --layout-auth-top-offset: 35px; /* top of the back link row */
+  --layout-auth-content-offset: 69px; /* back link → heading */
+  --layout-auth-form-offset: 59px; /* heading → form when no message is shown */
+  --layout-auth-field-gap: 29px;
+  --layout-auth-submit-offset: 6px; /* extra space above the submit button */
+  --layout-auth-alert-offset: 28px; /* heading → message */
+  --layout-auth-alert-form-gap: 21px; /* message → form */
+  --layout-auth-alert-padding-inline: 22px;
+  --layout-auth-footer-padding-top: 18px;
+  --layout-auth-footer-padding-bottom: 38px;
+  --layout-auth-footer-link-gap: 21px;
+  --layout-auth-note-gap: 18px; /* Google button → note */
 }

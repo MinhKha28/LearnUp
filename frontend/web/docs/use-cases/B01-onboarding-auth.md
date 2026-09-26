@@ -60,6 +60,8 @@
 
 - Actor: Admin, Organizer, Instructor, Learner.
 - Nhập email và mật khẩu.
+  - Field có nhãn "Email" nhưng gửi lên backend dưới tên `username` (backend nhận username hoặc email). Schema chỉ bắt buộc nhập, không kiểm tra định dạng email. **Câu hỏi mở:** backend có bỏ đăng nhập bằng username không (xem `docs/api-contracts.md`, `POST /api/auth/login`).
+  - Sai thông tin đăng nhập (401): Alert có tiêu đề cố định, nội dung là message server; cả hai field được đánh dấu `aria-invalid` cho tới khi người dùng sửa một trong hai.
 - Trước khi cấp quyền, hệ thống kiểm tra trạng thái tài khoản, trạng thái Subscription và Organization.
 - Lỗi cần hiển thị (cùng một Alert trên form, khác nội dung): sai thông tin đăng nhập (ảnh `UC05_GUEST_Sign_In_Invalid_Credentials`); tài khoản bị vô hiệu hóa; email chưa xác thực; Subscription/Organization không còn hiệu lực. Backend hiện chỉ trả mã chung (UNAUTHORIZED) → hiển thị message server cho tới khi có mã chi tiết.
 - Thành công: chuyển tới trang chủ theo role (getPostLoginPath).

@@ -73,7 +73,7 @@ _(Disallowed roles: `SUPER_ADMIN`, `ORG_ADMIN`, `TENANT_ADMIN`)_
   2. Receives `{ accessToken, refreshToken, tokenType, expiresIn }`.
   3. Tokens are persisted in `localStorage` via `src/auth/authStorage.ts`.
   4. `GET /api/users/me` loads the current user profile (`AuthUser`).
-  5. `AuthProvider` updates the auth state (read with `useAuth()`), and `LoginPage` redirects to the page the user came from, or to the role home (`getPostLoginPath` / `getHomePath` in `src/app/navigation.ts`).
+  5. `AuthProvider` updates the auth state (read with `useAuth()`), and `LoginPage` (`src/features/auth/pages/`) redirects to the page the user came from, or to the role home (`getPostLoginPath` / `getHomePath` in `src/app/navigation.ts`).
 - **Token Refresh** (`src/services/apiClient.ts`):
   1. Intercepts `401 Unauthorized` responses on protected endpoints.
   2. A concurrency lock (`isRefreshing`) and queue (`failedQueue`) prevent multiple or infinite refresh loops.
@@ -108,10 +108,11 @@ frontend/web/
 │   │   └── layout/         # AppLayout, AuthLayout, PublicLayout, Sidebar, UserMenu, LanguageSwitcher…
 │   ├── config/             # env.ts, milestone.ts, routes.ts
 │   ├── dev/                # /dev/ui component catalog (development only)
+│   ├── features/<name>/    # feature screens: api/, components/, pages/, <form>Schema.ts (auth: LoginPage)
 │   ├── i18n/               # i18next setup and resources
 │   ├── lib/                # cx, date/number formatting
 │   ├── locales/{vi,en}/    # common, auth, errors, nav
-│   ├── pages/              # LoginPage, NotFoundPage, UnauthorizedPage, PlaceholderPage
+│   ├── pages/              # NotFoundPage, UnauthorizedPage, PlaceholderPage
 │   ├── services/           # apiClient (Axios, refresh interceptor, unwrap, getApiErrorMessage)
 │   ├── styles/             # tokens.css, base.css, index.css
 │   ├── types/              # auth types

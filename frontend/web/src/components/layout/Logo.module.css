@@ -30,3 +30,14 @@
   width: var(--size-icon-md);
   height: var(--size-icon-md);
 }
+
+.wordmark {
+  gap: 0;
+  font-size: var(--text-logo-wordmark);
+  line-height: var(--leading-h2);
+  letter-spacing: var(--tracking-tight);
+}
+
+.accent {
+  color: var(--color-primary);
+}

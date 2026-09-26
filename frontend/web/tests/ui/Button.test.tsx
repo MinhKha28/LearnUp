@@ -88,6 +88,22 @@ describe('Button', () => {
     expect(screen.getByTestId('right').closest('[aria-hidden="true"]')).not.toBeNull();
   });
 
+  it('variant="link" and size="xl" are still plain buttons', async () => {
+    const onClick = vi.fn();
+    render(
+      <>
+        <Button variant="link" onClick={onClick}>
+          Quên mật khẩu?
+        </Button>
+        <Button size="xl">Đăng nhập</Button>
+      </>
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Quên mật khẩu?' }));
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: 'Đăng nhập' }).getAttribute('type')).toBe('button');
+  });
+
   it('forwards the ref to the <button>', () => {
     const ref = createRef<HTMLButtonElement>();
     render(<Button ref={ref}>Lưu</Button>);

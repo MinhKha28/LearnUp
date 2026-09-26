@@ -2,8 +2,47 @@
   position: relative;
 }
 
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/*
+ * Browser autofill paints its own (blue/yellow) background and text colour. An inset shadow covers
+ * the background and -webkit-text-fill-color restores the text — also while focused or hovered.
+ */
+.inputWrapper > input:-webkit-autofill,
+.inputWrapper > input:-webkit-autofill:hover,
+.inputWrapper > input:-webkit-autofill:focus {
+  box-shadow: var(--shadow-autofill);
+  -webkit-text-fill-color: var(--color-text);
+  caret-color: var(--color-text);
+}
+
+.lg {
+  min-height: var(--size-control-lg);
+}
+
+/* Auth pages design: 56px tall, text a little below the centre */
+.xl {
+  min-height: var(--size-control-xl);
+  padding: var(--size-control-xl-padding-top) var(--size-control-xl-padding-inline)
+    var(--size-control-xl-padding-bottom);
+}
+
 .withToggle {
   padding-right: var(--size-control-md);
+}
+
+.lg.withToggle,
+.xl.withToggle {
+  padding-right: var(--size-control-lg);
+}
+
+.withTextToggle {
+  padding-right: var(--space-16);
 }
 
 .toggle {
@@ -15,5 +54,30 @@
 
 .toggle:hover:not(:disabled) {
   background-color: transparent;
+  color: var(--color-text);
+}
+
+/* "Show" / "Hide": small text at the right edge, full input height as hit area */
+.textToggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 var(--space-6);
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--color-text-subtle);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  font-weight: var(--weight-regular);
+  cursor: pointer;
+}
+
+.textToggle:disabled {
+  cursor: not-allowed;
+}
+
+.textToggle:hover:not(:disabled) {
   color: var(--color-text);
 }

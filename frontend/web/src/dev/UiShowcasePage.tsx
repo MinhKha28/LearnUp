@@ -121,6 +121,10 @@ export const UiShowcasePage: React.FC = () => {
             {c.button.secondary}
           </Button>
         </Row>
+        <Row label={c.states.auth}>
+          <Button size="xl">{c.button.signIn}</Button>
+          <Button variant="link">{c.button.forgotPassword}</Button>
+        </Row>
         <Row label={c.states.withIcons}>
           <Button leftIcon={<Plus />}>{c.button.primary}</Button>
           <Button variant="secondary" leftIcon={<FileSpreadsheet />}>
@@ -200,6 +204,20 @@ export const UiShowcasePage: React.FC = () => {
             required
           />
           <TextField
+            label={c.textField.passwordLarge}
+            type="password"
+            size="lg"
+            helperText={c.textField.largeHelper}
+          />
+          <TextField
+            label={c.textField.passwordAuth}
+            type="password"
+            size="xl"
+            passwordToggle="text"
+            labelAction={<Button variant="link">{c.button.forgotPassword}</Button>}
+            helperText={c.textField.authHelper}
+          />
+          <TextField
             label={c.textField.disabled}
             helperText={c.textField.disabledHelper}
             defaultValue="0123456789"
@@ -255,6 +273,9 @@ export const UiShowcasePage: React.FC = () => {
           </Alert>
           <Alert tone="danger" title={c.alert.dangerTitle}>
             {c.alert.dangerBody}
+          </Alert>
+          <Alert tone="danger" title={c.alert.dangerTitle} showIcon={false}>
+            {c.alert.noIconBody}
           </Alert>
         </div>
       </Section>

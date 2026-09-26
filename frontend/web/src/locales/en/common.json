@@ -35,7 +35,9 @@
   },
   "password": {
     "show": "Show password",
-    "hide": "Hide password"
+    "hide": "Hide password",
+    "showShort": "Show",
+    "hideShort": "Hide"
   },
   "language": {
     "label": "Language"
@@ -52,5 +54,10 @@
     "accountMenu": "Account menu",
     "footer": "© {{year}} LearnUP. All rights reserved.",
     "platformAdministration": "Platform administration"
-  }
+  },
+  "logo": {
+    "wordmarkStart": "Learn",
+    "wordmarkEnd": "UP"
+  },
+  "comingSoon": "This feature is under development."
 }

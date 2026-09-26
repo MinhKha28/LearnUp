@@ -1,0 +1,131 @@
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.title {
+  font-size: var(--text-auth-title);
+  line-height: var(--leading-display);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text);
+}
+
+.subtitle {
+  font-size: var(--text-body-md);
+  line-height: var(--leading-body-md);
+  color: var(--color-text-muted);
+}
+
+/* Message slot between the heading and the form (error, coming soon) */
+.alert {
+  margin-top: var(--layout-auth-alert-offset);
+  padding: var(--space-3) var(--layout-auth-alert-padding-inline) var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+.alertTitle {
+  color: var(--color-danger-title);
+  font-weight: var(--weight-bold);
+}
+
+.alertBody {
+  color: var(--color-text-muted);
+  font-size: var(--text-body-sm);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-auth-field-gap);
+  margin-top: var(--layout-auth-alert-form-gap);
+}
+
+/* No message: the form keeps the design's distance from the heading */
+.header + .form {
+  margin-top: var(--layout-auth-form-offset);
+}
+
+/* The submit button sits a little further from the last field than the fields from each other */
+.submit {
+  margin-top: var(--layout-auth-submit-offset);
+}
+
+.forgotPassword {
+  /* Inline in the label row: keeps the label's height (24px spacing exception, WCAG 2.5.8) */
+  min-height: 0;
+  font-size: var(--text-body-sm);
+  font-weight: var(--weight-bold);
+}
+
+.alternatives {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-8);
+}
+
+/* "or" between two rules */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  color: var(--color-text-subtle);
+  font-size: var(--text-body-sm);
+  line-height: var(--leading-body-sm);
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--color-border);
+}
+
+.google {
+  min-height: var(--size-control-xl);
+  margin-top: var(--space-6);
+  padding-top: var(--space-1); /* label a little below the centre, as in the design */
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+}
+
+/* The label is centred on its own; the G sits to its left */
+.googleLabel {
+  position: relative;
+}
+
+.googleMark {
+  position: absolute;
+  right: 100%;
+  margin-right: var(--space-12);
+  color: var(--color-brand-google);
+  font-size: var(--text-google-mark);
+  font-weight: var(--weight-bold);
+}
+
+.googleNote {
+  margin-top: var(--layout-auth-note-gap);
+  font-size: var(--text-caption);
+  line-height: var(--leading-note);
+  color: var(--color-text-subtle);
+}
+
+.signUp {
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-body-sm);
+  line-height: var(--leading-body-sm);
+  gap: var(--layout-auth-footer-link-gap);
+  color: var(--color-text-muted);
+}
+
+.signUpLink {
+  color: var(--color-link);
+  font-weight: var(--weight-bold);
+  text-decoration: none;
+}
+
+.signUpLink:hover {
+  text-decoration: underline;
+}

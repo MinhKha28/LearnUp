@@ -3,12 +3,13 @@ import { cx } from '@/lib/cx';
 import { Spinner } from './Spinner';
 import styles from './Button.module.css';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
-export type ButtonSize = 'md' | 'lg';
+/** link = looks like a text link, for in-page actions (not navigation). */
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'link';
+export type ButtonSize = 'md' | 'lg' | 'xl';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
-  /** md = 44px (in-app), lg = 48px (auth / public pages). */
+  /** md = 44px (in-app), lg = 48px (public pages), xl = 52px (auth pages). */
   size?: ButtonSize;
   /** Disables the button and marks it aria-busy while an action runs. */
   isLoading?: boolean;

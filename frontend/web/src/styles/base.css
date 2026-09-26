@@ -98,6 +98,12 @@ dd {
   margin: 0;
 }
 
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
 html {
   /* iOS Safari only supports the prefixed property */
   /* stylelint-disable-next-line property-no-vendor-prefix */

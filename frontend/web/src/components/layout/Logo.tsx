@@ -12,6 +12,8 @@ export interface LogoProps {
   variant?: 'default' | 'inverse';
   /** Mark only (collapsed sidebar); the app name stays as the accessible name. */
   compact?: boolean;
+  /** Text-only "Learn" + "UP" (UP in the primary colour), no mark — auth pages. */
+  wordmark?: boolean;
   className?: string;
 }
 
@@ -19,11 +21,25 @@ export const Logo: React.FC<LogoProps> = ({
   to,
   variant = 'default',
   compact = false,
+  wordmark = false,
   className,
 }) => {
   const { t } = useTranslation();
-  const classes = cx(styles.logo, variant === 'inverse' && styles.inverse, className);
-  const content = (
+  const classes = cx(
+    styles.logo,
+    variant === 'inverse' && styles.inverse,
+    wordmark && styles.wordmark,
+    className
+  );
+  const content = wordmark ? (
+    // Two coloured halves of one word: screen readers get the app name once
+    <span role="img" aria-label={t('appName')}>
+      <span aria-hidden="true">{t('logo.wordmarkStart')}</span>
+      <span aria-hidden="true" className={styles.accent}>
+        {t('logo.wordmarkEnd')}
+      </span>
+    </span>
+  ) : (
     <>
       <span className={styles.mark} aria-hidden="true">
         <GraduationCap />

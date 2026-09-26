@@ -100,7 +100,12 @@ describe('AuthLayout', () => {
 
     const panel = screen.getByRole('complementary');
     expect(within(panel).getByText('Đào tạo nội bộ cho mọi tổ chức')).toBeDefined();
-    expect(screen.getByRole('link', { name: 'Quay lại' }).getAttribute('href')).toBe('/pricing');
+    // Text-only logo: one image named after the app, not "Learn" + "UP"
+    expect(within(panel).getByRole('img', { name: 'LearnUP' })).toBeDefined();
+    expect(within(panel).getByText('LearnUP • Quản lý đào tạo cho tổ chức')).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Về trang chủ' }).getAttribute('href')).toBe(
+      '/pricing'
+    );
     expect(screen.getByRole('group', { name: 'Ngôn ngữ' })).toBeDefined();
     expect(within(screen.getByRole('main')).getByRole('form', { name: 'Đăng nhập' })).toBeDefined();
   });
@@ -114,8 +119,14 @@ describe('AuthLayout', () => {
         panelContent={<ol aria-label="Các bước" />}
         backTo="/pricing"
         backLabel="Về bảng giá"
+        footer={<a href="/pricing">Xem gói dịch vụ</a>}
       />
     );
+
+    // The footer sits at the bottom of the form column, before the small app name
+    const footer = screen.getByRole('contentinfo');
+    expect(within(footer).getByRole('link', { name: 'Xem gói dịch vụ' })).toBeDefined();
+    expect(within(footer).getByText('LearnUP')).toBeDefined();
 
     const panel = screen.getByRole('complementary');
     expect(within(panel).getByText('Đăng ký tổ chức')).toBeDefined();

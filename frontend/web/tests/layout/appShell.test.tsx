@@ -144,7 +144,7 @@ describe('routing', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
     expect(screen.getByRole('button', { name: 'Đăng nhập' })).toBeDefined();
-    expect(screen.getByRole('link', { name: 'Quay lại' })).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Về trang chủ' })).toBeDefined();
     expect(screen.getByRole('group', { name: 'Ngôn ngữ' })).toBeDefined();
   });
 

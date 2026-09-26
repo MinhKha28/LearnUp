@@ -36,6 +36,13 @@
   padding: 0 var(--space-6);
 }
 
+.xl {
+  min-height: var(--size-button-auth);
+  padding: 0 var(--space-6);
+  font-size: var(--text-body-md);
+  line-height: var(--leading-body-md);
+}
+
 .fullWidth {
   width: 100%;
 }
@@ -86,4 +93,17 @@
 
 .danger:hover:not(:disabled) {
   background-color: var(--color-danger-hover);
+}
+
+/* Text link look; keeps a 24px hit area (WCAG 2.5.8) whatever the size */
+.link {
+  min-height: var(--size-target-min);
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  color: var(--color-link);
+}
+
+.link:hover:not(:disabled) {
+  text-decoration: underline;
 }

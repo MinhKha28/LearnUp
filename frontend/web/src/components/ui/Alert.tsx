@@ -9,6 +9,8 @@ export interface AlertProps extends Omit<React.HTMLAttributes<HTMLDivElement>, '
   tone?: AlertTone;
   title?: React.ReactNode;
   children?: React.ReactNode;
+  /** false = text only (auth pages design); the tone still shows through colour and text. */
+  showIcon?: boolean;
 }
 
 const ICONS: Record<AlertTone, React.ElementType> = {
@@ -25,6 +27,7 @@ export const Alert: React.FC<AlertProps> = ({
   tone = 'info',
   title,
   children,
+  showIcon = true,
   className,
   ...rest
 }) => {
@@ -36,7 +39,7 @@ export const Alert: React.FC<AlertProps> = ({
       className={cx(styles.alert, styles[tone], className)}
       {...rest}
     >
-      <Icon className={styles.icon} aria-hidden="true" />
+      {showIcon && <Icon className={styles.icon} aria-hidden="true" />}
       <div className={styles.content}>
         {title && <p className={styles.title}>{title}</p>}
         {children && <div className={styles.body}>{children}</div>}

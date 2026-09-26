@@ -87,6 +87,36 @@ describe('TextField', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 
+  it('size="lg": keeps the password toggle working and does not leak size to the <input>', async () => {
+    render(<TextField label="Mật khẩu" type="password" size="lg" />);
+    const input = screen.getByLabelText('Mật khẩu');
+    expect(input.hasAttribute('size')).toBe(false);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Hiện mật khẩu' }));
+    expect(input.getAttribute('type')).toBe('text');
+  });
+
+  it('password with passwordToggle="text": shows "Hiện"/"Ẩn" named after what it does', async () => {
+    render(<TextField label="Mật khẩu" type="password" size="xl" passwordToggle="text" />);
+    const input = screen.getByLabelText('Mật khẩu');
+
+    const toggle = screen.getByRole('button', { name: 'Hiện mật khẩu' });
+    expect(toggle.textContent).toBe('Hiện');
+    await userEvent.click(toggle);
+
+    expect(input.getAttribute('type')).toBe('text');
+    expect(screen.getByRole('button', { name: 'Ẩn mật khẩu' }).textContent).toBe('Ẩn');
+  });
+
+  it('renders a labelAction next to the label without changing the label', async () => {
+    render(
+      <TextField label="Mật khẩu" type="password" labelAction={<button>Quên mật khẩu?</button>} />
+    );
+
+    expect(screen.getByLabelText('Mật khẩu').tagName).toBe('INPUT');
+    expect(screen.getByRole('button', { name: 'Quên mật khẩu?' })).toBeDefined();
+  });
+
   it('forwards the ref to the <input>', () => {
     const ref = createRef<HTMLInputElement>();
     render(<TextField ref={ref} label="Email" />);

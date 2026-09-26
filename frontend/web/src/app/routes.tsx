@@ -1,13 +1,12 @@
 import { Navigate, RouteObject } from 'react-router-dom';
 import { USER_ROLES } from '@learnup/ts-common';
-import { LoginPage } from '@/pages/LoginPage';
+import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { PlaceholderPage } from '@/pages/PlaceholderPage';
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { ProtectedRoute } from '@/auth/ProtectedRoute';
 import { RoleRoute } from '@/auth/RoleRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { AuthLayout } from '@/components/layout/AuthLayout';
 import { PublicLayout } from '@/components/layout/PublicLayout';
 import {
   CHANGE_PASSWORD_PATH,
@@ -50,10 +49,8 @@ const roleRoutes: RouteObject[] = USER_ROLES.map((role) => ({
 }));
 
 export const routes: RouteObject[] = [
-  {
-    element: <AuthLayout />,
-    children: [{ path: LOGIN_PATH, element: <LoginPage /> }],
-  },
+  // Auth pages render AuthLayout themselves: each one brings its own panel content.
+  { path: LOGIN_PATH, element: <LoginPage /> },
   {
     element: <PublicLayout />,
     children: [{ path: PRICING_PATH, element: <PlaceholderPage titleKey="public.pricing" /> }],

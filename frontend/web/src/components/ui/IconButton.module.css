@@ -11,3 +11,8 @@
   width: var(--size-control-lg);
   height: var(--size-control-lg);
 }
+
+.xl {
+  width: var(--size-button-auth);
+  height: var(--size-button-auth);
+}

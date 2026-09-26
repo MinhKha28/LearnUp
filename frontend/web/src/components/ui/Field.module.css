@@ -9,7 +9,7 @@
 .label {
   font-size: var(--text-body);
   line-height: var(--leading-body);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-label);
   color: var(--color-text);
 }
 

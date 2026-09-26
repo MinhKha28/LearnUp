@@ -13,7 +13,8 @@
     "format:check": "prettier --check .",
     "lint": "npm run lint:js && npm run lint:css",
     "lint:js": "eslint .",
-    "lint:css": "stylelint \"src/**/*.css\""
+    "lint:css": "stylelint \"src/**/*.css\"",
+    "visual-diff": "node scripts/visual-diff.ts"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
@@ -34,8 +35,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.63.0",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
+    "@types/pngjs": "^6.0.5",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
@@ -47,6 +50,8 @@
     "globals": "^17.12.0",
     "happy-dom": "^20.14.5",
     "msw": "^2.15.0",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
     "prettier": "^3.9.9",
     "stylelint": "^17.15.0",
     "stylelint-config-standard": "^40.0.0",

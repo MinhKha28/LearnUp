@@ -44,6 +44,17 @@ describe('Alert', () => {
     const svg = screen.getByRole('status').querySelector('svg');
     expect(svg?.getAttribute('aria-hidden')).toBe('true');
   });
+
+  it('showIcon={false}: text only, still announced with its tone role', () => {
+    render(
+      <Alert tone="danger" title="Đăng nhập không thành công" showIcon={false}>
+        Sai thông tin
+      </Alert>
+    );
+    const alert = screen.getByRole('alert');
+    expect(alert.querySelector('svg')).toBeNull();
+    expect(alert.textContent).toBe('Đăng nhập không thành côngSai thông tin');
+  });
 });
 
 describe('Badge', () => {

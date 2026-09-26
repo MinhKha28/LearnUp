@@ -35,7 +35,9 @@
   },
   "password": {
     "show": "Hiện mật khẩu",
-    "hide": "Ẩn mật khẩu"
+    "hide": "Ẩn mật khẩu",
+    "showShort": "Hiện",
+    "hideShort": "Ẩn"
   },
   "language": {
     "label": "Ngôn ngữ"
@@ -52,5 +54,10 @@
     "accountMenu": "Menu tài khoản",
     "footer": "© {{year}} LearnUP. Bảo lưu mọi quyền.",
     "platformAdministration": "Quản trị nền tảng"
-  }
+  },
+  "logo": {
+    "wordmarkStart": "Learn",
+    "wordmarkEnd": "UP"
+  },
+  "comingSoon": "Tính năng đang được phát triển."
 }

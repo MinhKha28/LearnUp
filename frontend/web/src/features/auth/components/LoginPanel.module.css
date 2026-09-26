@@ -1,0 +1,72 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-auth-card-gap);
+  padding: var(--layout-auth-card-padding-top) var(--layout-auth-card-padding)
+    var(--layout-auth-card-padding-bottom);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-inverse-surface-raised);
+}
+
+.eyebrow {
+  font-size: var(--text-caption-sm);
+  line-height: var(--leading-caption);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  color: var(--color-inverse-text-muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--layout-auth-card-item-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--layout-auth-card-item-height);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--color-inverse-surface-strong);
+}
+
+.number {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-step-badge);
+  height: var(--size-step-badge);
+  border-radius: var(--radius-full);
+  background-color: var(--color-inverse-surface-accent);
+  padding-top: var(--space-1); /* the design sets the number a little below the centre */
+  color: var(--color-inverse-text);
+  font-size: var(--text-caption-sm);
+  line-height: var(--leading-caption);
+  font-weight: var(--weight-bold);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.itemTitle {
+  font-size: var(--text-body-md);
+  line-height: var(--leading-body-md);
+  font-weight: var(--weight-bold);
+  color: var(--color-inverse-text);
+}
+
+.itemDescription {
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  color: var(--color-inverse-text-muted);
+}

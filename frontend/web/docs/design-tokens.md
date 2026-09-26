@@ -6,7 +6,7 @@
 >
 > - Component **chỉ dùng token semantic** (`--color-text`, `--color-primary`, …). Không dùng primitive (`--color-slate-500`…) hay mã hex trực tiếp.
 > - Chỉ có theme sáng, khai báo trên `:root`. Chưa làm dark mode.
-> - Cỡ chữ nhỏ nhất là 12px (`--text-caption`).
+> - Cỡ chữ nhỏ nhất là 12px (`--text-caption`). Ngoại lệ duy nhất: `--text-caption-sm` 11px ở panel trang auth (§0.1).
 >
 > Nguồn thiết kế: 19 ảnh 1440×1024 trong `.design-refs/B00_app-shell/` và `.design-refs/Inter1/B01_onboarding-auth/`. Phụ lục A ghi cách đo và các giá trị đo được.
 
@@ -29,7 +29,29 @@
 | Q11 | Ngôn ngữ         | UI song ngữ vi/en, mặc định **vi**. Phần i18n làm ở commit riêng.                                                                                                                                                                              |
 | Q12 | Navy             | Bỏ thang navy. Panel trang Sign in dùng slate-900/800/700 qua các token `--color-inverse-*`.                                                                                                                                                   |
 | Q13 | Dark mode        | Chưa làm. Chỉ khai báo trên `:root`; component chỉ dùng token semantic để sau này thêm theme được.                                                                                                                                             |
+| Q14 | Trang auth       | **Ưu tiên giống thiết kế** (2026-09-26): trang đăng nhập dựng giống ảnh UC05 ở 1440×1024, kiểm bằng `npm run visual-diff`. Các quyết định bị đảo cho trang auth ghi ở §0.1.                                                                    |
 | M   | Mâu thuẫn M1–M19 | Đồng ý toàn bộ đề xuất (xem mục 8). M17: bỏ nút "View plans" ở header public.                                                                                                                                                                  |
+
+### 0.1 Trang auth: quyết định bị đảo (Q14, 2026-09-26)
+
+Lý do chung: **ưu tiên giống thiết kế**. Trang đăng nhập phải hiển thị như ảnh `UC05_GUEST_Sign_In*.png` ở 1440×1024; chỉ được khác ở LanguageSwitcher (góc trên phải cột form) và chỗ xuống dòng của chữ tiếng Việt. Phần app (sidebar, header, trang trong app) giữ nguyên các quyết định cũ.
+
+| Quyết định cũ                          | Trang auth bây giờ                                                             | Token / cách làm                                                                                                                |
+| -------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Q3: viền input slate-450 (3.33:1)      | Viền input và nút outline **slate-200** như ảnh                                | `--color-border-input-soft`; `AuthLayout` đặt lại `--color-border-input` trong cột form. ⚠️ 1.23:1, không đạt WCAG 1.4.11 (3:1) |
+| Q9: form 440px                         | Khối nội dung **600px**, căn giữa cột phải                                     | `--layout-auth-form-width`                                                                                                      |
+| Q12: bỏ navy, panel slate              | Panel **navy** `#142238`, card `#26364b`, thẻ con `#34465c`, vòng số `#465873` | `--color-navy-*` → `--color-inverse-surface*`; thêm `--color-inverse-surface-accent`, `--color-inverse-text-subtle`             |
+| Cột 1fr / 1fr                          | **684 / 756** (47.5%), tối đa 720px                                            | `--layout-auth-panel-ratio`, `--layout-auth-panel-max-width`                                                                    |
+| M2: nút 48px ở auth                    | Nút chính **52px**                                                             | `Button size="xl"` → `--size-button-auth`                                                                                       |
+| M3: input 48px ở auth                  | Input và nút Google **56px**                                                   | `TextField size="xl"` → `--size-control-xl` (padding `--size-control-xl-padding-*`)                                             |
+| M16: logo có icon                      | Logo **chữ** "Learn" + "UP" (UP màu primary), không icon                       | `Logo wordmark`, `--text-logo-wordmark`; app-shell vẫn dùng logo có icon                                                        |
+| Nút hiện/ẩn mật khẩu bằng icon         | Chữ **"Show"/"Hide"** ("Hiện"/"Ẩn")                                            | `TextField passwordToggle="text"`; tên truy cập vẫn là "Hiện mật khẩu" (chứa chữ nhìn thấy, WCAG 2.5.3)                         |
+| M6: h1 auth 36px                       | h1 và tiêu đề hero **35px** (đo theo độ rộng chữ)                              | `--text-auth-title`; hero line-height 48 `--leading-display-loose`                                                              |
+| M9: không dùng chữ red-600 trên red-50 | Tiêu đề Alert lỗi **red-600**, Alert không icon                                | `--color-danger-title`, `Alert showIcon={false}`. ⚠️ 4.41:1, thiếu 0.09 so với AA                                               |
+| Label semibold 600                     | Label **bold 700**                                                             | `--weight-label`; `AuthLayout` đặt bold trong cột form                                                                          |
+| Cỡ chữ tối thiểu 12px                  | Eyebrow và số thứ tự trong card **11px**                                       | `--text-caption-sm`                                                                                                             |
+
+Các giá trị đo khác (khoảng cách, cỡ chữ 15px, line-height 21px…) nằm ở nhóm token "Auth pages" cuối `tokens.css` và §5.2.
 
 ---
 
@@ -53,16 +75,18 @@ Giá trị khớp bảng màu Tailwind v3, riêng `slate-450` là màu tự thê
 | 800 | `#1e293b`         | `#92400e`         |
 | 900 | `#0f172a`         | `#78350f`         |
 
-| Nhóm    | Token                              | Giá trị                                 |
-| ------- | ---------------------------------- | --------------------------------------- |
-| Trắng   | `--color-white`                    | `#fff`                                  |
-| Red     | `--color-red-50 / 100 / 600 / 700` | `#fef2f2 / #fee2e2 / #dc2626 / #b91c1c` |
-| Emerald | `--color-emerald-50 / 700`         | `#ecfdf5 / #047857`                     |
-| Blue    | `--color-blue-50 / 600`            | `#eff6ff / #2563eb`                     |
+| Nhóm    | Token                                | Giá trị                                                         |
+| ------- | ------------------------------------ | --------------------------------------------------------------- |
+| Trắng   | `--color-white`                      | `#fff`                                                          |
+| Red     | `--color-red-50 / 100 / 600 / 700`   | `#fef2f2 / #fee2e2 / #dc2626 / #b91c1c`                         |
+| Emerald | `--color-emerald-50 / 700`           | `#ecfdf5 / #047857`                                             |
+| Blue    | `--color-blue-50 / 600`              | `#eff6ff / #2563eb`                                             |
+| Navy    | `--color-navy-600 / 700 / 800 / 900` | `#465873 / #34465c / #26364b / #142238` (Q14, panel trang auth) |
+| Google  | `--color-google-blue`                | `#4285f4` (chữ G của nút Google)                                |
 
 Các màu **đã bỏ:**
 
-- Orange (Q10) và navy (Q12).
+- Orange (Q10). Navy bị bỏ ở Q12, rồi dùng lại cho trang auth (Q14).
 - emerald-600: không đạt tương phản, M8.
 - red-600 dùng làm chữ trên nền red-50: không đạt, M9. red-600 vẫn giữ cho viền lỗi và nút danger.
 
@@ -92,10 +116,15 @@ Các màu **đã bỏ:**
 | `--color-success-bg / -fg`           | emerald-50 / emerald-700                      | Badge Active/Available/Completed, callout thành công                               |
 | `--color-warning-bg / -fg`           | amber-50 / amber-800                          | Callout và badge warning, "Invitation expired", badge đếm (M10, Q10)               |
 | `--color-info-bg / -fg`              | blue-50 / blue-600                            | Callout thông tin, badge "Optional"                                                |
-| `--color-inverse-surface`            | slate-900                                     | Nền panel trái trang Sign in (Q12)                                                 |
-| `--color-inverse-surface-raised`     | slate-800                                     | Card ngoài trong panel                                                             |
-| `--color-inverse-surface-strong`     | slate-700                                     | Card con, vòng số thứ tự trong panel                                               |
+| `--color-inverse-surface`            | navy-900                                      | Nền panel trái trang Sign in (Q14)                                                 |
+| `--color-inverse-surface-raised`     | navy-800                                      | Card ngoài trong panel                                                             |
+| `--color-inverse-surface-strong`     | navy-700                                      | Card con trong panel                                                               |
+| `--color-inverse-surface-accent`     | navy-600                                      | Vòng số thứ tự trong panel                                                         |
 | `--color-inverse-text / -text-muted` | white / slate-300                             | Chữ trên nền inverse                                                               |
+| `--color-inverse-text-subtle`        | slate-400                                     | Tagline cuối panel                                                                 |
+| `--color-border-input-soft`          | slate-200                                     | Viền input, nút outline ở trang auth (Q14) ⚠️ 1.23:1                               |
+| `--color-danger-title`               | red-600                                       | Tiêu đề Alert lỗi ở trang auth (Q14) ⚠️ 4.41:1                                     |
+| `--color-brand-google`               | google-blue                                   | Chữ G của nút "Continue with Google"                                               |
 | `--color-overlay`                    | slate-900 ở độ mờ 50% (`rgb(15 23 42 / 50%)`) | Nền mờ phía sau modal                                                              |
 
 ### 1.3 Bảng tương phản của các cặp semantic cuối cùng
@@ -133,29 +162,35 @@ Tính theo công thức WCAG 2.x.
 | success-fg / success-bg                        | 5.21  | ✅                                              |
 | warning-fg / warning-bg                        | 6.84  | ✅                                              |
 | info-fg / info-bg                              | 4.75  | ✅                                              |
-| inverse-text / inverse-surface                 | 17.85 | ✅                                              |
-| inverse-text-muted / inverse-surface           | 12.02 | ✅                                              |
-| inverse-text / inverse-surface-raised          | 14.63 | ✅                                              |
-| inverse-text-muted / inverse-surface-raised    | 9.85  | ✅                                              |
-| inverse-text / inverse-surface-strong          | 10.35 | ✅                                              |
-| inverse-text-muted / inverse-surface-strong    | 6.97  | ✅                                              |
+| inverse-text / inverse-surface (navy)          | 15.96 | ✅                                              |
+| inverse-text-muted / inverse-surface           | 10.75 | ✅                                              |
+| inverse-text-subtle / inverse-surface          | 6.23  | ✅                                              |
+| inverse-text / inverse-surface-raised          | 12.27 | ✅                                              |
+| inverse-text-muted / inverse-surface-raised    | 8.26  | ✅                                              |
+| inverse-text / inverse-surface-strong          | 9.65  | ✅                                              |
+| inverse-text-muted / inverse-surface-strong    | 6.50  | ✅                                              |
+| inverse-text / inverse-surface-accent          | 7.23  | ✅                                              |
+| primary ("UP" của logo) / inverse-surface      | 7.43  | ✅                                              |
+| danger-title / danger-bg (trang auth)          | 4.41  | ⚠️ **Dưới 4.5**, giữ theo ảnh (Q14), chờ duyệt  |
+| text-muted / danger-bg (nội dung Alert auth)   | 6.93  | ✅                                              |
 
 **Thành phần không phải chữ** (cần ≥ 3:1)
 
-| Cặp                                          | Tỉ lệ | Kết quả                                                                                                                                                   |
-| -------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| border-input / surface                       | 3.33  | ✅                                                                                                                                                        |
-| border-input / background                    | 3.19  | ✅                                                                                                                                                        |
-| border-input / surface-muted                 | 3.04  | ✅ vừa đủ                                                                                                                                                 |
-| focus-ring / surface                         | 5.02  | ✅                                                                                                                                                        |
-| focus-ring / background                      | 4.80  | ✅                                                                                                                                                        |
-| focus-ring / surface-muted                   | 4.58  | ✅                                                                                                                                                        |
-| focus-ring / primary-subtle                  | 4.84  | ✅                                                                                                                                                        |
-| focus-ring / inverse-surface (panel Sign in) | 3.56  | ✅                                                                                                                                                        |
-| danger-border / surface                      | 4.83  | ✅                                                                                                                                                        |
-| border / surface                             | 1.23  | Chỉ để trang trí (card, divider), không bắt buộc 3:1. **Không dùng cho viền control**                                                                     |
-| primary (vạch nav active 3px) / surface      | 2.15  | ⚠️ Dưới 3:1. Chấp nhận được vì trạng thái active còn được thể hiện bằng nền amber-50, chữ đậm và `aria-current="page"`. Vạch không phải dấu hiệu duy nhất |
-| primary (progress) / surface-muted           | 1.96  | ⚠️ Thanh progress luôn phải kèm chữ phần trăm                                                                                                             |
+| Cặp                                            | Tỉ lệ | Kết quả                                                                                                                                                   |
+| ---------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| border-input / surface                         | 3.33  | ✅                                                                                                                                                        |
+| border-input / background                      | 3.19  | ✅                                                                                                                                                        |
+| border-input / surface-muted                   | 3.04  | ✅ vừa đủ                                                                                                                                                 |
+| focus-ring / surface                           | 5.02  | ✅                                                                                                                                                        |
+| focus-ring / background                        | 4.80  | ✅                                                                                                                                                        |
+| focus-ring / surface-muted                     | 4.58  | ✅                                                                                                                                                        |
+| focus-ring / primary-subtle                    | 4.84  | ✅                                                                                                                                                        |
+| focus-ring / inverse-surface (panel Sign in)   | 3.18  | ✅                                                                                                                                                        |
+| danger-border / surface                        | 4.83  | ✅                                                                                                                                                        |
+| border-input-soft / surface (input trang auth) | 1.23  | ⚠️ **Dưới 3:1**, giữ theo ảnh (Q14). Input vẫn nhận ra được nhờ label và placeholder, nhưng không đạt 1.4.11                                              |
+| border / surface                               | 1.23  | Chỉ để trang trí (card, divider), không bắt buộc 3:1. **Không dùng cho viền control**                                                                     |
+| primary (vạch nav active 3px) / surface        | 2.15  | ⚠️ Dưới 3:1. Chấp nhận được vì trạng thái active còn được thể hiện bằng nền amber-50, chữ đậm và `aria-current="page"`. Vạch không phải dấu hiệu duy nhất |
+| primary (progress) / surface-muted             | 1.96  | ⚠️ Thanh progress luôn phải kèm chữ phần trăm                                                                                                             |
 
 ---
 
@@ -181,7 +216,22 @@ Tính theo công thức WCAG 2.x.
 | `body-sm` | 13px       | 20px          | regular 400                   | —                                     | Helper text, meta, nhãn stepper                       |
 | `caption` | 12px       | 16px          | semibold 600                  | `--tracking-wide` 0.04em khi viết hoa | Badge, eyebrow, header bảng (viết hoa, M15)           |
 
-Weight token: `--weight-regular` 400, `--weight-semibold` 600, `--weight-bold` 700.
+Weight token: `--weight-regular` 400, `--weight-semibold` 600, `--weight-bold` 700. `--weight-label` = semibold (bold trong cột form của AuthLayout, Q14).
+
+**Riêng trang auth (Q14):**
+
+| Token                                  | Giá trị     | Dùng cho                                                                                       |
+| -------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
+| `--text-auth-title`                    | 35px        | h1 cột form và tiêu đề hero (line-height `--leading-display` / `--leading-display-loose` 48px) |
+| `--text-logo-wordmark`                 | 28px        | Logo chữ "LearnUP"                                                                             |
+| `--text-body-md` / `--leading-body-md` | 15px / 24px | Subtitle, chữ nút Sign in, tiêu đề thẻ trong panel                                             |
+| `--leading-note`                       | 21px        | Hai dòng chú thích dưới nút Google                                                             |
+| `--text-google-mark`                   | 20px        | Chữ G của nút Google                                                                           |
+| `--text-caption-sm`                    | 11px        | Eyebrow và số thứ tự trong card panel (dưới mức tối thiểu 12px, ngoại lệ theo ảnh)             |
+
+Chữ trong input `size="xl"` vẫn là `body` 14px (16px dưới 768px, Q5).
+
+**Tiêu đề:** `h1`, `h2`, `h3` dùng `text-wrap: balance` (trong `base.css`) để các dòng dài gần bằng nhau.
 
 **Line-height:** chữ thân đặt ≥ 1.5 để dấu chồng của tiếng Việt (Ặ, Ẩ, ệ) không chạm dòng bên cạnh.
 
@@ -216,11 +266,12 @@ Thang theo bội số 4px:
 
 **Shadow:** card dùng viền, **không dùng shadow**. Shadow chỉ dành cho lớp nổi.
 
-| Token         | Giá trị                                                                   | Dùng cho                      |
-| ------------- | ------------------------------------------------------------------------- | ----------------------------- |
-| `--shadow-sm` | `0 1px 2px 0 rgb(15 23 42 / 5%)`                                          | Header dính (sticky) khi cuộn |
-| `--shadow-md` | `0 4px 8px -2px rgb(15 23 42 / 10%), 0 2px 4px -2px rgb(15 23 42 / 6%)`   | Dropdown, menu người dùng     |
-| `--shadow-lg` | `0 12px 24px -4px rgb(15 23 42 / 12%), 0 4px 8px -4px rgb(15 23 42 / 8%)` | Modal, toast                  |
+| Token               | Giá trị                                                                   | Dùng cho                                                              |
+| ------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `--shadow-sm`       | `0 1px 2px 0 rgb(15 23 42 / 5%)`                                          | Header dính (sticky) khi cuộn                                         |
+| `--shadow-md`       | `0 4px 8px -2px rgb(15 23 42 / 10%), 0 2px 4px -2px rgb(15 23 42 / 6%)`   | Dropdown, menu người dùng                                             |
+| `--shadow-lg`       | `0 12px 24px -4px rgb(15 23 42 / 12%), 0 4px 8px -4px rgb(15 23 42 / 8%)` | Modal, toast                                                          |
+| `--shadow-autofill` | `inset 0 0 0 100vmax var(--color-surface)`                                | Phủ nền autofill của trình duyệt trong TextField (không phải lớp nổi) |
 
 **z-index:** `--z-dropdown` 1000 · `--z-sticky` 1100 · `--z-overlay` 1200 · `--z-modal` 1300 · `--z-toast` 1400
 
@@ -235,7 +286,6 @@ Thang theo bội số 4px:
 | `--layout-header-height`           | 64px              | Header 1 dòng (Q1, Q7)                               |
 | `--layout-content-max-width`       | 1600px            | Q8                                                   |
 | `--layout-form-max-width`          | 960px             | Form nhiều bước, trang cài đặt (Q8)                  |
-| `--layout-auth-form-width`         | 440px             | Q9                                                   |
 | `--layout-modal-sm / md / lg`      | 400 / 560 / 720px | `max-width` của Modal theo `size`                    |
 | `--layout-dropdown-min-width`      | 200px             | Độ rộng tối thiểu của DropdownMenu                   |
 | `--layout-tooltip-max-width`       | 280px             | Tooltip xuống dòng khi vượt độ rộng này              |
@@ -245,16 +295,44 @@ Thang theo bội số 4px:
 
 ### 5.1 Kích thước thành phần (`--size-*`)
 
-| Token                        | Giá trị        | Dùng cho                                                     |
-| ---------------------------- | -------------- | ------------------------------------------------------------ |
-| `--size-icon-sm`             | 16px           | Icon trong menu item, spinner nhỏ                            |
-| `--size-icon-md`             | 20px           | Icon trong nút, input (chevron của Select), Alert            |
-| `--size-icon-lg`             | 24px           | Icon đứng riêng, icon của EmptyState, spinner vừa            |
-| `--size-checkbox`            | 16px           | Ô checkbox                                                   |
-| `--size-target-min`          | 24px           | Chiều cao tối thiểu vùng bấm của control nhỏ (hàng checkbox) |
-| `--size-avatar-sm / md / lg` | 32 / 40 / 48px | Avatar                                                       |
-| `--size-control-md`          | 44px           | Nút, input, nav item, menu item trong app (M2, M3)           |
-| `--size-control-lg`          | 48px           | Nút, input ở trang auth và public (M2, M3)                   |
+| Token                                               | Giá trị        | Dùng cho                                                     |
+| --------------------------------------------------- | -------------- | ------------------------------------------------------------ |
+| `--size-icon-sm`                                    | 16px           | Icon trong menu item, spinner nhỏ                            |
+| `--size-icon-md`                                    | 20px           | Icon trong nút, input (chevron của Select), Alert            |
+| `--size-icon-lg`                                    | 24px           | Icon đứng riêng, icon của EmptyState, spinner vừa            |
+| `--size-checkbox`                                   | 16px           | Ô checkbox                                                   |
+| `--size-target-min`                                 | 24px           | Chiều cao tối thiểu vùng bấm của control nhỏ (hàng checkbox) |
+| `--size-avatar-sm / md / lg`                        | 32 / 40 / 48px | Avatar                                                       |
+| `--size-control-md`                                 | 44px           | Nút, input, nav item, menu item trong app (M2, M3)           |
+| `--size-control-lg`                                 | 48px           | Nút, input ở trang public (M2, M3)                           |
+| `--size-control-xl`                                 | 56px           | Input và nút Google ở trang auth (Q14)                       |
+| `--size-button-auth`                                | 52px           | Nút chính ở trang auth (Q14, `Button size="xl"`)             |
+| `--size-step-badge`                                 | 36px           | Vòng số thứ tự trong panel auth                              |
+| `--size-control-xl-padding-top / -bottom / -inline` | 18 / 14 / 17px | Padding input xl: chữ hơi thấp hơn tâm như ảnh               |
+
+### 5.2 Trang auth (`--layout-auth-*`, Q14)
+
+Đo trên ảnh UC05 ở 1440×1024; nằm ở nhóm "Auth pages" cuối `tokens.css`.
+
+| Token                                                                      | Giá trị                                          | Ghi chú                                    |
+| -------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------ |
+| `--layout-auth-panel-ratio`                                                | 47.5%                                            | 684 / 1440                                 |
+| `--layout-auth-panel-max-width`                                            | 720px                                            | Panel không rộng hơn ở màn lớn             |
+| `--layout-auth-panel-padding-inline`                                       | `clamp(var(--space-10), 4.3vw, var(--space-16))` | 62px ở 1440                                |
+| `--layout-auth-panel-padding-block`                                        | 47px                                             | Logo và tagline cách mép                   |
+| `--layout-auth-panel-content-width`                                        | 472px                                            | Hero và card, căn giữa panel               |
+| `--layout-auth-panel-hero-offset`                                          | 104px                                            | Logo → hero                                |
+| `--layout-auth-hero-title-width`                                           | 400px                                            | Ảnh ngắt tiêu đề hero trước chữ "to"       |
+| `--layout-auth-hero-gap` / `-hero-card-gap`                                | 22 / 63px                                        | Tiêu đề → mô tả; hero → card               |
+| `--layout-auth-card-padding` / `-padding-top` / `-padding-bottom`          | 31 / 34 / 50px                                   | Card trong panel                           |
+| `--layout-auth-card-gap` / `-card-item-gap` / `-card-item-height`          | 27 / 18 / 78px                                   | Eyebrow → thẻ; giữa các thẻ; chiều cao thẻ |
+| `--layout-auth-form-width`                                                 | 600px                                            | Cột phải (Q9 đảo)                          |
+| `--layout-auth-top-offset` / `-content-offset`                             | 35 / 69px                                        | Mép trên → link quay lại; link → h1        |
+| `--layout-auth-form-offset`                                                | 59px                                             | Tiêu đề → form khi không có thông báo      |
+| `--layout-auth-alert-offset` / `-alert-form-gap` / `-alert-padding-inline` | 28 / 21 / 22px                                   | Ô thông báo (lỗi, "đang phát triển")       |
+| `--layout-auth-field-gap` / `-submit-offset`                               | 29 / 6px                                         | Giữa các field; thêm trên nút Sign in      |
+| `--layout-auth-note-gap`                                                   | 18px                                             | Nút Google → chú thích                     |
+| `--layout-auth-footer-padding-top` / `-bottom` / `-link-gap`               | 18 / 38 / 21px                                   | Chân cột form                              |
 
 **Quy tắc cho `*.module.css`:** mọi kích thước lấy từ token. Chỉ được viết số trực tiếp cho độ dày viền và đường kẻ (1px, 2px, 3px), media query, `%`, `auto` và `0`. Kích thước ghép thì dùng `calc()` trên token, ví dụ `calc(var(--size-icon-lg) + 2 * var(--space-4))`.
 
@@ -307,7 +385,9 @@ CSS variable không dùng được trong `@media`, nên breakpoint chỉ ghi ở
 
 **Trang Sign in:**
 
-- Chia đôi màn hình. Panel trái dùng `--color-inverse-*`. Form rộng `--layout-auth-form-width`.
+- Dựng giống ảnh UC05 ở 1440×1024 (Q14, §0.1, §5.2). Panel trái `--layout-auth-panel-ratio` (tối đa `--layout-auth-panel-max-width`), nền navy: logo chữ, hero và nội dung panel rộng `--layout-auth-panel-content-width` căn giữa, tagline sát đáy.
+- Cột phải: link "Về trang chủ", nội dung rộng `--layout-auth-form-width` bắt đầu từ trên, chân cột (prop `footer` và chữ "LearnUP" nhỏ) ghim đáy. LanguageSwitcher đặt tuyệt đối ở góc trên phải, không đẩy bố cục.
+- Thao tác của milestone sau mà ảnh có vẽ (Quên mật khẩu, Google): vẫn hiển thị; bấm vào hiện Alert info "Tính năng đang được phát triển." ở ô thông báo (`useComingSoon`, AGENTS.md §14).
 - Dưới `md` ẩn panel trái.
 
 **Còn phải thiết kế thêm** (ảnh chưa có): panel thông báo, trạng thái hover và disabled của mọi thành phần. Drawer và menu người dùng đã làm theo mô tả ở trên, cần đối chiếu khi có ảnh thiết kế.
@@ -321,21 +401,21 @@ Mọi đề xuất đã được đồng ý, trừ M4 và M17 có điều chỉn
 | #   | Mâu thuẫn                                             | Quyết định                                                                    |
 | --- | ----------------------------------------------------- | ----------------------------------------------------------------------------- |
 | M1  | Nút chính có 2 kiểu: amber và slate-900               | Amber là primary duy nhất (Q2)                                                |
-| M2  | Chiều cao nút có 5 mức: 40 / 42 / 44 / 48 / 52        | 44 trong app, 48 ở auth và public                                             |
-| M3  | Chiều cao input: 48–50 và 56                          | 44 trong app, 48 ở auth                                                       |
+| M2  | Chiều cao nút có 5 mức: 40 / 42 / 44 / 48 / 52        | 44 trong app, 48 ở public; **52 ở auth** (Q14)                                |
+| M3  | Chiều cao input: 48–50 và 56                          | 44 trong app; **56 ở auth** (Q14)                                             |
 | M4  | Shell A và B khác nhau                                | Hướng lai (Q1)                                                                |
 | M5  | Section label slate-400                               | `--color-text-subtle` (slate-500)                                             |
 | M6  | Tiêu đề trang: 30 / 34 / 36                           | `display` 36 cho auth/public, `h1` 30 cho app                                 |
 | M7  | Bo góc lệch nhau                                      | card 12, nút và input 8                                                       |
 | M8  | Success lúc emerald-600, lúc emerald-700              | emerald-700                                                                   |
-| M9  | Chữ danger red-600 trên red-50 (4.41)                 | red-700                                                                       |
+| M9  | Chữ danger red-600 trên red-50 (4.41)                 | red-700; riêng tiêu đề Alert trang auth red-600 (Q14, ⚠️)                     |
 | M10 | Chữ warning có 3 màu                                  | amber-800 trên amber-50. Badge "Required" là nhãn loại: dùng badge trung tính |
 | M11 | Có thêm màu orange                                    | Gộp vào warning (Q10)                                                         |
 | M12 | Badge trung tính dùng chữ slate-500 (4.34)            | `--color-text-muted`                                                          |
 | M13 | Hành động trong bảng lúc là link, lúc là chữ thường   | `--color-link`                                                                |
 | M14 | Bộ lọc lúc là chip, lúc là select                     | Select có nhãn                                                                |
 | M15 | Header bảng lúc viết hoa, lúc viết thường             | `caption` viết hoa, nền surface-muted                                         |
-| M16 | Logo có/không có icon                                 | Một logo có icon, kèm biến thể màu trắng cho nền inverse                      |
+| M16 | Logo có/không có icon                                 | Logo có icon trong app; **logo chữ** ở trang auth (Q14, `Logo wordmark`)      |
 | M17 | "View plans" trùng chức năng với "Subscription plans" | **Bỏ nút "View plans"**                                                       |
 | M18 | Dữ liệu demo trong ảnh ("Demo data", "[Limit]", …)    | Không đưa vào UI                                                              |
 | M19 | Viền input quá nhạt                                   | `--color-border-input` = slate-450 (Q3)                                       |
