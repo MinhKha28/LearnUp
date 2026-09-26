@@ -47,6 +47,25 @@ describe('Token Refresh Interceptor Logic', () => {
     expect(axios.post).not.toHaveBeenCalled();
   });
 
+  it('should dispatch auth-expired if 401 occurs but no refresh token is stored', async () => {
+    authStorage.setAccessToken('expired-access-token');
+
+    const eventListener = vi.fn();
+    window.addEventListener('learnup:auth-expired', eventListener);
+
+    const responseInterceptor = (apiClient.interceptors.response as any).handlers[0];
+
+    const error401 = {
+      response: { status: 401 },
+      config: { url: '/api/users/me', headers: {} },
+    };
+
+    await expect(responseInterceptor.rejected(error401)).rejects.toEqual(error401);
+    expect(eventListener).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener('learnup:auth-expired', eventListener);
+  });
+
   it('should attempt refresh and update storage when refresh token is present', async () => {
     authStorage.setTokens('expired-access', 'valid-refresh');
 

@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { ApiResponse } from '@learnup/ts-common';
 import { API_BASE_URL } from '../config/env.js';
 import { authStorage } from '../auth/authStorage.js';
 
@@ -12,6 +13,20 @@ export const apiClient = axios.create({
   },
   timeout: 15000,
 });
+
+/**
+ * Extracts the server-provided error message (ApiResponse `error.message`) from an Axios error,
+ * falling back to the given message when none is available.
+ */
+export const getApiErrorMessage = (err: unknown, fallback: string): string => {
+  if (axios.isAxiosError<ApiResponse<unknown>>(err)) {
+    const message = err.response?.data?.error?.message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+  return fallback;
+};
 
 // Request Interceptor: Attach Bearer JWT token if present
 apiClient.interceptors.request.use(
@@ -67,6 +82,7 @@ apiClient.interceptors.response.use(
     const refreshToken = authStorage.getRefreshToken();
     if (!refreshToken) {
       authStorage.clearTokens();
+      window.dispatchEvent(new CustomEvent('learnup:auth-expired'));
       return Promise.reject(error);
     }
 

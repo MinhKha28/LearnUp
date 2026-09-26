@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.js';
+import { getApiErrorMessage } from '../services/apiClient.js';
 
 export const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -34,8 +35,7 @@ export const LoginPage: React.FC = () => {
       await login({ username: username.trim(), password });
       navigate(from, { replace: true });
     } catch (err: unknown) {
-      const error = err as Error;
-      setErrorMsg(error.message || 'Authentication failed. Please check your credentials.');
+      setErrorMsg(getApiErrorMessage(err, 'Đăng nhập thất bại. Vui lòng thử lại.'));
     } finally {
       setIsSubmitting(false);
     }
