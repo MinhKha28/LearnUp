@@ -114,8 +114,13 @@ docs/               design-tokens.md, glossary.md, use-cases/
 
 - Làm trên nhánh `fe/<việc>` (ví dụ `fe/instructor-list`). **Không commit thẳng** vào `fe/develop` hay `main`.
 - Commit theo Conventional Commits, **tiếng Anh**, scope `web`: `feat(web): …`, `fix(web): …`, `chore(web): …`, `docs(web): …`.
-- Trước khi commit: `npm run lint`, `npm test`, `npm run typecheck`, `npm run build` đều pass.
+- Trước khi commit: `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm test`, `npm run build` đều pass.
 - AI chỉ commit/push khi được yêu cầu.
+
+### CI và duyệt PR
+
+- PR vào `fe/develop`/`main` phải **xanh CI** (`.github/workflows/frontend-web.yml`: build ts-common → lint, format:check, typecheck, test, build) mới được merge. Node theo `.nvmrc`.
+- Thay đổi ở các đường dẫn trong `.github/CODEOWNERS` (styles, `components/ui`, `components/layout`, `AGENTS.md`, `docs/design-tokens.md`, `docs/glossary.md`, config ESLint/Stylelint) cần **leader duyệt**.
 
 ## 12. Dựng màn hình từ ảnh `.design-refs/`
 

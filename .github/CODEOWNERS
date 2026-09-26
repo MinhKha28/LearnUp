@@ -1,0 +1,9 @@
+# Changes to these paths need the frontend leader's review (see frontend/web/AGENTS.md)
+/frontend/web/src/styles/            @DinhVietHao
+/frontend/web/src/components/ui/     @DinhVietHao
+/frontend/web/src/components/layout/ @DinhVietHao
+/frontend/web/AGENTS.md              @DinhVietHao
+/frontend/web/docs/design-tokens.md  @DinhVietHao
+/frontend/web/docs/glossary.md       @DinhVietHao
+/frontend/web/stylelint.config.js    @DinhVietHao
+/frontend/web/eslint.config.js       @DinhVietHao

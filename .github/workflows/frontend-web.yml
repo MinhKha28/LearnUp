@@ -1,0 +1,70 @@
+name: frontend-web
+
+on:
+  pull_request:
+    branches: [fe/develop, main]
+    paths:
+      - 'frontend/web/**'
+      - 'libraries/ts-common/**'
+      - '.github/workflows/frontend-web.yml'
+  push:
+    branches: [fe/develop]
+    paths:
+      - 'frontend/web/**'
+      - 'libraries/ts-common/**'
+      - '.github/workflows/frontend-web.yml'
+
+# A new commit on the same PR (or branch) cancels the run still in progress
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/web/.nvmrc
+          cache: npm
+          cache-dependency-path: |
+            libraries/ts-common/package-lock.json
+            frontend/web/package-lock.json
+
+      # frontend/web installs @learnup/ts-common from file:../../libraries/ts-common and uses its dist/
+      - name: Build libraries/ts-common
+        working-directory: libraries/ts-common
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install
+        working-directory: frontend/web
+        run: npm ci
+
+      - name: Lint (ESLint + Stylelint)
+        working-directory: frontend/web
+        run: npm run lint
+
+      - name: Format check
+        working-directory: frontend/web
+        run: npm run format:check
+
+      - name: Typecheck
+        working-directory: frontend/web
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: frontend/web
+        run: npm test
+
+      - name: Build
+        working-directory: frontend/web
+        run: npm run build
