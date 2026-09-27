@@ -1,0 +1,32 @@
+erDiagram
+    notifications {
+        uuid id PK "Primary Key"
+        uuid organization_id "Tenant reference"
+        uuid recipient_user_id "Target recipient user"
+        varchar title "Notification title"
+        text message "Body text"
+        varchar type "INFO | WARNING | ALERT"
+        varchar channel "IN_APP | EMAIL"
+        boolean is_read "Read status"
+        timestamptz read_at "Read timestamp"
+        text metadata "JSON metadata"
+        timestamptz created_at "Created timestamp"
+    }
+
+    notification_templates {
+        uuid id PK "Primary Key"
+        varchar template_code UK "Unique template code"
+        varchar channel "IN_APP | EMAIL"
+        varchar subject_template "Subject template"
+        text body_template "Body template text"
+        timestamptz created_at "Created timestamp"
+    }
+
+    email_logs {
+        uuid id PK "Primary Key"
+        varchar recipient_email "Recipient email address"
+        varchar subject "Email subject"
+        varchar status "SENT | FAILED | PENDING"
+        text error_message "Error message if failed"
+        timestamptz sent_at "Sent timestamp"
+    }
