@@ -1,0 +1,144 @@
+.register {
+  min-height: calc(100vh - 64px);
+  max-width: 1344px;
+  margin: 0 auto;
+  padding: 32px 24px 56px;
+  color: var(--color-primary);
+
+  h1, h2, p { margin-top: 0; }
+}
+
+.register-heading {
+  margin-bottom: 24px;
+
+  h1 { margin: 0 0 7px; font-size: 28px; line-height: 1.25; letter-spacing: -.04em; }
+  > p { margin-bottom: 0; color: var(--color-text-secondary); font-size: 11px; }
+}
+
+.register-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2.45fr) minmax(250px, .8fr);
+  gap: 40px;
+  align-items: start;
+}
+
+.register-plan { margin-top: -70px; }
+
+.register-card {
+  padding: 28px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+
+  h2 { margin: 0 0 4px; font-size: 15px; line-height: 1.4; }
+  .register-card-description { margin: 0; color: var(--color-text-secondary); font-size: 10px; }
+  form { margin-top: 22px; }
+  .ant-alert + form { margin-top: 18px; }
+  .ant-form-item { margin-bottom: 16px; }
+  .ant-form-item-label { padding-bottom: 5px; }
+  .ant-form-item-label > label { height: auto; color: var(--color-primary); font-size: 9px; font-weight: 500; }
+  .ant-input, .ant-input-affix-wrapper { min-height: 36px; font-size: 10px; }
+  .ant-input-affix-wrapper .ant-input { min-height: 0; }
+  .ant-btn { height: 36px; font-size: 10px; font-weight: 600; }
+  .ant-btn-primary { color: var(--color-primary); background: var(--color-accent); box-shadow: none; }
+}
+
+.register-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.register-consent { margin: 2px 0 0; color: var(--color-text-muted); font-size: 8px; }
+
+.register-actions {
+  margin-top: 22px;
+  padding-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--color-border);
+
+  .ant-btn { min-width: 96px; }
+  .ant-btn-primary { min-width: 170px; }
+}
+
+.register-notice {
+  padding: 12px 16px;
+  color: var(--color-text-secondary);
+  background: var(--color-info-bg);
+  border-radius: 5px;
+  font-size: 9px;
+
+  b { display: block; margin-bottom: 2px; color: var(--color-primary); font-size: 10px; }
+  p { margin: 0; }
+}
+
+.register-notice-warning { background: var(--color-warning-bg); }
+.register-notice-success { color: var(--color-success); background: var(--color-success-bg); }
+.register-notice-error { color: var(--color-error); background: var(--color-error-bg); }
+.register-plan-notice { margin-bottom: 22px; }
+.register-plans .guest-plan-grid { margin-top: 0; }
+
+.register-standalone { max-width: 760px; margin: 72px auto 18px; }
+.register-registration-expired { padding-top: 34px; }
+.register-registration-expired .register-standalone { margin-top: 56px; }
+.register-invalid-verification-link .register-standalone { margin-top: 76px; }
+.register-no-plans .register-standalone { margin-top: 44px; }
+
+.register-result {
+  min-height: 360px;
+  padding: 50px 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
+  h2 { margin: 18px 0 7px; font-size: 20px; }
+  > p { margin-bottom: 0; color: var(--color-text-secondary); font-size: 10px; }
+  .register-notice { width: 100%; margin: 22px 0; text-align: left; }
+  .register-notice-success { text-align: center; }
+  .guest-link { min-width: 170px; margin-top: 22px; }
+}
+
+.register-result-icon {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 20px;
+}
+
+.register-result-error .register-result-icon { color: var(--color-error); background: var(--color-error-bg); }
+.register-result-warning .register-result-icon { color: #b45309; background: var(--color-warning-bg); }
+.register-result-success .register-result-icon { color: var(--color-success); background: var(--color-success-bg); }
+.register-result-info .register-result-icon { color: var(--color-info); background: var(--color-info-bg); }
+.register-pending { margin-bottom: 12px; padding: 4px 10px; display: inline-block; color: #b45309; background: var(--color-warning-bg); border-radius: 10px; font-size: 8px; font-weight: 700; letter-spacing: .05em; }
+
+.register-summary {
+  margin: 18px 0 0;
+  font-size: 10px;
+
+  > div { padding: 11px 0; display: flex; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--color-border); }
+  dt { color: var(--color-text-muted); }
+  dd { margin: 0; font-weight: 600; text-align: right; }
+}
+
+.register-payment .register-notice { margin-top: 18px; }
+
+@media (max-width: 1024px) {
+  .register-columns { grid-template-columns: minmax(0, 2fr) minmax(230px, .9fr); gap: 24px; }
+  .register-plan { margin-top: -78px; }
+}
+
+@media (max-width: 767px) {
+  .register { min-height: calc(100vh - 60px); padding: 28px 20px 44px; }
+  .register-heading h1 { font-size: 24px; }
+  .register-columns { grid-template-columns: 1fr; gap: 22px; }
+  .register-plan { margin-top: 0; }
+  .register-card { padding: 22px 18px; }
+  .register-field-grid { grid-template-columns: 1fr; gap: 0; }
+  .register-actions .ant-btn { min-width: 86px; }
+  .register-actions .ant-btn-primary { min-width: 142px; }
+  .register-standalone, .register-registration-expired .register-standalone, .register-invalid-verification-link .register-standalone, .register-no-plans .register-standalone { margin: 42px auto 16px; }
+  .register-result { min-height: 350px; padding: 42px 20px; }
+}
