@@ -1,8 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Drawer } from "antd";
 import { MenuOutlined } from "@ant-design/icons";
 import { Link, useLocation } from "react-router-dom";
 import "@/components/layout/header.scss";
+
+const navItems = [
+  { key: "platform", label: "Platform", hash: "#platform" },
+  { key: "how-it-works", label: "How it works", hash: "#how-it-works" },
+  { key: "plans", label: "Plans", hash: "#plans" },
+  { key: "faq", label: "FAQ", hash: "#before-you-start" },
+];
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -11,36 +18,40 @@ export default function Header() {
   const registration = pathname.startsWith("/register");
   const plansActive =
     pathname === "/register" || pathname === "/register/no-plans";
+  const [activeKey, setActiveKey] = useState("platform");
   const closeMenu = () => setOpen(false);
+
+  useEffect(() => {
+    if (plansActive) {
+      setActiveKey("plans");
+    } else if (home) {
+      setActiveKey((prev) =>
+        navItems.some((item) => item.key === prev) ? prev : "platform",
+      );
+    }
+  }, [pathname, plansActive, home]);
 
   const navigation = (
     <>
-      <a
-        className={home ? "header-active" : undefined}
-        href="/#platform"
-        onClick={closeMenu}
-      >
-        Platform
-      </a>
-      <a href="/#how-it-works" onClick={closeMenu}>
-        How it works
-      </a>
-      <a
-        className={plansActive ? "header-active" : undefined}
-        href="/#plans"
-        onClick={closeMenu}
-      >
-        Plans
-      </a>
-      <a href="/#before-you-start" onClick={closeMenu}>
-        FAQ
-      </a>
+      {navItems.map((item) => (
+        <a
+          key={item.key}
+          className={activeKey === item.key ? "header-active" : undefined}
+          href={`/${item.hash}`}
+          onClick={() => {
+            setActiveKey(item.key);
+            closeMenu();
+          }}
+        >
+          {item.label}
+        </a>
+      ))}
       <Link className="header-signin" to="/login" onClick={closeMenu}>
         Sign in
       </Link>
       {!home && (
         <Link className="header-action" to="/register" onClick={closeMenu}>
-          Explore plans <span aria-hidden="true">{"\u2192"}</span>
+          Explore plans <span aria-hidden="true">{"→"}</span>
         </Link>
       )}
     </>

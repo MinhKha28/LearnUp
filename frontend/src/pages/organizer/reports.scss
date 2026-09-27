@@ -1,0 +1,99 @@
+.organizer-reports-stats {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin-bottom: 16px;
+}
+
+.organizer-reports-filters {
+    padding: 14px 20px;
+    margin-bottom: 16px;
+}
+
+.organizer-reports-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+.organizer-reports-filter-label {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 6px;
+    margin-right: 16px;
+    color: #1e293b;
+    font-size: 11px;
+    font-weight: 650;
+}
+
+.organizer-reports-filter-label .anticon {
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.organizer-reports-filter-bar .ant-select {
+    min-width: 0;
+}
+
+.organizer-reports-filter-bar .ant-select-selector {
+    padding: 6px 12px !important;
+    border-radius: 6px !important;
+    transition: background-color .15s ease;
+}
+
+.organizer-reports-filter-bar .ant-select:hover .ant-select-selector,
+.organizer-reports-filter-bar .ant-select-focused .ant-select-selector {
+    background: var(--color-surface-secondary) !important;
+}
+
+.organizer-reports-filter-bar .ant-select-selection-placeholder,
+.organizer-reports-filter-bar .ant-select-selection-item {
+    color: #475569;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.organizer-reports-filter-bar .ant-select-arrow {
+    color: #cbd5e1;
+    font-size: 9px;
+}
+
+.organizer-reports-filter-bar .ant-select:not(:last-child)::after {
+    display: inline-block;
+    width: 1px;
+    height: 14px;
+    margin-inline-start: 4px;
+    background: var(--color-border);
+    content: "";
+}
+
+.organizer-reports-courses {
+    margin-bottom: 16px;
+}
+
+.organizer-dashboard-progress {
+    display: grid;
+    gap: 16px;
+}
+
+.organizer-optional-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 1050px) {
+    .organizer-reports-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .organizer-reports-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .organizer-reports-filter-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}

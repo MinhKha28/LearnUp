@@ -1,0 +1,37 @@
+.organizer-learner-report-summary {
+    margin-bottom: 16px;
+}
+
+.organizer-learner-report-identity {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 14px;
+}
+
+.organizer-learner-report-identity strong {
+    color: #0f172a;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.organizer-learner-report-identity span {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.organizer-learner-report-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.organizer-learner-report-metrics strong {
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.organizer-learner-report-overdue strong {
+    color: #dc2626;
+}
