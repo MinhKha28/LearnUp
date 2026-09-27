@@ -11,7 +11,7 @@ LearnUP utilizes **Apache Kafka** exclusively for asynchronous domain event broa
 | **Interaction Style** | Request / Response (Immediate answer) | Publish / Subscribe (Fire-and-forget notification) |
 | **Topology** | 1-to-1 direct service call | 1-to-Many broadcast |
 | **Coupling** | Caller depends on receiver's availability | Producer has zero knowledge of consumers |
-| **Use Case Examples** | Fetching learner tags for assignment screen; Verifying user identity during login | `CourseCompleted` triggering Certificate & Notification; `RequiredCourseAssigned` triggering notification |
+| **Use Case Examples** | Fetching learner tags for assignment screen; Verifying user identity during login | `CourseCompleted` triggering Certificate & Email dispatch; `RequiredCourseAssigned` triggering email dispatch |
 
 **Strict Rule**: Do NOT replace direct synchronous queries with Kafka. Kafka is only for event distribution.
 

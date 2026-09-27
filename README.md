@@ -1,6 +1,6 @@
 # LearnUP — Minimal but Complete Microservice Platform
 
-LearnUP is a B2B multi-tenant online learning platform built on a clean, decoupled microservice architecture. It demonstrates strict business boundaries, database-per-service isolation, role-based access control, multi-tenant organization boundaries, and balanced synchronous/asynchronous communication.
+LearnUP is a non-AI B2B multi-tenant online learning and corporate training platform built on a clean, decoupled microservice architecture. It demonstrates strict business boundaries, database-per-service isolation, role-based access control, multi-tenant organization boundaries, and balanced synchronous/asynchronous communication.
 
 ---
 
@@ -29,23 +29,21 @@ learnup/
 │
 ├── infrastructure/
 │   ├── eureka-server/                     # Spring Cloud Netflix Eureka discovery server
-│   └── kafka/                             # Kafka configuration and topic definitions
+│   ├── kafka/                             # Kafka configuration and topic definitions
+│   └── postgres/                          # Multi-database init script (8 isolated service DBs)
 │
 ├── gateway/
 │   └── api-gateway/                       # Spring Cloud Gateway (JWT validation & header propagation)
 │
 ├── services/
-│   ├── identity-service/                  # User identity, authentication, JWT issuing (identity_db)
-│   ├── organization-service/              # Organizations, members, tags, learner groups (organization_db)
-│   ├── subscription-service/              # Organization subscriptions and plans (subscription_db)
-│   ├── payment-service/                   # B2B payments and invoices (payment_db)
-│   ├── course-service/                    # Courses, modules, lessons, content metadata (course_db)
-│   ├── learning-service/                  # Enrollments, learning progress, required assignments (learning_db)
-│   ├── assessment-service/                # Quizzes, MCQ auto-grading, submissions, peer reviews (assessment_db)
-│   ├── certificate-service/               # Certificate issuance and verification (certificate_db)
-│   ├── specialization-service/            # Course specializations & tracks (specialization_db)
-│   ├── recommendation-service/            # Course & learning recommendations (recommendation_db)
-│   └── notification-service/              # Event-driven user notifications (notification_db)
+│   ├── identity-service/                  # Supporting: Credentials, authentication, JWT tokens (identity_db)
+│   ├── notification-service/              # Supporting: In-app notifications & email dispatch (notification_db)
+│   ├── audit-service/                     # Supporting: Append-only governance and action logs (audit_db)
+│   ├── tenant-service/                    # Business: Orgs, user accounts, subscriptions, payments (tenant_db)
+│   ├── course-service/                    # Business: Courses, versions, syllabus, lessons (course_db)
+│   ├── learning-service/                  # Business: Enrollments, learning progress, required assignments (learning_db)
+│   ├── assessment-service/                # Business: Quizzes, submissions, grading, peer reviews (assessment_db)
+│   └── achievement-reporting-service/     # Business: Certificates, analytics, reports, governance (achievement_reporting_db)
 │
 ├── libraries/
 │   ├── java-common/                       # Shared Java technical utilities (security, response, exception)
@@ -61,7 +59,7 @@ learnup/
 │   ├── api/                               # REST API standards and conventions
 │   └── adr/                               # Architecture Decision Records (ADRs)
 │
-├── docker-compose.yml                     # Local orchestration of database, Kafka, Eureka, and services
+├── docker-compose.yml                     # Local orchestration of PostgreSQL, Kafka, Eureka, and platform components
 └── README.md
 ```
 
@@ -69,15 +67,25 @@ learnup/
 
 ## 3. Technology Stack & Boundaries
 
+### Platform & Supporting Components
 | Component | Technology | Database | Key Responsibilities |
 | :--- | :--- | :--- | :--- |
 | **Frontend** | ReactJS + TS + Vite | N/A | Auth state, protected routes, role UI, Org context |
 | **API Gateway** | Spring Cloud Gateway | None | Reverse proxy, JWT verify, `X-*` header propagation |
 | **Service Discovery** | Spring Cloud Eureka | None | Service registry & health monitoring |
 | **Event Bus** | Apache Kafka | None | Asynchronous business event broadcast |
-| **Identity Service** | Spring Boot (Java 21) | `identity_db` (Postgres) | Users, roles, credentials, JWT issuing |
-| **Organization Service** | Spring Boot (Java 21) | `organization_db` (Postgres) | Orgs, memberships, tags, bulk learner selection |
-| **Business Services** | Spring Boot / NestJS | Dedicated Postgres DBs | Domain logic, isolated data ownership |
+| **Identity Service** | Spring Boot (Java 21) | `identity_db` (Postgres) | Credentials, password hashing, JWT issuing, login |
+| **Notification Service** | Spring Boot (Java 21) | `notification_db` (Postgres) | In-app notifications, email dispatch, alert templates |
+| **Audit Service** | Spring Boot | `audit_db` (Postgres) | Append-only governance audit logs, actor/resource action history |
+
+### 5 Finalized Business Services
+| Business Service | Database | Key Responsibilities |
+| :--- | :--- | :--- |
+| **Tenant Service** | `tenant_db` | Master User/Account records, Organizations, members, tags, plans, subscriptions, payments |
+| **Course Service** | `course_db` | Course catalog, course versioning, syllabus, modules, lessons, material links |
+| **Learning Service** | `learning_db` | Course enrollments, lesson progress tracking, required course assignments |
+| **Assessment Service** | `assessment_db` | Quizzes, assignments, submissions, auto-grading, instructor/peer reviews |
+| **Achievement & Reporting Service** | `achievement_reporting_db` | Certificates, learning analytics, organization compliance reports, governance |
 
 ---
 
@@ -103,30 +111,19 @@ learnup/
                ┌────────────────┼────────────────┐
                │                │                │
                ▼                ▼                ▼
-        Identity Service   Org Service    Business Services
+        Identity Service   Supporting       5 Business
+                           Services          Services
 ```
 
 ---
 
-## 5. Implementation Roadmap (Phased Execution)
+## 5. System Decisions & Architecture Exclusions
 
-* **[x] P0 — Architecture Foundation**: Monorepo foundation, ADRs, service boundaries, communication rules, data ownership.
-* **[x] P1 — Java Common Library**: Minimal technical utilities (`CurrentUser`, `OrganizationContext`, `ApiResponse`, exceptions).
-* **[x] P2 — TypeScript Common Library**: Framework-neutral TS utilities (Context, HTTP clients, standard types).
-* **[x] P3 — Eureka Server**: Service discovery server setup and health verification.
-* **[x] P4 — API Gateway**: Spring Cloud Gateway routing, JWT validation filter, header propagation, CORS.
-* **[x] P5 — Identity Service**: User entity, Spring Security, BCrypt, JWT generation, `identity_db`.
-* **[x] P6 — ReactJS Foundation**: Authentication context, login/logout, route guards, Gateway integration.
-* **[x] P7 — Kafka Infrastructure**: Event envelope producer/consumer abstractions and error handling.
-* **[ ] P8 — Organization Service**: Organizations, memberships, learner tags, search/filter, `organization_db`.
-* **[ ] P9 — Platform Integration**: End-to-end authentication, authorization, REST routing, and event verification.
-* **[ ] P10 — Business Services**: Incremental implementation of Subscription, Payment, Course, Learning, Assessment, Certificate, Specialization, Recommendation, Notification.
+LearnUP intentionally maintains clean, robust boundaries without unnecessary technical complexity. See [`docs/adr/`](file:///d:/Study/learnup/docs/adr) for full decision records.
 
----
-
-## 6. Architecture Decisions & Exclusions
-
-LearnUP intentionally avoids unnecessary complexity. See [`docs/adr/`](file:///d:/Study/learnup/docs/adr) for full decision records.
-
-**Explicitly Excluded Technologies**:
-Redis, RabbitMQ, Kubernetes, OpenTelemetry, Prometheus, Grafana, CQRS, Event Sourcing, Saga, Transactional Outbox, Database RLS, Service Mesh, Config Server, Elasticsearch.
+* **Exactly 4 Authenticated Roles**: `ADMIN`, `ORGANIZER`, `INSTRUCTOR`, `LEARNER` (Guest is unauthenticated, not a role).
+* **Single Tenant Identifier**: `organizationId` is the single canonical tenant key.
+* **Database-per-Service**: 8 independent logical databases with zero cross-service direct DB access or foreign keys.
+* **Synchronous REST + Asynchronous Kafka**: REST for direct queries/commands; Kafka for decoupled domain event broadcasts.
+* **Zero AI / ML / LLM Functionality**: AI grading, AI tutors, LLM APIs, and vector embeddings are completely excluded.
+* **Explicitly Excluded Technologies**: Redis, RabbitMQ, Kubernetes, OpenTelemetry, Prometheus, Grafana, CQRS, Event Sourcing, Saga, Transactional Outbox, Database RLS, Service Mesh, Config Server, Elasticsearch, Next.js, Azure Blob / Azurite.

@@ -15,4 +15,4 @@ This directory contains the canonical JSON Schemas and sample payloads for domai
 * `learnup.learning.assignment-created` — Fired by Learning Service when an Organizer assigns a required course to learners.
 * `learnup.assessment.peer-review-assigned` — Fired by Assessment Service when peer reviews are distributed.
 * `learnup.assessment.passed` — Fired by Assessment Service when an assessment requirement is passed.
-* `learnup.certificate.issued` — Fired by Certificate Service when a certificate record is generated.
+* `learnup.certificate.issued` — Fired by Achievement & Reporting Service when a certificate record is generated.

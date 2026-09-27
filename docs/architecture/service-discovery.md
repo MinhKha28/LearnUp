@@ -24,17 +24,20 @@ LearnUP uses **Spring Cloud Netflix Eureka** to provide dynamic service registra
 
 ### 2.1 Service Naming Standard
 All services register with a predictable, upper-case service name matching their artifact identity:
+
+**Supporting Services**:
 * `IDENTITY-SERVICE`
-* `ORGANIZATION-SERVICE`
-* `SUBSCRIPTION-SERVICE`
-* `PAYMENT-SERVICE`
+* `NOTIFICATION-SERVICE`
+* `AUDIT-SERVICE`
+
+**Business Services**:
+* `TENANT-SERVICE`
 * `COURSE-SERVICE`
 * `LEARNING-SERVICE`
 * `ASSESSMENT-SERVICE`
-* `CERTIFICATE-SERVICE`
-* `SPECIALIZATION-SERVICE`
-* `RECOMMENDATION-SERVICE`
-* `NOTIFICATION-SERVICE`
+* `ACHIEVEMENT-REPORTING-SERVICE`
+
+> **Important**: Eureka is purely a service registry/lookup directory, **NOT a request-processing hop**. The request flow is strictly: `Client` -> `API Gateway` -> `Target Service`. The Gateway discovers service network instances from Eureka in the background.
 
 ### 2.2 Spring Boot Configuration
 In Spring Boot services (`application.yml`):

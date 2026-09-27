@@ -16,9 +16,10 @@ Core identity, user credential, authentication, and token management microservic
 * Current user profile retrieval (`GET /api/users/me`).
 
 ### What Identity Service DOES NOT Own:
-* **No Organizations/Memberships**: Owned by **Organization Service**.
+* **No Organizations/Memberships**: Owned by **Organization & Commercial Service**.
 * **No Course/Enrollment/Assessment data**: Owned by respective business services.
 * **No Business RBAC Permissions**: Authorization rules (e.g. whether an `ORGANIZER` can assign courses) reside in business services.
+
 
 ---
 

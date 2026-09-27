@@ -10,75 +10,53 @@ spring:
         locator:
           enabled: false
       routes:
-        # Identity Service Routes
+        # Supporting: Identity Service Routes
         - id: identity-service-auth
           uri: lb://IDENTITY-SERVICE
           predicates:
             - Path=/api/auth/**
-        - id: identity-service-users
-          uri: lb://IDENTITY-SERVICE
-          predicates:
-            - Path=/api/users/**
 
-        # Organization Service Routes
-        - id: organization-service
-          uri: lb://ORGANIZATION-SERVICE
+        # Supporting: Notification Service Routes
+        - id: notification-service
+          uri: lb://NOTIFICATION-SERVICE
           predicates:
-            - Path=/api/organizations/**
+            - Path=/api/notifications/**
 
-        # Course Service Routes
+        # Supporting: Audit Service Routes
+        - id: audit-service
+          uri: lb://AUDIT-SERVICE
+          predicates:
+            - Path=/api/audit/**
+
+        # Business 1: Tenant Service Routes
+        - id: tenant-service
+          uri: lb://TENANT-SERVICE
+          predicates:
+            - Path=/api/users/**, /api/organizations/**, /api/subscriptions/**, /api/payments/**
+
+        # Business 2: Course Service Routes
         - id: course-service
           uri: lb://COURSE-SERVICE
           predicates:
             - Path=/api/courses/**
 
-        # Learning Service Routes
+        # Business 3: Learning Service Routes
         - id: learning-service
           uri: lb://LEARNING-SERVICE
           predicates:
             - Path=/api/learning/**
 
-        # Assessment Service Routes
+        # Business 4: Assessment Service Routes
         - id: assessment-service
           uri: lb://ASSESSMENT-SERVICE
           predicates:
             - Path=/api/assessments/**
 
-        # Certificate Service Routes
-        - id: certificate-service
-          uri: lb://CERTIFICATE-SERVICE
+        # Business 5: Achievement & Reporting Service Routes
+        - id: achievement-reporting-service
+          uri: lb://ACHIEVEMENT-REPORTING-SERVICE
           predicates:
-            - Path=/api/certificates/**
-
-        # Subscription Service Routes
-        - id: subscription-service
-          uri: lb://SUBSCRIPTION-SERVICE
-          predicates:
-            - Path=/api/subscriptions/**
-
-        # Payment Service Routes
-        - id: payment-service
-          uri: lb://PAYMENT-SERVICE
-          predicates:
-            - Path=/api/payments/**
-
-        # Specialization Service Routes
-        - id: specialization-service
-          uri: lb://SPECIALIZATION-SERVICE
-          predicates:
-            - Path=/api/specializations/**
-
-        # Recommendation Service Routes
-        - id: recommendation-service
-          uri: lb://RECOMMENDATION-SERVICE
-          predicates:
-            - Path=/api/recommendations/**
-
-        # Notification Service Routes
-        - id: notification-service
-          uri: lb://NOTIFICATION-SERVICE
-          predicates:
-            - Path=/api/notifications/**
+            - Path=/api/certificates/**, /api/reports/**, /api/governance/**
 
 eureka:
   instance:
@@ -98,6 +76,7 @@ jwt:
     - /api/certificates/verify/**
     - /actuator/health
     - /fallback/**
+
 
 gateway:
   cors:

@@ -1,27 +1,27 @@
 # Assessment Service (`services/assessment-service`)
 
-## Technology Stack
-* Spring Boot / NestJS
-* PostgreSQL (`assessment_db`)
-* Apache Kafka Producer & Consumer
+## 1. Overview
+* **Service Name**: `assessment-service`
+* **Service Classification**: Business Service (4 of 5)
+* **Intended Technology**: NestJS (TypeScript)
+* **Dedicated Database**: PostgreSQL (`assessment_db`)
+* **Eureka Service Identifier**: `ASSESSMENT-SERVICE`
+* **Implementation Status**: **Skeleton Only** (Implementation intentionally deferred to the NestJS team)
 
-## Eureka Application Name
-* `ASSESSMENT-SERVICE`
+---
 
-## Responsibilities
-* Assessment authoring (Quizzes, Exams, Essay / Free-response assignments).
-* Automated grading for Multiple-Choice Questions (MCQ) based on internal answer keys.
-* Peer review management for essay submissions:
-  * Distributing submissions to 5 peer reviewers.
-  * Enforcing rule: Learner's own submission requirement is satisfied only when completing 5 peer evaluations.
-  * Review timeout detection and automated task routing to Instructors for grading intervention.
-* Instructor grade overrides.
-* Publishing `learnup.assessment.passed` and `learnup.assessment.peer-review-assigned` Kafka events.
+## 2. High-Level Domain Ownership (Source of Truth)
+The Assessment Service is the authority for quizzes, exams, and assignment evaluations:
+* **Assessment Authoring**: Quiz creation, question banks, answer keys, scoring rubrics.
+* **Auto-Grading**: Deterministic real-time evaluation for Multiple-Choice Questions (strictly non-AI).
+* **Attempt Constraints**: Maximum attempt limits, time duration limits, anti-cheat retake intervals.
+* **Assignment Submissions**: Learner file/essay submissions, instructor manual grading, grade overrides.
+* **Grade Records**: Immutable grade histories and evaluation outcomes.
 
-## Database Entities
-* `Assessment` (`id`, `organization_id`, `course_id`, `title`, `type`, `passing_score`, `peer_review_count`, `review_timeout_hours`)
-* `Question` (`id`, `assessment_id`, `prompt`, `question_type`, `points`, `order_index`)
-* `Option` (`id`, `question_id`, `text`, `is_correct`)
-* `Submission` (`id`, `assessment_id`, `learner_id`, `status`, `final_score`, `submitted_at`)
-* `PeerReviewAssignment` (`id`, `submission_id`, `reviewer_learner_id`, `status`, `score`, `feedback`, `due_at`)
-* `InstructorReviewTask` (`id`, `submission_id`, `instructor_id`, `reason`, `status`, `assigned_at`)
+---
+
+## 3. Strict Boundary Rules
+* **No Direct Cross-Database Access**: Must never connect directly to other services' databases.
+* **Course Structure**: Course syllabus and lesson hierarchy are owned by **Course Service** (`course_db`).
+* **Enrollment Progress**: Overall course completion is computed by **Learning Service** (`learning_db`).
+* **Deferred Implementation**: Contains no Java/Spring Boot code. Will be implemented independently by the NestJS team.

@@ -9,21 +9,18 @@ A core tenet of the LearnUP architecture is the strict implementation of the **D
 Every microservice connects exclusively to its own dedicated PostgreSQL database.
 
 ```text
-┌─────────────────────────┬──────────────────────┬───────────────────────────────┐
-│ Service                 │ Database Name        │ Primary Entities              │
-├─────────────────────────┼──────────────────────┼───────────────────────────────┤
-│ Identity Service        │ identity_db          │ User, Role, RefreshToken      │
-│ Organization Service    │ organization_db      │ Organization, Member, Tag     │
-│ Subscription Service    │ subscription_db      │ Plan, Subscription, Limit     │
-│ Payment Service         │ payment_db           │ PaymentTransaction, Invoice   │
-│ Course Service          │ course_db            │ Course, Module, Lesson        │
-│ Learning Service        │ learning_db          │ Enrollment, Progress, Assign  │
-│ Assessment Service      │ assessment_db        │ Assessment, Question, Review  │
-│ Certificate Service     │ certificate_db       │ Certificate, Verification     │
-│ Specialization Service  │ specialization_db    │ Specialization, TrackItem     │
-│ Recommendation Service  │ recommendation_db    │ RecommendationRule, Suggestion│
-│ Notification Service    │ notification_db      │ Notification, UserPreference  │
-└─────────────────────────┴──────────────────────┴───────────────────────────────┘
+┌─────────────────────────────────────┬──────────────────────────────┬────────────────────────────────────────┐
+│ Service                             │ Database Name                │ Primary Entities                       │
+├─────────────────────────────────────┼──────────────────────────────┼────────────────────────────────────────┤
+│ Identity Service                    │ identity_db                  │ Credentials, RefreshToken, LoginAudit  │
+│ Tenant Service                      │ tenant_db                    │ UserAccount, Org, Member, Plan, Sub    │
+│ Course Service                      │ course_db                    │ Course, CourseVersion, Module, Lesson  │
+│ Learning Service                    │ learning_db                  │ Enrollment, Progress, Assignment       │
+│ Assessment Service                  │ assessment_db                │ Quiz, Question, Attempt, Submission    │
+│ Achievement & Reporting Service     │ achievement_reporting_db     │ Certificate, Evaluation, Report        │
+│ Notification Service                │ notification_db              │ Notification, Template, EmailLog       │
+│ Audit Service                       │ audit_db                     │ AuditLog                               │
+└─────────────────────────────────────┴──────────────────────────────┴────────────────────────────────────────┘
 ```
 
 ---

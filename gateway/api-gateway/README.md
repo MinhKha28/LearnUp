@@ -85,20 +85,17 @@ The Gateway validates HMAC-SHA256 tokens signed with a shared secret (`JWT_SECRE
 
 All routes map to dynamic Eureka service identifiers (`lb://<SERVICE-NAME>`):
 
-| Route ID | Path Predicate | Target Service |
-| :--- | :--- | :--- |
-| `identity-service-auth` | `/api/auth/**` | `lb://IDENTITY-SERVICE` |
-| `identity-service-users` | `/api/users/**` | `lb://IDENTITY-SERVICE` |
-| `organization-service` | `/api/organizations/**` | `lb://ORGANIZATION-SERVICE` |
-| `course-service` | `/api/courses/**` | `lb://COURSE-SERVICE` |
-| `learning-service` | `/api/learning/**` | `lb://LEARNING-SERVICE` |
-| `assessment-service` | `/api/assessments/**` | `lb://ASSESSMENT-SERVICE` |
-| `certificate-service` | `/api/certificates/**` | `lb://CERTIFICATE-SERVICE` |
-| `subscription-service` | `/api/subscriptions/**` | `lb://SUBSCRIPTION-SERVICE` |
-| `payment-service` | `/api/payments/**` | `lb://PAYMENT-SERVICE` |
-| `specialization-service` | `/api/specializations/**` | `lb://SPECIALIZATION-SERVICE` |
-| `recommendation-service` | `/api/recommendations/**` | `lb://RECOMMENDATION-SERVICE` |
-| `notification-service` | `/api/notifications/**` | `lb://NOTIFICATION-SERVICE` |
+| Route ID | Path Predicate | Target Service | Type |
+| :--- | :--- | :--- | :--- |
+| `identity-service-auth` | `/api/auth/**` | `lb://IDENTITY-SERVICE` | Supporting |
+| `notification-service` | `/api/notifications/**` | `lb://NOTIFICATION-SERVICE` | Supporting |
+| `audit-service` | `/api/audit/**` | `lb://AUDIT-SERVICE` | Supporting |
+| `tenant-service` | `/api/users/**`, `/api/organizations/**`, `/api/subscriptions/**`, `/api/payments/**` | `lb://TENANT-SERVICE` | Business |
+| `course-service` | `/api/courses/**` | `lb://COURSE-SERVICE` | Business |
+| `learning-service` | `/api/learning/**` | `lb://LEARNING-SERVICE` | Business |
+| `assessment-service` | `/api/assessments/**` | `lb://ASSESSMENT-SERVICE` | Business |
+| `achievement-reporting-service` | `/api/certificates/**`, `/api/reports/**`, `/api/governance/**` | `lb://ACHIEVEMENT-REPORTING-SERVICE` | Business |
+
 
 ---
 

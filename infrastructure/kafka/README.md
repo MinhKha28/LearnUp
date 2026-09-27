@@ -38,7 +38,7 @@ learnup.<domain>.<event-name>
 
 ### Format Specification:
 * **Prefix**: `learnup.` — Global namespace preventing collisions.
-* **`<domain>`**: Lowercase business domain name (e.g., `learning`, `assessment`, `certificate`, `organization`, `notification`).
+* **`<domain>`**: Lowercase business domain name (e.g., `learning`, `assessment`, `achievement`, `organization`, `email`).
 * **`<event-name>`**: Kebab-case past-tense verb representing an immutable domain fact that has occurred.
 
 ### Standard Topic Catalog (Planned for Business Phases):
@@ -51,8 +51,8 @@ learnup.<domain>.<event-name>
 | **Assessment** | `learnup.assessment.submission-created` | Emitted when a quiz/peer assessment is submitted |
 | **Assessment** | `learnup.assessment.passed` | Emitted when an assessment satisfies the passing threshold |
 | **Assessment** | `learnup.assessment.peer-review-assigned` | Emitted when peer evaluators are selected |
-| **Certificate** | `learnup.certificate.issued` | Emitted when a verified certificate is generated |
-| **Notification** | `learnup.notification.event-dispatched` | Internal event notification feed |
+| **Achievement** | `learnup.achievement.certificate-issued` | Emitted when a verified certificate is generated |
+| **Email** | `learnup.email.dispatched` | Emitted when a system notification email is dispatched |
 
 ---
 

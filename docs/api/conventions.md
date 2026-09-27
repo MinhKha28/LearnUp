@@ -12,8 +12,8 @@ This document establishes the uniform REST API conventions, URL patterns, envelo
   * `/api/course-assignments`
   * `/api/peer-reviews`
 * Sub-resources denote relationships:
-  * `GET /api/organizations/{orgId}/learners`
-  * `POST /api/organizations/{orgId}/tags`
+  * `GET /api/organizations/{organizationId}/learners`
+  * `POST /api/organizations/{organizationId}/tags`
   * `GET /api/courses/{courseId}/modules`
 
 ### HTTP Verb Semantics:

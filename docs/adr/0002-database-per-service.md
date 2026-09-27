@@ -7,8 +7,8 @@ Accepted
 In microservice architectures, shared databases create tight coupling, risk unintended cross-domain data dependencies, and prevent independent evolution of service schemas.
 
 ## Decision
-Every microservice in LearnUP owns a dedicated PostgreSQL logical database:
-* `identity_db`, `organization_db`, `subscription_db`, `payment_db`, `course_db`, `learning_db`, `assessment_db`, `certificate_db`, `specialization_db`, `recommendation_db`, `notification_db`.
+Every microservice in LearnUP with persistent state owns a dedicated PostgreSQL logical database:
+* `identity_db`, `media_db`, `audit_db`, `organization_commercial_db`, `course_db`, `learning_db`, `assessment_db`, `achievement_reporting_db`.
 
 No service may directly connect to or query another service's database. Cross-service relationships are represented exclusively by scalar logical identifiers (`organizationId`, `userId`, `courseId`, etc.) without cross-database foreign keys.
 

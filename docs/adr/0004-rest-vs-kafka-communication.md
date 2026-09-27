@@ -17,7 +17,7 @@ We establish a strict division between synchronous REST and asynchronous Kafka:
 2. **Use Kafka** for:
    * Domain event broadcasting (e.g., `CourseCompleted`, `RequiredAssignmentCreated`, `PeerReviewSubmitted`).
    * Asynchronous background processing where producer does not wait for a response.
-   * Multi-consumer event dissemination (e.g., Certificate Service and Notification Service reacting to course completion).
+   * Multi-consumer event dissemination (e.g., Achievement & Reporting Service and Email Service reacting to course completion).
 
 3. **Explicit Exclusion**:
    * Do NOT use Kafka for CRUD requests or synchronous request-reply emulation.

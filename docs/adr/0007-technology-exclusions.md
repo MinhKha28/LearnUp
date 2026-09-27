@@ -20,6 +20,7 @@ The following technologies and architectural patterns are **explicitly excluded*
 * **Service Mesh (Istio/Linkerd)**: API Gateway + Eureka discovery provides sufficient routing and discovery.
 * **Spring Cloud Config Server**: Environment variables and standard configuration files suffice.
 * **Elasticsearch**: PostgreSQL indexing and search capabilities are adequate for the initial scope.
+* **Artificial Intelligence & LLMs**: All AI functionality (AI grading, AI content generation, AI tutors, LLMs, external AI APIs) is explicitly excluded from the product scope.
 
 ## Consequences
 ### Positive:

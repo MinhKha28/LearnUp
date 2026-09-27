@@ -12,31 +12,32 @@ An `ORGANIZER` selects a set of learners (e.g. 50 learners) or a tag cohort, ass
 ### Architectural Flow
 
 ```text
- 1. UI (React) ─────────── GET /api/organizations/{orgId}/learners?tagId=... ──────────► Organization Service
-                                                                                                  │
+ 1. UI (React) ─────────── GET /api/organizations/{organizationId}/learners?tagId=... ───► Org & Commercial Service
+                                                                                                   │
                                  ◄── Returns matching 50 Learner IDs + profiles ──────────────────┘
                                  │
  2. Organizer selects 50 learners and clicks "Assign Course A"
                                  │
  3. UI (React) ─────────── POST /api/courses/{courseId}/assign ─────────────────────────► Learning Service
                            Body: { learnerIds: [...50 IDs], dueDate: "2026-10-01" }              │
-                                                                                                  │
-                                                                                 1. Creates 50 assignment records
-                                                                                 2. Publishes Kafka event
-                                                                                                  │
+                                                                                                   │
+                                                                                  1. Creates 50 assignment records
+                                                                                  2. Publishes Kafka event
+                                                                                                   │
  4. Kafka Event ────────── learnup.learning.assignment-created ───────────────────────────────────┤
-                                                                                                  │
+                                                                                                   │
                                                      ┌────────────────────────────────────────────┴────────┐
                                                      ▼                                                     ▼
-                                            Notification Service                                  Analytics / Tracking
-                                          (Alerts 50 learners)                              (Monitors overdue deadlines)
+                                                Email Service                               Achievement & Reporting
+                                            (Alerts 50 learners)                              (Monitors compliance)
 ```
 
 ### Boundary Clarity:
-* **Organization Service**: Owns the learner directory and tag associations.
-* **Course Service**: Owns course content and syllabus metadata.
-* **Learning Service**: Owns the assignment records, completion timestamps, and overdue calculation.
-* **Notification Service**: Dispatches alerts based on the asynchronous event.
+* **Organization & Commercial Service**: Owns the learner directory, organization memberships, and tag associations.
+* **Course Service**: Owns course content, versions, and syllabus metadata.
+* **Learning Service**: Owns the assignment records, completion timestamps, and overdue tracking.
+* **Email Service**: Dispatches transactional alerts based on the asynchronous event.
+* **Achievement & Reporting Service**: Provides compliance reports and progress snapshots for management.
 
 ---
 
@@ -46,11 +47,11 @@ An `ORGANIZER` selects a set of learners (e.g. 50 learners) or a tag cohort, ass
 An Organizer creates custom organization tags (e.g., `"Sinh viên IT kỳ 2"`, `"Sinh viên IT kỳ 4"`, `"Sinh viên Kinh tế kỳ 6"`), assigns multiple tags to learners, and filters learners by tag for bulk operations.
 
 ### Architectural Flow
-* **Tag Ownership**: Managed 100% within **Organization Service** (`organization_db`).
+* **Tag Ownership**: Managed 100% within **Organization & Commercial Service** (`organization_commercial_db`).
 * **API Endpoints**:
-  * `POST /api/organizations/{orgId}/tags` — Create tag.
-  * `POST /api/organizations/{orgId}/learners/{learnerId}/tags` — Assign tag to learner.
-  * `GET /api/organizations/{orgId}/learners?tagId={tagId}&search={query}` — Query matching learners.
+  * `POST /api/organizations/{organizationId}/tags` — Create tag.
+  * `POST /api/organizations/{organizationId}/learners/{learnerId}/tags` — Assign tag to learner.
+  * `GET /api/organizations/{organizationId}/learners?tagId={tagId}&search={query}` — Query matching learners.
 * **Bulk Operation**: The frontend or caller passes the list of resolved learner IDs to business services (e.g., Learning Service for assignments).
 
 ---

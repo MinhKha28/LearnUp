@@ -19,17 +19,15 @@ if [ -n "$POSTGRES_MULTIPLE_DATABASES" ]; then
 else
   DATABASES=(
     "identity_db"
-    "organization_db"
-    "subscription_db"
-    "payment_db"
+    "tenant_db"
     "course_db"
     "learning_db"
     "assessment_db"
-    "certificate_db"
-    "specialization_db"
-    "recommendation_db"
+    "achievement_reporting_db"
     "notification_db"
+    "audit_db"
   )
+
   for db in "${DATABASES[@]}"; do
     echo "Checking and creating database: $db"
     psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL

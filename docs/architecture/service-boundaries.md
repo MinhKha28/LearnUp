@@ -1,107 +1,102 @@
 # Service Boundaries & Domain Catalog
 
-This document defines the strict functional boundaries, database ownership, and non-responsibilities for all services in the LearnUP platform.
+This document defines the strict functional boundaries, database ownership, and non-responsibilities for all platform and business services in the LearnUP architecture.
 
 ---
 
 ## 1. Service Catalog Matrix
 
+### Supporting Services
 | Service | Database | Key Responsibilities | Framework Choice |
 | :--- | :--- | :--- | :--- |
-| **Identity Service** | `identity_db` | User identity, credentials, authentication, JWT tokens | Spring Boot (Java 21) |
-| **Organization Service** | `organization_db` | Organizations, memberships, instructors, learners, tags | Spring Boot (Java 21) |
-| **Subscription Service** | `subscription_db` | Organization plans, tiers, feature limits, subscriptions | Spring Boot / NestJS |
-| **Payment Service** | `payment_db` | B2B payment transactions, billing history, invoices | Spring Boot / NestJS |
-| **Course Service** | `course_db` | Course metadata, syllabus, modules, lessons, attachments | Spring Boot / NestJS |
-| **Learning Service** | `learning_db` | Enrollments, progress tracking, required course assignments | Spring Boot / NestJS |
-| **Assessment Service** | `assessment_db` | Quizzes, MCQ auto-grading, submissions, peer review workflow | Spring Boot / NestJS |
-| **Certificate Service** | `certificate_db` | Certificate issuance, verifiable verification keys, templates | Spring Boot / NestJS |
-| **Specialization Service**| `specialization_db`| Career tracks, course grouping, prerequisite tracking | Spring Boot / NestJS |
-| **Recommendation Service**| `recommendation_db`| Recommendation rules, suggested courses by role/tag | Spring Boot / NestJS |
-| **Notification Service** | `notification_db` | In-app alerts, email notifications triggered by Kafka events | Spring Boot / NestJS |
+| **Identity Service** | `identity_db` | User credentials, authentication, password hashing, JWT tokens, refresh tokens | Spring Boot (Java 21) |
+| **Notification Service** | `notification_db` | In-app notifications, user alerts, direct email dispatching, notification templates | Spring Boot (Java 21) |
+| **Audit Service** | `audit_db` | Append-only governance audit log, actor/target action history, correlation IDs | Spring Boot |
+
+### 5 Finalized Business Services
+| Service | Database | Key Responsibilities | Framework Choice |
+| :--- | :--- | :--- | :--- |
+| **Tenant Service** | `tenant_db` | User/Account master (`user_id`), Organizations, memberships, tags, plans, subscriptions, payments | Spring Boot / NestJS |
+| **Course Service** | `course_db` | Course metadata, versions, syllabus, modules, lessons, material references | Spring Boot / NestJS |
+| **Learning Service** | `learning_db` | Enrollments, progress tracking, required course assignments, compliance deadlines | Spring Boot / NestJS |
+| **Assessment Service** | `assessment_db` | Quizzes, assignments, auto-grading, submissions, instructor grading, peer review workflow | Spring Boot / NestJS |
+| **Achievement & Reporting Service** | `achievement_reporting_db` | Certificates, verification keys, learning analytics, compliance reports, governance decision logging | Spring Boot / NestJS |
 
 ---
 
 ## 2. Detailed Service Boundaries & Anti-Responsibilities
 
-### 2.1 Identity Service
-* **Owns**: User accounts (`User`), platform roles (`Role`), password hashes (`BCrypt`), Refresh Tokens.
-* **Responsibilities**: User registration, login authentication, token refresh, token issuance (`JWT`).
+### 2.1 Identity Service (Supporting)
+* **Owns**: User credentials (`user_id`, `password_hash`), login authentication, token refresh, token issuance (`JWT`), Google login linkage, recovery codes.
+* **Responsibilities**: Authentication, credential verification, JWT issuance.
 * **Must NOT Own**:
-  * Organizations, organization membership, or employee metadata.
-  * Course assignments, enrollments, grades, certificates, payments, tags.
+  * User profile details (`fullName`, `avatarUrl`, etc.) or organization membership (owned by **Tenant Service**).
+  * Subscription quotas, courses, enrollments, assessments, or certificates.
 
-### 2.2 Organization Service
-* **Owns**: `Organization`, `Membership`, `LearnerProfile`, `InstructorProfile`, `Tag`, `LearnerTag`.
+### 2.2 Tenant Service (Business)
+* **Owns**: `UserAccount` (generates canonical `user_id`), `Organization`, `Membership`, `LearnerProfile`, `InstructorProfile`, `Tag`, `LearnerTag`, `Plan`, `Subscription`, `FeatureQuota`, `PaymentTransaction`, `Invoice`.
 * **Responsibilities**:
-  * Organization lifecycle management.
-  * Member invitations and role assignments within an organization.
-  * Custom tag creation (e.g., "Sinh viên IT kỳ 4", "Kinh tế kỳ 2").
-  * Tagging learners and filtering learners by tags or search terms for bulk operations.
+  * User account master lifecycle and profile management.
+  * Organization lifecycle and member management.
+  * Custom tags for grouping learners (e.g., department, cohort).
+  * Subscription plans, tier limits, seat allowances, storage quota enforcement policies, and B2B payment transactions.
 * **Must NOT Own**:
-  * Course assignment records or learning deadlines (owned by **Learning Service**).
-  * Courses and modules (owned by **Course Service**).
   * User credentials or password hashes (owned by **Identity Service**).
+  * Course content or syllabus (owned by **Course Service**).
 
-### 2.3 Subscription Service
-* **Owns**: `Plan`, `Subscription`, `FeatureLimit`, `OrganizationSubscription`.
-* **Responsibilities**: Pricing tiers, seat allowances, plan validity dates, quota verification.
-* **Must NOT Own**: Payment gateway processing or credit card token storage.
-
-### 2.4 Payment Service
-* **Owns**: `PaymentTransaction`, `Invoice`, `PaymentMethodReference`.
-* **Responsibilities**: B2B checkout, transaction status, invoice generation.
-* **Must NOT Own**: Subscription feature enforcement or user profiles.
-
-### 2.5 Course Service
-* **Owns**: `Course`, `Module`, `Lesson`, `ResourceAttachment`, `CoursePrerequisite`.
-* **Responsibilities**: Course catalog creation, draft/publish workflow, syllabus hierarchy.
-* **Must NOT Own**:
-  * Student enrollment records or learning progress percentages (owned by **Learning Service**).
-  * Student test submissions or grading (owned by **Assessment Service**).
-
-### 2.6 Learning Service
-* **Owns**: `Enrollment`, `LearningProgress`, `LessonCompletion`, `RequiredCourseAssignment`.
+### 2.3 Course Service (Business)
+* **Owns**: `Course`, `CourseVersion`, `Module`, `Lesson`, `ResourceAttachmentRef`, `CoursePrerequisite`.
 * **Responsibilities**:
-  * Student enrollment in courses.
-  * Lesson completion and progress calculation.
-  * Required course assignments assigned by Organizers to individual or bulk learners (e.g. 50 learners).
-  * Overdue learning tracking and compliance deadlines.
+  * Course authoring, course versioning, syllabus hierarchy, and draft/publish workflows.
+  * Course Content Lock (locked irreversibly upon the first enrollment).
 * **Must NOT Own**:
-  * Course syllabus structure or video assets (owned by **Course Service**).
-  * Quiz question creation or rubric evaluation (owned by **Assessment Service**).
-  * Tag definitions or learner directory search (owned by **Organization Service**).
+  * Student enrollment records or progress percentages (owned by **Learning Service**).
+  * Quizzes, question banks, or grading (owned by **Assessment Service**).
 
-### 2.7 Assessment Service
+### 2.4 Learning Service (Business)
+* **Owns**: `Enrollment` (`REQUIRED` / `OPTIONAL`), `LearningProgress`, `LessonCompletion`, `RequiredCourseAssignment`.
+* **Responsibilities**:
+  * Learner course enrollment and lesson completion tracking (7 lifecycle states).
+  * Halting enrollments upon `CourseDisabled` events.
+  * Required course assignments assigned to individual or tagged groups of learners.
+  * Learning deadlines and compliance tracking.
+* **Must NOT Own**:
+  * Course syllabus structure or content definitions (owned by **Course Service**).
+  * Quiz question creation or rubric evaluation (owned by **Assessment Service**).
+  * Tag definitions or learner directory search (owned by **Tenant Service**).
+
+### 2.5 Assessment Service (Business)
 * **Owns**: `Assessment`, `Question`, `Option`, `Submission`, `Answer`, `PeerReviewAssignment`, `PeerReviewEvaluation`, `InstructorGradeOverride`.
 * **Responsibilities**:
-  * MCQ automated grading based on answer key.
-  * Essay / free-response submission handling.
-  * Peer review workflow (e.g., each learner must complete 5 peer reviews to satisfy submission requirements).
-  * Review timeout detection and fallback routing to Instructor review tasks.
+  * Deterministic MCQ automated scoring based on answer keys (strictly non-AI).
+  * Essay / assignment submission handling.
+  * Peer review assignment, submission workflow, and fallback to instructor grading on review timeouts.
 * **Must NOT Own**:
-  * Overall course progress or certificate generation.
+  * Overall course progress tracking or certificate issuance.
+  * Course syllabus structure (owned by **Course Service**).
 
-### 2.8 Certificate Service
-* **Owns**: `Certificate`, `CertificateTemplate`, `VerificationRecord`.
+### 2.6 Achievement & Reporting Service (Business)
+* **Owns**: `Certificate`, `CertificateTemplate`, `VerificationRecord`, `LearningAnalyticsSnapshot`, `ComplianceReport`, `GovernanceDecision`.
 * **Responsibilities**:
-  * Generating verifiable certificates upon receiving `CourseCompleted` or `SpecializationCompleted` Kafka events.
-  * Public verification API.
-* **Must NOT Own**: Course completion business logic or exam grading.
+  * Certificate generation upon receiving course completion events.
+  * Public certificate verification.
+  * Aggregated learning progress analytics, compliance reporting for organization admins.
+  * Recording administrative governance decisions while delegating domain state mutation to owning services.
+* **Must NOT Own**:
+  * Directly updating another service's database tables. Domain mutations are executed by the owning domain service.
 
-### 2.9 Specialization Service
-* **Owns**: `Specialization`, `SpecializationCourseItem`, `CareerTrack`.
-* **Responsibilities**: Curating sequences of courses into learning paths and tracks.
-* **Must NOT Own**: Individual course authoring or enrollment tracking.
-
-### 2.10 Recommendation Service
-* **Owns**: `RecommendationRule`, `LearnerRecommendationSnapshot`.
-* **Responsibilities**: Suggesting relevant courses based on learner tags, department, or popular trends.
-* **Must NOT Own**: User profiles or enrollment transactions.
-
-### 2.11 Notification Service
-* **Owns**: `Notification`, `NotificationPreference`, `DeliveryLog`.
+### 2.7 Notification Service (Supporting)
+* **Owns**: In-app notification center (`Notification`), notification templates (`NotificationTemplate`), and email dispatching logs (`EmailLog`).
 * **Responsibilities**:
-  * Listening to Kafka events (`CourseCompleted`, `PeerReviewAssigned`, `RequiredAssignmentCreated`).
-  * Dispatching in-app notifications and email alerts.
-* **Must NOT Own**: Domain business triggers or user authentication credentials.
+  * Delivering in-app notifications and transactional emails based on subscribed domain events.
+* **Must NOT Own**:
+  * User credentials or account profiles.
+  * Business state mutation.
+
+### 2.8 Audit Service (Supporting)
+* **Owns**: Append-only audit records (`AuditLog`), actor metadata, organization context, action types, target resource references, correlation IDs.
+* **Responsibilities**:
+  * Recording immutable event trails for security and compliance.
+* **Must NOT Own**:
+  * Domain state mutations.
+  * Direct database access to other service databases.

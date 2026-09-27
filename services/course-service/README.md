@@ -1,23 +1,27 @@
 # Course Service (`services/course-service`)
 
-## Technology Stack
-* Spring Boot / NestJS
-* PostgreSQL (`course_db`)
+## 1. Overview
+* **Service Name**: `course-service`
+* **Service Classification**: Business Service (2 of 5)
+* **Intended Technology**: NestJS (TypeScript)
+* **Dedicated Database**: PostgreSQL (`course_db`)
+* **Eureka Service Identifier**: `COURSE-SERVICE`
+* **Implementation Status**: **Skeleton Only** (Implementation intentionally deferred to the NestJS team)
 
-## Eureka Application Name
-* `COURSE-SERVICE`
+---
 
-## Responsibilities
-* Course authoring and publishing workflows by Instructors.
-* Managing hierarchical syllabus structure: Courses -> Modules -> Lessons.
-* Course metadata, descriptions, prerequisites, and resource attachments.
+## 2. High-Level Domain Ownership (Source of Truth)
+The Course Service is the authority for course authoring and curriculum management:
+* **Course Master & Versioning**: Course catalog, metadata, version lifecycles (`Draft`, `Submitted`, `Published`, `Rejected`, `Archived`, `Disabled`).
+* **Syllabus Hierarchy**: Hierarchical curriculum structure: Courses $\rightarrow$ Modules $\rightarrow$ Lessons.
+* **Content Materials**: Lesson content metadata, reading/video resource attachment keys, prerequisites.
+* **Course Content Lock**: Irreversible lock on course structure upon the first learner enrollment.
+* **Visibility Rules**: Public vs private course classification (`courseType`).
 
-## Database Entities
-* `Course` (`id`, `organization_id`, `instructor_id`, `title`, `description`, `thumbnail_url`, `status`, `created_at`)
-* `Module` (`id`, `course_id`, `title`, `order_index`)
-* `Lesson` (`id`, `module_id`, `title`, `content_type`, `content_url`, `order_index`, `is_free_preview`)
-* `CoursePrerequisite` (`id`, `course_id`, `prerequisite_course_id`)
+---
 
-## Anti-Responsibilities
-* Does NOT track student progress or enrollments (owned by **Learning Service**).
-* Does NOT own quiz questions or exam submissions (owned by **Assessment Service**).
+## 3. Strict Boundary Rules
+* **No Direct Cross-Database Access**: Must never connect directly to other services' databases.
+* **Enrollments & Progress**: Student enrollments and completion percentages are owned by **Learning Service** (`learning_db`).
+* **Quizzes & Grading**: Assessments, question banks, and submissions are owned by **Assessment Service** (`assessment_db`).
+* **Deferred Implementation**: Contains no Java/Spring Boot code. Will be implemented independently by the NestJS team.

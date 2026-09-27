@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ==============================================================================
   # Database Infrastructure
@@ -129,26 +127,6 @@ services:
     networks:
       - learnup-network
 
-  organization-service:
-    build:
-      context: ./services/organization-service
-      dockerfile: Dockerfile
-    container_name: learnup-organization-service
-    ports:
-      - "8082:8082"
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/organization_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-    depends_on:
-      postgres:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
-    networks:
-      - learnup-network
 
   # ==============================================================================
   # Frontend Application
