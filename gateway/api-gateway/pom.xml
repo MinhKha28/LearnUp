@@ -39,6 +39,12 @@
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
 
+        <!-- Spring Boot Actuator for Health/Readiness -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
         <!-- Netflix Eureka Client for Service Discovery -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
