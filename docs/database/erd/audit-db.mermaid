@@ -1,0 +1,14 @@
+erDiagram
+    audit_logs {
+        uuid id PK "Primary Key"
+        uuid organization_id "Tenant reference"
+        uuid actor_user_id "Actor user ID"
+        varchar actor_role "ADMIN | ORGANIZER | INSTRUCTOR | LEARNER"
+        varchar action_type "Canonical action verb"
+        varchar target_resource_type "Target entity type"
+        varchar target_resource_id "Target entity ID"
+        text details "Structured payload details"
+        varchar ip_address "Origin client IP"
+        varchar correlation_id "Distributed trace correlation ID"
+        timestamptz created_at "Created timestamp (immutable)"
+    }
