@@ -1,0 +1,200 @@
+.plan-card {
+  min-height: 356px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  transition: border-color .2s ease, transform .2s ease;
+
+  &:hover {
+    border-color: var(--color-divider);
+    transform: translateY(-2px);
+  }
+
+  h3 {
+    margin: 14px 0 2px;
+    color: var(--color-primary);
+    font-size: 18px;
+    line-height: 1.35;
+  }
+
+  .ant-btn {
+    height: 38px;
+    margin-top: auto;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+  }
+}
+
+.plan-card-featured {
+  border-color: var(--color-accent);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, .05);
+}
+
+.plan-card-home {
+  min-height: 430px;
+  position: relative;
+  padding: 24px 22px 22px;
+
+  .plan-card-heading {
+    min-height: 0;
+  }
+
+  .plan-card-badge {
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    margin: 0;
+    padding: 5px 12px;
+  }
+
+  h3 {
+    margin: 0 0 3px;
+    font-size: 22px;
+  }
+
+  .plan-card-term {
+    font-size: 9px;
+  }
+
+  .plan-card-price {
+    margin-top: 15px;
+    font-size: 25px;
+  }
+
+  .plan-card-caption {
+    font-size: 8px;
+  }
+
+  .plan-card-limits {
+    margin-top: 18px;
+    margin-bottom: 14px;
+  }
+
+  .plan-card-limits div {
+    padding-block: 7px;
+  }
+
+  .ant-btn {
+    margin-top: 0;
+  }
+}
+
+.plan-card-footer {
+  margin: auto 0 18px;
+  color: var(--color-text-muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.plan-card-heading {
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  h2 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+.plan-card-badge {
+  margin-left: auto;
+  padding: 3px 9px;
+  color: #b45309;
+  background: var(--color-warning-bg);
+  border-radius: 10px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.plan-card-term {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 9px;
+}
+
+.plan-card-price {
+  margin: 14px 0 0;
+  color: var(--color-primary);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.plan-card-caption {
+  color: var(--color-text-muted);
+  font-size: 9px;
+}
+
+.plan-card-limits {
+  margin: 18px 0 22px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-surface-secondary);
+  font-size: 10px;
+
+  div {
+    padding: 6px 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  dt {
+    color: var(--color-text-secondary);
+  }
+
+  dt .anticon {
+    margin-right: 7px;
+    color: var(--color-success);
+    font-size: 9px;
+  }
+
+  dd {
+    margin: 0;
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+}
+
+.plan-card-payment {
+  margin: -8px 0 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 10px;
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  dt {
+    color: var(--color-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    font-weight: 700;
+  }
+}
+
+.plan-card-selected {
+  min-height: auto;
+}
+
+@media (max-width: 767px) {
+  .plan-card {
+    min-height: 330px;
+  }
+
+  .plan-card-home {
+    min-height: 410px;
+  }
+}
