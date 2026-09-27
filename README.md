@@ -126,4 +126,4 @@ LearnUP intentionally maintains clean, robust boundaries without unnecessary tec
 * **Database-per-Service**: 8 independent logical databases with zero cross-service direct DB access or foreign keys.
 * **Synchronous REST + Asynchronous Kafka**: REST for direct queries/commands; Kafka for decoupled domain event broadcasts.
 * **Zero AI / ML / LLM Functionality**: AI grading, AI tutors, LLM APIs, and vector embeddings are completely excluded.
-* **Explicitly Excluded Technologies**: Redis, RabbitMQ, Kubernetes, OpenTelemetry, Prometheus, Grafana, CQRS, Event Sourcing, Saga, Transactional Outbox, Database RLS, Service Mesh, Config Server, Elasticsearch, Next.js, Azure Blob / Azurite.
+* **Explicitly Excluded Technologies**: Redis, RabbitMQ, Kubernetes, OpenTelemetry, Prometheus, Grafana, CQRS, Event Sourcing, 2PC Distributed Transactions, Database RLS, Service Mesh, Config Server, Elasticsearch, Next.js, Azure Blob / Azurite.

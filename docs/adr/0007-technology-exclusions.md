@@ -13,9 +13,8 @@ The following technologies and architectural patterns are **explicitly excluded*
 * **RabbitMQ**: Kafka is the sole messaging infrastructure.
 * **Kubernetes**: Local orchestration uses Docker Compose; K8s is unnecessary overhead.
 * **OpenTelemetry / Prometheus / Grafana**: Basic correlation ID logging is sufficient; full APM observability is out of scope.
-* **CQRS / Event Sourcing**: Standard relational CRUD models per service suffice.
-* **Saga Orchestrators / Distributed Transactions**: Business flows are modeled as independent, idempotent domain milestones.
-* **Transactional Outbox Engine**: Basic producer retries are sufficient.
+* **CQRS / Event Sourcing**: Standard relational data models per service suffice.
+* **Heavy Saga Orchestrators / 2PC Distributed Transactions**: Domain state workflows rely on local transactions with Transactional Outbox and idempotent consumers.
 * **Database Row-Level Security (RLS)**: Application-level tenant filtering per service is standard.
 * **Service Mesh (Istio/Linkerd)**: API Gateway + Eureka discovery provides sufficient routing and discovery.
 * **Spring Cloud Config Server**: Environment variables and standard configuration files suffice.
