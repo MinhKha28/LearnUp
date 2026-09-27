@@ -16,6 +16,10 @@ export default function Header() {
   const { pathname } = useLocation();
   const home = pathname === "/";
   const registration = pathname.startsWith("/register");
+  const bareAuthFlow =
+    pathname.startsWith("/activate") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password");
   const plansActive =
     pathname === "/register" || pathname === "/register/no-plans";
   const [activeKey, setActiveKey] = useState("platform");
@@ -30,6 +34,8 @@ export default function Header() {
       );
     }
   }, [pathname, plansActive, home]);
+
+  if (bareAuthFlow) return null;
 
   const navigation = (
     <>

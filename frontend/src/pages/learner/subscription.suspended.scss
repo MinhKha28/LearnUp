@@ -1,0 +1,90 @@
+.subscription-suspended {
+  min-height: 100vh;
+  position: relative;
+  padding: 30px 24px 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+}
+
+.subscription-suspended-logo {
+  position: absolute;
+  top: 30px;
+  left: max(24px, calc((100% - 1296px) / 2));
+  width: 104px;
+
+  img {
+    width: 100%;
+  }
+}
+
+.subscription-suspended-card {
+  width: 100%;
+  max-width: 700px;
+  padding: 48px 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.subscription-suspended-icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 50%;
+  font-size: 26px;
+}
+
+.subscription-suspended-card h1 {
+  margin: 0 0 16px;
+  color: var(--color-text-primary);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.subscription-suspended-card p {
+  margin: 0 0 6px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.subscription-suspended-card a {
+  margin-top: 28px;
+}
+
+.subscription-suspended-card .ant-btn {
+  min-width: 190px;
+  height: 44px;
+  color: var(--color-primary);
+  border-color: var(--color-border);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  .subscription-suspended {
+    padding: 24px 16px 40px;
+    flex-direction: column;
+  }
+
+  .subscription-suspended-logo {
+    position: static;
+    margin-bottom: 28px;
+    width: 96px;
+  }
+
+  .subscription-suspended-card {
+    padding: 32px 22px;
+  }
+}

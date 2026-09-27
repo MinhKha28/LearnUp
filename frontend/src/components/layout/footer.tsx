@@ -4,6 +4,14 @@ import "@/components/layout/footer.scss";
 export default function Footer() {
   const { pathname } = useLocation();
 
+  if (
+    pathname.startsWith("/activate") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password")
+  ) {
+    return null;
+  }
+
   if (pathname.startsWith("/register")) {
     return (
       <footer className="footer-compact">

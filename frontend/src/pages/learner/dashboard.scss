@@ -1,0 +1,44 @@
+.learner-dashboard-section-title {
+  margin: 32px 0 16px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.learner-dashboard-required {
+  margin-bottom: 8px;
+}
+
+.learner-dashboard-upnext-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.learner-upnext-card h3 {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.learner-upnext-card p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.learner-upnext-footer {
+  display: flex;
+  margin-top: 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .learner-dashboard-upnext-grid {
+    grid-template-columns: 1fr;
+  }
+}

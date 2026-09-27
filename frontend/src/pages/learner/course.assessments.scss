@@ -1,0 +1,40 @@
+.course-assessments-table-card {
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.course-assessments-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.course-assessments-table th {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.course-assessments-table td {
+  padding: 16px 12px;
+  border-bottom: 1px solid var(--color-border);
+  color: #334155;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.course-assessments-table strong {
+  color: #0f172a;
+  font-weight: 650;
+}
+
+.course-assessments-footnote {
+  margin: 16px 0 0;
+  color: #94a3b8;
+  font-size: 12px;
+}

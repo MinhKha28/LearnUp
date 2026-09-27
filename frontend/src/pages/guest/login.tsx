@@ -103,7 +103,7 @@ export default function LoginPage() {
                   suffix={<button type="button" className="login-show" disabled={loading} onClick={() => setShowPassword((value) => !value)}>{showPassword ? "Hide" : "Show"}</button>}
                 />
               </Form.Item>
-              <button className="login-forgot" type="button" disabled={loading} onClick={() => setError("Password recovery is currently unavailable. Please contact support.")}>Forgot password?</button>
+              <Link className="login-forgot" to="/forgot-password">Forgot password?</Link>
             </div>
             <Button type="primary" htmlType="submit" block loading={loading} disabled={loading}>Sign in</Button>
           </Form>
@@ -113,8 +113,9 @@ export default function LoginPage() {
           </Button>
           <p className="login-help">Google sign-in is available for existing Organizer, Instructor and Learner accounts.</p>
         </div>
-        <div className="login-panel-footer">
-          <span>New organization?</span><Link to="/register">Explore subscription plans →</Link>
+        <div className="login-panel-footer login-panel-footer-stacked">
+          <div><span>New organization?</span><Link to="/register">Explore subscription plans →</Link></div>
+          <div><span>Invited by your organization?</span><Link to="/activate/demo-token">Activate your account →</Link></div>
         </div>
       </section>
     </main>
