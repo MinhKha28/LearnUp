@@ -41,22 +41,22 @@ learnup.<domain>.<event-name>
 * **`<domain>`**: Lowercase business domain name (e.g., `learning`, `assessment`, `achievement`, `organization`, `email`).
 * **`<event-name>`**: Kebab-case past-tense verb representing an immutable domain fact that has occurred.
 
-### Standard Topic Catalog (Planned for Business Phases):
-
-| Domain | Topic Name | Description |
-|---|---|---|
-| **Organization** | `learnup.organization.member-invited` | Emitted when a new learner/instructor is invited |
-| **Learning** | `learnup.learning.course-completed` | Emitted when a learner completes all lessons in a course |
-| **Learning** | `learnup.learning.assignment-created` | Emitted when a mandatory course is assigned to a learner cohort |
-| **Assessment** | `learnup.assessment.submission-created` | Emitted when a quiz/peer assessment is submitted |
-| **Assessment** | `learnup.assessment.passed` | Emitted when an assessment satisfies the passing threshold |
-| **Assessment** | `learnup.assessment.peer-review-assigned` | Emitted when peer evaluators are selected |
-| **Achievement** | `learnup.achievement.certificate-issued` | Emitted when a verified certificate is generated |
-| **Email** | `learnup.email.dispatched` | Emitted when a system notification email is dispatched |
+### Architectural Principles for Future Business Topics:
+* Multi-tenancy is strictly preserved via the canonical `organizationId` attribute inside all event payloads.
+* Topics represent immutable domain facts in past tense.
+* Speculative business topics are NOT pre-created in infrastructure phases; they are defined alongside business service implementations.
 
 ---
 
-## 4. Canonical Event Envelope
+## 4. Transactional Outbox Requirement
+For any service publishing domain events to Kafka resulting from a database mutation:
+1. **Atomic Dual-Write Prevention**: Direct writes to Kafka during a database transaction are forbidden due to 2PC / dual-write failure risks.
+2. **Transactional Outbox Pattern**: The business entity state change AND the outgoing domain event record MUST be saved within the same local database transaction into an `outbox` table.
+3. **Asynchronous Publisher / Relay**: An asynchronous relay (or CDC worker) polls or streams unpublished outbox events and publishes them to Kafka.
+4. **Idempotent Consumers**: All downstream Kafka consumers must tolerate duplicate message delivery and enforce idempotency using `eventId` or business deduplication keys.
+
+
+## 5. Canonical Event Envelope
 All messages transmitted across Kafka topics use the shared JSON schema defined in `contracts/events/event-envelope.schema.json` and mirrored in `@learnup/ts-common` / `java-common`:
 
 ```json
@@ -79,7 +79,7 @@ All messages transmitted across Kafka topics use the shared JSON schema defined 
 
 ---
 
-## 5. Local Operational & Development Commands
+## 6. Local Operational & Development Commands
 
 ### 5.1 Starting and Inspecting Kafka
 ```bash
