@@ -1,0 +1,24 @@
+erDiagram
+    users ||--o{ refresh_tokens : "owns (1:N)"
+    
+    users {
+        uuid id PK "Primary Key"
+        varchar username UK "Unique login name"
+        varchar email UK "Unique email address"
+        varchar password_hash "BCrypt hash"
+        varchar full_name "User display name"
+        varchar role "ADMIN | ORGANIZER | INSTRUCTOR | LEARNER"
+        uuid organization_id "Tenant reference (optional)"
+        boolean enabled "Account status"
+        timestamptz created_at "Created timestamp"
+        timestamptz updated_at "Updated timestamp"
+    }
+
+    refresh_tokens {
+        uuid id PK "Primary Key"
+        uuid user_id FK "References users(id) ON DELETE CASCADE"
+        varchar token_hash UK "SHA-256 token hash"
+        timestamptz expires_at "Token expiration timestamp"
+        timestamptz revoked_at "Revocation timestamp (null if active)"
+        timestamptz created_at "Creation timestamp"
+    }
