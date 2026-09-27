@@ -37,6 +37,11 @@
     display: inline-flex;
     align-items: center;
     white-space: nowrap;
+    transition: color .15s ease;
+  }
+
+  >a:hover {
+    color: var(--color-primary);
   }
 
 }

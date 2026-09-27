@@ -1,0 +1,55 @@
+.organizer-evaluations-header {
+    margin-bottom: 16px;
+}
+
+.organizer-evaluations-stats {
+    margin-bottom: 16px;
+}
+
+.organizer-evaluations-note {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #eef2f7;
+}
+
+.organizer-evaluations>.organizer-section-card+.organizer-section-card {
+    margin-top: 16px;
+}
+
+.organizer-comments-list {
+    display: grid;
+    gap: 10px;
+}
+
+.organizer-comments-list>div {
+    display: flex;
+    padding: 12px 14px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.organizer-comments-list p {
+    margin: 0 0 4px;
+    color: #334155;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.organizer-comments-list span {
+    color: #94a3b8;
+    font-size: 8px;
+}
+
+.organizer-comments-list small {
+    flex: 0 0 auto;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 8px;
+    font-weight: 600;
+}

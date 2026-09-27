@@ -1,0 +1,29 @@
+.organizer-instructor-identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.organizer-instructor-identity h2 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.organizer-instructor-courses {
+    margin: 16px 0;
+}
+
+.organizer-instructor-detail .organizer-usage-row>div:first-child {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    color: #64748b;
+    font-size: 10px;
+}
+
+.organizer-instructor-detail .organizer-usage-row strong {
+    color: #1e293b;
+}
