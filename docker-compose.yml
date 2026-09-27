@@ -101,6 +101,11 @@ services:
         condition: service_healthy
     networks:
       - learnup-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   # ==============================================================================
   # Supporting Platform Services
@@ -126,6 +131,11 @@ services:
         condition: service_healthy
     networks:
       - learnup-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   notification-service:
     build:
@@ -147,6 +157,11 @@ services:
         condition: service_healthy
     networks:
       - learnup-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   audit-service:
     build:
@@ -168,6 +183,11 @@ services:
         condition: service_healthy
     networks:
       - learnup-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8083/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 
   # ==============================================================================
