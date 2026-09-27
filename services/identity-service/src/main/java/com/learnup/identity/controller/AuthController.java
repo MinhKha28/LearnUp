@@ -38,4 +38,21 @@ public class AuthController {
         AuthResponse response = authService.refresh(request);
         return ApiResponse.success(response);
     }
+
+    @GetMapping("/me")
+    public ApiResponse<com.learnup.identity.dto.UserResponse> getCurrentUser(
+            @RequestHeader(value = "X-User-ID", required = false) String headerUserId) {
+        java.util.UUID userId = com.learnup.common.context.CurrentUser.getUserIdAsUuid();
+        if (userId == null && headerUserId != null && !headerUserId.isBlank()) {
+            try {
+                userId = java.util.UUID.fromString(headerUserId.trim());
+            } catch (IllegalArgumentException ignored) {
+                // Invalid UUID
+            }
+        }
+        if (userId == null) {
+            throw com.learnup.common.exception.BusinessException.unauthorized("Authentication required");
+        }
+        return ApiResponse.success(authService.getCurrentUser(userId));
+    }
 }

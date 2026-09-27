@@ -219,5 +219,13 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.role").value("ORGANIZER"))
                 .andExpect(jsonPath("$.data.passwordHash").doesNotExist())
                 .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+
+        // Also verify /api/auth/me works identically
+        mockMvc.perform(get("/api/auth/me")
+                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
+                        .header(HeaderConstants.X_USER_ROLE, user.getRole().name()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.username").value("profileUser"));
     }
 }
