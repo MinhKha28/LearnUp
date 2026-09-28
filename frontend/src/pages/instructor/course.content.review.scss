@@ -1,0 +1,54 @@
+.instructor-content-review h2 {
+  margin: 14px 0 6px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.instructor-content-review-decision {
+  margin: 0 0 20px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.instructor-content-review-correction {
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  background: #fffbeb;
+}
+
+.instructor-content-review-correction strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.instructor-content-review-correction p {
+  margin: 0;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.instructor-content-review-note {
+  margin: 0 0 32px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.instructor-content-review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.instructor-content-review-actions-right {
+  display: flex;
+  gap: 12px;
+}

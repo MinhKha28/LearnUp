@@ -1,0 +1,114 @@
+.builder-layout {
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+
+.builder-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  display: flex;
+  height: 64px;
+  padding: 0 24px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+  background: #fff;
+  gap: 16px;
+}
+
+.builder-topbar-left {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 20px;
+}
+
+.builder-topbar-logo {
+  height: 22px;
+}
+
+.builder-topbar-back {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.builder-topbar-back:hover {
+  text-decoration: underline;
+}
+
+.builder-topbar-title {
+  flex: 0 0 auto;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.builder-topbar-right {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.builder-topbar-right .instructor-button.ant-btn {
+  height: 34px;
+  padding-inline: 14px;
+}
+
+.builder-body {
+  display: flex;
+  align-items: flex-start;
+  min-height: calc(100vh - 64px);
+}
+
+.builder-nav {
+  flex: 0 0 260px;
+  min-height: calc(100vh - 64px);
+}
+
+.builder-main {
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 32px;
+}
+
+@media (max-width: 1100px) {
+  .builder-body {
+    flex-direction: column;
+  }
+
+  .builder-nav {
+    width: 100%;
+    min-height: auto;
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .builder-topbar {
+    height: auto;
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+
+  .builder-topbar-title {
+    order: 3;
+    width: 100%;
+    text-align: left;
+  }
+
+  .builder-main {
+    padding: 20px 16px 40px;
+  }
+}

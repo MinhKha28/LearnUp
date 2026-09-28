@@ -1,0 +1,48 @@
+.instructor-monitoring-filter-bar {
+  display: flex;
+  width: 100%;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.instructor-monitoring-filter-bar:hover {
+  border-color: var(--color-accent);
+}
+
+.instructor-monitoring-filter-bar span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.instructor-monitoring-filter-bar em {
+  color: #cbd5e1;
+  font-style: normal;
+}
+
+.instructor-monitoring-filter-active {
+  margin-left: auto;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.instructor-monitoring-card .instructor-info-panel {
+  margin-top: 20px;
+}
+
+.instructor-monitoring-table .ant-table-tbody > tr {
+  cursor: pointer;
+}
