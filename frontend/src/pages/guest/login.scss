@@ -239,6 +239,16 @@
   font-weight: 500;
 }
 
+.login-panel-footer-stacked {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-panel-footer-stacked>div {
+  display: flex;
+  gap: 12px;
+}
+
 @media (max-width: 920px) {
   .login {
     grid-template-columns: minmax(340px, 40%) 1fr;

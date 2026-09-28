@@ -5,6 +5,10 @@ import Layout from "@/layout";
 import HomePage from "@/pages/guest/home";
 import LoginPage from "@/pages/guest/login";
 import RegisterPage from "@/pages/guest/register";
+import ActivatePage from "@/pages/guest/activate";
+import ActivationSuccess from "@/pages/guest/activation.success";
+import ForgotPasswordPage from "@/pages/guest/password.forgot";
+import ResetPasswordPage from "@/pages/guest/password.reset";
 import LayoutAdmin from "./components/layout/layout.admin";
 import ManageDashboard from "./pages/admin/dashboard";
 import Organizations from "./pages/admin/organizations";
@@ -51,6 +55,39 @@ import OrganizerContentReportDetail from "./pages/organizer/content.report.detai
 import OrganizerViolationHistory from "./pages/organizer/violation.history";
 import OrganizerProfile from "./pages/organizer/profile";
 import OrganizerChangePassword from "./pages/organizer/password.change";
+import LayoutLearner from "./components/layout/layout.learner";
+import LayoutLearnerCourse from "./components/layout/layout.learner.course";
+import LearnerDashboard from "./pages/learner/dashboard";
+import LearnerMyCourses from "./pages/learner/my.courses";
+import LearnerCatalog from "./pages/learner/catalog";
+import LearnerCourseOverview from "./pages/learner/course.overview";
+import LearnerEnrollmentSuccess from "./pages/learner/enrollment.success";
+import LearnerCourseCurriculum from "./pages/learner/course.curriculum";
+import LearnerLessonDetail from "./pages/learner/lesson.detail";
+import LearnerLessonResource from "./pages/learner/lesson.resource";
+import LearnerCourseProgress from "./pages/learner/course.progress";
+import LearnerCourseWithdraw from "./pages/learner/course.withdraw";
+import LearnerCourseWithdrawn from "./pages/learner/course.withdrawn";
+import LearnerCourseAssessments from "./pages/learner/course.assessments";
+import LearnerQuizTake from "./pages/learner/quiz.take";
+import LearnerQuizHistory from "./pages/learner/quiz.history";
+import LearnerAssignmentDetail from "./pages/learner/assignment.detail";
+import LearnerAssignmentSubmit from "./pages/learner/assignment.submit";
+import LearnerAssignmentResubmit from "./pages/learner/assignment.resubmit";
+import LearnerAssignmentSubmitted from "./pages/learner/assignment.submitted";
+import LearnerPeerReviewQueue from "./pages/learner/peer.review.queue";
+import LearnerPeerReviewForm from "./pages/learner/peer.review.form";
+import LearnerPeerReviewHistory from "./pages/learner/peer.review.history";
+import LearnerCertificates from "./pages/learner/certificates";
+import LearnerCertificateDetail from "./pages/learner/certificate.detail";
+import LearnerReportContent from "./pages/learner/report.content";
+import LearnerReports from "./pages/learner/reports";
+import LearnerReportEscalate from "./pages/learner/report.escalate";
+import LearnerCourseEvaluation from "./pages/learner/course.evaluation";
+import LearnerProfile from "./pages/learner/profile";
+import LearnerProfileEdit from "./pages/learner/profile.edit";
+import LearnerChangePassword from "./pages/learner/password.change";
+import LearnerSubscriptionSuspended from "./pages/learner/subscription.suspended";
 
 export const router = createBrowserRouter([
   {
@@ -62,6 +99,10 @@ export const router = createBrowserRouter([
         element: <HomePage />,
       },
       { path: "register/:screen?", element: <RegisterPage /> },
+      { path: "activate/:token", element: <ActivatePage /> },
+      { path: "activate/:token/success", element: <ActivationSuccess /> },
+      { path: "forgot-password", element: <ForgotPasswordPage /> },
+      { path: "reset-password/:token", element: <ResetPasswordPage /> },
     ],
   },
   {
@@ -128,7 +169,75 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    path: "/learner",
+    element: <LayoutLearner />,
+    children: [
+      { index: true, element: <LearnerDashboard /> },
+      { path: "courses", element: <LearnerMyCourses /> },
+      { path: "courses/:courseId/withdraw", element: <LearnerCourseWithdraw /> },
+      { path: "courses/:courseId/withdrawn", element: <LearnerCourseWithdrawn /> },
+      { path: "courses/:courseId/evaluation", element: <LearnerCourseEvaluation /> },
+      {
+        path: "courses/:courseId/lessons/:lessonId/resources/:resourceId/report",
+        element: <LearnerReportContent />,
+      },
+      { path: "catalog", element: <LearnerCatalog /> },
+      { path: "catalog/:courseId", element: <LearnerCourseOverview /> },
+      {
+        path: "catalog/:courseId/enrolled",
+        element: <LearnerEnrollmentSuccess />,
+      },
+      {
+        path: "catalog/:courseId/restored",
+        element: <LearnerEnrollmentSuccess restored />,
+      },
+      { path: "peer-review", element: <LearnerPeerReviewQueue /> },
+      { path: "peer-review/history", element: <LearnerPeerReviewHistory /> },
+      { path: "peer-review/:submissionId", element: <LearnerPeerReviewForm /> },
+      { path: "certificates", element: <LearnerCertificates /> },
+      { path: "certificates/:certificateId", element: <LearnerCertificateDetail /> },
+      { path: "reports", element: <LearnerReports /> },
+      { path: "reports/:reportId/escalate", element: <LearnerReportEscalate /> },
+      { path: "profile", element: <LearnerProfile /> },
+      { path: "profile/edit", element: <LearnerProfileEdit /> },
+      { path: "profile/change-password", element: <LearnerChangePassword /> },
+    ],
+  },
+  {
+    path: "/learner/courses/:courseId",
+    element: <LayoutLearnerCourse />,
+    children: [
+      { index: true, element: <LearnerCourseCurriculum /> },
+      { path: "progress", element: <LearnerCourseProgress /> },
+      { path: "lessons/:lessonId", element: <LearnerLessonDetail /> },
+      {
+        path: "lessons/:lessonId/resources/:resourceId",
+        element: <LearnerLessonResource />,
+      },
+      { path: "assessments", element: <LearnerCourseAssessments /> },
+      { path: "quizzes/:quizId", element: <LearnerQuizTake /> },
+      { path: "quizzes/:quizId/history", element: <LearnerQuizHistory /> },
+      { path: "assignments/:assignmentId", element: <LearnerAssignmentDetail /> },
+      {
+        path: "assignments/:assignmentId/submit",
+        element: <LearnerAssignmentSubmit />,
+      },
+      {
+        path: "assignments/:assignmentId/resubmit",
+        element: <LearnerAssignmentResubmit />,
+      },
+      {
+        path: "assignments/:assignmentId/submitted",
+        element: <LearnerAssignmentSubmitted />,
+      },
+    ],
+  },
+  {
     path: "/login",
     element: <LoginPage />,
+  },
+  {
+    path: "/learner/subscription-suspended",
+    element: <LearnerSubscriptionSuspended />,
   },
 ]);
