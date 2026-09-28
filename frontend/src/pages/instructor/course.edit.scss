@@ -1,0 +1,19 @@
+.instructor-course-edit-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.instructor-course-edit-side p {
+  margin: 16px 0 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .instructor-course-edit-grid {
+    grid-template-columns: 1fr;
+  }
+}

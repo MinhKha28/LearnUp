@@ -1,0 +1,58 @@
+.instructor-export-card {
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.instructor-export-card h2 {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.instructor-export-card p {
+  margin: 0 0 8px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.instructor-export-card hr {
+  margin: 20px 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.instructor-export-card h3 {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.instructor-export-formats {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 32px;
+}
+
+.instructor-export-format {
+  padding: 8px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.instructor-export-format-active {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.instructor-export-actions {
+  display: flex;
+  justify-content: flex-end;
+}
