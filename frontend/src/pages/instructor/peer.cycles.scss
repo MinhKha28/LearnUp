@@ -1,0 +1,171 @@
+.instructor-cycles-table {
+  overflow: hidden;
+  margin-bottom: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.instructor-cycles-row {
+  display: grid;
+  padding: 16px 20px;
+  grid-template-columns: 1fr 1fr 1.2fr 1.2fr 1fr 1.2fr;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.instructor-cycles-row:last-child {
+  border-bottom: 0;
+}
+
+.instructor-cycles-head {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.instructor-cycles-row-clickable {
+  cursor: pointer;
+}
+
+.instructor-cycles-row-clickable:hover {
+  background: #f8fafc;
+}
+
+.instructor-cycles-row strong {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.instructor-cycles-row span {
+  color: #334155;
+  font-size: 13px;
+}
+
+.instructor-cycle-meta-card {
+  margin-bottom: 16px;
+}
+
+.instructor-cycle-meta-grid {
+  display: grid;
+  margin-bottom: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.instructor-cycle-detail-grid {
+  display: grid;
+  margin-bottom: 20px;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.instructor-cycle-table {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.instructor-cycle-row {
+  display: grid;
+  padding: 14px 16px;
+  grid-template-columns: 1.2fr 0.8fr 0.8fr 1fr;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.instructor-cycle-row:last-child {
+  border-bottom: 0;
+}
+
+.instructor-cycle-head {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.instructor-cycle-row strong {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.instructor-cycle-row span {
+  color: #334155;
+  font-size: 13px;
+}
+
+.instructor-cycle-row-submissions {
+  grid-template-columns: 1.2fr 1fr 1fr;
+}
+
+.instructor-cycle-waive-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font-size: 12.5px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.instructor-cycle-waive-link:hover {
+  text-decoration: underline;
+}
+
+.instructor-cycle-waived {
+  color: #94a3b8;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.instructor-waive-card {
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.instructor-waive-card h2 {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.instructor-waive-card p {
+  margin: 0 0 16px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.instructor-waive-field label {
+  display: block;
+  margin: 20px 0 8px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.instructor-waive-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+@media (max-width: 960px) {
+  .instructor-cycles-row {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 6px;
+  }
+
+  .instructor-cycle-meta-grid,
+  .instructor-cycle-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

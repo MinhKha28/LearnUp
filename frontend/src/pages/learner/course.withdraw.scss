@@ -1,0 +1,49 @@
+.course-withdraw-backdrop {
+  display: flex;
+  padding: 48px 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #94a3b8;
+}
+
+.course-withdraw-card {
+  width: min(100%, 480px);
+  padding: 32px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.course-withdraw-card h3 {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.course-withdraw-card h4 {
+  margin: 8px 0 16px;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.course-withdraw-card hr {
+  margin: 0 0 20px;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.course-withdraw-card > p {
+  margin: 20px 0 32px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.course-withdraw-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}

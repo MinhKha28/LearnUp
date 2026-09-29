@@ -1,0 +1,71 @@
+.peer-review-history-obligation {
+  display: flex;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.peer-review-history-obligation > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.peer-review-history-obligation span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.peer-review-history-obligation p {
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+}
+
+.peer-review-history-card {
+  padding: 24px;
+  margin-bottom: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.peer-review-history-card h3 {
+  margin: 0 0 16px;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.peer-review-history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.peer-review-history-table th {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.peer-review-history-table td {
+  padding: 16px 12px;
+  border-bottom: 1px solid var(--color-border);
+  color: #334155;
+  font-size: 13px;
+}
+
+.peer-review-history-table strong {
+  color: #0f172a;
+  font-weight: 650;
+}

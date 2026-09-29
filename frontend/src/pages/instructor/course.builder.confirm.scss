@@ -1,0 +1,49 @@
+.builder-confirm-card {
+  width: 100%;
+  max-width: 620px;
+  margin: 24px auto 0;
+  padding: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.builder-confirm-card h3 {
+  margin: 0 0 20px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.builder-confirm-warning {
+  padding: 16px 20px;
+  margin-bottom: 40px;
+  border-radius: 8px;
+  background: #fef9e7;
+}
+
+.builder-confirm-warning strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #713f12;
+  font-size: 13px;
+}
+
+.builder-confirm-warning p {
+  margin: 0;
+  color: #713f12;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.builder-confirm-note {
+  margin: 0 0 32px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.builder-confirm-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}

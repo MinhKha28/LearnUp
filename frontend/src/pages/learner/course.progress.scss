@@ -1,0 +1,89 @@
+.course-progress-summary {
+  padding: 24px;
+  margin-bottom: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.course-progress-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.course-progress-summary-head h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.course-progress-summary > span {
+  display: block;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.course-progress-remains {
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.course-progress-remains h3 {
+  margin: 0 0 16px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.course-progress-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.course-progress-table th {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.course-progress-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--color-border);
+  color: #334155;
+  font-size: 13px;
+}
+
+.course-progress-table strong {
+  color: #0f172a;
+  font-weight: 650;
+}
+
+.course-progress-action.ant-btn-link {
+  height: auto;
+  padding: 0;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.course-progress-evaluation-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.course-progress-evaluation-banner .learner-info-panel {
+  flex: 1 1 auto;
+}
+

@@ -1,0 +1,50 @@
+.organizer-dashboard-stats {
+    margin-bottom: 16px;
+}
+
+.organizer-dashboard-progress {
+    display: grid;
+    gap: 16px;
+}
+
+.organizer-action-queue {
+    display: grid;
+}
+
+.organizer-action-queue>div {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    padding: 10px 0;
+    border-bottom: 1px solid #eef2f7;
+    gap: 3px 10px;
+    align-items: center;
+}
+
+.organizer-action-queue>div:last-child {
+    border-bottom: 0;
+}
+
+.organizer-action-queue strong {
+    color: #334155;
+    font-size: 10px;
+}
+
+.organizer-action-queue span {
+    color: #94a3b8;
+    font-size: 8px;
+}
+
+.organizer-action-queue .organizer-link {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+}
+
+.organizer-dashboard .organizer-warning {
+    margin: 16px 0;
+}
+
+.organizer-dashboard-actions {
+    display: flex;
+    justify-content: flex-end;
+}

@@ -1,0 +1,270 @@
+.admin-layout {
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+
+.admin-sidebar {
+  position: fixed !important;
+  inset: 0 auto 0 0;
+  z-index: 20;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface) !important;
+}
+
+.admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 72px;
+  padding: 0 24px;
+  color: var(--color-primary);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.admin-brand>span:last-child>span {
+  color: var(--color-accent);
+}
+
+.admin-brand-mark {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  font-size: 22px;
+}
+
+.admin-navigation {
+  padding: 12px 12px 24px;
+  border-inline-end: 0 !important;
+  background: transparent;
+}
+
+.admin-navigation .ant-menu-item-group-title {
+  padding: 20px 12px 7px;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+.admin-navigation .ant-menu-item {
+  height: 38px;
+  margin: 2px 0;
+  padding-inline: 12px !important;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.admin-navigation .ant-menu-item .anticon {
+  font-size: 15px;
+}
+
+.admin-navigation .ant-menu-item-selected {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  font-weight: 600;
+}
+
+.admin-navigation .ant-menu-item-selected::after {
+  display: none;
+}
+
+.admin-menu-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.admin-menu-label .ant-badge-count {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  background: #fff7ed;
+  color: #f97316;
+  line-height: 17px;
+  box-shadow: none;
+  font-size: 10px;
+}
+
+.admin-workspace {
+  min-width: 0;
+  min-height: 100vh;
+  margin-left: 240px;
+  background: var(--color-bg);
+}
+
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  display: flex;
+  height: 72px;
+  padding: 0 32px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, .96);
+  line-height: normal;
+}
+
+.admin-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-topbar-left>div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.admin-topbar-eyebrow {
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+.admin-topbar-left strong {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-menu-trigger {
+  display: none;
+}
+
+.admin-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-demo-badge {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.admin-notification {
+  color: #64748b;
+}
+
+.admin-user {
+  display: flex;
+  padding: 0;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  cursor: pointer;
+  text-align: left;
+}
+
+.admin-user .ant-avatar {
+  background: #101827;
+  font-size: 11px;
+}
+
+.admin-user>span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-user strong {
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.admin-user small {
+  color: #94a3b8;
+  font-size: 9px;
+}
+
+.admin-main {
+  min-height: calc(100vh - 124px);
+  padding: 28px 32px 48px;
+  background: var(--color-bg);
+}
+
+.admin-footer {
+  display: flex;
+  min-height: 52px;
+  padding: 16px 32px;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--color-border);
+  background: #fff;
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.admin-footer span:first-child {
+  color: #475569;
+  font-weight: 700;
+}
+
+.admin-mobile-drawer .ant-drawer-body {
+  padding: 0;
+}
+
+@media (max-width: 900px) {
+  .admin-sidebar {
+    display: none;
+  }
+
+  .admin-workspace {
+    margin-left: 0;
+  }
+
+  .admin-menu-trigger {
+    display: inline-flex;
+  }
+
+  .admin-topbar {
+    padding: 0 20px;
+  }
+
+  .admin-main {
+    padding: 24px 20px 40px;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-topbar {
+    height: 64px;
+    padding: 0 14px;
+  }
+
+  .admin-main {
+    min-height: calc(100vh - 116px);
+    padding: 20px 14px 32px;
+  }
+
+  .admin-footer {
+    padding: 16px 14px;
+  }
+
+  .admin-topbar-actions {
+    gap: 3px;
+  }
+
+  .admin-demo-badge,
+  .admin-notification,
+  .admin-user>span:last-child {
+    display: none;
+  }
+}

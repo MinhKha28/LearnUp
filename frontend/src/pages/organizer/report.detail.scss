@@ -1,0 +1,14 @@
+.organizer-report-header-card {
+    margin-bottom: 16px;
+}
+
+.organizer-report-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 16px;
+}
+
+@media (max-width: 640px) {
+    .organizer-report-stats {
+        grid-template-columns: 1fr;
+    }
+}

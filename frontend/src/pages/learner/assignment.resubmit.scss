@@ -1,0 +1,57 @@
+.assignment-resubmit-card {
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.assignment-resubmit-card h3 {
+  margin: 20px 0 10px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.assignment-resubmit-card .ant-input {
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.assignment-resubmit-upload {
+  margin-top: 16px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.assignment-resubmit-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.assignment-resubmit-info {
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.assignment-resubmit-info h3 {
+  margin: 0 0 14px;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.assignment-resubmit-info p {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.assignment-resubmit-info hr {
+  margin: 14px 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
