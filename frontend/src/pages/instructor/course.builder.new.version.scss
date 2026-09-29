@@ -1,0 +1,71 @@
+.new-version-header {
+  display: flex;
+  margin-bottom: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.new-version-pill {
+  display: inline-flex;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.new-version-grid {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.new-version-card {
+  padding: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.new-version-card h2 {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.new-version-card > p {
+  margin: 0 0 8px;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.new-version-card .instructor-info-panel {
+  margin: 16px 0 32px;
+}
+
+.new-version-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.new-version-side-eyebrow {
+  display: block;
+  margin-bottom: 12px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 900px) {
+  .new-version-grid {
+    grid-template-columns: 1fr;
+  }
+}

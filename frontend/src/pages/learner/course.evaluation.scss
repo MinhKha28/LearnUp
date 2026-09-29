@@ -1,0 +1,88 @@
+.course-evaluation-card {
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.course-evaluation-card h3 {
+  margin: 0 0 16px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.course-evaluation-row {
+  display: flex;
+  padding: 16px 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.course-evaluation-row span {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.course-evaluation-stars {
+  display: flex;
+  gap: 8px;
+}
+
+.course-evaluation-stars button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.course-evaluation-stars button:disabled {
+  cursor: default;
+}
+
+.course-evaluation-comments-label {
+  display: block;
+  margin: 24px 0 8px;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.course-evaluation-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.course-evaluation-actions-split {
+  justify-content: space-between;
+}
+
+.course-evaluation-closed-card {
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.course-evaluation-closed-card .learner-status {
+  margin-bottom: 16px;
+}
+
+.course-evaluation-closed-card h3 {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.course-evaluation-closed-card > p {
+  margin: 0 0 20px;
+  color: #64748b;
+  font-size: 13px;
+}
