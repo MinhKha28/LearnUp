@@ -1,17 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionPlan } from '../../generated/prisma/client';
-
-export interface PlanResponse {
-  id: string;
-  name: string;
-  price: number;
-  durationDays: number;
-  maxLearners: number;
-  maxInstructors: number;
-  maxCourseChains: number;
-  maxStorageBytes: number;
-}
+import { PlanResponse } from './interfaces/subscription-plan.interface';
 
 @Injectable()
 export class SubscriptionPlansService {
