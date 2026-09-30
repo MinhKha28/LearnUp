@@ -150,6 +150,12 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-localhost}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      LEARNUP_MAIL_ENABLED: ${LEARNUP_MAIL_ENABLED:-false}
+      LEARNUP_MAIL_FROM: ${LEARNUP_MAIL_FROM:-noreply@learnup.com}
     depends_on:
       postgres:
         condition: service_healthy
