@@ -53,10 +53,8 @@ async function bootstrap(): Promise<void> {
     )
     .build();
 
-  SwaggerModule.setup(
-    'docs',
-    app,
-    () => SwaggerModule.createDocument(app, swaggerConfig),
+  SwaggerModule.setup('docs', app, () =>
+    SwaggerModule.createDocument(app, swaggerConfig),
   );
 
   await app.listen(configService.get<string>('PORT') ?? 3000);
