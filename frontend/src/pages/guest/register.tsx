@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Alert, Button, Form, Input, Spin } from "antd";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import PlanCard from "@/components/guest/registration/plan.card";
 import RegistrationSteps from "@/components/guest/registration/registration";
 import "@/pages/guest/register.scss";
 import { getSubscriptionPlansAPI } from "@/services/organization.service";
 import type { ISubscriptionPlan } from "@/types/organization.types";
-import { formatStorage, formatVnd } from "@/utils/helper";
+import { toPlanDetails } from "@/utils/helper";
 
 type OrganizationFields = {
   name: string;
@@ -139,20 +139,6 @@ const screensNeedingPlan = [
   "payment",
 ];
 
-// UC01: Chuyển dữ liệu API sang dạng PlanCard đang dùng để hiển thị
-const toPlanDetails = (plan: ISubscriptionPlan) => ({
-  name: plan.name,
-  description: `${plan.durationDays} days of access`,
-  price: formatVnd(plan.price),
-  priceNote: `for ${plan.durationDays} days`,
-  limits: [
-    ["Learner seats", String(plan.maxLearners)],
-    ["Instructor seats", String(plan.maxInstructors)],
-    ["Courses", String(plan.maxCourseChains)],
-    ["Storage", formatStorage(plan.maxStorageBytes)],
-  ] as Array<[string, string]>,
-  footer: "The price is locked in when you register.",
-});
 const isResult = (screen: string): screen is ResultScreen =>
   Object.hasOwn(resultContent, screen);
 
@@ -171,8 +157,10 @@ export default function RegisterPage() {
   const [plans, setPlans] = useState<ISubscriptionPlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
+  // UC01: nếu đi từ trang chủ (bấm "Choose ...") thì gói được gửi kèm qua router state
+  const location = useLocation();
   const [selectedPlan, setSelectedPlan] = useState<ISubscriptionPlan | null>(
-    null,
+    () => (location.state as { plan?: ISubscriptionPlan } | null)?.plan ?? null,
   );
   const account = screen === "organizer" || screen === "account-review";
   const standalone = [

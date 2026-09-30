@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import type { ISubscriptionPlan } from "@/types/organization.types";
 
 export const FORMATE_DATE_DEFAULT = "YYYY-MM-DD";
 export const FORMATE_DATE_VN = "DD-MM-YYYY";
@@ -24,3 +25,18 @@ export const formatStorage = (bytes: number) => {
   const gb = bytes / 1024 ** 3;
   return `${Number.isInteger(gb) ? gb : gb.toFixed(1)} GB`;
 };
+
+// UC01: chuyển dữ liệu gói từ API sang dạng PlanCard hiển thị (dùng ở trang chủ và trang đăng ký)
+export const toPlanDetails = (plan: ISubscriptionPlan) => ({
+  name: plan.name,
+  description: `${plan.durationDays} days of access`,
+  price: formatVnd(plan.price),
+  priceNote: `for ${plan.durationDays} days`,
+  limits: [
+    ["Learner seats", String(plan.maxLearners)],
+    ["Instructor seats", String(plan.maxInstructors)],
+    ["Courses", String(plan.maxCourseChains)],
+    ["Storage", formatStorage(plan.maxStorageBytes)],
+  ] as Array<[string, string]>,
+  footer: "The price is locked in when you register.",
+});

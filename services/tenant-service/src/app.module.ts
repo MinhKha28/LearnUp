@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { SubscriptionPlansModule } from './subscription-plans/subscription-plans.module';
+import { RegistrationsModule } from './registrations/registrations.module';
 
 @Module({
   imports: [
@@ -16,6 +17,8 @@ import { SubscriptionPlansModule } from './subscription-plans/subscription-plans
     OutboxModule, // @Global: OutboxService + relay gửi email
     IntegrationsModule, // @Global: IdentityClient
     SubscriptionPlansModule,
+    SubscriptionPlansModule,
+    RegistrationsModule,
   ],
   providers: [
     {
