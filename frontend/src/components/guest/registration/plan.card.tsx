@@ -46,7 +46,7 @@ export default function PlanCard({
       <div className="plan-card-heading">
         {selected && <h2>Your selection</h2>}
         {details && featured && (
-          <span className="plan-card-badge">Popular demo</span>
+          <span className="plan-card-badge">Popular</span>
         )}
         {!details && <span className="plan-card-badge">Available</span>}
       </div>
@@ -79,7 +79,6 @@ export default function PlanCard({
       )}
       {onSelect && (
         <Button
-          type={featured ? "primary" : "default"}
           block
           onClick={onSelect}
         >
