@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Certificate {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  enrollmentId    String    @unique @map("enrollment_id") @db.Uuid
+  learnerId       String    @map("learner_id") @db.Uuid
+  courseId        String    @map("course_id") @db.Uuid
+  certificateCode String    @unique @map("certificate_code") @db.VarChar(12)
+  status          String
+  issuedAt        DateTime  @map("issued_at") @db.Timestamptz
+  completedLate   Boolean   @map("completed_late")
+  scoreSnapshot   Json      @map("score_snapshot")
+  learnerName     String?   @map("learner_name") @db.VarChar(100)
+  courseName      String?   @map("course_name") @db.VarChar(200)
+  versionNumber   Int?      @map("version_number")
+  chainId         String?   @map("chain_id") @db.Uuid
+  issueAttempts   Int       @default(0) @map("issue_attempts")
+  nextAttemptAt   DateTime? @map("next_attempt_at") @db.Timestamptz
+  lastError       String?   @map("last_error")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  evaluationForm EvaluationForm?
+
+  @@unique([learnerId, courseId])
+  @@index([organizationId, courseId])
+  @@map("certificates")
+}
+
+model EvaluationForm {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  certificateId  String    @unique @map("certificate_id") @db.Uuid
+  enrollmentId   String    @unique @map("enrollment_id") @db.Uuid
+  learnerId      String    @map("learner_id") @db.Uuid
+  courseId       String    @map("course_id") @db.Uuid
+  openedAt       DateTime  @map("opened_at") @db.Timestamptz
+  dueAt          DateTime  @map("due_at") @db.Timestamptz
+  submittedAt    DateTime? @map("submitted_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  certificate Certificate @relation(fields: [certificateId], references: [id])
+
+  @@index([organizationId, learnerId])
+  @@map("evaluation_forms")
+}
+
+model EvaluationResponse {
+  id                String  @id @default(uuid(4)) @db.Uuid
+  organizationId    String  @map("organization_id") @db.Uuid
+  courseId          String  @map("course_id") @db.Uuid
+  contentUsefulness Int     @map("content_usefulness") @db.SmallInt
+  difficultyFit     Int     @map("difficulty_fit") @db.SmallInt
+  materialQuality   Int     @map("material_quality") @db.SmallInt
+  comment           String? @db.VarChar(2000)
+
+  @@index([organizationId, courseId])
+  @@map("evaluation_responses")
+}
+
+model ReportExport {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  requestedBy    String    @map("requested_by") @db.Uuid
+  requesterRole  String    @map("requester_role")
+  reportType     String    @map("report_type")
+  fileFormat     String    @map("file_format")
+  filters        Json
+  status         String
+  attempts       Int       @default(0)
+  startedAt      DateTime? @map("started_at") @db.Timestamptz
+  finishedAt     DateTime? @map("finished_at") @db.Timestamptz
+  fileKey        String?   @map("file_key")
+  fileSizeBytes  BigInt?   @map("file_size_bytes")
+  errorMessage   String?   @map("error_message")
+  expiresAt      DateTime? @map("expires_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([organizationId, requestedBy, status])
+  @@map("report_exports")
+}
+
+model PlatformSetting {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  evaluationFormDays Int      @default(14) @map("evaluation_form_days")
+  sourceAsOf         DateTime @map("source_as_of") @db.Timestamptz
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("platform_settings")
+}
