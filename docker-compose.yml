@@ -229,7 +229,93 @@ services:
         condition: service_healthy
     networks:
       - learnup-network
+  tenant-service:
+    build:
+      context: .
+      dockerfile: services/tenant-service/Dockerfile
+    container_name: learnup-tenant-service
+    ports:
+      - "8084:8084"
+    environment:
+      PORT: 8084
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/tenant_db?schema=public
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
+      SERVICE_NAME: TENANT-SERVICE
+      SERVICE_HOST: tenant-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - learnup-network
 
+  learning-service:
+    build:
+      context: .
+      dockerfile: services/learning-service/Dockerfile
+    container_name: learnup-learning-service
+    ports:
+      - "8085:8085"
+    environment:
+      PORT: 8085
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/learning_db?schema=public
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
+      SERVICE_NAME: LEARNING-SERVICE
+      SERVICE_HOST: learning-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - learnup-network
+
+  assessment-service:
+    build:
+      context: .
+      dockerfile: services/assessment-service/Dockerfile
+    container_name: learnup-assessment-service
+    ports:
+      - "8086:8086"
+    environment:
+      PORT: 8086
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/assessment_db?schema=public
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
+      SERVICE_NAME: ASSESSMENT-SERVICE
+      SERVICE_HOST: assessment-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - learnup-network
+
+  achievement-reporting-service:
+    build:
+      context: .
+      dockerfile: services/achievement-reporting-service/Dockerfile
+    container_name: learnup-achievement-reporting-service
+    ports:
+      - "8087:8087"
+    environment:
+      PORT: 8087
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/achievement_reporting_db?schema=public
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
+      SERVICE_NAME: ACHIEVEMENT-REPORTING-SERVICE
+      SERVICE_HOST: achievement-reporting-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - learnup-network
   # ==============================================================================
   # Frontend Application
   # ==============================================================================

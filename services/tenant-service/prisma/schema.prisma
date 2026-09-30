@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  name         String   @db.VarChar(200)
+  taxCode      String   @map("tax_code") @db.VarChar(13)
+  address      String   @db.VarChar(300)
+  contactPhone String   @map("contact_phone") @db.VarChar(16)
+  contactEmail String?  @map("contact_email") @db.VarChar(254)
+  logoFileKey  String?  @map("logo_file_key")
+  timezone     String   @default("Asia/Ho_Chi_Minh")
+  status       String
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  users          User[]
+  registrations  Registration[]
+  subscriptions  Subscription[]
+  payments       Payment[]
+  suspensions    OrganizationSuspension[]
+  accountTokens  AccountToken[]
+  outboxEvents   OutboxEvent[]
+
+  @@map("organizations")
+}
+
+model User {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  organizationId  String?   @map("organization_id") @db.Uuid
+  email           String    @db.VarChar(254)
+  fullName        String    @map("full_name") @db.VarChar(100)
+  avatarFileKey   String?   @map("avatar_file_key")
+  role            String
+  department      String?   @db.VarChar(100)
+  status          String
+  activatedAt     DateTime? @map("activated_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  accountTokens AccountToken[]
+  registrations Registration[]
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+model AccountToken {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  purpose        String
+  tokenHash      Bytes     @map("token_hash")
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz
+  consumedAt     DateTime? @map("consumed_at") @db.Timestamptz
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, userId])
+  @@map("account_tokens")
+}
+
+model SubscriptionPlan {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  name             String   @db.VarChar(100)
+  price            BigInt
+  durationDays     Int      @map("duration_days")
+  maxLearners      Int      @map("max_learners")
+  maxInstructors   Int      @map("max_instructors")
+  maxCourseChains  Int      @map("max_course_chains")
+  maxStorageBytes  BigInt   @map("max_storage_bytes")
+  isOffered        Boolean  @default(true) @map("is_offered")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  registrations Registration[]
+  subscriptions Subscription[]
+  payments      Payment[]
+
+  @@map("subscription_plans")
+}
+
+model Registration {
+  id                      String    @id @default(uuid(7)) @db.Uuid
+  organizationId          String    @map("organization_id") @db.Uuid
+  organizerUserId         String    @map("organizer_user_id") @db.Uuid
+  planId                  String    @map("plan_id") @db.Uuid
+  price                   BigInt
+  durationDays            Int       @map("duration_days")
+  maxLearners             Int       @map("max_learners")
+  maxInstructors          Int       @map("max_instructors")
+  maxCourseChains         Int       @map("max_course_chains")
+  maxStorageBytes         BigInt    @map("max_storage_bytes")
+  status                  String
+  expiresAt               DateTime  @map("expires_at") @db.Timestamptz
+  paidAt                  DateTime? @map("paid_at") @db.Timestamptz
+  reopenTokenHash         Bytes?    @map("reopen_token_hash")
+  resendCount             Int       @default(0) @map("resend_count")
+  resendWindowStartedAt   DateTime? @map("resend_window_started_at") @db.Timestamptz
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  organizer    User             @relation(fields: [organizerUserId], references: [id])
+  plan         SubscriptionPlan @relation(fields: [planId], references: [id])
+  payments     Payment[]
+
+  @@index([organizationId])
+  @@map("registrations")
+}
+
+model Subscription {
+  id                         String    @id @default(uuid(7)) @db.Uuid
+  organizationId             String    @map("organization_id") @db.Uuid
+  planId                     String    @map("plan_id") @db.Uuid
+  source                     String
+  status                     String
+  price                      BigInt
+  durationDays               Int       @map("duration_days")
+  maxLearners                Int       @map("max_learners")
+  maxInstructors             Int       @map("max_instructors")
+  maxCourseChains            Int       @map("max_course_chains")
+  maxStorageBytes            BigInt    @map("max_storage_bytes")
+  startsAt                   DateTime  @map("starts_at") @db.Timestamptz
+  expiresAt                  DateTime  @map("expires_at") @db.Timestamptz
+  graceEndsAt                DateTime? @map("grace_ends_at") @db.Timestamptz
+  suspendedAt                DateTime? @map("suspended_at") @db.Timestamptz
+  readOnlyEndsAt             DateTime? @map("read_only_ends_at") @db.Timestamptz
+  endedAt                    DateTime? @map("ended_at") @db.Timestamptz
+  lastReminderDays           Int?      @map("last_reminder_days")
+  certificateReminderSentAt  DateTime? @map("certificate_reminder_sent_at") @db.Timestamptz
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  plan         SubscriptionPlan @relation(fields: [planId], references: [id])
+  payments     Payment[]
+
+  @@index([organizationId, status])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  planId            String    @map("plan_id") @db.Uuid
+  kind              String
+  registrationId    String?   @map("registration_id") @db.Uuid
+  amount            BigInt
+  status            String
+  subscriptionId    String?   @map("subscription_id") @db.Uuid
+  providerReference String?   @map("provider_reference")
+  failureReason     String?   @map("failure_reason")
+  paidAt            DateTime? @map("paid_at") @db.Timestamptz
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  plan         SubscriptionPlan @relation(fields: [planId], references: [id])
+  registration Registration?    @relation(fields: [registrationId], references: [id])
+  subscription Subscription?    @relation(fields: [subscriptionId], references: [id])
+
+  @@index([organizationId])
+  @@map("payments")
+}
+
+model OrganizationSuspension {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  startedAt      DateTime  @map("started_at") @db.Timestamptz
+  endedAt        DateTime? @map("ended_at") @db.Timestamptz
+  reason         String    @db.VarChar(1000)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("organization_suspensions")
+}
+
+model PlatformSetting {
+  id                              String   @id @default(uuid(7)) @db.Uuid
+  pendingRegistrationTtlHours     Int      @default(168) @map("pending_registration_ttl_hours")
+  subscriptionGraceDays           Int      @default(7) @map("subscription_grace_days")
+  organizerReadOnlyDays           Int      @default(30) @map("organizer_read_only_days")
+  usageWarningThresholdPercent    Int      @default(80) @map("usage_warning_threshold_percent")
+  readingSpeedWordsPerMinute      Int      @default(200) @map("reading_speed_words_per_minute")
+  studyMinutesPerDay              Int      @default(60) @map("study_minutes_per_day")
+  durationGapThresholdPercent     Int      @default(20) @map("duration_gap_threshold_percent")
+  videoCompletionPercent          Int      @default(90) @map("video_completion_percent")
+  reportHandlingDays              Int      @default(7) @map("report_handling_days")
+  instructorViolationThreshold    Int      @default(3) @map("instructor_violation_threshold")
+  evaluationFormDays              Int      @default(14) @map("evaluation_form_days")
+  defaultPeerReviewCycleDays      Int      @default(7) @map("default_peer_review_cycle_days")
+  defaultPeerReviewDeadlineDays   Int      @default(3) @map("default_peer_review_deadline_days")
+  peerReviewReminderHours         Int      @default(24) @map("peer_review_reminder_hours")
+  defaultMaxConsecutiveAttempts   Int      @default(3) @map("default_max_consecutive_attempts")
+  defaultLockoutHours             Int      @default(24) @map("default_lockout_hours")
+  maxVideoSizeBytes               BigInt   @default(2147483648) @map("max_video_size_bytes")
+  maxVideoDurationMinutes         Int      @default(120) @map("max_video_duration_minutes")
+  maxReadingSizeBytes             BigInt   @default(52428800) @map("max_reading_size_bytes")
+  allowedVideoMimeTypes           String[] @default(["video/mp4"]) @map("allowed_video_mime_types")
+  allowedReadingMimeTypes         String[] @default(["application/pdf"]) @map("allowed_reading_mime_types")
+  maxLinkResendsPer24h            Int      @default(5) @map("max_link_resends_per_24h")
+  invitationLinkTtlDays           Int      @default(7) @map("invitation_link_ttl_days")
+  subscriptionReminderDays        Int[]    @default([7, 1]) @map("subscription_reminder_days")
+  createdAt                       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("platform_settings")
+}
+
+model OutboxEvent {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  aggregateType  String    @map("aggregate_type")
+  aggregateId    String    @map("aggregate_id") @db.Uuid
+  eventType      String    @map("event_type")
+  organizationId String?   @map("organization_id") @db.Uuid
+  payload        Json
+  occurredAt     DateTime  @map("occurred_at") @db.Timestamptz
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([publishedAt])
+  @@map("outbox_events")
+}

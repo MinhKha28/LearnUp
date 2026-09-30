@@ -1,0 +1,305 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Assessment {
+  id                           String    @id @default(uuid(7)) @db.Uuid
+  organizationId               String    @map("organization_id") @db.Uuid
+  courseId                     String    @map("course_id") @db.Uuid
+  moduleId                     String?   @map("module_id") @db.Uuid
+  kind                         String
+  title                        String    @db.VarChar(200)
+  position                     Int
+  passingScore                 Decimal   @map("passing_score") @db.Decimal(5, 2)
+  maxConsecutiveAttempts       Int       @map("max_consecutive_attempts")
+  lockoutHours                 Int       @map("lockout_hours")
+  isRequired                   Boolean   @map("is_required")
+  timeLimitMinutes             Int?      @map("time_limit_minutes")
+  prompt                       String?   @db.VarChar(8000)
+  promptFileKey                String?   @map("prompt_file_key")
+  promptFileName               String?   @map("prompt_file_name") @db.VarChar(255)
+  promptFileMime               String?   @map("prompt_file_mime") @db.VarChar(255)
+  promptFileSizeBytes          BigInt?   @map("prompt_file_size_bytes")
+  expectedDurationMinutes      Int?      @map("expected_duration_minutes")
+  peerReviewEnabled            Boolean   @default(false) @map("peer_review_enabled")
+  peerReviewersPerSubmission   Int?      @map("peer_reviewers_per_submission") @db.SmallInt
+  peerReviewCycleDays          Int?      @map("peer_review_cycle_days")
+  peerReviewDeadlineDays       Int?      @map("peer_review_deadline_days")
+  peerReviewScoreGap           Decimal?  @map("peer_review_score_gap") @db.Decimal(5, 2)
+  disabledAt                   DateTime? @map("disabled_at") @db.Timestamptz
+  copiedFromId                 String?   @map("copied_from_id") @db.Uuid
+  createdAt                    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  questions       QuizQuestion[]
+  rubricCriteria  RubricCriterion[]
+  learnerStates   LearnerAssessmentState[]
+  quizAttempts    QuizAttempt[]
+  submissions     Submission[]
+  peerCycles      PeerReviewCycle[]
+
+  @@index([organizationId, courseId])
+  @@map("assessments")
+}
+
+model QuizQuestion {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  assessmentId   String   @map("assessment_id") @db.Uuid
+  questionType   String   @map("question_type")
+  content        String   @db.VarChar(2000)
+  position       Int
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  assessment Assessment          @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  options    QuizQuestionOption[]
+  answers    QuizAttemptAnswer[]
+
+  @@unique([assessmentId, position])
+  @@map("quiz_questions")
+}
+
+model QuizQuestionOption {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  questionId     String   @map("question_id") @db.Uuid
+  content        String   @db.VarChar(500)
+  isCorrect      Boolean  @map("is_correct")
+  position       Int
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, position])
+  @@map("quiz_question_options")
+}
+
+model RubricCriterion {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  assessmentId   String   @map("assessment_id") @db.Uuid
+  name           String   @db.VarChar(200)
+  description    String   @db.VarChar(500)
+  maxPoints      Int      @map("max_points") @db.SmallInt
+  position       Int
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  assessment Assessment              @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  scores     SubmissionReviewScore[]
+
+  @@unique([assessmentId, position])
+  @@map("rubric_criteria")
+}
+
+model LearnerAssessmentState {
+  id                    String    @id @default(uuid(7)) @db.Uuid
+  organizationId        String    @map("organization_id") @db.Uuid
+  assessmentId          String    @map("assessment_id") @db.Uuid
+  learnerId             String    @map("learner_id") @db.Uuid
+  firstActivityAt       DateTime  @map("first_activity_at") @db.Timestamptz
+  consecutiveCount      Int       @default(0) @map("consecutive_count")
+  lockedUntil           DateTime? @map("locked_until") @db.Timestamptz
+  recordedAttemptId     String?   @map("recorded_attempt_id") @db.Uuid
+  latestSubmissionId    String?   @map("latest_submission_id") @db.Uuid
+  peerReviewObligation  String?   @map("peer_review_obligation")
+  exemptedAt            DateTime? @map("exempted_at") @db.Timestamptz
+  exemptedBy            String?   @map("exempted_by") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, learnerId])
+  @@map("learner_assessment_states")
+}
+
+model QuizAttempt {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  assessmentId   String    @map("assessment_id") @db.Uuid
+  learnerId      String    @map("learner_id") @db.Uuid
+  attemptNumber  Int       @map("attempt_number")
+  startedAt      DateTime  @map("started_at") @db.Timestamptz
+  deadlineAt     DateTime  @map("deadline_at") @db.Timestamptz
+  submittedAt    DateTime? @map("submitted_at") @db.Timestamptz
+  submissionKind String?   @map("submission_kind")
+  score          Decimal?  @db.Decimal(5, 2)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  assessment Assessment          @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answers    QuizAttemptAnswer[]
+
+  @@unique([assessmentId, learnerId, attemptNumber])
+  @@map("quiz_attempts")
+}
+
+model QuizAttemptAnswer {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  attemptId      String   @map("attempt_id") @db.Uuid
+  questionId     String   @map("question_id") @db.Uuid
+  optionId       String   @map("option_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  attempt  QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question QuizQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([attemptId, questionId, optionId])
+  @@map("quiz_attempt_answers")
+}
+
+model Submission {
+  id                    String    @id @default(uuid(7)) @db.Uuid
+  organizationId        String    @map("organization_id") @db.Uuid
+  assessmentId          String    @map("assessment_id") @db.Uuid
+  learnerId             String    @map("learner_id") @db.Uuid
+  submissionNumber      Int       @map("submission_number")
+  content               String?   @db.VarChar(20000)
+  fileKey               String?   @map("file_key")
+  fileName              String?   @map("file_name") @db.VarChar(255)
+  fileMime              String?   @map("file_mime") @db.VarChar(255)
+  fileSizeBytes         BigInt?   @map("file_size_bytes")
+  submittedAt           DateTime  @map("submitted_at") @db.Timestamptz
+  cycleId               String?   @map("cycle_id") @db.Uuid
+  supersededAt          DateTime? @map("superseded_at") @db.Timestamptz
+  gradingStatus         String    @map("grading_status")
+  interventionReason    String?   @map("intervention_reason")
+  finalScore            Decimal?  @map("final_score") @db.Decimal(5, 2)
+  finalizationComment   String?   @map("finalization_comment") @db.VarChar(2000)
+  finalizedAt           DateTime? @map("finalized_at") @db.Timestamptz
+  finalizedBy           String?   @map("finalized_by") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  assessment Assessment          @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  reviews    SubmissionReview[]
+
+  @@unique([assessmentId, learnerId, submissionNumber])
+  @@map("submissions")
+}
+
+model PeerReviewCycle {
+  id                      String    @id @default(uuid(7)) @db.Uuid
+  organizationId          String    @map("organization_id") @db.Uuid
+  assessmentId            String    @map("assessment_id") @db.Uuid
+  opensAt                 DateTime  @map("opens_at") @db.Timestamptz
+  closesAt                DateTime  @map("closes_at") @db.Timestamptz
+  reviewDueAt             DateTime  @map("review_due_at") @db.Timestamptz
+  reviewersPerSubmission  Int       @map("reviewers_per_submission") @db.SmallInt
+  scoreGap                Decimal   @map("score_gap") @db.Decimal(5, 2)
+  reminderHours           Int       @map("reminder_hours")
+  status                  String
+  reviewerPermutation     String[]  @map("reviewer_permutation") @db.Uuid
+  closedAt                DateTime? @map("closed_at") @db.Timestamptz
+  remindedAt              DateTime? @map("reminded_at") @db.Timestamptz
+  completedAt             DateTime? @map("completed_at") @db.Timestamptz
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  assessment Assessment          @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  reviews    SubmissionReview[]
+
+  @@map("peer_review_cycles")
+}
+
+model SubmissionReview {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  submissionId   String    @map("submission_id") @db.Uuid
+  cycleId        String?   @map("cycle_id") @db.Uuid
+  reviewerId     String    @map("reviewer_id") @db.Uuid
+  reviewerRole   String    @map("reviewer_role")
+  status         String
+  score          Decimal?  @db.Decimal(5, 2)
+  comment        String?   @db.VarChar(2000)
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  submission Submission        @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  cycle      PeerReviewCycle?  @relation(fields: [cycleId], references: [id])
+  scores     SubmissionReviewScore[]
+
+  @@index([organizationId, reviewerId])
+  @@map("submission_reviews")
+}
+
+model SubmissionReviewScore {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  reviewId       String   @map("review_id") @db.Uuid
+  criterionId    String   @map("criterion_id") @db.Uuid
+  points         Int      @db.SmallInt
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  review    SubmissionReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  criterion RubricCriterion  @relation(fields: [criterionId], references: [id])
+
+  @@unique([reviewId, criterionId])
+  @@map("submission_review_scores")
+}
+
+model CompletedEnrollment {
+  enrollmentId   String   @id @map("enrollment_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  learnerId      String   @map("learner_id") @db.Uuid
+  courseId       String   @map("course_id") @db.Uuid
+  completedAt    DateTime @map("completed_at") @db.Timestamptz
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("completed_enrollments")
+}
+
+model LearnerAccount {
+  userId         String    @id @map("user_id") @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  deactivatedAt  DateTime? @map("deactivated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+  statusAsOf     DateTime  @map("status_as_of") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("learner_accounts")
+}
+
+model PlatformSetting {
+  id                            String   @id @default(uuid(7)) @db.Uuid
+  defaultPeerReviewCycleDays    Int      @default(7) @map("default_peer_review_cycle_days")
+  defaultPeerReviewDeadlineDays Int      @default(3) @map("default_peer_review_deadline_days")
+  peerReviewReminderHours       Int      @default(24) @map("peer_review_reminder_hours")
+  defaultMaxConsecutiveAttempts Int      @default(3) @map("default_max_consecutive_attempts")
+  defaultLockoutHours           Int      @default(24) @map("default_lockout_hours")
+  sourceAsOf                    DateTime @map("source_as_of") @db.Timestamptz
+  createdAt                     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("platform_settings")
+}
+
+model OutboxEvent {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  aggregateType  String    @map("aggregate_type")
+  aggregateId    String    @map("aggregate_id") @db.Uuid
+  eventType      String    @map("event_type")
+  organizationId String?   @map("organization_id") @db.Uuid
+  payload        Json
+  occurredAt     DateTime  @map("occurred_at") @db.Timestamptz
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([publishedAt])
+  @@map("outbox_events")
+}

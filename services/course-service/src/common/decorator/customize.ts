@@ -1,7 +1,7 @@
-import { CurrentUser } from '@learnup/ts-common';
-import { SetMetadata } from '@nestjs/common';
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { Request } from 'express';
+import type { CurrentUser } from '@learnup/ts-common';
+import { SetMetadata, createParamDecorator, ExecutionContext } from '@nestjs/common';
+import type { Request } from 'express';
+
 export const IS_PUBLIC_KEY = 'isPublic';
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
@@ -19,6 +19,3 @@ export const User = createParamDecorator(
     return request.user;
   },
 );
-export const IS_PUBLIC_PERMISSION = 'isPublicPermission';
-export const SkipCheckPermission = () =>
-  SetMetadata(IS_PUBLIC_PERMISSION, true);

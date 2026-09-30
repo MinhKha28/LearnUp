@@ -41,4 +41,4 @@ COPY --from=builder /app/services/course-service/generated ./generated
 
 EXPOSE 8083
 
-CMD ["node", "dist/src/main.js"]
+CMD ["node", "dist/src/main"]
