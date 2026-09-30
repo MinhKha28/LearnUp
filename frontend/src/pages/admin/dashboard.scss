@@ -1,0 +1,50 @@
+.admin-dashboard .admin-warning {
+    margin-bottom: 16px;
+}
+
+.admin-dashboard-stats {
+    margin-bottom: 16px;
+}
+
+.admin-dashboard-progress {
+    display: grid;
+    gap: 16px;
+}
+
+.admin-dashboard .admin-note {
+    margin: 18px 0 0;
+    padding-top: 14px;
+    border-top: 1px solid #eef2f7;
+}
+
+.admin-report-list {
+    display: grid;
+}
+
+.admin-report-list>div {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    padding: 10px 0;
+    border-bottom: 1px solid #eef2f7;
+    gap: 3px 10px;
+}
+
+.admin-report-list>div:last-child {
+    border-bottom: 0;
+}
+
+.admin-report-list strong {
+    color: #334155;
+    font-size: 10px;
+}
+
+.admin-report-list span:not(.admin-status) {
+    color: #94a3b8;
+    font-size: 8px;
+}
+
+.admin-report-list .admin-status {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+}
