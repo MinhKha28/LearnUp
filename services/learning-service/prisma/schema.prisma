@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Enrollment {
+  id                        String    @id @default(uuid(7)) @db.Uuid
+  organizationId            String    @map("organization_id") @db.Uuid
+  learnerId                 String    @map("learner_id") @db.Uuid
+  courseId                  String    @map("course_id") @db.Uuid
+  enrollmentType            String    @map("enrollment_type")
+  status                    String
+  enrolledAt                DateTime  @map("enrolled_at") @db.Timestamptz
+  assignedAt                DateTime? @map("assigned_at") @db.Timestamptz
+  expectedCompletionDays    Int?      @map("expected_completion_days")
+  baseDueAt                 DateTime? @map("base_due_at") @db.Timestamptz
+  extensionSeconds          BigInt    @default(0) @map("extension_seconds")
+  dueAt                     DateTime? @map("due_at") @db.Timestamptz
+  videoCompletionPercent    Int       @map("video_completion_percent")
+  firstActivityAt           DateTime? @map("first_activity_at") @db.Timestamptz
+  completedAt               DateTime? @map("completed_at") @db.Timestamptz
+  completedLate             Boolean?  @map("completed_late")
+  withdrawnAt               DateTime? @map("withdrawn_at") @db.Timestamptz
+  withdrawnReason           String?   @map("withdrawn_reason")
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  courseSnapshot CourseVersionSnapshot @relation(fields: [courseId], references: [courseId])
+  intervals      EnrollmentStatusInterval[]
+  materialProgress MaterialProgress[]
+
+  @@unique([learnerId, courseId])
+  @@index([organizationId, status])
+  @@map("enrollments")
+}
+
+model EnrollmentStatusInterval {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  enrollmentId   String    @map("enrollment_id") @db.Uuid
+  kind           String
+  startedAt      DateTime  @map("started_at") @db.Timestamptz
+  endedAt        DateTime? @map("ended_at") @db.Timestamptz
+  reason         String?   @db.VarChar(1000)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, enrollmentId])
+  @@map("enrollment_status_intervals")
+}
+
+model MaterialProgress {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  enrollmentId   String    @map("enrollment_id") @db.Uuid
+  materialId     String    @map("material_id") @db.Uuid
+  watchedRanges  Unsupported("int4multirange")? @map("watched_ranges")
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  enrollment Enrollment        @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  material   MaterialSnapshot  @relation(fields: [materialId], references: [materialId])
+
+  @@unique([enrollmentId, materialId])
+  @@map("material_progress")
+}
+
+model CourseVersionSnapshot {
+  courseId       String    @id @map("course_id") @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  chainId        String    @map("chain_id") @db.Uuid
+  treeFetchedAt  DateTime  @map("tree_fetched_at") @db.Timestamptz
+  disabledAt     DateTime? @map("disabled_at") @db.Timestamptz
+  disabledAsOf   DateTime? @map("disabled_as_of") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  enrollments Enrollment[]
+  materials   MaterialSnapshot[]
+
+  @@map("course_version_snapshots")
+}
+
+model MaterialSnapshot {
+  materialId      String    @id @map("material_id") @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  courseId        String    @map("course_id") @db.Uuid
+  lessonId        String    @map("lesson_id") @db.Uuid
+  materialType    String    @map("material_type")
+  isRequired      Boolean   @map("is_required")
+  durationSeconds Int?      @map("duration_seconds")
+  durationAsOf    DateTime? @map("duration_as_of") @db.Timestamptz
+  disabledAt      DateTime? @map("disabled_at") @db.Timestamptz
+  disabledAsOf    DateTime? @map("disabled_as_of") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  courseSnapshot CourseVersionSnapshot @relation(fields: [courseId], references: [courseId])
+  progress       MaterialProgress[]
+
+  @@index([organizationId, courseId])
+  @@map("material_snapshots")
+}
+
+model LessonSnapshot {
+  lessonId       String    @id @map("lesson_id") @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  courseId       String    @map("course_id") @db.Uuid
+  disabledAt     DateTime? @map("disabled_at") @db.Timestamptz
+  disabledAsOf   DateTime? @map("disabled_as_of") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([organizationId, courseId])
+  @@map("lesson_snapshots")
+}
+
+model OrganizationSuspension {
+  id             String    @id @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  startedAt      DateTime  @map("started_at") @db.Timestamptz
+  endedAt        DateTime? @map("ended_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([organizationId])
+  @@map("organization_suspensions")
+}
+
+model LearnerAccount {
+  userId         String    @id @map("user_id") @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  deactivatedAt  DateTime? @map("deactivated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+  statusAsOf     DateTime  @map("status_as_of") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([organizationId])
+  @@map("learner_accounts")
+}
+
+model PlatformSetting {
+  id                     String   @id @default(uuid(7)) @db.Uuid
+  videoCompletionPercent Int      @default(90) @map("video_completion_percent")
+  sourceAsOf             DateTime @map("source_as_of") @db.Timestamptz
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("platform_settings")
+}
+
+model OutboxEvent {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  aggregateType  String    @map("aggregate_type")
+  aggregateId    String    @map("aggregate_id") @db.Uuid
+  eventType      String    @map("event_type")
+  organizationId String?   @map("organization_id") @db.Uuid
+  payload        Json
+  occurredAt     DateTime  @map("occurred_at") @db.Timestamptz
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([publishedAt])
+  @@map("outbox_events")
+}
