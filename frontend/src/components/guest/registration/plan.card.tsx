@@ -73,7 +73,7 @@ export default function PlanCard({
         <dl className="plan-card-payment">
           <div>
             <dt>Plan total</dt>
-            <dd>[Configured price]</dd>
+            <dd>{details?.price ?? "[Configured price]"}</dd>
           </div>
         </dl>
       )}
