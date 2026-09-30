@@ -1,4 +1,44 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { SubscriptionPlan } from '../../generated/prisma/client';
+
+export interface PlanResponse {
+  id: string;
+  name: string;
+  price: number;
+  durationDays: number;
+  maxLearners: number;
+  maxInstructors: number;
+  maxCourseChains: number;
+  maxStorageBytes: number;
+}
 
 @Injectable()
-export class SubscriptionPlansService {}
+export class SubscriptionPlansService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findOffered(): Promise<PlanResponse[]> {
+    const plans = await this.prisma.subscriptionPlan.findMany({
+      where: { isOffered: true },
+      orderBy: { price: 'asc' },
+    });
+    return plans.map((plan) => SubscriptionPlansService.toResponse(plan));
+  }
+
+  /**
+   * BigInt (price, maxStorageBytes) không chuyển được sang JSON,
+   * nên đổi sang number trước khi trả về (an toàn tới 9 triệu tỷ).
+   */
+  static toResponse(plan: SubscriptionPlan): PlanResponse {
+    return {
+      id: plan.id,
+      name: plan.name,
+      price: Number(plan.price),
+      durationDays: plan.durationDays,
+      maxLearners: plan.maxLearners,
+      maxInstructors: plan.maxInstructors,
+      maxCourseChains: plan.maxCourseChains,
+      maxStorageBytes: Number(plan.maxStorageBytes),
+    };
+  }
+}
