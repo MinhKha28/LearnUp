@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -50,6 +51,8 @@ model User {
   registrations Registration[]
 
   @@index([organizationId])
+  @@unique([email], map: "users_email_not_deleted_key", where: raw("deleted_at IS NULL"))
+  @@unique([organizationId], map: "users_one_organizer_per_org_key", where: raw("role = 'Organizer' AND deleted_at IS NULL AND status <> 'Deactivated'"))
   @@map("users")
 }
 
@@ -58,7 +61,7 @@ model AccountToken {
   organizationId String    @map("organization_id") @db.Uuid
   userId         String    @map("user_id") @db.Uuid
   purpose        String
-  tokenHash      Bytes     @map("token_hash")
+  tokenHash      Bytes     @unique @map("token_hash")
   expiresAt      DateTime  @map("expires_at") @db.Timestamptz
   consumedAt     DateTime? @map("consumed_at") @db.Timestamptz
   revokedAt      DateTime? @map("revoked_at") @db.Timestamptz
@@ -69,6 +72,7 @@ model AccountToken {
   user         User         @relation(fields: [userId], references: [id])
 
   @@index([organizationId, userId])
+  @@unique([userId, purpose], map: "account_tokens_one_open_link_key", where: raw("consumed_at IS NULL AND revoked_at IS NULL"))
   @@map("account_tokens")
 }
 
@@ -106,7 +110,7 @@ model Registration {
   status                  String
   expiresAt               DateTime  @map("expires_at") @db.Timestamptz
   paidAt                  DateTime? @map("paid_at") @db.Timestamptz
-  reopenTokenHash         Bytes?    @map("reopen_token_hash")
+  reopenTokenHash         Bytes?    @unique @map("reopen_token_hash")
   resendCount             Int       @default(0) @map("resend_count")
   resendWindowStartedAt   DateTime? @map("resend_window_started_at") @db.Timestamptz
   createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz
@@ -149,6 +153,7 @@ model Subscription {
   payments     Payment[]
 
   @@index([organizationId, status])
+  @@unique([organizationId], map: "subscriptions_one_current_per_org_key", where: raw("status IN ('Active', 'Grace', 'Suspended')"))
   @@map("subscriptions")
 }
 
