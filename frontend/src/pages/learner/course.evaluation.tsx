@@ -41,7 +41,7 @@ const StarRating = ({
 );
 
 const CourseEvaluation = () => {
-  const { courseId } = useParams();
+  const { enrollmentId: courseId } = useParams();
   const navigate = useNavigate();
   const course = courseId ? courseDetails[courseId] : undefined;
   const evaluation = findCourseEvaluation(courseId);

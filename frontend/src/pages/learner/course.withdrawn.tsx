@@ -3,7 +3,7 @@ import { courseDetails } from "@/components/learner/learner.data";
 import { LearnerPage, PageHeader, SuccessScreen } from "@/components/learner/learner.ui";
 
 const CourseWithdrawn = () => {
-  const { courseId } = useParams();
+  const { enrollmentId: courseId } = useParams();
   const navigate = useNavigate();
   const course = courseId ? courseDetails[courseId] : undefined;
   const title = course?.title ?? "This Course";

@@ -11,7 +11,7 @@ const LayoutLearnerCourse = () => {
   const { user } = useCurrentApp();
   const location = useLocation();
   const navigate = useNavigate();
-  const { courseId, lessonId, resourceId, quizId, assignmentId } = useParams();
+  const { enrollmentId: courseId, lessonId, resourceId, quizId, assignmentId } = useParams();
 
   const course = courseId ? courseDetails[courseId] : undefined;
 

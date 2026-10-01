@@ -66,7 +66,6 @@ import LearnerDashboard from "./pages/learner/dashboard";
 import LearnerMyCourses from "./pages/learner/my.courses";
 import LearnerCatalog from "./pages/learner/catalog";
 import LearnerCourseOverview from "./pages/learner/course.overview";
-import LearnerEnrollmentSuccess from "./pages/learner/enrollment.success";
 import LearnerCourseCurriculum from "./pages/learner/course.curriculum";
 import LearnerLessonDetail from "./pages/learner/lesson.detail";
 import LearnerLessonResource from "./pages/learner/lesson.resource";
@@ -265,31 +264,23 @@ export const router = createBrowserRouter([
       { index: true, element: <LearnerDashboard /> },
       { path: "courses", element: <LearnerMyCourses /> },
       {
-        path: "courses/:courseId/withdraw",
+        path: "courses/:enrollmentId/withdraw",
         element: <LearnerCourseWithdraw />,
       },
       {
-        path: "courses/:courseId/withdrawn",
+        path: "courses/:enrollmentId/withdrawn",
         element: <LearnerCourseWithdrawn />,
       },
       {
-        path: "courses/:courseId/evaluation",
+        path: "courses/:enrollmentId/evaluation",
         element: <LearnerCourseEvaluation />,
       },
       {
-        path: "courses/:courseId/lessons/:lessonId/resources/:resourceId/report",
+        path: "courses/:enrollmentId/lessons/:lessonId/resources/:resourceId/report",
         element: <LearnerReportContent />,
       },
       { path: "catalog", element: <LearnerCatalog /> },
       { path: "catalog/:courseId", element: <LearnerCourseOverview /> },
-      {
-        path: "catalog/:courseId/enrolled",
-        element: <LearnerEnrollmentSuccess />,
-      },
-      {
-        path: "catalog/:courseId/restored",
-        element: <LearnerEnrollmentSuccess restored />,
-      },
       { path: "peer-review", element: <LearnerPeerReviewQueue /> },
       { path: "peer-review/history", element: <LearnerPeerReviewHistory /> },
       { path: "peer-review/:submissionId", element: <LearnerPeerReviewForm /> },
@@ -309,7 +300,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: "/learner/courses/:courseId",
+    path: "/learner/courses/:enrollmentId",
     element: <LayoutLearnerCourse />,
     errorElement: <ServerErrorPage />,
     children: [

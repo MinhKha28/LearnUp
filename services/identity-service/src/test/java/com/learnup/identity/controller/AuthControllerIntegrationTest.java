@@ -228,4 +228,43 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.username").value("profileUser"));
     }
+
+    @Test
+    @DisplayName("Should successfully support /api/v1 route prefix for auth and user operations")
+    void shouldSupportV1RoutePrefix() throws Exception {
+        RegisterRequest register = new RegisterRequest(
+                "v1user",
+                "v1user@learnup.com",
+                "secret12345",
+                "V1 User",
+                UserRole.LEARNER,
+                null
+        );
+
+        // Register via /api/v1/auth/register
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(register)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").isString());
+
+        // Login via /api/v1/auth/login
+        LoginRequest login = new LoginRequest("v1user", "secret12345");
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(login)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        User user = userRepository.findByUsername("v1user").orElseThrow();
+
+        // Get me via /api/v1/users/me
+        mockMvc.perform(get("/api/v1/users/me")
+                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
+                        .header(HeaderConstants.X_USER_ROLE, user.getRole().name()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.username").value("v1user"));
+    }
 }
