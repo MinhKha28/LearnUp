@@ -2,6 +2,7 @@ import { SearchOutlined } from "@ant-design/icons";
 import { Input, Select, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import AccountTable from "@/components/organizer/account.table";
 import {
   OrganizerButton,
@@ -9,8 +10,15 @@ import {
   PageHeader,
   SectionCard,
 } from "@/components/organizer/organizer.ui";
-import { getInstructorsAPI } from "@/services/organization.service";
-import type { IInstructorListItem } from "@/types/organization.types";
+import {
+  getInstructorSeatsAPI,
+  getInstructorsAPI,
+} from "@/services/organization.service";
+import type {
+  IInstructorListItem,
+  ISeatUsage,
+} from "@/types/organization.types";
+import { seatBlockReason } from "@/utils/helper";
 import "./instructors.scss";
 
 const COMING_SOON = "Coming soon";
@@ -59,6 +67,33 @@ const Instructors = () => {
     };
   }, [page, pageSize, reloadKey]);
 
+  // UC12.2 - số chỗ Instructor (quyết định bật nút Add Instructor)
+  const [seats, setSeats] = useState<ISeatUsage | null>(null);
+  const [seatsLoading, setSeatsLoading] = useState(true);
+
+  useEffect(() => {
+    let ignore = false;
+    const loadSeats = async () => {
+      setSeatsLoading(true);
+      try {
+        const res = await getInstructorSeatsAPI();
+        if (!ignore) setSeats(res.data ?? null);
+      } catch {
+        if (!ignore) setSeats(null);
+      } finally {
+        if (!ignore) setSeatsLoading(false);
+      }
+    };
+    loadSeats();
+    return () => {
+      ignore = true;
+    };
+  }, [reloadKey]);
+
+  const addBlockedReason = seatsLoading
+    ? "Checking available seats…"
+    : seatBlockReason(seats, "Instructor");
+
   return (
     <OrganizerPage className="organizer-instructors">
       <PageHeader
@@ -73,17 +108,32 @@ const Instructors = () => {
               </span>
             </Tooltip>
             {/* UC12.2 */}
-            <Tooltip title={COMING_SOON}>
-              <span>
-                <OrganizerButton type="primary" disabled>
-                  Add Instructor
-                </OrganizerButton>
-              </span>
-            </Tooltip>
+            {addBlockedReason ? (
+              <Tooltip title={addBlockedReason}>
+                <span>
+                  <OrganizerButton type="primary" disabled>
+                    Add Instructor
+                  </OrganizerButton>
+                </span>
+              </Tooltip>
+            ) : (
+              <Link to="/organizer/instructors/add">
+                <OrganizerButton type="primary">Add Instructor</OrganizerButton>
+              </Link>
+            )}
           </>
         }
       />
-      <SectionCard title="Instructor accounts">
+      <SectionCard
+        title="Instructor accounts"
+        extra={
+          seats && (
+            <span className="organizer-note">
+              {seats.used} / {seats.max} seats used
+            </span>
+          )
+        }
+      >
         {/* UC12.4 */}
         <div className="organizer-filters organizer-instructors-filters">
           <Tooltip title={COMING_SOON}>

@@ -1,8 +1,9 @@
 import type { CurrentUser } from '@learnup/ts-common';
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { ResponseMessage, Roles, User } from '../common/decorator/customize';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { CreateAccountDto } from './dto/create-account.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
 import { UsersService } from './users.service';
 
@@ -22,5 +23,22 @@ export class UsersController {
     @Query() query: ListAccountsQueryDto,
   ) {
     return this.service.findInstructors(user, query);
+  }
+
+  // UC12.2 - số chỗ Instructor. Giữ TRƯỚC mọi route dạng instructors/:id (UC12.1…),
+  // nếu không "seats" sẽ bị hiểu là :id.
+  @Roles('ORGANIZER')
+  @Get('instructors/seats')
+  @ResponseMessage('Lấy số chỗ Instructor thành công')
+  getInstructorSeats(@User() user: CurrentUser) {
+    return this.service.getInstructorSeats(user);
+  }
+
+  // UC12.2
+  @Roles('ORGANIZER')
+  @Post('instructors')
+  @ResponseMessage('Tạo tài khoản Instructor thành công')
+  createInstructor(@User() user: CurrentUser, @Body() dto: CreateAccountDto) {
+    return this.service.createInstructor(user, dto);
   }
 }
