@@ -31,6 +31,8 @@ import { IRegistrationSummary } from './interfaces/registration-summary.interfac
 import { AccountTokensService } from '../account-tokens/account-tokens.service';
 import { MockPaymentGateway } from '../payments/mock-payment.gateway';
 import { PayRegistrationDto } from './dto/pay-registration.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { IVerifyEmailResult } from './interfaces/verify-email-result.interface';
 import { IPaymentResult } from './interfaces/payment-result.interface';
 
 @Injectable()
@@ -356,6 +358,34 @@ export class RegistrationsService {
         expiresAt: subscription.expiresAt,
       },
       organizerEmail: registration.organizer.email,
+    };
+  }
+
+  // ===========================================================================
+  // UC03 - Xác thực email Organizer
+  // ===========================================================================
+  async verifyEmail(dto: VerifyEmailDto): Promise<IVerifyEmailResult> {
+    const token = await this.accountTokens.findUsable(
+      dto.token,
+      TokenPurpose.EmailVerification,
+    );
+
+    // GĐ3. Đánh dấu liên kết đã dùng và kích hoạt Organizer trong cùng transaction.
+    await this.prisma.$transaction(async (tx) => {
+      await this.accountTokens.consume(tx, token.id);
+      await tx.user.update({
+        where: { id: token.userId },
+        data: {
+          status: UserStatus.Active,
+          activatedAt: token.user.activatedAt ?? new Date(),
+        },
+      });
+    });
+
+    // GĐ4. Thông tin cho màn hình "Email verified".
+    return {
+      email: token.user.email,
+      organizationName: token.organization.name,
     };
   }
 
