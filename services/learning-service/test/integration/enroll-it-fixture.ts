@@ -31,6 +31,13 @@ export const ENROLL_IT_LEARNER_1 = learner(
 export const ENROLL_IT_LEARNER_2 = learner(
   '0199a000-0000-7000-8000-0b00000000f2',
 );
+/** Organizer của ORG_TEST: danh tính gọi I1 (selfEnroll: false) và I2 khi tạo Required như phân công. */
+export const ENROLL_IT_ORGANIZER: CurrentUser = {
+  userId: '0199a000-0000-7000-8000-0f00000000f1',
+  organizationId: ENROLL_IT_ORG,
+  role: 'ORGANIZER',
+  isAuthenticated: true,
+};
 
 /** Bỏ ?schema=… của Prisma; pg không hiểu tham số này. */
 export function databaseUrl(name: string): string {
@@ -80,7 +87,7 @@ export async function unlockFixtureCourses(courseDb: Client): Promise<void> {
 
 /**
  * Xóa mọi dòng learning_db của Course test trong ORG_TEST (theo thứ tự khóa ngoại)
- * rồi gỡ Locked trong course_db.
+ * và các lần tạm khóa của ORG_TEST, rồi gỡ Locked trong course_db.
  */
 export async function resetEnrollFixture(
   learningDb: Client,
@@ -107,5 +114,9 @@ export async function resetEnrollFixture(
       params,
     );
   }
+  await learningDb.query(
+    'DELETE FROM organization_suspensions WHERE organization_id = $1',
+    [ENROLL_IT_ORG],
+  );
   await unlockFixtureCourses(courseDb);
 }

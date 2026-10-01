@@ -154,6 +154,7 @@ function setup(
     platformSettings as never,
     courseService as never,
     tenant,
+    {} as never,
   );
   const logger = (service as unknown as { logger: Logger }).logger;
   const loggerError = mock.method(logger, 'error', () => undefined);
@@ -400,6 +401,10 @@ void describe('EnrollmentsController', () => {
     [
       'GET /enrollments/me/course-ids',
       Reflect.get(controller, 'getMyCourseIds') as () => unknown,
+    ],
+    [
+      'GET /enrollments/me',
+      Reflect.get(controller, 'findMine') as () => unknown,
     ],
   ];
   for (const [name, handler] of handlers) {

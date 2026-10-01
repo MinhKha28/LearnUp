@@ -15,6 +15,8 @@ const BASE_URL = `${process.env.COURSE_SERVICE_URL ?? `http://localhost:${proces
 const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
 const LEARNER_1 = '0199a000-0000-7000-8000-0b0000000001';
 const INSTRUCTOR_1 = '0199a000-0000-7000-8000-0c0000000001';
+/** Tổ chức không có Course nào (dùng chung với test:catalog:db, chỉ tồn tại trong transaction đã rollback). */
+const EMPTY_ORG = '0199a000-0000-7000-8000-0a00000000f1';
 
 const COURSE = {
   anToanV1Archived: '0199a000-0000-7000-8000-0e0000000001',
@@ -36,12 +38,13 @@ interface ApiBody<T> {
 async function get<T>(
   path: string,
   role: 'LEARNER' | 'INSTRUCTOR' = 'LEARNER',
+  organizationId = ORG_A,
 ): Promise<{ status: number; body: ApiBody<T> }> {
   const response = await fetch(`${BASE_URL}${path}`, {
     headers: {
       'x-internal-key': process.env.INTERNAL_SERVICE_KEY ?? '',
       'x-user-id': role === 'LEARNER' ? LEARNER_1 : INSTRUCTOR_1,
-      'x-organization-id': ORG_A,
+      'x-organization-id': organizationId,
       'x-user-role': role,
     },
   });
@@ -118,6 +121,53 @@ void describe('GET /courses/catalog (UC25)', () => {
     assert.deepEqual(body.data.items, []);
     assert.equal(body.data.meta.current, 99);
     assert.equal(body.data.meta.total, 2);
+  });
+
+  for (const [page, current] of [
+    ['1e20', 1e20],
+    ['99999999999999999999999', 1e23],
+  ] as const) {
+    void test(`page=${page} (offset vượt int64) trả 200, items rỗng, total đúng; không còn 500`, async () => {
+      const { status, body } = await getCatalog(`?page=${page}`);
+      assert.equal(status, 200);
+      assert.deepEqual(body.data, {
+        meta: { current, pageSize: 12, pages: 1, total: 2 },
+        items: [],
+      });
+    });
+  }
+
+  void test('trang cuối có dữ liệu trả đúng các Course như trước; trang cuối + 1 trả rỗng', async () => {
+    const { body: first } = await getCatalog();
+    const lastPage = first.data.meta.pages;
+    assert.equal(lastPage, 1);
+
+    const last = await getCatalog(`?page=${lastPage}`);
+    assert.equal(last.status, 200);
+    assert.deepEqual(
+      last.body.data.items.map((course) => course.id),
+      [COURSE.anToanV2, COURSE.baoMat],
+    );
+
+    const beyond = await getCatalog(`?page=${lastPage + 1}`);
+    assert.equal(beyond.status, 200);
+    assert.deepEqual(beyond.body.data, {
+      meta: { current: lastPage + 1, pageSize: 12, pages: 1, total: 2 },
+      items: [],
+    });
+  });
+
+  void test('tổ chức không có Course nào (E1): page=1 trả 200, items rỗng, pages 0, total 0', async () => {
+    const { status, body } = await get<CatalogPageDto>(
+      '/catalog?page=1',
+      'LEARNER',
+      EMPTY_ORG,
+    );
+    assert.equal(status, 200);
+    assert.deepEqual(body.data, {
+      meta: { current: 1, pageSize: 12, pages: 0, total: 0 },
+      items: [],
+    });
   });
 
   void test('size=50 bị bỏ qua, trang vẫn 12 Course', async () => {
