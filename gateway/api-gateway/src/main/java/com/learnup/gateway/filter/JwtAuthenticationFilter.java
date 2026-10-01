@@ -71,11 +71,14 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             log.debug("Public whitelisted route accessed: {}", path);
             ServerHttpRequest sanitizedRequest = request.mutate()
                     .headers(headers -> {
-                        // Strip any spoofed user identity headers even on public routes
+                        // Strip any spoofed user identity and internal headers from client
+                        headers.remove(HeaderConstants.X_INTERNAL_KEY);
                         headers.remove(HeaderConstants.X_USER_ID);
                         headers.remove(HeaderConstants.X_ORGANIZATION_ID);
                         headers.remove(HeaderConstants.X_USER_ROLE);
                         headers.set(HeaderConstants.X_CORRELATION_ID, correlationId);
+                        // Inject internal key to allow downstream services to verify gateway origin
+                        headers.set(HeaderConstants.X_INTERNAL_KEY, jwtProperties.getInternalKey());
                     })
                     .build();
             return chain.filter(exchange.mutate().request(sanitizedRequest).build());
@@ -131,12 +134,14 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         ServerHttpRequest mutatedRequest = request.mutate()
                 .headers(headers -> {
                     // Strip all spoofable headers from client
+                    headers.remove(HeaderConstants.X_INTERNAL_KEY);
                     headers.remove(HeaderConstants.X_USER_ID);
                     headers.remove(HeaderConstants.X_ORGANIZATION_ID);
                     headers.remove(HeaderConstants.X_USER_ROLE);
                     headers.remove(HeaderConstants.X_CORRELATION_ID);
 
-                    // Inject verified identity headers
+                    // Inject verified identity headers and internal key
+                    headers.set(HeaderConstants.X_INTERNAL_KEY, jwtProperties.getInternalKey());
                     headers.set(HeaderConstants.X_USER_ID, userId.trim());
                     headers.set(HeaderConstants.X_USER_ROLE, role.name());
                     headers.set(HeaderConstants.X_CORRELATION_ID, correlationId);
