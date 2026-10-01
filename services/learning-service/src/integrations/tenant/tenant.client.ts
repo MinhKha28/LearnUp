@@ -13,3 +13,11 @@ export interface TenantClient {
 
 /** Token inject TenantClient; bản cài đặt chọn theo TENANT_CLIENT_MODE. */
 export const TENANT_CLIENT = Symbol('TENANT_CLIENT');
+
+/** tenant-service không trả lời được (lỗi mạng, quá thời gian, 5xx); lớp trên trả 503. */
+export class TenantUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = new.target.name;
+  }
+}
