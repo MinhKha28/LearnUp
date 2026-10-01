@@ -1,7 +1,9 @@
 import {
   BadRequestException,
   ConflictException,
+  GoneException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v7 as uuidv7 } from 'uuid';
@@ -14,12 +16,22 @@ import {
   DAY_MS,
   HOUR_MS,
   OrganizationStatus,
+  PaymentKind,
+  PaymentStatus,
   RegistrationStatus,
+  SubscriptionStatus,
+  TokenPurpose,
   UserRoleValue,
   UserStatus,
 } from '../common/constants/tenant.constants';
-import { generateSecretToken } from '../common/utils/token.util';
+
+import { generateSecretToken, hashToken } from '../common/utils/token.util';
 import { CreateRegistrationDto } from './dto/create-registrations.dto';
+import { IRegistrationSummary } from './interfaces/registration-summary.interface';
+import { AccountTokensService } from '../account-tokens/account-tokens.service';
+import { MockPaymentGateway } from '../payments/mock-payment.gateway';
+import { PayRegistrationDto } from './dto/pay-registration.dto';
+import { IPaymentResult } from './interfaces/payment-result.interface';
 
 @Injectable()
 export class RegistrationsService {
@@ -29,6 +41,8 @@ export class RegistrationsService {
     private readonly settingsService: PlatformSettingsService,
     private readonly outbox: OutboxService,
     private readonly identity: IdentityClient,
+    private readonly accountTokens: AccountTokensService,
+    private readonly paymentGateway: MockPaymentGateway,
   ) {}
 
   // ===========================================================================
@@ -180,8 +194,213 @@ export class RegistrationsService {
   }
 
   // ===========================================================================
+  // UC02.1 - Xem tóm tắt đăng ký theo liên kết (màn thanh toán)
+  // ===========================================================================
+  async getByToken(rawToken: string): Promise<IRegistrationSummary> {
+    const registration = await this.findByTokenOrThrow(rawToken);
+    await this.assertNotExpired(registration);
+
+    return {
+      registrationId: registration.id,
+      status: registration.status,
+      expiresAt: registration.expiresAt,
+      organizationName: registration.organization.name,
+      organizerEmail: registration.organizer.email,
+      plan: {
+        name: registration.plan.name,
+        price: Number(registration.price),
+        durationDays: registration.durationDays,
+        maxLearners: registration.maxLearners,
+        maxInstructors: registration.maxInstructors,
+        maxCourseChains: registration.maxCourseChains,
+        maxStorageBytes: Number(registration.maxStorageBytes),
+      },
+    };
+  }
+
+  // ===========================================================================
+  // UC02.1 - Thực hiện thanh toán
+  // ===========================================================================
+  async pay(dto: PayRegistrationDto): Promise<IPaymentResult> {
+    // ---- GĐ2. Tìm đăng ký, kiểm hạn (BR-7), chặn trả lần 2.
+    const registration = await this.findByTokenOrThrow(dto.token);
+    await this.assertNotExpired(registration);
+    if (registration.status !== RegistrationStatus.PendingPayment) {
+      throw new ConflictException({
+        code: 'REGISTRATION_ALREADY_PAID',
+        message:
+          'Đăng ký đã được thanh toán. Vui lòng kiểm tra email để xác thực tài khoản.',
+      });
+    }
+
+    // ---- GĐ3. Ghi giao dịch Pending (có dấu vết kể cả khi service sập giữa chừng).
+    const payment = await this.prisma.payment.create({
+      data: {
+        organizationId: registration.organizationId,
+        planId: registration.planId,
+        kind: PaymentKind.Registration,
+        registrationId: registration.id,
+        amount: registration.price, // BR-275: số tiền đã chốt lúc đăng ký
+        status: PaymentStatus.Pending,
+      },
+    });
+
+    // ---- GĐ4. Gọi Mock Payment Service (NGOÀI transaction, vì là lời gọi mạng).
+    const result = await this.paymentGateway.charge({
+      paymentId: payment.id,
+      amount: payment.amount,
+      simulateFailure: dto.simulateFailure,
+    });
+
+    // ---- GĐ5a. Thất bại: ghi lý do, đăng ký vẫn PendingPayment để Guest thử lại.
+    if (!result.success) {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: PaymentStatus.Failed,
+          failureReason: result.failureReason,
+        },
+      });
+      return {
+        paymentId: payment.id,
+        paymentStatus: PaymentStatus.Failed,
+        failureReason: result.failureReason,
+      };
+    }
+
+    // ---- GĐ5b. Thành công: mọi thay đổi trong MỘT transaction.
+    const settings = await this.settingsService.get();
+    const paidAt = new Date();
+
+    const subscription = await this.prisma.$transaction(async (tx) => {
+      // ① Điều kiện status trong WHERE chống 2 lần thanh toán cùng lúc.
+      const updated = await tx.registration.updateMany({
+        where: {
+          id: registration.id,
+          status: RegistrationStatus.PendingPayment,
+        },
+        data: { status: RegistrationStatus.Paid, paidAt },
+      });
+      if (updated.count === 0) {
+        throw new ConflictException({
+          code: 'REGISTRATION_ALREADY_PAID',
+          message: 'Đăng ký đã được thanh toán.',
+        });
+      }
+
+      // ② BR-9: kỳ Subscription bắt đầu lúc thanh toán thành công; nhận giá trị đã chốt (BR-275).
+      const created = await tx.subscription.create({
+        data: {
+          organizationId: registration.organizationId,
+          planId: registration.planId,
+          source: PaymentKind.Registration,
+          status: SubscriptionStatus.Active,
+          price: registration.price,
+          durationDays: registration.durationDays,
+          maxLearners: registration.maxLearners,
+          maxInstructors: registration.maxInstructors,
+          maxCourseChains: registration.maxCourseChains,
+          maxStorageBytes: registration.maxStorageBytes,
+          startsAt: paidAt,
+          expiresAt: new Date(
+            paidAt.getTime() + registration.durationDays * DAY_MS,
+          ),
+        },
+      });
+
+      // ③ Giao dịch thành công, gắn với kỳ Subscription vừa tạo.
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: PaymentStatus.Succeeded,
+          paidAt,
+          subscriptionId: created.id,
+          providerReference: result.providerReference,
+        },
+      });
+
+      // ④ Tổ chức được kích hoạt.
+      await tx.organization.update({
+        where: { id: registration.organizationId },
+        data: { status: OrganizationStatus.Active },
+      });
+
+      // ⑤ BR-6, BR-20: phát liên kết xác thực email Organizer...
+      const verifyToken = await this.accountTokens.issue(tx, {
+        organizationId: registration.organizationId,
+        userId: registration.organizerUserId,
+        purpose: TokenPurpose.EmailVerification,
+        ttlDays: settings.invitationLinkTtlDays,
+      });
+
+      // ⑥ ...và xếp thư thứ hai vào outbox.
+      await this.outbox.enqueueEmail(tx, {
+        aggregateType: 'User',
+        aggregateId: registration.organizerUserId,
+        organizationId: registration.organizationId,
+        email: {
+          to: registration.organizer.email,
+          subject: 'LearnUP - Xác thực email Organizer',
+          templateCode: 'ORGANIZER_EMAIL_VERIFICATION',
+          body:
+            `Xin chào ${registration.organizer.fullName},\n` +
+            `Thanh toán thành công. Mở liên kết sau để kích hoạt tài khoản Organizer: ` +
+            `${this.frontendUrl()}/verify-email?token=${verifyToken}\n` +
+            `Liên kết có hiệu lực ${settings.invitationLinkTtlDays} ngày.`,
+        },
+      });
+
+      return created;
+    });
+
+    return {
+      paymentId: payment.id,
+      paymentStatus: PaymentStatus.Succeeded,
+      subscription: {
+        id: subscription.id,
+        startsAt: subscription.startsAt,
+        expiresAt: subscription.expiresAt,
+      },
+      organizerEmail: registration.organizer.email,
+    };
+  }
+
+  // ===========================================================================
   // Hàm hỗ trợ
   // ===========================================================================
+
+  /** Tìm đăng ký theo liên kết: băm chuỗi gốc rồi tra cột reopen_token_hash. */
+  private async findByTokenOrThrow(rawToken: string) {
+    const registration = await this.prisma.registration.findUnique({
+      where: { reopenTokenHash: hashToken(rawToken) },
+      include: { organization: true, organizer: true, plan: true },
+    });
+    if (!registration) {
+      throw new NotFoundException({
+        code: 'INVALID_LINK',
+        message:
+          'Liên kết đăng ký không hợp lệ hoặc đã được thay bằng liên kết mới hơn.',
+      });
+    }
+    return registration;
+  }
+
+  /** BR-7: đăng ký chờ thanh toán đã quá hạn thì hủy và báo cho Guest. */
+  private async assertNotExpired(registration: Registration): Promise<void> {
+    const expired =
+      registration.status === RegistrationStatus.Expired ||
+      (registration.status === RegistrationStatus.PendingPayment &&
+        registration.expiresAt.getTime() <= Date.now());
+    if (!expired) return;
+
+    if (registration.status === RegistrationStatus.PendingPayment) {
+      await this.expireRegistration(registration);
+    }
+    throw new GoneException({
+      code: 'REGISTRATION_EXPIRED',
+      message: 'Đăng ký đã quá thời hạn chờ thanh toán. Vui lòng đăng ký lại.',
+    });
+  }
 
   /** BR-7: Registration -> Expired, Organization -> Cancelled, Organizer bị xóa mềm (BR-31). */
   private async expireRegistration(registration: Registration): Promise<void> {
