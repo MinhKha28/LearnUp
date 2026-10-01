@@ -3,6 +3,9 @@ import type {
   ICreateRegistrationReq,
   ICreateRegistrationRes,
   IInstructorListItem,
+  IPaymentResult,
+  IPayRegistrationReq,
+  IRegistrationSummary,
   ISubscriptionPlan,
 } from "@/types/organization.types";
 import axios from "@/services/axios.customize";
@@ -15,6 +18,19 @@ export const getSubscriptionPlansAPI = () =>
 export const createRegistrationAPI = (body: ICreateRegistrationReq) =>
   axios.post<IBackendRes<ICreateRegistrationRes>>(
     "/api/v1/registrations",
+    body,
+  );
+
+// UC02.1 - Tóm tắt đăng ký theo liên kết thanh toán
+export const getRegistrationByTokenAPI = (token: string) =>
+  axios.get<IBackendRes<IRegistrationSummary>>(
+    `/api/v1/registrations/${encodeURIComponent(token)}`,
+  );
+
+// UC02.1 - Thực hiện thanh toán qua Mock Payment Service
+export const payRegistrationAPI = (body: IPayRegistrationReq) =>
+  axios.post<IBackendRes<IPaymentResult>>(
+    "/api/v1/registrations/payments",
     body,
   );
 

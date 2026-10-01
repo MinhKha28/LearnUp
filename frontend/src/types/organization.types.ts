@@ -48,6 +48,31 @@ export interface IApiError {
   message: string | string[];
 }
 
+// UC02.1 - tóm tắt đăng ký do GET /api/v1/registrations/:token trả về
+export interface IRegistrationSummary {
+  registrationId: string;
+  status: "PendingPayment" | "Paid";
+  expiresAt: string;
+  organizationName: string;
+  organizerEmail: string;
+  plan: Omit<ISubscriptionPlan, "id">; // giá và giới hạn đã chốt lúc đăng ký (BR-275)
+}
+
+// UC02.1 - body gửi lên POST /api/v1/registrations/payments
+export interface IPayRegistrationReq {
+  token: string;
+  simulateFailure?: boolean;
+}
+
+// UC02.1 - kết quả thanh toán
+export interface IPaymentResult {
+  paymentId: string;
+  paymentStatus: "Succeeded" | "Failed";
+  failureReason?: string | null;
+  subscription?: { id: string; startsAt: string; expiresAt: string };
+  organizerEmail?: string;
+}
+
 // Trạng thái tài khoản (users.status)
 export type AccountStatus = "Pending" | "Active" | "Deactivated";
 

@@ -1,16 +1,28 @@
 import { useEffect, useState } from "react";
-import { Alert, Button, Form, Input, Spin } from "antd";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Alert, Button, Checkbox, Form, Input, Spin } from "antd";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import PlanCard from "@/components/guest/registration/plan.card";
 import RegistrationSteps from "@/components/guest/registration/registration";
 import "@/pages/guest/register.scss";
 import {
   createRegistrationAPI,
+  getRegistrationByTokenAPI,
   getSubscriptionPlansAPI,
+  payRegistrationAPI,
 } from "@/services/organization.service";
-import type { IApiError, ISubscriptionPlan } from "@/types/organization.types";
+import type {
+  IApiError,
+  IRegistrationSummary,
+  ISubscriptionPlan,
+} from "@/types/organization.types";
 
-import { toPlanDetails } from "@/utils/helper";
+import { formatVnd, toPlanDetails } from "@/utils/helper";
 
 type OrganizationFields = {
   name: string;
@@ -136,13 +148,9 @@ const resultContent = {
 
 type ResultScreen = keyof typeof resultContent;
 
-// BR-4: Các bước cần đã chọn gói (chọn gói trước rồi mới khai thông tin)
-const screensNeedingPlan = [
-  "organization",
-  "organizer",
-  "account-review",
-  "payment",
-];
+// BR-4: Các bước khai thông tin cần đã chọn gói (chọn gói trước rồi mới khai thông tin).
+// Màn thanh toán không cần: gói và giá lấy từ đăng ký đã tạo (UC02.1).
+const screensNeedingPlan = ["organization", "organizer", "account-review"];
 
 const isResult = (screen: string): screen is ResultScreen =>
   Object.hasOwn(resultContent, screen);
@@ -173,6 +181,13 @@ export default function RegisterPage() {
   const [resentNotice, setResentNotice] = useState(false);
   // UC02 → UC02.1: token thanh toán backend trả về, dùng ở màn payment (Bước 9)
   const [paymentToken, setPaymentToken] = useState<string | null>(null);
+  // UC02.1: tóm tắt đăng ký (lấy từ backend theo token) và trạng thái thanh toán
+  const [searchParams] = useSearchParams();
+  const [summary, setSummary] = useState<IRegistrationSummary | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
+  const [simulateFailure, setSimulateFailure] = useState(false); // chỉ hiện khi chạy dev
 
   const account = screen === "organizer" || screen === "account-review";
   const standalone = [
@@ -198,8 +213,16 @@ export default function RegisterPage() {
             ? 2
             : 1;
   const heading = titles[account && accountError ? "account-review" : screen];
-  const organizationName = draft.organization.name || "[Organization name]";
-  const email = draft.organizer.email || "[Organizer email]";
+  const organizationName =
+    summary?.organizationName ||
+    draft.organization.name ||
+    "[Organization name]";
+  const email =
+    summary?.organizerEmail || draft.organizer.email || "[Organizer email]";
+  // Gói hiển thị bên phải: ở màn thanh toán dùng gói đã chốt trong đăng ký, trước đó dùng gói vừa chọn
+  const displayPlan: ISubscriptionPlan | null = summary
+    ? { id: summary.registrationId, ...summary.plan }
+    : selectedPlan;
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -253,9 +276,56 @@ export default function RegisterPage() {
     }
   }, [screen, selectedPlan, paymentToken, navigate]);
 
+  // UC02.1 (đường B): mở từ email 1 → lấy token trên URL ?token=...
+  useEffect(() => {
+    if (screen !== "pending-payment") return;
+    const urlToken = searchParams.get("token");
+    if (urlToken) setPaymentToken(urlToken);
+    else
+      setSummaryError(
+        "This payment link is incomplete. Please open the link from your email again.",
+      );
+  }, [screen, searchParams]);
+
+  // UC02.1: vào màn thanh toán → hỏi backend tóm tắt đăng ký theo token
+  useEffect(() => {
+    if ((screen !== "payment" && screen !== "pending-payment") || !paymentToken)
+      return;
+    const loadSummary = async () => {
+      setLoadingSummary(true);
+      setSummaryError(null);
+      try {
+        const res = await getRegistrationByTokenAPI(paymentToken);
+        if (res.data) {
+          if (res.data.status === "Paid") {
+            navigate("/register/payment-completed", { replace: true });
+          }
+          setSummary(res.data);
+          return;
+        }
+        const error = (res as unknown as { error?: IApiError }).error;
+        if (error?.code === "REGISTRATION_EXPIRED") {
+          navigate("/register/registration-expired", { replace: true });
+        } else {
+          setSummaryError(
+            "This payment link is invalid or has been replaced by a newer one. Please use the latest email.",
+          );
+        }
+      } catch {
+        setSummaryError(
+          "Could not connect to the server. Please try again later.",
+        );
+      } finally {
+        setLoadingSummary(false);
+      }
+    };
+    loadSummary();
+  }, [screen, paymentToken, navigate]);
+
   // UC01: bấm "Continue with plan" thì ghi nhớ gói đã chọn và sang bước 2
   function selectPlan(plan: ISubscriptionPlan) {
     setSelectedPlan(plan);
+    setSummary(null);
     navigate("/register/organization");
   }
 
@@ -332,10 +402,36 @@ export default function RegisterPage() {
     }
   }
 
-  function pay() {
+  // UC02.1: bấm "Pay with mock service" → gọi backend thanh toán
+  async function pay() {
+    if (!paymentToken) return;
     setPaying(true);
-    navigate("/register/payment-completed");
-    setPaying(false);
+    setPayError(null);
+    try {
+      const res = await payRegistrationAPI({
+        token: paymentToken,
+        simulateFailure,
+      });
+      const result = res.data;
+      if (result?.paymentStatus === "Succeeded") {
+        navigate("/register/payment-completed");
+      } else if (result?.paymentStatus === "Failed") {
+        navigate("/register/payment-failed"); // đăng ký vẫn chờ, token vẫn giữ để thử lại
+      } else {
+        const error = (res as unknown as { error?: IApiError }).error;
+        if (error?.code === "REGISTRATION_ALREADY_PAID") {
+          navigate("/register/payment-completed");
+        } else if (error?.code === "REGISTRATION_EXPIRED") {
+          navigate("/register/registration-expired");
+        } else {
+          setPayError("The payment could not be processed. Please try again.");
+        }
+      }
+    } catch {
+      setPayError("Could not connect to the server. Please try again later.");
+    } finally {
+      setPaying(false);
+    }
   }
 
   function renderResult(resultScreen: ResultScreen) {
@@ -389,28 +485,40 @@ export default function RegisterPage() {
 
   function renderPayment() {
     const pending = screen === "pending-payment";
+    const canPay = summary?.status === "PendingPayment" && !paying;
     return (
       <section className="register-card register-payment">
         {pending && <span className="register-pending">PENDING PAYMENT</span>}
-        <h2>{pending ? "Registration summary" : "Registration summary"}</h2>
-        <dl className="register-summary">
-          <div>
-            <dt>Organization</dt>
-            <dd>{organizationName}</dd>
-          </div>
-          <div>
-            <dt>Organizer</dt>
-            <dd>{email}</dd>
-          </div>
-          <div>
-            <dt>Plan</dt>
-            <dd>[Configured plan name]</dd>
-          </div>
-          <div>
-            <dt>Amount due</dt>
-            <dd>[Configured price]</dd>
-          </div>
-        </dl>
+        <h2>Registration summary</h2>
+        {loadingSummary && <Spin />}
+        {summaryError && (
+          <Alert
+            type="error"
+            showIcon
+            message={summaryError}
+            action={<Link to="/register">Start again</Link>}
+          />
+        )}
+        {summary && (
+          <dl className="register-summary">
+            <div>
+              <dt>Organization</dt>
+              <dd>{summary.organizationName}</dd>
+            </div>
+            <div>
+              <dt>Organizer</dt>
+              <dd>{summary.organizerEmail}</dd>
+            </div>
+            <div>
+              <dt>Plan</dt>
+              <dd>{summary.plan.name}</dd>
+            </div>
+            <div>
+              <dt>Amount due</dt>
+              <dd>{formatVnd(summary.plan.price)}</dd>
+            </div>
+          </dl>
+        )}
         <div className="register-notice">
           <b>{pending ? "Resume securely" : "This is a mock payment"}</b>
           <p>
@@ -419,12 +527,27 @@ export default function RegisterPage() {
               : "No real gateway or transaction will be used."}
           </p>
         </div>
+        {payError && <Alert type="error" showIcon message={payError} />}
+        {/* Chỉ khi chạy dev: công tắc demo nhánh thanh toán thất bại (UC02.1) */}
+        {import.meta.env.DEV && !pending && (
+          <Checkbox
+            className="register-dev-option"
+            checked={simulateFailure}
+            onChange={(event) => setSimulateFailure(event.target.checked)}
+          >
+            Simulate a failed payment (development only)
+          </Checkbox>
+        )}
         <div className="register-actions">
-          <Button onClick={() => navigate("/register/organizer")}>Back</Button>
+          {!pending && (
+            <Button onClick={() => navigate("/register/organizer")}>
+              Back
+            </Button>
+          )}
           <Button
             type="primary"
             loading={paying}
-            disabled={paying}
+            disabled={!canPay}
             onClick={pending ? () => navigate("/register/payment") : pay}
           >
             {pending ? "Continue to payment" : "Pay with mock service"}
@@ -666,7 +789,7 @@ export default function RegisterPage() {
                 <PlanCard
                   key={plan.id}
                   featured={index === 1}
-                  details={toPlanDetails(plan)}
+                  details={displayPlan ? toPlanDetails(displayPlan) : undefined}
                   onSelect={() => selectPlan(plan)}
                 />
               ))}
