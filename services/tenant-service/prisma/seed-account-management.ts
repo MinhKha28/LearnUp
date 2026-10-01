@@ -23,7 +23,8 @@
  *       15 Active, 5 Pending (2 lời mời còn hạn, 2 lời mời hết hạn, 1 không có token),
  *       3 Deactivated (2 từng kích hoạt, 1 chưa), 2 đã xóa (không được hiện trong danh sách)
  *       -> danh sách UC12 có 23 dòng = 3 trang với pageSize 10 (10, 10, 3).
- *     + 4 Learner (An, Bình, Cường, Dũng) để kiểm danh sách không lẫn role khác.
+ *     + 4 Learner (An, Bình, Cường, Dũng) để kiểm danh sách không lẫn role khác
+ *       (UC13 bổ sung lên 25 Learner, xem phần "Bổ sung UC13" bên dưới).
  *   - Công ty TNHH XYZ (Active) + subscription Active + Organizer Hoa + 3 Instructor
  *     (để kiểm không xem chéo tổ chức).
  *
@@ -51,6 +52,25 @@
  *     Organizer Gamma (Thảo)      ...00000000c010
  *     Organizer Delta (Quân)      ...00000000d010
  *     Instructor Delta            ...00000000d101 – d103
+ *
+ * Bổ sung UC13 (Xem danh sách Learner):
+ *   - ABC có 25 Learner (a201 – a225, giữ nguyên a201 – a204), phân bố giống Instructor:
+ *       15 Active, 5 Pending (2 lời mời còn hạn, 2 lời mời hết hạn, 1 không có token = Dũng a204),
+ *       3 Deactivated (2 từng kích hoạt, 1 chưa), 2 đã xóa
+ *       -> danh sách UC13 có 23 dòng = 3 trang với pageSize 10 (10, 10, 3).
+ *     ABC gói Premium (500 Learner) -> dùng 23/500 chỗ Learner (BR-23).
+ *   - XYZ có 3 Learner (b201 – b203) để kiểm không xem chéo tổ chức.
+ *   - Token lời mời của Learner "x2NN" có ID "x5NN" (Instructor "x1NN" vẫn là "x4NN"),
+ *     vì nếu cùng dùng "x4NN" thì a201 và a101 trùng token a401.
+ *   - Số khóa đang học / quá hạn KHÔNG nằm ở tenant_db: xem FAKE_SUMMARIES trong
+ *     src/integrations/fake-learning-service.client.ts (ID chép tay, phải khớp file này).
+ *   ID mới:
+ *     Learner ABC                 ...00000000a205 – a225
+ *     Learner XYZ                 ...00000000b201 – b203
+ *     Pending lời mời hết hạn     a205, a207;  còn hạn: a223, a225, b203
+ *     Deactivated                 a209, a217 (từng kích hoạt), a213 (chưa kích hoạt)
+ *     Đã xóa                      a211, a220
+ *     Token Learner               a505, a507, a523, a525, b503
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -328,11 +348,41 @@ const xyzInstructors: Array<[number, string, string, string | null, Kind]> = [
   [3, 'Quách Minh Trí', 'tri.quach@xyz.vn', 'Phòng Kỹ thuật', 'PV'],
 ];
 
-const abcLearners: Array<[number, string, string, Kind]> = [
-  [1, 'Nguyễn Văn An', 'an.nguyen@abc.vn', 'A'],
-  [2, 'Trần Thị Bình', 'binh.tran@abc.vn', 'A'],
-  [3, 'Lê Văn Cường', 'cuong.le@abc.vn', 'A'],
-  [4, 'Phạm Văn Dũng', 'dung.pham@abc.vn', 'PN'],
+// UC13: 25 Learner của ABC (a201 – a204 giữ nguyên). created_at: 03/09 + (n-1) ngày, nên a225 mới nhất.
+// Lời mời hết hạn (PE) đặt ở đầu danh sách: token phát ngày cố định (created_at + 1 giờ) nên đã hết hạn.
+const abcLearners: Array<[number, string, string, string | null, Kind]> = [
+  [1, 'Nguyễn Văn An', 'an.nguyen@abc.vn', 'Phòng Kỹ thuật', 'A'],
+  [2, 'Trần Thị Bình', 'binh.tran@abc.vn', 'Phòng Kỹ thuật', 'A'],
+  [3, 'Lê Văn Cường', 'cuong.le@abc.vn', 'Phòng Kỹ thuật', 'A'],
+  [4, 'Phạm Văn Dũng', 'dung.pham@abc.vn', 'Phòng Kỹ thuật', 'PN'],
+  [5, 'Hoàng Thị Ánh', 'anh.hoang@abc.vn', 'Phòng Kinh doanh', 'PE'],
+  [6, 'Ngô Văn Bảo', 'bao.ngo@abc.vn', 'Phòng Sản xuất', 'A'],
+  [7, 'Lê Thị Cẩm Tú', 'tu.le@abc.vn', null, 'PE'],
+  [8, 'Vũ Văn Định', 'dinh.vu@abc.vn', 'Phòng Kỹ thuật', 'A'],
+  [9, 'Phan Thị Giang', 'giang.phan@abc.vn', 'Phòng Kế toán', 'DA'],
+  [10, 'Trịnh Minh Hiếu', 'hieu.trinh@abc.vn', 'Phòng Sản xuất', 'A'],
+  [11, 'Đoàn Thị Hoài', 'hoai.doan@abc.vn', 'Phòng Nhân sự', 'X'],
+  [12, 'Bùi Văn Khải', 'khai.bui@abc.vn', 'Phòng Kinh doanh', 'A'],
+  [13, 'Lâm Thị Kiều', 'kieu.lam@abc.vn', null, 'DN'],
+  [14, 'Nguyễn Hữu Lộc', 'loc.nguyen@abc.vn', 'Phòng Kỹ thuật', 'A'],
+  [15, 'Trần Thị Mỹ', 'my.tran@abc.vn', 'Phòng Chất lượng', 'A'],
+  [16, 'Huỳnh Văn Nghĩa', 'nghia.huynh@abc.vn', 'Phòng An toàn lao động', 'A'],
+  [17, 'Đặng Thị Oanh', 'oanh.dang@abc.vn', 'Phòng Kế toán', 'DA'],
+  [18, 'Cao Minh Phúc', 'phuc.cao@abc.vn', 'Phòng Sản xuất', 'A'],
+  [19, 'Tăng Thị Quyên', 'quyen.tang@abc.vn', 'Phòng Nhân sự', 'A'],
+  [20, 'Lưu Văn Sơn', 'son.luu@abc.vn', 'Phòng Kinh doanh', 'X'],
+  [21, 'Mạc Thị Tâm', 'tam.mac@abc.vn', 'Phòng Chất lượng', 'A'],
+  [22, 'Hồ Văn Thịnh', 'thinh.ho@abc.vn', 'Phòng Kỹ thuật', 'A'],
+  [23, 'Văn Thị Uyên', 'uyen.van@abc.vn', null, 'PV'],
+  [24, 'Đỗ Quốc Vương', 'vuong.do@abc.vn', 'Phòng Sản xuất', 'A'],
+  [25, 'Từ Thị Xuân', 'xuan.tu@abc.vn', 'Phòng Kinh doanh', 'PV'],
+];
+
+// UC13: Learner của XYZ, để kiểm Organizer ABC không thấy.
+const xyzLearners: Array<[number, string, string, string | null, Kind]> = [
+  [1, 'Phùng Văn Hậu', 'hau.phung@xyz.vn', 'Phòng Kỹ thuật', 'A'],
+  [2, 'Nghiêm Thị Thu', 'thu.nghiem@xyz.vn', 'Phòng Kinh doanh', 'A'],
+  [3, 'Thái Văn Tài', 'tai.thai@xyz.vn', null, 'PV'],
 ];
 
 const tokenKinds = new Map<string, Kind>();
@@ -399,7 +449,7 @@ for (const [n, fullName, email, department, kind] of xyzInstructors) {
     ),
   );
 }
-for (const [n, fullName, email, kind] of abcLearners) {
+for (const [n, fullName, email, department, kind] of abcLearners) {
   const createdAt = addDays(at('2026-09-03T04:00:00Z'), n - 1);
   users.push(
     buildUser(
@@ -408,7 +458,22 @@ for (const [n, fullName, email, kind] of abcLearners) {
       'Learner',
       fullName,
       email,
-      'Phòng Kỹ thuật',
+      department,
+      kind,
+      createdAt,
+    ),
+  );
+}
+for (const [n, fullName, email, department, kind] of xyzLearners) {
+  const createdAt = addDays(at('2026-09-04T04:00:00Z'), (n - 1) * 3);
+  users.push(
+    buildUser(
+      id(`b2${String(n).padStart(2, '0')}`),
+      ORG_XYZ,
+      'Learner',
+      fullName,
+      email,
+      department,
       kind,
       createdAt,
     ),
@@ -446,9 +511,11 @@ function buildTokens(now: Date, ttlDays: number): SeedToken[] {
     const kind = tokenKinds.get(user.id);
     if (!user.organizationId || (kind !== 'PV' && kind !== 'PE')) continue;
 
-    // Token "x4NN" của user "x1NN" / "x2NN" (thay chữ số thứ 2 của phần đuôi bằng 4).
+    // Thay chữ số thứ 2 của phần đuôi: Instructor "x1NN" -> token "x4NN", Learner "x2NN" -> "x5NN"
+    // (UC13: Learner không dùng 4 được vì a201 và a101 sẽ cùng ra a401).
     const suffix = user.id.slice(-4);
-    const tokenId = id(`${suffix[0]}4${suffix.slice(2)}`);
+    const tokenDigit = user.role === 'Learner' ? '5' : '4';
+    const tokenId = id(`${suffix[0]}${tokenDigit}${suffix.slice(2)}`);
     // Mã băm cố định của một chuỗi cố định (SHA-256 = 32 byte). Chuỗi gốc chỉ để seed, không gửi email.
     const tokenHash = hashToken(`learnup-seed-invitation-${user.id}`);
     // PV: phát 1 ngày trước lúc chạy seed -> còn hạn. PE: phát ngay sau khi tạo tài khoản -> đã hết hạn.
@@ -577,6 +644,20 @@ function validateSeed(
   }
 
   const allOrganizations = [...organizations, ...extraOrganizations];
+
+  // UC13 - BR-23: số Learner chưa xóa (mọi trạng thái, BR-36) không vượt max_learners của gói.
+  for (const org of allOrganizations) {
+    const used = users.filter(
+      (u) =>
+        u.organizationId === org.id && u.role === 'Learner' && !u.deletedAt,
+    ).length;
+    const max = plans.get(org.planName)!.maxLearners;
+    check(
+      used <= max,
+      `${org.name} có ${used} Learner, vượt giới hạn ${max} của gói ${org.planName}`,
+    );
+  }
+
   const orgIds = new Set(allOrganizations.map((org) => org.id));
   const activeEmails = new Set<string>();
   for (const user of users) {
@@ -629,9 +710,13 @@ function validateSeed(
   }
 
   const openTokens = new Set<string>();
+  const tokenIds = new Set<string>();
   for (const token of tokens) {
     const owner = users.find((u) => u.id === token.userId);
     check(uuid.test(token.id), `UUID token sai: ${token.id}`);
+    // UC13: ID token suy ra từ ID user, trùng là ghi đè lời mời của người khác.
+    check(!tokenIds.has(token.id), `ID token trùng: ${token.id}`);
+    tokenIds.add(token.id);
     check(
       token.tokenHash.length === 32,
       `token_hash phải 32 byte: ${token.id}`,
@@ -795,11 +880,17 @@ async function main(): Promise<void> {
     users.filter((u) => u.role === role && u.organizationId === organizationId)
       .length;
   console.log('Đã seed dữ liệu quản lý tài khoản:');
+  // UC13: số tài khoản chưa xóa (= số dòng danh sách, = số chỗ đã dùng).
+  const countNotDeleted = (role: Role, organizationId: string) =>
+    users.filter(
+      (u) =>
+        u.role === role && u.organizationId === organizationId && !u.deletedAt,
+    ).length;
   console.log(
-    `  - Công ty ABC: 1 Organizer, ${count('Instructor', ORG_ABC)} Instructor (2 đã xóa), ${count('Learner', ORG_ABC)} Learner`,
+    `  - Công ty ABC: 1 Organizer, ${count('Instructor', ORG_ABC)} Instructor (2 đã xóa), ${count('Learner', ORG_ABC)} Learner (${countNotDeleted('Learner', ORG_ABC)} chưa xóa / ${plans.get(PREMIUM_PLAN_NAME)!.maxLearners} chỗ)`,
   );
   console.log(
-    `  - Công ty TNHH XYZ: 1 Organizer, ${count('Instructor', ORG_XYZ)} Instructor`,
+    `  - Công ty TNHH XYZ: 1 Organizer, ${count('Instructor', ORG_XYZ)} Instructor, ${count('Learner', ORG_XYZ)} Learner`,
   );
   console.log(
     `  - 1 Admin, ${organizations.length} subscription Active (ABC gói ${PREMIUM_PLAN_NAME}, XYZ gói ${STANDARD_PLAN_NAME}), ${tokens.length} lời mời`,

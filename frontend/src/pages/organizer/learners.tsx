@@ -1,8 +1,8 @@
 import { SearchOutlined } from "@ant-design/icons";
-import { Input, Select, Table } from "antd";
+import { Input, Select, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import AccountTable from "@/components/organizer/account.table";
 import {
   OrganizerButton,
   OrganizerPage,
@@ -10,110 +10,136 @@ import {
   SectionCard,
   StatusTag,
 } from "@/components/organizer/organizer.ui";
+import { getLearnersAPI } from "@/services/organization.service";
+import type { ILearnerListItem } from "@/types/organization.types";
 import "./learners.scss";
 
-type Learner = {
-  key: string;
-  name: string;
-  email: string;
-  workUnit: string;
-  training: string;
-  status: "Active" | "Pending" | "Disabled";
-};
+const COMING_SOON = "Coming soon";
 
-const learners: Learner[] = [
-  { key: "minh-le", name: "Minh Le", email: "minh.le@example.com", workUnit: "Engineering", training: "3 active · 1 overdue", status: "Active" },
-  { key: "trang-nguyen", name: "Trang Nguyen", email: "trang.nguyen@example.com", workUnit: "HR", training: "2 active", status: "Active" },
-  { key: "bao-tran", name: "Bao Tran", email: "bao@example.com", workUnit: "Operations", training: "Invitation pending", status: "Pending" },
-  { key: "khanh-vo", name: "Khanh Vo", email: "khanh@example.com", workUnit: "Engineering", training: "Enrollment paused", status: "Disabled" },
+// UC13 - cột riêng của Learner: tình trạng tham gia đào tạo (null: chưa lấy được)
+const trainingColumns: ColumnsType<ILearnerListItem> = [
+  {
+    title: "Courses",
+    dataIndex: "activeCourseCount",
+    render: (count: number | null) => count ?? "—",
+  },
+  {
+    title: "Overdue",
+    dataIndex: "overdueCourseCount",
+    render: (count: number | null) =>
+      count === null ? (
+        "—"
+      ) : count > 0 ? (
+        <StatusTag tone="warning">{count}</StatusTag>
+      ) : (
+        count
+      ),
+  },
 ];
 
-const statusTone = (status: Learner["status"]) =>
-  status === "Active" ? "success" : status === "Pending" ? "warning" : "neutral";
-
 const Learners = () => {
-  const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  const rows = useMemo(
-    () => learners.filter((item) => item.name.toLowerCase().includes(query.toLowerCase())),
-    [query],
-  );
-  const columns: ColumnsType<Learner> = [
-    {
-      title: "Learner",
-      dataIndex: "name",
-      render: (_, item) => (
-        <div>
-          <strong>{item.name}</strong>
-          <div className="organizer-note">{item.email}</div>
-        </div>
-      ),
-    },
-    { title: "Work unit", dataIndex: "workUnit" },
-    { title: "Training", dataIndex: "training" },
-    {
-      title: "Status",
-      dataIndex: "status",
-      render: (status: Learner["status"]) => (
-        <StatusTag tone={statusTone(status)}>{status}</StatusTag>
-      ),
-    },
-    {
-      title: "Action",
-      key: "action",
-      align: "right",
-      render: (_, item) => (
-        <button
-          className="organizer-link"
-          onClick={() => navigate(`/organizer/learners/${item.key}`)}
-        >
-          View details →
-        </button>
-      ),
-    },
-  ];
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [rows, setRows] = useState<ILearnerListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let ignore = false;
+    const loadLearners = async () => {
+      setLoading(true);
+      setError(false);
+      try {
+        const res = await getLearnersAPI({ page, pageSize });
+        if (ignore) return;
+        if (res.data) {
+          setRows(res.data.items);
+          setTotal(res.data.meta.total);
+        } else {
+          setError(true);
+        }
+      } catch {
+        if (!ignore) setError(true);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+    loadLearners();
+    return () => {
+      ignore = true;
+    };
+  }, [page, pageSize, reloadKey]);
+
   return (
     <OrganizerPage className="organizer-learners">
       <PageHeader
         title="Learners"
-        subtitle="Manage Learner accounts and monitor training participation."
+        subtitle="Manage learner accounts in your organization."
         actions={
           <>
-            <Link to="/organizer/learners/import">
-              <OrganizerButton>Import Excel</OrganizerButton>
-            </Link>
-            <Link to="/organizer/learners/add">
-              <OrganizerButton type="primary">Add Learner</OrganizerButton>
-            </Link>
+            {/* UC13.8 */}
+            <Tooltip title={COMING_SOON}>
+              <span>
+                <OrganizerButton disabled>Import Excel</OrganizerButton>
+              </span>
+            </Tooltip>
+            {/* UC13.2 */}
+            <Tooltip title={COMING_SOON}>
+              <span>
+                <OrganizerButton type="primary" disabled>
+                  Add Learner
+                </OrganizerButton>
+              </span>
+            </Tooltip>
           </>
         }
       />
-      <SectionCard
-        title="Learner accounts"
-        extra={<span className="organizer-note">318 / 500 seats used</span>}
-      >
+      {/* UC13.2 gắn "x / y seats used" vào extra */}
+      <SectionCard title="Learner accounts">
+        {/* UC13.4 */}
         <div className="organizer-filters organizer-instructors-filters">
-          <Input
-            prefix={<SearchOutlined />}
-            placeholder="Search by name or email"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <Select
-            defaultValue="all"
-            options={[
-              { value: "all", label: "All statuses" },
-              { value: "active", label: "Active" },
-              { value: "pending", label: "Pending" },
-              { value: "disabled", label: "Disabled" },
-            ]}
-          />
+          <Tooltip title={COMING_SOON}>
+            <Input
+              prefix={<SearchOutlined />}
+              placeholder="Search by name or email"
+              disabled
+            />
+          </Tooltip>
+          <Tooltip title={COMING_SOON}>
+            <Select
+              defaultValue="all"
+              disabled
+              options={[{ value: "all", label: "All statuses" }]}
+            />
+          </Tooltip>
         </div>
-        <Table
-          className="organizer-table"
-          columns={columns}
-          dataSource={rows}
-          pagination={{ pageSize: 6, showSizeChanger: false, position: ["bottomRight"] }}
+        <AccountTable<ILearnerListItem>
+          rows={rows}
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          loading={loading}
+          error={error}
+          itemLabel="learners"
+          emptyText="No learners yet."
+          extraColumns={trainingColumns}
+          // UC13.1 / 13.3 / 13.5 / 13.6 / 13.7 gắn thao tác vào đây
+          renderActions={() => (
+            <Tooltip title={COMING_SOON}>
+              <span>
+                <button className="organizer-link" disabled>
+                  View details →
+                </button>
+              </span>
+            </Tooltip>
+          )}
+          onPageChange={(nextPage, nextPageSize) => {
+            setPage(nextPage);
+            setPageSize(nextPageSize);
+          }}
+          onRetry={() => setReloadKey((key) => key + 1)}
         />
       </SectionCard>
     </OrganizerPage>
