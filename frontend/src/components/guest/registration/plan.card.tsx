@@ -46,7 +46,7 @@ export default function PlanCard({
       <div className="plan-card-heading">
         {selected && <h2>Your selection</h2>}
         {details && featured && (
-          <span className="plan-card-badge">Popular demo</span>
+          <span className="plan-card-badge">Popular</span>
         )}
         {!details && <span className="plan-card-badge">Available</span>}
       </div>
@@ -73,13 +73,12 @@ export default function PlanCard({
         <dl className="plan-card-payment">
           <div>
             <dt>Plan total</dt>
-            <dd>[Configured price]</dd>
+            <dd>{details?.price ?? "[Configured price]"}</dd>
           </div>
         </dl>
       )}
       {onSelect && (
         <Button
-          type={featured ? "primary" : "default"}
           block
           onClick={onSelect}
         >
