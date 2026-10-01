@@ -1,3 +1,14 @@
 .organizer-instructors-filters {
     grid-template-columns: minmax(220px, 1.5fr) minmax(160px, .6fr);
 }
+
+.organizer-instructors .organizer-link:disabled {
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+}
+
+.organizer-instructors .organizer-button.ant-btn-primary:disabled {
+    border-color: var(--color-border);
+    background: var(--color-surface-secondary);
+    color: var(--color-text-muted);
+}

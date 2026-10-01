@@ -12,6 +12,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "db:seed": "ts-node -P tsconfig.seed.json prisma/seed.ts",
+    "test:unit": "ts-node -P tsconfig.seed.json test/unit/index.ts",
+    "test:integration": "ts-node -P tsconfig.seed.json test/integration/index.ts",
     "lint": "eslint \"src/**/*.ts\" --fix"
   },
   "dependencies": {
