@@ -11,6 +11,9 @@ import type {
   ISeatUsage,
   ISubscriptionPlan,
   IVerifyEmailResult,
+  IAcceptInvitationReq,
+  IAcceptInvitationResult,
+  IInvitationInfo
 } from "@/types/organization.types";
 import axios from "@/services/axios.customize";
 
@@ -59,3 +62,14 @@ export const getInstructorSeatsAPI = () =>
 // UC12.2 - Thêm Instructor (Organizer; backend gửi lời mời qua email)
 export const createInstructorAPI = (body: ICreateAccountReq) =>
   axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/instructors", body);
+
+// UC04 - Xem lời mời trước khi đặt mật khẩu
+export const getInvitationAPI = (token: string) =>
+  axios.get<IBackendRes<IInvitationInfo>>(
+    `/api/v1/invitations/${encodeURIComponent(token)}`,
+  );
+
+// UC04 - Đặt mật khẩu và kích hoạt tài khoản
+export const acceptInvitationAPI = (body: IAcceptInvitationReq) =>
+  axios.post<IBackendRes<IAcceptInvitationResult>>("/api/v1/invitations/accept", body);
+
