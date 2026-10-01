@@ -40,6 +40,18 @@ const COURSE_NHAP_MON = '0199a000-0000-7000-8000-0e0000000006';
 
 // Quy ước phần cuối ID trong cây: 1a = module, 1b = lesson, 1c = học liệu, 1d = tệp; tiếp theo là số Course, Lesson, học liệu.
 
+/**
+ * Fixture cho test tích hợp learning-service (D34), không dùng cho demo: dải ID đuôi …f*.
+ * Test được phép ghi rồi dọn mọi dữ liệu của ORG_TEST; không thêm dữ liệu demo vào tổ chức này.
+ * …0a00000000f1 đã thuộc TEST_ORG của test:catalog:db nên không dùng.
+ */
+const ORG_TEST = '0199a000-0000-7000-8000-0a00000000f2';
+const INSTRUCTOR_TEST = '0199a000-0000-7000-8000-0c00000000f1';
+const CHAIN_TEST_PUBLIC = '0199a000-0000-7000-8000-0d00000000f1';
+const CHAIN_TEST_PRIVATE = '0199a000-0000-7000-8000-0d00000000f2';
+const COURSE_TEST_PUBLIC = '0199a000-0000-7000-8000-0e00000000f1';
+const COURSE_TEST_PRIVATE = '0199a000-0000-7000-8000-0e00000000f2';
+
 // ---------------------------------------------------------------------------
 // Dữ liệu
 // ---------------------------------------------------------------------------
@@ -92,7 +104,22 @@ const CHAINS = [
   { id: CHAIN_QUY_TRINH, organizationId: ORG_A, instructorId: INSTRUCTOR_1 },
   { id: CHAIN_GIAO_TIEP, organizationId: ORG_A, instructorId: INSTRUCTOR_1 },
   { id: CHAIN_NHAP_MON, organizationId: ORG_B, instructorId: INSTRUCTOR_2 },
+  { id: CHAIN_TEST_PUBLIC, organizationId: ORG_TEST, instructorId: INSTRUCTOR_TEST },
+  { id: CHAIN_TEST_PRIVATE, organizationId: ORG_TEST, instructorId: INSTRUCTOR_TEST },
 ];
+
+const TEST_COURSE_DESCRIPTION = {
+  shortDescription: 'Dữ liệu cố định cho test tích hợp learning-service.',
+  trainingObjectives:
+    'Cung cấp một Course Published đủ trường bắt buộc để test tích hợp tự ghi và tự dọn mà không đụng dữ liệu demo.',
+  learningOutcomes: ['Không dùng cho demo'],
+  submittedAt: new Date('2026-09-20T02:00:00Z'),
+  publishedAt: new Date('2026-09-22T02:00:00Z'),
+  archivedAt: null,
+};
+
+const TEST_LESSON_CONTENT =
+  '## Lesson kiểm thử\n\nNội dung cố định cho test tích hợp.';
 
 const AN_TOAN_DESCRIPTION = {
   shortDescription:
@@ -457,6 +484,62 @@ const COURSES: SeedCourse[] = [
       },
     ],
   },
+  {
+    id: COURSE_TEST_PUBLIC,
+    organizationId: ORG_TEST,
+    chainId: CHAIN_TEST_PUBLIC,
+    versionNumber: 1,
+    name: 'Course kiểm thử tích hợp (không dùng cho demo)',
+    courseType: 'Public',
+    status: 'Published',
+    expectedCompletionDays: 3,
+    ...TEST_COURSE_DESCRIPTION,
+    modules: [
+      {
+        id: '0199a000-0000-7000-8000-1a00000000f1',
+        title: 'Module kiểm thử',
+        lessons: [
+          {
+            id: '0199a000-0000-7000-8000-1b00000000f1',
+            title: 'Lesson kiểm thử',
+            content: TEST_LESSON_CONTENT,
+            materials: [
+              { id: '0199a000-0000-7000-8000-1c00000000f1', fileId: '0199a000-0000-7000-8000-1d00000000f1', type: 'Video', title: 'Video kiểm thử (bắt buộc)', isRequired: true, amount: 300 },
+              { id: '0199a000-0000-7000-8000-1c00000000f2', fileId: '0199a000-0000-7000-8000-1d00000000f2', type: 'Reading', title: 'Reading kiểm thử (không bắt buộc)', isRequired: false, amount: 500 },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: COURSE_TEST_PRIVATE,
+    organizationId: ORG_TEST,
+    chainId: CHAIN_TEST_PRIVATE,
+    versionNumber: 1,
+    name: 'Course Private kiểm thử tích hợp (không dùng cho demo)',
+    courseType: 'Private',
+    status: 'Published',
+    expectedCompletionDays: 3,
+    ...TEST_COURSE_DESCRIPTION,
+    modules: [
+      {
+        id: '0199a000-0000-7000-8000-1a00000000f2',
+        title: 'Module kiểm thử',
+        lessons: [
+          {
+            id: '0199a000-0000-7000-8000-1b00000000f2',
+            title: 'Lesson kiểm thử',
+            content: TEST_LESSON_CONTENT,
+            materials: [
+              { id: '0199a000-0000-7000-8000-1c00000000f3', fileId: '0199a000-0000-7000-8000-1d00000000f3', type: 'Video', title: 'Video kiểm thử (bắt buộc)', isRequired: true, amount: 300 },
+              { id: '0199a000-0000-7000-8000-1c00000000f4', fileId: '0199a000-0000-7000-8000-1d00000000f4', type: 'Reading', title: 'Reading kiểm thử (không bắt buộc)', isRequired: false, amount: 500 },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -585,11 +668,18 @@ function printIds(): void {
     { loại: 'learner', tên: 'LEARNER_3 (org B)', id: LEARNER_3 },
     { loại: 'instructor', tên: 'INSTRUCTOR_1 (org A)', id: INSTRUCTOR_1 },
     { loại: 'instructor', tên: 'INSTRUCTOR_2 (org B)', id: INSTRUCTOR_2 },
-    ...COURSES.map((course) => ({
+    ...COURSES.filter((course) => course.organizationId !== ORG_TEST).map((course) => ({
       loại: 'course',
       tên: `${course.name} v${course.versionNumber} (${course.status}, ${course.courseType}, org ${course.organizationId === ORG_A ? 'A' : 'B'})`,
       id: course.id,
     })),
+  ]);
+  console.log('Fixture test tích hợp (không dùng cho demo):');
+  console.table([
+    { loại: 'organization', tên: 'ORG_TEST', id: ORG_TEST },
+    { loại: 'instructor', tên: 'INSTRUCTOR_TEST', id: INSTRUCTOR_TEST },
+    { loại: 'course', tên: 'Course test Public', id: COURSE_TEST_PUBLIC },
+    { loại: 'course', tên: 'Course test Private', id: COURSE_TEST_PRIVATE },
   ]);
 }
 
