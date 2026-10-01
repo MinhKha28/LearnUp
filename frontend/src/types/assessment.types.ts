@@ -24,11 +24,20 @@ export interface ICreateAssignment {
   rubric: IRubricCriterionInput[];
 }
 
-/** UC19 response: the list plus the Course-level lock that decides whether adding is allowed (BR-318). */
+/** UC19 response: a page ({ meta, items } as in the other list endpoints) plus the Course-level lock that decides whether adding is allowed (BR-318). */
 export interface IAssignmentList {
+  meta: { current: number; pageSize: number; pages: number; total: number };
+  items: IAssignmentSummary[];
   courseLocked: boolean;
   courseStatus: string;
-  items: IAssignmentSummary[];
+}
+
+/**
+ * What the Course Builder layout hands to its pages through the Outlet context.
+ * `assignments` is null until loaded, or when Assessment Service cannot be reached (the builder keeps working without it).
+ */
+export interface ICourseBuilderContext {
+  assignments: IAssignmentSummary[] | null;
 }
 
 /** UC19 list row. `locked` = a submission exists (BR-98). */
@@ -85,7 +94,7 @@ export interface IAssignment {
 /** Error envelope from the NestJS HttpExceptionFilter. */
 export interface IAssessmentError {
   statusCode: number;
-  error?: { errorCode?: string; message?: string | string[] } | string;
+  error?: { code?: string; message?: string | string[] } | string;
   message?: string | string[];
 }
 

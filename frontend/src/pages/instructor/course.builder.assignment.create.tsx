@@ -8,15 +8,16 @@ import RubricEditor from "@/components/instructor/rubric.editor";
 import { assessmentErrorText, createAssignmentAPI, toApiCourseId } from "@/services/assessment.service";
 import type { IRubricRow } from "@/types/assessment.types";
 import { newRubricRow } from "@/utils/helper";
-import { RUBRIC_POINTS_RULE, type INumberRule, validateNumber } from "@/utils/validation";
+import {
+  ATTEMPTS_RULE,
+  EFFORT_RULE,
+  LOCK_HOURS_RULE,
+  PASSING_SCORE_RULE,
+  RUBRIC_POINTS_RULE,
+  validateNumber,
+} from "@/utils/validation";
 import "./course.create.scss";
 import "./course.builder.scss";
-
-// Same limits as the API, so the form says "no" before the server does.
-const SCORE_RULE: INumberRule = { required: true, min: 0, max: 100, decimals: 2 };
-const EFFORT_RULE: INumberRule = { required: true, integer: true, min: 1 };
-const ATTEMPTS_RULE: INumberRule = { integer: true, min: 1 };
-const LOCK_RULE: INumberRule = { integer: true, min: 1 };
 
 const CourseBuilderAssignmentCreate = () => {
   const { courseId } = useParams();
@@ -40,10 +41,10 @@ const CourseBuilderAssignmentCreate = () => {
   const errors = {
     title: title.trim() ? null : "Enter an Assignment title.",
     instructions: instructions.trim() ? null : "Write the Assignment instructions.",
-    passingScore: validateNumber(passingScore, SCORE_RULE),
+    passingScore: validateNumber(passingScore, PASSING_SCORE_RULE),
     estimatedEffort: validateNumber(estimatedEffort, EFFORT_RULE),
     consecutiveSubmissions: validateNumber(consecutiveSubmissions, ATTEMPTS_RULE),
-    lockHours: validateNumber(lockHours, LOCK_RULE),
+    lockHours: validateNumber(lockHours, LOCK_HOURS_RULE),
     // BR-164: a Rubric is mandatory; every criterion needs a description and a positive whole maximum score.
     rubric: rubric.some((row) => !row.description.trim() || validateNumber(row.maxPoints, RUBRIC_POINTS_RULE))
       ? "Fix the Rubric criteria."
@@ -123,7 +124,7 @@ const CourseBuilderAssignmentCreate = () => {
           <div className="builder-field-row">
             <div>
               <label className="instructor-form-label instructor-form-label-spaced">Passing score (0-100)</label>
-              <NumberField rule={SCORE_RULE} showError={submitted} value={passingScore} onChange={setPassingScore} />
+              <NumberField rule={PASSING_SCORE_RULE} showError={submitted} value={passingScore} onChange={setPassingScore} />
             </div>
             <div>
               <label className="instructor-form-label instructor-form-label-spaced">
@@ -153,7 +154,7 @@ const CourseBuilderAssignmentCreate = () => {
                 Temporary lock (m hours)
               </label>
               <NumberField
-                rule={LOCK_RULE}
+                rule={LOCK_HOURS_RULE}
                 showError={submitted}
                 placeholder="Platform default"
                 value={lockHours}

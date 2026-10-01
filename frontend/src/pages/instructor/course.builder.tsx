@@ -1,15 +1,18 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import {
   canSubmitCourse,
   findCourseStructure,
   findInstructorCourse,
 } from "@/components/instructor/instructor.data";
 import { InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
+import type { ICourseBuilderContext } from "@/types/assessment.types";
 import "./course.builder.scss";
 
 const CourseBuilder = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  // Assignments come from Assessment Service through the builder layout; null while loading or unavailable.
+  const { assignments } = useOutletContext<ICourseBuilderContext>();
   const course = findInstructorCourse(courseId);
   const structure = findCourseStructure(courseId);
 
@@ -117,8 +120,9 @@ const CourseBuilder = () => {
               <p>
                 {structure.quizzes.filter((quiz) => quiz.location === "course").length} Course Quiz
                 {structure.quizzes.filter((quiz) => quiz.location === "course").length === 1 ? "" : "es"} •{" "}
-                {structure.assignments.length} Assignment
-                {structure.assignments.length === 1 ? "" : "s"}
+                {assignments
+                  ? `${assignments.length} Assignment${assignments.length === 1 ? "" : "s"}`
+                  : "Assignments"}
               </p>
             </div>
             <div className="builder-outline-card-actions">

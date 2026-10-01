@@ -11,16 +11,6 @@ instance.interceptors.request.use(
     const token = localStorage.getItem("access_token");
     const auth = token ? `Bearer ${token}` : "";
     config.headers["Authorization"] = auth;
-
-    // DEV ONLY: with no gateway in front, impersonate the trusted headers it would inject.
-    // Values come from an untracked .env.development.local and are never set in production.
-    if (import.meta.env.DEV && import.meta.env.VITE_DEV_INTERNAL_KEY) {
-      config.headers["x-internal-key"] = import.meta.env.VITE_DEV_INTERNAL_KEY;
-      config.headers["x-user-id"] = import.meta.env.VITE_DEV_USER_ID;
-      config.headers["x-organization-id"] =
-        import.meta.env.VITE_DEV_ORGANIZATION_ID;
-      config.headers["x-user-role"] = import.meta.env.VITE_DEV_USER_ROLE;
-    }
     // TẠM THỜI (UC12): fake danh tính khi tenant-service chưa đi qua api-gateway được.
     // Chỉ gửi khi chạy dev VÀ có VITE_DEV_FAKE_USER_ID; backend cần DEV_FAKE_AUTH=true.
     // Gỡ bỏ khi gateway dùng được (xem tenant-service: src/common/middleware/dev-fake-auth.middleware.ts).

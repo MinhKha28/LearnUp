@@ -1,10 +1,12 @@
-import { InputNumber, Switch, message } from "antd";
+import { Switch, message } from "antd";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { NumberField } from "@/components/instructor/form.field";
 import { findInstructorCourse } from "@/components/instructor/instructor.data";
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import { assessmentErrorText, fetchAssignmentAPI, updatePeerReviewAPI } from "@/services/assessment.service";
 import type { IAssignment } from "@/types/assessment.types";
+import { PEER_DAYS_RULE, PEER_REVIEWERS_RULE, PEER_SCORE_GAP_RULE, validateNumber } from "@/utils/validation";
 import "./course.builder.scss";
 
 const CourseBuilderAssignmentPeerReviewEdit = () => {
@@ -15,6 +17,7 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
   const [assignment, setAssignment] = useState<IAssignment | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const [enabled, setEnabled] = useState(false);
   const [reviewers, setReviewers] = useState<number | null>(null);
@@ -72,16 +75,26 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
   // BR-185: only the on/off switch is blocked once the Course is Locked; the parameters stay editable.
   const toggleLocked = assignment.courseLocked;
 
+  // The fields are only used (and checked) while Peer Review is on.
+  const errors = enabled
+    ? [
+        validateNumber(reviewers, PEER_REVIEWERS_RULE),
+        validateNumber(cycleLength, PEER_DAYS_RULE),
+        validateNumber(reviewDeadline, PEER_DAYS_RULE),
+        validateNumber(threshold, PEER_SCORE_GAP_RULE),
+      ]
+    : [];
+
   const handleSave = async () => {
-    if (enabled) {
-      if (!reviewers || reviewers < 1) {
-        message.warning("Enter the number of reviewers per submission (at least 1).");
-        return;
-      }
-      if (threshold === null || threshold < 0 || threshold > 100) {
-        message.warning("Enter a score discrepancy threshold between 0 and 100.");
-        return;
-      }
+    setSubmitted(true);
+    if (errors.some(Boolean)) {
+      message.warning("Please fix the highlighted fields.");
+      requestAnimationFrame(() =>
+        document
+          .querySelector(".builder-field-error, .ant-input-number-status-error")
+          ?.scrollIntoView({ block: "center", behavior: "smooth" }),
+      );
+      return;
     }
     setSaving(true);
     try {
@@ -126,57 +139,52 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
           <div className="builder-field-row">
             <div>
               <label className="instructor-form-label">Reviewers per submission</label>
-              <InputNumber
-                style={{ width: "100%" }}
-                min={1}
-                precision={0}
+              <NumberField
+                rule={PEER_REVIEWERS_RULE}
                 disabled={!enabled}
-                value={reviewers ?? undefined}
-                onChange={(value) => setReviewers(typeof value === "number" ? value : null)}
+                showError={submitted}
+                value={reviewers}
+                onChange={setReviewers}
               />
             </div>
             <div>
               <label className="instructor-form-label">Cycle length (days)</label>
-              <InputNumber
-                style={{ width: "100%" }}
+              <NumberField
+                rule={PEER_DAYS_RULE}
                 placeholder="Platform default"
-                min={1}
-                precision={0}
                 disabled={!enabled}
-                value={cycleLength ?? undefined}
-                onChange={(value) => setCycleLength(typeof value === "number" ? value : null)}
+                showError={submitted}
+                value={cycleLength}
+                onChange={setCycleLength}
               />
             </div>
             <div>
               <label className="instructor-form-label">Review deadline after cycle closes (days)</label>
-              <InputNumber
-                style={{ width: "100%" }}
+              <NumberField
+                rule={PEER_DAYS_RULE}
                 placeholder="Platform default"
-                min={1}
-                precision={0}
                 disabled={!enabled}
-                value={reviewDeadline ?? undefined}
-                onChange={(value) => setReviewDeadline(typeof value === "number" ? value : null)}
+                showError={submitted}
+                value={reviewDeadline}
+                onChange={setReviewDeadline}
               />
             </div>
             <div>
               <label className="instructor-form-label">Score discrepancy threshold (0-100)</label>
-              <InputNumber
-                style={{ width: "100%" }}
-                min={0}
-                max={100}
-                precision={2}
+              <NumberField
+                rule={PEER_SCORE_GAP_RULE}
                 disabled={!enabled}
-                value={threshold ?? undefined}
-                onChange={(value) => setThreshold(typeof value === "number" ? value : null)}
+                showError={submitted}
+                value={threshold}
+                onChange={setThreshold}
               />
             </div>
           </div>
 
           <InfoPanel title="Cycle timing">
             The review deadline starts when the cycle closes and work is assigned. Choose a cycle long enough to
-            collect at least {reviewers ? reviewers + 1 : "reviewers + 1"} submissions; otherwise you grade that
-            cycle yourself.
+            collect at least {reviewers && Number.isFinite(reviewers) ? reviewers + 1 : "reviewers + 1"} submissions;
+            otherwise you grade that cycle yourself.
           </InfoPanel>
 
           <div className="builder-actions">

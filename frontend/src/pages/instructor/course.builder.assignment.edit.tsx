@@ -1,14 +1,27 @@
-import { Input, InputNumber, message } from "antd";
+import { Input, message } from "antd";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { FieldError, NumberField } from "@/components/instructor/form.field";
 import { findInstructorCourse } from "@/components/instructor/instructor.data";
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import RubricEditor from "@/components/instructor/rubric.editor";
 import { assessmentErrorText, fetchAssignmentAPI, updateAssignmentAPI } from "@/services/assessment.service";
 import type { IAssignment, IRubricRow, IUpdateAssignment } from "@/types/assessment.types";
 import { newRubricRow } from "@/utils/helper";
+import {
+  ATTEMPTS_RULE,
+  EFFORT_RULE,
+  LOCK_HOURS_RULE,
+  PASSING_SCORE_RULE,
+  RUBRIC_POINTS_RULE,
+  validateNumber,
+} from "@/utils/validation";
 import "./course.create.scss";
 import "./course.builder.scss";
+
+// On edit, n and m always have a value, so they are required here (on create they fall back to the platform default).
+const REQUIRED_ATTEMPTS_RULE = { ...ATTEMPTS_RULE, required: true };
+const REQUIRED_LOCK_HOURS_RULE = { ...LOCK_HOURS_RULE, required: true };
 
 const toRubricRows = (assignment: IAssignment): IRubricRow[] =>
   assignment.rubric.map((c) => newRubricRow(c.description, c.maxPoints));
@@ -21,6 +34,7 @@ const CourseBuilderAssignmentEdit = () => {
   const [assignment, setAssignment] = useState<IAssignment | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
@@ -92,22 +106,33 @@ const CourseBuilderAssignmentEdit = () => {
     JSON.stringify(rubricPayload.map((c) => [c.description, c.maxPoints])) !==
     JSON.stringify(assignment.rubric.map((c) => [c.description.trim(), c.maxPoints]));
 
-  const validate = (): string | null => {
-    if (!title.trim()) return "Enter an Assignment title.";
-    if (!instructions.trim() && !assignment.promptFile) return "Write the Assignment instructions.";
-    if (passingScore === null) return "Enter a passing score between 0 and 100.";
-    if (estimatedEffort === null || estimatedEffort < 1) return "Enter the estimated effort in minutes.";
-    if (!consecutiveSubmissions || !lockHours) return "Enter both n (submissions) and m (lock hours).";
-    if (rubric.length === 0 || rubricPayload.some((c) => !c.description || c.maxPoints < 1)) {
-      return "Every Rubric criterion needs a description and a maximum score of at least 1.";
-    }
-    return null;
+  // Frozen fields are not checked: the user cannot change them, so they cannot be wrong.
+  const errors = {
+    title: title.trim() ? null : "Enter an Assignment title.",
+    instructions:
+      submissionLocked || instructions.trim() || assignment.promptFile ? null : "Write the Assignment instructions.",
+    passingScore: scoreLocked ? null : validateNumber(passingScore, PASSING_SCORE_RULE),
+    estimatedEffort: validateNumber(estimatedEffort, EFFORT_RULE),
+    consecutiveSubmissions: submissionLocked
+      ? null
+      : validateNumber(consecutiveSubmissions, REQUIRED_ATTEMPTS_RULE),
+    lockHours: submissionLocked ? null : validateNumber(lockHours, REQUIRED_LOCK_HOURS_RULE),
+    rubric:
+      !submissionLocked &&
+      rubric.some((row) => !row.description.trim() || validateNumber(row.maxPoints, RUBRIC_POINTS_RULE))
+        ? "Fix the Rubric criteria."
+        : null,
   };
 
   const handleSave = async () => {
-    const problem = validate();
-    if (problem) {
-      message.warning(problem);
+    setSubmitted(true);
+    if (Object.values(errors).some(Boolean)) {
+      message.warning("Please fix the highlighted fields.");
+      requestAnimationFrame(() =>
+        document
+          .querySelector(".builder-field-error, .ant-input-status-error, .ant-input-number-status-error")
+          ?.scrollIntoView({ block: "center", behavior: "smooth" }),
+      );
       return;
     }
 
@@ -159,72 +184,75 @@ const CourseBuilderAssignmentEdit = () => {
       <div className="builder-grid">
         <div className="builder-update-card">
           <label className="instructor-form-label">Assignment title</label>
-          <Input value={title} maxLength={200} onChange={(event) => setTitle(event.target.value)} />
+          <Input
+            value={title}
+            maxLength={200}
+            status={submitted && errors.title ? "error" : undefined}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+          <FieldError message={submitted ? errors.title : null} />
 
           <label className="instructor-form-label instructor-form-label-spaced">Instructions</label>
           <Input.TextArea
             className="builder-textarea"
             maxLength={8000}
             disabled={submissionLocked}
+            status={submitted && errors.instructions ? "error" : undefined}
             value={instructions}
             onChange={(event) => setInstructions(event.target.value)}
           />
+          <FieldError message={submitted ? errors.instructions : null} />
 
           <div className="builder-field-row">
             <div>
               <label className="instructor-form-label instructor-form-label-spaced">Passing score (0-100)</label>
-              <InputNumber
-                style={{ width: "100%" }}
-                min={0}
-                max={100}
-                precision={2}
+              <NumberField
+                rule={PASSING_SCORE_RULE}
                 disabled={scoreLocked}
-                value={passingScore ?? undefined}
-                onChange={(value) => setPassingScore(typeof value === "number" ? value : null)}
+                showError={submitted}
+                value={passingScore}
+                onChange={setPassingScore}
               />
             </div>
             <div>
               <label className="instructor-form-label instructor-form-label-spaced">
                 Estimated effort (minutes)
               </label>
-              <InputNumber
-                style={{ width: "100%" }}
-                min={1}
-                precision={0}
-                value={estimatedEffort ?? undefined}
-                onChange={(value) => setEstimatedEffort(typeof value === "number" ? value : null)}
+              <NumberField
+                rule={EFFORT_RULE}
+                showError={submitted}
+                value={estimatedEffort}
+                onChange={setEstimatedEffort}
               />
             </div>
             <div>
               <label className="instructor-form-label instructor-form-label-spaced">
                 Consecutive submissions (n)
               </label>
-              <InputNumber
-                style={{ width: "100%" }}
-                min={1}
-                precision={0}
+              <NumberField
+                rule={REQUIRED_ATTEMPTS_RULE}
                 disabled={submissionLocked}
-                value={consecutiveSubmissions ?? undefined}
-                onChange={(value) => setConsecutiveSubmissions(typeof value === "number" ? value : null)}
+                showError={submitted}
+                value={consecutiveSubmissions}
+                onChange={setConsecutiveSubmissions}
               />
             </div>
             <div>
               <label className="instructor-form-label instructor-form-label-spaced">
                 Temporary lock (m hours)
               </label>
-              <InputNumber
-                style={{ width: "100%" }}
-                min={1}
-                precision={0}
+              <NumberField
+                rule={REQUIRED_LOCK_HOURS_RULE}
                 disabled={submissionLocked}
-                value={lockHours ?? undefined}
-                onChange={(value) => setLockHours(typeof value === "number" ? value : null)}
+                showError={submitted}
+                value={lockHours}
+                onChange={setLockHours}
               />
             </div>
           </div>
 
           <h2 className="instructor-form-label-spaced">Rubric</h2>
-          <RubricEditor rows={rubric} onChange={setRubric} disabled={submissionLocked} />
+          <RubricEditor rows={rubric} onChange={setRubric} disabled={submissionLocked} showErrors={submitted} />
 
           <div className="builder-actions builder-actions-split">
             <InstructorButton onClick={() => navigate(detailPath)}>Cancel</InstructorButton>

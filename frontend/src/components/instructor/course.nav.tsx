@@ -2,17 +2,21 @@ import { FileTextOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import { Link, useNavigate } from "react-router-dom";
 import type { ICourse } from "@/components/instructor/instructor.data";
 import type { ICourseStructure } from "@/components/instructor/instructor.data";
+import type { IAssignmentSummary } from "@/types/assessment.types";
 import "./course.nav.scss";
 
 export const CourseBuilderNav = ({
   course,
   structure,
+  assignments,
   activeModuleId,
   activeLessonId,
   activeResourceId,
 }: {
   course: ICourse;
   structure?: ICourseStructure;
+  /** Assignments from Assessment Service (BR-154: shown at the end of the tree, in `position` order). */
+  assignments?: IAssignmentSummary[] | null;
   activeModuleId?: string;
   activeLessonId?: string;
   activeResourceId?: string;
@@ -78,10 +82,10 @@ export const CourseBuilderNav = ({
               ))}
           </div>
         ))}
-        {structure && structure.modules.length > 0 && (
+        {((structure && structure.modules.length > 0) || (assignments && assignments.length > 0)) && (
           <div className="builder-nav-module">
             <span className="builder-nav-module-title">COURSE ASSESSMENTS</span>
-            {structure.quizzes
+            {structure?.quizzes
               .filter((quiz) => quiz.location === "course")
               .map((quiz) => (
                 <button
@@ -93,7 +97,7 @@ export const CourseBuilderNav = ({
                   {quiz.title}
                 </button>
               ))}
-            {structure.assignments.map((assignment) => (
+            {assignments?.map((assignment) => (
               <button
                 type="button"
                 key={assignment.id}
@@ -101,6 +105,7 @@ export const CourseBuilderNav = ({
                 onClick={() => navigate(`${base}/assignments/${assignment.id}`)}
               >
                 {assignment.title}
+                {assignment.disabled && " (Disabled)"}
               </button>
             ))}
           </div>
