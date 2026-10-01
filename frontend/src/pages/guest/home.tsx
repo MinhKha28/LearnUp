@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Alert, Spin } from "antd";
 import {
   ArrowRightOutlined,
   BookOutlined,
@@ -9,6 +11,10 @@ import {
   TeamOutlined,
 } from "@ant-design/icons";
 import PlanCard from "@/components/guest/registration/plan.card";
+import { getSubscriptionPlansAPI } from "@/services/organization.service";
+import type { ISubscriptionPlan } from "@/types/organization.types";
+import { toPlanDetails } from "@/utils/helper";
+
 import "@/pages/guest/home.scss";
 
 const capabilities = [
@@ -41,50 +47,28 @@ const gettingStarted = [
   ["04", "Verify email", "Activate the Organizer account."],
 ];
 
-const plans = [
-  {
-    name: "Team",
-    description: "For focused training programs",
-    price: "$149",
-    priceNote: "for 90 days \u2022 demo pricing",
-    limits: [
-      ["Learner seats", "100"],
-      ["Instructor seats", "10"],
-      ["Courses", "25"],
-      ["Storage", "100 GB"],
-    ] as Array<[string, string]>,
-    footer: "A practical starting point for one team.",
-  },
-  {
-    name: "Growth",
-    description: "For growing organizations",
-    price: "$399",
-    priceNote: "for 180 days \u2022 demo pricing",
-    limits: [
-      ["Learner seats", "300"],
-      ["Instructor seats", "25"],
-      ["Courses", "75"],
-      ["Storage", "500 GB"],
-    ] as Array<[string, string]>,
-    footer: "Room for several departments and programs.",
-  },
-  {
-    name: "Scale",
-    description: "For larger training operations",
-    price: "$1,199",
-    priceNote: "for 365 days \u2022 demo pricing",
-    limits: [
-      ["Learner seats", "1,000"],
-      ["Instructor seats", "80"],
-      ["Courses", "250"],
-      ["Storage", "2 TB"],
-    ] as Array<[string, string]>,
-    footer: "Capacity for more courses and learners.",
-  },
-];
-
 export default function HomePage() {
   const navigate = useNavigate();
+
+  // UC01: trang chủ cũng hiển thị gói thật từ tenant-service (BR-3: chỉ gói đang cung cấp)
+  const [plans, setPlans] = useState<ISubscriptionPlan[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
+  const [planError, setPlanError] = useState(false);
+
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        const res = await getSubscriptionPlansAPI();
+        if (res.data) setPlans(res.data);
+        else setPlanError(true);
+      } catch {
+        setPlanError(true);
+      } finally {
+        setLoadingPlans(false);
+      }
+    };
+    loadPlans();
+  }, []);
 
   return (
     <main className="home" id="guest-main">
@@ -119,7 +103,10 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="home-preview" aria-label="LearnUP training overview preview">
+        <div
+          className="home-preview"
+          aria-label="LearnUP training overview preview"
+        >
           <div className="home-preview-bar">
             <span className="home-preview-dots" aria-hidden="true">
               <i /> <i /> <i />
@@ -129,13 +116,15 @@ export default function HomePage() {
           <div className="home-preview-body">
             <aside>
               <img src="/logo/learnup-logo-dark.png" alt="" />
-              {['Overview', 'People', 'Courses', 'Assignments', 'Reports'].map(
+              {["Overview", "People", "Courses", "Assignments", "Reports"].map(
                 (label, index) => (
                   <div
                     key={label}
                     className={index === 0 ? "home-preview-active" : undefined}
                   >
-                    <span aria-hidden="true">{index === 0 ? "\u25CF" : "\u2022"}</span>
+                    <span aria-hidden="true">
+                      {index === 0 ? "\u25CF" : "\u2022"}
+                    </span>
                     {label}
                   </div>
                 ),
@@ -151,7 +140,9 @@ export default function HomePage() {
                   ["12", "To review"],
                 ].map(([value, label], index) => (
                   <div key={label}>
-                    <i className={`home-preview-metric-icon home-preview-metric-icon-${index}`} />
+                    <i
+                      className={`home-preview-metric-icon home-preview-metric-icon-${index}`}
+                    />
                     <b>{value}</b>
                     <small>{label}</small>
                   </div>
@@ -168,7 +159,9 @@ export default function HomePage() {
                 ].map(([label, status], index) => (
                   <div className="home-activity-row" key={label}>
                     <span>{label}</span>
-                    <span className={`home-activity-status home-activity-status-${index}`}>
+                    <span
+                      className={`home-activity-status home-activity-status-${index}`}
+                    >
                       {status}
                     </span>
                   </div>
@@ -182,10 +175,12 @@ export default function HomePage() {
       <section className="home-workflow-strip">
         <div>
           <h2>One connected training workflow</h2>
-          <p>Give every role a clear place to create, learn and measure progress.</p>
+          <p>
+            Give every role a clear place to create, learn and measure progress.
+          </p>
         </div>
         <div>
-          {['Create', 'Assign', 'Learn', 'Measure'].map((item, index) => (
+          {["Create", "Assign", "Learn", "Measure"].map((item, index) => (
             <span key={item}>
               <i>{index + 1}</i>
               {item}
@@ -194,14 +189,21 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="home-section home-capability-section" id="capabilities">
+      <section
+        className="home-section home-capability-section"
+        id="capabilities"
+      >
         <span className="guest-eyebrow">CAPABILITIES</span>
         <h2>Everything your training team needs to keep learning moving</h2>
-        <p>A structured workspace for people, courses and measurable progress.</p>
+        <p>
+          A structured workspace for people, courses and measurable progress.
+        </p>
         <div className="home-capabilities">
           {capabilities.map((item, index) => (
             <article key={item.title}>
-              <span className={`home-icon home-icon-${index}`}>{item.icon}</span>
+              <span className={`home-icon home-icon-${index}`}>
+                {item.icon}
+              </span>
               <div>
                 <h3>{item.title}</h3>
                 <p>{item.text}</p>
@@ -221,9 +223,18 @@ export default function HomePage() {
             clear and accountable.
           </h2>
           {[
-            ["One place to coordinate", "Courses, people and required learning stay in a shared workflow."],
-            ["Clear responsibilities", "Organizers assign; Instructors build and grade; Learners progress."],
-            ["Progress you can act on", "Review completion, overdue training and assessment outcomes."],
+            [
+              "One place to coordinate",
+              "Courses, people and required learning stay in a shared workflow.",
+            ],
+            [
+              "Clear responsibilities",
+              "Organizers assign; Instructors build and grade; Learners progress.",
+            ],
+            [
+              "Progress you can act on",
+              "Review completion, overdue training and assessment outcomes.",
+            ],
           ].map(([title, text]) => (
             <div className="home-reason" key={title}>
               <CheckOutlined />
@@ -286,7 +297,8 @@ export default function HomePage() {
             </h2>
             <p>
               Organizers follow assigned training and overdue work. Learners can
-              earn a Certificate after meeting the Course completion requirements.
+              earn a Certificate after meeting the Course completion
+              requirements.
             </p>
           </div>
           <div className="home-certificate-card">
@@ -322,20 +334,32 @@ export default function HomePage() {
         <span className="guest-eyebrow">SUBSCRIPTION PLANS</span>
         <h2>Find the right capacity for your organization</h2>
         <p>
-          Illustrative plan data below. Availability, limits and prices are configured
-          per the platform Admin.
+          Plans currently offered on the platform. The price is locked in when
+          you register.
         </p>
-        <div className="guest-plan-grid">
-          {plans.map((plan, index) => (
-            <PlanCard
-              key={plan.name}
-              home
-              featured={index === 1}
-              details={plan}
-              onSelect={() => navigate("/register/organization")}
-            />
-          ))}
-        </div>
+        {loadingPlans && <Spin size="large" />}
+        {planError && (
+          <Alert
+            type="error"
+            showIcon
+            message="Could not load subscription plans. Please try again later."
+          />
+        )}
+        {!loadingPlans && !planError && (
+          <div className="guest-plan-grid">
+            {plans.map((plan, index) => (
+              <PlanCard
+                key={plan.id}
+                home
+                featured={index === 1}
+                details={toPlanDetails(plan)}
+                onSelect={() =>
+                  navigate("/register/organization", { state: { plan } })
+                }
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="home-cta">
@@ -353,9 +377,18 @@ export default function HomePage() {
         <h2>Before you get started</h2>
         <div>
           {[
-            ["Who can register?", "A representative registers the Organization and activates an Organizer account."],
-            ["How is payment handled?", "This project uses a mock payment service. The amount shown is illustrative."],
-            ["Can team members use Google sign-in?", "Existing Organizer, Instructor and Learner accounts can sign in with Google."],
+            [
+              "Who can register?",
+              "A representative registers the Organization and activates an Organizer account.",
+            ],
+            [
+              "How is payment handled?",
+              "This project uses a mock payment service. The amount shown is illustrative.",
+            ],
+            [
+              "Can team members use Google sign-in?",
+              "Existing Organizer, Instructor and Learner accounts can sign in with Google.",
+            ],
           ].map(([title, text]) => (
             <article key={title}>
               <h3>{title}</h3>
