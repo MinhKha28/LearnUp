@@ -9,7 +9,7 @@ import "./course.builder.scss";
 
 const CourseBuilder = () => {
   const navigate = useNavigate();
-  const { structure } = useOutletContext<ICourseBuilderOutletContext>();
+  const { structure, assignments } = useOutletContext<ICourseBuilderOutletContext>();
 
   const course = structure.course;
   const base = `/instructor/courses/${course.id}/builder`;
@@ -98,6 +98,36 @@ const CourseBuilder = () => {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {assignments && (
+        <div className="builder-structure-list">
+          <div className="builder-structure-module">
+            <div className="builder-structure-module-header">
+              <h2>Assignments</h2>
+              <InstructorButton onClick={() => navigate(`${base}/assignments/new`)}>
+                + Add Assignment
+              </InstructorButton>
+            </div>
+            <div className="builder-structure-lessons">
+              {assignments.length === 0 && (
+                <p className="builder-structure-empty-lessons">No Assignments yet.</p>
+              )}
+              {assignments.map((assignment, index) => (
+                <button
+                  key={assignment.id}
+                  type="button"
+                  onClick={() => navigate(`${base}/assignments/${assignment.id}`)}
+                >
+                  <span>
+                    {index + 1}. {assignment.title}
+                  </span>
+                  {assignment.disabled && <small>Disabled</small>}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

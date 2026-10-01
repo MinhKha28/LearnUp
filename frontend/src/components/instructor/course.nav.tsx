@@ -1,15 +1,18 @@
 import { LockOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 
+import type { IAssignmentSummary } from "@/types/assessment.types";
 import type { ICourseStructure } from "@/types/course.types";
 
 import "./course.nav.scss";
 
 interface ICourseBuilderNavProps {
   structure: ICourseStructure;
+  /** BR-154: shown after the Modules, in position order. */
+  assignments?: IAssignmentSummary[] | null;
 }
 
-export const CourseBuilderNav = ({ structure }: ICourseBuilderNavProps) => {
+export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavProps) => {
   const navigate = useNavigate();
   const course = structure.course;
   const base = `/instructor/courses/${course.id}/builder`;
@@ -61,6 +64,31 @@ export const CourseBuilderNav = ({ structure }: ICourseBuilderNavProps) => {
             )}
           </div>
         ))}
+        {assignments && (
+          <div className="builder-nav-module">
+            <div className="builder-nav-module-heading">
+              <strong>COURSE ASSESSMENTS</strong>
+            </div>
+            {assignments.map((assignment) => (
+              <button
+                key={assignment.id}
+                type="button"
+                className="builder-nav-lesson"
+                onClick={() => navigate(`${base}/assignments/${assignment.id}`)}
+              >
+                <span>{assignment.title}</span>
+                {assignment.disabled && <small>Disabled</small>}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="builder-nav-add-lesson"
+              onClick={() => navigate(`${base}/assignments/new`)}
+            >
+              + Add Assignment
+            </button>
+          </div>
+        )}
       </div>
 
       {!structure.structureLocked && (

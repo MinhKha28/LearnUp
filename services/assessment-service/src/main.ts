@@ -26,7 +26,11 @@ async function bootstrap(): Promise<void> {
 
   app.use(cookieParser());
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:4751'],
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:4751',
+      'http://localhost:5173',
+    ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
@@ -53,10 +57,8 @@ async function bootstrap(): Promise<void> {
     )
     .build();
 
-  SwaggerModule.setup(
-    'docs',
-    app,
-    () => SwaggerModule.createDocument(app, swaggerConfig),
+  SwaggerModule.setup('docs', app, () =>
+    SwaggerModule.createDocument(app, swaggerConfig),
   );
 
   await app.listen(configService.get<string>('PORT') ?? 3000);

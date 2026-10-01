@@ -6,3 +6,62 @@ Database: `assessment_db`
 Port: `8086`
 
 The Prisma schema follows `LearnUP_Database_Guide.docx` service ownership and table boundaries.
+
+## Demo data (dev only)
+
+```bash
+npm run prisma:migrate
+npm run db:seed
+```
+
+`prisma/seed.ts` is safe to run again (every row is an upsert on a fixed id) and refuses to run when `NODE_ENV=production`.
+It creates the default `platform_settings` row and demo Assignments (with Rubric) for the Courses seeded by
+course-service, reusing the same ids for organizations, instructors and courses.
+
+Run `npm run db:seed` in `services/course-service` first: this service asks Course Service for the owner, status and
+Locked flag of a Course before it lets you create, edit or delete an Assignment.
+
+| Course (course-service seed) | Demo Assignment |
+| --- | --- |
+| An toan lao dong v2 (Published) | Peer Review ON |
+| Bao mat thong tin (Published) | Peer Review off |
+| Quy trinh noi bo (Published) | Has a submission, so Instructions / Rubric / n / m are read-only |
+| Nhap mon san pham (organization B) | For checking tenant isolation |
+| Ky nang giao tiep (Draft) | None, use it to try creating an Assignment |
+
+## Talking to Course Service
+
+Course owner, status and the Locked flag are owned by Course Service, so `src/integrations/` holds a client for it
+(same layout as `tenant-service/src/integrations`). `COURSE_CLIENT_MODE` picks the implementation:
+
+| Variable | Meaning |
+| --- | --- |
+| `COURSE_CLIENT_MODE` | `http` (default) calls Course Service. `fake` does not call it at all, see below. |
+| `COURSE_SERVICE_URL` | Course Service address (default `http://localhost:8083`). |
+| `COURSE_SERVICE_TIMEOUT_MS` | Timeout of that call (default `5000`). |
+| `INTERNAL_SERVICE_KEY` | Sent as `x-internal-key`, must match Course Service. |
+| `FAKE_COURSE_STATUS` | Fake mode only: Course status, default `Draft` (try `Submitted`, `Published`). |
+| `FAKE_COURSE_LOCKED` | Fake mode only: `true` makes every Course Locked. |
+
+`fake` lets you run and try this service without Course Service. **It treats every Course as owned by the caller, so
+the owner check does not apply: use it for local work only.** Errors from the client carry a `code`:
+`COURSE_NOT_FOUND` (404) and `COURSE_SERVICE_UNAVAILABLE` (503).
+
+## Tests
+
+```bash
+npm run test:unit         # about 1 second, needs nothing running
+npm run test:integration  # about 20 seconds, builds first, needs Postgres
+npm test                  # both
+```
+
+They use `node:test` through `ts-node`, like `learning-service`, so nothing extra is installed.
+
+- **Unit** (`test/unit`): the UC19 business rules (BR-79, BR-92, BR-98, BR-165, BR-173, BR-185, BR-284, BR-318,
+  BR-319...) with Prisma and Course Service replaced by fakes, request validation, and the two Course clients.
+- **Integration** (`test/integration`): the real service over HTTP and real Postgres: guards, every rule, the outbox rows,
+  the cascade on delete, and a submission arriving while an update is running (row lock).
+
+The integration tests create and drop their own database (`assessment_it_<pid>_<time>`) on the server in
+`DATABASE_URL`, so they never touch `assessment_db`. They start the service from `dist/` and fake Course Service
+themselves, and refuse to run when `NODE_ENV=production`.

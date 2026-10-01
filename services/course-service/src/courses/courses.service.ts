@@ -9,6 +9,16 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CourseListQueryDto } from './dto/course-list-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { CreateCourseModuleDto } from './dto/create-course-module.dto';
+import { CreateCourseLessonDto } from './dto/create-course-lesson.dto';
+
+export interface CourseAuthoringContext {
+  courseId: string;
+  organizationId: string;
+  instructorId: string;
+  status: string;
+  locked: boolean;
+  disabled: boolean;
+}
 
 @Injectable()
 export class CoursesService {
@@ -105,6 +115,42 @@ export class CoursesService {
         locked: lockedAt !== null,
         learnerCount: 0,
       })),
+    };
+  }
+
+  /**
+   * Facts other services need to decide whether authoring is allowed on a Course
+   * (owner via the version chain per BR-287, lifecycle status, Locked per BR-80).
+   */
+  async getAuthoringContext(
+    courseId: string,
+    organizationId?: string,
+  ): Promise<CourseAuthoringContext> {
+    const course = await this.prisma.course.findFirst({
+      where: {
+        id: courseId,
+        ...(organizationId ? { organizationId } : {}),
+      },
+      include: {
+        chain: {
+          select: {
+            instructorId: true,
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found.');
+    }
+
+    return {
+      courseId: course.id,
+      organizationId: course.organizationId,
+      instructorId: course.chain.instructorId,
+      status: course.status,
+      locked: course.lockedAt !== null,
+      disabled: course.disabledAt !== null,
     };
   }
 
@@ -353,6 +399,113 @@ export class CoursesService {
           id: true,
           courseId: true,
           title: true,
+          position: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    });
+  }
+  async createLesson(
+    user: CurrentUser,
+    courseId: string,
+    moduleId: string,
+    dto: CreateCourseLessonDto,
+  ) {
+    if (user.role !== 'INSTRUCTOR') {
+      throw new ForbiddenException('Only Instructor can add Lesson.');
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    const title = dto.title.trim();
+    const content = dto.content.trim();
+
+    if (!title) {
+      throw new BadRequestException('Lesson title is required.');
+    }
+
+    if (!content) {
+      throw new BadRequestException('Lesson content is required.');
+    }
+
+    const course = await this.prisma.course.findFirst({
+      where: {
+        id: courseId,
+        organizationId: user.organizationId,
+        chain: {
+          instructorId: user.userId,
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+        lockedAt: true,
+      },
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found.');
+    }
+
+    if (course.status === 'SUBMITTED') {
+      throw new BadRequestException(
+        'Submitted Course cannot be edited. Withdraw the Course before adding a Lesson.',
+      );
+    }
+
+    if (course.lockedAt) {
+      throw new BadRequestException(
+        'Cannot add Lesson because Course is Locked.',
+      );
+    }
+
+    const module = await this.prisma.courseModule.findFirst({
+      where: {
+        id: moduleId,
+        courseId,
+        organizationId: user.organizationId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!module) {
+      throw new NotFoundException('Module not found.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const lastLesson = await tx.lesson.findFirst({
+        where: {
+          moduleId,
+          organizationId: user.organizationId!,
+        },
+        orderBy: {
+          position: 'desc',
+        },
+        select: {
+          position: true,
+        },
+      });
+
+      const nextPosition = (lastLesson?.position ?? 0) + 1;
+
+      return tx.lesson.create({
+        data: {
+          organizationId: user.organizationId!,
+          moduleId,
+          title,
+          content,
+          position: nextPosition,
+        },
+        select: {
+          id: true,
+          moduleId: true,
+          title: true,
+          content: true,
           position: true,
           createdAt: true,
           updatedAt: true,

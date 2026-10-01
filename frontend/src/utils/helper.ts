@@ -1,3 +1,4 @@
+import type { IRubricRow } from "@/types/assessment.types";
 import dayjs from "dayjs";
 import type {
   ISeatUsage,
@@ -44,6 +45,14 @@ export const toPlanDetails = (plan: ISubscriptionPlan) => ({
   footer: "The price is locked in when you register.",
 });
 
+export const newRubricRow = (
+  description = "",
+  maxPoints: number | null = null,
+): IRubricRow => ({
+  key: crypto.randomUUID(),
+  description,
+  maxPoints,
+});
 // Ngày theo giờ Việt Nam, dạng dd/MM/yyyy: "2026-09-24T17:30:00Z" -> "25/09/2026"
 export const formatDateVN = (value: string) =>
   new Intl.DateTimeFormat("en-GB", {
