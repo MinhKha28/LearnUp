@@ -12,6 +12,7 @@ import LoginPage from "@/pages/guest/login";
 import RegisterPage from "@/pages/guest/register";
 import ActivatePage from "@/pages/guest/activate";
 import ActivationSuccess from "@/pages/guest/activation.success";
+import VerifyEmailPage from "@/pages/guest/verify.email";
 import ForgotPasswordPage from "@/pages/guest/password.forgot";
 import ResetPasswordPage from "@/pages/guest/password.reset";
 import LayoutAdmin from "./components/layout/layout.admin";
@@ -167,6 +168,7 @@ export const router = createBrowserRouter([
         element: <HomePage />,
       },
       { path: "register/:screen?", element: <RegisterPage /> },
+      { path: "verify-email", element: <VerifyEmailPage /> },
       { path: "activate/:token", element: <ActivatePage /> },
       { path: "activate/:token/success", element: <ActivationSuccess /> },
       { path: "forgot-password", element: <ForgotPasswordPage /> },
