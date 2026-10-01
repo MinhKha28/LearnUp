@@ -64,6 +64,25 @@ async function useReadingSpeed(tx: Tx, wordsPerMinute: number): Promise<void> {
   });
 }
 
+/** Chạy fn và gom các lần gọi logger.error của Nest trong lúc đó. */
+async function captureLoggerErrors<T>(
+  fn: () => Promise<T>,
+): Promise<{ result: T; errors: unknown[][] }> {
+  const errors: unknown[][] = [];
+  Logger.overrideLogger({
+    log: () => undefined,
+    warn: () => undefined,
+    error: (...args: unknown[]) => {
+      errors.push(args);
+    },
+  });
+  try {
+    return { result: await fn(), errors };
+  } finally {
+    Logger.overrideLogger(new ConsoleLogger());
+  }
+}
+
 interface FixtureMaterial {
   type: 'Video' | 'Reading';
   isRequired: boolean;
@@ -328,31 +347,40 @@ void describe('estimateDurationMinutes', () => {
 
   void test('platform_settings trống: không có giá trị (service trả null) và ghi logger.error', () =>
     withRollback(async (tx) => {
-      const errors: unknown[][] = [];
-      Logger.overrideLogger({
-        log: () => undefined,
-        warn: () => undefined,
-        error: (...args: unknown[]) => {
-          errors.push(args);
-        },
-      });
-      try {
-        const courseId = await createCourse(
-          tx,
-          [{ type: 'Video', isRequired: true, seconds: 61 }],
-          5,
-        );
-        await tx.platformSetting.deleteMany();
-        const durations = await repositoryFor(tx).estimateDurationMinutes(
-          TEST_ORG,
-          [courseId],
-        );
-        assert.equal(durations.has(courseId), false);
-        assert.equal(errors.length, 1);
-        assert.match(String(errors[0][0]), /platform_settings/);
-      } finally {
-        Logger.overrideLogger(new ConsoleLogger());
-      }
+      const courseId = await createCourse(
+        tx,
+        [{ type: 'Video', isRequired: true, seconds: 61 }],
+        5,
+      );
+      await tx.platformSetting.deleteMany();
+      const { result: durations, errors } = await captureLoggerErrors(() =>
+        repositoryFor(tx).estimateDurationMinutes(TEST_ORG, [courseId]),
+      );
+      assert.equal(durations.has(courseId), false);
+      assert.equal(errors.length, 1);
+      assert.match(String(errors[0][0]), /platform_settings/);
+    }));
+
+  void test('tốc độ đọc = 0: xử lý như thiếu platform_settings, không ném lỗi, có logger.error', () =>
+    withRollback(async (tx) => {
+      await useReadingSpeed(tx, 0);
+      const courseId = await createCourse(
+        tx,
+        [
+          { type: 'Video', isRequired: true, seconds: 61 },
+          { type: 'Reading', isRequired: true, words: 500 },
+        ],
+        5,
+      );
+      const { result: durations, errors } = await captureLoggerErrors(() =>
+        repositoryFor(tx).estimateDurationMinutes(TEST_ORG, [courseId]),
+      );
+      assert.equal(durations.has(courseId), false);
+      assert.equal(errors.length, 1);
+      assert.match(
+        String(errors[0][0]),
+        /reading_speed_words_per_minute.*không hợp lệ \(0\)/,
+      );
     }));
 
   void test('sau các ca test, số dòng mọi bảng giữ nguyên như trước khi chạy', async () => {

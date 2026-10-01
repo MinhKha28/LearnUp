@@ -81,7 +81,8 @@ export class CatalogRepository {
 
   /**
    * Thời lượng ước tính theo phút (BR-51): tổng học liệu bắt buộc còn hiệu lực cộng assignment_minutes.
-   * Course không có trong kết quả (hoặc khi platform_settings trống) thì không có khóa trong Map.
+   * Course không có trong kết quả thì không có khóa trong Map. platform_settings trống hoặc tốc độ đọc
+   * không hợp lệ (NULL, ≤ 0) thì không tính, Map rỗng (D12).
    */
   async estimateDurationMinutes(
     organizationId: string,
@@ -92,10 +93,14 @@ export class CatalogRepository {
       return durations;
     }
 
-    const settings = await this.prisma.platformSetting.findFirst({
-      select: { readingSpeedWordsPerMinute: true },
-      orderBy: { sourceAsOf: 'desc' },
-    });
+    // $queryRaw vì Prisma không cho NULLS LAST trên cột khai báo NOT NULL
+    const [settings] = await this.prisma.$queryRaw<
+      { reading_speed: number | null }[]
+    >`
+      SELECT reading_speed_words_per_minute AS reading_speed
+      FROM platform_settings
+      ORDER BY source_as_of DESC NULLS LAST
+      LIMIT 1`;
     if (!settings) {
       this.logger.error(
         'Bảng platform_settings của course_db đang trống: không tính được thời lượng ước tính, mọi Course trả estimatedDurationMinutes = null.',
@@ -103,7 +108,14 @@ export class CatalogRepository {
       return durations;
     }
 
-    const readingSpeed = settings.readingSpeedWordsPerMinute;
+    const readingSpeed = settings.reading_speed;
+    if (readingSpeed === null || readingSpeed <= 0) {
+      this.logger.error(
+        `platform_settings.reading_speed_words_per_minute của course_db không hợp lệ (${readingSpeed}): không tính được thời lượng ước tính, mọi Course trả estimatedDurationMinutes = null.`,
+      );
+      return durations;
+    }
+
     // 60.0 và ::numeric để chia số thực rồi mới CEIL; ::int vì SUM trả bigint, Prisma đổi thành BigInt làm JSON.stringify lỗi
     const rows = await this.prisma.$queryRaw<
       { course_id: string; minutes: number }[]
