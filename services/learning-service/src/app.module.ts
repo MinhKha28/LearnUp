@@ -11,6 +11,9 @@ import { LearnerAccountsModule } from './learner-accounts/learner-accounts.modul
 import { OrganizationSuspensionsModule } from './organization-suspensions/organization-suspensions.module';
 import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
 import { OutboxModule } from './outbox/outbox.module';
+import { RolesGuard } from './common/guards/roles.guard';
+import { CourseServiceModule } from './integrations/course-service/course-service.module';
+import { TenantModule } from './integrations/tenant/tenant.module';
 
 @Module({
   imports: [
@@ -24,11 +27,18 @@ import { OutboxModule } from './outbox/outbox.module';
     OrganizationSuspensionsModule,
     PlatformSettingsModule,
     OutboxModule,
+    CourseServiceModule,
+    TenantModule,
   ],
   providers: [
     {
       provide: APP_GUARD,
       useClass: InternalAuthGuard,
+    },
+    // Sau InternalAuthGuard: Nest chạy APP_GUARD theo thứ tự khai báo
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })
