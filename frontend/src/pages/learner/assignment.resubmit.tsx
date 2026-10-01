@@ -7,7 +7,7 @@ import { LearnerButton, PageHeader, WarningPanel } from "@/components/learner/le
 import "./assignment.resubmit.scss";
 
 const AssignmentResubmit = () => {
-  const { courseId, assignmentId } = useParams();
+  const { enrollmentId: courseId, assignmentId } = useParams();
   const navigate = useNavigate();
   const course = courseId ? courseDetails[courseId] : undefined;
   const assignment = course ? findAssignment(course, assignmentId) : undefined;

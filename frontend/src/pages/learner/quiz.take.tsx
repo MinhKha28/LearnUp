@@ -41,7 +41,7 @@ const isCorrect = (question: IQuizQuestion, selected: string[]) => {
 };
 
 const QuizTake = () => {
-  const { courseId, quizId } = useParams();
+  const { enrollmentId: courseId, quizId } = useParams();
   const navigate = useNavigate();
   const course = courseId ? courseDetails[courseId] : undefined;
   const quiz = course ? findQuiz(course, quizId) : undefined;
