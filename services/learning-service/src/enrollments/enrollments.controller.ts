@@ -4,7 +4,10 @@ import { ResponseMessage, User } from '../common/decorator/customize';
 import { Roles } from '../common/decorator/roles.decorator';
 import { ParsePagePipe } from '../common/pipes/parse-page.pipe';
 import { CreateEnrollmentDto } from './dto/create-enrollments.dto';
-import type { CreatedEnrollment } from './enrollments.repository';
+import type {
+  CreatedEnrollment,
+  EnrolledCourseRef,
+} from './enrollments.repository';
 import {
   EnrollmentsService,
   type MyEnrollmentsPage,
@@ -25,10 +28,10 @@ export class EnrollmentsController {
     return this.service.enrollOptional(user, dto.courseId);
   }
 
-  /** D20: courseId đã đăng ký, để danh mục gắn nhãn (D5). */
+  /** D20, D48: Course đã đăng ký kèm enrollmentId, để gắn nhãn (D5) và nút "Vào học" mở UC27. */
   @Get('me/course-ids')
   @Roles('LEARNER')
-  getMyCourseIds(@User() user: CurrentUser): Promise<string[]> {
+  getMyCourseIds(@User() user: CurrentUser): Promise<EnrolledCourseRef[]> {
     return this.service.getMyCourseIds(user);
   }
 

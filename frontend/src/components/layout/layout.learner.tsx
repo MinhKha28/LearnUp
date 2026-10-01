@@ -13,14 +13,15 @@ import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useCurrentApp } from "@/components/context/app.context";
+import { DevIdentitySwitcher } from "@/components/learner/dev.identity.switcher";
 import "./layout.learner.scss";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
 const learnerMenuItems: MenuItem[] = [
   { key: "/learner", icon: <TableOutlined />, label: "Overview" },
-  { key: "/learner/courses", icon: <UnorderedListOutlined />, label: "My Courses" },
-  { key: "/learner/catalog", icon: <AppstoreOutlined />, label: "Catalog" },
+  { key: "/learner/courses", icon: <UnorderedListOutlined />, label: "Course của tôi" },
+  { key: "/learner/catalog", icon: <AppstoreOutlined />, label: "Danh mục Course" },
   { key: "/learner/peer-review", icon: <SwapOutlined />, label: "Peer Review" },
   { key: "/learner/certificates", icon: <GoldOutlined />, label: "Certificates" },
   { key: "/learner/reports", icon: <FlagOutlined />, label: "My Reports" },
@@ -43,7 +44,7 @@ const LayoutLearner = () => {
     return "/learner";
   }, [location.pathname]);
 
-  const displayName = user?.fullName || "Alex Morgan";
+  const displayName = user?.fullName || "Học viên";
   const initials = displayName
     .split(" ")
     .map((part) => part[0])
@@ -127,6 +128,7 @@ const LayoutLearner = () => {
             <span className="learner-org-name">Demo Organization</span>
           </div>
           <div className="learner-topbar-actions">
+            <DevIdentitySwitcher />
             <span className="learner-notification">Notifications</span>
             <Avatar size={30} className="learner-topbar-avatar">
               {initials}

@@ -12,6 +12,7 @@ import { ResponseMessage, User } from '../common/decorator/customize';
 import { CoursesService } from './courses.service';
 import { CourseListQueryDto } from './dto/course-list-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
+import { CreateCourseModuleDto } from './dto/create-course-module.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -35,5 +36,21 @@ export class CoursesController {
   @ResponseMessage('Course created successfully')
   create(@User() user: CurrentUser, @Body() dto: CreateCourseDto) {
     return this.coursesService.create(user, dto);
+  }
+
+  @Get(':courseId/structure')
+  @ResponseMessage('Course structure fetched successfully')
+  getStructure(@User() user: CurrentUser, @Param('courseId') courseId: string) {
+    return this.coursesService.getStructure(user, courseId);
+  }
+
+  @Post(':courseId/modules')
+  @ResponseMessage('Module created successfully')
+  createModule(
+    @User() user: CurrentUser,
+    @Param('courseId') courseId: string,
+    @Body() dto: CreateCourseModuleDto,
+  ) {
+    return this.coursesService.createModule(user, courseId, dto);
   }
 }

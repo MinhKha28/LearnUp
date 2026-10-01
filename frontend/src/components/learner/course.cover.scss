@@ -1,0 +1,47 @@
+.course-cover {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  overflow: hidden;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-brand-dark), var(--color-brand-item));
+}
+
+.course-cover::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--space-1);
+  background: var(--color-accent);
+  content: "";
+}
+
+.course-cover-sm {
+  width: 112px;
+  border-radius: var(--radius-sm);
+}
+
+.course-cover-md {
+  width: 200px;
+}
+
+.course-cover-lg {
+  width: 100%;
+  border-radius: var(--radius-lg);
+}
+
+.course-cover-initial {
+  color: var(--color-surface);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.course-cover-md .course-cover-initial {
+  font-size: 40px;
+}
+
+.course-cover-lg .course-cover-initial {
+  font-size: 56px;
+}

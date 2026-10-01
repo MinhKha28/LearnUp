@@ -38,9 +38,16 @@ export class CatalogService {
       return createPageResponse([], page, CATALOG_PAGE_SIZE, 0);
     }
 
-    const { total, courses } = await this.catalogRepository.findCatalogPage(
+    // Đếm trước: trang vượt tổng trả rỗng ngay, offset quá lớn (page = 1e20) không xuống Prisma
+    const total = await this.catalogRepository.countCatalog(organizationId);
+    const skip = (page - 1) * CATALOG_PAGE_SIZE;
+    if (skip >= total) {
+      return createPageResponse([], page, CATALOG_PAGE_SIZE, total);
+    }
+
+    const courses = await this.catalogRepository.findCatalogCourses(
       organizationId,
-      (page - 1) * CATALOG_PAGE_SIZE,
+      skip,
       CATALOG_PAGE_SIZE,
     );
     const durations = await this.catalogRepository.estimateDurationMinutes(
