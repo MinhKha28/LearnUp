@@ -1,105 +1,94 @@
-.learner-catalog-search {
-  margin-bottom: 32px;
-}
-
-.learner-catalog-section-title {
-  margin: 0 0 16px;
-  color: #0f172a;
-  font-size: 18px;
-  font-weight: 650;
-}
-
 .learner-catalog-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
 }
 
 .learner-catalog-card {
+  position: relative;
   display: flex;
-  padding: 20px;
+  min-width: 0;
+  padding: var(--space-4);
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--space-2);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: #fff;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.learner-catalog-card-media {
-  display: grid;
-  width: 100%;
-  height: 140px;
-  margin-bottom: 4px;
-  place-items: center;
-  border-radius: 6px;
-  background: #f1f5f9;
+.learner-catalog-card:hover,
+.learner-catalog-card:focus-within {
+  border-color: var(--color-divider);
 }
 
-.learner-catalog-card-media svg {
-  width: 32px;
-  height: 32px;
+.learner-catalog-card .course-cover {
+  margin-bottom: var(--space-1);
 }
 
-.learner-catalog-card > strong {
-  color: #0f172a;
+.learner-catalog-card-title {
+  color: var(--color-text-primary);
   font-size: 16px;
   font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
-.learner-catalog-card > p {
+/* Cả thẻ bấm được: liên kết tên Course phủ toàn thẻ, nút nằm trên lớp phủ */
+.learner-catalog-card-title::after {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+  content: "";
+}
+
+.learner-catalog-card-title:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+
+.learner-catalog-card .learner-status,
+.learner-catalog-card .learner-button {
+  position: relative;
+  z-index: 1;
+}
+
+.learner-catalog-card-description,
+.learner-catalog-card-objectives {
   margin: 0;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 13px;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
-.learner-catalog-duration {
-  margin: 4px 0 6px;
-  color: #94a3b8;
+.learner-catalog-card-objectives {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.learner-catalog-card-meta {
+  display: flex;
+  margin: var(--space-1) 0 var(--space-2);
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
-.learner-catalog-card .learner-button {
+.learner-catalog-card .learner-button.ant-btn {
   width: 100%;
   margin-top: auto;
 }
 
-.learner-catalog-empty {
-  display: flex;
-  padding: 64px 24px;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: #fff;
-  text-align: center;
-}
-
-.learner-catalog-empty-icon {
-  display: grid;
-  width: 56px;
-  height: 56px;
-  margin-bottom: 12px;
-  place-items: center;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #2563eb;
-  font-size: 22px;
-}
-
-.learner-catalog-empty h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.learner-catalog-empty p {
-  margin: 0 0 16px;
-  color: #64748b;
-  font-size: 14px;
+@media (max-width: 1280px) {
+  .learner-catalog-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1050px) {

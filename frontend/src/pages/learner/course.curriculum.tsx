@@ -11,7 +11,7 @@ import {
 import "./course.curriculum.scss";
 
 const CourseCurriculum = () => {
-  const { courseId } = useParams();
+  const { enrollmentId: courseId } = useParams();
   const navigate = useNavigate();
   const course = courseId ? courseDetails[courseId] : undefined;
   const [tab, setTab] = useState<"video" | "reading">("video");

@@ -24,7 +24,7 @@ interface IRemainingRow {
 }
 
 const CourseProgress = () => {
-  const { courseId } = useParams();
+  const { enrollmentId: courseId } = useParams();
   const navigate = useNavigate();
   const course = courseId ? courseDetails[courseId] : undefined;
   const evaluation = course ? findCourseEvaluation(course.id) : undefined;

@@ -12,7 +12,7 @@ import { LearnerButton, PageHeader, StatCard } from "@/components/learner/learne
 import "./quiz.history.scss";
 
 const QuizHistory = () => {
-  const { courseId, quizId } = useParams();
+  const { enrollmentId: courseId, quizId } = useParams();
   const course = courseId ? courseDetails[courseId] : undefined;
   const quiz = course ? findQuiz(course, quizId) : undefined;
   const [viewing, setViewing] = useState<IQuizAttempt | undefined>(undefined);

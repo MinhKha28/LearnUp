@@ -10,7 +10,7 @@ const statusLabel: Record<string, string> = {
 };
 
 const LessonDetail = () => {
-  const { courseId, lessonId } = useParams();
+  const { enrollmentId: courseId, lessonId } = useParams();
   const navigate = useNavigate();
   const course = courseId ? courseDetails[courseId] : undefined;
   const found = course ? findLesson(course, lessonId) : undefined;
