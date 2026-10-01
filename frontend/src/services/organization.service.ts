@@ -5,6 +5,7 @@ import type {
   ICreateRegistrationReq,
   ICreateRegistrationRes,
   IInstructorListItem,
+  ILearnerListItem,
   IPaymentResult,
   IPayRegistrationReq,
   IRegistrationSummary,
@@ -51,3 +52,10 @@ export const getInstructorSeatsAPI = () =>
 // UC12.2 - Thêm Instructor (Organizer; backend gửi lời mời qua email)
 export const createInstructorAPI = (body: ICreateAccountReq) =>
   axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/instructors", body);
+
+// UC13 - Xem danh sách Learner (Organizer; tổ chức lấy từ danh tính người gọi)
+export const getLearnersAPI = (query: IAccountListQuery) =>
+  axios.get<IBackendRes<IPageResponse<ILearnerListItem>>>(
+    "/api/v1/users/learners",
+    { params: query },
+  );

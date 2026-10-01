@@ -10,6 +10,10 @@ import { STANDARD_ERROR_CODES, createPageResponse } from '@learnup/ts-common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CourseServiceClient } from '../integrations/course-service.client';
+import {
+  LearnerEnrollmentSummary,
+  LearningServiceClient,
+} from '../integrations/learning-service.client';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { OutboxService } from '../outbox/outbox.service';
 import {
@@ -26,6 +30,7 @@ import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
 import {
   AccountListItem,
   InstructorListItem,
+  LearnerListItem,
 } from './interfaces/account-list-item.interface';
 import { SeatUsage } from './interfaces/seat-usage.interface';
 
@@ -54,6 +59,7 @@ export class UsersService {
     private readonly config: ConfigService,
     private readonly settingsService: PlatformSettingsService,
     private readonly outbox: OutboxService,
+    private readonly learningClient: LearningServiceClient, // UC13
   ) {}
 
   // ===========================================================================
@@ -63,6 +69,64 @@ export class UsersService {
     user: CurrentUser,
     query: ListAccountsQueryDto,
   ): Promise<PageResponse<InstructorListItem>> {
+    const { page, pageSize } = query;
+    const { rows, total } = await this.findAccountPage(
+      user,
+      query,
+      UserRoleValue.Instructor,
+    );
+    const courseCounts = await this.countManagedCourses(
+      user,
+      rows.map((row) => row.id),
+    );
+
+    const items: InstructorListItem[] = rows.map((row) => ({
+      ...row,
+      managedCourseCount: courseCounts ? (courseCounts[row.id] ?? 0) : null,
+    }));
+    return createPageResponse(items, page, pageSize, total);
+  }
+
+  // ===========================================================================
+  // UC13 - Xem danh sách Learner
+  // ===========================================================================
+  async findLearners(
+    user: CurrentUser,
+    query: ListAccountsQueryDto,
+  ): Promise<PageResponse<LearnerListItem>> {
+    const { page, pageSize } = query;
+    const { rows, total } = await this.findAccountPage(
+      user,
+      query,
+      UserRoleValue.Learner,
+    );
+    const summaries = await this.summarizeLearnerEnrollments(
+      user,
+      rows.map((row) => row.id),
+    );
+
+    // Learner không có trong kết quả của learning-service = không có Enrollment -> 0.
+    const items: LearnerListItem[] = rows.map((row) => ({
+      ...row,
+      activeCourseCount: summaries
+        ? (summaries[row.id]?.activeCourseCount ?? 0)
+        : null,
+      overdueCourseCount: summaries
+        ? (summaries[row.id]?.overdueCourseCount ?? 0)
+        : null,
+    }));
+    return createPageResponse(items, page, pageSize, total);
+  }
+
+  /**
+   * Phần chung của danh sách tài khoản trong tổ chức (UC12 Instructor, UC13 Learner):
+   * một trang tài khoản chưa xóa của role, mới nhất trước, kèm cờ invitationExpired.
+   */
+  private async findAccountPage(
+    user: CurrentUser,
+    query: ListAccountsQueryDto,
+    role: SeatRole,
+  ): Promise<{ rows: AccountListItem[]; total: number }> {
     // Tổ chức luôn lấy từ danh tính người gọi, không nhận từ client.
     const organizationId = this.organizationIdOf(user);
     const { page, pageSize } = query;
@@ -70,7 +134,7 @@ export class UsersService {
     // BR-37: xóa tài khoản là gán deleted_at, nên loại các dòng đã xóa.
     const where = {
       organizationId,
-      role: UserRoleValue.Instructor,
+      role,
       deletedAt: null,
     };
     const [total, rows] = await this.prisma.$transaction([
@@ -99,17 +163,14 @@ export class UsersService {
         .filter((row) => row.status === UserStatus.Pending)
         .map((row) => row.id),
     );
-    const courseCounts = await this.countManagedCourses(
-      user,
-      rows.map((row) => row.id),
-    );
 
-    const items: InstructorListItem[] = rows.map((row) => ({
-      ...row,
-      invitationExpired: expiredIds.has(row.id),
-      managedCourseCount: courseCounts ? (courseCounts[row.id] ?? 0) : null,
-    }));
-    return createPageResponse(items, page, pageSize, total);
+    return {
+      rows: rows.map((row) => ({
+        ...row,
+        invitationExpired: expiredIds.has(row.id),
+      })),
+      total,
+    };
   }
 
   // ===========================================================================
@@ -386,6 +447,26 @@ export class UsersService {
       const reason = error instanceof Error ? error.message : String(error);
       this.logger.warn(
         `Không lấy được số Course phụ trách từ course-service: ${reason}`,
+      );
+      return null;
+    }
+  }
+
+  /** Lỗi khi hỏi learning-service không làm hỏng cả danh sách: trả null, ghi cảnh báo. */
+  private async summarizeLearnerEnrollments(
+    user: CurrentUser,
+    learnerIds: string[],
+  ): Promise<Record<string, LearnerEnrollmentSummary> | null> {
+    if (learnerIds.length === 0) return {};
+    try {
+      return await this.learningClient.summarizeEnrollmentsByLearners(
+        user,
+        learnerIds,
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Không lấy được tình trạng đào tạo của Learner từ learning-service: ${reason}`,
       );
       return null;
     }
