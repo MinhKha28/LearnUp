@@ -5,6 +5,7 @@ import type { CurrentUser } from '@learnup/ts-common';
 import { CourseListQueryDto } from './dto/course-list-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { CreateCourseModuleDto } from './dto/create-course-module.dto';
+import { CreateCourseLessonDto } from './dto/create-course-lesson.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -36,5 +37,15 @@ export class CoursesController {
     @Body() dto: CreateCourseModuleDto,
   ) {
     return this.coursesService.createModule(user, courseId, dto);
+  }
+  @Post(':courseId/modules/:moduleId/lessons')
+  @ResponseMessage('Lesson created successfully')
+  createLesson(
+    @User() user: CurrentUser,
+    @Param('courseId') courseId: string,
+    @Param('moduleId') moduleId: string,
+    @Body() dto: CreateCourseLessonDto,
+  ) {
+    return this.coursesService.createLesson(user, courseId, moduleId, dto);
   }
 }
