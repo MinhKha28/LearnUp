@@ -1,104 +1,175 @@
+import { BookOutlined } from "@ant-design/icons";
 import { Input, message } from "antd";
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import {
-  addBuilderLesson,
-  findBuilderModule,
-  findCourseStructure,
-  findInstructorCourse,
-  slugify,
-} from "@/components/instructor/instructor.data";
-import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
-import "./course.create.scss";
+import { useNavigate, useOutletContext, useParams } from "react-router-dom";
+
+import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
+import { InstructorButton } from "@/components/instructor/instructor.ui";
+import { createCourseLessonAPI } from "@/services/course.service";
+
 import "./course.builder.scss";
 
 const CourseBuilderLessonAdd = () => {
   const { courseId, moduleId } = useParams();
   const navigate = useNavigate();
-  const course = findInstructorCourse(courseId);
-  const structure = findCourseStructure(courseId);
-  const module = structure ? findBuilderModule(structure, moduleId) : undefined;
+  const { structure, refetchStructure } =
+    useOutletContext<ICourseBuilderOutletContext>();
+
   const [title, setTitle] = useState("");
-  const [requirement, setRequirement] = useState<"Required" | "Optional">("Required");
   const [content, setContent] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  if (!course || !structure || !module) {
+  if (!courseId || !moduleId) return null;
+
+  const base = `/instructor/courses/${courseId}/builder`;
+  const module = structure.modules.find((item) => item.id === moduleId);
+
+  if (!module) {
     return (
-      <InstructorPage className="builder-page">
-        <p>Select a Module from the Curriculum Tree to add a Lesson.</p>
-      </InstructorPage>
-    );
-  }
+      <div className="builder-create-page">
+        <div className="builder-create-card">
+          <p>Module not found.</p>
 
-  const base = `/instructor/courses/${course.id}/builder`;
-
-  const handleSave = () => {
-    if (!title.trim()) {
-      message.warning("Enter a Lesson title.");
-      return;
-    }
-    addBuilderLesson(structure, module.id, {
-      id: slugify(title),
-      title: title.trim(),
-      required: requirement === "Required",
-      introText: content.trim(),
-    });
-    message.success("Lesson saved.");
-    navigate(base);
-  };
-
-  return (
-    <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Add Lesson</span>
-      <div className="builder-hero">
-        <h1>Add Lesson</h1>
-      </div>
-      <div className="builder-grid">
-        <div className="builder-update-card">
-          <label className="instructor-form-label">Lesson title</label>
-          <Input
-            placeholder="Lesson 2 · Applying safety procedures"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-          />
-          <label className="instructor-form-label instructor-form-label-spaced">Requirement</label>
-          <div className="instructor-pill-toggle">
-            <button
-              type="button"
-              className={requirement === "Required" ? "instructor-pill-active" : ""}
-              onClick={() => setRequirement("Required")}
-            >
-              Required
-            </button>
-            <button
-              type="button"
-              className={requirement === "Optional" ? "instructor-pill-active" : ""}
-              onClick={() => setRequirement("Optional")}
-            >
-              Optional
-            </button>
-          </div>
-          <label className="instructor-form-label instructor-form-label-spaced">Lesson content</label>
-          <Input.TextArea
-            className="builder-textarea"
-            placeholder="Write the Lesson introduction..."
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-          />
-          <div className="builder-actions">
-            <InstructorButton onClick={() => navigate(-1)}>Cancel</InstructorButton>
-            <InstructorButton type="primary" disabled={course.locked} onClick={handleSave}>
-              Save Lesson
+          <div className="builder-create-actions">
+            <InstructorButton onClick={() => navigate(base)}>
+              Back to Course Structure
             </InstructorButton>
           </div>
         </div>
-        <div className="builder-side">
-          <InfoPanel title="Structural rule">
-            Adding a Lesson is blocked after the Course is Locked.
-          </InfoPanel>
+      </div>
+    );
+  }
+
+  const handleSave = async () => {
+    if (saving) return;
+
+    const normalizedTitle = title.trim();
+    const normalizedContent = content.trim();
+
+    if (!normalizedTitle) {
+      message.warning("Enter a Lesson title.");
+      return;
+    }
+
+    if (!normalizedContent) {
+      message.warning("Enter Lesson content.");
+      return;
+    }
+
+    if (structure.structureLocked) {
+      message.error(structure.lockReason || "Course structure is locked.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const response = await createCourseLessonAPI(courseId, moduleId, {
+        title: normalizedTitle,
+        content: normalizedContent,
+      });
+
+      if (!response.data) {
+        message.error(response.message || "Unable to create Lesson.");
+        return;
+      }
+
+      message.success("Lesson created.");
+
+      await refetchStructure();
+
+      navigate(base, {
+        replace: true,
+      });
+    } catch (error) {
+      console.error("Create Lesson error:", error);
+      message.error("Unable to create Lesson.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="builder-create-page">
+      <div className="builder-create-header">
+        <span className="builder-editor-eyebrow">COURSE STRUCTURE</span>
+        <h1>Add Lesson</h1>
+
+        <p>
+          Add a new Lesson to <strong>{module.title}</strong>.
+        </p>
+      </div>
+
+      <div className="builder-create-card">
+        <div className="builder-create-card-header">
+          <div className="builder-create-icon">
+            <BookOutlined />
+          </div>
+
+          <div>
+            <h2>Lesson information</h2>
+            <p>Enter the Lesson title and introductory content.</p>
+          </div>
+        </div>
+
+        <div className="builder-create-form">
+          <label htmlFor="lesson-title">Lesson title</label>
+
+          <Input
+            id="lesson-title"
+            size="large"
+            maxLength={200}
+            showCount
+            autoFocus
+            placeholder="e.g. Introduction to Spring Boot"
+            value={title}
+            disabled={saving || structure.structureLocked}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+
+          <label
+            htmlFor="lesson-content"
+            className="builder-create-label-spaced"
+          >
+            Lesson content
+          </label>
+
+          <Input.TextArea
+            id="lesson-content"
+            rows={7}
+            maxLength={20000}
+            showCount
+            placeholder="Write the Lesson introduction..."
+            value={content}
+            disabled={saving || structure.structureLocked}
+            onChange={(event) => setContent(event.target.value)}
+          />
+
+          <p className="builder-create-help">
+            The new Lesson will be placed at the end of this Module.
+          </p>
+        </div>
+
+        <div className="builder-create-actions">
+          <InstructorButton onClick={() => navigate(base)} disabled={saving}>
+            Cancel
+          </InstructorButton>
+
+          <InstructorButton
+            type="primary"
+            onClick={() => void handleSave()}
+            disabled={
+              saving ||
+              structure.structureLocked ||
+              !title.trim() ||
+              !content.trim()
+            }
+          >
+            {saving ? "Saving..." : "Add Lesson"}
+          </InstructorButton>
         </div>
       </div>
-    </InstructorPage>
+    </div>
   );
 };
 
