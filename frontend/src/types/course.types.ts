@@ -110,6 +110,7 @@ export interface ICourseLesson {
   id: string;
   moduleId: string;
   title: string;
+  content: string;
   position: number;
   createdAt: string;
   updatedAt: string;
