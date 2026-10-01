@@ -1,123 +1,123 @@
 import { SearchOutlined } from "@ant-design/icons";
-import { Input, Select, Table } from "antd";
-import type { ColumnsType } from "antd/es/table";
-import { useMemo, useState } from "react";
+import { Alert, Table } from "antd";
+import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  type CourseStatus,
-  type CourseVisibility,
-  courseStatusLabel,
-  findContentModerationCase,
-  instructorCourses,
-  isCourseQuotaReached,
-} from "@/components/instructor/instructor.data";
+import { isCourseQuotaReached } from "@/components/instructor/instructor.data";
 import {
   InstructorButton,
   InstructorPage,
   PageHeader,
   StatusTag,
 } from "@/components/instructor/instructor.ui";
+import { fetchManagedCoursesAPI } from "@/services/course.service";
+import type {
+  CourseStatus,
+  CourseType,
+  IInstructorCourseListItem,
+} from "@/types/course.types";
+
 import "./my.courses.scss";
+import { Button, Input, Select } from "antd/lib";
 
-type LockFilter = "all" | "locked" | "unlocked";
+const courseTypeLabel: Record<CourseType, string> = {
+  PUBLIC: "Public",
+  PRIVATE: "Private",
+};
 
-interface IRow {
-  key: string;
-  title: string;
-  visibility: CourseVisibility;
-  status: CourseStatus;
-  locked: boolean;
-  learners: string;
-  action: { label: string; onClick: (navigate: ReturnType<typeof useNavigate>) => void };
-}
+const courseStatusLabel: Record<CourseStatus, string> = {
+  DRAFT: "Draft",
+  SUBMITTED: "Submitted",
+  PUBLISHED: "Published",
+  REJECTED: "Rejected",
+  ARCHIVED: "Archived",
+  DISABLED: "Disabled",
+};
 
-const actionLabel: Record<CourseStatus, string> = {
-  draft: "Open Builder",
-  submitted: "View Course",
-  published: "Open Course",
-  rejected: "Review reason",
+const courseStatusTone = (
+  status: CourseStatus,
+): "neutral" | "success" | "warning" | "error" | "info" => {
+  switch (status) {
+    case "PUBLISHED":
+      return "success";
+
+    case "SUBMITTED":
+      return "info";
+
+    case "REJECTED":
+    case "DISABLED":
+      return "error";
+
+    case "ARCHIVED":
+      return "warning";
+
+    default:
+      return "neutral";
+  }
 };
 
 const MyCourses = () => {
   const navigate = useNavigate();
+  const [courses, setCourses] = useState<IInstructorCourseListItem[]>([]);
+  const [current, setCurrent] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [type, setType] = useState<"all" | CourseVisibility>("all");
-  const [status, setStatus] = useState<"all" | CourseStatus>("all");
-  const [lock, setLock] = useState<LockFilter>("all");
+  const [courseType, setCourseType] = useState<"ALL" | CourseType>("ALL");
+  const [status, setStatus] = useState<"ALL" | CourseStatus>("ALL");
+  const [locked, setLocked] = useState<"ALL" | "LOCKED" | "UNLOCKED">("ALL");
 
-  const rows: IRow[] = instructorCourses.map((course) => ({
-    key: course.id,
-    title: course.title,
-    visibility: course.visibility,
-    status: course.status,
-    locked: course.locked,
-    learners: course.status === "published" ? "[Count]" : "—",
-    action: {
-      label:
-        course.status === "draft" && findContentModerationCase(course.id)
-          ? "Review Course"
-          : actionLabel[course.status],
-      onClick: (nav) =>
-        course.status === "draft" && !findContentModerationCase(course.id)
-          ? nav(`/instructor/courses/${course.id}/builder`)
-          : nav(`/instructor/courses/${course.id}`),
-    },
-  }));
+  const fetchCourses = useCallback(async () => {
+    setLoading(true);
+    setErrorMessage("");
 
-  const filtered = useMemo(() => {
-    return rows.filter((row) => {
-      if (search.trim() && !row.title.toLowerCase().includes(search.trim().toLowerCase())) {
-        return false;
+    try {
+      const response = await fetchManagedCoursesAPI({
+        current,
+        pageSize,
+        search: search.trim() !== "" ? search.trim() : undefined,
+        courseType: courseType !== "ALL" ? courseType : undefined,
+        status: status !== "ALL" ? status : undefined,
+        locked: locked === "ALL" ? undefined : locked === "LOCKED",
+      });
+
+      if (!response.data) {
+        setCourses([]);
+        setTotal(0);
+        setErrorMessage(response.message || "Unable to load Courses.");
+        return;
       }
-      if (type !== "all" && row.visibility !== type) return false;
-      if (status !== "all" && row.status !== status) return false;
-      if (lock === "locked" && !row.locked) return false;
-      if (lock === "unlocked" && row.locked) return false;
-      return true;
-    });
-  }, [rows, search, type, status, lock]);
+      setCourses(response.data.result);
+      setTotal(response.data.meta.total);
+    } catch (error) {
+      console.error("Fetch managed courses error:", error);
+      setCourses([]);
+      setTotal(0);
+      setErrorMessage("Unable to load Courses. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [current, pageSize, search, courseType, status, locked]);
 
-  const clearFilters = () => {
-    setSearch("");
-    setType("all");
-    setStatus("all");
-    setLock("all");
+  useEffect(() => {
+    void fetchCourses();
+  }, [fetchCourses]);
+
+  const handleSearch = () => {
+    setCurrent(1);
+    setSearch(searchInput.trim());
   };
-
-  const columns: ColumnsType<IRow> = [
-    { title: "Course", dataIndex: "title", render: (value) => <strong>{value}</strong> },
-    { title: "Type", dataIndex: "visibility" },
-    {
-      title: "Status",
-      dataIndex: "status",
-      render: (value: CourseStatus) => {
-        const tone =
-          value === "published"
-            ? "success"
-            : value === "submitted"
-              ? "info"
-              : value === "rejected"
-                ? "error"
-                : "neutral";
-        return <StatusTag tone={tone}>{courseStatusLabel[value]}</StatusTag>;
-      },
-    },
-    { title: "Locked", dataIndex: "locked", render: (value: boolean) => (value ? "Yes" : "No") },
-    { title: "Learners", dataIndex: "learners" },
-    {
-      title: "Action",
-      dataIndex: "action",
-      render: (value: IRow["action"]) => (
-        <button
-          type="button"
-          className="instructor-courses-action"
-          onClick={() => value.onClick(navigate)}
-        >
-          {value.label}
-        </button>
-      ),
-    },
-  ];
+  const handleResetFilters = () => {
+    setSearchInput("");
+    setSearch("");
+    setCourseType("ALL");
+    setStatus("ALL");
+    setLocked("ALL");
+    setCurrent(1);
+  };
 
   const handleCreateCourse = () => {
     if (isCourseQuotaReached()) {
@@ -127,84 +127,232 @@ const MyCourses = () => {
     navigate("/instructor/courses/create");
   };
 
+  const handleTableChange = (pagination: TablePaginationConfig) => {
+    const nextPageSize = pagination.pageSize ?? pageSize;
+    const nextCurrent =
+      nextPageSize !== pageSize ? 1 : (pagination.current ?? current);
+    setPageSize(nextPageSize);
+    setCurrent(nextCurrent);
+  };
+
+  const columns: ColumnsType<IInstructorCourseListItem> = [
+    {
+      title: "Course",
+      dataIndex: "name",
+      render: (name: string) => (
+        <div className="instructor-courses-name">
+          <strong>{name}</strong>
+        </div>
+      ),
+    },
+    {
+      title: "Version",
+      dataIndex: "versionNumber",
+      render: (versionNumber: number) => `Version ${versionNumber}`,
+    },
+    {
+      title: "Type",
+      dataIndex: "courseType",
+      width: 120,
+      render: (courseType: CourseType) => courseTypeLabel[courseType],
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      width: 140,
+
+      render: (status: CourseStatus) => (
+        <StatusTag tone={courseStatusTone(status)}>
+          {courseStatusLabel[status]}
+        </StatusTag>
+      ),
+    },
+    {
+      title: "Locked",
+      dataIndex: "locked",
+      width: 110,
+      render: (locked: boolean) => (
+        <StatusTag tone={locked ? "warning" : "neutral"}>
+          {locked ? "Locked" : "Unlocked"}
+        </StatusTag>
+      ),
+    },
+    {
+      title: "Learners",
+      dataIndex: "learnerCount",
+      width: 110,
+      align: "right",
+
+      render: (learnerCount?: number) => learnerCount ?? "—",
+    },
+  ];
+
   return (
     <InstructorPage className="instructor-courses">
       <PageHeader
         eyebrow="INSTRUCTOR"
         title="My Courses"
-        subtitle={
-          filtered.length === 0
-            ? "No Courses match the current filters."
-            : "Courses currently under your responsibility."
-        }
+        subtitle="Courses currently under your responsibility."
         actions={
           <InstructorButton type="primary" onClick={handleCreateCourse}>
             + Create Course
           </InstructorButton>
         }
       />
-      <div className="instructor-courses-filters">
-        <Input
-          className="instructor-courses-search"
-          prefix={<SearchOutlined />}
-          placeholder="Search Course name"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          allowClear
+
+      {errorMessage && (
+        <Alert
+          className="instructor-courses-alert"
+          type="error"
+          showIcon
+          message="Could not load Courses"
+          description={errorMessage}
+          action={
+            <InstructorButton size="small" onClick={() => void fetchCourses()}>
+              Retry
+            </InstructorButton>
+          }
         />
-        <Select<"all" | CourseVisibility>
-          className="instructor-courses-filter"
-          variant="borderless"
-          value={type}
-          onChange={setType}
-          options={[
-            { value: "all", label: "All types" },
-            { value: "Public", label: "Public" },
-            { value: "Private", label: "Private" },
-          ]}
-        />
-        <Select<"all" | CourseStatus>
-          className="instructor-courses-filter"
-          variant="borderless"
-          value={status}
-          onChange={setStatus}
-          options={[
-            { value: "all", label: "All statuses" },
-            { value: "draft", label: "Draft" },
-            { value: "submitted", label: "Submitted" },
-            { value: "published", label: "Published" },
-            { value: "rejected", label: "Rejected" },
-          ]}
-        />
-        <Select<LockFilter>
-          className="instructor-courses-filter"
-          variant="borderless"
-          value={lock}
-          onChange={setLock}
-          options={[
-            { value: "all", label: "Lock status" },
-            { value: "locked", label: "Locked" },
-            { value: "unlocked", label: "Unlocked" },
-          ]}
-        />
-      </div>
-      {filtered.length > 0 ? (
-        <Table
-          className="instructor-table"
-          columns={columns}
-          dataSource={filtered}
-          pagination={false}
-        />
-      ) : (
-        <div className="instructor-courses-empty">
-          <div className="instructor-courses-empty-icon">
-            <SearchOutlined />
-          </div>
-          <h2>No matching Courses</h2>
-          <p>Try another name, type, approval status or lock filter.</p>
-          <InstructorButton onClick={clearFilters}>Clear filters</InstructorButton>
-        </div>
       )}
+      <div className="my-courses__filters">
+        <Input
+          className="my-courses__search"
+          placeholder="Search Course name"
+          prefix={<SearchOutlined />}
+          value={searchInput}
+          allowClear
+          onChange={(event) => {
+            const value = event.target.value;
+
+            setSearchInput(value);
+
+            if (value === "") {
+              setCurrent(1);
+              setSearch("");
+            }
+          }}
+          onPressEnter={handleSearch}
+        />
+
+        <Select
+          className="my-courses__filter"
+          value={courseType}
+          onChange={(value) => {
+            setCurrent(1);
+            setCourseType(value);
+          }}
+          options={[
+            {
+              value: "ALL",
+              label: "All types",
+            },
+            {
+              value: "PUBLIC",
+              label: "Public",
+            },
+            {
+              value: "PRIVATE",
+              label: "Private",
+            },
+          ]}
+        />
+
+        <Select
+          className="my-courses__filter"
+          value={status}
+          onChange={(value) => {
+            setCurrent(1);
+            setStatus(value);
+          }}
+          options={[
+            {
+              value: "ALL",
+              label: "All statuses",
+            },
+            {
+              value: "DRAFT",
+              label: "Draft",
+            },
+            {
+              value: "SUBMITTED",
+              label: "Submitted",
+            },
+            {
+              value: "PUBLISHED",
+              label: "Published",
+            },
+            {
+              value: "REJECTED",
+              label: "Rejected",
+            },
+            {
+              value: "ARCHIVED",
+              label: "Archived",
+            },
+            {
+              value: "DISABLED",
+              label: "Disabled",
+            },
+          ]}
+        />
+
+        <Select
+          className="my-courses__filter"
+          value={locked}
+          onChange={(value) => {
+            setCurrent(1);
+            setLocked(value);
+          }}
+          options={[
+            {
+              value: "ALL",
+              label: "All lock statuses",
+            },
+            {
+              value: "LOCKED",
+              label: "Locked",
+            },
+            {
+              value: "UNLOCKED",
+              label: "Unlocked",
+            },
+          ]}
+        />
+
+        <Button type="primary" onClick={handleSearch}>
+          Search
+        </Button>
+        <Button onClick={handleResetFilters}>Reset</Button>
+      </div>
+
+      <Table<IInstructorCourseListItem>
+        className="instructor-table"
+        rowKey="id"
+        columns={columns}
+        dataSource={courses}
+        loading={loading}
+        locale={{
+          emptyText: (
+            <div className="instructor-courses-empty">
+              <div className="instructor-courses-empty-icon">
+                <SearchOutlined />
+              </div>
+              <h2>No Courses yet</h2>
+              <p>Courses assigned to you will appear here.</p>
+            </div>
+          ),
+        }}
+        pagination={{
+          current,
+          pageSize,
+          total,
+          showSizeChanger: true,
+          pageSizeOptions: ["10", "20", "50"],
+          showTotal: (value) => `${value} Courses`,
+          position: ["bottomRight"],
+        }}
+        onChange={handleTableChange}
+      />
     </InstructorPage>
   );
 };

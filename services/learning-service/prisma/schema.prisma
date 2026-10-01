@@ -13,8 +13,8 @@ model Enrollment {
   learnerId                 String    @map("learner_id") @db.Uuid
   courseId                  String    @map("course_id") @db.Uuid
   enrollmentType            String    @map("enrollment_type")
-  status                    String
-  enrolledAt                DateTime  @map("enrolled_at") @db.Timestamptz
+  status                    String    @default("NotStarted")
+  enrolledAt                DateTime  @default(now()) @map("enrolled_at") @db.Timestamptz
   assignedAt                DateTime? @map("assigned_at") @db.Timestamptz
   expectedCompletionDays    Int?      @map("expected_completion_days")
   baseDueAt                 DateTime? @map("base_due_at") @db.Timestamptz
@@ -27,14 +27,16 @@ model Enrollment {
   withdrawnAt               DateTime? @map("withdrawn_at") @db.Timestamptz
   withdrawnReason           String?   @map("withdrawn_reason")
   createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt                 DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  courseSnapshot CourseVersionSnapshot @relation(fields: [courseId], references: [courseId])
+  courseSnapshot CourseVersionSnapshot @relation(fields: [courseId, organizationId], references: [courseId, organizationId])
   intervals      EnrollmentStatusInterval[]
   materialProgress MaterialProgress[]
 
+  @@unique([id, organizationId])
   @@unique([learnerId, courseId])
-  @@index([organizationId, status])
+  @@index([courseId, status])
+  @@index([organizationId, enrollmentType, status])
   @@map("enrollments")
 }
 
@@ -47,11 +49,11 @@ model EnrollmentStatusInterval {
   endedAt        DateTime? @map("ended_at") @db.Timestamptz
   reason         String?   @db.VarChar(1000)
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  enrollment Enrollment @relation(fields: [enrollmentId, organizationId], references: [id, organizationId], onDelete: Cascade)
 
-  @@index([organizationId, enrollmentId])
+  @@unique([enrollmentId, kind, startedAt])
   @@map("enrollment_status_intervals")
 }
 
@@ -63,10 +65,10 @@ model MaterialProgress {
   watchedRanges  Unsupported("int4multirange")? @map("watched_ranges")
   completedAt    DateTime? @map("completed_at") @db.Timestamptz
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  enrollment Enrollment        @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  material   MaterialSnapshot  @relation(fields: [materialId], references: [materialId])
+  enrollment Enrollment        @relation(fields: [enrollmentId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  material   MaterialSnapshot  @relation(fields: [materialId, organizationId], references: [materialId, organizationId])
 
   @@unique([enrollmentId, materialId])
   @@map("material_progress")
@@ -78,13 +80,15 @@ model CourseVersionSnapshot {
   chainId        String    @map("chain_id") @db.Uuid
   treeFetchedAt  DateTime  @map("tree_fetched_at") @db.Timestamptz
   disabledAt     DateTime? @map("disabled_at") @db.Timestamptz
-  disabledAsOf   DateTime? @map("disabled_as_of") @db.Timestamptz
+  disabledAsOf   DateTime  @map("disabled_as_of") @db.Timestamptz
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   enrollments Enrollment[]
   materials   MaterialSnapshot[]
+  lessons     LessonSnapshot[]
 
+  @@unique([courseId, organizationId])
   @@map("course_version_snapshots")
 }
 
@@ -98,14 +102,15 @@ model MaterialSnapshot {
   durationSeconds Int?      @map("duration_seconds")
   durationAsOf    DateTime? @map("duration_as_of") @db.Timestamptz
   disabledAt      DateTime? @map("disabled_at") @db.Timestamptz
-  disabledAsOf    DateTime? @map("disabled_as_of") @db.Timestamptz
+  disabledAsOf    DateTime  @map("disabled_as_of") @db.Timestamptz
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  courseSnapshot CourseVersionSnapshot @relation(fields: [courseId], references: [courseId])
+  courseSnapshot CourseVersionSnapshot @relation(fields: [courseId, organizationId], references: [courseId, organizationId])
   progress       MaterialProgress[]
 
-  @@index([organizationId, courseId])
+  @@unique([materialId, organizationId])
+  @@index([courseId, lessonId])
   @@map("material_snapshots")
 }
 
@@ -114,10 +119,13 @@ model LessonSnapshot {
   organizationId String    @map("organization_id") @db.Uuid
   courseId       String    @map("course_id") @db.Uuid
   disabledAt     DateTime? @map("disabled_at") @db.Timestamptz
-  disabledAsOf   DateTime? @map("disabled_as_of") @db.Timestamptz
+  disabledAsOf   DateTime  @map("disabled_as_of") @db.Timestamptz
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
+  courseSnapshot CourseVersionSnapshot @relation(fields: [courseId, organizationId], references: [courseId, organizationId])
+
+  // Không có trong thiết kế nhưng giữ lại: là index duy nhất phủ khóa ngoại (course_id, organization_id)
   @@index([organizationId, courseId])
   @@map("lesson_snapshots")
 }
@@ -128,9 +136,9 @@ model OrganizationSuspension {
   startedAt      DateTime  @map("started_at") @db.Timestamptz
   endedAt        DateTime? @map("ended_at") @db.Timestamptz
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  @@index([organizationId])
+  @@index([organizationId, startedAt])
   @@map("organization_suspensions")
 }
 
@@ -141,18 +149,17 @@ model LearnerAccount {
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
   statusAsOf     DateTime  @map("status_as_of") @db.Timestamptz
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  @@index([organizationId])
   @@map("learner_accounts")
 }
 
 model PlatformSetting {
   id                     String   @id @default(uuid(7)) @db.Uuid
-  videoCompletionPercent Int      @default(90) @map("video_completion_percent")
+  videoCompletionPercent Int      @map("video_completion_percent")
   sourceAsOf             DateTime @map("source_as_of") @db.Timestamptz
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt              DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("platform_settings")
 }
@@ -167,8 +174,8 @@ model OutboxEvent {
   occurredAt     DateTime  @map("occurred_at") @db.Timestamptz
   publishedAt    DateTime? @map("published_at") @db.Timestamptz
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  @@index([publishedAt])
+  // Index (published_at) bị bỏ; thay bằng index (id) WHERE published_at IS NULL viết tay trong migration add_design_constraints
   @@map("outbox_events")
 }

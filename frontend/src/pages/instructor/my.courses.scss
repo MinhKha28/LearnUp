@@ -85,6 +85,401 @@
   font-size: 13px;
 }
 
+.my-courses__filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  margin-bottom: 20px;
+}
+
+.my-courses__search {
+  width: 280px;
+}
+
+.my-courses__filter {
+  width: 170px;
+}
+
+.course-create-page {
+  padding-bottom: 48px;
+}
+
+.course-create-layout {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: start;
+}
+
+.course-create-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.course-create-card {
+  margin-bottom: 20px;
+}
+
+.course-create-section-description {
+  margin:
+    -4px 0 24px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.course-create-required {
+  margin-left: 4px;
+  color: #dc2626;
+}
+
+.course-create-help {
+  margin:
+    -14px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.course-create-days.ant-input-number-group-wrapper {
+  width: 220px;
+}
+
+.course-type-options {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.course-type-option {
+  display: flex;
+  width: 100%;
+  min-height: 92px;
+  padding: 16px;
+  align-items: flex-start;
+  gap: 12px;
+
+  border:
+    1px solid #e2e8f0;
+  border-radius: 10px;
+
+  background: #ffffff;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.course-type-option:hover {
+  border-color: #cbd5e1;
+}
+
+.course-type-option-active {
+  border-color: #f59e0b;
+  background: #fffbeb;
+
+  box-shadow:
+    0 0 0 1px rgba(245,
+      158,
+      11,
+      0.08);
+}
+
+.course-type-radio {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin-top: 1px;
+
+  align-items: center;
+  justify-content: center;
+
+  border:
+    1.5px solid #94a3b8;
+  border-radius: 50%;
+}
+
+.course-type-option-active .course-type-radio {
+  border-color: #f59e0b;
+}
+
+.course-type-radio span {
+  width: 8px;
+  height: 8px;
+
+  border-radius: 50%;
+}
+
+.course-type-option-active .course-type-radio span {
+  background: #f59e0b;
+}
+
+.course-type-option strong {
+  display: block;
+  margin-bottom: 5px;
+
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.course-type-option small {
+  display: block;
+
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.course-outcomes-header {
+  display: flex;
+  margin-bottom: 12px;
+
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.course-outcomes-header strong {
+  display: block;
+
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.course-outcomes-header p {
+  margin: 3px 0 0;
+
+  color: #64748b;
+  font-size: 12px;
+}
+
+.course-outcome-row {
+  display: flex;
+  margin-bottom: 10px;
+
+  align-items: center;
+  gap: 8px;
+}
+
+.course-outcome-row .ant-input {
+  flex: 1;
+}
+
+.course-outcome-remove {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+
+  align-items: center;
+  justify-content: center;
+
+  border:
+    1px solid #e2e8f0;
+  border-radius: 7px;
+
+  background: #ffffff;
+  color: #64748b;
+
+  cursor: pointer;
+}
+
+.course-outcome-remove:hover {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.course-outcomes-empty {
+  padding: 16px;
+
+  border:
+    1px dashed #cbd5e1;
+  border-radius: 8px;
+
+  background: #f8fafc;
+
+  color: #64748b;
+  font-size: 12px;
+  text-align: center;
+}
+
+.course-create-actions {
+  display: flex;
+  margin-top: 24px;
+
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.course-create-summary {
+  position: sticky;
+  top: 88px;
+}
+
+.course-summary-name {
+  margin-bottom: 20px;
+
+  color: #0f172a;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+
+  overflow-wrap: anywhere;
+}
+
+.course-summary-row {
+  display: flex;
+  min-height: 38px;
+
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  border-bottom:
+    1px solid #f1f5f9;
+}
+
+.course-summary-row>span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.course-summary-row>strong {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.course-summary-divider {
+  height: 1px;
+  margin: 20px 0;
+
+  background: #e2e8f0;
+}
+
+.course-summary-title {
+  display: block;
+  margin-bottom: 10px;
+
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.course-summary-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.course-requirement {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.course-requirement-icon {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #f1f5f9;
+
+  font-size: 10px;
+}
+
+.course-requirement-completed {
+  color: #059669;
+}
+
+.course-requirement-completed .course-requirement-icon {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.course-summary-note {
+  margin-top: 20px;
+  padding: 12px 14px;
+
+  border:
+    1px solid #fde68a;
+  border-radius: 8px;
+
+  background: #fffbeb;
+
+  color: #92400e;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@media (max-width: 1100px) {
+  .course-create-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .course-create-summary {
+    position: static;
+  }
+}
+
+@media (max-width: 700px) {
+  .course-type-options {
+    grid-template-columns: 1fr;
+  }
+
+  .course-outcomes-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .course-create-days.ant-input-number-group-wrapper {
+    width: 100%;
+  }
+
+  .course-create-actions {
+    flex-direction: column-reverse;
+  }
+
+  .course-create-actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .my-courses__filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .my-courses__search,
+  .my-courses__filter {
+    width: 100%;
+  }
+}
+
 @media (max-width: 900px) {
   .instructor-courses-filters {
     flex-wrap: wrap;
