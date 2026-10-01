@@ -222,7 +222,6 @@ export class RegistrationsService {
   // UC02.1 - Thực hiện thanh toán
   // ===========================================================================
   async pay(dto: PayRegistrationDto): Promise<IPaymentResult> {
-    // ---- GĐ2. Tìm đăng ký, kiểm hạn (BR-7), chặn trả lần 2.
     const registration = await this.findByTokenOrThrow(dto.token);
     await this.assertNotExpired(registration);
     if (registration.status !== RegistrationStatus.PendingPayment) {
@@ -233,26 +232,23 @@ export class RegistrationsService {
       });
     }
 
-    // ---- GĐ3. Ghi giao dịch Pending (có dấu vết kể cả khi service sập giữa chừng).
     const payment = await this.prisma.payment.create({
       data: {
         organizationId: registration.organizationId,
         planId: registration.planId,
         kind: PaymentKind.Registration,
         registrationId: registration.id,
-        amount: registration.price, // BR-275: số tiền đã chốt lúc đăng ký
+        amount: registration.price,
         status: PaymentStatus.Pending,
       },
     });
 
-    // ---- GĐ4. Gọi Mock Payment Service (NGOÀI transaction, vì là lời gọi mạng).
     const result = await this.paymentGateway.charge({
       paymentId: payment.id,
       amount: payment.amount,
       simulateFailure: dto.simulateFailure,
     });
 
-    // ---- GĐ5a. Thất bại: ghi lý do, đăng ký vẫn PendingPayment để Guest thử lại.
     if (!result.success) {
       await this.prisma.payment.update({
         where: { id: payment.id },
@@ -268,12 +264,10 @@ export class RegistrationsService {
       };
     }
 
-    // ---- GĐ5b. Thành công: mọi thay đổi trong MỘT transaction.
     const settings = await this.settingsService.get();
     const paidAt = new Date();
 
     const subscription = await this.prisma.$transaction(async (tx) => {
-      // ① Điều kiện status trong WHERE chống 2 lần thanh toán cùng lúc.
       const updated = await tx.registration.updateMany({
         where: {
           id: registration.id,
