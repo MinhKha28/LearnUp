@@ -20,7 +20,6 @@ import { DevFakeAuthMiddleware } from './common/middleware/dev-fake-auth.middlew
     OutboxModule, // @Global: OutboxService + relay gửi email
     IntegrationsModule, // @Global: IdentityClient
     SubscriptionPlansModule,
-    SubscriptionPlansModule,
     RegistrationsModule,
     UsersModule, // UC12
   ],
