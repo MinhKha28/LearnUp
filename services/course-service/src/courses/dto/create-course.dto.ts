@@ -1,28 +1,48 @@
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateCourseDto {
   @IsString()
-  title!: string;
+  @MaxLength(200)
+  name!: string;
 
   @IsOptional()
   @IsString()
-  description?: string;
+  @MaxLength(500)
+  shortDescription?: string;
 
   @IsOptional()
   @IsString()
-  coverImageUrl?: string;
+  @MaxLength(2000)
+  trainingObjectives?: string;
 
   @IsOptional()
-  @IsString()
-  trainingObjective?: string;
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
+  learningOutcomes?: string[];
 
   @IsOptional()
+  @IsUUID()
+  coverFileId?: string;
+
+  @Type(() => Number)
   @IsInt()
   @Min(1)
-  estimatedCompletionDays?: number;
+  expectedCompletionDays!: number;
 
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  estimatedDurationMinutes?: number;
+  @IsString()
+  @IsIn(['PUBLIC', 'PRIVATE'])
+  courseType!: 'PUBLIC' | 'PRIVATE';
 }
