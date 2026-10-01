@@ -368,6 +368,25 @@ void describe('CourseServiceClient – I2 tree', () => {
     );
   });
 
+  void test('Lesson có materials: [] và Module có lessons: [] được chấp nhận (D30)', async () => {
+    const tree = courseTree([]);
+    handler = ok({
+      ...tree,
+      modules: [
+        ...tree.modules,
+        {
+          id: '0199a000-0000-7000-8000-1a0000000022',
+          title: 'Module rỗng',
+          position: 2,
+          lessons: [],
+        },
+      ],
+    });
+    const parsed = await client().getCourseTree(USER, COURSE);
+    assert.deepEqual(parsed.modules[0].lessons[0].materials, []);
+    assert.deepEqual(parsed.modules[1].lessons, []);
+  });
+
   void test('404 → CourseNotAvailableError', async () => {
     handler = fail(404, 'COURSE_NOT_FOUND');
     await assert.rejects(
