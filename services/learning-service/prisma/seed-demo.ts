@@ -7,6 +7,8 @@
  * - LEARNER_1 (ORG_A) có hai Enrollment Required: Course 04 phân công lúc chạy; Course 02 bị LÙI ngày phân công
  *   (expectedCompletionDays + 2 ngày) để đã quá hạn (Overdue).
  * - Dòng tiến độ của Course 02 (một học liệu bắt buộc đã hoàn thành, Enrollment InProgress) là dữ liệu dựng.
+ * - D50: thêm dòng tiến độ dựng cho Video …1c0000000111 của L11 (xem đủ ngưỡng video_completion_percent
+ *   của Enrollment) để L11 hiện "Đã hoàn thành" ở UC27; Module 1 vẫn chưa xong, Enrollment vẫn InProgress.
  * - Seed gọi I1 nên gắn Locked THẬT cho Course 02 và 04 trong course_db local (BR-80).
  * Không seed Course 03 (để demo UC25.3), LEARNER_2 để trống.
  *
@@ -54,6 +56,10 @@ const ORGANIZER_A: CurrentUser = {
 const DEMO_ENROLLMENT_04 = '0199a000-0000-7000-8000-2a0000000001';
 const DEMO_ENROLLMENT_02 = '0199a000-0000-7000-8000-2a0000000002';
 const DEMO_PROGRESS_02 = '0199a000-0000-7000-8000-2b0000000001';
+/** D50: Video của L11 trên E-demo-2, dữ liệu dựng cho demo. */
+const DEMO_VIDEO_PROGRESS_02 = '0199a000-0000-7000-8000-2b0000000002';
+const DEMO_VIDEO_MATERIAL_02 = '0199a000-0000-7000-8000-1c0000000111';
+const DEMO_VIDEO_LESSON_02 = '0199a000-0000-7000-8000-1b0000000011';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -84,6 +90,7 @@ const BANNER = [
   'seed:demo learning-service: dữ liệu DỰNG cho demo UC26, chỉ dùng cho dev.',
   '- Ngày phân công Course 02 bị lùi (expectedCompletionDays + 2 ngày) để có Enrollment Overdue.',
   '- Dòng tiến độ (một học liệu bắt buộc của Course 02 đã hoàn thành) là dữ liệu dựng.',
+  '- D50: dòng tiến độ Video L11 của Course 02 (xem đủ ngưỡng hoàn thành) là dữ liệu dựng.',
   '- Seed gắn Locked THẬT cho Course 02 và 04 trong course_db local.',
 ].join('\n');
 
@@ -157,6 +164,7 @@ async function run(): Promise<void> {
     const tenant = app.get<TenantClient>(TENANT_CLIENT);
 
     // ---- Kiểm trước: không gọi I1/I2, không ghi dòng nào ----
+    await assertDemoVideoProgressIdFree(prisma);
     const now = new Date();
     const courses = await readCourses(PLANS.map((plan) => plan.courseId));
     const pending: (DemoPlan & { course: CourseRow; assignedAt: Date })[] = [];
@@ -309,10 +317,109 @@ async function run(): Promise<void> {
       }
     });
 
+    await ensureDemoVideoProgress(prisma);
+
     await printResult(enrollments, courses, timezone);
   } finally {
     await app.close();
   }
+}
+
+/** ID tiến độ D50 chỉ được thuộc đúng (E-demo-2, Video L11); khác thì dừng trước khi ghi gì. */
+async function assertDemoVideoProgressIdFree(
+  prisma: PrismaService,
+): Promise<void> {
+  const row = await prisma.materialProgress.findFirst({
+    where: { id: DEMO_VIDEO_PROGRESS_02 },
+    select: { enrollmentId: true, materialId: true },
+  });
+  if (
+    row &&
+    (row.enrollmentId !== DEMO_ENROLLMENT_02 ||
+      row.materialId !== DEMO_VIDEO_MATERIAL_02)
+  ) {
+    throw new SeedAbort(
+      `ID tiến độ ${DEMO_VIDEO_PROGRESS_02} đã thuộc Enrollment ${row.enrollmentId}, học liệu ${row.materialId}; không ghi đè.`,
+    );
+  }
+}
+
+/**
+ * D50: Video L11 của E-demo-2 hoàn thành. Ghi như luồng xem Video (thiết kế 3.3): watched_ranges phủ đủ
+ * ⌈duration_seconds × video_completion_percent ÷ 100⌉ giây theo ngưỡng đã chép vào Enrollment, và completed_at.
+ * Enrollment đã InProgress, có first_activity_at nên không cần cập nhật cột nào khác. Chạy lại không đổi gì.
+ */
+async function ensureDemoVideoProgress(prisma: PrismaService): Promise<void> {
+  const label = 'Tiến độ Video L11 (E-demo-2)';
+  const enrollment = await prisma.enrollment.findFirst({
+    where: {
+      id: DEMO_ENROLLMENT_02,
+      organizationId: ORG_A,
+      learnerId: LEARNER_1,
+      courseId: COURSE_AN_TOAN_V2,
+    },
+    select: {
+      status: true,
+      videoCompletionPercent: true,
+      firstActivityAt: true,
+    },
+  });
+  if (!enrollment || !enrollment.firstActivityAt) {
+    throw new SeedAbort(
+      `${label}: không thấy E-demo-2 ${DEMO_ENROLLMENT_02} có first_activity_at của LEARNER_1.`,
+    );
+  }
+
+  const existing = await prisma.materialProgress.findFirst({
+    where: {
+      enrollmentId: DEMO_ENROLLMENT_02,
+      materialId: DEMO_VIDEO_MATERIAL_02,
+    },
+    select: { id: true },
+  });
+  if (existing?.id === DEMO_VIDEO_PROGRESS_02) {
+    console.log(`${label}: đã có (${DEMO_VIDEO_PROGRESS_02}), bỏ qua.`);
+    return;
+  }
+  if (existing) {
+    throw new SeedAbort(
+      `${label}: đã có dòng tiến độ ${existing.id} (không phải ID demo); không ghi đè.`,
+    );
+  }
+
+  const material = await prisma.materialSnapshot.findFirst({
+    where: { materialId: DEMO_VIDEO_MATERIAL_02, organizationId: ORG_A },
+    select: {
+      courseId: true,
+      lessonId: true,
+      materialType: true,
+      durationSeconds: true,
+      disabledAt: true,
+    },
+  });
+  if (
+    !material ||
+    material.courseId !== COURSE_AN_TOAN_V2 ||
+    material.lessonId !== DEMO_VIDEO_LESSON_02 ||
+    material.materialType !== 'Video' ||
+    material.durationSeconds === null ||
+    material.disabledAt !== null
+  ) {
+    throw new SeedAbort(
+      `${label}: bản sao học liệu ${DEMO_VIDEO_MATERIAL_02} không phải Video còn hoạt động của L11 Course 02.`,
+    );
+  }
+
+  const watchedSeconds = Math.ceil(
+    (material.durationSeconds * enrollment.videoCompletionPercent) / 100,
+  );
+  await prisma.$executeRaw`
+    INSERT INTO material_progress (id, organization_id, enrollment_id, material_id, watched_ranges, completed_at)
+    VALUES (${DEMO_VIDEO_PROGRESS_02}::uuid, ${ORG_A}::uuid, ${DEMO_ENROLLMENT_02}::uuid, ${DEMO_VIDEO_MATERIAL_02}::uuid,
+            int4multirange(int4range(0, ${watchedSeconds}::int)), ${enrollment.firstActivityAt}::timestamptz)`;
+  console.log(
+    `${label}: đã tạo ${DEMO_VIDEO_PROGRESS_02} (xem ${watchedSeconds}/${material.durationSeconds} giây, ngưỡng ${enrollment.videoCompletionPercent}%).`,
+  );
 }
 
 async function printResult(

@@ -176,18 +176,19 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    @DisplayName("Should strip client-spoofed headers and inject verified JWT claims downstream")
+    @DisplayName("Should strip client-spoofed headers and inject verified JWT claims and x-internal-key downstream")
     void shouldSanitizeSpoofedHeadersAndInjectTrustedClaims() {
         String validUserId = "real-user-" + UUID.randomUUID();
         String validOrgId = "legit-org-" + UUID.randomUUID();
         String token = createToken(validUserId, "LEARNER", validOrgId, 3600000L);
 
-        // Client attempts to spoof ADMIN role and another user ID
-        MockServerHttpRequest request = MockServerHttpRequest.get("/api/learning/progress")
+        // Client attempts to spoof ADMIN role, user ID, and x-internal-key
+        MockServerHttpRequest request = MockServerHttpRequest.get("/api/v1/learning/progress")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .header(HeaderConstants.X_USER_ID, "attacker-user-id")
                 .header(HeaderConstants.X_USER_ROLE, "ADMIN")
                 .header(HeaderConstants.X_ORGANIZATION_ID, "evil-org-id")
+                .header(HeaderConstants.X_INTERNAL_KEY, "attacker-fake-key")
                 .build();
 
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
@@ -208,11 +209,13 @@ class JwtAuthenticationFilterTest {
         assertThat(headers.getFirst(HeaderConstants.X_USER_ROLE)).isEqualTo(UserRole.LEARNER.name());
         assertThat(headers.getFirst(HeaderConstants.X_ORGANIZATION_ID)).isEqualTo(validOrgId);
         assertThat(headers.getFirst(HeaderConstants.X_CORRELATION_ID)).isNotBlank();
+        assertThat(headers.getFirst(HeaderConstants.X_INTERNAL_KEY)).isEqualTo("learnup-internal-secret");
 
         // Verify client spoofed values are completely overwritten
         assertThat(headers.getFirst(HeaderConstants.X_USER_ID)).isNotEqualTo("attacker-user-id");
         assertThat(headers.getFirst(HeaderConstants.X_USER_ROLE)).isNotEqualTo("ADMIN");
         assertThat(headers.getFirst(HeaderConstants.X_ORGANIZATION_ID)).isNotEqualTo("evil-org-id");
+        assertThat(headers.getFirst(HeaderConstants.X_INTERNAL_KEY)).isNotEqualTo("attacker-fake-key");
 
         // Verify response header contains X-Correlation-ID
         assertThat(exchange.getResponse().getHeaders().getFirst(HeaderConstants.X_CORRELATION_ID)).isNotBlank();
@@ -224,7 +227,7 @@ class JwtAuthenticationFilterTest {
         String correlationId = "client-trace-12345-abc";
         String token = createToken("user-1", "INSTRUCTOR", "org-1", 3600000L);
 
-        MockServerHttpRequest request = MockServerHttpRequest.get("/api/courses")
+        MockServerHttpRequest request = MockServerHttpRequest.get("/api/v1/courses")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .header(HeaderConstants.X_CORRELATION_ID, correlationId)
                 .build();
@@ -245,11 +248,12 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    @DisplayName("Should allow whitelisted public endpoints without Authorization header while stripping spoofed headers")
+    @DisplayName("Should allow whitelisted public endpoints without Authorization header while injecting internal key and stripping spoofed identity headers")
     void shouldAllowWhitelistedPublicRoutes() {
-        MockServerHttpRequest request = MockServerHttpRequest.post("/api/auth/login")
+        MockServerHttpRequest request = MockServerHttpRequest.post("/api/v1/auth/login")
                 .header(HeaderConstants.X_USER_ID, "attacker-spoof")
                 .header(HeaderConstants.X_USER_ROLE, "ADMIN")
+                .header(HeaderConstants.X_INTERNAL_KEY, "attacker-fake-key")
                 .build();
 
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
@@ -268,5 +272,6 @@ class JwtAuthenticationFilterTest {
         assertThat(headers.getFirst(HeaderConstants.X_USER_ID)).isNull();
         assertThat(headers.getFirst(HeaderConstants.X_USER_ROLE)).isNull();
         assertThat(headers.getFirst(HeaderConstants.X_CORRELATION_ID)).isNotBlank();
+        assertThat(headers.getFirst(HeaderConstants.X_INTERNAL_KEY)).isEqualTo("learnup-internal-secret");
     }
 }

@@ -39,6 +39,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   EnrollmentsRepository,
   type CreatedEnrollment,
+  type EnrolledCourseRef,
   type MyEnrollmentRow,
 } from './enrollments.repository';
 
@@ -179,8 +180,8 @@ export class EnrollmentsService {
     }
   }
 
-  /** D20: courseId Learner đã đăng ký (trừ Withdrawn), để giao diện gắn nhãn. */
-  async getMyCourseIds(user: CurrentUser): Promise<string[]> {
+  /** D20, D48: Course Learner đã đăng ký kèm enrollmentId (trừ Withdrawn), để gắn nhãn và mở UC27. */
+  async getMyCourseIds(user: CurrentUser): Promise<EnrolledCourseRef[]> {
     return this.enrollments.findCourseIdsOfLearner(
       user.userId,
       this.organizationIdOf(user),

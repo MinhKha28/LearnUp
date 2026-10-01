@@ -7,7 +7,7 @@ import { DetailItem, InfoPanel, LearnerButton, PageHeader } from "@/components/l
 import "./assignment.submit.scss";
 
 const AssignmentSubmit = () => {
-  const { courseId, assignmentId } = useParams();
+  const { enrollmentId: courseId, assignmentId } = useParams();
   const navigate = useNavigate();
   const course = courseId ? courseDetails[courseId] : undefined;
   const assignment = course ? findAssignment(course, assignmentId) : undefined;

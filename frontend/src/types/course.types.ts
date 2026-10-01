@@ -87,3 +87,31 @@ export interface ICourseStructure {
   lockReason: string | null;
   modules: ICourseStructureModule[];
 }
+
+export interface ICreateCourseModuleRequest {
+  title: string;
+}
+
+export interface ICourseModule {
+  id: string;
+  courseId: string;
+  title: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ICreateCourseLessonRequest {
+  title: string;
+  content: string;
+}
+
+export interface ICourseLesson {
+  id: string;
+  moduleId: string;
+  title: string;
+  content: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}

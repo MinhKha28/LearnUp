@@ -130,4 +130,52 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.items", hasSize(1)));
     }
+
+    @Test
+    @DisplayName("Should support /api/v1 route prefix for notification and email endpoints")
+    void shouldSupportV1RoutePrefix() throws Exception {
+        UUID orgId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        CreateNotificationRequest request = new CreateNotificationRequest(
+                orgId,
+                userId,
+                "V1 Test Notification",
+                "Testing /api/v1 routes",
+                "INFO",
+                "IN_APP",
+                "{}"
+        );
+
+        mockMvc.perform(post("/api/v1/notifications/send")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true));
+
+        mockMvc.perform(get("/api/v1/notifications")
+                        .header(HeaderConstants.X_USER_ID, userId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.items", hasSize(1)));
+
+        SendEmailRequest emailReq = new SendEmailRequest(
+                "v1recipient@learnup.com",
+                "V1 Subject",
+                "V1 Body",
+                "TEST"
+        );
+
+        mockMvc.perform(post("/api/v1/notifications/email/send")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(emailReq)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true));
+
+        mockMvc.perform(get("/api/v1/notifications/email/logs")
+                        .param("recipientEmail", "v1recipient@learnup.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.items", hasSize(1)));
+    }
 }

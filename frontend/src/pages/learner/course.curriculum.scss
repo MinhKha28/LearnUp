@@ -1,148 +1,148 @@
-.course-curriculum-preview {
-  padding: 24px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: #fff;
-}
-
-.course-curriculum-tabs {
+.course-curriculum-header {
   display: flex;
-  margin-bottom: 16px;
-  gap: 8px;
+  align-items: flex-start;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
 
-.course-curriculum-tabs button {
-  padding: 4px 14px;
-  border: 0;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 650;
-  cursor: pointer;
+.course-curriculum-heading {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.course-curriculum-tabs button.active {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.course-curriculum-preview h2 {
-  margin: 0 0 6px;
-  color: #0f172a;
-  font-size: 22px;
+.course-curriculum-heading h1 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 24px;
   font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.course-curriculum-version {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.course-curriculum-tags,
+.course-curriculum-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.course-curriculum-marks {
+  flex: 0 0 auto;
+  justify-content: flex-end;
 }
 
 .course-curriculum-meta {
-  margin: 0 0 16px;
-  color: #64748b;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
-.course-curriculum-video {
-  position: relative;
-  display: flex;
-  height: 220px;
-  padding: 16px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: #1e293b;
-}
-
-.course-curriculum-play {
-  color: #fff;
-  font-size: 32px;
-}
-
-.course-curriculum-video-track {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  left: 16px;
-  height: 6px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.25);
-}
-
-.course-curriculum-video-track span {
-  display: block;
-  height: 100%;
-  background: #f59e0b;
-}
-
-.course-curriculum-reading {
-  padding: 16px;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.course-curriculum-reading p {
-  margin: 0 0 8px;
-  color: #475569;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.course-curriculum-caption {
-  margin: 16px 0 0;
-  color: #64748b;
-  font-size: 12px;
-}
-
-.course-curriculum-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 20px;
-}
-
-.course-curriculum-panel {
-  padding: 20px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: #fff;
-}
-
-.course-curriculum-panel h3 {
-  margin: 0 0 6px;
-  color: #0f172a;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.course-curriculum-panel > span {
-  display: block;
-  margin-bottom: 10px;
-  color: #94a3b8;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.course-curriculum-pills {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.course-curriculum-panel hr {
-  margin: 16px 0;
-  border: 0;
-  border-top: 1px solid var(--color-border);
-}
-
-.course-curriculum-panel h4 {
-  margin: 0 0 10px;
-  color: #0f172a;
-  font-size: 13px;
+.course-curriculum-title {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-primary);
+  font-size: 18px;
   font-weight: 650;
 }
 
-.course-curriculum-progress-label {
-  display: block;
-  margin-top: 6px;
-  color: #64748b;
-  font-size: 12px;
+.course-curriculum-empty {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.course-curriculum-modules,
+.course-curriculum-lessons {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.course-curriculum-modules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.course-curriculum-module {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.course-curriculum-module-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-secondary);
+}
+
+.course-curriculum-module-heading h2 {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.course-curriculum-lessons > li + li {
+  border-top: 1px solid var(--color-border);
+}
+
+.course-curriculum-lesson {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  transition: background 0.15s ease;
+}
+
+.course-curriculum-lesson:hover,
+.course-curriculum-lesson:focus-visible {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
+.course-curriculum-lesson-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .course-curriculum-header {
+    flex-direction: column;
+  }
+
+  .course-curriculum-header .course-cover {
+    width: 100%;
+  }
+
+  .course-curriculum-lesson,
+  .course-curriculum-module-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .course-curriculum-marks {
+    justify-content: flex-start;
+  }
 }

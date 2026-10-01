@@ -32,8 +32,9 @@ export class InternalAuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const internalKey = request.headers[HEADER_NAMES.INTERNAL_KEY];
-    const expectedInternalKey =
-      this.configService.getOrThrow<string>('INTERNAL_SERVICE_KEY');
+    const expectedInternalKey = this.configService.getOrThrow<string>(
+      'INTERNAL_SERVICE_KEY',
+    );
 
     if (
       typeof internalKey !== 'string' ||

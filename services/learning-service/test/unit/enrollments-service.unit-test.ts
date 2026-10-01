@@ -98,7 +98,8 @@ function setup(
         enrolledAt: new Date(),
       });
     },
-    findCourseIdsOfLearner: () => Promise.resolve([COURSE_ID]),
+    findCourseIdsOfLearner: () =>
+      Promise.resolve([{ courseId: COURSE_ID, enrollmentId: EXISTING_ID }]),
   };
   const courseSnapshots = {
     existsForCourse: () => Promise.resolve(options.snapshotExists ?? false),

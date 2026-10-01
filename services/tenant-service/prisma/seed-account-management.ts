@@ -37,6 +37,20 @@
  *   Instructor XYZ             ...00000000b101 – b103
  *   Pending lời mời hết hạn    a104, a109;  còn hạn: a123, a125;  không token: a117
  *   Đã xóa                     a111, a121
+ *
+ * Bổ sung UC12.2 (Thêm Instructor):
+ *   - Subscription a301 của ABC chuyển sang bản chụp gói "Premium" (30 Instructor)
+ *     -> ABC dùng 23/30 chỗ (đếm cả Pending, Deactivated; bỏ đã xóa – BR-36, BR-37), còn 7.
+ *   - Công ty CP Gamma: subscription c301 ở Grace (đã hết hạn, đang ân hạn) -> thử chặn BR-15.
+ *     expires_at = lúc chạy seed - 2 ngày, grace_ends_at = expires_at + subscription_grace_days
+ *     (tính theo LÚC CHẠY SEED nên luôn còn trong thời gian ân hạn).
+ *   - Công ty TNHH Delta: subscription d301 Active gói "Basic" (3 Instructor), đã có đủ 3 -> hết chỗ.
+ *   ID mới:
+ *     Org Gamma / Org Delta       ...00000000c001 / ...00000000d001
+ *     Subscription Gamma / Delta  ...00000000c301 / ...00000000d301
+ *     Organizer Gamma (Thảo)      ...00000000c010
+ *     Organizer Delta (Quân)      ...00000000d010
+ *     Instructor Delta            ...00000000d101 – d103
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -50,6 +64,8 @@ const prisma = new PrismaClient({
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const STANDARD_PLAN_NAME = 'Standard';
+const PREMIUM_PLAN_NAME = 'Premium'; // UC12.2: gói của ABC
+const BASIC_PLAN_NAME = 'Basic'; // UC12.2: gói nhỏ nhất (Delta)
 const id = (suffix: string) =>
   `01900000-0000-7000-8000-${suffix.padStart(12, '0')}`;
 const at = (iso: string) => new Date(iso);
@@ -69,6 +85,32 @@ interface SeedOrg {
   createdAt: Date;
   subscriptionId: string;
   subscriptionStartsAt: Date;
+  planName: string; // UC12.2: gói để chụp vào subscription
+}
+
+// UC12.2: tổ chức thêm cho các ca chặn; ngày subscription tính theo lúc chạy seed.
+interface SeedExtraOrg {
+  id: string;
+  name: string;
+  taxCode: string;
+  address: string;
+  contactPhone: string;
+  contactEmail: string;
+  createdAt: Date;
+  subscriptionId: string;
+  planName: string;
+  subscriptionStatus: 'Active' | 'Grace';
+}
+
+interface SeedPlan {
+  id: string;
+  name: string;
+  price: bigint;
+  durationDays: number;
+  maxLearners: number;
+  maxInstructors: number;
+  maxCourseChains: number;
+  maxStorageBytes: bigint;
 }
 
 interface SeedUser {
@@ -110,6 +152,7 @@ const organizations: SeedOrg[] = [
     createdAt: at('2026-08-25T02:00:00Z'),
     subscriptionId: id('a301'),
     subscriptionStartsAt: at('2026-08-25T03:00:00Z'),
+    planName: PREMIUM_PLAN_NAME, // UC12.2: trước là Standard (10) < 23 Instructor đang có
   },
   {
     id: ORG_XYZ,
@@ -121,8 +164,63 @@ const organizations: SeedOrg[] = [
     createdAt: at('2026-08-28T02:00:00Z'),
     subscriptionId: id('b301'),
     subscriptionStartsAt: at('2026-08-28T03:00:00Z'),
+    planName: STANDARD_PLAN_NAME,
   },
 ];
+
+const ORG_GAMMA = id('c001');
+const ORG_DELTA = id('d001');
+
+const extraOrganizations: SeedExtraOrg[] = [
+  {
+    id: ORG_GAMMA,
+    name: 'Công ty CP Gamma',
+    taxCode: '0301112223',
+    address: '78 Lê Lợi, Quận Hải Châu, Đà Nẵng',
+    contactPhone: '+842363123456',
+    contactEmail: 'contact@gamma.vn',
+    createdAt: at('2025-09-20T02:00:00Z'),
+    subscriptionId: id('c301'),
+    planName: STANDARD_PLAN_NAME,
+    subscriptionStatus: 'Grace',
+  },
+  {
+    id: ORG_DELTA,
+    name: 'Công ty TNHH Delta',
+    taxCode: '0401234567',
+    address: '12 Hùng Vương, Quận Ninh Kiều, Cần Thơ',
+    contactPhone: '+842923123456',
+    contactEmail: 'lienhe@delta.vn',
+    createdAt: at('2026-09-20T02:00:00Z'),
+    subscriptionId: id('d301'),
+    planName: BASIC_PLAN_NAME,
+    subscriptionStatus: 'Active',
+  },
+];
+
+/** Ngày của subscription tổ chức thêm, tính theo lúc chạy seed. */
+function extraSubscriptionDates(
+  org: SeedExtraOrg,
+  plan: SeedPlan,
+  now: Date,
+  graceDays: number,
+): { startsAt: Date; expiresAt: Date; graceEndsAt: Date | null } {
+  if (org.subscriptionStatus === 'Grace') {
+    // Hết hạn 2 ngày trước, còn (graceDays - 2) ngày ân hạn.
+    const expiresAt = addDays(now, -2);
+    return {
+      startsAt: addDays(expiresAt, -plan.durationDays),
+      expiresAt,
+      graceEndsAt: addDays(expiresAt, graceDays),
+    };
+  }
+  const startsAt = addDays(now, -5);
+  return {
+    startsAt,
+    expiresAt: addDays(startsAt, plan.durationDays),
+    graceEndsAt: null,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Tài khoản
@@ -163,6 +261,31 @@ const users: SeedUser[] = [
     activatedAt: at('2026-08-28T03:00:00Z'),
     deletedAt: null,
     createdAt: at('2026-08-28T02:00:00Z'),
+  },
+  // UC12.2
+  {
+    id: id('c010'),
+    organizationId: ORG_GAMMA,
+    email: 'thao.truong@gamma.vn',
+    fullName: 'Trương Thị Thảo',
+    role: 'Organizer',
+    department: null,
+    status: 'Active',
+    activatedAt: at('2025-09-20T03:00:00Z'),
+    deletedAt: null,
+    createdAt: at('2025-09-20T02:00:00Z'),
+  },
+  {
+    id: id('d010'),
+    organizationId: ORG_DELTA,
+    email: 'quan.vo@delta.vn',
+    fullName: 'Võ Minh Quân',
+    role: 'Organizer',
+    department: null,
+    status: 'Active',
+    activatedAt: at('2026-09-20T03:00:00Z'),
+    deletedAt: null,
+    createdAt: at('2026-09-20T02:00:00Z'),
   },
 ];
 
@@ -292,6 +415,28 @@ for (const [n, fullName, email, kind] of abcLearners) {
   );
 }
 
+// UC12.2: Delta có đúng max_instructors của gói Basic (3) Instructor chưa xóa -> hết chỗ.
+const deltaInstructors: Array<[number, string, string, string | null, Kind]> = [
+  [1, 'Lê Thị Hạnh', 'hanh.le@delta.vn', 'Phòng Đào tạo', 'A'],
+  [2, 'Trần Quốc Việt', 'viet.tran@delta.vn', 'Phòng Kỹ thuật', 'A'],
+  [3, 'Phạm Ngọc Ánh', 'anh.pham@delta.vn', null, 'A'],
+];
+for (const [n, fullName, email, department, kind] of deltaInstructors) {
+  const createdAt = addDays(at('2026-09-21T02:00:00Z'), n - 1);
+  users.push(
+    buildUser(
+      id(`d1${String(n).padStart(2, '0')}`),
+      ORG_DELTA,
+      'Instructor',
+      fullName,
+      email,
+      department,
+      kind,
+      createdAt,
+    ),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Lời mời (account_tokens, purpose = Invitation)
 // ---------------------------------------------------------------------------
@@ -328,15 +473,9 @@ function buildTokens(now: Date, ttlDays: number): SeedToken[] {
 // ---------------------------------------------------------------------------
 function validateSeed(
   tokens: SeedToken[],
-  plan: {
-    price: bigint;
-    durationDays: number;
-    maxLearners: number;
-    maxInstructors: number;
-    maxCourseChains: number;
-    maxStorageBytes: bigint;
-  },
+  plans: Map<string, SeedPlan>,
   now: Date,
+  graceDays: number,
 ): void {
   const errors: string[] = [];
   const uuid =
@@ -366,6 +505,7 @@ function validateSeed(
       org.name.length <= 200 && org.address.length <= 300,
       `độ dài sai: ${org.name}`,
     );
+    const plan = plans.get(org.planName)!;
     const expiresAt = addDays(org.subscriptionStartsAt, plan.durationDays);
     check(
       org.subscriptionStartsAt < expiresAt && expiresAt > now,
@@ -373,7 +513,71 @@ function validateSeed(
     );
   }
 
-  const orgIds = new Set(organizations.map((org) => org.id));
+  // UC12.2: tổ chức thêm (Gamma ở Grace, Delta Active).
+  for (const org of extraOrganizations) {
+    check(
+      uuid.test(org.id) && uuid.test(org.subscriptionId),
+      `UUID sai: ${org.id}`,
+    );
+    check(
+      /^[0-9]{10}([0-9]{3})?$/.test(org.taxCode),
+      `tax_code sai: ${org.name}`,
+    );
+    check(
+      /^\+[1-9][0-9]{1,14}$/.test(org.contactPhone),
+      `contact_phone sai: ${org.name}`,
+    );
+    check(
+      org.contactEmail === org.contactEmail.trim().toLowerCase(),
+      `contact_email chưa chuẩn hóa: ${org.name}`,
+    );
+    check(
+      org.name.length <= 200 && org.address.length <= 300,
+      `độ dài sai: ${org.name}`,
+    );
+    const plan = plans.get(org.planName)!;
+    const dates = extraSubscriptionDates(org, plan, now, graceDays);
+    check(dates.startsAt < dates.expiresAt, `subscription sai: ${org.name}`);
+    if (org.subscriptionStatus === 'Grace') {
+      // Đã hết hạn nhưng còn trong thời gian ân hạn.
+      check(
+        dates.expiresAt <= now &&
+          dates.graceEndsAt !== null &&
+          dates.graceEndsAt > now,
+        `subscription Grace sai: ${org.name}`,
+      );
+    } else {
+      check(dates.expiresAt > now, `subscription Active sai: ${org.name}`);
+    }
+  }
+  // Delta phải hết chỗ Instructor đúng bằng max_instructors của gói.
+  const deltaPlan = plans.get(
+    extraOrganizations.find((org) => org.id === ORG_DELTA)!.planName,
+  )!;
+  const deltaUsed = users.filter(
+    (u) =>
+      u.organizationId === ORG_DELTA && u.role === 'Instructor' && !u.deletedAt,
+  ).length;
+  check(
+    deltaUsed === deltaPlan.maxInstructors,
+    `Delta phải có đúng ${deltaPlan.maxInstructors} Instructor chưa xóa, đang có ${deltaUsed}`,
+  );
+
+  // BR-23: số Instructor chưa xóa không vượt bản chụp giới hạn của gói.
+  for (const org of organizations) {
+    const used = users.filter(
+      (u) =>
+        u.organizationId === org.id && u.role === 'Instructor' && !u.deletedAt,
+    ).length;
+    const max = plans.get(org.planName)!.maxInstructors;
+    check(
+      used <= max,
+      `${org.name} có ${used} Instructor, vượt giới hạn ${max} của gói ${org.planName}`,
+    );
+  }
+
+  const allOrganizations = [...organizations, ...extraOrganizations];
+  const orgIds = new Set(allOrganizations.map((org) => org.id));
   const activeEmails = new Set<string>();
   for (const user of users) {
     check(uuid.test(user.id), `UUID sai: ${user.id}`);
@@ -410,7 +614,7 @@ function validateSeed(
   }
 
   // BR-40: mỗi tổ chức đúng 1 Organizer chưa xóa, chưa vô hiệu hóa.
-  for (const org of organizations) {
+  for (const org of allOrganizations) {
     const organizers = users.filter(
       (u) =>
         u.organizationId === org.id &&
@@ -445,15 +649,17 @@ function validateSeed(
     openTokens.add(key);
   }
 
-  check(
-    plan.price > 0n &&
-      plan.durationDays > 0 &&
-      plan.maxLearners > 0 &&
-      plan.maxInstructors > 0 &&
-      plan.maxCourseChains > 0 &&
-      plan.maxStorageBytes > 0n,
-    'gói Standard có giá trị <= 0',
-  );
+  for (const plan of plans.values()) {
+    check(
+      plan.price > 0n &&
+        plan.durationDays > 0 &&
+        plan.maxLearners > 0 &&
+        plan.maxInstructors > 0 &&
+        plan.maxCourseChains > 0 &&
+        plan.maxStorageBytes > 0n,
+      `gói ${plan.name} có giá trị <= 0`,
+    );
+  }
 
   if (errors.length > 0) {
     throw new Error(
@@ -464,24 +670,30 @@ function validateSeed(
 
 // ---------------------------------------------------------------------------
 async function main(): Promise<void> {
-  const plan = await prisma.subscriptionPlan.findFirst({
-    where: { name: STANDARD_PLAN_NAME },
-  });
-  if (!plan) {
-    console.error('Chưa có gói Standard, hãy chạy npm run prisma:seed trước');
-    process.exitCode = 1;
-    return;
+  // UC12.2: cần 3 gói của seed nền (ABC Premium, XYZ / Gamma Standard, Delta Basic).
+  const plans = new Map<string, SeedPlan>();
+  for (const name of [STANDARD_PLAN_NAME, PREMIUM_PLAN_NAME, BASIC_PLAN_NAME]) {
+    const found = await prisma.subscriptionPlan.findFirst({ where: { name } });
+    if (!found) {
+      console.error(`Chưa có gói ${name}, hãy chạy npm run prisma:seed trước`);
+      process.exitCode = 1;
+      return;
+    }
+    plans.set(name, found);
   }
   // BR-278, BR-269: hạn lời mời theo tham số nền tảng (mặc định 7 ngày).
   const settings = await prisma.platformSetting.findFirst();
   const ttlDays = settings?.invitationLinkTtlDays ?? 7;
+  // BR-15: thời gian ân hạn (UC12.2, subscription Grace của Gamma).
+  const graceDays = settings?.subscriptionGraceDays ?? 7;
 
   const now = new Date();
   const tokens = buildTokens(now, ttlDays);
-  validateSeed(tokens, plan, now);
+  validateSeed(tokens, plans, now, graceDays);
 
   await prisma.$transaction(async (tx) => {
-    for (const org of organizations) {
+    // UC12.2: ghi cả tổ chức thêm ở đây (trước users vì khóa ngoại).
+    for (const org of [...organizations, ...extraOrganizations]) {
       const data = {
         name: org.name,
         taxCode: org.taxCode,
@@ -509,12 +721,13 @@ async function main(): Promise<void> {
     }
 
     for (const org of organizations) {
+      const plan = plans.get(org.planName)!;
       const data = {
         organizationId: org.id,
         planId: plan.id,
         source: 'Registration',
         status: 'Active',
-        // Bản chụp từ gói Standard (BR-275).
+        // Bản chụp từ gói của tổ chức (BR-275).
         price: plan.price,
         durationDays: plan.durationDays,
         maxLearners: plan.maxLearners,
@@ -524,6 +737,33 @@ async function main(): Promise<void> {
         startsAt: org.subscriptionStartsAt,
         expiresAt: addDays(org.subscriptionStartsAt, plan.durationDays),
         createdAt: org.subscriptionStartsAt,
+      };
+      await tx.subscription.upsert({
+        where: { id: org.subscriptionId },
+        create: { id: org.subscriptionId, ...data },
+        update: data,
+      });
+    }
+
+    // UC12.2: subscription của Gamma (Grace) và Delta (Active, gói Basic).
+    for (const org of extraOrganizations) {
+      const plan = plans.get(org.planName)!;
+      const dates = extraSubscriptionDates(org, plan, now, graceDays);
+      const data = {
+        organizationId: org.id,
+        planId: plan.id,
+        source: 'Registration',
+        status: org.subscriptionStatus,
+        price: plan.price,
+        durationDays: plan.durationDays,
+        maxLearners: plan.maxLearners,
+        maxInstructors: plan.maxInstructors,
+        maxCourseChains: plan.maxCourseChains,
+        maxStorageBytes: plan.maxStorageBytes,
+        startsAt: dates.startsAt,
+        expiresAt: dates.expiresAt,
+        graceEndsAt: dates.graceEndsAt,
+        createdAt: dates.startsAt,
       };
       await tx.subscription.upsert({
         where: { id: org.subscriptionId },
@@ -562,7 +802,10 @@ async function main(): Promise<void> {
     `  - Công ty TNHH XYZ: 1 Organizer, ${count('Instructor', ORG_XYZ)} Instructor`,
   );
   console.log(
-    `  - 1 Admin, ${organizations.length} subscription Active (gói ${plan.name}), ${tokens.length} lời mời`,
+    `  - 1 Admin, ${organizations.length} subscription Active (ABC gói ${PREMIUM_PLAN_NAME}, XYZ gói ${STANDARD_PLAN_NAME}), ${tokens.length} lời mời`,
+  );
+  console.log(
+    `  - UC12.2: Công ty CP Gamma (subscription Grace), Công ty TNHH Delta (gói ${BASIC_PLAN_NAME}, ${count('Instructor', ORG_DELTA)}/${plans.get(BASIC_PLAN_NAME)!.maxInstructors} Instructor)`,
   );
 }
 

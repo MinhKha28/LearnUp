@@ -51,7 +51,7 @@ let connected = false;
 interface HttpResult {
   status: number;
   body: {
-    data?: Record<string, unknown> | string[];
+    data?: Record<string, unknown> | EnrolledCourseRef[];
     error?: Record<string, unknown>;
   };
 }
@@ -82,10 +82,15 @@ async function call(
 const enroll = (user: CurrentUser, courseId: string) =>
   call(user, 'POST', '/enrollments', { courseId });
 
-async function courseIdsOf(user: CurrentUser): Promise<string[]> {
+interface EnrolledCourseRef {
+  courseId: string;
+  enrollmentId: string;
+}
+
+async function courseIdsOf(user: CurrentUser): Promise<EnrolledCourseRef[]> {
   const result = await call(user, 'GET', '/enrollments/me/course-ids');
   assert.equal(result.status, 200);
-  return result.body.data as string[];
+  return result.body.data as EnrolledCourseRef[];
 }
 
 async function count(sql: string, params: unknown[]): Promise<number> {
@@ -166,7 +171,7 @@ after(async () => {
 });
 
 void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (thật)', () => {
-  void test('đăng ký Course test → 201; bản sao đủ theo I2; Enrollment đúng cột; course-ids có Course test', async () => {
+  void test('đăng ký Course test → 201; bản sao đủ theo I2; Enrollment đúng cột; course-ids có { Course test, Enrollment vừa tạo }', async () => {
     await resetToNoEnrollment();
 
     const result = await enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PUBLIC_COURSE);
@@ -209,8 +214,29 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
     });
 
     assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_1), [
-      ENROLL_IT_PUBLIC_COURSE,
+      { courseId: ENROLL_IT_PUBLIC_COURSE, enrollmentId: data.id },
     ]);
+    // Learner thứ hai cùng tổ chức không thấy Enrollment của Learner thứ nhất
+    assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_2), []);
+  });
+
+  void test('Enrollment chuyển Withdrawn → không còn trong course-ids (D3, D20)', async () => {
+    await resetToNoEnrollment();
+    const created = await enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PUBLIC_COURSE);
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    const enrollmentId = (created.body.data as Record<string, unknown>).id;
+    assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_1), [
+      { courseId: ENROLL_IT_PUBLIC_COURSE, enrollmentId },
+    ]);
+
+    await learningDb.query(
+      `UPDATE enrollments
+          SET status = 'Withdrawn', withdrawn_at = now(), withdrawn_reason = 'LearnerWithdrew'
+        WHERE id = $1 AND organization_id = $2`,
+      [enrollmentId, ENROLL_IT_ORG],
+    );
+
+    assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_1), []);
   });
 
   void test('đăng ký lại Course test → 409 ALREADY_ENROLLED, enrollmentId trùng lần 201', async () => {
@@ -280,7 +306,10 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
       2,
     );
     assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_2), [
-      ENROLL_IT_PUBLIC_COURSE,
+      {
+        courseId: ENROLL_IT_PUBLIC_COURSE,
+        enrollmentId: (results[1].body.data as Record<string, unknown>).id,
+      },
     ]);
   });
 

@@ -31,7 +31,7 @@ const assignmentAction = (status: string) => {
 };
 
 const CourseAssessments = () => {
-  const { courseId } = useParams();
+  const { enrollmentId: courseId } = useParams();
   const navigate = useNavigate();
   const course = courseId ? courseDetails[courseId] : undefined;
 

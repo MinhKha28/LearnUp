@@ -18,7 +18,7 @@ const contentTypeOptions: { value: ReportContentType; label: string }[] = [
 ];
 
 const ReportContent = () => {
-  const { courseId, lessonId, resourceId } = useParams();
+  const { enrollmentId: courseId, lessonId, resourceId } = useParams();
   const navigate = useNavigate();
   const course = courseId ? courseDetails[courseId] : undefined;
   const found = course ? findResource(course, lessonId, resourceId) : undefined;

@@ -3,7 +3,7 @@ import { courseDetails, findAssignment } from "@/components/learner/learner.data
 import { PageHeader, SuccessScreen } from "@/components/learner/learner.ui";
 
 const AssignmentSubmitted = () => {
-  const { courseId, assignmentId } = useParams();
+  const { enrollmentId: courseId, assignmentId } = useParams();
   const navigate = useNavigate();
   const course = courseId ? courseDetails[courseId] : undefined;
   const assignment = course ? findAssignment(course, assignmentId) : undefined;

@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/audit/logs")
+@RequestMapping({"/api/v1/audit/logs", "/api/audit/logs"})
 public class AuditLogController {
 
     private final AuditLogService auditLogService;

@@ -1,89 +1,130 @@
+import { PlusOutlined } from "@ant-design/icons";
 import { Input, message } from "antd";
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import {
-  addBuilderModule,
-  findCourseStructure,
-  findInstructorCourse,
-  slugify,
-} from "@/components/instructor/instructor.data";
-import { InstructorButton, InstructorPage, InfoPanel } from "@/components/instructor/instructor.ui";
-import "./course.create.scss";
+import { useNavigate, useOutletContext, useParams } from "react-router-dom";
+
+import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
+import { InstructorButton } from "@/components/instructor/instructor.ui";
+import { createCourseModuleAPI } from "@/services/course.service";
+
 import "./course.builder.scss";
 
 const CourseBuilderModuleAdd = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
-  const course = findInstructorCourse(courseId);
-  const structure = findCourseStructure(courseId);
+  const { structure, refetchStructure } =
+    useOutletContext<ICourseBuilderOutletContext>();
+
   const [title, setTitle] = useState("");
-  const [requirement, setRequirement] = useState<"Required" | "Optional">("Required");
+  const [saving, setSaving] = useState(false);
 
-  if (!course || !structure) return null;
+  if (!courseId) return null;
 
-  const base = `/instructor/courses/${course.id}/builder`;
+  const base = `/instructor/courses/${courseId}/builder`;
 
-  const handleSave = () => {
-    if (!title.trim()) {
+  const handleSave = async () => {
+    if (saving) return;
+
+    const normalizedTitle = title.trim();
+
+    if (!normalizedTitle) {
       message.warning("Enter a Module title.");
       return;
     }
-    addBuilderModule(structure, {
-      id: slugify(title),
-      title: title.trim(),
-      required: requirement === "Required",
-    });
-    message.success("Module saved.");
-    navigate(base);
+
+    if (structure.structureLocked) {
+      message.error(structure.lockReason || "Course structure is locked.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const response = await createCourseModuleAPI(courseId, {
+        title: normalizedTitle,
+      });
+
+      if (!response.data) {
+        message.error(response.message || "Unable to create Module.");
+        return;
+      }
+
+      message.success("Module created.");
+      await refetchStructure();
+
+      navigate(base, {
+        replace: true,
+      });
+    } catch (error) {
+      console.error("Create Module error:", error);
+      message.error("Unable to create Module.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Add Module</span>
-      <div className="builder-hero">
+    <div className="builder-module-add-page">
+      <div className="builder-module-add-header">
+        <span className="builder-editor-eyebrow">COURSE STRUCTURE</span>
         <h1>Add Module</h1>
+        <p>Create a new Module and add it to the end of this Course.</p>
       </div>
-      <div className="builder-grid">
-        <div className="builder-update-card">
-          <label className="instructor-form-label">Module title</label>
+
+      <div className="builder-module-add-card">
+        <div className="builder-module-add-card-header">
+          <div className="builder-module-add-icon">
+            <PlusOutlined />
+          </div>
+
+          <div>
+            <h2>Module information</h2>
+            <p>
+              Enter a clear title that describes this section of the Course.
+            </p>
+          </div>
+        </div>
+
+        <div className="builder-module-add-form">
+          <label htmlFor="module-title">Module title</label>
+
           <Input
-            placeholder="Module 3 · Advanced practice"
+            id="module-title"
+            size="large"
+            maxLength={200}
+            showCount
+            autoFocus
+            placeholder="e.g. Communication Fundamentals"
             value={title}
+            disabled={saving || structure.structureLocked}
             onChange={(event) => setTitle(event.target.value)}
+            onPressEnter={() => {
+              if (!saving && !structure.structureLocked) {
+                void handleSave();
+              }
+            }}
           />
-          <label className="instructor-form-label instructor-form-label-spaced">Requirement</label>
-          <div className="instructor-pill-toggle">
-            <button
-              type="button"
-              className={requirement === "Required" ? "instructor-pill-active" : ""}
-              onClick={() => setRequirement("Required")}
-            >
-              Required
-            </button>
-            <button
-              type="button"
-              className={requirement === "Optional" ? "instructor-pill-active" : ""}
-              onClick={() => setRequirement("Optional")}
-            >
-              Optional
-            </button>
-          </div>
-          <p className="instructor-form-help">Only Required components contribute to Certificate conditions.</p>
-          <p className="instructor-form-help">Add Lessons inside this Module after saving.</p>
-          <div className="builder-actions">
-            <InstructorButton onClick={() => navigate(-1)}>Cancel</InstructorButton>
-            <InstructorButton type="primary" disabled={course.locked} onClick={handleSave}>
-              Save Module
-            </InstructorButton>
-          </div>
+
+          <p className="builder-module-add-help">
+            The new Module will be placed at the end of the Course structure.
+          </p>
         </div>
-        <div className="builder-side">
-          <InfoPanel title="Before first Enrollment">
-            Adding a Module is blocked once the Course is Locked.
-          </InfoPanel>
+
+        <div className="builder-module-add-actions">
+          <InstructorButton onClick={() => navigate(base)} disabled={saving}>
+            Cancel
+          </InstructorButton>
+
+          <InstructorButton
+            type="primary"
+            onClick={() => void handleSave()}
+            disabled={saving || structure.structureLocked || !title.trim()}
+          >
+            {saving ? "Saving..." : "Add Module"}
+          </InstructorButton>
         </div>
       </div>
-    </InstructorPage>
+    </div>
   );
 };
 

@@ -14,7 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/notifications/email")
+@RequestMapping({"/api/v1/notifications/email", "/api/notifications/email"})
 public class EmailDeliveryController {
 
     private final EmailDeliveryService emailDeliveryService;

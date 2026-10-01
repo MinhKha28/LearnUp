@@ -98,3 +98,19 @@ export interface IAccountListItem {
 export interface IInstructorListItem extends IAccountListItem {
   managedCourseCount: number | null; // null: không hỏi được course-service
 }
+
+// UC12.2 - body tạo tài khoản trong tổ chức (khớp CreateAccountDto; sau này UC13.2 dùng lại)
+export interface ICreateAccountReq {
+  fullName: string;
+  email: string;
+  department?: string | null;
+}
+
+// UC12.2 - số chỗ theo Subscription hiện hành (GET /api/v1/users/instructors/seats)
+export interface ISeatUsage {
+  used: number;
+  max: number;
+  remaining: number;
+  subscriptionStatus: "Active" | "Grace" | "Suspended" | null;
+  canCreate: boolean;
+}

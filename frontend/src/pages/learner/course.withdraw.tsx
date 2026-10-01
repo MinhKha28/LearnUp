@@ -4,7 +4,7 @@ import { InfoPanel, LearnerButton, LearnerPage, PageHeader, StatusTag, WarningPa
 import "./course.withdraw.scss";
 
 const CourseWithdraw = () => {
-  const { courseId } = useParams();
+  const { enrollmentId: courseId } = useParams();
   const navigate = useNavigate();
   const course = courseId ? courseDetails[courseId] : undefined;
 

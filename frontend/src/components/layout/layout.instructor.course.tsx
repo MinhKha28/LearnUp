@@ -1,6 +1,6 @@
 import { Alert, Spin, message } from "antd";
 import { useCallback, useEffect, useState } from "react";
-import { Link, Outlet, useNavigate, useParams } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { CourseBuilderNav } from "@/components/instructor/course.nav";
 import {
@@ -8,7 +8,9 @@ import {
   InstructorPage,
   PageHeader,
 } from "@/components/instructor/instructor.ui";
+import { fetchAssignmentsAPI } from "@/services/assessment.service";
 import { fetchCourseStructureAPI } from "@/services/course.service";
+import type { IAssignmentSummary } from "@/types/assessment.types";
 import type { ICourseStructure } from "@/types/course.types";
 
 import "./layout.instructor.course.scss";
@@ -16,12 +18,16 @@ import "./layout.instructor.course.scss";
 export interface ICourseBuilderOutletContext {
   structure: ICourseStructure;
   refetchStructure: () => Promise<void>;
+  /** Assignments from Assessment Service, null when that service cannot be reached. */
+  assignments: IAssignmentSummary[] | null;
 }
 
 const LayoutInstructorCourse = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
+  const [assignments, setAssignments] = useState<IAssignmentSummary[] | null>(null);
   const [structure, setStructure] = useState<ICourseStructure | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -54,6 +60,15 @@ const LayoutInstructorCourse = () => {
   useEffect(() => {
     void loadStructure();
   }, [loadStructure]);
+
+  // Refetched on every route change so a created/deleted Assignment shows in the outline; failures stay silent.
+  useEffect(() => {
+    if (!courseId) return;
+    void (async () => {
+      const res = await fetchAssignmentsAPI(courseId);
+      setAssignments(res.data?.items ?? null);
+    })();
+  }, [courseId, pathname]);
 
   if (loading) {
     return (
@@ -146,13 +161,14 @@ const LayoutInstructorCourse = () => {
       </header>
 
       <div className="builder-body">
-        <CourseBuilderNav structure={structure} />
+        <CourseBuilderNav structure={structure} assignments={assignments} />
 
         <main className="builder-main">
           <Outlet
             context={{
               structure,
               refetchStructure: loadStructure,
+              assignments,
             }}
           />
         </main>
