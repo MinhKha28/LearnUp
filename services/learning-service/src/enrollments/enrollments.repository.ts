@@ -23,6 +23,12 @@ export interface MyEnrollmentRow {
   dueAt: Date | null;
 }
 
+/** Course Learner đã đăng ký kèm Enrollment, để mở UC27 từ UC25/UC25.1 (D20, D48). */
+export interface EnrolledCourseRef {
+  courseId: string;
+  enrollmentId: string;
+}
+
 /** Học liệu bắt buộc x/y của một Enrollment (D25). */
 export interface RequiredMaterialCount {
   completed: number;
@@ -73,18 +79,24 @@ export class EnrollmentsRepository extends BaseRepository {
     });
   }
 
-  /** courseId Learner đã đăng ký trong tổ chức, trừ Withdrawn (D20). */
+  /**
+   * Course Learner đã đăng ký trong tổ chức kèm Enrollment, trừ Withdrawn (D20, D48).
+   * UNIQUE (learner_id, course_id) bảo đảm mỗi courseId chỉ có một dòng.
+   */
   async findCourseIdsOfLearner(
     learnerId: string,
     organizationId: string,
     tx?: Prisma.TransactionClient,
-  ): Promise<string[]> {
+  ): Promise<EnrolledCourseRef[]> {
     const rows = await this.db(tx).enrollment.findMany({
       where: { learnerId, organizationId, status: { not: 'Withdrawn' } },
-      select: { courseId: true },
-      orderBy: { enrolledAt: 'asc' },
+      select: { id: true, courseId: true },
+      orderBy: { courseId: 'asc' },
     });
-    return rows.map((row) => row.courseId);
+    return rows.map((row) => ({
+      courseId: row.courseId,
+      enrollmentId: row.id,
+    }));
   }
 
   async countMine(
