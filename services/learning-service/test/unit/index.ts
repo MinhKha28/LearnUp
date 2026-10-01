@@ -5,3 +5,4 @@ import './roles-guard.unit-test';
 import './to-safe-number.unit-test';
 import './enrollments-service.unit-test';
 import './course-snapshot-rows.unit-test';
+import './my-enrollments.unit-test';

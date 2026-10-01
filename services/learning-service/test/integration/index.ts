@@ -2,3 +2,4 @@
 import './course-service-client.integration-test';
 import './enrollments.integration-test';
 import './base-due-at.integration-test';
+import './my-enrollments.integration-test';

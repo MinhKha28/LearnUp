@@ -1,6 +1,7 @@
 import { Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTenantClient } from './create-tenant-client';
+import { OrganizationTimezoneService } from './organization-timezone.service';
 import { TENANT_CLIENT } from './tenant.client';
 
 @Module({
@@ -15,7 +16,8 @@ import { TENANT_CLIENT } from './tenant.client';
           new Logger('TenantClient'),
         ),
     },
+    OrganizationTimezoneService,
   ],
-  exports: [TENANT_CLIENT],
+  exports: [TENANT_CLIENT, OrganizationTimezoneService],
 })
 export class TenantModule {}
