@@ -1,7 +1,7 @@
 /**
  * Test tích hợp UC26 (GET /enrollments/me) trên fixture ORG_TEST (D34), không dùng dữ liệu demo.
- * Optional tạo qua POST /enrollments; Required tạo như phân công: I1 (selfEnroll: false) + I2 + hàm ghi bản sao
- * của UC25.3 + hạn gốc BR-300. Mỗi ca tự dọn ở đầu; dọn lần cuối khi kết thúc (D17).
+ * Optional tạo qua POST /enrollments; Required tạo như phân công bằng createRequiredEnrollment.
+ * Mỗi ca tự dọn ở đầu; dọn lần cuối khi kết thúc (D17).
  *
  * Chạy: npm run test:integration (cần course-service chạy tại COURSE_SERVICE_URL, cả hai DB đã seed)
  */
@@ -16,25 +16,18 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Client } from 'pg';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
-import { buildCourseSnapshotRows } from '../../src/course-snapshots/course-snapshot-rows';
-import { CourseSnapshotsRepository } from '../../src/course-snapshots/course-snapshots.repository';
-import { BaseDueAtRepository } from '../../src/enrollments/base-due-at.repository';
 import { EnrollmentsRepository } from '../../src/enrollments/enrollments.repository';
-import { CourseServiceClient } from '../../src/integrations/course-service/course-service.client';
-import { OrganizationTimezoneService } from '../../src/integrations/tenant/organization-timezone.service';
-import { PlatformSettingsRepository } from '../../src/platform-settings/platform-settings.repository';
-import { PrismaService } from '../../src/prisma/prisma.service';
 import {
   courseDatabaseUrl,
   databaseUrl,
   ENROLL_IT_LEARNER_1,
   ENROLL_IT_LEARNER_2,
   ENROLL_IT_ORG,
-  ENROLL_IT_ORGANIZER,
   ENROLL_IT_PRIVATE_COURSE,
   ENROLL_IT_PUBLIC_COURSE,
   resetEnrollFixture,
 } from './enroll-it-fixture';
+import { createRequiredEnrollment } from './enroll-it-required';
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error(
@@ -109,60 +102,11 @@ async function createOptional(
   return (result.body.data as { id: string }).id;
 }
 
-/** Tạo Required như phân công (UC24.2 chưa có): I1, I2, bản sao của UC25.3, hạn gốc BR-300. */
-async function createRequired(
+const createRequired = (
   learner: CurrentUser,
   courseId: string,
   assignedAt: Date,
-): Promise<{ id: string; dueAt: Date }> {
-  const nest = app!;
-  const courseClient = nest.get(CourseServiceClient);
-  const lock = await courseClient.lockCourse(
-    ENROLL_IT_ORGANIZER,
-    courseId,
-    false,
-  );
-  const tree = await courseClient.getCourseTree(ENROLL_IT_ORGANIZER, courseId);
-  const timezone = await nest
-    .get(OrganizationTimezoneService)
-    .getTimezone(ENROLL_IT_ORGANIZER);
-  assert.ok(timezone, 'tenant phải trả múi giờ cho ORG_TEST');
-  const videoCompletionPercent = await nest
-    .get(PlatformSettingsRepository)
-    .getVideoCompletionPercent();
-  assert.ok(videoCompletionPercent, 'learning_db thiếu platform_settings');
-
-  const snapshots = nest.get(CourseSnapshotsRepository);
-  return nest.get(PrismaService).$transaction(async (tx) => {
-    if (!(await snapshots.existsForCourse(courseId, ENROLL_IT_ORG, tx))) {
-      await snapshots.insertIgnoringConflicts(
-        buildCourseSnapshotRows(lock, tree, new Date()),
-        tx,
-      );
-    }
-    const baseDueAt = await nest
-      .get(BaseDueAtRepository)
-      .computeBaseDueAt(assignedAt, lock.expectedCompletionDays, timezone, tx);
-    const created = await nest.get(EnrollmentsRepository).create(
-      {
-        organizationId: ENROLL_IT_ORG,
-        learnerId: learner.userId,
-        courseId,
-        enrollmentType: 'Required',
-        status: 'NotStarted',
-        enrolledAt: assignedAt,
-        assignedAt,
-        expectedCompletionDays: lock.expectedCompletionDays,
-        baseDueAt,
-        dueAt: baseDueAt,
-        extensionSeconds: 0,
-        videoCompletionPercent,
-      },
-      tx,
-    );
-    return { id: created.id, dueAt: baseDueAt };
-  });
-}
+) => createRequiredEnrollment(app!, learner, courseId, assignedAt);
 
 const daysAgo = (days: number) => new Date(Date.now() - days * DAY_MS);
 

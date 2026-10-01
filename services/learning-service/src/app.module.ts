@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { InternalAuthGuard } from './common/guards/internal-auth.guard';
 import { PrismaModule } from './prisma/prisma.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
+import { CurriculumModule } from './curriculum/curriculum.module';
 import { EnrollmentStatusIntervalsModule } from './enrollment-status-intervals/enrollment-status-intervals.module';
 import { MaterialProgressModule } from './material-progress/material-progress.module';
 import { CourseSnapshotsModule } from './course-snapshots/course-snapshots.module';
@@ -20,6 +21,7 @@ import { TenantModule } from './integrations/tenant/tenant.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     EnrollmentsModule,
+    CurriculumModule,
     EnrollmentStatusIntervalsModule,
     MaterialProgressModule,
     CourseSnapshotsModule,
