@@ -6,6 +6,7 @@ import { LearnerEmptyState, LearnerErrorState, LearnerSkeleton } from "@/compone
 import { LearnerButton, LearnerPage, PageHeader, StatusTag } from "@/components/learner/learner.ui";
 import { UrlPagination } from "@/components/learner/url.pagination";
 import { useApiQuery } from "@/hooks/use.api.query";
+import { useReplacePage } from "@/hooks/use.replace.page";
 import { fetchCatalog } from "@/services/catalog.service";
 import { fetchEnrolledCourseLinks } from "@/services/learning.service";
 import type { CatalogCourse } from "@/types/catalog.types";
@@ -16,19 +17,6 @@ import "./catalog.scss";
 
 const CATALOG_ERROR_MESSAGES: Record<string, string> = {
   FORBIDDEN: "Bạn không có quyền xem danh mục Course.",
-};
-
-const useReplacePage = () => {
-  const [, setSearchParams] = useSearchParams();
-  return (page: number) =>
-    setSearchParams(
-      (previous) => {
-        const next = new URLSearchParams(previous);
-        next.set("page", String(page));
-        return next;
-      },
-      { replace: true },
-    );
 };
 
 const CatalogCard = ({

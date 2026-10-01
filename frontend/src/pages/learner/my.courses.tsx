@@ -1,190 +1,124 @@
-import { SearchOutlined } from "@ant-design/icons";
-import { Input, Select } from "antd";
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import {
-  CourseListItem,
-  LearnerButton,
-  LearnerPage,
-  PageHeader,
-} from "@/components/learner/learner.ui";
+import { useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+
+import { CourseCover } from "@/components/learner/course.cover";
+import { LearnerEmptyState, LearnerErrorState, LearnerSkeleton } from "@/components/learner/learner.states";
+import { LearnerButton, LearnerPage, PageHeader, StatusTag } from "@/components/learner/learner.ui";
+import { UrlPagination } from "@/components/learner/url.pagination";
+import { useApiQuery } from "@/hooks/use.api.query";
+import { useReplacePage } from "@/hooks/use.replace.page";
+import { fetchMyEnrollments } from "@/services/learning.service";
+import { LEARNER_ROUTES } from "@/utils/learner.routes";
+import { buildMyCourseRow, type MyCourseRow } from "@/utils/my.courses.view";
+import { parsePageParam, resolvePageRedirect } from "@/utils/page.param";
 import "./my.courses.scss";
 
-type CourseType = "required" | "optional";
-type CourseStatus = "overdue" | "in-progress" | "completed" | "disabled";
-
-interface IMyCourse {
-  id: string;
-  title: string;
-  type: CourseType;
-  status: CourseStatus;
-  meta: string;
-  progress: number;
-  withdrawable?: boolean;
-}
-
-const myCourses: IMyCourse[] = [
-  {
-    id: "workplace-safety",
-    title: "Workplace Safety Essentials",
-    type: "required",
-    status: "overdue",
-    meta: "Due 23 Sep 2026",
-    progress: 65,
-  },
-  {
-    id: "operational-procedures",
-    title: "Operational Procedures",
-    type: "required",
-    status: "in-progress",
-    meta: "Due 30 Sep 2026",
-    progress: 32,
-  },
-  {
-    id: "data-protection",
-    title: "Data Protection Basics",
-    type: "optional",
-    status: "in-progress",
-    meta: "No deadline",
-    progress: 48,
-    withdrawable: true,
-  },
-  {
-    id: "service-communication",
-    title: "Service Communication",
-    type: "optional",
-    status: "completed",
-    meta: "No deadline",
-    progress: 100,
-    withdrawable: true,
-  },
-  {
-    id: "vendor-compliance",
-    title: "Vendor Compliance Training",
-    type: "required",
-    status: "disabled",
-    meta: "Access disabled",
-    progress: 40,
-  },
-];
-
-const statusPill: Record<
-  CourseStatus,
-  { label: string; tone: "error" | "neutral" | "success" }
-> = {
-  overdue: { label: "Overdue", tone: "error" },
-  "in-progress": { label: "In Progress", tone: "neutral" },
-  completed: { label: "Completed", tone: "success" },
-  disabled: { label: "Disabled", tone: "neutral" },
+const MY_COURSES_ERROR_MESSAGES: Record<string, string> = {
+  FORBIDDEN: "Bạn không có quyền xem danh sách Course này.",
 };
 
-const typePill: Record<CourseType, { label: string; tone: "warning" | "neutral" }> = {
-  required: { label: "Required", tone: "warning" },
-  optional: { label: "Optional", tone: "neutral" },
+const MyCourseListRow = ({ row }: { row: MyCourseRow }) => {
+  const navigate = useNavigate();
+  const openTo = row.action.kind === "open" ? row.action.to : null;
+
+  return (
+    <li className={`learner-my-course${openTo ? "" : " learner-my-course-halted"}`}>
+      <CourseCover name={row.courseName ?? row.title} coverFileId={row.coverFileId} size="sm" />
+      <div className="learner-my-course-body">
+        <div className="learner-my-course-heading">
+          {openTo ? (
+            <Link className="learner-my-course-title" to={openTo}>
+              {row.title}
+            </Link>
+          ) : (
+            <span className="learner-my-course-title">{row.title}</span>
+          )}
+          {row.versionLabel && <span className="learner-my-course-version">{row.versionLabel}</span>}
+        </div>
+        <div className="learner-my-course-tags">
+          <StatusTag tone="neutral">{row.typeLabel}</StatusTag>
+          <StatusTag tone={row.status.tone}>{row.status.label}</StatusTag>
+        </div>
+        {(row.due || row.progress) && (
+          <div className="learner-my-course-meta">
+            {row.due && <span>Hạn hoàn thành: {row.due.text}</span>}
+            {row.progress && <span>{row.progress}</span>}
+          </div>
+        )}
+        {row.action.kind === "halted" && <p className="learner-my-course-note">{row.action.note}</p>}
+      </div>
+      {openTo && (
+        <div className="learner-my-course-action">
+          <LearnerButton type="primary" onClick={() => navigate(openTo)}>
+            Vào học
+          </LearnerButton>
+        </div>
+      )}
+    </li>
+  );
+};
+
+const MyCoursesContent = ({ page }: { page: number }) => {
+  const navigate = useNavigate();
+  const replacePage = useReplacePage();
+  const query = useApiQuery((signal) => fetchMyEnrollments(page, signal), [page]);
+  const redirect = query.status === "success" ? resolvePageRedirect(query.data.meta, query.data.items.length) : null;
+
+  useEffect(() => {
+    if (typeof redirect === "number") replacePage(redirect);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [redirect]);
+
+  if (query.status === "loading" || typeof redirect === "number") {
+    return <LearnerSkeleton variant="list" />;
+  }
+  if (query.status === "error") {
+    return (
+      <LearnerErrorState
+        error={query.error}
+        title="Không tải được danh sách Course"
+        message={MY_COURSES_ERROR_MESSAGES[query.error.code] ?? "Đã có lỗi xảy ra khi tải danh sách Course."}
+        onRetry={query.reload}
+      />
+    );
+  }
+  if (redirect === "empty") {
+    return (
+      <LearnerEmptyState
+        title="Bạn chưa có Course nào"
+        action={<LearnerButton onClick={() => navigate(LEARNER_ROUTES.catalog())}>Xem danh mục Course</LearnerButton>}
+      />
+    );
+  }
+
+  const { items, meta, organizationTimezone } = query.data;
+  return (
+    <>
+      {/* Giữ đúng thứ tự backend trả về (D22) */}
+      <ul className="learner-my-course-list">
+        {items.map((item) => (
+          <MyCourseListRow key={item.enrollmentId} row={buildMyCourseRow(item, organizationTimezone)} />
+        ))}
+      </ul>
+      <UrlPagination meta={meta} />
+    </>
+  );
 };
 
 const MyCourses = () => {
-  const navigate = useNavigate();
-  const [search, setSearch] = useState("");
-  const [type, setType] = useState<"all" | CourseType>("all");
-  const [status, setStatus] = useState<"all" | CourseStatus>("all");
-  const [sort, setSort] = useState<"recent" | "az" | "za">("recent");
+  const [searchParams] = useSearchParams();
+  const replacePage = useReplacePage();
+  const page = parsePageParam(searchParams.get("page"));
 
-  const courses = useMemo(() => {
-    let list = myCourses.filter((course) =>
-      course.title.toLowerCase().includes(search.trim().toLowerCase()),
-    );
-    if (type !== "all") list = list.filter((course) => course.type === type);
-    if (status !== "all") list = list.filter((course) => course.status === status);
-    if (sort === "az") list = [...list].sort((a, b) => a.title.localeCompare(b.title));
-    if (sort === "za") list = [...list].sort((a, b) => b.title.localeCompare(a.title));
-    return list;
-  }, [search, type, status, sort]);
+  useEffect(() => {
+    if (page === null) replacePage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   return (
     <LearnerPage className="learner-courses">
-      <PageHeader
-        eyebrow="LEARNER"
-        title="My Courses"
-        subtitle="Your assigned training and self-enrolled Courses."
-        actions={
-          <Link to="/learner/catalog">
-            <LearnerButton type="primary">Browse Catalog</LearnerButton>
-          </Link>
-        }
-      />
-      <div className="learner-courses-filters">
-        <Input
-          className="learner-courses-search"
-          prefix={<SearchOutlined />}
-          placeholder="Search Course name"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          allowClear
-        />
-        <Select<"all" | CourseType>
-          className="learner-courses-filter"
-          variant="borderless"
-          value={type}
-          onChange={setType}
-          options={[
-            { value: "all", label: "All types" },
-            { value: "required", label: "Required" },
-            { value: "optional", label: "Optional" },
-          ]}
-        />
-        <Select<"all" | CourseStatus>
-          className="learner-courses-filter"
-          variant="borderless"
-          value={status}
-          onChange={setStatus}
-          options={[
-            { value: "all", label: "All statuses" },
-            { value: "overdue", label: "Overdue" },
-            { value: "in-progress", label: "In Progress" },
-            { value: "completed", label: "Completed" },
-            { value: "disabled", label: "Disabled" },
-          ]}
-        />
-        <Select<"recent" | "az" | "za">
-          className="learner-courses-sort"
-          variant="borderless"
-          value={sort}
-          onChange={setSort}
-          options={[
-            { value: "recent", label: "Sort: Recent" },
-            { value: "az", label: "Sort: A to Z" },
-            { value: "za", label: "Sort: Z to A" },
-          ]}
-        />
-      </div>
-      {courses.length === 0 && (
-        <div className="learner-courses-empty">No Courses match your filters.</div>
-      )}
-      <div className="learner-course-list">
-        {courses.map((course) => (
-          <CourseListItem
-            key={course.id}
-            title={course.title}
-            pills={[typePill[course.type], statusPill[course.status]]}
-            meta={course.meta}
-            progress={course.progress}
-            to={`/learner/courses/${course.id}`}
-            secondary={
-              course.withdrawable
-                ? {
-                    label: "Withdraw",
-                    onClick: () => navigate(`/learner/courses/${course.id}/withdraw`),
-                  }
-                : undefined
-            }
-          />
-        ))}
-      </div>
-      <div className="learner-courses-info">
-        <strong>Required and Optional Courses</strong>
-        <p>Optional Courses have no completion deadline and never become overdue.</p>
-      </div>
+      <PageHeader title="Course của tôi" subtitle="Các Course bạn được phân công và đã tự đăng ký." />
+      {page === null ? <LearnerSkeleton variant="list" /> : <MyCoursesContent page={page} />}
     </LearnerPage>
   );
 };
