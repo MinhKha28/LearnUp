@@ -57,3 +57,33 @@ export interface ICreateCourseResponse {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ICourseStructureLesson {
+  id: string;
+  title: string;
+  position: number;
+  required: boolean;
+}
+
+export interface ICourseStructureModule {
+  id: string;
+  title: string;
+  position: number;
+  required: boolean;
+  lessons: ICourseStructureLesson[];
+}
+
+export interface ICourseStructureCourse {
+  id: string;
+  name: string;
+  versionNumber: number;
+  status: CourseStatus;
+  locked: boolean;
+}
+
+export interface ICourseStructure {
+  course: ICourseStructureCourse;
+  structureLocked: boolean;
+  lockReason: string | null;
+  modules: ICourseStructureModule[];
+}
