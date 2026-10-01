@@ -11,6 +11,7 @@ import { RegistrationsModule } from './registrations/registrations.module';
 import { UsersModule } from './users/users.module';
 import { UsersController } from './users/users.controller';
 import { DevFakeAuthMiddleware } from './common/middleware/dev-fake-auth.middleware';
+import { InvitationsModule } from './invitations/invitations.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { DevFakeAuthMiddleware } from './common/middleware/dev-fake-auth.middlew
     SubscriptionPlansModule,
     RegistrationsModule,
     UsersModule, // UC12
+    InvitationsModule,
   ],
   providers: [
     {
