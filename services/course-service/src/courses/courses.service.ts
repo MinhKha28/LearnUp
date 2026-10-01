@@ -11,6 +11,15 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { CreateCourseModuleDto } from './dto/create-course-module.dto';
 import { CreateCourseLessonDto } from './dto/create-course-lesson.dto';
 
+export interface CourseAuthoringContext {
+  courseId: string;
+  organizationId: string;
+  instructorId: string;
+  status: string;
+  locked: boolean;
+  disabled: boolean;
+}
+
 @Injectable()
 export class CoursesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -106,6 +115,42 @@ export class CoursesService {
         locked: lockedAt !== null,
         learnerCount: 0,
       })),
+    };
+  }
+
+  /**
+   * Facts other services need to decide whether authoring is allowed on a Course
+   * (owner via the version chain per BR-287, lifecycle status, Locked per BR-80).
+   */
+  async getAuthoringContext(
+    courseId: string,
+    organizationId?: string,
+  ): Promise<CourseAuthoringContext> {
+    const course = await this.prisma.course.findFirst({
+      where: {
+        id: courseId,
+        ...(organizationId ? { organizationId } : {}),
+      },
+      include: {
+        chain: {
+          select: {
+            instructorId: true,
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found.');
+    }
+
+    return {
+      courseId: course.id,
+      organizationId: course.organizationId,
+      instructorId: course.chain.instructorId,
+      status: course.status,
+      locked: course.lockedAt !== null,
+      disabled: course.disabledAt !== null,
     };
   }
 
