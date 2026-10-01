@@ -1,120 +1,129 @@
-import { useNavigate, useParams } from "react-router-dom";
-import { courseDetails, findLesson } from "@/components/learner/learner.data";
-import { InfoPanel, LearnerButton, LearnerPage, PageHeader } from "@/components/learner/learner.ui";
+import { ArrowLeftOutlined, ArrowRightOutlined } from "@ant-design/icons";
+import { Tooltip } from "antd";
+import { useEffect } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+
+import { LearnerSkeleton } from "@/components/learner/learner.states";
+import { LearnerButton, LearnerPage, StatusTag } from "@/components/learner/learner.ui";
+import { LearningError } from "@/components/learner/learning.error";
+import { LessonMarkdown } from "@/components/learner/lesson.markdown";
+import { useApiQuery } from "@/hooks/use.api.query";
+import { fetchLessonDetail } from "@/services/learning.service";
+import type { LessonDetailData } from "@/types/learning.types";
+import { buildMaterialRow, completionMark } from "@/utils/curriculum.view";
+import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import "./lesson.detail.scss";
 
-const statusLabel: Record<string, string> = {
-  complete: "Complete",
-  "in-progress": "In progress",
-  "not-started": "Not started",
-};
+const MATERIAL_SOON = "Xem học liệu sẽ có ở bản cập nhật tiếp theo";
 
-const LessonDetail = () => {
-  const { enrollmentId: courseId, lessonId } = useParams();
+const LessonBody = ({ data, enrollmentId }: { data: LessonDetailData; enrollmentId: string }) => {
   const navigate = useNavigate();
-  const course = courseId ? courseDetails[courseId] : undefined;
-  const found = course ? findLesson(course, lessonId) : undefined;
-
-  if (!course || !found) {
-    return (
-      <LearnerPage className="lesson-detail">
-        <PageHeader eyebrow="COURSE / MODULE / LESSON" title="Lesson not found" subtitle="" back />
-        <LearnerButton onClick={() => navigate(`/learner/courses/${courseId ?? ""}`)}>
-          Back to Course
-        </LearnerButton>
-      </LearnerPage>
-    );
-  }
-
-  const { module, lesson } = found;
-  const moduleIndex = course.modules.findIndex((item) => item.id === module.id) + 1;
-  const lessonIndex = module.lessons.findIndex((item) => item.id === lesson.id) + 1;
-  const requiredResources = lesson.resources.filter((resource) => resource.required);
-  const completeCount = requiredResources.filter((resource) => resource.status === "complete").length;
-  const nextResource =
-    lesson.resources.find((resource) => resource.status !== "complete") ?? lesson.resources[0];
+  const { lesson, materials, previousLesson, nextLesson } = data;
+  const mark = completionMark(lesson.completed);
+  const hasContent = lesson.content !== null && lesson.content.trim() !== "";
 
   return (
     <>
-      <PageHeader
-        eyebrow="COURSE / MODULE / LESSON"
-        title={`Lesson: ${lesson.title.split("· ")[1] ?? lesson.title}`}
-        subtitle={`Module ${moduleIndex} / Lesson ${lessonIndex} • ${
-          course.audience === "required" ? "Required" : "Optional"
-        }`}
-      />
-      <div className="course-learning-main">
-          <div className="course-learning-content lesson-detail-card">
-            <h3>Lesson content</h3>
-            <p>
-              Review the required resources below. The Lesson completes when every required Video
-              and Reading is complete.
-            </p>
-            <table className="lesson-detail-table">
-              <thead>
-                <tr>
-                  <th>Resource</th>
-                  <th>Type</th>
-                  <th>Requirement</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lesson.resources.map((resource) => (
-                  <tr
-                    key={resource.id}
-                    onClick={() =>
-                      navigate(
-                        `/learner/courses/${course.id}/lessons/${lesson.id}/resources/${resource.id}`,
-                      )
-                    }
-                  >
-                    <td>
-                      <strong>{resource.title}</strong>
-                    </td>
-                    <td>{resource.type === "video" ? "Video" : "Reading"}</td>
-                    <td>{resource.required ? "Required" : "Optional"}</td>
-                    <td>{statusLabel[resource.status]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="lesson-detail-actions">
-              <LearnerButton
-                type="primary"
-                onClick={() =>
-                  navigate(
-                    `/learner/courses/${course.id}/lessons/${lesson.id}/resources/${nextResource.id}`,
-                  )
-                }
-              >
-                Open next resource
-              </LearnerButton>
-            </div>
-          </div>
-          <div className="course-learning-side">
-            <div className="lesson-detail-panel">
-              <h3>Lesson progress</h3>
-              <span>Required resources</span>
-              <strong>
-                {completeCount} of {requiredResources.length} complete
-              </strong>
-              <div className="lesson-detail-progress-track">
-                <span
-                  style={{
-                    width: `${
-                      requiredResources.length
-                        ? (completeCount / requiredResources.length) * 100
-                        : 0
-                    }%`,
-                  }}
-                />
-              </div>
-            </div>
-            <InfoPanel title="Completion">Optional resources do not block completion.</InfoPanel>
-          </div>
+      <header className="lesson-detail-header">
+        <h1>{lesson.title}</h1>
+        <div className="lesson-detail-tags">
+          {lesson.isRequired && <StatusTag tone="warning">Bắt buộc</StatusTag>}
+          {mark && <StatusTag tone={mark.tone}>{mark.label}</StatusTag>}
         </div>
+      </header>
+
+      {/* Lesson không có nội dung: bỏ hẳn phần nội dung (luồng 3a) */}
+      {hasContent && (
+        <section className="lesson-detail-card" aria-label="Nội dung Lesson">
+          <LessonMarkdown content={lesson.content ?? ""} />
+        </section>
+      )}
+
+      <section className="lesson-detail-card">
+        <h2>Học liệu</h2>
+        {materials.length === 0 ? (
+          <p className="lesson-detail-empty">Lesson này chưa có học liệu</p>
+        ) : (
+          <ol className="lesson-detail-materials">
+            {materials.map((material) => {
+              const row = buildMaterialRow(material);
+              return (
+                <li key={row.key} className="lesson-detail-material">
+                  <div className="lesson-detail-material-body">
+                    <strong>{row.title}</strong>
+                    <div className="lesson-detail-material-meta">
+                      <StatusTag tone="neutral">{row.typeLabel}</StatusTag>
+                      {row.isRequired && <StatusTag tone="warning">Bắt buộc</StatusTag>}
+                      {row.mark && <StatusTag tone={row.mark.tone}>{row.mark.label}</StatusTag>}
+                      {row.duration && <span>{row.duration}</span>}
+                    </div>
+                  </div>
+                  {/* Nút bị vô hiệu không nhận sự kiện chuột, bọc span để tooltip vẫn hiện */}
+                  <Tooltip title={MATERIAL_SOON}>
+                    <span className="lesson-detail-material-action">
+                      <LearnerButton disabled aria-label={`Mở học liệu ${row.title}. ${MATERIAL_SOON}`}>
+                        Mở học liệu
+                      </LearnerButton>
+                    </span>
+                  </Tooltip>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
+
+      {(previousLesson || nextLesson) && (
+        <nav className="lesson-detail-neighbors" aria-label="Lesson trước và sau">
+          {previousLesson ? (
+            <LearnerButton
+              icon={<ArrowLeftOutlined />}
+              onClick={() => navigate(LEARNER_ROUTES.lesson(enrollmentId, previousLesson.lessonId))}
+            >
+              {previousLesson.title}
+            </LearnerButton>
+          ) : (
+            <span />
+          )}
+          {nextLesson && (
+            <LearnerButton
+              type="primary"
+              icon={<ArrowRightOutlined />}
+              iconPosition="end"
+              onClick={() => navigate(LEARNER_ROUTES.lesson(enrollmentId, nextLesson.lessonId))}
+            >
+              {nextLesson.title}
+            </LearnerButton>
+          )}
+        </nav>
+      )}
     </>
+  );
+};
+
+const LessonDetail = () => {
+  const { enrollmentId = "", lessonId = "" } = useParams();
+  const query = useApiQuery(
+    (signal) => fetchLessonDetail(enrollmentId, lessonId, signal),
+    [enrollmentId, lessonId],
+  );
+
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [lessonId]);
+
+  return (
+    <LearnerPage className="lesson-detail">
+      <Link className="lesson-detail-back" to={LEARNER_ROUTES.curriculum(enrollmentId)}>
+        <ArrowLeftOutlined aria-hidden="true" />
+        <span>Chương trình học</span>
+      </Link>
+      {query.status === "loading" && <LearnerSkeleton variant="detail" />}
+      {query.status === "error" && (
+        <LearningError error={query.error} context="lesson" enrollmentId={enrollmentId} onRetry={query.reload} />
+      )}
+      {query.status === "success" && <LessonBody data={query.data} enrollmentId={enrollmentId} />}
+    </LearnerPage>
   );
 };
 

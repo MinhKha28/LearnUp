@@ -4,6 +4,7 @@ import { LEARNER_ROUTES } from "@/utils/learner.routes";
 
 describe("LEARNER_ROUTES", () => {
   it("dựng đường dẫn và mã hóa tham số", () => {
+    expect(LEARNER_ROUTES.myCourses()).toBe("/learner/courses");
     expect(LEARNER_ROUTES.catalog()).toBe("/learner/catalog");
     expect(LEARNER_ROUTES.catalog(1)).toBe("/learner/catalog");
     expect(LEARNER_ROUTES.catalog(3)).toBe("/learner/catalog?page=3");
