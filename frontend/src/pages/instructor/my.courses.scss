@@ -85,6 +85,35 @@
   font-size: 13px;
 }
 
+.my-courses__filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  margin-bottom: 20px;
+}
+
+.my-courses__search {
+  width: 280px;
+}
+
+.my-courses__filter {
+  width: 170px;
+}
+
+@media (max-width: 768px) {
+  .my-courses__filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .my-courses__search,
+  .my-courses__filter {
+    width: 100%;
+  }
+}
+
 @media (max-width: 900px) {
   .instructor-courses-filters {
     flex-wrap: wrap;

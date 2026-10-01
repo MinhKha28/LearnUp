@@ -27,6 +27,37 @@ export class CoursesService {
       chain: {
         instructorId: user.userId,
       },
+      ...(query.search
+        ? {
+            name: {
+              contains: query.search,
+              mode: 'insensitive' as const,
+            },
+          }
+        : {}),
+      ...(query.courseType
+        ? {
+            courseType: query.courseType,
+          }
+        : {}),
+      ...(query.status
+        ? {
+            status: query.status,
+          }
+        : {}),
+
+      ...(query.locked === true
+        ? {
+            lockedAt: {
+              not: null,
+            },
+          }
+        : {}),
+      ...(query.locked === false
+        ? {
+            lockedAt: null,
+          }
+        : {}),
     };
 
     const [courses, total] = await this.prisma.$transaction([
@@ -65,6 +96,7 @@ export class CoursesService {
       result: courses.map(({ lockedAt, ...course }) => ({
         ...course,
         locked: lockedAt !== null,
+        learnerCount: 0,
       })),
     };
   }
