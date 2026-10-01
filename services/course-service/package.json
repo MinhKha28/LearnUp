@@ -14,12 +14,15 @@
     "start:prod": "node dist/main",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "db:seed": "ts-node -P tsconfig.seed.json prisma/seed.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:catalog:db": "ts-node -r tsconfig-paths/register -P tsconfig.seed.json test/catalog/estimate-duration.db-test.ts",
+    "test:catalog:http": "ts-node -P tsconfig.seed.json test/catalog/catalog.http-test.ts",
     "postinstall": "prisma skills sync || exit 0"
   },
   "dependencies": {

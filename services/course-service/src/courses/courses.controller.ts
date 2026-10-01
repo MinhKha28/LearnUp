@@ -1,8 +1,17 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  Body,
+  Post,
+} from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '../common/decorator/customize';
 import { CoursesService } from './courses.service';
 import { CourseListQueryDto } from './dto/course-list-query.dto';
+import { CreateCourseDto } from './dto/create-course.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -21,5 +30,10 @@ export class CoursesController {
     @User() user: CurrentUser,
   ) {
     return this.coursesService.getAuthoringContext(id, user.organizationId);
+  }
+  @Post()
+  @ResponseMessage('Course created successfully')
+  create(@User() user: CurrentUser, @Body() dto: CreateCourseDto) {
+    return this.coursesService.create(user, dto);
   }
 }

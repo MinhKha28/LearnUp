@@ -50,3 +50,11 @@ export const newRubricRow = (
   description,
   maxPoints,
 });
+// Ngày theo giờ Việt Nam, dạng dd/MM/yyyy: "2026-09-24T17:30:00Z" -> "25/09/2026"
+export const formatDateVN = (value: string) =>
+  new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value));

@@ -17,15 +17,23 @@ instance.interceptors.request.use(
     if (import.meta.env.DEV && import.meta.env.VITE_DEV_INTERNAL_KEY) {
       config.headers["x-internal-key"] = import.meta.env.VITE_DEV_INTERNAL_KEY;
       config.headers["x-user-id"] = import.meta.env.VITE_DEV_USER_ID;
-      config.headers["x-organization-id"] = import.meta.env.VITE_DEV_ORGANIZATION_ID;
+      config.headers["x-organization-id"] =
+        import.meta.env.VITE_DEV_ORGANIZATION_ID;
       config.headers["x-user-role"] = import.meta.env.VITE_DEV_USER_ROLE;
+    }
+    // TẠM THỜI (UC12): fake danh tính khi tenant-service chưa đi qua api-gateway được.
+    // Chỉ gửi khi chạy dev VÀ có VITE_DEV_FAKE_USER_ID; backend cần DEV_FAKE_AUTH=true.
+    // Gỡ bỏ khi gateway dùng được (xem tenant-service: src/common/middleware/dev-fake-auth.middleware.ts).
+    const devFakeUserId = import.meta.env.VITE_DEV_FAKE_USER_ID;
+    if (import.meta.env.DEV && devFakeUserId) {
+      config.headers["x-dev-user-id"] = devFakeUserId;
     }
     return config;
   },
   function (error) {
     // Do something with the request error
     return Promise.reject(error);
-  }
+  },
 );
 
 // Add a response interceptor
@@ -45,7 +53,7 @@ instance.interceptors.response.use(
       return error.response.data;
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default instance;
