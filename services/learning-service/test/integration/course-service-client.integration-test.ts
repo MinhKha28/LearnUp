@@ -1,6 +1,7 @@
 /**
  * Test tích hợp CourseServiceClient với course-service thật đang chạy và dữ liệu seed.
- * Ca I1 (D17) ghi vào course_db: đọc locked_at trước khi gọi và luôn trả về đúng giá trị cũ.
+ * I2, I3, I4 chỉ đọc Course demo; ca I1 (D17) ghi locked_at nên dùng Course test của ORG_TEST (D34)
+ * và luôn đưa về NULL khi kết thúc.
  *
  * Chạy: npm run test:integration (cần course-service chạy tại COURSE_SERVICE_URL, đã db:seed)
  */
@@ -12,6 +13,13 @@ import { Client } from 'pg';
 import { CourseServiceClient } from '../../src/integrations/course-service/course-service.client';
 import { readCourseServiceConfig } from '../../src/integrations/course-service/course-service.config';
 import { CourseNotAvailableError } from '../../src/integrations/course-service/course-service.errors';
+import {
+  courseDatabaseUrl,
+  ENROLL_IT_LEARNER_1,
+  ENROLL_IT_ORG,
+  ENROLL_IT_PUBLIC_COURSE,
+  unlockFixtureCourses,
+} from './enroll-it-fixture';
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error(
@@ -35,17 +43,6 @@ const LEARNER_1: CurrentUser = {
 const client = new CourseServiceClient(
   readCourseServiceConfig((key) => process.env[key]),
 );
-
-/** course_db cùng máy chủ với learning_db; ghi đè bằng COURSE_DATABASE_URL nếu khác. */
-function courseDatabaseUrl(): string {
-  if (process.env.COURSE_DATABASE_URL) {
-    return process.env.COURSE_DATABASE_URL;
-  }
-  const url = new URL(process.env.DATABASE_URL!);
-  url.pathname = '/course_db';
-  url.search = '';
-  return url.toString();
-}
 
 const courseDb = new Client({ connectionString: courseDatabaseUrl() });
 let courseDbConnected = false;
@@ -115,45 +112,44 @@ void describe('CourseServiceClient với course-service thật (seed)', () => {
     assert.equal(lesson.disabledAt, null);
   });
 
-  void test('I1 (D17): gắn Locked 0e…03 với selfEnroll, gọi lại idempotent, rồi trả locked_at về đúng giá trị cũ', async () => {
+  void test('I1 (D17): gắn Locked Course test với selfEnroll, gọi lại idempotent, rồi đưa locked_at về NULL', async () => {
     await courseDb.connect();
     courseDbConnected = true;
 
-    // Đọc dạng text để giữ nguyên micro giây khi trả lại
     const readState = async () =>
       (
-        await courseDb.query<{
-          locked_at: string | null;
-          updated_at: string;
-          chain_id: string;
-        }>(
-          'SELECT locked_at::text, updated_at::text, chain_id::text FROM courses WHERE id = $1',
-          [COURSE_BAO_MAT],
+        await courseDb.query<{ locked_at: Date | null; chain_id: string }>(
+          'SELECT locked_at, chain_id::text FROM courses WHERE id = $1',
+          [ENROLL_IT_PUBLIC_COURSE],
         )
       ).rows[0];
 
+    await unlockFixtureCourses(courseDb);
     const before = await readState();
-    console.log(`locked_at của 0e…03 trước khi gọi I1: ${before.locked_at}`);
+    assert.equal(before.locked_at, null);
 
     try {
-      const first = await client.lockCourse(LEARNER_1, COURSE_BAO_MAT, true);
-      assert.equal(first.courseId, COURSE_BAO_MAT);
-      assert.equal(first.organizationId, ORG_A);
+      const first = await client.lockCourse(
+        ENROLL_IT_LEARNER_1,
+        ENROLL_IT_PUBLIC_COURSE,
+        true,
+      );
+      assert.equal(first.courseId, ENROLL_IT_PUBLIC_COURSE);
+      assert.equal(first.organizationId, ENROLL_IT_ORG);
       assert.equal(first.chainId, before.chain_id);
-      assert.equal(first.expectedCompletionDays, 7);
+      assert.equal(first.expectedCompletionDays, 3);
       assert.equal(first.courseType, 'Public');
       assert.ok(first.lockedAt instanceof Date);
 
-      const second = await client.lockCourse(LEARNER_1, COURSE_BAO_MAT, true);
+      const second = await client.lockCourse(
+        ENROLL_IT_LEARNER_1,
+        ENROLL_IT_PUBLIC_COURSE,
+        true,
+      );
       assert.equal(second.lockedAt.getTime(), first.lockedAt.getTime());
     } finally {
-      await courseDb.query(
-        'UPDATE courses SET locked_at = $1::timestamptz, updated_at = $2::timestamptz WHERE id = $3',
-        [before.locked_at, before.updated_at, COURSE_BAO_MAT],
-      );
-      const restored = await readState();
-      console.log(`locked_at của 0e…03 sau khi trả lại: ${restored.locked_at}`);
-      assert.deepEqual(restored, before);
+      await unlockFixtureCourses(courseDb);
+      assert.equal((await readState()).locked_at, null);
     }
   });
 });

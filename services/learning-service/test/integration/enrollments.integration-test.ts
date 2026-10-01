@@ -1,7 +1,7 @@
 /**
  * Test tích hợp UC25.3 + D20: learning-service chạy thật trong tiến trình (cấu hình như main.ts),
- * gọi course-service thật với dữ liệu seed. Ghi vào learning_db và course_db (locked_at);
- * after() xóa mọi dòng test tạo và trả locked_at về đúng giá trị cũ (D17).
+ * gọi course-service thật với fixture ORG_TEST của seed course_db (D34).
+ * Chỉ ghi dữ liệu của Course test; dọn ở đầu, đầu các ca cần "Enrollment đầu tiên" và cuối lần chạy (D17).
  *
  * Chạy: npm run test:integration (cần course-service chạy tại COURSE_SERVICE_URL, cả hai DB đã seed)
  */
@@ -17,6 +17,16 @@ import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { CourseServiceClient } from '../../src/integrations/course-service/course-service.client';
 import { readCourseServiceConfig } from '../../src/integrations/course-service/course-service.config';
+import {
+  courseDatabaseUrl,
+  databaseUrl,
+  ENROLL_IT_LEARNER_1,
+  ENROLL_IT_LEARNER_2,
+  ENROLL_IT_ORG,
+  ENROLL_IT_PRIVATE_COURSE,
+  ENROLL_IT_PUBLIC_COURSE,
+  resetEnrollFixture,
+} from './enroll-it-fixture';
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error(
@@ -24,40 +34,12 @@ if (process.env.NODE_ENV === 'production') {
   );
 }
 
-const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
-const COURSE_AN_TOAN_V2 = '0199a000-0000-7000-8000-0e0000000002';
-const COURSE_BAO_MAT = '0199a000-0000-7000-8000-0e0000000003';
-const COURSE_QUY_TRINH_PRIVATE = '0199a000-0000-7000-8000-0e0000000004';
+/** Course demo của ORG_B: chỉ đọc, kiểm I1 không gắn Locked khi khác tổ chức. */
 const COURSE_NHAP_MON_ORG_B = '0199a000-0000-7000-8000-0e0000000006';
-const TEST_COURSES = [
-  COURSE_AN_TOAN_V2,
-  COURSE_BAO_MAT,
-  COURSE_QUY_TRINH_PRIVATE,
-  COURSE_NHAP_MON_ORG_B,
-];
-
-const learner = (userId: string): CurrentUser => ({
-  userId,
-  organizationId: ORG_A,
-  role: 'LEARNER',
-  isAuthenticated: true,
-});
-const LEARNER_1 = learner('0199a000-0000-7000-8000-0b0000000001');
-const LEARNER_2 = learner('0199a000-0000-7000-8000-0b0000000002');
-const TEST_LEARNERS = [LEARNER_1.userId, LEARNER_2.userId];
-
-/** Bỏ ?schema=… của Prisma; pg không hiểu tham số này. */
-function databaseUrl(name: string): string {
-  const url = new URL(process.env.DATABASE_URL!);
-  url.pathname = `/${name}`;
-  url.search = '';
-  return url.toString();
-}
+const TEST_LEARNERS = [ENROLL_IT_LEARNER_1.userId, ENROLL_IT_LEARNER_2.userId];
 
 const learningDb = new Client({ connectionString: databaseUrl('learning_db') });
-const courseDb = new Client({
-  connectionString: process.env.COURSE_DATABASE_URL ?? databaseUrl('course_db'),
-});
+const courseDb = new Client({ connectionString: courseDatabaseUrl() });
 const courseClient = new CourseServiceClient(
   readCourseServiceConfig((key) => process.env[key]),
 );
@@ -65,11 +47,6 @@ const courseClient = new CourseServiceClient(
 let app: NestExpressApplication | null = null;
 let baseUrl = '';
 let connected = false;
-/** locked_at, updated_at dạng text (giữ micro giây) trước khi test chạy. */
-const lockedBefore = new Map<
-  string,
-  { locked_at: string | null; updated_at: string }
->();
 
 interface HttpResult {
   status: number;
@@ -117,25 +94,21 @@ async function count(sql: string, params: unknown[]): Promise<number> {
 }
 
 async function snapshotCounts(courseId: string) {
+  const countIn = (table: string) =>
+    count(
+      `SELECT count(*) AS n FROM ${table} WHERE course_id = $1 AND organization_id = $2`,
+      [courseId, ENROLL_IT_ORG],
+    );
   return {
-    courses: await count(
-      'SELECT count(*) AS n FROM course_version_snapshots WHERE course_id = $1',
-      [courseId],
-    ),
-    materials: await count(
-      'SELECT count(*) AS n FROM material_snapshots WHERE course_id = $1',
-      [courseId],
-    ),
-    lessons: await count(
-      'SELECT count(*) AS n FROM lesson_snapshots WHERE course_id = $1',
-      [courseId],
-    ),
+    courses: await countIn('course_version_snapshots'),
+    materials: await countIn('material_snapshots'),
+    lessons: await countIn('lesson_snapshots'),
   };
 }
 
 /** Số dòng bản sao mong đợi, tính từ I2 (I2 không gắn Locked). */
 async function expectedSnapshotCounts(courseId: string) {
-  const tree = await courseClient.getCourseTree(LEARNER_1, courseId);
+  const tree = await courseClient.getCourseTree(ENROLL_IT_LEARNER_1, courseId);
   const lessons = tree.modules.flatMap((m) => m.lessons);
   return {
     courses: 1,
@@ -144,24 +117,17 @@ async function expectedSnapshotCounts(courseId: string) {
   };
 }
 
-/** Xóa Enrollment và bản sao của các Course test, theo thứ tự khóa ngoại. */
-async function deleteTestRows(courseIds: string[]): Promise<void> {
-  await learningDb.query(
-    'DELETE FROM enrollments WHERE learner_id = ANY($1::uuid[]) AND course_id = ANY($2::uuid[])',
-    [TEST_LEARNERS, courseIds],
-  );
-  for (const table of [
-    'lesson_snapshots',
-    'material_snapshots',
-    'course_version_snapshots',
-  ]) {
-    await learningDb.query(
-      `DELETE FROM ${table} WHERE course_id = ANY($1::uuid[])`,
-      [courseIds],
-    );
-  }
+/** Đưa fixture về chưa có Enrollment, chưa có bản sao, chưa Locked. */
+async function resetToNoEnrollment(): Promise<void> {
+  await resetEnrollFixture(learningDb, courseDb);
+  assert.deepEqual(await snapshotCounts(ENROLL_IT_PUBLIC_COURSE), {
+    courses: 0,
+    materials: 0,
+    lessons: 0,
+  });
 }
 
+/** locked_at, updated_at dạng text (giữ micro giây). */
 async function readLockedState(courseId: string) {
   const { rows } = await courseDb.query<{
     locked_at: string | null;
@@ -176,31 +142,7 @@ before(async () => {
   await learningDb.connect();
   await courseDb.connect();
   connected = true;
-
-  // Không đụng dữ liệu có sẵn: cleanup chỉ an toàn khi các dòng này do test tạo
-  const leftovers =
-    (await count(
-      'SELECT count(*) AS n FROM enrollments WHERE learner_id = ANY($1::uuid[]) AND course_id = ANY($2::uuid[])',
-      [TEST_LEARNERS, TEST_COURSES],
-    )) +
-    (await count(
-      'SELECT count(*) AS n FROM course_version_snapshots WHERE course_id = ANY($1::uuid[])',
-      [TEST_COURSES],
-    ));
-  if (leftovers > 0) {
-    connected = false;
-    throw new Error(
-      `learning_db đã có ${leftovers} Enrollment/bản sao trên các Course test; dọn tay trước khi chạy test.`,
-    );
-  }
-
-  for (const courseId of TEST_COURSES) {
-    const state = await readLockedState(courseId);
-    lockedBefore.set(courseId, state);
-    console.log(
-      `locked_at trước test ${courseId.slice(-4)}: ${state.locked_at}`,
-    );
-  }
+  await resetEnrollFixture(learningDb, courseDb);
 
   app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error'],
@@ -214,18 +156,7 @@ before(async () => {
 after(async () => {
   try {
     if (connected) {
-      await deleteTestRows(TEST_COURSES);
-      for (const [courseId, state] of lockedBefore) {
-        await courseDb.query(
-          'UPDATE courses SET locked_at = $1::timestamptz, updated_at = $2::timestamptz WHERE id = $3',
-          [state.locked_at, state.updated_at, courseId],
-        );
-        const restored = await readLockedState(courseId);
-        console.log(
-          `locked_at sau khi trả lại ${courseId.slice(-4)}: ${restored.locked_at}`,
-        );
-        assert.deepEqual(restored, state);
-      }
+      await resetEnrollFixture(learningDb, courseDb);
     }
   } finally {
     await app?.close();
@@ -235,10 +166,10 @@ after(async () => {
 });
 
 void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (thật)', () => {
-  let firstEnrollmentId = '';
+  void test('đăng ký Course test → 201; bản sao đủ theo I2; Enrollment đúng cột; course-ids có Course test', async () => {
+    await resetToNoEnrollment();
 
-  void test('đăng ký 0e…03 → 201; bản sao đủ theo I2; Enrollment đúng cột; course-ids có 0e…03', async () => {
-    const result = await enroll(LEARNER_1, COURSE_BAO_MAT);
+    const result = await enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PUBLIC_COURSE);
     assert.equal(result.status, 201, JSON.stringify(result.body));
     const data = result.body.data as Record<string, unknown>;
     assert.deepEqual(Object.keys(data).sort(), [
@@ -248,14 +179,13 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
       'id',
       'status',
     ]);
-    assert.equal(data.courseId, COURSE_BAO_MAT);
+    assert.equal(data.courseId, ENROLL_IT_PUBLIC_COURSE);
     assert.equal(data.enrollmentType, 'Optional');
     assert.equal(data.status, 'NotStarted');
-    firstEnrollmentId = data.id as string;
 
     assert.deepEqual(
-      await snapshotCounts(COURSE_BAO_MAT),
-      await expectedSnapshotCounts(COURSE_BAO_MAT),
+      await snapshotCounts(ENROLL_IT_PUBLIC_COURSE),
+      await expectedSnapshotCounts(ENROLL_IT_PUBLIC_COURSE),
     );
 
     const { rows } = await learningDb.query<Record<string, unknown>>(
@@ -264,7 +194,7 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
               e.video_completion_percent = p.video_completion_percent AS pct_matches,
               e.organization_id::text AS organization_id
          FROM enrollments e CROSS JOIN platform_settings p WHERE e.id = $1`,
-      [firstEnrollmentId],
+      [data.id],
     );
     assert.deepEqual(rows[0], {
       enrollment_type: 'Optional',
@@ -275,25 +205,35 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
       due_at: null,
       extension_seconds: 0,
       pct_matches: true,
-      organization_id: ORG_A,
+      organization_id: ENROLL_IT_ORG,
     });
 
-    assert.ok((await courseIdsOf(LEARNER_1)).includes(COURSE_BAO_MAT));
+    assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_1), [
+      ENROLL_IT_PUBLIC_COURSE,
+    ]);
   });
 
-  void test('đăng ký lại 0e…03 → 409 ALREADY_ENROLLED, enrollmentId trùng lần 201', async () => {
-    assert.ok(firstEnrollmentId, 'cần ca 201 ở trên chạy trước');
-    const result = await enroll(LEARNER_1, COURSE_BAO_MAT);
+  void test('đăng ký lại Course test → 409 ALREADY_ENROLLED, enrollmentId trùng lần 201', async () => {
+    await resetToNoEnrollment();
+    const created = await enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PUBLIC_COURSE);
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+
+    const result = await enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PUBLIC_COURSE);
     assert.equal(result.status, 409);
     assert.equal(result.body.error?.code, 'ALREADY_ENROLLED');
     assert.equal(result.body.error?.message, 'Bạn đã đăng ký Course này');
-    assert.equal(result.body.error?.enrollmentId, firstEnrollmentId);
+    assert.equal(
+      result.body.error?.enrollmentId,
+      (created.body.data as Record<string, unknown>).id,
+    );
   });
 
-  void test('SONG SONG cùng Learner trên 0e…02 → đúng một 201, một 409 mang id vừa tạo, đúng 1 dòng', async () => {
+  void test('SONG SONG cùng Learner, Course chưa có bản sao → đúng một 201, một 409 mang id vừa tạo, đúng 1 dòng', async () => {
+    await resetToNoEnrollment();
+
     const results = await Promise.all([
-      enroll(LEARNER_1, COURSE_AN_TOAN_V2),
-      enroll(LEARNER_1, COURSE_AN_TOAN_V2),
+      enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PUBLIC_COURSE),
+      enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PUBLIC_COURSE),
     ]);
     assert.deepEqual(
       results.map((r) => r.status).sort(),
@@ -310,24 +250,18 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
     assert.equal(
       await count(
         'SELECT count(*) AS n FROM enrollments WHERE learner_id = $1 AND course_id = $2',
-        [LEARNER_1.userId, COURSE_AN_TOAN_V2],
+        [ENROLL_IT_LEARNER_1.userId, ENROLL_IT_PUBLIC_COURSE],
       ),
       1,
     );
   });
 
-  void test('SONG SONG LEARNER_1 và LEARNER_2, Course chưa có bản sao → cả hai 201, bản sao chỉ một bộ', async () => {
-    // Đưa 0e…02 về trạng thái chưa có bản sao (dữ liệu của ca trước)
-    await deleteTestRows([COURSE_AN_TOAN_V2]);
-    assert.deepEqual(await snapshotCounts(COURSE_AN_TOAN_V2), {
-      courses: 0,
-      materials: 0,
-      lessons: 0,
-    });
+  void test('SONG SONG hai Learner, Course chưa có bản sao → cả hai 201, bản sao chỉ một bộ', async () => {
+    await resetToNoEnrollment();
 
     const results = await Promise.all([
-      enroll(LEARNER_1, COURSE_AN_TOAN_V2),
-      enroll(LEARNER_2, COURSE_AN_TOAN_V2),
+      enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PUBLIC_COURSE),
+      enroll(ENROLL_IT_LEARNER_2, ENROLL_IT_PUBLIC_COURSE),
     ]);
     assert.deepEqual(
       results.map((r) => r.status),
@@ -335,55 +269,67 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
       JSON.stringify(results.map((r) => r.body)),
     );
     assert.deepEqual(
-      await snapshotCounts(COURSE_AN_TOAN_V2),
-      await expectedSnapshotCounts(COURSE_AN_TOAN_V2),
+      await snapshotCounts(ENROLL_IT_PUBLIC_COURSE),
+      await expectedSnapshotCounts(ENROLL_IT_PUBLIC_COURSE),
     );
     assert.equal(
       await count(
         'SELECT count(*) AS n FROM enrollments WHERE course_id = $1 AND learner_id = ANY($2::uuid[])',
-        [COURSE_AN_TOAN_V2, TEST_LEARNERS],
+        [ENROLL_IT_PUBLIC_COURSE, TEST_LEARNERS],
       ),
       2,
     );
-    assert.ok((await courseIdsOf(LEARNER_2)).includes(COURSE_AN_TOAN_V2));
+    assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_2), [
+      ENROLL_IT_PUBLIC_COURSE,
+    ]);
   });
 
-  void test('0e…04 (Private) → 404 COURSE_NOT_AVAILABLE, locked_at vẫn NULL', async () => {
-    const result = await enroll(LEARNER_1, COURSE_QUY_TRINH_PRIVATE);
+  void test('Course test Private → 404 COURSE_NOT_AVAILABLE, locked_at vẫn NULL', async () => {
+    await resetEnrollFixture(learningDb, courseDb);
+    assert.equal(
+      (await readLockedState(ENROLL_IT_PRIVATE_COURSE)).locked_at,
+      null,
+    );
+
+    const result = await enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PRIVATE_COURSE);
     assert.equal(result.status, 404);
     assert.equal(result.body.error?.code, 'COURSE_NOT_AVAILABLE');
     assert.equal(result.body.error?.message, 'Course không còn trong danh mục');
     assert.equal(
-      lockedBefore.get(COURSE_QUY_TRINH_PRIVATE)?.locked_at,
-      null,
-      'seed: 0e…04 chưa Locked',
-    );
-    assert.equal(
-      (await readLockedState(COURSE_QUY_TRINH_PRIVATE)).locked_at,
+      (await readLockedState(ENROLL_IT_PRIVATE_COURSE)).locked_at,
       null,
     );
   });
 
-  void test('0e…06 (org B) → 404 COURSE_NOT_AVAILABLE', async () => {
-    const result = await enroll(LEARNER_1, COURSE_NHAP_MON_ORG_B);
+  void test('0e…06 (org B) → 404 COURSE_NOT_AVAILABLE, locked_at và updated_at của 0e…06 không đổi', async () => {
+    const before = await readLockedState(COURSE_NHAP_MON_ORG_B);
+    assert.ok(
+      before,
+      `course_db không có Course ${COURSE_NHAP_MON_ORG_B} (org B); chạy npm run db:seed của course-service.`,
+    );
+
+    const result = await enroll(ENROLL_IT_LEARNER_1, COURSE_NHAP_MON_ORG_B);
     assert.equal(result.status, 404);
     assert.equal(result.body.error?.code, 'COURSE_NOT_AVAILABLE');
-    assert.equal(
-      (await readLockedState(COURSE_NHAP_MON_ORG_B)).locked_at,
-      lockedBefore.get(COURSE_NHAP_MON_ORG_B)?.locked_at,
-    );
+    assert.deepEqual(await readLockedState(COURSE_NHAP_MON_ORG_B), before);
   });
 
   void test('courseId không phải UUID → 400', async () => {
-    const result = await call(LEARNER_1, 'POST', '/enrollments', {
+    const result = await call(ENROLL_IT_LEARNER_1, 'POST', '/enrollments', {
       courseId: 'abc',
     });
     assert.equal(result.status, 400);
   });
 
   void test('sai role → 403 ở cả 2 endpoint', async () => {
-    const instructor: CurrentUser = { ...LEARNER_1, role: 'INSTRUCTOR' };
-    assert.equal((await enroll(instructor, COURSE_BAO_MAT)).status, 403);
+    const instructor: CurrentUser = {
+      ...ENROLL_IT_LEARNER_1,
+      role: 'INSTRUCTOR',
+    };
+    assert.equal(
+      (await enroll(instructor, ENROLL_IT_PUBLIC_COURSE)).status,
+      403,
+    );
     assert.equal(
       (await call(instructor, 'GET', '/enrollments/me/course-ids')).status,
       403,
