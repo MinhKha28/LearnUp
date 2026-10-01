@@ -15,28 +15,30 @@ export class CatalogRepository {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Một trang danh mục; đếm tổng và lấy trang trong cùng một transaction. */
-  async findCatalogPage(organizationId: string, skip: number, take: number) {
-    const where = catalogCourseWhere(organizationId);
-    const [total, courses] = await this.prisma.$transaction([
-      this.prisma.course.count({ where }),
-      this.prisma.course.findMany({
-        where,
-        select: {
-          id: true,
-          name: true,
-          shortDescription: true,
-          trainingObjectives: true,
-          coverFileId: true,
-          expectedCompletionDays: true,
-        },
-        // id giúp thứ tự ổn định giữa các trang khi trùng published_at
-        orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
-        skip,
-        take,
-      }),
-    ]);
-    return { total, courses };
+  /** Tổng số Course trong danh mục của tổ chức. */
+  countCatalog(organizationId: string) {
+    return this.prisma.course.count({
+      where: catalogCourseWhere(organizationId),
+    });
+  }
+
+  /** Một trang danh mục; service chỉ gọi khi skip nhỏ hơn tổng. */
+  findCatalogCourses(organizationId: string, skip: number, take: number) {
+    return this.prisma.course.findMany({
+      where: catalogCourseWhere(organizationId),
+      select: {
+        id: true,
+        name: true,
+        shortDescription: true,
+        trainingObjectives: true,
+        coverFileId: true,
+        expectedCompletionDays: true,
+      },
+      // id giúp thứ tự ổn định giữa các trang khi trùng published_at
+      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+      skip,
+      take,
+    });
   }
 
   /**
