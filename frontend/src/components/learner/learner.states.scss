@@ -1,0 +1,93 @@
+.learner-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.learner-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.learner-skeleton-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.learner-skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.learner-skeleton .learner-skeleton-thumb.ant-skeleton-element,
+.learner-skeleton .learner-skeleton-cover.ant-skeleton-element {
+  flex: 0 0 auto;
+}
+
+.learner-skeleton .learner-skeleton-thumb .ant-skeleton-node {
+  width: 112px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+}
+
+.learner-skeleton .learner-skeleton-cover.ant-skeleton-element,
+.learner-skeleton .learner-skeleton-cover .ant-skeleton-node {
+  width: 100%;
+}
+
+.learner-skeleton .learner-skeleton-cover .ant-skeleton-node {
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+}
+
+.learner-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  text-align: center;
+}
+
+.learner-state h2 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.learner-state p {
+  max-width: 480px;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.learner-state-icon {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 32px;
+}
+
+.learner-state-error .learner-state-icon {
+  color: var(--color-error);
+}
+
+.learner-state-action {
+  margin-top: var(--space-3);
+}
