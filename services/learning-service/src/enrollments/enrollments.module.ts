@@ -3,6 +3,7 @@ import { CourseSnapshotsModule } from '../course-snapshots/course-snapshots.modu
 import { CourseServiceModule } from '../integrations/course-service/course-service.module';
 import { TenantModule } from '../integrations/tenant/tenant.module';
 import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
+import { BaseDueAtRepository } from './base-due-at.repository';
 import { EnrollmentsController } from './enrollments.controller';
 import { EnrollmentsRepository } from './enrollments.repository';
 import { EnrollmentsService } from './enrollments.service';
@@ -15,7 +16,7 @@ import { EnrollmentsService } from './enrollments.service';
     CourseSnapshotsModule,
   ],
   controllers: [EnrollmentsController],
-  providers: [EnrollmentsService, EnrollmentsRepository],
-  exports: [EnrollmentsService, EnrollmentsRepository],
+  providers: [EnrollmentsService, EnrollmentsRepository, BaseDueAtRepository],
+  exports: [EnrollmentsService, EnrollmentsRepository, BaseDueAtRepository],
 })
 export class EnrollmentsModule {}

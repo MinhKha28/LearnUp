@@ -1,7 +1,10 @@
 import {
   createApiError,
+  createPageResponse,
+  HEADER_NAMES,
   STANDARD_ERROR_CODES,
   type CurrentUser,
+  type PageResponse,
 } from '@learnup/ts-common';
 import {
   ConflictException,
@@ -13,6 +16,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 import { Prisma } from '../../generated/prisma/client';
 import { buildCourseSnapshotRows } from '../course-snapshots/course-snapshot-rows';
 import { CourseSnapshotsRepository } from '../course-snapshots/course-snapshots.repository';
@@ -23,6 +27,8 @@ import {
   CourseServiceError,
   CourseServiceUnavailableError,
 } from '../integrations/course-service/course-service.errors';
+import type { CourseBatchItem } from '../integrations/course-service/course-service.types';
+import { OrganizationTimezoneService } from '../integrations/tenant/organization-timezone.service';
 import {
   TENANT_CLIENT,
   TenantUnavailableError,
@@ -33,7 +39,30 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   EnrollmentsRepository,
   type CreatedEnrollment,
+  type MyEnrollmentRow,
 } from './enrollments.repository';
+
+/** D6, D36: UC26 cố định 20 dòng một trang. */
+export const MY_ENROLLMENTS_PAGE_SIZE = 20;
+
+/** Một dòng UC26; không thêm trường nào ngoài danh sách đã chốt. */
+export interface MyEnrollmentItem {
+  enrollmentId: string;
+  courseId: string;
+  enrollmentType: string;
+  status: string;
+  dueAt: string | null;
+  requiredMaterials: { completed: number; total: number };
+  course: {
+    name: string;
+    versionNumber: number;
+    coverFileId: string | null;
+  } | null;
+}
+
+export interface MyEnrollmentsPage extends PageResponse<MyEnrollmentItem> {
+  organizationTimezone: string | null;
+}
 
 const BUSY_MESSAGE = 'Hệ thống đang bận, vui lòng thử lại';
 
@@ -69,6 +98,7 @@ export class EnrollmentsService {
     private readonly platformSettings: PlatformSettingsRepository,
     private readonly courseService: CourseServiceClient,
     @Inject(TENANT_CLIENT) private readonly tenant: TenantClient,
+    private readonly organizationTimezone: OrganizationTimezoneService,
   ) {}
 
   /**
@@ -163,6 +193,110 @@ export class EnrollmentsService {
       user.userId,
       this.organizationIdOf(user),
     );
+  }
+
+  /**
+   * UC26: Course của tôi. Đếm trước; trang rỗng hoặc vượt tổng thì trả ngay, không chạy truy vấn danh sách,
+   * không gọi I3 hay tenant. I3 và tenant chạy song song; tenant chỉ gọi khi trang có Required có hạn (D24).
+   */
+  async findMyEnrollments(
+    user: CurrentUser,
+    page: number,
+  ): Promise<MyEnrollmentsPage> {
+    const organizationId = this.organizationIdOf(user);
+    const pageSize = MY_ENROLLMENTS_PAGE_SIZE;
+    const emptyPage = (total: number): MyEnrollmentsPage => ({
+      ...createPageResponse<MyEnrollmentItem>([], page, pageSize, total),
+      organizationTimezone: null,
+    });
+    // Header không phải UUID thì không thể có Enrollment nào
+    const invalidHeaders = [
+      [HEADER_NAMES.USER_ID, user.userId],
+      [HEADER_NAMES.ORGANIZATION_ID, organizationId],
+    ].filter(([, value]) => !isUUID(value, 'all'));
+    if (invalidHeaders.length > 0) {
+      for (const [header, value] of invalidHeaders) {
+        this.logger.warn(
+          `UC26: header ${header} không phải UUID ("${value.slice(0, 64)}"); trả danh sách rỗng.`,
+        );
+      }
+      return emptyPage(0);
+    }
+
+    const total = await this.enrollments.countMine(user.userId, organizationId);
+    const offset = (page - 1) * pageSize;
+    if (offset >= total) {
+      return emptyPage(total);
+    }
+
+    const rows = await this.enrollments.findMinePage(
+      user.userId,
+      organizationId,
+      pageSize,
+      offset,
+    );
+    // Dòng bị xóa giữa lúc đếm và lúc đọc trang
+    if (rows.length === 0) {
+      return emptyPage(total);
+    }
+    const counts = await this.enrollments.countRequiredMaterials(
+      rows.map((row) => row.id),
+      organizationId,
+    );
+    const hasRequiredDeadline = rows.some(
+      (row) => row.enrollmentType === 'Required' && row.dueAt !== null,
+    );
+    const [courses, organizationTimezone] = await Promise.all([
+      this.callCourseService(() =>
+        this.courseService.getCoursesBatch(user, [
+          ...new Set(rows.map((row) => row.courseId)),
+        ]),
+      ),
+      hasRequiredDeadline
+        ? this.organizationTimezone.getTimezone(user)
+        : Promise.resolve(null),
+    ]);
+
+    const courseById = new Map(courses.map((c) => [c.courseId, c]));
+    const items = rows.map((row) =>
+      this.toMyEnrollmentItem(
+        row,
+        courseById.get(row.courseId),
+        counts.get(row.id),
+      ),
+    );
+    return {
+      ...createPageResponse(items, page, pageSize, total),
+      organizationTimezone,
+    };
+  }
+
+  private toMyEnrollmentItem(
+    row: MyEnrollmentRow,
+    course: CourseBatchItem | undefined,
+    count: { completed: number; total: number } | undefined,
+  ): MyEnrollmentItem {
+    if (!course) {
+      // D26: vẫn hiện dòng để Learner không mất Enrollment Required
+      this.logger.error(
+        `I3 không trả Course ${row.courseId} của Enrollment ${row.id}; trả course: null.`,
+      );
+    }
+    return {
+      enrollmentId: row.id,
+      courseId: row.courseId,
+      enrollmentType: row.enrollmentType,
+      status: row.status,
+      dueAt: row.dueAt ? row.dueAt.toISOString() : null,
+      requiredMaterials: count ?? { completed: 0, total: 0 },
+      course: course
+        ? {
+            name: course.name,
+            versionNumber: course.versionNumber,
+            coverFileId: course.coverFileId,
+          }
+        : null,
+    };
   }
 
   /** Chỉ tổ chức Active được đăng ký mới (D18, BR-15). */
