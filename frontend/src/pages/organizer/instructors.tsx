@@ -1,119 +1,181 @@
 import { SearchOutlined } from "@ant-design/icons";
-import { Input, Select, Table } from "antd";
+import { Input, Select, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import AccountTable from "@/components/organizer/account.table";
 import {
   OrganizerButton,
   OrganizerPage,
   PageHeader,
   SectionCard,
-  StatusTag,
 } from "@/components/organizer/organizer.ui";
+import {
+  getInstructorSeatsAPI,
+  getInstructorsAPI,
+} from "@/services/organization.service";
+import type {
+  IInstructorListItem,
+  ISeatUsage,
+} from "@/types/organization.types";
+import { seatBlockReason } from "@/utils/helper";
 import "./instructors.scss";
 
-type Instructor = {
-  key: string;
-  name: string;
-  email: string;
-  workUnit: string;
-  courses: number;
-  status: "Active" | "Invitation expired" | "Disabled";
-};
+const COMING_SOON = "Coming soon";
 
-const instructors: Instructor[] = [
-  { key: "an-tran", name: "An Tran", email: "an.tran@example.com", workUnit: "Engineering", courses: 4, status: "Active" },
-  { key: "linh-phan", name: "Linh Phan", email: "linh.phan@example.com", workUnit: "Compliance", courses: 3, status: "Active" },
-  { key: "giao-le", name: "Giao Le", email: "giao.le@example.com", workUnit: "Operations", courses: 2, status: "Invitation expired" },
-  { key: "vy-nguyen", name: "Vy Nguyen", email: "vy.nguyen@example.com", workUnit: "HR", courses: 1, status: "Disabled" },
+// UC12 - cột riêng của Instructor: số Course đang phụ trách (null: chưa lấy được)
+const courseColumns: ColumnsType<IInstructorListItem> = [
+  {
+    title: "Courses",
+    dataIndex: "managedCourseCount",
+    render: (count: number | null) => count ?? "—",
+  },
 ];
 
-const statusTone = (status: Instructor["status"]) =>
-  status === "Active" ? "success" : status === "Invitation expired" ? "warning" : "neutral";
-
 const Instructors = () => {
-  const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  const rows = useMemo(
-    () => instructors.filter((item) => item.name.toLowerCase().includes(query.toLowerCase())),
-    [query],
-  );
-  const columns: ColumnsType<Instructor> = [
-    {
-      title: "Instructor",
-      dataIndex: "name",
-      render: (_, item) => (
-        <div>
-          <strong>{item.name}</strong>
-          <div className="organizer-note">{item.email}</div>
-        </div>
-      ),
-    },
-    { title: "Work unit", dataIndex: "workUnit" },
-    { title: "Courses", dataIndex: "courses" },
-    {
-      title: "Status",
-      dataIndex: "status",
-      render: (status: Instructor["status"]) => (
-        <StatusTag tone={statusTone(status)}>{status}</StatusTag>
-      ),
-    },
-    {
-      title: "Action",
-      key: "action",
-      align: "right",
-      render: (_, item) => (
-        <button
-          className="organizer-link"
-          onClick={() => navigate(`/organizer/instructors/${item.key}`)}
-        >
-          View details →
-        </button>
-      ),
-    },
-  ];
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [rows, setRows] = useState<IInstructorListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let ignore = false;
+    const loadInstructors = async () => {
+      setLoading(true);
+      setError(false);
+      try {
+        const res = await getInstructorsAPI({ page, pageSize });
+        if (ignore) return;
+        if (res.data) {
+          setRows(res.data.items);
+          setTotal(res.data.meta.total);
+        } else {
+          setError(true);
+        }
+      } catch {
+        if (!ignore) setError(true);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+    loadInstructors();
+    return () => {
+      ignore = true;
+    };
+  }, [page, pageSize, reloadKey]);
+
+  // UC12.2 - số chỗ Instructor (quyết định bật nút Add Instructor)
+  const [seats, setSeats] = useState<ISeatUsage | null>(null);
+  const [seatsLoading, setSeatsLoading] = useState(true);
+
+  useEffect(() => {
+    let ignore = false;
+    const loadSeats = async () => {
+      setSeatsLoading(true);
+      try {
+        const res = await getInstructorSeatsAPI();
+        if (!ignore) setSeats(res.data ?? null);
+      } catch {
+        if (!ignore) setSeats(null);
+      } finally {
+        if (!ignore) setSeatsLoading(false);
+      }
+    };
+    loadSeats();
+    return () => {
+      ignore = true;
+    };
+  }, [reloadKey]);
+
+  const addBlockedReason = seatsLoading
+    ? "Checking available seats…"
+    : seatBlockReason(seats, "Instructor");
+
   return (
     <OrganizerPage className="organizer-instructors">
       <PageHeader
         title="Instructors"
-        subtitle="Manage instructor accounts and available seats."
+        subtitle="Manage instructor accounts in your organization."
         actions={
           <>
-            <Link to="/organizer/instructors/import">
-              <OrganizerButton>Import Excel</OrganizerButton>
-            </Link>
-            <Link to="/organizer/instructors/add">
-              <OrganizerButton type="primary">Add Instructor</OrganizerButton>
-            </Link>
+            {/* UC12.8 */}
+            <Tooltip title={COMING_SOON}>
+              <span>
+                <OrganizerButton disabled>Import Excel</OrganizerButton>
+              </span>
+            </Tooltip>
+            {/* UC12.2 */}
+            {addBlockedReason ? (
+              <Tooltip title={addBlockedReason}>
+                <span>
+                  <OrganizerButton type="primary" disabled>
+                    Add Instructor
+                  </OrganizerButton>
+                </span>
+              </Tooltip>
+            ) : (
+              <Link to="/organizer/instructors/add">
+                <OrganizerButton type="primary">Add Instructor</OrganizerButton>
+              </Link>
+            )}
           </>
         }
       />
       <SectionCard
         title="Instructor accounts"
-        extra={<span className="organizer-note">18 / 25 seats used</span>}
+        extra={
+          seats && (
+            <span className="organizer-note">
+              {seats.used} / {seats.max} seats used
+            </span>
+          )
+        }
       >
+        {/* UC12.4 */}
         <div className="organizer-filters organizer-instructors-filters">
-          <Input
-            prefix={<SearchOutlined />}
-            placeholder="Search by name or email"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <Select
-            defaultValue="all"
-            options={[
-              { value: "all", label: "All statuses" },
-              { value: "active", label: "Active" },
-              { value: "expired", label: "Invitation expired" },
-              { value: "disabled", label: "Disabled" },
-            ]}
-          />
+          <Tooltip title={COMING_SOON}>
+            <Input
+              prefix={<SearchOutlined />}
+              placeholder="Search by name or email"
+              disabled
+            />
+          </Tooltip>
+          <Tooltip title={COMING_SOON}>
+            <Select
+              defaultValue="all"
+              disabled
+              options={[{ value: "all", label: "All statuses" }]}
+            />
+          </Tooltip>
         </div>
-        <Table
-          className="organizer-table"
-          columns={columns}
-          dataSource={rows}
-          pagination={{ pageSize: 6, showSizeChanger: false, position: ["bottomRight"] }}
+        <AccountTable<IInstructorListItem>
+          rows={rows}
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          loading={loading}
+          error={error}
+          itemLabel="instructors"
+          emptyText="No instructors yet."
+          extraColumns={courseColumns}
+          // UC12.1 / 12.3 / 12.5 / 12.6 / 12.7 gắn thao tác vào đây
+          renderActions={() => (
+            <Tooltip title={COMING_SOON}>
+              <span>
+                <button className="organizer-link" disabled>
+                  View details →
+                </button>
+              </span>
+            </Tooltip>
+          )}
+          onPageChange={(nextPage, nextPageSize) => {
+            setPage(nextPage);
+            setPageSize(nextPageSize);
+          }}
+          onRetry={() => setReloadKey((key) => key + 1)}
         />
       </SectionCard>
     </OrganizerPage>

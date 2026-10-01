@@ -18,10 +18,10 @@ export default function Header() {
   const registration = pathname.startsWith("/register");
   const bareAuthFlow =
     pathname.startsWith("/activate") ||
+    pathname.startsWith("/verify-email") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password");
-  const plansActive =
-    pathname === "/register" || pathname === "/register/no-plans";
+  const plansActive = registration;
   const [activeKey, setActiveKey] = useState("platform");
   const closeMenu = () => setOpen(false);
 

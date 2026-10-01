@@ -1,31 +1,78 @@
 import { message } from "antd";
-import { useNavigate, useParams } from "react-router-dom";
-import {
-  findBuilderAssignment,
-  findCourseStructure,
-  findInstructorCourse,
-  removeBuilderAssignment,
-} from "@/components/instructor/instructor.data";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams, useOutletContext } from "react-router-dom";
+import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
+import { assessmentErrorText, deleteAssignmentAPI, fetchAssignmentAPI } from "@/services/assessment.service";
+import type { IAssignment } from "@/types/assessment.types";
 import "./course.builder.scss";
+import "./course.builder.assignment.scss";
 import "./course.builder.confirm.scss";
 
 const CourseBuilderAssignmentDelete = () => {
-  const { courseId, assignmentId } = useParams();
+  const { assignmentId } = useParams();
   const navigate = useNavigate();
-  const course = findInstructorCourse(courseId);
-  const structure = findCourseStructure(courseId);
-  const assignment = structure ? findBuilderAssignment(structure, assignmentId) : undefined;
+  const { structure } = useOutletContext<ICourseBuilderOutletContext>();
+  const course = structure.course;
 
-  if (!course || !structure || !assignment) return null;
+  const [assignment, setAssignment] = useState<IAssignment | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!assignmentId) return;
+    let active = true;
+    const load = async () => {
+      try {
+        const res = await fetchAssignmentAPI(assignmentId);
+        if (!active) return;
+        if (res.data) setAssignment(res.data);
+        else message.error(assessmentErrorText(res, "Unable to load the Assignment."));
+      } catch {
+        if (active) message.error("Unable to reach the Assessment service. Please try again.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [assignmentId]);
+
 
   const base = `/instructor/courses/${course.id}/builder`;
-  const canDelete = !course.locked && !assignment.locked;
 
-  const handleDelete = () => {
-    removeBuilderAssignment(structure, assignment.id);
-    message.success("Assignment deleted.");
-    navigate(`${base}/assignments`);
+  if (!assignment) {
+    return (
+      <InstructorPage className="builder-page">
+        <span className="builder-crumb">Course Builder / Delete Assignment</span>
+        <div className="builder-hero">
+          <h1>{loading ? "Loading Assignment..." : "Assignment not found"}</h1>
+        </div>
+        {!loading && <InstructorButton onClick={() => navigate(`${base}/assignments`)}>Back</InstructorButton>}
+      </InstructorPage>
+    );
+  }
+
+  // BR-92: blocked only when the Course is Locked AND the Assignment already has submissions.
+  const canDelete = !(assignment.courseLocked && assignment.locked);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await deleteAssignmentAPI(assignment.id);
+      if (!res.data) {
+        message.error(assessmentErrorText(res, "Unable to delete the Assignment."));
+        return;
+      }
+      message.success("Assignment deleted.");
+      navigate(`${base}/assignments`);
+    } catch {
+      message.error("Unable to reach the Assessment service. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -36,15 +83,21 @@ const CourseBuilderAssignmentDelete = () => {
       </div>
       <div className="builder-confirm-card">
         <div className="builder-confirm-warning">
-          <strong>Delete Assignment?</strong>
-          <p>This removes the Assignment. Submission data prevents deletion after lock.</p>
+          <strong>Delete "{assignment.title}"?</strong>
+          <p>
+            This removes the Assignment, its Rubric and its Peer Review settings. Its estimated effort is taken out of
+            the Course duration.
+          </p>
         </div>
-        <p className="builder-confirm-note">
-          Available only while the relevant Course and content rules allow deletion.
-        </p>
+        {!canDelete && (
+          <p className="builder-confirm-note">
+            This Assignment already has submissions and the Course is Locked, so it cannot be deleted. Create a new
+            Course version to remove it.
+          </p>
+        )}
         <div className="builder-confirm-actions">
-          <InstructorButton onClick={() => navigate(-1)}>Cancel</InstructorButton>
-          <InstructorButton type="primary" disabled={!canDelete} onClick={handleDelete}>
+          <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}`)}>Cancel</InstructorButton>
+          <InstructorButton type="primary" danger disabled={!canDelete} loading={deleting} onClick={handleDelete}>
             Delete Assignment
           </InstructorButton>
         </div>

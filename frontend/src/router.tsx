@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import Layout from "@/layout";
 
@@ -12,6 +12,7 @@ import LoginPage from "@/pages/guest/login";
 import RegisterPage from "@/pages/guest/register";
 import ActivatePage from "@/pages/guest/activate";
 import ActivationSuccess from "@/pages/guest/activation.success";
+import VerifyEmailPage from "@/pages/guest/verify.email";
 import ForgotPasswordPage from "@/pages/guest/password.forgot";
 import ResetPasswordPage from "@/pages/guest/password.reset";
 import LayoutAdmin from "./components/layout/layout.admin";
@@ -66,7 +67,6 @@ import LearnerDashboard from "./pages/learner/dashboard";
 import LearnerMyCourses from "./pages/learner/my.courses";
 import LearnerCatalog from "./pages/learner/catalog";
 import LearnerCourseOverview from "./pages/learner/course.overview";
-import LearnerEnrollmentSuccess from "./pages/learner/enrollment.success";
 import LearnerCourseCurriculum from "./pages/learner/course.curriculum";
 import LearnerLessonDetail from "./pages/learner/lesson.detail";
 import LearnerLessonResource from "./pages/learner/lesson.resource";
@@ -97,14 +97,11 @@ import LayoutInstructor from "./components/layout/layout.instructor";
 import LayoutInstructorCourse from "./components/layout/layout.instructor.course";
 import InstructorDashboard from "./pages/instructor/dashboard";
 import InstructorMyCourses from "./pages/instructor/my.courses";
+import InstructorCourseCreate from "./pages/instructor/course.create";
 import InstructorCourseDetail from "./pages/instructor/course.detail";
-import InstructorCourseCreateBasic from "./pages/instructor/course.create.basic";
-import InstructorCourseCreateOutcomes from "./pages/instructor/course.create.outcomes";
-import InstructorCourseCreateSettings from "./pages/instructor/course.create.settings";
-import InstructorCourseCreateReview from "./pages/instructor/course.create.review";
 import InstructorCourseQuotaBlocked from "./pages/instructor/course.quota.blocked";
-import InstructorCourseDraftCreated from "./pages/instructor/course.draft.created";
 import InstructorCourseEdit from "./pages/instructor/course.edit";
+import InstructorCourseDraftCreated from "./pages/instructor/course.draft.created";
 import InstructorCourseDeleteBlocked from "./pages/instructor/course.delete.blocked";
 import InstructorCourseSubmit from "./pages/instructor/course.submit";
 import InstructorCourseSubmitted from "./pages/instructor/course.submitted";
@@ -134,7 +131,6 @@ import InstructorCourseBuilderQuizQuestionEdit from "./pages/instructor/course.b
 import InstructorCourseBuilderQuizDelete from "./pages/instructor/course.builder.quiz.delete";
 import InstructorCourseBuilderAssignments from "./pages/instructor/course.builder.assignments";
 import InstructorCourseBuilderAssignmentCreate from "./pages/instructor/course.builder.assignment.create";
-import InstructorCourseBuilderAssignmentRubricEdit from "./pages/instructor/course.builder.assignment.rubric.edit";
 import InstructorCourseBuilderAssignmentPeerReviewEdit from "./pages/instructor/course.builder.assignment.peer.review.edit";
 import InstructorCourseBuilderAssignmentDetail from "./pages/instructor/course.builder.assignment.detail";
 import InstructorCourseBuilderAssignmentEdit from "./pages/instructor/course.builder.assignment.edit";
@@ -172,6 +168,7 @@ export const router = createBrowserRouter([
         element: <HomePage />,
       },
       { path: "register/:screen?", element: <RegisterPage /> },
+      { path: "verify-email", element: <VerifyEmailPage /> },
       { path: "activate/:token", element: <ActivatePage /> },
       { path: "activate/:token/success", element: <ActivationSuccess /> },
       { path: "forgot-password", element: <ForgotPasswordPage /> },
@@ -213,31 +210,49 @@ export const router = createBrowserRouter([
       { index: true, element: <OrganizerDashboard /> },
       { path: "subscription", element: <OrganizerSubscription /> },
       { path: "subscription/renew", element: <OrganizerSubscriptionRenew /> },
-      { path: "subscription/upgrade", element: <OrganizerSubscriptionUpgrade /> },
+      {
+        path: "subscription/upgrade",
+        element: <OrganizerSubscriptionUpgrade />,
+      },
       { path: "organization", element: <OrganizerOrganization /> },
       { path: "organization/edit", element: <OrganizerOrganizationEdit /> },
       { path: "instructors", element: <OrganizerInstructors /> },
       { path: "instructors/add", element: <OrganizerInstructorCreate /> },
       { path: "instructors/import", element: <OrganizerInstructorImport /> },
-      { path: "instructors/:instructorId", element: <OrganizerInstructorDetail /> },
+      {
+        path: "instructors/:instructorId",
+        element: <OrganizerInstructorDetail />,
+      },
       { path: "learners", element: <OrganizerLearners /> },
       { path: "learners/add", element: <OrganizerLearnerCreate /> },
       { path: "learners/import", element: <OrganizerLearnerImport /> },
       { path: "learners/:learnerId", element: <OrganizerLearnerDetail /> },
-      { path: "learners/:learnerId/report", element: <OrganizerLearnerReport /> },
+      {
+        path: "learners/:learnerId/report",
+        element: <OrganizerLearnerReport />,
+      },
       { path: "courses", element: <OrganizerCourses /> },
       { path: "courses/approvals", element: <OrganizerCourseApprovals /> },
       { path: "courses/:courseId/review", element: <OrganizerCourseReview /> },
-      { path: "courses/:courseId/version-report", element: <OrganizerCourseVersionReport /> },
+      {
+        path: "courses/:courseId/version-report",
+        element: <OrganizerCourseVersionReport />,
+      },
       { path: "courses/:courseId", element: <OrganizerCourseDetail /> },
       { path: "assignments", element: <OrganizerAssignments /> },
       { path: "assignments/assign", element: <OrganizerAssignmentCreate /> },
-      { path: "assignments/:assignmentId", element: <OrganizerAssignmentDetail /> },
+      {
+        path: "assignments/:assignmentId",
+        element: <OrganizerAssignmentDetail />,
+      },
       { path: "reports", element: <OrganizerReports /> },
       { path: "reports/:reportId", element: <OrganizerReportDetail /> },
       { path: "evaluations", element: <OrganizerEvaluations /> },
       { path: "content-reports", element: <OrganizerContentReports /> },
-      { path: "content-reports/:reportId", element: <OrganizerContentReportDetail /> },
+      {
+        path: "content-reports/:reportId",
+        element: <OrganizerContentReportDetail />,
+      },
       { path: "violation-history", element: <OrganizerViolationHistory /> },
       { path: "profile", element: <OrganizerProfile /> },
       { path: "profile/change-password", element: <OrganizerChangePassword /> },
@@ -250,37 +265,44 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <LearnerDashboard /> },
       { path: "courses", element: <LearnerMyCourses /> },
-      { path: "courses/:courseId/withdraw", element: <LearnerCourseWithdraw /> },
-      { path: "courses/:courseId/withdrawn", element: <LearnerCourseWithdrawn /> },
-      { path: "courses/:courseId/evaluation", element: <LearnerCourseEvaluation /> },
       {
-        path: "courses/:courseId/lessons/:lessonId/resources/:resourceId/report",
+        path: "courses/:enrollmentId/withdraw",
+        element: <LearnerCourseWithdraw />,
+      },
+      {
+        path: "courses/:enrollmentId/withdrawn",
+        element: <LearnerCourseWithdrawn />,
+      },
+      {
+        path: "courses/:enrollmentId/evaluation",
+        element: <LearnerCourseEvaluation />,
+      },
+      {
+        path: "courses/:enrollmentId/lessons/:lessonId/resources/:resourceId/report",
         element: <LearnerReportContent />,
       },
       { path: "catalog", element: <LearnerCatalog /> },
       { path: "catalog/:courseId", element: <LearnerCourseOverview /> },
-      {
-        path: "catalog/:courseId/enrolled",
-        element: <LearnerEnrollmentSuccess />,
-      },
-      {
-        path: "catalog/:courseId/restored",
-        element: <LearnerEnrollmentSuccess restored />,
-      },
       { path: "peer-review", element: <LearnerPeerReviewQueue /> },
       { path: "peer-review/history", element: <LearnerPeerReviewHistory /> },
       { path: "peer-review/:submissionId", element: <LearnerPeerReviewForm /> },
       { path: "certificates", element: <LearnerCertificates /> },
-      { path: "certificates/:certificateId", element: <LearnerCertificateDetail /> },
+      {
+        path: "certificates/:certificateId",
+        element: <LearnerCertificateDetail />,
+      },
       { path: "reports", element: <LearnerReports /> },
-      { path: "reports/:reportId/escalate", element: <LearnerReportEscalate /> },
+      {
+        path: "reports/:reportId/escalate",
+        element: <LearnerReportEscalate />,
+      },
       { path: "profile", element: <LearnerProfile /> },
       { path: "profile/edit", element: <LearnerProfileEdit /> },
       { path: "profile/change-password", element: <LearnerChangePassword /> },
     ],
   },
   {
-    path: "/learner/courses/:courseId",
+    path: "/learner/courses/:enrollmentId",
     element: <LayoutLearnerCourse />,
     errorElement: <ServerErrorPage />,
     children: [
@@ -294,7 +316,10 @@ export const router = createBrowserRouter([
       { path: "assessments", element: <LearnerCourseAssessments /> },
       { path: "quizzes/:quizId", element: <LearnerQuizTake /> },
       { path: "quizzes/:quizId/history", element: <LearnerQuizHistory /> },
-      { path: "assignments/:assignmentId", element: <LearnerAssignmentDetail /> },
+      {
+        path: "assignments/:assignmentId",
+        element: <LearnerAssignmentDetail />,
+      },
       {
         path: "assignments/:assignmentId/submit",
         element: <LearnerAssignmentSubmit />,
@@ -316,28 +341,55 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <InstructorDashboard /> },
       { path: "courses", element: <InstructorMyCourses /> },
-      { path: "courses/create", element: <InstructorCourseCreateBasic /> },
-      { path: "courses/create/outcomes", element: <InstructorCourseCreateOutcomes /> },
-      { path: "courses/create/settings", element: <InstructorCourseCreateSettings /> },
-      { path: "courses/create/review", element: <InstructorCourseCreateReview /> },
-      { path: "courses/create/quota-blocked", element: <InstructorCourseQuotaBlocked /> },
-      { path: "courses/draft-created", element: <InstructorCourseDraftCreated /> },
+      { path: "courses/create", element: <InstructorCourseCreate /> },
+      {
+        path: "courses/create/quota-blocked",
+        element: <InstructorCourseQuotaBlocked />,
+      },
+      {
+        path: "courses/draft-created",
+        element: <InstructorCourseDraftCreated />,
+      },
       { path: "courses/:courseId", element: <InstructorCourseDetail /> },
       { path: "courses/:courseId/edit", element: <InstructorCourseEdit /> },
-      { path: "courses/:courseId/delete-blocked", element: <InstructorCourseDeleteBlocked /> },
+      {
+        path: "courses/:courseId/delete-blocked",
+        element: <InstructorCourseDeleteBlocked />,
+      },
       { path: "courses/:courseId/submit", element: <InstructorCourseSubmit /> },
-      { path: "courses/:courseId/submitted", element: <InstructorCourseSubmitted /> },
-      { path: "courses/:courseId/withdraw", element: <InstructorCourseWithdraw /> },
-      { path: "courses/:courseId/versions", element: <InstructorCourseVersions /> },
-      { path: "courses/:courseId/versions/new", element: <InstructorCourseVersionCreate /> },
+      {
+        path: "courses/:courseId/submitted",
+        element: <InstructorCourseSubmitted />,
+      },
+      {
+        path: "courses/:courseId/withdraw",
+        element: <InstructorCourseWithdraw />,
+      },
+      {
+        path: "courses/:courseId/versions",
+        element: <InstructorCourseVersions />,
+      },
+      {
+        path: "courses/:courseId/versions/new",
+        element: <InstructorCourseVersionCreate />,
+      },
       { path: "submissions", element: <InstructorSubmissions /> },
-      { path: "submissions/:submissionId", element: <InstructorSubmissionDetail /> },
-      { path: "submissions/:submissionId/grade", element: <InstructorSubmissionGrade /> },
+      {
+        path: "submissions/:submissionId",
+        element: <InstructorSubmissionDetail />,
+      },
+      {
+        path: "submissions/:submissionId/grade",
+        element: <InstructorSubmissionGrade />,
+      },
       {
         path: "submissions/:submissionId/discrepancy",
         element: <InstructorSubmissionDiscrepancy />,
       },
-      { path: "submissions/:submissionId/finalize", element: <InstructorSubmissionFinalize /> },
+      {
+        path: "submissions/:submissionId/finalize",
+        element: <InstructorSubmissionFinalize />,
+      },
       { path: "peer-cycles", element: <InstructorPeerCycles /> },
       { path: "peer-cycles/:cycleId", element: <InstructorPeerCycleDetail /> },
       {
@@ -352,7 +404,10 @@ export const router = createBrowserRouter([
         element: <InstructorLearnerProgress />,
       },
       { path: "evaluations", element: <InstructorEvaluations /> },
-      { path: "evaluations/comments", element: <InstructorEvaluationComments /> },
+      {
+        path: "evaluations/comments",
+        element: <InstructorEvaluationComments />,
+      },
       { path: "evaluations/export", element: <InstructorEvaluationExport /> },
       {
         path: "courses/:courseId/content-review",
@@ -368,7 +423,10 @@ export const router = createBrowserRouter([
       },
       { path: "profile", element: <InstructorProfile /> },
       { path: "profile/edit", element: <InstructorProfileEdit /> },
-      { path: "profile/change-password", element: <InstructorChangePassword /> },
+      {
+        path: "profile/change-password",
+        element: <InstructorChangePassword />,
+      },
     ],
   },
   {
@@ -379,16 +437,34 @@ export const router = createBrowserRouter([
       { index: true, element: <InstructorCourseBuilder /> },
       { path: "new-version", element: <InstructorCourseBuilderNewVersion /> },
       { path: "modules/new", element: <InstructorCourseBuilderModuleAdd /> },
-      { path: "modules/:moduleId/lessons/new", element: <InstructorCourseBuilderLessonAdd /> },
-      { path: "modules/:moduleId/delete", element: <InstructorCourseBuilderModuleDelete /> },
-      { path: "structure/edit", element: <InstructorCourseBuilderStructureEdit /> },
-      { path: "lessons/:lessonId", element: <InstructorCourseBuilderLessonDetail /> },
-      { path: "lessons/:lessonId/delete", element: <InstructorCourseBuilderLessonDelete /> },
+      {
+        path: "modules/:moduleId/lessons/new",
+        element: <InstructorCourseBuilderLessonAdd />,
+      },
+      {
+        path: "modules/:moduleId/delete",
+        element: <InstructorCourseBuilderModuleDelete />,
+      },
+      {
+        path: "structure/edit",
+        element: <InstructorCourseBuilderStructureEdit />,
+      },
+      {
+        path: "lessons/:lessonId",
+        element: <InstructorCourseBuilderLessonDetail />,
+      },
+      {
+        path: "lessons/:lessonId/delete",
+        element: <InstructorCourseBuilderLessonDelete />,
+      },
       {
         path: "lessons/:lessonId/content/edit",
         element: <InstructorCourseBuilderLessonContentEdit />,
       },
-      { path: "lessons/:lessonId/materials", element: <InstructorCourseBuilderMaterials /> },
+      {
+        path: "lessons/:lessonId/materials",
+        element: <InstructorCourseBuilderMaterials />,
+      },
       {
         path: "lessons/:lessonId/materials/video/new",
         element: <InstructorCourseBuilderVideoAdd />,
@@ -411,9 +487,18 @@ export const router = createBrowserRouter([
       },
       { path: "quizzes", element: <InstructorCourseBuilderQuizzes /> },
       { path: "quizzes/new", element: <InstructorCourseBuilderQuizCreate /> },
-      { path: "quizzes/:quizId", element: <InstructorCourseBuilderQuizDetail /> },
-      { path: "quizzes/:quizId/edit", element: <InstructorCourseBuilderQuizConfigurationEdit /> },
-      { path: "quizzes/:quizId/delete", element: <InstructorCourseBuilderQuizDelete /> },
+      {
+        path: "quizzes/:quizId",
+        element: <InstructorCourseBuilderQuizDetail />,
+      },
+      {
+        path: "quizzes/:quizId/edit",
+        element: <InstructorCourseBuilderQuizConfigurationEdit />,
+      },
+      {
+        path: "quizzes/:quizId/delete",
+        element: <InstructorCourseBuilderQuizDelete />,
+      },
       {
         path: "quizzes/:quizId/questions/new",
         element: <InstructorCourseBuilderQuizQuestionEdit />,
@@ -423,7 +508,10 @@ export const router = createBrowserRouter([
         element: <InstructorCourseBuilderQuizQuestionEdit />,
       },
       { path: "assignments", element: <InstructorCourseBuilderAssignments /> },
-      { path: "assignments/new", element: <InstructorCourseBuilderAssignmentCreate /> },
+      {
+        path: "assignments/new",
+        element: <InstructorCourseBuilderAssignmentCreate />,
+      },
       {
         path: "assignments/:assignmentId",
         element: <InstructorCourseBuilderAssignmentDetail />,
@@ -434,7 +522,8 @@ export const router = createBrowserRouter([
       },
       {
         path: "assignments/:assignmentId/rubric",
-        element: <InstructorCourseBuilderAssignmentRubricEdit />,
+        // The Rubric is edited inline on the Assignment edit page (UC19.3).
+        element: <Navigate to="../edit" relative="path" replace />,
       },
       {
         path: "assignments/:assignmentId/peer-review",

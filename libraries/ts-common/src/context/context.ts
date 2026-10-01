@@ -1,4 +1,4 @@
-import { UserRole } from '../auth/role.js';
+import { UserRole } from "../auth/role.js";
 
 /**
  * Framework-neutral representation of the incoming request context.
@@ -14,10 +14,10 @@ export interface RequestContext {
  * Representation of the currently authenticated user in request scope.
  */
 export interface CurrentUser {
-  userId?: string;
-  role?: UserRole;
+  userId: string;
+  role: UserRole;
   organizationId?: string;
-  isAuthenticated: boolean;
+  isAuthenticated: true;
 }
 
 /**
@@ -55,31 +55,41 @@ export function createRequestContext(params: {
 /**
  * Extract CurrentUser helper object from RequestContext.
  */
-export function createCurrentUser(context?: RequestContext): CurrentUser {
-  const userId = context?.userId;
+export function createCurrentUser(
+  context?: RequestContext,
+): CurrentUser | null {
+  if (!context?.userId || !context.role) {
+    return null;
+  }
   return {
-    userId,
-    role: context?.role,
-    organizationId: context?.organizationId,
-    isAuthenticated: Boolean(userId && userId.trim().length > 0),
+    userId: context.userId,
+    role: context.role,
+    organizationId: context.organizationId,
+    isAuthenticated: true,
   };
 }
 
 /**
  * Extract OrganizationContext helper object from RequestContext.
  */
-export function createOrganizationContext(context?: RequestContext): OrganizationContext {
+export function createOrganizationContext(
+  context?: RequestContext,
+): OrganizationContext {
   const organizationId = context?.organizationId;
   return {
     organizationId,
-    hasOrganization: Boolean(organizationId && organizationId.trim().length > 0),
+    hasOrganization: Boolean(
+      organizationId && organizationId.trim().length > 0,
+    ),
   };
 }
 
 /**
  * Extract CorrelationContext helper object from RequestContext.
  */
-export function createCorrelationContext(context: RequestContext): CorrelationContext {
+export function createCorrelationContext(
+  context: RequestContext,
+): CorrelationContext {
   return {
     correlationId: context.correlationId,
   };

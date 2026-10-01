@@ -16,4 +16,15 @@ declare global {
     };
     result: T[];
   }
+
+  // Khớp PageResponse<T> của @learnup/ts-common (backend trả trong data).
+  interface IPageResponse<T> {
+    meta: {
+      current: number;
+      pageSize: number;
+      pages: number;
+      total: number;
+    };
+    items: T[];
+  }
 }

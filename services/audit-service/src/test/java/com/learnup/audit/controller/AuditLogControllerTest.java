@@ -115,4 +115,43 @@ class AuditLogControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
+
+    @Test
+    @DisplayName("Should support /api/v1 route prefix for audit logs")
+    void shouldSupportV1RoutePrefix() throws Exception {
+        UUID orgId = UUID.randomUUID();
+        UUID actorId = UUID.randomUUID();
+
+        CreateAuditLogRequest request = new CreateAuditLogRequest(
+                orgId,
+                actorId,
+                "ADMIN",
+                "SETTING_CHANGED",
+                "ORGANIZATION",
+                orgId.toString(),
+                "{}",
+                "127.0.0.1",
+                "corr-v1"
+        );
+
+        String res = mockMvc.perform(post("/api/v1/audit/logs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andReturn().getResponse().getContentAsString();
+
+        String id = objectMapper.readTree(res).path("data").path("id").asText();
+
+        mockMvc.perform(get("/api/v1/audit/logs/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.actionType").value("SETTING_CHANGED"));
+
+        mockMvc.perform(get("/api/v1/audit/logs")
+                        .param("organizationId", orgId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.items", hasSize(1)));
+    }
 }

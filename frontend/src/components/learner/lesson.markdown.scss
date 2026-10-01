@@ -1,0 +1,151 @@
+.lesson-markdown {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.lesson-markdown > :first-child {
+  margin-top: 0;
+}
+
+.lesson-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.lesson-markdown h1,
+.lesson-markdown h2,
+.lesson-markdown h3,
+.lesson-markdown h4,
+.lesson-markdown h5,
+.lesson-markdown h6 {
+  margin: var(--space-6) 0 var(--space-3);
+  color: var(--color-text-primary);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.lesson-markdown h1 {
+  font-size: 24px;
+}
+
+.lesson-markdown h2 {
+  font-size: 20px;
+}
+
+.lesson-markdown h3 {
+  font-size: 17px;
+}
+
+.lesson-markdown h4,
+.lesson-markdown h5,
+.lesson-markdown h6 {
+  font-size: 15px;
+}
+
+.lesson-markdown p,
+.lesson-markdown ul,
+.lesson-markdown ol,
+.lesson-markdown blockquote,
+.lesson-markdown pre,
+.lesson-markdown .lesson-markdown-table {
+  margin: 0 0 var(--space-4);
+}
+
+.lesson-markdown ul,
+.lesson-markdown ol {
+  padding-left: var(--space-6);
+}
+
+.lesson-markdown li + li {
+  margin-top: var(--space-1);
+}
+
+.lesson-markdown strong {
+  color: var(--color-text-primary);
+  font-weight: 650;
+}
+
+.lesson-markdown a {
+  color: var(--color-info);
+  text-decoration: underline;
+}
+
+.lesson-markdown blockquote {
+  padding: var(--space-2) var(--space-4);
+  border-left: var(--space-1) solid var(--color-divider);
+  background: var(--color-surface-secondary);
+  color: var(--color-text-secondary);
+}
+
+.lesson-markdown code {
+  padding: 2px var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.lesson-markdown pre {
+  overflow-x: auto;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-secondary);
+}
+
+.lesson-markdown pre code {
+  padding: 0;
+  background: transparent;
+  overflow-wrap: normal;
+}
+
+.lesson-markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+}
+
+.lesson-markdown-image-alt {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.lesson-markdown-table {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.lesson-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.lesson-markdown th,
+.lesson-markdown td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.lesson-markdown th {
+  background: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  font-weight: 650;
+}
+
+.lesson-markdown tr:last-child td {
+  border-bottom: 0;
+}
+
+.lesson-markdown hr {
+  margin: var(--space-6) 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}

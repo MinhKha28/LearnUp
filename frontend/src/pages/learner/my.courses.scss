@@ -1,85 +1,104 @@
-.learner-courses-filters {
+.learner-my-course-list {
   display: flex;
-  padding: 6px 12px;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 24px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: #fff;
-}
-
-.learner-courses-search {
-  flex: 1 1 auto;
-  border: 0 !important;
-  box-shadow: none !important;
-}
-
-.learner-courses-search:focus,
-.learner-courses-search:focus-within {
-  box-shadow: none !important;
-}
-
-.learner-courses-filter,
-.learner-courses-sort {
-  flex: 0 0 auto;
-  min-width: 118px;
-}
-
-.learner-courses-filter .ant-select-selector,
-.learner-courses-sort .ant-select-selector {
-  padding: 4px 12px !important;
-  border-radius: 999px !important;
-  background: #f1f5f9 !important;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.learner-courses-sort .ant-select-selector {
-  background: transparent !important;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.learner-courses-empty {
-  padding: 20px 24px;
-  margin-bottom: 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: #fff;
-  color: #64748b;
-  font-size: 13px;
-}
-
-.learner-courses-info {
-  padding: 18px 20px;
-  margin-top: 24px;
-  border-radius: 8px;
-  background: #eff6ff;
-}
-
-.learner-courses-info strong {
-  display: block;
-  margin-bottom: 4px;
-  color: #1d4ed8;
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.learner-courses-info p {
   margin: 0;
-  color: #475569;
-  font-size: 13px;
-  line-height: 1.5;
+  padding: 0;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
 }
 
-@media (max-width: 900px) {
-  .learner-courses-filters {
+.learner-my-course {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition: border-color 0.15s ease;
+}
+
+.learner-my-course:not(.learner-my-course-halted):hover,
+.learner-my-course:focus-within {
+  border-color: var(--color-divider);
+}
+
+.learner-my-course-body {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.learner-my-course-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.learner-my-course-title {
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* Cả dòng bấm được: liên kết tên Course phủ toàn dòng, nút nằm trên lớp phủ */
+a.learner-my-course-title::after {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+  content: "";
+}
+
+a.learner-my-course-title:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+
+.learner-my-course-version {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.learner-my-course-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.learner-my-course-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.learner-my-course-note {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.learner-my-course-action {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .learner-my-course {
     flex-wrap: wrap;
+    align-items: flex-start;
   }
 
-  .learner-courses-search {
-    flex: 1 1 100%;
+  .learner-my-course-action,
+  .learner-my-course-action .learner-button.ant-btn {
+    width: 100%;
   }
 }
