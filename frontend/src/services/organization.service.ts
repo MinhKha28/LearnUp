@@ -1,8 +1,11 @@
 import type {
+  IAccountListItem,
   IAccountListQuery,
+  ICreateAccountReq,
   ICreateRegistrationReq,
   ICreateRegistrationRes,
   IInstructorListItem,
+  ISeatUsage,
   ISubscriptionPlan,
 } from "@/types/organization.types";
 import axios from "@/services/axios.customize";
@@ -24,3 +27,11 @@ export const getInstructorsAPI = (query: IAccountListQuery) =>
     "/api/v1/users/instructors",
     { params: query },
   );
+
+// UC12.2 - số chỗ Instructor còn lại (Organizer)
+export const getInstructorSeatsAPI = () =>
+  axios.get<IBackendRes<ISeatUsage>>("/api/v1/users/instructors/seats");
+
+// UC12.2 - Thêm Instructor (Organizer; backend gửi lời mời qua email)
+export const createInstructorAPI = (body: ICreateAccountReq) =>
+  axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/instructors", body);

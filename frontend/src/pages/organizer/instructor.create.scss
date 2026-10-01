@@ -3,6 +3,11 @@
     font-size: 10px;
 }
 
+/* UC12.2: thông báo lỗi khi gửi nằm dưới thông báo trạng thái chỗ */
+.organizer-instructor-create .ant-alert + .ant-alert {
+    margin-top: 8px;
+}
+
 .organizer-seat-check {
     display: flex;
     flex-direction: column;
