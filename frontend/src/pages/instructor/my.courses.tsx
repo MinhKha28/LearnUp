@@ -1,8 +1,9 @@
-import { SearchOutlined } from "@ant-design/icons";
-import { Alert, Table } from "antd";
+import { ApartmentOutlined, SearchOutlined } from "@ant-design/icons";
+import { Alert, Button, Input, Select, Table } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import { isCourseQuotaReached } from "@/components/instructor/instructor.data";
 import {
   InstructorButton,
@@ -18,7 +19,6 @@ import type {
 } from "@/types/course.types";
 
 import "./my.courses.scss";
-import { Button, Input, Select } from "antd/lib";
 
 const courseTypeLabel: Record<CourseType, string> = {
   PUBLIC: "Public",
@@ -40,17 +40,13 @@ const courseStatusTone = (
   switch (status) {
     case "PUBLISHED":
       return "success";
-
     case "SUBMITTED":
       return "info";
-
     case "REJECTED":
     case "DISABLED":
       return "error";
-
     case "ARCHIVED":
       return "warning";
-
     default:
       return "neutral";
   }
@@ -58,12 +54,14 @@ const courseStatusTone = (
 
 const MyCourses = () => {
   const navigate = useNavigate();
+
   const [courses, setCourses] = useState<IInstructorCourseListItem[]>([]);
   const [current, setCurrent] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [courseType, setCourseType] = useState<"ALL" | CourseType>("ALL");
@@ -90,6 +88,7 @@ const MyCourses = () => {
         setErrorMessage(response.message || "Unable to load Courses.");
         return;
       }
+
       setCourses(response.data.result);
       setTotal(response.data.meta.total);
     } catch (error) {
@@ -110,6 +109,7 @@ const MyCourses = () => {
     setCurrent(1);
     setSearch(searchInput.trim());
   };
+
   const handleResetFilters = () => {
     setSearchInput("");
     setSearch("");
@@ -124,6 +124,7 @@ const MyCourses = () => {
       navigate("/instructor/courses/create/quota-blocked");
       return;
     }
+
     navigate("/instructor/courses/create");
   };
 
@@ -131,6 +132,7 @@ const MyCourses = () => {
     const nextPageSize = pagination.pageSize ?? pageSize;
     const nextCurrent =
       nextPageSize !== pageSize ? 1 : (pagination.current ?? current);
+
     setPageSize(nextPageSize);
     setCurrent(nextCurrent);
   };
@@ -160,7 +162,6 @@ const MyCourses = () => {
       title: "Status",
       dataIndex: "status",
       width: 140,
-
       render: (status: CourseStatus) => (
         <StatusTag tone={courseStatusTone(status)}>
           {courseStatusLabel[status]}
@@ -182,8 +183,22 @@ const MyCourses = () => {
       dataIndex: "learnerCount",
       width: 110,
       align: "right",
-
       render: (learnerCount?: number) => learnerCount ?? "—",
+    },
+    {
+      title: "Action",
+      key: "action",
+      width: 160,
+      render: (_, course) => (
+        <button
+          type="button"
+          className="instructor-courses-action"
+          onClick={() => navigate(`/instructor/courses/${course.id}/builder`)}
+        >
+          <ApartmentOutlined />
+          <span>View Structure</span>
+        </button>
+      ),
     },
   ];
 
@@ -214,6 +229,7 @@ const MyCourses = () => {
           }
         />
       )}
+
       <div className="my-courses__filters">
         <Input
           className="my-courses__search"
@@ -223,7 +239,6 @@ const MyCourses = () => {
           allowClear
           onChange={(event) => {
             const value = event.target.value;
-
             setSearchInput(value);
 
             if (value === "") {
@@ -242,18 +257,9 @@ const MyCourses = () => {
             setCourseType(value);
           }}
           options={[
-            {
-              value: "ALL",
-              label: "All types",
-            },
-            {
-              value: "PUBLIC",
-              label: "Public",
-            },
-            {
-              value: "PRIVATE",
-              label: "Private",
-            },
+            { value: "ALL", label: "All types" },
+            { value: "PUBLIC", label: "Public" },
+            { value: "PRIVATE", label: "Private" },
           ]}
         />
 
@@ -265,34 +271,13 @@ const MyCourses = () => {
             setStatus(value);
           }}
           options={[
-            {
-              value: "ALL",
-              label: "All statuses",
-            },
-            {
-              value: "DRAFT",
-              label: "Draft",
-            },
-            {
-              value: "SUBMITTED",
-              label: "Submitted",
-            },
-            {
-              value: "PUBLISHED",
-              label: "Published",
-            },
-            {
-              value: "REJECTED",
-              label: "Rejected",
-            },
-            {
-              value: "ARCHIVED",
-              label: "Archived",
-            },
-            {
-              value: "DISABLED",
-              label: "Disabled",
-            },
+            { value: "ALL", label: "All statuses" },
+            { value: "DRAFT", label: "Draft" },
+            { value: "SUBMITTED", label: "Submitted" },
+            { value: "PUBLISHED", label: "Published" },
+            { value: "REJECTED", label: "Rejected" },
+            { value: "ARCHIVED", label: "Archived" },
+            { value: "DISABLED", label: "Disabled" },
           ]}
         />
 
@@ -304,24 +289,16 @@ const MyCourses = () => {
             setLocked(value);
           }}
           options={[
-            {
-              value: "ALL",
-              label: "All lock statuses",
-            },
-            {
-              value: "LOCKED",
-              label: "Locked",
-            },
-            {
-              value: "UNLOCKED",
-              label: "Unlocked",
-            },
+            { value: "ALL", label: "All lock statuses" },
+            { value: "LOCKED", label: "Locked" },
+            { value: "UNLOCKED", label: "Unlocked" },
           ]}
         />
 
         <Button type="primary" onClick={handleSearch}>
           Search
         </Button>
+
         <Button onClick={handleResetFilters}>Reset</Button>
       </div>
 

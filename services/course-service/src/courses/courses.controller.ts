@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { ResponseMessage, User } from 'src/common/decorator/customize';
 import type { CurrentUser } from '@learnup/ts-common';
@@ -19,5 +19,11 @@ export class CoursesController {
   @ResponseMessage('Course created successfully')
   create(@User() user: CurrentUser, @Body() dto: CreateCourseDto) {
     return this.coursesService.create(user, dto);
+  }
+
+  @Get(':courseId/structure')
+  @ResponseMessage('Course structure fetched successfully')
+  getStructure(@User() user: CurrentUser, @Param('courseId') courseId: string) {
+    return this.coursesService.getStructure(user, courseId);
   }
 }

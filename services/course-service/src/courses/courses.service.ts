@@ -1,5 +1,9 @@
 import { CurrentUser } from '@learnup/ts-common';
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CourseListQueryDto } from './dto/course-list-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -161,6 +165,112 @@ export class CoursesService {
       ...course,
       locked: lockedAt !== null,
       learnerCount: 0,
+    };
+  }
+
+  async getStructure(user: CurrentUser, courseId: string) {
+    if (user.role !== 'INSTRUCTOR') {
+      throw new ForbiddenException(
+        'Only Instructor can view Course structure.',
+      );
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    const course = await this.prisma.course.findFirst({
+      where: {
+        id: courseId,
+        organizationId: user.organizationId,
+        chain: {
+          instructorId: user.userId,
+        },
+      },
+
+      select: {
+        id: true,
+        name: true,
+        versionNumber: true,
+        status: true,
+        lockedAt: true,
+        modules: {
+          orderBy: {
+            position: 'asc',
+          },
+          select: {
+            id: true,
+            title: true,
+            position: true,
+            lessons: {
+              orderBy: {
+                position: 'asc',
+              },
+              select: {
+                id: true,
+                title: true,
+                position: true,
+                materials: {
+                  select: {
+                    isRequired: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found.');
+    }
+    const locked = course.lockedAt !== null;
+    const submitted = course.status === 'SUBMITTED';
+    const structureLocked = locked || submitted;
+    let lockReason: string | null = null;
+
+    if (submitted) {
+      lockReason =
+        'Course is Submitted and cannot be edited until it is withdrawn.';
+    } else if (locked) {
+      lockReason = 'Course structure is locked after the first Enrollment.';
+    }
+
+    const modules = course.modules.map((module) => {
+      const lessons = module.lessons.map((lesson) => {
+        const required = lesson.materials.some(
+          (material) => material.isRequired,
+        );
+        return {
+          id: lesson.id,
+          title: lesson.title,
+          position: lesson.position,
+          required,
+        };
+      });
+
+      const required = lessons.some((lesson) => lesson.required);
+      return {
+        id: module.id,
+        title: module.title,
+        position: module.position,
+        required,
+        lessons,
+      };
+    });
+
+    return {
+      course: {
+        id: course.id,
+        name: course.name,
+        versionNumber: course.versionNumber,
+        status: course.status,
+        locked,
+      },
+      structureLocked,
+      lockReason,
+      modules,
     };
   }
 }
