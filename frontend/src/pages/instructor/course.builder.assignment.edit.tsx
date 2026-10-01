@@ -1,8 +1,8 @@
 import { Input, message } from "antd";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useOutletContext } from "react-router-dom";
 import { FieldError, NumberField } from "@/components/instructor/form.field";
-import { findInstructorCourse } from "@/components/instructor/instructor.data";
+import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import RubricEditor from "@/components/instructor/rubric.editor";
 import { assessmentErrorText, fetchAssignmentAPI, updateAssignmentAPI } from "@/services/assessment.service";
@@ -18,6 +18,7 @@ import {
 } from "@/utils/validation";
 import "./course.create.scss";
 import "./course.builder.scss";
+import "./course.builder.assignment.scss";
 
 // On edit, n and m always have a value, so they are required here (on create they fall back to the platform default).
 const REQUIRED_ATTEMPTS_RULE = { ...ATTEMPTS_RULE, required: true };
@@ -27,9 +28,10 @@ const toRubricRows = (assignment: IAssignment): IRubricRow[] =>
   assignment.rubric.map((c) => newRubricRow(c.description, c.maxPoints));
 
 const CourseBuilderAssignmentEdit = () => {
-  const { courseId, assignmentId } = useParams();
+  const { assignmentId } = useParams();
   const navigate = useNavigate();
-  const course = findInstructorCourse(courseId);
+  const { structure } = useOutletContext<ICourseBuilderOutletContext>();
+  const course = structure.course;
 
   const [assignment, setAssignment] = useState<IAssignment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,6 @@ const CourseBuilderAssignmentEdit = () => {
     };
   }, [assignmentId]);
 
-  if (!course) return null;
 
   const base = `/instructor/courses/${course.id}/builder`;
 

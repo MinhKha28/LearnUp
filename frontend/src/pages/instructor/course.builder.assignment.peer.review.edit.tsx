@@ -1,18 +1,20 @@
 import { Switch, message } from "antd";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useOutletContext } from "react-router-dom";
 import { NumberField } from "@/components/instructor/form.field";
-import { findInstructorCourse } from "@/components/instructor/instructor.data";
+import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import { assessmentErrorText, fetchAssignmentAPI, updatePeerReviewAPI } from "@/services/assessment.service";
 import type { IAssignment } from "@/types/assessment.types";
 import { PEER_DAYS_RULE, PEER_REVIEWERS_RULE, PEER_SCORE_GAP_RULE, validateNumber } from "@/utils/validation";
 import "./course.builder.scss";
+import "./course.builder.assignment.scss";
 
 const CourseBuilderAssignmentPeerReviewEdit = () => {
-  const { courseId, assignmentId } = useParams();
+  const { assignmentId } = useParams();
   const navigate = useNavigate();
-  const course = findInstructorCourse(courseId);
+  const { structure } = useOutletContext<ICourseBuilderOutletContext>();
+  const course = structure.course;
 
   const [assignment, setAssignment] = useState<IAssignment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +57,6 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
     };
   }, [assignmentId]);
 
-  if (!course) return null;
 
   const base = `/instructor/courses/${course.id}/builder`;
 

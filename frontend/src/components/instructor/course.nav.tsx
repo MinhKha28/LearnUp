@@ -64,7 +64,7 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
             )}
           </div>
         ))}
-        {assignments && assignments.length > 0 && (
+        {assignments && (
           <div className="builder-nav-module">
             <div className="builder-nav-module-heading">
               <strong>COURSE ASSESSMENTS</strong>
@@ -80,6 +80,13 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
                 {assignment.disabled && <small>Disabled</small>}
               </button>
             ))}
+            <button
+              type="button"
+              className="builder-nav-add-lesson"
+              onClick={() => navigate(`${base}/assignments/new`)}
+            >
+              + Add Assignment
+            </button>
           </div>
         )}
       </div>

@@ -5,10 +5,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { CurrentUser } from '@learnup/ts-common';
+import {
+  createPageResponse,
+  type CurrentUser,
+  type PageResponse,
+} from '@learnup/ts-common';
+import {
+  CourseAuthoringContext,
+  CourseServiceClient,
+} from '../integrations/course-service.client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RubricsService } from '../rubrics/rubrics.service';
-import { CourseAuthoringContext, CourseClient } from './course.client';
 import type { Prisma } from '../../generated/prisma/client';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
@@ -27,11 +34,29 @@ type AssignmentRow = NonNullable<
   Awaited<ReturnType<AssessmentsService['findAssignmentRow']>>
 >;
 
+export interface AssignmentSummary {
+  id: string;
+  courseId: string;
+  title: string;
+  position: number;
+  peerReviewEnabled: boolean;
+  maxConsecutiveAttempts: number;
+  lockoutHours: number;
+  locked: boolean;
+  disabled: boolean;
+}
+
+/** Same shape as the other list endpoints ({ meta, items }) plus the Course-level flags the UI needs. */
+export interface AssignmentListPage extends PageResponse<AssignmentSummary> {
+  courseLocked: boolean;
+  courseStatus: string;
+}
+
 @Injectable()
 export class AssessmentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly courses: CourseClient,
+    private readonly courses: CourseServiceClient,
     private readonly rubrics: RubricsService,
   ) {}
 
@@ -41,7 +66,7 @@ export class AssessmentsService {
 
     if (!dto.prompt?.trim() && !dto.promptFile) {
       throw new BadRequestException({
-        errorCode: 'ASSIGNMENT_PROMPT_REQUIRED',
+        code: 'ASSIGNMENT_PROMPT_REQUIRED',
         message: 'An Assignment needs a prompt text or one prompt file.',
       });
     }
@@ -52,14 +77,14 @@ export class AssessmentsService {
       !AUTHORABLE_STATUSES.includes(course.status.toUpperCase())
     ) {
       throw new ConflictException({
-        errorCode: 'COURSE_NOT_EDITABLE',
+        code: 'COURSE_NOT_EDITABLE',
         message: `Assignments cannot be added while the Course is ${course.status}.`,
       });
     }
     // BR-318: no new Assignment once the Course is Locked.
     if (course.locked) {
       throw new ConflictException({
-        errorCode: 'COURSE_LOCKED',
+        code: 'COURSE_LOCKED',
         message:
           'The Course is Locked because a Learner has enrolled. Create a new Course version to add an Assignment.',
       });
@@ -134,7 +159,10 @@ export class AssessmentsService {
   }
 
   /** UC19 — list the Assignments of a Course. */
-  async listAssignments(user: CurrentUser, courseId: string) {
+  async listAssignments(
+    user: CurrentUser,
+    courseId: string,
+  ): Promise<AssignmentListPage> {
     const organizationId = this.requireInstructor(user);
     const course = await this.requireOwnCourse(user, courseId);
 
@@ -144,22 +172,25 @@ export class AssessmentsService {
       include: { _count: { select: { submissions: true } } },
     });
 
+    const items: AssignmentSummary[] = rows.map((a) => ({
+      id: a.id,
+      courseId: a.courseId,
+      title: a.title,
+      position: a.position,
+      peerReviewEnabled: a.peerReviewEnabled,
+      maxConsecutiveAttempts: a.maxConsecutiveAttempts,
+      lockoutHours: a.lockoutHours,
+      // BR-98: prompt, Rubric, n and m are frozen once a submission exists.
+      locked: a._count.submissions > 0,
+      disabled: a.disabledAt !== null,
+    }));
+
     return {
+      // A Course holds few Assignments, so everything is returned as a single page.
+      ...createPageResponse(items, 1, Math.max(items.length, 1), items.length),
       // BR-318 / BR-99: lets the UI explain why adding an Assignment is blocked.
       courseLocked: course.locked,
       courseStatus: course.status,
-      items: rows.map((a) => ({
-        id: a.id,
-        courseId: a.courseId,
-        title: a.title,
-        position: a.position,
-        peerReviewEnabled: a.peerReviewEnabled,
-        maxConsecutiveAttempts: a.maxConsecutiveAttempts,
-        lockoutHours: a.lockoutHours,
-        // BR-98: prompt, Rubric, n and m are frozen once a submission exists.
-        locked: a._count.submissions > 0,
-        disabled: a.disabledAt !== null,
-      })),
     };
   }
 
@@ -199,7 +230,7 @@ export class AssessmentsService {
       !AUTHORABLE_STATUSES.includes(course.status.toUpperCase())
     ) {
       throw new ConflictException({
-        errorCode: 'COURSE_NOT_EDITABLE',
+        code: 'COURSE_NOT_EDITABLE',
         message: `Assignments cannot be changed while the Course is ${course.status}.`,
       });
     }
@@ -231,7 +262,7 @@ export class AssessmentsService {
     }
     if (!nextPrompt && !nextFileKey) {
       throw new BadRequestException({
-        errorCode: 'ASSIGNMENT_PROMPT_REQUIRED',
+        code: 'ASSIGNMENT_PROMPT_REQUIRED',
         message: 'An Assignment needs a prompt text or one prompt file.',
       });
     }
@@ -264,7 +295,7 @@ export class AssessmentsService {
 
     if (frozenBySubmission.length > 0 && assignment._count.submissions > 0) {
       throw new ConflictException({
-        errorCode: 'ASSIGNMENT_HAS_SUBMISSIONS',
+        code: 'ASSIGNMENT_HAS_SUBMISSIONS',
         message: `Learners have already submitted, so these cannot be changed: ${frozenBySubmission.join(', ')}.`,
       });
     }
@@ -275,7 +306,7 @@ export class AssessmentsService {
     ) {
       if (course.locked) {
         throw new ConflictException({
-          errorCode: 'PASSING_SCORE_LOCKED',
+          code: 'PASSING_SCORE_LOCKED',
           message:
             'The passing score cannot be changed because the Course is Locked. Create a new Course version to change it.',
         });
@@ -299,7 +330,7 @@ export class AssessmentsService {
       const submissions = await this.lockAndCountSubmissions(tx, assignment.id);
       if (frozenBySubmission.length > 0 && submissions > 0) {
         throw new ConflictException({
-          errorCode: 'ASSIGNMENT_HAS_SUBMISSIONS',
+          code: 'ASSIGNMENT_HAS_SUBMISSIONS',
           message: `Learners have already submitted, so these cannot be changed: ${frozenBySubmission.join(', ')}.`,
         });
       }
@@ -356,13 +387,13 @@ export class AssessmentsService {
       !AUTHORABLE_STATUSES.includes(course.status.toUpperCase())
     ) {
       throw new ConflictException({
-        errorCode: 'COURSE_NOT_EDITABLE',
+        code: 'COURSE_NOT_EDITABLE',
         message: `Assignments cannot be deleted while the Course is ${course.status}.`,
       });
     }
     if (course.locked && assignment._count.submissions > 0) {
       throw new ConflictException({
-        errorCode: 'ASSIGNMENT_HAS_DATA',
+        code: 'ASSIGNMENT_HAS_DATA',
         message:
           'This Assignment already has submissions and the Course is Locked, so it cannot be deleted.',
       });
@@ -374,7 +405,7 @@ export class AssessmentsService {
       const submissions = await this.lockAndCountSubmissions(tx, assignment.id);
       if (course.locked && submissions > 0) {
         throw new ConflictException({
-          errorCode: 'ASSIGNMENT_HAS_DATA',
+          code: 'ASSIGNMENT_HAS_DATA',
           message:
             'This Assignment already has submissions and the Course is Locked, so it cannot be deleted.',
         });
@@ -426,7 +457,7 @@ export class AssessmentsService {
   private requireInstructor(user: CurrentUser): string {
     if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
       throw new ForbiddenException({
-        errorCode: 'FORBIDDEN',
+        code: 'FORBIDDEN',
         message: 'Only an Instructor can manage Assignments.',
       });
     }

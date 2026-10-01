@@ -1,16 +1,18 @@
 import { message } from "antd";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { findInstructorCourse } from "@/components/instructor/instructor.data";
+import { useNavigate, useParams, useOutletContext } from "react-router-dom";
+import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import { assessmentErrorText, fetchAssignmentsAPI } from "@/services/assessment.service";
 import type { IAssignmentSummary } from "@/types/assessment.types";
 import "./course.builder.scss";
+import "./course.builder.assignment.scss";
 
 const CourseBuilderAssignments = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
-  const course = findInstructorCourse(courseId);
+  const { structure } = useOutletContext<ICourseBuilderOutletContext>();
+  const course = structure.course;
 
   const [assignments, setAssignments] = useState<IAssignmentSummary[]>([]);
   const [courseLocked, setCourseLocked] = useState<boolean | null>(null);
@@ -41,7 +43,6 @@ const CourseBuilderAssignments = () => {
     };
   }, [courseId]);
 
-  if (!course) return null;
 
   const base = `/instructor/courses/${course.id}/builder`;
   // BR-318: no new Assignment once the Course is Locked. Stay disabled until the real Course state is known.

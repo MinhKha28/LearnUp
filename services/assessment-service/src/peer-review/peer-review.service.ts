@@ -32,14 +32,14 @@ export class PeerReviewService {
       !AUTHORABLE_STATUSES.includes(course.status.toUpperCase())
     ) {
       throw new ConflictException({
-        errorCode: 'COURSE_NOT_EDITABLE',
+        code: 'COURSE_NOT_EDITABLE',
         message: `Peer Review cannot be changed while the Course is ${course.status}.`,
       });
     }
     // BR-185 / BR-93: only the on/off switch is blocked by Locked; the parameters stay editable.
     if (course.locked && dto.enabled !== assignment.peerReviewEnabled) {
       throw new ConflictException({
-        errorCode: 'PEER_REVIEW_TOGGLE_LOCKED',
+        code: 'PEER_REVIEW_TOGGLE_LOCKED',
         message:
           'Peer Review cannot be turned on or off because the Course is Locked. Create a new Course version to change it.',
       });

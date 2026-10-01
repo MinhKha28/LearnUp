@@ -1,17 +1,19 @@
 import { message } from "antd";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { findInstructorCourse } from "@/components/instructor/instructor.data";
+import { useNavigate, useParams, useOutletContext } from "react-router-dom";
+import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import { assessmentErrorText, deleteAssignmentAPI, fetchAssignmentAPI } from "@/services/assessment.service";
 import type { IAssignment } from "@/types/assessment.types";
 import "./course.builder.scss";
+import "./course.builder.assignment.scss";
 import "./course.builder.confirm.scss";
 
 const CourseBuilderAssignmentDelete = () => {
-  const { courseId, assignmentId } = useParams();
+  const { assignmentId } = useParams();
   const navigate = useNavigate();
-  const course = findInstructorCourse(courseId);
+  const { structure } = useOutletContext<ICourseBuilderOutletContext>();
+  const course = structure.course;
 
   const [assignment, setAssignment] = useState<IAssignment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +40,6 @@ const CourseBuilderAssignmentDelete = () => {
     };
   }, [assignmentId]);
 
-  if (!course) return null;
 
   const base = `/instructor/courses/${course.id}/builder`;
 

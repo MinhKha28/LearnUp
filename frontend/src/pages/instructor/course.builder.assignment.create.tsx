@@ -1,8 +1,8 @@
 import { Input, message } from "antd";
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { FieldError, NumberField } from "@/components/instructor/form.field";
-import { findInstructorCourse } from "@/components/instructor/instructor.data";
+import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import RubricEditor from "@/components/instructor/rubric.editor";
 import { assessmentErrorText, createAssignmentAPI, toApiCourseId } from "@/services/assessment.service";
@@ -18,11 +18,12 @@ import {
 } from "@/utils/validation";
 import "./course.create.scss";
 import "./course.builder.scss";
+import "./course.builder.assignment.scss";
 
 const CourseBuilderAssignmentCreate = () => {
-  const { courseId } = useParams();
   const navigate = useNavigate();
-  const course = findInstructorCourse(courseId);
+  const { structure } = useOutletContext<ICourseBuilderOutletContext>();
+  const course = structure.course;
 
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
@@ -34,7 +35,6 @@ const CourseBuilderAssignmentCreate = () => {
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  if (!course) return null;
 
   const base = `/instructor/courses/${course.id}/builder`;
 

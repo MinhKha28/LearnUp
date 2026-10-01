@@ -18,7 +18,7 @@ import { AssessmentsService } from './assessments.service';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 
-@ApiTags('assessments')
+@ApiTags('UC19 / UC19.1 / UC19.2 / UC19.3 / UC19.4 - Assignments')
 @ApiSecurity('internal-key')
 @Controller('assessments')
 export class AssessmentsController {

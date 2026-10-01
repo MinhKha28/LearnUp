@@ -31,7 +31,9 @@ const requestConfig = {
 
 /** DEV ONLY: mock course ids are slugs, the API needs a real Course UUID. */
 export const toApiCourseId = (courseId: string) =>
-  import.meta.env.DEV && import.meta.env.VITE_DEV_COURSE_ID
+  import.meta.env.DEV &&
+  import.meta.env.VITE_DEV_COURSE_ID &&
+  !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId)
     ? import.meta.env.VITE_DEV_COURSE_ID
     : courseId;
 

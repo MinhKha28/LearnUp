@@ -101,13 +101,19 @@ const CourseBuilder = () => {
         </div>
       )}
 
-      {assignments && assignments.length > 0 && (
+      {assignments && (
         <div className="builder-structure-list">
           <div className="builder-structure-module">
             <div className="builder-structure-module-header">
               <h2>Assignments</h2>
+              <InstructorButton onClick={() => navigate(`${base}/assignments/new`)}>
+                + Add Assignment
+              </InstructorButton>
             </div>
             <div className="builder-structure-lessons">
+              {assignments.length === 0 && (
+                <p className="builder-structure-empty-lessons">No Assignments yet.</p>
+              )}
               {assignments.map((assignment, index) => (
                 <button
                   key={assignment.id}

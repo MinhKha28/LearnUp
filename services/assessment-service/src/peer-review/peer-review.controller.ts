@@ -5,7 +5,7 @@ import { ResponseMessage, User } from '../common/decorator/customize';
 import { UpdatePeerReviewDto } from './dto/update-peer-review.dto';
 import { PeerReviewService } from './peer-review.service';
 
-@ApiTags('peer-review')
+@ApiTags('UC19.5 - Peer Review')
 @ApiSecurity('internal-key')
 @Controller('assessments/assignments/:id/peer-review')
 export class PeerReviewController {
