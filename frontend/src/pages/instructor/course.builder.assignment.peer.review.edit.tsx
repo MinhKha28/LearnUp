@@ -1,6 +1,6 @@
 import { Switch, message } from "antd";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, useOutletContext } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useOutletContext } from "react-router-dom";
 import { NumberField } from "@/components/instructor/form.field";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
@@ -13,6 +13,7 @@ import "./course.builder.assignment.scss";
 const CourseBuilderAssignmentPeerReviewEdit = () => {
   const { assignmentId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { structure } = useOutletContext<ICourseBuilderOutletContext>();
   const course = structure.course;
 
@@ -116,7 +117,7 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
         return;
       }
       message.success("Peer Review settings saved.");
-      navigate(detailPath);
+      navigate(detailPath, { state: location.state });
     } catch {
       message.error("Unable to reach the Assessment service. Please try again.");
     } finally {
@@ -189,7 +190,7 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
           </InfoPanel>
 
           <div className="builder-actions">
-            <InstructorButton onClick={() => navigate(detailPath)}>Cancel</InstructorButton>
+            <InstructorButton onClick={() => navigate(detailPath, { state: location.state })}>Cancel</InstructorButton>
             <InstructorButton type="primary" loading={saving} onClick={handleSave}>
               Save settings
             </InstructorButton>

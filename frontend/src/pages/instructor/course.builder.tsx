@@ -1,6 +1,6 @@
 import { LockOutlined, PlusOutlined } from "@ant-design/icons";
 import { Empty } from "antd";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InstructorButton } from "@/components/instructor/instructor.ui";
@@ -9,6 +9,7 @@ import "./course.builder.scss";
 
 const CourseBuilder = () => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { structure, assignments } = useOutletContext<ICourseBuilderOutletContext>();
 
   const course = structure.course;
@@ -106,9 +107,10 @@ const CourseBuilder = () => {
           <div className="builder-structure-module">
             <div className="builder-structure-module-header">
               <h2>Assignments</h2>
-              <InstructorButton onClick={() => navigate(`${base}/assignments/new`)}>
-                + Add Assignment
-              </InstructorButton>
+              <div style={{ display: "flex", gap: 8 }}>
+                <InstructorButton onClick={() => navigate(`${base}/assignments`)}>View all Assignments</InstructorButton>
+                <InstructorButton onClick={() => navigate(`${base}/assignments/new`, { state: { from: pathname } })}>+ Add Assignment</InstructorButton>
+              </div>
             </div>
             <div className="builder-structure-lessons">
               {assignments.length === 0 && (
@@ -118,7 +120,7 @@ const CourseBuilder = () => {
                 <button
                   key={assignment.id}
                   type="button"
-                  onClick={() => navigate(`${base}/assignments/${assignment.id}`)}
+                  onClick={() => navigate(`${base}/assignments/${assignment.id}`, { state: { from: pathname } })}
                 >
                   <span>
                     {index + 1}. {assignment.title}

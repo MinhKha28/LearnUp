@@ -1,6 +1,6 @@
 import { Input, message } from "antd";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, useOutletContext } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useOutletContext } from "react-router-dom";
 import { FieldError, NumberField } from "@/components/instructor/form.field";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
@@ -30,6 +30,7 @@ const toRubricRows = (assignment: IAssignment): IRubricRow[] =>
 const CourseBuilderAssignmentEdit = () => {
   const { assignmentId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { structure } = useOutletContext<ICourseBuilderOutletContext>();
   const course = structure.course;
 
@@ -162,7 +163,7 @@ const CourseBuilderAssignmentEdit = () => {
         return;
       }
       message.success("Assignment saved.");
-      navigate(detailPath);
+      navigate(detailPath, { state: location.state });
     } catch {
       message.error("Unable to reach the Assessment service. Please try again.");
     } finally {
@@ -256,7 +257,7 @@ const CourseBuilderAssignmentEdit = () => {
           <RubricEditor rows={rubric} onChange={setRubric} disabled={submissionLocked} showErrors={submitted} />
 
           <div className="builder-actions builder-actions-split">
-            <InstructorButton onClick={() => navigate(detailPath)}>Cancel</InstructorButton>
+            <InstructorButton onClick={() => navigate(detailPath, { state: location.state })}>Cancel</InstructorButton>
             <InstructorButton type="primary" loading={saving} onClick={handleSave}>
               Save changes
             </InstructorButton>
