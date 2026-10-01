@@ -14,49 +14,49 @@ spring:
         - id: identity-service-auth
           uri: lb://IDENTITY-SERVICE
           predicates:
-            - Path=/api/auth/**
+            - Path=/api/v1/auth/**, /api/auth/**
 
         # Supporting: Notification Service Routes
         - id: notification-service
           uri: lb://NOTIFICATION-SERVICE
           predicates:
-            - Path=/api/notifications/**
+            - Path=/api/v1/notifications/**, /api/notifications/**
 
         # Supporting: Audit Service Routes
         - id: audit-service
           uri: lb://AUDIT-SERVICE
           predicates:
-            - Path=/api/audit/**
+            - Path=/api/v1/audit/**, /api/audit/**
 
         # Business 1: Tenant Service Routes
         - id: tenant-service
           uri: lb://TENANT-SERVICE
           predicates:
-            - Path=/api/users/**, /api/organizations/**, /api/subscriptions/**, /api/payments/**
+            - Path=/api/v1/users/**, /api/v1/organizations/**, /api/v1/subscriptions/**, /api/v1/payments/**, /api/users/**, /api/organizations/**, /api/subscriptions/**, /api/payments/**
 
         # Business 2: Course Service Routes
         - id: course-service
           uri: lb://COURSE-SERVICE
           predicates:
-            - Path=/api/courses/**
+            - Path=/api/v1/courses/**, /api/courses/**
 
         # Business 3: Learning Service Routes
         - id: learning-service
           uri: lb://LEARNING-SERVICE
           predicates:
-            - Path=/api/learning/**
+            - Path=/api/v1/learning/**, /api/learning/**
 
         # Business 4: Assessment Service Routes
         - id: assessment-service
           uri: lb://ASSESSMENT-SERVICE
           predicates:
-            - Path=/api/assessments/**
+            - Path=/api/v1/assessments/**, /api/assessments/**
 
         # Business 5: Achievement & Reporting Service Routes
         - id: achievement-reporting-service
           uri: lb://ACHIEVEMENT-REPORTING-SERVICE
           predicates:
-            - Path=/api/certificates/**, /api/reports/**, /api/governance/**
+            - Path=/api/v1/certificates/**, /api/v1/reports/**, /api/v1/governance/**, /api/certificates/**, /api/reports/**, /api/governance/**
 
 eureka:
   instance:
@@ -69,7 +69,12 @@ eureka:
 
 jwt:
   secret: ${JWT_SECRET:devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong}
+  internal-key: ${INTERNAL_GATEWAY_KEY:learnup-internal-secret}
   whitelist:
+    - /api/v1/auth/login
+    - /api/v1/auth/register
+    - /api/v1/auth/refresh
+    - /api/v1/certificates/verify/**
     - /api/auth/login
     - /api/auth/register
     - /api/auth/refresh
