@@ -133,12 +133,17 @@ function setup(
     'error',
     () => undefined,
   );
+  const loggerWarn = mock.method(
+    (service as unknown as { logger: Logger }).logger,
+    'warn',
+    () => undefined,
+  );
   const timezoneLoggerError = mock.method(
     (organizationTimezone as unknown as { logger: Logger }).logger,
     'error',
     () => undefined,
   );
-  return { service, calls, loggerError, timezoneLoggerError };
+  return { service, calls, loggerError, loggerWarn, timezoneLoggerError };
 }
 
 async function rejectsWithStatus(
@@ -183,14 +188,29 @@ void describe('EnrollmentsService.findMyEnrollments (UC26)', () => {
     }
   });
 
-  void test('header không phải UUID → rỗng, không chạm database', async () => {
-    const { service, calls } = setup();
+  void test('header không phải UUID → rỗng, không chạm database, logger.warn nêu tên header và giá trị cắt 64 ký tự', async () => {
+    const { service, calls, loggerWarn } = setup();
+    const longValue = 'x'.repeat(100);
     const result = await service.findMyEnrollments(
-      { ...LEARNER, organizationId: 'abc' },
+      { ...LEARNER, userId: longValue, organizationId: 'abc' },
       1,
     );
     assert.equal(result.meta.total, 0);
     assert.equal(calls.count, 0);
+
+    const messages = loggerWarn.mock.calls.map((c) => String(c.arguments[0]));
+    assert.equal(messages.length, 2);
+    assert.match(messages[0], /x-user-id/);
+    assert.ok(messages[0].includes(`"${'x'.repeat(64)}"`));
+    assert.ok(!messages[0].includes('x'.repeat(65)));
+    assert.match(messages[1], /x-organization-id/);
+    assert.match(messages[1], /"abc"/);
+  });
+
+  void test('header hợp lệ → không logger.warn', async () => {
+    const { service, loggerWarn } = setup();
+    await service.findMyEnrollments(LEARNER, 1);
+    assert.equal(loggerWarn.mock.callCount(), 0);
   });
 
   void test('đủ dữ liệu → đúng dạng từng phần tử; I3 gọi một lần cho các courseId của trang', async () => {

@@ -1,6 +1,7 @@
 import {
   createApiError,
   createPageResponse,
+  HEADER_NAMES,
   STANDARD_ERROR_CODES,
   type CurrentUser,
   type PageResponse,
@@ -209,7 +210,16 @@ export class EnrollmentsService {
       organizationTimezone: null,
     });
     // Header không phải UUID thì không thể có Enrollment nào
-    if (!isUUID(organizationId, 'all') || !isUUID(user.userId, 'all')) {
+    const invalidHeaders = [
+      [HEADER_NAMES.USER_ID, user.userId],
+      [HEADER_NAMES.ORGANIZATION_ID, organizationId],
+    ].filter(([, value]) => !isUUID(value, 'all'));
+    if (invalidHeaders.length > 0) {
+      for (const [header, value] of invalidHeaders) {
+        this.logger.warn(
+          `UC26: header ${header} không phải UUID ("${value.slice(0, 64)}"); trả danh sách rỗng.`,
+        );
+      }
       return emptyPage(0);
     }
 
