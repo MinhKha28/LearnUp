@@ -4,14 +4,18 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import PlanCard from "@/components/guest/registration/plan.card";
 import RegistrationSteps from "@/components/guest/registration/registration";
 import "@/pages/guest/register.scss";
-import { getSubscriptionPlansAPI } from "@/services/organization.service";
-import type { ISubscriptionPlan } from "@/types/organization.types";
+import {
+  createRegistrationAPI,
+  getSubscriptionPlansAPI,
+} from "@/services/organization.service";
+import type { IApiError, ISubscriptionPlan } from "@/types/organization.types";
+
 import { toPlanDetails } from "@/utils/helper";
 
 type OrganizationFields = {
   name: string;
-  taxId: string;
-  contact: string;
+  taxCode: string;
+  contactPhone: string;
   address: string;
 };
 type OrganizerFields = { fullName: string; email: string; password: string };
@@ -22,10 +26,11 @@ type RegistrationDraft = {
 
 const emptyOrganization: OrganizationFields = {
   name: "",
-  taxId: "",
-  contact: "",
+  taxCode: "",
+  contactPhone: "",
   address: "",
 };
+
 const titles: Record<
   string,
   { eyebrow: string; title: string; description: string }
@@ -162,6 +167,13 @@ export default function RegisterPage() {
   const [selectedPlan, setSelectedPlan] = useState<ISubscriptionPlan | null>(
     () => (location.state as { plan?: ISubscriptionPlan } | null)?.plan ?? null,
   );
+  // UC02: trạng thái gửi đăng ký
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [resentNotice, setResentNotice] = useState(false);
+  // UC02 → UC02.1: token thanh toán backend trả về, dùng ở màn payment (Bước 9)
+  const [paymentToken, setPaymentToken] = useState<string | null>(null);
+
   const account = screen === "organizer" || screen === "account-review";
   const standalone = [
     "registration-expired",
@@ -231,12 +243,15 @@ export default function RegisterPage() {
     loadPlans();
   }, [screen, navigate]);
 
-  // BR-4: chưa chọn gói mà vào thẳng các bước sau thì quay về bước chọn gói
+  // BR-4: chưa chọn gói mà vào thẳng các bước sau thì quay về bước chọn gói.
+  // UC02: chưa tạo đăng ký (chưa có paymentToken) thì không được vào màn thanh toán.
   useEffect(() => {
-    if (screensNeedingPlan.includes(screen) && !selectedPlan) {
+    const missingPlan = screensNeedingPlan.includes(screen) && !selectedPlan;
+    const missingRegistration = screen === "payment" && !paymentToken;
+    if (missingPlan || missingRegistration) {
       navigate("/register", { replace: true });
     }
-  }, [screen, selectedPlan, navigate]);
+  }, [screen, selectedPlan, paymentToken, navigate]);
 
   // UC01: bấm "Continue with plan" thì ghi nhớ gói đã chọn và sang bước 2
   function selectPlan(plan: ISubscriptionPlan) {
@@ -249,14 +264,72 @@ export default function RegisterPage() {
     navigate("/register/organizer");
   }
 
-  function saveOrganizer(values: OrganizerFields) {
+  // UC02: bấm "Create registration" → gửi đăng ký lên tenant-service
+  async function saveOrganizer(values: OrganizerFields) {
+    if (!selectedPlan) return;
     setDraft((previous) => ({
       ...previous,
       organizer: { fullName: values.fullName, email: values.email },
     }));
-    organizerForm.resetFields(["password"]);
-    setAccountError(false);
-    navigate("/register/payment");
+    setSubmitting(true);
+    setSubmitError(null);
+    setResentNotice(false);
+    try {
+      const res = await createRegistrationAPI({
+        planId: selectedPlan.id,
+        organization: draft.organization,
+        organizer: values,
+      });
+      const result = res.data;
+      if (result?.resent === false) {
+        // GĐ5 thành công: giữ token để thanh toán ngay (UC02.1)
+        organizerForm.resetFields(["password"]);
+        setAccountError(false);
+        setPaymentToken(result.paymentToken);
+        navigate("/register/payment");
+      } else if (result?.resent === true) {
+        // BR-276: email đang có đăng ký chờ thanh toán → backend đã gửi lại liên kết
+        organizerForm.resetFields(["password"]);
+        setResentNotice(true);
+      } else {
+        showRegistrationError((res as unknown as { error?: IApiError }).error);
+      }
+    } catch {
+      setSubmitError(
+        "Could not connect to the server. Please try again later.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // UC02: đổi mã lỗi backend thành thông báo tiếng Anh, đặt đúng chỗ
+  function showRegistrationError(error?: IApiError) {
+    switch (error?.code) {
+      case "EMAIL_ALREADY_USED":
+        setAccountError(true);
+        organizerForm.setFields([
+          {
+            name: "email",
+            errors: ["This email is already used by another account."],
+          },
+        ]);
+        return;
+      case "PLAN_NOT_AVAILABLE":
+        setSubmitError(
+          "The selected plan is no longer available. Please choose another plan.",
+        );
+        return;
+      case "IDENTITY_UNAVAILABLE":
+        setSubmitError(
+          "The account service is temporarily unavailable. Please try again later.",
+        );
+        return;
+      default:
+        setSubmitError(
+          "Some registration details are invalid. Please review them and try again.",
+        );
+    }
   }
 
   function pay() {
@@ -380,6 +453,16 @@ export default function RegisterPage() {
             </p>
           </>
         )}
+        {resentNotice && (
+          <Alert
+            type="info"
+            showIcon
+            message="Check your inbox"
+            description="If this email has a registration waiting for payment, the payment link has been sent again."
+          />
+        )}
+        {submitError && <Alert type="error" showIcon message={submitError} />}
+
         <Form<OrganizerFields>
           form={organizerForm}
           layout="vertical"
@@ -397,6 +480,10 @@ export default function RegisterPage() {
                 whitespace: true,
                 message: "Enter your full name.",
               },
+              {
+                max: 100,
+                message: "Full name must be at most 100 characters.",
+              },
             ]}
           >
             <Input autoComplete="name" placeholder="Alex Morgan" />
@@ -407,6 +494,7 @@ export default function RegisterPage() {
             rules={[
               { required: true, message: "Enter your email address." },
               { type: "email", message: "Enter a valid email address." },
+              { max: 254, message: "Email must be at most 254 characters." },
             ]}
           >
             <Input
@@ -417,7 +505,11 @@ export default function RegisterPage() {
           <Form.Item
             name="password"
             label="Password"
-            rules={[{ required: true, message: "Password is required." }]}
+            rules={[
+              { required: true, message: "Password is required." },
+              { min: 8, message: "Password must be at least 8 characters." },
+              { max: 72, message: "Password must be at most 72 characters." },
+            ]}
           >
             <Input.Password
               autoComplete="new-password"
@@ -432,7 +524,7 @@ export default function RegisterPage() {
             <Button onClick={() => navigate("/register/organization")}>
               Back
             </Button>
-            <Button type="primary" htmlType="submit">
+            <Button type="primary" htmlType="submit" loading={submitting}>
               Create registration
             </Button>
           </div>
@@ -464,6 +556,10 @@ export default function RegisterPage() {
                 whitespace: true,
                 message: "Enter your organization name.",
               },
+              {
+                max: 200,
+                message: "Organization name must be at most 200 characters.",
+              },
             ]}
           >
             <Input
@@ -472,14 +568,53 @@ export default function RegisterPage() {
             />
           </Form.Item>
           <div className="register-field-grid">
-            <Form.Item name="taxId" label="Tax identification number">
+            <Form.Item
+              name="taxCode"
+              label="Tax identification number"
+              rules={[
+                {
+                  required: true,
+                  message: "Enter the tax identification number.",
+                },
+                {
+                  validator: (_, value?: string) =>
+                    !value ||
+                    /^\d{10}(\d{3})?$/.test(value.replace(/[\s-]/g, ""))
+                      ? Promise.resolve()
+                      : Promise.reject(
+                          new Error("Tax number must have 10 or 13 digits."),
+                        ),
+                },
+              ]}
+            >
               <Input placeholder="0123456789" />
             </Form.Item>
-            <Form.Item name="contact" label="Contact phone">
-              <Input placeholder="(+84) 123 456 789" />
+            <Form.Item
+              name="contactPhone"
+              label="Contact phone"
+              rules={[
+                { required: true, message: "Enter a contact phone number." },
+                {
+                  pattern: /^\+?[\d\s().-]{9,20}$/,
+                  message: "Enter a valid phone number.",
+                },
+              ]}
+            >
+              <Input autoComplete="tel" placeholder="0901 234 567" />
             </Form.Item>
           </div>
-          <Form.Item name="address" label="Business address">
+          <Form.Item
+            name="address"
+            label="Business address"
+            rules={[
+              {
+                required: true,
+                whitespace: true,
+                message: "Enter the business address.",
+              },
+              { max: 300, message: "Address must be at most 300 characters." },
+            ]}
+          >
             <Input
               autoComplete="street-address"
               placeholder="123 Example Street"

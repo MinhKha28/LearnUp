@@ -142,3 +142,6 @@
   .register-standalone, .register-registration-expired .register-standalone, .register-invalid-verification-link .register-standalone, .register-no-plans .register-standalone { margin: 42px auto 16px; }
   .register-result { min-height: 350px; padding: 42px 20px; }
 }
+
+.register-card .ant-alert + .ant-alert { margin-top: 12px; }
+
