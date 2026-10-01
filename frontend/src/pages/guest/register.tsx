@@ -789,7 +789,7 @@ export default function RegisterPage() {
                 <PlanCard
                   key={plan.id}
                   featured={index === 1}
-                  details={displayPlan ? toPlanDetails(displayPlan) : undefined}
+                  details={toPlanDetails(plan)}
                   onSelect={() => selectPlan(plan)}
                 />
               ))}
@@ -817,7 +817,7 @@ export default function RegisterPage() {
             <aside className="register-plan">
               <PlanCard
                 selected
-                details={selectedPlan ? toPlanDetails(selectedPlan) : undefined}
+                details={displayPlan ? toPlanDetails(displayPlan) : undefined}
               />
             </aside>
           )}
