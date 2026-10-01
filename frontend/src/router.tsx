@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import Layout from "@/layout";
 
@@ -134,7 +134,6 @@ import InstructorCourseBuilderQuizQuestionEdit from "./pages/instructor/course.b
 import InstructorCourseBuilderQuizDelete from "./pages/instructor/course.builder.quiz.delete";
 import InstructorCourseBuilderAssignments from "./pages/instructor/course.builder.assignments";
 import InstructorCourseBuilderAssignmentCreate from "./pages/instructor/course.builder.assignment.create";
-import InstructorCourseBuilderAssignmentRubricEdit from "./pages/instructor/course.builder.assignment.rubric.edit";
 import InstructorCourseBuilderAssignmentPeerReviewEdit from "./pages/instructor/course.builder.assignment.peer.review.edit";
 import InstructorCourseBuilderAssignmentDetail from "./pages/instructor/course.builder.assignment.detail";
 import InstructorCourseBuilderAssignmentEdit from "./pages/instructor/course.builder.assignment.edit";
@@ -434,7 +433,8 @@ export const router = createBrowserRouter([
       },
       {
         path: "assignments/:assignmentId/rubric",
-        element: <InstructorCourseBuilderAssignmentRubricEdit />,
+        // The Rubric is edited inline on the Assignment edit page (UC19.3).
+        element: <Navigate to="../edit" relative="path" replace />,
       },
       {
         path: "assignments/:assignmentId/peer-review",

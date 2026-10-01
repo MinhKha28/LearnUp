@@ -288,6 +288,7 @@ services:
       - "8086:8086"
     environment:
       PORT: 8086
+      COURSE_SERVICE_URL: http://course-service:8083
       DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/assessment_db?schema=public
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
       EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
@@ -327,7 +328,7 @@ services:
   # ==============================================================================
   frontend:
     build:
-      context: ./frontend/web
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: learnup-web
     ports:

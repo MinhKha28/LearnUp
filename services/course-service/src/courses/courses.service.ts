@@ -1,7 +1,20 @@
 import { CurrentUser } from '@learnup/ts-common';
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CourseListQueryDto } from './dto/course-list-query.dto';
+
+export interface CourseAuthoringContext {
+  courseId: string;
+  organizationId: string;
+  instructorId: string;
+  status: string;
+  locked: boolean;
+  disabled: boolean;
+}
 
 @Injectable()
 export class CoursesService {
@@ -66,6 +79,42 @@ export class CoursesService {
         ...course,
         locked: lockedAt !== null,
       })),
+    };
+  }
+
+  /**
+   * Facts other services need to decide whether authoring is allowed on a Course
+   * (owner via the version chain per BR-287, lifecycle status, Locked per BR-80).
+   */
+  async getAuthoringContext(
+    courseId: string,
+    organizationId?: string,
+  ): Promise<CourseAuthoringContext> {
+    const course = await this.prisma.course.findFirst({
+      where: {
+        id: courseId,
+        ...(organizationId ? { organizationId } : {}),
+      },
+      include: {
+        chain: {
+          select: {
+            instructorId: true,
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found.');
+    }
+
+    return {
+      courseId: course.id,
+      organizationId: course.organizationId,
+      instructorId: course.chain.instructorId,
+      status: course.status,
+      locked: course.lockedAt !== null,
+      disabled: course.disabledAt !== null,
     };
   }
 }

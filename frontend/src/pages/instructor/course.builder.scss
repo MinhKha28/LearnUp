@@ -467,3 +467,138 @@
     align-items: flex-start;
   }
 }
+
+/* Assignment detail: key parameters, rubric summary, side cards */
+.builder-param-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.builder-param-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 20px;
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-accent);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.builder-param-card > span {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.builder-param-card > strong {
+  color: var(--color-text-primary);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.builder-param-card > small {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.builder-param-card-on {
+  border-top-color: var(--color-success);
+  background: var(--color-success-bg);
+}
+
+.builder-param-card-off {
+  border-top-color: var(--color-divider);
+}
+
+.builder-prompt {
+  white-space: pre-wrap;
+}
+
+.builder-rubric-summary {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.builder-rubric-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  color: #334155;
+  font-size: 13px;
+}
+
+.builder-rubric-line:last-child {
+  border-bottom: 0;
+}
+
+.builder-rubric-line strong {
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.builder-rubric-total {
+  background: var(--color-surface-secondary);
+  font-weight: 650;
+}
+
+.builder-side-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.builder-side-card h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.builder-side-card p,
+.builder-side-card ul {
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.builder-side-card ul {
+  padding-left: 18px;
+}
+
+@media (max-width: 900px) {
+  .builder-param-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .builder-param-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.builder-field-error {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-error);
+  font-size: 12px;
+  line-height: 1.4;
+}

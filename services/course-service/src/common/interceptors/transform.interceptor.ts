@@ -11,9 +11,10 @@ import { Observable, map } from 'rxjs';
 import { RESPONSE_MESSAGE } from '../decorator/customize';
 
 @Injectable()
-export class TransformInterceptor<T>
-  implements NestInterceptor<T, ApiResponse<T>>
-{
+export class TransformInterceptor<T> implements NestInterceptor<
+  T,
+  ApiResponse<T>
+> {
   constructor(private readonly reflector: Reflector) {}
 
   intercept(
@@ -25,13 +26,11 @@ export class TransformInterceptor<T>
       this.reflector.get<string>(RESPONSE_MESSAGE, context.getHandler()) ?? '';
 
     return next.handle().pipe(
-      map(
-        (data: T): ApiResponse<T> => ({
-          statusCode: response.statusCode,
-          message,
-          data,
-        }),
-      ),
+      map((data: T): ApiResponse<T> => ({
+        statusCode: response.statusCode,
+        message,
+        data,
+      })),
     );
   }
 }

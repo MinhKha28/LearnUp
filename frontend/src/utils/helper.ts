@@ -1,3 +1,4 @@
+import type { IRubricRow } from "@/types/assessment.types";
 import dayjs from "dayjs";
 import type { ISubscriptionPlan } from "@/types/organization.types";
 
@@ -39,4 +40,13 @@ export const toPlanDetails = (plan: ISubscriptionPlan) => ({
     ["Storage", formatStorage(plan.maxStorageBytes)],
   ] as Array<[string, string]>,
   footer: "The price is locked in when you register.",
+});
+
+export const newRubricRow = (
+  description = "",
+  maxPoints: number | null = null,
+): IRubricRow => ({
+  key: crypto.randomUUID(),
+  description,
+  maxPoints,
 });
