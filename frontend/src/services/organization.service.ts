@@ -11,6 +11,7 @@ import type {
   IRegistrationSummary,
   ISeatUsage,
   ISubscriptionPlan,
+  IVerifyEmailResult,
 } from "@/types/organization.types";
 import axios from "@/services/axios.customize";
 
@@ -36,6 +37,13 @@ export const payRegistrationAPI = (body: IPayRegistrationReq) =>
   axios.post<IBackendRes<IPaymentResult>>(
     "/api/v1/registrations/payments",
     body,
+  );
+
+// UC03 - Xác thực email Organizer bằng liên kết trong email thứ hai
+export const verifyEmailAPI = (token: string) =>
+  axios.post<IBackendRes<IVerifyEmailResult>>(
+    "/api/v1/registrations/verify-email",
+    { token },
   );
 
 // UC12 - Xem danh sách Instructor (Organizer; tổ chức lấy từ danh tính người gọi)

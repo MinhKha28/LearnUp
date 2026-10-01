@@ -73,6 +73,12 @@ export interface IPaymentResult {
   organizerEmail?: string;
 }
 
+// UC03 - kết quả xác thực email Organizer (POST /api/v1/registrations/verify-email)
+export interface IVerifyEmailResult {
+  email: string;
+  organizationName: string;
+}
+
 // Trạng thái tài khoản (users.status)
 export type AccountStatus = "Pending" | "Active" | "Deactivated";
 

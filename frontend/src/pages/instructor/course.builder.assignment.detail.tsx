@@ -1,6 +1,6 @@
 import { message } from "antd";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, useOutletContext } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useOutletContext } from "react-router-dom";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import { assessmentErrorText, fetchAssignmentAPI } from "@/services/assessment.service";
@@ -30,6 +30,7 @@ const Param = ({ label, value, hint, tone }: TParamProps) => (
 const CourseBuilderAssignmentDetail = () => {
   const { assignmentId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { structure } = useOutletContext<ICourseBuilderOutletContext>();
   const course = structure.course;
 
@@ -59,6 +60,8 @@ const CourseBuilderAssignmentDetail = () => {
 
 
   const base = `/instructor/courses/${course.id}/builder`;
+  // Back goes to the screen the user opened this Assignment from (outline, list, ...); direct visits fall back to the list.
+  const backPath = (location.state as { from?: string } | null)?.from ?? `${base}/assignments`;
 
   if (!assignment) {
     return (
@@ -67,7 +70,7 @@ const CourseBuilderAssignmentDetail = () => {
         <div className="builder-hero">
           <h1>{loading ? "Loading Assignment..." : "Assignment not found"}</h1>
         </div>
-        {!loading && <InstructorButton onClick={() => navigate(`${base}/assignments`)}>Back</InstructorButton>}
+        {!loading && <InstructorButton onClick={() => navigate(backPath)}>Back</InstructorButton>}
       </InstructorPage>
     );
   }
@@ -174,17 +177,17 @@ const CourseBuilderAssignmentDetail = () => {
           </div>
 
           <div className="builder-actions builder-actions-split">
-            <InstructorButton onClick={() => navigate(`${base}/assignments`)}>Back</InstructorButton>
+            <InstructorButton onClick={() => navigate(backPath)}>Back</InstructorButton>
             {restricted ? (
-              <InstructorButton type="primary" onClick={() => navigate(editPath)}>
+              <InstructorButton type="primary" onClick={() => navigate(editPath, { state: location.state })}>
                 Edit estimated effort
               </InstructorButton>
             ) : (
               <>
-                <InstructorButton danger onClick={() => navigate(`${base}/assignments/${assignment.id}/delete`)}>
+                <InstructorButton danger onClick={() => navigate(`${base}/assignments/${assignment.id}/delete`, { state: location.state })}>
                   Delete Assignment
                 </InstructorButton>
-                <InstructorButton onClick={() => navigate(editPath)}>Edit Assignment</InstructorButton>
+                <InstructorButton onClick={() => navigate(editPath, { state: location.state })}>Edit Assignment</InstructorButton>
               </>
             )}
           </div>
@@ -214,7 +217,7 @@ const CourseBuilderAssignmentDetail = () => {
                 {assignment.courseLocked && " It can no longer be turned on because the Course is Locked."}
               </p>
             )}
-            <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-review`)}>
+            <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-review`, { state: location.state })}>
               Configure Peer Review
             </InstructorButton>
           </div>

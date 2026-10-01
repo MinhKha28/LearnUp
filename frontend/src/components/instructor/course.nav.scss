@@ -115,6 +115,12 @@
   cursor: pointer;
 }
 
+.builder-nav-lesson.active {
+  background: #fffbeb;
+  color: #b45309;
+  font-weight: 600;
+}
+
 .builder-nav-lesson:hover {
   background: #f8fafc;
   color: #0f172a;
@@ -173,4 +179,31 @@
   color: #94a3b8;
   font-size: 10px;
   line-height: 1.6;
+}
+.builder-nav-shortcuts {
+  display: flex;
+  margin-bottom: 16px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.builder-nav-link {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.builder-nav-link:hover,
+.builder-nav-link.active {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #b45309;
 }

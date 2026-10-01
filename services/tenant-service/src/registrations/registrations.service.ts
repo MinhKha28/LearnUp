@@ -31,6 +31,8 @@ import { IRegistrationSummary } from './interfaces/registration-summary.interfac
 import { AccountTokensService } from '../account-tokens/account-tokens.service';
 import { MockPaymentGateway } from '../payments/mock-payment.gateway';
 import { PayRegistrationDto } from './dto/pay-registration.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { IVerifyEmailResult } from './interfaces/verify-email-result.interface';
 import { IPaymentResult } from './interfaces/payment-result.interface';
 
 @Injectable()
@@ -222,7 +224,6 @@ export class RegistrationsService {
   // UC02.1 - Thực hiện thanh toán
   // ===========================================================================
   async pay(dto: PayRegistrationDto): Promise<IPaymentResult> {
-    // ---- GĐ2. Tìm đăng ký, kiểm hạn (BR-7), chặn trả lần 2.
     const registration = await this.findByTokenOrThrow(dto.token);
     await this.assertNotExpired(registration);
     if (registration.status !== RegistrationStatus.PendingPayment) {
@@ -233,26 +234,23 @@ export class RegistrationsService {
       });
     }
 
-    // ---- GĐ3. Ghi giao dịch Pending (có dấu vết kể cả khi service sập giữa chừng).
     const payment = await this.prisma.payment.create({
       data: {
         organizationId: registration.organizationId,
         planId: registration.planId,
         kind: PaymentKind.Registration,
         registrationId: registration.id,
-        amount: registration.price, // BR-275: số tiền đã chốt lúc đăng ký
+        amount: registration.price,
         status: PaymentStatus.Pending,
       },
     });
 
-    // ---- GĐ4. Gọi Mock Payment Service (NGOÀI transaction, vì là lời gọi mạng).
     const result = await this.paymentGateway.charge({
       paymentId: payment.id,
       amount: payment.amount,
       simulateFailure: dto.simulateFailure,
     });
 
-    // ---- GĐ5a. Thất bại: ghi lý do, đăng ký vẫn PendingPayment để Guest thử lại.
     if (!result.success) {
       await this.prisma.payment.update({
         where: { id: payment.id },
@@ -268,12 +266,10 @@ export class RegistrationsService {
       };
     }
 
-    // ---- GĐ5b. Thành công: mọi thay đổi trong MỘT transaction.
     const settings = await this.settingsService.get();
     const paidAt = new Date();
 
     const subscription = await this.prisma.$transaction(async (tx) => {
-      // ① Điều kiện status trong WHERE chống 2 lần thanh toán cùng lúc.
       const updated = await tx.registration.updateMany({
         where: {
           id: registration.id,
@@ -362,6 +358,34 @@ export class RegistrationsService {
         expiresAt: subscription.expiresAt,
       },
       organizerEmail: registration.organizer.email,
+    };
+  }
+
+  // ===========================================================================
+  // UC03 - Xác thực email Organizer
+  // ===========================================================================
+  async verifyEmail(dto: VerifyEmailDto): Promise<IVerifyEmailResult> {
+    const token = await this.accountTokens.findUsable(
+      dto.token,
+      TokenPurpose.EmailVerification,
+    );
+
+    // GĐ3. Đánh dấu liên kết đã dùng và kích hoạt Organizer trong cùng transaction.
+    await this.prisma.$transaction(async (tx) => {
+      await this.accountTokens.consume(tx, token.id);
+      await tx.user.update({
+        where: { id: token.userId },
+        data: {
+          status: UserStatus.Active,
+          activatedAt: token.user.activatedAt ?? new Date(),
+        },
+      });
+    });
+
+    // GĐ4. Thông tin cho màn hình "Email verified".
+    return {
+      email: token.user.email,
+      organizationName: token.organization.name,
     };
   }
 

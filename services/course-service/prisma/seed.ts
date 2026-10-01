@@ -52,6 +52,18 @@ const CHAIN_TEST_PRIVATE = '0199a000-0000-7000-8000-0d00000000f2';
 const COURSE_TEST_PUBLIC = '0199a000-0000-7000-8000-0e00000000f1';
 const COURSE_TEST_PRIVATE = '0199a000-0000-7000-8000-0e00000000f2';
 
+/**
+ * Dữ liệu cho danh tính mà giao diện đang gắn cứng (course.service.ts: x-user-id 3333…, x-organization-id 2222…),
+ * để trang My Courses và Course Builder có Course ngay khi chưa có gateway/đăng nhập. Dải ID …bbbb/cccc/dddd.
+ * Status viết hoa (DRAFT/PUBLISHED) giống giá trị mà nút Create Course của giao diện ghi vào DB.
+ */
+const ORG_UI = '22222222-2222-7222-8222-222222222222';
+const INSTRUCTOR_UI = '33333333-3333-7333-8333-333333333333';
+const CHAIN_UI_DRAFT = '33333333-aaaa-7333-8333-000000000001';
+const CHAIN_UI_PUBLISHED = '33333333-aaaa-7333-8333-000000000002';
+const COURSE_UI_DRAFT = '33333333-bbbb-7333-8333-000000000001';
+const COURSE_UI_PUBLISHED = '33333333-bbbb-7333-8333-000000000002';
+
 // ---------------------------------------------------------------------------
 // Dữ liệu
 // ---------------------------------------------------------------------------
@@ -87,7 +99,7 @@ interface SeedCourse {
   versionNumber: number;
   name: string;
   courseType: 'Public' | 'Private';
-  status: 'Draft' | 'Published' | 'Archived';
+  status: 'Draft' | 'Published' | 'Archived' | 'DRAFT' | 'PUBLISHED';
   expectedCompletionDays: number;
   shortDescription: string | null;
   trainingObjectives: string | null;
@@ -106,6 +118,8 @@ const CHAINS = [
   { id: CHAIN_NHAP_MON, organizationId: ORG_B, instructorId: INSTRUCTOR_2 },
   { id: CHAIN_TEST_PUBLIC, organizationId: ORG_TEST, instructorId: INSTRUCTOR_TEST },
   { id: CHAIN_TEST_PRIVATE, organizationId: ORG_TEST, instructorId: INSTRUCTOR_TEST },
+  { id: CHAIN_UI_DRAFT, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
+  { id: CHAIN_UI_PUBLISHED, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
 ];
 
 const TEST_COURSE_DESCRIPTION = {
@@ -540,6 +554,84 @@ const COURSES: SeedCourse[] = [
       },
     ],
   },
+  {
+    id: COURSE_UI_DRAFT,
+    organizationId: ORG_UI,
+    chainId: CHAIN_UI_DRAFT,
+    versionNumber: 1,
+    name: 'Workplace Safety Essentials (dev)',
+    courseType: 'Public',
+    status: 'DRAFT',
+    expectedCompletionDays: 14,
+    shortDescription: 'Course demo cho danh tính giao diện (My Courses / Course Builder).',
+    trainingObjectives: 'Course demo để thử tạo Assignment trong Course Builder khi chưa có gateway.',
+    learningOutcomes: ['Dùng thử Course Builder'],
+    submittedAt: null,
+    publishedAt: null,
+    archivedAt: null,
+    modules: [
+      {
+        id: '33333333-cccc-7333-8333-000000000001',
+        title: 'Safety basics',
+        lessons: [
+          {
+            id: '33333333-dddd-7333-8333-000000000001',
+            title: 'Why safety matters',
+            content: 'Giới thiệu về an toàn lao động.',
+            materials: [],
+          },
+          {
+            id: '33333333-dddd-7333-8333-000000000002',
+            title: 'Common hazards',
+            content: 'Các mối nguy thường gặp.',
+            materials: [],
+          },
+        ],
+      },
+      {
+        id: '33333333-cccc-7333-8333-000000000002',
+        title: 'Emergency procedures',
+        lessons: [
+          {
+            id: '33333333-dddd-7333-8333-000000000003',
+            title: 'Evacuation plan',
+            content: 'Việc cần làm khi có báo động.',
+            materials: [],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: COURSE_UI_PUBLISHED,
+    organizationId: ORG_UI,
+    chainId: CHAIN_UI_PUBLISHED,
+    versionNumber: 1,
+    name: 'Data Security Basics (dev)',
+    courseType: 'Public',
+    status: 'PUBLISHED',
+    expectedCompletionDays: 14,
+    shortDescription: 'Course demo cho danh tính giao diện (My Courses / Course Builder).',
+    trainingObjectives: 'Course demo để thử tạo Assignment trong Course Builder khi chưa có gateway.',
+    learningOutcomes: ['Dùng thử Course Builder'],
+    submittedAt: new Date('2026-09-20T02:00:00Z'),
+    publishedAt: new Date('2026-09-22T02:00:00Z'),
+    archivedAt: null,
+    modules: [
+      {
+        id: '33333333-cccc-7333-8333-000000000003',
+        title: 'Security fundamentals',
+        lessons: [
+          {
+            id: '33333333-dddd-7333-8333-000000000004',
+            title: 'Passwords and phishing',
+            content: 'Bảo vệ tài khoản cơ bản.',
+            materials: [],
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -668,9 +760,11 @@ function printIds(): void {
     { loại: 'learner', tên: 'LEARNER_3 (org B)', id: LEARNER_3 },
     { loại: 'instructor', tên: 'INSTRUCTOR_1 (org A)', id: INSTRUCTOR_1 },
     { loại: 'instructor', tên: 'INSTRUCTOR_2 (org B)', id: INSTRUCTOR_2 },
+    { loại: 'organization', tên: 'ORG_UI (danh tính giao diện)', id: ORG_UI },
+    { loại: 'instructor', tên: 'INSTRUCTOR_UI (danh tính giao diện)', id: INSTRUCTOR_UI },
     ...COURSES.filter((course) => course.organizationId !== ORG_TEST).map((course) => ({
       loại: 'course',
-      tên: `${course.name} v${course.versionNumber} (${course.status}, ${course.courseType}, org ${course.organizationId === ORG_A ? 'A' : 'B'})`,
+      tên: `${course.name} v${course.versionNumber} (${course.status}, ${course.courseType}, org ${course.organizationId === ORG_A ? 'A' : course.organizationId === ORG_UI ? 'UI' : 'B'})`,
       id: course.id,
     })),
   ]);

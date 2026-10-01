@@ -1,6 +1,6 @@
 import { message } from "antd";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, useOutletContext } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useOutletContext } from "react-router-dom";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import { assessmentErrorText, fetchAssignmentsAPI } from "@/services/assessment.service";
@@ -11,6 +11,7 @@ import "./course.builder.assignment.scss";
 const CourseBuilderAssignments = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { structure } = useOutletContext<ICourseBuilderOutletContext>();
   const course = structure.course;
 
@@ -48,54 +49,70 @@ const CourseBuilderAssignments = () => {
   // BR-318: no new Assignment once the Course is Locked. Stay disabled until the real Course state is known.
   const addBlocked = courseLocked !== false;
 
+  const withPeerReview = assignments.filter((a) => a.peerReviewEnabled).length;
+  const withSubmissions = assignments.filter((a) => a.locked).length;
+
   return (
     <InstructorPage className="builder-page">
       <span className="builder-crumb">Course Builder / Assignments</span>
       <div className="builder-hero">
         <h1>Assignments</h1>
+        <p>
+          {loading ? "Loading..." : `${assignments.length} Assignment${assignments.length === 1 ? "" : "s"} in ${course.name}`}
+        </p>
       </div>
       <div className="builder-grid">
-        <div className="builder-update-card">
-          <div className="builder-table">
-            <div className="builder-table-row builder-table-head">
-              <span>Assignment</span>
-              <span>Peer Review</span>
-              <span>Attempts</span>
-              <span>Lock</span>
+        <div className="builder-update-card builder-assign-card">
+          <div className="builder-assign-stats">
+            <div>
+              <strong>{assignments.length}</strong>
+              <span>Total</span>
             </div>
-            {assignments.map((assignment) => (
+            <div>
+              <strong>{withPeerReview}</strong>
+              <span>Peer Review on</span>
+            </div>
+            <div>
+              <strong>{withSubmissions}</strong>
+              <span>With submissions</span>
+            </div>
+          </div>
+
+          <div className="builder-assign-list">
+            {assignments.map((assignment, index) => (
               <div
-                className="builder-table-row builder-table-row-clickable"
+                className="builder-assign-item"
                 key={assignment.id}
-                onClick={() => navigate(`${base}/assignments/${assignment.id}`)}
+                onClick={() => navigate(`${base}/assignments/${assignment.id}`, { state: { from: pathname } })}
               >
-                <strong>
-                  {assignment.title}
-                  {assignment.disabled && " (Disabled)"}
-                </strong>
-                <span>{assignment.peerReviewEnabled ? "On" : "Off"}</span>
-                <span>{assignment.maxConsecutiveAttempts} per sequence</span>
-                {/* BR-99: say why an item cannot be edited instead of only showing a state. */}
-                <span>{assignment.locked ? "Locked - has submissions" : "Unlocked"}</span>
+                <span className="builder-assign-index">{index + 1}</span>
+                <div className="builder-assign-main">
+                  <strong>
+                    {assignment.title}
+                    {assignment.disabled && " (Disabled)"}
+                  </strong>
+                  <small>
+                    {assignment.maxConsecutiveAttempts} attempts, then a {assignment.lockoutHours} h lock
+                  </small>
+                </div>
+                <div className="builder-assign-tags">
+                  <em className={`builder-pill${assignment.peerReviewEnabled ? " builder-pill-on" : ""}`}>
+                    Peer Review {assignment.peerReviewEnabled ? "on" : "off"}
+                  </em>
+                  {/* BR-99: say why an item cannot be edited instead of only showing a state. */}
+                  <em className={`builder-pill${assignment.locked ? " builder-pill-warn" : ""}`}>
+                    {assignment.locked ? "Has submissions" : "Unlocked"}
+                  </em>
+                </div>
+                <span className="builder-assign-chevron">&rsaquo;</span>
               </div>
             ))}
             {!loading && assignments.length === 0 && (
-              <div className="builder-table-row">
-                <span>No Assignments yet.</span>
-                <span />
-                <span />
-                <span />
-              </div>
+              <div className="builder-assign-empty">No Assignments yet. Add the first one to get started.</div>
             )}
-            {loading && (
-              <div className="builder-table-row">
-                <span>Loading Assignments...</span>
-                <span />
-                <span />
-                <span />
-              </div>
-            )}
+            {loading && <div className="builder-assign-empty">Loading Assignments...</div>}
           </div>
+
           {courseLocked && (
             <div className="builder-banner">
               <strong>Course Locked</strong>
@@ -109,7 +126,7 @@ const CourseBuilderAssignments = () => {
             <InstructorButton
               type="primary"
               disabled={addBlocked}
-              onClick={() => navigate(`${base}/assignments/new`)}
+              onClick={() => navigate(`${base}/assignments/new`, { state: { from: pathname } })}
             >
               + Add Assignment
             </InstructorButton>
