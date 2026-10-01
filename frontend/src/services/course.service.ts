@@ -2,7 +2,9 @@ import axios from "@/services/axios.customize";
 
 import type {
   ICourseListQuery,
+  ICourseModule,
   ICourseStructure,
+  ICreateCourseModuleRequest,
   ICreateCourseRequest,
   ICreateCourseResponse,
   IInstructorCourseListItem,
@@ -35,6 +37,23 @@ export const createCourseAPI = (payload: ICreateCourseRequest) =>
 export const fetchCourseStructureAPI = (courseId: string) =>
   axios.get<IBackendRes<ICourseStructure>>(
     `/api/v1/courses/${courseId}/structure`,
+    {
+      headers: {
+        "x-internal-key": "learnup-internal-secret",
+        "x-user-id": "33333333-3333-7333-8333-333333333333",
+        "x-organization-id": "22222222-2222-7222-8222-222222222222",
+        "x-user-role": "INSTRUCTOR",
+      },
+    },
+  );
+
+export const createCourseModuleAPI = (
+  courseId: string,
+  payload: ICreateCourseModuleRequest,
+) =>
+  axios.post<IBackendRes<ICourseModule>>(
+    `/api/v1/courses/${courseId}/modules`,
+    payload,
     {
       headers: {
         "x-internal-key": "learnup-internal-secret",
