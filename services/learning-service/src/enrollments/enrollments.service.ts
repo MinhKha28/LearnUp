@@ -14,7 +14,6 @@ import {
   InternalServerErrorException,
   Logger,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { Prisma } from '../../generated/prisma/client';
@@ -28,6 +27,7 @@ import {
   CourseServiceUnavailableError,
 } from '../integrations/course-service/course-service.errors';
 import type { CourseBatchItem } from '../integrations/course-service/course-service.types';
+import { serviceUnavailable } from '../integrations/course-service/service-unavailable';
 import { OrganizationTimezoneService } from '../integrations/tenant/organization-timezone.service';
 import {
   TENANT_CLIENT,
@@ -62,14 +62,6 @@ export interface MyEnrollmentItem {
 
 export interface MyEnrollmentsPage extends PageResponse<MyEnrollmentItem> {
   organizationTimezone: string | null;
-}
-
-const BUSY_MESSAGE = 'Hệ thống đang bận, vui lòng thử lại';
-
-function serviceUnavailable(): ServiceUnavailableException {
-  return new ServiceUnavailableException(
-    createApiError('SERVICE_UNAVAILABLE', BUSY_MESSAGE),
-  );
 }
 
 /** 409 kèm ID Enrollment đã có để client mở thẳng Enrollment đó. */
