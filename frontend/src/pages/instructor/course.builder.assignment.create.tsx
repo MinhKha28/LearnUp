@@ -1,6 +1,6 @@
 import { Input, message } from "antd";
 import { useState } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { FieldError, NumberField } from "@/components/instructor/form.field";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
@@ -22,6 +22,7 @@ import "./course.builder.assignment.scss";
 
 const CourseBuilderAssignmentCreate = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { structure } = useOutletContext<ICourseBuilderOutletContext>();
   const course = structure.course;
 
@@ -37,6 +38,8 @@ const CourseBuilderAssignmentCreate = () => {
 
 
   const base = `/instructor/courses/${course.id}/builder`;
+  // Cancel returns to the screen the user came from (outline, Assignment list, ...); direct visits fall back to the list.
+  const cancelPath = (location.state as { from?: string } | null)?.from ?? `${base}/assignments`;
 
   const errors = {
     title: title.trim() ? null : "Enter an Assignment title.",
@@ -84,7 +87,7 @@ const CourseBuilderAssignmentCreate = () => {
         return;
       }
       message.success("Assignment created.");
-      navigate(`${base}/assignments/${created.id}`);
+      navigate(`${base}/assignments/${created.id}`, { state: { from: cancelPath } });
     } catch {
       message.error("Unable to reach the Assessment service. Please try again.");
     } finally {
@@ -167,7 +170,7 @@ const CourseBuilderAssignmentCreate = () => {
           <RubricEditor rows={rubric} onChange={setRubric} showErrors={submitted} />
 
           <div className="builder-actions builder-actions-split">
-            <InstructorButton onClick={() => navigate(base)}>Cancel</InstructorButton>
+            <InstructorButton onClick={() => navigate(cancelPath)}>Cancel</InstructorButton>
             <InstructorButton type="primary" loading={saving} onClick={handleCreate}>
               Create Assignment
             </InstructorButton>

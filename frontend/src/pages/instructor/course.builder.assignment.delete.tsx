@@ -1,6 +1,6 @@
 import { message } from "antd";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, useOutletContext } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useOutletContext } from "react-router-dom";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import { assessmentErrorText, deleteAssignmentAPI, fetchAssignmentAPI } from "@/services/assessment.service";
@@ -12,6 +12,7 @@ import "./course.builder.confirm.scss";
 const CourseBuilderAssignmentDelete = () => {
   const { assignmentId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { structure } = useOutletContext<ICourseBuilderOutletContext>();
   const course = structure.course;
 
@@ -96,7 +97,7 @@ const CourseBuilderAssignmentDelete = () => {
           </p>
         )}
         <div className="builder-confirm-actions">
-          <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}`)}>Cancel</InstructorButton>
+          <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}`, { state: location.state })}>Cancel</InstructorButton>
           <InstructorButton type="primary" danger disabled={!canDelete} loading={deleting} onClick={handleDelete}>
             Delete Assignment
           </InstructorButton>

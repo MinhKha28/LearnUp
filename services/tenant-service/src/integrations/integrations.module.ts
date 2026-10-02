@@ -4,6 +4,9 @@ import { IdentityClient } from './identity.client';
 import { CourseServiceClient } from './course-service.client';
 import { FakeCourseServiceClient } from './fake-course-service.client';
 import { HttpCourseServiceClient } from './http-course-service.client';
+import { LearningServiceClient } from './learning-service.client';
+import { FakeLearningServiceClient } from './fake-learning-service.client';
+import { HttpLearningServiceClient } from './http-learning-service.client';
 
 // Gom các client gọi sang service khác. Global để UC02 (registrations) và UC04 (invitations) đều tiêm được.
 @Global()
@@ -19,7 +22,16 @@ import { HttpCourseServiceClient } from './http-course-service.client';
           ? new HttpCourseServiceClient(config)
           : new FakeCourseServiceClient(),
     },
+    // UC13: tình trạng đào tạo của Learner. LEARNING_CLIENT_MODE=http gọi thật, còn lại dùng bản giả.
+    {
+      provide: LearningServiceClient,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): LearningServiceClient =>
+        config.get<string>('LEARNING_CLIENT_MODE') === 'http'
+          ? new HttpLearningServiceClient(config)
+          : new FakeLearningServiceClient(),
+    },
   ],
-  exports: [IdentityClient, CourseServiceClient],
+  exports: [IdentityClient, CourseServiceClient, LearningServiceClient],
 })
 export class IntegrationsModule {}

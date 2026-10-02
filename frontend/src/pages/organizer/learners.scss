@@ -1,3 +1,10 @@
-.organizer-learners .organizer-note {
-    font-size: 8px;
+.organizer-learners .organizer-link:disabled {
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+}
+
+.organizer-learners .organizer-button.ant-btn-primary:disabled {
+    border-color: var(--color-border);
+    background: var(--color-surface-secondary);
+    color: var(--color-text-muted);
 }
