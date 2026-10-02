@@ -13,6 +13,7 @@ import { TenantClient } from 'src/common/clients/tenant/tenant.client';
 import { OrganizationCourseListQueryDto } from './dto/organization-course-list-query.dto';
 import { LearningClient } from 'src/common/clients/learning/learning.client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { Prisma } from 'generated/prisma/browser';
 
 export interface CourseAuthoringContext {
   courseId: string;
@@ -538,9 +539,57 @@ export class CoursesService {
     const current = query.current;
     const pageSize = query.pageSize;
     const skip = (current - 1) * pageSize;
+    const search = query.search?.trim();
 
-    const where = {
+    const where: Prisma.CourseWhereInput = {
       organizationId: user.organizationId,
+
+      ...(search
+        ? {
+            name: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          }
+        : {}),
+
+      ...(query.courseType
+        ? {
+            courseType: query.courseType,
+          }
+        : {}),
+
+      ...(query.status
+        ? {
+            status: query.status,
+          }
+        : {}),
+
+      ...(query.instructorId
+        ? {
+            chain: {
+              instructorId: query.instructorId,
+            },
+          }
+        : {}),
+
+      ...(query.submittedFrom || query.submittedTo
+        ? {
+            submittedAt: {
+              ...(query.submittedFrom
+                ? {
+                    gte: new Date(`${query.submittedFrom}T00:00:00.000Z`),
+                  }
+                : {}),
+
+              ...(query.submittedTo
+                ? {
+                    lte: new Date(`${query.submittedTo}T23:59:59.999Z`),
+                  }
+                : {}),
+            },
+          }
+        : {}),
     };
 
     const [courses, total] = await this.prisma.$transaction([
@@ -564,9 +613,11 @@ export class CoursesService {
         },
         skip,
         take: pageSize,
-        orderBy: {
-          updatedAt: 'desc',
-        },
+        orderBy: [
+          {
+            updatedAt: 'desc',
+          },
+        ],
       }),
 
       this.prisma.course.count({
@@ -594,6 +645,7 @@ export class CoursesService {
 
     const [instructors, learnerCounts] = await Promise.all([
       this.tenantClient.getInstructors(user, instructorIds),
+
       this.learningClient.getCourseLearnerCounts(user, courseIds),
     ]);
 
@@ -629,5 +681,35 @@ export class CoursesService {
       },
       result,
     };
+  }
+
+  async getOrganizationCourseInstructors(user: CurrentUser) {
+    if (user.role !== 'ORGANIZER') {
+      throw new ForbiddenException(
+        'Only Organizer can view Course instructors.',
+      );
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    const chains = await this.prisma.courseChain.findMany({
+      where: {
+        organizationId: user.organizationId,
+      },
+      select: {
+        instructorId: true,
+      },
+      distinct: ['instructorId'],
+    });
+
+    const instructorIds = chains.map((chain) => chain.instructorId);
+
+    if (instructorIds.length === 0) {
+      return [];
+    }
+
+    return this.tenantClient.getInstructors(user, instructorIds);
   }
 }

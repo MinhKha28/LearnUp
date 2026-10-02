@@ -139,3 +139,38 @@ export interface IOrganizationCourseListQuery {
   current?: number;
   pageSize?: number;
 }
+
+export interface IOrganizationCourseInstructor {
+  id: string;
+  fullName: string;
+}
+
+export interface IOrganizationCourseListItem {
+  id: string;
+  chainId: string;
+  versionNumber: number;
+  name: string;
+  courseType: CourseType;
+  status: CourseStatus;
+  submittedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  instructor: IOrganizationCourseInstructor;
+  learnerCount: number;
+}
+
+export interface IOrganizationCourseListQuery {
+  current?: number;
+  pageSize?: number;
+  search?: string;
+  courseType?: CourseType;
+  status?: CourseStatus;
+  instructorId?: string;
+  submittedFrom?: string;
+  submittedTo?: string;
+}
+
+export interface IOrganizationCourseFilterInstructor {
+  id: string;
+  fullName: string;
+}
