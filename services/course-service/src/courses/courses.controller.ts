@@ -56,6 +56,7 @@ export class CoursesController {
   ) {
     return this.coursesService.createModule(user, courseId, dto);
   }
+
   @Post(':courseId/modules/:moduleId/lessons')
   @ResponseMessage('Lesson created successfully')
   createLesson(
@@ -66,6 +67,13 @@ export class CoursesController {
   ) {
     return this.coursesService.createLesson(user, courseId, moduleId, dto);
   }
+
+  @Get('organization/instructors')
+  @ResponseMessage('Organization Course instructors fetched successfully')
+  getOrganizationCourseInstructors(@User() user: CurrentUser) {
+    return this.coursesService.getOrganizationCourseInstructors(user);
+  }
+
   @Get('organization')
   @ResponseMessage('Organization Courses fetched successfully')
   findOrganizationCourses(

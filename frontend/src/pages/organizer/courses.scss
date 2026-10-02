@@ -2,6 +2,56 @@
     margin-bottom: 20px;
 }
 
+.organizer-course-view-tabs {
+    display: flex;
+    margin-bottom: 16px;
+    gap: 8px;
+}
+
+.organizer-course-view-tab {
+    padding: 8px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    background: #fff;
+
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease,
+        color 0.15s ease;
+}
+
+.organizer-course-view-tab:hover {
+    border-color: #cbd5e1;
+    color: #0f172a;
+}
+
+.organizer-course-view-tab.active {
+    border-color: #f59e0b;
+    background: #fffbeb;
+    color: #92400e;
+}
+
+.organizer-courses-filters {
+    display: grid;
+    grid-template-columns:
+        minmax(210px, 1.35fr) minmax(120px, 0.7fr) minmax(140px, 0.8fr) minmax(170px, 0.95fr) minmax(260px, 1.2fr) auto;
+
+    margin-bottom: 20px;
+    align-items: center;
+    gap: 10px;
+}
+
+.organizer-courses-filters .ant-input,
+.organizer-courses-filters .ant-select-selector,
+.organizer-courses-filters .ant-picker {
+    border-radius: 7px !important;
+}
+
 .organizer-course-count {
     color: #64748b;
     font-size: 12px;
@@ -10,7 +60,7 @@
 
 .organizer-course-name {
     display: flex;
-    min-width: 200px;
+    min-width: 190px;
     flex-direction: column;
     gap: 4px;
 }
@@ -77,6 +127,7 @@
 
 .organizer-courses .ant-table-thead>tr>th {
     background: #f8fafc;
+
     color: #475569;
     font-size: 12px;
     font-weight: 650;
@@ -87,12 +138,38 @@
     padding-bottom: 15px;
 }
 
+@media (max-width: 1200px) {
+    .organizer-courses-filters {
+        grid-template-columns:
+            repeat(2,
+                minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 900px) {
     .organizer-courses .organizer-section-card {
         overflow-x: auto;
     }
 
     .organizer-courses .ant-table-wrapper {
-        min-width: 820px;
+        min-width: 900px;
+    }
+}
+
+@media (max-width: 700px) {
+    .organizer-course-view-tabs {
+        flex-direction: column;
+    }
+
+    .organizer-course-view-tab {
+        width: 100%;
+    }
+
+    .organizer-courses-filters {
+        grid-template-columns: 1fr;
+    }
+
+    .organizer-courses-filters .ant-picker {
+        width: 100%;
     }
 }
