@@ -71,6 +71,14 @@
  *     Deactivated                 a209, a217 (từng kích hoạt), a213 (chưa kích hoạt)
  *     Đã xóa                      a211, a220
  *     Token Learner               a505, a507, a523, a525, b503
+ *
+ * Bổ sung UC13.2 (Thêm Learner):
+ *   - Công ty TNHH Delta (gói Basic, max_learners = 30) có đủ 30 Learner Active chưa xóa
+ *     -> hết chỗ Learner (remaining 0, canCreate false). Sinh bằng vòng lặp (DELTA_LEARNER_COUNT),
+ *     tên "Học viên Delta NN", email hocvien.NN@delta.vn, không có token (đều Active).
+ *   - Không đổi FAKE_SUMMARIES: Learner Delta không có trong bảng fake = 0 khóa đang học / 0 quá hạn.
+ *   ID mới:
+ *     Learner Delta               ...00000000d201 – d230
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -502,6 +510,33 @@ for (const [n, fullName, email, department, kind] of deltaInstructors) {
   );
 }
 
+// UC13.2: Delta có đúng max_learners của gói Basic (30) Learner chưa xóa -> hết chỗ Learner.
+// Sinh bằng vòng lặp: d201 – d230, "Học viên Delta NN" / hocvien.NN@delta.vn, đều Active.
+// created_at: 22/09 04:00 + (n-1) giờ, nên d230 mới nhất.
+const DELTA_LEARNER_COUNT = 30;
+const DELTA_DEPARTMENTS = [
+  'Phòng Kỹ thuật',
+  'Phòng Kinh doanh',
+  'Phòng Sản xuất',
+  'Phòng Kế toán',
+  'Phòng Nhân sự',
+];
+for (let n = 1; n <= DELTA_LEARNER_COUNT; n++) {
+  const nn = String(n).padStart(2, '0');
+  users.push(
+    buildUser(
+      id(`d2${nn}`),
+      ORG_DELTA,
+      'Learner',
+      `Học viên Delta ${nn}`,
+      `hocvien.${nn}@delta.vn`,
+      DELTA_DEPARTMENTS[(n - 1) % DELTA_DEPARTMENTS.length],
+      'A',
+      new Date(at('2026-09-22T04:00:00Z').getTime() + (n - 1) * HOUR_MS),
+    ),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Lời mời (account_tokens, purpose = Invitation)
 // ---------------------------------------------------------------------------
@@ -628,6 +663,15 @@ function validateSeed(
   check(
     deltaUsed === deltaPlan.maxInstructors,
     `Delta phải có đúng ${deltaPlan.maxInstructors} Instructor chưa xóa, đang có ${deltaUsed}`,
+  );
+  // UC13.2: Delta phải hết chỗ Learner đúng bằng max_learners của gói.
+  const deltaLearnersUsed = users.filter(
+    (u) =>
+      u.organizationId === ORG_DELTA && u.role === 'Learner' && !u.deletedAt,
+  ).length;
+  check(
+    deltaLearnersUsed === deltaPlan.maxLearners,
+    `Delta phải có đúng ${deltaPlan.maxLearners} Learner chưa xóa, đang có ${deltaLearnersUsed}`,
   );
 
   // BR-23: số Instructor chưa xóa không vượt bản chụp giới hạn của gói.
@@ -897,6 +941,9 @@ async function main(): Promise<void> {
   );
   console.log(
     `  - UC12.2: Công ty CP Gamma (subscription Grace), Công ty TNHH Delta (gói ${BASIC_PLAN_NAME}, ${count('Instructor', ORG_DELTA)}/${plans.get(BASIC_PLAN_NAME)!.maxInstructors} Instructor)`,
+  );
+  console.log(
+    `  - UC13.2: Công ty TNHH Delta ${countNotDeleted('Learner', ORG_DELTA)}/${plans.get(BASIC_PLAN_NAME)!.maxLearners} Learner (hết chỗ Learner)`,
   );
 }
 

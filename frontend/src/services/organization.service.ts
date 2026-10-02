@@ -67,3 +67,11 @@ export const getLearnersAPI = (query: IAccountListQuery) =>
     "/api/v1/users/learners",
     { params: query },
   );
+
+// UC13.2 - số chỗ Learner còn lại (Organizer)
+export const getLearnerSeatsAPI = () =>
+  axios.get<IBackendRes<ISeatUsage>>("/api/v1/users/learners/seats");
+
+// UC13.2 - Thêm Learner (Organizer; backend gửi lời mời qua email)
+export const createLearnerAPI = (body: ICreateAccountReq) =>
+  axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/learners", body);

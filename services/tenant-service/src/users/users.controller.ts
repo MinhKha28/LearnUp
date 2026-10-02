@@ -7,7 +7,7 @@ import { CreateAccountDto } from './dto/create-account.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
 import { UsersService } from './users.service';
 
-@ApiTags('Users') // UC12, UC13
+@ApiTags('Users') // UC12, UC12.2, UC13, UC13.2
 @ApiSecurity('internal-key')
 @UseGuards(RolesGuard)
 @Controller('users')
@@ -42,8 +42,7 @@ export class UsersController {
     return this.service.createInstructor(user, dto);
   }
 
-  // UC13. Sau này thêm learners/seats (UC13.2) thì đặt TRƯỚC learners/:id (UC13.1),
-  // nếu không "seats" sẽ bị hiểu là :id.
+  // UC13
   @Roles('ORGANIZER')
   @Get('learners')
   @ResponseMessage('Lấy danh sách Learner thành công')
@@ -52,5 +51,22 @@ export class UsersController {
     @Query() query: ListAccountsQueryDto,
   ) {
     return this.service.findLearners(user, query);
+  }
+
+  // UC13.2 - số chỗ Learner. Giữ TRƯỚC mọi route dạng learners/:id (UC13.1…),
+  // nếu không "seats" sẽ bị hiểu là :id.
+  @Roles('ORGANIZER')
+  @Get('learners/seats')
+  @ResponseMessage('Lấy số chỗ Learner thành công')
+  getLearnerSeats(@User() user: CurrentUser) {
+    return this.service.getLearnerSeats(user);
+  }
+
+  // UC13.2
+  @Roles('ORGANIZER')
+  @Post('learners')
+  @ResponseMessage('Tạo tài khoản Learner thành công')
+  createLearner(@User() user: CurrentUser, @Body() dto: CreateAccountDto) {
+    return this.service.createLearner(user, dto);
   }
 }
