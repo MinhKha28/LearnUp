@@ -14,6 +14,7 @@ import { CourseListQueryDto } from './dto/course-list-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { CreateCourseModuleDto } from './dto/create-course-module.dto';
 import { CreateCourseLessonDto } from './dto/create-course-lesson.dto';
+import { OrganizationCourseListQueryDto } from './dto/organization-course-list-query.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -33,6 +34,7 @@ export class CoursesController {
   ) {
     return this.coursesService.getAuthoringContext(id, user.organizationId);
   }
+
   @Post()
   @ResponseMessage('Course created successfully')
   create(@User() user: CurrentUser, @Body() dto: CreateCourseDto) {
@@ -54,6 +56,7 @@ export class CoursesController {
   ) {
     return this.coursesService.createModule(user, courseId, dto);
   }
+
   @Post(':courseId/modules/:moduleId/lessons')
   @ResponseMessage('Lesson created successfully')
   createLesson(
@@ -63,5 +66,20 @@ export class CoursesController {
     @Body() dto: CreateCourseLessonDto,
   ) {
     return this.coursesService.createLesson(user, courseId, moduleId, dto);
+  }
+
+  @Get('organization/instructors')
+  @ResponseMessage('Organization Course instructors fetched successfully')
+  getOrganizationCourseInstructors(@User() user: CurrentUser) {
+    return this.coursesService.getOrganizationCourseInstructors(user);
+  }
+
+  @Get('organization')
+  @ResponseMessage('Organization Courses fetched successfully')
+  findOrganizationCourses(
+    @User() user: CurrentUser,
+    @Query() query: OrganizationCourseListQueryDto,
+  ) {
+    return this.coursesService.findOrganizationCourses(user, query);
   }
 }

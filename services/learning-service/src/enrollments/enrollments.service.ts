@@ -370,4 +370,39 @@ export class EnrollmentsService {
     }
     return user.organizationId;
   }
+
+  async getCourseLearnerCounts(user: CurrentUser, courseIds: string[]) {
+    if (user.role !== 'ORGANIZER') {
+      throw new ForbiddenException(
+        'Only Organizer can retrieve Course learner counts.',
+      );
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    const groups = await this.prisma.enrollment.groupBy({
+      by: ['courseId'],
+      where: {
+        organizationId: user.organizationId,
+        courseId: {
+          in: courseIds,
+        },
+        status: 'InProgress',
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    const countMap = new Map(
+      groups.map((item) => [item.courseId, item._count._all]),
+    );
+
+    return courseIds.map((courseId) => ({
+      courseId,
+      learnerCount: countMap.get(courseId) ?? 0,
+    }));
+  }
 }

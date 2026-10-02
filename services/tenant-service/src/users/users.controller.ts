@@ -6,6 +6,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
 import { UsersService } from './users.service';
+import { GetUsersBatchDto } from './dto/get-users-batch.dto';
 
 @ApiTags('Users') // UC12, UC12.2, UC13, UC13.2
 @ApiSecurity('internal-key')
@@ -53,6 +54,11 @@ export class UsersController {
     return this.service.findLearners(user, query);
   }
 
+  @Post('batch')
+  @ResponseMessage('Users fetched successfully')
+  findBatch(@User() user: CurrentUser, @Body() dto: GetUsersBatchDto) {
+    return this.service.findBatch(user, dto.userIds);
+  }
   // UC13.2 - số chỗ Learner. Giữ TRƯỚC mọi route dạng learners/:id (UC13.1…),
   // nếu không "seats" sẽ bị hiểu là :id.
   @Roles('ORGANIZER')

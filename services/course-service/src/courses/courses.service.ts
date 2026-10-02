@@ -5,11 +5,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { CourseListQueryDto } from './dto/course-list-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { CreateCourseModuleDto } from './dto/create-course-module.dto';
 import { CreateCourseLessonDto } from './dto/create-course-lesson.dto';
+import { TenantClient } from 'src/common/clients/tenant/tenant.client';
+import { OrganizationCourseListQueryDto } from './dto/organization-course-list-query.dto';
+import { LearningClient } from 'src/common/clients/learning/learning.client';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { Prisma } from 'generated/prisma/browser';
 
 export interface CourseAuthoringContext {
   courseId: string;
@@ -22,7 +26,11 @@ export interface CourseAuthoringContext {
 
 @Injectable()
 export class CoursesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantClient: TenantClient,
+    private readonly learningClient: LearningClient,
+  ) {}
 
   async findAll(user: CurrentUser, query: CourseListQueryDto) {
     if (user.role !== 'INSTRUCTOR') {
@@ -512,5 +520,196 @@ export class CoursesService {
         },
       });
     });
+  }
+
+  async findOrganizationCourses(
+    user: CurrentUser,
+    query: OrganizationCourseListQueryDto,
+  ) {
+    if (user.role !== 'ORGANIZER') {
+      throw new ForbiddenException(
+        'Only Organizer can view Organization Courses.',
+      );
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    const current = query.current;
+    const pageSize = query.pageSize;
+    const skip = (current - 1) * pageSize;
+    const search = query.search?.trim();
+
+    const where: Prisma.CourseWhereInput = {
+      organizationId: user.organizationId,
+
+      ...(search
+        ? {
+            name: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          }
+        : {}),
+
+      ...(query.courseType
+        ? {
+            courseType: query.courseType,
+          }
+        : {}),
+
+      ...(query.status
+        ? {
+            status: query.status,
+          }
+        : {}),
+
+      ...(query.instructorId
+        ? {
+            chain: {
+              instructorId: query.instructorId,
+            },
+          }
+        : {}),
+
+      ...(query.submittedFrom || query.submittedTo
+        ? {
+            submittedAt: {
+              ...(query.submittedFrom
+                ? {
+                    gte: new Date(`${query.submittedFrom}T00:00:00.000Z`),
+                  }
+                : {}),
+
+              ...(query.submittedTo
+                ? {
+                    lte: new Date(`${query.submittedTo}T23:59:59.999Z`),
+                  }
+                : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [courses, total] = await this.prisma.$transaction([
+      this.prisma.course.findMany({
+        where,
+        select: {
+          id: true,
+          chainId: true,
+          versionNumber: true,
+          name: true,
+          courseType: true,
+          status: true,
+          submittedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          chain: {
+            select: {
+              instructorId: true,
+            },
+          },
+        },
+        skip,
+        take: pageSize,
+        orderBy: [
+          {
+            updatedAt: 'desc',
+          },
+        ],
+      }),
+
+      this.prisma.course.count({
+        where,
+      }),
+    ]);
+
+    if (courses.length === 0) {
+      return {
+        meta: {
+          current,
+          pageSize,
+          pages: 0,
+          total: 0,
+        },
+        result: [],
+      };
+    }
+
+    const instructorIds = [
+      ...new Set(courses.map((course) => course.chain.instructorId)),
+    ];
+
+    const courseIds = courses.map((course) => course.id);
+
+    const [instructors, learnerCounts] = await Promise.all([
+      this.tenantClient.getInstructors(user, instructorIds),
+
+      this.learningClient.getCourseLearnerCounts(user, courseIds),
+    ]);
+
+    const instructorMap = new Map(
+      instructors.map((instructor) => [instructor.id, instructor]),
+    );
+
+    const learnerCountMap = new Map(
+      learnerCounts.map((item) => [item.courseId, item.learnerCount]),
+    );
+
+    const result = courses.map(({ chain, ...course }) => {
+      const instructor = instructorMap.get(chain.instructorId);
+
+      return {
+        ...course,
+
+        instructor: {
+          id: chain.instructorId,
+          fullName: instructor?.fullName ?? 'Unknown Instructor',
+        },
+
+        learnerCount: learnerCountMap.get(course.id) ?? 0,
+      };
+    });
+
+    return {
+      meta: {
+        current,
+        pageSize,
+        pages: Math.ceil(total / pageSize),
+        total,
+      },
+      result,
+    };
+  }
+
+  async getOrganizationCourseInstructors(user: CurrentUser) {
+    if (user.role !== 'ORGANIZER') {
+      throw new ForbiddenException(
+        'Only Organizer can view Course instructors.',
+      );
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    const chains = await this.prisma.courseChain.findMany({
+      where: {
+        organizationId: user.organizationId,
+      },
+      select: {
+        instructorId: true,
+      },
+      distinct: ['instructorId'],
+    });
+
+    const instructorIds = chains.map((chain) => chain.instructorId);
+
+    if (instructorIds.length === 0) {
+      return [];
+    }
+
+    return this.tenantClient.getInstructors(user, instructorIds);
   }
 }

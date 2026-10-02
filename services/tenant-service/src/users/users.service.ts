@@ -7,8 +7,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { CurrentUser, PageResponse } from '@learnup/ts-common';
 import { STANDARD_ERROR_CODES, createPageResponse } from '@learnup/ts-common';
-import { Prisma } from '../../generated/prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
 import { CourseServiceClient } from '../integrations/course-service.client';
 import {
   LearnerEnrollmentSummary,
@@ -33,6 +31,8 @@ import {
   LearnerListItem,
 } from './interfaces/account-list-item.interface';
 import { SeatUsage } from './interfaces/seat-usage.interface';
+import { Prisma } from '../../generated/prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 
 // Role do Organizer tạo và bị giới hạn số chỗ theo Subscription (BR-23).
 type SeatRole = typeof UserRoleValue.Instructor | typeof UserRoleValue.Learner;
@@ -497,5 +497,32 @@ export class UsersService {
       });
     }
     return user.organizationId;
+  }
+
+  async findBatch(user: CurrentUser, userIds: string[]) {
+    if (user.role !== 'ORGANIZER') {
+      throw new ForbiddenException(
+        'Only Organizer can retrieve Instructor information.',
+      );
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    return this.prisma.user.findMany({
+      where: {
+        id: {
+          in: userIds,
+        },
+        organizationId: user.organizationId,
+        role: 'INSTRUCTOR',
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        fullName: true,
+      },
+    });
   }
 }
