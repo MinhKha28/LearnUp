@@ -115,3 +115,27 @@ export interface ICourseLesson {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface IOrganizationCourseInstructor {
+  id: string;
+  fullName: string;
+}
+
+export interface IOrganizationCourseListItem {
+  id: string;
+  chainId: string;
+  versionNumber: number;
+  name: string;
+  courseType: CourseType;
+  status: CourseStatus;
+  submittedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  instructor: IOrganizationCourseInstructor;
+  learnerCount: number;
+}
+
+export interface IOrganizationCourseListQuery {
+  current?: number;
+  pageSize?: number;
+}
