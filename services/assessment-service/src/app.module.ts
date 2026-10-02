@@ -6,6 +6,7 @@ import { AssessmentsModule } from './assessments/assessments.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { PeerReviewModule } from './peer-review/peer-review.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { QuizModule } from './quiz/quiz.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PrismaModule } from './prisma/prisma.module';
     IntegrationsModule,
     AssessmentsModule,
     PeerReviewModule,
+    QuizModule,
   ],
   providers: [
     {
