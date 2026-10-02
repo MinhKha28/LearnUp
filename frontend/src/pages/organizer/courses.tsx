@@ -1,7 +1,8 @@
-import { Input, Select, Table } from "antd";
-import type { ColumnsType } from "antd/es/table";
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Alert, Empty, Table } from "antd";
+import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import {
   OrganizerButton,
   OrganizerPage,
@@ -9,116 +10,237 @@ import {
   SectionCard,
   StatusTag,
 } from "@/components/organizer/organizer.ui";
+import { fetchOrganizationCoursesAPI } from "@/services/course.service";
+import type {
+  CourseStatus,
+  CourseType,
+  IOrganizationCourseInstructor,
+  IOrganizationCourseListItem,
+} from "@/types/course.types";
+
 import "./courses.scss";
 
-type Course = {
-  key: string;
-  name: string;
-  scope: string;
-  type: "Public" | "Private";
-  status: "Draft" | "Submitted" | "Published" | "Archived";
-  instructor: string;
-  learners: number | string;
+const courseTypeLabel: Record<CourseType, string> = {
+  PUBLIC: "Public",
+  PRIVATE: "Private",
 };
 
-const courses: Course[] = [
-  { key: "wse", name: "Workplace Safety Essentials", scope: "Certain work unit", type: "Public", status: "Published", instructor: "An Tran", learners: 86 },
-  { key: "ir", name: "Incident Reporting", scope: "Organization-wide", type: "Private", status: "Submitted", instructor: "Linh Phan", learners: "—" },
-  { key: "eb", name: "Equipment Basics", scope: "Organization-wide", type: "Public", status: "Archived", instructor: "An Tran", learners: 42 },
-  { key: "fsr", name: "Fire Safety Refresher", scope: "Organization-wide", type: "Private", status: "Published", instructor: "Giao Le", learners: "—" },
-];
+const courseStatusLabel: Record<CourseStatus, string> = {
+  DRAFT: "Draft",
+  SUBMITTED: "Submitted",
+  PUBLISHED: "Published",
+  REJECTED: "Rejected",
+  ARCHIVED: "Archived",
+  DISABLED: "Disabled",
+};
 
-const statusTone = (status: Course["status"]) =>
-  status === "Published" ? "info" : status === "Submitted" ? "warning" : status === "Archived" ? "neutral" : "neutral";
+const statusTone = (
+  status: CourseStatus,
+): "neutral" | "success" | "warning" | "error" | "info" => {
+  switch (status) {
+    case "PUBLISHED":
+      return "success";
+    case "SUBMITTED":
+      return "info";
+    case "REJECTED":
+    case "DISABLED":
+      return "error";
+    case "ARCHIVED":
+      return "warning";
+    default:
+      return "neutral";
+  }
+};
 
-const Courses = () => {
+const OrganizationCourses = () => {
   const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  const rows = useMemo(
-    () => courses.filter((item) => item.name.toLowerCase().includes(query.toLowerCase())),
-    [query],
-  );
-  const columns: ColumnsType<Course> = [
+
+  const [courses, setCourses] = useState<IOrganizationCourseListItem[]>([]);
+  const [current, setCurrent] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const loadCourses = useCallback(async () => {
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      const response = await fetchOrganizationCoursesAPI({
+        current,
+        pageSize,
+      });
+
+      if (!response.data) {
+        setCourses([]);
+        setTotal(0);
+        setErrorMessage(
+          response.message || "Unable to load Organization Courses.",
+        );
+        return;
+      }
+
+      setCourses(response.data.result);
+      setTotal(response.data.meta.total);
+    } catch (error) {
+      console.error("Fetch Organization Courses error:", error);
+
+      setCourses([]);
+      setTotal(0);
+      setErrorMessage("Unable to load Organization Courses.");
+    } finally {
+      setLoading(false);
+    }
+  }, [current, pageSize]);
+
+  useEffect(() => {
+    void loadCourses();
+  }, [loadCourses]);
+
+  const handleTableChange = (pagination: TablePaginationConfig) => {
+    const nextPageSize = pagination.pageSize ?? pageSize;
+
+    if (nextPageSize !== pageSize) {
+      setPageSize(nextPageSize);
+      setCurrent(1);
+      return;
+    }
+
+    setCurrent(pagination.current ?? 1);
+  };
+
+  const columns: ColumnsType<IOrganizationCourseListItem> = [
     {
       title: "Course",
       dataIndex: "name",
-      render: (_, item) => (
-        <div>
-          <strong>{item.name}</strong>
-          <div className="organizer-note">{item.scope}</div>
+      key: "name",
+      render: (name: string, course) => (
+        <div className="organizer-course-name">
+          <strong>{name}</strong>
+          <span>Version {course.versionNumber}</span>
         </div>
       ),
     },
-    { title: "Type", dataIndex: "type" },
+    {
+      title: "Type",
+      dataIndex: "courseType",
+      key: "courseType",
+      width: 110,
+      render: (courseType: CourseType) => (
+        <span className="organizer-course-type">
+          {courseTypeLabel[courseType]}
+        </span>
+      ),
+    },
     {
       title: "Status",
       dataIndex: "status",
-      render: (status: Course["status"]) => (
-        <StatusTag tone={statusTone(status)}>{status}</StatusTag>
+      key: "status",
+      width: 130,
+      render: (status: CourseStatus) => (
+        <StatusTag tone={statusTone(status)}>
+          {courseStatusLabel[status]}
+        </StatusTag>
       ),
     },
-    { title: "Instructor", dataIndex: "instructor" },
-    { title: "Learners", dataIndex: "learners" },
+    {
+      title: "Instructor",
+      dataIndex: "instructor",
+      key: "instructor",
+      width: 180,
+      render: (instructor: IOrganizationCourseInstructor) => (
+        <div className="organizer-course-instructor">
+          <strong>{instructor.fullName}</strong>
+        </div>
+      ),
+    },
+    {
+      title: "Learners",
+      dataIndex: "learnerCount",
+      key: "learnerCount",
+      width: 100,
+      align: "center",
+      render: (learnerCount: number) => (
+        <span className="organizer-course-learners">{learnerCount}</span>
+      ),
+    },
     {
       title: "Action",
       key: "action",
+      width: 100,
       align: "right",
-      render: (_, item) => (
+      render: (_, course) => (
         <button
-          className="organizer-link"
-          onClick={() => navigate(`/organizer/courses/${item.key}`)}
+          type="button"
+          className="organizer-course-action"
+          onClick={() => navigate(`/organizer/courses/${course.id}`)}
         >
-          View →
+          View
         </button>
       ),
     },
   ];
+
   return (
     <OrganizerPage className="organizer-courses">
       <PageHeader
         title="Organization Courses"
-        subtitle="View all Courses for assignment, approval, version governance, and ownership."
-        actions={
-          <Link to="/organizer/courses/approvals">
-            <OrganizerButton>Pending approval</OrganizerButton>
-          </Link>
-        }
+        subtitle="View all Courses managed by your Organization."
       />
-      <SectionCard title="All Courses">
-        <div className="organizer-filters organizer-courses-filters">
-          <Input placeholder="Search Course" value={query} onChange={(event) => setQuery(event.target.value)} />
-          <Select
-            defaultValue="all"
-            options={[
-              { value: "all", label: "All types" },
-              { value: "public", label: "Public" },
-              { value: "private", label: "Private" },
-            ]}
-          />
-          <Select
-            defaultValue="all"
-            options={[
-              { value: "all", label: "All statuses" },
-              { value: "draft", label: "Draft" },
-              { value: "submitted", label: "Submitted" },
-              { value: "published", label: "Published" },
-              { value: "archived", label: "Archived" },
-            ]}
-          />
-          <Select
-            defaultValue="all"
-            options={[
-              { value: "all", label: "All instructors" },
-              { value: "an-tran", label: "An Tran" },
-              { value: "linh-phan", label: "Linh Phan" },
-              { value: "giao-le", label: "Giao Le" },
-            ]}
-          />
-        </div>
-        <Table className="organizer-table" columns={columns} dataSource={rows} pagination={{ pageSize: 6, showSizeChanger: false }} />
+
+      {errorMessage && (
+        <Alert
+          className="organizer-courses-alert"
+          type="error"
+          showIcon
+          message="Could not load Courses"
+          description={errorMessage}
+          action={
+            <OrganizerButton size="small" onClick={() => void loadCourses()}>
+              Retry
+            </OrganizerButton>
+          }
+        />
+      )}
+
+      <SectionCard
+        title="All Courses"
+        extra={
+          <span className="organizer-course-count">
+            {total} {total === 1 ? "Course" : "Courses"}
+          </span>
+        }
+      >
+        <Table<IOrganizationCourseListItem>
+          className="organizer-table"
+          rowKey="id"
+          columns={columns}
+          dataSource={courses}
+          loading={loading}
+          locale={{
+            emptyText: (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="No Courses found"
+              />
+            ),
+          }}
+          pagination={{
+            current,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50"],
+            showTotal: (count) => `${count} Courses`,
+            position: ["bottomRight"],
+          }}
+          onChange={handleTableChange}
+        />
       </SectionCard>
     </OrganizerPage>
   );
 };
 
-export default Courses;
+export default OrganizationCourses;

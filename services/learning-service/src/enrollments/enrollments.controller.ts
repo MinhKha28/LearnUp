@@ -12,6 +12,7 @@ import {
   EnrollmentsService,
   type MyEnrollmentsPage,
 } from './enrollments.service';
+import { GetCourseLearnerCountsDto } from './dto/get-course-learner-counts.dto';
 
 @Controller('enrollments')
 export class EnrollmentsController {
@@ -43,5 +44,14 @@ export class EnrollmentsController {
     @Query('page', ParsePagePipe) page: number,
   ): Promise<MyEnrollmentsPage> {
     return this.service.findMyEnrollments(user, page);
+  }
+
+  @Post('learner-counts')
+  @ResponseMessage('Course learner counts fetched successfully')
+  getCourseLearnerCounts(
+    @User() user: CurrentUser,
+    @Body() dto: GetCourseLearnerCountsDto,
+  ) {
+    return this.service.getCourseLearnerCounts(user, dto.courseIds);
   }
 }

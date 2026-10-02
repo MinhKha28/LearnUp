@@ -6,6 +6,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
 import { UsersService } from './users.service';
+import { GetUsersBatchDto } from './dto/get-users-batch.dto';
 
 @ApiTags('Users') // UC12, UC13
 @ApiSecurity('internal-key')
@@ -52,5 +53,11 @@ export class UsersController {
     @Query() query: ListAccountsQueryDto,
   ) {
     return this.service.findLearners(user, query);
+  }
+
+  @Post('batch')
+  @ResponseMessage('Users fetched successfully')
+  findBatch(@User() user: CurrentUser, @Body() dto: GetUsersBatchDto) {
+    return this.service.findBatch(user, dto.userIds);
   }
 }

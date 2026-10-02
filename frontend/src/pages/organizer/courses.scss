@@ -1,3 +1,98 @@
-.organizer-courses-filters {
-    grid-template-columns: minmax(200px, 1.4fr) repeat(3, minmax(130px, .7fr));
+.organizer-courses-alert {
+    margin-bottom: 20px;
+}
+
+.organizer-course-count {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.organizer-course-name {
+    display: flex;
+    min-width: 200px;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.organizer-course-name strong {
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.organizer-course-name span {
+    color: #94a3b8;
+    font-size: 11px;
+}
+
+.organizer-course-type {
+    color: #475569;
+    font-size: 13px;
+}
+
+.organizer-course-instructor {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.organizer-course-instructor strong {
+    color: #334155;
+    font-size: 13px;
+    font-weight: 550;
+}
+
+.organizer-course-learners {
+    display: inline-flex;
+    min-width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 7px;
+    background: #f1f5f9;
+
+    color: #334155;
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.organizer-course-action {
+    padding: 0;
+    border: 0;
+    background: transparent;
+
+    color: #2563eb;
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.organizer-course-action:hover {
+    text-decoration: underline;
+}
+
+.organizer-courses .ant-table-thead>tr>th {
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.organizer-courses .ant-table-tbody>tr>td {
+    padding-top: 15px;
+    padding-bottom: 15px;
+}
+
+@media (max-width: 900px) {
+    .organizer-courses .organizer-section-card {
+        overflow-x: auto;
+    }
+
+    .organizer-courses .ant-table-wrapper {
+        min-width: 820px;
+    }
 }
