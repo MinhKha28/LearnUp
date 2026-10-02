@@ -190,6 +190,23 @@ export class UsersService {
     );
   }
 
+  // ===========================================================================
+  // UC13.2 - Thêm Learner (dùng chung lõi createAccount / getSeatUsage với UC12.2)
+  // ===========================================================================
+  createLearner(
+    user: CurrentUser,
+    dto: CreateAccountDto,
+  ): Promise<AccountListItem> {
+    return this.createAccount(user, dto, UserRoleValue.Learner);
+  }
+
+  getLearnerSeats(user: CurrentUser): Promise<SeatUsage> {
+    return this.getSeatUsage(
+      this.organizationIdOf(user),
+      UserRoleValue.Learner,
+    );
+  }
+
   /** Số chỗ của một role trong tổ chức. Dùng chung cho seats Instructor / Learner (UC13.2). */
   async getSeatUsage(
     organizationId: string,
