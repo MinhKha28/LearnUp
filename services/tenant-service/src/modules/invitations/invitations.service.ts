@@ -1,7 +1,5 @@
 import { ConflictException, Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { AccountTokensService } from '../account-tokens/account-tokens.service';
-import { IdentityClient } from '../integrations/identity.client';
 import {
   TokenPurpose,
   UserStatus,
@@ -9,6 +7,8 @@ import {
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { IInvitationInfo } from './interfaces/invitation-info.interface';
 import { IAcceptInvitationResult } from './interfaces/accept-invitation-result.interface';
+import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
+import { IdentityClient } from 'src/infrastructure/clients/identity/identity.client';
 
 @Injectable()
 export class InvitationsService {

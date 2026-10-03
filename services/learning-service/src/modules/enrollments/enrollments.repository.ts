@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
 import { BaseRepository } from '../../common/repository/base.repository';
 import { toSafeNumber } from '../../common/utils/to-safe-number';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 import { enrollmentDisplayStatusSql } from './enrollment-display-status.sql';
 
 /** Kết quả trả về sau khi tạo Enrollment. */

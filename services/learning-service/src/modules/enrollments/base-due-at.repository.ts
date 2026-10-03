@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '../../../generated/prisma/client';
 import { BaseRepository } from '../../common/repository/base.repository';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 
 /** Tham số tính hạn gốc không hợp lệ; không đoán giá trị thay thế. */
 export class InvalidBaseDueAtInputError extends Error {
