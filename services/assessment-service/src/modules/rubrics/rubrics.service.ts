@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../../generated/prisma/client';
 import { CreateRubricDto } from './dto/create-rubrics.dto';
+import { Prisma } from 'generated/prisma/browser';
 
 @Injectable()
 export class RubricsService {
