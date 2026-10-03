@@ -5,7 +5,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CreateAssignmentDto } from '../../src/assessments/dto/create-assignment.dto';
 import { UpdateAssignmentDto } from '../../src/assessments/dto/update-assignment.dto';
-import { UpdatePeerReviewDto } from '../../src/peer-review/dto/update-peer-review.dto';
+import { UpdatePeerReviewDto } from '../../src/modules/peer-review/dto/update-peer-review.dto';
 
 async function problems(
   Dto: new () => object,

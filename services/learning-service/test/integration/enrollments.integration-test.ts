@@ -15,8 +15,8 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Client } from 'pg';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
-import { CourseServiceClient } from '../../src/integrations/course-service/course-service.client';
-import { readCourseServiceConfig } from '../../src/integrations/course-service/course-service.config';
+import { CourseServiceClient } from '../../src/infrastructure/integrations/course-service/course-service.client';
+import { readCourseServiceConfig } from '../../src/infrastructure/integrations/course-service/course-service.config';
 import {
   courseDatabaseUrl,
   databaseUrl,
