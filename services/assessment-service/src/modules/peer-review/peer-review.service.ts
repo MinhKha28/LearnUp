@@ -1,6 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
-import type { Prisma } from '../../generated/prisma/client';
+
 import {
   AssessmentsService,
   AUTHORABLE_STATUSES,
@@ -8,6 +8,7 @@ import {
 } from '../assessments/assessments.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { UpdatePeerReviewDto } from './dto/update-peer-review.dto';
+import { Prisma } from 'generated/prisma/browser';
 
 @Injectable()
 export class PeerReviewService {
