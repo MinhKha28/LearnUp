@@ -11,7 +11,7 @@ import { RegistrationsModule } from './modules/registrations/registrations.modul
 import { UsersModule } from './modules/users/users.module';
 import { UsersController } from './modules/users/users.controller';
 import { DevFakeAuthMiddleware } from './common/middleware/dev-fake-auth.middleware';
-import { InvitationsModule } from './invitations/invitations.module';
+import { InvitationsModule } from './modules/invitations/invitations.module';
 
 @Module({
   imports: [

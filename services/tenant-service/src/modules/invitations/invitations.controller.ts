@@ -8,7 +8,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Public, ResponseMessage } from '../common/decorator/customize';
+import { Public, ResponseMessage } from '../../common/decorator/customize';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { InvitationsService } from './invitations.service';
 
