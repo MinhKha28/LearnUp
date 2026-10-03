@@ -15,10 +15,6 @@ export class SubscriptionPlansService {
     return plans.map((plan) => SubscriptionPlansService.toResponse(plan));
   }
 
-  /**
-   * BigInt (price, maxStorageBytes) không chuyển được sang JSON,
-   * nên đổi sang number trước khi trả về (an toàn tới 9 triệu tỷ).
-   */
   static toResponse(plan: SubscriptionPlan): PlanResponse {
     return {
       id: plan.id,
