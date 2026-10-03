@@ -35,7 +35,7 @@ import {
   type TenantClient,
 } from '../src/infrastructure/integrations/tenant/tenant.client';
 import { PlatformSettingsRepository } from '../src/modules/platform-settings/platform-settings.repository';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 
 // ---------------------------------------------------------------------------
 // ID cố định

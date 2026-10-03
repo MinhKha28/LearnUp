@@ -35,7 +35,7 @@ import {
   type TenantClient,
 } from '../../infrastructure/integrations/tenant/tenant.client';
 import { PlatformSettingsRepository } from '../platform-settings/platform-settings.repository';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 import {
   EnrollmentsRepository,
   type CreatedEnrollment,

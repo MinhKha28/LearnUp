@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '../../../generated/prisma/client';
 import { BaseRepository } from '../../common/repository/base.repository';
-import { PrismaService } from '../../prisma/prisma.service';
+
 import type { CourseSnapshotRows } from './course-snapshot-rows';
+import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 
 @Injectable()
 export class CourseSnapshotsRepository extends BaseRepository {

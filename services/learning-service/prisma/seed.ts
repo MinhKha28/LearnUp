@@ -8,7 +8,7 @@
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../generated/prisma/client';
+import { PrismaClient } from 'generated/prisma/client';
 
 // ---------------------------------------------------------------------------
 // ID cố định
@@ -23,7 +23,9 @@ const VIDEO_COMPLETION_PERCENT = 90;
 function createPrismaClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error('DATABASE_URL is not set. Copy .env.example to .env first.');
+    throw new Error(
+      'DATABASE_URL is not set. Copy .env.example to .env first.',
+    );
   }
   const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
@@ -31,7 +33,9 @@ function createPrismaClient(): PrismaClient {
 
 async function main(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {
-    console.error('Refusing to seed: NODE_ENV=production. Seed data is for development only.');
+    console.error(
+      'Refusing to seed: NODE_ENV=production. Seed data is for development only.',
+    );
     process.exit(1);
   }
 

@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { InternalAuthGuard } from './common/guards/internal-auth.guard';
-import { PrismaModule } from './prisma/prisma.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { CurriculumModule } from './modules/curriculum/curriculum.module';
 import { EnrollmentStatusIntervalsModule } from './modules/enrollment-status-intervals/enrollment-status-intervals.module';
@@ -15,6 +14,7 @@ import { OutboxModule } from './modules/outbox/outbox.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { CourseServiceModule } from './infrastructure/integrations/course-service/course-service.module';
 import { TenantModule } from './infrastructure/integrations/tenant/tenant.module';
+import { PrismaModule } from './infrastructure/prisma/prisma.module';
 
 @Module({
   imports: [
