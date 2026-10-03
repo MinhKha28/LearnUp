@@ -19,7 +19,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
-import { QUIZ_KIND } from '../src/quiz/interfaces/quiz-list.interface';
+import { QUIZ_KIND } from '../src/modules/quiz/interfaces/quiz-list.interface';
 
 // ---------------------------------------------------------------------------
 // ID cố định lấy từ prisma/seed.ts của course-service

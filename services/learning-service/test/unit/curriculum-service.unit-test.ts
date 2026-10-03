@@ -6,24 +6,24 @@ import { Reflector } from '@nestjs/core';
 import type { ExecutionContext } from '@nestjs/common';
 import { ForbiddenException } from '@nestjs/common';
 import { RolesGuard } from '../../src/common/guards/roles.guard';
-import type { SnapshotMaterial } from '../../src/curriculum/build-curriculum';
-import { CurriculumController } from '../../src/curriculum/curriculum.controller';
-import type { AccessibleEnrollment } from '../../src/curriculum/curriculum.repository';
-import { CurriculumService } from '../../src/curriculum/curriculum.service';
+import type { SnapshotMaterial } from '../../src/modules/curriculum/build-curriculum';
+import { CurriculumController } from '../../src/modules/curriculum/curriculum.controller';
+import type { AccessibleEnrollment } from '../../src/modules/curriculum/curriculum.repository';
+import { CurriculumService } from '../../src/modules/curriculum/curriculum.service';
 import {
   CourseNotAvailableError,
   CourseServiceConfigurationError,
   CourseServiceContractError,
   CourseServiceError,
   CourseServiceUnavailableError,
-} from '../../src/integrations/course-service/course-service.errors';
+} from '../../src/infrastructure/integrations/course-service/course-service.errors';
 import type {
   CourseBatchItem,
   CourseTree,
   LessonContent,
-} from '../../src/integrations/course-service/course-service.types';
-import { OrganizationTimezoneService } from '../../src/integrations/tenant/organization-timezone.service';
-import { TenantUnavailableError } from '../../src/integrations/tenant/tenant.client';
+} from '../../src/infrastructure/integrations/course-service/course-service.interface';
+import { OrganizationTimezoneService } from '../../src/infrastructure/integrations/tenant/organization-timezone.service';
+import { TenantUnavailableError } from '../../src/infrastructure/integrations/tenant/tenant.client';
 
 const ORG = '0199a000-0000-7000-8000-0a0000000001';
 const COURSE = '0199a000-0000-7000-8000-0e0000000002';

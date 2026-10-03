@@ -7,8 +7,8 @@
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import type { CatalogPageDto } from 'src/catalog/dto/catalog-page.dto';
-import type { CourseIntroductionDto } from 'src/catalog/dto/course-introduction.dto';
+import type { CatalogPageDto } from 'src/modules/catalog/dto/catalog-page.dto';
+import type { CourseIntroductionDto } from 'src/modules/catalog/dto/course-introduction.dto';
 
 const BASE_URL = `${process.env.COURSE_SERVICE_URL ?? `http://localhost:${process.env.PORT ?? 8083}`}/api/v1/courses`;
 

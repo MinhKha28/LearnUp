@@ -10,9 +10,9 @@ import assert from 'node:assert/strict';
 import { after, describe, test } from 'node:test';
 import type { CurrentUser } from '@learnup/ts-common';
 import { Client } from 'pg';
-import { CourseServiceClient } from '../../src/integrations/course-service/course-service.client';
-import { readCourseServiceConfig } from '../../src/integrations/course-service/course-service.config';
-import { CourseNotAvailableError } from '../../src/integrations/course-service/course-service.errors';
+import { CourseServiceClient } from '../../src/infrastructure/integrations/course-service/course-service.client';
+import { readCourseServiceConfig } from '../../src/infrastructure/integrations/course-service/course-service.config';
+import { CourseNotAvailableError } from '../../src/infrastructure/integrations/course-service/course-service.errors';
 import {
   courseDatabaseUrl,
   ENROLL_IT_LEARNER_1,

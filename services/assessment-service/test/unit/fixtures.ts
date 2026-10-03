@@ -8,10 +8,10 @@ import { AssessmentsService } from '../../src/assessments/assessments.service';
 import {
   CourseAuthoringContext,
   CourseServiceClient,
-} from '../../src/integrations/course-service.client';
-import { PeerReviewService } from '../../src/peer-review/peer-review.service';
-import type { PrismaService } from '../../src/prisma/prisma.service';
-import { RubricsService } from '../../src/rubrics/rubrics.service';
+} from '../../src/infrastructure/clients/course/course-service.client';
+import { PeerReviewService } from '../../src/modules/peer-review/peer-review.service';
+import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
+import { RubricsService } from '../../src/modules/rubrics/rubrics.service';
 
 export const ORG = '00000000-0000-4000-8000-000000000001';
 export const INSTRUCTOR = '00000000-0000-4000-8000-000000000002';

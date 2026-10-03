@@ -11,8 +11,8 @@ import { after, before, describe, test } from 'node:test';
 import { ConsoleLogger, Logger } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client';
-import { CatalogRepository } from 'src/catalog/catalog.repository';
-import type { PrismaService } from 'src/prisma/prisma.service';
+import { CatalogRepository } from 'src/modules/catalog/catalog.repository';
+import type { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error(
