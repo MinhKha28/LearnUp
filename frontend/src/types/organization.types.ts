@@ -79,6 +79,26 @@ export interface IVerifyEmailResult {
   organizationName: string;
 }
 
+// UC04 - thông tin lời mời (GET /api/v1/invitations/:token)
+export interface IInvitationInfo {
+  email: string;
+  fullName: string;
+  role: "Instructor" | "Learner";
+  organizationName: string;
+}
+
+// UC04 - body POST /api/v1/invitations/accept
+export interface IAcceptInvitationReq {
+  token: string;
+  password: string;
+}
+
+// UC04 - kết quả kích hoạt
+export interface IAcceptInvitationResult {
+  email: string;
+  role: "Instructor" | "Learner";
+}
+
 // Trạng thái tài khoản (users.status)
 export type AccountStatus = "Pending" | "Active" | "Deactivated";
 

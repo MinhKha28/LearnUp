@@ -5,7 +5,7 @@ import { EmailMessage } from './interfaces/email-message.interface';
 export const EMAIL_REQUESTED_EVENT = 'EmailRequested';
 
 /**
- * Transactional Outbox (tài liệu kiến trúc mục 2.1):
+ * Transactional Outbox
  * muốn gửi email/event thì GHI một dòng vào outbox_events trong CÙNG transaction
  * với dữ liệu nghiệp vụ. Transaction rollback thì email cũng không được gửi.
  * Việc gửi thật do EmailRelayService làm sau đó.

@@ -47,13 +47,8 @@ export class RegistrationsService {
     private readonly paymentGateway: MockPaymentGateway,
   ) {}
 
-  // ===========================================================================
-  // UC02 - Đăng ký Organization
-  // ===========================================================================
   async create(dto: CreateRegistrationDto) {
     const settings = await this.settingsService.get();
-
-    // ---- GĐ2a. BR-3, BR-4: phải chọn một gói đang được cung cấp.
     const plan = await this.prisma.subscriptionPlan.findUnique({
       where: { id: dto.planId },
     });
@@ -63,8 +58,6 @@ export class RegistrationsService {
         message: 'Gói dịch vụ không tồn tại hoặc đã ngừng cung cấp.',
       });
     }
-
-    // ---- GĐ2b. BR-30: email là duy nhất trong các tài khoản chưa bị xóa.
     const existingUser = await this.prisma.user.findFirst({
       where: { email: dto.organizer.email, deletedAt: null },
     });
@@ -77,7 +70,6 @@ export class RegistrationsService {
       });
 
       if (pending && pending.expiresAt.getTime() > Date.now()) {
-        // BR-276: không tạo đăng ký mới, gửi lại liên kết thanh toán (tính vào BR-32).
         await this.resendReopenLink(pending, settings.maxLinkResendsPer24h);
         return {
           resent: true,
@@ -87,8 +79,6 @@ export class RegistrationsService {
       }
 
       if (pending) {
-        // Đăng ký đã quá hạn nhưng lịch chạy chưa kịp hủy: hủy ngay (BR-7)
-        // để Guest đăng ký lại được bằng chính email này.
         await this.expireRegistration(pending);
       } else {
         throw new ConflictException({
@@ -97,13 +87,9 @@ export class RegistrationsService {
         });
       }
     }
-
-    // ---- GĐ3. Mật khẩu không lưu ở tenant. Sinh sẵn user_id rồi gửi sang identity-service
-    // TRƯỚC khi ghi DB: nếu identity lỗi thì chưa có gì trong tenant_db.
     const organizerId = uuidv7();
     await this.identity.setPassword(organizerId, dto.organizer.password);
 
-    // ---- GĐ4. Ghi DB + outbox trong MỘT transaction.
     const now = new Date();
     const expiresAt = new Date(
       now.getTime() + settings.pendingRegistrationTtlHours * HOUR_MS,

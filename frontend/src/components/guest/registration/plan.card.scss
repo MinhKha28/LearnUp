@@ -31,12 +31,27 @@
     font-weight: 600;
   }
 
-  .ant-btn-default:not(:disabled):hover,
-  .ant-btn-default:not(:disabled):focus-visible {
+    // Nút chọn gói: mặc định nền cam, rê chuột / focus bàn phím thì cam đậm hơn, bấm giữ thì đậm nhất
+  .ant-btn-default {
     color: var(--color-primary);
     background: var(--color-accent);
     border-color: var(--color-accent);
+    box-shadow: none;
+    transition: background-color .2s ease, border-color .2s ease;
   }
+
+  .ant-btn-default:not(:disabled):hover,
+  .ant-btn-default:not(:disabled):focus-visible {
+    color: var(--color-primary);
+    background: #d97706;
+    border-color: #d97706;
+  }
+
+  .ant-btn-default:not(:disabled):active {
+    background: #b45309;
+    border-color: #b45309;
+  }
+
 
 }
 
