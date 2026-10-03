@@ -5,7 +5,7 @@ import { HEADER_NAMES } from '@learnup/ts-common';
 import {
   LearnerEnrollmentSummary,
   LearningServiceClient,
-} from '../learning-service.client';
+} from './learning-service.client';
 
 const DEFAULT_TIMEOUT_MS = 3000;
 

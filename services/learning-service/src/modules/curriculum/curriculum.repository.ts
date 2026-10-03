@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '../../../generated/prisma/client';
 import { BaseRepository } from '../../common/repository/base.repository';
 import { enrollmentDisplayStatusSql } from '../enrollments/enrollment-display-status.sql';
-import { PrismaService } from '../../prisma/prisma.service';
 import type { CurriculumSnapshot } from './build-curriculum';
+import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 
 /** Enrollment cần cho kiểm quyền D28 và phần đầu UC27. */
 export interface AccessibleEnrollment {

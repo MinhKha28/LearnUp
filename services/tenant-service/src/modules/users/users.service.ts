@@ -7,7 +7,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { CurrentUser, PageResponse } from '@learnup/ts-common';
 import { STANDARD_ERROR_CODES, createPageResponse } from '@learnup/ts-common';
-import { CourseServiceClient } from '../../infrastructure/clients/course-service.client';
 import {
   LearnerEnrollmentSummary,
   LearningServiceClient,
@@ -33,6 +32,7 @@ import {
 import { SeatUsage } from './interfaces/seat-usage.interface';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { CourseServiceClient } from 'src/infrastructure/clients/course/course-service.client';
 
 // Role do Organizer tạo và bị giới hạn số chỗ theo Subscription (BR-23).
 type SeatRole = typeof UserRoleValue.Instructor | typeof UserRoleValue.Learner;
