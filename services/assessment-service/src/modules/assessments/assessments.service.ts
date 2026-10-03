@@ -16,9 +16,10 @@ import {
 } from '../../infrastructure/clients/course/course-service.client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RubricsService } from '../rubrics/rubrics.service';
-import type { Prisma } from '../../generated/prisma/client';
+
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
+import { Prisma } from 'generated/prisma/browser';
 
 const KIND_ASSIGNMENT = 'ASSIGNMENT';
 // Course states in which an Instructor may author (BR-284: Published stays editable until Locked;
