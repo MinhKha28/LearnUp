@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
-import { CourseServiceModule } from '../../infrastructure/integrations/course-service/course-service.module';
-import { TenantModule } from '../../infrastructure/integrations/tenant/tenant.module';
+import { CourseServiceModule } from '../../infrastructure/clients/course/course-service.module';
+import { TenantModule } from '../../infrastructure/clients/tenant/tenant.module';
 import { CurriculumController } from './curriculum.controller';
 import { CurriculumRepository } from './curriculum.repository';
 import { CurriculumService } from './curriculum.service';

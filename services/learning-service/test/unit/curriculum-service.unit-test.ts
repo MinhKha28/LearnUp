@@ -16,14 +16,14 @@ import {
   CourseServiceContractError,
   CourseServiceError,
   CourseServiceUnavailableError,
-} from '../../src/infrastructure/integrations/course-service/course-service.errors';
+} from '../../src/infrastructure/clients/course/course-service.errors';
 import type {
   CourseBatchItem,
   CourseTree,
   LessonContent,
-} from '../../src/infrastructure/integrations/course-service/course-service.interface';
-import { OrganizationTimezoneService } from '../../src/infrastructure/integrations/tenant/organization-timezone.service';
-import { TenantUnavailableError } from '../../src/infrastructure/integrations/tenant/tenant.client';
+} from '../../src/infrastructure/clients/course/course-service.interface';
+import { OrganizationTimezoneService } from '../../src/infrastructure/clients/tenant/organization-timezone.service';
+import { TenantUnavailableError } from '../../src/infrastructure/clients/tenant/tenant.client';
 
 const ORG = '0199a000-0000-7000-8000-0a0000000001';
 const COURSE = '0199a000-0000-7000-8000-0e0000000002';

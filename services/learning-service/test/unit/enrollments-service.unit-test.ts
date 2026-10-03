@@ -21,15 +21,15 @@ import {
   CourseServiceConfigurationError,
   CourseServiceContractError,
   CourseServiceUnavailableError,
-} from '../../src/infrastructure/integrations/course-service/course-service.errors';
+} from '../../src/infrastructure/clients/course/course-service.errors';
 import type {
   CourseTree,
   LockedCourse,
-} from '../../src/infrastructure/integrations/course-service/course-service.interface';
+} from '../../src/infrastructure/clients/course/course-service.interface';
 import {
   TenantUnavailableError,
   type OrganizationAccess,
-} from '../../src/infrastructure/integrations/tenant/tenant.client';
+} from '../../src/infrastructure/clients/tenant/tenant.client';
 
 const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
 const COURSE_ID = '0199a000-0000-7000-8000-0e0000000003';

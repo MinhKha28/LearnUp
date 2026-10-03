@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { CurrentUser } from '@learnup/ts-common';
-import { ResponseMessage, User } from '../common/decorator/customize';
+import { ResponseMessage, User } from '../../common/decorator/customize';
 import { AssessmentsService } from './assessments.service';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';

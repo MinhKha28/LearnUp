@@ -12,8 +12,8 @@ import { OrganizationSuspensionsModule } from './modules/organization-suspension
 import { PlatformSettingsModule } from './modules/platform-settings/platform-settings.module';
 import { OutboxModule } from './modules/outbox/outbox.module';
 import { RolesGuard } from './common/guards/roles.guard';
-import { CourseServiceModule } from './infrastructure/integrations/course-service/course-service.module';
-import { TenantModule } from './infrastructure/integrations/tenant/tenant.module';
+import { CourseServiceModule } from './infrastructure/clients/course/course-service.module';
+import { TenantModule } from './infrastructure/clients/tenant/tenant.module';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
 
 @Module({
