@@ -12,27 +12,17 @@ import {
 } from '../common/constants/tenant.constants';
 import { generateSecretToken, hashToken } from '../common/utils/token.util';
 
-/**
- * Quản lý bảng account_tokens: liên kết mời (Invitation) và liên kết xác thực
- * email Organizer (EmailVerification). Dùng chung cho UC02.1, UC03, UC04 và
- * UC12.2 / UC13.2 / UC12.7 / UC13.7 (phát lời mời).
- */
 @Injectable()
 export class AccountTokensService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Phát liên kết mới. Phải gọi TRONG transaction:
-   * thu hồi liên kết cũ còn hiệu lực rồi mới tạo liên kết mới (BR-278).
-   * Trả về chuỗi gốc để ghép vào email; database chỉ giữ mã băm.
-   */
   async issue(
     tx: Prisma.TransactionClient,
     params: {
       organizationId: string;
       userId: string;
       purpose: TokenPurposeValue;
-      ttlDays: number; // chép từ platform_settings.invitation_link_ttl_days (BR-269)
+      ttlDays: number;
     },
   ): Promise<string> {
     const now = new Date();
@@ -59,10 +49,6 @@ export class AccountTokensService {
     return rawToken;
   }
 
-  /**
-   * Tìm liên kết còn dùng được. Mỗi trường hợp hỏng có mã lỗi riêng để
-   * giao diện hiển thị đúng thông báo (BR-278: hết hạn phải nói rõ là hết hạn).
-   */
   async findUsable(rawToken: string, purpose: TokenPurposeValue) {
     const token = await this.prisma.accountToken.findUnique({
       where: { tokenHash: hashToken(rawToken) },

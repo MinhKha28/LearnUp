@@ -5,6 +5,7 @@ import type {
   ICreateRegistrationReq,
   ICreateRegistrationRes,
   IInstructorListItem,
+  ILearnerListItem,
   IPaymentResult,
   IPayRegistrationReq,
   IRegistrationSummary,
@@ -63,6 +64,21 @@ export const getInstructorSeatsAPI = () =>
 export const createInstructorAPI = (body: ICreateAccountReq) =>
   axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/instructors", body);
 
+// UC13 - Xem danh sách Learner (Organizer; tổ chức lấy từ danh tính người gọi)
+export const getLearnersAPI = (query: IAccountListQuery) =>
+  axios.get<IBackendRes<IPageResponse<ILearnerListItem>>>(
+    "/api/v1/users/learners",
+    { params: query },
+  );
+
+// UC13.2 - số chỗ Learner còn lại (Organizer)
+export const getLearnerSeatsAPI = () =>
+  axios.get<IBackendRes<ISeatUsage>>("/api/v1/users/learners/seats");
+
+// UC13.2 - Thêm Learner (Organizer; backend gửi lời mời qua email)
+export const createLearnerAPI = (body: ICreateAccountReq) =>
+  axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/learners", body);
+
 // UC04 - Xem lời mời trước khi đặt mật khẩu
 export const getInvitationAPI = (token: string) =>
   axios.get<IBackendRes<IInvitationInfo>>(
@@ -72,4 +88,3 @@ export const getInvitationAPI = (token: string) =>
 // UC04 - Đặt mật khẩu và kích hoạt tài khoản
 export const acceptInvitationAPI = (body: IAcceptInvitationReq) =>
   axios.post<IBackendRes<IAcceptInvitationResult>>("/api/v1/invitations/accept", body);
-

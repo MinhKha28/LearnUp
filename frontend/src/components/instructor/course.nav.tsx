@@ -1,5 +1,5 @@
-import { LockOutlined } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
+import { FileTextOutlined, LockOutlined } from "@ant-design/icons";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import type { IAssignmentSummary } from "@/types/assessment.types";
 import type { ICourseStructure } from "@/types/course.types";
@@ -14,6 +14,7 @@ interface ICourseBuilderNavProps {
 
 export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavProps) => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const course = structure.course;
   const base = `/instructor/courses/${course.id}/builder`;
 
@@ -21,6 +22,16 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
     <aside className="builder-nav">
       <div className="builder-nav-header">
         <span className="builder-nav-eyebrow">STRUCTURE</span>
+      </div>
+
+      <div className="builder-nav-shortcuts">
+        <button
+          type="button"
+          className={`builder-nav-link${pathname === base ? " active" : ""}`}
+          onClick={() => navigate(base)}
+        >
+          View Course Structure
+        </button>
       </div>
 
       {structure.structureLocked && structure.lockReason && (
@@ -67,14 +78,17 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
         {assignments && (
           <div className="builder-nav-module">
             <div className="builder-nav-module-heading">
-              <strong>COURSE ASSESSMENTS</strong>
+              <span className="builder-nav-module-index">
+                <FileTextOutlined />
+              </span>
+              <strong>Course Assessments</strong>
             </div>
             {assignments.map((assignment) => (
               <button
                 key={assignment.id}
                 type="button"
-                className="builder-nav-lesson"
-                onClick={() => navigate(`${base}/assignments/${assignment.id}`)}
+                className={`builder-nav-lesson${pathname.startsWith(`${base}/assignments/${assignment.id}`) ? " active" : ""}`}
+                onClick={() => navigate(`${base}/assignments/${assignment.id}`, { state: { from: pathname } })}
               >
                 <span>{assignment.title}</span>
                 {assignment.disabled && <small>Disabled</small>}
@@ -83,7 +97,7 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
             <button
               type="button"
               className="builder-nav-add-lesson"
-              onClick={() => navigate(`${base}/assignments/new`)}
+              onClick={() => navigate(`${base}/assignments/new`, { state: { from: pathname } })}
             >
               + Add Assignment
             </button>
