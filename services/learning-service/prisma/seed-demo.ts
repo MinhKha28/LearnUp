@@ -24,16 +24,16 @@ import { buildCourseSnapshotRows } from '../src/modules/course-snapshots/course-
 import { CourseSnapshotsRepository } from '../src/modules/course-snapshots/course-snapshots.repository';
 import { BaseDueAtRepository } from '../src/modules/enrollments/base-due-at.repository';
 import { EnrollmentsRepository } from '../src/modules/enrollments/enrollments.repository';
-import { CourseServiceClient } from '../src/infrastructure/integrations/course-service/course-service.client';
+import { CourseServiceClient } from '../src/infrastructure/clients/course/course-service.client';
 import type {
   CourseTree,
   CourseTreeMaterial,
   LockedCourse,
-} from '../src/infrastructure/integrations/course-service/course-service.interface';
+} from '../src/infrastructure/clients/course/course-service.interface';
 import {
   TENANT_CLIENT,
   type TenantClient,
-} from '../src/infrastructure/integrations/tenant/tenant.client';
+} from '../src/infrastructure/clients/tenant/tenant.client';
 import { PlatformSettingsRepository } from '../src/modules/platform-settings/platform-settings.repository';
 import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 

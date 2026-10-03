@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import type { CurrentUser } from '@learnup/ts-common';
-import { AssessmentsService } from '../../src/assessments/assessments.service';
+import { AssessmentsService } from '../../src/modules/assessments/assessments.service';
 import {
   CourseAuthoringContext,
   CourseServiceClient,

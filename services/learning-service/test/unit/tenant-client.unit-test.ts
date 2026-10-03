@@ -4,7 +4,7 @@ import type { CurrentUser } from '@learnup/ts-common';
 import {
   createTenantClient,
   FAKE_TENANT_CLIENT_WARNING,
-} from '../../src/infrastructure/integrations/tenant/create-tenant-client';
+} from '../../src/infrastructure/clients/tenant/create-tenant-client';
 
 const USER: CurrentUser = {
   userId: '0199a000-0000-7000-8000-0b0000000001',

@@ -7,7 +7,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreateAssignmentDto } from '../../src/assessments/dto/create-assignment.dto';
+import type { CreateAssignmentDto } from '../../src/modules/assessments/dto/create-assignment.dto';
 import {
   ASSIGNMENT,
   assignmentRow,

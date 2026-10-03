@@ -2,7 +2,7 @@ import type { Prisma } from '../../../generated/prisma/client';
 import type {
   CourseTree,
   LockedCourse,
-} from '../../infrastructure/integrations/course-service/course-service.interface';
+} from '../../infrastructure/clients/course/course-service.interface';
 
 /** Các dòng bản sao một phiên bản Course, ghi trong transaction tạo Enrollment (thiết kế mục 3.4–3.6). */
 export interface CourseSnapshotRows {

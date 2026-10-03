@@ -19,21 +19,21 @@ import { isUUID } from 'class-validator';
 import { Prisma } from '../../../generated/prisma/client';
 import { buildCourseSnapshotRows } from '../course-snapshots/course-snapshot-rows';
 import { CourseSnapshotsRepository } from '../course-snapshots/course-snapshots.repository';
-import { CourseServiceClient } from '../../infrastructure/integrations/course-service/course-service.client';
+import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
 import {
   CourseNotAvailableError,
   CourseServiceContractError,
   CourseServiceError,
   CourseServiceUnavailableError,
-} from '../../infrastructure/integrations/course-service/course-service.errors';
-import type { CourseBatchItem } from '../../infrastructure/integrations/course-service/course-service.interface';
-import { serviceUnavailable } from '../../infrastructure/integrations/course-service/service-unavailable';
-import { OrganizationTimezoneService } from '../../infrastructure/integrations/tenant/organization-timezone.service';
+} from '../../infrastructure/clients/course/course-service.errors';
+import type { CourseBatchItem } from '../../infrastructure/clients/course/course-service.interface';
+import { serviceUnavailable } from '../../infrastructure/clients/course/service-unavailable';
+import { OrganizationTimezoneService } from '../../infrastructure/clients/tenant/organization-timezone.service';
 import {
   TENANT_CLIENT,
   TenantUnavailableError,
   type TenantClient,
-} from '../../infrastructure/integrations/tenant/tenant.client';
+} from '../../infrastructure/clients/tenant/tenant.client';
 import { PlatformSettingsRepository } from '../platform-settings/platform-settings.repository';
 import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 import {

@@ -5,7 +5,7 @@ import {
   AssessmentsService,
   AUTHORABLE_STATUSES,
   assignmentInclude,
-} from '../../assessments/assessments.service';
+} from '../assessments/assessments.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { UpdatePeerReviewDto } from './dto/update-peer-review.dto';
 
