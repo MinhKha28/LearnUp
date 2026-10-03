@@ -11,19 +11,19 @@ import {
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { EnrollmentsRepository } from '../enrollments/enrollments.repository';
-import { CourseServiceClient } from '../../infrastructure/integrations/course-service/course-service.client';
+import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
 import {
   CourseNotAvailableError,
   CourseServiceError,
   CourseServiceUnavailableError,
-} from '../../infrastructure/integrations/course-service/course-service.errors';
+} from '../../infrastructure/clients/course/course-service.errors';
 import type {
   CourseBatchItem,
   CourseTree,
   LessonContent,
-} from '../../infrastructure/integrations/course-service/course-service.interface';
-import { serviceUnavailable } from '../../infrastructure/integrations/course-service/service-unavailable';
-import { OrganizationTimezoneService } from '../../infrastructure/integrations/tenant/organization-timezone.service';
+} from '../../infrastructure/clients/course/course-service.interface';
+import { serviceUnavailable } from '../../infrastructure/clients/course/service-unavailable';
+import { OrganizationTimezoneService } from '../../infrastructure/clients/tenant/organization-timezone.service';
 import {
   buildCurriculum,
   neighborLessons,

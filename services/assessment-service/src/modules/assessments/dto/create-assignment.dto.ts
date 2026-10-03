@@ -14,7 +14,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { CreateRubricDto } from '../../modules/rubrics/dto/create-rubrics.dto';
+import { CreateRubricDto } from '../../rubrics/dto/create-rubrics.dto';
 
 /** Metadata of the single prompt attachment already stored by Media Storage (BR-320). */
 export class PromptFileDto {

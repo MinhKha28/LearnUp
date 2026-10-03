@@ -2,7 +2,7 @@ import type {
   CourseTree,
   CourseTreeLesson,
   CourseTreeMaterial,
-} from '../../infrastructure/integrations/course-service/course-service.interface';
+} from '../../infrastructure/clients/course/course-service.interface';
 
 /** Một học liệu trong bản sao của phiên bản (material_snapshots). */
 export interface SnapshotMaterial {

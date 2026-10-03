@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { CreateAssignmentDto } from '../../src/assessments/dto/create-assignment.dto';
-import { UpdateAssignmentDto } from '../../src/assessments/dto/update-assignment.dto';
+import { CreateAssignmentDto } from '../../src/modules/assessments/dto/create-assignment.dto';
+import { UpdateAssignmentDto } from '../../src/modules/assessments/dto/update-assignment.dto';
 import { UpdatePeerReviewDto } from '../../src/modules/peer-review/dto/update-peer-review.dto';
 
 async function problems(

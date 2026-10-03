@@ -10,7 +10,7 @@ import type {
   CourseTreeLesson,
   CourseTreeMaterial,
   CourseTreeModule,
-} from '../../src/infrastructure/integrations/course-service/course-service.interface';
+} from '../../src/infrastructure/clients/course/course-service.interface';
 
 const DISABLED = new Date('2026-09-30T00:00:00Z');
 

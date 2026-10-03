@@ -9,8 +9,8 @@ import { buildCourseSnapshotRows } from '../../src/modules/course-snapshots/cour
 import { CourseSnapshotsRepository } from '../../src/modules/course-snapshots/course-snapshots.repository';
 import { BaseDueAtRepository } from '../../src/modules/enrollments/base-due-at.repository';
 import { EnrollmentsRepository } from '../../src/modules/enrollments/enrollments.repository';
-import { CourseServiceClient } from '../../src/infrastructure/integrations/course-service/course-service.client';
-import { OrganizationTimezoneService } from '../../src/infrastructure/integrations/tenant/organization-timezone.service';
+import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
+import { OrganizationTimezoneService } from '../../src/infrastructure/clients/tenant/organization-timezone.service';
 import { PlatformSettingsRepository } from '../../src/modules/platform-settings/platform-settings.repository';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { ENROLL_IT_ORG, ENROLL_IT_ORGANIZER } from './enroll-it-fixture';

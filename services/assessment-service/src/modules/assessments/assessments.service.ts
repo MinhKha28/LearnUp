@@ -13,9 +13,9 @@ import {
 import {
   CourseAuthoringContext,
   CourseServiceClient,
-} from '../infrastructure/clients/course/course-service.client';
-import { PrismaService } from '../infrastructure/prisma/prisma.service';
-import { RubricsService } from '../modules/rubrics/rubrics.service';
+} from '../../infrastructure/clients/course/course-service.client';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { RubricsService } from '../rubrics/rubrics.service';
 import type { Prisma } from '../../generated/prisma/client';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
