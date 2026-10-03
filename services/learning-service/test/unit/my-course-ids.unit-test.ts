@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { CurrentUser } from '@learnup/ts-common';
-import { EnrollmentsRepository } from '../../src/enrollments/enrollments.repository';
-import { EnrollmentsService } from '../../src/enrollments/enrollments.service';
+import { EnrollmentsRepository } from '../../src/modules/enrollments/enrollments.repository';
+import { EnrollmentsService } from '../../src/modules/enrollments/enrollments.service';
 
 const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
 const ORG_B = '0199a000-0000-7000-8000-0a0000000002';

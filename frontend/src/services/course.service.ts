@@ -10,6 +10,9 @@ import type {
   ICreateCourseRequest,
   ICreateCourseResponse,
   IInstructorCourseListItem,
+  IOrganizationCourseFilterInstructor,
+  IOrganizationCourseListItem,
+  IOrganizationCourseListQuery,
 } from "@/types/course.types";
 
 export const fetchManagedCoursesAPI = (query: ICourseListQuery) =>
@@ -80,6 +83,35 @@ export const createCourseLessonAPI = (
         "x-user-id": "33333333-3333-7333-8333-333333333333",
         "x-organization-id": "22222222-2222-7222-8222-222222222222",
         "x-user-role": "INSTRUCTOR",
+      },
+    },
+  );
+
+export const fetchOrganizationCoursesAPI = (
+  query: IOrganizationCourseListQuery,
+) =>
+  axios.get<IBackendRes<IModelPaginate<IOrganizationCourseListItem>>>(
+    "/api/v1/courses/organization",
+    {
+      params: query,
+      headers: {
+        "x-internal-key": "learnup-internal-secret",
+        "x-user-id": "44444444-4444-7444-8444-444444444440",
+        "x-organization-id": "22222222-2222-7222-8222-222222222222",
+        "x-user-role": "ORGANIZER",
+      },
+    },
+  );
+
+export const fetchOrganizationCourseInstructorsAPI = () =>
+  axios.get<IBackendRes<IOrganizationCourseFilterInstructor[]>>(
+    "/api/v1/courses/organization/instructors",
+    {
+      headers: {
+        "x-internal-key": "learnup-internal-secret",
+        "x-user-id": "44444444-4444-7444-8444-444444444440",
+        "x-organization-id": "22222222-2222-7222-8222-222222222222",
+        "x-user-role": "ORGANIZER",
       },
     },
   );

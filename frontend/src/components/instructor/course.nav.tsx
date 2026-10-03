@@ -83,6 +83,13 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
               </span>
               <strong>Course Assessments</strong>
             </div>
+            <button
+              type="button"
+              className={`builder-nav-lesson${pathname.startsWith(`${base}/quizzes`) ? " active" : ""}`}
+              onClick={() => navigate(`${base}/quizzes`)}
+            >
+              <span>Quizzes</span>
+            </button>
             {assignments.map((assignment) => (
               <button
                 key={assignment.id}

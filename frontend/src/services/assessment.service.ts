@@ -4,6 +4,7 @@ import type {
   IAssignment,
   IAssignmentList,
   ICreateAssignment,
+  IQuizList,
   IUpdateAssignment,
   IUpdatePeerReview,
 } from "@/types/assessment.types";
@@ -87,6 +88,13 @@ export const updatePeerReviewAPI = (
     payload,
     requestConfig,
   );
+
+/** UC18 — List Quizzes of a Course, optionally of one Module. */
+export const fetchQuizzesAPI = (courseId: string, moduleId?: string) =>
+  axios.get<IBackendRes<IQuizList>>("/api/v1/assessments/quizzes", {
+    ...requestConfig,
+    params: { courseId: toApiCourseId(courseId), moduleId },
+  });
 
 /** The axios interceptor resolves error responses instead of rejecting; pull the message out of them. */
 export const assessmentErrorText = (res: unknown, fallback: string): string => {

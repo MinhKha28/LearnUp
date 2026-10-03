@@ -105,6 +105,39 @@ export interface IRubricRow {
   maxPoints: number | null;
 }
 
+/**
+ * UC18: why a Quiz cannot be fully edited (BR-99).
+ * QUIZ_HAS_ATTEMPTS (BR-96, BR-97), COURSE_LOCKED (BR-94), COURSE_SUBMITTED (BR-285).
+ */
+export type QuizLockReason = "QUIZ_HAS_ATTEMPTS" | "COURSE_LOCKED" | "COURSE_SUBMITTED";
+
+/** UC18 list row. `moduleId` null = attached to the Course (BR-154). `disabled` is not a lock reason. */
+export interface IQuizSummary {
+  id: string;
+  courseId: string;
+  moduleId: string | null;
+  title: string;
+  position: number;
+  questionCount: number;
+  passingScore: number;
+  isRequired: boolean;
+  timeLimitMinutes: number | null;
+  maxConsecutiveAttempts: number;
+  lockoutHours: number;
+  hasAttempts: boolean;
+  locked: boolean;
+  lockReasons: QuizLockReason[];
+  disabled: boolean;
+}
+
+/** UC18 response: same page shape as UC19 plus the Course-level flags. */
+export interface IQuizList {
+  meta: { current: number; pageSize: number; pages: number; total: number };
+  items: IQuizSummary[];
+  courseLocked: boolean;
+  courseStatus: string;
+}
+
 /** UC19.3 payload: send only what changed. `promptFile: null` removes the attachment. */
 export type IUpdateAssignment = Partial<Omit<ICreateAssignment, "courseId" | "promptFile">> & {
   promptFile?: IPromptFile | null;

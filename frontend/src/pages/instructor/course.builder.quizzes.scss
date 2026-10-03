@@ -1,0 +1,74 @@
+/* UC18: Quiz list inside the Course Builder (table base comes from course.builder.assignment.scss) */
+.builder-quiz-row {
+  grid-template-columns: 2.4fr 0.8fr 1fr 1fr 1.2fr;
+}
+
+.builder-quiz-group {
+  display: block;
+  padding: 10px 18px;
+  background: var(--color-surface-secondary);
+}
+
+.builder-quiz-group strong {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.builder-quiz-message {
+  display: block;
+}
+
+.builder-quiz-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.builder-quiz-main small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.builder-quiz-main .builder-quiz-warning {
+  color: var(--color-error);
+}
+
+.builder-quiz-main .builder-table-actions {
+  margin-top: 2px;
+}
+
+.builder-quiz-soon {
+  display: inline-block;
+}
+
+.builder-quiz-main .builder-table-link:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.builder-quiz-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.builder-quiz-reasons {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.builder-quiz-retry {
+  margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+  .builder-quiz-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .builder-quiz-main {
+    grid-column: 1 / -1;
+  }
+}

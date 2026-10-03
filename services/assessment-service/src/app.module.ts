@@ -3,9 +3,10 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { InternalAuthGuard } from './common/guards/internal-auth.guard';
 import { AssessmentsModule } from './assessments/assessments.module';
-import { IntegrationsModule } from './integrations/integrations.module';
-import { PeerReviewModule } from './peer-review/peer-review.module';
-import { PrismaModule } from './prisma/prisma.module';
+import { IntegrationsModule } from './infrastructure/clients/integrations.module';
+import { PeerReviewModule } from './modules/peer-review/peer-review.module';
+import { PrismaModule } from './infrastructure/prisma/prisma.module';
+import { QuizModule } from './modules/quiz/quiz.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PrismaModule } from './prisma/prisma.module';
     IntegrationsModule,
     AssessmentsModule,
     PeerReviewModule,
+    QuizModule,
   ],
   providers: [
     {

@@ -11,7 +11,7 @@ import { PrismaClient } from '../../generated/prisma/client';
 import {
   BaseDueAtRepository,
   InvalidBaseDueAtInputError,
-} from '../../src/enrollments/base-due-at.repository';
+} from '../../src/modules/enrollments/base-due-at.repository';
 import type { PrismaService } from '../../src/prisma/prisma.service';
 
 const prisma = new PrismaClient({
