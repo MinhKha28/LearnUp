@@ -257,7 +257,7 @@ const users: SeedUser[] = [
   {
     id: id('1'),
     organizationId: null,
-    email: 'admin@learnup.vn',
+    email: 'admin@learnup.local',
     fullName: 'Quản trị viên LearnUP',
     role: 'Admin',
     department: null,
@@ -269,7 +269,7 @@ const users: SeedUser[] = [
   {
     id: id('a010'),
     organizationId: ORG_ABC,
-    email: 'lan.nguyen@abc.vn',
+    email: 'organizer@learnup.local',
     fullName: 'Nguyễn Thị Lan',
     role: 'Organizer',
     department: null,
@@ -323,7 +323,7 @@ const users: SeedUser[] = [
 //       X = đã xóa.
 type Kind = 'A' | 'PV' | 'PE' | 'PN' | 'DA' | 'DN' | 'X';
 const abcInstructors: Array<[number, string, string, string | null, Kind]> = [
-  [1, 'Trần Văn Minh', 'minh.tran@abc.vn', 'Phòng Kỹ thuật', 'A'],
+  [1, 'Trần Văn Minh', 'instructor@learnup.local', 'Phòng Kỹ thuật', 'A'],
   [2, 'Nguyễn Thị Hương', 'huong.nguyen@abc.vn', 'Phòng Nhân sự', 'A'],
   [3, 'Lê Hoàng Nam', 'nam.le@abc.vn', 'Phòng Kỹ thuật', 'A'],
   [4, 'Phạm Thị Mai', 'mai.pham@abc.vn', null, 'PE'],
@@ -359,7 +359,7 @@ const xyzInstructors: Array<[number, string, string, string | null, Kind]> = [
 // UC13: 25 Learner của ABC (a201 – a204 giữ nguyên). created_at: 03/09 + (n-1) ngày, nên a225 mới nhất.
 // Lời mời hết hạn (PE) đặt ở đầu danh sách: token phát ngày cố định (created_at + 1 giờ) nên đã hết hạn.
 const abcLearners: Array<[number, string, string, string | null, Kind]> = [
-  [1, 'Nguyễn Văn An', 'an.nguyen@abc.vn', 'Phòng Kỹ thuật', 'A'],
+  [1, 'Nguyễn Văn An', 'learner@learnup.local', 'Phòng Kỹ thuật', 'A'],
   [2, 'Trần Thị Bình', 'binh.tran@abc.vn', 'Phòng Kỹ thuật', 'A'],
   [3, 'Lê Văn Cường', 'cuong.le@abc.vn', 'Phòng Kỹ thuật', 'A'],
   [4, 'Phạm Văn Dũng', 'dung.pham@abc.vn', 'Phòng Kỹ thuật', 'PN'],
