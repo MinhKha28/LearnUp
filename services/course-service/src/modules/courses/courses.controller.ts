@@ -8,13 +8,13 @@ import {
   Post,
 } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
-import { ResponseMessage, User } from '../../common/decorator/customize';
-import { CoursesService } from './courses.service';
-import { CourseListQueryDto } from './dto/course-list-query.dto';
-import { CreateCourseDto } from './dto/create-course.dto';
-import { CreateCourseModuleDto } from './dto/create-course-module.dto';
-import { CreateCourseLessonDto } from './dto/create-course-lesson.dto';
-import { OrganizationCourseListQueryDto } from './dto/organization-course-list-query.dto';
+import { ResponseMessage, User } from '@common/decorator/customize';
+import { CoursesService } from '@courses/courses.service';
+import { CourseListQueryDto } from '@courses/dto/course-list-query.dto';
+import { CreateCourseDto } from '@courses/dto/create-course.dto';
+import { CreateCourseModuleDto } from '@courses/dto/create-course-module.dto';
+import { CreateCourseLessonDto } from '@courses/dto/create-course-lesson.dto';
+import { OrganizationCourseListQueryDto } from '@courses/dto/organization-course-list-query.dto';
 
 @Controller('courses')
 export class CoursesController {

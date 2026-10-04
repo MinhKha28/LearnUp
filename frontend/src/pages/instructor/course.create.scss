@@ -340,6 +340,64 @@
   resize: vertical;
 }
 
+.course-cover-field {
+  margin-bottom: 24px;
+}
+
+.course-cover-label {
+  display: flex;
+  margin-bottom: 8px;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.course-cover-label strong {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.course-cover-label span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.course-cover-preview {
+  position: relative;
+  width: min(100%, 480px);
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  aspect-ratio: 16 / 9;
+  background: #f8fafc;
+}
+
+.course-cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.course-cover-remove {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  padding: 7px 10px;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.course-cover-remove:hover {
+  background: #dc2626;
+}
+
 /* =========================
    RESPONSIVE
 ========================= */

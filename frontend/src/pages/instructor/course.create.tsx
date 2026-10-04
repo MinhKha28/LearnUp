@@ -1,8 +1,15 @@
-import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
-import { Form, Input, InputNumber, message } from "antd";
-import { useMemo, useState } from "react";
+import {
+  DeleteOutlined,
+  PictureOutlined,
+  PlusOutlined,
+} from "@ant-design/icons";
+import { Form, Input, InputNumber, message, Upload } from "antd";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createCourseAPI } from "@/services/course.service";
+import {
+  createCourseAPI,
+  uploadCourseCoverAPI,
+} from "@/services/course.service";
 import type { CourseType, ICreateCourseRequest } from "@/types/course.types";
 import {
   InstructorButton,
@@ -27,6 +34,8 @@ const CourseCreate = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm<ICreateCourseForm>();
   const [creating, setCreating] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState("");
   const watchedName = Form.useWatch("name", form);
   const watchedCourseType = Form.useWatch("courseType", form);
   const watchedDays = Form.useWatch("expectedCompletionDays", form);
@@ -44,6 +53,24 @@ const CourseCreate = () => {
     [watchedName, watchedCourseType, watchedDays],
   );
 
+  useEffect(() => {
+    return () => {
+      if (coverPreview) URL.revokeObjectURL(coverPreview);
+    };
+  }, [coverPreview]);
+  const handleCoverChange = (file: File) => {
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+    setCoverFile(file);
+    setCoverPreview(URL.createObjectURL(file));
+    return false;
+  };
+
+  const handleRemoveCover = () => {
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+    setCoverFile(null);
+    setCoverPreview("");
+  };
+
   const handleCancel = () => {
     navigate("/instructor/courses");
   };
@@ -51,6 +78,20 @@ const CourseCreate = () => {
   const handleCreate = async () => {
     try {
       const values = await form.validateFields();
+      setCreating(true);
+      let coverFileId: string | undefined;
+      if (coverFile) {
+        const uploadResponse = await uploadCourseCoverAPI(coverFile);
+
+        if (!uploadResponse.data) {
+          message.error(
+            uploadResponse.message || "Unable to upload Course cover.",
+          );
+          return;
+        }
+        coverFileId = uploadResponse.data.fileId;
+      }
+
       const payload: ICreateCourseRequest = {
         name: values.name.trim(),
         courseType: values.courseType,
@@ -61,10 +102,11 @@ const CourseCreate = () => {
           values.learningOutcomes
             ?.map((item) => item?.trim())
             .filter((item): item is string => Boolean(item)) ?? [],
+        coverFileId,
       };
 
-      setCreating(true);
       const response = await createCourseAPI(payload);
+
       if (!response.data) {
         message.error(response.message || "Unable to create Course.");
         return;
@@ -74,6 +116,7 @@ const CourseCreate = () => {
       navigate(`/instructor/courses/${response.data.id}/builder`);
     } catch (error) {
       console.error("Create Course error:", error);
+      message.error("Unable to create Course.");
     } finally {
       setCreating(false);
     }
@@ -204,7 +247,44 @@ const CourseCreate = () => {
                 These fields can be completed now or while the Course remains
                 Draft.
               </p>
+              <div className="course-cover-field">
+                <div className="course-cover-label">
+                  <strong>Course cover</strong>
+                  <span>Optional. JPEG, PNG or WebP, maximum 5 MB.</span>
+                </div>
 
+                {coverPreview ? (
+                  <div className="course-cover-preview">
+                    <img src={coverPreview} alt="Course cover preview" />
+
+                    <button
+                      type="button"
+                      className="course-cover-remove"
+                      onClick={handleRemoveCover}
+                    >
+                      <DeleteOutlined />
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <Upload.Dragger
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple={false}
+                    maxCount={1}
+                    showUploadList={false}
+                    beforeUpload={handleCoverChange}
+                  >
+                    <p className="ant-upload-drag-icon">
+                      <PictureOutlined />
+                    </p>
+
+                    <p className="ant-upload-text">Upload Course cover</p>
+                    <p className="ant-upload-hint">
+                      JPEG, PNG or WebP · Max 5 MB
+                    </p>
+                  </Upload.Dragger>
+                )}
+              </div>
               <Form.Item label="Short description" name="shortDescription">
                 <Input.TextArea
                   rows={3}
