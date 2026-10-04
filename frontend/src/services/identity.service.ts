@@ -2,7 +2,7 @@ import type { ILogin, IRegister, IUser } from "@/types/identity.types";
 import axios from "@/services/axios.customize";
 
 export const fetchAccountAPI = () =>
-  axios.get<IBackendRes<{ user: IUser }>>("/api/v1/auth/account", {
+  axios.get<IBackendRes<IUser>>("/api/v1/auth/me", {
     timeout: 10000,
   });
 

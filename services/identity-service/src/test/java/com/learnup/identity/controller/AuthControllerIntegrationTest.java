@@ -46,6 +46,12 @@ class AuthControllerIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private com.learnup.identity.config.DevAccountSeeder devAccountSeeder;
+
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
     @BeforeEach
     void setUp() {
         refreshTokenRepository.deleteAll();
@@ -266,5 +272,79 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.username").value("v1user"));
+    }
+
+    @Test
+    @DisplayName("Should successfully seed and authenticate all canonical demo accounts (ADMIN, ORGANIZER, INSTRUCTOR, LEARNER)")
+    void shouldSeedAndLoginAllDevAccounts() throws Exception {
+        // Run seed
+        devAccountSeeder.seedAccounts();
+
+        // 1. Verify records exist in database with correct tenant IDs
+        User admin = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.ADMIN_ID).orElseThrow();
+        assertThat(admin.getUsername()).isEqualTo("admin");
+        assertThat(admin.getEmail()).isEqualTo("admin@learnup.local");
+        assertThat(admin.getRole()).isEqualTo(UserRole.ADMIN);
+        assertThat(admin.getOrganizationId()).isNull();
+
+        User organizer = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.ORGANIZER_ID).orElseThrow();
+        assertThat(organizer.getUsername()).isEqualTo("organizer");
+        assertThat(organizer.getEmail()).isEqualTo("organizer@learnup.local");
+        assertThat(organizer.getRole()).isEqualTo(UserRole.ORGANIZER);
+        assertThat(organizer.getOrganizationId()).isEqualTo(com.learnup.identity.config.DevAccountSeeder.DEMO_ORG_ID);
+
+        User instructor = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.INSTRUCTOR_ID).orElseThrow();
+        assertThat(instructor.getUsername()).isEqualTo("instructor");
+        assertThat(instructor.getEmail()).isEqualTo("instructor@learnup.local");
+        assertThat(instructor.getRole()).isEqualTo(UserRole.INSTRUCTOR);
+        assertThat(instructor.getOrganizationId()).isEqualTo(com.learnup.identity.config.DevAccountSeeder.DEMO_ORG_ID);
+
+        User learner = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.LEARNER_ID).orElseThrow();
+        assertThat(learner.getUsername()).isEqualTo("learner");
+        assertThat(learner.getEmail()).isEqualTo("learner@learnup.local");
+        assertThat(learner.getRole()).isEqualTo(UserRole.LEARNER);
+        assertThat(learner.getOrganizationId()).isEqualTo(com.learnup.identity.config.DevAccountSeeder.DEMO_ORG_ID);
+
+        // 2. Verify all 4 accounts can login using default password "LearnUp@123" by email
+        String[] demoEmails = {"admin@learnup.local", "organizer@learnup.local", "instructor@learnup.local", "learner@learnup.local"};
+        UserRole[] demoRoles = {UserRole.ADMIN, UserRole.ORGANIZER, UserRole.INSTRUCTOR, UserRole.LEARNER};
+
+        for (int i = 0; i < demoEmails.length; i++) {
+            String email = demoEmails[i];
+            UserRole expectedRole = demoRoles[i];
+
+            LoginRequest loginReq = new LoginRequest(email, "LearnUp@123");
+            MvcResult loginRes = mockMvc.perform(post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(loginReq)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.accessToken").isString())
+                    .andExpect(jsonPath("$.data.refreshToken").isString())
+                    .andExpect(jsonPath("$.data.user.email").value(email))
+                    .andExpect(jsonPath("$.data.user.role").value(expectedRole.name()))
+                    .andReturn();
+
+            String token = objectMapper.readTree(loginRes.getResponse().getContentAsString())
+                    .path("data").path("accessToken").asText();
+
+            // 3. Verify /api/v1/auth/me returns user for the authenticated session
+            User userObj = userRepository.findByEmail(email).orElseThrow();
+            mockMvc.perform(get("/api/v1/auth/me")
+                            .header(HeaderConstants.X_USER_ID, userObj.getId().toString())
+                            .header(HeaderConstants.X_USER_ROLE, expectedRole.name()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.email").value(email));
+        }
+
+        // 4. Verify invalid password rejected
+        LoginRequest badPass = new LoginRequest("admin@learnup.local", "WrongPassword999");
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(badPass)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     }
 }
