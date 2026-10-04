@@ -1,7 +1,7 @@
 import type { CurrentUser } from '@learnup/ts-common';
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiQuery, ApiSecurity, ApiTags } from '@nestjs/swagger';
-import { ResponseMessage, User } from 'src/common/decorator/customize';
+import { ResponseMessage, User } from '@common/decorator/customize';
 import { CatalogService } from './catalog.service';
 import { CatalogPageDto } from './dto/catalog-page.dto';
 import { CourseIntroductionDto } from './dto/course-introduction.dto';

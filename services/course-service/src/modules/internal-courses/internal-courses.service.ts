@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
-import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
+import { PrismaService } from '@infra/prisma/prisma.service';
 import { CourseBatchItemDto } from './dto/course-batch-item.dto';
 import { CourseTreeDto } from './dto/course-tree.dto';
 import { LessonContentDto } from './dto/lesson-content.dto';

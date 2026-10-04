@@ -10,6 +10,10 @@ WORKDIR /app/libraries/ts-common
 RUN npm ci
 RUN npm run build
 
+# Build ts-storage
+WORKDIR /app/libraries/ts-storage
+RUN npm ci
+RUN npm run build
 
 # Copy course-service
 WORKDIR /app
@@ -38,6 +42,8 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/services/course-service/dist ./dist
 COPY --from=builder /app/services/course-service/generated ./generated
+COPY --from=builder /app/libraries/ts-common ./libraries/ts-common
+COPY --from=builder /app/libraries/ts-storage ./libraries/ts-storage
 
 EXPOSE 8083
 
