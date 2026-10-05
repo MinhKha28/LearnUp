@@ -193,10 +193,10 @@ const MyCourses = () => {
         <button
           type="button"
           className="instructor-courses-action"
-          onClick={() => navigate(`/instructor/courses/${course.id}/builder`)}
+          onClick={() => navigate(`/instructor/courses/${course.id}`)}
         >
           <ApartmentOutlined />
-          <span>View Structure</span>
+          <span>View Details</span>
         </button>
       ),
     },
