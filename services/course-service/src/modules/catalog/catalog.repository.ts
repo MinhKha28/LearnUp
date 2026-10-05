@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
+import { PrismaService } from '@infra/prisma/prisma.service';
 
 /** Điều kiện chung của Course hiển thị trong danh mục (UC25, UC25.1). */
 const catalogCourseWhere = (organizationId: string) => ({

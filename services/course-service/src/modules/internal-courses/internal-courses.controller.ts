@@ -10,7 +10,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
-import { ResponseMessage, User } from 'src/common/decorator/customize';
+import { ResponseMessage, User } from '@common/decorator/customize';
 import { CourseBatchItemDto } from './dto/course-batch-item.dto';
 import { CourseBatchQueryDto } from './dto/course-batch-query.dto';
 import { CourseTreeDto } from './dto/course-tree.dto';

@@ -174,3 +174,11 @@ export interface IOrganizationCourseFilterInstructor {
   id: string;
   fullName: string;
 }
+
+export interface IUploadCourseCoverResponse {
+  fileId: string;
+  url: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+}

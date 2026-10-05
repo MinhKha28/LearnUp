@@ -9,11 +9,11 @@ import { CourseListQueryDto } from './dto/course-list-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { CreateCourseModuleDto } from './dto/create-course-module.dto';
 import { CreateCourseLessonDto } from './dto/create-course-lesson.dto';
-import { TenantClient } from 'src/infrastructure/clients/tenant/tenant.client';
+import { TenantClient } from '@infra/clients/tenant/tenant.client';
 import { OrganizationCourseListQueryDto } from './dto/organization-course-list-query.dto';
-import { LearningClient } from 'src/infrastructure/clients/learning/learning.client';
-import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
-import { Prisma } from 'generated/prisma/browser';
+import { LearningClient } from '@infra/clients/learning/learning.client';
+import { PrismaService } from '@infra/prisma/prisma.service';
+import { Prisma } from '@generated/prisma/browser';
 
 export interface CourseAuthoringContext {
   courseId: string;
