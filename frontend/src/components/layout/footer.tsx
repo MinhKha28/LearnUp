@@ -6,7 +6,6 @@ export default function Footer() {
 
   if (
     pathname.startsWith("/activate") ||
-    pathname.startsWith("/verify-email") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password")
   ) {
