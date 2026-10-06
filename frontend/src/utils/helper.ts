@@ -80,3 +80,7 @@ export const seatBlockReason = (
     return `All ${roleLabel} seats are in use (${seats.used} / ${seats.max}).`;
   return "Your Organization is suspended. New accounts cannot be created.";
 };
+
+/** 1.5 MB / 320 KB style size for file lists. */
+export const formatFileSize = (bytes: number) =>
+  bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;

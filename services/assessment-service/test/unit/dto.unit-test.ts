@@ -32,6 +32,65 @@ describe('CreateAssignmentDto', () => {
     assert.deepEqual(await problems(CreateAssignmentDto, create), []);
   });
 
+  test('text made only of spaces counts as empty (title, Rubric name and description)', async () => {
+    assert.deepEqual(
+      await problems(CreateAssignmentDto, { ...create, title: '   ' }),
+      ['title'],
+    );
+    assert.deepEqual(
+      await problems(CreateAssignmentDto, {
+        ...create,
+        rubric: [{ name: '  ', description: '   ', maxPoints: 5 }],
+      }),
+      ['rubric'],
+    );
+    assert.deepEqual(await problems(UpdateAssignmentDto, { title: '   ' }), [
+      'title',
+    ]);
+  });
+
+  test('the value is trimmed before it is stored', () => {
+    const dto = plainToInstance(CreateAssignmentDto, {
+      ...create,
+      title: '  Safety  ',
+    });
+    assert.equal(dto.title, 'Safety');
+  });
+
+  test('numbers that would overflow the database are a 400, not a 500', async () => {
+    for (const field of [
+      'expectedDurationMinutes',
+      'maxConsecutiveAttempts',
+      'lockoutHours',
+    ]) {
+      assert.deepEqual(
+        await problems(CreateAssignmentDto, {
+          ...create,
+          [field]: 3_000_000_000,
+        }),
+        [field],
+        field,
+      );
+    }
+  });
+
+  test('a Rubric has a bounded number of criteria', async () => {
+    const criteria = (n: number) =>
+      Array.from({ length: n }, () => ({
+        name: 'n',
+        description: 'd',
+        maxPoints: 1,
+      }));
+    assert.deepEqual(
+      await problems(CreateAssignmentDto, { ...create, rubric: criteria(50) }),
+      [],
+    );
+    assert.deepEqual(
+      await problems(CreateAssignmentDto, { ...create, rubric: criteria(51) }),
+      ['rubric'],
+    );
+  });
+
   test('the Rubric is mandatory and every criterion needs a positive whole score (BR-164, BR-315)', async () => {
     assert.deepEqual(
       await problems(CreateAssignmentDto, { ...create, rubric: [] }),

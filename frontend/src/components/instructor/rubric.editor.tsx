@@ -59,7 +59,9 @@ const RubricEditor = ({ rows, onChange, disabled = false, showErrors = false }: 
         );
       })}
       {!disabled && (
-        <InstructorButton onClick={() => onChange([...rows, newRubricRow()])}>+ Add criterion</InstructorButton>
+        <InstructorButton disabled={rows.length >= 50} onClick={() => onChange([...rows, newRubricRow()])}>
+          + Add criterion
+        </InstructorButton>
       )}
     </>
   );

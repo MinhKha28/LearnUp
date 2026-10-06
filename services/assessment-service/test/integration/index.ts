@@ -5,3 +5,4 @@
  */
 import './assignments.integration-test';
 import './course-client-modes.integration-test';
+import './prompt-file.integration-test';

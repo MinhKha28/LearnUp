@@ -4,9 +4,10 @@ import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { FieldError, NumberField } from "@/components/instructor/form.field";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
+import PromptFileField from "@/components/instructor/prompt.file.field";
 import RubricEditor from "@/components/instructor/rubric.editor";
 import { assessmentErrorText, createAssignmentAPI, toApiCourseId } from "@/services/assessment.service";
-import type { IRubricRow } from "@/types/assessment.types";
+import type { IPromptFile, IRubricRow } from "@/types/assessment.types";
 import { newRubricRow } from "@/utils/helper";
 import {
   ATTEMPTS_RULE,
@@ -28,6 +29,7 @@ const CourseBuilderAssignmentCreate = () => {
 
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
+  const [promptFile, setPromptFile] = useState<IPromptFile | null>(null);
   const [passingScore, setPassingScore] = useState<number | null>(null);
   const [estimatedEffort, setEstimatedEffort] = useState<number | null>(null);
   const [consecutiveSubmissions, setConsecutiveSubmissions] = useState<number | null>(null);
@@ -43,7 +45,8 @@ const CourseBuilderAssignmentCreate = () => {
 
   const errors = {
     title: title.trim() ? null : "Enter an Assignment title.",
-    instructions: instructions.trim() ? null : "Write the Assignment instructions.",
+    // BR-320: the prompt is text, one PDF, or both.
+    instructions: instructions.trim() || promptFile ? null : "Write the Assignment instructions or attach a PDF.",
     passingScore: validateNumber(passingScore, PASSING_SCORE_RULE),
     estimatedEffort: validateNumber(estimatedEffort, EFFORT_RULE),
     consecutiveSubmissions: validateNumber(consecutiveSubmissions, ATTEMPTS_RULE),
@@ -70,7 +73,8 @@ const CourseBuilderAssignmentCreate = () => {
       const res = await createAssignmentAPI({
         courseId: toApiCourseId(course.id),
         title: title.trim(),
-        prompt: instructions.trim(),
+        ...(instructions.trim() ? { prompt: instructions.trim() } : {}),
+        ...(promptFile ? { promptFile } : {}),
         passingScore: passingScore!,
         expectedDurationMinutes: estimatedEffort!,
         ...(consecutiveSubmissions ? { maxConsecutiveAttempts: consecutiveSubmissions } : {}),
@@ -123,6 +127,8 @@ const CourseBuilderAssignmentCreate = () => {
             onChange={(event) => setInstructions(event.target.value)}
           />
           <FieldError message={submitted ? errors.instructions : null} />
+
+          <PromptFileField value={promptFile} onChange={setPromptFile} />
 
           <div className="builder-field-row">
             <div>

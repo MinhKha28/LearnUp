@@ -4,9 +4,10 @@ import { useLocation, useNavigate, useParams, useOutletContext } from "react-rou
 import { FieldError, NumberField } from "@/components/instructor/form.field";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
+import PromptFileField from "@/components/instructor/prompt.file.field";
 import RubricEditor from "@/components/instructor/rubric.editor";
 import { assessmentErrorText, fetchAssignmentAPI, updateAssignmentAPI } from "@/services/assessment.service";
-import type { IAssignment, IRubricRow, IUpdateAssignment } from "@/types/assessment.types";
+import type { IAssignment, IPromptFile, IRubricRow, IUpdateAssignment } from "@/types/assessment.types";
 import { newRubricRow } from "@/utils/helper";
 import {
   ATTEMPTS_RULE,
@@ -41,6 +42,7 @@ const CourseBuilderAssignmentEdit = () => {
 
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
+  const [promptFile, setPromptFile] = useState<IPromptFile | null>(null);
   const [passingScore, setPassingScore] = useState<number | null>(null);
   const [estimatedEffort, setEstimatedEffort] = useState<number | null>(null);
   const [consecutiveSubmissions, setConsecutiveSubmissions] = useState<number | null>(null);
@@ -62,6 +64,7 @@ const CourseBuilderAssignmentEdit = () => {
         setAssignment(loaded);
         setTitle(loaded.title);
         setInstructions(loaded.prompt ?? "");
+        setPromptFile(loaded.promptFile);
         setPassingScore(loaded.passingScore);
         setEstimatedEffort(loaded.expectedDurationMinutes);
         setConsecutiveSubmissions(loaded.maxConsecutiveAttempts);
@@ -112,7 +115,7 @@ const CourseBuilderAssignmentEdit = () => {
   const errors = {
     title: title.trim() ? null : "Enter an Assignment title.",
     instructions:
-      submissionLocked || instructions.trim() || assignment.promptFile ? null : "Write the Assignment instructions.",
+      submissionLocked || instructions.trim() || promptFile ? null : "Write the Assignment instructions or attach a PDF.",
     passingScore: scoreLocked ? null : validateNumber(passingScore, PASSING_SCORE_RULE),
     estimatedEffort: validateNumber(estimatedEffort, EFFORT_RULE),
     consecutiveSubmissions: submissionLocked
@@ -142,6 +145,7 @@ const CourseBuilderAssignmentEdit = () => {
     const payload: IUpdateAssignment = {};
     if (title.trim() !== assignment.title) payload.title = title.trim();
     if (instructions.trim() !== (assignment.prompt ?? "")) payload.prompt = instructions.trim();
+    if ((promptFile?.fileKey ?? null) !== (assignment.promptFile?.fileKey ?? null)) payload.promptFile = promptFile;
     if (passingScore !== assignment.passingScore) payload.passingScore = passingScore!;
     if (estimatedEffort !== assignment.expectedDurationMinutes) payload.expectedDurationMinutes = estimatedEffort!;
     if (consecutiveSubmissions !== assignment.maxConsecutiveAttempts) {
@@ -204,6 +208,8 @@ const CourseBuilderAssignmentEdit = () => {
             onChange={(event) => setInstructions(event.target.value)}
           />
           <FieldError message={submitted ? errors.instructions : null} />
+
+          <PromptFileField value={promptFile} onChange={setPromptFile} disabled={submissionLocked} />
 
           <div className="builder-field-row">
             <div>

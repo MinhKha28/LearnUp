@@ -32,10 +32,10 @@ export const RUBRIC_POINTS_RULE: INumberRule = { required: true, integer: true, 
 /** Passing score on the 0-100 scale, at most 2 decimals (BR-315). */
 export const PASSING_SCORE_RULE: INumberRule = { required: true, min: 0, max: 100, decimals: 2 };
 /** Estimated effort in whole minutes (BR-174). */
-export const EFFORT_RULE: INumberRule = { required: true, integer: true, min: 1 };
+export const EFFORT_RULE: INumberRule = { required: true, integer: true, min: 1, max: 100000 };
 /** n and m are optional on create (platform default) but whole numbers of at least 1 when given (BR-175). */
-export const ATTEMPTS_RULE: INumberRule = { integer: true, min: 1 };
-export const LOCK_HOURS_RULE: INumberRule = { integer: true, min: 1 };
+export const ATTEMPTS_RULE: INumberRule = { integer: true, min: 1, max: 1000 };
+export const LOCK_HOURS_RULE: INumberRule = { integer: true, min: 1, max: 8760 };
 
 // Peer Review settings (BR-183).
 export const PEER_REVIEWERS_RULE: INumberRule = { required: true, integer: true, min: 1 };

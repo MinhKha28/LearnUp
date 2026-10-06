@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsInt,
@@ -14,6 +15,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { Trim } from '../../../common/decorator/customize';
 import { CreateRubricDto } from '../../rubrics/dto/create-rubrics.dto';
 
 /** Metadata of the single prompt attachment already stored by Media Storage (BR-320). */
@@ -52,6 +54,7 @@ export class CreateAssignmentDto {
   courseId!: string;
 
   @ApiProperty({ maxLength: 200 })
+  @Trim()
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
@@ -70,39 +73,43 @@ export class CreateAssignmentDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => PromptFileDto)
-  promptFile?: PromptFileDto;
+  promptFile?: PromptFileDto | null;
 
-  /** BR-161 scale: 0–100, 2 decimals. */
+  /** BR-315 scale: 0–100, 2 decimals. */
   @ApiProperty({ minimum: 0, maximum: 100 })
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(100)
   passingScore!: number;
 
-  /** BR-174: stored in minutes. */
-  @ApiProperty({ minimum: 1 })
+  /** BR-174: stored in minutes. The upper bounds below are not in the rules: they only keep the value inside a sane range (and the column). */
+  @ApiProperty({ minimum: 1, maximum: 100000 })
   @IsInt()
   @Min(1)
+  @Max(100000)
   expectedDurationMinutes!: number;
 
   /** n — defaults to the platform parameter when omitted (BR-175). */
-  @ApiPropertyOptional({ minimum: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: 1000 })
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(1000)
   maxConsecutiveAttempts?: number;
 
   /** m hours — defaults to the platform parameter when omitted (BR-175). */
-  @ApiPropertyOptional({ minimum: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: 8760 })
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(8760)
   lockoutHours?: number;
 
   /** BR-164: Rubric is mandatory for every Assignment. */
   @ApiProperty({ type: [CreateRubricDto] })
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => CreateRubricDto)
   rubric!: CreateRubricDto[];
