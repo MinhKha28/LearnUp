@@ -175,6 +175,7 @@ export default function RegisterPage() {
   // UC02: trạng thái gửi đăng ký
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [emailInUse, setEmailInUse] = useState(false); // UC02 trường hợp F: 409 EMAIL_ALREADY_USED
   // UC02 → UC03: lần gửi mã gần nhất; dữ liệu đăng ký giữ trong bộ nhớ để "gửi lại mã"
   // (gửi lại = gửi lại đăng ký, backend thay đăng ký chưa xác thực bằng đăng ký mới, BR-276).
   // Dùng useRef, không lưu localStorage: mật khẩu chỉ nằm trong bộ nhớ của tab này.
@@ -354,6 +355,7 @@ export default function RegisterPage() {
     }));
     setSubmitting(true);
     setSubmitError(null);
+    setEmailInUse(false);
     const request: ICreateRegistrationReq = {
       planId: selectedPlan.id,
       organization: draft.organization,
@@ -451,7 +453,9 @@ export default function RegisterPage() {
   function showRegistrationError(error?: IApiError) {
     switch (error?.code) {
       case "EMAIL_ALREADY_USED":
+        // Trường hợp F: email thuộc tài khoản đã hoạt động → báo rõ ở đầu form và tại ô email
         setAccountError(true);
+        setEmailInUse(true);
         organizerForm.setFields([
           {
             name: "email",
@@ -719,7 +723,20 @@ export default function RegisterPage() {
   function renderAccount() {
     return (
       <section className="register-card">
-        {accountError ? (
+        {emailInUse ? (
+          <Alert
+            type="error"
+            message="This email is already in use"
+            description={
+              <>
+                An active LearnUP account already uses this email.{" "}
+                <Link to="/login">Sign in</Link> instead, or enter a different
+                email for the new Organizer.
+              </>
+            }
+            role="alert"
+          />
+        ) : accountError ? (
           <Alert
             type="error"
             message="This account needs attention"
