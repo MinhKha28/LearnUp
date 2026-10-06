@@ -13,7 +13,7 @@ import { Public, ResponseMessage } from '../../common/decorator/customize';
 import { CreateRegistrationDto } from './dto/create-registrations.dto';
 import { RegistrationsService } from './registrations.service';
 import { PayRegistrationDto } from './dto/pay-registration.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
+import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
 
 // Mọi endpoint ở đây dành cho Guest (chưa đăng nhập) nên đều @Public().
 @ApiTags('UC02 / UC02.1 / UC03 - Registrations')
@@ -41,8 +41,8 @@ export class RegistrationsController {
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Xác thực email thành công')
-  verifyEmail(@Body() dto: VerifyEmailDto) {
-    return this.registrationsService.verifyEmail(dto);
+  verifyEmailOtp(@Body() dto: VerifyEmailOtpDto) {
+    return this.registrationsService.verifyEmailOtp(dto);
   }
 
   @Public()

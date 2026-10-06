@@ -25,7 +25,7 @@ import {
   UserRoleValue,
   UserStatus,
 } from '../../common/constants/tenant.constants';
-import { generateOtp, hashOtp } from '../../common/utils/otp.util';
+import { generateOtp, hashOtp, isOtpMatch } from '../../common/utils/otp.util';
 import {
   renderReopenLinkEmail,
   renderVerificationEmail,
@@ -39,8 +39,8 @@ import { IRegistrationSummary } from './interfaces/registration-summary.interfac
 import { AccountTokensService } from '../account-tokens/account-tokens.service';
 import { MockPaymentGateway } from '../payments/mock-payment.gateway';
 import { PayRegistrationDto } from './dto/pay-registration.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
-import { IVerifyEmailResult } from './interfaces/verify-email-result.interface';
+import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
+import { IVerifyEmailOtpResult } from './interfaces/verify-email-otp-result.interface';
 import { IPaymentResult } from './interfaces/payment-result.interface';
 
 @Injectable()
@@ -227,6 +227,21 @@ export class RegistrationsService {
   async getByToken(rawToken: string): Promise<IRegistrationSummary> {
     const registration = await this.findByTokenOrThrow(rawToken);
     await this.assertNotExpired(registration);
+    // BR-6: liên kết chỉ có trong thư gửi tới chính email đó, nên mở liên kết = đã xác thực email.
+    if (
+      registration.status === RegistrationStatus.PendingPayment &&
+      !registration.emailVerifiedAt
+    ) {
+      await this.prisma.registration.updateMany({
+        where: { id: registration.id, emailVerifiedAt: null },
+        data: {
+          emailVerifiedAt: new Date(),
+          otpHash: null,
+          otpExpiresAt: null,
+          otpFailedAttempts: 0,
+        },
+      });
+    }
 
     return {
       registrationId: registration.id,
@@ -388,31 +403,82 @@ export class RegistrationsService {
   }
 
   // ===========================================================================
-  // UC03 - Xác thực email Organizer
+  // UC03 - Xác thực email bằng mã OTP (BR-6, BR-337)
   // ===========================================================================
-  async verifyEmail(dto: VerifyEmailDto): Promise<IVerifyEmailResult> {
-    const token = await this.accountTokens.findUsable(
-      dto.token,
-      TokenPurpose.EmailVerification,
-    );
-
-    // GĐ3. Đánh dấu liên kết đã dùng và kích hoạt Organizer trong cùng transaction.
-    await this.prisma.$transaction(async (tx) => {
-      await this.accountTokens.consume(tx, token.id);
-      await tx.user.update({
-        where: { id: token.userId },
-        data: {
-          status: UserStatus.Active,
-          activatedAt: token.user.activatedAt ?? new Date(),
-        },
-      });
+  async verifyEmailOtp(dto: VerifyEmailOtpDto): Promise<IVerifyEmailOtpResult> {
+    const settings = await this.settingsService.get();
+    const now = new Date();
+    // Một lỗi chung cho "không có đăng ký" và "sai mã": không lộ email nào đang đăng ký.
+    const invalidOtp = new BadRequestException({
+      code: 'OTP_INVALID',
+      message: 'Mã xác thực không đúng.',
     });
 
-    // GĐ4. Thông tin cho màn hình "Email verified".
-    return {
-      email: token.user.email,
-      organizationName: token.organization.name,
-    };
+    const registration = await this.prisma.registration.findFirst({
+      where: {
+        status: RegistrationStatus.PendingPayment,
+        organizer: { email: dto.email, deletedAt: null },
+      },
+    });
+    if (!registration || registration.expiresAt.getTime() <= now.getTime())
+      throw invalidOtp;
+
+    const { rawToken, tokenHash } = generateSecretToken();
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      // Khóa dòng: các request song song phải xếp hàng, không cùng lúc vượt giới hạn sai.
+      await tx.$queryRaw`SELECT id FROM registrations WHERE id = ${registration.id}::uuid FOR UPDATE`;
+      const current = await tx.registration.findUniqueOrThrow({
+        where: { id: registration.id },
+      });
+
+      if (
+        current.status !== RegistrationStatus.PendingPayment ||
+        !current.otpHash ||
+        !current.otpExpiresAt
+      ) {
+        return 'invalid' as const; // đã xác thực rồi hoặc không còn mã
+      }
+      if (
+        current.otpExpiresAt.getTime() <= now.getTime() ||
+        current.otpFailedAttempts >= settings.emailOtpMaxFailedAttempts
+      ) {
+        return 'expired' as const; // BR-337: hết hạn hoặc sai quá số lần → phải yêu cầu mã mới
+      }
+      if (!isOtpMatch(this.otpSecret(), current.id, dto.otp, current.otpHash)) {
+        await tx.registration.update({
+          where: { id: current.id },
+          data: { otpFailedAttempts: { increment: 1 } },
+        });
+        return 'wrong' as const;
+      }
+
+      // Đúng mã: xác thực, xóa mã, phát liên kết mở lại mới (liên kết trong thư 1 mất hiệu lực).
+      await tx.registration.update({
+        where: { id: current.id },
+        data: {
+          emailVerifiedAt: now,
+          otpHash: null,
+          otpExpiresAt: null,
+          otpFailedAttempts: 0,
+          reopenTokenHash: tokenHash,
+        },
+      });
+      return 'verified' as const;
+    });
+
+    if (outcome === 'verified') {
+      return {
+        paymentToken: rawToken,
+        registrationExpiresAt: registration.expiresAt,
+      };
+    }
+    if (outcome === 'expired') {
+      throw new GoneException({
+        code: 'OTP_EXPIRED',
+        message: 'Mã xác thực đã hết hiệu lực. Vui lòng yêu cầu mã mới.',
+      });
+    }
+    throw invalidOtp;
   }
 
   // ===========================================================================
