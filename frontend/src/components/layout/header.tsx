@@ -18,7 +18,6 @@ export default function Header() {
   const registration = pathname.startsWith("/register");
   const bareAuthFlow =
     pathname.startsWith("/activate") ||
-    pathname.startsWith("/verify-email") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password");
   const plansActive = registration;
