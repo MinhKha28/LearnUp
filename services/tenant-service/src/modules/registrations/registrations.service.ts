@@ -4,6 +4,7 @@ import {
   GoneException,
   Injectable,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v7 as uuidv7 } from 'uuid';
@@ -21,12 +22,12 @@ import {
   PaymentStatus,
   RegistrationStatus,
   SubscriptionStatus,
-  TokenPurpose,
   UserRoleValue,
   UserStatus,
 } from '../../common/constants/tenant.constants';
 import { generateOtp, hashOtp, isOtpMatch } from '../../common/utils/otp.util';
 import {
+  renderOrganizerActivatedEmail,
   renderReopenLinkEmail,
   renderVerificationEmail,
 } from '../../common/email-templates/registration-emails';
@@ -36,7 +37,6 @@ import { IResendCounter } from './interfaces/resend-counter.interface';
 import { generateSecretToken, hashToken } from '../../common/utils/token.util';
 import { CreateRegistrationDto } from './dto/create-registrations.dto';
 import { IRegistrationSummary } from './interfaces/registration-summary.interface';
-import { AccountTokensService } from '../account-tokens/account-tokens.service';
 import { MockPaymentGateway } from '../payments/mock-payment.gateway';
 import { PayRegistrationDto } from './dto/pay-registration.dto';
 import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
@@ -51,7 +51,6 @@ export class RegistrationsService {
     private readonly settingsService: PlatformSettingsService,
     private readonly outbox: OutboxService,
     private readonly identity: IdentityClient,
-    private readonly accountTokens: AccountTokensService,
     private readonly paymentGateway: MockPaymentGateway,
   ) {}
 
@@ -270,8 +269,14 @@ export class RegistrationsService {
     if (registration.status !== RegistrationStatus.PendingPayment) {
       throw new ConflictException({
         code: 'REGISTRATION_ALREADY_PAID',
-        message:
-          'Đăng ký đã được thanh toán. Vui lòng kiểm tra email để xác thực tài khoản.',
+        message: 'Đăng ký đã được thanh toán. Bạn có thể đăng nhập.',
+      });
+    }
+    // BR-6: chỉ cho thanh toán khi email của đăng ký đã được xác thực.
+    if (!registration.emailVerifiedAt) {
+      throw new ForbiddenException({
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Vui lòng xác thực email trước khi thanh toán.',
       });
     }
 
@@ -306,8 +311,6 @@ export class RegistrationsService {
         failureReason: result.failureReason,
       };
     }
-
-    const settings = await this.settingsService.get();
     const paidAt = new Date();
 
     const subscription = await this.prisma.$transaction(async (tx) => {
@@ -356,34 +359,29 @@ export class RegistrationsService {
         },
       });
 
-      // ④ Tổ chức được kích hoạt.
-      await tx.organization.update({
-        where: { id: registration.organizationId },
-        data: { status: OrganizationStatus.Active },
+      // ⑤ BR-20: tài khoản Organizer được kích hoạt ngay khi thanh toán thành công.
+      await tx.user.update({
+        where: { id: registration.organizerUserId },
+        data: { status: UserStatus.Active, activatedAt: paidAt },
       });
 
-      // ⑤ BR-6, BR-20: phát liên kết xác thực email Organizer...
-      const verifyToken = await this.accountTokens.issue(tx, {
-        organizationId: registration.organizationId,
-        userId: registration.organizerUserId,
-        purpose: TokenPurpose.EmailVerification,
-        ttlDays: settings.invitationLinkTtlDays,
+      // ⑥ Thư thông báo đã kích hoạt (không phải thư xác thực, BR-6).
+      const email = renderOrganizerActivatedEmail({
+        fullName: registration.organizer.fullName,
+        organizationName: registration.organization.name,
+        planName: registration.plan.name,
+        subscriptionExpiresAt: created.expiresAt,
+        loginUrl: `${this.frontendUrl()}/login`,
       });
-
-      // ⑥ ...và xếp thư thứ hai vào outbox.
       await this.outbox.enqueueEmail(tx, {
         aggregateType: 'User',
         aggregateId: registration.organizerUserId,
         organizationId: registration.organizationId,
         email: {
           to: registration.organizer.email,
-          subject: 'LearnUP - Xác thực email Organizer',
-          templateCode: 'ORGANIZER_EMAIL_VERIFICATION',
-          body:
-            `Xin chào ${registration.organizer.fullName},\n` +
-            `Thanh toán thành công. Mở liên kết sau để kích hoạt tài khoản Organizer: ` +
-            `${this.frontendUrl()}/verify-email?token=${verifyToken}\n` +
-            `Liên kết có hiệu lực ${settings.invitationLinkTtlDays} ngày.`,
+          subject: email.subject,
+          templateCode: email.templateCode,
+          body: email.html,
         },
       });
 

@@ -47,8 +47,8 @@ export const PaymentKind = {
 
 export const TokenPurpose = {
   Invitation: 'Invitation',
-  EmailVerification: 'EmailVerification',
 } as const;
+
 export type TokenPurposeValue =
   (typeof TokenPurpose)[keyof typeof TokenPurpose];
 
