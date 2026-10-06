@@ -113,10 +113,10 @@ model Registration {
   reopenTokenHash         Bytes?    @unique @map("reopen_token_hash")
   resendCount             Int       @default(0) @map("resend_count")
   resendWindowStartedAt   DateTime? @map("resend_window_started_at") @db.Timestamptz
-  emailVerifiedAt            DateTime? @map("email_verified_at") @db.Timestamptz
-  verificationCodeHash       Bytes?    @map("verification_code_hash")
-  verificationCodeExpiresAt  DateTime? @map("verification_code_expires_at") @db.Timestamptz
-  verificationFailedAttempts Int       @default(0) @map("verification_failed_attempts")
+  emailVerifiedAt         DateTime? @map("email_verified_at") @db.Timestamptz
+  otpHash                 Bytes?    @map("otp_hash")
+  otpExpiresAt            DateTime? @map("otp_expires_at") @db.Timestamptz
+  otpFailedAttempts       Int       @default(0) @map("otp_failed_attempts")
 
   createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -226,8 +226,8 @@ model PlatformSetting {
   allowedReadingMimeTypes         String[] @default(["application/pdf"]) @map("allowed_reading_mime_types")
   maxLinkResendsPer24h            Int      @default(5) @map("max_link_resends_per_24h")
   invitationLinkTtlDays           Int      @default(7) @map("invitation_link_ttl_days")
-  emailVerificationCodeTtlMinutes Int @default(10) @map("email_verification_code_ttl_minutes")
-  maxVerificationCodeAttempts     Int @default(5) @map("max_verification_code_attempts")
+  emailOtpTtlMinutes              Int      @default(10) @map("email_otp_ttl_minutes")
+  emailOtpMaxFailedAttempts       Int      @default(5) @map("email_otp_max_failed_attempts")
   subscriptionReminderDays        Int[]    @default([7, 1]) @map("subscription_reminder_days")
   createdAt                       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                       DateTime @updatedAt @map("updated_at") @db.Timestamptz
