@@ -189,6 +189,10 @@ export async function startService(
       COURSE_SERVICE_TIMEOUT_MS: '2000',
       FAKE_COURSE_STATUS: 'Draft',
       FAKE_COURSE_LOCKED: 'false',
+      // The tests never reach Cloudinary; the storage only needs to be constructible.
+      CLOUDINARY_CLOUD_NAME: 'test-cloud',
+      CLOUDINARY_API_KEY: 'test-key',
+      CLOUDINARY_API_SECRET: 'test-secret',
       ...env,
     },
   });

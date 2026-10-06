@@ -1,3 +1,4 @@
+import { DeleteOutlined, WarningOutlined } from "@ant-design/icons";
 import { message } from "antd";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams, useOutletContext } from "react-router-dom";
@@ -82,18 +83,33 @@ const CourseBuilderAssignmentDelete = () => {
       <div className="builder-hero">
         <h1>Delete Assignment</h1>
       </div>
-      <div className="builder-confirm-card">
-        <div className="builder-confirm-warning">
-          <strong>Delete "{assignment.title}"?</strong>
-          <p>
-            This removes the Assignment, its Rubric and its Peer Review settings. Its estimated effort is taken out of
-            the Course duration.
-          </p>
+      <div className="builder-confirm-card builder-delete-card">
+        <div className="builder-delete-head">
+          <span className="builder-delete-icon">
+            <DeleteOutlined />
+          </span>
+          <div>
+            <strong>Delete "{assignment.title}"?</strong>
+            <p>This action cannot be undone.</p>
+          </div>
         </div>
+
+        <div className="builder-delete-list">
+          <span>This will permanently remove:</span>
+          <ul>
+            <li>The Assignment and its Rubric ({assignment.rubric.length} criteria)</li>
+            <li>Its Peer Review settings</li>
+            {assignment.promptFile && <li>The attached PDF ({assignment.promptFile.fileName})</li>}
+            {assignment.expectedDurationMinutes != null && (
+              <li>{assignment.expectedDurationMinutes} min from the Course estimated duration</li>
+            )}
+          </ul>
+        </div>
+
         {!canDelete && (
-          <p className="builder-confirm-note">
-            This Assignment already has submissions and the Course is Locked, so it cannot be deleted. Create a new
-            Course version to remove it.
+          <p className="builder-delete-blocked">
+            <WarningOutlined /> This Assignment already has submissions and the Course is Locked, so it cannot be
+            deleted. Create a new Course version to remove it.
           </p>
         )}
         <div className="builder-confirm-actions">

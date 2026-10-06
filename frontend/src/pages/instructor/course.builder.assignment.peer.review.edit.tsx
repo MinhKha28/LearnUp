@@ -10,6 +10,10 @@ import { PEER_DAYS_RULE, PEER_REVIEWERS_RULE, PEER_SCORE_GAP_RULE, validateNumbe
 import "./course.builder.scss";
 import "./course.builder.assignment.scss";
 
+// Defaults fixed in the business rules (BR-268). Display only: the API applies the Admin's current values.
+const PLATFORM_DEFAULT_CYCLE_DAYS = 7;
+const PLATFORM_DEFAULT_DEADLINE_DAYS = 3;
+
 const CourseBuilderAssignmentPeerReviewEdit = () => {
   const { assignmentId } = useParams();
   const navigate = useNavigate();
@@ -187,6 +191,13 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
             The review deadline starts when the cycle closes and work is assigned. Choose a cycle long enough to
             collect at least {reviewers && Number.isFinite(reviewers) ? reviewers + 1 : "reviewers + 1"} submissions;
             otherwise you grade that cycle yourself.
+          </InfoPanel>
+
+          <InfoPanel title="Platform defaults">
+            Leave Cycle length or Review deadline empty to use the platform default: {PLATFORM_DEFAULT_CYCLE_DAYS} days
+            for the cycle and {PLATFORM_DEFAULT_DEADLINE_DAYS} days for the review deadline. The Admin manages these
+            values, and a change only applies to cycles created afterwards, never to cycles already running. Once you
+            save, the value in use is stored with this Assignment.
           </InfoPanel>
 
           <div className="builder-actions">
