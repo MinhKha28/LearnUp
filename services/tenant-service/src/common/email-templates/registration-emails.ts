@@ -36,7 +36,7 @@ export function renderVerificationEmail(
     );
 
   return {
-    subject: `LearnUP - Mã xác thực email: ${params.code}`,
+    subject: 'LearnUP - Mã xác thực email đăng ký',
     templateCode: 'REGISTRATION_VERIFICATION_CODE',
     html: renderLayout({
       preheader: `Mã xác thực email của bạn là ${params.code}`,

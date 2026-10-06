@@ -23,7 +23,8 @@ export class RegistrationsController {
 
   @Public()
   @Post()
-  @ResponseMessage('Tạo đăng ký thành công')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ResponseMessage('Đã tiếp nhận đăng ký')
   create(@Body() dto: CreateRegistrationDto) {
     return this.registrationsService.create(dto);
   }

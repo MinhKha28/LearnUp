@@ -15,6 +15,7 @@ import { IdentityClient } from '../../infrastructure/clients/identity/identity.c
 import {
   DAY_MS,
   HOUR_MS,
+  MINUTE_MS,
   OrganizationStatus,
   PaymentKind,
   PaymentStatus,
@@ -24,6 +25,13 @@ import {
   UserRoleValue,
   UserStatus,
 } from '../../common/constants/tenant.constants';
+import { generateOtp, hashOtp } from '../../common/utils/otp.util';
+import {
+  renderReopenLinkEmail,
+  renderVerificationEmail,
+} from '../../common/email-templates/registration-emails';
+import { ICreateRegistrationResult } from './interfaces/create-registration-result.interface';
+import { IResendCounter } from './interfaces/resend-counter.interface';
 
 import { generateSecretToken, hashToken } from '../../common/utils/token.util';
 import { CreateRegistrationDto } from './dto/create-registrations.dto';
@@ -47,8 +55,20 @@ export class RegistrationsService {
     private readonly paymentGateway: MockPaymentGateway,
   ) {}
 
-  async create(dto: CreateRegistrationDto) {
+  // ===========================================================================
+  // UC02 - Đăng ký Organization (BR-4, BR-5, BR-6, BR-276, BR-337)
+  // ===========================================================================
+  async create(dto: CreateRegistrationDto): Promise<ICreateRegistrationResult> {
     const settings = await this.settingsService.get();
+    // Phản hồi trung tính, dùng cho mọi trường hợp (BR-276).
+    const result: ICreateRegistrationResult = {
+      email: dto.organizer.email,
+      otpTtlMinutes: settings.emailOtpTtlMinutes,
+      message:
+        'Nếu thông tin hợp lệ, mã xác thực đã được gửi tới email của bạn.',
+    };
+
+    // BR-3, BR-4: phải chọn một gói đang được cung cấp.
     const plan = await this.prisma.subscriptionPlan.findUnique({
       where: { id: dto.planId },
     });
@@ -58,6 +78,9 @@ export class RegistrationsService {
         message: 'Gói dịch vụ không tồn tại hoặc đã ngừng cung cấp.',
       });
     }
+
+    // BR-30: email là duy nhất trong các tài khoản chưa bị xóa.
+    let carriedCounter: IResendCounter | null = null;
     const existingUser = await this.prisma.user.findFirst({
       where: { email: dto.organizer.email, deletedAt: null },
     });
@@ -67,27 +90,40 @@ export class RegistrationsService {
           organizerUserId: existingUser.id,
           status: RegistrationStatus.PendingPayment,
         },
+        include: { organization: true, organizer: true },
       });
-
-      if (pending && pending.expiresAt.getTime() > Date.now()) {
-        await this.resendReopenLink(pending, settings.maxLinkResendsPer24h);
-        return {
-          resent: true,
-          message:
-            'Email này đang có một đăng ký chờ thanh toán. Vui lòng kiểm tra hộp thư để tiếp tục.',
-        };
-      }
-
-      if (pending) {
-        await this.expireRegistration(pending);
-      } else {
+      if (!pending) {
         throw new ConflictException({
           code: 'EMAIL_ALREADY_USED',
           message: 'Email đã được sử dụng cho một tài khoản khác.',
         });
       }
+
+      if (pending.expiresAt.getTime() <= Date.now()) {
+        // Trường hợp E: đăng ký cũ đã quá hạn (BR-7) → hủy, rồi tạo mới như bình thường.
+        await this.expireRegistration(pending);
+      } else {
+        // BR-276 + BR-32: mỗi thư tính vào giới hạn theo email trong 24 giờ.
+        const counter = this.nextResendCounter(
+          pending,
+          settings.maxLinkResendsPer24h,
+        );
+        if (!counter) return result; // Trường hợp D: đã chạm giới hạn, không gửi, không tạo.
+
+        if (pending.emailVerifiedAt) {
+          // Trường hợp B: đã xác thực → gửi lại liên kết, không tạo đăng ký mới.
+          await this.resendReopenLink(pending, counter);
+          return result;
+        }
+        // Trường hợp C: chưa xác thực → thay bằng đăng ký mới, mang theo bộ đếm.
+        await this.expireRegistration(pending);
+        carriedCounter = counter;
+      }
     }
+
+    // Mật khẩu không lưu ở tenant: sinh sẵn id rồi gửi sang identity TRƯỚC khi ghi DB.
     const organizerId = uuidv7();
+    const registrationId = uuidv7(); // cần trước để gắn vào mã băm OTP
     await this.identity.setPassword(organizerId, dto.organizer.password);
 
     const now = new Date();
@@ -95,9 +131,14 @@ export class RegistrationsService {
       now.getTime() + settings.pendingRegistrationTtlHours * HOUR_MS,
     );
     const { rawToken, tokenHash } = generateSecretToken();
+    // BR-337: mã 6 số, hạn theo tham số 21, chỉ lưu HMAC.
+    const otp = generateOtp();
+    const otpExpiresAt = new Date(
+      now.getTime() + settings.emailOtpTtlMinutes * MINUTE_MS,
+    );
 
     try {
-      const registration = await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx) => {
         const organization = await tx.organization.create({
           data: {
             name: dto.organization.name,
@@ -109,7 +150,7 @@ export class RegistrationsService {
           },
         });
 
-        // BR-5: tài khoản Organizer ở trạng thái chưa xác thực email.
+        // BR-5: Organizer chưa kích hoạt, email chưa xác thực.
         await tx.user.create({
           data: {
             id: organizerId,
@@ -122,8 +163,9 @@ export class RegistrationsService {
         });
 
         // BR-275: chụp giá, thời hạn và 4 giới hạn của gói tại thời điểm tạo.
-        const created = await tx.registration.create({
+        await tx.registration.create({
           data: {
+            id: registrationId,
             organizationId: organization.id,
             organizerUserId: organizerId,
             planId: plan.id,
@@ -136,49 +178,47 @@ export class RegistrationsService {
             status: RegistrationStatus.PendingPayment,
             expiresAt,
             reopenTokenHash: tokenHash,
+            otpHash: hashOtp(this.otpSecret(), registrationId, otp),
+            otpExpiresAt,
+            // Trường hợp C mang bộ đếm của đăng ký cũ (tenant_db mục 3.5).
+            resendCount: carriedCounter?.resendCount ?? 0,
+            resendWindowStartedAt:
+              carriedCounter?.resendWindowStartedAt ?? null,
           },
         });
 
-        // BR-6: thư thứ nhất chứa liên kết mở lại đăng ký để thanh toán.
+        // BR-6: thư thứ nhất chứa mã xác thực và liên kết mở lại đăng ký.
+        const email = renderVerificationEmail({
+          fullName: dto.organizer.fullName,
+          organizationName: organization.name,
+          code: otp,
+          codeTtlMinutes: settings.emailOtpTtlMinutes,
+          reopenLink: this.reopenLink(rawToken),
+          registrationExpiresAt: expiresAt,
+        });
         await this.outbox.enqueueEmail(tx, {
           aggregateType: 'Organization',
           aggregateId: organization.id,
           organizationId: organization.id,
           email: {
             to: dto.organizer.email,
-            subject: 'LearnUP - Hoàn tất thanh toán đăng ký',
-            templateCode: 'REGISTRATION_REOPEN_LINK',
-            body:
-              `Xin chào ${dto.organizer.fullName},\n` +
-              `Đăng ký Organization "${organization.name}" đang chờ thanh toán.\n` +
-              `Mở liên kết sau để thanh toán: ${this.reopenLink(rawToken)}\n` +
-              `Liên kết có hiệu lực tới ${expiresAt.toISOString()}.`,
+            subject: email.subject,
+            templateCode: email.templateCode,
+            body: email.html,
           },
         });
-
-        return created;
       });
-
-      // ---- GĐ5. Trả chuỗi gốc cho chính người vừa đăng ký để chuyển thẳng sang bước thanh toán.
-      return {
-        resent: false,
-        registrationId: registration.id,
-        paymentToken: rawToken,
-        expiresAt: registration.expiresAt,
-      };
     } catch (error) {
-      // P2002: vi phạm ràng buộc duy nhất (2 request cùng email gửi đồng thời).
+      // P2002: hai request cùng email gửi đồng thời; request đến sau trả phản hồi trung tính.
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        throw new ConflictException({
-          code: 'EMAIL_ALREADY_USED',
-          message: 'Email đã được sử dụng cho một tài khoản khác.',
-        });
+        return result;
       }
       throw error;
     }
+    return result;
   }
 
   // ===========================================================================
@@ -436,52 +476,64 @@ export class RegistrationsService {
   }
 
   /**
-   * BR-276 + BR-32: gửi lại liên kết thanh toán, tối đa N lần trong 24 giờ.
-   * Chạm giới hạn thì im lặng bỏ qua (phản hồi trên màn hình vẫn trung tính).
+   * BR-32, BR-276: tính bộ đếm thư mới trong khung 24 giờ.
+   * Trả null nếu đã chạm giới hạn (khi đó không gửi thư, không tạo đăng ký mới).
    */
-  private async resendReopenLink(
+  private nextResendCounter(
     registration: Registration,
     maxPer24h: number,
-  ): Promise<void> {
+  ): IResendCounter | null {
     const now = new Date();
     const windowExpired =
       !registration.resendWindowStartedAt ||
       now.getTime() - registration.resendWindowStartedAt.getTime() >= DAY_MS;
     const currentCount = windowExpired ? 0 : registration.resendCount;
-    if (currentCount >= maxPer24h) return;
+    if (currentCount >= maxPer24h) return null;
+    return {
+      resendCount: currentCount + 1,
+      resendWindowStartedAt: windowExpired
+        ? now
+        : registration.resendWindowStartedAt!,
+    };
+  }
 
-    const organizer = await this.prisma.user.findUniqueOrThrow({
-      where: { id: registration.organizerUserId },
-    });
+  /** Trường hợp B (BR-276): email đã xác thực → ghi đè liên kết, gửi lại thư liên kết. */
+  private async resendReopenLink(
+    registration: Prisma.RegistrationGetPayload<{
+      include: { organization: true; organizer: true };
+    }>,
+    counter: IResendCounter,
+  ): Promise<void> {
     const { rawToken, tokenHash } = generateSecretToken();
+    const email = renderReopenLinkEmail({
+      fullName: registration.organizer.fullName,
+      organizationName: registration.organization.name,
+      reopenLink: this.reopenLink(rawToken),
+      registrationExpiresAt: registration.expiresAt,
+    });
 
     await this.prisma.$transaction(async (tx) => {
       // Ghi đè mã băm: liên kết cũ tự mất hiệu lực (tenant_db mục 3.5).
       await tx.registration.update({
         where: { id: registration.id },
-        data: {
-          reopenTokenHash: tokenHash,
-          resendCount: currentCount + 1,
-          resendWindowStartedAt: windowExpired
-            ? now
-            : registration.resendWindowStartedAt,
-        },
+        data: { reopenTokenHash: tokenHash, ...counter },
       });
       await this.outbox.enqueueEmail(tx, {
         aggregateType: 'Organization',
         aggregateId: registration.organizationId,
         organizationId: registration.organizationId,
         email: {
-          to: organizer.email,
-          subject: 'LearnUP - Liên kết thanh toán đăng ký',
-          templateCode: 'REGISTRATION_REOPEN_LINK',
-          body:
-            `Xin chào ${organizer.fullName},\n` +
-            `Mở liên kết sau để tiếp tục thanh toán: ${this.reopenLink(rawToken)}\n` +
-            `Liên kết có hiệu lực tới ${registration.expiresAt.toISOString()}.`,
+          to: registration.organizer.email,
+          subject: email.subject,
+          templateCode: email.templateCode,
+          body: email.html,
         },
       });
     });
+  }
+
+  private otpSecret(): string {
+    return this.config.getOrThrow<string>('EMAIL_OTP_SECRET');
   }
 
   private reopenLink(rawToken: string): string {
