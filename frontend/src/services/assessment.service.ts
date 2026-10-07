@@ -1,4 +1,4 @@
-import axios from "@/services/axios.customize";
+import { assessmentAxios as axios } from "@/services/axios.customize";
 import type {
   IAssessmentError,
   IAssignment,
@@ -27,9 +27,8 @@ const devHeaders = {
   "x-user-role": import.meta.env.VITE_DEV_USER_ROLE ?? "INSTRUCTOR",
 };
 
-// Assessment Service chạy cổng riêng (8086) khi chưa có gateway. Để trống thì dùng chung VITE_BACKEND_URL như các service khác.
+// Base URL lấy từ VITE_ASSESSMENT_BACKEND_URL qua assessmentAxios.
 const requestConfig = {
-  baseURL: import.meta.env.VITE_ASSESSMENT_BACKEND_URL || undefined,
   headers: devHeaders,
 };
 

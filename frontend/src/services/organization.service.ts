@@ -17,7 +17,7 @@ import type {
   IAcceptInvitationResult,
   IInvitationInfo
 } from "@/types/organization.types";
-import axios from "@/services/axios.customize";
+import { tenantAxios as axios } from "@/services/axios.customize";
 
 // UC01 - Xem Subscription Plan (Guest, không cần đăng nhập)
 export const getSubscriptionPlansAPI = () =>
