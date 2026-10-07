@@ -27,4 +27,14 @@ export abstract class CourseServiceClient {
     courseId: string,
     user: CurrentUser,
   ): Promise<CourseAuthoringContext>;
+
+  /**
+   * Lấy id các Module của một Course (UC18.2: kiểm moduleId thuộc Course, BR-154).
+   * null = không biết cây Module (chỉ bản giả), khi đó người gọi chấp nhận mọi moduleId.
+   * Ném NotFoundException khi Course không tồn tại, ServiceUnavailableException khi không gọi được course-service.
+   */
+  abstract getModuleIds(
+    courseId: string,
+    user: CurrentUser,
+  ): Promise<string[] | null>;
 }
