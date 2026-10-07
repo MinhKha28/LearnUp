@@ -58,20 +58,19 @@ npm install
 
 ### Environment configuration
 
-The frontend uses:
+Tenant, course and assessment services each have their own base URL variable, read in `src/config/env.ts`.
+The app fails at startup with a clear error if any of them is missing.
+Identity and the learner pages (catalog, enrollments) still use `VITE_BACKEND_URL`.
 
 ```env
 VITE_BACKEND_URL=http://localhost:8080
+VITE_TENANT_BACKEND_URL=http://localhost:8084
+VITE_COURSE_BACKEND_URL=http://localhost:8083
+VITE_ASSESSMENT_BACKEND_URL=http://localhost:8086
 ```
 
-Environment files currently used:
-
-```text
-.env.development
-.env.production
-```
-
-Update `VITE_BACKEND_URL` when connecting to another backend environment.
+Copy them from `.env.example` into `.env.development.local` (not committed).
+When going through the api-gateway, point all of them at `http://localhost:8080`.
 
 ### Run development server
 

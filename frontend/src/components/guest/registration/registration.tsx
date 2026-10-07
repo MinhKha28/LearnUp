@@ -5,8 +5,8 @@ const steps = [
   "Select plan",
   "Organization",
   "Organizer",
-  "Payment",
   "Verify email",
+  "Payment",
 ];
 
 export default function RegistrationSteps({ current }: { current: number }) {

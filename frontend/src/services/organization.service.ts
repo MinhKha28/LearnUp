@@ -11,12 +11,13 @@ import type {
   IRegistrationSummary,
   ISeatUsage,
   ISubscriptionPlan,
-  IVerifyEmailResult,
+  IVerifyEmailOtpReq,
+  IVerifyEmailOtpRes,
   IAcceptInvitationReq,
   IAcceptInvitationResult,
   IInvitationInfo
 } from "@/types/organization.types";
-import axios from "@/services/axios.customize";
+import { tenantAxios as axios } from "@/services/axios.customize";
 
 // UC01 - Xem Subscription Plan (Guest, không cần đăng nhập)
 export const getSubscriptionPlansAPI = () =>
@@ -42,11 +43,11 @@ export const payRegistrationAPI = (body: IPayRegistrationReq) =>
     body,
   );
 
-// UC03 - Xác thực email Organizer bằng liên kết trong email thứ hai
-export const verifyEmailAPI = (token: string) =>
-  axios.post<IBackendRes<IVerifyEmailResult>>(
+// UC03 - Xác thực email bằng mã 6 số trong email thứ nhất (trước khi thanh toán)
+export const verifyEmailOtpAPI = (body: IVerifyEmailOtpReq) =>
+  axios.post<IBackendRes<IVerifyEmailOtpRes>>(
     "/api/v1/registrations/verify-email",
-    { token },
+    body,
   );
 
 // UC12 - Xem danh sách Instructor (Organizer; tổ chức lấy từ danh tính người gọi)

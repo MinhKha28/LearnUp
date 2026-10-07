@@ -1,4 +1,4 @@
-import axios from "@/services/axios.customize";
+import { assessmentAxios as axios } from "@/services/axios.customize";
 import type {
   IAssessmentError,
   IAssignment,
@@ -6,6 +6,8 @@ import type {
   IPromptFile,
   ICreateAssignment,
   IQuizList,
+  ICreateQuizReq,
+  IQuizSummary,
   IUpdateAssignment,
   IUpdatePeerReview,
 } from "@/types/assessment.types";
@@ -25,9 +27,8 @@ const devHeaders = {
   "x-user-role": import.meta.env.VITE_DEV_USER_ROLE ?? "INSTRUCTOR",
 };
 
-// Assessment Service chạy cổng riêng (8086) khi chưa có gateway. Để trống thì dùng chung VITE_BACKEND_URL như các service khác.
+// Base URL lấy từ VITE_ASSESSMENT_BACKEND_URL qua assessmentAxios.
 const requestConfig = {
-  baseURL: import.meta.env.VITE_ASSESSMENT_BACKEND_URL || undefined,
   headers: devHeaders,
 };
 
@@ -115,6 +116,10 @@ export const fetchQuizzesAPI = (courseId: string, moduleId?: string) =>
     ...requestConfig,
     params: { courseId: toApiCourseId(courseId), moduleId },
   });
+
+/** UC18.2 — Create Quiz. */
+export const createQuizAPI = (payload: ICreateQuizReq) =>
+  axios.post<IBackendRes<IQuizSummary>>("/api/v1/assessments/quizzes", payload, requestConfig);
 
 /** The axios interceptor resolves error responses instead of rejecting; pull the message out of them. */
 export const assessmentErrorText = (res: unknown, fallback: string): string => {

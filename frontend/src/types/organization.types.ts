@@ -32,15 +32,12 @@ export interface ICreateRegistrationReq {
   };
 }
 
-// UC02 - backend trả 1 trong 2 dạng, phân biệt bằng trường "resent"
-export type ICreateRegistrationRes =
-  | {
-      resent: false;
-      registrationId: string;
-      paymentToken: string;
-      expiresAt: string;
-    }
-  | { resent: true; message: string };
+// Phản hồi trung tính (BR-276): giống nhau dù email mới, đã có đăng ký chờ hay đã chạm giới hạn gửi lại
+export interface ICreateRegistrationRes {
+  email: string;
+  otpTtlMinutes: number;
+  message: string;
+}
 
 // Lỗi tenant-service: { code, message } (lỗi nghiệp vụ) hoặc { message: [...] } (lỗi DTO)
 export interface IApiError {
@@ -73,10 +70,16 @@ export interface IPaymentResult {
   organizerEmail?: string;
 }
 
-// UC03 - kết quả xác thực email Organizer (POST /api/v1/registrations/verify-email)
-export interface IVerifyEmailResult {
+// UC03 - body gửi lên POST /api/v1/registrations/verify-email (BR-337: mã 6 số)
+export interface IVerifyEmailOtpReq {
   email: string;
-  organizationName: string;
+  otp: string;
+}
+
+// UC03 - nhập mã đúng: backend trả token mới để thanh toán ngay (UC02.1)
+export interface IVerifyEmailOtpRes {
+  paymentToken: string;
+  registrationExpiresAt: string;
 }
 
 // UC04 - thông tin lời mời (GET /api/v1/invitations/:token)
