@@ -56,6 +56,12 @@ interface SeedAssignment {
   };
   /** Có bài nộp: Assignment bị khóa sửa đề bài, Rubric, n, m (BR-98) nên dùng để thử trạng thái "Editing Restricted". */
   withSubmission?: boolean;
+  /** Position among the Course's Assignments (default 1). */
+  position?: number;
+  /** Disabled by the Organizer after a confirmed violation (BR-239). */
+  disabled?: boolean;
+  /** Number of Learners that already submitted (UI demo data only). */
+  submissionCount?: number;
   rubric: SeedCriterion[];
 }
 
@@ -192,6 +198,240 @@ const ASSIGNMENTS: SeedAssignment[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Danh tính của giao diện (course-service/prisma/seed.ts: ORG_UI, INSTRUCTOR_UI): mỗi Course demo một trạng thái.
+//   Course 1 Draft và Course 10 (Blank Draft): cố ý không có Assignment, dùng để thử tạo mới (UC19.2).
+// ---------------------------------------------------------------------------
+const ORG_UI = '22222222-2222-7222-8222-222222222222';
+const UI_DISABLED_AT = new Date('2026-09-29T02:00:00Z');
+
+ASSIGNMENTS.push(
+  {
+    id: '33333333-eeee-7333-8333-000000000001',
+    organizationId: ORG_UI,
+    courseId: '33333333-bbbb-7333-8333-000000000002',
+    title: 'Data protection case study',
+    prompt:
+      'Read the case and explain which data protection rules were broken and how to prevent it.',
+    passingScore: 75,
+    expectedDurationMinutes: 90,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    peerReview: {
+      reviewersPerSubmission: 2,
+      cycleDays: 7,
+      deadlineDays: 3,
+      scoreGap: 20,
+    },
+    rubric: [
+      {
+        id: '33333333-ffff-7333-8333-000000000011',
+        name: 'Analysis',
+        description: 'Identifies the broken rules',
+        maxPoints: 40,
+      },
+      {
+        id: '33333333-ffff-7333-8333-000000000012',
+        name: 'Prevention',
+        description: 'Proposes realistic controls',
+        maxPoints: 40,
+      },
+      {
+        id: '33333333-ffff-7333-8333-000000000013',
+        name: 'Clarity',
+        description: 'Easy to follow',
+        maxPoints: 20,
+      },
+    ],
+  },
+  {
+    id: '33333333-eeee-7333-8333-000000000002',
+    organizationId: ORG_UI,
+    courseId: '33333333-bbbb-7333-8333-000000000003',
+    title: 'Customer complaint role-play script',
+    prompt:
+      'Write a script for handling an angry customer, showing how you stay calm and solve the problem.',
+    passingScore: 70,
+    expectedDurationMinutes: 45,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    peerReview: {
+      reviewersPerSubmission: 2,
+      cycleDays: 7,
+      deadlineDays: 3,
+      scoreGap: 20,
+    },
+    submissionCount: 2,
+    rubric: [
+      {
+        id: '33333333-ffff-7333-8333-000000000021',
+        name: 'Empathy',
+        description: 'Acknowledges the customer feelings',
+        maxPoints: 50,
+      },
+      {
+        id: '33333333-ffff-7333-8333-000000000022',
+        name: 'Solution',
+        description: 'Offers a concrete next step',
+        maxPoints: 50,
+      },
+    ],
+  },
+  {
+    id: '33333333-eeee-7333-8333-000000000003',
+    organizationId: ORG_UI,
+    courseId: '33333333-bbbb-7333-8333-000000000003',
+    title: 'Service improvement proposal',
+    prompt:
+      'Propose one improvement to the service process and explain the expected benefit.',
+    passingScore: 70,
+    expectedDurationMinutes: 30,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    position: 2,
+    rubric: [
+      {
+        id: '33333333-ffff-7333-8333-000000000031',
+        name: 'Idea',
+        description: 'Clear and realistic improvement',
+        maxPoints: 60,
+      },
+      {
+        id: '33333333-ffff-7333-8333-000000000032',
+        name: 'Benefit',
+        description: 'Expected benefit is explained',
+        maxPoints: 40,
+      },
+    ],
+  },
+  {
+    id: '33333333-eeee-7333-8333-000000000004',
+    organizationId: ORG_UI,
+    courseId: '33333333-bbbb-7333-8333-000000000004',
+    title: 'Onboarding reflection',
+    prompt:
+      'Write what you learned in your first week and what you still need help with.',
+    passingScore: 70,
+    expectedDurationMinutes: 20,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    rubric: [
+      {
+        id: '33333333-ffff-7333-8333-000000000041',
+        name: 'Reflection',
+        description: 'Honest and specific',
+        maxPoints: 100,
+      },
+    ],
+  },
+  {
+    id: '33333333-eeee-7333-8333-000000000005',
+    organizationId: ORG_UI,
+    courseId: '33333333-bbbb-7333-8333-000000000005',
+    title: 'Remote team charter',
+    prompt:
+      'Draft a short charter for how your remote team communicates and meets.',
+    passingScore: 70,
+    expectedDurationMinutes: 40,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    rubric: [
+      {
+        id: '33333333-ffff-7333-8333-000000000051',
+        name: 'Communication rules',
+        description: 'Clear rules for chat and meetings',
+        maxPoints: 60,
+      },
+      {
+        id: '33333333-ffff-7333-8333-000000000052',
+        name: 'Availability',
+        description: 'Working hours and response times',
+        maxPoints: 40,
+      },
+    ],
+  },
+  {
+    id: '33333333-eeee-7333-8333-000000000006',
+    organizationId: ORG_UI,
+    courseId: '33333333-bbbb-7333-8333-000000000006',
+    title: 'Evacuation drill report',
+    prompt:
+      'Report on the last evacuation drill: what went well and what did not.',
+    passingScore: 70,
+    expectedDurationMinutes: 30,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    submissionCount: 1,
+    rubric: [
+      {
+        id: '33333333-ffff-7333-8333-000000000061',
+        name: 'Observations',
+        description: 'Concrete observations',
+        maxPoints: 70,
+      },
+      {
+        id: '33333333-ffff-7333-8333-000000000062',
+        name: 'Follow-up',
+        description: 'Actions to improve',
+        maxPoints: 30,
+      },
+    ],
+  },
+  {
+    id: '33333333-eeee-7333-8333-000000000007',
+    organizationId: ORG_UI,
+    courseId: '33333333-bbbb-7333-8333-000000000008',
+    title: 'Compliance scenario analysis',
+    prompt:
+      'Analyse the scenario and decide which compliance obligations apply.',
+    passingScore: 70,
+    expectedDurationMinutes: 50,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    disabled: true,
+    rubric: [
+      {
+        id: '33333333-ffff-7333-8333-000000000071',
+        name: 'Obligations',
+        description: 'Correct obligations identified',
+        maxPoints: 100,
+      },
+    ],
+  },
+  {
+    id: '33333333-eeee-7333-8333-000000000008',
+    organizationId: ORG_UI,
+    courseId: '33333333-bbbb-7333-8333-000000000009',
+    title: 'Leadership vision statement',
+    prompt:
+      'Write a one-page vision statement for your team and how you will measure it.',
+    passingScore: 70,
+    expectedDurationMinutes: 60,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    peerReview: {
+      reviewersPerSubmission: 2,
+      cycleDays: 7,
+      deadlineDays: 3,
+      scoreGap: 20,
+    },
+    rubric: [
+      {
+        id: '33333333-ffff-7333-8333-000000000081',
+        name: 'Vision',
+        description: 'Inspiring and specific',
+        maxPoints: 50,
+      },
+      {
+        id: '33333333-ffff-7333-8333-000000000082',
+        name: 'Measures',
+        description: 'Measurable indicators',
+        maxPoints: 50,
+      },
+    ],
+  },
+);
+
 const SUBMISSION_ID = '0199a000-0000-7000-8000-2c0000000001';
 const LEARNER_STATE_ID = '0199a000-0000-7000-8000-2d0000000001';
 const SUBMITTED_AT = new Date('2026-09-25T03:00:00Z');
@@ -225,7 +465,7 @@ async function seed(prisma: PrismaClient): Promise<void> {
       moduleId: null,
       kind: 'ASSIGNMENT',
       title: a.title,
-      position: 1,
+      position: a.position ?? 1,
       passingScore: a.passingScore,
       maxConsecutiveAttempts: a.maxConsecutiveAttempts,
       lockoutHours: a.lockoutHours,
@@ -237,7 +477,7 @@ async function seed(prisma: PrismaClient): Promise<void> {
       peerReviewCycleDays: a.peerReview?.cycleDays ?? null,
       peerReviewDeadlineDays: a.peerReview?.deadlineDays ?? null,
       peerReviewScoreGap: a.peerReview?.scoreGap ?? null,
-      disabledAt: null,
+      disabledAt: a.disabled ? UI_DISABLED_AT : null,
     };
     await prisma.assessment.upsert({
       where: { id: a.id },
@@ -304,6 +544,48 @@ async function seed(prisma: PrismaClient): Promise<void> {
       },
     });
   }
+
+  // Submissions of the UI demo Assignments (a Learner id is only a number here: Learners live in other services).
+  let counter = 0;
+  for (const a of ASSIGNMENTS.filter(
+    (x) => x.organizationId === ORG_UI && x.submissionCount,
+  )) {
+    for (let i = 1; i <= (a.submissionCount ?? 0); i++) {
+      counter++;
+      const learnerId = `33333333-9999-7333-8333-${String(i).padStart(12, '0')}`;
+      const submissionId = `33333333-1111-7333-8333-${String(counter).padStart(12, '0')}`;
+      const submissionData = {
+        organizationId: a.organizationId,
+        assessmentId: a.id,
+        learnerId,
+        submissionNumber: 1,
+        content: 'Demo submission: step 1, step 2, step 3.',
+        submittedAt: SUBMITTED_AT,
+        gradingStatus: 'Pending',
+      };
+      await prisma.submission.upsert({
+        where: { id: submissionId },
+        update: submissionData,
+        create: { id: submissionId, ...submissionData },
+      });
+      const stateData = {
+        organizationId: a.organizationId,
+        firstActivityAt: SUBMITTED_AT,
+        consecutiveCount: 1,
+        latestSubmissionId: submissionId,
+      };
+      await prisma.learnerAssessmentState.upsert({
+        where: { assessmentId_learnerId: { assessmentId: a.id, learnerId } },
+        update: stateData,
+        create: {
+          id: `33333333-2222-7333-8333-${String(counter).padStart(12, '0')}`,
+          assessmentId: a.id,
+          learnerId,
+          ...stateData,
+        },
+      });
+    }
+  }
 }
 
 function printIds(): void {
@@ -311,7 +593,8 @@ function printIds(): void {
   for (const a of ASSIGNMENTS) {
     const tags = [
       a.peerReview ? 'peer review ON' : 'peer review off',
-      a.withSubmission ? 'có bài nộp (khóa sửa)' : '',
+      a.withSubmission || a.submissionCount ? 'có bài nộp (khóa sửa)' : '',
+      a.disabled ? 'bị vô hiệu hóa' : '',
     ]
       .filter(Boolean)
       .join(', ');

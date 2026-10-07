@@ -11,7 +11,11 @@ import type {
   IRegistrationSummary,
   ISeatUsage,
   ISubscriptionPlan,
-  IVerifyEmailResult,
+  IVerifyEmailOtpReq,
+  IVerifyEmailOtpRes,
+  IAcceptInvitationReq,
+  IAcceptInvitationResult,
+  IInvitationInfo
 } from "@/types/organization.types";
 import axios from "@/services/axios.customize";
 
@@ -39,11 +43,11 @@ export const payRegistrationAPI = (body: IPayRegistrationReq) =>
     body,
   );
 
-// UC03 - Xác thực email Organizer bằng liên kết trong email thứ hai
-export const verifyEmailAPI = (token: string) =>
-  axios.post<IBackendRes<IVerifyEmailResult>>(
+// UC03 - Xác thực email bằng mã 6 số trong email thứ nhất (trước khi thanh toán)
+export const verifyEmailOtpAPI = (body: IVerifyEmailOtpReq) =>
+  axios.post<IBackendRes<IVerifyEmailOtpRes>>(
     "/api/v1/registrations/verify-email",
-    { token },
+    body,
   );
 
 // UC12 - Xem danh sách Instructor (Organizer; tổ chức lấy từ danh tính người gọi)
@@ -75,3 +79,13 @@ export const getLearnerSeatsAPI = () =>
 // UC13.2 - Thêm Learner (Organizer; backend gửi lời mời qua email)
 export const createLearnerAPI = (body: ICreateAccountReq) =>
   axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/learners", body);
+
+// UC04 - Xem lời mời trước khi đặt mật khẩu
+export const getInvitationAPI = (token: string) =>
+  axios.get<IBackendRes<IInvitationInfo>>(
+    `/api/v1/invitations/${encodeURIComponent(token)}`,
+  );
+
+// UC04 - Đặt mật khẩu và kích hoạt tài khoản
+export const acceptInvitationAPI = (body: IAcceptInvitationReq) =>
+  axios.post<IBackendRes<IAcceptInvitationResult>>("/api/v1/invitations/accept", body);

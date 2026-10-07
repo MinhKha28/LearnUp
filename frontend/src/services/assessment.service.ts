@@ -3,6 +3,7 @@ import type {
   IAssessmentError,
   IAssignment,
   IAssignmentList,
+  IPromptFile,
   ICreateAssignment,
   IQuizList,
   ICreateQuizReq,
@@ -61,6 +62,25 @@ export const createAssignmentAPI = (payload: ICreateAssignment) =>
     payload,
     requestConfig,
   );
+
+/** UC19.2 / UC19.3 — Upload the prompt file (one PDF, 50 MB). The result goes into `promptFile` of create/update. */
+export const uploadPromptFileAPI = (file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return axios.post<IBackendRes<IPromptFile>>("/api/v1/assessments/assignments/prompt-file", form, requestConfig);
+};
+
+/**
+ * UC19.1 — Download the prompt file. The interceptor hands a failed response back as the body (a Blob here),
+ * so only a real 200 response yields the file.
+ */
+export const downloadPromptFileAPI = async (assignmentId: string): Promise<Blob | null> => {
+  const res = (await axios.get(`/api/v1/assessments/assignments/${assignmentId}/prompt-file`, {
+    ...requestConfig,
+    responseType: "blob",
+  })) as unknown as { status?: number; data?: unknown };
+  return res.status === 200 && res.data instanceof Blob ? res.data : null;
+};
 
 /** UC19.3 — Update Assignment. */
 export const updateAssignmentAPI = (

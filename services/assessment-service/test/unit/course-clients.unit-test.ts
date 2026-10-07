@@ -9,8 +9,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { FakeCourseServiceClient } from '../../src/integrations/fake-course-service.client';
-import { HttpCourseServiceClient } from '../../src/integrations/http-course-service.client';
+import { FakeCourseServiceClient } from '../../src/infrastructure/clients/course/fake-course-service.client';
+import { HttpCourseServiceClient } from '../../src/infrastructure/clients/course/http-course-service.client';
 import { COURSE, instructor, ORG, INSTRUCTOR, rejectsWith } from './fixtures';
 
 Logger.overrideLogger(false); // the clients warn on purpose; keep the test output readable

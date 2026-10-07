@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Button, Checkbox, Form, Input, Spin } from "antd";
 import {
   Link,
@@ -15,9 +15,11 @@ import {
   getRegistrationByTokenAPI,
   getSubscriptionPlansAPI,
   payRegistrationAPI,
+  verifyEmailOtpAPI,
 } from "@/services/organization.service";
 import type {
   IApiError,
+  ICreateRegistrationReq,
   IRegistrationSummary,
   ISubscriptionPlan,
 } from "@/types/organization.types";
@@ -35,6 +37,11 @@ type RegistrationDraft = {
   organization: OrganizationFields;
   organizer: Omit<OrganizerFields, "password">;
 };
+// UC03: thông tin lần gửi mã gần nhất (để hiện email và đếm ngược hạn mã)
+type VerificationInfo = { email: string; ttlMinutes: number; sentAt: number };
+
+const OTP_LENGTH = 6;
+const RESEND_COOLDOWN_MS = 60 * 1000; // chống bấm "gửi lại" liên tục ở phía giao diện
 
 const emptyOrganization: OrganizationFields = {
   name: "",
@@ -68,25 +75,31 @@ const titles: Record<
     title: "Check account details",
     description: "Correct the highlighted fields to continue.",
   },
-  payment: {
+  "verify-email": {
     eyebrow: "STEP 4 OF 5",
+    title: "Verify your email",
+    description:
+      "Enter the 6-digit code we sent to confirm the Organizer email before payment.",
+  },
+  payment: {
+    eyebrow: "STEP 5 OF 5",
     title: "Complete mock payment",
     description: "Review your registration and use the simulated payment flow.",
   },
   "payment-failed": {
-    eyebrow: "STEP 4 OF 5",
+    eyebrow: "STEP 5 OF 5",
     title: "Payment was unsuccessful",
     description: "Your registration is still pending, so you can try again.",
   },
   "pending-payment": {
-    eyebrow: "STEP 4 OF 5",
+    eyebrow: "STEP 5 OF 5",
     title: "Pending payment",
     description: "This registration is still active and waiting for payment.",
   },
   "payment-completed": {
-    eyebrow: "STEP 5 OF 5",
+    eyebrow: "REGISTRATION COMPLETED",
     title: "Payment completed",
-    description: "Verify the Organizer email to activate your workspace.",
+    description: "Your organization and Organizer account are now active.",
   },
   "no-plans": {
     eyebrow: "SUBSCRIPTION PLANS",
@@ -115,26 +128,10 @@ const resultContent = {
   "payment-completed": {
     icon: "✓",
     tone: "success",
-    title: "Payment completed",
-    text: "Your registration has moved to email verification.",
-    action: "",
-    to: "",
-  },
-  "email-verified": {
-    icon: "✓",
-    tone: "success",
-    title: "Email verified",
-    text: "The Organizer account for LearnUP is now active.",
+    title: "Your workspace is ready",
+    text: "The subscription has started and the Organizer account is active.",
     action: "Sign in",
     to: "/login",
-  },
-  "invalid-verification-link": {
-    icon: "×",
-    tone: "error",
-    title: "Verification link is invalid",
-    text: "The link may have expired or already been used.",
-    action: "View available plans",
-    to: "/register",
   },
   "no-plans": {
     icon: "i",
@@ -178,8 +175,23 @@ export default function RegisterPage() {
   // UC02: trạng thái gửi đăng ký
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [emailInUse, setEmailInUse] = useState(false); // UC02 trường hợp F: 409 EMAIL_ALREADY_USED
+  // UC02 → UC03: lần gửi mã gần nhất; dữ liệu đăng ký giữ trong bộ nhớ để "gửi lại mã"
+  // (gửi lại = gửi lại đăng ký, backend thay đăng ký chưa xác thực bằng đăng ký mới, BR-276).
+  // Dùng useRef, không lưu localStorage: mật khẩu chỉ nằm trong bộ nhớ của tab này.
+  const [verification, setVerification] = useState<VerificationInfo | null>(
+    null,
+  );
+  const lastRequestRef = useRef<ICreateRegistrationReq | null>(null);
+  // UC03: ô nhập mã, trạng thái gửi mã, lỗi, đồng hồ đếm ngược
+  const [otp, setOtp] = useState("");
+  const [otpReady, setOtpReady] = useState(false); // đủ 6 ô thì mới cho bấm "Verify email"
+  const [verifying, setVerifying] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
   const [resentNotice, setResentNotice] = useState(false);
-  // UC02 → UC02.1: token thanh toán backend trả về, dùng ở màn payment (Bước 9)
+  const [now, setNow] = useState(() => Date.now());
+  // UC03 → UC02.1: token thanh toán, chỉ có sau khi nhập mã đúng (hoặc mở liên kết trong email)
   const [paymentToken, setPaymentToken] = useState<string | null>(null);
   // UC02.1: tóm tắt đăng ký (lấy từ backend theo token) và trạng thái thanh toán
   const [searchParams] = useSearchParams();
@@ -190,33 +202,24 @@ export default function RegisterPage() {
   const [simulateFailure, setSimulateFailure] = useState(false); // chỉ hiện khi chạy dev
 
   const account = screen === "organizer" || screen === "account-review";
-  const standalone = [
-    "registration-expired",
-    "email-verified",
-    "invalid-verification-link",
-    "no-plans",
-  ].includes(screen);
-  const showProgress = ![
-    "plans",
-    "registration-expired",
-    "invalid-verification-link",
-    "no-plans",
-  ].includes(screen);
+  const standalone = ["registration-expired", "no-plans"].includes(screen);
+  const showProgress = !["plans", "registration-expired", "no-plans"].includes(
+    screen,
+  );
+  // Thứ tự mới (BR-6): chọn gói → tổ chức → Organizer → xác thực email → thanh toán
   const current =
     screen === "plans"
       ? 0
-      : screen === "email-verified" || screen === "payment-completed"
-        ? 4
+      : screen === "payment-completed"
+        ? 5 // cả 5 bước đều có dấu ✓
         : screen.includes("payment")
-          ? 3
-          : account
-            ? 2
-            : 1;
+          ? 4
+          : screen === "verify-email"
+            ? 3
+            : account
+              ? 2
+              : 1;
   const heading = titles[account && accountError ? "account-review" : screen];
-  const organizationName =
-    summary?.organizationName ||
-    draft.organization.name ||
-    "[Organization name]";
   const email =
     summary?.organizerEmail || draft.organizer.email || "[Organizer email]";
   // Gói hiển thị bên phải: ở màn thanh toán dùng gói đã chốt trong đăng ký, trước đó dùng gói vừa chọn
@@ -267,14 +270,23 @@ export default function RegisterPage() {
   }, [screen, navigate]);
 
   // BR-4: chưa chọn gói mà vào thẳng các bước sau thì quay về bước chọn gói.
-  // UC02: chưa tạo đăng ký (chưa có paymentToken) thì không được vào màn thanh toán.
+  // UC02: chưa gửi đăng ký thì không có màn nhập mã.
+  // BR-6: chưa xác thực email (chưa có paymentToken) thì không được vào màn thanh toán.
   useEffect(() => {
     const missingPlan = screensNeedingPlan.includes(screen) && !selectedPlan;
-    const missingRegistration = screen === "payment" && !paymentToken;
-    if (missingPlan || missingRegistration) {
+    const missingVerification = screen === "verify-email" && !verification;
+    const missingToken = screen === "payment" && !paymentToken;
+    if (missingPlan || missingVerification || missingToken) {
       navigate("/register", { replace: true });
     }
-  }, [screen, selectedPlan, paymentToken, navigate]);
+  }, [screen, selectedPlan, verification, paymentToken, navigate]);
+
+  // UC03: đồng hồ đếm ngược hạn mã, chỉ chạy khi đang ở màn nhập mã
+  useEffect(() => {
+    if (screen !== "verify-email") return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [screen]);
 
   // UC02.1 (đường B): mở từ email 1 → lấy token trên URL ?token=...
   useEffect(() => {
@@ -343,24 +355,21 @@ export default function RegisterPage() {
     }));
     setSubmitting(true);
     setSubmitError(null);
-    setResentNotice(false);
+    setEmailInUse(false);
+    const request: ICreateRegistrationReq = {
+      planId: selectedPlan.id,
+      organization: draft.organization,
+      organizer: values,
+    };
     try {
-      const res = await createRegistrationAPI({
-        planId: selectedPlan.id,
-        organization: draft.organization,
-        organizer: values,
-      });
-      const result = res.data;
-      if (result?.resent === false) {
-        // GĐ5 thành công: giữ token để thanh toán ngay (UC02.1)
+      const res = await createRegistrationAPI(request);
+      if (res.data) {
+        // BR-276: phản hồi trung tính → luôn sang màn nhập mã, không lộ email đã có đăng ký hay chưa
         organizerForm.resetFields(["password"]);
         setAccountError(false);
-        setPaymentToken(result.paymentToken);
-        navigate("/register/payment");
-      } else if (result?.resent === true) {
-        // BR-276: email đang có đăng ký chờ thanh toán → backend đã gửi lại liên kết
-        organizerForm.resetFields(["password"]);
-        setResentNotice(true);
+        lastRequestRef.current = request;
+        startVerification(res.data.email, res.data.otpTtlMinutes);
+        navigate("/register/verify-email");
       } else {
         showRegistrationError((res as unknown as { error?: IApiError }).error);
       }
@@ -373,11 +382,80 @@ export default function RegisterPage() {
     }
   }
 
+  // UC03: mỗi lần backend gửi mã mới → đặt lại ô nhập, lỗi và đồng hồ
+  function startVerification(email: string, ttlMinutes: number) {
+    const sentAt = Date.now();
+    setVerification({ email, ttlMinutes, sentAt });
+    setNow(sentAt);
+    setOtp("");
+    setOtpReady(false);
+    setOtpError(null);
+  }
+
+  // UC03: nhập đủ 6 số (hoặc bấm "Verify email") → gửi mã lên backend
+  async function verifyOtp(code: string) {
+    if (!verification || code.length !== OTP_LENGTH || verifying) return;
+    setVerifying(true);
+    setOtpError(null);
+    setResentNotice(false);
+    try {
+      const res = await verifyEmailOtpAPI({
+        email: verification.email,
+        otp: code,
+      });
+      if (res.data) {
+        // Mã đúng: email đã xác thực, có token để thanh toán (UC02.1). Mật khẩu không cần giữ nữa.
+        lastRequestRef.current = null;
+        setPaymentToken(res.data.paymentToken);
+        navigate("/register/payment");
+        return;
+      }
+      const error = (res as unknown as { error?: IApiError }).error;
+      setOtp(""); // xóa 6 ô để nhập lại
+      setOtpReady(false);
+      setOtpError(
+        error?.code === "OTP_EXPIRED"
+          ? "This code has expired. Request a new code below."
+          : "The code is incorrect. Check the latest email and try again. After too many wrong attempts, request a new code.",
+      );
+    } catch {
+      setOtpError("Could not connect to the server. Please try again later.");
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  // UC03: "Resend code" → gửi lại đăng ký với cùng dữ liệu, backend tạo mã mới (giới hạn 24h, BR-32)
+  async function resendOtp() {
+    if (!lastRequestRef.current) {
+      navigate("/register/organizer");
+      return;
+    }
+    setResending(true);
+    setOtpError(null);
+    setResentNotice(false);
+    try {
+      const res = await createRegistrationAPI(lastRequestRef.current);
+      if (res.data) {
+        startVerification(res.data.email, res.data.otpTtlMinutes);
+        setResentNotice(true);
+      } else {
+        setOtpError("Could not send a new code. Please try again later.");
+      }
+    } catch {
+      setOtpError("Could not connect to the server. Please try again later.");
+    } finally {
+      setResending(false);
+    }
+  }
+
   // UC02: đổi mã lỗi backend thành thông báo tiếng Anh, đặt đúng chỗ
   function showRegistrationError(error?: IApiError) {
     switch (error?.code) {
       case "EMAIL_ALREADY_USED":
+        // Trường hợp F: email thuộc tài khoản đã hoạt động → báo rõ ở đầu form và tại ô email
         setAccountError(true);
+        setEmailInUse(true);
         organizerForm.setFields([
           {
             name: "email",
@@ -423,6 +501,11 @@ export default function RegisterPage() {
           navigate("/register/payment-completed");
         } else if (error?.code === "REGISTRATION_EXPIRED") {
           navigate("/register/registration-expired");
+        } else if (error?.code === "EMAIL_NOT_VERIFIED") {
+          // BR-6: backend tự kiểm lại, phòng khi gọi thẳng API bỏ qua bước xác thực
+          setPayError(
+            "Please verify the Organizer email before paying. Open the link in your registration email.",
+          );
         } else {
           setPayError("The payment could not be processed. Please try again.");
         }
@@ -452,26 +535,18 @@ export default function RegisterPage() {
           </div>
         )}
         {resultScreen === "payment-completed" && (
-          <div className="register-notice">
-            <b>Check your inbox</b>
-            <p>A verification link will be sent to {email}.</p>
+          <div className="register-notice register-notice-success">
+            <b>Organizer account activated</b>
+            <p>
+              A confirmation email has been sent to {email}. Sign in with the
+              password you created during registration.
+            </p>
           </div>
         )}
         {resultScreen === "payment-failed" && (
           <div className="register-notice register-notice-warning">
             <b>Registration remains available</b>
             <p>Retry before its configured expiration time.</p>
-          </div>
-        )}
-        {resultScreen === "email-verified" && (
-          <div className="register-notice register-notice-success">
-            <b>Organization: {organizationName}</b>
-            <p>The Organizer can now access the workspace.</p>
-          </div>
-        )}
-        {resultScreen === "invalid-verification-link" && (
-          <div className="register-notice register-notice-error">
-            If the email was already verified, try signing in.
           </div>
         )}
         {result.action && (
@@ -538,12 +613,8 @@ export default function RegisterPage() {
             Simulate a failed payment (development only)
           </Checkbox>
         )}
-        <div className="register-actions">
-          {!pending && (
-            <Button onClick={() => navigate("/register/organizer")}>
-              Back
-            </Button>
-          )}
+        {/* Không còn nút Back: đăng ký đã tạo và email đã xác thực ở bước trước */}
+        <div className="register-actions register-actions-end">
           <Button
             type="primary"
             loading={paying}
@@ -557,10 +628,115 @@ export default function RegisterPage() {
     );
   }
 
+  // UC03: màn nhập mã 6 số
+  function renderVerifyEmail() {
+    if (!verification) return null;
+    const expiresAt = verification.sentAt + verification.ttlMinutes * 60_000;
+    const remainingMs = Math.max(0, expiresAt - now);
+    const expired = remainingMs === 0;
+    const minutes = Math.floor(remainingMs / 60_000);
+    const seconds = Math.floor((remainingMs % 60_000) / 1000);
+    const resendWaitMs = verification.sentAt + RESEND_COOLDOWN_MS - now;
+    return (
+      <section className="register-card register-verify">
+        <h2>Enter verification code</h2>
+        <p className="register-card-description">
+          If the details are valid, a 6-digit code has been sent to{" "}
+          <b>{verification.email}</b>. You can also open the link in that email
+          to continue.
+        </p>
+        {resentNotice && (
+          <Alert
+            type="info"
+            showIcon
+            message="A new code has been requested. Use the code in the latest email."
+          />
+        )}
+        {otpError && <Alert type="error" showIcon message={otpError} />}
+        {/* antd chỉ gọi onChange khi đủ 6 ô; xóa bớt 1 ô thì bắt sự kiện input để khóa nút */}
+        <div
+          className="register-otp"
+          onInput={(event) => {
+            if (!(event.target as HTMLInputElement).value) setOtpReady(false);
+          }}
+        >
+          <Input.OTP
+            length={OTP_LENGTH}
+            value={otp}
+            disabled={verifying || expired}
+            formatter={(value) => value.replace(/\D/g, "")}
+            onChange={(value) => {
+              // chỉ ghi nhận mã, gửi khi bấm "Verify email"
+              setOtp(value);
+              setOtpReady(true);
+            }}
+          />
+          <p
+            className={`register-otp-timer${expired ? " register-otp-timer-expired" : ""}`}
+            role="timer"
+          >
+            {expired
+              ? "The code has expired."
+              : `Code expires in ${minutes}:${String(seconds).padStart(2, "0")}`}
+          </p>
+        </div>
+        <div className="register-notice">
+          <b>Email has no code?</b>
+          <p>
+            If this email was already verified, we sent a "Continue to payment"
+            link instead of a code. Open it to finish your registration.
+          </p>
+          <b className="register-notice-next">Didn't receive the email?</b>
+          <p>
+            Check your spam folder or request a new code. Each request sends a
+            new code and the previous one stops working.
+          </p>
+        </div>
+        <div className="register-actions">
+          <Button onClick={() => navigate("/register/organizer")}>
+            Change email
+          </Button>
+          <div className="register-actions-group">
+            <Button
+              loading={resending}
+              disabled={resendWaitMs > 0 || verifying}
+              onClick={resendOtp}
+            >
+              {resendWaitMs > 0
+                ? `Resend code (${Math.ceil(resendWaitMs / 1000)}s)`
+                : "Resend code"}
+            </Button>
+            <Button
+              type="primary"
+              loading={verifying}
+              disabled={!otpReady || expired}
+              onClick={() => verifyOtp(otp)}
+            >
+              Verify email
+            </Button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   function renderAccount() {
     return (
       <section className="register-card">
-        {accountError ? (
+        {emailInUse ? (
+          <Alert
+            type="error"
+            message="This email is already in use"
+            description={
+              <>
+                An active LearnUP account already uses this email.{" "}
+                <Link to="/login">Sign in</Link> instead, or enter a different
+                email for the new Organizer.
+              </>
+            }
+            role="alert"
+          />
+        ) : accountError ? (
           <Alert
             type="error"
             message="This account needs attention"
@@ -575,14 +751,6 @@ export default function RegisterPage() {
               subscriptions.
             </p>
           </>
-        )}
-        {resentNotice && (
-          <Alert
-            type="info"
-            showIcon
-            message="Check your inbox"
-            description="If this email has a registration waiting for payment, the payment link has been sent again."
-          />
         )}
         {submitError && <Alert type="error" showIcon message={submitError} />}
 
@@ -806,11 +974,13 @@ export default function RegisterPage() {
           <div>
             {isResult(screen)
               ? renderResult(screen)
-              : screen === "payment" || screen === "pending-payment"
-                ? renderPayment()
-                : account
-                  ? renderAccount()
-                  : renderOrganization()}
+              : screen === "verify-email"
+                ? renderVerifyEmail()
+                : screen === "payment" || screen === "pending-payment"
+                  ? renderPayment()
+                  : account
+                    ? renderAccount()
+                    : renderOrganization()}
           </div>
           {/* UC01: khung bên phải hiện gói đã chọn */}
           {!standalone && (

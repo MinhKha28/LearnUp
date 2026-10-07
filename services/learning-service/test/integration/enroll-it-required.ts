@@ -5,13 +5,13 @@
 import assert from 'node:assert/strict';
 import type { CurrentUser } from '@learnup/ts-common';
 import type { INestApplicationContext } from '@nestjs/common';
-import { buildCourseSnapshotRows } from '../../src/course-snapshots/course-snapshot-rows';
-import { CourseSnapshotsRepository } from '../../src/course-snapshots/course-snapshots.repository';
-import { BaseDueAtRepository } from '../../src/enrollments/base-due-at.repository';
-import { EnrollmentsRepository } from '../../src/enrollments/enrollments.repository';
-import { CourseServiceClient } from '../../src/integrations/course-service/course-service.client';
-import { OrganizationTimezoneService } from '../../src/integrations/tenant/organization-timezone.service';
-import { PlatformSettingsRepository } from '../../src/platform-settings/platform-settings.repository';
+import { buildCourseSnapshotRows } from '../../src/modules/course-snapshots/course-snapshot-rows';
+import { CourseSnapshotsRepository } from '../../src/modules/course-snapshots/course-snapshots.repository';
+import { BaseDueAtRepository } from '../../src/modules/enrollments/base-due-at.repository';
+import { EnrollmentsRepository } from '../../src/modules/enrollments/enrollments.repository';
+import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
+import { OrganizationTimezoneService } from '../../src/infrastructure/clients/tenant/organization-timezone.service';
+import { PlatformSettingsRepository } from '../../src/modules/platform-settings/platform-settings.repository';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { ENROLL_IT_ORG, ENROLL_IT_ORGANIZER } from './enroll-it-fixture';
 

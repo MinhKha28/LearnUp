@@ -63,6 +63,21 @@ const CHAIN_UI_DRAFT = '33333333-aaaa-7333-8333-000000000001';
 const CHAIN_UI_PUBLISHED = '33333333-aaaa-7333-8333-000000000002';
 const COURSE_UI_DRAFT = '33333333-bbbb-7333-8333-000000000001';
 const COURSE_UI_PUBLISHED = '33333333-bbbb-7333-8333-000000000002';
+const CHAIN_UI_3 = '33333333-aaaa-7333-8333-000000000003';
+const CHAIN_UI_4 = '33333333-aaaa-7333-8333-000000000004';
+const CHAIN_UI_5 = '33333333-aaaa-7333-8333-000000000005';
+const CHAIN_UI_6 = '33333333-aaaa-7333-8333-000000000006';
+const CHAIN_UI_7 = '33333333-aaaa-7333-8333-000000000007';
+const CHAIN_UI_8 = '33333333-aaaa-7333-8333-000000000008';
+const CHAIN_UI_9 = '33333333-aaaa-7333-8333-000000000009';
+const COURSE_UI_3 = '33333333-bbbb-7333-8333-000000000003';
+const COURSE_UI_4 = '33333333-bbbb-7333-8333-000000000004';
+const COURSE_UI_5 = '33333333-bbbb-7333-8333-000000000005';
+const COURSE_UI_6 = '33333333-bbbb-7333-8333-000000000006';
+const COURSE_UI_7 = '33333333-bbbb-7333-8333-000000000007';
+const COURSE_UI_8 = '33333333-bbbb-7333-8333-000000000008';
+const COURSE_UI_9 = '33333333-bbbb-7333-8333-000000000009';
+const COURSE_UI_10 = '33333333-bbbb-7333-8333-000000000010';
 
 // ---------------------------------------------------------------------------
 // Dữ liệu
@@ -98,8 +113,8 @@ interface SeedCourse {
   chainId: string;
   versionNumber: number;
   name: string;
-  courseType: 'Public' | 'Private';
-  status: 'Draft' | 'Published' | 'Archived' | 'DRAFT' | 'PUBLISHED';
+  courseType: 'Public' | 'Private' | 'PUBLIC' | 'PRIVATE';
+  status: 'Draft' | 'Published' | 'Archived' | 'DRAFT' | 'SUBMITTED' | 'PUBLISHED' | 'REJECTED' | 'ARCHIVED' | 'DISABLED';
   expectedCompletionDays: number;
   shortDescription: string | null;
   trainingObjectives: string | null;
@@ -107,6 +122,12 @@ interface SeedCourse {
   submittedAt: Date | null;
   publishedAt: Date | null;
   archivedAt: Date | null;
+  // Only the UI demo Courses use these (Locked, Rejected, Disabled); the others keep the database default.
+  lockedAt?: Date | null;
+  rejectedAt?: Date | null;
+  rejectionReason?: string | null;
+  disabledAt?: Date | null;
+  disabledReason?: string | null;
   modules: SeedModule[];
 }
 
@@ -120,6 +141,13 @@ const CHAINS = [
   { id: CHAIN_TEST_PRIVATE, organizationId: ORG_TEST, instructorId: INSTRUCTOR_TEST },
   { id: CHAIN_UI_DRAFT, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
   { id: CHAIN_UI_PUBLISHED, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
+  { id: CHAIN_UI_3, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
+  { id: CHAIN_UI_4, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
+  { id: CHAIN_UI_5, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
+  { id: CHAIN_UI_6, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
+  { id: CHAIN_UI_7, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
+  { id: CHAIN_UI_8, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
+  { id: CHAIN_UI_9, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
 ];
 
 const TEST_COURSE_DESCRIPTION = {
@@ -560,7 +588,7 @@ const COURSES: SeedCourse[] = [
     chainId: CHAIN_UI_DRAFT,
     versionNumber: 1,
     name: 'Workplace Safety Essentials (dev)',
-    courseType: 'Public',
+    courseType: 'PUBLIC',
     status: 'DRAFT',
     expectedCompletionDays: 14,
     shortDescription: 'Course demo cho danh tính giao diện (My Courses / Course Builder).',
@@ -608,7 +636,7 @@ const COURSES: SeedCourse[] = [
     chainId: CHAIN_UI_PUBLISHED,
     versionNumber: 1,
     name: 'Data Security Basics (dev)',
-    courseType: 'Public',
+    courseType: 'PUBLIC',
     status: 'PUBLISHED',
     expectedCompletionDays: 14,
     shortDescription: 'Course demo cho danh tính giao diện (My Courses / Course Builder).',
@@ -630,6 +658,295 @@ const COURSES: SeedCourse[] = [
           },
         ],
       },
+    ],
+  },
+  {
+    id: COURSE_UI_3,
+    organizationId: ORG_UI,
+    chainId: CHAIN_UI_3,
+    versionNumber: 1,
+    name: 'Customer Service Fundamentals (dev)',
+    courseType: 'PUBLIC',
+    status: 'PUBLISHED',
+    expectedCompletionDays: 14,
+    shortDescription: 'Published Course that already has Learners, so it is Locked.',
+    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Published and Locked).',
+    learningOutcomes: ['Try the "Published and Locked" case'],
+    submittedAt: new Date('2026-09-10T02:00:00Z'),
+    publishedAt: new Date('2026-09-12T02:00:00Z'),
+    archivedAt: null,
+    lockedAt: new Date('2026-09-20T02:00:00Z'),
+    modules: [
+      {
+        id: '33333333-cccc-7333-8333-000000000004',
+        title: 'Listening skills',
+        lessons: [
+          {
+            id: '33333333-dddd-7333-8333-000000000005',
+            title: 'Active listening',
+            content: 'How to listen to a customer.',
+            materials: [],
+          },
+          {
+            id: '33333333-dddd-7333-8333-000000000006',
+            title: 'Asking good questions',
+            content: 'Clarifying what the customer needs.',
+            materials: [],
+          },
+        ],
+      },
+      {
+        id: '33333333-cccc-7333-8333-000000000005',
+        title: 'Handling complaints',
+        lessons: [
+          {
+            id: '33333333-dddd-7333-8333-000000000007',
+            title: 'Staying calm',
+            content: 'De-escalating an angry customer.',
+            materials: [],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: COURSE_UI_4,
+    organizationId: ORG_UI,
+    chainId: CHAIN_UI_4,
+    versionNumber: 1,
+    name: 'Onboarding for New Hires (dev)',
+    courseType: 'PUBLIC',
+    status: 'SUBMITTED',
+    expectedCompletionDays: 14,
+    shortDescription: 'Waiting for the Organizer to approve; nothing can be edited.',
+    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Submitted for approval).',
+    learningOutcomes: ['Try the "Submitted for approval" case'],
+    submittedAt: new Date('2026-09-30T02:00:00Z'),
+    publishedAt: null,
+    archivedAt: null,
+    modules: [
+      {
+        id: '33333333-cccc-7333-8333-000000000006',
+        title: 'Welcome',
+        lessons: [
+          {
+            id: '33333333-dddd-7333-8333-000000000008',
+            title: 'Company values',
+            content: 'What we stand for.',
+            materials: [],
+          },
+          {
+            id: '33333333-dddd-7333-8333-000000000009',
+            title: 'Tools and accounts',
+            content: 'Everything you need on day one.',
+            materials: [],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: COURSE_UI_5,
+    organizationId: ORG_UI,
+    chainId: CHAIN_UI_5,
+    versionNumber: 1,
+    name: 'Remote Work Etiquette (dev)',
+    courseType: 'PUBLIC',
+    status: 'REJECTED',
+    expectedCompletionDays: 14,
+    shortDescription: 'Rejected by the Organizer; can be edited like a Draft.',
+    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Rejected).',
+    learningOutcomes: ['Try the "Rejected" case'],
+    submittedAt: new Date('2026-09-25T02:00:00Z'),
+    publishedAt: null,
+    archivedAt: null,
+    rejectedAt: new Date('2026-09-27T02:00:00Z'),
+    rejectionReason: 'The learning outcomes are too vague. Please rewrite them and add at least one required material.',
+    modules: [
+      {
+        id: '33333333-cccc-7333-8333-000000000007',
+        title: 'Working from home',
+        lessons: [
+          {
+            id: '33333333-dddd-7333-8333-000000000010',
+            title: 'Meeting etiquette',
+            content: 'Camera, mute and turn-taking.',
+            materials: [],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: COURSE_UI_6,
+    organizationId: ORG_UI,
+    chainId: CHAIN_UI_6,
+    versionNumber: 1,
+    name: 'Fire Safety Basics (dev)',
+    courseType: 'PUBLIC',
+    status: 'ARCHIVED',
+    expectedCompletionDays: 14,
+    shortDescription: 'Replaced by version 2, kept for the Learners who started it.',
+    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Archived version 1).',
+    learningOutcomes: ['Try the "Archived version 1" case'],
+    submittedAt: new Date('2026-08-01T02:00:00Z'),
+    publishedAt: new Date('2026-08-05T02:00:00Z'),
+    archivedAt: new Date('2026-09-22T02:00:00Z'),
+    lockedAt: new Date('2026-08-15T02:00:00Z'),
+    modules: [
+      {
+        id: '33333333-cccc-7333-8333-000000000008',
+        title: 'Fire prevention',
+        lessons: [
+          {
+            id: '33333333-dddd-7333-8333-000000000011',
+            title: 'Common causes',
+            content: 'Typical causes of workplace fires.',
+            materials: [],
+          },
+          {
+            id: '33333333-dddd-7333-8333-000000000012',
+            title: 'Extinguisher types',
+            content: 'Choosing the right extinguisher.',
+            materials: [],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: COURSE_UI_7,
+    organizationId: ORG_UI,
+    chainId: CHAIN_UI_6,
+    versionNumber: 2,
+    name: 'Fire Safety Basics (dev)',
+    courseType: 'PUBLIC',
+    status: 'PUBLISHED',
+    expectedCompletionDays: 14,
+    shortDescription: 'Current version of the chain; not Locked yet.',
+    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Published version 2).',
+    learningOutcomes: ['Try the "Published version 2" case'],
+    submittedAt: new Date('2026-09-18T02:00:00Z'),
+    publishedAt: new Date('2026-09-22T02:00:00Z'),
+    archivedAt: null,
+    modules: [
+      {
+        id: '33333333-cccc-7333-8333-000000000009',
+        title: 'Fire prevention',
+        lessons: [
+          {
+            id: '33333333-dddd-7333-8333-000000000013',
+            title: 'Common causes',
+            content: 'Typical causes of workplace fires.',
+            materials: [],
+          },
+          {
+            id: '33333333-dddd-7333-8333-000000000014',
+            title: 'Extinguisher types',
+            content: 'Choosing the right extinguisher.',
+            materials: [],
+          },
+        ],
+      },
+      {
+        id: '33333333-cccc-7333-8333-000000000010',
+        title: 'Evacuation',
+        lessons: [
+          {
+            id: '33333333-dddd-7333-8333-000000000015',
+            title: 'Evacuation routes',
+            content: 'Reading the floor plan.',
+            materials: [],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: COURSE_UI_8,
+    organizationId: ORG_UI,
+    chainId: CHAIN_UI_7,
+    versionNumber: 1,
+    name: 'Legacy Compliance Training (dev)',
+    courseType: 'PUBLIC',
+    status: 'DISABLED',
+    expectedCompletionDays: 14,
+    shortDescription: 'Disabled after a confirmed violation; Learners cannot open it.',
+    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Disabled).',
+    learningOutcomes: ['Try the "Disabled" case'],
+    submittedAt: new Date('2026-07-01T02:00:00Z'),
+    publishedAt: new Date('2026-07-05T02:00:00Z'),
+    archivedAt: null,
+    lockedAt: new Date('2026-07-20T02:00:00Z'),
+    disabledAt: new Date('2026-09-29T02:00:00Z'),
+    disabledReason: 'Serious violation confirmed by the Organizer.',
+    modules: [
+      {
+        id: '33333333-cccc-7333-8333-000000000011',
+        title: 'Policies',
+        lessons: [
+          {
+            id: '33333333-dddd-7333-8333-000000000016',
+            title: 'Code of conduct',
+            content: 'The previous code of conduct.',
+            materials: [],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: COURSE_UI_9,
+    organizationId: ORG_UI,
+    chainId: CHAIN_UI_8,
+    versionNumber: 1,
+    name: 'Executive Leadership Program (dev)',
+    courseType: 'PRIVATE',
+    status: 'PUBLISHED',
+    expectedCompletionDays: 14,
+    shortDescription: 'Private Published Course, not shown in the self-study catalog.',
+    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Private Course).',
+    learningOutcomes: ['Try the "Private Course" case'],
+    submittedAt: new Date('2026-09-15T02:00:00Z'),
+    publishedAt: new Date('2026-09-17T02:00:00Z'),
+    archivedAt: null,
+    modules: [
+      {
+        id: '33333333-cccc-7333-8333-000000000012',
+        title: 'Leading teams',
+        lessons: [
+          {
+            id: '33333333-dddd-7333-8333-000000000017',
+            title: 'Setting direction',
+            content: 'Vision and priorities.',
+            materials: [],
+          },
+          {
+            id: '33333333-dddd-7333-8333-000000000018',
+            title: 'Giving feedback',
+            content: 'Feedback that helps.',
+            materials: [],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: COURSE_UI_10,
+    organizationId: ORG_UI,
+    chainId: CHAIN_UI_9,
+    versionNumber: 1,
+    name: 'Blank Draft (dev)',
+    courseType: 'PUBLIC',
+    status: 'DRAFT',
+    expectedCompletionDays: 14,
+    shortDescription: 'Draft without any Module, to try adding the first Module.',
+    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Empty Draft).',
+    learningOutcomes: ['Try the "Empty Draft" case'],
+    submittedAt: null,
+    publishedAt: null,
+    archivedAt: null,
+    modules: [
     ],
   },
 ];
@@ -685,7 +1002,7 @@ async function seed(prisma: PrismaClient): Promise<void> {
         // locked_at chỉ đặt khi tạo mới; chạy lại seed không gỡ Locked do learning-service gắn (BR-83)
         await tx.course.upsert({
           where: { id: course.id },
-          create: { ...course, lockedAt: null },
+          create: { ...course, lockedAt: course.lockedAt ?? null },
           update: course,
         });
 

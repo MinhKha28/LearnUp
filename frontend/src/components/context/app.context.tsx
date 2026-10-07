@@ -31,13 +31,16 @@ export const AppProvider = (props: TProps) => {
       try {
         if (!localStorage.getItem("access_token")) return;
         const res = await fetchAccountAPI();
-        if (res.data?.user) {
-          setUser(res.data.user);
+        if (res && res.data) {
+          setUser(res.data);
           setIsAuthenticated(true);
           const savedCarts: unknown = JSON.parse(
             localStorage.getItem("carts") || "[]",
           );
           setCarts(Array.isArray(savedCarts) ? savedCarts : []);
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
         }
       } catch {
         setUser(null);

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { buildCourseSnapshotRows } from '../../src/course-snapshots/course-snapshot-rows';
+import { buildCourseSnapshotRows } from '../../src/modules/course-snapshots/course-snapshot-rows';
 import type {
   CourseTree,
   LockedCourse,
-} from '../../src/integrations/course-service/course-service.types';
+} from '../../src/infrastructure/clients/course/course-service.interface';
 
 const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
 const COURSE_ID = '0199a000-0000-7000-8000-0e0000000003';

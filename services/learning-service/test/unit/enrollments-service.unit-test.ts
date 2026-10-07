@@ -12,24 +12,24 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Prisma } from '../../generated/prisma/client';
 import { RolesGuard } from '../../src/common/guards/roles.guard';
-import type { CourseSnapshotRows } from '../../src/course-snapshots/course-snapshot-rows';
-import { CreateEnrollmentDto } from '../../src/enrollments/dto/create-enrollments.dto';
-import { EnrollmentsController } from '../../src/enrollments/enrollments.controller';
-import { EnrollmentsService } from '../../src/enrollments/enrollments.service';
+import type { CourseSnapshotRows } from '../../src/modules/course-snapshots/course-snapshot-rows';
+import { CreateEnrollmentDto } from '../../src/modules/enrollments/dto/create-enrollments.dto';
+import { EnrollmentsController } from '../../src/modules/enrollments/enrollments.controller';
+import { EnrollmentsService } from '../../src/modules/enrollments/enrollments.service';
 import {
   CourseNotAvailableError,
   CourseServiceConfigurationError,
   CourseServiceContractError,
   CourseServiceUnavailableError,
-} from '../../src/integrations/course-service/course-service.errors';
+} from '../../src/infrastructure/clients/course/course-service.errors';
 import type {
   CourseTree,
   LockedCourse,
-} from '../../src/integrations/course-service/course-service.types';
+} from '../../src/infrastructure/clients/course/course-service.interface';
 import {
   TenantUnavailableError,
   type OrganizationAccess,
-} from '../../src/integrations/tenant/tenant.client';
+} from '../../src/infrastructure/clients/tenant/tenant.client';
 
 const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
 const COURSE_ID = '0199a000-0000-7000-8000-0e0000000003';

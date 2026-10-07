@@ -3,21 +3,21 @@ import { describe, mock, test } from 'node:test';
 import type { CurrentUser } from '@learnup/ts-common';
 import { BadRequestException, HttpException, Logger } from '@nestjs/common';
 import { ParsePagePipe } from '../../src/common/pipes/parse-page.pipe';
-import type { MyEnrollmentRow } from '../../src/enrollments/enrollments.repository';
+import type { MyEnrollmentRow } from '../../src/modules/enrollments/enrollments.repository';
 import {
   EnrollmentsService,
   MY_ENROLLMENTS_PAGE_SIZE,
-} from '../../src/enrollments/enrollments.service';
+} from '../../src/modules/enrollments/enrollments.service';
 import {
   CourseServiceContractError,
   CourseServiceUnavailableError,
-} from '../../src/integrations/course-service/course-service.errors';
-import type { CourseBatchItem } from '../../src/integrations/course-service/course-service.types';
-import { OrganizationTimezoneService } from '../../src/integrations/tenant/organization-timezone.service';
+} from '../../src/infrastructure/clients/course/course-service.errors';
+import type { CourseBatchItem } from '../../src/infrastructure/clients/course/course-service.interface';
+import { OrganizationTimezoneService } from '../../src/infrastructure/clients/tenant/organization-timezone.service';
 import {
   TenantUnavailableError,
   type OrganizationAccess,
-} from '../../src/integrations/tenant/tenant.client';
+} from '../../src/infrastructure/clients/tenant/tenant.client';
 
 const ORG = '0199a000-0000-7000-8000-0a0000000001';
 const COURSE_1 = '0199a000-0000-7000-8000-0e0000000002';

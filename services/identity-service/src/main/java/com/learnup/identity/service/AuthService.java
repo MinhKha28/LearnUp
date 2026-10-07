@@ -74,8 +74,9 @@ public class AuthService {
 
         String accessToken = jwtTokenService.generateAccessToken(savedUser);
         String rawRefreshToken = createAndPersistRefreshToken(savedUser.getId());
+        UserResponse userResponse = UserResponse.fromUser(savedUser);
 
-        return AuthResponse.of(accessToken, rawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds());
+        return AuthResponse.of(accessToken, rawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
     }
 
     @Transactional
@@ -99,8 +100,9 @@ public class AuthService {
 
         String accessToken = jwtTokenService.generateAccessToken(user);
         String rawRefreshToken = createAndPersistRefreshToken(user.getId());
+        UserResponse userResponse = UserResponse.fromUser(user);
 
-        return AuthResponse.of(accessToken, rawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds());
+        return AuthResponse.of(accessToken, rawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
     }
 
     @Transactional
@@ -130,8 +132,9 @@ public class AuthService {
         // Generate new token pair
         String newAccessToken = jwtTokenService.generateAccessToken(user);
         String newRawRefreshToken = createAndPersistRefreshToken(user.getId());
+        UserResponse userResponse = UserResponse.fromUser(user);
 
-        return AuthResponse.of(newAccessToken, newRawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds());
+        return AuthResponse.of(newAccessToken, newRawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
     }
 
     @Transactional(readOnly = true)

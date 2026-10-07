@@ -20,22 +20,22 @@ import type { CurrentUser } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import { Client } from 'pg';
 import { AppModule } from '../src/app.module';
-import { buildCourseSnapshotRows } from '../src/course-snapshots/course-snapshot-rows';
-import { CourseSnapshotsRepository } from '../src/course-snapshots/course-snapshots.repository';
-import { BaseDueAtRepository } from '../src/enrollments/base-due-at.repository';
-import { EnrollmentsRepository } from '../src/enrollments/enrollments.repository';
-import { CourseServiceClient } from '../src/integrations/course-service/course-service.client';
+import { buildCourseSnapshotRows } from '../src/modules/course-snapshots/course-snapshot-rows';
+import { CourseSnapshotsRepository } from '../src/modules/course-snapshots/course-snapshots.repository';
+import { BaseDueAtRepository } from '../src/modules/enrollments/base-due-at.repository';
+import { EnrollmentsRepository } from '../src/modules/enrollments/enrollments.repository';
+import { CourseServiceClient } from '../src/infrastructure/clients/course/course-service.client';
 import type {
   CourseTree,
   CourseTreeMaterial,
   LockedCourse,
-} from '../src/integrations/course-service/course-service.types';
+} from '../src/infrastructure/clients/course/course-service.interface';
 import {
   TENANT_CLIENT,
   type TenantClient,
-} from '../src/integrations/tenant/tenant.client';
-import { PlatformSettingsRepository } from '../src/platform-settings/platform-settings.repository';
-import { PrismaService } from '../src/prisma/prisma.service';
+} from '../src/infrastructure/clients/tenant/tenant.client';
+import { PlatformSettingsRepository } from '../src/modules/platform-settings/platform-settings.repository';
+import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 
 // ---------------------------------------------------------------------------
 // ID cố định

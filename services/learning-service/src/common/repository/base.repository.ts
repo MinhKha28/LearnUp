@@ -1,5 +1,5 @@
 import type { Prisma } from '../../../generated/prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 
 /** Client Prisma dùng được trong và ngoài transaction. */
 export type DbClient = PrismaService | Prisma.TransactionClient;

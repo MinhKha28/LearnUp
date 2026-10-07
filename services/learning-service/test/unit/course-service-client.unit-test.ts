@@ -13,14 +13,14 @@ import type { AddressInfo } from 'node:net';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { ConsoleLogger, Logger } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
-import { CourseServiceClient } from '../../src/integrations/course-service/course-service.client';
+import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
 import {
   CourseNotAvailableError,
   CourseServiceConfigurationError,
   CourseServiceContractError,
   CourseServiceError,
   CourseServiceUnavailableError,
-} from '../../src/integrations/course-service/course-service.errors';
+} from '../../src/infrastructure/clients/course/course-service.errors';
 
 const INTERNAL_KEY = 'unit-test-internal-key';
 const ORG = '0199a000-0000-7000-8000-0a0000000001';

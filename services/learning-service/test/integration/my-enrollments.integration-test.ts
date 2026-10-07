@@ -16,7 +16,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Client } from 'pg';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
-import { EnrollmentsRepository } from '../../src/enrollments/enrollments.repository';
+import { EnrollmentsRepository } from '../../src/modules/enrollments/enrollments.repository';
 import {
   courseDatabaseUrl,
   databaseUrl,

@@ -3,14 +3,15 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { InternalAuthGuard } from './common/guards/internal-auth.guard';
-import { PrismaModule } from './prisma/prisma.module';
-import { OutboxModule } from './outbox/outbox.module';
-import { IntegrationsModule } from './integrations/integrations.module';
-import { SubscriptionPlansModule } from './subscription-plans/subscription-plans.module';
-import { RegistrationsModule } from './registrations/registrations.module';
-import { UsersModule } from './users/users.module';
-import { UsersController } from './users/users.controller';
+import { PrismaModule } from './infrastructure/prisma/prisma.module';
+import { OutboxModule } from './modules/outbox/outbox.module';
+import { IntegrationsModule } from './infrastructure/clients/integrations.module';
+import { SubscriptionPlansModule } from './modules/subscription-plans/subscription-plans.module';
+import { RegistrationsModule } from './modules/registrations/registrations.module';
+import { UsersModule } from './modules/users/users.module';
+import { UsersController } from './modules/users/users.controller';
 import { DevFakeAuthMiddleware } from './common/middleware/dev-fake-auth.middleware';
+import { InvitationsModule } from './modules/invitations/invitations.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { DevFakeAuthMiddleware } from './common/middleware/dev-fake-auth.middlew
     SubscriptionPlansModule,
     RegistrationsModule,
     UsersModule, // UC12
+    InvitationsModule,
   ],
   providers: [
     {

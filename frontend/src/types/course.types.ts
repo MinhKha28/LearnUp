@@ -174,3 +174,34 @@ export interface IOrganizationCourseFilterInstructor {
   id: string;
   fullName: string;
 }
+
+export interface IUploadCourseCoverResponse {
+  fileId: string;
+  url: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
+export interface ICourseDetail {
+  id: string;
+  chainId: string;
+  versionNumber: number;
+  name: string;
+  shortDescription: string | null;
+  trainingObjectives: string | null;
+  learningOutcomes: string[];
+  coverFileId: string | null;
+  coverUrl: string | null;
+  expectedCompletionDays: number;
+  estimatedDurationMinutes: number | null;
+  courseType: CourseType;
+  status: CourseStatus;
+  locked: boolean;
+  submittedAt: string | null;
+  publishedAt: string | null;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

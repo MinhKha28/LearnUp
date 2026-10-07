@@ -29,7 +29,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { HEADER_NAMES, parseUserRole } from '@learnup/ts-common';
 import type { NextFunction, Request, Response } from 'express';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 export const DEV_USER_ID_HEADER = 'x-dev-user-id';
 

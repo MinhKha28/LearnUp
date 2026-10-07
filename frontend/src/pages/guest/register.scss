@@ -79,7 +79,6 @@
 .register-standalone { max-width: 760px; margin: 72px auto 18px; }
 .register-registration-expired { padding-top: 34px; }
 .register-registration-expired .register-standalone { margin-top: 56px; }
-.register-invalid-verification-link .register-standalone { margin-top: 76px; }
 .register-no-plans .register-standalone { margin-top: 44px; }
 
 .register-result {
@@ -139,7 +138,7 @@
   .register-field-grid { grid-template-columns: 1fr; gap: 0; }
   .register-actions .ant-btn { min-width: 86px; }
   .register-actions .ant-btn-primary { min-width: 142px; }
-  .register-standalone, .register-registration-expired .register-standalone, .register-invalid-verification-link .register-standalone, .register-no-plans .register-standalone { margin: 42px auto 16px; }
+  .register-standalone, .register-registration-expired .register-standalone, .register-no-plans .register-standalone { margin: 42px auto 16px; }
   .register-result { min-height: 350px; padding: 42px 20px; }
 }
 
@@ -149,3 +148,29 @@
 .register-payment .ant-alert { margin-top: 14px; }
 
 
+
+// UC03: màn nhập mã 6 số
+.register-otp {
+  margin: 26px 0 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+
+  .ant-otp { gap: 10px; }
+  .ant-otp-input { width: 46px; height: 52px; font-size: 20px; font-weight: 700; }
+  .ant-otp-input:focus, .ant-otp-input:hover { border-color: var(--color-accent); }
+}
+
+.register-otp-timer { margin: 0; color: var(--color-text-secondary); font-size: 10px; }
+.register-otp-timer-expired { color: var(--color-error); font-weight: 600; }
+.register-verify .ant-alert { margin-top: 14px; }
+.register-actions-group { display: flex; gap: 10px; }
+.register-actions-end { justify-content: flex-end; }
+
+@media (max-width: 767px) {
+  .register-otp .ant-otp { gap: 6px; }
+  .register-otp .ant-otp-input { width: 40px; height: 46px; font-size: 18px; }
+  .register-verify .register-actions { flex-wrap: wrap; }
+}
+.register-notice .register-notice-next { margin-top: 10px; }

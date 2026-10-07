@@ -4,13 +4,13 @@ import {
   buildCurriculum,
   neighborLessons,
   type SnapshotMaterial,
-} from '../../src/curriculum/build-curriculum';
+} from '../../src/modules/curriculum/build-curriculum';
 import type {
   CourseTree,
   CourseTreeLesson,
   CourseTreeMaterial,
   CourseTreeModule,
-} from '../../src/integrations/course-service/course-service.types';
+} from '../../src/infrastructure/clients/course/course-service.interface';
 
 const DISABLED = new Date('2026-09-30T00:00:00Z');
 

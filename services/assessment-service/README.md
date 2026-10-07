@@ -29,6 +29,23 @@ Locked flag of a Course before it lets you create, edit or delete an Assignment.
 | Nhap mon san pham (organization B) | For checking tenant isolation |
 | Ky nang giao tiep (Draft) | None, use it to try creating an Assignment |
 
+### Demo data for the identity the UI sends
+
+The Course UI sends user `3333…` / organization `2222…` (see `course.service.ts`). `npm run db:seed` in `course-service` creates
+10 Courses for it, one per case, and this seed adds Assignments to them:
+
+| Course (course-service seed) | Case | Assignments |
+| --- | --- | --- |
+| Workplace Safety Essentials | Draft | none, use it to try creating one |
+| Data Security Basics | Published, not Locked | Peer Review ON |
+| Customer Service Fundamentals | Published and Locked | one with 2 submissions (frozen, BR-98), one without; no new Assignment (BR-318) |
+| Onboarding for New Hires | Submitted | one, nothing can be edited (BR-285) |
+| Remote Work Etiquette | Rejected | one, editable like a Draft |
+| Fire Safety Basics v1 / v2 | Archived / Published (version chain) | v1 has one with a submission, v2 has none |
+| Legacy Compliance Training | Disabled | one disabled by the Organizer (BR-239) |
+| Executive Leadership Program | Private, Published | Peer Review ON |
+| Blank Draft | Draft without Modules | none |
+
 ## Talking to Course Service
 
 Course owner, status and the Locked flag are owned by Course Service, so `src/integrations/` holds a client for it
@@ -46,6 +63,23 @@ Course owner, status and the Locked flag are owned by Course Service, so `src/in
 `fake` lets you run and try this service without Course Service. **It treats every Course as owned by the caller, so
 the owner check does not apply: use it for local work only.** Errors from the client carry a `code`:
 `COURSE_NOT_FOUND` (404) and `COURSE_SERVICE_UNAVAILABLE` (503).
+
+## Prompt file (Cloudinary)
+
+An Assignment can have one PDF as its prompt (BR-320: one file, PDF, 50 MB at most) besides or instead of the text.
+
+1. `POST /api/v1/assessments/assignments/prompt-file` (multipart field `file`) stores it in Cloudinary
+   (`learnup/<organizationId>/assignments/prompts`, resource type `raw`) and returns
+   `{ fileKey, fileName, mimeType, sizeBytes }`.
+2. Send that object as `promptFile` when creating or updating the Assignment (`promptFile: null` removes it).
+   Only keys inside the caller's own prompt folder are accepted; the type is always PDF.
+3. `GET /api/v1/assessments/assignments/:id/prompt-file` downloads it (the Instructor in charge only); the service
+   fetches it from Cloudinary and sends it on.
+
+Storage comes from the shared `@learnup/ts-storage` library (see `libraries/ts-storage`), wired like course-service in
+`src/infrastructure/storage`. Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` in `.env`;
+the service does not start without them. Build the library once before `npm install`:
+`cd libraries/ts-storage && npm install && npm run build`.
 
 ## Tests
 

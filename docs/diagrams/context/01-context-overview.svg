@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 810" width="1400" height="810" font-family="Calibri, Arial, sans-serif">
+<defs><marker id="a2F6FD1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2F6FD1"/></marker><marker id="a1F8A5B" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1F8A5B"/></marker></defs>
+<rect width="1400" height="810" fill="#ffffff"/>
+<text x="700" y="36" text-anchor="middle" font-size="22" font-weight="700" fill="#111">Figure 1 - Context diagram (overview): LearnUP and everything around it</text>
+<text x="700" y="60" text-anchor="middle" font-size="13" fill="#555">5 actor roles and 4 external systems; the next figures detail each side</text>
+<rect x="580" y="90" width="240" height="650" rx="22" fill="#E3F5EC" stroke="#1F8A5B" stroke-width="3"/>
+<text x="700" y="397" text-anchor="middle" font-size="26" font-weight="800" fill="#0F5233">LearnUP</text>
+<text x="700" y="423" text-anchor="middle" font-size="13" fill="#0F5233">B2B multi-tenant online learning</text>
+<text x="700" y="441" text-anchor="middle" font-size="13" fill="#0F5233">and corporate training platform</text>
+<text x="700" y="467" text-anchor="middle" font-size="11" fill="#0F5233" opacity="0.8">system boundary</text>
+<rect x="20" y="109.5" width="190" height="76" rx="6" fill="#E6F0FF" stroke="#2F6FD1" stroke-width="2"/>
+<text x="115" y="149.5" text-anchor="middle" font-size="15" font-weight="700" fill="#123A7A">Guest</text>
+<text x="115" y="175.5" text-anchor="middle" font-size="11" fill="#123A7A" opacity="0.8">external actor</text>
+<text x="395" y="119" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Organization and Organizer registration data</text>
+<text x="395" y="134" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Payment request, resend-link request</text>
+<line x1="216" y1="144" x2="574" y2="144" stroke="#2F6FD1" stroke-width="2" marker-end="url(#a2F6FD1)"/>
+<text x="395" y="167" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Subscription plans, registration and payment result</text>
+<line x1="574" y1="177" x2="216" y2="177" stroke="#1F8A5B" stroke-width="2" marker-end="url(#a1F8A5B)"/>
+<rect x="20" y="239.5" width="190" height="76" rx="6" fill="#E6F0FF" stroke="#2F6FD1" stroke-width="2"/>
+<text x="115" y="279.5" text-anchor="middle" font-size="15" font-weight="700" fill="#123A7A">Organizer</text>
+<text x="115" y="305.5" text-anchor="middle" font-size="11" fill="#123A7A" opacity="0.8">external actor</text>
+<text x="395" y="234" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Subscription, organization, user account and training</text>
+<text x="395" y="249" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">   assignment data</text>
+<text x="395" y="264" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Course approval and report decisions</text>
+<line x1="216" y1="274" x2="574" y2="274" stroke="#2F6FD1" stroke-width="2" marker-end="url(#a2F6FD1)"/>
+<text x="395" y="297" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Subscription, accounts, courses to approve, reports</text>
+<text x="395" y="312" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">   and logs</text>
+<line x1="574" y1="322" x2="216" y2="322" stroke="#1F8A5B" stroke-width="2" marker-end="url(#a1F8A5B)"/>
+<rect x="20" y="377" width="190" height="76" rx="6" fill="#E6F0FF" stroke="#2F6FD1" stroke-width="2"/>
+<text x="115" y="417" text-anchor="middle" font-size="15" font-weight="700" fill="#123A7A">Instructor</text>
+<text x="115" y="443" text-anchor="middle" font-size="11" fill="#123A7A" opacity="0.8">external actor</text>
+<text x="395" y="379" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Course, curriculum, material and assessment content</text>
+<text x="395" y="394" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Grades and final results</text>
+<line x1="216" y1="404" x2="574" y2="404" stroke="#2F6FD1" stroke-width="2" marker-end="url(#a2F6FD1)"/>
+<text x="395" y="427" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Assigned courses, submissions to grade, peer review</text>
+<text x="395" y="442" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">   cycles, reports</text>
+<line x1="574" y1="452" x2="216" y2="452" stroke="#1F8A5B" stroke-width="2" marker-end="url(#a1F8A5B)"/>
+<rect x="20" y="507" width="190" height="76" rx="6" fill="#E6F0FF" stroke="#2F6FD1" stroke-width="2"/>
+<text x="115" y="547" text-anchor="middle" font-size="15" font-weight="700" fill="#123A7A">Learner</text>
+<text x="115" y="573" text-anchor="middle" font-size="11" fill="#123A7A" opacity="0.8">external actor</text>
+<text x="395" y="509" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Enrollment requests, quiz answers, assignment</text>
+<text x="395" y="524" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">   submissions</text>
+<text x="395" y="539" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Peer reviews and evaluation forms</text>
+<line x1="216" y1="549" x2="574" y2="549" stroke="#2F6FD1" stroke-width="2" marker-end="url(#a2F6FD1)"/>
+<text x="395" y="572" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Catalog, learning content, results, certificates</text>
+<line x1="574" y1="582" x2="216" y2="582" stroke="#1F8A5B" stroke-width="2" marker-end="url(#a1F8A5B)"/>
+<rect x="20" y="637" width="190" height="76" rx="6" fill="#E6F0FF" stroke="#2F6FD1" stroke-width="2"/>
+<text x="115" y="677" text-anchor="middle" font-size="15" font-weight="700" fill="#123A7A">Admin</text>
+<text x="115" y="703" text-anchor="middle" font-size="11" fill="#123A7A" opacity="0.8">external actor</text>
+<text x="395" y="639" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Plan and configuration updates</text>
+<text x="395" y="654" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Organization sanctions, platform report decisions</text>
+<line x1="216" y1="664" x2="574" y2="664" stroke="#2F6FD1" stroke-width="2" marker-end="url(#a2F6FD1)"/>
+<text x="395" y="687" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Platform statistics, organization lists, escalated</text>
+<text x="395" y="702" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">   reports, platform logs</text>
+<line x1="574" y1="712" x2="216" y2="712" stroke="#1F8A5B" stroke-width="2" marker-end="url(#a1F8A5B)"/>
+<rect x="1190" y="132.625" width="190" height="76" rx="6" fill="#FFF1DE" stroke="#D9822B" stroke-width="2"/>
+<text x="1285" y="172.625" text-anchor="middle" font-size="15" font-weight="700" fill="#7A4208">Email Service</text>
+<text x="1285" y="198.625" text-anchor="middle" font-size="11" fill="#7A4208" opacity="0.8">external system</text>
+<text x="1005" y="149.625" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Invitation, verification, reset and notification</text>
+<text x="1005" y="164.625" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">   emails</text>
+<line x1="826" y1="174.625" x2="1184" y2="174.625" stroke="#1F8A5B" stroke-width="2" marker-end="url(#a1F8A5B)"/>
+<rect x="1190" y="293.875" width="190" height="76" rx="6" fill="#FFF1DE" stroke="#D9822B" stroke-width="2"/>
+<text x="1285" y="333.875" text-anchor="middle" font-size="15" font-weight="700" fill="#7A4208">Mock Payment Service</text>
+<text x="1285" y="359.875" text-anchor="middle" font-size="11" fill="#7A4208" opacity="0.8">external system</text>
+<text x="1005" y="310.875" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Payment result</text>
+<line x1="1184" y1="320.875" x2="826" y2="320.875" stroke="#2F6FD1" stroke-width="2" marker-end="url(#a2F6FD1)"/>
+<text x="1005" y="343.875" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Payment request (register, renew, upgrade)</text>
+<line x1="826" y1="353.875" x2="1184" y2="353.875" stroke="#1F8A5B" stroke-width="2" marker-end="url(#a1F8A5B)"/>
+<rect x="1190" y="455.125" width="190" height="76" rx="6" fill="#FFF1DE" stroke="#D9822B" stroke-width="2"/>
+<text x="1285" y="481.125" text-anchor="middle" font-size="15" font-weight="700" fill="#7A4208">Google Identity</text>
+<text x="1285" y="498.125" text-anchor="middle" font-size="15" font-weight="700" fill="#7A4208">Service</text>
+<text x="1285" y="521.125" text-anchor="middle" font-size="11" fill="#7A4208" opacity="0.8">external system</text>
+<text x="1005" y="472.125" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Verified Google identity</text>
+<line x1="1184" y1="482.125" x2="826" y2="482.125" stroke="#2F6FD1" stroke-width="2" marker-end="url(#a2F6FD1)"/>
+<text x="1005" y="505.125" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Sign-in verification request</text>
+<line x1="826" y1="515.125" x2="1184" y2="515.125" stroke="#1F8A5B" stroke-width="2" marker-end="url(#a1F8A5B)"/>
+<rect x="1190" y="618.875" width="190" height="76" rx="6" fill="#FFF1DE" stroke="#D9822B" stroke-width="2"/>
+<text x="1285" y="658.875" text-anchor="middle" font-size="15" font-weight="700" fill="#7A4208">Media Storage Service</text>
+<text x="1285" y="684.875" text-anchor="middle" font-size="11" fill="#7A4208" opacity="0.8">external system</text>
+<text x="1005" y="628.375" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Stored file or stream to play or download</text>
+<line x1="1184" y1="638.375" x2="826" y2="638.375" stroke="#2F6FD1" stroke-width="2" marker-end="url(#a2F6FD1)"/>
+<text x="1005" y="661.375" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">• Files to store: materials, covers, logos, submissions,</text>
+<text x="1005" y="676.375" text-anchor="middle" font-size="12" fill="#222" xml:space="preserve">   exports</text>
+<line x1="826" y1="686.375" x2="1184" y2="686.375" stroke="#1F8A5B" stroke-width="2" marker-end="url(#a1F8A5B)"/>
+<line x1="40" y1="774" x2="90" y2="774" stroke="#2F6FD1" stroke-width="2" marker-end="url(#a2F6FD1)"/>
+<text x="98" y="778" font-size="12" fill="#222">data sent to LearnUP</text>
+<line x1="250" y1="774" x2="300" y2="774" stroke="#1F8A5B" stroke-width="2" marker-end="url(#a1F8A5B)"/>
+<text x="308" y="778" font-size="12" fill="#222">data sent by LearnUP</text>
+<text x="1380" y="778" text-anchor="end" font-size="11" font-style="italic" fill="#555">Source: actors and external actors of the 167 use cases</text>
+</svg>
