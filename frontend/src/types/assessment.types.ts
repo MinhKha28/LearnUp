@@ -138,6 +138,21 @@ export interface IQuizList {
   courseStatus: string;
 }
 
+/**
+ * UC18.2 payload (BR-156). `moduleId` omitted = attached to the Course (BR-154).
+ * `isRequired` has no default; n and m fall back to the platform defaults when omitted (BR-175).
+ */
+export interface ICreateQuizReq {
+  courseId: string;
+  moduleId?: string;
+  title: string;
+  timeLimitMinutes: number;
+  passingScore: number;
+  isRequired: boolean;
+  maxConsecutiveAttempts?: number;
+  lockoutHours?: number;
+}
+
 /** UC19.3 payload: send only what changed. `promptFile: null` removes the attachment. */
 export type IUpdateAssignment = Partial<Omit<ICreateAssignment, "courseId" | "promptFile">> & {
   promptFile?: IPromptFile | null;

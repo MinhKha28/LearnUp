@@ -152,6 +152,9 @@ class StubCourseClient extends CourseServiceClient {
   getAuthoringContext(): Promise<CourseAuthoringContext> {
     return Promise.resolve(this.ctx);
   }
+  getModuleIds(): Promise<string[] | null> {
+    return Promise.resolve(null);
+  }
 }
 
 export interface BuildOptions {

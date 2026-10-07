@@ -1,4 +1,4 @@
-import axios from "@/services/axios.customize";
+import { courseAxios as axios } from "@/services/axios.customize";
 
 import type {
   ICourseDetail,

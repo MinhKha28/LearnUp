@@ -1,14 +1,19 @@
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { createPageResponse, type CurrentUser } from '@learnup/ts-common';
+import type { Prisma } from 'generated/prisma/browser';
+import { AUTHORABLE_STATUSES } from '../assessments/assessments.service';
 import {
   CourseAuthoringContext,
   CourseServiceClient,
 } from '../../infrastructure/clients/course/course-service.client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { CreateQuizDto } from './dto/create-quiz.dto';
 import { ListQuizzesQueryDto } from './dto/list-quizzes-query.dto';
 import {
   QUIZ_KIND,
@@ -16,6 +21,15 @@ import {
   QuizLockReason,
   QuizSummary,
 } from './interfaces/quiz-list.interface';
+
+/** What a list row needs besides the columns: question and attempt counts in the same query (no N+1). */
+const quizSummaryInclude = {
+  _count: { select: { questions: true, quizAttempts: true } },
+} satisfies Prisma.AssessmentInclude;
+
+type QuizSummaryRow = Prisma.AssessmentGetPayload<{
+  include: typeof quizSummaryInclude;
+}>;
 
 @Injectable()
 export class QuizService {
@@ -46,43 +60,12 @@ export class QuizService {
         { position: 'asc' },
         { id: 'asc' },
       ],
-      include: {
-        _count: { select: { questions: true, quizAttempts: true } },
-      },
+      include: quizSummaryInclude,
     });
 
     // Course-level reasons are the same for every Quiz of the Course.
-    const courseReasons: QuizLockReason[] = [];
-    if (course.locked) courseReasons.push('COURSE_LOCKED'); // BR-94
-    // BR-285. Course Service writes 'SUBMITTED' while its seed and fake client use 'Submitted'.
-    if (course.status.toUpperCase() === 'SUBMITTED') {
-      courseReasons.push('COURSE_SUBMITTED');
-    }
-
-    const items: QuizSummary[] = rows.map((q) => {
-      const hasAttempts = q._count.quizAttempts > 0;
-      // BR-96 / BR-97: questions, time limit, n and m are frozen once a Learner has started the Quiz.
-      const lockReasons: QuizLockReason[] = hasAttempts
-        ? ['QUIZ_HAS_ATTEMPTS', ...courseReasons]
-        : [...courseReasons];
-      return {
-        id: q.id,
-        courseId: q.courseId,
-        moduleId: q.moduleId,
-        title: q.title,
-        position: q.position,
-        questionCount: q._count.questions,
-        passingScore: Number(q.passingScore),
-        isRequired: q.isRequired,
-        timeLimitMinutes: q.timeLimitMinutes,
-        maxConsecutiveAttempts: q.maxConsecutiveAttempts,
-        lockoutHours: q.lockoutHours,
-        hasAttempts,
-        locked: lockReasons.length > 0,
-        lockReasons,
-        disabled: q.disabledAt !== null,
-      };
-    });
+    const courseReasons = this.courseLockReasons(course);
+    const items = rows.map((q) => this.toSummary(q, courseReasons));
 
     return {
       // A Course holds few Quizzes, so everything is returned as a single page.
@@ -90,6 +73,127 @@ export class QuizService {
       // BR-99: lets the UI explain why the Quizzes cannot be edited.
       courseLocked: course.locked,
       courseStatus: course.status,
+    };
+  }
+
+  /** UC18.2 — create a Quiz attached to a Module or to the Course (BR-154, BR-156). */
+  async createQuiz(
+    user: CurrentUser,
+    dto: CreateQuizDto,
+  ): Promise<QuizSummary> {
+    const organizationId = this.requireInstructor(user);
+    const course = await this.requireOwnCourse(user, dto.courseId);
+
+    // BR-285 / BR-69 / BR-284: only Draft, Rejected and not-yet-Locked Published Courses are authorable.
+    if (
+      course.disabled ||
+      !AUTHORABLE_STATUSES.includes(course.status.toUpperCase())
+    ) {
+      throw new ConflictException({
+        code: 'COURSE_NOT_EDITABLE',
+        message: `Quizzes cannot be added while the Course is ${course.status}.`,
+      });
+    }
+    // BR-318: once Locked, only an optional Quiz can be added (unlike Assignments, which are blocked).
+    if (course.locked && dto.isRequired) {
+      throw new ConflictException({
+        code: 'REQUIRED_QUIZ_ON_LOCKED_COURSE',
+        message:
+          'The Course is Locked because a Learner has enrolled, so only an optional Quiz can be added.',
+      });
+    }
+
+    const moduleId = dto.moduleId ?? null;
+    if (moduleId) {
+      // null = the fake client does not know the Module tree and accepts any moduleId.
+      const moduleIds = await this.courses.getModuleIds(dto.courseId, user);
+      if (moduleIds && !moduleIds.includes(moduleId)) {
+        throw new BadRequestException({
+          code: 'MODULE_NOT_IN_COURSE',
+          message: 'The selected Module does not belong to this Course.',
+        });
+      }
+    }
+
+    // BR-175 / BR-269: copy the platform defaults at creation time (same read as createAssignment).
+    const settings = await this.prisma.platformSetting.findFirst({
+      orderBy: { createdAt: 'desc' },
+    });
+    const maxConsecutiveAttempts =
+      dto.maxConsecutiveAttempts ??
+      settings?.defaultMaxConsecutiveAttempts ??
+      3;
+    const lockoutHours =
+      dto.lockoutHours ?? settings?.defaultLockoutHours ?? 24;
+
+    const quiz = await this.prisma.$transaction(async (tx) => {
+      // Same lock expression as createAssignment, so Quiz and Assignment creates on one Course serialise.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${dto.courseId}::text))`;
+      // BR-291 / BR-318: Quizzes and Assignments share the order of one place; a new one goes last.
+      const last = await tx.assessment.aggregate({
+        where: { courseId: dto.courseId, moduleId },
+        _max: { position: true },
+      });
+
+      return tx.assessment.create({
+        data: {
+          organizationId,
+          courseId: dto.courseId,
+          moduleId,
+          kind: QUIZ_KIND,
+          title: dto.title,
+          position: (last._max.position ?? 0) + 1,
+          passingScore: dto.passingScore,
+          maxConsecutiveAttempts,
+          lockoutHours,
+          isRequired: dto.isRequired,
+          timeLimitMinutes: dto.timeLimitMinutes,
+          peerReviewEnabled: false, // Quiz: no prompt, no peer review
+        },
+        include: quizSummaryInclude,
+      });
+    });
+    // BR-52: a Quiz time limit is not part of the Course duration, so no outbox event.
+
+    return this.toSummary(quiz, this.courseLockReasons(course));
+  }
+
+  /** Reasons that come from the Course and apply to every Quiz in it (BR-99). */
+  private courseLockReasons(course: CourseAuthoringContext): QuizLockReason[] {
+    const reasons: QuizLockReason[] = [];
+    if (course.locked) reasons.push('COURSE_LOCKED'); // BR-94
+    // BR-285. Course Service writes 'SUBMITTED' while its seed and fake client use 'Submitted'.
+    if (course.status.toUpperCase() === 'SUBMITTED') {
+      reasons.push('COURSE_SUBMITTED');
+    }
+    return reasons;
+  }
+
+  private toSummary(
+    q: QuizSummaryRow,
+    courseReasons: QuizLockReason[],
+  ): QuizSummary {
+    const hasAttempts = q._count.quizAttempts > 0;
+    // BR-96 / BR-97: questions, time limit, n and m are frozen once a Learner has started the Quiz.
+    const lockReasons: QuizLockReason[] = hasAttempts
+      ? ['QUIZ_HAS_ATTEMPTS', ...courseReasons]
+      : [...courseReasons];
+    return {
+      id: q.id,
+      courseId: q.courseId,
+      moduleId: q.moduleId,
+      title: q.title,
+      position: q.position,
+      questionCount: q._count.questions,
+      passingScore: Number(q.passingScore),
+      isRequired: q.isRequired,
+      timeLimitMinutes: q.timeLimitMinutes,
+      maxConsecutiveAttempts: q.maxConsecutiveAttempts,
+      lockoutHours: q.lockoutHours,
+      hasAttempts,
+      locked: lockReasons.length > 0,
+      lockReasons,
+      disabled: q.disabledAt !== null,
     };
   }
 

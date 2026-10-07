@@ -1,7 +1,7 @@
 import { LockOutlined } from "@ant-design/icons";
 import { Tooltip } from "antd";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { useOutletContext, useParams } from "react-router-dom";
+import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage, StatusTag } from "@/components/instructor/instructor.ui";
 import { assessmentErrorText, fetchQuizzesAPI } from "@/services/assessment.service";
@@ -33,8 +33,12 @@ const ComingSoon = ({ children }: { children: ReactNode }) => (
 
 const CourseBuilderQuizzes = () => {
   const { courseId } = useParams();
+  const navigate = useNavigate();
   const { structure } = useOutletContext<ICourseBuilderOutletContext>();
   const course = structure.course;
+  const base = `/instructor/courses/${course.id}/builder`;
+  // UC18.2: Draft, Rejected and Published Courses can take a new Quiz (BR-285, BR-69, BR-284).
+  const canAdd = ["DRAFT", "REJECTED", "PUBLISHED"].includes(course.status.toUpperCase());
 
   const [quizzes, setQuizzes] = useState<IQuizSummary[]>([]);
   const [courseLocked, setCourseLocked] = useState(false);
@@ -227,11 +231,19 @@ const CourseBuilderQuizzes = () => {
           )}
 
           <div className="builder-actions">
-            <ComingSoon>
-              <InstructorButton type="primary" disabled>
+            {canAdd ? (
+              <InstructorButton type="primary" onClick={() => navigate(`${base}/quizzes/new`)}>
                 + Create Quiz
               </InstructorButton>
-            </ComingSoon>
+            ) : (
+              <Tooltip title={structure.lockReason ?? `The Course is ${course.status}, so no Quiz can be added.`}>
+                <span className="builder-quiz-soon">
+                  <InstructorButton type="primary" disabled>
+                    + Create Quiz
+                  </InstructorButton>
+                </span>
+              </Tooltip>
+            )}
           </div>
         </div>
         <div className="builder-side">
