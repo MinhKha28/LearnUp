@@ -67,8 +67,8 @@ describe('createAssignment (UC19.2)', () => {
       'ASSIGNMENT_PROMPT_REQUIRED',
     );
     // a file alone is enough
-    const { assessments: withFile } = build();
-    const { fileKey } = await withFile.uploadPromptFile(instructor, {
+    const { assessments: withFile, media } = build();
+    const { fileKey } = await media.uploadPromptFile(instructor, {
       buffer: Buffer.from('%PDF-1.4 x'),
       originalname: 'brief.pdf',
       size: 10,
@@ -531,12 +531,16 @@ describe('deleteAssignment (UC19.4)', () => {
 describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row)', () => {
   const pdf = (name = 'brief.pdf', size?: number) => {
     const buffer = Buffer.from('%PDF-1.4 content');
-    return { buffer, originalname: name, size: size ?? buffer.length };
+    return {
+      buffer,
+      originalname: name,
+      size: size ?? buffer.length,
+    } as Express.Multer.File;
   };
 
   test('a PDF is stored and the key is handed back', async () => {
-    const { assessments, storage } = build();
-    const result = await assessments.uploadPromptFile(instructor, pdf());
+    const { media, storage } = build();
+    const result = await media.uploadPromptFile(instructor, pdf());
     assert.equal(result.mimeType, 'application/pdf');
     assert.equal(result.fileName, 'brief.pdf');
     assert.equal(result.sizeBytes, 16);
@@ -548,43 +552,40 @@ describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row
   });
 
   test('a storage that is down is a 503, not a crash', async () => {
-    const { assessments, storage } = build();
+    const { media, storage } = build();
     storage.upload = () => Promise.reject(new StorageProviderError('boom'));
     await rejectsWith(
-      assessments.uploadPromptFile(instructor, pdf()),
+      media.uploadPromptFile(instructor, pdf()),
       ServiceUnavailableException,
       'STORAGE_UNAVAILABLE',
     );
   });
 
   test('accented file names survive the latin1 reading done by the upload library', async () => {
-    const { assessments } = build();
+    const { media } = build();
     const asMulterSees = Buffer.from('Đề bài.pdf', 'utf8').toString('latin1');
-    const result = await assessments.uploadPromptFile(
-      instructor,
-      pdf(asMulterSees),
-    );
+    const result = await media.uploadPromptFile(instructor, pdf(asMulterSees));
     assert.equal(result.fileName, 'Đề bài.pdf');
   });
 
   test('only an Instructor can upload', async () => {
-    const { assessments } = build();
+    const { media } = build();
     await rejectsWith(
-      assessments.uploadPromptFile(asRole('LEARNER'), pdf()),
+      media.uploadPromptFile(asRole('LEARNER'), pdf()),
       ForbiddenException,
       'FORBIDDEN',
     );
   });
 
   test('no file, a file that is not a PDF, or one over 50 MB is refused', async () => {
-    const { assessments, storage } = build();
+    const { media, storage } = build();
     await rejectsWith(
-      assessments.uploadPromptFile(instructor, undefined),
+      media.uploadPromptFile(instructor, undefined),
       BadRequestException,
       'PROMPT_FILE_REQUIRED',
     );
     await rejectsWith(
-      assessments.uploadPromptFile(instructor, {
+      media.uploadPromptFile(instructor, {
         buffer: Buffer.from('MZ not a pdf'),
         originalname: 'virus.pdf',
         size: 12,
@@ -593,10 +594,7 @@ describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row
       'PROMPT_FILE_NOT_PDF',
     );
     await rejectsWith(
-      assessments.uploadPromptFile(
-        instructor,
-        pdf('big.pdf', 50 * 1024 * 1024 + 1),
-      ),
+      media.uploadPromptFile(instructor, pdf('big.pdf', 50 * 1024 * 1024 + 1)),
       BadRequestException,
       'PROMPT_FILE_TOO_LARGE',
     );
@@ -629,10 +627,10 @@ describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row
   });
 
   test('update can swap the file, and remove it while a prompt text remains', async () => {
-    const { assessments, storage, calls } = build({
+    const { assessments, media, storage, calls } = build({
       row: assignmentRow({ promptFileKey: 'old.pdf', prompt: 'text' }),
     });
-    const { fileKey } = await assessments.uploadPromptFile(instructor, {
+    const { fileKey } = await media.uploadPromptFile(instructor, {
       buffer: Buffer.from('%PDF-1.7'),
       originalname: 'new.pdf',
       size: 8,

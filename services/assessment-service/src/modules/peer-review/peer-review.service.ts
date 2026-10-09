@@ -1,19 +1,20 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 
+import { AssessmentsRepository } from '../assessments/assessments.repository';
 import {
   AssessmentsService,
   AUTHORABLE_STATUSES,
-  assignmentInclude,
 } from '../assessments/assessments.service';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { UpdatePeerReviewDto } from './dto/update-peer-review.dto';
-import { Prisma } from 'generated/prisma/browser';
+import { PeerReviewRepository } from './peer-review.repository';
+import type { Prisma } from 'generated/prisma/browser';
 
 @Injectable()
 export class PeerReviewService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repository: PeerReviewRepository,
+    private readonly assessmentsRepository: AssessmentsRepository,
     private readonly assessments: AssessmentsService,
   ) {}
 
@@ -48,9 +49,8 @@ export class PeerReviewService {
 
     let data: Prisma.AssessmentUpdateInput = { peerReviewEnabled: dto.enabled };
     if (dto.enabled) {
-      const settings = await this.prisma.platformSetting.findFirst({
-        orderBy: { createdAt: 'desc' },
-      });
+      const settings =
+        await this.assessmentsRepository.findLatestPlatformSetting();
       data = {
         peerReviewEnabled: true,
         peerReviewersPerSubmission: dto.reviewersPerSubmission,
@@ -69,11 +69,7 @@ export class PeerReviewService {
     }
 
     // BR-269: new values apply only to cycles created afterwards; existing cycles keep their dates.
-    const updated = await this.prisma.assessment.update({
-      where: { id: assignment.id },
-      data,
-      include: assignmentInclude,
-    });
+    const updated = await this.repository.updateConfig(assignment.id, data);
     return this.assessments.toDetail(updated, course.locked);
   }
 }

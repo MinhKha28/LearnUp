@@ -10,19 +10,11 @@ import {
   Patch,
   Post,
   Query,
-  Res,
-  UploadedFile,
-  UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import type { Response } from 'express';
 import { ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '../../common/decorator/customize';
-import {
-  AssessmentsService,
-  PROMPT_FILE_MAX_BYTES,
-} from './assessments.service';
+import { AssessmentsService } from './assessments.service';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 
@@ -71,41 +63,6 @@ export class AssessmentsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.service.deleteAssignment(user, id);
-  }
-
-  /** UC19.2 / UC19.3 — Upload the prompt file (one PDF, BR-320). Send it as multipart field "file". */
-  @Post('assignments/prompt-file')
-  @HttpCode(HttpStatus.CREATED)
-  @ResponseMessage('Prompt file uploaded successfully.')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { files: 1, fileSize: PROMPT_FILE_MAX_BYTES },
-    }),
-  )
-  uploadPromptFile(
-    @User() user: CurrentUser,
-    @UploadedFile() file?: Express.Multer.File,
-  ) {
-    return this.service.uploadPromptFile(user, file);
-  }
-
-  /** UC19.1 — Download the prompt file of an Assignment */
-  @Get('assignments/:id/prompt-file')
-  async downloadPromptFile(
-    @User() user: CurrentUser,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Res() res: Response,
-  ): Promise<void> {
-    const { content, fileName, mimeType } =
-      await this.service.downloadPromptFile(user, id);
-    // Sent as a raw file, so it is not wrapped like the JSON answers.
-    res
-      .type(mimeType)
-      .set(
-        'Content-Disposition',
-        `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
-      )
-      .send(content);
   }
 
   /** UC19.2 — Create Assignment */

@@ -4,11 +4,14 @@
  */
 import assert from 'node:assert/strict';
 import type { CurrentUser } from '@learnup/ts-common';
+import { AssessmentsRepository } from '../../src/modules/assessments/assessments.repository';
 import { AssessmentsService } from '../../src/modules/assessments/assessments.service';
+import { AssignmentMediaService } from '../../src/modules/assessments/assignment-media.service';
 import {
   CourseAuthoringContext,
   CourseServiceClient,
 } from '../../src/infrastructure/clients/course/course-service.client';
+import { PeerReviewRepository } from '../../src/modules/peer-review/peer-review.repository';
 import { PeerReviewService } from '../../src/modules/peer-review/peer-review.service';
 import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { RubricsService } from '../../src/modules/rubrics/rubrics.service';
@@ -273,13 +276,23 @@ export function build(opts: BuildOptions = {}) {
   const courses = new StubCourseClient(draftCourse(opts.course));
   const rubrics = new RubricsService();
   const storage = new MemoryStorage();
+  const repository = new AssessmentsRepository(prisma);
+  const media = new AssignmentMediaService(storage, repository);
+  const assessments = new AssessmentsService(
+    repository,
+    courses,
+    rubrics,
+    media,
+  );
   return {
     calls,
     storage,
-    assessments: new AssessmentsService(prisma, courses, rubrics, storage),
+    media,
+    assessments,
     peerReview: new PeerReviewService(
-      prisma,
-      new AssessmentsService(prisma, courses, rubrics, storage),
+      new PeerReviewRepository(prisma),
+      repository,
+      assessments,
     ),
   };
 }
