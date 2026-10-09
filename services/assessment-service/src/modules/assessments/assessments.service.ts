@@ -5,11 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  createPageResponse,
-  type CurrentUser,
-  type PageResponse,
-} from '@learnup/ts-common';
+import { createPageResponse, type CurrentUser } from '@learnup/ts-common';
 import {
   CourseAuthoringContext,
   CourseServiceClient,
@@ -24,6 +20,10 @@ import { PDF_MIME } from './assignment-media.constants';
 import { AssignmentMediaService } from './assignment-media.service';
 import type { Prisma } from 'generated/prisma/browser';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import type { AssignmentDetail } from './interfaces/assignment-detail.interface';
+import type { AssignmentListPage } from './interfaces/assignment-list-page.interface';
+import type { AssignmentRow } from './interfaces/assignment-row.interface';
+import type { AssignmentSummary } from './interfaces/assignment-summary.interface';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 
 // Course states in which an Instructor may author (BR-284: Published stays editable until Locked;
@@ -31,28 +31,6 @@ import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 export const AUTHORABLE_STATUSES = ['DRAFT', 'REJECTED', 'PUBLISHED'];
 
 export { assignmentInclude };
-
-type AssignmentRow = NonNullable<
-  Awaited<ReturnType<AssessmentsService['findAssignmentRow']>>
->;
-
-export interface AssignmentSummary {
-  id: string;
-  courseId: string;
-  title: string;
-  position: number;
-  peerReviewEnabled: boolean;
-  maxConsecutiveAttempts: number;
-  lockoutHours: number;
-  locked: boolean;
-  disabled: boolean;
-}
-
-/** Same shape as the other list endpoints ({ meta, items }) plus the Course-level flags the UI needs. */
-export interface AssignmentListPage extends PageResponse<AssignmentSummary> {
-  courseLocked: boolean;
-  courseStatus: string;
-}
 
 @Injectable()
 export class AssessmentsService {
@@ -474,7 +452,7 @@ export class AssessmentsService {
     return course;
   }
 
-  toDetail(a: AssignmentRow, courseLocked: boolean) {
+  toDetail(a: AssignmentRow, courseLocked: boolean): AssignmentDetail {
     return {
       id: a.id,
       courseId: a.courseId,

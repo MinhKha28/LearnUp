@@ -8,7 +8,7 @@ import {
 } from '../assessments/assessments.service';
 import { UpdatePeerReviewDto } from './dto/update-peer-review.dto';
 import { PeerReviewRepository } from './peer-review.repository';
-import type { Prisma } from 'generated/prisma/browser';
+import type { PeerReviewUpdateData } from './interfaces/peer-review-update-data.interface';
 
 @Injectable()
 export class PeerReviewService {
@@ -47,7 +47,7 @@ export class PeerReviewService {
       });
     }
 
-    let data: Prisma.AssessmentUpdateInput = { peerReviewEnabled: dto.enabled };
+    let data: PeerReviewUpdateData = { peerReviewEnabled: dto.enabled };
     if (dto.enabled) {
       const settings =
         await this.assessmentsRepository.findLatestPlatformSetting();
