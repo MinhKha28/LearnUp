@@ -232,15 +232,10 @@ export class RegistrationsService {
       registration.status === RegistrationStatus.PendingPayment &&
       !registration.emailVerifiedAt
     ) {
-      await this.prisma.registration.updateMany({
-        where: { id: registration.id, emailVerifiedAt: null },
-        data: {
-          emailVerifiedAt: new Date(),
-          otpHash: null,
-          otpExpiresAt: null,
-          otpFailedAttempts: 0,
-        },
-      });
+      await this.registrationsRepository.markVerifiedByLink(
+        registration.id,
+        new Date(),
+      );
     }
 
     return {
@@ -413,22 +408,19 @@ export class RegistrationsService {
       message: 'Mã xác thực không đúng.',
     });
 
-    const registration = await this.prisma.registration.findFirst({
-      where: {
-        status: RegistrationStatus.PendingPayment,
-        organizer: { email: dto.email, deletedAt: null },
-      },
-    });
+    const registration =
+      await this.registrationsRepository.findPendingByOrganizerEmail(dto.email);
+
     if (!registration || registration.expiresAt.getTime() <= now.getTime())
       throw invalidOtp;
 
     const { rawToken, tokenHash } = generateSecretToken();
     const outcome = await this.prisma.$transaction(async (tx) => {
       // Khóa dòng: các request song song phải xếp hàng, không cùng lúc vượt giới hạn sai.
-      await tx.$queryRaw`SELECT id FROM registrations WHERE id = ${registration.id}::uuid FOR UPDATE`;
-      const current = await tx.registration.findUniqueOrThrow({
-        where: { id: registration.id },
-      });
+      const current = await this.registrationsRepository.findByIdForUpdate(
+        registration.id,
+        tx,
+      );
 
       if (
         current.status !== RegistrationStatus.PendingPayment ||
@@ -444,24 +436,20 @@ export class RegistrationsService {
         return 'expired' as const; // BR-337: hết hạn hoặc sai quá số lần → phải yêu cầu mã mới
       }
       if (!isOtpMatch(this.otpSecret(), current.id, dto.otp, current.otpHash)) {
-        await tx.registration.update({
-          where: { id: current.id },
-          data: { otpFailedAttempts: { increment: 1 } },
-        });
+        await this.registrationsRepository.incrementOtpFailedAttempts(
+          current.id,
+          tx,
+        );
         return 'wrong' as const;
       }
 
       // Đúng mã: xác thực, xóa mã, phát liên kết mở lại mới (liên kết trong thư 1 mất hiệu lực).
-      await tx.registration.update({
-        where: { id: current.id },
-        data: {
-          emailVerifiedAt: now,
-          otpHash: null,
-          otpExpiresAt: null,
-          otpFailedAttempts: 0,
-          reopenTokenHash: tokenHash,
-        },
-      });
+      await this.registrationsRepository.markVerifiedByOtp(
+        current.id,
+        now,
+        tokenHash,
+        tx,
+      );
       return 'verified' as const;
     });
 
@@ -486,10 +474,10 @@ export class RegistrationsService {
 
   /** Tìm đăng ký theo liên kết: băm chuỗi gốc rồi tra cột reopen_token_hash. */
   private async findByTokenOrThrow(rawToken: string) {
-    const registration = await this.prisma.registration.findUnique({
-      where: { reopenTokenHash: hashToken(rawToken) },
-      include: { organization: true, organizer: true, plan: true },
-    });
+    const registration =
+      await this.registrationsRepository.findByReopenTokenHash(
+        hashToken(rawToken),
+      );
     if (!registration) {
       throw new NotFoundException({
         code: 'INVALID_LINK',

@@ -106,4 +106,91 @@ export class RegistrationsRepository extends BaseRepository {
       data: { reopenTokenHash: tokenHash, ...counter },
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // UC02.1 / UC03 - liên kết mở lại đăng ký
+  // ---------------------------------------------------------------------------
+
+  /** Tìm theo mã băm liên kết, kèm tổ chức, Organizer và gói (màn tóm tắt + thanh toán). */
+  findByReopenTokenHash(
+    tokenHash: Uint8Array<ArrayBuffer>,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.db(tx).registration.findUnique({
+      where: { reopenTokenHash: tokenHash },
+      include: { organization: true, organizer: true, plan: true },
+    });
+  }
+
+  /** BR-6: mở liên kết = đã xác thực email; chỉ ghi khi chưa xác thực. */
+  markVerifiedByLink(
+    registrationId: string,
+    verifiedAt: Date,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.db(tx).registration.updateMany({
+      where: { id: registrationId, emailVerifiedAt: null },
+      data: {
+        emailVerifiedAt: verifiedAt,
+        otpHash: null,
+        otpExpiresAt: null,
+        otpFailedAttempts: 0,
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // UC03 - xác thực bằng mã OTP (BR-337)
+  // ---------------------------------------------------------------------------
+
+  findPendingByOrganizerEmail(email: string, tx?: Prisma.TransactionClient) {
+    return this.db(tx).registration.findFirst({
+      where: {
+        status: RegistrationStatus.PendingPayment,
+        organizer: { email, deletedAt: null },
+      },
+    });
+  }
+
+  /**
+   * Khóa dòng (SELECT ... FOR UPDATE) rồi đọc bản mới nhất.
+   * BẮT BUỘC gọi trong transaction: khóa giữ tới khi transaction kết thúc,
+   * nên các request nhập mã song song phải xếp hàng, không cùng lúc vượt giới hạn sai.
+   */
+  async findByIdForUpdate(
+    registrationId: string,
+    tx: Prisma.TransactionClient,
+  ) {
+    await tx.$queryRaw`SELECT id FROM registrations WHERE id = ${registrationId}::uuid FOR UPDATE`;
+    return tx.registration.findUniqueOrThrow({ where: { id: registrationId } });
+  }
+
+  incrementOtpFailedAttempts(
+    registrationId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.db(tx).registration.update({
+      where: { id: registrationId },
+      data: { otpFailedAttempts: { increment: 1 } },
+    });
+  }
+
+  /** Đúng mã: xác thực, xóa mã, phát liên kết mới (liên kết trong thư 1 mất hiệu lực). */
+  markVerifiedByOtp(
+    registrationId: string,
+    verifiedAt: Date,
+    tokenHash: Uint8Array<ArrayBuffer>,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.db(tx).registration.update({
+      where: { id: registrationId },
+      data: {
+        emailVerifiedAt: verifiedAt,
+        otpHash: null,
+        otpExpiresAt: null,
+        otpFailedAttempts: 0,
+        reopenTokenHash: tokenHash,
+      },
+    });
+  }
 }
