@@ -42,11 +42,13 @@ import { PayRegistrationDto } from './dto/pay-registration.dto';
 import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
 import { IVerifyEmailOtpResult } from './interfaces/verify-email-otp-result.interface';
 import { IPaymentResult } from './interfaces/payment-result.interface';
+import { RegistrationsRepository } from './registrations.repository';
 
 @Injectable()
 export class RegistrationsService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaService, // chỉ để mở $transaction
+    private readonly registrationsRepository: RegistrationsRepository,
     private readonly config: ConfigService,
     private readonly settingsService: PlatformSettingsService,
     private readonly outbox: OutboxService,
@@ -68,9 +70,7 @@ export class RegistrationsService {
     };
 
     // BR-3, BR-4: phải chọn một gói đang được cung cấp.
-    const plan = await this.prisma.subscriptionPlan.findUnique({
-      where: { id: dto.planId },
-    });
+    const plan = await this.registrationsRepository.findPlanById(dto.planId);
     if (!plan || !plan.isOffered) {
       throw new BadRequestException({
         code: 'PLAN_NOT_AVAILABLE',
@@ -80,17 +80,14 @@ export class RegistrationsService {
 
     // BR-30: email là duy nhất trong các tài khoản chưa bị xóa.
     let carriedCounter: IResendCounter | null = null;
-    const existingUser = await this.prisma.user.findFirst({
-      where: { email: dto.organizer.email, deletedAt: null },
-    });
+    const existingUser =
+      await this.registrationsRepository.findActiveUserByEmail(
+        dto.organizer.email,
+      );
     if (existingUser) {
-      const pending = await this.prisma.registration.findFirst({
-        where: {
-          organizerUserId: existingUser.id,
-          status: RegistrationStatus.PendingPayment,
-        },
-        include: { organization: true, organizer: true },
-      });
+      const pending = await this.registrationsRepository.findPendingByOrganizer(
+        existingUser.id,
+      );
       if (!pending) {
         throw new ConflictException({
           code: 'EMAIL_ALREADY_USED',
@@ -138,20 +135,22 @@ export class RegistrationsService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        const organization = await tx.organization.create({
-          data: {
-            name: dto.organization.name,
-            taxCode: dto.organization.taxCode,
-            address: dto.organization.address,
-            contactPhone: dto.organization.contactPhone,
-            contactEmail: dto.organization.contactEmail ?? null,
-            status: OrganizationStatus.PendingPayment,
-          },
-        });
+        const organization =
+          await this.registrationsRepository.createOrganization(
+            {
+              name: dto.organization.name,
+              taxCode: dto.organization.taxCode,
+              address: dto.organization.address,
+              contactPhone: dto.organization.contactPhone,
+              contactEmail: dto.organization.contactEmail ?? null,
+              status: OrganizationStatus.PendingPayment,
+            },
+            tx,
+          );
 
         // BR-5: Organizer chưa kích hoạt, email chưa xác thực.
-        await tx.user.create({
-          data: {
+        await this.registrationsRepository.createOrganizer(
+          {
             id: organizerId,
             organizationId: organization.id,
             email: dto.organizer.email,
@@ -159,11 +158,12 @@ export class RegistrationsService {
             role: UserRoleValue.Organizer,
             status: UserStatus.Pending,
           },
-        });
+          tx,
+        );
 
         // BR-275: chụp giá, thời hạn và 4 giới hạn của gói tại thời điểm tạo.
-        await tx.registration.create({
-          data: {
+        await this.registrationsRepository.createRegistration(
+          {
             id: registrationId,
             organizationId: organization.id,
             organizerUserId: organizerId,
@@ -184,7 +184,8 @@ export class RegistrationsService {
             resendWindowStartedAt:
               carriedCounter?.resendWindowStartedAt ?? null,
           },
-        });
+          tx,
+        );
 
         // BR-6: thư thứ nhất chứa mã xác thực và liên kết mở lại đăng ký.
         const email = renderVerificationEmail({
@@ -520,22 +521,20 @@ export class RegistrationsService {
   private async expireRegistration(registration: Registration): Promise<void> {
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.registration.updateMany({
-        where: {
-          id: registration.id,
-          status: RegistrationStatus.PendingPayment,
-        },
-        data: { status: RegistrationStatus.Expired },
-      });
-      if (updated.count === 0) return; // đã có request khác xử lý
-      await tx.organization.update({
-        where: { id: registration.organizationId },
-        data: { status: OrganizationStatus.Cancelled },
-      });
-      await tx.user.update({
-        where: { id: registration.organizerUserId },
-        data: { deletedAt: now },
-      });
+      const updated = await this.registrationsRepository.markExpiredIfPending(
+        registration.id,
+        tx,
+      );
+      if (updated === 0) return; // đã có request khác xử lý
+      await this.registrationsRepository.cancelOrganization(
+        registration.organizationId,
+        tx,
+      );
+      await this.registrationsRepository.softDeleteUser(
+        registration.organizerUserId,
+        now,
+        tx,
+      );
     });
   }
 
@@ -578,10 +577,12 @@ export class RegistrationsService {
 
     await this.prisma.$transaction(async (tx) => {
       // Ghi đè mã băm: liên kết cũ tự mất hiệu lực (tenant_db mục 3.5).
-      await tx.registration.update({
-        where: { id: registration.id },
-        data: { reopenTokenHash: tokenHash, ...counter },
-      });
+      await this.registrationsRepository.updateReopenToken(
+        registration.id,
+        tokenHash,
+        counter,
+        tx,
+      );
       await this.outbox.enqueueEmail(tx, {
         aggregateType: 'Organization',
         aggregateId: registration.organizationId,
