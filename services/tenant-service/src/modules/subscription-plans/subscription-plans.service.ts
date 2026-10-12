@@ -1,17 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SubscriptionPlan } from '../../../generated/prisma/client';
 import { PlanResponse } from './interfaces/subscription-plan.interface';
+import { SubscriptionPlansRepository } from './subscription-plans.repository';
 
 @Injectable()
 export class SubscriptionPlansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly subscriptionPlansRepository: SubscriptionPlansRepository,
+  ) {}
 
   async findOffered(): Promise<PlanResponse[]> {
-    const plans = await this.prisma.subscriptionPlan.findMany({
-      where: { isOffered: true },
-      orderBy: { price: 'asc' },
-    });
+    const plans = await this.subscriptionPlansRepository.findOffered();
     return plans.map((plan) => SubscriptionPlansService.toResponse(plan));
   }
 
