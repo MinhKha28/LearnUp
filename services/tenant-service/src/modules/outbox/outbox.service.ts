@@ -1,17 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
 import { EmailMessage } from './interfaces/email-message.interface';
+import { OutboxRepository } from './outbox.repository';
 
 export const EMAIL_REQUESTED_EVENT = 'EmailRequested';
 
-/**
- * Transactional Outbox
- * muốn gửi email/event thì GHI một dòng vào outbox_events trong CÙNG transaction
- * với dữ liệu nghiệp vụ. Transaction rollback thì email cũng không được gửi.
- * Việc gửi thật do EmailRelayService làm sau đó.
- */
+/** (giữ nguyên khối chú thích Transactional Outbox cũ) */
 @Injectable()
 export class OutboxService {
+  constructor(private readonly outboxRepository: OutboxRepository) {}
+
   async enqueueEmail(
     tx: Prisma.TransactionClient,
     params: {
@@ -21,8 +19,8 @@ export class OutboxService {
       email: EmailMessage;
     },
   ): Promise<void> {
-    await tx.outboxEvent.create({
-      data: {
+    await this.outboxRepository.create(
+      {
         aggregateType: params.aggregateType,
         aggregateId: params.aggregateId,
         eventType: EMAIL_REQUESTED_EVENT,
@@ -30,6 +28,7 @@ export class OutboxService {
         payload: { ...params.email },
         occurredAt: new Date(),
       },
-    });
+      tx,
+    );
   }
 }

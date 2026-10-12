@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { HEADER_NAMES } from '@learnup/ts-common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { OutboxRepository } from './outbox.repository';
 import { EMAIL_REQUESTED_EVENT } from './outbox.service';
 import { EmailMessage } from './interfaces/email-message.interface';
 import { NotificationEmailResponse } from './interfaces/notification-email-response.interface';
@@ -13,7 +13,7 @@ export class EmailRelayService {
   private running = false;
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly outboxRepository: OutboxRepository,
     private readonly config: ConfigService,
   ) {}
 
@@ -22,26 +22,19 @@ export class EmailRelayService {
     if (this.running) return;
     this.running = true;
     try {
-      const events = await this.prisma.outboxEvent.findMany({
-        where: { eventType: EMAIL_REQUESTED_EVENT, publishedAt: null },
-        orderBy: { id: 'asc' },
-        take: 20,
-      });
+      const events = await this.outboxRepository.findUnpublished(
+        EMAIL_REQUESTED_EVENT,
+        20,
+      );
 
       for (const event of events) {
         const email = event.payload as unknown as EmailMessage;
         try {
           await this.deliver(email);
-          await this.prisma.outboxEvent.update({
-            where: { id: event.id },
-            data: {
-              publishedAt: new Date(),
-              payload: {
-                to: email.to,
-                templateCode: email.templateCode,
-                redacted: true,
-              },
-            },
+          await this.outboxRepository.markPublished(event.id, {
+            to: email.to,
+            templateCode: email.templateCode,
+            redacted: true,
           });
         } catch (error) {
           this.logger.warn(
