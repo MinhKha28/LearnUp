@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '../../../generated/prisma/client';
 import {
   OrganizationStatus,
+  PaymentStatus,
   RegistrationStatus,
+  UserStatus,
 } from '../../common/constants/tenant.constants';
 import { BaseRepository } from '../../common/repository/base.repository';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -191,6 +193,81 @@ export class RegistrationsRepository extends BaseRepository {
         otpFailedAttempts: 0,
         reopenTokenHash: tokenHash,
       },
+    });
+  }
+  // ---------------------------------------------------------------------------
+  // UC02.1 - Thanh toán
+  // ---------------------------------------------------------------------------
+
+  createPayment(
+    data: Prisma.PaymentUncheckedCreateInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.db(tx).payment.create({ data });
+  }
+
+  markPaymentFailed(
+    paymentId: string,
+    failureReason: string | null,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.db(tx).payment.update({
+      where: { id: paymentId },
+      data: { status: PaymentStatus.Failed, failureReason },
+    });
+  }
+
+  /** Chỉ đổi khi còn PendingPayment: chống 2 request thanh toán cùng lúc. Trả số dòng. */
+  async markPaidIfPending(
+    registrationId: string,
+    paidAt: Date,
+    tx?: Prisma.TransactionClient,
+  ): Promise<number> {
+    const result = await this.db(tx).registration.updateMany({
+      where: { id: registrationId, status: RegistrationStatus.PendingPayment },
+      data: { status: RegistrationStatus.Paid, paidAt },
+    });
+    return result.count;
+  }
+
+  createSubscription(
+    data: Prisma.SubscriptionUncheckedCreateInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.db(tx).subscription.create({ data });
+  }
+
+  markPaymentSucceeded(
+    paymentId: string,
+    params: {
+      paidAt: Date;
+      subscriptionId: string;
+      providerReference: string | null;
+    },
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.db(tx).payment.update({
+      where: { id: paymentId },
+      data: { status: PaymentStatus.Succeeded, ...params },
+    });
+  }
+
+  activateOrganization(organizationId: string, tx?: Prisma.TransactionClient) {
+    return this.db(tx).organization.update({
+      where: { id: organizationId },
+      data: { status: OrganizationStatus.Active },
+    });
+  }
+
+  /** BR-20: Organizer được kích hoạt ngay khi thanh toán thành công. */
+  activateOrganizer(
+    userId: string,
+    activatedAt: Date,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.db(tx).user.update({
+      where: { id: userId },
+      data: { status: UserStatus.Active, activatedAt },
     });
   }
 }

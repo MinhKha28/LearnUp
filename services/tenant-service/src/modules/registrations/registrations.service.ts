@@ -276,15 +276,13 @@ export class RegistrationsService {
       });
     }
 
-    const payment = await this.prisma.payment.create({
-      data: {
-        organizationId: registration.organizationId,
-        planId: registration.planId,
-        kind: PaymentKind.Registration,
-        registrationId: registration.id,
-        amount: registration.price,
-        status: PaymentStatus.Pending,
-      },
+    const payment = await this.registrationsRepository.createPayment({
+      organizationId: registration.organizationId,
+      planId: registration.planId,
+      kind: PaymentKind.Registration,
+      registrationId: registration.id,
+      amount: registration.price,
+      status: PaymentStatus.Pending,
     });
 
     const result = await this.paymentGateway.charge({
@@ -294,13 +292,10 @@ export class RegistrationsService {
     });
 
     if (!result.success) {
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: PaymentStatus.Failed,
-          failureReason: result.failureReason,
-        },
-      });
+      await this.registrationsRepository.markPaymentFailed(
+        payment.id,
+        result.failureReason,
+      );
       return {
         paymentId: payment.id,
         paymentStatus: PaymentStatus.Failed,
@@ -310,14 +305,13 @@ export class RegistrationsService {
     const paidAt = new Date();
 
     const subscription = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.registration.updateMany({
-        where: {
-          id: registration.id,
-          status: RegistrationStatus.PendingPayment,
-        },
-        data: { status: RegistrationStatus.Paid, paidAt },
-      });
-      if (updated.count === 0) {
+      // ① Chống thanh toán hai lần: chỉ đổi khi còn PendingPayment.
+      const updated = await this.registrationsRepository.markPaidIfPending(
+        registration.id,
+        paidAt,
+        tx,
+      );
+      if (updated === 0) {
         throw new ConflictException({
           code: 'REGISTRATION_ALREADY_PAID',
           message: 'Đăng ký đã được thanh toán.',
@@ -325,8 +319,8 @@ export class RegistrationsService {
       }
 
       // ② BR-9: kỳ Subscription bắt đầu lúc thanh toán thành công; nhận giá trị đã chốt (BR-275).
-      const created = await tx.subscription.create({
-        data: {
+      const created = await this.registrationsRepository.createSubscription(
+        {
           organizationId: registration.organizationId,
           planId: registration.planId,
           source: PaymentKind.Registration,
@@ -342,24 +336,32 @@ export class RegistrationsService {
             paidAt.getTime() + registration.durationDays * DAY_MS,
           ),
         },
-      });
+        tx,
+      );
 
       // ③ Giao dịch thành công, gắn với kỳ Subscription vừa tạo.
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: PaymentStatus.Succeeded,
+      await this.registrationsRepository.markPaymentSucceeded(
+        payment.id,
+        {
           paidAt,
           subscriptionId: created.id,
           providerReference: result.providerReference,
         },
-      });
+        tx,
+      );
+
+      // ④ Tổ chức được kích hoạt.
+      await this.registrationsRepository.activateOrganization(
+        registration.organizationId,
+        tx,
+      );
 
       // ⑤ BR-20: tài khoản Organizer được kích hoạt ngay khi thanh toán thành công.
-      await tx.user.update({
-        where: { id: registration.organizerUserId },
-        data: { status: UserStatus.Active, activatedAt: paidAt },
-      });
+      await this.registrationsRepository.activateOrganizer(
+        registration.organizerUserId,
+        paidAt,
+        tx,
+      );
 
       // ⑥ Thư thông báo đã kích hoạt (không phải thư xác thực, BR-6).
       const email = renderOrganizerActivatedEmail({
