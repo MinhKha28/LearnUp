@@ -7,13 +7,15 @@ import {
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { IInvitationInfo } from './interfaces/invitation-info.interface';
 import { IAcceptInvitationResult } from './interfaces/accept-invitation-result.interface';
-import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
-import { IdentityClient } from 'src/infrastructure/clients/identity/identity.client';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { IdentityClient } from '../../infrastructure/clients/identity/identity.client';
+import { InvitationsRepository } from './invitations.repository';
 
 @Injectable()
 export class InvitationsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly invitationsRepository: InvitationsRepository,
     private readonly accountTokens: AccountTokensService,
     private readonly identity: IdentityClient,
   ) {}
@@ -56,10 +58,11 @@ export class InvitationsService {
     // GĐ4. Đánh dấu liên kết đã dùng + kích hoạt tài khoản trong cùng transaction.
     await this.prisma.$transaction(async (tx) => {
       await this.accountTokens.consume(tx, token.id);
-      await tx.user.update({
-        where: { id: token.userId },
-        data: { status: UserStatus.Active, activatedAt: new Date() },
-      });
+      await this.invitationsRepository.activateUser(
+        token.userId,
+        new Date(),
+        tx,
+      );
     });
 
     return { email: token.user.email, role: token.user.role };
