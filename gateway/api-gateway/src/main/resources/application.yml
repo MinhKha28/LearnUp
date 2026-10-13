@@ -10,51 +10,51 @@ spring:
         locator:
           enabled: false
       routes:
-        # Supporting: Identity Service Routes
+        # Supporting: Identity Service Routes (Eureka lb://)
         - id: identity-service-auth
           uri: lb://IDENTITY-SERVICE
           predicates:
             - Path=/api/v1/auth/**, /api/auth/**
 
-        # Supporting: Notification Service Routes
+        # Supporting: Notification Service Routes (Eureka lb://)
         - id: notification-service
           uri: lb://NOTIFICATION-SERVICE
           predicates:
             - Path=/api/v1/notifications/**, /api/notifications/**
 
-        # Supporting: Audit Service Routes
+        # Supporting: Audit Service Routes (Eureka lb://)
         - id: audit-service
           uri: lb://AUDIT-SERVICE
           predicates:
             - Path=/api/v1/audit/**, /api/audit/**
 
-        # Business 1: Tenant Service Routes
+        # Business 1: Tenant Service Routes (Docker DNS)
         - id: tenant-service
-          uri: lb://TENANT-SERVICE
+          uri: ${TENANT_SERVICE_URL:http://tenant-service:8084}
           predicates:
-            - Path=/api/v1/users/**, /api/v1/organizations/**, /api/v1/subscriptions/**, /api/v1/payments/**, /api/users/**, /api/organizations/**, /api/subscriptions/**, /api/payments/**
+            - Path=/api/v1/users/**, /api/v1/organizations/**, /api/v1/subscriptions/**, /api/v1/subscription-plans/**, /api/v1/registrations/**, /api/v1/invitations/**, /api/v1/payments/**, /api/users/**, /api/organizations/**, /api/subscriptions/**, /api/subscription-plans/**, /api/registrations/**, /api/invitations/**, /api/payments/**
 
-        # Business 2: Course Service Routes
+        # Business 2: Course Service Routes (Docker DNS)
         - id: course-service
-          uri: lb://COURSE-SERVICE
+          uri: ${COURSE_SERVICE_URL:http://course-service:8083}
           predicates:
             - Path=/api/v1/courses/**, /api/courses/**
 
-        # Business 3: Learning Service Routes
+        # Business 3: Learning Service Routes (Docker DNS)
         - id: learning-service
-          uri: lb://LEARNING-SERVICE
+          uri: ${LEARNING_SERVICE_URL:http://learning-service:8085}
           predicates:
-            - Path=/api/v1/learning/**, /api/learning/**
+            - Path=/api/v1/learning/**, /api/v1/enrollments/**, /api/learning/**, /api/enrollments/**
 
-        # Business 4: Assessment Service Routes
+        # Business 4: Assessment Service Routes (Docker DNS)
         - id: assessment-service
-          uri: lb://ASSESSMENT-SERVICE
+          uri: ${ASSESSMENT_SERVICE_URL:http://assessment-service:8086}
           predicates:
             - Path=/api/v1/assessments/**, /api/assessments/**
 
-        # Business 5: Achievement & Reporting Service Routes
+        # Business 5: Achievement & Reporting Service Routes (Docker DNS)
         - id: achievement-reporting-service
-          uri: lb://ACHIEVEMENT-REPORTING-SERVICE
+          uri: ${ACHIEVEMENT_REPORTING_SERVICE_URL:http://achievement-reporting-service:8087}
           predicates:
             - Path=/api/v1/certificates/**, /api/v1/reports/**, /api/v1/governance/**, /api/certificates/**, /api/reports/**, /api/governance/**
 
@@ -74,14 +74,19 @@ jwt:
     - /api/v1/auth/login
     - /api/v1/auth/register
     - /api/v1/auth/refresh
+    - /api/v1/subscription-plans/**
+    - /api/v1/registrations/**
+    - /api/v1/invitations/**
     - /api/v1/certificates/verify/**
     - /api/auth/login
     - /api/auth/register
     - /api/auth/refresh
+    - /api/subscription-plans/**
+    - /api/registrations/**
+    - /api/invitations/**
     - /api/certificates/verify/**
     - /actuator/health
     - /fallback/**
-
 
 gateway:
   cors:
@@ -95,7 +100,6 @@ management:
   endpoint:
     health:
       show-details: when_authorized
-
 
 logging:
   level:
