@@ -28,15 +28,18 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final com.learnup.identity.repository.PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
+                       com.learnup.identity.repository.PasswordResetTokenRepository passwordResetTokenRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenService jwtTokenService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
     }
@@ -147,6 +150,171 @@ public class AuthService {
                 .orElseThrow(() -> BusinessException.notFound("User with ID " + userId + " not found"));
 
         return UserResponse.fromUser(user);
+    }
+
+    @Transactional
+    public void logout(LogoutRequest request, UUID authenticatedUserId) {
+        if (request != null && Boolean.TRUE.equals(request.getLogoutAll())) {
+            if (authenticatedUserId != null) {
+                refreshTokenRepository.deleteByUserId(authenticatedUserId);
+                log.info("All active refresh tokens revoked for user [{}]", authenticatedUserId);
+                return;
+            }
+        }
+
+        if (request != null && request.getRefreshToken() != null && !request.getRefreshToken().isBlank()) {
+            String tokenHash = hashToken(request.getRefreshToken().trim());
+            refreshTokenRepository.findByTokenHash(tokenHash).ifPresent(token -> {
+                token.revoke();
+                refreshTokenRepository.save(token);
+                log.info("Refresh token revoked for user [{}]", token.getUserId());
+            });
+            return;
+        }
+
+        if (authenticatedUserId != null) {
+            refreshTokenRepository.deleteByUserId(authenticatedUserId);
+            log.info("Refresh tokens deleted for user [{}]", authenticatedUserId);
+        }
+    }
+
+    @Transactional
+    public void changePassword(UUID userId, ChangePasswordRequest request) {
+        if (userId == null) {
+            throw BusinessException.unauthorized("Authentication required to change password");
+        }
+
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw BusinessException.badRequest("New password and confirmation password do not match");
+        }
+
+        if (request.getNewPassword().equals(request.getCurrentPassword())) {
+            throw BusinessException.badRequest("New password cannot be the same as the current password");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("User not found"));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            log.warn("Password change failed for user [{}]: invalid current password", userId);
+            throw BusinessException.badRequest("Current password is incorrect");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword().trim()));
+        user.setUpdatedAt(Instant.now());
+        userRepository.save(user);
+
+        // Security best practice: Revoke all existing sessions upon password change
+        refreshTokenRepository.deleteByUserId(userId);
+        log.info("Password successfully changed and all sessions revoked for user [{}]", userId);
+    }
+
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null || !user.isEnabled()) {
+            // Mitigate email enumeration attack: return quietly without disclosing email non-existence
+            log.info("Forgot password requested for non-existent or disabled email: '{}'", email);
+            return;
+        }
+
+        // Clean up any stale tokens for this user
+        passwordResetTokenRepository.deleteByUserId(user.getId());
+
+        String rawToken = UUID.randomUUID().toString() + "-" + UUID.randomUUID().toString();
+        String tokenHash = hashToken(rawToken);
+        Instant expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES);
+
+        com.learnup.identity.domain.PasswordResetToken resetToken = new com.learnup.identity.domain.PasswordResetToken();
+        resetToken.setId(UUID.randomUUID());
+        resetToken.setUserId(user.getId());
+        resetToken.setTokenHash(tokenHash);
+        resetToken.setExpiresAt(expiresAt);
+
+        passwordResetTokenRepository.save(resetToken);
+        log.info("Generated password reset token for user [{}] (email: '{}'). Reset token: {}",
+                user.getId(), email, rawToken);
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw BusinessException.badRequest("New password and confirmation password do not match");
+        }
+
+        String rawToken = request.getToken().trim();
+        String tokenHash = hashToken(rawToken);
+
+        com.learnup.identity.domain.PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> BusinessException.badRequest("Invalid, expired, or already used password reset token"));
+
+        if (!resetToken.isValid()) {
+            throw BusinessException.badRequest("Invalid, expired, or already used password reset token");
+        }
+
+        User user = userRepository.findById(resetToken.getUserId())
+                .orElseThrow(() -> BusinessException.notFound("User not found"));
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword().trim()));
+        user.setUpdatedAt(Instant.now());
+        userRepository.save(user);
+
+        // Mark reset token as consumed
+        resetToken.markUsed();
+        passwordResetTokenRepository.save(resetToken);
+
+        // Revoke all refresh tokens
+        refreshTokenRepository.deleteByUserId(user.getId());
+        log.info("Password successfully reset via reset token for user [{}]", user.getId());
+    }
+
+    @Transactional
+    public void setCredentials(com.learnup.identity.dto.internal.SetCredentialsRequest request) {
+        UUID userId = request.getUserId();
+        String rawPassword = request.getPassword().trim();
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            String username = (request.getUsername() != null && !request.getUsername().isBlank())
+                    ? request.getUsername().trim()
+                    : "user_" + userId.toString().substring(0, 8);
+            String email = (request.getEmail() != null && !request.getEmail().isBlank())
+                    ? request.getEmail().trim().toLowerCase()
+                    : userId + "@learnup.local";
+            UserRole role = request.getRole() != null ? request.getRole() : UserRole.LEARNER;
+
+            user = new User();
+            user.setId(userId);
+            user.setUsername(username);
+            user.setEmail(email);
+            user.setFullName(request.getFullName());
+            user.setRole(role);
+            user.setOrganizationId(request.getOrganizationId());
+            user.setEnabled(true);
+            user.setCreatedAt(Instant.now());
+        } else {
+            if (request.getUsername() != null && !request.getUsername().isBlank()) {
+                user.setUsername(request.getUsername().trim());
+            }
+            if (request.getEmail() != null && !request.getEmail().isBlank()) {
+                user.setEmail(request.getEmail().trim().toLowerCase());
+            }
+            if (request.getRole() != null) {
+                user.setRole(request.getRole());
+            }
+            if (request.getOrganizationId() != null) {
+                user.setOrganizationId(request.getOrganizationId());
+            }
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        user.setUpdatedAt(Instant.now());
+        userRepository.save(user);
+
+        // Revoke all existing refresh tokens if password is reset/updated
+        refreshTokenRepository.deleteByUserId(userId);
+        log.info("Credentials successfully set for user [{}]", userId);
     }
 
     private String createAndPersistRefreshToken(UUID userId) {

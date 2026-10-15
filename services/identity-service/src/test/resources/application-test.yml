@@ -16,6 +16,7 @@ eureka:
     enabled: false
 
 security:
+  internal-key: test-internal-secret
   jwt:
     secret: testSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong!
     access-token-expiration-minutes: 15
