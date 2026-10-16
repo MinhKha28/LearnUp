@@ -9,6 +9,7 @@ import './course-snapshot-rows.unit-test';
 import './snapshot-preparation.unit-test';
 import './assignments.unit-test';
 import './assignment-changes.unit-test';
+import './assignment-reads.unit-test';
 import './tenant-lookup.unit-test';
 import './my-enrollments.unit-test';
 import './build-curriculum.unit-test';
