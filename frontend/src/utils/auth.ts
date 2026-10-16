@@ -34,6 +34,8 @@ const SIGN_IN_MESSAGES: Record<string, string> = {
   SUBSCRIPTION_SUSPENDED:
     "Your organization's subscription is suspended. Contact your Organizer to renew.",
   SUBSCRIPTION_ENDED: "Your organization has no active subscription.",
+  TOO_MANY_ATTEMPTS:
+    "Too many failed sign-in attempts. Try again in 15 minutes or reset your password.",
   TENANT_UNAVAILABLE:
     "Sign-in is temporarily unavailable. Please try again in a moment.",
 };

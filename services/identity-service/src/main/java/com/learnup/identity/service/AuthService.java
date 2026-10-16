@@ -31,6 +31,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final TenantAccessClient tenantAccessClient;
+    private final LoginThrottleService loginThrottleService;
     private final RefreshTokenRepository refreshTokenRepository;
     private final com.learnup.identity.repository.PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
@@ -41,13 +42,15 @@ public class AuthService {
                        com.learnup.identity.repository.PasswordResetTokenRepository passwordResetTokenRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenService jwtTokenService,
-                       TenantAccessClient tenantAccessClient) {
+                       TenantAccessClient tenantAccessClient,
+                       LoginThrottleService loginThrottleService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
         this.tenantAccessClient = tenantAccessClient;
+        this.loginThrottleService = loginThrottleService;
     }
 
     @Transactional
@@ -92,9 +95,13 @@ public class AuthService {
     @Transactional
     public AuthResponse login(LoginRequest request) {
         String identifier = request.getUsername().trim();
+        loginThrottleService.assertNotLocked(identifier);
 
-        User user = userRepository.findByUsernameOrEmail(identifier, identifier.toLowerCase())
-                .orElseThrow(() -> BusinessException.unauthorized("Invalid username or password"));
+        User user = userRepository.findByUsernameOrEmail(identifier, identifier.toLowerCase()).orElse(null);
+        if (user == null) {
+            loginThrottleService.recordFailure(identifier);
+            throw BusinessException.unauthorized("Invalid username or password");
+        }
 
         if (!user.isEnabled()) {
             log.warn("Login attempt for disabled account: '{}'", identifier);
@@ -103,8 +110,10 @@ public class AuthService {
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             log.warn("Invalid password attempt for account: '{}'", identifier);
+            loginThrottleService.recordFailure(identifier);
             throw BusinessException.unauthorized("Invalid username or password");
         }
+        loginThrottleService.reset(identifier);
 
         SignInAccess access = tenantAccessClient.check(user.getId());
         if (!access.allowed()) {

@@ -53,6 +53,9 @@ class AuthControllerIntegrationTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
+    private com.learnup.identity.repository.LoginThrottleRepository loginThrottleRepository;
+
+    @Autowired
     private com.learnup.identity.repository.PasswordResetTokenRepository passwordResetTokenRepository;
 
     @Autowired
@@ -67,6 +70,7 @@ class AuthControllerIntegrationTest {
     @BeforeEach
     void setUp() {
         when(tenantAccessClient.check(any())).thenReturn(new SignInAccess(true, "Full", null));
+        loginThrottleRepository.deleteAll();
         passwordResetTokenRepository.deleteAll();
         refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
@@ -660,5 +664,54 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.user.id").value(newUserId.toString()))
                 .andExpect(jsonPath("$.data.user.role").value(UserRole.ORGANIZER.name()));
+    }
+
+    private void attemptLogin(String username, String password, org.springframework.test.web.servlet.ResultMatcher expected) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest(username, password))))
+                .andExpect(expected);
+    }
+
+    @Test
+    @DisplayName("UC05: Should lock sign-in after 5 failed attempts, even when the next password is correct")
+    void shouldLockSignInAfterRepeatedFailures() throws Exception {
+        registerAndGetRefreshToken("guessed_member", "memberPass123");
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            attemptLogin("guessed_member", "wrongPass" + attempt, status().isUnauthorized());
+        }
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("guessed_member", "memberPass123"))))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error.code").value("TOO_MANY_ATTEMPTS"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().exists("Retry-After"));
+    }
+
+    @Test
+    @DisplayName("UC05: Should lock unknown emails the same way so account existence is not revealed")
+    void shouldLockUnknownEmailTheSameWay() throws Exception {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            attemptLogin("nobody@learnup.com", "anyPass" + attempt, status().isUnauthorized());
+        }
+        attemptLogin("nobody@learnup.com", "anyPass", status().isTooManyRequests());
+    }
+
+    @Test
+    @DisplayName("UC05: Should reset the failure counter after a successful sign-in")
+    void shouldResetFailuresAfterSuccessfulSignIn() throws Exception {
+        registerAndGetRefreshToken("careful_member", "memberPass123");
+
+        for (int attempt = 0; attempt < 4; attempt++) {
+            attemptLogin("careful_member", "wrongPass" + attempt, status().isUnauthorized());
+        }
+        attemptLogin("careful_member", "memberPass123", status().isOk());
+
+        for (int attempt = 0; attempt < 4; attempt++) {
+            attemptLogin("careful_member", "wrongPass" + attempt, status().isUnauthorized());
+        }
+        attemptLogin("careful_member", "memberPass123", status().isOk());
     }
 }
