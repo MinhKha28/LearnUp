@@ -4,9 +4,19 @@ import {
   assignmentErrorMessage,
   assignmentProgress,
   extensionDays,
+  invalidAssignmentLearners,
+  assignmentResultMessage,
 } from "@/utils/assignments.view";
 
 describe("UC24 view", () => {
+  it("reads 422 error.errors and ignores malformed rows", () => {
+    const error = { learnerId: "id", reason: "ALREADY_ASSIGNED" };
+    expect(invalidAssignmentLearners({ errors: [error, null, { learnerId: 4, reason: "NOT_A_LEARNER" }, { learnerId: "id", reason: "UNKNOWN" }] })).toEqual([error]);
+    expect(invalidAssignmentLearners({})).toEqual([]);
+  });
+  it("summarizes each backend result count", () => {
+    expect(assignmentResultMessage({ created: 1, converted: 2, completedOnAssign: 3, restored: 4 })).toBe("Phân công thành công: 1 tạo mới, 2 chuyển từ tự chọn, 3 đã hoàn thành trước đó, 4 khôi phục.");
+  });
   it("D24 uses the day before local midnight", () => {
     expect(assignmentDue("2026-10-16T17:00:00Z", "Asia/Ho_Chi_Minh")).toBe(
       "Hết ngày 16/10/2026",

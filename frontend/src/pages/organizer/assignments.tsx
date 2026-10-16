@@ -1,7 +1,7 @@
-import { Button, Empty, Skeleton, Table } from "antd";
+import { Alert, Button, Empty, Skeleton, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { AssignmentError } from "@/components/organizer/assignment.error";
 import {
   OrganizerPage,
@@ -23,6 +23,9 @@ import "./assignments.scss";
 
 const Assignments = () => {
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const summary = (location.state as { assignmentSummary?: string } | null)
+    ?.assignmentSummary;
   const page = parsePageParam(params.get("page")) ?? 1;
   const query = useApiQuery(
     (signal) => fetchAssignments(page, signal),
@@ -101,6 +104,7 @@ const Assignments = () => {
   ];
   return (
     <OrganizerPage className="organizer-assignments">
+      {summary && <Alert type="success" showIcon message={summary} closable />}
       <PageHeader
         title="Phân công Course"
         subtitle="Theo dõi các Course bắt buộc trong tổ chức."

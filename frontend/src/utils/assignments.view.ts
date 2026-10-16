@@ -1,4 +1,9 @@
-import type { Assignment, AssignmentStatus } from "@/types/assignment.types";
+import type {
+  Assignment,
+  AssignmentStatus,
+  InvalidLearner,
+  AssignmentResult,
+} from "@/types/assignment.types";
 import { formatDueAt } from "@/utils/due.format";
 
 export const assignmentStatus: Record<
@@ -68,3 +73,25 @@ const messages: Record<string, string> = {
 };
 export const assignmentErrorMessage = (code: string) =>
   messages[code] ?? "Đã có lỗi xảy ra. Vui lòng thử lại.";
+
+export const invalidAssignmentLearners = (
+  details: Record<string, unknown>,
+): InvalidLearner[] => {
+  const errors = details.errors;
+  if (!Array.isArray(errors)) return [];
+  return errors.filter(
+    (value): value is InvalidLearner =>
+      typeof value === "object" &&
+      value !== null &&
+      typeof value.learnerId === "string" &&
+      [
+        "NOT_IN_ORGANIZATION",
+        "NOT_A_LEARNER",
+        "ACCOUNT_DELETED",
+        "ACCOUNT_DEACTIVATED",
+        "ALREADY_ASSIGNED",
+      ].includes(value.reason),
+  );
+};
+export const assignmentResultMessage = (result: AssignmentResult) =>
+  `Phân công thành công: ${result.created} tạo mới, ${result.converted} chuyển từ tự chọn, ${result.completedOnAssign} đã hoàn thành trước đó, ${result.restored} khôi phục.`;
