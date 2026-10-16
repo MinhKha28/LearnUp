@@ -3,6 +3,7 @@ import type {
   IAssessmentError,
   IAssignment,
   IAssignmentList,
+  ILearnerAssessmentList,
   ILearnerAssignment,
   ISubmissionReceipt,
   IPromptFile,
@@ -126,6 +127,10 @@ export const createQuizAPI = (payload: ICreateQuizReq) =>
 /** UC18.5 — Delete Quiz. */
 export const deleteQuizAPI = (quizId: string) =>
   axios.delete<IBackendRes<{ id: string }>>(`/api/v1/assessments/quizzes/${quizId}`, requestConfig);
+
+/** UC29 — the Quizzes and Assignments of an enrolled Course with status, score and tries left. */
+export const fetchLearnerAssessmentsAPI = (courseId: string) =>
+  axios.get<IBackendRes<ILearnerAssessmentList>>(`/api/v1/assessments/learner/courses/${courseId}/assessments`, requestConfig);
 
 /** UC30 step 1 — the Assignment as the enrolled Learner reads it (prompt, Rubric, attempts left). */
 export const fetchLearnerAssignmentAPI = (assignmentId: string) =>

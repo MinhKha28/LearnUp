@@ -203,3 +203,31 @@ export interface ISubmissionReceipt {
   cycle: { id: string; opensAt: string; closesAt: string; reviewDueAt: string } | null;
   attempts: ILearnerAttemptState;
 }
+
+/** UC29: what the Learner sees about one Quiz or Assignment of a Course. */
+export type LearnerAssessmentStatus = "NotStarted" | "InProgress" | "AwaitingResult" | "Completed";
+
+export interface ILearnerAssessmentItem {
+  id: string;
+  kind: "QUIZ" | "ASSIGNMENT";
+  title: string;
+  moduleId: string | null;
+  isRequired: boolean;
+  passingScore: number;
+  timeLimitMinutes: number | null;
+  expectedDurationMinutes: number | null;
+  status: LearnerAssessmentStatus;
+  /** Quiz: best attempt (BR-159). Assignment: final score of the latest submission (BR-170). */
+  recordedScore: number | null;
+  passed: boolean | null;
+  submittedAt: string | null;
+  attempts: ILearnerAttemptState;
+}
+
+export interface ILearnerAssessmentList {
+  courseId: string;
+  enrollmentId: string;
+  /** BR-169: the Enrollment is Completed. */
+  readOnly: boolean;
+  items: ILearnerAssessmentItem[];
+}

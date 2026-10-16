@@ -17,6 +17,8 @@ import "./assignment.submit.scss";
 const FILE_EXTENSIONS = ["pdf", "docx", "zip"];
 const FILE_MAX_BYTES = 50 * 1024 * 1024;
 const CONTENT_MAX_LENGTH = 20000;
+// MSG20
+const FILE_MESSAGE = "File must be PDF, DOCX or ZIP, at most 50 MB.";
 
 const formatTime = (iso: string) => new Date(iso).toLocaleString();
 
@@ -71,9 +73,9 @@ const AssignmentSubmit = () => {
   const pickFile = (picked: File) => {
     const extension = picked.name.split(".").pop()?.toLowerCase() ?? "";
     if (!FILE_EXTENSIONS.includes(extension)) {
-      message.error("Attach a PDF, DOCX or ZIP file.");
+      message.error(FILE_MESSAGE);
     } else if (picked.size > FILE_MAX_BYTES) {
-      message.error("The file must be 50 MB or smaller.");
+      message.error(FILE_MESSAGE);
     } else {
       setFile(picked);
     }
@@ -96,7 +98,7 @@ const AssignmentSubmit = () => {
 
   const submit = async () => {
     if (!answer.trim() && !file) {
-      message.warning("Write your answer or attach a file before submitting.");
+      message.warning("The answer or file field is required.");
       return;
     }
     setSubmitting(true);

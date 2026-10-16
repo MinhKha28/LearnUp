@@ -7,7 +7,6 @@ import {
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -21,7 +20,6 @@ import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import type {
   ICycleWindow,
   ILearnerAssignment,
-  ILearnerAttemptState,
   ILearnerSubmissionSummary,
   ISubmissionReceipt,
 } from './interfaces/learner-submission.interface';
@@ -41,6 +39,12 @@ import {
   type LearnerStateRow,
   type SubmissionRow,
 } from './learner-submissions.repository';
+import {
+  attemptStateOf,
+  lockExpired,
+  requireEnrollment,
+  requireLearner,
+} from './learner-access';
 import { cycleWindowFor } from './peer-review-calendar';
 
 const HOUR_MS = 3_600_000;
@@ -83,9 +87,13 @@ export class LearnerSubmissionsService {
     user: CurrentUser,
     assessmentId: string,
   ): Promise<ILearnerAssignment> {
-    const organizationId = this.requireLearner(user);
+    const organizationId = requireLearner(user);
     const assignment = await this.loadAssignment(organizationId, assessmentId);
-    const enrollment = await this.requireEnrollment(user, assignment.courseId);
+    const enrollment = await requireEnrollment(
+      this.enrollments,
+      user,
+      assignment.courseId,
+    );
     const [state, latest, completed] = await Promise.all([
       this.repository.findState(assignment.id, user.userId),
       this.repository.findLatestSubmission(assignment.id, user.userId),
@@ -112,7 +120,7 @@ export class LearnerSubmissionsService {
         description: c.description,
         maxPoints: c.maxPoints,
       })),
-      attempts: this.attemptsOf(assignment, state, this.clock()),
+      attempts: attemptStateOf(assignment, state, this.clock()),
       readOnly: completed,
       latestSubmission: latest ? this.toSummary(latest) : null,
     };
@@ -120,9 +128,9 @@ export class LearnerSubmissionsService {
 
   /** The prompt file of an Assignment the Learner is enrolled in. */
   async downloadPromptFile(user: CurrentUser, assessmentId: string) {
-    const organizationId = this.requireLearner(user);
+    const organizationId = requireLearner(user);
     const assignment = await this.loadAssignment(organizationId, assessmentId);
-    await this.requireEnrollment(user, assignment.courseId);
+    await requireEnrollment(this.enrollments, user, assignment.courseId);
     if (!assignment.promptFileKey) {
       throw new NotFoundException({
         code: 'PROMPT_FILE_NOT_FOUND',
@@ -164,18 +172,22 @@ export class LearnerSubmissionsService {
     dto: SubmitAssignmentDto,
     uploaded?: UploadedSubmissionFile,
   ): Promise<ISubmissionReceipt> {
-    const organizationId = this.requireLearner(user);
+    const organizationId = requireLearner(user);
     const content = dto.content?.trim() || null;
     if (!content && !uploaded) {
       throw new BadRequestException({
         code: 'SUBMISSION_EMPTY',
-        message: 'Write your answer or attach one file.',
+        message: 'The answer or file field is required.',
       });
     }
     const file = uploaded ? this.validateFile(uploaded) : null;
 
     const assignment = await this.loadAssignment(organizationId, assessmentId);
-    const enrollment = await this.requireEnrollment(user, assignment.courseId);
+    const enrollment = await requireEnrollment(
+      this.enrollments,
+      user,
+      assignment.courseId,
+    );
     // BR-169: a Completed Enrollment is read-only.
     if (await this.repository.isEnrollmentCompleted(enrollment.enrollmentId)) {
       throw new ConflictException({
@@ -216,7 +228,7 @@ export class LearnerSubmissionsService {
         this.assertCanSubmit(assignment, current, latest, now);
 
         // The lock has run out (BR-176): counting starts again from this submission.
-        const baseCount = this.lockExpired(current, now)
+        const baseCount = lockExpired(current, now)
           ? 0
           : current.consecutiveCount;
 
@@ -276,7 +288,7 @@ export class LearnerSubmissionsService {
           submittedAt: submission.submittedAt.toISOString(),
           gradingStatus: submission.gradingStatus,
           cycle: placement.cycle ? this.toCycleWindow(placement.cycle) : null,
-          attempts: this.attemptsOf(assignment, updated, now),
+          attempts: attemptStateOf(assignment, updated, now),
         };
       });
     } catch (error) {
@@ -309,36 +321,6 @@ export class LearnerSubmissionsService {
           'You have already submitted this Assignment. Resubmitting is not available yet.',
       });
     }
-  }
-
-  private lockExpired(state: LearnerStateRow, now: Date): boolean {
-    return (
-      state.lockedUntil !== null && state.lockedUntil.getTime() <= now.getTime()
-    );
-  }
-
-  /** BR-179: how many submissions are left and, when locked, until when. */
-  private attemptsOf(
-    assignment: Pick<
-      LearnerAssignmentRow,
-      'maxConsecutiveAttempts' | 'lockoutHours'
-    >,
-    state: LearnerStateRow | null,
-    now: Date,
-  ): ILearnerAttemptState {
-    const n = assignment.maxConsecutiveAttempts;
-    const locked =
-      state?.lockedUntil !== null &&
-      state?.lockedUntil !== undefined &&
-      state.lockedUntil.getTime() > now.getTime();
-    const counted =
-      !state || this.lockExpired(state, now) ? 0 : state.consecutiveCount;
-    return {
-      maxConsecutiveAttempts: n,
-      remainingAttempts: locked ? 0 : Math.max(0, n - counted),
-      lockoutHours: assignment.lockoutHours,
-      lockedUntil: locked ? state.lockedUntil!.toISOString() : null,
-    };
   }
 
   /**
@@ -410,7 +392,7 @@ export class LearnerSubmissionsService {
     if (file.size > SUBMISSION_FILE_MAX_BYTES) {
       throw new BadRequestException({
         code: 'SUBMISSION_FILE_TOO_LARGE',
-        message: 'The file must be 50 MB or smaller.',
+        message: 'File must be PDF, DOCX or ZIP, at most 50 MB.',
       });
     }
     // multer reads the name as latin1; turn it back into UTF-8 so accented names survive.
@@ -429,7 +411,7 @@ export class LearnerSubmissionsService {
     ) {
       throw new BadRequestException({
         code: 'SUBMISSION_FILE_INVALID',
-        message: 'Attach a PDF, DOCX or ZIP file.',
+        message: 'File must be PDF, DOCX or ZIP, at most 50 MB.',
       });
     }
     return {
@@ -494,16 +476,6 @@ export class LearnerSubmissionsService {
 
   // ------------------------------------------------------------------ guards and mapping
 
-  private requireLearner(user: CurrentUser): string {
-    if (user.role !== 'LEARNER' || !user.organizationId) {
-      throw new ForbiddenException({
-        code: 'FORBIDDEN',
-        message: 'Only a Learner can do this.',
-      });
-    }
-    return user.organizationId;
-  }
-
   /** A Disabled Assignment is hidden from Learners like a missing one. */
   private async loadAssignment(organizationId: string, assessmentId: string) {
     const assignment = await this.repository.findAssignment(
@@ -517,18 +489,6 @@ export class LearnerSubmissionsService {
       });
     }
     return assignment;
-  }
-
-  /** PRE-1 of UC30: the Learner is enrolled in the Course of the Assignment. */
-  private async requireEnrollment(user: CurrentUser, courseId: string) {
-    const enrollment = await this.enrollments.findEnrollment(courseId, user);
-    if (!enrollment) {
-      throw new ForbiddenException({
-        code: 'NOT_ENROLLED',
-        message: 'You are not enrolled in the Course of this Assignment.',
-      });
-    }
-    return enrollment;
   }
 
   private toSummary(row: SubmissionRow): ILearnerSubmissionSummary {
