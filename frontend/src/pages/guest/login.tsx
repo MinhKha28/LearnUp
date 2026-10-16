@@ -5,7 +5,13 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { loginAPI } from "@/services/identity.service";
 import { useCurrentApp } from "@/components/context/app.context";
 import "@/pages/guest/login.scss";
-import { homePathForRole, safeRedirect, saveTokens } from "@/utils/auth";
+import {
+  homePathForRole,
+  isSignInReason,
+  safeRedirect,
+  saveTokens,
+  signInMessage,
+} from "@/utils/auth";
 
 type LoginFields = { email: string; password: string };
 
@@ -18,13 +24,15 @@ const workspace = [
 export default function LoginPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const [error, setError] = useState(
-    params.get("state") === "google"
+  const [error, setError] = useState(() => {
+    const reason = params.get("reason");
+    if (isSignInReason(reason)) return signInMessage(reason);
+    return params.get("state") === "google"
       ? "This Google email is not linked to an existing LearnUP account."
       : params.get("state") === "credentials"
         ? "Check your email and password, then try again."
-        : "",
-  );
+        : "";
+  });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { setUser, setIsAuthenticated } = useCurrentApp();
@@ -46,7 +54,9 @@ export default function LoginPage() {
         );
         return;
       }
-      setError("Check your email and password, then try again.");
+      const code = (response as unknown as { error?: { code?: string } })
+        .error?.code;
+      setError(signInMessage(code));
     } catch {
       setError("Unable to sign in right now. Please try again.");
     } finally {

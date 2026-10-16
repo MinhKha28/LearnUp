@@ -21,6 +21,30 @@ export const saveTokens = (accessToken: string, refreshToken: string) => {
   localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
 };
 
+const SIGN_IN_MESSAGES: Record<string, string> = {
+  UNAUTHORIZED: "Check your email and password, then try again.",
+  ACCOUNT_NOT_FOUND: "Check your email and password, then try again.",
+  ACCOUNT_NOT_ACTIVE:
+    "Your account is not active yet. Organizers: complete payment for your registration. Invited members: open the invitation email to set your password.",
+  ACCOUNT_DEACTIVATED:
+    "Your account has been deactivated. Contact your organization's Organizer.",
+  ORGANIZATION_SUSPENDED:
+    "Your organization has been suspended by LearnUP. Contact your Organizer.",
+  ORGANIZATION_NOT_ACTIVE: "Your organization is not active.",
+  SUBSCRIPTION_SUSPENDED:
+    "Your organization's subscription is suspended. Contact your Organizer to renew.",
+  SUBSCRIPTION_ENDED: "Your organization has no active subscription.",
+  TENANT_UNAVAILABLE:
+    "Sign-in is temporarily unavailable. Please try again in a moment.",
+};
+
+export const signInMessage = (code?: string | null): string =>
+  (code && SIGN_IN_MESSAGES[code]) ||
+  "Check your email and password, then try again.";
+
+export const isSignInReason = (code: string | null): code is string =>
+  Boolean(code && SIGN_IN_MESSAGES[code]);
+
 export const clearTokens = () => {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);

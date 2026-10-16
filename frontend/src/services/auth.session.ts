@@ -23,6 +23,7 @@ const PROTECTED_PREFIXES = ["/admin", "/organizer", "/learner", "/instructor"];
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
 
 let pendingRefresh: Promise<string | null> | null = null;
+let deniedReason: string | null = null;
 
 const requestNewTokens = async (): Promise<string | null> => {
   const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
@@ -36,7 +37,15 @@ const requestNewTokens = async (): Promise<string | null> => {
     if (!tokens?.accessToken || !tokens.refreshToken) return null;
     saveTokens(tokens.accessToken, tokens.refreshToken); // identity xoay vòng: luôn lưu cặp mới
     return tokens.accessToken;
-  } catch {
+  } catch (error) {
+    const code = axios.isAxiosError(error)
+      ? (error.response?.data as { error?: { code?: string } } | undefined)
+          ?.error?.code
+      : undefined;
+    deniedReason =
+      axios.isAxiosError(error) && error.response?.status === 403 && code
+        ? code
+        : null;
     return null;
   }
 };
@@ -54,8 +63,11 @@ const endSession = () => {
   clearTokens();
   const { pathname, search } = window.location;
   if (PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    const reason = deniedReason
+      ? `&reason=${encodeURIComponent(deniedReason)}`
+      : "";
     window.location.assign(
-      `/login?redirect=${encodeURIComponent(pathname + search)}`,
+      `/login?redirect=${encodeURIComponent(pathname + search)}${reason}`,
     );
   }
 };
