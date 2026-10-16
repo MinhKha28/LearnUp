@@ -29,6 +29,12 @@ public class RefreshToken {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "family_id", nullable = false, updatable = false)
+    private UUID familyId;
+
+    @Column(name = "replaced_by")
+    private UUID replacedBy;
+
     public RefreshToken() {
     }
 
@@ -48,6 +54,9 @@ public class RefreshToken {
         }
         if (this.createdAt == null) {
             this.createdAt = Instant.now();
+        }
+        if (this.familyId == null) {
+            this.familyId = this.id;
         }
     }
 
@@ -97,6 +106,26 @@ public class RefreshToken {
 
     public void setRevokedAt(Instant revokedAt) {
         this.revokedAt = revokedAt;
+    }
+
+    public UUID getFamilyId() {
+        return familyId;
+    }
+
+    public void setFamilyId(UUID familyId) {
+        this.familyId = familyId;
+    }
+
+    public UUID getReplacedBy() {
+        return replacedBy;
+    }
+
+    public void setReplacedBy(UUID replacedBy) {
+        this.replacedBy = replacedBy;
+    }
+
+    public boolean wasRotated() {
+        return revokedAt != null && replacedBy != null;
     }
 
     public Instant getCreatedAt() {

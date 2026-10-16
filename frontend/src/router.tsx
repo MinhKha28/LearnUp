@@ -6,6 +6,7 @@ import NotFoundPage from "@/pages/error/not.found";
 import ForbiddenPage from "@/pages/error/forbidden";
 import ServerErrorPage from "@/pages/error/server.error";
 import ServiceUnavailablePage from "@/pages/error/service.unavailable";
+import ProtectedRoute from "@/components/identity";
 
 import HomePage from "@/pages/guest/home";
 import LoginPage from "@/pages/guest/login";
@@ -175,7 +176,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/admin",
-    element: <LayoutAdmin />,
+    element: (
+      <ProtectedRoute roles={["ADMIN"]}>
+        <LayoutAdmin />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <ManageDashboard /> },
@@ -202,7 +207,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/organizer",
-    element: <LayoutOrganizer />,
+    element: (
+      <ProtectedRoute roles={["ORGANIZER"]}>
+        <LayoutOrganizer />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <OrganizerDashboard /> },
@@ -258,7 +267,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/learner",
-    element: <LayoutLearner />,
+    element: (
+      <ProtectedRoute roles={["LEARNER"]}>
+        <LayoutLearner />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <LearnerDashboard /> },
@@ -301,7 +314,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/learner/courses/:enrollmentId",
-    element: <LayoutLearnerCourse />,
+    element: (
+      <ProtectedRoute roles={["LEARNER"]}>
+        <LayoutLearnerCourse />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <LearnerCourseCurriculum /> },
@@ -334,7 +351,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/instructor",
-    element: <LayoutInstructor />,
+    element: (
+      <ProtectedRoute roles={["INSTRUCTOR"]}>
+        <LayoutInstructor />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <InstructorDashboard /> },
@@ -429,7 +450,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/instructor/courses/:courseId/builder",
-    element: <LayoutInstructorCourse />,
+    element: (
+      <ProtectedRoute roles={["INSTRUCTOR"]}>
+        <LayoutInstructorCourse />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <InstructorCourseBuilder /> },

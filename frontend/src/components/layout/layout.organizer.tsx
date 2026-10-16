@@ -31,6 +31,7 @@ import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useCurrentApp } from "@/components/context/app.context";
+import { useSignOut } from "@/hooks/use.sign.out";
 import "./layout.organizer.scss";
 
 type MenuItem = Required<MenuProps>["items"][number];
@@ -188,7 +189,7 @@ const getPageMeta = (pathname: string) => {
 };
 
 const LayoutOrganizer = () => {
-  const { user, setUser, setIsAuthenticated } = useCurrentApp();
+  const { user } = useCurrentApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -230,12 +231,8 @@ const LayoutOrganizer = () => {
     navigate(key);
     setMobileOpen(false);
   };
-  const logout = () => {
-    localStorage.removeItem("access_token");
-    setUser(null);
-    setIsAuthenticated(false);
-    navigate("/login");
-  };
+  // UC06: thu hồi refresh token ở identity rồi xóa phiên trên trình duyệt
+  const logout = useSignOut();
   const profileItems: MenuProps["items"] = [
     {
       key: "profile",

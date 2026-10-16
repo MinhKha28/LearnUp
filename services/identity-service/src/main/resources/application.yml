@@ -30,6 +30,9 @@ eureka:
     service-url:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
 
+tenant:
+  service-url: ${TENANT_SERVICE_URL:http://localhost:8084}
+
 security:
   internal-key: ${INTERNAL_SERVICE_KEY:learnup-internal-secret}
   jwt:

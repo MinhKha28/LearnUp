@@ -9,7 +9,7 @@ import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import type { CurrentUser } from '@learnup/ts-common';
 import { HEADER_NAMES, parseUserRole } from '@learnup/ts-common';
-import { IS_PUBLIC_KEY } from '../decorator/customize';
+import { IS_PUBLIC_KEY, IS_SERVICE_CALL_KEY } from '../decorator/customize';
 
 interface AuthenticatedRequest extends Request {
   user?: CurrentUser;
@@ -43,6 +43,12 @@ export class InternalAuthGuard implements CanActivate {
         'Invalid or missing internal service key.',
       );
     }
+
+    const isServiceCall = this.reflector.getAllAndOverride<boolean>(
+      IS_SERVICE_CALL_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (isServiceCall) return true;
 
     const userId = request.headers[HEADER_NAMES.USER_ID];
     const organizationId = request.headers[HEADER_NAMES.ORGANIZATION_ID];

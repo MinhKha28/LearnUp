@@ -5,6 +5,9 @@ import type { Request } from 'express';
 export const IS_PUBLIC_KEY = 'isPublic';
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
+export const IS_SERVICE_CALL_KEY = 'isServiceCall';
+export const ServiceCall = () => SetMetadata(IS_SERVICE_CALL_KEY, true);
+
 export const RESPONSE_MESSAGE = 'response_message';
 export const ResponseMessage = (message: string) =>
   SetMetadata(RESPONSE_MESSAGE, message);

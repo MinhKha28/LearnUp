@@ -139,6 +139,7 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       JWT_SECRET: ${JWT_SECRET:-devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong}
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+      TENANT_SERVICE_URL: http://tenant-service:8084
       LEARNUP_SEED_ENABLED: ${LEARNUP_SEED_ENABLED:-true}
       LEARNUP_SEED_DEFAULT_PASSWORD: ${LEARNUP_SEED_DEFAULT_PASSWORD:-LearnUp@123}
     depends_on:
