@@ -11,6 +11,7 @@ import {
   type TenantClient,
 } from '../../infrastructure/clients/tenant/tenant.client';
 import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
+import { OrganizationTimezoneService } from '../../infrastructure/clients/tenant/organization-timezone.service';
 import { EnrollmentsRepository } from '../enrollments/enrollments.repository';
 import { toSafeNumber } from '../../common/utils/to-safe-number';
 import {
@@ -26,6 +27,7 @@ export class AssignmentReadsService {
     private readonly enrollments: EnrollmentsRepository,
     @Inject(TENANT_CLIENT) private readonly tenant: TenantClient,
     private readonly courses: CourseServiceClient,
+    private readonly organizationTimezone: OrganizationTimezoneService,
   ) {}
 
   private organization(user: CurrentUser) {
@@ -44,22 +46,32 @@ export class AssignmentReadsService {
       offset >= total
         ? []
         : await this.assignments.page(organizationId, offset);
-    return { items: await this.enrich(user, rows), page, pageSize: 20, total };
+    const [items, organizationTimezone] = await Promise.all([
+      this.enrich(user, rows),
+      rows.some((row) => row.dueAt !== null)
+        ? this.organizationTimezone.getTimezone(user)
+        : null,
+    ]);
+    return { items, page, pageSize: 20, total, organizationTimezone };
   }
 
-  async detail(user: CurrentUser, id: string) {
+  async detail(user: CurrentUser, id: string, knownTimezone?: string | null) {
     const organizationId = this.organization(user);
     const row = await this.assignments.detail(organizationId, id);
     if (!row)
       throw new NotFoundException(
         createApiError('ASSIGNMENT_NOT_FOUND', 'Không tìm thấy phân công.'),
       );
-    const [items, intervals] = await Promise.all([
+    const [items, intervals, organizationTimezone] = await Promise.all([
       this.enrich(user, [row]),
       this.assignments.intervals(organizationId, id),
+      knownTimezone === undefined
+        ? this.organizationTimezone.getTimezone(user)
+        : knownTimezone,
     ]);
     return {
       ...items[0],
+      organizationTimezone,
       baseDueAt: row.baseDueAt,
       extensionSeconds: toSafeNumber(row.extensionSeconds),
       firstActivityAt: row.firstActivityAt,

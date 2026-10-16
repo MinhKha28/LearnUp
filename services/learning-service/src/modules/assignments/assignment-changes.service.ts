@@ -99,7 +99,7 @@ export class AssignmentChangesService {
         },
       );
     });
-    return this.reads.detail(user, id);
+    return this.reads.detail(user, id, timezone);
   }
 
   async exempt(user: CurrentUser, id: string, dto: ExemptAssignmentDto) {
@@ -138,7 +138,7 @@ export class AssignmentChangesService {
         );
       throw error;
     }
-    return this.reads.detail(user, id);
+    return this.reads.detail(user, id, timezone);
   }
 
   private notFound() {
