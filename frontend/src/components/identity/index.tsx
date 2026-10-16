@@ -1,46 +1,42 @@
 import { Button, Result } from "antd";
-import { useCurrentApp } from "components/context/app.context";
-import { Link, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
+import { useCurrentApp } from "@/components/context/app.context";
+import type { UserRole } from "@/types/identity.types";
+import { homePathForRole } from "@/utils/auth";
 
 interface IProps {
+  roles: UserRole[]; // các vai trò được vào khu này
   children: React.ReactNode;
 }
-const ProtectedRoute = (props: IProps) => {
+
+// UC05: chặn khu làm việc khi chưa đăng nhập hoặc đăng nhập sai vai trò
+const ProtectedRoute = ({ roles, children }: IProps) => {
   const { isAuthenticated, user } = useCurrentApp();
   const location = useLocation();
-  // if (isAuthenticated === false) {
-  //   return (
-  //     <Result
-  //       status="404"
-  //       title="Không đăng nhập"
-  //       subTitle="Bạn vui lòng đăng nhập để sử dụng tính năng này."
-  //       extra={
-  //         <Link to="/">
-  //           <Button type="primary">Back Home</Button>
-  //         </Link>
-  //       }
-  //     />
-  //   );
-  // }
-  const isAdminRole = location.pathname.includes("admin");
-  if (isAuthenticated === false && isAdminRole === false) {
-    const role = user?.role;
-    if (role === "USER") {
-      return (
-        <Result
-          status="403"
-          title="403"
-          subTitle="Sorry, you are not authorized to access this page."
-          extra={
-            <Link to="/">
-              <Button type="primary">Back Home</Button>
-            </Link>
-          }
-        />
-      );
-    }
+
+  // Chưa đăng nhập: về màn login, đăng nhập xong quay lại đúng trang đang định vào
+  if (!isAuthenticated || !user) {
+    const redirect = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
-  return <>{props.children}</>;
+
+  // Sai vai trò (ví dụ Learner mở /admin): báo 403, chỉ đường về khu của mình
+  if (!roles.includes(user.role)) {
+    return (
+      <Result
+        status="403"
+        title="403"
+        subTitle="You do not have access to this page."
+        extra={
+          <Link to={homePathForRole(user.role)}>
+            <Button type="primary">Go to your workspace</Button>
+          </Link>
+        }
+      />
+    );
+  }
+
+  return <>{children}</>;
 };
 
 export default ProtectedRoute;
