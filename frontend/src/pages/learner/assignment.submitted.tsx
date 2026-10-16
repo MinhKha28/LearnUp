@@ -20,7 +20,7 @@ const AssignmentSubmitted = () => {
     return <Navigate to={`/learner/courses/${courseId}/assessments`} replace />;
   }
 
-  const waitingForCycle = receipt.gradingStatus === "WaitingForCycle";
+  const waitingForCycle = receipt.gradingStatus === "AwaitingPeerReview";
   const { attempts } = receipt;
 
   return (

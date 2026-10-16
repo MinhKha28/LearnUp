@@ -141,7 +141,7 @@ describe('UC30 over HTTP', () => {
     test('a text submission joins a new cycle (BR-312) and is counted (BR-176)', async () => {
       const r = await submit(reviewed, LEARNER, { content: 'my answer' });
       assert.equal(r.status, 201, JSON.stringify(r));
-      assert.equal(r.data?.gradingStatus, 'WaitingForCycle');
+      assert.equal(r.data?.gradingStatus, 'AwaitingPeerReview');
       assert.equal(r.data?.submissionNumber, 1);
       assert.equal(r.data?.attempts.remainingAttempts, 2);
       assert.ok(r.data?.cycle);
@@ -181,7 +181,7 @@ describe('UC30 over HTTP', () => {
     test('without peer review the Instructor grades directly', async () => {
       const r = await submit(direct, LEARNER, { content: 'x' });
       assert.equal(r.status, 201);
-      assert.equal(r.data?.gradingStatus, 'NeedsInstructorGrading');
+      assert.equal(r.data?.gradingStatus, 'AwaitingInstructor');
       assert.equal(r.data?.cycle, null);
       const [row] = await db.query(
         'SELECT intervention_reason FROM submissions WHERE assessment_id = $1',
@@ -198,7 +198,7 @@ describe('UC30 over HTTP', () => {
         as(LEARNER),
       );
       assert.equal(r.data.attempts.remainingAttempts, 2);
-      assert.equal(r.data.latestSubmission.gradingStatus, 'WaitingForCycle');
+      assert.equal(r.data.latestSubmission.gradingStatus, 'AwaitingPeerReview');
     });
 
     test('a second submission is refused until resubmitting exists (UC30.1)', async () => {

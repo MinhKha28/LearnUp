@@ -11,9 +11,9 @@ import { CatalogModule } from './modules/catalog/catalog.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    CatalogModule,
     CoursesModule,
     InternalCoursesModule,
-    CatalogModule,
   ],
   providers: [
     {

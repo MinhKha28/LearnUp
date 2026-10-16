@@ -251,7 +251,7 @@ describe('submit (UC30)', () => {
 
   test('with peer review off the Instructor grades it directly', async () => {
     const r = await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
-    assert.equal(r.gradingStatus, 'NeedsInstructorGrading');
+    assert.equal(r.gradingStatus, 'AwaitingInstructor');
     assert.equal(r.cycle, null);
     assert.equal(
       ctx.world.submissions[0].interventionReason,
@@ -263,7 +263,7 @@ describe('submit (UC30)', () => {
   test('with peer review on the submission waits in a cycle that is created on demand (BR-312)', async () => {
     ctx = build({ assignment: assignmentRow(peerOn) });
     const r = await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
-    assert.equal(r.gradingStatus, 'WaitingForCycle');
+    assert.equal(r.gradingStatus, 'AwaitingPeerReview');
     assert.equal(ctx.world.cycles.length, 1);
     assert.equal(r.cycle?.opensAt, '2026-10-14T17:00:00.000Z');
     assert.equal(r.cycle?.closesAt, '2026-10-21T17:00:00.000Z');

@@ -1,8 +1,11 @@
 export const ASSIGNMENT_KIND = 'ASSIGNMENT';
 
-/** Grading status of a new submission (BR-312, UC30 step 6). */
-export const WAITING_FOR_CYCLE = 'WaitingForCycle';
-export const NEEDS_INSTRUCTOR_GRADING = 'NeedsInstructorGrading';
+/**
+ * Grading status of a new submission (BR-312, UC30 step 6). The values are the ones agreed with UC32 (submissions.grading_status):
+ * AwaitingPeerReview -> AwaitingInstructor | AwaitingFinalization -> Finalized.
+ */
+export const AWAITING_PEER_REVIEW = 'AwaitingPeerReview';
+export const AWAITING_INSTRUCTOR = 'AwaitingInstructor';
 
 /** Why the Instructor has to grade (same codes as the Instructor screens, UC32). */
 export const PEER_REVIEW_DISABLED = 'PEER_REVIEW_DISABLED';

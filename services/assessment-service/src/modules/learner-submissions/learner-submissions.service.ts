@@ -27,13 +27,13 @@ import type {
 } from './interfaces/learner-submission.interface';
 import {
   LEARNER_STATUS_CHANGED_EVENT,
-  NEEDS_INSTRUCTOR_GRADING,
+  AWAITING_INSTRUCTOR,
   OPEN_CYCLE_STATUS,
   PEER_REVIEW_DISABLED,
   SUBMISSION_FILE_MAX_BYTES,
   SUBMISSION_FILE_TYPES,
   submissionFolder,
-  WAITING_FOR_CYCLE,
+  AWAITING_PEER_REVIEW,
 } from './learner-submissions.constants';
 import {
   type LearnerAssignmentRow,
@@ -355,7 +355,7 @@ export class LearnerSubmissionsService {
     if (!assignment.peerReviewEnabled || !reviewers || scoreGap === null) {
       return {
         cycle: null,
-        gradingStatus: NEEDS_INSTRUCTOR_GRADING,
+        gradingStatus: AWAITING_INSTRUCTOR,
         interventionReason: PEER_REVIEW_DISABLED,
       };
     }
@@ -398,7 +398,7 @@ export class LearnerSubmissionsService {
     }
     return {
       cycle,
-      gradingStatus: WAITING_FOR_CYCLE,
+      gradingStatus: AWAITING_PEER_REVIEW,
       interventionReason: null,
     };
   }
