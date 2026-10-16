@@ -1,5 +1,15 @@
 import type { CurrentUser } from '@learnup/ts-common';
-import { Body, Controller, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { ParsePagePipe } from '../../common/pipes/parse-page.pipe';
+import { AssignmentReadsService } from './assignment-reads.service';
 import { User, ResponseMessage } from '../../common/decorator/customize';
 import { Roles } from '../../common/decorator/roles.decorator';
 import { AssignmentsService } from './assignments.service';
@@ -7,7 +17,25 @@ import { CreateAssignmentDto } from './create-assignment.dto';
 
 @Controller('assignments')
 export class AssignmentsController {
-  constructor(private readonly service: AssignmentsService) {}
+  constructor(
+    private readonly service: AssignmentsService,
+    private readonly reads: AssignmentReadsService,
+  ) {}
+
+  @Get()
+  @Roles('ORGANIZER')
+  list(@User() user: CurrentUser, @Query('page', ParsePagePipe) page: number) {
+    return this.reads.list(user, page);
+  }
+
+  @Get(':enrollmentId')
+  @Roles('ORGANIZER')
+  detail(
+    @User() user: CurrentUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.reads.detail(user, id);
+  }
 
   @Post()
   @Roles('ORGANIZER')
