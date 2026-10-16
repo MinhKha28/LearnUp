@@ -10,6 +10,7 @@ import { IAcceptInvitationResult } from './interfaces/accept-invitation-result.i
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { IdentityClient } from '../../infrastructure/clients/identity/identity.client';
 import { InvitationsRepository } from './invitations.repository';
+import { ISetCredentialsParams } from '../../infrastructure/clients/identity/interfaces/set-credentials-params.interface';
 
 @Injectable()
 export class InvitationsService {
@@ -53,7 +54,14 @@ export class InvitationsService {
     }
 
     // GĐ3. Mật khẩu lưu ở identity-service, gọi TRƯỚC khi đổi DB (lỗi thì liên kết vẫn dùng lại được).
-    await this.identity.setPassword(token.userId, dto.password);
+    await this.identity.setCredentials({
+      userId: token.userId,
+      password: dto.password,
+      email: token.user.email,
+      fullName: token.user.fullName,
+      role: token.user.role as ISetCredentialsParams['role'],
+      organizationId: token.organizationId,
+    });
 
     // GĐ4. Đánh dấu liên kết đã dùng + kích hoạt tài khoản trong cùng transaction.
     await this.prisma.$transaction(async (tx) => {

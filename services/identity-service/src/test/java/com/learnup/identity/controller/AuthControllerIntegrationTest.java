@@ -34,525 +34,572 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class AuthControllerIntegrationTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+        @Autowired
+        private MockMvc mockMvc;
 
-    @Autowired
-    private UserRepository userRepository;
+        @Autowired
+        private UserRepository userRepository;
 
-    @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
+        @Autowired
+        private RefreshTokenRepository refreshTokenRepository;
 
-    @Autowired
-    private com.learnup.identity.repository.PasswordResetTokenRepository passwordResetTokenRepository;
+        @Autowired
+        private com.learnup.identity.repository.PasswordResetTokenRepository passwordResetTokenRepository;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+        @Autowired
+        private ObjectMapper objectMapper;
 
-    @Autowired
-    private com.learnup.identity.config.DevAccountSeeder devAccountSeeder;
+        @Autowired
+        private com.learnup.identity.config.DevAccountSeeder devAccountSeeder;
 
-    @Autowired
-    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+        @Autowired
+        private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
-    @BeforeEach
-    void setUp() {
-        passwordResetTokenRepository.deleteAll();
-        refreshTokenRepository.deleteAll();
-        userRepository.deleteAll();
-    }
-
-    @Test
-    @DisplayName("Should successfully register a new learner and store BCrypt password hash")
-    void shouldRegisterNewUser() throws Exception {
-        UUID orgId = UUID.randomUUID();
-        RegisterRequest request = new RegisterRequest(
-                "learner1",
-                "learner1@learnup.com",
-                "securePassword123",
-                "Nguyen Van Learner",
-                UserRole.LEARNER,
-                orgId
-        );
-
-        MvcResult result = mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.accessToken").isString())
-                .andExpect(jsonPath("$.data.refreshToken").isString())
-                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
-                .andReturn();
-
-        // Verify password was hashed and plaintext is never in DB
-        User userInDb = userRepository.findByUsername("learner1").orElseThrow();
-        assertThat(userInDb.getPasswordHash()).startsWith("$2a$");
-        assertThat(userInDb.getPasswordHash()).isNotEqualTo("securePassword123");
-        assertThat(userInDb.getEmail()).isEqualTo("learner1@learnup.com");
-        assertThat(userInDb.getRole()).isEqualTo(UserRole.LEARNER);
-        assertThat(userInDb.getOrganizationId()).isEqualTo(orgId);
-    }
-
-    @Test
-    @DisplayName("Should reject registration with duplicate username or email with 409 Conflict")
-    void shouldRejectDuplicateRegistration() throws Exception {
-        RegisterRequest first = new RegisterRequest("john_doe", "john@example.com", "pass123", "John Doe", UserRole.LEARNER, null);
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(first)))
-                .andExpect(status().isCreated());
-
-        // Duplicate username
-        RegisterRequest dupUsername = new RegisterRequest("john_doe", "other@example.com", "pass123", "Other", UserRole.LEARNER, null);
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dupUsername)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("CONFLICT"));
-
-        // Duplicate email
-        RegisterRequest dupEmail = new RegisterRequest("other_user", "john@example.com", "pass123", "Other", UserRole.LEARNER, null);
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dupEmail)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("CONFLICT"));
-    }
-
-    @Test
-    @DisplayName("Should reject self-registration as platform ADMIN with 403 Forbidden")
-    void shouldRejectAdminSelfRegistration() throws Exception {
-        RegisterRequest adminRequest = new RegisterRequest(
-                "malicious_admin",
-                "hacker@example.com",
-                "hackerPass123",
-                "Attacker",
-                UserRole.ADMIN,
-                null
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(adminRequest)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
-    }
-
-    @Test
-    @DisplayName("Should successfully login with valid credentials")
-    void shouldLoginSuccessfully() throws Exception {
-        RegisterRequest register = new RegisterRequest("instructor1", "instructor1@learnup.com", "mySecretPass", "Instructor A", UserRole.INSTRUCTOR, null);
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated());
-
-        LoginRequest login = new LoginRequest("instructor1", "mySecretPass");
-        mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(login)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.accessToken").isString())
-                .andExpect(jsonPath("$.data.refreshToken").isString());
-    }
-
-    @Test
-    @DisplayName("Should reject invalid password or non-existent user with 401 Unauthorized")
-    void shouldRejectInvalidLogin() throws Exception {
-        LoginRequest invalid = new LoginRequest("non_existent_user", "wrongPass");
-        mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(invalid)))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
-    }
-
-    @Test
-    @DisplayName("Should refresh access token and rotate refresh token")
-    void shouldRefreshTokenAndRotate() throws Exception {
-        RegisterRequest register = new RegisterRequest("refresher", "refresher@learnup.com", "pass123456", "Refresher", UserRole.LEARNER, null);
-        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated())
-                .andReturn();
-
-        String rawResponse = registerResult.getResponse().getContentAsString();
-        AuthResponse authData = objectMapper.readTree(rawResponse).get("data").traverse(objectMapper).readValueAs(AuthResponse.class);
-        String initialRefreshToken = authData.getRefreshToken();
-
-        // Refresh token call
-        RefreshTokenRequest refreshReq = new RefreshTokenRequest(initialRefreshToken);
-        MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(refreshReq)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.accessToken").isString())
-                .andExpect(jsonPath("$.data.refreshToken").isString())
-                .andReturn();
-
-        // Attempting to reuse old refresh token should be rejected (revoked!)
-        mockMvc.perform(post("/api/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(refreshReq)))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
-    }
-
-    @Test
-    @DisplayName("Should retrieve current user profile without exposing password or refresh token")
-    void shouldGetMeProfile() throws Exception {
-        RegisterRequest register = new RegisterRequest("profileUser", "profile@learnup.com", "pass123456", "Profile User", UserRole.ORGANIZER, UUID.randomUUID());
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated());
-
-        User user = userRepository.findByUsername("profileUser").orElseThrow();
-
-        mockMvc.perform(get("/api/users/me")
-                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
-                        .header(HeaderConstants.X_USER_ROLE, user.getRole().name()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(user.getId().toString()))
-                .andExpect(jsonPath("$.data.username").value("profileUser"))
-                .andExpect(jsonPath("$.data.email").value("profile@learnup.com"))
-                .andExpect(jsonPath("$.data.role").value("ORGANIZER"))
-                .andExpect(jsonPath("$.data.passwordHash").doesNotExist())
-                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
-
-        // Also verify /api/auth/me works identically
-        mockMvc.perform(get("/api/auth/me")
-                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
-                        .header(HeaderConstants.X_USER_ROLE, user.getRole().name()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.username").value("profileUser"));
-    }
-
-    @Test
-    @DisplayName("Should successfully support /api/v1 route prefix for auth and user operations")
-    void shouldSupportV1RoutePrefix() throws Exception {
-        RegisterRequest register = new RegisterRequest(
-                "v1user",
-                "v1user@learnup.com",
-                "secret12345",
-                "V1 User",
-                UserRole.LEARNER,
-                null
-        );
-
-        // Register via /api/v1/auth/register
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.accessToken").isString());
-
-        // Login via /api/v1/auth/login
-        LoginRequest login = new LoginRequest("v1user", "secret12345");
-        mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(login)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-
-        User user = userRepository.findByUsername("v1user").orElseThrow();
-
-        // Get me via /api/v1/users/me
-        mockMvc.perform(get("/api/v1/users/me")
-                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
-                        .header(HeaderConstants.X_USER_ROLE, user.getRole().name()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.username").value("v1user"));
-    }
-
-    @Test
-    @DisplayName("Should successfully seed and authenticate all canonical demo accounts (ADMIN, ORGANIZER, INSTRUCTOR, LEARNER)")
-    void shouldSeedAndLoginAllDevAccounts() throws Exception {
-        // Run seed
-        devAccountSeeder.seedAccounts();
-
-        // 1. Verify records exist in database with correct tenant IDs
-        User admin = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.ADMIN_ID).orElseThrow();
-        assertThat(admin.getUsername()).isEqualTo("admin");
-        assertThat(admin.getEmail()).isEqualTo("admin@learnup.local");
-        assertThat(admin.getRole()).isEqualTo(UserRole.ADMIN);
-        assertThat(admin.getOrganizationId()).isNull();
-
-        User organizer = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.ORGANIZER_ID).orElseThrow();
-        assertThat(organizer.getUsername()).isEqualTo("organizer");
-        assertThat(organizer.getEmail()).isEqualTo("organizer@learnup.local");
-        assertThat(organizer.getRole()).isEqualTo(UserRole.ORGANIZER);
-        assertThat(organizer.getOrganizationId()).isEqualTo(com.learnup.identity.config.DevAccountSeeder.DEMO_ORG_ID);
-
-        User instructor = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.INSTRUCTOR_ID).orElseThrow();
-        assertThat(instructor.getUsername()).isEqualTo("instructor");
-        assertThat(instructor.getEmail()).isEqualTo("instructor@learnup.local");
-        assertThat(instructor.getRole()).isEqualTo(UserRole.INSTRUCTOR);
-        assertThat(instructor.getOrganizationId()).isEqualTo(com.learnup.identity.config.DevAccountSeeder.DEMO_ORG_ID);
-
-        User learner = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.LEARNER_ID).orElseThrow();
-        assertThat(learner.getUsername()).isEqualTo("learner");
-        assertThat(learner.getEmail()).isEqualTo("learner@learnup.local");
-        assertThat(learner.getRole()).isEqualTo(UserRole.LEARNER);
-        assertThat(learner.getOrganizationId()).isEqualTo(com.learnup.identity.config.DevAccountSeeder.DEMO_ORG_ID);
-
-        // 2. Verify all 4 accounts can login using default password "LearnUp@123" by email
-        String[] demoEmails = {"admin@learnup.local", "organizer@learnup.local", "instructor@learnup.local", "learner@learnup.local"};
-        UserRole[] demoRoles = {UserRole.ADMIN, UserRole.ORGANIZER, UserRole.INSTRUCTOR, UserRole.LEARNER};
-
-        for (int i = 0; i < demoEmails.length; i++) {
-            String email = demoEmails[i];
-            UserRole expectedRole = demoRoles[i];
-
-            LoginRequest loginReq = new LoginRequest(email, "LearnUp@123");
-            MvcResult loginRes = mockMvc.perform(post("/api/v1/auth/login")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(loginReq)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.accessToken").isString())
-                    .andExpect(jsonPath("$.data.refreshToken").isString())
-                    .andExpect(jsonPath("$.data.user.email").value(email))
-                    .andExpect(jsonPath("$.data.user.role").value(expectedRole.name()))
-                    .andReturn();
-
-            String token = objectMapper.readTree(loginRes.getResponse().getContentAsString())
-                    .path("data").path("accessToken").asText();
-
-            // 3. Verify /api/v1/auth/me returns user for the authenticated session
-            User userObj = userRepository.findByEmail(email).orElseThrow();
-            mockMvc.perform(get("/api/v1/auth/me")
-                            .header(HeaderConstants.X_USER_ID, userObj.getId().toString())
-                            .header(HeaderConstants.X_USER_ROLE, expectedRole.name()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.email").value(email));
+        @BeforeEach
+        void setUp() {
+                passwordResetTokenRepository.deleteAll();
+                refreshTokenRepository.deleteAll();
+                userRepository.deleteAll();
         }
 
-        // 4. Verify invalid password rejected
-        LoginRequest badPass = new LoginRequest("admin@learnup.local", "WrongPassword999");
-        mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(badPass)))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
-    }
+        @Test
+        @DisplayName("Should successfully register a new learner and store BCrypt password hash")
+        void shouldRegisterNewUser() throws Exception {
+                UUID orgId = UUID.randomUUID();
+                RegisterRequest request = new RegisterRequest(
+                                "learner1",
+                                "learner1@learnup.com",
+                                "securePassword123",
+                                "Nguyen Van Learner",
+                                UserRole.LEARNER,
+                                orgId);
 
-    @Test
-    @DisplayName("UC06: Should successfully logout and revoke refresh token")
-    void shouldLogoutAndRevokeRefreshToken() throws Exception {
-        RegisterRequest register = new RegisterRequest("logoutUser", "logout@learnup.com", "pass123456", "Logout User", UserRole.LEARNER, null);
-        MvcResult regRes = mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated())
-                .andReturn();
+                MvcResult result = mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.accessToken").isString())
+                                .andExpect(jsonPath("$.data.refreshToken").isString())
+                                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                                .andReturn();
 
-        String rawResponse = regRes.getResponse().getContentAsString();
-        String refreshToken = objectMapper.readTree(rawResponse).path("data").path("refreshToken").asText();
-        assertThat(refreshToken).isNotBlank();
+                // Verify password was hashed and plaintext is never in DB
+                User userInDb = userRepository.findByUsername("learner1").orElseThrow();
+                assertThat(userInDb.getPasswordHash()).startsWith("$2a$");
+                assertThat(userInDb.getPasswordHash()).isNotEqualTo("securePassword123");
+                assertThat(userInDb.getEmail()).isEqualTo("learner1@learnup.com");
+                assertThat(userInDb.getRole()).isEqualTo(UserRole.LEARNER);
+                assertThat(userInDb.getOrganizationId()).isEqualTo(orgId);
+        }
 
-        // Perform logout
-        com.learnup.identity.dto.LogoutRequest logoutRequest = new com.learnup.identity.dto.LogoutRequest(refreshToken);
-        mockMvc.perform(post("/api/v1/auth/logout")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(logoutRequest)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+        @Test
+        @DisplayName("Should reject registration with duplicate username or email with 409 Conflict")
+        void shouldRejectDuplicateRegistration() throws Exception {
+                RegisterRequest first = new RegisterRequest("john_doe", "john@example.com", "pass123", "John Doe",
+                                UserRole.LEARNER, null);
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(first)))
+                                .andExpect(status().isCreated());
 
-        // Subsequent refresh token request with revoked token must fail with 401
-        RefreshTokenRequest refreshReq = new RefreshTokenRequest(refreshToken);
-        mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(refreshReq)))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
-    }
+                // Duplicate username
+                RegisterRequest dupUsername = new RegisterRequest("john_doe", "other@example.com", "pass123", "Other",
+                                UserRole.LEARNER, null);
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(dupUsername)))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.success").value(false))
+                                .andExpect(jsonPath("$.error.code").value("CONFLICT"));
 
-    @Test
-    @DisplayName("UC08: Should change password and invalidate old password and sessions")
-    void shouldChangePasswordAndInvalidateOldPassword() throws Exception {
-        RegisterRequest register = new RegisterRequest("changePassUser", "changepass@learnup.com", "initialPass123", "Change Pass User", UserRole.INSTRUCTOR, null);
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated());
+                // Duplicate email
+                RegisterRequest dupEmail = new RegisterRequest("other_user", "john@example.com", "pass123", "Other",
+                                UserRole.LEARNER, null);
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(dupEmail)))
+                                .andExpect(status().isConflict())
+                                .andExpect(jsonPath("$.success").value(false))
+                                .andExpect(jsonPath("$.error.code").value("CONFLICT"));
+        }
 
-        User user = userRepository.findByUsername("changePassUser").orElseThrow();
+        @Test
+        @DisplayName("Should reject self-registration as platform ADMIN with 403 Forbidden")
+        void shouldRejectAdminSelfRegistration() throws Exception {
+                RegisterRequest adminRequest = new RegisterRequest(
+                                "malicious_admin",
+                                "hacker@example.com",
+                                "hackerPass123",
+                                "Attacker",
+                                UserRole.ADMIN,
+                                null);
 
-        // 1. Wrong current password -> 400 BAD_REQUEST
-        com.learnup.identity.dto.ChangePasswordRequest wrongCurrent = new com.learnup.identity.dto.ChangePasswordRequest(
-                "incorrectPassword", "newSecurePassword123", "newSecurePassword123"
-        );
-        mockMvc.perform(post("/api/v1/auth/change-password")
-                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(wrongCurrent)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false));
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(adminRequest)))
+                                .andExpect(status().isForbidden())
+                                .andExpect(jsonPath("$.success").value(false))
+                                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+        }
 
-        // 2. Mismatched confirm password -> 400 BAD_REQUEST
-        com.learnup.identity.dto.ChangePasswordRequest mismatch = new com.learnup.identity.dto.ChangePasswordRequest(
-                "initialPass123", "newSecurePassword123", "differentPassword123"
-        );
-        mockMvc.perform(post("/api/v1/auth/change-password")
-                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(mismatch)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false));
+        @Test
+        @DisplayName("Should successfully login with valid credentials")
+        void shouldLoginSuccessfully() throws Exception {
+                RegisterRequest register = new RegisterRequest("instructor1", "instructor1@learnup.com", "mySecretPass",
+                                "Instructor A", UserRole.INSTRUCTOR, null);
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(register)))
+                                .andExpect(status().isCreated());
 
-        // 3. Valid change password -> 200 OK
-        com.learnup.identity.dto.ChangePasswordRequest validChange = new com.learnup.identity.dto.ChangePasswordRequest(
-                "initialPass123", "newSecurePassword123", "newSecurePassword123"
-        );
-        mockMvc.perform(post("/api/v1/auth/change-password")
-                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validChange)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                LoginRequest login = new LoginRequest("instructor1", "mySecretPass");
+                mockMvc.perform(post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(login)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.accessToken").isString())
+                                .andExpect(jsonPath("$.data.refreshToken").isString());
+        }
 
-        // 4. Old password rejected at login
-        LoginRequest oldLogin = new LoginRequest("changepass@learnup.com", "initialPass123");
-        mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(oldLogin)))
-                .andExpect(status().isUnauthorized());
+        @Test
+        @DisplayName("Should reject invalid password or non-existent user with 401 Unauthorized")
+        void shouldRejectInvalidLogin() throws Exception {
+                LoginRequest invalid = new LoginRequest("non_existent_user", "wrongPass");
+                mockMvc.perform(post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(invalid)))
+                                .andExpect(status().isUnauthorized())
+                                .andExpect(jsonPath("$.success").value(false))
+                                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+        }
 
-        // 5. New password accepted at login
-        LoginRequest newLogin = new LoginRequest("changepass@learnup.com", "newSecurePassword123");
-        mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(newLogin)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-    }
+        @Test
+        @DisplayName("Should refresh access token and rotate refresh token")
+        void shouldRefreshTokenAndRotate() throws Exception {
+                RegisterRequest register = new RegisterRequest("refresher", "refresher@learnup.com", "pass123456",
+                                "Refresher", UserRole.LEARNER, null);
+                MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(register)))
+                                .andExpect(status().isCreated())
+                                .andReturn();
 
-    @Test
-    @DisplayName("UC07: Should handle forgot password and reset password flow")
-    void shouldHandleForgotPasswordAndResetPasswordFlow() throws Exception {
-        RegisterRequest register = new RegisterRequest("forgotUser", "forgot@learnup.com", "oldPassword123", "Forgot User", UserRole.LEARNER, null);
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated());
+                String rawResponse = registerResult.getResponse().getContentAsString();
+                AuthResponse authData = objectMapper.readTree(rawResponse).get("data").traverse(objectMapper)
+                                .readValueAs(AuthResponse.class);
+                String initialRefreshToken = authData.getRefreshToken();
 
-        User user = userRepository.findByEmail("forgot@learnup.com").orElseThrow();
+                // Refresh token call
+                RefreshTokenRequest refreshReq = new RefreshTokenRequest(initialRefreshToken);
+                MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(refreshReq)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.accessToken").isString())
+                                .andExpect(jsonPath("$.data.refreshToken").isString())
+                                .andReturn();
 
-        // 1. Request forgot password
-        com.learnup.identity.dto.ForgotPasswordRequest forgotReq = new com.learnup.identity.dto.ForgotPasswordRequest("forgot@learnup.com");
-        mockMvc.perform(post("/api/v1/auth/forgot-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(forgotReq)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                // Attempting to reuse old refresh token should be rejected (revoked!)
+                mockMvc.perform(post("/api/auth/refresh")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(refreshReq)))
+                                .andExpect(status().isUnauthorized())
+                                .andExpect(jsonPath("$.success").value(false))
+                                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+        }
 
-        // Verify token generated in database
-        assertThat(passwordResetTokenRepository.count()).isEqualTo(1);
+        @Test
+        @DisplayName("Should retrieve current user profile without exposing password or refresh token")
+        void shouldGetMeProfile() throws Exception {
+                RegisterRequest register = new RegisterRequest("profileUser", "profile@learnup.com", "pass123456",
+                                "Profile User", UserRole.ORGANIZER, UUID.randomUUID());
+                mockMvc.perform(post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(register)))
+                                .andExpect(status().isCreated());
 
-        // 2. Set up known raw token for reset verification
-        String rawResetToken = "known-reset-token-" + UUID.randomUUID();
-        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-        String tokenHash = java.util.HexFormat.of().formatHex(digest.digest(rawResetToken.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                User user = userRepository.findByUsername("profileUser").orElseThrow();
 
-        com.learnup.identity.domain.PasswordResetToken manualToken = new com.learnup.identity.domain.PasswordResetToken();
-        manualToken.setId(UUID.randomUUID());
-        manualToken.setUserId(user.getId());
-        manualToken.setTokenHash(tokenHash);
-        manualToken.setExpiresAt(java.time.Instant.now().plusSeconds(900));
-        passwordResetTokenRepository.save(manualToken);
+                mockMvc.perform(get("/api/users/me")
+                                .header(HeaderConstants.X_USER_ID, user.getId().toString())
+                                .header(HeaderConstants.X_USER_ROLE, user.getRole().name()))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.id").value(user.getId().toString()))
+                                .andExpect(jsonPath("$.data.username").value("profileUser"))
+                                .andExpect(jsonPath("$.data.email").value("profile@learnup.com"))
+                                .andExpect(jsonPath("$.data.role").value("ORGANIZER"))
+                                .andExpect(jsonPath("$.data.passwordHash").doesNotExist())
+                                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
 
-        // 3. Reset password with valid token
-        com.learnup.identity.dto.ResetPasswordRequest resetReq = new com.learnup.identity.dto.ResetPasswordRequest(
-                rawResetToken, "brandNewPassword123", "brandNewPassword123"
-        );
-        mockMvc.perform(post("/api/v1/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(resetReq)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                // Also verify /api/auth/me works identically
+                mockMvc.perform(get("/api/auth/me")
+                                .header(HeaderConstants.X_USER_ID, user.getId().toString())
+                                .header(HeaderConstants.X_USER_ROLE, user.getRole().name()))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.username").value("profileUser"));
+        }
 
-        // 4. Verify user can login with new password
-        LoginRequest resetLogin = new LoginRequest("forgot@learnup.com", "brandNewPassword123");
-        mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(resetLogin)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+        @Test
+        @DisplayName("Should successfully support /api/v1 route prefix for auth and user operations")
+        void shouldSupportV1RoutePrefix() throws Exception {
+                RegisterRequest register = new RegisterRequest(
+                                "v1user",
+                                "v1user@learnup.com",
+                                "secret12345",
+                                "V1 User",
+                                UserRole.LEARNER,
+                                null);
 
-        // 5. Reusing the same reset token must be rejected
-        mockMvc.perform(post("/api/v1/auth/reset-password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(resetReq)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false));
-    }
+                // Register via /api/v1/auth/register
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(register)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.accessToken").isString());
 
-    @Test
-    @DisplayName("Internal API: Should set credentials via POST /api/internal/credentials with valid x-internal-key")
-    void shouldSetCredentialsViaInternalApiWithValidKey() throws Exception {
-        UUID newUserId = UUID.randomUUID();
-        com.learnup.identity.dto.internal.SetCredentialsRequest request =
-                new com.learnup.identity.dto.internal.SetCredentialsRequest(newUserId, "provisionedPass123");
-        request.setEmail("provisioned@abc.vn");
-        request.setUsername("provisioned_user");
-        request.setRole(UserRole.INSTRUCTOR);
+                // Login via /api/v1/auth/login
+                LoginRequest login = new LoginRequest("v1user", "secret12345");
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(login)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
 
-        // Call internal API with valid internal key
-        mockMvc.perform(post("/api/internal/credentials")
-                        .header(HeaderConstants.X_INTERNAL_KEY, "test-internal-secret")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                User user = userRepository.findByUsername("v1user").orElseThrow();
 
-        // Verify user can now login
-        LoginRequest loginReq = new LoginRequest("provisioned@abc.vn", "provisionedPass123");
-        mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(loginReq)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.user.id").value(newUserId.toString()))
-                .andExpect(jsonPath("$.data.user.role").value(UserRole.INSTRUCTOR.name()));
-    }
+                // Get me via /api/v1/users/me
+                mockMvc.perform(get("/api/v1/users/me")
+                                .header(HeaderConstants.X_USER_ID, user.getId().toString())
+                                .header(HeaderConstants.X_USER_ROLE, user.getRole().name()))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.username").value("v1user"));
+        }
 
-    @Test
-    @DisplayName("Internal API: Should reject POST /api/internal/credentials without valid x-internal-key with 403 Forbidden")
-    void shouldRejectInternalApiWithoutValidKey() throws Exception {
-        UUID newUserId = UUID.randomUUID();
-        com.learnup.identity.dto.internal.SetCredentialsRequest request =
-                new com.learnup.identity.dto.internal.SetCredentialsRequest(newUserId, "somePass123");
+        @Test
+        @DisplayName("Should successfully seed and authenticate all canonical demo accounts (ADMIN, ORGANIZER, INSTRUCTOR, LEARNER)")
+        void shouldSeedAndLoginAllDevAccounts() throws Exception {
+                // Run seed
+                devAccountSeeder.seedAccounts();
 
-        // Missing key
-        mockMvc.perform(post("/api/internal/credentials")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.success").value(false));
+                // 1. Verify records exist in database with correct tenant IDs
+                User admin = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.ADMIN_ID)
+                                .orElseThrow();
+                assertThat(admin.getUsername()).isEqualTo("admin");
+                assertThat(admin.getEmail()).isEqualTo("admin@learnup.local");
+                assertThat(admin.getRole()).isEqualTo(UserRole.ADMIN);
+                assertThat(admin.getOrganizationId()).isNull();
 
-        // Wrong key
-        mockMvc.perform(post("/api/internal/credentials")
-                        .header(HeaderConstants.X_INTERNAL_KEY, "wrong-fake-key")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.success").value(false));
-    }
+                User organizer = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.ORGANIZER_ID)
+                                .orElseThrow();
+                assertThat(organizer.getUsername()).isEqualTo("organizer");
+                assertThat(organizer.getEmail()).isEqualTo("organizer@learnup.local");
+                assertThat(organizer.getRole()).isEqualTo(UserRole.ORGANIZER);
+                assertThat(organizer.getOrganizationId())
+                                .isEqualTo(com.learnup.identity.config.DevAccountSeeder.DEMO_ORG_ID);
+
+                User instructor = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.INSTRUCTOR_ID)
+                                .orElseThrow();
+                assertThat(instructor.getUsername()).isEqualTo("instructor");
+                assertThat(instructor.getEmail()).isEqualTo("instructor@learnup.local");
+                assertThat(instructor.getRole()).isEqualTo(UserRole.INSTRUCTOR);
+                assertThat(instructor.getOrganizationId())
+                                .isEqualTo(com.learnup.identity.config.DevAccountSeeder.DEMO_ORG_ID);
+
+                User learner = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.LEARNER_ID)
+                                .orElseThrow();
+                assertThat(learner.getUsername()).isEqualTo("learner");
+                assertThat(learner.getEmail()).isEqualTo("learner@learnup.local");
+                assertThat(learner.getRole()).isEqualTo(UserRole.LEARNER);
+                assertThat(learner.getOrganizationId())
+                                .isEqualTo(com.learnup.identity.config.DevAccountSeeder.DEMO_ORG_ID);
+
+                // 2. Verify all 4 accounts can login using default password "LearnUp@123" by
+                // email
+                String[] demoEmails = { "admin@learnup.local", "organizer@learnup.local", "instructor@learnup.local",
+                                "learner@learnup.local" };
+                UserRole[] demoRoles = { UserRole.ADMIN, UserRole.ORGANIZER, UserRole.INSTRUCTOR, UserRole.LEARNER };
+
+                for (int i = 0; i < demoEmails.length; i++) {
+                        String email = demoEmails[i];
+                        UserRole expectedRole = demoRoles[i];
+
+                        LoginRequest loginReq = new LoginRequest(email, "LearnUp@123");
+                        MvcResult loginRes = mockMvc.perform(post("/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(loginReq)))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.success").value(true))
+                                        .andExpect(jsonPath("$.data.accessToken").isString())
+                                        .andExpect(jsonPath("$.data.refreshToken").isString())
+                                        .andExpect(jsonPath("$.data.user.email").value(email))
+                                        .andExpect(jsonPath("$.data.user.role").value(expectedRole.name()))
+                                        .andReturn();
+
+                        String token = objectMapper.readTree(loginRes.getResponse().getContentAsString())
+                                        .path("data").path("accessToken").asText();
+
+                        // 3. Verify /api/v1/auth/me returns user for the authenticated session
+                        User userObj = userRepository.findByEmail(email).orElseThrow();
+                        mockMvc.perform(get("/api/v1/auth/me")
+                                        .header(HeaderConstants.X_USER_ID, userObj.getId().toString())
+                                        .header(HeaderConstants.X_USER_ROLE, expectedRole.name()))
+                                        .andExpect(status().isOk())
+                                        .andExpect(jsonPath("$.success").value(true))
+                                        .andExpect(jsonPath("$.data.email").value(email));
+                }
+
+                // 4. Verify invalid password rejected
+                LoginRequest badPass = new LoginRequest("admin@learnup.local", "WrongPassword999");
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(badPass)))
+                                .andExpect(status().isUnauthorized())
+                                .andExpect(jsonPath("$.success").value(false))
+                                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+        }
+
+        @Test
+        @DisplayName("UC06: Should successfully logout and revoke refresh token")
+        void shouldLogoutAndRevokeRefreshToken() throws Exception {
+                RegisterRequest register = new RegisterRequest("logoutUser", "logout@learnup.com", "pass123456",
+                                "Logout User", UserRole.LEARNER, null);
+                MvcResult regRes = mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(register)))
+                                .andExpect(status().isCreated())
+                                .andReturn();
+
+                String rawResponse = regRes.getResponse().getContentAsString();
+                String refreshToken = objectMapper.readTree(rawResponse).path("data").path("refreshToken").asText();
+                assertThat(refreshToken).isNotBlank();
+
+                // Perform logout
+                com.learnup.identity.dto.LogoutRequest logoutRequest = new com.learnup.identity.dto.LogoutRequest(
+                                refreshToken);
+                mockMvc.perform(post("/api/v1/auth/logout")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(logoutRequest)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+
+                // Subsequent refresh token request with revoked token must fail with 401
+                RefreshTokenRequest refreshReq = new RefreshTokenRequest(refreshToken);
+                mockMvc.perform(post("/api/v1/auth/refresh")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(refreshReq)))
+                                .andExpect(status().isUnauthorized())
+                                .andExpect(jsonPath("$.success").value(false))
+                                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+        }
+
+        @Test
+        @DisplayName("UC08: Should change password and invalidate old password and sessions")
+        void shouldChangePasswordAndInvalidateOldPassword() throws Exception {
+                RegisterRequest register = new RegisterRequest("changePassUser", "changepass@learnup.com",
+                                "initialPass123", "Change Pass User", UserRole.INSTRUCTOR, null);
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(register)))
+                                .andExpect(status().isCreated());
+
+                User user = userRepository.findByUsername("changePassUser").orElseThrow();
+
+                // 1. Wrong current password -> 400 BAD_REQUEST
+                com.learnup.identity.dto.ChangePasswordRequest wrongCurrent = new com.learnup.identity.dto.ChangePasswordRequest(
+                                "incorrectPassword", "newSecurePassword123", "newSecurePassword123");
+                mockMvc.perform(post("/api/v1/auth/change-password")
+                                .header(HeaderConstants.X_USER_ID, user.getId().toString())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(wrongCurrent)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.success").value(false));
+
+                // 2. Mismatched confirm password -> 400 BAD_REQUEST
+                com.learnup.identity.dto.ChangePasswordRequest mismatch = new com.learnup.identity.dto.ChangePasswordRequest(
+                                "initialPass123", "newSecurePassword123", "differentPassword123");
+                mockMvc.perform(post("/api/v1/auth/change-password")
+                                .header(HeaderConstants.X_USER_ID, user.getId().toString())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(mismatch)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.success").value(false));
+
+                // 3. Valid change password -> 200 OK
+                com.learnup.identity.dto.ChangePasswordRequest validChange = new com.learnup.identity.dto.ChangePasswordRequest(
+                                "initialPass123", "newSecurePassword123", "newSecurePassword123");
+                mockMvc.perform(post("/api/v1/auth/change-password")
+                                .header(HeaderConstants.X_USER_ID, user.getId().toString())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(validChange)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+
+                // 4. Old password rejected at login
+                LoginRequest oldLogin = new LoginRequest("changepass@learnup.com", "initialPass123");
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(oldLogin)))
+                                .andExpect(status().isUnauthorized());
+
+                // 5. New password accepted at login
+                LoginRequest newLogin = new LoginRequest("changepass@learnup.com", "newSecurePassword123");
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(newLogin)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @DisplayName("UC07: Should handle forgot password and reset password flow")
+        void shouldHandleForgotPasswordAndResetPasswordFlow() throws Exception {
+                RegisterRequest register = new RegisterRequest("forgotUser", "forgot@learnup.com", "oldPassword123",
+                                "Forgot User", UserRole.LEARNER, null);
+                mockMvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(register)))
+                                .andExpect(status().isCreated());
+
+                User user = userRepository.findByEmail("forgot@learnup.com").orElseThrow();
+
+                // 1. Request forgot password
+                com.learnup.identity.dto.ForgotPasswordRequest forgotReq = new com.learnup.identity.dto.ForgotPasswordRequest(
+                                "forgot@learnup.com");
+                mockMvc.perform(post("/api/v1/auth/forgot-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(forgotReq)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+
+                // Verify token generated in database
+                assertThat(passwordResetTokenRepository.count()).isEqualTo(1);
+
+                // 2. Set up known raw token for reset verification
+                String rawResetToken = "known-reset-token-" + UUID.randomUUID();
+                java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+                String tokenHash = java.util.HexFormat.of().formatHex(
+                                digest.digest(rawResetToken.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+                com.learnup.identity.domain.PasswordResetToken manualToken = new com.learnup.identity.domain.PasswordResetToken();
+                manualToken.setId(UUID.randomUUID());
+                manualToken.setUserId(user.getId());
+                manualToken.setTokenHash(tokenHash);
+                manualToken.setExpiresAt(java.time.Instant.now().plusSeconds(900));
+                passwordResetTokenRepository.save(manualToken);
+
+                // 3. Reset password with valid token
+                com.learnup.identity.dto.ResetPasswordRequest resetReq = new com.learnup.identity.dto.ResetPasswordRequest(
+                                rawResetToken, "brandNewPassword123", "brandNewPassword123");
+                mockMvc.perform(post("/api/v1/auth/reset-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(resetReq)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+
+                // 4. Verify user can login with new password
+                LoginRequest resetLogin = new LoginRequest("forgot@learnup.com", "brandNewPassword123");
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(resetLogin)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+
+                // 5. Reusing the same reset token must be rejected
+                mockMvc.perform(post("/api/v1/auth/reset-password")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(resetReq)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.success").value(false));
+        }
+
+        @Test
+        @DisplayName("Internal API: Should set credentials via POST /api/internal/credentials with valid x-internal-key")
+        void shouldSetCredentialsViaInternalApiWithValidKey() throws Exception {
+                UUID newUserId = UUID.randomUUID();
+                com.learnup.identity.dto.internal.SetCredentialsRequest request = new com.learnup.identity.dto.internal.SetCredentialsRequest(
+                                newUserId, "provisionedPass123");
+                request.setEmail("provisioned@abc.vn");
+                request.setUsername("provisioned_user");
+                request.setRole(UserRole.INSTRUCTOR);
+
+                // Call internal API with valid internal key
+                mockMvc.perform(post("/api/internal/credentials")
+                                .header(HeaderConstants.X_INTERNAL_KEY, "test-internal-secret")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+
+                // Verify user can now login
+                LoginRequest loginReq = new LoginRequest("provisioned@abc.vn", "provisionedPass123");
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(loginReq)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.user.id").value(newUserId.toString()))
+                                .andExpect(jsonPath("$.data.user.role").value(UserRole.INSTRUCTOR.name()));
+        }
+
+        @Test
+        @DisplayName("Internal API: Should reject POST /api/internal/credentials without valid x-internal-key with 403 Forbidden")
+        void shouldRejectInternalApiWithoutValidKey() throws Exception {
+                UUID newUserId = UUID.randomUUID();
+                com.learnup.identity.dto.internal.SetCredentialsRequest request = new com.learnup.identity.dto.internal.SetCredentialsRequest(
+                                newUserId, "somePass123");
+
+                // Missing key
+                mockMvc.perform(post("/api/internal/credentials")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isForbidden())
+                                .andExpect(jsonPath("$.success").value(false));
+
+                // Wrong key
+                mockMvc.perform(post("/api/internal/credentials")
+                                .header(HeaderConstants.X_INTERNAL_KEY, "wrong-fake-key")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isForbidden())
+                                .andExpect(jsonPath("$.success").value(false));
+        }
+
+        @Test
+        @DisplayName("Internal API: Should hand an email over from stale credentials to a new userId (re-registration)")
+        void shouldReassignEmailFromStaleUserOnReRegistration() throws Exception {
+                UUID oldUserId = UUID.randomUUID();
+                UUID newUserId = UUID.randomUUID();
+
+                // Đăng ký lần 1 rồi đăng ký lại cùng email: tenant gửi 2 userId khác nhau
+                for (UUID id : new UUID[] { oldUserId, newUserId }) {
+                        com.learnup.identity.dto.internal.SetCredentialsRequest request = new com.learnup.identity.dto.internal.SetCredentialsRequest(
+                                        id, "reRegisterPass123");
+                        request.setEmail("re-register@abc.vn");
+                        request.setRole(UserRole.ORGANIZER);
+
+                        mockMvc.perform(post("/api/internal/credentials")
+                                        .header(HeaderConstants.X_INTERNAL_KEY, "test-internal-secret")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(request)))
+                                        .andExpect(status().isOk());
+                }
+
+                assertThat(userRepository.findById(oldUserId)).isEmpty();
+
+                LoginRequest loginReq = new LoginRequest("re-register@abc.vn", "reRegisterPass123");
+                mockMvc.perform(post("/api/v1/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(loginReq)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.data.user.id").value(newUserId.toString()))
+                                .andExpect(jsonPath("$.data.user.role").value(UserRole.ORGANIZER.name()));
+        }
+
 }
