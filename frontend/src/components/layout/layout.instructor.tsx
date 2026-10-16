@@ -79,7 +79,7 @@ const LayoutInstructor = () => {
       />
       <div className="instructor-sidebar-user">
         <div className="instructor-user-row">
-          <Avatar size={34}>{initials}</Avatar>
+          <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
           <div className="instructor-user-info">
             <strong>{displayName}</strong>
             <small>Instructor</small>
@@ -128,7 +128,7 @@ const LayoutInstructor = () => {
           </div>
           <div className="instructor-topbar-actions">
             <span className="instructor-notification">Notifications</span>
-            <Avatar size={30} className="instructor-topbar-avatar">
+            <Avatar size={30} src={user?.avatar} className="instructor-topbar-avatar">
               {initials}
             </Avatar>
           </div>

@@ -1,4 +1,4 @@
-import { Avatar } from "antd";
+import { Avatar, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
 import {
   LearnerButton,
@@ -7,20 +7,12 @@ import {
   SectionCard,
   StatusTag,
 } from "@/components/learner/learner.ui";
-import { useCurrentApp } from "@/components/context/app.context";
+import { initialsOf, statusTone, useMyProfile } from "@/hooks/use.my.profile";
 import "./profile.scss";
 
 const Profile = () => {
-  const { user } = useCurrentApp();
+  const { profile, loading } = useMyProfile();
   const navigate = useNavigate();
-  const name = user?.fullName || "Alex Morgan";
-  const email = user?.email || "alex.morgan@example.com";
-  const initials = name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
   return (
     <LearnerPage className="learner-profile">
@@ -35,13 +27,16 @@ const Profile = () => {
         }
       />
       <SectionCard>
+        {loading && <Spin />}
         <div className="learner-profile-identity">
-          <Avatar size={64} src={user?.avatar}>
-            {initials}
+          <Avatar size={64} src={profile?.avatarUrl ?? undefined}>
+            {initialsOf(profile?.fullName)}
           </Avatar>
           <div>
-            <h2>{name}</h2>
-            <StatusTag tone="success">Active</StatusTag>
+            <h2>{profile?.fullName}</h2>
+            <StatusTag tone={statusTone(profile?.status)}>
+              {profile?.status}
+            </StatusTag>
           </div>
         </div>
         <div className="learner-profile-table">
@@ -51,15 +46,19 @@ const Profile = () => {
           </div>
           <div className="learner-profile-row">
             <span>Email address</span>
-            <span>{email}</span>
+            <span>{profile?.email}</span>
           </div>
           <div className="learner-profile-row">
             <span>Role</span>
-            <span>Learner</span>
+            <span>{profile?.role}</span>
           </div>
           <div className="learner-profile-row">
             <span>Organization</span>
-            <span>Demo Organization</span>
+            <span>{profile?.organizationName}</span>
+          </div>
+          <div className="learner-profile-row">
+            <span>Department</span>
+            <span>{profile?.department ?? "Not set"}</span>
           </div>
         </div>
       </SectionCard>

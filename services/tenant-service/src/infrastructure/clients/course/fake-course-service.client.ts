@@ -15,6 +15,7 @@
  */
 import type { CurrentUser } from '@learnup/ts-common';
 import { CourseServiceClient } from './course-service.client';
+import type { IOrganizationCourseUsage } from './interfaces/organization-course-usage.interface';
 
 // ID khớp prisma/seed-account-management.ts. Instructor không có trong bảng -> 0.
 const FAKE_COUNTS: Record<string, number> = {
@@ -34,5 +35,9 @@ export class FakeCourseServiceClient extends CourseServiceClient {
     const counts: Record<string, number> = {};
     for (const id of instructorIds) counts[id] = FAKE_COUNTS[id] ?? 0;
     return Promise.resolve(counts);
+  }
+
+  getOrganizationUsage(): Promise<IOrganizationCourseUsage> {
+    return Promise.resolve({ courseChains: 0, storageBytes: 0 });
   }
 }

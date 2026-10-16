@@ -28,6 +28,7 @@ import Configuration from "./pages/admin/configuration";
 import Statistics from "./pages/admin/statistics";
 import SuspendedOrganizations from "./pages/admin/suspended.organizations";
 import Profile from "./pages/admin/profile";
+import AdminProfileEdit from "./pages/admin/profile.edit";
 import ChangePassword from "./pages/admin/password.change";
 import LayoutOrganizer from "./components/layout/layout.organizer";
 import OrganizerDashboard from "./pages/organizer/dashboard";
@@ -60,6 +61,7 @@ import OrganizerContentReports from "./pages/organizer/content.reports";
 import OrganizerContentReportDetail from "./pages/organizer/content.report.detail";
 import OrganizerViolationHistory from "./pages/organizer/violation.history";
 import OrganizerProfile from "./pages/organizer/profile";
+import OrganizerProfileEdit from "./pages/organizer/profile.edit";
 import OrganizerChangePassword from "./pages/organizer/password.change";
 import LayoutLearner from "./components/layout/layout.learner";
 import LayoutLearnerCourse from "./components/layout/layout.learner.course";
@@ -202,6 +204,7 @@ export const router = createBrowserRouter([
       { path: "statistics", element: <Statistics /> },
       { path: "suspended-organizations", element: <SuspendedOrganizations /> },
       { path: "profile", element: <Profile /> },
+      { path: "profile/edit", element: <AdminProfileEdit /> },
       { path: "profile/change-password", element: <ChangePassword /> },
     ],
   },
@@ -262,6 +265,7 @@ export const router = createBrowserRouter([
       },
       { path: "violation-history", element: <OrganizerViolationHistory /> },
       { path: "profile", element: <OrganizerProfile /> },
+      { path: "profile/edit", element: <OrganizerProfileEdit /> },
       { path: "profile/change-password", element: <OrganizerChangePassword /> },
     ],
   },

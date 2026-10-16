@@ -1,4 +1,5 @@
 import { fetchAccountAPI } from "@/services/identity.service";
+import { loadUserWithProfile } from "@/services/profile.service";
 import type { IUser } from "@/types/identity.types";
 import { createContext, useContext, useEffect, useState } from "react";
 import PacmanLoader from "react-spinners/PacmanLoader";
@@ -32,7 +33,7 @@ export const AppProvider = (props: TProps) => {
         if (!localStorage.getItem("access_token")) return;
         const res = await fetchAccountAPI();
         if (res && res.data) {
-          setUser(res.data);
+          setUser(await loadUserWithProfile(res.data));
           setIsAuthenticated(true);
           const savedCarts: unknown = JSON.parse(
             localStorage.getItem("carts") || "[]",

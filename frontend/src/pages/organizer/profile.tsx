@@ -1,4 +1,4 @@
-import { Avatar } from "antd";
+import { Avatar, Spin } from "antd";
 import { Link } from "react-router-dom";
 import {
   OrganizerButton,
@@ -8,39 +8,53 @@ import {
   SectionCard,
   StatusTag,
 } from "@/components/organizer/organizer.ui";
-import { useCurrentApp } from "@/components/context/app.context";
+import { initialsOf, statusTone, useMyProfile } from "@/hooks/use.my.profile";
 import "./profile.scss";
 
 const Profile = () => {
-  const { user } = useCurrentApp();
-  const name = user?.fullName || "Mai Nguyen";
-  const email = user?.email || "mai.nguyen@northstar.example";
+  const { profile, loading } = useMyProfile();
   return (
     <OrganizerPage className="organizer-profile">
       <PageHeader
         title="Profile"
         subtitle="Manage your personal account information."
-        actions={<OrganizerButton type="primary">Edit profile</OrganizerButton>}
+        actions={
+          <Link to="edit">
+            <OrganizerButton type="primary">Edit profile</OrganizerButton>
+          </Link>
+        }
       />
       <SectionCard>
-        <div className="organizer-profile-identity">
-          <Avatar size={70}>
-            {name.split(" ").map((part) => part[0]).join("").slice(0, 2)}
-          </Avatar>
-          <div>
-            <h2>{name}</h2>
-            <span>Organizer</span>
-            <StatusTag tone="success">Active</StatusTag>
-          </div>
-        </div>
-        <div className="organizer-divider" />
-        <div className="organizer-detail-grid">
-          <DetailItem label="Full name">{name}</DetailItem>
-          <DetailItem label="Login email">{email}</DetailItem>
-          <DetailItem label="Role">Organizer</DetailItem>
-          <DetailItem label="Organization">Northstar Learning</DetailItem>
-        </div>
-        <p className="organizer-note">Email is not editable from profile settings.</p>
+        {loading ? (
+          <Spin />
+        ) : (
+          <>
+            <div className="organizer-profile-identity">
+              <Avatar size={70} src={profile?.avatarUrl ?? undefined}>
+                {initialsOf(profile?.fullName)}
+              </Avatar>
+              <div>
+                <h2>{profile?.fullName}</h2>
+                <span>{profile?.role}</span>
+                <StatusTag tone={statusTone(profile?.status)}>
+                  {profile?.status}
+                </StatusTag>
+              </div>
+            </div>
+            <div className="organizer-divider" />
+            <div className="organizer-detail-grid">
+              <DetailItem label="Full name">{profile?.fullName}</DetailItem>
+              <DetailItem label="Login email">{profile?.email}</DetailItem>
+              <DetailItem label="Role">{profile?.role}</DetailItem>
+              <DetailItem label="Organization">
+                {profile?.organizationName}
+              </DetailItem>
+            </div>
+            <p className="organizer-note">
+              Email is not editable from profile settings.
+            </p>
+          </>
+        )}
       </SectionCard>
       <SectionCard title="Security">
         <div className="organizer-security-row">

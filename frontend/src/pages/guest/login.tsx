@@ -3,6 +3,7 @@ import { Alert, Button, Form, Input } from "antd";
 import { BookOutlined, CheckOutlined, FlagOutlined } from "@ant-design/icons";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { loginAPI } from "@/services/identity.service";
+import { loadUserWithProfile } from "@/services/profile.service";
 import { useCurrentApp } from "@/components/context/app.context";
 import "@/pages/guest/login.scss";
 import {
@@ -45,7 +46,7 @@ export default function LoginPage() {
       const result = response.data;
       if (result?.accessToken && result.refreshToken && result.user) {
         saveTokens(result.accessToken, result.refreshToken);
-        setUser(result.user);
+        setUser(await loadUserWithProfile(result.user));
         setIsAuthenticated(true);
         navigate(
           safeRedirect(params.get("redirect")) ??

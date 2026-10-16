@@ -322,7 +322,7 @@ const LayoutOrganizer = () => {
               placement="bottomRight"
             >
               <button className="organizer-user" type="button">
-                <Avatar size={34}>{initials}</Avatar>
+                <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
                 <span>
                   <strong>{displayName}</strong>
                   <small>Organizer</small>

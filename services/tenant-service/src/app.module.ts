@@ -13,6 +13,10 @@ import { UsersController } from './modules/users/users.controller';
 import { DevFakeAuthMiddleware } from './common/middleware/dev-fake-auth.middleware';
 import { InvitationsModule } from './modules/invitations/invitations.module';
 import { SignInAccessModule } from './modules/sign-in-access/sign-in-access.module';
+import { ProfileModule } from './modules/profile/profile.module';
+import { ProfileController } from './modules/profile/profile.controller';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { SubscriptionsController } from './modules/subscriptions/subscriptions.controller';
 
 @Module({
   imports: [
@@ -26,6 +30,8 @@ import { SignInAccessModule } from './modules/sign-in-access/sign-in-access.modu
     UsersModule, // UC12
     InvitationsModule,
     SignInAccessModule,
+    ProfileModule,
+    SubscriptionsModule,
   ],
   providers: [
     {
@@ -38,6 +44,8 @@ export class AppModule implements NestModule {
   // TẠM THỜI: fake danh tính khi chưa đi qua api-gateway. Chỉ có tác dụng khi
   // DEV_FAKE_AUTH=true và NODE_ENV !== 'production' (xem dev-fake-auth.middleware.ts).
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(DevFakeAuthMiddleware).forRoutes(UsersController);
+    consumer
+      .apply(DevFakeAuthMiddleware)
+      .forRoutes(UsersController, ProfileController, SubscriptionsController);
   }
 }

@@ -1,4 +1,5 @@
 import type { CurrentUser } from '@learnup/ts-common';
+import type { IOrganizationCourseUsage } from './interfaces/organization-course-usage.interface';
 
 /**
  * Hỏi course-service số chuỗi Course (course_chains) mỗi Instructor đang phụ trách.
@@ -19,4 +20,8 @@ export abstract class CourseServiceClient {
     user: CurrentUser,
     instructorIds: string[],
   ): Promise<Record<string, number>>;
+
+  abstract getOrganizationUsage(
+    user: CurrentUser,
+  ): Promise<IOrganizationCourseUsage>;
 }
