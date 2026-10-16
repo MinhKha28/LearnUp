@@ -9,6 +9,10 @@ interface ImportMetaEnv {
   readonly VITE_COURSE_BACKEND_URL: string;
   /** assessment-service (8086): Assignment, Quiz, Peer Review. */
   readonly VITE_ASSESSMENT_BACKEND_URL: string;
+  /** Dev: bật proxy danh tính cho learner (D37). "1" = bật. */
+  readonly VITE_DEV_IDENTITY_PROXY?: string;
+  /** Dev: id user giả gửi kèm header x-dev-user-id tới tenant-service. */
+  readonly VITE_DEV_FAKE_USER_ID?: string;
 }
 
 interface ImportMeta {
