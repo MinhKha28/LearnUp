@@ -12,7 +12,7 @@ import { EnrollmentsRepository } from '../../src/modules/enrollments/enrollments
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
 import { OrganizationTimezoneService } from '../../src/infrastructure/clients/tenant/organization-timezone.service';
 import { PlatformSettingsRepository } from '../../src/modules/platform-settings/platform-settings.repository';
-import { PrismaService } from '../../src/prisma/prisma.service';
+import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { ENROLL_IT_ORG, ENROLL_IT_ORGANIZER } from './enroll-it-fixture';
 
 export async function createRequiredEnrollment(

@@ -6,6 +6,7 @@ import './to-safe-number.unit-test';
 import './enrollments-service.unit-test';
 import './my-course-ids.unit-test';
 import './course-snapshot-rows.unit-test';
+import './snapshot-preparation.unit-test';
 import './my-enrollments.unit-test';
 import './build-curriculum.unit-test';
 import './curriculum-service.unit-test';

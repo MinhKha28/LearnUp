@@ -14,10 +14,11 @@ import {
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { Prisma } from '../../../generated/prisma/client';
-import { buildCourseSnapshotRows } from '../course-snapshots/course-snapshot-rows';
+import { CourseSnapshotPreparationService } from '../course-snapshots/course-snapshot-preparation.service';
 import { CourseSnapshotsRepository } from '../course-snapshots/course-snapshots.repository';
 import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
 import {
@@ -83,6 +84,7 @@ function isUniqueViolation(error: unknown): boolean {
 @Injectable()
 export class EnrollmentsService {
   private readonly logger = new Logger(EnrollmentsService.name);
+  private readonly snapshotPreparation: CourseSnapshotPreparationService;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -92,7 +94,12 @@ export class EnrollmentsService {
     private readonly courseService: CourseServiceClient,
     @Inject(TENANT_CLIENT) private readonly tenant: TenantClient,
     private readonly organizationTimezone: OrganizationTimezoneService,
-  ) {}
+    @Optional() snapshotPreparation?: CourseSnapshotPreparationService,
+  ) {
+    this.snapshotPreparation =
+      snapshotPreparation ??
+      new CourseSnapshotPreparationService(courseSnapshots, courseService);
+  }
 
   /**
    * UC25.3: Learner tự đăng ký Course tự chọn.
@@ -127,19 +134,9 @@ export class EnrollmentsService {
       this.courseService.lockCourse(user, courseId, true),
     );
 
-    const hasSnapshot = await this.courseSnapshots.existsForCourse(
-      courseId,
-      organizationId,
+    const snapshotRows = await this.callCourseService(() =>
+      this.snapshotPreparation.prepare(user, lock),
     );
-    const snapshotRows = hasSnapshot
-      ? null
-      : buildCourseSnapshotRows(
-          lock,
-          await this.callCourseService(() =>
-            this.courseService.getCourseTree(user, courseId),
-          ),
-          new Date(),
-        );
 
     try {
       return await this.prisma.$transaction(async (tx) => {
