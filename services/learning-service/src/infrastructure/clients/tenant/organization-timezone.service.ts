@@ -16,7 +16,10 @@ export class OrganizationTimezoneService {
     { timezone: string; expiresAt: number }
   >();
 
-  constructor(@Inject(TENANT_CLIENT) private readonly tenant: TenantClient) {}
+  constructor(
+    @Inject(TENANT_CLIENT)
+    private readonly tenant: Pick<TenantClient, 'getOrganizationAccess'>,
+  ) {}
 
   async getTimezone(user: CurrentUser): Promise<string | null> {
     const organizationId = user.organizationId;

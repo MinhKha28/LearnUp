@@ -17,6 +17,19 @@ export class BaseDueAtRepository extends BaseRepository {
     super(prisma);
   }
 
+  async validateTimezone(
+    timezone: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const known = await this.db(tx).$queryRaw<{ known: boolean }[]>`
+      SELECT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = ${timezone}) AS known`;
+    if (!known[0]?.known) {
+      throw new InvalidBaseDueAtInputError(
+        `Múi giờ "${timezone}" không có trong danh sách múi giờ của PostgreSQL.`,
+      );
+    }
+  }
+
   /**
    * Hạn gốc BR-300 theo D33: 00:00 giờ Organization của ngày (ngày phân công theo giờ Organization + N + 1),
    * tức hết ngày "ngày phân công + N". Tính trong PostgreSQL để đổi múi giờ (kể cả giờ mùa hè) chính xác.
@@ -26,6 +39,7 @@ export class BaseDueAtRepository extends BaseRepository {
     days: number,
     timezone: string,
     tx?: Prisma.TransactionClient,
+    timezoneValidated = false,
   ): Promise<Date> {
     if (Number.isNaN(assignedAt.getTime())) {
       throw new InvalidBaseDueAtInputError(
@@ -40,13 +54,7 @@ export class BaseDueAtRepository extends BaseRepository {
 
     const db = this.db(tx);
     // Kiểm tên riêng: AT TIME ZONE còn nhận viết tắt và chuỗi POSIX, không chỉ tên IANA
-    const known = await db.$queryRaw<{ known: boolean }[]>`
-      SELECT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = ${timezone}) AS known`;
-    if (!known[0]?.known) {
-      throw new InvalidBaseDueAtInputError(
-        `Múi giờ "${timezone}" không có trong danh sách múi giờ của PostgreSQL.`,
-      );
-    }
+    if (!timezoneValidated) await this.validateTimezone(timezone, tx);
 
     const rows = await db.$queryRaw<{ base_due_at: Date }[]>`
       SELECT (((${assignedAt}::timestamptz AT TIME ZONE ${timezone})::date + ${days}::int + 1)::timestamp
