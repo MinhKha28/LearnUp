@@ -14,6 +14,16 @@ export function assertExtendable(status: string) {
     );
 }
 
+export function assertExemptible(status: string) {
+  if (status !== 'InProgress')
+    throw new ConflictException(
+      createApiError(
+        'ENROLLMENT_NOT_EXEMPTIBLE',
+        'Chỉ có thể miễn phân công đang học.',
+      ),
+    );
+}
+
 export function validateExtension(
   previousDueAt: Date,
   newDueAt: Date,

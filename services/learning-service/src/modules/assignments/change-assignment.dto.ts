@@ -4,6 +4,7 @@ import {
   IsString,
   Matches,
   MaxLength,
+  MinLength,
   ValidateIf,
 } from 'class-validator';
 
@@ -21,4 +22,12 @@ export class ExtendAssignmentDto {
   @IsString()
   @MaxLength(1000)
   reason?: string;
+}
+
+export class ExemptAssignmentDto {
+  @Transform(({ value }) => normalizeReason(value))
+  @IsString()
+  @MinLength(1)
+  @MaxLength(1000)
+  reason!: string;
 }

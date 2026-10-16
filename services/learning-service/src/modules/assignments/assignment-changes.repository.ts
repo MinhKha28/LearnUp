@@ -37,6 +37,28 @@ export class AssignmentChangesRepository {
       WHERE id = ${id}::uuid AND organization_id = ${organizationId}::uuid AND enrollment_type = 'Required'`;
   }
 
+  async exempt(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    id: string,
+    reason: string,
+    now: Date,
+  ) {
+    await tx.enrollment.update({
+      where: { id, organizationId },
+      data: { status: 'Exempted' },
+    });
+    await tx.enrollmentStatusInterval.create({
+      data: {
+        organizationId,
+        enrollmentId: id,
+        kind: 'Exempted',
+        startedAt: now,
+        reason,
+      },
+    });
+  }
+
   event(
     tx: Prisma.TransactionClient,
     organizationId: string,

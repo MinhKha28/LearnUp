@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Post,
   Patch,
+  HttpCode,
   Query,
 } from '@nestjs/common';
 import { ParsePagePipe } from '../../common/pipes/parse-page.pipe';
@@ -16,7 +17,10 @@ import { Roles } from '../../common/decorator/roles.decorator';
 import { AssignmentsService } from './assignments.service';
 import { CreateAssignmentDto } from './create-assignment.dto';
 import { AssignmentChangesService } from './assignment-changes.service';
-import { ExtendAssignmentDto } from './change-assignment.dto';
+import {
+  ExtendAssignmentDto,
+  ExemptAssignmentDto,
+} from './change-assignment.dto';
 
 @Controller('assignments')
 export class AssignmentsController {
@@ -56,5 +60,16 @@ export class AssignmentsController {
     @Body() dto: ExtendAssignmentDto,
   ) {
     return this.changes.extend(user, id, dto);
+  }
+
+  @Post(':enrollmentId/exemption')
+  @HttpCode(200)
+  @Roles('ORGANIZER')
+  exempt(
+    @User() user: CurrentUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) id: string,
+    @Body() dto: ExemptAssignmentDto,
+  ) {
+    return this.changes.exempt(user, id, dto);
   }
 }

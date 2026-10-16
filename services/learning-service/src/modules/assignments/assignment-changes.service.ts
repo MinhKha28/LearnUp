@@ -1,11 +1,13 @@
 import { createApiError, type CurrentUser } from '@learnup/ts-common';
 import {
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   TENANT_CLIENT,
@@ -16,9 +18,14 @@ import { serviceUnavailable } from '../../infrastructure/clients/course/service-
 import { BaseDueAtRepository } from '../enrollments/base-due-at.repository';
 import { AssignmentChangesRepository } from './assignment-changes.repository';
 import { AssignmentReadsService } from './assignment-reads.service';
-import { assertExtendable, validateExtension } from './assignment-change-rules';
+import {
+  assertExemptible,
+  assertExtendable,
+  validateExtension,
+} from './assignment-change-rules';
 import {
   type ExtendAssignmentDto,
+  type ExemptAssignmentDto,
   normalizeReason,
 } from './change-assignment.dto';
 
@@ -92,6 +99,45 @@ export class AssignmentChangesService {
         },
       );
     });
+    return this.reads.detail(user, id);
+  }
+
+  async exempt(user: CurrentUser, id: string, dto: ExemptAssignmentDto) {
+    const { organizationId, timezone } = await this.access(user);
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const row = await this.changes.lock(tx, organizationId, id);
+        if (!row) throw this.notFound();
+        assertExemptible(row.status);
+        const { now } = await this.changes.clock(tx, timezone);
+        const reason = normalizeReason(dto.reason) as string;
+        await this.changes.exempt(tx, organizationId, id, reason, now);
+        await this.changes.event(
+          tx,
+          organizationId,
+          row,
+          'EnrollmentExempted',
+          now,
+          {
+            reason,
+            actorId: user.userId,
+            exemptedAt: now.toISOString(),
+          },
+        );
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      )
+        throw new ConflictException(
+          createApiError(
+            'ENROLLMENT_NOT_EXEMPTIBLE',
+            'Không thể miễn phân công ở trạng thái hiện tại.',
+          ),
+        );
+      throw error;
+    }
     return this.reads.detail(user, id);
   }
 

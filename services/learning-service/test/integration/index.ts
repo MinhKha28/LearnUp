@@ -8,3 +8,4 @@ import './curriculum.integration-test';
 import './demo-reset.integration-test';
 import './assignments.integration-test';
 import './assignment-reads.integration-test';
+import './assignment-changes.integration-test';
