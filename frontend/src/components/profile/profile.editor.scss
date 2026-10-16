@@ -1,0 +1,32 @@
+.profile-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+
+  .profile-editor-photo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+
+    small {
+      width: 100%;
+      color: var(--color-text-muted);
+    }
+  }
+
+  .profile-editor-file {
+    display: none;
+  }
+
+  .profile-editor-note {
+    margin: 0 0 8px;
+    color: var(--color-text-muted);
+    font-size: 12px;
+  }
+
+  .profile-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+}

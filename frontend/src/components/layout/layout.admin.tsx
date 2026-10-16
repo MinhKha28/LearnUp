@@ -232,7 +232,7 @@ const LayoutAdmin = () => {
               placement="bottomRight"
             >
               <button className="admin-user" type="button">
-                <Avatar size={34}>{initials}</Avatar>
+                <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
                 <span>
                   <strong>{displayName}</strong>
                   <small>Platform Admin</small>

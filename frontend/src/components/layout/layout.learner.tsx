@@ -80,7 +80,7 @@ const LayoutLearner = () => {
       />
       <div className="learner-sidebar-user">
         <div className="learner-user-row">
-          <Avatar size={34}>{initials}</Avatar>
+          <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
           <div className="learner-user-info">
             <strong>{displayName}</strong>
             <small>Learner</small>
@@ -130,7 +130,7 @@ const LayoutLearner = () => {
           <div className="learner-topbar-actions">
             <DevIdentitySwitcher />
             <span className="learner-notification">Notifications</span>
-            <Avatar size={30} className="learner-topbar-avatar">
+            <Avatar size={30} src={user?.avatar} className="learner-topbar-avatar">
               {initials}
             </Avatar>
           </div>
