@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '../../../generated/prisma/client';
+import { Prisma } from '../../../generated/prisma/client';
 import { BaseRepository } from '../../common/repository/base.repository';
 import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
+
+const endOfCalendarDay = (date: Prisma.Sql, timezone: string) =>
+  Prisma.sql`((${date} + 1)::timestamp AT TIME ZONE ${timezone})`;
 
 /** Tham số tính hạn gốc không hợp lệ; không đoán giá trị thay thế. */
 export class InvalidBaseDueAtInputError extends Error {
@@ -57,8 +60,17 @@ export class BaseDueAtRepository extends BaseRepository {
     if (!timezoneValidated) await this.validateTimezone(timezone, tx);
 
     const rows = await db.$queryRaw<{ base_due_at: Date }[]>`
-      SELECT (((${assignedAt}::timestamptz AT TIME ZONE ${timezone})::date + ${days}::int + 1)::timestamp
-               AT TIME ZONE ${timezone}) AS base_due_at`;
+      SELECT ${endOfCalendarDay(Prisma.sql`((${assignedAt}::timestamptz AT TIME ZONE ${timezone})::date + ${days}::int)`, timezone)} AS base_due_at`;
     return rows[0].base_due_at;
+  }
+
+  async computeDueAtForDate(
+    date: string,
+    timezone: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<Date> {
+    const [row] = await tx.$queryRaw<{ dueAt: Date }[]>`
+      SELECT ${endOfCalendarDay(Prisma.sql`${date}::date`, timezone)} AS "dueAt"`;
+    return row.dueAt;
   }
 }

@@ -9,6 +9,8 @@ import { AssignmentsService } from './assignments.service';
 import { AssignmentsRepository } from './assignments.repository';
 import { AssignmentReadsRepository } from './assignment-reads.repository';
 import { AssignmentReadsService } from './assignment-reads.service';
+import { AssignmentChangesService } from './assignment-changes.service';
+import { AssignmentChangesRepository } from './assignment-changes.repository';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { AssignmentReadsService } from './assignment-reads.service';
     AssignmentsRepository,
     AssignmentReadsRepository,
     AssignmentReadsService,
+    AssignmentChangesService,
+    AssignmentChangesRepository,
   ],
 })
 export class AssignmentsModule {}
