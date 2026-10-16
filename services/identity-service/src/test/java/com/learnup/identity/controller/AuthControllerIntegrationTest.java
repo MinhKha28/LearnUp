@@ -3,11 +3,14 @@ package com.learnup.identity.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learnup.common.context.HeaderConstants;
 import com.learnup.common.security.UserRole;
+import com.learnup.identity.client.TenantAccessClient;
 import com.learnup.identity.domain.User;
 import com.learnup.identity.dto.AuthResponse;
 import com.learnup.identity.dto.LoginRequest;
 import com.learnup.identity.dto.RefreshTokenRequest;
 import com.learnup.identity.dto.RegisterRequest;
+import com.learnup.identity.dto.internal.SignInAccess;
+import com.learnup.identity.exception.TenantUnavailableException;
 import com.learnup.identity.repository.RefreshTokenRepository;
 import com.learnup.identity.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,6 +28,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -36,6 +42,9 @@ class AuthControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockBean
+    private TenantAccessClient tenantAccessClient;
 
     @Autowired
     private UserRepository userRepository;
@@ -57,6 +66,7 @@ class AuthControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        when(tenantAccessClient.check(any())).thenReturn(new SignInAccess(true, "Full", null));
         passwordResetTokenRepository.deleteAll();
         refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
@@ -554,5 +564,71 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    private String registerAndGetRefreshToken(String username, String password) throws Exception {
+        RegisterRequest register = new RegisterRequest(username, username + "@learnup.com", password, "Member", UserRole.LEARNER, UUID.randomUUID());
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(register)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString()).path("data").path("refreshToken").asText();
+    }
+
+    @Test
+    @DisplayName("BR-27: Should reject sign-in with 403 and the tenant reason when the account is deactivated")
+    void shouldRejectSignInWhenTenantDeniesAccess() throws Exception {
+        registerAndGetRefreshToken("deactivated_member", "memberPass123");
+        when(tenantAccessClient.check(any())).thenReturn(new SignInAccess(false, null, "ACCOUNT_DEACTIVATED"));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("deactivated_member", "memberPass123"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("ACCOUNT_DEACTIVATED"));
+    }
+
+    @Test
+    @DisplayName("BR-27: Should answer like a wrong password when the account does not exist in tenant-service")
+    void shouldHideAccountNotFoundAsInvalidCredentials() throws Exception {
+        registerAndGetRefreshToken("orphan_member", "memberPass123");
+        when(tenantAccessClient.check(any())).thenReturn(new SignInAccess(false, null, "ACCOUNT_NOT_FOUND"));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("orphan_member", "memberPass123"))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("BR-27: Should fail closed with 503 when tenant-service is unavailable")
+    void shouldFailClosedWhenTenantUnavailable() throws Exception {
+        registerAndGetRefreshToken("offline_member", "memberPass123");
+        when(tenantAccessClient.check(any())).thenThrow(new TenantUnavailableException(null));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("offline_member", "memberPass123"))))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("TENANT_UNAVAILABLE"));
+    }
+
+    @Test
+    @DisplayName("BR-27: Should reject refresh and revoke every session when the subscription is suspended")
+    void shouldRejectRefreshAndRevokeSessionsWhenDenied() throws Exception {
+        String refreshToken = registerAndGetRefreshToken("suspended_member", "memberPass123");
+        when(tenantAccessClient.check(any())).thenReturn(new SignInAccess(false, null, "SUBSCRIPTION_SUSPENDED"));
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new RefreshTokenRequest(refreshToken))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("SUBSCRIPTION_SUSPENDED"));
+
+        UUID userId = userRepository.findByUsername("suspended_member").orElseThrow().getId();
+        assertThat(refreshTokenRepository.findAll()).noneMatch(token -> token.getUserId().equals(userId));
     }
 }

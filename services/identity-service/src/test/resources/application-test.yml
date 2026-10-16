@@ -15,6 +15,9 @@ eureka:
   client:
     enabled: false
 
+tenant:
+  service-url: http://localhost:65535
+
 security:
   internal-key: test-internal-secret
   jwt:

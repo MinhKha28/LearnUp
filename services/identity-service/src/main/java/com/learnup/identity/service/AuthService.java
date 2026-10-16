@@ -2,9 +2,12 @@ package com.learnup.identity.service;
 
 import com.learnup.common.exception.BusinessException;
 import com.learnup.common.security.UserRole;
+import com.learnup.identity.client.TenantAccessClient;
 import com.learnup.identity.domain.RefreshToken;
 import com.learnup.identity.domain.User;
 import com.learnup.identity.dto.*;
+import com.learnup.identity.dto.internal.SignInAccess;
+import com.learnup.identity.exception.SignInDeniedException;
 import com.learnup.identity.repository.RefreshTokenRepository;
 import com.learnup.identity.repository.UserRepository;
 import org.slf4j.Logger;
@@ -27,6 +30,7 @@ public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepository;
+    private final TenantAccessClient tenantAccessClient;
     private final RefreshTokenRepository refreshTokenRepository;
     private final com.learnup.identity.repository.PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
@@ -36,12 +40,14 @@ public class AuthService {
                        RefreshTokenRepository refreshTokenRepository,
                        com.learnup.identity.repository.PasswordResetTokenRepository passwordResetTokenRepository,
                        PasswordEncoder passwordEncoder,
-                       JwtTokenService jwtTokenService) {
+                       JwtTokenService jwtTokenService,
+                       TenantAccessClient tenantAccessClient) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
+        this.tenantAccessClient = tenantAccessClient;
     }
 
     @Transactional
@@ -99,16 +105,27 @@ public class AuthService {
             throw BusinessException.unauthorized("Invalid username or password");
         }
 
+        SignInAccess access = tenantAccessClient.check(user.getId());
+        if (!access.allowed()) {
+            log.warn("Sign-in denied for user [{}]: {}", user.getId(), access.reason());
+            if ("ACCOUNT_NOT_FOUND".equals(access.reason())) {
+                throw BusinessException.unauthorized("Invalid username or password");
+            }
+            throw new SignInDeniedException(access.reason());
+        }
+
         log.info("User [{}] successfully authenticated", user.getUsername());
 
         String accessToken = jwtTokenService.generateAccessToken(user);
         String rawRefreshToken = createAndPersistRefreshToken(user.getId());
         UserResponse userResponse = UserResponse.fromUser(user);
 
-        return AuthResponse.of(accessToken, rawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
+        AuthResponse response = AuthResponse.of(accessToken, rawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
+        response.setAccessMode(access.accessMode());
+        return response;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = SignInDeniedException.class)
     public AuthResponse refresh(RefreshTokenRequest request) {
         String rawToken = request.getRefreshToken().trim();
         String tokenHash = hashToken(rawToken);
@@ -128,6 +145,13 @@ public class AuthService {
             throw BusinessException.unauthorized("User account is disabled");
         }
 
+        SignInAccess access = tenantAccessClient.check(user.getId());
+        if (!access.allowed()) {
+            refreshTokenRepository.deleteByUserId(user.getId());
+            log.warn("Refresh denied and sessions revoked for user [{}]: {}", user.getId(), access.reason());
+            throw new SignInDeniedException(access.reason());
+        }
+
         // Revoke the old refresh token (Token Rotation)
         refreshToken.revoke();
         refreshTokenRepository.save(refreshToken);
@@ -137,7 +161,9 @@ public class AuthService {
         String newRawRefreshToken = createAndPersistRefreshToken(user.getId());
         UserResponse userResponse = UserResponse.fromUser(user);
 
-        return AuthResponse.of(newAccessToken, newRawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
+        AuthResponse response = AuthResponse.of(newAccessToken, newRawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
+        response.setAccessMode(access.accessMode());
+        return response;
     }
 
     @Transactional(readOnly = true)

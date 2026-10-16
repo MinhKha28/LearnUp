@@ -1,0 +1,31 @@
+package com.learnup.identity.exception;
+
+import com.learnup.common.response.ApiResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class SignInExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(SignInExceptionHandler.class);
+
+    @ExceptionHandler(SignInDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSignInDenied(SignInDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(ex.getReason(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(TenantUnavailableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTenantUnavailable(TenantUnavailableException ex) {
+        log.error("tenant-service sign-in access check failed", ex.getCause());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.error("TENANT_UNAVAILABLE", ex.getMessage()));
+    }
+}
