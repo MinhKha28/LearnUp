@@ -85,7 +85,8 @@ public class AuthService {
         String rawRefreshToken = createAndPersistRefreshToken(savedUser.getId());
         UserResponse userResponse = UserResponse.fromUser(savedUser);
 
-        return AuthResponse.of(accessToken, rawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
+        return AuthResponse.of(accessToken, rawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(),
+                userResponse);
     }
 
     @Transactional
@@ -240,7 +241,8 @@ public class AuthService {
         String email = request.getEmail().trim().toLowerCase();
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null || !user.isEnabled()) {
-            // Mitigate email enumeration attack: return quietly without disclosing email non-existence
+            // Mitigate email enumeration attack: return quietly without disclosing email
+            // non-existence
             log.info("Forgot password requested for non-existent or disabled email: '{}'", email);
             return;
         }
@@ -272,8 +274,10 @@ public class AuthService {
         String rawToken = request.getToken().trim();
         String tokenHash = hashToken(rawToken);
 
-        com.learnup.identity.domain.PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenHash(tokenHash)
-                .orElseThrow(() -> BusinessException.badRequest("Invalid, expired, or already used password reset token"));
+        com.learnup.identity.domain.PasswordResetToken resetToken = passwordResetTokenRepository
+                .findByTokenHash(tokenHash)
+                .orElseThrow(
+                        () -> BusinessException.badRequest("Invalid, expired, or already used password reset token"));
 
         if (!resetToken.isValid()) {
             throw BusinessException.badRequest("Invalid, expired, or already used password reset token");
@@ -299,6 +303,14 @@ public class AuthService {
     public void setCredentials(com.learnup.identity.dto.internal.SetCredentialsRequest request) {
         UUID userId = request.getUserId();
         String rawPassword = request.getPassword().trim();
+        // Tenant là nguồn sự thật về tài khoản (BR-30: email duy nhất trong các tài
+        // khoản chưa xóa).
+        // Email đã thuộc một userId khác nghĩa là tài khoản cũ đã bị tenant xóa mềm
+        // (đăng ký lại theo BR-276, đăng ký quá hạn theo BR-7/BR-31) -> giải phóng
+        // email cho userId mới.
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            releaseEmailFromOtherUser(request.getEmail().trim().toLowerCase(), userId);
+        }
 
         User user = userRepository.findById(userId).orElse(null);
         if (user == null) {
@@ -341,6 +353,24 @@ public class AuthService {
         // Revoke all existing refresh tokens if password is reset/updated
         refreshTokenRepository.deleteByUserId(userId);
         log.info("Credentials successfully set for user [{}]", userId);
+    }
+
+    /**
+     * Xóa thông tin đăng nhập cũ đang giữ email của một userId khác.
+     * refresh_tokens và password_reset_tokens của user cũ tự xóa theo (ON DELETE
+     * CASCADE).
+     */
+    private void releaseEmailFromOtherUser(String email, UUID ownerId) {
+        userRepository.findByEmail(email)
+                .filter(other -> !other.getId().equals(ownerId))
+                .ifPresent(other -> {
+                    userRepository.delete(other);
+                    // DELETE phải xuống DB ngay; nếu để Hibernate tự flush thì INSERT chạy trước và
+                    // vẫn vướng UNIQUE(email)
+                    userRepository.flush();
+                    log.info("Released email from stale credentials of user [{}] for user [{}]",
+                            other.getId(), ownerId);
+                });
     }
 
     private String createAndPersistRefreshToken(UUID userId) {

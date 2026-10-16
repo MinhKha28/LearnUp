@@ -631,4 +631,34 @@ class AuthControllerIntegrationTest {
         UUID userId = userRepository.findByUsername("suspended_member").orElseThrow().getId();
         assertThat(refreshTokenRepository.findAll()).noneMatch(token -> token.getUserId().equals(userId));
     }
+
+    @Test
+    @DisplayName("Internal API: Should hand an email over from stale credentials to a new userId (re-registration)")
+    void shouldReassignEmailFromStaleUserOnReRegistration() throws Exception {
+        UUID oldUserId = UUID.randomUUID();
+        UUID newUserId = UUID.randomUUID();
+
+        for (UUID id : new UUID[] {oldUserId, newUserId}) {
+            com.learnup.identity.dto.internal.SetCredentialsRequest request =
+                    new com.learnup.identity.dto.internal.SetCredentialsRequest(id, "reRegisterPass123");
+            request.setEmail("re-register@abc.vn");
+            request.setRole(UserRole.ORGANIZER);
+
+            mockMvc.perform(post("/api/internal/credentials")
+                            .header(HeaderConstants.X_INTERNAL_KEY, "test-internal-secret")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk());
+        }
+
+        assertThat(userRepository.findById(oldUserId)).isEmpty();
+
+        LoginRequest loginReq = new LoginRequest("re-register@abc.vn", "reRegisterPass123");
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.id").value(newUserId.toString()))
+                .andExpect(jsonPath("$.data.user.role").value(UserRole.ORGANIZER.name()));
+    }
 }
