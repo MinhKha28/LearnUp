@@ -146,3 +146,15 @@
     justify-content: flex-start;
   }
 }
+
+.course-curriculum-assessments-link {
+  display: inline-block;
+  margin-bottom: var(--space-4, 16px);
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.course-curriculum-assessments-link:hover {
+  text-decoration: underline;
+}
