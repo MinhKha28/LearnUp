@@ -203,6 +203,7 @@ const CourseBuilderAssignmentDetail = () => {
 
           <div className="builder-actions builder-actions-split">
             <InstructorButton onClick={() => navigate(backPath)}>Back</InstructorButton>
+            <InstructorButton onClick={() => navigate(`/instructor/submissions?assessmentId=${assignment.id}`)}>Submissions</InstructorButton>
             {restricted ? (
               <InstructorButton type="primary" onClick={() => navigate(editPath, { state: location.state })}>
                 Edit estimated effort
