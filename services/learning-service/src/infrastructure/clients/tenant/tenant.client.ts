@@ -9,6 +9,20 @@ export interface OrganizationAccess {
 
 export interface TenantClient {
   getOrganizationAccess(user: CurrentUser): Promise<OrganizationAccess>;
+  lookupLearners(
+    user: CurrentUser,
+    learnerIds: string[],
+  ): Promise<LookupLearner[]>;
+}
+
+export interface LookupLearner {
+  userId: string;
+  role: string;
+  status: string;
+  activatedAt: string | null;
+  deletedAt: string | null;
+  fullName: string;
+  email: string;
 }
 
 /** Token inject TenantClient; bản cài đặt chọn theo TENANT_CLIENT_MODE. */

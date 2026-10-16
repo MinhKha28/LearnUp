@@ -92,7 +92,8 @@ export class EnrollmentsService {
     private readonly courseSnapshots: CourseSnapshotsRepository,
     private readonly platformSettings: PlatformSettingsRepository,
     private readonly courseService: CourseServiceClient,
-    @Inject(TENANT_CLIENT) private readonly tenant: TenantClient,
+    @Inject(TENANT_CLIENT)
+    private readonly tenant: Pick<TenantClient, 'getOrganizationAccess'>,
     private readonly organizationTimezone: OrganizationTimezoneService,
     @Optional() snapshotPreparation?: CourseSnapshotPreparationService,
   ) {
