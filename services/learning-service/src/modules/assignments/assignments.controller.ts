@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Patch,
   Query,
 } from '@nestjs/common';
 import { ParsePagePipe } from '../../common/pipes/parse-page.pipe';
@@ -14,12 +15,15 @@ import { User, ResponseMessage } from '../../common/decorator/customize';
 import { Roles } from '../../common/decorator/roles.decorator';
 import { AssignmentsService } from './assignments.service';
 import { CreateAssignmentDto } from './create-assignment.dto';
+import { AssignmentChangesService } from './assignment-changes.service';
+import { ExtendAssignmentDto } from './change-assignment.dto';
 
 @Controller('assignments')
 export class AssignmentsController {
   constructor(
     private readonly service: AssignmentsService,
     private readonly reads: AssignmentReadsService,
+    private readonly changes: AssignmentChangesService,
   ) {}
 
   @Get()
@@ -42,5 +46,15 @@ export class AssignmentsController {
   @ResponseMessage('Phân công Course thành công')
   assign(@User() user: CurrentUser, @Body() dto: CreateAssignmentDto) {
     return this.service.assign(user, dto);
+  }
+
+  @Patch(':enrollmentId/due-date')
+  @Roles('ORGANIZER')
+  extend(
+    @User() user: CurrentUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) id: string,
+    @Body() dto: ExtendAssignmentDto,
+  ) {
+    return this.changes.extend(user, id, dto);
   }
 }
