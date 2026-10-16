@@ -3,6 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { CourseServiceClient } from './course/course-service.client';
 import { FakeCourseServiceClient } from './course/fake-course-service.client';
 import { HttpCourseServiceClient } from './course/http-course-service.client';
+import { FakeTenantDirectoryClient } from './tenant/fake-tenant-directory.client';
+import { HttpTenantDirectoryClient } from './tenant/http-tenant-directory.client';
+import { TenantDirectoryClient } from './tenant/tenant-directory.client';
 
 // Gom các client gọi sang service khác (cùng khuôn với tenant-service/src/integrations).
 @Global()
@@ -17,7 +20,15 @@ import { HttpCourseServiceClient } from './course/http-course-service.client';
           ? new FakeCourseServiceClient(config)
           : new HttpCourseServiceClient(config),
     },
+    {
+      provide: TenantDirectoryClient,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): TenantDirectoryClient =>
+        config.get<string>('TENANT_CLIENT_MODE') === 'fake'
+          ? new FakeTenantDirectoryClient()
+          : new HttpTenantDirectoryClient(config),
+    },
   ],
-  exports: [CourseServiceClient],
+  exports: [CourseServiceClient, TenantDirectoryClient],
 })
 export class IntegrationsModule {}

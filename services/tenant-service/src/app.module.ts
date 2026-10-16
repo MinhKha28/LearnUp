@@ -13,6 +13,7 @@ import { UsersController } from './modules/users/users.controller';
 import { DevFakeAuthMiddleware } from './common/middleware/dev-fake-auth.middleware';
 import { InvitationsModule } from './modules/invitations/invitations.module';
 import { SignInAccessModule } from './modules/sign-in-access/sign-in-access.module';
+import { UserDirectoryModule } from './modules/user-directory/user-directory.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { ProfileController } from './modules/profile/profile.controller';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
@@ -30,6 +31,7 @@ import { SubscriptionsController } from './modules/subscriptions/subscriptions.c
     UsersModule, // UC12
     InvitationsModule,
     SignInAccessModule,
+    UserDirectoryModule,
     ProfileModule,
     SubscriptionsModule,
   ],

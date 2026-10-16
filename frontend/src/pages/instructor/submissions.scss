@@ -281,3 +281,290 @@
     grid-template-columns: 1fr;
   }
 }
+
+.instructor-submissions .ant-alert {
+  margin-bottom: 16px;
+}
+
+.instructor-submission-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.instructor-submission-chip {
+  min-width: 130px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  strong {
+    display: block;
+    color: #0f172a;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  span {
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  &:hover {
+    border-color: #f59e0b;
+  }
+
+  &.is-active {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+  }
+}
+
+.instructor-submissions-toolbar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+
+  .ant-input-search {
+    flex: 1;
+  }
+}
+
+.instructor-submissions-toggle {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: #475569;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.instructor-submissions-row-link {
+  width: 100%;
+  border-width: 0 0 1px;
+  border-style: solid;
+  border-color: #eef2f7;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: #fffbeb;
+  }
+}
+
+.instructor-submissions-learner {
+  display: flex;
+  flex-direction: column;
+
+  small {
+    color: #94a3b8;
+    font-size: 11px;
+  }
+}
+
+.instructor-submissions-replaced {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.instructor-submissions-note {
+  color: #b45309 !important;
+  font-size: 12px !important;
+}
+
+.instructor-submissions-empty {
+  padding: 24px 20px;
+  color: #64748b;
+  text-align: center;
+}
+
+.instructor-submissions-pagination {
+  margin: 16px 0;
+  text-align: right;
+}
+
+.instructor-submission-column {
+  display: grid;
+  gap: 16px;
+}
+
+.instructor-submission-status {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+
+  span:last-child {
+    color: #b45309;
+    font-size: 12px;
+  }
+}
+
+.instructor-submission-empty-text {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.instructor-submission-file {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: #1e293b;
+
+  small {
+    color: #94a3b8;
+  }
+}
+
+.instructor-submission-final {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #ecfdf5;
+
+  span {
+    color: #047857;
+    font-size: 12px;
+  }
+
+  strong {
+    display: block;
+    color: #065f46;
+    font-size: 24px;
+  }
+
+  p {
+    margin: 6px 0 0;
+    color: #065f46;
+  }
+}
+
+.instructor-submission-review {
+  padding: 12px 0;
+  border-bottom: 1px solid #eef2f7;
+
+  ul {
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    color: #475569;
+    font-size: 12px;
+  }
+
+  p {
+    margin: 8px 0 0;
+    color: #334155;
+  }
+}
+
+.instructor-submission-review-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+
+  span {
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  b {
+    margin-left: auto;
+    color: #0f172a;
+  }
+}
+
+.instructor-submission-prompt {
+  color: #334155;
+  white-space: pre-wrap;
+}
+
+.instructor-submission-rubric {
+  margin-top: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+
+  > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #eef2f7;
+  }
+
+  > div:last-child {
+    border-bottom: 0;
+  }
+
+  span {
+    display: flex;
+    flex-direction: column;
+  }
+
+  small {
+    color: #94a3b8;
+  }
+}
+
+.instructor-submission-rubric-total {
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+.instructor-submission-history {
+  display: flex;
+  width: 100%;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+
+  span {
+    flex: 1;
+    color: #475569;
+    font-size: 12px;
+    text-align: left;
+  }
+
+  &.is-current {
+    border-color: #f59e0b;
+    background: #fffbeb;
+  }
+}
+
+@media (max-width: 900px) {
+  .instructor-submission-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .instructor-submissions-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
