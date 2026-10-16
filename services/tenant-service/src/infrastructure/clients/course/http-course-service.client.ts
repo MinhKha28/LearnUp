@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { CurrentUser } from '@learnup/ts-common';
 import { HEADER_NAMES } from '@learnup/ts-common';
 import { CourseServiceClient } from './course-service.client';
+import type { IOrganizationCourseUsage } from './interfaces/organization-course-usage.interface';
 
 const DEFAULT_TIMEOUT_MS = 3000;
 
@@ -71,5 +72,50 @@ export class HttpCourseServiceClient extends CourseServiceClient {
       throw new Error('Response của course-service sai hợp đồng.');
     }
     return counts as Record<string, number>;
+  }
+
+  async getOrganizationUsage(
+    user: CurrentUser,
+  ): Promise<IOrganizationCourseUsage> {
+    const baseUrl = this.config.get<string>('COURSE_SERVICE_URL');
+    if (!baseUrl) {
+      throw new Error('Chưa cấu hình COURSE_SERVICE_URL.');
+    }
+    if (!user.organizationId) {
+      throw new Error('Thiếu organizationId của người gọi.');
+    }
+    const timeoutMs =
+      Number(this.config.get<string>('COURSE_SERVICE_TIMEOUT_MS')) ||
+      DEFAULT_TIMEOUT_MS;
+
+    const response = await fetch(
+      `${baseUrl}/api/v1/internal/organizations/${encodeURIComponent(user.organizationId)}/usage`,
+      {
+        method: 'GET',
+        headers: {
+          accept: 'application/json',
+          [HEADER_NAMES.INTERNAL_KEY]: this.config.getOrThrow<string>(
+            'INTERNAL_SERVICE_KEY',
+          ),
+          [HEADER_NAMES.USER_ID]: user.userId,
+          [HEADER_NAMES.USER_ROLE]: user.role,
+          [HEADER_NAMES.ORGANIZATION_ID]: user.organizationId,
+        },
+        signal: AbortSignal.timeout(timeoutMs),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`course-service trả về HTTP ${response.status}.`);
+    }
+
+    const body = (await response.json()) as {
+      data?: Partial<IOrganizationCourseUsage>;
+    };
+    const courseChains = Number(body.data?.courseChains);
+    const storageBytes = Number(body.data?.storageBytes);
+    if (!Number.isFinite(courseChains) || !Number.isFinite(storageBytes)) {
+      throw new Error('Response của course-service sai hợp đồng.');
+    }
+    return { courseChains, storageBytes };
   }
 }

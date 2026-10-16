@@ -15,6 +15,8 @@ import { InvitationsModule } from './modules/invitations/invitations.module';
 import { SignInAccessModule } from './modules/sign-in-access/sign-in-access.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { ProfileController } from './modules/profile/profile.controller';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { SubscriptionsController } from './modules/subscriptions/subscriptions.controller';
 
 @Module({
   imports: [
@@ -29,6 +31,7 @@ import { ProfileController } from './modules/profile/profile.controller';
     InvitationsModule,
     SignInAccessModule,
     ProfileModule,
+    SubscriptionsModule,
   ],
   providers: [
     {
@@ -43,6 +46,6 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
       .apply(DevFakeAuthMiddleware)
-      .forRoutes(UsersController, ProfileController);
+      .forRoutes(UsersController, ProfileController, SubscriptionsController);
   }
 }
