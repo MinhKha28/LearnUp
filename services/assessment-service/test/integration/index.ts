@@ -7,3 +7,4 @@ import './assignments.integration-test';
 import './course-client-modes.integration-test';
 import './prompt-file.integration-test';
 import './quiz.integration-test';
+import './learner-submissions.integration-test';

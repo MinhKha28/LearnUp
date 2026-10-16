@@ -3,6 +3,8 @@ import type {
   IAssessmentError,
   IAssignment,
   IAssignmentList,
+  ILearnerAssignment,
+  ISubmissionReceipt,
   IPromptFile,
   ICreateAssignment,
   IQuizList,
@@ -124,6 +126,37 @@ export const createQuizAPI = (payload: ICreateQuizReq) =>
 /** UC18.5 — Delete Quiz. */
 export const deleteQuizAPI = (quizId: string) =>
   axios.delete<IBackendRes<{ id: string }>>(`/api/v1/assessments/quizzes/${quizId}`, requestConfig);
+
+/** UC30 step 1 — the Assignment as the enrolled Learner reads it (prompt, Rubric, attempts left). */
+export const fetchLearnerAssignmentAPI = (assignmentId: string) =>
+  axios.get<IBackendRes<ILearnerAssignment>>(`/api/v1/assessments/learner/assignments/${assignmentId}`, requestConfig);
+
+/** UC30 — Submit an Assignment: text and/or one PDF, DOCX or ZIP (50 MB). */
+export const submitAssignmentAPI = (assignmentId: string, content: string, file?: File | null) => {
+  const form = new FormData();
+  if (content.trim()) form.append("content", content);
+  if (file) form.append("file", file);
+  return axios.post<IBackendRes<ISubmissionReceipt>>(
+    `/api/v1/assessments/learner/assignments/${assignmentId}/submissions`,
+    form,
+    requestConfig,
+  );
+};
+
+/** The prompt file for a Learner; like UC19.1, only a real 200 response yields the file. */
+export const downloadLearnerPromptFileAPI = async (assignmentId: string): Promise<Blob | null> => {
+  const res = (await axios.get(`/api/v1/assessments/learner/assignments/${assignmentId}/prompt-file`, {
+    ...requestConfig,
+    responseType: "blob",
+  })) as unknown as { status?: number; data?: unknown };
+  return res.status === 200 && res.data instanceof Blob ? res.data : null;
+};
+
+/** Code of a failed answer and, for ASSESSMENT_LOCKED, the time the Assignment opens again. */
+export const assessmentErrorCode = (res: unknown): { code?: string; lockedUntil?: string } => {
+  const { error } = res as IAssessmentError;
+  return typeof error === "object" ? { code: error?.code, lockedUntil: error?.lockedUntil } : {};
+};
 
 /** The axios interceptor resolves error responses instead of rejecting; pull the message out of them. */
 export const assessmentErrorText = (res: unknown, fallback: string): string => {

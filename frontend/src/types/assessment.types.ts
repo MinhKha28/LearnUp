@@ -94,7 +94,7 @@ export interface IAssignment {
 /** Error envelope from the NestJS HttpExceptionFilter. */
 export interface IAssessmentError {
   statusCode: number;
-  error?: { code?: string; message?: string | string[] } | string;
+  error?: { code?: string; message?: string | string[]; lockedUntil?: string } | string;
   message?: string | string[];
 }
 
@@ -157,3 +157,49 @@ export interface ICreateQuizReq {
 export type IUpdateAssignment = Partial<Omit<ICreateAssignment, "courseId" | "promptFile">> & {
   promptFile?: IPromptFile | null;
 };
+
+/** What the Learner sees about the lock of one Assignment (BR-176, BR-179). */
+export interface ILearnerAttemptState {
+  maxConsecutiveAttempts: number;
+  remainingAttempts: number;
+  lockoutHours: number;
+  /** Set while locked: when the Learner may submit again. */
+  lockedUntil: string | null;
+}
+
+export interface ILearnerSubmissionSummary {
+  id: string;
+  submissionNumber: number;
+  submittedAt: string;
+  gradingStatus: string;
+  hasFile: boolean;
+  fileName: string | null;
+}
+
+/** UC30 step 1: the Assignment as the enrolled Learner reads it. */
+export interface ILearnerAssignment {
+  id: string;
+  courseId: string;
+  title: string;
+  prompt: string | null;
+  promptFile: { fileName: string; sizeBytes: number } | null;
+  passingScore: number;
+  expectedDurationMinutes: number | null;
+  peerReviewEnabled: boolean;
+  rubric: { id: string; name: string; description: string; maxPoints: number }[];
+  attempts: ILearnerAttemptState;
+  /** BR-169: the Enrollment is Completed. */
+  readOnly: boolean;
+  latestSubmission: ILearnerSubmissionSummary | null;
+}
+
+/** UC30 result. */
+export interface ISubmissionReceipt {
+  id: string;
+  assessmentId: string;
+  submissionNumber: number;
+  submittedAt: string;
+  gradingStatus: string;
+  cycle: { id: string; opensAt: string; closesAt: string; reviewDueAt: string } | null;
+  attempts: ILearnerAttemptState;
+}

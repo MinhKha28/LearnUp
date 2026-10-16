@@ -49,3 +49,65 @@
 .assignment-submit-info .learner-detail-item {
   margin-bottom: 14px;
 }
+
+.assignment-submit-prompt {
+  display: flex;
+  padding: 14px 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.assignment-submit-prompt p {
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.assignment-submit-rubric {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.assignment-submit-rubric li {
+  display: flex;
+  padding: 10px 14px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.assignment-submit-rubric li div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.assignment-submit-rubric strong {
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.assignment-submit-rubric span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.assignment-submit-rubric em {
+  color: #0f172a;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
