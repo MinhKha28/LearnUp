@@ -17,6 +17,7 @@ import { ProfileModule } from './modules/profile/profile.module';
 import { ProfileController } from './modules/profile/profile.controller';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { SubscriptionsController } from './modules/subscriptions/subscriptions.controller';
+import { InternalUsersModule } from './modules/internal-users/internal-users.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { SubscriptionsController } from './modules/subscriptions/subscriptions.c
     UsersModule, // UC12
     InvitationsModule,
     SignInAccessModule,
+    InternalUsersModule,
     ProfileModule,
     SubscriptionsModule,
   ],

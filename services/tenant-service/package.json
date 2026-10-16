@@ -4,6 +4,9 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "test": "npm run build && node --test test/*.unit.cjs test/*.integration.cjs",
+    "test:unit": "npm run build && node --test test/*.unit.cjs",
+    "test:integration": "npm run build && node --test test/*.integration.cjs",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "nest start",
