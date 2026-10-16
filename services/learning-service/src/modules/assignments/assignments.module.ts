@@ -7,6 +7,10 @@ import { PlatformSettingsModule } from '../platform-settings/platform-settings.m
 import { AssignmentsController } from './assignments.controller';
 import { AssignmentsService } from './assignments.service';
 import { AssignmentsRepository } from './assignments.repository';
+import { AssignmentReadsRepository } from './assignment-reads.repository';
+import { AssignmentReadsService } from './assignment-reads.service';
+import { AssignmentChangesService } from './assignment-changes.service';
+import { AssignmentChangesRepository } from './assignment-changes.repository';
 
 @Module({
   imports: [
@@ -17,6 +21,13 @@ import { AssignmentsRepository } from './assignments.repository';
     PlatformSettingsModule,
   ],
   controllers: [AssignmentsController],
-  providers: [AssignmentsService, AssignmentsRepository],
+  providers: [
+    AssignmentsService,
+    AssignmentsRepository,
+    AssignmentReadsRepository,
+    AssignmentReadsService,
+    AssignmentChangesService,
+    AssignmentChangesRepository,
+  ],
 })
 export class AssignmentsModule {}
