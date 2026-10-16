@@ -16,6 +16,7 @@ import {
   type TenantClient,
 } from '../../src/infrastructure/clients/tenant/tenant.client';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
+import { OrganizationTimezoneService } from '../../src/infrastructure/clients/tenant/organization-timezone.service';
 import {
   AssignmentReadsRepository,
   assignmentCountSql,
@@ -46,6 +47,10 @@ let tenantCalls = 0;
 let courseCalls = 0;
 let tenantFails = false;
 let courseFails = false;
+let accessCalls = 0;
+let timezoneFails = false;
+let timezoneService: OrganizationTimezoneService;
+let getTimezone: OrganizationTimezoneService['getTimezone'];
 type Item = {
   enrollmentId: string;
   status: string;
@@ -62,7 +67,13 @@ type Item = {
   requiredTotal: number;
   [key: string]: unknown;
 };
-type Page = { items: Item[]; total: number; page: number; pageSize: number };
+type Page = {
+  items: Item[];
+  total: number;
+  page: number;
+  pageSize: number;
+  organizationTimezone: string | null;
+};
 async function cleanup() {
   for (const table of [
     'enrollments',
@@ -164,6 +175,17 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
       logger: ['error'],
     });
     configureApp(app);
+    timezoneService = app.get(OrganizationTimezoneService);
+    getTimezone = timezoneService.getTimezone.bind(timezoneService);
+    app.get<TenantClient>(TENANT_CLIENT).getOrganizationAccess = async () => {
+      accessCalls++;
+      if (timezoneFails) throw new Error('Timezone timeout');
+      return {
+        subscriptionStatus: 'Active',
+        readOnlyEndsAt: null,
+        timezone: 'Asia/Ho_Chi_Minh',
+      };
+    };
     app.get<TenantClient>(TENANT_CLIENT).lookupLearners = async (
       _user,
       ids,
@@ -201,11 +223,18 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     await seed();
     tenantCalls = courseCalls = 0;
     tenantFails = courseFails = false;
+    accessCalls = 0;
+    timezoneFails = false;
+    const fresh = new OrganizationTimezoneService(
+      app.get<TenantClient>(TENANT_CLIENT),
+    );
+    timezoneService.getTimezone = fresh.getTimezone.bind(fresh);
   });
   after(async () => {
     try {
       if (connected) await cleanup();
     } finally {
+      if (timezoneService) timezoneService.getTimezone = getTimezone;
       await app?.close();
       await db.end();
     }
@@ -233,6 +262,7 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     assert.equal(first.total, 25);
     assert.equal(first.pageSize, 20);
     assert.equal(first.page, 1);
+    assert.equal(first.organizationTimezone, 'Asia/Ho_Chi_Minh');
     assert.deepEqual(
       first.items.map((r) => r.enrollmentId),
       expected.slice(0, 20),
@@ -252,6 +282,8 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     );
     assert.equal(tenantCalls, 2);
     assert.equal(courseCalls, 2);
+    assert.equal(last.organizationTimezone, 'Asia/Ho_Chi_Minh');
+    assert.equal(accessCalls, 1);
     for (const row of [...first.items, ...last.items]) {
       assert.equal(row.requiredCompleted, 0);
       assert.equal(row.requiredTotal, 1);
@@ -297,9 +329,11 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
           page: Number(query.split('=')[1]),
           pageSize: 20,
           total: 1,
+          organizationTimezone: null,
         });
       assert.equal(tenantCalls, 0);
       assert.equal(courseCalls, 0);
+      assert.equal(accessCalls, 0);
     } finally {
       repo.page = original;
     }
@@ -317,6 +351,36 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     assert.ok(result.body.data.course);
     assert.equal(tenantCalls, 2);
     assert.equal(courseCalls, 2);
+  });
+  test('timezone failure keeps list and detail 200, null is not cached', async () => {
+    const id = await enrollment();
+    timezoneFails = true;
+    const list = await page();
+    assert.equal(list.organizationTimezone, null);
+    assert.equal(list.items.length, 1);
+    const detail = await call(`/${id}`);
+    assert.equal(detail.status, 200);
+    assert.equal(detail.body.data.organizationTimezone, null);
+    assert.ok(detail.body.data.learner);
+    assert.ok(detail.body.data.course);
+    assert.equal(accessCalls, 2);
+    timezoneFails = false;
+    assert.equal(
+      (await call(`/${id}`)).body.data.organizationTimezone,
+      'Asia/Ho_Chi_Minh',
+    );
+    assert.equal((await page()).organizationTimezone, 'Asia/Ho_Chi_Minh');
+    assert.equal(accessCalls, 3);
+  });
+  test('empty list includes null timezone without tenant access', async () => {
+    assert.deepEqual(await page(), {
+      items: [],
+      page: 1,
+      pageSize: 20,
+      total: 0,
+      organizationTimezone: null,
+    });
+    assert.equal(accessCalls, 0);
   });
   test('course failure returns course null on list and detail, still 200', async () => {
     const id = await enrollment();
@@ -347,6 +411,7 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     assert.equal(item.requiredCompleted, 1);
     assert.equal(item.requiredTotal, 1);
     assert.equal(item.extensionSeconds, 0);
+    assert.equal(item.organizationTimezone, 'Asia/Ho_Chi_Minh');
     assert.equal(item.completedLate, true);
     assert.equal(item.baseDueAt, item.dueAt);
     assert.ok(item.firstActivityAt);

@@ -31,6 +31,7 @@ let url: string;
 let today: string;
 let subscriptionStatus = 'Active';
 let timezone = 'Asia/Ho_Chi_Minh';
+let accessCalls = 0;
 async function cleanup() {
   for (const table of [
     'outbox_events',
@@ -115,11 +116,10 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
     });
     configureApp(app);
     const tenant = app.get<TenantClient>(TENANT_CLIENT);
-    tenant.getOrganizationAccess = async () => ({
-      subscriptionStatus,
-      timezone,
-      readOnlyEndsAt: null,
-    });
+    tenant.getOrganizationAccess = async () => {
+      accessCalls++;
+      return { subscriptionStatus, timezone, readOnlyEndsAt: null };
+    };
     tenant.lookupLearners = async (_user, ids) =>
       ids.map((userId) => ({
         userId,
@@ -143,6 +143,7 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
     await cleanup();
     subscriptionStatus = 'Active';
     timezone = 'Asia/Ho_Chi_Minh';
+    accessCalls = 0;
     await db.query(
       'INSERT INTO course_version_snapshots (course_id,organization_id,chain_id,tree_fetched_at,disabled_as_of) VALUES ($1,$2,$1,now(),now())',
       [COURSE, ORG],
@@ -205,6 +206,22 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
           .status,
         200,
       ));
+  for (const action of ['due-date', 'exemption']) {
+    test(`${action} reuses access timezone without another tenant call`, async () => {
+      const id = await seed();
+      timezone = 'America/New_York';
+      const result = await call(
+        id,
+        action,
+        action === 'due-date'
+          ? { newDueDate: plusDays(1) }
+          : { reason: 'Miễn' },
+      );
+      assert.equal(result.status, 200);
+      assert.equal(result.body.data.organizationTimezone, timezone);
+      assert.equal(accessCalls, 1);
+    });
+  }
   for (const status of ['Completed', 'Withdrawn'])
     test(`extension ${status} 409`, async () => {
       const r = await call(await seed(status), 'due-date', {
