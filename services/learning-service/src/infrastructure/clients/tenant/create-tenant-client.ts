@@ -11,7 +11,7 @@ export const FAKE_TENANT_CLIENT_WARNING =
 export function createTenantClient(
   get: (key: string) => string | undefined,
   logger: Pick<LoggerService, 'warn'>,
-): TenantClient {
+): Pick<TenantClient, 'getOrganizationAccess'> {
   const mode = get('TENANT_CLIENT_MODE')?.trim();
 
   if (mode === 'fake') {

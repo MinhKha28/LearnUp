@@ -12,7 +12,7 @@ import {
   BaseDueAtRepository,
   InvalidBaseDueAtInputError,
 } from '../../src/modules/enrollments/base-due-at.repository';
-import type { PrismaService } from '../../src/prisma/prisma.service';
+import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
