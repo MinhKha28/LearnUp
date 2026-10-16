@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useCurrentApp } from "@/components/context/app.context";
+import { useSignOut } from "@/hooks/use.sign.out";
 import "./layout.instructor.scss";
 
 type MenuItem = Required<MenuProps>["items"][number];
@@ -27,7 +28,7 @@ const instructorMenuItems: MenuItem[] = [
 ];
 
 const LayoutInstructor = () => {
-  const { user, setUser, setIsAuthenticated } = useCurrentApp();
+  const { user } = useCurrentApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -56,12 +57,11 @@ const LayoutInstructor = () => {
     setMobileOpen(false);
   };
 
-  const signOut = () => {
-    localStorage.removeItem("access_token");
-    setUser(null);
-    setIsAuthenticated(false);
+  // UC06: đóng hộp thoại, thu hồi refresh token ở identity rồi xóa phiên trên trình duyệt
+  const signOutRequest = useSignOut();
+  const signOut = async () => {
     setSignOutOpen(false);
-    navigate("/login");
+    await signOutRequest();
   };
 
   const navigation = (
