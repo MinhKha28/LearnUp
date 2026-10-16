@@ -5,15 +5,17 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HEADER_NAMES } from '@learnup/ts-common';
+import { ISetCredentialsParams } from './interfaces/set-credentials-params.interface';
 
 /**
- * tenant-service KHÔNG lưu mật khẩu. Mật khẩu thuộc identity-service
- * (LearnUP_Database_Guide mục 1.1). Client này gửi mật khẩu sang identity.
+ * tenant-service KHÔNG lưu mật khẩu. Mật khẩu thuộc identity-service (Java).
  *
- * Hợp đồng dự kiến (cần chốt với Đạt):
+ * Hợp đồng (InternalCredentialController của identity-service):
  *   POST {IDENTITY_SERVICE_URL}/api/internal/credentials
  *   Header: x-internal-key
- *   Body:   { userId, password }   -> tạo mới hoặc ghi đè mật khẩu của userId
+ *   Body:   { userId, password, email, fullName, role, organizationId }
+ *           role viết HOA theo enum Java (ORGANIZER, INSTRUCTOR, LEARNER, ADMIN).
+ *   identity tạo mới nếu chưa có userId, có rồi thì ghi đè mật khẩu và thông tin.
  *
  * Chưa cấu hình IDENTITY_SERVICE_URL: chạy chế độ giả lập, chỉ ghi log.
  */
@@ -23,11 +25,11 @@ export class IdentityClient {
 
   constructor(private readonly config: ConfigService) {}
 
-  async setPassword(userId: string, password: string): Promise<void> {
+  async setCredentials(params: ISetCredentialsParams): Promise<void> {
     const baseUrl = this.config.get<string>('IDENTITY_SERVICE_URL');
     if (!baseUrl) {
       this.logger.warn(
-        `[STUB] Chưa có IDENTITY_SERVICE_URL, bỏ qua lưu mật khẩu cho user ${userId}`,
+        `[STUB] Chưa có IDENTITY_SERVICE_URL, bỏ qua lưu mật khẩu cho user ${params.userId}`,
       );
       return;
     }
@@ -42,7 +44,14 @@ export class IdentityClient {
             'INTERNAL_SERVICE_KEY',
           ),
         },
-        body: JSON.stringify({ userId, password }),
+        body: JSON.stringify({
+          userId: params.userId,
+          password: params.password,
+          email: params.email,
+          fullName: params.fullName,
+          role: params.role.toUpperCase(), // 'Organizer' -> 'ORGANIZER' (enum Java)
+          organizationId: params.organizationId,
+        }),
       });
     } catch {
       throw new ServiceUnavailableException({

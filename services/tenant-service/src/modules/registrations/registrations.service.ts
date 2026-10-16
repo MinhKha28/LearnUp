@@ -118,9 +118,17 @@ export class RegistrationsService {
     }
 
     // Mật khẩu không lưu ở tenant: sinh sẵn id rồi gửi sang identity TRƯỚC khi ghi DB.
+    const organizationId = uuidv7();
     const organizerId = uuidv7();
     const registrationId = uuidv7(); // cần trước để gắn vào mã băm OTP
-    await this.identity.setPassword(organizerId, dto.organizer.password);
+    await this.identity.setCredentials({
+      userId: organizerId,
+      password: dto.organizer.password,
+      email: dto.organizer.email,
+      fullName: dto.organizer.fullName,
+      role: UserRoleValue.Organizer,
+      organizationId,
+    });
 
     const now = new Date();
     const expiresAt = new Date(
@@ -138,6 +146,7 @@ export class RegistrationsService {
         const organization =
           await this.registrationsRepository.createOrganization(
             {
+              id: organizationId,
               name: dto.organization.name,
               taxCode: dto.organization.taxCode,
               address: dto.organization.address,
