@@ -42,5 +42,5 @@ export const fetchAssignmentCourses = (
 ) =>
   apiGet<{ result: IOrganizationCourseListItem[]; meta: PageMeta }>(
     "/api/v1/courses/organization",
-    { params: { current, pageSize: 20, status: "PUBLISHED", search }, signal },
+    { params: { current, pageSize: 20, status: "Published", search }, signal },
   );
