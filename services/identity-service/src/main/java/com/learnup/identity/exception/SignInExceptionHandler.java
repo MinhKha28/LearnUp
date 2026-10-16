@@ -23,6 +23,12 @@ public class SignInExceptionHandler {
                 .body(ApiResponse.error(ex.getReason(), ex.getMessage()));
     }
 
+    @ExceptionHandler(RefreshTokenReusedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRefreshTokenReused(RefreshTokenReusedException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error("REFRESH_TOKEN_REUSED", ex.getMessage()));
+    }
+
     @ExceptionHandler(TooManyAttemptsException.class)
     public ResponseEntity<ApiResponse<Void>> handleTooManyAttempts(TooManyAttemptsException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)

@@ -7,6 +7,7 @@ import com.learnup.identity.domain.RefreshToken;
 import com.learnup.identity.domain.User;
 import com.learnup.identity.dto.*;
 import com.learnup.identity.dto.internal.SignInAccess;
+import com.learnup.identity.exception.RefreshTokenReusedException;
 import com.learnup.identity.exception.SignInDeniedException;
 import com.learnup.identity.repository.RefreshTokenRepository;
 import com.learnup.identity.repository.UserRepository;
@@ -135,13 +136,20 @@ public class AuthService {
         return response;
     }
 
-    @Transactional(noRollbackFor = SignInDeniedException.class)
+    @Transactional(noRollbackFor = {SignInDeniedException.class, RefreshTokenReusedException.class})
     public AuthResponse refresh(RefreshTokenRequest request) {
         String rawToken = request.getRefreshToken().trim();
         String tokenHash = hashToken(rawToken);
 
-        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(tokenHash)
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(() -> BusinessException.unauthorized("Invalid, expired, or revoked refresh token"));
+
+        if (refreshToken.wasRotated()) {
+            int revoked = refreshTokenRepository.revokeFamily(refreshToken.getFamilyId(), Instant.now());
+            log.warn("Refresh token reuse detected for user [{}]; revoked {} token(s) of family [{}]",
+                    refreshToken.getUserId(), revoked, refreshToken.getFamilyId());
+            throw new RefreshTokenReusedException();
+        }
 
         if (!refreshToken.isValid()) {
             log.warn("Invalid or revoked refresh token used for user ID [{}]", refreshToken.getUserId());
@@ -163,12 +171,14 @@ public class AuthService {
         }
 
         // Revoke the old refresh token (Token Rotation)
+        IssuedRefreshToken next = issueRefreshToken(user.getId(), refreshToken.getFamilyId());
         refreshToken.revoke();
+        refreshToken.setReplacedBy(next.id());
         refreshTokenRepository.save(refreshToken);
 
         // Generate new token pair
         String newAccessToken = jwtTokenService.generateAccessToken(user);
-        String newRawRefreshToken = createAndPersistRefreshToken(user.getId());
+        String newRawRefreshToken = next.rawToken();
         UserResponse userResponse = UserResponse.fromUser(user);
 
         AuthResponse response = AuthResponse.of(newAccessToken, newRawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
@@ -383,6 +393,10 @@ public class AuthService {
     }
 
     private String createAndPersistRefreshToken(UUID userId) {
+        return issueRefreshToken(userId, null).rawToken();
+    }
+
+    private IssuedRefreshToken issueRefreshToken(UUID userId, UUID familyId) {
         String rawToken = UUID.randomUUID().toString() + "-" + UUID.randomUUID().toString();
         String tokenHash = hashToken(rawToken);
 
@@ -393,9 +407,13 @@ public class AuthService {
         refreshToken.setUserId(userId);
         refreshToken.setTokenHash(tokenHash);
         refreshToken.setExpiresAt(expiresAt);
+        refreshToken.setFamilyId(familyId);
 
         refreshTokenRepository.save(refreshToken);
-        return rawToken;
+        return new IssuedRefreshToken(refreshToken.getId(), rawToken);
+    }
+
+    private record IssuedRefreshToken(UUID id, String rawToken) {
     }
 
     private String hashToken(String token) {

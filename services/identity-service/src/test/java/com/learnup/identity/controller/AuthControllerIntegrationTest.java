@@ -218,7 +218,7 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(refreshReq)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+                .andExpect(jsonPath("$.error.code").value("REFRESH_TOKEN_REUSED"));
     }
 
     @Test
@@ -713,5 +713,60 @@ class AuthControllerIntegrationTest {
             attemptLogin("careful_member", "wrongPass" + attempt, status().isUnauthorized());
         }
         attemptLogin("careful_member", "memberPass123", status().isOk());
+    }
+
+    private org.springframework.test.web.servlet.ResultActions refreshWith(String refreshToken) throws Exception {
+        return mockMvc.perform(post("/api/v1/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new RefreshTokenRequest(refreshToken))));
+    }
+
+    @Test
+    @DisplayName("UC05: Should detect reuse of a rotated refresh token and revoke the whole sign-in family")
+    void shouldRevokeFamilyWhenRotatedRefreshTokenIsReused() throws Exception {
+        String firstToken = registerAndGetRefreshToken("reused_member", "memberPass123");
+
+        MvcResult rotated = refreshWith(firstToken).andExpect(status().isOk()).andReturn();
+        String secondToken = objectMapper.readTree(rotated.getResponse().getContentAsString())
+                .path("data").path("refreshToken").asText();
+
+        refreshWith(firstToken)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("REFRESH_TOKEN_REUSED"));
+
+        refreshWith(secondToken)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("UC05: Should keep rotating normally while each refresh token is used once")
+    void shouldRotateRefreshTokensInTheSameFamily() throws Exception {
+        String token = registerAndGetRefreshToken("rotating_member", "memberPass123");
+
+        for (int round = 0; round < 3; round++) {
+            MvcResult result = refreshWith(token).andExpect(status().isOk()).andReturn();
+            token = objectMapper.readTree(result.getResponse().getContentAsString())
+                    .path("data").path("refreshToken").asText();
+        }
+
+        assertThat(refreshTokenRepository.findAll())
+                .extracting(com.learnup.identity.domain.RefreshToken::getFamilyId)
+                .containsOnly(refreshTokenRepository.findAll().get(0).getFamilyId());
+    }
+
+    @Test
+    @DisplayName("UC06: Should treat a refresh token revoked by sign-out as invalid, not as reuse")
+    void shouldNotFlagSignedOutTokenAsReuse() throws Exception {
+        String token = registerAndGetRefreshToken("signed_out_member", "memberPass123");
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new com.learnup.identity.dto.LogoutRequest(token))))
+                .andExpect(status().isOk());
+
+        refreshWith(token)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     }
 }

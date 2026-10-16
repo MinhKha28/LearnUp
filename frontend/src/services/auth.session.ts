@@ -42,10 +42,9 @@ const requestNewTokens = async (): Promise<string | null> => {
       ? (error.response?.data as { error?: { code?: string } } | undefined)
           ?.error?.code
       : undefined;
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
     deniedReason =
-      axios.isAxiosError(error) && error.response?.status === 403 && code
-        ? code
-        : null;
+      code && (status === 403 || code === "REFRESH_TOKEN_REUSED") ? code : null;
     return null;
   }
 };
