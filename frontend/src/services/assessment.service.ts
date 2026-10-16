@@ -121,6 +121,10 @@ export const fetchQuizzesAPI = (courseId: string, moduleId?: string) =>
 export const createQuizAPI = (payload: ICreateQuizReq) =>
   axios.post<IBackendRes<IQuizSummary>>("/api/v1/assessments/quizzes", payload, requestConfig);
 
+/** UC18.5 — Delete Quiz. */
+export const deleteQuizAPI = (quizId: string) =>
+  axios.delete<IBackendRes<{ id: string }>>(`/api/v1/assessments/quizzes/${quizId}`, requestConfig);
+
 /** The axios interceptor resolves error responses instead of rejecting; pull the message out of them. */
 export const assessmentErrorText = (res: unknown, fallback: string): string => {
   const { error, message } = res as IAssessmentError;

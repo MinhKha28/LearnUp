@@ -158,6 +158,63 @@ export class QuizService {
     return this.toSummary(quiz, this.courseLockReasons(course));
   }
 
+  /**
+   * UC18.5 — delete a Quiz.
+   * BR-92: blocked only when the Course is Locked AND the Quiz already has attempts.
+   */
+  async deleteQuiz(user: CurrentUser, id: string): Promise<{ id: string }> {
+    const organizationId = this.requireInstructor(user);
+    const quiz = await this.prisma.assessment.findFirst({
+      where: { id, organizationId, kind: QUIZ_KIND },
+      include: quizSummaryInclude,
+    });
+    if (!quiz) throw new NotFoundException('Quiz not found.');
+    const course = await this.requireOwnCourse(user, quiz.courseId);
+
+    // BR-285: a Submitted, Archived or Disabled Course accepts no edit at all.
+    if (
+      course.disabled ||
+      !AUTHORABLE_STATUSES.includes(course.status.toUpperCase())
+    ) {
+      throw new ConflictException({
+        code: 'COURSE_NOT_EDITABLE',
+        message: `Quizzes cannot be deleted while the Course is ${course.status}.`,
+      });
+    }
+    if (course.locked && quiz._count.quizAttempts > 0) {
+      throw this.hasDataError();
+    }
+
+    // Questions, options, attempts and per-learner counters go with it (ON DELETE CASCADE); their answers are removed by hand.
+    await this.prisma.$transaction(async (tx) => {
+      // Re-check under a row lock: a Learner starting the Quiz right now must not slip past BR-92.
+      const rows = await tx.$queryRaw<
+        { id: string }[]
+      >`SELECT id FROM assessments WHERE id = ${quiz.id}::uuid FOR UPDATE`;
+      if (rows.length === 0) throw new NotFoundException('Quiz not found.');
+      const attempts = await tx.quizAttempt.count({
+        where: { assessmentId: quiz.id },
+      });
+      if (course.locked && attempts > 0) throw this.hasDataError();
+      // Answers point at questions without a cascade (quiz_attempt_answers.question_id), so they go first.
+      await tx.quizAttemptAnswer.deleteMany({
+        where: { attempt: { assessmentId: quiz.id } },
+      });
+      await tx.assessment.delete({ where: { id: quiz.id } });
+    });
+    // BR-52: a Quiz time limit is not part of the Course duration, so no outbox event (same as create).
+
+    return { id: quiz.id };
+  }
+
+  private hasDataError() {
+    return new ConflictException({
+      code: 'QUIZ_HAS_DATA',
+      message:
+        'This Quiz already has attempts and the Course is Locked, so it cannot be deleted.',
+    });
+  }
+
   /** Reasons that come from the Course and apply to every Quiz in it (BR-99). */
   private courseLockReasons(course: CourseAuthoringContext): QuizLockReason[] {
     const reasons: QuizLockReason[] = [];

@@ -2,4 +2,5 @@
 import './dto.unit-test';
 import './assessments-service.unit-test';
 import './peer-review-service.unit-test';
+import './quiz-service.unit-test';
 import './course-clients.unit-test';

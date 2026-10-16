@@ -1,9 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseUUIDPipe,
   Post,
   Query,
 } from '@nestjs/common';
@@ -14,7 +17,7 @@ import { CreateQuizDto } from './dto/create-quiz.dto';
 import { ListQuizzesQueryDto } from './dto/list-quizzes-query.dto';
 import { QuizService } from './quiz.service';
 
-@ApiTags('UC18 / UC18.2 - Quizzes')
+@ApiTags('UC18 / UC18.2 / UC18.5 - Quizzes')
 @ApiSecurity('internal-key')
 @Controller('assessments')
 export class QuizController {
@@ -33,5 +36,15 @@ export class QuizController {
   @ResponseMessage('Quiz created successfully.')
   createQuiz(@User() user: CurrentUser, @Body() dto: CreateQuizDto) {
     return this.service.createQuiz(user, dto);
+  }
+
+  /** UC18.5 — Delete Quiz */
+  @Delete('quizzes/:id')
+  @ResponseMessage('Quiz deleted successfully.')
+  deleteQuiz(
+    @User() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.deleteQuiz(user, id);
   }
 }

@@ -1,4 +1,13 @@
-import { LockOutlined } from "@ant-design/icons";
+import {
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  DeleteOutlined,
+  EyeOutlined,
+  LockOutlined,
+  QuestionCircleOutlined,
+  UnorderedListOutlined,
+  WarningOutlined,
+} from "@ant-design/icons";
 import { Tooltip } from "antd";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
@@ -98,6 +107,7 @@ const CourseBuilderQuizzes = () => {
 
   const submitted = courseStatus.toUpperCase() === "SUBMITTED";
   const emptyQuizzes = quizzes.filter((quiz) => quiz.questionCount === 0).length;
+  const requiredQuizzes = quizzes.filter((quiz) => quiz.isRequired).length;
 
   return (
     <InstructorPage className="builder-page">
@@ -145,89 +155,124 @@ const CourseBuilderQuizzes = () => {
               </InstructorButton>
             </div>
           ) : (
-            <div className="builder-table">
-              <div className="builder-table-row builder-table-head builder-quiz-row">
-                <span>Quiz</span>
-                <span>Questions</span>
-                <span>Passing score</span>
-                <span>Required</span>
-                <span>Lock</span>
-              </div>
-              {loading && (
-                <div className="builder-table-row builder-quiz-message">
-                  <span>Loading Quizzes...</span>
+            <>
+              <div className="builder-assign-stats">
+                <div>
+                  <strong>{quizzes.length}</strong>
+                  <span>Total</span>
                 </div>
-              )}
+                <div>
+                  <strong>{requiredQuizzes}</strong>
+                  <span>Required</span>
+                </div>
+                <div>
+                  <strong>{emptyQuizzes}</strong>
+                  <span>Without questions</span>
+                </div>
+              </div>
+
+              {loading && <div className="builder-quiz-empty">Loading Quizzes...</div>}
               {!loading && quizzes.length === 0 && (
-                <div className="builder-table-row builder-quiz-message">
-                  <span>No Quizzes yet.</span>
+                <div className="builder-quiz-empty">
+                  <strong>No Quizzes yet</strong>
+                  <span>Create the first Quiz to check what Learners have understood.</span>
                 </div>
               )}
               {!loading &&
                 groups.map((group) => (
-                  <div key={group.key}>
-                    <div className="builder-table-row builder-quiz-group">
-                      <strong>{group.title}</strong>
-                    </div>
-                    {group.quizzes.map((quiz) => (
-                      <div className="builder-table-row builder-quiz-row" key={quiz.id}>
-                        <div className="builder-quiz-main">
-                          <strong>{quiz.title}</strong>
-                          <small>
-                            {quiz.timeLimitMinutes ? `${quiz.timeLimitMinutes} min time limit` : "No time limit"}
-                          </small>
-                          {quiz.questionCount === 0 && (
-                            <small className="builder-quiz-warning">
-                              No questions yet: the Course cannot be submitted for review.
-                            </small>
-                          )}
-                          <div className="builder-table-actions">
-                            <ComingSoon>
-                              <button type="button" className="builder-table-link" disabled>
-                                View details
-                              </button>
-                            </ComingSoon>
-                            <ComingSoon>
-                              <button type="button" className="builder-table-link" disabled>
-                                Manage questions
-                              </button>
-                            </ComingSoon>
+                  <section className="builder-quiz-group" key={group.key}>
+                    <h3>{group.title}</h3>
+                    <div className="builder-quiz-list">
+                      {group.quizzes.map((quiz) => (
+                        <article className="builder-quiz-card" key={quiz.id}>
+                          <div className="builder-quiz-top">
+                            <div className="builder-quiz-main">
+                              <strong>{quiz.title}</strong>
+                              <div className="builder-quiz-meta">
+                                <span>
+                                  <QuestionCircleOutlined /> {quiz.questionCount} question
+                                  {quiz.questionCount === 1 ? "" : "s"}
+                                </span>
+                                <span>
+                                  <ClockCircleOutlined />{" "}
+                                  {quiz.timeLimitMinutes ? `${quiz.timeLimitMinutes} min` : "No time limit"}
+                                </span>
+                                <span>
+                                  <CheckCircleOutlined /> Pass at {quiz.passingScore}%
+                                </span>
+                                <span>
+                                  {quiz.maxConsecutiveAttempts} attempts, then {quiz.lockoutHours} h lock
+                                </span>
+                              </div>
+                            </div>
+                            <div className="builder-quiz-tags">
+                              <StatusTag tone={quiz.isRequired ? "info" : "neutral"}>
+                                {quiz.isRequired ? "Required" : "Optional"}
+                              </StatusTag>
+                              {quiz.locked ? (
+                                <Tooltip
+                                  title={
+                                    <ul className="builder-quiz-reasons">
+                                      {quiz.lockReasons.map((reason) => (
+                                        <li key={reason}>{LOCK_REASON_TEXT[reason]}</li>
+                                      ))}
+                                    </ul>
+                                  }
+                                >
+                                  <span>
+                                    <StatusTag tone="warning">
+                                      <LockOutlined /> Locked
+                                    </StatusTag>
+                                  </span>
+                                </Tooltip>
+                              ) : (
+                                <StatusTag tone="success">Unlocked</StatusTag>
+                              )}
+                              {quiz.disabled && <StatusTag tone="error">Disabled</StatusTag>}
+                            </div>
                           </div>
-                        </div>
-                        <span>{quiz.questionCount}</span>
-                        <span>{quiz.passingScore}%</span>
-                        <span>
-                          <StatusTag tone={quiz.isRequired ? "info" : "neutral"}>
-                            {quiz.isRequired ? "Required" : "Optional"}
-                          </StatusTag>
-                        </span>
-                        <span className="builder-quiz-tags">
-                          {quiz.locked ? (
-                            <Tooltip
-                              title={
-                                <ul className="builder-quiz-reasons">
-                                  {quiz.lockReasons.map((reason) => (
-                                    <li key={reason}>{LOCK_REASON_TEXT[reason]}</li>
-                                  ))}
-                                </ul>
-                              }
-                            >
-                              <span>
-                                <StatusTag tone="warning">
-                                  <LockOutlined /> Locked
-                                </StatusTag>
-                              </span>
-                            </Tooltip>
-                          ) : (
-                            <StatusTag tone="success">Unlocked</StatusTag>
+
+                          {quiz.questionCount === 0 && (
+                            <div className="builder-quiz-alert">
+                              <WarningOutlined /> No questions yet: the Course cannot be submitted for review.
+                            </div>
                           )}
-                          {quiz.disabled && <StatusTag tone="error">Disabled</StatusTag>}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+
+                          <div className="builder-quiz-actions">
+                            <ComingSoon>
+                              <button type="button" className="builder-quiz-action" disabled>
+                                <EyeOutlined /> View details
+                              </button>
+                            </ComingSoon>
+                            <ComingSoon>
+                              <button type="button" className="builder-quiz-action" disabled>
+                                <UnorderedListOutlined /> Manage questions
+                              </button>
+                            </ComingSoon>
+                            {submitted ? (
+                              <Tooltip title={LOCK_REASON_TEXT.COURSE_SUBMITTED}>
+                                <span className="builder-quiz-soon">
+                                  <button type="button" className="builder-quiz-action danger" disabled>
+                                    <DeleteOutlined /> Delete
+                                  </button>
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <button
+                                type="button"
+                                className="builder-quiz-action danger"
+                                onClick={() => navigate(`${base}/quizzes/${quiz.id}/delete`)}
+                              >
+                                <DeleteOutlined /> Delete
+                              </button>
+                            )}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
                 ))}
-            </div>
+            </>
           )}
 
           <div className="builder-actions">
