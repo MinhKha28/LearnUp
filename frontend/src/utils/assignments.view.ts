@@ -3,6 +3,7 @@ import type {
   AssignmentStatus,
   InvalidLearner,
   AssignmentResult,
+  AssignmentDetail,
 } from "@/types/assignment.types";
 import { formatDueAt } from "@/utils/due.format";
 
@@ -40,6 +41,69 @@ export const assignmentDate = (
   );
 };
 export const extensionDays = (seconds: number) => seconds / 86400;
+
+export const canExemptAssignment = (
+  item: Pick<AssignmentDetail, "status" | "firstActivityAt">,
+) =>
+  ["InProgress", "Overdue"].includes(item.status) &&
+  item.firstActivityAt !== null;
+export const canExtendAssignment = (status: AssignmentStatus) =>
+  !["Completed", "Withdrawn"].includes(status);
+
+export const assignmentCalendarDay = (date: Date, timezone: string | null) => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: timezone ?? undefined,
+  }).formatToParts(date);
+  const part = (type: string) =>
+    parts.find((value) => value.type === type)!.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
+};
+const addDays = (day: string, count: number) => {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + count);
+  return date.toISOString().slice(0, 10);
+};
+export const assignmentExtensionRange = (
+  dueAt: string | null,
+  timezone: string | null,
+  now = new Date(),
+) => {
+  const today = assignmentCalendarDay(now, timezone);
+  const afterCurrent = dueAt
+    ? addDays(
+        assignmentCalendarDay(
+          new Date(new Date(dueAt).getTime() - 1),
+          timezone,
+        ),
+        1,
+      )
+    : today;
+  return {
+    min: afterCurrent > today ? afterCurrent : today,
+    max: addDays(today, 365),
+  };
+};
+export const extensionDateError = (
+  day: string,
+  dueAt: string | null,
+  timezone: string | null,
+  now = new Date(),
+) => {
+  if (
+    dueAt &&
+    day <=
+      assignmentCalendarDay(new Date(new Date(dueAt).getTime() - 1), timezone)
+  )
+    return "DUE_DATE_NOT_LATER";
+  const today = assignmentCalendarDay(now, timezone);
+  if (day < today) return "DUE_DATE_IN_PAST";
+  if (day > assignmentExtensionRange(dueAt, timezone, now).max)
+    return "DUE_DATE_TOO_FAR";
+  return null;
+};
 const messages: Record<string, string> = {
   FORBIDDEN: "Bạn không có quyền thực hiện thao tác này.",
   UNAUTHORIZED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",

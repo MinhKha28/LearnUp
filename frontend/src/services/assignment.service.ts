@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "@/services/api.client";
+import { apiGet, apiPatch, apiPost } from "@/services/api.client";
 import type { PageResponse, PageMeta } from "@/types/api.types";
 import type { ILearnerListItem } from "@/types/organization.types";
 import type { IOrganizationCourseListItem } from "@/types/course.types";
@@ -13,6 +13,20 @@ export const fetchAssignments = (page: number, signal?: AbortSignal) =>
   apiGet<AssignmentPage>(path, { params: { page }, signal });
 export const fetchAssignment = (id: string, signal?: AbortSignal) =>
   apiGet<AssignmentDetail>(`${path}/${encodeURIComponent(id)}`, { signal });
+
+export const extendAssignment = (
+  id: string,
+  newDueDate: string,
+  reason: string,
+) =>
+  apiPatch<AssignmentDetail>(`${path}/${encodeURIComponent(id)}/due-date`, {
+    newDueDate,
+    reason,
+  });
+export const exemptAssignment = (id: string, reason: string) =>
+  apiPost<AssignmentDetail>(`${path}/${encodeURIComponent(id)}/exemption`, {
+    reason,
+  });
 
 export const assignCourse = (courseId: string, learnerIds: string[]) =>
   apiPost<AssignmentResult>(path, { courseId, learnerIds });

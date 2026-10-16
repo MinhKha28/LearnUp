@@ -6,16 +6,120 @@ import {
   extensionDays,
   invalidAssignmentLearners,
   assignmentResultMessage,
+  assignmentExtensionRange,
+  extensionDateError,
+  canExemptAssignment,
+  canExtendAssignment,
+  assignmentCalendarDay,
 } from "@/utils/assignments.view";
 
 describe("UC24 view", () => {
+  const timezone = "Asia/Ho_Chi_Minh";
+  const now = new Date("2026-10-16T17:00:00Z");
+  it("uses organization today rather than UTC today", () => {
+    expect(assignmentCalendarDay(now, timezone)).toBe("2026-10-17");
+    expect(
+      assignmentExtensionRange("2026-01-01T17:00:00Z", timezone, now),
+    ).toEqual({ min: "2026-10-17", max: "2027-10-17" });
+  });
+  it("requires the day after the current end date", () => {
+    expect(
+      assignmentExtensionRange("2026-10-20T17:00:00Z", timezone, now).min,
+    ).toBe("2026-10-21");
+    expect(
+      extensionDateError("2026-10-20", "2026-10-20T17:00:00Z", timezone, now),
+    ).toBe("DUE_DATE_NOT_LATER");
+    expect(
+      extensionDateError("2026-10-21", "2026-10-20T17:00:00Z", timezone, now),
+    ).toBeNull();
+  });
+  it("accepts today and +365 inclusively, rejects outside boundaries", () => {
+    const due = "2026-01-01T17:00:00Z";
+    expect(extensionDateError("2026-10-17", due, timezone, now)).toBeNull();
+    expect(extensionDateError("2027-10-17", due, timezone, now)).toBeNull();
+    expect(extensionDateError("2026-10-16", due, timezone, now)).toBe(
+      "DUE_DATE_IN_PAST",
+    );
+    expect(extensionDateError("2027-10-18", due, timezone, now)).toBe(
+      "DUE_DATE_TOO_FAR",
+    );
+  });
+  it("today as current deadline starts tomorrow; distant deadline produces no valid range", () => {
+    expect(
+      assignmentExtensionRange("2026-10-17T17:00:00Z", timezone, now).min,
+    ).toBe("2026-10-18");
+    const range = assignmentExtensionRange(
+      "2027-10-17T17:00:00Z",
+      timezone,
+      now,
+    );
+    expect(range.min > range.max).toBe(true);
+  });
+  it("adds calendar days across DST and leap year", () => {
+    expect(
+      assignmentExtensionRange(
+        "2028-03-12T05:00:00Z",
+        "America/New_York",
+        new Date("2028-03-11T12:00:00Z"),
+      ),
+    ).toEqual({ min: "2028-03-12", max: "2029-03-11" });
+    expect(
+      assignmentExtensionRange(null, "UTC", new Date("2028-02-29T12:00:00Z"))
+        .max,
+    ).toBe("2029-02-28");
+  });
+  it("null timezone uses the device calendar", () => {
+    const expected = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    expect(assignmentCalendarDay(now, null)).toBe(expected);
+    expect(assignmentExtensionRange(null, null, now).min).toBe(expected);
+  });
+  it.each([
+    "NotStarted",
+    "InProgress",
+    "Overdue",
+    "Completed",
+    "Exempted",
+    "Halted",
+    "Withdrawn",
+  ] as const)(
+    "gates actions for %s including overdue without activity",
+    (status) => {
+      expect(canExemptAssignment({ status, firstActivityAt: null })).toBe(
+        false,
+      );
+      expect(
+        canExemptAssignment({ status, firstActivityAt: "2026-01-01Z" }),
+      ).toBe(["InProgress", "Overdue"].includes(status));
+      expect(canExtendAssignment(status)).toBe(
+        !["Completed", "Withdrawn"].includes(status),
+      );
+    },
+  );
   it("reads 422 error.errors and ignores malformed rows", () => {
     const error = { learnerId: "id", reason: "ALREADY_ASSIGNED" };
-    expect(invalidAssignmentLearners({ errors: [error, null, { learnerId: 4, reason: "NOT_A_LEARNER" }, { learnerId: "id", reason: "UNKNOWN" }] })).toEqual([error]);
+    expect(
+      invalidAssignmentLearners({
+        errors: [
+          error,
+          null,
+          { learnerId: 4, reason: "NOT_A_LEARNER" },
+          { learnerId: "id", reason: "UNKNOWN" },
+        ],
+      }),
+    ).toEqual([error]);
     expect(invalidAssignmentLearners({})).toEqual([]);
   });
   it("summarizes each backend result count", () => {
-    expect(assignmentResultMessage({ created: 1, converted: 2, completedOnAssign: 3, restored: 4 })).toBe("Phân công thành công: 1 tạo mới, 2 chuyển từ tự chọn, 3 đã hoàn thành trước đó, 4 khôi phục.");
+    expect(
+      assignmentResultMessage({
+        created: 1,
+        converted: 2,
+        completedOnAssign: 3,
+        restored: 4,
+      }),
+    ).toBe(
+      "Phân công thành công: 1 tạo mới, 2 chuyển từ tự chọn, 3 đã hoàn thành trước đó, 4 khôi phục.",
+    );
   });
   it("D24 uses the day before local midnight", () => {
     expect(assignmentDue("2026-10-16T17:00:00Z", "Asia/Ho_Chi_Minh")).toBe(

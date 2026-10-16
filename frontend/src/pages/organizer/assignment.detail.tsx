@@ -1,6 +1,11 @@
-import { Button, Descriptions, Empty, Skeleton, Table } from "antd";
+import { Alert, Button, Descriptions, Empty, Skeleton, Table } from "antd";
+import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { AssignmentError } from "@/components/organizer/assignment.error";
+import { AssignmentChange } from "@/components/organizer/assignment.change";
+import type { AssignmentDetail as AssignmentDetailData } from "@/types/assignment.types";
+import type { ApiError } from "@/types/api.types";
+import { toApiError } from "@/services/api.client";
 import {
   OrganizerPage,
   PageHeader,
@@ -8,13 +13,17 @@ import {
   StatusTag,
 } from "@/components/organizer/organizer.ui";
 import { useApiQuery } from "@/hooks/use.api.query";
-import { fetchAssignment } from "@/services/assignment.service";
+import {
+  fetchAssignment,
+  fetchAssignments,
+} from "@/services/assignment.service";
 import {
   assignmentDate,
   assignmentDue,
   assignmentProgress,
   assignmentStatus,
   extensionDays,
+  assignmentErrorMessage,
 } from "@/utils/assignments.view";
 import { parsePageParam } from "@/utils/page.param";
 import "./assignment.detail.scss";
@@ -27,7 +36,16 @@ const AssignmentDetail = () => {
     (signal) => fetchAssignment(assignmentId, signal),
     [assignmentId],
   );
-  const item = query.data;
+  const [updated, setUpdated] = useState<AssignmentDetailData | null>(null);
+  const [listError, setListError] = useState<ApiError | null>(null);
+  const [conflictError, setConflictError] = useState<ApiError | null>(null);
+  const item = updated?.enrollmentId === assignmentId ? updated : query.data;
+  const refreshList = () => {
+    setListError(null);
+    void fetchAssignments(page).catch((cause) =>
+      setListError(toApiError(cause)),
+    );
+  };
   const timezone = item?.organizationTimezone ?? null;
   const date = (value: string | null) => assignmentDate(value, timezone);
   return (
@@ -36,11 +54,36 @@ const AssignmentDetail = () => {
         title="Chi tiết phân công"
         subtitle="Course bắt buộc"
         actions={
-          <Link to={`/organizer/assignments?page=${page}`}>
-            <Button>Về danh sách</Button>
-          </Link>
+          <>
+            {item && (
+              <AssignmentChange
+                item={item}
+                onChanged={(value) => {
+                  setConflictError(null);
+                  setUpdated(value);
+                  refreshList();
+                }}
+                onConflict={(error) => {
+                  setConflictError(error);
+                  setUpdated(null);
+                  query.reload();
+                }}
+              />
+            )}
+            <Link to={`/organizer/assignments?page=${page}`}>
+              <Button>Về danh sách</Button>
+            </Link>
+          </>
         }
       />
+      {listError && <AssignmentError error={listError} retry={refreshList} />}
+      {conflictError && (
+        <Alert
+          type="warning"
+          showIcon
+          message={assignmentErrorMessage(conflictError.code)}
+        />
+      )}
       {query.status === "error" ? (
         <AssignmentError
           error={query.error}
