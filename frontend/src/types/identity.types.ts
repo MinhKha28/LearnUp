@@ -17,6 +17,12 @@ export interface ILogin {
   user: IUser;
 }
 
+export interface IChangePasswordReq {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+}
+
 export interface IRegister {
   fullName: string;
   email: string;

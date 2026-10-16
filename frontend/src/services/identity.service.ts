@@ -1,4 +1,4 @@
-import type { ILogin, IRegister, IUser } from "@/types/identity.types";
+import type { IChangePasswordReq, ILogin, IRegister, IUser } from "@/types/identity.types";
 import axios from "@/services/axios.customize";
 
 export const fetchAccountAPI = () =>
@@ -24,6 +24,12 @@ export const logoutAPI = (refreshToken: string) =>
   axios.post<IBackendRes<{ message: string }>>("/api/v1/auth/logout", {
     refreshToken,
   });
+
+export const changePasswordAPI = (body: IChangePasswordReq) =>
+  axios.post<IBackendRes<{ message: string }>>(
+    "/api/v1/auth/change-password",
+    body,
+  );
 
 export const registerAPI = (
   fullName: string,

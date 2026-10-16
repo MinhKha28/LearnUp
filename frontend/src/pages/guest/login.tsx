@@ -95,6 +95,15 @@ export default function LoginPage() {
           <span className="guest-eyebrow">WELCOME BACK</span>
           <h1>Sign in to LearnUP</h1>
           <p>Enter your account details to access your workspace.</p>
+          {params.get("state") === "password-changed" && !error && (
+            <Alert
+              className="login-alert"
+              type="success"
+              message="Password changed"
+              description="Sign in with your new password."
+              role="status"
+            />
+          )}
           {error && (
             <Alert
               className="login-alert"
