@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 const globalIgnores = (patterns) => ({ ignores: patterns })
 
 export default [
-  globalIgnores(['dist', '**/*.d.ts']),
+  globalIgnores(['dist', 'web/dist/**', '**/*.d.ts']),
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

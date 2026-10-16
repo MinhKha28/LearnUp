@@ -1,105 +1,153 @@
-import { Input, Select, Table } from "antd";
+import { Alert, Button, Empty, Skeleton, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { AssignmentError } from "@/components/organizer/assignment.error";
 import {
-  OrganizerButton,
   OrganizerPage,
   PageHeader,
   SectionCard,
   StatusTag,
 } from "@/components/organizer/organizer.ui";
+import { useApiQuery } from "@/hooks/use.api.query";
+import { fetchAssignments } from "@/services/assignment.service";
+import type { Assignment } from "@/types/assignment.types";
+import {
+  assignmentDate,
+  assignmentDue,
+  assignmentProgress,
+  assignmentStatus,
+} from "@/utils/assignments.view";
+import { parsePageParam } from "@/utils/page.param";
 import "./assignments.scss";
 
-type Assignment = {
-  key: string;
-  learner: string;
-  course: string;
-  required: boolean;
-  due: string;
-  progress: string;
-  status: "In progress" | "Completed" | "Overdue" | "Exempt";
-};
-
-const rows: Assignment[] = [
-  { key: "1", learner: "Minh Le", course: "Workplace Safety Essentials", required: true, due: "30 Sep", progress: "68%", status: "In progress" },
-  { key: "2", learner: "Trang Nguyen", course: "Incident Reporting", required: true, due: "22 Sep", progress: "100%", status: "Completed" },
-  { key: "3", learner: "Bao Tran", course: "Security Awareness", required: true, due: "26 Sep", progress: "45%", status: "Overdue" },
-  { key: "4", learner: "Khanh Vo", course: "Fire Safety Refresher", required: true, due: "15 Oct", progress: "12%", status: "Exempt" },
-];
-
-const statusTone = (status: Assignment["status"]) =>
-  status === "Completed" ? "success" : status === "Overdue" ? "error" : status === "Exempt" ? "warning" : "info";
-
 const Assignments = () => {
-  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const summary = (location.state as { assignmentSummary?: string } | null)
+    ?.assignmentSummary;
+  const page = parsePageParam(params.get("page")) ?? 1;
+  const query = useApiQuery(
+    (signal) => fetchAssignments(page, signal),
+    [page],
+    true,
+  );
+  const lastPage =
+    query.status === "success"
+      ? Math.max(1, Math.ceil(query.data.total / 20))
+      : null;
+  useEffect(() => {
+    if (lastPage !== null && page > lastPage)
+      setParams({ page: String(lastPage) }, { replace: true });
+  }, [lastPage, page, setParams]);
+  const timezone = query.data?.organizationTimezone ?? null;
   const columns: ColumnsType<Assignment> = [
-    { title: "Learner", dataIndex: "learner" },
+    {
+      title: "Learner",
+      key: "learner",
+      render: (_, row) =>
+        row.learner ? (
+          <>
+            <strong>{row.learner.fullName}</strong>
+            <div>{row.learner.email}</div>
+          </>
+        ) : (
+          "Không tải được thông tin"
+        ),
+    },
     {
       title: "Course",
-      dataIndex: "course",
-      render: (course: string) => (
-        <div>
-          <strong>{course}</strong>
-          <div className="organizer-note">Required</div>
-        </div>
-      ),
-    },
-    { title: "Due", dataIndex: "due" },
-    { title: "Progress", dataIndex: "progress" },
-    {
-      title: "Status",
-      dataIndex: "status",
-      render: (status: Assignment["status"]) => (
-        <StatusTag tone={statusTone(status)}>{status}</StatusTag>
-      ),
+      key: "course",
+      render: (_, row) =>
+        row.course ? (
+          <>
+            <strong>{row.course.title}</strong>
+            <div>Phiên bản {row.course.versionNumber}</div>
+          </>
+        ) : (
+          "Không tải được thông tin"
+        ),
     },
     {
-      title: "Action",
+      title: "Ngày phân công",
+      key: "assigned",
+      render: (_, row) => assignmentDate(row.assignedAt, timezone),
+    },
+    {
+      title: "Hạn",
+      key: "due",
+      render: (_, row) => assignmentDue(row.dueAt, timezone),
+    },
+    {
+      title: "Trạng thái",
+      key: "status",
+      render: (_, row) => (
+        <StatusTag tone={assignmentStatus[row.status].tone}>
+          {assignmentStatus[row.status].label}
+        </StatusTag>
+      ),
+    },
+    {
+      title: "Tiến độ",
+      key: "progress",
+      render: (_, row) => assignmentProgress(row),
+    },
+    {
+      title: "Thao tác",
       key: "action",
-      align: "right",
-      render: (_, item) => (
-        <button
-          className="organizer-link"
-          onClick={() => navigate(`/organizer/assignments/${item.key}`)}
-        >
-          View →
-        </button>
+      render: (_, row) => (
+        <Link to={`/organizer/assignments/${row.enrollmentId}?page=${page}`}>
+          Xem chi tiết
+        </Link>
       ),
     },
   ];
   return (
     <OrganizerPage className="organizer-assignments">
+      {summary && <Alert type="success" showIcon message={summary} closable />}
       <PageHeader
-        title="Required Training Assignments"
-        subtitle="Monitor all Required Enrollments created by Organizer."
+        title="Phân công Course"
+        subtitle="Theo dõi các Course bắt buộc trong tổ chức."
         actions={
           <Link to="/organizer/assignments/assign">
-            <OrganizerButton type="primary">Assign Course</OrganizerButton>
+            <Button type="primary">Phân công Course</Button>
           </Link>
         }
       />
-      <SectionCard title="Assignments">
-        <div className="organizer-filters organizer-assignments-filters">
-          <Input placeholder="Search Course or Learner" />
-          <Select
-            defaultValue="all"
-            options={[
-              { value: "all", label: "All statuses" },
-              { value: "in-progress", label: "In progress" },
-              { value: "completed", label: "Completed" },
-              { value: "overdue", label: "Overdue" },
-              { value: "exempt", label: "Exempt" },
-            ]}
+      <SectionCard>
+        {query.status === "error" ? (
+          <AssignmentError error={query.error} retry={query.reload} />
+        ) : !query.data ? (
+          <Skeleton active />
+        ) : query.data.total === 0 ? (
+          <Empty description="Chưa có phân công Course nào">
+            <Link to="/organizer/assignments/assign">
+              <Button type="primary">Phân công Course</Button>
+            </Link>
+          </Empty>
+        ) : (
+          <Table
+            rowKey="enrollmentId"
+            columns={columns}
+            dataSource={query.data.items}
+            loading={query.status === "loading"}
+            scroll={{ x: true }}
+            pagination={{
+              current: page,
+              pageSize: 20,
+              total: query.data.total,
+              showSizeChanger: false,
+              onChange: (value) => setParams({ page: String(value) }),
+              locale: {
+                items_per_page: "/ trang",
+                prev_page: "Trang trước",
+                next_page: "Trang sau",
+              },
+            }}
           />
-          <Select
-            defaultValue="any"
-            options={[{ value: "any", label: "Any due date" }]}
-          />
-        </div>
-        <Table className="organizer-table" columns={columns} dataSource={rows} pagination={{ pageSize: 6, showSizeChanger: false }} />
+        )}
       </SectionCard>
     </OrganizerPage>
   );
 };
-
 export default Assignments;

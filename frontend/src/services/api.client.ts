@@ -119,3 +119,15 @@ export const apiPost = async <T>(
     throw toApiError(error);
   }
 };
+
+export const apiPatch = async <T>(path: string, body: unknown): Promise<T> => {
+  try {
+    const response = await client.patch<ApiEnvelope<T>, RawResponse<T>>(
+      path,
+      body,
+    );
+    return response.data.data;
+  } catch (error) {
+    throw toApiError(error);
+  }
+};
