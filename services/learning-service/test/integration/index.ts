@@ -7,3 +7,4 @@ import './my-enrollments.integration-test';
 import './curriculum.integration-test';
 import './demo-reset.integration-test';
 import './assignments.integration-test';
+import './assignment-reads.integration-test';
