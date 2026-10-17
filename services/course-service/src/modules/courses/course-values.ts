@@ -15,3 +15,11 @@ export const COURSE_TYPE = {
 } as const;
 
 export type CourseType = (typeof COURSE_TYPE)[keyof typeof COURSE_TYPE];
+
+export const COURSE_COVER_MAX_SIZE_BYTES = 5 * 1024 * 1024;
+
+export const COURSE_COVER_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+] as const;
