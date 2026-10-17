@@ -8,6 +8,7 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
+  Put,
 } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '@common/decorator/customize';
@@ -19,6 +20,7 @@ import { CreateCourseLessonDto } from '@courses/dto/create-course-lesson.dto';
 import { OrganizationCourseListQueryDto } from '@courses/dto/organization-course-list-query.dto';
 import { FileInterceptor } from '@nestjs/platform-express/multer/interceptors/file.interceptor';
 import { COURSE_COVER_MAX_SIZE_BYTES } from './course-values';
+import { UpdateCourseDto } from './dto/update-course.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -99,6 +101,16 @@ export class CoursesController {
     @Query() query: OrganizationCourseListQueryDto,
   ) {
     return this.coursesService.findOrganizationCourses(user, query);
+  }
+
+  @Put(':courseId')
+  @ResponseMessage('Course updated successfully')
+  update(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Body() dto: UpdateCourseDto,
+  ) {
+    return this.coursesService.updateCourse(user, courseId, dto);
   }
 
   @Get(':courseId')

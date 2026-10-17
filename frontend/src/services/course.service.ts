@@ -14,6 +14,8 @@ import type {
   IOrganizationCourseFilterInstructor,
   IOrganizationCourseListItem,
   IOrganizationCourseListQuery,
+  IUpdateCourseRequest,
+  IUpdateCourseResponse,
   IUploadCourseCoverResponse,
 } from "@/types/course.types";
 
@@ -78,3 +80,12 @@ export const fetchOrganizationCourseInstructorsAPI = () =>
 
 export const fetchCourseDetailAPI = (courseId: string) =>
   axios.get<IBackendRes<ICourseDetail>>(`/api/v1/courses/${courseId}`);
+
+export const updateCourseAPI = (
+  courseId: string,
+  payload: IUpdateCourseRequest,
+) =>
+  axios.put<IBackendRes<IUpdateCourseResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}`,
+    payload,
+  );

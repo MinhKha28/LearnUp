@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@infra/prisma/prisma.service';
 import { Prisma } from '@generated/prisma/browser';
+import { UpdateCourseDto } from './dto/update-course.dto';
+import { COURSE_STATUS } from './course-values';
 
 @Injectable()
 export class CoursesRepository {
@@ -395,6 +397,123 @@ export class CoursesRepository {
         mimeType: true,
         sizeBytes: true,
       },
+    });
+  }
+
+  async updateCourse(
+    courseId: string,
+    organizationId: string,
+    instructorId: string,
+    data: UpdateCourseDto,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Tìm Course thuộc Instructor.
+      const current = await tx.course.findFirst({
+        where: {
+          id: courseId,
+          organizationId,
+          chain: { instructorId },
+        },
+        select: {
+          status: true,
+          courseType: true,
+          coverFileId: true,
+          updatedAt: true,
+        },
+      });
+
+      if (!current) {
+        return { status: 'NOT_FOUND' as const };
+      }
+
+      // 2. Chỉ Draft / Rejected mới được cập nhật.
+      if (
+        current.status !== COURSE_STATUS.DRAFT &&
+        current.status !== COURSE_STATUS.REJECTED
+      ) {
+        return { status: 'NOT_EDITABLE' as const };
+      }
+
+      // 3. Kiểm tra ảnh bìa mới.
+      // Nếu giữ ảnh cũ hoặc xóa ảnh, không cần truy vấn MediaFile.
+      if (
+        data.coverFileId !== null &&
+        data.coverFileId !== current.coverFileId
+      ) {
+        const cover = await tx.mediaFile.findFirst({
+          where: {
+            id: data.coverFileId,
+            organizationId,
+            purpose: 'CourseCover',
+            status: 'Ready',
+            releasedAt: null,
+          },
+          select: { id: true },
+        });
+
+        if (!cover) {
+          return { status: 'INVALID_COVER' as const };
+        }
+      }
+
+      // 4. Xác định Course Type thay đổi.
+      const courseTypeChanged = current.courseType !== data.courseType;
+
+      // 5. PUT thay thế đầy đủ 7 trường editable.
+      const updateData: Prisma.CourseUncheckedUpdateManyInput = {
+        name: data.name,
+        shortDescription: data.shortDescription,
+        trainingObjectives: data.trainingObjectives,
+        learningOutcomes: {
+          set: data.learningOutcomes,
+        },
+        coverFileId: data.coverFileId,
+        expectedCompletionDays: data.expectedCompletionDays,
+        courseType: data.courseType,
+      };
+
+      // 6. Cập nhật có điều kiện ownership + status.
+      const updated = await tx.course.updateMany({
+        where: {
+          id: courseId,
+          organizationId,
+          chain: { instructorId },
+          status: {
+            in: [COURSE_STATUS.DRAFT, COURSE_STATUS.REJECTED],
+          },
+          updatedAt: current.updatedAt,
+        },
+        data: updateData,
+      });
+
+      if (updated.count !== 1) {
+        return { status: 'CONFLICT' as const };
+      }
+
+      // 7. Lưu Outbox nếu thay đổi Public / Private.
+      if (courseTypeChanged) {
+        await tx.outboxEvent.create({
+          data: {
+            aggregateType: 'Course',
+            aggregateId: courseId,
+            organizationId,
+            eventType: 'CourseTypeChanged',
+            occurredAt: new Date(),
+            payload: {
+              courseId,
+              organizationId,
+              instructorId,
+              previousCourseType: current.courseType,
+              newCourseType: data.courseType,
+            },
+          },
+        });
+      }
+
+      return {
+        status: 'UPDATED' as const,
+        courseTypeChanged,
+      };
     });
   }
 }

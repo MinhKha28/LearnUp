@@ -389,9 +389,9 @@ export class EnrollmentsService {
   }
 
   async getCourseLearnerCounts(user: CurrentUser, courseIds: string[]) {
-    if (user.role !== 'ORGANIZER') {
+    if (user.role !== 'ORGANIZER' && user.role !== 'INSTRUCTOR') {
       throw new ForbiddenException(
-        'Only Organizer can retrieve Course learner counts.',
+        'Only Organizer or Instructor can retrieve Course learner counts.',
       );
     }
 
