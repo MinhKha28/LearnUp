@@ -87,7 +87,7 @@ export class QuizService {
     // BR-285 / BR-69 / BR-284: only Draft, Rejected and not-yet-Locked Published Courses are authorable.
     if (
       course.disabled ||
-      !AUTHORABLE_STATUSES.includes(course.status.toUpperCase())
+      !AUTHORABLE_STATUSES.includes(course.status)
     ) {
       throw new ConflictException({
         code: 'COURSE_NOT_EDITABLE',
@@ -174,7 +174,7 @@ export class QuizService {
     // BR-285: a Submitted, Archived or Disabled Course accepts no edit at all.
     if (
       course.disabled ||
-      !AUTHORABLE_STATUSES.includes(course.status.toUpperCase())
+      !AUTHORABLE_STATUSES.includes(course.status)
     ) {
       throw new ConflictException({
         code: 'COURSE_NOT_EDITABLE',
@@ -219,8 +219,8 @@ export class QuizService {
   private courseLockReasons(course: CourseAuthoringContext): QuizLockReason[] {
     const reasons: QuizLockReason[] = [];
     if (course.locked) reasons.push('COURSE_LOCKED'); // BR-94
-    // BR-285. Course Service writes 'SUBMITTED' while its seed and fake client use 'Submitted'.
-    if (course.status.toUpperCase() === 'SUBMITTED') {
+    // BR-285: nothing can be edited while the Course is under review. Course Service writes the status in Title Case.
+    if (course.status === 'Submitted') {
       reasons.push('COURSE_SUBMITTED');
     }
     return reasons;

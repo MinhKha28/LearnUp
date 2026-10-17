@@ -121,7 +121,7 @@ describe('UC30.2 over HTTP', () => {
   test('a Finalized submission shows the final score, the averages per criterion and the comments, without reviewers', async () => {
     await review('LEARNER', PEER_1, [8, 6], 'Clear structure');
     await review('LEARNER', PEER_2, [6, 6], 'Needs more examples');
-    await review('INSTRUCTOR', INSTRUCTOR, [10, 8], 'Good work overall');
+    await review('Instructor', INSTRUCTOR, [10, 8], 'Good work overall');
     // not valid: never completed, so it must not count
     await review('LEARNER', PEER_2, [0, 0], 'Never finished', 'Pending');
     await db.query(

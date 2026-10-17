@@ -1,6 +1,7 @@
 import type { IGradingResult } from './interfaces/learner-submission.interface';
 
-const INSTRUCTOR_ROLE = 'INSTRUCTOR';
+/** UC32.2 writes the role of the Instructor as 'Instructor'; the comparison ignores the case, so an old or other spelling still counts. */
+const INSTRUCTOR_ROLE = 'instructor';
 
 interface RubricCriterionInput {
   id: string;
@@ -49,7 +50,7 @@ export function buildGradingResult(
     )
     .map((review) => ({
       source:
-        review.reviewerRole === INSTRUCTOR_ROLE
+        review.reviewerRole.toLowerCase() === INSTRUCTOR_ROLE
           ? ('INSTRUCTOR' as const)
           : ('PEER' as const),
       comment: review.comment as string,

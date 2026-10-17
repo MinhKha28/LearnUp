@@ -101,7 +101,7 @@ export class PeerReviewService {
 
     if (
       course.disabled ||
-      !AUTHORABLE_STATUSES.includes(course.status.toUpperCase())
+      !AUTHORABLE_STATUSES.includes(course.status)
     ) {
       throw new ConflictException({
         code: 'COURSE_NOT_EDITABLE',
