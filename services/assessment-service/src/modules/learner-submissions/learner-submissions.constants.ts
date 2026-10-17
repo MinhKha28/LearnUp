@@ -9,6 +9,11 @@ export const AWAITING_INSTRUCTOR = 'AwaitingInstructor';
 
 /** Why the Instructor has to grade (same codes as the Instructor screens, UC32). */
 export const PEER_REVIEW_DISABLED = 'PEER_REVIEW_DISABLED';
+/** BR-171: a resubmission after the closing line of the cycle of the previous submission (UC30.1). */
+export const RESUBMITTED_AFTER_CUTOFF = 'RESUBMITTED_AFTER_CUTOFF';
+
+/** learner_assessment_states.peer_review_obligation: the Learner skipped the reviews of an earlier cycle (BR-313). */
+export const OBLIGATION_MISSED = 'Missed';
 
 export const OPEN_CYCLE_STATUS = 'Open';
 

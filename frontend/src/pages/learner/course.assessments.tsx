@@ -86,11 +86,17 @@ const CourseAssessments = () => {
       );
     }
     const submitted = item.status !== "NotStarted";
-    if (list?.readOnly || submitted) {
+    if (list?.readOnly) {
       return <LearnerButton onClick={() => navigate(`${base}/assignments/${item.id}/submit`)}>View</LearnerButton>;
     }
     if (locked) {
       return <LearnerButton disabled>Locked</LearnerButton>;
+    }
+    // UC30.1: there is no limit on resubmissions, so a submitted Assignment can always be replaced.
+    if (submitted) {
+      return (
+        <LearnerButton onClick={() => navigate(`${base}/assignments/${item.id}/resubmit`)}>Resubmit</LearnerButton>
+      );
     }
     return (
       <LearnerButton type="primary" onClick={() => navigate(`${base}/assignments/${item.id}/submit`)}>

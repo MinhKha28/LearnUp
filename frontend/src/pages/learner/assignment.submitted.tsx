@@ -20,19 +20,19 @@ const AssignmentSubmitted = () => {
     return <Navigate to={`/learner/courses/${courseId}/assessments`} replace />;
   }
 
-  const waitingForCycle = receipt.gradingStatus === "AwaitingPeerReview";
-  const { attempts } = receipt;
+  const { attempts, cycle } = receipt;
+  const resubmitted = receipt.replacedSubmissionId !== null;
 
   return (
     <>
       <PageHeader
         eyebrow="ASSESSMENTS / SUBMITTED"
-        title="Assignment submitted"
+        title={resubmitted ? "Assignment resubmitted" : "Assignment submitted"}
         subtitle={title ? `${title} is now awaiting the grading process.` : "Your work is now awaiting the grading process."}
       />
       <SuccessScreen
         tone="success"
-        title="Submission received"
+        title={resubmitted ? "Resubmission received" : "Submission received"}
         primary={{
           label: "Back to Assessments",
           onClick: () => navigate(`/learner/courses/${courseId}/assessments`),
@@ -43,13 +43,19 @@ const AssignmentSubmitted = () => {
         }}
       >
         <p>Submitted on {formatTime(receipt.submittedAt)}.</p>
-        {waitingForCycle && receipt.cycle ? (
+        {cycle ? (
           <p>
-            It is in the peer review cycle that closes on {formatTime(receipt.cycle.closesAt)}. Reviews are due by{" "}
-            {formatTime(receipt.cycle.reviewDueAt)}.
+            {receipt.placement === "REPLACES_IN_CYCLE"
+              ? "It replaces your previous submission in the peer review cycle that closes on "
+              : "It is in the peer review cycle that closes on "}
+            {formatTime(cycle.closesAt)}. Reviews are due by {formatTime(cycle.reviewDueAt)}.
           </p>
         ) : (
-          <p>Your Instructor will grade it.</p>
+          <p>
+            {resubmitted
+              ? "The peer review cycle of your previous submission is closed, or peer review is off, so your Instructor will grade it directly."
+              : "Your Instructor will grade it."}
+          </p>
         )}
         {attempts.lockedUntil ? (
           <p>

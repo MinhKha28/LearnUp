@@ -20,7 +20,7 @@ import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import { SUBMISSION_FILE_MAX_BYTES } from './learner-submissions.constants';
 import { LearnerSubmissionsService } from './learner-submissions.service';
 
-@ApiTags('UC30 - Learner submissions')
+@ApiTags('UC30 / UC30.1 - Learner submissions')
 @ApiSecurity('internal-key')
 @Controller('assessments/learner/assignments')
 export class LearnerSubmissionsController {
@@ -72,5 +72,24 @@ export class LearnerSubmissionsController {
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.service.submit(user, id, dto, file);
+  }
+
+  /** UC30.1 - Resubmit Assignment. Same multipart body as UC30; replaces the previous submission. */
+  @Post(':id/resubmissions')
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Assignment resubmitted successfully.')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { files: 1, fileSize: SUBMISSION_FILE_MAX_BYTES },
+    }),
+  )
+  resubmit(
+    @User() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SubmitAssignmentDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.service.resubmit(user, id, dto, file);
   }
 }

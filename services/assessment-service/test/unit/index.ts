@@ -7,4 +7,5 @@ import './peer-review-calendar.unit-test';
 import './enrollment-clients.unit-test';
 import './learner-submissions-service.unit-test';
 import './learner-assessments-service.unit-test';
+import './resubmission-placement.unit-test';
 import './course-clients.unit-test';

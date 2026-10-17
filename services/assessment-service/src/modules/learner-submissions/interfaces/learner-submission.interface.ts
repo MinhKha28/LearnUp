@@ -17,6 +17,13 @@ export interface ILearnerSubmissionSummary {
   fileName: string | null;
 }
 
+/** UC30.1: where a resubmission would go right now, so the Learner knows before sending it. */
+export interface IResubmissionOutlook {
+  placement: 'REPLACES_IN_CYCLE' | 'OPEN_CYCLE' | 'INSTRUCTOR';
+  /** REPLACES_IN_CYCLE only: when the cycle of the previous submission closes. */
+  cycleClosesAt: string | null;
+}
+
 /** UC30 step 1: the Assignment as the Learner reads it before submitting. */
 export interface ILearnerAssignment {
   id: string;
@@ -37,6 +44,8 @@ export interface ILearnerAssignment {
   /** BR-169: the Enrollment is Completed, so the Assignment is read-only. */
   readOnly: boolean;
   latestSubmission: ILearnerSubmissionSummary | null;
+  /** Set once the Learner has submitted and the Course is not completed. */
+  resubmission: IResubmissionOutlook | null;
 }
 
 export interface ICycleWindow {
@@ -56,4 +65,8 @@ export interface ISubmissionReceipt {
   /** The open cycle the submission waits in; null when the Instructor grades it directly. */
   cycle: ICycleWindow | null;
   attempts: ILearnerAttemptState;
+  /** Where the work went: a cycle (new or the same one), or straight to the Instructor. */
+  placement: 'REPLACES_IN_CYCLE' | 'OPEN_CYCLE' | 'INSTRUCTOR';
+  /** UC30.1: the submission this one replaced. */
+  replacedSubmissionId: string | null;
 }

@@ -127,6 +127,15 @@ export class LearnerSubmissionsRepository {
     return tx.peerReviewCycle.create({ data });
   }
 
+  findCycleById(id: string, tx?: Prisma.TransactionClient) {
+    return this.db(tx).peerReviewCycle.findUnique({ where: { id } });
+  }
+
+  /** UC30.1 step 4: the new submission takes over; the old one stays as history (BR-170). */
+  markSuperseded(tx: Prisma.TransactionClient, id: string, at: Date) {
+    return tx.submission.update({ where: { id }, data: { supersededAt: at } });
+  }
+
   async nextSubmissionNumber(
     tx: Prisma.TransactionClient,
     assessmentId: string,

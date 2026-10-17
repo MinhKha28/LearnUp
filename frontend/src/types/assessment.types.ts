@@ -177,6 +177,16 @@ export interface ILearnerSubmissionSummary {
 }
 
 /** UC30 step 1: the Assignment as the enrolled Learner reads it. */
+/** UC30 / UC30.1: where a submission goes (BR-171, BR-313). */
+export type SubmissionPlacement = "REPLACES_IN_CYCLE" | "OPEN_CYCLE" | "INSTRUCTOR";
+
+/** UC30.1: where a resubmission would go right now. */
+export interface IResubmissionOutlook {
+  placement: SubmissionPlacement;
+  /** REPLACES_IN_CYCLE only: when the cycle of the previous submission closes. */
+  cycleClosesAt: string | null;
+}
+
 export interface ILearnerAssignment {
   id: string;
   courseId: string;
@@ -191,6 +201,8 @@ export interface ILearnerAssignment {
   /** BR-169: the Enrollment is Completed. */
   readOnly: boolean;
   latestSubmission: ILearnerSubmissionSummary | null;
+  /** Set once the Learner has submitted and the Course is not completed. */
+  resubmission: IResubmissionOutlook | null;
 }
 
 /** UC30 result. */
@@ -202,6 +214,10 @@ export interface ISubmissionReceipt {
   gradingStatus: string;
   cycle: { id: string; opensAt: string; closesAt: string; reviewDueAt: string } | null;
   attempts: ILearnerAttemptState;
+  /** Where the work went: a cycle (new or the same one), or straight to the Instructor. */
+  placement: SubmissionPlacement;
+  /** UC30.1: the submission this one replaced. */
+  replacedSubmissionId: string | null;
 }
 
 /** UC29: what the Learner sees about one Quiz or Assignment of a Course. */
