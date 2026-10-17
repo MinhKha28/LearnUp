@@ -46,6 +46,12 @@ import {
   requireLearner,
 } from './learner-access';
 import { cycleWindowFor } from './peer-review-calendar';
+import {
+  decideResubmission,
+  isPeerReviewOn,
+  owesPeerReviewDuty,
+  type SubmissionPlacement,
+} from './resubmission-placement';
 
 const HOUR_MS = 3_600_000;
 const DEFAULT_CYCLE_DAYS = 7;
@@ -61,6 +67,9 @@ export interface UploadedSubmissionFile {
   originalname: string;
   size: number;
 }
+
+/** UC30 saves the first submission, UC30.1 a replacement of the previous one. */
+type SubmissionMode = 'FIRST' | 'RESUBMIT';
 
 interface ValidFile {
   buffer: Buffer;
@@ -99,6 +108,26 @@ export class LearnerSubmissionsService {
       this.repository.findLatestSubmission(assignment.id, user.userId),
       this.repository.isEnrollmentCompleted(enrollment.enrollmentId),
     ]);
+    const now = this.clock();
+    let resubmission: ILearnerAssignment['resubmission'] = null;
+    if (latest && !completed) {
+      const previousCycle = latest.cycleId
+        ? await this.repository.findCycleById(latest.cycleId)
+        : null;
+      const decision = decideResubmission({
+        peerReviewOn: isPeerReviewOn(assignment),
+        previousCycle,
+        owesDuty: owesPeerReviewDuty(state),
+        now,
+      });
+      resubmission = {
+        placement: decision.placement,
+        cycleClosesAt:
+          decision.placement === 'REPLACES_IN_CYCLE' && previousCycle
+            ? previousCycle.closesAt.toISOString()
+            : null,
+      };
+    }
 
     return {
       id: assignment.id,
@@ -120,9 +149,10 @@ export class LearnerSubmissionsService {
         description: c.description,
         maxPoints: c.maxPoints,
       })),
-      attempts: attemptStateOf(assignment, state, this.clock()),
+      attempts: attemptStateOf(assignment, state, now),
       readOnly: completed,
       latestSubmission: latest ? this.toSummary(latest) : null,
+      resubmission,
     };
   }
 
@@ -164,13 +194,40 @@ export class LearnerSubmissionsService {
    * UC30 — submit work for an Assignment.
    * BR-167: the submission joins the peer review cycle that is open now (created on demand, BR-312).
    * BR-175 / BR-176: n consecutive submissions lock the Assignment for this Learner for m hours.
-   * Resubmitting (UC30.1) is a different use case: a Learner who already has a submission is refused here.
+   * A Learner who already has a submission uses UC30.1 (resubmit) instead.
    */
-  async submit(
+  submit(
     user: CurrentUser,
     assessmentId: string,
     dto: SubmitAssignmentDto,
     uploaded?: UploadedSubmissionFile,
+  ): Promise<ISubmissionReceipt> {
+    return this.create(user, assessmentId, dto, uploaded, 'FIRST');
+  }
+
+  /**
+   * UC30.1 — replace the previous submission by a new one. There is no limit on the number of resubmissions, before
+   * or after the result, until the Enrollment is Completed (BR-168, BR-169); the latest one counts (BR-170).
+   * Where it goes: the same cycle when that cycle has not closed yet (BR-171); otherwise straight to the
+   * Instructor (A1), unless the Learner owes a peer review duty and joins the open cycle (A2, BR-313).
+   * It counts as one more submission in a row (BR-176).
+   */
+  resubmit(
+    user: CurrentUser,
+    assessmentId: string,
+    dto: SubmitAssignmentDto,
+    uploaded?: UploadedSubmissionFile,
+  ): Promise<ISubmissionReceipt> {
+    return this.create(user, assessmentId, dto, uploaded, 'RESUBMIT');
+  }
+
+  /** The pipeline of UC30 and UC30.1: validate, check, store the file, then save everything in one transaction. */
+  private async create(
+    user: CurrentUser,
+    assessmentId: string,
+    dto: SubmitAssignmentDto,
+    uploaded: UploadedSubmissionFile | undefined,
+    mode: SubmissionMode,
   ): Promise<ISubmissionReceipt> {
     const organizationId = requireLearner(user);
     const content = dto.content?.trim() || null;
@@ -202,7 +259,7 @@ export class LearnerSubmissionsService {
       this.repository.findState(assignment.id, user.userId),
       this.repository.findLatestSubmission(assignment.id, user.userId),
     ]);
-    this.assertCanSubmit(assignment, state, previous, this.clock());
+    this.assertCanSubmit(assignment, state, previous, this.clock(), mode);
 
     const stored = file
       ? await this.storeFile(organizationId, assignment.id, file)
@@ -225,14 +282,23 @@ export class LearnerSubmissionsService {
           user.userId,
           tx,
         );
-        this.assertCanSubmit(assignment, current, latest, now);
+        this.assertCanSubmit(assignment, current, latest, now, mode);
 
         // The lock has run out (BR-176): counting starts again from this submission.
         const baseCount = lockExpired(current, now)
           ? 0
           : current.consecutiveCount;
 
-        const placement = await this.place(tx, assignment, now);
+        const placement =
+          mode === 'FIRST' || !latest
+            ? await this.place(tx, assignment, now)
+            : await this.placeResubmission(
+                tx,
+                assignment,
+                latest,
+                current,
+                now,
+              );
         const submission = await this.repository.createSubmission(tx, {
           organizationId,
           assessmentId: assignment.id,
@@ -252,6 +318,11 @@ export class LearnerSubmissionsService {
           gradingStatus: placement.gradingStatus,
           interventionReason: placement.interventionReason,
         });
+
+        // UC30.1 step 4: the new submission takes over, the old one stays as history.
+        if (mode === 'RESUBMIT' && latest) {
+          await this.repository.markSuperseded(tx, latest.id, now);
+        }
 
         const consecutiveCount = baseCount + 1;
         const lockedUntil =
@@ -274,8 +345,10 @@ export class LearnerSubmissionsService {
             courseId: assignment.courseId,
             learnerId: user.userId,
             kind: 'ASSIGNMENT',
-            status: 'Submitted',
+            status: mode === 'FIRST' ? 'Submitted' : 'Resubmitted',
             submissionId: submission.id,
+            previousSubmissionId:
+              mode === 'RESUBMIT' ? (latest?.id ?? null) : null,
             consecutiveCount,
             lockedUntil: lockedUntil?.toISOString() ?? null,
           },
@@ -289,6 +362,9 @@ export class LearnerSubmissionsService {
           gradingStatus: submission.gradingStatus,
           cycle: placement.cycle ? this.toCycleWindow(placement.cycle) : null,
           attempts: attemptStateOf(assignment, updated, now),
+          placement: placement.placement,
+          replacedSubmissionId:
+            mode === 'RESUBMIT' ? (latest?.id ?? null) : null,
         };
       });
     } catch (error) {
@@ -300,12 +376,16 @@ export class LearnerSubmissionsService {
 
   // ------------------------------------------------------------------ rules
 
-  /** PRE-2 of UC30: the Assignment is not locked for this Learner; and (UC30.1 is not built yet) no earlier submission. */
+  /**
+   * PRE-2 of UC30 / UC30.1: the Assignment is not locked for this Learner.
+   * UC30 is for the first submission, UC30.1 needs a previous one to replace (PRE-1 of UC30.1).
+   */
   private assertCanSubmit(
     assignment: LearnerAssignmentRow,
     state: LearnerStateRow | null,
     previous: SubmissionRow | null,
     now: Date,
+    mode: SubmissionMode,
   ) {
     if (state?.lockedUntil && state.lockedUntil.getTime() > now.getTime()) {
       throw new ConflictException({
@@ -314,11 +394,17 @@ export class LearnerSubmissionsService {
         lockedUntil: state.lockedUntil.toISOString(),
       });
     }
-    if (previous) {
+    if (mode === 'FIRST' && previous) {
       throw new ConflictException({
         code: 'SUBMISSION_EXISTS',
         message:
-          'You have already submitted this Assignment. Resubmitting is not available yet.',
+          'You have already submitted this Assignment. Use Resubmit to replace your submission.',
+      });
+    }
+    if (mode === 'RESUBMIT' && !previous) {
+      throw new ConflictException({
+        code: 'NO_PREVIOUS_SUBMISSION',
+        message: 'You have not submitted this Assignment yet.',
       });
     }
   }
@@ -334,11 +420,12 @@ export class LearnerSubmissionsService {
   ) {
     const reviewers = assignment.peerReviewersPerSubmission;
     const scoreGap = toNumber(assignment.peerReviewScoreGap);
-    if (!assignment.peerReviewEnabled || !reviewers || scoreGap === null) {
+    if (!isPeerReviewOn(assignment) || !reviewers || scoreGap === null) {
       return {
         cycle: null,
         gradingStatus: AWAITING_INSTRUCTOR,
         interventionReason: PEER_REVIEW_DISABLED,
+        placement: 'INSTRUCTOR' as SubmissionPlacement,
       };
     }
 
@@ -382,6 +469,43 @@ export class LearnerSubmissionsService {
       cycle,
       gradingStatus: AWAITING_PEER_REVIEW,
       interventionReason: null,
+      placement: 'OPEN_CYCLE' as SubmissionPlacement,
+    };
+  }
+
+  /** UC30.1 step 3, A1 and A2 (BR-171, BR-313): see decideResubmission. */
+  private async placeResubmission(
+    tx: Prisma.TransactionClient,
+    assignment: LearnerAssignmentRow,
+    previous: SubmissionRow,
+    state: LearnerStateRow,
+    now: Date,
+  ) {
+    const previousCycle = previous.cycleId
+      ? await this.repository.findCycleById(previous.cycleId, tx)
+      : null;
+    const decision = decideResubmission({
+      peerReviewOn: isPeerReviewOn(assignment),
+      previousCycle,
+      owesDuty: owesPeerReviewDuty(state),
+      now,
+    });
+    if (decision.placement === 'REPLACES_IN_CYCLE' && previousCycle) {
+      return {
+        cycle: previousCycle,
+        gradingStatus: AWAITING_PEER_REVIEW,
+        interventionReason: null,
+        placement: decision.placement,
+      };
+    }
+    if (decision.placement === 'OPEN_CYCLE') {
+      return this.place(tx, assignment, now);
+    }
+    return {
+      cycle: null,
+      gradingStatus: AWAITING_INSTRUCTOR,
+      interventionReason: decision.interventionReason,
+      placement: 'INSTRUCTOR' as SubmissionPlacement,
     };
   }
 

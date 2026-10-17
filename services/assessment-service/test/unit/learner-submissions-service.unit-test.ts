@@ -162,6 +162,13 @@ function build(over: Partial<World> = {}) {
           (x, y) => y.closesAt.getTime() - x.closesAt.getTime(),
         )[0] ?? null,
       ),
+    findCycleById: (id: string) =>
+      Promise.resolve(world.cycles.find((c) => c.id === id) ?? null),
+    markSuperseded: (_tx: unknown, id: string, at: Date) => {
+      const row = world.submissions.find((x) => x.id === id)!;
+      row.supersededAt = at;
+      return Promise.resolve(row);
+    },
     createCycle: (_tx: unknown, data: Record<string, unknown>) => {
       const cycle = { id: id(), ...data } as unknown as CycleRow;
       world.cycles.push(cycle);
@@ -372,7 +379,7 @@ describe('submit (UC30)', () => {
     );
   });
 
-  test('a Learner who has submitted cannot submit again yet (resubmitting is UC30.1)', async () => {
+  test('a Learner who has submitted is told to resubmit instead (UC30.1)', async () => {
     await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
     await rejectsWith(
       ctx.service.submit(learner(), ASSIGNMENT, { content: 'y' }),
@@ -501,5 +508,245 @@ describe('getAssignment (UC30 step 1)', () => {
       ForbiddenException,
       'NOT_ENROLLED',
     );
+  });
+});
+
+describe('resubmit (UC30.1)', () => {
+  const day1 = new Date('2026-10-14T20:30:00Z'); // 15 Oct 03:30 in Ho Chi Minh: the cycle is 15 - 22 Oct
+  const afterCutoff = new Date('2026-10-23T03:00:00Z');
+
+  const submitted = async (
+    over: Partial<LearnerAssignmentRow> = peerOn,
+    opts: Partial<Parameters<typeof build>[0]> = {},
+  ) => {
+    const ctx = build({ assignment: assignmentRow(over), ...opts });
+    ctx.setNow(day1);
+    const first = await ctx.service.submit(learner(), ASSIGNMENT, {
+      content: 'first',
+    });
+    return { ctx, first };
+  };
+
+  test('a resubmission in the same open cycle takes the place of the previous one (BR-171)', async () => {
+    const { ctx, first } = await submitted();
+    ctx.setNow(new Date('2026-10-16T10:00:00Z'));
+    const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
+      content: 'second',
+    });
+    assert.equal(r.submissionNumber, 2);
+    assert.equal(r.placement, 'REPLACES_IN_CYCLE');
+    assert.equal(r.gradingStatus, 'AwaitingPeerReview');
+    assert.equal(r.replacedSubmissionId, first.id);
+    assert.equal(r.cycle?.id, first.cycle?.id);
+    assert.equal(ctx.world.cycles.length, 1);
+    const [old, current] = ctx.world.submissions;
+    assert.ok(old.supersededAt, 'the previous submission is superseded');
+    assert.equal(current.supersededAt, undefined);
+    assert.equal(current.cycleId, old.cycleId);
+    assert.equal(current.content, 'second');
+    // the latest one is the one that counts (BR-170)
+    const view = await ctx.service.getAssignment(learner(), ASSIGNMENT);
+    assert.equal(view.latestSubmission?.submissionNumber, 2);
+  });
+
+  test('it counts as one more submission in a row (BR-176) and is announced as Resubmitted', async () => {
+    const { ctx, first } = await submitted();
+    const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
+      content: 'second',
+    });
+    assert.equal(r.attempts.remainingAttempts, 1); // n = 3, two submissions so far
+    assert.equal(ctx.world.outbox.length, 2);
+    const event = ctx.world.outbox[1].payload as Record<string, unknown>;
+    assert.equal(event.status, 'Resubmitted');
+    assert.equal(event.previousSubmissionId, first.id);
+    assert.equal(event.consecutiveCount, 2);
+  });
+
+  test('A1: after the closing line of the previous cycle it goes straight to the Instructor (BR-171)', async () => {
+    const { ctx } = await submitted();
+    ctx.setNow(afterCutoff);
+    const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
+      content: 'late',
+    });
+    assert.equal(r.placement, 'INSTRUCTOR');
+    assert.equal(r.cycle, null);
+    assert.equal(r.gradingStatus, 'AwaitingInstructor');
+    assert.equal(
+      ctx.world.submissions[1].interventionReason,
+      'RESUBMITTED_AFTER_CUTOFF',
+    );
+    assert.equal(ctx.world.cycles.length, 1, 'no new cycle is opened for it');
+    assert.ok(ctx.world.submissions[0].supersededAt);
+  });
+
+  test('A2: a Learner who owes a peer review duty joins the cycle that is open now (BR-313)', async () => {
+    const { ctx } = await submitted();
+    ctx.world.states.get(`${ASSIGNMENT}:${LEARNER}`)!.peerReviewObligation =
+      'Missed';
+    ctx.setNow(afterCutoff);
+    const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
+      content: 'making up',
+    });
+    assert.equal(r.placement, 'OPEN_CYCLE');
+    assert.equal(r.gradingStatus, 'AwaitingPeerReview');
+    assert.equal(ctx.world.cycles.length, 2, 'the cycle of the day is created');
+    assert.notEqual(r.cycle?.id, ctx.world.cycles[0].id);
+    assert.equal(ctx.world.submissions[1].interventionReason, null);
+  });
+
+  test('a duty that was waived (exempted) gives no second chance', async () => {
+    const { ctx } = await submitted();
+    const state = ctx.world.states.get(`${ASSIGNMENT}:${LEARNER}`)!;
+    state.peerReviewObligation = 'Missed';
+    state.exemptedAt = new Date('2026-10-22T00:00:00Z');
+    ctx.setNow(afterCutoff);
+    const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
+      content: 'late',
+    });
+    assert.equal(r.placement, 'INSTRUCTOR');
+  });
+
+  test('with peer review off the Instructor grades it, as before', async () => {
+    const { ctx } = await submitted({});
+    const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
+      content: 'again',
+    });
+    assert.equal(r.placement, 'INSTRUCTOR');
+    assert.equal(r.gradingStatus, 'AwaitingInstructor');
+    assert.equal(
+      ctx.world.submissions[1].interventionReason,
+      'PEER_REVIEW_DISABLED',
+    );
+  });
+
+  test('there must be a previous submission to replace (409)', async () => {
+    const ctx = build();
+    await rejectsWith(
+      ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'x' }),
+      ConflictException,
+      'NO_PREVIOUS_SUBMISSION',
+    );
+    assert.equal(ctx.world.submissions.length, 0);
+    assert.equal(ctx.world.states.size, 0, 'nothing is counted');
+  });
+
+  test('there is no limit on resubmissions: every n in a row pause it, then it opens again (BR-168, BR-176)', async () => {
+    const { ctx } = await submitted({ ...peerOn, maxConsecutiveAttempts: 2 });
+    // the second one of two in a row locks the Assignment for lockoutHours (24)
+    const second = await ctx.service.resubmit(learner(), ASSIGNMENT, {
+      content: 'second',
+    });
+    assert.equal(second.attempts.remainingAttempts, 0);
+    assert.equal(
+      second.attempts.lockedUntil,
+      new Date(day1.getTime() + 24 * HOUR).toISOString(),
+    );
+    await assert.rejects(
+      ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'third' }),
+      (error: unknown) => {
+        assert.ok(error instanceof ConflictException);
+        assert.equal(
+          (error.getResponse() as { code: string }).code,
+          'ASSESSMENT_LOCKED',
+        );
+        return true;
+      },
+    );
+    // the lock runs out: counting starts again and the Learner can go on
+    ctx.setNow(new Date(day1.getTime() + 25 * HOUR));
+    const third = await ctx.service.resubmit(learner(), ASSIGNMENT, {
+      content: 'third',
+    });
+    assert.equal(third.submissionNumber, 3);
+    assert.equal(third.attempts.remainingAttempts, 1);
+    assert.equal(third.attempts.lockedUntil, null);
+  });
+
+  test('a Completed Enrollment is read-only (BR-169)', async () => {
+    const { ctx } = await submitted();
+    ctx.world.completed.add(ENROLLMENT);
+    await rejectsWith(
+      ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'x' }),
+      ConflictException,
+      'ENROLLMENT_COMPLETED',
+    );
+    const view = await ctx.service.getAssignment(learner(), ASSIGNMENT);
+    assert.equal(view.resubmission, null);
+  });
+
+  test('an empty resubmission and a wrong file are refused, only an enrolled Learner may resubmit', async () => {
+    const { ctx } = await submitted();
+    await rejectsWith(
+      ctx.service.resubmit(learner(), ASSIGNMENT, { content: ' ' }),
+      BadRequestException,
+      'SUBMISSION_EMPTY',
+    );
+    await rejectsWith(
+      ctx.service.resubmit(
+        learner(),
+        ASSIGNMENT,
+        {},
+        { buffer: Buffer.from('MZ'), originalname: 'virus.exe', size: 2 },
+      ),
+      BadRequestException,
+      'SUBMISSION_FILE_INVALID',
+    );
+    await rejectsWith(
+      ctx.service.resubmit({ ...learner(), role: 'INSTRUCTOR' }, ASSIGNMENT, {
+        content: 'x',
+      }),
+      ForbiddenException,
+      'FORBIDDEN',
+    );
+    ctx.enrollments.enrolled = false;
+    await rejectsWith(
+      ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'x' }),
+      ForbiddenException,
+      'NOT_ENROLLED',
+    );
+    assert.equal(ctx.world.submissions.length, 1);
+  });
+
+  test('a new file is stored and the previous file stays as history', async () => {
+    const { ctx } = await submitted(peerOn);
+    await ctx.service.resubmit(learner(), ASSIGNMENT, {}, pdf());
+    assert.equal(ctx.storage.uploads.length, 1);
+    assert.equal(ctx.storage.deleted.length, 0);
+    assert.equal(ctx.world.submissions[1].fileName, 'work.pdf');
+  });
+
+  test('when saving fails the old submission is untouched and the new file is removed', async () => {
+    const { ctx } = await submitted();
+    ctx.world.failCreateSubmission = true;
+    await assert.rejects(
+      ctx.service.resubmit(learner(), ASSIGNMENT, {}, pdf()),
+      /db down/,
+    );
+    assert.equal(ctx.world.submissions.length, 1);
+    assert.equal(ctx.world.submissions[0].supersededAt, undefined);
+    assert.equal(ctx.storage.files.size, 0);
+  });
+
+  test('the Learner view says where a resubmission would go (UC30.1 outlook)', async () => {
+    const ctx = build({ assignment: assignmentRow(peerOn) });
+    ctx.setNow(day1);
+    assert.equal(
+      (await ctx.service.getAssignment(learner(), ASSIGNMENT)).resubmission,
+      null,
+      'nothing to replace yet',
+    );
+    const first = await ctx.service.submit(learner(), ASSIGNMENT, {
+      content: 'first',
+    });
+    const open = (await ctx.service.getAssignment(learner(), ASSIGNMENT))
+      .resubmission;
+    assert.equal(open?.placement, 'REPLACES_IN_CYCLE');
+    assert.equal(open?.cycleClosesAt, first.cycle?.closesAt);
+
+    ctx.setNow(afterCutoff);
+    const closed = (await ctx.service.getAssignment(learner(), ASSIGNMENT))
+      .resubmission;
+    assert.equal(closed?.placement, 'INSTRUCTOR');
+    assert.equal(closed?.cycleClosesAt, null);
   });
 });

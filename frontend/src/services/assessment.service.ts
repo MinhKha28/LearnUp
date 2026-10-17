@@ -148,6 +148,18 @@ export const submitAssignmentAPI = (assignmentId: string, content: string, file?
   );
 };
 
+/** UC30.1 - Resubmit an Assignment: replaces the previous submission; same body as UC30. */
+export const resubmitAssignmentAPI = (assignmentId: string, content: string, file?: File | null) => {
+  const form = new FormData();
+  if (content.trim()) form.append("content", content);
+  if (file) form.append("file", file);
+  return axios.post<IBackendRes<ISubmissionReceipt>>(
+    `/api/v1/assessments/learner/assignments/${assignmentId}/resubmissions`,
+    form,
+    requestConfig,
+  );
+};
+
 /** The prompt file for a Learner; like UC19.1, only a real 200 response yields the file. */
 export const downloadLearnerPromptFileAPI = async (assignmentId: string): Promise<Blob | null> => {
   const res = (await axios.get(`/api/v1/assessments/learner/assignments/${assignmentId}/prompt-file`, {

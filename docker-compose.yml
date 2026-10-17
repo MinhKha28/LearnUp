@@ -292,6 +292,7 @@ services:
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
       COURSE_SERVICE_URL: http://course-service:8083
       COURSE_SERVICE_TIMEOUT_MS: 3000
+      TENANT_SERVICE_URL: http://tenant-service:8084
       TENANT_CLIENT_MODE: fake
       TENANT_FAKE_TIMEZONE: Asia/Ho_Chi_Minh
     depends_on:
