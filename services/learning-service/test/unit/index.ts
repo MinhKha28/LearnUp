@@ -2,6 +2,7 @@
 import './course-service-client.unit-test';
 import './tenant-client.unit-test';
 import './roles-guard.unit-test';
+import './enrollment-rate-limit.unit-test';
 import './to-safe-number.unit-test';
 import './enrollments-service.unit-test';
 import './my-course-ids.unit-test';
