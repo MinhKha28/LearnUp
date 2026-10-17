@@ -65,7 +65,7 @@ const CourseBuilderQuizDelete = () => {
   // BR-92: blocked only when the Course is Locked AND the Quiz already has attempts.
   const blockedByData = courseLocked && quiz.hasAttempts;
   // BR-285: a Course in review accepts no change.
-  const submitted = courseStatus.toUpperCase() === "SUBMITTED";
+  const submitted = courseStatus === "Submitted";
   const canDelete = !blockedByData && !submitted;
 
   const handleDelete = async () => {

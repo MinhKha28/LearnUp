@@ -15,26 +15,26 @@ import type { CourseStatus, ICourseDetail } from "@/types/course.types";
 import "./course.detail.scss";
 
 const courseStatusLabel: Record<CourseStatus, string> = {
-  DRAFT: "Draft",
-  SUBMITTED: "Submitted",
-  PUBLISHED: "Published",
-  REJECTED: "Rejected",
-  ARCHIVED: "Archived",
-  DISABLED: "Disabled",
+  Draft: "Draft",
+  Submitted: "Submitted",
+  Published: "Published",
+  Rejected: "Rejected",
+  Archived: "Archived",
+  Disabled: "Disabled",
 };
 
 const getCourseStatusTone = (
   status: CourseStatus,
 ): "neutral" | "success" | "warning" | "error" | "info" => {
   switch (status) {
-    case "PUBLISHED":
+    case "Published":
       return "success";
-    case "SUBMITTED":
+    case "Submitted":
       return "info";
-    case "REJECTED":
-    case "DISABLED":
+    case "Rejected":
+    case "Disabled":
       return "error";
-    case "ARCHIVED":
+    case "Archived":
       return "warning";
     default:
       return "neutral";
@@ -131,7 +131,7 @@ const CourseDetail = () => {
         eyebrow="MY COURSES / COURSE DETAIL"
         title={course.name}
         subtitle={`Version ${course.versionNumber} • ${
-          course.courseType === "PUBLIC" ? "Public" : "Private"
+          course.courseType === "Public" ? "Public" : "Private"
         }`}
         back
         actions={
@@ -200,7 +200,7 @@ const CourseDetail = () => {
               <div className="instructor-course-info-row">
                 <strong>Course type</strong>
                 <span>
-                  {course.courseType === "PUBLIC" ? "Public" : "Private"}
+                  {course.courseType === "Public" ? "Public" : "Private"}
                 </span>
               </div>
 
@@ -220,7 +220,7 @@ const CourseDetail = () => {
         </SectionCard>
 
         <SectionCard title="Actions" className="instructor-course-actions-card">
-          {(course.status === "DRAFT" || course.status === "REJECTED") && (
+          {(course.status === "Draft" || course.status === "Rejected") && (
             <InstructorButton
               block
               onClick={() => navigate(`/instructor/courses/${course.id}/edit`)}
@@ -236,7 +236,7 @@ const CourseDetail = () => {
             Open Builder
           </InstructorButton>
 
-          {(course.status === "DRAFT" || course.status === "REJECTED") && (
+          {(course.status === "Draft" || course.status === "Rejected") && (
             <InstructorButton
               block
               type="primary"
@@ -248,7 +248,7 @@ const CourseDetail = () => {
             </InstructorButton>
           )}
 
-          {course.status === "SUBMITTED" && (
+          {course.status === "Submitted" && (
             <InstructorButton
               block
               onClick={() =>
@@ -259,7 +259,7 @@ const CourseDetail = () => {
             </InstructorButton>
           )}
 
-          {course.status === "PUBLISHED" && (
+          {course.status === "Published" && (
             <InstructorButton
               block
               onClick={() =>

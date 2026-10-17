@@ -47,7 +47,7 @@ const CourseBuilderQuizzes = () => {
   const course = structure.course;
   const base = `/instructor/courses/${course.id}/builder`;
   // UC18.2: Draft, Rejected and Published Courses can take a new Quiz (BR-285, BR-69, BR-284).
-  const canAdd = ["DRAFT", "REJECTED", "PUBLISHED"].includes(course.status.toUpperCase());
+  const canAdd = ["Draft", "Rejected", "Published"].includes(course.status);
 
   const [quizzes, setQuizzes] = useState<IQuizSummary[]>([]);
   const [courseLocked, setCourseLocked] = useState(false);
@@ -105,7 +105,7 @@ const CourseBuilderQuizzes = () => {
     groups.push({ key: "other", title: "Other Quizzes", quizzes: unknownModule });
   }
 
-  const submitted = courseStatus.toUpperCase() === "SUBMITTED";
+  const submitted = courseStatus === "Submitted";
   const emptyQuizzes = quizzes.filter((quiz) => quiz.questionCount === 0).length;
   const requiredQuizzes = quizzes.filter((quiz) => quiz.isRequired).length;
 
