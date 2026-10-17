@@ -11,3 +11,4 @@ import './learner-submissions.integration-test';
 import './learner-assessments.integration-test';
 import './learner-resubmissions.integration-test';
 import './learner-results.integration-test';
+import './peer-review-cycles.integration-test';

@@ -4,6 +4,7 @@ import type {
   IAssignment,
   IAssignmentList,
   IGradingResult,
+  IPeerReviewCycleList,
   ILearnerAssessmentList,
   ILearnerAssignment,
   ISubmissionReceipt,
@@ -136,6 +137,13 @@ export const fetchLearnerAssessmentsAPI = (courseId: string) =>
 /** UC30 step 1 — the Assignment as the enrolled Learner reads it (prompt, Rubric, attempts left). */
 export const fetchLearnerAssignmentAPI = (assignmentId: string) =>
   axios.get<IBackendRes<ILearnerAssignment>>(`/api/v1/assessments/learner/assignments/${assignmentId}`, requestConfig);
+
+/** UC33 — the peer review cycles of an Assignment of the Instructor. */
+export const fetchPeerReviewCyclesAPI = (assignmentId: string) =>
+  axios.get<IBackendRes<IPeerReviewCycleList>>(
+    `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles`,
+    requestConfig,
+  );
 
 /** UC30.2 — the grading result of a Finalized submission. */
 export const fetchLearnerResultAPI = (assignmentId: string, submissionId: string) =>

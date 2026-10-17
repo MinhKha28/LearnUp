@@ -259,3 +259,27 @@ export interface IGradingResult {
   criteria: { id: string; name: string; maxPoints: number; averagePoints: number | null }[];
   comments: { source: "PEER" | "INSTRUCTOR"; comment: string; completedAt: string | null }[];
 }
+
+/** UC33: what a cycle of a peer review is called on the Instructor screen. */
+export type TPeerReviewCycleStatus = "Open" | "Assigned" | "InstructorOnly" | "Completed";
+
+export interface IPeerReviewCycleItem {
+  id: string;
+  opensAt: string;
+  closesAt: string;
+  reviewDueAt: string;
+  submissionCount: number;
+  status: TPeerReviewCycleStatus;
+}
+
+export interface IPeerReviewCycleList {
+  assignmentId: string;
+  title: string;
+  settings: {
+    reviewersPerSubmission: number | null;
+    cycleDays: number | null;
+    deadlineDays: number | null;
+    scoreGap: number | null;
+  };
+  items: IPeerReviewCycleItem[];
+}

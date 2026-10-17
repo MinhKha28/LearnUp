@@ -246,6 +246,11 @@ const CourseBuilderAssignmentDetail = () => {
             <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-review`, { state: location.state })}>
               Configure Peer Review
             </InstructorButton>
+            {peerReview.enabled && (
+              <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-cycles`, { state: location.state })}>
+                View cycles
+              </InstructorButton>
+            )}
           </div>
         </div>
       </div>
