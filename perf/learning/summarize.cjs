@@ -28,6 +28,10 @@ const result = {
   unexpected_response_rate: metrics.unexpected_responses.values.rate,
   http_failure_rate: metrics.http_req_failed.values.rate,
   requests_per_second: metrics.http_reqs.values.rate,
+  dropped_iterations: metrics.dropped_iterations?.values.count || 0,
+  errors: Math.round(
+    metrics.unexpected_responses.values.rate * metrics.http_reqs.values.count,
+  ),
   connection_ms: metrics.http_req_connecting.values,
   blocked_ms: metrics.http_req_blocked.values,
   iteration_ms: metrics.iteration_duration.values,
@@ -38,6 +42,56 @@ const result = {
   ),
   sql: JSON.parse(fs.readFileSync(path.join(dir, `${label}-sql.json`))),
 };
+const activity = JSON.parse(
+  fs.readFileSync(path.join(dir, `${label}-pg-activity.json`)),
+);
+result.pg_max = {};
+for (const db of ["learning_db", "course_db"]) {
+  result.pg_max[db] = { connections: 0, lock_tuple: 0, lock_wait: 0 };
+  for (const sample of activity) {
+    const rows = sample.activity.filter((r) => r.datname === db);
+    for (const [key, filter] of [
+      ["connections", () => true],
+      [
+        "lock_tuple",
+        (r) => r.wait_event_type === "Lock" && r.wait_event === "tuple",
+      ],
+      ["lock_wait", (r) => r.wait_event_type === "Lock"],
+    ]) {
+      result.pg_max[db][key] = Math.max(
+        result.pg_max[db][key],
+        rows.filter(filter).reduce((sum, r) => sum + r.connections, 0),
+      );
+    }
+  }
+}
+const poolPath = path.join(dir, `${label}-learning-pool.json`);
+result.learning_pool = fs.existsSync(poolPath)
+  ? JSON.parse(fs.readFileSync(poolPath, "utf8").replace(/^\uFEFF/, ""))
+  : { available: false };
+result.resources = {};
+const statsPath = path.join(dir, `${label}-docker-stats.txt`);
+if (fs.existsSync(statsPath)) {
+  const lines = fs
+    .readFileSync(statsPath, "utf8")
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
+    .split(/\r?\n/);
+  for (const line of lines) {
+    if (!line.trim().startsWith("{")) continue;
+    const sample = JSON.parse(line);
+    const cpu = Number.parseFloat(sample.CPUPerc);
+    const item = (result.resources[sample.Name] ||= {
+      samples: 0,
+      cpu_max_percent: 0,
+      cpu_mean_percent: 0,
+      memory_last: null,
+    });
+    item.samples++;
+    item.cpu_mean_percent += (cpu - item.cpu_mean_percent) / item.samples;
+    item.cpu_max_percent = Math.max(item.cpu_max_percent, cpu);
+    item.memory_last = sample.MemUsage;
+  }
+}
 fs.writeFileSync(
   path.join(dir, `${label}-report.json`),
   JSON.stringify(result, null, 2),

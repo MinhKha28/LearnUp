@@ -7,10 +7,10 @@ export const options = {
 };
 export default function () {
   const response = http.get(
-    "http://host.docker.internal:8085/api/v1/enrollments/me",
+    `${__ENV.BASE_URL || "http://learning-service:8085"}/api/v1/enrollments/me`,
   );
   check(response, {
-    "host.docker.internal reaches learning authentication": (r) =>
+    "Docker service name reaches learning authentication": (r) =>
       r.status === 401,
   });
 }
