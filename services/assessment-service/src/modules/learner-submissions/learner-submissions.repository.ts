@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from 'generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { ASSIGNMENT_KIND } from './learner-submissions.constants';
+import {
+  ASSIGNMENT_KIND,
+  REVIEW_COMPLETED,
+} from './learner-submissions.constants';
 
 /** The Assignment with what a Learner may read; the Rubric is shown so the Learner knows how the work is judged. */
 export const learnerAssignmentInclude = {
@@ -57,6 +60,24 @@ export class LearnerSubmissionsRepository {
     return this.db(tx).submission.findFirst({
       where: { assessmentId, learnerId, supersededAt: null },
       orderBy: { submissionNumber: 'desc' },
+    });
+  }
+
+  /** UC30.2: one submission of the Learner with its valid reviews. A submission of someone else is not found. */
+  findSubmissionWithReviews(
+    organizationId: string,
+    assessmentId: string,
+    id: string,
+    learnerId: string,
+  ) {
+    return this.prisma.submission.findFirst({
+      where: { id, assessmentId, organizationId, learnerId },
+      include: {
+        reviews: {
+          where: { status: REVIEW_COMPLETED },
+          include: { scores: true },
+        },
+      },
     });
   }
 

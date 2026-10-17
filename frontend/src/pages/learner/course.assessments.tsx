@@ -86,8 +86,14 @@ const CourseAssessments = () => {
       );
     }
     const submitted = item.status !== "NotStarted";
+    // UC30.2: a graded Assignment shows its result.
+    const graded = item.status === "Completed";
     if (list?.readOnly) {
-      return <LearnerButton onClick={() => navigate(`${base}/assignments/${item.id}/submit`)}>View</LearnerButton>;
+      return graded ? (
+        <LearnerButton onClick={() => navigate(`${base}/assignments/${item.id}/result`)}>View result</LearnerButton>
+      ) : (
+        <LearnerButton onClick={() => navigate(`${base}/assignments/${item.id}/submit`)}>View</LearnerButton>
+      );
     }
     if (locked) {
       return <LearnerButton disabled>Locked</LearnerButton>;
@@ -95,7 +101,12 @@ const CourseAssessments = () => {
     // UC30.1: there is no limit on resubmissions, so a submitted Assignment can always be replaced.
     if (submitted) {
       return (
-        <LearnerButton onClick={() => navigate(`${base}/assignments/${item.id}/resubmit`)}>Resubmit</LearnerButton>
+        <span className="course-assessments-actions">
+          {graded && (
+            <LearnerButton onClick={() => navigate(`${base}/assignments/${item.id}/result`)}>View result</LearnerButton>
+          )}
+          <LearnerButton onClick={() => navigate(`${base}/assignments/${item.id}/resubmit`)}>Resubmit</LearnerButton>
+        </span>
       );
     }
     return (

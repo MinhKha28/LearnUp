@@ -6,6 +6,10 @@ export const ASSIGNMENT_KIND = 'ASSIGNMENT';
  */
 export const AWAITING_PEER_REVIEW = 'AwaitingPeerReview';
 export const AWAITING_INSTRUCTOR = 'AwaitingInstructor';
+export const FINALIZED = 'Finalized';
+
+/** submission_reviews.status of a review that counts (BR-324): every criterion scored and a comment given. */
+export const REVIEW_COMPLETED = 'Completed';
 
 /** Why the Instructor has to grade (same codes as the Instructor screens, UC32). */
 export const PEER_REVIEW_DISABLED = 'PEER_REVIEW_DISABLED';

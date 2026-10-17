@@ -70,3 +70,38 @@ export interface ISubmissionReceipt {
   /** UC30.1: the submission this one replaced. */
   replacedSubmissionId: string | null;
 }
+
+/** UC30.2: the result of a Finalized submission. No reviewer id or name is ever part of it (BR-191). */
+export interface IGradingResult {
+  submission: {
+    id: string;
+    submissionNumber: number;
+    submittedAt: string;
+    fileName: string | null;
+  };
+  assignment: {
+    id: string;
+    courseId: string;
+    title: string;
+    passingScore: number;
+  };
+  /** BR-322: the score the Instructor finalized, on the 0-100 scale. */
+  finalScore: number;
+  passed: boolean;
+  /** BR-322: the explanation the Instructor wrote when the final score differs from the aggregate. */
+  finalizationComment: string | null;
+  finalizedAt: string;
+  /** BR-322: the average of the valid reviews for each criterion; null when no review scored it. */
+  criteria: {
+    id: string;
+    name: string;
+    maxPoints: number;
+    averagePoints: number | null;
+  }[];
+  /** BR-208: the comments of the reviewers, anonymous: only whether a peer or the Instructor wrote it. */
+  comments: {
+    source: 'PEER' | 'INSTRUCTOR';
+    comment: string;
+    completedAt: string | null;
+  }[];
+}

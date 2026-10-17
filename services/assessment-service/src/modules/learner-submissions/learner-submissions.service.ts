@@ -19,6 +19,7 @@ import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants
 import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import type {
   ICycleWindow,
+  IGradingResult,
   ILearnerAssignment,
   ILearnerSubmissionSummary,
   ISubmissionReceipt,
@@ -26,6 +27,7 @@ import type {
 import {
   LEARNER_STATUS_CHANGED_EVENT,
   AWAITING_INSTRUCTOR,
+  FINALIZED,
   OPEN_CYCLE_STATUS,
   PEER_REVIEW_DISABLED,
   SUBMISSION_FILE_MAX_BYTES,
@@ -45,6 +47,7 @@ import {
   requireEnrollment,
   requireLearner,
 } from './learner-access';
+import { buildGradingResult } from './grading-result';
 import { cycleWindowFor } from './peer-review-calendar';
 import {
   decideResubmission,
@@ -153,6 +156,61 @@ export class LearnerSubmissionsService {
       readOnly: completed,
       latestSubmission: latest ? this.toSummary(latest) : null,
       resubmission,
+    };
+  }
+
+  /** UC30.2 — the grading result of a Finalized submission of the Learner (BR-170, BR-191, BR-208, BR-322). */
+  async getResult(
+    user: CurrentUser,
+    assessmentId: string,
+    submissionId: string,
+  ): Promise<IGradingResult> {
+    const organizationId = requireLearner(user);
+    const assignment = await this.loadAssignment(organizationId, assessmentId);
+    await requireEnrollment(this.enrollments, user, assignment.courseId);
+    const submission = await this.repository.findSubmissionWithReviews(
+      organizationId,
+      assignment.id,
+      submissionId,
+      user.userId,
+    );
+    if (!submission) {
+      throw new NotFoundException({
+        code: 'SUBMISSION_NOT_FOUND',
+        message: 'The submission does not exist.',
+      });
+    }
+    // PRE-1: only a Finalized submission has a result to show.
+    if (
+      submission.gradingStatus !== FINALIZED ||
+      submission.finalScore === null ||
+      !submission.finalizedAt
+    ) {
+      throw new ConflictException({
+        code: 'SUBMISSION_NOT_FINALIZED',
+        message: 'The result is not available yet. The submission is still being graded.',
+      });
+    }
+    const finalScore = Number(submission.finalScore.toString());
+    const passingScore = Number(assignment.passingScore.toString());
+    return {
+      submission: {
+        id: submission.id,
+        submissionNumber: submission.submissionNumber,
+        submittedAt: submission.submittedAt.toISOString(),
+        fileName: submission.fileName,
+      },
+      assignment: {
+        id: assignment.id,
+        courseId: assignment.courseId,
+        title: assignment.title,
+        passingScore,
+      },
+      finalScore,
+      passed: finalScore >= passingScore,
+      finalizationComment: submission.finalizationComment,
+      finalizedAt: submission.finalizedAt.toISOString(),
+      ...buildGradingResult(assignment.rubricCriteria, submission.reviews),
     };
   }
 
