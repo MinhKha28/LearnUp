@@ -25,6 +25,11 @@ export const DEV_IDENTITIES = {
     organizationId: "0199a000-0000-7000-8000-0a0000000002",
     label: "Học viên 3 (Tổ chức B)",
   },
+  LEARNER_4: {
+    userId: "0199a000-0000-7000-8000-0b0000000004",
+    organizationId: "0199a000-0000-7000-8000-0a0000000001",
+    label: "Học viên 4 (Tổ chức A)",
+  },
 } as const;
 
 export type DevIdentityKey = keyof typeof DEV_IDENTITIES;

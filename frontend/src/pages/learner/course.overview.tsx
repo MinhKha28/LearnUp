@@ -130,6 +130,7 @@ const EnrollmentPanel = ({ courseId, fromPage }: { courseId: string; fromPage?: 
     const text = getEnrollOutcomeMessage(outcome);
     switch (outcome.kind) {
       case "enrolled":
+      case "restored":
         message.success(text);
         setEnrolledId(outcome.enrollmentId);
         break;
@@ -148,6 +149,9 @@ const EnrollmentPanel = ({ courseId, fromPage }: { courseId: string; fromPage?: 
         break;
       case "rateLimited":
         message.warning(text);
+        break;
+      case "notRestorable":
+        message.error(text);
         break;
     }
   };

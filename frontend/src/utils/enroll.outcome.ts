@@ -7,6 +7,8 @@ import type { CreatedEnrollment } from "@/types/learning.types";
  */
 export type EnrollOutcome =
   | { kind: "enrolled"; enrollmentId: string }
+  | { kind: "restored"; enrollmentId: string }
+  | { kind: "notRestorable" }
   | { kind: "alreadyEnrolled"; enrollmentId: string }
   | { kind: "inGrace" }
   | { kind: "forbidden" }
@@ -16,6 +18,8 @@ export type EnrollOutcome =
 
 export const ENROLL_OUTCOME_MESSAGES: Record<EnrollOutcome["kind"], string> = {
   enrolled: "Đăng ký thành công",
+  restored: "Đăng ký thành công, tiến độ cũ đã được khôi phục",
+  notRestorable: "Không thể đăng ký lại Course này",
   alreadyEnrolled: "Bạn đã đăng ký Course này",
   inGrace: "Tổ chức của bạn đang trong thời gian ân hạn, chưa thể đăng ký Course mới",
   forbidden: "Tổ chức của bạn hiện chưa thể đăng ký Course mới. Vui lòng liên hệ quản trị viên tổ chức.",
@@ -26,7 +30,10 @@ export const ENROLL_OUTCOME_MESSAGES: Record<EnrollOutcome["kind"], string> = {
 
 export const resolveEnrollOutcome = (result: CreatedEnrollment | ApiError): EnrollOutcome => {
   if (!(result instanceof ApiError)) {
-    return { kind: "enrolled", enrollmentId: result.id };
+    return { kind: result.restored ? "restored" : "enrolled", enrollmentId: result.id };
+  }
+  if (result.status === 409 && result.code === "ENROLLMENT_NOT_RESTORABLE") {
+    return { kind: "notRestorable" };
   }
   if (result.status === 409 && result.code === "ALREADY_ENROLLED") {
     const { enrollmentId } = result.details;

@@ -14,6 +14,11 @@ export interface CreatedEnrollment {
   enrollmentType: EnrollmentType;
   status: EnrollmentStatus;
   enrolledAt: string;
+  restored: boolean;
+}
+
+export interface WithdrawalResult {
+  outcome: "DELETED" | "WITHDRAWN";
 }
 
 /** Một dòng UC26 (MyEnrollmentItem của learning-service); status đã gồm Overdue (D23). */
