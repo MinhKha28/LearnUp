@@ -156,6 +156,13 @@ function setup(
     courseService as never,
     tenant,
     {} as never,
+    undefined,
+    {
+      findRegistration: async () => {
+        calls.findExisting += 1;
+        return existingId ? { id: existingId, status: 'NotStarted' } : null;
+      },
+    } as never,
   );
   const logger = (service as unknown as { logger: Logger }).logger;
   const loggerError = mock.method(logger, 'error', () => undefined);
@@ -355,6 +362,7 @@ void describe('EnrollmentsService.enrollOptional (UC25.3)', () => {
       'enrolledAt',
       'enrollmentType',
       'id',
+      'restored',
       'status',
     ]);
   });

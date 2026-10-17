@@ -182,6 +182,7 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
       'enrolledAt',
       'enrollmentType',
       'id',
+      'restored',
       'status',
     ]);
     assert.equal(data.courseId, ENROLL_IT_PUBLIC_COURSE);
