@@ -94,3 +94,27 @@ export interface ISubmissionDetail {
     finalScore: number | null;
   }[];
 }
+
+export interface ICriterionScore {
+  criterionId: string;
+  points: number;
+}
+
+export interface IInstructorReviewPayload {
+  scores: ICriterionScore[];
+  comment: string;
+}
+
+export interface IInstructorReviewResult {
+  submissionId: string;
+  gradingStatus: string;
+  review: {
+    id: string;
+    score: number;
+    comment: string | null;
+    completedAt: string;
+    scores: ICriterionScore[];
+  };
+  validReviewCount: number;
+  suggestedScore: number;
+}
