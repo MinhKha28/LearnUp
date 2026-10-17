@@ -135,6 +135,7 @@ import InstructorCourseBuilderQuizDelete from "./pages/instructor/course.builder
 import InstructorCourseBuilderAssignments from "./pages/instructor/course.builder.assignments";
 import InstructorCourseBuilderAssignmentCreate from "./pages/instructor/course.builder.assignment.create";
 import InstructorCourseBuilderAssignmentPeerReviewEdit from "./pages/instructor/course.builder.assignment.peer.review.edit";
+import InstructorCourseBuilderAssignmentPeerCycles from "./pages/instructor/course.builder.assignment.peer.cycles";
 import InstructorCourseBuilderAssignmentDetail from "./pages/instructor/course.builder.assignment.detail";
 import InstructorCourseBuilderAssignmentEdit from "./pages/instructor/course.builder.assignment.edit";
 import InstructorCourseBuilderAssignmentDelete from "./pages/instructor/course.builder.assignment.delete";
@@ -560,6 +561,10 @@ export const router = createBrowserRouter([
       {
         path: "assignments/:assignmentId/peer-review",
         element: <InstructorCourseBuilderAssignmentPeerReviewEdit />,
+      },
+      {
+        path: "assignments/:assignmentId/peer-cycles",
+        element: <InstructorCourseBuilderAssignmentPeerCycles />,
       },
       {
         path: "assignments/:assignmentId/delete",

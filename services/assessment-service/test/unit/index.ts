@@ -9,4 +9,5 @@ import './learner-submissions-service.unit-test';
 import './learner-assessments-service.unit-test';
 import './resubmission-placement.unit-test';
 import './grading-result.unit-test';
+import './cycle-status.unit-test';
 import './course-clients.unit-test';
