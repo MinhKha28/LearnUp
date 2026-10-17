@@ -197,3 +197,17 @@ export interface ICourseDetail {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface IUpdateCourseRequest {
+  name: string;
+  shortDescription: string | null;
+  trainingObjectives: string | null;
+  learningOutcomes: string[];
+  coverFileId: string | null;
+  expectedCompletionDays: number;
+  courseType: CourseType;
+}
+
+export interface IUpdateCourseResponse extends ICourseDetail {
+  courseTypeChanged: boolean;
+}

@@ -6,6 +6,7 @@ import {
 import { CurrentUser } from '@learnup/ts-common';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -29,6 +30,7 @@ import {
 } from '@learnup/ts-storage';
 import { CoursesRepository } from './courses.repository';
 import { CourseAuthoringContext } from './interfaces/courses.interface';
+import { UpdateCourseDto } from './dto/update-course.dto';
 
 @Injectable()
 export class CoursesService {
@@ -98,6 +100,17 @@ export class CoursesService {
       pageSize,
     );
 
+    const courseIds = courses.map((course) => course.id);
+
+    const learnerCounts = await this.learningClient.getCourseLearnerCounts(
+      user,
+      courseIds,
+    );
+
+    const learnerCountMap = new Map(
+      learnerCounts.map((item) => [item.courseId, item.learnerCount]),
+    );
+
     return {
       meta: {
         current,
@@ -108,7 +121,7 @@ export class CoursesService {
       result: courses.map(({ lockedAt, ...course }) => ({
         ...course,
         locked: lockedAt !== null,
-        learnerCount: 0,
+        learnerCount: learnerCountMap.get(course.id) ?? 0,
       })),
     };
   }
@@ -634,5 +647,73 @@ export class CoursesService {
 
       throw error;
     }
+  }
+
+  async updateCourse(
+    user: CurrentUser,
+    courseId: string,
+    dto: UpdateCourseDto,
+  ) {
+    // 1. Chỉ Instructor được cập nhật.
+    if (user.role !== 'INSTRUCTOR') {
+      throw new ForbiddenException('Only Instructor can update Course.');
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    // 2. Chuẩn hóa dữ liệu.
+    const data: UpdateCourseDto = {
+      ...dto,
+      name: dto.name.trim(),
+      shortDescription: dto.shortDescription?.trim() || null,
+      trainingObjectives: dto.trainingObjectives?.trim() || null,
+      learningOutcomes: dto.learningOutcomes.map((item) => item.trim()),
+    };
+
+    // Không chấp nhận chuỗi chỉ chứa khoảng trắng.
+    if (!data.name) {
+      throw new BadRequestException('Course name cannot be empty.');
+    }
+
+    if (data.learningOutcomes.some((item) => !item)) {
+      throw new BadRequestException('Learning outcome cannot be empty.');
+    }
+
+    // 3. Cập nhật Course.
+    const result = await this.coursesRepository.updateCourse(
+      courseId,
+      user.organizationId,
+      user.userId,
+      data,
+    );
+
+    // 4. Xử lý lỗi nghiệp vụ.
+    switch (result.status) {
+      case 'NOT_FOUND':
+        throw new NotFoundException('Course not found.');
+
+      case 'NOT_EDITABLE':
+        throw new ConflictException(
+          'Only Draft or Rejected Course can be edited.',
+        );
+
+      case 'INVALID_COVER':
+        throw new BadRequestException('Invalid Course cover.');
+
+      case 'CONFLICT':
+        throw new ConflictException(
+          'Course was modified concurrently. Please retry.',
+        );
+    }
+
+    // 5. Trả thông tin Course sau cập nhật.
+    const course = await this.findDetail(user, courseId);
+
+    return {
+      ...course,
+      courseTypeChanged: result.courseTypeChanged,
+    };
   }
 }
