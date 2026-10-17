@@ -16,3 +16,4 @@ import './my-enrollments.unit-test';
 import './build-curriculum.unit-test';
 import './curriculum-service.unit-test';
 import './optional-withdrawal.unit-test';
+import './learner-enrollment-summary.unit-test';
