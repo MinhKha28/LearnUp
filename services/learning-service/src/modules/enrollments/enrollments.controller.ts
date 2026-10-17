@@ -1,5 +1,6 @@
 import type { CurrentUser } from '@learnup/ts-common';
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { EnrollmentRateLimitGuard } from './enrollment-rate-limit.guard';
 import { ResponseMessage, User } from '../../common/decorator/customize';
 import { Roles } from '../../common/decorator/roles.decorator';
 import { ParsePagePipe } from '../../common/pipes/parse-page.pipe';
@@ -20,6 +21,7 @@ export class EnrollmentsController {
 
   /** UC25.3: tự đăng ký Course tự chọn. */
   @Post()
+  @UseGuards(EnrollmentRateLimitGuard)
   @Roles('LEARNER')
   @ResponseMessage('Đăng ký Course thành công')
   enroll(

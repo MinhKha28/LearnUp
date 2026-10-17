@@ -1,4 +1,13 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
+import {
+  ENROLLMENT_RATE_LIMIT_TTL,
+  readEnrollmentRateLimit,
+} from './enrollment-rate-limit.config';
+import { EnrollmentRateLimitGuard } from './enrollment-rate-limit.guard';
+import { EnrollmentRateLimitStorage } from './enrollment-rate-limit.storage';
+
 import { CourseSnapshotsModule } from '../course-snapshots/course-snapshots.module';
 import { CourseServiceModule } from '../../infrastructure/clients/course/course-service.module';
 import { TenantModule } from '../../infrastructure/clients/tenant/tenant.module';
@@ -9,14 +18,44 @@ import { EnrollmentsRepository } from './enrollments.repository';
 import { EnrollmentsService } from './enrollments.service';
 
 @Module({
+  providers: [EnrollmentRateLimitStorage],
+  exports: [EnrollmentRateLimitStorage],
+})
+class EnrollmentRateLimitStorageModule {}
+
+/** Storage trong tiến trình chỉ đúng với một bản learning-service; scale ngang cần storage dùng chung. */
+@Module({
   imports: [
+    ThrottlerModule.forRootAsync({
+      imports: [EnrollmentRateLimitStorageModule],
+      inject: [ConfigService, EnrollmentRateLimitStorage],
+      useFactory: (
+        config: ConfigService,
+        storage: EnrollmentRateLimitStorage,
+      ) => ({
+        storage,
+        throttlers: [
+          {
+            ttl: ENROLLMENT_RATE_LIMIT_TTL,
+            limit: readEnrollmentRateLimit(
+              config.get<string>('ENROLLMENT_RATE_LIMIT_PER_MINUTE'),
+            ),
+          },
+        ],
+      }),
+    }),
     CourseServiceModule,
     TenantModule,
     PlatformSettingsModule,
     CourseSnapshotsModule,
   ],
   controllers: [EnrollmentsController],
-  providers: [EnrollmentsService, EnrollmentsRepository, BaseDueAtRepository],
+  providers: [
+    EnrollmentsService,
+    EnrollmentsRepository,
+    BaseDueAtRepository,
+    EnrollmentRateLimitGuard,
+  ],
   exports: [EnrollmentsService, EnrollmentsRepository, BaseDueAtRepository],
 })
 export class EnrollmentsModule {}
