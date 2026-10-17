@@ -425,7 +425,10 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
         ]);
         const plan = result.rows.map((row) => row['QUERY PLAN']).join('\n');
         console.log(`UC24.3/UC24.5 ${label}, fixture 50000:\n${plan}`);
-        assert.match(plan, /Index Scan using enrollments_pkey/);
+        assert.match(
+          plan,
+          /Index Scan using enrollments_id_organization_id_key on enrollments/,
+        );
       }
     } finally {
       await db.query('ROLLBACK');
