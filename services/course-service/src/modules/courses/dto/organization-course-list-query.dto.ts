@@ -1,3 +1,9 @@
+import {
+  COURSE_STATUS,
+  COURSE_TYPE,
+  type CourseStatus,
+  type CourseType,
+} from '../course-values';
 import { Type } from 'class-transformer';
 import {
   IsDateString,
@@ -10,17 +16,6 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-
-const COURSE_TYPES = ['PUBLIC', 'PRIVATE'] as const;
-
-const COURSE_STATUSES = [
-  'DRAFT',
-  'SUBMITTED',
-  'PUBLISHED',
-  'REJECTED',
-  'ARCHIVED',
-  'DISABLED',
-] as const;
 
 export class OrganizationCourseListQueryDto {
   @IsOptional()
@@ -42,12 +37,12 @@ export class OrganizationCourseListQueryDto {
   search?: string;
 
   @IsOptional()
-  @IsIn(COURSE_TYPES)
-  courseType?: string;
+  @IsIn(Object.values(COURSE_TYPE))
+  courseType?: CourseType;
 
   @IsOptional()
-  @IsIn(COURSE_STATUSES)
-  status?: string;
+  @IsIn(Object.values(COURSE_STATUS))
+  status?: CourseStatus;
 
   @IsOptional()
   @IsUUID()

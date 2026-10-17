@@ -40,7 +40,7 @@ const CourseCreate = () => {
   const watchedCourseType = Form.useWatch("courseType", form);
   const watchedDays = Form.useWatch("expectedCompletionDays", form);
   const summaryName = watchedName?.trim() || "Untitled Course";
-  const summaryType = watchedCourseType ?? "PUBLIC";
+  const summaryType = watchedCourseType ?? "Public";
   const summaryDays = watchedDays ?? 0;
   const canCreate = useMemo(
     () =>
@@ -140,7 +140,7 @@ const CourseCreate = () => {
             form={form}
             layout="vertical"
             initialValues={{
-              courseType: "PUBLIC",
+              courseType: "Public",
               learningOutcomes: [""],
             }}
             requiredMark="optional"
@@ -193,14 +193,14 @@ const CourseCreate = () => {
               >
                 <div className="course-type-options">
                   <CourseTypeOption
-                    value="PUBLIC"
+                    value="Public"
                     title="Public"
                     description="Published Course can appear in the Learner Catalog."
                     form={form}
                   />
 
                   <CourseTypeOption
-                    value="PRIVATE"
+                    value="Private"
                     title="Private"
                     description="Hidden from the self-learning catalog."
                     form={form}
@@ -378,7 +378,7 @@ const CourseCreate = () => {
 
             <SummaryRow
               label="Course type"
-              value={summaryType === "PUBLIC" ? "Public" : "Private"}
+              value={summaryType === "Public" ? "Public" : "Private"}
             />
 
             <SummaryRow

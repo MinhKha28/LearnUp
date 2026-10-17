@@ -1,13 +1,5 @@
-export type CourseType = "PUBLIC" | "PRIVATE";
-
-export type CourseStatus =
-  | "DRAFT"
-  | "SUBMITTED"
-  | "PUBLISHED"
-  | "REJECTED"
-  | "ARCHIVED"
-  | "DISABLED";
-
+import type { CourseStatus, CourseType } from "./course.values";
+export type { CourseStatus, CourseType } from "./course.values";
 export interface IInstructorCourseListItem {
   id: string;
   chainId: string;

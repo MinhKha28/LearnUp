@@ -21,31 +21,31 @@ import type {
 import "./my.courses.scss";
 
 const courseTypeLabel: Record<CourseType, string> = {
-  PUBLIC: "Public",
-  PRIVATE: "Private",
+  Public: "Public",
+  Private: "Private",
 };
 
 const courseStatusLabel: Record<CourseStatus, string> = {
-  DRAFT: "Draft",
-  SUBMITTED: "Submitted",
-  PUBLISHED: "Published",
-  REJECTED: "Rejected",
-  ARCHIVED: "Archived",
-  DISABLED: "Disabled",
+  Draft: "Draft",
+  Submitted: "Submitted",
+  Published: "Published",
+  Rejected: "Rejected",
+  Archived: "Archived",
+  Disabled: "Disabled",
 };
 
 const courseStatusTone = (
   status: CourseStatus,
 ): "neutral" | "success" | "warning" | "error" | "info" => {
   switch (status) {
-    case "PUBLISHED":
+    case "Published":
       return "success";
-    case "SUBMITTED":
+    case "Submitted":
       return "info";
-    case "REJECTED":
-    case "DISABLED":
+    case "Rejected":
+    case "Disabled":
       return "error";
-    case "ARCHIVED":
+    case "Archived":
       return "warning";
     default:
       return "neutral";
@@ -258,8 +258,8 @@ const MyCourses = () => {
           }}
           options={[
             { value: "ALL", label: "All types" },
-            { value: "PUBLIC", label: "Public" },
-            { value: "PRIVATE", label: "Private" },
+            { value: "Public", label: "Public" },
+            { value: "Private", label: "Private" },
           ]}
         />
 
@@ -272,12 +272,12 @@ const MyCourses = () => {
           }}
           options={[
             { value: "ALL", label: "All statuses" },
-            { value: "DRAFT", label: "Draft" },
-            { value: "SUBMITTED", label: "Submitted" },
-            { value: "PUBLISHED", label: "Published" },
-            { value: "REJECTED", label: "Rejected" },
-            { value: "ARCHIVED", label: "Archived" },
-            { value: "DISABLED", label: "Disabled" },
+            { value: "Draft", label: "Draft" },
+            { value: "Submitted", label: "Submitted" },
+            { value: "Published", label: "Published" },
+            { value: "Rejected", label: "Rejected" },
+            { value: "Archived", label: "Archived" },
+            { value: "Disabled", label: "Disabled" },
           ]}
         />
 

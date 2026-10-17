@@ -27,34 +27,34 @@ import type {
 import "./courses.scss";
 
 const courseTypeLabel: Record<CourseType, string> = {
-  PUBLIC: "Public",
-  PRIVATE: "Private",
+  Public: "Public",
+  Private: "Private",
 };
 
 const courseStatusLabel: Record<CourseStatus, string> = {
-  DRAFT: "Draft",
-  SUBMITTED: "Submitted",
-  PUBLISHED: "Published",
-  REJECTED: "Rejected",
-  ARCHIVED: "Archived",
-  DISABLED: "Disabled",
+  Draft: "Draft",
+  Submitted: "Submitted",
+  Published: "Published",
+  Rejected: "Rejected",
+  Archived: "Archived",
+  Disabled: "Disabled",
 };
 
 const statusTone = (
   status: CourseStatus,
 ): "neutral" | "success" | "warning" | "error" | "info" => {
   switch (status) {
-    case "PUBLISHED":
+    case "Published":
       return "success";
 
-    case "SUBMITTED":
+    case "Submitted":
       return "info";
 
-    case "REJECTED":
-    case "DISABLED":
+    case "Rejected":
+    case "Disabled":
       return "error";
 
-    case "ARCHIVED":
+    case "Archived":
       return "warning";
 
     default:
@@ -94,15 +94,15 @@ const OrganizationCourses = () => {
   const [errorMessage, setErrorMessage] = useState("");
 
   const courseType =
-    typeParam === "PUBLIC" || typeParam === "PRIVATE" ? typeParam : undefined;
+    typeParam === "Public" || typeParam === "Private" ? typeParam : undefined;
 
   const status =
-    statusParam === "DRAFT" ||
-    statusParam === "SUBMITTED" ||
-    statusParam === "PUBLISHED" ||
-    statusParam === "REJECTED" ||
-    statusParam === "ARCHIVED" ||
-    statusParam === "DISABLED"
+    statusParam === "Draft" ||
+    statusParam === "Submitted" ||
+    statusParam === "Published" ||
+    statusParam === "Rejected" ||
+    statusParam === "Archived" ||
+    statusParam === "Disabled"
       ? statusParam
       : undefined;
 
@@ -251,7 +251,7 @@ const OrganizationCourses = () => {
     setCurrent(1);
 
     updateParams({
-      status: "SUBMITTED",
+      status: "Submitted",
       current: "1",
     });
   };
@@ -356,7 +356,7 @@ const OrganizationCourses = () => {
         <button
           type="button"
           className={
-            status !== "SUBMITTED"
+            status !== "Submitted"
               ? "organizer-course-view-tab active"
               : "organizer-course-view-tab"
           }
@@ -368,7 +368,7 @@ const OrganizationCourses = () => {
         <button
           type="button"
           className={
-            status === "SUBMITTED"
+            status === "Submitted"
               ? "organizer-course-view-tab active"
               : "organizer-course-view-tab"
           }
@@ -394,7 +394,7 @@ const OrganizationCourses = () => {
       )}
 
       <SectionCard
-        title={status === "SUBMITTED" ? "Pending Approval" : "All Courses"}
+        title={status === "Submitted" ? "Pending Approval" : "All Courses"}
         extra={
           <span className="organizer-course-count">
             {total} {total === 1 ? "Course" : "Courses"}
@@ -423,11 +423,11 @@ const OrganizationCourses = () => {
             }}
             options={[
               {
-                value: "PUBLIC",
+                value: "Public",
                 label: "Public",
               },
               {
-                value: "PRIVATE",
+                value: "Private",
                 label: "Private",
               },
             ]}
@@ -447,27 +447,27 @@ const OrganizationCourses = () => {
             }}
             options={[
               {
-                value: "DRAFT",
+                value: "Draft",
                 label: "Draft",
               },
               {
-                value: "SUBMITTED",
+                value: "Submitted",
                 label: "Submitted",
               },
               {
-                value: "PUBLISHED",
+                value: "Published",
                 label: "Published",
               },
               {
-                value: "REJECTED",
+                value: "Rejected",
                 label: "Rejected",
               },
               {
-                value: "ARCHIVED",
+                value: "Archived",
                 label: "Archived",
               },
               {
-                value: "DISABLED",
+                value: "Disabled",
                 label: "Disabled",
               },
             ]}
