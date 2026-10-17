@@ -81,6 +81,7 @@ import LearnerQuizHistory from "./pages/learner/quiz.history";
 import LearnerAssignmentDetail from "./pages/learner/assignment.detail";
 import LearnerAssignmentSubmit from "./pages/learner/assignment.submit";
 import LearnerAssignmentResubmit from "./pages/learner/assignment.resubmit";
+import LearnerAssignmentResult from "./pages/learner/assignment.result";
 import LearnerAssignmentSubmitted from "./pages/learner/assignment.submitted";
 import LearnerPeerReviewQueue from "./pages/learner/peer.review.queue";
 import LearnerPeerReviewForm from "./pages/learner/peer.review.form";
@@ -346,6 +347,10 @@ export const router = createBrowserRouter([
       {
         path: "assignments/:assignmentId/resubmit",
         element: <LearnerAssignmentResubmit />,
+      },
+      {
+        path: "assignments/:assignmentId/result",
+        element: <LearnerAssignmentResult />,
       },
       {
         path: "assignments/:assignmentId/submitted",

@@ -247,3 +247,15 @@ export interface ILearnerAssessmentList {
   readOnly: boolean;
   items: ILearnerAssessmentItem[];
 }
+
+/** UC30.2: the result of a Finalized submission. Reviewers are never named (BR-191). */
+export interface IGradingResult {
+  submission: { id: string; submissionNumber: number; submittedAt: string; fileName: string | null };
+  assignment: { id: string; courseId: string; title: string; passingScore: number };
+  finalScore: number;
+  passed: boolean;
+  finalizationComment: string | null;
+  finalizedAt: string;
+  criteria: { id: string; name: string; maxPoints: number; averagePoints: number | null }[];
+  comments: { source: "PEER" | "INSTRUCTOR"; comment: string; completedAt: string | null }[];
+}

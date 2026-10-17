@@ -20,7 +20,7 @@ import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import { SUBMISSION_FILE_MAX_BYTES } from './learner-submissions.constants';
 import { LearnerSubmissionsService } from './learner-submissions.service';
 
-@ApiTags('UC30 / UC30.1 - Learner submissions')
+@ApiTags('UC30 / UC30.1 / UC30.2 - Learner submissions')
 @ApiSecurity('internal-key')
 @Controller('assessments/learner/assignments')
 export class LearnerSubmissionsController {
@@ -34,6 +34,17 @@ export class LearnerSubmissionsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.service.getAssignment(user, id);
+  }
+
+  /** UC30.2 - View Grading Results of a Finalized submission. */
+  @Get(':id/submissions/:submissionId/result')
+  @ResponseMessage('Grading result retrieved successfully.')
+  getResult(
+    @User() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('submissionId', ParseUUIDPipe) submissionId: string,
+  ) {
+    return this.service.getResult(user, id, submissionId);
   }
 
   /** The prompt file of the Assignment. */
