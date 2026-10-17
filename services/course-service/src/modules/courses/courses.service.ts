@@ -1,3 +1,4 @@
+import { COURSE_STATUS } from './course-values';
 import { CurrentUser } from '@learnup/ts-common';
 import {
   BadRequestException,
@@ -196,7 +197,7 @@ export class CoursesService {
           coverFileId: dto.coverFileId ?? null,
           expectedCompletionDays: dto.expectedCompletionDays,
           courseType: dto.courseType,
-          status: 'DRAFT',
+          status: COURSE_STATUS.DRAFT,
           lockedAt: null,
         },
 
@@ -286,7 +287,7 @@ export class CoursesService {
       throw new NotFoundException('Course not found.');
     }
     const locked = course.lockedAt !== null;
-    const submitted = course.status === 'SUBMITTED';
+    const submitted = course.status === COURSE_STATUS.SUBMITTED;
     const structureLocked = locked || submitted;
     let lockReason: string | null = null;
 
@@ -372,7 +373,7 @@ export class CoursesService {
       throw new NotFoundException('Course not found.');
     }
 
-    if (course.status === 'SUBMITTED') {
+    if (course.status === COURSE_STATUS.SUBMITTED) {
       throw new BadRequestException(
         'Submitted Course cannot be edited. Withdraw the Course before adding a Module.',
       );
@@ -462,7 +463,7 @@ export class CoursesService {
       throw new NotFoundException('Course not found.');
     }
 
-    if (course.status === 'SUBMITTED') {
+    if (course.status === COURSE_STATUS.SUBMITTED) {
       throw new BadRequestException(
         'Submitted Course cannot be edited. Withdraw the Course before adding a Lesson.',
       );

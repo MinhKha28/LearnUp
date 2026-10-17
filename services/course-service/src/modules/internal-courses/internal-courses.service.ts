@@ -1,3 +1,4 @@
+import { COURSE_STATUS, COURSE_TYPE } from '../courses/course-values';
 import { createApiError } from '@learnup/ts-common';
 import {
   ConflictException,
@@ -61,7 +62,7 @@ export class InternalCoursesService {
         throw courseNotFound();
       }
 
-      if (course.status !== 'Published') {
+      if (course.status !== COURSE_STATUS.PUBLISHED) {
         throw new ConflictException(
           createApiError(
             'COURSE_NOT_AVAILABLE',
@@ -70,7 +71,7 @@ export class InternalCoursesService {
         );
       }
 
-      if (selfEnroll && course.course_type !== 'Public') {
+      if (selfEnroll && course.course_type !== COURSE_TYPE.PUBLIC) {
         throw new ConflictException(
           createApiError(
             'COURSE_NOT_AVAILABLE',
