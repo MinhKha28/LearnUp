@@ -2,7 +2,6 @@ import {
   AuditOutlined,
   BankOutlined,
   BarChartOutlined,
-  BellOutlined,
   BookOutlined,
   CarryOutOutlined,
   CreditCardOutlined,
@@ -30,6 +29,7 @@ import {
 import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import NotificationBell from "@/components/notification/notification.bell";
 import { useCurrentApp } from "@/components/context/app.context";
 import { useSignOut } from "@/hooks/use.sign.out";
 import "./layout.organizer.scss";
@@ -310,12 +310,7 @@ const LayoutOrganizer = () => {
           </div>
           <div className="organizer-topbar-actions">
             <span className="organizer-org-badge">Northstar Learning</span>
-            <Button
-              className="organizer-notification"
-              type="text"
-              icon={<BellOutlined />}
-              aria-label="Notifications"
-            />
+            <NotificationBell basePath="/organizer" />
             <Dropdown
               menu={{ items: profileItems }}
               trigger={["click"]}
