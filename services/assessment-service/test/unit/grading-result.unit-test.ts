@@ -25,7 +25,7 @@ describe('buildGradingResult (UC30.2)', () => {
     const { criteria } = buildGradingResult(rubric, [
       review('LEARNER', 'a', '01', [7, 3]),
       review('LEARNER', 'b', '02', [8, 3]),
-      review('INSTRUCTOR', 'c', '03', [8, 4]),
+      review('Instructor', 'c', '03', [8, 4]),
     ]);
     assert.deepEqual(
       criteria.map((c) => c.averagePoints),
@@ -41,9 +41,18 @@ describe('buildGradingResult (UC30.2)', () => {
     );
   });
 
+  test('the role of the Instructor is the one UC32.2 writes, whatever the case', () => {
+    for (const role of ['Instructor', 'INSTRUCTOR']) {
+      const { comments } = buildGradingResult(rubric, [review(role, 'x', '01')]);
+      assert.equal(comments[0].source, 'INSTRUCTOR', role);
+    }
+    const { comments } = buildGradingResult(rubric, [review('Learner', 'y', '01')]);
+    assert.equal(comments[0].source, 'PEER');
+  });
+
   test('comments say peer or Instructor, are in the order written, and empty ones are left out', () => {
     const { comments } = buildGradingResult(rubric, [
-      review('INSTRUCTOR', 'second', '02'),
+      review('Instructor', 'second', '02'),
       review('LEARNER', 'first', '01'),
       review('LEARNER', '   ', '03'),
       review('LEARNER', null, '04'),
