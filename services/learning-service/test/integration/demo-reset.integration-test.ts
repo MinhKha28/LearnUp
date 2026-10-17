@@ -21,6 +21,16 @@ import {
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { databaseUrl } from './enroll-it-fixture';
+import { seedWithdrawalDemo } from '../../prisma/seed-withdrawal-demo';
+import {
+  WITHDRAWAL_DEMO_LEARNER,
+  WITHDRAWAL_DEMO_PLANS,
+} from '../../prisma/withdrawal-demo-fixture';
+import {
+  ASSESSMENT_CLIENT,
+  type AssessmentClient,
+} from '../../src/infrastructure/clients/assessment/assessment.client';
+import { createAssessmentClient } from '../../src/infrastructure/clients/assessment/create-assessment-client';
 
 const [LEARNER_1, ORG_A] = DEMO_RESET_LEARNERS[0];
 
@@ -78,6 +88,107 @@ after(async () => {
 });
 
 void describe('D47 demo:reset (thật)', () => {
+  void test('Học viên 4: seed idempotent, DELETED, WITHDRAWN, restored x/y unchanged, reset preserves other learners', async () => {
+    const before = await otherEnrollments();
+    const client = app!.get<AssessmentClient>(ASSESSMENT_CLIENT);
+    const previous = client.getActivity;
+    client.getActivity = createAssessmentClient(
+      (key) =>
+        ({
+          ASSESSMENT_CLIENT_MODE: 'fake',
+          ASSESSMENT_FAKE_RESULT_COURSE_IDS: WITHDRAWAL_DEMO_PLANS[1].courseId,
+        })[key],
+    ).getActivity;
+    const headers = {
+      'x-internal-key': process.env.INTERNAL_SERVICE_KEY!,
+      'x-user-id': WITHDRAWAL_DEMO_LEARNER,
+      'x-user-role': 'LEARNER',
+      'x-organization-id': ORG_A,
+      'content-type': 'application/json',
+    };
+    const call = async (path: string, body?: unknown) => {
+      const response = await fetch(`${baseUrl}/api/v1/${path}`, {
+        method: 'POST',
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      return {
+        status: response.status,
+        body: (await response.json()) as {
+          data: { id: string; outcome: string; restored: boolean };
+        },
+      };
+    };
+    const mine = async () => {
+      const response = await fetch(`${baseUrl}/api/v1/enrollments/me`, {
+        headers,
+      });
+      assert.equal(response.status, 200);
+      return (
+        (await response.json()) as {
+          data: {
+            items: {
+              enrollmentId: string;
+              requiredMaterials: { completed: number; total: number };
+            }[];
+          };
+        }
+      ).data.items;
+    };
+    try {
+      await seedWithdrawalDemo(app!);
+      await seedWithdrawalDemo(app!);
+      const initial = await mine();
+      assert.equal(initial.length, 2);
+      assert.ok(
+        initial.every(
+          (row) =>
+            row.requiredMaterials.completed === 1 &&
+            row.requiredMaterials.total > 0,
+        ),
+      );
+      const [deleted, withdrawn] = WITHDRAWAL_DEMO_PLANS;
+      assert.equal(
+        (await call(`enrollments/${deleted.enrollmentId}/withdrawal`)).body.data
+          .outcome,
+        'DELETED',
+      );
+      assert.equal(
+        (await call(`enrollments/${withdrawn.enrollmentId}/withdrawal`)).body
+          .data.outcome,
+        'WITHDRAWN',
+      );
+      const restored = await call('enrollments', {
+        courseId: withdrawn.courseId,
+      });
+      assert.equal(restored.status, 201);
+      assert.equal(restored.body.data.restored, true);
+      assert.equal(restored.body.data.id, withdrawn.enrollmentId);
+      const after = await mine();
+      assert.equal(after.length, 1);
+      assert.deepEqual(
+        after[0].requiredMaterials,
+        initial.find((row) => row.enrollmentId === withdrawn.enrollmentId)!
+          .requiredMaterials,
+      );
+      const reset = await resetDemoSelfEnrollments(learningDb);
+      assert.deepEqual(reset, {
+        enrollments: 1,
+        materialProgress: 1,
+        statusIntervals: 0,
+      });
+      assert.deepEqual(await otherEnrollments(), before);
+      await seedWithdrawalDemo(app!);
+      assert.deepEqual(await resetDemoSelfEnrollments(learningDb), {
+        enrollments: 2,
+        materialProgress: 2,
+        statusIntervals: 0,
+      });
+    } finally {
+      client.getActivity = previous;
+      await resetDemoSelfEnrollments(learningDb);
+    }
+  });
   void test('xóa Enrollment Course 03 của Learner demo kèm tiến độ; chạy lại không lỗi; Course khác còn nguyên', async () => {
     const before = await otherEnrollments();
 
