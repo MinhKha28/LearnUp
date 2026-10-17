@@ -136,4 +136,45 @@ describe('Prompt file over HTTP', () => {
       assert.equal(r.code, 'PROMPT_FILE_NOT_FOUND', fileKey);
     }
   });
+
+  describe('discarding an uploaded file that was not saved', () => {
+    const discard = (fileKey: unknown, headers = identity()) =>
+      api('POST', '/assignments/prompt-file/discard', { fileKey }, headers);
+
+    test('only an Instructor, a key of the own Organization folder, and a body with the key', async () => {
+      const key = `learnup/${ORG}/assignments/prompts/loose`;
+      assert.equal(
+        (await discard(key, identity({ role: 'LEARNER' }))).status,
+        403,
+      );
+      assert.equal((await discard(undefined)).status, 400);
+      for (const fileKey of [
+        'anything.pdf',
+        `learnup/${OTHER_ORG}/assignments/prompts/loose`,
+        `learnup/${ORG}/assignments/prompts/../../../${OTHER_ORG}/x`,
+      ]) {
+        const r = await discard(fileKey);
+        assert.equal(r.status, 400, fileKey);
+        assert.equal(r.code, 'PROMPT_FILE_NOT_FOUND', fileKey);
+      }
+    });
+
+    test('a file that an Assignment uses is kept (409)', async () => {
+      const fileKey = `learnup/${ORG}/assignments/prompts/in-use`;
+      const created = await api(
+        'POST',
+        '/assignments',
+        body({
+          fileKey,
+          fileName: 'used.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: pdfBytes.length,
+        }),
+      );
+      assert.equal(created.status, 201, JSON.stringify(created.json));
+      const r = await discard(fileKey);
+      assert.equal(r.status, 409);
+      assert.equal(r.code, 'PROMPT_FILE_IN_USE');
+    });
+  });
 });

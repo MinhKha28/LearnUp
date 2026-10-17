@@ -29,6 +29,17 @@ export abstract class CourseServiceClient {
   ): Promise<CourseAuthoringContext>;
 
   /**
+   * UC19 (BR-51, BR-172): báo cho course-service tổng thời lượng dự kiến (phút) của mọi Assignment của Course,
+   * để cộng vào thời lượng ước tính của Course. Gửi tổng tuyệt đối nên gọi lại bao nhiêu lần cũng đúng.
+   * Ném ServiceUnavailableException khi không gọi được; người gọi chỉ ghi log, không để việc này làm hỏng thao tác của Instructor.
+   */
+  abstract setAssignmentMinutes(
+    courseId: string,
+    minutes: number,
+    user: CurrentUser,
+  ): Promise<void>;
+
+  /**
    * Lấy id các Module của một Course (UC18.2: kiểm moduleId thuộc Course, BR-154).
    * null = không biết cây Module (chỉ bản giả), khi đó người gọi chấp nhận mọi moduleId.
    * Ném NotFoundException khi Course không tồn tại, ServiceUnavailableException khi không gọi được course-service.

@@ -117,7 +117,10 @@ function build(over: Partial<World> = {}) {
     getAuthoringContext(): never {
       throw new Error('not used');
     }
-    getModuleIds(): Promise<string[] | null> {
+    setAssignmentMinutes(): Promise<void> {
+    return Promise.resolve();
+  }
+  getModuleIds(): Promise<string[] | null> {
       if (world.moduleIds === 'down') {
         return Promise.reject(new ServiceUnavailableException());
       }

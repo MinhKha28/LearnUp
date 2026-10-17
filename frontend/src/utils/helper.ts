@@ -84,3 +84,12 @@ export const seatBlockReason = (
 /** 1.5 MB / 320 KB style size for file lists. */
 export const formatFileSize = (bytes: number) =>
   bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
+/** BR-174: stored in minutes, shown converted to hours once it reaches an hour. */
+export const formatMinutes = (minutes: number | null) => {
+  if (minutes === null) return "-";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
+};

@@ -75,6 +75,19 @@ export const uploadPromptFileAPI = (file: File) => {
 };
 
 /**
+ * UC19.2 / UC19.3 — Remove a file that was uploaded but not saved with an Assignment (cancel, replace, remove).
+ * Best effort: the server keeps a file an Assignment uses, and a failure only leaves a stored file behind, so the
+ * Instructor is never told about it.
+ */
+export const discardPromptFileAPI = async (fileKey: string): Promise<void> => {
+  try {
+    await axios.post("/api/v1/assessments/assignments/prompt-file/discard", { fileKey }, requestConfig);
+  } catch {
+    // nothing to do
+  }
+};
+
+/**
  * UC19.1 — Download the prompt file. The interceptor hands a failed response back as the body (a Blob here),
  * so only a real 200 response yields the file.
  */

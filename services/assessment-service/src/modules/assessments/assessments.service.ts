@@ -1,159 +1,51 @@
 import {
-  StorageProviderError,
-  StorageValidationError,
-  type IStorageProvider,
-} from '@learnup/ts-storage';
-import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
-  Inject,
   Injectable,
   Logger,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
-import {
-  createPageResponse,
-  type CurrentUser,
-  type PageResponse,
-} from '@learnup/ts-common';
+import { createPageResponse, type CurrentUser } from '@learnup/ts-common';
 import {
   CourseAuthoringContext,
   CourseServiceClient,
 } from '../../infrastructure/clients/course/course-service.client';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
 import { RubricsService } from '../rubrics/rubrics.service';
 import {
-  CreateAssignmentDto,
-  PromptFileDto,
-} from './dto/create-assignment.dto';
+  AssessmentsRepository,
+  assignmentInclude,
+  KIND_ASSIGNMENT,
+} from './assessments.repository';
+import { PDF_MIME } from './assignment-media.constants';
+import { AssignmentMediaService } from './assignment-media.service';
+import type { Prisma } from 'generated/prisma/browser';
+import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import type { AssignmentDetail } from './interfaces/assignment-detail.interface';
+import type { AssignmentListPage } from './interfaces/assignment-list-page.interface';
+import type { AssignmentRow } from './interfaces/assignment-row.interface';
+import type { AssignmentSummary } from './interfaces/assignment-summary.interface';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
-import { Prisma } from 'generated/prisma/browser';
 
-const KIND_ASSIGNMENT = 'ASSIGNMENT';
-// BR-320: one prompt file per Assignment, same limits as a submission file. The team has not fixed a number yet,
-// so this takes the Reading limit of BR-268 (PDF, 50 MB).
-export const PROMPT_FILE_MAX_BYTES = 50 * 1024 * 1024;
-const PDF_MIME = 'application/pdf';
-const promptFolder = (organizationId: string) =>
-  `learnup/${organizationId}/assignments/prompts`;
 // Course states in which an Instructor may author (BR-284: Published stays editable until Locked;
 // Submitted is frozen for review, Archived/Disabled are terminal or sanctioned). Course Service writes these in Title Case.
 export const AUTHORABLE_STATUSES = ['Draft', 'Rejected', 'Published'];
 
-export const assignmentInclude = {
-  rubricCriteria: { orderBy: { position: 'asc' as const } },
-  _count: { select: { submissions: true } },
-};
+export { assignmentInclude };
 
-type AssignmentRow = NonNullable<
-  Awaited<ReturnType<AssessmentsService['findAssignmentRow']>>
->;
-
-export interface AssignmentSummary {
-  id: string;
-  courseId: string;
-  title: string;
-  position: number;
-  peerReviewEnabled: boolean;
-  maxConsecutiveAttempts: number;
-  lockoutHours: number;
-  locked: boolean;
-  disabled: boolean;
-}
-
-/** Same shape as the other list endpoints ({ meta, items }) plus the Course-level flags the UI needs. */
-export interface AssignmentListPage extends PageResponse<AssignmentSummary> {
-  courseLocked: boolean;
-  courseStatus: string;
-}
+/** The one event of UC19.2 / UC19.3 / UC19.4 for Course Service (BR-51, BR-172). */
+const MINUTES_CHANGED = 'AssignmentMinutesChanged';
 
 @Injectable()
 export class AssessmentsService {
   private readonly logger = new Logger(AssessmentsService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repository: AssessmentsRepository,
     private readonly courses: CourseServiceClient,
     private readonly rubrics: RubricsService,
-    @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
+    private readonly media: AssignmentMediaService,
   ) {}
-
-  /** UC19.2 / UC19.3 — store the prompt file (BR-320); the returned object goes into `promptFile` of create/update. */
-  async uploadPromptFile(
-    user: CurrentUser,
-    file?: { buffer: Buffer; originalname: string; size: number },
-  ): Promise<PromptFileDto> {
-    const organizationId = this.requireInstructor(user);
-    if (!file) {
-      throw new BadRequestException({
-        code: 'PROMPT_FILE_REQUIRED',
-        message: 'Send one PDF file in the "file" field.',
-      });
-    }
-    if (file.size > PROMPT_FILE_MAX_BYTES) {
-      throw new BadRequestException({
-        code: 'PROMPT_FILE_TOO_LARGE',
-        message: 'The prompt file must be 50 MB or smaller.',
-      });
-    }
-    // The browser-reported type can be anything, so check the PDF signature itself.
-    if (file.buffer.subarray(0, 5).toString('latin1') !== '%PDF-') {
-      throw new BadRequestException({
-        code: 'PROMPT_FILE_NOT_PDF',
-        message: 'The prompt file must be a PDF.',
-      });
-    }
-    // multer reads the name as latin1; turn it back into UTF-8 so accented names survive.
-    const fileName = Buffer.from(file.originalname, 'latin1')
-      .toString('utf8')
-      .split(/[\\/]/)
-      .pop()!
-      .slice(0, 255);
-    try {
-      const stored = await this.storage.upload(
-        {
-          buffer: file.buffer,
-          originalFilename: fileName,
-          mimeType: PDF_MIME,
-          sizeBytes: file.size,
-        },
-        {
-          folder: promptFolder(organizationId),
-          resourceType: 'raw',
-          validation: {
-            maxSizeBytes: PROMPT_FILE_MAX_BYTES,
-            allowedMimeTypes: [PDF_MIME],
-          },
-        },
-      );
-      return {
-        fileKey: stored.storageKey,
-        fileName,
-        mimeType: PDF_MIME,
-        sizeBytes: stored.sizeBytes,
-      };
-    } catch (error) {
-      if (error instanceof StorageValidationError) {
-        throw new BadRequestException({
-          code: 'PROMPT_FILE_INVALID',
-          message: error.message,
-        });
-      }
-      if (error instanceof StorageProviderError) {
-        this.logger.error(
-          `Prompt file upload failed: ${error.message} ${JSON.stringify(error.cause, Object.getOwnPropertyNames(Object(error.cause)))}`,
-        );
-        throw new ServiceUnavailableException({
-          code: 'STORAGE_UNAVAILABLE',
-          message: 'Unable to store the prompt file. Try again later.',
-        });
-      }
-      throw error;
-    }
-  }
 
   /** UC19.1 — the prompt file of an Assignment the caller manages. */
   async downloadPromptFile(user: CurrentUser, id: string) {
@@ -164,51 +56,11 @@ export class AssessmentsService {
         message: 'This Assignment has no prompt file.',
       });
     }
-    // The file lives in Cloudinary; fetch it here so the browser keeps talking to this service only.
-    const response = await fetch(
-      this.storage.getUrl(assignment.promptFileKey, 'raw'),
-    ).catch(() => null);
-    if (!response) {
-      throw new ServiceUnavailableException({
-        code: 'STORAGE_UNAVAILABLE',
-        message: 'Unable to read the prompt file. Try again later.',
-      });
-    }
-    if (!response.ok) {
-      throw new NotFoundException({
-        code: 'PROMPT_FILE_NOT_FOUND',
-        message: 'The prompt file is no longer available.',
-      });
-    }
-    const content = Buffer.from(await response.arrayBuffer());
     return {
-      content,
+      content: await this.media.readPromptFile(assignment.promptFileKey),
       fileName: assignment.promptFileName ?? 'prompt.pdf',
       mimeType: assignment.promptFileMime ?? PDF_MIME,
     };
-  }
-
-  /** Only keys of this Organization's prompt folder are accepted (they come from uploadPromptFile); the type is always PDF. */
-  private resolvePromptFile(
-    organizationId: string,
-    file: PromptFileDto,
-  ): PromptFileDto {
-    if (
-      file.fileKey.includes('..') ||
-      !file.fileKey.startsWith(`${promptFolder(organizationId)}/`)
-    ) {
-      throw new BadRequestException({
-        code: 'PROMPT_FILE_NOT_FOUND',
-        message: 'The prompt file was not uploaded. Upload it first.',
-      });
-    }
-    if (file.sizeBytes > PROMPT_FILE_MAX_BYTES) {
-      throw new BadRequestException({
-        code: 'PROMPT_FILE_TOO_LARGE',
-        message: 'The prompt file must be 50 MB or smaller.',
-      });
-    }
-    return { ...file, mimeType: PDF_MIME };
   }
 
   /** UC19.2 — create an Assignment attached to a Course (BR-162). */
@@ -223,27 +75,12 @@ export class AssessmentsService {
     }
 
     const course = await this.requireOwnCourse(user, dto.courseId);
-    if (course.disabled || !AUTHORABLE_STATUSES.includes(course.status)) {
-      throw new ConflictException({
-        code: 'COURSE_NOT_EDITABLE',
-        message: `Assignments cannot be added while the Course is ${course.status}.`,
-      });
-    }
-    // BR-318: no new Assignment once the Course is Locked.
-    if (course.locked) {
-      throw new ConflictException({
-        code: 'COURSE_LOCKED',
-        message:
-          'The Course is Locked because a Learner has enrolled. Create a new Course version to add an Assignment.',
-      });
-    }
+    this.assertCanAdd(course);
 
     const promptFile = dto.promptFile
-      ? this.resolvePromptFile(organizationId, dto.promptFile)
+      ? await this.media.confirmPromptFile(organizationId, dto.promptFile)
       : undefined;
-    const settings = await this.prisma.platformSetting.findFirst({
-      orderBy: { createdAt: 'desc' },
-    });
+    const settings = await this.repository.findLatestPlatformSetting();
     const maxConsecutiveAttempts =
       dto.maxConsecutiveAttempts ??
       settings?.defaultMaxConsecutiveAttempts ??
@@ -251,62 +88,108 @@ export class AssessmentsService {
     const lockoutHours =
       dto.lockoutHours ?? settings?.defaultLockoutHours ?? 24;
 
-    const assignment = await this.prisma.$transaction(async (tx) => {
-      // Serialise concurrent creates on one Course so two Assignments never get the same position.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${dto.courseId}::text))`;
-      // BR-154: Assignments sit at the end of the Course tree, ordered among course-level assessments.
-      const last = await tx.assessment.aggregate({
-        where: { courseId: dto.courseId, moduleId: null },
-        _max: { position: true },
-      });
+    let minutesEventId = '';
+    const assignment = await this.repository.transaction(async (tx) => {
+      await this.repository.lockCourse(tx, dto.courseId);
+      const lastPosition = await this.repository.lastPositionOfCourse(
+        tx,
+        dto.courseId,
+      );
 
-      const created = await tx.assessment.create({
-        data: {
-          organizationId,
-          courseId: dto.courseId,
-          kind: KIND_ASSIGNMENT,
-          title: dto.title.trim(),
-          position: (last._max.position ?? 0) + 1,
-          passingScore: dto.passingScore,
-          maxConsecutiveAttempts,
-          lockoutHours,
-          isRequired: true, // BR-165: no optional Assignment
-          prompt: dto.prompt?.trim() || null,
-          promptFileKey: promptFile?.fileKey,
-          promptFileName: promptFile?.fileName,
-          promptFileMime: promptFile?.mimeType,
-          promptFileSizeBytes: promptFile?.sizeBytes,
-          expectedDurationMinutes: dto.expectedDurationMinutes,
-          peerReviewEnabled: false, // switched on later via UC19.5
-        },
+      const created = await this.repository.createAssignment(tx, {
+        organizationId,
+        courseId: dto.courseId,
+        kind: KIND_ASSIGNMENT,
+        title: dto.title.trim(),
+        position: lastPosition + 1,
+        passingScore: dto.passingScore,
+        maxConsecutiveAttempts,
+        lockoutHours,
+        isRequired: true, // BR-165: no optional Assignment
+        prompt: dto.prompt?.trim() || null,
+        promptFileKey: promptFile?.fileKey,
+        promptFileName: promptFile?.fileName,
+        promptFileMime: promptFile?.mimeType,
+        promptFileSizeBytes: promptFile?.sizeBytes,
+        expectedDurationMinutes: dto.expectedDurationMinutes,
+        peerReviewEnabled: false, // switched on later via UC19.5
       });
       // BR-164: the Rubric is stored with the Assignment, in the same transaction.
       await this.rubrics.createMany(tx, organizationId, created.id, dto.rubric);
-      const withRubric = await tx.assessment.findUniqueOrThrow({
-        where: { id: created.id },
-        include: assignmentInclude,
-      });
+      const withRubric = await this.repository.findWithRubric(tx, created.id);
 
-      // BR-51 / BR-172: Course Service adds this duration to the Course estimate.
-      await tx.outboxEvent.create({
-        data: {
-          aggregateType: 'Assignment',
+      // BR-51 / BR-172: the duration goes into the Course estimate (AssignmentMinutesChanged).
+      minutesEventId = (
+        await this.repository.createOutboxEvent(tx, {
           aggregateId: created.id,
-          eventType: 'AssignmentCreated',
+          eventType: MINUTES_CHANGED,
           organizationId,
-          occurredAt: new Date(),
           payload: {
             assignmentId: created.id,
             courseId: created.courseId,
+            change: 'Created',
             expectedDurationMinutes: dto.expectedDurationMinutes,
           },
-        },
-      });
+        })
+      ).id;
+
+      // BR-318: a Learner may have enrolled since the first look at the Course (a different service, so no common
+      // lock). Look again right before the commit: the window left is the time of this one call.
+      this.assertCanAdd(await this.requireOwnCourse(user, dto.courseId));
 
       return withRubric;
     });
 
+    await this.syncAssignmentMinutes(
+      user,
+      organizationId,
+      dto.courseId,
+      minutesEventId,
+    );
     return this.toDetail(assignment, course.locked);
+  }
+
+  /**
+   * BR-51 / BR-172: tell Course Service the total minutes of the Assignments of the Course, so its estimate follows.
+   * The total is absolute, so a call that failed is made right by the next one. It runs after the commit and never
+   * fails the Instructor's action: the Assignment is saved either way, and the outbox row stays unpublished when the
+   * Course Service could not be reached.
+   */
+  private async syncAssignmentMinutes(
+    user: CurrentUser,
+    organizationId: string,
+    courseId: string,
+    outboxEventId: string,
+  ) {
+    try {
+      const total = await this.repository.sumExpectedMinutes(
+        organizationId,
+        courseId,
+      );
+      await this.courses.setAssignmentMinutes(courseId, total, user);
+      await this.repository.markOutboxPublished(outboxEventId);
+    } catch (error) {
+      this.logger.warn(
+        `The Course ${courseId} was not told its Assignment minutes (event ${outboxEventId}): ${String(error)}`,
+      );
+    }
+  }
+
+  /** UC19.2: only an authorable Course that is not Locked takes a new Assignment (BR-284, BR-318). */
+  private assertCanAdd(course: CourseAuthoringContext) {
+    if (course.disabled || !AUTHORABLE_STATUSES.includes(course.status)) {
+      throw new ConflictException({
+        code: 'COURSE_NOT_EDITABLE',
+        message: `Assignments cannot be added while the Course is ${course.status}.`,
+      });
+    }
+    if (course.locked) {
+      throw new ConflictException({
+        code: 'COURSE_LOCKED',
+        message:
+          'The Course is Locked because a Learner has enrolled. Create a new Course version to add an Assignment.',
+      });
+    }
   }
 
   /** UC19 — list the Assignments of a Course. */
@@ -317,17 +200,18 @@ export class AssessmentsService {
     const organizationId = this.requireInstructor(user);
     const course = await this.requireOwnCourse(user, courseId);
 
-    const rows = await this.prisma.assessment.findMany({
-      where: { organizationId, courseId, kind: KIND_ASSIGNMENT },
-      orderBy: { position: 'asc' },
-      include: { _count: { select: { submissions: true } } },
-    });
+    const rows = await this.repository.findAssignmentsOfCourse(
+      organizationId,
+      courseId,
+    );
 
     const items: AssignmentSummary[] = rows.map((a) => ({
       id: a.id,
       courseId: a.courseId,
       title: a.title,
       position: a.position,
+      passingScore: Number(a.passingScore),
+      expectedDurationMinutes: a.expectedDurationMinutes,
       peerReviewEnabled: a.peerReviewEnabled,
       maxConsecutiveAttempts: a.maxConsecutiveAttempts,
       lockoutHours: a.lockoutHours,
@@ -399,8 +283,11 @@ export class AssessmentsService {
 
     let nextFileKey = assignment.promptFileKey;
     if (dto.promptFile !== undefined) {
+      // The same file sent again is already stored and checked; only a different one is looked at.
       const newFile = dto.promptFile
-        ? this.resolvePromptFile(organizationId, dto.promptFile)
+        ? dto.promptFile.fileKey === assignment.promptFileKey
+          ? this.media.resolvePromptFile(organizationId, dto.promptFile)
+          : await this.media.confirmPromptFile(organizationId, dto.promptFile)
         : null;
       nextFileKey = newFile?.fileKey ?? null;
       if (nextFileKey !== assignment.promptFileKey) {
@@ -476,9 +363,13 @@ export class AssessmentsService {
       return this.toDetail(assignment, course.locked);
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
+    let minutesEventId: string | null = null;
+    const updated = await this.repository.transaction(async (tx) => {
       // Re-check under a row lock: a Learner submitting right now must not slip past BR-98.
-      const submissions = await this.lockAndCountSubmissions(tx, assignment.id);
+      const submissions = await this.repository.lockAndCountSubmissions(
+        tx,
+        assignment.id,
+      );
       if (frozenBySubmission.length > 0 && submissions > 0) {
         throw new ConflictException({
           code: 'ASSIGNMENT_HAS_SUBMISSIONS',
@@ -486,7 +377,7 @@ export class AssessmentsService {
         });
       }
       if (Object.keys(data).length > 0) {
-        await tx.assessment.update({ where: { id: assignment.id }, data });
+        await this.repository.updateAssignment(tx, assignment.id, data);
       }
       if (rubricChanged && dto.rubric) {
         await this.rubrics.replaceAll(
@@ -497,33 +388,37 @@ export class AssessmentsService {
         );
       }
       if (durationChanged) {
-        // BR-51 / BR-172: Course Service recomputes the Course estimate from this.
-        await tx.outboxEvent.create({
-          data: {
-            aggregateType: 'Assignment',
+        // BR-51 / BR-172: the Course estimate follows the new duration (AssignmentMinutesChanged).
+        minutesEventId = (
+          await this.repository.createOutboxEvent(tx, {
             aggregateId: assignment.id,
-            eventType: 'AssignmentDurationChanged',
+            eventType: MINUTES_CHANGED,
             organizationId,
-            occurredAt: new Date(),
             payload: {
               assignmentId: assignment.id,
               courseId: assignment.courseId,
+              change: 'DurationChanged',
               expectedDurationMinutes: dto.expectedDurationMinutes,
               previousExpectedDurationMinutes:
                 assignment.expectedDurationMinutes,
             },
-          },
-        });
+          })
+        ).id;
       }
-      return tx.assessment.findUniqueOrThrow({
-        where: { id: assignment.id },
-        include: assignmentInclude,
-      });
+      return this.repository.findWithRubric(tx, assignment.id);
     });
 
     // The old file is no longer linked: remove it from storage.
     if (assignment.promptFileKey && nextFileKey !== assignment.promptFileKey) {
-      await this.removeStoredFile(assignment.promptFileKey, assignment.id);
+      await this.media.removeIfUnused(assignment.promptFileKey, assignment.id);
+    }
+    if (minutesEventId) {
+      await this.syncAssignmentMinutes(
+        user,
+        organizationId,
+        assignment.courseId,
+        minutesEventId,
+      );
     }
 
     return this.toDetail(updated, course.locked);
@@ -553,9 +448,13 @@ export class AssessmentsService {
     }
 
     // Rubric, peer review cycles and per-learner counters go with it (ON DELETE CASCADE).
-    await this.prisma.$transaction(async (tx) => {
+    let minutesEventId = '';
+    await this.repository.transaction(async (tx) => {
       // Re-check under a row lock: a Learner submitting right now must not slip past BR-92.
-      const submissions = await this.lockAndCountSubmissions(tx, assignment.id);
+      const submissions = await this.repository.lockAndCountSubmissions(
+        tx,
+        assignment.id,
+      );
       if (course.locked && submissions > 0) {
         throw new ConflictException({
           code: 'ASSIGNMENT_HAS_DATA',
@@ -563,71 +462,38 @@ export class AssessmentsService {
             'This Assignment already has submissions and the Course is Locked, so it cannot be deleted.',
         });
       }
-      await tx.assessment.delete({ where: { id: assignment.id } });
-      // BR-51 / BR-172: Course Service takes this duration out of the Course estimate.
-      await tx.outboxEvent.create({
-        data: {
-          aggregateType: 'Assignment',
+      await this.repository.deleteAssignment(tx, assignment.id);
+      // BR-51 / BR-172: the duration leaves the Course estimate (AssignmentMinutesChanged).
+      minutesEventId = (
+        await this.repository.createOutboxEvent(tx, {
           aggregateId: assignment.id,
-          eventType: 'AssignmentDeleted',
+          eventType: MINUTES_CHANGED,
           organizationId,
-          occurredAt: new Date(),
           payload: {
             assignmentId: assignment.id,
             courseId: assignment.courseId,
+            change: 'Deleted',
             expectedDurationMinutes: assignment.expectedDurationMinutes,
           },
-        },
-      });
+        })
+      ).id;
     });
 
     if (assignment.promptFileKey) {
-      await this.removeStoredFile(assignment.promptFileKey, assignment.id);
+      await this.media.removeIfUnused(assignment.promptFileKey, assignment.id);
     }
+    await this.syncAssignmentMinutes(
+      user,
+      organizationId,
+      assignment.courseId,
+      minutesEventId,
+    );
 
     return { id: assignment.id };
   }
 
-  /**
-   * Best effort: the row is already gone, so a storage failure is only logged (the file stays as an orphan).
-   * A key another Assignment still uses is kept (a new Course version may share the file, BR-100).
-   */
-  private async removeStoredFile(fileKey: string, exceptId: string) {
-    try {
-      const others = await this.prisma.assessment.count({
-        where: { promptFileKey: fileKey, id: { not: exceptId } },
-      });
-      if (others === 0) {
-        await this.storage.delete(fileKey, { resourceType: 'raw' });
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Prompt file ${fileKey} was not removed: ${String(error)}`,
-      );
-    }
-  }
-
-  /**
-   * Lock the Assignment row, then count its submissions. Inserting a submission takes a
-   * key-share lock on this row (FK), so it waits until we commit, which makes the
-   * "no submission yet" checks of BR-98 / BR-92 reliable.
-   */
-  private async lockAndCountSubmissions(
-    tx: Prisma.TransactionClient,
-    assessmentId: string,
-  ): Promise<number> {
-    const rows = await tx.$queryRaw<
-      { id: string }[]
-    >`SELECT id FROM assessments WHERE id = ${assessmentId}::uuid FOR UPDATE`;
-    if (rows.length === 0) throw new NotFoundException('Assignment not found.');
-    return tx.submission.count({ where: { assessmentId } });
-  }
-
   findAssignmentRow(organizationId: string, id: string) {
-    return this.prisma.assessment.findFirst({
-      where: { id, organizationId, kind: KIND_ASSIGNMENT },
-      include: assignmentInclude,
-    });
+    return this.repository.findAssignmentRow(organizationId, id);
   }
 
   private requireInstructor(user: CurrentUser): string {
@@ -655,7 +521,7 @@ export class AssessmentsService {
     return course;
   }
 
-  toDetail(a: AssignmentRow, courseLocked: boolean) {
+  toDetail(a: AssignmentRow, courseLocked: boolean): AssignmentDetail {
     return {
       id: a.id,
       courseId: a.courseId,

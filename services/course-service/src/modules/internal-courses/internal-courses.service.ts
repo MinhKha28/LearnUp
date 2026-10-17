@@ -8,6 +8,7 @@ import {
 import { isUUID } from 'class-validator';
 import { PrismaService } from '@infra/prisma/prisma.service';
 import { CourseBatchItemDto } from './dto/course-batch-item.dto';
+import { AssignmentMinutesDto } from './dto/assignment-minutes.dto';
 import { CourseTreeDto } from './dto/course-tree.dto';
 import { LessonContentDto } from './dto/lesson-content.dto';
 import { LockedCourseDto } from './dto/locked-course.dto';
@@ -120,6 +121,37 @@ export class InternalCoursesService {
         lockedAt,
       };
     });
+  }
+
+  /**
+   * UC19 / BR-51 / BR-172: thời lượng của Assignment cộng vào thời lượng ước tính của Course. assessment-service gửi
+   * tổng tuyệt đối nên gọi lại bao nhiêu lần cũng cho cùng kết quả. Chỉnh được cả khi Course đã Locked (BR-173),
+   * vì con số này chỉ phục vụ hiển thị và ước tính, không phải căn cứ tính kết quả.
+   */
+  async setAssignmentMinutes(
+    organizationId: string | undefined,
+    courseId: string,
+    minutes: number,
+  ): Promise<AssignmentMinutesDto> {
+    if (!organizationId || !isUUID(organizationId, 'all')) {
+      throw courseNotFound();
+    }
+    const rows = await this.prisma.$queryRaw<
+      { id: string; assignment_minutes: number; as_of: Date }[]
+    >`
+      UPDATE courses
+      SET assignment_minutes = ${minutes}::int,
+          assignment_minutes_as_of = now(),
+          updated_at = now()
+      WHERE id = ${courseId}::uuid AND organization_id = ${organizationId}::uuid
+      RETURNING id, assignment_minutes, assignment_minutes_as_of AS as_of`;
+    const row = rows[0];
+    if (!row) throw courseNotFound();
+    return {
+      courseId: row.id,
+      assignmentMinutes: row.assignment_minutes,
+      assignmentMinutesAsOf: row.as_of,
+    };
   }
 
   /**

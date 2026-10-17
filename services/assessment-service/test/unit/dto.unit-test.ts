@@ -74,7 +74,7 @@ describe('CreateAssignmentDto', () => {
     }
   });
 
-  test('a Rubric has a bounded number of criteria', async () => {
+  test('a Rubric has 1 to 10 criteria (UC19.2 step 3)', async () => {
     const criteria = (n: number) =>
       Array.from({ length: n }, () => ({
         name: 'n',
@@ -82,12 +82,22 @@ describe('CreateAssignmentDto', () => {
         maxPoints: 1,
       }));
     assert.deepEqual(
-      await problems(CreateAssignmentDto, { ...create, rubric: criteria(50) }),
+      await problems(CreateAssignmentDto, { ...create, rubric: criteria(10) }),
       [],
     );
     assert.deepEqual(
-      await problems(CreateAssignmentDto, { ...create, rubric: criteria(51) }),
+      await problems(CreateAssignmentDto, { ...create, rubric: criteria(11) }),
       ['rubric'],
+    );
+  });
+
+  test('a criterion may be worth 100 points but not more (UC19.2)', async () => {
+    assert.deepEqual(
+      await problems(CreateAssignmentDto, {
+        ...create,
+        rubric: [{ name: 'a', description: 'd', maxPoints: 100 }],
+      }),
+      [],
     );
   });
 
@@ -100,7 +110,7 @@ describe('CreateAssignmentDto', () => {
       { name: 'a', description: 'd', maxPoints: 0 },
       { name: 'a', description: 'd', maxPoints: -3 },
       { name: 'a', description: 'd', maxPoints: 2.5 },
-      { name: 'a', description: 'd', maxPoints: 1001 },
+      { name: 'a', description: 'd', maxPoints: 101 }, // UC19.2: 1-100
       { name: '', description: 'd', maxPoints: 5 },
       { name: 'a', description: '', maxPoints: 5 },
     ];
@@ -253,10 +263,24 @@ describe('UpdatePeerReviewDto', () => {
 
   test('numbers are whole and in range (BR-321: the gap is on the 0-100 scale)', async () => {
     const on = { enabled: true, reviewersPerSubmission: 2, scoreGap: 20 };
-    assert.deepEqual(
-      await problems(UpdatePeerReviewDto, { ...on, reviewersPerSubmission: 0 }),
-      ['reviewersPerSubmission'],
-    );
+    for (const reviewers of [0, 1, 6]) {
+      assert.deepEqual(
+        await problems(UpdatePeerReviewDto, {
+          ...on,
+          reviewersPerSubmission: reviewers,
+        }),
+        ['reviewersPerSubmission'], // UC19.5: 2 to 5
+      );
+    }
+    for (const reviewers of [2, 5]) {
+      assert.deepEqual(
+        await problems(UpdatePeerReviewDto, {
+          ...on,
+          reviewersPerSubmission: reviewers,
+        }),
+        [],
+      );
+    }
     assert.deepEqual(
       await problems(UpdatePeerReviewDto, { ...on, scoreGap: 101 }),
       ['scoreGap'],

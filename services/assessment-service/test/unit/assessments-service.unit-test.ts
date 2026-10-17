@@ -67,8 +67,8 @@ describe('createAssignment (UC19.2)', () => {
       'ASSIGNMENT_PROMPT_REQUIRED',
     );
     // a file alone is enough
-    const { assessments: withFile } = build();
-    const { fileKey } = await withFile.uploadPromptFile(instructor, {
+    const { assessments: withFile, media } = build();
+    const { fileKey } = await media.uploadPromptFile(instructor, {
       buffer: Buffer.from('%PDF-1.4 x'),
       originalname: 'brief.pdf',
       size: 10,
@@ -197,11 +197,12 @@ describe('createAssignment (UC19.2)', () => {
     assert.equal(explicit.calls.created?.lockoutHours, 48);
   });
 
-  test('records AssignmentCreated so the Course can add the duration (BR-51, BR-172)', async () => {
+  test('records AssignmentMinutesChanged so the Course can add the duration (BR-51, BR-172)', async () => {
     const { assessments, calls } = build();
     await assessments.createAssignment(instructor, validCreate);
     assert.equal(calls.outbox.length, 1);
-    assert.equal(calls.outbox[0].eventType, 'AssignmentCreated');
+    assert.equal(calls.outbox[0].eventType, 'AssignmentMinutesChanged');
+    assert.equal(calls.outbox[0].payload.change, 'Created');
     assert.equal(calls.outbox[0].payload.expectedDurationMinutes, 90);
     assert.equal(calls.outbox[0].payload.courseId, COURSE);
   });
@@ -229,6 +230,14 @@ describe('listAssignments / getAssignment (UC19, UC19.1)', () => {
       [
         ['a1', false],
         ['a2', true], // BR-98: has a submission
+      ],
+    );
+    // UC19 step 3: the passing score and the expected duration are on every row
+    assert.deepEqual(
+      page.items.map((i) => [i.passingScore, i.expectedDurationMinutes]),
+      [
+        [70, 60],
+        [70, 60],
       ],
     );
   });
@@ -359,7 +368,8 @@ describe('updateAssignment (UC19.3)', () => {
       expectedDurationMinutes: 120,
     });
     assert.deepEqual(calls.updates[0], { expectedDurationMinutes: 120 });
-    assert.equal(calls.outbox[0].eventType, 'AssignmentDurationChanged');
+    assert.equal(calls.outbox[0].eventType, 'AssignmentMinutesChanged');
+    assert.equal(calls.outbox[0].payload.change, 'DurationChanged');
     assert.equal(calls.outbox[0].payload.expectedDurationMinutes, 120);
     assert.equal(calls.outbox[0].payload.previousExpectedDurationMinutes, 60);
   });
@@ -461,7 +471,8 @@ describe('deleteAssignment (UC19.4)', () => {
     const result = await assessments.deleteAssignment(instructor, ASSIGNMENT);
     assert.deepEqual(result, { id: ASSIGNMENT });
     assert.deepEqual(calls.deleted, [ASSIGNMENT]);
-    assert.equal(calls.outbox[0].eventType, 'AssignmentDeleted');
+    assert.equal(calls.outbox[0].eventType, 'AssignmentMinutesChanged');
+    assert.equal(calls.outbox[0].payload.change, 'Deleted');
     assert.equal(calls.outbox[0].payload.expectedDurationMinutes, 60);
   });
 
@@ -531,12 +542,16 @@ describe('deleteAssignment (UC19.4)', () => {
 describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row)', () => {
   const pdf = (name = 'brief.pdf', size?: number) => {
     const buffer = Buffer.from('%PDF-1.4 content');
-    return { buffer, originalname: name, size: size ?? buffer.length };
+    return {
+      buffer,
+      originalname: name,
+      size: size ?? buffer.length,
+    } as Express.Multer.File;
   };
 
   test('a PDF is stored and the key is handed back', async () => {
-    const { assessments, storage } = build();
-    const result = await assessments.uploadPromptFile(instructor, pdf());
+    const { media, storage } = build();
+    const result = await media.uploadPromptFile(instructor, pdf());
     assert.equal(result.mimeType, 'application/pdf');
     assert.equal(result.fileName, 'brief.pdf');
     assert.equal(result.sizeBytes, 16);
@@ -548,43 +563,40 @@ describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row
   });
 
   test('a storage that is down is a 503, not a crash', async () => {
-    const { assessments, storage } = build();
+    const { media, storage } = build();
     storage.upload = () => Promise.reject(new StorageProviderError('boom'));
     await rejectsWith(
-      assessments.uploadPromptFile(instructor, pdf()),
+      media.uploadPromptFile(instructor, pdf()),
       ServiceUnavailableException,
       'STORAGE_UNAVAILABLE',
     );
   });
 
   test('accented file names survive the latin1 reading done by the upload library', async () => {
-    const { assessments } = build();
+    const { media } = build();
     const asMulterSees = Buffer.from('Đề bài.pdf', 'utf8').toString('latin1');
-    const result = await assessments.uploadPromptFile(
-      instructor,
-      pdf(asMulterSees),
-    );
+    const result = await media.uploadPromptFile(instructor, pdf(asMulterSees));
     assert.equal(result.fileName, 'Đề bài.pdf');
   });
 
   test('only an Instructor can upload', async () => {
-    const { assessments } = build();
+    const { media } = build();
     await rejectsWith(
-      assessments.uploadPromptFile(asRole('LEARNER'), pdf()),
+      media.uploadPromptFile(asRole('LEARNER'), pdf()),
       ForbiddenException,
       'FORBIDDEN',
     );
   });
 
   test('no file, a file that is not a PDF, or one over 50 MB is refused', async () => {
-    const { assessments, storage } = build();
+    const { media, storage } = build();
     await rejectsWith(
-      assessments.uploadPromptFile(instructor, undefined),
+      media.uploadPromptFile(instructor, undefined),
       BadRequestException,
       'PROMPT_FILE_REQUIRED',
     );
     await rejectsWith(
-      assessments.uploadPromptFile(instructor, {
+      media.uploadPromptFile(instructor, {
         buffer: Buffer.from('MZ not a pdf'),
         originalname: 'virus.pdf',
         size: 12,
@@ -593,10 +605,7 @@ describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row
       'PROMPT_FILE_NOT_PDF',
     );
     await rejectsWith(
-      assessments.uploadPromptFile(
-        instructor,
-        pdf('big.pdf', 50 * 1024 * 1024 + 1),
-      ),
+      media.uploadPromptFile(instructor, pdf('big.pdf', 50 * 1024 * 1024 + 1)),
       BadRequestException,
       'PROMPT_FILE_TOO_LARGE',
     );
@@ -629,10 +638,10 @@ describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row
   });
 
   test('update can swap the file, and remove it while a prompt text remains', async () => {
-    const { assessments, storage, calls } = build({
+    const { assessments, media, storage, calls } = build({
       row: assignmentRow({ promptFileKey: 'old.pdf', prompt: 'text' }),
     });
-    const { fileKey } = await assessments.uploadPromptFile(instructor, {
+    const { fileKey } = await media.uploadPromptFile(instructor, {
       buffer: Buffer.from('%PDF-1.7'),
       originalname: 'new.pdf',
       size: 8,
@@ -723,5 +732,248 @@ describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row
     const result = await t.assessments.deleteAssignment(instructor, ASSIGNMENT);
     assert.equal(result.id, ASSIGNMENT);
     assert.deepEqual(t.calls.deleted, [ASSIGNMENT]);
+  });
+});
+
+describe('the Course changes while an Assignment is created (BR-318)', () => {
+  test('a Learner enrolls between the first look and the commit: the Assignment is refused (409)', async () => {
+    const { assessments } = build({ courseLater: { locked: true } });
+    await rejectsWith(
+      assessments.createAssignment(instructor, validCreate),
+      ConflictException,
+      'COURSE_LOCKED',
+    );
+  });
+
+  test('the Course is sent for review in between: refused too (409)', async () => {
+    const { assessments } = build({ courseLater: { status: 'Submitted' } });
+    await rejectsWith(
+      assessments.createAssignment(instructor, validCreate),
+      ConflictException,
+      'COURSE_NOT_EDITABLE',
+    );
+  });
+
+  test('a Course that stays as it was takes the Assignment', async () => {
+    const { assessments, calls } = build({ courseLater: { locked: false } });
+    await assessments.createAssignment(instructor, validCreate);
+    assert.ok(calls.created);
+  });
+});
+
+describe('attaching a prompt file looks at the stored file (BR-320)', () => {
+  const upload = (media: ReturnType<typeof build>['media']) =>
+    media.uploadPromptFile(instructor, {
+      buffer: Buffer.from('%PDF-1.4 0123456789'),
+      originalname: 'brief.pdf',
+      size: 19,
+    });
+  const attach = (fileKey: string, sizeBytes = 19) => ({
+    fileKey,
+    fileName: 'brief.pdf',
+    mimeType: 'application/pdf',
+    sizeBytes,
+  });
+
+  test('a key that is not in the storage is refused (400)', async () => {
+    const { assessments } = build();
+    await rejectsWith(
+      assessments.createAssignment(instructor, {
+        ...validCreate,
+        promptFile: attach(`learnup/${ORG}/assignments/prompts/never-uploaded`),
+      }),
+      BadRequestException,
+      'PROMPT_FILE_NOT_FOUND',
+    );
+  });
+
+  test('the size comes from the stored file, not from the request', async () => {
+    const { assessments, media } = build();
+    const { fileKey } = await upload(media);
+    const created = await assessments.createAssignment(instructor, {
+      ...validCreate,
+      promptFile: attach(fileKey, 5), // the client says 5 bytes; the file has 19
+    });
+    assert.equal(created.promptFile?.sizeBytes, 19);
+  });
+
+  test('a storage that does not answer, or fails, is a 503 and nothing is attached', async () => {
+    for (const answer of [null, new Response(null, { status: 502 })]) {
+      const { assessments, media, calls } = build();
+      const { fileKey } = await upload(media);
+      media.head = () => Promise.resolve(answer);
+      await rejectsWith(
+        assessments.createAssignment(instructor, {
+          ...validCreate,
+          promptFile: attach(fileKey),
+        }),
+        ServiceUnavailableException,
+        'STORAGE_UNAVAILABLE',
+      );
+      assert.equal(calls.created, null);
+    }
+  });
+
+  test('a stored file over 50 MB is refused even when the request says it is small', async () => {
+    const { assessments, media } = build();
+    const { fileKey } = await upload(media);
+    media.head = () =>
+      Promise.resolve(
+        new Response(null, {
+          status: 200,
+          headers: { 'content-length': String(60 * 1024 * 1024) },
+        }),
+      );
+    await rejectsWith(
+      assessments.createAssignment(instructor, {
+        ...validCreate,
+        promptFile: attach(fileKey, 10),
+      }),
+      BadRequestException,
+      'PROMPT_FILE_TOO_LARGE',
+    );
+  });
+
+  test('on update the same file is not looked at again, a different one is', async () => {
+    const key = `learnup/${ORG}/assignments/prompts/current`;
+    const { assessments, media } = build({
+      row: assignmentRow({
+        promptFileKey: key,
+        promptFileName: 'brief.pdf',
+        promptFileMime: 'application/pdf',
+        promptFileSizeBytes: 19,
+      }),
+    });
+    let heads = 0;
+    media.head = () => {
+      heads += 1;
+      return Promise.resolve(new Response(null, { status: 404 }));
+    };
+    // the same key as the one stored: no look, no error
+    await assessments.updateAssignment(instructor, ASSIGNMENT, {
+      promptFile: attach(key),
+      title: 'Same file, new title',
+    });
+    assert.equal(heads, 0);
+    // a different key: it is looked at, and it is missing
+    await rejectsWith(
+      assessments.updateAssignment(instructor, ASSIGNMENT, {
+        promptFile: attach(`learnup/${ORG}/assignments/prompts/other`),
+      }),
+      BadRequestException,
+      'PROMPT_FILE_NOT_FOUND',
+    );
+    assert.equal(heads, 1);
+  });
+});
+
+describe('discarding an uploaded prompt file that was not saved', () => {
+  const key = `learnup/${ORG}/assignments/prompts/loose`;
+
+  test('a file no Assignment uses is removed from the storage', async () => {
+    const { media, storage } = build();
+    const { fileKey } = await media.uploadPromptFile(instructor, {
+      buffer: Buffer.from('%PDF-1.4 x'),
+      originalname: 'brief.pdf',
+      size: 10,
+    });
+    assert.deepEqual(await media.discardPromptFile(instructor, fileKey), {
+      fileKey,
+    });
+    assert.deepEqual(storage.deleted, [fileKey]);
+    assert.equal(storage.files.has(fileKey), false);
+  });
+
+  test('a file an Assignment uses is kept (409)', async () => {
+    const { media, storage } = build({ sharedFileUsers: 1 });
+    await rejectsWith(
+      media.discardPromptFile(instructor, key),
+      ConflictException,
+      'PROMPT_FILE_IN_USE',
+    );
+    assert.deepEqual(storage.deleted, []);
+  });
+
+  test('another Organization, a path trick, or a non-Instructor is refused and nothing is removed', async () => {
+    const { media, storage } = build();
+    for (const fileKey of [
+      `learnup/${OTHER_ORG}/assignments/prompts/loose`,
+      `learnup/${ORG}/assignments/prompts/../../x`,
+      'loose.pdf',
+    ]) {
+      await rejectsWith(
+        media.discardPromptFile(instructor, fileKey),
+        BadRequestException,
+        'PROMPT_FILE_NOT_FOUND',
+      );
+    }
+    await rejectsWith(
+      media.discardPromptFile(asRole('LEARNER'), key),
+      ForbiddenException,
+      'FORBIDDEN',
+    );
+    assert.deepEqual(storage.deleted, []);
+  });
+
+  test('a storage that fails is a 503 the caller can ignore', async () => {
+    const { media, storage } = build();
+    storage.delete = () => Promise.reject(new Error('storage down'));
+    await rejectsWith(
+      media.discardPromptFile(instructor, key),
+      ServiceUnavailableException,
+      'STORAGE_UNAVAILABLE',
+    );
+  });
+});
+
+describe('the Course learns the Assignment minutes (BR-51, BR-172, BR-173)', () => {
+  test('creating tells Course Service the total of all the Assignments, and the outbox row is done', async () => {
+    const { assessments, courses, calls } = build({ minutesTotal: 150 });
+    await assessments.createAssignment(instructor, validCreate);
+    assert.deepEqual(
+      (courses as unknown as { minutesReports: unknown[] }).minutesReports,
+      [{ courseId: COURSE, minutes: 150 }],
+    );
+    assert.deepEqual(calls.published, ['outbox-1']);
+  });
+
+  test('a new duration is sent, the same duration is not, and a Locked Course still takes it (BR-173)', async () => {
+    const same = build();
+    await same.assessments.updateAssignment(instructor, ASSIGNMENT, {
+      title: 'Only the title changes',
+    });
+    assert.equal(
+      (same.courses as unknown as { minutesReports: unknown[] }).minutesReports
+        .length,
+      0,
+    );
+    const locked = build({ course: { locked: true }, minutesTotal: 120 });
+    await locked.assessments.updateAssignment(instructor, ASSIGNMENT, {
+      expectedDurationMinutes: 120,
+    });
+    assert.deepEqual(
+      (locked.courses as unknown as { minutesReports: unknown[] })
+        .minutesReports,
+      [{ courseId: COURSE, minutes: 120 }],
+    );
+  });
+
+  test('deleting tells the Course the total without it', async () => {
+    const { assessments, courses, calls } = build({ minutesTotal: 30 });
+    await assessments.deleteAssignment(instructor, ASSIGNMENT);
+    assert.deepEqual(
+      (courses as unknown as { minutesReports: unknown[] }).minutesReports,
+      [{ courseId: COURSE, minutes: 30 }],
+    );
+    assert.deepEqual(calls.published, ['outbox-1']);
+  });
+
+  test('a Course Service that is down does not fail the action; the outbox row waits', async () => {
+    const { assessments, courses, calls } = build();
+    (courses as unknown as { failMinutes: boolean }).failMinutes = true;
+    const created = await assessments.createAssignment(instructor, validCreate);
+    assert.ok(created.id);
+    assert.deepEqual(calls.published, []);
+    assert.equal(calls.outbox.length, 1);
   });
 });

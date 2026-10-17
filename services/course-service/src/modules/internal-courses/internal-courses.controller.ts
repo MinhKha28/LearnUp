@@ -17,6 +17,8 @@ import { CourseTreeDto } from './dto/course-tree.dto';
 import { LessonContentDto } from './dto/lesson-content.dto';
 import { LockCourseDto } from './dto/lock-course.dto';
 import { LockedCourseDto } from './dto/locked-course.dto';
+import { AssignmentMinutesDto } from './dto/assignment-minutes.dto';
+import { SetAssignmentMinutesDto } from './dto/set-assignment-minutes.dto';
 import { InternalCoursesService } from './internal-courses.service';
 
 // Không truyền version: mặc định của ParseUUIDPipe là regex 'all', nhận cả UUID v7.
@@ -55,6 +57,23 @@ export class InternalCoursesController {
       user.organizationId,
       courseId,
       body.selfEnroll,
+    );
+  }
+
+  /** UC19 (BR-51, BR-172): assessment-service tells the total minutes of all the Assignments of the Course. */
+  @Post(':courseId/assignment-minutes')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Assignment minutes updated successfully')
+  @ApiOkResponse({ type: AssignmentMinutesDto })
+  setAssignmentMinutes(
+    @User() user: CurrentUser,
+    @Param('courseId', uuidPipe) courseId: string,
+    @Body() body: SetAssignmentMinutesDto,
+  ) {
+    return this.internalCoursesService.setAssignmentMinutes(
+      user.organizationId,
+      courseId,
+      body.minutes,
     );
   }
 
