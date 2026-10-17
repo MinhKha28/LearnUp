@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alert, Spin } from "antd";
-import { DownloadOutlined, PaperClipOutlined } from "@ant-design/icons";
+import { EditOutlined } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   InfoPanel,
@@ -10,30 +10,16 @@ import {
   SectionCard,
   StatusTag,
 } from "@/components/instructor/instructor.ui";
+import FileLink from "@/components/instructor/submission.file.link";
 import { getSubmissionDetailAPI } from "@/services/instructor.submission.service";
-import type { IAttachedFile, ISubmissionDetail } from "@/types/submission.types";
+import type { ISubmissionDetail } from "@/types/submission.types";
 import {
   formatDateTime,
-  formatFileSize,
   gradingStatusView,
   interventionLabel,
   personName,
 } from "@/utils/submission.labels";
 import "./submissions.scss";
-
-const FileLink = ({ file }: { file: IAttachedFile }) => (
-  <a
-    className="instructor-submission-file"
-    href={file.url ?? undefined}
-    target="_blank"
-    rel="noreferrer"
-  >
-    <PaperClipOutlined />
-    <span>{file.fileName ?? "Attached file"}</span>
-    <small>{formatFileSize(file.sizeBytes)}</small>
-    {file.url && <DownloadOutlined />}
-  </a>
-);
 
 const SubmissionDetail = () => {
   const { submissionId } = useParams();
@@ -95,6 +81,8 @@ const SubmissionDetail = () => {
     (sum, criterion) => sum + criterion.maxPoints,
     0,
   );
+  const canGrade =
+    detail.isLatest && detail.gradingStatus === "AwaitingInstructor";
 
   return (
     <InstructorPage className="instructor-submissions">
@@ -103,6 +91,19 @@ const SubmissionDetail = () => {
         title={personName(detail.learner)}
         subtitle={`${detail.assignment.title} / Attempt #${detail.submissionNumber}`}
         back
+        actions={
+          canGrade && (
+            <InstructorButton
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={() =>
+                navigate(`/instructor/submissions/${detail.id}/grade`)
+              }
+            >
+              Grade submission
+            </InstructorButton>
+          )
+        }
       />
       {!detail.isLatest && (
         <Alert

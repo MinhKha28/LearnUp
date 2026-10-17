@@ -1,3 +1,4 @@
+import { COURSE_TYPE, type CourseType } from '../course-values';
 import {
   ArrayMaxSize,
   IsArray,
@@ -43,6 +44,6 @@ export class CreateCourseDto {
   expectedCompletionDays!: number;
 
   @IsString()
-  @IsIn(['PUBLIC', 'PRIVATE'])
-  courseType!: 'PUBLIC' | 'PRIVATE';
+  @IsIn(Object.values(COURSE_TYPE))
+  courseType!: CourseType;
 }

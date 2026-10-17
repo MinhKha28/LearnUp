@@ -4,6 +4,24 @@
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
-  }
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "tsconfig": {
+          "allowJs": true,
+          "module": "commonjs",
+          "resolvePackageJsonExports": false
+        }
+      }
+    ]
+  },
+  "moduleNameMapper": {
+    "^@infra/(.*)$": "<rootDir>/../src/infrastructure/$1",
+    "^@/(.*)$": "<rootDir>/../src/$1",
+    "^@courses/(.*)$": "<rootDir>/../src/modules/courses/$1",
+    "^@common/(.*)$": "<rootDir>/../src/common/$1",
+    "^@generated/(.*)$": "<rootDir>/../generated/$1",
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  },
+  "transformIgnorePatterns": ["/node_modules/(?!@nestjs/(config|axios)/)"]
 }

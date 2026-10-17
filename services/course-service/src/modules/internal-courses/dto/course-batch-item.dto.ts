@@ -1,3 +1,4 @@
+import { COURSE_STATUS, COURSE_TYPE } from '../../courses/course-values';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CourseBatchItemDto {
@@ -13,18 +14,11 @@ export class CourseBatchItemDto {
   @ApiProperty()
   name!: string;
 
-  @ApiProperty({ enum: ['Public', 'Private'] })
+  @ApiProperty({ enum: Object.values(COURSE_TYPE) })
   courseType!: string;
 
   @ApiProperty({
-    enum: [
-      'Draft',
-      'Submitted',
-      'Published',
-      'Rejected',
-      'Archived',
-      'Disabled',
-    ],
+    enum: Object.values(COURSE_STATUS),
   })
   status!: string;
 

@@ -23,7 +23,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:catalog:db": "ts-node -r tsconfig-paths/register -P tsconfig.seed.json test/catalog/estimate-duration.db-test.ts",
     "test:catalog:http": "ts-node -P tsconfig.seed.json test/catalog/catalog.http-test.ts",
-    "postinstall": "prisma skills sync || exit 0"
+    "postinstall": "prisma skills sync || exit 0",
+    "test:migration": "ts-node -P tsconfig.seed.json test/course-values.migration-test.ts"
   },
   "dependencies": {
     "@learnup/ts-common": "file:../../libraries/ts-common",

@@ -16,6 +16,7 @@
  * ID cố định; chạy lại không đổi gì. Cặp Learner–Course đã có Enrollment khác ID demo thì dừng, không ghi đè.
  */
 import 'dotenv/config';
+import { seedWithdrawalDemo } from './seed-withdrawal-demo';
 import type { CurrentUser } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import { Client } from 'pg';
@@ -320,6 +321,7 @@ async function run(): Promise<void> {
     await ensureDemoVideoProgress(prisma);
 
     await printResult(enrollments, courses, timezone);
+    await seedWithdrawalDemo(app);
   } finally {
     await app.close();
   }

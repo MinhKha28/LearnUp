@@ -1,3 +1,9 @@
+import {
+  COURSE_STATUS,
+  COURSE_TYPE,
+  type CourseStatus,
+  type CourseType,
+} from '../course-values';
 import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -28,12 +34,12 @@ export class CourseListQueryDto {
   search?: string;
 
   @IsOptional()
-  @IsIn(['PUBLIC', 'PRIVATE'])
-  courseType?: string;
+  @IsIn(Object.values(COURSE_TYPE))
+  courseType?: CourseType;
 
   @IsOptional()
-  @IsIn(['DRAFT', 'SUBMITTED', 'PUBLISHED', 'REJECTED', 'ARCHIVED', 'DISABLED'])
-  status?: string;
+  @IsIn(Object.values(COURSE_STATUS))
+  status?: CourseStatus;
 
   @IsOptional()
   @Transform(({ value }) => {

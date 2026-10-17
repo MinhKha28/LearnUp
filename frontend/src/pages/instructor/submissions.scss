@@ -164,7 +164,53 @@
 
 .instructor-grade-actions {
   display: flex;
+  gap: 8px;
   justify-content: flex-end;
+}
+
+.instructor-grade-field label small {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.instructor-grade-field .instructor-grade-reason {
+  margin-bottom: 8px;
+}
+
+.instructor-grade-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+
+  div {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+
+  span {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  strong {
+    color: #0f172a;
+    font-size: 18px;
+  }
+}
+
+.instructor-grade-peers {
+  margin-top: 12px;
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #eef2f7;
+    color: #334155;
+    font-size: 13px;
+  }
 }
 
 .instructor-discrepancy-card {

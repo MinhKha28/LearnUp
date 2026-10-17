@@ -16,6 +16,15 @@ const httpError = (status: number, data: unknown) =>
   } as AxiosResponse);
 
 describe("toApiError", () => {
+  it("429 RATE_LIMITED preserves retryAfterSeconds in details", () => {
+    const error = toApiError(httpError(429, {
+      statusCode: 429,
+      timestamp: "2026-10-17T00:00:00.000Z",
+      path: "/api/v1/enrollments",
+      error: { code: "RATE_LIMITED", message: "Bạn thao tác quá nhanh", retryAfterSeconds: 37 },
+    }));
+    expect(error).toMatchObject({ status: 429, code: "RATE_LIMITED", details: { retryAfterSeconds: 37 } });
+  });
   it("lỗi nghiệp vụ: lấy code, message và các trường còn lại làm details", () => {
     const error = toApiError(
       httpError(409, {

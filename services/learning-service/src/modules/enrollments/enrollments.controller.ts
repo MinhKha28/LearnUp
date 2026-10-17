@@ -1,5 +1,16 @@
 import type { CurrentUser } from '@learnup/ts-common';
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  UseGuards,
+  HttpCode,
+  Param,
+} from '@nestjs/common';
+import { EnrollmentWithdrawalService } from './enrollment-withdrawal.service';
+import { EnrollmentRateLimitGuard } from './enrollment-rate-limit.guard';
 import { ResponseMessage, User } from '../../common/decorator/customize';
 import { Roles } from '../../common/decorator/roles.decorator';
 import { ParsePagePipe } from '../../common/pipes/parse-page.pipe';
@@ -16,16 +27,27 @@ import { GetCourseLearnerCountsDto } from './dto/get-course-learner-counts.dto';
 
 @Controller('enrollments')
 export class EnrollmentsController {
-  constructor(private readonly service: EnrollmentsService) {}
+  constructor(
+    private readonly service: EnrollmentsService,
+    private readonly withdrawal: EnrollmentWithdrawalService,
+  ) {}
+
+  @Post(':enrollmentId/withdrawal')
+  @HttpCode(200)
+  @Roles('LEARNER')
+  withdraw(@User() user: CurrentUser, @Param('enrollmentId') id: string) {
+    return this.withdrawal.withdraw(user, id);
+  }
 
   /** UC25.3: tự đăng ký Course tự chọn. */
   @Post()
+  @UseGuards(EnrollmentRateLimitGuard)
   @Roles('LEARNER')
   @ResponseMessage('Đăng ký Course thành công')
   enroll(
     @User() user: CurrentUser,
     @Body() dto: CreateEnrollmentDto,
-  ): Promise<CreatedEnrollment> {
+  ): Promise<CreatedEnrollment & { restored: boolean }> {
     return this.service.enrollOptional(user, dto.courseId);
   }
 

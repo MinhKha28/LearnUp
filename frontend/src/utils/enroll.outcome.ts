@@ -11,6 +11,7 @@ export type EnrollOutcome =
   | { kind: "inGrace" }
   | { kind: "forbidden" }
   | { kind: "unavailable" }
+  | { kind: "rateLimited"; retryAfterSeconds: number | null }
   | { kind: "retry"; refreshLinks: boolean };
 
 export const ENROLL_OUTCOME_MESSAGES: Record<EnrollOutcome["kind"], string> = {
@@ -19,6 +20,7 @@ export const ENROLL_OUTCOME_MESSAGES: Record<EnrollOutcome["kind"], string> = {
   inGrace: "Tổ chức của bạn đang trong thời gian ân hạn, chưa thể đăng ký Course mới",
   forbidden: "Tổ chức của bạn hiện chưa thể đăng ký Course mới. Vui lòng liên hệ quản trị viên tổ chức.",
   unavailable: "Course không còn trong danh mục",
+  rateLimited: "Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút",
   retry: "Chưa đăng ký được. Vui lòng thử lại.",
 };
 
@@ -38,6 +40,21 @@ export const resolveEnrollOutcome = (result: CreatedEnrollment | ApiError): Enro
   if (result.status === 404 && result.code === "COURSE_NOT_AVAILABLE") {
     return { kind: "unavailable" };
   }
+  if (result.status === 429 && result.code === "RATE_LIMITED") {
+    const { retryAfterSeconds } = result.details;
+    return {
+      kind: "rateLimited",
+      retryAfterSeconds:
+        typeof retryAfterSeconds === "number" && Number.isSafeInteger(retryAfterSeconds) && retryAfterSeconds > 0
+          ? retryAfterSeconds
+          : null,
+    };
+  }
   // Timeout có thể đã tạo Enrollment ở server; bấm lại sẽ nhận 409 và tự chuyển "Vào học"
   return { kind: "retry", refreshLinks: false };
 };
+
+export const getEnrollOutcomeMessage = (outcome: EnrollOutcome): string =>
+  outcome.kind === "rateLimited" && outcome.retryAfterSeconds !== null
+    ? `Bạn thao tác quá nhanh, vui lòng thử lại sau ${outcome.retryAfterSeconds} giây`
+    : ENROLL_OUTCOME_MESSAGES[outcome.kind];

@@ -4,6 +4,7 @@ import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import type { AssignmentEnrollment, AssignmentPlan } from './classify-learners';
 import { OptionalInsertConflict, concurrentChange } from './assignment-retry';
+import { enrollmentRestoredStatusSql } from '../enrollments/enrollment-restored-status.sql';
 
 export interface AssignmentBatch {
   organizationId: string;
@@ -50,7 +51,7 @@ export function updateAssignmentsSql(
     enrollment_type = 'Required', assigned_at = ${batch.assignedAt},
     expected_completion_days = ${batch.expectedCompletionDays}, base_due_at = ${batch.dueAt},
     due_at = ${batch.dueAt}::timestamptz + e.extension_seconds * interval '1 second',
-    status = CASE WHEN p.kind = 'RESTORE' THEN CASE WHEN e.first_activity_at IS NULL THEN 'NotStarted' ELSE 'InProgress' END ELSE e.status END,
+    status = CASE WHEN p.kind = 'RESTORE' THEN ${enrollmentRestoredStatusSql(Prisma.sql`e.first_activity_at`)} ELSE e.status END,
     withdrawn_at = CASE WHEN p.kind = 'RESTORE' THEN NULL ELSE e.withdrawn_at END,
     withdrawn_reason = CASE WHEN p.kind = 'RESTORE' THEN NULL ELSE e.withdrawn_reason END,
     completed_late = CASE WHEN p.kind = 'CONVERT_COMPLETED' THEN false ELSE e.completed_late END,
