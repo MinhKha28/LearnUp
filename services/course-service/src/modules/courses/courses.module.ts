@@ -7,8 +7,7 @@ import { TenantClient } from '@infra/clients/tenant/tenant.client';
 import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
 import { StorageModule } from '@infra/storage/storage.module';
-import { CourseMediaService } from './course-media.service';
-import { CourseMediaController } from './course-media.controller';
+import { CoursesRepository } from './courses.repository';
 
 @Module({
   imports: [
@@ -18,8 +17,8 @@ import { CourseMediaController } from './course-media.controller';
     }),
     StorageModule,
   ],
-  controllers: [CoursesController, CourseMediaController],
-  providers: [CoursesService, CourseMediaService, TenantClient, LearningClient],
+  controllers: [CoursesController],
+  providers: [CoursesService, CoursesRepository, TenantClient, LearningClient],
   exports: [CoursesService],
 })
 export class CoursesModule {}

@@ -1,4 +1,8 @@
-import { COURSE_STATUS } from './course-values';
+import {
+  COURSE_COVER_MAX_SIZE_BYTES,
+  COURSE_COVER_MIME_TYPES,
+  COURSE_STATUS,
+} from './course-values';
 import { CurrentUser } from '@learnup/ts-common';
 import {
   BadRequestException,
@@ -6,6 +10,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { CourseListQueryDto } from './dto/course-list-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -14,24 +19,21 @@ import { CreateCourseLessonDto } from './dto/create-course-lesson.dto';
 import { TenantClient } from '@infra/clients/tenant/tenant.client';
 import { OrganizationCourseListQueryDto } from './dto/organization-course-list-query.dto';
 import { LearningClient } from '@infra/clients/learning/learning.client';
-import { PrismaService } from '@infra/prisma/prisma.service';
 import { Prisma } from '@generated/prisma/browser';
 import { STORAGE_PROVIDER } from '@/infrastructure/storage/storage.constants';
-import type { IStorageProvider } from '@learnup/ts-storage';
-
-export interface CourseAuthoringContext {
-  courseId: string;
-  organizationId: string;
-  instructorId: string;
-  status: string;
-  locked: boolean;
-  disabled: boolean;
-}
+import {
+  StorageProviderError,
+  StorageValidationError,
+  type IStorageProvider,
+  type IStoredFile,
+} from '@learnup/ts-storage';
+import { CoursesRepository } from './courses.repository';
+import { CourseAuthoringContext } from './interfaces/courses.interface';
 
 @Injectable()
 export class CoursesService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly coursesRepository: CoursesRepository,
     private readonly tenantClient: TenantClient,
     private readonly learningClient: LearningClient,
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
@@ -90,31 +92,11 @@ export class CoursesService {
         : {}),
     };
 
-    const [courses, total] = await this.prisma.$transaction([
-      this.prisma.course.findMany({
-        where,
-        select: {
-          id: true,
-          chainId: true,
-          versionNumber: true,
-          name: true,
-          courseType: true,
-          status: true,
-          lockedAt: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-        skip,
-        take: pageSize,
-        orderBy: {
-          updatedAt: 'desc',
-        },
-      }),
-
-      this.prisma.course.count({
-        where,
-      }),
-    ]);
+    const [courses, total] = await this.coursesRepository.findInstructorCourses(
+      where,
+      skip,
+      pageSize,
+    );
 
     return {
       meta: {
@@ -139,19 +121,10 @@ export class CoursesService {
     courseId: string,
     organizationId?: string,
   ): Promise<CourseAuthoringContext> {
-    const course = await this.prisma.course.findFirst({
-      where: {
-        id: courseId,
-        ...(organizationId ? { organizationId } : {}),
-      },
-      include: {
-        chain: {
-          select: {
-            instructorId: true,
-          },
-        },
-      },
-    });
+    const course = await this.coursesRepository.findAuthoringContext(
+      courseId,
+      organizationId,
+    );
 
     if (!course) {
       throw new NotFoundException('Course not found.');
@@ -177,48 +150,17 @@ export class CoursesService {
 
     const learningOutcomes =
       dto.learningOutcomes?.map((item) => item.trim()).filter(Boolean) ?? [];
-    const result = await this.prisma.$transaction(async (tx) => {
-      const chain = await tx.courseChain.create({
-        data: {
-          organizationId: user.organizationId!,
-          instructorId: user.userId,
-        },
-      });
-
-      const course = await tx.course.create({
-        data: {
-          organizationId: user.organizationId!,
-          chainId: chain.id,
-          versionNumber: 1,
-          name: dto.name.trim(),
-          shortDescription: dto.shortDescription?.trim() || null,
-          trainingObjectives: dto.trainingObjectives?.trim() || null,
-          learningOutcomes,
-          coverFileId: dto.coverFileId ?? null,
-          expectedCompletionDays: dto.expectedCompletionDays,
-          courseType: dto.courseType,
-          status: COURSE_STATUS.DRAFT,
-          lockedAt: null,
-        },
-
-        select: {
-          id: true,
-          chainId: true,
-          versionNumber: true,
-          name: true,
-          shortDescription: true,
-          trainingObjectives: true,
-          learningOutcomes: true,
-          coverFileId: true,
-          expectedCompletionDays: true,
-          courseType: true,
-          status: true,
-          lockedAt: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-      return course;
+    const result = await this.coursesRepository.createCourse({
+      organizationId: user.organizationId,
+      instructorId: user.userId,
+      name: dto.name.trim(),
+      shortDescription: dto.shortDescription?.trim() || null,
+      trainingObjectives: dto.trainingObjectives?.trim() || null,
+      learningOutcomes,
+      coverFileId: dto.coverFileId ?? null,
+      expectedCompletionDays: dto.expectedCompletionDays,
+      courseType: dto.courseType,
+      status: COURSE_STATUS.DRAFT,
     });
 
     const { lockedAt, ...course } = result;
@@ -240,48 +182,11 @@ export class CoursesService {
       throw new ForbiddenException('Organization context is required.');
     }
 
-    const course = await this.prisma.course.findFirst({
-      where: {
-        id: courseId,
-        organizationId: user.organizationId,
-        chain: {
-          instructorId: user.userId,
-        },
-      },
-
-      select: {
-        id: true,
-        name: true,
-        versionNumber: true,
-        status: true,
-        lockedAt: true,
-        modules: {
-          orderBy: {
-            position: 'asc',
-          },
-          select: {
-            id: true,
-            title: true,
-            position: true,
-            lessons: {
-              orderBy: {
-                position: 'asc',
-              },
-              select: {
-                id: true,
-                title: true,
-                position: true,
-                materials: {
-                  select: {
-                    isRequired: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    const course = await this.coursesRepository.findStructure(
+      courseId,
+      user.organizationId,
+      user.userId,
+    );
 
     if (!course) {
       throw new NotFoundException('Course not found.');
@@ -354,20 +259,11 @@ export class CoursesService {
       throw new BadRequestException('Module title is required.');
     }
 
-    const course = await this.prisma.course.findFirst({
-      where: {
-        id: courseId,
-        organizationId: user.organizationId,
-        chain: {
-          instructorId: user.userId,
-        },
-      },
-      select: {
-        id: true,
-        status: true,
-        lockedAt: true,
-      },
-    });
+    const course = await this.coursesRepository.findOwnedCourseForEditing(
+      courseId,
+      user.organizationId,
+      user.userId,
+    );
 
     if (!course) {
       throw new NotFoundException('Course not found.');
@@ -385,39 +281,11 @@ export class CoursesService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const lastModule = await tx.courseModule.findFirst({
-        where: {
-          courseId,
-          organizationId: user.organizationId!,
-        },
-        orderBy: {
-          position: 'desc',
-        },
-        select: {
-          position: true,
-        },
-      });
-
-      const nextPosition = (lastModule?.position ?? 0) + 1;
-
-      return tx.courseModule.create({
-        data: {
-          organizationId: user.organizationId!,
-          courseId,
-          title,
-          position: nextPosition,
-        },
-        select: {
-          id: true,
-          courseId: true,
-          title: true,
-          position: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-    });
+    return this.coursesRepository.createModule(
+      user.organizationId,
+      courseId,
+      title,
+    );
   }
   async createLesson(
     user: CurrentUser,
@@ -444,20 +312,11 @@ export class CoursesService {
       throw new BadRequestException('Lesson content is required.');
     }
 
-    const course = await this.prisma.course.findFirst({
-      where: {
-        id: courseId,
-        organizationId: user.organizationId,
-        chain: {
-          instructorId: user.userId,
-        },
-      },
-      select: {
-        id: true,
-        status: true,
-        lockedAt: true,
-      },
-    });
+    const course = await this.coursesRepository.findOwnedCourseForEditing(
+      courseId,
+      user.organizationId,
+      user.userId,
+    );
 
     if (!course) {
       throw new NotFoundException('Course not found.');
@@ -475,56 +334,22 @@ export class CoursesService {
       );
     }
 
-    const module = await this.prisma.courseModule.findFirst({
-      where: {
-        id: moduleId,
-        courseId,
-        organizationId: user.organizationId,
-      },
-      select: {
-        id: true,
-      },
-    });
+    const module = await this.coursesRepository.findModule(
+      moduleId,
+      courseId,
+      user.organizationId,
+    );
 
     if (!module) {
       throw new NotFoundException('Module not found.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const lastLesson = await tx.lesson.findFirst({
-        where: {
-          moduleId,
-          organizationId: user.organizationId!,
-        },
-        orderBy: {
-          position: 'desc',
-        },
-        select: {
-          position: true,
-        },
-      });
-
-      const nextPosition = (lastLesson?.position ?? 0) + 1;
-
-      return tx.lesson.create({
-        data: {
-          organizationId: user.organizationId!,
-          moduleId,
-          title,
-          content,
-          position: nextPosition,
-        },
-        select: {
-          id: true,
-          moduleId: true,
-          title: true,
-          content: true,
-          position: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-    });
+    return this.coursesRepository.createLesson(
+      user.organizationId,
+      moduleId,
+      title,
+      content,
+    );
   }
 
   async findOrganizationCourses(
@@ -597,38 +422,12 @@ export class CoursesService {
         : {}),
     };
 
-    const [courses, total] = await this.prisma.$transaction([
-      this.prisma.course.findMany({
+    const [courses, total] =
+      await this.coursesRepository.findOrganizationCourses(
         where,
-        select: {
-          id: true,
-          chainId: true,
-          versionNumber: true,
-          name: true,
-          courseType: true,
-          status: true,
-          submittedAt: true,
-          createdAt: true,
-          updatedAt: true,
-          chain: {
-            select: {
-              instructorId: true,
-            },
-          },
-        },
         skip,
-        take: pageSize,
-        orderBy: [
-          {
-            updatedAt: 'desc',
-          },
-        ],
-      }),
-
-      this.prisma.course.count({
-        where,
-      }),
-    ]);
+        pageSize,
+      );
 
     if (courses.length === 0) {
       return {
@@ -699,17 +498,10 @@ export class CoursesService {
       throw new ForbiddenException('Organization context is required.');
     }
 
-    const chains = await this.prisma.courseChain.findMany({
-      where: {
-        organizationId: user.organizationId,
-      },
-      select: {
-        instructorId: true,
-      },
-      distinct: ['instructorId'],
-    });
-
-    const instructorIds = chains.map((chain) => chain.instructorId);
+    const instructorIds =
+      await this.coursesRepository.findOrganizationInstructorIds(
+        user.organizationId,
+      );
 
     if (instructorIds.length === 0) {
       return [];
@@ -727,42 +519,11 @@ export class CoursesService {
       throw new ForbiddenException('Organization context is required.');
     }
 
-    const course = await this.prisma.course.findFirst({
-      where: {
-        id: courseId,
-        organizationId: user.organizationId,
-        chain: {
-          instructorId: user.userId,
-        },
-      },
-      select: {
-        id: true,
-        chainId: true,
-        versionNumber: true,
-        name: true,
-        shortDescription: true,
-        trainingObjectives: true,
-        learningOutcomes: true,
-        coverFileId: true,
-        expectedCompletionDays: true,
-        courseType: true,
-        status: true,
-        lockedAt: true,
-        submittedAt: true,
-        publishedAt: true,
-        rejectedAt: true,
-        rejectionReason: true,
-        createdAt: true,
-        updatedAt: true,
-        coverFile: {
-          select: {
-            storageKey: true,
-            status: true,
-            releasedAt: true,
-          },
-        },
-      },
-    });
+    const course = await this.coursesRepository.findDetail(
+      courseId,
+      user.organizationId,
+      user.userId,
+    );
 
     if (!course) {
       throw new NotFoundException('Course not found.');
@@ -793,57 +554,85 @@ export class CoursesService {
     organizationId: string,
     courseId: string,
   ): Promise<number | null> {
-    const setting = await this.prisma.platformSetting.findFirst({
-      orderBy: {
-        sourceAsOf: 'desc',
-      },
-      select: {
-        readingSpeedWordsPerMinute: true,
-      },
-    });
+    const readingSpeed =
+      await this.coursesRepository.getReadingSpeedWordsPerMinute();
 
-    if (!setting || setting.readingSpeedWordsPerMinute <= 0) {
+    if (readingSpeed === null || readingSpeed <= 0) {
       return null;
     }
 
-    const [result] = await this.prisma.$queryRaw<
-      { estimatedDurationMinutes: number }[]
-    >`
-    SELECT (
-      c.assignment_minutes +
-      COALESCE(
-        SUM(
-          CASE
-            WHEN m.material_type = 'Video'
-              THEN CEIL(f.duration_seconds / 60.0)
-            WHEN m.material_type = 'Reading'
-              THEN CEIL(
-                f.word_count /
-                ${setting.readingSpeedWordsPerMinute}::numeric
-              )
-            ELSE 0
-          END
-        ),
-        0
-      )
-    )::int AS "estimatedDurationMinutes"
-    FROM courses c
-    LEFT JOIN modules cm
-      ON cm.course_id = c.id
-    LEFT JOIN lessons l
-      ON l.module_id = cm.id
-      AND l.disabled_at IS NULL
-    LEFT JOIN materials m
-      ON m.lesson_id = l.id
-      AND m.is_required = true
-      AND m.disabled_at IS NULL
-    LEFT JOIN media_files f
-      ON f.id = m.file_id
-    WHERE c.id = ${courseId}::uuid
-      AND c.organization_id = ${organizationId}::uuid
-    GROUP BY c.id, c.assignment_minutes
-  `;
+    return this.coursesRepository.calculateEstimatedDurationMinutes(
+      organizationId,
+      courseId,
+      readingSpeed,
+    );
+  }
 
-    return result?.estimatedDurationMinutes ?? null;
+  async uploadCover(user: CurrentUser, file?: Express.Multer.File) {
+    if (user.role !== 'INSTRUCTOR') {
+      throw new ForbiddenException('Only Instructor can upload Course cover.');
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    if (!file) {
+      throw new BadRequestException('Course cover file is required.');
+    }
+
+    let storedFile: IStoredFile;
+
+    try {
+      storedFile = await this.storage.upload(
+        {
+          buffer: file.buffer,
+          originalFilename: file.originalname,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+        },
+        {
+          folder: `learnup/${user.organizationId}/courses/covers`,
+          resourceType: 'image',
+          validation: {
+            maxSizeBytes: COURSE_COVER_MAX_SIZE_BYTES,
+            allowedMimeTypes: COURSE_COVER_MIME_TYPES,
+          },
+        },
+      );
+    } catch (error) {
+      if (error instanceof StorageValidationError) {
+        throw new BadRequestException(error.message);
+      }
+
+      if (error instanceof StorageProviderError) {
+        throw new ServiceUnavailableException('Unable to upload Course cover.');
+      }
+
+      throw error;
+    }
+
+    try {
+      const mediaFile = await this.coursesRepository.createCourseCoverMediaFile(
+        user.organizationId,
+        storedFile,
+      );
+
+      return {
+        fileId: mediaFile.id,
+        url: storedFile.secureUrl,
+        originalFilename: mediaFile.originalFilename,
+        mimeType: mediaFile.mimeType,
+        sizeBytes: Number(mediaFile.sizeBytes),
+      };
+    } catch (error) {
+      await this.storage
+        .delete(storedFile.storageKey, {
+          resourceType: storedFile.resourceType,
+        })
+        .catch(() => undefined);
+
+      throw error;
+    }
   }
 }

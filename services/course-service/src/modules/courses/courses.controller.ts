@@ -6,6 +6,8 @@ import {
   Query,
   Body,
   Post,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '@common/decorator/customize';
@@ -15,6 +17,8 @@ import { CreateCourseDto } from '@courses/dto/create-course.dto';
 import { CreateCourseModuleDto } from '@courses/dto/create-course-module.dto';
 import { CreateCourseLessonDto } from '@courses/dto/create-course-lesson.dto';
 import { OrganizationCourseListQueryDto } from '@courses/dto/organization-course-list-query.dto';
+import { FileInterceptor } from '@nestjs/platform-express/multer/interceptors/file.interceptor';
+import { COURSE_COVER_MAX_SIZE_BYTES } from './course-values';
 
 @Controller('courses')
 export class CoursesController {
@@ -24,6 +28,20 @@ export class CoursesController {
   @ResponseMessage('Courses fetched successfully')
   findAll(@User() user: CurrentUser, @Query() query: CourseListQueryDto) {
     return this.coursesService.findAll(user, query);
+  }
+
+  @Post('cover')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: COURSE_COVER_MAX_SIZE_BYTES },
+    }),
+  )
+  @ResponseMessage('Course cover uploaded successfully')
+  uploadCover(
+    @User() user: CurrentUser,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.coursesService.uploadCover(user, file);
   }
 
   @Get(':id/authoring-context')
