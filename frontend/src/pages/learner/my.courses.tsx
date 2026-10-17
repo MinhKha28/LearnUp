@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { App, Modal } from "antd";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { CourseCover } from "@/components/learner/course.cover";
@@ -7,19 +8,62 @@ import { LearnerButton, LearnerPage, PageHeader, StatusTag } from "@/components/
 import { UrlPagination } from "@/components/learner/url.pagination";
 import { useApiQuery } from "@/hooks/use.api.query";
 import { useReplacePage } from "@/hooks/use.replace.page";
-import { fetchMyEnrollments } from "@/services/learning.service";
+import { toApiError } from "@/services/api.client";
+import { fetchMyEnrollments, withdrawOptionalCourse } from "@/services/learning.service";
+import type { MyEnrollmentItem } from "@/types/learning.types";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import { buildMyCourseRow, type MyCourseRow } from "@/utils/my.courses.view";
 import { parsePageParam, resolvePageRedirect } from "@/utils/page.param";
+import { canWithdrawEnrollment, resolveWithdrawalOutcome, WITHDRAWAL_CONFIRMATION, WITHDRAWAL_MESSAGES } from "@/utils/withdrawal.outcome";
 import "./my.courses.scss";
 
 const MY_COURSES_ERROR_MESSAGES: Record<string, string> = {
   FORBIDDEN: "Bạn không có quyền xem danh sách Course này.",
 };
 
-const MyCourseListRow = ({ row }: { row: MyCourseRow }) => {
+const MyCourseListRow = ({ row, item, onReload }: {
+  row: MyCourseRow;
+  item: MyEnrollmentItem;
+  onReload: () => void;
+}) => {
   const navigate = useNavigate();
+  const { message } = App.useApp();
+  const [confirming, setConfirming] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const submitting = useRef(false);
   const openTo = row.action.kind === "open" ? row.action.to : null;
+
+  const withdraw = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
+    setSending(true);
+    setErrorText(null);
+    try {
+      let result;
+      try {
+        result = await withdrawOptionalCourse(item.enrollmentId);
+      } catch (cause) {
+        result = toApiError(cause);
+      }
+      const outcome = resolveWithdrawalOutcome(result);
+      const text = WITHDRAWAL_MESSAGES[outcome.kind];
+      if (outcome.reload) {
+        if (outcome.kind === "notFound") message.info(text);
+        else message.success(text);
+        setConfirming(false);
+        onReload();
+      } else if (outcome.retry) {
+        setErrorText(text);
+      } else {
+        message.error(text);
+        setConfirming(false);
+      }
+    } finally {
+      submitting.current = false;
+      setSending(false);
+    }
+  };
 
   return (
     <li className={`learner-my-course${openTo ? "" : " learner-my-course-halted"}`}>
@@ -47,13 +91,34 @@ const MyCourseListRow = ({ row }: { row: MyCourseRow }) => {
         )}
         {row.action.kind === "halted" && <p className="learner-my-course-note">{row.action.note}</p>}
       </div>
-      {openTo && (
+      {(openTo || canWithdrawEnrollment(item)) && (
         <div className="learner-my-course-action">
-          <LearnerButton type="primary" onClick={() => navigate(openTo)}>
+          {openTo && <LearnerButton type="primary" onClick={() => navigate(openTo)}>
             Vào học
-          </LearnerButton>
+          </LearnerButton>}
+          {canWithdrawEnrollment(item) && (
+            <LearnerButton loading={sending} onClick={() => { setErrorText(null); setConfirming(true); }}>
+              Rút khỏi Course
+            </LearnerButton>
+          )}
         </div>
       )}
+      <Modal
+        title="Rút khỏi Course?"
+        open={confirming}
+        okText={errorText ? "Thử lại" : "Rút khỏi Course"}
+        cancelText="Hủy"
+        confirmLoading={sending}
+        cancelButtonProps={{ disabled: sending }}
+        closable={!sending}
+        maskClosable={!sending}
+        keyboard={!sending}
+        onOk={withdraw}
+        onCancel={() => { if (!submitting.current) setConfirming(false); }}
+      >
+        <p>{WITHDRAWAL_CONFIRMATION}</p>
+        {errorText && <p role="alert" className="learner-my-course-withdraw-error">{errorText}</p>}
+      </Modal>
     </li>
   );
 };
@@ -97,7 +162,7 @@ const MyCoursesContent = ({ page }: { page: number }) => {
       {/* Giữ đúng thứ tự backend trả về (D22) */}
       <ul className="learner-my-course-list">
         {items.map((item) => (
-          <MyCourseListRow key={item.enrollmentId} row={buildMyCourseRow(item, organizationTimezone)} />
+          <MyCourseListRow key={item.enrollmentId} item={item} row={buildMyCourseRow(item, organizationTimezone)} onReload={query.reload} />
         ))}
       </ul>
       <UrlPagination meta={meta} />

@@ -73,8 +73,6 @@ import LearnerCourseCurriculum from "./pages/learner/course.curriculum";
 import LearnerLessonDetail from "./pages/learner/lesson.detail";
 import LearnerLessonResource from "./pages/learner/lesson.resource";
 import LearnerCourseProgress from "./pages/learner/course.progress";
-import LearnerCourseWithdraw from "./pages/learner/course.withdraw";
-import LearnerCourseWithdrawn from "./pages/learner/course.withdrawn";
 import LearnerCourseAssessments from "./pages/learner/course.assessments";
 import LearnerQuizTake from "./pages/learner/quiz.take";
 import LearnerQuizHistory from "./pages/learner/quiz.history";
@@ -281,14 +279,6 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <LearnerDashboard /> },
       { path: "courses", element: <LearnerMyCourses /> },
-      {
-        path: "courses/:enrollmentId/withdraw",
-        element: <LearnerCourseWithdraw />,
-      },
-      {
-        path: "courses/:enrollmentId/withdrawn",
-        element: <LearnerCourseWithdrawn />,
-      },
       {
         path: "courses/:enrollmentId/evaluation",
         element: <LearnerCourseEvaluation />,

@@ -86,9 +86,15 @@ a.learner-my-course-title:hover {
 }
 
 .learner-my-course-action {
+  display: flex;
+  gap: var(--space-2);
   position: relative;
   z-index: 1;
   flex: 0 0 auto;
+}
+
+.learner-my-course-withdraw-error {
+  color: var(--color-error);
 }
 
 @media (max-width: 640px) {

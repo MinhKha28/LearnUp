@@ -5,6 +5,7 @@ import type {
   EnrolledCourseLink,
   LessonDetailData,
   MyEnrollmentsPage,
+  WithdrawalResult,
 } from "@/types/learning.types";
 
 export const fetchEnrolledCourseLinks = (signal?: AbortSignal) =>
@@ -12,6 +13,9 @@ export const fetchEnrolledCourseLinks = (signal?: AbortSignal) =>
 
 export const enrollOptionalCourse = (courseId: string) =>
   apiPost<CreatedEnrollment>(API_PATHS.enroll, { courseId });
+
+export const withdrawOptionalCourse = (enrollmentId: string) =>
+  apiPost<WithdrawalResult>(API_PATHS.withdrawal(enrollmentId), undefined);
 
 export const fetchMyEnrollments = (page: number, signal?: AbortSignal) =>
   apiGet<MyEnrollmentsPage>(API_PATHS.myEnrollments, { params: { page }, signal });
