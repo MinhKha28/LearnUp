@@ -6,13 +6,16 @@ import {
 } from '@learnup/ts-storage';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
 import { AssessmentsRepository } from './assessments.repository';
 import {
@@ -28,10 +31,22 @@ import type { PromptFileDto } from './dto/create-assignment.dto';
 export class AssignmentMediaService {
   private readonly logger = new Logger(AssignmentMediaService.name);
 
+  /**
+   * Look at the stored file with a HEAD request. A test replaces it; so does PROMPT_FILE_VERIFY=off (dev and
+   * integration tests that never reach the storage).
+   */
+  head: (url: string) => Promise<Response | null> = (url) =>
+    fetch(url, { method: 'HEAD' }).catch(() => null);
+
+  private readonly verifyFiles: boolean;
+
   constructor(
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
     private readonly repository: AssessmentsRepository,
-  ) {}
+    @Optional() config?: ConfigService,
+  ) {
+    this.verifyFiles = config?.get<string>('PROMPT_FILE_VERIFY') !== 'off';
+  }
 
   /** UC19.2 / UC19.3 — store the prompt file; the returned object goes into `promptFile` of create/update. */
   async uploadPromptFile(
@@ -134,6 +149,82 @@ export class AssignmentMediaService {
       });
     }
     return { ...file, mimeType: PDF_MIME };
+  }
+
+  /**
+   * UC19.2 / UC19.3 — the Instructor cancelled or replaced a file that was uploaded but not saved: remove it from the
+   * storage. Only a file of the own Organization that no Assignment uses is removed, so a saved file is never lost.
+   */
+  async discardPromptFile(
+    user: CurrentUser,
+    fileKey: string,
+  ): Promise<{ fileKey: string }> {
+    if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Only an Instructor can manage Assignments.',
+      });
+    }
+    if (
+      fileKey.includes('..') ||
+      !fileKey.startsWith(`${promptFileFolder(user.organizationId)}/`)
+    ) {
+      throw new BadRequestException({
+        code: 'PROMPT_FILE_NOT_FOUND',
+        message: 'The prompt file was not uploaded.',
+      });
+    }
+    if (await this.repository.isPromptFileInUse(fileKey)) {
+      throw new ConflictException({
+        code: 'PROMPT_FILE_IN_USE',
+        message: 'The prompt file belongs to an Assignment, so it was kept.',
+      });
+    }
+    try {
+      await this.storage.delete(fileKey, { resourceType: 'raw' });
+    } catch (error) {
+      this.logger.warn(`Prompt file ${fileKey} was not removed: ${String(error)}`);
+      throw new ServiceUnavailableException({
+        code: 'STORAGE_UNAVAILABLE',
+        message: 'Unable to remove the prompt file. Try again later.',
+      });
+    }
+    return { fileKey };
+  }
+
+  /**
+   * UC19.2 / UC19.3 — before a file is attached, make sure it really is in the storage and take its size from there:
+   * the name, type and size in the request come from the client and are not to be trusted (BR-320).
+   */
+  async confirmPromptFile(
+    organizationId: string,
+    file: PromptFileDto,
+  ): Promise<PromptFileDto> {
+    const resolved = this.resolvePromptFile(organizationId, file);
+    if (!this.verifyFiles) return resolved;
+
+    const response = await this.head(this.storage.getUrl(file.fileKey, 'raw'));
+    if (!response || response.status >= 500) {
+      throw new ServiceUnavailableException({
+        code: 'STORAGE_UNAVAILABLE',
+        message: 'Unable to check the prompt file. Try again later.',
+      });
+    }
+    if (!response.ok) {
+      throw new BadRequestException({
+        code: 'PROMPT_FILE_NOT_FOUND',
+        message: 'The prompt file was not uploaded. Upload it first.',
+      });
+    }
+    const storedSize = Number(response.headers.get('content-length'));
+    if (!Number.isFinite(storedSize) || storedSize <= 0) return resolved;
+    if (storedSize > PROMPT_FILE_MAX_BYTES) {
+      throw new BadRequestException({
+        code: 'PROMPT_FILE_TOO_LARGE',
+        message: 'The prompt file must be 50 MB or smaller.',
+      });
+    }
+    return { ...resolved, sizeBytes: storedSize };
   }
 
   /** UC19.1 — the stored file of an Assignment the caller already proved to manage. */

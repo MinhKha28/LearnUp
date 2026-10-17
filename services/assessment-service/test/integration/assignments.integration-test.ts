@@ -145,7 +145,7 @@ describe('UC19 over HTTP', () => {
       assert.equal(row.is_required, true);
       assert.equal(
         await count(
-          `SELECT count(*) FROM outbox_events WHERE aggregate_id = $1 AND event_type = 'AssignmentCreated'`,
+          `SELECT count(*) FROM outbox_events WHERE aggregate_id = $1 AND event_type = 'AssignmentMinutesChanged' AND payload->>'change' = 'Created'`,
           [first.id],
         ),
         1,
@@ -245,7 +245,7 @@ describe('UC19 over HTTP', () => {
       );
       assert.equal(
         await count(
-          `SELECT count(*) FROM outbox_events WHERE aggregate_id = $1 AND event_type = 'AssignmentDurationChanged'`,
+          `SELECT count(*) FROM outbox_events WHERE aggregate_id = $1 AND event_type = 'AssignmentMinutesChanged' AND payload->>'change' = 'DurationChanged'`,
           [first.id],
         ),
         1,
@@ -407,7 +407,7 @@ describe('UC19 over HTTP', () => {
       );
       assert.equal(
         await count(
-          `SELECT count(*) FROM outbox_events WHERE aggregate_id = $1 AND event_type = 'AssignmentDeleted'`,
+          `SELECT count(*) FROM outbox_events WHERE aggregate_id = $1 AND event_type = 'AssignmentMinutesChanged' AND payload->>'change' = 'Deleted'`,
           [unused.id],
         ),
         1,

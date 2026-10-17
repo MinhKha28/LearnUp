@@ -6,7 +6,7 @@ import type { ICourseBuilderOutletContext } from "@/components/layout/layout.ins
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import PromptFileField from "@/components/instructor/prompt.file.field";
 import RubricEditor from "@/components/instructor/rubric.editor";
-import { assessmentErrorText, createAssignmentAPI, toApiCourseId } from "@/services/assessment.service";
+import { assessmentErrorText, createAssignmentAPI, discardPromptFileAPI, toApiCourseId } from "@/services/assessment.service";
 import type { IPromptFile, IRubricRow } from "@/types/assessment.types";
 import { newRubricRow } from "@/utils/helper";
 import {
@@ -176,7 +176,15 @@ const CourseBuilderAssignmentCreate = () => {
           <RubricEditor rows={rubric} onChange={setRubric} showErrors={submitted} />
 
           <div className="builder-actions builder-actions-split">
-            <InstructorButton onClick={() => navigate(cancelPath)}>Cancel</InstructorButton>
+            <InstructorButton
+              onClick={() => {
+                // nothing is saved yet, so an uploaded file would stay in the storage for nothing
+                if (promptFile) void discardPromptFileAPI(promptFile.fileKey);
+                navigate(cancelPath);
+              }}
+            >
+              Cancel
+            </InstructorButton>
             <InstructorButton type="primary" loading={saving} onClick={handleCreate}>
               Create Assignment
             </InstructorButton>

@@ -93,6 +93,14 @@ export class AssessmentsRepository {
     });
   }
 
+  /** Is the stored prompt file linked to any Assignment? */
+  async isPromptFileInUse(fileKey: string): Promise<boolean> {
+    const count = await this.prisma.assessment.count({
+      where: { promptFileKey: fileKey },
+    });
+    return count > 0;
+  }
+
   /**
    * Lock the Assignment row, then count its submissions. Inserting a submission takes a
    * key-share lock on this row (FK), so it waits until we commit, which makes the
@@ -107,6 +115,26 @@ export class AssessmentsRepository {
     >`SELECT id FROM assessments WHERE id = ${assessmentId}::uuid FOR UPDATE`;
     if (rows.length === 0) throw new NotFoundException('Assignment not found.');
     return tx.submission.count({ where: { assessmentId } });
+  }
+
+  /** BR-51: the total expected duration (minutes) of all the Assignments of a Course version. */
+  async sumExpectedMinutes(
+    organizationId: string,
+    courseId: string,
+  ): Promise<number> {
+    const result = await this.prisma.assessment.aggregate({
+      where: { organizationId, courseId, kind: KIND_ASSIGNMENT },
+      _sum: { expectedDurationMinutes: true },
+    });
+    return result._sum.expectedDurationMinutes ?? 0;
+  }
+
+  /** The Course Service has been told: the outbox row is done. */
+  markOutboxPublished(id: string) {
+    return this.prisma.outboxEvent.update({
+      where: { id },
+      data: { publishedAt: new Date() },
+    });
   }
 
   /** The outbox row is written in the same transaction as the change it announces. */

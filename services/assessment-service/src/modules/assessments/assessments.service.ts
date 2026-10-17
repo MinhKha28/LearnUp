@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { createPageResponse, type CurrentUser } from '@learnup/ts-common';
@@ -32,8 +33,13 @@ export const AUTHORABLE_STATUSES = ['Draft', 'Rejected', 'Published'];
 
 export { assignmentInclude };
 
+/** The one event of UC19.2 / UC19.3 / UC19.4 for Course Service (BR-51, BR-172). */
+const MINUTES_CHANGED = 'AssignmentMinutesChanged';
+
 @Injectable()
 export class AssessmentsService {
+  private readonly logger = new Logger(AssessmentsService.name);
+
   constructor(
     private readonly repository: AssessmentsRepository,
     private readonly courses: CourseServiceClient,
@@ -69,23 +75,10 @@ export class AssessmentsService {
     }
 
     const course = await this.requireOwnCourse(user, dto.courseId);
-    if (course.disabled || !AUTHORABLE_STATUSES.includes(course.status)) {
-      throw new ConflictException({
-        code: 'COURSE_NOT_EDITABLE',
-        message: `Assignments cannot be added while the Course is ${course.status}.`,
-      });
-    }
-    // BR-318: no new Assignment once the Course is Locked.
-    if (course.locked) {
-      throw new ConflictException({
-        code: 'COURSE_LOCKED',
-        message:
-          'The Course is Locked because a Learner has enrolled. Create a new Course version to add an Assignment.',
-      });
-    }
+    this.assertCanAdd(course);
 
     const promptFile = dto.promptFile
-      ? this.media.resolvePromptFile(organizationId, dto.promptFile)
+      ? await this.media.confirmPromptFile(organizationId, dto.promptFile)
       : undefined;
     const settings = await this.repository.findLatestPlatformSetting();
     const maxConsecutiveAttempts =
@@ -95,6 +88,7 @@ export class AssessmentsService {
     const lockoutHours =
       dto.lockoutHours ?? settings?.defaultLockoutHours ?? 24;
 
+    let minutesEventId = '';
     const assignment = await this.repository.transaction(async (tx) => {
       await this.repository.lockCourse(tx, dto.courseId);
       const lastPosition = await this.repository.lastPositionOfCourse(
@@ -124,22 +118,78 @@ export class AssessmentsService {
       await this.rubrics.createMany(tx, organizationId, created.id, dto.rubric);
       const withRubric = await this.repository.findWithRubric(tx, created.id);
 
-      // BR-51 / BR-172: Course Service adds this duration to the Course estimate.
-      await this.repository.createOutboxEvent(tx, {
-        aggregateId: created.id,
-        eventType: 'AssignmentCreated',
-        organizationId,
-        payload: {
-          assignmentId: created.id,
-          courseId: created.courseId,
-          expectedDurationMinutes: dto.expectedDurationMinutes,
-        },
-      });
+      // BR-51 / BR-172: the duration goes into the Course estimate (AssignmentMinutesChanged).
+      minutesEventId = (
+        await this.repository.createOutboxEvent(tx, {
+          aggregateId: created.id,
+          eventType: MINUTES_CHANGED,
+          organizationId,
+          payload: {
+            assignmentId: created.id,
+            courseId: created.courseId,
+            change: 'Created',
+            expectedDurationMinutes: dto.expectedDurationMinutes,
+          },
+        })
+      ).id;
+
+      // BR-318: a Learner may have enrolled since the first look at the Course (a different service, so no common
+      // lock). Look again right before the commit: the window left is the time of this one call.
+      this.assertCanAdd(await this.requireOwnCourse(user, dto.courseId));
 
       return withRubric;
     });
 
+    await this.syncAssignmentMinutes(
+      user,
+      organizationId,
+      dto.courseId,
+      minutesEventId,
+    );
     return this.toDetail(assignment, course.locked);
+  }
+
+  /**
+   * BR-51 / BR-172: tell Course Service the total minutes of the Assignments of the Course, so its estimate follows.
+   * The total is absolute, so a call that failed is made right by the next one. It runs after the commit and never
+   * fails the Instructor's action: the Assignment is saved either way, and the outbox row stays unpublished when the
+   * Course Service could not be reached.
+   */
+  private async syncAssignmentMinutes(
+    user: CurrentUser,
+    organizationId: string,
+    courseId: string,
+    outboxEventId: string,
+  ) {
+    try {
+      const total = await this.repository.sumExpectedMinutes(
+        organizationId,
+        courseId,
+      );
+      await this.courses.setAssignmentMinutes(courseId, total, user);
+      await this.repository.markOutboxPublished(outboxEventId);
+    } catch (error) {
+      this.logger.warn(
+        `The Course ${courseId} was not told its Assignment minutes (event ${outboxEventId}): ${String(error)}`,
+      );
+    }
+  }
+
+  /** UC19.2: only an authorable Course that is not Locked takes a new Assignment (BR-284, BR-318). */
+  private assertCanAdd(course: CourseAuthoringContext) {
+    if (course.disabled || !AUTHORABLE_STATUSES.includes(course.status)) {
+      throw new ConflictException({
+        code: 'COURSE_NOT_EDITABLE',
+        message: `Assignments cannot be added while the Course is ${course.status}.`,
+      });
+    }
+    if (course.locked) {
+      throw new ConflictException({
+        code: 'COURSE_LOCKED',
+        message:
+          'The Course is Locked because a Learner has enrolled. Create a new Course version to add an Assignment.',
+      });
+    }
   }
 
   /** UC19 — list the Assignments of a Course. */
@@ -160,6 +210,8 @@ export class AssessmentsService {
       courseId: a.courseId,
       title: a.title,
       position: a.position,
+      passingScore: Number(a.passingScore),
+      expectedDurationMinutes: a.expectedDurationMinutes,
       peerReviewEnabled: a.peerReviewEnabled,
       maxConsecutiveAttempts: a.maxConsecutiveAttempts,
       lockoutHours: a.lockoutHours,
@@ -231,8 +283,11 @@ export class AssessmentsService {
 
     let nextFileKey = assignment.promptFileKey;
     if (dto.promptFile !== undefined) {
+      // The same file sent again is already stored and checked; only a different one is looked at.
       const newFile = dto.promptFile
-        ? this.media.resolvePromptFile(organizationId, dto.promptFile)
+        ? dto.promptFile.fileKey === assignment.promptFileKey
+          ? this.media.resolvePromptFile(organizationId, dto.promptFile)
+          : await this.media.confirmPromptFile(organizationId, dto.promptFile)
         : null;
       nextFileKey = newFile?.fileKey ?? null;
       if (nextFileKey !== assignment.promptFileKey) {
@@ -308,6 +363,7 @@ export class AssessmentsService {
       return this.toDetail(assignment, course.locked);
     }
 
+    let minutesEventId: string | null = null;
     const updated = await this.repository.transaction(async (tx) => {
       // Re-check under a row lock: a Learner submitting right now must not slip past BR-98.
       const submissions = await this.repository.lockAndCountSubmissions(
@@ -332,18 +388,22 @@ export class AssessmentsService {
         );
       }
       if (durationChanged) {
-        // BR-51 / BR-172: Course Service recomputes the Course estimate from this.
-        await this.repository.createOutboxEvent(tx, {
-          aggregateId: assignment.id,
-          eventType: 'AssignmentDurationChanged',
-          organizationId,
-          payload: {
-            assignmentId: assignment.id,
-            courseId: assignment.courseId,
-            expectedDurationMinutes: dto.expectedDurationMinutes,
-            previousExpectedDurationMinutes: assignment.expectedDurationMinutes,
-          },
-        });
+        // BR-51 / BR-172: the Course estimate follows the new duration (AssignmentMinutesChanged).
+        minutesEventId = (
+          await this.repository.createOutboxEvent(tx, {
+            aggregateId: assignment.id,
+            eventType: MINUTES_CHANGED,
+            organizationId,
+            payload: {
+              assignmentId: assignment.id,
+              courseId: assignment.courseId,
+              change: 'DurationChanged',
+              expectedDurationMinutes: dto.expectedDurationMinutes,
+              previousExpectedDurationMinutes:
+                assignment.expectedDurationMinutes,
+            },
+          })
+        ).id;
       }
       return this.repository.findWithRubric(tx, assignment.id);
     });
@@ -351,6 +411,14 @@ export class AssessmentsService {
     // The old file is no longer linked: remove it from storage.
     if (assignment.promptFileKey && nextFileKey !== assignment.promptFileKey) {
       await this.media.removeIfUnused(assignment.promptFileKey, assignment.id);
+    }
+    if (minutesEventId) {
+      await this.syncAssignmentMinutes(
+        user,
+        organizationId,
+        assignment.courseId,
+        minutesEventId,
+      );
     }
 
     return this.toDetail(updated, course.locked);
@@ -380,6 +448,7 @@ export class AssessmentsService {
     }
 
     // Rubric, peer review cycles and per-learner counters go with it (ON DELETE CASCADE).
+    let minutesEventId = '';
     await this.repository.transaction(async (tx) => {
       // Re-check under a row lock: a Learner submitting right now must not slip past BR-92.
       const submissions = await this.repository.lockAndCountSubmissions(
@@ -394,22 +463,31 @@ export class AssessmentsService {
         });
       }
       await this.repository.deleteAssignment(tx, assignment.id);
-      // BR-51 / BR-172: Course Service takes this duration out of the Course estimate.
-      await this.repository.createOutboxEvent(tx, {
-        aggregateId: assignment.id,
-        eventType: 'AssignmentDeleted',
-        organizationId,
-        payload: {
-          assignmentId: assignment.id,
-          courseId: assignment.courseId,
-          expectedDurationMinutes: assignment.expectedDurationMinutes,
-        },
-      });
+      // BR-51 / BR-172: the duration leaves the Course estimate (AssignmentMinutesChanged).
+      minutesEventId = (
+        await this.repository.createOutboxEvent(tx, {
+          aggregateId: assignment.id,
+          eventType: MINUTES_CHANGED,
+          organizationId,
+          payload: {
+            assignmentId: assignment.id,
+            courseId: assignment.courseId,
+            change: 'Deleted',
+            expectedDurationMinutes: assignment.expectedDurationMinutes,
+          },
+        })
+      ).id;
     });
 
     if (assignment.promptFileKey) {
       await this.media.removeIfUnused(assignment.promptFileKey, assignment.id);
     }
+    await this.syncAssignmentMinutes(
+      user,
+      organizationId,
+      assignment.courseId,
+      minutesEventId,
+    );
 
     return { id: assignment.id };
   }

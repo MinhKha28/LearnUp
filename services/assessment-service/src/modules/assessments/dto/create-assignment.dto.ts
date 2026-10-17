@@ -105,11 +105,11 @@ export class CreateAssignmentDto {
   @Max(8760)
   lockoutHours?: number;
 
-  /** BR-164: Rubric is mandatory for every Assignment. */
+  /** BR-164: Rubric is mandatory for every Assignment; UC19.2 step 3: 1-10 criteria. */
   @ApiProperty({ type: [CreateRubricDto] })
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(50)
+  @ArrayMaxSize(10)
   @ValidateNested({ each: true })
   @Type(() => CreateRubricDto)
   rubric!: CreateRubricDto[];

@@ -1,5 +1,6 @@
 import type { CurrentUser } from '@learnup/ts-common';
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -16,6 +17,7 @@ import { ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { ResponseMessage, User } from '../../common/decorator/customize';
 import { PROMPT_FILE_MAX_BYTES } from './assignment-media.constants';
+import { DiscardPromptFileDto } from './dto/discard-prompt-file.dto';
 import { AssignmentMediaService } from './assignment-media.service';
 import { AssessmentsService } from './assessments.service';
 
@@ -42,6 +44,17 @@ export class AssignmentMediaController {
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.mediaService.uploadPromptFile(user, file);
+  }
+
+  /** UC19.2 / UC19.3 — Remove an uploaded prompt file that was not saved with an Assignment (cancel or replace). */
+  @Post('assignments/prompt-file/discard')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Prompt file discarded successfully.')
+  discardPromptFile(
+    @User() user: CurrentUser,
+    @Body() dto: DiscardPromptFileDto,
+  ) {
+    return this.mediaService.discardPromptFile(user, dto.fileKey);
   }
 
   /** UC19.1 — Download the prompt file of an Assignment */

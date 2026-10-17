@@ -111,3 +111,41 @@ describe('I1 lock fast path', () => {
     },
   );
 });
+
+describe('UC19 assignment minutes (BR-51, BR-172, BR-173)', () => {
+  const query = jest.fn();
+  const service = new InternalCoursesService({
+    $queryRaw: query,
+  } as unknown as PrismaService);
+
+  beforeEach(() => jest.resetAllMocks());
+
+  it('stores the total and answers with it', async () => {
+    const asOf = new Date('2026-10-17T00:00:00Z');
+    query.mockResolvedValue([
+      { id: row.id, assignment_minutes: 150, as_of: asOf },
+    ]);
+    await expect(service.setAssignmentMinutes(org, row.id, 150)).resolves.toEqual({
+      courseId: row.id,
+      assignmentMinutes: 150,
+      assignmentMinutesAsOf: asOf,
+    });
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it('is 404 for a Course of another Organization or an unknown one', async () => {
+    query.mockResolvedValue([]);
+    await expect(
+      service.setAssignmentMinutes(org, row.id, 10),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('is 404 without a valid Organization, and nothing is written', async () => {
+    for (const bad of [undefined, 'not-a-uuid']) {
+      await expect(
+        service.setAssignmentMinutes(bad, row.id, 10),
+      ).rejects.toMatchObject({ status: 404 });
+    }
+    expect(query).not.toHaveBeenCalled();
+  });
+});

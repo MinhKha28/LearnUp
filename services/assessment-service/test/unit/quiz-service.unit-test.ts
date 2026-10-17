@@ -31,6 +31,9 @@ class StubCourseClient extends CourseServiceClient {
   getAuthoringContext(): Promise<CourseAuthoringContext> {
     return Promise.resolve(this.ctx);
   }
+  setAssignmentMinutes(): Promise<void> {
+    return Promise.resolve();
+  }
   getModuleIds(): Promise<string[] | null> {
     return Promise.resolve(null);
   }

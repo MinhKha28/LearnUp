@@ -149,11 +149,28 @@ export const draftCourse = (
 });
 
 class StubCourseClient extends CourseServiceClient {
-  constructor(private readonly ctx: CourseAuthoringContext) {
+  /** What the Course was told about the minutes of its Assignments. */
+  readonly minutesReports: { courseId: string; minutes: number }[] = [];
+  /** true = Course Service cannot be reached when told the minutes. */
+  failMinutes = false;
+  private reads = 0;
+  constructor(
+    private readonly ctx: CourseAuthoringContext,
+    /** What the Course looks like from the second read on (a change between two looks). */
+    private readonly later?: CourseAuthoringContext,
+  ) {
     super();
   }
   getAuthoringContext(): Promise<CourseAuthoringContext> {
-    return Promise.resolve(this.ctx);
+    this.reads += 1;
+    return Promise.resolve(this.reads > 1 && this.later ? this.later : this.ctx);
+  }
+  setAssignmentMinutes(courseId: string, minutes: number): Promise<void> {
+    if (this.failMinutes) {
+      return Promise.reject(new Error('Course Service is down'));
+    }
+    this.minutesReports.push({ courseId, minutes });
+    return Promise.resolve();
   }
   getModuleIds(): Promise<string[] | null> {
     return Promise.resolve(null);
@@ -164,6 +181,8 @@ export interface BuildOptions {
   row?: AssignmentRowFake | null;
   rows?: AssignmentRowFake[];
   course?: Partial<CourseAuthoringContext>;
+  /** The Course as it is from the second look on, e.g. { locked: true } when a Learner enrolls in between. */
+  courseLater?: Partial<CourseAuthoringContext>;
   settings?: Record<string, number> | null;
   /** Highest `position` already used on the Course. */
   maxPosition?: number;
@@ -173,6 +192,8 @@ export interface BuildOptions {
   rowStillExists?: boolean;
   /** Other Assignments that still use the same prompt file key. */
   sharedFileUsers?: number;
+  /** Total expected minutes of the Assignments of the Course after the change. */
+  minutesTotal?: number;
 }
 
 export interface Calls {
@@ -182,6 +203,8 @@ export interface Calls {
   rubricRows: Omit<RubricRowFake, 'id'>[];
   rubricDeletes: number;
   outbox: { eventType: string; payload: Record<string, unknown> }[];
+  /** Outbox rows marked as published. */
+  published: string[];
 }
 
 export function build(opts: BuildOptions = {}) {
@@ -193,6 +216,7 @@ export function build(opts: BuildOptions = {}) {
     rubricRows: [],
     rubricDeletes: 0,
     outbox: [],
+    published: [],
   };
   const merged = () => ({
     ...(row ?? assignmentRow()),
@@ -255,7 +279,7 @@ export function build(opts: BuildOptions = {}) {
         data: { eventType: string; payload: Record<string, unknown> };
       }) => {
         calls.outbox.push(data);
-        return Promise.resolve({});
+        return Promise.resolve({ id: `outbox-${calls.outbox.length}` });
       },
     },
   };
@@ -264,7 +288,17 @@ export function build(opts: BuildOptions = {}) {
     platformSetting: {
       findFirst: () => Promise.resolve(opts.settings ?? null),
     },
+    outboxEvent: {
+      update: ({ where }: { where: { id: string } }) => {
+        calls.published.push(where.id);
+        return Promise.resolve({});
+      },
+    },
     assessment: {
+      aggregate: () =>
+        Promise.resolve({
+          _sum: { expectedDurationMinutes: opts.minutesTotal ?? 90 },
+        }),
       findMany: () => Promise.resolve(opts.rows ?? (row ? [row] : [])),
       findFirst: () => Promise.resolve(row),
       count: () => Promise.resolve(opts.sharedFileUsers ?? 0),
@@ -273,11 +307,27 @@ export function build(opts: BuildOptions = {}) {
     $transaction: <T>(fn: (t: typeof tx) => Promise<T>) => fn(tx),
   } as unknown as PrismaService;
 
-  const courses = new StubCourseClient(draftCourse(opts.course));
+  const courses = new StubCourseClient(
+    draftCourse(opts.course),
+    opts.courseLater ? draftCourse({ ...opts.course, ...opts.courseLater }) : undefined,
+  );
   const rubrics = new RubricsService();
   const storage = new MemoryStorage();
   const repository = new AssessmentsRepository(prisma);
   const media = new AssignmentMediaService(storage, repository);
+  // The stored file is "found" when MemoryStorage holds it; its size is the one of the bytes.
+  media.head = (url: string) => {
+    const key = url.replace('https://files.test/', '');
+    const bytes = storage.files.get(key);
+    return Promise.resolve(
+      bytes
+        ? new Response(null, {
+            status: 200,
+            headers: { 'content-length': String(bytes.length) },
+          })
+        : new Response(null, { status: 404 }),
+    );
+  };
   const assessments = new AssessmentsService(
     repository,
     courses,
@@ -286,6 +336,7 @@ export function build(opts: BuildOptions = {}) {
   );
   return {
     calls,
+    courses,
     storage,
     media,
     assessments,

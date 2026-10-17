@@ -46,6 +46,8 @@ export interface IAssignmentSummary {
   courseId: string;
   title: string;
   position: number;
+  passingScore: number;
+  expectedDurationMinutes: number | null;
   peerReviewEnabled: boolean;
   maxConsecutiveAttempts: number;
   lockoutHours: number;

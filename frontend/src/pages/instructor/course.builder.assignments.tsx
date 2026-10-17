@@ -5,6 +5,7 @@ import type { ICourseBuilderOutletContext } from "@/components/layout/layout.ins
 import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import { assessmentErrorText, fetchAssignmentsAPI } from "@/services/assessment.service";
 import type { IAssignmentSummary } from "@/types/assessment.types";
+import { formatMinutes } from "@/utils/helper";
 import "./course.builder.scss";
 import "./course.builder.assignment.scss";
 
@@ -91,6 +92,9 @@ const CourseBuilderAssignments = () => {
                     {assignment.title}
                     {assignment.disabled && " (Disabled)"}
                   </strong>
+                  <small>
+                    Passing score {assignment.passingScore}% · about {formatMinutes(assignment.expectedDurationMinutes)}
+                  </small>
                   <small>
                     {assignment.maxConsecutiveAttempts} attempts, then a {assignment.lockoutHours} h lock
                   </small>
