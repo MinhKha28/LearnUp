@@ -15,15 +15,21 @@ const ORG = "25030000-0000-4000-8000-000000000001";
 const id = (kind, n = 1) =>
   `2503${kind}-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const COURSE = id("0001");
+// Title Case values per D71, valid on current develop and after D71 merges.
+const COURSE_VALUES = { status: "Published", courseType: "Public" };
 const backgrounds = Array.from({ length: 100 }, (_, n) => id("0002", n + 1));
 const courses = [COURSE, ...backgrounds];
 const url = new URL(process.env.DATABASE_URL);
 url.search = "";
 if (process.env.PERF_DB_PORT) url.port = process.env.PERF_DB_PORT;
-const learning = new Client({ connectionString: url.href });
+const learning = new Client({
+  connectionString: url.href,
+  application_name: "uc25_perf_fixture",
+});
 url.pathname = "/course_db";
 const course = new Client({
   connectionString: process.env.COURSE_DATABASE_URL || url.href,
+  application_name: "uc25_perf_fixture",
 });
 const write = (name, data) => {
   const dir = path.join(__dirname, "results");
@@ -99,9 +105,9 @@ async function seed() {
   );
   await course.query(
     `INSERT INTO courses (id,organization_id,chain_id,version_number,name,learning_outcomes,expected_completion_days,course_type,status,published_at,created_at,updated_at)
-    SELECT c,$3,ch,1,'UC25.3 perf ' || c,ARRAY['Perf outcome'],30,'Public','Published',now(),now(),now()
+    SELECT c,$3,ch,1,'UC25.3 perf ' || c,ARRAY['Perf outcome'],30,$4,$5,now(),now(),now()
     FROM unnest($1::uuid[],$2::uuid[]) x(c,ch) ON CONFLICT (id) DO NOTHING`,
-    [courses, chainIds, ORG],
+    [courses, chainIds, ORG, COURSE_VALUES.courseType, COURSE_VALUES.status],
   );
   await course.query(
     `INSERT INTO modules (id,organization_id,course_id,title,position,created_at,updated_at)
@@ -141,7 +147,7 @@ async function seed() {
       targetCourse: COURSE,
       backgroundCourses: 100,
       backgroundEnrollments: 50000,
-      learners: 2000,
+      learners: 5000,
     }),
   );
 }
@@ -223,7 +229,7 @@ async function monitor(label) {
     const { rows } =
       await learning.query(`SELECT datname,state,wait_event_type,wait_event,count(*)::int AS connections,
       max(EXTRACT(epoch FROM (clock_timestamp()-query_start))*1000)::float AS oldest_query_ms
-      FROM pg_stat_activity WHERE datname IN ('learning_db','course_db') AND pid<>pg_backend_pid()
+      FROM pg_stat_activity WHERE datname IN ('learning_db','course_db') AND application_name <> 'uc25_perf_fixture'
       GROUP BY datname,state,wait_event_type,wait_event`);
     samples.push({ at: new Date().toISOString(), activity: rows });
     write(`${label}-pg-activity.json`, samples);
