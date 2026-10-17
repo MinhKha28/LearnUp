@@ -132,4 +132,55 @@ export class HttpCourseServiceClient extends CourseServiceClient {
     }>;
     return body.data.modules.map((module) => module.id);
   }
+
+  /**
+   *   POST {COURSE_SERVICE_URL}/api/v1/internal/courses/{courseId}/assignment-minutes   body: { minutes }
+   *   Header: như getAuthoringContext. course-service ghi assignment_minutes của Course thuộc x-organization-id.
+   *   200:    đã ghi. 404: Course không tồn tại (hoặc thuộc tổ chức khác).
+   */
+  async setAssignmentMinutes(
+    courseId: string,
+    minutes: number,
+    user: CurrentUser,
+  ): Promise<void> {
+    let response: Response;
+    try {
+      response = await fetch(
+        `${this.baseUrl}/api/v1/internal/courses/${courseId}/assignment-minutes`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            [HEADER_NAMES.INTERNAL_KEY]: this.internalKey,
+            [HEADER_NAMES.USER_ID]: user.userId,
+            [HEADER_NAMES.ORGANIZATION_ID]: user.organizationId ?? '',
+            [HEADER_NAMES.USER_ROLE]: user.role,
+          },
+          body: JSON.stringify({ minutes }),
+          signal: AbortSignal.timeout(this.timeoutMs),
+        },
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Không gọi được course-service (${this.baseUrl}): ${(error as Error).message}`,
+      );
+      throw new ServiceUnavailableException({
+        code: 'COURSE_SERVICE_UNAVAILABLE',
+        message: 'Course Service is unavailable. Please try again later.',
+      });
+    }
+    if (response.status === 404) {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+    if (!response.ok) {
+      this.logger.warn(`course-service trả về HTTP ${response.status}.`);
+      throw new ServiceUnavailableException({
+        code: 'COURSE_SERVICE_UNAVAILABLE',
+        message: `Course Service returned HTTP ${response.status}.`,
+      });
+    }
+  }
 }

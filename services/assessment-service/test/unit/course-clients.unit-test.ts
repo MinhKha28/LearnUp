@@ -69,6 +69,35 @@ describe('HttpCourseServiceClient', () => {
     assert.equal(seen.headers?.['x-user-role'], 'INSTRUCTOR');
   });
 
+  test('setAssignmentMinutes posts the total with the internal key and the caller identity', async () => {
+    mode = 'ok';
+    let body = '';
+    server.once('request', (req) => {
+      req.on('data', (chunk: Buffer) => (body += chunk.toString()));
+    });
+    await client().setAssignmentMinutes(COURSE, 135, instructor);
+    assert.equal(seen.url, `/api/v1/internal/courses/${COURSE}/assignment-minutes`);
+    assert.equal(seen.headers?.['x-internal-key'], 'secret');
+    assert.equal(seen.headers?.['x-organization-id'], ORG);
+    assert.deepEqual(JSON.parse(body), { minutes: 135 });
+  });
+
+  test('setAssignmentMinutes: 404 is COURSE_NOT_FOUND, any other failure is a 503', async () => {
+    mode = '404';
+    await rejectsWith(
+      client().setAssignmentMinutes(COURSE, 1, instructor),
+      NotFoundException,
+      'COURSE_NOT_FOUND',
+    );
+    mode = '500';
+    await rejectsWith(
+      client().setAssignmentMinutes(COURSE, 1, instructor),
+      ServiceUnavailableException,
+      'COURSE_SERVICE_UNAVAILABLE',
+    );
+    mode = 'ok';
+  });
+
   test('404 from Course Service is a 404 here (COURSE_NOT_FOUND)', async () => {
     mode = '404';
     await rejectsWith(

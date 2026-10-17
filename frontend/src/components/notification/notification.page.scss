@@ -1,0 +1,112 @@
+.notification-page {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.notification-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notification-page-title h1 {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.notification-page-title p {
+  display: flex;
+  margin: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.notification-page-count {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.notification-page-card {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.notification-page-card .notification-item:last-child {
+  border-bottom: 0;
+}
+
+.notification-page-skeleton {
+  padding: 16px 20px;
+}
+
+.notification-page-state {
+  display: flex;
+  min-height: 340px;
+  padding: 48px 24px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.notification-page-state-icon {
+  display: inline-flex;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 14px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #eef2ff;
+  box-shadow: 0 0 0 10px #f5f7ff;
+  color: #4f46e5;
+  font-size: 30px;
+}
+
+.notification-page-state-error .notification-page-state-icon {
+  background: #fee2e2;
+  box-shadow: 0 0 0 10px #fff1f1;
+  color: #dc2626;
+}
+
+.notification-page-state strong {
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.notification-page-state p {
+  max-width: 380px;
+  margin: 0 0 14px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.notification-page-pagination {
+  align-self: flex-end;
+}
+
+@media (max-width: 640px) {
+  .notification-page-head {
+    align-items: flex-start;
+  }
+}

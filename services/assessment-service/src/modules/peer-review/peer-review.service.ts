@@ -1,16 +1,16 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 
+import { AssessmentsRepository } from '../assessments/assessments.repository';
 import {
   AssessmentsService,
   AUTHORABLE_STATUSES,
-  assignmentInclude,
 } from '../assessments/assessments.service';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { cycleStatusOf } from './cycle-status';
 import type { IPeerReviewCycleList } from './interfaces/peer-review-cycle.interface';
 import { UpdatePeerReviewDto } from './dto/update-peer-review.dto';
-import { Prisma } from 'generated/prisma/browser';
+import { PeerReviewRepository } from './peer-review.repository';
+import type { PeerReviewUpdateData } from './interfaces/peer-review-update-data.interface';
 
 @Injectable()
 export class PeerReviewService {
@@ -18,7 +18,8 @@ export class PeerReviewService {
   clock: () => Date = () => new Date();
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repository: PeerReviewRepository,
+    private readonly assessmentsRepository: AssessmentsRepository,
     private readonly assessments: AssessmentsService,
   ) {}
 
@@ -39,20 +40,9 @@ export class PeerReviewService {
       });
     }
 
-    const cycles = await this.prisma.peerReviewCycle.findMany({
-      where: { assessmentId: assignment.id },
-      orderBy: { opensAt: 'asc' },
-    });
-    const counts = await this.prisma.submission.groupBy({
-      by: ['cycleId'],
-      where: {
-        cycleId: { in: cycles.map((cycle) => cycle.id) },
-        supersededAt: null,
-      },
-      _count: { _all: true },
-    });
-    const countOf = new Map(
-      counts.map((row) => [row.cycleId, row._count._all]),
+    const cycles = await this.repository.findCycles(assignment.id);
+    const countOf = await this.repository.countSubmissionsByCycle(
+      cycles.map((cycle) => cycle.id),
     );
 
     const now = this.clock();
@@ -99,10 +89,7 @@ export class PeerReviewService {
       assignmentId,
     );
 
-    if (
-      course.disabled ||
-      !AUTHORABLE_STATUSES.includes(course.status)
-    ) {
+    if (course.disabled || !AUTHORABLE_STATUSES.includes(course.status)) {
       throw new ConflictException({
         code: 'COURSE_NOT_EDITABLE',
         message: `Peer Review cannot be changed while the Course is ${course.status}.`,
@@ -117,11 +104,10 @@ export class PeerReviewService {
       });
     }
 
-    let data: Prisma.AssessmentUpdateInput = { peerReviewEnabled: dto.enabled };
+    let data: PeerReviewUpdateData = { peerReviewEnabled: dto.enabled };
     if (dto.enabled) {
-      const settings = await this.prisma.platformSetting.findFirst({
-        orderBy: { createdAt: 'desc' },
-      });
+      const settings =
+        await this.assessmentsRepository.findLatestPlatformSetting();
       data = {
         peerReviewEnabled: true,
         peerReviewersPerSubmission: dto.reviewersPerSubmission,
@@ -140,11 +126,7 @@ export class PeerReviewService {
     }
 
     // BR-269: new values apply only to cycles created afterwards; existing cycles keep their dates.
-    const updated = await this.prisma.assessment.update({
-      where: { id: assignment.id },
-      data,
-      include: assignmentInclude,
-    });
+    const updated = await this.repository.updateConfig(assignment.id, data);
     return this.assessments.toDetail(updated, course.locked);
   }
 }

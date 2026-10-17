@@ -26,7 +26,10 @@ export const validateNumber = (value: number | null, rule: INumberRule): string 
 };
 
 /** Rubric criterion maximum score: a positive whole number (BR-315); the upper bound mirrors the API. */
-export const RUBRIC_POINTS_RULE: INumberRule = { required: true, integer: true, min: 1, max: 1000 };
+/** UC19.2 step 3: a Rubric has 1 to 10 criteria. */
+export const RUBRIC_MAX_CRITERIA = 10;
+/** UC19.2 step 3: a criterion is worth 1 to 100 points. */
+export const RUBRIC_POINTS_RULE: INumberRule = { required: true, integer: true, min: 1, max: 100 };
 
 // Assignment settings: same limits as the API, so the form says "no" before the server does.
 /** Passing score on the 0-100 scale, at most 2 decimals (BR-315). */
@@ -38,7 +41,8 @@ export const ATTEMPTS_RULE: INumberRule = { integer: true, min: 1, max: 1000 };
 export const LOCK_HOURS_RULE: INumberRule = { integer: true, min: 1, max: 8760 };
 
 // Peer Review settings (BR-183).
-export const PEER_REVIEWERS_RULE: INumberRule = { required: true, integer: true, min: 1 };
+/** UC19.5 step 3: 2 to 5 reviewers for each submission. */
+export const PEER_REVIEWERS_RULE: INumberRule = { required: true, integer: true, min: 2, max: 5 };
 /** Cycle length and review deadline in days; optional because the platform default applies. */
 export const PEER_DAYS_RULE: INumberRule = { integer: true, min: 1 };
 /** Score gap that sends a submission to the Instructor, on the 0-100 scale (BR-321). */

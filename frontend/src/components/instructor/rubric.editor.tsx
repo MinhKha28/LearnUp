@@ -1,7 +1,7 @@
 import { Input } from "antd";
 import type { IRubricRow } from "@/types/assessment.types";
 import { newRubricRow } from "@/utils/helper";
-import { RUBRIC_POINTS_RULE } from "@/utils/validation";
+import { RUBRIC_MAX_CRITERIA, RUBRIC_POINTS_RULE } from "@/utils/validation";
 import { FieldError, NumberField } from "./form.field";
 import { InstructorButton } from "./instructor.ui";
 import "@/pages/instructor/course.builder.scss";
@@ -59,7 +59,7 @@ const RubricEditor = ({ rows, onChange, disabled = false, showErrors = false }: 
         );
       })}
       {!disabled && (
-        <InstructorButton disabled={rows.length >= 50} onClick={() => onChange([...rows, newRubricRow()])}>
+        <InstructorButton disabled={rows.length >= RUBRIC_MAX_CRITERIA} onClick={() => onChange([...rows, newRubricRow()])}>
           + Add criterion
         </InstructorButton>
       )}

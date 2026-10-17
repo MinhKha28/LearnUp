@@ -19,12 +19,12 @@ export class UpdatePeerReviewDto {
   @IsBoolean()
   enabled!: boolean;
 
-  /** N — reviewers per submission. */
-  @ApiPropertyOptional({ minimum: 1 })
+  /** N — reviewers per submission, 2 to 5 (UC19.5 step 3). */
+  @ApiPropertyOptional({ minimum: 2, maximum: 5 })
   @ValidateIf((o: UpdatePeerReviewDto) => o.enabled)
   @IsInt()
-  @Min(1)
-  @Max(32767)
+  @Min(2)
+  @Max(5)
   reviewersPerSubmission?: number;
 
   /** L — cycle length in days (BR-184, BR-312). */

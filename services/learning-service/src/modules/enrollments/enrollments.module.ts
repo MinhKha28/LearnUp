@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { LearnerEnrollmentSummaryController } from './learner-enrollment-summary.controller';
+import { LearnerEnrollmentSummaryService } from './learner-enrollment-summary.service';
+import { LearnerEnrollmentSummaryRepository } from './learner-enrollment-summary.repository';
 import { ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import {
@@ -53,8 +56,10 @@ class EnrollmentRateLimitStorageModule {}
     PlatformSettingsModule,
     CourseSnapshotsModule,
   ],
-  controllers: [EnrollmentsController],
+  controllers: [EnrollmentsController, LearnerEnrollmentSummaryController],
   providers: [
+    LearnerEnrollmentSummaryService,
+    LearnerEnrollmentSummaryRepository,
     EnrollmentsService,
     OptionalEnrollmentRepository,
     EnrollmentWithdrawalService,

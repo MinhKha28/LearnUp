@@ -5,18 +5,9 @@ import type { ICourseBuilderOutletContext } from "@/components/layout/layout.ins
 import { InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
 import { assessmentErrorText, downloadPromptFileAPI, fetchAssignmentAPI } from "@/services/assessment.service";
 import type { IAssignment } from "@/types/assessment.types";
-import { formatFileSize } from "@/utils/helper";
+import { formatFileSize, formatMinutes } from "@/utils/helper";
 import "./course.builder.scss";
 import "./course.builder.assignment.scss";
-
-/** BR-174: stored in minutes, shown converted to hours once it reaches an hour. */
-const formatMinutes = (minutes: number | null) => {
-  if (minutes === null) return "-";
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
-};
 
 type TParamProps = { label: string; value: string; hint: string; tone?: "on" | "off" };
 

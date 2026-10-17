@@ -2,7 +2,7 @@ import { message } from "antd";
 import { useRef, useState } from "react";
 import { FieldError } from "@/components/instructor/form.field";
 import { InstructorButton } from "@/components/instructor/instructor.ui";
-import { assessmentErrorText, uploadPromptFileAPI } from "@/services/assessment.service";
+import { assessmentErrorText, discardPromptFileAPI, uploadPromptFileAPI } from "@/services/assessment.service";
 import type { IPromptFile } from "@/types/assessment.types";
 import { formatFileSize } from "@/utils/helper";
 
@@ -20,6 +20,12 @@ const PromptFileField = ({ value, onChange, disabled }: TProps) => {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Files uploaded on this screen and not saved yet: they are removed from the storage when replaced or removed.
+  const fresh = useRef(new Set<string>());
+
+  const dropIfFresh = (file: IPromptFile | null) => {
+    if (file && fresh.current.delete(file.fileKey)) void discardPromptFileAPI(file.fileKey);
+  };
 
   const pick = async (file?: File) => {
     if (!file) return;
@@ -40,6 +46,8 @@ const PromptFileField = ({ value, onChange, disabled }: TProps) => {
         void message.success(
           value ? "PDF replaced. Save the Assignment to keep it." : "PDF attached. Save the Assignment to keep it.",
         );
+        dropIfFresh(value);
+        fresh.current.add(res.data.fileKey);
         onChange(res.data);
       }
       else {
@@ -81,6 +89,7 @@ const PromptFileField = ({ value, onChange, disabled }: TProps) => {
                   Replace
                 </InstructorButton>
                 <InstructorButton disabled={busy} danger onClick={() => {
+                    dropIfFresh(value);
                     onChange(null);
                     void message.success("PDF removed. Save the Assignment to apply.");
                   }}

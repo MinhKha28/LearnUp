@@ -47,4 +47,12 @@ export class FakeCourseServiceClient extends CourseServiceClient {
   getModuleIds(): Promise<string[] | null> {
     return Promise.resolve(null);
   }
+
+  /** DỮ LIỆU GIẢ: không có course-service nên chỉ ghi log. Chuyển sang thật: COURSE_CLIENT_MODE=http. */
+  setAssignmentMinutes(courseId: string, minutes: number): Promise<void> {
+    this.logger.log(
+      `[FAKE] Course ${courseId}: tổng thời lượng Assignment ${minutes} phút (không gửi đi).`,
+    );
+    return Promise.resolve();
+  }
 }

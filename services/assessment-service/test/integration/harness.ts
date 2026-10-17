@@ -104,6 +104,10 @@ export interface CourseState {
 export interface CourseStub {
   url: string;
   state: CourseState;
+  /** The totals Course Service was told for the Assignment minutes, in order. */
+  minutes: number[];
+  /** true = answer 500 when told the minutes (the Course facts still answer). */
+  failMinutes: { value: boolean };
   /** Put the Course back to an unlocked Draft owned by INSTRUCTOR. */
   reset: () => void;
   stop: () => Promise<void>;
@@ -119,11 +123,26 @@ export async function startCourseStub(): Promise<CourseStub> {
     respond: 'ok',
   });
   const state = initial();
+  const minutes: number[] = [];
+  const failMinutes = { value: false };
   const server: Server = createServer((req, res) => {
     res.setHeader('content-type', 'application/json');
     if (req.headers['x-internal-key'] !== KEY) {
       res.statusCode = 401;
       return res.end('{}');
+    }
+    if (req.method === 'POST' && req.url?.endsWith('/assignment-minutes')) {
+      let raw = '';
+      req.on('data', (chunk: Buffer) => (raw += chunk.toString()));
+      req.on('end', () => {
+        if (failMinutes.value) {
+          res.statusCode = 500;
+          return res.end('{}');
+        }
+        minutes.push((JSON.parse(raw) as { minutes: number }).minutes);
+        res.end(JSON.stringify({ statusCode: 200, message: 'ok', data: {} }));
+      });
+      return;
     }
     if (state.respond !== 'ok') {
       res.statusCode = Number(state.respond);
@@ -143,7 +162,13 @@ export async function startCourseStub(): Promise<CourseStub> {
   return {
     url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
     state,
-    reset: () => Object.assign(state, initial()),
+    minutes,
+    failMinutes,
+    reset: () => {
+      Object.assign(state, initial());
+      minutes.length = 0;
+      failMinutes.value = false;
+    },
     stop: () =>
       new Promise<void>((resolve) => {
         server.closeAllConnections();
@@ -190,6 +215,7 @@ export async function startService(
       FAKE_COURSE_STATUS: 'Draft',
       FAKE_COURSE_LOCKED: 'false',
       // The tests never reach Cloudinary; the storage only needs to be constructible.
+      PROMPT_FILE_VERIFY: 'off', // no HEAD request to the storage
       CLOUDINARY_CLOUD_NAME: 'test-cloud',
       CLOUDINARY_API_KEY: 'test-key',
       CLOUDINARY_API_SECRET: 'test-secret',
