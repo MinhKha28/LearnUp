@@ -27,8 +27,8 @@ import type { AssignmentSummary } from './interfaces/assignment-summary.interfac
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 
 // Course states in which an Instructor may author (BR-284: Published stays editable until Locked;
-// Submitted is frozen for review, Archived/Disabled are terminal or sanctioned).
-export const AUTHORABLE_STATUSES = ['DRAFT', 'REJECTED', 'PUBLISHED'];
+// Submitted is frozen for review, Archived/Disabled are terminal or sanctioned). Course Service writes these in Title Case.
+export const AUTHORABLE_STATUSES = ['Draft', 'Rejected', 'Published'];
 
 export { assignmentInclude };
 
@@ -69,10 +69,7 @@ export class AssessmentsService {
     }
 
     const course = await this.requireOwnCourse(user, dto.courseId);
-    if (
-      course.disabled ||
-      !AUTHORABLE_STATUSES.includes(course.status.toUpperCase())
-    ) {
+    if (course.disabled || !AUTHORABLE_STATUSES.includes(course.status)) {
       throw new ConflictException({
         code: 'COURSE_NOT_EDITABLE',
         message: `Assignments cannot be added while the Course is ${course.status}.`,
@@ -211,10 +208,7 @@ export class AssessmentsService {
     const { assignment, course } = await this.findOwnAssignment(user, id);
 
     // A Submitted, Archived or Disabled Course accepts no edit at all.
-    if (
-      course.disabled ||
-      !AUTHORABLE_STATUSES.includes(course.status.toUpperCase())
-    ) {
+    if (course.disabled || !AUTHORABLE_STATUSES.includes(course.status)) {
       throw new ConflictException({
         code: 'COURSE_NOT_EDITABLE',
         message: `Assignments cannot be changed while the Course is ${course.status}.`,
@@ -371,10 +365,7 @@ export class AssessmentsService {
     const { assignment, course } = await this.findOwnAssignment(user, id);
 
     // A Submitted, Archived or Disabled Course accepts no edit at all.
-    if (
-      course.disabled ||
-      !AUTHORABLE_STATUSES.includes(course.status.toUpperCase())
-    ) {
+    if (course.disabled || !AUTHORABLE_STATUSES.includes(course.status)) {
       throw new ConflictException({
         code: 'COURSE_NOT_EDITABLE',
         message: `Assignments cannot be deleted while the Course is ${course.status}.`,

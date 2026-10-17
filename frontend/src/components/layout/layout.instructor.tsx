@@ -12,7 +12,9 @@ import { Avatar, Button, Drawer, Layout, Menu, Modal, type MenuProps } from "ant
 import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import NotificationBell from "@/components/notification/notification.bell";
 import { useCurrentApp } from "@/components/context/app.context";
+import { useSignOut } from "@/hooks/use.sign.out";
 import "./layout.instructor.scss";
 
 type MenuItem = Required<MenuProps>["items"][number];
@@ -27,7 +29,7 @@ const instructorMenuItems: MenuItem[] = [
 ];
 
 const LayoutInstructor = () => {
-  const { user, setUser, setIsAuthenticated } = useCurrentApp();
+  const { user } = useCurrentApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -56,12 +58,11 @@ const LayoutInstructor = () => {
     setMobileOpen(false);
   };
 
-  const signOut = () => {
-    localStorage.removeItem("access_token");
-    setUser(null);
-    setIsAuthenticated(false);
+  // UC06: đóng hộp thoại, thu hồi refresh token ở identity rồi xóa phiên trên trình duyệt
+  const signOutRequest = useSignOut();
+  const signOut = async () => {
     setSignOutOpen(false);
-    navigate("/login");
+    await signOutRequest();
   };
 
   const navigation = (
@@ -79,7 +80,7 @@ const LayoutInstructor = () => {
       />
       <div className="instructor-sidebar-user">
         <div className="instructor-user-row">
-          <Avatar size={34}>{initials}</Avatar>
+          <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
           <div className="instructor-user-info">
             <strong>{displayName}</strong>
             <small>Instructor</small>
@@ -127,8 +128,8 @@ const LayoutInstructor = () => {
             <span className="instructor-org-name">Demo Organization</span>
           </div>
           <div className="instructor-topbar-actions">
-            <span className="instructor-notification">Notifications</span>
-            <Avatar size={30} className="instructor-topbar-avatar">
+            <NotificationBell basePath="/instructor" />
+            <Avatar size={30} src={user?.avatar} className="instructor-topbar-avatar">
               {initials}
             </Avatar>
           </div>

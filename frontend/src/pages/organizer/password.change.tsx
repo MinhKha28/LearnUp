@@ -1,5 +1,5 @@
 import { CheckCircleOutlined } from "@ant-design/icons";
-import { Form, Input } from "antd";
+import { Alert, Form, Input } from "antd";
 import { useNavigate } from "react-router-dom";
 import {
   OrganizerButton,
@@ -7,10 +7,18 @@ import {
   PageHeader,
   SectionCard,
 } from "@/components/organizer/organizer.ui";
+import {
+  confirmPasswordRules,
+  currentPasswordRules,
+  newPasswordRules,
+  useChangePassword,
+  type ChangePasswordFields,
+} from "@/hooks/use.change.password";
 import "./password.change.scss";
 
 const ChangePassword = () => {
   const navigate = useNavigate();
+  const { submit, submitting, error, clearError } = useChangePassword();
   return (
     <OrganizerPage className="organizer-change-password">
       <PageHeader
@@ -20,37 +28,31 @@ const ChangePassword = () => {
       />
       <div className="organizer-password-grid">
         <SectionCard title="Password settings">
-          <Form
+          {error && <Alert type="error" showIcon message={error} role="alert" />}
+          <Form<ChangePasswordFields>
             className="organizer-form"
             layout="vertical"
-            onFinish={() => navigate("/organizer/profile")}
+            disabled={submitting}
+            onFinish={submit}
+            onValuesChange={clearError}
           >
-            <Form.Item label="Current password" name="current" rules={[{ required: true }]}>
+            <Form.Item label="Current password" name="current" rules={currentPasswordRules}>
               <Input.Password />
             </Form.Item>
-            <Form.Item label="New password" name="password" rules={[{ required: true, min: 8 }]}>
+            <Form.Item label="New password" name="password" dependencies={["current"]} rules={newPasswordRules}>
               <Input.Password />
             </Form.Item>
             <Form.Item
               label="Confirm new password"
               name="confirm"
               dependencies={["password"]}
-              rules={[
-                { required: true },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    return !value || getFieldValue("password") === value
-                      ? Promise.resolve()
-                      : Promise.reject(new Error("Passwords do not match"));
-                  },
-                }),
-              ]}
+              rules={confirmPasswordRules}
             >
               <Input.Password />
             </Form.Item>
             <div className="organizer-form-actions">
               <OrganizerButton onClick={() => navigate(-1)}>Cancel</OrganizerButton>
-              <OrganizerButton type="primary" htmlType="submit">
+              <OrganizerButton type="primary" htmlType="submit" loading={submitting}>
                 Update password
               </OrganizerButton>
             </div>
@@ -66,6 +68,9 @@ const ChangePassword = () => {
           </p>
           <p>
             <CheckCircleOutlined /> Password recovery uses the registered email
+          </p>
+          <p>
+            <CheckCircleOutlined /> After the change you sign in again on every device
           </p>
         </aside>
       </div>

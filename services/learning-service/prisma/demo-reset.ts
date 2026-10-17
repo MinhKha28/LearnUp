@@ -9,6 +9,11 @@
  */
 import 'dotenv/config';
 import { Client } from 'pg';
+import {
+  WITHDRAWAL_DEMO_ORG,
+  WITHDRAWAL_DEMO_LEARNER,
+  WITHDRAWAL_DEMO_PLANS,
+} from './withdrawal-demo-fixture';
 
 export const DEMO_RESET_COURSE = '0199a000-0000-7000-8000-0e0000000003';
 
@@ -70,11 +75,33 @@ export async function resetDemoSelfEnrollments(
       `DELETE FROM enrollments e WHERE ${TARGET_FILTER}`,
       params,
     );
+    const withdrawalParams = [
+      WITHDRAWAL_DEMO_LEARNER,
+      WITHDRAWAL_DEMO_ORG,
+      WITHDRAWAL_DEMO_PLANS.map((p) => p.courseId),
+    ];
+    const withdrawalCounts = await client.query<{
+      progress: number;
+      intervals: number;
+    }>(
+      `SELECT
+        (SELECT count(*)::int FROM material_progress p JOIN enrollments e ON e.id=p.enrollment_id AND e.organization_id=p.organization_id
+         WHERE e.learner_id=$1::uuid AND e.organization_id=$2::uuid AND e.course_id=ANY($3::uuid[])) AS progress,
+        (SELECT count(*)::int FROM enrollment_status_intervals i JOIN enrollments e ON e.id=i.enrollment_id AND e.organization_id=i.organization_id
+         WHERE e.learner_id=$1::uuid AND e.organization_id=$2::uuid AND e.course_id=ANY($3::uuid[])) AS intervals`,
+      withdrawalParams,
+    );
+    const withdrawalDemo = await client.query(
+      `DELETE FROM enrollments WHERE learner_id=$1::uuid AND organization_id=$2::uuid AND course_id=ANY($3::uuid[])`,
+      withdrawalParams,
+    );
     await client.query('COMMIT');
     return {
-      materialProgress: progress.rowCount ?? 0,
-      statusIntervals: intervals.rowCount ?? 0,
-      enrollments: enrollments.rowCount ?? 0,
+      materialProgress:
+        (progress.rowCount ?? 0) + withdrawalCounts.rows[0].progress,
+      statusIntervals:
+        (intervals.rowCount ?? 0) + withdrawalCounts.rows[0].intervals,
+      enrollments: (enrollments.rowCount ?? 0) + (withdrawalDemo.rowCount ?? 0),
     };
   } catch (error) {
     await client.query('ROLLBACK');

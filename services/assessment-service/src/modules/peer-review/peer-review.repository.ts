@@ -15,4 +15,28 @@ export class PeerReviewRepository {
       include: assignmentInclude,
     });
   }
+
+  /** UC33: the cycles of an Assignment, oldest first. */
+  findCycles(assessmentId: string) {
+    return this.prisma.peerReviewCycle.findMany({
+      where: { assessmentId },
+      orderBy: { opensAt: 'asc' },
+    });
+  }
+
+  /** UC33: the submissions in each cycle, one per Learner: a replaced submission is not counted (BR-171). */
+  async countSubmissionsByCycle(
+    cycleIds: string[],
+  ): Promise<Map<string, number>> {
+    const rows = await this.prisma.submission.groupBy({
+      by: ['cycleId'],
+      where: { cycleId: { in: cycleIds }, supersededAt: null },
+      _count: { _all: true },
+    });
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      if (row.cycleId) counts.set(row.cycleId, row._count._all);
+    }
+    return counts;
+  }
 }

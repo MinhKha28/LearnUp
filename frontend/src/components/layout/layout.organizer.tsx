@@ -2,7 +2,6 @@ import {
   AuditOutlined,
   BankOutlined,
   BarChartOutlined,
-  BellOutlined,
   BookOutlined,
   CarryOutOutlined,
   CreditCardOutlined,
@@ -30,7 +29,9 @@ import {
 import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import NotificationBell from "@/components/notification/notification.bell";
 import { useCurrentApp } from "@/components/context/app.context";
+import { useSignOut } from "@/hooks/use.sign.out";
 import "./layout.organizer.scss";
 
 type MenuItem = Required<MenuProps>["items"][number];
@@ -188,7 +189,7 @@ const getPageMeta = (pathname: string) => {
 };
 
 const LayoutOrganizer = () => {
-  const { user, setUser, setIsAuthenticated } = useCurrentApp();
+  const { user } = useCurrentApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -230,12 +231,8 @@ const LayoutOrganizer = () => {
     navigate(key);
     setMobileOpen(false);
   };
-  const logout = () => {
-    localStorage.removeItem("access_token");
-    setUser(null);
-    setIsAuthenticated(false);
-    navigate("/login");
-  };
+  // UC06: thu hồi refresh token ở identity rồi xóa phiên trên trình duyệt
+  const logout = useSignOut();
   const profileItems: MenuProps["items"] = [
     {
       key: "profile",
@@ -313,19 +310,14 @@ const LayoutOrganizer = () => {
           </div>
           <div className="organizer-topbar-actions">
             <span className="organizer-org-badge">Northstar Learning</span>
-            <Button
-              className="organizer-notification"
-              type="text"
-              icon={<BellOutlined />}
-              aria-label="Notifications"
-            />
+            <NotificationBell basePath="/organizer" />
             <Dropdown
               menu={{ items: profileItems }}
               trigger={["click"]}
               placement="bottomRight"
             >
               <button className="organizer-user" type="button">
-                <Avatar size={34}>{initials}</Avatar>
+                <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
                 <span>
                   <strong>{displayName}</strong>
                   <small>Organizer</small>

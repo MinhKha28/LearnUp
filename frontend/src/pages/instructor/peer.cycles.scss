@@ -169,3 +169,32 @@
     grid-template-columns: 1fr;
   }
 }
+
+.instructor-cycles-filters {
+  display: flex;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.instructor-cycles-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.instructor-cycles-message {
+  margin: 0 0 16px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.instructor-cycles-table .peer-cycles-table,
+.instructor-cycles-table .peer-cycles-empty,
+.instructor-cycles-table .peer-cycles-footnote {
+  margin: 0;
+  padding: 0 4px;
+}

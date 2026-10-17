@@ -126,7 +126,7 @@ const LayoutInstructorCourse = () => {
             </Link>
 
             <div className="builder-topbar-meta">
-              <span>{course.status === "DRAFT" ? "Draft" : course.status}</span>
+              <span>{course.status === "Draft" ? "Draft" : course.status}</span>
               <span className="builder-topbar-meta-dot">•</span>
               <span>Last saved just now</span>
             </div>

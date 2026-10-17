@@ -6,3 +6,9 @@
 import './assignments.integration-test';
 import './course-client-modes.integration-test';
 import './prompt-file.integration-test';
+import './quiz.integration-test';
+import './learner-submissions.integration-test';
+import './learner-assessments.integration-test';
+import './learner-resubmissions.integration-test';
+import './learner-results.integration-test';
+import './peer-review-cycles.integration-test';

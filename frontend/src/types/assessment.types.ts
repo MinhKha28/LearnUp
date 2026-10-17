@@ -94,7 +94,7 @@ export interface IAssignment {
 /** Error envelope from the NestJS HttpExceptionFilter. */
 export interface IAssessmentError {
   statusCode: number;
-  error?: { code?: string; message?: string | string[] } | string;
+  error?: { code?: string; message?: string | string[]; lockedUntil?: string } | string;
   message?: string | string[];
 }
 
@@ -157,3 +157,129 @@ export interface ICreateQuizReq {
 export type IUpdateAssignment = Partial<Omit<ICreateAssignment, "courseId" | "promptFile">> & {
   promptFile?: IPromptFile | null;
 };
+
+/** What the Learner sees about the lock of one Assignment (BR-176, BR-179). */
+export interface ILearnerAttemptState {
+  maxConsecutiveAttempts: number;
+  remainingAttempts: number;
+  lockoutHours: number;
+  /** Set while locked: when the Learner may submit again. */
+  lockedUntil: string | null;
+}
+
+export interface ILearnerSubmissionSummary {
+  id: string;
+  submissionNumber: number;
+  submittedAt: string;
+  gradingStatus: string;
+  hasFile: boolean;
+  fileName: string | null;
+}
+
+/** UC30 step 1: the Assignment as the enrolled Learner reads it. */
+/** UC30 / UC30.1: where a submission goes (BR-171, BR-313). */
+export type SubmissionPlacement = "REPLACES_IN_CYCLE" | "OPEN_CYCLE" | "INSTRUCTOR";
+
+/** UC30.1: where a resubmission would go right now. */
+export interface IResubmissionOutlook {
+  placement: SubmissionPlacement;
+  /** REPLACES_IN_CYCLE only: when the cycle of the previous submission closes. */
+  cycleClosesAt: string | null;
+}
+
+export interface ILearnerAssignment {
+  id: string;
+  courseId: string;
+  title: string;
+  prompt: string | null;
+  promptFile: { fileName: string; sizeBytes: number } | null;
+  passingScore: number;
+  expectedDurationMinutes: number | null;
+  peerReviewEnabled: boolean;
+  rubric: { id: string; name: string; description: string; maxPoints: number }[];
+  attempts: ILearnerAttemptState;
+  /** BR-169: the Enrollment is Completed. */
+  readOnly: boolean;
+  latestSubmission: ILearnerSubmissionSummary | null;
+  /** Set once the Learner has submitted and the Course is not completed. */
+  resubmission: IResubmissionOutlook | null;
+}
+
+/** UC30 result. */
+export interface ISubmissionReceipt {
+  id: string;
+  assessmentId: string;
+  submissionNumber: number;
+  submittedAt: string;
+  gradingStatus: string;
+  cycle: { id: string; opensAt: string; closesAt: string; reviewDueAt: string } | null;
+  attempts: ILearnerAttemptState;
+  /** Where the work went: a cycle (new or the same one), or straight to the Instructor. */
+  placement: SubmissionPlacement;
+  /** UC30.1: the submission this one replaced. */
+  replacedSubmissionId: string | null;
+}
+
+/** UC29: what the Learner sees about one Quiz or Assignment of a Course. */
+export type LearnerAssessmentStatus = "NotStarted" | "InProgress" | "AwaitingResult" | "Completed";
+
+export interface ILearnerAssessmentItem {
+  id: string;
+  kind: "QUIZ" | "ASSIGNMENT";
+  title: string;
+  moduleId: string | null;
+  isRequired: boolean;
+  passingScore: number;
+  timeLimitMinutes: number | null;
+  expectedDurationMinutes: number | null;
+  status: LearnerAssessmentStatus;
+  /** Quiz: best attempt (BR-159). Assignment: final score of the latest submission (BR-170). */
+  recordedScore: number | null;
+  passed: boolean | null;
+  submittedAt: string | null;
+  attempts: ILearnerAttemptState;
+}
+
+export interface ILearnerAssessmentList {
+  courseId: string;
+  enrollmentId: string;
+  /** BR-169: the Enrollment is Completed. */
+  readOnly: boolean;
+  items: ILearnerAssessmentItem[];
+}
+
+/** UC30.2: the result of a Finalized submission. Reviewers are never named (BR-191). */
+export interface IGradingResult {
+  submission: { id: string; submissionNumber: number; submittedAt: string; fileName: string | null };
+  assignment: { id: string; courseId: string; title: string; passingScore: number };
+  finalScore: number;
+  passed: boolean;
+  finalizationComment: string | null;
+  finalizedAt: string;
+  criteria: { id: string; name: string; maxPoints: number; averagePoints: number | null }[];
+  comments: { source: "PEER" | "INSTRUCTOR"; comment: string; completedAt: string | null }[];
+}
+
+/** UC33: what a cycle of a peer review is called on the Instructor screen. */
+export type TPeerReviewCycleStatus = "Open" | "Assigned" | "InstructorOnly" | "Completed";
+
+export interface IPeerReviewCycleItem {
+  id: string;
+  opensAt: string;
+  closesAt: string;
+  reviewDueAt: string;
+  submissionCount: number;
+  status: TPeerReviewCycleStatus;
+}
+
+export interface IPeerReviewCycleList {
+  assignmentId: string;
+  title: string;
+  settings: {
+    reviewersPerSubmission: number | null;
+    cycleDays: number | null;
+    deadlineDays: number | null;
+    scoreGap: number | null;
+  };
+  items: IPeerReviewCycleItem[];
+}

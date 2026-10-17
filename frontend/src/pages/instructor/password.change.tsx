@@ -1,17 +1,16 @@
-import { Form, Input, message } from "antd";
-import { useNavigate } from "react-router-dom";
+import { Alert, Form, Input } from "antd";
 import { InstructorButton, InstructorPage, PageHeader, SectionCard } from "@/components/instructor/instructor.ui";
+import {
+  confirmPasswordRules,
+  currentPasswordRules,
+  newPasswordRules,
+  useChangePassword,
+  type ChangePasswordFields,
+} from "@/hooks/use.change.password";
 import "./password.change.scss";
 
-type PasswordFields = { current: string; password: string; confirm: string };
-
 const ChangePassword = () => {
-  const navigate = useNavigate();
-
-  function submit() {
-    message.success("Password updated.");
-    navigate("/instructor/profile");
-  }
+  const { submit, submitting, error, clearError } = useChangePassword();
 
   return (
     <InstructorPage className="instructor-change-password">
@@ -22,26 +21,27 @@ const ChangePassword = () => {
         back
       />
       <SectionCard>
-        <Form<PasswordFields>
+        {error && <Alert type="error" showIcon message={error} role="alert" />}
+        <Form<ChangePasswordFields>
           className="instructor-password-form"
           layout="vertical"
           requiredMark={false}
+          disabled={submitting}
           onFinish={submit}
+          onValuesChange={clearError}
         >
           <Form.Item
             label="Current password"
             name="current"
-            rules={[{ required: true, message: "Enter your current password." }]}
+            rules={currentPasswordRules}
           >
             <Input.Password />
           </Form.Item>
           <Form.Item
             label="New password"
             name="password"
-            rules={[
-              { required: true, message: "Enter a new password." },
-              { min: 8, message: "Use at least 8 characters." },
-            ]}
+            dependencies={["current"]}
+            rules={newPasswordRules}
           >
             <Input.Password placeholder="Enter new password" />
           </Form.Item>
@@ -49,21 +49,12 @@ const ChangePassword = () => {
             label="Confirm new password"
             name="confirm"
             dependencies={["password"]}
-            rules={[
-              { required: true, message: "Confirm your new password." },
-              ({ getFieldValue }) => ({
-                validator(_, value) {
-                  return !value || getFieldValue("password") === value
-                    ? Promise.resolve()
-                    : Promise.reject(new Error("Passwords do not match"));
-                },
-              }),
-            ]}
+            rules={confirmPasswordRules}
           >
             <Input.Password placeholder="Enter confirm new password" />
           </Form.Item>
           <div className="instructor-password-actions">
-            <InstructorButton type="primary" htmlType="submit">
+            <InstructorButton type="primary" htmlType="submit" loading={submitting}>
               Update password
             </InstructorButton>
           </div>

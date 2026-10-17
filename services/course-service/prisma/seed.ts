@@ -1,1116 +1,206 @@
 /**
- * Dữ liệu demo Inter 1 cho course-service. CHỈ DÙNG CHO DEV.
- *
- * Chạy: npm run db:seed
- * Chạy lại an toàn: mọi bản ghi ghi bằng upsert theo ID cố định, lần sau đưa dữ liệu về đúng trạng thái demo.
- * Giá trị trạng thái theo docs/database/CourseService_Database_Design.md mục 3 (PascalCase),
- * và dữ liệu thỏa các CHECK của thiết kế dù database chưa có CHECK.
+ * LearnUP Course Service development fixture (create-only).
+ * Canonical principals: identity-service DevAccountSeeder and tenant-service ABC.
+ * This file does not modify any existing record and does not clear databases.
+ * Synthetic MediaFile entries represent metadata only (no Cloudinary upload).
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../generated/prisma/client';
+import { PrismaClient, Prisma } from '../generated/prisma/client';
+import { COURSE_STATUS, COURSE_TYPE } from '../src/modules/courses/course-values';
 
-// ---------------------------------------------------------------------------
-// ID cố định
-// ---------------------------------------------------------------------------
-const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
-const ORG_B = '0199a000-0000-7000-8000-0a0000000002';
+const ORG_ID = '01900000-0000-7000-8000-00000000a001';
+const ORGANIZER_ID = '01900000-0000-7000-8000-00000000a010';
+const INSTRUCTOR_ID = '01900000-0000-7000-8000-00000000a101';
+const LEARNER_ID = '01900000-0000-7000-8000-00000000a201';
+const ADMIN_ID = '01900000-0000-7000-8000-000000000001';
 
-// Người dùng chỉ là UUID logic do tenant-service sở hữu; course-service không có bảng người dùng.
-const LEARNER_1 = '0199a000-0000-7000-8000-0b0000000001'; // org A
-const LEARNER_2 = '0199a000-0000-7000-8000-0b0000000002'; // org A
-const LEARNER_3 = '0199a000-0000-7000-8000-0b0000000003'; // org B
-const INSTRUCTOR_1 = '0199a000-0000-7000-8000-0c0000000001'; // org A
-const INSTRUCTOR_2 = '0199a000-0000-7000-8000-0c0000000002'; // org B
+// Namespace-based, reproducible UUIDs; distinct from the original 0199a... fixtures.
+const fixtureId = (kind: number, n: number) =>
+  `01900000-0000-7000-8000-${kind.toString(16).padStart(4, '0')}${n.toString(16).padStart(8, '0')}`;
+const time = (date: string) => new Date(`${date}T08:00:00.000Z`);
+const STATUS = COURSE_STATUS;
+const TYPE = COURSE_TYPE;
 
-const PLATFORM_SETTINGS_ID = '0199a000-0000-7000-8000-1f0000000001';
-
-const CHAIN_AN_TOAN = '0199a000-0000-7000-8000-0d0000000001';
-const CHAIN_BAO_MAT = '0199a000-0000-7000-8000-0d0000000002';
-const CHAIN_QUY_TRINH = '0199a000-0000-7000-8000-0d0000000003';
-const CHAIN_GIAO_TIEP = '0199a000-0000-7000-8000-0d0000000004';
-const CHAIN_NHAP_MON = '0199a000-0000-7000-8000-0d0000000005';
-
-const COURSE_AN_TOAN_V1 = '0199a000-0000-7000-8000-0e0000000001';
-const COURSE_AN_TOAN_V2 = '0199a000-0000-7000-8000-0e0000000002';
-const COURSE_BAO_MAT = '0199a000-0000-7000-8000-0e0000000003';
-const COURSE_QUY_TRINH = '0199a000-0000-7000-8000-0e0000000004';
-const COURSE_GIAO_TIEP = '0199a000-0000-7000-8000-0e0000000005';
-const COURSE_NHAP_MON = '0199a000-0000-7000-8000-0e0000000006';
-
-// Quy ước phần cuối ID trong cây: 1a = module, 1b = lesson, 1c = học liệu, 1d = tệp; tiếp theo là số Course, Lesson, học liệu.
-
-/**
- * Fixture cho test tích hợp learning-service (D34), không dùng cho demo: dải ID đuôi …f*.
- * Test được phép ghi rồi dọn mọi dữ liệu của ORG_TEST; không thêm dữ liệu demo vào tổ chức này.
- * …0a00000000f1 đã thuộc TEST_ORG của test:catalog:db nên không dùng.
- */
-const ORG_TEST = '0199a000-0000-7000-8000-0a00000000f2';
-const INSTRUCTOR_TEST = '0199a000-0000-7000-8000-0c00000000f1';
-const CHAIN_TEST_PUBLIC = '0199a000-0000-7000-8000-0d00000000f1';
-const CHAIN_TEST_PRIVATE = '0199a000-0000-7000-8000-0d00000000f2';
-const COURSE_TEST_PUBLIC = '0199a000-0000-7000-8000-0e00000000f1';
-const COURSE_TEST_PRIVATE = '0199a000-0000-7000-8000-0e00000000f2';
-
-/**
- * Dữ liệu cho danh tính mà giao diện đang gắn cứng (course.service.ts: x-user-id 3333…, x-organization-id 2222…),
- * để trang My Courses và Course Builder có Course ngay khi chưa có gateway/đăng nhập. Dải ID …bbbb/cccc/dddd.
- * Status viết hoa (DRAFT/PUBLISHED) giống giá trị mà nút Create Course của giao diện ghi vào DB.
- */
-const ORG_UI = '22222222-2222-7222-8222-222222222222';
-const INSTRUCTOR_UI = '33333333-3333-7333-8333-333333333333';
-const CHAIN_UI_DRAFT = '33333333-aaaa-7333-8333-000000000001';
-const CHAIN_UI_PUBLISHED = '33333333-aaaa-7333-8333-000000000002';
-const COURSE_UI_DRAFT = '33333333-bbbb-7333-8333-000000000001';
-const COURSE_UI_PUBLISHED = '33333333-bbbb-7333-8333-000000000002';
-const CHAIN_UI_3 = '33333333-aaaa-7333-8333-000000000003';
-const CHAIN_UI_4 = '33333333-aaaa-7333-8333-000000000004';
-const CHAIN_UI_5 = '33333333-aaaa-7333-8333-000000000005';
-const CHAIN_UI_6 = '33333333-aaaa-7333-8333-000000000006';
-const CHAIN_UI_7 = '33333333-aaaa-7333-8333-000000000007';
-const CHAIN_UI_8 = '33333333-aaaa-7333-8333-000000000008';
-const CHAIN_UI_9 = '33333333-aaaa-7333-8333-000000000009';
-const COURSE_UI_3 = '33333333-bbbb-7333-8333-000000000003';
-const COURSE_UI_4 = '33333333-bbbb-7333-8333-000000000004';
-const COURSE_UI_5 = '33333333-bbbb-7333-8333-000000000005';
-const COURSE_UI_6 = '33333333-bbbb-7333-8333-000000000006';
-const COURSE_UI_7 = '33333333-bbbb-7333-8333-000000000007';
-const COURSE_UI_8 = '33333333-bbbb-7333-8333-000000000008';
-const COURSE_UI_9 = '33333333-bbbb-7333-8333-000000000009';
-const COURSE_UI_10 = '33333333-bbbb-7333-8333-000000000010';
-
-// ---------------------------------------------------------------------------
-// Dữ liệu
-// ---------------------------------------------------------------------------
-type MaterialType = 'Video' | 'Reading';
-
-interface SeedMaterial {
-  id: string;
-  fileId: string;
-  type: MaterialType;
-  title: string;
-  isRequired: boolean;
-  /** Giây với Video (300–1200), số từ với Reading (500–3000) */
-  amount: number;
-}
-
-interface SeedLesson {
-  id: string;
-  title: string;
-  content: string;
-  materials: SeedMaterial[];
-}
-
-interface SeedModule {
-  id: string;
-  title: string;
-  lessons: SeedLesson[];
-}
-
-interface SeedCourse {
-  id: string;
-  organizationId: string;
-  chainId: string;
-  versionNumber: number;
+type Status = (typeof STATUS)[keyof typeof STATUS];
+type Kind = 'Video' | 'Reading';
+type CaseDefinition = {
+  code: string;
+  chain: number;
+  version: number;
   name: string;
-  courseType: 'Public' | 'Private' | 'PUBLIC' | 'PRIVATE';
-  status: 'Draft' | 'Published' | 'Archived' | 'DRAFT' | 'SUBMITTED' | 'PUBLISHED' | 'REJECTED' | 'ARCHIVED' | 'DISABLED';
-  expectedCompletionDays: number;
-  shortDescription: string | null;
-  trainingObjectives: string | null;
-  learningOutcomes: string[];
-  submittedAt: Date | null;
-  publishedAt: Date | null;
-  archivedAt: Date | null;
-  // Only the UI demo Courses use these (Locked, Rejected, Disabled); the others keep the database default.
-  lockedAt?: Date | null;
-  rejectedAt?: Date | null;
-  rejectionReason?: string | null;
-  disabledAt?: Date | null;
-  disabledReason?: string | null;
-  modules: SeedModule[];
-}
-
-const CHAINS = [
-  { id: CHAIN_AN_TOAN, organizationId: ORG_A, instructorId: INSTRUCTOR_1 },
-  { id: CHAIN_BAO_MAT, organizationId: ORG_A, instructorId: INSTRUCTOR_1 },
-  { id: CHAIN_QUY_TRINH, organizationId: ORG_A, instructorId: INSTRUCTOR_1 },
-  { id: CHAIN_GIAO_TIEP, organizationId: ORG_A, instructorId: INSTRUCTOR_1 },
-  { id: CHAIN_NHAP_MON, organizationId: ORG_B, instructorId: INSTRUCTOR_2 },
-  { id: CHAIN_TEST_PUBLIC, organizationId: ORG_TEST, instructorId: INSTRUCTOR_TEST },
-  { id: CHAIN_TEST_PRIVATE, organizationId: ORG_TEST, instructorId: INSTRUCTOR_TEST },
-  { id: CHAIN_UI_DRAFT, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
-  { id: CHAIN_UI_PUBLISHED, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
-  { id: CHAIN_UI_3, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
-  { id: CHAIN_UI_4, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
-  { id: CHAIN_UI_5, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
-  { id: CHAIN_UI_6, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
-  { id: CHAIN_UI_7, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
-  { id: CHAIN_UI_8, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
-  { id: CHAIN_UI_9, organizationId: ORG_UI, instructorId: INSTRUCTOR_UI },
-];
-
-const TEST_COURSE_DESCRIPTION = {
-  shortDescription: 'Dữ liệu cố định cho test tích hợp learning-service.',
-  trainingObjectives:
-    'Cung cấp một Course Published đủ trường bắt buộc để test tích hợp tự ghi và tự dọn mà không đụng dữ liệu demo.',
-  learningOutcomes: ['Không dùng cho demo'],
-  submittedAt: new Date('2026-09-20T02:00:00Z'),
-  publishedAt: new Date('2026-09-22T02:00:00Z'),
-  archivedAt: null,
+  status: Status;
+  type: (typeof TYPE)[keyof typeof TYPE];
+  created: string;
+  submitted?: string;
+  published?: string;
+  archived?: string;
+  rejected?: string;
+  rejectedReason?: string;
+  disabled?: string;
+  disabledReason?: string;
+  locked?: string;
+  days: number;
+  assignments: number;
+  lessons: number;
+  media: 'none' | 'video' | 'reading' | 'mixed' | 'optional' | 'disabled';
 };
 
-const TEST_LESSON_CONTENT =
-  '## Lesson kiểm thử\n\nNội dung cố định cho test tích hợp.';
-
-const AN_TOAN_DESCRIPTION = {
-  shortDescription:
-    'Khóa học giúp người lao động nhận diện mối nguy và làm việc an toàn mỗi ngày.',
-  trainingObjectives:
-    'Sau khóa học, học viên nhận diện được các mối nguy phổ biến tại nơi làm việc, sử dụng đúng trang bị bảo hộ và biết cách ứng phó khi xảy ra sự cố.',
-  learningOutcomes: [
-    'Nhận diện các loại mối nguy tại nơi làm việc',
-    'Đánh giá mức độ rủi ro của một công việc cụ thể',
-    'Lựa chọn và sử dụng đúng trang bị bảo hộ cá nhân',
-    'Thực hiện các bước sơ cứu cơ bản',
-  ],
-};
-
-const COURSES: SeedCourse[] = [
-  {
-    id: COURSE_AN_TOAN_V1,
-    organizationId: ORG_A,
-    chainId: CHAIN_AN_TOAN,
-    versionNumber: 1,
-    name: 'An toàn lao động',
-    courseType: 'Public',
-    status: 'Archived',
-    expectedCompletionDays: 14,
-    ...AN_TOAN_DESCRIPTION,
-    submittedAt: new Date('2026-07-30T02:00:00Z'),
-    publishedAt: new Date('2026-08-01T02:00:00Z'),
-    // Bị thay bởi v2 đúng lúc v2 được duyệt
-    archivedAt: new Date('2026-09-15T02:00:00Z'),
-    modules: [],
-  },
-  {
-    id: COURSE_AN_TOAN_V2,
-    organizationId: ORG_A,
-    chainId: CHAIN_AN_TOAN,
-    versionNumber: 2,
-    name: 'An toàn lao động',
-    courseType: 'Public',
-    status: 'Published',
-    expectedCompletionDays: 14,
-    ...AN_TOAN_DESCRIPTION,
-    submittedAt: new Date('2026-09-12T02:00:00Z'),
-    publishedAt: new Date('2026-09-15T02:00:00Z'),
-    archivedAt: null,
-    modules: [
-      {
-        id: '0199a000-0000-7000-8000-1a0000000011',
-        title: 'Nhận diện mối nguy',
-        lessons: [
-          {
-            id: '0199a000-0000-7000-8000-1b0000000011',
-            title: 'Các loại mối nguy tại nơi làm việc',
-            content:
-              '## Mối nguy là gì?\n\nMối nguy là bất kỳ yếu tố nào có thể gây tổn hại cho sức khỏe con người.\n\n- Mối nguy vật lý: tiếng ồn, nhiệt độ, điện\n- Mối nguy hóa học: dung môi, bụi\n- Mối nguy cơ học: máy móc đang vận hành',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000111', fileId: '0199a000-0000-7000-8000-1d0000000111', type: 'Video', title: 'Bài giảng: Các loại mối nguy', isRequired: true, amount: 600 },
-              { id: '0199a000-0000-7000-8000-1c0000000112', fileId: '0199a000-0000-7000-8000-1d0000000112', type: 'Reading', title: 'Tài liệu: Bảng phân loại mối nguy', isRequired: true, amount: 1200 },
-            ],
-          },
-          {
-            id: '0199a000-0000-7000-8000-1b0000000012',
-            title: 'Đánh giá rủi ro',
-            content:
-              '## Ba bước đánh giá rủi ro\n\n1. Xác định mối nguy\n2. Ước lượng khả năng xảy ra và mức độ nghiêm trọng\n3. Đề xuất biện pháp kiểm soát',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000121', fileId: '0199a000-0000-7000-8000-1d0000000121', type: 'Video', title: 'Bài giảng: Ma trận rủi ro', isRequired: true, amount: 900 },
-            ],
-          },
-        ],
-      },
-      {
-        id: '0199a000-0000-7000-8000-1a0000000012',
-        title: 'Phòng ngừa và ứng phó',
-        lessons: [
-          {
-            id: '0199a000-0000-7000-8000-1b0000000013',
-            title: 'Trang bị bảo hộ cá nhân',
-            content:
-              '## Trang bị bảo hộ cá nhân\n\nMũ, kính, găng tay và giày bảo hộ phải **phù hợp với công việc** và được kiểm tra trước mỗi ca.',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000131', fileId: '0199a000-0000-7000-8000-1d0000000131', type: 'Reading', title: 'Tài liệu: Hướng dẫn chọn trang bị bảo hộ', isRequired: true, amount: 800 },
-              { id: '0199a000-0000-7000-8000-1c0000000132', fileId: '0199a000-0000-7000-8000-1d0000000132', type: 'Video', title: 'Video minh họa: Đeo găng tay đúng cách', isRequired: false, amount: 420 },
-            ],
-          },
-          {
-            id: '0199a000-0000-7000-8000-1b0000000014',
-            title: 'Xử lý sự cố và sơ cứu',
-            content:
-              '## Khi xảy ra sự cố\n\n1. Bình tĩnh, đảm bảo an toàn cho bản thân\n2. Báo ngay cho người phụ trách\n3. Sơ cứu theo hướng dẫn nếu đã được đào tạo',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000141', fileId: '0199a000-0000-7000-8000-1d0000000141', type: 'Video', title: 'Bài giảng: Sơ cứu cơ bản', isRequired: true, amount: 1080 },
-              { id: '0199a000-0000-7000-8000-1c0000000142', fileId: '0199a000-0000-7000-8000-1d0000000142', type: 'Reading', title: 'Tài liệu: Quy trình báo cáo sự cố', isRequired: true, amount: 1500 },
-              { id: '0199a000-0000-7000-8000-1c0000000143', fileId: '0199a000-0000-7000-8000-1d0000000143', type: 'Reading', title: 'Đọc thêm: Các tình huống sơ cứu thường gặp', isRequired: false, amount: 2200 },
-            ],
-          },
-          {
-            // Lesson chỉ có học liệu không bắt buộc
-            id: '0199a000-0000-7000-8000-1b0000000015',
-            title: 'Tài liệu tham khảo thêm',
-            content:
-              '## Tài liệu tham khảo\n\nPhần này dành cho học viên muốn tìm hiểu sâu hơn, không bắt buộc để hoàn thành khóa học.',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000151', fileId: '0199a000-0000-7000-8000-1d0000000151', type: 'Reading', title: 'Đọc thêm: Văn bản pháp luật về an toàn lao động', isRequired: false, amount: 2600 },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_BAO_MAT,
-    organizationId: ORG_A,
-    chainId: CHAIN_BAO_MAT,
-    versionNumber: 1,
-    name: 'Bảo mật thông tin',
-    courseType: 'Public',
-    status: 'Published',
-    expectedCompletionDays: 7,
-    shortDescription:
-      'Những thói quen cơ bản để bảo vệ thông tin của bạn và của công ty.',
-    trainingObjectives:
-      'Học viên hiểu vì sao bảo mật thông tin quan trọng, đặt mật khẩu an toàn, bật xác thực hai lớp và nhận diện được email lừa đảo.',
-    learningOutcomes: [
-      'Giải thích được hậu quả của việc rò rỉ dữ liệu',
-      'Tạo và quản lý mật khẩu an toàn',
-      'Nhận diện dấu hiệu của email lừa đảo',
-    ],
-    submittedAt: new Date('2026-08-18T02:00:00Z'),
-    publishedAt: new Date('2026-08-20T02:00:00Z'),
-    archivedAt: null,
-    modules: [
-      {
-        id: '0199a000-0000-7000-8000-1a0000000021',
-        title: 'Nền tảng bảo mật',
-        lessons: [
-          {
-            id: '0199a000-0000-7000-8000-1b0000000021',
-            title: 'Vì sao bảo mật thông tin quan trọng',
-            content:
-              '## Thông tin là tài sản\n\nMột lần rò rỉ dữ liệu có thể gây thiệt hại về tài chính, uy tín và pháp lý cho cả công ty.',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000211', fileId: '0199a000-0000-7000-8000-1d0000000211', type: 'Video', title: 'Bài giảng: Giá trị của thông tin', isRequired: true, amount: 480 },
-            ],
-          },
-          {
-            id: '0199a000-0000-7000-8000-1b0000000022',
-            title: 'Mật khẩu và xác thực hai lớp',
-            content:
-              '## Mật khẩu an toàn\n\n- Dài ít nhất 12 ký tự\n- Không dùng lại giữa các dịch vụ\n- Luôn bật **xác thực hai lớp** khi có thể',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000221', fileId: '0199a000-0000-7000-8000-1d0000000221', type: 'Reading', title: 'Tài liệu: Chính sách mật khẩu', isRequired: true, amount: 900 },
-              { id: '0199a000-0000-7000-8000-1c0000000222', fileId: '0199a000-0000-7000-8000-1d0000000222', type: 'Video', title: 'Video minh họa: Bật xác thực hai lớp', isRequired: false, amount: 360 },
-            ],
-          },
-        ],
-      },
-      {
-        id: '0199a000-0000-7000-8000-1a0000000022',
-        title: 'Thực hành an toàn hằng ngày',
-        lessons: [
-          {
-            id: '0199a000-0000-7000-8000-1b0000000023',
-            title: 'Nhận diện email lừa đảo',
-            content:
-              '## Dấu hiệu email lừa đảo\n\n1. Địa chỉ người gửi lạ hoặc gần giống địa chỉ thật\n2. Thúc giục hành động gấp\n3. Đường dẫn hoặc tệp đính kèm đáng ngờ',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000231', fileId: '0199a000-0000-7000-8000-1d0000000231', type: 'Video', title: 'Bài giảng: Phân tích một email lừa đảo', isRequired: true, amount: 720 },
-              { id: '0199a000-0000-7000-8000-1c0000000232', fileId: '0199a000-0000-7000-8000-1d0000000232', type: 'Reading', title: 'Tài liệu: Danh sách kiểm tra trước khi bấm đường dẫn', isRequired: true, amount: 1100 },
-            ],
-          },
-          {
-            // Lesson chỉ có học liệu không bắt buộc
-            id: '0199a000-0000-7000-8000-1b0000000024',
-            title: 'Câu chuyện thực tế về rò rỉ dữ liệu',
-            content:
-              '## Bài học từ thực tế\n\nMột số vụ rò rỉ dữ liệu nổi tiếng và điều chúng ta có thể học được.',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000241', fileId: '0199a000-0000-7000-8000-1d0000000241', type: 'Video', title: 'Video tham khảo: Phân tích một vụ rò rỉ dữ liệu', isRequired: false, amount: 540 },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_QUY_TRINH,
-    organizationId: ORG_A,
-    chainId: CHAIN_QUY_TRINH,
-    versionNumber: 1,
-    name: 'Quy trình nội bộ',
-    courseType: 'Private',
-    status: 'Published',
-    expectedCompletionDays: 10,
-    shortDescription:
-      'Nắm vững cơ cấu tổ chức và các quy trình làm việc nội bộ của công ty.',
-    trainingObjectives:
-      'Nhân viên mới hiểu được cơ cấu tổ chức, quy trình phê duyệt chứng từ và cách báo cáo công việc định kỳ.',
-    learningOutcomes: [
-      'Mô tả được cơ cấu tổ chức và trách nhiệm của từng bộ phận',
-      'Thực hiện đúng quy trình phê duyệt chứng từ',
-      'Lập báo cáo công việc định kỳ đúng mẫu',
-      'Tìm và sử dụng đúng biểu mẫu nội bộ',
-    ],
-    submittedAt: new Date('2026-08-25T02:00:00Z'),
-    publishedAt: new Date('2026-08-27T02:00:00Z'),
-    archivedAt: null,
-    modules: [
-      {
-        id: '0199a000-0000-7000-8000-1a0000000031',
-        title: 'Tổng quan quy trình',
-        lessons: [
-          {
-            id: '0199a000-0000-7000-8000-1b0000000031',
-            title: 'Sơ đồ tổ chức và trách nhiệm',
-            content:
-              '## Sơ đồ tổ chức\n\nMỗi bộ phận có một người phụ trách. Khi cần hỗ trợ, hãy liên hệ đúng đầu mối theo sơ đồ.',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000311', fileId: '0199a000-0000-7000-8000-1d0000000311', type: 'Reading', title: 'Tài liệu: Sơ đồ tổ chức công ty', isRequired: true, amount: 1300 },
-            ],
-          },
-          {
-            id: '0199a000-0000-7000-8000-1b0000000032',
-            title: 'Quy trình phê duyệt chứng từ',
-            content:
-              '## Các bước phê duyệt\n\n1. Người đề nghị lập chứng từ\n2. Trưởng bộ phận xem xét\n3. Kế toán kiểm tra và lưu trữ',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000321', fileId: '0199a000-0000-7000-8000-1d0000000321', type: 'Video', title: 'Bài giảng: Luồng phê duyệt chứng từ', isRequired: true, amount: 840 },
-              { id: '0199a000-0000-7000-8000-1c0000000322', fileId: '0199a000-0000-7000-8000-1d0000000322', type: 'Reading', title: 'Đọc thêm: Các lỗi thường gặp khi lập chứng từ', isRequired: false, amount: 1700 },
-            ],
-          },
-        ],
-      },
-      {
-        id: '0199a000-0000-7000-8000-1a0000000032',
-        title: 'Áp dụng vào công việc',
-        lessons: [
-          {
-            id: '0199a000-0000-7000-8000-1b0000000033',
-            title: 'Báo cáo công việc định kỳ',
-            content:
-              '## Báo cáo tuần\n\nBáo cáo gửi trước **17 giờ thứ Sáu**, gồm việc đã làm, việc đang làm và khó khăn cần hỗ trợ.',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000331', fileId: '0199a000-0000-7000-8000-1d0000000331', type: 'Video', title: 'Bài giảng: Viết báo cáo tuần hiệu quả', isRequired: true, amount: 660 },
-              { id: '0199a000-0000-7000-8000-1c0000000332', fileId: '0199a000-0000-7000-8000-1d0000000332', type: 'Reading', title: 'Tài liệu: Mẫu báo cáo tuần', isRequired: true, amount: 950 },
-              { id: '0199a000-0000-7000-8000-1c0000000333', fileId: '0199a000-0000-7000-8000-1d0000000333', type: 'Video', title: 'Video minh họa: Một báo cáo tuần mẫu', isRequired: false, amount: 300 },
-            ],
-          },
-          {
-            // Lesson chỉ có học liệu không bắt buộc
-            id: '0199a000-0000-7000-8000-1b0000000034',
-            title: 'Câu hỏi thường gặp',
-            content:
-              '## Câu hỏi thường gặp\n\nTổng hợp các thắc mắc của nhân viên mới về quy trình nội bộ.',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000341', fileId: '0199a000-0000-7000-8000-1d0000000341', type: 'Reading', title: 'Đọc thêm: Hỏi đáp về quy trình nội bộ', isRequired: false, amount: 600 },
-            ],
-          },
-          {
-            id: '0199a000-0000-7000-8000-1b0000000035',
-            title: 'Biểu mẫu nội bộ',
-            content:
-              '## Biểu mẫu\n\nDanh sách biểu mẫu dùng chung và nơi lưu trữ bản mới nhất.',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000351', fileId: '0199a000-0000-7000-8000-1d0000000351', type: 'Reading', title: 'Tài liệu: Danh mục biểu mẫu nội bộ', isRequired: true, amount: 500 },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_GIAO_TIEP,
-    organizationId: ORG_A,
-    chainId: CHAIN_GIAO_TIEP,
-    versionNumber: 1,
-    name: 'Kỹ năng giao tiếp',
-    courseType: 'Public',
-    status: 'Draft',
-    expectedCompletionDays: 12,
-    // Draft: chỉ có tên và số ngày
-    shortDescription: null,
-    trainingObjectives: null,
-    learningOutcomes: [],
-    submittedAt: null,
-    publishedAt: null,
-    archivedAt: null,
-    modules: [],
-  },
-  {
-    id: COURSE_NHAP_MON,
-    organizationId: ORG_B,
-    chainId: CHAIN_NHAP_MON,
-    versionNumber: 1,
-    name: 'Nhập môn sản phẩm',
-    courseType: 'Public',
-    status: 'Published',
-    expectedCompletionDays: 5,
-    shortDescription:
-      'Làm quen với sản phẩm, khách hàng mục tiêu và các tính năng chính.',
-    trainingObjectives:
-      'Nhân viên mới hiểu sản phẩm giải quyết vấn đề gì, phục vụ ai và tự thao tác được các tính năng chính.',
-    learningOutcomes: [
-      'Trình bày được giá trị cốt lõi của sản phẩm',
-      'Mô tả được chân dung khách hàng mục tiêu',
-      'Thao tác được các tính năng chính của sản phẩm',
-    ],
-    submittedAt: new Date('2026-09-01T02:00:00Z'),
-    publishedAt: new Date('2026-09-03T02:00:00Z'),
-    archivedAt: null,
-    modules: [
-      {
-        id: '0199a000-0000-7000-8000-1a0000000041',
-        title: 'Giới thiệu sản phẩm',
-        lessons: [
-          {
-            id: '0199a000-0000-7000-8000-1b0000000041',
-            title: 'Sản phẩm của chúng ta là gì',
-            content:
-              '## Tổng quan sản phẩm\n\nSản phẩm giúp doanh nghiệp quản lý đào tạo nội bộ một cách tập trung.',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000411', fileId: '0199a000-0000-7000-8000-1d0000000411', type: 'Video', title: 'Bài giảng: Giới thiệu sản phẩm', isRequired: true, amount: 750 },
-            ],
-          },
-          {
-            id: '0199a000-0000-7000-8000-1b0000000042',
-            title: 'Khách hàng mục tiêu',
-            content:
-              '## Khách hàng của chúng ta\n\n- Doanh nghiệp vừa và nhỏ\n- Có nhu cầu đào tạo nhân viên định kỳ',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000421', fileId: '0199a000-0000-7000-8000-1d0000000421', type: 'Reading', title: 'Tài liệu: Chân dung khách hàng', isRequired: true, amount: 1400 },
-              { id: '0199a000-0000-7000-8000-1c0000000422', fileId: '0199a000-0000-7000-8000-1d0000000422', type: 'Video', title: 'Video tham khảo: Phỏng vấn khách hàng', isRequired: false, amount: 390 },
-            ],
-          },
-        ],
-      },
-      {
-        id: '0199a000-0000-7000-8000-1a0000000042',
-        title: 'Sử dụng sản phẩm',
-        lessons: [
-          {
-            id: '0199a000-0000-7000-8000-1b0000000043',
-            title: 'Các tính năng chính',
-            content:
-              '## Tính năng chính\n\n1. Quản lý khóa học\n2. Phân công đào tạo\n3. Theo dõi tiến độ và báo cáo',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000431', fileId: '0199a000-0000-7000-8000-1d0000000431', type: 'Video', title: 'Bài giảng: Hướng dẫn sử dụng tính năng chính', isRequired: true, amount: 1200 },
-              { id: '0199a000-0000-7000-8000-1c0000000432', fileId: '0199a000-0000-7000-8000-1d0000000432', type: 'Reading', title: 'Tài liệu: Sổ tay sử dụng', isRequired: true, amount: 2000 },
-            ],
-          },
-          {
-            // Lesson chỉ có học liệu không bắt buộc
-            id: '0199a000-0000-7000-8000-1b0000000044',
-            title: 'Mẹo sử dụng nâng cao',
-            content:
-              '## Mẹo nâng cao\n\nMột số thủ thuật giúp thao tác nhanh hơn, dành cho người đã quen sản phẩm.',
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c0000000441', fileId: '0199a000-0000-7000-8000-1d0000000441', type: 'Video', title: 'Video tham khảo: Phím tắt và thao tác nhanh', isRequired: false, amount: 960 },
-              { id: '0199a000-0000-7000-8000-1c0000000442', fileId: '0199a000-0000-7000-8000-1d0000000442', type: 'Reading', title: 'Đọc thêm: Câu hỏi thường gặp nâng cao', isRequired: false, amount: 3000 },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_TEST_PUBLIC,
-    organizationId: ORG_TEST,
-    chainId: CHAIN_TEST_PUBLIC,
-    versionNumber: 1,
-    name: 'Course kiểm thử tích hợp (không dùng cho demo)',
-    courseType: 'Public',
-    status: 'Published',
-    expectedCompletionDays: 3,
-    ...TEST_COURSE_DESCRIPTION,
-    modules: [
-      {
-        id: '0199a000-0000-7000-8000-1a00000000f1',
-        title: 'Module kiểm thử',
-        lessons: [
-          {
-            id: '0199a000-0000-7000-8000-1b00000000f1',
-            title: 'Lesson kiểm thử',
-            content: TEST_LESSON_CONTENT,
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c00000000f1', fileId: '0199a000-0000-7000-8000-1d00000000f1', type: 'Video', title: 'Video kiểm thử (bắt buộc)', isRequired: true, amount: 300 },
-              { id: '0199a000-0000-7000-8000-1c00000000f2', fileId: '0199a000-0000-7000-8000-1d00000000f2', type: 'Reading', title: 'Reading kiểm thử (không bắt buộc)', isRequired: false, amount: 500 },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_TEST_PRIVATE,
-    organizationId: ORG_TEST,
-    chainId: CHAIN_TEST_PRIVATE,
-    versionNumber: 1,
-    name: 'Course Private kiểm thử tích hợp (không dùng cho demo)',
-    courseType: 'Private',
-    status: 'Published',
-    expectedCompletionDays: 3,
-    ...TEST_COURSE_DESCRIPTION,
-    modules: [
-      {
-        id: '0199a000-0000-7000-8000-1a00000000f2',
-        title: 'Module kiểm thử',
-        lessons: [
-          {
-            id: '0199a000-0000-7000-8000-1b00000000f2',
-            title: 'Lesson kiểm thử',
-            content: TEST_LESSON_CONTENT,
-            materials: [
-              { id: '0199a000-0000-7000-8000-1c00000000f3', fileId: '0199a000-0000-7000-8000-1d00000000f3', type: 'Video', title: 'Video kiểm thử (bắt buộc)', isRequired: true, amount: 300 },
-              { id: '0199a000-0000-7000-8000-1c00000000f4', fileId: '0199a000-0000-7000-8000-1d00000000f4', type: 'Reading', title: 'Reading kiểm thử (không bắt buộc)', isRequired: false, amount: 500 },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_UI_DRAFT,
-    organizationId: ORG_UI,
-    chainId: CHAIN_UI_DRAFT,
-    versionNumber: 1,
-    name: 'Workplace Safety Essentials (dev)',
-    courseType: 'PUBLIC',
-    status: 'DRAFT',
-    expectedCompletionDays: 14,
-    shortDescription: 'Course demo cho danh tính giao diện (My Courses / Course Builder).',
-    trainingObjectives: 'Course demo để thử tạo Assignment trong Course Builder khi chưa có gateway.',
-    learningOutcomes: ['Dùng thử Course Builder'],
-    submittedAt: null,
-    publishedAt: null,
-    archivedAt: null,
-    modules: [
-      {
-        id: '33333333-cccc-7333-8333-000000000001',
-        title: 'Safety basics',
-        lessons: [
-          {
-            id: '33333333-dddd-7333-8333-000000000001',
-            title: 'Why safety matters',
-            content: 'Giới thiệu về an toàn lao động.',
-            materials: [],
-          },
-          {
-            id: '33333333-dddd-7333-8333-000000000002',
-            title: 'Common hazards',
-            content: 'Các mối nguy thường gặp.',
-            materials: [],
-          },
-        ],
-      },
-      {
-        id: '33333333-cccc-7333-8333-000000000002',
-        title: 'Emergency procedures',
-        lessons: [
-          {
-            id: '33333333-dddd-7333-8333-000000000003',
-            title: 'Evacuation plan',
-            content: 'Việc cần làm khi có báo động.',
-            materials: [],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_UI_PUBLISHED,
-    organizationId: ORG_UI,
-    chainId: CHAIN_UI_PUBLISHED,
-    versionNumber: 1,
-    name: 'Data Security Basics (dev)',
-    courseType: 'PUBLIC',
-    status: 'PUBLISHED',
-    expectedCompletionDays: 14,
-    shortDescription: 'Course demo cho danh tính giao diện (My Courses / Course Builder).',
-    trainingObjectives: 'Course demo để thử tạo Assignment trong Course Builder khi chưa có gateway.',
-    learningOutcomes: ['Dùng thử Course Builder'],
-    submittedAt: new Date('2026-09-20T02:00:00Z'),
-    publishedAt: new Date('2026-09-22T02:00:00Z'),
-    archivedAt: null,
-    modules: [
-      {
-        id: '33333333-cccc-7333-8333-000000000003',
-        title: 'Security fundamentals',
-        lessons: [
-          {
-            id: '33333333-dddd-7333-8333-000000000004',
-            title: 'Passwords and phishing',
-            content: 'Bảo vệ tài khoản cơ bản.',
-            materials: [],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_UI_3,
-    organizationId: ORG_UI,
-    chainId: CHAIN_UI_3,
-    versionNumber: 1,
-    name: 'Customer Service Fundamentals (dev)',
-    courseType: 'PUBLIC',
-    status: 'PUBLISHED',
-    expectedCompletionDays: 14,
-    shortDescription: 'Published Course that already has Learners, so it is Locked.',
-    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Published and Locked).',
-    learningOutcomes: ['Try the "Published and Locked" case'],
-    submittedAt: new Date('2026-09-10T02:00:00Z'),
-    publishedAt: new Date('2026-09-12T02:00:00Z'),
-    archivedAt: null,
-    lockedAt: new Date('2026-09-20T02:00:00Z'),
-    modules: [
-      {
-        id: '33333333-cccc-7333-8333-000000000004',
-        title: 'Listening skills',
-        lessons: [
-          {
-            id: '33333333-dddd-7333-8333-000000000005',
-            title: 'Active listening',
-            content: 'How to listen to a customer.',
-            materials: [],
-          },
-          {
-            id: '33333333-dddd-7333-8333-000000000006',
-            title: 'Asking good questions',
-            content: 'Clarifying what the customer needs.',
-            materials: [],
-          },
-        ],
-      },
-      {
-        id: '33333333-cccc-7333-8333-000000000005',
-        title: 'Handling complaints',
-        lessons: [
-          {
-            id: '33333333-dddd-7333-8333-000000000007',
-            title: 'Staying calm',
-            content: 'De-escalating an angry customer.',
-            materials: [],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_UI_4,
-    organizationId: ORG_UI,
-    chainId: CHAIN_UI_4,
-    versionNumber: 1,
-    name: 'Onboarding for New Hires (dev)',
-    courseType: 'PUBLIC',
-    status: 'SUBMITTED',
-    expectedCompletionDays: 14,
-    shortDescription: 'Waiting for the Organizer to approve; nothing can be edited.',
-    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Submitted for approval).',
-    learningOutcomes: ['Try the "Submitted for approval" case'],
-    submittedAt: new Date('2026-09-30T02:00:00Z'),
-    publishedAt: null,
-    archivedAt: null,
-    modules: [
-      {
-        id: '33333333-cccc-7333-8333-000000000006',
-        title: 'Welcome',
-        lessons: [
-          {
-            id: '33333333-dddd-7333-8333-000000000008',
-            title: 'Company values',
-            content: 'What we stand for.',
-            materials: [],
-          },
-          {
-            id: '33333333-dddd-7333-8333-000000000009',
-            title: 'Tools and accounts',
-            content: 'Everything you need on day one.',
-            materials: [],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_UI_5,
-    organizationId: ORG_UI,
-    chainId: CHAIN_UI_5,
-    versionNumber: 1,
-    name: 'Remote Work Etiquette (dev)',
-    courseType: 'PUBLIC',
-    status: 'REJECTED',
-    expectedCompletionDays: 14,
-    shortDescription: 'Rejected by the Organizer; can be edited like a Draft.',
-    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Rejected).',
-    learningOutcomes: ['Try the "Rejected" case'],
-    submittedAt: new Date('2026-09-25T02:00:00Z'),
-    publishedAt: null,
-    archivedAt: null,
-    rejectedAt: new Date('2026-09-27T02:00:00Z'),
-    rejectionReason: 'The learning outcomes are too vague. Please rewrite them and add at least one required material.',
-    modules: [
-      {
-        id: '33333333-cccc-7333-8333-000000000007',
-        title: 'Working from home',
-        lessons: [
-          {
-            id: '33333333-dddd-7333-8333-000000000010',
-            title: 'Meeting etiquette',
-            content: 'Camera, mute and turn-taking.',
-            materials: [],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_UI_6,
-    organizationId: ORG_UI,
-    chainId: CHAIN_UI_6,
-    versionNumber: 1,
-    name: 'Fire Safety Basics (dev)',
-    courseType: 'PUBLIC',
-    status: 'ARCHIVED',
-    expectedCompletionDays: 14,
-    shortDescription: 'Replaced by version 2, kept for the Learners who started it.',
-    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Archived version 1).',
-    learningOutcomes: ['Try the "Archived version 1" case'],
-    submittedAt: new Date('2026-08-01T02:00:00Z'),
-    publishedAt: new Date('2026-08-05T02:00:00Z'),
-    archivedAt: new Date('2026-09-22T02:00:00Z'),
-    lockedAt: new Date('2026-08-15T02:00:00Z'),
-    modules: [
-      {
-        id: '33333333-cccc-7333-8333-000000000008',
-        title: 'Fire prevention',
-        lessons: [
-          {
-            id: '33333333-dddd-7333-8333-000000000011',
-            title: 'Common causes',
-            content: 'Typical causes of workplace fires.',
-            materials: [],
-          },
-          {
-            id: '33333333-dddd-7333-8333-000000000012',
-            title: 'Extinguisher types',
-            content: 'Choosing the right extinguisher.',
-            materials: [],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_UI_7,
-    organizationId: ORG_UI,
-    chainId: CHAIN_UI_6,
-    versionNumber: 2,
-    name: 'Fire Safety Basics (dev)',
-    courseType: 'PUBLIC',
-    status: 'PUBLISHED',
-    expectedCompletionDays: 14,
-    shortDescription: 'Current version of the chain; not Locked yet.',
-    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Published version 2).',
-    learningOutcomes: ['Try the "Published version 2" case'],
-    submittedAt: new Date('2026-09-18T02:00:00Z'),
-    publishedAt: new Date('2026-09-22T02:00:00Z'),
-    archivedAt: null,
-    modules: [
-      {
-        id: '33333333-cccc-7333-8333-000000000009',
-        title: 'Fire prevention',
-        lessons: [
-          {
-            id: '33333333-dddd-7333-8333-000000000013',
-            title: 'Common causes',
-            content: 'Typical causes of workplace fires.',
-            materials: [],
-          },
-          {
-            id: '33333333-dddd-7333-8333-000000000014',
-            title: 'Extinguisher types',
-            content: 'Choosing the right extinguisher.',
-            materials: [],
-          },
-        ],
-      },
-      {
-        id: '33333333-cccc-7333-8333-000000000010',
-        title: 'Evacuation',
-        lessons: [
-          {
-            id: '33333333-dddd-7333-8333-000000000015',
-            title: 'Evacuation routes',
-            content: 'Reading the floor plan.',
-            materials: [],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_UI_8,
-    organizationId: ORG_UI,
-    chainId: CHAIN_UI_7,
-    versionNumber: 1,
-    name: 'Legacy Compliance Training (dev)',
-    courseType: 'PUBLIC',
-    status: 'DISABLED',
-    expectedCompletionDays: 14,
-    shortDescription: 'Disabled after a confirmed violation; Learners cannot open it.',
-    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Disabled).',
-    learningOutcomes: ['Try the "Disabled" case'],
-    submittedAt: new Date('2026-07-01T02:00:00Z'),
-    publishedAt: new Date('2026-07-05T02:00:00Z'),
-    archivedAt: null,
-    lockedAt: new Date('2026-07-20T02:00:00Z'),
-    disabledAt: new Date('2026-09-29T02:00:00Z'),
-    disabledReason: 'Serious violation confirmed by the Organizer.',
-    modules: [
-      {
-        id: '33333333-cccc-7333-8333-000000000011',
-        title: 'Policies',
-        lessons: [
-          {
-            id: '33333333-dddd-7333-8333-000000000016',
-            title: 'Code of conduct',
-            content: 'The previous code of conduct.',
-            materials: [],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_UI_9,
-    organizationId: ORG_UI,
-    chainId: CHAIN_UI_8,
-    versionNumber: 1,
-    name: 'Executive Leadership Program (dev)',
-    courseType: 'PRIVATE',
-    status: 'PUBLISHED',
-    expectedCompletionDays: 14,
-    shortDescription: 'Private Published Course, not shown in the self-study catalog.',
-    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Private Course).',
-    learningOutcomes: ['Try the "Private Course" case'],
-    submittedAt: new Date('2026-09-15T02:00:00Z'),
-    publishedAt: new Date('2026-09-17T02:00:00Z'),
-    archivedAt: null,
-    modules: [
-      {
-        id: '33333333-cccc-7333-8333-000000000012',
-        title: 'Leading teams',
-        lessons: [
-          {
-            id: '33333333-dddd-7333-8333-000000000017',
-            title: 'Setting direction',
-            content: 'Vision and priorities.',
-            materials: [],
-          },
-          {
-            id: '33333333-dddd-7333-8333-000000000018',
-            title: 'Giving feedback',
-            content: 'Feedback that helps.',
-            materials: [],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: COURSE_UI_10,
-    organizationId: ORG_UI,
-    chainId: CHAIN_UI_9,
-    versionNumber: 1,
-    name: 'Blank Draft (dev)',
-    courseType: 'PUBLIC',
-    status: 'DRAFT',
-    expectedCompletionDays: 14,
-    shortDescription: 'Draft without any Module, to try adding the first Module.',
-    trainingObjectives: 'Demo Course for trying the Course Builder and the Assignment screens (Empty Draft).',
-    learningOutcomes: ['Try the "Empty Draft" case'],
-    submittedAt: null,
-    publishedAt: null,
-    archivedAt: null,
-    modules: [
-    ],
-  },
+// Purposefully diverse positive/negative/edge-case fixtures.
+const CASES: CaseDefinition[] = [
+  { code:'DRAFT_EMPTY',chain:1,version:1,name:'[SEED] Bản nháp chưa có nội dung',status:STATUS.DRAFT,type:TYPE.PUBLIC,created:'2026-08-01',days:7,assignments:0,lessons:0,media:'none' },
+  { code:'DRAFT_VIDEO',chain:2,version:1,name:'[SEED] An toàn lao động - video bắt buộc',status:STATUS.DRAFT,type:TYPE.PUBLIC,created:'2026-08-03',days:14,assignments:0,lessons:2,media:'video' },
+  { code:'DRAFT_READING',chain:3,version:1,name:'[SEED] Quy trình nội bộ - tài liệu đọc',status:STATUS.DRAFT,type:TYPE.PRIVATE,created:'2026-08-05',days:10,assignments:0,lessons:2,media:'reading' },
+  { code:'DRAFT_OPTIONAL',chain:4,version:1,name:'[SEED] Học liệu tự chọn không tính thời lượng',status:STATUS.DRAFT,type:TYPE.PRIVATE,created:'2026-08-07',days:5,assignments:0,lessons:1,media:'optional' },
+  { code:'SUBMITTED_PUBLIC',chain:5,version:1,name:'[SEED] Nhận diện rủi ro - chờ duyệt',status:STATUS.SUBMITTED,type:TYPE.PUBLIC,created:'2026-08-10',submitted:'2026-08-15',days:12,assignments:30,lessons:3,media:'mixed' },
+  { code:'SUBMITTED_PRIVATE',chain:6,version:1,name:'[SEED] Bảo mật tài liệu - chờ duyệt',status:STATUS.SUBMITTED,type:TYPE.PRIVATE,created:'2026-08-12',submitted:'2026-08-17',days:14,assignments:0,lessons:2,media:'mixed' },
+  { code:'REJECTED_PUBLIC',chain:7,version:1,name:'[SEED] Giao tiếp khách hàng - bị từ chối',status:STATUS.REJECTED,type:TYPE.PUBLIC,created:'2026-08-13',submitted:'2026-08-17',rejected:'2026-08-19',rejectedReason:'Cần bổ sung mục tiêu đào tạo và minh chứng đánh giá.',days:10,assignments:15,lessons:2,media:'mixed' },
+  { code:'REJECTED_PRIVATE',chain:8,version:1,name:'[SEED] Quy trình phê duyệt - bị từ chối',status:STATUS.REJECTED,type:TYPE.PRIVATE,created:'2026-08-16',submitted:'2026-08-20',rejected:'2026-08-23',rejectedReason:'Tài liệu chưa phù hợp với quy trình nội bộ hiện hành.',days:7,assignments:0,lessons:1,media:'reading' },
+  { code:'VERSION1_ARCHIVED',chain:9,version:1,name:'[SEED] An toàn phòng cháy - phiên bản 1',status:STATUS.ARCHIVED,type:TYPE.PUBLIC,created:'2026-07-01',submitted:'2026-07-09',published:'2026-07-12',archived:'2026-09-11',locked:'2026-08-01',days:14,assignments:20,lessons:3,media:'mixed' },
+  { code:'VERSION2_PUBLISHED',chain:9,version:2,name:'[SEED] An toàn phòng cháy - phiên bản 2',status:STATUS.PUBLISHED,type:TYPE.PUBLIC,created:'2026-09-01',submitted:'2026-09-07',published:'2026-09-11',days:14,assignments:30,lessons:3,media:'mixed' },
+  { code:'PUBLISHED_PRIVATE',chain:10,version:1,name:'[SEED] Bảo vệ dữ liệu cá nhân',status:STATUS.PUBLISHED,type:TYPE.PRIVATE,created:'2026-08-20',submitted:'2026-08-25',published:'2026-08-28',days:7,assignments:45,lessons:3,media:'mixed' },
+  { code:'PUBLISHED_LOCKED',chain:11,version:1,name:'[SEED] Hội nhập nhân viên - đã khóa',status:STATUS.PUBLISHED,type:TYPE.PUBLIC,created:'2026-08-21',submitted:'2026-08-26',published:'2026-08-29',locked:'2026-09-03',days:10,assignments:0,lessons:3,media:'mixed' },
+  { code:'PUBLISHED_DISABLED_MATERIAL',chain:12,version:1,name:'[SEED] Sơ cứu - học liệu bị vô hiệu hóa',status:STATUS.PUBLISHED,type:TYPE.PUBLIC,created:'2026-08-23',submitted:'2026-08-27',published:'2026-08-30',days:8,assignments:10,lessons:2,media:'disabled' },
+  { code:'DISABLED_COURSE',chain:13,version:1,name:'[SEED] Ứng xử trên mạng - bị vô hiệu hóa',status:STATUS.DISABLED,type:TYPE.PUBLIC,created:'2026-07-05',submitted:'2026-07-10',published:'2026-07-13',locked:'2026-08-03',disabled:'2026-09-20',disabledReason:'Nội dung được báo cáo vi phạm quy định.',days:7,assignments:15,lessons:2,media:'mixed' },
+  { code:'DRAFT_ASSIGNMENT_ONLY',chain:14,version:1,name:'[SEED] Thực hành công việc - chỉ Assignment',status:STATUS.DRAFT,type:TYPE.PRIVATE,created:'2026-09-21',days:7,assignments:75,lessons:1,media:'none' },
+  { code:'PUBLISHED_NO_ASSIGNMENT',chain:15,version:1,name:'[SEED] Kiến thức nền - không Assignment',status:STATUS.PUBLISHED,type:TYPE.PUBLIC,created:'2026-09-01',submitted:'2026-09-04',published:'2026-09-06',days:5,assignments:0,lessons:2,media:'mixed' },
 ];
 
-// ---------------------------------------------------------------------------
-// Thực thi
-// ---------------------------------------------------------------------------
-function createPrismaClient(): PrismaClient {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error('DATABASE_URL is not set. Copy .env.example to .env first.');
-  }
-  const adapter = new PrismaPg({ connectionString });
-  return new PrismaClient({ adapter });
-}
-
-function mediaFileData(organizationId: string, material: SeedMaterial, readyAt: Date) {
-  const isVideo = material.type === 'Video';
-  return {
-    organizationId,
-    purpose: isVideo ? 'MaterialVideo' : 'MaterialReading',
-    status: 'Ready',
-    storageKey: `seed/${material.id}`,
-    originalFilename: `${material.id}.${isVideo ? 'mp4' : 'pdf'}`,
-    mimeType: isVideo ? 'video/mp4' : 'application/pdf',
-    // Ước lượng: video ~250 KB mỗi giây, PDF ~60 byte mỗi từ
-    sizeBytes: BigInt(isVideo ? material.amount * 250_000 : material.amount * 60),
-    durationSeconds: isVideo ? material.amount : null,
-    wordCount: isVideo ? null : material.amount,
-    readyAt,
-    releasedAt: null,
+function validateFixture(f: CaseDefinition) {
+  const c=time(f.created).getTime();
+  const submitted=f.submitted ? time(f.submitted).getTime() : null;
+  const published=f.published ? time(f.published).getTime() : null;
+  const rejected=f.rejected ? time(f.rejected).getTime() : null;
+  const archived=f.archived ? time(f.archived).getTime() : null;
+  const disabled=f.disabled ? time(f.disabled).getTime() : null;
+  const locked=f.locked ? time(f.locked).getTime() : null;
+  const check=(value:number|null,earliest:number|null,label:string) => {
+    if (value!==null && (earliest===null || value<earliest)) throw new Error(`Invalid ${label} timeline for ${f.code}`);
   };
+  check(submitted,c,'submitted'); check(published,submitted,'published');
+  check(rejected,submitted,'rejected');check(archived,published,'archived');
+  check(disabled,published,'disabled');check(locked,published,'locked');
+  if(f.status===STATUS.DRAFT && (submitted||published)) throw new Error(`Draft cannot have approval dates: ${f.code}`);
+  if(f.status===STATUS.PUBLISHED && !published) throw new Error(`Published missing date: ${f.code}`);
+  if(f.status===STATUS.SUBMITTED && !submitted) throw new Error(`Submitted missing date: ${f.code}`);
+  if(f.status===STATUS.REJECTED && (!rejected||!f.rejectedReason)) throw new Error(`Rejected incomplete: ${f.code}`);
+  if(f.status===STATUS.ARCHIVED && !archived) throw new Error(`Archived missing date: ${f.code}`);
+  if(f.status===STATUS.DISABLED && (!disabled||!f.disabledReason)) throw new Error(`Disabled incomplete: ${f.code}`);
 }
 
-async function seed(prisma: PrismaClient): Promise<void> {
-  await prisma.$transaction(
-    async (tx) => {
-      await tx.platformSetting.upsert({
-        where: { id: PLATFORM_SETTINGS_ID },
-        create: { id: PLATFORM_SETTINGS_ID, sourceAsOf: new Date() },
-        update: { sourceAsOf: new Date() },
-      });
+async function createIfMissing<T>(lookup:()=>Promise<T|null>,create:()=>Promise<unknown>):Promise<boolean>{
+  if(await lookup())return false;
+  await create();
+  return true;
+}
 
-      for (const chain of CHAINS) {
-        await tx.courseChain.upsert({
-          where: { id: chain.id },
-          create: chain,
-          update: chain,
-        });
-      }
-
-      for (const { modules, ...course } of COURSES) {
-        // locked_at chỉ đặt khi tạo mới; chạy lại seed không gỡ Locked do learning-service gắn (BR-83)
-        await tx.course.upsert({
-          where: { id: course.id },
-          create: { ...course, lockedAt: course.lockedAt ?? null },
-          update: course,
-        });
-
-        for (const [moduleIndex, module] of modules.entries()) {
-          const moduleData = {
-            id: module.id,
-            organizationId: course.organizationId,
-            courseId: course.id,
-            title: module.title,
-            position: moduleIndex + 1,
-          };
-          await tx.courseModule.upsert({
-            where: { id: module.id },
-            create: moduleData,
-            update: moduleData,
-          });
-
-          for (const [lessonIndex, lesson] of module.lessons.entries()) {
-            const lessonData = {
-              id: lesson.id,
-              organizationId: course.organizationId,
-              moduleId: module.id,
-              title: lesson.title,
-              content: lesson.content,
-              position: lessonIndex + 1,
-            };
-            await tx.lesson.upsert({
-              where: { id: lesson.id },
-              create: lessonData,
-              update: lessonData,
-            });
-
-            for (const [materialIndex, material] of lesson.materials.entries()) {
-              const fileData = mediaFileData(course.organizationId, material, course.publishedAt ?? new Date());
-              await tx.mediaFile.upsert({
-                where: { id: material.fileId },
-                create: { id: material.fileId, ...fileData },
-                update: fileData,
-              });
-
-              const materialData = {
-                id: material.id,
-                organizationId: course.organizationId,
-                lessonId: lesson.id,
-                materialType: material.type,
-                title: material.title,
-                isRequired: material.isRequired,
-                fileId: material.fileId,
-                position: materialIndex + 1,
-              };
-              await tx.material.upsert({
-                where: { id: material.id },
-                create: materialData,
-                update: materialData,
-              });
-            }
-          }
+async function seed(prisma:PrismaClient){
+  CASES.forEach(validateFixture);
+  const now=new Date();
+  if(now<time('2026-10-01')) throw new Error('Fixture dates are in the future.');
+  const stats:Record<string,number>={};
+  const count=(label:string,created:boolean)=>{if(created)stats[label]=(stats[label]??0)+1;};
+  const settingId=fixtureId(0xf001,1);
+  count('platform_settings',await createIfMissing(
+    ()=>prisma.platformSetting.findUnique({where:{id:settingId}}),
+    ()=>prisma.platformSetting.create({data:{id:settingId,sourceAsOf:time('2026-10-01'),readingSpeedWordsPerMinute:200,studyMinutesPerDay:60}})
+  ));
+  for(const f of CASES){
+    const chainId=fixtureId(0xc001,f.chain);
+    const courseId=fixtureId(0xc002,f.chain*10+f.version);
+    const createdAt=time(f.created);
+    count('course_chains',await createIfMissing(
+      ()=>prisma.courseChain.findUnique({where:{id:chainId}}),
+      ()=>prisma.courseChain.create({data:{id:chainId,organizationId:ORG_ID,instructorId:INSTRUCTOR_ID,createdAt,updatedAt:createdAt}})
+    ));
+    const eventTime=f.disabled??f.archived??f.rejected??f.published??f.submitted??f.created;
+    count('courses',await createIfMissing(
+      ()=>prisma.course.findUnique({where:{id:courseId}}),
+      ()=>prisma.course.create({data:{id:courseId,organizationId:ORG_ID,chainId,versionNumber:f.version,
+        name:f.name,shortDescription:`Dữ liệu phát triển LearnUP – tình huống ${f.code}.`,
+        trainingObjectives:'Nhận diện tình huống, vận dụng kiến thức và thực hiện đúng quy trình trong công việc.',
+        learningOutcomes:['Trình bày kiến thức cốt lõi','Giải quyết tình huống thực tiễn'],
+        courseType:f.type,status:f.status,expectedCompletionDays:f.days,
+        submittedAt:f.submitted?time(f.submitted):null,publishedAt:f.published?time(f.published):null,
+        archivedAt:f.archived?time(f.archived):null,rejectedAt:f.rejected?time(f.rejected):null,
+        rejectionReason:f.rejectedReason??null,disabledAt:f.disabled?time(f.disabled):null,
+        disabledReason:f.disabledReason??null,lockedAt:f.locked?time(f.locked):null,
+        assignmentMinutes:f.assignments,assignmentMinutesAsOf:f.assignments?time(f.created):null,
+        createdAt,updatedAt:time(eventTime)}})
+    ));
+    if(!f.lessons)continue;
+    const moduleCount=f.lessons>2?2:1;
+    for(let mi=0;mi<moduleCount;mi++){
+      const moduleSeq=f.chain*100+f.version*10+mi+1;
+      const moduleId=fixtureId(0xc003,moduleSeq);
+      count('modules',await createIfMissing(
+        ()=>prisma.courseModule.findUnique({where:{id:moduleId}}),
+        ()=>prisma.courseModule.create({data:{id:moduleId,organizationId:ORG_ID,courseId,
+          title:mi===0?'Kiến thức nền tảng':'Thực hành và tình huống',position:mi+1,createdAt,updatedAt:createdAt}})
+      ));
+      const lessonStart=mi===0?0:2;
+      const lessonEnd=mi===0?Math.min(2,f.lessons):f.lessons;
+      for(let li=lessonStart;li<lessonEnd;li++){
+        const lessonSeq=f.chain*1000+f.version*100+li+1;
+        const lessonId=fixtureId(0xc004,lessonSeq);
+        const isDisabledLesson=f.media==='disabled'&&li===f.lessons-1;
+        count('lessons',await createIfMissing(
+          ()=>prisma.lesson.findUnique({where:{id:lessonId}}),
+          ()=>prisma.lesson.create({data:{id:lessonId,organizationId:ORG_ID,moduleId,
+            title:`Bài ${li+1}: ${f.name.replace('[SEED] ','')}`,
+            content:`## Kiến thức cần nắm\n\nTình huống minh họa ${f.code}, bài ${li+1}.\n\n- Nhận diện vấn đề\n- Áp dụng đúng quy trình\n- Kiểm tra kết quả`,
+            position:li-lessonStart+1,disabledAt:isDisabledLesson?time('2026-09-12'):null,
+            createdAt,updatedAt:createdAt}})
+        ));
+        const variants:{kind:Kind;required:boolean;disabled:boolean;amount:number}[]=[];
+        if(f.media==='video')variants.push({kind:'Video',required:true,disabled:false,amount:li===0?121:600});
+        if(f.media==='reading')variants.push({kind:'Reading',required:true,disabled:false,amount:li===0?1001:800});
+        if(f.media==='mixed')variants.push(
+          {kind:'Video',required:true,disabled:false,amount:li===0?601:485},
+          {kind:'Reading',required:true,disabled:false,amount:li===0?1001:625},
+          {kind:'Video',required:false,disabled:false,amount:900});
+        if(f.media==='optional')variants.push({kind:'Video',required:false,disabled:false,amount:600},{kind:'Reading',required:false,disabled:false,amount:1200});
+        if(f.media==='disabled')variants.push({kind:'Video',required:true,disabled:li===0,amount:305},{kind:'Reading',required:true,disabled:false,amount:750});
+        for(let j=0;j<variants.length;j++){
+          const v=variants[j]; const n=lessonSeq*10+j+1;
+          const materialId=fixtureId(0xc005,n);const fileId=fixtureId(0xc006,n);
+          const mediaAt=createdAt;
+          count('media_files',await createIfMissing(
+            ()=>prisma.mediaFile.findUnique({where:{id:fileId}}),
+            ()=>prisma.mediaFile.create({data:{id:fileId,organizationId:ORG_ID,
+              purpose:v.kind==='Video'?'MaterialVideo':'MaterialReading',status:'Ready',
+              storageKey:`seed/learnup-abc/${f.code.toLowerCase()}/${fileId}`,
+              originalFilename:`${f.code.toLowerCase()}-${n}.${v.kind==='Video'?'mp4':'pdf'}`,
+              mimeType:v.kind==='Video'?'video/mp4':'application/pdf',
+              sizeBytes:BigInt(v.kind==='Video'?v.amount*250000:v.amount*60),
+              durationSeconds:v.kind==='Video'?v.amount:null,wordCount:v.kind==='Reading'?v.amount:null,
+              readyAt:mediaAt,createdAt:mediaAt,updatedAt:mediaAt}})
+          ));
+          count('materials',await createIfMissing(
+            ()=>prisma.material.findUnique({where:{id:materialId}}),
+            ()=>prisma.material.create({data:{id:materialId,organizationId:ORG_ID,lessonId,
+              materialType:v.kind,title:`${v.kind==='Video'?'Video hướng dẫn':'Tài liệu đọc'} ${li+1}.${j+1}`,
+              isRequired:v.required,fileId,position:j+1,
+              disabledAt:v.disabled?time('2026-09-12'):null,
+              createdAt,updatedAt:createdAt}})
+          ));
         }
       }
-    },
-    { timeout: 60_000 },
-  );
-}
-
-function printIds(): void {
-  console.log('\nID demo Inter 1 (dùng làm header x-organization-id / x-user-id):\n');
-  console.table([
-    { loại: 'organization', tên: 'ORG_A', id: ORG_A },
-    { loại: 'organization', tên: 'ORG_B', id: ORG_B },
-    { loại: 'learner', tên: 'LEARNER_1 (org A)', id: LEARNER_1 },
-    { loại: 'learner', tên: 'LEARNER_2 (org A)', id: LEARNER_2 },
-    { loại: 'learner', tên: 'LEARNER_3 (org B)', id: LEARNER_3 },
-    { loại: 'instructor', tên: 'INSTRUCTOR_1 (org A)', id: INSTRUCTOR_1 },
-    { loại: 'instructor', tên: 'INSTRUCTOR_2 (org B)', id: INSTRUCTOR_2 },
-    { loại: 'organization', tên: 'ORG_UI (danh tính giao diện)', id: ORG_UI },
-    { loại: 'instructor', tên: 'INSTRUCTOR_UI (danh tính giao diện)', id: INSTRUCTOR_UI },
-    ...COURSES.filter((course) => course.organizationId !== ORG_TEST).map((course) => ({
-      loại: 'course',
-      tên: `${course.name} v${course.versionNumber} (${course.status}, ${course.courseType}, org ${course.organizationId === ORG_A ? 'A' : course.organizationId === ORG_UI ? 'UI' : 'B'})`,
-      id: course.id,
-    })),
-  ]);
-  console.log('Fixture test tích hợp (không dùng cho demo):');
-  console.table([
-    { loại: 'organization', tên: 'ORG_TEST', id: ORG_TEST },
-    { loại: 'instructor', tên: 'INSTRUCTOR_TEST', id: INSTRUCTOR_TEST },
-    { loại: 'course', tên: 'Course test Public', id: COURSE_TEST_PUBLIC },
-    { loại: 'course', tên: 'Course test Private', id: COURSE_TEST_PRIVATE },
-  ]);
-}
-
-async function main(): Promise<void> {
-  if (process.env.NODE_ENV === 'production') {
-    console.error('Refusing to seed: NODE_ENV=production. Seed data is for development only.');
-    process.exit(1);
+    }
   }
-
-  const prisma = createPrismaClient();
-  try {
-    await seed(prisma);
-    console.log('course-service: seed completed.');
-    printIds();
-  } finally {
-    await prisma.$disconnect();
-  }
+  // Intentional: ContentReport is a transactional moderation aggregate and OutboxEvent is an
+  // event delivery queue. Neither is fabricated here until accepted statuses and workflow
+  // side-effects are verified against the actual Course report service.
+  // OrganizationQuotaLock is a concurrency lock table, not business fixture data.
+  console.table(stats);
+  console.log(`Fixture principals: organizer=${ORGANIZER_ID}, instructor=${INSTRUCTOR_ID}, learner=${LEARNER_ID}, admin=${ADMIN_ID}; org=${ORG_ID}`);
+  console.log(`Course test cases: ${CASES.length}. No pre-existing rows were updated or deleted.`);
 }
 
-main().catch((error: unknown) => {
-  console.error(error);
-  process.exit(1);
-});
+async function main(){
+  if(process.env.NODE_ENV==='production')throw new Error('Refusing seed in production');
+  if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is required');
+  const prisma=new PrismaClient({adapter:new PrismaPg({connectionString:process.env.DATABASE_URL})});
+  try{await seed(prisma);}finally{await prisma.$disconnect();}
+}
+main().catch((err:unknown)=>{console.error(err);process.exitCode=1;});

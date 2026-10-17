@@ -1,11 +1,12 @@
+import { COURSE_STATUS, COURSE_TYPE } from '../courses/course-values';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@infra/prisma/prisma.service';
 
 /** Điều kiện chung của Course hiển thị trong danh mục (UC25, UC25.1). */
 const catalogCourseWhere = (organizationId: string) => ({
   organizationId,
-  status: 'Published',
-  courseType: 'Public',
+  status: COURSE_STATUS.PUBLISHED,
+  courseType: COURSE_TYPE.PUBLIC,
   disabledAt: null,
 });
 

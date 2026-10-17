@@ -14,10 +14,13 @@ import {
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
+import { OptionalEnrollmentRepository } from './optional-enrollment.repository';
+import { assertRestorable } from './optional-enrollment.rules';
 import { Prisma } from '../../../generated/prisma/client';
-import { buildCourseSnapshotRows } from '../course-snapshots/course-snapshot-rows';
+import { CourseSnapshotPreparationService } from '../course-snapshots/course-snapshot-preparation.service';
 import { CourseSnapshotsRepository } from '../course-snapshots/course-snapshots.repository';
 import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
 import {
@@ -83,6 +86,7 @@ function isUniqueViolation(error: unknown): boolean {
 @Injectable()
 export class EnrollmentsService {
   private readonly logger = new Logger(EnrollmentsService.name);
+  private readonly snapshotPreparation: CourseSnapshotPreparationService;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -90,9 +94,18 @@ export class EnrollmentsService {
     private readonly courseSnapshots: CourseSnapshotsRepository,
     private readonly platformSettings: PlatformSettingsRepository,
     private readonly courseService: CourseServiceClient,
-    @Inject(TENANT_CLIENT) private readonly tenant: TenantClient,
+    @Inject(TENANT_CLIENT)
+    private readonly tenant: Pick<TenantClient, 'getOrganizationAccess'>,
     private readonly organizationTimezone: OrganizationTimezoneService,
-  ) {}
+    @Optional() snapshotPreparation?: CourseSnapshotPreparationService,
+    private readonly optionalEnrollments: OptionalEnrollmentRepository = new OptionalEnrollmentRepository(
+      prisma,
+    ),
+  ) {
+    this.snapshotPreparation =
+      snapshotPreparation ??
+      new CourseSnapshotPreparationService(courseSnapshots, courseService);
+  }
 
   /**
    * UC25.3: Learner tự đăng ký Course tự chọn.
@@ -101,16 +114,15 @@ export class EnrollmentsService {
   async enrollOptional(
     user: CurrentUser,
     courseId: string,
-  ): Promise<CreatedEnrollment> {
+  ): Promise<CreatedEnrollment & { restored: boolean }> {
     const organizationId = this.organizationIdOf(user);
 
-    const existingId = await this.enrollments.findIdByLearnerAndCourse(
+    const existing = await this.optionalEnrollments.findRegistration(
       user.userId,
       courseId,
+      organizationId,
     );
-    if (existingId) {
-      throw alreadyEnrolled(existingId);
-    }
+    assertRestorable(existing);
 
     const videoCompletionPercent =
       await this.platformSettings.getVideoCompletionPercent();
@@ -127,27 +139,31 @@ export class EnrollmentsService {
       this.courseService.lockCourse(user, courseId, true),
     );
 
-    const hasSnapshot = await this.courseSnapshots.existsForCourse(
-      courseId,
-      organizationId,
+    const snapshotRows = await this.callCourseService(() =>
+      this.snapshotPreparation.prepare(user, lock),
     );
-    const snapshotRows = hasSnapshot
-      ? null
-      : buildCourseSnapshotRows(
-          lock,
-          await this.callCourseService(() =>
-            this.courseService.getCourseTree(user, courseId),
-          ),
-          new Date(),
-        );
 
     try {
       return await this.prisma.$transaction(async (tx) => {
+        if (existing) {
+          const current = await this.optionalEnrollments.lock(
+            tx,
+            existing.id,
+            user.userId,
+            organizationId,
+          );
+          assertRestorable(current);
+          if (current)
+            return {
+              ...(await this.optionalEnrollments.restore(tx, current)),
+              restored: true,
+            };
+        }
         if (snapshotRows) {
           await this.courseSnapshots.insertIgnoringConflicts(snapshotRows, tx);
         }
         // Optional: không có hạn, không lưu expectedCompletionDays của I1; không ghi outbox (D19)
-        return this.enrollments.create(
+        const created = await this.enrollments.create(
           {
             organizationId,
             learnerId: user.userId,
@@ -163,6 +179,7 @@ export class EnrollmentsService {
           },
           tx,
         );
+        return { ...created, restored: false };
       });
     } catch (error) {
       if (!isUniqueViolation(error)) {

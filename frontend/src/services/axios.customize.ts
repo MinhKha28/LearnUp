@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type AxiosInstance, type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
 
 import { env, type BackendService } from "@/config/env";
+import { retryWithFreshToken } from "@/services/auth.session";
 
 // Add a request interceptor
 const onRequest = function (config: InternalAxiosRequestConfig) {
@@ -49,7 +50,11 @@ const createBackendInstance = (baseURL: string): AxiosInstance => {
     withCredentials: true,
   });
   instance.interceptors.request.use(onRequest, onRequestError);
-  instance.interceptors.response.use(onResponse, onResponseError);
+  // UC05: 401 do token hết hạn -> làm mới rồi gửi lại; lỗi khác xử lý như cũ
+  instance.interceptors.response.use(onResponse, async (error: AxiosError) => {
+    const retried = await retryWithFreshToken(instance, error);
+    return retried ?? onResponseError(error);
+  });
   return instance;
 };
 

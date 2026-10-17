@@ -9,6 +9,8 @@ public class AuthResponse {
 
     private UserResponse user;
 
+    private String accessMode;
+
     public AuthResponse() {
     }
 
@@ -73,5 +75,13 @@ public class AuthResponse {
 
     public void setUser(UserResponse user) {
         this.user = user;
+    }
+
+    public String getAccessMode() {
+        return accessMode;
+    }
+
+    public void setAccessMode(String accessMode) {
+        this.accessMode = accessMode;
     }
 }

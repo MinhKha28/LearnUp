@@ -1,6 +1,5 @@
 import {
   BarChartOutlined,
-  BellOutlined,
   CreditCardOutlined,
   DashboardOutlined,
   ExclamationCircleOutlined,
@@ -26,7 +25,9 @@ import {
 import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import NotificationBell from "@/components/notification/notification.bell";
 import { useCurrentApp } from "@/components/context/app.context";
+import { useSignOut } from "@/hooks/use.sign.out";
 import "./layout.admin.scss";
 
 type MenuItem = Required<MenuProps>["items"][number];
@@ -121,7 +122,7 @@ const getPageMeta = (pathname: string) => {
 };
 
 const LayoutAdmin = () => {
-  const { user, setUser, setIsAuthenticated } = useCurrentApp();
+  const { user } = useCurrentApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -146,12 +147,8 @@ const LayoutAdmin = () => {
     navigate(key);
     setMobileOpen(false);
   };
-  const logout = () => {
-    localStorage.removeItem("access_token");
-    setUser(null);
-    setIsAuthenticated(false);
-    navigate("/login");
-  };
+  // UC06: thu hồi refresh token ở identity rồi xóa phiên trên trình duyệt
+  const logout = useSignOut();
   const profileItems: MenuProps["items"] = [
     {
       key: "profile",
@@ -223,19 +220,14 @@ const LayoutAdmin = () => {
           </div>
           <div className="admin-topbar-actions">
             <span className="admin-demo-badge">Demo data</span>
-            <Button
-              className="admin-notification"
-              type="text"
-              icon={<BellOutlined />}
-              aria-label="Notifications"
-            />
+            <NotificationBell basePath="/admin" />
             <Dropdown
               menu={{ items: profileItems }}
               trigger={["click"]}
               placement="bottomRight"
             >
               <button className="admin-user" type="button">
-                <Avatar size={34}>{initials}</Avatar>
+                <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
                 <span>
                   <strong>{displayName}</strong>
                   <small>Platform Admin</small>

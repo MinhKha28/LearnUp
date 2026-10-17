@@ -6,6 +6,7 @@ import NotFoundPage from "@/pages/error/not.found";
 import ForbiddenPage from "@/pages/error/forbidden";
 import ServerErrorPage from "@/pages/error/server.error";
 import ServiceUnavailablePage from "@/pages/error/service.unavailable";
+import ProtectedRoute from "@/components/identity";
 
 import HomePage from "@/pages/guest/home";
 import LoginPage from "@/pages/guest/login";
@@ -27,6 +28,7 @@ import Configuration from "./pages/admin/configuration";
 import Statistics from "./pages/admin/statistics";
 import SuspendedOrganizations from "./pages/admin/suspended.organizations";
 import Profile from "./pages/admin/profile";
+import AdminProfileEdit from "./pages/admin/profile.edit";
 import ChangePassword from "./pages/admin/password.change";
 import LayoutOrganizer from "./components/layout/layout.organizer";
 import OrganizerDashboard from "./pages/organizer/dashboard";
@@ -59,6 +61,7 @@ import OrganizerContentReports from "./pages/organizer/content.reports";
 import OrganizerContentReportDetail from "./pages/organizer/content.report.detail";
 import OrganizerViolationHistory from "./pages/organizer/violation.history";
 import OrganizerProfile from "./pages/organizer/profile";
+import OrganizerProfileEdit from "./pages/organizer/profile.edit";
 import OrganizerChangePassword from "./pages/organizer/password.change";
 import LayoutLearner from "./components/layout/layout.learner";
 import LayoutLearnerCourse from "./components/layout/layout.learner.course";
@@ -70,15 +73,15 @@ import LearnerCourseCurriculum from "./pages/learner/course.curriculum";
 import LearnerLessonDetail from "./pages/learner/lesson.detail";
 import LearnerLessonResource from "./pages/learner/lesson.resource";
 import LearnerCourseProgress from "./pages/learner/course.progress";
-import LearnerCourseWithdraw from "./pages/learner/course.withdraw";
-import LearnerCourseWithdrawn from "./pages/learner/course.withdrawn";
 import LearnerCourseAssessments from "./pages/learner/course.assessments";
 import LearnerQuizTake from "./pages/learner/quiz.take";
 import LearnerQuizHistory from "./pages/learner/quiz.history";
 import LearnerAssignmentDetail from "./pages/learner/assignment.detail";
 import LearnerAssignmentSubmit from "./pages/learner/assignment.submit";
 import LearnerAssignmentResubmit from "./pages/learner/assignment.resubmit";
+import LearnerAssignmentResult from "./pages/learner/assignment.result";
 import LearnerAssignmentSubmitted from "./pages/learner/assignment.submitted";
+import NotificationPage from "./components/notification/notification.page";
 import LearnerPeerReviewQueue from "./pages/learner/peer.review.queue";
 import LearnerPeerReviewForm from "./pages/learner/peer.review.form";
 import LearnerPeerReviewHistory from "./pages/learner/peer.review.history";
@@ -131,6 +134,7 @@ import InstructorCourseBuilderQuizDelete from "./pages/instructor/course.builder
 import InstructorCourseBuilderAssignments from "./pages/instructor/course.builder.assignments";
 import InstructorCourseBuilderAssignmentCreate from "./pages/instructor/course.builder.assignment.create";
 import InstructorCourseBuilderAssignmentPeerReviewEdit from "./pages/instructor/course.builder.assignment.peer.review.edit";
+import InstructorCourseBuilderAssignmentPeerCycles from "./pages/instructor/course.builder.assignment.peer.cycles";
 import InstructorCourseBuilderAssignmentDetail from "./pages/instructor/course.builder.assignment.detail";
 import InstructorCourseBuilderAssignmentEdit from "./pages/instructor/course.builder.assignment.edit";
 import InstructorCourseBuilderAssignmentDelete from "./pages/instructor/course.builder.assignment.delete";
@@ -175,10 +179,15 @@ export const router = createBrowserRouter([
   },
   {
     path: "/admin",
-    element: <LayoutAdmin />,
+    element: (
+      <ProtectedRoute roles={["ADMIN"]}>
+        <LayoutAdmin />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <ManageDashboard /> },
+      { path: "notifications", element: <NotificationPage /> },
       { path: "organizations", element: <Organizations /> },
       {
         path: "organizations/:organizationId",
@@ -197,15 +206,21 @@ export const router = createBrowserRouter([
       { path: "statistics", element: <Statistics /> },
       { path: "suspended-organizations", element: <SuspendedOrganizations /> },
       { path: "profile", element: <Profile /> },
+      { path: "profile/edit", element: <AdminProfileEdit /> },
       { path: "profile/change-password", element: <ChangePassword /> },
     ],
   },
   {
     path: "/organizer",
-    element: <LayoutOrganizer />,
+    element: (
+      <ProtectedRoute roles={["ORGANIZER"]}>
+        <LayoutOrganizer />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <OrganizerDashboard /> },
+      { path: "notifications", element: <NotificationPage /> },
       { path: "subscription", element: <OrganizerSubscription /> },
       { path: "subscription/renew", element: <OrganizerSubscriptionRenew /> },
       {
@@ -253,24 +268,22 @@ export const router = createBrowserRouter([
       },
       { path: "violation-history", element: <OrganizerViolationHistory /> },
       { path: "profile", element: <OrganizerProfile /> },
+      { path: "profile/edit", element: <OrganizerProfileEdit /> },
       { path: "profile/change-password", element: <OrganizerChangePassword /> },
     ],
   },
   {
     path: "/learner",
-    element: <LayoutLearner />,
+    element: (
+      <ProtectedRoute roles={["LEARNER"]}>
+        <LayoutLearner />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <LearnerDashboard /> },
+      { path: "notifications", element: <NotificationPage /> },
       { path: "courses", element: <LearnerMyCourses /> },
-      {
-        path: "courses/:enrollmentId/withdraw",
-        element: <LearnerCourseWithdraw />,
-      },
-      {
-        path: "courses/:enrollmentId/withdrawn",
-        element: <LearnerCourseWithdrawn />,
-      },
       {
         path: "courses/:enrollmentId/evaluation",
         element: <LearnerCourseEvaluation />,
@@ -301,7 +314,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/learner/courses/:enrollmentId",
-    element: <LayoutLearnerCourse />,
+    element: (
+      <ProtectedRoute roles={["LEARNER"]}>
+        <LayoutLearnerCourse />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <LearnerCourseCurriculum /> },
@@ -327,6 +344,10 @@ export const router = createBrowserRouter([
         element: <LearnerAssignmentResubmit />,
       },
       {
+        path: "assignments/:assignmentId/result",
+        element: <LearnerAssignmentResult />,
+      },
+      {
         path: "assignments/:assignmentId/submitted",
         element: <LearnerAssignmentSubmitted />,
       },
@@ -334,10 +355,15 @@ export const router = createBrowserRouter([
   },
   {
     path: "/instructor",
-    element: <LayoutInstructor />,
+    element: (
+      <ProtectedRoute roles={["INSTRUCTOR"]}>
+        <LayoutInstructor />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <InstructorDashboard /> },
+      { path: "notifications", element: <NotificationPage /> },
       { path: "courses", element: <InstructorMyCourses /> },
       { path: "courses/create", element: <InstructorCourseCreate /> },
       {
@@ -429,7 +455,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/instructor/courses/:courseId/builder",
-    element: <LayoutInstructorCourse />,
+    element: (
+      <ProtectedRoute roles={["INSTRUCTOR"]}>
+        <LayoutInstructorCourse />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <InstructorCourseBuilder /> },
@@ -526,6 +556,10 @@ export const router = createBrowserRouter([
       {
         path: "assignments/:assignmentId/peer-review",
         element: <InstructorCourseBuilderAssignmentPeerReviewEdit />,
+      },
+      {
+        path: "assignments/:assignmentId/peer-cycles",
+        element: <InstructorCourseBuilderAssignmentPeerCycles />,
       },
       {
         path: "assignments/:assignmentId/delete",

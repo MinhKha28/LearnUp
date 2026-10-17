@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/types/api.types";
-import { ENROLL_OUTCOME_MESSAGES, resolveEnrollOutcome } from "@/utils/enroll.outcome";
+import { ENROLL_OUTCOME_MESSAGES, getEnrollOutcomeMessage, resolveEnrollOutcome } from "@/utils/enroll.outcome";
 
 const created = {
   id: "e-new",
@@ -9,9 +9,21 @@ const created = {
   enrollmentType: "Optional",
   status: "NotStarted",
   enrolledAt: "2026-10-01T00:00:00.000Z",
+  restored: false,
 } as const;
 
 describe("resolveEnrollOutcome", () => {
+  it("restored selects the restored success toast and enrollment link", () => {
+    const outcome = resolveEnrollOutcome({ ...created, restored: true });
+    expect(outcome).toEqual({ kind: "restored", enrollmentId: "e-new" });
+    expect(getEnrollOutcomeMessage(outcome)).toBe("Đăng ký thành công, tiến độ cũ đã được khôi phục");
+  });
+
+  it.each(["AccountDeleted", "HaltedClosed"])("not restorable %s selects the error toast", (reason) => {
+    const outcome = resolveEnrollOutcome(new ApiError(409, "ENROLLMENT_NOT_RESTORABLE", "", { reason }));
+    expect(outcome).toEqual({ kind: "notRestorable" });
+    expect(getEnrollOutcomeMessage(outcome)).toBe("Không thể đăng ký lại Course này");
+  });
   it("201 → enrolled với id vừa tạo", () => {
     expect(resolveEnrollOutcome(created)).toEqual({ kind: "enrolled", enrollmentId: "e-new" });
   });
@@ -43,6 +55,28 @@ describe("resolveEnrollOutcome", () => {
 
   it("404 COURSE_NOT_AVAILABLE → unavailable", () => {
     expect(resolveEnrollOutcome(new ApiError(404, "COURSE_NOT_AVAILABLE", "x"))).toEqual({ kind: "unavailable" });
+  });
+
+  it("429 RATE_LIMITED uses server seconds and stays separate from retry", () => {
+    const outcome = resolveEnrollOutcome(new ApiError(429, "RATE_LIMITED", "x", { retryAfterSeconds: 37 }));
+    expect(outcome).toEqual({ kind: "rateLimited", retryAfterSeconds: 37 });
+    expect(getEnrollOutcomeMessage(outcome)).toBe("Bạn thao tác quá nhanh, vui lòng thử lại sau 37 giây");
+    expect(outcome).not.toHaveProperty("refreshLinks");
+  });
+
+  it.each([undefined, null, "37", 0, -1, 0.5, NaN, Infinity])(
+    "RATE_LIMITED without valid seconds (%s) uses the approved fallback",
+    (retryAfterSeconds) => {
+      const outcome = resolveEnrollOutcome(new ApiError(429, "RATE_LIMITED", "x", { retryAfterSeconds }));
+      expect(outcome).toEqual({ kind: "rateLimited", retryAfterSeconds: null });
+      expect(getEnrollOutcomeMessage(outcome)).toBe("Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút");
+    },
+  );
+
+  it("RATE_LIMITED without details uses the fallback; existing success messages stay intact", () => {
+    expect(getEnrollOutcomeMessage(resolveEnrollOutcome(new ApiError(429, "RATE_LIMITED", "x"))))
+      .toBe("Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút");
+    expect(getEnrollOutcomeMessage(resolveEnrollOutcome(created))).toBe("Đăng ký thành công");
   });
 
   it.each([

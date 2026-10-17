@@ -1,3 +1,3 @@
-.organizer-assignments-filters {
-    grid-template-columns: minmax(220px, 1.6fr) repeat(2, minmax(150px, .7fr));
+.organizer-assignments .ant-table-cell {
+  vertical-align: top;
 }

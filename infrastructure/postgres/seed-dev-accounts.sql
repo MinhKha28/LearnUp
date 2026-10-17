@@ -139,6 +139,11 @@ BEGIN
     IF current_database() = 'tenant_db' THEN
         RAISE NOTICE 'Provisioning development accounts into tenant_db...';
 
+        -- Platform Settings
+        INSERT INTO platform_settings (id, updated_at)
+        VALUES ('01900000-0000-7000-8000-000000000099', NOW())
+        ON CONFLICT (id) DO NOTHING;
+
         -- Demo Organization: Công ty ABC
         INSERT INTO organizations (
             id, name, tax_code, address, contact_phone, contact_email, timezone, status, created_at, updated_at
@@ -162,10 +167,34 @@ BEGIN
             status = 'Active',
             updated_at = NOW();
 
-        -- Demo Subscription Plan: Premium
+        -- Demo Subscription Plans: Basic, Standard, Premium
         INSERT INTO subscription_plans (
             id, name, price, duration_days, max_learners, max_instructors, max_course_chains, max_storage_bytes, is_offered, created_at, updated_at
         ) VALUES (
+            '01900000-0000-7000-8000-000000000011',
+            'Basic',
+            1000000,
+            30,
+            50,
+            5,
+            3,
+            10737418240,
+            TRUE,
+            NOW(),
+            NOW()
+        ), (
+            '01900000-0000-7000-8000-000000000012',
+            'Standard',
+            2000000,
+            30,
+            200,
+            15,
+            10,
+            53687091200,
+            TRUE,
+            NOW(),
+            NOW()
+        ), (
             '01900000-0000-7000-8000-000000000013',
             'Premium',
             3000000,
@@ -184,22 +213,24 @@ BEGIN
 
         -- Demo Active Subscription for Công ty ABC
         INSERT INTO subscriptions (
-            id, organization_id, plan_id, plan_name, price, starts_at, expires_at, grace_ends_at,
-            max_learners, max_instructors, max_course_chains, max_storage_bytes, status, created_at, updated_at
+            id, organization_id, plan_id, source, status, price, duration_days,
+            max_learners, max_instructors, max_course_chains, max_storage_bytes,
+            starts_at, expires_at, grace_ends_at, created_at, updated_at
         ) VALUES (
             '01900000-0000-7000-8000-00000000a301',
             '01900000-0000-7000-8000-00000000a001',
             '01900000-0000-7000-8000-000000000013',
-            'Premium',
+            'Direct',
+            'Active',
             3000000,
-            NOW() - INTERVAL '5 days',
-            NOW() + INTERVAL '25 days',
-            NOW() + INTERVAL '32 days',
+            30,
             500,
             30,
             20,
             107374182400,
-            'Active',
+            NOW() - INTERVAL '5 days',
+            NOW() + INTERVAL '25 days',
+            NOW() + INTERVAL '32 days',
             NOW() - INTERVAL '5 days',
             NOW()
         ) ON CONFLICT (id) DO UPDATE SET

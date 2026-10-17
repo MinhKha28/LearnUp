@@ -17,7 +17,7 @@ const TIME_LIMIT_RULE: INumberRule = { required: true, integer: true, min: 1, ma
 const QUIZ_PASSING_SCORE_RULE: INumberRule = { required: true, min: 0.01, max: 100, decimals: 2 };
 
 // BR-285 / BR-69 / BR-284: Course states in which an Instructor may add a Quiz.
-const AUTHORABLE_STATUSES = ["DRAFT", "REJECTED", "PUBLISHED"];
+const AUTHORABLE_STATUSES = ["Draft", "Rejected", "Published"];
 const COURSE_LEVEL = "course";
 
 const ERROR_TEXT: Record<string, string> = {
@@ -42,7 +42,7 @@ const CourseBuilderQuizCreate = () => {
   const navigate = useNavigate();
   const { structure } = useOutletContext<ICourseBuilderOutletContext>();
   const course = structure.course;
-  const status = course.status.toUpperCase();
+  const status = course.status;
   // Submitted, Archived and Disabled Courses cannot be authored (same rule as the API).
   const formLocked = !AUTHORABLE_STATUSES.includes(status);
   // BR-318: a Locked Course only accepts an optional Quiz.

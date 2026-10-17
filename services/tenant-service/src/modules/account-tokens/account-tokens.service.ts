@@ -5,16 +5,18 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   DAY_MS,
   TokenPurposeValue,
 } from '../../common/constants/tenant.constants';
 import { generateSecretToken, hashToken } from '../../common/utils/token.util';
+import { AccountTokensRepository } from './account-tokens.repository';
 
 @Injectable()
 export class AccountTokensService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly accountTokensRepository: AccountTokensRepository,
+  ) {}
 
   async issue(
     tx: Prisma.TransactionClient,
@@ -26,34 +28,31 @@ export class AccountTokensService {
     },
   ): Promise<string> {
     const now = new Date();
-    await tx.accountToken.updateMany({
-      where: {
-        userId: params.userId,
-        purpose: params.purpose,
-        consumedAt: null,
-        revokedAt: null,
-      },
-      data: { revokedAt: now },
-    });
+    await this.accountTokensRepository.revokeActive(
+      params.userId,
+      params.purpose,
+      now,
+      tx,
+    );
 
     const { rawToken, tokenHash } = generateSecretToken();
-    await tx.accountToken.create({
-      data: {
+    await this.accountTokensRepository.create(
+      {
         organizationId: params.organizationId,
         userId: params.userId,
         purpose: params.purpose,
         tokenHash,
         expiresAt: new Date(now.getTime() + params.ttlDays * DAY_MS),
       },
-    });
+      tx,
+    );
     return rawToken;
   }
 
   async findUsable(rawToken: string, purpose: TokenPurposeValue) {
-    const token = await this.prisma.accountToken.findUnique({
-      where: { tokenHash: hashToken(rawToken) },
-      include: { user: true, organization: true },
-    });
+    const token = await this.accountTokensRepository.findByHash(
+      hashToken(rawToken),
+    );
 
     if (!token || token.purpose !== purpose || token.user.deletedAt) {
       throw new BadRequestException({
@@ -85,11 +84,11 @@ export class AccountTokensService {
 
   /** Đánh dấu đã dùng. Điều kiện trong WHERE chống 2 request dùng cùng lúc. */
   async consume(tx: Prisma.TransactionClient, tokenId: string): Promise<void> {
-    const result = await tx.accountToken.updateMany({
-      where: { id: tokenId, consumedAt: null, revokedAt: null },
-      data: { consumedAt: new Date() },
-    });
-    if (result.count === 0) {
+    const consumed = await this.accountTokensRepository.markConsumed(
+      tokenId,
+      tx,
+    );
+    if (consumed === 0) {
       throw new ConflictException({
         code: 'LINK_ALREADY_USED',
         message: 'Liên kết đã được sử dụng.',

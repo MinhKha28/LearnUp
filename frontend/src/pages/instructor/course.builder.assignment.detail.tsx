@@ -203,6 +203,7 @@ const CourseBuilderAssignmentDetail = () => {
 
           <div className="builder-actions builder-actions-split">
             <InstructorButton onClick={() => navigate(backPath)}>Back</InstructorButton>
+            <InstructorButton onClick={() => navigate(`/instructor/submissions?assessmentId=${assignment.id}`)}>Submissions</InstructorButton>
             {restricted ? (
               <InstructorButton type="primary" onClick={() => navigate(editPath, { state: location.state })}>
                 Edit estimated effort
@@ -245,6 +246,11 @@ const CourseBuilderAssignmentDetail = () => {
             <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-review`, { state: location.state })}>
               Configure Peer Review
             </InstructorButton>
+            {peerReview.enabled && (
+              <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-cycles`, { state: location.state })}>
+                View cycles
+              </InstructorButton>
+            )}
           </div>
         </div>
       </div>

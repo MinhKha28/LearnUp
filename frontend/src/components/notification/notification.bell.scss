@@ -1,0 +1,60 @@
+.notification-bell-button.ant-btn {
+  color: #475569;
+}
+
+.notification-bell-popover .ant-popover-inner {
+  padding: 0;
+  overflow: hidden;
+}
+
+.notification-bell-panel {
+  width: min(360px, calc(100vw - 32px));
+}
+
+.notification-bell-head {
+  display: flex;
+  padding: 12px 14px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.notification-bell-head strong {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.notification-bell-head span {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.notification-bell-list {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.notification-bell-empty {
+  margin: 0;
+  padding: 24px 14px;
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+}
+
+.notification-bell-all {
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  background: #f8fafc;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.notification-bell-all:hover {
+  background: #eef2f7;
+}

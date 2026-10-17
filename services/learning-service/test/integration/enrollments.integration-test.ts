@@ -182,6 +182,7 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
       'enrolledAt',
       'enrollmentType',
       'id',
+      'restored',
       'status',
     ]);
     assert.equal(data.courseId, ENROLL_IT_PUBLIC_COURSE);
@@ -222,10 +223,10 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
 
   void test('Enrollment chuyển Withdrawn → không còn trong course-ids (D3, D20)', async () => {
     await resetToNoEnrollment();
-    const created = await enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PUBLIC_COURSE);
+    const created = await enroll(ENROLL_IT_LEARNER_2, ENROLL_IT_PUBLIC_COURSE);
     assert.equal(created.status, 201, JSON.stringify(created.body));
     const enrollmentId = (created.body.data as Record<string, unknown>).id;
-    assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_1), [
+    assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_2), [
       { courseId: ENROLL_IT_PUBLIC_COURSE, enrollmentId },
     ]);
 
@@ -236,15 +237,15 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
       [enrollmentId, ENROLL_IT_ORG],
     );
 
-    assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_1), []);
+    assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_2), []);
   });
 
   void test('đăng ký lại Course test → 409 ALREADY_ENROLLED, enrollmentId trùng lần 201', async () => {
     await resetToNoEnrollment();
-    const created = await enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PUBLIC_COURSE);
+    const created = await enroll(ENROLL_IT_LEARNER_2, ENROLL_IT_PUBLIC_COURSE);
     assert.equal(created.status, 201, JSON.stringify(created.body));
 
-    const result = await enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PUBLIC_COURSE);
+    const result = await enroll(ENROLL_IT_LEARNER_2, ENROLL_IT_PUBLIC_COURSE);
     assert.equal(result.status, 409);
     assert.equal(result.body.error?.code, 'ALREADY_ENROLLED');
     assert.equal(result.body.error?.message, 'Bạn đã đăng ký Course này');

@@ -37,6 +37,10 @@ const LEARNER_1 = {
   organizationId: "0199a000-0000-7000-8000-0a0000000001",
 };
 const COURSE_03 = "0199a000-0000-7000-8000-0e0000000003";
+const ASSESSMENT_DEMO_ENV = {
+  ASSESSMENT_CLIENT_MODE: "fake",
+  ASSESSMENT_FAKE_RESULT_COURSE_IDS: COURSE_03,
+};
 const E_DEMO_1 = "0199a000-0000-7000-8000-2a0000000001";
 const E_DEMO_2 = "0199a000-0000-7000-8000-2a0000000002";
 const L11 = "0199a000-0000-7000-8000-1b0000000011";
@@ -482,6 +486,7 @@ async function startService(name, dir, port, probePath, internalKey) {
   // Chạy bản build, không watch: không tự khởi động lại giữa demo
   const child = spawnLogged(process.execPath, [path.join("dist", "src", "main.js")], {
     cwd: dir,
+    env: name === "learning-service" ? ASSESSMENT_DEMO_ENV : undefined,
     logName: name,
     longRunning: true,
   });
@@ -503,15 +508,16 @@ async function startService(name, dir, port, probePath, internalKey) {
 }
 
 async function seedDemo() {
-  await runTask("npm", ["run", "seed:demo"], {
-    cwd: DIRS.learning,
-    logName: "learning-seed-demo",
-    hint: "Hãy xem log seed:demo; nếu báo Enrollment khác ID demo thì xóa Enrollment đó của LEARNER_1 rồi chạy lại.",
-  });
   await runTask("npm", ["run", "demo:reset"], {
     cwd: DIRS.learning,
     logName: "learning-demo-reset",
     hint: "Hãy xem log demo:reset, sửa lỗi rồi chạy lại.",
+  });
+  await runTask("npm", ["run", "seed:demo"], {
+    cwd: DIRS.learning,
+    env: ASSESSMENT_DEMO_ENV,
+    logName: "learning-seed-demo",
+    hint: "Hãy xem log seed:demo; nếu có xung đột ID fixture thì kiểm tra trước khi chạy lại.",
   });
   const summary = fs
     .readFileSync(logPath("learning-demo-reset"), "utf8")

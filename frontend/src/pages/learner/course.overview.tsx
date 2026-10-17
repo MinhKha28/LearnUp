@@ -25,7 +25,7 @@ import {
   formatMaterialCount,
   orderCurriculum,
 } from "@/utils/catalog.view";
-import { ENROLL_OUTCOME_MESSAGES, resolveEnrollOutcome } from "@/utils/enroll.outcome";
+import { ENROLL_OUTCOME_MESSAGES, getEnrollOutcomeMessage, resolveEnrollOutcome } from "@/utils/enroll.outcome";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import "./course.overview.scss";
 
@@ -127,9 +127,10 @@ const EnrollmentPanel = ({ courseId, fromPage }: { courseId: string; fromPage?: 
     }
 
     const outcome = resolveEnrollOutcome(result);
-    const text = ENROLL_OUTCOME_MESSAGES[outcome.kind];
+    const text = getEnrollOutcomeMessage(outcome);
     switch (outcome.kind) {
       case "enrolled":
+      case "restored":
         message.success(text);
         setEnrolledId(outcome.enrollmentId);
         break;
@@ -145,6 +146,12 @@ const EnrollmentPanel = ({ courseId, fromPage }: { courseId: string; fromPage?: 
       case "retry":
         message.error(text);
         if (outcome.refreshLinks) links.reload();
+        break;
+      case "rateLimited":
+        message.warning(text);
+        break;
+      case "notRestorable":
+        message.error(text);
         break;
     }
   };
