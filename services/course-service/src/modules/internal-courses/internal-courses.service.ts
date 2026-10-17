@@ -27,6 +27,29 @@ const courseNotFound = () =>
     createApiError('COURSE_NOT_FOUND', 'Course not found.'),
   );
 
+function validateEnrollmentCourse(
+  course: LockableCourseRow | undefined,
+  selfEnroll: boolean,
+): asserts course is LockableCourseRow {
+  if (!course) throw courseNotFound();
+  if (course.status !== COURSE_STATUS.PUBLISHED) {
+    throw new ConflictException(
+      createApiError(
+        'COURSE_NOT_AVAILABLE',
+        'Course is not published and cannot accept enrollments.',
+      ),
+    );
+  }
+  if (selfEnroll && course.course_type !== COURSE_TYPE.PUBLIC) {
+    throw new ConflictException(
+      createApiError(
+        'COURSE_NOT_AVAILABLE',
+        'Only Public courses accept self-enrollment.',
+      ),
+    );
+  }
+}
+
 /**
  * REST nội bộ cho learning-service (CourseService_Database_Design.md mục 4.2).
  * Mọi truy vấn lọc theo organizationId của người gọi; Course của tổ chức khác coi như không tồn tại.
@@ -36,8 +59,8 @@ export class InternalCoursesService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Gắn Locked và kiểm Course còn nhận Enrollment (BR-70, BR-62, BR-80, BR-83).
-   * Gọi lại không đổi kết quả: locked_at đã có thì giữ nguyên.
+   * Course đã Locked không cần khóa lại: locked_at không quay về NULL (BR-83).
+   * Enrollment được tạo sau khi I1 commit; lần khóa đầu vẫn kiểm lại dưới khóa dòng.
    */
   async lock(
     organizationId: string | undefined,
@@ -49,6 +72,24 @@ export class InternalCoursesService {
       throw courseNotFound();
     }
 
+    const existingRows = await this.prisma.$queryRaw<LockableCourseRow[]>`
+      SELECT id, organization_id, chain_id, expected_completion_days,
+             course_type, status, locked_at
+      FROM courses
+      WHERE id = ${courseId}::uuid AND organization_id = ${organizationId}::uuid`;
+    const existing = existingRows[0];
+    validateEnrollmentCourse(existing, selfEnroll);
+    if (existing.locked_at !== null) {
+      return {
+        courseId: existing.id,
+        organizationId: existing.organization_id,
+        chainId: existing.chain_id,
+        expectedCompletionDays: existing.expected_completion_days,
+        courseType: existing.course_type,
+        lockedAt: existing.locked_at,
+      };
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<LockableCourseRow[]>`
         SELECT id, organization_id, chain_id, expected_completion_days,
@@ -58,27 +99,7 @@ export class InternalCoursesService {
         FOR UPDATE`;
 
       const course = rows[0];
-      if (!course) {
-        throw courseNotFound();
-      }
-
-      if (course.status !== COURSE_STATUS.PUBLISHED) {
-        throw new ConflictException(
-          createApiError(
-            'COURSE_NOT_AVAILABLE',
-            'Course is not published and cannot accept enrollments.',
-          ),
-        );
-      }
-
-      if (selfEnroll && course.course_type !== COURSE_TYPE.PUBLIC) {
-        throw new ConflictException(
-          createApiError(
-            'COURSE_NOT_AVAILABLE',
-            'Only Public courses accept self-enrollment.',
-          ),
-        );
-      }
+      validateEnrollmentCourse(course, selfEnroll);
 
       let lockedAt = course.locked_at;
       if (lockedAt === null) {
