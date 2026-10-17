@@ -178,4 +178,128 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.items", hasSize(1)));
     }
+
+    private String send(UUID orgId, UUID userId, String title) throws Exception {
+        CreateNotificationRequest request = new CreateNotificationRequest(
+                orgId, userId, title, "Body of " + title, "INFO", "IN_APP", null);
+        String body = mockMvc.perform(post("/api/v1/notifications/send")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).path("data").path("id").asText();
+    }
+
+    @Test
+    @DisplayName("UC49: a signed-in user (X-User-ID from the Gateway) cannot create notifications or use the email endpoints")
+    void shouldRefuseServiceOnlyEndpointsForUsers() throws Exception {
+        UUID someone = UUID.randomUUID();
+        CreateNotificationRequest request = new CreateNotificationRequest(
+                null, someone, "Fake", "A fake message", "INFO", "IN_APP", null);
+
+        mockMvc.perform(post("/api/v1/notifications/send")
+                        .header(HeaderConstants.X_USER_ID, UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/notifications/email/send")
+                        .header(HeaderConstants.X_USER_ID, UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new SendEmailRequest("victim@learnup.com", "Subject", "Body", "TEST"))))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/notifications/email/logs")
+                        .header(HeaderConstants.X_USER_ID, UUID.randomUUID().toString()))
+                .andExpect(status().isForbidden());
+
+        // nothing was created
+        mockMvc.perform(get("/api/v1/notifications")
+                        .header(HeaderConstants.X_USER_ID, someone.toString()))
+                .andExpect(jsonPath("$.data.items", hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("UC49: the list, the unread count and mark-as-read stay inside the Organization of the caller (platform notices included)")
+    void shouldScopeNotificationsByOrganization() throws Exception {
+        UUID orgA = UUID.randomUUID();
+        UUID orgB = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        String inA = send(orgA, userId, "In organization A");
+        String inB = send(orgB, userId, "In organization B");
+        send(null, userId, "From the platform");
+
+        // in organization A: its own notification and the platform notice, not the one of B
+        mockMvc.perform(get("/api/v1/notifications")
+                        .header(HeaderConstants.X_USER_ID, userId.toString())
+                        .header(HeaderConstants.X_ORGANIZATION_ID, orgA.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(2)))
+                .andExpect(jsonPath("$.data.items[*].title", containsInAnyOrder("In organization A", "From the platform")));
+
+        mockMvc.perform(get("/api/v1/notifications/unread-count")
+                        .header(HeaderConstants.X_USER_ID, userId.toString())
+                        .header(HeaderConstants.X_ORGANIZATION_ID, orgA.toString()))
+                .andExpect(jsonPath("$.data.unreadCount").value(2));
+
+        mockMvc.perform(get("/api/v1/notifications")
+                        .param("unreadOnly", "true")
+                        .header(HeaderConstants.X_USER_ID, userId.toString())
+                        .header(HeaderConstants.X_ORGANIZATION_ID, orgA.toString()))
+                .andExpect(jsonPath("$.data.items", hasSize(2)));
+
+        // a notification of another Organization cannot be marked as read from this one
+        mockMvc.perform(patch("/api/v1/notifications/" + inB + "/read")
+                        .header(HeaderConstants.X_USER_ID, userId.toString())
+                        .header(HeaderConstants.X_ORGANIZATION_ID, orgA.toString()))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(patch("/api/v1/notifications/" + inA + "/read")
+                        .header(HeaderConstants.X_USER_ID, userId.toString())
+                        .header(HeaderConstants.X_ORGANIZATION_ID, orgA.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.isRead").value(true));
+
+        mockMvc.perform(get("/api/v1/notifications/unread-count")
+                        .header(HeaderConstants.X_USER_ID, userId.toString())
+                        .header(HeaderConstants.X_ORGANIZATION_ID, orgA.toString()))
+                .andExpect(jsonPath("$.data.unreadCount").value(1));
+
+        // an invalid Organization header is refused
+        mockMvc.perform(get("/api/v1/notifications")
+                        .header(HeaderConstants.X_USER_ID, userId.toString())
+                        .header(HeaderConstants.X_ORGANIZATION_ID, "not-a-uuid"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("UC49: notifications are listed newest first, and opening one again keeps its first read time")
+    void shouldListNewestFirstAndKeepFirstReadTime() throws Exception {
+        UUID userId = UUID.randomUUID();
+        send(null, userId, "First");
+        Thread.sleep(20);
+        String second = send(null, userId, "Second");
+
+        mockMvc.perform(get("/api/v1/notifications")
+                        .header(HeaderConstants.X_USER_ID, userId.toString()))
+                .andExpect(jsonPath("$.data.items[0].title").value("Second"))
+                .andExpect(jsonPath("$.data.items[1].title").value("First"));
+
+        String first = mockMvc.perform(patch("/api/v1/notifications/" + second + "/read")
+                        .header(HeaderConstants.X_USER_ID, userId.toString()))
+                .andReturn().getResponse().getContentAsString();
+        Thread.sleep(20);
+        String again = mockMvc.perform(patch("/api/v1/notifications/" + second + "/read")
+                        .header(HeaderConstants.X_USER_ID, userId.toString()))
+                .andReturn().getResponse().getContentAsString();
+
+        // the database keeps microseconds, so the two answers are compared to the millisecond
+        java.time.Instant firstReadAt = java.time.Instant.parse(objectMapper.readTree(first).path("data").path("readAt").asText());
+        java.time.Instant againReadAt = java.time.Instant.parse(objectMapper.readTree(again).path("data").path("readAt").asText());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                firstReadAt.truncatedTo(java.time.temporal.ChronoUnit.MILLIS),
+                againReadAt.truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
+    }
 }

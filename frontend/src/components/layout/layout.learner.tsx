@@ -14,6 +14,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useCurrentApp } from "@/components/context/app.context";
 import { useSignOut } from "@/hooks/use.sign.out";
+import NotificationBell from "@/components/notification/notification.bell";
 import { DevIdentitySwitcher } from "@/components/learner/dev.identity.switcher";
 import "./layout.learner.scss";
 
@@ -129,7 +130,7 @@ const LayoutLearner = () => {
           </div>
           <div className="learner-topbar-actions">
             <DevIdentitySwitcher />
-            <span className="learner-notification">Notifications</span>
+            <NotificationBell basePath="/learner" />
             <Avatar size={30} src={user?.avatar} className="learner-topbar-avatar">
               {initials}
             </Avatar>

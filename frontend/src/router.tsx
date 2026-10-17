@@ -81,6 +81,7 @@ import LearnerAssignmentSubmit from "./pages/learner/assignment.submit";
 import LearnerAssignmentResubmit from "./pages/learner/assignment.resubmit";
 import LearnerAssignmentResult from "./pages/learner/assignment.result";
 import LearnerAssignmentSubmitted from "./pages/learner/assignment.submitted";
+import NotificationPage from "./components/notification/notification.page";
 import LearnerPeerReviewQueue from "./pages/learner/peer.review.queue";
 import LearnerPeerReviewForm from "./pages/learner/peer.review.form";
 import LearnerPeerReviewHistory from "./pages/learner/peer.review.history";
@@ -186,6 +187,7 @@ export const router = createBrowserRouter([
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <ManageDashboard /> },
+      { path: "notifications", element: <NotificationPage /> },
       { path: "organizations", element: <Organizations /> },
       {
         path: "organizations/:organizationId",
@@ -218,6 +220,7 @@ export const router = createBrowserRouter([
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <OrganizerDashboard /> },
+      { path: "notifications", element: <NotificationPage /> },
       { path: "subscription", element: <OrganizerSubscription /> },
       { path: "subscription/renew", element: <OrganizerSubscriptionRenew /> },
       {
@@ -279,6 +282,7 @@ export const router = createBrowserRouter([
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <LearnerDashboard /> },
+      { path: "notifications", element: <NotificationPage /> },
       { path: "courses", element: <LearnerMyCourses /> },
       {
         path: "courses/:enrollmentId/evaluation",
@@ -359,6 +363,7 @@ export const router = createBrowserRouter([
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <InstructorDashboard /> },
+      { path: "notifications", element: <NotificationPage /> },
       { path: "courses", element: <InstructorMyCourses /> },
       { path: "courses/create", element: <InstructorCourseCreate /> },
       {

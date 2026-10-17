@@ -12,6 +12,7 @@ import { Avatar, Button, Drawer, Layout, Menu, Modal, type MenuProps } from "ant
 import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import NotificationBell from "@/components/notification/notification.bell";
 import { useCurrentApp } from "@/components/context/app.context";
 import { useSignOut } from "@/hooks/use.sign.out";
 import "./layout.instructor.scss";
@@ -127,7 +128,7 @@ const LayoutInstructor = () => {
             <span className="instructor-org-name">Demo Organization</span>
           </div>
           <div className="instructor-topbar-actions">
-            <span className="instructor-notification">Notifications</span>
+            <NotificationBell basePath="/instructor" />
             <Avatar size={30} src={user?.avatar} className="instructor-topbar-avatar">
               {initials}
             </Avatar>

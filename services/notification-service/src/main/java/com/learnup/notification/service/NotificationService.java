@@ -45,9 +45,14 @@ public class NotificationService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<NotificationResponse> getUserNotifications(UUID recipientUserId, Boolean unreadOnly, Pageable pageable) {
+    public PageResponse<NotificationResponse> getUserNotifications(UUID recipientUserId, UUID organizationId, Boolean unreadOnly, Pageable pageable) {
         Page<Notification> pageResult;
-        if (Boolean.TRUE.equals(unreadOnly)) {
+        boolean unread = Boolean.TRUE.equals(unreadOnly);
+        if (organizationId != null) {
+            pageResult = unread
+                    ? notificationRepository.findVisibleUnread(recipientUserId, organizationId, pageable)
+                    : notificationRepository.findVisible(recipientUserId, organizationId, pageable);
+        } else if (unread) {
             pageResult = notificationRepository.findByRecipientUserIdAndIsReadOrderByCreatedAtDesc(recipientUserId, false, pageable);
         } else {
             pageResult = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientUserId, pageable);
@@ -61,17 +66,25 @@ public class NotificationService {
     }
 
     @Transactional
-    public NotificationResponse markAsRead(UUID notificationId, UUID recipientUserId) {
-        Notification notification = notificationRepository.findByIdAndRecipientUserId(notificationId, recipientUserId)
+    public NotificationResponse markAsRead(UUID notificationId, UUID recipientUserId, UUID organizationId) {
+        Notification notification = (organizationId != null
+                ? notificationRepository.findVisibleById(notificationId, recipientUserId, organizationId)
+                : notificationRepository.findByIdAndRecipientUserId(notificationId, recipientUserId))
                 .orElseThrow(() -> BusinessException.notFound("Notification not found for ID: " + notificationId));
 
+        // Opening it again must not move the time it was first read.
+        if (notification.isRead()) {
+            return NotificationResponse.fromEntity(notification);
+        }
         notification.markAsRead();
         Notification updated = notificationRepository.save(notification);
         return NotificationResponse.fromEntity(updated);
     }
 
     @Transactional(readOnly = true)
-    public long getUnreadCount(UUID recipientUserId) {
-        return notificationRepository.countByRecipientUserIdAndIsReadFalse(recipientUserId);
+    public long getUnreadCount(UUID recipientUserId, UUID organizationId) {
+        return organizationId != null
+                ? notificationRepository.countVisibleUnread(recipientUserId, organizationId)
+                : notificationRepository.countByRecipientUserIdAndIsReadFalse(recipientUserId);
     }
 }

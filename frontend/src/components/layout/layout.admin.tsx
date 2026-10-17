@@ -1,6 +1,5 @@
 import {
   BarChartOutlined,
-  BellOutlined,
   CreditCardOutlined,
   DashboardOutlined,
   ExclamationCircleOutlined,
@@ -26,6 +25,7 @@ import {
 import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import NotificationBell from "@/components/notification/notification.bell";
 import { useCurrentApp } from "@/components/context/app.context";
 import { useSignOut } from "@/hooks/use.sign.out";
 import "./layout.admin.scss";
@@ -220,12 +220,7 @@ const LayoutAdmin = () => {
           </div>
           <div className="admin-topbar-actions">
             <span className="admin-demo-badge">Demo data</span>
-            <Button
-              className="admin-notification"
-              type="text"
-              icon={<BellOutlined />}
-              aria-label="Notifications"
-            />
+            <NotificationBell basePath="/admin" />
             <Dropdown
               menu={{ items: profileItems }}
               trigger={["click"]}
