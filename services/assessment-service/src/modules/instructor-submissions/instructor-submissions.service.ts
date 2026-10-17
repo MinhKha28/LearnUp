@@ -1,6 +1,8 @@
 import type { CurrentUser } from '@learnup/ts-common';
 import type { IStorageProvider } from '@learnup/ts-storage';
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -11,7 +13,9 @@ import { CourseServiceClient } from '../../infrastructure/clients/course/course-
 import type { IUserDisplayName } from '../../infrastructure/clients/tenant/interfaces/user-display-name.interface';
 import { TenantDirectoryClient } from '../../infrastructure/clients/tenant/tenant-directory.client';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
+import { InstructorReviewDto } from './dto/instructor-review.dto';
 import { ListSubmissionsQueryDto } from './dto/list-submissions-query.dto';
+import type { IInstructorReviewResult } from './interfaces/instructor-review-result.interface';
 import {
   IAttachedFile,
   ILearnerSummary,
@@ -23,8 +27,14 @@ import {
   ASSIGNMENT_KIND,
   InstructorSubmissionsRepository,
 } from './instructor-submissions.repository';
+import {
+  AWAITING_FINALIZATION,
+  AWAITING_INSTRUCTOR,
+  INSTRUCTOR_REVIEWER_ROLE,
+  REVIEW_COMPLETED,
+} from './instructor-submissions.constants';
 
-const REVIEW_COMPLETED = 'Completed';
+const roundScore = (value: number) => Math.round(value * 100) / 100;
 
 const toNumber = (value: { toString(): string } | null | undefined) =>
   value === null || value === undefined ? null : Number(value.toString());
@@ -204,6 +214,155 @@ export class InstructorSubmissionsService {
         finalScore: toNumber(item.finalScore),
       })),
     };
+  }
+
+  async grade(
+    user: CurrentUser,
+    submissionId: string,
+    dto: InstructorReviewDto,
+  ): Promise<IInstructorReviewResult> {
+    const organizationId = this.requireInstructor(user);
+    const target = await this.repository.findSubmissionCourse(
+      organizationId,
+      submissionId,
+    );
+    if (!target || target.assessment.kind !== ASSIGNMENT_KIND) {
+      throw this.submissionNotFound();
+    }
+    await this.requireOwnCourse(user, target.assessment.courseId);
+
+    return this.repository.transaction(async (tx) => {
+      await this.repository.lockSubmission(tx, submissionId);
+      const submission = await this.repository.findSubmissionForGrading(
+        tx,
+        organizationId,
+        submissionId,
+      );
+      if (!submission) throw this.submissionNotFound();
+
+      const latestNumber = await this.repository.findLatestSubmissionNumber(
+        tx,
+        submission.assessmentId,
+        submission.learnerId,
+      );
+      if (
+        submission.gradingStatus !== AWAITING_INSTRUCTOR ||
+        latestNumber !== submission.submissionNumber
+      ) {
+        throw this.notAwaitingInstructor();
+      }
+
+      const score = this.scoreFromRubric(
+        submission.assessment.rubricCriteria,
+        dto.scores,
+      );
+      const completedAt = new Date();
+
+      const review = await this.repository.createReview(tx, {
+        organizationId,
+        submissionId: submission.id,
+        cycleId: submission.cycleId,
+        reviewerId: user.userId,
+        reviewerRole: INSTRUCTOR_REVIEWER_ROLE,
+        status: REVIEW_COMPLETED,
+        score,
+        comment: dto.comment,
+        completedAt,
+        scores: {
+          create: dto.scores.map((item) => ({
+            organizationId,
+            criterionId: item.criterionId,
+            points: item.points,
+          })),
+        },
+      });
+
+      const moved = await this.repository.moveStatus(
+        tx,
+        submission.id,
+        AWAITING_INSTRUCTOR,
+        AWAITING_FINALIZATION,
+      );
+      if (moved === 0) throw this.notAwaitingInstructor();
+
+      const validScores = [
+        ...submission.reviews
+          .filter(
+            (item) => item.status === REVIEW_COMPLETED && item.score !== null,
+          )
+          .map((item) => Number(item.score)),
+        score,
+      ];
+      const suggestedScore = roundScore(
+        validScores.reduce((sum, value) => sum + value, 0) / validScores.length,
+      );
+
+      return {
+        submissionId: submission.id,
+        gradingStatus: AWAITING_FINALIZATION,
+        review: {
+          id: review.id,
+          score,
+          comment: review.comment,
+          completedAt,
+          scores: review.scores,
+        },
+        validReviewCount: validScores.length,
+        suggestedScore,
+      };
+    });
+  }
+
+  private scoreFromRubric(
+    rubric: { id: string; maxPoints: number }[],
+    scores: { criterionId: string; points: number }[],
+  ): number {
+    if (rubric.length === 0) {
+      throw new BadRequestException({
+        code: 'RUBRIC_MISSING',
+        message: 'This Assignment has no Rubric criteria to grade against.',
+      });
+    }
+    const given = new Map(
+      scores.map((item) => [item.criterionId, item.points]),
+    );
+    const incomplete = new BadRequestException({
+      code: 'RUBRIC_SCORES_INCOMPLETE',
+      message: 'Give exactly one score for every Rubric criterion.',
+    });
+    if (given.size !== scores.length || given.size !== rubric.length) {
+      throw incomplete;
+    }
+    let earned = 0;
+    let possible = 0;
+    for (const criterion of rubric) {
+      const points = given.get(criterion.id);
+      if (points === undefined) throw incomplete;
+      if (points > criterion.maxPoints) {
+        throw new BadRequestException({
+          code: 'RUBRIC_SCORE_OUT_OF_RANGE',
+          message: `A criterion score cannot exceed ${criterion.maxPoints} points.`,
+        });
+      }
+      earned += points;
+      possible += criterion.maxPoints;
+    }
+    return roundScore((earned / possible) * 100);
+  }
+
+  private notAwaitingInstructor() {
+    return new ConflictException({
+      code: 'SUBMISSION_NOT_AWAITING_INSTRUCTOR',
+      message:
+        'This submission is not waiting for Instructor grading. Reload the page to see its current state.',
+    });
+  }
+
+  private submissionNotFound() {
+    return new NotFoundException({
+      code: 'SUBMISSION_NOT_FOUND',
+      message: 'Submission not found.',
+    });
   }
 
   private requireInstructor(user: CurrentUser): string {
