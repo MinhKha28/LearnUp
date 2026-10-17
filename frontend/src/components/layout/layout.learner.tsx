@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useCurrentApp } from "@/components/context/app.context";
+import { useSignOut } from "@/hooks/use.sign.out";
 import { DevIdentitySwitcher } from "@/components/learner/dev.identity.switcher";
 import "./layout.learner.scss";
 
@@ -28,7 +29,7 @@ const learnerMenuItems: MenuItem[] = [
 ];
 
 const LayoutLearner = () => {
-  const { user, setUser, setIsAuthenticated } = useCurrentApp();
+  const { user } = useCurrentApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -57,12 +58,11 @@ const LayoutLearner = () => {
     setMobileOpen(false);
   };
 
-  const signOut = () => {
-    localStorage.removeItem("access_token");
-    setUser(null);
-    setIsAuthenticated(false);
+  // UC06: đóng hộp thoại, thu hồi refresh token ở identity rồi xóa phiên trên trình duyệt
+  const signOutRequest = useSignOut();
+  const signOut = async () => {
     setSignOutOpen(false);
-    navigate("/login");
+    await signOutRequest();
   };
 
   const navigation = (
@@ -80,7 +80,7 @@ const LayoutLearner = () => {
       />
       <div className="learner-sidebar-user">
         <div className="learner-user-row">
-          <Avatar size={34}>{initials}</Avatar>
+          <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
           <div className="learner-user-info">
             <strong>{displayName}</strong>
             <small>Learner</small>
@@ -130,7 +130,7 @@ const LayoutLearner = () => {
           <div className="learner-topbar-actions">
             <DevIdentitySwitcher />
             <span className="learner-notification">Notifications</span>
-            <Avatar size={30} className="learner-topbar-avatar">
+            <Avatar size={30} src={user?.avatar} className="learner-topbar-avatar">
               {initials}
             </Avatar>
           </div>

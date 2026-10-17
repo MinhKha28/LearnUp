@@ -39,4 +39,12 @@ export class FakeCourseServiceClient extends CourseServiceClient {
       disabled: false,
     });
   }
+
+  /**
+   * DỮ LIỆU GIẢ: không có cây Module thật nên trả null = "không biết", và QuizService chấp nhận mọi moduleId.
+   * Chuyển sang thật: COURSE_CLIENT_MODE=http (gọi GET /api/v1/internal/courses/{id}/tree). Không phải sửa code nghiệp vụ.
+   */
+  getModuleIds(): Promise<string[] | null> {
+    return Promise.resolve(null);
+  }
 }

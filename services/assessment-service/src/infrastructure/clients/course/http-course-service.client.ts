@@ -82,4 +82,54 @@ export class HttpCourseServiceClient extends CourseServiceClient {
     const body = (await response.json()) as ApiResponse<CourseAuthoringContext>;
     return body.data;
   }
+
+  /**
+   *   GET {COURSE_SERVICE_URL}/api/v1/internal/courses/{courseId}/tree
+   *   Header: như getAuthoringContext. course-service chỉ lọc theo x-organization-id (không kiểm người phụ trách).
+   *   200:    data = CourseTreeDto, chỉ dùng modules[].id
+   *   404:    Course không tồn tại (hoặc thuộc tổ chức khác)
+   */
+  async getModuleIds(courseId: string, user: CurrentUser): Promise<string[]> {
+    let response: Response;
+    try {
+      response = await fetch(
+        `${this.baseUrl}/api/v1/internal/courses/${courseId}/tree`,
+        {
+          headers: {
+            [HEADER_NAMES.INTERNAL_KEY]: this.internalKey,
+            [HEADER_NAMES.USER_ID]: user.userId,
+            [HEADER_NAMES.ORGANIZATION_ID]: user.organizationId ?? '',
+            [HEADER_NAMES.USER_ROLE]: user.role,
+          },
+          signal: AbortSignal.timeout(this.timeoutMs),
+        },
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Không gọi được course-service (${this.baseUrl}): ${(error as Error).message}`,
+      );
+      throw new ServiceUnavailableException({
+        code: 'COURSE_SERVICE_UNAVAILABLE',
+        message: 'Course Service is unavailable. Please try again later.',
+      });
+    }
+
+    if (response.status === 404) {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+    if (!response.ok) {
+      this.logger.warn(`course-service trả về HTTP ${response.status}.`);
+      throw new ServiceUnavailableException({
+        code: 'COURSE_SERVICE_UNAVAILABLE',
+        message: `Course Service returned HTTP ${response.status}.`,
+      });
+    }
+    const body = (await response.json()) as ApiResponse<{
+      modules: { id: string }[];
+    }>;
+    return body.data.modules.map((module) => module.id);
+  }
 }

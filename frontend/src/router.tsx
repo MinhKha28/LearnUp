@@ -6,13 +6,13 @@ import NotFoundPage from "@/pages/error/not.found";
 import ForbiddenPage from "@/pages/error/forbidden";
 import ServerErrorPage from "@/pages/error/server.error";
 import ServiceUnavailablePage from "@/pages/error/service.unavailable";
+import ProtectedRoute from "@/components/identity";
 
 import HomePage from "@/pages/guest/home";
 import LoginPage from "@/pages/guest/login";
 import RegisterPage from "@/pages/guest/register";
 import ActivatePage from "@/pages/guest/activate";
 import ActivationSuccess from "@/pages/guest/activation.success";
-import VerifyEmailPage from "@/pages/guest/verify.email";
 import ForgotPasswordPage from "@/pages/guest/password.forgot";
 import ResetPasswordPage from "@/pages/guest/password.reset";
 import LayoutAdmin from "./components/layout/layout.admin";
@@ -28,6 +28,7 @@ import Configuration from "./pages/admin/configuration";
 import Statistics from "./pages/admin/statistics";
 import SuspendedOrganizations from "./pages/admin/suspended.organizations";
 import Profile from "./pages/admin/profile";
+import AdminProfileEdit from "./pages/admin/profile.edit";
 import ChangePassword from "./pages/admin/password.change";
 import LayoutOrganizer from "./components/layout/layout.organizer";
 import OrganizerDashboard from "./pages/organizer/dashboard";
@@ -60,6 +61,7 @@ import OrganizerContentReports from "./pages/organizer/content.reports";
 import OrganizerContentReportDetail from "./pages/organizer/content.report.detail";
 import OrganizerViolationHistory from "./pages/organizer/violation.history";
 import OrganizerProfile from "./pages/organizer/profile";
+import OrganizerProfileEdit from "./pages/organizer/profile.edit";
 import OrganizerChangePassword from "./pages/organizer/password.change";
 import LayoutLearner from "./components/layout/layout.learner";
 import LayoutLearnerCourse from "./components/layout/layout.learner.course";
@@ -168,7 +170,6 @@ export const router = createBrowserRouter([
         element: <HomePage />,
       },
       { path: "register/:screen?", element: <RegisterPage /> },
-      { path: "verify-email", element: <VerifyEmailPage /> },
       { path: "activate/:token", element: <ActivatePage /> },
       { path: "activate/:token/success", element: <ActivationSuccess /> },
       { path: "forgot-password", element: <ForgotPasswordPage /> },
@@ -177,7 +178,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/admin",
-    element: <LayoutAdmin />,
+    element: (
+      <ProtectedRoute roles={["ADMIN"]}>
+        <LayoutAdmin />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <ManageDashboard /> },
@@ -199,12 +204,17 @@ export const router = createBrowserRouter([
       { path: "statistics", element: <Statistics /> },
       { path: "suspended-organizations", element: <SuspendedOrganizations /> },
       { path: "profile", element: <Profile /> },
+      { path: "profile/edit", element: <AdminProfileEdit /> },
       { path: "profile/change-password", element: <ChangePassword /> },
     ],
   },
   {
     path: "/organizer",
-    element: <LayoutOrganizer />,
+    element: (
+      <ProtectedRoute roles={["ORGANIZER"]}>
+        <LayoutOrganizer />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <OrganizerDashboard /> },
@@ -255,12 +265,17 @@ export const router = createBrowserRouter([
       },
       { path: "violation-history", element: <OrganizerViolationHistory /> },
       { path: "profile", element: <OrganizerProfile /> },
+      { path: "profile/edit", element: <OrganizerProfileEdit /> },
       { path: "profile/change-password", element: <OrganizerChangePassword /> },
     ],
   },
   {
     path: "/learner",
-    element: <LayoutLearner />,
+    element: (
+      <ProtectedRoute roles={["LEARNER"]}>
+        <LayoutLearner />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <LearnerDashboard /> },
@@ -303,7 +318,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/learner/courses/:enrollmentId",
-    element: <LayoutLearnerCourse />,
+    element: (
+      <ProtectedRoute roles={["LEARNER"]}>
+        <LayoutLearnerCourse />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <LearnerCourseCurriculum /> },
@@ -336,7 +355,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/instructor",
-    element: <LayoutInstructor />,
+    element: (
+      <ProtectedRoute roles={["INSTRUCTOR"]}>
+        <LayoutInstructor />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <InstructorDashboard /> },
@@ -431,7 +454,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/instructor/courses/:courseId/builder",
-    element: <LayoutInstructorCourse />,
+    element: (
+      <ProtectedRoute roles={["INSTRUCTOR"]}>
+        <LayoutInstructorCourse />
+      </ProtectedRoute>
+    ),
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <InstructorCourseBuilder /> },

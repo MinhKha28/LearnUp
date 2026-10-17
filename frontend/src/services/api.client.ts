@@ -1,4 +1,5 @@
 import axios from "axios";
+import { retryWithFreshToken } from "@/services/auth.session";
 
 import { ApiError, type ApiEnvelope } from "@/types/api.types";
 
@@ -35,6 +36,12 @@ client.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
+});
+
+// UC05: 401 do access token hết hạn -> làm mới rồi gửi lại; lỗi khác vẫn ném ra như cũ
+client.interceptors.response.use(undefined, async (error: unknown) => {
+  const retried = await retryWithFreshToken(client, error);
+  return retried ?? Promise.reject(error);
 });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -107,6 +114,18 @@ export const apiPost = async <T>(
 ): Promise<T> => {
   try {
     const response = await client.post<ApiEnvelope<T>, RawResponse<T>>(path, body, options);
+    return response.data.data;
+  } catch (error) {
+    throw toApiError(error);
+  }
+};
+
+export const apiPatch = async <T>(path: string, body: unknown): Promise<T> => {
+  try {
+    const response = await client.patch<ApiEnvelope<T>, RawResponse<T>>(
+      path,
+      body,
+    );
     return response.data.data;
   } catch (error) {
     throw toApiError(error);

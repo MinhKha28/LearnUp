@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Trim } from '../../../common/decorator/customize';
 import {
   IsInt,
   IsNotEmpty,
@@ -8,15 +9,17 @@ import {
   Min,
 } from 'class-validator';
 
-/** One Rubric criterion (BR-164 / BR-161: max points is a positive integer). */
+/** One Rubric criterion (BR-164 / BR-315: max points is a positive integer). */
 export class CreateRubricDto {
   @ApiProperty({ maxLength: 200 })
+  @Trim()
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
   name!: string;
 
   @ApiProperty({ maxLength: 500 })
+  @Trim()
   @IsString()
   @IsNotEmpty()
   @MaxLength(500)

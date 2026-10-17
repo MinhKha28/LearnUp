@@ -2,6 +2,7 @@ import { CurrentUser } from '@learnup/ts-common';
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -14,6 +15,8 @@ import { OrganizationCourseListQueryDto } from './dto/organization-course-list-q
 import { LearningClient } from '@infra/clients/learning/learning.client';
 import { PrismaService } from '@infra/prisma/prisma.service';
 import { Prisma } from '@generated/prisma/browser';
+import { STORAGE_PROVIDER } from '@/infrastructure/storage/storage.constants';
+import type { IStorageProvider } from '@learnup/ts-storage';
 
 export interface CourseAuthoringContext {
   courseId: string;
@@ -30,6 +33,7 @@ export class CoursesService {
     private readonly prisma: PrismaService,
     private readonly tenantClient: TenantClient,
     private readonly learningClient: LearningClient,
+    @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
   ) {}
 
   async findAll(user: CurrentUser, query: CourseListQueryDto) {
@@ -711,5 +715,134 @@ export class CoursesService {
     }
 
     return this.tenantClient.getInstructors(user, instructorIds);
+  }
+
+  async findDetail(user: CurrentUser, courseId: string) {
+    if (user.role !== 'INSTRUCTOR') {
+      throw new ForbiddenException('Only Instructor can view Course details.');
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    const course = await this.prisma.course.findFirst({
+      where: {
+        id: courseId,
+        organizationId: user.organizationId,
+        chain: {
+          instructorId: user.userId,
+        },
+      },
+      select: {
+        id: true,
+        chainId: true,
+        versionNumber: true,
+        name: true,
+        shortDescription: true,
+        trainingObjectives: true,
+        learningOutcomes: true,
+        coverFileId: true,
+        expectedCompletionDays: true,
+        courseType: true,
+        status: true,
+        lockedAt: true,
+        submittedAt: true,
+        publishedAt: true,
+        rejectedAt: true,
+        rejectionReason: true,
+        createdAt: true,
+        updatedAt: true,
+        coverFile: {
+          select: {
+            storageKey: true,
+            status: true,
+            releasedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found.');
+    }
+
+    const estimatedDurationMinutes =
+      await this.calculateEstimatedDurationMinutes(
+        user.organizationId,
+        course.id,
+      );
+
+    const { lockedAt, coverFile, ...result } = course;
+
+    const coverUrl =
+      coverFile?.status === 'Ready' && !coverFile.releasedAt
+        ? this.storage.getUrl(coverFile.storageKey, 'image')
+        : null;
+
+    return {
+      ...result,
+      coverUrl,
+      estimatedDurationMinutes,
+      locked: lockedAt !== null,
+    };
+  }
+
+  private async calculateEstimatedDurationMinutes(
+    organizationId: string,
+    courseId: string,
+  ): Promise<number | null> {
+    const setting = await this.prisma.platformSetting.findFirst({
+      orderBy: {
+        sourceAsOf: 'desc',
+      },
+      select: {
+        readingSpeedWordsPerMinute: true,
+      },
+    });
+
+    if (!setting || setting.readingSpeedWordsPerMinute <= 0) {
+      return null;
+    }
+
+    const [result] = await this.prisma.$queryRaw<
+      { estimatedDurationMinutes: number }[]
+    >`
+    SELECT (
+      c.assignment_minutes +
+      COALESCE(
+        SUM(
+          CASE
+            WHEN m.material_type = 'Video'
+              THEN CEIL(f.duration_seconds / 60.0)
+            WHEN m.material_type = 'Reading'
+              THEN CEIL(
+                f.word_count /
+                ${setting.readingSpeedWordsPerMinute}::numeric
+              )
+            ELSE 0
+          END
+        ),
+        0
+      )
+    )::int AS "estimatedDurationMinutes"
+    FROM courses c
+    LEFT JOIN modules cm
+      ON cm.course_id = c.id
+    LEFT JOIN lessons l
+      ON l.module_id = cm.id
+      AND l.disabled_at IS NULL
+    LEFT JOIN materials m
+      ON m.lesson_id = l.id
+      AND m.is_required = true
+      AND m.disabled_at IS NULL
+    LEFT JOIN media_files f
+      ON f.id = m.file_id
+    WHERE c.id = ${courseId}::uuid
+      AND c.organization_id = ${organizationId}::uuid
+    GROUP BY c.id, c.assignment_minutes
+  `;
+
+    return result?.estimatedDurationMinutes ?? null;
   }
 }

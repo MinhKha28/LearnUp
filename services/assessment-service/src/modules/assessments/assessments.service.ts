@@ -1,9 +1,17 @@
 import {
+  StorageProviderError,
+  StorageValidationError,
+  type IStorageProvider,
+} from '@learnup/ts-storage';
+import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   createPageResponse,
@@ -15,13 +23,22 @@ import {
   CourseServiceClient,
 } from '../../infrastructure/clients/course/course-service.client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
 import { RubricsService } from '../rubrics/rubrics.service';
-
-import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import {
+  CreateAssignmentDto,
+  PromptFileDto,
+} from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { Prisma } from 'generated/prisma/browser';
 
 const KIND_ASSIGNMENT = 'ASSIGNMENT';
+// BR-320: one prompt file per Assignment, same limits as a submission file. The team has not fixed a number yet,
+// so this takes the Reading limit of BR-268 (PDF, 50 MB).
+export const PROMPT_FILE_MAX_BYTES = 50 * 1024 * 1024;
+const PDF_MIME = 'application/pdf';
+const promptFolder = (organizationId: string) =>
+  `learnup/${organizationId}/assignments/prompts`;
 // Course states in which an Instructor may author (BR-284: Published stays editable until Locked;
 // Submitted is frozen for review, Archived/Disabled are terminal or sanctioned).
 export const AUTHORABLE_STATUSES = ['DRAFT', 'REJECTED', 'PUBLISHED'];
@@ -55,11 +72,144 @@ export interface AssignmentListPage extends PageResponse<AssignmentSummary> {
 
 @Injectable()
 export class AssessmentsService {
+  private readonly logger = new Logger(AssessmentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly courses: CourseServiceClient,
     private readonly rubrics: RubricsService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
   ) {}
+
+  /** UC19.2 / UC19.3 — store the prompt file (BR-320); the returned object goes into `promptFile` of create/update. */
+  async uploadPromptFile(
+    user: CurrentUser,
+    file?: { buffer: Buffer; originalname: string; size: number },
+  ): Promise<PromptFileDto> {
+    const organizationId = this.requireInstructor(user);
+    if (!file) {
+      throw new BadRequestException({
+        code: 'PROMPT_FILE_REQUIRED',
+        message: 'Send one PDF file in the "file" field.',
+      });
+    }
+    if (file.size > PROMPT_FILE_MAX_BYTES) {
+      throw new BadRequestException({
+        code: 'PROMPT_FILE_TOO_LARGE',
+        message: 'The prompt file must be 50 MB or smaller.',
+      });
+    }
+    // The browser-reported type can be anything, so check the PDF signature itself.
+    if (file.buffer.subarray(0, 5).toString('latin1') !== '%PDF-') {
+      throw new BadRequestException({
+        code: 'PROMPT_FILE_NOT_PDF',
+        message: 'The prompt file must be a PDF.',
+      });
+    }
+    // multer reads the name as latin1; turn it back into UTF-8 so accented names survive.
+    const fileName = Buffer.from(file.originalname, 'latin1')
+      .toString('utf8')
+      .split(/[\\/]/)
+      .pop()!
+      .slice(0, 255);
+    try {
+      const stored = await this.storage.upload(
+        {
+          buffer: file.buffer,
+          originalFilename: fileName,
+          mimeType: PDF_MIME,
+          sizeBytes: file.size,
+        },
+        {
+          folder: promptFolder(organizationId),
+          resourceType: 'raw',
+          validation: {
+            maxSizeBytes: PROMPT_FILE_MAX_BYTES,
+            allowedMimeTypes: [PDF_MIME],
+          },
+        },
+      );
+      return {
+        fileKey: stored.storageKey,
+        fileName,
+        mimeType: PDF_MIME,
+        sizeBytes: stored.sizeBytes,
+      };
+    } catch (error) {
+      if (error instanceof StorageValidationError) {
+        throw new BadRequestException({
+          code: 'PROMPT_FILE_INVALID',
+          message: error.message,
+        });
+      }
+      if (error instanceof StorageProviderError) {
+        this.logger.error(
+          `Prompt file upload failed: ${error.message} ${JSON.stringify(error.cause, Object.getOwnPropertyNames(Object(error.cause)))}`,
+        );
+        throw new ServiceUnavailableException({
+          code: 'STORAGE_UNAVAILABLE',
+          message: 'Unable to store the prompt file. Try again later.',
+        });
+      }
+      throw error;
+    }
+  }
+
+  /** UC19.1 — the prompt file of an Assignment the caller manages. */
+  async downloadPromptFile(user: CurrentUser, id: string) {
+    const { assignment } = await this.findOwnAssignment(user, id);
+    if (!assignment.promptFileKey) {
+      throw new NotFoundException({
+        code: 'PROMPT_FILE_NOT_FOUND',
+        message: 'This Assignment has no prompt file.',
+      });
+    }
+    // The file lives in Cloudinary; fetch it here so the browser keeps talking to this service only.
+    const response = await fetch(
+      this.storage.getUrl(assignment.promptFileKey, 'raw'),
+    ).catch(() => null);
+    if (!response) {
+      throw new ServiceUnavailableException({
+        code: 'STORAGE_UNAVAILABLE',
+        message: 'Unable to read the prompt file. Try again later.',
+      });
+    }
+    if (!response.ok) {
+      throw new NotFoundException({
+        code: 'PROMPT_FILE_NOT_FOUND',
+        message: 'The prompt file is no longer available.',
+      });
+    }
+    const content = Buffer.from(await response.arrayBuffer());
+    return {
+      content,
+      fileName: assignment.promptFileName ?? 'prompt.pdf',
+      mimeType: assignment.promptFileMime ?? PDF_MIME,
+    };
+  }
+
+  /** Only keys of this Organization's prompt folder are accepted (they come from uploadPromptFile); the type is always PDF. */
+  private resolvePromptFile(
+    organizationId: string,
+    file: PromptFileDto,
+  ): PromptFileDto {
+    if (
+      file.fileKey.includes('..') ||
+      !file.fileKey.startsWith(`${promptFolder(organizationId)}/`)
+    ) {
+      throw new BadRequestException({
+        code: 'PROMPT_FILE_NOT_FOUND',
+        message: 'The prompt file was not uploaded. Upload it first.',
+      });
+    }
+    if (file.sizeBytes > PROMPT_FILE_MAX_BYTES) {
+      throw new BadRequestException({
+        code: 'PROMPT_FILE_TOO_LARGE',
+        message: 'The prompt file must be 50 MB or smaller.',
+      });
+    }
+    return { ...file, mimeType: PDF_MIME };
+  }
 
   /** UC19.2 — create an Assignment attached to a Course (BR-162). */
   async createAssignment(user: CurrentUser, dto: CreateAssignmentDto) {
@@ -91,6 +241,9 @@ export class AssessmentsService {
       });
     }
 
+    const promptFile = dto.promptFile
+      ? this.resolvePromptFile(organizationId, dto.promptFile)
+      : undefined;
     const settings = await this.prisma.platformSetting.findFirst({
       orderBy: { createdAt: 'desc' },
     });
@@ -122,10 +275,10 @@ export class AssessmentsService {
           lockoutHours,
           isRequired: true, // BR-165: no optional Assignment
           prompt: dto.prompt?.trim() || null,
-          promptFileKey: dto.promptFile?.fileKey,
-          promptFileName: dto.promptFile?.fileName,
-          promptFileMime: dto.promptFile?.mimeType,
-          promptFileSizeBytes: dto.promptFile?.sizeBytes,
+          promptFileKey: promptFile?.fileKey,
+          promptFileName: promptFile?.fileName,
+          promptFileMime: promptFile?.mimeType,
+          promptFileSizeBytes: promptFile?.sizeBytes,
           expectedDurationMinutes: dto.expectedDurationMinutes,
           peerReviewEnabled: false, // switched on later via UC19.5
         },
@@ -252,12 +405,15 @@ export class AssessmentsService {
 
     let nextFileKey = assignment.promptFileKey;
     if (dto.promptFile !== undefined) {
-      nextFileKey = dto.promptFile?.fileKey ?? null;
+      const newFile = dto.promptFile
+        ? this.resolvePromptFile(organizationId, dto.promptFile)
+        : null;
+      nextFileKey = newFile?.fileKey ?? null;
       if (nextFileKey !== assignment.promptFileKey) {
         data.promptFileKey = nextFileKey;
-        data.promptFileName = dto.promptFile?.fileName ?? null;
-        data.promptFileMime = dto.promptFile?.mimeType ?? null;
-        data.promptFileSizeBytes = dto.promptFile?.sizeBytes ?? null;
+        data.promptFileName = newFile?.fileName ?? null;
+        data.promptFileMime = newFile?.mimeType ?? null;
+        data.promptFileSizeBytes = newFile?.sizeBytes ?? null;
         frozenBySubmission.push('prompt file');
       }
     }
@@ -371,6 +527,11 @@ export class AssessmentsService {
       });
     });
 
+    // The old file is no longer linked: remove it from storage.
+    if (assignment.promptFileKey && nextFileKey !== assignment.promptFileKey) {
+      await this.removeStoredFile(assignment.promptFileKey, assignment.id);
+    }
+
     return this.toDetail(updated, course.locked);
   }
 
@@ -429,7 +590,30 @@ export class AssessmentsService {
       });
     });
 
+    if (assignment.promptFileKey) {
+      await this.removeStoredFile(assignment.promptFileKey, assignment.id);
+    }
+
     return { id: assignment.id };
+  }
+
+  /**
+   * Best effort: the row is already gone, so a storage failure is only logged (the file stays as an orphan).
+   * A key another Assignment still uses is kept (a new Course version may share the file, BR-100).
+   */
+  private async removeStoredFile(fileKey: string, exceptId: string) {
+    try {
+      const others = await this.prisma.assessment.count({
+        where: { promptFileKey: fileKey, id: { not: exceptId } },
+      });
+      if (others === 0) {
+        await this.storage.delete(fileKey, { resourceType: 'raw' });
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Prompt file ${fileKey} was not removed: ${String(error)}`,
+      );
+    }
   }
 
   /**

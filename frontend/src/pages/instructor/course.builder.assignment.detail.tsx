@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams, useOutletContext } from "react-router-dom";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
-import { assessmentErrorText, fetchAssignmentAPI } from "@/services/assessment.service";
+import { assessmentErrorText, downloadPromptFileAPI, fetchAssignmentAPI } from "@/services/assessment.service";
 import type { IAssignment } from "@/types/assessment.types";
+import { formatFileSize } from "@/utils/helper";
 import "./course.builder.scss";
 import "./course.builder.assignment.scss";
 
@@ -76,6 +77,24 @@ const CourseBuilderAssignmentDetail = () => {
   }
 
   const { peerReview } = assignment;
+  const handleDownload = async () => {
+    if (!assignment.promptFile) return;
+    try {
+      const blob = await downloadPromptFileAPI(assignment.id);
+      if (!blob) {
+        message.error("Unable to download the file.");
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = assignment.promptFile.fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      message.error("Unable to reach the Assessment service. Please try again.");
+    }
+  };
   const totalPoints = assignment.rubric.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
   // BR-98: once a submission exists only the estimated effort can change (BR-173, UC19.3).
   const restricted = assignment.locked;
@@ -156,7 +175,13 @@ const CourseBuilderAssignmentDetail = () => {
           <h2>Instructions</h2>
           <p className="builder-lesson-intro builder-prompt">{assignment.prompt || "No Instructions written yet."}</p>
           {assignment.promptFile && (
-            <p className="builder-lesson-intro">Attachment: {assignment.promptFile.fileName}</p>
+            <div className="builder-file-row">
+              <span className="builder-file-name">
+                {assignment.promptFile.fileName}
+                <small> {formatFileSize(assignment.promptFile.sizeBytes)}</small>
+              </span>
+              <InstructorButton onClick={handleDownload}>Download PDF</InstructorButton>
+            </div>
           )}
 
           <hr className="builder-divider" />
@@ -178,6 +203,7 @@ const CourseBuilderAssignmentDetail = () => {
 
           <div className="builder-actions builder-actions-split">
             <InstructorButton onClick={() => navigate(backPath)}>Back</InstructorButton>
+            <InstructorButton onClick={() => navigate(`/instructor/submissions?assessmentId=${assignment.id}`)}>Submissions</InstructorButton>
             {restricted ? (
               <InstructorButton type="primary" onClick={() => navigate(editPath, { state: location.state })}>
                 Edit estimated effort

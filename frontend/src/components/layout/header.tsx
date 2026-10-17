@@ -3,6 +3,8 @@ import { Button, Drawer } from "antd";
 import { MenuOutlined } from "@ant-design/icons";
 import { Link, useLocation } from "react-router-dom";
 import "@/components/layout/header.scss";
+import { useCurrentApp } from "@/components/context/app.context";
+import { homePathForRole } from "@/utils/auth";
 
 const navItems = [
   { key: "platform", label: "Platform", hash: "#platform" },
@@ -14,11 +16,11 @@ const navItems = [
 export default function Header() {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
+  const { isAuthenticated, user } = useCurrentApp();
   const home = pathname === "/";
   const registration = pathname.startsWith("/register");
   const bareAuthFlow =
     pathname.startsWith("/activate") ||
-    pathname.startsWith("/verify-email") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password");
   const plansActive = registration;
@@ -52,9 +54,20 @@ export default function Header() {
           {item.label}
         </a>
       ))}
-      <Link className="header-signin" to="/login" onClick={closeMenu}>
-        Sign in
-      </Link>
+      {isAuthenticated && user ? (
+        <Link
+          className="header-signin"
+          to={homePathForRole(user.role)}
+          onClick={closeMenu}
+        >
+          Go to workspace
+        </Link>
+      ) : (
+        <Link className="header-signin" to="/login" onClick={closeMenu}>
+          Sign in
+        </Link>
+      )}
+
       {!home && (
         <Link className="header-action" to="/register" onClick={closeMenu}>
           Explore plans <span aria-hidden="true">{"→"}</span>

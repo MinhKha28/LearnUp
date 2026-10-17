@@ -81,6 +81,9 @@ const CourseCurriculum = () => {
       {query.status === "success" && (
         <>
           <CurriculumHeader data={query.data} />
+          <Link className="course-curriculum-assessments-link" to={`${LEARNER_ROUTES.curriculum(enrollmentId)}/assessments`}>
+            Quiz và Assignment của Course →
+          </Link>
           <section className="course-curriculum-tree" aria-label="Chương trình học">
             <h2 className="course-curriculum-title">Chương trình học</h2>
             {modules.length === 0 ? (

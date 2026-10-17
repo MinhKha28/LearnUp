@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type DependencyList } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type DependencyList,
+} from "react";
 
 import { toApiError } from "@/services/api.client";
 import type { ApiError } from "@/types/api.types";
 
 export type ApiQueryState<T> =
-  | { status: "loading"; data: null; error: null }
+  | { status: "loading"; data: T | null; error: null }
   | { status: "success"; data: T; error: null }
   | { status: "error"; data: null; error: ApiError };
 
@@ -22,7 +28,11 @@ const toQueryError = (error: unknown): ApiError | null => {
  * Gọi API theo `deps`. Mỗi lần `deps` đổi hoặc `reload`, request cũ bị hủy và kết quả
  * của nó bị bỏ qua, nên chuyển trang nhanh không hiện nhầm dữ liệu trang trước.
  */
-export const useApiQuery = <T>(fetcher: (signal: AbortSignal) => Promise<T>, deps: DependencyList) => {
+export const useApiQuery = <T>(
+  fetcher: (signal: AbortSignal) => Promise<T>,
+  deps: DependencyList,
+  keepPreviousData = false,
+) => {
   const [state, setState] = useState<ApiQueryState<T>>(LOADING);
   const [reloadToken, setReloadToken] = useState(0);
   const fetcherRef = useRef(fetcher);
@@ -30,7 +40,11 @@ export const useApiQuery = <T>(fetcher: (signal: AbortSignal) => Promise<T>, dep
 
   useEffect(() => {
     const controller = new AbortController();
-    setState(LOADING);
+    setState((previous) =>
+      keepPreviousData
+        ? { status: "loading", data: previous.data, error: null }
+        : LOADING,
+    );
     fetcherRef.current(controller.signal).then(
       (data) => {
         if (!controller.signal.aborted) {
@@ -47,7 +61,7 @@ export const useApiQuery = <T>(fetcher: (signal: AbortSignal) => Promise<T>, dep
     return () => controller.abort();
     // deps do nơi gọi truyền vào, fetcher luôn lấy bản mới nhất qua ref
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reloadToken, ...deps]);
+  }, [reloadToken, keepPreviousData, ...deps]);
 
   const reload = useCallback(() => setReloadToken((token) => token + 1), []);
 

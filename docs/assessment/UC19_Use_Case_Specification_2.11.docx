@@ -1,0 +1,402 @@
+2.11 Assessment Management
+Use case specifications for UC-19 to UC-19.5 (Manage Assignments), following the table format of section 2.3 of the SRS; in the feature list this is feature 9, so it becomes section 2.11, where UC-18 to UC-18.5 (Quiz) are items a. to f. and the Assignment use cases continue as g. to l.. Business rules are listed by identifier only (BR-xx). Flow numbers follow the template: X.0 normal flow, X.Y alternative flow, X.Y.EZ exception.
+g. UC-19 View Assignment List
+                                                                UC ID and Name:
+UC-19 View Assignment List
+                                                                    Created By:
+Danh
+                                                                  Date Created:
+2/10/2026
+                                                                 Primary Actor:
+Instructor
+                                                              Secondary Actors:
+
+                                                                   Description:
+The Instructor views the Assignments of a Course under their responsibility, with the Peer Review status, the maximum number of consecutive submissions, and the lock status of each Assignment, and whether the Course itself is Locked.
+                                                                       Trigger:
+The Instructor opens the Assignments of a Course in the Course Builder (for example by selecting "View all Assignments" on the Course Structure screen).
+                                                                 Preconditions:
+PRE-1. The Instructor is authenticated and has the Instructor role.
+PRE-2. The Course exists in the Instructor's Organization and the Instructor is in charge of its version chain (BR-79, BR-287).
+                                                               Post-conditions:
+POST-1. The Assignments of the Course are displayed in their position order.
+POST-2. No data is changed.
+POST-3. The "Add Assignment" action is available only while the Course is not Locked.
+                                                                   Normal Flow:
+19.0 View Assignment List
+1. The Instructor opens the Assignment list of a Course.
+2. The system checks that the Course belongs to the Instructor's Organization and is under the Instructor's responsibility. (see 19.0.E1, 19.0.E2)
+3. The system retrieves the Assignments of the Course ordered by position, that is, at the end of the Course tree (BR-154, BR-291).
+4. The system shows a summary: total number of Assignments, number with Peer Review on, and number that already have submissions.
+5. For each Assignment the system shows the title, the Peer Review status (On or Off), the maximum consecutive submissions (n) with the temporary lock (m hours), and the lock status ("Has submissions" when a submission exists, otherwise "Unlocked", BR-98). An Assignment disabled by the Organizer is marked as Disabled (BR-239). (see 19.1)
+6. If the Course is Locked, the system shows a "Course Locked" notice and disables "Add Assignment" (BR-318).
+7. The Instructor selects an Assignment to open it. (see 19.2)
+                                                             Alternative Flows:
+19.1 The Course has no Assignment
+At step 5 the system shows "No Assignments yet." Add Assignment stays available when the Course is not Locked. Continue at step 6.
+19.2 The Instructor opens an Assignment or adds a new one
+The Instructor selects an Assignment: the system opens UC-19.1 View Assignment Details. The Instructor selects "Add Assignment": the system opens UC-19.2 Create Assignment, and returns to this list if the Instructor cancels there.
+19.3 The Instructor goes back
+The Instructor selects "Back to Course outline"; the system returns to the Course Structure screen.
+                                                                    Exceptions:
+19.0.E1 The Course does not exist or is not under the Instructor's responsibility
+1. The system answers "Course not found." and shows no Assignment. The same answer is used for both cases so that a Course of another Instructor is never revealed (BR-79).
+19.0.E2 The Instructor does not have the Instructor role
+1. The system answers "Only an Instructor can manage Assignments." and shows no data.
+19.0.E3 The Course Service or the Assessment Service is unavailable
+1. The system informs the Instructor that the list cannot be loaded and to try again later. No partial list is shown. The Add Assignment action stays disabled because the Course state is unknown.
+                                                                      Priority:
+High (Phase 1)
+                                                              Frequency of Use:
+Several times per Course authoring session; the list is the main entry point to the Assignment screens.
+                                                                Business Rules:
+BR-79, BR-98, BR-154, BR-165, BR-239, BR-287, BR-291, BR-318
+                                                             Other Information:
+The owner, status and Locked flag of the Course are provided by the Course Service; the Assessment Service does not store them.
+A Course holds few Assignments, so the whole list is returned in one page.
+This use case only reads data; a failure leaves the data unchanged.
+                                                                   Assumptions:
+Assignments are never optional (BR-165), so no required/optional marker is shown.
+
+h. UC-19.1 View Assignment Details
+                                                                UC ID and Name:
+UC-19.1 View Assignment Details
+                                                                    Created By:
+Danh
+                                                                  Date Created:
+2/10/2026
+                                                                 Primary Actor:
+Instructor
+                                                              Secondary Actors:
+
+                                                                   Description:
+The Instructor views one Assignment: its prompt, Rubric, passing score, estimated completion duration, the n/m submission control and the Peer Review configuration. The Instructor can also download the prompt file.
+                                                                       Trigger:
+The Instructor selects an Assignment from the Assignment list, the Course Structure screen or the Course Builder sidebar, or is taken to it after creating or updating an Assignment.
+                                                                 Preconditions:
+PRE-1. The Instructor is authenticated and has the Instructor role.
+PRE-2. The Assignment exists in the Instructor's Organization and its Course is under the Instructor's responsibility (BR-79, BR-287).
+                                                               Post-conditions:
+POST-1. The details of the Assignment are displayed.
+POST-2. No data is changed.
+POST-3. The Back action leads to the screen from which the Assignment was opened.
+                                                                   Normal Flow:
+19.1.0 View Assignment Details
+1. The Instructor selects an Assignment.
+2. The system checks that the Assignment exists in the Instructor's Organization and that its Course is under the Instructor's responsibility. (see 19.1.0.E1, 19.1.0.E2)
+3. The system retrieves the Assignment with its Rubric criteria ordered by position.
+4. The system displays six parameter tiles: passing score on the 0-100 scale (BR-315), estimated effort (stored in minutes, shown as hours once it reaches an hour, BR-174), maximum consecutive submissions (n), temporary lock (m hours), Peer Review status, and number of Rubric criteria with total points.
+5. The system displays the prompt text, the attached prompt file (name and size) when one exists, and each Rubric criterion with its maximum score.
+6. When Peer Review is on, the system displays the number of reviewers per submission, the cycle length, the review deadline and the score discrepancy threshold.
+7. The system displays the relevant notices: "Peer Review is off" while it can still be switched on (BR-185); "Assignment disabled" when the Organizer disabled it (BR-239); and "Editing restricted" when submissions exist (BR-98, BR-99).
+8. The system offers Back, Edit Assignment, Delete and Configure Peer Review. (see 19.1.2, 19.1.3)
+                                                             Alternative Flows:
+19.1.1 The Instructor downloads the prompt file
+1. At step 5 the Instructor selects "Download PDF".
+2. The system checks the access rights again and returns the stored PDF under its original file name. (see 19.1.1.E1)
+3. Return to step 5 of the normal flow.
+19.1.2 The Instructor goes back
+At step 8 the Instructor selects Back; the system returns to the screen from which the Assignment was opened (Assignment list or Course Structure). When the page was opened directly, the system shows the Assignment list.
+19.1.3 The Instructor continues with another action
+The Instructor selects Edit Assignment (UC-19.3), Delete (UC-19.4) or Configure Peer Review (UC-19.5); the system opens that use case and returns to this screen when it ends.
+                                                                    Exceptions:
+19.1.0.E1 The Assignment does not exist, or belongs to another Organization or Instructor
+1. The system answers "Assignment not found." and offers Back.
+19.1.0.E2 The Course Service or the Assessment Service is unavailable
+1. The system informs the Instructor that the Assignment cannot be loaded and to try again later.
+19.1.1.E1 The Assignment has no prompt file, or the file is no longer available
+1. The system answers "The prompt file is no longer available." and keeps the details on screen.
+                                                                      Priority:
+High (Phase 1)
+                                                              Frequency of Use:
+Once or more every time an Assignment is reviewed or edited; more often than the list during authoring.
+                                                                Business Rules:
+BR-79, BR-98, BR-99, BR-163, BR-164, BR-172, BR-174, BR-183, BR-185, BR-239, BR-287, BR-315, BR-320
+                                                             Other Information:
+The Course Locked flag is read at display time so the notices always show the current state.
+The prompt file can be downloaded only by the Instructor in charge of the Course.
+This use case only reads data; a failure leaves the data unchanged.
+                                                                   Assumptions:
+The Assignment score scale is 0-100 with two decimals (BR-315).
+
+i. UC-19.2 Create Assignment
+                                                                UC ID and Name:
+UC-19.2 Create Assignment
+                                                                    Created By:
+Danh
+                                                                  Date Created:
+2/10/2026
+                                                                 Primary Actor:
+Instructor
+                                                              Secondary Actors:
+Media Storage Service
+                                                                   Description:
+The Instructor creates a new Assignment attached to a Course with a prompt, a Rubric, a passing score, an estimated completion duration, the maximum consecutive submissions (n) and the temporary lock after the last attempt (m hours). Peer Review is configured separately by UC-19.5.
+                                                                       Trigger:
+The Instructor selects "Add Assignment" on the Course Structure screen, on the Assignment list, or in the Course Builder sidebar.
+                                                                 Preconditions:
+PRE-1. The Instructor is authenticated and has the Instructor role.
+PRE-2. The Course is under the Instructor's responsibility (BR-79, BR-287).
+PRE-3. The Course is in Draft, Rejected or Published status; it is not Submitted, Archived or Disabled (BR-284, BR-285).
+PRE-4. The Course is not Locked (BR-318).
+                                                               Post-conditions:
+POST-1. The Assignment is stored at the end of the Course tree with the next position (BR-154, BR-291).
+POST-2. The Rubric is stored together with the Assignment, in the same transaction (BR-164).
+POST-3. The Assignment is not optional and has no submission deadline (BR-165, BR-166); Peer Review is off.
+POST-4. When n or m was left empty, the platform default is stored (BR-175, BR-268).
+POST-5. An "AssignmentCreated" event with the estimated duration is recorded so the Course estimate can include it (BR-51, BR-172).
+POST-6. The Instructor is shown the details of the new Assignment (UC-19.1).
+                                                                   Normal Flow:
+19.2.0 Create Assignment
+1. The Instructor selects "Add Assignment". (see 19.2.2)
+2. The system displays the creation form: title, instructions, optional PDF attachment, passing score, estimated effort in minutes, consecutive submissions (n), temporary lock (m hours) and the Rubric.
+3. The Instructor enters the title, the instructions, the passing score, the estimated effort and the Rubric criteria (a description and a maximum score for each), and optionally n and m. (see 19.2.1, 19.2.3)
+4. The Instructor selects "Create Assignment".
+5. The system validates the input: the title is not empty (spaces only do not count) and at most 200 characters; a prompt text or a prompt file is present (BR-320); the passing score is between 0 and 100 with at most two decimals (BR-315); the estimated effort is a whole number of minutes of at least 1; n and m, when given, are whole numbers of at least 1; the Rubric has at least one criterion and every criterion has a description and a positive whole maximum score (BR-164, BR-315). (see 19.2.0.E1, 19.2.0.E2)
+6. The system checks that the Course is under the Instructor's responsibility, that its status allows editing and that it is not Locked. (see 19.2.0.E3, 19.2.0.E4, 19.2.0.E5, 19.2.0.E6)
+7. The system takes the platform defaults for n and m when they were left empty (BR-175, BR-268).
+8. In one transaction the system stores the Assignment with the next position, stores its Rubric and records the "AssignmentCreated" event. (see 19.2.0.E7)
+9. The system confirms "Assignment created." and displays the Assignment details (UC-19.1).
+                                                             Alternative Flows:
+19.2.1 The Instructor attaches a prompt file
+1. At step 3 the Instructor chooses a PDF file as the prompt attachment.
+2. The system stores the file through the Media Storage Service and shows its name and size. The Instructor may replace or remove it at any time before step 4. (see 19.2.1.E1, 19.2.1.E2)
+3. Return to step 3 of the normal flow. A prompt text is then optional (BR-320: one file at most per Assignment).
+19.2.2 The Instructor cancels
+At any time before step 4 the Instructor selects Cancel. Nothing is stored and the system returns to the screen from which "Add Assignment" was selected (Course Structure screen or Assignment list).
+19.2.3 The Instructor adds or removes Rubric criteria
+At step 3 the Instructor adds a criterion or removes one. The Rubric must keep at least one criterion. Return to step 3.
+                                                                    Exceptions:
+19.2.0.E1 The input is not valid
+1. The system highlights each invalid field with its message, for example "Enter an Assignment title." or a range message for a number.
+2. Return to step 3 of the normal flow.
+19.2.0.E2 The Assignment has neither a prompt text nor a prompt file
+1. The system answers "Write the Assignment instructions or attach a PDF."
+2. Return to step 3 of the normal flow.
+19.2.0.E3 The Course status does not allow editing
+1. For a Submitted, Archived or Disabled Course the system answers "Assignments cannot be added while the Course is <status>." and stores nothing.
+19.2.0.E4 The Course is Locked (BR-318)
+1. The system answers "The Course is Locked because a Learner has enrolled. Create a new Course version to add an Assignment." and stores nothing.
+19.2.0.E5 The Course does not exist or is not under the Instructor's responsibility
+1. The system answers "Course not found." and stores nothing.
+19.2.0.E6 The Course Service is unavailable
+1. The system informs the Instructor that the Course cannot be verified and to try again later. Nothing is stored.
+19.2.0.E7 The data cannot be stored
+1. The transaction is rolled back, so neither the Assignment nor its Rubric is kept, and the system shows an error message.
+19.2.1.E1 The file is not a PDF or is larger than 50 MB (BR-320)
+1. The system rejects the file with "Only PDF files are accepted." or "The file must be 50 MB or smaller." and keeps the previous attachment, if any.
+19.2.1.E2 The file storage is unavailable
+1. The system informs the Instructor that the file could not be uploaded. The form keeps all other values.
+                                                                      Priority:
+High (Phase 1)
+                                                              Frequency of Use:
+A few Assignments per Course, mostly while the Course is in Draft.
+                                                                Business Rules:
+BR-51, BR-79, BR-154, BR-162, BR-163, BR-164, BR-165, BR-166, BR-172, BR-174, BR-175, BR-268, BR-284, BR-285, BR-287, BR-291, BR-315, BR-318, BR-320
+                                                             Other Information:
+Two Assignments created at the same moment in one Course are serialised so their positions never collide.
+The attached prompt file is not counted against the Subscription storage limit (BR-320).
+The estimated duration is added to the Course estimate (BR-51); until the Course Service consumes the recorded event the Course estimate does not yet include it.
+Technical limits not set by a business rule: at most 50 Rubric criteria, estimated effort up to 100000 minutes, n up to 1000 and m up to 8760 hours.
+                                                                   Assumptions:
+The platform defaults for n and m (3 attempts, 24 hours) exist as platform parameters (BR-268).
+Physical file storage is an infrastructure component; until it is chosen the prompt file is kept on local disk.
+
+j. UC-19.3 Update Assignment
+                                                                UC ID and Name:
+UC-19.3 Update Assignment
+                                                                    Created By:
+Danh
+                                                                  Date Created:
+2/10/2026
+                                                                 Primary Actor:
+Instructor
+                                                              Secondary Actors:
+Media Storage Service
+                                                                   Description:
+The Instructor edits an Assignment: its title, prompt (text and file), Rubric, passing score, estimated completion duration, maximum consecutive submissions (n) and temporary lock (m hours). What can change depends on whether Learners have submitted and on whether the Course is Locked.
+                                                                       Trigger:
+The Instructor selects "Edit Assignment" on the Assignment details screen.
+                                                                 Preconditions:
+PRE-1. The Instructor is authenticated and has the Instructor role.
+PRE-2. The Assignment exists and its Course is under the Instructor's responsibility (BR-79, BR-287).
+PRE-3. The Course is in Draft, Rejected or Published status; it is not Submitted, Archived or Disabled (BR-284, BR-285).
+                                                               Post-conditions:
+POST-1. Only the values that were changed are updated.
+POST-2. When the Rubric was changed, it is replaced as a whole.
+POST-3. When the estimated effort was changed, an "AssignmentDurationChanged" event with the new and previous values is recorded (BR-51, BR-172).
+POST-4. The Instructor is shown the updated details (UC-19.1).
+                                                                   Normal Flow:
+19.3.0 Update Assignment
+1. The Instructor selects "Edit Assignment".
+2. The system displays the form with the current values and disables what cannot be edited, showing the reason (BR-99): prompt, Rubric, n and m when the Assignment already has submissions (BR-98); the passing score when the Course is Locked (BR-319). The estimated effort is always editable (BR-173).
+3. The Instructor changes the values. (see 19.3.1, 19.3.2)
+4. The Instructor selects "Save".
+5. The system validates the editable values with the same rules as UC-19.2. (see 19.3.0.E1, 19.3.0.E5)
+6. The system sends only the values that changed and checks that the Course status allows editing. (see 19.3.0.E2)
+7. The system checks the frozen values: a change of prompt, prompt file, Rubric, n or m is refused when a submission exists (BR-98); a change of the passing score is refused when the Course is Locked (BR-319). (see 19.3.0.E3, 19.3.0.E4)
+8. In one transaction the system locks the Assignment, counts the submissions again, updates the values, replaces the Rubric when it changed and records the "AssignmentDurationChanged" event when the effort changed. (see 19.3.0.E6)
+9. The system confirms "Assignment saved." and displays the Assignment details.
+                                                             Alternative Flows:
+19.3.1 Nothing was changed
+At step 6 no value differs from the stored one. The system answers "No changes to save." and stays on the form.
+19.3.2 The Instructor replaces or removes the prompt file
+At step 3 the Instructor replaces the PDF or removes it. Removal is accepted only while a prompt text remains (see 19.3.0.E5). The same limits as in UC-19.2 apply (PDF, 50 MB). Continue at step 3.
+19.3.3 The Instructor cancels
+At any time before step 4 the Instructor selects Cancel. Nothing is changed and the system returns to the Assignment details.
+19.3.4 Only the estimated effort is changed
+When submissions exist or the Course is Locked, the Instructor can still change the estimated effort; the other editable values follow the rules at step 2.
+                                                                    Exceptions:
+19.3.0.E1 The input is not valid
+1. The system highlights each invalid field with its message. Return to step 3.
+19.3.0.E2 The Course status does not allow editing
+1. For a Submitted, Archived or Disabled Course the system answers "Assignments cannot be changed while the Course is <status>." and changes nothing.
+19.3.0.E3 Learners have already submitted (BR-98)
+1. The system answers "Learners have already submitted, so these cannot be changed: <list of values>." and changes nothing.
+19.3.0.E4 The Course is Locked and the passing score was changed (BR-319)
+1. The system answers "The passing score cannot be changed because the Course is Locked. Create a new Course version to change it." and changes nothing.
+19.3.0.E5 The Assignment would have neither a prompt text nor a prompt file
+1. The system answers "An Assignment needs a prompt text or one prompt file." Return to step 3.
+19.3.0.E6 A Learner submits while the update is running
+1. Because the Assignment is locked before the recount at step 8, the update waits for the submission; it is then refused as in 19.3.0.E3 and the stored values stay as they were.
+19.3.0.E7 The Assignment or the Course cannot be found, or the services are unavailable
+1. The system answers "Assignment not found." / "Course not found.", or informs the Instructor to try again later. Nothing is changed.
+                                                                      Priority:
+Medium (Phase 2)
+                                                              Frequency of Use:
+Occasionally per Assignment, mostly before the Course is published; rarely after Learners have enrolled.
+                                                                Business Rules:
+BR-51, BR-79, BR-98, BR-99, BR-164, BR-172, BR-173, BR-174, BR-175, BR-284, BR-285, BR-287, BR-315, BR-319, BR-320
+                                                             Other Information:
+When the Course is Locked and the content must change, the Instructor creates a new Course version (BR-100); this is outside this use case.
+The check of BR-98 is repeated inside the transaction so a submission arriving at the same moment cannot slip through.
+A failure rolls back the whole update; the Assignment and its Rubric keep their previous values.
+                                                                   Assumptions:
+The title is editable at any time although the use case description does not list it.
+Sending a value equal to the stored one is not counted as a change.
+
+k. UC-19.4 Delete Assignment
+                                                                UC ID and Name:
+UC-19.4 Delete Assignment
+                                                                    Created By:
+Danh
+                                                                  Date Created:
+2/10/2026
+                                                                 Primary Actor:
+Instructor
+                                                              Secondary Actors:
+
+                                                                   Description:
+The Instructor deletes an Assignment from a Course. This is not allowed once the Course is Locked and the Assignment already has data.
+                                                                       Trigger:
+The Instructor selects "Delete" on the Assignment details screen.
+                                                                 Preconditions:
+PRE-1. The Instructor is authenticated and has the Instructor role.
+PRE-2. The Assignment exists and its Course is under the Instructor's responsibility (BR-79, BR-287).
+PRE-3. The Course is in Draft, Rejected or Published status; it is not Submitted, Archived or Disabled (BR-284, BR-285).
+PRE-4. The Course is not Locked, or the Assignment has no submission (BR-92).
+                                                               Post-conditions:
+POST-1. The Assignment is removed from the Course.
+POST-2. Its Rubric criteria, peer review cycles and per-Learner counters are removed with it.
+POST-3. An "AssignmentDeleted" event with the removed duration is recorded so the Course estimate can drop it (BR-51, BR-172).
+POST-4. The Instructor is shown the Assignment list.
+                                                                   Normal Flow:
+19.4.0 Delete Assignment
+1. The Instructor selects "Delete" on the Assignment details.
+2. The system displays a confirmation screen with the Assignment summary. When the Course is Locked and the Assignment has submissions, it explains that deletion is blocked and disables the confirmation (BR-99). (see 19.4.0.E1)
+3. The Instructor confirms the deletion. (see 19.4.1)
+4. The system checks that the Course status allows editing. (see 19.4.0.E2)
+5. In one transaction the system locks the Assignment, counts its submissions again, checks BR-92, deletes the Assignment and records the "AssignmentDeleted" event. (see 19.4.0.E3)
+6. The system confirms "Assignment deleted." and displays the Assignment list.
+                                                             Alternative Flows:
+19.4.1 The Instructor cancels
+At step 3 the Instructor selects Cancel; nothing is deleted and the system returns to the Assignment details.
+19.4.2 The Course is Locked but the Assignment has no data
+The deletion is allowed: BR-92 blocks only an Assignment that already has data. Continue with the normal flow.
+                                                                    Exceptions:
+19.4.0.E1 The Course is Locked and the Assignment has submissions (BR-92)
+1. The system answers "This Assignment already has submissions and the Course is Locked, so it cannot be deleted." and deletes nothing.
+19.4.0.E2 The Course status does not allow editing
+1. For a Submitted, Archived or Disabled Course the system answers "Assignments cannot be deleted while the Course is <status>." and deletes nothing.
+19.4.0.E3 A Learner submits while the deletion is running
+1. The Assignment is locked before the recount at step 5, so the deletion waits for the submission; with the Course Locked it is then refused as in 19.4.0.E1.
+19.4.0.E4 The Assignment or the Course cannot be found, or the services are unavailable
+1. The system answers "Assignment not found." / "Course not found.", or informs the Instructor to try again later. Nothing is deleted.
+                                                                      Priority:
+Medium (Phase 2)
+                                                              Frequency of Use:
+Rarely; mostly while the Course is being drafted.
+                                                                Business Rules:
+BR-51, BR-79, BR-92, BR-99, BR-172, BR-284, BR-285, BR-287
+                                                             Other Information:
+The deletion and the recording of the event happen in one transaction; a failure keeps the Assignment.
+A deleted Assignment cannot be restored.
+                                                                   Assumptions:
+"Data" in BR-92 means at least one Learner submission of the Assignment.
+
+l. UC-19.5 Configure Peer Review
+                                                                UC ID and Name:
+UC-19.5 Configure Peer Review
+                                                                    Created By:
+Danh
+                                                                  Date Created:
+2/10/2026
+                                                                 Primary Actor:
+Instructor
+                                                              Secondary Actors:
+
+                                                                   Description:
+The Instructor turns peer review on or off for an Assignment and sets the number of reviewers per submission, the peer review cycle length, the deadline to complete the reviews and the score discrepancy threshold above which a submission goes to the Instructor for review.
+                                                                       Trigger:
+The Instructor selects "Configure Peer Review" on the Assignment details screen.
+                                                                 Preconditions:
+PRE-1. The Instructor is authenticated and has the Instructor role.
+PRE-2. The Assignment exists and its Course is under the Instructor's responsibility (BR-79, BR-287).
+PRE-3. The Course is in Draft, Rejected or Published status; it is not Submitted, Archived or Disabled (BR-284, BR-285).
+PRE-4. To switch peer review on or off, the Course is not Locked (BR-185).
+                                                               Post-conditions:
+POST-1. The peer review flag and, when it is on, the reviewers per submission (N), the cycle length (L days), the review deadline (D days) and the score discrepancy threshold are stored on the Assignment.
+POST-2. When peer review is switched off, the previous parameters are kept.
+POST-3. The new values apply only to cycles created afterwards; cycles already created keep their dates (BR-269).
+POST-4. The Instructor is shown the updated details (UC-19.1).
+                                                                   Normal Flow:
+19.5.0 Configure Peer Review
+1. The Instructor selects "Configure Peer Review".
+2. The system displays the current settings: the switch, N, L, D and the threshold, with notes on the platform defaults (BR-268) and on choosing a cycle long enough to collect at least N + 1 submissions (BR-184). When the Course is Locked the switch is disabled with the explanation (BR-185).
+3. The Instructor switches peer review on or off and enters the values. (see 19.5.1, 19.5.2, 19.5.4)
+4. The Instructor selects "Save settings".
+5. When peer review is on, the system validates the input: N is a whole number of at least 1; the threshold is between 0 and 100 with at most two decimals (BR-321); L and D, when given, are whole numbers of at least 1. (see 19.5.0.E1)
+6. The system checks that the Course status allows editing and, when the Course is Locked, that the on/off value is unchanged. (see 19.5.0.E2, 19.5.0.E3)
+7. When peer review is on, the system stores N, L, D and the threshold; an empty L or D keeps the stored value or takes the platform default (7 and 3 days). When it is off, only the flag is stored.
+8. The system confirms "Peer Review settings saved." and displays the Assignment details.
+                                                             Alternative Flows:
+19.5.1 L or D is left empty
+At step 3 the Instructor leaves the cycle length or the review deadline empty. The system uses the stored value or the platform default and stores it with the Assignment, so later changes of the platform default do not alter it (BR-269).
+19.5.2 The Course is Locked
+The switch cannot be changed, but the Instructor can still change N, L, D and the threshold. They apply to cycles created afterwards only (BR-185, BR-93, BR-269).
+19.5.3 The Instructor cancels
+Before step 4 the Instructor selects Cancel. Nothing is changed and the system returns to the Assignment details.
+19.5.4 The review deadline is longer than the cycle length
+The Instructor sets D greater than L. The system accepts it: cycles run back to back (BR-188, BR-312), so the reviews of one cycle overlap the submission period of the next. Continue at step 4.
+                                                                    Exceptions:
+19.5.0.E1 The input is not valid
+1. The system highlights each invalid field with its message. Return to step 3.
+19.5.0.E2 The Course status does not allow editing
+1. For a Submitted, Archived or Disabled Course the system answers "Peer Review cannot be changed while the Course is <status>." and changes nothing.
+19.5.0.E3 The Course is Locked and the switch was changed (BR-185)
+1. The system answers "Peer Review cannot be turned on or off because the Course is Locked. Create a new Course version to change it." and changes nothing.
+19.5.0.E4 The Assignment or the Course cannot be found, or the services are unavailable
+1. The system answers "Assignment not found." / "Course not found.", or informs the Instructor to try again later. Nothing is changed.
+                                                                      Priority:
+High (Phase 1)
+                                                              Frequency of Use:
+Once or twice per Assignment, normally while the Course is being authored.
+                                                                Business Rules:
+BR-79, BR-93, BR-182, BR-183, BR-184, BR-185, BR-186, BR-187, BR-188, BR-268, BR-269, BR-284, BR-285, BR-287, BR-312, BR-321
+                                                             Other Information:
+This use case only stores the configuration. Opening and closing cycles, assigning reviewers and sending reminders are done by the scheduled peer review processing of the Assessment Service (BR-186 to BR-189).
+The review deadline is counted from the cycle closing date, not from the moment a Learner submits (BR-187).
+Technical limit not set by a business rule: N, L and D are at most 32767.
+                                                                   Assumptions:
+The platform defaults of 7 days for the cycle length and 3 days for the review deadline (BR-268) are managed by the Admin and may change; only the values saved with an Assignment are used for its cycles.
+

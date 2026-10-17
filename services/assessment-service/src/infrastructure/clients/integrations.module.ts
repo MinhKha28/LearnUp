@@ -3,6 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import { CourseServiceClient } from './course/course-service.client';
 import { FakeCourseServiceClient } from './course/fake-course-service.client';
 import { HttpCourseServiceClient } from './course/http-course-service.client';
+import { EnrollmentClient } from './learning/enrollment.client';
+import { FakeEnrollmentClient } from './learning/fake-enrollment.client';
+import { HttpEnrollmentClient } from './learning/http-enrollment.client';
+import { FakeTenantDirectoryClient } from './tenant/fake-tenant-directory.client';
+import { HttpTenantDirectoryClient } from './tenant/http-tenant-directory.client';
+import { TenantDirectoryClient } from './tenant/tenant-directory.client';
 
 // Gom các client gọi sang service khác (cùng khuôn với tenant-service/src/integrations).
 @Global()
@@ -17,7 +23,24 @@ import { HttpCourseServiceClient } from './course/http-course-service.client';
           ? new FakeCourseServiceClient(config)
           : new HttpCourseServiceClient(config),
     },
+    {
+      provide: EnrollmentClient,
+      inject: [ConfigService],
+      // Mặc định là http: bản giả coi mọi Learner đã Enroll mọi Course nên chỉ bật khi nói rõ ENROLLMENT_CLIENT_MODE=fake.
+      useFactory: (config: ConfigService): EnrollmentClient =>
+        config.get<string>('ENROLLMENT_CLIENT_MODE') === 'fake'
+          ? new FakeEnrollmentClient()
+          : new HttpEnrollmentClient(config),
+    },
+    {
+      provide: TenantDirectoryClient,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): TenantDirectoryClient =>
+        config.get<string>('TENANT_CLIENT_MODE') === 'fake'
+          ? new FakeTenantDirectoryClient()
+          : new HttpTenantDirectoryClient(config),
+    },
   ],
-  exports: [CourseServiceClient],
+  exports: [CourseServiceClient, EnrollmentClient, TenantDirectoryClient],
 })
 export class IntegrationsModule {}

@@ -82,4 +82,13 @@ export class CoursesController {
   ) {
     return this.coursesService.findOrganizationCourses(user, query);
   }
+
+  @Get(':courseId')
+  @ResponseMessage('Course details fetched successfully')
+  findDetail(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.findDetail(user, courseId);
+  }
 }

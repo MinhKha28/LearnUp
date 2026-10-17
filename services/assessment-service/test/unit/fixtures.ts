@@ -12,6 +12,51 @@ import {
 import { PeerReviewService } from '../../src/modules/peer-review/peer-review.service';
 import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { RubricsService } from '../../src/modules/rubrics/rubrics.service';
+import type {
+  IStorageFileInput,
+  IStorageProvider,
+  IStorageUploadOptions,
+  IStoredFile,
+} from '@learnup/ts-storage';
+
+/** Cloudinary stand-in: files stay in memory, keyed like the real storage hands them out. */
+export class MemoryStorage implements IStorageProvider {
+  readonly files = new Map<string, Buffer>();
+  readonly uploads: { folder: string; resourceType?: string }[] = [];
+  readonly deleted: string[] = [];
+
+  upload(
+    file: IStorageFileInput,
+    options: IStorageUploadOptions,
+  ): Promise<IStoredFile> {
+    const publicId = `${options.folder}/${this.files.size + 1}`;
+    this.files.set(publicId, file.buffer);
+    this.uploads.push({
+      folder: options.folder,
+      resourceType: options.resourceType,
+    });
+    return Promise.resolve({
+      storageKey: publicId,
+      publicId,
+      url: `http://files.test/${publicId}`,
+      secureUrl: `https://files.test/${publicId}`,
+      resourceType: 'raw',
+      originalFilename: file.originalFilename,
+      mimeType: file.mimeType,
+      sizeBytes: file.sizeBytes,
+    });
+  }
+
+  delete(storageKey: string): Promise<void> {
+    this.files.delete(storageKey);
+    this.deleted.push(storageKey);
+    return Promise.resolve();
+  }
+
+  getUrl(storageKey: string): string {
+    return `https://files.test/${storageKey}`;
+  }
+}
 
 export const ORG = '00000000-0000-4000-8000-000000000001';
 export const INSTRUCTOR = '00000000-0000-4000-8000-000000000002';
@@ -107,6 +152,9 @@ class StubCourseClient extends CourseServiceClient {
   getAuthoringContext(): Promise<CourseAuthoringContext> {
     return Promise.resolve(this.ctx);
   }
+  getModuleIds(): Promise<string[] | null> {
+    return Promise.resolve(null);
+  }
 }
 
 export interface BuildOptions {
@@ -120,6 +168,8 @@ export interface BuildOptions {
   lockedSubmissionCount?: number;
   /** false = the row vanished between the first read and the lock. */
   rowStillExists?: boolean;
+  /** Other Assignments that still use the same prompt file key. */
+  sharedFileUsers?: number;
 }
 
 export interface Calls {
@@ -214,6 +264,7 @@ export function build(opts: BuildOptions = {}) {
     assessment: {
       findMany: () => Promise.resolve(opts.rows ?? (row ? [row] : [])),
       findFirst: () => Promise.resolve(row),
+      count: () => Promise.resolve(opts.sharedFileUsers ?? 0),
       update: tx.assessment.update,
     },
     $transaction: <T>(fn: (t: typeof tx) => Promise<T>) => fn(tx),
@@ -221,12 +272,14 @@ export function build(opts: BuildOptions = {}) {
 
   const courses = new StubCourseClient(draftCourse(opts.course));
   const rubrics = new RubricsService();
+  const storage = new MemoryStorage();
   return {
     calls,
-    assessments: new AssessmentsService(prisma, courses, rubrics),
+    storage,
+    assessments: new AssessmentsService(prisma, courses, rubrics, storage),
     peerReview: new PeerReviewService(
       prisma,
-      new AssessmentsService(prisma, courses, rubrics),
+      new AssessmentsService(prisma, courses, rubrics, storage),
     ),
   };
 }
