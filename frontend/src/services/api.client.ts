@@ -12,6 +12,8 @@ export const API_PATHS = {
     `${API_PREFIX}/courses/${encodeURIComponent(courseId)}/introduction`,
   myCourseIds: `${API_PREFIX}/enrollments/me/course-ids`,
   enroll: `${API_PREFIX}/enrollments`,
+  withdrawal: (enrollmentId: string) =>
+    `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/withdrawal`,
   myEnrollments: `${API_PREFIX}/enrollments/me`,
   curriculum: (enrollmentId: string) =>
     `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/curriculum`,

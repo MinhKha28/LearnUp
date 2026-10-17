@@ -59,10 +59,11 @@ describe("resolveIdentityProxySettings", () => {
 });
 
 describe("isDevIdentityKey", () => {
-  it("chỉ nhận 3 khóa trong bảng", () => {
+  it("chỉ nhận 4 khóa trong bảng", () => {
     expect(isDevIdentityKey("LEARNER_1")).toBe(true);
     expect(isDevIdentityKey("LEARNER_3")).toBe(true);
-    expect(isDevIdentityKey("LEARNER_4")).toBe(false);
+    expect(isDevIdentityKey("LEARNER_4")).toBe(true);
+    expect(isDevIdentityKey("LEARNER_5")).toBe(false);
     expect(isDevIdentityKey("learner_1")).toBe(false);
     expect(isDevIdentityKey("toString")).toBe(false);
     expect(isDevIdentityKey("__proto__")).toBe(false);
@@ -137,6 +138,7 @@ describe("describeIdentities", () => {
         { key: "LEARNER_1", label: "Học viên 1 (Tổ chức A)" },
         { key: "LEARNER_2", label: "Học viên 2 (Tổ chức A)" },
         { key: "LEARNER_3", label: "Học viên 3 (Tổ chức B)" },
+        { key: "LEARNER_4", label: "Học viên 4 (Tổ chức A)" },
       ],
     });
     expect(JSON.stringify(result)).not.toMatch(/0199a000/);

@@ -9,9 +9,21 @@ const created = {
   enrollmentType: "Optional",
   status: "NotStarted",
   enrolledAt: "2026-10-01T00:00:00.000Z",
+  restored: false,
 } as const;
 
 describe("resolveEnrollOutcome", () => {
+  it("restored selects the restored success toast and enrollment link", () => {
+    const outcome = resolveEnrollOutcome({ ...created, restored: true });
+    expect(outcome).toEqual({ kind: "restored", enrollmentId: "e-new" });
+    expect(getEnrollOutcomeMessage(outcome)).toBe("Đăng ký thành công, tiến độ cũ đã được khôi phục");
+  });
+
+  it.each(["AccountDeleted", "HaltedClosed"])("not restorable %s selects the error toast", (reason) => {
+    const outcome = resolveEnrollOutcome(new ApiError(409, "ENROLLMENT_NOT_RESTORABLE", "", { reason }));
+    expect(outcome).toEqual({ kind: "notRestorable" });
+    expect(getEnrollOutcomeMessage(outcome)).toBe("Không thể đăng ký lại Course này");
+  });
   it("201 → enrolled với id vừa tạo", () => {
     expect(resolveEnrollOutcome(created)).toEqual({ kind: "enrolled", enrollmentId: "e-new" });
   });
