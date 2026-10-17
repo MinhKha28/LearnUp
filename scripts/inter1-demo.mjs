@@ -103,9 +103,13 @@ function tailLog(file, lines = 30) {
 function spawnLogged(command, args, { cwd, env, logName, longRunning = false }) {
   const fd = openLog(logName);
   const useShell = command !== process.execPath && IS_WINDOWS;
+  const childEnv = { ...process.env, ...env };
+  if (cwd === DIRS.learning) {
+    childEnv.NODE_PATH = [DIRS.learning, childEnv.NODE_PATH].filter(Boolean).join(path.delimiter);
+  }
   const child = spawn(command, args, {
     cwd,
-    env: { ...process.env, ...env },
+    env: childEnv,
     stdio: ["ignore", fd, fd],
     shell: useShell,
     windowsHide: true,
@@ -325,6 +329,8 @@ function checkEnv() {
 
   need(course, files.course, "PORT", String(PORTS.course));
   need(course, files.course, "DATABASE_URL");
+  need(course, files.course, "TENANT_SERVICE_URL");
+  need(course, files.course, "LEARNING_SERVICE_URL", `http://localhost:${PORTS.learning}`);
   const courseKey = need(course, files.course, "INTERNAL_SERVICE_KEY");
 
   need(learning, files.learning, "PORT", String(PORTS.learning));
@@ -339,9 +345,13 @@ function checkEnv() {
   }
   need(learning, files.learning, "TENANT_CLIENT_MODE", "fake");
   need(learning, files.learning, "TENANT_FAKE_TIMEZONE");
+  need(learning, files.learning, "TENANT_SERVICE_URL");
 
   need(frontend, files.frontend, "DEV_IDENTITY_PROXY", "1");
   need(frontend, files.frontend, "VITE_DEV_IDENTITY_PROXY", "1");
+  for (const name of ["VITE_TENANT_BACKEND_URL", "VITE_COURSE_BACKEND_URL", "VITE_ASSESSMENT_BACKEND_URL"]) {
+    need(frontend, files.frontend, name);
+  }
   const frontendKey = need(frontend, files.frontend, "DEV_INTERNAL_SERVICE_KEY");
 
   if (courseKey !== learningKey) {
@@ -464,7 +474,7 @@ async function migrate() {
 }
 
 async function seedBase() {
-  await runTask("npm", ["run", "db:seed"], {
+  await runTask("npm", ["run", "prisma:seed"], {
     cwd: DIRS.course,
     logName: "course-seed",
     hint: "Hãy xem log seed của course-service, sửa lỗi rồi chạy lại.",
@@ -620,7 +630,7 @@ async function main() {
   step(3, "Migrate course_db và learning_db (prisma migrate deploy)");
   await migrate();
 
-  step(4, "Seed dữ liệu nền (course db:seed, learning db:seed)");
+  step(4, "Seed dữ liệu nền (course prisma:seed, learning db:seed)");
   await seedBase();
 
   step(5, `Build và bật course-service (cổng ${PORTS.course})`);
