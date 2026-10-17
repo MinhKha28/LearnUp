@@ -172,8 +172,8 @@ describe('UC18.5 over HTTP', () => {
       reset();
       const id = await createQuiz('Frozen');
       for (const patch of [
-        { status: 'SUBMITTED' },
-        { status: 'ARCHIVED' },
+        { status: 'Submitted' },
+        { status: 'Archived' },
         { disabled: true },
       ]) {
         Object.assign(course.state, patch);

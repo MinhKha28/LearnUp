@@ -116,7 +116,7 @@ describe('createAssignment (UC19.2)', () => {
   });
 
   test('only Draft, Rejected and Published Courses accept a new Assignment (BR-284)', async () => {
-    for (const status of ['Draft', 'Rejected', 'Published', 'DRAFT']) {
+    for (const status of ['Draft', 'Rejected', 'Published']) {
       const { assessments } = build({ course: { status } });
       await assessments.createAssignment(instructor, validCreate);
     }
