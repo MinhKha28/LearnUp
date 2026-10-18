@@ -33,18 +33,18 @@ const POSTGRES_SERVICE = "postgres";
 const POSTGRES_CONTAINER = "learnup-postgres";
 
 const LEARNER_1 = {
-  userId: "0199a000-0000-7000-8000-0b0000000001",
-  organizationId: "0199a000-0000-7000-8000-0a0000000001",
+  userId: "01900000-0000-7000-8000-00000000a201",
+  organizationId: "01900000-0000-7000-8000-00000000a001",
 };
-const COURSE_03 = "0199a000-0000-7000-8000-0e0000000003";
+const COURSE_03 = "01900000-0000-7000-8000-c00200000097";
 const ASSESSMENT_DEMO_ENV = {
   ASSESSMENT_CLIENT_MODE: "fake",
   ASSESSMENT_FAKE_RESULT_COURSE_IDS: COURSE_03,
 };
-const E_DEMO_1 = "0199a000-0000-7000-8000-2a0000000001";
-const E_DEMO_2 = "0199a000-0000-7000-8000-2a0000000002";
-const L11 = "0199a000-0000-7000-8000-1b0000000011";
-const L13 = "0199a000-0000-7000-8000-1b0000000013";
+const E_DEMO_1 = "01900000-0000-7000-8000-2a0000000001";
+const E_DEMO_2 = "01900000-0000-7000-8000-2a0000000002";
+const L11 = "01900000-0000-7000-8000-c004000023f1";
+const L13 = "01900000-0000-7000-8000-c004000023f3";
 
 const TOTAL_STEPS = 10;
 const startedAt = Date.now();
@@ -547,7 +547,8 @@ async function startFrontend() {
     async () => {
       const { status, body } = await getJson(`http://localhost:${PORTS.frontend}/api/v1/courses/catalog?page=1`);
       if (status !== 200) throw new Error(`HTTP ${status}`);
-      if (body?.data?.meta?.total !== 2) throw new Error(`danh mục có ${body?.data?.meta?.total} Course, cần 2`);
+      const ids = body?.data?.items?.map(item => item.courseId) ?? [];
+      if (![COURSE_03, "01900000-0000-7000-8000-c0020000005c"].every(id => ids.includes(id))) throw new Error("Danh mục thiếu Course demo Published/Public.");
       return true;
     },
     {
@@ -561,7 +562,7 @@ async function startFrontend() {
   watchService(child, "frontend");
 }
 
-async function finalChecks() {
+async function finalChecks(internalKey) {
   const base = `http://localhost:${PORTS.frontend}/api/v1`;
   const hint = "Dữ liệu demo không đúng trạng thái đầu; hãy xem log seed:demo và demo:reset rồi chạy lại.";
 
@@ -578,7 +579,10 @@ async function finalChecks() {
 
   const curriculum = await getJson(`${base}/enrollments/${E_DEMO_2}/curriculum`);
   const required = curriculum.body?.data?.requiredMaterials;
-  if (curriculum.status !== 200 || required?.completed !== 2 || required?.total !== 6) {
+  const source = await getJson(`http://localhost:${PORTS.course}/api/v1/internal/courses/01900000-0000-7000-8000-c0020000005c/tree`, learnerHeaders(internalKey));
+  const materials = source.body?.data?.modules?.flatMap(m => m.lessons).filter(l => l.disabledAt === null).flatMap(l => l.materials).filter(m => m.isRequired && m.disabledAt === null) ?? [];
+  const completedIds = new Set(["01900000-0000-7000-8000-c0050001676b", "01900000-0000-7000-8000-c0050001676c"]);
+  if (source.status !== 200 || curriculum.status !== 200 || required?.completed !== materials.filter(m => completedIds.has(m.id)).length || required?.total !== materials.length) {
     throw new DemoError(
       `Chương trình học E-demo-2 trả ${curriculum.status}, học liệu bắt buộc ${required ? `${required.completed}/${required.total}` : "?"}, cần 2/6.`,
       hint,
@@ -646,7 +650,7 @@ async function main() {
   await startFrontend();
 
   step(9, "Kiểm dữ liệu demo qua proxy");
-  await finalChecks();
+  await finalChecks(internalKey);
 
   step(10, "Xong");
   printReady();

@@ -101,9 +101,9 @@ describe("applyIdentityHeaders", () => {
   it("dựng đúng 4 header theo danh tính", () => {
     expect(buildIdentityHeaders("LEARNER_3", "secret")).toEqual({
       "x-internal-key": "secret",
-      "x-user-id": "0199a000-0000-7000-8000-0b0000000003",
+      "x-user-id": "01900000-0000-7000-8000-00000000b201",
       "x-user-role": "LEARNER",
-      "x-organization-id": "0199a000-0000-7000-8000-0a0000000002",
+      "x-organization-id": "01900000-0000-7000-8000-00000000b001",
     });
   });
 
@@ -111,9 +111,9 @@ describe("applyIdentityHeaders", () => {
     const { target, headers } = createTarget({
       accept: "application/json",
       "X-Internal-Key": "wrong",
-      "x-user-id": "0199a000-0000-7000-8000-0b0000000003",
+      "x-user-id": "01900000-0000-7000-8000-00000000b201",
       "X-USER-ROLE": "ADMIN",
-      "X-Organization-Id": "0199a000-0000-7000-8000-0a0000000002",
+      "X-Organization-Id": "01900000-0000-7000-8000-00000000b001",
       "X-Dev-User-Id": "someone",
     });
 
@@ -122,9 +122,9 @@ describe("applyIdentityHeaders", () => {
     expect(Object.fromEntries(headers)).toEqual({
       accept: "application/json",
       "x-internal-key": "secret",
-      "x-user-id": "0199a000-0000-7000-8000-0b0000000001",
+      "x-user-id": "01900000-0000-7000-8000-00000000a201",
       "x-user-role": "LEARNER",
-      "x-organization-id": "0199a000-0000-7000-8000-0a0000000001",
+      "x-organization-id": "01900000-0000-7000-8000-00000000a001",
     });
   });
 });

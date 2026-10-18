@@ -11,23 +11,23 @@ export const LEARNER_ROLE = "LEARNER";
 
 export const DEV_IDENTITIES = {
   LEARNER_1: {
-    userId: "0199a000-0000-7000-8000-0b0000000001",
-    organizationId: "0199a000-0000-7000-8000-0a0000000001",
+    userId: "01900000-0000-7000-8000-00000000a201",
+    organizationId: "01900000-0000-7000-8000-00000000a001",
     label: "Học viên 1 (Tổ chức A)",
   },
   LEARNER_2: {
-    userId: "0199a000-0000-7000-8000-0b0000000002",
-    organizationId: "0199a000-0000-7000-8000-0a0000000001",
+    userId: "01900000-0000-7000-8000-00000000a202",
+    organizationId: "01900000-0000-7000-8000-00000000a001",
     label: "Học viên 2 (Tổ chức A)",
   },
   LEARNER_3: {
-    userId: "0199a000-0000-7000-8000-0b0000000003",
-    organizationId: "0199a000-0000-7000-8000-0a0000000002",
+    userId: "01900000-0000-7000-8000-00000000b201",
+    organizationId: "01900000-0000-7000-8000-00000000b001",
     label: "Học viên 3 (Tổ chức B)",
   },
   LEARNER_4: {
-    userId: "0199a000-0000-7000-8000-0b0000000004",
-    organizationId: "0199a000-0000-7000-8000-0a0000000001",
+    userId: "01900000-0000-7000-8000-00000000a206",
+    organizationId: "01900000-0000-7000-8000-00000000a001",
     label: "Học viên 4 (Tổ chức A)",
   },
 } as const;
