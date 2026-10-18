@@ -1,6 +1,10 @@
 import type { CurrentUser } from '@learnup/ts-common';
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
-import { DAY_MS, UserRoleValue } from '../../common/constants/tenant.constants';
+import {
+  DAY_MS,
+  SubscriptionStatus,
+  UserRoleValue,
+} from '../../common/constants/tenant.constants';
 import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
 import type { IOrganizationCourseUsage } from '../../infrastructure/clients/course/interfaces/organization-course-usage.interface';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
@@ -117,5 +121,53 @@ export class SubscriptionsService {
     const percent =
       limit > 0 ? Math.round((used / limit) * 100) : used > 0 ? 100 : 0;
     return { used, limit, percent, warning: percent >= threshold };
+  }
+
+  /**
+   * UC17.1 / UC17.2:
+   * Kiểm tra quyền thêm học liệu của Instructor.
+   *
+   * Không áp dụng cho Assignment, Avatar hay Cover.
+   */
+  async getInstructorMaterialUploadPolicy(user: CurrentUser) {
+    if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
+      throw new ForbiddenException(
+        'Only Instructor can check material upload permission.',
+      );
+    }
+
+    const subscription = await this.subscriptionsRepository.findCurrent(
+      user.organizationId,
+    );
+
+    const now = new Date();
+
+    // Chỉ Active và nằm trong thời hạn mới được upload.
+    const canUpload =
+      subscription?.status === 'Active' &&
+      subscription.startsAt <= now &&
+      now < subscription.expiresAt;
+
+    let reason: string | null = null;
+
+    if (!canUpload) {
+      switch (subscription?.status) {
+        case 'Grace':
+          reason = 'SUBSCRIPTION_GRACE';
+          break;
+        case 'Suspended':
+          reason = 'SUBSCRIPTION_SUSPENDED';
+          break;
+        default:
+          reason = 'SUBSCRIPTION_INACTIVE';
+      }
+    }
+
+    return {
+      subscriptionStatus: subscription?.status ?? null,
+      canUpload: Boolean(canUpload),
+      reason,
+      maxStorageBytes: subscription?.maxStorageBytes.toString() ?? '0',
+    };
   }
 }

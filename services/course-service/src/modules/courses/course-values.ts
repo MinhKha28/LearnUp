@@ -23,3 +23,9 @@ export const COURSE_COVER_MIME_TYPES = [
   'image/png',
   'image/webp',
 ] as const;
+
+/**
+ * Giới hạn vận hành dành riêng cho UC17.1 sử dụng Buffer.
+ * 500 MiB = 524,288,000 bytes.
+ */
+export const VIDEO_UPLOAD_BUFFER_MAX_BYTES = 500 * 1024 * 1024;

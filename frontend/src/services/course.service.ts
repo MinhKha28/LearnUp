@@ -10,6 +10,8 @@ import type {
   ICreateCourseModuleRequest,
   ICreateCourseRequest,
   ICreateCourseResponse,
+  ICreateVideoMaterialRequest,
+  ICreateVideoMaterialResponse,
   IInstructorCourseListItem,
   IInstructorLessonDetail,
   ILessonContentEditability,
@@ -23,7 +25,9 @@ import type {
   IUpdateLessonContentRequest,
   IUpdateLessonContentResponse,
   IUploadCourseCoverResponse,
+  IVideoUploadContext,
 } from "@/types/course.types";
+import type { AxiosProgressEvent } from "axios";
 
 export const fetchManagedCoursesAPI = (query: ICourseListQuery) =>
   axios.get<IBackendRes<IModelPaginate<IInstructorCourseListItem>>>(
@@ -134,3 +138,32 @@ export const updateLessonContentAPI = (
     `/api/v1/courses/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}/content`,
     payload,
   );
+
+export const fetchVideoUploadContextAPI = (
+  courseId: string,
+  lessonId: string,
+  signal?: AbortSignal,
+) =>
+  axios.get<IBackendRes<IVideoUploadContext>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}/materials/video-upload-context`,
+    { signal },
+  );
+
+export const createVideoMaterialAPI = (
+  courseId: string,
+  lessonId: string,
+  payload: ICreateVideoMaterialRequest,
+  onUploadProgress?: (event: AxiosProgressEvent) => void,
+) => {
+  const formData = new FormData();
+
+  formData.append("title", payload.title);
+  formData.append("isRequired", String(payload.isRequired));
+  formData.append("file", payload.file);
+
+  return axios.post<IBackendRes<ICreateVideoMaterialResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}/materials/videos`,
+    formData,
+    { onUploadProgress },
+  );
+};

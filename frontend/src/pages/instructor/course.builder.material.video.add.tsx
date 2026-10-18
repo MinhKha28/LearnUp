@@ -8,7 +8,11 @@ import {
   findInstructorCourse,
   slugify,
 } from "@/components/instructor/instructor.data";
-import { InfoPanel, InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
+import {
+  InfoPanel,
+  InstructorButton,
+  InstructorPage,
+} from "@/components/instructor/instructor.ui";
 import "./course.create.scss";
 import "./course.builder.scss";
 
@@ -24,7 +28,9 @@ const CourseBuilderVideoAdd = () => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState("");
-  const [requirement, setRequirement] = useState<"Required" | "Optional">("Required");
+  const [requirement, setRequirement] = useState<"Required" | "Optional">(
+    "Required",
+  );
   const [file, setFile] = useState<File | null>(null);
   const [blocked, setBlocked] = useState(false);
 
@@ -36,7 +42,8 @@ const CourseBuilderVideoAdd = () => {
   const handleFile = (selected: File | null) => {
     if (!selected) return;
     const withinSize = selected.size <= MAX_VIDEO_MB * 1024 * 1024;
-    const validType = ACCEPTED_TYPES.includes(selected.type) || selected.type === "";
+    const validType =
+      ACCEPTED_TYPES.includes(selected.type) || selected.type === "";
     if (!withinSize || !validType) {
       setBlocked(true);
       setFile(null);
@@ -66,7 +73,9 @@ const CourseBuilderVideoAdd = () => {
   if (blocked) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Video Upload Blocked</span>
+        <span className="builder-crumb">
+          Course Builder / Video Upload Blocked
+        </span>
         <div className="builder-hero">
           <h1>Video Upload Blocked</h1>
         </div>
@@ -76,12 +85,17 @@ const CourseBuilderVideoAdd = () => {
         </div>
         <div className="builder-update-card">
           <h2>Video file</h2>
-          <div className="builder-banner builder-banner-error" style={{ marginBottom: 0 }}>
+          <div
+            className="builder-banner builder-banner-error"
+            style={{ marginBottom: 0 }}
+          >
             <p>Review the file format, duration, size and available storage.</p>
             <p>Choose another file before saving this resource.</p>
           </div>
           <div className="builder-actions">
-            <InstructorButton onClick={() => navigate(`${base}/materials`)}>Cancel</InstructorButton>
+            <InstructorButton onClick={() => navigate(`${base}/materials`)}>
+              Cancel
+            </InstructorButton>
             <InstructorButton
               type="primary"
               onClick={() => {
@@ -106,8 +120,13 @@ const CourseBuilderVideoAdd = () => {
       <div className="builder-grid">
         <div className="builder-update-card">
           <label className="instructor-form-label">Video title</label>
-          <Input value={title} onChange={(event) => setTitle(event.target.value)} />
-          <label className="instructor-form-label instructor-form-label-spaced">Video file</label>
+          <Input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+          <label className="instructor-form-label instructor-form-label-spaced">
+            Video file
+          </label>
           <label className="builder-upload-box">
             <strong>{file ? file.name : "Upload Video"}</strong>
             <p>Format, duration, file size and storage are validated.</p>
@@ -118,25 +137,33 @@ const CourseBuilderVideoAdd = () => {
               onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
             />
           </label>
-          <label className="instructor-form-label instructor-form-label-spaced">Requirement</label>
+          <label className="instructor-form-label instructor-form-label-spaced">
+            Requirement
+          </label>
           <div className="instructor-pill-toggle">
             <button
               type="button"
-              className={requirement === "Required" ? "instructor-pill-active" : ""}
+              className={
+                requirement === "Required" ? "instructor-pill-active" : ""
+              }
               onClick={() => setRequirement("Required")}
             >
               Required
             </button>
             <button
               type="button"
-              className={requirement === "Optional" ? "instructor-pill-active" : ""}
+              className={
+                requirement === "Optional" ? "instructor-pill-active" : ""
+              }
               onClick={() => setRequirement("Optional")}
             >
               Optional
             </button>
           </div>
           <div className="builder-actions">
-            <InstructorButton onClick={() => navigate(`${base}/materials`)}>Cancel</InstructorButton>
+            <InstructorButton onClick={() => navigate(`${base}/materials`)}>
+              Cancel
+            </InstructorButton>
             <InstructorButton type="primary" onClick={handleSave}>
               Save Video
             </InstructorButton>
