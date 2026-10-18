@@ -2,7 +2,8 @@
 /**
  * Dựng môi trường demo Inter 1 (6 UC của Hào) bằng một lệnh (D46, D47):
  *
- *   node scripts/inter1-demo.mjs          kiểm trước, bật postgres, migrate, seed, bật course, learning, frontend
+ *   node scripts/inter1-demo.mjs          kiểm trước, bật postgres, migrate, seed, bật assessment, course, learning, frontend
+ *   node scripts/inter1-demo.mjs --assessment=fake  dùng assessment giả cho demo offline
  *   node scripts/inter1-demo.mjs --check  chỉ kiểm trước rồi thoát
  *
  * Mọi lỗi môi trường phải lộ ra trước dòng "Sẵn sàng demo". Đầu ra của từng tiến trình ghi vào
@@ -22,9 +23,15 @@ const BACKEND_ROOT = process.env.DEMO_BACKEND_ROOT
   : ROOT;
 const IS_WINDOWS = process.platform === "win32";
 const CHECK_ONLY = process.argv.includes("--check");
+const ASSESSMENT_MODE =
+  process.argv.find((arg) => arg.startsWith("--assessment="))?.split("=")[1] ??
+  "http";
+const ASSESSMENT_FAKE_HINT =
+  "Chạy lại: node scripts/inter1-demo.mjs --assessment=fake";
 const LOG_DIR = path.join(os.tmpdir(), "learnup-demo");
 
 const DIRS = {
+  assessment: path.join(BACKEND_ROOT, "services", "assessment-service"),
   course: path.join(BACKEND_ROOT, "services", "course-service"),
   learning: path.join(BACKEND_ROOT, "services", "learning-service"),
   tenant: path.join(BACKEND_ROOT, "services", "tenant-service"),
@@ -33,6 +40,7 @@ const DIRS = {
 };
 
 const PORTS = { frontend: 3000, course: 8083, learning: 8085, tenant: 8084 };
+if (ASSESSMENT_MODE === "http") PORTS.assessment = 8086;
 const POSTGRES_SERVICE = "postgres";
 const POSTGRES_CONTAINER = "learnup-postgres";
 
@@ -42,7 +50,8 @@ const LEARNER_1 = {
 };
 const COURSE_03 = "01900000-0000-7000-8000-c00200000097";
 const ASSESSMENT_DEMO_ENV = {
-  ASSESSMENT_CLIENT_MODE: "fake",
+  ASSESSMENT_CLIENT_MODE: ASSESSMENT_MODE,
+  ASSESSMENT_SERVICE_URL: "http://localhost:8086",
   ASSESSMENT_FAKE_RESULT_COURSE_IDS: COURSE_03,
 };
 const E_DEMO_1 = "01900000-0000-7000-8000-2a0000000001";
@@ -113,7 +122,7 @@ function spawnLogged(
   const useShell = IS_WINDOWS && ["npm", "npx"].includes(command);
   const childEnv = { ...process.env, ...env };
   if (
-    [DIRS.course, DIRS.learning, DIRS.tenant].includes(cwd) &&
+    [DIRS.course, DIRS.learning, DIRS.tenant, DIRS.assessment].includes(cwd) &&
     process.env.DEMO_POSTGRES_PORT
   ) {
     const db = new URL(readEnvFile(path.join(cwd, ".env")).get("DATABASE_URL"));
@@ -129,6 +138,11 @@ function spawnLogged(
     childEnv.VIDEO_PLAYBACK_MODE = "fixture";
     childEnv.VIDEO_FIXTURE_URL = `http://localhost:${PORTS.frontend}/dev-media/uc27.2-sample.mp4`;
     childEnv.NODE_PATH = [DIRS.learning, childEnv.NODE_PATH]
+      .filter(Boolean)
+      .join(path.delimiter);
+  }
+  if ([DIRS.assessment, DIRS.tenant].includes(cwd)) {
+    childEnv.NODE_PATH = [cwd, childEnv.NODE_PATH]
       .filter(Boolean)
       .join(path.delimiter);
   }
@@ -238,6 +252,7 @@ process.on("exit", () => {
 });
 
 function fail(error) {
+  if (ASSESSMENT_MODE === "http") console.error(ASSESSMENT_FAKE_HINT);
   console.error("");
   if (error instanceof DemoError) {
     console.error(`LỖI: ${error.message}`);
@@ -360,6 +375,26 @@ async function checkPorts() {
 }
 
 function checkInstalled() {
+  if (ASSESSMENT_MODE === "http") {
+    for (const file of ["node_modules", "generated/prisma/client.ts"]) {
+      if (!fs.existsSync(path.join(DIRS.assessment, file)))
+        throw new DemoError(
+          `assessment-service missing ${file}.`,
+          "Run npm ci and npm run prisma:generate in services/assessment-service. " +
+            ASSESSMENT_FAKE_HINT,
+        );
+    }
+    if (
+      !fs.existsSync(
+        path.join(BACKEND_ROOT, "libraries/ts-storage/dist/index.js"),
+      )
+    )
+      throw new DemoError(
+        "libraries/ts-storage requires a build.",
+        "Run npm ci and npm run build in libraries/ts-storage. " +
+          ASSESSMENT_FAKE_HINT,
+      );
+  }
   for (const [name, dir] of [
     ["course-service", DIRS.course],
     ["learning-service", DIRS.learning],
@@ -504,6 +539,27 @@ function checkEnv() {
       );
     }
   }
+  if (ASSESSMENT_MODE === "http") {
+    const file = path.join(DIRS.assessment, ".env");
+    const assessment = readEnvFile(file);
+    if (!assessment)
+      throw new DemoError(
+        "Missing assessment-service/.env.",
+        ASSESSMENT_FAKE_HINT,
+      );
+    need(assessment, file, "PORT", "8086");
+    const database = new URL(need(assessment, file, "DATABASE_URL"));
+    if (database.pathname !== "/assessment_db")
+      throw new DemoError(
+        "Assessment DATABASE_URL must use assessment_db.",
+        ASSESSMENT_FAKE_HINT,
+      );
+    if (need(assessment, file, "INTERNAL_SERVICE_KEY") !== learningKey)
+      throw new DemoError(
+        "Assessment internal key differs from learning.",
+        ASSESSMENT_FAKE_HINT,
+      );
+  }
   return { internalKey: learningKey };
 }
 
@@ -591,6 +647,11 @@ function watchService(child, name) {
 // Các bước
 // ---------------------------------------------------------------------------
 async function preflight() {
+  if (!["http", "fake"].includes(ASSESSMENT_MODE))
+    throw new DemoError(
+      "--assessment must be http or fake.",
+      ASSESSMENT_FAKE_HINT,
+    );
   checkNode();
   checkNodeEnv();
   checkDocker();
@@ -649,6 +710,76 @@ async function migrate() {
       hint: `Hãy xem log migrate của ${name}-service; kiểm DATABASE_URL và database đã được tạo trong postgres rồi chạy lại.`,
     });
   }
+}
+
+async function prepareAssessment(internalKey) {
+  const start = Date.now();
+  for (const [command, args, logName] of [
+    ["npx", ["prisma", "migrate", "deploy"], "assessment-migrate"],
+    ["npm", ["run", "db:seed:withdrawal-demo"], "assessment-seed"],
+    ["npm", ["run", "build"], "assessment-build"],
+  ])
+    await runTask(command, args, {
+      cwd: DIRS.assessment,
+      logName,
+      hint: ASSESSMENT_FAKE_HINT,
+    });
+  const child = spawnLogged(process.execPath, ["dist/src/main.js"], {
+    cwd: DIRS.assessment,
+    logName: "assessment-service",
+    longRunning: true,
+  });
+  const headers = {
+    ...learnerHeaders(internalKey),
+    "x-user-id": "01900000-0000-7000-8000-00000000a206",
+  };
+  const activity = (course) =>
+    getJson(
+      `http://localhost:8086/api/v1/internal/learners/${headers["x-user-id"]}/courses/${course}/assessment-activity`,
+      headers,
+    );
+  await waitUntil(
+    async () => {
+      const result = await activity(COURSE_03);
+      if (result.status !== 200)
+        throw new Error(`assessment-activity HTTP ${result.status}`);
+      return true;
+    },
+    {
+      timeoutMs: 90_000,
+      child,
+      what: "assessment-service",
+      hint: ASSESSMENT_FAKE_HINT,
+      logFile: logPath("assessment-service"),
+    },
+  );
+  for (const [course, expected] of [
+    [COURSE_03, true],
+    ["01900000-0000-7000-8000-c0020000005c", false],
+  ]) {
+    const { status, body } = await activity(course);
+    const data = body?.data;
+    if (
+      status !== 200 ||
+      data?.hasQuizAttempt !== expected ||
+      data?.hasSubmission !== false ||
+      data?.hasPeerReviewGiven !== false
+    )
+      throw new DemoError(
+        `Assessment fixture mismatch for ${course}: HTTP ${status}, ${JSON.stringify(data)}. Expected quiz=${expected}, submission=false, peerReview=false.`,
+        ASSESSMENT_FAKE_HINT,
+        logPath("assessment-seed"),
+      );
+  }
+  child.on("exit", (code, signal) => {
+    if (!shuttingDown)
+      console.error(
+        `Assessment stopped (${code ?? signal}); learning will return 503 for withdrawal. Log: ${logPath("assessment-service")}. ${ASSESSMENT_FAKE_HINT}`,
+      );
+  });
+  detail(
+    `Assessment http ready; X/Y fixtures verified; extra preparation: ${((Date.now() - start) / 1000).toFixed(1)} seconds.`,
+  );
 }
 
 async function seedBase() {
@@ -836,6 +967,7 @@ async function verifyDemoData(internalKey) {
 }
 
 function printReady() {
+  detail(`Assessment mode: ${ASSESSMENT_MODE}`);
   const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
   const web = `http://localhost:${PORTS.frontend}`;
   const lines = [
@@ -885,6 +1017,12 @@ async function main() {
 
   step(2, `Bật postgres (docker compose up -d ${POSTGRES_SERVICE})`);
   await startPostgres();
+  if (ASSESSMENT_MODE === "http") {
+    detail(
+      "Chuẩn bị assessment_db, seed withdrawal-demo và kiểm assessment-activity X/Y (cổng 8086).",
+    );
+    await prepareAssessment(internalKey);
+  }
 
   step(3, "Migrate course_db và learning_db (prisma migrate deploy)");
   await migrate();
