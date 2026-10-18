@@ -17,6 +17,7 @@
  */
 import 'dotenv/config';
 import { seedWithdrawalDemo } from './seed-withdrawal-demo';
+import { seedVideoDemo } from './seed-video-demo';
 import type { CurrentUser } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import { Client } from 'pg';
@@ -322,6 +323,7 @@ async function run(): Promise<void> {
 
     await printResult(enrollments, courses, timezone);
     await seedWithdrawalDemo(app);
+    await seedVideoDemo(app);
   } finally {
     await app.close();
   }

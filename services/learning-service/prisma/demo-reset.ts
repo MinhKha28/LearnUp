@@ -9,6 +9,7 @@
  */
 import 'dotenv/config';
 import { Client } from 'pg';
+import { VIDEO_DEMO_ORG, VIDEO_DEMO_PLANS } from './video-demo-fixture';
 import {
   WITHDRAWAL_DEMO_ORG,
   WITHDRAWAL_DEMO_LEARNER,
@@ -95,13 +96,30 @@ export async function resetDemoSelfEnrollments(
       `DELETE FROM enrollments WHERE learner_id=$1::uuid AND organization_id=$2::uuid AND course_id=ANY($3::uuid[])`,
       withdrawalParams,
     );
+    const videoProgress = await client.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM material_progress WHERE organization_id=$1 AND enrollment_id=ANY($2::uuid[])`,
+      [VIDEO_DEMO_ORG, VIDEO_DEMO_PLANS.map((p) => p.enrollmentId)],
+    );
+    const videoDemo = await client.query(
+      `DELETE FROM enrollments WHERE organization_id=$1 AND (id,learner_id) IN (SELECT * FROM unnest($2::uuid[],$3::uuid[]))`,
+      [
+        VIDEO_DEMO_ORG,
+        VIDEO_DEMO_PLANS.map((p) => p.enrollmentId),
+        VIDEO_DEMO_PLANS.map((p) => p.learnerId),
+      ],
+    );
     await client.query('COMMIT');
     return {
       materialProgress:
-        (progress.rowCount ?? 0) + withdrawalCounts.rows[0].progress,
+        (progress.rowCount ?? 0) +
+        withdrawalCounts.rows[0].progress +
+        videoProgress.rows[0].n,
       statusIntervals:
         (intervals.rowCount ?? 0) + withdrawalCounts.rows[0].intervals,
-      enrollments: (enrollments.rowCount ?? 0) + (withdrawalDemo.rowCount ?? 0),
+      enrollments:
+        (enrollments.rowCount ?? 0) +
+        (withdrawalDemo.rowCount ?? 0) +
+        (videoDemo.rowCount ?? 0),
     };
   } catch (error) {
     await client.query('ROLLBACK');
