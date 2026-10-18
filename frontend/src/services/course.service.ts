@@ -10,6 +10,8 @@ import type {
   ICreateCourseModuleRequest,
   ICreateCourseRequest,
   ICreateCourseResponse,
+  ICreateReadingMaterialRequest,
+  ICreateReadingMaterialResponse,
   ICreateVideoMaterialRequest,
   ICreateVideoMaterialResponse,
   IInstructorCourseListItem,
@@ -18,6 +20,7 @@ import type {
   IOrganizationCourseFilterInstructor,
   IOrganizationCourseListItem,
   IOrganizationCourseListQuery,
+  IReadingUploadContext,
   IUpdateCourseRequest,
   IUpdateCourseResponse,
   IUpdateCourseStructureRequest,
@@ -167,6 +170,38 @@ export const createVideoMaterialAPI = (
     {
       onUploadProgress,
       timeout: 15 * 60 * 1000,
+    },
+  );
+};
+
+export const fetchReadingUploadContextAPI = (
+  courseId: string,
+  lessonId: string,
+  signal?: AbortSignal,
+) =>
+  axios.get<IBackendRes<IReadingUploadContext>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}/materials/reading-upload-context`,
+    { signal },
+  );
+
+export const createReadingMaterialAPI = (
+  courseId: string,
+  lessonId: string,
+  payload: ICreateReadingMaterialRequest,
+  onUploadProgress?: (event: AxiosProgressEvent) => void,
+) => {
+  const formData = new FormData();
+
+  formData.append("title", payload.title);
+  formData.append("isRequired", String(payload.isRequired));
+  formData.append("file", payload.file);
+
+  return axios.post<IBackendRes<ICreateReadingMaterialResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}/materials/readings`,
+    formData,
+    {
+      onUploadProgress,
+      timeout: 120000,
     },
   );
 };

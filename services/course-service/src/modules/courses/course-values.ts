@@ -29,3 +29,9 @@ export const COURSE_COVER_MIME_TYPES = [
  * 500 MiB = 524,288,000 bytes.
  */
 export const VIDEO_UPLOAD_BUFFER_MAX_BYTES = 500 * 1024 * 1024;
+
+/**
+ * Giới hạn transport của Reading dùng Buffer.
+ * Giới hạn thực tế = min(platform setting, 50 MiB).
+ */
+export const READING_UPLOAD_BUFFER_MAX_BYTES = 50 * 1024 * 1024;
