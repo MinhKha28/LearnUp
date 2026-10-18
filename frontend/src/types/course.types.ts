@@ -230,6 +230,7 @@ export interface IUpdateCourseStructureResponse {
 
 export interface IInstructorLessonMaterial {
   id: string;
+  fileId: string; // UC17
   title: string;
   materialType: string;
   isRequired: boolean;

@@ -773,6 +773,7 @@ export class CoursesRepository {
             title: true,
             materialType: true,
             isRequired: true,
+            fileId: true,
             position: true,
             disabledAt: true,
 
