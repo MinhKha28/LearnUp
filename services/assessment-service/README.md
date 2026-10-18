@@ -21,6 +21,26 @@ course-service, reusing the same ids for organizations, instructors and courses.
 Run `npm run db:seed` in `services/course-service` first: this service asks Course Service for the owner, status and
 Locked flag of a Course before it lets you create, edit or delete an Assignment.
 
+### Demo of UC25.4 (a Learner leaves an optional Course)
+
+learning-service asks `GET /api/v1/internal/learners/:learnerId/courses/:courseId/assessment-activity` (BR-131) to decide
+whether leaving deletes the Enrollment (no assessment data) or keeps it as Withdrawn. To demo the real answer:
+
+```bash
+npm run db:seed:withdrawal-demo   # safe to run again; refuses NODE_ENV=production
+```
+
+It uses the two Courses and Học viên 4 of `learning-service/prisma/withdrawal-demo-fixture.ts`:
+
+| Course | assessment data of Học viên 4 | learning-service does |
+| --- | --- | --- |
+| X `…c0020000005c` | none (the seed stops if it finds some) | deletes the Enrollment |
+| Y `…c00200000097` | one optional Quiz and one submitted attempt | keeps it as Withdrawn |
+
+Then run assessment-service, and keep learning-service on `ASSESSMENT_CLIENT_MODE=http` with `ASSESSMENT_SERVICE_URL`
+pointing at this service (`docker-compose.yml` sets both). Stop assessment-service and try to leave a Course to see the
+503 (`ASSESSMENT_UNAVAILABLE`): the answer is never guessed.
+
 | Course (course-service seed) | Demo Assignment |
 | --- | --- |
 | An toan lao dong v2 (Published) | Peer Review ON |

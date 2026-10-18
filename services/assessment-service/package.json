@@ -13,6 +13,7 @@
     "prisma:migrate": "prisma migrate dev",
     "db:seed": "ts-node -P tsconfig.seed.json prisma/seed.ts",
     "db:seed:quizzes": "ts-node -P tsconfig.seed.json prisma/seed-quizzes.ts",
+    "db:seed:withdrawal-demo": "ts-node -P tsconfig.seed.json prisma/seed-withdrawal-demo.ts",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "ts-node -r tsconfig-paths/register -P tsconfig.seed.json test/unit/index.ts",
     "test:integration": "npm run build && ts-node -r tsconfig-paths/register -P tsconfig.seed.json test/integration/index.ts",
