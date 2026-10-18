@@ -64,6 +64,25 @@ login, and expired-access logout redesign are not supplied by this tooling work.
 run this explicit standalone loopback-only mode instead. This is not a production
 API explorer. Default/deployment-profile tests assert documentation is denied.
 
+## Compiler tooling
+
+### Lombok conventions
+
+Spring Boot 3.3.5 manages Lombok **1.18.34**, retained rather than introducing an
+independent version override. Java 21 support began in
+[Lombok 1.18.30](https://projectlombok.org/changelog). The dependency is
+`provided`/optional and excluded from the executable JAR. Maven explicitly runs
+the Lombok and Spring Boot configuration processors; use the same configuration
+when building in an IDE. See the [official Maven setup](https://projectlombok.org/setup/maven).
+
+Only `UserResponse` accessors and `AuthController` constructor injection currently
+use Lombok. DTO constructors and mapping semantics remain explicit. Prefer
+`@Getter`, selective `@Setter` and `@RequiredArgsConstructor`; do not add `@Data`,
+credential-bearing `toString()`, or generated entity relationship equality.
+For IntelliJ, import/reload the Maven project, use JDK 21, and enable annotation
+processing if IDE builds are used. Use Lombok support compatible with your IDE;
+Maven's clean build is the authoritative check, not editor highlighting.
+
 ## Verification
 
 Run `mvn clean verify` from the Identity directory. Tests use H2 with Flyway
