@@ -83,6 +83,23 @@ For IntelliJ, import/reload the Maven project, use JDK 21, and enable annotation
 processing if IDE builds are used. Use Lombok support compatible with your IDE;
 Maven's clean build is the authoritative check, not editor highlighting.
 
+### MapStruct conventions
+
+MapStruct **1.6.3** generates the single Spring `UserMapper` bean. Its explicit
+eight-field allowlist replaces the former `UserResponse.fromUser` mapping in
+login, refresh and current-user responses. Null input still returns null; role
+enum serialization, nullable Organization, disabled state and timestamps are unchanged.
+Credential hashes and unrelated source fields are not mapped, including future
+source properties. Adding a public DTO field requires deliberate contract review
+and a corresponding mapping/serialization test, not implicit entity copying.
+
+Maven explicitly runs `mapstruct-processor`, Lombok, Boot's configuration processor
+and `lombok-mapstruct-binding` **0.2.0** together, as required by the
+[MapStruct/Lombok integration guide](https://mapstruct.org/documentation/stable/reference/html/#lombok).
+Generated implementation: `target/generated-sources/annotations/com/learnup/identity/mapper/UserMapperImpl.java`.
+Do not edit or commit that file. Reload Maven/enable IDE annotation processing
+after processor changes. No mapper IDE plugin is required for Maven builds.
+
 ## Verification
 
 Run `mvn clean verify` from the Identity directory. Tests use H2 with Flyway

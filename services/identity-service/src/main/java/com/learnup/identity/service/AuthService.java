@@ -11,6 +11,7 @@ import com.learnup.identity.exception.RefreshTokenReusedException;
 import com.learnup.identity.exception.SignInDeniedException;
 import com.learnup.identity.repository.RefreshTokenRepository;
 import com.learnup.identity.repository.UserRepository;
+import com.learnup.identity.mapper.UserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,6 +38,7 @@ public class AuthService {
     private final com.learnup.identity.repository.PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    private final UserMapper userMapper;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
@@ -44,7 +46,8 @@ public class AuthService {
                        PasswordEncoder passwordEncoder,
                        JwtTokenService jwtTokenService,
                        TenantAccessClient tenantAccessClient,
-                       LoginThrottleService loginThrottleService) {
+                       LoginThrottleService loginThrottleService,
+                       UserMapper userMapper) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
@@ -52,6 +55,7 @@ public class AuthService {
         this.jwtTokenService = jwtTokenService;
         this.tenantAccessClient = tenantAccessClient;
         this.loginThrottleService = loginThrottleService;
+        this.userMapper = userMapper;
     }
 
     @Transactional
@@ -90,7 +94,7 @@ public class AuthService {
 
         String accessToken = jwtTokenService.generateAccessToken(user);
         String rawRefreshToken = createAndPersistRefreshToken(user.getId());
-        UserResponse userResponse = UserResponse.fromUser(user);
+        UserResponse userResponse = userMapper.toResponse(user);
 
         AuthResponse response = AuthResponse.of(accessToken, rawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
         response.setAccessMode(access.accessMode());
@@ -140,7 +144,7 @@ public class AuthService {
         // Generate new token pair
         String newAccessToken = jwtTokenService.generateAccessToken(user);
         String newRawRefreshToken = next.rawToken();
-        UserResponse userResponse = UserResponse.fromUser(user);
+        UserResponse userResponse = userMapper.toResponse(user);
 
         AuthResponse response = AuthResponse.of(newAccessToken, newRawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
         response.setAccessMode(access.accessMode());
@@ -156,7 +160,7 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> BusinessException.notFound("User with ID " + userId + " not found"));
 
-        return UserResponse.fromUser(user);
+        return userMapper.toResponse(user);
     }
 
     @Transactional

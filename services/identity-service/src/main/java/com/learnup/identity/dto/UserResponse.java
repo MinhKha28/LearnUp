@@ -1,7 +1,6 @@
 package com.learnup.identity.dto;
 
 import com.learnup.common.security.UserRole;
-import com.learnup.identity.domain.User;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -33,22 +32,6 @@ public class UserResponse {
         this.organizationId = organizationId;
         this.enabled = enabled;
         this.createdAt = createdAt;
-    }
-
-    public static UserResponse fromUser(User user) {
-        if (user == null) {
-            return null;
-        }
-        return new UserResponse(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getFullName(),
-                user.getRole(),
-                user.getOrganizationId(),
-                user.isEnabled(),
-                user.getCreatedAt()
-        );
     }
 
 }
