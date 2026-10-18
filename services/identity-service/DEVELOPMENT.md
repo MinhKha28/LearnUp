@@ -180,7 +180,51 @@ after processor changes. No mapper IDE plugin is required for Maven builds.
 
 ## Verification
 
-Run `mvn clean verify` from the Identity directory. Tests use H2 with Flyway
-disabled and mocked Tenant access where declared; they are not PostgreSQL or
-deployed end-to-end verification. Gateway's own tests live in `gateway/api-gateway/`.
+### Password-reset lifecycle (ID-P2)
+
+Recovery issuance, reset, password change and internal credential replacement
+serialize on a database pessimistic lock of the owning Identity user. Reset first
+resolves only token ownership, then re-reads the token after acquiring that lock.
+A conditional database delete consumes only an unused token whose expiry is
+strictly after the consumption time. Password replacement, recovery-token
+revocation and refresh-session deletion commit or roll back together. Revoked and
+consumed reset rows are deleted; the existing `used_at` check still rejects legacy
+consumed rows. No new schema or reset-token response field is required.
+
+A new recovery issuance revokes previous links. Successful reset/change/internal
+replacement revokes every outstanding recovery link for that user. Login and
+refresh acquire the same user lock before credential/session operations, avoiding
+stale-password login and reversed User/Token lock ordering. Logout's separate
+expired-access/session race redesign remains outside this change.
+
+Reset refuses disabled Identity credentials and a denied Tenant access decision;
+Tenant unavailability fails closed without consuming the link. It does not
+activate accounts, change membership/roles or issue login tokens. This implements
+the requested security boundary, not a new DOCX business rule. Recovery expiry
+remains the existing 15-minute implementation setting. Email delivery and the
+frontend recovery integration remain separate UC07 dependencies; raw tokens are
+never returned or logged as a delivery substitute.
+
+The shared transaction contract runs against isolated H2 and, when explicitly
+requested, a fresh PostgreSQL container with the real V1-V4 Flyway migrations:
+
+```powershell
+# Requires Java 21, Maven, a running Docker daemon and cached postgres:16-alpine.
+./src/test/scripts/Test-PasswordResetPostgres.ps1
+# Entire Identity suite, including the PostgreSQL contract and clean packaging:
+./src/test/scripts/Test-PasswordResetPostgres.ps1 -AllTests -MavenGoals clean,verify
+```
+
+The runner uses a unique labelled container, random loopback port and ephemeral
+password, then stops only its verified owned container. It never connects to an
+existing database. `-MavenRepository` and `-Offline` optionally reuse the owner's
+Maven cache. Do not manually point `IDENTITY_TEST_POSTGRES_*` at shared databases.
+Ordinary Maven runs skip the PostgreSQL wrapper if its explicit test URL is absent;
+that skip does not verify PostgreSQL locking. Tenant remains mocked even when the
+database is real, so these are not deployed end-to-end recovery/email tests.
+
+Run `mvn clean verify` from the Identity directory. The default test profile uses
+H2 with Flyway disabled and mocked Tenant access where declared; use the runner
+above for PostgreSQL verification. Neither setup is deployed end-to-end recovery.
+Gateway's own tests live in `gateway/api-gateway/`.
 Never commit `target/`, generated sources, dependency caches or local secret files.

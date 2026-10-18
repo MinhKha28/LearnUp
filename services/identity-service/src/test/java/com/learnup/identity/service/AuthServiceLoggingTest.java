@@ -116,7 +116,7 @@ class AuthServiceLoggingTest {
         UUID tokenId = UUID.fromString("01900000-0000-7000-8000-00000000a313");
         String rawToken = first + "-" + second;
         String expectedHash = sha256(rawToken);
-        when(userRepository.findByEmail(IDENTIFIER)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailForUpdate(IDENTIFIER)).thenReturn(Optional.of(user));
         Instant before = Instant.now();
 
         try (MockedStatic<UUID> uuids = mockStatic(UUID.class, CALLS_REAL_METHODS)) {
@@ -142,7 +142,7 @@ class AuthServiceLoggingTest {
     @Test
     void shouldLogDisabledLoginWithoutEchoingTheSuppliedIdentifier() {
         user.setEnabled(false);
-        when(userRepository.findByUsernameOrEmail(IDENTIFIER, IDENTIFIER)).thenReturn(Optional.of(user));
+        when(userRepository.findByUsernameOrEmailForUpdate(IDENTIFIER, IDENTIFIER)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> authService.login(new LoginRequest(IDENTIFIER, PASSWORD)))
                 .isInstanceOf(BusinessException.class);
@@ -155,7 +155,7 @@ class AuthServiceLoggingTest {
 
     @Test
     void shouldLogInvalidPasswordWithoutEchoingTheIdentifierPasswordOrHash() {
-        when(userRepository.findByUsernameOrEmail(IDENTIFIER, IDENTIFIER)).thenReturn(Optional.of(user));
+        when(userRepository.findByUsernameOrEmailForUpdate(IDENTIFIER, IDENTIFIER)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches(PASSWORD, PASSWORD_HASH)).thenReturn(false);
 
         assertThatThrownBy(() -> authService.login(new LoginRequest(IDENTIFIER, PASSWORD)))
@@ -188,7 +188,7 @@ class AuthServiceLoggingTest {
 
     @Test
     void shouldLogUnknownRecoveryWithoutEchoingTheSuppliedEmail() {
-        when(userRepository.findByEmail(IDENTIFIER)).thenReturn(Optional.empty());
+        when(userRepository.findByEmailForUpdate(IDENTIFIER)).thenReturn(Optional.empty());
 
         authService.forgotPassword(new ForgotPasswordRequest(IDENTIFIER));
 
@@ -201,7 +201,7 @@ class AuthServiceLoggingTest {
     @Test
     void shouldLogDisabledRecoveryWithoutEchoingTheSuppliedEmail() {
         user.setEnabled(false);
-        when(userRepository.findByEmail(IDENTIFIER)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailForUpdate(IDENTIFIER)).thenReturn(Optional.of(user));
 
         authService.forgotPassword(new ForgotPasswordRequest(IDENTIFIER));
 
@@ -231,7 +231,7 @@ class AuthServiceLoggingTest {
     void shouldNotEchoAnUntrustedCorrelationValueInAuthenticationLogs() {
         String correlationSecret = "synthetic-private-value-in-correlation-header";
         CorrelationContext.setCorrelationId(correlationSecret);
-        when(userRepository.findByEmail(IDENTIFIER)).thenReturn(Optional.empty());
+        when(userRepository.findByEmailForUpdate(IDENTIFIER)).thenReturn(Optional.empty());
 
         authService.forgotPassword(new ForgotPasswordRequest(IDENTIFIER));
 
@@ -242,7 +242,7 @@ class AuthServiceLoggingTest {
     }
 
     private void allowPasswordVerification() {
-        when(userRepository.findByUsernameOrEmail(IDENTIFIER, IDENTIFIER)).thenReturn(Optional.of(user));
+        when(userRepository.findByUsernameOrEmailForUpdate(IDENTIFIER, IDENTIFIER)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches(PASSWORD, PASSWORD_HASH)).thenReturn(true);
     }
 

@@ -64,7 +64,7 @@ public class AuthService {
         String identifier = request.getUsername().trim();
         loginThrottleService.assertNotLocked(identifier);
 
-        User user = userRepository.findByUsernameOrEmail(identifier, identifier.toLowerCase()).orElse(null);
+        User user = userRepository.findByUsernameOrEmailForUpdate(identifier, identifier.toLowerCase()).orElse(null);
         if (user == null) {
             loginThrottleService.recordFailure(identifier);
             throw BusinessException.unauthorized("Invalid username or password");
@@ -110,6 +110,11 @@ public class AuthService {
         String rawToken = request.getRefreshToken().trim();
         String tokenHash = hashToken(rawToken);
 
+        // Password replacement, login and refresh acquire User before Token to avoid reversed lock order.
+        UUID ownerId = refreshTokenRepository.findUserIdByTokenHash(tokenHash)
+                .orElseThrow(() -> BusinessException.unauthorized("Invalid, expired, or revoked refresh token"));
+        User user = userRepository.findByIdForUpdate(ownerId)
+                .orElseThrow(() -> BusinessException.unauthorized("User account not found"));
         RefreshToken refreshToken = refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(() -> BusinessException.unauthorized("Invalid, expired, or revoked refresh token"));
 
@@ -124,9 +129,6 @@ public class AuthService {
             log.warn("Invalid or revoked refresh token used for user ID [{}]", refreshToken.getUserId());
             throw BusinessException.unauthorized("Invalid, expired, or revoked refresh token");
         }
-
-        User user = userRepository.findById(refreshToken.getUserId())
-                .orElseThrow(() -> BusinessException.unauthorized("User account not found"));
 
         if (!user.isEnabled()) {
             throw BusinessException.unauthorized("User account is disabled");
@@ -208,7 +210,7 @@ public class AuthService {
             throw BusinessException.badRequest("New password cannot be the same as the current password");
         }
 
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> BusinessException.notFound("User not found"));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
@@ -220,6 +222,7 @@ public class AuthService {
         user.setUpdatedAt(Instant.now());
         userRepository.save(user);
 
+        passwordResetTokenRepository.deleteByUserId(userId);
         // Security best practice: Revoke all existing sessions upon password change
         refreshTokenRepository.deleteByUserId(userId);
         log.info("Password successfully changed and all sessions revoked for user [{}]", userId);
@@ -228,7 +231,7 @@ public class AuthService {
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
         String email = request.getEmail().trim().toLowerCase();
-        User user = userRepository.findByEmail(email).orElse(null);
+        User user = userRepository.findByEmailForUpdate(email).orElse(null);
         if (user == null || !user.isEnabled()) {
             // Mitigate email enumeration attack: return quietly without disclosing email
             // non-existence
@@ -263,25 +266,36 @@ public class AuthService {
         String rawToken = request.getToken().trim();
         String tokenHash = hashToken(rawToken);
 
+        UUID ownerId = passwordResetTokenRepository.findUserIdByTokenHash(tokenHash)
+                .orElseThrow(this::invalidResetToken);
+        User user = userRepository.findByIdForUpdate(ownerId).orElseThrow(this::invalidResetToken);
+
+        // Re-read only after acquiring the account lock: another reset/issuance may have revoked this link.
         com.learnup.identity.domain.PasswordResetToken resetToken = passwordResetTokenRepository
                 .findByTokenHash(tokenHash)
-                .orElseThrow(
-                        () -> BusinessException.badRequest("Invalid, expired, or already used password reset token"));
+                .orElseThrow(this::invalidResetToken);
 
-        if (!resetToken.isValid()) {
-            throw BusinessException.badRequest("Invalid, expired, or already used password reset token");
+        if (!resetToken.isValid() || !user.isEnabled()) {
+            throw invalidResetToken();
         }
 
-        User user = userRepository.findById(resetToken.getUserId())
-                .orElseThrow(() -> BusinessException.notFound("User not found"));
+        // Recovery is not activation or an alternate access path. Tenant remains the access authority.
+        if (!tenantAccessClient.check(user.getId()).allowed()) {
+            throw invalidResetToken();
+        }
 
-        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword().trim()));
+        String newPasswordHash = passwordEncoder.encode(request.getNewPassword().trim());
+        // Atomically enforce strict expiry and single use after slow checks/hashing, inside this transaction.
+        if (passwordResetTokenRepository.consumeUsableToken(tokenHash, user.getId(), Instant.now()) != 1) {
+            throw invalidResetToken();
+        }
+
+        user.setPasswordHash(newPasswordHash);
         user.setUpdatedAt(Instant.now());
         userRepository.save(user);
 
-        // Mark reset token as consumed
-        resetToken.markUsed();
-        passwordResetTokenRepository.save(resetToken);
+        // Consumed and sibling links are all revoked; rollback restores them if any later write fails.
+        passwordResetTokenRepository.deleteByUserId(user.getId());
 
         // Revoke all refresh tokens
         refreshTokenRepository.deleteByUserId(user.getId());
@@ -292,6 +306,7 @@ public class AuthService {
     public void setCredentials(com.learnup.identity.dto.internal.SetCredentialsRequest request) {
         UUID userId = request.getUserId();
         String rawPassword = request.getPassword().trim();
+        User user = userRepository.findByIdForUpdate(userId).orElse(null);
         // Tenant là nguồn sự thật về tài khoản (BR-30: email duy nhất trong các tài
         // khoản chưa xóa).
         // Email đã thuộc một userId khác nghĩa là tài khoản cũ đã bị tenant xóa mềm
@@ -301,7 +316,6 @@ public class AuthService {
             releaseEmailFromOtherUser(request.getEmail().trim().toLowerCase(), userId);
         }
 
-        User user = userRepository.findById(userId).orElse(null);
         if (user == null) {
             String username = (request.getUsername() != null && !request.getUsername().isBlank())
                     ? request.getUsername().trim()
@@ -339,6 +353,7 @@ public class AuthService {
         user.setUpdatedAt(Instant.now());
         userRepository.save(user);
 
+        passwordResetTokenRepository.deleteByUserId(userId);
         // Revoke all existing refresh tokens if password is reset/updated
         refreshTokenRepository.deleteByUserId(userId);
         log.info("Credentials successfully set for user [{}]", userId);
@@ -384,6 +399,10 @@ public class AuthService {
     }
 
     private record IssuedRefreshToken(UUID id, String rawToken) {
+    }
+
+    private BusinessException invalidResetToken() {
+        return BusinessException.badRequest("Invalid, expired, or already used password reset token");
     }
 
     private String hashToken(String token) {
