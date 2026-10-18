@@ -132,4 +132,14 @@ export class CoursesController {
   ) {
     return this.coursesService.updateStructure(user, courseId, dto);
   }
+
+  @Get(':courseId/lessons/:lessonId')
+  @ResponseMessage('Lesson details fetched successfully')
+  findLessonDetail(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+  ) {
+    return this.coursesService.findLessonDetail(user, courseId, lessonId);
+  }
 }

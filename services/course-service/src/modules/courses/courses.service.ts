@@ -792,4 +792,67 @@ export class CoursesService {
       orderChanged: result.orderChanged,
     };
   }
+
+  async findLessonDetail(
+    user: CurrentUser,
+    courseId: string,
+    lessonId: string,
+  ) {
+    // 1. Phân quyền Instructor.
+    if (user.role !== 'INSTRUCTOR') {
+      throw new ForbiddenException('Only Instructor can view Lesson details.');
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    // 2. Đọc Lesson và các học liệu.
+    const detail = await this.coursesRepository.findLessonDetail(
+      courseId,
+      lessonId,
+      user.organizationId,
+      user.userId,
+    );
+
+    if (!detail) {
+      throw new NotFoundException('Lesson not found.');
+    }
+
+    // 3. Tách dữ liệu để tạo response rõ ràng.
+    const { module, materials, ...lesson } = detail;
+
+    return {
+      course: {
+        id: module.course.id,
+        name: module.course.name,
+        status: module.course.status,
+        locked: module.course.lockedAt !== null,
+      },
+
+      module: {
+        id: module.id,
+        title: module.title,
+        position: module.position,
+      },
+
+      lesson: {
+        ...lesson,
+        required: materials.some((material) => material.isRequired),
+      },
+
+      materials: materials.map(({ file, ...material }) => ({
+        ...material,
+        file: {
+          originalFilename: file.originalFilename,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes.toString(),
+          durationSeconds: file.durationSeconds,
+          wordCount: file.wordCount,
+          status: file.status,
+          releasedAt: file.releasedAt,
+        },
+      })),
+    };
+  }
 }
