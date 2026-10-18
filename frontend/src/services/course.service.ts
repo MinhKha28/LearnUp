@@ -164,6 +164,9 @@ export const createVideoMaterialAPI = (
   return axios.post<IBackendRes<ICreateVideoMaterialResponse>>(
     `/api/v1/courses/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}/materials/videos`,
     formData,
-    { onUploadProgress },
+    {
+      onUploadProgress,
+      timeout: 15 * 60 * 1000,
+    },
   );
 };

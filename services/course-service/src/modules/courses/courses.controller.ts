@@ -29,8 +29,6 @@ import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
 import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
 import { memoryStorage } from 'multer';
 
-const MAX_UPLOAD_TRANSPORT_BYTES = 500 * 1024 * 1024;
-
 @Controller('courses')
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}

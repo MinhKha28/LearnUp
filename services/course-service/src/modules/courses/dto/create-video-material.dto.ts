@@ -1,4 +1,4 @@
-import { Transform } from 'class-transformer';
+import { Transform, type TransformFnParams } from 'class-transformer';
 import {
   IsBoolean,
   IsDefined,
@@ -16,10 +16,13 @@ export class CreateVideoMaterialDto {
   })
   title!: string;
 
-  @Transform(({ value }) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    return value;
+  @Transform(({ value }: TransformFnParams): unknown => {
+    const rawValue: unknown = value;
+
+    if (rawValue === 'true') return true;
+    if (rawValue === 'false') return false;
+
+    return rawValue;
   })
   @IsDefined()
   @IsBoolean()

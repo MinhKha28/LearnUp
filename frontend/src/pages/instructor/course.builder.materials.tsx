@@ -284,7 +284,7 @@ const CourseBuilderMaterials = () => {
   const navigate = useNavigate();
 
   const detailUrl = `/instructor/courses/${courseId}/builder/lessons/${lessonId}`;
-
+  const videoAddUrl = `${detailUrl}/materials/video/new`;
   // Dùng API thật đã có từ UC16.
   const query = useApiQuery(
     async (signal) => {
@@ -356,7 +356,21 @@ const CourseBuilderMaterials = () => {
         </div>
       )}
 
-      {query.status === "success" && <MaterialsContent data={query.data} />}
+      {query.status === "success" && (
+        <>
+          <div className="uc17-material-actions">
+            <InstructorButton
+              type="primary"
+              icon={<VideoCameraOutlined />}
+              onClick={() => navigate(videoAddUrl)}
+            >
+              Add Video
+            </InstructorButton>
+          </div>
+
+          <MaterialsContent data={query.data} />
+        </>
+      )}
     </div>
   );
 };

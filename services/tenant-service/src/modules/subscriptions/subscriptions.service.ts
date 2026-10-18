@@ -1,10 +1,6 @@
 import type { CurrentUser } from '@learnup/ts-common';
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
-import {
-  DAY_MS,
-  SubscriptionStatus,
-  UserRoleValue,
-} from '../../common/constants/tenant.constants';
+import { DAY_MS, UserRoleValue } from '../../common/constants/tenant.constants';
 import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
 import type { IOrganizationCourseUsage } from '../../infrastructure/clients/course/interfaces/organization-course-usage.interface';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
