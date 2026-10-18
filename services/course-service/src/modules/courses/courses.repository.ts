@@ -719,4 +719,77 @@ export class CoursesRepository {
       { timeout: 20000 },
     );
   }
+
+  async findLessonDetail(
+    courseId: string,
+    lessonId: string,
+    organizationId: string,
+    instructorId: string,
+  ) {
+    return this.prisma.lesson.findFirst({
+      where: {
+        id: lessonId,
+        organizationId,
+        module: {
+          courseId,
+          organizationId,
+          course: {
+            organizationId,
+            chain: {
+              instructorId,
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        position: true,
+        disabledAt: true,
+
+        module: {
+          select: {
+            id: true,
+            title: true,
+            position: true,
+            course: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+                lockedAt: true,
+              },
+            },
+          },
+        },
+
+        materials: {
+          orderBy: {
+            position: 'asc',
+          },
+          select: {
+            id: true,
+            title: true,
+            materialType: true,
+            isRequired: true,
+            position: true,
+            disabledAt: true,
+
+            file: {
+              select: {
+                originalFilename: true,
+                mimeType: true,
+                sizeBytes: true,
+                durationSeconds: true,
+                wordCount: true,
+                status: true,
+                releasedAt: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
 }

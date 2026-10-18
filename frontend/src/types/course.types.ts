@@ -227,3 +227,48 @@ export interface IUpdateCourseStructureResponse {
   titleChanged: boolean;
   orderChanged: boolean;
 }
+
+export interface IInstructorLessonMaterial {
+  id: string;
+  title: string;
+  materialType: string;
+  isRequired: boolean;
+  position: number;
+  disabledAt: string | null;
+
+  file: {
+    originalFilename: string;
+    mimeType: string;
+    sizeBytes: string;
+    durationSeconds: number | null;
+    wordCount: number | null;
+    status: string;
+    releasedAt: string | null;
+  };
+}
+
+export interface IInstructorLessonDetail {
+  course: {
+    id: string;
+    name: string;
+    status: CourseStatus;
+    locked: boolean;
+  };
+
+  module: {
+    id: string;
+    title: string;
+    position: number;
+  };
+
+  lesson: {
+    id: string;
+    title: string;
+    content: string;
+    position: number;
+    disabledAt: string | null;
+    required: boolean;
+  };
+
+  materials: IInstructorLessonMaterial[];
+}
