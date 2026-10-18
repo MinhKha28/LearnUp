@@ -3,6 +3,7 @@ import { PrismaService } from '@infra/prisma/prisma.service';
 import { Prisma } from '@generated/prisma/browser';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { COURSE_STATUS } from './course-values';
+import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
 
 @Injectable()
 export class CoursesRepository {
@@ -515,5 +516,207 @@ export class CoursesRepository {
         courseTypeChanged,
       };
     });
+  }
+
+  async updateStructure(
+    courseId: string,
+    organizationId: string,
+    instructorId: string,
+    data: UpdateCourseStructureDto,
+  ) {
+    // Kiểm tra cùng tập ID, không trùng hoặc thiếu ID.
+    const sameMembers = (actual: string[], incoming: string[]) =>
+      actual.length === incoming.length &&
+      new Set(incoming).size === incoming.length &&
+      actual.every((id) => incoming.includes(id));
+
+    // Kiểm tra thứ tự ID có giống nhau không.
+    const sameOrder = (actual: string[], incoming: string[]) =>
+      actual.length === incoming.length &&
+      actual.every((id, index) => id === incoming[index]);
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        // 1. Khóa hàng Course trong transaction để
+        // tuần tự hóa các request cập nhật cấu trúc.
+        await tx.$queryRaw`
+        SELECT id
+        FROM courses
+        WHERE id = ${courseId}::uuid
+          AND organization_id = ${organizationId}::uuid
+        FOR UPDATE
+      `;
+
+        // 2. Đọc cây thuộc Instructor.
+        const course = await tx.course.findFirst({
+          where: {
+            id: courseId,
+            organizationId,
+            chain: { instructorId },
+          },
+          select: {
+            status: true,
+            lockedAt: true,
+            modules: {
+              orderBy: { position: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                lessons: {
+                  orderBy: { position: 'asc' },
+                  select: {
+                    id: true,
+                    title: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!course) {
+          return { status: 'NOT_FOUND' as const };
+        }
+
+        // 3. Course Submitted không được chỉnh sửa.
+        if (course.status === COURSE_STATUS.SUBMITTED) {
+          return { status: 'SUBMITTED' as const };
+        }
+
+        // 4. Kiểm tra danh sách Module:
+        // Không được thêm, xóa hay thay ID bằng API này.
+        const currentModuleIds = course.modules.map((module) => module.id);
+
+        const requestedModuleIds = data.modules.map((module) => module.id);
+
+        if (!sameMembers(currentModuleIds, requestedModuleIds)) {
+          return { status: 'INVALID_STRUCTURE' as const };
+        }
+
+        const requestedById = new Map(
+          data.modules.map((module) => [module.id, module]),
+        );
+
+        // 5. Kiểm tra Lesson luôn thuộc đúng Module cũ.
+        for (const module of course.modules) {
+          const requested = requestedById.get(module.id)!;
+
+          const currentLessonIds = module.lessons.map((lesson) => lesson.id);
+
+          const requestedLessonIds = requested.lessons.map(
+            (lesson) => lesson.id,
+          );
+
+          if (!sameMembers(currentLessonIds, requestedLessonIds)) {
+            return { status: 'INVALID_STRUCTURE' as const };
+          }
+        }
+
+        // 6. Kiểm tra Module có đổi thứ tự không.
+        const moduleOrderChanged = !sameOrder(
+          currentModuleIds,
+          requestedModuleIds,
+        );
+
+        // 7. Tìm những Module có Lesson bị đổi thứ tự.
+        const reorderedLessonModules = course.modules.filter((module) => {
+          const requested = requestedById.get(module.id)!;
+
+          return !sameOrder(
+            module.lessons.map((lesson) => lesson.id),
+            requested.lessons.map((lesson) => lesson.id),
+          );
+        });
+
+        const orderChanged =
+          moduleOrderChanged || reorderedLessonModules.length > 0;
+
+        // 8. Locked chỉ cấm đổi thứ tự.
+        // Nếu thứ tự giữ nguyên thì vẫn cho sửa title.
+        if (course.lockedAt !== null && orderChanged) {
+          return { status: 'LOCKED' as const };
+        }
+
+        // 9. Cập nhật tiêu đề nếu thực sự thay đổi.
+        let titleChanged = false;
+
+        for (const module of course.modules) {
+          const requested = requestedById.get(module.id)!;
+
+          if (module.title !== requested.title) {
+            await tx.courseModule.update({
+              where: { id: module.id },
+              data: { title: requested.title },
+            });
+
+            titleChanged = true;
+          }
+
+          const requestedLessons = new Map(
+            requested.lessons.map((lesson) => [lesson.id, lesson]),
+          );
+
+          for (const lesson of module.lessons) {
+            const newLesson = requestedLessons.get(lesson.id)!;
+
+            if (lesson.title !== newLesson.title) {
+              await tx.lesson.update({
+                where: { id: lesson.id },
+                data: { title: newLesson.title },
+              });
+
+              titleChanged = true;
+            }
+          }
+        }
+
+        // 10. Sắp xếp lại Module nếu có thay đổi.
+        if (moduleOrderChanged) {
+          // Gán vị trí âm tạm để tránh unique conflict.
+          for (let i = 0; i < course.modules.length; i++) {
+            await tx.courseModule.update({
+              where: { id: course.modules[i].id },
+              data: { position: -(i + 1) },
+            });
+          }
+
+          // Gán thứ tự mới 1, 2, 3...
+          for (let i = 0; i < data.modules.length; i++) {
+            await tx.courseModule.update({
+              where: { id: data.modules[i].id },
+              data: { position: i + 1 },
+            });
+          }
+        }
+
+        // 11. Sắp xếp Lesson trong từng Module đã đổi.
+        for (const module of reorderedLessonModules) {
+          const requested = requestedById.get(module.id)!;
+
+          // Vị trí âm tạm thời.
+          for (let i = 0; i < module.lessons.length; i++) {
+            await tx.lesson.update({
+              where: { id: module.lessons[i].id },
+              data: { position: -(i + 1) },
+            });
+          }
+
+          // Vị trí mới.
+          for (let i = 0; i < requested.lessons.length; i++) {
+            await tx.lesson.update({
+              where: { id: requested.lessons[i].id },
+              data: { position: i + 1 },
+            });
+          }
+        }
+
+        return {
+          status: 'UPDATED' as const,
+          titleChanged,
+          orderChanged,
+        };
+      },
+      { timeout: 20000 },
+    );
   }
 }

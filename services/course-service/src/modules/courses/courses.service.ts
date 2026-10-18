@@ -31,6 +31,7 @@ import {
 import { CoursesRepository } from './courses.repository';
 import { CourseAuthoringContext } from './interfaces/courses.interface';
 import { UpdateCourseDto } from './dto/update-course.dto';
+import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
 
 @Injectable()
 export class CoursesService {
@@ -714,6 +715,81 @@ export class CoursesService {
     return {
       ...course,
       courseTypeChanged: result.courseTypeChanged,
+    };
+  }
+
+  async updateStructure(
+    user: CurrentUser,
+    courseId: string,
+    dto: UpdateCourseStructureDto,
+  ) {
+    // 1. Kiểm tra role.
+    if (user.role !== 'INSTRUCTOR') {
+      throw new ForbiddenException(
+        'Only Instructor can update Course structure.',
+      );
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    // 2. Chuẩn hóa tiêu đề Module và Lesson.
+    const data: UpdateCourseStructureDto = {
+      modules: dto.modules.map((module) => ({
+        id: module.id,
+        title: module.title.trim(),
+        lessons: module.lessons.map((lesson) => ({
+          id: lesson.id,
+          title: lesson.title.trim(),
+        })),
+      })),
+    };
+
+    // 3. Không cho phép tiêu đề chỉ chứa khoảng trắng.
+    for (const module of data.modules) {
+      if (!module.title) {
+        throw new BadRequestException('Module title cannot be empty.');
+      }
+
+      if (module.lessons.some((lesson) => !lesson.title)) {
+        throw new BadRequestException('Lesson title cannot be empty.');
+      }
+    }
+
+    // 4. Repository kiểm tra ownership,
+    // Status, Locked và cập nhật transaction.
+    const result = await this.coursesRepository.updateStructure(
+      courseId,
+      user.organizationId,
+      user.userId,
+      data,
+    );
+
+    switch (result.status) {
+      case 'NOT_FOUND':
+        throw new NotFoundException('Course not found.');
+
+      case 'SUBMITTED':
+        throw new ConflictException(
+          'Submitted Course cannot be edited. Withdraw it first.',
+        );
+
+      case 'INVALID_STRUCTURE':
+        throw new ConflictException(
+          'Course structure has changed. Reload and try again.',
+        );
+
+      case 'LOCKED':
+        throw new ConflictException(
+          'Cannot reorder Module or Lesson because Course is Locked.',
+        );
+    }
+
+    return {
+      updated: true,
+      titleChanged: result.titleChanged,
+      orderChanged: result.orderChanged,
     };
   }
 }
