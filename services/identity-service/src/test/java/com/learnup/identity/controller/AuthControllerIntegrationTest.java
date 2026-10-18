@@ -99,6 +99,12 @@ class AuthControllerIntegrationTest {
                 .flatMap(path -> Arrays.stream(UserRole.values()).map(role -> Arguments.of(path, role)));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/swagger-config", "/swagger-ui.html", "/swagger-ui/index.html"})
+    void shouldNotExposeDocumentationByDefault(String path) throws Exception {
+        mockMvc.perform(get(path)).andExpect(status().isUnauthorized());
+    }
+
     @ParameterizedTest(name = "{0} cannot create {1} with a caller-chosen Organization")
     @MethodSource("publicRegistrationAttempts")
     void shouldNotExposePublicRegistration(String path, UserRole role) throws Exception {

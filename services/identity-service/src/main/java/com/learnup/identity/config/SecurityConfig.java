@@ -16,6 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.http.HttpMethod;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 
 @Configuration
 @EnableWebSecurity
@@ -29,7 +31,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper, JwtConfig jwtConfig,
-            @Value("${security.internal-key}") String internalKey) throws Exception {
+            @Value("${security.internal-key}") String internalKey, Environment environment) throws Exception {
         // Not a servlet Filter bean: register once, only within Spring Security's chain.
         var authenticationFilter = new IdentityRequestAuthenticationFilter(internalKey, jwtConfig, objectMapper);
         http
@@ -39,8 +41,12 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
                 .requestCache(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST,
+                .authorizeHttpRequests(auth -> {
+                    if (environment.acceptsProfiles(Profiles.of("local-docs & !prod & !docker & !staging"))) {
+                        auth.requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/**",
+                                "/swagger-ui.html", "/swagger-ui/**").permitAll();
+                    }
+                    auth.requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/login", "/api/auth/login",
                                 "/api/v1/auth/refresh", "/api/auth/refresh",
                                 "/api/v1/auth/forgot-password", "/api/auth/forgot-password",
@@ -53,8 +59,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/change-password", "/api/auth/change-password").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/me", "/api/auth/me",
                                 "/api/v1/users/me", "/api/users/me").authenticated()
-                        .anyRequest().denyAll()
-                )
+                        .anyRequest().denyAll();
+                })
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint((request, response, ex) ->
                                 IdentityRequestAuthenticationFilter.writeError(response, objectMapper, 401))
