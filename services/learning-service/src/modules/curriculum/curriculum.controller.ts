@@ -1,5 +1,5 @@
 import type { CurrentUser } from '@learnup/ts-common';
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
 import { User } from '../../common/decorator/customize';
 import { Roles } from '../../common/decorator/roles.decorator';
 import {
@@ -32,5 +32,15 @@ export class CurriculumController {
     @Param('lessonId') lessonId: string,
   ): Promise<LessonView> {
     return this.service.getLesson(user, enrollmentId, lessonId);
+  }
+
+  @Get('course/:courseId/lessons/:lessonId/completion')
+  @Roles('INSTRUCTOR')
+  getLessonCompletion(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+  ) {
+    return this.service.hasAnyLearnerCompletedLesson(user, courseId, lessonId);
   }
 }

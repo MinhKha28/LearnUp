@@ -272,3 +272,17 @@ export interface IInstructorLessonDetail {
 
   materials: IInstructorLessonMaterial[];
 }
+
+export interface ILessonContentEditability {
+  canEdit: boolean;
+  reason: "COMPLETED" | "SUBMITTED" | null;
+}
+
+export interface IUpdateLessonContentRequest {
+  content: string;
+}
+
+export interface IUpdateLessonContentResponse {
+  id: string;
+  content: string;
+}
