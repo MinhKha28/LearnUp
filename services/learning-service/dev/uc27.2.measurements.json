@@ -1,0 +1,154 @@
+{
+  "base": "0ce07c0",
+  "machine": {
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12700H",
+    "logicalCpu": 20,
+    "ramGiB": 15.629436492919922,
+    "platform": "win32",
+    "release": "10.0.26200",
+    "node": "v22.23.3",
+    "pool": 10,
+    "counts": {
+      "enrollments": 50000,
+      "material_progress": 200000,
+      "material_snapshots": 200000,
+      "lesson_snapshots": 50000,
+      "course_version_snapshots": 50000
+    },
+    "ranges": "5–20 disjoint ranges per progress row",
+    "transport": "D74: k6 Docker -> learning-service:8085 container in learnup_learnup-network -> PostgreSQL 16 container; fixture/explain tools use localhost:5433; no gateway/JWT"
+  },
+  "docker": {
+    "logicalCpu": 20,
+    "memoryBytes": 8128425984,
+    "postgres": "16.15",
+    "k6Image": "sha256:e66db15b860113878fa74670e31f5e274830b7b6e42c8bff28b2f2d86a257603",
+    "learningImage": "sha256:67145e5cb285ef29d8a85291014fb6c967e08732bd6043198109040a43a74636",
+    "network": "learnup_learnup-network",
+    "learningAlias": "learning-service:8085"
+  },
+  "secondsPerLevel": 45,
+  "preallocatedVus": 50,
+  "maxVus": 200,
+  "heartbeatSeconds": 15,
+  "levels": [
+    {
+      "rate": 10,
+      "p50": 11.38523,
+      "p95": 16.750971,
+      "p99": 21.860076,
+      "rps": 10.020388287862998,
+      "requests": 451,
+      "errorRate": 0,
+      "dropped": 0,
+      "checks": 1,
+      "db": {
+        "rows": 200000,
+        "min_ranges": 5,
+        "max_ranges": 21,
+        "reporters": 151,
+        "enrollments": [
+          {
+            "status": "InProgress",
+            "count": 151
+          },
+          {
+            "status": "NotStarted",
+            "count": 49849
+          }
+        ]
+      }
+    },
+    {
+      "rate": 30,
+      "p50": 8.822385,
+      "p95": 12.055435,
+      "p99": 16.6923205,
+      "rps": 30.016668267442327,
+      "requests": 1351,
+      "errorRate": 0,
+      "dropped": 0,
+      "checks": 1,
+      "db": {
+        "rows": 200000,
+        "min_ranges": 5,
+        "max_ranges": 21,
+        "reporters": 451,
+        "enrollments": [
+          {
+            "status": "InProgress",
+            "count": 451
+          },
+          {
+            "status": "NotStarted",
+            "count": 49549
+          }
+        ]
+      }
+    },
+    {
+      "rate": 60,
+      "p50": 8.297434500000001,
+      "p95": 10.825625699999996,
+      "p99": 14.731569169999963,
+      "rps": 60.00070342824676,
+      "requests": 2700,
+      "errorRate": 0,
+      "dropped": 0,
+      "checks": 1,
+      "db": {
+        "rows": 200000,
+        "min_ranges": 5,
+        "max_ranges": 21,
+        "reporters": 901,
+        "enrollments": [
+          {
+            "status": "InProgress",
+            "count": 901
+          },
+          {
+            "status": "NotStarted",
+            "count": 49099
+          }
+        ]
+      }
+    },
+    {
+      "rate": 100,
+      "p50": 7.410156,
+      "p95": 9.45894,
+      "p99": 14.602246,
+      "rps": 100.00321322699523,
+      "requests": 4501,
+      "errorRate": 0,
+      "dropped": 0,
+      "checks": 1,
+      "db": {
+        "rows": 200000,
+        "min_ranges": 5,
+        "max_ranges": 21,
+        "reporters": 1501,
+        "enrollments": [
+          {
+            "status": "InProgress",
+            "count": 1501
+          },
+          {
+            "status": "NotStarted",
+            "count": 48499
+          }
+        ]
+      }
+    }
+  ],
+  "cleanup": {
+    "organizationId": "27200000-0000-4000-8000-000000000010",
+    "remaining": {
+      "enrollments": 0,
+      "material_progress": 0,
+      "material_snapshots": 0,
+      "lesson_snapshots": 0,
+      "course_version_snapshots": 0
+    }
+  }
+}

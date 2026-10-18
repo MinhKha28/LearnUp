@@ -17,6 +17,7 @@
  */
 import 'dotenv/config';
 import { seedWithdrawalDemo } from './seed-withdrawal-demo';
+import { seedVideoDemo } from './seed-video-demo';
 import type { CurrentUser } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import { Client } from 'pg';
@@ -41,26 +42,26 @@ import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 // ---------------------------------------------------------------------------
 // ID cố định
 // ---------------------------------------------------------------------------
-const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
-const LEARNER_1 = '0199a000-0000-7000-8000-0b0000000001';
-const COURSE_AN_TOAN_V2 = '0199a000-0000-7000-8000-0e0000000002';
-const COURSE_QUY_TRINH_PRIVATE = '0199a000-0000-7000-8000-0e0000000004';
+const ORG_A = '01900000-0000-7000-8000-00000000a001';
+const LEARNER_1 = '01900000-0000-7000-8000-00000000a201';
+const COURSE_AN_TOAN_V2 = '01900000-0000-7000-8000-c0020000005c';
+const COURSE_QUY_TRINH_PRIVATE = '01900000-0000-7000-8000-c00200000065';
 
 /** Organizer của ORG_A: danh tính gọi I1 (selfEnroll: false) và I2, như người phân công ở UC24.2. */
 const ORGANIZER_A: CurrentUser = {
-  userId: '0199a000-0000-7000-8000-0f0000000001',
+  userId: '01900000-0000-7000-8000-00000000a010',
   organizationId: ORG_A,
   role: 'ORGANIZER',
   isAuthenticated: true,
 };
 
-const DEMO_ENROLLMENT_04 = '0199a000-0000-7000-8000-2a0000000001';
-const DEMO_ENROLLMENT_02 = '0199a000-0000-7000-8000-2a0000000002';
-const DEMO_PROGRESS_02 = '0199a000-0000-7000-8000-2b0000000001';
+const DEMO_ENROLLMENT_04 = '01900000-0000-7000-8000-2a0000000001';
+const DEMO_ENROLLMENT_02 = '01900000-0000-7000-8000-2a0000000002';
+const DEMO_PROGRESS_02 = '01900000-0000-7000-8000-2b0000000001';
 /** D50: Video của L11 trên E-demo-2, dữ liệu dựng cho demo. */
-const DEMO_VIDEO_PROGRESS_02 = '0199a000-0000-7000-8000-2b0000000002';
-const DEMO_VIDEO_MATERIAL_02 = '0199a000-0000-7000-8000-1c0000000111';
-const DEMO_VIDEO_LESSON_02 = '0199a000-0000-7000-8000-1b0000000011';
+const DEMO_VIDEO_PROGRESS_02 = '01900000-0000-7000-8000-2b0000000002';
+const DEMO_VIDEO_MATERIAL_02 = '01900000-0000-7000-8000-c0050001676b';
+const DEMO_VIDEO_LESSON_02 = '01900000-0000-7000-8000-c004000023f1';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -322,6 +323,7 @@ async function run(): Promise<void> {
 
     await printResult(enrollments, courses, timezone);
     await seedWithdrawalDemo(app);
+    await seedVideoDemo(app);
   } finally {
     await app.close();
   }
