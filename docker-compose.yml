@@ -137,14 +137,14 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/identity_db
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Set a private database password}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       JWT_SECRET: ${JWT_SECRET:?Set a private random JWT_SECRET of at least 32 bytes}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
       TENANT_SERVICE_URL: http://tenant-service:8084
-      LEARNUP_SEED_ENABLED: ${LEARNUP_SEED_ENABLED:-true}
-      LEARNUP_SEED_DEFAULT_PASSWORD: ${LEARNUP_SEED_DEFAULT_PASSWORD:-LearnUp@123}
+      # Automatic Identity-only demo accounts are retired; Tenant owns account provisioning.
+      LEARNUP_SEED_ENABLED: "false"
     depends_on:
       postgres:
         condition: service_healthy
@@ -242,7 +242,7 @@ services:
     environment:
       PORT: 8084
       DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/tenant_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       FRONTEND_URL: http://localhost:3000
       IDENTITY_SERVICE_URL: http://identity-service:8081
       NOTIFICATION_SERVICE_URL: http://notification-service:8082

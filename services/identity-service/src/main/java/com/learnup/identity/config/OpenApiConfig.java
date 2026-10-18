@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Configuration
-@Profile("local-docs & !prod & !docker & !staging")
+@Profile("local-docs & !prod & !production & !docker & !staging")
 public class OpenApiConfig {
     public static final String BEARER_SCHEME = "bearerAuth";
 

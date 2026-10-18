@@ -9,13 +9,91 @@ valid access JWT and the internal channel credential; raw user/role/Organization
 headers alone never authorize a request. Do not put the internal credential in a
 browser or Swagger authorization dialog.
 
+## Required configuration and account fixtures
+
+Identity has no default JWT signing secret, internal-channel key or database
+password. Supply these privately in the process environment or deployment secret
+mechanism; never commit populated secret files. For a standalone instance:
+
+| Variable | Required configuration |
+| :--- | :--- |
+| `JWT_SECRET` | A private, independently generated random signing secret of at least 32 UTF-8 bytes; exactly the same value in Gateway and Identity |
+| `INTERNAL_SERVICE_KEY` | A different private random value of at least 32 UTF-8 bytes; exactly the same value in Gateway, Identity and Tenant's existing internal integration |
+| `SPRING_DATASOURCE_PASSWORD` | The actual password of the configured local PostgreSQL user; no fallback |
+| `SPRING_DATASOURCE_URL` | Connection to the intended database; defaults to local `identity_db` |
+| `SPRING_DATASOURCE_USERNAME` | Database user; defaults to `postgres`, not a password |
+| `TENANT_SERVICE_URL` | Reachable Tenant base URL; defaults to `http://localhost:8084` |
+
+JWT/internal-key startup validation rejects missing, blank, short and the known
+repository-default values. Length validation is not an entropy check: generate
+random independent values rather than a repeated phrase or a copied test fixture.
+Do not print secrets to troubleshoot a mismatch. Keep Identity and Gateway JWT
+configuration aligned when rotating or deploying configuration. Public login and
+refresh still need Tenant's normal access decision; a running Identity instance
+alone is not a working authentication stack.
+
+For root Compose, supply `JWT_SECRET`, `INTERNAL_SERVICE_KEY` and `DB_PASSWORD`
+before `docker compose config --quiet` / starting the stack. Compose passes
+`DB_PASSWORD` into Identity's datasource password and requires it explicitly.
+Gateway/Identity JWT wiring and Gateway/Identity/Tenant internal-key wiring must
+agree. Other services' deployment secret validation is outside this Identity
+change; a passing Compose render does not establish that the whole stack is secure.
+Do not run `docker compose config` without `--quiet` in shared logs because rendered
+environment values may contain secrets. Existing PostgreSQL volumes keep their
+existing credentials: supplying a new environment value does not rotate the
+database user's password. Do not reset a database to fix a configuration mismatch.
+Use a least-privileged Identity database role in deployed environments; the local
+`postgres` username fallback is not a production privilege recommendation. Shared
+database role/network administration is outside this Identity change.
+
+No backend secret belongs in frontend environment variables, browser storage or
+bundled code. In particular, never set `VITE_DEV_INTERNAL_KEY` to a private service
+key. A browser authenticates with its own access JWT through Gateway, not by
+holding an internal service credential. Standalone developer instances should be
+loopback-only; the normal Compose Identity service has no published host port.
+
+### Automatic demo seeding is retired
+
+`learnup.seed.enabled` (environment alias `LEARNUP_SEED_ENABLED`) defaults to
+`false` in every profile. Compose explicitly supplies `false`. The former runner
+could create fixed-ID users, delete conflicting credentials, restore a demo
+password and re-enable disabled accounts on restart; none of those writes remain.
+Restarting now preserves every existing credential and account state, including
+changed passwords and deactivated accounts. Existing data is not cleaned up or
+made secure merely by removing the runner.
+
+Setting the legacy seed flag to `true` deliberately **fails startup without any
+account writes**, including in local development. It is not a functioning opt-in
+fixture feature. Production-like profiles (`docker`, `prod`, `production`,
+`staging`) must never seed demo accounts. There is no supported
+`LEARNUP_SEED_DEFAULT_PASSWORD` setting or embedded demo password. Do not reintroduce
+one to make local login convenient.
+
+Local demo accounts need a separately reviewed, explicit **Tenant-owned fixture
+contract** before automated seeding can return. Coordinate with the Tenant owner
+to prepare canonical users, roles, Organizations, membership and access state in a
+dedicated disposable local database. Tenant must provision credentials using the
+existing authenticated `POST /api/internal/credentials` integration with the same
+canonical User IDs. A future fixture must be local-only, opt-in and non-destructive;
+any fixture password must be provided privately for that disposable environment,
+never embedded in deployed configuration. Do not create an Identity-only user,
+call public registration, reset existing users or relax Tenant access decisions as
+a substitute. This task does not add a fixture API or change the existing
+provisioning contract.
+
+Do not use a shared development or production database to test fixtures or startup
+guards. Automated tests exercise disposable H2 storage with synthetic credentials;
+they are not instructions for deployed data. Historical known demo passwords may
+still exist in persisted databases or Git history; coordinate any necessary
+credential rotation through the owning account lifecycle, not a startup reset.
+
 ## Local Swagger / OpenAPI
 
 The Spring MVC UI starter is pinned to **2.6.0** because the official
 [springdoc compatibility matrix](https://springdoc.org/v2/#what-is-the-compatibility-matrix-of-springdoc-openapi-with-spring-boot)
 maps Boot 3.3.x to springdoc 2.6.x. The default configuration disables both JSON
 documentation and UI. Spring Security additionally denies their routes unless
-`local-docs` is active without `prod`, `docker` or `staging`.
+`local-docs` is active without `prod`, `production`, `docker` or `staging`.
 
 1. Start the normal development stack/Gateway with privately supplied `JWT_SECRET`
    and `INTERNAL_SERVICE_KEY` (independent random values of at least 32 bytes),

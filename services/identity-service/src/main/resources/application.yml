@@ -16,7 +16,7 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/identity_db}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -41,6 +41,10 @@ eureka:
 
 tenant:
   service-url: ${TENANT_SERVICE_URL:http://localhost:8084}
+
+learnup:
+  seed:
+    enabled: false
 
 security:
   internal-key: ${INTERNAL_SERVICE_KEY}
