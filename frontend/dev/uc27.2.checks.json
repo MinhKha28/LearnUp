@@ -1,0 +1,120 @@
+{
+  "at": "2026-10-18T03:09:31.454Z",
+  "results": [
+    {
+      "name": "Inter 1: UC25/25.1/26/27/27.1",
+      "result": "PASS",
+      "evidence": {
+        "catalogIds": [
+          "01900000-0000-7000-8000-c0020000005c",
+          "01900000-0000-7000-8000-c00200000097",
+          "01900000-0000-7000-8000-c00200000079",
+          "01900000-0000-7000-8000-c0020000006f"
+        ],
+        "requiredMaterials": {
+          "completed": 2,
+          "total": 6
+        },
+        "videoEnabled": true,
+        "readingDisabled": true
+      }
+    },
+    {
+      "name": "Inter 1: empty learner and organization isolation",
+      "result": "PASS",
+      "evidence": {
+        "empty": true,
+        "crossOrganization": 404
+      }
+    },
+    {
+      "name": "UC25.3 enrollment and 429",
+      "result": "PASS",
+      "evidence": {
+        "duplicateStatuses": [
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          409,
+          429,
+          429,
+          429
+        ]
+      }
+    },
+    {
+      "name": "UC25.4 deleted / withdrawn / restored",
+      "result": "PASS",
+      "evidence": {
+        "deleted": 200,
+        "withdrawn": 200,
+        "restored": 201,
+        "retained": {
+          "completed": 1,
+          "total": 4
+        },
+        "channel": "browser clicks and real HTTP responses"
+      }
+    },
+    {
+      "name": "UC24/24.1/24.2/24.3/24.5 one-page demo",
+      "result": "PASS",
+      "evidence": {
+        "learnerCount": 23,
+        "created": {
+          "created": 1,
+          "converted": 0,
+          "completedOnAssign": 0,
+          "restored": 0
+        },
+        "extended": 200,
+        "exempted": "Exempted",
+        "noActivity": 409,
+        "channel": "browser positive flows; actual HTTP negative checks; tenant/course/learning",
+        "twoPages": "unit assignment.selection.test.ts"
+      }
+    },
+    {
+      "name": "UC27.2 (1): actual 20s playback activates Enrollment",
+      "result": "PASS",
+      "evidence": {
+        "watchedSeconds": 19,
+        "actualPlayback": true,
+        "status": "InProgress"
+      }
+    },
+    {
+      "name": "UC27.2 (2): seek forward and replay do not add coverage",
+      "result": "PASS",
+      "evidence": {
+        "before": 19,
+        "after": 19
+      }
+    },
+    {
+      "name": "UC27.2 (3): remaining segment at 2x completes material and refreshes D25",
+      "result": "PASS",
+      "evidence": {
+        "watchedSeconds": 544,
+        "requiredSeconds": 541,
+        "completedAt": "2026-10-18T03:09:27.147Z",
+        "requiredMaterials": {
+          "completed": 1,
+          "total": 6
+        }
+      }
+    },
+    {
+      "name": "UC27.2 (4): completion remains after backward replay",
+      "result": "PASS",
+      "evidence": {
+        "completedAt": "2026-10-18T03:09:27.147Z"
+      }
+    }
+  ]
+}
