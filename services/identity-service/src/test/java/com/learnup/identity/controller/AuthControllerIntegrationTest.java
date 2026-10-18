@@ -25,9 +25,13 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.springframework.http.HttpMethod;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.util.Arrays;
 import java.util.UUID;
@@ -40,6 +44,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -47,6 +52,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class AuthControllerIntegrationTest {
+
+    private static final String INTERNAL_KEY = "testInternalServiceKeyAtLeast32BytesLong!";
+
+    @Autowired
+    private com.learnup.identity.service.JwtTokenService jwtTokenService;
 
     @Autowired
     private MockMvc mockMvc;
@@ -98,7 +108,7 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post(path)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isNotFound())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data.accessToken").doesNotExist())
                 .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
@@ -122,7 +132,7 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post(path)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isNotFound())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.data.accessToken").doesNotExist())
                 .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
 
@@ -196,8 +206,7 @@ class AuthControllerIntegrationTest {
                 "Profile User", UserRole.ORGANIZER, UUID.randomUUID());
 
         mockMvc.perform(get("/api/users/me")
-                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
-                        .header(HeaderConstants.X_USER_ROLE, user.getRole().name()))
+                        .with(asGateway(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(user.getId().toString()))
@@ -209,8 +218,7 @@ class AuthControllerIntegrationTest {
 
         // Also verify /api/auth/me works identically
         mockMvc.perform(get("/api/auth/me")
-                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
-                        .header(HeaderConstants.X_USER_ROLE, user.getRole().name()))
+                        .with(asGateway(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.username").value("profileUser"));
@@ -232,8 +240,7 @@ class AuthControllerIntegrationTest {
 
         // Get me via /api/v1/users/me
         mockMvc.perform(get("/api/v1/users/me")
-                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
-                        .header(HeaderConstants.X_USER_ROLE, user.getRole().name()))
+                        .with(asGateway(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.username").value("v1user"));
@@ -296,8 +303,7 @@ class AuthControllerIntegrationTest {
             // 3. Verify /api/v1/auth/me returns user for the authenticated session
             User userObj = userRepository.findByEmail(email).orElseThrow();
             mockMvc.perform(get("/api/v1/auth/me")
-                            .header(HeaderConstants.X_USER_ID, userObj.getId().toString())
-                            .header(HeaderConstants.X_USER_ROLE, expectedRole.name()))
+                            .with(asGateway(userObj)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.email").value(email));
@@ -316,13 +322,14 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("UC06: Should successfully logout and revoke refresh token")
     void shouldLogoutAndRevokeRefreshToken() throws Exception {
-        createUserFixture("logoutUser", "logout@learnup.com", "pass123456", "Logout User", UserRole.LEARNER, null);
+        User user = createUserFixture("logoutUser", "logout@learnup.com", "pass123456", "Logout User", UserRole.LEARNER, null);
         String refreshToken = loginAndGetRefreshToken("logout@learnup.com", "pass123456");
         assertThat(refreshToken).isNotBlank();
 
         // Perform logout
         com.learnup.identity.dto.LogoutRequest logoutRequest = new com.learnup.identity.dto.LogoutRequest(refreshToken);
         mockMvc.perform(post("/api/v1/auth/logout")
+                        .with(asGateway(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(logoutRequest)))
                 .andExpect(status().isOk())
@@ -350,7 +357,7 @@ class AuthControllerIntegrationTest {
                 "incorrectPassword", "newSecurePassword123", "newSecurePassword123"
         );
         mockMvc.perform(post("/api/v1/auth/change-password")
-                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
+                        .with(asGateway(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(wrongCurrent)))
                 .andExpect(status().isBadRequest())
@@ -361,7 +368,7 @@ class AuthControllerIntegrationTest {
                 "initialPass123", "newSecurePassword123", "differentPassword123"
         );
         mockMvc.perform(post("/api/v1/auth/change-password")
-                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
+                        .with(asGateway(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(mismatch)))
                 .andExpect(status().isBadRequest())
@@ -372,7 +379,7 @@ class AuthControllerIntegrationTest {
                 "initialPass123", "newSecurePassword123", "newSecurePassword123"
         );
         mockMvc.perform(post("/api/v1/auth/change-password")
-                        .header(HeaderConstants.X_USER_ID, user.getId().toString())
+                        .with(asGateway(user))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validChange)))
                 .andExpect(status().isOk())
@@ -469,7 +476,7 @@ class AuthControllerIntegrationTest {
 
         // Call internal API with valid internal key
         mockMvc.perform(post("/api/internal/credentials")
-                        .header(HeaderConstants.X_INTERNAL_KEY, "test-internal-secret")
+                        .header(HeaderConstants.X_INTERNAL_KEY, INTERNAL_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -624,7 +631,7 @@ class AuthControllerIntegrationTest {
             request.setRole(UserRole.ORGANIZER);
 
             mockMvc.perform(post("/api/internal/credentials")
-                            .header(HeaderConstants.X_INTERNAL_KEY, "test-internal-secret")
+                            .header(HeaderConstants.X_INTERNAL_KEY, INTERNAL_KEY)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk());
@@ -736,6 +743,7 @@ class AuthControllerIntegrationTest {
         String token = createUserAndGetRefreshToken("signed_out_member", "memberPass123");
 
         mockMvc.perform(post("/api/v1/auth/logout")
+                        .with(asGateway(userRepository.findByUsername("signed_out_member").orElseThrow()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new com.learnup.identity.dto.LogoutRequest(token))))
                 .andExpect(status().isOk());
@@ -743,5 +751,169 @@ class AuthControllerIntegrationTest {
         refreshWith(token)
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    private static Stream<Arguments> protectedRequests() {
+        return Stream.of("/api/v1", "/api").flatMap(prefix -> Stream.of(
+                Arguments.of("GET", prefix + "/auth/me"), Arguments.of("GET", prefix + "/users/me"),
+                Arguments.of("POST", prefix + "/auth/logout"), Arguments.of("POST", prefix + "/auth/change-password")));
+    }
+
+    @ParameterizedTest
+    @MethodSource("protectedRequests")
+    void shouldRejectDirectAndSpoofedUserRequests(String method, String path) throws Exception {
+        User victim = createUserFixture("victim", "victim@example.com", "currentPass123",
+                "Victim", UserRole.LEARNER, UUID.randomUUID());
+        String refresh = loginAndGetRefreshToken(victim.getEmail(), "currentPass123");
+        String bearer = "Bearer " + jwtTokenService.generateAccessToken(victim);
+        String body = path.endsWith("logout") ? "{\"logoutAll\":true}" :
+                "{\"currentPassword\":\"currentPass123\",\"newPassword\":\"attackerPass123\",\"confirmPassword\":\"attackerPass123\"}";
+
+        mockMvc.perform(request(HttpMethod.valueOf(method), path).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(spoofedRequest(method, path, victim).content(body))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(spoofedRequest(method, path, victim).content(body).header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isUnauthorized());
+        for (String invalidKey : new String[] {"wrong-private-key", "learnup-internal-secret"}) {
+            mockMvc.perform(spoofedRequest(method, path, victim).content(body)
+                            .header(HttpHeaders.AUTHORIZATION, bearer).header(HeaderConstants.X_INTERNAL_KEY, invalidKey))
+                    .andExpect(status().isUnauthorized());
+        }
+        mockMvc.perform(spoofedRequest(method, path, victim).content(body)
+                        .header(HeaderConstants.X_INTERNAL_KEY, INTERNAL_KEY))
+                .andExpect(status().isUnauthorized());
+
+        assertThat(userRepository.findById(victim.getId()).orElseThrow().getPasswordHash()).isEqualTo(victim.getPasswordHash());
+        assertThat(refreshTokenRepository.count()).isEqualTo(1);
+        refreshWith(refresh).andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/auth/me", "/api/auth/me", "/api/v1/users/me", "/api/users/me"})
+    void shouldUseVerifiedJwtSubjectInsteadOfForwardedIdentity(String path) throws Exception {
+        User caller = createUserFixture("caller", "caller@example.com", "callerPass123", "Caller",
+                UserRole.LEARNER, UUID.randomUUID());
+        User victim = createUserFixture("victim", "victim@example.com", "victimPass123", "Victim",
+                UserRole.ORGANIZER, UUID.randomUUID());
+
+        mockMvc.perform(spoofedRequest("GET", path, victim).with(asGateway(caller)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(caller.getId().toString()))
+                .andExpect(jsonPath("$.data.role").value(caller.getRole().name()))
+                .andExpect(jsonPath("$.data.organizationId").value(caller.getOrganizationId().toString()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1", "/api"})
+    void shouldBindLogoutAllToVerifiedSubject(String prefix) throws Exception {
+        User caller = createUserFixture("caller", "caller@example.com", "callerPass123", "Caller",
+                UserRole.LEARNER, UUID.randomUUID());
+        User victim = createUserFixture("victim", "victim@example.com", "victimPass123", "Victim",
+                UserRole.LEARNER, UUID.randomUUID());
+        String callerRefresh = loginAndGetRefreshToken(caller.getEmail(), "callerPass123");
+        String victimRefresh = loginAndGetRefreshToken(victim.getEmail(), "victimPass123");
+
+        mockMvc.perform(spoofedRequest("POST", prefix + "/auth/logout", victim)
+                        .with(asGateway(caller)).content("{\"logoutAll\":true}"))
+                .andExpect(status().isOk());
+
+        assertThat(refreshTokenRepository.findAll()).allMatch(token -> token.getUserId().equals(victim.getId()));
+        refreshWith(callerRefresh).andExpect(status().isUnauthorized());
+        refreshWith(victimRefresh).andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1", "/api"})
+    void shouldBindPasswordChangeToVerifiedSubject(String prefix) throws Exception {
+        // Knowing the same current password must still not allow selecting another subject through headers.
+        User caller = createUserFixture("caller", "caller@example.com", "sharedOldPass123", "Caller",
+                UserRole.LEARNER, UUID.randomUUID());
+        User victim = createUserFixture("victim", "victim@example.com", "sharedOldPass123", "Victim",
+                UserRole.LEARNER, UUID.randomUUID());
+
+        mockMvc.perform(spoofedRequest("POST", prefix + "/auth/change-password", victim).with(asGateway(caller))
+                        .content("{\"currentPassword\":\"sharedOldPass123\",\"newPassword\":\"newCallerPass123\",\"confirmPassword\":\"newCallerPass123\"}"))
+                .andExpect(status().isOk());
+
+        assertThat(passwordEncoder.matches("newCallerPass123",
+                userRepository.findById(caller.getId()).orElseThrow().getPasswordHash())).isTrue();
+        assertThat(userRepository.findById(victim.getId()).orElseThrow().getPasswordHash()).isEqualTo(victim.getPasswordHash());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1", "/api"})
+    void shouldKeepPublicAuthenticationAliasesUsableWithUntrustedHeaders(String prefix) throws Exception {
+        User user = createUserFixture("public_user", "public@example.com", "currentPass123", "Public User",
+                UserRole.LEARNER, UUID.randomUUID());
+        MvcResult login = mockMvc.perform(spoofedRequest("POST", prefix + "/auth/login", user)
+                        .content(objectMapper.writeValueAsString(new LoginRequest(user.getEmail(), "currentPass123"))))
+                .andExpect(status().isOk()).andReturn();
+        String refresh = objectMapper.readTree(login.getResponse().getContentAsString()).path("data").path("refreshToken").asText();
+        mockMvc.perform(spoofedRequest("POST", prefix + "/auth/refresh", user)
+                        .content(objectMapper.writeValueAsString(new RefreshTokenRequest(refresh))))
+                .andExpect(status().isOk());
+        mockMvc.perform(spoofedRequest("POST", prefix + "/auth/forgot-password", user)
+                        .content("{\"email\":\"public@example.com\"}"))
+                .andExpect(status().isOk());
+
+        String rawReset = "test-reset-" + UUID.randomUUID();
+        var resetToken = new com.learnup.identity.domain.PasswordResetToken();
+        resetToken.setUserId(user.getId());
+        resetToken.setTokenHash(java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(rawReset.getBytes(java.nio.charset.StandardCharsets.UTF_8))));
+        resetToken.setExpiresAt(java.time.Instant.now().plusSeconds(900));
+        passwordResetTokenRepository.save(resetToken);
+        mockMvc.perform(spoofedRequest("POST", prefix + "/auth/reset-password", user)
+                        .content(objectMapper.writeValueAsString(new com.learnup.identity.dto.ResetPasswordRequest(
+                                rawReset, "newPublicPass123", "newPublicPass123"))))
+                .andExpect(status().isOk());
+        loginAndGetRefreshToken(user.getEmail(), "newPublicPass123");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"learnup-internal-secret", "wrong-internal-key"})
+    void shouldRejectUntrustedCredentialProvisioning(String key) throws Exception {
+        var credentials = new com.learnup.identity.dto.internal.SetCredentialsRequest(UUID.randomUUID(), "provisionedPass123");
+        mockMvc.perform(post("/api/internal/credentials").header(HeaderConstants.X_INTERNAL_KEY, key)
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(credentials)))
+                .andExpect(status().isForbidden());
+        assertThat(userRepository.count()).isZero();
+        assertThat(refreshTokenRepository.count()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/auth/logout", "/api/auth/logout"})
+    void shouldKeepExpiredAccessLogoutProtected(String path) throws Exception {
+        User user = createUserFixture("expired_user", "expired@example.com", "currentPass123", "Expired User",
+                UserRole.LEARNER, UUID.randomUUID());
+        String refresh = loginAndGetRefreshToken(user.getEmail(), "currentPass123");
+        var expiredConfig = new com.learnup.identity.config.JwtConfig();
+        expiredConfig.setSecret("testSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong!");
+        expiredConfig.setAccessTokenExpirationMinutes(-1);
+        String expiredAccess = new com.learnup.identity.service.JwtTokenService(expiredConfig).generateAccessToken(user);
+
+        mockMvc.perform(post(path).header(HeaderConstants.X_INTERNAL_KEY, INTERNAL_KEY)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredAccess)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"logoutAll\":true}"))
+                .andExpect(status().isUnauthorized());
+        // ID-S1 is separate: an expired access token must not silently authorize logout-all here.
+        refreshWith(refresh).andExpect(status().isOk());
+    }
+
+    private MockHttpServletRequestBuilder spoofedRequest(String method, String path, User victim) {
+        return request(HttpMethod.valueOf(method), path).contentType(MediaType.APPLICATION_JSON)
+                .header(HeaderConstants.X_USER_ID, victim.getId().toString())
+                .header(HeaderConstants.X_USER_ROLE, "ADMIN")
+                .header(HeaderConstants.X_ORGANIZATION_ID, UUID.randomUUID().toString());
+    }
+
+    private RequestPostProcessor asGateway(User user) {
+        // Real signed access token and channel credential, not a mocked Spring principal.
+        return request -> {
+            request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + jwtTokenService.generateAccessToken(user));
+            request.addHeader(HeaderConstants.X_INTERNAL_KEY, INTERNAL_KEY);
+            return request;
+        };
     }
 }

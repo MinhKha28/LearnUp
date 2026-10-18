@@ -4,7 +4,10 @@ import com.learnup.common.response.ApiResponse;
 import com.learnup.identity.dto.*;
 import com.learnup.identity.service.AuthService;
 import jakarta.validation.Valid;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping({"/api/v1/auth", "/api/auth"})
@@ -31,32 +34,15 @@ public class AuthController {
     @PostMapping("/logout")
     public ApiResponse<java.util.Map<String, String>> logout(
             @RequestBody(required = false) LogoutRequest request,
-            @RequestHeader(value = "X-User-ID", required = false) String headerUserId) {
-        java.util.UUID userId = com.learnup.common.context.CurrentUser.getUserIdAsUuid();
-        if (userId == null && headerUserId != null && !headerUserId.isBlank()) {
-            try {
-                userId = java.util.UUID.fromString(headerUserId.trim());
-            } catch (IllegalArgumentException ignored) {
-            }
-        }
+            @AuthenticationPrincipal UUID userId) {
         authService.logout(request, userId);
         return ApiResponse.success(java.util.Map.of("message", "Logged out successfully"));
     }
 
     @PostMapping("/change-password")
     public ApiResponse<java.util.Map<String, String>> changePassword(
-            @RequestHeader(value = "X-User-ID", required = false) String headerUserId,
+            @AuthenticationPrincipal UUID userId,
             @Valid @RequestBody ChangePasswordRequest request) {
-        java.util.UUID userId = com.learnup.common.context.CurrentUser.getUserIdAsUuid();
-        if (userId == null && headerUserId != null && !headerUserId.isBlank()) {
-            try {
-                userId = java.util.UUID.fromString(headerUserId.trim());
-            } catch (IllegalArgumentException ignored) {
-            }
-        }
-        if (userId == null) {
-            throw com.learnup.common.exception.BusinessException.unauthorized("Authentication required to change password");
-        }
         authService.changePassword(userId, request);
         return ApiResponse.success(java.util.Map.of("message", "Password changed successfully"));
     }
@@ -75,18 +61,7 @@ public class AuthController {
 
     @GetMapping("/me")
     public ApiResponse<com.learnup.identity.dto.UserResponse> getCurrentUser(
-            @RequestHeader(value = "X-User-ID", required = false) String headerUserId) {
-        java.util.UUID userId = com.learnup.common.context.CurrentUser.getUserIdAsUuid();
-        if (userId == null && headerUserId != null && !headerUserId.isBlank()) {
-            try {
-                userId = java.util.UUID.fromString(headerUserId.trim());
-            } catch (IllegalArgumentException ignored) {
-                // Invalid UUID
-            }
-        }
-        if (userId == null) {
-            throw com.learnup.common.exception.BusinessException.unauthorized("Authentication required");
-        }
+            @AuthenticationPrincipal UUID userId) {
         return ApiResponse.success(authService.getCurrentUser(userId));
     }
 }

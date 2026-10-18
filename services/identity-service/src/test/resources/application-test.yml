@@ -19,7 +19,7 @@ tenant:
   service-url: http://localhost:65535
 
 security:
-  internal-key: test-internal-secret
+  internal-key: testInternalServiceKeyAtLeast32BytesLong!
   jwt:
     secret: testSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong!
     access-token-expiration-minutes: 15
