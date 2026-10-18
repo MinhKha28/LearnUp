@@ -55,45 +55,6 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByUsername(request.getUsername().trim())) {
-            throw BusinessException.conflict("Username is already in use");
-        }
-
-        if (userRepository.existsByEmail(request.getEmail().trim().toLowerCase())) {
-            throw BusinessException.conflict("Email address is already registered");
-        }
-
-        // Privilege Escalation Prevention
-        UserRole targetRole = request.getRole() != null ? request.getRole() : UserRole.LEARNER;
-        if (targetRole == UserRole.ADMIN) {
-            log.warn("Attempt to self-register as platform ADMIN rejected for user '{}'", request.getUsername());
-            throw BusinessException.forbidden("Cannot self-register as platform ADMIN");
-        }
-
-        User user = new User();
-        user.setId(UUID.randomUUID());
-        user.setUsername(request.getUsername().trim());
-        user.setEmail(request.getEmail().trim().toLowerCase());
-        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setFullName(request.getFullName() != null ? request.getFullName().trim() : null);
-        user.setRole(targetRole);
-        user.setOrganizationId(request.getOrganizationId());
-        user.setEnabled(true);
-
-        User savedUser = userRepository.save(user);
-        log.info("Registered new user [{}] with role [{}] and id [{}]",
-                savedUser.getUsername(), savedUser.getRole(), savedUser.getId());
-
-        String accessToken = jwtTokenService.generateAccessToken(savedUser);
-        String rawRefreshToken = createAndPersistRefreshToken(savedUser.getId());
-        UserResponse userResponse = UserResponse.fromUser(savedUser);
-
-        return AuthResponse.of(accessToken, rawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(),
-                userResponse);
-    }
-
-    @Transactional
     public AuthResponse login(LoginRequest request) {
         String identifier = request.getUsername().trim();
         loginThrottleService.assertNotLocked(identifier);

@@ -5,7 +5,6 @@ import com.learnup.common.context.HeaderConstants;
 import com.learnup.common.security.UserRole;
 import com.learnup.identity.client.TenantAccessClient;
 import com.learnup.identity.domain.User;
-import com.learnup.identity.dto.AuthResponse;
 import com.learnup.identity.dto.LoginRequest;
 import com.learnup.identity.dto.RefreshTokenRequest;
 import com.learnup.identity.dto.RegisterRequest;
@@ -16,6 +15,11 @@ import com.learnup.identity.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,11 +29,15 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.Arrays;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -76,103 +84,71 @@ class AuthControllerIntegrationTest {
         userRepository.deleteAll();
     }
 
-    @Test
-    @DisplayName("Should successfully register a new learner and store BCrypt password hash")
-    void shouldRegisterNewUser() throws Exception {
-        UUID orgId = UUID.randomUUID();
-        RegisterRequest request = new RegisterRequest(
-                "learner1",
-                "learner1@learnup.com",
-                "securePassword123",
-                "Nguyen Van Learner",
-                UserRole.LEARNER,
-                orgId
-        );
+    private static Stream<Arguments> publicRegistrationAttempts() {
+        return Stream.of("/api/v1/auth/register", "/api/auth/register")
+                .flatMap(path -> Arrays.stream(UserRole.values()).map(role -> Arguments.of(path, role)));
+    }
 
-        MvcResult result = mockMvc.perform(post("/api/auth/register")
+    @ParameterizedTest(name = "{0} cannot create {1} with a caller-chosen Organization")
+    @MethodSource("publicRegistrationAttempts")
+    void shouldNotExposePublicRegistration(String path, UserRole role) throws Exception {
+        RegisterRequest request = new RegisterRequest("attacker", "attacker@example.com",
+                "attackerPass123", "Attacker", role, UUID.randomUUID());
+
+        mockMvc.perform(post(path)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.accessToken").isString())
-                .andExpect(jsonPath("$.data.refreshToken").isString())
-                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
-                .andReturn();
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
 
-        // Verify password was hashed and plaintext is never in DB
-        User userInDb = userRepository.findByUsername("learner1").orElseThrow();
-        assertThat(userInDb.getPasswordHash()).startsWith("$2a$");
-        assertThat(userInDb.getPasswordHash()).isNotEqualTo("securePassword123");
-        assertThat(userInDb.getEmail()).isEqualTo("learner1@learnup.com");
-        assertThat(userInDb.getRole()).isEqualTo(UserRole.LEARNER);
-        assertThat(userInDb.getOrganizationId()).isEqualTo(orgId);
+        assertThat(userRepository.count()).isZero();
+        assertThat(refreshTokenRepository.count()).isZero();
+        assertThat(passwordResetTokenRepository.count()).isZero();
+        verifyNoInteractions(tenantAccessClient);
     }
 
-    @Test
-    @DisplayName("Should reject registration with duplicate username or email with 409 Conflict")
-    void shouldRejectDuplicateRegistration() throws Exception {
-        RegisterRequest first = new RegisterRequest("john_doe", "john@example.com", "pass123", "John Doe", UserRole.LEARNER, null);
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(first)))
-                .andExpect(status().isCreated());
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/auth/register", "/api/auth/register"})
+    void shouldNotAllowRegistrationWithDefaultRoleOrDuplicateIdentity(String path) throws Exception {
+        User existing = createUserFixture("existing_user", "existing@example.com", "existingPass123",
+                "Existing User", UserRole.LEARNER, UUID.randomUUID());
+        String refreshToken = loginAndGetRefreshToken(existing.getEmail(), "existingPass123");
+        String passwordHash = existing.getPasswordHash();
+        RegisterRequest request = new RegisterRequest(existing.getUsername(), existing.getEmail(),
+                "replacementPass123", "Replacement", null, null);
 
-        // Duplicate username
-        RegisterRequest dupUsername = new RegisterRequest("john_doe", "other@example.com", "pass123", "Other", UserRole.LEARNER, null);
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post(path)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dupUsername)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("CONFLICT"));
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
 
-        // Duplicate email
-        RegisterRequest dupEmail = new RegisterRequest("other_user", "john@example.com", "pass123", "Other", UserRole.LEARNER, null);
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dupEmail)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("CONFLICT"));
-    }
-
-    @Test
-    @DisplayName("Should reject self-registration as platform ADMIN with 403 Forbidden")
-    void shouldRejectAdminSelfRegistration() throws Exception {
-        RegisterRequest adminRequest = new RegisterRequest(
-                "malicious_admin",
-                "hacker@example.com",
-                "hackerPass123",
-                "Attacker",
-                UserRole.ADMIN,
-                null
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(adminRequest)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+        assertThat(userRepository.count()).isEqualTo(1);
+        assertThat(userRepository.findById(existing.getId()).orElseThrow().getPasswordHash()).isEqualTo(passwordHash);
+        assertThat(refreshTokenRepository.count()).isEqualTo(1);
+        assertThat(passwordResetTokenRepository.count()).isZero();
+        refreshWith(refreshToken).andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("Should successfully login with valid credentials")
     void shouldLoginSuccessfully() throws Exception {
-        RegisterRequest register = new RegisterRequest("instructor1", "instructor1@learnup.com", "mySecretPass", "Instructor A", UserRole.INSTRUCTOR, null);
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated());
+        User user = createUserFixture("instructor1", "instructor1@learnup.com", "mySecretPass",
+                "Instructor A", UserRole.INSTRUCTOR, UUID.randomUUID());
 
-        LoginRequest login = new LoginRequest("instructor1", "mySecretPass");
+        LoginRequest login = new LoginRequest(user.getEmail(), "mySecretPass");
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(login)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").isString())
-                .andExpect(jsonPath("$.data.refreshToken").isString());
+                .andExpect(jsonPath("$.data.refreshToken").isString())
+                .andExpect(jsonPath("$.data.user.id").value(user.getId().toString()));
+        verify(tenantAccessClient).check(user.getId());
     }
 
     @Test
@@ -190,16 +166,8 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("Should refresh access token and rotate refresh token")
     void shouldRefreshTokenAndRotate() throws Exception {
-        RegisterRequest register = new RegisterRequest("refresher", "refresher@learnup.com", "pass123456", "Refresher", UserRole.LEARNER, null);
-        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated())
-                .andReturn();
-
-        String rawResponse = registerResult.getResponse().getContentAsString();
-        AuthResponse authData = objectMapper.readTree(rawResponse).get("data").traverse(objectMapper).readValueAs(AuthResponse.class);
-        String initialRefreshToken = authData.getRefreshToken();
+        createUserFixture("refresher", "refresher@learnup.com", "pass123456", "Refresher", UserRole.LEARNER, null);
+        String initialRefreshToken = loginAndGetRefreshToken("refresher@learnup.com", "pass123456");
 
         // Refresh token call
         RefreshTokenRequest refreshReq = new RefreshTokenRequest(initialRefreshToken);
@@ -224,13 +192,8 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("Should retrieve current user profile without exposing password or refresh token")
     void shouldGetMeProfile() throws Exception {
-        RegisterRequest register = new RegisterRequest("profileUser", "profile@learnup.com", "pass123456", "Profile User", UserRole.ORGANIZER, UUID.randomUUID());
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated());
-
-        User user = userRepository.findByUsername("profileUser").orElseThrow();
+        User user = createUserFixture("profileUser", "profile@learnup.com", "pass123456",
+                "Profile User", UserRole.ORGANIZER, UUID.randomUUID());
 
         mockMvc.perform(get("/api/users/me")
                         .header(HeaderConstants.X_USER_ID, user.getId().toString())
@@ -256,22 +219,8 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("Should successfully support /api/v1 route prefix for auth and user operations")
     void shouldSupportV1RoutePrefix() throws Exception {
-        RegisterRequest register = new RegisterRequest(
-                "v1user",
-                "v1user@learnup.com",
-                "secret12345",
-                "V1 User",
-                UserRole.LEARNER,
-                null
-        );
-
-        // Register via /api/v1/auth/register
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.accessToken").isString());
+        User user = createUserFixture("v1user", "v1user@learnup.com", "secret12345",
+                "V1 User", UserRole.LEARNER, null);
 
         // Login via /api/v1/auth/login
         LoginRequest login = new LoginRequest("v1user", "secret12345");
@@ -280,8 +229,6 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(login)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
-
-        User user = userRepository.findByUsername("v1user").orElseThrow();
 
         // Get me via /api/v1/users/me
         mockMvc.perform(get("/api/v1/users/me")
@@ -369,15 +316,8 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("UC06: Should successfully logout and revoke refresh token")
     void shouldLogoutAndRevokeRefreshToken() throws Exception {
-        RegisterRequest register = new RegisterRequest("logoutUser", "logout@learnup.com", "pass123456", "Logout User", UserRole.LEARNER, null);
-        MvcResult regRes = mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated())
-                .andReturn();
-
-        String rawResponse = regRes.getResponse().getContentAsString();
-        String refreshToken = objectMapper.readTree(rawResponse).path("data").path("refreshToken").asText();
+        createUserFixture("logoutUser", "logout@learnup.com", "pass123456", "Logout User", UserRole.LEARNER, null);
+        String refreshToken = loginAndGetRefreshToken("logout@learnup.com", "pass123456");
         assertThat(refreshToken).isNotBlank();
 
         // Perform logout
@@ -401,13 +341,9 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("UC08: Should change password and invalidate old password and sessions")
     void shouldChangePasswordAndInvalidateOldPassword() throws Exception {
-        RegisterRequest register = new RegisterRequest("changePassUser", "changepass@learnup.com", "initialPass123", "Change Pass User", UserRole.INSTRUCTOR, null);
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated());
-
-        User user = userRepository.findByUsername("changePassUser").orElseThrow();
+        User user = createUserFixture("changePassUser", "changepass@learnup.com", "initialPass123",
+                "Change Pass User", UserRole.INSTRUCTOR, null);
+        String originalRefreshToken = loginAndGetRefreshToken(user.getEmail(), "initialPass123");
 
         // 1. Wrong current password -> 400 BAD_REQUEST
         com.learnup.identity.dto.ChangePasswordRequest wrongCurrent = new com.learnup.identity.dto.ChangePasswordRequest(
@@ -442,6 +378,8 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
+        refreshWith(originalRefreshToken).andExpect(status().isUnauthorized());
+
         // 4. Old password rejected at login
         LoginRequest oldLogin = new LoginRequest("changepass@learnup.com", "initialPass123");
         mockMvc.perform(post("/api/v1/auth/login")
@@ -461,13 +399,9 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("UC07: Should handle forgot password and reset password flow")
     void shouldHandleForgotPasswordAndResetPasswordFlow() throws Exception {
-        RegisterRequest register = new RegisterRequest("forgotUser", "forgot@learnup.com", "oldPassword123", "Forgot User", UserRole.LEARNER, null);
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated());
-
-        User user = userRepository.findByEmail("forgot@learnup.com").orElseThrow();
+        User user = createUserFixture("forgotUser", "forgot@learnup.com", "oldPassword123",
+                "Forgot User", UserRole.LEARNER, null);
+        String originalRefreshToken = loginAndGetRefreshToken(user.getEmail(), "oldPassword123");
 
         // 1. Request forgot password
         com.learnup.identity.dto.ForgotPasswordRequest forgotReq = new com.learnup.identity.dto.ForgotPasswordRequest("forgot@learnup.com");
@@ -502,6 +436,8 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
+        refreshWith(originalRefreshToken).andExpect(status().isUnauthorized());
+
         // 4. Verify user can login with new password
         LoginRequest resetLogin = new LoginRequest("forgot@learnup.com", "brandNewPassword123");
         mockMvc.perform(post("/api/v1/auth/login")
@@ -518,15 +454,18 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(false));
     }
 
-    @Test
+    @ParameterizedTest
+    @EnumSource(value = UserRole.class, names = {"ORGANIZER", "INSTRUCTOR", "LEARNER"})
     @DisplayName("Internal API: Should set credentials via POST /api/internal/credentials with valid x-internal-key")
-    void shouldSetCredentialsViaInternalApiWithValidKey() throws Exception {
+    void shouldSetCredentialsViaInternalApiWithValidKey(UserRole role) throws Exception {
         UUID newUserId = UUID.randomUUID();
+        UUID organizationId = UUID.randomUUID();
         com.learnup.identity.dto.internal.SetCredentialsRequest request =
                 new com.learnup.identity.dto.internal.SetCredentialsRequest(newUserId, "provisionedPass123");
         request.setEmail("provisioned@abc.vn");
-        request.setUsername("provisioned_user");
-        request.setRole(UserRole.INSTRUCTOR);
+        request.setFullName("Provisioned User");
+        request.setRole(role);
+        request.setOrganizationId(organizationId);
 
         // Call internal API with valid internal key
         mockMvc.perform(post("/api/internal/credentials")
@@ -534,7 +473,19 @@ class AuthControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+
+        // Match Tenant's payload (no username), retaining its canonical ID and metadata.
+        User provisioned = userRepository.findById(newUserId).orElseThrow();
+        assertThat(provisioned.getEmail()).isEqualTo(request.getEmail());
+        assertThat(provisioned.getRole()).isEqualTo(role);
+        assertThat(provisioned.getOrganizationId()).isEqualTo(organizationId);
+        assertThat(provisioned.getFullName()).isEqualTo("Provisioned User");
+        assertThat(provisioned.getPasswordHash()).startsWith("$2a$").isNotEqualTo(request.getPassword());
+        assertThat(passwordEncoder.matches(request.getPassword(), provisioned.getPasswordHash())).isTrue();
+        assertThat(refreshTokenRepository.count()).isZero();
 
         // Verify user can now login
         LoginRequest loginReq = new LoginRequest("provisioned@abc.vn", "provisionedPass123");
@@ -543,8 +494,12 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginReq)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").isString())
+                .andExpect(jsonPath("$.data.refreshToken").isString())
                 .andExpect(jsonPath("$.data.user.id").value(newUserId.toString()))
-                .andExpect(jsonPath("$.data.user.role").value(UserRole.INSTRUCTOR.name()));
+                .andExpect(jsonPath("$.data.user.role").value(role.name()))
+                .andExpect(jsonPath("$.data.user.organizationId").value(organizationId.toString()));
+        verify(tenantAccessClient).check(newUserId);
     }
 
     @Test
@@ -570,12 +525,32 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(false));
     }
 
-    private String registerAndGetRefreshToken(String username, String password) throws Exception {
-        RegisterRequest register = new RegisterRequest(username, username + "@learnup.com", password, "Member", UserRole.LEARNER, UUID.randomUUID());
-        MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
+    private User createUserFixture(String username, String email, String password, String fullName,
+                                   UserRole role, UUID organizationId) {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername(username);
+        user.setEmail(email);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setFullName(fullName);
+        user.setRole(role);
+        user.setOrganizationId(organizationId);
+        user.setEnabled(true);
+        return userRepository.saveAndFlush(user);
+    }
+
+    private String createUserAndGetRefreshToken(String username, String password) throws Exception {
+        createUserFixture(username, username + "@learnup.com", password, "Member", UserRole.LEARNER, UUID.randomUUID());
+        return loginAndGetRefreshToken(username, password);
+    }
+
+    private String loginAndGetRefreshToken(String identifier, String password) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(register)))
-                .andExpect(status().isCreated())
+                        .content(objectMapper.writeValueAsString(new LoginRequest(identifier, password))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").isString())
+                .andExpect(jsonPath("$.data.refreshToken").isString())
                 .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString()).path("data").path("refreshToken").asText();
     }
@@ -583,7 +558,7 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("BR-27: Should reject sign-in with 403 and the tenant reason when the account is deactivated")
     void shouldRejectSignInWhenTenantDeniesAccess() throws Exception {
-        registerAndGetRefreshToken("deactivated_member", "memberPass123");
+        createUserAndGetRefreshToken("deactivated_member", "memberPass123");
         when(tenantAccessClient.check(any())).thenReturn(new SignInAccess(false, null, "ACCOUNT_DEACTIVATED"));
 
         mockMvc.perform(post("/api/v1/auth/login")
@@ -597,7 +572,7 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("BR-27: Should answer like a wrong password when the account does not exist in tenant-service")
     void shouldHideAccountNotFoundAsInvalidCredentials() throws Exception {
-        registerAndGetRefreshToken("orphan_member", "memberPass123");
+        createUserAndGetRefreshToken("orphan_member", "memberPass123");
         when(tenantAccessClient.check(any())).thenReturn(new SignInAccess(false, null, "ACCOUNT_NOT_FOUND"));
 
         mockMvc.perform(post("/api/v1/auth/login")
@@ -610,7 +585,7 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("BR-27: Should fail closed with 503 when tenant-service is unavailable")
     void shouldFailClosedWhenTenantUnavailable() throws Exception {
-        registerAndGetRefreshToken("offline_member", "memberPass123");
+        createUserAndGetRefreshToken("offline_member", "memberPass123");
         when(tenantAccessClient.check(any())).thenThrow(new TenantUnavailableException(null));
 
         mockMvc.perform(post("/api/v1/auth/login")
@@ -623,7 +598,7 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("BR-27: Should reject refresh and revoke every session when the subscription is suspended")
     void shouldRejectRefreshAndRevokeSessionsWhenDenied() throws Exception {
-        String refreshToken = registerAndGetRefreshToken("suspended_member", "memberPass123");
+        String refreshToken = createUserAndGetRefreshToken("suspended_member", "memberPass123");
         when(tenantAccessClient.check(any())).thenReturn(new SignInAccess(false, null, "SUBSCRIPTION_SUSPENDED"));
 
         mockMvc.perform(post("/api/v1/auth/refresh")
@@ -676,7 +651,7 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("UC05: Should lock sign-in after 5 failed attempts, even when the next password is correct")
     void shouldLockSignInAfterRepeatedFailures() throws Exception {
-        registerAndGetRefreshToken("guessed_member", "memberPass123");
+        createUserAndGetRefreshToken("guessed_member", "memberPass123");
 
         for (int attempt = 0; attempt < 5; attempt++) {
             attemptLogin("guessed_member", "wrongPass" + attempt, status().isUnauthorized());
@@ -702,7 +677,7 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("UC05: Should reset the failure counter after a successful sign-in")
     void shouldResetFailuresAfterSuccessfulSignIn() throws Exception {
-        registerAndGetRefreshToken("careful_member", "memberPass123");
+        createUserAndGetRefreshToken("careful_member", "memberPass123");
 
         for (int attempt = 0; attempt < 4; attempt++) {
             attemptLogin("careful_member", "wrongPass" + attempt, status().isUnauthorized());
@@ -724,7 +699,7 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("UC05: Should detect reuse of a rotated refresh token and revoke the whole sign-in family")
     void shouldRevokeFamilyWhenRotatedRefreshTokenIsReused() throws Exception {
-        String firstToken = registerAndGetRefreshToken("reused_member", "memberPass123");
+        String firstToken = createUserAndGetRefreshToken("reused_member", "memberPass123");
 
         MvcResult rotated = refreshWith(firstToken).andExpect(status().isOk()).andReturn();
         String secondToken = objectMapper.readTree(rotated.getResponse().getContentAsString())
@@ -742,7 +717,7 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("UC05: Should keep rotating normally while each refresh token is used once")
     void shouldRotateRefreshTokensInTheSameFamily() throws Exception {
-        String token = registerAndGetRefreshToken("rotating_member", "memberPass123");
+        String token = createUserAndGetRefreshToken("rotating_member", "memberPass123");
 
         for (int round = 0; round < 3; round++) {
             MvcResult result = refreshWith(token).andExpect(status().isOk()).andReturn();
@@ -758,7 +733,7 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("UC06: Should treat a refresh token revoked by sign-out as invalid, not as reuse")
     void shouldNotFlagSignedOutTokenAsReuse() throws Exception {
-        String token = registerAndGetRefreshToken("signed_out_member", "memberPass123");
+        String token = createUserAndGetRefreshToken("signed_out_member", "memberPass123");
 
         mockMvc.perform(post("/api/v1/auth/logout")
                         .contentType(MediaType.APPLICATION_JSON)
