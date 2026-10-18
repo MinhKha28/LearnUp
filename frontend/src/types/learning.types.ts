@@ -1,5 +1,9 @@
 import type { PageResponse } from "@/types/api.types";
-import type { EnrollmentStatus, EnrollmentType, MaterialType } from "@/utils/learner.labels";
+import type {
+  EnrollmentStatus,
+  EnrollmentType,
+  MaterialType,
+} from "@/utils/learner.labels";
 
 /** Một phần tử của GET /enrollments/me/course-ids (D20, D48). */
 export interface EnrolledCourseLink {
@@ -30,7 +34,11 @@ export interface MyEnrollmentItem {
   dueAt: string | null;
   requiredMaterials: { completed: number; total: number };
   /** null khi course-service không trả Course này (D26). */
-  course: { name: string; versionNumber: number; coverFileId: string | null } | null;
+  course: {
+    name: string;
+    versionNumber: number;
+    coverFileId: string | null;
+  } | null;
 }
 
 export interface MyEnrollmentsPage extends PageResponse<MyEnrollmentItem> {
@@ -96,4 +104,19 @@ export interface LessonDetailData {
   materials: LessonMaterial[];
   previousLesson: LessonNeighbor | null;
   nextLesson: LessonNeighbor | null;
+}
+export interface VideoProgress {
+  materialId: string;
+  durationSeconds: number;
+  watchedRanges: [number, number][];
+  watchedSeconds: number;
+  requiredSeconds: number;
+  completed: boolean;
+  completedAt: string | null;
+  maxPlaybackRate: number;
+  heartbeatSeconds: number;
+}
+export interface VideoPlayback extends VideoProgress {
+  title: string;
+  playbackUrl: string;
 }

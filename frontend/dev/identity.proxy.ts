@@ -11,24 +11,40 @@ export const LEARNER_ROLE = "LEARNER";
 
 export const DEV_IDENTITIES = {
   LEARNER_1: {
-    userId: "0199a000-0000-7000-8000-0b0000000001",
-    organizationId: "0199a000-0000-7000-8000-0a0000000001",
+    userId: "01900000-0000-7000-8000-00000000a201",
+    organizationId: "01900000-0000-7000-8000-00000000a001",
     label: "Học viên 1 (Tổ chức A)",
   },
   LEARNER_2: {
-    userId: "0199a000-0000-7000-8000-0b0000000002",
-    organizationId: "0199a000-0000-7000-8000-0a0000000001",
+    userId: "01900000-0000-7000-8000-00000000a202",
+    organizationId: "01900000-0000-7000-8000-00000000a001",
     label: "Học viên 2 (Tổ chức A)",
   },
   LEARNER_3: {
-    userId: "0199a000-0000-7000-8000-0b0000000003",
-    organizationId: "0199a000-0000-7000-8000-0a0000000002",
+    userId: "01900000-0000-7000-8000-00000000b201",
+    organizationId: "01900000-0000-7000-8000-00000000b001",
     label: "Học viên 3 (Tổ chức B)",
   },
   LEARNER_4: {
-    userId: "0199a000-0000-7000-8000-0b0000000004",
-    organizationId: "0199a000-0000-7000-8000-0a0000000001",
+    userId: "01900000-0000-7000-8000-00000000a206",
+    organizationId: "01900000-0000-7000-8000-00000000a001",
     label: "Học viên 4 (Tổ chức A)",
+  },
+  LEARNER_5: {
+    userId: "01900000-0000-7000-8000-00000000a208",
+    organizationId: "01900000-0000-7000-8000-00000000a001",
+    label: "Học viên 5 (Video chưa học)",
+  },
+  LEARNER_6: {
+    userId: "01900000-0000-7000-8000-00000000a210",
+    organizationId: "01900000-0000-7000-8000-00000000a001",
+    label: "Học viên 6 (Video đã xem 511 giây)",
+  },
+  ORGANIZER: {
+    userId: "01900000-0000-7000-8000-00000000a010",
+    organizationId: "01900000-0000-7000-8000-00000000a001",
+    label: "Organizer ABC",
+    role: "ORGANIZER",
   },
 } as const;
 
@@ -45,7 +61,11 @@ export const IDENTITY_HEADER_NAMES = [
   "x-dev-user-id",
 ] as const;
 
-const LOCAL_HOSTS = new Set<string | undefined>([undefined, "localhost", "127.0.0.1"]);
+const LOCAL_HOSTS = new Set<string | undefined>([
+  undefined,
+  "localhost",
+  "127.0.0.1",
+]);
 
 const MAX_BODY_BYTES = 1024;
 
@@ -71,12 +91,17 @@ export interface HeaderTarget {
 }
 
 export const isDevIdentityKey = (value: unknown): value is DevIdentityKey =>
-  typeof value === "string" && Object.prototype.hasOwnProperty.call(DEV_IDENTITIES, value);
+  typeof value === "string" &&
+  Object.prototype.hasOwnProperty.call(DEV_IDENTITIES, value);
 
-export const isIdentityProxyEnabled = (command: string, env: IdentityProxyEnv): boolean =>
-  command === "serve" && env.DEV_IDENTITY_PROXY === "1";
+export const isIdentityProxyEnabled = (
+  command: string,
+  env: IdentityProxyEnv,
+): boolean => command === "serve" && env.DEV_IDENTITY_PROXY === "1";
 
-export const resolveIdentityProxySettings = (env: IdentityProxyEnv): IdentityProxySettings => {
+export const resolveIdentityProxySettings = (
+  env: IdentityProxyEnv,
+): IdentityProxySettings => {
   const internalKey = env.DEV_INTERNAL_SERVICE_KEY?.trim();
   if (!internalKey) {
     throw new Error(
@@ -91,8 +116,10 @@ export const resolveIdentityProxySettings = (env: IdentityProxyEnv): IdentityPro
   }
   return {
     internalKey,
-    courseServiceUrl: env.DEV_COURSE_SERVICE_URL?.trim() || "http://localhost:8083",
-    learningServiceUrl: env.DEV_LEARNING_SERVICE_URL?.trim() || "http://localhost:8085",
+    courseServiceUrl:
+      env.DEV_COURSE_SERVICE_URL?.trim() || "http://localhost:8083",
+    learningServiceUrl:
+      env.DEV_LEARNING_SERVICE_URL?.trim() || "http://localhost:8085",
     initialKey,
   };
 };
@@ -106,24 +133,33 @@ export const assertLocalHost = (host: string | boolean | undefined): void => {
   }
 };
 
-export const buildIdentityHeaders = (key: DevIdentityKey, internalKey: string): Record<string, string> => {
+export const buildIdentityHeaders = (
+  key: DevIdentityKey,
+  internalKey: string,
+): Record<string, string> => {
   const identity = DEV_IDENTITIES[key];
   return {
     "x-internal-key": internalKey,
     "x-user-id": identity.userId,
-    "x-user-role": LEARNER_ROLE,
+    "x-user-role": "role" in identity ? identity.role : LEARNER_ROLE,
     "x-organization-id": identity.organizationId,
   };
 };
 
-export const applyIdentityHeaders = (target: HeaderTarget, key: DevIdentityKey, internalKey: string): void => {
+export const applyIdentityHeaders = (
+  target: HeaderTarget,
+  key: DevIdentityKey,
+  internalKey: string,
+): void => {
   const blocked = new Set<string>(IDENTITY_HEADER_NAMES);
   for (const name of target.getHeaderNames()) {
     if (blocked.has(name.toLowerCase())) {
       target.removeHeader(name);
     }
   }
-  for (const [name, value] of Object.entries(buildIdentityHeaders(key, internalKey))) {
+  for (const [name, value] of Object.entries(
+    buildIdentityHeaders(key, internalKey),
+  )) {
     target.setHeader(name, value);
   }
 };
@@ -139,7 +175,12 @@ export const describeIdentities = (current: DevIdentityKey) => ({
 export const parseIdentitySwitchBody = (raw: string): DevIdentityKey | null => {
   try {
     const body: unknown = JSON.parse(raw);
-    if (body && typeof body === "object" && "key" in body && isDevIdentityKey(body.key)) {
+    if (
+      body &&
+      typeof body === "object" &&
+      "key" in body &&
+      isDevIdentityKey(body.key)
+    ) {
       return body.key;
     }
   } catch {
@@ -186,12 +227,22 @@ export const createIdentityProxy = (settings: IdentityProxySettings) => {
   });
 
   const proxy: Record<string, ProxyOptions> = {
+    "^/api/v1/assignments(/|[?]|$)": withIdentity(settings.learningServiceUrl),
+    "^/api/v1/users/learners([?]|$)": withIdentity("http://localhost:8084"),
+    "^/api/v1/courses/organization([?]|$)": withIdentity(
+      settings.courseServiceUrl,
+    ),
     "^/api/v1/courses/catalog(\\?|$)": withIdentity(settings.courseServiceUrl),
-    "^/api/v1/courses/[^/?]+/introduction(\\?|$)": withIdentity(settings.courseServiceUrl),
+    "^/api/v1/courses/[^/?]+/introduction(\\?|$)": withIdentity(
+      settings.courseServiceUrl,
+    ),
     "^/api/v1/enrollments(/|\\?|$)": withIdentity(settings.learningServiceUrl),
   };
 
-  const handleIdentityRequest = async (req: IncomingMessage, res: ServerResponse) => {
+  const handleIdentityRequest = async (
+    req: IncomingMessage,
+    res: ServerResponse,
+  ) => {
     if (req.method === "GET") {
       sendJson(res, 200, describeIdentities(currentKey));
       return;
@@ -202,7 +253,9 @@ export const createIdentityProxy = (settings: IdentityProxySettings) => {
       return;
     }
     // Bắt buộc JSON để request từ trang web khác phải qua preflight CORS (dev server không trả lời preflight này)
-    if (!req.headers["content-type"]?.toLowerCase().startsWith("application/json")) {
+    if (
+      !req.headers["content-type"]?.toLowerCase().startsWith("application/json")
+    ) {
       sendJson(res, 415, { message: "Content-Type must be application/json" });
       return;
     }

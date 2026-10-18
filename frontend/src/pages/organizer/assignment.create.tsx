@@ -33,6 +33,7 @@ import {
   invalidAssignmentLearners,
 } from "@/utils/assignments.view";
 import "./assignment.create.scss";
+import { retainAssignmentSelection } from "@/utils/assignment.selection";
 
 const AssignmentCreate = () => {
   const navigate = useNavigate();
@@ -287,8 +288,8 @@ const AssignmentCreate = () => {
                   void notice.warning("Chỉ được chọn tối đa 500 Learner.");
                   return;
                 }
-                setSelected(
-                  Object.fromEntries(rows.map((row) => [row.id, row])),
+                setSelected((current) =>
+                  retainAssignmentSelection(current, keys, rows),
                 );
                 setSelectionError("");
               },

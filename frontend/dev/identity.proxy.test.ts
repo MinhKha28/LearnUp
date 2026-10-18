@@ -27,16 +27,24 @@ const createTarget = (initial: Record<string, string>) => {
 
 describe("isIdentityProxyEnabled", () => {
   it("chỉ bật khi serve và cờ bằng 1", () => {
-    expect(isIdentityProxyEnabled("serve", { DEV_IDENTITY_PROXY: "1" })).toBe(true);
-    expect(isIdentityProxyEnabled("build", { DEV_IDENTITY_PROXY: "1" })).toBe(false);
-    expect(isIdentityProxyEnabled("serve", { DEV_IDENTITY_PROXY: "true" })).toBe(false);
+    expect(isIdentityProxyEnabled("serve", { DEV_IDENTITY_PROXY: "1" })).toBe(
+      true,
+    );
+    expect(isIdentityProxyEnabled("build", { DEV_IDENTITY_PROXY: "1" })).toBe(
+      false,
+    );
+    expect(
+      isIdentityProxyEnabled("serve", { DEV_IDENTITY_PROXY: "true" }),
+    ).toBe(false);
     expect(isIdentityProxyEnabled("serve", {})).toBe(false);
   });
 });
 
 describe("resolveIdentityProxySettings", () => {
   it("dùng giá trị mặc định khi chỉ có khóa nội bộ", () => {
-    expect(resolveIdentityProxySettings({ DEV_INTERNAL_SERVICE_KEY: "k" })).toEqual({
+    expect(
+      resolveIdentityProxySettings({ DEV_INTERNAL_SERVICE_KEY: "k" }),
+    ).toEqual({
       internalKey: "k",
       courseServiceUrl: "http://localhost:8083",
       learningServiceUrl: "http://localhost:8085",
@@ -45,15 +53,20 @@ describe("resolveIdentityProxySettings", () => {
   });
 
   it("từ chối khi thiếu khóa nội bộ", () => {
-    expect(() => resolveIdentityProxySettings({})).toThrow(/DEV_INTERNAL_SERVICE_KEY/);
-    expect(() => resolveIdentityProxySettings({ DEV_INTERNAL_SERVICE_KEY: "  " })).toThrow(
+    expect(() => resolveIdentityProxySettings({})).toThrow(
       /DEV_INTERNAL_SERVICE_KEY/,
     );
+    expect(() =>
+      resolveIdentityProxySettings({ DEV_INTERNAL_SERVICE_KEY: "  " }),
+    ).toThrow(/DEV_INTERNAL_SERVICE_KEY/);
   });
 
   it("từ chối Learner ngoài bảng", () => {
     expect(() =>
-      resolveIdentityProxySettings({ DEV_INTERNAL_SERVICE_KEY: "k", DEV_PROXY_LEARNER: "HACKER" }),
+      resolveIdentityProxySettings({
+        DEV_INTERNAL_SERVICE_KEY: "k",
+        DEV_PROXY_LEARNER: "HACKER",
+      }),
     ).toThrow(/DEV_PROXY_LEARNER="HACKER"/);
   });
 });
@@ -63,7 +76,9 @@ describe("isDevIdentityKey", () => {
     expect(isDevIdentityKey("LEARNER_1")).toBe(true);
     expect(isDevIdentityKey("LEARNER_3")).toBe(true);
     expect(isDevIdentityKey("LEARNER_4")).toBe(true);
-    expect(isDevIdentityKey("LEARNER_5")).toBe(false);
+    expect(isDevIdentityKey("LEARNER_5")).toBe(true);
+    expect(isDevIdentityKey("LEARNER_6")).toBe(true);
+    expect(isDevIdentityKey("ORGANIZER")).toBe(true);
     expect(isDevIdentityKey("learner_1")).toBe(false);
     expect(isDevIdentityKey("toString")).toBe(false);
     expect(isDevIdentityKey("__proto__")).toBe(false);
@@ -101,9 +116,9 @@ describe("applyIdentityHeaders", () => {
   it("dựng đúng 4 header theo danh tính", () => {
     expect(buildIdentityHeaders("LEARNER_3", "secret")).toEqual({
       "x-internal-key": "secret",
-      "x-user-id": "0199a000-0000-7000-8000-0b0000000003",
+      "x-user-id": "01900000-0000-7000-8000-00000000b201",
       "x-user-role": "LEARNER",
-      "x-organization-id": "0199a000-0000-7000-8000-0a0000000002",
+      "x-organization-id": "01900000-0000-7000-8000-00000000b001",
     });
   });
 
@@ -111,9 +126,9 @@ describe("applyIdentityHeaders", () => {
     const { target, headers } = createTarget({
       accept: "application/json",
       "X-Internal-Key": "wrong",
-      "x-user-id": "0199a000-0000-7000-8000-0b0000000003",
+      "x-user-id": "01900000-0000-7000-8000-00000000b201",
       "X-USER-ROLE": "ADMIN",
-      "X-Organization-Id": "0199a000-0000-7000-8000-0a0000000002",
+      "X-Organization-Id": "01900000-0000-7000-8000-00000000b001",
       "X-Dev-User-Id": "someone",
     });
 
@@ -122,9 +137,9 @@ describe("applyIdentityHeaders", () => {
     expect(Object.fromEntries(headers)).toEqual({
       accept: "application/json",
       "x-internal-key": "secret",
-      "x-user-id": "0199a000-0000-7000-8000-0b0000000001",
+      "x-user-id": "01900000-0000-7000-8000-00000000a201",
       "x-user-role": "LEARNER",
-      "x-organization-id": "0199a000-0000-7000-8000-0a0000000001",
+      "x-organization-id": "01900000-0000-7000-8000-00000000a001",
     });
   });
 });
@@ -139,9 +154,12 @@ describe("describeIdentities", () => {
         { key: "LEARNER_2", label: "Học viên 2 (Tổ chức A)" },
         { key: "LEARNER_3", label: "Học viên 3 (Tổ chức B)" },
         { key: "LEARNER_4", label: "Học viên 4 (Tổ chức A)" },
+        { key: "LEARNER_5", label: "Học viên 5 (Video chưa học)" },
+        { key: "LEARNER_6", label: "Học viên 6 (Video đã xem 511 giây)" },
+        { key: "ORGANIZER", label: "Organizer ABC" },
       ],
     });
-    expect(JSON.stringify(result)).not.toMatch(/0199a000/);
+    expect(JSON.stringify(result)).not.toMatch(/01900000/);
   });
 });
 
@@ -153,19 +171,29 @@ describe("createIdentityProxy", () => {
     initialKey: "LEARNER_1",
   });
   const targetOf = (url: string) =>
-    Object.entries(proxy).find(([pattern]) => new RegExp(pattern).test(url))?.[1].target ?? null;
+    Object.entries(proxy).find(([pattern]) =>
+      new RegExp(pattern).test(url),
+    )?.[1].target ?? null;
 
   it("chỉ chuyển tiếp 7 endpoint learner", () => {
     expect(targetOf("/api/v1/courses/catalog")).toBe("http://course");
     expect(targetOf("/api/v1/courses/catalog?page=2")).toBe("http://course");
     expect(targetOf("/api/v1/courses/abc/introduction")).toBe("http://course");
-    expect(targetOf("/api/v1/courses/abc/introduction?x=1")).toBe("http://course");
+    expect(targetOf("/api/v1/courses/abc/introduction?x=1")).toBe(
+      "http://course",
+    );
     expect(targetOf("/api/v1/enrollments")).toBe("http://learning");
     expect(targetOf("/api/v1/enrollments?x=1")).toBe("http://learning");
     expect(targetOf("/api/v1/enrollments/me?page=1")).toBe("http://learning");
-    expect(targetOf("/api/v1/enrollments/me/course-ids")).toBe("http://learning");
-    expect(targetOf("/api/v1/enrollments/e1/curriculum")).toBe("http://learning");
-    expect(targetOf("/api/v1/enrollments/e1/lessons/l1")).toBe("http://learning");
+    expect(targetOf("/api/v1/enrollments/me/course-ids")).toBe(
+      "http://learning",
+    );
+    expect(targetOf("/api/v1/enrollments/e1/curriculum")).toBe(
+      "http://learning",
+    );
+    expect(targetOf("/api/v1/enrollments/e1/lessons/l1")).toBe(
+      "http://learning",
+    );
   });
 
   it("không chuyển tiếp endpoint khác", () => {

@@ -28,6 +28,8 @@ const baseURL =
     : import.meta.env.VITE_BACKEND_URL;
 
 const client = axios.create({ baseURL, timeout: 10000 });
+export const apiRequestUrl = (path: string) =>
+  `${baseURL?.replace(/\/+$/, "") ?? ""}${path}`;
 
 // Kiểu phản hồi thô; src/types/axios.d.ts biến AxiosResponse thành thenable nên không dùng trực tiếp được
 type RawResponse<T> = { data: ApiEnvelope<T> };
@@ -50,10 +52,15 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const firstString = (...values: unknown[]): string | undefined =>
-  values.find((value): value is string => typeof value === "string" && value.trim() !== "");
+  values.find(
+    (value): value is string =>
+      typeof value === "string" && value.trim() !== "",
+  );
 
 const toMessageList = (value: unknown): string[] | null =>
-  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : null;
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : null;
 
 /**
  * Chuyển mọi lỗi của axios về ApiError. Request bị hủy được ném lại nguyên vẹn
@@ -63,7 +70,10 @@ export const toApiError = (error: unknown): ApiError => {
   if (error instanceof ApiError) {
     return error;
   }
-  if (axios.isCancel(error) || (axios.isAxiosError(error) && error.code === "ERR_CANCELED")) {
+  if (
+    axios.isCancel(error) ||
+    (axios.isAxiosError(error) && error.code === "ERR_CANCELED")
+  ) {
     throw error;
   }
 
@@ -77,7 +87,9 @@ export const toApiError = (error: unknown): ApiError => {
   }
 
   const { status } = response;
-  const body: Record<string, unknown> = isRecord(response.data) ? response.data : {};
+  const body: Record<string, unknown> = isRecord(response.data)
+    ? response.data
+    : {};
   const bodyError = isRecord(body.error) ? body.error : undefined;
 
   if (bodyError && typeof bodyError.code === "string") {
@@ -86,14 +98,23 @@ export const toApiError = (error: unknown): ApiError => {
   }
 
   // Nest mặc định để mảng ở body.message; HttpExceptionFilter của service bọc nó trong body.error
-  const validationMessages = toMessageList(body.message) ?? toMessageList(bodyError?.message);
+  const validationMessages =
+    toMessageList(body.message) ?? toMessageList(bodyError?.message);
   if (status === 400 && validationMessages) {
-    return new ApiError(status, "VALIDATION_FAILED", validationMessages.join("; "));
+    return new ApiError(
+      status,
+      "VALIDATION_FAILED",
+      validationMessages.join("; "),
+    );
   }
 
   const message =
-    firstString(bodyError?.message, body.message, body.error, axios.isAxiosError(error) ? error.message : undefined) ??
-    `HTTP ${status}`;
+    firstString(
+      bodyError?.message,
+      body.message,
+      body.error,
+      axios.isAxiosError(error) ? error.message : undefined,
+    ) ?? `HTTP ${status}`;
   return new ApiError(status, `HTTP_${status}`, message);
 };
 
@@ -102,7 +123,10 @@ export const apiGet = async <T>(
   options: { params?: Record<string, unknown>; signal?: AbortSignal } = {},
 ): Promise<T> => {
   try {
-    const response = await client.get<ApiEnvelope<T>, RawResponse<T>>(path, options);
+    const response = await client.get<ApiEnvelope<T>, RawResponse<T>>(
+      path,
+      options,
+    );
     return response.data.data;
   } catch (error) {
     throw toApiError(error);
@@ -115,7 +139,11 @@ export const apiPost = async <T>(
   options: { signal?: AbortSignal } = {},
 ): Promise<T> => {
   try {
-    const response = await client.post<ApiEnvelope<T>, RawResponse<T>>(path, body, options);
+    const response = await client.post<ApiEnvelope<T>, RawResponse<T>>(
+      path,
+      body,
+      options,
+    );
     return response.data.data;
   } catch (error) {
     throw toApiError(error);

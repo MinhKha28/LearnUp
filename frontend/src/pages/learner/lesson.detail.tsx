@@ -4,7 +4,11 @@ import { useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { LearnerSkeleton } from "@/components/learner/learner.states";
-import { LearnerButton, LearnerPage, StatusTag } from "@/components/learner/learner.ui";
+import {
+  LearnerButton,
+  LearnerPage,
+  StatusTag,
+} from "@/components/learner/learner.ui";
 import { LearningError } from "@/components/learner/learning.error";
 import { LessonMarkdown } from "@/components/learner/lesson.markdown";
 import { useApiQuery } from "@/hooks/use.api.query";
@@ -14,9 +18,15 @@ import { buildMaterialRow, completionMark } from "@/utils/curriculum.view";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import "./lesson.detail.scss";
 
-const MATERIAL_SOON = "Xem học liệu sẽ có ở bản cập nhật tiếp theo";
+const MATERIAL_SOON = "Học liệu Reading sẽ có ở phiên bản sau";
 
-const LessonBody = ({ data, enrollmentId }: { data: LessonDetailData; enrollmentId: string }) => {
+const LessonBody = ({
+  data,
+  enrollmentId,
+}: {
+  data: LessonDetailData;
+  enrollmentId: string;
+}) => {
   const navigate = useNavigate();
   const { lesson, materials, previousLesson, nextLesson } = data;
   const mark = completionMark(lesson.completed);
@@ -53,15 +63,35 @@ const LessonBody = ({ data, enrollmentId }: { data: LessonDetailData; enrollment
                     <strong>{row.title}</strong>
                     <div className="lesson-detail-material-meta">
                       <StatusTag tone="neutral">{row.typeLabel}</StatusTag>
-                      {row.isRequired && <StatusTag tone="warning">Bắt buộc</StatusTag>}
-                      {row.mark && <StatusTag tone={row.mark.tone}>{row.mark.label}</StatusTag>}
+                      {row.isRequired && (
+                        <StatusTag tone="warning">Bắt buộc</StatusTag>
+                      )}
+                      {row.mark && (
+                        <StatusTag tone={row.mark.tone}>
+                          {row.mark.label}
+                        </StatusTag>
+                      )}
                       {row.duration && <span>{row.duration}</span>}
                     </div>
                   </div>
                   {/* Nút bị vô hiệu không nhận sự kiện chuột, bọc span để tooltip vẫn hiện */}
-                  <Tooltip title={MATERIAL_SOON}>
+                  <Tooltip
+                    title={
+                      material.materialType === "Video"
+                        ? undefined
+                        : MATERIAL_SOON
+                    }
+                  >
                     <span className="lesson-detail-material-action">
-                      <LearnerButton disabled aria-label={`Mở học liệu ${row.title}. ${MATERIAL_SOON}`}>
+                      <LearnerButton
+                        disabled={material.materialType !== "Video"}
+                        onClick={() =>
+                          navigate(
+                            `/learner/courses/${enrollmentId}/lessons/${lesson.lessonId}/resources/${material.materialId}`,
+                          )
+                        }
+                        aria-label={`Mở học liệu ${row.title}`}
+                      >
                         Mở học liệu
                       </LearnerButton>
                     </span>
@@ -74,11 +104,18 @@ const LessonBody = ({ data, enrollmentId }: { data: LessonDetailData; enrollment
       </section>
 
       {(previousLesson || nextLesson) && (
-        <nav className="lesson-detail-neighbors" aria-label="Lesson trước và sau">
+        <nav
+          className="lesson-detail-neighbors"
+          aria-label="Lesson trước và sau"
+        >
           {previousLesson ? (
             <LearnerButton
               icon={<ArrowLeftOutlined />}
-              onClick={() => navigate(LEARNER_ROUTES.lesson(enrollmentId, previousLesson.lessonId))}
+              onClick={() =>
+                navigate(
+                  LEARNER_ROUTES.lesson(enrollmentId, previousLesson.lessonId),
+                )
+              }
             >
               {previousLesson.title}
             </LearnerButton>
@@ -90,7 +127,11 @@ const LessonBody = ({ data, enrollmentId }: { data: LessonDetailData; enrollment
               type="primary"
               icon={<ArrowRightOutlined />}
               iconPosition="end"
-              onClick={() => navigate(LEARNER_ROUTES.lesson(enrollmentId, nextLesson.lessonId))}
+              onClick={() =>
+                navigate(
+                  LEARNER_ROUTES.lesson(enrollmentId, nextLesson.lessonId),
+                )
+              }
             >
               {nextLesson.title}
             </LearnerButton>
@@ -111,18 +152,32 @@ const LessonDetail = () => {
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [lessonId]);
+  useEffect(() => {
+    window.addEventListener("learning-progress", query.reload);
+    return () => window.removeEventListener("learning-progress", query.reload);
+  }, [query.reload]);
 
   return (
     <LearnerPage className="lesson-detail">
-      <Link className="lesson-detail-back" to={LEARNER_ROUTES.curriculum(enrollmentId)}>
+      <Link
+        className="lesson-detail-back"
+        to={LEARNER_ROUTES.curriculum(enrollmentId)}
+      >
         <ArrowLeftOutlined aria-hidden="true" />
         <span>Chương trình học</span>
       </Link>
       {query.status === "loading" && <LearnerSkeleton variant="detail" />}
       {query.status === "error" && (
-        <LearningError error={query.error} context="lesson" enrollmentId={enrollmentId} onRetry={query.reload} />
+        <LearningError
+          error={query.error}
+          context="lesson"
+          enrollmentId={enrollmentId}
+          onRetry={query.reload}
+        />
       )}
-      {query.status === "success" && <LessonBody data={query.data} enrollmentId={enrollmentId} />}
+      {query.status === "success" && (
+        <LessonBody data={query.data} enrollmentId={enrollmentId} />
+      )}
     </LearnerPage>
   );
 };

@@ -53,3 +53,5 @@ coverage/
 .nyc_output/
 
 /perf/learning/results/
+/frontend/public/dev-media/
+/frontend/dev/uc27.2-results/

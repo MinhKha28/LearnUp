@@ -1,166 +1,112 @@
+import { Alert, Button, Progress, Spin, Tag } from "antd";
 import { useState } from "react";
-import { FlagOutlined } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
-import { courseDetails, findResource } from "@/components/learner/learner.data";
-import { InfoPanel, LearnerButton, LearnerPage, PageHeader, StatusTag } from "@/components/learner/learner.ui";
+import { useApiQuery } from "@/hooks/use.api.query";
+import { useVideoProgress } from "@/hooks/useVideoProgress";
+import { fetchVideoPlayback } from "@/services/learning.service";
+import type { VideoPlayback } from "@/types/learning.types";
+import { videoOutcome } from "@/utils/video.outcome";
 import "./lesson.resource.scss";
 
-const statusTone: Record<string, "success" | "warning" | "neutral"> = {
-  complete: "success",
-  "in-progress": "warning",
-  "not-started": "neutral",
-};
-
-const statusLabel: Record<string, string> = {
-  complete: "Complete",
-  "in-progress": "In progress",
-  "not-started": "Not started",
-};
-
-const LessonResource = () => {
-  const { enrollmentId: courseId, lessonId, resourceId } = useParams();
+function VideoPlayer({
+  playback,
+  enrollmentId,
+  lessonId,
+}: {
+  playback: VideoPlayback;
+  enrollmentId: string;
+  lessonId: string;
+}) {
   const navigate = useNavigate();
-  const course = courseId ? courseDetails[courseId] : undefined;
-  const found = course ? findResource(course, lessonId, resourceId) : undefined;
-  const [completed, setCompleted] = useState(false);
-
-  if (!course || !found) {
-    return (
-      <LearnerPage className="lesson-resource">
-        <PageHeader eyebrow="COURSE / LESSON" title="Resource not found" subtitle="" back />
-        <LearnerButton onClick={() => navigate(`/learner/courses/${courseId ?? ""}`)}>
-          Back to Course
-        </LearnerButton>
-      </LearnerPage>
-    );
-  }
-
-  const { module, lesson, resource } = found;
-  const isComplete = completed || resource.status === "complete";
-  const otherResources = lesson.resources.filter(
-    (item) => item.id !== resource.id && item.required,
+  const { video, progress, warning, events, flush } = useVideoProgress(
+    enrollmentId,
+    playback,
   );
-  const nextResource = lesson.resources[lesson.resources.findIndex((item) => item.id === resource.id) + 1];
-  const moduleIndex = course.modules.findIndex((item) => item.id === module.id) + 1;
-  const lessonIndex = module.lessons.findIndex((item) => item.id === lesson.id) + 1;
-
+  const [rate, setRate] = useState(1);
   return (
-    <>
-      <PageHeader
-        eyebrow={`COURSE / LESSON / ${resource.type === "video" ? "VIDEO" : "READING"}`}
-        title={resource.title}
-        subtitle={
-          resource.type === "video"
-            ? `${course.title} / Module ${moduleIndex} / Lesson ${lessonIndex}`
-            : `Reading / ${course.title} / Module ${moduleIndex}`
-        }
+    <section className="lesson-resource">
+      <Button
+        onClick={async () => {
+          video.current?.pause();
+          await flush();
+          navigate(`/learner/courses/${enrollmentId}/lessons/${lessonId}`);
+        }}
+      >
+        Về Lesson
+      </Button>
+      <h1>{playback.title}</h1>
+      {progress.completed && <Tag color="success">Đã hoàn thành</Tag>}
+      <video
+        ref={video}
+        {...events}
+        src={playback.playbackUrl}
+        controls
+        controlsList="noplaybackrate"
+        preload="metadata"
+        aria-label={playback.title}
       />
-      <div className="course-learning-main">
-          <div className="course-learning-content lesson-resource-card">
-            {resource.type === "video" ? (
-              <>
-                <div className="lesson-resource-video">
-                  <span className="lesson-resource-play">▶</span>
-                  <div className="lesson-resource-track">
-                    <span style={{ width: isComplete ? "100%" : "35%" }} />
-                  </div>
-                </div>
-                <p className="lesson-resource-caption">Video progress is saved as you watch.</p>
-                <InfoPanel title="Automatic completion">
-                  The resource completes after the configured viewing threshold.
-                </InfoPanel>
-              </>
-            ) : (
-              <>
-                <h3>{resource.title}</h3>
-                <p className="lesson-resource-meta">
-                  Reading resource • {resource.required ? "Required" : "Optional"}
-                </p>
-                <hr />
-                <p>Review the guidance and examples provided in this resource.</p>
-                <p>Follow the procedures defined by your Organization.</p>
-                <p>Use the course materials as the reference for your learning.</p>
-                <hr />
-                <div className="lesson-resource-mark-row">
-                  <p>Mark this Reading complete after you finish it.</p>
-                  <LearnerButton
-                    type="primary"
-                    disabled={isComplete}
-                    onClick={() => setCompleted(true)}
-                  >
-                    {isComplete ? "Marked complete" : "Mark as complete"}
-                  </LearnerButton>
-                </div>
-              </>
-            )}
-          </div>
-          <div className="course-learning-side">
-            <div className="lesson-resource-panel">
-              {resource.type === "video" ? (
-                <>
-                  <h3>This Lesson</h3>
-                  <p>{resource.title}</p>
-                  {otherResources.map((item) => (
-                    <p key={item.id}>{item.title}</p>
-                  ))}
-                  <StatusTag tone={isComplete ? "success" : statusTone[resource.status]}>
-                    {isComplete ? "Complete" : statusLabel[resource.status]}
-                  </StatusTag>
-                </>
-              ) : (
-                <>
-                  <h3>Lesson resources</h3>
-                  {lesson.resources
-                    .filter((item) => item.required)
-                    .map((item) => (
-                    <StatusTag
-                      key={item.id}
-                      tone={
-                        item.id === resource.id && isComplete
-                          ? "success"
-                          : statusTone[item.status]
-                      }
-                    >
-                      {item.type === "video" ? "Video" : "Reading"}{" "}
-                      {item.id === resource.id && isComplete
-                        ? "complete"
-                        : item.status === "complete"
-                          ? "complete"
-                          : item.status === "in-progress"
-                            ? "in progress"
-                            : "pending"}
-                    </StatusTag>
-                  ))}
-                </>
-              )}
-              {nextResource && (
-                <LearnerButton
-                  className="lesson-resource-next"
-                  onClick={() =>
-                    navigate(
-                      `/learner/courses/${course.id}/lessons/${lesson.id}/resources/${nextResource.id}`,
-                    )
-                  }
-                >
-                  Next resource
-                </LearnerButton>
-              )}
-              <LearnerButton
-                className="lesson-resource-report"
-                icon={<FlagOutlined />}
-                onClick={() =>
-                  navigate(
-                    `/learner/courses/${course.id}/lessons/${lesson.id}/resources/${resource.id}/report`,
-                  )
-                }
-              >
-                Report content
-              </LearnerButton>
-            </div>
-          </div>
-        </div>
-    </>
+      <label>
+        Tốc độ phát{" "}
+        <select
+          aria-label="Tốc độ phát"
+          value={rate}
+          onChange={(e) => {
+            const value = Number(e.target.value);
+            setRate(value);
+            if (video.current) video.current.playbackRate = value;
+          }}
+        >
+          {[0.5, 0.75, 1, 1.25, 1.5, 2]
+            .filter((r) => r <= progress.maxPlaybackRate)
+            .map((r) => (
+              <option key={r} value={r}>
+                {r.toLocaleString("vi-VN")}×
+              </option>
+            ))}
+        </select>
+      </label>
+      <Progress
+        percent={Math.min(
+          100,
+          Math.floor(
+            (progress.watchedSeconds / progress.requiredSeconds) * 100,
+          ),
+        )}
+        status={progress.completed ? "success" : "active"}
+      />
+      <p>
+        Đã xem {progress.watchedSeconds} / {progress.requiredSeconds} giây cần
+        thiết (Video {progress.durationSeconds} giây).
+      </p>
+      {warning && <Alert type="warning" message={warning} showIcon />}
+      <p>
+        Tiến độ được lưu mỗi {progress.heartbeatSeconds} giây. Không đổi Học
+        viên trong proxy khi Video đang phát.
+      </p>
+    </section>
   );
-};
-
-export default LessonResource;
+}
+export default function LessonResource() {
+  const { enrollmentId = "", lessonId = "", resourceId = "" } = useParams();
+  const query = useApiQuery(
+    (signal) => fetchVideoPlayback(enrollmentId, resourceId, signal),
+    [enrollmentId, resourceId],
+  );
+  if (query.status === "loading") return <Spin aria-label="Đang tải Video" />;
+  if (query.status === "error")
+    return (
+      <Alert
+        type="error"
+        message={videoOutcome(query.error)}
+        action={<Button onClick={query.reload}>Thử lại</Button>}
+      />
+    );
+  return (
+    <VideoPlayer
+      key={enrollmentId + resourceId}
+      playback={query.data}
+      enrollmentId={enrollmentId}
+      lessonId={lessonId}
+    />
+  );
+}
