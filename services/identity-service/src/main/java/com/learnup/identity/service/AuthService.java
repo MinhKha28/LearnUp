@@ -12,6 +12,7 @@ import com.learnup.identity.exception.SignInDeniedException;
 import com.learnup.identity.repository.RefreshTokenRepository;
 import com.learnup.identity.repository.UserRepository;
 import com.learnup.identity.mapper.UserMapper;
+import com.learnup.identity.security.AuthenticationDiagnostics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -70,12 +71,14 @@ public class AuthService {
         }
 
         if (!user.isEnabled()) {
-            log.warn("Login attempt for disabled account: '{}'", identifier);
+            log.warn("event=login_rejected reason=ACCOUNT_DISABLED user_id={} correlation_id={}",
+                    user.getId(), AuthenticationDiagnostics.correlationId());
             throw BusinessException.unauthorized("User account is disabled");
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            log.warn("Invalid password attempt for account: '{}'", identifier);
+            log.warn("event=login_rejected reason=INVALID_PASSWORD user_id={} correlation_id={}",
+                    user.getId(), AuthenticationDiagnostics.correlationId());
             loginThrottleService.recordFailure(identifier);
             throw BusinessException.unauthorized("Invalid username or password");
         }
@@ -83,14 +86,15 @@ public class AuthService {
 
         SignInAccess access = tenantAccessClient.check(user.getId());
         if (!access.allowed()) {
-            log.warn("Sign-in denied for user [{}]: {}", user.getId(), access.reason());
+            log.warn("event=login_rejected reason={} user_id={} correlation_id={}",
+                    SignInDeniedException.normalizeReason(access.reason()), user.getId(), AuthenticationDiagnostics.correlationId());
             if ("ACCOUNT_NOT_FOUND".equals(access.reason())) {
                 throw BusinessException.unauthorized("Invalid username or password");
             }
             throw new SignInDeniedException(access.reason());
         }
 
-        log.info("User [{}] successfully authenticated", user.getUsername());
+        log.info("event=login_succeeded user_id={} correlation_id={}", user.getId(), AuthenticationDiagnostics.correlationId());
 
         String accessToken = jwtTokenService.generateAccessToken(user);
         String rawRefreshToken = createAndPersistRefreshToken(user.getId());
@@ -131,7 +135,8 @@ public class AuthService {
         SignInAccess access = tenantAccessClient.check(user.getId());
         if (!access.allowed()) {
             refreshTokenRepository.deleteByUserId(user.getId());
-            log.warn("Refresh denied and sessions revoked for user [{}]: {}", user.getId(), access.reason());
+            log.warn("event=refresh_rejected reason={} user_id={} correlation_id={}",
+                    SignInDeniedException.normalizeReason(access.reason()), user.getId(), AuthenticationDiagnostics.correlationId());
             throw new SignInDeniedException(access.reason());
         }
 
@@ -227,7 +232,7 @@ public class AuthService {
         if (user == null || !user.isEnabled()) {
             // Mitigate email enumeration attack: return quietly without disclosing email
             // non-existence
-            log.info("Forgot password requested for non-existent or disabled email: '{}'", email);
+            log.info("event=password_recovery_ignored reason=ACCOUNT_UNAVAILABLE correlation_id={}", AuthenticationDiagnostics.correlationId());
             return;
         }
 
@@ -245,8 +250,8 @@ public class AuthService {
         resetToken.setExpiresAt(expiresAt);
 
         passwordResetTokenRepository.save(resetToken);
-        log.info("Generated password reset token for user [{}] (email: '{}'). Reset token: {}",
-                user.getId(), email, rawToken);
+        log.info("event=password_recovery_token_created user_id={} correlation_id={}",
+                user.getId(), AuthenticationDiagnostics.correlationId());
     }
 
     @Transactional

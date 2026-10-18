@@ -1,6 +1,7 @@
 package com.learnup.identity.exception;
 
 import com.learnup.common.response.ApiResponse;
+import com.learnup.identity.security.AuthenticationDiagnostics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
@@ -38,7 +39,9 @@ public class SignInExceptionHandler {
 
     @ExceptionHandler(TenantUnavailableException.class)
     public ResponseEntity<ApiResponse<Void>> handleTenantUnavailable(TenantUnavailableException ex) {
-        log.error("tenant-service sign-in access check failed", ex.getCause());
+        log.error("event=tenant_access_check_failed reason=TENANT_UNAVAILABLE exception_type={} location={} correlation_id={}",
+                AuthenticationDiagnostics.exceptionType(ex.getCause()), AuthenticationDiagnostics.location(ex.getCause()),
+                AuthenticationDiagnostics.correlationId());
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(ApiResponse.error("TENANT_UNAVAILABLE", ex.getMessage()));
     }

@@ -22,6 +22,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -32,6 +34,7 @@ import java.util.UUID;
 
 /** Identity-only boundary. Raw forwarded identity headers are never principal evidence. */
 public final class IdentityRequestAuthenticationFilter extends OncePerRequestFilter {
+    private static final Logger log = LoggerFactory.getLogger(IdentityRequestAuthenticationFilter.class);
 
     public static final String CREDENTIALS_PATH = "/api/internal/credentials";
     private static final Set<String> USER_PATHS = Set.of(
@@ -65,11 +68,13 @@ public final class IdentityRequestAuthenticationFilter extends OncePerRequestFil
         SecurityContextHolder.clearContext();
         RequestContextHolder.clear();
         String correlationId = request.getHeader(HeaderConstants.X_CORRELATION_ID);
-        if (correlationId == null || correlationId.isBlank()) {
+        if (!AuthenticationDiagnostics.isCorrelationId(correlationId)) {
             correlationId = UUID.randomUUID().toString();
         }
         response.setHeader(HeaderConstants.X_CORRELATION_ID, correlationId);
         try {
+            // Tracing metadata does not establish an authenticated user, including on public routes.
+            RequestContextHolder.set(RequestContext.builder().correlationId(correlationId).build());
             String path = request.getServletPath();
             // MockMvc and servlet containers without a servletPath use the context-relative URI.
             if (path.isEmpty()) {
@@ -78,6 +83,7 @@ public final class IdentityRequestAuthenticationFilter extends OncePerRequestFil
             boolean credentialsRequest = CREDENTIALS_PATH.equals(path);
             if (credentialsRequest || USER_PATHS.contains(path)) {
                 if (!hasInternalKey(request)) {
+                    log.warn("event=authentication_rejected reason=INVALID_INTERNAL_CREDENTIAL correlation_id={}", correlationId);
                     writeError(response, objectMapper, credentialsRequest ? 403 : 401);
                     return;
                 }
@@ -108,6 +114,7 @@ public final class IdentityRequestAuthenticationFilter extends OncePerRequestFil
                                 .organizationId(organizationId == null ? null : organizationId.toString())
                                 .correlationId(correlationId).build());
                     } catch (JwtException | IllegalArgumentException ex) {
+                        log.warn("event=authentication_rejected reason=INVALID_ACCESS_CREDENTIAL correlation_id={}", correlationId);
                         writeError(response, objectMapper, 401);
                         return;
                     }
