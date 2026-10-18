@@ -10,7 +10,8 @@ import "./course.builder.scss";
 const CourseBuilder = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { structure, assignments } = useOutletContext<ICourseBuilderOutletContext>();
+  const { structure, assignments } =
+    useOutletContext<ICourseBuilderOutletContext>();
 
   const course = structure.course;
   const base = `/instructor/courses/${course.id}/builder`;
@@ -24,7 +25,19 @@ const CourseBuilder = () => {
           <p>Organize this Course into Modules and Lessons.</p>
         </div>
       </div>
-
+      {course.status !== "Submitted" && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: 20,
+          }}
+        >
+          <InstructorButton onClick={() => navigate(`${base}/structure/edit`)}>
+            Edit Structure
+          </InstructorButton>
+        </div>
+      )}
       {structure.structureLocked && structure.lockReason && (
         <div className="builder-banner">
           <strong>
@@ -108,19 +121,37 @@ const CourseBuilder = () => {
             <div className="builder-structure-module-header">
               <h2>Assignments</h2>
               <div style={{ display: "flex", gap: 8 }}>
-                <InstructorButton onClick={() => navigate(`${base}/assignments`)}>View all Assignments</InstructorButton>
-                <InstructorButton onClick={() => navigate(`${base}/assignments/new`, { state: { from: pathname } })}>+ Add Assignment</InstructorButton>
+                <InstructorButton
+                  onClick={() => navigate(`${base}/assignments`)}
+                >
+                  View all Assignments
+                </InstructorButton>
+                <InstructorButton
+                  onClick={() =>
+                    navigate(`${base}/assignments/new`, {
+                      state: { from: pathname },
+                    })
+                  }
+                >
+                  + Add Assignment
+                </InstructorButton>
               </div>
             </div>
             <div className="builder-structure-lessons">
               {assignments.length === 0 && (
-                <p className="builder-structure-empty-lessons">No Assignments yet.</p>
+                <p className="builder-structure-empty-lessons">
+                  No Assignments yet.
+                </p>
               )}
               {assignments.map((assignment, index) => (
                 <button
                   key={assignment.id}
                   type="button"
-                  onClick={() => navigate(`${base}/assignments/${assignment.id}`, { state: { from: pathname } })}
+                  onClick={() =>
+                    navigate(`${base}/assignments/${assignment.id}`, {
+                      state: { from: pathname },
+                    })
+                  }
                 >
                   <span>
                     {index + 1}. {assignment.title}

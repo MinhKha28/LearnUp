@@ -21,6 +21,7 @@ import { OrganizationCourseListQueryDto } from '@courses/dto/organization-course
 import { FileInterceptor } from '@nestjs/platform-express/multer/interceptors/file.interceptor';
 import { COURSE_COVER_MAX_SIZE_BYTES } from './course-values';
 import { UpdateCourseDto } from './dto/update-course.dto';
+import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -120,5 +121,15 @@ export class CoursesController {
     @Param('courseId', ParseUUIDPipe) courseId: string,
   ) {
     return this.coursesService.findDetail(user, courseId);
+  }
+
+  @Put(':courseId/structure')
+  @ResponseMessage('Course structure updated successfully')
+  updateStructure(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Body() dto: UpdateCourseStructureDto,
+  ) {
+    return this.coursesService.updateStructure(user, courseId, dto);
   }
 }

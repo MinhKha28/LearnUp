@@ -132,11 +132,6 @@ export interface IOrganizationCourseListQuery {
   pageSize?: number;
 }
 
-export interface IOrganizationCourseInstructor {
-  id: string;
-  fullName: string;
-}
-
 export interface IOrganizationCourseListItem {
   id: string;
   chainId: string;
@@ -210,4 +205,25 @@ export interface IUpdateCourseRequest {
 
 export interface IUpdateCourseResponse extends ICourseDetail {
   courseTypeChanged: boolean;
+}
+
+export interface IUpdateStructureLesson {
+  id: string;
+  title: string;
+}
+
+export interface IUpdateStructureModule {
+  id: string;
+  title: string;
+  lessons: IUpdateStructureLesson[];
+}
+
+export interface IUpdateCourseStructureRequest {
+  modules: IUpdateStructureModule[];
+}
+
+export interface IUpdateCourseStructureResponse {
+  updated: boolean;
+  titleChanged: boolean;
+  orderChanged: boolean;
 }

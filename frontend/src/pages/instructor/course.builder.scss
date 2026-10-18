@@ -353,3 +353,154 @@
 .builder-create-form .ant-input-textarea textarea {
   resize: vertical;
 }
+
+
+/* =========================
+   UC15.3 - EDIT STRUCTURE
+========================= */
+
+.builder-structure-edit-page {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.builder-structure-edit-header {
+  margin-bottom: 22px;
+
+  h1 {
+    margin: 4px 0 8px;
+    font-size: 26px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+  }
+}
+
+.builder-structure-edit-alert {
+  margin-bottom: 20px;
+}
+
+.builder-structure-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.builder-structure-edit-module {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.builder-structure-edit-module-header {
+  display: flex;
+  padding: 20px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.builder-structure-edit-title {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+.builder-structure-edit-field {
+  flex: 1;
+  min-width: 0;
+
+  label {
+    display: block;
+    margin-bottom: 8px;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+.builder-structure-edit-controls {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.builder-structure-edit-lessons {
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.builder-structure-edit-lesson {
+  display: flex;
+  padding: 16px 20px 16px 64px;
+  align-items: flex-end;
+  gap: 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.builder-structure-edit-lesson:last-child {
+  border-bottom: none;
+}
+
+.builder-structure-edit-index {
+  width: 32px;
+  padding-bottom: 8px;
+  flex-shrink: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.builder-structure-edit-empty,
+.builder-structure-edit-empty-lessons {
+  padding: 18px 20px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.builder-structure-edit-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.builder-structure-edit-actions {
+  display: flex;
+  margin-top: 24px;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Responsive */
+@media (max-width: 700px) {
+  .builder-structure-edit-module-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .builder-structure-edit-lesson {
+    padding: 14px;
+    flex-wrap: wrap;
+  }
+
+  .builder-structure-edit-controls {
+    justify-content: flex-end;
+  }
+
+  .builder-structure-edit-actions {
+    flex-direction: column-reverse;
+  }
+
+  .builder-structure-edit-actions button {
+    width: 100%;
+  }
+}
