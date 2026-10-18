@@ -146,6 +146,6 @@ export async function seedWithdrawalDemo(
       )}`;
   });
   console.log(
-    'UC25.4: Học viên 4 có Course 02 → DELETED, Course 03 → WITHDRAWN rồi khôi phục tiến độ. Danh tính chỉ có ở proxy dev, không có trong tenant/UC24.2.',
+    'UC25.4: Học viên 4 (tenant ABC a206) có Course X → DELETED, Course Y → WITHDRAWN rồi khôi phục tiến độ.',
   );
 }
