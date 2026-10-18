@@ -167,11 +167,13 @@ services:
       context: .
       dockerfile: services/notification-service/Dockerfile
     container_name: learnup-notification-service
-    ports:
-      - "8082:8082"
+    # Email delivery is a private, authenticated service channel (Identity and Tenant).
+    expose:
+      - "8082"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/

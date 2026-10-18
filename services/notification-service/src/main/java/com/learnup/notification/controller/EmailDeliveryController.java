@@ -6,8 +6,10 @@ import com.learnup.notification.dto.EmailLogResponse;
 import com.learnup.notification.dto.SendEmailRequest;
 import com.learnup.common.context.HeaderConstants;
 import com.learnup.notification.security.ServiceCallOnly;
+import com.learnup.notification.security.EmailServiceAuthenticationFilter;
 import com.learnup.notification.service.EmailDeliveryService;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -27,8 +29,10 @@ public class EmailDeliveryController {
 
     @PostMapping("/send")
     public ResponseEntity<ApiResponse<EmailLogResponse>> sendEmail(
+            HttpServletRequest servletRequest,
             @RequestHeader(value = HeaderConstants.X_USER_ID, required = false) String headerUserId,
             @Valid @RequestBody SendEmailRequest request) {
+        EmailServiceAuthenticationFilter.requireAuthenticatedService(servletRequest);
         ServiceCallOnly.require(headerUserId);
         EmailLogResponse response = emailDeliveryService.sendEmail(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
@@ -36,9 +40,11 @@ public class EmailDeliveryController {
 
     @GetMapping("/logs")
     public ResponseEntity<ApiResponse<PageResponse<EmailLogResponse>>> getEmailLogs(
+            HttpServletRequest servletRequest,
             @RequestHeader(value = HeaderConstants.X_USER_ID, required = false) String headerUserId,
             @RequestParam(required = false) String recipientEmail,
             @PageableDefault(size = 20, sort = "sentAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        EmailServiceAuthenticationFilter.requireAuthenticatedService(servletRequest);
         ServiceCallOnly.require(headerUserId);
         PageResponse<EmailLogResponse> response = emailDeliveryService.getEmailLogs(recipientEmail, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));

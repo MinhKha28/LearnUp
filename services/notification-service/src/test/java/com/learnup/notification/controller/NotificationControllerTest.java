@@ -115,16 +115,18 @@ class NotificationControllerTest {
         );
 
         mockMvc.perform(post("/api/notifications/email/send")
+                        .header("X-Internal-Key", "notification-test-only-internal-key-32bytes")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(emailReq)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").isNotEmpty())
                 .andExpect(jsonPath("$.data.recipientEmail").value("learner@learnup.com"))
-                .andExpect(jsonPath("$.data.status").value("SENT"));
+                .andExpect(jsonPath("$.data.status").value("SIMULATED"));
 
         // Query logs
         mockMvc.perform(get("/api/notifications/email/logs")
+                        .header("X-Internal-Key", "notification-test-only-internal-key-32bytes")
                         .param("recipientEmail", "learner@learnup.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -167,12 +169,14 @@ class NotificationControllerTest {
         );
 
         mockMvc.perform(post("/api/v1/notifications/email/send")
+                        .header("X-Internal-Key", "notification-test-only-internal-key-32bytes")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(emailReq)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true));
 
         mockMvc.perform(get("/api/v1/notifications/email/logs")
+                        .header("X-Internal-Key", "notification-test-only-internal-key-32bytes")
                         .param("recipientEmail", "v1recipient@learnup.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
