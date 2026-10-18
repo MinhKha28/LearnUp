@@ -195,7 +195,13 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
           <section className="instructor-lesson-card">
             <div className="instructor-lesson-card-heading">
               <h2>Learning materials</h2>
-              <span>{materials.length} total</span>
+              <InstructorButton
+                onClick={() =>
+                  navigate(`${base}/lessons/${lesson.id}/materials`)
+                }
+              >
+                View all materials ({materials.length})
+              </InstructorButton>
             </div>
 
             {materials.length === 0 ? (
