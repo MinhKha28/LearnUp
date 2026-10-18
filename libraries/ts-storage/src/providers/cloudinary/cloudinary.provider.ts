@@ -110,28 +110,76 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     },
   ): Promise<UploadApiResponse> {
     return new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: options.folder,
-          public_id: options.publicId,
-          resource_type: options.resourceType ?? "auto",
-          overwrite: options.overwrite,
-          tags: options.tags,
-        },
-        (error, result) => {
-          if (error || !result) {
-            reject(
-              new StorageProviderError("Cloudinary upload stream failed.", {
-                cause: error ?? undefined,
-              }),
-            );
-            return;
-          }
+      const uploadOptions = {
+        folder: options.folder,
+        public_id: options.publicId,
+        resource_type: options.resourceType ?? "auto",
+        overwrite: options.overwrite,
+        tags: options.tags,
+      };
 
-          resolve(result);
-        },
-      );
+      const onResult = (
+        error: unknown,
+        result: UploadApiResponse | undefined,
+      ) => {
+        if (error) {
+          reject(
+            new StorageProviderError("Cloudinary upload failed.", {
+              cause: error,
+            }),
+          );
+          return;
+        }
 
+        // Chunked upload có thể trả kết quả trung gian.
+        // Chỉ kết thúc Promise sau chunk cuối cùng.
+        if (
+          (
+            result as
+              | (UploadApiResponse & {
+                  done?: boolean;
+                })
+              | undefined
+          )?.done === false
+        ) {
+          return;
+        }
+
+        if (!result?.public_id) {
+          reject(
+            new StorageProviderError(
+              "Cloudinary did not return a completed upload.",
+            ),
+          );
+          return;
+        }
+
+        resolve(result);
+      };
+
+      // Video: chunk upload để hỗ trợ file >100 MB.
+      // Các file khác vẫn giữ đường upload hiện tại.
+      const stream =
+        options.resourceType === "video"
+          ? cloudinary.uploader.upload_chunked_stream(
+              {
+                ...uploadOptions,
+                resource_type: "video",
+                chunk_size: 20 * 1024 * 1024,
+              },
+              onResult,
+            )
+          : cloudinary.uploader.upload_stream(uploadOptions, onResult);
+
+      stream.on("error", (error) => {
+        reject(
+          new StorageProviderError("Cloudinary upload stream failed.", {
+            cause: error,
+          }),
+        );
+      });
+
+      // Giữ Buffer: không thay đổi Interface thư viện.
       stream.end(file.buffer);
     });
   }

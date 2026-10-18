@@ -17,4 +17,11 @@ export class SubscriptionsController {
   getCurrent(@User() user: CurrentUser) {
     return this.subscriptionsService.getOverview(user);
   }
+
+  @Roles('INSTRUCTOR')
+  @Get('internal/instructor-material-upload-policy')
+  @ResponseMessage('Material upload policy retrieved successfully')
+  getInstructorMaterialUploadPolicy(@User() user: CurrentUser) {
+    return this.subscriptionsService.getInstructorMaterialUploadPolicy(user);
+  }
 }

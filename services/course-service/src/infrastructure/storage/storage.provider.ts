@@ -2,34 +2,26 @@ import {
   CloudinaryStorageProvider,
   StorageProviderError,
   type IStorageProvider,
-  type IStorageFileInput,
-  type IStorageUploadOptions,
-  type IStorageDeleteOptions,
   type IStoredFile,
-  type StoredResourceType,
 } from '@learnup/ts-storage';
 import { ConfigService } from '@nestjs/config';
 
 class UnconfiguredStorageProvider implements IStorageProvider {
-  async upload(
-    _file: IStorageFileInput,
-    _options: IStorageUploadOptions,
-  ): Promise<IStoredFile> {
-    throw new StorageProviderError(
-      'Cloudinary credentials are not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to enable file uploads.',
+  upload(): Promise<IStoredFile> {
+    return Promise.reject(
+      new StorageProviderError(
+        'Cloudinary credentials are not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to enable file uploads.',
+      ),
     );
   }
 
-  async delete(
-    _storageKey: string,
-    _options: IStorageDeleteOptions,
-  ): Promise<void> {
-    throw new StorageProviderError(
-      'Cloudinary credentials are not configured.',
+  delete(): Promise<void> {
+    return Promise.reject(
+      new StorageProviderError('Cloudinary credentials are not configured.'),
     );
   }
 
-  getUrl(_storageKey: string, _resourceType: StoredResourceType): string {
+  getUrl(): string {
     throw new StorageProviderError(
       'Cloudinary credentials are not configured.',
     );

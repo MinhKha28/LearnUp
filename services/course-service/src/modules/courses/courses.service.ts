@@ -2,6 +2,7 @@ import {
   COURSE_COVER_MAX_SIZE_BYTES,
   COURSE_COVER_MIME_TYPES,
   COURSE_STATUS,
+  VIDEO_UPLOAD_BUFFER_MAX_BYTES,
 } from './course-values';
 import { CurrentUser } from '@learnup/ts-common';
 import {
@@ -11,6 +12,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  PayloadTooLargeException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { CourseListQueryDto } from './dto/course-list-query.dto';
@@ -33,6 +35,7 @@ import { CourseAuthoringContext } from './interfaces/courses.interface';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
 import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
+import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
 
 @Injectable()
 export class CoursesService {
@@ -975,5 +978,359 @@ export class CoursesService {
       id: lessonId,
       content: dto.content,
     };
+  }
+
+  async getVideoUploadContext(
+    user: CurrentUser,
+    courseId: string,
+    lessonId: string,
+  ) {
+    if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
+      throw new ForbiddenException('Only Instructor can add Video materials.');
+    }
+
+    const lesson = await this.coursesRepository.findLessonForVideoUpload(
+      courseId,
+      lessonId,
+      user.organizationId,
+      user.userId,
+    );
+
+    if (!lesson) {
+      throw new NotFoundException('Lesson not found.');
+    }
+
+    const [settings, policy, usedBytes] = await Promise.all([
+      this.coursesRepository.getVideoSettings(),
+
+      this.tenantClient.getInstructorMaterialUploadPolicy(user),
+
+      this.coursesRepository.getOrganizationStoredBytes(user.organizationId),
+    ]);
+
+    if (!settings) {
+      throw new ServiceUnavailableException(
+        'Platform Video settings are unavailable.',
+      );
+    }
+
+    const course = lesson.module.course;
+
+    const courseBlocked =
+      course.status === COURSE_STATUS.SUBMITTED ||
+      course.disabledAt !== null ||
+      lesson.disabledAt !== null;
+
+    const maxTransportBytes = BigInt(VIDEO_UPLOAD_BUFFER_MAX_BYTES);
+
+    const effectiveMaxBytes =
+      settings.maxVideoSizeBytes < maxTransportBytes
+        ? settings.maxVideoSizeBytes
+        : maxTransportBytes;
+
+    const storageLimit = BigInt(policy.maxStorageBytes);
+
+    const remainingBytes =
+      storageLimit > usedBytes ? storageLimit - usedBytes : 0n;
+
+    return {
+      courseName: course.name,
+      lessonTitle: lesson.title,
+      locked: course.lockedAt !== null,
+
+      subscriptionStatus: policy.subscriptionStatus,
+      canUpload: policy.canUpload && !courseBlocked,
+
+      blockReason: courseBlocked ? 'COURSE_NOT_EDITABLE' : policy.reason,
+
+      maxVideoSizeBytes: effectiveMaxBytes.toString(),
+      maxVideoDurationMinutes: settings.maxVideoDurationMinutes,
+      allowedVideoMimeTypes: settings.allowedVideoMimeTypes,
+
+      maxStorageBytes: policy.maxStorageBytes,
+      usedStorageBytes: usedBytes.toString(),
+      remainingStorageBytes: remainingBytes.toString(),
+    };
+  }
+
+  private validateVideoSignature(file: Express.Multer.File): string {
+    const buffer = file.buffer;
+
+    // Container MP4/MOV thường có box 'ftyp' tại byte 4.
+    const isIsoMedia =
+      buffer.length >= 12 && buffer.toString('ascii', 4, 8) === 'ftyp';
+
+    // WebM bắt đầu bằng EBML magic bytes.
+    const isWebm =
+      buffer.length >= 4 &&
+      buffer[0] === 0x1a &&
+      buffer[1] === 0x45 &&
+      buffer[2] === 0xdf &&
+      buffer[3] === 0xa3;
+
+    switch (file.mimetype) {
+      case 'video/mp4':
+        if (isIsoMedia) return 'mp4';
+        break;
+
+      case 'video/webm':
+        if (isWebm) return 'webm';
+        break;
+
+      case 'video/quicktime':
+        if (isIsoMedia) return 'mov';
+        break;
+    }
+
+    throw new BadRequestException('Invalid or unsupported Video file format.');
+  }
+
+  async uploadVideoMaterial(
+    user: CurrentUser,
+    courseId: string,
+    lessonId: string,
+    dto: CreateVideoMaterialDto,
+    file?: Express.Multer.File,
+  ) {
+    // 1. Phân quyền.
+    if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
+      throw new ForbiddenException('Only Instructor can add Video materials.');
+    }
+
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Video file is required.');
+    }
+
+    const organizationId = user.organizationId;
+    const title = dto.title.trim();
+
+    if (!title) {
+      throw new BadRequestException('Video title cannot be empty.');
+    }
+
+    if (file.originalname.length > 255) {
+      throw new BadRequestException('Original Video filename is too long.');
+    }
+
+    // 2. Kiểm tra Lesson / Course / BR-286.
+    const lesson = await this.coursesRepository.findLessonForVideoUpload(
+      courseId,
+      lessonId,
+      organizationId,
+      user.userId,
+    );
+
+    if (!lesson) {
+      throw new NotFoundException('Lesson not found.');
+    }
+
+    const course = lesson.module.course;
+
+    if (course.status === COURSE_STATUS.SUBMITTED) {
+      throw new ConflictException('Submitted Course cannot be edited.');
+    }
+
+    if (course.disabledAt !== null || lesson.disabledAt !== null) {
+      throw new ConflictException(
+        'Disabled Course or Lesson cannot receive materials.',
+      );
+    }
+
+    if (course.lockedAt !== null && dto.isRequired) {
+      throw new ConflictException(
+        'BR-286: Locked Course only accepts Optional materials.',
+      );
+    }
+
+    // 3. Lấy giới hạn Video từ Platform Settings.
+    const settings = await this.coursesRepository.getVideoSettings();
+
+    if (!settings) {
+      throw new ServiceUnavailableException(
+        'Platform Video settings are unavailable.',
+      );
+    }
+
+    const effectiveMaxBytes =
+      settings.maxVideoSizeBytes < BigInt(VIDEO_UPLOAD_BUFFER_MAX_BYTES)
+        ? settings.maxVideoSizeBytes
+        : BigInt(VIDEO_UPLOAD_BUFFER_MAX_BYTES);
+
+    if (file.size <= 0 || !Number.isSafeInteger(file.size)) {
+      throw new BadRequestException('Invalid Video size.');
+    }
+
+    if (BigInt(file.size) > effectiveMaxBytes) {
+      throw new PayloadTooLargeException(
+        'Video exceeds the allowed size limit.',
+      );
+    }
+
+    if (!settings.allowedVideoMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Video MIME type is not allowed.');
+    }
+
+    // Kiểm tra nội dung file, không chỉ tin MIME.
+    const expectedFormat = this.validateVideoSignature(file);
+
+    // 4. Kiểm tra Subscription: chỉ Active còn hạn.
+    const policy =
+      await this.tenantClient.getInstructorMaterialUploadPolicy(user);
+
+    if (!policy.canUpload) {
+      throw new ForbiddenException(
+        policy.reason === 'SUBSCRIPTION_GRACE'
+          ? 'Video uploads are blocked during Subscription Grace.'
+          : policy.reason === 'SUBSCRIPTION_SUSPENDED'
+            ? 'Video uploads are blocked while Subscription is Suspended.'
+            : 'Subscription does not allow Video uploads.',
+      );
+    }
+
+    // 5. Kiểm tra quota trước khi gửi Cloudinary.
+    const usedBytes =
+      await this.coursesRepository.getOrganizationStoredBytes(organizationId);
+
+    if (usedBytes + BigInt(file.size) > BigInt(policy.maxStorageBytes)) {
+      throw new ConflictException('Insufficient Subscription storage.');
+    }
+
+    let storedFile: IStoredFile | null = null;
+    let committed = false;
+
+    try {
+      // 6. Upload Buffer qua @learnup/ts-storage.
+      // Provider đã được chỉnh chunked upload cho Video.
+      storedFile = await this.storage.upload(
+        {
+          buffer: file.buffer,
+          originalFilename: file.originalname,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+        },
+        {
+          folder: `learnup/${organizationId}/courses/videos`,
+          resourceType: 'video',
+          validation: {
+            maxSizeBytes: Number(effectiveMaxBytes),
+            allowedMimeTypes: settings.allowedVideoMimeTypes,
+          },
+        },
+      );
+
+      // 7. Kiểm tra metadata do Cloudinary trả về.
+      const duration = storedFile.durationSeconds;
+
+      if (
+        storedFile.resourceType !== 'video' ||
+        storedFile.format?.toLowerCase() !== expectedFormat ||
+        duration === undefined ||
+        !Number.isInteger(duration) ||
+        duration <= 0
+      ) {
+        throw new BadRequestException(
+          'Invalid Video metadata returned by Cloudinary.',
+        );
+      }
+
+      if (duration > settings.maxVideoDurationMinutes * 60) {
+        throw new BadRequestException(
+          'Video exceeds maximum allowed duration.',
+        );
+      }
+
+      if (
+        BigInt(storedFile.sizeBytes) > effectiveMaxBytes ||
+        storedFile.sizeBytes <= 0
+      ) {
+        throw new PayloadTooLargeException(
+          'Uploaded Video exceeds allowed size.',
+        );
+      }
+
+      // 8. Kiểm tra lại Subscription trước khi lưu.
+      const latestPolicy =
+        await this.tenantClient.getInstructorMaterialUploadPolicy(user);
+
+      if (!latestPolicy.canUpload) {
+        throw new ForbiddenException(
+          'Subscription no longer allows Video uploads.',
+        );
+      }
+
+      // 9. Transaction: kiểm tra Locked/quota và lưu.
+      const result = await this.coursesRepository.createVideoMaterialWithQuota({
+        organizationId,
+        instructorId: user.userId,
+        courseId,
+        lessonId,
+        title,
+        isRequired: dto.isRequired,
+        maxStorageBytes: BigInt(latestPolicy.maxStorageBytes),
+        file: {
+          storageKey: storedFile.storageKey,
+          originalFilename: storedFile.originalFilename,
+          mimeType: storedFile.mimeType,
+          sizeBytes: storedFile.sizeBytes,
+          durationSeconds: duration,
+        },
+      });
+
+      switch (result.status) {
+        case 'NOT_FOUND':
+          throw new NotFoundException('Lesson not found.');
+
+        case 'SUBMITTED':
+          throw new ConflictException('Submitted Course cannot be edited.');
+
+        case 'DISABLED':
+          throw new ConflictException(
+            'Disabled Course or Lesson cannot receive materials.',
+          );
+
+        case 'LOCKED_REQUIRED':
+          throw new ConflictException(
+            'BR-286: Only Optional materials are allowed.',
+          );
+
+        case 'QUOTA_EXCEEDED':
+          throw new ConflictException('Insufficient Subscription storage.');
+
+        case 'CREATED':
+          // Database transaction đã commit thành công.
+          committed = true;
+
+          return {
+            ...result.material,
+            sizeBytes: String(storedFile.sizeBytes),
+            durationSeconds: duration,
+          };
+      }
+    } catch (error) {
+      if (error instanceof StorageValidationError) {
+        throw new BadRequestException(error.message);
+      }
+
+      if (error instanceof StorageProviderError) {
+        throw new ServiceUnavailableException(
+          'Unable to upload Video to Cloudinary.',
+        );
+      }
+
+      throw error;
+    } finally {
+      // Cloudinary không nằm trong transaction PostgreSQL.
+      // Nếu DB hoặc validation sau upload thất bại,
+      // xóa file Cloudinary để bù trừ.
+      if (storedFile && !committed) {
+        try {
+          await this.storage.delete(storedFile.storageKey, {
+            resourceType: storedFile.resourceType,
+          });
+        } catch (cleanupError) {
+          console.error('Unable to clean up uploaded Video:', cleanupError);
+        }
+      }
+    }
   }
 }

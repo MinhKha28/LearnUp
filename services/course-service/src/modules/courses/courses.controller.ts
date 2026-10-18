@@ -19,10 +19,15 @@ import { CreateCourseModuleDto } from '@courses/dto/create-course-module.dto';
 import { CreateCourseLessonDto } from '@courses/dto/create-course-lesson.dto';
 import { OrganizationCourseListQueryDto } from '@courses/dto/organization-course-list-query.dto';
 import { FileInterceptor } from '@nestjs/platform-express/multer/interceptors/file.interceptor';
-import { COURSE_COVER_MAX_SIZE_BYTES } from './course-values';
+import {
+  COURSE_COVER_MAX_SIZE_BYTES,
+  VIDEO_UPLOAD_BUFFER_MAX_BYTES,
+} from './course-values';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
 import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
+import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
+import { memoryStorage } from 'multer';
 
 @Controller('courses')
 export class CoursesController {
@@ -171,6 +176,45 @@ export class CoursesController {
       courseId,
       lessonId,
       dto,
+    );
+  }
+
+  @Get(':courseId/lessons/:lessonId/materials/video-upload-context')
+  @ResponseMessage('Video upload context fetched successfully')
+  getVideoUploadContext(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+  ) {
+    return this.coursesService.getVideoUploadContext(user, courseId, lessonId);
+  }
+
+  @Post(':courseId/lessons/:lessonId/materials/videos')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: VIDEO_UPLOAD_BUFFER_MAX_BYTES,
+        files: 1,
+        fields: 2,
+        parts: 3,
+      },
+    }),
+  )
+  @ResponseMessage('Video material created successfully')
+  uploadVideoMaterial(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+    @Body() dto: CreateVideoMaterialDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.coursesService.uploadVideoMaterial(
+      user,
+      courseId,
+      lessonId,
+      dto,
+      file,
     );
   }
 }

@@ -287,3 +287,38 @@ export interface IUpdateLessonContentResponse {
   id: string;
   content: string;
 }
+
+export interface IVideoUploadContext {
+  courseName: string;
+  lessonTitle: string;
+  locked: boolean;
+
+  subscriptionStatus: string | null;
+  canUpload: boolean;
+  blockReason: string | null;
+
+  maxVideoSizeBytes: string;
+  maxVideoDurationMinutes: number;
+  allowedVideoMimeTypes: string[];
+
+  maxStorageBytes: string;
+  usedStorageBytes: string;
+  remainingStorageBytes: string;
+}
+
+export interface ICreateVideoMaterialRequest {
+  title: string;
+  isRequired: boolean;
+  file: File;
+}
+
+export interface ICreateVideoMaterialResponse {
+  id: string;
+  title: string;
+  materialType: "Video";
+  isRequired: boolean;
+  position: number;
+  fileId: string;
+  sizeBytes: string;
+  durationSeconds: number;
+}
