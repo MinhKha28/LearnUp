@@ -158,12 +158,22 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
           </div>
         </div>
 
-        <InstructorButton
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate(base)}
-        >
-          Back to Structure
-        </InstructorButton>
+        <div className="instructor-lesson-header-actions">
+          <InstructorButton
+            onClick={() =>
+              navigate(`${base}/lessons/${lesson.id}/content/edit`)
+            }
+          >
+            Edit Lesson Content
+          </InstructorButton>
+
+          <InstructorButton
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate(base)}
+          >
+            Back to Structure
+          </InstructorButton>
+        </div>
       </div>
 
       <div className="instructor-lesson-layout">

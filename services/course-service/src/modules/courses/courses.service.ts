@@ -32,6 +32,7 @@ import { CoursesRepository } from './courses.repository';
 import { CourseAuthoringContext } from './interfaces/courses.interface';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
+import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
 
 @Injectable()
 export class CoursesService {
@@ -853,6 +854,126 @@ export class CoursesService {
           releasedAt: file.releasedAt,
         },
       })),
+    };
+  }
+
+  private async checkLessonContentAccess(
+    user: CurrentUser,
+    courseId: string,
+    lessonId: string,
+  ) {
+    // 1. Phân quyền.
+    if (user.role !== 'INSTRUCTOR') {
+      throw new ForbiddenException(
+        'Only Instructor can update Lesson content.',
+      );
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    // 2. Tìm Lesson và xác minh Course ownership.
+    const lesson = await this.coursesRepository.findLessonForContentUpdate(
+      courseId,
+      lessonId,
+      user.organizationId,
+      user.userId,
+    );
+
+    if (!lesson) {
+      throw new NotFoundException('Lesson not found.');
+    }
+
+    // 3. Không biên tập trong lúc chờ phê duyệt.
+    if (lesson.module.course.status === COURSE_STATUS.SUBMITTED) {
+      return {
+        lesson,
+        reason: 'SUBMITTED' as const,
+      };
+    }
+
+    // 4. Hỏi Learning Service.
+    const hasCompleted = await this.learningClient.hasAnyLearnerCompletedLesson(
+      user,
+      courseId,
+      lessonId,
+    );
+
+    return {
+      lesson,
+      reason: hasCompleted ? ('COMPLETED' as const) : null,
+    };
+  }
+
+  async getLessonContentEditability(
+    user: CurrentUser,
+    courseId: string,
+    lessonId: string,
+  ) {
+    const access = await this.checkLessonContentAccess(
+      user,
+      courseId,
+      lessonId,
+    );
+
+    return {
+      canEdit: access.reason === null,
+      reason: access.reason,
+    };
+  }
+
+  async updateLessonContent(
+    user: CurrentUser,
+    courseId: string,
+    lessonId: string,
+    dto: UpdateLessonContentDto,
+  ) {
+    // Luôn kiểm tra lại khi nhấn Save.
+    const access = await this.checkLessonContentAccess(
+      user,
+      courseId,
+      lessonId,
+    );
+
+    if (access.reason === 'SUBMITTED') {
+      throw new ConflictException(
+        'Submitted Course cannot be edited. Withdraw it first.',
+      );
+    }
+
+    if (access.reason === 'COMPLETED') {
+      throw new ConflictException(
+        'Lesson content cannot be changed because at least one Learner has completed this Lesson.',
+      );
+    }
+
+    // Không thực hiện UPDATE khi nội dung không thay đổi.
+    if (access.lesson.content === dto.content) {
+      return {
+        id: lessonId,
+        content: access.lesson.content,
+      };
+    }
+
+    const updated = await this.coursesRepository.updateLessonContent(
+      courseId,
+      lessonId,
+      user.organizationId!,
+      user.userId,
+      dto.content,
+      access.lesson.updatedAt,
+    );
+
+    if (!updated) {
+      throw new ConflictException(
+        'Lesson was modified concurrently. Reload and try again.',
+      );
+    }
+
+    return {
+      id: lessonId,
+      content: dto.content,
     };
   }
 }

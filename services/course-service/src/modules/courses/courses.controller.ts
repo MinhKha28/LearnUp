@@ -22,6 +22,7 @@ import { FileInterceptor } from '@nestjs/platform-express/multer/interceptors/fi
 import { COURSE_COVER_MAX_SIZE_BYTES } from './course-values';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
+import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -141,5 +142,35 @@ export class CoursesController {
     @Param('lessonId', ParseUUIDPipe) lessonId: string,
   ) {
     return this.coursesService.findLessonDetail(user, courseId, lessonId);
+  }
+
+  @Get(':courseId/lessons/:lessonId/content-editability')
+  @ResponseMessage('Lesson content editability retrieved successfully')
+  getLessonContentEditability(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+  ) {
+    return this.coursesService.getLessonContentEditability(
+      user,
+      courseId,
+      lessonId,
+    );
+  }
+
+  @Put(':courseId/lessons/:lessonId/content')
+  @ResponseMessage('Lesson content updated successfully')
+  updateLessonContent(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+    @Body() dto: UpdateLessonContentDto,
+  ) {
+    return this.coursesService.updateLessonContent(
+      user,
+      courseId,
+      lessonId,
+      dto,
+    );
   }
 }

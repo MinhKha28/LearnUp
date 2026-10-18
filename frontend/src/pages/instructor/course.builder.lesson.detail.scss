@@ -263,3 +263,18 @@
         font-size: 17px;
     }
 }
+
+.instructor-lesson-header-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+@media (max-width: 640px) {
+    .instructor-lesson-header-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

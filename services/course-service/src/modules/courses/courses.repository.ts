@@ -792,4 +792,78 @@ export class CoursesRepository {
       },
     });
   }
+
+  async findLessonForContentUpdate(
+    courseId: string,
+    lessonId: string,
+    organizationId: string,
+    instructorId: string,
+  ) {
+    return this.prisma.lesson.findFirst({
+      where: {
+        id: lessonId,
+        organizationId,
+        module: {
+          courseId,
+          organizationId,
+          course: {
+            organizationId,
+            chain: {
+              instructorId,
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        content: true,
+        updatedAt: true,
+        module: {
+          select: {
+            course: {
+              select: {
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async updateLessonContent(
+    courseId: string,
+    lessonId: string,
+    organizationId: string,
+    instructorId: string,
+    content: string,
+    expectedUpdatedAt: Date,
+  ): Promise<boolean> {
+    const result = await this.prisma.lesson.updateMany({
+      where: {
+        id: lessonId,
+        organizationId,
+        updatedAt: expectedUpdatedAt,
+
+        module: {
+          courseId,
+          organizationId,
+          course: {
+            organizationId,
+            chain: {
+              instructorId,
+            },
+            status: {
+              not: COURSE_STATUS.SUBMITTED,
+            },
+          },
+        },
+      },
+      data: {
+        content,
+      },
+    });
+
+    return result.count === 1;
+  }
 }

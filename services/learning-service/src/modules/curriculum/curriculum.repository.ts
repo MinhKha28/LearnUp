@@ -91,4 +91,61 @@ export class CurriculumRepository extends BaseRepository {
     });
     return new Set(rows.map((row) => row.materialId));
   }
+
+  async hasAnyLearnerCompletedLesson(
+    courseId: string,
+    lessonId: string,
+    organizationId: string,
+  ): Promise<boolean> {
+    const rows = await this.db().$queryRaw<{ hasCompleted: boolean }[]>`
+    WITH active_materials AS (
+      SELECT
+        material_id,
+        is_required
+      FROM material_snapshots
+      WHERE course_id = ${courseId}::uuid
+        AND lesson_id = ${lessonId}::uuid
+        AND organization_id = ${organizationId}::uuid
+        AND disabled_at IS NULL
+    ),
+    counted_materials AS (
+      SELECT material_id
+      FROM active_materials
+      WHERE is_required = TRUE
+        OR NOT EXISTS (
+          SELECT 1
+          FROM active_materials
+          WHERE is_required = TRUE
+        )
+    )
+    SELECT EXISTS (
+      SELECT 1
+      FROM enrollments e
+      WHERE e.course_id = ${courseId}::uuid
+        AND e.organization_id = ${organizationId}::uuid
+
+        -- Lesson không có học liệu thì không Completed.
+        AND EXISTS (
+          SELECT 1 FROM counted_materials
+        )
+
+        -- Có một Enrollment đã hoàn thành toàn bộ
+        -- học liệu được tính cho Lesson.
+        AND NOT EXISTS (
+          SELECT 1
+          FROM counted_materials m
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM material_progress p
+            WHERE p.enrollment_id = e.id
+              AND p.organization_id = e.organization_id
+              AND p.material_id = m.material_id
+              AND p.completed_at IS NOT NULL
+          )
+        )
+    ) AS "hasCompleted"
+  `;
+
+    return rows[0]?.hasCompleted ?? false;
+  }
 }
