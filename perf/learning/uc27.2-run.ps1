@@ -22,7 +22,7 @@ try {
     foreach ($rate in @(10,30,60,100)) {
       & npx ts-node -P tsconfig.seed.json test/perf/video-progress.perf.ts reset
       if ($LASTEXITCODE -ne 0) { throw 'Fixture reset failed.' }
-      & docker run --rm --mount "type=bind,source=$PSScriptRoot,target=/scripts,readonly" --mount "type=bind,source=$results,target=/results" --env INTERNAL_SERVICE_KEY --env "RATE=$rate" --env BASE_URL=http://host.docker.internal:18085 grafana/k6 run /scripts/uc27.2-progress.js *> (Join-Path $results "uc27.2-$rate-console.txt")
+      & docker run --rm --network learnup_learnup-network --mount "type=bind,source=$PSScriptRoot,target=/scripts,readonly" --mount "type=bind,source=$results,target=/results" --env INTERNAL_SERVICE_KEY --env "RATE=$rate" --env BASE_URL=http://learning-service:8085 grafana/k6 run /scripts/uc27.2-progress.js *> (Join-Path $results "uc27.2-$rate-console.txt")
       $k6Exit = $LASTEXITCODE
       Get-Content -LiteralPath (Join-Path $results "uc27.2-$rate-console.txt") -Tail 20
       & npx ts-node -P tsconfig.seed.json test/perf/video-progress.perf.ts verify $rate

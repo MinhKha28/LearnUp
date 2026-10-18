@@ -16,13 +16,16 @@
       "course_version_snapshots": 50000
     },
     "ranges": "5–20 disjoint ranges per progress row",
-    "transport": "k6 Docker -> host.docker.internal:18085 -> native Node; PostgreSQL 16 Docker localhost:5433; no gateway/JWT"
+    "transport": "D74: k6 Docker -> learning-service:8085 container in learnup_learnup-network -> PostgreSQL 16 container; fixture/explain tools use localhost:5433; no gateway/JWT"
   },
   "docker": {
     "logicalCpu": 20,
     "memoryBytes": 8128425984,
     "postgres": "16.15",
-    "k6Image": "sha256:e66db15b860113878fa74670e31f5e274830b7b6e42c8bff28b2f2d86a257603"
+    "k6Image": "sha256:e66db15b860113878fa74670e31f5e274830b7b6e42c8bff28b2f2d86a257603",
+    "learningImage": "sha256:67145e5cb285ef29d8a85291014fb6c967e08732bd6043198109040a43a74636",
+    "network": "learnup_learnup-network",
+    "learningAlias": "learning-service:8085"
   },
   "secondsPerLevel": 45,
   "preallocatedVus": 50,
@@ -31,10 +34,10 @@
   "levels": [
     {
       "rate": 10,
-      "p50": 17.539156,
-      "p95": 29.8858655,
-      "p99": 65.1331775,
-      "rps": 10.019715213103408,
+      "p50": 11.38523,
+      "p95": 16.750971,
+      "p99": 21.860076,
+      "rps": 10.020388287862998,
       "requests": 451,
       "errorRate": 0,
       "dropped": 0,
@@ -58,10 +61,10 @@
     },
     {
       "rate": 30,
-      "p50": 12.847566,
-      "p95": 25.7984195,
-      "p99": 46.212017,
-      "rps": 30.014852978187005,
+      "p50": 8.822385,
+      "p95": 12.055435,
+      "p99": 16.6923205,
+      "rps": 30.016668267442327,
       "requests": 1351,
       "errorRate": 0,
       "dropped": 0,
@@ -85,11 +88,11 @@
     },
     {
       "rate": 60,
-      "p50": 12.120531,
-      "p95": 15.324913,
-      "p99": 31.410525,
-      "rps": 60.00572833566391,
-      "requests": 2701,
+      "p50": 8.297434500000001,
+      "p95": 10.825625699999996,
+      "p99": 14.731569169999963,
+      "rps": 60.00070342824676,
+      "requests": 2700,
       "errorRate": 0,
       "dropped": 0,
       "checks": 1,
@@ -112,10 +115,10 @@
     },
     {
       "rate": 100,
-      "p50": 11.928026,
-      "p95": 18.48334,
-      "p99": 45.062264,
-      "rps": 100.00085926532599,
+      "p50": 7.410156,
+      "p95": 9.45894,
+      "p99": 14.602246,
+      "rps": 100.00321322699523,
       "requests": 4501,
       "errorRate": 0,
       "dropped": 0,

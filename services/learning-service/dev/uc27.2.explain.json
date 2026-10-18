@@ -16,8 +16,8 @@
         "Total Cost": 16.75,
         "Plan Rows": 1,
         "Plan Width": 55,
-        "Actual Startup Time": 0.022,
-        "Actual Total Time": 0.023,
+        "Actual Startup Time": 0.025,
+        "Actual Total Time": 0.026,
         "Actual Rows": 1,
         "Actual Loops": 1,
         "Inner Unique": true,
@@ -46,7 +46,7 @@
             "Plan Rows": 1,
             "Plan Width": 63,
             "Actual Startup Time": 0.012,
-            "Actual Total Time": 0.013,
+            "Actual Total Time": 0.012,
             "Actual Rows": 1,
             "Actual Loops": 1,
             "Index Cond": "(learner_id = '27200002-0000-4000-8000-000000000001'::uuid)",
@@ -77,8 +77,8 @@
             "Total Cost": 8.31,
             "Plan Rows": 1,
             "Plan Width": 40,
-            "Actual Startup Time": 0.008,
-            "Actual Total Time": 0.008,
+            "Actual Startup Time": 0.012,
+            "Actual Total Time": 0.012,
             "Actual Rows": 1,
             "Actual Loops": 1,
             "Index Cond": "(course_id = e.course_id)",
@@ -99,7 +99,7 @@
         ]
       },
       "Planning": {
-        "Shared Hit Blocks": 204,
+        "Shared Hit Blocks": 201,
         "Shared Read Blocks": 0,
         "Shared Dirtied Blocks": 0,
         "Shared Written Blocks": 0,
@@ -110,9 +110,9 @@
         "Temp Read Blocks": 0,
         "Temp Written Blocks": 0
       },
-      "Planning Time": 0.971,
+      "Planning Time": 0.994,
       "Triggers": [],
-      "Execution Time": 0.061
+      "Execution Time": 0.064
     }
   },
   {
@@ -133,8 +133,8 @@
         "Total Cost": 8.44,
         "Plan Rows": 1,
         "Plan Width": 115,
-        "Actual Startup Time": 0.016,
-        "Actual Total Time": 0.017,
+        "Actual Startup Time": 0.022,
+        "Actual Total Time": 0.022,
         "Actual Rows": 1,
         "Actual Loops": 1,
         "Shared Hit Blocks": 4,
@@ -161,8 +161,8 @@
             "Total Cost": 8.44,
             "Plan Rows": 1,
             "Plan Width": 115,
-            "Actual Startup Time": 0.016,
-            "Actual Total Time": 0.016,
+            "Actual Startup Time": 0.021,
+            "Actual Total Time": 0.021,
             "Actual Rows": 1,
             "Actual Loops": 1,
             "Index Cond": "((material_id = '27200004-0000-4000-8000-000000000001'::uuid) AND (organization_id = '27200000-0000-4000-8000-000000000010'::uuid))",
@@ -194,9 +194,9 @@
         "Temp Read Blocks": 0,
         "Temp Written Blocks": 0
       },
-      "Planning Time": 0.344,
+      "Planning Time": 0.368,
       "Triggers": [],
-      "Execution Time": 0.027
+      "Execution Time": 0.033
     }
   },
   {
@@ -216,8 +216,8 @@
         "Total Cost": 8.31,
         "Plan Rows": 1,
         "Plan Width": 80,
-        "Actual Startup Time": 0.013,
-        "Actual Total Time": 0.013,
+        "Actual Startup Time": 0.014,
+        "Actual Total Time": 0.014,
         "Actual Rows": 0,
         "Actual Loops": 1,
         "Shared Hit Blocks": 3,
@@ -244,8 +244,8 @@
             "Total Cost": 8.31,
             "Plan Rows": 1,
             "Plan Width": 80,
-            "Actual Startup Time": 0.012,
-            "Actual Total Time": 0.012,
+            "Actual Startup Time": 0.013,
+            "Actual Total Time": 0.013,
             "Actual Rows": 0,
             "Actual Loops": 1,
             "Index Cond": "(lesson_id = '27200005-0000-4000-8000-000000000001'::uuid)",
@@ -277,9 +277,9 @@
         "Temp Read Blocks": 0,
         "Temp Written Blocks": 0
       },
-      "Planning Time": 0.225,
+      "Planning Time": 0.246,
       "Triggers": [],
-      "Execution Time": 0.022
+      "Execution Time": 0.024
     }
   },
   {
@@ -302,8 +302,8 @@
         "Total Cost": 16.29,
         "Plan Rows": 1,
         "Plan Width": 52,
-        "Actual Startup Time": 0.056,
-        "Actual Total Time": 0.056,
+        "Actual Startup Time": 0.06,
+        "Actual Total Time": 0.061,
         "Actual Rows": 1,
         "Actual Loops": 1,
         "Index Cond": "((enrollment_id = '27200001-0000-4000-8000-000000000001'::uuid) AND (material_id = '27200004-0000-4000-8000-000000000001'::uuid))",
@@ -333,8 +333,8 @@
             "Total Cost": 5.84,
             "Plan Rows": 1,
             "Plan Width": 32,
-            "Actual Startup Time": 0.038,
-            "Actual Total Time": 0.038,
+            "Actual Startup Time": 0.041,
+            "Actual Total Time": 0.042,
             "Actual Rows": 1,
             "Actual Loops": 1,
             "Shared Hit Blocks": 3,
@@ -357,8 +357,8 @@
                 "Total Cost": 4.57,
                 "Plan Rows": 100,
                 "Plan Width": 32,
-                "Actual Startup Time": 0.026,
-                "Actual Total Time": 0.027,
+                "Actual Startup Time": 0.029,
+                "Actual Total Time": 0.029,
                 "Actual Rows": 6,
                 "Actual Loops": 1,
                 "Sort Key": [
@@ -389,8 +389,8 @@
                     "Total Cost": 1,
                     "Plan Rows": 100,
                     "Plan Width": 32,
-                    "Actual Startup Time": 0.005,
-                    "Actual Total Time": 0.006,
+                    "Actual Startup Time": 0.006,
+                    "Actual Total Time": 0.007,
                     "Actual Rows": 6,
                     "Actual Loops": 1,
                     "Shared Hit Blocks": 0,
@@ -446,7 +446,7 @@
                 "Total Cost": 1,
                 "Plan Rows": 100,
                 "Plan Width": 32,
-                "Actual Startup Time": 0.005,
+                "Actual Startup Time": 0.004,
                 "Actual Total Time": 0.005,
                 "Actual Rows": 6,
                 "Actual Loops": 1,
@@ -477,9 +477,9 @@
         "Temp Read Blocks": 0,
         "Temp Written Blocks": 0
       },
-      "Planning Time": 0.145,
+      "Planning Time": 0.173,
       "Triggers": [],
-      "Execution Time": 0.102
+      "Execution Time": 0.113
     }
   },
   {
@@ -498,8 +498,8 @@
         "Total Cost": 16.76,
         "Plan Rows": 1,
         "Plan Width": 67,
-        "Actual Startup Time": 0.019,
-        "Actual Total Time": 0.021,
+        "Actual Startup Time": 0.029,
+        "Actual Total Time": 0.031,
         "Actual Rows": 1,
         "Actual Loops": 1,
         "Shared Hit Blocks": 8,
@@ -523,8 +523,8 @@
             "Total Cost": 16.75,
             "Plan Rows": 1,
             "Plan Width": 67,
-            "Actual Startup Time": 0.016,
-            "Actual Total Time": 0.017,
+            "Actual Startup Time": 0.026,
+            "Actual Total Time": 0.027,
             "Actual Rows": 1,
             "Actual Loops": 1,
             "Inner Unique": true,
@@ -552,8 +552,8 @@
                 "Total Cost": 8.44,
                 "Plan Rows": 1,
                 "Plan Width": 69,
-                "Actual Startup Time": 0.009,
-                "Actual Total Time": 0.01,
+                "Actual Startup Time": 0.013,
+                "Actual Total Time": 0.014,
                 "Actual Rows": 1,
                 "Actual Loops": 1,
                 "Index Cond": "(learner_id = '27200002-0000-4000-8000-000000000001'::uuid)",
@@ -584,8 +584,8 @@
                 "Total Cost": 8.31,
                 "Plan Rows": 1,
                 "Plan Width": 46,
-                "Actual Startup Time": 0.006,
-                "Actual Total Time": 0.006,
+                "Actual Startup Time": 0.012,
+                "Actual Total Time": 0.012,
                 "Actual Rows": 1,
                 "Actual Loops": 1,
                 "Index Cond": "(course_id = e.course_id)",
@@ -608,7 +608,7 @@
         ]
       },
       "Planning": {
-        "Shared Hit Blocks": 19,
+        "Shared Hit Blocks": 16,
         "Shared Read Blocks": 0,
         "Shared Dirtied Blocks": 0,
         "Shared Written Blocks": 0,
@@ -619,9 +619,9 @@
         "Temp Read Blocks": 0,
         "Temp Written Blocks": 0
       },
-      "Planning Time": 0.158,
+      "Planning Time": 0.209,
       "Triggers": [],
-      "Execution Time": 0.041
+      "Execution Time": 0.061
     }
   },
   {
@@ -634,10 +634,10 @@
       "Video",
       false,
       10000,
-      "2026-10-18T02:17:21.125Z",
-      "2026-10-18T02:17:21.125Z",
-      "2026-10-18T02:17:21.130Z",
-      "2026-10-18T02:17:21.130Z"
+      "2026-10-18T03:01:20.563Z",
+      "2026-10-18T03:01:20.563Z",
+      "2026-10-18T03:01:20.569Z",
+      "2026-10-18T03:01:20.569Z"
     ],
     "plan": {
       "Plan": {
@@ -651,8 +651,8 @@
         "Total Cost": 0.01,
         "Plan Rows": 0,
         "Plan Width": 0,
-        "Actual Startup Time": 0.092,
-        "Actual Total Time": 0.093,
+        "Actual Startup Time": 0.07,
+        "Actual Total Time": 0.07,
         "Actual Rows": 0,
         "Actual Loops": 1,
         "Conflict Resolution": "NOTHING",
@@ -709,13 +709,13 @@
       },
       "Planning Time": 0.009,
       "Triggers": [],
-      "Execution Time": 0.105
+      "Execution Time": 0.082
     }
   },
   {
     "query": "INSERT INTO material_progress(id,organization_id,enrollment_id,material_id,watched_ranges)\n      VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,'{}'::int4multirange)\n      ON CONFLICT (enrollment_id,material_id) DO NOTHING",
     "params": [
-      "7417a1ad-c6a5-4b2d-b1d9-2b9fbc6972bb",
+      "ecf4875c-72a7-41dc-9745-c4759cc59613",
       "27200000-0000-4000-8000-000000000010",
       "27200001-0000-4000-8000-000000000001",
       "27200004-0000-4000-8000-000000000001"
@@ -732,8 +732,8 @@
         "Total Cost": 0.01,
         "Plan Rows": 0,
         "Plan Width": 0,
-        "Actual Startup Time": 0.036,
-        "Actual Total Time": 0.036,
+        "Actual Startup Time": 0.034,
+        "Actual Total Time": 0.034,
         "Actual Rows": 0,
         "Actual Loops": 1,
         "Conflict Resolution": "NOTHING",
@@ -791,9 +791,9 @@
         "Temp Read Blocks": 0,
         "Temp Written Blocks": 0
       },
-      "Planning Time": 0.009,
+      "Planning Time": 0.01,
       "Triggers": [],
-      "Execution Time": 0.046
+      "Execution Time": 0.045
     }
   },
   {
@@ -812,8 +812,8 @@
         "Total Cost": 16.3,
         "Plan Rows": 1,
         "Plan Width": 58,
-        "Actual Startup Time": 0.049,
-        "Actual Total Time": 0.05,
+        "Actual Startup Time": 0.046,
+        "Actual Total Time": 0.047,
         "Actual Rows": 1,
         "Actual Loops": 1,
         "Shared Hit Blocks": 5,
@@ -840,8 +840,8 @@
             "Total Cost": 16.29,
             "Plan Rows": 1,
             "Plan Width": 58,
-            "Actual Startup Time": 0.047,
-            "Actual Total Time": 0.048,
+            "Actual Startup Time": 0.043,
+            "Actual Total Time": 0.044,
             "Actual Rows": 1,
             "Actual Loops": 1,
             "Index Cond": "((enrollment_id = '27200001-0000-4000-8000-000000000001'::uuid) AND (material_id = '27200004-0000-4000-8000-000000000001'::uuid))",
@@ -895,7 +895,7 @@
                     "Total Cost": 4.57,
                     "Plan Rows": 100,
                     "Plan Width": 32,
-                    "Actual Startup Time": 0.012,
+                    "Actual Startup Time": 0.011,
                     "Actual Total Time": 0.012,
                     "Actual Rows": 6,
                     "Actual Loops": 1,
@@ -958,8 +958,8 @@
                 "Total Cost": 2.01,
                 "Plan Rows": 1,
                 "Plan Width": 8,
-                "Actual Startup Time": 0.01,
-                "Actual Total Time": 0.01,
+                "Actual Startup Time": 0.007,
+                "Actual Total Time": 0.007,
                 "Actual Rows": 1,
                 "Actual Loops": 1,
                 "Shared Hit Blocks": 0,
@@ -984,7 +984,7 @@
                     "Total Cost": 1,
                     "Plan Rows": 100,
                     "Plan Width": 32,
-                    "Actual Startup Time": 0.005,
+                    "Actual Startup Time": 0.004,
                     "Actual Total Time": 0.005,
                     "Actual Rows": 6,
                     "Actual Loops": 1,
@@ -1017,9 +1017,9 @@
         "Temp Read Blocks": 0,
         "Temp Written Blocks": 0
       },
-      "Planning Time": 0.055,
+      "Planning Time": 0.056,
       "Triggers": [],
-      "Execution Time": 0.102
+      "Execution Time": 0.099
     }
   },
   {
@@ -1044,8 +1044,8 @@
         "Total Cost": 18.32,
         "Plan Rows": 1,
         "Plan Width": 64,
-        "Actual Startup Time": 0.062,
-        "Actual Total Time": 0.063,
+        "Actual Startup Time": 0.056,
+        "Actual Total Time": 0.057,
         "Actual Rows": 1,
         "Actual Loops": 1,
         "Index Cond": "((enrollment_id = '27200001-0000-4000-8000-000000000001'::uuid) AND (material_id = '27200004-0000-4000-8000-000000000001'::uuid))",
@@ -1075,8 +1075,8 @@
             "Total Cost": 5.84,
             "Plan Rows": 1,
             "Plan Width": 32,
-            "Actual Startup Time": 0.032,
-            "Actual Total Time": 0.033,
+            "Actual Startup Time": 0.03,
+            "Actual Total Time": 0.03,
             "Actual Rows": 1,
             "Actual Loops": 1,
             "Shared Hit Blocks": 0,
@@ -1099,8 +1099,8 @@
                 "Total Cost": 4.58,
                 "Plan Rows": 100,
                 "Plan Width": 32,
-                "Actual Startup Time": 0.02,
-                "Actual Total Time": 0.02,
+                "Actual Startup Time": 0.018,
+                "Actual Total Time": 0.019,
                 "Actual Rows": 7,
                 "Actual Loops": 1,
                 "Sort Key": [
@@ -1132,7 +1132,7 @@
                     "Plan Rows": 100,
                     "Plan Width": 32,
                     "Actual Startup Time": 0.008,
-                    "Actual Total Time": 0.009,
+                    "Actual Total Time": 0.008,
                     "Actual Rows": 7,
                     "Actual Loops": 1,
                     "Shared Hit Blocks": 0,
@@ -1162,8 +1162,8 @@
             "Total Cost": 2.01,
             "Plan Rows": 1,
             "Plan Width": 8,
-            "Actual Startup Time": 0.008,
-            "Actual Total Time": 0.008,
+            "Actual Startup Time": 0.007,
+            "Actual Total Time": 0.007,
             "Actual Rows": 1,
             "Actual Loops": 1,
             "Shared Hit Blocks": 0,
@@ -1274,9 +1274,9 @@
         "Temp Read Blocks": 0,
         "Temp Written Blocks": 0
       },
-      "Planning Time": 0.111,
+      "Planning Time": 0.1,
       "Triggers": [],
-      "Execution Time": 0.121
+      "Execution Time": 0.114
     }
   },
   {
@@ -1284,8 +1284,8 @@
     "params": [
       "{[0,15)}",
       null,
-      "2026-10-18T02:17:21.137Z",
-      "2026-10-18T02:17:21.137Z",
+      "2026-10-18T03:01:20.580Z",
+      "2026-10-18T03:01:20.580Z",
       "27200001-0000-4000-8000-000000000001",
       "27200004-0000-4000-8000-000000000001",
       "27200000-0000-4000-8000-000000000010"
@@ -1302,11 +1302,11 @@
         "Total Cost": 8.44,
         "Plan Rows": 0,
         "Plan Width": 0,
-        "Actual Startup Time": 0.081,
-        "Actual Total Time": 0.082,
+        "Actual Startup Time": 0.042,
+        "Actual Total Time": 0.043,
         "Actual Rows": 0,
         "Actual Loops": 1,
-        "Shared Hit Blocks": 19,
+        "Shared Hit Blocks": 7,
         "Shared Read Blocks": 0,
         "Shared Dirtied Blocks": 0,
         "Shared Written Blocks": 0,
@@ -1331,7 +1331,7 @@
             "Plan Rows": 1,
             "Plan Width": 62,
             "Actual Startup Time": 0.013,
-            "Actual Total Time": 0.013,
+            "Actual Total Time": 0.014,
             "Actual Rows": 1,
             "Actual Loops": 1,
             "Index Cond": "((enrollment_id = '27200001-0000-4000-8000-000000000001'::uuid) AND (material_id = '27200004-0000-4000-8000-000000000001'::uuid))",
@@ -1363,31 +1363,31 @@
         "Temp Read Blocks": 0,
         "Temp Written Blocks": 0
       },
-      "Planning Time": 0.028,
+      "Planning Time": 0.032,
       "Triggers": [
         {
           "Trigger Name": "RI_ConstraintTrigger_c_25632",
           "Constraint Name": "material_progress_enrollment_id_organization_id_fkey",
           "Relation": "material_progress",
-          "Time": 0.129,
+          "Time": 0.143,
           "Calls": 1
         },
         {
           "Trigger Name": "RI_ConstraintTrigger_c_25637",
           "Constraint Name": "material_progress_material_id_organization_id_fkey",
           "Relation": "material_progress",
-          "Time": 0.061,
+          "Time": 0.075,
           "Calls": 1
         }
       ],
-      "Execution Time": 0.292
+      "Execution Time": 0.281
     }
   },
   {
     "query": "\n  UPDATE enrollments SET status='InProgress', first_activity_at=$1::timestamptz, updated_at=$2::timestamptz\n   WHERE id=$3::uuid AND organization_id=$4::uuid AND status='NotStarted'",
     "params": [
-      "2026-10-18T02:17:21.137Z",
-      "2026-10-18T02:17:21.137Z",
+      "2026-10-18T03:01:20.580Z",
+      "2026-10-18T03:01:20.580Z",
       "27200001-0000-4000-8000-000000000001",
       "27200000-0000-4000-8000-000000000010"
     ],
@@ -1403,8 +1403,8 @@
         "Total Cost": 8.44,
         "Plan Rows": 0,
         "Plan Width": 0,
-        "Actual Startup Time": 0.124,
-        "Actual Total Time": 0.124,
+        "Actual Startup Time": 0.12,
+        "Actual Total Time": 0.12,
         "Actual Rows": 0,
         "Actual Loops": 1,
         "Shared Hit Blocks": 31,
@@ -1432,7 +1432,7 @@
             "Plan Rows": 1,
             "Plan Width": 54,
             "Actual Startup Time": 0.018,
-            "Actual Total Time": 0.019,
+            "Actual Total Time": 0.018,
             "Actual Rows": 1,
             "Actual Loops": 1,
             "Index Cond": "((id = '27200001-0000-4000-8000-000000000001'::uuid) AND (organization_id = '27200000-0000-4000-8000-000000000010'::uuid))",
@@ -1464,17 +1464,17 @@
         "Temp Read Blocks": 0,
         "Temp Written Blocks": 0
       },
-      "Planning Time": 0.037,
+      "Planning Time": 0.038,
       "Triggers": [
         {
           "Trigger Name": "RI_ConstraintTrigger_c_25622",
           "Constraint Name": "enrollments_course_id_organization_id_fkey",
           "Relation": "enrollments",
-          "Time": 0.084,
+          "Time": 0.08,
           "Calls": 1
         }
       ],
-      "Execution Time": 0.235
+      "Execution Time": 0.226
     }
   }
 ]

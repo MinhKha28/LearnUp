@@ -114,7 +114,7 @@ async function seed() {
     counts,
     ranges: '5–20 disjoint ranges per progress row',
     transport:
-      'k6 Docker -> host.docker.internal:18085 -> native Node; PostgreSQL 16 Docker localhost:5433; no gateway/JWT',
+      'D74: k6 Docker -> learning-service:8085 container in learnup_learnup-network -> PostgreSQL 16 container; fixture/explain tools use localhost:5433; no gateway/JWT',
   });
 }
 async function reset() {
