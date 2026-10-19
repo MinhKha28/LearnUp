@@ -21,6 +21,7 @@ import { OrganizationCourseListQueryDto } from '@courses/dto/organization-course
 import { FileInterceptor } from '@nestjs/platform-express/multer/interceptors/file.interceptor';
 import {
   COURSE_COVER_MAX_SIZE_BYTES,
+  READING_UPLOAD_BUFFER_MAX_BYTES,
   VIDEO_UPLOAD_BUFFER_MAX_BYTES,
 } from './course-values';
 import { UpdateCourseDto } from './dto/update-course.dto';
@@ -28,6 +29,7 @@ import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
 import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
 import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
 import { memoryStorage } from 'multer';
+import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -210,6 +212,49 @@ export class CoursesController {
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.coursesService.uploadVideoMaterial(
+      user,
+      courseId,
+      lessonId,
+      dto,
+      file,
+    );
+  }
+
+  @Get(':courseId/lessons/:lessonId/materials/reading-upload-context')
+  @ResponseMessage('Reading upload context fetched successfully')
+  getReadingUploadContext(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+  ) {
+    return this.coursesService.getReadingUploadContext(
+      user,
+      courseId,
+      lessonId,
+    );
+  }
+
+  @Post(':courseId/lessons/:lessonId/materials/readings')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: READING_UPLOAD_BUFFER_MAX_BYTES,
+        files: 1,
+        fields: 2,
+        parts: 3,
+      },
+    }),
+  )
+  @ResponseMessage('Reading material created successfully')
+  uploadReadingMaterial(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+    @Body() dto: CreateReadingMaterialDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.coursesService.uploadReadingMaterial(
       user,
       courseId,
       lessonId,

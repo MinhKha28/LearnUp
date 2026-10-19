@@ -322,3 +322,37 @@ export interface ICreateVideoMaterialResponse {
   sizeBytes: string;
   durationSeconds: number;
 }
+
+export interface IReadingUploadContext {
+  courseName: string;
+  lessonTitle: string;
+  locked: boolean;
+
+  subscriptionStatus: string | null;
+  canUpload: boolean;
+  blockReason: string | null;
+
+  maxReadingSizeBytes: string;
+  allowedReadingMimeTypes: string[];
+  remainingStorageBytes: string;
+
+  readingSpeedWordsPerMinute: number;
+}
+
+export interface ICreateReadingMaterialRequest {
+  title: string;
+  isRequired: boolean;
+  file: File;
+}
+
+export interface ICreateReadingMaterialResponse {
+  id: string;
+  title: string;
+  materialType: "Reading";
+  isRequired: boolean;
+  position: number;
+  fileId: string;
+  sizeBytes: string;
+  wordCount: number;
+  extractionWarning: string | null;
+}

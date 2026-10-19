@@ -2,6 +2,7 @@ import {
   COURSE_COVER_MAX_SIZE_BYTES,
   COURSE_COVER_MIME_TYPES,
   COURSE_STATUS,
+  READING_UPLOAD_BUFFER_MAX_BYTES,
   VIDEO_UPLOAD_BUFFER_MAX_BYTES,
 } from './course-values';
 import { CurrentUser } from '@learnup/ts-common';
@@ -36,6 +37,8 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
 import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
 import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
+import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
+import { extractReadingText } from './reading-text-extractor';
 
 @Injectable()
 export class CoursesService {
@@ -989,7 +992,7 @@ export class CoursesService {
       throw new ForbiddenException('Only Instructor can add Video materials.');
     }
 
-    const lesson = await this.coursesRepository.findLessonForVideoUpload(
+    const lesson = await this.coursesRepository.findLessonForMaterialUpload(
       courseId,
       lessonId,
       user.organizationId,
@@ -1113,7 +1116,7 @@ export class CoursesService {
     }
 
     // 2. Kiểm tra Lesson / Course / BR-286.
-    const lesson = await this.coursesRepository.findLessonForVideoUpload(
+    const lesson = await this.coursesRepository.findLessonForMaterialUpload(
       courseId,
       lessonId,
       organizationId,
@@ -1329,6 +1332,310 @@ export class CoursesService {
           });
         } catch (cleanupError) {
           console.error('Unable to clean up uploaded Video:', cleanupError);
+        }
+      }
+    }
+  }
+
+  async getReadingUploadContext(
+    user: CurrentUser,
+    courseId: string,
+    lessonId: string,
+  ) {
+    if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
+      throw new ForbiddenException(
+        'Only Instructor can upload Reading materials.',
+      );
+    }
+
+    const lesson = await this.coursesRepository.findLessonForMaterialUpload(
+      courseId,
+      lessonId,
+      user.organizationId,
+      user.userId,
+    );
+
+    if (!lesson) {
+      throw new NotFoundException('Lesson not found.');
+    }
+
+    const [settings, policy, usedBytes] = await Promise.all([
+      this.coursesRepository.getReadingSettings(),
+      this.tenantClient.getInstructorMaterialUploadPolicy(user),
+      this.coursesRepository.getOrganizationStoredBytes(user.organizationId),
+    ]);
+
+    if (!settings) {
+      throw new ServiceUnavailableException(
+        'Reading settings are unavailable.',
+      );
+    }
+
+    const course = lesson.module.course;
+
+    const courseBlocked =
+      !['Draft', 'Rejected', 'Published'].includes(course.status) ||
+      course.disabledAt !== null ||
+      lesson.disabledAt !== null;
+
+    const configuredSize = settings.maxReadingSizeBytes;
+
+    const bufferLimit = BigInt(READING_UPLOAD_BUFFER_MAX_BYTES);
+
+    const effectiveMaxBytes =
+      configuredSize < bufferLimit ? configuredSize : bufferLimit;
+
+    const storageLimit = BigInt(policy.maxStorageBytes);
+
+    const remainingBytes =
+      storageLimit > usedBytes ? storageLimit - usedBytes : 0n;
+
+    return {
+      courseName: course.name,
+      lessonTitle: lesson.title,
+      locked: course.lockedAt !== null,
+
+      subscriptionStatus: policy.subscriptionStatus,
+      canUpload: policy.canUpload && !courseBlocked,
+      blockReason: courseBlocked ? 'COURSE_NOT_EDITABLE' : policy.reason,
+
+      maxReadingSizeBytes: effectiveMaxBytes.toString(),
+      allowedReadingMimeTypes: settings.allowedReadingMimeTypes.filter(
+        (mime) => mime === 'application/pdf',
+      ),
+      remainingStorageBytes: remainingBytes.toString(),
+      readingSpeedWordsPerMinute: settings.readingSpeedWordsPerMinute,
+    };
+  }
+
+  async uploadReadingMaterial(
+    user: CurrentUser,
+    courseId: string,
+    lessonId: string,
+    dto: CreateReadingMaterialDto,
+    file?: Express.Multer.File,
+  ) {
+    if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
+      throw new ForbiddenException(
+        'Only Instructor can upload Reading materials.',
+      );
+    }
+
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Reading PDF file is required.');
+    }
+
+    const organizationId = user.organizationId;
+    const title = dto.title.trim();
+
+    if (!title || title.length > 200) {
+      throw new BadRequestException('Invalid Reading title.');
+    }
+
+    if (file.originalname.length > 255) {
+      throw new BadRequestException('Reading filename is too long.');
+    }
+
+    // 1. Kiểm tra quyền sở hữu và Locked.
+    const lesson = await this.coursesRepository.findLessonForMaterialUpload(
+      courseId,
+      lessonId,
+      organizationId,
+      user.userId,
+    );
+
+    if (!lesson) {
+      throw new NotFoundException('Lesson not found.');
+    }
+
+    const course = lesson.module.course;
+
+    if (
+      !['Draft', 'Rejected', 'Published'].includes(course.status) ||
+      course.disabledAt !== null ||
+      lesson.disabledAt !== null
+    ) {
+      throw new ConflictException('Course or Lesson cannot be edited.');
+    }
+
+    if (course.lockedAt !== null && dto.isRequired) {
+      throw new ConflictException(
+        'BR-286: Locked Course only accepts Optional materials.',
+      );
+    }
+
+    // 2. Lấy cấu hình.
+    const settings = await this.coursesRepository.getReadingSettings();
+
+    if (!settings) {
+      throw new ServiceUnavailableException(
+        'Reading settings are unavailable.',
+      );
+    }
+
+    const transportLimit = BigInt(READING_UPLOAD_BUFFER_MAX_BYTES);
+
+    const maxBytes =
+      settings.maxReadingSizeBytes < transportLimit
+        ? settings.maxReadingSizeBytes
+        : transportLimit;
+
+    if (file.size <= 0 || !Number.isSafeInteger(file.size)) {
+      throw new BadRequestException('Invalid file size.');
+    }
+
+    if (BigInt(file.size) > maxBytes) {
+      throw new PayloadTooLargeException('Reading exceeds the allowed size.');
+    }
+
+    if (
+      file.mimetype !== 'application/pdf' ||
+      !settings.allowedReadingMimeTypes.includes(file.mimetype)
+    ) {
+      throw new BadRequestException(
+        'Only configured PDF Reading files are supported.',
+      );
+    }
+
+    // Không tin hoàn toàn MIME của browser.
+    if (
+      file.buffer.length < 8 ||
+      file.buffer.toString('ascii', 0, 5) !== '%PDF-'
+    ) {
+      throw new BadRequestException('Invalid PDF file signature.');
+    }
+
+    // 3. Kiểm tra Subscription.
+    const policy =
+      await this.tenantClient.getInstructorMaterialUploadPolicy(user);
+
+    if (!policy.canUpload) {
+      throw new ForbiddenException(
+        'Subscription does not allow Reading uploads.',
+      );
+    }
+
+    const usedBytes =
+      await this.coursesRepository.getOrganizationStoredBytes(organizationId);
+
+    if (usedBytes + BigInt(file.size) > BigInt(policy.maxStorageBytes)) {
+      throw new ConflictException('Insufficient Subscription storage.');
+    }
+
+    // 4. Trích xuất số từ trước khi upload.
+    let extraction: Awaited<ReturnType<typeof extractReadingText>>;
+
+    try {
+      extraction = await extractReadingText(file.buffer);
+    } catch {
+      throw new BadRequestException(
+        'Unable to read PDF. The file may be corrupted or password-protected.',
+      );
+    }
+
+    // 5. Upload Cloudinary.
+    let storedFile: IStoredFile | null = null;
+    let committed = false;
+
+    try {
+      storedFile = await this.storage.upload(
+        {
+          buffer: file.buffer,
+          originalFilename: file.originalname,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+        },
+        {
+          folder: `learnup/${organizationId}/courses/readings`,
+          resourceType: 'raw',
+          validation: {
+            maxSizeBytes: Number(maxBytes),
+            allowedMimeTypes: ['application/pdf'],
+          },
+        },
+      );
+
+      if (
+        storedFile.sizeBytes <= 0 ||
+        BigInt(storedFile.sizeBytes) > maxBytes
+      ) {
+        throw new BadRequestException('Invalid uploaded Reading size.');
+      }
+
+      // 6. Kiểm tra Subscription lần cuối.
+      const latestPolicy =
+        await this.tenantClient.getInstructorMaterialUploadPolicy(user);
+
+      if (!latestPolicy.canUpload) {
+        throw new ForbiddenException('Subscription no longer allows uploads.');
+      }
+
+      // 7. Lưu transaction.
+      const result =
+        await this.coursesRepository.createReadingMaterialWithQuota({
+          organizationId,
+          instructorId: user.userId,
+          courseId,
+          lessonId,
+          title,
+          isRequired: dto.isRequired,
+          maxStorageBytes: BigInt(latestPolicy.maxStorageBytes),
+          file: {
+            storageKey: storedFile.storageKey,
+            originalFilename: file.originalname,
+            mimeType: file.mimetype,
+            sizeBytes: storedFile.sizeBytes,
+            wordCount: extraction.wordCount,
+          },
+        });
+
+      switch (result.status) {
+        case 'NOT_FOUND':
+          throw new NotFoundException('Lesson not found.');
+
+        case 'SUBMITTED':
+        case 'NOT_EDITABLE':
+          throw new ConflictException('Course or Lesson cannot be edited.');
+
+        case 'LOCKED_REQUIRED':
+          throw new ConflictException(
+            'BR-286: Only Optional materials are allowed.',
+          );
+
+        case 'QUOTA_EXCEEDED':
+          throw new ConflictException('Insufficient Subscription storage.');
+
+        case 'CREATED':
+          committed = true;
+
+          return {
+            ...result.material,
+            sizeBytes: String(storedFile.sizeBytes),
+            wordCount: extraction.wordCount,
+            extractionWarning: extraction.extractionWarning,
+          };
+      }
+    } catch (error) {
+      if (error instanceof StorageValidationError) {
+        throw new BadRequestException(error.message);
+      }
+
+      if (error instanceof StorageProviderError) {
+        throw new ServiceUnavailableException(
+          'Unable to upload Reading to Cloudinary.',
+        );
+      }
+
+      throw error;
+    } finally {
+      // DB và Cloudinary không cùng transaction.
+      if (storedFile && !committed) {
+        try {
+          await this.storage.delete(storedFile.storageKey, {
+            resourceType: storedFile.resourceType,
+          });
+        } catch (error) {
+          console.error('Reading cleanup failed:', error);
         }
       }
     }
