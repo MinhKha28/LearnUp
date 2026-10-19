@@ -121,6 +121,7 @@ export class UsersService {
   /**
    * Phần chung của danh sách tài khoản trong tổ chức (UC12 Instructor, UC13 Learner):
    * một trang tài khoản chưa xóa của role, mới nhất trước, kèm cờ invitationExpired.
+   * UC12.4 / UC13.4: lọc thêm theo keyword (họ tên hoặc email) và status nếu có.
    */
   private async findAccountPage(
     user: CurrentUser,
@@ -129,13 +130,21 @@ export class UsersService {
   ): Promise<{ rows: AccountListItem[]; total: number }> {
     // Tổ chức luôn lấy từ danh tính người gọi, không nhận từ client.
     const organizationId = this.organizationIdOf(user);
-    const { page, pageSize } = query;
+    const { page, pageSize, keyword, status } = query;
 
     // BR-37: xóa tài khoản là gán deleted_at, nên loại các dòng đã xóa.
-    const where = {
+    // count và findMany dùng chung where để total đếm đúng theo bộ lọc.
+    const where: Prisma.UserWhereInput = {
       organizationId,
       role,
       deletedAt: null,
+      ...(status && { status }),
+      ...(keyword && {
+        OR: [
+          { fullName: { contains: keyword, mode: 'insensitive' } },
+          { email: { contains: keyword, mode: 'insensitive' } },
+        ],
+      }),
     };
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.user.count({ where }),
