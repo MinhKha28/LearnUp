@@ -78,8 +78,11 @@ class AuthServiceLoggingTest {
         jwtTokenService = mock(JwtTokenService.class);
         tenantAccessClient = mock(TenantAccessClient.class);
         loginThrottleService = mock(LoginThrottleService.class);
+        RecoveryRequestLimiter recoveryLimiter = mock(RecoveryRequestLimiter.class);
+        when(recoveryLimiter.allow(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
         authService = new AuthService(userRepository, refreshTokenRepository, resetTokenRepository,
-                passwordEncoder, jwtTokenService, tenantAccessClient, loginThrottleService, mock(UserMapper.class));
+                passwordEncoder, jwtTokenService, tenantAccessClient, loginThrottleService, mock(UserMapper.class),
+                recoveryLimiter, mock(PasswordRecoveryDelivery.class));
         user = new User();
         user.setId(USER_ID);
         user.setUsername(IDENTIFIER);

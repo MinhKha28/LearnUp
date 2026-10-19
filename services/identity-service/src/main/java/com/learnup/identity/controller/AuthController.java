@@ -59,7 +59,7 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     @Operation(summary = "Request password recovery", tags = "Passwords",
-            description = "Returns a neutral response. Reset-token storage exists; recovery email delivery is not yet integrated.")
+            description = "Returns a neutral response. Eligible recovery delivery is queued only after token commit; never returns a recovery token.")
     public ApiResponse<java.util.Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.forgotPassword(request);
         return ApiResponse.success(java.util.Map.of("message", "If the email is registered, password reset instructions have been sent"));

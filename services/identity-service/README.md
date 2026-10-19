@@ -84,7 +84,7 @@ their own Bearer access JWT to Gateway, which supplies the private channel crede
 | :--- | :--- | :--- | :--- |
 | POST | `/login` | Public | Existing `username` and `password`; checks credentials and Tenant access before returning the token pair and user projection |
 | POST | `/refresh` | Public | `refreshToken`; rotates the token pair after validation and Tenant access checks |
-| POST | `/forgot-password` | Public | `email`; neutral response, hash-only recovery-token persistence; email delivery is not yet integrated |
+| POST | `/forgot-password` | Public | `email`; neutral response, hash-only token persistence, post-commit authenticated Notification email delivery |
 | POST | `/reset-password` | Public | `token`, `newPassword` and `confirmPassword`; validates a usable recovery token |
 | POST | `/logout` | Bearer through Gateway | Optional refresh-token session revocation; logout-all targets only the verified caller |
 | POST | `/change-password` | Bearer through Gateway | `currentPassword`, `newPassword` and `confirmPassword`; verifies current password first |
@@ -116,15 +116,24 @@ for the actual validated DTOs and response schema.
 | `SPRING_DATASOURCE_PASSWORD`| Required; no default | Database password supplied privately for standalone Identity; Compose uses required `DB_PASSWORD` |
 | `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | `http://localhost:8761/eureka/` | Eureka Discovery URL |
 | `JWT_SECRET` | Required; no default | Private HMAC secret, at least 32 bytes; must match Gateway |
-| `INTERNAL_SERVICE_KEY` | Required; no default | Private internal-channel secret, at least 32 bytes; matches Gateway/Tenant |
+| `INTERNAL_SERVICE_KEY` | Required; no default | Private internal-channel secret, at least 32 bytes; matches Gateway/Tenant/Notification |
 | `SECURITY_JWT_ACCESS_TOKEN_EXPIRATION_MINUTES` | `15` | Access token lifespan in minutes |
 | `SECURITY_JWT_REFRESH_TOKEN_EXPIRATION_DAYS` | `7` | Refresh token lifespan in days |
 | `LEARNUP_SEED_ENABLED` | `false` | Legacy seeding is disabled; setting `true` fails startup pending a reviewed Tenant-owned fixture contract |
+| `NOTIFICATION_SERVICE_URL` | Required; no default | Private Notification base URL; Compose supplies `http://notification-service:8082` |
+| `PASSWORD_RECOVERY_FRONTEND_BASE_URL` | Required; no default | Trusted frontend base URL for `/reset-password/{token}`; HTTPS, except explicitly configured loopback HTTP |
 
 No demo password is configured or supported. Identity never creates, deletes,
 resets or re-enables demo accounts on restart. These defaults apply in standalone
 and deployment profiles; Compose explicitly keeps seeding off. See the development
 guide before preparing a disposable local account fixture.
+
+Recovery email requires the same private `INTERNAL_SERVICE_KEY` in Identity,
+Notification and the existing Tenant relay. Deploy the authenticated Notification
+email boundary before enabling Identity delivery. Enable/configure Notification
+SMTP explicitly; its default mock mode is `SIMULATED`, not real delivery. See
+[recovery delivery and isolated SMTP verification](DEVELOPMENT.md#password-recovery-email-id-p3)
+for ordering, failure behavior, limits and remaining frontend work.
 
 ---
 

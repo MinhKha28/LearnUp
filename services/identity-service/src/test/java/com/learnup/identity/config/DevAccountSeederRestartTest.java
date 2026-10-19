@@ -101,6 +101,9 @@ class DevAccountSeederRestartTest {
                 "--spring.flyway.enabled=false", "--eureka.client.enabled=false",
                 "--security.jwt.secret=syntheticRestartSigningKeyAtLeast32BytesLong!",
                 "--security.internal-key=syntheticRestartInternalKeyAtLeast32BytesLong!",
+                "--learnup.recovery.notification-base-url=http://127.0.0.1:65534",
+                "--learnup.recovery.frontend-base-url=http://127.0.0.1:5173",
+                "--learnup.recovery.delivery-enabled=false",
                 "--server.address=127.0.0.1", "--server.port=0", "--management.server.port=0",
                 "--spring.main.banner-mode=off");
     }

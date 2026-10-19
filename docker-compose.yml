@@ -143,6 +143,8 @@ services:
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
       TENANT_SERVICE_URL: http://tenant-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8082
+      PASSWORD_RECOVERY_FRONTEND_BASE_URL: ${PASSWORD_RECOVERY_FRONTEND_BASE_URL:?Set the trusted frontend origin for recovery links}
       # Automatic Identity-only demo accounts are retired; Tenant owns account provisioning.
       LEARNUP_SEED_ENABLED: "false"
     depends_on:

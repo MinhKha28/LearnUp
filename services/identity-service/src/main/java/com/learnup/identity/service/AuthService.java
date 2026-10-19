@@ -40,6 +40,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     private final UserMapper userMapper;
+    private final RecoveryRequestLimiter recoveryRequestLimiter;
+    private final PasswordRecoveryDelivery recoveryDelivery;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
@@ -48,7 +50,9 @@ public class AuthService {
                        JwtTokenService jwtTokenService,
                        TenantAccessClient tenantAccessClient,
                        LoginThrottleService loginThrottleService,
-                       UserMapper userMapper) {
+                       UserMapper userMapper,
+                       RecoveryRequestLimiter recoveryRequestLimiter,
+                       PasswordRecoveryDelivery recoveryDelivery) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
@@ -57,6 +61,8 @@ public class AuthService {
         this.tenantAccessClient = tenantAccessClient;
         this.loginThrottleService = loginThrottleService;
         this.userMapper = userMapper;
+        this.recoveryRequestLimiter = recoveryRequestLimiter;
+        this.recoveryDelivery = recoveryDelivery;
     }
 
     @Transactional
@@ -239,6 +245,12 @@ public class AuthService {
             return;
         }
 
+        if (!recoveryRequestLimiter.allow(user.getId(), Instant.now())) {
+            log.info("event=password_recovery_ignored reason=RATE_LIMITED user_id={} correlation_id={}",
+                    user.getId(), AuthenticationDiagnostics.correlationId());
+            return;
+        }
+
         // Clean up any stale tokens for this user
         passwordResetTokenRepository.deleteByUserId(user.getId());
 
@@ -255,6 +267,8 @@ public class AuthService {
         passwordResetTokenRepository.save(resetToken);
         log.info("event=password_recovery_token_created user_id={} correlation_id={}",
                 user.getId(), AuthenticationDiagnostics.correlationId());
+        recoveryDelivery.scheduleAfterCommit(user.getId(), user.getEmail(), resetToken.getId(), rawToken,
+                expiresAt, AuthenticationDiagnostics.correlationId());
     }
 
     @Transactional
