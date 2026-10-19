@@ -1,6 +1,5 @@
 package com.learnup.notification.service;
 
-import com.learnup.common.exception.BusinessException;
 import com.learnup.common.response.PageResponse;
 import com.learnup.notification.config.MailProperties;
 import com.learnup.notification.dto.EmailLogResponse;
@@ -10,6 +9,7 @@ import com.learnup.notification.repository.EmailLogRepository;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +27,8 @@ import java.util.UUID;
 public class EmailDeliveryService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailDeliveryService.class);
+    public static final String RECOVERY_TEMPLATE = "IDENTITY_PASSWORD_RECOVERY";
+    public static final String RECOVERY_SUBJECT = "LearnUP password recovery";
 
     private final EmailLogRepository emailLogRepository;
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
@@ -42,11 +44,13 @@ public class EmailDeliveryService {
 
     @Transactional
     public EmailLogResponse sendEmail(SendEmailRequest request) {
-        log.info("Processing email dispatch to recipient: [{}] with subject: [{}]",
-                request.getRecipientEmail(), request.getSubject());
+        log.info("event=email_dispatch_started correlation_id={}", MDC.get("correlationId"));
 
-        String status = "SENT";
+        String status = "SIMULATED";
         String errorMessage = null;
+        // Never retain a caller-supplied recovery subject, which could contain the reset link.
+        String subject = RECOVERY_TEMPLATE.equals(request.getTemplateCode())
+                ? RECOVERY_SUBJECT : request.getSubject();
 
         JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
 
@@ -57,34 +61,40 @@ public class EmailDeliveryService {
 
                 helper.setFrom(mailProperties.getFrom());
                 helper.setTo(request.getRecipientEmail());
-                helper.setSubject(request.getSubject());
+                helper.setSubject(subject);
 
                 boolean isHtml = request.getBody() != null && request.getBody().contains("<") && request.getBody().contains(">");
                 helper.setText(request.getBody(), isHtml);
 
                 mailSender.send(message);
-                log.info("Physical email successfully dispatched via SMTP to [{}]", request.getRecipientEmail());
+                status = "SENT";
+                log.info("event=email_dispatch_completed status=SENT correlation_id={}", MDC.get("correlationId"));
             } catch (Exception e) {
-                log.error("Failed to physically send email to [{}] via SMTP: {}", request.getRecipientEmail(), e.getMessage(), e);
+                log.error("event=email_dispatch_failed reason=SMTP_FAILURE exception_type={} correlation_id={}",
+                        e.getClass().getName(), MDC.get("correlationId"));
                 status = "FAILED";
-                errorMessage = e.getMessage();
+                errorMessage = "SMTP delivery failed";
             }
+        } else if (mailProperties.isEnabled()) {
+            status = "FAILED";
+            errorMessage = "SMTP sender unavailable";
+            log.error("event=email_dispatch_failed reason=SMTP_SENDER_UNAVAILABLE correlation_id={}", MDC.get("correlationId"));
         } else {
-            log.info("Email dispatch simulated in mock/log mode (learnup.mail.enabled is false or JavaMailSender unavailable). Recipient: [{}]",
-                    request.getRecipientEmail());
+            log.info("event=email_dispatch_completed status=SIMULATED correlation_id={}", MDC.get("correlationId"));
         }
 
         EmailLog emailLog = new EmailLog(
                 UUID.randomUUID(),
                 request.getRecipientEmail(),
-                request.getSubject(),
+                subject,
                 status,
                 errorMessage,
                 Instant.now()
         );
 
         EmailLog saved = emailLogRepository.save(emailLog);
-        log.info("Email dispatch recorded in email_logs with ID: [{}] and status: [{}]", saved.getId(), saved.getStatus());
+        log.info("event=email_dispatch_recorded email_log_id={} status={} correlation_id={}",
+                saved.getId(), saved.getStatus(), MDC.get("correlationId"));
 
         return EmailLogResponse.fromEntity(saved);
     }

@@ -42,7 +42,7 @@ public class SecurityConfig {
                 .requestCache(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> {
-                    if (environment.acceptsProfiles(Profiles.of("local-docs & !prod & !docker & !staging"))) {
+                    if (environment.acceptsProfiles(Profiles.of("local-docs & !prod & !production & !docker & !staging"))) {
                         auth.requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/**",
                                 "/swagger-ui.html", "/swagger-ui/**").permitAll();
                     }

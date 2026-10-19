@@ -18,6 +18,13 @@ eureka:
 tenant:
   service-url: http://localhost:65535
 
+learnup:
+  recovery:
+    notification-base-url: http://127.0.0.1:65534
+    frontend-base-url: http://127.0.0.1:5173
+    # Existing lifecycle tests are transport-isolated; dedicated integration tests opt in.
+    delivery-enabled: false
+
 security:
   internal-key: testInternalServiceKeyAtLeast32BytesLong!
   jwt:

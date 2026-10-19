@@ -80,9 +80,6 @@ class AuthControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private com.learnup.identity.config.DevAccountSeeder devAccountSeeder;
-
-    @Autowired
     private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @BeforeEach
@@ -253,37 +250,40 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Should successfully seed and authenticate all canonical demo accounts (ADMIN, ORGANIZER, INSTRUCTOR, LEARNER)")
-    void shouldSeedAndLoginAllDevAccounts() throws Exception {
-        // Run seed
-        devAccountSeeder.seedAccounts();
+    @DisplayName("Should authenticate all four roles using explicit isolated credential fixtures")
+    void shouldLoginAllProvisionedRoles() throws Exception {
+        String fixturePassword = "SyntheticRoleFixturePassword123!";
+        UUID organizationId = UUID.randomUUID();
+        User admin = createUserFixture("admin", "admin@learnup.local", fixturePassword,
+                "Test Admin", UserRole.ADMIN, null);
+        User organizer = createUserFixture("organizer", "organizer@learnup.local", fixturePassword,
+                "Test Organizer", UserRole.ORGANIZER, organizationId);
+        User instructor = createUserFixture("instructor", "instructor@learnup.local", fixturePassword,
+                "Test Instructor", UserRole.INSTRUCTOR, organizationId);
+        User learner = createUserFixture("learner", "learner@learnup.local", fixturePassword,
+                "Test Learner", UserRole.LEARNER, organizationId);
 
-        // 1. Verify records exist in database with correct tenant IDs
-        User admin = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.ADMIN_ID).orElseThrow();
         assertThat(admin.getUsername()).isEqualTo("admin");
         assertThat(admin.getEmail()).isEqualTo("admin@learnup.local");
         assertThat(admin.getRole()).isEqualTo(UserRole.ADMIN);
         assertThat(admin.getOrganizationId()).isNull();
 
-        User organizer = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.ORGANIZER_ID).orElseThrow();
         assertThat(organizer.getUsername()).isEqualTo("organizer");
         assertThat(organizer.getEmail()).isEqualTo("organizer@learnup.local");
         assertThat(organizer.getRole()).isEqualTo(UserRole.ORGANIZER);
-        assertThat(organizer.getOrganizationId()).isEqualTo(com.learnup.identity.config.DevAccountSeeder.DEMO_ORG_ID);
+        assertThat(organizer.getOrganizationId()).isEqualTo(organizationId);
 
-        User instructor = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.INSTRUCTOR_ID).orElseThrow();
         assertThat(instructor.getUsername()).isEqualTo("instructor");
         assertThat(instructor.getEmail()).isEqualTo("instructor@learnup.local");
         assertThat(instructor.getRole()).isEqualTo(UserRole.INSTRUCTOR);
-        assertThat(instructor.getOrganizationId()).isEqualTo(com.learnup.identity.config.DevAccountSeeder.DEMO_ORG_ID);
+        assertThat(instructor.getOrganizationId()).isEqualTo(organizationId);
 
-        User learner = userRepository.findById(com.learnup.identity.config.DevAccountSeeder.LEARNER_ID).orElseThrow();
         assertThat(learner.getUsername()).isEqualTo("learner");
         assertThat(learner.getEmail()).isEqualTo("learner@learnup.local");
         assertThat(learner.getRole()).isEqualTo(UserRole.LEARNER);
-        assertThat(learner.getOrganizationId()).isEqualTo(com.learnup.identity.config.DevAccountSeeder.DEMO_ORG_ID);
+        assertThat(learner.getOrganizationId()).isEqualTo(organizationId);
 
-        // 2. Verify all 4 accounts can login using default password "LearnUp@123" by email
+        // Tenant access is mocked in this isolated test; these fixtures are not deployment accounts.
         String[] demoEmails = {"admin@learnup.local", "organizer@learnup.local", "instructor@learnup.local", "learner@learnup.local"};
         UserRole[] demoRoles = {UserRole.ADMIN, UserRole.ORGANIZER, UserRole.INSTRUCTOR, UserRole.LEARNER};
 
@@ -291,7 +291,7 @@ class AuthControllerIntegrationTest {
             String email = demoEmails[i];
             UserRole expectedRole = demoRoles[i];
 
-            LoginRequest loginReq = new LoginRequest(email, "LearnUp@123");
+            LoginRequest loginReq = new LoginRequest(email, fixturePassword);
             MvcResult loginRes = mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(loginReq)))

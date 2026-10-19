@@ -49,6 +49,7 @@ class OpenApiDocumentationTest {
             }
             assertThat(spec.path("paths").has(prefix + "/register")).isFalse();
             assertThat(spec.path("paths").path(prefix + "/login").path("post").path("responses").has("429")).isTrue();
+            assertThat(spec.path("paths").path(prefix + "/reset-password").path("post").path("responses").has("503")).isTrue();
         }
         JsonNode password = spec.path("components").path("schemas").path("LoginRequest").path("properties").path("password");
         assertThat(password.path("writeOnly").asBoolean()).isTrue();

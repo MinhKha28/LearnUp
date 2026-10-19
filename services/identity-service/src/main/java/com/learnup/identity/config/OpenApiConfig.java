@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Configuration
-@Profile("local-docs & !prod & !docker & !staging")
+@Profile("local-docs & !prod & !production & !docker & !staging")
 public class OpenApiConfig {
     public static final String BEARER_SCHEME = "bearerAuth";
 
@@ -68,7 +68,8 @@ public class OpenApiConfig {
                 List<String> codes = switch (action) {
                     case "login" -> List.of("400", "401", "403", "429", "503", "500");
                     case "refresh" -> List.of("400", "401", "403", "503", "500");
-                    case "forgot-password", "reset-password" -> List.of("400", "500");
+                    case "forgot-password" -> List.of("400", "500");
+                    case "reset-password" -> List.of("400", "503", "500");
                     case "change-password" -> List.of("400", "401", "500");
                     case "me" -> List.of("401", "404", "500");
                     default -> List.of("401", "500");
