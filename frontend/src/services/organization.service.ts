@@ -51,10 +51,21 @@ export const verifyEmailOtpAPI = (body: IVerifyEmailOtpReq) =>
   );
 
 // UC12 - Xem danh sách Instructor (Organizer; tổ chức lấy từ danh tính người gọi)
-export const getInstructorsAPI = (query: IAccountListQuery) =>
+// UC12.4 - keyword, status tùy chọn; không gửi giá trị rỗng
+export const getInstructorsAPI = ({
+  keyword,
+  status,
+  ...query
+}: IAccountListQuery) =>
   axios.get<IBackendRes<IPageResponse<IInstructorListItem>>>(
     "/api/v1/users/instructors",
-    { params: query },
+    {
+      params: {
+        ...query,
+        ...(keyword ? { keyword } : {}),
+        ...(status ? { status } : {}),
+      },
+    },
   );
 
 // UC12.2 - số chỗ Instructor còn lại (Organizer)

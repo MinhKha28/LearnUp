@@ -105,10 +105,12 @@ export interface IAcceptInvitationResult {
 // Trạng thái tài khoản (users.status)
 export type AccountStatus = "Pending" | "Active" | "Deactivated";
 
-// Query danh sách tài khoản trong tổ chức (UC12, sau này UC13)
+// Query danh sách tài khoản trong tổ chức (UC12, UC13); keyword, status cho UC12.4
 export interface IAccountListQuery {
   page: number;
   pageSize: number;
+  keyword?: string;
+  status?: AccountStatus;
 }
 
 // Một dòng tài khoản trong danh sách (dùng chung Instructor / Learner)
