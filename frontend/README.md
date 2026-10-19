@@ -742,6 +742,59 @@ Before completing a frontend task:
 
 ## Available Scripts
 
+### Password recovery (UC07)
+
+Forgot Password and `/reset-password/:token` use the existing Identity client and
+`VITE_BACKEND_URL`, which must point to the configured API Gateway, not private
+Identity/Notification ports. No new frontend environment variable or internal
+service credential is required. Do not put backend secrets into `VITE_*` values.
+
+The pages call `POST /api/v1/auth/forgot-password` with `{email}` and
+`POST /api/v1/auth/reset-password` with `{token,newPassword,confirmPassword}`.
+Recovery helpers retain the real HTTP status and validate Identity's
+`{success,data,error}` envelope. Narrow request options prevent the shared Axios
+interceptors from refreshing/replaying these public operations; authentication
+headers and development fake identity are not used. Global Axios/session/context
+code is unchanged. A resolved HTTP error is never confirmation of success.
+
+Forgot Password displays the same neutral accepted-request message for eligible
+and unknown accounts. It does not promise inbox arrival. Reset shows success only
+after the backend replaces the password, does not sign in automatically, and
+offers a new recovery request when a link is invalid, expired, used or revoked.
+Password validation follows the current backend minimum (6 characters) and
+BCrypt's 72-byte limit; confirmation reuses the existing change-password rule.
+The backend remains authoritative for token validity and access policy.
+
+The existing auth cards, SCSS, controls and routes are preserved. An early
+reset-route-only `no-referrer` policy protects resource requests before React
+mounts, including the existing external font, without changing typography.
+Reset also applies that policy for client-side entry. The production Nginx
+configuration redacts reset URLs in access-log request/referrer fields while
+retaining ordinary request diagnostics. Keep equivalent redaction and referrer
+protection in any external proxy/APM; the initial token URL necessarily reaches
+the frontend host. Never capture form bodies, recovery URLs or tokens in
+analytics, console output, screenshots or support reports.
+
+Verification uses the existing Vitest setup. The opt-in browser suite launches
+an owned headless Chrome, disposable Vite server and a synthetic HTTP Gateway;
+it never uses shared accounts/databases or development fake authentication:
+
+```powershell
+npm test
+$env:LEARNUP_RECOVERY_BROWSER_TESTS = '1'
+npm test -- dev/password.recovery.browser.test.ts
+Remove-Item Env:LEARNUP_RECOVERY_BROWSER_TESTS
+npm run build
+```
+
+The opt-in suite needs Node 22+ and installed Chrome (or `CHROME_PATH`). Browser HTTP tests
+are mocked-backend verification, not deployed Identity/SMTP/Tenant integration.
+Real recovery email still requires ID-P3's private configuration, enabled SMTP
+and a frontend base URL matching this application. See Identity's development
+guide for backend delivery limits and its explicitly documented crash/retry risks.
+The Nginx access-log maps do not sanitize server error logs or external proxy/APM
+capture; deployment operators must keep those from retaining recovery URLs too.
+
 ```bash
 npm run dev
 npm run build
