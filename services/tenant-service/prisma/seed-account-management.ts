@@ -79,6 +79,15 @@
  *   - Không đổi FAKE_SUMMARIES: Learner Delta không có trong bảng fake = 0 khóa đang học / 0 quá hạn.
  *   ID mới:
  *     Learner Delta               ...00000000d201 – d230
+ *
+ * Bổ sung UC13.4 (Tìm kiếm Learner):
+ *   - a226 "Đoàn Thị Hoài" Active dùng lại email hoai.doan@abc.vn của a211 đã xóa (BR-31)
+ *     -> danh sách UC13 của ABC còn 24 dòng (vẫn 3 trang với pageSize 10), 24/500 chỗ.
+ *   - b204 "Trần Thị Bình" (XYZ) trùng họ tên a202 (ABC), email binh_tran@xyz.vn có "_".
+ *   - Cả hai Active, không có token; không có trong FAKE_SUMMARIES (= 0 / 0).
+ *   ID mới:
+ *     Learner ABC                 ...00000000a226
+ *     Learner XYZ                 ...00000000b204
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -384,6 +393,10 @@ const abcLearners: Array<[number, string, string, string | null, Kind]> = [
   [23, 'Văn Thị Uyên', 'uyen.van@abc.vn', null, 'PV'],
   [24, 'Đỗ Quốc Vương', 'vuong.do@abc.vn', 'Phòng Sản xuất', 'A'],
   [25, 'Từ Thị Xuân', 'xuan.tu@abc.vn', 'Phòng Kinh doanh', 'PV'],
+  // UC13.4 - BR-31: tài khoản mới dùng lại email của a211 (đã xóa), là bản ghi độc lập.
+  // Phải đứng SAU a211 trong mảng: upsert theo thứ tự, a211 phải đã có deleted_at trước khi
+  // tạo a226, nếu không partial unique users_email_not_deleted_key sẽ chặn.
+  [26, 'Đoàn Thị Hoài', 'hoai.doan@abc.vn', 'Phòng Nhân sự', 'A'],
 ];
 
 // UC13: Learner của XYZ, để kiểm Organizer ABC không thấy.
@@ -391,6 +404,9 @@ const xyzLearners: Array<[number, string, string, string | null, Kind]> = [
   [1, 'Phùng Văn Hậu', 'hau.phung@xyz.vn', 'Phòng Kỹ thuật', 'A'],
   [2, 'Nghiêm Thị Thu', 'thu.nghiem@xyz.vn', 'Phòng Kinh doanh', 'A'],
   [3, 'Thái Văn Tài', 'tai.thai@xyz.vn', null, 'PV'],
+  // UC13.4: trùng họ tên a202 (ABC) để kiểm tìm kiếm không lộ chéo tổ chức;
+  // email có "_" để kiểm từ khóa "_" không bị hiểu là wildcard.
+  [4, 'Trần Thị Bình', 'binh_tran@xyz.vn', 'Phòng Kinh doanh', 'A'],
 ];
 
 const tokenKinds = new Map<string, Kind>();
