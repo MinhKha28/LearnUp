@@ -295,6 +295,7 @@ services:
       - "8085:8085"
     environment:
       PORT: 8085
+      VIDEO_PLAYBACK_MODE: course
       DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/learning_db?schema=public
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
       COURSE_SERVICE_URL: http://course-service:8083
