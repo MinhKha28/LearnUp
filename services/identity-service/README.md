@@ -2,6 +2,10 @@
 
 Core identity, user credential, authentication, and token management microservice for the LearnUP platform.
 
+> Current secure tooling/setup: [DEVELOPMENT.md](DEVELOPMENT.md). Legacy registration
+> examples below are historical: both public registration routes were removed by
+> ID-H1, and ID-H2 no longer accepts raw identity headers as authentication proof.
+
 > **Identity Service authenticates users and issues identity tokens. Fine-grained business authorization remains in business services.**
 
 ---
@@ -150,7 +154,8 @@ X-User-ID: 3fa85f64-5717-4562-b3fc-2c963f66afa6
 | `SPRING_DATASOURCE_USERNAME`| `postgres` | Database username |
 | `SPRING_DATASOURCE_PASSWORD`| `postgres` | Database password |
 | `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | `http://localhost:8761/eureka/` | Eureka Discovery URL |
-| `JWT_SECRET` | `devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong` | 256-bit HMAC secret (must match Gateway) |
+| `JWT_SECRET` | Required; no default | Private HMAC secret, at least 32 bytes; must match Gateway |
+| `INTERNAL_SERVICE_KEY` | Required; no default | Private internal-channel secret, at least 32 bytes; matches Gateway/Tenant |
 | `SECURITY_JWT_ACCESS_TOKEN_EXPIRATION_MINUTES` | `15` | Access token lifespan in minutes |
 | `SECURITY_JWT_REFRESH_TOKEN_EXPIRATION_DAYS` | `7` | Refresh token lifespan in days |
 

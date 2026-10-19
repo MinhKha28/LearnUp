@@ -1,6 +1,15 @@
 server:
   port: 8081
 
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+  paths-to-match: /api/v1/auth/**,/api/auth/**
+  paths-to-exclude: /api/internal/**
+  override-with-generic-response: false
+
 spring:
   application:
     name: identity-service
@@ -34,9 +43,9 @@ tenant:
   service-url: ${TENANT_SERVICE_URL:http://localhost:8084}
 
 security:
-  internal-key: ${INTERNAL_SERVICE_KEY:learnup-internal-secret}
+  internal-key: ${INTERNAL_SERVICE_KEY}
   jwt:
-    secret: ${JWT_SECRET:devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong}
+    secret: ${JWT_SECRET}
     access-token-expiration-minutes: 15
     refresh-token-expiration-days: 7
 

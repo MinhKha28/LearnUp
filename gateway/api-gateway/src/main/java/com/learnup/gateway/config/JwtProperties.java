@@ -3,7 +3,9 @@ package com.learnup.gateway.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.AntPathMatcher;
+import jakarta.annotation.PostConstruct;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,24 +22,35 @@ public class JwtProperties {
      * Secret key used for verifying HMAC-SHA256 JWT tokens.
      * In production/staging, this must be supplied via the JWT_SECRET environment variable.
      */
-    private String secret = "devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong";
+    private String secret;
 
     /**
      * Shared secret key forwarded downstream in the x-internal-key header.
      */
-    private String internalKey = "learnup-internal-secret";
+    private String internalKey;
+
+    @PostConstruct
+    public void validateSecrets() {
+        requireSecureSecret(secret, "devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong", "JWT_SECRET");
+        requireSecureSecret(internalKey, "learnup-internal-secret", "INTERNAL_SERVICE_KEY");
+    }
+
+    private static void requireSecureSecret(String value, String knownDefault, String setting) {
+        if (value == null || value.isBlank() || value.getBytes(StandardCharsets.UTF_8).length < 32
+                || knownDefault.equals(value.trim())) {
+            throw new IllegalStateException(setting + " must be explicitly configured, non-default and at least 32 bytes");
+        }
+    }
 
     /**
      * Paths that bypass JWT validation.
      */
     private List<String> whitelist = new ArrayList<>(List.of(
             "/api/v1/auth/login",
-            "/api/v1/auth/register",
             "/api/v1/auth/refresh",
             "/api/v1/auth/forgot-password",
             "/api/v1/auth/reset-password",
             "/api/auth/login",
-            "/api/auth/register",
             "/api/auth/refresh",
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
