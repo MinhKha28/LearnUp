@@ -1,12 +1,17 @@
 import {
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { CurrentUser, PageResponse } from '@learnup/ts-common';
 import { STANDARD_ERROR_CODES, createPageResponse } from '@learnup/ts-common';
+import type { IStorageProvider } from '@learnup/ts-storage';
+import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
+import type { IManagedCourseChain } from '../../infrastructure/clients/course/interfaces/managed-course-chain.interface';
 import {
   LearnerEnrollmentSummary,
   LearningServiceClient,
@@ -29,6 +34,10 @@ import {
   InstructorListItem,
   LearnerListItem,
 } from './interfaces/account-list-item.interface';
+import {
+  InstructorDetail,
+  InstructorInvitation,
+} from './interfaces/instructor-detail.interface';
 import { SeatUsage } from './interfaces/seat-usage.interface';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -60,6 +69,7 @@ export class UsersService {
     private readonly settingsService: PlatformSettingsService,
     private readonly outbox: OutboxService,
     private readonly learningClient: LearningServiceClient, // UC13
+    @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider, // UC12.1: avatarUrl
   ) {}
 
   // ===========================================================================
@@ -85,6 +95,66 @@ export class UsersService {
       managedCourseCount: courseCounts ? (courseCounts[row.id] ?? 0) : null,
     }));
     return createPageResponse(items, page, pageSize, total);
+  }
+
+  // ===========================================================================
+  // UC12.1 - Xem chi tiết Instructor
+  // ===========================================================================
+  async findInstructorDetail(
+    user: CurrentUser,
+    instructorId: string,
+  ): Promise<InstructorDetail> {
+    const organizationId = this.organizationIdOf(user);
+
+    // Một truy vấn: không tồn tại, khác tổ chức, đã xóa (BR-37) hay không phải Instructor
+    // đều ra cùng một 404. BR-36: Deactivated (và Pending) vẫn xem được.
+    const instructor = await this.prisma.user.findFirst({
+      where: {
+        id: instructorId,
+        organizationId,
+        role: UserRoleValue.Instructor,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        avatarFileKey: true,
+        department: true,
+        status: true,
+        activatedAt: true,
+        createdAt: true,
+      },
+    });
+    if (!instructor) {
+      throw new NotFoundException({
+        code: 'INSTRUCTOR_NOT_FOUND',
+        message: 'Không tìm thấy Instructor.',
+      });
+    }
+
+    const isPending = instructor.status === UserStatus.Pending;
+    const [expiredIds, invitation, courses] = await Promise.all([
+      // Dùng chung cách tính với danh sách UC12 để cờ invitationExpired luôn khớp.
+      this.findExpiredInvitationUserIds(
+        organizationId,
+        isPending ? [instructor.id] : [],
+      ),
+      isPending
+        ? this.findOpenInvitation(organizationId, instructor.id)
+        : Promise.resolve(null),
+      this.listManagedCourses(user, instructor.id),
+    ]);
+
+    const { avatarFileKey, ...account } = instructor;
+    return {
+      ...account,
+      avatarUrl: this.avatarUrl(avatarFileKey),
+      invitationExpired: expiredIds.has(instructor.id),
+      invitation,
+      courses,
+      violations: null, // GĐ2: kiểm duyệt nội dung (course-service)
+    };
   }
 
   // ===========================================================================
@@ -479,6 +549,62 @@ export class UsersService {
       this.logger.warn(
         `Không lấy được số Course phụ trách từ course-service: ${reason}`,
       );
+      return null;
+    }
+  }
+
+  /**
+   * UC12.1: lời mời đang mở (chưa dùng, chưa thu hồi) của một tài khoản, có thể đã quá hạn.
+   * Partial unique account_tokens_one_open_link_key bảo đảm tối đa một token như vậy.
+   * Chỉ trả thời điểm gửi và hạn, không trả token / mã băm.
+   */
+  private async findOpenInvitation(
+    organizationId: string,
+    userId: string,
+  ): Promise<InstructorInvitation | null> {
+    const token = await this.prisma.accountToken.findFirst({
+      where: {
+        organizationId,
+        userId,
+        purpose: TokenPurpose.Invitation,
+        consumedAt: null,
+        revokedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true, expiresAt: true },
+    });
+    return token
+      ? { sentAt: token.createdAt, expiresAt: token.expiresAt }
+      : null;
+  }
+
+  /** UC12.1: lỗi khi hỏi course-service không làm hỏng trang chi tiết: trả null, ghi cảnh báo. */
+  private async listManagedCourses(
+    user: CurrentUser,
+    instructorId: string,
+  ): Promise<IManagedCourseChain[] | null> {
+    try {
+      return await this.courseClient.listCourseChainsByInstructor(
+        user,
+        instructorId,
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Không lấy được danh sách Course phụ trách từ course-service: ${reason}`,
+      );
+      return null;
+    }
+  }
+
+  /** UC12.1: URL ảnh đại diện như ProfileService; lỗi dựng URL không làm hỏng response. */
+  private avatarUrl(avatarFileKey: string | null): string | null {
+    if (!avatarFileKey) return null;
+    try {
+      return this.storage.getUrl(avatarFileKey, 'image');
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Không dựng được URL ảnh đại diện: ${reason}`);
       return null;
     }
   }

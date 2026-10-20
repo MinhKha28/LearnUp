@@ -1,5 +1,14 @@
 import type { CurrentUser } from '@learnup/ts-common';
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { ResponseMessage, Roles, User } from '../../common/decorator/customize';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -8,7 +17,7 @@ import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
 import { UsersService } from './users.service';
 import { GetUsersBatchDto } from './dto/get-users-batch.dto';
 
-@ApiTags('Users') // UC12, UC12.2, UC13, UC13.2
+@ApiTags('Users') // UC12, UC12.1, UC12.2, UC13, UC13.2
 @ApiSecurity('internal-key')
 @UseGuards(RolesGuard)
 @Controller('users')
@@ -33,6 +42,17 @@ export class UsersController {
   @ResponseMessage('Lấy số chỗ Instructor thành công')
   getInstructorSeats(@User() user: CurrentUser) {
     return this.service.getInstructorSeats(user);
+  }
+
+  // UC12.1 - đặt SAU instructors/seats. id sai định dạng -> 400 (ParseUUIDPipe).
+  @Roles('ORGANIZER')
+  @Get('instructors/:id')
+  @ResponseMessage('Lấy chi tiết Instructor thành công')
+  findInstructorDetail(
+    @User() user: CurrentUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.service.findInstructorDetail(user, id);
   }
 
   // UC12.2
