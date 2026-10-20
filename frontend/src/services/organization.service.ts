@@ -4,6 +4,7 @@ import type {
   ICreateAccountReq,
   ICreateRegistrationReq,
   ICreateRegistrationRes,
+  IInstructorDetail,
   IInstructorListItem,
   ILearnerListItem,
   IPaymentResult,
@@ -66,6 +67,12 @@ export const getInstructorsAPI = ({
         ...(status ? { status } : {}),
       },
     },
+  );
+
+// UC12.1 - Xem chi tiết Instructor (Organizer; 400 id sai định dạng, 404 không tìm thấy)
+export const getInstructorDetailAPI = (instructorId: string) =>
+  axios.get<IBackendRes<IInstructorDetail>>(
+    `/api/v1/users/instructors/${encodeURIComponent(instructorId)}`,
   );
 
 // UC12.2 - số chỗ Instructor còn lại (Organizer)

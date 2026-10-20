@@ -130,6 +130,35 @@ export interface IInstructorListItem extends IAccountListItem {
   managedCourseCount: number | null; // null: không hỏi được course-service
 }
 
+// UC12.1 - trạng thái phiên bản Course (course-service); bản đại diện của chuỗi không bao giờ Archived
+export type CourseStatus =
+  | "Draft"
+  | "Submitted"
+  | "Published"
+  | "Rejected"
+  | "Archived"
+  | "Disabled";
+
+// UC12.1 - một chuỗi Course Instructor phụ trách, đại diện bằng phiên bản hiện hành (BR-287, BR-336)
+export interface IManagedCourseChain {
+  chainId: string;
+  courseId: string;
+  name: string;
+  versionNumber: number;
+  status: CourseStatus;
+  courseType: "Public" | "Private";
+  approvedAt: string | null; // null: chuỗi chưa từng được duyệt
+}
+
+// UC12.1 - chi tiết Instructor do GET /api/v1/users/instructors/:id trả về
+export interface IInstructorDetail extends IAccountListItem {
+  avatarUrl: string | null;
+  // Chỉ có khi Pending và còn lời mời đang mở (có thể đã quá hạn)
+  invitation: { sentAt: string; expiresAt: string } | null;
+  courses: IManagedCourseChain[] | null; // null: không hỏi được course-service
+  violations: null; // GĐ2: kiểm duyệt nội dung
+}
+
 // UC13 - dòng Learner do GET /api/v1/users/learners trả về (null: không hỏi được learning-service)
 export interface ILearnerListItem extends IAccountListItem {
   activeCourseCount: number | null; // Enrollment đang dở (kể cả quá hạn)
