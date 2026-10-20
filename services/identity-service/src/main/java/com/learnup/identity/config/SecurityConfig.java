@@ -55,6 +55,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.POST, IdentityRequestAuthenticationFilter.CREDENTIALS_PATH)
                             .hasAuthority("INTERNAL_SERVICE")
+                        .requestMatchers(HttpMethod.PUT, IdentityRequestAuthenticationFilter.METADATA_PATH)
+                            .hasAuthority("INTERNAL_SERVICE")
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout", "/api/auth/logout",
                                 "/api/v1/auth/change-password", "/api/auth/change-password").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/me", "/api/auth/me",
