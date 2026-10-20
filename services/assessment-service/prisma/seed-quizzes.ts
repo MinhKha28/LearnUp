@@ -9,6 +9,9 @@
  * Dùng ID tổ chức / Course / Module của prisma/seed.ts bên course-service (chạy seed đó trước):
  *   - Bộ UI (danh tính frontend đang gắn cứng: org 2222…, Instructor 3333…)
  *   - Bộ 0199a000-… (org A, Instructor …0c0000000001) và một Quiz của org B để thử không xem chéo.
+ *   - Bộ UC18.1 (Quiz 11–16): org ABC 01900000-…a001, Instructor instructor@learnup.local (…a101), trên các Course
+ *     01900000-…-c002… mà prisma/seed.ts HIỆN TẠI của course-service tạo (DRAFT_VIDEO, SUBMITTED_PUBLIC,
+ *     PUBLISHED_LOCKED), cộng một Quiz trỏ tới Course không tồn tại để thử 404. Chạy seed course-service trước.
  *
  * Quy ước ID của riêng file này: 3a = Quiz, 3b = câu hỏi, 3c = đáp án, 3d = lượt làm,
  * 3e = learner_assessment_states, 3f = đáp án đã chọn của lượt làm (quiz_attempt_answers).
@@ -32,7 +35,11 @@ const LEARNER_1 = '0199a000-0000-7000-8000-0b0000000001'; // org A
 // Course seed không có Learner nào cho org UI: ID logic đặt riêng cho demo, tenant không có user này.
 const LEARNER_UI = '33333333-eeee-7333-8333-000000000001';
 
-type CourseStatus = 'Draft' | 'Published';
+// Bộ UC18.1: cùng ID với course-service/prisma/seed.ts hiện tại (fixtureId) và tài khoản dev instructor@learnup.local.
+const ORG_ABC = '01900000-0000-7000-8000-00000000a001';
+const LEARNER_ABC_4 = '01900000-0000-7000-8000-00000000a206'; // Học viên 4, org ABC
+
+type CourseStatus = 'Draft' | 'Submitted' | 'Published';
 
 interface SeedCourse {
   id: string;
@@ -73,6 +80,37 @@ const COURSE_NHAP_MON: SeedCourse = {
     '0199a000-0000-7000-8000-1a0000000041', // Giới thiệu sản phẩm
     '0199a000-0000-7000-8000-1a0000000042', // Sử dụng sản phẩm
   ],
+};
+const COURSE_ABC_DRAFT: SeedCourse = {
+  id: '01900000-0000-7000-8000-c00200000015', // DRAFT_VIDEO, Draft
+  organizationId: ORG_ABC,
+  status: 'Draft',
+  moduleIds: ['01900000-0000-7000-8000-c003000000d3'], // Kiến thức nền tảng
+};
+const COURSE_ABC_SUBMITTED: SeedCourse = {
+  id: '01900000-0000-7000-8000-c00200000033', // SUBMITTED_PUBLIC, Submitted
+  organizationId: ORG_ABC,
+  status: 'Submitted',
+  moduleIds: [
+    '01900000-0000-7000-8000-c003000001ff', // Kiến thức nền tảng
+    '01900000-0000-7000-8000-c00300000200', // Thực hành và tình huống
+  ],
+};
+const COURSE_ABC_LOCKED: SeedCourse = {
+  id: '01900000-0000-7000-8000-c0020000006f', // PUBLISHED_LOCKED, Published + Locked (locked_at 2026-09-03)
+  organizationId: ORG_ABC,
+  status: 'Published',
+  moduleIds: [
+    '01900000-0000-7000-8000-c00300000457', // Kiến thức nền tảng
+    '01900000-0000-7000-8000-c00300000458', // Thực hành và tình huống
+  ],
+};
+/** CỐ Ý không có trong course_db: course-service trả 404, UC18.1 phải trả QUIZ_NOT_FOUND. */
+const COURSE_ABC_MISSING: SeedCourse = {
+  id: '01900000-0000-7000-8000-c0020000ffff',
+  organizationId: ORG_ABC,
+  status: 'Draft',
+  moduleIds: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -423,6 +461,236 @@ const QUIZZES: SeedQuiz[] = [
           { content: 'Doanh nghiệp vừa và nhỏ', isCorrect: true },
           { content: 'Không xác định', isCorrect: false },
         ],
+      },
+    ],
+    attempts: [],
+  },
+  // ----- Bộ UC18.1, org ABC, Instructor a101. Course Draft: một Quiz gắn Module, một Quiz gắn Course, đủ 3 dạng câu hỏi
+  {
+    no: 11,
+    course: COURSE_ABC_DRAFT,
+    moduleId: COURSE_ABC_DRAFT.moduleIds[0],
+    title: '[UC18.1] Draft – gắn Module',
+    position: 1,
+    passingScore: 70,
+    isRequired: true,
+    timeLimitMinutes: 15,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    questions: [
+      {
+        type: 'SingleChoice',
+        content: 'Ai chịu trách nhiệm về an toàn tại nơi làm việc?',
+        options: [
+          { content: 'Chỉ cán bộ an toàn', isCorrect: false },
+          { content: 'Mọi người tại nơi làm việc', isCorrect: true },
+          { content: 'Chỉ quản lý', isCorrect: false },
+        ],
+      },
+      {
+        type: 'MultipleChoice',
+        content: 'Những mối nguy nào thuộc nhóm vật lý?',
+        options: [
+          { content: 'Tiếng ồn', isCorrect: true },
+          { content: 'Dung môi', isCorrect: false },
+          { content: 'Điện', isCorrect: true },
+          { content: 'Căng thẳng', isCorrect: false },
+        ],
+      },
+      {
+        type: 'TrueFalse',
+        content: 'Thiết bị bảo hộ cá nhân là lớp phòng vệ đầu tiên.',
+        options: TRUE_FALSE(false),
+      },
+    ],
+    attempts: [],
+  },
+  {
+    no: 12,
+    course: COURSE_ABC_DRAFT,
+    moduleId: null,
+    title: '[UC18.1] Draft – gắn Course',
+    position: 1,
+    passingScore: 72.5, // BR-315: hiện đủ 2 chữ số thập phân
+    isRequired: false,
+    timeLimitMinutes: 20,
+    maxConsecutiveAttempts: 5,
+    lockoutHours: 12,
+    questions: [
+      {
+        type: 'SingleChoice',
+        content: 'Khi nghe chuông báo cháy, việc đầu tiên cần làm là gì?',
+        options: [
+          { content: 'Làm nốt việc đang dở', isCorrect: false },
+          {
+            content: 'Rời đi theo lối thoát an toàn gần nhất',
+            isCorrect: true,
+          },
+          { content: 'Đi thang máy', isCorrect: false },
+        ],
+      },
+      {
+        type: 'MultipleChoice',
+        content: 'Những việc nào giúp kiểm soát rủi ro?',
+        options: [
+          { content: 'Loại bỏ mối nguy', isCorrect: true },
+          { content: 'Thay thế bằng cách làm an toàn hơn', isCorrect: true },
+          { content: 'Bỏ qua biển cảnh báo', isCorrect: false },
+          { content: 'Dùng thiết bị bảo hộ', isCorrect: true },
+        ],
+      },
+      {
+        type: 'TrueFalse',
+        content: 'Vẫn cần báo cáo mối nguy dù chưa có ai bị thương.',
+        options: TRUE_FALSE(true),
+      },
+    ],
+    attempts: [],
+  },
+  // ----- Course Submitted: Quiz phải có câu hỏi (BR-323), mọi quyền bị khóa (BR-285)
+  {
+    no: 13,
+    course: COURSE_ABC_SUBMITTED,
+    moduleId: COURSE_ABC_SUBMITTED.moduleIds[0],
+    title: '[UC18.1] Submitted – gắn Module',
+    position: 1,
+    passingScore: 60,
+    isRequired: true,
+    timeLimitMinutes: 10,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    questions: [
+      {
+        type: 'SingleChoice',
+        content: 'Bước đầu tiên của đánh giá rủi ro là gì?',
+        options: [
+          { content: 'Xác định mối nguy', isCorrect: true },
+          { content: 'Mua thiết bị bảo hộ', isCorrect: false },
+        ],
+      },
+      {
+        type: 'MultipleChoice',
+        content: 'Những thông tin nào cần có trong báo cáo sự cố?',
+        options: [
+          { content: 'Thời gian', isCorrect: true },
+          { content: 'Địa điểm', isCorrect: true },
+          { content: 'Màu áo người báo cáo', isCorrect: false },
+        ],
+      },
+      {
+        type: 'TrueFalse',
+        content: 'Rủi ro bằng khả năng xảy ra nhân với mức độ nghiêm trọng.',
+        options: TRUE_FALSE(true),
+      },
+    ],
+    attempts: [],
+  },
+  // ----- Course Published + Locked: một Quiz chưa có lượt làm (chỉ khóa điểm đạt + cờ bắt buộc, BR-94),
+  //       một Quiz đã có lượt làm (khóa thêm câu hỏi, thời gian, n, m và xóa Quiz: BR-96, BR-97, BR-92)
+  {
+    no: 14,
+    course: COURSE_ABC_LOCKED,
+    moduleId: COURSE_ABC_LOCKED.moduleIds[0],
+    title: '[UC18.1] Locked – chưa có lượt làm',
+    position: 1,
+    passingScore: 80,
+    isRequired: true,
+    timeLimitMinutes: 15,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    questions: [
+      {
+        type: 'SingleChoice',
+        content: 'Nhân viên mới cần đọc tài liệu nào trước tiên?',
+        options: [
+          { content: 'Nội quy công ty', isCorrect: true },
+          { content: 'Báo cáo tài chính', isCorrect: false },
+          { content: 'Thực đơn căng tin', isCorrect: false },
+        ],
+      },
+      {
+        type: 'MultipleChoice',
+        content: 'Những kênh nào dùng để hỏi khi cần hỗ trợ?',
+        options: [
+          { content: 'Quản lý trực tiếp', isCorrect: true },
+          { content: 'Phòng Nhân sự', isCorrect: true },
+          { content: 'Mạng xã hội cá nhân', isCorrect: false },
+        ],
+      },
+      {
+        type: 'TrueFalse',
+        content: 'Mật khẩu công ty có thể chia sẻ cho đồng nghiệp thân.',
+        options: TRUE_FALSE(false),
+      },
+    ],
+    attempts: [],
+  },
+  {
+    no: 15,
+    course: COURSE_ABC_LOCKED,
+    moduleId: COURSE_ABC_LOCKED.moduleIds[1],
+    title: '[UC18.1] Locked – đã có lượt làm',
+    position: 1,
+    passingScore: 70,
+    isRequired: true,
+    timeLimitMinutes: 10,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    questions: [
+      {
+        type: 'SingleChoice',
+        content: 'Khi phát hiện email đáng ngờ, bạn nên làm gì?',
+        options: [
+          { content: 'Trả lời để hỏi lại', isCorrect: false },
+          {
+            content: 'Báo cho bộ phận IT, không bấm vào link',
+            isCorrect: true,
+          },
+        ],
+      },
+      {
+        type: 'MultipleChoice',
+        content: 'Dấu hiệu nào cho thấy một email lừa đảo?',
+        options: [
+          { content: 'Yêu cầu làm ngay, gấp gáp', isCorrect: true },
+          { content: 'Địa chỉ người gửi khác tên công ty', isCorrect: true },
+          { content: 'Email từ phiếu hỗ trợ bạn tự tạo', isCorrect: false },
+        ],
+      },
+      {
+        type: 'TrueFalse',
+        content: 'Xác thực hai lớp vẫn bảo vệ tài khoản khi lộ mật khẩu.',
+        options: TRUE_FALSE(true),
+      },
+    ],
+    attempts: [
+      {
+        // Nộp tay, 2/3 câu đúng (sai câu nhiều đáp án) -> 66.67
+        learnerId: LEARNER_ABC_4,
+        startedAt: new Date('2026-10-05T02:00:00Z'),
+        submittedAfterMinutes: 7,
+        submissionKind: 'Manual',
+        choices: [[1], [0], [0]],
+      },
+    ],
+  },
+  // ----- Course không tồn tại trong course_db: course-service trả 404 -> UC18.1 trả 404 QUIZ_NOT_FOUND
+  {
+    no: 16,
+    course: COURSE_ABC_MISSING,
+    moduleId: null,
+    title: '[UC18.1] Course không tồn tại (404)',
+    position: 1,
+    passingScore: 50,
+    isRequired: false,
+    timeLimitMinutes: 5,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    questions: [
+      {
+        type: 'TrueFalse',
+        content: 'Quiz này không được hiện cho bất kỳ Instructor nào.',
+        options: TRUE_FALSE(true),
       },
     ],
     attempts: [],

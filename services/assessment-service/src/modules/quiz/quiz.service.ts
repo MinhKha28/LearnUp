@@ -15,12 +15,13 @@ import {
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { ListQuizzesQueryDto } from './dto/list-quizzes-query.dto';
+import { QuizDetail } from './interfaces/quiz-detail.interface';
 import {
   QUIZ_KIND,
   QuizListPage,
-  QuizLockReason,
   QuizSummary,
 } from './interfaces/quiz-list.interface';
+import { computeQuizPermissions } from './quiz-permissions';
 
 /** What a list row needs besides the columns: question and attempt counts in the same query (no N+1). */
 const quizSummaryInclude = {
@@ -30,6 +31,15 @@ const quizSummaryInclude = {
 type QuizSummaryRow = Prisma.AssessmentGetPayload<{
   include: typeof quizSummaryInclude;
 }>;
+
+/** UC18.1: the counts plus every question and its options, both in display order. */
+const quizDetailInclude = {
+  ...quizSummaryInclude,
+  questions: {
+    orderBy: { position: 'asc' },
+    include: { options: { orderBy: { position: 'asc' } } },
+  },
+} satisfies Prisma.AssessmentInclude;
 
 @Injectable()
 export class QuizService {
@@ -63,9 +73,7 @@ export class QuizService {
       include: quizSummaryInclude,
     });
 
-    // Course-level reasons are the same for every Quiz of the Course.
-    const courseReasons = this.courseLockReasons(course);
-    const items = rows.map((q) => this.toSummary(q, courseReasons));
+    const items = rows.map((q) => this.toSummary(q, course));
 
     return {
       // A Course holds few Quizzes, so everything is returned as a single page.
@@ -155,7 +163,63 @@ export class QuizService {
     });
     // BR-52: a Quiz time limit is not part of the Course duration, so no outbox event.
 
-    return this.toSummary(quiz, this.courseLockReasons(course));
+    return this.toSummary(quiz, course);
+  }
+
+  /**
+   * UC18.1 — one Quiz with configuration, placement, questions, answer keys and what may be changed now (BR-99).
+   * Instructor only: the answer keys must never reach a Learner.
+   */
+  async getQuiz(user: CurrentUser, id: string): Promise<QuizDetail> {
+    const organizationId = this.requireInstructor(user);
+    const quiz = await this.prisma.assessment.findFirst({
+      where: { id, organizationId, kind: QUIZ_KIND },
+      include: quizDetailInclude,
+    });
+    if (!quiz) throw this.quizNotFound();
+
+    // BR-79 / BR-287: a Quiz of another Instructor's Course, or of a Course Course Service no longer knows,
+    // looks exactly like a missing one. Course Service being down stays a 503 (BR-78: no local copy to fall back on).
+    let course: CourseAuthoringContext;
+    try {
+      course = await this.requireOwnCourse(user, quiz.courseId);
+    } catch (error) {
+      if (error instanceof NotFoundException) throw this.quizNotFound();
+      throw error;
+    }
+
+    const { permissions } = computeQuizPermissions(
+      course,
+      quiz._count.quizAttempts > 0,
+    );
+    return {
+      ...this.toSummary(quiz, course),
+      placement: quiz.moduleId ? 'MODULE' : 'COURSE',
+      courseStatus: course.status,
+      courseLocked: course.locked,
+      permissions,
+      questions: quiz.questions.map((question) => ({
+        id: question.id,
+        position: question.position,
+        type: question.questionType,
+        content: question.content,
+        options: question.options.map((option) => ({
+          id: option.id,
+          position: option.position,
+          content: option.content,
+          isCorrect: option.isCorrect,
+        })),
+      })),
+      createdAt: quiz.createdAt,
+      updatedAt: quiz.updatedAt,
+    };
+  }
+
+  private quizNotFound() {
+    return new NotFoundException({
+      code: 'QUIZ_NOT_FOUND',
+      message: 'Quiz not found.',
+    });
   }
 
   /**
@@ -215,26 +279,13 @@ export class QuizService {
     });
   }
 
-  /** Reasons that come from the Course and apply to every Quiz in it (BR-99). */
-  private courseLockReasons(course: CourseAuthoringContext): QuizLockReason[] {
-    const reasons: QuizLockReason[] = [];
-    if (course.locked) reasons.push('COURSE_LOCKED'); // BR-94
-    // BR-285: nothing can be edited while the Course is under review. Course Service writes the status in Title Case.
-    if (course.status === 'Submitted') {
-      reasons.push('COURSE_SUBMITTED');
-    }
-    return reasons;
-  }
-
   private toSummary(
     q: QuizSummaryRow,
-    courseReasons: QuizLockReason[],
+    course: CourseAuthoringContext,
   ): QuizSummary {
     const hasAttempts = q._count.quizAttempts > 0;
-    // BR-96 / BR-97: questions, time limit, n and m are frozen once a Learner has started the Quiz.
-    const lockReasons: QuizLockReason[] = hasAttempts
-      ? ['QUIZ_HAS_ATTEMPTS', ...courseReasons]
-      : [...courseReasons];
+    // BR-99: attempts (BR-96, BR-97), Locked (BR-94) and Submitted (BR-285); same list as before UC18.1.
+    const { lockReasons } = computeQuizPermissions(course, hasAttempts);
     return {
       id: q.id,
       courseId: q.courseId,
