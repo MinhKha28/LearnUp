@@ -13,6 +13,7 @@ import type { IStorageProvider } from '@learnup/ts-storage';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
 import type { IManagedCourseChain } from '../../infrastructure/clients/course/interfaces/managed-course-chain.interface';
 import {
+  LearnerEnrollment,
   LearnerEnrollmentSummary,
   LearningServiceClient,
 } from '../../infrastructure/clients/learning/learning-service.client';
@@ -38,6 +39,7 @@ import {
   InstructorDetail,
   InstructorInvitation,
 } from './interfaces/instructor-detail.interface';
+import { LearnerDetail } from './interfaces/learner-detail.interface';
 import { SeatUsage } from './interfaces/seat-usage.interface';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -186,6 +188,65 @@ export class UsersService {
         : null,
     }));
     return createPageResponse(items, page, pageSize, total);
+  }
+
+  // ===========================================================================
+  // UC13.1 - Xem chi tiết Learner
+  // ===========================================================================
+  async findLearnerDetail(
+    user: CurrentUser,
+    learnerId: string,
+  ): Promise<LearnerDetail> {
+    const organizationId = this.organizationIdOf(user);
+
+    // Một truy vấn: không tồn tại, khác tổ chức, đã xóa (BR-37) hay không phải Learner
+    // đều ra cùng một 404. BR-36: Deactivated (và Pending) vẫn xem được.
+    const learner = await this.prisma.user.findFirst({
+      where: {
+        id: learnerId,
+        organizationId,
+        role: UserRoleValue.Learner,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        avatarFileKey: true,
+        department: true,
+        status: true,
+        activatedAt: true,
+        createdAt: true,
+      },
+    });
+    if (!learner) {
+      throw new NotFoundException({
+        code: 'LEARNER_NOT_FOUND',
+        message: 'Không tìm thấy Learner.',
+      });
+    }
+
+    const isPending = learner.status === UserStatus.Pending;
+    const [expiredIds, invitation, enrollments] = await Promise.all([
+      // Dùng chung cách tính với danh sách UC13 để cờ invitationExpired luôn khớp.
+      this.findExpiredInvitationUserIds(
+        organizationId,
+        isPending ? [learner.id] : [],
+      ),
+      isPending
+        ? this.findOpenInvitation(organizationId, learner.id)
+        : Promise.resolve(null),
+      this.listLearnerEnrollments(user, learner.id),
+    ]);
+
+    const { avatarFileKey, ...account } = learner;
+    return {
+      ...account,
+      avatarUrl: this.avatarUrl(avatarFileKey),
+      invitationExpired: expiredIds.has(learner.id),
+      invitation,
+      enrollments,
+    };
   }
 
   /**
@@ -624,6 +685,25 @@ export class UsersService {
       const reason = error instanceof Error ? error.message : String(error);
       this.logger.warn(
         `Không lấy được tình trạng đào tạo của Learner từ learning-service: ${reason}`,
+      );
+      return null;
+    }
+  }
+
+  /** UC13.1: lỗi khi hỏi learning-service không làm hỏng trang chi tiết: trả null, ghi cảnh báo. */
+  private async listLearnerEnrollments(
+    user: CurrentUser,
+    learnerId: string,
+  ): Promise<LearnerEnrollment[] | null> {
+    try {
+      return await this.learningClient.listEnrollmentsByLearner(
+        user,
+        learnerId,
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Không lấy được danh sách Course của Learner từ learning-service: ${reason}`,
       );
       return null;
     }

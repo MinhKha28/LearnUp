@@ -1,3 +1,5 @@
+import type { AssignmentStatus } from "@/types/assignment.types";
+
 export interface IOrganization {
   id: string;
   name: string;
@@ -163,6 +165,28 @@ export interface IInstructorDetail extends IAccountListItem {
 export interface ILearnerListItem extends IAccountListItem {
   activeCourseCount: number | null; // Enrollment đang dở (kể cả quá hạn)
   overdueCourseCount: number | null; // Enrollment Required đang quá hạn
+}
+
+// UC13.1 - một Enrollment của Learner (learning-service), không bao giờ Withdrawn
+export interface ILearnerEnrollment {
+  enrollmentId: string;
+  courseId: string;
+  course: { name: string; versionNumber: number } | null; // null: course-service không trả phiên bản này
+  enrollmentType: "Required" | "Optional";
+  status: AssignmentStatus; // trạng thái hiển thị, Overdue đã tính lúc đọc
+  enrolledAt: string;
+  assignedAt: string | null;
+  dueAt: string | null; // Optional luôn null (BR-129)
+  completedAt: string | null;
+  requiredMaterials: { completed: number; total: number }; // chỉ học liệu bắt buộc
+}
+
+// UC13.1 - chi tiết Learner do GET /api/v1/users/learners/:id trả về
+export interface ILearnerDetail extends IAccountListItem {
+  avatarUrl: string | null;
+  // Chỉ có khi Pending và còn lời mời đang mở (có thể đã quá hạn)
+  invitation: { sentAt: string; expiresAt: string } | null;
+  enrollments: ILearnerEnrollment[] | null; // null: không hỏi được learning-service
 }
 
 // UC12.2 - body tạo tài khoản trong tổ chức (khớp CreateAccountDto; sau này UC13.2 dùng lại)

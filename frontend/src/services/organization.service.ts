@@ -6,6 +6,7 @@ import type {
   ICreateRegistrationRes,
   IInstructorDetail,
   IInstructorListItem,
+  ILearnerDetail,
   ILearnerListItem,
   IPaymentResult,
   IPayRegistrationReq,
@@ -98,6 +99,12 @@ export const getLearnersAPI = ({
         ...(status ? { status } : {}),
       },
     },
+  );
+
+// UC13.1 - Xem chi tiết Learner (Organizer; 400 id sai định dạng, 404 không tìm thấy)
+export const getLearnerDetailAPI = (learnerId: string) =>
+  axios.get<IBackendRes<ILearnerDetail>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}`,
   );
 
 // UC13.2 - số chỗ Learner còn lại (Organizer)

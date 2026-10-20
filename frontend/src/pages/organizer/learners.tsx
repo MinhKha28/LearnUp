@@ -220,15 +220,14 @@ const Learners = () => {
             />
           }
           extraColumns={trainingColumns}
-          // UC13.1 / 13.3 / 13.5 / 13.6 / 13.7 gắn thao tác vào đây
-          renderActions={() => (
-            <Tooltip title={COMING_SOON}>
-              <span>
-                <button className="organizer-link" disabled>
-                  View details →
-                </button>
-              </span>
-            </Tooltip>
+          // UC13.1 - mở chi tiết; UC13.3 / 13.5 / 13.6 / 13.7 gắn thao tác ở trang chi tiết
+          renderActions={(item) => (
+            <Link
+              className="organizer-link"
+              to={`/organizer/learners/${item.id}`}
+            >
+              View details →
+            </Link>
           )}
           onPageChange={(nextPage, nextPageSize) => {
             setPage(nextPage);
