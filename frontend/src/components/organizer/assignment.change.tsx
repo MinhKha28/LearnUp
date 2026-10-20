@@ -12,13 +12,13 @@ import {
 import type { ApiError } from "@/types/api.types";
 import type { AssignmentDetail } from "@/types/assignment.types";
 import {
-  assignmentDue,
   assignmentErrorMessage,
   assignmentExtensionRange,
   canExemptAssignment,
   canExtendAssignment,
   extensionDateError,
 } from "@/utils/assignments.view";
+import { assignmentDueDate } from "@/utils/assignment.date";
 import "./assignment.change.scss";
 
 export const AssignmentChange = ({
@@ -145,9 +145,9 @@ export const AssignmentChange = ({
           <>
             <p>
               Hạn hiện tại:{" "}
-              {assignmentDue(item.dueAt, item.organizationTimezone)} → Hạn mới:{" "}
+              {assignmentDueDate(item.dueAt, item.organizationTimezone)} → Hạn mới:{" "}
               {selectedDay
-                ? `hết ngày ${selectedDay.format("DD/MM/YYYY")}`
+                ? selectedDay.format("DD/MM/YYYY")
                 : "Chưa chọn"}
             </p>
             {!item.organizationTimezone && (
