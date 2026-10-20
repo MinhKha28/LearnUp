@@ -492,6 +492,7 @@ class AuthControllerIntegrationTest {
 
         // Match Tenant's payload (no username), retaining its canonical ID and metadata.
         User provisioned = userRepository.findById(newUserId).orElseThrow();
+        assertThat(provisioned.getUsername()).isEqualTo("user_" + newUserId).hasSize(41);
         assertThat(provisioned.getEmail()).isEqualTo(request.getEmail());
         assertThat(provisioned.getRole()).isEqualTo(role);
         assertThat(provisioned.getOrganizationId()).isEqualTo(organizationId);

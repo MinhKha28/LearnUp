@@ -331,9 +331,10 @@ public class AuthService {
         }
 
         if (user == null) {
+            // UUIDv7 accounts can share timestamp prefixes; retain the full canonical ID.
             String username = (request.getUsername() != null && !request.getUsername().isBlank())
                     ? request.getUsername().trim()
-                    : "user_" + userId.toString().substring(0, 8);
+                    : "user_" + userId.toString();
             String email = (request.getEmail() != null && !request.getEmail().isBlank())
                     ? request.getEmail().trim().toLowerCase()
                     : userId + "@learnup.local";
