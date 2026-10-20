@@ -15,7 +15,8 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useCurrentApp } from "@/components/context/app.context";
 import { useSignOut } from "@/hooks/use.sign.out";
 import NotificationBell from "@/components/notification/notification.bell";
-import { DevIdentitySwitcher } from "@/components/learner/dev.identity.switcher";
+import { useDevIdentity } from "@/hooks/use.dev.identity";
+import { DevIdentitySelect } from "@/components/learner/dev.identity.switcher";
 import "./layout.learner.scss";
 
 type MenuItem = Required<MenuProps>["items"][number];
@@ -31,6 +32,7 @@ const learnerMenuItems: MenuItem[] = [
 
 const LayoutLearner = () => {
   const { user } = useCurrentApp();
+  const demoIdentity = useDevIdentity();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -46,7 +48,7 @@ const LayoutLearner = () => {
     return "/learner";
   }, [location.pathname]);
 
-  const displayName = user?.fullName || "Học viên";
+  const displayName = demoIdentity?.current.label || user?.fullName || "Học viên";
   const initials = displayName
     .split(" ")
     .map((part) => part[0])
@@ -84,7 +86,7 @@ const LayoutLearner = () => {
           <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
           <div className="learner-user-info">
             <strong>{displayName}</strong>
-            <small>Học viên</small>
+            <small>{demoIdentity?.current.roleLabel ?? "Học viên"}</small>
           </div>
           <Button
             className="learner-signout-trigger"
@@ -126,14 +128,15 @@ const LayoutLearner = () => {
               onClick={() => setMobileOpen(true)}
               aria-label="Mở điều hướng"
             />
-            <span className="learner-org-name">Demo Organization</span>
+            <span className="learner-org-name">{demoIdentity?.current.organizationLabel ?? "Demo Organization"}</span>
           </div>
           <div className="learner-topbar-actions">
-            <DevIdentitySwitcher />
+            <DevIdentitySelect identity={demoIdentity} />
             <NotificationBell basePath="/learner" />
-            <Avatar size={30} src={user?.avatar} className="learner-topbar-avatar">
-              {initials}
-            </Avatar>
+            <div className="learner-topbar-user">
+              <Avatar size={30} src={user?.avatar} className="learner-topbar-avatar">{initials}</Avatar>
+              {demoIdentity && <span><strong>{displayName}</strong><small>{demoIdentity.current.roleLabel}</small></span>}
+            </div>
           </div>
         </Layout.Header>
         <Layout.Content className="learner-main">

@@ -29,7 +29,8 @@ import {
 import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import { DevIdentitySwitcher } from "@/components/learner/dev.identity.switcher";
+import { useDevIdentity } from "@/hooks/use.dev.identity";
+import { DevIdentitySelect } from "@/components/learner/dev.identity.switcher";
 import NotificationBell from "@/components/notification/notification.bell";
 import { useCurrentApp } from "@/components/context/app.context";
 import { useSignOut } from "@/hooks/use.sign.out";
@@ -191,6 +192,7 @@ const getPageMeta = (pathname: string) => {
 
 const LayoutOrganizer = () => {
   const { user } = useCurrentApp();
+  const demoIdentity = useDevIdentity();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -221,7 +223,7 @@ const LayoutOrganizer = () => {
     return location.pathname;
   }, [location.pathname]);
 
-  const displayName = user?.fullName || "Quản lý đào tạo";
+  const displayName = demoIdentity?.current.label || user?.fullName || "Quản lý đào tạo";
   const initials = displayName
     .split(" ")
     .map((part) => part[0])
@@ -310,8 +312,8 @@ const LayoutOrganizer = () => {
             </div>
           </div>
           <div className="organizer-topbar-actions">
-            <span className="organizer-org-badge">Demo Organization</span>
-            <DevIdentitySwitcher />
+            <span className="organizer-org-badge">{demoIdentity?.current.organizationLabel ?? "Demo Organization"}</span>
+            <DevIdentitySelect identity={demoIdentity} />
             <NotificationBell basePath="/organizer" />
             <Dropdown
               menu={{ items: profileItems }}
@@ -322,7 +324,7 @@ const LayoutOrganizer = () => {
                 <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
                 <span>
                   <strong>{displayName}</strong>
-                  <small>Quản lý đào tạo</small>
+                  <small>{demoIdentity?.current.roleLabel ?? "Quản lý đào tạo"}</small>
                 </span>
               </button>
             </Dropdown>

@@ -265,3 +265,19 @@
     display: none;
   }
 }
+
+.learner-topbar-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.learner-topbar-user > span {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--font-size-caption);
+  line-height: var(--status-line-height);
+}
+.learner-topbar-user small {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}

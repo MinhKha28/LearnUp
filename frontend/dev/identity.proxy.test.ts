@@ -145,10 +145,10 @@ describe("applyIdentityHeaders", () => {
 });
 
 describe("describeIdentities", () => {
-  it("chỉ trả key và label, không lộ ID hay khóa", () => {
+  it("chỉ trả metadata hiển thị, không lộ ID hay khóa", () => {
     const result = describeIdentities("LEARNER_2");
     expect(result).toEqual({
-      current: { key: "LEARNER_2", label: "Học viên 2 (Tổ chức A)" },
+      current: { key: "LEARNER_2", label: "Học viên 2 (Tổ chức A)", organizationLabel: "Tổ chức A", roleLabel: "Học viên" },
       options: [
         { key: "LEARNER_1", label: "Học viên 1 (Tổ chức A)" },
         { key: "LEARNER_2", label: "Học viên 2 (Tổ chức A)" },
@@ -207,4 +207,9 @@ describe("createIdentityProxy", () => {
     expect(targetOf("/api/v1/enrollment-status-intervals")).toBeNull();
     expect(targetOf("/x/api/v1/enrollments")).toBeNull();
   });
+});
+
+it("describes the organization and role of the selected demo persona", () => {
+  expect(describeIdentities("LEARNER_3").current).toMatchObject({ organizationLabel: "Tổ chức B", roleLabel: "Học viên" });
+  expect(describeIdentities("ORGANIZER").current).toMatchObject({ organizationLabel: "Tổ chức A", roleLabel: "Quản lý đào tạo" });
 });
