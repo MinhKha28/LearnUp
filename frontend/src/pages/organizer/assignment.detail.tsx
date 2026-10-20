@@ -169,12 +169,12 @@ const AssignmentDetail = () => {
                 ...(item.completedAt ? [{
                   key: "completed",
                   label: "Ngày hoàn thành",
-                  children: `${date(item.completedAt)}${item.completedLate === null ? "" : item.completedLate ? " · Trễ hạn" : " · Đúng hạn"}`,
+                  children: `${assignmentDateOnly(item.completedAt, timezone)}${item.completedLate === null ? "" : item.completedLate ? " · Trễ hạn" : " · Đúng hạn"}`,
                 }] : []),
                 ...(item.withdrawnAt ? [{
                   key: "withdrawn",
                   label: "Ngày rút",
-                  children: date(item.withdrawnAt),
+                  children: assignmentDateOnly(item.withdrawnAt, timezone),
                 }] : []),
                 ...(item.withdrawnReason ? [{
                   key: "reason",
