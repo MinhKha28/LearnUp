@@ -1,0 +1,3 @@
+interface:
+  display_name: "LearnUP Draw.io Sequence Diagrams"
+  short_description: "Draw LearnUP sequence diagrams from source"

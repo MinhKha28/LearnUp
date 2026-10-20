@@ -1,0 +1,158 @@
+@startuml
+title UC14 - Xem Course phụ trách
+autonumber
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 25
+skinparam BoxPadding 10
+skinparam MaxMessageSize 80
+
+' AS-IS source evidence (workspace-relative paths):
+' UI: frontend/src/router.tsx:357; frontend/src/pages/instructor/my.courses.tsx:71
+' API: frontend/src/services/course.service.ts:35
+' Transport: frontend/src/services/axios.customize.ts:47; frontend/src/config/env.ts:13
+' Local development URL: frontend/.env.development:10 (http://localhost:8080)
+' Routing: gateway/api-gateway/src/main/resources/application.yml:40
+' Prefix/version: services/course-service/src/main.ts:40
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:38
+' Service: services/course-service/src/modules/courses/courses.service.ts:52
+' Repository: services/course-service/src/modules/courses/courses.repository.ts:12
+' Course models: services/course-service/prisma/schema.prisma:18
+' REST client: services/course-service/src/infrastructure/clients/learning/learning.client.ts:30
+' Client wiring/timeout: services/course-service/src/modules/courses/courses.module.ts:14
+' Learning endpoint: services/learning-service/src/modules/enrollments/enrollments.controller.ts:71
+' Learning query: services/learning-service/src/modules/enrollments/enrollments.service.ts:391
+' Enrollment model: services/learning-service/prisma/schema.prisma:10
+' Learning prefix/version: services/learning-service/src/app.setup.ts:30
+' docs/source-of-truth and full BR-79/BR-287/BR-64/BR-80 definitions are absent locally.
+' BR references indicate review targets, not a claim of verified specification compliance.
+
+actor Instructor
+boundary "MyCourses\n(instructor/my.courses.tsx)" as Screen
+participant "API Gateway" as Gateway
+participant ":CoursesController" as CoursesController
+participant ":CoursesService" as CoursesService
+participant ":CoursesRepository" as CoursesRepository
+database "course_db" as CourseDB
+participant ":LearningClient" as LearningClient
+participant ":EnrollmentsController" as EnrollmentsController
+participant ":EnrollmentsService" as EnrollmentsService
+database "learning_db" as LearningDB
+
+note over Instructor, Gateway
+  Precondition: authenticated session with a valid JWT.
+  The React route requires INSTRUCTOR.
+  Scope: local Vite development configuration; Course base URL is localhost:8080.
+  Gateway forwards trusted user context and an internal key; routine auth is omitted.
+end note
+
+activate Instructor
+Instructor -> Screen: Open /instructor/courses
+activate Screen
+Screen -> Screen: useEffect calls fetchCourses()\ncurrent=1, pageSize=10; filters initially unset
+Screen -> Gateway: GET /api/v1/courses\nfetchManagedCoursesAPI(query), Bearer JWT
+activate Gateway
+Gateway -> CoursesController: GET /api/v1/courses (no path rewrite)\nTrusted userId, organizationId, role
+activate CoursesController
+CoursesController -> CoursesService: findAll(user, query)
+activate CoursesService
+CoursesService -> CoursesService: Check role === INSTRUCTOR\nand non-empty organizationId
+
+alt Service authorization check fails
+  CoursesService -> CoursesService: Throw ForbiddenException (403)
+else Instructor with organization context
+  CoursesService -> CoursesService: Build tenant and owner scope\nApply search, courseType, status, locked and pagination
+  note right of CoursesService
+    Course.organizationId = user.organizationId
+    AND Course.chain.instructorId = user.userId.
+    Other instructors' or organizations' Courses are excluded by the query.
+    No additional chain.organizationId predicate is applied.
+    Locked and Submitted do not prevent reading.
+  end note
+  CoursesService -> CoursesRepository: findInstructorCourses(where, skip, pageSize)
+  activate CoursesRepository
+  CoursesRepository -> CourseDB: Prisma read transaction: course.findMany + course.count\nSame where; updatedAt DESC; skip/take
+  activate CourseDB
+  CourseDB -->> CoursesRepository: Matching Course versions and total
+  deactivate CourseDB
+  CoursesRepository -->> CoursesService: [courses, total]
+  deactivate CoursesRepository
+
+  CoursesService -> LearningClient: getCourseLearnerCounts(user, page courseIds)
+  activate LearningClient
+  alt Page has no Course IDs
+    LearningClient -> LearningClient: Return [] without an HTTP request
+  else Page contains Course IDs
+    alt Learning REST request succeeds
+      LearningClient -> EnrollmentsController: POST /api/v1/enrollments/learner-counts\n{courseIds}; internal key and same user context
+      activate EnrollmentsController
+      note over LearningClient, EnrollmentsController
+        Direct REST via LEARNING_SERVICE_URL (local: http://localhost:8085).
+        This POST reads counts; it does not create Enrollment records.
+      end note
+      EnrollmentsController -> EnrollmentsService: getCourseLearnerCounts(user, courseIds)
+      activate EnrollmentsService
+      EnrollmentsService -> EnrollmentsService: Require ORGANIZER or INSTRUCTOR\nand non-empty organizationId
+      EnrollmentsService -> LearningDB: Prisma enrollment.groupBy(courseId), count all rows\norganizationId = user.organizationId\ncourseId IN page courseIds AND status = 'InProgress'
+      activate LearningDB
+      LearningDB -->> EnrollmentsService: Enrollment counts per Course version
+      deactivate LearningDB
+      EnrollmentsService -> EnrollmentsService: Map each requested courseId to count\nUse 0 for missing groups
+      EnrollmentsService -->> EnrollmentsController: [{courseId, learnerCount}]
+      deactivate EnrollmentsService
+      EnrollmentsController -->> LearningClient: 201 Created; data = learner counts\nNestJS default POST response; no write
+      deactivate EnrollmentsController
+    else Same REST attempt fails or times out
+      note right of LearningClient
+        The failed attempt targets the same endpoint above.
+        Its downstream processing is not assumed to have completed.
+        HttpModule timeout: 5000 ms.
+      end note
+      LearningClient -> LearningClient: Map REST error or timeout to\nServiceUnavailableException (503)
+    end
+  end
+  LearningClient -->> CoursesService: Counts, [] or ServiceUnavailableException
+  deactivate LearningClient
+
+  alt Learner counts returned successfully
+    CoursesService -> CoursesService: Build {meta, result}\nlocked = (lockedAt !== null); learnerCount defaults to 0
+  else Learner count retrieval failed
+    CoursesService -> CoursesService: Propagate ServiceUnavailableException\nDo not return a partial Course page
+  end
+end
+
+CoursesService -->> CoursesController: Page result or propagated exception
+deactivate CoursesService
+CoursesController -->> Gateway: 200 {statusCode, message, data:{meta,result}}\nor HTTP 403 / 503 error
+deactivate CoursesController
+Gateway -->> Screen: Forward HTTP response\nAxios unwraps successful body / exposes error body
+deactivate Gateway
+
+alt HTTP 200 with a non-empty result
+  Screen -->> Instructor: Show name, versionNumber, courseType, status,\nlocked and learnerCount; show pagination
+else HTTP 200 with an empty result
+  Screen -->> Instructor: Show "No Courses yet" and returned pagination total
+else Request failed
+  Screen -> Screen: Clear courses and total; set errorMessage\nAlways stop loading
+  Screen -->> Instructor: Show "Could not load Courses" alert and Retry
+end
+deactivate Screen
+deactivate Instructor
+
+note over Screen, LearningDB
+  AS-IS gap: learnerCount includes only InProgress Enrollment records,
+  not every Learner who has ever joined or every current enrollment status.
+  Results are Course versions, without latest-version selection or chain grouping.
+  This read flow does not call TenantClient, storage, or Kafka, and does not write data.
+end note
+@enduml
