@@ -108,11 +108,26 @@ async function until(expression, timeout = 20000) {
   }
   throw new Error("Browser condition timed out: " + expression);
 }
+let viewportWidth = 1440;
+async function viewport(width) {
+  viewportWidth = width;
+  await call("Emulation.setDeviceMetricsOverride", { width, height: 1024, deviceScaleFactor: 1, mobile: false });
+}
+async function assignmentScreenshots(name) {
+  await screenshot(name);
+  await viewport(1280);
+  await screenshot(name + "-1280");
+  if (name === "assignments-list") {
+    assert.equal(await evaluate("Array.from(document.querySelectorAll('.organizer-assignment-nowrap')).every(cell => getComputedStyle(cell).whiteSpace === 'nowrap')"), true);
+    assert.equal(await evaluate("document.querySelector('.organizer-assignments table').getBoundingClientRect().width <= document.querySelector('.ant-table-content').clientWidth + 1"), true);
+  }
+  await viewport(1440);
+}
 async function screenshot(name) {
   await evaluate("document.fonts.ready");
   await evaluate("Promise.all(document.getAnimations().filter(animation => Number.isFinite(animation.effect?.getComputedTiming().endTime)).map(animation => animation.finished.catch(() => {})))");
   const metrics = await call("Page.getLayoutMetrics");
-  const image = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, clip: { x: 0, y: 0, width: 1440, height: metrics.cssContentSize.height, scale: 1 } });
+  const image = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, clip: { x: 0, y: 0, width: viewportWidth, height: metrics.cssContentSize.height, scale: 1 } });
   writeFileSync(path.join(artifacts, name + ".png"), Buffer.from(image.data, "base64"));
 }
 async function navigate(route) {
@@ -247,6 +262,8 @@ try {
       (await api(`/api/v1/courses/${publicCourse}/introduction`)).status,
       404,
     );
+    await navigate("/learner/courses");
+    await until("document.querySelector('.learner-org-name')?.textContent === 'Tổ chức B'");
     return { empty: true, crossOrganization: 404 };
   });
   await check("UC25.3 enrollment and 429", async () => {
@@ -332,6 +349,8 @@ try {
     await navigate("/organizer/assignments/assign");
     await until("!!document.querySelector('tr[data-row-key]')");
     await screenshot("assignment-create");
+    await until("document.querySelector('.organizer-org-badge')?.textContent === 'Tổ chức A'");
+    assert.equal(await evaluate("document.querySelector('.organizer-user strong')?.textContent === 'Quản lý đào tạo ABC'"), true);
     await screenshot("sidebar-organizer");
     const learners = await api("/api/v1/users/learners?page=1&pageSize=50");
     assert.equal(learners.status, 200);
@@ -367,10 +386,10 @@ try {
     const assignmentId = row.enrollmentId ?? row.id;
     await navigate("/organizer/assignments");
     await until("document.body.innerText.includes('Lê Văn Cường')");
-    await screenshot("assignments-list");
+    await assignmentScreenshots("assignments-list");
     await navigate(`/organizer/assignments/${assignmentId}`);
     await until("document.body.innerText.includes('Lê Văn Cường')");
-    await screenshot("assignment-detail");
+    await assignmentScreenshots("assignment-detail");
     assert.equal(await evaluate("getComputedStyle(document.querySelector('.organizer-assignment-email')).wordBreak"), "normal");
     assert.equal(await evaluate("document.body.innerText.includes('Northstar Learning') || document.body.innerText.includes('Mai Nguyen')"), false);
     assert.equal(await evaluate("document.querySelector('.organizer-status') && parseFloat(getComputedStyle(document.querySelector('.organizer-status')).fontSize) >= 14"), true);
@@ -433,7 +452,7 @@ try {
     await evaluate("Array.from(document.querySelectorAll('.ant-modal button')).find(x=>x.textContent.trim()==='Đánh dấu Miễn').click()");
     const exempted=await responseAfter(`/api/v1/assignments/${id("2a0000000002")}/exemption`,exemptionStart);
     assert.equal(exempted.status, 200, JSON.stringify(exempted.body));
-    await until("document.querySelector('.ant-descriptions .organizer-status')?.textContent === 'Miễn'");
+    await until("document.querySelector('.organizer-assignment-title .organizer-status')?.textContent === 'Miễn'");
     await screenshot("assignment-after-exemption");
     return {
       learnerCount: learners.body.data.meta.total,
@@ -557,6 +576,8 @@ try {
     await navigate("/learner/courses");
     await until("!!document.querySelector('.learner-my-course')");
     assert.equal(await evaluate("document.querySelector('.learner-status') && parseFloat(getComputedStyle(document.querySelector('.learner-status')).fontSize) >= 14"), true);
+    await until("document.querySelector('.learner-org-name')?.textContent === 'Tổ chức A'");
+    assert.equal(await evaluate("!!document.querySelector('.dev-identity-badge')"), false);
     await screenshot("my-courses");
     await screenshot("sidebar-learner");
     await navigate("/learner/catalog");
@@ -575,7 +596,7 @@ try {
     await screenshot("video-completed");
     await identity("ORGANIZER");
     await navigate(`/organizer/assignments/${id("2a0000000002")}`);
-    await until("document.querySelector('.ant-descriptions .organizer-status')?.textContent === 'Miễn'");
+    await until("document.querySelector('.organizer-assignment-title .organizer-status')?.textContent === 'Miễn'");
     await screenshot("assignment-after-exemption");
     return { viewportWidth: 1440, artifactDirectory: artifacts };
   });
