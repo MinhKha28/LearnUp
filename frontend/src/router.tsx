@@ -39,6 +39,7 @@ import OrganizerOrganization from "./pages/organizer/organization";
 import OrganizerOrganizationEdit from "./pages/organizer/organization.edit";
 import OrganizerInstructors from "./pages/organizer/instructors";
 import OrganizerInstructorDetail from "./pages/organizer/instructor.detail";
+import OrganizerInstructorEdit from "./pages/organizer/instructor.edit";
 import OrganizerInstructorCreate from "./pages/organizer/instructor.create";
 import OrganizerInstructorImport from "./pages/organizer/instructor.import";
 import OrganizerLearners from "./pages/organizer/learners";
@@ -235,6 +236,10 @@ export const router = createBrowserRouter([
       {
         path: "instructors/:instructorId",
         element: <OrganizerInstructorDetail />,
+      },
+      {
+        path: "instructors/:instructorId/edit",
+        element: <OrganizerInstructorEdit />,
       },
       { path: "learners", element: <OrganizerLearners /> },
       { path: "learners/add", element: <OrganizerLearnerCreate /> },

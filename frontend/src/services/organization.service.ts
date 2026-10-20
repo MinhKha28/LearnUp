@@ -13,6 +13,8 @@ import type {
   IRegistrationSummary,
   ISeatUsage,
   ISubscriptionPlan,
+  IUpdateAccountReq,
+  IUpdateAccountResult,
   IVerifyEmailOtpReq,
   IVerifyEmailOtpRes,
   IAcceptInvitationReq,
@@ -83,6 +85,22 @@ export const getInstructorSeatsAPI = () =>
 // UC12.2 - Thêm Instructor (Organizer; backend gửi lời mời qua email)
 export const createInstructorAPI = (body: ICreateAccountReq) =>
   axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/instructors", body);
+
+// UC12.3 - Cập nhật thông tin Instructor (Organizer; đổi email của tài khoản Pending thì gửi lời mời mới)
+export const updateInstructorAPI = (
+  instructorId: string,
+  body: IUpdateAccountReq,
+) =>
+  axios.patch<IBackendRes<IUpdateAccountResult>>(
+    `/api/v1/users/instructors/${encodeURIComponent(instructorId)}`,
+    body,
+  );
+
+// UC12.3 - BR-279: gợi ý đơn vị công tác đã có trong tổ chức (tối đa 10)
+export const getDepartmentSuggestionsAPI = (keyword: string) =>
+  axios.get<IBackendRes<string[]>>("/api/v1/users/departments", {
+    params: keyword ? { keyword } : {},
+  });
 
 // UC13 - Xem danh sách Learner (Organizer; tổ chức lấy từ danh tính người gọi)
 export const getLearnersAPI = ({
