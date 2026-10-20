@@ -8,6 +8,23 @@ export interface LearnerEnrollmentSummary {
   overdueCourseCount: number;
 }
 
+/** UC13.1: một Enrollment của Learner, kèm tên và số hiệu phiên bản Course (BR-298, BR-108). */
+export interface LearnerEnrollment {
+  enrollmentId: string;
+  courseId: string; // id phiên bản Course
+  // null khi course-service không trả phiên bản này (learning-service vẫn trả dòng).
+  course: { name: string; versionNumber: number } | null;
+  enrollmentType: string; // Required | Optional
+  // Trạng thái hiển thị (BR-115), Overdue tính lúc đọc (BR-144). Không bao giờ Withdrawn.
+  status: string;
+  enrolledAt: Date;
+  assignedAt: Date | null; // null với Optional
+  dueAt: Date | null; // null với Optional (BR-129)
+  completedAt: Date | null;
+  // Học liệu bắt buộc còn hoạt động đã hoàn thành / tổng (không gồm Quiz, Assignment).
+  requiredMaterials: { completed: number; total: number };
+}
+
 /**
  * Hỏi learning-service tình trạng tham gia đào tạo của các Learner.
  * tenant-service KHÔNG đọc learning_db và KHÔNG chép số này về (thiết kế tenant_db mục 4).
@@ -27,4 +44,13 @@ export abstract class LearningServiceClient {
     user: CurrentUser,
     learnerIds: string[],
   ): Promise<Record<string, LearnerEnrollmentSummary>>;
+
+  /**
+   * UC13.1: Enrollment của một Learner trong tổ chức người gọi, trừ Withdrawn, đã sắp xếp như UC26.
+   * Lỗi mạng / timeout / lỗi learning-service thì ném lỗi; bên gọi tự quyết định xử lý.
+   */
+  abstract listEnrollmentsByLearner(
+    user: CurrentUser,
+    learnerId: string,
+  ): Promise<LearnerEnrollment[]>;
 }

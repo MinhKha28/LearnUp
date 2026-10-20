@@ -17,7 +17,7 @@ import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
 import { UsersService } from './users.service';
 import { GetUsersBatchDto } from './dto/get-users-batch.dto';
 
-@ApiTags('Users') // UC12, UC12.1, UC12.2, UC13, UC13.2
+@ApiTags('Users') // UC12, UC12.1, UC12.2, UC13, UC13.1, UC13.2
 @ApiSecurity('internal-key')
 @UseGuards(RolesGuard)
 @Controller('users')
@@ -86,6 +86,17 @@ export class UsersController {
   @ResponseMessage('Lấy số chỗ Learner thành công')
   getLearnerSeats(@User() user: CurrentUser) {
     return this.service.getLearnerSeats(user);
+  }
+
+  // UC13.1 - đặt SAU learners/seats. id sai định dạng -> 400 (ParseUUIDPipe).
+  @Roles('ORGANIZER')
+  @Get('learners/:id')
+  @ResponseMessage('Lấy chi tiết Learner thành công')
+  findLearnerDetail(
+    @User() user: CurrentUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.service.findLearnerDetail(user, id);
   }
 
   // UC13.2
