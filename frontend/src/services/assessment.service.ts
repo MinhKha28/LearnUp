@@ -11,6 +11,7 @@ import type {
   IPromptFile,
   ICreateAssignment,
   IQuizList,
+  IQuizDetail,
   ICreateQuizReq,
   IQuizSummary,
   IUpdateAssignment,
@@ -134,6 +135,10 @@ export const fetchQuizzesAPI = (courseId: string, moduleId?: string) =>
     ...requestConfig,
     params: { courseId: toApiCourseId(courseId), moduleId },
   });
+
+/** UC18.1 — one Quiz with configuration, questions, answer keys and what may be changed (Instructor only). */
+export const fetchQuizAPI = (quizId: string) =>
+  axios.get<IBackendRes<IQuizDetail>>(`/api/v1/assessments/quizzes/${quizId}`, requestConfig);
 
 /** UC18.2 — Create Quiz. */
 export const createQuizAPI = (payload: ICreateQuizReq) =>
