@@ -16,6 +16,7 @@ import type {
   IQuizSummary,
   IUpdateAssignment,
   IUpdatePeerReview,
+  IUpdateQuizConfigReq,
 } from "@/types/assessment.types";
 
 // TẠM THỜI (giống course.service.ts): gateway chưa gắn được danh tính nên tự gửi các header dưới đây.
@@ -143,6 +144,10 @@ export const fetchQuizAPI = (quizId: string) =>
 /** UC18.2 — Create Quiz. */
 export const createQuizAPI = (payload: ICreateQuizReq) =>
   axios.post<IBackendRes<IQuizSummary>>("/api/v1/assessments/quizzes", payload, requestConfig);
+
+/** UC18.4 — Update Quiz configuration; answers with the Quiz detail and its new permissions. */
+export const updateQuizConfigAPI = (quizId: string, payload: IUpdateQuizConfigReq) =>
+  axios.patch<IBackendRes<IQuizDetail>>(`/api/v1/assessments/quizzes/${quizId}`, payload, requestConfig);
 
 /** UC18.5 — Delete Quiz. */
 export const deleteQuizAPI = (quizId: string) =>

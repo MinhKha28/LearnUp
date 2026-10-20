@@ -133,9 +133,10 @@ interface SeedQuestion {
 interface SeedAttempt {
   learnerId: string;
   startedAt: Date;
-  /** Phút sau startedAt; TimedOut thì luôn bằng thời gian giới hạn. */
-  submittedAfterMinutes: number;
-  submissionKind: SubmissionKind;
+  /** Phút sau startedAt; TimedOut thì luôn bằng thời gian giới hạn. null = lượt đang làm dở (chưa nộp, BR-314). */
+  submittedAfterMinutes: number | null;
+  /** null khi lượt đang làm dở. */
+  submissionKind: SubmissionKind | null;
   /** Với mỗi câu hỏi (theo thứ tự), vị trí (0-based) các đáp án đã chọn. */
   choices: number[][];
 }
@@ -156,6 +157,12 @@ interface SeedQuiz {
   questions: SeedQuestion[];
   attempts: SeedAttempt[];
 }
+
+/**
+ * Lượt làm dở (UC18.4) phải còn trong hạn, nên bắt đầu tính theo lúc chạy seed (5 phút trước).
+ * Chạy lại seed thì dời startedAt theo, ID vẫn cố định nên không sinh thêm dòng.
+ */
+const IN_PROGRESS_STARTED_AT = new Date(Date.now() - 5 * 60_000);
 
 const TRUE_FALSE = (correct: boolean): SeedOption[] => [
   { content: 'True', isCorrect: correct },
@@ -695,6 +702,70 @@ const QUIZZES: SeedQuiz[] = [
     ],
     attempts: [],
   },
+  // ----- Bộ UC18.4, org ABC, Instructor a101, Course Draft (chưa Locked):
+  //       Quiz 17 có một lượt đang làm dở -> chỉ khóa thời gian, n, m (BR-97, BR-314); điểm đạt, cờ bắt buộc vẫn sửa được.
+  //       Quiz 18 chưa có lượt làm -> sửa được cả 5 trường (ca thành công / không đổi gì).
+  {
+    no: 17,
+    course: COURSE_ABC_DRAFT,
+    moduleId: COURSE_ABC_DRAFT.moduleIds[0],
+    title: '[UC18.4] Draft – có lượt làm dở',
+    position: 2,
+    passingScore: 60,
+    isRequired: true,
+    timeLimitMinutes: 1440, // đủ dài để lượt dở chưa hết giờ (BR-161)
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    questions: [
+      {
+        type: 'SingleChoice',
+        content: 'Khi thấy dây điện hở, bạn nên làm gì trước tiên?',
+        options: [
+          { content: 'Tự tay quấn băng keo', isCorrect: false },
+          { content: 'Tránh xa và báo người phụ trách', isCorrect: true },
+        ],
+      },
+      {
+        type: 'TrueFalse',
+        content: 'Lối thoát hiểm có thể tạm dùng để chứa hàng.',
+        options: TRUE_FALSE(false),
+      },
+    ],
+    attempts: [
+      {
+        // Đã bắt đầu, chưa nộp, chưa chọn đáp án nào: vẫn tính là đã có lượt làm (BR-314)
+        learnerId: LEARNER_ABC_4,
+        startedAt: IN_PROGRESS_STARTED_AT,
+        submittedAfterMinutes: null,
+        submissionKind: null,
+        choices: [[], []],
+      },
+    ],
+  },
+  {
+    no: 18,
+    course: COURSE_ABC_DRAFT,
+    moduleId: null,
+    title: '[UC18.4] Draft – chưa có lượt làm',
+    position: 2,
+    passingScore: 75,
+    isRequired: false,
+    timeLimitMinutes: 30,
+    maxConsecutiveAttempts: 3,
+    lockoutHours: 24,
+    questions: [
+      {
+        type: 'MultipleChoice',
+        content: 'Những việc nào cần làm khi kết thúc ca làm việc?',
+        options: [
+          { content: 'Tắt thiết bị không dùng', isCorrect: true },
+          { content: 'Dọn lối đi', isCorrect: true },
+          { content: 'Để máy chạy qua đêm', isCorrect: false },
+        ],
+      },
+    ],
+    attempts: [],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -756,9 +827,12 @@ function learnerStates(quiz: SeedQuiz): LearnerState[] {
     const own = quiz.attempts
       .map((attempt, ai) => ({ attempt, ai }))
       .filter(({ attempt }) => attempt.learnerId === learnerId);
-    // BR-159: lượt điểm cao nhất; hòa thì lượt sớm hơn.
-    let best = own[0];
-    for (const item of own) {
+    // BR-159: lượt điểm cao nhất; hòa thì lượt sớm hơn. Lượt đang làm dở chưa có điểm nên không xét.
+    const finished = own.filter(
+      ({ attempt }) => attempt.submittedAfterMinutes !== null,
+    );
+    let best = finished[0];
+    for (const item of finished) {
       if (
         scoreOf(quiz, item.attempt.choices) >
         scoreOf(quiz, best.attempt.choices)
@@ -779,7 +853,7 @@ function learnerStates(quiz: SeedQuiz): LearnerState[] {
         consecutiveCount >= quiz.maxConsecutiveAttempts
           ? addHours(last.startedAt, quiz.lockoutHours)
           : null,
-      recordedAttemptId: attemptId(quiz, best.ai),
+      recordedAttemptId: best ? attemptId(quiz, best.ai) : null,
     };
   });
 }
@@ -893,20 +967,43 @@ async function validate(prisma: PrismaClient): Promise<string[]> {
         );
       }
       const limit = quiz.timeLimitMinutes;
-      if (
-        attempt.submissionKind === 'TimedOut' &&
-        attempt.submittedAfterMinutes !== limit
-      ) {
-        fail(quiz, `${label}: TimedOut phải nộp đúng lúc hết giờ`);
-      }
-      if (
-        attempt.submittedAfterMinutes <= 0 ||
-        attempt.submittedAfterMinutes > limit
-      ) {
-        fail(
-          quiz,
-          `${label}: submitted_at phải nằm trong (started_at, deadline_at]`,
-        );
+      if (attempt.submittedAfterMinutes === null) {
+        // Lượt đang làm dở (BR-314): chưa có cách nộp, phải còn hạn và là lượt cuối của Learner đó.
+        if (attempt.submissionKind !== null) {
+          fail(quiz, `${label}: lượt đang làm dở không có submission_kind`);
+        }
+        if (addMinutes(attempt.startedAt, limit) <= new Date()) {
+          fail(quiz, `${label}: lượt đang làm dở đã quá deadline_at (BR-161)`);
+        }
+        if (
+          quiz.attempts
+            .slice(ai + 1)
+            .some((a) => a.learnerId === attempt.learnerId)
+        ) {
+          fail(
+            quiz,
+            `${label}: Learner chỉ có một lượt đang làm và đó là lượt cuối (BR-314)`,
+          );
+        }
+      } else {
+        if (attempt.submissionKind === null) {
+          fail(quiz, `${label}: lượt đã nộp phải có submission_kind`);
+        }
+        if (
+          attempt.submissionKind === 'TimedOut' &&
+          attempt.submittedAfterMinutes !== limit
+        ) {
+          fail(quiz, `${label}: TimedOut phải nộp đúng lúc hết giờ`);
+        }
+        if (
+          attempt.submittedAfterMinutes <= 0 ||
+          attempt.submittedAfterMinutes > limit
+        ) {
+          fail(
+            quiz,
+            `${label}: submitted_at phải nằm trong (started_at, deadline_at]`,
+          );
+        }
       }
       if (attempt.choices.length !== quiz.questions.length) {
         fail(quiz, `${label}: phải có lựa chọn cho từng câu hỏi`);
@@ -932,8 +1029,9 @@ async function validate(prisma: PrismaClient): Promise<string[]> {
         .pop();
       if (
         previous &&
-        addMinutes(previous.startedAt, previous.submittedAfterMinutes) >
-          attempt.startedAt
+        (previous.submittedAfterMinutes === null ||
+          addMinutes(previous.startedAt, previous.submittedAfterMinutes) >
+            attempt.startedAt)
       ) {
         fail(
           quiz,
@@ -1057,12 +1155,16 @@ async function seed(prisma: PrismaClient): Promise<void> {
             attemptNumber,
             startedAt: attempt.startedAt,
             deadlineAt: addMinutes(attempt.startedAt, quiz.timeLimitMinutes),
-            submittedAt: addMinutes(
-              attempt.startedAt,
-              attempt.submittedAfterMinutes,
-            ),
+            // Lượt đang làm dở: chưa nộp, chưa có điểm (BR-314).
+            submittedAt:
+              attempt.submittedAfterMinutes === null
+                ? null
+                : addMinutes(attempt.startedAt, attempt.submittedAfterMinutes),
             submissionKind: attempt.submissionKind,
-            score: scoreOf(quiz, attempt.choices),
+            score:
+              attempt.submittedAfterMinutes === null
+                ? null
+                : scoreOf(quiz, attempt.choices),
           };
           await tx.quizAttempt.upsert({
             where: { id: aid },
