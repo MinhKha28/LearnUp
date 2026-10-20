@@ -196,6 +196,18 @@ export interface ICreateAccountReq {
   department?: string | null;
 }
 
+// UC12.3 - body PATCH /api/v1/users/instructors/:id (khớp UpdateAccountDto): chỉ gửi trường đã đổi
+export interface IUpdateAccountReq {
+  fullName?: string;
+  email?: string;
+  department?: string | null;
+}
+
+// UC12.3 - kết quả sửa; invitationResent: đổi email của tài khoản Pending -> đã gửi lời mời mới
+export interface IUpdateAccountResult extends IAccountListItem {
+  invitationResent: boolean;
+}
+
 // UC12.2 - số chỗ theo Subscription hiện hành (GET /api/v1/users/instructors/seats)
 export interface ISeatUsage {
   used: number;
