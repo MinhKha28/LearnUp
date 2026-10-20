@@ -18,9 +18,10 @@ DECLARATION = re.compile(
 )
 MESSAGE = re.compile(rf"^({ALIAS})\s+(\S+)\s+({ALIAS})\s*:\s*(.+)$")
 ACTIVATION = re.compile(rf"^(activate|deactivate)\s+({ALIAS})\s*$", re.I)
+BRANCH_OUTCOME = re.compile(r"\b(?:successfully|failed)\b", re.I)
 FILENAME = re.compile(r"UC\d+(?:[._-]\d+)*_SequenceDiagram\.puml")
 HEADERS = (
-    "autonumber", "hide footbox", "skinparam backgroundColor white",
+    'autonumber "<b>0.</b> "', "hide footbox", "skinparam backgroundColor white",
     "skinparam ParticipantBackgroundColor white", "skinparam ActorBackgroundColor white",
     "skinparam BoundaryBackgroundColor white", "skinparam DatabaseBackgroundColor white",
     "skinparam LifeLineBackgroundColor white", "skinparam LifeLineBorderColor black",
@@ -55,12 +56,13 @@ def validate_text(text: str) -> list[str]:
             block_comment = "'/" not in line[2:]
             continue
         if block_note:
-            if line.lower() == "end note":
+            if line.lower() in {"end note", "endnote", "endhnote", "endrnote", "end hnote", "end rnote"}:
                 block_note = False
             continue
         if not line or line.startswith("'"):
             continue
-        if re.match(r"^note\b", line, re.I):
+        if re.match(r"^(?:note|hnote|rnote)\b", line, re.I):
+            errors.append(f"Line {number}: Do not render notes; move explanations into source comments")
             block_note = ":" not in line
             continue
         lines.append((number, line))
@@ -73,9 +75,6 @@ def validate_text(text: str) -> list[str]:
         errors.append("Exactly one @startuml must be the first statement")
     if statements.count("@enduml") != 1 or not statements or statements[-1] != "@enduml":
         errors.append("Exactly one @enduml must be the last statement")
-    titles = [line for line in statements if line.startswith("title ")]
-    if len(titles) != 1 or not re.fullmatch(r"title UC\d+(?:[._-]\d+)* - .+", titles[0]):
-        errors.append("Use one title: UC_CODE - UC_NAME (including a numeric UC code)")
     for required in HEADERS:
         if statements.count(required) != 1:
             errors.append(f"Required exactly once: {required}")
@@ -89,6 +88,7 @@ def validate_text(text: str) -> list[str]:
     depths: dict[str, int] = {}
     fragments: list[Fragment] = []
     first_message = False
+    database_seen = False
     message_count = 0
 
     def fail(number: int, message: str) -> None:
@@ -102,6 +102,9 @@ def validate_text(text: str) -> list[str]:
 
     for number, line in lines:
         low = line.lower()
+        if re.match(r"^title\b", low):
+            fail(number, "Do not render a title; identify the UC through the filename or a comment")
+            continue
         if low.startswith(("show footbox", "box", "!", "autoactivate")):
             fail(number, "Footboxes, layer boxes, preprocessing, and automatic activation are unsupported")
             continue
@@ -109,15 +112,25 @@ def validate_text(text: str) -> list[str]:
             if first_message:
                 fail(number, "Header must precede messages")
             continue
-        if line.startswith(("@startuml", "title ")) or line == "@enduml":
+        if line.startswith("@startuml") or line == "@enduml":
             continue
         decl = DECLARATION.fullmatch(line)
         if decl:
             kind, display, alias, bare = decl.groups()
             alias = alias or bare
             display = display or bare
+            kind = kind.lower()
             if first_message:
                 fail(number, "Participant declaration after first message")
+            if database_seen and kind != "database":
+                fail(number, "Declare all databases after every non-database participant")
+            if kind == "database":
+                database_seen = True
+            if kind == "boundary" and re.search(r"\.(?:tsx?|jsx?)\b", display, re.I):
+                fail(number, "Boundary labels must use readable screen names without source filenames")
+            if alias in {"Gateway", "ApiGateway"} or display in {"API Gateway", "ApiGateway", ":ApiGateway"}:
+                if kind != "participant" or display != ":ApiGateway":
+                    fail(number, 'API Gateway must be declared as participant ":ApiGateway"')
             if alias in declarations:
                 fail(number, f"Duplicate participant alias {alias}")
             declarations[alias] = (kind.lower(), display)
@@ -146,6 +159,8 @@ def validate_text(text: str) -> list[str]:
             continue
         opening = re.match(r"^(alt|opt|loop|group|par)\b", low)
         if opening:
+            if opening.group(1) == "alt" and not BRANCH_OUTCOME.search(line[opening.end():]):
+                fail(number, "alt label must state successfully or failed")
             fragments.append(Fragment(opening.group(1), depths.copy(), number))
             continue
         if re.match(r"^(else|and)\b", low):
@@ -155,6 +170,8 @@ def validate_text(text: str) -> list[str]:
                 fail(number, f"{separator} outside {expected}")
                 continue
             fragment = fragments[-1]
+            if separator == "else" and not BRANCH_OUTCOME.search(line[len(separator):]):
+                fail(number, "else label must state successfully or failed")
             # Unconditional 'else' is exhaustive; 'else condition' is another guard.
             if fragment.has_else:
                 fail(number, "No operand may follow an unconditional else")
@@ -183,7 +200,9 @@ def validate_text(text: str) -> list[str]:
             continue
         message = MESSAGE.fullmatch(line)
         if message:
-            source, arrow, target, _ = message.groups()
+            source, arrow, target, label = message.groups()
+            if len(label.split(r"\n")) > 2:
+                fail(number, "Keep message labels to at most two explicit lines")
             first_message = True
             message_count += 1
             for alias in (source, target):
@@ -226,9 +245,6 @@ def main(argv: list[str] | None = None) -> int:
     errors = validate_text(text)
     if not FILENAME.fullmatch(path.name):
         errors.append("Filename must be UC_CODE_SequenceDiagram.puml (e.g. UC25.3_SequenceDiagram.puml)")
-    title = re.search(r"^title (UC\d+(?:[._-]\d+)*) - ", text, re.M)
-    if title and path.name != f"{title.group(1)}_SequenceDiagram.puml":
-        errors.append("Title UC code and filename must agree")
     if errors:
         for error in errors:
             print(f"[FAIL] {error}")

@@ -20,6 +20,22 @@ Check both the client URL and backend prefix; a controller decorator alone is no
 
 Avoid assuming a class exists merely because another service has that layer. NestJS services can use Prisma directly or through repositories. Spring services use their own implemented repository/domain classes. A generated Prisma record does not execute a database call.
 
+## Display conventions
+
+Do not add a rendered `title`. Identify the UC through its `[UC_CODE]_SequenceDiagram.puml` filename; optionally preserve the code and name in a non-rendering comment such as `' UC14 - View Managed Courses`. The validator accepts diagrams without UC comments and does not require a title.
+
+Do not render note boxes. Put preconditions, source references, environment details, known implementation gaps, and longer explanations in apostrophe comments or the response. This applies to `note`, `hnote`, and `rnote` syntax.
+
+Keep source paths in comments and source summaries. Use readable screen names without a component filename or path suffix: UC14 uses `View Course Page`, and UC14.2 uses `Create Course Page`. Declare the gateway as `participant ":ApiGateway" as Gateway`.
+
+Declare every non-database participant first, including downstream clients/controllers/services, storage providers, external systems, and Kafka. Declare all service-owned databases last; this places their lifelines at the far right. For UC14, `course_db` and `learning_db` both follow `EnrollmentsService`. For UC14.2, `course_db` follows `Cloudinary`.
+
+Use `autonumber "<b>0.</b> "` to produce a bold number with a period and trailing space. Keep message text unnumbered. A forwarded HTTP message can read `GET /api/v1/courses\nTrusted userId, organizationId, role`; omit `no path rewrite` when the path is unchanged. Preserve an actual path transformation when it is relevant.
+
+Keep each arrow to one action/result and one or two explicit lines. Prefer `Count InProgress learners by course\nCurrent organization` over a three-line Prisma predicate, and `Save Draft Course` over a long method call with every argument. Exact endpoints remain visible. Framework defaults, field-by-field mappings, localhost URLs, and full error explanations belong in comments. UC11 is a reference for short labels, not a source of LearnUP domain behavior.
+
+Each `alt` and `else` label states a result containing `successfully` or `failed`. Valid examples include `Courses loaded successfully - courses found`, `Courses loaded successfully - empty list`, and `Course loading failed`. Multiple successful alternatives are permitted when both are valid outcomes. Optional cover selection uses `opt A cover is selected`; absence of a cover is not a failure.
+
 ## Service ownership
 
 Use this map to locate code, then verify the exact model names and behavior in that service:
@@ -50,12 +66,12 @@ Screen -> EnrollmentsController: POST /api/v1/enrollments
 activate EnrollmentsController
 EnrollmentsController -> EnrollmentsService: Check enrollment eligibility
 activate EnrollmentsService
-alt Eligible
+alt Enrollment eligibility checked successfully
   EnrollmentsService -> EnrollmentRepository: Save enrollment
   activate EnrollmentRepository
   EnrollmentRepository -->> EnrollmentsService: Enrollment saved
   deactivate EnrollmentRepository
-else Already enrolled
+else Enrollment eligibility check failed - already enrolled
   EnrollmentsService -> EnrollmentsService: Prepare conflict result
 end
 EnrollmentsService -->> EnrollmentsController: Enrollment outcome
@@ -69,10 +85,10 @@ Separate closing returns in exhaustive branches are also valid. Both operands be
 ```plantuml
 Screen -> EnrollmentsController: Submit enrollment
 activate EnrollmentsController
-alt Enrollment created
+alt Enrollment created successfully
   EnrollmentsController -->> Screen: 201 Created
   deactivate EnrollmentsController
-else Enrollment rejected
+else Enrollment creation failed
   EnrollmentsController -->> Screen: Business error
   deactivate EnrollmentsController
 end

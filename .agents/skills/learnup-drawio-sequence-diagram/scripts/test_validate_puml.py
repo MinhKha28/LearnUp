@@ -10,7 +10,7 @@ from validate_puml import HEADERS, main, validate_text
 
 def diagram(body: str, declarations: str = '') -> str:
     return '\n'.join([
-        '@startuml', 'title UC25.3 - Enroll in an optional course', *HEADERS,
+        '@startuml', "' UC25.3 - Enroll in an optional course", *HEADERS,
         'actor LEARNER', 'boundary "Course Introduction" as Screen',
         'participant ":EnrollmentsController" as EnrollmentHandler',
         declarations,
@@ -24,27 +24,39 @@ CLOSE = 'EnrollmentHandler -->> Screen: Enrollment outcome\ndeactivate Enrollmen
 
 
 class ValidatorTests(unittest.TestCase):
+    def test_title_free_diagram_accepts_optional_uc_comment(self):
+        text = diagram(CLOSE)
+        self.assertEqual(validate_text(text), [])
+        without_comment = text.replace("' UC25.3 - Enroll in an optional course\n", '')
+        self.assertEqual(validate_text(without_comment), [])
+
+    def test_visible_title_is_rejected(self):
+        for title in ('title UC25.3 - Enroll in an optional course', 'TITLE Course Enrollment', 'title'):
+            with self.subTest(title=title):
+                text = diagram(CLOSE).replace('@startuml', '@startuml\n' + title)
+                self.assertTrue(any('Do not render a title' in error for error in validate_text(text)))
+
     def test_actual_alias_and_subcode_need_no_generic_service(self):
         self.assertEqual(validate_text(diagram(CLOSE)), [])
 
     def test_shared_activation_after_branch_merge(self):
-        body = 'alt Eligible\nEnrollmentHandler -> EnrollmentHandler: Save enrollment\nelse Rejected\nEnrollmentHandler -> EnrollmentHandler: Prepare conflict\nend\n' + CLOSE
+        body = 'alt Eligibility checked successfully\nEnrollmentHandler -> EnrollmentHandler: Save enrollment\nelse Eligibility check failed\nEnrollmentHandler -> EnrollmentHandler: Prepare conflict\nend\n' + CLOSE
         self.assertEqual(validate_text(diagram(body)), [])
 
     def test_each_exhaustive_branch_closes_incoming_activation(self):
-        body = f'alt Eligible\n{CLOSE}\nelse Rejected\n{CLOSE}\nend'
+        body = f'alt Enrollment created successfully\n{CLOSE}\nelse Enrollment creation failed\n{CLOSE}\nend'
         self.assertEqual(validate_text(diagram(body)), [])
 
     def test_nested_alternatives(self):
-        body = f'alt Available\nalt New enrollment\n{CLOSE}\nelse Restored\n{CLOSE}\nend\nelse Unavailable\n{CLOSE}\nend'
+        body = f'alt Availability checked successfully\nalt Enrollment created successfully\n{CLOSE}\nelse Enrollment restored successfully\n{CLOSE}\nend\nelse Availability check failed\n{CLOSE}\nend'
         self.assertEqual(validate_text(diagram(body)), [])
 
     def test_missing_deactivation_on_one_branch_fails(self):
-        body = f'alt Eligible\n{CLOSE}\nelse Rejected\nEnrollmentHandler -->> Screen: Conflict\nend'
+        body = f'alt Enrollment created successfully\n{CLOSE}\nelse Enrollment creation failed\nEnrollmentHandler -->> Screen: Conflict\nend'
         self.assertTrue(any('inconsistent activation exits' in e for e in validate_text(diagram(body))))
 
     def test_alt_without_else_has_implicit_skip_path(self):
-        body = f'alt Eligible\n{CLOSE}\nend'
+        body = f'alt Enrollment created successfully\n{CLOSE}\nend'
         self.assertTrue(any('inconsistent activation exits' in e for e in validate_text(diagram(body))))
 
     def test_locally_balanced_optional_and_loop(self):
@@ -100,12 +112,67 @@ class ValidatorTests(unittest.TestCase):
         text = diagram(CLOSE).replace('hide footbox', "' hide footbox")
         self.assertTrue(any('hide footbox' in e for e in validate_text(text)))
 
-    def test_cli_filename_title_and_exit_status(self):
+    def test_numbering_requires_bold_period_and_trailing_space(self):
+        text = diagram(CLOSE)
+        self.assertEqual(validate_text(text), [])
+        for directive in ('autonumber', 'autonumber "<b>0</b> "', 'autonumber "<b>0.</b>"'):
+            with self.subTest(directive=directive):
+                invalid = text.replace('autonumber "<b>0.</b> "', directive)
+                self.assertTrue(any('autonumber' in error for error in validate_text(invalid)))
+
+    def test_rendered_notes_are_rejected_but_source_comments_are_allowed(self):
+        for note in ('note right of Screen: Technical details', 'note over Screen\nTechnical details\nend note', 'hnote over Screen\nTechnical details\nendhnote', 'rnote over Screen\nTechnical details\nendrnote'):
+            with self.subTest(note=note):
+                text = diagram(CLOSE).replace('@enduml', note + '\n@enduml')
+                self.assertTrue(any('Do not render notes' in error for error in validate_text(text)))
+        text = diagram(CLOSE).replace('@enduml', "' note: source evidence only\n@enduml")
+        self.assertEqual(validate_text(text), [])
+
+    def test_each_alt_operand_requires_an_explicit_outcome(self):
+        body = 'alt Courses loaded successfully\nEnrollmentHandler -> EnrollmentHandler: Prepare list\nelse Course loading failed\nEnrollmentHandler -> EnrollmentHandler: Prepare error\nend\n' + CLOSE
+        text = diagram(body)
+        self.assertEqual(validate_text(text), [])
+        self.assertTrue(any('alt label must state' in error for error in validate_text(text.replace('alt Courses loaded successfully', 'alt Courses available'))))
+        self.assertTrue(any('else label must state' in error for error in validate_text(text.replace('else Course loading failed', 'else'))))
+
+    def test_empty_and_populated_lists_can_both_be_successful_outcomes(self):
+        body = 'alt Courses loaded successfully - courses found\nEnrollmentHandler -> EnrollmentHandler: Prepare course page\nelse Courses loaded successfully - empty list\nEnrollmentHandler -> EnrollmentHandler: Prepare empty page\nend\n' + CLOSE
+        self.assertEqual(validate_text(diagram(body)), [])
+
+    def test_message_labels_have_at_most_two_explicit_lines(self):
+        body = r'EnrollmentHandler -> EnrollmentHandler: Count InProgress learners by course\nCurrent organization'
+        text = diagram(body + '\n' + CLOSE)
+        self.assertEqual(validate_text(text), [])
+        invalid = text.replace('Current organization', r'Current organization\nDetailed query predicate')
+        self.assertTrue(any('at most two explicit lines' in error for error in validate_text(invalid)))
+
+    def test_boundary_uses_screen_name_while_source_comments_remain_allowed(self):
+        text = diagram(CLOSE).replace('Course Introduction', 'View Course Page')
+        text = text.replace('@enduml', "' UI: frontend/src/pages/instructor/my.courses.tsx\n@enduml")
+        self.assertEqual(validate_text(text), [])
+        invalid = text.replace('View Course Page', r'MyCourses\n(instructor/my.courses.tsx)')
+        self.assertTrue(any('without source filenames' in error for error in validate_text(invalid)))
+
+    def test_api_gateway_requires_object_display_name(self):
+        body = 'EnrollmentHandler -> Gateway: Forward request\nactivate Gateway\nGateway -->> EnrollmentHandler: Response\ndeactivate Gateway\n' + CLOSE
+        text = diagram(body, 'participant ":ApiGateway" as Gateway')
+        self.assertEqual(validate_text(text), [])
+        self.assertTrue(any('API Gateway must be declared' in error for error in validate_text(text.replace('":ApiGateway"', '"API Gateway"'))))
+
+    def test_all_databases_follow_downstream_participants(self):
+        body = 'EnrollmentHandler -> Client: Query downstream data\nactivate Client\nClient -> Store: Read records\nactivate Store\nStore -->> Client: Records\ndeactivate Store\nClient -->> EnrollmentHandler: Result\ndeactivate Client\n' + CLOSE
+        client = 'participant ":LookupClient" as Client'
+        store = 'database "learning_db" as Store'
+        self.assertEqual(validate_text(diagram(body, client + '\n' + store)), [])
+        self.assertTrue(any('databases after every non-database' in error for error in validate_text(diagram(body, store + '\n' + client))))
+
+    def test_cli_filename_and_exit_status_without_title(self):
         with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
             path = Path(directory) / 'UC25.3_SequenceDiagram.puml'
             path.write_text(diagram(CLOSE), encoding='utf-8')
             self.assertEqual(main([str(path)]), 0)
-            path.write_text(diagram(CLOSE).replace('title UC25.3', 'title UC26'), encoding='utf-8')
+            with_title = diagram(CLOSE).replace('@startuml', '@startuml\ntitle UC25.3 - Course Enrollment')
+            path.write_text(with_title, encoding='utf-8')
             self.assertEqual(main([str(path)]), 1)
             wrong = Path(directory) / 'sequence.puml'
             wrong.write_text(diagram(CLOSE), encoding='utf-8')

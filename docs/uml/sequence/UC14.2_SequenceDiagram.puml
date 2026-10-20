@@ -1,6 +1,6 @@
 @startuml
-title UC14.2 - Tạo Course
-autonumber
+' UC14.2 - Tạo Course
+autonumber "<b>0.</b> "
 hide footbox
 skinparam backgroundColor white
 skinparam ParticipantBackgroundColor white
@@ -38,160 +38,151 @@ skinparam MaxMessageSize 80
 ' Reference intent: docs/architecture/source-of-truth-migration-plan.md:180.
 
 actor Instructor
-boundary "CourseCreate\n(instructor/course.create.tsx)" as Screen
-participant "API Gateway" as Gateway
+boundary "Create Course Page" as Screen
+participant ":ApiGateway" as Gateway
 participant ":CoursesController" as Controller
 participant ":CoursesService" as Service
 participant ":CoursesRepository" as Repository
-database "course_db" as CourseDB
 participant ":CloudinaryStorageProvider" as Storage
 participant "Cloudinary" as Cloudinary
+database "course_db" as CourseDB
 
-note over Instructor, Gateway
-  Precondition: authenticated session with a valid JWT; React route requires INSTRUCTOR.
-  Scope: local development configuration, VITE_COURSE_BACKEND_URL=http://localhost:8080.
-  Gateway forwards trusted user context and an internal key, without rewriting the path.
-  Form validation and routine middleware are omitted.
-end note
+' Precondition: authenticated Instructor; local Course API base URL is localhost:8080.
+' Gateway forwards trusted user context and an internal key; routine middleware is omitted.
 
 activate Instructor
 Instructor -> Screen: Open /instructor/courses/create
 activate Screen
-Instructor -> Screen: Enter name, expectedCompletionDays and courseType\nOptionally enter Draft details and select a cover
-note right of Screen
-  shortDescription, trainingObjectives and learningOutcomes are optional.
-  Selecting a cover creates a local preview; it does not upload immediately.
-  MyCourses entry uses a static demo quota gate, not Subscription data.
-  Direct access to this form and handleCreate have no quota check.
-end note
+Instructor -> Screen: Enter course details and optional cover
+' Required: name, expectedCompletionDays and courseType; other draft details are optional.
+' Cover selection creates a local preview. Upload occurs only after Create Draft is clicked.
+' The entry-page quota gate is static demo data; handleCreate has no subscription quota check.
 Instructor -> Screen: Click Create Draft
-Screen -> Screen: handleCreate(): validateFields(); setCreating(true)
+Screen -> Screen: Validate course details
 
 opt A cover is selected
-  Screen -> Gateway: POST /api/v1/courses/cover\nuploadCourseCoverAPI(file), multipart field "file"
+  Screen -> Gateway: POST /api/v1/courses/cover\nCover file
   activate Gateway
   Gateway -> Controller: POST /api/v1/courses/cover\nTrusted user context
   activate Controller
-  alt Multipart file exceeds 5 MiB
-    Controller -> Controller: FileInterceptor rejects with HTTP 413\nHandler is not invoked
-  else Multipart request accepted
-    Controller -> Service: uploadCover(user, file)
+  alt Multipart upload failed - file too large
+    Controller -> Controller: Reject file (413)
+  else Multipart upload accepted successfully
+    Controller -> Service: Upload course cover
     activate Service
-    alt Role is not INSTRUCTOR or organizationId is empty
-      Service -> Service: Throw ForbiddenException (403)
-    else File is missing
-      Service -> Service: Throw BadRequestException (400)
-    else Authorized upload with a file
-      Service -> Storage: upload(file buffer, options)\nfolder=learnup/{organizationId}/courses/covers\nresourceType=image; max 5 MiB; JPEG/PNG/WebP
+    alt Upload access check failed
+      Service -> Service: Reject access (403)
+    else Upload validation failed - missing file
+      Service -> Service: Reject missing file (400)
+    else Upload request validated successfully
+      Service -> Storage: Upload cover image
+      ' Cover validation: image resource; at most 5 MiB; JPEG, PNG or WebP.
+      ' Destination: learnup/{organizationId}/courses/covers.
       activate Storage
-      Storage -> Storage: Validate non-empty file, filename, size and MIME type
-      alt File validation fails
-        Storage -> Storage: Throw StorageValidationError
-      else File validation passes
-        Storage -> Cloudinary: upload_stream(options); stream.end(file.buffer)\nAwait completed SDK result
+      Storage -> Storage: Validate image file
+      alt Image validation failed
+        Storage -> Storage: Reject invalid image
+      else Image validated successfully
+        Storage -> Cloudinary: Upload image
         activate Cloudinary
-        Cloudinary -->> Storage: Completed image result or upload error
+        Cloudinary -->> Storage: Stored image or error
         deactivate Cloudinary
-        Storage -> Storage: Map result to IStoredFile\nor throw StorageProviderError
+        Storage -> Storage: Prepare upload result
       end
-      Storage -->> Service: IStoredFile or storage exception
+      Storage -->> Service: Stored file or error
       deactivate Storage
 
-      alt Storage upload succeeded
-        Service -> Repository: createCourseCoverMediaFile(user.organizationId, storedFile)
+      alt Image uploaded successfully
+        Service -> Repository: Save cover metadata
         activate Repository
-        Repository -> CourseDB: Prisma mediaFile.create\norganizationId=user.organizationId\npurpose=CourseCover; status=Ready; storage metadata
+        Repository -> CourseDB: Insert cover metadata\nCurrent organization
         activate CourseDB
-        CourseDB -->> Repository: MediaFile metadata or database error
+        CourseDB -->> Repository: Cover metadata or error
         deactivate CourseDB
-        Repository -->> Service: MediaFile metadata or propagated database error
+        Repository -->> Service: Cover metadata or error
         deactivate Repository
-        alt MediaFile was saved
-          Service -> Service: Prepare fileId, secure URL, filename, MIME type and size
-        else Metadata persistence failed
-          Service -> Storage: delete(storedFile.storageKey, resourceType)
+        alt Cover metadata saved successfully
+          Service -> Service: Prepare cover file ID and URL
+        else Cover metadata saving failed
+          Service -> Storage: Delete uploaded cover
           activate Storage
-          Storage -> Cloudinary: uploader.destroy(storageKey, options)
+          Storage -> Cloudinary: Delete image
           activate Cloudinary
-          Cloudinary -->> Storage: Delete result or error
+          Cloudinary -->> Storage: Deletion result or error
           deactivate Cloudinary
-          Storage -->> Service: Completion or delete exception
+          Storage -->> Service: Cleanup result or error
           deactivate Storage
-          Service -> Service: Ignore cleanup failure; rethrow original database error
+          Service -> Service: Propagate metadata error
+          ' Cleanup is best-effort; its failure does not replace the original database error.
         end
-      else Storage upload failed
-        Service -> Service: StorageValidationError becomes HTTP 400\nStorageProviderError becomes HTTP 503
+      else Image upload failed
+        Service -> Service: Report upload error (400 / 503)
       end
     end
-    Service -->> Controller: Upload result or propagated exception
+    Service -->> Controller: Cover details or error
     deactivate Service
   end
-  Controller -->> Gateway: 201 {data:{fileId,url,...}}\nor HTTP 400 / 403 / 413 / 503 / 500
+  Controller -->> Gateway: 201 Created - cover details\nor upload error
   deactivate Controller
-  Gateway -->> Screen: Forward upload HTTP response\nAxios exposes response body
+  Gateway -->> Screen: Cover details or error
   deactivate Gateway
-  note right of Screen
-    If uploadResponse.data is absent, handleCreate shows an upload error and returns.
-    A rejected upload promise enters catch; neither path calls createCourseAPI.
-  end note
+  ' Missing response data or a rejected upload prevents the subsequent create request.
 end
 
-alt No cover selected or cover upload succeeded
-  Screen -> Screen: Trim values and remove blank learningOutcomes\nSet coverFileId from upload, if any
-  Screen -> Gateway: POST /api/v1/courses\ncreateCourseAPI(payload), Bearer JWT
+alt Cover preparation completed successfully
+  ' Includes both no cover selected and an uploaded cover with response data.
+  Screen -> Screen: Prepare course data
+  Screen -> Gateway: POST /api/v1/courses\nCourse details
   activate Gateway
   Gateway -> Controller: POST /api/v1/courses\nTrusted userId, organizationId and role
   activate Controller
-  Controller -> Service: create(user, dto)
+  Controller -> Service: Create Draft Course
   activate Service
-  alt Role is not INSTRUCTOR or organizationId is empty
-    Service -> Service: Throw ForbiddenException (403)
-  else Instructor with organization context
-    Service -> Service: Normalize optional details to null / []\nForce status=Draft
-    note right of Service
-      No Subscription lookup, status check or Course-chain quota check executes.
-      No quota lock, quota reservation or concurrent quota enforcement executes.
-      coverFileId is UUID-validated but not checked for tenant, purpose or status here.
-    end note
-    Service -> Repository: createCourse(data)\norganizationId=user.organizationId; instructorId=user.userId
+  alt Instructor access check failed
+    Service -> Service: Reject access (403)
+  else Instructor access checked successfully
+    Service -> Service: Set Draft status
+    ' No subscription/quota lookup, lock or reservation executes here.
+    ' coverFileId is UUID-validated; tenant, purpose and status are not checked here.
+    Service -> Repository: Save Draft Course
     activate Repository
-    Repository -> CourseDB: Prisma $transaction: create CourseChain, then Course\nChain owner=user.userId; both organizationId=user.organizationId\nCourse versionNumber=1; status=Draft; lockedAt=null
+    Repository -> CourseDB: Create CourseChain and Course\nSingle transaction
+    ' Current organization and instructor; versionNumber=1, status=Draft, lockedAt=null.
     activate CourseDB
-    CourseDB -->> Repository: Created Course or transaction error\nRollback both inserts on failure
+    CourseDB -->> Repository: Draft Course or transaction error
+    ' A failed transaction rolls back both inserts.
     deactivate CourseDB
-    Repository -->> Service: Selected Course fields or propagated database error
+    Repository -->> Service: Draft Course or error
     deactivate Repository
-    alt Transaction succeeded
-      Service -> Service: Remove lockedAt; add locked=false and learnerCount=0
+    alt Draft Course saved successfully
+      Service -> Service: Prepare created Course
+      ' Response has locked=false and learnerCount=0, without lockedAt.
     else Transaction failed
-      Service -> Service: Propagate database error
+      Service -> Service: Report save error
     end
   end
-  Service -->> Controller: Created Course or propagated exception
+  Service -->> Controller: Draft Course or error
   deactivate Service
-  Controller -->> Gateway: 201 {statusCode,message,data:Course}\nor HTTP 403 / 500
+  Controller -->> Gateway: 201 Created - Draft Course\nor 403 / 500 error
   deactivate Controller
-  Gateway -->> Screen: Forward create HTTP response\nAxios exposes response body
+  Gateway -->> Screen: Draft Course or error
   deactivate Gateway
-  alt response.data contains the created Course
+  alt Draft Course created successfully
     Screen -->> Instructor: Show "Draft Course created."
-    Screen -> Screen: navigate(/instructor/courses/{id}/builder)
-  else No response.data or request rejected
-    Screen -->> Instructor: Show create error; remain on the form
+    Screen -> Screen: Open Course Builder
+  else Draft Course creation failed
+    Screen -->> Instructor: Show create error
   end
 else Cover upload failed
-  Screen -->> Instructor: Show upload error or generic create error\nDo not send POST /api/v1/courses
+  Screen -->> Instructor: Show upload error
 end
-Screen -> Screen: finally: setCreating(false)
+Screen -> Screen: Stop loading
 deactivate Screen
 deactivate Instructor
 
-note over Screen, Cloudinary
-  Upload and Course creation are separate operations.
-  If upload succeeds but Course creation fails, this flow does not clean up the cover.
-  Local Cloudinary configuration is non-empty; remote credential validity is unverified.
-  No MinIO, presigned URL, TenantClient, LearningClient, Kafka or approval submission executes.
-  The new Course is Draft and unlocked; existing-course Locked/Submitted checks do not apply.
-  Successful creation opens the Builder; CourseDraftCreated is not used by handleCreate.
-end note
+' Upload and creation are separate operations; a later creation failure does not clean up the cover.
+' Cover metadata is saved with purpose=CourseCover, status=Ready and provider storage metadata.
+' Local Cloudinary configuration is non-empty; remote credential validity remains unverified.
+' No MinIO, presigned URL, TenantClient, LearningClient, Kafka or approval submission executes.
+' Success opens /instructor/courses/{id}/builder; CourseDraftCreated is not used by handleCreate.
 @enduml
