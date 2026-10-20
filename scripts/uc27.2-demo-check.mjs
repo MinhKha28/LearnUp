@@ -110,7 +110,8 @@ async function until(expression, timeout = 20000) {
 }
 async function screenshot(name) {
   await evaluate("document.fonts.ready");
-  const image = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+  const metrics = await call("Page.getLayoutMetrics");
+  const image = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, clip: { x: 0, y: 0, width: 1440, height: metrics.cssContentSize.height, scale: 1 } });
   writeFileSync(path.join(artifacts, name + ".png"), Buffer.from(image.data, "base64"));
 }
 async function navigate(route) {
@@ -342,7 +343,7 @@ try {
     if(!existing) {
       await navigate("/organizer/assignments/assign");
       await until("!!document.querySelector('tr[data-row-key=\"01900000-0000-7000-8000-00000000a203\"]')");
-      await evaluate("document.querySelector('.ant-select-selector').dispatchEvent(new MouseEvent('mousedown',{bubbles:true}))");
+      await evaluate("document.querySelector('.organizer-assignment-create .ant-select-selector').dispatchEvent(new MouseEvent('mousedown',{bubbles:true}))");
       await until("Array.from(document.querySelectorAll('.ant-select-item-option-content')).some(x=>x.textContent.includes('Bảo vệ dữ liệu cá nhân'))");
       await evaluate("Array.from(document.querySelectorAll('.ant-select-item-option-content')).find(x=>x.textContent.includes('Bảo vệ dữ liệu cá nhân')).click()");
       await evaluate("document.querySelector('tr[data-row-key=\"01900000-0000-7000-8000-00000000a203\"] input[type=checkbox]').click()");
@@ -431,7 +432,7 @@ try {
     await evaluate("Array.from(document.querySelectorAll('.ant-modal button')).find(x=>x.textContent.trim()==='Đánh dấu Miễn').click()");
     const exempted=await responseAfter(`/api/v1/assignments/${id("2a0000000002")}/exemption`,exemptionStart);
     assert.equal(exempted.status, 200, JSON.stringify(exempted.body));
-    await until("document.querySelector('.organizer-status')?.textContent === 'Miễn'");
+    await until("document.querySelector('.ant-descriptions .organizer-status')?.textContent === 'Miễn'");
     await screenshot("assignment-after-exemption");
     return {
       learnerCount: learners.body.data.meta.total,
@@ -549,7 +550,28 @@ try {
       return { completedAt: after.completedAt };
     },
   );
-  await screenshot("video-completed");
+  await check("UI: localized learner screenshots", async () => {
+    await identity("LEARNER_5");
+    await navigate("/learner/courses");
+    await until("!!document.querySelector('.learner-my-course')");
+    assert.equal(await evaluate("document.querySelector('.learner-status') && parseFloat(getComputedStyle(document.querySelector('.learner-status')).fontSize) >= 14"), true);
+    await screenshot("my-courses");
+    await screenshot("sidebar-learner");
+    await navigate("/learner/catalog");
+    await until("!!document.querySelector('.learner-catalog-card')");
+    assert.equal(await evaluate("Array.from(document.querySelectorAll('.course-cover-initial')).some(x => x.textContent === '[')"), false);
+    await screenshot("catalog");
+    await navigate(`/learner/catalog/${publicCourse}`);
+    await until("!!document.querySelector('.course-overview-card')");
+    await screenshot("catalog-course");
+    await loadPlayer(a);
+    await screenshot("video-incomplete");
+    await identity("LEARNER_6");
+    await loadPlayer(b);
+    await until("document.body.innerText.includes('Đã hoàn thành')");
+    await screenshot("video-completed");
+    return { viewportWidth: 1440, artifactDirectory: artifacts };
+  });
 } finally {
   const output = path.join(artifacts, "checks.json");
   const previous =
