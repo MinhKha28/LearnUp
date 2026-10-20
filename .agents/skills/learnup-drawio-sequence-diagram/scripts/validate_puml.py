@@ -2,7 +2,8 @@
 """Static checks for this skill's explicit PlantUML sequence subset (stdlib only).
 
 Not a PlantUML parser or draw.io renderer. Branches are interpreted as alternative
-activation states; optional, repeated, and concurrent bodies must balance locally.
+activation states while render activations follow source order. At each operand,
+explicitly restore the incoming render depths before starting branch work.
 """
 from __future__ import annotations
 
@@ -27,8 +28,8 @@ HEADERS = (
     "skinparam LifeLineBackgroundColor white", "skinparam LifeLineBorderColor black",
     "skinparam ArrowColor black", "skinparam ParticipantBorderColor black",
     "skinparam sequenceMessageAlign center", "skinparam responseMessageBelowArrow true",
-    "skinparam ParticipantPadding 25", "skinparam BoxPadding 10",
-    "skinparam MaxMessageSize 80",
+    "skinparam BoxPadding 10",
+    "skinparam MaxMessageSize 200",
 )
 
 
@@ -86,10 +87,15 @@ def validate_text(text: str) -> list[str]:
     activated: set[str] = set()
     processing_targets: set[str] = set()
     depths: dict[str, int] = {}
+    render_depths: dict[str, int] = {}
+    restore_target: dict[str, int] | None = None
     fragments: list[Fragment] = []
     first_message = False
     database_seen = False
     message_count = 0
+    pending_self_activation: tuple[str, int] | None = None
+    conditional_roots: list[tuple[str, int]] = []
+    has_alternative = False
 
     def fail(number: int, message: str) -> None:
         errors.append(f"Line {number}: {message}")
@@ -102,6 +108,20 @@ def validate_text(text: str) -> list[str]:
 
     for number, line in lines:
         low = line.lower()
+        if re.search(r"<space\s*:", line, re.I):
+            fail(number, "Do not use <space:...>; draw.io may display padding markup literally")
+        if re.match(r"^group\b.*\balt\s*\[", low):
+            fail(number, "Use native alt/else/end, not a custom group header imitating alt")
+        if restore_target is not None and not ACTIVATION.fullmatch(line):
+            fail(number, "Restore incoming activations immediately after else/and before branch work")
+            render_depths = restore_target.copy()  # Recover to report other errors independently.
+            restore_target = None
+        if pending_self_activation is not None:
+            alias, call_line = pending_self_activation
+            next_activation = ACTIVATION.fullmatch(line)
+            if not next_activation or next_activation.group(1).lower() != "activate" or next_activation.group(2) != alias:
+                fail(call_line, f"Self-call {alias} must be immediately followed by activate {alias} for a nested activation")
+            pending_self_activation = None
         if re.match(r"^title\b", low):
             fail(number, "Do not render a title; identify the UC through the filename or a comment")
             continue
@@ -134,6 +154,8 @@ def validate_text(text: str) -> list[str]:
             if alias in declarations:
                 fail(number, f"Duplicate participant alias {alias}")
             declarations[alias] = (kind.lower(), display)
+            if kind in {"participant", "control", "entity"} and re.fullmatch(r":\w*Client", display):
+                fail(number, "Omit intermediary HTTP Client lifelines; draw REST directly to the receiving controller")
             if kind.lower() in {"participant", "control", "entity"}:
                 # Class labels are colon-prefixed; real external service names may contain '&'.
                 if display.startswith(":") and re.search(r"[/&+,]|\band\b", display, re.I):
@@ -146,8 +168,30 @@ def validate_text(text: str) -> list[str]:
             action, alias = activation.groups()
             if not known(number, alias):
                 continue
+            action = action.lower()
+            rendered = render_depths.get(alias, 0)
+            desired = (restore_target or {}).get(alias, 0)
+            restoring = restore_target is not None and (
+                (action == "activate" and rendered < desired)
+                or (action == "deactivate" and rendered > desired)
+            )
+            if restore_target is not None and not restoring:
+                fail(number, "Restore incoming activations before adding a new execution")
+            if action == "activate":
+                render_depths[alias] = rendered + 1
+                activated.add(alias)
+            elif rendered == 0:
+                fail(number, f"Deactivate {alias} without a rendered activation")
+            elif rendered == 1:
+                render_depths.pop(alias)
+            else:
+                render_depths[alias] = rendered - 1
+            if restoring:
+                if render_depths == restore_target:
+                    restore_target = None
+                continue  # Rendering restoration is not another nested business execution.
             depth = depths.get(alias, 0)
-            if action.lower() == "activate":
+            if action == "activate":
                 depths[alias] = depth + 1
                 activated.add(alias)
             elif depth == 0:
@@ -159,8 +203,15 @@ def validate_text(text: str) -> list[str]:
             continue
         opening = re.match(r"^(alt|opt|loop|group|par)\b", low)
         if opening:
-            if opening.group(1) == "alt" and not BRANCH_OUTCOME.search(line[opening.end():]):
+            kind = opening.group(1)
+            if kind in {"alt", "opt"} and not any(frame.kind in {"alt", "opt"} for frame in fragments):
+                conditional_roots.append((kind, number))
+            if kind == "alt":
+                has_alternative = True
+            if opening.group(1) == "alt" and not BRANCH_OUTCOME.search(line[opening.end():].replace(r"\n", " ")):
                 fail(number, "alt label must state successfully or failed")
+            if kind in {"alt", "opt"} and len(line[opening.end():].split(r"\n")) > 2:
+                fail(number, "Keep fragment guards to at most two explicit lines")
             fragments.append(Fragment(opening.group(1), depths.copy(), number))
             continue
         if re.match(r"^(else|and)\b", low):
@@ -170,14 +221,17 @@ def validate_text(text: str) -> list[str]:
                 fail(number, f"{separator} outside {expected}")
                 continue
             fragment = fragments[-1]
-            if separator == "else" and not BRANCH_OUTCOME.search(line[len(separator):]):
+            if separator == "else" and not BRANCH_OUTCOME.search(line[len(separator):].replace(r"\n", " ")):
                 fail(number, "else label must state successfully or failed")
+            if separator == "else" and len(line[len(separator):].split(r"\n")) > 2:
+                fail(number, "Keep fragment guards to at most two explicit lines")
             # Unconditional 'else' is exhaustive; 'else condition' is another guard.
             if fragment.has_else:
                 fail(number, "No operand may follow an unconditional else")
             fragment.has_else = fragment.has_else or low == "else"
             fragment.exits.append(depths.copy())
             depths = fragment.entry.copy()
+            restore_target = depths.copy() if render_depths != depths else None
             continue
         if low == "end":
             if not fragments:
@@ -210,8 +264,17 @@ def validate_text(text: str) -> list[str]:
                 used.add(alias)
             if arrow not in {"->", "-->>", "->>"}:
                 fail(number, f"Unsupported arrow {arrow}; use ->, -->>, or ->>")
+            if arrow in {"->", "-->>"}:
+                if not depths.get(source, 0) or not render_depths.get(source, 0):
+                    fail(number, f"Message sender {source} requires an active execution at this message")
+                if arrow == "-->>" and (not depths.get(target, 0) or not render_depths.get(target, 0)):
+                    fail(number, f"Response receiver {target} requires an active caller execution")
             if arrow in {"->", "->>"}:
                 processing_targets.add(target)
+            if arrow == "->" and source == target:
+                if depths.get(source, 0) == 0:
+                    fail(number, f"Self-call {source} requires an active parent execution")
+                pending_self_activation = (source, number)
             continue
         if line.startswith("...") or re.fullmatch(r"==.+==", line):
             continue
@@ -219,13 +282,17 @@ def validate_text(text: str) -> list[str]:
 
     for fragment in fragments:
         errors.append(f"Unclosed {fragment.kind} fragment at line {fragment.line}")
+    if has_alternative and (len(conditional_roots) != 1 or conditional_roots[0][0] != "alt"):
+        errors.append("Enclose dependent alt/opt fragments in one outer alt")
     for alias, depth in sorted(depths.items()):
         errors.append(f"Unclosed activation for {alias}: depth {depth}")
+    for alias, depth in sorted(render_depths.items()):
+        errors.append(f"Unclosed rendered activation for {alias}: depth {depth}")
     for alias in sorted(set(declarations) - used):
         errors.append(f"Unused participant {alias}")
-    for alias in sorted(processing_targets - activated):
-        if alias in declarations and declarations[alias][0] not in {"actor", "boundary"}:
-            errors.append(f"Processing participant {alias} requires explicit activation")
+    for alias in sorted((processing_targets | used) - activated):
+        if alias in declarations:
+            errors.append(f"Processing participant {alias} requires explicit activation (including actor and screen)")
     if message_count == 0:
         errors.append("At least one interaction is required")
     return errors

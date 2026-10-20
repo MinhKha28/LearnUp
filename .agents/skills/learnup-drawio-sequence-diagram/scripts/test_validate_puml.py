@@ -1,6 +1,7 @@
 """Behavioral regressions for branch balance, aliases, and async notation."""
 import contextlib
 import io
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,16 +15,162 @@ def diagram(body: str, declarations: str = '') -> str:
         'actor LEARNER', 'boundary "Course Introduction" as Screen',
         'participant ":EnrollmentsController" as EnrollmentHandler',
         declarations,
+        'activate LEARNER',
         'LEARNER -> Screen: Select course',
+        'activate Screen',
         'Screen -> EnrollmentHandler: POST /api/v1/enrollments',
-        'activate EnrollmentHandler', body, '@enduml',
+        'activate EnrollmentHandler', body, 'deactivate Screen', 'deactivate LEARNER', '@enduml',
     ])
 
 
 CLOSE = 'EnrollmentHandler -->> Screen: Enrollment outcome\ndeactivate EnrollmentHandler'
 
 
+def self_call(alias: str, action: str) -> str:
+    return f'{alias} -> {alias}: {action}\nactivate {alias}\ndeactivate {alias}'
+
+
 class ValidatorTests(unittest.TestCase):
+    def test_balanced_paths_can_still_be_missing_rendered_else_activations(self):
+        body = f'alt Lookup completed successfully\n{CLOSE}\nelse Lookup failed\n{CLOSE}\nend'
+        self.assertTrue(any('Restore incoming activations' in error for error in validate_text(diagram(body))))
+
+    def test_restore_is_render_only_and_not_a_child_execution(self):
+        body = f'alt Lookup completed successfully\n{CLOSE}\nelse Lookup failed\nactivate EnrollmentHandler\n{CLOSE}\nend'
+        self.assertEqual(validate_text(diagram(body)), [])
+
+    def test_partial_restore_cannot_hide_missing_callers(self):
+        close = 'EnrollmentHandler -->> Screen: Result\ndeactivate EnrollmentHandler\nScreen -->> LEARNER: Show result\ndeactivate Screen'
+        body = 'alt Lookup completed successfully\n' + close + '\nelse Lookup failed\nactivate EnrollmentHandler\n' + close + '\nend'
+        text = diagram(body).replace('end\ndeactivate Screen', 'end')
+        self.assertTrue(any('Restore incoming activations' in error for error in validate_text(text)))
+
+    def test_inactive_return_sender_and_caller_are_rejected(self):
+        for body,expected in (
+            (CLOSE + '\nEnrollmentHandler -->> Screen: Too late', 'Message sender EnrollmentHandler'),
+            ('deactivate Screen\n' + CLOSE + '\nactivate Screen', 'Response receiver Screen'),
+        ):
+            with self.subTest(body=body):
+                self.assertTrue(any(expected in error for error in validate_text(diagram(body))))
+
+    def test_actor_and_screen_activations_are_required(self):
+        text = diagram(CLOSE)
+        for alias in ('LEARNER', 'Screen'):
+            with self.subTest(alias=alias):
+                missing = re.sub(rf'^(?:activate|deactivate) {alias}\n', '', text, flags=re.M)
+                self.assertTrue(any(f'{alias} requires explicit activation' in error for error in validate_text(missing)))
+
+    def test_extra_restoration_is_not_silently_ignored(self):
+        body = f'alt Lookup completed successfully\n{CLOSE}\nelse Lookup failed\nactivate EnrollmentHandler\nactivate EnrollmentHandler\n{CLOSE}\nend'
+        self.assertTrue(any('inconsistent activation exits' in error for error in validate_text(diagram(body))))
+
+    def test_padding_markup_and_custom_alt_headers_are_rejected(self):
+        body = f'group <space:20>alt [Lookup completed successfully]\n{CLOSE}\nelse Lookup failed\nactivate EnrollmentHandler\n{CLOSE}\nend'
+        self.assertTrue(any('Do not use <space:' in error for error in validate_text(diagram(body))))
+        plain_group = body.replace('<space:20>', '')
+        self.assertTrue(any('Use native alt/else/end' in error for error in validate_text(diagram(plain_group))))
+        native = body.replace('group <space:20>alt [Lookup completed successfully]', 'alt <space:20>Lookup completed successfully')
+        self.assertTrue(any('Do not use <space:' in error for error in validate_text(diagram(native))))
+
+    def test_multiline_guards_keep_outcome_keywords_after_line_break(self):
+        body = 'alt Access checked\\nsuccessfully\n' + CLOSE + '\nelse Access check\\nfailed\nactivate EnrollmentHandler\n' + CLOSE + '\nend'
+        self.assertEqual(validate_text(diagram(body)), [])
+
+    def test_sequential_phases_can_converge_inside_one_outer_frame(self):
+        phase = 'alt Lookup completed successfully\n' + self_call('EnrollmentHandler', 'Prepare result') + '\nelse Lookup failed\n' + self_call('EnrollmentHandler', 'Prepare error') + '\nend\n'
+        body = 'alt Access checked successfully\n' + phase + phase + CLOSE + '\nelse Access check failed\nactivate EnrollmentHandler\n' + CLOSE + '\nend'
+        self.assertEqual(validate_text(diagram(body)), [])
+
+    def test_optional_preparation_can_converge_before_guarded_continuation(self):
+        body = 'alt Access checked successfully\nopt Cover selected\n' + self_call('EnrollmentHandler', 'Upload cover') + '\nend\nalt Cover prepared successfully\n' + CLOSE + '\nelse Cover preparation failed\nactivate EnrollmentHandler\n' + CLOSE + '\nend\nelse Access check failed\nactivate EnrollmentHandler\n' + CLOSE + '\nend'
+        self.assertEqual(validate_text(diagram(body)), [])
+
+    def test_fragment_guards_have_at_most_two_explicit_lines(self):
+        body = 'alt Lookup completed\\nsuccessfully\n' + CLOSE + '\nelse Lookup\\nfailed\nactivate EnrollmentHandler\n' + CLOSE + '\nend'
+        self.assertEqual(validate_text(diagram(body)), [])
+        for text in (
+            body.replace('Lookup completed\\nsuccessfully', 'Lookup\\ncompleted\\nsuccessfully'),
+            body.replace('Lookup\\nfailed', 'Lookup\\nrequest\\nfailed'),
+        ):
+            self.assertTrue(any('fragment guards' in error for error in validate_text(diagram(text))))
+
+    def test_each_operand_can_have_its_own_nested_continuation(self):
+        phase = 'alt Record saved successfully\n' + CLOSE + '\nelse Record saving failed\nactivate EnrollmentHandler\n' + CLOSE + '\nend\n'
+        body = 'alt Cover choice checked successfully - selected\n' + phase + 'else Cover choice checked successfully - none\nactivate EnrollmentHandler\n' + phase + 'end'
+        self.assertEqual(validate_text(diagram(body)), [])
+
+    def test_named_independent_phases_can_each_have_a_decision(self):
+        phase = 'alt Lookup completed successfully\n' + self_call('EnrollmentHandler', 'Prepare result') + '\nelse Lookup failed\n' + self_call('EnrollmentHandler', 'Prepare error') + '\nend\n'
+        body = 'alt Access checked successfully\ngroup First independent phase\n' + phase + 'end\ngroup Second independent phase\n' + phase + 'end\n' + CLOSE + '\nelse Access check failed\nactivate EnrollmentHandler\n' + CLOSE + '\nend'
+        self.assertEqual(validate_text(diagram(body)), [])
+
+    def test_intermediary_http_client_lifelines_are_rejected(self):
+        for client in ('LearningClient', 'TenantClient', 'LookupClient'):
+            with self.subTest(client=client):
+                body = 'EnrollmentHandler -> Adapter: Query records\nactivate Adapter\nAdapter -->> EnrollmentHandler: Records\ndeactivate Adapter\n' + CLOSE
+                self.assertTrue(any('Omit intermediary HTTP Client' in error for error in validate_text(diagram(body, f'participant ":{client}" as Adapter'))))
+
+    def test_direct_rest_to_downstream_controller_is_accepted(self):
+        body = 'EnrollmentHandler -> CourseController: GET /api/v1/courses\nactivate CourseController\nCourseController -->> EnrollmentHandler: 200 OK\ndeactivate CourseController\n' + CLOSE
+        self.assertEqual(validate_text(diagram(body, 'participant ":CoursesController" as CourseController')), [])
+
+    def test_outer_alternative_encloses_optional_and_nested_outcome_frames(self):
+        body = 'alt Access checked successfully\nopt Records available\nalt Lookup completed successfully\n' + self_call('EnrollmentHandler', 'Prepare result') + '\nelse Lookup failed\n' + self_call('EnrollmentHandler', 'Prepare error') + '\nend\nend\n' + CLOSE + '\nelse Access check failed\nactivate EnrollmentHandler\n' + CLOSE + '\nend'
+        self.assertEqual(validate_text(diagram(body)), [])
+
+    def test_separate_top_level_alternatives_require_an_enclosing_frame(self):
+        first = 'alt Access checked successfully\n' + self_call('EnrollmentHandler', 'Prepare access result') + '\nelse Access check failed\n' + self_call('EnrollmentHandler', 'Prepare access error') + '\nend\n'
+        second = 'alt Result prepared successfully\n' + self_call('EnrollmentHandler', 'Return result') + '\nelse Result preparation failed\n' + self_call('EnrollmentHandler', 'Return error') + '\nend\n'
+        self.assertTrue(any('one outer alt' in error for error in validate_text(diagram(first + second + CLOSE))))
+
+    def test_optional_processing_cannot_float_before_or_after_outer_alternative(self):
+        optional = 'opt Cover selected\n' + self_call('EnrollmentHandler', 'Prepare cover') + '\nend\n'
+        alternative = 'alt Request checked successfully\n' + self_call('EnrollmentHandler', 'Prepare request') + '\nelse Request check failed\n' + self_call('EnrollmentHandler', 'Prepare error') + '\nend\n'
+        for body in (optional + alternative, alternative + optional):
+            with self.subTest(body=body):
+                self.assertTrue(any('one outer alt' in error for error in validate_text(diagram(body + CLOSE))))
+
+    def test_pure_optional_flow_does_not_require_a_fabricated_alternative(self):
+        body = 'opt Cover selected\n' + self_call('EnrollmentHandler', 'Prepare cover') + '\nend\n' + CLOSE
+        self.assertEqual(validate_text(diagram(body)), [])
+
+    def test_nested_self_activation_preserves_parent_and_accepts_self_return(self):
+        body = 'EnrollmentHandler -> EnrollmentHandler: Verify access\nactivate EnrollmentHandler\nEnrollmentHandler -->> EnrollmentHandler: Access result\ndeactivate EnrollmentHandler\n' + CLOSE
+        self.assertEqual(validate_text(diagram(body)), [])
+
+    def test_self_call_without_child_activation_is_rejected(self):
+        body = 'EnrollmentHandler -> EnrollmentHandler: Verify access\n' + CLOSE
+        self.assertTrue(any('must be immediately followed by activate EnrollmentHandler' in error for error in validate_text(diagram(body))))
+
+    def test_self_call_requires_an_active_parent(self):
+        body = CLOSE + '\n' + self_call('EnrollmentHandler', 'Verify access')
+        self.assertTrue(any('requires an active parent execution' in error for error in validate_text(diagram(body))))
+
+    def test_recursive_self_calls_can_reach_depth_three(self):
+        body = 'EnrollmentHandler -> EnrollmentHandler: Prepare result\nactivate EnrollmentHandler\nEnrollmentHandler -> EnrollmentHandler: Normalize result\nactivate EnrollmentHandler\ndeactivate EnrollmentHandler\ndeactivate EnrollmentHandler\n' + CLOSE
+        self.assertEqual(validate_text(diagram(body)), [])
+        broken = body.replace('deactivate EnrollmentHandler\ndeactivate EnrollmentHandler', 'deactivate EnrollmentHandler')
+        self.assertTrue(any('Unclosed activation' in error for error in validate_text(diagram(broken))))
+
+    def test_child_execution_spans_work_and_closes_on_each_branch(self):
+        body = 'EnrollmentHandler -> EnrollmentHandler: Load records\nactivate EnrollmentHandler\nalt Lookup completed successfully\nEnrollmentHandler -> Store: Read records\nactivate Store\nStore -->> EnrollmentHandler: Records\ndeactivate Store\nEnrollmentHandler -->> EnrollmentHandler: Lookup result\ndeactivate EnrollmentHandler\nelse Lookup failed\nactivate EnrollmentHandler\nEnrollmentHandler -->> EnrollmentHandler: Lookup error\ndeactivate EnrollmentHandler\nend\n' + CLOSE
+        declarations = 'database "learning_db" as Store'
+        self.assertEqual(validate_text(diagram(body, declarations)), [])
+        broken = body.replace('Lookup error\ndeactivate EnrollmentHandler', 'Lookup error')
+        self.assertTrue(any('inconsistent activation exits' in error for error in validate_text(diagram(broken, declarations))))
+
+    def test_source_comments_can_separate_self_call_and_child_activation(self):
+        body = self_call('EnrollmentHandler', 'Verify access').replace('\nactivate EnrollmentHandler', "\n\n' Internal access check\nactivate EnrollmentHandler") + '\n' + CLOSE
+        self.assertEqual(validate_text(diagram(body)), [])
+
+    def test_async_self_message_does_not_require_synchronous_nesting(self):
+        body = 'EnrollmentHandler ->> EnrollmentHandler: Schedule later processing\n' + CLOSE
+        self.assertEqual(validate_text(diagram(body)), [])
+
+    def test_another_lifelines_activation_cannot_satisfy_self_call_nesting(self):
+        body = 'EnrollmentHandler -> EnrollmentHandler: Verify access\nactivate Screen\ndeactivate Screen\n' + CLOSE
+        self.assertTrue(any('must be immediately followed by activate EnrollmentHandler' in error for error in validate_text(diagram(body))))
+
     def test_title_free_diagram_accepts_optional_uc_comment(self):
         text = diagram(CLOSE)
         self.assertEqual(validate_text(text), [])
@@ -40,15 +187,15 @@ class ValidatorTests(unittest.TestCase):
         self.assertEqual(validate_text(diagram(CLOSE)), [])
 
     def test_shared_activation_after_branch_merge(self):
-        body = 'alt Eligibility checked successfully\nEnrollmentHandler -> EnrollmentHandler: Save enrollment\nelse Eligibility check failed\nEnrollmentHandler -> EnrollmentHandler: Prepare conflict\nend\n' + CLOSE
+        body = 'alt Eligibility checked successfully\n' + self_call('EnrollmentHandler', 'Save enrollment') + '\nelse Eligibility check failed\n' + self_call('EnrollmentHandler', 'Prepare conflict') + '\nend\n' + CLOSE
         self.assertEqual(validate_text(diagram(body)), [])
 
     def test_each_exhaustive_branch_closes_incoming_activation(self):
-        body = f'alt Enrollment created successfully\n{CLOSE}\nelse Enrollment creation failed\n{CLOSE}\nend'
+        body = f'alt Enrollment created successfully\n{CLOSE}\nelse Enrollment creation failed\nactivate EnrollmentHandler\n{CLOSE}\nend'
         self.assertEqual(validate_text(diagram(body)), [])
 
     def test_nested_alternatives(self):
-        body = f'alt Availability checked successfully\nalt Enrollment created successfully\n{CLOSE}\nelse Enrollment restored successfully\n{CLOSE}\nend\nelse Availability check failed\n{CLOSE}\nend'
+        body = f'alt Availability checked successfully\nalt Enrollment created successfully\n{CLOSE}\nelse Enrollment restored successfully\nactivate EnrollmentHandler\n{CLOSE}\nend\nelse Availability check failed\nactivate EnrollmentHandler\n{CLOSE}\nend'
         self.assertEqual(validate_text(diagram(body)), [])
 
     def test_missing_deactivation_on_one_branch_fails(self):
@@ -71,12 +218,12 @@ class ValidatorTests(unittest.TestCase):
                 self.assertTrue(any('balance activations locally' in e for e in validate_text(diagram(f'{fragment}\n{CLOSE}\nend'))))
 
     def test_async_event_delivery_is_not_a_return(self):
-        body = 'EnrollmentHandler ->> Broker: Publish implemented event\nactivate Broker\nBroker -->> EnrollmentHandler: Accepted\ndeactivate Broker\n' + CLOSE + '\nBroker ->> Consumer: Deliver event\nactivate Consumer\nConsumer -> Consumer: Apply update\ndeactivate Consumer'
+        body = 'EnrollmentHandler ->> Broker: Publish implemented event\nactivate Broker\nBroker -->> EnrollmentHandler: Accepted\ndeactivate Broker\n' + CLOSE + '\nBroker ->> Consumer: Deliver event\nactivate Consumer\n' + self_call('Consumer', 'Apply update') + '\ndeactivate Consumer'
         declarations = 'queue "Kafka" as Broker\nparticipant ":CompletionConsumer" as Consumer'
         self.assertEqual(validate_text(diagram(body, declarations)), [])
 
     def test_concurrent_operands_must_balance_locally(self):
-        body = f'par First task\nEnrollmentHandler -> EnrollmentHandler: Process first task\nand Second task\nEnrollmentHandler -> EnrollmentHandler: Process second task\nend\n{CLOSE}'
+        body = 'par First task\n' + self_call('EnrollmentHandler', 'Process first task') + '\nand Second task\n' + self_call('EnrollmentHandler', 'Process second task') + '\nend\n' + CLOSE
         self.assertEqual(validate_text(diagram(body)), [])
         self.assertTrue(any('balance activations locally' in e for e in validate_text(diagram(f'par Task\n{CLOSE}\nend'))))
 
@@ -129,18 +276,18 @@ class ValidatorTests(unittest.TestCase):
         self.assertEqual(validate_text(text), [])
 
     def test_each_alt_operand_requires_an_explicit_outcome(self):
-        body = 'alt Courses loaded successfully\nEnrollmentHandler -> EnrollmentHandler: Prepare list\nelse Course loading failed\nEnrollmentHandler -> EnrollmentHandler: Prepare error\nend\n' + CLOSE
+        body = 'alt Courses loaded successfully\n' + self_call('EnrollmentHandler', 'Prepare list') + '\nelse Course loading failed\n' + self_call('EnrollmentHandler', 'Prepare error') + '\nend\n' + CLOSE
         text = diagram(body)
         self.assertEqual(validate_text(text), [])
         self.assertTrue(any('alt label must state' in error for error in validate_text(text.replace('alt Courses loaded successfully', 'alt Courses available'))))
         self.assertTrue(any('else label must state' in error for error in validate_text(text.replace('else Course loading failed', 'else'))))
 
     def test_empty_and_populated_lists_can_both_be_successful_outcomes(self):
-        body = 'alt Courses loaded successfully - courses found\nEnrollmentHandler -> EnrollmentHandler: Prepare course page\nelse Courses loaded successfully - empty list\nEnrollmentHandler -> EnrollmentHandler: Prepare empty page\nend\n' + CLOSE
+        body = 'alt Courses loaded successfully - courses found\n' + self_call('EnrollmentHandler', 'Prepare course page') + '\nelse Courses loaded successfully - empty list\n' + self_call('EnrollmentHandler', 'Prepare empty page') + '\nend\n' + CLOSE
         self.assertEqual(validate_text(diagram(body)), [])
 
     def test_message_labels_have_at_most_two_explicit_lines(self):
-        body = r'EnrollmentHandler -> EnrollmentHandler: Count InProgress learners by course\nCurrent organization'
+        body = self_call('EnrollmentHandler', r'Count InProgress learners by course\nCurrent organization')
         text = diagram(body + '\n' + CLOSE)
         self.assertEqual(validate_text(text), [])
         invalid = text.replace('Current organization', r'Current organization\nDetailed query predicate')
@@ -161,7 +308,7 @@ class ValidatorTests(unittest.TestCase):
 
     def test_all_databases_follow_downstream_participants(self):
         body = 'EnrollmentHandler -> Client: Query downstream data\nactivate Client\nClient -> Store: Read records\nactivate Store\nStore -->> Client: Records\ndeactivate Store\nClient -->> EnrollmentHandler: Result\ndeactivate Client\n' + CLOSE
-        client = 'participant ":LookupClient" as Client'
+        client = 'participant ":LookupController" as Client'
         store = 'database "learning_db" as Store'
         self.assertEqual(validate_text(diagram(body, client + '\n' + store)), [])
         self.assertTrue(any('databases after every non-database' in error for error in validate_text(diagram(body, store + '\n' + client))))

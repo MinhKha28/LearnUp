@@ -13,9 +13,8 @@ skinparam ArrowColor black
 skinparam ParticipantBorderColor black
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-skinparam ParticipantPadding 25
 skinparam BoxPadding 10
-skinparam MaxMessageSize 80
+skinparam MaxMessageSize 200
 
 ' AS-IS evidence; paths are relative to the workspace root.
 ' UI: frontend/src/pages/instructor/course.create.tsx:78 (handleCreate)
@@ -54,135 +53,133 @@ activate Instructor
 Instructor -> Screen: Open /instructor/courses/create
 activate Screen
 Instructor -> Screen: Enter course details and optional cover
-' Required: name, expectedCompletionDays and courseType; other draft details are optional.
-' Cover selection creates a local preview. Upload occurs only after Create Draft is clicked.
-' The entry-page quota gate is static demo data; handleCreate has no subscription quota check.
 Instructor -> Screen: Click Create Draft
 Screen -> Screen: Validate course details
+activate Screen
+deactivate Screen
 
-opt A cover is selected
-  Screen -> Gateway: POST /api/v1/courses/cover\nCover file
-  activate Gateway
-  Gateway -> Controller: POST /api/v1/courses/cover\nTrusted user context
-  activate Controller
-  alt Multipart upload failed - file too large
-    Controller -> Controller: Reject file (413)
-  else Multipart upload accepted successfully
+alt Form validated successfully
+  opt Cover selected
+    Screen -> Gateway: POST /api/v1/courses/cover\nCover file
+    activate Gateway
+    Gateway -> Controller: POST /api/v1/courses/cover\nTrusted user context
+    activate Controller
     Controller -> Service: Upload course cover
     activate Service
-    alt Upload access check failed
-      Service -> Service: Reject access (403)
-    else Upload validation failed - missing file
-      Service -> Service: Reject missing file (400)
-    else Upload request validated successfully
+
+    ' This outcome-level alternative summarizes the upload operation.
+    ' Its successful trace expands storage and metadata work.
+    ' Failed validation/provider/persistence work is not replayed as successful calls.
+    alt Cover uploaded successfully
       Service -> Storage: Upload cover image
-      ' Cover validation: image resource; at most 5 MiB; JPEG, PNG or WebP.
-      ' Destination: learnup/{organizationId}/courses/covers.
       activate Storage
-      Storage -> Storage: Validate image file
-      alt Image validation failed
-        Storage -> Storage: Reject invalid image
-      else Image validated successfully
-        Storage -> Cloudinary: Upload image
-        activate Cloudinary
-        Cloudinary -->> Storage: Stored image or error
-        deactivate Cloudinary
-        Storage -> Storage: Prepare upload result
-      end
-      Storage -->> Service: Stored file or error
+      Storage -> Cloudinary: Upload image
+      activate Cloudinary
+      Cloudinary -->> Storage: Stored image
+      deactivate Cloudinary
+      Storage -->> Service: Stored image
       deactivate Storage
-
-      alt Image uploaded successfully
-        Service -> Repository: Save cover metadata
-        activate Repository
-        Repository -> CourseDB: Insert cover metadata\nCurrent organization
-        activate CourseDB
-        CourseDB -->> Repository: Cover metadata or error
-        deactivate CourseDB
-        Repository -->> Service: Cover metadata or error
-        deactivate Repository
-        alt Cover metadata saved successfully
-          Service -> Service: Prepare cover file ID and URL
-        else Cover metadata saving failed
-          Service -> Storage: Delete uploaded cover
-          activate Storage
-          Storage -> Cloudinary: Delete image
-          activate Cloudinary
-          Cloudinary -->> Storage: Deletion result or error
-          deactivate Cloudinary
-          Storage -->> Service: Cleanup result or error
-          deactivate Storage
-          Service -> Service: Propagate metadata error
-          ' Cleanup is best-effort; its failure does not replace the original database error.
-        end
-      else Image upload failed
-        Service -> Service: Report upload error (400 / 503)
+      Service -> Repository: Save cover metadata
+      activate Repository
+      Repository -> CourseDB: Insert cover metadata\nCurrent organization
+      activate CourseDB
+      CourseDB -->> Repository: Cover metadata
+      deactivate CourseDB
+      Repository -->> Service: Cover file ID and URL
+      deactivate Repository
+    else Cover upload failed
+      ' Access, missing-file, image-validation and provider failures are grouped here.
+      ' Framework multipart rejection happens before Service and is omitted from this trace.
+      opt Image stored but metadata save failed
+        Service -> Storage: Delete uploaded cover
+        activate Storage
+        Storage -> Cloudinary: Delete image
+        activate Cloudinary
+        Cloudinary -->> Storage: Deletion result or error
+        deactivate Cloudinary
+        Storage -->> Service: Cleanup result or error
+        deactivate Storage
+        ' Best-effort cleanup preserves the original metadata persistence error.
       end
     end
-    Service -->> Controller: Cover details or error
+    Service -->> Controller: Cover details or upload error
     deactivate Service
+    Controller -->> Gateway: 201 Created or upload error
+    deactivate Controller
+    Gateway -->> Screen: Cover details or upload error
+    deactivate Gateway
   end
-  Controller -->> Gateway: 201 Created - cover details\nor upload error
-  deactivate Controller
-  Gateway -->> Screen: Cover details or error
-  deactivate Gateway
-  ' Missing response data or a rejected upload prevents the subsequent create request.
-end
 
-alt Cover preparation completed successfully
-  ' Includes both no cover selected and an uploaded cover with response data.
-  Screen -> Screen: Prepare course data
-  Screen -> Gateway: POST /api/v1/courses\nCourse details
-  activate Gateway
-  Gateway -> Controller: POST /api/v1/courses\nTrusted userId, organizationId and role
-  activate Controller
-  Controller -> Service: Create Draft Course
-  activate Service
-  alt Instructor access check failed
-    Service -> Service: Reject access (403)
-  else Instructor access checked successfully
-    Service -> Service: Set Draft status
-    ' No subscription/quota lookup, lock or reservation executes here.
-    ' coverFileId is UUID-validated; tenant, purpose and status are not checked here.
-    Service -> Repository: Save Draft Course
-    activate Repository
-    Repository -> CourseDB: Create CourseChain and Course\nSingle transaction
-    ' Current organization and instructor; versionNumber=1, status=Draft, lockedAt=null.
-    activate CourseDB
-    CourseDB -->> Repository: Draft Course or transaction error
-    ' A failed transaction rolls back both inserts.
-    deactivate CourseDB
-    Repository -->> Service: Draft Course or error
-    deactivate Repository
-    alt Draft Course saved successfully
-      Service -> Service: Prepare created Course
-      ' Response has locked=false and learnerCount=0, without lockedAt.
-    else Transaction failed
-      Service -> Service: Report save error
+  ' A skipped upload and a completed upload converge here.
+  ' Ready means no cover was selected OR upload returned valid cover details.
+  ' Failed/rejected upload or missing response data cannot enter the create branch.
+  alt Cover prepared successfully
+    Screen -> Gateway: POST /api/v1/courses\nCourse details and optional coverFileId
+    activate Gateway
+    Gateway -> Controller: POST /api/v1/courses\nTrusted user context
+    activate Controller
+    Controller -> Service: Create Draft Course
+    activate Service
+    Service -> Service: Check Instructor access
+    activate Service
+    deactivate Service
+    ' Role and organization checks execute before persistence; there is no quota lookup.
+    ' The successful trace expands the atomic create; the failure trace groups access
+    ' rejection (no writes) and persistence failure (transaction rollback).
+    alt Draft created successfully
+      Service -> Repository: Save Draft Course
+      activate Repository
+      Repository -> CourseDB: Create CourseChain and Course\nSingle transaction
+      activate CourseDB
+      CourseDB -->> Repository: Draft Course
+      deactivate CourseDB
+      Repository -->> Service: Draft Course
+      deactivate Repository
+      Service -->> Controller: Draft Course
+      deactivate Service
+      Controller -->> Gateway: 201 Created
+      deactivate Controller
+      Gateway -->> Screen: Draft Course
+      deactivate Gateway
+      Screen -->> Instructor: Show "Draft Course created."
+      Screen -> Screen: Open Course Builder
+      activate Screen
+      deactivate Screen
+    else Course creation failed
+      ' Restore the same incoming executions for PlantUML's next operand.
+      activate Gateway
+      activate Controller
+      activate Service
+      Service -->> Controller: Access or persistence error
+      deactivate Service
+      Controller -->> Gateway: 403 Forbidden or 500 error
+      deactivate Controller
+      Gateway -->> Screen: Create error
+      deactivate Gateway
+      Screen -->> Instructor: Show create error
     end
+  else Cover preparation failed
+    Screen -->> Instructor: Show upload error
   end
-  Service -->> Controller: Draft Course or error
-  deactivate Service
-  Controller -->> Gateway: 201 Created - Draft Course\nor 403 / 500 error
-  deactivate Controller
-  Gateway -->> Screen: Draft Course or error
-  deactivate Gateway
-  alt Draft Course created successfully
-    Screen -->> Instructor: Show "Draft Course created."
-    Screen -> Screen: Open Course Builder
-  else Draft Course creation failed
-    Screen -->> Instructor: Show create error
-  end
-else Cover upload failed
-  Screen -->> Instructor: Show upload error
+else Form validation failed
+  Screen -->> Instructor: Show form error
 end
-Screen -> Screen: Stop loading
 deactivate Screen
 deactivate Instructor
 
-' Upload and creation are separate operations; a later creation failure does not clean up the cover.
-' Cover metadata is saved with purpose=CourseCover, status=Ready and provider storage metadata.
-' Local Cloudinary configuration is non-empty; remote credential validity remains unverified.
-' No MinIO, presigned URL, TenantClient, LearningClient, Kafka or approval submission executes.
-' Success opens /instructor/courses/{id}/builder; CourseDraftCreated is not used by handleCreate.
+' Validation is form.validateFields(); a rejection enters handleCreate's existing catch.
+' The finally block always stops loading. Required: name, expectedCompletionDays, courseType.
+' Selecting a cover creates a preview; upload starts only after Create Draft.
+' The entry-page quota gate uses demo data; handleCreate performs no subscription check.
+' Missing upload response data or a rejected upload prevents Course creation.
+' Metadata: purpose=CourseCover, status=Ready and provider storage fields.
+' Course response: locked=false, learnerCount=0; lockedAt omitted.
+' Upload and creation are separate; later creation failure does not clean up the cover.
+' Cover access requires INSTRUCTOR and organizationId; missing/invalid image is rejected.
+' Cover validation: at most 5 MiB; JPEG, PNG or WebP.
+' Upload errors: 400/403/503/500; multipart middleware may also reject with 413.
+' Course creation failure never cleans up an already committed cover.
+' Remote Cloudinary credentials remain unverified.
+' No MinIO, presigned URL, TenantClient, LearningClient, Kafka or approval submission.
+' Success opens /instructor/courses/{id}/builder; no CourseDraftCreated handler.
 @enduml

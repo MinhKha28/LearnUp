@@ -13,9 +13,8 @@ skinparam ArrowColor black
 skinparam ParticipantBorderColor black
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-skinparam ParticipantPadding 25
 skinparam BoxPadding 10
-skinparam MaxMessageSize 80
+skinparam MaxMessageSize 200
 
 ' AS-IS source evidence (workspace-relative paths):
 ' UI: frontend/src/router.tsx:357; frontend/src/pages/instructor/my.courses.tsx:71
@@ -36,6 +35,8 @@ skinparam MaxMessageSize 80
 ' Learning prefix/version: services/learning-service/src/app.setup.ts:30
 ' docs/source-of-truth and full BR-79/BR-287/BR-64/BR-80 definitions are absent locally.
 ' BR references indicate review targets, not a claim of verified specification compliance.
+' Diagram scope: assigned Course list display only.
+' Search/filter and pagination behavior in the shared implementation are outside this UC view.
 
 actor Instructor
 boundary "View Course Page" as Screen
@@ -43,7 +44,6 @@ participant ":ApiGateway" as Gateway
 participant ":CoursesController" as CoursesController
 participant ":CoursesService" as CoursesService
 participant ":CoursesRepository" as CoursesRepository
-participant ":LearningClient" as LearningClient
 participant ":EnrollmentsController" as EnrollmentsController
 participant ":EnrollmentsService" as EnrollmentsService
 database "course_db" as CourseDB
@@ -55,88 +55,105 @@ database "learning_db" as LearningDB
 activate Instructor
 Instructor -> Screen: Open /instructor/courses
 activate Screen
-Screen -> Screen: Load initial course page
-Screen -> Gateway: GET /api/v1/courses\nSearch, filters and pagination
+Screen -> Gateway: GET /api/v1/courses
 activate Gateway
 Gateway -> CoursesController: GET /api/v1/courses\nTrusted userId, organizationId, role
 activate CoursesController
 CoursesController -> CoursesService: Load managed courses
 activate CoursesService
 CoursesService -> CoursesService: Verify instructor access
+activate CoursesService
+deactivate CoursesService
 
-alt Instructor access check failed
-  CoursesService -> CoursesService: Reject access (403)
-else Instructor access checked successfully
-  CoursesService -> CoursesService: Apply instructor, organization and filters
-  ' Scope: Course.organizationId and Course.chain.instructorId; no extra chain organization predicate.
-  ' Locked and Submitted do not prevent reading; pagination defaults to current=1, pageSize=10.
-  CoursesService -> CoursesRepository: Load matching course page
+alt Access checked successfully
+  ' Scope: Course.organizationId and Course.chain.instructorId.
+  ' Locked and Submitted do not prevent reading.
+  CoursesService -> CoursesRepository: Load assigned courses\nCurrent instructor and organization
   activate CoursesRepository
-  CoursesRepository -> CourseDB: Read courses and total\nFilter, sort and paginate
+  CoursesRepository -> CourseDB: Read assigned courses
   activate CourseDB
-  CourseDB -->> CoursesRepository: Course page and total
+  CourseDB -->> CoursesRepository: Course list
   deactivate CourseDB
-  CoursesRepository -->> CoursesService: Course page and total
+  CoursesRepository -->> CoursesService: Course list
   deactivate CoursesRepository
 
-  CoursesService -> LearningClient: Load learner counts
-  activate LearningClient
-  alt Course page loaded successfully - empty list
-    LearningClient -> LearningClient: Prepare empty learner counts
-  else Course page loaded successfully - courses found
-    alt Learner count request completed successfully
-      LearningClient -> EnrollmentsController: POST /api/v1/enrollments/learner-counts\nCourse IDs and user context
-      activate EnrollmentsController
-      ' Direct REST to LEARNING_SERVICE_URL; this POST reads counts without creating enrollments.
+  alt Courses found\nsuccessfully
+    ' LearningClient is a hidden HTTP adapter, not a lifeline.
+    ' Direct REST to LEARNING_SERVICE_URL; internal key and trusted user headers.
+    ' The POST reads counts and does not create enrollments.
+    CoursesService -> EnrollmentsController: POST /api/v1/enrollments/learner-counts\nCourse IDs and user context
+    activate EnrollmentsController
+    alt Counts loaded\nsuccessfully
       EnrollmentsController -> EnrollmentsService: Load learner counts
       activate EnrollmentsService
       EnrollmentsService -> EnrollmentsService: Verify organization access
+      activate EnrollmentsService
+      deactivate EnrollmentsService
       EnrollmentsService -> LearningDB: Count InProgress learners by course\nCurrent organization
       activate LearningDB
       LearningDB -->> EnrollmentsService: Learner counts
       deactivate LearningDB
-      EnrollmentsService -> EnrollmentsService: Default missing counts to zero
       EnrollmentsService -->> EnrollmentsController: Learner counts
       deactivate EnrollmentsService
-      EnrollmentsController -->> LearningClient: 201 Created\nLearner counts
+      EnrollmentsController -->> CoursesService: 201 Created\nLearner counts
       deactivate EnrollmentsController
-    else Learner count request failed
-      ' Alternative outcome of the same REST attempt; downstream completion is not assumed.
-      ' HttpModule timeout: 5000 ms. The source maps REST errors to ServiceUnavailableException.
-      LearningClient -> LearningClient: Report service unavailable (503)
+      CoursesService -->> CoursesController: Courses with learner counts
+      deactivate CoursesService
+      CoursesController -->> Gateway: 200 OK - course list
+      deactivate CoursesController
+      Gateway -->> Screen: Course list
+      deactivate Gateway
+      Screen -->> Instructor: Show managed courses
+    else Learner count\nloading failed
+      ' Restore caller activations for this alternative.
+      activate Gateway
+      activate CoursesController
+      activate CoursesService
+      activate EnrollmentsController
+      ' Same REST attempt: non-2xx response, transport failure or 5000 ms timeout.
+      ' No successful downstream DB execution, cancellation or reply is assumed.
+      deactivate EnrollmentsController
+      CoursesService -->> CoursesController: Service unavailable (503)
+      deactivate CoursesService
+      CoursesController -->> Gateway: 503 Service Unavailable
+      deactivate CoursesController
+      Gateway -->> Screen: Load error
+      deactivate Gateway
+      Screen -->> Instructor: Show load error and Retry
     end
+  else Empty list returned\nsuccessfully
+    ' Restore caller activations for this alternative.
+    activate Gateway
+    activate CoursesController
+    activate CoursesService
+    ' No Course IDs: skip the REST request and use an empty learner-count list.
+    CoursesService -->> CoursesController: Empty course list
+    deactivate CoursesService
+    CoursesController -->> Gateway: 200 OK - empty list
+    deactivate CoursesController
+    Gateway -->> Screen: Empty course list
+    deactivate Gateway
+    Screen -->> Instructor: Show "No Courses yet"
   end
-  LearningClient -->> CoursesService: Learner counts or error
-  deactivate LearningClient
-
-  alt Learner counts loaded successfully
-    CoursesService -> CoursesService: Prepare course page with learner counts
-  else Learner count loading failed
-    CoursesService -> CoursesService: Propagate service unavailable (503)
-  end
-end
-
-CoursesService -->> CoursesController: Course page or error
-deactivate CoursesService
-CoursesController -->> Gateway: 200 OK - course page\nor 403 / 503 error
-deactivate CoursesController
-Gateway -->> Screen: Course page or error
-deactivate Gateway
-
-alt Courses loaded successfully - courses found
-  Screen -->> Instructor: Show courses and pagination
-else Courses loaded successfully - empty list
-  Screen -->> Instructor: Show "No Courses yet"
-else Course loading failed
-  Screen -> Screen: Clear course list and stop loading
+else Access\ncheck failed
+  ' Restore caller activations for this alternative.
+  activate Gateway
+  activate CoursesController
+  activate CoursesService
+  CoursesService -->> CoursesController: Access denied (403)
+  deactivate CoursesService
+  CoursesController -->> Gateway: 403 Forbidden
+  deactivate CoursesController
+  Gateway -->> Screen: Access error
+  deactivate Gateway
   Screen -->> Instructor: Show load error and Retry
 end
 deactivate Screen
 deactivate Instructor
 
-' AS-IS: counts include only InProgress enrollments; missing groups default to zero.
+' AS-IS: missing learner groups default to zero; only InProgress enrollments are counted.
 ' Results are Course versions without latest-version selection or chain grouping.
-' Failed learner-count retrieval prevents returning a partial course page.
-' Response fields include name, versionNumber, courseType, status, locked and learnerCount.
-' Read-only flow: no TenantClient, storage, Kafka or data writes.
+' A learner-count failure prevents partial results; the UI clears its list and stops loading.
+' Fields: name, versionNumber, courseType, status, locked and learnerCount.
+' Read-only: no TenantClient, storage, Kafka or data writes.
 @enduml
