@@ -1,9 +1,26 @@
 .organizer-assignments .ant-table-cell {
   vertical-align: top;
+  word-break: normal;
+  overflow-wrap: normal;
+  padding: var(--space-3) var(--space-2);
 }
-
 .organizer-assignments .organizer-status {
   font-size: var(--status-font-size);
   line-height: var(--status-line-height);
   padding: var(--status-padding-block) var(--status-padding-inline);
+}
+.organizer-assignments .organizer-assignment-nowrap,
+.organizer-assignments .ant-table-thead th {
+  white-space: nowrap;
+}
+.organizer-assignment-column-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.organizer-assignments .organizer-assignment-flex {
+  width: 50%;
+  max-width: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
