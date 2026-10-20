@@ -132,6 +132,11 @@ export class UsersService {
     const organizationId = this.organizationIdOf(user);
     const { page, pageSize, keyword, status } = query;
 
+    // Prisma sinh ILIKE '%' || kw || '%' mà không escape: "%", "_" trong từ khóa
+    // sẽ thành wildcard (UC13.4). Thay một lượt cả "\", "%", "_" nên "\" sinh ra khi escape
+    // "%", "_" không bị escape lần nữa (tương đương escape "\" trước rồi mới "%", "_").
+    const pattern = keyword?.replace(/[\\%_]/g, (char) => `\\${char}`);
+
     // BR-37: xóa tài khoản là gán deleted_at, nên loại các dòng đã xóa.
     // count và findMany dùng chung where để total đếm đúng theo bộ lọc.
     const where: Prisma.UserWhereInput = {
@@ -139,10 +144,10 @@ export class UsersService {
       role,
       deletedAt: null,
       ...(status && { status }),
-      ...(keyword && {
+      ...(pattern && {
         OR: [
-          { fullName: { contains: keyword, mode: 'insensitive' } },
-          { email: { contains: keyword, mode: 'insensitive' } },
+          { fullName: { contains: pattern, mode: 'insensitive' } },
+          { email: { contains: pattern, mode: 'insensitive' } },
         ],
       }),
     };

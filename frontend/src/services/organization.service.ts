@@ -77,10 +77,20 @@ export const createInstructorAPI = (body: ICreateAccountReq) =>
   axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/instructors", body);
 
 // UC13 - Xem danh sách Learner (Organizer; tổ chức lấy từ danh tính người gọi)
-export const getLearnersAPI = (query: IAccountListQuery) =>
+export const getLearnersAPI = ({
+  keyword,
+  status,
+  ...query
+}: IAccountListQuery) =>
   axios.get<IBackendRes<IPageResponse<ILearnerListItem>>>(
     "/api/v1/users/learners",
-    { params: query },
+    {
+      params: {
+        ...query,
+        ...(keyword ? { keyword } : {}),
+        ...(status ? { status } : {}),
+      },
+    },
   );
 
 // UC13.2 - số chỗ Learner còn lại (Organizer)
