@@ -134,6 +134,7 @@ async function navigate(route) {
   await call("Page.navigate", { url: base + route });
   await until(
     "document.readyState==='complete' && !!document.querySelector('#root') && document.body.innerText.length>50",
+    60000,
   );
 }
 const api = async (route, method = "GET", payload) => {
@@ -572,12 +573,13 @@ try {
     },
   );
   await check("UI: localized learner screenshots", async () => {
-    await identity("LEARNER_5");
+    await identity("LEARNER_1");
     await navigate("/learner/courses");
     await until("!!document.querySelector('.learner-my-course')");
     assert.equal(await evaluate("document.querySelector('.learner-status') && parseFloat(getComputedStyle(document.querySelector('.learner-status')).fontSize) >= 14"), true);
     await until("document.querySelector('.learner-org-name')?.textContent === 'Tổ chức A'");
     assert.equal(await evaluate("!!document.querySelector('.dev-identity-badge')"), false);
+    assert.equal(await evaluate("document.body.innerText.includes('Hết ngày')"), true);
     await screenshot("my-courses");
     await screenshot("sidebar-learner");
     await navigate("/learner/catalog");
@@ -588,6 +590,7 @@ try {
     await until("!!document.querySelector('.course-overview-card')");
     assert.equal(await evaluate("document.body.innerText.includes('Learning Outcomes')"), false);
     await screenshot("catalog-course");
+    await identity("LEARNER_5");
     await loadPlayer(a);
     await screenshot("video-incomplete");
     await identity("LEARNER_6");
@@ -598,6 +601,7 @@ try {
     await navigate(`/organizer/assignments/${id("2a0000000002")}`);
     await until("document.querySelector('.organizer-assignment-title .organizer-status')?.textContent === 'Miễn'");
     await screenshot("assignment-after-exemption");
+    await screenshot("sidebar-organizer");
     return { viewportWidth: 1440, artifactDirectory: artifacts };
   });
 } finally {
