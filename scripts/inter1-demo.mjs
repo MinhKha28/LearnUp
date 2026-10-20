@@ -983,6 +983,25 @@ function printReady() {
     `Lesson L11:          ${web}/learner/courses/${E_DEMO_2}/lessons/${L11}`,
     `Lesson L13:          ${web}/learner/courses/${E_DEMO_2}/lessons/${L13}`,
     "",
+    "Inter 2 - Chọn persona trong Demo > Đổi danh tính demo (POST /__dev/identity):",
+    `UC24 | ORGANIZER / Organizer ABC | ${web}/organizer/assignments?page=1`,
+    `UC24.1 | ORGANIZER / Organizer ABC | ${web}/organizer/assignments/${E_DEMO_2}?page=1`,
+    `UC24.2 | ORGANIZER / Organizer ABC | ${web}/organizer/assignments/assign | Chọn Lê Văn Cường (...a203), Course P (...c00200000065).`,
+    `UC24.3 | ORGANIZER / Organizer ABC | ${web}/organizer/assignments/${E_DEMO_2}?page=1 | Bấm Kéo dài hạn; không có URL riêng.`,
+    `UC24.5 | ORGANIZER / Organizer ABC | ${web}/organizer/assignments/${E_DEMO_2}?page=1 | Bấm Đánh dấu Miễn sau gia hạn; không có URL riêng.`,
+    ...[
+      ["LEARNER_5", "Học viên 5 (Video chưa học)", "0027", "a"],
+      ["LEARNER_6", "Học viên 6 (Video đã xem 511 giây)", "0028", "b"],
+    ].map(
+      ([key, label, id, part]) =>
+        `UC27.2 (${part}) | ${key} / ${label} | ${web}/learner/courses/01900000-0000-7000-8000-2a000000${id}/lessons/${L11}/resources/01900000-0000-7000-8000-c0050001676b | Pause > Về Lesson, đợi lưu progress trước khi đổi persona.`,
+    ),
+    `UC25.4 X | LEARNER_4 / Học viên 4 (Tổ chức A) | ${web}/learner/courses | Rút X (...c0020000005c), enrollment ...2a0000000004; không có URL riêng.`,
+    `UC25.4 Y | LEARNER_4 / Học viên 4 (Tổ chức A) | ${web}/learner/courses | Rút Y (...c00200000097), enrollment ...2a0000000005; không có URL riêng.`,
+    `UC25.3 restore Y | LEARNER_4 / Học viên 4 (Tổ chức A) | ${web}/learner/catalog/${COURSE_03} | Mở tab A/B trước khi đăng ký ở A; giữ B chưa reload.`,
+    `UC25.3 429 | LEARNER_4 / Học viên 4 (Tổ chức A) | ${web}/learner/catalog/${COURSE_03} | Không có URL riêng: DevTools gửi lặp POST theo checklist, sau đó bấm Đăng ký ở tab B cũ.`,
+    `UC25.4 503 (http, CUỐI CÙNG) | LEARNER_4 / Học viên 4 (Tổ chức A) | ${web}/learner/courses | Không có URL riêng: dừng đúng tiến trình assessment 8086, rút Y; không Ctrl+C runner.`,
+    "",
     `Log: ${LOG_DIR}`,
     "Nhấn Ctrl+C để tắt toàn bộ",
   ];
