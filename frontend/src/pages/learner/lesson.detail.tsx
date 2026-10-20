@@ -18,7 +18,7 @@ import { buildMaterialRow, completionMark } from "@/utils/curriculum.view";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import "./lesson.detail.scss";
 
-const MATERIAL_SOON = "Học liệu Reading sẽ có ở phiên bản sau";
+const MATERIAL_SOON = "Học liệu Bài đọc sẽ có ở phiên bản sau";
 
 const LessonBody = ({
   data,
@@ -44,7 +44,7 @@ const LessonBody = ({
 
       {/* Lesson không có nội dung: bỏ hẳn phần nội dung (luồng 3a) */}
       {hasContent && (
-        <section className="lesson-detail-card" aria-label="Nội dung Lesson">
+        <section className="lesson-detail-card" aria-label="Nội dung Bài học">
           <LessonMarkdown content={lesson.content ?? ""} />
         </section>
       )}
@@ -52,7 +52,7 @@ const LessonBody = ({
       <section className="lesson-detail-card">
         <h2>Học liệu</h2>
         {materials.length === 0 ? (
-          <p className="lesson-detail-empty">Lesson này chưa có học liệu</p>
+          <p className="lesson-detail-empty">Bài học này chưa có học liệu</p>
         ) : (
           <ol className="lesson-detail-materials">
             {materials.map((material) => {
@@ -106,7 +106,7 @@ const LessonBody = ({
       {(previousLesson || nextLesson) && (
         <nav
           className="lesson-detail-neighbors"
-          aria-label="Lesson trước và sau"
+          aria-label="Bài học trước và sau"
         >
           {previousLesson ? (
             <LearnerButton

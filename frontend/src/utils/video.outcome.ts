@@ -10,7 +10,7 @@ export const applyVideoProgress = (
     : incoming;
 export const videoOutcome = (error: ApiError): string => {
   if (error.status === 404)
-    return "Không tìm thấy học liệu hoặc Course của bạn.";
+    return "Không tìm thấy học liệu hoặc Khóa học của bạn.";
   if (error.status === 403)
     return "Nội dung đang tạm ngưng hoặc bạn không có quyền truy cập.";
   if (error.code === "PLAYBACK_UNAVAILABLE")

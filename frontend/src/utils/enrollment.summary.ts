@@ -34,7 +34,7 @@ export const summarizeEnrollment = (
 ): EnrollmentSummary => {
   const { completed, total } = source.requiredMaterials;
   return {
-    title: source.course?.name ?? "Không tải được thông tin Course",
+    title: source.course?.name ?? "Không tải được thông tin Khóa học",
     courseName: source.course?.name ?? null,
     versionLabel: source.course ? `Phiên bản ${source.course.versionNumber}` : null,
     typeLabel: ENROLLMENT_TYPE_LABELS[source.enrollmentType] ?? source.enrollmentType,

@@ -24,7 +24,7 @@ export const LearningError = ({
   if (view.action === "myCourses" || view.action === "curriculum") {
     const target =
       view.action === "myCourses"
-        ? { label: "Về Course của tôi", to: LEARNER_ROUTES.myCourses() }
+        ? { label: "Về Khóa học của tôi", to: LEARNER_ROUTES.myCourses() }
         : { label: "Về chương trình học", to: LEARNER_ROUTES.curriculum(enrollmentId) };
     return (
       <LearnerEmptyState
