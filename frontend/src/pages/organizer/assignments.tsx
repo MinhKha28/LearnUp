@@ -1,3 +1,4 @@
+import viVN from "antd/locale/vi_VN";
 import { Alert, Button, Empty, Skeleton, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect } from "react";
@@ -139,6 +140,7 @@ const Assignments = () => {
               showSizeChanger: false,
               onChange: (value) => setParams({ page: String(value) }),
               locale: {
+                ...viVN.Pagination,
                 items_per_page: "/ trang",
                 prev_page: "Trang trước",
                 next_page: "Trang sau",

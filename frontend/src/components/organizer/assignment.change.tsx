@@ -1,4 +1,6 @@
 import { Alert, Button, DatePicker, Form, Input, Modal, message } from "antd";
+import viVN from "antd/locale/vi_VN";
+import "dayjs/locale/vi";
 import dayjs, { type Dayjs } from "dayjs";
 import { useRef, useState } from "react";
 import { AssignmentError } from "@/components/organizer/assignment.error";
@@ -152,7 +154,7 @@ export const AssignmentChange = ({
               <Alert
                 type="info"
                 showIcon
-                message="Giới hạn ngày tính theo giờ trên máy bạn vì chưa lấy được múi giờ tổ chức. Backend sẽ kiểm tra hạn khi gửi."
+                message="Giới hạn ngày tính theo giờ trên máy bạn vì chưa lấy được múi giờ tổ chức. Hạn sẽ được kiểm tra khi gửi."
               />
             )}
             {range.min > range.max && (
@@ -192,6 +194,7 @@ export const AssignmentChange = ({
               ]}
             >
               <DatePicker
+                locale={viVN.DatePicker}
                 format="DD/MM/YYYY"
                 placeholder="Chọn ngày"
                 minDate={dayjs(range.min)}

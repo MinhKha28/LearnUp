@@ -1,3 +1,4 @@
+import viVN from "antd/locale/vi_VN";
 import {
   Alert,
   Button,
@@ -239,6 +240,7 @@ const AssignmentCreate = () => {
               disabled={pending || courses.status === "loading"}
               onChange={setCoursePage}
               locale={{
+                ...viVN.Pagination,
                 prev_page: "Trang Khóa học trước",
                 next_page: "Trang Khóa học sau",
               }}
@@ -275,7 +277,7 @@ const AssignmentCreate = () => {
             columns={learnerColumns}
             loading={learners.status === "loading"}
             scroll={{ x: true }}
-            locale={{ emptyText: "Không có Học viên trong tổ chức" }}
+            locale={{ ...viVN.Table, emptyText: "Không có Học viên trong tổ chức" }}
             rowSelection={{
               selectedRowKeys: Object.keys(selected),
               preserveSelectedRowKeys: true,
@@ -302,6 +304,7 @@ const AssignmentCreate = () => {
               disabled: pending,
               onChange: setLearnerPage,
               locale: {
+                ...viVN.Pagination,
                 prev_page: "Trang Học viên trước",
                 next_page: "Trang Học viên sau",
               },
@@ -334,9 +337,9 @@ const AssignmentCreate = () => {
               ),
             },
           ]}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
+          pagination={{ pageSize: 10, showSizeChanger: false, locale: viVN.Pagination }}
           scroll={{ x: true }}
-          locale={{ emptyText: "Chưa chọn Học viên" }}
+          locale={{ ...viVN.Table, emptyText: "Chưa chọn Học viên" }}
         />
       </Modal>
     </OrganizerPage>
