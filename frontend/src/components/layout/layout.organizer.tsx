@@ -157,6 +157,8 @@ const getPageMeta = (pathname: string) => {
     return ["Quản lý đào tạo", "Nhập danh sách học viên"];
   if (pathname.startsWith("/organizer/learners/") && pathname.endsWith("/report"))
     return ["Quản lý đào tạo", "Báo cáo học viên"];
+  if (pathname.startsWith("/organizer/learners/") && pathname.endsWith("/edit"))
+    return ["Quản lý đào tạo", "Chỉnh sửa học viên"];
   if (pathname.includes("/organizer/learners/"))
     return ["Quản lý đào tạo", "Chi tiết học viên"];
   if (pathname === "/organizer/learners") return ["Quản lý đào tạo", "Học viên"];

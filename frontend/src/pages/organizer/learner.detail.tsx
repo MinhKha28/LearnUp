@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { statusLabel } from "@/components/organizer/account.table";
 import {
   DetailItem,
+  OrganizerButton,
   OrganizerPage,
   PageHeader,
   SectionCard,
@@ -81,9 +82,6 @@ const courseColumns: ColumnsType<ILearnerEnrollment> = [
   },
 ];
 
-// UC13.3 / 13.5 / 13.6 / 13.7 gắn nút vào đây; UC13.1 chưa render nút nào
-const headerActions: ReactNode = null;
-
 type LoadError = "notFound" | "failed";
 
 const LearnerDetail = () => {
@@ -124,6 +122,13 @@ const LearnerDetail = () => {
       ignore = true;
     };
   }, [learnerId, reloadKey]);
+
+  // UC13.5 / 13.6 / 13.7 gắn thêm nút vào đây. UC13.3: sửa được ở mọi trạng thái (đơn vị công tác, BR-34)
+  const headerActions: ReactNode = detail ? (
+    <Link to={`/organizer/learners/${detail.id}/edit`}>
+      <OrganizerButton type="primary">Edit</OrganizerButton>
+    </Link>
+  ) : null;
 
   const renderBody = () => {
     if (loading) {

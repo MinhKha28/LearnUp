@@ -15,7 +15,7 @@ import { normalizeEmail, normalizeText } from '../../../common/utils/text.util';
 const NO_CONTROL_CHARS = /^[^\p{Cc}]*$/u;
 const NO_ANGLE_BRACKETS = /^[^<>]*$/;
 
-// Body sửa tài khoản trong tổ chức (UC12.3 Instructor, sau này UC13.3 Learner). BR-34, BR-279.
+// Body sửa tài khoản trong tổ chức (UC12.3 Instructor, UC13.3 Learner). BR-34, BR-279.
 // Mọi trường tùy chọn: không gửi = không đổi. Ai được sửa trường nào do service quyết theo activatedAt.
 // fullName / email dùng ValidateIf thay vì IsOptional để gửi null vẫn bị 400 (cột NOT NULL).
 export class UpdateAccountDto {
