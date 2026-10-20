@@ -43,7 +43,7 @@ export const DEV_IDENTITIES = {
   ORGANIZER: {
     userId: "01900000-0000-7000-8000-00000000a010",
     organizationId: "01900000-0000-7000-8000-00000000a001",
-    label: "Organizer ABC",
+    label: "Quản lý đào tạo ABC",
     role: "ORGANIZER",
   },
 } as const;

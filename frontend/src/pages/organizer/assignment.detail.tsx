@@ -52,7 +52,7 @@ const AssignmentDetail = () => {
     <OrganizerPage className="organizer-assignment-detail">
       <PageHeader
         title="Chi tiết phân công"
-        subtitle="Course bắt buộc"
+        subtitle="Khóa học bắt buộc"
         actions={
           <>
             {item && (
@@ -98,36 +98,26 @@ const AssignmentDetail = () => {
       ) : (
         <>
           <SectionCard title="Thông tin phân công">
+            <div className="organizer-assignment-learner">
+              <span>Học viên</span>
+              {item.learner ? (
+                <div className="organizer-assignment-learner-info">
+                  <strong>{item.learner.fullName}</strong>
+                  <span className="organizer-assignment-email">{item.learner.email}</span>
+                  <StatusTag tone={item.learner.status === "Active" ? "success" : "neutral"}>
+                    {({ Active: "Đang hoạt động", Pending: "Chờ kích hoạt", Deactivated: "Đã vô hiệu hóa" } as Record<string, string>)[item.learner.status] ?? "Không xác định"}
+                  </StatusTag>
+                  <span>Ngày kích hoạt: {date(item.learner.activatedAt)}</span>
+                  {item.learner.deletedAt && <span>Ngày xóa tài khoản: {date(item.learner.deletedAt)}</span>}
+                </div>
+              ) : <span>Không tải được thông tin</span>}
+            </div>
             <Descriptions
-              column={{ xs: 1, md: 2 }}
+              column={{ xs: 1, md: 3 }}
               items={[
                 {
-                  key: "learner",
-                  label: "Learner",
-                  children: item.learner ? (
-                    <>
-                      <strong>{item.learner.fullName}</strong>
-                      <div>{item.learner.email}</div>
-                      <div>
-                        Trạng thái tài khoản:{" "}
-                        {(
-                          {
-                            Active: "Đang hoạt động",
-                            Pending: "Chờ kích hoạt",
-                            Deactivated: "Đã vô hiệu hóa",
-                          } as Record<string, string>
-                        )[item.learner.status] ?? "Không xác định"}
-                      </div>
-                      <div>Kích hoạt: {date(item.learner.activatedAt)}</div>
-                      <div>Xóa tài khoản: {date(item.learner.deletedAt)}</div>
-                    </>
-                  ) : (
-                    "Không tải được thông tin"
-                  ),
-                },
-                {
                   key: "course",
-                  label: "Course",
+                  label: "Khóa học",
                   children: item.course
                     ? `${item.course.title} · Phiên bản ${item.course.versionNumber}`
                     : "Không tải được thông tin",
@@ -175,28 +165,28 @@ const AssignmentDetail = () => {
                   label: "Hoạt động đầu tiên",
                   children: date(item.firstActivityAt),
                 },
-                {
+                ...(item.completedAt ? [{
                   key: "completed",
                   label: "Hoàn thành",
                   children: `${date(item.completedAt)}${item.completedLate === null ? "" : item.completedLate ? " · Trễ hạn" : " · Đúng hạn"}`,
-                },
-                {
+                }] : []),
+                ...(item.withdrawnAt ? [{
                   key: "withdrawn",
                   label: "Thời điểm rút",
                   children: date(item.withdrawnAt),
-                },
-                {
+                }] : []),
+                ...(item.withdrawnReason ? [{
                   key: "reason",
                   label: "Lý do rút",
                   children: item.withdrawnReason
                     ? ((
                         {
-                          LearnerWithdrew: "Learner tự rút",
+                          LearnerWithdrew: "Học viên tự rút",
                           AccountDeleted: "Tài khoản đã bị xóa",
                         } as Record<string, string>
                       )[item.withdrawnReason] ?? "Lý do khác")
                     : "—",
-                },
+                }] : []),
               ]}
             />
           </SectionCard>

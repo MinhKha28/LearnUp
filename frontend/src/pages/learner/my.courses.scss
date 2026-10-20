@@ -108,3 +108,9 @@ a.learner-my-course-title:hover {
     width: 100%;
   }
 }
+
+.learner-courses .learner-status {
+  font-size: var(--status-font-size);
+  line-height: var(--status-line-height);
+  padding: var(--status-padding-block) var(--status-padding-inline);
+}

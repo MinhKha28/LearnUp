@@ -17,7 +17,7 @@ if (process.env.NODE_ENV === "production")
 const base = "http://localhost:3000";
 const root = path.resolve(import.meta.dirname, "..");
 const results = [];
-const artifacts = path.join(root, "frontend", "dev", "uc27.2-results");
+const artifacts = process.env.DEMO_ARTIFACTS_DIR ?? path.join(root, "frontend", "dev", "uc27.2-results");
 mkdirSync(artifacts, { recursive: true });
 const chromeRoot = path.join(process.env.LOCALAPPDATA, "ms-playwright");
 const chrome =
@@ -107,6 +107,11 @@ async function until(expression, timeout = 20000) {
     await sleep(150);
   }
   throw new Error("Browser condition timed out: " + expression);
+}
+async function screenshot(name) {
+  await evaluate("document.fonts.ready");
+  const image = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+  writeFileSync(path.join(artifacts, name + ".png"), Buffer.from(image.data, "base64"));
 }
 async function navigate(route) {
   await call("Page.navigate", { url: base + route });
@@ -199,6 +204,7 @@ async function playUntil(time, rate = 1) {
 }
 try {
   await connect();
+  await call("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1024, deviceScaleFactor: 1, mobile: false });
   await call("Page.enable");
   await call("Network.enable");
   await check("Inter 1: UC25/25.1/26/27/27.1", async () => {
@@ -280,7 +286,7 @@ try {
         "!!document.querySelector('.ant-modal:not([style*=\"display: none\"])')",
       );
       await evaluate(
-        "Array.from(document.querySelectorAll('.ant-modal button')).find(x=>x.textContent.includes('Rút khỏi Course')).click()",
+        "Array.from(document.querySelectorAll('.ant-modal button')).find(x=>x.textContent.includes('Rút khỏi Khóa học')).click()",
       );
       return responseAfter(
         `/api/v1/enrollments/${enrollmentId}/withdrawal`,
@@ -321,6 +327,10 @@ try {
   });
   await check("UC24/24.1/24.2/24.3/24.5 one-page demo", async () => {
     await identity("ORGANIZER");
+    await navigate("/organizer/assignments/assign");
+    await until("!!document.querySelector('tr[data-row-key]')");
+    await screenshot("assignment-create");
+    await screenshot("sidebar-organizer");
     const learners = await api("/api/v1/users/learners?page=1&pageSize=50");
     assert.equal(learners.status, 200);
     const previous = await api("/api/v1/assignments?page=1");
@@ -355,8 +365,13 @@ try {
     const assignmentId = row.enrollmentId ?? row.id;
     await navigate("/organizer/assignments");
     await until("document.body.innerText.includes('Lê Văn Cường')");
+    await screenshot("assignments-list");
     await navigate(`/organizer/assignments/${assignmentId}`);
     await until("document.body.innerText.includes('Lê Văn Cường')");
+    await screenshot("assignment-detail");
+    assert.equal(await evaluate("getComputedStyle(document.querySelector('.organizer-assignment-email')).wordBreak"), "normal");
+    assert.equal(await evaluate("document.body.innerText.includes('Northstar Learning') || document.body.innerText.includes('Mai Nguyen')"), false);
+    assert.equal(await evaluate("document.querySelector('.organizer-status') && parseFloat(getComputedStyle(document.querySelector('.organizer-status')).fontSize) >= 14"), true);
     const detail = await api(`/api/v1/assignments/${assignmentId}`);
     assert.equal(detail.status, 200);
     const next = new Date(
@@ -407,6 +422,8 @@ try {
     assert.equal(rejected.status, 409);
     assert.equal(await evaluate("Array.from(document.querySelectorAll('button')).some(x=>x.textContent.trim()==='Đánh dấu Miễn')"),false);
     await navigate(`/organizer/assignments/${id("2a0000000002")}`);
+    await until("!!document.querySelector('.organizer-assignment-learner')");
+    await screenshot("assignment-before-exemption");
     await click("Đánh dấu Miễn");
     await until("!!document.querySelector('.ant-modal textarea')");
     await evaluate("(()=>{const t=document.querySelector('.ant-modal textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(t,'Hồi quy demo\\nĐã có hoạt động');t.dispatchEvent(new Event('input',{bubbles:true}))})()");
@@ -414,6 +431,8 @@ try {
     await evaluate("Array.from(document.querySelectorAll('.ant-modal button')).find(x=>x.textContent.trim()==='Đánh dấu Miễn').click()");
     const exempted=await responseAfter(`/api/v1/assignments/${id("2a0000000002")}/exemption`,exemptionStart);
     assert.equal(exempted.status, 200, JSON.stringify(exempted.body));
+    await until("document.querySelector('.organizer-status')?.textContent === 'Miễn'");
+    await screenshot("assignment-after-exemption");
     return {
       learnerCount: learners.body.data.meta.total,
       created: created.body.data,
@@ -434,14 +453,25 @@ try {
         ).status,
         "NotStarted",
       );
+      await navigate("/learner/courses");
+      await until("!!document.querySelector('.learner-my-course')");
+      await screenshot("my-courses");
+      await screenshot("sidebar-learner");
+      await navigate(`/learner/catalog/${publicCourse}`);
+      await until("!!document.querySelector('.course-overview-card')");
+      await screenshot("catalog-course");
       await loadPlayer(a);
+      await until("!!document.querySelector('.lesson-resource-target')");
+      assert.equal(await evaluate("document.body.innerText.includes('Chưa đủ thời lượng')"), true);
+      assert.equal(await evaluate("document.body.innerText.includes('trong proxy khi')"), false);
+      await screenshot("video-incomplete");
       await playUntil(20);
       const state = await playback(a);
       assert.ok(
         state.watchedSeconds >= 19 && state.watchedSeconds <= 22,
         JSON.stringify(state),
       );
-      await click("Về Lesson");
+      await click("Về Bài học");
       await navigate("/learner/courses");
       await until("document.body.innerText.includes('Đang học')");
       assert.equal(
@@ -492,7 +522,7 @@ try {
       const state = await playback(b);
       assert.equal(state.completed, true);
       assert.ok(state.watchedSeconds >= 541);
-      await click("Về Lesson");
+      await click("Về Bài học");
       await until("document.body.innerText.includes('Đã hoàn thành')");
       const curriculum = (await api(`/api/v1/enrollments/${b}/curriculum`)).body
         .data;
@@ -519,11 +549,7 @@ try {
       return { completedAt: after.completedAt };
     },
   );
-  const screenshot = await call("Page.captureScreenshot", { format: "png" });
-  writeFileSync(
-    path.join(artifacts, "player.png"),
-    Buffer.from(screenshot.data, "base64"),
-  );
+  await screenshot("video-completed");
 } finally {
   const output = path.join(artifacts, "checks.json");
   const previous =

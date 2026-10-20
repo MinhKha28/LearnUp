@@ -156,7 +156,7 @@ describe("describeIdentities", () => {
         { key: "LEARNER_4", label: "Học viên 4 (Tổ chức A)" },
         { key: "LEARNER_5", label: "Học viên 5 (Video chưa học)" },
         { key: "LEARNER_6", label: "Học viên 6 (Video đã xem 511 giây)" },
-        { key: "ORGANIZER", label: "Organizer ABC" },
+        { key: "ORGANIZER", label: "Quản lý đào tạo ABC" },
       ],
     });
     expect(JSON.stringify(result)).not.toMatch(/01900000/);

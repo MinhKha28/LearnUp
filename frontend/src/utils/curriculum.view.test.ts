@@ -60,7 +60,7 @@ describe("buildCurriculumHeader", () => {
 
   it("course null (D26)", () => {
     const header = buildCurriculumHeader(curriculum({ course: null }));
-    expect(header.title).toBe("Không tải được thông tin Course");
+    expect(header.title).toBe("Không tải được thông tin Khóa học");
     expect(header.versionLabel).toBeNull();
   });
 
@@ -108,16 +108,16 @@ describe("buildMaterialRow", () => {
 });
 
 describe("mapLearningError", () => {
-  it("ENROLLMENT_NOT_FOUND → về Course của tôi", () => {
+  it("ENROLLMENT_NOT_FOUND → về Khóa học của tôi", () => {
     expect(mapLearningError(new ApiError(404, "ENROLLMENT_NOT_FOUND", "x"), "curriculum")).toMatchObject({
-      title: "Không tìm thấy Course",
+      title: "Không tìm thấy Khóa học",
       action: "myCourses",
     });
   });
 
-  it("CONTENT_UNAVAILABLE → về Course của tôi", () => {
+  it("CONTENT_UNAVAILABLE → về Khóa học của tôi", () => {
     expect(mapLearningError(new ApiError(403, "CONTENT_UNAVAILABLE", "x"), "lesson")).toEqual({
-      title: "Course đang tạm dừng, bạn chưa thể truy cập nội dung",
+      title: "Khóa học đang tạm dừng, bạn chưa thể truy cập nội dung",
       description: null,
       action: "myCourses",
     });
@@ -125,14 +125,14 @@ describe("mapLearningError", () => {
 
   it("LESSON_NOT_FOUND → về chương trình học", () => {
     expect(mapLearningError(new ApiError(404, "LESSON_NOT_FOUND", "x"), "lesson")).toMatchObject({
-      title: "Không tìm thấy Lesson",
+      title: "Không tìm thấy Bài học",
       action: "curriculum",
     });
   });
 
   it("LESSON_DISABLED → về chương trình học", () => {
     expect(mapLearningError(new ApiError(403, "LESSON_DISABLED", "x"), "lesson")).toEqual({
-      title: "Lesson này đang tạm ngưng",
+      title: "Bài học này đang tạm ngưng",
       description: null,
       action: "curriculum",
     });
@@ -159,7 +159,7 @@ describe("mapLearningError", () => {
     [400, "VALIDATION_FAILED"],
   ])("%i %s → không Thử lại", (status, code) => {
     expect(mapLearningError(new ApiError(status, code, "x"), "lesson")).toEqual({
-      title: "Không tải được Lesson",
+      title: "Không tải được Bài học",
       description: "Đã có lỗi xảy ra.",
       action: null,
     });

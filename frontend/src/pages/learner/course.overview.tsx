@@ -32,7 +32,7 @@ import "./course.overview.scss";
 type BlockedReason = "inGrace" | "forbidden" | "unavailable";
 
 const INTRO_ERROR_MESSAGES: Record<string, string> = {
-  FORBIDDEN: "Bạn không có quyền xem giới thiệu Course.",
+  FORBIDDEN: "Bạn không có quyền xem giới thiệu Khóa học.",
 };
 
 const readFromPage = (state: unknown): number | undefined => {
@@ -69,7 +69,7 @@ const CourseContent = ({ course }: { course: CourseIntroduction }) => {
       <section className="course-overview-section">
         <h3>Chương trình học</h3>
         {modules.length === 0 ? (
-          <p>Course chưa có Module nào.</p>
+          <p>Khóa học chưa có Chương nào.</p>
         ) : (
           <ol className="course-overview-modules">
             {modules.map((module) => (
@@ -96,7 +96,7 @@ const CourseContent = ({ course }: { course: CourseIntroduction }) => {
       </section>
       {course.requiredMaterialCount > 0 && (
         <section className="course-overview-section">
-          <h3>Điều kiện cấp Certificate</h3>
+          <h3>Điều kiện cấp Chứng chỉ</h3>
           <p>Hoàn thành toàn bộ {course.requiredMaterialCount} học liệu bắt buộc</p>
         </section>
       )}
@@ -159,7 +159,7 @@ const EnrollmentPanel = ({ courseId, fromPage }: { courseId: string; fromPage?: 
   const confirmEnroll = () => {
     if (enrolling) return;
     modal.confirm({
-      title: "Đăng ký Course này?",
+      title: "Đăng ký Khóa học này?",
       content: "Bạn có thể rút bất cứ lúc nào.",
       okText: "Đăng ký",
       cancelText: "Hủy",
@@ -180,10 +180,10 @@ const EnrollmentPanel = ({ courseId, fromPage }: { courseId: string; fromPage?: 
       return (
         <>
           <WarningPanel title={ENROLL_OUTCOME_MESSAGES.unavailable}>
-            Course đã thay đổi trong lúc bạn đang xem.
+            Khóa học đã thay đổi trong lúc bạn đang xem.
           </WarningPanel>
           <LearnerButton block onClick={() => navigate(LEARNER_ROUTES.catalog(fromPage))}>
-            Về danh mục Course
+            Về danh mục Khóa học
           </LearnerButton>
         </>
       );
@@ -216,7 +216,7 @@ const EnrollmentPanel = ({ courseId, fromPage }: { courseId: string; fromPage?: 
     <aside className="course-overview-enrollment">
       <h3>Đăng ký</h3>
       <span className="course-overview-tag">Tự chọn</span>
-      <p>Tự đăng ký, không cần duyệt. Course tự chọn không có hạn hoàn thành.</p>
+      <p>Tự đăng ký, không cần duyệt. Khóa học tự chọn không có hạn hoàn thành.</p>
       {renderAction()}
     </aside>
   );
@@ -234,16 +234,16 @@ const CourseOverviewContent = ({ courseId, fromPage }: { courseId: string; fromP
     if (intro.error.status === 404 && intro.error.code === "COURSE_NOT_FOUND") {
       return (
         <LearnerEmptyState
-          title="Course không tồn tại hoặc không còn trong danh mục"
-          action={<LearnerButton onClick={backToCatalog}>Về danh mục Course</LearnerButton>}
+          title="Khóa học không tồn tại hoặc không còn trong danh mục"
+          action={<LearnerButton onClick={backToCatalog}>Về danh mục Khóa học</LearnerButton>}
         />
       );
     }
     return (
       <LearnerErrorState
         error={intro.error}
-        title="Không tải được giới thiệu Course"
-        message={INTRO_ERROR_MESSAGES[intro.error.code] ?? "Đã có lỗi xảy ra khi tải giới thiệu Course."}
+        title="Không tải được giới thiệu Khóa học"
+        message={INTRO_ERROR_MESSAGES[intro.error.code] ?? "Đã có lỗi xảy ra khi tải giới thiệu Khóa học."}
         onRetry={intro.reload}
       />
     );
@@ -274,7 +274,7 @@ const CourseOverview = () => {
         icon={<ArrowLeftOutlined />}
         onClick={() => navigate(LEARNER_ROUTES.catalog(fromPage))}
       >
-        Danh mục Course
+        Danh mục Khóa học
       </Button>
       {/* key: đổi Course thì trạng thái đăng ký cục bộ bắt đầu lại */}
       <CourseOverviewContent key={courseId} courseId={courseId} fromPage={fromPage} />

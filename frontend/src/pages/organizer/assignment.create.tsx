@@ -99,7 +99,7 @@ const AssignmentCreate = () => {
       return;
     }
     if (!selectedRows.length) {
-      setSelectionError("Hãy chọn ít nhất một Learner.");
+      setSelectionError("Hãy chọn ít nhất một Học viên.");
       submitting.current = false;
       return;
     }
@@ -137,8 +137,8 @@ const AssignmentCreate = () => {
     <OrganizerPage className="organizer-assignment-create">
       {contextHolder}
       <PageHeader
-        title="Phân công Course"
-        subtitle="Chọn một Course Published và tối đa 500 Learner."
+        title="Phân công Khóa học"
+        subtitle="Chọn một Khóa học đã xuất bản và tối đa 500 Học viên."
         actions={
           <>
             <Button
@@ -156,7 +156,7 @@ const AssignmentCreate = () => {
       {error && <AssignmentError error={error} retry={submit} />}
       {invalid.length > 0 && (
         <SectionCard
-          title="Learner có lỗi"
+          title="Học viên có lỗi"
           extra={
             <Button
               disabled={pending}
@@ -166,7 +166,7 @@ const AssignmentCreate = () => {
                 setError(null);
               }}
             >
-              Bỏ chọn các Learner lỗi
+              Bỏ chọn các Học viên lỗi
             </Button>
           }
         >
@@ -182,7 +182,7 @@ const AssignmentCreate = () => {
             scroll={{ x: true }}
             columns={[
               {
-                title: "Learner",
+                title: "Học viên",
                 key: "learner",
                 render: (_, row) =>
                   selected[row.learnerId]
@@ -198,7 +198,7 @@ const AssignmentCreate = () => {
           />
         </SectionCard>
       )}
-      <SectionCard title="Course Published">
+      <SectionCard title="Khóa học đã xuất bản">
         {courses.status === "error" ? (
           <AssignmentError error={courses.error} retry={courses.reload} />
         ) : !courses.data ? (
@@ -208,9 +208,9 @@ const AssignmentCreate = () => {
             <Form form={form} layout="vertical" disabled={pending}>
               <Form.Item
                 name="courseId"
-                label="Course"
+                label="Khóa học"
                 rules={[
-                  { required: true, message: "Hãy chọn một Course Published." },
+                  { required: true, message: "Hãy chọn một Khóa học đã xuất bản." },
                 ]}
               >
                 <Select
@@ -220,8 +220,8 @@ const AssignmentCreate = () => {
                   onSearch={setRawSearch}
                   loading={courses.status === "loading"}
                   options={courseOptions}
-                  placeholder="Tìm Course theo tên"
-                  notFoundContent="Không có Course Published phù hợp"
+                  placeholder="Tìm Khóa học theo tên"
+                  notFoundContent="Không có Khóa học đã xuất bản phù hợp"
                   onChange={(value) =>
                     setChosenCourse(
                       courseOptions.find((option) => option.value === value) ??
@@ -239,8 +239,8 @@ const AssignmentCreate = () => {
               disabled={pending || courses.status === "loading"}
               onChange={setCoursePage}
               locale={{
-                prev_page: "Trang Course trước",
-                next_page: "Trang Course sau",
+                prev_page: "Trang Khóa học trước",
+                next_page: "Trang Khóa học sau",
               }}
             />
           </>
@@ -258,7 +258,7 @@ const AssignmentCreate = () => {
         }
       >
         <p>
-          Chưa hỗ trợ tìm Learner theo tên hoặc email. Chuyển trang để chọn
+          Chưa hỗ trợ tìm Học viên theo tên hoặc email. Chuyển trang để chọn
           thêm; lựa chọn được giữ nguyên.
         </p>
         {selectionError && (
@@ -275,7 +275,7 @@ const AssignmentCreate = () => {
             columns={learnerColumns}
             loading={learners.status === "loading"}
             scroll={{ x: true }}
-            locale={{ emptyText: "Không có Learner trong tổ chức" }}
+            locale={{ emptyText: "Không có Học viên trong tổ chức" }}
             rowSelection={{
               selectedRowKeys: Object.keys(selected),
               preserveSelectedRowKeys: true,
@@ -285,7 +285,7 @@ const AssignmentCreate = () => {
               }),
               onChange: (keys, rows) => {
                 if (keys.length > 500) {
-                  void notice.warning("Chỉ được chọn tối đa 500 Learner.");
+                  void notice.warning("Chỉ được chọn tối đa 500 Học viên.");
                   return;
                 }
                 setSelected((current) =>
@@ -302,19 +302,19 @@ const AssignmentCreate = () => {
               disabled: pending,
               onChange: setLearnerPage,
               locale: {
-                prev_page: "Trang Learner trước",
-                next_page: "Trang Learner sau",
+                prev_page: "Trang Học viên trước",
+                next_page: "Trang Học viên sau",
               },
             }}
           />
         )}
         <p>
-          Hạn hoàn thành được backend tính cho từng Learner. Tiến độ và kết quả
+          Hạn hoàn thành được tính cho từng Học viên. Tiến độ và kết quả
           tự chọn được giữ lại khi chuyển thành bắt buộc.
         </p>
       </SectionCard>
       <Modal
-        title={`Learner đã chọn (${selectedRows.length} / 500)`}
+        title={`Học viên đã chọn (${selectedRows.length} / 500)`}
         open={reviewOpen}
         onCancel={() => setReviewOpen(false)}
         footer={<Button onClick={() => setReviewOpen(false)}>Đóng</Button>}
@@ -336,7 +336,7 @@ const AssignmentCreate = () => {
           ]}
           pagination={{ pageSize: 10, showSizeChanger: false }}
           scroll={{ x: true }}
-          locale={{ emptyText: "Chưa chọn Learner" }}
+          locale={{ emptyText: "Chưa chọn Học viên" }}
         />
       </Modal>
     </OrganizerPage>

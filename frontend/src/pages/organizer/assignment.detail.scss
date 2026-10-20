@@ -5,3 +5,36 @@
 .organizer-assignment-reason {
   white-space: pre-wrap;
 }
+
+.organizer-assignment-learner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding-bottom: var(--space-6);
+  margin-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+.organizer-assignment-learner-info {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.organizer-assignment-email {
+  white-space: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.organizer-assignment-detail .ant-descriptions-item-content {
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.organizer-assignment-detail .organizer-status {
+  font-size: var(--status-font-size);
+  line-height: var(--status-line-height);
+  padding: var(--status-padding-block) var(--status-padding-inline);
+}

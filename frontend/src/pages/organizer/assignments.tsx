@@ -43,7 +43,7 @@ const Assignments = () => {
   const timezone = query.data?.organizationTimezone ?? null;
   const columns: ColumnsType<Assignment> = [
     {
-      title: "Learner",
+      title: "Học viên",
       key: "learner",
       render: (_, row) =>
         row.learner ? (
@@ -56,7 +56,7 @@ const Assignments = () => {
         ),
     },
     {
-      title: "Course",
+      title: "Khóa học",
       key: "course",
       render: (_, row) =>
         row.course ? (
@@ -106,11 +106,11 @@ const Assignments = () => {
     <OrganizerPage className="organizer-assignments">
       {summary && <Alert type="success" showIcon message={summary} closable />}
       <PageHeader
-        title="Phân công Course"
-        subtitle="Theo dõi các Course bắt buộc trong tổ chức."
+        title="Phân công đào tạo"
+        subtitle="Theo dõi các Khóa học bắt buộc trong tổ chức."
         actions={
           <Link to="/organizer/assignments/assign">
-            <Button type="primary">Phân công Course</Button>
+            <Button type="primary">Phân công Khóa học</Button>
           </Link>
         }
       />
@@ -120,9 +120,9 @@ const Assignments = () => {
         ) : !query.data ? (
           <Skeleton active />
         ) : query.data.total === 0 ? (
-          <Empty description="Chưa có phân công Course nào">
+          <Empty description="Chưa có phân công Khóa học nào">
             <Link to="/organizer/assignments/assign">
-              <Button type="primary">Phân công Course</Button>
+              <Button type="primary">Phân công Khóa học</Button>
             </Link>
           </Empty>
         ) : (

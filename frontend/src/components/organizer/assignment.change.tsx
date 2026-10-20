@@ -136,7 +136,7 @@ export const AssignmentChange = ({
           <Alert
             type="info"
             showIcon
-            message="Learner không còn bị tính quá hạn và vẫn có thể học tiếp. Course vẫn là bắt buộc, không chuyển về tự chọn."
+            message="Học viên không còn bị tính quá hạn và vẫn có thể học tiếp. Khóa học vẫn là bắt buộc, không chuyển về tự chọn."
           />
         )}
         {mode === "extend" && (
