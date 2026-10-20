@@ -58,7 +58,7 @@ const CourseContent = ({ course }: { course: CourseIntroduction }) => {
       )}
       {course.learningOutcomes.length > 0 && (
         <section className="course-overview-section">
-          <h3>Learning Outcomes</h3>
+          <h3>Kết quả học tập</h3>
           <ul className="course-overview-outcomes">
             {course.learningOutcomes.map((outcome, index) => (
               <li key={index}>{outcome}</li>

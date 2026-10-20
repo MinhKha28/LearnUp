@@ -110,6 +110,7 @@ async function until(expression, timeout = 20000) {
 }
 async function screenshot(name) {
   await evaluate("document.fonts.ready");
+  await evaluate("Promise.all(document.getAnimations().filter(animation => Number.isFinite(animation.effect?.getComputedTiming().endTime)).map(animation => animation.finished.catch(() => {})))");
   const metrics = await call("Page.getLayoutMetrics");
   const image = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, clip: { x: 0, y: 0, width: 1440, height: metrics.cssContentSize.height, scale: 1 } });
   writeFileSync(path.join(artifacts, name + ".png"), Buffer.from(image.data, "base64"));
@@ -460,6 +461,7 @@ try {
       await screenshot("sidebar-learner");
       await navigate(`/learner/catalog/${publicCourse}`);
       await until("!!document.querySelector('.course-overview-card')");
+      assert.equal(await evaluate("document.body.innerText.includes('Learning Outcomes')"), false);
       await screenshot("catalog-course");
       await loadPlayer(a);
       await until("!!document.querySelector('.lesson-resource-target')");
@@ -563,6 +565,7 @@ try {
     await screenshot("catalog");
     await navigate(`/learner/catalog/${publicCourse}`);
     await until("!!document.querySelector('.course-overview-card')");
+    assert.equal(await evaluate("document.body.innerText.includes('Learning Outcomes')"), false);
     await screenshot("catalog-course");
     await loadPlayer(a);
     await screenshot("video-incomplete");
@@ -570,6 +573,10 @@ try {
     await loadPlayer(b);
     await until("document.body.innerText.includes('Đã hoàn thành')");
     await screenshot("video-completed");
+    await identity("ORGANIZER");
+    await navigate(`/organizer/assignments/${id("2a0000000002")}`);
+    await until("document.querySelector('.ant-descriptions .organizer-status')?.textContent === 'Miễn'");
+    await screenshot("assignment-after-exemption");
     return { viewportWidth: 1440, artifactDirectory: artifacts };
   });
 } finally {
