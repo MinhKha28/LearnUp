@@ -6,15 +6,16 @@ import type { ICourseBuilderOutletContext } from "@/components/layout/layout.ins
 import { InfoPanel, InstructorButton, InstructorPage, WarningPanel } from "@/components/instructor/instructor.ui";
 import { assessmentErrorText, createQuizAPI, toApiCourseId } from "@/services/assessment.service";
 import type { IAssessmentError } from "@/types/assessment.types";
-import { ATTEMPTS_RULE, LOCK_HOURS_RULE, type INumberRule, validateNumber } from "@/utils/validation";
+import {
+  ATTEMPTS_RULE,
+  LOCK_HOURS_RULE,
+  QUIZ_PASSING_SCORE_RULE,
+  TIME_LIMIT_RULE,
+  validateNumber,
+} from "@/utils/validation";
 import "./course.create.scss";
 import "./course.builder.scss";
 import "./course.builder.assignment.scss";
-
-// Quiz limits, same as the API (UC18.2): time limit 1–1440 minutes, passing score above 0 up to 100 with 2 decimals.
-const TIME_LIMIT_RULE: INumberRule = { required: true, integer: true, min: 1, max: 1440 };
-// With at most 2 decimals, "greater than 0" is the same as "at least 0.01".
-const QUIZ_PASSING_SCORE_RULE: INumberRule = { required: true, min: 0.01, max: 100, decimals: 2 };
 
 // BR-285 / BR-69 / BR-284: Course states in which an Instructor may add a Quiz.
 const AUTHORABLE_STATUSES = ["Draft", "Rejected", "Published"];

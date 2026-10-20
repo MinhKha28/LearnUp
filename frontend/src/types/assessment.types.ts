@@ -209,6 +209,11 @@ export interface ICreateQuizReq {
   lockoutHours?: number;
 }
 
+/** UC18.4 payload: the five configuration fields (BR-156); send only what changed. */
+export type IUpdateQuizConfigReq = Partial<
+  Pick<ICreateQuizReq, "timeLimitMinutes" | "passingScore" | "isRequired" | "maxConsecutiveAttempts" | "lockoutHours">
+>;
+
 /** UC19.3 payload: send only what changed. `promptFile: null` removes the attachment. */
 export type IUpdateAssignment = Partial<Omit<ICreateAssignment, "courseId" | "promptFile">> & {
   promptFile?: IPromptFile | null;

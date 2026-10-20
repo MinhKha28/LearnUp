@@ -15,10 +15,15 @@ import {
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { ListQuizzesQueryDto } from './dto/list-quizzes-query.dto';
-import { QuizDetail } from './interfaces/quiz-detail.interface';
+import { UpdateQuizConfigDto } from './dto/update-quiz.dto';
+import {
+  QuizDetail,
+  QuizPermissions,
+} from './interfaces/quiz-detail.interface';
 import {
   QUIZ_KIND,
   QuizListPage,
+  QuizLockReason,
   QuizSummary,
 } from './interfaces/quiz-list.interface';
 import { computeQuizPermissions } from './quiz-permissions';
@@ -40,6 +45,29 @@ const quizDetailInclude = {
     include: { options: { orderBy: { position: 'asc' } } },
   },
 } satisfies Prisma.AssessmentInclude;
+
+type QuizDetailRow = Prisma.AssessmentGetPayload<{
+  include: typeof quizDetailInclude;
+}>;
+
+/** UC18.4: the configuration fields of BR-156 and the UC18.1 permission that guards each one. */
+type QuizConfigField = keyof UpdateQuizConfigDto;
+
+const CONFIG_PERMISSION: Record<QuizConfigField, keyof QuizPermissions> = {
+  timeLimitMinutes: 'editTimeLimit', // BR-97
+  maxConsecutiveAttempts: 'editAttemptRule', // BR-97
+  lockoutHours: 'editAttemptRule', // BR-97
+  passingScore: 'editPassingScore', // BR-94
+  isRequired: 'editRequired', // BR-94
+};
+
+const CONFIG_FIELDS = Object.keys(CONFIG_PERMISSION) as QuizConfigField[];
+
+/** The reasons QUIZ_CONFIG_LOCKED reports; the Course-wide ones (BR-285) are answered before as COURSE_NOT_EDITABLE. */
+type ConfigLockReason = Extract<
+  QuizLockReason,
+  'COURSE_LOCKED' | 'QUIZ_HAS_ATTEMPTS'
+>;
 
 @Injectable()
 export class QuizService {
@@ -188,6 +216,131 @@ export class QuizService {
       throw error;
     }
 
+    return this.toDetail(quiz, course);
+  }
+
+  /**
+   * UC18.4 — change the configuration of a Quiz (BR-156). Only the fields that really change are checked:
+   * BR-97 (time limit, n, m) while the Quiz has no attempt, BR-94 (passing score, required flag) while the
+   * Course is not Locked. One blocked field blocks the whole request, so nothing is ever half saved.
+   */
+  async updateQuizConfig(
+    user: CurrentUser,
+    id: string,
+    dto: UpdateQuizConfigDto,
+  ): Promise<QuizDetail> {
+    // Step 0 with the ValidationPipe: @IsOptional (from PartialType) lets null through, but none of the five
+    // fields can be emptied (BR-156; BR-161 needs a time limit).
+    const nullFields = CONFIG_FIELDS.filter((field) => dto[field] === null);
+    if (nullFields.length > 0) {
+      throw new BadRequestException({
+        code: 'QUIZ_CONFIG_REQUIRED',
+        message: `These settings cannot be empty: ${nullFields.join(', ')}.`,
+      });
+    }
+    const organizationId = this.requireInstructor(user);
+
+    const quiz = await this.prisma.assessment.findFirst({
+      where: { id, organizationId, kind: QUIZ_KIND },
+      include: quizDetailInclude,
+    });
+    if (!quiz) throw this.quizNotFound();
+
+    // Same hiding as UC18.1 (BR-79 / BR-287); Course Service down stays a 503.
+    let course: CourseAuthoringContext;
+    try {
+      course = await this.requireOwnCourse(user, quiz.courseId);
+    } catch (error) {
+      if (error instanceof NotFoundException) throw this.quizNotFound();
+      throw error;
+    }
+
+    // BR-285: a Submitted, Archived or Disabled Course accepts no change at all.
+    if (course.disabled || !AUTHORABLE_STATUSES.includes(course.status)) {
+      throw new ConflictException({
+        code: 'COURSE_NOT_EDITABLE',
+        reason:
+          course.status === 'Submitted'
+            ? 'COURSE_SUBMITTED'
+            : 'COURSE_NOT_EDITABLE',
+        message: `Quizzes cannot be changed while the Course is ${course.status}.`,
+      });
+    }
+
+    const current: Record<QuizConfigField, number | boolean | null> = {
+      timeLimitMinutes: quiz.timeLimitMinutes,
+      passingScore: Number(quiz.passingScore),
+      isRequired: quiz.isRequired,
+      maxConsecutiveAttempts: quiz.maxConsecutiveAttempts,
+      lockoutHours: quiz.lockoutHours,
+    };
+    const changed = CONFIG_FIELDS.filter(
+      (field) => dto[field] !== undefined && dto[field] !== current[field],
+    );
+    if (changed.length === 0) return this.toDetail(quiz, course);
+
+    this.assertConfigEditable(changed, course, quiz._count.quizAttempts > 0);
+
+    const data: Prisma.AssessmentUpdateInput = {};
+    for (const field of changed) {
+      Object.assign(data, { [field]: dto[field] });
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Re-check under a row lock: a Learner starting the Quiz right now must not slip past BR-97.
+      // Inserting a quiz_attempts row takes FOR KEY SHARE on this row (foreign key), which waits for FOR UPDATE.
+      const rows = await tx.$queryRaw<
+        { id: string }[]
+      >`SELECT id FROM assessments WHERE id = ${quiz.id}::uuid FOR UPDATE`;
+      if (rows.length === 0) throw this.quizNotFound();
+      // BR-314: an attempt counts as soon as it is started, so unfinished ones (submitted_at null) count too.
+      const attempts = await tx.quizAttempt.count({
+        where: { assessmentId: quiz.id },
+      });
+      this.assertConfigEditable(changed, course, attempts > 0);
+
+      await tx.assessment.update({ where: { id: quiz.id }, data });
+      return tx.assessment.findUniqueOrThrow({
+        where: { id: quiz.id },
+        include: quizDetailInclude,
+      });
+    });
+    // BR-270 does not list this action and BR-52 keeps the time limit out of the Course duration:
+    // no audit record, notification or outbox event.
+
+    return this.toDetail(updated, course);
+  }
+
+  /** BR-94 / BR-97 for the fields being changed; lists every blocked field with its reasons (BR-99). */
+  private assertConfigEditable(
+    changed: QuizConfigField[],
+    course: CourseAuthoringContext,
+    hasAttempts: boolean,
+  ) {
+    const { permissions } = computeQuizPermissions(course, hasAttempts);
+    const fields = changed
+      .map((field) => ({
+        field,
+        reasons: permissions[CONFIG_PERMISSION[field]].reasons.filter(
+          (reason): reason is ConfigLockReason =>
+            reason === 'COURSE_LOCKED' || reason === 'QUIZ_HAS_ATTEMPTS',
+        ),
+      }))
+      .filter((item) => item.reasons.length > 0);
+    if (fields.length === 0) return;
+
+    throw new ConflictException({
+      code: 'QUIZ_CONFIG_LOCKED',
+      message: `These settings can no longer be changed: ${fields.map((item) => item.field).join(', ')}.`,
+      fields,
+    });
+  }
+
+  /** UC18.1 / UC18.4: the full Instructor view of one Quiz, with what may be changed now (BR-99). */
+  private toDetail(
+    quiz: QuizDetailRow,
+    course: CourseAuthoringContext,
+  ): QuizDetail {
     const { permissions } = computeQuizPermissions(
       course,
       quiz._count.quizAttempts > 0,

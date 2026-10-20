@@ -326,7 +326,7 @@ const CourseBuilderQuizDetail = () => {
               <ArrowLeftOutlined /> Back to Quizzes
             </InstructorButton>
             {/* UC18.4 — Update Quiz configuration */}
-            <ActionSlot ready={false} permission={configPermission}>
+            <ActionSlot ready permission={configPermission}>
               {(disabled) => (
                 <button
                   type="button"
