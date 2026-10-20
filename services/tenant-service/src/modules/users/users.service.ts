@@ -558,8 +558,19 @@ export class UsersService {
     );
   }
 
+  // ===========================================================================
+  // UC13.3 - Cập nhật thông tin Learner (cùng quy tắc, cùng phạm vi sửa với UC12.3)
+  // ===========================================================================
+  updateLearner(
+    user: CurrentUser,
+    learnerId: string,
+    dto: UpdateAccountDto,
+  ): Promise<UpdateAccountResult> {
+    return this.updateAccount(user, learnerId, dto, UserRoleValue.Learner);
+  }
+
   /**
-   * Sửa họ tên, email (chỉ khi chưa kích hoạt) và đơn vị công tác (mọi lúc) - BR-34, BR-35.
+   * UC12.3, UC13.3. Sửa họ tên, email (chỉ khi chưa kích hoạt) và đơn vị công tác (mọi lúc) - BR-34, BR-35.
    * Không kiểm số chỗ (BR-23): không tạo tài khoản, không đổi deleted_at.
    * Thứ tự khóa: token TRƯỚC, user SAU, cùng thứ tự với InvitationsService.accept (UC04)
    * để Organizer lưu đúng lúc người dùng kích hoạt không gây deadlock.
@@ -775,7 +786,7 @@ export class UsersService {
   }
 
   /**
-   * Điều kiện chung trước khi thao tác tài khoản trong tổ chức (UC12.2, UC12.3, UC13.2).
+   * Điều kiện chung trước khi thao tác tài khoản trong tổ chức (UC12.2, UC12.3, UC13.2, UC13.3).
    * BR-45: tổ chức phải Active. Subscription hiện hành phải thuộc subscriptionStatuses.
    * lockOrganization: khóa dòng tổ chức FOR UPDATE (cần khi kiểm số chỗ lúc tạo tài khoản).
    */
@@ -815,7 +826,7 @@ export class UsersService {
     return { organization, subscription };
   }
 
-  /** Thư mời kích hoạt qua outbox (UC12.2, UC12.3). Relay xóa liên kết khỏi payload sau khi gửi. */
+  /** Thư mời kích hoạt qua outbox (UC12.2, UC12.3, UC13.2, UC13.3). Relay xóa liên kết khỏi payload sau khi gửi. */
   private enqueueInvitationEmail(
     tx: Prisma.TransactionClient,
     params: {

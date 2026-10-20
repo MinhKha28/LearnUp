@@ -1,0 +1,13 @@
+.organizer-learner-edit .ant-alert {
+    border-radius: 6px;
+    font-size: 10px;
+}
+
+/* UC13.3: thông báo kích hoạt nằm trên lưới trường; cảnh báo đổi email, lỗi khi lưu nằm dưới */
+.organizer-learner-edit .organizer-form > .ant-alert:first-child {
+    margin-bottom: 12px;
+}
+
+.organizer-learner-edit .ant-alert + .ant-alert {
+    margin-top: 8px;
+}

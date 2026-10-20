@@ -133,6 +133,13 @@ export const getLearnerSeatsAPI = () =>
 export const createLearnerAPI = (body: ICreateAccountReq) =>
   axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/learners", body);
 
+// UC13.3 - Cập nhật thông tin Learner (Organizer; đổi email của tài khoản Pending thì gửi lời mời mới)
+export const updateLearnerAPI = (learnerId: string, body: IUpdateAccountReq) =>
+  axios.patch<IBackendRes<IUpdateAccountResult>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}`,
+    body,
+  );
+
 // UC04 - Xem lời mời trước khi đặt mật khẩu
 export const getInvitationAPI = (token: string) =>
   axios.get<IBackendRes<IInvitationInfo>>(
