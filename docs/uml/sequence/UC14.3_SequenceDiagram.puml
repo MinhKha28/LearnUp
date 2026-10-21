@@ -1,0 +1,314 @@
+@startuml
+' UC14.3 - Cập nhật thông tin Course
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS evidence; paths are relative to the workspace root.
+' UC: docs/uml/docs/LearnUP_UseCase.docx, UC14.3 row.
+' BR: docs/uml/docs/LearnUP_QuyTacNghiepVu.docx, BR-60/61/84/285/51/54/55.
+' The requested DOCX files are under docs/uml/docs, not directly under docs.
+' Both metadata revisions are 1; no identified business-spec release is matched to a snapshot.
+' docs/source-of-truth is absent; docs/architecture/source-of-truth-migration-plan.md:184 supports ownership.
+' UI: frontend/src/pages/instructor/course.edit.tsx:73 (canEdit), :92 (loadCourse),
+' :148 (handleCoverChange), :169 (remove), :185 (handleSave), :287 (blocked screen).
+' Route: frontend/src/router.tsx:357/:359/:378 (Instructor protection and edit page).
+' Wrappers: frontend/src/services/course.service.ts:46/:94/:97 (upload, read, update).
+' Transport: frontend/src/services/axios.customize.ts:47/:61/:64; frontend/src/config/env.ts:13.
+' Development URL: frontend/.env.development:10 = http://localhost:8080.
+' No local override env file was found; process VITE_COURSE_BACKEND_URL is unset.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:2/:40-43.
+' Bootstrap: services/course-service/src/main.ts:40-43 (api prefix, URI v1).
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:44/:115/:125.
+' Service: services/course-service/src/modules/courses/courses.service.ts:534 (findDetail),
+' :592 (uploadCover), :660 (updateCourse), :720 (post-commit readback).
+' Repository: services/course-service/src/modules/courses/courses.repository.ts:279 (findDetail),
+' :320/:329 (duration), :375 (createCourseCoverMediaFile), :404 (updateCourse).
+' DTO: services/course-service/src/modules/courses/dto/update-course.dto.ts:18.
+' Models: services/course-service/prisma/schema.prisma:31/:126/:187/:206.
+' Prisma adapter: services/course-service/src/infrastructure/prisma/prisma.service.ts:10;
+' services/course-service/.env:2 selects course_db; credentials are not included here.
+' Storage: services/course-service/src/infrastructure/storage/storage.provider.ts:31;
+' libraries/ts-storage/src/providers/cloudinary/cloudinary.provider.ts:31/:61/:91.
+' File validation: libraries/ts-storage/src/validators/file.validator.ts:7; course-values.ts:19.
+' All required Cloudinary settings are nonempty locally, without process overrides; validity is unverified.
+' Outbox evidence: courses.repository.ts:494 and modules/outbox/outbox.service.ts (empty implementation).
+
+actor Instructor
+boundary "Edit Course Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+participant ":CloudinaryStorageProvider" as Storage
+participant "Cloudinary" as Cloudinary
+database "course_db" as CourseDB
+
+' Precondition: authenticated Instructor and valid route Course ID; use verified development routing.
+' The required form-loading GET below expands its normal preparation path, not a separate UC14.1 action.
+' Load failures (403/404, transport/provider/DB error) stop before the form and show Course not found;
+' their partial reads are summarized in the outer failed operand.
+' JWT/internal-key middleware and token refresh are outside the main UC interaction.
+
+activate Instructor
+Instructor -> Screen: Open /instructor/courses/{courseId}/edit
+activate Screen
+Screen -> Gateway: GET /api/v1/courses/{courseId}
+activate Gateway
+Gateway -> Controller: GET /api/v1/courses/{courseId}\nTrusted user context
+activate Controller
+Controller -> Service: Load current Course details
+activate Service
+alt Course loaded successfully
+  ' findDetail requires INSTRUCTOR and organizationId, then queries ownership.
+  Service -> Repository: Load owned Course metadata
+  activate Repository
+  Repository -> CourseDB: Read Course by tenant and chain owner
+  activate CourseDB
+  CourseDB -->> Repository: Current Course and cover metadata
+  deactivate CourseDB
+  Repository -->> Service: Current Course
+  deactivate Repository
+  Service -> Service: Calculate estimated duration
+  activate Service
+  ' Verified subcalls getReadingSpeedWordsPerMinute and aggregate SQL are not expanded here.
+  ' They read course_db only; missing/nonpositive reading speed returns null.
+  deactivate Service
+  opt Current cover is Ready and not released
+    Service -> Storage: Build cover URL
+    activate Storage
+    Storage -->> Service: Cover URL
+    deactivate Storage
+  end
+  Service -->> Controller: Current Course details
+  deactivate Service
+  Controller -->> Gateway: 200 OK\nCurrent Course details
+  deactivate Controller
+  Gateway -->> Screen: Current Course details
+  deactivate Gateway
+
+  ' Actual canEdit predicate: status == Draft OR status == Rejected, without a Locked check.
+  alt Edit status checked successfully
+    Instructor -> Screen: Edit Course fields and optional cover
+    Instructor -> Screen: Select Save Changes
+    Screen -> Screen: Validate Course form
+    activate Screen
+    deactivate Screen
+
+    alt Form validated successfully
+      ' Keep current coverFileId, remove with null, or replace with the newly uploaded file ID.
+      ' UI file selection accepts JPEG/PNG/WebP up to 5 MiB and creates a local preview only.
+      opt New cover selected
+        Screen -> Gateway: POST /api/v1/courses/cover\nSelected image
+        activate Gateway
+        Gateway -> Controller: POST /api/v1/courses/cover\nTrusted user context
+        activate Controller
+        Controller -> Service: Upload replacement cover
+        activate Service
+
+        ' Outcome-level alternative: successful trace expands validation/storage/metadata work.
+        alt Cover uploaded successfully
+          ' uploadCover checks INSTRUCTOR/organization and validates file through the storage provider.
+          ' It has no courseId parameter, Course-status lookup or subscription quota check.
+          Service -> Storage: Upload cover image
+          activate Storage
+          Storage -> Cloudinary: Upload image
+          activate Cloudinary
+          Cloudinary -->> Storage: Stored image
+          deactivate Cloudinary
+          Storage -->> Service: Stored image and URL
+          deactivate Storage
+          Service -> Repository: Save replacement cover metadata
+          activate Repository
+          Repository -> CourseDB: Insert Ready CourseCover metadata\nCurrent organization
+          activate CourseDB
+          CourseDB -->> Repository: Cover metadata
+          deactivate CourseDB
+          Repository -->> Service: Cover file ID
+          deactivate Repository
+        else Cover upload failed
+          ' Role/context, missing/invalid file, provider or metadata persistence failures are grouped.
+          ' Failed attempts do not imply successful storage or metadata writes.
+          opt Image stored but metadata save failed
+            Service -> Storage: Delete newly uploaded image
+            activate Storage
+            Storage -> Cloudinary: Delete image
+            activate Cloudinary
+            Cloudinary -->> Storage: Cleanup result or error
+            deactivate Cloudinary
+            Storage -->> Service: Cleanup result or error
+            deactivate Storage
+            ' Best-effort deletion preserves the original metadata persistence error.
+          end
+        end
+        Service -->> Controller: Cover details or upload error
+        deactivate Service
+        Controller -->> Gateway: 201 Created or upload error
+        deactivate Controller
+        Gateway -->> Screen: Cover details or upload error
+        deactivate Gateway
+      end
+
+      ' Ready means no new image OR upload returned response.data. A rejected upload cannot reach PUT.
+      ' Absence of a replacement is valid; removal sends null without any storage DELETE.
+      alt Cover prepared successfully
+        Screen -> Gateway: PUT /api/v1/courses/{courseId}\nSeven editable fields
+        activate Gateway
+        Gateway -> Controller: PUT /api/v1/courses/{courseId}\nTrusted user context
+        activate Controller
+        Controller -> Service: Update Course information
+        activate Service
+        Service -> Service: Verify Instructor and normalize fields
+        activate Service
+        deactivate Service
+
+        ' Successful operand expands the transaction; failed guard/write attempts are summarized below.
+        alt Course updated successfully
+          Service -> Repository: Save Course information
+          activate Repository
+          ' All work through the outbox insert below is one Prisma transaction.
+          Repository -> CourseDB: Read Course owner, status and revision
+          activate CourseDB
+          CourseDB -->> Repository: Current Course state
+          ' Scope: Course ID, organizationId and chain.instructorId. Only Draft/Rejected are editable.
+          ' lockedAt is not selected, checked or changed; Locked Draft/Rejected can still be updated.
+          opt Non-null cover ID changed
+            Repository -> CourseDB: Validate Ready CourseCover\nCurrent organization
+            CourseDB -->> Repository: Valid cover ID
+            ' Requires CourseCover purpose, Ready status and releasedAt=null; keep/remove skips this query.
+          end
+          Repository -> CourseDB: Replace seven Course fields\nOwner, status and updatedAt guards
+          CourseDB -->> Repository: One Course updated
+          ' updateMany checks current updatedAt plus tenant/chain owner and Draft/Rejected status.
+          opt Course type changed
+            Repository -> CourseDB: Insert CourseTypeChanged outbox row
+            CourseDB -->> Repository: Outbox row stored
+          end
+          ' Commit Course update and optional outbox row atomically; no Kafka delivery is implied.
+          deactivate CourseDB
+          Repository -->> Service: Updated; courseTypeChanged flag
+          deactivate Repository
+
+          ' updateCourse calls findDetail after the transaction commits; this is not another HTTP request.
+          Service -> Service: Reload updated Course details
+          activate Service
+          Service -> Repository: Load owned Course metadata
+          activate Repository
+          Repository -> CourseDB: Read updated Course and cover metadata
+          activate CourseDB
+          CourseDB -->> Repository: Updated Course metadata
+          deactivate CourseDB
+          Repository -->> Service: Updated Course
+          deactivate Repository
+          Service -> Service: Calculate estimated duration
+          activate Service
+          ' Same verified reading-speed/aggregate subcalls as the initial GET; not expanded here.
+          deactivate Service
+          opt Updated cover is Ready and not released
+            Service -> Storage: Build cover URL
+            activate Storage
+            Storage -->> Service: Cover URL
+            deactivate Storage
+          end
+          deactivate Service
+          Service -->> Controller: Updated details and courseTypeChanged
+          deactivate Service
+          Controller -->> Gateway: 200 OK\nUpdated Course details
+          deactivate Controller
+          Gateway -->> Screen: Updated Course details
+          deactivate Gateway
+          Screen -->> Instructor: Show "Course updated successfully."
+          Screen -> Screen: Return to Course Detail
+          activate Screen
+          deactivate Screen
+        else Course update failed
+          ' Restore incoming executions closed by the preceding operand.
+          activate Gateway
+          activate Controller
+          activate Service
+          ' 403: role/context; 400: field or INVALID_COVER; 404: missing/wrong tenant/wrong chain owner.
+          ' NOT_EDITABLE (including Submitted) or a zero-row guarded update returns 409.
+          ' Status may change after initial loading; the repository rechecks status inside the transaction.
+          ' Technical 500 may roll back the transaction OR occur during post-commit findDetail.
+          ' A committed update is not undone when its response readback fails.
+          Service -->> Controller: Validation, access or update error
+          deactivate Service
+          Controller -->> Gateway: 400 / 403 / 404 / 409 / 500
+          deactivate Controller
+          Gateway -->> Screen: Update error
+          deactivate Gateway
+          Screen -->> Instructor: Show update error; keep edit page
+        end
+      else Cover preparation failed
+        ' handleSave catches the upload error/missing response.data and never sends PUT.
+        Screen -->> Instructor: Show cover upload error
+      end
+    else Form validation failed
+      ' Ant Design errorFields are displayed inline; catch returns without a generic error toast.
+      Screen -->> Instructor: Show form validation errors
+    end
+  else Edit status check failed
+    ' This is the real UI branch for Submitted, Published, Archived and Disabled; no form or PUT.
+    Screen -->> Instructor: Show "Course cannot be edited"\nOnly Draft or Rejected is editable
+  end
+else Course loading failed
+  ' Restore the incoming load executions closed during the successful preparation path.
+  activate Gateway
+  activate Controller
+  activate Service
+  ' Role/context -> 403; missing Course/wrong tenant/wrong chain owner -> 404.
+  ' Provider/DB errors are grouped as 500; rejected UUIDs are outside the valid-ID precondition.
+  ' No successful metadata/duration read or image operation is assumed for these failed attempts.
+  Service -->> Controller: Course access or loading error
+  deactivate Service
+  Controller -->> Gateway: 403 / 404 / 500
+  deactivate Controller
+  Gateway -->> Screen: Course loading error
+  deactivate Gateway
+  Screen -->> Instructor: Show "Course not found"\nOffer Back to My Courses
+end
+deactivate Screen
+deactivate Instructor
+
+' Seven PUT fields: name, shortDescription, trainingObjectives, learningOutcomes,
+' expectedCompletionDays, courseType and nullable coverFileId. PUT replaces all seven.
+' Empty name/outcome items fail on the server; UI trims and removes blank outcomes.
+' UI-rejected image selections are ignored; other fields can still be saved with the retained cover.
+' Backend image checks: nonempty buffer/name/MIME, positive size, <=5 MiB, JPEG/PNG/WebP.
+' Multipart size rejection may be 413 before Service; upload access/validation/provider/DB errors are grouped.
+' Gap BR-60/84: no Locked restriction, but only Draft/Rejected are allowed, even though specification
+' permits descriptive edits more broadly outside Submitted. Published+Locked is NOT a success path.
+' BR-285: UI blocks Submitted and backend rejects it as NOT_EDITABLE (409).
+' BR-61: only Course fields/outbox are written; no Enrollment type, deadline or access is rewritten here.
+' BR-60 notification/audit gap: CourseTypeChanged is persisted in outbox_events only.
+' The inspected Course OutboxService/Controller are empty; no running publisher/notification/audit
+' path is established by this code. The UI ignores courseTypeChanged; do not invent downstream delivery.
+' Cover quota gap: uploadCover/createCourseCoverMediaFile do not fetch subscription policy or enforce
+' organization storage quota. Quota logic in Video/Reading upload methods is not this cover flow.
+' Cover upload and PUT are separate commits. PUT failure does not delete an already saved replacement.
+' Replacing/removing the current cover does not delete/release its old MediaFile or storage object.
+' Cleanup above applies only when new image upload succeeded but its metadata insert failed.
+' BR-51: findDetail recomputes required Video/Reading minutes plus stored Assignment minutes.
+' Reads latest local platform_settings reading speed; each Material is rounded up before summation.
+' Missing/nonpositive reading speed -> null; Quiz is excluded; no Assignment REST occurs during PUT.
+' BR-54/55 gap: edit UI and updateCourse do not compare duration against days/studyMinutesPerDay/
+' durationGapThresholdPercent and show no duration warning. No warning or approval blocking is invented.
+' TenantClient/LearningClient are injected but not called by load/update/upload/readback in this UC.
+' Cloudinary upload/delete are real provider operations; getUrl is local SDK formatting only.
+' Local credential presence selects CloudinaryStorageProvider, without verifying remote credentials.
+' HTTP error interceptor resolves server envelopes; handleSave then throws Error from response.message
+' or its fallback, so backend error.message may not reach the AxiosError-specific extraction branch.
+' No Course creation, structure reorder, Material edit, approval submission, Kafka or cross-service REST.
+@enduml

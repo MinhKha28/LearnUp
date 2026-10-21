@@ -1,0 +1,166 @@
+@startuml
+' UC17 - Xem danh sách học liệu
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS evidence; paths are relative to the workspace root.
+' UC/BR: docs/uml/docs/LearnUP_UseCase.docx (UC17) and
+' docs/uml/docs/LearnUP_QuyTacNghiepVu.docx (BR-79, BR-86, BR-147, BR-288).
+' Both documents have core revision 1; their business release version is unidentified.
+' Requested docs/ documents are under docs/uml/docs/; docs/source-of-truth is absent.
+' UI: frontend/src/pages/instructor/course.builder.materials.tsx:282 (CourseBuilderMaterials).
+' Display: same file:110 (columns), :176 (MaterialsContent), :193 (distinct file IDs).
+' Route: frontend/src/router.tsx:457, :459 and :493; Instructor-protected Builder child.
+' API: frontend/src/services/course.service.ts:115 (fetchCourseLessonDetailAPI).
+' Wrapper imports courseAxios at :1; there is no separate materials-list request.
+' Axios: frontend/src/services/axios.customize.ts:47, :61 and :64.
+' URL: frontend/src/config/env.ts:13; frontend/.env.development:10 = http://localhost:8080.
+' Vite dev command: frontend/package.json:7; env loading: frontend/vite.config.ts:11.
+' No frontend .env/.env.local/.env.development.local or process URL overrides were found.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:2 and :40.
+' Bootstrap: services/course-service/src/main.ts:40 (api prefix and URI version 1).
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:144.
+' Service: services/course-service/src/modules/courses/courses.service.ts:803.
+' Repository: services/course-service/src/modules/courses/courses.repository.ts:723.
+' Prisma: services/course-service/src/infrastructure/prisma/prisma.service.ts:10.
+' Models: services/course-service/prisma/schema.prisma:18, :31, :67, :84, :104 and :126.
+' Local Course DATABASE_URL selects course_db; credentials are not included.
+' Runtime reachability and deployment-mode overrides have not been verified.
+
+actor Instructor
+boundary "Learning Materials Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+database "course_db" as CourseDB
+
+' Preconditions: authenticated Instructor; the parent Course Builder is already loaded.
+' JWT middleware and token refresh are outside this ordinary protected UC.
+' LayoutInstructorCourse:42 initially loads structure; :65 refetches Assessment
+' assignments on pathname changes for the shared outline. Those shell interactions
+' do not supply this material list and are excluded, rather than assumed absent.
+
+activate Instructor
+Instructor -> Screen: Open Lesson materials\n/instructor/courses/{courseId}/builder/lessons/{lessonId}/materials
+activate Screen
+Screen -> Gateway: GET /api/v1/courses/{courseId}/lessons/{lessonId}
+activate Gateway
+Gateway -> Controller: GET /api/v1/courses/{courseId}/lessons/{lessonId}\nTrusted userId, organizationId, role
+activate Controller
+Controller -> Service: findLessonDetail(user, courseId, lessonId)
+activate Service
+Service -> Service: Verify Instructor and organization context
+activate Service
+deactivate Service
+
+alt Access checked successfully
+  ' Query scope: Lesson.id and organizationId, Module.courseId and organizationId,
+  ' Course.organizationId and Course.chain.instructorId. Materials and their files
+  ' follow relations; the nested selections have no separate organization predicate.
+  ' The read does not reject Locked, Submitted or disabled content.
+  Service -> Repository: Load assigned Lesson and materials\nCurrent organization and instructor
+  activate Repository
+  Repository -> CourseDB: Read Lesson and ordered materials\nInclude MediaFile metadata
+  activate CourseDB
+  ' Prisma lesson.findFirst selects materials ordered by position ASC, including
+  ' id, title, materialType, isRequired, fileId, position and disabledAt.
+  ' File metadata includes originalFilename, mimeType, sizeBytes, durationSeconds,
+  ' wordCount, status and releasedAt. No storage URL or file bytes are selected.
+  CourseDB -->> Repository: Lesson with materials, or no match
+  deactivate CourseDB
+  Repository -->> Service: Scoped Lesson result
+  deactivate Repository
+
+  alt Lesson found successfully
+    ' Service returns the actual detail payload, including Course/Module/Lesson
+    ' context and materials. BigInt sizeBytes becomes a decimal string.
+    Service -->> Controller: Lesson context and material metadata
+    deactivate Service
+    Controller -->> Gateway: 200 OK - Lesson details
+    deactivate Controller
+    Gateway -->> Screen: Lesson context and material metadata
+    deactivate Gateway
+    Screen -> Screen: Count materials and sum distinct file sizes
+    activate Screen
+    ' MaterialsContent: Set<fileId> deduplicates only this Lesson's references.
+    ' totalSizeBytes uses BigInt; invalid or negative byte strings contribute zero.
+    ' Individual rows still display their own referenced file size.
+    deactivate Screen
+
+    alt Materials loaded successfully\nNon-empty list
+      Screen -->> Instructor: Show ordered materials, requirements and sizes\nShow counts and distinct attached-file total
+    else Materials loaded successfully\nEmpty list
+      ' A valid Lesson with materials=[] is a 200 success, not a missing Lesson.
+      Screen -->> Instructor: Show no learning materials\nCounts and attached-file size are zero
+    end
+  else Lesson lookup failed
+    ' Restore the original caller executions for this alternative.
+    activate Gateway
+    activate Controller
+    activate Service
+    ' Missing Lesson, mismatched Course, other tenant or different chain owner
+    ' all return 404; no material data is returned to the screen.
+    Service -->> Controller: Lesson not found
+    deactivate Service
+    Controller -->> Gateway: 404 Not Found
+    deactivate Controller
+    Gateway -->> Screen: Material list load error
+    deactivate Gateway
+    Screen -->> Instructor: Show load error and Try again
+  end
+else Access check failed
+  activate Gateway
+  activate Controller
+  activate Service
+  ' A non-Instructor or absent organizationId is rejected before querying the DB.
+  Service -->> Controller: Access denied
+  deactivate Service
+  Controller -->> Gateway: 403 Forbidden
+  deactivate Controller
+  Gateway -->> Screen: Material list load error
+  deactivate Gateway
+  Screen -->> Instructor: Show load error and Try again
+end
+deactivate Screen
+deactivate Instructor
+
+' The Table uses the returned material order, no pagination and no client type filter.
+' Video/Reading counts are derived locally. Other materialType strings are not
+' explicitly filtered by the query or Table; the UI has a generic icon fallback.
+' Status priority: File released, Disabled, non-Ready file status, otherwise Ready.
+' Disabled materials and released/non-Ready files remain listed and counted.
+' BR-79: reading is scoped to the assigned Instructor and organization.
+' BR-147: isRequired belongs to Material. The shared detail API also derives
+' lesson.required from materials.some(isRequired); no Lesson/Module flag is stored.
+' BR-86 concerns changing material titles (UC17.3), not this read-only operation.
+' BR-288: attached-file total deduplicates by fileId within the current Lesson.
+' It is not organization Subscription usage or a cross-version storage calculation;
+' no organization-wide quota aggregation or deduction is executed in this UC.
+' No separate per-version file-copy or double-counting step is invented.
+' The shared API returns introduction text, but this screen uses only Lesson context
+' and material metadata. It does not initiate UC16 as another user interaction.
+' Add Video/Add Reading navigation exists on the page, but those actions, edit/delete,
+' file downloads, storage calls and Learner progress are outside this UC.
+' findLessonDetail calls no TenantClient, LearningClient, storage provider or Kafka.
+' Technical UUID validation (400), transport and persistence failures are summarized
+' as the same load-error UI rather than extra business alternatives.
+' Error caveat: axios.customize.ts:37 resolves HTTP error bodies. This page then
+' throws a plain Error for missing data; useApiQuery -> toApiError converts it to
+' status 0. Its specialized 404 Alert is not reached by this normal HTTP-error path.
+' Missing route IDs issue no request. Try again reloads the same query; aborted
+' queries are ignored and do not display results for a previously selected Lesson.
+@enduml

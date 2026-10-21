@@ -1,0 +1,265 @@
+@startuml
+' UC16.1 - Cập nhật nội dung Lesson
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS local evidence; paths are workspace-relative.
+' UC/BR: docs/uml/docs/LearnUP_UseCase.docx (UC16.1) and
+' docs/uml/docs/LearnUP_QuyTacNghiepVu.docx (BR-95, BR-285, BR-292, BR-79).
+' Both have core revision 1 without an identified business release.
+' Requested docs/ files are located under docs/uml/docs/; docs/source-of-truth is absent.
+' UI: frontend/src/pages/instructor/course.builder.lesson.content.edit.tsx:55.
+' Initial Promise.all: same file:89; handleSave:127; locked reason:218.
+' Router: frontend/src/router.tsx:457 and :489; authenticated Instructor.
+' Wrappers: frontend/src/services/course.service.ts:115, :125 and :135.
+' Transport: frontend/src/services/axios.customize.ts:47, :61 and :64.
+' URL: frontend/src/config/env.ts:13; frontend/.env.development:10 (localhost:8080).
+' Vite dev command: frontend/package.json:7; env loading: frontend/vite.config.ts:11.
+' No frontend .env/.env.local/.env.development.local or process URL overrides found.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:2 and :40.
+' Course bootstrap: services/course-service/src/main.ts:40 (api prefix, URI v1).
+' Course controller: services/course-service/src/modules/courses/courses.controller.ts:144, :154, :168.
+' Course service: services/course-service/src/modules/courses/courses.service.ts:803, :866, :915, :932.
+' Course repository: services/course-service/src/modules/courses/courses.repository.ts:723, :797, :835.
+' DTO: services/course-service/src/modules/courses/dto/update-lesson-content.dto.ts:3.
+' Learning adapter: services/course-service/src/infrastructure/clients/learning/learning.client.ts:65.
+' Adapter timeout: services/course-service/src/modules/courses/courses.module.ts:14 (5000 ms).
+' Direct REST base: services/course-service/.env:5 = http://localhost:8085.
+' Learning controller: services/learning-service/src/modules/curriculum/curriculum.controller.ts:37.
+' Learning service: services/learning-service/src/modules/curriculum/curriculum.service.ts:371.
+' Learning repository: services/learning-service/src/modules/curriculum/curriculum.repository.ts:95.
+' Learning bootstrap: services/learning-service/src/main.ts:12 -> src/app.setup.ts:30.
+' Database models: services/course-service/prisma/schema.prisma:84 (Lesson.content);
+' services/learning-service/prisma/schema.prisma:10 (Enrollment), :60 (MaterialProgress), :96 (MaterialSnapshot).
+' Each service's PrismaService uses its own DATABASE_URL; local DB names were verified.
+' Runtime reachability and non-development deployment URLs remain unverified.
+
+actor Instructor
+boundary "Edit Lesson Content Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+participant ":CurriculumController" as CurriculumController
+participant ":CurriculumService" as CurriculumService
+participant ":CurriculumRepository" as CurriculumRepository
+database "course_db" as CourseDB
+database "learning_db" as LearningDB
+
+' Precondition: JWT-authenticated Instructor, Course Builder already loaded.
+' Parent structure preparation and Assessment outline refresh belong to the shared
+' Builder shell; this diagram includes only editor-prefill, eligibility and saving.
+' Initial load is an outcome-level alternative. Its successful operand expands the
+' two real parallel requests; failed load attempts are summarized without assuming
+' successful queries or an HTTP reply after a transport timeout.
+activate Instructor
+Instructor -> Screen: Open Lesson content editor
+activate Screen
+
+alt Editor loaded successfully
+  par Load introduction
+    Screen -> Gateway: GET /api/v1/courses/{courseId}/lessons/{lessonId}
+    activate Gateway
+    Gateway -> Controller: GET /api/v1/courses/{courseId}/lessons/{lessonId}
+    activate Controller
+    Controller -> Service: findLessonDetail(user, courseId, lessonId)
+    activate Service
+    ' Role and organization checks precede this scoped read.
+    Service -> Repository: Load assigned Lesson details
+    activate Repository
+    Repository -> CourseDB: Read Lesson introduction and metadata\nCurrent organization and instructor
+    activate CourseDB
+    CourseDB -->> Repository: Lesson details
+    deactivate CourseDB
+    Repository -->> Service: Lesson details
+    deactivate Repository
+    Service -->> Controller: Lesson details
+    deactivate Service
+    Controller -->> Gateway: 200 OK - Lesson details
+    deactivate Controller
+    Gateway -->> Screen: Lesson details
+    deactivate Gateway
+  and Check editability
+    Screen -> Gateway: GET /api/v1/courses/{courseId}/lessons/{lessonId}/content-editability
+    activate Gateway
+    Gateway -> Controller: GET /api/v1/courses/{courseId}/lessons/{lessonId}/content-editability
+    activate Controller
+    Controller -> Service: getLessonContentEditability(user, courseId, lessonId)
+    activate Service
+    Service -> Service: checkLessonContentAccess(user, courseId, lessonId)
+    activate Service
+    ' INSTRUCTOR and organizationId are required before the repository read.
+    Service -> Repository: findLessonForContentUpdate\nCurrent organization and instructor
+    activate Repository
+    Repository -> CourseDB: Read assigned Lesson and Course status
+    activate CourseDB
+    CourseDB -->> Repository: Lesson and Course status
+    deactivate CourseDB
+    Repository -->> Service: Scoped Lesson
+    deactivate Repository
+    ' Submitted returns reason=SUBMITTED without contacting Learning Service.
+    opt Course is not Submitted
+      ' LearningClient is hidden; direct REST bypasses the public Gateway.
+      ' Headers: internal key and trusted userId, organizationId, INSTRUCTOR.
+      Service -> CurriculumController: GET /api/v1/enrollments/course/{courseId}/lessons/{lessonId}/completion
+      activate CurriculumController
+      CurriculumController -> CurriculumService: hasAnyLearnerCompletedLesson(user, courseId, lessonId)
+      activate CurriculumService
+      ' Controller requires INSTRUCTOR; service requires organizationId.
+      CurriculumService -> CurriculumRepository: Check any Learner completion\nCurrent organization
+      activate CurriculumRepository
+      CurriculumRepository -> LearningDB: Check Lesson completion from material progress
+      activate LearningDB
+      LearningDB -->> CurriculumRepository: hasCompleted
+      deactivate LearningDB
+      CurriculumRepository -->> CurriculumService: hasCompleted
+      deactivate CurriculumRepository
+      CurriculumService -->> CurriculumController: hasCompleted
+      deactivate CurriculumService
+      CurriculumController -->> Service: 200 OK - hasCompleted
+      deactivate CurriculumController
+    end
+    deactivate Service
+    Service -->> Controller: canEdit and reason
+    deactivate Service
+    Controller -->> Gateway: 200 OK - editability
+    deactivate Controller
+    Gateway -->> Screen: canEdit and reason
+    deactivate Gateway
+  end
+
+  alt Editing eligibility checked successfully\nEditing allowed
+    Screen -->> Instructor: Show introduction editor and Markdown preview
+    Instructor -> Screen: Enter valid changed introduction and Save
+    ' UI rejects whitespace-only text, >20000 characters and unchanged content.
+    ' Invalid/unchanged input sends no PUT; the selected save path is valid and changed.
+    Screen -> Gateway: PUT /api/v1/courses/{courseId}/lessons/{lessonId}/content\nIntroduction text
+    activate Gateway
+    Gateway -> Controller: PUT /api/v1/courses/{courseId}/lessons/{lessonId}/content\nTrusted user context
+    activate Controller
+    Controller -> Service: updateLessonContent(user, courseId, lessonId, dto)
+    activate Service
+
+    ' Outcome-level save trace: success expands revalidation and persistence;
+    ' failed attempts never imply the following successful REST/write work ran.
+    alt Content updated successfully
+      Service -> Service: checkLessonContentAccess(user, courseId, lessonId)
+      activate Service
+      Service -> Repository: Recheck assigned Lesson and Course status
+      activate Repository
+      Repository -> CourseDB: Read assigned Lesson, status and updatedAt
+      activate CourseDB
+      CourseDB -->> Repository: Current Lesson and Course status
+      deactivate CourseDB
+      Repository -->> Service: Scoped Lesson and updatedAt
+      deactivate Repository
+      ' Save must recheck: a previous canEdit=true is not sufficient.
+      ' The successful operand requires a non-Submitted Course and hasCompleted=false.
+      ' LearningClient is hidden; direct REST bypasses the public Gateway.
+      ' Headers: internal key and trusted userId, organizationId, INSTRUCTOR.
+      Service -> CurriculumController: GET /api/v1/enrollments/course/{courseId}/lessons/{lessonId}/completion
+      activate CurriculumController
+      CurriculumController -> CurriculumService: hasAnyLearnerCompletedLesson(user, courseId, lessonId)
+      activate CurriculumService
+      ' Controller requires INSTRUCTOR; service requires organizationId.
+      CurriculumService -> CurriculumRepository: Check any Learner completion\nCurrent organization
+      activate CurriculumRepository
+      CurriculumRepository -> LearningDB: Check Lesson completion from material progress
+      activate LearningDB
+      LearningDB -->> CurriculumRepository: hasCompleted
+      deactivate LearningDB
+      CurriculumRepository -->> CurriculumService: hasCompleted
+      deactivate CurriculumRepository
+      CurriculumService -->> CurriculumController: hasCompleted
+      deactivate CurriculumService
+      CurriculumController -->> Service: 200 OK - hasCompleted
+      deactivate CurriculumController
+      deactivate Service
+      Service -> Repository: updateLessonContent\nExpected updatedAt and current owner
+      activate Repository
+      Repository -> CourseDB: Conditionally update Lesson introduction\nSame owner, tenant, version; not Submitted
+      activate CourseDB
+      CourseDB -->> Repository: One Lesson updated
+      deactivate CourseDB
+      Repository -->> Service: Updated successfully
+      deactivate Repository
+      Service -->> Controller: Lesson ID and saved content
+      deactivate Service
+      Controller -->> Gateway: 200 OK - content updated
+      deactivate Controller
+      Gateway -->> Screen: Saved Lesson content
+      deactivate Gateway
+      Screen -->> Instructor: Show success and return to Lesson details
+    else Content update failed
+      activate Gateway
+      activate Controller
+      activate Service
+      ' Failed attempts: wrong role/missing organization ->403; scoped Lesson absent
+      ' (including wrong tenant/owner/Course) ->404; Submitted or hasCompleted=true ->409.
+      ' Submitted skips Learning REST; completion=true never reaches the UPDATE.
+      ' A conditional UPDATE matching zero rows ->409, with no successful write assumed.
+      ' Learning non-2xx, malformed boolean, transport error or 5000 ms timeout ->503.
+      ' No retry or permissive fallback; no downstream reply/completion after timeout is assumed.
+      ' Framework validation and persistence errors share the save-error outcome.
+      Service -->> Controller: Conflict or verification error
+      deactivate Service
+      Controller -->> Gateway: 409 Conflict or request error\n403, 404, 503 or server error
+      deactivate Controller
+      Gateway -->> Screen: Save error
+      deactivate Gateway
+      Screen -->> Instructor: Show save error and keep editor
+    end
+  else Editing eligibility failed\nSubmitted or Learner completed
+    ' GET returns 200 with canEdit=false and SUBMITTED or COMPLETED.
+    ' No edit/save request is emitted; existing content remains visible in read-only form.
+    Screen -->> Instructor: Show lock reason and disable editing
+  end
+else Editor loading failed
+  ' Either initial request can fail: 403/404, transport/persistence error, or Learning
+  ' verification failure (503). Missing response.data triggers the page load error.
+  ' Promise.all failure does not establish cancellation of the other backend request.
+  ' Aborted UI loads ignore results. No content PUT follows an unsuccessful load.
+  Screen -->> Instructor: Show load error and Back to Lesson
+end
+deactivate Screen
+deactivate Instructor
+
+' BR-79: both reads and conditional writes follow Lesson -> Module -> Course,
+' matching Lesson/Module/Course organizationId and Course.chain.instructorId.
+' BR-285: Submitted denies edits; UPDATE also repeats status != Submitted in its predicate.
+' No lockedAt or disabledAt gate exists in this content-update path.
+' BR-95 completion source is computed, not a stored Lesson completion flag:
+' active material_snapshots (disabled_at IS NULL), required materials if any,
+' otherwise all active materials. An Enrollment completes the counted set when
+' every counted material has material_progress.completed_at; an empty set is false.
+' Query is scoped to courseId, lessonId and organizationId, without Enrollment status
+' filtering or a lesson_snapshots.disabled_at check. It does not refresh snapshots
+' or call Course Service; no progress, completion or snapshot records are written.
+' No fallback is used if LearningClient cannot obtain a valid hasCompleted boolean.
+' Race limitation: Learning verification and Course write are separate operations.
+' expectedUpdatedAt guards Lesson edits; it does not make completion verification
+' atomic with a concurrent Learner completion in learning_db.
+' A direct PUT with unchanged content still checks access, then returns 200 without
+' writing. The UI normally prevents that request. Save updates only Lesson.content
+' (and Prisma updatedAt), not titles, materials, isRequired, progress or duration.
+' BR-292: introduction is not a Required Material; no estimated-duration calculation.
+' UI error caveat: axios.customize.ts:37 resolves HTTP error bodies. Missing data
+' causes a plain Error, so handleSave's axios.isAxiosError && status===409 refresh
+' branch is not reached through the normal Course HTTP-error path. It is therefore
+' omitted; the generic save message appears and cached canEdit can remain stale.
+' Success navigates to Lesson details; subsequent UC16 page loads are outside scope.
+' No storage provider, file transfer, TenantClient, Kafka, notification or audit call.
+@enduml

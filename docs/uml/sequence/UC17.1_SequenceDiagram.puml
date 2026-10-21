@@ -1,0 +1,359 @@
+@startuml
+' UC17.1 - Thêm học liệu Video
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS evidence; paths are relative to the workspace root.
+' UC/BR: docs/uml/docs/LearnUP_UseCase.docx (UC17.1) and
+' docs/uml/docs/LearnUP_QuyTacNghiepVu.docx (BR-151, BR-286, BR-288, BR-285, BR-51).
+' Both have core revision 1; no business release identifier was found.
+' The requested docs/ documents are under docs/uml/docs/; docs/source-of-truth is absent.
+' UI: frontend/src/pages/instructor/course.builder.material.video.add.tsx:89;
+' context query :106, handleFile :131, handleSave :169, error reload :229.
+' Route: frontend/src/router.tsx:457, :459 and :497 (Instructor-protected Builder child).
+' Wrappers: frontend/src/services/course.service.ts:145 and :155.
+' Transport: frontend/src/services/axios.customize.ts:47, :61 and :64;
+' URL selection: frontend/src/config/env.ts:13; frontend/.env.development:10 = localhost:8080.
+' No frontend .env/.env.local/.env.development.local or process URL overrides found.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:2, :40 (courses predicate :43).
+' Course bootstrap: services/course-service/src/main.ts:40 (api prefix, URI v1).
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:184 and :194.
+' Service: services/course-service/src/modules/courses/courses.service.ts:986 and :1091.
+' Repository: services/course-service/src/modules/courses/courses.repository.ts:871, :882, :922, :937.
+' DTO: services/course-service/src/modules/courses/dto/create-video-material.dto.ts:10.
+' Multipart cap: services/course-service/src/modules/courses/course-values.ts:31 (500 MiB).
+' Tenant adapter: services/course-service/src/infrastructure/clients/tenant/tenant.client.ts:64.
+' Adapter wiring: services/course-service/src/modules/courses/courses.module.ts:14 (5000 ms, no redirects).
+' Direct Tenant URL: services/course-service/.env:4 = http://localhost:8084.
+' Tenant controller: services/tenant-service/src/modules/subscriptions/subscriptions.controller.ts:22;
+' service : services/tenant-service/src/modules/subscriptions/subscriptions.service.ts:128;
+' repository: services/tenant-service/src/modules/subscriptions/subscriptions.repository.ts:20.
+' Tenant prefix/version: services/tenant-service/src/main.ts:34.
+' Storage wiring: services/course-service/src/infrastructure/storage/storage.module.ts:7;
+' provider selection: services/course-service/src/infrastructure/storage/storage.provider.ts:31.
+' All three Cloudinary configuration values are present locally; values are not disclosed.
+' Provider: libraries/ts-storage/src/providers/cloudinary/cloudinary.provider.ts:31 (upload),
+' :61 (delete), :102 (uploadBuffer), :187 (mapUploadResult).
+' Storage validation: libraries/ts-storage/src/validators/file.validator.ts:7.
+' Models: services/course-service/prisma/schema.prisma:10, :104, :126, :187;
+' services/tenant-service/prisma/schema.prisma:133 (Subscription).
+' PrismaService in each service uses its own DATABASE_URL; verified DB names appear below.
+' Local development configuration is represented; running servers and Cloudinary access are unverified.
+
+actor Instructor
+boundary "Add Video Material Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+participant ":SubscriptionsController" as SubscriptionsController
+participant ":SubscriptionsService" as SubscriptionsService
+participant ":SubscriptionsRepository" as SubscriptionsRepository
+participant ":CloudinaryStorageProvider" as Storage
+participant "Cloudinary" as Cloudinary
+database "course_db" as CourseDB
+database "tenant_db" as TenantDB
+
+' Preconditions: authenticated Instructor and already loaded Course Builder shell.
+' Shared structure/Assessment-outline preparation is excluded from this upload operation.
+' TenantClient is hidden: the Service calls the receiving controller directly using
+' the actual REST endpoint, internal key and trusted user/organization/role headers.
+' Ordinary JWT middleware and token refresh are omitted.
+activate Instructor
+Instructor -> Screen: Open Add Video Material
+activate Screen
+Screen -> Gateway: GET /api/v1/courses/{courseId}/lessons/{lessonId}/materials/video-upload-context
+activate Gateway
+Gateway -> Controller: GET /api/v1/courses/{courseId}/lessons/{lessonId}/materials/video-upload-context
+activate Controller
+Controller -> Service: getVideoUploadContext(user, courseId, lessonId)
+activate Service
+
+' Outcome-level context trace: successful preparation expands its actual reads.
+' Failed attempts do not imply successful DB work or a reply after a timeout.
+alt Upload context loaded successfully
+  ' Role=INSTRUCTOR and organizationId are checked before this read.
+  Service -> Repository: findLessonForMaterialUpload\nCurrent organization and instructor
+  activate Repository
+  Repository -> CourseDB: Read assigned Lesson and Course state
+  activate CourseDB
+  CourseDB -->> Repository: Scoped Lesson and Course
+  deactivate CourseDB
+  Repository -->> Service: Scoped Lesson and Course
+  deactivate Repository
+
+  par Read platform limits
+    Service -> Repository: getVideoSettings()
+    activate Repository
+    Repository -> CourseDB: Read latest local PlatformSetting
+    activate CourseDB
+    CourseDB -->> Repository: Video limits and MIME types
+    deactivate CourseDB
+    Repository -->> Service: Video settings
+    deactivate Repository
+  and Read Subscription policy
+    Service -> SubscriptionsController: GET /api/v1/subscriptions/internal/instructor-material-upload-policy
+    activate SubscriptionsController
+    SubscriptionsController -> SubscriptionsService: getInstructorMaterialUploadPolicy(user)
+    activate SubscriptionsService
+    SubscriptionsService -> SubscriptionsRepository: findCurrent(organizationId)
+    activate SubscriptionsRepository
+    SubscriptionsRepository -> TenantDB: Read current organization Subscription
+    activate TenantDB
+    TenantDB -->> SubscriptionsRepository: Subscription or none
+    deactivate TenantDB
+    SubscriptionsRepository -->> SubscriptionsService: Subscription or none
+    deactivate SubscriptionsRepository
+    ' Only Active with startsAt <= now < expiresAt permits uploads; others return canUpload=false.
+    SubscriptionsService -->> SubscriptionsController: Permission, status and storage limit
+    deactivate SubscriptionsService
+    SubscriptionsController -->> Service: 200 OK - upload policy
+    deactivate SubscriptionsController
+  and Read organization usage
+    Service -> Repository: getOrganizationStoredBytes(organizationId)
+    activate Repository
+    Repository -> CourseDB: Sum Ready, unreleased MediaFile bytes
+    activate CourseDB
+    CourseDB -->> Repository: Used bytes
+    deactivate CourseDB
+    Repository -->> Service: Used bytes
+    deactivate Repository
+  end
+  Service -->> Controller: Upload eligibility, limits and remaining bytes
+  deactivate Service
+  Controller -->> Gateway: 200 OK - upload context
+  deactivate Controller
+  Gateway -->> Screen: Upload context
+  deactivate Gateway
+
+  alt Upload eligibility checked successfully\nUpload allowed
+    Screen -->> Instructor: Show upload form and limits\nLocked Course permits Optional only
+    Instructor -> Screen: Choose Video, title and requirement
+    Screen -> Screen: Validate file and fields
+    activate Screen
+    deactivate Screen
+
+    alt Form validated successfully
+      Instructor -> Screen: Click Upload Video
+      ' FormData has title, string isRequired and binary file. Locked context forces false.
+      ' Axios POST timeout=15 minutes; progress reports browser-to-backend bytes only.
+      Screen -> Gateway: POST /api/v1/courses/{courseId}/lessons/{lessonId}/materials/videos\nMultipart: title, isRequired, file
+      activate Gateway
+      Gateway -> Controller: POST /api/v1/courses/{courseId}/lessons/{lessonId}/materials/videos\nMultipart file and trusted user context
+      activate Controller
+      ' FileInterceptor buffers one file in memory; files=1, fields=2, parts=3, max=500 MiB.
+      ' Multipart/DTO rejection can stop before the Service; those framework traces are omitted.
+      Controller -> Service: uploadVideoMaterial(user, courseId, lessonId, dto, file)
+      activate Service
+
+      ' Outcome-level upload trace: only success expands all accepted checks and writes.
+      ' The failed operand groups early rejection, remote failures and failed finalization.
+      alt Video created successfully
+        Service -> Repository: Recheck assigned Lesson and load Video settings
+        activate Repository
+        ' Two actual sequential methods: findLessonForMaterialUpload then getVideoSettings.
+        Repository -> CourseDB: Read current Lesson state and Video limits
+        activate CourseDB
+        CourseDB -->> Repository: Scoped Lesson and settings
+        deactivate CourseDB
+        Repository -->> Service: Scoped Lesson and settings
+        deactivate Repository
+        Service -> Service: Validate Course state, size and Video signature
+        activate Service
+        ' Reject Submitted/disabled Course or Lesson; Locked+isRequired=true ->409.
+        ' Effective byte limit=min(PlatformSetting.maxVideoSizeBytes, 500 MiB).
+        ' Signature: ftyp at byte 4 for mp4/mov; EBML magic for webm; MIME must be allowed.
+        deactivate Service
+        Service -> SubscriptionsController: GET /api/v1/subscriptions/internal/instructor-material-upload-policy
+        activate SubscriptionsController
+        SubscriptionsController -> SubscriptionsService: getInstructorMaterialUploadPolicy(user)
+        activate SubscriptionsService
+        SubscriptionsService -> SubscriptionsRepository: findCurrent(organizationId)
+        activate SubscriptionsRepository
+        SubscriptionsRepository -> TenantDB: Read current organization Subscription
+        activate TenantDB
+        TenantDB -->> SubscriptionsRepository: Subscription or none
+        deactivate TenantDB
+        SubscriptionsRepository -->> SubscriptionsService: Subscription or none
+        deactivate SubscriptionsRepository
+        ' Only Active with startsAt <= now < expiresAt permits uploads; others return canUpload=false.
+        SubscriptionsService -->> SubscriptionsController: Permission, status and storage limit
+        deactivate SubscriptionsService
+        SubscriptionsController -->> Service: 200 OK - upload policy
+        deactivate SubscriptionsController
+        ' Policy must allow upload; then compare incoming size against remaining quota.
+        Service -> Repository: Check organization storage usage
+        activate Repository
+        Repository -> CourseDB: Sum Ready, unreleased MediaFile bytes
+        activate CourseDB
+        CourseDB -->> Repository: Used bytes
+        deactivate CourseDB
+        Repository -->> Service: Used bytes
+        deactivate Repository
+
+        Service -> Storage: Upload Video buffer
+        activate Storage
+        Storage -> Cloudinary: Upload Video in 20 MiB chunks
+        activate Cloudinary
+        Cloudinary -->> Storage: Final stored-file metadata
+        deactivate Cloudinary
+        Storage -->> Service: Stored file and duration
+        deactivate Storage
+        Service -> Service: Validate returned format, duration and size
+        activate Service
+        ' Require video resourceType, matching mp4/webm/mov format, positive integer duration,
+        ' duration <= maxVideoDurationMinutes*60, and positive size within effective byte limit.
+        ' Provider rounds Cloudinary duration up to whole seconds before this check.
+        deactivate Service
+        ' A fresh policy is requested after upload, before the database transaction.
+        Service -> SubscriptionsController: GET /api/v1/subscriptions/internal/instructor-material-upload-policy
+        activate SubscriptionsController
+        SubscriptionsController -> SubscriptionsService: getInstructorMaterialUploadPolicy(user)
+        activate SubscriptionsService
+        SubscriptionsService -> SubscriptionsRepository: findCurrent(organizationId)
+        activate SubscriptionsRepository
+        SubscriptionsRepository -> TenantDB: Read current organization Subscription
+        activate TenantDB
+        TenantDB -->> SubscriptionsRepository: Subscription or none
+        deactivate TenantDB
+        SubscriptionsRepository -->> SubscriptionsService: Subscription or none
+        deactivate SubscriptionsRepository
+        ' Only Active with startsAt <= now < expiresAt permits uploads; others return canUpload=false.
+        SubscriptionsService -->> SubscriptionsController: Permission, status and storage limit
+        deactivate SubscriptionsService
+        SubscriptionsController -->> Service: 200 OK - upload policy
+        deactivate SubscriptionsController
+        Service -> Repository: createVideoMaterialWithQuota(...)
+        activate Repository
+        Repository -> CourseDB: Recheck quota and Course under locks\nSave MediaFile and append Video material
+        activate CourseDB
+        ' One transaction, timeout=20 seconds: upsert/lock organization_quota_locks,
+        ' lock Course row, recheck tenant/chain owner/Submitted/disabled/Locked-required,
+        ' recompute used bytes with the latest policy limit, then insert both records.
+        ' MediaFile: purpose=LessonVideo, status=Ready, durationSeconds and storage metadata.
+        ' Material: materialType=Video, isRequired=dto.isRequired, fileId=new MediaFile.id.
+        ' position=max existing Lesson position+1, including for unlocked Courses.
+        CourseDB -->> Repository: Committed Video material
+        deactivate CourseDB
+        Repository -->> Service: CREATED and material
+        deactivate Repository
+        Service -->> Controller: Material, file size and duration
+        deactivate Service
+        Controller -->> Gateway: 201 Created - Video material
+        deactivate Controller
+        Gateway -->> Screen: Created material ID
+        deactivate Gateway
+        Screen -->> Instructor: Show success and open material list
+      else Video creation failed
+        activate Gateway
+        activate Controller
+        activate Service
+        ' 400: missing/empty file or title, disallowed MIME/signature, bad metadata/duration.
+        ' 413: multipart/technical size cap; 403: wrong role or disallowed Subscription.
+        ' 404: missing Lesson, mismatched Course/tenant/owner.
+        ' 409: Submitted, disabled, Locked-required or quota insufficient.
+        ' Policy non-2xx/malformed response/transport error/5000 ms timeout ->503;
+        ' no automatic policy retry or permissive fallback; no reply after timeout assumed.
+        ' StorageProviderError ->503; storage validation ->400; unexpected DB error ->500.
+        ' Successful remote upload/DB insertion is not assumed in this failed operand.
+        opt Stored file returned and transaction not committed
+          Service -> Storage: Delete uncommitted uploaded file
+          activate Storage
+          Storage -> Cloudinary: Delete stored resource
+          activate Cloudinary
+          Cloudinary -->> Storage: Deletion result or error
+          deactivate Cloudinary
+          Storage -->> Service: Cleanup result or error
+          deactivate Storage
+          ' Finally block awaits best-effort cleanup and preserves the original failure.
+        end
+        Service -->> Controller: Validation, policy, upload or persistence error
+        deactivate Service
+        Controller -->> Gateway: 400 / 403 / 404 / 409 / 413 / 503 or 500
+        deactivate Controller
+        Gateway -->> Screen: Video creation error
+        deactivate Gateway
+        Screen -->> Instructor: Show upload error
+        ' handleSave.catch calls query.reload() for every failed attempt.
+        Screen -> Gateway: GET /api/v1/courses/{courseId}/lessons/{lessonId}/materials/video-upload-context
+        activate Gateway
+        Gateway -> Controller: GET /api/v1/courses/{courseId}/lessons/{lessonId}/materials/video-upload-context
+        activate Controller
+        Controller -> Service: Reload upload context
+        activate Service
+        ' Same getVideoUploadContext method as expanded above, including its Tenant REST
+        ' and parallel scoped settings/usage reads. Repeated internals are not expanded.
+        ' The result can be refreshed/blocked context, or a load error; no success assumed.
+        Service -->> Controller: Refreshed context or load error
+        deactivate Service
+        Controller -->> Gateway: 200 OK or context error
+        deactivate Controller
+        Gateway -->> Screen: Context result
+        deactivate Gateway
+        Screen -->> Instructor: Show refreshed form, block reason or load error
+      end
+    else Form validation failed
+      ' No POST: invalid title, missing/empty file, disallowed MIME, excessive size or quota.
+      Screen -->> Instructor: Show validation error
+    end
+  else Upload eligibility failed
+    ' Context GET succeeds with canUpload=false for Submitted/disabled Course or Lesson,
+    ' or a Subscription outside Active and its validity period. Locked alone is allowed.
+    ' Zero remaining quota is shown in context; per-file validation then blocks positive files.
+    Screen -->> Instructor: Show block reason and disable upload
+  end
+else Upload context loading failed
+  activate Gateway
+  activate Controller
+  activate Service
+  ' Wrong role/missing organization ->403, inaccessible Lesson ->404;
+  ' absent PlatformSetting or Tenant verification failure ->503; DB/transport errors grouped.
+  ' Initial context failure emits no multipart POST and no storage upload.
+  Service -->> Controller: Context access or verification error
+  deactivate Service
+  Controller -->> Gateway: 403 / 404 / 503 or server error
+  deactivate Controller
+  Gateway -->> Screen: Context load error
+  deactivate Gateway
+  Screen -->> Instructor: Show load error and Try again
+end
+deactivate Screen
+deactivate Instructor
+
+' BR-151/285/286: upload checks platform limits and quota, blocks Submitted/disabled,
+' and accepts only Optional on Locked Courses. Final transaction repeats mutable checks.
+' Lesson/Module/Course organizationId and Course.chain.instructorId scope access.
+' BR-288 usage aggregates Ready, unreleased MediaFile rows once, without joining
+' Material/version references. There is no explicit purpose whitelist in that aggregate;
+' the organization-wide quota lock serializes this transaction's quota check and creation.
+' BR-51: persist provider-derived durationSeconds and isRequired; this upload does not
+' open Course detail, recalculate estimated duration or publish a duration-change event.
+' MIME default in schema is video/mp4; actual allowed types come from the latest local
+' PlatformSetting row, intersected implicitly with the implemented mp4/webm/quicktime checks.
+' No live DB rows were read, so actual configured numeric limits are not claimed.
+' Quota/Subscription check is not one cross-database transaction: latest Tenant policy
+' may change after being read. Quota locking covers cooperating Course DB writers only.
+' Cleanup failure is logged, not retried; if provider upload throws before storedFile
+' is assigned, this service has no returned storage key for cleanup of remote remnants.
+' Browser timeout/network loss does not prove backend cancellation or transaction rollback.
+' UI error caveat: axios.customize.ts resolves HTTP error bodies. Missing response.data.id
+' throws a plain Error, so getUploadErrorMessage may display generic Network error rather
+' than the intended status-specific message. query.reload() still runs.
+' Browser progress reaching 100% does not mean Cloudinary/DB work has finished.
+' Success navigates to UC17; loading that list is outside this creation diagram.
+' No direct browser-to-Cloudinary/MinIO, presigned URL, LearningClient, Kafka, notification,
+' audit, Reading upload, replacement or user-triggered material deletion is executed here.
+@enduml

@@ -1,0 +1,371 @@
+@startuml
+' UC17.2 - Thêm học liệu Reading
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS evidence; paths are relative to the workspace root.
+' UC/BR sources: docs/uml/docs/LearnUP_UseCase.docx (UC17.2) and
+' docs/uml/docs/LearnUP_QuyTacNghiepVu.docx (BR-293, BR-286, BR-51, BR-151, BR-288, BR-285).
+' Both documents have core revision 1, without an identified business release.
+' Requested docs/ documents are under docs/uml/docs/; docs/source-of-truth is absent.
+' UI: frontend/src/pages/instructor/course.builder.material.reading.add.tsx:29;
+' handleFile :62, handleSave :93, warning handling :141, failure reload :175.
+' Route: frontend/src/router.tsx:457, :459 and :501 (Instructor-protected Builder child).
+' Wrappers: frontend/src/services/course.service.ts:177 and :187.
+' Axios: frontend/src/services/axios.customize.ts:47, :61 and :64;
+' URL selection: frontend/src/config/env.ts:13; frontend/.env.development:10 = localhost:8080.
+' No frontend .env/.env.local/.env.development.local or process URL overrides were found.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:2 and :40 (predicate :43).
+' Course prefix/version: services/course-service/src/main.ts:40.
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:223 and :237.
+' Service: services/course-service/src/modules/courses/courses.service.ts:1340 and :1411.
+' Extraction: services/course-service/src/modules/courses/reading-text-extractor.ts:8 and :20.
+' Repository: services/course-service/src/modules/courses/courses.repository.ts:882, :922, :1114, :1127.
+' DTO: services/course-service/src/modules/courses/dto/create-reading-material.dto.ts:10.
+' Multipart cap: services/course-service/src/modules/courses/course-values.ts:37 (50 MiB).
+' Tenant adapter: services/course-service/src/infrastructure/clients/tenant/tenant.client.ts:64.
+' Adapter timeout: services/course-service/src/modules/courses/courses.module.ts:14 (5000 ms).
+' Tenant URL: services/course-service/.env:4 = http://localhost:8084.
+' Tenant controller: services/tenant-service/src/modules/subscriptions/subscriptions.controller.ts:22;
+' service: services/tenant-service/src/modules/subscriptions/subscriptions.service.ts:128;
+' repository: services/tenant-service/src/modules/subscriptions/subscriptions.repository.ts:20.
+' Tenant prefix/version: services/tenant-service/src/main.ts:34.
+' Storage wiring: services/course-service/src/infrastructure/storage/storage.module.ts:7;
+' selection: services/course-service/src/infrastructure/storage/storage.provider.ts:31.
+' Three Cloudinary configuration values are present locally; values are not disclosed.
+' Provider: libraries/ts-storage/src/providers/cloudinary/cloudinary.provider.ts:31 (upload),
+' :61 (delete), :102 (uploadBuffer); raw resources use upload_stream, not Video chunk upload.
+' Course models: services/course-service/prisma/schema.prisma:10, :104, :126 and :187.
+' Tenant model: services/tenant-service/prisma/schema.prisma:133 (Subscription).
+' Each PrismaService uses its own DATABASE_URL; local database names were verified.
+' Running servers, live PlatformSetting rows and remote Cloudinary access are unverified.
+
+actor Instructor
+boundary "Add Reading Material Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+participant ":SubscriptionsController" as SubscriptionsController
+participant ":SubscriptionsService" as SubscriptionsService
+participant ":SubscriptionsRepository" as SubscriptionsRepository
+participant ":CloudinaryStorageProvider" as Storage
+participant "Cloudinary" as Cloudinary
+database "course_db" as CourseDB
+database "tenant_db" as TenantDB
+
+' Preconditions: authenticated Instructor; Course Builder shell already loaded.
+' Shared structure and Assessment outline preparation do not supply this upload operation.
+' JWT middleware/token refresh are omitted. TenantClient is a hidden adapter:
+' direct REST uses the internal key and trusted userId/organizationId/INSTRUCTOR headers.
+activate Instructor
+Instructor -> Screen: Open Add Reading Material
+activate Screen
+Screen -> Gateway: GET /api/v1/courses/{courseId}/lessons/{lessonId}/materials/reading-upload-context
+activate Gateway
+Gateway -> Controller: GET /api/v1/courses/{courseId}/lessons/{lessonId}/materials/reading-upload-context
+activate Controller
+Controller -> Service: getReadingUploadContext(user, courseId, lessonId)
+activate Service
+
+' Outcome-level context trace expands only successful reads.
+alt Upload context loaded successfully
+  ' Require INSTRUCTOR and organizationId before the scoped read.
+  Service -> Repository: findLessonForMaterialUpload\nCurrent organization and instructor
+  activate Repository
+  Repository -> CourseDB: Read assigned Lesson and Course state
+  activate CourseDB
+  CourseDB -->> Repository: Scoped Lesson and Course
+  deactivate CourseDB
+  Repository -->> Service: Scoped Lesson and Course
+  deactivate Repository
+
+  par Read Reading settings
+    Service -> Repository: getReadingSettings()
+    activate Repository
+    Repository -> CourseDB: Read latest local PlatformSetting
+    activate CourseDB
+    CourseDB -->> Repository: PDF size limit, MIME types and reading speed
+    deactivate CourseDB
+    Repository -->> Service: Reading settings
+    deactivate Repository
+  and Read Subscription policy
+    Service -> SubscriptionsController: GET /api/v1/subscriptions/internal/instructor-material-upload-policy
+    activate SubscriptionsController
+    SubscriptionsController -> SubscriptionsService: getInstructorMaterialUploadPolicy(user)
+    activate SubscriptionsService
+    SubscriptionsService -> SubscriptionsRepository: findCurrent(organizationId)
+    activate SubscriptionsRepository
+    SubscriptionsRepository -> TenantDB: Read current organization Subscription
+    activate TenantDB
+    TenantDB -->> SubscriptionsRepository: Subscription or none
+    deactivate TenantDB
+    SubscriptionsRepository -->> SubscriptionsService: Subscription or none
+    deactivate SubscriptionsRepository
+    ' Only an Active Subscription with startsAt <= now < expiresAt permits upload.
+    SubscriptionsService -->> SubscriptionsController: Permission and storage limit
+    deactivate SubscriptionsService
+    SubscriptionsController -->> Service: 200 OK - upload policy
+    deactivate SubscriptionsController
+  and Read organization usage
+    Service -> Repository: getOrganizationStoredBytes(organizationId)
+    activate Repository
+    Repository -> CourseDB: Sum Ready, unreleased MediaFile bytes
+    activate CourseDB
+    CourseDB -->> Repository: Used bytes
+    deactivate CourseDB
+    Repository -->> Service: Used bytes
+    deactivate Repository
+  end
+  Service -->> Controller: Eligibility, PDF limits and remaining storage
+  deactivate Service
+  Controller -->> Gateway: 200 OK - Reading upload context
+  deactivate Controller
+  Gateway -->> Screen: Reading upload context
+  deactivate Gateway
+
+  alt Upload eligibility checked successfully\nUpload allowed
+    Screen -->> Instructor: Show PDF form and limits\nLocked Course permits Optional only
+    Instructor -> Screen: Choose PDF, title and requirement
+    Screen -> Screen: Validate selected file and fields
+    activate Screen
+    deactivate Screen
+
+    alt Form validated successfully
+      Instructor -> Screen: Click Upload Reading
+      ' Browser FormData contains title, string isRequired and binary file, no wordCount.
+      ' Locked context forces isRequired=false. Axios upload timeout=120000 ms.
+      Screen -> Gateway: POST /api/v1/courses/{courseId}/lessons/{lessonId}/materials/readings\nMultipart: title, isRequired, file
+      activate Gateway
+      Gateway -> Controller: POST /api/v1/courses/{courseId}/lessons/{lessonId}/materials/readings\nMultipart file and trusted user context
+      activate Controller
+      ' Memory FileInterceptor: one file, two fields, three parts, max 50 MiB.
+      ' Multipart/DTO failures can stop before Service; framework short-circuits are omitted.
+      Controller -> Service: uploadReadingMaterial(user, courseId, lessonId, dto, file)
+      activate Service
+
+      ' Outcome-level creation trace; failures do not imply successful remote work or writes.
+      alt Reading created successfully
+        Service -> Repository: Recheck assigned Lesson and load Reading settings
+        activate Repository
+        ' Sequential source methods: findLessonForMaterialUpload then getReadingSettings.
+        Repository -> CourseDB: Read current Lesson state and Reading limits
+        activate CourseDB
+        CourseDB -->> Repository: Scoped Lesson and settings
+        deactivate CourseDB
+        Repository -->> Service: Scoped Lesson and settings
+        deactivate Repository
+        Service -> Service: Validate Course state, PDF signature and size
+        activate Service
+        ' Early allow-list: Draft/Rejected/Published, neither Course nor Lesson disabled.
+        ' Locked+isRequired=true is rejected. PDF MIME must also be allowed in settings.
+        ' Positive safe-integer size <= min(settings.maxReadingSizeBytes, 50 MiB);
+        ' buffer length >=8 and first five ASCII bytes must equal %PDF-.
+        deactivate Service
+        Service -> SubscriptionsController: GET /api/v1/subscriptions/internal/instructor-material-upload-policy
+        activate SubscriptionsController
+        SubscriptionsController -> SubscriptionsService: getInstructorMaterialUploadPolicy(user)
+        activate SubscriptionsService
+        SubscriptionsService -> SubscriptionsRepository: findCurrent(organizationId)
+        activate SubscriptionsRepository
+        SubscriptionsRepository -> TenantDB: Read current organization Subscription
+        activate TenantDB
+        TenantDB -->> SubscriptionsRepository: Subscription or none
+        deactivate TenantDB
+        SubscriptionsRepository -->> SubscriptionsService: Subscription or none
+        deactivate SubscriptionsRepository
+        ' Only an Active Subscription with startsAt <= now < expiresAt permits upload.
+        SubscriptionsService -->> SubscriptionsController: Permission and storage limit
+        deactivate SubscriptionsService
+        SubscriptionsController -->> Service: 200 OK - upload policy
+        deactivate SubscriptionsController
+        Service -> Repository: Check organization storage usage
+        activate Repository
+        Repository -> CourseDB: Sum Ready, unreleased MediaFile bytes
+        activate CourseDB
+        CourseDB -->> Repository: Used bytes
+        deactivate CourseDB
+        Repository -->> Service: Used bytes
+        deactivate Repository
+
+        Service -> Service: Extract PDF text and count words
+        activate Service
+        ' Actual local function: extractReadingText(file.buffer), using pdf-parse max:0.
+        ' countWords normalizes NFC/NBSP and counts whitespace tokens containing a letter/number.
+        ' Successful parsing with zero words returns wordCount=0 and extractionWarning.
+        ' Parse exceptions become 400 BEFORE any storage upload, not zero-word success.
+        ' No OCR, remote document service or separate extractor class is called.
+        deactivate Service
+
+        Service -> Storage: Upload PDF buffer as raw resource
+        activate Storage
+        Storage -> Cloudinary: Upload Reading PDF
+        activate Cloudinary
+        Cloudinary -->> Storage: Stored-file metadata
+        deactivate Cloudinary
+        Storage -->> Service: Stored file and actual size
+        deactivate Storage
+        ' Service requires returned size >0 and <= effective Reading limit.
+        ' A fresh policy is requested after storage, before database persistence.
+        Service -> SubscriptionsController: GET /api/v1/subscriptions/internal/instructor-material-upload-policy
+        activate SubscriptionsController
+        SubscriptionsController -> SubscriptionsService: getInstructorMaterialUploadPolicy(user)
+        activate SubscriptionsService
+        SubscriptionsService -> SubscriptionsRepository: findCurrent(organizationId)
+        activate SubscriptionsRepository
+        SubscriptionsRepository -> TenantDB: Read current organization Subscription
+        activate TenantDB
+        TenantDB -->> SubscriptionsRepository: Subscription or none
+        deactivate TenantDB
+        SubscriptionsRepository -->> SubscriptionsService: Subscription or none
+        deactivate SubscriptionsRepository
+        ' Only an Active Subscription with startsAt <= now < expiresAt permits upload.
+        SubscriptionsService -->> SubscriptionsController: Permission and storage limit
+        deactivate SubscriptionsService
+        SubscriptionsController -->> Service: 200 OK - upload policy
+        deactivate SubscriptionsController
+        Service -> Repository: createReadingMaterialWithQuota(...)
+        activate Repository
+        Repository -> CourseDB: Recheck quota and Course under locks\nSave wordCount and append Reading material
+        activate CourseDB
+        ' One transaction, timeout=20 s: upsert/lock organization_quota_locks, lock Course,
+        ' recheck tenant/chain owner/status/disabled/Locked-required and aggregate usage.
+        ' Insert MediaFile(purpose=LessonReading, status=Ready, storage metadata, wordCount),
+        ' then Material(materialType=Reading, isRequired, fileId, position=max+1).
+        ' Zero words do not block creation. Extracted text/warning are not stored here.
+        CourseDB -->> Repository: Committed Reading material
+        deactivate CourseDB
+        Repository -->> Service: CREATED and material
+        deactivate Repository
+        Service -->> Controller: Material, size, wordCount and extractionWarning
+        deactivate Service
+        Controller -->> Gateway: 201 Created - Reading material
+        deactivate Controller
+        Gateway -->> Screen: Created material and extraction result
+        deactivate Gateway
+
+        alt Reading saved successfully\nText extracted
+          Screen -->> Instructor: Show saved word count and open material list
+        else Reading saved successfully\nNo readable text
+          ' The parser succeeded; an image-only scan can produce this result.
+          ' Persisted wordCount=0; extractionWarning describes missing reading duration.
+          Screen -->> Instructor: Show saved-with-zero-words warning\nStay on page and clear selected file
+        end
+      else Reading creation failed
+        activate Gateway
+        activate Controller
+        activate Service
+        ' 400: invalid title/file/MIME/PDF signature, parse exception or returned size.
+        ' 413: input size cap; 403: wrong role/missing organization or disallowed policy.
+        ' 404: inaccessible Lesson/Course/tenant/chain owner.
+        ' 409: Submitted or other disallowed state, disabled, Locked-required or insufficient quota.
+        ' Tenant non-2xx/malformed policy/transport failure/5000 ms timeout ->503.
+        ' No retry or permissive fallback; no downstream reply/completion after timeout assumed.
+        ' StorageProviderError ->503, storage validation ->400, unexpected DB error ->500.
+        opt Stored file returned and transaction not committed
+          Service -> Storage: Delete uncommitted uploaded file
+          activate Storage
+          Storage -> Cloudinary: Delete stored resource
+          activate Cloudinary
+          Cloudinary -->> Storage: Deletion result or error
+          deactivate Cloudinary
+          Storage -->> Service: Cleanup result or error
+          deactivate Storage
+          ' Finally awaits best-effort cleanup; cleanup failure is logged, original error retained.
+        end
+        Service -->> Controller: Validation, policy, storage or persistence error
+        deactivate Service
+        Controller -->> Gateway: 400 / 403 / 404 / 409 / 413 / 503 or 500
+        deactivate Controller
+        Gateway -->> Screen: Reading creation error
+        deactivate Gateway
+        Screen -->> Instructor: Show upload error
+      end
+
+      opt Upload failed or extraction warning returned
+        ' Both UI branches call query.reload(). Normal success navigates away instead.
+        Screen -> Gateway: GET /api/v1/courses/{courseId}/lessons/{lessonId}/materials/reading-upload-context
+        activate Gateway
+        Gateway -> Controller: GET /api/v1/courses/{courseId}/lessons/{lessonId}/materials/reading-upload-context
+        activate Controller
+        Controller -> Service: Reload Reading upload context
+        activate Service
+        ' Same getReadingUploadContext internals as above, including Tenant REST and
+        ' parallel settings/usage reads; repeated internals are not expanded.
+        Service -->> Controller: Refreshed context or load error
+        deactivate Service
+        Controller -->> Gateway: 200 OK or context error
+        deactivate Controller
+        Gateway -->> Screen: Context result
+        deactivate Gateway
+        Screen -->> Instructor: Show refreshed form, warning, block or load error
+        ' Warning survives reload, disables further input/upload, and offers View saved Reading.
+        ' While reloading, the page displays Skeleton; a reload failure shows the load error.
+      end
+    else Form validation failed
+      ' No POST for missing/invalid title, file, MIME, size or insufficient remaining storage.
+      Screen -->> Instructor: Show validation error
+    end
+  else Upload eligibility failed
+    ' GET returns 200 with canUpload=false for disallowed Course/disabled Lesson,
+    ' or a Subscription outside its Active validity period. Locked alone is allowed.
+    Screen -->> Instructor: Show block reason and disable upload
+  end
+else Upload context loading failed
+  activate Gateway
+  activate Controller
+  activate Service
+  ' Role/organization ->403, inaccessible Lesson ->404, absent settings/Tenant failure ->503.
+  ' Failed context preparation assumes no successful queries and emits no multipart POST.
+  Service -->> Controller: Context access or verification error
+  deactivate Service
+  Controller -->> Gateway: 403 / 404 / 503 or server error
+  deactivate Controller
+  Gateway -->> Screen: Context load error
+  deactivate Gateway
+  Screen -->> Instructor: Show load error and Try again
+end
+deactivate Screen
+deactivate Instructor
+
+' BR-293: a valid parsed PDF with no counted words is stored with wordCount=0 and a warning;
+' a PDF parse exception (for example, a corrupted or password-protected file)
+' becomes an error and stops upload; the parser determines which PDFs it can read.
+' BR-286/285: Locked accepts only Optional and every new material is appended;
+' early checks allow only Draft/Rejected/Published, rejecting Submitted/Archived/disabled.
+' Final transaction explicitly rejects Submitted, Archived, Disabled and disabledAt,
+' then Locked-required. Its named status exclusions are narrower than the early allow-list.
+' Ownership follows Lesson/Module/Course organizationId and Course.chain.instructorId.
+' BR-151: validate configured PDF MIME/size and Subscription quota, then recheck before commit.
+' BR-288: usage sums Ready, unreleased MediaFile rows once, not Material/version references.
+' There is no explicit purpose whitelist in the aggregate; the quota lock serializes
+' cooperating writers, not arbitrary writes or Subscription changes in tenant_db.
+' Latest policy and Course DB commit do not form one cross-database transaction.
+' BR-51 evidence only, outside this upload interaction:
+' CoursesRepository.calculateEstimatedDurationMinutes at courses.repository.ts:329
+' uses CEIL(file.wordCount/currentReadingSpeed) for Required, non-disabled Readings.
+' Optional Readings are excluded; zero words contribute zero minutes. Upload persists
+' wordCount/isRequired only; it does not execute that query, open UC14.1 or publish an event.
+' No handwritten word count input, OCR, MinIO, presigned URL or direct browser storage upload.
+' UI progress=100% confirms browser transfer only. POST timeout=120 s does not prove
+' backend cancellation, cleanup or rollback; remote credential validity remains unverified.
+' If provider upload throws before returning a storage key, service cleanup cannot target
+' that remote resource; cleanup failures are only logged, without retry.
+' Error caveat: Axios resolves HTTP error bodies; missing response.data.id throws a plain
+' Error. toApiError can then map it to status 0, bypassing intended status-specific messages.
+' Warning/failed POST reloads are shown; ordinary UC17 list loading after navigation is omitted.
+' No LearningClient, Kafka, notification, audit, Video upload, replacement or user deletion.
+@enduml

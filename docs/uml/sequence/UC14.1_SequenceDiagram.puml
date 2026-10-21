@@ -1,0 +1,200 @@
+@startuml
+' UC14.1 - Xem chi tiết Course
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS evidence; paths are relative to the workspace root.
+' UC: docs/uml/docs/LearnUP_UseCase.docx, UC14.1 row.
+' BR: docs/uml/docs/LearnUP_QuyTacNghiepVu.docx, BR-49/51/52/53/54/55/79.
+' Requested DOCX files are under docs/uml/docs, not directly under docs.
+' Both metadata revisions are 1; no identified business-spec release is matched to a snapshot.
+' docs/source-of-truth is absent; docs/architecture/source-of-truth-migration-plan.md:184 supports ownership.
+' UI: frontend/src/pages/instructor/course.detail.tsx:64 (fetchCourse), :93 (effect).
+' UI fields/format: same file:44 (formatEstimatedDuration), :163/:173/:188-216.
+' Route: frontend/src/router.tsx:357/:359/:377 (Instructor route protection and Course detail).
+' API: frontend/src/services/course.service.ts:94 (fetchCourseDetailAPI); :1 uses courseAxios.
+' Transport: frontend/src/services/axios.customize.ts:47/:61/:64; frontend/src/config/env.ts:13.
+' Local development URL: frontend/.env.development:10 = http://localhost:8080.
+' No local override file was found; process VITE_COURSE_BACKEND_URL is unset.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:2/:40-43.
+' Trusted claims: gateway/api-gateway/src/main/java/com/learnup/gateway/filter/JwtAuthenticationFilter.java:133.
+' Bootstrap: services/course-service/src/main.ts:40-43 (api prefix, URI v1).
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:125 (findDetail).
+' Service: services/course-service/src/modules/courses/courses.service.ts:534 (findDetail), :574 (duration).
+' Repository: services/course-service/src/modules/courses/courses.repository.ts:279 (findDetail),
+' :320 (getReadingSpeedWordsPerMinute), :329 (calculateEstimatedDurationMinutes).
+' Models: services/course-service/prisma/schema.prisma:18/:31/:104/:126/:187.
+' DB adapter: services/course-service/src/infrastructure/prisma/prisma.service.ts:10;
+' services/course-service/.env:2 selects course_db; credentials are not included here.
+' Storage selection: services/course-service/src/infrastructure/storage/storage.provider.ts:31.
+' All three required Cloudinary settings are nonempty in local Course .env; no process override found.
+' Provider: libraries/ts-storage/src/providers/cloudinary/cloudinary.provider.ts:91 (getUrl).
+' It formats a URL with cloudinary.url; it does not make a provider HTTP request.
+
+actor Instructor
+boundary "Course Detail Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+participant ":CloudinaryStorageProvider" as Storage
+database "course_db" as CourseDB
+
+' Preconditions: authenticated Instructor and valid route Course ID.
+' Missing route ID is handled in the UI; invalid UUID is rejected by ParseUUIDPipe (400).
+' JWT/internal-key middleware and token refresh are outside the main UC interaction.
+' Diagram follows the local development configuration; live requests/other build modes are unverified.
+
+activate Instructor
+Instructor -> Screen: Open /instructor/courses/{courseId}
+activate Screen
+Screen -> Gateway: GET /api/v1/courses/{courseId}
+activate Gateway
+Gateway -> Controller: GET /api/v1/courses/{courseId}\nTrusted user context
+activate Controller
+Controller -> Service: Load Course details
+activate Service
+Service -> Service: Verify Instructor and organization context
+activate Service
+deactivate Service
+
+alt Access checked successfully
+  Service -> Repository: Find Course by tenant and chain owner
+  activate Repository
+  ' where: Course.id, organizationId and chain.instructorId == user.userId.
+  ' Selects the displayed metadata, lockedAt and cover-file status/key; no status/Locked restriction.
+  Repository -> CourseDB: Read owned Course and cover metadata
+  activate CourseDB
+  CourseDB -->> Repository: Course details or no match
+  deactivate CourseDB
+  Repository -->> Service: Course details or no match
+  deactivate Repository
+
+  alt Course found successfully
+    ' Actual private service method; keep this nested execution through its repository work.
+    Service -> Service: Calculate estimated duration
+    activate Service
+    Service -> Repository: Load latest reading speed
+    activate Repository
+    ' Local platform_settings snapshot, ordered by sourceAsOf descending, without a Tenant REST call.
+    Repository -> CourseDB: Read latest reading-speed setting
+    activate CourseDB
+    CourseDB -->> Repository: Reading speed or no setting
+    deactivate CourseDB
+    Repository -->> Service: Reading speed or null
+    deactivate Repository
+
+    opt Reading speed is positive
+      Service -> Repository: Calculate required learning minutes
+      activate Repository
+      ' Live SQL calculation, not a stored estimated-duration field:
+      ' SUM(CEIL(Video.durationSeconds / 60.0)) + SUM(CEIL(Reading.wordCount / readingSpeed))
+      ' + Course.assignmentMinutes. Each required Material is rounded before summation.
+      ' Excludes disabled Lessons, disabled Materials and isRequired=false Materials.
+      ' Restricts Course ID and organizationId; CASE includes Video/Reading only, not Quiz.
+      ' durationSeconds/wordCount are stored MediaFile metadata; no extraction runs during this GET.
+      Repository -> CourseDB: Sum required Video and Reading minutes\nAdd stored Assignment minutes
+      activate CourseDB
+      CourseDB -->> Repository: Estimated minutes or no result
+      deactivate CourseDB
+      Repository -->> Service: Estimated minutes or null
+      deactivate Repository
+    end
+    ' Missing/nonpositive reading speed returns null without executing the aggregate SQL.
+    ' This suppresses the whole estimate, including otherwise known Video/Assignment minutes.
+    ' A valid empty Course can instead total zero minutes; no aggregate row also returns null.
+    deactivate Service
+
+    opt Cover is Ready and not released
+      Service -> Storage: Build cover image URL
+      activate Storage
+      Storage -->> Service: Cover URL
+      deactivate Storage
+    end
+    ' Otherwise coverUrl=null. No upload, presigning or backend Cloudinary network request occurs.
+    ' Optional browser image loading from the returned URL is outside this business trace.
+    ' locked is derived from lockedAt != null; Submitted is not treated as Locked by this response.
+    Service -->> Controller: Course details, duration and locked state
+    deactivate Service
+    Controller -->> Gateway: 200 OK\nCourse details
+    deactivate Controller
+    Gateway -->> Screen: Course details
+    deactivate Gateway
+    Screen -->> Instructor: Show Course metadata and duration\nDays, type, status and lock state
+  else Course lookup failed
+    ' Restore incoming executions for this alternative; actor/screen remain active.
+    activate Gateway
+    activate Controller
+    activate Service
+    ' Missing Course, wrong tenant and wrong chain owner all produce the same scoped no-match result.
+    ' No duration/settings query or cover URL processing occurs after this rejection.
+    Service -->> Controller: Course not found (404)
+    deactivate Service
+    Controller -->> Gateway: 404 Not Found
+    deactivate Controller
+    Gateway -->> Screen: Detail load error
+    deactivate Gateway
+    Screen -->> Instructor: Show "Course not found"\nOffer Back to My Courses
+  end
+else Access check failed
+  activate Gateway
+  activate Controller
+  activate Service
+  ' Non-INSTRUCTOR or missing organizationId -> 403 before any repository call.
+  Service -->> Controller: Access denied (403)
+  deactivate Service
+  Controller -->> Gateway: 403 Forbidden
+  deactivate Controller
+  Gateway -->> Screen: Detail load error
+  deactivate Gateway
+  Screen -->> Instructor: Show "Course not found"\nOffer Back to My Courses
+end
+deactivate Screen
+deactivate Instructor
+
+' BR-49/79: displayed Course fields are real data, limited to the current tenant and chain owner.
+' Missing objectives/outcomes use UI placeholders; they do not prevent viewing an owned Draft.
+' Locked/Submitted do not deny reading. No edit, Builder, material or approval action is executed here.
+' BR-51/52: required Video/Reading only; Quiz time and Lesson introductory content contribute nothing.
+' Assignment minutes are a stored absolute total; no per-Assignment read or Assessment REST occurs here.
+' Upstream evidence (not part of this GET):
+' services/assessment-service/src/modules/assessments/assessments.service.ts:143/:158/:416/:485
+' invokes syncAssignmentMinutes after Assignment create/duration-update/delete commits.
+' Its repository sumExpectedMinutes (:121 in assessments.repository.ts) sums expectedDurationMinutes
+' for organizationId/courseId/kind=ASSIGNMENT; every Assignment is included, no optional flag filter.
+' HttpCourseServiceClient.setAssignmentMinutes (:141 in infrastructure/clients/course/http-course-service.client.ts)
+' sends POST /api/v1/internal/courses/{courseId}/assignment-minutes with the absolute total.
+' services/assessment-service/.env:11 selects COURSE_CLIENT_MODE=http; the factory defaults to HTTP.
+' Receiver: services/course-service/src/modules/internal-courses/internal-courses.controller.ts:64;
+' internal-courses.service.ts:131 updates assignment_minutes and its timestamp for the organization.
+' Failed upstream sync is caught/logged; Assignment stays committed and the local minutes may be stale.
+' Assessment writes an AssignmentMinutesChanged outbox row and marks it published after successful REST;
+' this is not evidence of a Kafka publish/consume path, and no event is invented in this read diagram.
+' The GET does not inspect assignmentMinutesAsOf or repair/retry an earlier synchronization failure.
+' BR-51 settings limitation: only the latest local course_db snapshot is read on each GET.
+' The inspected Course PlatformSettings service/controller are empty; seed.ts:106 supplies 200 words/min.
+' No automatic live synchronization from central platform settings was verified in this path.
+' BR-53: expectedCompletionDays is calendar days; estimatedDurationMinutes is content effort.
+' UI renders <60 as minutes, otherwise hours plus remaining minutes, and null as "Not available".
+' BR-54/55 gap: schema has studyMinutesPerDay/durationGapThresholdPercent, but findDetail reads neither;
+' the page performs no capacity comparison or over-capacity warning. No warning/approval block is invented.
+' Cloudinary credential presence selects this provider locally; credential validity is unverified.
+' Missing storage configuration would choose UnconfiguredStorageProvider and fail getUrl for a Ready cover.
+' Routine DTO, persistence and provider errors are not separate branches; UI clears Course and shows error.
+' HttpExceptionFilter returns error instead of top-level message; UI normally uses its generic error text.
+' TenantClient/LearningClient are injected into CoursesService but neither is called by findDetail.
+' No cross-service HTTP, Kafka, shared database access, content-tree loading or database write in this UC.
+@enduml

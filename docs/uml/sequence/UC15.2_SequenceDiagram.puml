@@ -1,0 +1,217 @@
+@startuml
+' UC15.2 - Thêm Lesson
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS evidence; paths are relative to the workspace root.
+' UC: docs/uml/docs/LearnUP_UseCase.docx, UC15.2 row (create a Lesson in a Module).
+' BR: docs/uml/docs/LearnUP_QuyTacNghiepVu.docx, BR-79/80/88/284/285/147.
+' These DOCX files are under docs/uml/docs, not directly under docs.
+' Both metadata revisions are 1, without an identified business-spec release.
+' docs/source-of-truth is absent; architecture prose is not proof of runtime calls.
+' UI: frontend/src/pages/instructor/course.builder.lesson.add.tsx:12/:25/:43.
+' Route: frontend/src/router.tsx:457/:469 (modules/:moduleId/lessons/new).
+' Wrapper: frontend/src/services/course.service.ts:69 (createCourseLessonAPI).
+' Transport: frontend/src/services/axios.customize.ts:47/:61/:64; course.service.ts:1.
+' URL selection: frontend/src/config/env.ts:13; frontend/.env.development:10.
+' Local development Course base URL is http://localhost:8080; no local override file found.
+' Relevant process VITE_* variables are unset; other launch/build modes are unverified.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:40-43.
+' Trusted context: gateway/api-gateway/src/main/java/com/learnup/gateway/filter/JwtAuthenticationFilter.java:133.
+' Prefix/version: services/course-service/src/main.ts:40-43 (api, URI v1).
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:89 (createLesson).
+' Service: services/course-service/src/modules/courses/courses.service.ts:311 (createLesson).
+' Repository: services/course-service/src/modules/courses/courses.repository.ts:148/:194/:205.
+' DTO: services/course-service/src/modules/courses/dto/create-course-lesson.dto.ts:3.
+' Models: services/course-service/prisma/schema.prisma:67/:84/:104.
+' DB adapter: services/course-service/src/infrastructure/prisma/prisma.service.ts:10.
+' services/course-service/.env:2 selects course_db; credentials are omitted.
+' Post-save refresh: frontend/src/pages/instructor/course.builder.lesson.add.tsx:77-83;
+' frontend/src/components/layout/layout.instructor.course.tsx:35-58.
+' Refresh: course.service.ts:55; courses.controller.ts:73; courses.service.ts:195;
+' courses.repository.ts:108 (all under the frontend/services or Course module paths above).
+
+actor Instructor
+boundary "Add Lesson Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+database "course_db" as CourseDB
+
+' Preconditions: authenticated Instructor, loaded Course Builder context and selected Module.
+' Entry: /instructor/courses/{courseId}/builder/modules/{moduleId}/lessons/new.
+' If Module is absent from loaded structure.modules, the page displays "Module not found."
+' instead of the form and sends no POST. Missing route IDs render nothing.
+' Initial tree loading is preparation, not another UC15 flow in this diagram.
+' JWT/internal-key middleware and token-refresh mechanics are outside the main interaction.
+
+activate Instructor
+Instructor -> Screen: Open Add Lesson for selected Module
+activate Screen
+Instructor -> Screen: Enter title and content; select Add Lesson
+Screen -> Screen: Check required fields and editability
+activate Screen
+deactivate Screen
+
+' handleSave trims both fields, ignores duplicate saves and rejects structureLocked.
+' UI limits: title 200 characters, introductory content 20000 characters.
+' structureLocked is lockedAt != null OR status == Submitted, from loaded builder context.
+alt Form checked successfully
+  Screen -> Gateway: POST /api/v1/courses/{courseId}/modules/{moduleId}/lessons\nTitle and content
+  activate Gateway
+  Gateway -> Controller: POST /api/v1/courses/{courseId}/modules/{moduleId}/lessons\nTrusted user context
+  activate Controller
+  Controller -> Service: Create Lesson
+  activate Service
+  Service -> Service: Verify Instructor and organization
+  activate Service
+  deactivate Service
+
+  ' Outcome-level alternative: expand the successful operation, summarize rejected attempts.
+  ' Rejections stop at their actual checks; successful reads/writes are not assumed on failure.
+  alt Lesson created successfully
+    Service -> Repository: Find Course by tenant and owner
+    activate Repository
+    ' where: Course.id, Course.organizationId and Course.chain.instructorId == user.userId.
+    Repository -> CourseDB: Read owned Course and edit status
+    activate CourseDB
+    CourseDB -->> Repository: Course, status and lockedAt
+    deactivate CourseDB
+    Repository -->> Service: Owned Course
+    deactivate Repository
+    Service -> Service: Check Course is not Submitted or Locked
+    activate Service
+    deactivate Service
+
+    Service -> Repository: Find Module in Course and organization
+    activate Repository
+    ' findModule matches moduleId, courseId AND organizationId; it returns only the Module ID.
+    Repository -> CourseDB: Read matching Module
+    activate CourseDB
+    CourseDB -->> Repository: Module ID
+    deactivate CourseDB
+    Repository -->> Service: Valid Module
+    deactivate Repository
+
+    Service -> Repository: Create Lesson at end of Module
+    activate Repository
+    ' One Prisma $transaction reads the last Lesson position descending, then inserts Lesson.
+    ' Both operations use moduleId and organizationId; position = (last?.position ?? 0) + 1.
+    ' Title and introductory content are stored directly on Lesson, not as a Material.
+    Repository -> CourseDB: Insert Lesson at next position\nSingle transaction
+    activate CourseDB
+    CourseDB -->> Repository: Saved Lesson
+    deactivate CourseDB
+    Repository -->> Service: Saved Lesson
+    deactivate Repository
+    Service -->> Controller: Created Lesson
+    deactivate Service
+    Controller -->> Gateway: 201 Created\nLesson details
+    deactivate Controller
+    Gateway -->> Screen: Created Lesson
+    deactivate Gateway
+    Screen -->> Instructor: Show "Lesson created."
+
+    ' handleSave always awaits refetchStructure; retain the supporting REST result refresh.
+    ' This does not open Lesson content, add learning materials, or expand the full UC15.
+    ' Only a successful refresh is expanded; its independent error behavior is recorded below.
+    Screen -> Gateway: GET /api/v1/courses/{courseId}/structure
+    activate Gateway
+    Gateway -> Controller: GET /api/v1/courses/{courseId}/structure\nTrusted user context
+    activate Controller
+    Controller -> Service: Refresh Course structure
+    activate Service
+    ' getStructure checks Instructor/organization again; findStructure scopes Course ownership.
+    Service -> Repository: Load owned Course structure
+    activate Repository
+    Repository -> CourseDB: Read Course structure\nCurrent tenant and owner
+    activate CourseDB
+    CourseDB -->> Repository: Course structure
+    deactivate CourseDB
+    Repository -->> Service: Course structure
+    deactivate Repository
+    Service -->> Controller: Updated structure and lock state
+    deactivate Service
+    Controller -->> Gateway: 200 OK\nUpdated structure
+    deactivate Controller
+    Gateway -->> Screen: Updated structure
+    deactivate Gateway
+    Screen -> Screen: Return to Course Builder
+    activate Screen
+    deactivate Screen
+  else Course editing failed\nLocked or Submitted
+    ' Restore executions closed in the preceding operand for PlantUML source-order rendering.
+    activate Gateway
+    activate Controller
+    activate Service
+    ' A matching findOwnedCourseForEditing read precedes this rejection; its repetition is omitted.
+    ' Submitted is checked first, then lockedAt. Neither rejection queries Module or inserts Lesson.
+    Service -->> Controller: Course editing rejected (400)
+    deactivate Service
+    Controller -->> Gateway: 400 Bad Request
+    deactivate Controller
+    Gateway -->> Screen: Creation error
+    deactivate Gateway
+    Screen -->> Instructor: Show "Unable to create Lesson."
+  else Course or Module access failed
+    activate Gateway
+    activate Controller
+    activate Service
+    ' Non-INSTRUCTOR or missing organizationId -> 403 before the ownership query.
+    ' Missing Course, wrong organization or wrong chain owner -> 404 from the scoped Course read.
+    ' After an editable Course is found, Module not matching id/courseId/organizationId -> 404.
+    ' Failed read attempts are summarized; no createLesson or successful write is implied.
+    Service -->> Controller: Access or lookup rejected\n403 / 404
+    deactivate Service
+    Controller -->> Gateway: 403 Forbidden or 404 Not Found
+    deactivate Controller
+    Gateway -->> Screen: Creation error
+    deactivate Gateway
+    Screen -->> Instructor: Show "Unable to create Lesson."
+  end
+else Form check failed
+  ' Empty title/content or cached structureLocked prevents POST; saving=true ignores re-entry.
+  ' Locked/Submitted and empty required fields also disable the Add Lesson button.
+  Screen -->> Instructor: Keep form disabled or show validation error
+end
+deactivate Screen
+deactivate Instructor
+
+' BR-79: Course ownership is scoped by chain.instructorId; organizationId provides tenant scope.
+' BR-80/88: persisted lockedAt blocks adding Lesson; this UC does not query enrollments.
+' Setting Locked on first Enrollment is outside this trace and has not been verified here.
+' BR-284: Published and unlocked remains editable; there is no Draft-only guard.
+' BR-285: Submitted blocks creation independently of lockedAt.
+' BR-147: Lesson has no stored required flag. getStructure derives required from materials.some.
+' A newly created empty Lesson is therefore not required; no Material/completion state is created.
+' DB: lessons.module_id references modules.id with onDelete Cascade; @@unique([moduleId, position]).
+' Tenant/Course membership is checked in service lookups; the FK is not tenant-composite.
+' Guard limitation: ownership/status/lockedAt and Module validation precede the create transaction;
+' there is no in-transaction guard recheck or explicit row lock in these methods.
+' Concurrent appends can hit the unique position constraint; no retry is implemented here.
+' Backend trims and rejects empty title/content; DTO content lacks IsNotEmpty but service enforces it.
+' Detailed DTO, transport and persistence errors are omitted as separate branches; UI reports failure.
+' HttpExceptionFilter returns error instead of top-level message, so server business rejections
+' reach handleSave without response.message and display its "Unable to create Lesson." fallback.
+' A failed create transaction rolls back its write; a failed refresh does not undo a saved Lesson.
+' loadStructure catches refresh errors, clears structure and records an error, then resolves;
+' handleSave still navigates to Builder, whose parent may display a load error instead of the tree.
+' TenantClient/LearningClient/storage are injected but not called by createLesson or getStructure.
+' No cross-service REST, storage provider, presigned URL, Kafka or intermediary Client lifeline.
+' Parent-layout Assignment reads on route changes are unrelated to this UC and omitted.
+' No Module creation, structure editing/reorder, Lesson content viewing/editing or Material upload.
+@enduml

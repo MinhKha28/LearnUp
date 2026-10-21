@@ -1,0 +1,269 @@
+@startuml
+' UC15 - Xem cấu trúc chương trình
+' Visible title omitted by the user's clarification so the existing validator can pass.
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS evidence; paths are relative to the workspace root.
+' Route: frontend/src/router.tsx:457; Instructor-only parent layout and index CourseBuilder.
+' Request orchestration: frontend/src/components/layout/layout.instructor.course.tsx:35, :60, :65.
+' Structure display: frontend/src/pages/instructor/course.builder.tsx:10, :41, :64, :117.
+' Navigation/assessment placement: frontend/src/components/instructor/course.nav.tsx:40, :79.
+' Course API: frontend/src/services/course.service.ts:55 (fetchCourseStructureAPI).
+' Assignment API: frontend/src/services/assessment.service.ts:49 (fetchAssignmentsAPI).
+' Transport: frontend/src/services/axios.customize.ts:47, :61, :64, :65.
+' Environment mapping: frontend/src/config/env.ts:10; frontend/.env.development:10, :12.
+' Checked local dev URLs: Course and Assessment both use http://localhost:8080.
+' No frontend .env.local/.env.development.local overrides or inherited URL overrides were found.
+' .env.example is not the selected development configuration. Production/runtime overrides are not verified.
+' Gateway routes: gateway/api-gateway/src/main/resources/application.yml:40, :52.
+' JWT context replacement: gateway/api-gateway/src/main/java/com/learnup/gateway/filter/JwtAuthenticationFilter.java:137.
+' Course bootstrap: services/course-service/src/main.ts:40 (api prefix, URI version 1).
+' Structure controller/service: services/course-service/src/modules/courses/courses.controller.ts:73;
+' services/course-service/src/modules/courses/courses.service.ts:195.
+' Structure repository: services/course-service/src/modules/courses/courses.repository.ts:108.
+' Assessment bootstrap: services/assessment-service/src/main.ts:38.
+' Assignment controller: services/assessment-service/src/modules/assessments/assessments.controller.ts:30.
+' Assignment service: services/assessment-service/src/modules/assessments/assessments.service.ts:196, :499, :510.
+' Assignment repository: services/assessment-service/src/modules/assessments/assessments.repository.ts:38.
+' Actual HTTP wiring: services/assessment-service/src/infrastructure/clients/integrations.module.ts:20;
+' services/assessment-service/.env:8, :9, :11 (Course URL localhost:8083, timeout 5000 ms, http mode).
+' Hidden adapter: services/assessment-service/src/infrastructure/clients/course/http-course-service.client.ts:41.
+' Authoring context: services/course-service/src/modules/courses/courses.controller.ts:58;
+' services/course-service/src/modules/courses/courses.service.ts:141;
+' services/course-service/src/modules/courses/courses.repository.ts:39.
+' DB ownership: services/course-service/prisma/schema.prisma:18, :31, :67, :84, :104;
+' services/assessment-service/prisma/schema.prisma:10.
+' Prisma adapters: each service's src/infrastructure/prisma/prisma.service.ts reads its DATABASE_URL.
+' Checked database names only: course-service/.env:2 -> course_db;
+' assessment-service/.env:3 -> assessment_db. Credentials are intentionally not reproduced.
+' docs/source-of-truth does not exist; docs/business/requirements-support.md has no full definitions
+' for BR-79, BR-99, BR-147, BR-291 or BR-285. Formal BR conformance is not claimed.
+' Architecture ownership reference: docs/architecture/source-of-truth-migration-plan.md:184, :185, :193.
+
+actor Instructor
+boundary "Course Structure Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as CoursesController
+participant ":CoursesService" as CoursesService
+participant ":CoursesRepository" as CoursesRepository
+participant ":AssessmentsController" as AssessmentsController
+participant ":AssessmentsService" as AssessmentsService
+participant ":AssessmentsRepository" as AssessmentsRepository
+database "course_db" as CourseDB
+database "assessment_db" as AssessmentDB
+
+' Preconditions: authenticated Instructor with organizationId and a real Course UUID.
+' JWT validation/token refresh and routine auth middleware are not the UC's main interaction.
+' Gateway replaces browser-supplied context headers with trusted JWT context.
+' The root alt describes complete structure-fetch outcomes, not a new check in React.
+' Both root operands retain the independent Assignment request started by the second useEffect.
+' par models independent requests, not a Promise.all barrier before rendering the structure.
+' Failure operands intentionally summarize downstream internals when completion is not established.
+
+activate Instructor
+Instructor -> Screen: Open /instructor/courses/{courseId}/builder
+activate Screen
+
+alt Course structure loaded successfully
+  par Load the Course structure
+    Screen -> Gateway: GET /api/v1/courses/{courseId}/structure
+    activate Gateway
+    Gateway -> CoursesController: GET /api/v1/courses/{courseId}/structure\nTrusted user context
+    activate CoursesController
+    CoursesController -> CoursesService: getStructure(user, courseId)
+    activate CoursesService
+    CoursesService -> CoursesService: Check Instructor and organization
+    activate CoursesService
+    deactivate CoursesService
+    CoursesService -> CoursesRepository: findStructure(courseId, organizationId, userId)
+    activate CoursesRepository
+    CoursesRepository -> CourseDB: Read ordered Modules and Lessons\nAssigned Instructor and organization
+    activate CourseDB
+    CourseDB -->> CoursesRepository: Course tree and material required flags
+    deactivate CourseDB
+    CoursesRepository -->> CoursesService: Scoped Course tree
+    deactivate CoursesRepository
+    CoursesService -> CoursesService: Derive required flags\nand editing lock reason
+    activate CoursesService
+    deactivate CoursesService
+    ' Lesson.required = any lesson.materials[].isRequired.
+    ' Module.required = any module.lessons[].required; neither is a separate stored flag.
+    ' findStructure sorts Module.position and Lesson.position ascending.
+    ' This query does not filter disabled Lessons/Materials and loads no Quiz/Assignment.
+    ' structureLocked = (lockedAt != null) OR (status == Submitted).
+    ' Submitted reason takes precedence over the first-Enrollment lock reason.
+    ' Locked/Submitted prevent structure editing, not this read.
+    CoursesService -->> CoursesController: Structure, required flags and lock reason
+    deactivate CoursesService
+    CoursesController -->> Gateway: 200 OK - Course structure
+    deactivate CoursesController
+    Gateway -->> Screen: Course structure
+    deactivate Gateway
+    Screen -->> Instructor: Show Module/Lesson tree\nRequired flags and lock reason
+
+  and Load Assignments independently
+    Screen -> Gateway: GET /api/v1/assessments/assignments\ncourseId
+    activate Gateway
+    Gateway -> AssessmentsController: GET /api/v1/assessments/assignments\ncourseId and trusted user context
+    activate AssessmentsController
+    AssessmentsController -> AssessmentsService: listAssignments(user, courseId)
+    activate AssessmentsService
+    AssessmentsService -> AssessmentsService: Check Instructor and organization
+    activate AssessmentsService
+    deactivate AssessmentsService
+
+    alt Assignments loaded successfully
+      AssessmentsService -> CoursesController: GET /api/v1/courses/{courseId}/authoring-context\nTrusted user context
+      activate CoursesController
+      ' Direct REST through HttpCourseServiceClient, not through API Gateway.
+      ' COURSE_CLIENT_MODE=http; the hidden adapter adds headers and a 5000 ms timeout.
+      CoursesController -> CoursesService: getAuthoringContext(courseId, organizationId)
+      activate CoursesService
+      CoursesService -> CoursesRepository: findAuthoringContext(courseId, organizationId)
+      activate CoursesRepository
+      CoursesRepository -> CourseDB: Read Course and chain owner\nCurrent organization
+      activate CourseDB
+      CourseDB -->> CoursesRepository: Course authoring context
+      deactivate CourseDB
+      CoursesRepository -->> CoursesService: Course and chain owner
+      deactivate CoursesRepository
+      CoursesService -->> CoursesController: Authoring context
+      deactivate CoursesService
+      CoursesController -->> AssessmentsService: 200 OK - authoring context
+      deactivate CoursesController
+      AssessmentsService -> AssessmentsService: Verify Course owner and tenant
+      activate AssessmentsService
+      deactivate AssessmentsService
+      ' Context lookup filters organization; AssessmentsService additionally compares instructorId/userId.
+      ' listAssignments does not reject a read just because the Course is Locked or Submitted.
+      AssessmentsService -> AssessmentsRepository: findAssignmentsOfCourse(organizationId, courseId)
+      activate AssessmentsRepository
+      AssessmentsRepository -> AssessmentDB: Read Assignments by position\nSame organization and Course
+      activate AssessmentDB
+      ' kind=ASSIGNMENT; include submission count; disabled rows remain in the list.
+      AssessmentDB -->> AssessmentsRepository: Assignments and submission counts
+      deactivate AssessmentDB
+      AssessmentsRepository -->> AssessmentsService: Assignment rows
+      deactivate AssessmentsRepository
+      AssessmentsService -->> AssessmentsController: Assignment summaries
+      deactivate AssessmentsService
+      AssessmentsController -->> Gateway: 200 OK - Assignment list
+      deactivate AssessmentsController
+      Gateway -->> Screen: Assignment list
+      deactivate Gateway
+      Screen -> Screen: Store Assignment items
+      activate Screen
+      deactivate Screen
+
+    else Assignment loading failed
+      ' Restore incoming executions for this alternative in PlantUML source order.
+      activate Gateway
+      activate AssessmentsController
+      activate AssessmentsService
+      ' HTTP error trace: Course context missing/not owned -> 404; upstream failure/timeout -> 503.
+      ' No completed context lookup or Assessment DB query is assumed in this operand.
+      AssessmentsService -->> AssessmentsController: Assignment lookup error
+      deactivate AssessmentsService
+      AssessmentsController -->> Gateway: 404 or 503 error
+      deactivate AssessmentsController
+      Gateway -->> Screen: Assignment data unavailable
+      deactivate Gateway
+      Screen -> Screen: Set Assignment data to null
+      activate Screen
+      deactivate Screen
+    end
+  end
+
+  opt Assignment data is available
+    Screen -->> Instructor: Show Assignments after Modules\nAnd Quiz navigation link
+  end
+  ' The structure is already visible when its request finishes; this opt does not delay that render.
+  ' Empty Assignment items still show the section, its empty state and the Quizzes link.
+
+else Structure lookup failed\nCourse missing or not assigned
+  par Reject the scoped Course lookup
+    Screen -> Gateway: GET /api/v1/courses/{courseId}/structure
+    activate Gateway
+    Gateway -> CoursesController: GET /api/v1/courses/{courseId}/structure\nTrusted user context
+    activate CoursesController
+    CoursesController -> CoursesService: getStructure(user, courseId)
+    activate CoursesService
+    CoursesService -> CoursesService: Check Instructor and organization
+    activate CoursesService
+    deactivate CoursesService
+    CoursesService -> CoursesRepository: findStructure(courseId, organizationId, userId)
+    activate CoursesRepository
+    CoursesRepository -> CourseDB: Read the assigned Course tree\nCurrent organization and Instructor
+    activate CourseDB
+    ' where: id=courseId AND organizationId=user.organizationId AND chain.instructorId=user.userId.
+    CourseDB -->> CoursesRepository: No matching Course
+    deactivate CourseDB
+    CoursesRepository -->> CoursesService: No matching Course
+    deactivate CoursesRepository
+    CoursesService -->> CoursesController: Course not found
+    deactivate CoursesService
+    CoursesController -->> Gateway: 404 Not Found
+    deactivate CoursesController
+    Gateway -->> Screen: Structure load error
+    deactivate Gateway
+    Screen -->> Instructor: Show error and Back to My Courses
+
+  and The Assignment request still starts
+    Screen -> Gateway: GET /api/v1/assessments/assignments\ncourseId
+    activate Gateway
+    Gateway -> AssessmentsController: GET /api/v1/assessments/assignments\ncourseId and trusted user context
+    activate AssessmentsController
+    AssessmentsController -> AssessmentsService: listAssignments(user, courseId)
+    activate AssessmentsService
+    ' Failure internals are summarized: missing/foreign Course or owner mismatch -> 404.
+    ' A failing Course HTTP dependency can instead produce 503; do not claim its DB query completed.
+    ' Assessment repository work cannot proceed without successful ownership verification.
+    AssessmentsService -->> AssessmentsController: Assignment lookup error
+    deactivate AssessmentsService
+    AssessmentsController -->> Gateway: 404 or 503 error
+    deactivate AssessmentsController
+    Gateway -->> Screen: Assignment data unavailable
+    deactivate Gateway
+    Screen -> Screen: Set Assignment data to null
+    activate Screen
+    deactivate Screen
+    ' This independent response never replaces the structure error page with an outline.
+  end
+end
+
+deactivate Screen
+deactivate Instructor
+
+' Source/spec limits and intentional omissions:
+' - 403 for a non-Instructor or missing organization exists in both services; outside the stated precondition.
+' - The two React effects are separate. Assignment failure is non-blocking; there is no Promise.all.
+' - onResponseError resolves HTTP error envelopes; the Assignment effect uses res.data?.items ?? null.
+' - That effect has no catch for an Axios transport rejection; on initial mount it leaves the initial null state.
+'   On later route changes a rejected request may leave older Assignment state; no invented recovery is shown.
+' - The frontend, not CoursesService.getStructure, composes Assignment items with the Course outline.
+' - UC15 does not call fetchQuizzesAPI. The Quizzes shortcut navigates to /builder/quizzes (UC18),
+'   where frontend/src/pages/instructor/course.builder.quizzes.tsx:63 actually fetches Quiz data.
+' - No individual Quiz nodes or module-level Quiz placement are fabricated in this UC.
+' - Assignments append after Modules in position order; they do not affect Module/Lesson required flags.
+' - The Assignment response computes locked from submissions, but this outline shows Disabled, not item lock reasons.
+' - Some UI controls have separate guards: Edit Structure checks Submitted only; Add Assignment remains visible.
+'   Do not infer that every button is disabled by structureLocked.
+' - Empty Course modules render "No Modules yet"; viewing does not write data or lock the Course.
+' - No TenantClient, LearningClient, Enrollment query, storage call, presigned URL or Kafka publish executes here.
+' - Tenant ownership and editing-lock behavior are source observations, not verified full BR definitions.
+' Visual draw.io import: NOT VERIFIED; no remote renderer is used.
+@enduml

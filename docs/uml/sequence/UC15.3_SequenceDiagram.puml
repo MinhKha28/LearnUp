@@ -1,0 +1,224 @@
+@startuml
+' UC15.3 - Cập nhật cấu trúc chương trình
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS evidence; paths are relative to the workspace root.
+' UC: docs/uml/docs/LearnUP_UseCase.docx, UC15.3 row.
+' BR: docs/uml/docs/LearnUP_QuyTacNghiepVu.docx, BR-85/88/89/147/284/285 and sections 5.2/5.3.
+' Both requested DOCX files are under docs/uml/docs, not directly under docs.
+' Their metadata revisions are 1; an identified business-spec release is not matched to a snapshot.
+' docs/source-of-truth is absent; docs/architecture/source-of-truth-migration-plan.md:184 supports ownership.
+' UI: frontend/src/pages/instructor/course.builder.structure.edit.tsx:18 (CourseBuilderStructureEdit),
+' :32 (Submitted/reorder guards), :50/:59 (title changes), :94/:101 (moves), :117 (handleSave).
+' Route: frontend/src/router.tsx:457/:459/:477 (Instructor builder, structure/edit).
+' API: frontend/src/services/course.service.ts:106 (updateCourseStructureAPI); :1 uses courseAxios.
+' Transport: frontend/src/services/axios.customize.ts:47/:61/:64; frontend/src/config/env.ts:13.
+' Local development URL: frontend/.env.development:10 = http://localhost:8080.
+' No local override env file was found; process VITE_COURSE_BACKEND_URL is unset.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:2/:40-43.
+' Trusted claims: gateway/api-gateway/src/main/java/com/learnup/gateway/filter/JwtAuthenticationFilter.java:133.
+' Bootstrap: services/course-service/src/main.ts:40-43 (api prefix, URI v1).
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:134 (updateStructure).
+' Service: services/course-service/src/modules/courses/courses.service.ts:728 (updateStructure).
+' Repository: services/course-service/src/modules/courses/courses.repository.ts:521 (updateStructure).
+' DTO: services/course-service/src/modules/courses/dto/update-course-structure.dto.ts:14/:25/:42.
+' Models: services/course-service/prisma/schema.prisma:18/:31/:67/:84/:104.
+' Prisma adapter: services/course-service/src/infrastructure/prisma/prisma.service.ts:10;
+' services/course-service/.env:2 selects course_db; credentials are not included here.
+' Supporting refresh: UI:168; frontend/src/components/layout/layout.instructor.course.tsx:35;
+' frontend/src/services/course.service.ts:55; courses.controller.ts:73; courses.service.ts:195;
+' courses.repository.ts:108 (backend files are under the courses module paths above).
+
+actor Instructor
+boundary "Edit Course Structure Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+database "course_db" as CourseDB
+
+' Preconditions: authenticated Instructor, valid Course route ID and loaded builder context.
+' Entry: /instructor/courses/{courseId}/builder/structure/edit.
+' Parent-layout initial tree loading is UC15 preparation; the editor copies it from useOutletContext.
+' JWT/internal-key middleware and token refresh are preconditions, not the main UC interaction.
+' Diagram uses verified local development configuration; other build modes/live requests are unverified.
+
+activate Instructor
+Instructor -> Screen: Open Edit Course Structure
+activate Screen
+Screen -> Screen: Check Submitted state
+activate Screen
+deactivate Screen
+
+alt Editing checked successfully
+  ' Not Submitted: title inputs are editable even when Locked.
+  ' Reorder buttons and move handlers are disabled when Locked; Lesson moves stay within their Module.
+  Instructor -> Screen: Rename titles; reorder only if Unlocked
+  Instructor -> Screen: Select Save Structure
+  Screen -> Screen: Normalize and validate titles
+  activate Screen
+  deactivate Screen
+
+  alt Titles validated successfully
+    ' One request for title changes, reordering or both. No separate rename/reorder API exists here.
+    ' Payload is the full existing tree: modules[{id,title,lessons[{id,title}]}]; array order is desired order.
+    Screen -> Gateway: PUT /api/v1/courses/{courseId}/structure\nComplete ID/title tree in desired order
+    activate Gateway
+    Gateway -> Controller: PUT /api/v1/courses/{courseId}/structure\nTrusted user context
+    activate Controller
+    Controller -> Service: Update Course structure
+    activate Service
+    Service -> Service: Verify Instructor and organization
+    activate Service
+    deactivate Service
+    ' Service trims titles and rejects empty titles; DTO validates nested UUIDs/strings/200-char limits.
+
+    ' Outcome-level alternative: expand the successful transaction; rejected attempts are summarized.
+    ' No successful write is implied after a failed business check in a failed operand.
+    alt Structure updated successfully
+      Service -> Repository: Save titles and requested order
+      activate Repository
+      ' One Prisma transaction, timeout 20000 ms, serializes updateStructure requests on the Course row.
+      Repository -> CourseDB: Lock Course row FOR UPDATE\nCurrent organization
+      activate CourseDB
+      CourseDB -->> Repository: Course row locked
+      ' The row-lock query checks Course ID/organizationId; ownership is checked by the next read.
+      Repository -> CourseDB: Read current tree, status and lock state\nCurrent tenant and chain owner
+      CourseDB -->> Repository: Owned Course structure
+      Repository -> Repository: Check Submitted, IDs and Locked reorder
+      activate Repository
+      deactivate Repository
+      ' Reject Submitted first. Then require the exact same unique Module IDs and each Module's Lesson IDs.
+      ' No add/delete/ID replacement or moving a Lesson to another Module is accepted.
+      ' Compare array order with persisted position order; Locked rejects any detected order change.
+
+      opt Module or Lesson titles changed
+        Repository -> CourseDB: Update changed Module and Lesson titles
+        CourseDB -->> Repository: Titles updated
+        ' Only different titles are written; title-only requests are valid while Locked.
+      end
+      opt Order changed while Unlocked
+        Repository -> CourseDB: Reorder changed collections\nTemporary negatives, then positions 1..N
+        CourseDB -->> Repository: Positions updated
+        ' For changed Module order, move existing positions negative, then assign requested 1..N.
+        ' Repeat those two passes per Module whose Lesson order changed; leave other collections alone.
+        ' This avoids unique(courseId,position) / unique(moduleId,position) conflicts.
+      end
+      ' Commit all title/position changes together; failure rolls back the transaction.
+      deactivate CourseDB
+      Repository -->> Service: UPDATED; titleChanged and orderChanged
+      deactivate Repository
+      Service -->> Controller: updated=true and change flags
+      deactivate Service
+      Controller -->> Gateway: 200 OK\nUpdate result
+      deactivate Controller
+      Gateway -->> Screen: Structure update confirmed
+      deactivate Gateway
+
+      ' handleSave awaits refetchStructure before the success toast/navigation; retain this actual REST.
+      ' Only its normal successful trace is expanded; independent refresh error behavior is noted below.
+      Screen -> Gateway: GET /api/v1/courses/{courseId}/structure
+      activate Gateway
+      Gateway -> Controller: GET /api/v1/courses/{courseId}/structure\nTrusted user context
+      activate Controller
+      Controller -> Service: Refresh Course structure
+      activate Service
+      ' getStructure rechecks Instructor/organization; findStructure again scopes the chain owner.
+      Service -> Repository: Load owned Course structure
+      activate Repository
+      Repository -> CourseDB: Read ordered tree and Material flags\nCurrent tenant and chain owner
+      activate CourseDB
+      CourseDB -->> Repository: Course, Modules, Lessons and Material flags
+      deactivate CourseDB
+      Repository -->> Service: Refreshed tree
+      deactivate Repository
+      ' Lesson.required = materials.some(isRequired); Module.required = lessons.some(required).
+      Service -->> Controller: Refreshed tree and derived states
+      deactivate Service
+      Controller -->> Gateway: 200 OK\nCourse structure
+      deactivate Controller
+      Gateway -->> Screen: Refreshed structure
+      deactivate Gateway
+      Screen -->> Instructor: Show "Course structure updated successfully."
+      Screen -> Screen: Return to Course Builder
+      activate Screen
+      deactivate Screen
+    else Structure policy check failed\nSubmitted or Locked reorder
+      ' Restore incoming executions; actor/screen remain active through every alternative.
+      activate Gateway
+      activate Controller
+      activate Service
+      ' The same transaction locks/reads Course, then returns SUBMITTED or LOCKED without writes.
+      ' Submitted rejects all updates. Locked rejects the whole payload if order changed,
+      ' including any accompanying title changes; there is no partial title save.
+      ' This branch covers stale UI state or a crafted request: normal UI disables these actions.
+      Service -->> Controller: Structure change rejected (409)
+      deactivate Service
+      Controller -->> Gateway: 409 Conflict
+      deactivate Controller
+      Gateway -->> Screen: Update rejected
+      deactivate Gateway
+      Screen -->> Instructor: Show "Unable to save Course structure."
+    else Structure access or payload check failed
+      activate Gateway
+      activate Controller
+      activate Service
+      ' Role/context -> 403 before Repository; invalid DTO/empty normalized title -> 400.
+      ' Scoped Course missing/wrong tenant/wrong chain owner -> NOT_FOUND -> 404.
+      ' Duplicate/missing/foreign IDs or different Lesson membership -> INVALID_STRUCTURE -> 409.
+      ' Partial failed reads are summarized; technical DB failures roll back writes and produce an error.
+      Service -->> Controller: Access, validation or persistence error
+      deactivate Service
+      Controller -->> Gateway: 400 / 403 / 404 / 409 / 500
+      deactivate Controller
+      Gateway -->> Screen: Update error
+      deactivate Gateway
+      Screen -->> Instructor: Show "Unable to save Course structure."
+    end
+  else Title validation failed
+    ' Trimmed title must be nonempty and <=200 chars; no HTTP request is sent.
+    Screen -->> Instructor: Show Module or Lesson title warning
+  end
+else Editing check failed\nCourse is Submitted
+  ' The component displays this read-only warning instead of the editor; handleSave also exits early.
+  Screen -->> Instructor: Show "Course is awaiting approval."
+end
+deactivate Screen
+deactivate Instructor
+
+' BR-85/89/285: Locked allows title-only changes; Locked reorder and Submitted updates are rejected.
+' BR-284: Published+Unlocked can be reordered; there is no Draft/Rejected-only guard in this UC.
+' The implemented status check specifically excludes Submitted; no extra status rule is invented.
+' BR-88: adding/deleting components is outside this route and prevented by exact ID-set validation.
+' BR-147: Module/Lesson have no stored isRequired. No required flag appears in the PUT payload.
+' The supporting GET derives required from Material flags; no Material or Lesson content is modified.
+' Titles and order can change together in the one PUT when allowed. Reorder uses sibling arrays only.
+' A no-op or empty valid tree returns updated=true with false change flags; it creates no components.
+' Course row locking serializes this updateStructure method; other mutation paths were not proven
+' to share this locking protocol. The client sends no revision token; unchanged membership alone
+' does not detect concurrent title edits, so a later stale payload can overwrite an earlier edit.
+' UI failures: the HTTP interceptor resolves server error envelopes without data.updated;
+' handleSave throws its fixed Error, usually hiding the server-specific 409/404 reason.
+' On PUT success, refetchStructure catches its own GET errors, clears structure and resolves.
+' The editor may therefore show the success toast and navigate while the parent shows a load error.
+' A refresh failure does not undo committed changes; no extra refresh-failure branch is expanded.
+' UI changes its local arrays only until Save; changing a title or pressing an arrow makes no request.
+' Parent-layout Assignment reads on route changes belong to shared outline preparation and are omitted.
+' TenantClient/LearningClient/storage are injected but updateStructure/getStructure do not call them.
+' No cross-service REST, storage provider, presigned URL, Kafka, outbox event or shared database access.
+' Initial UC15 tree browsing, component creation/deletion and UC16.1 Lesson content editing are excluded.
+@enduml

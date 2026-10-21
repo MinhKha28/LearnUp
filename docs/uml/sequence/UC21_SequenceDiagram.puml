@@ -1,0 +1,225 @@
+@startuml
+' UC21 - Xem Course tổ chức
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS evidence; paths are relative to the workspace root.
+' UC: docs/uml/docs/LearnUP_UseCase.docx, UC21; UC21.1-21.4 define adjacent scopes.
+' BR: docs/uml/docs/LearnUP_QuyTacNghiepVu.docx, BR-64/79/287.
+' Requested DOCX files exist under docs/uml/docs, not directly under docs.
+' Both metadata revisions are 1; no identified business-spec release can be matched to a snapshot.
+' docs/source-of-truth is absent. Architecture support: docs/business/requirements-support.md:35.
+' UI: frontend/src/pages/organizer/courses.tsx:126/:177 (loadCourses and mount effect).
+' Route: frontend/src/router.tsx:216/:247 (ORGANIZER protection, courses child route).
+' API: frontend/src/services/course.service.ts:79 (fetchOrganizationCoursesAPI); :1 uses courseAxios.
+' Transport: frontend/src/services/axios.customize.ts:47/:61/:64; frontend/src/config/env.ts:13.
+' Local development: frontend/.env.development:10 selects http://localhost:8080.
+' No local override file was found; process VITE_COURSE_BACKEND_URL is unset.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:2/:40-43.
+' Trusted context: gateway/api-gateway/src/main/java/com/learnup/gateway/filter/JwtAuthenticationFilter.java:133.
+' Course prefix/version: services/course-service/src/main.ts:40-43 (api, URI v1).
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:106 (findOrganizationCourses).
+' Service: services/course-service/src/modules/courses/courses.service.ts:376 (findOrganizationCourses).
+' Repository: services/course-service/src/modules/courses/courses.repository.ts:239 (findOrganizationCourses).
+' Models: services/course-service/prisma/schema.prisma:18/:31 (CourseChain/Course).
+' REST adapters: services/course-service/src/infrastructure/clients/tenant/tenant.client.ts:31;
+' services/course-service/src/infrastructure/clients/learning/learning.client.ts:30.
+' Timeout: services/course-service/src/modules/courses/courses.module.ts:14 (5000 ms, no redirects).
+' Direct REST URLs: services/course-service/.env:4/:5 (Tenant localhost:8084, Learning localhost:8085).
+' Tenant endpoint: services/tenant-service/src/modules/users/users.controller.ts:57 (findBatch).
+' Tenant query: services/tenant-service/src/modules/users/users.service.ts:502 (findBatch).
+' Role-value mismatch: same service:183/:321; common/constants/tenant.constants.ts:9-13.
+' Tenant prefix/version: services/tenant-service/src/main.ts:34-37; User model: prisma/schema.prisma:35.
+' Learning endpoint: services/learning-service/src/modules/enrollments/enrollments.controller.ts:71.
+' Learning query: services/learning-service/src/modules/enrollments/enrollments.service.ts:391.
+' Learning prefix/version: services/learning-service/src/app.setup.ts:30-33; Enrollment: prisma/schema.prisma:10.
+' Each service uses its own Prisma adapter and DATABASE_URL; local .env:2 names its owned database.
+
+actor Organizer
+boundary "Organization Courses Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+participant ":UsersController" as UsersController
+participant ":UsersService" as UsersService
+participant ":EnrollmentsController" as EnrollmentsController
+participant ":EnrollmentsService" as EnrollmentsService
+database "course_db" as CourseDB
+database "tenant_db" as TenantDB
+database "learning_db" as LearningDB
+
+' Precondition: authenticated Organizer. Diagram follows the verified local development URL.
+' Entry is /organizer/courses without search/filter parameters; initial current=1, pageSize=10.
+' Other launch/build modes and live network availability remain unverified.
+' JWT/internal-key middleware and token refresh are preconditions, not the main UC trace.
+
+activate Organizer
+Organizer -> Screen: Open /organizer/courses
+activate Screen
+Screen -> Gateway: GET /api/v1/courses/organization
+activate Gateway
+Gateway -> Controller: GET /api/v1/courses/organization\nTrusted user context
+activate Controller
+Controller -> Service: Load organization Course page
+activate Service
+Service -> Service: Verify Organizer and organization context
+activate Service
+deactivate Service
+
+alt Access checked successfully
+  ' Scope is Course.organizationId == user.organizationId from trusted context.
+  ' No Instructor self-ownership restriction and no default Published-only predicate.
+  ' Public/Private and all six statuses are eligible; Locked/Submitted do not prevent reading.
+  Service -> Repository: Load Course page and total\nCurrent organization
+  activate Repository
+  ' Prisma read transaction: findMany and count with the same where; updatedAt descending.
+  ' Select chain.instructorId for each Course version, not just a latest-version representative.
+  Repository -> CourseDB: Read scoped Courses and count
+  activate CourseDB
+  CourseDB -->> Repository: Course page and total
+  deactivate CourseDB
+  Repository -->> Service: Course page and total
+  deactivate Repository
+
+  alt Courses found successfully
+    ' Outcome-level alternative: expand both successful REST reads in the success operand.
+    ' TenantClient/LearningClient are hidden adapters; service calls go directly to controllers.
+    ' Promise.all starts both requests concurrently with the same trusted user/organization context.
+    alt Course details loaded\nsuccessfully
+      par Load Instructor names
+        Service -> UsersController: POST /api/v1/users/batch\nDistinct chain Instructor IDs
+        activate UsersController
+        UsersController -> UsersService: Load Instructor names
+        activate UsersService
+        UsersService -> UsersService: Verify Organizer and organization context
+        activate UsersService
+        deactivate UsersService
+        ' findBatch: requested IDs, organizationId, role='INSTRUCTOR', deletedAt=null.
+        ' There is no active-status restriction in this query and no additional service call.
+        UsersService -> TenantDB: Read organization Instructors
+        activate TenantDB
+        TenantDB -->> UsersService: Matching Instructors or empty list
+        deactivate TenantDB
+        UsersService -->> UsersController: Matching Instructors or empty list
+        deactivate UsersService
+        UsersController -->> Service: 201 Created\nInstructor names or empty list
+        deactivate UsersController
+      and Load learner counts
+        Service -> EnrollmentsController: POST /api/v1/enrollments/learner-counts\nPage Course IDs and user context
+        activate EnrollmentsController
+        EnrollmentsController -> EnrollmentsService: Load learner counts
+        activate EnrollmentsService
+        EnrollmentsService -> EnrollmentsService: Verify organization access
+        activate EnrollmentsService
+        deactivate EnrollmentsService
+        ' Allows ORGANIZER/INSTRUCTOR; requires organizationId. Prisma is used directly here.
+        ' Group Enrollment by requested courseId within organizationId, status='InProgress'.
+        EnrollmentsService -> LearningDB: Count InProgress learners by Course\nCurrent organization
+        activate LearningDB
+        LearningDB -->> EnrollmentsService: Learner counts
+        deactivate LearningDB
+        EnrollmentsService -->> EnrollmentsController: Learner counts
+        deactivate EnrollmentsService
+        EnrollmentsController -->> Service: 201 Created\nLearner counts
+        deactivate EnrollmentsController
+      end
+      ' Both POST endpoints are reads; 201 is the NestJS default and does not mean data was created.
+      ' Missing successful Tenant result -> 'Unknown Instructor'; missing count -> 0.
+      Service -->> Controller: Courses with Instructor names and counts
+      deactivate Service
+      Controller -->> Gateway: 200 OK\nCourse page and metadata
+      deactivate Controller
+      Gateway -->> Screen: Organization Courses
+      deactivate Gateway
+      Screen -->> Organizer: Show type, status, Instructor and learner count
+    else Course detail REST failed
+      ' Restore the incoming executions; actor/screen bars remain continuous.
+      activate Gateway
+      activate Controller
+      activate Service
+      ' Same concurrent REST attempts: either endpoint returns non-2xx or its transport fails/times out.
+      ' Each hidden adapter maps caught HTTP/transport/5000 ms timeout errors to 503.
+      ' Failed attempts are summarized here: no successful DB work or reply after timeout is assumed.
+      ' Promise.all rejects on the first failure; the other request may still complete independently.
+      ' There is no retry, cancellation, cached fallback or partially enriched response.
+      Service -->> Controller: REST unavailable or timed out (503)
+      deactivate Service
+      Controller -->> Gateway: 503 Service Unavailable
+      deactivate Controller
+      Gateway -->> Screen: Load error
+      deactivate Gateway
+      Screen -->> Organizer: Show load error and Retry
+    end
+  else Empty page returned\nsuccessfully
+    activate Gateway
+    activate Controller
+    activate Service
+    ' courses.length == 0 returns immediately without either enrichment REST request.
+    ' AS-IS resets pages=0 and total=0 even if the DB count was positive for an out-of-range page.
+    Service -->> Controller: Empty result; total = 0
+    deactivate Service
+    Controller -->> Gateway: 200 OK\nEmpty result
+    deactivate Controller
+    Gateway -->> Screen: Empty Course list
+    deactivate Gateway
+    Screen -->> Organizer: Show "No Courses found"
+  end
+else Access check failed
+  activate Gateway
+  activate Controller
+  activate Service
+  ' Only non-ORGANIZER or missing trusted organization context reaches this business rejection.
+  Service -->> Controller: Access denied (403)
+  deactivate Service
+  Controller -->> Gateway: 403 Forbidden
+  deactivate Controller
+  Gateway -->> Screen: Access error
+  deactivate Gateway
+  Screen -->> Organizer: Show load error and Retry
+end
+deactivate Screen
+deactivate Organizer
+
+' BR-64: Draft, Submitted, Published, Rejected, Archived and Disabled are supported display statuses.
+' BR-79 is Instructor-specific; applying user.userId ownership scoping to Organizer would be wrong.
+' BR-287: displayed Instructor ID comes from the shared CourseChain, not a per-version creator field.
+' This UC reads current chain ownership; transfer execution and status transitions are outside scope.
+' The route/DTO accepts no caller-selected organizationId; it cannot select another Organization.
+' Gateway strips spoofable organization headers and replaces them with verified JWT claims.
+' An unexpected organizationId query field is rejected as 400 by whitelist/forbidNonWhitelisted.
+' Do not invent a separate cross-organization 403 comparison absent from findOrganizationCourses.
+' Tenant and Learning additionally scope their own queries by the propagated organizationId.
+' Counts are per Course version and InProgress only, not every enrollment or unique learners per chain.
+' Source gap: createInstructor passes UserRoleValue.Instructor ('Instructor') to createAccount,
+' which persists that role. findBatch instead filters the case-sensitive value 'INSTRUCTOR'.
+' Users created through the current account flow do not match that predicate and produce an empty
+' successful batch result; Course enrichment uses 'Unknown Instructor', not an HTTP failure.
+' Existing DB rows have not been inspected; legacy uppercase roles are not assumed absent.
+' No chain deduplication or latest-version selection is implemented in the list query.
+' Pagination is implemented: this view shows the first default page, not all rows in a single response.
+' Pagination interactions and UC21.4 search/filter operations are omitted from the business trace.
+' A separate mount effect (frontend/src/pages/organizer/courses.tsx:181) calls
+' fetchOrganizationCourseInstructorsAPI -> GET /api/v1/courses/organization/instructors (:89 wrapper).
+' This populates only the UC21.4 Instructor filter, not the displayed Course Instructor names.
+' That preparation is intentionally omitted; its service method is courses.service.ts:511,
+' which uses findOrganizationInstructorIds (repository:269) then TenantClient.getInstructors.
+' Filter preparation failures do not stop loadCourses; the filter options stay empty.
+' UI clears Courses/total on a list failure and stops loading; Retry invokes loadCourses again.
+' HttpExceptionFilter uses error instead of top-level message; UI usually shows its generic fallback.
+' Routine DTO validation, persistence failures and transport details are not separate error branches.
+' No Course mutation, approval review/decision, assignment, ownership transfer, storage or Kafka.
+@enduml
