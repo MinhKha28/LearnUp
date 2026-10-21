@@ -69,10 +69,12 @@ export class CoursesService {
       chain: {
         instructorId: user.userId,
       },
+      // UC14.4 - Prisma không escape ký tự LIKE (đã kiểm với DB thật), nên escape
+      // \ % _ để từ khóa được so khớp theo đúng ký tự.
       ...(query.search
         ? {
             name: {
-              contains: query.search,
+              contains: query.search.replace(/[\\%_]/g, '\\$&'),
               mode: 'insensitive' as const,
             },
           }
