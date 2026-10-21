@@ -10,8 +10,10 @@ import { PrismaService } from '@infra/prisma/prisma.service';
 import { CourseBatchItemDto } from './dto/course-batch-item.dto';
 import { AssignmentMinutesDto } from './dto/assignment-minutes.dto';
 import { CourseTreeDto } from './dto/course-tree.dto';
+import { InstructorCourseCountsDto } from './dto/instructor-course-counts.dto';
 import { LessonContentDto } from './dto/lesson-content.dto';
 import { LockedCourseDto } from './dto/locked-course.dto';
+import { OrganizationUsageDto } from './dto/organization-usage.dto';
 
 interface LockableCourseRow {
   id: string;
@@ -308,5 +310,58 @@ export class InternalCoursesService {
       content: lesson.content,
       disabledAt: lesson.disabledAt,
     };
+  }
+
+  async getOrganizationUsage(
+    callerOrganizationId: string | undefined,
+    organizationId: string,
+  ): Promise<OrganizationUsageDto> {
+    if (!callerOrganizationId || callerOrganizationId !== organizationId) {
+      throw new NotFoundException(
+        createApiError('ORGANIZATION_NOT_FOUND', 'Organization not found.'),
+      );
+    }
+
+    const [courseChains, storage] = await Promise.all([
+      this.prisma.courseChain.count({
+        where: { organizationId, courses: { some: {} } },
+      }),
+      this.prisma.mediaFile.aggregate({
+        where: { organizationId, status: 'Ready', releasedAt: null },
+        _sum: { sizeBytes: true },
+      }),
+    ]);
+
+    return {
+      organizationId,
+      courseChains,
+      storageBytes: (storage._sum.sizeBytes ?? 0n).toString(),
+    };
+  }
+
+  async countCourseChainsByInstructors(
+    organizationId: string | undefined,
+    instructorIds: string[],
+  ): Promise<InstructorCourseCountsDto> {
+    const counts: Record<string, number> = Object.fromEntries(
+      instructorIds.map((id) => [id, 0]),
+    );
+    if (!organizationId || !isUUID(organizationId, 'all')) {
+      return { counts };
+    }
+
+    const groups = await this.prisma.courseChain.groupBy({
+      by: ['instructorId'],
+      where: {
+        organizationId,
+        instructorId: { in: instructorIds },
+        courses: { some: {} },
+      },
+      _count: { _all: true },
+    });
+    for (const group of groups) {
+      counts[group.instructorId] = group._count._all;
+    }
+    return { counts };
   }
 }
