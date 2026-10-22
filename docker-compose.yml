@@ -250,6 +250,7 @@ services:
       FRONTEND_URL: http://localhost:3000
       IDENTITY_SERVICE_URL: http://identity-service:8081
       NOTIFICATION_SERVICE_URL: http://notification-service:8082
+      COURSE_CLIENT_MODE: http
       COURSE_SERVICE_URL: http://course-service:8083
       COURSE_SERVICE_TIMEOUT_MS: 3000
       LEARNING_SERVICE_URL: http://learning-service:8085

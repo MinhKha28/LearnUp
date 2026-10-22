@@ -15,22 +15,24 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useCurrentApp } from "@/components/context/app.context";
 import { useSignOut } from "@/hooks/use.sign.out";
 import NotificationBell from "@/components/notification/notification.bell";
-import { DevIdentitySwitcher } from "@/components/learner/dev.identity.switcher";
+import { useDevIdentity } from "@/hooks/use.dev.identity";
+import { DevIdentitySelect } from "@/components/learner/dev.identity.switcher";
 import "./layout.learner.scss";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
 const learnerMenuItems: MenuItem[] = [
-  { key: "/learner", icon: <TableOutlined />, label: "Overview" },
-  { key: "/learner/courses", icon: <UnorderedListOutlined />, label: "Course của tôi" },
-  { key: "/learner/catalog", icon: <AppstoreOutlined />, label: "Danh mục Course" },
-  { key: "/learner/peer-review", icon: <SwapOutlined />, label: "Peer Review" },
-  { key: "/learner/certificates", icon: <GoldOutlined />, label: "Certificates" },
-  { key: "/learner/reports", icon: <FlagOutlined />, label: "My Reports" },
+  { key: "/learner", icon: <TableOutlined />, label: "Tổng quan" },
+  { key: "/learner/courses", icon: <UnorderedListOutlined />, label: "Khóa học của tôi" },
+  { key: "/learner/catalog", icon: <AppstoreOutlined />, label: "Danh mục Khóa học" },
+  { key: "/learner/peer-review", icon: <SwapOutlined />, label: "Chấm chéo" },
+  { key: "/learner/certificates", icon: <GoldOutlined />, label: "Chứng chỉ" },
+  { key: "/learner/reports", icon: <FlagOutlined />, label: "Báo cáo của tôi" },
 ];
 
 const LayoutLearner = () => {
   const { user } = useCurrentApp();
+  const demoIdentity = useDevIdentity();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -46,7 +48,7 @@ const LayoutLearner = () => {
     return "/learner";
   }, [location.pathname]);
 
-  const displayName = user?.fullName || "Học viên";
+  const displayName = demoIdentity?.current.label || user?.fullName || "Học viên";
   const initials = displayName
     .split(" ")
     .map((part) => part[0])
@@ -68,10 +70,10 @@ const LayoutLearner = () => {
 
   const navigation = (
     <>
-      <Link className="learner-brand" to="/learner" aria-label="LearnUP Learner home">
+      <Link className="learner-brand" to="/learner" aria-label="Trang chủ học viên LearnUP">
         <img src="/logo/learnup-logo-dark.png" alt="LearnUP" />
       </Link>
-      <span className="learner-nav-caption">LEARNER WORKSPACE</span>
+      <span className="learner-nav-caption">Không gian học viên</span>
       <Menu
         className="learner-navigation"
         mode="inline"
@@ -84,18 +86,18 @@ const LayoutLearner = () => {
           <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
           <div className="learner-user-info">
             <strong>{displayName}</strong>
-            <small>Learner</small>
+            <small>{demoIdentity?.current.roleLabel ?? "Học viên"}</small>
           </div>
           <Button
             className="learner-signout-trigger"
             type="text"
             icon={<LogoutOutlined />}
-            aria-label="Sign out"
+            aria-label="Đăng xuất"
             onClick={() => setSignOutOpen(true)}
           />
         </div>
         <Link className="learner-account-settings" to="/learner/profile">
-          Account settings
+          Cài đặt tài khoản
         </Link>
       </div>
     </>
@@ -124,16 +126,17 @@ const LayoutLearner = () => {
               type="text"
               icon={<MenuOutlined />}
               onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
+              aria-label="Mở điều hướng"
             />
-            <span className="learner-org-name">Demo Organization</span>
+            <span className="learner-org-name">{demoIdentity?.current.organizationLabel ?? "Demo Organization"}</span>
           </div>
           <div className="learner-topbar-actions">
-            <DevIdentitySwitcher />
+            <DevIdentitySelect identity={demoIdentity} />
             <NotificationBell basePath="/learner" />
-            <Avatar size={30} src={user?.avatar} className="learner-topbar-avatar">
-              {initials}
-            </Avatar>
+            <div className="learner-topbar-user">
+              <Avatar size={30} src={user?.avatar} className="learner-topbar-avatar">{initials}</Avatar>
+              {demoIdentity && <span><strong>{displayName}</strong><small>{demoIdentity.current.roleLabel}</small></span>}
+            </div>
           </div>
         </Layout.Header>
         <Layout.Content className="learner-main">
@@ -149,12 +152,12 @@ const LayoutLearner = () => {
         centered
         width={420}
       >
-        <h3>Sign out of LearnUP?</h3>
-        <p>Your current session will end on this device.</p>
+        <h3>Đăng xuất khỏi LearnUP?</h3>
+        <p>Phiên hiện tại của bạn trên thiết bị này sẽ kết thúc.</p>
         <div className="learner-signout-actions">
-          <Button onClick={() => setSignOutOpen(false)}>Stay signed in</Button>
+          <Button onClick={() => setSignOutOpen(false)}>Tiếp tục đăng nhập</Button>
           <Button type="primary" onClick={signOut}>
-            Sign out
+            Đăng xuất
           </Button>
         </div>
       </Modal>

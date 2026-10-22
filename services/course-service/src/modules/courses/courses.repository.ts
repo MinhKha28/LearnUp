@@ -30,7 +30,8 @@ export class CoursesRepository {
         },
         skip,
         take,
-        orderBy: { updatedAt: 'desc' },
+        // id là khóa phụ để thứ tự ổn định giữa các trang khi trùng updatedAt.
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
       }),
       this.prisma.course.count({ where }),
     ]);

@@ -4,13 +4,17 @@ import type {
   ICreateAccountReq,
   ICreateRegistrationReq,
   ICreateRegistrationRes,
+  IInstructorDetail,
   IInstructorListItem,
+  ILearnerDetail,
   ILearnerListItem,
   IPaymentResult,
   IPayRegistrationReq,
   IRegistrationSummary,
   ISeatUsage,
   ISubscriptionPlan,
+  IUpdateAccountReq,
+  IUpdateAccountResult,
   IVerifyEmailOtpReq,
   IVerifyEmailOtpRes,
   IAcceptInvitationReq,
@@ -68,6 +72,12 @@ export const getInstructorsAPI = ({
     },
   );
 
+// UC12.1 - Xem chi tiết Instructor (Organizer; 400 id sai định dạng, 404 không tìm thấy)
+export const getInstructorDetailAPI = (instructorId: string) =>
+  axios.get<IBackendRes<IInstructorDetail>>(
+    `/api/v1/users/instructors/${encodeURIComponent(instructorId)}`,
+  );
+
 // UC12.2 - số chỗ Instructor còn lại (Organizer)
 export const getInstructorSeatsAPI = () =>
   axios.get<IBackendRes<ISeatUsage>>("/api/v1/users/instructors/seats");
@@ -76,11 +86,43 @@ export const getInstructorSeatsAPI = () =>
 export const createInstructorAPI = (body: ICreateAccountReq) =>
   axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/instructors", body);
 
+// UC12.3 - Cập nhật thông tin Instructor (Organizer; đổi email của tài khoản Pending thì gửi lời mời mới)
+export const updateInstructorAPI = (
+  instructorId: string,
+  body: IUpdateAccountReq,
+) =>
+  axios.patch<IBackendRes<IUpdateAccountResult>>(
+    `/api/v1/users/instructors/${encodeURIComponent(instructorId)}`,
+    body,
+  );
+
+// UC12.3 - BR-279: gợi ý đơn vị công tác đã có trong tổ chức (tối đa 10)
+export const getDepartmentSuggestionsAPI = (keyword: string) =>
+  axios.get<IBackendRes<string[]>>("/api/v1/users/departments", {
+    params: keyword ? { keyword } : {},
+  });
+
 // UC13 - Xem danh sách Learner (Organizer; tổ chức lấy từ danh tính người gọi)
-export const getLearnersAPI = (query: IAccountListQuery) =>
+export const getLearnersAPI = ({
+  keyword,
+  status,
+  ...query
+}: IAccountListQuery) =>
   axios.get<IBackendRes<IPageResponse<ILearnerListItem>>>(
     "/api/v1/users/learners",
-    { params: query },
+    {
+      params: {
+        ...query,
+        ...(keyword ? { keyword } : {}),
+        ...(status ? { status } : {}),
+      },
+    },
+  );
+
+// UC13.1 - Xem chi tiết Learner (Organizer; 400 id sai định dạng, 404 không tìm thấy)
+export const getLearnerDetailAPI = (learnerId: string) =>
+  axios.get<IBackendRes<ILearnerDetail>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}`,
   );
 
 // UC13.2 - số chỗ Learner còn lại (Organizer)
@@ -90,6 +132,13 @@ export const getLearnerSeatsAPI = () =>
 // UC13.2 - Thêm Learner (Organizer; backend gửi lời mời qua email)
 export const createLearnerAPI = (body: ICreateAccountReq) =>
   axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/learners", body);
+
+// UC13.3 - Cập nhật thông tin Learner (Organizer; đổi email của tài khoản Pending thì gửi lời mời mới)
+export const updateLearnerAPI = (learnerId: string, body: IUpdateAccountReq) =>
+  axios.patch<IBackendRes<IUpdateAccountResult>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}`,
+    body,
+  );
 
 // UC04 - Xem lời mời trước khi đặt mật khẩu
 export const getInvitationAPI = (token: string) =>

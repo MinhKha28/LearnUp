@@ -18,7 +18,7 @@ import { canWithdrawEnrollment, resolveWithdrawalOutcome, WITHDRAWAL_CONFIRMATIO
 import "./my.courses.scss";
 
 const MY_COURSES_ERROR_MESSAGES: Record<string, string> = {
-  FORBIDDEN: "Bạn không có quyền xem danh sách Course này.",
+  FORBIDDEN: "Bạn không có quyền xem danh sách Khóa học này.",
 };
 
 const MyCourseListRow = ({ row, item, onReload }: {
@@ -98,15 +98,15 @@ const MyCourseListRow = ({ row, item, onReload }: {
           </LearnerButton>}
           {canWithdrawEnrollment(item) && (
             <LearnerButton loading={sending} onClick={() => { setErrorText(null); setConfirming(true); }}>
-              Rút khỏi Course
+              Rút khỏi Khóa học
             </LearnerButton>
           )}
         </div>
       )}
       <Modal
-        title="Rút khỏi Course?"
+        title="Rút khỏi Khóa học?"
         open={confirming}
-        okText={errorText ? "Thử lại" : "Rút khỏi Course"}
+        okText={errorText ? "Thử lại" : "Rút khỏi Khóa học"}
         cancelText="Hủy"
         confirmLoading={sending}
         cancelButtonProps={{ disabled: sending }}
@@ -141,8 +141,8 @@ const MyCoursesContent = ({ page }: { page: number }) => {
     return (
       <LearnerErrorState
         error={query.error}
-        title="Không tải được danh sách Course"
-        message={MY_COURSES_ERROR_MESSAGES[query.error.code] ?? "Đã có lỗi xảy ra khi tải danh sách Course."}
+        title="Không tải được danh sách Khóa học"
+        message={MY_COURSES_ERROR_MESSAGES[query.error.code] ?? "Đã có lỗi xảy ra khi tải danh sách Khóa học."}
         onRetry={query.reload}
       />
     );
@@ -150,8 +150,8 @@ const MyCoursesContent = ({ page }: { page: number }) => {
   if (redirect === "empty") {
     return (
       <LearnerEmptyState
-        title="Bạn chưa có Course nào"
-        action={<LearnerButton onClick={() => navigate(LEARNER_ROUTES.catalog())}>Xem danh mục Course</LearnerButton>}
+        title="Bạn chưa có Khóa học nào"
+        action={<LearnerButton onClick={() => navigate(LEARNER_ROUTES.catalog())}>Xem danh mục Khóa học</LearnerButton>}
       />
     );
   }
@@ -182,7 +182,7 @@ const MyCourses = () => {
 
   return (
     <LearnerPage className="learner-courses">
-      <PageHeader title="Course của tôi" subtitle="Các Course bạn được phân công và đã tự đăng ký." />
+      <PageHeader title="Khóa học của tôi" subtitle="Các Khóa học bạn được phân công và đã tự đăng ký." />
       {page === null ? <LearnerSkeleton variant="list" /> : <MyCoursesContent page={page} />}
     </LearnerPage>
   );

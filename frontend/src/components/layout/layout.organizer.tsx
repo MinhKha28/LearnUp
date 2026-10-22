@@ -29,6 +29,8 @@ import {
 import { useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import { useDevIdentity } from "@/hooks/use.dev.identity";
+import { DevIdentitySelect } from "@/components/learner/dev.identity.switcher";
 import NotificationBell from "@/components/notification/notification.bell";
 import { useCurrentApp } from "@/components/context/app.context";
 import { useSignOut } from "@/hooks/use.sign.out";
@@ -39,157 +41,162 @@ type MenuItem = Required<MenuProps>["items"][number];
 const organizerMenuItems: MenuItem[] = [
   {
     type: "group",
-    label: "OVERVIEW",
+    label: "Tổng quan",
     children: [
-      { key: "/organizer", icon: <DashboardOutlined />, label: "Dashboard" },
+      { key: "/organizer", icon: <DashboardOutlined />, label: "Tổng quan" },
     ],
   },
   {
     type: "group",
-    label: "MANAGEMENT",
+    label: "Quản lý",
     children: [
       {
         key: "/organizer/subscription",
         icon: <CreditCardOutlined />,
-        label: "Subscription",
+        label: "Gói dịch vụ",
       },
       {
         key: "/organizer/organization",
         icon: <BankOutlined />,
-        label: "Organization",
+        label: "Tổ chức",
       },
       {
         key: "/organizer/instructors",
         icon: <SolutionOutlined />,
-        label: "Instructors",
+        label: "Giảng viên",
       },
       {
         key: "/organizer/learners",
         icon: <TeamOutlined />,
-        label: "Learners",
+        label: "Học viên",
       },
     ],
   },
   {
     type: "group",
-    label: "TRAINING",
+    label: "Đào tạo",
     children: [
-      { key: "/organizer/courses", icon: <BookOutlined />, label: "Courses" },
+      { key: "/organizer/courses", icon: <BookOutlined />, label: "Khóa học" },
       {
         key: "/organizer/assignments",
         icon: <CarryOutOutlined />,
-        label: "Assignments",
+        label: "Phân công đào tạo",
       },
     ],
   },
   {
     type: "group",
-    label: "INSIGHTS",
+    label: "Thống kê",
     children: [
       {
         key: "/organizer/reports",
         icon: <BarChartOutlined />,
-        label: "Reports",
+        label: "Báo cáo",
       },
       {
         key: "/organizer/evaluations",
         icon: <StarOutlined />,
-        label: "Evaluations",
+        label: "Đánh giá",
       },
     ],
   },
   {
     type: "group",
-    label: "MODERATION",
+    label: "Kiểm duyệt",
     children: [
       {
         key: "/organizer/content-reports",
         icon: <FlagOutlined />,
         label: (
           <span className="organizer-menu-label">
-            Content Reports <Badge count={7} />
+            Báo cáo nội dung <Badge count={7} />
           </span>
         ),
       },
       {
         key: "/organizer/violation-history",
         icon: <AuditOutlined />,
-        label: "Violation History",
+        label: "Lịch sử vi phạm",
       },
     ],
   },
   {
     type: "group",
-    label: "ACCOUNT",
+    label: "Tài khoản",
     children: [
-      { key: "/organizer/profile", icon: <UserOutlined />, label: "Profile" },
+      { key: "/organizer/profile", icon: <UserOutlined />, label: "Hồ sơ" },
     ],
   },
 ];
 
 const getPageMeta = (pathname: string) => {
-  if (pathname === "/organizer") return ["ORGANIZER", "Dashboard"];
+  if (pathname === "/organizer") return ["Quản lý đào tạo", "Tổng quan"];
   if (pathname === "/organizer/subscription")
-    return ["ORGANIZER", "Subscription"];
+    return ["Quản lý đào tạo", "Gói dịch vụ"];
   if (pathname === "/organizer/subscription/renew")
-    return ["ORGANIZER", "Renew subscription"];
+    return ["Quản lý đào tạo", "Gia hạn gói dịch vụ"];
   if (pathname === "/organizer/subscription/upgrade")
-    return ["ORGANIZER", "Upgrade subscription"];
+    return ["Quản lý đào tạo", "Nâng cấp gói dịch vụ"];
   if (pathname === "/organizer/organization/edit")
-    return ["ORGANIZER", "Edit organization"];
+    return ["Quản lý đào tạo", "Chỉnh sửa tổ chức"];
   if (pathname === "/organizer/organization")
-    return ["ORGANIZER", "Organization"];
+    return ["Quản lý đào tạo", "Tổ chức"];
   if (pathname === "/organizer/instructors/add")
-    return ["ORGANIZER", "Add instructor"];
+    return ["Quản lý đào tạo", "Thêm giảng viên"];
   if (pathname === "/organizer/instructors/import")
-    return ["ORGANIZER", "Import instructors"];
+    return ["Quản lý đào tạo", "Nhập danh sách giảng viên"];
+  if (pathname.startsWith("/organizer/instructors/") && pathname.endsWith("/edit"))
+    return ["Quản lý đào tạo", "Chỉnh sửa giảng viên"];
   if (pathname.includes("/organizer/instructors/"))
-    return ["ORGANIZER", "Instructor detail"];
+    return ["Quản lý đào tạo", "Chi tiết giảng viên"];
   if (pathname === "/organizer/instructors")
-    return ["ORGANIZER", "Instructors"];
+    return ["Quản lý đào tạo", "Giảng viên"];
   if (pathname === "/organizer/learners/add")
-    return ["ORGANIZER", "Add learner"];
+    return ["Quản lý đào tạo", "Thêm học viên"];
   if (pathname === "/organizer/learners/import")
-    return ["ORGANIZER", "Import learners"];
+    return ["Quản lý đào tạo", "Nhập danh sách học viên"];
   if (pathname.startsWith("/organizer/learners/") && pathname.endsWith("/report"))
-    return ["ORGANIZER", "Learner Report"];
+    return ["Quản lý đào tạo", "Báo cáo học viên"];
+  if (pathname.startsWith("/organizer/learners/") && pathname.endsWith("/edit"))
+    return ["Quản lý đào tạo", "Chỉnh sửa học viên"];
   if (pathname.includes("/organizer/learners/"))
-    return ["ORGANIZER", "Learner detail"];
-  if (pathname === "/organizer/learners") return ["ORGANIZER", "Learners"];
+    return ["Quản lý đào tạo", "Chi tiết học viên"];
+  if (pathname === "/organizer/learners") return ["Quản lý đào tạo", "Học viên"];
   if (pathname === "/organizer/courses/approvals")
-    return ["ORGANIZER", "Courses awaiting approval"];
+    return ["Quản lý đào tạo", "Khóa học chờ duyệt"];
   if (pathname.includes("/review"))
-    return ["ORGANIZER", "Review course"];
+    return ["Quản lý đào tạo", "Duyệt khóa học"];
   if (pathname.endsWith("/version-report"))
-    return ["ORGANIZER", "Version Report"];
+    return ["Quản lý đào tạo", "Báo cáo phiên bản"];
   if (pathname.includes("/organizer/courses/"))
-    return ["ORGANIZER", "Course detail"];
-  if (pathname === "/organizer/courses") return ["ORGANIZER", "Courses"];
+    return ["Quản lý đào tạo", "Chi tiết khóa học"];
+  if (pathname === "/organizer/courses") return ["Quản lý đào tạo", "Khóa học"];
   if (pathname === "/organizer/assignments/assign")
-    return ["ORGANIZER", "Assign required course"];
+    return ["Quản lý đào tạo", "Phân công khóa học bắt buộc"];
   if (pathname.includes("/organizer/assignments/"))
-    return ["ORGANIZER", "Assignment detail"];
+    return ["Quản lý đào tạo", "Chi tiết phân công"];
   if (pathname === "/organizer/assignments")
-    return ["ORGANIZER", "Assignments"];
+    return ["Quản lý đào tạo", "Phân công đào tạo"];
   if (pathname.includes("/organizer/reports/"))
-    return ["ORGANIZER", "Report detail"];
-  if (pathname === "/organizer/reports") return ["ORGANIZER", "Reports"];
+    return ["Quản lý đào tạo", "Chi tiết báo cáo"];
+  if (pathname === "/organizer/reports") return ["Quản lý đào tạo", "Báo cáo"];
   if (pathname === "/organizer/evaluations")
-    return ["ORGANIZER", "Evaluations"];
+    return ["Quản lý đào tạo", "Đánh giá"];
   if (pathname.includes("/organizer/content-reports/"))
-    return ["ORGANIZER", "Content report detail"];
+    return ["Quản lý đào tạo", "Chi tiết báo cáo nội dung"];
   if (pathname === "/organizer/content-reports")
-    return ["ORGANIZER", "Content reports"];
+    return ["Quản lý đào tạo", "Báo cáo nội dung"];
   if (pathname === "/organizer/violation-history")
-    return ["ORGANIZER", "Violation history"];
+    return ["Quản lý đào tạo", "Lịch sử vi phạm"];
   if (pathname === "/organizer/profile/change-password")
-    return ["ORGANIZER", "Change password"];
-  if (pathname === "/organizer/profile") return ["ORGANIZER", "Profile"];
-  return ["ORGANIZER", "Dashboard"];
+    return ["Quản lý đào tạo", "Đổi mật khẩu"];
+  if (pathname === "/organizer/profile") return ["Quản lý đào tạo", "Hồ sơ"];
+  return ["Quản lý đào tạo", "Tổng quan"];
 };
 
 const LayoutOrganizer = () => {
   const { user } = useCurrentApp();
+  const demoIdentity = useDevIdentity();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -220,7 +227,7 @@ const LayoutOrganizer = () => {
     return location.pathname;
   }, [location.pathname]);
 
-  const displayName = user?.fullName || "Mai Nguyen";
+  const displayName = demoIdentity?.current.label || user?.fullName || "Quản lý đào tạo";
   const initials = displayName
     .split(" ")
     .map((part) => part[0])
@@ -237,20 +244,20 @@ const LayoutOrganizer = () => {
     {
       key: "profile",
       icon: <UserOutlined />,
-      label: <Link to="/organizer/profile">Profile</Link>,
+      label: <Link to="/organizer/profile">Hồ sơ</Link>,
     },
     {
       key: "password",
       icon: <LockOutlined />,
       label: (
-        <Link to="/organizer/profile/change-password">Change password</Link>
+        <Link to="/organizer/profile/change-password">Đổi mật khẩu</Link>
       ),
     },
     { type: "divider" },
     {
       key: "logout",
       icon: <LogoutOutlined />,
-      label: "Sign out",
+      label: "Đăng xuất",
       danger: true,
       onClick: logout,
     },
@@ -261,7 +268,7 @@ const LayoutOrganizer = () => {
       <Link
         className="organizer-brand"
         to="/organizer"
-        aria-label="LearnUP Organizer home"
+        aria-label="Trang chủ quản lý đào tạo LearnUP"
       >
         <span className="organizer-brand-mark">
           <SafetyCertificateOutlined />
@@ -301,7 +308,7 @@ const LayoutOrganizer = () => {
               type="text"
               icon={<MenuOutlined />}
               onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
+              aria-label="Mở điều hướng"
             />
             <div>
               <span className="organizer-topbar-eyebrow">{eyebrow}</span>
@@ -309,7 +316,8 @@ const LayoutOrganizer = () => {
             </div>
           </div>
           <div className="organizer-topbar-actions">
-            <span className="organizer-org-badge">Northstar Learning</span>
+            <span className="organizer-org-badge">{demoIdentity?.current.organizationLabel ?? "Demo Organization"}</span>
+            <DevIdentitySelect identity={demoIdentity} />
             <NotificationBell basePath="/organizer" />
             <Dropdown
               menu={{ items: profileItems }}
@@ -320,7 +328,7 @@ const LayoutOrganizer = () => {
                 <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
                 <span>
                   <strong>{displayName}</strong>
-                  <small>Organizer</small>
+                  <small>{demoIdentity?.current.roleLabel ?? "Quản lý đào tạo"}</small>
                 </span>
               </button>
             </Dropdown>
@@ -331,7 +339,7 @@ const LayoutOrganizer = () => {
         </Layout.Content>
         <Layout.Footer className="organizer-footer">
           <span>LearnUP</span>
-          <span>Organization Management</span>
+          <span>Quản lý tổ chức</span>
         </Layout.Footer>
       </Layout>
     </Layout>

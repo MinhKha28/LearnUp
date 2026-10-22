@@ -463,7 +463,7 @@ async function perform(caseNo, iteration, cache) {
         await closePage(other);
       } else if (caseNo === 5) {
         await p.eval(
-          `Array.from(document.querySelectorAll('button')).find(x=>x.textContent.includes('Về Lesson')).click()`,
+          `Array.from(document.querySelectorAll('button')).find(x=>x.textContent.includes('Về Bài học')).click()`,
         );
         await until(
           p,

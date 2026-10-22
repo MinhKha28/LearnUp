@@ -5,6 +5,7 @@ import { useApiQuery } from "@/hooks/use.api.query";
 import { useVideoProgress } from "@/hooks/useVideoProgress";
 import { fetchVideoPlayback } from "@/services/learning.service";
 import type { VideoPlayback } from "@/types/learning.types";
+import { videoThresholdPercent } from "@/utils/video.threshold";
 import { videoOutcome } from "@/utils/video.outcome";
 import "./lesson.resource.scss";
 
@@ -30,10 +31,9 @@ function VideoPlayer({
           navigate(`/learner/courses/${enrollmentId}/lessons/${lessonId}`);
         }}
       >
-        Về Lesson
+        Về Bài học
       </Button>
       <h1>{playback.title}</h1>
-      {progress.completed && <Tag color="success">Đã hoàn thành</Tag>}
       <video
         ref={videoRef}
         {...events}
@@ -61,23 +61,31 @@ function VideoPlayer({
           ))}
         </select>
       </label>
-      <Progress
-        percent={Math.min(
-          100,
-          Math.floor(
-            (progress.watchedSeconds / progress.requiredSeconds) * 100,
-          ),
-        )}
-        status={progress.completed ? "success" : "active"}
-      />
-      <p>
-        Đã xem {progress.watchedSeconds} / {progress.requiredSeconds} giây cần
-        thiết (Video {progress.durationSeconds} giây).
-      </p>
+      <div className="lesson-resource-progress">
+        <Progress
+          showInfo={false}
+          percent={Math.min(
+            100,
+            Math.floor(
+              (progress.watchedSeconds / progress.requiredSeconds) * 100,
+            ),
+          )}
+          status={progress.completed ? "success" : "active"}
+        />
+        <span className="lesson-resource-target" aria-hidden="true" />
+      </div>
+      <div className="lesson-resource-summary" role="status">
+        <Tag color={progress.completed ? "success" : "warning"}>
+          {progress.completed ? "Đã hoàn thành" : "Chưa đủ thời lượng"}
+        </Tag>
+        <strong>Đã xem {progress.watchedSeconds} / {progress.requiredSeconds} giây cần
+        thiết</strong>
+        <span>Thời lượng video: {progress.durationSeconds} giây. Mốc cần đạt: {progress.requiredSeconds} giây (≈ {videoThresholdPercent(progress.durationSeconds, progress.requiredSeconds)}% thời lượng video).</span>
+        <span>Mọi tốc độ phát đều được tính; không cộng trùng hoặc cộng khoảng tua qua.</span>
+      </div>
       {warning && <Alert type="warning" message={warning} showIcon />}
       <p>
-        Tiến độ được lưu mỗi {progress.heartbeatSeconds} giây. Không đổi Học
-        viên trong proxy khi Video đang phát.
+        Tiến độ được lưu mỗi {progress.heartbeatSeconds} giây.
       </p>
     </section>
   );

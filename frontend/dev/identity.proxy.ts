@@ -13,37 +13,44 @@ export const DEV_IDENTITIES = {
   LEARNER_1: {
     userId: "01900000-0000-7000-8000-00000000a201",
     organizationId: "01900000-0000-7000-8000-00000000a001",
+    organizationLabel: "Tổ chức A",
     label: "Học viên 1 (Tổ chức A)",
   },
   LEARNER_2: {
     userId: "01900000-0000-7000-8000-00000000a202",
     organizationId: "01900000-0000-7000-8000-00000000a001",
+    organizationLabel: "Tổ chức A",
     label: "Học viên 2 (Tổ chức A)",
   },
   LEARNER_3: {
     userId: "01900000-0000-7000-8000-00000000b201",
     organizationId: "01900000-0000-7000-8000-00000000b001",
+    organizationLabel: "Tổ chức B",
     label: "Học viên 3 (Tổ chức B)",
   },
   LEARNER_4: {
     userId: "01900000-0000-7000-8000-00000000a206",
     organizationId: "01900000-0000-7000-8000-00000000a001",
+    organizationLabel: "Tổ chức A",
     label: "Học viên 4 (Tổ chức A)",
   },
   LEARNER_5: {
     userId: "01900000-0000-7000-8000-00000000a208",
     organizationId: "01900000-0000-7000-8000-00000000a001",
+    organizationLabel: "Tổ chức A",
     label: "Học viên 5 (Video chưa học)",
   },
   LEARNER_6: {
     userId: "01900000-0000-7000-8000-00000000a210",
     organizationId: "01900000-0000-7000-8000-00000000a001",
+    organizationLabel: "Tổ chức A",
     label: "Học viên 6 (Video đã xem 511 giây)",
   },
   ORGANIZER: {
     userId: "01900000-0000-7000-8000-00000000a010",
     organizationId: "01900000-0000-7000-8000-00000000a001",
-    label: "Organizer ABC",
+    organizationLabel: "Tổ chức A",
+    label: "Quản lý đào tạo ABC",
     role: "ORGANIZER",
   },
 } as const;
@@ -165,7 +172,12 @@ export const applyIdentityHeaders = (
 };
 
 export const describeIdentities = (current: DevIdentityKey) => ({
-  current: { key: current, label: DEV_IDENTITIES[current].label },
+  current: {
+    key: current,
+    label: DEV_IDENTITIES[current].label,
+    organizationLabel: DEV_IDENTITIES[current].organizationLabel,
+    roleLabel: "role" in DEV_IDENTITIES[current] ? "Quản lý đào tạo" : "Học viên",
+  },
   options: (Object.keys(DEV_IDENTITIES) as DevIdentityKey[]).map((key) => ({
     key,
     label: DEV_IDENTITIES[key].label,

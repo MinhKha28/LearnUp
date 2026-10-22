@@ -914,7 +914,7 @@ async function verifyDemoData(internalKey) {
     ids[1] !== E_DEMO_1
   ) {
     throw new DemoError(
-      `Course của tôi (LEARNER_1) trả ${mine.status} với ${ids.length} dòng, cần đúng E-demo-2 rồi E-demo-1.`,
+      `Khóa học của tôi (LEARNER_1) trả ${mine.status} với ${ids.length} dòng, cần đúng E-demo-2 rồi E-demo-1.`,
       hint,
       logPath("learning-seed-demo"),
     );
@@ -977,24 +977,24 @@ function printReady() {
     ),
     `Sẵn sàng demo (khởi động trong ${seconds} giây)`,
     "",
-    `Danh mục Course:     ${web}/learner/catalog`,
-    `Course của tôi:      ${web}/learner/courses`,
+    `Danh mục Khóa học:     ${web}/learner/catalog`,
+    `Khóa học của tôi:      ${web}/learner/courses`,
     `Chương trình học:    ${web}/learner/courses/${E_DEMO_2}`,
-    `Lesson L11:          ${web}/learner/courses/${E_DEMO_2}/lessons/${L11}`,
-    `Lesson L13:          ${web}/learner/courses/${E_DEMO_2}/lessons/${L13}`,
+    `Bài học L11:          ${web}/learner/courses/${E_DEMO_2}/lessons/${L11}`,
+    `Bài học L13:          ${web}/learner/courses/${E_DEMO_2}/lessons/${L13}`,
     "",
     "Inter 2 - Chọn persona trong Demo > Đổi danh tính demo (POST /__dev/identity):",
-    `UC24 | ORGANIZER / Organizer ABC | ${web}/organizer/assignments?page=1`,
-    `UC24.1 | ORGANIZER / Organizer ABC | ${web}/organizer/assignments/${E_DEMO_2}?page=1`,
-    `UC24.2 | ORGANIZER / Organizer ABC | ${web}/organizer/assignments/assign | Chọn Lê Văn Cường (...a203), Course P (...c00200000065).`,
-    `UC24.3 | ORGANIZER / Organizer ABC | ${web}/organizer/assignments/${E_DEMO_2}?page=1 | Bấm Kéo dài hạn; không có URL riêng.`,
-    `UC24.5 | ORGANIZER / Organizer ABC | ${web}/organizer/assignments/${E_DEMO_2}?page=1 | Bấm Đánh dấu Miễn sau gia hạn; không có URL riêng.`,
+    `UC24 | ORGANIZER / Quản lý đào tạo ABC | ${web}/organizer/assignments?page=1`,
+    `UC24.1 | ORGANIZER / Quản lý đào tạo ABC | ${web}/organizer/assignments/${E_DEMO_2}?page=1`,
+    `UC24.2 | ORGANIZER / Quản lý đào tạo ABC | ${web}/organizer/assignments/assign | Chọn Lê Văn Cường (...a203), Course P (...c00200000065).`,
+    `UC24.3 | ORGANIZER / Quản lý đào tạo ABC | ${web}/organizer/assignments/${E_DEMO_2}?page=1 | Bấm Kéo dài hạn; không có URL riêng.`,
+    `UC24.5 | ORGANIZER / Quản lý đào tạo ABC | ${web}/organizer/assignments/${E_DEMO_2}?page=1 | Bấm Đánh dấu Miễn sau gia hạn; không có URL riêng.`,
     ...[
       ["LEARNER_5", "Học viên 5 (Video chưa học)", "0027", "a"],
       ["LEARNER_6", "Học viên 6 (Video đã xem 511 giây)", "0028", "b"],
     ].map(
       ([key, label, id, part]) =>
-        `UC27.2 (${part}) | ${key} / ${label} | ${web}/learner/courses/01900000-0000-7000-8000-2a000000${id}/lessons/${L11}/resources/01900000-0000-7000-8000-c0050001676b | Pause > Về Lesson, đợi lưu progress trước khi đổi persona.`,
+        `UC27.2 (${part}) | ${key} / ${label} | ${web}/learner/courses/01900000-0000-7000-8000-2a000000${id}/lessons/${L11}/resources/01900000-0000-7000-8000-c0050001676b | Pause > Về Bài học, đợi lưu progress trước khi đổi persona.`,
     ),
     `UC25.4 X | LEARNER_4 / Học viên 4 (Tổ chức A) | ${web}/learner/courses | Rút X (...c0020000005c), enrollment ...2a0000000004; không có URL riêng.`,
     `UC25.4 Y | LEARNER_4 / Học viên 4 (Tổ chức A) | ${web}/learner/courses | Rút Y (...c00200000097), enrollment ...2a0000000005; không có URL riêng.`,

@@ -62,7 +62,7 @@ describe("buildMyCourseRow", () => {
 
   it("course null vẫn hiện dòng (D26)", () => {
     const row = buildMyCourseRow(item({ course: null }), TZ);
-    expect(row.title).toBe("Không tải được thông tin Course");
+    expect(row.title).toBe("Không tải được thông tin Khóa học");
     expect(row.courseName).toBeNull();
     expect(row.versionLabel).toBeNull();
     expect(row.action.kind).toBe("open");
@@ -82,7 +82,7 @@ describe("buildMyCourseRow", () => {
     const row = buildMyCourseRow(item({ status: "Halted" }), TZ);
     expect(row.status).toEqual({ label: "Tạm dừng", tone: "warning" });
     expect(row.action).toEqual({ kind: "halted", note: HALTED_NOTE });
-    expect(HALTED_NOTE).toBe("Course đang tạm dừng, bạn chưa thể truy cập nội dung");
+    expect(HALTED_NOTE).toBe("Khóa học đang tạm dừng, bạn chưa thể truy cập nội dung");
   });
 
   it("organizationTimezone null → giờ máy kèm nhãn", () => {
