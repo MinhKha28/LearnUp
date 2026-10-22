@@ -15,10 +15,10 @@ import {
 } from './material-progress.repository';
 import {
   normalizeRanges,
-  progressBudget,
+  positionReportedAt,
   requiredSeconds,
-  type WatchedRange,
 } from './video-progress.rules';
+import type { ReportProgressDto } from './report-progress.dto';
 import {
   VIDEO_PLAYBACK_CONFIG,
   type VideoPlaybackConfig,
@@ -135,7 +135,8 @@ export class MaterialProgressService {
       requiredSeconds: requiredSeconds(duration, percent),
       completed: row.completedAt !== null,
       completedAt: row.completedAt?.toISOString() ?? null,
-      maxPlaybackRate: 2,
+      positionSeconds: row.positionSeconds,
+      positionReportedAt: row.positionReportedAt?.toISOString() ?? null,
       heartbeatSeconds: 15,
     };
   }
@@ -174,6 +175,7 @@ export class MaterialProgressService {
         row,
       ),
       title: material.title,
+      learnerId: user.userId,
       playbackUrl: this.playbackConfig.fixtureUrl!,
     };
   }
@@ -181,7 +183,7 @@ export class MaterialProgressService {
     user: CurrentUser,
     enrollmentId: string,
     materialId: string,
-    ranges: WatchedRange[],
+    report: ReportProgressDto,
   ) {
     const access = await this.access(user, enrollmentId);
     if (!isUUID(materialId, 'all'))
@@ -223,41 +225,43 @@ export class MaterialProgressService {
         tx,
       );
       const duration = saved.durationSeconds!;
+      const ranges = current.status === 'Completed' ? [] : report.ranges;
       if (ranges.some(([, end]) => end > duration + 1))
         fail(422, 'VALIDATION_ERROR', 'Đoạn xem vượt thời lượng Video.');
-      const old = await this.repository.lock(
+      await this.repository.lock(
         enrollmentId,
         materialId,
         user.organizationId!,
         tx,
       );
-      const normalized = normalizeRanges(ranges, duration);
-      const preview = await this.repository.preview(
-        enrollmentId,
-        materialId,
-        user.organizationId!,
-        normalized,
-        tx,
-      );
-      if (preview.newSeconds > progressBudget(preview.now, old.lastReportedAt))
-        fail(
-          409,
-          'PROGRESS_RATE_EXCEEDED',
-          'Đoạn xem vượt ngân sách thời gian.',
-          this.state(materialId, duration, current.videoCompletionPercent, old),
+      if (ranges.length) {
+        const normalized = normalizeRanges(ranges, duration);
+        const preview = await this.repository.preview(
+          enrollmentId,
+          materialId,
+          user.organizationId!,
+          normalized,
+          tx,
         );
-      const row =
-        preview.newSeconds === 0
-          ? old
-          : await this.repository.save(
-              enrollmentId,
-              materialId,
-              user.organizationId!,
-              preview,
-              requiredSeconds(duration, current.videoCompletionPercent),
-              normalized,
-              tx,
-            );
+        if (preview.newSeconds > 0)
+          await this.repository.save(
+            enrollmentId,
+            materialId,
+            user.organizationId!,
+            preview,
+            requiredSeconds(duration, current.videoCompletionPercent),
+            normalized,
+            tx,
+          );
+      }
+      const row = await this.repository.savePosition(
+        enrollmentId,
+        materialId,
+        user.organizationId!,
+        Math.min(duration, report.positionSeconds),
+        positionReportedAt(report.reportedAt, new Date()),
+        tx,
+      );
       return this.state(
         materialId,
         duration,
