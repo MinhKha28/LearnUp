@@ -33,7 +33,7 @@ export default function () {
   const end = (Math.floor(iteration / slots) + 1) * 15;
   const response = http.post(
     `${__ENV.BASE_URL}/api/v1/enrollments/${id("0001", n)}/materials/${id("0004", (n - 1) * 4 + 1)}/progress`,
-    JSON.stringify({ ranges: [[0, end]], positionSeconds: end, reportedAt: new Date().toISOString() }),
+    JSON.stringify({ ranges: [[0, end]] }),
     {
       headers: {
         "content-type": "application/json",
