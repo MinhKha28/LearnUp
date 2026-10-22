@@ -31,7 +31,8 @@ if (
 )
   throw Error("Unsafe DB target");
 const db = new Client({ connectionString: dbUrl.href });
-let base = "http://localhost:3000";
+const accessToken = process.env.UC272_ACCESS_TOKEN;
+let base = process.env.UC272_BASE_URL || "http://localhost:3000";
 const enrollment = "01900000-0000-7000-8000-2a0000000027";
 const org = "01900000-0000-7000-8000-00000000a001";
 const material = "01900000-0000-7000-8000-c0050001676b";
@@ -96,6 +97,12 @@ class CDP {
           url: r.url,
           method: r.method,
           payload: r.postData,
+          authorizationMatchesSession: accessToken
+            ? r.headers.Authorization === `Bearer ${accessToken}`
+            : undefined,
+          initiatorFunctions: p.initiator?.stack?.callFrames?.map(
+            (frame) => frame.functionName,
+          ),
           timestamp: p.timestamp,
           wallTime: p.wallTime,
           initiatedLabel: label,
@@ -171,6 +178,15 @@ class CDP {
   }
 }
 const mediaScript = `(() => {
+  let pageHiding = false;
+  window.addEventListener('pagehide',()=>{pageHiding=true},true);
+  const originalFetch=window.fetch;
+  window.fetch=function(input,init){
+    try {
+      if(String(input).endsWith('/progress')) investigationEvidence(JSON.stringify({event:'fetch-proof',pageHiding,keepalive:init?.keepalive,authorizationMatchesSession:new Headers(init?.headers).get('Authorization')==='Bearer '+localStorage.getItem('access_token'),body:JSON.parse(init.body),sessionKeys:Object.keys(sessionStorage).filter(k=>k.startsWith('learnup.video-position:'))}));
+    } catch {}
+    return originalFetch.call(this,input,init);
+  };
   const events = ['loadedmetadata','play','playing','pause','ended','seeking','seeked','ratechange','visibilitychange','pagehide','beforeunload'];
   const record = e => { const v = document.querySelector('video'); investigationEvidence(JSON.stringify({ event: e.type, browserAt: Date.now(), time: v?.currentTime, paused: v?.paused, seeking: v?.seeking, visibility: document.visibilityState })); };
   for (const type of events) window.addEventListener(type, record, true);
@@ -199,13 +215,22 @@ async function newPage() {
   await p.call("Page.addScriptToEvaluateOnNewDocument", {
     source: mediaScript,
   });
+  if (accessToken)
+    await p.call("Page.addScriptToEvaluateOnNewDocument", {
+      source: `localStorage.setItem('access_token',${JSON.stringify(accessToken)});`,
+    });
   openPages.add(p);
   return p;
 }
 async function closePage(p) {
   if (!p || !openPages.has(p)) return;
   write("closeTab", { targetId: p.targetId });
-  await browser.call("Target.closeTarget", { targetId: p.targetId });
+  try {
+    await p.call("Page.close");
+  } catch (error) {
+    if (!error.message.includes("Target closed")) throw error;
+  }
+  await sleep(400);
   openPages.delete(p);
   p.ws.close();
 }
@@ -298,7 +323,9 @@ async function normal(p) {
 }
 async function perform(caseNo, iteration, cache) {
   label = `case-${caseNo}-cache-${cache}-run-${iteration}`;
-  base = cache ? "http://localhost:3000" : "http://localhost:3001";
+  base =
+    process.env.UC272_BASE_URL ||
+    (cache ? "http://localhost:3000" : "http://localhost:3001");
   const result = {
     caseNo,
     iteration,
@@ -497,7 +524,9 @@ try {
   await db.connect();
   const version = await db.query("SELECT version(),inet_server_port()");
   write("databaseServer", { version: version.rows[0] });
-  for (const origin of ["http://localhost:3000", "http://localhost:3001"]) {
+  for (const origin of accessToken
+    ? []
+    : ["http://localhost:3000", "http://localhost:3001"]) {
     const identity = await fetch(origin + "/__dev/identity", {
       method: "POST",
       headers: { "content-type": "application/json" },
