@@ -118,7 +118,6 @@ export interface VideoProgress {
   heartbeatSeconds: number;
 }
 export interface VideoPlayback extends VideoProgress {
-  learnerId: string;
   title: string;
   playbackUrl: string;
 }

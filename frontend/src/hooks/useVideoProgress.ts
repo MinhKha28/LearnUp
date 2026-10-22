@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { reportVideoProgress } from "@/services/learning.service";
 import { ApiError } from "@/types/api.types";
 import type { VideoPlayback, VideoProgress } from "@/types/learning.types";
+import { useCurrentApp } from "@/components/context/app.context";
 import {
   acknowledgeSegments,
   closeSegment,
@@ -22,6 +23,7 @@ export function useVideoProgress(
   enrollmentId: string,
   playback: VideoPlayback,
 ) {
+  const { user } = useCurrentApp();
   const video = useRef<HTMLVideoElement | null>(null);
   const detachedMedia = useRef<{ time: number; seeking: boolean } | null>(null);
   const videoRef = useCallback((element: HTMLVideoElement | null) => {
@@ -44,10 +46,7 @@ export function useVideoProgress(
   const cacheEnabled =
     import.meta.env.VITE_VIDEO_POSITION_SESSION_CACHE !== "0";
   const cacheKey =
-    VIDEO_POSITION_SESSION_PREFIX +
-    playback.learnerId +
-    ":" +
-    playback.materialId;
+    VIDEO_POSITION_SESSION_PREFIX + user?.id + ":" + playback.materialId;
 
   const send = useCallback(
     async (
@@ -68,7 +67,7 @@ export function useVideoProgress(
           : Math.floor(media.time),
         reportedAt: new Date(timestamp).toISOString(),
       };
-      if (cacheEnabled) {
+      if (cacheEnabled && user?.id) {
         try {
           sessionStorage.setItem(cacheKey, JSON.stringify(position));
         } catch {
@@ -116,6 +115,7 @@ export function useVideoProgress(
       playback.durationSeconds,
       cacheEnabled,
       cacheKey,
+      user?.id,
     ],
   );
 
@@ -195,7 +195,7 @@ export function useVideoProgress(
       onEnded: () => close(true),
       onLoadedMetadata: () => {
         let session: VideoPosition | null = null;
-        if (cacheEnabled) {
+        if (cacheEnabled && user?.id) {
           try {
             session = JSON.parse(
               sessionStorage.getItem(cacheKey) ?? "null",

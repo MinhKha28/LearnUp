@@ -167,6 +167,7 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
     assert.equal(body.data.durationSeconds, 101);
     assert.equal(body.data.requiredSeconds, 91);
     assert.equal(body.data.playbackUrl, 'https://example.test/fixture.mp4');
+    assert.equal('learnerId' in body.data, false);
     assert.equal('maxPlaybackRate' in body.data, false);
     assert.equal(body.data.positionSeconds, null);
     assert.equal(body.data.positionReportedAt, null);

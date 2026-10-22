@@ -175,7 +175,6 @@ export class MaterialProgressService {
         row,
       ),
       title: material.title,
-      learnerId: user.userId,
       playbackUrl: this.playbackConfig.fixtureUrl!,
     };
   }
