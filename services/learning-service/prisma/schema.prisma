@@ -64,6 +64,8 @@ model MaterialProgress {
   materialId     String    @map("material_id") @db.Uuid
   watchedRanges  Unsupported("int4multirange")? @map("watched_ranges")
   lastReportedAt DateTime? @map("last_reported_at") @db.Timestamptz
+  positionSeconds Int? @map("position_seconds")
+  positionReportedAt DateTime? @map("position_reported_at") @db.Timestamptz
   completedAt    DateTime? @map("completed_at") @db.Timestamptz
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz

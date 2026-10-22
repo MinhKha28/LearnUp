@@ -19,10 +19,8 @@ function VideoPlayer({
   lessonId: string;
 }) {
   const navigate = useNavigate();
-  const { video, progress, warning, events, flush } = useVideoProgress(
-    enrollmentId,
-    playback,
-  );
+  const { video, videoRef, progress, warning, events, flush } =
+    useVideoProgress(enrollmentId, playback);
   const [rate, setRate] = useState(1);
   return (
     <section className="lesson-resource">
@@ -37,7 +35,7 @@ function VideoPlayer({
       </Button>
       <h1>{playback.title}</h1>
       <video
-        ref={video}
+        ref={videoRef}
         {...events}
         src={playback.playbackUrl}
         controls
@@ -56,13 +54,11 @@ function VideoPlayer({
             if (video.current) video.current.playbackRate = value;
           }}
         >
-          {[0.5, 0.75, 1, 1.25, 1.5, 2]
-            .filter((r) => r <= progress.maxPlaybackRate)
-            .map((r) => (
-              <option key={r} value={r}>
-                {r.toLocaleString("vi-VN")}×
-              </option>
-            ))}
+          {[0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 8, 16].map((r) => (
+            <option key={r} value={r}>
+              {r.toLocaleString("vi-VN")}×
+            </option>
+          ))}
         </select>
       </label>
       <div className="lesson-resource-progress">
@@ -85,6 +81,7 @@ function VideoPlayer({
         <strong>Đã xem {progress.watchedSeconds} / {progress.requiredSeconds} giây cần
         thiết</strong>
         <span>Thời lượng video: {progress.durationSeconds} giây. Mốc cần đạt: {progress.requiredSeconds} giây (≈ {videoThresholdPercent(progress.durationSeconds, progress.requiredSeconds)}% thời lượng video).</span>
+        <span>Mọi tốc độ phát đều được tính; không cộng trùng hoặc cộng khoảng tua qua.</span>
       </div>
       {warning && <Alert type="warning" message={warning} showIcon />}
       <p>

@@ -16,7 +16,11 @@ export const fetchVideoPlayback = (
 export const reportVideoProgress = async (
   enrollmentId: string,
   materialId: string,
-  ranges: [number, number][],
+  report: {
+    ranges: [number, number][];
+    positionSeconds: number;
+    reportedAt: string;
+  },
   keepalive = false,
 ): Promise<VideoProgress> => {
   const token = localStorage.getItem("access_token");
@@ -31,7 +35,7 @@ export const reportVideoProgress = async (
           "content-type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ ranges }),
+        body: JSON.stringify(report),
       },
     );
   } catch {

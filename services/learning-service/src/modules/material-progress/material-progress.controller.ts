@@ -28,6 +28,6 @@ export class MaterialProgressController {
     @Param('materialId') materialId: string,
     @Body(ReportProgressPipe) body: ReportProgressDto,
   ) {
-    return this.service.report(user, enrollmentId, materialId, body.ranges);
+    return this.service.report(user, enrollmentId, materialId, body);
   }
 }
