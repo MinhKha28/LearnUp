@@ -113,10 +113,12 @@ export interface VideoProgress {
   requiredSeconds: number;
   completed: boolean;
   completedAt: string | null;
-  maxPlaybackRate: number;
+  positionSeconds: number | null;
+  positionReportedAt: string | null;
   heartbeatSeconds: number;
 }
 export interface VideoPlayback extends VideoProgress {
+  learnerId: string;
   title: string;
   playbackUrl: string;
 }
