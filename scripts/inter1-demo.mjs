@@ -1162,7 +1162,7 @@ async function verifyVideoRange() {
 async function verifyVideoFixtures() {
   for (const [key, id, seconds, status] of [
     ["LEARNER_5", "01900000-0000-7000-8000-2a0000000027", 0, "NotStarted"],
-    ["LEARNER_6", "01900000-0000-7000-8000-2a0000000028", 511, "InProgress"],
+    ["LEARNER_6", "01900000-0000-7000-8000-2a0000000028", 511, "NotStarted"],
   ]) {
     await getJson(
       `http://localhost:${PORTS.frontend}/__dev/identity`,

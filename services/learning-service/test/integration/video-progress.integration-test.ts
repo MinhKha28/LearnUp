@@ -29,6 +29,7 @@ const learner = randomUUID(),
 const db = new Client({ connectionString: databaseUrl('learning_db') });
 let app: NestExpressApplication, url: string, calls: number, tree: CourseTree;
 let connected = false;
+const clientReportedAt = new Date().toISOString();
 
 async function cleanup() {
   for (const table of [
@@ -41,7 +42,7 @@ async function cleanup() {
 }
 async function row() {
   const result = await db.query(
-    `SELECT e.status,e.first_activity_at,p.watched_ranges::text,p.last_reported_at,p.completed_at
+    `SELECT e.status,e.first_activity_at,p.watched_ranges::text,p.last_reported_at,p.completed_at,p.position_seconds,p.position_reported_at,p.updated_at
     FROM enrollments e LEFT JOIN material_progress p ON p.enrollment_id=e.id AND p.organization_id=e.organization_id
     WHERE e.id=$1 AND e.organization_id=$2`,
     [enrollment, ORG],
@@ -52,6 +53,7 @@ async function request(
   ranges?: unknown,
   overrides: Record<string, string> = {},
   method = 'POST',
+  position = { positionSeconds: 0, reportedAt: clientReportedAt },
 ) {
   return fetch(
     `${url}/api/v1/enrollments/${enrollment}/materials/${material}/${method === 'GET' ? 'playback' : 'progress'}`,
@@ -65,7 +67,9 @@ async function request(
         'x-organization-id': ORG,
         ...overrides,
       },
-      ...(method === 'GET' ? {} : { body: JSON.stringify({ ranges }) }),
+      ...(method === 'GET'
+        ? {}
+        : { body: JSON.stringify({ ranges, ...position }) }),
     },
   );
 }
@@ -163,12 +167,14 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
     assert.equal(body.data.durationSeconds, 101);
     assert.equal(body.data.requiredSeconds, 91);
     assert.equal(body.data.playbackUrl, 'https://example.test/fixture.mp4');
-    assert.equal(body.data.maxPlaybackRate, 2);
+    assert.equal('maxPlaybackRate' in body.data, false);
+    assert.equal(body.data.positionSeconds, null);
+    assert.equal(body.data.positionReportedAt, null);
     assert.equal(body.data.heartbeatSeconds, 15);
     assert.deepEqual(await row(), before);
     assert.equal(calls, 1);
   });
-  test('first report rounds inward, activates Enrollment; retry and backward seek do not advance clock', async () => {
+  test('BR-181 partial coverage, retry and backward seek do not activate Enrollment', async () => {
     const state = await report([
       [0.1, 10.9],
       [5, 20],
@@ -178,8 +184,8 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
     assert.equal('title' in state, false);
     assert.equal('playbackUrl' in state, false);
     const saved = await row();
-    assert.equal(saved.status, 'InProgress');
-    assert.ok(saved.first_activity_at);
+    assert.equal(saved.status, 'NotStarted');
+    assert.equal(saved.first_activity_at, null);
     await report([[1, 20]]);
     await report([[2, 4]]);
     assert.deepEqual(await row(), saved);
@@ -192,19 +198,10 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
     assert.equal(saved.first_activity_at, null);
     assert.equal(saved.last_reported_at, null);
   });
-  test('first budget exactly 45 accepts, 46 rejects with unchanged state; elapsed budget and completion ceil', async () => {
-    let response = await request([[0, 46]]);
-    let body = await response.json();
-    assert.equal(response.status, 409);
-    assert.equal(body.error.code, 'PROGRESS_RATE_EXCEEDED');
-    assert.equal(body.error.details.watchedSeconds, 0);
-    assert.equal((await row()).watched_ranges, null);
-    assert.equal((await report([[0, 45]])).watchedSeconds, 45);
-    await db.query(
-      `UPDATE material_progress SET last_reported_at=now()-interval '60 seconds' WHERE organization_id=$1`,
-      [ORG],
-    );
+  test('BR-181 has no rate budget; BR-140 activates only at the completion boundary', async () => {
+    assert.equal((await report([[0, 46]])).watchedSeconds, 46);
     assert.equal((await report([[0, 90]])).completed, false);
+    assert.equal((await row()).status, 'NotStarted');
     const completed = await report([[90, 91]]);
     assert.equal(completed.completed, true);
     assert.equal((await row()).status, 'InProgress');
@@ -233,14 +230,14 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
     await report([[0, 30]]);
     assert.deepEqual(await row(), saved);
   });
-  test('two concurrent disjoint reports share one rate budget', async () => {
+  test('BR-181 concurrent disjoint reports union without a rate budget', async () => {
     const responses = await Promise.all([
       request([[0, 30]]),
       request([[30, 60]]),
     ]);
-    assert.deepEqual(responses.map((r) => r.status).sort(), [200, 409]);
+    assert.deepEqual(responses.map((r) => r.status).sort(), [200, 200]);
     const saved = await row();
-    assert.ok(['{[0,30)}', '{[30,60)}'].includes(saved.watched_ranges));
+    assert.equal(saved.watched_ranges, '{[0,60)}');
   });
   test('missing snapshot calls I2 once and inserts optional snapshot before progress FK', async () => {
     await db.query('DELETE FROM material_snapshots WHERE organization_id=$1', [
@@ -262,13 +259,7 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
     assert.equal(calls, 1);
   });
   test('422 invalid body/duration, permits duration+1 then clips', async () => {
-    for (const ranges of [
-      [],
-      [[0, 1, 2]],
-      [[-1, 2]],
-      [[0, '2']],
-      [[0, 102.01]],
-    ])
+    for (const ranges of [[[0, 1, 2]], [[-1, 2]], [[0, '2']], [[0, 102.01]]])
       assert.equal((await request(ranges)).status, 422);
     assert.equal((await request([[100, 102]])).status, 200);
     assert.equal((await row()).watched_ranges, '{[100,101)}');
@@ -316,7 +307,7 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
     assert.equal((await request([[0, 1]])).status, 403);
     assert.equal(calls, 0);
   });
-  test('Completed and Exempted accept ranges without changing Enrollment state', async () => {
+  test('BR-184 Completed ignores ranges; Exempted accepts them; both accept position', async () => {
     for (const status of ['Completed', 'Exempted']) {
       await db.query(
         `UPDATE enrollments SET status=$2, first_activity_at=now(),completed_at=CASE WHEN $2='Completed' THEN now() ELSE NULL END,
@@ -327,11 +318,92 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
       const before = await row();
       await report([[0, status === 'Completed' ? 1 : 2]]);
       assert.equal((await row()).status, status);
+      assert.equal(
+        (await row()).watched_ranges,
+        status === 'Completed' ? '{}' : '{[0,2)}',
+      );
+      assert.equal((await row()).position_seconds, 0);
       assert.deepEqual(
         (await row()).first_activity_at,
         before.first_activity_at,
       );
     }
+  });
+  test('BR-182 position-only reports clamp duration and do not write coverage or activity', async () => {
+    const response = await request([], {}, 'POST', {
+      positionSeconds: 999,
+      reportedAt: clientReportedAt,
+    });
+    assert.equal(response.status, 200);
+    const data = (await response.json()).data;
+    assert.equal(data.positionSeconds, 101);
+    assert.equal(data.watchedSeconds, 0);
+    assert.equal(data.positionReportedAt, clientReportedAt);
+    const saved = await row();
+    assert.equal(saved.watched_ranges, '{}');
+    assert.equal(saved.last_reported_at, null);
+    assert.equal(saved.status, 'NotStarted');
+    assert.equal(saved.first_activity_at, null);
+    const read = (await (await request(undefined, {}, 'GET')).json()).data;
+    assert.equal(read.positionSeconds, 101);
+    assert.equal(read.positionReportedAt, clientReportedAt);
+  });
+  test('BR-182 stale and equal timestamps cannot overwrite a newer position, including backward seek', async () => {
+    const base = Date.now() - 10000;
+    for (const [positionSeconds, offset] of [
+      [60, 2000],
+      [8, 1000],
+      [70, 2000],
+      [5, 3000],
+    ]) {
+      assert.equal(
+        (
+          await request([], {}, 'POST', {
+            positionSeconds,
+            reportedAt: new Date(base + offset).toISOString(),
+          })
+        ).status,
+        200,
+      );
+      assert.equal((await row()).position_seconds, offset === 3000 ? 5 : 60);
+    }
+  });
+  test('BR-182 clamps timestamps over 60 seconds ahead to server time', async () => {
+    const before = Date.now();
+    const response = await request([], {}, 'POST', {
+      positionSeconds: 9,
+      reportedAt: new Date(before + 120000).toISOString(),
+    });
+    assert.equal(response.status, 200);
+    const timestamp = Date.parse(
+      (await response.json()).data.positionReportedAt,
+    );
+    assert.ok(timestamp >= before && timestamp <= Date.now());
+  });
+  test('BR-184 Completed preserves coverage, completion and coverage timestamps but updates position', async () => {
+    await report([[0, 91]]);
+    await db.query(
+      "UPDATE enrollments SET status='Completed',completed_at=now() WHERE id=$1",
+      [enrollment],
+    );
+    const before = await row();
+    const response = await request([[91, 101]], {}, 'POST', {
+      positionSeconds: 8,
+      reportedAt: new Date(Date.parse(clientReportedAt) + 1000).toISOString(),
+    });
+    assert.equal(response.status, 200);
+    const after = await row();
+    for (const key of [
+      'watched_ranges',
+      'completed_at',
+      'last_reported_at',
+      'updated_at',
+      'first_activity_at',
+      'status',
+    ])
+      assert.deepEqual(after[key], before[key]);
+    assert.equal(after.position_seconds, 8);
+    assert.equal((await response.json()).data.completed, true);
   });
   test('playback applies I2 disabled flags and course mode returns 503', async () => {
     tree.modules[0].lessons[0].materials[0].disabledAt = new Date();

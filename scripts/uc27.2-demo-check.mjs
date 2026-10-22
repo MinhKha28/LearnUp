@@ -425,7 +425,7 @@ try {
     };
   });
   await check(
-    "UC27.2 (1): actual 20s playback activates Enrollment",
+    "UC27.2 (1): BR-140 partial playback keeps Enrollment NotStarted",
     async () => {
       await identity("LEARNER_5");
       assert.equal(
@@ -448,12 +448,12 @@ try {
         (await api("/api/v1/enrollments/me?page=1")).body.data.items.find(
           (e) => e.enrollmentId === a,
         ).status,
-        "InProgress",
+        "NotStarted",
       );
       return {
         watchedSeconds: state.watchedSeconds,
         actualPlayback: true,
-        status: "InProgress",
+        status: "NotStarted",
       };
     },
   );

@@ -29,3 +29,27 @@ it.each([
     videoOutcome(new ApiError(Number(status), String(code), "")),
   ).toContain(String(text));
 });
+it("merges coverage and position independently when responses arrive out of order", () => {
+  const current = {
+    watchedSeconds: 20,
+    completed: false,
+    positionSeconds: 5,
+    positionReportedAt: "2026-10-22T06:00:02Z",
+  } as VideoProgress;
+  const incoming = {
+    ...current,
+    watchedSeconds: 30,
+    positionSeconds: 70,
+    positionReportedAt: "2026-10-22T06:00:01Z",
+  };
+  expect(applyVideoProgress(current, incoming)).toMatchObject({
+    watchedSeconds: 30,
+    positionSeconds: 5,
+    positionReportedAt: current.positionReportedAt,
+  });
+  expect(applyVideoProgress(incoming, current)).toMatchObject({
+    watchedSeconds: 30,
+    positionSeconds: 5,
+    positionReportedAt: current.positionReportedAt,
+  });
+});
