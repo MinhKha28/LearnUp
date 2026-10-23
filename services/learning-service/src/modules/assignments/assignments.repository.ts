@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { requestCompletion } from '../course-completion/completion-request';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -130,6 +131,21 @@ export class AssignmentsRepository {
         >(updateAssignmentsSql(updates, batch))),
       );
     const kinds = new Map(plans.map((plan) => [plan.learnerId, plan.kind]));
+    for (const plan of updates) {
+      if (
+        plan.kind === 'RESTORE' ||
+        (plan.kind === 'CONVERT' &&
+          ['NotStarted', 'InProgress', 'Exempted'].includes(
+            plan.existing!.status,
+          ))
+      )
+        await requestCompletion(
+          tx,
+          batch.organizationId,
+          plan.existing!.id,
+          plan.kind === 'RESTORE' ? 'ASSIGNMENT_RESTORE' : 'ASSIGNMENT_CONVERT',
+        );
+    }
     await tx.outboxEvent.createMany({
       data: rows.map((row) => ({
         aggregateType: 'Enrollment',
