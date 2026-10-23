@@ -1,0 +1,14 @@
+**
+!libraries
+!libraries/ts-common
+!libraries/ts-common/**
+!services
+!services/learning-service
+!services/learning-service/**
+**/node_modules
+**/dist
+**/generated
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+**/*.log

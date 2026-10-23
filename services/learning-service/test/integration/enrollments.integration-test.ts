@@ -215,7 +215,11 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
     });
 
     assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_1), [
-      { courseId: ENROLL_IT_PUBLIC_COURSE, enrollmentId: data.id },
+      {
+        courseId: ENROLL_IT_PUBLIC_COURSE,
+        enrollmentId: data.id,
+        status: 'NotStarted',
+      },
     ]);
     // Learner thứ hai cùng tổ chức không thấy Enrollment của Learner thứ nhất
     assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_2), []);
@@ -227,7 +231,7 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
     assert.equal(created.status, 201, JSON.stringify(created.body));
     const enrollmentId = (created.body.data as Record<string, unknown>).id;
     assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_2), [
-      { courseId: ENROLL_IT_PUBLIC_COURSE, enrollmentId },
+      { courseId: ENROLL_IT_PUBLIC_COURSE, enrollmentId, status: 'NotStarted' },
     ]);
 
     await learningDb.query(
@@ -310,6 +314,7 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
       {
         courseId: ENROLL_IT_PUBLIC_COURSE,
         enrollmentId: (results[1].body.data as Record<string, unknown>).id,
+        status: 'NotStarted',
       },
     ]);
   });
