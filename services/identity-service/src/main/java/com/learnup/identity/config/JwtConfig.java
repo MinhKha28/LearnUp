@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "security.jwt")
 public class JwtConfig {
 
-    private String secret = "devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong";
+    private String secret;
     private long accessTokenExpirationMinutes = 15;
     private long refreshTokenExpirationDays = 7;
 

@@ -18,3 +18,5 @@ import './curriculum-service.unit-test';
 import './optional-withdrawal.unit-test';
 import './learner-enrollment-summary.unit-test';
 import './video-progress.unit-test';
+import './video-resume.unit-test';
+import './withdrawal-demo-seed.unit-test';

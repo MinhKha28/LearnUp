@@ -3,6 +3,9 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 import type { ILogin } from "@/types/identity.types";
+import { createRefreshCoordinator } from "@/services/auth.refresh";
+import { accessClaims, sameTokenOwner } from "@/utils/auth.claims";
+import { ownsProgress, type ProgressOwner } from "@/utils/video.progress.queue";
 import {
   ACCESS_TOKEN_KEY,
   REFRESH_TOKEN_KEY,
@@ -20,23 +23,20 @@ const refreshClient = axios.create({
 const AUTH_ENDPOINT = /\/auth\/(login|refresh|logout)$/;
 const PROTECTED_PREFIXES = ["/admin", "/organizer", "/learner", "/instructor"];
 
-type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
+type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean; progressOwner?: ProgressOwner };
 
-let pendingRefresh: Promise<string | null> | null = null;
 let deniedReason: string | null = null;
 
-const requestNewTokens = async (): Promise<string | null> => {
-  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-  if (!refreshToken) return null;
+const requestNewTokens = async (refreshToken: string) => {
+  deniedReason = null;
   try {
     const response = await refreshClient.post<
       unknown,
       { data: { data?: ILogin } }
     >("/api/v1/auth/refresh", { refreshToken });
     const tokens = response.data.data;
-    if (!tokens?.accessToken || !tokens.refreshToken) return null;
-    saveTokens(tokens.accessToken, tokens.refreshToken); // identity xoay vòng: luôn lưu cặp mới
-    return tokens.accessToken;
+    if (!tokens?.accessToken || !tokens.refreshToken) throw new Error("Invalid refresh response");
+    return tokens;
   } catch (error) {
     const code = axios.isAxiosError(error)
       ? (error.response?.data as { error?: { code?: string } } | undefined)
@@ -45,16 +45,29 @@ const requestNewTokens = async (): Promise<string | null> => {
     const status = axios.isAxiosError(error) ? error.response?.status : undefined;
     deniedReason =
       code && (status === 403 || code === "REFRESH_TOKEN_REUSED") ? code : null;
-    return null;
+    throw error;
   }
 };
 
-/** UC05: đổi refresh token lấy cặp token mới. Nhiều request cùng 401 chỉ gọi /refresh một lần. */
-export const refreshAccessToken = (): Promise<string | null> => {
-  pendingRefresh ??= requestNewTokens().finally(() => {
-    pendingRefresh = null;
-  });
-  return pendingRefresh;
+const coordinateRefresh = createRefreshCoordinator({
+  read: () => ({ accessToken: localStorage.getItem(ACCESS_TOKEN_KEY), refreshToken: localStorage.getItem(REFRESH_TOKEN_KEY) }),
+  request: requestNewTokens,
+  save: tokens => saveTokens(tokens.accessToken, tokens.refreshToken),
+  locks: () => typeof navigator !== "undefined" ? navigator.locks : undefined,
+  isDenied: error => axios.isAxiosError(error) && [401, 403].includes(error.response?.status ?? 0),
+});
+
+/** UC05: share refresh coordination between proactive checks and HTTP401 retries. */
+export const refreshAccessToken = async (): Promise<string | null> =>
+  (await coordinateRefresh()).token;
+
+export const refreshExpiringAccessToken = async () => {
+  if (typeof navigator === "undefined" || !navigator.locks) return true;
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+  const claims = accessClaims(token);
+  if (claims && claims.exp * 1000 - Date.now() < 30_000)
+    return !!(await coordinateRefresh(token, true)).token;
+  return true;
 };
 
 /** Phiên hết hẳn: xóa token, đang ở khu làm việc thì về màn đăng nhập rồi quay lại đúng trang. */
@@ -90,10 +103,16 @@ export const retryWithFreshToken = async (
     return null;
   }
   config._retried = true; // mỗi request chỉ thử lại 1 lần, tránh vòng lặp vô hạn
-  const token = await refreshAccessToken();
-  if (!token) {
-    endSession();
+  const expected = String(config.headers.Authorization ?? "").replace(/^Bearer /, "");
+  const current = localStorage.getItem(ACCESS_TOKEN_KEY);
+  if (config.progressOwner && !ownsProgress(config.progressOwner, current)) return null;
+  if (accessClaims(expected) && !sameTokenOwner(expected, current)) return null;
+  const result = await coordinateRefresh(expected);
+  if (!result.token) {
+    if (result.ended) endSession();
     return null;
   }
+  if (config.progressOwner && !ownsProgress(config.progressOwner, localStorage.getItem(ACCESS_TOKEN_KEY))) return null;
+  if (accessClaims(expected) && !sameTokenOwner(expected, localStorage.getItem(ACCESS_TOKEN_KEY))) return null;
   return instance.request(config); // interceptor request tự gắn access token mới
 };

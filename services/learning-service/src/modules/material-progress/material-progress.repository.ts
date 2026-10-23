@@ -16,6 +16,8 @@ export interface ProgressRow {
   watchedSeconds: number;
   completedAt: Date | null;
   lastReportedAt: Date | null;
+  positionSeconds: number | null;
+  positionReportedAt: Date | null;
 }
 export interface ProgressPreview extends ProgressRow {
   newSeconds: number;
@@ -49,7 +51,8 @@ export const lockProgressSql = (
 ) => Prisma.sql`
   SELECT ${rangesJson(Prisma.sql`watched_ranges`)} AS "watchedRanges",
          ${seconds(Prisma.sql`watched_ranges`)} AS "watchedSeconds",
-         completed_at AS "completedAt", last_reported_at AS "lastReportedAt"
+         completed_at AS "completedAt", last_reported_at AS "lastReportedAt",
+         position_seconds AS "positionSeconds", position_reported_at AS "positionReportedAt"
     FROM material_progress WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid
      AND organization_id=${organizationId}::uuid FOR UPDATE`;
 
@@ -62,12 +65,13 @@ export const previewProgressSql = (
   WITH proposed AS (
     SELECT COALESCE(watched_ranges,'{}'::int4multirange) + ${rangesValue(ranges)} AS merged,
            ${rangesValue(ranges)} - COALESCE(watched_ranges,'{}'::int4multirange) AS novel,
-           completed_at, last_reported_at
+           completed_at, last_reported_at, position_seconds, position_reported_at
       FROM material_progress WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid
        AND organization_id=${organizationId}::uuid)
   SELECT ${rangesJson(Prisma.sql`merged`)} AS "watchedRanges", ${seconds(Prisma.sql`merged`)} AS "watchedSeconds",
          ${seconds(Prisma.sql`novel`)} AS "newSeconds", completed_at AS "completedAt",
-         last_reported_at AS "lastReportedAt", clock_timestamp() AS "now" FROM proposed`;
+          last_reported_at AS "lastReportedAt", position_seconds AS "positionSeconds",
+          position_reported_at AS "positionReportedAt", clock_timestamp() AS "now" FROM proposed`;
 
 export const activateEnrollmentSql = (
   enrollmentId: string,
@@ -128,10 +132,12 @@ export class MaterialProgressRepository {
     enrollmentId: string,
     materialId: string,
     organizationId: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<ProgressRow> {
-    const rows = await this.prisma.$queryRaw<ProgressRow[]>`
+    const rows = await (tx ?? this.prisma).$queryRaw<ProgressRow[]>`
       SELECT ${rangesJson(Prisma.sql`watched_ranges`)} AS "watchedRanges", ${seconds(Prisma.sql`watched_ranges`)} AS "watchedSeconds",
-             completed_at AS "completedAt", last_reported_at AS "lastReportedAt"
+             completed_at AS "completedAt", last_reported_at AS "lastReportedAt",
+             position_seconds AS "positionSeconds", position_reported_at AS "positionReportedAt"
         FROM material_progress WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid AND organization_id=${organizationId}::uuid`;
     return (
       rows[0] ?? {
@@ -139,6 +145,8 @@ export class MaterialProgressRepository {
         watchedSeconds: 0,
         completedAt: null,
         lastReportedAt: null,
+        positionSeconds: null,
+        positionReportedAt: null,
       }
     );
   }
@@ -184,7 +192,22 @@ export class MaterialProgressRepository {
           completed_at=COALESCE(completed_at,${completedAt}::timestamptz),
           last_reported_at=${row.now}::timestamptz, updated_at=${row.now}::timestamptz
       WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid AND organization_id=${org}::uuid`;
-    await tx.$executeRaw(activateEnrollmentSql(enrollmentId, org, row.now));
+    if (row.completedAt === null && completedAt !== null)
+      await tx.$executeRaw(activateEnrollmentSql(enrollmentId, org, row.now));
     return { ...row, completedAt };
+  }
+  async savePosition(
+    enrollmentId: string,
+    materialId: string,
+    org: string,
+    position: number,
+    reportedAt: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<ProgressRow> {
+    await tx.$executeRaw`UPDATE material_progress
+      SET position_seconds=${position}, position_reported_at=${reportedAt}::timestamptz
+      WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid AND organization_id=${org}::uuid
+        AND (position_reported_at IS NULL OR position_reported_at < ${reportedAt}::timestamptz)`;
+    return this.read(enrollmentId, materialId, org, tx);
   }
 }

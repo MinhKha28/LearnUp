@@ -6,16 +6,16 @@ export const canWithdrawEnrollment = (item: Pick<MyEnrollmentItem, "enrollmentTy
   (item.status === "NotStarted" || item.status === "InProgress" || item.status === "Halted");
 
 export const WITHDRAWAL_CONFIRMATION =
-  "Nếu bạn chưa làm Quiz, chưa nộp bài và chưa chấm chéo, toàn bộ tiến độ của Course này sẽ bị xóa. Nếu đã có, tiến độ được giữ lại để bạn đăng ký lại sau.";
+  "Nếu bạn chưa làm Bài trắc nghiệm, chưa nộp bài và chưa chấm chéo, toàn bộ tiến độ của Khóa học này sẽ bị xóa. Nếu đã có, tiến độ được giữ lại để bạn đăng ký lại sau.";
 
 export const WITHDRAWAL_MESSAGES = {
-  deleted: "Đã rút khỏi Course",
-  withdrawn: "Đã rút khỏi Course. Tiến độ được giữ lại nếu bạn đăng ký lại",
-  notFound: "Course này không còn trong danh sách của bạn",
-  required: "Course được phân công không thể tự rút",
-  completed: "Course đã hoàn thành không thể rút",
+  deleted: "Đã rút khỏi Khóa học",
+  withdrawn: "Đã rút khỏi Khóa học. Tiến độ được giữ lại nếu bạn đăng ký lại",
+  notFound: "Khóa học này không còn trong danh sách của bạn",
+  required: "Khóa học được phân công không thể tự rút",
+  completed: "Khóa học đã hoàn thành không thể rút",
   unavailable: "Chưa kiểm tra được kết quả đánh giá, vui lòng thử lại",
-  retry: "Chưa rút được khỏi Course, vui lòng thử lại",
+  retry: "Chưa rút được khỏi Khóa học, vui lòng thử lại",
 } as const;
 
 export type WithdrawalOutcome = {

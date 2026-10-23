@@ -1,13 +1,22 @@
 server:
   port: 8081
 
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+  paths-to-match: /api/v1/auth/**,/api/auth/**
+  paths-to-exclude: /api/internal/**
+  override-with-generic-response: false
+
 spring:
   application:
     name: identity-service
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/identity_db}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -33,10 +42,18 @@ eureka:
 tenant:
   service-url: ${TENANT_SERVICE_URL:http://localhost:8084}
 
+learnup:
+  seed:
+    enabled: false
+  recovery:
+    notification-base-url: ${NOTIFICATION_SERVICE_URL}
+    frontend-base-url: ${PASSWORD_RECOVERY_FRONTEND_BASE_URL}
+    delivery-enabled: true
+
 security:
-  internal-key: ${INTERNAL_SERVICE_KEY:learnup-internal-secret}
+  internal-key: ${INTERNAL_SERVICE_KEY}
   jwt:
-    secret: ${JWT_SECRET:devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong}
+    secret: ${JWT_SECRET}
     access-token-expiration-minutes: 15
     refresh-token-expiration-days: 7
 

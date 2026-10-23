@@ -67,11 +67,3 @@ export const acknowledgeSegments = (
     );
   return { ...state, closed: remaining };
 };
-export const rejectSegments = (
-  time: number,
-  playing: boolean,
-): VideoSegments => ({
-  start: playing ? time : null,
-  lastTime: time,
-  closed: [],
-});

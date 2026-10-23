@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -9,7 +10,12 @@ import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import type { CurrentUser } from '@learnup/ts-common';
 import { HEADER_NAMES, parseUserRole } from '@learnup/ts-common';
-import { IS_PUBLIC_KEY } from '../decorator/customize';
+import { isUUID } from 'class-validator';
+import {
+  IS_PUBLIC_KEY,
+  ROLES_KEY,
+  REQUIRE_ORGANIZATION_KEY,
+} from '../decorator/customize';
 
 interface AuthenticatedRequest extends Request {
   user?: CurrentUser;
@@ -23,15 +29,21 @@ export class InternalAuthGuard implements CanActivate {
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const targets = [context.getHandler(), context.getClass()];
+
+    // 1. Bỏ qua xác thực nếu endpoint là Public.
+    const isPublic = this.reflector.getAllAndOverride<boolean>(
+      IS_PUBLIC_KEY,
+      targets,
+    );
 
     if (isPublic) return true;
 
+    // 2. Xác thực internal service key.
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+
     const internalKey = request.headers[HEADER_NAMES.INTERNAL_KEY];
+
     const expectedInternalKey = this.configService.getOrThrow<string>(
       'INTERNAL_SERVICE_KEY',
     );
@@ -45,17 +57,22 @@ export class InternalAuthGuard implements CanActivate {
       );
     }
 
+    // 3. Lấy user context từ headers.
     const userId = request.headers[HEADER_NAMES.USER_ID];
     const organizationId = request.headers[HEADER_NAMES.ORGANIZATION_ID];
     const rawRole = request.headers[HEADER_NAMES.USER_ROLE];
+
     const role = typeof rawRole === 'string' ? parseUserRole(rawRole) : null;
 
     if (
       typeof userId !== 'string' ||
+      !isUUID(userId, 'all') ||
       typeof organizationId !== 'string' ||
       !role
     ) {
-      throw new UnauthorizedException('Missing authenticated user context.');
+      throw new UnauthorizedException(
+        'Missing or invalid authenticated user context.',
+      );
     }
 
     request.user = {
@@ -64,6 +81,27 @@ export class InternalAuthGuard implements CanActivate {
       role,
       isAuthenticated: true,
     };
+
+    // 4. Kiểm tra Role.
+    const requiredRoles = this.reflector.getAllAndOverride<
+      CurrentUser['role'][]
+    >(ROLES_KEY, targets);
+
+    if (requiredRoles?.length && !requiredRoles.includes(role)) {
+      throw new ForbiddenException(
+        'You do not have permission to access this resource.',
+      );
+    }
+
+    // 5. Kiểm tra Organization Context.
+    const requireOrganization = this.reflector.getAllAndOverride<boolean>(
+      REQUIRE_ORGANIZATION_KEY,
+      targets,
+    );
+
+    if (requireOrganization && !isUUID(organizationId, 'all')) {
+      throw new ForbiddenException('Organization context is required.');
+    }
 
     return true;
   }

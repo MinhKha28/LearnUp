@@ -1,4 +1,6 @@
 import { Alert, Button, DatePicker, Form, Input, Modal, message } from "antd";
+import viVN from "antd/locale/vi_VN";
+import "dayjs/locale/vi";
 import dayjs, { type Dayjs } from "dayjs";
 import { useRef, useState } from "react";
 import { AssignmentError } from "@/components/organizer/assignment.error";
@@ -10,13 +12,13 @@ import {
 import type { ApiError } from "@/types/api.types";
 import type { AssignmentDetail } from "@/types/assignment.types";
 import {
-  assignmentDue,
   assignmentErrorMessage,
   assignmentExtensionRange,
   canExemptAssignment,
   canExtendAssignment,
   extensionDateError,
 } from "@/utils/assignments.view";
+import { assignmentDueDate } from "@/utils/assignment.date";
 import "./assignment.change.scss";
 
 export const AssignmentChange = ({
@@ -71,7 +73,7 @@ export const AssignmentChange = ({
     } catch (cause) {
       const apiError = toApiError(cause);
       if (
-        ["DUE_DATE_NOT_LATER", "DUE_DATE_IN_PAST", "DUE_DATE_TOO_FAR"].includes(
+        ["DUE_DATE_NOT_LATER", "DUE_DATE_IN_PAST"].includes(
           apiError.code,
         )
       ) {
@@ -123,7 +125,6 @@ export const AssignmentChange = ({
             <Button
               type="primary"
               loading={pending}
-              disabled={mode === "extend" && range.min > range.max}
               onClick={submit}
             >
               {mode === "extend" ? "Kéo dài hạn" : "Đánh dấu Miễn"}
@@ -136,30 +137,23 @@ export const AssignmentChange = ({
           <Alert
             type="info"
             showIcon
-            message="Learner không còn bị tính quá hạn và vẫn có thể học tiếp. Course vẫn là bắt buộc, không chuyển về tự chọn."
+            message="Học viên không còn bị tính quá hạn và vẫn có thể học tiếp. Khóa học vẫn là bắt buộc, không chuyển về tự chọn."
           />
         )}
         {mode === "extend" && (
           <>
             <p>
               Hạn hiện tại:{" "}
-              {assignmentDue(item.dueAt, item.organizationTimezone)} → Hạn mới:{" "}
+              {assignmentDueDate(item.dueAt, item.organizationTimezone)} → Hạn mới:{" "}
               {selectedDay
-                ? `hết ngày ${selectedDay.format("DD/MM/YYYY")}`
+                ? selectedDay.format("DD/MM/YYYY")
                 : "Chưa chọn"}
             </p>
             {!item.organizationTimezone && (
               <Alert
                 type="info"
                 showIcon
-                message="Giới hạn ngày tính theo giờ trên máy bạn vì chưa lấy được múi giờ tổ chức. Backend sẽ kiểm tra hạn khi gửi."
-              />
-            )}
-            {range.min > range.max && (
-              <Alert
-                type="warning"
-                showIcon
-                message="Không có ngày hợp lệ trong giới hạn 365 ngày kể từ hôm nay."
+                message="Giới hạn ngày tính theo giờ trên máy bạn vì chưa lấy được múi giờ tổ chức. Hạn sẽ được kiểm tra khi gửi."
               />
             )}
           </>
@@ -192,13 +186,12 @@ export const AssignmentChange = ({
               ]}
             >
               <DatePicker
+                locale={viVN.DatePicker}
                 format="DD/MM/YYYY"
                 placeholder="Chọn ngày"
                 minDate={dayjs(range.min)}
-                maxDate={dayjs(range.max)}
                 disabledDate={(value) =>
-                  value.format("YYYY-MM-DD") < range.min ||
-                  value.format("YYYY-MM-DD") > range.max
+                  value.format("YYYY-MM-DD") < range.min
                 }
               />
             </Form.Item>

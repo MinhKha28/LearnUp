@@ -32,16 +32,19 @@ describe('UC24.3 / UC24.5 rules and DTOs', () => {
     assert.doesNotThrow(() => assertExemptible('InProgress')));
   const today = '2026-10-16';
   const previous = new Date('2026-01-01Z');
-  for (const date of [today, '2027-10-16'])
+  for (const date of [
+    today,
+    '2027-10-16',
+    '2027-10-17',
+    '2100-12-31',
+    '9999-12-31',
+  ])
     test(`inclusive boundary ${date}`, () =>
       assert.ok(
         validateExtension(previous, new Date(`${date}T17:00Z`), date, today) >
           0n,
       ));
-  for (const [date, message] of [
-    ['2026-10-15', 'trước hôm nay'],
-    ['2027-10-17', '365 ngày'],
-  ])
+  for (const [date, message] of [['2026-10-15', 'trước hôm nay']])
     test(`reject date ${date}`, () =>
       assert.throws(
         () =>
@@ -72,11 +75,24 @@ describe('UC24.3 / UC24.5 rules and DTOs', () => {
       ).length,
       0,
     ));
-  for (const date of ['2026-02-30', '2026-2-01', '2026-10-16T00:00:00Z', 'bad'])
+  for (const date of [
+    '2026-02-30',
+    '2100-02-29',
+    '2026-2-01',
+    '2026-10-16T00:00:00Z',
+    'bad',
+  ])
     test(`invalid calendar date ${date}`, () =>
       assert.ok(
         validateSync(plainToInstance(ExtendAssignmentDto, { newDueDate: date }))
           .length,
+      ));
+  for (const newDueDate of ['2100-12-31', '9999-12-30', '9999-12-31'])
+    test(`valid four-digit calendar date ${newDueDate}`, () =>
+      assert.equal(
+        validateSync(plainToInstance(ExtendAssignmentDto, { newDueDate }))
+          .length,
+        0,
       ));
   test('optional reason permits empty but rejects null and excess length', () => {
     for (const reason of [undefined, '  '])

@@ -45,3 +45,59 @@ The **Notification Service** is one of the 3 finalized LearnUP Supporting/Platfo
   * `learnup.learning.course-completed`
   * `learnup.assessment.passed`
   * `learnup.certificate.issued`
+
+## Private transactional email API
+
+`POST /api/v1/notifications/email/send` (legacy `/api/notifications/email/send`)
+accepts `recipientEmail`, `subject`, `body` and optional `templateCode`. The response
+is HTTP 201 with `ApiResponse<EmailLogResponse>`; callers must inspect
+`data.status`, not just the HTTP status:
+
+- `SENT`: the configured SMTP sender accepted the send operation. This is not an
+  inbox-arrival guarantee.
+- `FAILED`: SMTP delivery failed or mail is enabled but no sender is available.
+  Error messages contain fixed diagnostic text, never SMTP response bodies.
+- `SIMULATED`: `LEARNUP_MAIL_ENABLED=false` (the default); no message was sent.
+
+Both email send aliases and both `GET .../email/logs` aliases require
+`X-Internal-Key`. Configure `INTERNAL_SERVICE_KEY` explicitly with a private,
+non-default value of at least 32 UTF-8 bytes, shared with legitimate Identity and
+Tenant callers. Missing/unsafe configuration prevents startup. Never put this
+key in frontend configuration or source control. Requests containing user ID,
+Organization, role or Authorization headers are rejected, even with a valid key.
+In-app Notification APIs retain their existing separate behavior; this change is
+not a general authentication redesign of those APIs.
+
+Use private service networking (`http://notification-service:8082` in Compose),
+not a public host-published port. Forward an optional canonical UUID in
+`X-Correlation-ID`; other values are replaced, not echoed or logged. Tenant's
+existing relay already supplies the internal key and uses the supported legacy
+route. Its current mock-mode behavior treats `SIMULATED` as non-failed; operators
+must explicitly enable mail for real delivery.
+
+### Password recovery confidentiality
+
+Identity owns reset-token generation, hashing, eligibility and lifecycle.
+Notification only sends the supplied message. Template code
+`IDENTITY_PASSWORD_RECOVERY` forces the fixed subject `LearnUP password recovery`
+for SMTP and persisted/API metadata. Email bodies are never stored in `email_logs`;
+SMTP error details, recipient addresses, subjects and bodies are not written to
+application dispatch logs. Other templates keep their original subjects/bodies.
+Email logging endpoints return metadata only, through the authenticated channel.
+Do not enable JavaMail debug, HTTP body/header tracing or proxy request capture:
+recovery bodies contain bearer-style reset links. JavaMail debug is off by default.
+This does not sanitize historical logs or control external SMTP provider retention.
+
+### Local SMTP configuration
+
+Set `INTERNAL_SERVICE_KEY` privately, then configure `SPRING_MAIL_HOST`,
+`SPRING_MAIL_PORT` and `LEARNUP_MAIL_FROM` for a disposable local SMTP receiver.
+Set `LEARNUP_MAIL_ENABLED=true` for actual SMTP traffic. Set
+`SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`, `SPRING_MAIL_SMTP_AUTH` and
+`SPRING_MAIL_SMTP_STARTTLS_ENABLE` as required by a real SMTP provider; never
+commit their values. Connection/read/write timeouts default to 5000 ms and can
+be configured with `SPRING_MAIL_SMTP_CONNECTION_TIMEOUT`,
+`SPRING_MAIL_SMTP_TIMEOUT` and `SPRING_MAIL_SMTP_WRITE_TIMEOUT`.
+
+Run `mvn test` / `mvn clean verify` with Java 21. Tests use synthetic credentials
+and an isolated H2 database; mocked JavaMailSender tests do not prove inbox delivery.

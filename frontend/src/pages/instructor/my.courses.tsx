@@ -1,7 +1,7 @@
 import { ApartmentOutlined, SearchOutlined } from "@ant-design/icons";
 import { Alert, Button, Input, Select, Table } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { isCourseQuotaReached } from "@/components/instructor/instructor.data";
@@ -19,6 +19,8 @@ import type {
 } from "@/types/course.types";
 
 import "./my.courses.scss";
+
+const SEARCH_DEBOUNCE_MS = 400;
 
 const courseTypeLabel: Record<CourseType, string> = {
   Public: "Public",
@@ -61,54 +63,73 @@ const MyCourses = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
+  // UC14.4 - searchInput là giá trị đang gõ; search là giá trị đã debounce dùng để gọi API
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [courseType, setCourseType] = useState<"ALL" | CourseType>("ALL");
   const [status, setStatus] = useState<"ALL" | CourseStatus>("ALL");
   const [locked, setLocked] = useState<"ALL" | "LOCKED" | "UNLOCKED">("ALL");
-
-  const fetchCourses = useCallback(async () => {
-    setLoading(true);
-    setErrorMessage("");
-
-    try {
-      const response = await fetchManagedCoursesAPI({
-        current,
-        pageSize,
-        search: search.trim() !== "" ? search.trim() : undefined,
-        courseType: courseType !== "ALL" ? courseType : undefined,
-        status: status !== "ALL" ? status : undefined,
-        locked: locked === "ALL" ? undefined : locked === "LOCKED",
-      });
-
-      if (!response.data) {
-        setCourses([]);
-        setTotal(0);
-        setErrorMessage(response.message || "Unable to load Courses.");
-        return;
-      }
-
-      setCourses(response.data.result);
-      setTotal(response.data.meta.total);
-    } catch (error) {
-      console.error("Fetch managed courses error:", error);
-      setCourses([]);
-      setTotal(0);
-      setErrorMessage("Unable to load Courses. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [current, pageSize, search, courseType, status, locked]);
+  const hasFilter =
+    search !== "" ||
+    courseType !== "ALL" ||
+    status !== "ALL" ||
+    locked !== "ALL";
 
   useEffect(() => {
-    void fetchCourses();
-  }, [fetchCourses]);
+    const timer = window.setTimeout(() => {
+      const normalized = searchInput.trim().replace(/\s+/g, " ");
+      if (normalized !== search) {
+        setSearch(normalized);
+        setCurrent(1);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [searchInput, search]);
 
-  const handleSearch = () => {
-    setCurrent(1);
-    setSearch(searchInput.trim());
-  };
+  useEffect(() => {
+    // ignore: bỏ kết quả của request cũ khi bộ lọc / trang đổi trước lúc nó trả về
+    let ignore = false;
+    const fetchCourses = async () => {
+      setLoading(true);
+      setErrorMessage("");
+
+      try {
+        const response = await fetchManagedCoursesAPI({
+          current,
+          pageSize,
+          search: search || undefined,
+          courseType: courseType !== "ALL" ? courseType : undefined,
+          status: status !== "ALL" ? status : undefined,
+          locked: locked === "ALL" ? undefined : locked === "LOCKED",
+        });
+        if (ignore) return;
+
+        if (!response.data) {
+          setCourses([]);
+          setTotal(0);
+          setErrorMessage(response.message || "Unable to load Courses.");
+          return;
+        }
+
+        setCourses(response.data.result);
+        setTotal(response.data.meta.total);
+      } catch (error) {
+        if (ignore) return;
+        console.error("Fetch managed courses error:", error);
+        setCourses([]);
+        setTotal(0);
+        setErrorMessage("Unable to load Courses. Please try again.");
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+    void fetchCourses();
+    return () => {
+      ignore = true;
+    };
+  }, [current, pageSize, search, courseType, status, locked, reloadKey]);
 
   const handleResetFilters = () => {
     setSearchInput("");
@@ -223,13 +244,17 @@ const MyCourses = () => {
           message="Could not load Courses"
           description={errorMessage}
           action={
-            <InstructorButton size="small" onClick={() => void fetchCourses()}>
+            <InstructorButton
+              size="small"
+              onClick={() => setReloadKey((key) => key + 1)}
+            >
               Retry
             </InstructorButton>
           }
         />
       )}
 
+      {/* UC14.4 */}
       <div className="my-courses__filters">
         <Input
           className="my-courses__search"
@@ -237,16 +262,8 @@ const MyCourses = () => {
           prefix={<SearchOutlined />}
           value={searchInput}
           allowClear
-          onChange={(event) => {
-            const value = event.target.value;
-            setSearchInput(value);
-
-            if (value === "") {
-              setCurrent(1);
-              setSearch("");
-            }
-          }}
-          onPressEnter={handleSearch}
+          maxLength={200}
+          onChange={(event) => setSearchInput(event.target.value)}
         />
 
         <Select
@@ -295,10 +312,6 @@ const MyCourses = () => {
           ]}
         />
 
-        <Button type="primary" onClick={handleSearch}>
-          Search
-        </Button>
-
         <Button onClick={handleResetFilters}>Reset</Button>
       </div>
 
@@ -309,7 +322,18 @@ const MyCourses = () => {
         dataSource={courses}
         loading={loading}
         locale={{
-          emptyText: (
+          emptyText: hasFilter ? (
+            <div className="instructor-courses-empty">
+              <div className="instructor-courses-empty-icon">
+                <SearchOutlined />
+              </div>
+              <h2>No matching Courses found.</h2>
+              <p>Try a different Course name or clear the filters.</p>
+              <InstructorButton onClick={handleResetFilters}>
+                Clear filters
+              </InstructorButton>
+            </div>
+          ) : (
             <div className="instructor-courses-empty">
               <div className="instructor-courses-empty-icon">
                 <SearchOutlined />

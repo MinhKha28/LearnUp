@@ -19,11 +19,11 @@ export type EnrollOutcome =
 export const ENROLL_OUTCOME_MESSAGES: Record<EnrollOutcome["kind"], string> = {
   enrolled: "Đăng ký thành công",
   restored: "Đăng ký thành công, tiến độ cũ đã được khôi phục",
-  notRestorable: "Không thể đăng ký lại Course này",
-  alreadyEnrolled: "Bạn đã đăng ký Course này",
-  inGrace: "Tổ chức của bạn đang trong thời gian ân hạn, chưa thể đăng ký Course mới",
-  forbidden: "Tổ chức của bạn hiện chưa thể đăng ký Course mới. Vui lòng liên hệ quản trị viên tổ chức.",
-  unavailable: "Course không còn trong danh mục",
+  notRestorable: "Không thể đăng ký lại Khóa học này",
+  alreadyEnrolled: "Bạn đã đăng ký Khóa học này",
+  inGrace: "Tổ chức của bạn đang trong thời gian ân hạn, chưa thể đăng ký Khóa học mới",
+  forbidden: "Tổ chức của bạn hiện chưa thể đăng ký Khóa học mới. Vui lòng liên hệ quản trị viên tổ chức.",
+  unavailable: "Khóa học không còn trong danh mục",
   rateLimited: "Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút",
   retry: "Chưa đăng ký được. Vui lòng thử lại.",
 };

@@ -24,6 +24,7 @@ export function assertExemptible(status: string) {
     );
 }
 
+/** BR-171: hạn mới phải sau hạn hiện tại và không trước hôm nay. */
 export function validateExtension(
   previousDueAt: Date,
   newDueAt: Date,
@@ -39,15 +40,6 @@ export function validateExtension(
       createApiError(
         'DUE_DATE_IN_PAST',
         'Ngày hết hạn không được trước hôm nay.',
-      ),
-    );
-  const limit = new Date(`${today}T00:00:00Z`);
-  limit.setUTCDate(limit.getUTCDate() + 365);
-  if (newDueDate > limit.toISOString().slice(0, 10))
-    throw new UnprocessableEntityException(
-      createApiError(
-        'DUE_DATE_TOO_FAR',
-        'Ngày hết hạn không được quá 365 ngày kể từ hôm nay.',
       ),
     );
   return BigInt((newDueAt.getTime() - previousDueAt.getTime()) / 1000);

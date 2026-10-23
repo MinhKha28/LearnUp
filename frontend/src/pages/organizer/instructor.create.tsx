@@ -12,7 +12,12 @@ import {
   getInstructorSeatsAPI,
 } from "@/services/organization.service";
 import type { IApiError, ISeatUsage } from "@/types/organization.types";
-import { seatBlockReason } from "@/utils/helper";
+import {
+  normalizeEmail,
+  normalizeText,
+  seatBlockReason,
+  textRule,
+} from "@/utils/helper";
 import "./instructor.create.scss";
 
 type InstructorFields = {
@@ -22,29 +27,6 @@ type InstructorFields = {
 };
 
 const LIST_PATH = "/organizer/instructors";
-
-// Chuẩn hóa giống backend (CreateAccountDto): NFC, trim, gộp khoảng trắng; email chữ thường.
-const normalizeText = (value = "") =>
-  value.normalize("NFC").trim().replace(/\s+/g, " ");
-const normalizeEmail = (value = "") =>
-  value.normalize("NFC").trim().toLowerCase();
-const CONTROL_CHARS = /\p{Cc}/u;
-// Giống backend: email gửi đi bị coi là HTML nếu có cả < và >
-const ANGLE_BRACKETS = /[<>]/;
-
-// Kiểm độ dài SAU khi chuẩn hóa, giống backend
-const textRule =
-  (label: string, max: number) =>
-  (_: unknown, value?: string) => {
-    const normalized = normalizeText(value);
-    if (normalized.length > max)
-      return Promise.reject(new Error(`${label} must be at most ${max} characters.`));
-    if (CONTROL_CHARS.test(normalized))
-      return Promise.reject(new Error(`${label} contains invalid characters.`));
-    if (ANGLE_BRACKETS.test(normalized))
-      return Promise.reject(new Error(`${label} cannot contain < or >.`));
-    return Promise.resolve();
-  };
 
 const InstructorCreate = () => {
   const navigate = useNavigate();

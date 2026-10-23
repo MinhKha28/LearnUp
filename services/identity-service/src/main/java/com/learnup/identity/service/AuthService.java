@@ -11,6 +11,8 @@ import com.learnup.identity.exception.RefreshTokenReusedException;
 import com.learnup.identity.exception.SignInDeniedException;
 import com.learnup.identity.repository.RefreshTokenRepository;
 import com.learnup.identity.repository.UserRepository;
+import com.learnup.identity.mapper.UserMapper;
+import com.learnup.identity.security.AuthenticationDiagnostics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,6 +39,9 @@ public class AuthService {
     private final com.learnup.identity.repository.PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    private final UserMapper userMapper;
+    private final RecoveryRequestLimiter recoveryRequestLimiter;
+    private final PasswordRecoveryDelivery recoveryDelivery;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
@@ -44,7 +49,10 @@ public class AuthService {
                        PasswordEncoder passwordEncoder,
                        JwtTokenService jwtTokenService,
                        TenantAccessClient tenantAccessClient,
-                       LoginThrottleService loginThrottleService) {
+                       LoginThrottleService loginThrottleService,
+                       UserMapper userMapper,
+                       RecoveryRequestLimiter recoveryRequestLimiter,
+                       PasswordRecoveryDelivery recoveryDelivery) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
@@ -52,45 +60,9 @@ public class AuthService {
         this.jwtTokenService = jwtTokenService;
         this.tenantAccessClient = tenantAccessClient;
         this.loginThrottleService = loginThrottleService;
-    }
-
-    @Transactional
-    public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByUsername(request.getUsername().trim())) {
-            throw BusinessException.conflict("Username is already in use");
-        }
-
-        if (userRepository.existsByEmail(request.getEmail().trim().toLowerCase())) {
-            throw BusinessException.conflict("Email address is already registered");
-        }
-
-        // Privilege Escalation Prevention
-        UserRole targetRole = request.getRole() != null ? request.getRole() : UserRole.LEARNER;
-        if (targetRole == UserRole.ADMIN) {
-            log.warn("Attempt to self-register as platform ADMIN rejected for user '{}'", request.getUsername());
-            throw BusinessException.forbidden("Cannot self-register as platform ADMIN");
-        }
-
-        User user = new User();
-        user.setId(UUID.randomUUID());
-        user.setUsername(request.getUsername().trim());
-        user.setEmail(request.getEmail().trim().toLowerCase());
-        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setFullName(request.getFullName() != null ? request.getFullName().trim() : null);
-        user.setRole(targetRole);
-        user.setOrganizationId(request.getOrganizationId());
-        user.setEnabled(true);
-
-        User savedUser = userRepository.save(user);
-        log.info("Registered new user [{}] with role [{}] and id [{}]",
-                savedUser.getUsername(), savedUser.getRole(), savedUser.getId());
-
-        String accessToken = jwtTokenService.generateAccessToken(savedUser);
-        String rawRefreshToken = createAndPersistRefreshToken(savedUser.getId());
-        UserResponse userResponse = UserResponse.fromUser(savedUser);
-
-        return AuthResponse.of(accessToken, rawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(),
-                userResponse);
+        this.userMapper = userMapper;
+        this.recoveryRequestLimiter = recoveryRequestLimiter;
+        this.recoveryDelivery = recoveryDelivery;
     }
 
     @Transactional
@@ -98,19 +70,21 @@ public class AuthService {
         String identifier = request.getUsername().trim();
         loginThrottleService.assertNotLocked(identifier);
 
-        User user = userRepository.findByUsernameOrEmail(identifier, identifier.toLowerCase()).orElse(null);
+        User user = userRepository.findByUsernameOrEmailForUpdate(identifier, identifier.toLowerCase()).orElse(null);
         if (user == null) {
             loginThrottleService.recordFailure(identifier);
             throw BusinessException.unauthorized("Invalid username or password");
         }
 
         if (!user.isEnabled()) {
-            log.warn("Login attempt for disabled account: '{}'", identifier);
+            log.warn("event=login_rejected reason=ACCOUNT_DISABLED user_id={} correlation_id={}",
+                    user.getId(), AuthenticationDiagnostics.correlationId());
             throw BusinessException.unauthorized("User account is disabled");
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            log.warn("Invalid password attempt for account: '{}'", identifier);
+            log.warn("event=login_rejected reason=INVALID_PASSWORD user_id={} correlation_id={}",
+                    user.getId(), AuthenticationDiagnostics.correlationId());
             loginThrottleService.recordFailure(identifier);
             throw BusinessException.unauthorized("Invalid username or password");
         }
@@ -118,18 +92,19 @@ public class AuthService {
 
         SignInAccess access = tenantAccessClient.check(user.getId());
         if (!access.allowed()) {
-            log.warn("Sign-in denied for user [{}]: {}", user.getId(), access.reason());
+            log.warn("event=login_rejected reason={} user_id={} correlation_id={}",
+                    SignInDeniedException.normalizeReason(access.reason()), user.getId(), AuthenticationDiagnostics.correlationId());
             if ("ACCOUNT_NOT_FOUND".equals(access.reason())) {
                 throw BusinessException.unauthorized("Invalid username or password");
             }
             throw new SignInDeniedException(access.reason());
         }
 
-        log.info("User [{}] successfully authenticated", user.getUsername());
+        log.info("event=login_succeeded user_id={} correlation_id={}", user.getId(), AuthenticationDiagnostics.correlationId());
 
         String accessToken = jwtTokenService.generateAccessToken(user);
         String rawRefreshToken = createAndPersistRefreshToken(user.getId());
-        UserResponse userResponse = UserResponse.fromUser(user);
+        UserResponse userResponse = userMapper.toResponse(user);
 
         AuthResponse response = AuthResponse.of(accessToken, rawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
         response.setAccessMode(access.accessMode());
@@ -141,6 +116,11 @@ public class AuthService {
         String rawToken = request.getRefreshToken().trim();
         String tokenHash = hashToken(rawToken);
 
+        // Password replacement, login and refresh acquire User before Token to avoid reversed lock order.
+        UUID ownerId = refreshTokenRepository.findUserIdByTokenHash(tokenHash)
+                .orElseThrow(() -> BusinessException.unauthorized("Invalid, expired, or revoked refresh token"));
+        User user = userRepository.findByIdForUpdate(ownerId)
+                .orElseThrow(() -> BusinessException.unauthorized("User account not found"));
         RefreshToken refreshToken = refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(() -> BusinessException.unauthorized("Invalid, expired, or revoked refresh token"));
 
@@ -156,9 +136,6 @@ public class AuthService {
             throw BusinessException.unauthorized("Invalid, expired, or revoked refresh token");
         }
 
-        User user = userRepository.findById(refreshToken.getUserId())
-                .orElseThrow(() -> BusinessException.unauthorized("User account not found"));
-
         if (!user.isEnabled()) {
             throw BusinessException.unauthorized("User account is disabled");
         }
@@ -166,7 +143,8 @@ public class AuthService {
         SignInAccess access = tenantAccessClient.check(user.getId());
         if (!access.allowed()) {
             refreshTokenRepository.deleteByUserId(user.getId());
-            log.warn("Refresh denied and sessions revoked for user [{}]: {}", user.getId(), access.reason());
+            log.warn("event=refresh_rejected reason={} user_id={} correlation_id={}",
+                    SignInDeniedException.normalizeReason(access.reason()), user.getId(), AuthenticationDiagnostics.correlationId());
             throw new SignInDeniedException(access.reason());
         }
 
@@ -179,7 +157,7 @@ public class AuthService {
         // Generate new token pair
         String newAccessToken = jwtTokenService.generateAccessToken(user);
         String newRawRefreshToken = next.rawToken();
-        UserResponse userResponse = UserResponse.fromUser(user);
+        UserResponse userResponse = userMapper.toResponse(user);
 
         AuthResponse response = AuthResponse.of(newAccessToken, newRawRefreshToken, jwtTokenService.getAccessTokenExpirationSeconds(), userResponse);
         response.setAccessMode(access.accessMode());
@@ -195,7 +173,7 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> BusinessException.notFound("User with ID " + userId + " not found"));
 
-        return UserResponse.fromUser(user);
+        return userMapper.toResponse(user);
     }
 
     @Transactional
@@ -238,7 +216,7 @@ public class AuthService {
             throw BusinessException.badRequest("New password cannot be the same as the current password");
         }
 
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> BusinessException.notFound("User not found"));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
@@ -250,6 +228,7 @@ public class AuthService {
         user.setUpdatedAt(Instant.now());
         userRepository.save(user);
 
+        passwordResetTokenRepository.deleteByUserId(userId);
         // Security best practice: Revoke all existing sessions upon password change
         refreshTokenRepository.deleteByUserId(userId);
         log.info("Password successfully changed and all sessions revoked for user [{}]", userId);
@@ -258,11 +237,17 @@ public class AuthService {
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
         String email = request.getEmail().trim().toLowerCase();
-        User user = userRepository.findByEmail(email).orElse(null);
+        User user = userRepository.findByEmailForUpdate(email).orElse(null);
         if (user == null || !user.isEnabled()) {
             // Mitigate email enumeration attack: return quietly without disclosing email
             // non-existence
-            log.info("Forgot password requested for non-existent or disabled email: '{}'", email);
+            log.info("event=password_recovery_ignored reason=ACCOUNT_UNAVAILABLE correlation_id={}", AuthenticationDiagnostics.correlationId());
+            return;
+        }
+
+        if (!recoveryRequestLimiter.allow(user.getId(), Instant.now())) {
+            log.info("event=password_recovery_ignored reason=RATE_LIMITED user_id={} correlation_id={}",
+                    user.getId(), AuthenticationDiagnostics.correlationId());
             return;
         }
 
@@ -280,8 +265,10 @@ public class AuthService {
         resetToken.setExpiresAt(expiresAt);
 
         passwordResetTokenRepository.save(resetToken);
-        log.info("Generated password reset token for user [{}] (email: '{}'). Reset token: {}",
-                user.getId(), email, rawToken);
+        log.info("event=password_recovery_token_created user_id={} correlation_id={}",
+                user.getId(), AuthenticationDiagnostics.correlationId());
+        recoveryDelivery.scheduleAfterCommit(user.getId(), user.getEmail(), resetToken.getId(), rawToken,
+                expiresAt, AuthenticationDiagnostics.correlationId());
     }
 
     @Transactional
@@ -293,25 +280,36 @@ public class AuthService {
         String rawToken = request.getToken().trim();
         String tokenHash = hashToken(rawToken);
 
+        UUID ownerId = passwordResetTokenRepository.findUserIdByTokenHash(tokenHash)
+                .orElseThrow(this::invalidResetToken);
+        User user = userRepository.findByIdForUpdate(ownerId).orElseThrow(this::invalidResetToken);
+
+        // Re-read only after acquiring the account lock: another reset/issuance may have revoked this link.
         com.learnup.identity.domain.PasswordResetToken resetToken = passwordResetTokenRepository
                 .findByTokenHash(tokenHash)
-                .orElseThrow(
-                        () -> BusinessException.badRequest("Invalid, expired, or already used password reset token"));
+                .orElseThrow(this::invalidResetToken);
 
-        if (!resetToken.isValid()) {
-            throw BusinessException.badRequest("Invalid, expired, or already used password reset token");
+        if (!resetToken.isValid() || !user.isEnabled()) {
+            throw invalidResetToken();
         }
 
-        User user = userRepository.findById(resetToken.getUserId())
-                .orElseThrow(() -> BusinessException.notFound("User not found"));
+        // Recovery is not activation or an alternate access path. Tenant remains the access authority.
+        if (!tenantAccessClient.check(user.getId()).allowed()) {
+            throw invalidResetToken();
+        }
 
-        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword().trim()));
+        String newPasswordHash = passwordEncoder.encode(request.getNewPassword().trim());
+        // Atomically enforce strict expiry and single use after slow checks/hashing, inside this transaction.
+        if (passwordResetTokenRepository.consumeUsableToken(tokenHash, user.getId(), Instant.now()) != 1) {
+            throw invalidResetToken();
+        }
+
+        user.setPasswordHash(newPasswordHash);
         user.setUpdatedAt(Instant.now());
         userRepository.save(user);
 
-        // Mark reset token as consumed
-        resetToken.markUsed();
-        passwordResetTokenRepository.save(resetToken);
+        // Consumed and sibling links are all revoked; rollback restores them if any later write fails.
+        passwordResetTokenRepository.deleteByUserId(user.getId());
 
         // Revoke all refresh tokens
         refreshTokenRepository.deleteByUserId(user.getId());
@@ -322,6 +320,7 @@ public class AuthService {
     public void setCredentials(com.learnup.identity.dto.internal.SetCredentialsRequest request) {
         UUID userId = request.getUserId();
         String rawPassword = request.getPassword().trim();
+        User user = userRepository.findByIdForUpdate(userId).orElse(null);
         // Tenant là nguồn sự thật về tài khoản (BR-30: email duy nhất trong các tài
         // khoản chưa xóa).
         // Email đã thuộc một userId khác nghĩa là tài khoản cũ đã bị tenant xóa mềm
@@ -331,7 +330,6 @@ public class AuthService {
             releaseEmailFromOtherUser(request.getEmail().trim().toLowerCase(), userId);
         }
 
-        User user = userRepository.findById(userId).orElse(null);
         if (user == null) {
             String username = (request.getUsername() != null && !request.getUsername().isBlank())
                     ? request.getUsername().trim()
@@ -369,6 +367,7 @@ public class AuthService {
         user.setUpdatedAt(Instant.now());
         userRepository.save(user);
 
+        passwordResetTokenRepository.deleteByUserId(userId);
         // Revoke all existing refresh tokens if password is reset/updated
         refreshTokenRepository.deleteByUserId(userId);
         log.info("Credentials successfully set for user [{}]", userId);
@@ -414,6 +413,10 @@ public class AuthService {
     }
 
     private record IssuedRefreshToken(UUID id, String rawToken) {
+    }
+
+    private BusinessException invalidResetToken() {
+        return BusinessException.badRequest("Invalid, expired, or already used password reset token");
     }
 
     private String hashToken(String token) {

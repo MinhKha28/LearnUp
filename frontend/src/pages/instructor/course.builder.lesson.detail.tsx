@@ -158,12 +158,22 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
           </div>
         </div>
 
-        <InstructorButton
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate(base)}
-        >
-          Back to Structure
-        </InstructorButton>
+        <div className="instructor-lesson-header-actions">
+          <InstructorButton
+            onClick={() =>
+              navigate(`${base}/lessons/${lesson.id}/content/edit`)
+            }
+          >
+            Edit Lesson Content
+          </InstructorButton>
+
+          <InstructorButton
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate(base)}
+          >
+            Back to Structure
+          </InstructorButton>
+        </div>
       </div>
 
       <div className="instructor-lesson-layout">
@@ -185,7 +195,13 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
           <section className="instructor-lesson-card">
             <div className="instructor-lesson-card-heading">
               <h2>Learning materials</h2>
-              <span>{materials.length} total</span>
+              <InstructorButton
+                onClick={() =>
+                  navigate(`${base}/lessons/${lesson.id}/materials`)
+                }
+              >
+                View all materials ({materials.length})
+              </InstructorButton>
             </div>
 
             {materials.length === 0 ? (

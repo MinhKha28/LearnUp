@@ -13,7 +13,7 @@ export const CourseCover = ({
   coverFileId?: string | null;
   size?: "sm" | "md" | "lg";
 }) => {
-  const initial = Array.from(name.trim())[0]?.toLocaleUpperCase("vi");
+  const initial = name.replace(/^(?:\s*\[[^\]]*\])+/, "").match(/[\p{L}\p{N}]/u)?.[0].toLocaleUpperCase("vi");
 
   return (
     <div className={`course-cover course-cover-${size}`} role="img" aria-label={name}>

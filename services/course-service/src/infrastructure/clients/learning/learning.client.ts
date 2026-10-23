@@ -16,6 +16,17 @@ export class LearningClient {
     private readonly configService: ConfigService,
   ) {}
 
+  private buildHeaders(user: CurrentUser) {
+    return {
+      'x-internal-key': this.configService.getOrThrow<string>(
+        'INTERNAL_SERVICE_KEY',
+      ),
+      'x-user-id': user.userId,
+      'x-organization-id': user.organizationId!,
+      'x-user-role': user.role,
+    };
+  }
+
   async getCourseLearnerCounts(
     user: CurrentUser,
     courseIds: string[],
@@ -51,14 +62,38 @@ export class LearningClient {
     }
   }
 
-  private buildHeaders(user: CurrentUser) {
-    return {
-      'x-internal-key': this.configService.getOrThrow<string>(
-        'INTERNAL_SERVICE_KEY',
-      ),
-      'x-user-id': user.userId,
-      'x-organization-id': user.organizationId!,
-      'x-user-role': user.role,
-    };
+  async hasAnyLearnerCompletedLesson(
+    user: CurrentUser,
+    courseId: string,
+    lessonId: string,
+  ): Promise<boolean> {
+    const baseUrl = this.configService.getOrThrow<string>(
+      'LEARNING_SERVICE_URL',
+    );
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get<LearningApiResponse<{ hasCompleted: boolean }>>(
+          `${baseUrl}/api/v1/enrollments/course/${courseId}/lessons/${lessonId}/completion`,
+          {
+            headers: this.buildHeaders(user),
+          },
+        ),
+      );
+
+      const value = response.data.data?.hasCompleted;
+
+      if (typeof value !== 'boolean') {
+        throw new Error('Invalid Lesson completion response.');
+      }
+
+      return value;
+    } catch (error) {
+      console.error('Unable to check Lesson completion:', error);
+
+      throw new ServiceUnavailableException(
+        'Unable to verify Lesson completion status.',
+      );
+    }
   }
 }

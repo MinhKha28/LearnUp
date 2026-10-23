@@ -1,4 +1,5 @@
 import type { CurrentUser } from '@learnup/ts-common';
+import type { IManagedCourseChain } from './interfaces/managed-course-chain.interface';
 import type { IOrganizationCourseUsage } from './interfaces/organization-course-usage.interface';
 
 /**
@@ -20,6 +21,16 @@ export abstract class CourseServiceClient {
     user: CurrentUser,
     instructorIds: string[],
   ): Promise<Record<string, number>>;
+
+  /**
+   * UC12.1: các chuỗi Course một Instructor đang phụ trách, mỗi chuỗi một phần tử.
+   * Số phần tử phải bằng số countCourseChainsByInstructors trả về cho cùng Instructor.
+   * Lỗi thì ném lỗi; bên gọi tự quyết định xử lý.
+   */
+  abstract listCourseChainsByInstructor(
+    user: CurrentUser,
+    instructorId: string,
+  ): Promise<IManagedCourseChain[]>;
 
   abstract getOrganizationUsage(
     user: CurrentUser,

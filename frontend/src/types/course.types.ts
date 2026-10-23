@@ -230,6 +230,7 @@ export interface IUpdateCourseStructureResponse {
 
 export interface IInstructorLessonMaterial {
   id: string;
+  fileId: string; // UC17
   title: string;
   materialType: string;
   isRequired: boolean;
@@ -271,4 +272,87 @@ export interface IInstructorLessonDetail {
   };
 
   materials: IInstructorLessonMaterial[];
+}
+
+export interface ILessonContentEditability {
+  canEdit: boolean;
+  reason: "COMPLETED" | "SUBMITTED" | null;
+}
+
+export interface IUpdateLessonContentRequest {
+  content: string;
+}
+
+export interface IUpdateLessonContentResponse {
+  id: string;
+  content: string;
+}
+
+export interface IVideoUploadContext {
+  courseName: string;
+  lessonTitle: string;
+  locked: boolean;
+
+  subscriptionStatus: string | null;
+  canUpload: boolean;
+  blockReason: string | null;
+
+  maxVideoSizeBytes: string;
+  maxVideoDurationMinutes: number;
+  allowedVideoMimeTypes: string[];
+
+  maxStorageBytes: string;
+  usedStorageBytes: string;
+  remainingStorageBytes: string;
+}
+
+export interface ICreateVideoMaterialRequest {
+  title: string;
+  isRequired: boolean;
+  file: File;
+}
+
+export interface ICreateVideoMaterialResponse {
+  id: string;
+  title: string;
+  materialType: "Video";
+  isRequired: boolean;
+  position: number;
+  fileId: string;
+  sizeBytes: string;
+  durationSeconds: number;
+}
+
+export interface IReadingUploadContext {
+  courseName: string;
+  lessonTitle: string;
+  locked: boolean;
+
+  subscriptionStatus: string | null;
+  canUpload: boolean;
+  blockReason: string | null;
+
+  maxReadingSizeBytes: string;
+  allowedReadingMimeTypes: string[];
+  remainingStorageBytes: string;
+
+  readingSpeedWordsPerMinute: number;
+}
+
+export interface ICreateReadingMaterialRequest {
+  title: string;
+  isRequired: boolean;
+  file: File;
+}
+
+export interface ICreateReadingMaterialResponse {
+  id: string;
+  title: string;
+  materialType: "Reading";
+  isRequired: boolean;
+  position: number;
+  fileId: string;
+  sizeBytes: string;
+  wordCount: number;
+  extractionWarning: string | null;
 }

@@ -3,6 +3,7 @@ import './dto.unit-test';
 import './assessments-service.unit-test';
 import './peer-review-service.unit-test';
 import './quiz-service.unit-test';
+import './quiz-detail.unit-test';
 import './peer-review-calendar.unit-test';
 import './enrollment-clients.unit-test';
 import './enrollment-completed.unit-test';

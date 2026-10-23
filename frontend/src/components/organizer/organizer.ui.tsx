@@ -20,7 +20,7 @@ export const PageHeader = ({
   actions,
   back,
 }: {
-  title: string;
+  title: ReactNode;
   subtitle: string;
   actions?: ReactNode;
   back?: boolean;

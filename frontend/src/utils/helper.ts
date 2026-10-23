@@ -81,6 +81,30 @@ export const seatBlockReason = (
   return "Your Organization is suspended. New accounts cannot be created.";
 };
 
+// UC12.2, UC12.3: chuẩn hóa giống backend (CreateAccountDto / UpdateAccountDto): NFC, trim,
+// gộp khoảng trắng; email chữ thường.
+export const normalizeText = (value = "") =>
+  value.normalize("NFC").trim().replace(/\s+/g, " ");
+export const normalizeEmail = (value = "") =>
+  value.normalize("NFC").trim().toLowerCase();
+const CONTROL_CHARS = /\p{Cc}/u;
+// Giống backend: email gửi đi bị coi là HTML nếu có cả < và >
+const ANGLE_BRACKETS = /[<>]/;
+
+// Validator antd Form: kiểm độ dài SAU khi chuẩn hóa, giống backend
+export const textRule =
+  (label: string, max: number) =>
+  (_: unknown, value?: string) => {
+    const normalized = normalizeText(value);
+    if (normalized.length > max)
+      return Promise.reject(new Error(`${label} must be at most ${max} characters.`));
+    if (CONTROL_CHARS.test(normalized))
+      return Promise.reject(new Error(`${label} contains invalid characters.`));
+    if (ANGLE_BRACKETS.test(normalized))
+      return Promise.reject(new Error(`${label} cannot contain < or >.`));
+    return Promise.resolve();
+  };
+
 /** 1.5 MB / 320 KB style size for file lists. */
 export const formatFileSize = (bytes: number) =>
   bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;

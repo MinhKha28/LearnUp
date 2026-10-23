@@ -367,6 +367,24 @@ export class CurriculumService {
     }
     throw serviceUnavailable();
   }
+
+  async hasAnyLearnerCompletedLesson(
+    user: CurrentUser,
+    courseId: string,
+    lessonId: string,
+  ) {
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    const hasCompleted = await this.curriculum.hasAnyLearnerCompletedLesson(
+      courseId,
+      lessonId,
+      user.organizationId,
+    );
+
+    return { hasCompleted };
+  }
 }
 
 type Settled<T> = { ok: true; value: T } | { ok: false; error: unknown };

@@ -30,14 +30,23 @@ export async function seedWithdrawalDemo(
     isAuthenticated: true,
   };
   const assessment = app.get<AssessmentClient>(ASSESSMENT_CLIENT);
-  if (process.env.ASSESSMENT_CLIENT_MODE?.trim() !== 'fake')
-    throw new Error('Demo UC25.4 cần ASSESSMENT_CLIENT_MODE=fake.');
-  const results = await Promise.all(
-    PLANS.map((plan) => assessment.getActivity(user, plan.courseId)),
-  );
+  let results;
+  try {
+    results = await Promise.all(
+      PLANS.map((plan) => assessment.getActivity(user, plan.courseId)),
+    );
+  } catch (error) {
+    throw new Error(
+      'Không kiểm tra được hoạt động assessment cho demo UC25.4; seed chưa ghi dữ liệu.',
+      { cause: error },
+    );
+  }
   if (hasAssessmentActivity(results[0]) || !hasAssessmentActivity(results[1]))
     throw new Error(
-      'Demo UC25.4 cần Course 03 trong ASSESSMENT_FAKE_RESULT_COURSE_IDS, Course 02 ngoài danh sách.',
+      'Demo UC25.4 cần Course X không có hoạt động assessment và Course Y có hoạt động. ' +
+        (process.env.ASSESSMENT_CLIENT_MODE?.trim() === 'fake'
+          ? 'Đặt Course Y trong ASSESSMENT_FAKE_RESULT_COURSE_IDS, Course X ngoài danh sách.'
+          : 'Chạy npm run db:seed:withdrawal-demo của assessment-service.'),
     );
   const [existing, progress, percent] = await Promise.all([
     prisma.enrollment.findMany({

@@ -5,12 +5,23 @@ public class SignInDeniedException extends RuntimeException {
     private final String reason;
 
     public SignInDeniedException(String reason) {
-        super(messageFor(reason));
-        this.reason = reason;
+        super(messageFor(normalizeReason(reason)));
+        this.reason = normalizeReason(reason);
     }
 
     public String getReason() {
         return reason;
+    }
+
+    public static String normalizeReason(String reason) {
+        if (reason == null) {
+            return "ACCESS_DENIED";
+        }
+        return switch (reason) {
+            case "ACCOUNT_NOT_FOUND", "ACCOUNT_NOT_ACTIVE", "ACCOUNT_DEACTIVATED",
+                    "ORGANIZATION_SUSPENDED", "ORGANIZATION_NOT_ACTIVE", "SUBSCRIPTION_SUSPENDED", "SUBSCRIPTION_ENDED" -> reason;
+            default -> "ACCESS_DENIED";
+        };
     }
 
     private static String messageFor(String reason) {

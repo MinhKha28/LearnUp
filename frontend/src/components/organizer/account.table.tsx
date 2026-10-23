@@ -11,7 +11,7 @@ import "./account.table.scss";
 
 const ACCOUNT_PAGE_SIZES = [10, 20, 50];
 
-const statusLabel: Record<AccountStatus, string> = {
+export const statusLabel: Record<AccountStatus, string> = {
   Active: "Active",
   Pending: "Pending activation",
   Deactivated: "Deactivated",
@@ -48,7 +48,7 @@ const AccountTable = <T extends IAccountListItem>({
   loading: boolean;
   error: boolean;
   itemLabel: string;
-  emptyText: string;
+  emptyText: ReactNode;
   extraColumns?: ColumnsType<T>;
   renderActions?: (item: T) => ReactNode;
   onPageChange: (page: number, pageSize: number) => void;

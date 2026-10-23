@@ -3,14 +3,27 @@ import type { VideoProgress } from "@/types/learning.types";
 export const applyVideoProgress = (
   current: VideoProgress,
   incoming: VideoProgress,
-): VideoProgress =>
-  current.watchedSeconds > incoming.watchedSeconds ||
-  (current.completed && !incoming.completed)
-    ? current
-    : incoming;
+): VideoProgress => {
+  const coverage =
+    current.watchedSeconds > incoming.watchedSeconds ||
+    (current.completed && !incoming.completed)
+      ? current
+      : incoming;
+  const position =
+    Date.parse(incoming.positionReportedAt ?? "") >
+    (Date.parse(current.positionReportedAt ?? "") || 0)
+      ? incoming
+      : current;
+  if (coverage === position) return coverage;
+  return {
+    ...coverage,
+    positionSeconds: position.positionSeconds,
+    positionReportedAt: position.positionReportedAt,
+  };
+};
 export const videoOutcome = (error: ApiError): string => {
   if (error.status === 404)
-    return "Không tìm thấy học liệu hoặc Course của bạn.";
+    return "Không tìm thấy học liệu hoặc Khóa học của bạn.";
   if (error.status === 403)
     return "Nội dung đang tạm ngưng hoặc bạn không có quyền truy cập.";
   if (error.code === "PLAYBACK_UNAVAILABLE")

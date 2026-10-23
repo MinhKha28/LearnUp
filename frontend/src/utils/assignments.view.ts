@@ -83,7 +83,6 @@ export const assignmentExtensionRange = (
     : today;
   return {
     min: afterCurrent > today ? afterCurrent : today,
-    max: addDays(today, 365),
   };
 };
 export const extensionDateError = (
@@ -100,8 +99,6 @@ export const extensionDateError = (
     return "DUE_DATE_NOT_LATER";
   const today = assignmentCalendarDay(now, timezone);
   if (day < today) return "DUE_DATE_IN_PAST";
-  if (day > assignmentExtensionRange(dueAt, timezone, now).max)
-    return "DUE_DATE_TOO_FAR";
   return null;
 };
 const messages: Record<string, string> = {
@@ -110,18 +107,17 @@ const messages: Record<string, string> = {
   SUBSCRIPTION_NOT_ACTIVE: "Gói đăng ký của tổ chức chưa hoạt động.",
   ASSIGNMENT_NOT_FOUND: "Không tìm thấy phân công. Vui lòng quay về danh sách.",
   COURSE_NOT_ASSIGNABLE:
-    "Course không còn ở trạng thái có thể phân công. Vui lòng chọn lại.",
+    "Khóa học không còn ở trạng thái có thể phân công. Vui lòng chọn lại.",
   ASSIGNMENT_INVALID_LEARNERS:
-    "Không ai được phân công vì danh sách Learner có lỗi. Hãy kiểm tra bên dưới.",
+    "Không ai được phân công vì danh sách Học viên có lỗi. Hãy kiểm tra bên dưới.",
   CONCURRENT_CHANGE: "Dữ liệu vừa thay đổi. Vui lòng thử gửi lại.",
-  NOT_IN_ORGANIZATION: "Learner không thuộc tổ chức.",
-  NOT_A_LEARNER: "Tài khoản không có vai trò Learner.",
+  NOT_IN_ORGANIZATION: "Học viên không thuộc tổ chức.",
+  NOT_A_LEARNER: "Tài khoản không có vai trò Học viên.",
   ACCOUNT_DELETED: "Tài khoản đã bị xóa.",
   ACCOUNT_DEACTIVATED: "Tài khoản đã bị vô hiệu hóa.",
-  ALREADY_ASSIGNED: "Learner đã được phân công Course này.",
+  ALREADY_ASSIGNED: "Học viên đã được phân công Khóa học này.",
   DUE_DATE_NOT_LATER: "Hạn mới phải sau hạn hiện tại.",
   DUE_DATE_IN_PAST: "Ngày hết hạn không được trước hôm nay.",
-  DUE_DATE_TOO_FAR: "Ngày hết hạn không được quá 365 ngày kể từ hôm nay.",
   ENROLLMENT_NOT_EXTENDABLE:
     "Trạng thái phân công đã thay đổi; không thể kéo dài hạn. Đang tải lại chi tiết.",
   ENROLLMENT_NOT_EXEMPTIBLE:

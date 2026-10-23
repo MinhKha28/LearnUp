@@ -18,6 +18,10 @@ export class AccountTokensService {
     private readonly accountTokensRepository: AccountTokensRepository,
   ) {}
 
+  /**
+   * Phát liên kết mới: thu hồi liên kết đang mở rồi tạo liên kết mới (BR-278).
+   * Chỉ lưu mã băm; rawToken trả về để gửi qua outbox, không lưu.
+   */
   async issue(
     tx: Prisma.TransactionClient,
     params: {
@@ -26,27 +30,38 @@ export class AccountTokensService {
       purpose: TokenPurposeValue;
       ttlDays: number;
     },
-  ): Promise<string> {
+  ): Promise<{ rawToken: string; expiresAt: Date }> {
     const now = new Date();
-    await this.accountTokensRepository.revokeActive(
-      params.userId,
-      params.purpose,
-      now,
-      tx,
-    );
+    await this.revokeOpen(tx, params, now);
 
     const { rawToken, tokenHash } = generateSecretToken();
+    const expiresAt = new Date(now.getTime() + params.ttlDays * DAY_MS);
     await this.accountTokensRepository.create(
       {
         organizationId: params.organizationId,
         userId: params.userId,
         purpose: params.purpose,
         tokenHash,
-        expiresAt: new Date(now.getTime() + params.ttlDays * DAY_MS),
+        expiresAt,
       },
       tx,
     );
-    return rawToken;
+    return { rawToken, expiresAt };
+  }
+
+  /** Thu hồi liên kết đang mở (chưa dùng, chưa thu hồi) mà không phát liên kết mới (UC12.3, BR-35). */
+  async revokeOpen(
+    tx: Prisma.TransactionClient,
+    params: { userId: string; purpose: TokenPurposeValue },
+    revokedAt: Date = new Date(),
+  ): Promise<number> {
+    const result = await this.accountTokensRepository.revokeActive(
+      params.userId,
+      params.purpose,
+      revokedAt,
+      tx,
+    );
+    return result.count;
   }
 
   async findUsable(rawToken: string, purpose: TokenPurposeValue) {

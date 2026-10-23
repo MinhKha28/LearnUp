@@ -2,6 +2,10 @@
 
 Core identity, user credential, authentication, and token management microservice for the LearnUP platform.
 
+> Current secure configuration, local account fixtures and tooling:
+> [DEVELOPMENT.md](DEVELOPMENT.md). Public registration is removed; raw identity
+> headers are never authentication proof. Automatic demo account creation is disabled.
+
 > **Identity Service authenticates users and issues identity tokens. Fine-grained business authorization remains in business services.**
 
 ---
@@ -9,14 +13,17 @@ Core identity, user credential, authentication, and token management microservic
 ## 1. Responsibilities & Boundaries
 
 ### What Identity Service OWNS:
-* User identity and account state (`User` entity).
+* Credentials and an authentication-side user projection (`User` entity), using
+  the canonical User ID supplied by Tenant. This is not independent account ownership.
 * Password hashing and credential verification using **BCrypt**.
-* JWT access token issuance (HMAC-SHA256) containing `sub`, `role`, and `organizationId`.
+* HMAC JWT access token issuance containing `sub`, `role`, and `organizationId`.
 * Refresh token lifecycle (issuing, hashing, persisting, rotating, and revoking in `identity_db`).
 * Current user profile retrieval (`GET /api/users/me`).
 
 ### What Identity Service DOES NOT Own:
-* **No Organizations/Memberships**: Owned by **Organization & Commercial Service**.
+* **No canonical accounts, Organizations, memberships or business account lifecycle**:
+  Owned by **Tenant Service**. Identity consults Tenant's access decision during
+  login and refresh.
 * **No Course/Enrollment/Assessment data**: Owned by respective business services.
 * **No Business RBAC Permissions**: Authorization rules (e.g. whether an `ORGANIZER` can assign courses) reside in business services.
 
@@ -58,7 +65,9 @@ CREATE TABLE refresh_tokens (
 ## 3. Four-Role Model & `organizationId` Semantics
 
 * **Platform Roles**: Exactly four roles (`ADMIN`, `ORGANIZER`, `INSTRUCTOR`, `LEARNER`). No `SUPER_ADMIN` or arbitrary roles.
-* **Privilege Escalation Protection**: Public registration (`POST /api/auth/register`) rejects attempts to self-register as platform `ADMIN` with 403 Forbidden.
+* **No public registration**: Both `/api/v1/auth/register` and `/api/auth/register`
+  are unavailable for every role. Tenant-owned registration/activation provisions
+  credentials through the authenticated internal integration, not a public Identity endpoint.
 * **`organizationId`**: Canonical tenant identifier. Populated for organization members; nullable for global platform administrators (`ADMIN`).
 
 ---
@@ -67,77 +76,33 @@ CREATE TABLE refresh_tokens (
 
 All APIs return standardized `ApiResponse<T>` envelopes.
 
-### 4.1 Register
-```http
-POST /api/auth/register
-Content-Type: application/json
+Auth routes support both `/api/v1/auth` and `/api/auth`. Call them through Gateway.
+Public requests must not supply internal credentials; protected requests supply
+their own Bearer access JWT to Gateway, which supplies the private channel credential.
 
-{
-  "username": "learner1",
-  "email": "learner1@learnup.com",
-  "password": "mySecurePassword123",
-  "fullName": "Nguyen Van A",
-  "role": "LEARNER",
-  "organizationId": "d8e3b970-13f5-4c07-b2e8-4934a3621415"
-}
-```
+| Method | Auth route suffix | Access | Contract |
+| :--- | :--- | :--- | :--- |
+| POST | `/login` | Public | Existing `username` and `password`; checks credentials and Tenant access before returning the token pair and user projection |
+| POST | `/refresh` | Public | `refreshToken`; rotates the token pair after validation and Tenant access checks |
+| POST | `/forgot-password` | Public | `email`; neutral response, hash-only token persistence, post-commit authenticated Notification email delivery |
+| POST | `/reset-password` | Public | `token`, `newPassword` and `confirmPassword`; validates a usable recovery token |
+| POST | `/logout` | Bearer through Gateway | Optional refresh-token session revocation; logout-all targets only the verified caller |
+| POST | `/change-password` | Bearer through Gateway | `currentPassword`, `newPassword` and `confirmPassword`; verifies current password first |
+| GET | `/me` | Bearer through Gateway | Identity's credential projection, without credential hashes or raw stored tokens |
 
-### 4.2 Login
-```http
-POST /api/auth/login
-Content-Type: application/json
+Successful login/refresh returns `accessToken`, `refreshToken`, `tokenType`,
+`expiresIn`, `user` and Tenant's `accessMode` in the response data. The token values
+are secrets; do not paste them into logs, shared examples or issue reports. An unexpired access JWT is still
+required for logout; this task does not redesign expired-access logout.
 
-{
-  "username": "learner1",
-  "password": "mySecurePassword123"
-}
-```
-**Response**:
-```json
-{
-  "success": true,
-  "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
-    "refreshToken": "48b61c7e-e170-4f59-994c-8f4b00b0dc68-...",
-    "tokenType": "Bearer",
-    "expiresIn": 900
-  }
-}
-```
+Identity also exposes its protected `/api/v1/users/me` and `/api/users/me` aliases,
+but Gateway routes `/users/me` to Tenant's canonical profile. Use `/auth/me` through
+Gateway when inspecting Identity's projection. Do not use `X-User-ID`,
+`X-Organization-ID` or `X-User-Role` as authorization. Tenant's credential
+provisioning endpoint is internal-only and is not a replacement public registration API.
 
-### 4.3 Refresh Token (Rotation)
-```http
-POST /api/auth/refresh
-Content-Type: application/json
-
-{
-  "refreshToken": "48b61c7e-e170-4f59-994c-8f4b00b0dc68-..."
-}
-```
-*Old refresh token is revoked immediately and replaced with a new token pair.*
-
-### 4.4 Current User Profile
-```http
-GET /api/users/me
-X-User-ID: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-```
-**Response**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "username": "learner1",
-    "email": "learner1@learnup.com",
-    "fullName": "Nguyen Van A",
-    "role": "LEARNER",
-    "organizationId": "d8e3b970-13f5-4c07-b2e8-4934a3621415",
-    "enabled": true,
-    "createdAt": "2026-09-14T10:00:00Z"
-  }
-}
-```
-*(Credential hashes and refresh tokens are strictly omitted).*
+See the explicitly enabled local Swagger mode in [DEVELOPMENT.md](DEVELOPMENT.md)
+for the actual validated DTOs and response schema.
 
 ---
 
@@ -148,11 +113,27 @@ X-User-ID: 3fa85f64-5717-4562-b3fc-2c963f66afa6
 | `SERVER_PORT` | `8081` | Service HTTP Port |
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/identity_db` | PostgreSQL JDBC connection URL |
 | `SPRING_DATASOURCE_USERNAME`| `postgres` | Database username |
-| `SPRING_DATASOURCE_PASSWORD`| `postgres` | Database password |
+| `SPRING_DATASOURCE_PASSWORD`| Required; no default | Database password supplied privately for standalone Identity; Compose uses required `DB_PASSWORD` |
 | `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | `http://localhost:8761/eureka/` | Eureka Discovery URL |
-| `JWT_SECRET` | `devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong` | 256-bit HMAC secret (must match Gateway) |
+| `JWT_SECRET` | Required; no default | Private HMAC secret, at least 32 bytes; must match Gateway |
+| `INTERNAL_SERVICE_KEY` | Required; no default | Private internal-channel secret, at least 32 bytes; matches Gateway/Tenant/Notification |
 | `SECURITY_JWT_ACCESS_TOKEN_EXPIRATION_MINUTES` | `15` | Access token lifespan in minutes |
 | `SECURITY_JWT_REFRESH_TOKEN_EXPIRATION_DAYS` | `7` | Refresh token lifespan in days |
+| `LEARNUP_SEED_ENABLED` | `false` | Legacy seeding is disabled; setting `true` fails startup pending a reviewed Tenant-owned fixture contract |
+| `NOTIFICATION_SERVICE_URL` | Required; no default | Private Notification base URL; Compose supplies `http://notification-service:8082` |
+| `PASSWORD_RECOVERY_FRONTEND_BASE_URL` | Required; no default | Trusted frontend base URL for `/reset-password/{token}`; HTTPS, except explicitly configured loopback HTTP |
+
+No demo password is configured or supported. Identity never creates, deletes,
+resets or re-enables demo accounts on restart. These defaults apply in standalone
+and deployment profiles; Compose explicitly keeps seeding off. See the development
+guide before preparing a disposable local account fixture.
+
+Recovery email requires the same private `INTERNAL_SERVICE_KEY` in Identity,
+Notification and the existing Tenant relay. Deploy the authenticated Notification
+email boundary before enabling Identity delivery. Enable/configure Notification
+SMTP explicitly; its default mock mode is `SIMULATED`, not real delivery. See
+[recovery delivery and isolated SMTP verification](DEVELOPMENT.md#password-recovery-email-id-p3)
+for ordering, failure behavior, limits and remaining frontend work.
 
 ---
 
@@ -168,3 +149,8 @@ mvn clean package
 # Run locally
 mvn spring-boot:run
 ```
+
+Supply the required database and private authentication environment variables
+before running. This command does not create a usable demo account. Keep the
+normal Compose Identity port private; use Gateway for application requests and
+the documented loopback-only mode for local Swagger.

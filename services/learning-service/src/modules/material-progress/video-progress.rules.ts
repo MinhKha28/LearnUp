@@ -1,6 +1,6 @@
 export type WatchedRange = [number, number];
 
-/** D86: chỉ ghi giây media đã phát đủ; PostgreSQL gộp các khoảng nguyên. */
+/** BR-181: chỉ ghi giây media đã phát đủ; PostgreSQL hợp các khoảng nguyên. */
 export function normalizeRanges(
   ranges: WatchedRange[],
   duration: number,
@@ -13,12 +13,10 @@ export function normalizeRanges(
     .filter(([start, end]) => start < end);
 }
 
-export function progressBudget(now: Date, lastReportedAt: Date | null): number {
-  const elapsed =
-    lastReportedAt === null
-      ? 20
-      : Math.max(0, (now.getTime() - lastReportedAt.getTime()) / 1000);
-  return Math.ceil(Math.min(elapsed, 60) * 2) + 5;
+/** BR-182: không cho đồng hồ client vượt server quá 60 giây. */
+export function positionReportedAt(reportedAt: string, now: Date): Date {
+  const candidate = new Date(reportedAt);
+  return candidate.getTime() > now.getTime() + 60_000 ? now : candidate;
 }
 
 export function requiredSeconds(duration: number, percent: number): number {

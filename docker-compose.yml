@@ -98,8 +98,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      JWT_SECRET: ${JWT_SECRET:-devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong}
-      INTERNAL_GATEWAY_KEY: ${INTERNAL_GATEWAY_KEY:-learnup-internal-secret}
+      JWT_SECRET: ${JWT_SECRET:?Set a private random JWT_SECRET of at least 32 bytes}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       TENANT_SERVICE_URL: http://tenant-service:8084
       COURSE_SERVICE_URL: http://course-service:8083
       LEARNING_SERVICE_URL: http://learning-service:8085
@@ -129,19 +129,24 @@ services:
       context: .
       dockerfile: services/identity-service/Dockerfile
     container_name: learnup-identity-service
-    ports:
-      - "8081:8081"
+    # Internal only: Gateway discovers :8081 through Eureka; Tenant uses identity-service:8081.
+    # Development host debugging, if needed: opt in with a local override bound to 127.0.0.1.
+    expose:
+      - "8081"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/identity_db
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Set a private database password}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      JWT_SECRET: ${JWT_SECRET:-devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong}
+      JWT_SECRET: ${JWT_SECRET:?Set a private random JWT_SECRET of at least 32 bytes}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
       TENANT_SERVICE_URL: http://tenant-service:8084
-      LEARNUP_SEED_ENABLED: ${LEARNUP_SEED_ENABLED:-true}
-      LEARNUP_SEED_DEFAULT_PASSWORD: ${LEARNUP_SEED_DEFAULT_PASSWORD:-LearnUp@123}
+      NOTIFICATION_SERVICE_URL: http://notification-service:8082
+      PASSWORD_RECOVERY_FRONTEND_BASE_URL: ${PASSWORD_RECOVERY_FRONTEND_BASE_URL:?Set the trusted frontend origin for recovery links}
+      # Automatic Identity-only demo accounts are retired; Tenant owns account provisioning.
+      LEARNUP_SEED_ENABLED: "false"
     depends_on:
       postgres:
         condition: service_healthy
@@ -164,11 +169,13 @@ services:
       context: .
       dockerfile: services/notification-service/Dockerfile
     container_name: learnup-notification-service
-    ports:
-      - "8082:8082"
+    # Email delivery is a private, authenticated service channel (Identity and Tenant).
+    expose:
+      - "8082"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
@@ -239,10 +246,11 @@ services:
     environment:
       PORT: 8084
       DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/tenant_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       FRONTEND_URL: http://localhost:3000
       IDENTITY_SERVICE_URL: http://identity-service:8081
       NOTIFICATION_SERVICE_URL: http://notification-service:8082
+      COURSE_CLIENT_MODE: http
       COURSE_SERVICE_URL: http://course-service:8083
       COURSE_SERVICE_TIMEOUT_MS: 3000
       LEARNING_SERVICE_URL: http://learning-service:8085
@@ -288,6 +296,7 @@ services:
       - "8085:8085"
     environment:
       PORT: 8085
+      VIDEO_PLAYBACK_MODE: course
       DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/learning_db?schema=public
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
       COURSE_SERVICE_URL: http://course-service:8083

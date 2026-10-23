@@ -9,7 +9,18 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.env.YamlPropertySourceLoader;
+import org.springframework.cloud.gateway.config.GatewayProperties;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.handler.predicate.PathRoutePredicateFactory;
+import org.springframework.core.env.StandardEnvironment;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -21,15 +32,18 @@ import reactor.test.StepVerifier;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtAuthenticationFilterTest {
 
     private static final String TEST_SECRET = "testSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong!";
+    private static final String INTERNAL_KEY = "testInternalServiceKeyAtLeast32BytesLong!";
     private JwtProperties jwtProperties;
     private JwtAuthenticationFilter filter;
     private ObjectMapper objectMapper;
@@ -39,6 +53,7 @@ class JwtAuthenticationFilterTest {
     void setUp() {
         jwtProperties = new JwtProperties();
         jwtProperties.setSecret(TEST_SECRET);
+        jwtProperties.setInternalKey(INTERNAL_KEY);
         objectMapper = new ObjectMapper();
         filter = new JwtAuthenticationFilter(jwtProperties, objectMapper);
         secretKey = Keys.hmacShaKeyFor(TEST_SECRET.getBytes(StandardCharsets.UTF_8));
@@ -209,9 +224,10 @@ class JwtAuthenticationFilterTest {
         assertThat(headers.getFirst(HeaderConstants.X_USER_ROLE)).isEqualTo(UserRole.LEARNER.name());
         assertThat(headers.getFirst(HeaderConstants.X_ORGANIZATION_ID)).isEqualTo(validOrgId);
         assertThat(headers.getFirst(HeaderConstants.X_CORRELATION_ID)).isNotBlank();
-        assertThat(headers.getFirst(HeaderConstants.X_INTERNAL_KEY)).isEqualTo("learnup-internal-secret");
+        assertThat(headers.getFirst(HeaderConstants.X_INTERNAL_KEY)).isEqualTo(INTERNAL_KEY);
 
         // Verify client spoofed values are completely overwritten
+        assertThat(headers.getFirst(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer " + token);
         assertThat(headers.getFirst(HeaderConstants.X_USER_ID)).isNotEqualTo("attacker-user-id");
         assertThat(headers.getFirst(HeaderConstants.X_USER_ROLE)).isNotEqualTo("ADMIN");
         assertThat(headers.getFirst(HeaderConstants.X_ORGANIZATION_ID)).isNotEqualTo("evil-org-id");
@@ -272,6 +288,94 @@ class JwtAuthenticationFilterTest {
         assertThat(headers.getFirst(HeaderConstants.X_USER_ID)).isNull();
         assertThat(headers.getFirst(HeaderConstants.X_USER_ROLE)).isNull();
         assertThat(headers.getFirst(HeaderConstants.X_CORRELATION_ID)).isNotBlank();
-        assertThat(headers.getFirst(HeaderConstants.X_INTERNAL_KEY)).isEqualTo("learnup-internal-secret");
+        assertThat(headers.getFirst(HeaderConstants.X_INTERNAL_KEY)).isEqualTo(INTERNAL_KEY);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/auth/register", "/api/auth/register"})
+    @DisplayName("Default whitelist must not allow anonymous legacy Identity registration")
+    void shouldRejectAnonymousRegistrationWithDefaultWhitelist(String path) {
+        assertRegistrationRejectedWithoutForwarding(path);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/auth/register", "/api/auth/register"})
+    @DisplayName("Configured Gateway routes must not provide an anonymous registration bypass")
+    void shouldRejectAnonymousRegistrationWithConfiguredRoutes(String path) throws Exception {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("test-secrets",
+                Map.of("JWT_SECRET", TEST_SECRET, "INTERNAL_SERVICE_KEY", INTERNAL_KEY)));
+        new YamlPropertySourceLoader().load("gateway-application", new ClassPathResource("application.yml"))
+                .forEach(environment.getPropertySources()::addLast);
+        Binder binder = Binder.get(environment);
+        jwtProperties = binder.bind("jwt", Bindable.of(JwtProperties.class)).get();
+        filter = new JwtAuthenticationFilter(jwtProperties, objectMapper);
+
+        // Exercise the real Path predicates, not a separate hard-coded test route.
+        GatewayProperties gateway = binder.bind("spring.cloud.gateway", Bindable.of(GatewayProperties.class)).get();
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest.post(path).build());
+        var pathFactory = new PathRoutePredicateFactory();
+        var matchingRoutes = gateway.getRoutes().stream()
+                .filter(route -> route.getPredicates().stream()
+                        .filter(predicate -> "Path".equals(predicate.getName()))
+                        .anyMatch(predicate -> pathFactory.apply(new PathRoutePredicateFactory.Config()
+                                .setPatterns(new ArrayList<>(predicate.getArgs().values()))).test(exchange)))
+                .toList();
+        assertThat(matchingRoutes).hasSize(1);
+        assertThat(matchingRoutes.get(0).getId()).isEqualTo("identity-service-auth");
+        assertThat(matchingRoutes.get(0).getUri().toString()).isEqualTo("lb://IDENTITY-SERVICE");
+        assertThat(matchingRoutes.get(0).getFilters()).isEmpty(); // No rewrite to another creation endpoint.
+        assertThat(environment.getProperty("spring.cloud.gateway.discovery.locator.enabled", Boolean.class)).isFalse();
+
+        assertRegistrationRejectedWithoutForwarding(path);
+
+        // Legitimate Tenant-owned registration and invitation activation remain public.
+        for (String publicPath : new String[] {"/api/v1/registrations", "/api/registrations",
+                "/api/v1/invitations/accept", "/api/invitations/accept"}) {
+            assertThat(jwtProperties.isWhitelisted(publicPath)).as(publicPath).isTrue();
+        }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"short", "learnup-internal-secret"})
+    void shouldRejectUnsafeInternalChannelConfiguration(String key) {
+        jwtProperties.setInternalKey(key);
+        assertThatThrownBy(jwtProperties::validateSecrets).isInstanceOf(IllegalStateException.class);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"short", "devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong"})
+    void shouldRejectUnsafeJwtConfiguration(String secret) {
+        jwtProperties.setSecret(secret);
+        assertThatThrownBy(jwtProperties::validateSecrets).isInstanceOf(IllegalStateException.class);
+    }
+
+    private void assertRegistrationRejectedWithoutForwarding(String path) {
+        assertThat(jwtProperties.isWhitelisted(path)).isFalse();
+        MockServerHttpRequest request = MockServerHttpRequest.post(path)
+                .header(HeaderConstants.X_USER_ID, UUID.randomUUID().toString())
+                .header(HeaderConstants.X_USER_ROLE, "ORGANIZER")
+                .header(HeaderConstants.X_ORGANIZATION_ID, UUID.randomUUID().toString())
+                .header(HeaderConstants.X_INTERNAL_KEY, "attacker-fake-key")
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+        AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
+        GatewayFilterChain chain = next -> {
+            forwarded.set(next);
+            return Mono.empty();
+        };
+
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(forwarded.get()).isNull();
+        StepVerifier.create(exchange.getResponse().getBodyAsString())
+                .assertNext(body -> {
+                    assertThat(body).contains("UNAUTHORIZED");
+                    assertThat(body).doesNotContain("accessToken", "refreshToken");
+                })
+                .verifyComplete();
     }
 }

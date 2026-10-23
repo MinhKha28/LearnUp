@@ -45,7 +45,7 @@ export interface LearningErrorView {
 
 const GENERIC_TITLES = {
   curriculum: "Không tải được chương trình học",
-  lesson: "Không tải được Lesson",
+  lesson: "Không tải được Bài học",
 } as const;
 
 /** Thông báo theo error.code cho UC27, UC27.1 (D28, D32); không dùng message của server. */
@@ -53,20 +53,20 @@ export const mapLearningError = (error: ApiError, context: "curriculum" | "lesso
   switch (error.code) {
     case "ENROLLMENT_NOT_FOUND":
       return {
-        title: "Không tìm thấy Course",
-        description: "Course không tồn tại hoặc không thuộc danh sách Course của bạn.",
+        title: "Không tìm thấy Khóa học",
+        description: "Khóa học không tồn tại hoặc không thuộc danh sách Khóa học của bạn.",
         action: "myCourses",
       };
     case "CONTENT_UNAVAILABLE":
-      return { title: "Course đang tạm dừng, bạn chưa thể truy cập nội dung", description: null, action: "myCourses" };
+      return { title: "Khóa học đang tạm dừng, bạn chưa thể truy cập nội dung", description: null, action: "myCourses" };
     case "LESSON_NOT_FOUND":
       return {
-        title: "Không tìm thấy Lesson",
-        description: "Lesson không thuộc chương trình học của Course này.",
+        title: "Không tìm thấy Bài học",
+        description: "Bài học không thuộc chương trình học của Khóa học này.",
         action: "curriculum",
       };
     case "LESSON_DISABLED":
-      return { title: "Lesson này đang tạm ngưng", description: null, action: "curriculum" };
+      return { title: "Bài học này đang tạm ngưng", description: null, action: "curriculum" };
   }
   if (isRetryableError(error)) {
     return {

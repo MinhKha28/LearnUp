@@ -30,7 +30,8 @@ export class CoursesRepository {
         },
         skip,
         take,
-        orderBy: { updatedAt: 'desc' },
+        // id là khóa phụ để thứ tự ổn định giữa các trang khi trùng updatedAt.
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
       }),
       this.prisma.course.count({ where }),
     ]);
@@ -773,6 +774,7 @@ export class CoursesRepository {
             title: true,
             materialType: true,
             isRequired: true,
+            fileId: true,
             position: true,
             disabledAt: true,
 
@@ -791,5 +793,521 @@ export class CoursesRepository {
         },
       },
     });
+  }
+
+  async findLessonForContentUpdate(
+    courseId: string,
+    lessonId: string,
+    organizationId: string,
+    instructorId: string,
+  ) {
+    return this.prisma.lesson.findFirst({
+      where: {
+        id: lessonId,
+        organizationId,
+        module: {
+          courseId,
+          organizationId,
+          course: {
+            organizationId,
+            chain: {
+              instructorId,
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        content: true,
+        updatedAt: true,
+        module: {
+          select: {
+            course: {
+              select: {
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async updateLessonContent(
+    courseId: string,
+    lessonId: string,
+    organizationId: string,
+    instructorId: string,
+    content: string,
+    expectedUpdatedAt: Date,
+  ): Promise<boolean> {
+    const result = await this.prisma.lesson.updateMany({
+      where: {
+        id: lessonId,
+        organizationId,
+        updatedAt: expectedUpdatedAt,
+
+        module: {
+          courseId,
+          organizationId,
+          course: {
+            organizationId,
+            chain: {
+              instructorId,
+            },
+            status: {
+              not: COURSE_STATUS.SUBMITTED,
+            },
+          },
+        },
+      },
+      data: {
+        content,
+      },
+    });
+
+    return result.count === 1;
+  }
+
+  async getVideoSettings() {
+    return this.prisma.platformSetting.findFirst({
+      orderBy: { sourceAsOf: 'desc' },
+      select: {
+        maxVideoSizeBytes: true,
+        maxVideoDurationMinutes: true,
+        allowedVideoMimeTypes: true,
+      },
+    });
+  }
+
+  async findLessonForMaterialUpload(
+    courseId: string,
+    lessonId: string,
+    organizationId: string,
+    instructorId: string,
+  ) {
+    return this.prisma.lesson.findFirst({
+      where: {
+        id: lessonId,
+        organizationId,
+        module: {
+          courseId,
+          organizationId,
+          course: {
+            organizationId,
+            chain: { instructorId },
+          },
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        disabledAt: true,
+        module: {
+          select: {
+            course: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+                lockedAt: true,
+                disabledAt: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getOrganizationStoredBytes(organizationId: string): Promise<bigint> {
+    const result = await this.prisma.mediaFile.aggregate({
+      where: {
+        organizationId,
+        status: 'Ready',
+        releasedAt: null,
+      },
+      _sum: {
+        sizeBytes: true,
+      },
+    });
+
+    return result._sum.sizeBytes ?? 0n;
+  }
+
+  async createVideoMaterialWithQuota(data: {
+    organizationId: string;
+    instructorId: string;
+    courseId: string;
+    lessonId: string;
+    title: string;
+    isRequired: boolean;
+    maxStorageBytes: bigint;
+    file: {
+      storageKey: string;
+      originalFilename: string;
+      mimeType: string;
+      sizeBytes: number;
+      durationSeconds: number;
+    };
+  }) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Bước 1: bảo đảm Organization có hàng quota lock.
+        await tx.$executeRaw`
+        INSERT INTO organization_quota_locks
+          (organization_id, created_at, updated_at)
+        VALUES (
+          ${data.organizationId}::uuid,
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (organization_id) DO NOTHING
+      `;
+
+        // Bước 2: khóa quota của tổ chức.
+        // Upload đồng thời phải chờ nhau khi ghi DB.
+        await tx.$queryRaw`
+        SELECT organization_id
+        FROM organization_quota_locks
+        WHERE organization_id = ${data.organizationId}::uuid
+        FOR UPDATE
+      `;
+
+        // Bước 3: khóa Course để tránh Locked thay đổi
+        // trong lúc đang kiểm tra và ghi Material.
+        await tx.$queryRaw`
+        SELECT id
+        FROM courses
+        WHERE id = ${data.courseId}::uuid
+          AND organization_id = ${data.organizationId}::uuid
+        FOR UPDATE
+      `;
+
+        // Bước 4: kiểm tra lại quyền và trạng thái.
+        const lesson = await tx.lesson.findFirst({
+          where: {
+            id: data.lessonId,
+            organizationId: data.organizationId,
+            module: {
+              courseId: data.courseId,
+              organizationId: data.organizationId,
+              course: {
+                organizationId: data.organizationId,
+                chain: {
+                  instructorId: data.instructorId,
+                },
+              },
+            },
+          },
+          select: {
+            disabledAt: true,
+            module: {
+              select: {
+                course: {
+                  select: {
+                    status: true,
+                    lockedAt: true,
+                    disabledAt: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!lesson) {
+          return { status: 'NOT_FOUND' as const };
+        }
+
+        const course = lesson.module.course;
+
+        if (course.status === COURSE_STATUS.SUBMITTED) {
+          return { status: 'SUBMITTED' as const };
+        }
+
+        if (course.disabledAt !== null || lesson.disabledAt !== null) {
+          return { status: 'DISABLED' as const };
+        }
+
+        // BR-286: Course Locked chỉ thêm Optional.
+        if (course.lockedAt !== null && data.isRequired) {
+          return { status: 'LOCKED_REQUIRED' as const };
+        }
+
+        // Bước 5: tính lại quota ngay dưới khóa.
+        const usage = await tx.mediaFile.aggregate({
+          where: {
+            organizationId: data.organizationId,
+            status: 'Ready',
+            releasedAt: null,
+          },
+          _sum: {
+            sizeBytes: true,
+          },
+        });
+
+        const usedBytes = usage._sum.sizeBytes ?? 0n;
+        const incomingBytes = BigInt(data.file.sizeBytes);
+
+        if (usedBytes + incomingBytes > data.maxStorageBytes) {
+          return { status: 'QUOTA_EXCEEDED' as const };
+        }
+
+        // Bước 6: tìm position tiếp theo.
+        const lastMaterial = await tx.material.findFirst({
+          where: {
+            organizationId: data.organizationId,
+            lessonId: data.lessonId,
+          },
+          orderBy: { position: 'desc' },
+          select: { position: true },
+        });
+
+        // Bước 7: tạo file metadata.
+        const mediaFile = await tx.mediaFile.create({
+          data: {
+            organizationId: data.organizationId,
+            purpose: 'LessonVideo',
+            status: 'Ready',
+            storageKey: data.file.storageKey,
+            originalFilename: data.file.originalFilename,
+            mimeType: data.file.mimeType,
+            sizeBytes: incomingBytes,
+            durationSeconds: data.file.durationSeconds,
+            readyAt: new Date(),
+          },
+          select: { id: true },
+        });
+
+        // Bước 8: tạo học liệu.
+        const material = await tx.material.create({
+          data: {
+            organizationId: data.organizationId,
+            lessonId: data.lessonId,
+            fileId: mediaFile.id,
+            materialType: 'Video',
+            title: data.title,
+            isRequired: data.isRequired,
+            position: (lastMaterial?.position ?? 0) + 1,
+          },
+          select: {
+            id: true,
+            title: true,
+            materialType: true,
+            isRequired: true,
+            fileId: true,
+            position: true,
+          },
+        });
+
+        return {
+          status: 'CREATED' as const,
+          material,
+        };
+      },
+      {
+        timeout: 20000,
+      },
+    );
+  }
+
+  async getReadingSettings() {
+    return this.prisma.platformSetting.findFirst({
+      orderBy: {
+        sourceAsOf: 'desc',
+      },
+      select: {
+        maxReadingSizeBytes: true,
+        allowedReadingMimeTypes: true,
+        readingSpeedWordsPerMinute: true,
+      },
+    });
+  }
+
+  async createReadingMaterialWithQuota(data: {
+    organizationId: string;
+    instructorId: string;
+    courseId: string;
+    lessonId: string;
+    title: string;
+    isRequired: boolean;
+    maxStorageBytes: bigint;
+    file: {
+      storageKey: string;
+      originalFilename: string;
+      mimeType: string;
+      sizeBytes: number;
+      wordCount: number;
+    };
+  }) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        // 1. Khóa quota theo Organization.
+        await tx.$executeRaw`
+        INSERT INTO organization_quota_locks
+          (organization_id, created_at, updated_at)
+        VALUES (
+          ${data.organizationId}::uuid,
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (organization_id) DO NOTHING
+      `;
+
+        await tx.$queryRaw`
+        SELECT organization_id
+        FROM organization_quota_locks
+        WHERE organization_id =
+          ${data.organizationId}::uuid
+        FOR UPDATE
+      `;
+
+        // 2. Khóa Course để bảo vệ BR-286.
+        await tx.$queryRaw`
+        SELECT id
+        FROM courses
+        WHERE id = ${data.courseId}::uuid
+          AND organization_id =
+            ${data.organizationId}::uuid
+        FOR UPDATE
+      `;
+
+        // 3. Kiểm tra lại quyền sở hữu và trạng thái.
+        const lesson = await tx.lesson.findFirst({
+          where: {
+            id: data.lessonId,
+            organizationId: data.organizationId,
+            module: {
+              courseId: data.courseId,
+              organizationId: data.organizationId,
+              course: {
+                organizationId: data.organizationId,
+                chain: {
+                  instructorId: data.instructorId,
+                },
+              },
+            },
+          },
+          select: {
+            disabledAt: true,
+            module: {
+              select: {
+                course: {
+                  select: {
+                    status: true,
+                    lockedAt: true,
+                    disabledAt: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!lesson) {
+          return { status: 'NOT_FOUND' as const };
+        }
+
+        const course = lesson.module.course;
+
+        if (course.status === 'Submitted') {
+          return { status: 'SUBMITTED' as const };
+        }
+
+        if (
+          course.status === 'Archived' ||
+          course.status === 'Disabled' ||
+          course.disabledAt !== null ||
+          lesson.disabledAt !== null
+        ) {
+          return { status: 'NOT_EDITABLE' as const };
+        }
+
+        if (course.lockedAt !== null && data.isRequired) {
+          return { status: 'LOCKED_REQUIRED' as const };
+        }
+
+        // 4. Kiểm tra quota dưới khóa.
+        const usage = await tx.mediaFile.aggregate({
+          where: {
+            organizationId: data.organizationId,
+            status: 'Ready',
+            releasedAt: null,
+          },
+          _sum: {
+            sizeBytes: true,
+          },
+        });
+
+        const usedBytes = usage._sum.sizeBytes ?? 0n;
+        const incomingBytes = BigInt(data.file.sizeBytes);
+
+        if (usedBytes + incomingBytes > data.maxStorageBytes) {
+          return { status: 'QUOTA_EXCEEDED' as const };
+        }
+
+        // 5. Tìm vị trí cuối Lesson.
+        const lastMaterial = await tx.material.findFirst({
+          where: {
+            organizationId: data.organizationId,
+            lessonId: data.lessonId,
+          },
+          orderBy: {
+            position: 'desc',
+          },
+          select: {
+            position: true,
+          },
+        });
+
+        // 6. Lưu thông tin file.
+        const mediaFile = await tx.mediaFile.create({
+          data: {
+            organizationId: data.organizationId,
+            purpose: 'LessonReading',
+            status: 'Ready',
+            storageKey: data.file.storageKey,
+            originalFilename: data.file.originalFilename,
+            mimeType: data.file.mimeType,
+            sizeBytes: incomingBytes,
+            wordCount: data.file.wordCount,
+            readyAt: new Date(),
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        // 7. Tạo Material.
+        const material = await tx.material.create({
+          data: {
+            organizationId: data.organizationId,
+            lessonId: data.lessonId,
+            fileId: mediaFile.id,
+            materialType: 'Reading',
+            title: data.title,
+            isRequired: data.isRequired,
+            position: (lastMaterial?.position ?? 0) + 1,
+          },
+          select: {
+            id: true,
+            title: true,
+            materialType: true,
+            isRequired: true,
+            position: true,
+            fileId: true,
+          },
+        });
+
+        return {
+          status: 'CREATED' as const,
+          material,
+        };
+      },
+      {
+        timeout: 20000,
+      },
+    );
   }
 }

@@ -1,4 +1,4 @@
-import { Alert, Button, Descriptions, Empty, Skeleton, Table } from "antd";
+import { Alert, Avatar, Button, Descriptions, Empty, Skeleton, Table } from "antd";
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { AssignmentError } from "@/components/organizer/assignment.error";
@@ -18,13 +18,12 @@ import {
   fetchAssignments,
 } from "@/services/assignment.service";
 import {
-  assignmentDate,
-  assignmentDue,
   assignmentProgress,
   assignmentStatus,
   extensionDays,
   assignmentErrorMessage,
 } from "@/utils/assignments.view";
+import { assignmentDateOnly, assignmentTimestamp, assignmentDueDate, assignmentDueNote } from "@/utils/assignment.date";
 import { parsePageParam } from "@/utils/page.param";
 import "./assignment.detail.scss";
 
@@ -47,12 +46,12 @@ const AssignmentDetail = () => {
     );
   };
   const timezone = item?.organizationTimezone ?? null;
-  const date = (value: string | null) => assignmentDate(value, timezone);
+  const date = (value: string | null) => assignmentTimestamp(value, timezone);
   return (
     <OrganizerPage className="organizer-assignment-detail">
       <PageHeader
-        title="Chi tiết phân công"
-        subtitle="Course bắt buộc"
+        title={<span className="organizer-assignment-title">Chi tiết phân công {item && <StatusTag tone={assignmentStatus[item.status].tone}>{assignmentStatus[item.status].label}</StatusTag>}</span>}
+        subtitle="Khóa học bắt buộc"
         actions={
           <>
             {item && (
@@ -97,69 +96,61 @@ const AssignmentDetail = () => {
         <Skeleton active />
       ) : (
         <>
+          <SectionCard title="Học viên">
+            {item.learner ? (
+              <div className="organizer-assignment-learner">
+                <div className="organizer-assignment-learner-profile">
+                  <Avatar className="organizer-assignment-avatar">
+                    {item.learner.fullName.trim().split(/\s+/).map(part => part[0]).slice(-2).join("").toLocaleUpperCase("vi")}
+                  </Avatar>
+                  <div>
+                    <strong>{item.learner.fullName}</strong>
+                    <div className="organizer-assignment-email">{item.learner.email}</div>
+                  </div>
+                </div>
+                <div className="organizer-assignment-learner-account">
+                  <StatusTag tone={item.learner.status === "Active" ? "success" : "neutral"}>
+                    {({ Active: "Đang hoạt động", Pending: "Chờ kích hoạt", Deactivated: "Đã vô hiệu hóa" } as Record<string, string>)[item.learner.status] ?? "Không xác định"}
+                  </StatusTag>
+                  <span>Ngày kích hoạt: {assignmentDateOnly(item.learner.activatedAt, timezone)}</span>
+                  {item.learner.deletedAt && <span>Ngày xóa tài khoản: {assignmentDateOnly(item.learner.deletedAt, timezone)}</span>}
+                </div>
+              </div>
+            ) : <span>Không tải được thông tin</span>}
+          </SectionCard>
           <SectionCard title="Thông tin phân công">
             <Descriptions
-              column={{ xs: 1, md: 2 }}
+              layout="vertical"
+              className="organizer-assignment-facts"
+              column={{ xs: 1, md: 3 }}
               items={[
                 {
-                  key: "learner",
-                  label: "Learner",
-                  children: item.learner ? (
-                    <>
-                      <strong>{item.learner.fullName}</strong>
-                      <div>{item.learner.email}</div>
-                      <div>
-                        Trạng thái tài khoản:{" "}
-                        {(
-                          {
-                            Active: "Đang hoạt động",
-                            Pending: "Chờ kích hoạt",
-                            Deactivated: "Đã vô hiệu hóa",
-                          } as Record<string, string>
-                        )[item.learner.status] ?? "Không xác định"}
-                      </div>
-                      <div>Kích hoạt: {date(item.learner.activatedAt)}</div>
-                      <div>Xóa tài khoản: {date(item.learner.deletedAt)}</div>
-                    </>
-                  ) : (
-                    "Không tải được thông tin"
-                  ),
-                },
-                {
                   key: "course",
-                  label: "Course",
+                  span: 3,
+                  label: "Khóa học",
                   children: item.course
-                    ? `${item.course.title} · Phiên bản ${item.course.versionNumber}`
+                    ? <><strong>{item.course.title}</strong><span>Phiên bản {item.course.versionNumber}</span></>
                     : "Không tải được thông tin",
                 },
                 {
                   key: "assigned",
                   label: "Ngày phân công",
-                  children: date(item.assignedAt),
+                  children: assignmentDateOnly(item.assignedAt, timezone),
                 },
                 {
                   key: "base",
                   label: "Hạn gốc",
-                  children: assignmentDue(item.baseDueAt, timezone),
+                  children: assignmentDueDate(item.baseDueAt, timezone),
+                },
+                {
+                  key: "due",
+                  label: "Hạn hiện hành",
+                  children: <><span>{assignmentDueDate(item.dueAt, timezone)}</span><small>{assignmentDueNote(timezone)}</small></>,
                 },
                 {
                   key: "extension",
                   label: "Tổng thời gian đã kéo dài",
                   children: `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 4 }).format(extensionDays(item.extensionSeconds))} ngày`,
-                },
-                {
-                  key: "due",
-                  label: "Hạn hiện hành",
-                  children: assignmentDue(item.dueAt, timezone),
-                },
-                {
-                  key: "status",
-                  label: "Trạng thái",
-                  children: (
-                    <StatusTag tone={assignmentStatus[item.status].tone}>
-                      {assignmentStatus[item.status].label}
-                    </StatusTag>
-                  ),
                 },
                 ...(item.requiredTotal > 0
                   ? [
@@ -175,28 +166,28 @@ const AssignmentDetail = () => {
                   label: "Hoạt động đầu tiên",
                   children: date(item.firstActivityAt),
                 },
-                {
+                ...(item.completedAt ? [{
                   key: "completed",
-                  label: "Hoàn thành",
-                  children: `${date(item.completedAt)}${item.completedLate === null ? "" : item.completedLate ? " · Trễ hạn" : " · Đúng hạn"}`,
-                },
-                {
+                  label: "Ngày hoàn thành",
+                  children: `${assignmentDateOnly(item.completedAt, timezone)}${item.completedLate === null ? "" : item.completedLate ? " · Trễ hạn" : " · Đúng hạn"}`,
+                }] : []),
+                ...(item.withdrawnAt ? [{
                   key: "withdrawn",
-                  label: "Thời điểm rút",
-                  children: date(item.withdrawnAt),
-                },
-                {
+                  label: "Ngày rút",
+                  children: assignmentDateOnly(item.withdrawnAt, timezone),
+                }] : []),
+                ...(item.withdrawnReason ? [{
                   key: "reason",
                   label: "Lý do rút",
                   children: item.withdrawnReason
                     ? ((
                         {
-                          LearnerWithdrew: "Learner tự rút",
+                          LearnerWithdrew: "Học viên tự rút",
                           AccountDeleted: "Tài khoản đã bị xóa",
                         } as Record<string, string>
                       )[item.withdrawnReason] ?? "Lý do khác")
                     : "—",
-                },
+                }] : []),
               ]}
             />
           </SectionCard>

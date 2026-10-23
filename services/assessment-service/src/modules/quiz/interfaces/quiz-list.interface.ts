@@ -11,9 +11,17 @@ export const QUIZ_KIND = 'QUIZ';
  * - QUIZ_HAS_ATTEMPTS: questions, time limit, n and m are frozen (BR-96, BR-97)
  * - COURSE_LOCKED: passing score and required flag are frozen (BR-94)
  * - COURSE_SUBMITTED: nothing can be edited while the Course is under review (BR-285)
+ * - COURSE_NOT_EDITABLE: nothing can be edited while the Course is Archived or Disabled (BR-285)
+ * - COURSE_LEFT_DRAFT: the last question cannot be deleted once the Course left Draft/Rejected (BR-323)
+ *
+ * The UC18 list only ever reports the first three; the last two appear in the UC18.1 permissions.
  */
 export type QuizLockReason =
-  'QUIZ_HAS_ATTEMPTS' | 'COURSE_LOCKED' | 'COURSE_SUBMITTED';
+  | 'QUIZ_HAS_ATTEMPTS'
+  | 'COURSE_LOCKED'
+  | 'COURSE_SUBMITTED'
+  | 'COURSE_NOT_EDITABLE'
+  | 'COURSE_LEFT_DRAFT';
 
 export interface QuizSummary {
   id: string;
