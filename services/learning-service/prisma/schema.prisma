@@ -168,6 +168,9 @@ model PlatformSetting {
 }
 
 model OutboxEvent {
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error")
+  nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz
   id             String    @id @default(uuid(7)) @db.Uuid
   aggregateType  String    @map("aggregate_type")
   aggregateId    String    @map("aggregate_id") @db.Uuid

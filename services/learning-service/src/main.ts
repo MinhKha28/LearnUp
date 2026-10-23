@@ -10,6 +10,7 @@ async function bootstrap(): Promise<void> {
   const configService = app.get(ConfigService);
 
   configureApp(app);
+  app.enableShutdownHooks();
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('LearnUP Learning Service API')

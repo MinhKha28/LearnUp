@@ -74,3 +74,42 @@ To maintain simplicity, clarity, and avoid unnecessary technical failure modes f
 * **NO Event Sourcing** (PostgreSQL is the source of truth for all service state).
 * **NO CQRS Frameworks** (Services handle their own reads and writes).
 * **NO Transactional Outbox Engines** (Simple producer abstractions with standard retry configuration).
+
+
+## Learning Enrollment outbox relay (L6, BR-143)
+
+`learnup.learning.enrollment-events` intentionally groups EnrollmentAssigned,
+EnrollmentDueDateExtended, EnrollmentExempted and LearnerWithdrew in one topic.
+This is an exception to `learnup.<domain>.<event-type-kebab>`: key = enrollmentId
+(outbox aggregate_id) keeps one Enrollment on one partition. The topic has three
+partitions, 30-day retention, and configurable replication factor (Compose: 1).
+Do not increase partitions without planning the effect on existing key ordering.
+
+The API process hosts a non-overlapping relay; repository and Kafka producer are
+separate providers for a future worker. Each transaction locks at most 20 aggregate
+heads using FOR UPDATE SKIP LOCKED. A lower unpublished id blocks successors even
+while that head is locked or in backoff. Ordering is by outbox id, as specified by
+the existing UUIDv7-based outbox contract, not by a new timestamp generated at send.
+
+Delivery is at-least-once. eventId, occurredAt and organizationId come from the
+outbox row, producer is learning-service, version is 1, and data is the stored
+payload. Consumers must deduplicate by eventId. Kafka acknowledgement precedes
+published_at and payload redaction in the same PostgreSQL transaction. Kafka ACK
+and PostgreSQL commit cannot be made atomic; crash recovery can replay an event.
+
+A live broker metadata probe precedes the database transaction. A failed probe
+opens no transaction and changes no attempts. A broker outage during delivery
+backs off the entire batch without per-message retries. Only explicit record
+errors trigger parallel individual retries. The idempotent producer uses acks=all
+and one in-flight request per broker. Message delivery is bounded to 10 seconds;
+transaction timeout is 30 seconds and must exceed twice delivery timeout plus
+5 seconds of SQL margin. Shutdown stops polling, awaits the active turn and then
+disconnects Kafka before Prisma disconnects during application shutdown.
+
+Retry delay is min(1000 * 2^(attempts-1), 300000) milliseconds. From attempt 10,
+failures produce error alerts. No retry limit marks a row published or skips it.
+Unknown errors are treated as common failures. Only safe error codes are stored
+and logged; payloads and arbitrary exception messages are excluded. Redaction is
+an event-type field allowlist, currently empty for the four supported events.
+An hourly pass deletes at most 1000 published rows older than seven days, never
+unpublished rows. Backlogs are drained by subsequent hourly passes.
