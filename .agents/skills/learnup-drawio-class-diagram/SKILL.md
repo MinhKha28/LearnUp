@@ -12,17 +12,18 @@ Read [references/learnup-class-conventions.md](references/learnup-class-conventi
 ## Establish scope and evidence
 
 - Identify the UC code/name or feature/module name from the request and source. Support subcodes such as `UC25.3`, and do not invent a UC catalog. Ask only if ambiguity prevents identifying the requested scope.
+- For every feature-level class diagram, consult `docs/uml/docs/LearnUP_UseCase.docx`, Section 3, “Bảng Use Case”, when the file is available. Identify the UC rows, actors, boundaries and intended read/write scope before tracing classes. If the document is unavailable, state that and continue from available requirements and source. The Use Case table establishes feature scope; implementation source remains the authority for classes, members and relationships.
 - Default file: `docs/uml/class/[UC_CODE]_ClassDiagram.puml`. For a module without a UC code, use `[FEATURE]_ClassDiagram.puml` with a filesystem-safe identifier. Honor an explicit alternate destination.
 - Trace only the relevant controller actions, services, repository/base classes, interfaces, domain models, and meaningful DTO/client types. Start from related React/API code only to locate the owning backend feature; React function components are not automatically UML classes.
 - Read declarations and relevant usages, not just filenames or imports. Include a helper, DTO, enum, or framework parent only when it explains a meaningful relationship. An unused import is not evidence of a dependency.
 - Current implementation establishes what exists. Compare relevant contracts/specifications when needed and disclose conflicts. For an explicitly requested future design, label proposed elements and assumptions separately from implemented structure.
-- Keep identifiers and generic types faithful to source. Use English labels and titles; communicate with the user in their language. Class names have no instance prefix `:`.
+- Keep identifiers and generic types faithful to source. Use English classifier and relationship labels; communicate with the user in their language. Do not add a rendered diagram title. Class names have no instance prefix `:`.
 
 ## Select a useful level of detail
 
 **Overview is the default.** Include names and relationships. Keep both member compartments empty; do not secretly populate fields/methods and hide them. Declare each classifier with a multiline body containing one `--` separator between its empty attribute and operation compartments. Do not use `hide empty members` or `hide members`, which collapse the reference style.
 
-**Detailed mode is used when requested.** Keep the same style, add only relevant attributes and operations, and validate with `--mode detailed`. Use visibility and types supported by code: `-field: Type`, `#field: Type`, `+operation(arg: Type): ReturnType`. Preserve optionality and generics. Omit routine constructors, accessors, framework metadata, and inherited members unless they explain the requested design. Prisma model properties are data; do not invent model methods.
+**Detailed mode is used when requested.** Keep the same style, add only relevant attributes and operations, and validate with `--mode detailed`. Put a literal space after each visibility marker in member text: `- field: Type`, `# field: Type`, `+ operation(arg: Type): ReturnType`. Preserve optionality and generics. Omit routine constructors, accessors, framework metadata, and inherited members unless they explain the requested design. Prisma model properties are data; do not invent model methods.
 
 - Use `class`, `abstract class`, `interface`, or `enum` according to the declaration. A Prisma model may be shown as `class "Enrollment" as Enrollment <<PrismaModel>>`; a TypeScript data interface remains an interface. Add a short stereotype when needed to distinguish kinds after hiding the class icon.
 - One real classifier per box; do not merge several names with `/`, `&`, `+`, or `and`.
@@ -44,6 +45,7 @@ Use the canonical directions below. Hollow triangles point to the parent/interfa
 | Composition | `Whole *-- Part` | Exclusive whole-part ownership and lifetime semantics supported by the model |
 
 - Injection alone establishes a retained-reference association, not aggregation/composition. Method-local usage establishes dependency. Avoid duplicate dependency arrows when an association already explains the same usage.
+- Label every semantic relationship with its plain-English UML kind so readers can identify it in the rendered diagram: `Association`, `Dependency`, `Inheritance`, `Implements`, `Aggregation`, or `Composition`. Use `Inheritance` for generalization (`--|>`), `Implements` for realization (`..|>`), and the matching kind for the other arrows. Hidden layout links are exempt and must not receive a semantic label.
 - Do not infer ownership from a name, UUID foreign key, Prisma `@relation`, or cascade deletion alone. Use a plain association when ownership is not established. Multiplicity belongs on associations/whole-part links only when source constraints establish it, not on inheritance or temporary dependencies.
 - Do not copy the sample's `BaseController`, `BaseDao`, or `BaseBean` unless those declarations actually exist. NestJS classes do not implicitly inherit invented framework base classes.
 - Cross-service REST/Kafka interactions do not make remote classes in-process object references. Prefer the local HTTP client and contract; include remote implementation types only when the requested scope needs them and mark service ownership. Never infer cross-database associations from matching IDs.
@@ -51,11 +53,10 @@ Use the canonical directions below. Hollow triangles point to the parent/interfa
 
 ## Presentation
 
-Use this header once, replacing the title scope/name:
+Use this title-free header once:
 
 ```plantuml
 @startuml
-title [SCOPE] - [NAME] Class Diagram
 top to bottom direction
 skinparam monochrome true
 skinparam backgroundColor white
@@ -66,15 +67,20 @@ skinparam ArrowColor black
 skinparam shadowing false
 skinparam roundcorner 0
 skinparam classAttributeIconSize 0
+skinparam linetype ortho
 hide circle
 show empty members
 ```
 
+Do not add a rendered `title`; the report section and filename identify the diagram. Keep visibility explicit in member text with `- ` for private, `+ ` for public, and `# ` for protected members. Retain `skinparam classAttributeIconSize 0` so PlantUML renders visibility markers as text rather than glyphs. Use orthogonal routing (`skinparam linetype ortho`) for direct, squared connectors instead of curved paths.
+
+When a diagram is inserted into draw.io, distinguish its **Diagram** conversion from **Image** mode. Draw.io documents that its PlantUML Diagram conversion does not support every formatting feature and may render visibility icons incorrectly. If literal visibility markers and connector geometry must match the PlantUML output, use Image mode; it is not editable as native class shapes. If native editing is required, use Diagram mode and inspect or repair visibility markers and connector routing in draw.io. Do not claim that a `.puml` setting alone guarantees Diagram-mode fidelity.
+
 Declare all classifiers before relationships; finish with one `@enduml`. Avoid colored themes, images, macros, remote includes, and large notes. Keep the reference report's section heading and blue instructional placeholder outside the generated diagram.
 
-Prefer controllers/services above repositories and models, with shared parents positioned near children. Optimize for legible labels and few crossing lines. Use declaration order and a few `-[hidden]right->` or `-[hidden]down->` layout links when needed. Hidden links affect positioning only; never count them as evidence of a domain relationship. Do not change relation types just to improve layout. Across multiple services, use white rectangular `package` groups only when ownership would otherwise be unclear; retain a flat layout for a single service like the image.
+Prefer controllers/services above repositories and models, with shared parents positioned near children. For left-to-right layouts, order the primary controller → service → repository chain, then position clients, DTOs and data models near their owners. Optimize for legible labels and few crossing lines. If many meaningful links still cross, split a large feature into focused diagrams and update the UC mapping rather than hiding real links. Use declaration order and a few `-[hidden]right->` or `-[hidden]down->` layout links when needed. Hidden links affect positioning only; never count them as evidence of a domain relationship. Do not change relation types just to improve layout. Across multiple services, use white rectangular `package` groups only when ownership would otherwise be unclear; retain a flat layout for a single service like the image.
 
-Exact positions vary by renderer. Inspect the result instead of promising a pixel-identical copy. Preserve hollow triangles/diamonds and dashed dependencies; these carry meaning.
+Exact positions vary by renderer. Inspect the result instead of promising a pixel-identical copy. Preserve hollow triangles/diamonds and dashed dependencies; these carry meaning. Confirm that relationship labels remain readable and connectors render as orthogonal lines in the target renderer/importer.
 
 ## Verification and delivery
 
@@ -84,7 +90,7 @@ Run the stdlib-only validator from the repository root:
 python .agents/skills/learnup-drawio-class-diagram/scripts/validate_puml.py docs/uml/class/[UC_CODE]_ClassDiagram.puml
 ```
 
-Append `--mode detailed` for a requested detailed diagram. Fix errors and rerun. The validator checks the supported subset: wrapper/header, classifier declarations, aliases, braces, overview compartments, referenced endpoints, relation notation, inheritance/realization kinds, duplicate links, and inheritance cycles. It does not read source code, prove ownership or multiplicity, or fully parse PlantUML member signatures. Review every included relationship against source separately. Do not invent a link to silence an unused-class warning; justify the independent classifier or narrow the scope.
+Append `--mode detailed` for a requested detailed diagram. Fix errors and rerun. The validator checks the supported subset: title-free wrapper/header, classifier declarations, aliases, braces, visibility markers, overview compartments, referenced endpoints, required relationship labels, relation notation, inheritance/realization kinds, duplicate links, and inheritance cycles. It does not read source code, prove ownership or multiplicity, or fully parse PlantUML member signatures. Review every included relationship against source separately. Do not invent a link to silence an unused-class warning; justify the independent classifier or narrow the scope.
 
 When a local PlantUML renderer is available, render and inspect spacing, three compartments, arrowheads, crossings, and clipping. A local example command is `java -jar <local-plantuml.jar> -tpng <diagram.puml>`; add `-Playout=smetana` when Graphviz is unavailable. Draw.io import is a separate check; renderer success alone does not prove it. If either tool is unavailable, state what was actually checked. Do not send project source or diagrams to remote renderers without authorization.
 

@@ -1,5 +1,4 @@
 @startuml
-title LearningPersistence - Repository Structure Class Diagram
 top to bottom direction
 skinparam monochrome true
 skinparam backgroundColor white
@@ -10,6 +9,7 @@ skinparam ArrowColor black
 skinparam shadowing false
 skinparam roundcorner 0
 skinparam classAttributeIconSize 0
+skinparam linetype ortho
 hide circle
 show empty members
 
@@ -27,6 +27,6 @@ class "PrismaService" as PrismaService {
   --
 }
 
-EnrollmentsRepository --|> BaseRepository
-BaseRepository --> PrismaService : prisma
+EnrollmentsRepository --|> BaseRepository : Inheritance
+BaseRepository --> PrismaService : Association
 @enduml

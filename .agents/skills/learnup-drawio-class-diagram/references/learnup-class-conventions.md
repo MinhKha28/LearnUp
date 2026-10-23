@@ -44,9 +44,9 @@ Detailed mode can expose relevant existing members. For this real base class, a 
 
 ```plantuml
 abstract class "BaseRepository" as BaseRepository {
-  #prisma: PrismaService
+  # prisma: PrismaService
   --
-  #db(tx?: Prisma.TransactionClient): DbClient
+  # db(tx?: Prisma.TransactionClient): DbClient
 }
 ```
 
@@ -64,7 +64,7 @@ Do not turn controller-to-service-to-repository usage into a sequence of numbere
 
 Use explicit aliases with `class`, `abstract class`, `interface`, or `enum` and multiline `{ ... }` bodies. Optional stereotypes follow the alias. Flat declarations or white `package "service-name" { ... }` groups are supported. Declare classifiers before links.
 
-Supported links: `--|>`, `<|--`, `..|>`, `<|..`, `..>`, `<..`, `-->`, `<--`, `--`, `o--`, `--o`, `*--`, `--*`, and hidden layout links `-[hidden]right->` / `-[hidden]down->`. Quoted multiplicities and a trailing `: label` are supported on associations. Use canonical notation rather than alternative arrow spellings. Isolated classifiers produce warnings, not invented links or an automatic failure.
+Supported links: `--|>`, `<|--`, `..|>`, `<|..`, `..>`, `<..`, `-->`, `<--`, `--`, `o--`, `--o`, `*--`, `--*`, and hidden layout links `-[hidden]right->` / `-[hidden]down->`. Quoted multiplicities and a trailing `: label` are supported on relationships. Give every semantic line its visible kind label: `Inheritance`, `Implements`, `Dependency`, `Association`, `Aggregation`, or `Composition`, according to its arrow. Hidden links are unlabeled. Use title-free diagrams, `skinparam linetype ortho`, and explicit member text with a space after `-`, `+`, or `#` (for example `- field: Type`) alongside `skinparam classAttributeIconSize 0`. Prefer left-to-right controller/service/repository flow and split diagrams when supported relationships remain crowded. Draw.io's native PlantUML Diagram conversion may not preserve all formatting; use its Image mode when visual fidelity is more important than editing individual UML shapes. Use canonical notation rather than alternative arrow spellings. Isolated classifiers produce warnings, not invented links or an automatic failure.
 
 The validator intentionally excludes macros, notes, inline class bodies, and other diagram languages. An unsupported construct must be simplified without changing meaning, or explicitly reported as outside static validation; never claim it passed. Detailed member lines are checked only for nonempty content and block boundaries, not complete Java/TypeScript syntax.
 

@@ -632,7 +632,7 @@ export class CoursesService {
 
       throw error;
     }
-
+    console.log('check storedFile', storedFile);
     try {
       const mediaFile = await this.coursesRepository.createCourseCoverMediaFile(
         user.organizationId,

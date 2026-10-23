@@ -1,0 +1,118 @@
+@startuml
+left to right direction
+skinparam monochrome true
+skinparam backgroundColor white
+skinparam classBackgroundColor white
+skinparam classBorderColor black
+skinparam classFontColor black
+skinparam ArrowColor black
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 45
+hide circle
+show empty members
+
+' Source-backed selective detail for UC15, UC15.1, UC15.2, UC15.3, UC16 and UC16.1.
+class CoursesController {
+  - coursesService: CoursesService
+  --
+  + getStructure(user: CurrentUser, courseId: string)
+  + createModule(user: CurrentUser, courseId: string, dto: CreateCourseModuleDto)
+  + createLesson(user: CurrentUser, courseId: string, moduleId: string, dto: CreateCourseLessonDto)
+  + updateStructure(user: CurrentUser, courseId: string, dto: UpdateCourseStructureDto)
+  + findLessonDetail(user: CurrentUser, courseId: string, lessonId: string)
+  + updateLessonContent(user: CurrentUser, courseId: string, lessonId: string, dto: UpdateLessonContentDto)
+}
+class CoursesService {
+  - coursesRepository: CoursesRepository
+  --
+  + getStructure(user: CurrentUser, courseId: string)
+  + createModule(user: CurrentUser, courseId: string, dto: CreateCourseModuleDto)
+  + createLesson(user: CurrentUser, courseId: string, moduleId: string, dto: CreateCourseLessonDto)
+  + updateStructure(user: CurrentUser, courseId: string, dto: UpdateCourseStructureDto)
+  + findLessonDetail(user: CurrentUser, courseId: string, lessonId: string)
+  + updateLessonContent(user: CurrentUser, courseId: string, lessonId: string, dto: UpdateLessonContentDto)
+}
+class CoursesRepository {
+  - prisma: PrismaService
+  --
+  + findStructure(courseId: string, organizationId: string, instructorId: string)
+  + createModule(organizationId: string, courseId: string, title: string)
+  + createLesson(organizationId: string, moduleId: string, title: string, content: string)
+  + updateStructure(courseId: string, organizationId: string, instructorId: string, data: UpdateCourseStructureDto)
+  + findLessonDetail(courseId: string, lessonId: string, organizationId: string, instructorId: string)
+  + findLessonForContentUpdate(courseId: string, lessonId: string, organizationId: string, instructorId: string)
+  + updateLessonContent(courseId: string, lessonId: string, organizationId: string, instructorId: string, content: string, expectedUpdatedAt: Date): Promise<boolean>
+}
+class PrismaService {
+  --
+}
+class CreateCourseModuleDto {
+  + title: string
+  --
+}
+class CreateCourseLessonDto {
+  + title: string
+  + content: string
+  --
+}
+class UpdateCourseStructureDto {
+  + modules: StructureModuleDto[]
+  --
+}
+class StructureModuleDto {
+  + id: string
+  + title: string
+  + lessons: StructureLessonDto[]
+  --
+}
+class StructureLessonDto {
+  + id: string
+  + title: string
+  --
+}
+class UpdateLessonContentDto {
+  + content: string
+  --
+}
+class "Course" as Course <<PrismaModel>> {
+  + id: String
+  + status: String
+  + lockedAt: DateTime?
+  --
+}
+class "CourseModule" as CourseModule <<PrismaModel>> {
+  + id: String
+  + courseId: String
+  + title: String
+  + position: Int
+  --
+}
+class "Lesson" as Lesson <<PrismaModel>> {
+  + id: String
+  + moduleId: String
+  + title: String
+  + content: String
+  + position: Int
+  + updatedAt: DateTime
+  --
+}
+
+CoursesController --> CoursesService : Association
+CoursesService --> CoursesRepository : Association
+CoursesRepository --> PrismaService : Association
+CoursesRepository ..> Course : Dependency
+CoursesRepository ..> CourseModule : Dependency
+CoursesRepository ..> Lesson : Dependency
+CoursesController ..> CreateCourseModuleDto : Dependency
+CoursesController ..> CreateCourseLessonDto : Dependency
+CoursesController ..> UpdateCourseStructureDto : Dependency
+CoursesController ..> UpdateLessonContentDto : Dependency
+UpdateCourseStructureDto --> StructureModuleDto : Association
+StructureModuleDto --> StructureLessonDto : Association
+Course -- CourseModule : Association
+CourseModule -- Lesson : Association
+@enduml

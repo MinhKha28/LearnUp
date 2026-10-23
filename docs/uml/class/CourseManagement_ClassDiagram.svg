@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="1380" viewBox="0 0 2600 1380">
+<defs>
+  <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#20252b" stroke-width="1.4"/></marker>
+  <style>
+    text { font-family: Arial, Helvetica, sans-serif; fill: #171b20; }
+    .box { fill: #fff; stroke: #20252b; stroke-width: 1.5; }
+    .rule { stroke: #20252b; stroke-width: 1.2; }
+    .assoc { fill: none; stroke: #20252b; stroke-width: 1.5; marker-end: url(#arrow); }
+    .plain { fill: none; stroke: #20252b; stroke-width: 1.5; }
+    .dep { fill: none; stroke: #20252b; stroke-width: 1.5; stroke-dasharray: 7 5; marker-end: url(#arrow); }
+    .label { font-size: 16px; font-weight: 600; paint-order: stroke; stroke: white; stroke-width: 6px; stroke-linejoin: round; }
+    .member { font-size: 16px; }
+    .name { font-size: 18px; font-weight: 700; }
+  </style>
+</defs>
+<rect width="100%" height="100%" fill="#fff"/>
+
+<path class="assoc" d="M 590 145 H 760" />
+<text class="label" x="675" y="132" text-anchor="middle">Association</text>
+<path class="assoc" d="M 1320 145 H 1480" />
+<text class="label" x="1400" y="132" text-anchor="middle">Association</text>
+<path class="dep" d="M 250 220 V 430 H 310 V 600" />
+<text class="label" x="310" y="420" text-anchor="middle">Dependency</text>
+<path class="dep" d="M 460 220 V 480 H 880 V 600" />
+<text class="label" x="690" y="470" text-anchor="middle">Dependency</text>
+<path class="assoc" d="M 1040 250 V 430 H 1480 V 600" />
+<text class="label" x="1260" y="420" text-anchor="middle">Association</text>
+<path class="assoc" d="M 1900 220 V 600" />
+<text class="label" x="1918" y="420" text-anchor="middle">Association</text>
+<path class="dep" d="M 1580 220 V 500 H 1350 V 1040" />
+<text class="label" x="1350" y="770" text-anchor="middle">Dependency</text>
+<path class="dep" d="M 1770 220 V 540 H 1795 V 1040" />
+<text class="label" x="1810" y="805" text-anchor="middle">Dependency</text>
+<path class="dep" d="M 1990 220 V 500 H 2275 V 1040" />
+<text class="label" x="2130" y="770" text-anchor="middle">Dependency</text>
+<path class="plain" d="M 1530 1135 H 1580" />
+<text class="label" x="1555" y="1016" text-anchor="middle">Association</text>
+<text class="member" x="1534" y="1120" text-anchor="end">1</text>
+<text class="member" x="1576" y="1120">0..*</text>
+<path class="plain" d="M 2010 1135 H 2060" />
+<text class="label" x="2035" y="1016" text-anchor="middle">Association</text>
+<g id="controller"><rect class="box" x="70" y="70" width="520" height="152"/>
+<line class="rule" x1="70" y1="106" x2="590" y2="106"/>
+<line class="rule" x1="70" y1="139" x2="590" y2="139"/>
+<text class="name" x="330.0" y="94" text-anchor="middle">CoursesController</text>
+<text class="member" x="83" y="128">- coursesService: CoursesService</text>
+<text class="member" x="83" y="161">+ uploadCover(user: CurrentUser, file?: Express.Multer.File)</text>
+<text class="member" x="83" y="186">+ create(user: CurrentUser, dto: CreateCourseDto)</text>
+<text class="member" x="83" y="211">+ update(user: CurrentUser, courseId: string, dto: UpdateCourseDto)</text>
+</g>
+<g id="service"><rect class="box" x="760" y="70" width="560" height="177"/>
+<line class="rule" x1="760" y1="106" x2="1320" y2="106"/>
+<line class="rule" x1="760" y1="164" x2="1320" y2="164"/>
+<text class="name" x="1040.0" y="94" text-anchor="middle">CoursesService</text>
+<text class="member" x="773" y="128">- coursesRepository: CoursesRepository</text>
+<text class="member" x="773" y="153">- storage: IStorageProvider</text>
+<text class="member" x="773" y="186">+ uploadCover(user: CurrentUser, file?: Express.Multer.File)</text>
+<text class="member" x="773" y="211">+ create(user: CurrentUser, dto: CreateCourseDto)</text>
+<text class="member" x="773" y="236">+ updateCourse(user: CurrentUser, courseId: string, dto: UpdateCourseDto)</text>
+</g>
+<g id="repository"><rect class="box" x="1480" y="70" width="650" height="152"/>
+<line class="rule" x1="1480" y1="106" x2="2130" y2="106"/>
+<line class="rule" x1="1480" y1="139" x2="2130" y2="139"/>
+<text class="name" x="1805.0" y="94" text-anchor="middle">CoursesRepository</text>
+<text class="member" x="1493" y="128">- prisma: PrismaService</text>
+<text class="member" x="1493" y="161">+ createCourse(data)</text>
+<text class="member" x="1493" y="186">+ createCourseCoverMediaFile(organizationId: string, storedFile: IStoredFile)</text>
+<text class="member" x="1493" y="211">+ updateCourse(courseId: string, organizationId: string, instructorId: string, data: UpdateCourseDto)</text>
+</g>
+<g id="createDto"><rect class="box" x="60" y="600" width="500" height="244"/>
+<line class="rule" x1="60" y1="636" x2="560" y2="636"/>
+<line class="rule" x1="60" y1="661" x2="560" y2="661"/>
+<text class="name" x="310.0" y="624" text-anchor="middle">CreateCourseDto</text>
+<text class="member" x="73" y="683">+ name: string</text>
+<text class="member" x="73" y="708">+ shortDescription?: string</text>
+<text class="member" x="73" y="733">+ trainingObjectives?: string</text>
+<text class="member" x="73" y="758">+ learningOutcomes?: string[]</text>
+<text class="member" x="73" y="783">+ coverFileId?: string</text>
+<text class="member" x="73" y="808">+ expectedCompletionDays: number</text>
+<text class="member" x="73" y="833">+ courseType: CourseType</text>
+</g>
+<g id="updateDto"><rect class="box" x="610" y="600" width="540" height="244"/>
+<line class="rule" x1="610" y1="636" x2="1150" y2="636"/>
+<line class="rule" x1="610" y1="661" x2="1150" y2="661"/>
+<text class="name" x="880.0" y="624" text-anchor="middle">UpdateCourseDto</text>
+<text class="member" x="623" y="683">+ name: string</text>
+<text class="member" x="623" y="708">+ shortDescription: string | null</text>
+<text class="member" x="623" y="733">+ trainingObjectives: string | null</text>
+<text class="member" x="623" y="758">+ learningOutcomes: string[]</text>
+<text class="member" x="623" y="783">+ coverFileId: string | null</text>
+<text class="member" x="623" y="808">+ expectedCompletionDays: number</text>
+<text class="member" x="623" y="833">+ courseType: CourseType</text>
+</g>
+<g id="storage"><rect class="box" x="1210" y="600" width="540" height="94"/>
+<line class="rule" x1="1210" y1="636" x2="1750" y2="636"/>
+<line class="rule" x1="1210" y1="661" x2="1750" y2="661"/>
+<text class="name" x="1480.0" y="624" text-anchor="middle">IStorageProvider  &#171;interface&#187;</text>
+<text class="member" x="1223" y="683">+ upload(file: IStorageFileInput, options: IStorageUploadOptions): Promise&lt;IStoredFile&gt;</text>
+</g>
+<g id="prisma"><rect class="box" x="1810" y="600" width="300" height="86"/>
+<line class="rule" x1="1810" y1="636" x2="2110" y2="636"/>
+<line class="rule" x1="1810" y1="661" x2="2110" y2="661"/>
+<text class="name" x="1960.0" y="624" text-anchor="middle">PrismaService</text>
+</g>
+<g id="chain"><rect class="box" x="1170" y="1040" width="360" height="144"/>
+<line class="rule" x1="1170" y1="1076" x2="1530" y2="1076"/>
+<line class="rule" x1="1170" y1="1159" x2="1530" y2="1159"/>
+<text class="name" x="1350.0" y="1064" text-anchor="middle">CourseChain  &#171;PrismaModel&#187;</text>
+<text class="member" x="1183" y="1098">+ id: String</text>
+<text class="member" x="1183" y="1123">+ organizationId: String</text>
+<text class="member" x="1183" y="1148">+ instructorId: String</text>
+</g>
+<g id="course"><rect class="box" x="1580" y="1040" width="430" height="294"/>
+<line class="rule" x1="1580" y1="1076" x2="2010" y2="1076"/>
+<line class="rule" x1="1580" y1="1309" x2="2010" y2="1309"/>
+<text class="name" x="1795.0" y="1064" text-anchor="middle">Course  &#171;PrismaModel&#187;</text>
+<text class="member" x="1593" y="1098">+ id: String</text>
+<text class="member" x="1593" y="1123">+ organizationId: String</text>
+<text class="member" x="1593" y="1148">+ chainId: String</text>
+<text class="member" x="1593" y="1173">+ name: String</text>
+<text class="member" x="1593" y="1198">+ status: String</text>
+<text class="member" x="1593" y="1223">+ lockedAt: DateTime?</text>
+<text class="member" x="1593" y="1248">+ coverFileId: String?</text>
+<text class="member" x="1593" y="1273">+ expectedCompletionDays: Int</text>
+<text class="member" x="1593" y="1298">+ courseType: String</text>
+</g>
+<g id="media"><rect class="box" x="2060" y="1040" width="430" height="219"/>
+<line class="rule" x1="2060" y1="1076" x2="2490" y2="1076"/>
+<line class="rule" x1="2060" y1="1234" x2="2490" y2="1234"/>
+<text class="name" x="2275.0" y="1064" text-anchor="middle">MediaFile  &#171;PrismaModel&#187;</text>
+<text class="member" x="2073" y="1098">+ id: String</text>
+<text class="member" x="2073" y="1123">+ purpose: String</text>
+<text class="member" x="2073" y="1148">+ storageKey: String</text>
+<text class="member" x="2073" y="1173">+ status: String</text>
+<text class="member" x="2073" y="1198">+ sizeBytes: BigInt</text>
+<text class="member" x="2073" y="1223">+ releasedAt: DateTime?</text>
+</g>
+</svg>

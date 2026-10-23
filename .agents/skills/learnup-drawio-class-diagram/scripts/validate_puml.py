@@ -26,7 +26,8 @@ HEADERS = (
     'skinparam classBackgroundColor white', 'skinparam classBorderColor black',
     'skinparam classFontColor black', 'skinparam ArrowColor black',
     'skinparam shadowing false', 'skinparam roundcorner 0',
-    'skinparam classAttributeIconSize 0', 'hide circle', 'show empty members',
+    'skinparam classAttributeIconSize 0', 'skinparam linetype ortho',
+    'hide circle', 'show empty members',
 )
 DIRECTIONS = {'top to bottom direction', 'left to right direction'}
 EXTRA_STYLE = re.compile(
@@ -77,8 +78,8 @@ def validate_text(text: str, mode: str = 'overview') -> Result:
     if statements.count('@enduml') != 1 or not statements or statements[-1] != '@enduml':
         result.errors.append('Use exactly one @enduml as the last statement')
     titles = [line for line in statements if line.startswith('title ')]
-    if len(titles) != 1 or not re.fullmatch(r'title [A-Za-z][\w.-]* - .+', titles[0]):
-        result.errors.append('Use one title: SCOPE - Diagram Name')
+    if titles:
+        result.errors.append('Rendered titles are not allowed; identify the diagram by filename/report section')
     for header in HEADERS:
         if statements.count(header) != 1:
             result.errors.append(f'Required exactly once: {header}')
@@ -162,7 +163,9 @@ def validate_text(text: str, mode: str = 'overview') -> Result:
             for number, line in body:
                 if line == '--':
                     continue
-                if not re.match(r'^(?:(?:\{static\}|\{abstract\})\s*)?[+#~\w-]', line) or line.endswith('{'):
+                if declarations.get(alias) != 'enum' and not re.match(r'^(?:(?:\{static\}|\{abstract\})\s*)?[+#-]\s+\S', line):
+                    fail(number, 'Detailed members must use explicit +, -, or # visibility markers')
+                if not re.match(r'^(?:(?:\{static\}|\{abstract\})\s*)?[+#~\w-](?:\s+|\S)', line) or line.endswith('{'):
                     fail(number, 'Unsupported detailed member line')
 
     used: set[str] = set()
@@ -182,6 +185,17 @@ def validate_text(text: str, mode: str = 'overview') -> Result:
             continue
         used.update((source, target))
         kind, reverse = ARROWS[arrow]
+        required_label = {
+            'generalization': 'Inheritance',
+            'realization': 'Implements',
+            'dependency': 'Dependency',
+            'association': 'Association',
+            'undirected association': 'Association',
+            'aggregation': 'Aggregation',
+            'composition': 'Composition',
+        }[kind]
+        if label != required_label:
+            fail(number, f'{kind} relationships must be labeled {required_label!r}')
         if reverse:
             source, target = target, source
         for count in (source_count, target_count):
@@ -247,9 +261,6 @@ def main(argv: list[str] | None = None) -> int:
     result = validate_text(text, args.mode)
     if not re.fullmatch(r'[A-Za-z][\w.-]*_ClassDiagram\.puml', args.path.name):
         result.errors.append('Filename must be SCOPE_ClassDiagram.puml')
-    title = re.search(r'^title ([A-Za-z][\w.-]*) - ', text, re.M)
-    if title and args.path.name != f'{title.group(1)}_ClassDiagram.puml':
-        result.errors.append('Title scope and filename must agree')
     for warning in result.warnings:
         print(f'[WARN] {warning}')
     for error in result.errors:

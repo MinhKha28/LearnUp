@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3900" height="1960" viewBox="0 0 3900 1960"><defs>
+<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10" fill="none" stroke="#20252b" stroke-width="1.4"/></marker>
+<marker id="triangle" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 Z" fill="#fff" stroke="#20252b" stroke-width="1.2"/></marker>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#171b20}.box{fill:#fff;stroke:#20252b;stroke-width:1.5}.rule{stroke:#20252b;stroke-width:1.2}.assoc{fill:none;stroke:#20252b;stroke-width:1.5;marker-end:url(#arrow)}.plain{fill:none;stroke:#20252b;stroke-width:1.5}.dep{fill:none;stroke:#20252b;stroke-width:1.5;stroke-dasharray:7 5;marker-end:url(#arrow)}.impl{fill:none;stroke:#20252b;stroke-width:1.5;stroke-dasharray:7 5;marker-end:url(#triangle)}.label{font-size:15px;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round}.member{font-size:14px}.name{font-size:17px;font-weight:700}</style></defs><rect width="100%" height="100%" fill="#fff"/>
+<path class="assoc" d="M1150,130.08 H1260"/>
+<text class="label" x="1205" y="120.08" text-anchor="middle">Association</text>
+<path class="assoc" d="M2360,150.88 H2470"/>
+<text class="label" x="2415" y="140.88" text-anchor="middle">Association</text>
+<path class="assoc" d="M1832,244 V550 H2800 V600"/>
+<text class="label" x="2316" y="542" text-anchor="middle">Association</text>
+<path class="assoc" d="M1964,244 V500 H400 V700"/>
+<text class="label" x="1182" y="492" text-anchor="middle">Association</text>
+<path class="impl" d="M850,769.68 H750"/>
+<text class="label" x="800" y="759.68" text-anchor="middle">Implements</text>
+<path class="assoc" d="M2970,244 V575 H3360 V600"/>
+<text class="label" x="3165" y="567" text-anchor="middle">Association</text>
+<path class="dep" d="M3120,244 V1110 H1845 V1300"/>
+<text class="label" x="2482.5" y="1102" text-anchor="middle">Dependency</text>
+<path class="dep" d="M3270,244 V1160 H2410 V1300"/>
+<text class="label" x="2840" y="1152" text-anchor="middle">Dependency</text>
+<path class="dep" d="M2820,244 V1210 H3025 V1300"/>
+<text class="label" x="2922.5" y="1202" text-anchor="middle">Dependency</text>
+<path class="dep" d="M490,204 V1150 H350 V1300"/>
+<text class="label" x="420" y="1142" text-anchor="middle">Dependency</text>
+<path class="dep" d="M622,204 V1200 H1055 V1300"/>
+<text class="label" x="838.5" y="1192" text-anchor="middle">Dependency</text>
+<path class="plain" d="M2070,1380.08 H2160"/>
+<text class="label" x="2115" y="1370.08" text-anchor="middle">Association</text>
+<path class="plain" d="M2660,1411.28 H2750"/>
+<text class="label" x="2705" y="1401.28" text-anchor="middle">Association</text>
+<g id="CoursesController"><rect class="box" x="50" y="50" width="1100" height="154"/>
+<line class="rule" x1="50" y1="88" x2="1150" y2="88"/>
+<line class="rule" x1="50" y1="116" x2="1150" y2="116"/>
+<text class="name" x="600.0" y="73" text-anchor="middle">CoursesController</text>
+<text class="member" x="64" y="108">- coursesService: CoursesService</text>
+<text class="member" x="64" y="136">+ getVideoUploadContext(user: CurrentUser, courseId: string, lessonId: string)</text>
+<text class="member" x="64" y="156">+ uploadVideoMaterial(user: CurrentUser, courseId: string, lessonId: string, dto: CreateVideoMaterialDto, file?: Express.Multer.File)</text>
+<text class="member" x="64" y="176">+ getReadingUploadContext(user: CurrentUser, courseId: string, lessonId: string)</text>
+<text class="member" x="64" y="196">+ uploadReadingMaterial(user: CurrentUser, courseId: string, lessonId: string, dto: CreateReadingMaterialDto, file?: Express.Multer.File)</text>
+</g>
+<g id="CoursesService"><rect class="box" x="1260" y="50" width="1100" height="194"/>
+<line class="rule" x1="1260" y1="88" x2="2360" y2="88"/>
+<line class="rule" x1="1260" y1="156" x2="2360" y2="156"/>
+<text class="name" x="1810.0" y="73" text-anchor="middle">CoursesService</text>
+<text class="member" x="1274" y="108">- coursesRepository: CoursesRepository</text>
+<text class="member" x="1274" y="128">- tenantClient: TenantClient</text>
+<text class="member" x="1274" y="148">- storage: IStorageProvider</text>
+<text class="member" x="1274" y="176">+ getVideoUploadContext(user: CurrentUser, courseId: string, lessonId: string)</text>
+<text class="member" x="1274" y="196">+ uploadVideoMaterial(user: CurrentUser, courseId: string, lessonId: string, dto: CreateVideoMaterialDto, file?: Express.Multer.File)</text>
+<text class="member" x="1274" y="216">+ getReadingUploadContext(user: CurrentUser, courseId: string, lessonId: string)</text>
+<text class="member" x="1274" y="236">+ uploadReadingMaterial(user: CurrentUser, courseId: string, lessonId: string, dto: CreateReadingMaterialDto, file?: Express.Multer.File)</text>
+</g>
+<g id="CoursesRepository"><rect class="box" x="2470" y="50" width="1250" height="194"/>
+<line class="rule" x1="2470" y1="88" x2="3720" y2="88"/>
+<line class="rule" x1="2470" y1="116" x2="3720" y2="116"/>
+<text class="name" x="3095.0" y="73" text-anchor="middle">CoursesRepository</text>
+<text class="member" x="2484" y="108">- prisma: PrismaService</text>
+<text class="member" x="2484" y="136">+ findLessonForMaterialUpload(courseId: string, lessonId: string, organizationId: string, instructorId: string)</text>
+<text class="member" x="2484" y="156">+ getOrganizationStoredBytes(organizationId: string): Promise&lt;bigint&gt;</text>
+<text class="member" x="2484" y="176">+ getVideoSettings()</text>
+<text class="member" x="2484" y="196">+ createVideoMaterialWithQuota(data)</text>
+<text class="member" x="2484" y="216">+ getReadingSettings()</text>
+<text class="member" x="2484" y="236">+ createReadingMaterialWithQuota(data)</text>
+</g>
+<g id="PrismaService"><rect class="box" x="3210" y="600" width="300" height="94"/>
+<line class="rule" x1="3210" y1="638" x2="3510" y2="638"/>
+<line class="rule" x1="3210" y1="666" x2="3510" y2="666"/>
+<text class="name" x="3360.0" y="623" text-anchor="middle">PrismaService</text>
+</g>
+<g id="TenantClient"><rect class="box" x="2450" y="600" width="700" height="134"/>
+<line class="rule" x1="2450" y1="638" x2="3150" y2="638"/>
+<line class="rule" x1="2450" y1="686" x2="3150" y2="686"/>
+<text class="name" x="2800.0" y="623" text-anchor="middle">TenantClient</text>
+<text class="member" x="2464" y="658">- httpService: HttpService</text>
+<text class="member" x="2464" y="678">- configService: ConfigService</text>
+<text class="member" x="2464" y="706">+ getInstructorMaterialUploadPolicy(user: CurrentUser):</text>
+<text class="member" x="2464" y="726">Promise&lt;TenantMaterialUploadPolicy&gt;</text>
+</g>
+<g id="IStorageProvider"><rect class="box" x="50" y="700" width="700" height="134"/>
+<line class="rule" x1="50" y1="738" x2="750" y2="738"/>
+<line class="rule" x1="50" y1="766" x2="750" y2="766"/>
+<text class="name" x="400.0" y="723" text-anchor="middle">IStorageProvider  &#171;interface&#187;</text>
+<text class="member" x="64" y="786">+ upload(file: IStorageFileInput, options: IStorageUploadOptions): Promise&lt;IStoredFile&gt;</text>
+<text class="member" x="64" y="806">+ delete(storageKey: string, options: IStorageDeleteOptions): Promise&lt;void&gt;</text>
+<text class="member" x="64" y="826">+ getUrl(storageKey: string, resourceType: StoredResourceType): string</text>
+</g>
+<g id="CloudinaryStorageProvider"><rect class="box" x="850" y="700" width="850" height="134"/>
+<line class="rule" x1="850" y1="738" x2="1700" y2="738"/>
+<line class="rule" x1="850" y1="766" x2="1700" y2="766"/>
+<text class="name" x="1275.0" y="723" text-anchor="middle">CloudinaryStorageProvider</text>
+<text class="member" x="864" y="786">+ upload(file: IStorageFileInput, options: IStorageUploadOptions): Promise&lt;IStoredFile&gt;</text>
+<text class="member" x="864" y="806">+ delete(storageKey: string, options: IStorageDeleteOptions): Promise&lt;void&gt;</text>
+<text class="member" x="864" y="826">+ getUrl(storageKey: string, resourceType: StoredResourceType): string</text>
+</g>
+<g id="CreateVideoMaterialDto"><rect class="box" x="50" y="1300" width="600" height="114"/>
+<line class="rule" x1="50" y1="1338" x2="650" y2="1338"/>
+<line class="rule" x1="50" y1="1386" x2="650" y2="1386"/>
+<text class="name" x="350.0" y="1323" text-anchor="middle">CreateVideoMaterialDto</text>
+<text class="member" x="64" y="1358">+ title: string</text>
+<text class="member" x="64" y="1378">+ isRequired: boolean</text>
+</g>
+<g id="CreateReadingMaterialDto"><rect class="box" x="730" y="1300" width="650" height="114"/>
+<line class="rule" x1="730" y1="1338" x2="1380" y2="1338"/>
+<line class="rule" x1="730" y1="1386" x2="1380" y2="1386"/>
+<text class="name" x="1055.0" y="1323" text-anchor="middle">CreateReadingMaterialDto</text>
+<text class="member" x="744" y="1358">+ title: string</text>
+<text class="member" x="744" y="1378">+ isRequired: boolean</text>
+</g>
+<g id="Lesson"><rect class="box" x="1620" y="1300" width="450" height="154"/>
+<line class="rule" x1="1620" y1="1338" x2="2070" y2="1338"/>
+<line class="rule" x1="1620" y1="1426" x2="2070" y2="1426"/>
+<text class="name" x="1845.0" y="1323" text-anchor="middle">Lesson  &#171;PrismaModel&#187;</text>
+<text class="member" x="1634" y="1358">+ id: String</text>
+<text class="member" x="1634" y="1378">+ moduleId: String</text>
+<text class="member" x="1634" y="1398">+ title: String</text>
+<text class="member" x="1634" y="1418">+ disabledAt: DateTime?</text>
+</g>
+<g id="Material"><rect class="box" x="2160" y="1300" width="500" height="214"/>
+<line class="rule" x1="2160" y1="1338" x2="2660" y2="1338"/>
+<line class="rule" x1="2160" y1="1486" x2="2660" y2="1486"/>
+<text class="name" x="2410.0" y="1323" text-anchor="middle">Material  &#171;PrismaModel&#187;</text>
+<text class="member" x="2174" y="1358">+ id: String</text>
+<text class="member" x="2174" y="1378">+ lessonId: String</text>
+<text class="member" x="2174" y="1398">+ materialType: String</text>
+<text class="member" x="2174" y="1418">+ title: String</text>
+<text class="member" x="2174" y="1438">+ isRequired: Boolean</text>
+<text class="member" x="2174" y="1458">+ fileId: String</text>
+<text class="member" x="2174" y="1478">+ position: Int</text>
+</g>
+<g id="MediaFile"><rect class="box" x="2750" y="1300" width="550" height="254"/>
+<line class="rule" x1="2750" y1="1338" x2="3300" y2="1338"/>
+<line class="rule" x1="2750" y1="1526" x2="3300" y2="1526"/>
+<text class="name" x="3025.0" y="1323" text-anchor="middle">MediaFile  &#171;PrismaModel&#187;</text>
+<text class="member" x="2764" y="1358">+ id: String</text>
+<text class="member" x="2764" y="1378">+ purpose: String</text>
+<text class="member" x="2764" y="1398">+ storageKey: String</text>
+<text class="member" x="2764" y="1418">+ mimeType: String</text>
+<text class="member" x="2764" y="1438">+ sizeBytes: BigInt</text>
+<text class="member" x="2764" y="1458">+ durationSeconds: Int?</text>
+<text class="member" x="2764" y="1478">+ wordCount: Int?</text>
+<text class="member" x="2764" y="1498">+ status: String</text>
+<text class="member" x="2764" y="1518">+ releasedAt: DateTime?</text>
+</g>
+</svg>

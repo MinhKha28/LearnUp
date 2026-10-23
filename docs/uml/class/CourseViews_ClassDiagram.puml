@@ -1,0 +1,103 @@
+@startuml
+left to right direction
+skinparam monochrome true
+skinparam backgroundColor white
+skinparam classBackgroundColor white
+skinparam classBorderColor black
+skinparam classFontColor black
+skinparam ArrowColor black
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 45
+hide circle
+show empty members
+
+' Source-backed selective detail for UC14 and UC14.1.
+class CoursesController {
+  - coursesService: CoursesService
+  --
+  + findAll(user: CurrentUser, query: CourseListQueryDto)
+  + findDetail(user: CurrentUser, courseId: string)
+}
+class CoursesService {
+  - coursesRepository: CoursesRepository
+  - learningClient: LearningClient
+  - storage: IStorageProvider
+  --
+  + findAll(user: CurrentUser, query: CourseListQueryDto)
+  + findDetail(user: CurrentUser, courseId: string)
+  - calculateEstimatedDurationMinutes(organizationId: string, courseId: string): Promise<number | null>
+}
+class CoursesRepository {
+  - prisma: PrismaService
+  --
+  + findInstructorCourses(where: Prisma.CourseWhereInput, skip: number, take: number)
+  + findDetail(courseId: string, organizationId: string, instructorId: string)
+  + getReadingSpeedWordsPerMinute()
+  + calculateEstimatedDurationMinutes(organizationId: string, courseId: string, readingSpeedWordsPerMinute: number): Promise<number | null>
+}
+class PrismaService {
+  --
+}
+class LearningClient {
+  - httpService: HttpService
+  - configService: ConfigService
+  --
+  + getCourseLearnerCounts(user: CurrentUser, courseIds: string[]): Promise<CourseLearnerCount[]>
+}
+interface IStorageProvider {
+  --
+  + getUrl(storageKey: string, resourceType: StoredResourceType): string
+}
+class CourseListQueryDto {
+  + current: number
+  + pageSize: number
+  + search?: string
+  + courseType?: CourseType
+  + status?: CourseStatus
+  + locked?: boolean
+  --
+}
+class "CourseChain" as CourseChain <<PrismaModel>> {
+  + id: String
+  + organizationId: String
+  + instructorId: String
+  --
+}
+class "Course" as Course <<PrismaModel>> {
+  + id: String
+  + organizationId: String
+  + chainId: String
+  + name: String
+  + status: String
+  + lockedAt: DateTime?
+  + coverFileId: String?
+  + expectedCompletionDays: Int
+  + courseType: String
+  --
+}
+class "MediaFile" as MediaFile <<PrismaModel>> {
+  + id: String
+  + purpose: String
+  + storageKey: String
+  + status: String
+  + sizeBytes: BigInt
+  + releasedAt: DateTime?
+  --
+}
+
+CoursesController --> CoursesService : Association
+CoursesService --> CoursesRepository : Association
+CoursesService --> LearningClient : Association
+CoursesService --> IStorageProvider : Association
+CoursesRepository --> PrismaService : Association
+CoursesRepository ..> CourseChain : Dependency
+CoursesRepository ..> Course : Dependency
+CoursesRepository ..> MediaFile : Dependency
+CoursesController ..> CourseListQueryDto : Dependency
+CourseChain "1" -- "0..*" Course : Association
+Course -- MediaFile : Association
+@enduml

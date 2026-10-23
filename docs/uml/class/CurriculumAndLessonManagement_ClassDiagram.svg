@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3600" height="1800" viewBox="0 0 3600 1800"><defs>
+<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10" fill="none" stroke="#20252b" stroke-width="1.4"/></marker>
+<marker id="triangle" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 Z" fill="#fff" stroke="#20252b" stroke-width="1.2"/></marker>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#171b20}.box{fill:#fff;stroke:#20252b;stroke-width:1.5}.rule{stroke:#20252b;stroke-width:1.2}.assoc{fill:none;stroke:#20252b;stroke-width:1.5;marker-end:url(#arrow)}.plain{fill:none;stroke:#20252b;stroke-width:1.5}.dep{fill:none;stroke:#20252b;stroke-width:1.5;stroke-dasharray:7 5;marker-end:url(#arrow)}.impl{fill:none;stroke:#20252b;stroke-width:1.5;stroke-dasharray:7 5;marker-end:url(#triangle)}.label{font-size:15px;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round}.member{font-size:14px}.name{font-size:17px;font-weight:700}</style></defs><rect width="100%" height="100%" fill="#fff"/>
+<path class="assoc" d="M910,160.88 H1080"/>
+<text class="label" x="995" y="150.88" text-anchor="middle">Association</text>
+<path class="assoc" d="M1930,160.88 H2100"/>
+<text class="label" x="2015" y="150.88" text-anchor="middle">Association</text>
+<path class="assoc" d="M2646,294 V625 H3350 V650"/>
+<text class="label" x="2998" y="617" text-anchor="middle">Association</text>
+<path class="dep" d="M2772,294 V1050 H1520 V1300"/>
+<text class="label" x="2146" y="1042" text-anchor="middle">Dependency</text>
+<path class="dep" d="M2394,294 V1100 H2175 V1300"/>
+<text class="label" x="2284.5" y="1092" text-anchor="middle">Dependency</text>
+<path class="dep" d="M2520,294 V1150 H2870 V1300"/>
+<text class="label" x="2695" y="1142" text-anchor="middle">Dependency</text>
+<path class="dep" d="M502,254 V520 H275 V650"/>
+<text class="label" x="388.5" y="512" text-anchor="middle">Dependency</text>
+<path class="dep" d="M604,254 V555 H775 V650"/>
+<text class="label" x="689.5" y="547" text-anchor="middle">Dependency</text>
+<path class="dep" d="M298,254 V590 H1320 V650"/>
+<text class="label" x="809" y="582" text-anchor="middle">Dependency</text>
+<path class="dep" d="M400,254 V625 H3060 V650"/>
+<text class="label" x="1730" y="617" text-anchor="middle">Dependency</text>
+<path class="assoc" d="M1580,698.88 H1640"/>
+<text class="label" x="1610" y="688.88" text-anchor="middle">Association</text>
+<path class="assoc" d="M2200,719.68 H2260"/>
+<text class="label" x="2230" y="699.28" text-anchor="middle">Association</text>
+<path class="plain" d="M1740,1369.68 H1900"/>
+<text class="label" x="1820" y="1359.68" text-anchor="middle">Association</text>
+<path class="plain" d="M2450,1380.08 H2600"/>
+<text class="label" x="2525" y="1370.08" text-anchor="middle">Association</text>
+<g id="CoursesController"><rect class="box" x="60" y="60" width="850" height="194"/>
+<line class="rule" x1="60" y1="98" x2="910" y2="98"/>
+<line class="rule" x1="60" y1="126" x2="910" y2="126"/>
+<text class="name" x="485.0" y="83" text-anchor="middle">CoursesController</text>
+<text class="member" x="74" y="118">- coursesService: CoursesService</text>
+<text class="member" x="74" y="146">+ getStructure(user: CurrentUser, courseId: string)</text>
+<text class="member" x="74" y="166">+ createModule(user: CurrentUser, courseId: string, dto: CreateCourseModuleDto)</text>
+<text class="member" x="74" y="186">+ createLesson(user: CurrentUser, courseId: string, moduleId: string, dto: CreateCourseLessonDto)</text>
+<text class="member" x="74" y="206">+ updateStructure(user: CurrentUser, courseId: string, dto: UpdateCourseStructureDto)</text>
+<text class="member" x="74" y="226">+ findLessonDetail(user: CurrentUser, courseId: string, lessonId: string)</text>
+<text class="member" x="74" y="246">+ updateLessonContent(user: CurrentUser, courseId: string, lessonId: string, dto: UpdateLessonContentDto)</text>
+</g>
+<g id="CoursesService"><rect class="box" x="1080" y="60" width="850" height="194"/>
+<line class="rule" x1="1080" y1="98" x2="1930" y2="98"/>
+<line class="rule" x1="1080" y1="126" x2="1930" y2="126"/>
+<text class="name" x="1505.0" y="83" text-anchor="middle">CoursesService</text>
+<text class="member" x="1094" y="118">- coursesRepository: CoursesRepository</text>
+<text class="member" x="1094" y="146">+ getStructure(user: CurrentUser, courseId: string)</text>
+<text class="member" x="1094" y="166">+ createModule(user: CurrentUser, courseId: string, dto: CreateCourseModuleDto)</text>
+<text class="member" x="1094" y="186">+ createLesson(user: CurrentUser, courseId: string, moduleId: string, dto: CreateCourseLessonDto)</text>
+<text class="member" x="1094" y="206">+ updateStructure(user: CurrentUser, courseId: string, dto: UpdateCourseStructureDto)</text>
+<text class="member" x="1094" y="226">+ findLessonDetail(user: CurrentUser, courseId: string, lessonId: string)</text>
+<text class="member" x="1094" y="246">+ updateLessonContent(user: CurrentUser, courseId: string, lessonId: string, dto: UpdateLessonContentDto)</text>
+</g>
+<g id="CoursesRepository"><rect class="box" x="2100" y="60" width="1050" height="234"/>
+<line class="rule" x1="2100" y1="98" x2="3150" y2="98"/>
+<line class="rule" x1="2100" y1="126" x2="3150" y2="126"/>
+<text class="name" x="2625.0" y="83" text-anchor="middle">CoursesRepository</text>
+<text class="member" x="2114" y="118">- prisma: PrismaService</text>
+<text class="member" x="2114" y="146">+ findStructure(courseId: string, organizationId: string, instructorId: string)</text>
+<text class="member" x="2114" y="166">+ createModule(organizationId: string, courseId: string, title: string)</text>
+<text class="member" x="2114" y="186">+ createLesson(organizationId: string, moduleId: string, title: string, content: string)</text>
+<text class="member" x="2114" y="206">+ updateStructure(courseId: string, organizationId: string, instructorId: string, data: UpdateCourseStructureDto)</text>
+<text class="member" x="2114" y="226">+ findLessonDetail(courseId: string, lessonId: string, organizationId: string, instructorId: string)</text>
+<text class="member" x="2114" y="246">+ findLessonForContentUpdate(courseId: string, lessonId: string, organizationId: string, instructorId: string)</text>
+<text class="member" x="2114" y="266">+ updateLessonContent(courseId: string, lessonId: string, organizationId: string, instructorId: string, content: string,</text>
+<text class="member" x="2114" y="286">expectedUpdatedAt: Date): Promise&lt;boolean&gt;</text>
+</g>
+<g id="PrismaService"><rect class="box" x="3200" y="650" width="300" height="94"/>
+<line class="rule" x1="3200" y1="688" x2="3500" y2="688"/>
+<line class="rule" x1="3200" y1="716" x2="3500" y2="716"/>
+<text class="name" x="3350.0" y="673" text-anchor="middle">PrismaService</text>
+</g>
+<g id="CreateCourseModuleDto"><rect class="box" x="60" y="650" width="430" height="94"/>
+<line class="rule" x1="60" y1="688" x2="490" y2="688"/>
+<line class="rule" x1="60" y1="716" x2="490" y2="716"/>
+<text class="name" x="275.0" y="673" text-anchor="middle">CreateCourseModuleDto</text>
+<text class="member" x="74" y="708">+ title: string</text>
+</g>
+<g id="CreateCourseLessonDto"><rect class="box" x="550" y="650" width="450" height="114"/>
+<line class="rule" x1="550" y1="688" x2="1000" y2="688"/>
+<line class="rule" x1="550" y1="736" x2="1000" y2="736"/>
+<text class="name" x="775.0" y="673" text-anchor="middle">CreateCourseLessonDto</text>
+<text class="member" x="564" y="708">+ title: string</text>
+<text class="member" x="564" y="728">+ content: string</text>
+</g>
+<g id="UpdateCourseStructureDto"><rect class="box" x="1060" y="650" width="520" height="94"/>
+<line class="rule" x1="1060" y1="688" x2="1580" y2="688"/>
+<line class="rule" x1="1060" y1="716" x2="1580" y2="716"/>
+<text class="name" x="1320.0" y="673" text-anchor="middle">UpdateCourseStructureDto</text>
+<text class="member" x="1074" y="708">+ modules: StructureModuleDto[]</text>
+</g>
+<g id="StructureModuleDto"><rect class="box" x="1640" y="650" width="560" height="134"/>
+<line class="rule" x1="1640" y1="688" x2="2200" y2="688"/>
+<line class="rule" x1="1640" y1="756" x2="2200" y2="756"/>
+<text class="name" x="1920.0" y="673" text-anchor="middle">StructureModuleDto</text>
+<text class="member" x="1654" y="708">+ id: string</text>
+<text class="member" x="1654" y="728">+ title: string</text>
+<text class="member" x="1654" y="748">+ lessons: StructureLessonDto[]</text>
+</g>
+<g id="StructureLessonDto"><rect class="box" x="2260" y="650" width="500" height="114"/>
+<line class="rule" x1="2260" y1="688" x2="2760" y2="688"/>
+<line class="rule" x1="2260" y1="736" x2="2760" y2="736"/>
+<text class="name" x="2510.0" y="673" text-anchor="middle">StructureLessonDto</text>
+<text class="member" x="2274" y="708">+ id: string</text>
+<text class="member" x="2274" y="728">+ title: string</text>
+</g>
+<g id="UpdateLessonContentDto"><rect class="box" x="2820" y="650" width="480" height="94"/>
+<line class="rule" x1="2820" y1="688" x2="3300" y2="688"/>
+<line class="rule" x1="2820" y1="716" x2="3300" y2="716"/>
+<text class="name" x="3060.0" y="673" text-anchor="middle">UpdateLessonContentDto</text>
+<text class="member" x="2834" y="708">+ content: string</text>
+</g>
+<g id="Course"><rect class="box" x="1300" y="1300" width="440" height="134"/>
+<line class="rule" x1="1300" y1="1338" x2="1740" y2="1338"/>
+<line class="rule" x1="1300" y1="1406" x2="1740" y2="1406"/>
+<text class="name" x="1520.0" y="1323" text-anchor="middle">Course  &#171;PrismaModel&#187;</text>
+<text class="member" x="1314" y="1358">+ id: String</text>
+<text class="member" x="1314" y="1378">+ status: String</text>
+<text class="member" x="1314" y="1398">+ lockedAt: DateTime?</text>
+</g>
+<g id="CourseModule"><rect class="box" x="1900" y="1300" width="550" height="154"/>
+<line class="rule" x1="1900" y1="1338" x2="2450" y2="1338"/>
+<line class="rule" x1="1900" y1="1426" x2="2450" y2="1426"/>
+<text class="name" x="2175.0" y="1323" text-anchor="middle">CourseModule  &#171;PrismaModel&#187;</text>
+<text class="member" x="1914" y="1358">+ id: String</text>
+<text class="member" x="1914" y="1378">+ courseId: String</text>
+<text class="member" x="1914" y="1398">+ title: String</text>
+<text class="member" x="1914" y="1418">+ position: Int</text>
+</g>
+<g id="Lesson"><rect class="box" x="2600" y="1300" width="540" height="194"/>
+<line class="rule" x1="2600" y1="1338" x2="3140" y2="1338"/>
+<line class="rule" x1="2600" y1="1466" x2="3140" y2="1466"/>
+<text class="name" x="2870.0" y="1323" text-anchor="middle">Lesson  &#171;PrismaModel&#187;</text>
+<text class="member" x="2614" y="1358">+ id: String</text>
+<text class="member" x="2614" y="1378">+ moduleId: String</text>
+<text class="member" x="2614" y="1398">+ title: String</text>
+<text class="member" x="2614" y="1418">+ content: String</text>
+<text class="member" x="2614" y="1438">+ position: Int</text>
+<text class="member" x="2614" y="1458">+ updatedAt: DateTime</text>
+</g>
+</svg>

@@ -1,0 +1,122 @@
+@startuml
+left to right direction
+skinparam monochrome true
+skinparam backgroundColor white
+skinparam classBackgroundColor white
+skinparam classBorderColor black
+skinparam classFontColor black
+skinparam ArrowColor black
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 45
+hide circle
+show empty members
+
+' Source-backed selective detail for UC17, UC17.1 and UC17.2.
+' extractReadingText/countWords are module-level functions, not classes.
+class CoursesController {
+  - coursesService: CoursesService
+  --
+  + getVideoUploadContext(user: CurrentUser, courseId: string, lessonId: string)
+  + uploadVideoMaterial(user: CurrentUser, courseId: string, lessonId: string, dto: CreateVideoMaterialDto, file?: Express.Multer.File)
+  + getReadingUploadContext(user: CurrentUser, courseId: string, lessonId: string)
+  + uploadReadingMaterial(user: CurrentUser, courseId: string, lessonId: string, dto: CreateReadingMaterialDto, file?: Express.Multer.File)
+}
+class CoursesService {
+  - coursesRepository: CoursesRepository
+  - tenantClient: TenantClient
+  - storage: IStorageProvider
+  --
+  + getVideoUploadContext(user: CurrentUser, courseId: string, lessonId: string)
+  + uploadVideoMaterial(user: CurrentUser, courseId: string, lessonId: string, dto: CreateVideoMaterialDto, file?: Express.Multer.File)
+  + getReadingUploadContext(user: CurrentUser, courseId: string, lessonId: string)
+  + uploadReadingMaterial(user: CurrentUser, courseId: string, lessonId: string, dto: CreateReadingMaterialDto, file?: Express.Multer.File)
+}
+class CoursesRepository {
+  - prisma: PrismaService
+  --
+  + findLessonForMaterialUpload(courseId: string, lessonId: string, organizationId: string, instructorId: string)
+  + getOrganizationStoredBytes(organizationId: string): Promise<bigint>
+  + getVideoSettings()
+  + createVideoMaterialWithQuota(data)
+  + getReadingSettings()
+  + createReadingMaterialWithQuota(data)
+}
+class PrismaService {
+  --
+}
+class TenantClient {
+  - httpService: HttpService
+  - configService: ConfigService
+  --
+  + getInstructorMaterialUploadPolicy(user: CurrentUser): Promise<TenantMaterialUploadPolicy>
+}
+interface IStorageProvider {
+  --
+  + upload(file: IStorageFileInput, options: IStorageUploadOptions): Promise<IStoredFile>
+  + delete(storageKey: string, options: IStorageDeleteOptions): Promise<void>
+  + getUrl(storageKey: string, resourceType: StoredResourceType): string
+}
+class CloudinaryStorageProvider {
+  --
+  + upload(file: IStorageFileInput, options: IStorageUploadOptions): Promise<IStoredFile>
+  + delete(storageKey: string, options: IStorageDeleteOptions): Promise<void>
+  + getUrl(storageKey: string, resourceType: StoredResourceType): string
+}
+class CreateVideoMaterialDto {
+  + title: string
+  + isRequired: boolean
+  --
+}
+class CreateReadingMaterialDto {
+  + title: string
+  + isRequired: boolean
+  --
+}
+class "Lesson" as Lesson <<PrismaModel>> {
+  + id: String
+  + moduleId: String
+  + title: String
+  + disabledAt: DateTime?
+  --
+}
+class "Material" as Material <<PrismaModel>> {
+  + id: String
+  + lessonId: String
+  + materialType: String
+  + title: String
+  + isRequired: Boolean
+  + fileId: String
+  + position: Int
+  --
+}
+class "MediaFile" as MediaFile <<PrismaModel>> {
+  + id: String
+  + purpose: String
+  + storageKey: String
+  + mimeType: String
+  + sizeBytes: BigInt
+  + durationSeconds: Int?
+  + wordCount: Int?
+  + status: String
+  + releasedAt: DateTime?
+  --
+}
+
+CoursesController --> CoursesService : Association
+CoursesService --> CoursesRepository : Association
+CoursesService --> TenantClient : Association
+CoursesService --> IStorageProvider : Association
+CloudinaryStorageProvider ..|> IStorageProvider : Implements
+CoursesRepository --> PrismaService : Association
+CoursesRepository ..> Lesson : Dependency
+CoursesRepository ..> Material : Dependency
+CoursesRepository ..> MediaFile : Dependency
+CoursesController ..> CreateVideoMaterialDto : Dependency
+CoursesController ..> CreateReadingMaterialDto : Dependency
+Lesson -- Material : Association
+Material -- MediaFile : Association
+@enduml

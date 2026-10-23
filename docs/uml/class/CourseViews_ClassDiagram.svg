@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3000" height="1600" viewBox="0 0 3000 1600"><defs>
+<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10" fill="none" stroke="#20252b" stroke-width="1.4"/></marker>
+<marker id="triangle" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 Z" fill="#fff" stroke="#20252b" stroke-width="1.2"/></marker>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#171b20}.box{fill:#fff;stroke:#20252b;stroke-width:1.5}.rule{stroke:#20252b;stroke-width:1.2}.assoc{fill:none;stroke:#20252b;stroke-width:1.5;marker-end:url(#arrow)}.plain{fill:none;stroke:#20252b;stroke-width:1.5}.dep{fill:none;stroke:#20252b;stroke-width:1.5;stroke-dasharray:7 5;marker-end:url(#arrow)}.impl{fill:none;stroke:#20252b;stroke-width:1.5;stroke-dasharray:7 5;marker-end:url(#triangle)}.label{font-size:15px;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round}.member{font-size:14px}.name{font-size:17px;font-weight:700}</style></defs><rect width="100%" height="100%" fill="#fff"/>
+<path class="assoc" d="M640,119.28 H760"/>
+<text class="label" x="700" y="109.28" text-anchor="middle">Association</text>
+<path class="assoc" d="M1460,160.88 H1600"/>
+<text class="label" x="1530" y="140.48" text-anchor="middle">Association</text>
+<path class="assoc" d="M1124,254 V565 H1085 V590"/>
+<text class="label" x="1104.5" y="557" text-anchor="middle">Association</text>
+<path class="assoc" d="M1208,254 V587 H1840 V590"/>
+<text class="label" x="1524" y="579" text-anchor="middle">Association</text>
+<path class="assoc" d="M1852,234 V565 H2400 V590"/>
+<text class="label" x="2126" y="557" text-anchor="middle">Association</text>
+<path class="dep" d="M1960,234 V900 H1250 V1120"/>
+<text class="label" x="1605" y="892" text-anchor="middle">Dependency</text>
+<path class="dep" d="M2068,234 V950 H1790 V1120"/>
+<text class="label" x="1929" y="942" text-anchor="middle">Dependency</text>
+<path class="dep" d="M2176,234 V1000 H2400 V1120"/>
+<text class="label" x="2288" y="992" text-anchor="middle">Dependency</text>
+<path class="dep" d="M215.2,174 V565 H350 V590"/>
+<text class="label" x="282.6" y="557" text-anchor="middle">Dependency</text>
+<path class="plain" d="M1450,1189.68 H1540"/>
+<text class="label" x="1495" y="1179.68" text-anchor="middle">Association  1 &#8212; 0..*</text>
+<path class="plain" d="M2040,1252.08 H2150"/>
+<text class="label" x="2095" y="1210.88" text-anchor="middle">Association</text>
+<g id="CoursesController"><rect class="box" x="50" y="60" width="590" height="114"/>
+<line class="rule" x1="50" y1="98" x2="640" y2="98"/>
+<line class="rule" x1="50" y1="126" x2="640" y2="126"/>
+<text class="name" x="345.0" y="83" text-anchor="middle">CoursesController</text>
+<text class="member" x="64" y="118">- coursesService: CoursesService</text>
+<text class="member" x="64" y="146">+ findAll(user: CurrentUser, query: CourseListQueryDto)</text>
+<text class="member" x="64" y="166">+ findDetail(user: CurrentUser, courseId: string)</text>
+</g>
+<g id="CoursesService"><rect class="box" x="760" y="60" width="700" height="194"/>
+<line class="rule" x1="760" y1="98" x2="1460" y2="98"/>
+<line class="rule" x1="760" y1="166" x2="1460" y2="166"/>
+<text class="name" x="1110.0" y="83" text-anchor="middle">CoursesService</text>
+<text class="member" x="774" y="118">- coursesRepository: CoursesRepository</text>
+<text class="member" x="774" y="138">- learningClient: LearningClient</text>
+<text class="member" x="774" y="158">- storage: IStorageProvider</text>
+<text class="member" x="774" y="186">+ findAll(user: CurrentUser, query: CourseListQueryDto)</text>
+<text class="member" x="774" y="206">+ findDetail(user: CurrentUser, courseId: string)</text>
+<text class="member" x="774" y="226">- calculateEstimatedDurationMinutes(organizationId: string, courseId: string):</text>
+<text class="member" x="774" y="246">Promise&lt;number | null&gt;</text>
+</g>
+<g id="CoursesRepository"><rect class="box" x="1600" y="60" width="900" height="174"/>
+<line class="rule" x1="1600" y1="98" x2="2500" y2="98"/>
+<line class="rule" x1="1600" y1="126" x2="2500" y2="126"/>
+<text class="name" x="2050.0" y="83" text-anchor="middle">CoursesRepository</text>
+<text class="member" x="1614" y="118">- prisma: PrismaService</text>
+<text class="member" x="1614" y="146">+ findInstructorCourses(where: Prisma.CourseWhereInput, skip: number, take: number)</text>
+<text class="member" x="1614" y="166">+ findDetail(courseId: string, organizationId: string, instructorId: string)</text>
+<text class="member" x="1614" y="186">+ getReadingSpeedWordsPerMinute()</text>
+<text class="member" x="1614" y="206">+ calculateEstimatedDurationMinutes(organizationId: string, courseId: string, readingSpeedWordsPerMinute: number):</text>
+<text class="member" x="1614" y="226">Promise&lt;number | null&gt;</text>
+</g>
+<g id="PrismaService"><rect class="box" x="2250" y="590" width="300" height="94"/>
+<line class="rule" x1="2250" y1="628" x2="2550" y2="628"/>
+<line class="rule" x1="2250" y1="656" x2="2550" y2="656"/>
+<text class="name" x="2400.0" y="613" text-anchor="middle">PrismaService</text>
+</g>
+<g id="LearningClient"><rect class="box" x="760" y="590" width="650" height="134"/>
+<line class="rule" x1="760" y1="628" x2="1410" y2="628"/>
+<line class="rule" x1="760" y1="676" x2="1410" y2="676"/>
+<text class="name" x="1085.0" y="613" text-anchor="middle">LearningClient</text>
+<text class="member" x="774" y="648">- httpService: HttpService</text>
+<text class="member" x="774" y="668">- configService: ConfigService</text>
+<text class="member" x="774" y="696">+ getCourseLearnerCounts(user: CurrentUser, courseIds: string[]):</text>
+<text class="member" x="774" y="716">Promise&lt;CourseLearnerCount[]&gt;</text>
+</g>
+<g id="IStorageProvider"><rect class="box" x="1540" y="590" width="600" height="94"/>
+<line class="rule" x1="1540" y1="628" x2="2140" y2="628"/>
+<line class="rule" x1="1540" y1="656" x2="2140" y2="656"/>
+<text class="name" x="1840.0" y="613" text-anchor="middle">IStorageProvider  &#171;interface&#187;</text>
+<text class="member" x="1554" y="676">+ getUrl(storageKey: string, resourceType: StoredResourceType): string</text>
+</g>
+<g id="CourseListQueryDto"><rect class="box" x="50" y="590" width="600" height="194"/>
+<line class="rule" x1="50" y1="628" x2="650" y2="628"/>
+<line class="rule" x1="50" y1="756" x2="650" y2="756"/>
+<text class="name" x="350.0" y="613" text-anchor="middle">CourseListQueryDto</text>
+<text class="member" x="64" y="648">+ current: number</text>
+<text class="member" x="64" y="668">+ pageSize: number</text>
+<text class="member" x="64" y="688">+ search?: string</text>
+<text class="member" x="64" y="708">+ courseType?: CourseType</text>
+<text class="member" x="64" y="728">+ status?: CourseStatus</text>
+<text class="member" x="64" y="748">+ locked?: boolean</text>
+</g>
+<g id="CourseChain"><rect class="box" x="1050" y="1120" width="400" height="134"/>
+<line class="rule" x1="1050" y1="1158" x2="1450" y2="1158"/>
+<line class="rule" x1="1050" y1="1226" x2="1450" y2="1226"/>
+<text class="name" x="1250.0" y="1143" text-anchor="middle">CourseChain  &#171;PrismaModel&#187;</text>
+<text class="member" x="1064" y="1178">+ id: String</text>
+<text class="member" x="1064" y="1198">+ organizationId: String</text>
+<text class="member" x="1064" y="1218">+ instructorId: String</text>
+</g>
+<g id="Course"><rect class="box" x="1540" y="1120" width="500" height="254"/>
+<line class="rule" x1="1540" y1="1158" x2="2040" y2="1158"/>
+<line class="rule" x1="1540" y1="1346" x2="2040" y2="1346"/>
+<text class="name" x="1790.0" y="1143" text-anchor="middle">Course  &#171;PrismaModel&#187;</text>
+<text class="member" x="1554" y="1178">+ id: String</text>
+<text class="member" x="1554" y="1198">+ organizationId: String</text>
+<text class="member" x="1554" y="1218">+ chainId: String</text>
+<text class="member" x="1554" y="1238">+ name: String</text>
+<text class="member" x="1554" y="1258">+ status: String</text>
+<text class="member" x="1554" y="1278">+ lockedAt: DateTime?</text>
+<text class="member" x="1554" y="1298">+ coverFileId: String?</text>
+<text class="member" x="1554" y="1318">+ expectedCompletionDays: Int</text>
+<text class="member" x="1554" y="1338">+ courseType: String</text>
+</g>
+<g id="MediaFile"><rect class="box" x="2150" y="1120" width="500" height="194"/>
+<line class="rule" x1="2150" y1="1158" x2="2650" y2="1158"/>
+<line class="rule" x1="2150" y1="1286" x2="2650" y2="1286"/>
+<text class="name" x="2400.0" y="1143" text-anchor="middle">MediaFile  &#171;PrismaModel&#187;</text>
+<text class="member" x="2164" y="1178">+ id: String</text>
+<text class="member" x="2164" y="1198">+ purpose: String</text>
+<text class="member" x="2164" y="1218">+ storageKey: String</text>
+<text class="member" x="2164" y="1238">+ status: String</text>
+<text class="member" x="2164" y="1258">+ sizeBytes: BigInt</text>
+<text class="member" x="2164" y="1278">+ releasedAt: DateTime?</text>
+</g>
+</svg>

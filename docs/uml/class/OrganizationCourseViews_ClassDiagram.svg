@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3000" height="1450" viewBox="0 0 3000 1450"><defs>
+<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10" fill="none" stroke="#20252b" stroke-width="1.4"/></marker>
+<marker id="triangle" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 Z" fill="#fff" stroke="#20252b" stroke-width="1.2"/></marker>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#171b20}.box{fill:#fff;stroke:#20252b;stroke-width:1.5}.rule{stroke:#20252b;stroke-width:1.2}.assoc{fill:none;stroke:#20252b;stroke-width:1.5;marker-end:url(#arrow)}.plain{fill:none;stroke:#20252b;stroke-width:1.5}.dep{fill:none;stroke:#20252b;stroke-width:1.5;stroke-dasharray:7 5;marker-end:url(#arrow)}.impl{fill:none;stroke:#20252b;stroke-width:1.5;stroke-dasharray:7 5;marker-end:url(#triangle)}.label{font-size:15px;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round}.member{font-size:14px}.name{font-size:17px;font-weight:700}</style></defs><rect width="100%" height="100%" fill="#fff"/>
+<path class="assoc" d="M850,108.88 H1020"/>
+<text class="label" x="935" y="98.88" text-anchor="middle">Association</text>
+<path class="assoc" d="M1920,129.68 H2100"/>
+<text class="label" x="2010" y="98.88" text-anchor="middle">Association</text>
+<path class="assoc" d="M1488,194 V575 H500 V600"/>
+<text class="label" x="994" y="567" text-anchor="middle">Association</text>
+<path class="assoc" d="M1596,194 V597 H1300 V600"/>
+<text class="label" x="1448" y="589" text-anchor="middle">Association</text>
+<path class="assoc" d="M2296,154 V575 H1950 V600"/>
+<text class="label" x="2123" y="567" text-anchor="middle">Association</text>
+<path class="dep" d="M2380,154 V980 H1830 V1080"/>
+<text class="label" x="2105" y="972" text-anchor="middle">Dependency</text>
+<path class="dep" d="M466,154 V520 H2500 V600"/>
+<text class="label" x="1483" y="512" text-anchor="middle">Dependency</text>
+<path class="plain" d="M1450,1149.68 H1580"/>
+<text class="label" x="1515" y="1139.68" text-anchor="middle">Association  1 &#8212; 0..*</text>
+<g id="CoursesController"><rect class="box" x="50" y="60" width="800" height="94"/>
+<line class="rule" x1="50" y1="98" x2="850" y2="98"/>
+<line class="rule" x1="50" y1="126" x2="850" y2="126"/>
+<text class="name" x="450.0" y="83" text-anchor="middle">CoursesController</text>
+<text class="member" x="64" y="118">- coursesService: CoursesService</text>
+<text class="member" x="64" y="146">+ findOrganizationCourses(user: CurrentUser, query: OrganizationCourseListQueryDto)</text>
+</g>
+<g id="CoursesService"><rect class="box" x="1020" y="60" width="900" height="134"/>
+<line class="rule" x1="1020" y1="98" x2="1920" y2="98"/>
+<line class="rule" x1="1020" y1="166" x2="1920" y2="166"/>
+<text class="name" x="1470.0" y="83" text-anchor="middle">CoursesService</text>
+<text class="member" x="1034" y="118">- coursesRepository: CoursesRepository</text>
+<text class="member" x="1034" y="138">- tenantClient: TenantClient</text>
+<text class="member" x="1034" y="158">- learningClient: LearningClient</text>
+<text class="member" x="1034" y="186">+ findOrganizationCourses(user: CurrentUser, query: OrganizationCourseListQueryDto)</text>
+</g>
+<g id="CoursesRepository"><rect class="box" x="2100" y="60" width="700" height="94"/>
+<line class="rule" x1="2100" y1="98" x2="2800" y2="98"/>
+<line class="rule" x1="2100" y1="126" x2="2800" y2="126"/>
+<text class="name" x="2450.0" y="83" text-anchor="middle">CoursesRepository</text>
+<text class="member" x="2114" y="118">- prisma: PrismaService</text>
+<text class="member" x="2114" y="146">+ findOrganizationCourses(where: Prisma.CourseWhereInput, skip: number, take: number)</text>
+</g>
+<g id="PrismaService"><rect class="box" x="1800" y="600" width="300" height="94"/>
+<line class="rule" x1="1800" y1="638" x2="2100" y2="638"/>
+<line class="rule" x1="1800" y1="666" x2="2100" y2="666"/>
+<text class="name" x="1950.0" y="623" text-anchor="middle">PrismaService</text>
+</g>
+<g id="TenantClient"><rect class="box" x="150" y="600" width="700" height="114"/>
+<line class="rule" x1="150" y1="638" x2="850" y2="638"/>
+<line class="rule" x1="150" y1="686" x2="850" y2="686"/>
+<text class="name" x="500.0" y="623" text-anchor="middle">TenantClient</text>
+<text class="member" x="164" y="658">- httpService: HttpService</text>
+<text class="member" x="164" y="678">- configService: ConfigService</text>
+<text class="member" x="164" y="706">+ getInstructors(user: CurrentUser, instructorIds: string[]): Promise&lt;TenantInstructor[]&gt;</text>
+</g>
+<g id="LearningClient"><rect class="box" x="950" y="600" width="700" height="134"/>
+<line class="rule" x1="950" y1="638" x2="1650" y2="638"/>
+<line class="rule" x1="950" y1="686" x2="1650" y2="686"/>
+<text class="name" x="1300.0" y="623" text-anchor="middle">LearningClient</text>
+<text class="member" x="964" y="658">- httpService: HttpService</text>
+<text class="member" x="964" y="678">- configService: ConfigService</text>
+<text class="member" x="964" y="706">+ getCourseLearnerCounts(user: CurrentUser, courseIds: string[]):</text>
+<text class="member" x="964" y="726">Promise&lt;CourseLearnerCount[]&gt;</text>
+</g>
+<g id="OrganizationCourseListQueryDto"><rect class="box" x="2150" y="600" width="700" height="234"/>
+<line class="rule" x1="2150" y1="638" x2="2850" y2="638"/>
+<line class="rule" x1="2150" y1="806" x2="2850" y2="806"/>
+<text class="name" x="2500.0" y="623" text-anchor="middle">OrganizationCourseListQueryDto</text>
+<text class="member" x="2164" y="658">+ current: number</text>
+<text class="member" x="2164" y="678">+ pageSize: number</text>
+<text class="member" x="2164" y="698">+ search?: string</text>
+<text class="member" x="2164" y="718">+ courseType?: CourseType</text>
+<text class="member" x="2164" y="738">+ status?: CourseStatus</text>
+<text class="member" x="2164" y="758">+ instructorId?: string</text>
+<text class="member" x="2164" y="778">+ submittedFrom?: string</text>
+<text class="member" x="2164" y="798">+ submittedTo?: string</text>
+</g>
+<g id="CourseChain"><rect class="box" x="1050" y="1080" width="400" height="134"/>
+<line class="rule" x1="1050" y1="1118" x2="1450" y2="1118"/>
+<line class="rule" x1="1050" y1="1186" x2="1450" y2="1186"/>
+<text class="name" x="1250.0" y="1103" text-anchor="middle">CourseChain  &#171;PrismaModel&#187;</text>
+<text class="member" x="1064" y="1138">+ id: String</text>
+<text class="member" x="1064" y="1158">+ organizationId: String</text>
+<text class="member" x="1064" y="1178">+ instructorId: String</text>
+</g>
+<g id="Course"><rect class="box" x="1580" y="1080" width="500" height="214"/>
+<line class="rule" x1="1580" y1="1118" x2="2080" y2="1118"/>
+<line class="rule" x1="1580" y1="1266" x2="2080" y2="1266"/>
+<text class="name" x="1830.0" y="1103" text-anchor="middle">Course  &#171;PrismaModel&#187;</text>
+<text class="member" x="1594" y="1138">+ id: String</text>
+<text class="member" x="1594" y="1158">+ organizationId: String</text>
+<text class="member" x="1594" y="1178">+ chainId: String</text>
+<text class="member" x="1594" y="1198">+ name: String</text>
+<text class="member" x="1594" y="1218">+ status: String</text>
+<text class="member" x="1594" y="1238">+ courseType: String</text>
+<text class="member" x="1594" y="1258">+ submittedAt: DateTime?</text>
+</g>
+</svg>

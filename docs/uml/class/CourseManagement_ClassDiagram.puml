@@ -1,0 +1,108 @@
+@startuml
+left to right direction
+skinparam monochrome true
+skinparam backgroundColor white
+skinparam classBackgroundColor white
+skinparam classBorderColor black
+skinparam classFontColor black
+skinparam ArrowColor black
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 45
+hide circle
+show empty members
+
+' Source-backed selective detail for UC14.2 and UC14.3.
+' UC14 and UC14.1 are in CourseViews_ClassDiagram.puml to reduce line crossings.
+class CoursesController {
+  - coursesService: CoursesService
+  --
+  + uploadCover(user: CurrentUser, file?: Express.Multer.File)
+  + create(user: CurrentUser, dto: CreateCourseDto)
+  + update(user: CurrentUser, courseId: string, dto: UpdateCourseDto)
+}
+class CoursesService {
+  - coursesRepository: CoursesRepository
+  - storage: IStorageProvider
+  --
+  + uploadCover(user: CurrentUser, file?: Express.Multer.File)
+  + create(user: CurrentUser, dto: CreateCourseDto)
+  + updateCourse(user: CurrentUser, courseId: string, dto: UpdateCourseDto)
+}
+class CoursesRepository {
+  - prisma: PrismaService
+  --
+  + createCourse(data)
+  + createCourseCoverMediaFile(organizationId: string, storedFile: IStoredFile)
+  + updateCourse(courseId: string, organizationId: string, instructorId: string, data: UpdateCourseDto)
+}
+class PrismaService {
+  --
+}
+interface IStorageProvider {
+  --
+  + upload(file: IStorageFileInput, options: IStorageUploadOptions): Promise<IStoredFile>
+}
+class CreateCourseDto {
+  + name: string
+  + shortDescription?: string
+  + trainingObjectives?: string
+  + learningOutcomes?: string[]
+  + coverFileId?: string
+  + expectedCompletionDays: number
+  + courseType: CourseType
+  --
+}
+class UpdateCourseDto {
+  + name: string
+  + shortDescription: string | null
+  + trainingObjectives: string | null
+  + learningOutcomes: string[]
+  + coverFileId: string | null
+  + expectedCompletionDays: number
+  + courseType: CourseType
+  --
+}
+class "CourseChain" as CourseChain <<PrismaModel>> {
+  + id: String
+  + organizationId: String
+  + instructorId: String
+  --
+}
+class "Course" as Course <<PrismaModel>> {
+  + id: String
+  + organizationId: String
+  + chainId: String
+  + name: String
+  + status: String
+  + lockedAt: DateTime?
+  + coverFileId: String?
+  + expectedCompletionDays: Int
+  + courseType: String
+  --
+}
+class "MediaFile" as MediaFile <<PrismaModel>> {
+  + id: String
+  + purpose: String
+  + storageKey: String
+  + status: String
+  + sizeBytes: BigInt
+  + releasedAt: DateTime?
+  --
+}
+
+CoursesController --> CoursesService : Association
+CoursesService --> CoursesRepository : Association
+CoursesService --> IStorageProvider : Association
+CoursesRepository --> PrismaService : Association
+CoursesRepository ..> CourseChain : Dependency
+CoursesRepository ..> Course : Dependency
+CoursesRepository ..> MediaFile : Dependency
+CoursesController ..> CreateCourseDto : Dependency
+CoursesController ..> UpdateCourseDto : Dependency
+CourseChain "1" -- "0..*" Course : Association
+Course -- MediaFile : Association
+@enduml

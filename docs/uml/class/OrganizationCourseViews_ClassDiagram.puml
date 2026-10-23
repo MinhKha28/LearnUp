@@ -1,0 +1,88 @@
+@startuml
+left to right direction
+skinparam monochrome true
+skinparam backgroundColor white
+skinparam classBackgroundColor white
+skinparam classBorderColor black
+skinparam classFontColor black
+skinparam ArrowColor black
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 45
+hide circle
+show empty members
+
+' Source-backed selective detail for UC21 and UC21.1. Both are read filters
+' implemented by findOrganizationCourses; no approval operation is modeled.
+class CoursesController {
+  - coursesService: CoursesService
+  --
+  + findOrganizationCourses(user: CurrentUser, query: OrganizationCourseListQueryDto)
+}
+class CoursesService {
+  - coursesRepository: CoursesRepository
+  - tenantClient: TenantClient
+  - learningClient: LearningClient
+  --
+  + findOrganizationCourses(user: CurrentUser, query: OrganizationCourseListQueryDto)
+}
+class CoursesRepository {
+  - prisma: PrismaService
+  --
+  + findOrganizationCourses(where: Prisma.CourseWhereInput, skip: number, take: number)
+}
+class PrismaService {
+  --
+}
+class TenantClient {
+  - httpService: HttpService
+  - configService: ConfigService
+  --
+  + getInstructors(user: CurrentUser, instructorIds: string[]): Promise<TenantInstructor[]>
+}
+class LearningClient {
+  - httpService: HttpService
+  - configService: ConfigService
+  --
+  + getCourseLearnerCounts(user: CurrentUser, courseIds: string[]): Promise<CourseLearnerCount[]>
+}
+class OrganizationCourseListQueryDto {
+  + current: number
+  + pageSize: number
+  + search?: string
+  + courseType?: CourseType
+  + status?: CourseStatus
+  + instructorId?: string
+  + submittedFrom?: string
+  + submittedTo?: string
+  --
+}
+class "CourseChain" as CourseChain <<PrismaModel>> {
+  + id: String
+  + organizationId: String
+  + instructorId: String
+  --
+}
+class "Course" as Course <<PrismaModel>> {
+  + id: String
+  + organizationId: String
+  + chainId: String
+  + name: String
+  + status: String
+  + courseType: String
+  + submittedAt: DateTime?
+  --
+}
+
+CoursesController --> CoursesService : Association
+CoursesService --> CoursesRepository : Association
+CoursesService --> TenantClient : Association
+CoursesService --> LearningClient : Association
+CoursesRepository --> PrismaService : Association
+CoursesRepository ..> Course : Dependency
+CoursesController ..> OrganizationCourseListQueryDto : Dependency
+CourseChain "1" -- "0..*" Course : Association
+@enduml
