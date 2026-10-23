@@ -1,11 +1,11 @@
 # Thiết kế database learning-service (`learning_db`)
 
 Trạng thái: **11 bảng** sau Bước 1 xét hoàn thành Course; hàng đợi và snapshot mô tả tại mục 11. UC27.2 có migration `20261022000000_video_resume_position`.
-Các dẫn chiếu UC27.2 dùng số mới: BR-140 (cũ BR-307), BR-184 (cũ BR-309), BR-182 (cũ BR-339), BR-181 (cũ BR-299). Những tham chiếu khác vẫn theo bản thiết kế lịch sử, chưa chuyển đổi toàn bộ số BR.
+Toàn bộ nhãn BR trong tài liệu dùng số mới theo bảng chuyển đổi cũ→mới. Dấu vết UC27.2: BR-140 (số cũ 307), BR-184 (số cũ 309), BR-182 (số cũ 339), BR-181 (số cũ 299).
 
-Nguồn nghiệp vụ: `LearnUP_QuyTacNghiepVu.docx` (đến BR-336), `LearnUP_UseCase.docx` (167 UC), `LearnUP_Service_Architecture.docx`.
+Nguồn nghiệp vụ: `LearnUP_QuyTacNghiepVu.docx`, `LearnUP_UseCase.docx` (167 UC), `LearnUP_Service_Architecture.docx`.
 Quy ước chung: `Database_Conventions.md` (mục 6B là phần learning-service cung cấp). Sơ đồ: `claude/learning_db.dbml`.
-Lịch sử đồng bộ nền trước UC27.2: chốt payload `EnrollmentCompleted`, hai REST báo cáo, thêm chỉ mục `ix_enrollments_org_period` (BR-329, đã dựng thử); giai đoạn đó không thêm bảng hay cột. Bước 1 sau đó bổ sung bảng hàng đợi và cột snapshot tại mục 11.
+Lịch sử đồng bộ nền trước UC27.2: chốt payload `EnrollmentCompleted`, hai REST báo cáo, thêm chỉ mục `ix_enrollments_org_period` (BR-285, đã dựng thử); giai đoạn đó không thêm bảng hay cột. Bước 1 sau đó bổ sung bảng hàng đợi và cột snapshot tại mục 11.
 Mọi CHECK, khóa ngoại kép, chỉ mục có điều kiện, phép gộp `int4multirange` và `range_agg` đã được dựng thử trên PostgreSQL 16 (dùng hàm giả thay `uuidv7()`); 11 trường hợp dữ liệu sai đều bị chặn đúng ràng buộc.
 
 ---
@@ -34,9 +34,9 @@ Mọi CHECK, khóa ngoại kép, chỉ mục có điều kiện, phép gộp `in
 
 | Ô nhập hoặc tham số | API | DB | Loại căn cứ |
 |---|---|---|---|
-| Lý do đánh dấu Miễn (bắt buộc, BR-271) | ≤ 1000 ký tự, NFC, cắt khoảng trắng, còn ≥ 1 ký tự, cho phép xuống dòng | `varchar(1000)` | 3 |
+| Lý do đánh dấu Miễn (bắt buộc, BR-337) | ≤ 1000 ký tự, NFC, cắt khoảng trắng, còn ≥ 1 ký tự, cho phép xuống dòng | `varchar(1000)` | 3 |
 | Lý do kéo dài hạn (không bắt buộc) | ≤ 1000 ký tự | Không lưu; đi theo event sang audit-service | 3 |
-| Hạn mới khi kéo dài | Sau `due_at` hiện tại | `bigint` giây | Nghiệp vụ (BR-140); 4 |
+| Hạn mới khi kéo dài | Sau `due_at` hiện tại | `bigint` giây | Nghiệp vụ (BR-171); 4 |
 | Số Learner mỗi lần phân công (UC24.2) | ≤ 500 | — | 3, đã bổ sung vào quy ước mục 2. Xét nâng lên 1000 sau thử thực nghiệm |
 | Số khoảng trong một heartbeat video | 0–20; rỗng khi chỉ báo vị trí | — | Hợp đồng UC27.2 hiện tại |
 | Giây trong khoảng video | API nhận số hữu hạn ≥ 0, đầu < cuối; làm tròn đầu lên, cuối xuống và cắt về thời lượng | `int4multirange` nguyên | BR-181 |
@@ -49,15 +49,15 @@ Mọi CHECK, khóa ngoại kép, chỉ mục có điều kiện, phép gộp `in
 
 | # | Bảng | Giữ gì | Căn cứ chính | GĐ |
 |---|---|---|---|---|
-| 1 | `enrollments` | Một Learner trên một phiên bản Course: loại, 6 trạng thái lưu, các thành phần của hạn, ảnh chụp tham số, hoàn thành | BR-108, BR-112–BR-143, BR-213, BR-298–BR-308 | 1 (cột và giá trị Withdrawn do Learner rút: 2) |
-| 2 | `enrollment_status_intervals` | Mỗi lần ở Exempted hoặc Halted một dòng: nguồn gốc và căn cứ dời hạn | BR-120–BR-125, BR-249, BR-250, BR-271 | 2 |
-| 3 | `material_progress` | Tiến độ một Enrollment trên một học liệu: khoảng video đã xem, thời điểm hoàn thành | BR-148, BR-149, BR-243, BR-181, BR-184 | 1 |
-| 4 | `course_version_snapshots` | Bản sao phiên bản Course: chuỗi, trạng thái vô hiệu hóa | Mục 6A quy ước; BR-249, BR-250 | 1 (cột vô hiệu hóa: 2) |
-| 5 | `material_snapshots` | Bản sao học liệu: Lesson, loại, cờ bắt buộc, thời lượng, vô hiệu hóa | BR-146, BR-147, BR-243, BR-286 | 1 (cột vô hiệu hóa: 2) |
-| 6 | `lesson_snapshots` | Cờ vô hiệu hóa Lesson, bảng thưa | BR-239, BR-243, BR-244 | 2 |
-| 7 | `organization_suspensions` | Các lần tổ chức bị tạm khóa | BR-46, BR-47, BR-144, BR-311 | 2 |
-| 8 | `learner_accounts` | Tài khoản bị vô hiệu hóa hoặc đã xóa, bảng thưa | BR-37, BR-38, BR-144, BR-304 | 1 |
-| 9 | `platform_settings` | Bản sao `video_completion_percent` | BR-148, BR-269 | 1 |
+| 1 | `enrollments` | Một Learner trên một phiên bản Course: loại, 6 trạng thái lưu, các thành phần của hạn, ảnh chụp tham số, hoàn thành | BR-47, BR-130, BR-136–BR-156, BR-158–BR-174, BR-181, BR-186, BR-262, BR-308, BR-310 | 1 (cột và giá trị Withdrawn do Learner rút: 2) |
+| 2 | `enrollment_status_intervals` | Mỗi lần ở Exempted hoặc Halted một dòng: nguồn gốc và căn cứ dời hạn | BR-146–BR-149, BR-151–BR-152, BR-307, BR-309, BR-337 | 2 |
+| 3 | `material_progress` | Tiến độ một Enrollment trên một học liệu: khoảng video đã xem, thời điểm hoàn thành | BR-180, BR-183, BR-300, BR-181, BR-184 | 1 |
+| 4 | `course_version_snapshots` | Bản sao phiên bản Course: chuỗi, trạng thái vô hiệu hóa | Mục 6A quy ước; BR-307, BR-309 | 1 (cột vô hiệu hóa: 2) |
+| 5 | `material_snapshots` | Bản sao học liệu: Lesson, loại, cờ bắt buộc, thời lượng, vô hiệu hóa | BR-177, BR-178, BR-300, BR-106 | 1 (cột vô hiệu hóa: 2) |
+| 6 | `lesson_snapshots` | Cờ vô hiệu hóa Lesson, bảng thưa | BR-296, BR-300, BR-302 | 2 |
+| 7 | `organization_suspensions` | Các lần tổ chức bị tạm khóa | BR-57, BR-58, BR-175, BR-59 | 2 |
+| 8 | `learner_accounts` | Tài khoản bị vô hiệu hóa hoặc đã xóa, bảng thưa | BR-46, BR-48, BR-175, BR-47 | 1 |
+| 9 | `platform_settings` | Bản sao `video_completion_percent` | BR-180, BR-335 | 1 |
 | 10 | `outbox_events` | Event gửi lên Kafka | Quy ước mục 5 | 1 |
 | 11 | `completion_evaluation_requests` | Yêu cầu xét hoàn thành bền vững, lease/generation và retry | Bước 1, mục 11 | 1 |
 
@@ -76,72 +76,72 @@ Ký hiệu: **B** = `NOT NULL`. Mọi bảng có `created_at`, `updated_at` theo
 | `id` | uuid | ✓ | `uuidv7()` | — |
 | `organization_id` | uuid | ✓ | — | Khóa ngoại kép `(course_id, organization_id)` → `course_version_snapshots` |
 | `learner_id` | uuid | ✓ | — | `user_id` do tenant-service sinh |
-| `course_id` | uuid | ✓ | — | ID một phiên bản (BR-108, BR-213) |
-| `enrollment_type` | text | ✓ | — | Required / Optional (BR-112) |
+| `course_id` | uuid | ✓ | — | ID một phiên bản (BR-130, BR-262) |
+| `enrollment_type` | text | ✓ | — | Required / Optional (BR-136) |
 | `status` | text | ✓ | `'NotStarted'` | NotStarted / InProgress / Completed / Exempted / Withdrawn / Halted. **Không lưu Overdue** |
 | `enrolled_at` | timestamptz | ✓ | `now()` | Lúc tạo; giữ nguyên khi chuyển Optional → Required |
-| `assigned_at` | timestamptz | | — | Lúc phân công hoặc lúc chuyển Optional → Required (BR-134) |
-| `expected_completion_days` | integer | | — | **Ảnh chụp** từ course-service (BR-84, BR-136). 1–365 |
-| `base_due_at` | timestamptz | | — | Hạn gốc theo BR-300: 00:00 ngày kế tiếp ngày thứ N, múi giờ tổ chức lúc phân công |
-| `extension_seconds` | bigint | ✓ | 0 | Tổng thời gian Organizer đã kéo dài (UC24.3, BR-140) |
+| `assigned_at` | timestamptz | | — | Lúc phân công hoặc lúc chuyển Optional → Required (BR-164) |
+| `expected_completion_days` | integer | | — | **Ảnh chụp** từ course-service (BR-102, BR-166). 1–365 |
+| `base_due_at` | timestamptz | | — | Hạn gốc theo BR-167: 00:00 ngày kế tiếp ngày thứ N, múi giờ tổ chức lúc phân công |
+| `extension_seconds` | bigint | ✓ | 0 | Tổng thời gian Organizer đã kéo dài (UC24.3, BR-171) |
 | `due_at` | timestamptz | | — | Hạn hiện hành, tính lại từ đầu (mục 3.1.2) |
-| `video_completion_percent` | integer | ✓ | — | **Ảnh chụp** `platform_settings` lúc tạo (BR-181, BR-269) |
+| `video_completion_percent` | integer | ✓ | — | **Ảnh chụp** `platform_settings` lúc tạo (BR-181, BR-335) |
 | `first_activity_at` | timestamptz | | — | Với UC27.2, chỉ gán khi học liệu vừa hoàn thành (BR-140), không gán khi chỉ lưu coverage/bookmark. Các nguồn khác theo luồng thiết kế bên dưới |
 | `completed_at` | timestamptz | | — | — |
 | `completion_snapshot` | jsonb | | NULL | Response assessment object schemaVersion 1 đã validate, chốt bất biến khi Completed (BR-269); dữ liệu Completed cũ có thể NULL |
-| `completed_late` | boolean | | — | **Chốt lúc hoàn thành** (BR-143, BR-215). NULL với Optional; khi phát `EnrollmentCompleted` gửi `COALESCE(completed_late, false)` |
+| `completed_late` | boolean | | — | **Chốt lúc hoàn thành** (BR-174, BR-265). NULL với Optional; khi phát `EnrollmentCompleted` gửi `COALESCE(completed_late, false)` |
 | `withdrawn_at` | timestamptz | | — | — |
-| `withdrawn_reason` | text | | — | LearnerWithdrew (BR-132, GĐ2) / AccountDeleted (BR-304, GĐ1) / HaltedClosed (BR-303, GĐ2) |
+| `withdrawn_reason` | text | | — | LearnerWithdrew (BR-160, GĐ2) / AccountDeleted (BR-47, GĐ1) / HaltedClosed (BR-310, GĐ2) |
 
 | Ràng buộc hoặc chỉ mục | Định nghĩa | Căn cứ |
 |---|---|---|
-| `ck_enrollments_type`, `ck_enrollments_status` | Giá trị hợp lệ | BR-112, BR-115 |
-| `ck_enrollments_deadline` | Required ⇒ `assigned_at`, `expected_completion_days`, `base_due_at`, `due_at` đều có; Optional ⇒ cả bốn NULL và `extension_seconds = 0` | BR-129, BR-136, BR-138 |
+| `ck_enrollments_type`, `ck_enrollments_status` | Giá trị hợp lệ | BR-136, BR-139 |
+| `ck_enrollments_deadline` | Required ⇒ `assigned_at`, `expected_completion_days`, `base_due_at`, `due_at` đều có; Optional ⇒ cả bốn NULL và `extension_seconds = 0` | BR-156, BR-166, BR-169 |
 | `ck_enrollments_days` | `expected_completion_days BETWEEN 1 AND 365` | Quy ước mục 2 |
-| `ck_enrollments_due` | `extension_seconds >= 0 AND due_at >= base_due_at` | BR-140 |
+| `ck_enrollments_due` | `extension_seconds >= 0 AND due_at >= base_due_at` | BR-171 |
 | `ck_enrollments_video_pct` | 1–100 | — |
 | `ck_enrollments_activity` | NotStarted ⇒ `first_activity_at` NULL; InProgress ⇒ có | BR-140 |
 | `ck_enrollments_completed` | `(status = 'Completed') = (completed_at IS NOT NULL)` | — |
-| `ck_enrollments_late` | `(completed_late IS NOT NULL) = (Completed AND Required)` | BR-143 |
-| `ck_enrollments_exempted` | Exempted ⇒ Required | BR-120, BR-122 |
-| `ck_enrollments_withdrawn` | Withdrawn ⇔ có `withdrawn_at` ⇔ có `withdrawn_reason` (3 giá trị) | BR-132, BR-303, BR-304 |
-| UNIQUE `(learner_id, course_id)` | Một Enrollment mỗi phiên bản; UC26; báo cáo theo Learner | BR-298, BR-228 |
+| `ck_enrollments_late` | `(completed_late IS NOT NULL) = (Completed AND Required)` | BR-174 |
+| `ck_enrollments_exempted` | Exempted ⇒ Required | BR-146, BR-148 |
+| `ck_enrollments_withdrawn` | Withdrawn ⇔ có `withdrawn_at` ⇔ có `withdrawn_reason` (3 giá trị) | BR-160, BR-310, BR-47 |
+| UNIQUE `(learner_id, course_id)` | Một Enrollment mỗi phiên bản; UC26; báo cáo theo Learner | BR-163, BR-281 |
 | UNIQUE `(id, organization_id)` | Khóa ngoại kép từ bảng con | Quy ước mục 4 |
-| INDEX `(course_id, status)` | BR-75, BR-95, số Learner theo phiên bản, chuyển Halted hàng loạt | Mục 6A |
-| INDEX `(organization_id, due_at)` WHERE `enrollment_type = 'Required'` | UC24, UC24.7, Overdue, tính lại hạn khi gỡ tạm khóa | BR-142, BR-47 |
-| INDEX `(organization_id, enrollment_type, status)` | Báo cáo tổng quan (GĐ2) | BR-224–BR-227 |
-| INDEX `ix_enrollments_org_period` `(organization_id, (COALESCE(assigned_at, enrolled_at)))` | Bộ lọc khoảng thời gian của hai REST báo cáo (GĐ2); truy vấn phải viết đúng biểu thức này mới dùng được chỉ mục | BR-329 |
+| INDEX `(course_id, status)` | BR-91, BR-116, số Learner theo phiên bản, chuyển Halted hàng loạt | Mục 6A |
+| INDEX `(organization_id, due_at)` WHERE `enrollment_type = 'Required'` | UC24, UC24.7, Overdue, tính lại hạn khi gỡ tạm khóa | BR-173, BR-58 |
+| INDEX `(organization_id, enrollment_type, status)` | Báo cáo tổng quan (GĐ2) | BR-275–BR-277, BR-280 |
+| INDEX `ix_enrollments_org_period` `(organization_id, (COALESCE(assigned_at, enrolled_at)))` | Bộ lọc khoảng thời gian của hai REST báo cáo (GĐ2); truy vấn phải viết đúng biểu thức này mới dùng được chỉ mục | BR-285 |
 
-Tầng Service ép: Completed không có đường ra (BR-116); `status` khớp dòng `enrollment_status_intervals` đang mở.
+Tầng Service ép: Completed không có đường ra (BR-141); `status` khớp dòng `enrollment_status_intervals` đang mở.
 
 #### 3.1.1 Ba câu hỏi cho từng trạng thái (nguyên tắc 20.2)
 
-Hàm **tính lại theo tiến độ** (BR-123, BR-250, BR-132, BR-305): chưa có `first_activity_at` → NotStarted; có → InProgress; học liệu bắt buộc còn hoạt động đã đủ và REST assessment-service trả đạt → Completed.
+Hàm **tính lại theo tiến độ** (BR-149, BR-309, BR-160, BR-161): chưa có `first_activity_at` → NotStarted; có → InProgress; học liệu bắt buộc còn hoạt động đã đủ và REST assessment-service trả đạt → Completed.
 
 | Trạng thái | Ai đưa vào | Ai đưa ra → về đâu |
 |---|---|---|
-| NotStarted | Tạo Enrollment; hàm tính lại | Hệ thống (hoạt động đầu tiên) → InProgress; `CourseDisabled` → Halted; Organizer hủy phân công → xóa dòng; Learner rút → xóa dòng (BR-131); tài khoản bị xóa → Withdrawn |
+| NotStarted | Tạo Enrollment; hàm tính lại | Hệ thống (hoạt động đầu tiên) → InProgress; `CourseDisabled` → Halted; Organizer hủy phân công → xóa dòng; Learner rút → xóa dòng (BR-159); tài khoản bị xóa → Withdrawn |
 | InProgress | Hệ thống; hàm tính lại | Hệ thống → Completed; Organizer → Exempted; `CourseDisabled` → Halted; Learner rút (Optional): có kết quả đánh giá → Withdrawn, chưa có → xóa dòng; tài khoản bị xóa → Withdrawn |
 | Overdue (tính lúc đọc) | Thời gian qua `due_at` | Kéo dài hạn, dời hạn, đổi trạng thái → tự hết; các đường ra như trạng thái lưu bên dưới |
-| Completed | Hệ thống | **Không có** (BR-116). Chỉ đổi loại Optional → Required và đặt `completed_late = false` (BR-135) |
-| Exempted | Organizer, Required đã có dữ liệu học tập (BR-120) | Organizer gỡ → hàm tính lại, hoặc Halted nếu Course đang Disabled (BR-302); hệ thống → Completed (BR-301, đóng khoảng Exempted tại `completed_at`); tài khoản bị xóa → Withdrawn |
-| Withdrawn | Learner (BR-132); hệ thống khi xóa tài khoản (BR-304); Organizer đóng Halted (BR-303) | Learner đăng ký lại hoặc Organizer phân công cùng phiên bản → hàm tính lại (BR-305). `AccountDeleted` và `HaltedClosed`: không có đường ra, có chủ đích |
-| Halted | Hệ thống khi nhận `CourseDisabled`, từ NotStarted/InProgress; gỡ Exempted khi Course Disabled (BR-302) | Organizer khôi phục khi phiên bản Published trở lại → hàm tính lại (UC24.8, BR-250); Organizer đóng → Withdrawn (BR-303); tài khoản bị xóa → Withdrawn |
+| Completed | Hệ thống | **Không có** (BR-141). Chỉ đổi loại Optional → Required và đặt `completed_late = false` (BR-165) |
+| Exempted | Organizer, Required đã có dữ liệu học tập (BR-146) | Organizer gỡ → hàm tính lại, hoặc Halted nếu Course đang Disabled (BR-308); hệ thống → Completed (BR-150, đóng khoảng Exempted tại `completed_at`); tài khoản bị xóa → Withdrawn |
+| Withdrawn | Learner (BR-160); hệ thống khi xóa tài khoản (BR-47); Organizer đóng Halted (BR-310) | Learner đăng ký lại hoặc Organizer phân công cùng phiên bản → hàm tính lại (BR-161). `AccountDeleted` và `HaltedClosed`: không có đường ra, có chủ đích |
+| Halted | Hệ thống khi nhận `CourseDisabled`, từ NotStarted/InProgress; gỡ Exempted khi Course Disabled (BR-308) | Organizer khôi phục khi phiên bản Published trở lại → hàm tính lại (UC24.8, BR-309); Organizer đóng → Withdrawn (BR-310); tài khoản bị xóa → Withdrawn |
 
-Chuyển Optional → Required được từ NotStarted, InProgress, Completed, Withdrawn; không xảy ra khi Halted vì Course đang Disabled (BR-70).
+Chuyển Optional → Required được từ NotStarted, InProgress, Completed, Withdrawn; không xảy ra khi Halted vì Course đang Disabled (BR-86).
 
 #### 3.1.2 Hạn hoàn thành
 
 **`due_at = base_due_at + extension_seconds + |phần hợp các khoảng tạm dừng|`**
 
-- Khoảng tạm dừng gồm: khoảng Exempted/Halted **đã đóng** (BR-124) và lần tạm khóa tổ chức **đã gỡ** (BR-46, BR-47, BR-311).
+- Khoảng tạm dừng gồm: khoảng Exempted/Halted **đã đóng** (BR-151) và lần tạm khóa tổ chức **đã gỡ** (BR-57, BR-58, BR-59).
 - Mỗi khoảng chỉ tính phần sau `assigned_at`. Phần hợp tính bằng `range_agg(tstzrange(...))` nên khoảng chồng nhau chỉ tính một lần (đã thử).
 - Tính lại **từ đầu** khi: kéo dài hạn, đóng khoảng Exempted/Halted, nhận `OrganizationReinstated`, chuyển Optional → Required. Enrollment đã Completed hoặc Withdrawn không tính lại.
 - **Kéo dài hạn:** hạn mới (cuối ngày theo múi giờ tổ chức hỏi REST lúc đó) trừ `due_at` hiện tại, cộng phần chênh vào `extension_seconds`. Lưu phần chênh để các lần tạm dừng sau vẫn cộng lên trên.
 
-**Overdue khi đọc:** Required, `status IN ('NotStarted','InProgress')`, `due_at <= now()`, và không có lần tạm khóa tổ chức nào đang mở bắt đầu trước `due_at` (BR-144). `completed_late` dùng cùng quy tắc lúc hoàn thành.
+**Overdue khi đọc:** Required, `status IN ('NotStarted','InProgress')`, `due_at <= now()`, và không có lần tạm khóa tổ chức nào đang mở bắt đầu trước `due_at` (BR-175). `completed_late` dùng cùng quy tắc lúc hoàn thành.
 
-**Thống kê quá hạn (BR-38, BR-144):** loại thêm Enrollment của tài khoản có `learner_accounts.deactivated_at` khác NULL. Exempted, Halted, Optional tự bị loại vì không thỏa điều kiện trên.
+**Thống kê quá hạn (BR-48, BR-175):** loại thêm Enrollment của tài khoản có `learner_accounts.deactivated_at` khác NULL. Exempted, Halted, Optional tự bị loại vì không thỏa điều kiện trên.
 
 ### 3.2 `enrollment_status_intervals` (GĐ2)
 
@@ -153,7 +153,7 @@ Chuyển Optional → Required được từ NotStarted, InProgress, Completed, 
 | `kind` | text | ✓ | — | Exempted / Halted |
 | `started_at` | timestamptz | ✓ | — | Halted: thời điểm vô hiệu hóa lấy từ event, không phải lúc nhận |
 | `ended_at` | timestamptz | | — | NULL = đang ở trạng thái này |
-| `reason` | varchar(1000) | | — | Bắt buộc với Exempted (BR-271) |
+| `reason` | varchar(1000) | | — | Bắt buộc với Exempted (BR-337) |
 
 | Ràng buộc hoặc chỉ mục | Định nghĩa |
 |---|---|
@@ -161,7 +161,7 @@ Chuyển Optional → Required được từ NotStarted, InProgress, Completed, 
 | UNIQUE `(enrollment_id, kind, started_at)` | Event `CourseDisabled` trùng → `ON CONFLICT DO NOTHING` |
 | UNIQUE `(enrollment_id)` WHERE `ended_at IS NULL` | Tối đa một khoảng đang mở |
 
-Organizer đương nhiệm gỡ được Exempted do người tiền nhiệm đặt (BR-123), nên không lưu người đặt hay người gỡ; audit-service giữ người thực hiện (BR-270).
+Organizer đương nhiệm gỡ được Exempted do người tiền nhiệm đặt (BR-149), nên không lưu người đặt hay người gỡ; audit-service giữ người thực hiện (BR-336).
 
 ### 3.3 `material_progress`
 
@@ -182,8 +182,8 @@ Organizer đương nhiệm gỡ được Exempted do người tiền nhiệm đ�
 | `ck_progress_not_empty` | `watched_ranges IS NOT NULL OR completed_at IS NOT NULL` | Chỉ tạo dòng khi có dữ liệu |
 | `ck_progress_ranges_lower` | `lower(watched_ranges) >= 0` (bỏ qua NULL, rỗng) | — |
 | `ck_progress_position_nonnegative` | `position_seconds IS NULL OR position_seconds >= 0` | BR-182 |
-| UNIQUE `(enrollment_id, material_id)` | UC27, UC27.1, UC28; xét hoàn thành; BR-119, BR-140 | — |
-| INDEX `(material_id)` WHERE `completed_at IS NOT NULL` | BR-95 | Mục 6A |
+| UNIQUE `(enrollment_id, material_id)` | UC27, UC27.1, UC28; xét hoàn thành; BR-145, BR-140 | — |
+| INDEX `(material_id)` WHERE `completed_at IS NOT NULL` | BR-116 | Mục 6A |
 
 **Đo video (BR-181):** trình duyệt gom các đoạn phát liền mạch thành `[giây đầu, giây cuối)`, tua thì đóng khoảng cũ mở khoảng mới; mỗi 15 giây gửi một heartbeat. Server cắt khoảng về `[0, duration_seconds)` rồi ghi bằng một câu lệnh:
 `INSERT … ON CONFLICT (enrollment_id, material_id) DO UPDATE SET watched_ranges = material_progress.watched_ranges + EXCLUDED.watched_ranges`.
@@ -191,9 +191,9 @@ Database tự gộp khoảng chồng và khoảng liền kề (đã thử: `[0,1
 
 **BR-182/BR-184:** bookmark không tham gia tính hoàn thành, lưu cả khi học liệu hoặc Enrollment Completed. Enrollment Completed bỏ qua ranges, giữ coverage/completed_at và các timestamp coverage; vẫn ghi bookmark và trả 200. UPDATE bookmark có điều kiện `position_reported_at IS NULL OR position_reported_at < reportedAt`, trong cùng transaction với coverage. BR-140 chỉ chuyển NotStarted → InProgress khi học liệu vừa hoàn thành; lưu coverage chưa đủ ngưỡng hoặc chỉ lưu vị trí không kích hoạt Enrollment. BR-181 không đặt ngân sách/trần tốc độ.
 
-**Tầng Service kiểm trước khi ghi:** học liệu thuộc đúng phiên bản của Enrollment; NotStarted, InProgress, Exempted được ghi coverage và bookmark, Completed chỉ ghi bookmark; học liệu, Lesson và phiên bản chưa bị vô hiệu hóa (BR-243); Reading không nhận heartbeat, Video không nhận đánh dấu thủ công.
+**Tầng Service kiểm trước khi ghi:** học liệu thuộc đúng phiên bản của Enrollment; NotStarted, InProgress, Exempted được ghi coverage và bookmark, Completed chỉ ghi bookmark; học liệu, Lesson và phiên bản chưa bị vô hiệu hóa (BR-300); Reading không nhận heartbeat, Video không nhận đánh dấu thủ công.
 
-**BR-95:** tập cần xét = học liệu bắt buộc còn hoạt động của Lesson; nếu rỗng thì mọi học liệu còn hoạt động (BR-306). Có Enrollment nào hoàn thành đủ tập đó không: gom dòng đã hoàn thành theo Enrollment, so số lượng.
+**BR-116:** tập cần xét = học liệu bắt buộc còn hoạt động của Lesson; nếu rỗng thì mọi học liệu còn hoạt động (BR-186). Có Enrollment nào hoàn thành đủ tập đó không: gom dòng đã hoàn thành theo Enrollment, so số lượng.
 
 ### 3.4 `course_version_snapshots`
 
@@ -216,7 +216,7 @@ Chỉ mục: UNIQUE `(course_id, organization_id)`.
 | `organization_id`, `course_id` | uuid | ✓ | Khóa ngoại kép → `course_version_snapshots` |
 | `lesson_id` | uuid | ✓ | ID logic |
 | `material_type` | text | ✓ | Video / Reading |
-| `is_required` | boolean | ✓ | BR-147; không đổi sau Locked (BR-90) |
+| `is_required` | boolean | ✓ | BR-178; không đổi sau Locked (BR-109) |
 | `duration_seconds` | integer | | Chỉ Video, > 0 |
 | `duration_as_of` | timestamptz | | Bỏ qua `MaterialFileReplaced` cũ hơn |
 | `disabled_at` | timestamptz | | GĐ2 |
@@ -231,7 +231,7 @@ CHECK: loại hợp lệ; `(material_type = 'Video') = (có duration_seconds và
 |---|---|---|---|
 | `lesson_id` | uuid | ✓ | PK = ID Lesson bên course-service |
 | `organization_id`, `course_id` | uuid | ✓ | Khóa ngoại kép → `course_version_snapshots` |
-| `disabled_at` | timestamptz | | Loại mọi học liệu bên trong (BR-243) |
+| `disabled_at` | timestamptz | | Loại mọi học liệu bên trong (BR-300) |
 | `disabled_as_of` | timestamptz | ✓ | — |
 
 Chỉ có dòng cho Lesson từng bị vô hiệu hóa. Không gộp cờ Lesson vào học liệu, vì học liệu bị vô hiệu hóa riêng phải giữ nguyên khi Lesson được kích hoạt lại.
@@ -260,7 +260,7 @@ Không cần `…_as_of` vì tenant-service dùng ID tổ chức làm key Kafka 
 | `deleted_at` | timestamptz | | Đã gán thì không xóa |
 | `status_as_of` | timestamptz | ✓ | — |
 
-Không có dòng = tài khoản bình thường. Không có khóa ngoại từ `enrollments.learner_id` vì bảng thưa. Chỉ giữ trạng thái hiện tại vì BR-38, BR-144 xét "đang bị vô hiệu hóa".
+Không có dòng = tài khoản bình thường. Không có khóa ngoại từ `enrollments.learner_id` vì bảng thưa. Chỉ giữ trạng thái hiện tại vì BR-48, BR-175 xét "đang bị vô hiệu hóa".
 
 ### 3.9 `platform_settings`
 
@@ -276,14 +276,14 @@ Cấu trúc chuẩn ở quy ước mục 5. `aggregate_type` = `Enrollment`, `ag
 
 ### 4.1 Tạo Enrollment (UC24.2 phân công, UC25.3 tự đăng ký)
 
-1. Kiểm cục bộ: trùng Enrollment trên phiên bản (Optional/Withdrawn cùng phiên bản không phải lỗi, BR-308), tổng số ≤ 500.
-2. REST tenant-service một lần theo lô: Learner đúng vai trò, cùng tổ chức, chưa bị vô hiệu hóa hoặc xóa (chưa kích hoạt vẫn được); trạng thái Subscription (ân hạn thì chặn, BR-15); múi giờ tổ chức (phân công).
-3. Có lỗi thì chặn cả lần, trả danh sách lỗi (BR-308).
-4. REST course-service gắn Locked: kiểm Published (BR-70), với tự đăng ký kiểm thêm Public (BR-62); nhận `chainId`, `expectedCompletionDays`.
+1. Kiểm cục bộ: trùng Enrollment trên phiên bản (Optional/Withdrawn cùng phiên bản không phải lỗi, BR-144), tổng số ≤ 500.
+2. REST tenant-service một lần theo lô: Learner đúng vai trò, cùng tổ chức, chưa bị vô hiệu hóa hoặc xóa (chưa kích hoạt vẫn được); trạng thái Subscription (ân hạn thì chặn, BR-22); múi giờ tổ chức (phân công).
+3. Có lỗi thì chặn cả lần, trả danh sách lỗi (BR-144).
+4. REST course-service gắn Locked: kiểm Published (BR-86), với tự đăng ký kiểm thêm Public (BR-77); nhận `chainId`, `expectedCompletionDays`.
 5. Chưa có `course_version_snapshots` thì REST lấy cây.
 6. **Một transaction:** ghi bản sao cây (nếu cần), ghi hoặc chuyển Enrollment, `EnrollmentAssigned` vào outbox.
 
-**Gắn Locked thành công mà bước 6 thất bại:** Course bị Locked mà không có Enrollment. Kết quả học tập không sai, nhưng Instructor mất quyền sửa cấu trúc và không có đường gỡ (BR-83). Giảm rủi ro bằng cách kiểm mọi thứ ở bước 1–3 trước khi gọi, và thử lại cả thao tác (lời gọi gắn Locked chịu được gọi lại). Khoảng hở còn lại khi người dùng bỏ ngang được chấp nhận.
+**Gắn Locked thành công mà bước 6 thất bại:** Course bị Locked mà không có Enrollment. Kết quả học tập không sai, nhưng Instructor mất quyền sửa cấu trúc và không có đường gỡ (BR-100). Giảm rủi ro bằng cách kiểm mọi thứ ở bước 1–3 trước khi gọi, và thử lại cả thao tác (lời gọi gắn Locked chịu được gọi lại). Khoảng hở còn lại khi người dùng bỏ ngang được chấp nhận.
 
 ### 4.2 Hoàn thành
 
@@ -297,11 +297,11 @@ Nguồn kích hoạt đã có ở Bước 1: Video hoàn thành lần đầu, UC
 
 | Thao tác | Điều kiện hỏi assessment-service | Kết quả |
 |---|---|---|
-| Hủy phân công | Chưa có dữ liệu học tập: không học liệu hoàn thành (cục bộ), không lượt Quiz, không bài nộp (REST) — BR-119 | Xóa dòng; CASCADE xóa tiến độ và khoảng tạm dừng |
-| Rút, chưa có kết quả đánh giá | Không lượt Quiz, không bài nộp, không chấm chéo (REST) — BR-131 | Xóa dòng (kể cả tiến độ học liệu) |
-| Rút, đã có kết quả đánh giá | — | Withdrawn, `LearnerWithdrew`; giữ dữ liệu (BR-132) |
+| Hủy phân công | Chưa có dữ liệu học tập: không học liệu hoàn thành (cục bộ), không lượt Quiz, không bài nộp (REST) — BR-145 | Xóa dòng; CASCADE xóa tiến độ và khoảng tạm dừng |
+| Rút, chưa có kết quả đánh giá | Không lượt Quiz, không bài nộp, không chấm chéo (REST) — BR-159 | Xóa dòng (kể cả tiến độ học liệu) |
+| Rút, đã có kết quả đánh giá | — | Withdrawn, `LearnerWithdrew`; giữ dữ liệu (BR-160) |
 
-Việc rút không gỡ Locked (BR-83).
+Việc rút không gỡ Locked (BR-100).
 
 ### 4.4 Event nhận vào
 
@@ -310,13 +310,13 @@ Bảng sau mô tả thiết kế đích. Consumer assessment/course của learni
 | Event | Nguồn | Xử lý |
 |---|---|---|
 | `CourseDisabled` | course | Chưa có bản sao thì bỏ qua. Mới hơn `disabled_as_of` thì ghi `disabled_at`, chuyển NotStarted/InProgress sang Halted với `started_at` = thời điểm vô hiệu hóa |
-| `CourseReactivated` | course | Xóa `disabled_at`; không khôi phục Enrollment (BR-250) |
-| `ContentDisabled`, `ContentReactivated` | course | Lesson/học liệu: cập nhật cờ. Quiz/Assignment: không lưu. Sau vô hiệu hóa: xét lại hoàn thành (BR-310). Completed giữ nguyên (BR-244) |
+| `CourseReactivated` | course | Xóa `disabled_at`; không khôi phục Enrollment (BR-309) |
+| `ContentDisabled`, `ContentReactivated` | course | Lesson/học liệu: cập nhật cờ. Quiz/Assignment: không lưu. Sau vô hiệu hóa: xét lại hoàn thành (BR-301). Completed giữ nguyên (BR-302) |
 | `MaterialFileReplaced` | course | Cập nhật `duration_seconds` nếu mới hơn; học liệu đã hoàn thành giữ nguyên (BR-184) |
 | Tình trạng Assessment của Learner đã đổi | assessment | Gán `first_activity_at` (LEAST), NotStarted → InProgress; xét lại hoàn thành |
-| `OrganizationSuspended`, `OrganizationReinstated` | tenant | Ghi lần khóa (COALESCE); Reinstated → tính lại `due_at` (BR-47, BR-311) |
+| `OrganizationSuspended`, `OrganizationReinstated` | tenant | Ghi lần khóa (COALESCE); Reinstated → tính lại `due_at` (BR-58, BR-59) |
 | `UserDeactivated`, `UserReactivated` | tenant | Cập nhật `learner_accounts` theo `status_as_of`; bỏ qua nếu đã xóa |
-| `UserDeleted` | tenant | Gán `deleted_at`; Enrollment chưa Completed → Withdrawn `AccountDeleted`, đóng khoảng đang mở (BR-304) |
+| `UserDeleted` | tenant | Gán `deleted_at`; Enrollment chưa Completed → Withdrawn `AccountDeleted`, đóng khoảng đang mở (BR-47) |
 | `PlatformSettingsChanged` | tenant | Cập nhật theo `source_as_of` |
 
 `SubscriptionStatusChanged` không dùng: trạng thái Subscription hỏi REST lúc tạo Enrollment.
@@ -329,17 +329,17 @@ Bảng sau mô tả thiết kế đích. Consumer assessment/course của learni
 
 | Dữ liệu | Cách lấy | Khi nào | Lý do |
 |---|---|---|---|
-| `expected_completion_days` | Chép từ kết quả REST gắn Locked | Phân công, chuyển Optional → Required | BR-84 |
-| Múi giờ tổ chức | REST tenant-service, không lưu | Phân công, kéo dài hạn | BR-44 |
-| `video_completion_percent` | Chép từ `platform_settings` | Tạo Enrollment | BR-269, BR-181 |
-| `completed_late` | Tính | Chuyển Completed | BR-215, BR-219 |
+| `expected_completion_days` | Chép từ kết quả REST gắn Locked | Phân công, chuyển Optional → Required | BR-102 |
+| Múi giờ tổ chức | REST tenant-service, không lưu | Phân công, kéo dài hạn | BR-55 |
+| `video_completion_percent` | Chép từ `platform_settings` | Tạo Enrollment | BR-335, BR-181 |
+| `completed_late` | Tính | Chuyển Completed | BR-265, BR-269 |
 | Cây chương trình (không tiêu đề) | REST course-service → bảng bản sao | Enrollment đầu tiên; gặp học liệu lạ | Mục 6A |
-| Vô hiệu hóa Course, Lesson, học liệu | Event | Khi xảy ra | BR-243, BR-249 |
-| Lần tạm khóa tổ chức; trạng thái tài khoản | Event | Khi xảy ra | BR-47, BR-38, BR-37 |
-| Trạng thái Subscription; vai trò, tổ chức, trạng thái tài khoản của Learner được phân công | REST tenant-service, không chép | Tạo Enrollment | BR-15, BR-308 |
-| Trạng thái kích hoạt tài khoản | REST tenant-service theo lô, không chép | Hiển thị UC24, UC24.1 (nhãn "Tài khoản chưa kích hoạt") | BR-308 |
-| Điều kiện và điểm Quiz, Assignment | REST assessment-service | Xét hoàn thành; UC28.1 | BR-211, BR-212, BR-219 |
-| Đã có lượt Quiz, bài nộp, chấm chéo | REST assessment-service | Hủy phân công, rút | BR-119, BR-131 |
+| Vô hiệu hóa Course, Lesson, học liệu | Event | Khi xảy ra | BR-300, BR-307 |
+| Lần tạm khóa tổ chức; trạng thái tài khoản | Event | Khi xảy ra | BR-58, BR-48, BR-46 |
+| Trạng thái Subscription; vai trò, tổ chức, trạng thái tài khoản của Learner được phân công | REST tenant-service, không chép | Tạo Enrollment | BR-22, BR-144 |
+| Trạng thái kích hoạt tài khoản | REST tenant-service theo lô, không chép | Hiển thị UC24, UC24.1 (nhãn "Tài khoản chưa kích hoạt") | BR-144 |
+| Điều kiện và điểm Quiz, Assignment | REST assessment-service | Xét hoàn thành; UC28.1 | BR-260, BR-261, BR-269 |
+| Đã có lượt Quiz, bài nộp, chấm chéo | REST assessment-service | Hủy phân công, rút | BR-145, BR-159 |
 
 ### 5.2 Những gì learning-service cung cấp
 
@@ -347,7 +347,7 @@ Xem quy ước mục 6B.
 
 ### 5.3 Hợp đồng với course-service: đã chốt
 
-1. REST gắn Locked trả `chainId`, `expectedCompletionDays`, `courseType`; nhận tham số "tự đăng ký" để kiểm Public (BR-62).
+1. REST gắn Locked trả `chainId`, `expectedCompletionDays`, `courseType`; nhận tham số "tự đăng ký" để kiểm Public (BR-77).
 2. REST cây trả `disabledAt` cho Lesson và học liệu, `asOf` cho cả lần trả lời.
 3. Payload event vô hiệu hóa mang trạng thái tuyệt đối: `organizationId`, `courseId`, loại và ID thành phần, `disabled`, `occurredAt`.
 4. `MaterialFileReplaced` gửi thêm cho learning-service kèm `durationSeconds`.
@@ -357,11 +357,11 @@ Chi tiết ở `CourseService_Database_Design.md` mục 4.2, 4.3.
 ### 5.4 Hợp đồng với assessment-service: đã chốt
 
 1. REST điều kiện Quiz/Assignment của một Learner trên một Course, kèm bản chốt điểm.
-2. REST theo lô: ai trong danh sách đã đạt (BR-310).
-3. REST: đã có lượt Quiz, bài nộp, chấm chéo chưa (BR-119, BR-131).
+2. REST theo lô: ai trong danh sách đã đạt (BR-301).
+3. REST: đã có lượt Quiz, bài nộp, chấm chéo chưa (BR-145, BR-159).
 4. `LearnerAssessmentStatusChanged` (key `learnerId`), mang `firstActivityAt` (BR-140).
 5. REST điểm các bài đã làm (UC28.1).
-6. assessment-service hỏi REST `GET /api/v1/internal/enrollments/assessment-access` (L17, quy ước mục 6B) khi bắt đầu lượt Quiz và khi nộp bài; không nhận `EnrollmentCompleted` và không giữ bản sao Enrollment Completed (BR-169, BR-325; số mới BR-210, BR-211). Hợp đồng HTTP: `contracts/openapi/learning-service.yaml`.
+6. assessment-service hỏi REST `GET /api/v1/internal/enrollments/assessment-access` (L17, quy ước mục 6B) khi bắt đầu lượt Quiz và khi nộp bài; không nhận `EnrollmentCompleted` và không giữ bản sao Enrollment Completed (BR-210 (số cũ 169), BR-211 (số cũ 325)). Hợp đồng HTTP: `contracts/openapi/learning-service.yaml`.
 
 Mục 1, 2 và 4 là hợp đồng thiết kế đích: endpoint completion-snapshot phía assessment và consumer nhận trạng thái ở learning còn chờ. Bước 1 có client fake/http; bản chốt được validate thành object schemaVersion 1 rồi lưu nguyên bản vào completion_snapshot và payload scoreSnapshot. Mục 6 dùng REST truy cập, không cần assessment nhận event hoàn thành.
 
@@ -371,26 +371,26 @@ Chi tiết ở quy ước mục 6C.
 
 | REST | Vào | Ra |
 |---|---|---|
-| Báo cáo tổng hợp | `organizationId`; bộ lọc `courseIds`, loại Enrollment, `learnerIds` (≤ 500), khoảng thời gian (thời điểm tuyệt đối, lọc `COALESCE(assigned_at, enrolled_at)`, BR-329), tình trạng; `groupBy` ∈ {none, course} | Mỗi nhóm × loại Enrollment: `total`, `notStarted`, `inProgress`, `overdue`, `completedOnTime`, `completedLate`, `exempted`, `halted`, `withdrawn`, `distinctLearners` |
+| Báo cáo tổng hợp | `organizationId`; bộ lọc `courseIds`, loại Enrollment, `learnerIds` (≤ 500), khoảng thời gian (thời điểm tuyệt đối, lọc `COALESCE(assigned_at, enrolled_at)`, BR-285), tình trạng; `groupBy` ∈ {none, course} | Mỗi nhóm × loại Enrollment: `total`, `notStarted`, `inProgress`, `overdue`, `completedOnTime`, `completedLate`, `exempted`, `halted`, `withdrawn`, `distinctLearners` |
 | Báo cáo danh sách | Cùng bộ lọc; con trỏ; `limit ≤ 100` | Mỗi Enrollment: `enrollmentId`, `learnerId`, `courseId`, `enrollmentType`, `status` (có Overdue), `progressPercent`, `dueAt`, `completedAt`, `completedLate`; `nextCursor` |
 
 Quy tắc tính (phải khớp nhau để bên gọi kiểm tổng):
 - Mỗi Enrollment rơi vào **đúng một** ô trạng thái: Overdue tách khỏi NotStarted/InProgress theo cùng điều kiện mục 3.1.2; Completed tách thành `completedOnTime` / `completedLate`. Tổng các ô bằng `total`.
 - Enrollment Optional không có hạn: `overdue` và `completedLate` luôn 0, mọi Completed tính vào `completedOnTime`.
-- Overdue loại tài khoản đang bị vô hiệu hóa (BR-38) và thời gian tổ chức bị tạm khóa (BR-144), như màn hình của learning-service; Enrollment bị loại khỏi Overdue vì BR-38 tính vào ô trạng thái lưu của nó.
-- `progressPercent` tính giống tiến độ Learner thấy ở UC27 (trên thành phần còn hoạt động, BR-243).
+- Overdue loại tài khoản đang bị vô hiệu hóa (BR-48) và thời gian tổ chức bị tạm khóa (BR-175), như màn hình của learning-service; Enrollment bị loại khỏi Overdue vì BR-48 tính vào ô trạng thái lưu của nó.
+- `progressPercent` tính giống tiến độ Learner thấy ở UC27 (trên thành phần còn hoạt động, BR-300).
 - Danh sách phân trang theo con trỏ `id` (keyset), không dùng OFFSET.
 
 ### 5.5 Event phát ra (qua `outbox_events`)
 
 | Event | Bên nhận | Căn cứ | GĐ |
 |---|---|---|---|
-| `EnrollmentAssigned` | notification | BR-118, UC24.2 | 1 |
-| `EnrollmentDueDateExtended` (`previousDueAt`, `newDueAt`, `reason`, `actorId`, `occurredAt`) | notification, audit | UC24.3, BR-139, BR-270 | 1 |
+| `EnrollmentAssigned` | notification | BR-143, UC24.2 | 1 |
+| `EnrollmentDueDateExtended` (`previousDueAt`, `newDueAt`, `reason`, `actorId`, `occurredAt`) | notification, audit | UC24.3, BR-170, BR-336 | 1 |
 | `EnrollmentCompleted`: `enrollmentId`, `organizationId`, `learnerId`, `courseId`, `enrollmentType`, `completedAt`, `dueAt` (Optional gửi `null`), `completedLate` (Optional gửi `false`), `scoreSnapshot` (object schemaVersion 1 đã validate), `occurredAt` (= `completedAt`). Topic chung, key `enrollmentId` | achievement-reporting | BR-210, BR-262, BR-265, BR-269, BR-271 | 1 |
-| `EnrollmentExempted`, `ExemptionRemoved` | notification, audit | BR-120, BR-123, BR-270, BR-271 | 2 |
-| `EnrollmentRestored`, `HaltedEnrollmentClosed` | notification | BR-250, BR-303, UC24.8 | 2 |
-| `LearnerWithdrew` (`withdrawnAt`) | Chưa có bên nhận (notification không gửi, quyết định D2 23/10) | BR-132, UC25.4 | 2 |
+| `EnrollmentExempted`, `ExemptionRemoved` | notification, audit | BR-146, BR-149, BR-336, BR-337 | 2 |
+| `EnrollmentRestored`, `HaltedEnrollmentClosed` | notification | BR-309, BR-310, UC24.8 | 2 |
+| `LearnerWithdrew` (`withdrawnAt`) | Chưa có bên nhận (notification không gửi, quyết định D2 23/10) | BR-160, UC25.4 | 2 |
 
 Mọi event trên dùng chung topic `learnup.learning.enrollment-events` (key `enrollmentId`), envelope v1; hợp đồng chi tiết ở `contracts/events/learning-enrollment-events.md`.
 
@@ -447,20 +447,20 @@ Cập nhật UC27.2 ngày 22/10/2026: vị trí xem dở đã được triển k
 
 | BR | Nội dung tóm tắt | Vị trí trong tài liệu |
 |---|---|---|
-| BR-298 | Một Enrollment mỗi phiên bản; học bản cũ vẫn được phân công bản mới; BR-133 chỉ áp cùng phiên bản | Mục 7.5, sau BR-133 |
-| BR-181 | Đo video bằng tổng đoạn đã phát, không trùng, không tua, mọi tốc độ; tỉ lệ chép lúc tạo Enrollment | Mục 9, sau BR-148 |
-| BR-300 | Hạn là cuối ngày thứ N theo múi giờ tổ chức lúc phân công | Mục 8.1, sau BR-136 |
-| BR-301 | Exempted hoàn thành thì Completed ngay | Mục 7.2, sau BR-123 |
-| BR-302 | "Đang dở" ở BR-249 = NotStarted, InProgress, Overdue; gỡ Exempted khi Disabled → Halted | Mục 17.3, sau BR-249 |
-| BR-303 | Khôi phục Halted chỉ khi Published lại; bản bị thay thì đóng → Withdrawn; qua UC24.8 | Mục 17.3, sau BR-250 |
-| BR-304 | Xóa tài khoản → Enrollment chưa Completed chuyển Withdrawn | Mục 2.5, sau BR-37 |
-| BR-305 | Khôi phục tiến độ chỉ cùng phiên bản; phân công lại Withdrawn → Required | Mục 7.4, sau BR-132 |
-| BR-306 | Lesson không có học liệu bắt buộc hoàn thành khi xong mọi học liệu | Mục 9, sau BR-150 |
-| BR-140 | UC27.2 chỉ kích hoạt NotStarted → InProgress khi học liệu vừa hoàn thành, không phải khi chỉ lưu coverage/bookmark | Mục 7.1, sau BR-115 |
-| BR-308 | Phân công hàng loạt: chặn cả lần khi có lỗi; tài khoản chưa kích hoạt vẫn được | Mục 7.2, sau BR-118 |
-| BR-184 | Hoàn thành học liệu không đảo ngược | Mục 9, sau BR-149 |
-| BR-310 | Vô hiệu hóa làm đủ điều kiện → Completed ngay | Mục 17.2, sau BR-243 |
-| BR-311 | "Đang dở" ở BR-47 = mọi Required chưa Completed/Withdrawn | Mục 3, sau BR-47 |
+| BR-163 (số cũ 298) | Một Enrollment mỗi phiên bản; học bản cũ vẫn được phân công bản mới; BR-162 chỉ áp cùng phiên bản | Mục 7.5, sau BR-162 |
+| BR-181 | Đo video bằng tổng đoạn đã phát, không trùng, không tua, mọi tốc độ; tỉ lệ chép lúc tạo Enrollment | Mục 9, sau BR-180 |
+| BR-167 (số cũ 300) | Hạn là cuối ngày thứ N theo múi giờ tổ chức lúc phân công | Mục 8.1, sau BR-166 |
+| BR-150 (số cũ 301) | Exempted hoàn thành thì Completed ngay | Mục 7.2, sau BR-149 |
+| BR-308 (số cũ 302) | "Đang dở" ở BR-307 = NotStarted, InProgress, Overdue; gỡ Exempted khi Disabled → Halted | Mục 17.3, sau BR-307 |
+| BR-310 (số cũ 303) | Khôi phục Halted chỉ khi Published lại; bản bị thay thì đóng → Withdrawn; qua UC24.8 | Mục 17.3, sau BR-309 |
+| BR-47 (số cũ 304) | Xóa tài khoản → Enrollment chưa Completed chuyển Withdrawn | Mục 2.5, sau BR-46 |
+| BR-161 (số cũ 305) | Khôi phục tiến độ chỉ cùng phiên bản; phân công lại Withdrawn → Required | Mục 7.4, sau BR-160 |
+| BR-186 (số cũ 306) | Lesson không có học liệu bắt buộc hoàn thành khi xong mọi học liệu | Mục 9, sau BR-185 |
+| BR-140 | UC27.2 chỉ kích hoạt NotStarted → InProgress khi học liệu vừa hoàn thành, không phải khi chỉ lưu coverage/bookmark | Mục 7.1, sau BR-139 |
+| BR-144 (số cũ 308) | Phân công hàng loạt: chặn cả lần khi có lỗi; tài khoản chưa kích hoạt vẫn được | Mục 7.2, sau BR-143 |
+| BR-184 | Hoàn thành học liệu không đảo ngược | Mục 9, sau BR-183 |
+| BR-301 (số cũ 310) | Vô hiệu hóa làm đủ điều kiện → Completed ngay | Mục 17.2, sau BR-300 |
+| BR-59 (số cũ 311) | "Đang dở" ở BR-58 = mọi Required chưa Completed/Withdrawn | Mục 3, sau BR-58 |
 
 Use Case: thêm **UC24.8 – Khôi phục Enrollment tạm dừng** (GĐ2, Organizer); tổng 168 UC, Phân công đào tạo 14 UC. Cập nhật ghi chú UC24.2, UC24.6, UC25.4, UC27.2, UC27.3, UC40 và khái niệm "Chưa phát sinh dữ liệu học tập".
 
