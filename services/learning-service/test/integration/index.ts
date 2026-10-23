@@ -14,3 +14,5 @@ import './optional-withdrawal.integration-test';
 import './learner-enrollment-summary.integration-test';
 import './video-progress.integration-test';
 import './outbox-relay.integration-test';
+
+import './assessment-access.integration-test';
