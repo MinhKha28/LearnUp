@@ -5,6 +5,7 @@ export interface CompletionConfig {
   leaseMs: number;
   pollMs: number;
   batchSize: number;
+  concurrency: number;
   transactionMs: number;
   backoffMs: number;
   backoffMaxMs: number;
@@ -26,6 +27,7 @@ export function readCompletionConfig(
     leaseMs: integer('COMPLETION_LEASE_MS', 30000),
     pollMs: integer('COMPLETION_POLL_MS', 1000),
     batchSize: integer('COMPLETION_BATCH_SIZE', 5),
+    concurrency: integer('COMPLETION_CONCURRENCY', 5),
     transactionMs: integer('COMPLETION_TRANSACTION_MS', 5000),
     backoffMs: integer('COMPLETION_BACKOFF_MS', 1000),
     backoffMaxMs: integer('COMPLETION_BACKOFF_MAX_MS', 300000),

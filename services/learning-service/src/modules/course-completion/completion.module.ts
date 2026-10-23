@@ -8,9 +8,26 @@ import { COMPLETION_CONFIG, readCompletionConfig } from './completion.config';
 import { CompletionRepository } from './completion.repository';
 import { CompletionService } from './completion.service';
 import { CompletionWorker } from './completion.worker';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+const WORKER_DATABASE = Symbol('COMPLETION_WORKER_DATABASE');
 @Module({
   providers: [
-    CompletionRepository,
+    {
+      provide: WORKER_DATABASE,
+      inject: [ConfigService, COMPLETION_CONFIG],
+      useFactory: (
+        c: ConfigService,
+        config: ReturnType<typeof readCompletionConfig>,
+      ) => new PrismaService(c, config.concurrency),
+    },
+    {
+      provide: CompletionRepository,
+      inject: [WORKER_DATABASE, COMPLETION_CONFIG],
+      useFactory: (
+        db: PrismaService,
+        config: ReturnType<typeof readCompletionConfig>,
+      ) => new CompletionRepository(db, config),
+    },
     CompletionService,
     CompletionWorker,
     {

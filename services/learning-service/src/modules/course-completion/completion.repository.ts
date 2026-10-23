@@ -40,11 +40,14 @@ export class CompletionRepository {
     readonly prisma: PrismaService,
     @Inject(COMPLETION_CONFIG) readonly config: CompletionConfig,
   ) {}
-  claim() {
+  claim(limit = Math.min(this.config.batchSize, this.config.concurrency)) {
     return this.prisma.$transaction(
       (tx) =>
         tx.$queryRaw<CompletionRequest[]>(
-          claimCompletionSql(this.config.batchSize, this.config.leaseMs),
+          claimCompletionSql(
+            Math.min(limit, this.config.batchSize, this.config.concurrency),
+            this.config.leaseMs,
+          ),
         ),
       { timeout: this.config.transactionMs },
     );

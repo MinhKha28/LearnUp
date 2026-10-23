@@ -1,131 +1,124 @@
 # Learning Course Completion Verification
 
-Baseline: origin/develop 52cfbc0 (includes L6 3c7649b and L17 ecab6b3).
-Branch: feat/learning/course-completion-evaluation. Verification date: 2026-10-24,
-Asia/Ho_Chi_Minh. PostgreSQL 16, existing disposable L6 course/Kafka environment.
+Baseline source: 52cfbc0; branch: feat/learning/course-completion-evaluation.
+Date: 2026-10-24 (Asia/Ho_Chi_Minh). PostgreSQL 16, existing disposable L6 Kafka/course
+environment; Tenant and assessment completion responses are fake.
 
-## Implemented behavior
+## Worker and pool budget
 
-Video's first material completion, assignment CONVERT/RESTORE and Optional restore
-enqueue in their existing transaction. Already Completed conversions keep the original
-snapshot/completedAt and emit no second completion. EnrollmentAssigned payload is preserved.
+Video first completion, assignment CONVERT/RESTORE and Optional restore enqueue in their
+existing transaction. CONVERT_COMPLETED emits no new completion. SKIP LOCKED claims use
+generation and a 30-second lease; signals bypass backoff without resetting attempts.
+Conditional retry/deletion preserves newer signals. REST remains outside transactions.
+Completion, immutable snapshot, Exempted closure, effective deadline and outbox are atomic.
+An empty combined required set cannot complete. Optional emits dueAt=null and completedLate=false.
 
-The API worker defaults enabled, polling every second with batches of five. Claims use
-SKIP LOCKED, increment generation and set a configurable 30-second lease. New triggers
-increment generation, preserve attempts and bypass backoff. Conditional deletion/retry
-cannot erase newer signals. A worker abandoned after claim is recovered after lease expiry.
-The lease must exceed HTTP timeout (default 3s), transaction budget (default 5s) plus 1s.
-Startup validates this even when the worker is disabled; production forbids fake clients.
+Defaults: batch=5, concurrency=5, poll=1000ms. Full runnable waves continue after setImmediate;
+partial/empty waves return to the poll timer. Each claim is capped at min(batch,concurrency),
+after the preceding wave finishes. No leased work waits internally. Errors retain capped
+exponential backoff: the immediate drain does not bypass next_attempt_at eligibility.
 
-Before HTTP, the worker checks eligible stored status and local required materials with
-NOT EXISTS. HTTP runs outside database transactions and uses service authentication,
-organization scope and explicit learner/course IDs. Responses are strictly validated,
-including nested fields, decimal strings, identity, counts and eligibility consistency.
-Unspecified fake fixtures return ineligible; test fixtures use all three identity keys.
+Previously API/worker shared pg-pool's default maximum of 10 connections. API/relay now
+explicitly retain 10; worker has a separate pool capped at COMPLETION_CONCURRENCY (default 5).
+Claim, evaluation and queue metric phases do not overlap. Default learning connection
+budget is 15 per process, preserving the original API connection allowance. Five preserves
+prior parallelism; the change removes idle gaps rather than increasing evaluation concurrency.
+Test PostgreSQL max_connections=100. Replicas and other services must fit that total;
+separate pools reserve connection capacity, not DB CPU/I/O or guaranteed API throughput.
 
-The completion transaction locks Enrollment then request, checks generation again,
-rechecks status/materials/Course, rejects an empty combined required set, closes Exempted,
-and recomputes the deadline from base + extension + union of closed pauses. It atomically
-writes Completed, completed_at, completed_late, immutable completion_snapshot, outbox
-EnrollmentCompleted, and conditional request deletion. Optional stores NULL completed_late
-but emits completedLate=false and dueAt=null. Snapshot is never rewritten after Completed.
+## Verification
 
-Queue logs expose pending count, oldest age, lease expirations and discarded generations.
-Counters are process-local; only fixed error codes and aggregate metrics are logged.
-No arbitrary source/error text, scores or learner identifiers appear in worker logs.
+Commands from services/learning-service with NODE_PATH set to that directory:
 
-## Verification commands and results
-
-From services/learning-service, with NODE_PATH set to the service directory:
-
-- npm run test:unit: 268 pass, 0 fail, 0 skip.
+- npm run test:unit: 271 pass, 0 fail, 0 skip.
 - npm run test:integration with OUTBOX_INTEGRATION=true and OUTBOX_KAFKA_CHAOS=true:
-  211 pass, 0 fail, 0 skip. Chaos explicitly targeted disposable learnup-l6-kafka.
+  211 pass, 0 fail, 0 skip. Chaos explicitly targets disposable learnup-l6-kafka.
 - npm run build: passed.
-- npx --no-install prisma validate: passed; client generation passed.
-- prisma migrate deploy: migration 20261024000000_course_completion applied to test learning_db.
+- git diff --check: passed.
 
-Tests cover state eligibility, Quiz passing/failing, Assignment unfinalized and peer
-Pending/Missed/Satisfied, required/optional/disabled materials and disabled Lessons,
-Course Disabled, empty sets, Required deadlines and overlapping Exempted intervals,
-Optional behavior, conversion/restore, immutable snapshots, generation races, disjoint
-claimers, abandoned leases, retry recovery and outbox failure rollback on PostgreSQL.
-An API test starts with an unreachable broker, retains failed assessment work, serves
-an HTTP database read, and completes once the assessment fixture recovers. Existing
-L6 chaos tests verify broker stop/restart and ordered recovery with a real consumer.
+New tests cover full-wave draining without poll sleeps, setImmediate yielding, claims capped
+when concurrency < batch, and persistent assessment errors with bounded calls over 130ms
+(50ms synthetic backoff). Existing integration covers conditions, deadline/Exempted unions,
+generation races, abandoned leases, concurrent Video completion, outbox rollback, immutable
+snapshots, convert/restore and outage recovery. No install or migration was required.
 
-The first sandbox-only unit attempt failed localhost HTTP fixture access; rerunning
-with approved network access passed. No assertions were weakened for that failure.
-Integration uses real PostgreSQL/course/Kafka but fake Tenant and completion responses;
-it does not validate a deployed assessment completion endpoint or Certificate issuance.
+## Paired measurement procedure
 
-## Performance measurements
+perf/learning/course-completion-paired.ps1 accepts -BaselineRoot pointing to an unchanged
+git archive of learning-service at 52cfbc0. Installed dependencies/generated client and
+migrated test DB are shared; baseline source does not run a completion worker. Each pair
+recreates identical fixture IDs. Each VU owns an Enrollment with one required 100-second
+Video, threshold 80%, and reports [0,10] coverage followed by [0,80] completion once.
+API restarts per side/run. Order is A-B-A-B-A-B at each level: 1/2/100/200/1000/2000 VUs.
 
-Run perf/learning/course-completion-run.ps1 from repository root. k6 runs in Docker,
-API in a local ts-node process; PostgreSQL/Kafka/course containers and k6 share the
-same host. Defaults: worker batch 5, poll 1s, lease 30s. Each VU has a distinct fixture
-Enrollment and submits one incomplete Video coverage report then one completion report.
-These are finite bursts, not steady-state capacity tests. Small VU percentile samples
-contain only one/two requests per phase and must not be interpreted as robust distributions.
+k6 runs in Docker; API uses local ts-node. k6/API/PostgreSQL/Kafka/course share one host.
+These are finite bursts, not steady-state capacity measurements. Low-VU tails contain
+one/two samples per phase. Cold process/request effects and host noise remain.
 
-Stop rule fixed before the runs: HTTP errors >1%, mismatched completed/event counts,
-or trigger p99 exceeding both 500ms and three times the preceding run. The final run
-waits for Kafka publication before reading outbox lag. Raw JSON summaries and EXPLAIN
-plans are emitted under perf/learning/results (ignored artifacts, synthetic fixtures).
+COMPLETION_PERF_PHASES defaults off. True installs harness-only probes for requested_at,
+DB claim time, assessment duration, transaction/pool time and commit return, wrapping the
+worker's dedicated Prisma client. Production imports none of this instrumentation and has
+no phase measurement logger. Fake fixtures set no delayMs: zero deliberate delay, not a REST
+network measurement. Raw traces and summaries are under ignored perf/learning/results.
 
-| VUs/run | Coverage p50/p95/p99 ms | Trigger p50/p95/p99 ms | Completion latency p50/p95 ms | Drain rate /s | Outbox p95 ms |
-|---|---|---|---|---|---|
-| 1/1 | 49.60/49.60/49.60 | 19.45/19.45/19.45 | 668/668 | 0.71 | 187.12 |
-| 1/2 | 21.06/21.06/21.06 | 18.43/18.43/18.43 | 327/327 | 1.09 | 221.38 |
-| 1/3 | 18.30/18.30/18.30 | 16.99/16.99/16.99 | 412/412 | 0.88 | 266.54 |
-| 2/1 | 15.62/15.98/16.02 | 17.99/18.12/18.13 | 297/297 | 1.88 | 362.64 |
-| 2/2 | 15.77/15.99/16.01 | 18.61/18.64/18.64 | 217/217 | 1.90 | 454.00 |
-| 2/3 | 29.16/29.23/29.24 | 35.50/35.63/35.64 | 86/86 | 2.01 | 534.64 |
-| 100/1 | 402.55/620.16/628.66 | 509.96/551.01/562.58 | 10161.5/18883.25 | 4.57 | 1230.75 |
+At the same VUs and phase, B=median p99 of three baseline runs. Stop when >=2/3 branch p99s
+exceed max(500ms,1.5*B), any run has HTTP errors >1%, or branch completion/event counts mismatch.
+Warn when median p99 increases >20%. Thresholds use double precision. Goals at 100 VUs:
+requested-to-commit p95 <=5s; completion request median p99 increase <=20%. No further tuning
+is performed after a failed goal or stop. Report helper recomputes precise thresholds.
 
-Every run had 0% HTTP errors, completed count = event count = eligible fixture count,
-and zero unpublished fixture events at collection. At 100 VUs, counts were 100/100.
-The drain rate includes request launch, queue draining and publication observation;
-it is an end-to-end observed rate, not isolated worker CPU throughput. Polling five
-items per second makes queue latency increase under a burst; no tuning is inferred.
+## Current results
 
-The 100-VU first run exceeded the p99 stop rule. Remaining two 100-VU repetitions and
-200/1000/2000 VUs were deliberately not run. This stopping point is not a capacity limit.
-Maximum sampled PostgreSQL lock waiters was zero at 100ms sampling; this does not prove
-zero short lock waits or measure per-lock wait duration. API RSS was 388.10 MiB at 100 VUs;
-API CPU accumulated 2.547s user + 0.750s system over that burst/drain. Low-load RSS was
-420.20–425.62 MiB (ts-node process). Container-wide CPU/RAM and isolated lock-wait duration
-were not collected by this harness; these remain measurement limitations.
+Percentiles below are medians of three per-run percentiles, not pooled samples. Units: ms.
+All completed paired levels had 0% HTTP errors, checks 100% and matching branch counts.
 
-## EXPLAIN and indexes
+| VUs | Phase | Baseline p50/p95/p99 | Branch p50/p95/p99 | Median p99 change |
+|---|---|---|---|---|
+| 1 | Coverage | 51.73/51.73/51.73 | 54.03/54.03/54.03 | +4.44% |
+| 1 | Completion | 17.60/17.60/17.60 | 19.40/19.40/19.40 | +10.20% |
+| 2 | Coverage | 57.89/61.86/62.17 | 58.13/62.82/63.28 | +1.79% |
+| 2 | Completion | 17.19/18.27/18.36 | 17.98/18.62/18.68 | +1.74% |
+| 100 | Coverage | 405.31/616.98/624.36 | 403.22/580.16/584.38 | -6.40% |
+| 100 | Completion | 444.21/488.97/506.69 | 448.64/488.21/493.88 | -2.53% |
+| 200 | Coverage | 714.73/1043.60/1080.69 | 784.22/1136.23/1165.05 | +7.81% |
+| 200 | Completion | 838.64/874.34/904.26 | 929.14/1003.33/1017.75 | +12.55% |
 
-Run the same PowerShell harness with -Explain. It creates disposable fixture sets in
-a transaction, runs EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON), tests a candidate partial
-material index, and rolls back the fixtures/index. No material index was deployed.
-
-| Fixture rows | Material before/after candidate ms | Claim without/with due index ms |
+| VUs | Requested-to-commit p95, runs 1/2/3 | Completed/events each run |
 |---|---|---|
-| 1 | 0.108 / 0.050 | 0.236 / 0.229 |
-| 2000 | 0.450 / 0.409 | 1.339 / 1.841 |
+| 1 | 728/706/711 | 1/1 |
+| 2 | 731/719.70/725.85 | 2/2 |
+| 100 | 421.15/1190.15/1103.05 | 100/100 |
+| 200 | 908/1055/904.10 | 200/200 |
 
-The material candidate indexes organization/course/material, includes Lesson ID and
-filters required active materials. An earlier larger-fixture run measured 0.471/0.526ms;
-the small absolute differences and inconsistent direction do not justify another index.
-Queue comparison drops/recreates the due index inside the rolled-back test transaction.
-The due index supports ordered bounded claims; this fixture does not demonstrate a
-latency improvement. No further queue index is proposed.
-No partial outbox uniqueness index was added; row locking and terminal status are the
-business duplicate protection, with existing at-least-once consumer deduplication.
+Both 100-VU goals PASS: worst run completion p95=1.19015s; completion request median p99
+change=-2.53%. No completed level triggers the p99 stop or >20% regression warning.
 
-## Remaining boundaries
+100-VU marginal phase p95s are not additive:
 
-- Cross-service snapshot timing remains non-atomic: assessment can change after REST.
-  The supplied revision is retained but no distributed locking protocol is invented.
-- Reading UC27.3, exemption removal UC24.6, and incoming assessment/course consumers
-  are intentionally absent. Requests removed as ineligible need a later real trigger.
-- Assessment has no completion-snapshot endpoint yet. HTTP failures retain/back off
-  requests; fake mode is for tests/development only.
-- Achievement-reporting is not implemented here. One logical completion event does
-  not prove one real Certificate without the receiving service's idempotency behavior.
-- Existing seed-enrollments.ts Completed fixture has no historical snapshot; it stays
-  NULL. Production legacy data was not queried or backfilled.
+| Run | Queue | Fake assessment | Transaction including pool/commit |
+|---|---|---|---|
+| 1 | 393.05 | 0.058 | 53.08 |
+| 2 | 1172.10 | 0.032 | 20.77 |
+| 3 | 1085.05 | 0.040 | 18.70 |
+
+STOP at baseline 1000 VUs, run 1: 892/2000 failed requests (44.6%). Log reports Prisma
+P2028, unable to start a transaction in the given time. This is baseline transaction
+acquisition failure under burst load, not evidence of completion-worker failure. Branch
+1000, remaining 1000 repetitions and 2000 were not started. No tuning followed the stop;
+1000 VUs is not declared a capacity limit.
+
+## Short history and boundaries
+
+The old worker slept one second after every batch, even when full. A 100-request burst
+drained at about 4.8/s, with completion p95 about 18.9s. Diagnosis found queue waiting
+dominated; fake assessment p95 <0.1ms and transactions took tens of ms. Its previous stop
+rule compared 100 VUs against 2 VUs and is superseded by the paired rule above.
+
+Earlier EXPLAIN experiments used 1/2000-row fixtures and rolled back all fixture/index DDL.
+The candidate material index showed no consistent benefit; none was added. This change
+adds no schema or outbox uniqueness index. Legacy Completed seed rows retain NULL snapshots.
+
+Assessment completion REST, Reading, exemption removal and incoming assessment/course
+consumers remain pending. Fake results do not validate real assessment behavior or latency.
+Cross-service snapshot timing remains non-atomic. Certificate issuance/idempotency belongs
+to the receiving service and is outside this work.

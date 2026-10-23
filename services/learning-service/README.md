@@ -51,11 +51,36 @@ authentication and organization scope, never a fabricated Learner principal.
 
 COMPLETION_WORKER_ENABLED defaults true (tests explicitly disable it). Defaults:
 COMPLETION_POLL_MS=1000, COMPLETION_BATCH_SIZE=5, COMPLETION_LEASE_MS=30000,
+COMPLETION_CONCURRENCY=5,
 COMPLETION_TRANSACTION_MS=5000, COMPLETION_BACKOFF_MS=1000,
 COMPLETION_BACKOFF_MAX_MS=300000, ASSESSMENT_COMPLETION_TIMEOUT_MS=3000.
 The 30-second lease leaves room beyond the 3-second HTTP timeout, 5-second transaction
 budget and 1-second scheduling margin. Startup requires lease > HTTP timeout + transaction
 budget + 1000 ms even if the worker is disabled. These are operational defaults, not BRs.
+
+Full claim waves drain immediately after setImmediate yields; only partial/empty waves
+sleep COMPLETION_POLL_MS. Claims are capped at min(batch size, concurrency), with no
+internally waiting leased items. Each wave finishes before the next claim or queue metric
+query; worker database operations therefore never exceed concurrency. Backoff eligibility
+still controls failed items, so a failure cannot force immediate reassessment in the drain loop.
+
+The existing API/relay pool remains capped at 10 connections (the previous pg-pool default).
+The worker owns a separate pool capped at COMPLETION_CONCURRENCY, default 5, reserving the
+original API capacity. Five preserves the established evaluation parallelism while removing
+the one-second gap. Total learning connection budget is now 15 per API process by default;
+replica counts and other services must fit PostgreSQL capacity. This reserves connection
+capacity, not a guarantee of API throughput against shared DB CPU/I/O.
+
+perf/learning/course-completion-paired.ps1 runs A-B-A-B-A-B at each VU level, using an
+unchanged 52cfbc0 archive and identical fixture IDs per pair. Supply -BaselineRoot and
+reuse installed dependencies/generated client; no install or migration is performed.
+COMPLETION_PERF_PHASES defaults off; true enables harness-only requested/claim/client/commit
+probes with raw traces under ignored results. No production logger/probe is installed.
+Compare both coverage and completion Video phases at the same VUs: B is the median of
+three baseline p99s; stop if at least two of three branch p99s exceed max(500ms,1.5*B).
+Also stop on HTTP errors >1% or incorrect Completed/event counts. Warn when median p99
+increases >20%. k6 and service share the same host. Small finite bursts are not steady-state
+capacity measurements, and probe overhead is part of the instrumented branch measurement.
 
 ASSESSMENT_COMPLETION_CLIENT_MODE defaults http. Its endpoint is not yet implemented
 in assessment; until supplied, errors retain requests with bounded exponential backoff.

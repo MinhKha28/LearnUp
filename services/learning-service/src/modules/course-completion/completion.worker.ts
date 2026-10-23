@@ -42,8 +42,14 @@ export class CompletionWorker
     return this.running;
   }
   private async run() {
-    const requests = await this.repository.claim();
-    await Promise.all(requests.map((r) => this.service.evaluate(r)));
+    const limit = Math.min(this.config.batchSize, this.config.concurrency);
+    do {
+      const requests = await this.repository.claim(limit);
+      await Promise.all(requests.map((r) => this.service.evaluate(r)));
+      if (this.stopped || requests.length < limit) break;
+      // Yield between full waves; never lease work before an evaluation slot exists.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    } while (!this.stopped);
     const metrics = await this.repository.metrics();
     this.logger.log(
       JSON.stringify({
