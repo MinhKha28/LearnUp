@@ -297,6 +297,7 @@ services:
       TENANT_FAKE_TIMEZONE: Asia/Ho_Chi_Minh
       ASSESSMENT_CLIENT_MODE: http
       ASSESSMENT_SERVICE_URL: http://assessment-service:8086
+      VIDEO_PLAYBACK_MODE: course
     depends_on:
       postgres:
         condition: service_healthy

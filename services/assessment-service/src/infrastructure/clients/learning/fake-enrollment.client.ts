@@ -27,6 +27,11 @@ export class FakeEnrollmentClient extends EnrollmentClient {
       enrollmentId: fakeEnrollmentId(user.userId, courseId),
     });
   }
+
+  /** DỮ LIỆU GIẢ: không có learning-service nên không báo đi đâu. Chuyển sang thật: ENROLLMENT_CLIENT_MODE=http. */
+  reportLearningActivity(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 /** UUID ổn định tính từ (Learner, Course); đủ để dùng làm khóa trong completed_enrollments khi thử. */

@@ -107,6 +107,9 @@ function build(over: Partial<World> = {}) {
   } as unknown as LearnerAssessmentsRepository;
 
   class StubEnrollments extends EnrollmentClient {
+    reportLearningActivity(): Promise<void> {
+      return Promise.resolve();
+    }
     findEnrollment(courseId: string): Promise<EnrolledCourse | null> {
       return Promise.resolve(
         world.enrolled ? { courseId, enrollmentId: ENROLLMENT } : null,

@@ -4,6 +4,7 @@ import { CourseServiceClient } from '../../infrastructure/clients/course/course-
 import { EnrollmentClient } from '../../infrastructure/clients/learning/enrollment.client';
 import {
   attemptStateOf,
+  isEnrollmentCompleted,
   requireEnrollment,
   requireLearner,
 } from '../learner-submissions/learner-access';
@@ -53,7 +54,7 @@ export class LearnerAssessmentsService {
     );
     const [rows, readOnly, moduleOrder] = await Promise.all([
       this.repository.findAssessments(organizationId, courseId),
-      this.repository.isEnrollmentCompleted(enrollment.enrollmentId),
+      isEnrollmentCompleted(enrollment, this.repository),
       this.moduleOrder(user, courseId),
     ]);
 

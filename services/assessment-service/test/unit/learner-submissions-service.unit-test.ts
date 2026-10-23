@@ -199,10 +199,29 @@ function build(over: Partial<World> = {}) {
 
   class StubEnrollments extends EnrollmentClient {
     enrolled = true;
+    /** The status Learning Service says; undefined = it sends none (an older one). */
+    status: string | undefined = undefined;
+    /** What Learning Service was told about the learning activity. */
+    reported: { enrollmentId: string; occurredAt: Date }[] = [];
+    failReport = false;
     findEnrollment(courseId: string): Promise<EnrolledCourse | null> {
       return Promise.resolve(
-        this.enrolled ? { courseId, enrollmentId: ENROLLMENT } : null,
+        this.enrolled
+          ? {
+              courseId,
+              enrollmentId: ENROLLMENT,
+              ...(this.status === undefined ? {} : { status: this.status }),
+            }
+          : null,
       );
+    }
+    reportLearningActivity(
+      enrollmentId: string,
+      occurredAt: Date,
+    ): Promise<void> {
+      if (this.failReport) return Promise.reject(new Error('learning is down'));
+      this.reported.push({ enrollmentId, occurredAt });
+      return Promise.resolve();
     }
   }
   const enrollments = new StubEnrollments();
@@ -748,5 +767,51 @@ describe('resubmit (UC30.1)', () => {
       .resubmission;
     assert.equal(closed?.placement, 'INSTRUCTOR');
     assert.equal(closed?.cycleClosesAt, null);
+  });
+});
+
+describe('the first activity starts the Enrollment (BR-119)', () => {
+  let ctx: ReturnType<typeof build>;
+  beforeEach(() => {
+    ctx = build();
+  });
+
+  test('a submission tells Learning Service, once it is saved, with the time of the submission', async () => {
+    const r = await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    assert.equal(ctx.enrollments.reported.length, 1);
+    assert.equal(ctx.enrollments.reported[0].enrollmentId, ENROLLMENT);
+    assert.equal(
+      ctx.enrollments.reported[0].occurredAt.toISOString(),
+      r.submittedAt,
+    );
+  });
+
+  test('a resubmission tells it too (UC30.1), and nothing is told for a refused submission', async () => {
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    await ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'y' });
+    assert.equal(ctx.enrollments.reported.length, 2);
+    await assert.rejects(() =>
+      ctx.service.submit(learner(), ASSIGNMENT, { content: '  ' }),
+    );
+    assert.equal(ctx.enrollments.reported.length, 2);
+  });
+
+  test('when Learning Service already says the Enrollment has started, nothing is sent', async () => {
+    ctx.enrollments.status = 'InProgress';
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    assert.equal(ctx.enrollments.reported.length, 0);
+  });
+
+  test('when it says NotStarted, it is told', async () => {
+    ctx.enrollments.status = 'NotStarted';
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    assert.equal(ctx.enrollments.reported.length, 1);
+  });
+
+  test('a Learning Service that is down does not fail the submission, and the work is saved', async () => {
+    ctx.enrollments.failReport = true;
+    const r = await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    assert.equal(r.submissionNumber, 1);
+    assert.equal(ctx.world.submissions.length, 1);
   });
 });

@@ -23,6 +23,8 @@ describe('HttpEnrollmentClient', () => {
   let baseUrl: string;
   let mode: 'ok' | '500' | 'hang' = 'ok';
   let seen: { url?: string; headers?: IncomingHttpHeaders } = {};
+  /** What the answer carries as status; undefined = no status in the answer. */
+  let status: unknown;
 
   before(async () => {
     server = createServer((req, res) => {
@@ -34,7 +36,13 @@ describe('HttpEnrollmentClient', () => {
         JSON.stringify({
           statusCode: 200,
           message: 'ok',
-          data: [{ courseId: COURSE, enrollmentId: ENROLLMENT }],
+          data: [
+            {
+              courseId: COURSE,
+              enrollmentId: ENROLLMENT,
+              ...(status === undefined ? {} : { status }),
+            },
+          ],
         }),
       );
     });
@@ -63,6 +71,63 @@ describe('HttpEnrollmentClient', () => {
     assert.equal(seen.headers?.['x-internal-key'], 'secret');
     assert.equal(seen.headers?.['x-user-id'], learner.userId);
     assert.equal(seen.headers?.['x-user-role'], 'LEARNER');
+  });
+
+  test('the status of the Enrollment comes through when Learning Service sends one (BR-169)', async () => {
+    mode = 'ok';
+    status = 'Completed';
+    assert.deepEqual(await client().findEnrollment(COURSE, learner), {
+      courseId: COURSE,
+      enrollmentId: ENROLLMENT,
+      status: 'Completed',
+    });
+    status = undefined;
+  });
+
+  test('a status that is not a string is left out, so it is never trusted', async () => {
+    mode = 'ok';
+    for (const odd of [null, 7, { x: 1 }, true]) {
+      status = odd;
+      const found = await client().findEnrollment(COURSE, learner);
+      assert.deepEqual(found, { courseId: COURSE, enrollmentId: ENROLLMENT });
+    }
+    status = undefined;
+  });
+
+  test('reportLearningActivity posts the time with the internal key and the Learner identity (BR-119)', async () => {
+    mode = 'ok';
+    let body = '';
+    server.once('request', (req) => {
+      req.on('data', (chunk: Buffer) => (body += chunk.toString()));
+    });
+    const at = new Date('2026-10-18T03:00:00Z');
+    await client().reportLearningActivity(ENROLLMENT, at, learner);
+    assert.equal(
+      seen.url,
+      `/api/v1/internal/enrollments/${ENROLLMENT}/learning-activity`,
+    );
+    assert.equal(seen.headers?.['x-internal-key'], 'secret');
+    assert.equal(seen.headers?.['x-user-id'], learner.userId);
+    assert.deepEqual(JSON.parse(body), { occurredAt: at.toISOString() });
+  });
+
+  test('reportLearningActivity: an error answer or no answer is a 503 (LEARNING_SERVICE_UNAVAILABLE)', async () => {
+    mode = '500';
+    await rejectsWith(
+      client().reportLearningActivity(ENROLLMENT, new Date(), learner),
+      ServiceUnavailableException,
+      'LEARNING_SERVICE_UNAVAILABLE',
+    );
+    mode = 'ok';
+    await rejectsWith(
+      client('http://127.0.0.1:1').reportLearningActivity(
+        ENROLLMENT,
+        new Date(),
+        learner,
+      ),
+      ServiceUnavailableException,
+      'LEARNING_SERVICE_UNAVAILABLE',
+    );
   });
 
   test('a Course the Learner is not enrolled in gives null', async () => {
@@ -103,5 +168,9 @@ describe('FakeEnrollmentClient', () => {
       a?.enrollmentId,
     );
     assert.match(a.enrollmentId, /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/);
+  });
+
+  test('it tells nobody about the activity and does not fail', async () => {
+    await new FakeEnrollmentClient().reportLearningActivity();
   });
 });

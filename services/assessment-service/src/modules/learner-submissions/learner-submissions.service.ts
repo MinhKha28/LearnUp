@@ -14,7 +14,10 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Prisma } from 'generated/prisma/client';
-import { EnrollmentClient } from '../../infrastructure/clients/learning/enrollment.client';
+import {
+  type EnrolledCourse,
+  EnrollmentClient,
+} from '../../infrastructure/clients/learning/enrollment.client';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
 import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import type {
@@ -43,6 +46,7 @@ import {
 } from './learner-submissions.repository';
 import {
   attemptStateOf,
+  isEnrollmentCompleted,
   lockExpired,
   requireEnrollment,
   requireLearner,
@@ -109,7 +113,7 @@ export class LearnerSubmissionsService {
     const [state, latest, completed] = await Promise.all([
       this.repository.findState(assignment.id, user.userId),
       this.repository.findLatestSubmission(assignment.id, user.userId),
-      this.repository.isEnrollmentCompleted(enrollment.enrollmentId),
+      isEnrollmentCompleted(enrollment, this.repository),
     ]);
     const now = this.clock();
     let resubmission: ILearnerAssignment['resubmission'] = null;
@@ -304,7 +308,7 @@ export class LearnerSubmissionsService {
       assignment.courseId,
     );
     // BR-169: a Completed Enrollment is read-only.
-    if (await this.repository.isEnrollmentCompleted(enrollment.enrollmentId)) {
+    if (await isEnrollmentCompleted(enrollment, this.repository)) {
       throw new ConflictException({
         code: 'ENROLLMENT_COMPLETED',
         message:
@@ -323,8 +327,9 @@ export class LearnerSubmissionsService {
       ? await this.storeFile(organizationId, assignment.id, file)
       : null;
 
+    let receipt: ISubmissionReceipt;
     try {
-      return await this.repository.transaction(async (tx) => {
+      receipt = await this.repository.transaction(async (tx) => {
         // One request at a time per Learner and Assignment, so the counters of BR-176 cannot be skipped.
         await this.repository.lock(tx, `${assignment.id}:${user.userId}`);
         const now = this.clock();
@@ -429,6 +434,35 @@ export class LearnerSubmissionsService {
       // The row was not saved, so the uploaded file belongs to nobody.
       if (stored) await this.removeFile(stored.storageKey);
       throw error;
+    }
+    await this.reportLearningActivity(user, enrollment, receipt.submittedAt);
+    return receipt;
+  }
+
+  /**
+   * BR-119: a submission is the first learning data of a Learner in the Course, so a NotStarted Enrollment becomes InProgress.
+   * Learning Service owns the status, so it is told after the commit. It never fails the submission: the work is saved
+   * either way, and the next submission tells it again (learning-service changes nothing once the Enrollment has started).
+   * An answer of Learning Service that already says the Enrollment has started needs no call.
+   */
+  private async reportLearningActivity(
+    user: CurrentUser,
+    enrollment: EnrolledCourse,
+    submittedAt: string,
+  ) {
+    if (enrollment.status !== undefined && enrollment.status !== 'NotStarted') {
+      return;
+    }
+    try {
+      await this.enrollments.reportLearningActivity(
+        enrollment.enrollmentId,
+        new Date(submittedAt),
+        user,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Learning Service was not told the activity of the Enrollment ${enrollment.enrollmentId}: ${String(error)}`,
+      );
     }
   }
 

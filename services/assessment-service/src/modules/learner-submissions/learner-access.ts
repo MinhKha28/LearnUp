@@ -62,3 +62,21 @@ export function attemptStateOf(
     lockedUntil: locked ? state.lockedUntil!.toISOString() : null,
   };
 }
+
+/** The Enrollment status that makes every Quiz and Assignment of the Course read-only (BR-169). */
+export const ENROLLMENT_COMPLETED = 'Completed';
+
+/**
+ * BR-169: has the Enrollment reached Completed? Learning Service is the owner of the status, so when its answer
+ * carries one, that is the answer. An answer without a status (an older learning-service) falls back to the table of
+ * Completed Enrollments of this service.
+ */
+export async function isEnrollmentCompleted(
+  enrollment: EnrolledCourse,
+  completedTable: { isEnrollmentCompleted(enrollmentId: string): Promise<boolean> },
+): Promise<boolean> {
+  if (enrollment.status !== undefined) {
+    return enrollment.status === ENROLLMENT_COMPLETED;
+  }
+  return completedTable.isEnrollmentCompleted(enrollment.enrollmentId);
+}
