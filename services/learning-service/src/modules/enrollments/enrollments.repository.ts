@@ -25,6 +25,7 @@ export interface MyEnrollmentRow {
 
 /** Course Learner đã đăng ký kèm Enrollment, để mở UC27 từ UC25/UC25.1 (D20, D48). */
 export interface EnrolledCourseRef {
+  status: string;
   courseId: string;
   enrollmentId: string;
 }
@@ -63,6 +64,18 @@ export class EnrollmentsRepository extends BaseRepository {
     return enrollment?.id ?? null;
   }
 
+  /** BR-163: unique Learner/Course version, restricted to the trusted organization. */
+  findAssessmentAccess(
+    learnerId: string,
+    courseId: string,
+    organizationId: string,
+  ) {
+    return this.db().enrollment.findUnique({
+      where: { learnerId_courseId: { learnerId, courseId }, organizationId },
+      select: { id: true, status: true },
+    });
+  }
+
   async create(
     data: Prisma.EnrollmentUncheckedCreateInput,
     tx: Prisma.TransactionClient,
@@ -90,12 +103,13 @@ export class EnrollmentsRepository extends BaseRepository {
   ): Promise<EnrolledCourseRef[]> {
     const rows = await this.db(tx).enrollment.findMany({
       where: { learnerId, organizationId, status: { not: 'Withdrawn' } },
-      select: { id: true, courseId: true },
+      select: { id: true, courseId: true, status: true },
       orderBy: { courseId: 'asc' },
     });
     return rows.map((row) => ({
       courseId: row.courseId,
       enrollmentId: row.id,
+      status: row.status,
     }));
   }
 

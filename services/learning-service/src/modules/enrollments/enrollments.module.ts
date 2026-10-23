@@ -1,3 +1,5 @@
+import { AssessmentAccessController } from './assessment-access.controller';
+import { AssessmentAccessService } from './assessment-access.service';
 import { Module } from '@nestjs/common';
 import { LearnerEnrollmentSummaryController } from './learner-enrollment-summary.controller';
 import { LearnerEnrollmentSummaryService } from './learner-enrollment-summary.service';
@@ -56,8 +58,13 @@ class EnrollmentRateLimitStorageModule {}
     PlatformSettingsModule,
     CourseSnapshotsModule,
   ],
-  controllers: [EnrollmentsController, LearnerEnrollmentSummaryController],
+  controllers: [
+    AssessmentAccessController,
+    EnrollmentsController,
+    LearnerEnrollmentSummaryController,
+  ],
   providers: [
+    AssessmentAccessService,
     LearnerEnrollmentSummaryService,
     LearnerEnrollmentSummaryRepository,
     EnrollmentsService,
