@@ -21,3 +21,5 @@ import './video-progress.unit-test';
 import './video-resume.unit-test';
 import './withdrawal-demo-seed.unit-test';
 import './outbox-relay.unit-test';
+
+import './assessment-access.unit-test';
