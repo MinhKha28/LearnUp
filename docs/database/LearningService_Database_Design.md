@@ -1,6 +1,6 @@
 # Thiết kế database learning-service (`learning_db`)
 
-Trạng thái: thiết kế nền **10 bảng**; UC27.2 đã bổ sung migration `20261022000000_video_resume_position` (chi tiết mục 3.3 và 7).
+Trạng thái: **11 bảng** sau Bước 1 xét hoàn thành Course; hàng đợi và snapshot mô tả tại mục 11. UC27.2 có migration `20261022000000_video_resume_position`.
 Các dẫn chiếu UC27.2 dùng số mới: BR-140 (cũ BR-307), BR-184 (cũ BR-309), BR-182 (cũ BR-339), BR-181 (cũ BR-299). Những tham chiếu khác vẫn theo bản thiết kế lịch sử, chưa chuyển đổi toàn bộ số BR.
 
 Nguồn nghiệp vụ: `LearnUP_QuyTacNghiepVu.docx` (đến BR-336), `LearnUP_UseCase.docx` (167 UC), `LearnUP_Service_Architecture.docx`.
@@ -284,9 +284,9 @@ Cấu trúc chuẩn ở quy ước mục 5. `aggregate_type` = `Enrollment`, `ag
 
 ### 4.2 Hoàn thành
 
-1. **Transaction 1:** ghi `completed_at` học liệu; nếu NotStarted thì gán `first_activity_at` và chuyển InProgress. Commit.
-2. **Ngoài transaction:** nếu mọi học liệu bắt buộc còn hoạt động đã xong, REST assessment-service lấy điều kiện và bản chốt điểm. Không gọi mạng khi đang giữ khóa.
-3. **Transaction 2:** `SELECT … FOR UPDATE` Enrollment, kiểm lại trạng thái, chuyển Completed, tính `completed_late`, ghi `EnrollmentCompleted` kèm bản chốt điểm vào outbox.
+1. **Transaction trigger:** ghi tiến trình và yêu cầu xét bền vững cùng transaction; lần đầu học liệu hoàn thành kích hoạt NotStarted → InProgress (BR-140).
+2. **Worker:** nhận yêu cầu bằng lease/generation, kiểm học liệu cục bộ rồi gọi assessment ngoài transaction. Lỗi giữ yêu cầu và backoff; trigger mới cho chạy ngay.
+3. **Transaction hoàn thành:** khóa Enrollment và request, kiểm lại generation/trạng thái/học liệu/Course; đóng Exempted, tính lại hạn, ghi Completed + completion_snapshot + EnrollmentCompleted outbox + DELETE có điều kiện. Chi tiết mục 11.
 
 Các nguồn kích hoạt xét lại: học liệu hoàn thành; event assessment-service báo tình trạng thay đổi; `ContentDisabled` (BR-310, REST theo lô); gỡ Exempted; khôi phục Halted.
 
@@ -380,7 +380,7 @@ Quy tắc tính (phải khớp nhau để bên gọi kiểm tổng):
 |---|---|---|---|
 | `EnrollmentAssigned` | notification | BR-118, UC24.2 | 1 |
 | `DeadlineExtended` | notification, audit | UC24.3, BR-139, BR-270 | 1 |
-| `EnrollmentCompleted`: `enrollmentId`, `organizationId`, `learnerId`, `courseId`, `completedAt`, `completedLate` (boolean; Optional gửi `false`), `scoreSnapshot` (mảng, nguyên văn kết quả REST điều kiện của assessment-service), `occurredAt`. Key Kafka = `enrollmentId` | achievement-reporting (Certificate, phiếu đánh giá), assessment (chỉ đọc) | BR-169, BR-213, BR-215, BR-219, BR-326 | 1 |
+| `EnrollmentCompleted`: `enrollmentId`, `organizationId`, `learnerId`, `courseId`, `enrollmentType`, `completedAt`, `dueAt`, `completedLate` (Optional gửi `false`), `scoreSnapshot` (object schemaVersion 1 đã validate), `occurredAt`. Topic chung, key `enrollmentId` | achievement-reporting; assessment cần tích hợp chỉ đọc | BR-210, BR-262, BR-265, BR-269, BR-271 | 1 |
 | `EnrollmentExempted`, `ExemptionRemoved` | notification, audit | BR-120, BR-123, BR-270, BR-271 | 2 |
 | `EnrollmentRestored`, `HaltedEnrollmentClosed` | notification | BR-250, BR-303, UC24.8 | 2 |
 
@@ -392,7 +392,7 @@ Quy tắc tính (phải khớp nhau để bên gọi kiểm tổng):
 |---|---|
 | Relay outbox (~1 giây), xóa dòng đã gửi sau 7 ngày | Quy ước mục 5 |
 
-Không có việc nghiệp vụ nào: Overdue tính lúc đọc (kiến trúc mục 7 đã bỏ dòng Learning).
+Overdue vẫn tính lúc đọc. Worker xét hoàn thành chạy theo hàng đợi bền vững, không quét toàn bộ Enrollment: poll mặc định 1 giây, batch 5, lease 30 giây; đây là bổ sung có chủ đích cho Bước 1.
 
 ---
 
@@ -420,7 +420,7 @@ Cập nhật UC27.2 ngày 22/10/2026: vị trí xem dở đã được triển k
 | Bản sao Quiz, Assignment | assessment-service tự loại thành phần bị vô hiệu hóa | Thêm bảng |
 | Trạng thái Published/Archived trong bản sao | REST gắn Locked kiểm mỗi lần | Thêm cột + event |
 | Dò bản sao lệch định kỳ | Event bị sót thì lệch mà không biết | Thêm việc chạy theo lịch so cây |
-| Bảng lưu bản chốt điểm | Bản chốt nằm trong Certificate | Thêm bảng; bản cũ không lấy lại được ở đây |
+| Bảng điểm assessment cục bộ | Learning chỉ lưu JSONB completion_snapshot bất biến khi Completed; không sao chép bảng điểm hiện hành | Bản cũ Completed có thể NULL snapshot |
 | Lý do tạm khóa tổ chức | — | Thêm cột |
 | Lịch sử vô hiệu hóa tài khoản | Không trả lời "tại ngày X có bị vô hiệu hóa không" | Thêm bảng khoảng |
 | Bản sao trạng thái Subscription | REST lúc tạo Enrollment | Thêm bảng + nhận event |
@@ -495,4 +495,27 @@ dbdiagram lưu vị trí bảng trong sơ đồ trên web, **không** lưu trong
 - **Thử thực nghiệm giới hạn 500 Learner mỗi lần phân công; xét nâng lên 1000 nếu đạt** (đo thời gian transaction và kích thước request).
 - UC24, UC24.1 hiển thị nhãn "Tài khoản chưa kích hoạt" (REST tenant-service theo lô).
 - Hợp đồng với course-service, assessment-service, achievement-reporting-service: **đã chốt** (mục 5.3, 5.4, 5.4A, 5.5).
-- **Topic `EnrollmentCompleted` giữ message 30 ngày** (cấu hình Kafka, mặc định 7 ngày). learning-service không lưu bản chốt điểm (mục 7), dòng outbox xóa sau 7 ngày, nên message trên Kafka là bản gốc duy nhất trước khi Certificate được tạo. Bên nhận bị sót (lỗi code, dừng lâu) khôi phục bằng cách **đặt lại offset** của consumer group về trước thời điểm sót rồi đọc lại; mọi bên nhận chịu trùng nên đọc lại an toàn. 30 ngày đủ rộng so với cảnh báo độ trễ consumer của achievement-reporting-service (1 giờ).
+- **Topic chung `learnup.learning.enrollment-events` giữ message 30 ngày.** Outbox đã gửi được xóa sau 7 ngày. Learning nay lưu snapshot bất biến trong `enrollments.completion_snapshot`; bên nhận có thể replay Kafka trong retention. API phục hồi từ snapshot lưu cục bộ chưa thuộc Bước 1.
+
+## 11. Bổ sung xét hoàn thành Course Bước 1
+
+`enrollments.completion_snapshot` JSONB nullable lưu nguyên bản response đã validate (BR-269).
+Dữ liệu Completed cũ và seed chưa có snapshot được giữ nguyên; không suy diễn điểm quá khứ.
+
+Bảng thứ 11: `completion_evaluation_requests`. Cột: id UUID; organization_id/enrollment_id UUID
+với FK kép CASCADE tới Enrollment; UNIQUE enrollment_id; source text CHECK một trong
+VIDEO_COMPLETED, ASSIGNMENT_CONVERT, ASSIGNMENT_RESTORE, OPTIONAL_RESTORE; requested_at,
+next_attempt_at, created_at, updated_at timestamptz; attempts/generation bigint không âm;
+last_error text nullable với allowlist mã lỗi cố định. Không đặt giới hạn varchar tùy ý.
+Index `(next_attempt_at,id)` phục vụ polling; chưa thêm index học liệu khi chưa có bằng chứng đo.
+
+Trigger ghi cùng transaction, tăng generation khi xung đột, giữ attempts và cho chạy ngay.
+Worker nhận việc bằng SKIP LOCKED trong transaction ngắn, tăng generation và đặt hạn lease.
+REST assessment nằm ngoài transaction. Transaction cuối khóa Enrollment rồi request,
+kiểm generation/trạng thái/học liệu/Course, loại tập điều kiện rỗng (BR-303), đóng Exempted,
+tính lại hạn từ hợp các khoảng đã đóng, ghi Completed + snapshot + outbox và DELETE có điều kiện
+generation. Retry cũng có điều kiện generation; không xóa khi lỗi. Worker chết được nhận lại
+khi lease hết. Snapshot lệch thời điểm xuyên service vẫn là giới hạn chưa giải quyết.
+
+Event dùng completedLate, không dùng isLate; Optional gửi false và dueAt null. Các điểm Reading,
+gỡ Exempted và consumer assessment/course chưa được triển khai trong Bước 1.
