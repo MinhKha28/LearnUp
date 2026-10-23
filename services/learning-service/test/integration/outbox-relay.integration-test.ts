@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
@@ -296,5 +297,119 @@ test(
       [1, 2],
     );
     await clear();
+  },
+);
+
+test(
+  'API cold-starts without Kafka and its scheduled relay creates the topic after recovery',
+  {
+    skip: !enabled || process.env.OUTBOX_KAFKA_CHAOS !== 'true',
+    timeout: 90000,
+  },
+  async () => {
+    const container = process.env.OUTBOX_TEST_KAFKA_CONTAINER;
+    if (!container || !/^[a-zA-Z0-9_.-]+$/.test(container))
+      throw new Error('Explicit test Kafka container required');
+    const topic = `learnup.learning.cold-${randomUUID()}`;
+    let brokerWarned = false;
+    const originalWarn = Logger.prototype.warn;
+    Logger.prototype.warn = (...args: unknown[]) => {
+      if (args[0] === 'OUTBOX_BROKER_UNAVAILABLE: relay will retry')
+        brokerWarned = true;
+    };
+    const previous = {
+      enabled: process.env.OUTBOX_RELAY_ENABLED,
+      topic: process.env.OUTBOX_TOPIC,
+    };
+    let app: NestExpressApplication | undefined;
+    const admin = kafka.admin();
+    const reader = kafka.consumer({
+      kafkaJS: { groupId: `cold-${randomUUID()}`, fromBeginning: true },
+    });
+    let adminConnected = false,
+      readerConnected = false;
+    try {
+      await clear();
+      execFileSync('docker', ['stop', container], { stdio: 'ignore' });
+      process.env.OUTBOX_RELAY_ENABLED = 'true';
+      process.env.OUTBOX_TOPIC = topic;
+      const start = performance.now();
+      app = await NestFactory.create<NestExpressApplication>(AppModule, {
+        logger: false,
+        abortOnError: false,
+      });
+      configureApp(app);
+      await app.listen(0, '127.0.0.1');
+      const aggregate = randomUUID();
+      await insert(10000, aggregate, 7);
+      const response = await fetch(
+        `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}/api/v1/enrollments/me/course-ids`,
+        {
+          headers: {
+            'x-internal-key': process.env.INTERNAL_SERVICE_KEY!,
+            'x-user-id': randomUUID(),
+            'x-user-role': 'LEARNER',
+            'x-organization-id': org,
+          },
+        },
+      );
+      assert.equal(response.status, 200);
+      assert.ok(performance.now() - start < 5000);
+      await waitFor(() => brokerWarned, 45000);
+      const pending = await prisma.$queryRaw<
+        { attempts: number; published_at: Date | null }[]
+      >`SELECT attempts,published_at FROM outbox_events WHERE id=${id(10000)}::uuid`;
+      assert.equal(pending[0].attempts, 0);
+      assert.equal(pending[0].published_at, null);
+      execFileSync('docker', ['start', container], { stdio: 'ignore' });
+      await admin.connect();
+      adminConnected = true;
+      await waitFor(async () => {
+        try {
+          return (await admin.listTopics({ timeout: 1000 })).includes(topic);
+        } catch {
+          return false;
+        }
+      }, 40000);
+      let observed: { key: string; eventId: string } | undefined;
+      await reader.connect();
+      readerConnected = true;
+      await reader.subscribe({ topics: [topic] });
+      await reader.run({
+        eachMessage: async ({ message }) => {
+          const body = JSON.parse(message.value!.toString());
+          if (body.eventId === id(10000))
+            observed = { key: message.key!.toString(), eventId: body.eventId };
+        },
+      });
+      await waitFor(() => !!observed);
+      assert.equal(observed!.key, aggregate);
+      await waitFor(
+        async () =>
+          (
+            await prisma.$queryRaw<
+              { published_at: Date | null }[]
+            >`SELECT published_at FROM outbox_events WHERE id=${id(10000)}::uuid`
+          )[0].published_at !== null,
+      );
+      console.log(
+        'L6 cold start: HTTP 200 without Kafka; scheduled relay created topic and delivered after recovery',
+      );
+    } finally {
+      execFileSync('docker', ['start', container], { stdio: 'ignore' });
+      await app?.close();
+      if (readerConnected) await reader.disconnect();
+      if (adminConnected) {
+        await admin.deleteTopics({ topics: [topic] }).catch(() => {});
+        await admin.disconnect();
+      }
+      Logger.prototype.warn = originalWarn;
+      if (previous.enabled === undefined)
+        delete process.env.OUTBOX_RELAY_ENABLED;
+      else process.env.OUTBOX_RELAY_ENABLED = previous.enabled;
+      if (previous.topic === undefined) delete process.env.OUTBOX_TOPIC;
+      else process.env.OUTBOX_TOPIC = previous.topic;
+      await clear();
+    }
   },
 );

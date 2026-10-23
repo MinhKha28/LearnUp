@@ -16,6 +16,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
   private timer?: ReturnType<typeof setTimeout>;
   private running?: Promise<void>;
   private stopped = false;
+  private brokerUnavailable = false;
   private cleanupTimer?: ReturnType<typeof setTimeout>;
   private cleaning?: Promise<void>;
   constructor(
@@ -68,7 +69,13 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
       this.logger.error(`OUTBOX_RETRY_ALERT eventId=${row.id} code=${code}`);
   }
   private async run(): Promise<void> {
-    if (!(await this.producer.ready())) return;
+    if (!(await this.producer.ready())) {
+      if (!this.brokerUnavailable)
+        this.logger.warn('OUTBOX_BROKER_UNAVAILABLE: relay will retry');
+      this.brokerUnavailable = true;
+      return;
+    }
+    this.brokerUnavailable = false;
     await this.repository.transaction(async (tx, rows) => {
       if (!rows.length) return;
       try {

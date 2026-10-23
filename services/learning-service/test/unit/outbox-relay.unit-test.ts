@@ -2,7 +2,7 @@ import type { PrismaService } from '../../src/infrastructure/prisma/prisma.servi
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Logger } from '@nestjs/common';
-import { CODES } from '@confluentinc/kafka-javascript';
+import { CODES, KafkaJS } from '@confluentinc/kafka-javascript';
 import {
   readRelayConfig,
   retryDelay,
@@ -256,5 +256,76 @@ test('repository redacts after ACK in the publication transaction', async () => 
     assert.ok(calls[0].includes(JSON.stringify({ enrollmentId: 'fixture' })));
   } finally {
     delete (secretFields as Record<string, unknown>).SyntheticSecret;
+  }
+});
+
+test('broker unavailability warns once per outage and keeps retrying', async () => {
+  const logs: unknown[][] = [],
+    original = Logger.prototype.warn;
+  Logger.prototype.warn = (...args: unknown[]) => {
+    logs.push(args);
+  };
+  try {
+    const f = fixture(async () => {});
+    let available = false,
+      probes = 0;
+    f.producer.ready = async () => {
+      probes++;
+      return available;
+    };
+    await f.relay.tick();
+    await f.relay.tick();
+    assert.equal(logs.length, 1);
+    assert.equal(probes, 2);
+    assert.equal(f.transactions(), 0);
+    assert.deepEqual(logs[0], ['OUTBOX_BROKER_UNAVAILABLE: relay will retry']);
+    available = true;
+    await f.relay.tick();
+    assert.equal(f.published.length, 2);
+    available = false;
+    await f.relay.tick();
+    assert.equal(logs.length, 2);
+  } finally {
+    Logger.prototype.warn = original;
+  }
+});
+
+test('producer replaces failed initial clients before trying to connect again', async () => {
+  const proto = KafkaJS.Kafka.prototype;
+  const originalAdmin = proto.admin,
+    originalProducer = proto.producer;
+  let admins = 0,
+    disconnected = 0;
+  proto.admin = () => {
+    const fail = ++admins === 1;
+    return {
+      connect: async () => {
+        if (fail) throw { code: -195 };
+      },
+      disconnect: async () => {
+        disconnected++;
+      },
+      listTopics: async () => [],
+      createTopics: async () => true,
+    } as unknown as KafkaJS.Admin;
+  };
+  proto.producer = <K, V>() =>
+    ({
+      connect: async () => {},
+      disconnect: async () => {
+        disconnected++;
+      },
+    }) as unknown as KafkaJS.Producer<K, V>;
+  try {
+    const producer = new RelayProducer(config);
+    assert.equal(await producer.ready(), false);
+    assert.equal(admins, 2);
+    assert.equal(disconnected, 2);
+    assert.equal(await producer.ready(), true);
+    await producer.close();
+    assert.equal(disconnected, 4);
+  } finally {
+    proto.admin = originalAdmin;
+    proto.producer = originalProducer;
   }
 });

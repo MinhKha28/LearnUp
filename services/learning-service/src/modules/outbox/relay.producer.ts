@@ -59,11 +59,15 @@ export function message(row: OutboxRow) {
 }
 @Injectable()
 export class RelayProducer {
-  private readonly producer: KafkaJS.Producer;
-  private readonly admin: KafkaJS.Admin;
+  private producer!: KafkaJS.Producer;
+  private admin!: KafkaJS.Admin;
   private connected = false;
   private initialized = false;
   constructor(@Inject(RELAY_CONFIG) private readonly config: RelayConfig) {
+    this.createClients();
+  }
+  private createClients(): void {
+    const config = this.config;
     const kafka = new KafkaJS.Kafka({
       kafkaJS: {
         brokers: config.brokers,
@@ -128,6 +132,14 @@ export class RelayProducer {
       }
       return true;
     } catch {
+      if (!this.connected) {
+        // Confluent clients cannot reconnect after their initial connect fails.
+        await Promise.allSettled([
+          this.producer.disconnect(),
+          this.admin.disconnect(),
+        ]);
+        this.createClients();
+      }
       return false;
     }
   }

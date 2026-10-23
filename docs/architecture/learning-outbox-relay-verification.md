@@ -6,8 +6,8 @@ Branch: feat/learning/uc24.2-uc25.4-outbox-relay.
 
 ## Actual checks
 
-- Baseline unit: 228/228. Final unit: 242/242 (14 added).
-- Full integration: 158/158, no skips (154 existing + 4 L6).
+- Baseline unit: 228/228. Final unit: 244/244 (16 added).
+- Full integration: 159/159, no skips (154 existing + 5 L6).
 - Native npm run build: successful. Docker image build: successful.
 - Compose config validation: successful using temporary test-only environment.
 - Windows Confluent 1.11.0 native install: successful.
@@ -19,15 +19,24 @@ Branch: feat/learning/uc24.2-uc25.4-outbox-relay.
 - Kafka disappearing after preflight: one transaction, about 10 seconds held (<30s), failed head attempts increments, remains unpublished, successor blocked. Recovery sends [1,2].
 - Unit coverage includes stable envelope/retry identity, config budgets, parallel record isolation, common-failure no-fallback, bounded backoff, safe error logging, synthetic secret redaction in publication transaction, and shutdown waiting for delivery.
 
-Final measured outputs (milliseconds):
+Measured results (milliseconds):
 
-```text
-L6 latency_ms {"p50":706.6475,"p95":1256.5235}
-L6 Kafka down {"heldMs":0,"transactionCalls":0,"apiMs":37.386099999999715,"tickMs":1015.5597999999991}
-L6 outage after preflight {"heldMs":10017.400100000003,"transactionCalls":1}
-```
+| Measurement | Result |
+| --- | ---: |
+| Publication p50 | 707 |
+| Publication p95 | 1257 |
+| Kafka down: database transaction hold | 0 |
+| Kafka down: HTTP 200 response | 37 |
+| Kafka down: relay turn | 1016 |
+| Outage after preflight: transaction hold | 10018 |
 
 Latency measures insertion-to-published_at for this local test workload; it is not end-to-end email latency or a production SLA.
+
+## Pre-PR startup check
+
+The API cold-starts while the test Kafka container is stopped and serves a database-backed HTTP request with status 200. The scheduled relay opens no unpublished-row transaction while the broker probe fails. It warns once per outage with a fixed safe message and keeps polling. After the initial connection actually fails, the relay replaces the disconnected Confluent clients before its next attempt. When Kafka returns, the same running API creates a fresh topic and delivers the queued event without a restart. A new integration test covers this startup/recovery lifecycle; a unit test covers warning suppression, repeated probes and warning reset after recovery.
+
+After fetch, origin/develop remains at the base commit above. Git merge-tree reports a clean merge with the feature branch; neither branch nor working tree was merged.
 
 ## Error classification
 
