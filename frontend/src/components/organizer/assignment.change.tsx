@@ -73,7 +73,7 @@ export const AssignmentChange = ({
     } catch (cause) {
       const apiError = toApiError(cause);
       if (
-        ["DUE_DATE_NOT_LATER", "DUE_DATE_IN_PAST", "DUE_DATE_TOO_FAR"].includes(
+        ["DUE_DATE_NOT_LATER", "DUE_DATE_IN_PAST"].includes(
           apiError.code,
         )
       ) {
@@ -125,7 +125,6 @@ export const AssignmentChange = ({
             <Button
               type="primary"
               loading={pending}
-              disabled={mode === "extend" && range.min > range.max}
               onClick={submit}
             >
               {mode === "extend" ? "Kéo dài hạn" : "Đánh dấu Miễn"}
@@ -155,13 +154,6 @@ export const AssignmentChange = ({
                 type="info"
                 showIcon
                 message="Giới hạn ngày tính theo giờ trên máy bạn vì chưa lấy được múi giờ tổ chức. Hạn sẽ được kiểm tra khi gửi."
-              />
-            )}
-            {range.min > range.max && (
-              <Alert
-                type="warning"
-                showIcon
-                message="Không có ngày hợp lệ trong giới hạn 365 ngày kể từ hôm nay."
               />
             )}
           </>
@@ -198,10 +190,8 @@ export const AssignmentChange = ({
                 format="DD/MM/YYYY"
                 placeholder="Chọn ngày"
                 minDate={dayjs(range.min)}
-                maxDate={dayjs(range.max)}
                 disabledDate={(value) =>
-                  value.format("YYYY-MM-DD") < range.min ||
-                  value.format("YYYY-MM-DD") > range.max
+                  value.format("YYYY-MM-DD") < range.min
                 }
               />
             </Form.Item>

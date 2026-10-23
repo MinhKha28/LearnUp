@@ -14,7 +14,7 @@ import {
 import type { LookupLearner } from '../../src/infrastructure/clients/tenant/tenant.client';
 
 const item = (
-  userId = randomUUID(),
+  userId: string = randomUUID(),
   extra: Partial<LookupLearner> = {},
 ): LookupLearner => ({
   userId,
@@ -34,6 +34,7 @@ const enrollment = (
   learnerId: userId,
   enrollmentType: 'Optional',
   status: 'NotStarted',
+  withdrawnReason: null,
   firstActivityAt: null,
   ...extra,
 });
@@ -85,14 +86,13 @@ test('classification accepts Pending and produces all four assignment kinds', ()
   );
 });
 
-test('Required enrollment is already assigned in every status', () => {
+test('Required enrollment is already assigned unless Withdrawn can be restored', () => {
   for (const status of [
     'NotStarted',
     'InProgress',
     'Completed',
     'Exempted',
     'Halted',
-    'Withdrawn',
   ]) {
     const user = item();
     assert.equal(
@@ -103,6 +103,51 @@ test('Required enrollment is already assigned in every status', () => {
       ).errors[0].reason,
       'ALREADY_ASSIGNED',
     );
+  }
+});
+
+test('restorable Required Withdrawn is restored after account checks', () => {
+  const user = item();
+  const row = enrollment(user.userId, {
+    enrollmentType: 'Required',
+    status: 'Withdrawn',
+    withdrawnReason: 'LearnerWithdrew',
+  });
+  assert.equal(
+    classifyLearners([user.userId], [user], [row]).plans[0].kind,
+    'RESTORE',
+  );
+  for (const extra of [
+    { deletedAt: new Date().toISOString() },
+    { status: 'Deactivated' },
+  ]) {
+    assert.equal(
+      classifyLearners([user.userId], [item(user.userId, extra)], [row]).plans
+        .length,
+      0,
+    );
+  }
+});
+
+test('AccountDeleted and HaltedClosed retain classification for each enrollment type', () => {
+  const user = item();
+  for (const withdrawnReason of ['AccountDeleted', 'HaltedClosed']) {
+    for (const enrollmentType of ['Required', 'Optional']) {
+      const result = classifyLearners(
+        [user.userId],
+        [user],
+        [
+          enrollment(user.userId, {
+            enrollmentType,
+            status: 'Withdrawn',
+            withdrawnReason,
+          }),
+        ],
+      );
+      if (enrollmentType === 'Required')
+        assert.equal(result.errors[0].reason, 'ALREADY_ASSIGNED');
+      else assert.equal(result.plans[0].kind, 'RESTORE');
+    }
   }
 });
 
