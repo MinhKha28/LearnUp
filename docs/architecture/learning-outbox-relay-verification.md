@@ -36,7 +36,7 @@ Latency measures insertion-to-published_at for this local test workload; it is n
 
 The API cold-starts while the test Kafka container is stopped and serves a database-backed HTTP request with status 200. The scheduled relay opens no unpublished-row transaction while the broker probe fails. It warns once per outage with a fixed safe message and keeps polling. After the initial connection actually fails, the relay replaces the disconnected Confluent clients before its next attempt. When Kafka returns, the same running API creates a fresh topic and delivers the queued event without a restart. A new integration test covers this startup/recovery lifecycle; a unit test covers warning suppression, repeated probes and warning reset after recovery.
 
-After fetch, origin/develop remains at the base commit above. Git merge-tree reports a clean merge with the feature branch; neither branch nor working tree was merged.
+The final fetch found origin/develop at d8c0b439f59284bfc5efcc6d152f3f9f0422fea8, ahead of the original base through PR #140 (course-service lockfile synchronization, commit 3eec03e). Git merge-tree reports a clean merge with the feature branch; neither branch nor working tree was merged.
 
 ## Error classification
 
