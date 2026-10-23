@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { requestCompletion } from '../course-completion/completion-request';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -192,8 +193,10 @@ export class MaterialProgressRepository {
           completed_at=COALESCE(completed_at,${completedAt}::timestamptz),
           last_reported_at=${row.now}::timestamptz, updated_at=${row.now}::timestamptz
       WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid AND organization_id=${org}::uuid`;
-    if (row.completedAt === null && completedAt !== null)
+    if (row.completedAt === null && completedAt !== null) {
       await tx.$executeRaw(activateEnrollmentSql(enrollmentId, org, row.now));
+      await requestCompletion(tx, org, enrollmentId, 'VIDEO_COMPLETED');
+    }
     return { ...row, completedAt };
   }
   async savePosition(

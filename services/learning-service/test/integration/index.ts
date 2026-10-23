@@ -16,3 +16,4 @@ import './video-progress.integration-test';
 import './outbox-relay.integration-test';
 
 import './assessment-access.integration-test';
+import './course-completion.integration-test';
