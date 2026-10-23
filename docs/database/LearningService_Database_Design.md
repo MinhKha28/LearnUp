@@ -356,7 +356,7 @@ Chi tiết ở `CourseService_Database_Design.md` mục 4.2, 4.3.
 3. REST: đã có lượt Quiz, bài nộp, chấm chéo chưa (BR-119, BR-131).
 4. `LearnerAssessmentStatusChanged` (key `learnerId`), mang `firstActivityAt` (BR-140).
 5. REST điểm các bài đã làm (UC28.1).
-6. assessment-service nhận `EnrollmentCompleted` để chuyển chỉ đọc (BR-169); hỏi REST learning-service Enrollment còn cho làm bài không.
+6. assessment-service hỏi REST `GET /api/v1/internal/enrollments/assessment-access` (L17, quy ước mục 6B) khi bắt đầu lượt Quiz và khi nộp bài; không nhận `EnrollmentCompleted` và không giữ bản sao Enrollment Completed (BR-169, BR-325; số mới BR-210, BR-211). Hợp đồng HTTP: `contracts/openapi/learning-service.yaml`.
 
 Chi tiết ở quy ước mục 6C.
 
@@ -379,10 +379,13 @@ Quy tắc tính (phải khớp nhau để bên gọi kiểm tổng):
 | Event | Bên nhận | Căn cứ | GĐ |
 |---|---|---|---|
 | `EnrollmentAssigned` | notification | BR-118, UC24.2 | 1 |
-| `DeadlineExtended` | notification, audit | UC24.3, BR-139, BR-270 | 1 |
-| `EnrollmentCompleted`: `enrollmentId`, `organizationId`, `learnerId`, `courseId`, `completedAt`, `completedLate` (boolean; Optional gửi `false`), `scoreSnapshot` (mảng, nguyên văn kết quả REST điều kiện của assessment-service), `occurredAt`. Key Kafka = `enrollmentId` | achievement-reporting (Certificate, phiếu đánh giá), assessment (chỉ đọc) | BR-169, BR-213, BR-215, BR-219, BR-326 | 1 |
+| `EnrollmentDueDateExtended` (`previousDueAt`, `newDueAt`, `reason`, `actorId`, `occurredAt`) | notification, audit | UC24.3, BR-139, BR-270 | 1 |
+| `EnrollmentCompleted`: `enrollmentId`, `organizationId`, `learnerId`, `courseId`, `completedAt`, `completedLate` (boolean; Optional gửi `false`), `scoreSnapshot` (mảng, nguyên văn kết quả REST điều kiện của assessment-service), `occurredAt`. Key Kafka = `enrollmentId` | achievement-reporting (Certificate, phiếu đánh giá) | BR-213, BR-215, BR-219, BR-326 | 1 |
 | `EnrollmentExempted`, `ExemptionRemoved` | notification, audit | BR-120, BR-123, BR-270, BR-271 | 2 |
 | `EnrollmentRestored`, `HaltedEnrollmentClosed` | notification | BR-250, BR-303, UC24.8 | 2 |
+| `LearnerWithdrew` (`withdrawnAt`) | Chưa có bên nhận (notification không gửi, quyết định D2 23/10) | BR-132, UC25.4 | 2 |
+
+Mọi event trên dùng chung topic `learnup.learning.enrollment-events` (key `enrollmentId`), envelope v1; hợp đồng chi tiết ở `contracts/events/learning-enrollment-events.md`.
 
 ---
 
