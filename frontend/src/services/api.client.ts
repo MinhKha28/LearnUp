@@ -1,5 +1,6 @@
-import axios from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import { retryWithFreshToken } from "@/services/auth.session";
+import { ownsProgress, type ProgressOwner } from "@/utils/video.progress.queue";
 
 import { ApiError, type ApiEnvelope } from "@/types/api.types";
 
@@ -36,6 +37,9 @@ type RawResponse<T> = { data: ApiEnvelope<T> };
 
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
+  const owner = (config as InternalAxiosRequestConfig & { progressOwner?: ProgressOwner }).progressOwner;
+  if (owner && !ownsProgress(owner, token))
+    throw new ApiError(401, "UNAUTHORIZED", "Session changed");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -94,7 +98,10 @@ export const toApiError = (error: unknown): ApiError => {
 
   if (bodyError && typeof bodyError.code === "string") {
     const { code, message, ...details } = bodyError;
-    return new ApiError(status, code, firstString(message) ?? "", details);
+    return new ApiError(status, code, firstString(message) ?? "", {
+      ...details,
+      ...(response.headers?.["x-correlation-id"] ? { correlationId: response.headers["x-correlation-id"] } : {}),
+    });
   }
 
   // Nest mặc định để mảng ở body.message; HttpExceptionFilter của service bọc nó trong body.error
@@ -115,7 +122,8 @@ export const toApiError = (error: unknown): ApiError => {
       body.error,
       axios.isAxiosError(error) ? error.message : undefined,
     ) ?? `HTTP ${status}`;
-  return new ApiError(status, `HTTP_${status}`, message);
+  return new ApiError(status, `HTTP_${status}`, message, response.headers?.["x-correlation-id"]
+    ? { correlationId: response.headers["x-correlation-id"] } : {});
 };
 
 export const apiGet = async <T>(
@@ -136,7 +144,7 @@ export const apiGet = async <T>(
 export const apiPost = async <T>(
   path: string,
   body: unknown,
-  options: { signal?: AbortSignal } = {},
+  options: { signal?: AbortSignal; progressOwner?: ProgressOwner } = {},
 ): Promise<T> => {
   try {
     const response = await client.post<ApiEnvelope<T>, RawResponse<T>>(

@@ -2,6 +2,7 @@ import { API_PATHS, apiGet, apiPost } from "@/services/api.client";
 import { apiRequestUrl } from "@/services/api.client";
 import { ApiError } from "@/types/api.types";
 import type { VideoPlayback, VideoProgress } from "@/types/learning.types";
+import { ownsProgress, type ProgressOwner } from "@/utils/video.progress.queue";
 
 const videoPath = (enrollmentId: string, materialId: string) =>
   `/api/v1/enrollments/${encodeURIComponent(enrollmentId)}/materials/${encodeURIComponent(materialId)}`;
@@ -22,15 +23,22 @@ export const reportVideoProgress = async (
     reportedAt: string;
   },
   keepalive = false,
+  owner: ProgressOwner,
 ): Promise<VideoProgress> => {
+  const path = `${videoPath(enrollmentId, materialId)}/progress`;
+  if (!keepalive) return apiPost<VideoProgress>(path, report, { progressOwner: owner });
   const token = localStorage.getItem("access_token");
+  if (!ownsProgress(owner, token)) throw new ApiError(401, "UNAUTHORIZED", "Session changed");
   let response: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
   try {
     response = await fetch(
-      apiRequestUrl(`${videoPath(enrollmentId, materialId)}/progress`),
+      apiRequestUrl(path),
       {
         method: "POST",
         keepalive,
+        signal: controller.signal,
         headers: {
           "content-type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -38,15 +46,19 @@ export const reportVideoProgress = async (
         body: JSON.stringify(report),
       },
     );
-  } catch {
-    throw new ApiError(0, "NETWORK", "");
+    const body = await response.json();
+    if (!response.ok)
+      throw new ApiError(response.status, body.error?.code ?? "HTTP_ERROR", "", {
+        details: body.error?.details,
+        correlationId: response.headers.get("X-Correlation-ID"),
+      });
+    return body.data as VideoProgress;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(0, controller.signal.aborted ? "TIMEOUT" : "NETWORK", "");
+  } finally {
+    clearTimeout(timer);
   }
-  const body = await response.json();
-  if (!response.ok)
-    throw new ApiError(response.status, body.error?.code ?? "HTTP_ERROR", "", {
-      details: body.error?.details,
-    });
-  return body.data as VideoProgress;
 };
 import type {
   CreatedEnrollment,
