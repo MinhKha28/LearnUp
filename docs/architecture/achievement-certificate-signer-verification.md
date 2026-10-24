@@ -93,20 +93,29 @@ to be a bucket-wide orphan reconciler.
 | Configuration | Default | Constraint |
 | --- | --- | --- |
 | CERTIFICATE_SIGNER_ACCESS_CLIENT_MODE | http | fake only in development/test |
-| CERTIFICATE_CLEANUP_ENABLED | inherit CERTIFICATE_CONSUMER_ENABLED | explicit true/false override |
+| CERTIFICATE_CLEANUP_ENABLED | true | independent of consumer; explicit false disables cleanup |
 | CERTIFICATE_CLEANUP_DELAY_MS | 600000 | strictly greater than issuance lease + read timeout |
 | CERTIFICATE_CLEANUP_POLL_MS | 1000 | 1..60000 |
 | CERTIFICATE_CLEANUP_LEASE_MS | 120000 | greater than read timeout |
 | CERTIFICATE_CLEANUP_WARN_SECONDS | 3600 | warn on due backlog age |
 
-The cleanup flag is independently configurable. For API-only deployments with
-issuance disabled, explicitly enable cleanup; otherwise image replacement can
-accumulate queued tasks. The requested inherited default is preserved.
+Cleanup is enabled by default independently of CERTIFICATE_CONSUMER_ENABLED,
+including API-only deployments with issuance disabled. Compose passes
+CERTIFICATE_CLEANUP_ENABLED with a true fallback; the service .env.example sets
+it explicitly. Setting false disables the worker regardless of consumer state.
+
+If any CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY or CLOUDINARY_API_SECRET is
+missing/blank, the worker logs CERTIFICATE_CLEANUP_STORAGE_UNCONFIGURED once per
+worker instance. It does not claim, process or retry tasks while storage is
+unconfigured and does not reject service startup. Configure storage and restart
+the service to begin draining those tasks. No credentials are included in logs.
 
 ## Verification
 
-The complete suite passes 119/119 tests with zero skips: all 81 PR1 tests plus
-38 PR2 unit/HTTP/PostgreSQL tests.
+The complete suite passes 129/129 tests with zero skips: all 81 PR1 tests plus
+48 PR2 unit/HTTP/PostgreSQL tests. The cleanup follow-up covers omitted/true/false
+flags with either consumer state, actual polling with consumer disabled, and
+each missing Cloudinary variable producing only one warning without task access.
 PostgreSQL runs create random ar1_test_* schemas, apply SQL only within them and
 drop them in finally. They do not run Prisma migrate or change deployment tables.
 The tests cover two concurrent PUTs, multipart errors, byte preview, cleanup
@@ -155,10 +164,62 @@ run had zero errors; memory upload p50/p95 was 1.38/1.55 ms and reads 0/0.01 ms.
 | Storage read | 5 | 464.93 | 1004.50 |
 | Storage delete through cleanup worker | 1 | 1152.75 | 1152.75 |
 
-Live first-image PUT was 1686.75 ms; replacement 966.10 ms. One live issuance
-with signature took 1500.12 ms versus 6.14 ms without it. Single samples and
-three-sample percentiles are smoke observations and cannot estimate production
-capacity. Each copied signature costs a storage read, upload and retained asset.
+Live first-image PUT was 1686.75 ms; replacement 966.10 ms. Those HTTP/storage
+smoke observations use small sample counts and cannot estimate production
+capacity. The earlier single-sample issuance comparison is superseded by the
+20-sample measurement below. Each copied signature costs a storage read, upload
+and retained asset.
+
+### Sequential live issuance measurement
+
+On 2026-10-25 (Asia/Saigon), the unchanged worker at baseline 4848eca was measured
+with 20 signed Certificates followed by 20 unsigned Certificates, all sequential.
+The topology is the Windows/i7-12700H/20-logical-CPU/15.6-GiB machine, Node
+v22.23.3 and PostgreSQL 16.15 described above. PostgreSQL and authenticated
+Cloudinary were real; Learner/Course/Organization directory lookups were fake,
+with no logo. Each signed Certificate copied the same valid 3172-byte source PNG
+to a fresh per-attempt key. The unsigned Organization had no signer configuration.
+
+Timing instruments were applied only to runtime instances in an external script.
+Total spans worker.process(), excluding event receipt, lease claim, fixture setup
+and cleanup. The SQL UPDATE is timed separately from the full finalization
+transaction (advisory lock, lease/version reads, UPDATE and commit). The transaction
+row already contains UPDATE time. p50 is the mean of ordered samples 10 and 11;
+p95 is nearest rank, sample 19 of 20. Phase percentiles are independent and must
+not be summed to obtain total percentiles.
+
+| Phase | Signed samples | Signed p50 ms | Signed p95 ms | Unsigned samples | Unsigned p50 ms | Unsigned p95 ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Read signer settings | 20 | 0.87 | 1.81 | 20 | 0.84 | 1.48 |
+| Signature readBytes | 20 | 481.23 | 826.82 | 0 | N/A | N/A |
+| Upload snapshot copy | 20 | 947.66 | 1054.99 | 0 | N/A | N/A |
+| Issuance SQL UPDATE | 20 | 1.53 | 2.21 | 20 | 1.36 | 1.93 |
+| Full DB finalization transaction | 20 | 8.87 | 12.03 | 20 | 5.89 | 8.24 |
+| Other worker work | 20 | 0.11 | 0.33 | 20 | 0.02 | 0.03 |
+| Total worker.process() | 20 | 1450.95 | 1884.06 | 20 | 6.70 | 9.75 |
+
+All 40 samples reached Issued, with zero errors. The script deleted and verified
+absence of all 21 random assets (source plus 20 copies) in finally; the verification
+delete returned not_found for each. Zero test assets remained and the isolated
+schema was dropped. This is a sequential small-image observation, not an SLA,
+a large-image benchmark or an end-to-end deployment measurement.
+
+## Asset ownership decision and later optimization
+
+PR2 retains per-attempt Certificate keys for both signatures and logos. Shared
+content-addressed assets are deferred because they require an asset registry and
+coordination between uploads, pending references and garbage collection. A failed
+worker must not delete an asset another Certificate uses; a global reference
+check alone does not close the race with a concurrent finalization. The current
+attempt-specific ownership and immutable Issued records remain unchanged.
+
+A later optimization may cache signature bytes by (organizationId, settings
+version), with bounded byte capacity and TTL. Cache entries would contain verified
+bytes/MIME/hash, never signed URLs, and obey the same size/type limits. Reading the
+current version and the final DB version fence remain mandatory; a new version
+must not reuse old bytes, and read/hash failures must not populate the cache.
+Caching can avoid repeated source reads while retaining per-attempt uploads and
+cleanup ownership. No cache or shared-asset implementation is included in PR2.
 
 ## Remaining external verification
 
