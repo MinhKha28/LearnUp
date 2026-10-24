@@ -18,7 +18,7 @@ const storage = {
 };
 test('real PostgreSQL certificate transactions, constraints, leases and quarantine', async (t) => {
   const fixture = await isolatedDatabase();
-  const { pool, repository: repo } = fixture;
+  const { pool, db, repository: repo } = fixture;
   try {
     const initial = event(),
       receive = (e = initial, offset = '0', gen) =>
@@ -285,7 +285,15 @@ test('real PostgreSQL certificate transactions, constraints, leases and quaranti
           if (fail) throw new Error('Tenant unavailable');
           return 'Nguyễn Văn Kiểm (deleted account fixture)';
         };
-        const worker = new IssuanceWorker(repo, config(), dir, storage);
+        const worker = new IssuanceWorker(
+          repo,
+          config(),
+          dir,
+          storage,
+          new (require('../dist/src/modules/certificates/signer.repository').SignerRepository)(
+            db,
+          ),
+        );
         const oldWarn = Logger.prototype.warn;
         Logger.prototype.warn = () => {};
         try {
