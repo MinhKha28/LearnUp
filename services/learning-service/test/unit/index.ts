@@ -25,3 +25,4 @@ import './outbox-relay.unit-test';
 import './assessment-access.unit-test';
 import './course-completion.unit-test';
 import './completion-worker.unit-test';
+import './reading-completion.unit-test';

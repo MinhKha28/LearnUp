@@ -97,6 +97,7 @@ function fixture(status = 'NotStarted') {
       repository as unknown as MaterialProgressRepository,
       {} as CourseServiceClient,
       { mode: 'fixture', fixtureUrl: 'https://example.test/video.mp4' },
+      { mode: 'course' },
     ),
     setRow: (value: ProgressRow) => {
       row = value;

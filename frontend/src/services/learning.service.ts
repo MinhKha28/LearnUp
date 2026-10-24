@@ -2,10 +2,15 @@ import { API_PATHS, apiGet, apiPost } from "@/services/api.client";
 import { apiRequestUrl } from "@/services/api.client";
 import { ApiError } from "@/types/api.types";
 import type { VideoPlayback, VideoProgress } from "@/types/learning.types";
+import type { ReadingAccess, ReadingCompletion } from "@/types/learning.types";
 import { ownsProgress, type ProgressOwner } from "@/utils/video.progress.queue";
 
 const videoPath = (enrollmentId: string, materialId: string) =>
   `/api/v1/enrollments/${encodeURIComponent(enrollmentId)}/materials/${encodeURIComponent(materialId)}`;
+export const fetchReadingAccess = (enrollmentId: string, materialId: string, signal?: AbortSignal) =>
+  apiGet<ReadingAccess>(`${videoPath(enrollmentId, materialId)}/reading-access`, { signal });
+export const completeReading = (enrollmentId: string, materialId: string, owner: ProgressOwner) =>
+  apiPost<ReadingCompletion>(`${videoPath(enrollmentId, materialId)}/complete-reading`, undefined, { progressOwner: owner });
 export const fetchVideoPlayback = (
   enrollmentId: string,
   materialId: string,

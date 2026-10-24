@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 
 export type CompletionSource =
   | 'VIDEO_COMPLETED'
+  | 'READING_COMPLETED'
   | 'ASSIGNMENT_CONVERT'
   | 'ASSIGNMENT_RESTORE'
   | 'OPTIONAL_RESTORE';
