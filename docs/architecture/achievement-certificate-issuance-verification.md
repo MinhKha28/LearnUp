@@ -12,7 +12,8 @@ policy earliest, automatic commits disabled. `CERTIFICATE_CONSUMER_ENABLED`
 defaults false. Receipt/Pending and quarantine transactions commit before the
 consumer explicitly commits offset + 1. A database failure leaves the offset
 uncommitted. The adapter's retry-on-handler-error behavior was checked in the
-installed SDK source; real-broker delivery is distinguished from callback tests.
+installed SDK source. The separate live local-broker check is recorded below;
+automated callback tests remain distinct from that smoke test.
 
 Completion payload validation includes envelope v1, producer, topic key identity,
 organization identity, dates, Optional late/deadline rules, and the exact object
@@ -154,6 +155,50 @@ customer data, live storage, database reset or global environment file is used.
   installs also report pre-existing dev dependency findings, including critical
   ones. No automatic dependency upgrades/audit-fix are included in PR1. These are
   findings to address in their owning dependency work, not a security audit pass.
+
+## Real Kafka broker smoke test — 2026-10-24
+
+Runtime code: PR1 commit `e7d52a5`. An explicitly approved disposable
+`confluentinc/cp-kafka:7.6.0` KRaft broker ran with one broker/controller,
+one topic partition, replication factor one and auto-topic creation disabled.
+The native `@confluentinc/kafka-javascript` 1.11.0 producer/admin and the compiled
+PR1 consumer/worker ran on the Windows Node host against real PostgreSQL 16.15.
+Topic `learnup-smoke.achievement.<runId>` and an `ar1_test_<random>` schema were
+isolated; the group was the actual `achievement-reporting-certificate-v1`.
+
+`CERTIFICATE_CONSUMER_ENABLED=true` was set only in child-process environment.
+The harness creates a Nest application context with the compiled PR1 providers;
+directory and storage are replaced through dependency injection. All three
+synthetic profiles have no logo, so storage access is forbidden by the fake.
+No Tenant/Course HTTP call, public HTTP/Gateway route or Cloudinary live upload
+is exercised. Only the topic is overridden for isolation; production defaults
+and source code are unchanged. Two separate child processes exercise shutdown
+and restart of the consumer/worker lifecycle.
+
+| Check | Expected | Observed | Result |
+| --- | --- | --- | --- |
+| Publish | 3 valid unique completions, 1 identical eventId repeat, 1 invalid schema | 5 records; partition end offset 5 | Pass |
+| Issue and deduplicate | 3 Issued, no fourth Certificate | 3 Certificates, all Issued; 3 receipts | Pass |
+| Poison message | Durable quarantine without blocking later learners | 1 quarantine at partition 0 / offset 1; readable event ID preserved; later valid records issued | Pass |
+| Commit | Group offset reaches end after persistence | Committed offset 5, end offset 5; 5 handler completions | Pass |
+| Restart | Resume at committed offset; no duplicate issuance | Group joined stable; after 5 seconds, 0 handler completions, same 3 Certificate IDs and issued_recorded_at values, offset still 5 | Pass |
+| Cleanup in finally | Remove test data/topic/group/broker | Topic deletion confirmed by listTopics; group deleted; schema dropped; broker stopped/removed; no cleanup errors | Pass |
+
+First-run assertions completed at `2026-10-24T11:51:30.641Z`; restart assertions
+completed at `2026-10-24T11:51:37.241Z` (UTC). A preceding setup attempt stopped
+before topic creation/publishing because the readiness CLI received the host-only
+advertised listener. Its schema/broker cleanup succeeded. After separate approval,
+the harness used distinct internal and host listeners and the full smoke passed.
+This was a harness networking correction; no production consumer change was needed.
+
+The opt-in script is
+`services/achievement-reporting-service/test/kafka-smoke.cjs`. It requires
+`NODE_ENV=test`, a non-production `DATABASE_URL` and explicit
+`KAFKA_SMOKE_ALLOW_DOCKER_START=true`; run it from that service directory only
+after Docker-start approval. The broker image must already be available and
+loopback port 19092 free. The script is excluded from `npm test`; it suppresses
+child logs and raw errors to avoid exposing connection information or payloads.
+The existing 76-test suite is separate from this smoke verification.
 
 ## Synthetic measurements
 
