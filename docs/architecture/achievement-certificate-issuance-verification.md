@@ -1,7 +1,7 @@
 # Automatic certificate issuance verification
 
 Date: 2026-10-24. Scope: PR1, automatic issuance on EnrollmentCompleted.
-Base: `feat/storage/private-delivery` at `098cccb`. UC34 list/detail/PDF,
+Base: `feat/storage/private-delivery` at `e3e8b0b`. UC34 list/detail/PDF,
 certificate holders and UC34.3 configuration remain for later work.
 
 ## Receiving and persistence
@@ -118,6 +118,29 @@ user context. The Tenant profile endpoint (#148) is still an owner dependency;
 the Course contract (#146) must be deployed before production HTTP issuance.
 
 ## Tests and build evidence
+
+After rebasing PR1 onto S1 `e3e8b0b`, `npm ci` completed without lockfile changes.
+The process PATH supplied the existing S1 storage TypeScript compiler for local
+dependency prepare hooks. The service's resolved storage module was checked with
+realpath and points to the rebuilt library in the same PR1 checkout.
+
+Follow-up build and full `npm test` passed **81 tests**: 52 unit tests plus the
+unchanged 28 PostgreSQL subtests and their parent. The increase from the original
+76 is exactly five unit regressions. They cover both `deleted` and `not_found`
+through authenticated adapter/worker cleanup, both statuses during key-mismatch
+cleanup, and safe propagation of genuine cleanup failures. Both provider delete
+calls already passed `deliveryType: 'authenticated'`; no business flow changed.
+
+The rerun connected only to the local development `achievement_reporting_db`,
+verified by `current_database()` before execution. DATABASE_URL existed only in
+the test runner's process environment, with no credential logging or file writes.
+Docker was used only for approved ps/inspect reads; no container lifecycle command,
+Compose operation or Prisma migration was run. The existing integration harness
+created its isolated schema and dropped it in finally. Catalog checks found no
+ar1_test_* schemas either before or after the suite, and no new leftovers.
+No real Cloudinary or Kafka request was made by this follow-up suite.
+
+Original verification evidence before the S1 follow-up:
 
 The checks are run from the isolated PR1 checkout. PostgreSQL tests create their
 own ar1_test_<random> schema and drop it in finally, including failure paths;

@@ -57,6 +57,7 @@ export class CloudinaryIssuanceStorage implements IssuanceStorage {
       );
       if (result.storageKey !== key) {
         // The returned key belongs to this upload; remove it before reporting a folder-mode mismatch.
+        // Both deleted and not_found complete cleanup for this authenticated asset.
         await this.provider.delete(result.storageKey, {
           resourceType: 'image',
           deliveryType: 'authenticated',
@@ -77,6 +78,7 @@ export class CloudinaryIssuanceStorage implements IssuanceStorage {
   async delete(key: string): Promise<void> {
     if (!this.provider) throw new IssuanceError('CLOUDINARY_UNCONFIGURED');
     try {
+      // Both deleted and not_found mean this exact authenticated asset is absent.
       await this.provider.delete(key, {
         resourceType: 'image',
         deliveryType: 'authenticated',

@@ -1,6 +1,7 @@
 const { test, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const { Logger } = require('@nestjs/common');
+const { CloudinaryStorageProvider } = require('@learnup/ts-storage');
 const { event, delivery, config, row, directory } = require('./fixtures.cjs');
 const {
   decodeCompletion,
@@ -293,6 +294,109 @@ test('missing Cloudinary configuration does not prevent construction and fails o
       'fixture-key',
     ),
     /CLOUDINARY_UNCONFIGURED/,
+  );
+});
+
+const configuredStorage = () =>
+  new CloudinaryIssuanceStorage(
+    (name) =>
+      ({
+        CLOUDINARY_CLOUD_NAME: 'fixture-cloud',
+        CLOUDINARY_API_KEY: 'fixture-key',
+        CLOUDINARY_API_SECRET: 'fixture-secret',
+      })[name],
+  );
+
+for (const status of ['deleted', 'not_found']) {
+  test(`authenticated cleanup accepts ${status} through adapter and worker`, async () => {
+    const calls = [];
+    mock.method(
+      CloudinaryStorageProvider.prototype,
+      'delete',
+      async (key, options) => {
+        calls.push({ key, options });
+        return { status };
+      },
+    );
+    mock.method(
+      CloudinaryStorageProvider.prototype,
+      'upload',
+      async (_file, options) => ({
+        storageKey: `${options.folder}/${options.publicId}`,
+        deliveryType: 'authenticated',
+      }),
+    );
+    const storage = configuredStorage();
+    assert.equal(await storage.delete('fixture/key'), undefined);
+    assert.deepEqual(calls.shift(), {
+      key: 'fixture/key',
+      options: { resourceType: 'image', deliveryType: 'authenticated' },
+    });
+    const f = workerFixture({ issue: async () => false });
+    f.worker.storage = storage;
+    f.worker.directory.profile = async (org) => ({
+      organizationId: org,
+      name: 'Fixture',
+      logo: { url: 'https://res.cloudinary.com/logo' },
+    });
+    global.fetch = async () =>
+      new Response(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    const pending = row();
+    await f.worker.process(pending);
+    assert.equal(calls.length, 1);
+    assert.ok(
+      calls[0].key.startsWith(
+        `achievement/${pending.organization_id}/certificates/${pending.id}/logo/`,
+      ),
+    );
+    assert.deepEqual(calls[0].options, {
+      resourceType: 'image',
+      deliveryType: 'authenticated',
+    });
+    assert.equal(f.warnings.length, 0);
+  });
+
+  test(`key mismatch cleanup accepts ${status} before reporting the original mismatch`, async () => {
+    const calls = [];
+    mock.method(CloudinaryStorageProvider.prototype, 'upload', async () => ({
+      storageKey: 'fixture/returned-key',
+    }));
+    mock.method(
+      CloudinaryStorageProvider.prototype,
+      'delete',
+      async (key, options) => {
+        calls.push({ key, options });
+        return { status };
+      },
+    );
+    await assert.rejects(
+      configuredStorage().upload(
+        row(),
+        { bytes: Buffer.from('fixture'), mime: 'image/png' },
+        'fixture/expected-key',
+      ),
+      /CLOUDINARY_KEY_MISMATCH/,
+    );
+    assert.deepEqual(calls, [
+      {
+        key: 'fixture/returned-key',
+        options: { resourceType: 'image', deliveryType: 'authenticated' },
+      },
+    ]);
+  });
+}
+
+test('authenticated cleanup provider failures remain failures without leaking causes', async () => {
+  mock.method(CloudinaryStorageProvider.prototype, 'delete', async () => {
+    throw new Error('https://fixture?signature=secret');
+  });
+  await assert.rejects(
+    configuredStorage().delete('fixture/key'),
+    (error) =>
+      error instanceof IssuanceError &&
+      error.code === 'CLOUDINARY_CLEANUP_FAILED' &&
+      error.cause === undefined &&
+      !String(error).includes('signature'),
   );
 });
 function workerFixture(overrides = {}) {
