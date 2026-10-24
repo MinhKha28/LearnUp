@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import {
   CanActivate,
   ExecutionContext,
@@ -32,13 +33,11 @@ export class InternalAuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const internalKey = request.headers[HEADER_NAMES.INTERNAL_KEY];
-    const expectedInternalKey =
-      this.configService.getOrThrow<string>('INTERNAL_SERVICE_KEY');
+    const expectedInternalKey = this.configService.getOrThrow<string>(
+      'INTERNAL_SERVICE_KEY',
+    );
 
-    if (
-      typeof internalKey !== 'string' ||
-      internalKey !== expectedInternalKey
-    ) {
+    if (!this.internalKeyMatches(internalKey, expectedInternalKey)) {
       throw new UnauthorizedException(
         'Invalid or missing internal service key.',
       );
@@ -71,5 +70,13 @@ export class InternalAuthGuard implements CanActivate {
     };
 
     return true;
+  }
+
+  /** So bằng digest cùng độ dài để thời gian so sánh không lộ khóa hay độ dài khóa. */
+  private internalKeyMatches(supplied: unknown, expected: string): boolean {
+    if (typeof supplied !== 'string') return false;
+    const digest = (value: string) =>
+      createHash('sha256').update(value).digest();
+    return timingSafeEqual(digest(supplied), digest(expected));
   }
 }
