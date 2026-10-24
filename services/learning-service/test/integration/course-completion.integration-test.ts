@@ -535,15 +535,17 @@ test('two concurrent Video completions enqueue only on the first transition', as
   await service.evaluate(await take(f.id));
   assert.equal(await eventCount(f.id), 1);
 });
-test('API starts with Kafka unreachable and retains assessment outage work until recovery', async () => {
+test('API starts with Kafka and course-service unreachable and retains assessment outage work until recovery', async () => {
   const previous = {
     worker: process.env.COMPLETION_WORKER_ENABLED,
     relay: process.env.OUTBOX_RELAY_ENABLED,
     brokers: process.env.KAFKA_BROKERS,
+    course: process.env.COURSE_SERVICE_URL,
   };
   process.env.COMPLETION_WORKER_ENABLED = 'true';
   process.env.OUTBOX_RELAY_ENABLED = 'true';
   process.env.KAFKA_BROKERS = '127.0.0.1:1';
+  process.env.COURSE_SERVICE_URL = 'http://127.0.0.1:1';
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: false,
   });
@@ -591,6 +593,7 @@ test('API starts with Kafka unreachable and retains assessment outage work until
       COMPLETION_WORKER_ENABLED: previous.worker,
       OUTBOX_RELAY_ENABLED: previous.relay,
       KAFKA_BROKERS: previous.brokers,
+      COURSE_SERVICE_URL: previous.course,
     })) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
