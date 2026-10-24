@@ -49,6 +49,7 @@ export class TenantLookupHttp {
         method: 'POST',
         headers: {
           [HEADER_NAMES.INTERNAL_KEY]: this.internalKey,
+          [HEADER_NAMES.ORGANIZATION_ID]: user.organizationId!,
           'content-type': 'application/json',
         },
         body: JSON.stringify({
