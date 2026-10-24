@@ -4,21 +4,39 @@ import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 import type {
   IStorageDeleteOptions,
   IStorageFileInput,
-  IStorageProvider,
+  IReadableStorageProvider,
+  IStorageUrlOptions,
+  IStorageSignedUrlOptions,
+  IStorageReadOptions,
   IStorageUploadOptions,
   IStoredFile,
 } from "../../interfaces/storage.interface.js";
 
-import type { StoredResourceType } from "../../storage.types.js";
+import type {
+  StoredResourceType,
+  StorageDeliveryType,
+} from "../../storage.types.js";
 
 import { StorageProviderError } from "../../errors/storage.error.js";
 import { validateStorageFile } from "../../validators/file.validator.js";
 import { validateCloudinaryConfig } from "./cloudinary.config.js";
 import type { ICloudinaryStorageConfig } from "./cloudinary.interface.js";
 
-export class CloudinaryStorageProvider implements IStorageProvider {
+export class CloudinaryStorageProvider implements IReadableStorageProvider {
+  private readonly signingConfig: {
+    cloud_name: string;
+    api_key: string;
+    api_secret: string;
+    secure: boolean;
+  };
   constructor(config: ICloudinaryStorageConfig) {
     const validatedConfig = validateCloudinaryConfig(config);
+    this.signingConfig = {
+      cloud_name: validatedConfig.cloudName,
+      api_key: validatedConfig.apiKey,
+      api_secret: validatedConfig.apiSecret,
+      secure: true,
+    };
 
     cloudinary.config({
       cloud_name: validatedConfig.cloudName,
@@ -36,6 +54,7 @@ export class CloudinaryStorageProvider implements IStorageProvider {
 
     const folder = this.normalizeFolder(options.folder);
     const publicId = options.publicId?.trim() || randomUUID();
+    this.validateDeliveryType(options.deliveryType);
 
     try {
       const result = await this.uploadBuffer(file, {
@@ -44,6 +63,7 @@ export class CloudinaryStorageProvider implements IStorageProvider {
         resourceType: options.resourceType ?? "auto",
         overwrite: options.overwrite ?? false,
         tags: options.tags,
+        deliveryType: options.deliveryType,
       });
 
       return this.mapUploadResult(result, file);
@@ -62,6 +82,7 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     storageKey: string,
     options: IStorageDeleteOptions,
   ): Promise<void> {
+    this.validateDeliveryType(options.deliveryType);
     if (!storageKey?.trim()) {
       throw new StorageProviderError("Storage key is required.");
     }
@@ -70,6 +91,9 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       const result = await cloudinary.uploader.destroy(storageKey, {
         resource_type: options.resourceType,
         invalidate: options.invalidate ?? true,
+        ...(options.deliveryType === undefined
+          ? {}
+          : { type: options.deliveryType }),
       });
 
       if (result.result !== "ok" && result.result !== "not found") {
@@ -88,15 +112,133 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     }
   }
 
-  getUrl(storageKey: string, resourceType: StoredResourceType): string {
+  getUrl(storageKey: string, resourceType: StoredResourceType): string;
+  getUrl(
+    storageKey: string,
+    resourceType: StoredResourceType,
+    options: IStorageUrlOptions,
+  ): string;
+  getUrl(
+    storageKey: string,
+    resourceType: StoredResourceType,
+    options?: IStorageUrlOptions,
+  ): string {
     if (!storageKey?.trim()) {
       throw new StorageProviderError("Storage key is required.");
     }
 
+    this.validateDeliveryType(options?.deliveryType);
     return cloudinary.url(storageKey, {
       secure: true,
       resource_type: resourceType,
+      ...(options?.deliveryType === undefined
+        ? {}
+        : { type: options.deliveryType }),
     });
+  }
+
+  /** Time-limited Upload API download URL, not a permanent signed CDN URL. */
+  getSignedUrl(storageKey: string, options: IStorageSignedUrlOptions): string {
+    if (!storageKey?.trim())
+      throw new StorageProviderError("Storage key is required.");
+    this.validateDeliveryType(options.deliveryType);
+    if (
+      !Number.isSafeInteger(options.expiresAt) ||
+      options.expiresAt <= Math.floor(Date.now() / 1000)
+    ) {
+      throw new StorageProviderError(
+        "Expiration must be a future UNIX timestamp in seconds.",
+      );
+    }
+    if (
+      !["image", "video", "raw"].includes(options.resourceType) ||
+      typeof options.format !== "string" ||
+      (!(options.resourceType === "raw" && options.format === "") &&
+        !/^[a-zA-Z0-9]+$/.test(options.format))
+    ) {
+      throw new StorageProviderError(
+        "Invalid download resource type or format.",
+      );
+    }
+    try {
+      const sdkOptions = {
+        ...this.signingConfig,
+        resource_type: options.resourceType,
+        type: options.deliveryType ?? "upload",
+        expires_at: options.expiresAt,
+      };
+      return cloudinary.utils.private_download_url(
+        storageKey,
+        options.format,
+        sdkOptions,
+      );
+    } catch {
+      throw new StorageProviderError("Cloudinary URL signing failed.");
+    }
+  }
+
+  async readBytes(
+    storageKey: string,
+    options: IStorageReadOptions,
+  ): Promise<Buffer> {
+    if (
+      !Number.isSafeInteger(options.timeoutMs) ||
+      options.timeoutMs <= 0 ||
+      options.timeoutMs > 2_147_483_647 ||
+      !Number.isSafeInteger(options.maxSizeBytes) ||
+      options.maxSizeBytes <= 0
+    ) {
+      throw new StorageProviderError(
+        "Read timeout and size limit must be positive integers.",
+      );
+    }
+    const url = this.getSignedUrl(storageKey, options);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), options.timeoutMs);
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        redirect: "error",
+      });
+      if (!response.body) throw new Error("Download unavailable");
+      reader = response.body.getReader();
+      if (!response.ok) throw new Error("Download unavailable");
+      const length = response.headers.get("content-length");
+      if (length !== null && Number(length) > options.maxSizeBytes)
+        throw new Error("Size limit");
+      const chunks: Buffer[] = [];
+      let size = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > options.maxSizeBytes) throw new Error("Size limit");
+        chunks.push(Buffer.from(value));
+      }
+      return Buffer.concat(chunks, size);
+    } catch {
+      // SDK/fetch errors can contain signed URLs; never attach them as a cause.
+      throw new StorageProviderError(
+        "Cloudinary read failed or exceeded its timeout or size limit.",
+      );
+    } finally {
+      clearTimeout(timer);
+      controller.abort();
+      if (reader) {
+        await reader.cancel().catch(() => undefined);
+        reader.releaseLock();
+      }
+    }
+  }
+
+  private validateDeliveryType(type: StorageDeliveryType | undefined): void {
+    if (
+      type !== undefined &&
+      !["upload", "private", "authenticated"].includes(type)
+    ) {
+      throw new StorageProviderError("Invalid storage delivery type.");
+    }
   }
 
   private uploadBuffer(
@@ -107,6 +249,7 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       resourceType: IStorageUploadOptions["resourceType"];
       overwrite: boolean;
       tags?: string[];
+      deliveryType?: StorageDeliveryType;
     },
   ): Promise<UploadApiResponse> {
     return new Promise((resolve, reject) => {
@@ -116,6 +259,9 @@ export class CloudinaryStorageProvider implements IStorageProvider {
         resource_type: options.resourceType ?? "auto",
         overwrite: options.overwrite,
         tags: options.tags,
+        ...(options.deliveryType === undefined
+          ? {}
+          : { type: options.deliveryType }),
       };
 
       const onResult = (
