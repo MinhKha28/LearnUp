@@ -27,6 +27,7 @@ export interface IStorageUploadOptions {
 }
 
 export interface IStoredFile {
+  deliveryType: StorageDeliveryType;
   storageKey: string;
   publicId: string;
   url: string;
@@ -47,12 +48,19 @@ export interface IStorageDeleteOptions {
   invalidate?: boolean;
 }
 
+export interface IStorageDeleteResult {
+  status: "deleted" | "not_found";
+}
+
 export interface IStorageProvider {
   upload(
     file: IStorageFileInput,
     options: IStorageUploadOptions,
   ): Promise<IStoredFile>;
-  delete(storageKey: string, options: IStorageDeleteOptions): Promise<void>;
+  delete(
+    storageKey: string,
+    options: IStorageDeleteOptions,
+  ): Promise<IStorageDeleteResult>;
   getUrl(storageKey: string, resourceType: StoredResourceType): string;
   getUrl(
     storageKey: string,

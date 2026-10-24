@@ -5,10 +5,11 @@ Base: `origin/develop`, `87b5fe9`.
 
 ## Scope and decision
 
-This change extends `libraries/ts-storage` only, plus this report. Tenant and
-Course source, dependencies, defaults and deployment configuration are unchanged.
-Achievement issuance has not started and requires Hào's acceptance of this branch.
-Its future branch must start from this library branch.
+The original change extended `libraries/ts-storage` and this report. The S1 review
+follow-up also updates only the delete return-type annotations of the Tenant and
+Course unconfigured providers. Their business behavior, dependencies, public
+delivery defaults and deployment configuration are unchanged. Achievement PR1
+is stacked on this branch; PR2 is stacked on PR1.
 
 For certificate logo/signature snapshots choose `authenticated`: the original
 and derived assets require authorization. `private` alone does not protect
@@ -20,9 +21,9 @@ The additive delivery option uses Cloudinary values `upload` (public default),
 `private`, and `authenticated`, as documented in the
 [upload parameters](https://cloudinary.com/documentation/upload_parameters#delivery_types).
 Existing calls omit `type` as before. Upload/delete options accept `deliveryType`;
-the original two-argument `getUrl` remains available with its unchanged behavior,
-and an overload accepts optional delivery settings. No existing service must
-implement the new read capability.
+the original two-argument `getUrl` remains public. Following S1 review, its overload
+rejects `private`/`authenticated` and directs callers to `getSignedUrl`. No existing
+service must implement the new read capability.
 
 The new `getSignedUrl` uses the SDK's `private_download_url`, with caller-supplied
 future UNIX-seconds `expiresAt`, resource type, format and delivery type. This is
@@ -32,8 +33,8 @@ documents its expiry, available delivery types and lack of CDN caching in
 and the [Upload API reference](https://cloudinary.com/documentation/image_upload_api_reference#private_download_url).
 At initial offline verification, no Cloudinary account had been exercised.
 
-`getUrl` returns an unsigned locator; choosing a protected type does not make
-that locator readable. Signed URLs grant possession-based access until expiry,
+`getUrl` returns a public unsigned URL and rejects protected delivery types.
+Signed URLs grant possession-based access until expiry,
 so certificate services must retain them server-side. The library does not make
 an end-user authorization decision. Public `upload` assets remain public even
 if a caller creates a signed URL for them.
@@ -46,7 +47,9 @@ response bodies to prevent accidental signed-URL disclosure. Callers should
 choose limits appropriate for the asset and concurrency; the helper buffers the
 result in memory. No network retry or fallback to public delivery is performed.
 
-The upload result still has its legacy URL fields. Achievement must store only
+The upload result retains `url`/`secureUrl` as strings for public consumers.
+For protected assets these are only locators, not authorized download URLs;
+callers must not persist, log or return them outside the service. Achievement must store only
 the key, SHA-256, MIME and required format/delivery metadata, and never publish
 those URL fields. The new methods use the existing SDK dependency (2.7.0).
 No real credentials were added to code, documentation or logs; test credentials are
@@ -168,3 +171,71 @@ resource lists without a next-page cursor for the run prefix. No cleanup failed.
 All required cases C1–C6 and C8 passed, with the permitted live timeout skip.
 These observations verify this run only, not all account settings, asset formats
 or future changes. No code changes were made in response to the live run.
+
+## S1 review follow-up verification, 24/10/2026
+
+This section supersedes the original behavior notes where they describe protected
+`getUrl`, void delete results or unspecific provider errors. Upload results now
+include the SDK response delivery type. Callers must persist it beside the key
+and pass it to delete/sign/read; omitting it still selects public `upload`, with
+no discovery or retry against other types. Delete distinguishes `deleted` from
+`not_found`. Both mean cleanup is complete only for the requested exact tuple.
+The Tenant/Course fallback providers only change their delete return annotations.
+
+`StorageProviderError.code` is `NOT_FOUND`, `TIMEOUT`, `TOO_LARGE` or `UNAVAILABLE`.
+Reads map HTTP 404, elapsed deadlines and Content-Length/streamed size caps to
+the first three respectively. Network errors, 401/403, 5xx and other read failures
+are `UNAVAILABLE`. Upload/delete classify structured SDK 404, timeout and 413
+errors; other failures are `UNAVAILABLE`. All provider paths use fixed messages
+without SDK/network causes, response bodies or interpolated provider results.
+Signing credentials use a JavaScript private field; JSON serialization and normal
+and hidden-field inspection tests confirm the secret is absent.
+
+Verification used Node 22.23.3 and `npm ci`, with unchanged lockfiles. The first
+Tenant install failed because the local ts-common prepare hook could not find
+`tsc`; rerunning with the already installed storage compiler on process PATH
+succeeded. Course used the same process PATH. Its existing postinstall invokes
+unsupported `prisma skills sync` and explicitly ignores that failure; npm ci
+completed. Prisma clients were generated solely for compilation, using a synthetic
+unused connection URL; no migration or database operation was performed.
+
+- Storage: build, typecheck and all 4 test files passed, **71 tests**. The original
+  regression coverage remains; protected getUrl assertions now require rejection.
+  Added coverage checks every error code, SDK sanitization, stream/header limits
+  and timeouts, exact delivery metadata, delete statuses and credential inspection.
+- Tenant: build and all **8 unit tests** passed.
+- Course: build and all **74 tests in 2 suites** passed.
+- Both service dependency declarations use `file:../../libraries/ts-storage`.
+  Realpath checks of each service's resolved module confirmed the rebuilt storage
+  `dist/index.js` in the same S1 checkout, rather than another checkout or copy.
+- Tenant database integration was not rerun. These are compile/unit/mocked checks,
+  not a claim of deployed PostgreSQL integration.
+- No dependency upgrades, lockfile edits, Docker operations or migrations occurred.
+  npm reported existing dependency audit findings (storage 5, Tenant 10, Course 11);
+  no audit fix was run.
+
+### Live delete/read follow-up
+
+The external smoke script loaded only CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY
+and CLOUDINARY_API_SECRET from the approved .env. It kept URLs, credentials and
+SDK errors out of logs/results and used random keys, overwrite=false and cleanup
+in finally. Two initial runs stopped at a byte-equality assertion: a small 68-byte
+PNG fixture was returned as 67 bytes. Both runs cleaned up successfully, with
+zero remaining assets. These runs are failures, not acceptance evidence.
+
+The fixture was replaced with a generated PNG with computed CRCs using the same
+construction as the earlier live smoke. Byte-equality assertions were retained.
+The successful run at **23:20:29–23:20:33 (UTC+07:00)** observed:
+
+| Case | Actual | Result |
+| --- | --- | --- |
+| Upload | image/authenticated, delivery metadata returned | Passed |
+| Delete without delivery type | `not_found`; authenticated asset still readable, exact 3,172 original bytes | Passed |
+| Delete with authenticated | `deleted` | Passed |
+| Repeat authenticated delete | `not_found` | Passed |
+| Read after delete | Fresh signed request HTTP 404; readBytes code `NOT_FOUND`, no cause | Passed |
+| Finally cleanup and Admin prefix check | `not_found`, zero remaining assets, no next cursor | Passed |
+
+The script and sanitized results remain outside the repository. This verifies the
+tested account/fixture only; it does not establish byte preservation for every
+image input or deployed service behavior.

@@ -2,6 +2,7 @@ import {
   CloudinaryStorageProvider,
   StorageProviderError,
   type IStorageProvider,
+  type IStorageDeleteResult,
   type IStoredFile,
 } from '@learnup/ts-storage';
 import { ConfigService } from '@nestjs/config';
@@ -15,7 +16,7 @@ class UnconfiguredStorageProvider implements IStorageProvider {
     );
   }
 
-  delete(): Promise<void> {
+  delete(): Promise<IStorageDeleteResult> {
     return Promise.reject(
       new StorageProviderError('Cloudinary credentials are not configured.'),
     );
