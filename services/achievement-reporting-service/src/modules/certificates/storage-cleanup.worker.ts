@@ -16,6 +16,7 @@ export class StorageCleanupWorker implements OnModuleInit, OnModuleDestroy {
   private active?: Promise<void>;
   private stopped = false;
   private ticks = 0;
+  private warnedUnconfigured = false;
   constructor(
     private readonly repository: SignerRepository,
     @Inject(SIGNER_CONFIG) private readonly config: SignerConfig,
@@ -40,7 +41,17 @@ export class StorageCleanupWorker implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
     await this.active;
   }
+  private canRun(): boolean {
+    if (!this.config.cleanupEnabled || this.stopped) return false;
+    if (this.storage.isConfigured()) return true;
+    if (!this.warnedUnconfigured) {
+      this.warnedUnconfigured = true;
+      this.logger.warn('CERTIFICATE_CLEANUP_STORAGE_UNCONFIGURED');
+    }
+    return false;
+  }
   async tick() {
+    if (!this.canRun()) return;
     const tasks = await this.repository.claim(4, this.config.cleanupLeaseMs);
     await Promise.all(tasks.map((t) => this.process(t)));
     if (
@@ -58,6 +69,7 @@ export class StorageCleanupWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
   async process(task: CleanupTask) {
+    if (!this.canRun()) return;
     try {
       if (await this.repository.referenced(task.asset_key)) {
         await this.repository.retry(

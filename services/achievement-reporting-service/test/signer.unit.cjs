@@ -56,7 +56,7 @@ test('configuration defaults and guardrails', () => {
   assert.equal(sc().cleanupEnabled, true);
   assert.equal(
     signerConfig(() => undefined, config({ enabled: false })).cleanupEnabled,
-    false,
+    true,
   );
   for (const env of [
     { CERTIFICATE_CLEANUP_DELAY_MS: '120100' },
@@ -391,6 +391,7 @@ test('cleanup referenced guard; success/missing completes; error retries with bo
     },
   };
   const worker = new StorageCleanupWorker(repo, sc(), {
+    isConfigured: () => true,
     delete: async () => {
       calls.push('delete');
       if (failed) throw new Error();
@@ -528,7 +529,7 @@ test('cleanup worker poll warning and storage failure remains recoverable', asyn
   const worker = new StorageCleanupWorker(
     repo,
     { ...sc(), cleanupPollMs: 60000 },
-    { delete: async () => {} },
+    { isConfigured: () => true, delete: async () => {} },
   );
   await worker.tick();
   assert.equal(logs[0].code, 'CERTIFICATE_CLEANUP_BACKLOG');
@@ -574,3 +575,82 @@ test('NOT_FOUND refresh to removed image snapshots signer text without image; re
   assert.equal(repeated.issued.length, 0);
   assert.equal(repeated.retries.length, 1);
 });
+
+for (const consumer of [true, false]) {
+  for (const [setting, expected] of [
+    [undefined, true],
+    ['true', true],
+    ['false', false],
+  ]) {
+    test(`cleanup defaults independently: consumer=${consumer}, cleanup=${setting}`, () => {
+      assert.equal(
+        signerConfig(
+          (k) => (k === 'CERTIFICATE_CLEANUP_ENABLED' ? setting : undefined),
+          config({ enabled: consumer }),
+        ).cleanupEnabled,
+        expected,
+      );
+    });
+  }
+}
+test('consumer disabled still polls and processes cleanup with configured storage', async () => {
+  const actions = [],
+    task = { id: 'test-task', asset_key: 'test-key', attempts: 0 };
+  const repo = {
+    claim: async () => {
+      actions.push('claim');
+      return [task];
+    },
+    referenced: async () => false,
+    done: async () => actions.push('done'),
+  };
+  const cfg = signerConfig(() => undefined, config({ enabled: false }));
+  const worker = new StorageCleanupWorker(repo, cfg, {
+    isConfigured: () => true,
+    delete: async () => actions.push('delete'),
+  });
+  worker.onModuleInit();
+  await new Promise((resolve) => setImmediate(resolve));
+  await worker.onModuleDestroy();
+  assert.deepEqual(actions, ['claim', 'delete', 'done']);
+});
+for (const missing of [
+  'CLOUDINARY_CLOUD_NAME',
+  'CLOUDINARY_API_KEY',
+  'CLOUDINARY_API_SECRET',
+]) {
+  test(`unconfigured storage (${missing}) warns once without claiming or processing tasks`, async () => {
+    const logs = [];
+    mock.method(Logger.prototype, 'warn', (v) => logs.push(v));
+    const storage = new CloudinaryIssuanceStorage((k) =>
+      k === missing
+        ? undefined
+        : {
+            CLOUDINARY_CLOUD_NAME: 'synthetic',
+            CLOUDINARY_API_KEY: 'synthetic',
+            CLOUDINARY_API_SECRET: 'synthetic',
+          }[k],
+    );
+    assert.equal(storage.isConfigured(), false);
+    const unexpected = async () =>
+      assert.fail('Unconfigured cleanup must not access tasks');
+    const worker = new StorageCleanupWorker(
+      {
+        claim: unexpected,
+        referenced: unexpected,
+        retry: unexpected,
+        done: unexpected,
+      },
+      sc(),
+      storage,
+    );
+    worker.onModuleInit();
+    await new Promise((resolve) => setImmediate(resolve));
+    await worker.tick();
+    worker.kick();
+    await new Promise((resolve) => setImmediate(resolve));
+    await worker.process({ asset_key: 'not-processed' });
+    await worker.onModuleDestroy();
+    assert.deepEqual(logs, ['CERTIFICATE_CLEANUP_STORAGE_UNCONFIGURED']);
+  });
+}

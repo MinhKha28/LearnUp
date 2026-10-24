@@ -8,6 +8,7 @@ import type {
 import type { LogoBytes } from './issuance.clients';
 import { IssuanceError } from './issuance.config';
 export interface IssuanceStorage {
+  isConfigured(): boolean;
   upload(
     row: Pick<PendingCertificate, 'organization_id'>,
     image: LogoBytes,
@@ -37,6 +38,9 @@ export class CloudinaryIssuanceStorage implements IssuanceStorage {
         apiSecret,
         secure: true,
       });
+  }
+  isConfigured(): boolean {
+    return this.provider !== undefined;
   }
   async upload(
     _row: Pick<PendingCertificate, 'organization_id'>,

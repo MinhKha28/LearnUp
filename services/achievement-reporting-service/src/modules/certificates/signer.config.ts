@@ -26,8 +26,7 @@ export function signerConfig(
     !['development', 'test'].includes(get('NODE_ENV') ?? '')
   )
     throw new Error('Fake signer access forbidden outside development/test');
-  const enabled =
-    get('CERTIFICATE_CLEANUP_ENABLED') ?? String(issuance.enabled);
+  const enabled = get('CERTIFICATE_CLEANUP_ENABLED') ?? 'true';
   if (!['true', 'false'].includes(enabled))
     throw new Error('Invalid CERTIFICATE_CLEANUP_ENABLED');
   const cleanupDelayMs = number('CERTIFICATE_CLEANUP_DELAY_MS', 600000);

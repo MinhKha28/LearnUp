@@ -360,6 +360,7 @@ services:
     environment:
       PORT: 8087
       CERTIFICATE_CONSUMER_ENABLED: ${CERTIFICATE_CONSUMER_ENABLED:-false}
+      CERTIFICATE_CLEANUP_ENABLED: ${CERTIFICATE_CLEANUP_ENABLED:-true}
       KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:29092}
       TENANT_SERVICE_URL: http://tenant-service:8082
       COURSE_SERVICE_URL: http://course-service:8083

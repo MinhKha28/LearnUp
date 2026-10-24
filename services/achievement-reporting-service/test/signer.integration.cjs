@@ -43,6 +43,7 @@ const settingsConfig = () =>
 function memoryStorage() {
   const assets = new Map();
   return {
+    isConfigured: () => true,
     assets,
     upload: async (r, i, key) => {
       assets.set(key, Buffer.from(i.bytes));
@@ -318,6 +319,7 @@ test('real HTTP + PostgreSQL signer API, CAS race, binary privacy and cleanup li
           1,
         );
         await new StorageCleanupWorker(repo, cfg, {
+          isConfigured: () => true,
           delete: async () => {
             throw new Error('network');
           },
