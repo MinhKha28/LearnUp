@@ -141,3 +141,35 @@ model PlatformSetting {
 
   @@map("platform_settings")
 }
+
+model CertificateSignerSetting {
+  organizationId     String   @id @map("organization_id") @db.Uuid
+  signerName         String   @map("signer_name") @db.VarChar(100)
+  signerTitle        String   @map("signer_title") @db.VarChar(200)
+  signatureAssetKey  String?  @map("signature_asset_key")
+  signatureHash      String?  @map("signature_hash") @db.VarChar(64)
+  signatureMime      String?  @map("signature_mime")
+  signatureSizeBytes Int?     @map("signature_size_bytes")
+  version            Int
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  updatedBy          String   @map("updated_by") @db.Uuid
+
+  @@map("certificate_signer_settings")
+}
+
+model StorageCleanupTask {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  assetKey      String    @unique @map("asset_key")
+  reason        String    @db.VarChar(80)
+  notBefore     DateTime  @map("not_before") @db.Timestamptz
+  attempts      Int       @default(0)
+  lastError     String?   @map("last_error") @db.VarChar(80)
+  nextAttemptAt DateTime  @map("next_attempt_at") @db.Timestamptz
+  leaseToken    String?   @map("lease_token") @db.Uuid
+  leaseUntil    DateTime? @map("lease_until") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([nextAttemptAt, notBefore], map: "ix_storage_cleanup_due")
+  @@map("storage_cleanup_tasks")
+}
