@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -14,7 +15,7 @@ model Certificate {
   learnerId       String    @map("learner_id") @db.Uuid
   courseId        String    @map("course_id") @db.Uuid
   certificateCode String    @unique @map("certificate_code") @db.VarChar(12)
-  status          String
+  status          String    @default("Pending")
   issuedAt        DateTime  @map("issued_at") @db.Timestamptz
   completedLate   Boolean   @map("completed_late")
   scoreSnapshot   Json      @map("score_snapshot")
@@ -22,6 +23,20 @@ model Certificate {
   courseName      String?   @map("course_name") @db.VarChar(200)
   versionNumber   Int?      @map("version_number")
   chainId         String?   @map("chain_id") @db.Uuid
+  completionFingerprint String @map("completion_fingerprint") @db.VarChar(64)
+  organizationName String? @map("organization_name") @db.VarChar(200)
+  logoAssetKey String? @map("logo_asset_key")
+  logoHash String? @map("logo_hash") @db.VarChar(64)
+  logoMime String? @map("logo_mime")
+  logoSize Int? @map("logo_size")
+  signerName String? @map("signer_name") @db.VarChar(100)
+  signerTitle String? @map("signer_title") @db.VarChar(200)
+  signatureAssetKey String? @map("signature_asset_key")
+  signatureHash String? @map("signature_hash") @db.VarChar(64)
+  signatureMime String? @map("signature_mime")
+  issuedRecordedAt DateTime? @map("issued_recorded_at") @db.Timestamptz
+  leaseToken String? @map("lease_token") @db.Uuid
+  leaseUntil DateTime? @map("lease_until") @db.Timestamptz
   issueAttempts   Int       @default(0) @map("issue_attempts")
   nextAttemptAt   DateTime? @map("next_attempt_at") @db.Timestamptz
   lastError       String?   @map("last_error")
@@ -29,10 +44,37 @@ model Certificate {
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   evaluationForm EvaluationForm?
+  completionEvents ProcessedCompletionEvent[]
 
   @@unique([learnerId, courseId])
   @@index([organizationId, courseId])
+  @@index([organizationId, learnerId], map: "ix_certificates_org_learner_issued", where: raw("status = 'Issued'"))
+  @@index([courseId], map: "ix_certificates_course_issued", where: raw("status = 'Issued'"))
+  @@index([organizationId, issuedAt], map: "ix_certificates_org_issued", where: raw("status = 'Issued'"))
+  @@index([nextAttemptAt, id], map: "ix_certificates_retry", where: raw("status = 'Pending'"))
   @@map("certificates")
+}
+
+model ProcessedCompletionEvent {
+  eventId String @id @map("event_id") @db.Uuid
+  certificateId String @map("certificate_id") @db.Uuid
+  fingerprint String @db.VarChar(64)
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz
+  certificate Certificate @relation(fields: [certificateId], references: [id], onDelete: Restrict)
+  @@map("processed_completion_events")
+}
+
+model CompletionEventQuarantine {
+  id String @id @default(uuid(7)) @db.Uuid
+  topic String
+  partition Int
+  offset BigInt
+  eventId String? @map("event_id")
+  reason String @db.VarChar(64)
+  payload Json
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz
+  @@unique([topic, partition, offset])
+  @@map("completion_event_quarantine")
 }
 
 model EvaluationForm {
