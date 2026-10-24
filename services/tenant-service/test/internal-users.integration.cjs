@@ -157,12 +157,15 @@ test('internal lookup with isolated organization fixtures', async (t) => {
       foreignId,
       missingId,
     ];
-    const call = (key) =>
+    const call = (key, headerOrganizationId) =>
       fetch(url, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
           ...(key ? { 'x-internal-key': key } : {}),
+          ...(headerOrganizationId
+            ? { 'x-organization-id': headerOrganizationId }
+            : {}),
         },
         body: JSON.stringify({ organizationId, userIds }),
       });
@@ -197,6 +200,22 @@ test('internal lookup with isolated organization fixtures', async (t) => {
     await t.test('rejects missing internal key', async () =>
       assert.equal((await call()).status, 401),
     );
+    await t.test('accepts x-organization-id matching the body', async () => {
+      const matched = await call(
+        process.env.INTERNAL_SERVICE_KEY,
+        organizationId,
+      );
+      assert.equal(matched.status, 200);
+      assert.equal((await matched.json()).data.items.length, 498);
+    });
+    await t.test('returns 404 when x-organization-id differs', async () => {
+      const mismatched = await call(
+        process.env.INTERNAL_SERVICE_KEY,
+        otherOrganizationId,
+      );
+      assert.equal(mismatched.status, 404);
+      assert.equal((await mismatched.json()).code, 'ORGANIZATION_NOT_FOUND');
+    });
     await t.test('EXPLAIN ANALYZE with 500 IDs', async () => {
       const plan = await db.$queryRaw(
         Prisma.sql`EXPLAIN (ANALYZE, FORMAT JSON) ${lookupUsersQuery(organizationId, userIds)}`,
