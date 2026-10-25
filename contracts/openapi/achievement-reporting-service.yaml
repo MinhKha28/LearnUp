@@ -181,7 +181,17 @@ components:
                 code: { type: string }
   responses:
     BadRequest:
-      description: Invalid context, If-Match, multipart fields, signer text or image header/dimensions. DTO validation uses 400, not 422.
+      description: >-
+        Invalid context, If-Match, multipart fields, signer text or image header/dimensions.
+        DTO validation uses 400, not 422. Individual error.code values are:
+        INVALID_USER_CONTEXT (invalid Organization context),
+        INVALID_IF_MATCH (malformed or out-of-range version),
+        SIGNER_REQUEST_INVALID (invalid request fields),
+        SIGNER_NAME_INVALID (invalid signerName or signerTitle; this code covers both fields),
+        SIGNATURE_ACTION_INVALID (unsupported action),
+        SIGNATURE_FILE_INVALID (missing, unexpected or inconsistent file),
+        SIGNATURE_IMAGE_INVALID (invalid image header), and
+        SIGNATURE_DIMENSIONS_TOO_LARGE (pixel limits exceeded).
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }

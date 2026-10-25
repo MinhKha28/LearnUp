@@ -33,7 +33,22 @@ require explicit `NODE_ENV=development` or `test`; production and missing
 NODE_ENV reject those settings. Users lookup remains HTTP in application mode.
 The runtime Docker image defaults to production.
 
-Use `.env.example` for configuration names and placeholders. Do not log or
+Use `.env.example` for configuration names and development-only placeholders.
+The Tenant service listens on port 8084; set `TENANT_SERVICE_URL` accordingly.
+In production, or when `NODE_ENV` is missing, startup requires a nonblank
+`INTERNAL_SERVICE_KEY` and a PostgreSQL `DATABASE_URL` containing an explicit
+username and password. Invalid/missing credentials stop startup before database
+connections or workers start; diagnostics never include credential values.
+Only explicit `NODE_ENV=development` or `test` skips this credential guard.
+Compose requires explicit `DB_USERNAME`, `DB_PASSWORD` and `INTERNAL_SERVICE_KEY`.
+Do not use the development example credentials for deployment.
+
+Compose forwards signer access mode and all cleanup settings from the environment.
+Defaults remain HTTP access, cleanup enabled, delay 600000 ms, poll 1000 ms,
+cleanup lease 120000 ms and backlog warning 3600 seconds. Startup rejects
+cleanup delay ≤ issuance lease + storage timeout and cleanup lease ≤ storage timeout.
+
+Use the environment to supply production credentials. Do not log or
 commit credentials, source logo URLs, signed URLs, score payloads or email.
 Logo downloads require HTTPS, an exact allowlisted host and bounded reads.
 PNG/JPEG/WebP magic bytes determine the stored MIME. A download 404 refreshes
