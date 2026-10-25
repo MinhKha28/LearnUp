@@ -1,5 +1,5 @@
 /**
- * UC33 on its own schedule (BR-188, BR-189, BR-193, BR-194, BR-198, BR-313) through the real service and a real Postgres:
+ * UC33 on its own schedule (BR-230, BR-232, BR-236, BR-237, BR-243, BR-239) through the real service and a real Postgres:
  * the cycles are written straight into the database in the state the clock would have brought them to, the service
  * runs its timer every 200 ms, and notification-service is a small stub that records what it was sent.
  * The tests are one story and share state.
@@ -179,7 +179,7 @@ describe('UC33 schedule over HTTP', () => {
     await db?.drop();
   });
 
-  test('a cycle past its closing line closes by itself: reviews handed out, each reviewer told (BR-188, BR-189)', async () => {
+  test('a cycle past its closing line closes by itself: reviews handed out, each reviewer told (BR-230, BR-232)', async () => {
     const learners = [id(1), id(2), id(3), id(4)];
     const { cycleId } = await makeCycle({
       status: 'Open',
@@ -229,7 +229,7 @@ describe('UC33 schedule over HTTP', () => {
     }
   });
 
-  test('too few submissions: the Instructor grades them (BR-197)', async () => {
+  test('too few submissions: the Instructor grades them (BR-242)', async () => {
     const { cycleId } = await makeCycle({
       status: 'Open',
       closesInHours: -2,
@@ -268,7 +268,7 @@ describe('UC33 schedule over HTTP', () => {
     assert.equal((await cycle(cycleId)).status, 'Open');
   });
 
-  test('inside the reminder window, each Learner who owes reviews is reminded once (BR-189)', async () => {
+  test('inside the reminder window, each Learner who owes reviews is reminded once (BR-232)', async () => {
     const learners = [id(31), id(32), id(33)];
     const { cycleId, submissionIds } = await makeCycle({
       status: 'Assigned',
@@ -313,7 +313,7 @@ describe('UC33 schedule over HTTP', () => {
     assert.equal(sent.length, before);
   });
 
-  test('past the review deadline: what was not reviewed goes to the Instructor, who skipped is marked (BR-193, BR-194, BR-198, BR-313)', async () => {
+  test('past the review deadline: what was not reviewed goes to the Instructor, who skipped is marked (BR-236, BR-237, BR-243, BR-239)', async () => {
     const learners = [id(51), id(52), id(53), id(54)];
     const { cycleId, submissionIds } = await makeCycle({
       status: 'Assigned',
@@ -330,7 +330,7 @@ describe('UC33 schedule over HTTP', () => {
       new Set(['0:1', '0:2', '1:2']),
     );
     for (const learner of learners) await state(learner);
-    // L0 was waived by the Instructor (BR-316): it stays unmarked
+    // L0 was waived by the Instructor (BR-241): it stays unmarked
     await db.query(
       `UPDATE learner_assessment_states SET exempted_at = now() WHERE learner_id = $1`,
       [learners[0]],

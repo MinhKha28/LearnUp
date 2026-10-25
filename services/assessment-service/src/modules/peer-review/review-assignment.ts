@@ -1,4 +1,4 @@
-/** The ring that decides who reviews whose submission when a peer review cycle closes (BR-202, BR-203). */
+/** The ring that decides who reviews whose submission when a peer review cycle closes (BR-248, BR-249). */
 
 export interface ReviewPair {
   /** The Learner whose submission is reviewed. */
@@ -19,12 +19,12 @@ export function shuffle<T>(items: readonly T[], random: () => number): T[] {
   return result;
 }
 
-/** BR-197: with fewer than N + 1 submissions there is nobody to swap with, so nothing is assigned. */
+/** BR-242: with fewer than N + 1 submissions there is nobody to swap with, so nothing is assigned. */
 export const canAssign = (submitters: number, reviewersPerSubmission: number) =>
   submitters >= reviewersPerSubmission + 1;
 
 /**
- * BR-203: the submission of the Learner at position i of the permutation goes to the Learners at positions
+ * BR-249: the submission of the Learner at position i of the permutation goes to the Learners at positions
  * i + 1 ... i + N, counted around the ring. With m >= N + 1 Learners that gives every submission exactly N
  * different reviewers, none of them its own author, and every Learner exactly N submissions to review.
  * The same permutation always gives the same pairs, so closing a cycle again changes nothing.

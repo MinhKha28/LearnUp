@@ -33,7 +33,7 @@ export class PeerReviewService {
   private readonly logger = new Logger(PeerReviewService.name);
   /** The clock of the status of a cycle; a test replaces it to travel in time. */
   clock: () => Date = () => new Date();
-  /** The randomness of the permutation (BR-203); a test replaces it to know the result. */
+  /** The randomness of the permutation (BR-249); a test replaces it to know the result. */
   random: () => number = Math.random;
 
   constructor(
@@ -100,9 +100,9 @@ export class PeerReviewService {
   }
 
   /**
-   * UC33 — close a cycle: hand out the reviews (BR-203) or send the submissions to the Instructor (BR-197).
+   * UC33 — close a cycle: hand out the reviews (BR-249) or send the submissions to the Instructor (BR-242).
    * Closing before the closing line is allowed (the Instructor does it from the screen): the cycle then closes now,
-   * so later submissions go to the next cycle (BR-167). Closing a closed cycle changes nothing.
+   * so later submissions go to the next cycle (BR-208). Closing a closed cycle changes nothing.
    * ponytail: a submission in flight at this moment can still join the cycle after it closed; lock the row from
    * the submit transaction too if that ever matters.
    */
@@ -142,7 +142,7 @@ export class PeerReviewService {
 
   /**
    * Closes a cycle that is Open: the work of UC33 that the Instructor starts from the screen and the schedule starts
-   * when the closing line passes (BR-188). Then each reviewer is told what to review (BR-189).
+   * when the closing line passes (BR-230). Then each reviewer is told what to review (BR-232).
    */
   async closeOpen(
     cycle: PeerReviewCycle,
@@ -155,7 +155,7 @@ export class PeerReviewService {
       const claimed = await this.repository.claimOpenCycle(tx, cycle.id, {
         status: 'Closing',
         closesAt: new Date(cycle.closesAt.getTime() - early),
-        // BR-187: the review deadline keeps its distance from the closing line.
+        // BR-229: the review deadline keeps its distance from the closing line.
         reviewDueAt: new Date(cycle.reviewDueAt.getTime() - early),
         closedAt: now,
       });
@@ -233,7 +233,7 @@ export class PeerReviewService {
     };
   }
 
-  /** BR-189: tell each reviewer how many submissions to review and by when. Best effort: it never undoes the closing. */
+  /** BR-232: tell each reviewer how many submissions to review and by when. Best effort: it never undoes the closing. */
   private async notifyReviewers(
     cycle: PeerReviewCycle,
     assignmentTitle: string,

@@ -66,7 +66,7 @@ export class PeerReviewRepository {
     });
   }
 
-  /** The current submission of each Learner in the cycle (a replaced one is not counted, BR-171). */
+  /** The current submission of each Learner in the cycle (a replaced one is not counted, BR-213). */
   currentSubmissions(tx: Prisma.TransactionClient, cycleId: string) {
     return tx.submission.findMany({
       where: { cycleId, supersededAt: null },
@@ -108,7 +108,7 @@ export class PeerReviewRepository {
     ]);
   }
 
-  // ---- the schedule (BR-188, BR-189, BR-194) ----
+  // ---- the schedule (BR-230, BR-232, BR-237) ----
 
   /** Cycles whose closing line has passed and that nobody has closed yet; the title is for the notification. */
   findCyclesToClose(now: Date) {
@@ -139,7 +139,7 @@ export class PeerReviewRepository {
     });
   }
 
-  /** The Learners who still owe reviews in a cycle, with how many (BR-189). */
+  /** The Learners who still owe reviews in a cycle, with how many (BR-232). */
   async pendingReviewCounts(cycleId: string): Promise<Map<string, number>> {
     const rows = await this.prisma.submissionReview.groupBy({
       by: ['reviewerId'],
@@ -149,7 +149,7 @@ export class PeerReviewRepository {
     return new Map(rows.map((row) => [row.reviewerId, row._count._all]));
   }
 
-  /** Assigned cycles whose review deadline has passed (BR-194). */
+  /** Assigned cycles whose review deadline has passed (BR-237). */
   findCyclesPastDeadline(now: Date) {
     return this.prisma.peerReviewCycle.findMany({
       where: { status: 'Assigned', reviewDueAt: { lte: now } },
@@ -165,7 +165,7 @@ export class PeerReviewRepository {
     });
   }
 
-  /** Reviews that were not done in time stop being Pending (BR-193); returns who skipped. */
+  /** Reviews that were not done in time stop being Pending (BR-236); returns who skipped. */
   async expirePendingReviews(
     tx: Prisma.TransactionClient,
     cycleId: string,
@@ -182,7 +182,7 @@ export class PeerReviewRepository {
   }
 
   /**
-   * The submissions of the cycle that did not get all N valid reviews go to the Instructor (BR-198, BR-206).
+   * The submissions of the cycle that did not get all N valid reviews go to the Instructor (BR-243, BR-252).
    * A submission already moved on (graded, replaced) is left alone.
    */
   async sendUnderReviewedToInstructor(
@@ -215,7 +215,7 @@ export class PeerReviewRepository {
     return short.length;
   }
 
-  /** BR-313: a Learner who skipped reviews owes them, unless the Instructor waived it (BR-316). */
+  /** BR-239: a Learner who skipped reviews owes them, unless the Instructor waived it (BR-241). */
   markObligationMissed(
     tx: Prisma.TransactionClient,
     assessmentId: string,

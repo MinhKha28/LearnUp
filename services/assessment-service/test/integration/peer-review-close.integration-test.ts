@@ -1,5 +1,5 @@
 /**
- * UC33 closing a cycle through the real HTTP API and a real Postgres (BR-197, BR-202, BR-203): the reviews are handed
+ * UC33 closing a cycle through the real HTTP API and a real Postgres (BR-242, BR-248, BR-249): the reviews are handed
  * out around a random ring, too few submissions go to the Instructor, and closing again changes nothing.
  * The tests are one story and share state.
  */
@@ -124,7 +124,7 @@ describe('UC33 closing a cycle over HTTP', () => {
     assert.equal((await cycles())[0].closed, false);
   });
 
-  test('2 submissions, N = 2: nobody to swap with, the Instructor grades them (BR-197)', async () => {
+  test('2 submissions, N = 2: nobody to swap with, the Instructor grades them (BR-242)', async () => {
     const [cycle] = await cycles();
     const r = await close(cycle.id);
     assert.equal(r.status, 200, JSON.stringify(r.json));
@@ -155,7 +155,7 @@ describe('UC33 closing a cycle over HTTP', () => {
     assert.equal(again.data.submissionCount, 2);
   });
 
-  test('the closing is now: later submissions fall into a new cycle (BR-167)', async () => {
+  test('the closing is now: later submissions fall into a new cycle (BR-208)', async () => {
     for (let i = 2; i <= 6; i += 1) await submit(assignment, learner(i));
     const list = await cycles();
     assert.equal(list.length, 2);
@@ -163,7 +163,7 @@ describe('UC33 closing a cycle over HTTP', () => {
     assert.equal(list[1].submissionCount, 5);
   });
 
-  test('5 submissions, N = 2: 10 reviews, 2 per submission, none of the author (BR-203)', async () => {
+  test('5 submissions, N = 2: 10 reviews, 2 per submission, none of the author (BR-249)', async () => {
     const cycle = (await cycles())[1];
     const r = await close(cycle.id);
     assert.equal(r.status, 200, JSON.stringify(r.json));
@@ -193,7 +193,7 @@ describe('UC33 closing a cycle over HTTP', () => {
     for (const reviewers of byAuthor.values()) assert.equal(reviewers.size, 2);
     for (const count of byReviewer.values()) assert.equal(count, 2);
 
-    // BR-202: the reviewers are the Learners who submitted in this very cycle, not those of the first one
+    // BR-248: the reviewers are the Learners who submitted in this very cycle, not those of the first one
     const first = new Set([learner(0), learner(1)]);
     for (const row of reviews) assert.ok(!first.has(row.reviewer_id as string));
 

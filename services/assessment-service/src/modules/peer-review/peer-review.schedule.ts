@@ -11,7 +11,7 @@ import { PeerReviewService } from './peer-review.service';
 
 const HOUR_MS = 3_600_000;
 
-/** BR-189: the reminder goes out once, when the review deadline is closer than `reminderHours` and not yet passed. */
+/** BR-232: the reminder goes out once, when the review deadline is closer than `reminderHours` and not yet passed. */
 export function isReminderDue(
   cycle: { reviewDueAt: Date; reminderHours: number },
   now: Date,
@@ -29,9 +29,9 @@ export interface IScheduleRun {
 }
 
 /**
- * UC33 — what the cycles do on their own (BR-188): they close at their closing line and hand out the reviews, remind
- * the reviewers before the deadline (BR-189) and, when the deadline has passed, move what was not reviewed to the
- * Instructor (BR-194, BR-198) and mark who skipped (BR-193, BR-313).
+ * UC33 — what the cycles do on their own (BR-230): they close at their closing line and hand out the reviews, remind
+ * the reviewers before the deadline (BR-232) and, when the deadline has passed, move what was not reviewed to the
+ * Instructor (BR-237, BR-243) and mark who skipped (BR-236, BR-239).
  *
  * Every step claims the cycle with a conditional update, so two runs at the same moment, or two instances of the
  * service, do the work once. A run that fails on one cycle goes on with the others and tries that one again next time.
