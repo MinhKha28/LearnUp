@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   CanActivate,
   ExecutionContext,
   ForbiddenException,
@@ -11,8 +12,10 @@ import type { Request } from 'express';
 import type { CurrentUser } from '@learnup/ts-common';
 import { HEADER_NAMES, parseUserRole } from '@learnup/ts-common';
 import { isUUID } from 'class-validator';
+import { timingSafeEqual } from 'node:crypto';
 import {
   IS_PUBLIC_KEY,
+  IS_SERVICE_CALL_KEY,
   ROLES_KEY,
   REQUIRE_ORGANIZATION_KEY,
 } from '../decorator/customize';
@@ -47,6 +50,38 @@ export class InternalAuthGuard implements CanActivate {
     const expectedInternalKey = this.configService.getOrThrow<string>(
       'INTERNAL_SERVICE_KEY',
     );
+
+    const isServiceCall = this.reflector.getAllAndOverride<boolean>(
+      IS_SERVICE_CALL_KEY,
+      targets,
+    );
+    if (isServiceCall) {
+      const supplied = Buffer.from(
+        typeof internalKey === 'string' ? internalKey : '',
+      );
+      const expected = Buffer.from(expectedInternalKey);
+      if (
+        expected.length === 0 ||
+        supplied.length !== expected.length ||
+        !timingSafeEqual(supplied, expected)
+      ) {
+        throw new UnauthorizedException({
+          code: 'INVALID_INTERNAL_KEY',
+          message: 'Invalid or missing internal service key.',
+        });
+      }
+      const organizationId = request.headers[HEADER_NAMES.ORGANIZATION_ID];
+      if (
+        typeof organizationId !== 'string' ||
+        !isUUID(organizationId, 'all')
+      ) {
+        throw new BadRequestException({
+          code: 'ORGANIZATION_REQUIRED',
+          message: 'A valid organization header is required.',
+        });
+      }
+      return true;
+    }
 
     if (
       typeof internalKey !== 'string' ||

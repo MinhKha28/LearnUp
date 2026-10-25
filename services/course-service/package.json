@@ -87,8 +87,20 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "allowJs": true,
+            "module": "commonjs",
+            "resolvePackageJsonExports": false
+          }
+        }
+      ]
     },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!@nestjs/(config|axios)/)"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

@@ -19,7 +19,8 @@ beforeAll(async () => {
     const chunks: Buffer[] = [];
     req.on("data", (c: Buffer) => chunks.push(c));
     req.on("end", () => {
-      requests.push({ url: req.url, authorization: req.headers.authorization, body: JSON.parse(Buffer.concat(chunks).toString()) });
+      const raw = Buffer.concat(chunks).toString();
+      requests.push({ url: req.url, authorization: req.headers.authorization, body: raw ? JSON.parse(raw) : undefined });
       if (req.url?.endsWith("/refresh")) {
         if (mode === "switch-user") stored.set("access_token", jwt("synthetic-b"));
         reply(res, 200, { data: { accessToken: jwt(owner.userId, 2), refreshToken: "synthetic-rotated" } });
@@ -53,6 +54,17 @@ it("B uses real Axios interceptors for HTTP401 → refresh → identical replay"
   expect(requests.map(r => r.url)).toEqual(["/api/v1/enrollments/e/materials/m/progress", "/api/v1/auth/refresh", "/api/v1/enrollments/e/materials/m/progress"]);
   expect(requests[0].body).toEqual(report); expect(requests[2].body).toEqual(report);
   expect(requests[2].authorization).toBe(`Bearer ${jwt(owner.userId, 2)}`);
+});
+it("Reading sends no business payload and replays safely through the existing refresh interceptor", async () => {
+  await learning.completeReading("e", "reading", owner);
+  expect(requests.map(r => r.url)).toEqual(["/api/v1/enrollments/e/materials/reading/complete-reading", "/api/v1/auth/refresh", "/api/v1/enrollments/e/materials/reading/complete-reading"]);
+  expect(requests[0].body).toBeUndefined(); expect(requests[2].body).toBeUndefined();
+  expect(requests[2].authorization).toBe(`Bearer ${jwt(owner.userId, 2)}`);
+});
+it("Reading cannot replay completion after the account changes during refresh", async () => {
+  mode = "switch-user";
+  await expect(learning.completeReading("e", "reading", owner)).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  expect(requests).toHaveLength(2);
 });
 it("does not replay A's progress using B's token after refresh", async () => {
   mode = "switch-user";

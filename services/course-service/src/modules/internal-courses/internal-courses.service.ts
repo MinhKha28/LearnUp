@@ -1,6 +1,7 @@
 import { COURSE_STATUS, COURSE_TYPE } from '../courses/course-values';
 import { createApiError } from '@learnup/ts-common';
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -248,7 +249,10 @@ export class InternalCoursesService {
     courseIds: string[],
   ): Promise<CourseBatchItemDto[]> {
     if (!organizationId || !isUUID(organizationId, 'all')) {
-      return [];
+      throw new BadRequestException({
+        code: 'ORGANIZATION_REQUIRED',
+        message: 'A valid organization header is required.',
+      });
     }
 
     const courses = await this.prisma.course.findMany({

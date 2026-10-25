@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { requestCompletion } from '../course-completion/completion-request';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { enrollmentRestoredStatusSql } from './enrollment-restored-status.sql';
@@ -115,6 +116,7 @@ export class OptionalEnrollmentRepository {
     const [restored] = await tx.$queryRaw<CreatedEnrollment[]>(
       restoreOptionalEnrollmentSql(row),
     );
+    await requestCompletion(tx, row.organizationId, row.id, 'OPTIONAL_RESTORE');
     return restored;
   }
 }

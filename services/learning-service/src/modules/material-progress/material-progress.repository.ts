@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { requestCompletion } from '../course-completion/completion-request';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import type { WatchedRange } from './video-progress.rules';
+import { enrollmentDisplayStatusSql } from '../enrollments/enrollment-display-status.sql';
+import { buildCurriculum } from '../curriculum/build-curriculum';
 
 export interface ProgressAccess {
   id: string;
@@ -78,8 +81,10 @@ export const activateEnrollmentSql = (
   organizationId: string,
   now: Date,
 ) => Prisma.sql`
-  UPDATE enrollments SET status='InProgress', first_activity_at=${now}::timestamptz, updated_at=${now}::timestamptz
-   WHERE id=${enrollmentId}::uuid AND organization_id=${organizationId}::uuid AND status='NotStarted'`;
+  UPDATE enrollments SET status=CASE WHEN status='NotStarted' THEN 'InProgress' ELSE status END,
+    first_activity_at=LEAST(COALESCE(first_activity_at,${now}::timestamptz),${now}::timestamptz), updated_at=${now}::timestamptz
+   WHERE id=${enrollmentId}::uuid AND organization_id=${organizationId}::uuid
+     AND status IN ('NotStarted','InProgress','Exempted')`;
 
 @Injectable()
 export class MaterialProgressRepository {
@@ -88,6 +93,92 @@ export class MaterialProgressRepository {
     work: (tx: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction(work);
+  }
+  async completeReading(
+    enrollmentId: string,
+    materialId: string,
+    org: string,
+    tx: Prisma.TransactionClient,
+  ) {
+    const rows = await tx.$queryRaw<{ completedAt: Date }[]>`
+      INSERT INTO material_progress AS p(id,organization_id,enrollment_id,material_id,completed_at,watched_ranges)
+      VALUES (${randomUUID()}::uuid,${org}::uuid,${enrollmentId}::uuid,${materialId}::uuid,clock_timestamp(),NULL)
+      ON CONFLICT (enrollment_id,material_id) DO UPDATE
+        SET completed_at=EXCLUDED.completed_at,updated_at=EXCLUDED.completed_at
+        WHERE p.organization_id=EXCLUDED.organization_id AND p.completed_at IS NULL
+      RETURNING completed_at AS "completedAt"`;
+    if (!rows.length) return false;
+    await tx.$executeRaw(
+      activateEnrollmentSql(enrollmentId, org, rows[0].completedAt),
+    );
+    await requestCompletion(tx, org, enrollmentId, 'READING_COMPLETED');
+    return true;
+  }
+  async readingState(
+    enrollmentId: string,
+    materialId: string,
+    courseId: string,
+    lessonId: string,
+    org: string,
+    tx: Prisma.TransactionClient,
+  ) {
+    const materials = await tx.materialSnapshot.findMany({
+      where: { courseId, lessonId, organizationId: org },
+    });
+    const disabled = await this.disabledLesson(lessonId, org, tx);
+    const completed = await tx.materialProgress.findMany({
+      where: { enrollmentId, organizationId: org, completedAt: { not: null } },
+    });
+    // Snapshot-only adapter: completion has no dependency on course-service (BR-185/186).
+    const curriculum = buildCurriculum(
+      {
+        courseId,
+        chainId: courseId,
+        versionNumber: 0,
+        disabledAt: null,
+        asOf: new Date(),
+        modules: [
+          {
+            id: courseId,
+            title: '',
+            position: 0,
+            lessons: [
+              {
+                id: lessonId,
+                title: '',
+                position: 0,
+                disabledAt: disabled ? new Date(0) : null,
+                materials: materials.map((m, position) => ({
+                  id: m.materialId,
+                  title: '',
+                  position,
+                  materialType: m.materialType as 'Video' | 'Reading',
+                  isRequired: m.isRequired,
+                  durationSeconds: m.durationSeconds,
+                  disabledAt: m.disabledAt,
+                })),
+              },
+            ],
+          },
+        ],
+      },
+      { materials, disabledLessonIds: new Set(disabled ? [lessonId] : []) },
+      new Set(completed.map((m) => m.materialId)),
+    );
+    const [state] = await tx.$queryRaw<{ status: string; pending: boolean }[]>`
+      SELECT ${enrollmentDisplayStatusSql('e')} AS status,
+        EXISTS(SELECT 1 FROM completion_evaluation_requests r WHERE r.enrollment_id=e.id AND r.organization_id=e.organization_id) AS pending
+      FROM enrollments e WHERE e.id=${enrollmentId}::uuid AND e.organization_id=${org}::uuid`;
+    return {
+      materialId,
+      completedAt:
+        completed
+          .find((m) => m.materialId === materialId)
+          ?.completedAt?.toISOString() ?? null,
+      lessonCompleted: curriculum.visibleLessons[0]?.completed ?? null,
+      enrollmentStatus: state.status,
+      completionEvaluationPending: state.pending,
+    };
   }
   async access(
     enrollmentId: string,
@@ -192,8 +283,10 @@ export class MaterialProgressRepository {
           completed_at=COALESCE(completed_at,${completedAt}::timestamptz),
           last_reported_at=${row.now}::timestamptz, updated_at=${row.now}::timestamptz
       WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid AND organization_id=${org}::uuid`;
-    if (row.completedAt === null && completedAt !== null)
+    if (row.completedAt === null && completedAt !== null) {
       await tx.$executeRaw(activateEnrollmentSql(enrollmentId, org, row.now));
+      await requestCompletion(tx, org, enrollmentId, 'VIDEO_COMPLETED');
+    }
     return { ...row, completedAt };
   }
   async savePosition(

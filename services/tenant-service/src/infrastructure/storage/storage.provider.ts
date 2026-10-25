@@ -5,6 +5,7 @@ import {
   type IStorageFileInput,
   type IStorageUploadOptions,
   type IStorageDeleteOptions,
+  type IStorageDeleteResult,
   type IStoredFile,
   type StoredResourceType,
 } from '@learnup/ts-storage';
@@ -23,7 +24,7 @@ class UnconfiguredStorageProvider implements IStorageProvider {
   async delete(
     _storageKey: string,
     _options: IStorageDeleteOptions,
-  ): Promise<void> {
+  ): Promise<IStorageDeleteResult> {
     throw new StorageProviderError(
       'Cloudinary credentials are not configured.',
     );

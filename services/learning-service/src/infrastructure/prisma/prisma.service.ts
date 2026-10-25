@@ -2,6 +2,8 @@ import {
   Injectable,
   OnApplicationShutdown,
   OnModuleInit,
+  Optional,
+  Inject,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -12,9 +14,13 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnApplicationShutdown
 {
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    @Optional() @Inject('PRISMA_POOL_MAX') poolMax?: number,
+  ) {
     const adapter = new PrismaPg({
       connectionString: configService.getOrThrow<string>('DATABASE_URL'),
+      max: poolMax ?? 10,
     });
     super({ adapter });
   }

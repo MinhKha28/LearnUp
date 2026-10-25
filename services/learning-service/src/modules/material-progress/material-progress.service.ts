@@ -1,5 +1,9 @@
 import type { CurrentUser } from '@learnup/ts-common';
-import { HttpException, Inject, Injectable } from '@nestjs/common';
+import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  READING_ACCESS_CONFIG,
+  type ReadingAccessConfig,
+} from './reading-access.config';
 import { isUUID } from 'class-validator';
 import type {
   MaterialSnapshot,
@@ -38,11 +42,14 @@ const fail = (
 
 @Injectable()
 export class MaterialProgressService {
+  private readonly logger = new Logger(MaterialProgressService.name);
   constructor(
     private readonly repository: MaterialProgressRepository,
     private readonly course: CourseServiceClient,
     @Inject(VIDEO_PLAYBACK_CONFIG)
     private readonly playbackConfig: VideoPlaybackConfig,
+    @Inject(READING_ACCESS_CONFIG)
+    private readonly readingConfig: ReadingAccessConfig,
   ) {}
 
   private async access(
@@ -62,11 +69,134 @@ export class MaterialProgressService {
       user.organizationId!,
       tx,
     );
+    if (
+      access &&
+      ![
+        'NotStarted',
+        'InProgress',
+        'Exempted',
+        'Completed',
+        'Halted',
+        'Withdrawn',
+      ].includes(access.status)
+    ) {
+      this.logger.error('INVALID_ENROLLMENT_STATUS');
+      fail(
+        500,
+        'INVALID_ENROLLMENT_STATUS',
+        'Invalid stored enrollment status.',
+      );
+    }
     if (!access || access.status === 'Withdrawn')
       return fail(404, 'ENROLLMENT_NOT_FOUND', 'Không tìm thấy Enrollment.');
     if (access.status === 'Halted' || access.disabledAt !== null)
       fail(403, 'CONTENT_UNAVAILABLE', 'Nội dung đang tạm ngưng.');
     return access;
+  }
+  private async readingMaterial(
+    user: CurrentUser,
+    access: ProgressAccess,
+    materialId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    if (!isUUID(materialId, 'all'))
+      return fail(404, 'MATERIAL_NOT_FOUND', 'Không tìm thấy học liệu.');
+    const material = await this.repository.material(
+      materialId,
+      access.courseId,
+      user.organizationId!,
+      tx,
+    );
+    if (!material)
+      return fail(404, 'MATERIAL_NOT_FOUND', 'Không tìm thấy học liệu.');
+    if (
+      material.disabledAt !== null ||
+      (await this.repository.disabledLesson(
+        material.lessonId,
+        user.organizationId!,
+        tx,
+      ))
+    )
+      fail(403, 'CONTENT_UNAVAILABLE', 'Nội dung đang tạm ngưng.');
+    if (material.materialType !== 'Reading')
+      fail(409, 'MATERIAL_NOT_READING', 'Học liệu không phải Reading.');
+    return material;
+  }
+  async completeReading(
+    user: CurrentUser,
+    enrollmentId: string,
+    materialId: string,
+  ) {
+    return this.repository.transaction(async (tx) => {
+      const access = await this.access(user, enrollmentId, tx);
+      const material = await this.readingMaterial(user, access, materialId, tx);
+      // L21: insert sequential-access policy here before the progress transition.
+      const changed =
+        access.status !== 'Completed' &&
+        (await this.repository.completeReading(
+          enrollmentId,
+          materialId,
+          user.organizationId!,
+          tx,
+        ));
+      const state = await this.repository.readingState(
+        enrollmentId,
+        materialId,
+        access.courseId,
+        material.lessonId,
+        user.organizationId!,
+        tx,
+      );
+      return {
+        ...state,
+        alreadyCompleted: !changed && state.completedAt !== null,
+      };
+    });
+  }
+  async readingAccess(
+    user: CurrentUser,
+    enrollmentId: string,
+    materialId: string,
+  ) {
+    const access = await this.access(user, enrollmentId);
+    await this.readingMaterial(user, access, materialId);
+    // L21: insert sequential-access policy before issuing a content URL.
+    if (this.readingConfig.mode === 'course')
+      return fail(
+        503,
+        'SERVICE_UNAVAILABLE',
+        'Reading access is awaiting the course-service contract.',
+      );
+    let tree: CourseTree;
+    try {
+      tree = await this.course.getCourseTree(user, access.courseId);
+    } catch (error) {
+      if (error instanceof CourseServiceError)
+        return fail(
+          503,
+          'SERVICE_UNAVAILABLE',
+          'Reading content is temporarily unavailable.',
+        );
+      throw error;
+    }
+    if (tree.disabledAt !== null)
+      fail(403, 'CONTENT_UNAVAILABLE', 'Nội dung đang tạm ngưng.');
+    for (const module of tree.modules)
+      for (const lesson of module.lessons) {
+        const material = lesson.materials.find((m) => m.id === materialId);
+        if (!material) continue;
+        if (lesson.disabledAt !== null || material.disabledAt !== null)
+          fail(403, 'CONTENT_UNAVAILABLE', 'Nội dung đang tạm ngưng.');
+        if (material.materialType !== 'Reading')
+          fail(409, 'MATERIAL_NOT_READING', 'Học liệu không phải Reading.');
+        return {
+          materialId,
+          title: material.title,
+          accessUrl: this.readingConfig.fixtureUrl!,
+          fixture: true,
+        };
+      }
+    return fail(404, 'MATERIAL_NOT_FOUND', 'Không tìm thấy học liệu.');
   }
   private async tree(user: CurrentUser, courseId: string) {
     try {

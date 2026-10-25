@@ -121,3 +121,18 @@ export interface VideoPlayback extends VideoProgress {
   title: string;
   playbackUrl: string;
 }
+
+export interface ReadingAccess {
+  materialId: string;
+  title: string;
+  accessUrl: string;
+  fixture: boolean;
+}
+export interface ReadingCompletion {
+  materialId: string;
+  completedAt: string | null;
+  alreadyCompleted: boolean;
+  lessonCompleted: boolean | null;
+  enrollmentStatus: EnrollmentStatus;
+  completionEvaluationPending: boolean;
+}

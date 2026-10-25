@@ -26,6 +26,7 @@ export const cleanupSql = Prisma.sql`
 
 /** Field names to erase from persisted payloads after Kafka acknowledges delivery. */
 export const secretFields: Readonly<Record<string, readonly string[]>> = {
+  EnrollmentCompleted: [],
   EnrollmentAssigned: [],
   EnrollmentDueDateExtended: [],
   EnrollmentExempted: [],

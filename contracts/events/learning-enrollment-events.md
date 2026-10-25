@@ -20,8 +20,43 @@ The relay forwards the existing writer payload without inventing business fields
 | EnrollmentDueDateExtended | previousDueAt, newDueAt, reason (nullable), actorId, occurredAt |
 | EnrollmentExempted | reason, actorId, exemptedAt |
 | LearnerWithdrew | withdrawnAt |
+| EnrollmentCompleted | enrollmentType, completedAt, dueAt (effective deadline; null for Optional), completedLate (false for Optional), scoreSnapshot, occurredAt (= completedAt) |
 
-The four event types currently have no configured secret fields to redact after
+EnrollmentCompleted is consumed by achievement-reporting-service; notification-service
+may ignore it. It uses the shared topic and enrollmentId key, envelope version 1.
+The certificate consumer group is `achievement-reporting-certificate-v1`, with
+`earliest` for a group with no committed offset. It is disabled by default through
+`CERTIFICATE_CONSUMER_ENABLED=false`.
+Delivery remains at-least-once: deduplicate eventId and prevent duplicate completion
+effects by enrollmentId (one completion per enrollment). Conversion of an already
+Completed Optional enrollment never emits a second EnrollmentCompleted.
+scoreSnapshot is the validated versioned assessment completion response, including
+required Quiz attempts/scores, finalized Assignment submissions/scores, and peer
+review obligations. Scores are decimal strings; schemaVersion is 1. Learning retains
+the identical object in enrollments.completion_snapshot (BR-269). Fields include
+snapshotId, asOf, revision, organizationId, learnerId, courseId, eligible,
+requiredComponentCount, quizzes and assignments. Disabled assessments are excluded.
+`scoreSnapshot` is an object, never an array. Achievement stores the exact
+versioned object; it does not fetch current assessment scores when issuing.
+
+Achievement commits a Pending Certificate and its `processed_completion_events`
+receipt atomically before committing Kafka offset + 1. Duplicate event IDs and
+completion identities do not create another Certificate. An inconsistent repeat
+is quarantined and warned without overwriting the original completion data.
+Invalid JSON, unsupported completion versions or invalid payloads are persisted
+in `completion_event_quarantine` (topic/partition/offset, readable event ID,
+reason, payload, received time) before committing that offset. The next message
+on the partition may then proceed. Non-JSON bytes, JSON values unsupported by
+PostgreSQL jsonb, and excessively deep JSON use a lossless `rawBase64` wrapper.
+Quarantine payloads are restricted database records, never application log data;
+there is no public quarantine API or replay script in PR1. If this database
+transaction fails, no offset is committed and the broker re-delivers.
+
+Issuance runs after the receiving transaction, with bounded concurrency, leases,
+and indefinite Pending retries. `issued_at` is always event `completedAt`;
+`issued_recorded_at` records technical completion for latency measurements.
+
+The five event types currently have no configured secret fields to redact after
 publication. The event-type registry is extended when a future contract needs it;
 redaction updates the database payload in the publication transaction, after ACK.
 Arbitrary payload or broker error text must never appear in logs or last_error.

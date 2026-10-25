@@ -1,5 +1,4 @@
 import { ArrowLeftOutlined, ArrowRightOutlined } from "@ant-design/icons";
-import { Tooltip } from "antd";
 import { useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -12,13 +11,12 @@ import {
 import { LearningError } from "@/components/learner/learning.error";
 import { LessonMarkdown } from "@/components/learner/lesson.markdown";
 import { useApiQuery } from "@/hooks/use.api.query";
+import { useLearningRefresh } from "@/hooks/use.learning.refresh";
 import { fetchLessonDetail } from "@/services/learning.service";
 import type { LessonDetailData } from "@/types/learning.types";
 import { buildMaterialRow, completionMark } from "@/utils/curriculum.view";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import "./lesson.detail.scss";
-
-const MATERIAL_SOON = "Học liệu Bài đọc sẽ có ở phiên bản sau";
 
 const LessonBody = ({
   data,
@@ -74,28 +72,18 @@ const LessonBody = ({
                       {row.duration && <span>{row.duration}</span>}
                     </div>
                   </div>
-                  {/* Nút bị vô hiệu không nhận sự kiện chuột, bọc span để tooltip vẫn hiện */}
-                  <Tooltip
-                    title={
-                      material.materialType === "Video"
-                        ? undefined
-                        : MATERIAL_SOON
-                    }
-                  >
-                    <span className="lesson-detail-material-action">
-                      <LearnerButton
-                        disabled={material.materialType !== "Video"}
-                        onClick={() =>
-                          navigate(
-                            `/learner/courses/${enrollmentId}/lessons/${lesson.lessonId}/resources/${material.materialId}`,
-                          )
-                        }
-                        aria-label={`Mở học liệu ${row.title}`}
-                      >
-                        Mở học liệu
-                      </LearnerButton>
-                    </span>
-                  </Tooltip>
+                  <span className="lesson-detail-material-action">
+                    <LearnerButton
+                      onClick={() =>
+                        navigate(
+                          `/learner/courses/${enrollmentId}/lessons/${lesson.lessonId}/resources/${material.materialId}`,
+                        )
+                      }
+                      aria-label={`Mở học liệu ${row.title}`}
+                    >
+                      Mở học liệu
+                    </LearnerButton>
+                  </span>
                 </li>
               );
             })}
@@ -152,10 +140,7 @@ const LessonDetail = () => {
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [lessonId]);
-  useEffect(() => {
-    window.addEventListener("learning-progress", query.reload);
-    return () => window.removeEventListener("learning-progress", query.reload);
-  }, [query.reload]);
+  useLearningRefresh(query.reload, enrollmentId);
 
   return (
     <LearnerPage className="lesson-detail">
