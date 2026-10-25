@@ -318,7 +318,7 @@ describe('UC33 schedule over HTTP', () => {
     const { cycleId, submissionIds } = await makeCycle({
       status: 'Assigned',
       closesInHours: -100,
-      dueInHours: -1,
+      dueInHours: 60, // not due, and outside the reminder window: the schedule must not touch the cycle before its reviews exist
       learners,
     });
     // ring of 4, N = 2: the author at i is reviewed by i + 1 and i + 2. Done: both reviews of submission 0 and the review
@@ -334,6 +334,11 @@ describe('UC33 schedule over HTTP', () => {
     await db.query(
       `UPDATE learner_assessment_states SET exempted_at = now() WHERE learner_id = $1`,
       [learners[0]],
+    );
+    // now the review deadline passes
+    await db.query(
+      `UPDATE peer_review_cycles SET review_due_at = now() - interval '1 hour' WHERE id = $1`,
+      [cycleId],
     );
 
     await until(
