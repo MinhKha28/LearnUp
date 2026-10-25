@@ -168,12 +168,9 @@ export const fetchPeerReviewCyclesAPI = (assignmentId: string) =>
     requestConfig,
   );
 
-/** UC30.2 — the grading result of a Finalized submission. */
-export const fetchLearnerResultAPI = (assignmentId: string, submissionId: string) =>
-  axios.get<IBackendRes<IGradingResult>>(
-    `/api/v1/assessments/learner/assignments/${assignmentId}/submissions/${submissionId}/result`,
-    requestConfig,
-  );
+/** UC30.2 — the grading result of the latest submission, when it is Finalized (one request, so one check of the Enrollment). */
+export const fetchLearnerResultAPI = (assignmentId: string) =>
+  axios.get<IBackendRes<IGradingResult>>(`/api/v1/assessments/learner/assignments/${assignmentId}/result`, requestConfig);
 
 /** UC30 — Submit an Assignment: text and/or one PDF, DOCX or ZIP (50 MB). */
 export const submitAssignmentAPI = (assignmentId: string, content: string, file?: File | null) => {

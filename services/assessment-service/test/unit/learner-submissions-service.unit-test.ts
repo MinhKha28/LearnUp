@@ -198,7 +198,10 @@ function build(over: Partial<World> = {}) {
     enrolled = true;
     /** What Learning Service says the Enrollment allows (assessment-access): Full, ReadOnly (Completed) or None. */
     access: AssessmentAccessLevel = 'Full';
+    /** How many times Learning Service was asked. */
+    asked = 0;
     getAssessmentAccess(): Promise<AssessmentAccess | null> {
+      this.asked += 1;
       return Promise.resolve(
         this.enrolled
           ? {
@@ -771,6 +774,7 @@ describe('what the Enrollment allows (BR-210, L17)', () => {
       () => ctx.service.submit(learner(), ASSIGNMENT, { content: 'y' }),
       () => ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'y' }),
       () => ctx.service.getResult(learner(), ASSIGNMENT, ASSIGNMENT),
+      () => ctx.service.getLatestResult(learner(), ASSIGNMENT),
       () => ctx.service.downloadPromptFile(learner(), ASSIGNMENT),
     ];
     for (const call of calls) {
@@ -791,6 +795,15 @@ describe('what the Enrollment allows (BR-210, L17)', () => {
       'ENROLLMENT_COMPLETED',
     );
     assert.equal(ctx.world.submissions.length, 1);
+  });
+
+  test('the latest result asks Learning Service once, and a Learner who has not submitted gets 404 SUBMISSION_NOT_FOUND', async () => {
+    await rejectsWith(
+      ctx.service.getLatestResult(learner(), ASSIGNMENT),
+      NotFoundException,
+      'SUBMISSION_NOT_FOUND',
+    );
+    assert.equal(ctx.enrollments.asked, 1);
   });
 
   test('when Learning Service cannot answer, nothing is saved and the Learner gets the 503', async () => {

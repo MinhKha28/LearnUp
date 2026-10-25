@@ -49,6 +49,8 @@ describe('UC30.2 over HTTP', () => {
     `/learner/assignments/${assignmentId}/submissions/${sub}/result`;
   const result = (sub: string, user = LEARNER) =>
     api('GET', resultPath(sub), undefined, as(user));
+  const latestResult = (user = LEARNER) =>
+    api('GET', `/learner/assignments/${assignmentId}/result`, undefined, as(user));
 
   const review = async (
     role: string,
@@ -108,6 +110,16 @@ describe('UC30.2 over HTTP', () => {
     const r = await result(submissionId);
     assert.equal(r.status, 409);
     assert.equal(r.code, 'SUBMISSION_NOT_FINALIZED');
+    const latest = await latestResult();
+    assert.equal(latest.status, 409);
+    assert.equal(latest.code, 'SUBMISSION_NOT_FINALIZED');
+  });
+
+  test('the latest result of a Learner who has not submitted is 404 SUBMISSION_NOT_FOUND, and only Learners may ask (403)', async () => {
+    const r = await latestResult(OTHER_LEARNER);
+    assert.equal(r.status, 404);
+    assert.equal(r.code, 'SUBMISSION_NOT_FOUND');
+    assert.equal((await api('GET', `/learner/assignments/${assignmentId}/result`)).status, 403);
   });
 
   test('guards: Learners only (403), a UUID (400), a submission of someone else (404)', async () => {
@@ -132,6 +144,9 @@ describe('UC30.2 over HTTP', () => {
 
     const r = await result(submissionId);
     assert.equal(r.status, 200, JSON.stringify(r.json));
+    const latest = await latestResult();
+    assert.equal(latest.status, 200, JSON.stringify(latest.json));
+    assert.deepEqual(latest.data, r.data, 'the latest result is the result of the latest submission');
     assert.equal(r.data.finalScore, 80);
     assert.equal(r.data.passed, true);
     assert.equal(r.data.finalizationComment, 'Raised for the effort');
