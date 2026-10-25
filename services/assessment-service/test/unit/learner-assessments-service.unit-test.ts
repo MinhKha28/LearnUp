@@ -2,13 +2,15 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+  ConflictException,
   ForbiddenException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
 import {
-  EnrolledCourse,
+  type AssessmentAccess,
+  type AssessmentAccessLevel,
   EnrollmentClient,
 } from '../../src/infrastructure/clients/learning/enrollment.client';
 import { LearnerAssessmentsService } from '../../src/modules/learner-assessments/learner-assessments.service';
@@ -82,7 +84,7 @@ interface World {
     gradingStatus: string;
     finalScore: unknown;
   }[];
-  completed: boolean;
+  access: AssessmentAccessLevel;
   enrolled: boolean;
   moduleIds: string[] | null | 'down';
 }
@@ -93,7 +95,7 @@ function build(over: Partial<World> = {}) {
     states: [],
     attempts: [],
     submissions: [],
-    completed: false,
+    access: 'Full',
     enrolled: true,
     moduleIds: [MODULE_A, MODULE_B],
     ...over,
@@ -103,16 +105,18 @@ function build(over: Partial<World> = {}) {
     findStates: () => Promise.resolve(world.states),
     findQuizAttempts: () => Promise.resolve(world.attempts),
     findLatestSubmissions: () => Promise.resolve(world.submissions),
-    isEnrollmentCompleted: () => Promise.resolve(world.completed),
   } as unknown as LearnerAssessmentsRepository;
 
   class StubEnrollments extends EnrollmentClient {
-    reportLearningActivity(): Promise<void> {
-      return Promise.resolve();
-    }
-    findEnrollment(courseId: string): Promise<EnrolledCourse | null> {
+    getAssessmentAccess(): Promise<AssessmentAccess | null> {
       return Promise.resolve(
-        world.enrolled ? { courseId, enrollmentId: ENROLLMENT } : null,
+        world.enrolled
+          ? {
+              enrollmentId: ENROLLMENT,
+              status: world.access === 'ReadOnly' ? 'Completed' : 'InProgress',
+              access: world.access,
+            }
+          : null,
       );
     }
   }
@@ -170,8 +174,16 @@ describe('list (UC29)', () => {
   });
 
   test('a Completed Enrollment is read-only (BR-210)', async () => {
-    const r = await build({ completed: true }).service.list(learner, COURSE);
+    const r = await build({ access: 'ReadOnly' }).service.list(learner, COURSE);
     assert.equal(r.readOnly, true);
+  });
+
+  test('a Halted or Withdrawn Enrollment shuts the Learner out: 409 ENROLLMENT_NOT_ACTIVE', async () => {
+    await rejectsWith(
+      build({ access: 'None' }).service.list(learner, COURSE),
+      ConflictException,
+      'ENROLLMENT_NOT_ACTIVE',
+    );
   });
 
   test('Module Quizzes follow the Module order, Course-level Quizzes and Assignments come last (BR-193)', async () => {

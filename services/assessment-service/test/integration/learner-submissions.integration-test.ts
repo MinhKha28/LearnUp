@@ -1,13 +1,12 @@
 /**
  * UC30 through the real HTTP API and a real Postgres: the Learner view, the multipart submit, the peer review cycle
- * (BR-312), the lock (BR-176), a Completed Enrollment (BR-169) and the races of parallel submits.
- * Enrollment is answered by the fake client (ENROLLMENT_CLIENT_MODE=fake); the Cloudinary upload itself is covered by
+ * (BR-312), the lock (BR-176), a Completed Enrollment (BR-210) and the races of parallel submits.
+ * Enrollment is answered by a fake Learning Service (assessment-access, ENROLLMENT_CLIENT_MODE=http); the Cloudinary upload itself is covered by
  * the unit tests, so no file is stored here.
  * The tests are one story and share state, so keep their order.
  */
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { fakeEnrollmentId } from '../../src/infrastructure/clients/learning/fake-enrollment.client';
 import {
   apiFor,
   COURSE,
@@ -16,8 +15,10 @@ import {
   LEARNER,
   ORG,
   startCourseStub,
+  startLearningStub,
   startService,
   type CourseStub,
+  type LearningStub,
   type RunningService,
   type TestDatabase,
 } from './harness';
@@ -31,6 +32,7 @@ const as = (user: string) => identity({ user, role: 'LEARNER' });
 describe('UC30 over HTTP', () => {
   let db: TestDatabase;
   let course: CourseStub;
+  let learning: LearningStub;
   let service: RunningService;
   let api: ReturnType<typeof apiFor>;
   let reviewed: string; // Assignment with peer review on
@@ -39,9 +41,11 @@ describe('UC30 over HTTP', () => {
   before(async () => {
     db = await createTestDatabase();
     course = await startCourseStub();
+    learning = await startLearningStub();
     service = await startService(db.url, {
       COURSE_SERVICE_URL: course.url,
-      ENROLLMENT_CLIENT_MODE: 'fake',
+      ENROLLMENT_CLIENT_MODE: 'http',
+      LEARNING_SERVICE_URL: learning.url,
     });
     api = apiFor(service.baseUrl);
 
@@ -70,6 +74,7 @@ describe('UC30 over HTTP', () => {
   after(async () => {
     await service?.stop();
     await course?.stop();
+    await learning?.stop();
     await db?.drop();
   });
 
@@ -279,12 +284,8 @@ describe('UC30 over HTTP', () => {
       );
     });
 
-    test('a Completed Enrollment is read-only (BR-169)', async () => {
-      await db.query(
-        `INSERT INTO completed_enrollments (enrollment_id, organization_id, learner_id, course_id, completed_at, updated_at)
-         VALUES ($1, $2, $3, $4, now(), now())`,
-        [fakeEnrollmentId(LEARNER_3, COURSE), ORG, LEARNER_3, COURSE],
-      );
+    test('a Completed Enrollment is read-only (BR-210)', async () => {
+      learning.setAnswer(LEARNER_3, COURSE, 'ReadOnly');
       const r = await submit(reviewed, LEARNER_3, { content: 'too late' });
       assert.equal(r.status, 409);
       assert.equal(r.code, 'ENROLLMENT_COMPLETED');

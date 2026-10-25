@@ -15,7 +15,6 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from 'generated/prisma/client';
 import {
-  type EnrolledCourse,
   EnrollmentClient,
 } from '../../infrastructure/clients/learning/enrollment.client';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
@@ -46,9 +45,10 @@ import {
 } from './learner-submissions.repository';
 import {
   attemptStateOf,
-  isEnrollmentCompleted,
+  assertCanWrite,
+  isReadOnly,
   lockExpired,
-  requireEnrollment,
+  requireAccess,
   requireLearner,
 } from './learner-access';
 import { buildGradingResult } from './grading-result';
@@ -105,15 +105,15 @@ export class LearnerSubmissionsService {
   ): Promise<ILearnerAssignment> {
     const organizationId = requireLearner(user);
     const assignment = await this.loadAssignment(organizationId, assessmentId);
-    const enrollment = await requireEnrollment(
+    const access = await requireAccess(
       this.enrollments,
       user,
       assignment.courseId,
     );
-    const [state, latest, completed] = await Promise.all([
+    const completed = isReadOnly(access);
+    const [state, latest] = await Promise.all([
       this.repository.findState(assignment.id, user.userId),
       this.repository.findLatestSubmission(assignment.id, user.userId),
-      isEnrollmentCompleted(enrollment, this.repository),
     ]);
     const now = this.clock();
     let resubmission: ILearnerAssignment['resubmission'] = null;
@@ -171,7 +171,7 @@ export class LearnerSubmissionsService {
   ): Promise<IGradingResult> {
     const organizationId = requireLearner(user);
     const assignment = await this.loadAssignment(organizationId, assessmentId);
-    await requireEnrollment(this.enrollments, user, assignment.courseId);
+    await requireAccess(this.enrollments, user, assignment.courseId);
     const submission = await this.repository.findSubmissionWithReviews(
       organizationId,
       assignment.id,
@@ -222,7 +222,7 @@ export class LearnerSubmissionsService {
   async downloadPromptFile(user: CurrentUser, assessmentId: string) {
     const organizationId = requireLearner(user);
     const assignment = await this.loadAssignment(organizationId, assessmentId);
-    await requireEnrollment(this.enrollments, user, assignment.courseId);
+    await requireAccess(this.enrollments, user, assignment.courseId);
     if (!assignment.promptFileKey) {
       throw new NotFoundException({
         code: 'PROMPT_FILE_NOT_FOUND',
@@ -302,19 +302,13 @@ export class LearnerSubmissionsService {
     const file = uploaded ? this.validateFile(uploaded) : null;
 
     const assignment = await this.loadAssignment(organizationId, assessmentId);
-    const enrollment = await requireEnrollment(
+    const access = await requireAccess(
       this.enrollments,
       user,
       assignment.courseId,
     );
     // BR-210: a Completed Enrollment is read-only.
-    if (await isEnrollmentCompleted(enrollment, this.repository)) {
-      throw new ConflictException({
-        code: 'ENROLLMENT_COMPLETED',
-        message:
-          'This Course is completed, so the Assignment can no longer be submitted.',
-      });
-    }
+    assertCanWrite(access);
     // Cheap early checks, so nothing is uploaded for a request that is going to be refused. They are repeated
     // under the lock below, where a concurrent request can no longer change the answer.
     const [state, previous] = await Promise.all([
@@ -435,35 +429,7 @@ export class LearnerSubmissionsService {
       if (stored) await this.removeFile(stored.storageKey);
       throw error;
     }
-    await this.reportLearningActivity(user, enrollment, receipt.submittedAt);
     return receipt;
-  }
-
-  /**
-   * BR-140: a submission is the first learning data of a Learner in the Course, so a NotStarted Enrollment becomes InProgress.
-   * Learning Service owns the status, so it is told after the commit. It never fails the submission: the work is saved
-   * either way, and the next submission tells it again (learning-service changes nothing once the Enrollment has started).
-   * An answer of Learning Service that already says the Enrollment has started needs no call.
-   */
-  private async reportLearningActivity(
-    user: CurrentUser,
-    enrollment: EnrolledCourse,
-    submittedAt: string,
-  ) {
-    if (enrollment.status !== undefined && enrollment.status !== 'NotStarted') {
-      return;
-    }
-    try {
-      await this.enrollments.reportLearningActivity(
-        enrollment.enrollmentId,
-        new Date(submittedAt),
-        user,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `Learning Service was not told the activity of the Enrollment ${enrollment.enrollmentId}: ${String(error)}`,
-      );
-    }
   }
 
   // ------------------------------------------------------------------ rules

@@ -1,7 +1,7 @@
 import type { CurrentUser } from '@learnup/ts-common';
-import { ForbiddenException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import {
-  type EnrolledCourse,
+  type AssessmentAccess,
   type EnrollmentClient,
 } from '../../infrastructure/clients/learning/enrollment.client';
 import type { ILearnerAttemptState } from './interfaces/learner-submission.interface';
@@ -17,20 +17,44 @@ export function requireLearner(user: CurrentUser): string {
   return user.organizationId;
 }
 
-/** PRE-1 of UC29 / UC30: the Learner is enrolled in the Course. */
-export async function requireEnrollment(
+/**
+ * PRE-1 of UC29 / UC30: the Learner is enrolled in the Course and the Enrollment lets them into it. Learning Service
+ * decides (L17, assessment-access): Halted and Withdrawn give None, which closes every Learner screen; Completed gives
+ * ReadOnly, which keeps reading open (BR-210) and is refused by assertCanWrite.
+ */
+export async function requireAccess(
   enrollments: EnrollmentClient,
   user: CurrentUser,
   courseId: string,
-): Promise<EnrolledCourse> {
-  const enrollment = await enrollments.findEnrollment(courseId, user);
-  if (!enrollment) {
+): Promise<AssessmentAccess> {
+  const access = await enrollments.getAssessmentAccess(courseId, user);
+  if (!access) {
     throw new ForbiddenException({
       code: 'NOT_ENROLLED',
       message: 'You are not enrolled in the Course of this Assessment.',
     });
   }
-  return enrollment;
+  if (access.access === 'None') {
+    throw new ConflictException({
+      code: 'ENROLLMENT_NOT_ACTIVE',
+      message: 'Your Enrollment in this Course is not active.',
+    });
+  }
+  return access;
+}
+
+/** BR-210: a Completed Enrollment is read-only, so nothing new can be started or submitted. */
+export const isReadOnly = (access: AssessmentAccess): boolean =>
+  access.access === 'ReadOnly';
+
+export function assertCanWrite(access: AssessmentAccess): void {
+  if (isReadOnly(access)) {
+    throw new ConflictException({
+      code: 'ENROLLMENT_COMPLETED',
+      message:
+        'This Course is completed, so the Assignment can no longer be submitted.',
+    });
+  }
 }
 
 interface LockState {
@@ -61,22 +85,4 @@ export function attemptStateOf(
     lockoutHours: assessment.lockoutHours,
     lockedUntil: locked ? state.lockedUntil!.toISOString() : null,
   };
-}
-
-/** The Enrollment status that makes every Quiz and Assignment of the Course read-only (BR-210). */
-export const ENROLLMENT_COMPLETED = 'Completed';
-
-/**
- * BR-210: has the Enrollment reached Completed? Learning Service is the owner of the status, so when its answer
- * carries one, that is the answer. An answer without a status (an older learning-service) falls back to the table of
- * Completed Enrollments of this service.
- */
-export async function isEnrollmentCompleted(
-  enrollment: EnrolledCourse,
-  completedTable: { isEnrollmentCompleted(enrollmentId: string): Promise<boolean> },
-): Promise<boolean> {
-  if (enrollment.status !== undefined) {
-    return enrollment.status === ENROLLMENT_COMPLETED;
-  }
-  return completedTable.isEnrollmentCompleted(enrollment.enrollmentId);
 }

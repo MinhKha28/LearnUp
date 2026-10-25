@@ -1,18 +1,27 @@
 import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { ApiResponse, CurrentUser } from '@learnup/ts-common';
+import type { CurrentUser } from '@learnup/ts-common';
 import { HEADER_NAMES } from '@learnup/ts-common';
-import { EnrolledCourse, EnrollmentClient } from './enrollment.client';
+import {
+  ASSESSMENT_ACCESS_LEVELS,
+  type AssessmentAccess,
+  type AssessmentAccessLevel,
+  EnrollmentClient,
+} from './enrollment.client';
 
-const DEFAULT_TIMEOUT_MS = 5000;
+const DEFAULT_TIMEOUT_MS = 2000;
+const NOT_FOUND_CODE = 'ENROLLMENT_NOT_FOUND';
 
 /**
  * Gọi learning-service thật (ENROLLMENT_CLIENT_MODE=http, là chế độ mặc định).
  *
- *   GET {LEARNING_SERVICE_URL}/api/v1/enrollments/me/course-ids
- *   Header: x-internal-key + x-user-id, x-organization-id, x-user-role của Learner
- *   200:    { statusCode, message, data: [{ courseId, enrollmentId, status? }] } (mọi Enrollment chưa Withdrawn của Learner;
- *           status là trạng thái Enrollment, có từ bản learning-service mới, dùng cho BR-210)
+ *   GET {LEARNING_SERVICE_URL}/api/v1/internal/enrollments/assessment-access?learnerId=&courseId=
+ *   Header: x-internal-key + x-user-id, x-organization-id, x-user-role của Learner (guard của learning bắt đủ các header này)
+ *   200:    { statusCode, message, data: { enrollmentId, status, access: Full | ReadOnly | None } }
+ *   404:    error.code = ENROLLMENT_NOT_FOUND (chưa Enroll Course này, hoặc Enrollment thuộc Organization khác)
+ *
+ * Hợp đồng: contracts/openapi/learning-service.yaml. Timeout mặc định 2000 ms (chỉnh qua LEARNING_SERVICE_TIMEOUT_MS):
+ * Learner đang chờ, và p99 đo được ở learning là dưới 300 ms.
  */
 export class HttpEnrollmentClient extends EnrollmentClient {
   private readonly logger = new Logger(HttpEnrollmentClient.name);
@@ -30,14 +39,15 @@ export class HttpEnrollmentClient extends EnrollmentClient {
       DEFAULT_TIMEOUT_MS;
   }
 
-  async findEnrollment(
+  async getAssessmentAccess(
     courseId: string,
     user: CurrentUser,
-  ): Promise<EnrolledCourse | null> {
+  ): Promise<AssessmentAccess | null> {
+    const query = new URLSearchParams({ learnerId: user.userId, courseId });
     let response: Response;
     try {
       response = await fetch(
-        `${this.baseUrl}/api/v1/enrollments/me/course-ids`,
+        `${this.baseUrl}/api/v1/internal/enrollments/assessment-access?${query.toString()}`,
         {
           headers: {
             [HEADER_NAMES.INTERNAL_KEY]: this.internalKey,
@@ -54,62 +64,51 @@ export class HttpEnrollmentClient extends EnrollmentClient {
       );
       throw this.unavailable();
     }
+
+    if (
+      response.status === 404 &&
+      (await this.errorCode(response)) === NOT_FOUND_CODE
+    ) {
+      return null;
+    }
     if (!response.ok) {
       this.logger.warn(`learning-service trả về HTTP ${response.status}.`);
       throw this.unavailable(
         `Learning Service returned HTTP ${response.status}.`,
       );
     }
-    const body = (await response.json()) as ApiResponse<EnrolledCourse[]>;
-    const found = body.data.find((e) => e.courseId === courseId);
-    if (!found) return null;
-    return {
-      courseId: found.courseId,
-      enrollmentId: found.enrollmentId,
-      // a status that is not a string is not trusted: the table of Completed Enrollments decides then
-      ...(typeof found.status === 'string' ? { status: found.status } : {}),
-    };
+    return this.parse(await response.json().catch(() => undefined));
   }
 
-  /**
-   *   POST {LEARNING_SERVICE_URL}/api/v1/internal/enrollments/{enrollmentId}/learning-activity   body: { occurredAt }
-   *   Header: như findEnrollment. learning-service chuyển Enrollment NotStarted sang InProgress và ghi thời điểm hoạt động đầu tiên.
-   *   200: đã ghi (hoặc Enrollment đã bắt đầu từ trước, không đổi gì).
-   */
-  async reportLearningActivity(
-    enrollmentId: string,
-    occurredAt: Date,
-    user: CurrentUser,
-  ): Promise<void> {
-    let response: Response;
-    try {
-      response = await fetch(
-        `${this.baseUrl}/api/v1/internal/enrollments/${enrollmentId}/learning-activity`,
-        {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            [HEADER_NAMES.INTERNAL_KEY]: this.internalKey,
-            [HEADER_NAMES.USER_ID]: user.userId,
-            [HEADER_NAMES.ORGANIZATION_ID]: user.organizationId ?? '',
-            [HEADER_NAMES.USER_ROLE]: user.role,
-          },
-          body: JSON.stringify({ occurredAt: occurredAt.toISOString() }),
-          signal: AbortSignal.timeout(this.timeoutMs),
-        },
-      );
-    } catch (error) {
+  /** error.code of an error answer; other 404s (for example a learning-service without this route) are not "not enrolled". */
+  private async errorCode(response: Response): Promise<string | undefined> {
+    const body = (await response.json().catch(() => undefined)) as
+      { error?: { code?: unknown } } | undefined;
+    const code = body?.error?.code;
+    return typeof code === 'string' ? code : undefined;
+  }
+
+  /** An answer that does not have the agreed shape is not trusted: the caller is refused with 503. */
+  private parse(body: unknown): AssessmentAccess {
+    const data = (body as { data?: Record<string, unknown> } | undefined)?.data;
+    const level = data?.access;
+    if (
+      !data ||
+      typeof data.enrollmentId !== 'string' ||
+      typeof data.status !== 'string' ||
+      typeof level !== 'string' ||
+      !(ASSESSMENT_ACCESS_LEVELS as readonly string[]).includes(level)
+    ) {
       this.logger.warn(
-        `Không gọi được learning-service (${this.baseUrl}): ${(error as Error).message}`,
+        'learning-service trả về câu trả lời quyền làm bài sai dạng.',
       );
-      throw this.unavailable();
+      throw this.unavailable('Learning Service returned an unexpected answer.');
     }
-    if (!response.ok) {
-      this.logger.warn(`learning-service trả về HTTP ${response.status}.`);
-      throw this.unavailable(
-        `Learning Service returned HTTP ${response.status}.`,
-      );
-    }
+    return {
+      enrollmentId: data.enrollmentId,
+      status: data.status,
+      access: level as AssessmentAccessLevel,
+    };
   }
 
   private unavailable(

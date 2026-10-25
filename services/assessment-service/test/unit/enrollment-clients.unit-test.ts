@@ -18,33 +18,60 @@ const OTHER_COURSE = '00000000-0000-4000-8000-0000000000c9';
 const ENROLLMENT = '00000000-0000-4000-8000-0000000000e1';
 const learner = { ...instructor, role: 'LEARNER' as const };
 
+type Mode =
+  | 'ok'
+  | 'not-found'
+  | 'not-found-without-code'
+  | '500'
+  | 'hang'
+  | 'no-data'
+  | 'junk';
+
 describe('HttpEnrollmentClient', () => {
   let server: Server;
   let baseUrl: string;
-  let mode: 'ok' | '500' | 'hang' = 'ok';
+  let mode: Mode = 'ok';
   let seen: { url?: string; headers?: IncomingHttpHeaders } = {};
-  /** What the answer carries as status; undefined = no status in the answer. */
-  let status: unknown;
+  /** What the answer carries in data when the mode is ok. */
+  let answer: Record<string, unknown> = {};
+
+  const reset = () => {
+    mode = 'ok';
+    answer = { enrollmentId: ENROLLMENT, status: 'InProgress', access: 'Full' };
+  };
 
   before(async () => {
     server = createServer((req, res) => {
       seen = { url: req.url, headers: req.headers };
       if (mode === 'hang') return; // never answers
-      res.statusCode = mode === '500' ? 500 : 200;
       res.setHeader('content-type', 'application/json');
-      res.end(
-        JSON.stringify({
-          statusCode: 200,
-          message: 'ok',
-          data: [
-            {
-              courseId: COURSE,
-              enrollmentId: ENROLLMENT,
-              ...(status === undefined ? {} : { status }),
-            },
-          ],
-        }),
-      );
+      if (mode === 'not-found') {
+        res.statusCode = 404;
+        res.end(
+          JSON.stringify({
+            statusCode: 404,
+            error: { code: 'ENROLLMENT_NOT_FOUND', message: 'none' },
+          }),
+        );
+      } else if (mode === 'not-found-without-code') {
+        res.statusCode = 404;
+        res.end(JSON.stringify({ statusCode: 404, error: { message: 'no route' } }));
+      } else if (mode === '500') {
+        res.statusCode = 500;
+        res.end('{}');
+      } else if (mode === 'junk') {
+        res.statusCode = 200;
+        res.end('this is not json');
+      } else {
+        res.statusCode = 200;
+        res.end(
+          JSON.stringify(
+            mode === 'no-data'
+              ? { statusCode: 200, message: 'ok' }
+              : { statusCode: 200, message: 'ok', data: answer },
+          ),
+        );
+      }
     });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -54,123 +81,142 @@ describe('HttpEnrollmentClient', () => {
     server.close();
   });
 
-  const client = (url = baseUrl, timeoutMs = '2000') =>
+  const client = (url = baseUrl, timeoutMs?: string) =>
     new HttpEnrollmentClient(
       new ConfigService({
         LEARNING_SERVICE_URL: url,
         INTERNAL_SERVICE_KEY: 'secret',
-        LEARNING_SERVICE_TIMEOUT_MS: timeoutMs,
+        ...(timeoutMs ? { LEARNING_SERVICE_TIMEOUT_MS: timeoutMs } : {}),
       }),
     );
 
-  test('finds the Enrollment of the Course and sends the internal key and the Learner identity', async () => {
-    mode = 'ok';
-    const found = await client().findEnrollment(COURSE, learner);
-    assert.deepEqual(found, { courseId: COURSE, enrollmentId: ENROLLMENT });
-    assert.equal(seen.url, '/api/v1/enrollments/me/course-ids');
+  test('asks assessment-access for the Learner and the Course, with the internal key and the Learner identity', async () => {
+    reset();
+    const found = await client().getAssessmentAccess(COURSE, learner);
+    assert.deepEqual(found, {
+      enrollmentId: ENROLLMENT,
+      status: 'InProgress',
+      access: 'Full',
+    });
+    const url = new URL(seen.url ?? '', 'http://x');
+    assert.equal(url.pathname, '/api/v1/internal/enrollments/assessment-access');
+    assert.equal(url.searchParams.get('learnerId'), learner.userId);
+    assert.equal(url.searchParams.get('courseId'), COURSE);
     assert.equal(seen.headers?.['x-internal-key'], 'secret');
     assert.equal(seen.headers?.['x-user-id'], learner.userId);
+    assert.equal(seen.headers?.['x-organization-id'], learner.organizationId);
     assert.equal(seen.headers?.['x-user-role'], 'LEARNER');
   });
 
-  test('the status of the Enrollment comes through when Learning Service sends one (BR-210)', async () => {
-    mode = 'ok';
-    status = 'Completed';
-    assert.deepEqual(await client().findEnrollment(COURSE, learner), {
-      courseId: COURSE,
-      enrollmentId: ENROLLMENT,
-      status: 'Completed',
-    });
-    status = undefined;
-  });
-
-  test('a status that is not a string is left out, so it is never trusted', async () => {
-    mode = 'ok';
-    for (const odd of [null, 7, { x: 1 }, true]) {
-      status = odd;
-      const found = await client().findEnrollment(COURSE, learner);
-      assert.deepEqual(found, { courseId: COURSE, enrollmentId: ENROLLMENT });
+  test('Full, ReadOnly and None come through with the status of the Enrollment (BR-210)', async () => {
+    reset();
+    for (const [status, access] of [
+      ['NotStarted', 'Full'],
+      ['Exempted', 'Full'],
+      ['Completed', 'ReadOnly'],
+      ['Halted', 'None'],
+      ['Withdrawn', 'None'],
+    ] as const) {
+      answer = { enrollmentId: ENROLLMENT, status, access };
+      assert.deepEqual(await client().getAssessmentAccess(COURSE, learner), {
+        enrollmentId: ENROLLMENT,
+        status,
+        access,
+      });
     }
-    status = undefined;
   });
 
-  test('reportLearningActivity posts the time with the internal key and the Learner identity (BR-140)', async () => {
-    mode = 'ok';
-    let body = '';
-    server.once('request', (req) => {
-      req.on('data', (chunk: Buffer) => (body += chunk.toString()));
-    });
-    const at = new Date('2026-10-18T03:00:00Z');
-    await client().reportLearningActivity(ENROLLMENT, at, learner);
-    assert.equal(
-      seen.url,
-      `/api/v1/internal/enrollments/${ENROLLMENT}/learning-activity`,
-    );
-    assert.equal(seen.headers?.['x-internal-key'], 'secret');
-    assert.equal(seen.headers?.['x-user-id'], learner.userId);
-    assert.deepEqual(JSON.parse(body), { occurredAt: at.toISOString() });
+  test('ENROLLMENT_NOT_FOUND gives null: the Learner is not enrolled in the Course', async () => {
+    reset();
+    mode = 'not-found';
+    assert.equal(await client().getAssessmentAccess(OTHER_COURSE, learner), null);
   });
 
-  test('reportLearningActivity: an error answer or no answer is a 503 (LEARNING_SERVICE_UNAVAILABLE)', async () => {
-    mode = '500';
+  test('a 404 without that code is a 503, never "not enrolled" (for example a learning-service without this route)', async () => {
+    reset();
+    mode = 'not-found-without-code';
     await rejectsWith(
-      client().reportLearningActivity(ENROLLMENT, new Date(), learner),
+      client().getAssessmentAccess(COURSE, learner),
       ServiceUnavailableException,
       'LEARNING_SERVICE_UNAVAILABLE',
     );
-    mode = 'ok';
-    await rejectsWith(
-      client('http://127.0.0.1:1').reportLearningActivity(
-        ENROLLMENT,
-        new Date(),
-        learner,
-      ),
-      ServiceUnavailableException,
-      'LEARNING_SERVICE_UNAVAILABLE',
-    );
-  });
-
-  test('a Course the Learner is not enrolled in gives null', async () => {
-    mode = 'ok';
-    assert.equal(await client().findEnrollment(OTHER_COURSE, learner), null);
   });
 
   test('an error answer, no answer or a slow answer is a 503 (LEARNING_SERVICE_UNAVAILABLE)', async () => {
+    reset();
     mode = '500';
     await rejectsWith(
-      client().findEnrollment(COURSE, learner),
+      client().getAssessmentAccess(COURSE, learner),
       ServiceUnavailableException,
       'LEARNING_SERVICE_UNAVAILABLE',
     );
+    reset();
     await rejectsWith(
-      client('http://127.0.0.1:1').findEnrollment(COURSE, learner),
+      client('http://127.0.0.1:1').getAssessmentAccess(COURSE, learner),
       ServiceUnavailableException,
       'LEARNING_SERVICE_UNAVAILABLE',
     );
     mode = 'hang';
     await rejectsWith(
-      client(baseUrl, '200').findEnrollment(COURSE, learner),
+      client(baseUrl, '200').getAssessmentAccess(COURSE, learner),
       ServiceUnavailableException,
       'LEARNING_SERVICE_UNAVAILABLE',
     );
   });
+
+  test('an answer without the agreed shape is a 503: what cannot be read is not trusted', async () => {
+    reset();
+    mode = 'junk';
+    await rejectsWith(
+      client().getAssessmentAccess(COURSE, learner),
+      ServiceUnavailableException,
+      'LEARNING_SERVICE_UNAVAILABLE',
+    );
+    mode = 'no-data';
+    await rejectsWith(
+      client().getAssessmentAccess(COURSE, learner),
+      ServiceUnavailableException,
+      'LEARNING_SERVICE_UNAVAILABLE',
+    );
+    mode = 'ok';
+    for (const bad of [
+      { enrollmentId: ENROLLMENT, status: 'InProgress', access: 'Maybe' },
+      { enrollmentId: ENROLLMENT, status: 'InProgress' },
+      { enrollmentId: 7, status: 'InProgress', access: 'Full' },
+      { enrollmentId: ENROLLMENT, status: null, access: 'Full' },
+    ]) {
+      answer = bad;
+      await rejectsWith(
+        client().getAssessmentAccess(COURSE, learner),
+        ServiceUnavailableException,
+        'LEARNING_SERVICE_UNAVAILABLE',
+      );
+    }
+  });
+
+  test('the timeout is 2 seconds unless LEARNING_SERVICE_TIMEOUT_MS says otherwise', () => {
+    const timeoutOf = (c: HttpEnrollmentClient) =>
+      (c as unknown as { timeoutMs: number }).timeoutMs;
+    assert.equal(timeoutOf(client()), 2000);
+    assert.equal(timeoutOf(client(baseUrl, '750')), 750);
+  });
 });
 
 describe('FakeEnrollmentClient', () => {
-  test('every Learner is enrolled in every Course, with a stable Enrollment id', async () => {
+  test('every Learner is enrolled in every Course with Full access and a stable Enrollment id', async () => {
     const fake = new FakeEnrollmentClient();
-    const a = await fake.findEnrollment(COURSE, learner);
-    const b = await fake.findEnrollment(COURSE, learner);
+    const a = await fake.getAssessmentAccess(COURSE, learner);
+    const b = await fake.getAssessmentAccess(COURSE, learner);
+    assert.equal(a?.access, 'Full');
     assert.equal(a?.enrollmentId, b?.enrollmentId);
     assert.equal(a?.enrollmentId, fakeEnrollmentId(learner.userId, COURSE));
     assert.notEqual(
-      (await fake.findEnrollment(OTHER_COURSE, learner))?.enrollmentId,
+      (await fake.getAssessmentAccess(OTHER_COURSE, learner))?.enrollmentId,
       a?.enrollmentId,
     );
-    assert.match(a.enrollmentId, /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/);
-  });
-
-  test('it tells nobody about the activity and does not fail', async () => {
-    await new FakeEnrollmentClient().reportLearningActivity();
+    assert.match(
+      a?.enrollmentId ?? '',
+      /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/,
+    );
   });
 });

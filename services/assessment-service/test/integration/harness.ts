@@ -177,6 +177,92 @@ export async function startCourseStub(): Promise<CourseStub> {
   };
 }
 
+// ---------------------------------------------------------------------------------------------- a fake Learning Service
+
+/** What the fake Learning Service answers for assessment-access (L17). */
+export type LearningAnswer = 'Full' | 'ReadOnly' | 'None' | 'NotFound' | '500';
+
+export interface LearningStub {
+  url: string;
+  /** Answer for one Learner on one Course; every other pair gets Full. */
+  setAnswer: (learnerId: string, courseId: string, answer: LearningAnswer) => void;
+  /** Put every answer back to Full and forget the calls. */
+  reset: () => void;
+  /** The questions Learning Service received, in order. */
+  calls: { learnerId: string; courseId: string; headers: Record<string, unknown> }[];
+  stop: () => Promise<void>;
+}
+
+const STATUS_OF = { Full: 'InProgress', ReadOnly: 'Completed', None: 'Halted' } as const;
+
+/**
+ * A Learning Service that answers GET /api/v1/internal/enrollments/assessment-access like the real one: it wants the
+ * internal key and the Learner identity headers (401 without them) and answers { statusCode, message, data }.
+ */
+export async function startLearningStub(): Promise<LearningStub> {
+  const answers = new Map<string, LearningAnswer>();
+  const calls: LearningStub['calls'] = [];
+  const server: Server = createServer((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    const url = new URL(req.url ?? '', 'http://stub');
+    const h = req.headers;
+    if (
+      h['x-internal-key'] !== KEY ||
+      !h['x-user-id'] ||
+      !h['x-organization-id'] ||
+      !h['x-user-role']
+    ) {
+      res.statusCode = 401;
+      return res.end('{}');
+    }
+    if (url.pathname !== '/api/v1/internal/enrollments/assessment-access') {
+      res.statusCode = 404;
+      return res.end(JSON.stringify({ statusCode: 404, error: { message: 'no route' } }));
+    }
+    const learnerId = url.searchParams.get('learnerId') ?? '';
+    const courseId = url.searchParams.get('courseId') ?? '';
+    calls.push({ learnerId, courseId, headers: { ...h } });
+    const answer = answers.get(`${learnerId}|${courseId}`) ?? 'Full';
+    if (answer === 'NotFound') {
+      res.statusCode = 404;
+      return res.end(
+        JSON.stringify({ statusCode: 404, error: { code: 'ENROLLMENT_NOT_FOUND', message: 'none' } }),
+      );
+    }
+    if (answer === '500') {
+      res.statusCode = 500;
+      return res.end('{}');
+    }
+    res.end(
+      JSON.stringify({
+        statusCode: 200,
+        message: 'ok',
+        data: {
+          enrollmentId: '00000000-0000-4000-8000-0000000000e1',
+          status: STATUS_OF[answer],
+          access: answer,
+        },
+      }),
+    );
+  });
+  await new Promise<void>((resolve) => server.listen(0, resolve));
+  return {
+    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+    setAnswer: (learnerId, courseId, answer) =>
+      answers.set(`${learnerId}|${courseId}`, answer),
+    reset: () => {
+      answers.clear();
+      calls.length = 0;
+    },
+    calls,
+    stop: () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections();
+        server.close(() => resolve());
+      }),
+  };
+}
+
 // ---------------------------------------------------------------------------------------------- the service
 
 export interface RunningService {

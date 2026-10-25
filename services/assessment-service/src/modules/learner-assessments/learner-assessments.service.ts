@@ -4,8 +4,8 @@ import { CourseServiceClient } from '../../infrastructure/clients/course/course-
 import { EnrollmentClient } from '../../infrastructure/clients/learning/enrollment.client';
 import {
   attemptStateOf,
-  isEnrollmentCompleted,
-  requireEnrollment,
+  isReadOnly,
+  requireAccess,
   requireLearner,
 } from '../learner-submissions/learner-access';
 import { ASSIGNMENT_KIND } from '../learner-submissions/learner-submissions.constants';
@@ -47,14 +47,10 @@ export class LearnerAssessmentsService {
     courseId: string,
   ): Promise<ILearnerAssessmentList> {
     const organizationId = requireLearner(user);
-    const enrollment = await requireEnrollment(
-      this.enrollments,
-      user,
-      courseId,
-    );
-    const [rows, readOnly, moduleOrder] = await Promise.all([
+    const access = await requireAccess(this.enrollments, user, courseId);
+    const readOnly = isReadOnly(access);
+    const [rows, moduleOrder] = await Promise.all([
       this.repository.findAssessments(organizationId, courseId),
-      isEnrollmentCompleted(enrollment, this.repository),
       this.moduleOrder(user, courseId),
     ]);
 
@@ -134,7 +130,7 @@ export class LearnerAssessmentsService {
 
     return {
       courseId,
-      enrollmentId: enrollment.enrollmentId,
+      enrollmentId: access.enrollmentId,
       readOnly,
       items,
     };

@@ -11,7 +11,8 @@ import {
 import { StorageProviderError } from '@learnup/ts-storage';
 import type { CurrentUser } from '@learnup/ts-common';
 import {
-  EnrolledCourse,
+  type AssessmentAccess,
+  type AssessmentAccessLevel,
   EnrollmentClient,
 } from '../../src/infrastructure/clients/learning/enrollment.client';
 import { LearnerSubmissionsService } from '../../src/modules/learner-submissions/learner-submissions.service';
@@ -85,7 +86,6 @@ interface World {
   submissions: SubmissionRow[];
   cycles: CycleRow[];
   outbox: Record<string, unknown>[];
-  completed: Set<string>;
   failCreateSubmission: boolean;
 }
 
@@ -96,7 +96,6 @@ function build(over: Partial<World> = {}) {
     submissions: [],
     cycles: [],
     outbox: [],
-    completed: new Set(),
     failCreateSubmission: false,
     ...over,
   };
@@ -117,8 +116,6 @@ function build(over: Partial<World> = {}) {
           )
           .sort((x, y) => y.submissionNumber - x.submissionNumber)[0] ?? null,
       ),
-    isEnrollmentCompleted: (e: string) =>
-      Promise.resolve(world.completed.has(e)),
     findPlatformSetting: () => Promise.resolve(null),
     lock: () => Promise.resolve(),
     ensureState: (
@@ -199,29 +196,18 @@ function build(over: Partial<World> = {}) {
 
   class StubEnrollments extends EnrollmentClient {
     enrolled = true;
-    /** The status Learning Service says; undefined = it sends none (an older one). */
-    status: string | undefined = undefined;
-    /** What Learning Service was told about the learning activity. */
-    reported: { enrollmentId: string; occurredAt: Date }[] = [];
-    failReport = false;
-    findEnrollment(courseId: string): Promise<EnrolledCourse | null> {
+    /** What Learning Service says the Enrollment allows (assessment-access): Full, ReadOnly (Completed) or None. */
+    access: AssessmentAccessLevel = 'Full';
+    getAssessmentAccess(): Promise<AssessmentAccess | null> {
       return Promise.resolve(
         this.enrolled
           ? {
-              courseId,
               enrollmentId: ENROLLMENT,
-              ...(this.status === undefined ? {} : { status: this.status }),
+              status: this.access === 'ReadOnly' ? 'Completed' : 'InProgress',
+              access: this.access,
             }
           : null,
       );
-    }
-    reportLearningActivity(
-      enrollmentId: string,
-      occurredAt: Date,
-    ): Promise<void> {
-      if (this.failReport) return Promise.reject(new Error('learning is down'));
-      this.reported.push({ enrollmentId, occurredAt });
-      return Promise.resolve();
     }
   }
   const enrollments = new StubEnrollments();
@@ -376,7 +362,7 @@ describe('submit (UC30)', () => {
       'NOT_ENROLLED',
     );
     ctx.enrollments.enrolled = true;
-    ctx.world.completed.add(ENROLLMENT);
+    ctx.enrollments.access = 'ReadOnly';
     await rejectsWith(
       ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' }),
       ConflictException,
@@ -515,7 +501,8 @@ describe('getAssignment (UC30 step 1)', () => {
   });
 
   test('a Completed Enrollment is read-only; someone not enrolled gets 403', async () => {
-    const done = build({ completed: new Set([ENROLLMENT]) });
+    const done = build();
+    done.enrollments.access = 'ReadOnly';
     assert.equal(
       (await done.service.getAssignment(learner(), ASSIGNMENT)).readOnly,
       true,
@@ -683,7 +670,7 @@ describe('resubmit (UC30.1)', () => {
 
   test('a Completed Enrollment is read-only (BR-210)', async () => {
     const { ctx } = await submitted();
-    ctx.world.completed.add(ENROLLMENT);
+    ctx.enrollments.access = 'ReadOnly';
     await rejectsWith(
       ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'x' }),
       ConflictException,
@@ -770,48 +757,49 @@ describe('resubmit (UC30.1)', () => {
   });
 });
 
-describe('the first activity starts the Enrollment (BR-140)', () => {
+describe('what the Enrollment allows (BR-210, L17)', () => {
   let ctx: ReturnType<typeof build>;
   beforeEach(() => {
     ctx = build();
   });
 
-  test('a submission tells Learning Service, once it is saved, with the time of the submission', async () => {
-    const r = await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
-    assert.equal(ctx.enrollments.reported.length, 1);
-    assert.equal(ctx.enrollments.reported[0].enrollmentId, ENROLLMENT);
-    assert.equal(
-      ctx.enrollments.reported[0].occurredAt.toISOString(),
-      r.submittedAt,
+  test('Halted or Withdrawn (None) shuts the Learner out of every screen: 409 ENROLLMENT_NOT_ACTIVE', async () => {
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    ctx.enrollments.access = 'None';
+    const calls = [
+      () => ctx.service.getAssignment(learner(), ASSIGNMENT),
+      () => ctx.service.submit(learner(), ASSIGNMENT, { content: 'y' }),
+      () => ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'y' }),
+      () => ctx.service.getResult(learner(), ASSIGNMENT, ASSIGNMENT),
+      () => ctx.service.downloadPromptFile(learner(), ASSIGNMENT),
+    ];
+    for (const call of calls) {
+      await rejectsWith(call(), ConflictException, 'ENROLLMENT_NOT_ACTIVE');
+    }
+    assert.equal(ctx.world.submissions.length, 1, 'nothing new was saved');
+  });
+
+  test('Completed (ReadOnly) still lets the Learner read the Assignment and the prompt file, but not write', async () => {
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    ctx.enrollments.access = 'ReadOnly';
+    const view = await ctx.service.getAssignment(learner(), ASSIGNMENT);
+    assert.equal(view.readOnly, true);
+    assert.equal(view.resubmission, null);
+    await rejectsWith(
+      ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'y' }),
+      ConflictException,
+      'ENROLLMENT_COMPLETED',
     );
-  });
-
-  test('a resubmission tells it too (UC30.1), and nothing is told for a refused submission', async () => {
-    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
-    await ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'y' });
-    assert.equal(ctx.enrollments.reported.length, 2);
-    await assert.rejects(() =>
-      ctx.service.submit(learner(), ASSIGNMENT, { content: '  ' }),
-    );
-    assert.equal(ctx.enrollments.reported.length, 2);
-  });
-
-  test('when Learning Service already says the Enrollment has started, nothing is sent', async () => {
-    ctx.enrollments.status = 'InProgress';
-    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
-    assert.equal(ctx.enrollments.reported.length, 0);
-  });
-
-  test('when it says NotStarted, it is told', async () => {
-    ctx.enrollments.status = 'NotStarted';
-    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
-    assert.equal(ctx.enrollments.reported.length, 1);
-  });
-
-  test('a Learning Service that is down does not fail the submission, and the work is saved', async () => {
-    ctx.enrollments.failReport = true;
-    const r = await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
-    assert.equal(r.submissionNumber, 1);
     assert.equal(ctx.world.submissions.length, 1);
+  });
+
+  test('when Learning Service cannot answer, nothing is saved and the Learner gets the 503', async () => {
+    ctx.enrollments.getAssessmentAccess = () =>
+      Promise.reject(new ServiceUnavailableException());
+    await assert.rejects(
+      ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' }),
+      ServiceUnavailableException,
+    );
+    assert.equal(ctx.world.submissions.length, 0);
   });
 });
