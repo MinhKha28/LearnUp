@@ -243,21 +243,24 @@ export class PeerReviewService {
     for (const pair of pairs) {
       count.set(pair.reviewerId, (count.get(pair.reviewerId) ?? 0) + 1);
     }
-    for (const [reviewerId, total] of count) {
-      try {
-        await this.notifications.send({
-          organizationId: cycle.organizationId,
-          recipientUserId: reviewerId,
-          title: 'Submissions to review',
-          message: `You have ${total} submission${total === 1 ? '' : 's'} to review for "${assignmentTitle}". Please finish by ${cycle.reviewDueAt.toISOString()}.`,
-          metadata: { assignmentId: cycle.assessmentId, cycleId: cycle.id },
-        });
-      } catch (error) {
-        this.logger.warn(
-          `Could not notify ${reviewerId} about cycle ${cycle.id}: ${String(error)}`,
-        );
-      }
-    }
+    // in parallel: a slow notification-service must not hold the Instructor's request for one timeout per reviewer
+    await Promise.all(
+      [...count].map(async ([reviewerId, total]) => {
+        try {
+          await this.notifications.send({
+            organizationId: cycle.organizationId,
+            recipientUserId: reviewerId,
+            title: 'Submissions to review',
+            message: `You have ${total} submission${total === 1 ? '' : 's'} to review for "${assignmentTitle}". Please finish by ${cycle.reviewDueAt.toISOString()}.`,
+            metadata: { assignmentId: cycle.assessmentId, cycleId: cycle.id },
+          });
+        } catch (error) {
+          this.logger.warn(
+            `Could not notify ${reviewerId} about cycle ${cycle.id}: ${String(error)}`,
+          );
+        }
+      }),
+    );
   }
 
   private async alreadyClosed(cycle: {
