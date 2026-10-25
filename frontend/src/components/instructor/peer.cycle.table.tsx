@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
+import { message, Popconfirm } from "antd";
 import { InstructorButton } from "@/components/instructor/instructor.ui";
-import { assessmentErrorCode, assessmentErrorText, fetchPeerReviewCyclesAPI } from "@/services/assessment.service";
+import {
+  assessmentErrorCode,
+  assessmentErrorText,
+  closePeerReviewCycleAPI,
+  fetchPeerReviewCyclesAPI,
+} from "@/services/assessment.service";
 import type { IPeerReviewCycleList, TPeerReviewCycleStatus } from "@/types/assessment.types";
 import "./peer.cycle.table.scss";
 
@@ -37,6 +43,7 @@ const PeerCycleTable = ({
   // set when there is nothing to show: peer review is off, or the call failed
   const [notice, setNotice] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [closingId, setClosingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,6 +71,28 @@ const PeerCycleTable = ({
   useEffect(() => {
     void load();
   }, [load, reloadKey]);
+
+  /** UC33: close the cycle now. The backend hands out the reviews or sends the work to the Instructor. */
+  const closeCycle = async (cycleId: string) => {
+    setClosingId(cycleId);
+    try {
+      const res = await closePeerReviewCycleAPI(assignmentId, cycleId);
+      if (!res.data) {
+        message.error(assessmentErrorText(res, "Unable to close the cycle."));
+        return;
+      }
+      const done = res.data;
+      if (done.alreadyClosed) message.info("This cycle was already closed.");
+      else if (done.status === "Assigned")
+        message.success(`Cycle closed. ${done.reviewCount} reviews were handed out to ${done.submissionCount} Learners.`);
+      else message.success(`Cycle closed. Only ${done.submissionCount} submissions, so you grade them all.`);
+      setReloadKey((key) => key + 1);
+    } catch {
+      message.error("Unable to reach the Assessment service. Please try again.");
+    } finally {
+      setClosingId(null);
+    }
+  };
 
   if (loading) return <p className="peer-cycles-empty">Loading cycles...</p>;
   if (!list) {
@@ -93,6 +122,7 @@ const PeerCycleTable = ({
               <th>Reviews due</th>
               <th>Submissions</th>
               <th>Status</th>
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -109,6 +139,20 @@ const PeerCycleTable = ({
                   <span className={`peer-cycles-status peer-cycles-status-${cycle.status}`} title={STATUS_HINT[cycle.status]}>
                     {STATUS_LABEL[cycle.status]}
                   </span>
+                </td>
+                <td>
+                  {!cycle.closed && (
+                    <Popconfirm
+                      title="Close this cycle now?"
+                      description={`Cycle ${index + 1} closes now and its ${cycle.submissionCount} submissions are handed out for review. Later submissions go to a new cycle.`}
+                      okText="Close cycle"
+                      onConfirm={() => closeCycle(cycle.id)}
+                    >
+                      <InstructorButton size="small" loading={closingId === cycle.id}>
+                        Close cycle
+                      </InstructorButton>
+                    </Popconfirm>
+                  )}
                 </td>
               </tr>
             ))}
