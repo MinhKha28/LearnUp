@@ -51,6 +51,7 @@ import {
   requireAccess,
   requireLearner,
 } from './learner-access';
+import { cycleLockKey } from '../peer-review/cycle-lock';
 import { buildGradingResult } from './grading-result';
 import { cycleWindowFor } from './peer-review-calendar';
 import {
@@ -488,7 +489,7 @@ export class LearnerSubmissionsService {
     }
 
     // Two Learners of the same Assignment must not both create the cycle.
-    await this.repository.lock(tx, `cycle:${assignment.id}`);
+    await this.repository.lock(tx, cycleLockKey(assignment.id));
     let cycle = await this.repository.findCycleContaining(
       tx,
       assignment.id,

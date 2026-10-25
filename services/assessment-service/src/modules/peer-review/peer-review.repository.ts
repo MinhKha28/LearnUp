@@ -45,6 +45,11 @@ export class PeerReviewRepository {
     return this.prisma.$transaction(fn);
   }
 
+  /** Transaction-wide lock on a text key (see cycleLockKey): callers with the same key take turns. */
+  async lock(tx: Prisma.TransactionClient, key: string): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
+  }
+
   findCycle(assessmentId: string, cycleId: string) {
     return this.prisma.peerReviewCycle.findFirst({
       where: { id: cycleId, assessmentId },

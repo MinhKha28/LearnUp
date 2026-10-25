@@ -247,4 +247,57 @@ describe('UC33 closing a cycle over HTTP', () => {
     );
     assert.equal(count, 8);
   });
+
+  test('every Learner who submitted has a state row, so a skipped review can be marked at the deadline', async () => {
+    const [{ submitters, states }] = await db.query(
+      `SELECT (SELECT count(DISTINCT learner_id) FROM submissions WHERE assessment_id = $1)::int AS submitters,
+              (SELECT count(*) FROM learner_assessment_states WHERE assessment_id = $1)::int AS states`,
+      [assignment],
+    );
+    assert.ok((submitters as number) > 0);
+    assert.equal(states, submitters);
+  });
+
+  test('a closing waits for a submission being placed, and a submission is never left in a closed cycle without reviews', async () => {
+    for (let i = 11; i <= 13; i += 1) await submit(assignment, learner(i));
+    const target = (await cycles()).find(
+      (c) => c.status === 'Open' && c.submissionCount === 3,
+    )!;
+    // a submission in flight: it holds the lock of the cycles of this Assignment until it commits
+    const holder = await db.connect();
+    await holder.query('BEGIN');
+    await holder.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      `cycle:${assignment}`,
+    ]);
+    let closed = false;
+    const closing = close(target.id).then((r) => {
+      closed = true;
+      return r;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    assert.equal(closed, false, 'the closing waits for the lock');
+    const [{ status }] = await db.query(
+      `SELECT status FROM peer_review_cycles WHERE id = $1`,
+      [target.id],
+    );
+    assert.equal(status, 'Open');
+
+    // one more Learner submits while the closing waits; they take turns when the lock is released
+    const late = submit(assignment, learner(14));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await holder.query('COMMIT');
+    const [answer] = await Promise.all([closing, late]);
+    assert.equal(answer.status, 200);
+
+    const [{ inCycle, reviewed }] = await db.query(
+      `SELECT (SELECT count(*) FROM submissions WHERE cycle_id = $1 AND superseded_at IS NULL)::int AS "inCycle",
+              (SELECT count(DISTINCT submission_id) FROM submission_reviews WHERE cycle_id = $1)::int AS reviewed`,
+      [target.id],
+    );
+    assert.equal(
+      inCycle,
+      reviewed,
+      'every submission of the closed cycle was handed out for review',
+    );
+  });
 });

@@ -8,6 +8,7 @@ import {
 import type { CurrentUser } from '@learnup/ts-common';
 
 import { NotificationClient } from '../../infrastructure/clients/notification/notification.client';
+import { cycleLockKey } from './cycle-lock';
 import { AssessmentsRepository } from '../assessments/assessments.repository';
 import {
   AssessmentsService,
@@ -103,8 +104,8 @@ export class PeerReviewService {
    * UC33 — close a cycle: hand out the reviews (BR-249) or send the submissions to the Instructor (BR-242).
    * Closing before the closing line is allowed (the Instructor does it from the screen): the cycle then closes now,
    * so later submissions go to the next cycle (BR-208). Closing a closed cycle changes nothing.
-   * ponytail: a submission in flight at this moment can still join the cycle after it closed; lock the row from
-   * the submit transaction too if that ever matters.
+   * A submission being placed at this moment takes the same lock (cycleLockKey), so it is either counted here or goes
+   * to the next cycle.
    */
   async closeCycle(
     user: CurrentUser,
@@ -152,6 +153,9 @@ export class PeerReviewService {
     const early = Math.max(0, cycle.closesAt.getTime() - now.getTime());
     const n = cycle.reviewersPerSubmission;
     const result = await this.repository.transaction(async (tx) => {
+      // a submission being placed holds this lock until it commits: it is in the cycle when we read it, or it waits
+      // and goes to the next cycle
+      await this.repository.lock(tx, cycleLockKey(cycle.assessmentId));
       const claimed = await this.repository.claimOpenCycle(tx, cycle.id, {
         status: 'Closing',
         closesAt: new Date(cycle.closesAt.getTime() - early),
