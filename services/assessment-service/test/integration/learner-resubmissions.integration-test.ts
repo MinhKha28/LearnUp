@@ -1,11 +1,10 @@
 /**
  * UC30.1 through the real HTTP API and a real Postgres: the replacement of the previous submission, the three places a
  * resubmission can go (BR-171, BR-313), the lock after n in a row (BR-176) and the races of parallel resubmits.
- * Enrollment is answered by the fake client (ENROLLMENT_CLIENT_MODE=fake). The tests are one story and share state.
+ * Enrollment is answered by a fake Learning Service (assessment-access, ENROLLMENT_CLIENT_MODE=http). The tests are one story and share state.
  */
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { fakeEnrollmentId } from '../../src/infrastructure/clients/learning/fake-enrollment.client';
 import {
   apiFor,
   COURSE,
@@ -14,8 +13,10 @@ import {
   LEARNER,
   ORG,
   startCourseStub,
+  startLearningStub,
   startService,
   type CourseStub,
+  type LearningStub,
   type RunningService,
   type TestDatabase,
 } from './harness';
@@ -27,6 +28,7 @@ const as = (user: string) => identity({ user, role: 'LEARNER' });
 describe('UC30.1 over HTTP', () => {
   let db: TestDatabase;
   let course: CourseStub;
+  let learning: LearningStub;
   let service: RunningService;
   let api: ReturnType<typeof apiFor>;
   let reviewed: string; // peer review on
@@ -36,9 +38,11 @@ describe('UC30.1 over HTTP', () => {
   before(async () => {
     db = await createTestDatabase();
     course = await startCourseStub();
+    learning = await startLearningStub();
     service = await startService(db.url, {
       COURSE_SERVICE_URL: course.url,
-      ENROLLMENT_CLIENT_MODE: 'fake',
+      ENROLLMENT_CLIENT_MODE: 'http',
+      LEARNING_SERVICE_URL: learning.url,
     });
     api = apiFor(service.baseUrl);
     const make = async (title: string, extra: object = {}, peer = false) => {
@@ -73,6 +77,7 @@ describe('UC30.1 over HTTP', () => {
   after(async () => {
     await service?.stop();
     await course?.stop();
+    await learning?.stop();
     await db?.drop();
   });
 
@@ -314,20 +319,13 @@ describe('UC30.1 over HTTP', () => {
       assert.equal(again.data?.attempts.remainingAttempts, 1);
     });
 
-    test('a Completed Enrollment is read-only (BR-169)', async () => {
-      await db.query(
-        `INSERT INTO completed_enrollments (enrollment_id, organization_id, learner_id, course_id, completed_at, updated_at)
-         VALUES ($1, $2, $3, $4, now(), now())`,
-        [fakeEnrollmentId(LEARNER, COURSE), ORG, LEARNER, COURSE],
-      );
+    test('a Completed Enrollment is read-only (BR-210)', async () => {
+      learning.setAnswer(LEARNER, COURSE, 'ReadOnly');
       const r = await resubmit(direct, LEARNER, 'too late');
       assert.equal(r.status, 409);
       assert.equal(r.code, 'ENROLLMENT_COMPLETED');
       assert.equal((await view(direct)).resubmission, null);
-      await db.query(
-        'DELETE FROM completed_enrollments WHERE learner_id = $1',
-        [LEARNER],
-      );
+      learning.setAnswer(LEARNER, COURSE, 'Full');
     });
   });
 

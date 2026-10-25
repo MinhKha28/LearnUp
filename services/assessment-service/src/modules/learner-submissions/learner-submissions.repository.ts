@@ -81,15 +81,6 @@ export class LearnerSubmissionsRepository {
     });
   }
 
-  /** BR-169: an Enrollment that is Completed is read-only (the row comes from learning-service events). */
-  async isEnrollmentCompleted(enrollmentId: string): Promise<boolean> {
-    const row = await this.prisma.completedEnrollment.findUnique({
-      where: { enrollmentId },
-      select: { enrollmentId: true },
-    });
-    return row !== null;
-  }
-
   findPlatformSetting() {
     return this.prisma.platformSetting.findFirst({
       orderBy: { createdAt: 'desc' },
