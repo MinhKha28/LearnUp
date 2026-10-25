@@ -1,4 +1,4 @@
-/** BR-169: the Enrollment status of Learning Service decides when it answers; the Completed table is the fallback. */
+/** BR-210: the Enrollment status of Learning Service decides when it answers; the Completed table is the fallback. */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { isEnrollmentCompleted } from '../../src/modules/learner-submissions/learner-access';
@@ -17,7 +17,7 @@ const table = (completed: boolean) => {
   };
 };
 
-describe('isEnrollmentCompleted (BR-169)', () => {
+describe('isEnrollmentCompleted (BR-210)', () => {
   test('the status of Learning Service is the answer, and the table is not asked', async () => {
     const done = table(false);
     assert.equal(

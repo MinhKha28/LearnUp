@@ -73,7 +73,7 @@ describe('HttpEnrollmentClient', () => {
     assert.equal(seen.headers?.['x-user-role'], 'LEARNER');
   });
 
-  test('the status of the Enrollment comes through when Learning Service sends one (BR-169)', async () => {
+  test('the status of the Enrollment comes through when Learning Service sends one (BR-210)', async () => {
     mode = 'ok';
     status = 'Completed';
     assert.deepEqual(await client().findEnrollment(COURSE, learner), {
@@ -94,7 +94,7 @@ describe('HttpEnrollmentClient', () => {
     status = undefined;
   });
 
-  test('reportLearningActivity posts the time with the internal key and the Learner identity (BR-119)', async () => {
+  test('reportLearningActivity posts the time with the internal key and the Learner identity (BR-140)', async () => {
     mode = 'ok';
     let body = '';
     server.once('request', (req) => {

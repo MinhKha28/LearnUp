@@ -1,5 +1,5 @@
 /**
- * BR-169 through the real HTTP API, a real Postgres and a Learning Service stub that answers the status of the
+ * BR-210 through the real HTTP API, a real Postgres and a Learning Service stub that answers the status of the
  * Enrollment: Completed makes the Assignment read-only (UC29, UC30, UC30.1), any other status leaves it open, and
  * an answer without a status falls back to the table of Completed Enrollments. The tests are one story.
  */
@@ -25,7 +25,7 @@ import {
 const ENROLLMENT = '00000000-0000-4000-8000-0000000000e1';
 const as = identity({ user: LEARNER, role: 'LEARNER' });
 
-describe('the Enrollment status decides BR-169', () => {
+describe('the Enrollment status decides BR-210', () => {
   let db: TestDatabase;
   let course: CourseStub;
   let learning: Server;
@@ -107,7 +107,7 @@ describe('the Enrollment status decides BR-169', () => {
       prompt: 'Write it',
       passingScore: 70,
       expectedDurationMinutes: 30,
-      maxConsecutiveAttempts: 50, // the lock of BR-176 is not what is tried here
+      maxConsecutiveAttempts: 50, // the lock of BR-218 is not what is tried here
       rubric: [{ name: 'A', description: 'a', maxPoints: 10 }],
     });
     assert.equal(created.status, 201, JSON.stringify(created.json));
@@ -167,7 +167,7 @@ describe('the Enrollment status decides BR-169', () => {
     assert.equal((await view()).readOnly, false);
   });
 
-  describe('the first activity starts the Enrollment (BR-119)', () => {
+  describe('the first activity starts the Enrollment (BR-140)', () => {
     test('a submission tells Learning Service, once, with the Enrollment and the time of the submission', async () => {
       status = undefined; // an older Learning Service: no status in its answer
       activity.length = 0;

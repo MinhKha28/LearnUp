@@ -12,7 +12,7 @@ const DEFAULT_TIMEOUT_MS = 5000;
  *   GET {LEARNING_SERVICE_URL}/api/v1/enrollments/me/course-ids
  *   Header: x-internal-key + x-user-id, x-organization-id, x-user-role của Learner
  *   200:    { statusCode, message, data: [{ courseId, enrollmentId, status? }] } (mọi Enrollment chưa Withdrawn của Learner;
- *           status là trạng thái Enrollment, có từ bản learning-service mới, dùng cho BR-169)
+ *           status là trạng thái Enrollment, có từ bản learning-service mới, dùng cho BR-210)
  */
 export class HttpEnrollmentClient extends EnrollmentClient {
   private readonly logger = new Logger(HttpEnrollmentClient.name);

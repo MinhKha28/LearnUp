@@ -62,7 +62,7 @@ const assignment = (over: Partial<Row> = {}) =>
   row({
     kind: 'ASSIGNMENT',
     title: 'Assignment',
-    isRequired: false, // the column is not used for Assignments (BR-165)
+    isRequired: false, // the column is not used for Assignments (BR-206)
     timeLimitMinutes: null,
     expectedDurationMinutes: 60,
     ...over,
@@ -169,12 +169,12 @@ describe('list (UC29)', () => {
     assert.equal(r.readOnly, false);
   });
 
-  test('a Completed Enrollment is read-only (BR-169)', async () => {
+  test('a Completed Enrollment is read-only (BR-210)', async () => {
     const r = await build({ completed: true }).service.list(learner, COURSE);
     assert.equal(r.readOnly, true);
   });
 
-  test('Module Quizzes follow the Module order, Course-level Quizzes and Assignments come last (BR-291)', async () => {
+  test('Module Quizzes follow the Module order, Course-level Quizzes and Assignments come last (BR-193)', async () => {
     const inB = row({ title: 'in B', moduleId: MODULE_B, position: 1 });
     const inA2 = row({ title: 'in A 2', moduleId: MODULE_A, position: 2 });
     const inA1 = row({ title: 'in A 1', moduleId: MODULE_A, position: 1 });
@@ -206,13 +206,13 @@ describe('list (UC29)', () => {
     }
   });
 
-  test('an Assignment is NotStarted, then AwaitingResult, then Completed with the score of the latest submission (BR-170)', async () => {
+  test('an Assignment is NotStarted, then AwaitingResult, then Completed with the score of the latest submission (BR-212)', async () => {
     const a = assignment();
     const none = await build({ rows: [a] }).service.list(learner, COURSE);
     assert.equal(none.items[0].status, 'NotStarted');
     assert.equal(none.items[0].recordedScore, null);
-    assert.equal(none.items[0].passed, null); // BR-153: not submitted is not "failed"
-    assert.equal(none.items[0].isRequired, true); // BR-165
+    assert.equal(none.items[0].passed, null); // BR-191: not submitted is not "failed"
+    assert.equal(none.items[0].isRequired, true); // BR-206
 
     const waiting = await build({
       rows: [a],
@@ -249,7 +249,7 @@ describe('list (UC29)', () => {
     assert.equal(notPassed.passed, false);
   });
 
-  test('a Quiz is NotStarted, InProgress while an attempt runs, then Completed with the best attempt (BR-159)', async () => {
+  test('a Quiz is NotStarted, InProgress while an attempt runs, then Completed with the best attempt (BR-198)', async () => {
     const q = row({});
     const attempt = (submittedAt: Date | null, score: string | null) => ({
       assessmentId: q.id,
@@ -289,7 +289,7 @@ describe('list (UC29)', () => {
     assert.equal(done.timeLimitMinutes, 20);
   });
 
-  test('shows the tries left, and the reopen time while locked; an expired lock counts from zero (BR-160, BR-176, BR-179)', async () => {
+  test('shows the tries left, and the reopen time while locked; an expired lock counts from zero (BR-199, BR-218, BR-221)', async () => {
     const a = assignment();
     const b = assignment({ position: 2 });
     const c = assignment({ position: 3 });

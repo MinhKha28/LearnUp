@@ -5,7 +5,7 @@ export interface EnrolledCourse {
   enrollmentId: string;
   /**
    * Trạng thái Enrollment ở learning-service (NotStarted, InProgress, Completed...). Chưa bắt buộc: learning-service
-   * bản cũ không trả. Khi có thì nó quyết định Enrollment đã Completed chưa (BR-169); khi không có thì xem bảng
+   * bản cũ không trả. Khi có thì nó quyết định Enrollment đã Completed chưa (BR-210); khi không có thì xem bảng
    * completed_enrollments (xem isEnrollmentCompleted trong learner-access.ts).
    */
   status?: string;
@@ -29,7 +29,7 @@ export abstract class EnrollmentClient {
   ): Promise<EnrolledCourse | null>;
 
   /**
-   * BR-119: tell learning-service that the Learner has done something that counts as learning data (a submission or, later,
+   * BR-140: tell learning-service that the Learner has done something that counts as learning data (a submission or, later,
    * the start of a Quiz attempt), so a NotStarted Enrollment becomes InProgress. Learning-service changes nothing when
    * the Enrollment has started already, so telling it again is harmless.
    * Ném ServiceUnavailableException khi không gọi được; người gọi chỉ ghi log, không để việc này làm hỏng thao tác của Learner.

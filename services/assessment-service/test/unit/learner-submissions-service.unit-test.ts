@@ -286,7 +286,7 @@ describe('submit (UC30)', () => {
     assert.equal(ctx.world.cycles.length, 0);
   });
 
-  test('with peer review on the submission waits in a cycle that is created on demand (BR-312)', async () => {
+  test('with peer review on the submission waits in a cycle that is created on demand (BR-231)', async () => {
     ctx = build({ assignment: assignmentRow(peerOn) });
     const r = await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
     assert.equal(r.gradingStatus, 'AwaitingPeerReview');
@@ -298,7 +298,7 @@ describe('submit (UC30)', () => {
     assert.equal(ctx.world.submissions[0].cycleId, ctx.world.cycles[0].id);
   });
 
-  test('another Learner in the same cycle joins it, a later day outside it opens the next one (BR-167)', async () => {
+  test('another Learner in the same cycle joins it, a later day outside it opens the next one (BR-208)', async () => {
     ctx = build({ assignment: assignmentRow(peerOn) });
     await ctx.service.submit(learner(), ASSIGNMENT, { content: 'a' });
     ctx.setNow(new Date('2026-10-15T10:00:00Z'));
@@ -361,7 +361,7 @@ describe('submit (UC30)', () => {
     }
   });
 
-  test('only an enrolled Learner may submit (403), a Completed Enrollment is read-only (BR-169)', async () => {
+  test('only an enrolled Learner may submit (403), a Completed Enrollment is read-only (BR-210)', async () => {
     await rejectsWith(
       ctx.service.submit({ ...learner(), role: 'INSTRUCTOR' }, ASSIGNMENT, {
         content: 'x',
@@ -408,7 +408,7 @@ describe('submit (UC30)', () => {
     assert.equal(ctx.world.submissions.length, 1);
   });
 
-  test('n consecutive submissions lock the Assignment for m hours, for this Learner only (BR-176, BR-178)', async () => {
+  test('n consecutive submissions lock the Assignment for m hours, for this Learner only (BR-218, BR-220)', async () => {
     // two earlier submissions, replaced since: the next one is the third = n
     ctx.world.states.set(`${ASSIGNMENT}:${LEARNER}`, {
       id: 's1',
@@ -433,7 +433,7 @@ describe('submit (UC30)', () => {
     assert.equal(other.attempts.remainingAttempts, 2);
   });
 
-  test('while locked a submission is refused with the reopen time; after it, counting starts again (BR-176, BR-179)', async () => {
+  test('while locked a submission is refused with the reopen time; after it, counting starts again (BR-218, BR-221)', async () => {
     const lockedUntil = new Date('2026-10-15T06:00:00Z');
     ctx.world.states.set(`${ASSIGNMENT}:${LEARNER}`, {
       id: 's1',
@@ -546,7 +546,7 @@ describe('resubmit (UC30.1)', () => {
     return { ctx, first };
   };
 
-  test('a resubmission in the same open cycle takes the place of the previous one (BR-171)', async () => {
+  test('a resubmission in the same open cycle takes the place of the previous one (BR-213)', async () => {
     const { ctx, first } = await submitted();
     ctx.setNow(new Date('2026-10-16T10:00:00Z'));
     const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
@@ -563,12 +563,12 @@ describe('resubmit (UC30.1)', () => {
     assert.equal(current.supersededAt, undefined);
     assert.equal(current.cycleId, old.cycleId);
     assert.equal(current.content, 'second');
-    // the latest one is the one that counts (BR-170)
+    // the latest one is the one that counts (BR-212)
     const view = await ctx.service.getAssignment(learner(), ASSIGNMENT);
     assert.equal(view.latestSubmission?.submissionNumber, 2);
   });
 
-  test('it counts as one more submission in a row (BR-176) and is announced as Resubmitted', async () => {
+  test('it counts as one more submission in a row (BR-218) and is announced as Resubmitted', async () => {
     const { ctx, first } = await submitted();
     const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
       content: 'second',
@@ -581,7 +581,7 @@ describe('resubmit (UC30.1)', () => {
     assert.equal(event.consecutiveCount, 2);
   });
 
-  test('A1: after the closing line of the previous cycle it goes straight to the Instructor (BR-171)', async () => {
+  test('A1: after the closing line of the previous cycle it goes straight to the Instructor (BR-213)', async () => {
     const { ctx } = await submitted();
     ctx.setNow(afterCutoff);
     const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
@@ -598,7 +598,7 @@ describe('resubmit (UC30.1)', () => {
     assert.ok(ctx.world.submissions[0].supersededAt);
   });
 
-  test('A2: a Learner who owes a peer review duty joins the cycle that is open now (BR-313)', async () => {
+  test('A2: a Learner who owes a peer review duty joins the cycle that is open now (BR-239)', async () => {
     const { ctx } = await submitted();
     ctx.world.states.get(`${ASSIGNMENT}:${LEARNER}`)!.peerReviewObligation =
       'Missed';
@@ -649,7 +649,7 @@ describe('resubmit (UC30.1)', () => {
     assert.equal(ctx.world.states.size, 0, 'nothing is counted');
   });
 
-  test('there is no limit on resubmissions: every n in a row pause it, then it opens again (BR-168, BR-176)', async () => {
+  test('there is no limit on resubmissions: every n in a row pause it, then it opens again (BR-209, BR-218)', async () => {
     const { ctx } = await submitted({ ...peerOn, maxConsecutiveAttempts: 2 });
     // the second one of two in a row locks the Assignment for lockoutHours (24)
     const second = await ctx.service.resubmit(learner(), ASSIGNMENT, {
@@ -681,7 +681,7 @@ describe('resubmit (UC30.1)', () => {
     assert.equal(third.attempts.lockedUntil, null);
   });
 
-  test('a Completed Enrollment is read-only (BR-169)', async () => {
+  test('a Completed Enrollment is read-only (BR-210)', async () => {
     const { ctx } = await submitted();
     ctx.world.completed.add(ENROLLMENT);
     await rejectsWith(
@@ -770,7 +770,7 @@ describe('resubmit (UC30.1)', () => {
   });
 });
 
-describe('the first activity starts the Enrollment (BR-119)', () => {
+describe('the first activity starts the Enrollment (BR-140)', () => {
   let ctx: ReturnType<typeof build>;
   beforeEach(() => {
     ctx = build();
