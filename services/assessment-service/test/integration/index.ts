@@ -18,3 +18,4 @@ import './assignment-minutes.integration-test';
 import './withdrawal-demo-seed.integration-test';
 import './peer-review-close.integration-test';
 import './peer-review-schedule.integration-test';
+import './enrollment-status.integration-test';

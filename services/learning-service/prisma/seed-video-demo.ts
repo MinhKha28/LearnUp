@@ -94,14 +94,14 @@ export async function seedVideoDemo(app: INestApplicationContext) {
         courseId: COURSE,
         learnerId: p.learnerId,
         enrollmentType: 'Optional',
-        status: p.watchedSeconds ? 'InProgress' : 'NotStarted',
-        firstActivityAt: p.watchedSeconds ? new Date() : null,
+        status: 'NotStarted',
+        firstActivityAt: null,
         videoCompletionPercent: percent,
       })),
     });
     const partial = pending.find((p) => p.watchedSeconds > 0);
     if (partial)
-      await tx.$executeRaw`INSERT INTO material_progress(id,organization_id,enrollment_id,material_id,watched_ranges,last_reported_at)
-      VALUES ('01900000-0000-7000-8000-2b0000000028'::uuid,${ORG}::uuid,${partial.enrollmentId}::uuid,${MATERIAL}::uuid,int4multirange(int4range(0,${partial.watchedSeconds}::int)),NULL)`;
+      await tx.$executeRaw`INSERT INTO material_progress(id,organization_id,enrollment_id,material_id,watched_ranges,last_reported_at,position_seconds,position_reported_at)
+      VALUES ('01900000-0000-7000-8000-2b0000000028'::uuid,${ORG}::uuid,${partial.enrollmentId}::uuid,${MATERIAL}::uuid,int4multirange(int4range(0,${partial.watchedSeconds}::int)),NULL,${partial.watchedSeconds},now())`;
   });
 }

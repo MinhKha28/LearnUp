@@ -2,13 +2,15 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+  ConflictException,
   ForbiddenException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
 import {
-  EnrolledCourse,
+  type AssessmentAccess,
+  type AssessmentAccessLevel,
   EnrollmentClient,
 } from '../../src/infrastructure/clients/learning/enrollment.client';
 import { LearnerAssessmentsService } from '../../src/modules/learner-assessments/learner-assessments.service';
@@ -62,7 +64,7 @@ const assignment = (over: Partial<Row> = {}) =>
   row({
     kind: 'ASSIGNMENT',
     title: 'Assignment',
-    isRequired: false, // the column is not used for Assignments (BR-165)
+    isRequired: false, // the column is not used for Assignments (BR-206)
     timeLimitMinutes: null,
     expectedDurationMinutes: 60,
     ...over,
@@ -82,7 +84,7 @@ interface World {
     gradingStatus: string;
     finalScore: unknown;
   }[];
-  completed: boolean;
+  access: AssessmentAccessLevel;
   enrolled: boolean;
   moduleIds: string[] | null | 'down';
 }
@@ -93,7 +95,7 @@ function build(over: Partial<World> = {}) {
     states: [],
     attempts: [],
     submissions: [],
-    completed: false,
+    access: 'Full',
     enrolled: true,
     moduleIds: [MODULE_A, MODULE_B],
     ...over,
@@ -103,13 +105,18 @@ function build(over: Partial<World> = {}) {
     findStates: () => Promise.resolve(world.states),
     findQuizAttempts: () => Promise.resolve(world.attempts),
     findLatestSubmissions: () => Promise.resolve(world.submissions),
-    isEnrollmentCompleted: () => Promise.resolve(world.completed),
   } as unknown as LearnerAssessmentsRepository;
 
   class StubEnrollments extends EnrollmentClient {
-    findEnrollment(courseId: string): Promise<EnrolledCourse | null> {
+    getAssessmentAccess(): Promise<AssessmentAccess | null> {
       return Promise.resolve(
-        world.enrolled ? { courseId, enrollmentId: ENROLLMENT } : null,
+        world.enrolled
+          ? {
+              enrollmentId: ENROLLMENT,
+              status: world.access === 'ReadOnly' ? 'Completed' : 'InProgress',
+              access: world.access,
+            }
+          : null,
       );
     }
   }
@@ -166,12 +173,20 @@ describe('list (UC29)', () => {
     assert.equal(r.readOnly, false);
   });
 
-  test('a Completed Enrollment is read-only (BR-169)', async () => {
-    const r = await build({ completed: true }).service.list(learner, COURSE);
+  test('a Completed Enrollment is read-only (BR-210)', async () => {
+    const r = await build({ access: 'ReadOnly' }).service.list(learner, COURSE);
     assert.equal(r.readOnly, true);
   });
 
-  test('Module Quizzes follow the Module order, Course-level Quizzes and Assignments come last (BR-291)', async () => {
+  test('a Halted or Withdrawn Enrollment shuts the Learner out: 409 ENROLLMENT_NOT_ACTIVE', async () => {
+    await rejectsWith(
+      build({ access: 'None' }).service.list(learner, COURSE),
+      ConflictException,
+      'ENROLLMENT_NOT_ACTIVE',
+    );
+  });
+
+  test('Module Quizzes follow the Module order, Course-level Quizzes and Assignments come last (BR-193)', async () => {
     const inB = row({ title: 'in B', moduleId: MODULE_B, position: 1 });
     const inA2 = row({ title: 'in A 2', moduleId: MODULE_A, position: 2 });
     const inA1 = row({ title: 'in A 1', moduleId: MODULE_A, position: 1 });
@@ -203,13 +218,13 @@ describe('list (UC29)', () => {
     }
   });
 
-  test('an Assignment is NotStarted, then AwaitingResult, then Completed with the score of the latest submission (BR-170)', async () => {
+  test('an Assignment is NotStarted, then AwaitingResult, then Completed with the score of the latest submission (BR-212)', async () => {
     const a = assignment();
     const none = await build({ rows: [a] }).service.list(learner, COURSE);
     assert.equal(none.items[0].status, 'NotStarted');
     assert.equal(none.items[0].recordedScore, null);
-    assert.equal(none.items[0].passed, null); // BR-153: not submitted is not "failed"
-    assert.equal(none.items[0].isRequired, true); // BR-165
+    assert.equal(none.items[0].passed, null); // BR-191: not submitted is not "failed"
+    assert.equal(none.items[0].isRequired, true); // BR-206
 
     const waiting = await build({
       rows: [a],
@@ -246,7 +261,7 @@ describe('list (UC29)', () => {
     assert.equal(notPassed.passed, false);
   });
 
-  test('a Quiz is NotStarted, InProgress while an attempt runs, then Completed with the best attempt (BR-159)', async () => {
+  test('a Quiz is NotStarted, InProgress while an attempt runs, then Completed with the best attempt (BR-198)', async () => {
     const q = row({});
     const attempt = (submittedAt: Date | null, score: string | null) => ({
       assessmentId: q.id,
@@ -286,7 +301,7 @@ describe('list (UC29)', () => {
     assert.equal(done.timeLimitMinutes, 20);
   });
 
-  test('shows the tries left, and the reopen time while locked; an expired lock counts from zero (BR-160, BR-176, BR-179)', async () => {
+  test('shows the tries left, and the reopen time while locked; an expired lock counts from zero (BR-199, BR-218, BR-221)', async () => {
     const a = assignment();
     const b = assignment({ position: 2 });
     const c = assignment({ position: 3 });

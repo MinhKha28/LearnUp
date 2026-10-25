@@ -4,7 +4,8 @@ import { CourseServiceClient } from '../../infrastructure/clients/course/course-
 import { EnrollmentClient } from '../../infrastructure/clients/learning/enrollment.client';
 import {
   attemptStateOf,
-  requireEnrollment,
+  isReadOnly,
+  requireAccess,
   requireLearner,
 } from '../learner-submissions/learner-access';
 import { ASSIGNMENT_KIND } from '../learner-submissions/learner-submissions.constants';
@@ -46,14 +47,10 @@ export class LearnerAssessmentsService {
     courseId: string,
   ): Promise<ILearnerAssessmentList> {
     const organizationId = requireLearner(user);
-    const enrollment = await requireEnrollment(
-      this.enrollments,
-      user,
-      courseId,
-    );
-    const [rows, readOnly, moduleOrder] = await Promise.all([
+    const access = await requireAccess(this.enrollments, user, courseId);
+    const readOnly = isReadOnly(access);
+    const [rows, moduleOrder] = await Promise.all([
       this.repository.findAssessments(organizationId, courseId),
-      this.repository.isEnrollmentCompleted(enrollment.enrollmentId),
       this.moduleOrder(user, courseId),
     ]);
 
@@ -96,7 +93,7 @@ export class LearnerAssessmentsService {
         } else {
           const mine = attemptsOf.get(row.id) ?? [];
           const done = mine.filter((a) => a.submittedAt !== null);
-          // BR-159: the recorded score of a Quiz is its best attempt.
+          // BR-198: the recorded score of a Quiz is its best attempt.
           const scores = done
             .map((a) => toNumber(a.score))
             .filter((s): s is number => s !== null);
@@ -117,13 +114,13 @@ export class LearnerAssessmentsService {
           kind: isAssignment ? 'ASSIGNMENT' : 'QUIZ',
           title: row.title,
           moduleId: row.moduleId,
-          isRequired: isAssignment ? true : row.isRequired, // BR-165
+          isRequired: isAssignment ? true : row.isRequired, // BR-206
           passingScore,
           timeLimitMinutes: row.timeLimitMinutes,
           expectedDurationMinutes: row.expectedDurationMinutes,
           status,
           recordedScore,
-          // BR-153: no score yet is "not completed", not "failed".
+          // BR-191: no score yet is "not completed", not "failed".
           passed: recordedScore === null ? null : recordedScore >= passingScore,
           submittedAt: submittedAt?.toISOString() ?? null,
           attempts: attemptStateOf(row, stateOf.get(row.id) ?? null, now),
@@ -133,7 +130,7 @@ export class LearnerAssessmentsService {
 
     return {
       courseId,
-      enrollmentId: enrollment.enrollmentId,
+      enrollmentId: access.enrollmentId,
       readOnly,
       items,
     };
@@ -152,7 +149,7 @@ export class LearnerAssessmentsService {
     }
   }
 
-  /** BR-291: Module Quizzes follow the Module order, Course-level Quizzes and Assignments come last; then by position. */
+  /** BR-193: Module Quizzes follow the Module order, Course-level Quizzes and Assignments come last; then by position. */
   private inOrder(rows: AssessmentRow[], moduleOrder: string[] | null) {
     const rank = (moduleId: string | null) => {
       if (moduleId === null) return Number.MAX_SAFE_INTEGER;

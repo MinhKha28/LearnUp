@@ -74,7 +74,7 @@ describe("Identity recovery requests with the real shared Axios interceptors", (
     vi.stubEnv("VITE_DEV_FAKE_USER_ID", "synthetic-dev-user-context");
     vi.stubEnv("DEV", true);
     vi.stubGlobal("localStorage", storage);
-    vi.stubGlobal("window", { location: { pathname: "/learner", search: "", assign } });
+    vi.stubGlobal("window", { dispatchEvent: vi.fn(), location: { pathname: "/learner", search: "", assign } });
     // Import after the complete env contract is configured. No app module or interceptor is mocked.
     identity = await import("@/services/identity.service");
     session = await import("@/services/auth.session");

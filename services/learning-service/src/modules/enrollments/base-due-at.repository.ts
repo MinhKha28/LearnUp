@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { createApiError } from '@learnup/ts-common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
 import { BaseRepository } from '../../common/repository/base.repository';
 import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
@@ -69,8 +70,16 @@ export class BaseDueAtRepository extends BaseRepository {
     timezone: string,
     tx: Prisma.TransactionClient,
   ): Promise<Date> {
-    const [row] = await tx.$queryRaw<{ dueAt: Date }[]>`
-      SELECT ${endOfCalendarDay(Prisma.sql`${date}::date`, timezone)} AS "dueAt"`;
-    return row.dueAt;
+    const [row] = await tx.$queryRaw<{ dueAtMilliseconds: number }[]>`
+      SELECT (EXTRACT(EPOCH FROM ${endOfCalendarDay(Prisma.sql`${date}::date`, timezone)}) * 1000)::double precision AS "dueAtMilliseconds"`;
+    /** Giới hạn năm bốn chữ số để tương thích ISO 8601 qua JS Date/Prisma. */
+    if (row.dueAtMilliseconds >= Date.UTC(10000, 0, 1))
+      throw new UnprocessableEntityException(
+        createApiError(
+          'VALIDATION_ERROR',
+          'Hạn hoàn thành vượt phạm vi thời điểm hỗ trợ.',
+        ),
+      );
+    return new Date(row.dueAtMilliseconds);
   }
 }

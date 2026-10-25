@@ -13,6 +13,7 @@ export interface AssignmentEnrollment {
   learnerId: string;
   enrollmentType: string;
   status: string;
+  withdrawnReason: string | null;
   firstActivityAt: Date | null;
 }
 export interface AssignmentPlan {
@@ -21,7 +22,7 @@ export interface AssignmentPlan {
   existing?: AssignmentEnrollment;
 }
 
-/** D56–D59: lỗi theo thứ tự ưu tiên; Pending được phân công như Active. */
+/** BR-144/161: kiểm tài khoản trước khi khôi phục Withdrawn hoặc phân công. */
 export function classifyLearners(
   learnerIds: string[],
   items: LookupLearner[],
@@ -34,6 +35,9 @@ export function classifyLearners(
   for (const learnerId of learnerIds) {
     const user = users.get(learnerId);
     const row = existing.get(learnerId);
+    const restorable =
+      row?.status === 'Withdrawn' &&
+      !['AccountDeleted', 'HaltedClosed'].includes(row.withdrawnReason ?? '');
     const reason: InvalidLearnerReason | null = !user
       ? 'NOT_IN_ORGANIZATION'
       : user.role !== 'Learner'
@@ -42,7 +46,7 @@ export function classifyLearners(
           ? 'ACCOUNT_DELETED'
           : user.status === 'Deactivated'
             ? 'ACCOUNT_DEACTIVATED'
-            : row?.enrollmentType === 'Required'
+            : row?.enrollmentType === 'Required' && !restorable
               ? 'ALREADY_ASSIGNED'
               : null;
     if (reason) {

@@ -60,12 +60,4 @@ export class LearnerAssessmentsRepository {
       },
     });
   }
-
-  async isEnrollmentCompleted(enrollmentId: string): Promise<boolean> {
-    const row = await this.prisma.completedEnrollment.findUnique({
-      where: { enrollmentId },
-      select: { enrollmentId: true },
-    });
-    return row !== null;
-  }
 }

@@ -466,7 +466,7 @@ try {
     };
   });
   await check(
-    "UC27.2 (1): actual 20s playback activates Enrollment",
+    "UC27.2 (1): BR-140 partial playback keeps Enrollment NotStarted",
     async () => {
       await identity("LEARNER_5");
       assert.equal(
@@ -496,17 +496,17 @@ try {
       );
       await click("Về Bài học");
       await navigate("/learner/courses");
-      await until("document.body.innerText.includes('Đang học')");
+      await until(`Array.from(document.querySelectorAll('.learner-my-course')).some(row=>row.querySelector('a')?.getAttribute('href')==='/learner/courses/${a}' && row.innerText.includes('Chưa bắt đầu'))`);
       assert.equal(
         (await api("/api/v1/enrollments/me?page=1")).body.data.items.find(
           (e) => e.enrollmentId === a,
         ).status,
-        "InProgress",
+        "NotStarted",
       );
       return {
         watchedSeconds: state.watchedSeconds,
         actualPlayback: true,
-        status: "InProgress",
+        status: "NotStarted",
       };
     },
   );

@@ -18,4 +18,11 @@ import './curriculum-service.unit-test';
 import './optional-withdrawal.unit-test';
 import './learner-enrollment-summary.unit-test';
 import './video-progress.unit-test';
+import './video-resume.unit-test';
 import './withdrawal-demo-seed.unit-test';
+import './outbox-relay.unit-test';
+
+import './assessment-access.unit-test';
+import './course-completion.unit-test';
+import './completion-worker.unit-test';
+import './reading-completion.unit-test';

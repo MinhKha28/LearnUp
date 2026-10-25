@@ -12,7 +12,7 @@ This directory contains the canonical JSON Schemas and sample payloads for domai
 
 ## 2. Topic Catalog
 * `learnup.learning.course-completed` — Fired by Learning Service when a learner finishes all mandatory lessons/quizzes.
-* `learnup.learning.assignment-created` — Fired by Learning Service when an Organizer assigns a required course to learners.
+* `learnup.learning.enrollment-events` — EnrollmentAssigned, EnrollmentDueDateExtended, EnrollmentExempted and LearnerWithdrew; see [Enrollment contracts](learning-enrollment-events.md).
 * `learnup.assessment.peer-review-assigned` — Fired by Assessment Service when peer reviews are distributed.
 * `learnup.assessment.passed` — Fired by Assessment Service when an assessment requirement is passed.
 * `learnup.certificate.issued` — Fired by Achievement & Reporting Service when a certificate record is generated.

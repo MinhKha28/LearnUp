@@ -260,7 +260,6 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
     for (const [date, code] of [
       ['2025-01-01', 'DUE_DATE_NOT_LATER'],
       [plusDays(-1), 'DUE_DATE_IN_PAST'],
-      [plusDays(366), 'DUE_DATE_TOO_FAR'],
     ]) {
       const r = await call(id, 'due-date', { newDueDate: date });
       assert.equal(r.status, 422);
@@ -276,6 +275,55 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
         .status,
       200,
     ));
+  for (const zone of ['Asia/Ho_Chi_Minh', 'America/New_York', 'UTC']) {
+    for (const input of ['+366', '2100-12-31', '9999-12-30', '9999-12-31']) {
+      test(`extends to ${input} in ${zone} through DTO, PostgreSQL, Prisma and ISO`, async () => {
+        const date = input === '+366' ? plusDays(366) : input;
+        timezone = zone;
+        const id = await seed();
+        const before = await app
+          .get(PrismaService)
+          .enrollment.findUniqueOrThrow({ where: { id } });
+        const result = await call(id, 'due-date', { newDueDate: date });
+        if (date === '9999-12-31' && zone !== 'Asia/Ho_Chi_Minh') {
+          assert.equal(result.status, 422);
+          assert.equal(result.body.error.code, 'VALIDATION_ERROR');
+          assert.deepEqual(
+            await app
+              .get(PrismaService)
+              .enrollment.findUniqueOrThrow({ where: { id } }),
+            before,
+          );
+          assert.equal(await eventCount(), 0);
+          return;
+        }
+        assert.equal(result.status, 200);
+        const expected = (
+          await db.query(
+            `SELECT (($1::date + 1)::timestamp AT TIME ZONE $2) AS due`,
+            [date, zone],
+          )
+        ).rows[0].due.toISOString();
+        assert.equal(result.body.data.dueAt, expected);
+        const row = await app
+          .get(PrismaService)
+          .enrollment.findUniqueOrThrow({ where: { id } });
+        assert.equal(row.dueAt!.toISOString(), expected);
+        assert.equal(
+          row.extensionSeconds,
+          BigInt((row.dueAt!.getTime() - row.baseDueAt!.getTime()) / 1000),
+        );
+        const event = (
+          await db.query(
+            `SELECT event_type,payload FROM outbox_events WHERE aggregate_id=$1`,
+            [id],
+          )
+        ).rows[0];
+        assert.equal(event.event_type, 'EnrollmentDueDateExtended');
+        assert.equal(event.payload.newDueAt, expected);
+      });
+    }
+  }
   test('exemption writes one interval and event; preserves deadline; detail reused', async () => {
     const id = await seed();
     const previous = (await call(id)).body.data.dueAt;
@@ -353,7 +401,7 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
       assert.equal((await call(id, 'exemption', { reason })).status, 400);
     assert.equal(await eventCount(), 0);
   });
-  test('BR-300 shares calendar-end conversion for positive and negative timezones', async () => {
+  test('BR-167 shares calendar-end conversion for positive and negative timezones', async () => {
     for (const [zone, expected] of [
       ['Asia/Ho_Chi_Minh', '2026-10-16T17:00:00.000Z'],
       ['America/New_York', '2026-10-17T04:00:00.000Z'],
@@ -427,8 +475,10 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
         console.log(`UC24.3/UC24.5 ${label}, fixture 50000:\n${plan}`);
         assert.match(
           plan,
-          /Index Scan using enrollments_id_organization_id_key on enrollments/,
+          /Index Scan using enrollments_(?:pkey|id_organization_id_key) on enrollments/,
         );
+        assert.match(plan, /Index Cond: .*id =/);
+        assert.doesNotMatch(plan, /Seq Scan/);
       }
     } finally {
       await db.query('ROLLBACK');

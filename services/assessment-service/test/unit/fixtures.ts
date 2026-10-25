@@ -17,6 +17,7 @@ import { PeerReviewService } from '../../src/modules/peer-review/peer-review.ser
 import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { RubricsService } from '../../src/modules/rubrics/rubrics.service';
 import type {
+  IStorageDeleteResult,
   IStorageFileInput,
   IStorageProvider,
   IStorageUploadOptions,
@@ -40,6 +41,7 @@ export class MemoryStorage implements IStorageProvider {
       resourceType: options.resourceType,
     });
     return Promise.resolve({
+      deliveryType: options.deliveryType ?? 'upload',
       storageKey: publicId,
       publicId,
       url: `http://files.test/${publicId}`,
@@ -51,10 +53,10 @@ export class MemoryStorage implements IStorageProvider {
     });
   }
 
-  delete(storageKey: string): Promise<void> {
-    this.files.delete(storageKey);
+  delete(storageKey: string): Promise<IStorageDeleteResult> {
+    const existed = this.files.delete(storageKey);
     this.deleted.push(storageKey);
-    return Promise.resolve();
+    return Promise.resolve({ status: existed ? 'deleted' : 'not_found' });
   }
 
   getUrl(storageKey: string): string {

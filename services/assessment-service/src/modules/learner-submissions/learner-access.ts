@@ -1,7 +1,7 @@
 import type { CurrentUser } from '@learnup/ts-common';
-import { ForbiddenException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import {
-  type EnrolledCourse,
+  type AssessmentAccess,
   type EnrollmentClient,
 } from '../../infrastructure/clients/learning/enrollment.client';
 import type { ILearnerAttemptState } from './interfaces/learner-submission.interface';
@@ -17,20 +17,44 @@ export function requireLearner(user: CurrentUser): string {
   return user.organizationId;
 }
 
-/** PRE-1 of UC29 / UC30: the Learner is enrolled in the Course. */
-export async function requireEnrollment(
+/**
+ * PRE-1 of UC29 / UC30: the Learner is enrolled in the Course and the Enrollment lets them into it. Learning Service
+ * decides (L17, assessment-access): Halted and Withdrawn give None, which closes every Learner screen; Completed gives
+ * ReadOnly, which keeps reading open (BR-210) and is refused by assertCanWrite.
+ */
+export async function requireAccess(
   enrollments: EnrollmentClient,
   user: CurrentUser,
   courseId: string,
-): Promise<EnrolledCourse> {
-  const enrollment = await enrollments.findEnrollment(courseId, user);
-  if (!enrollment) {
+): Promise<AssessmentAccess> {
+  const access = await enrollments.getAssessmentAccess(courseId, user);
+  if (!access) {
     throw new ForbiddenException({
       code: 'NOT_ENROLLED',
       message: 'You are not enrolled in the Course of this Assessment.',
     });
   }
-  return enrollment;
+  if (access.access === 'None') {
+    throw new ConflictException({
+      code: 'ENROLLMENT_NOT_ACTIVE',
+      message: 'Your Enrollment in this Course is not active.',
+    });
+  }
+  return access;
+}
+
+/** BR-210: a Completed Enrollment is read-only, so nothing new can be started or submitted. */
+export const isReadOnly = (access: AssessmentAccess): boolean =>
+  access.access === 'ReadOnly';
+
+export function assertCanWrite(access: AssessmentAccess): void {
+  if (isReadOnly(access)) {
+    throw new ConflictException({
+      code: 'ENROLLMENT_COMPLETED',
+      message:
+        'This Course is completed, so the Assignment can no longer be submitted.',
+    });
+  }
 }
 
 interface LockState {
@@ -38,11 +62,11 @@ interface LockState {
   lockedUntil: Date | null;
 }
 
-/** BR-176: after m hours the Assessment opens again and counting starts from zero. */
+/** BR-218: after m hours the Assessment opens again and counting starts from zero. */
 export const lockExpired = (state: LockState, now: Date): boolean =>
   state.lockedUntil !== null && state.lockedUntil.getTime() <= now.getTime();
 
-/** BR-175 / BR-176 / BR-179: how many tries are left and, when locked, until when. */
+/** BR-217 / BR-218 / BR-221: how many tries are left and, when locked, until when. */
 export function attemptStateOf(
   assessment: { maxConsecutiveAttempts: number; lockoutHours: number },
   state: LockState | null,
