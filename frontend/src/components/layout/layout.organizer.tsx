@@ -61,6 +61,9 @@ const organizerMenuItems: MenuItem[] = [
         label: "Tổ chức",
       },
       {
+        key: "/organizer/certificate-settings", icon: <SafetyCertificateOutlined />, label: "Cấu hình Certificate",
+      },
+      {
         key: "/organizer/instructors",
         icon: <SolutionOutlined />,
         label: "Giảng viên",
@@ -130,6 +133,7 @@ const organizerMenuItems: MenuItem[] = [
 ];
 
 const getPageMeta = (pathname: string) => {
+  if (pathname === "/organizer/certificate-settings") return ["Quản lý đào tạo", "Cấu hình Certificate"];
   if (pathname === "/organizer") return ["Quản lý đào tạo", "Tổng quan"];
   if (pathname === "/organizer/subscription")
     return ["Quản lý đào tạo", "Gói dịch vụ"];
@@ -202,6 +206,7 @@ const LayoutOrganizer = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [eyebrow, pageLabel] = getPageMeta(location.pathname);
   const selectedKey = useMemo(() => {
+    if (location.pathname.startsWith("/organizer/certificate-settings")) return "/organizer/certificate-settings";
     if (location.pathname.startsWith("/organizer/subscription"))
       return "/organizer/subscription";
     if (location.pathname.startsWith("/organizer/organization"))
