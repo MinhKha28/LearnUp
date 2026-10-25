@@ -163,6 +163,7 @@ describe.skipIf(!enabled)("UC34.3 certificate signer browser", { timeout: 45000 
       }
       if (hold) { held = res; return; }
       if (status !== 200) { json(res, status, { error: { code } }); return; }
+      if (req.headers["if-match"] !== '"' + settings.version + '"') { json(res, 412, { error: { code: "VERSION_CONFLICT" } }); return; }
       const value = (name: string) => {
         const content = raw.split('name="' + name + '"')[1]?.split("\r\n\r\n")[1]?.split("\r\n")[0] ?? "";
         return Buffer.from(content, "latin1").toString("utf8");
@@ -305,7 +306,7 @@ describe.skipIf(!enabled)("UC34.3 certificate signer browser", { timeout: 45000 
     settings = configured(); await visit(); await edit(); status = 412; code = "VERSION_CONFLICT"; getStatus = 503;
     await button("Lưu"); await waitText("Thử tải lại cấu hình");
     expect(await page().evaluate('document.querySelector("#certificate-signer-form_name").value')).toBe("Trần Bình");
-    getStatus = 200; settings.version = 2; await button("Thử tải lại cấu hình"); await waitText("Hệ thống vừa tải:");
+    getStatus = 200; settings.version = 2; await button("Thử tải lại cấu hình"); await waitText("Bản đang lưu trên hệ thống – Tên:");
   });
   it("Suspended locks in advance, while Grace permits save", async () => {
     settings = configured(); subscriptionStatus = "Suspended"; await visit(); await waitText("chế độ chỉ đọc");
@@ -333,14 +334,46 @@ describe.skipIf(!enabled)("UC34.3 certificate signer browser", { timeout: 45000 
   it("offline PUT reconciles latest version without automatically retrying PUT", async () => {
     settings = configured(); await visit(); await edit();
     settings = { ...settings, version: 2, signerName: "Có thể đã lưu" }; page().failPut = true;
-    await button("Lưu"); await waitText("có thể đã được lưu"); await waitText("Có thể đã lưu");
+    await button("Lưu"); await waitText("Mất kết nối khi lưu, chưa rõ"); await button("Tải lại cấu hình"); await waitText("Có thể đã lưu");
     expect(puts()).toHaveLength(0);
     expect(await page().evaluate('document.querySelector("#certificate-signer-form_name").value')).toBe("Trần Bình");
+  });
+  it("lost response has one status and permits retry and cancel after a failed reload", async () => {
+    settings = configured(true); await visit(); await edit(); await pick(); page().failCertificateRequests = true;
+    await button("Lưu"); await waitText("Mất kết nối khi lưu, chưa rõ");
+    await button("Tải lại cấu hình"); await waitText("Chưa tải lại được cấu hình.");
+    expect(await page().evaluate('document.querySelectorAll(".ant-alert-warning").length')).toBe(1);
+    expect(await page().evaluate('document.querySelectorAll(".ant-alert-error").length')).toBe(0);
+    expect(await page().evaluate('document.body.innerText.includes("Đang tải lại") || document.body.innerText.includes("Sẽ giữ ảnh hiện tại")')).toBe(false);
+    expect(await page().evaluate('document.querySelector("button[type=submit]").disabled')).toBe(false);
+    await waitText("Ảnh mới – chưa lưu.");
+    const attempts = page().failedCertificateAttempts;
+    await button("Lưu"); await page().waitFor('!document.querySelector("button[type=submit]").disabled', "explicit retry settled");
+    expect(page().failedCertificateAttempts).toBe(attempts + 1);
+    await button("Hủy thay đổi");
+    expect(await page().evaluate('document.querySelector("#certificate-signer-form_name").value')).toBe("Nguyễn An");
+    expect(await page().evaluate('document.body.innerText.includes("Ảnh mới – chưa lưu.")')).toBe(false);
+  });
+  it("explicit retry after an uncertain committed save reaches 412 and retains draft File", async () => {
+    settings = configured(); await visit(); await edit(); await pick();
+    settings = { ...configured(true), version: 2, signerName: "Bản đã lưu" }; page().failPut = true;
+    await button("Lưu"); await waitText("Mất kết nối khi lưu, chưa rõ");
+    page().failPut = false;
+    await button("Lưu"); await waitText("Bản đang lưu trên hệ thống – Tên: Bản đã lưu");
+    expect(puts()).toHaveLength(1); expect(puts()[0].match).toBe('"1"');
+    expect(await page().evaluate('document.querySelector("#certificate-signer-form_name").value')).toBe("Trần Bình");
+    await waitText("Ảnh mới – chưa lưu.");
+    expect(await page().evaluate('document.body.innerText.includes("Mất kết nối khi lưu, chưa rõ")')).toBe(false);
   });
   it("navigation warns for dirty draft, stays or leaves and revokes URLs", async () => {
     settings = configured(); await visit(); await edit(); await pick();
     await page().evaluate('document.querySelector("a").click()'); await waitText("Rời trang khi chưa lưu?");
-    await button("Ở lại"); expect(await page().evaluate("location.pathname")).toBe(ROUTE);
+    await page().waitFor('document.activeElement?.id === "certificate-settings-stay"', "safe default focus");
+    expect(await page().evaluate('document.querySelector(".ant-modal .ant-btn-dangerous")?.textContent')).toContain("Rời trang");
+    await page().call("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", text: "\r", windowsVirtualKeyCode: 13 });
+    await page().call("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+    await page().waitFor('document.querySelector(".ant-modal-wrap")?.style.display === "none"', "Enter stays without leaving");
+    expect(await page().evaluate("location.pathname")).toBe(ROUTE);
     await page().evaluate('document.querySelector("a").click()'); await waitText("Rời trang khi chưa lưu?");
     await button("Rời trang"); await waitText("Đã rời trang");
     await page().waitFor("window.ownedUrls.every(url=>window.revokedUrls.includes(url))", "unmount URL cleanup");

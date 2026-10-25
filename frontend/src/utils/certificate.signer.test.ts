@@ -91,3 +91,19 @@ describe("signer text and draft lifecycle", () => {
     expect(draftFromSettings(settings)).toEqual({ name: "An", title: "Giám đốc", signatureAction: "keep" });
   });
 });
+
+
+describe("draft recovery against the last known settings", () => {
+  it("retains draft File and text until explicitly discarded against the latest settings", () => {
+    const file = new File(["draft"], "signature.png", { type: "image/png" });
+    const draft = { ...draftFromSettings(settings), title: "Nháp", signatureAction: "replace" as const, file };
+    expect(signerDirty(draft, settings)).toBe(true);
+    const latest = { ...settings, version: 2, signerName: "Tab B" };
+    expect(signerDirty(draft, latest)).toBe(true);
+    expect(draft.file).toBe(file);
+    expect(draft.title).toBe("Nháp");
+    const discarded = draftFromSettings(latest);
+    expect(signerDirty(discarded, latest)).toBe(false);
+    expect(discarded.file).toBeUndefined();
+  });
+});

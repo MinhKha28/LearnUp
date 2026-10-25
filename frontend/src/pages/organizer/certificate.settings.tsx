@@ -123,7 +123,7 @@ const CertificateSettings = () => {
       }
       if (mode === "conflict" || changed && preserve) setConflict(true);
       if (mode === "uncertain") {
-        setUncertain(true);
+        setUncertain(false);
         if (changed) setConflict(true);
       }
       setRequiredReload(false);
@@ -199,10 +199,12 @@ const CertificateSettings = () => {
   }
 
   async function save() {
-    if (!baseline || busy.current || saving || validating || readOnly || forbidden || refreshing || reloadError) return;
+    if (!baseline || busy.current || saving || validating || readOnly || forbidden || refreshing || reloadError && !uncertain) return;
     if (!baseline.etag || requiredReload) { setRequiredReload(true); return; }
     busy.current = true;
     setSaving(true);
+    setUncertain(false);
+    setReloadError(undefined);
     setSubmitError(undefined);
     setUploadError(undefined);
     try {
@@ -240,8 +242,7 @@ const CertificateSettings = () => {
           error.status === 415 ? "Chỉ chấp nhận ảnh PNG hoặc JPEG." : "Ảnh không hợp lệ. Vui lòng kiểm tra hoặc chọn lại ảnh.");
       } else if (error.status === 0) {
         setUncertain(true);
-        setSubmitError("Mất kết nối khi lưu; cấu hình có thể đã được lưu. Đang tải lại để đối chiếu, không tự gửi lại.");
-        await load("uncertain");
+        setReloadError(undefined);
       } else if (error.status === 400) {
         setSubmitError("Thông tin gửi lên không hợp lệ. Vui lòng kiểm tra tên, chức danh và ảnh.");
       } else {
@@ -263,9 +264,9 @@ const CertificateSettings = () => {
     <OrganizerPage className="certificate-settings">
       <PageHeader title="Cấu hình người ký Certificate" subtitle="Quản lý tên, chức danh và ảnh chữ ký dùng cho Certificate cấp sau này."
         actions={<>
-          <OrganizerButton disabled={loading || saving || validating || refreshing || !baseline || !!reloadError} onClick={useLatest}>Hủy thay đổi</OrganizerButton>
+          <OrganizerButton disabled={loading || saving || validating || refreshing || !baseline} onClick={useLatest}>Hủy thay đổi</OrganizerButton>
           <OrganizerButton type="primary" htmlType="submit" form="certificate-signer-form" loading={saving}
-            disabled={locked || refreshing || !baseline || !dirty || !baseline.etag || requiredReload || !!reloadError}>Lưu</OrganizerButton>
+            disabled={locked || refreshing || !baseline || !dirty || !baseline.etag || requiredReload || !!reloadError && !uncertain}>Lưu</OrganizerButton>
         </>} />
       <Alert type="info" showIcon message="Lưu ý về Certificate" description={<ul>
         <li>Thay đổi chỉ áp dụng cho Certificate cấp sau này; Certificate đã cấp giữ nguyên.</li>
@@ -275,18 +276,22 @@ const CertificateSettings = () => {
       {readOnly && <Alert type="warning" showIcon message="Tổ chức đang ở chế độ chỉ đọc. Thay đổi của bạn được giữ lại, nhưng chưa thể lưu." />}
       {forbidden && <Alert type="error" showIcon message="Bạn không có quyền cấu hình người ký Certificate." />}
       {(requiredReload || baseline && !baseline.etag) && <Alert type="warning" showIcon
-        message="Cần tải lại cấu hình trước khi lưu." action={<Button disabled={refreshing || saving} onClick={() => void load("required")}>Tải lại cấu hình</Button>} />}
-      {reloadError && <Alert type="error" showIcon message={reloadError}
+        message="Cần tải lại cấu hình trước khi lưu." description={reloadError} action={<Button disabled={refreshing || saving} onClick={() => void load("required")}>Tải lại cấu hình</Button>} />}
+      {reloadError && !uncertain && !conflict && !requiredReload && <Alert type="error" showIcon message={reloadError}
         action={<Button loading={refreshing} onClick={() => void load(retryMode.current)}>Thử tải lại cấu hình</Button>} />}
+      {uncertain && <Alert type="warning" showIcon
+        message="Mất kết nối khi lưu, chưa rõ thay đổi đã được lưu hay chưa. Bản nháp vẫn được giữ. Bạn có thể tải lại cấu hình để đối chiếu, hoặc bấm Lưu lại – nếu lần trước đã lưu, hệ thống sẽ báo để bạn chọn."
+        description={refreshing ? "Đang tải lại cấu hình…" : reloadError ? "Chưa tải lại được cấu hình. Bạn vẫn có thể thử tải lại hoặc bấm Lưu." : undefined}
+        action={<Button loading={refreshing} disabled={saving} onClick={() => void load("uncertain")}>Tải lại cấu hình</Button>} />}
       {loading ? <SectionCard><Skeleton active /></SectionCard> : loadError ? <Alert type="error" showIcon message={loadError}
         action={<Button onClick={() => void load()}>Thử lại</Button>} /> : baseline && <>
-        {(conflict || uncertain) && <SectionCard title={conflict ? "Cấu hình vừa được lưu ở nơi khác – thay đổi của bạn chưa được lưu" : "Cấu hình có thể đã được lưu – vui lòng đối chiếu"}>
+        {conflict && !uncertain && <SectionCard title="Cấu hình vừa được lưu ở nơi khác – thay đổi của bạn chưa được lưu">
           {refreshing ? <p><Spin size="small" /> Đang tải cấu hình mới để đối chiếu…</p> : reloadError
-            ? <p>Chưa tải được bản mới. Vui lòng thử tải lại cấu hình trước khi lưu.</p>
-            : <><p>Hệ thống vừa tải: {baseline.settings.signerName || "Chưa cấu hình"} · {baseline.settings.signerTitle || "Chưa có chức danh"}</p>
-              {renderSavedImage()}</>}
+            ? <><p>{reloadError} Chưa tải được bản mới. Vui lòng thử tải lại cấu hình trước khi lưu.</p><Button onClick={() => void load("conflict")}>Thử tải lại cấu hình</Button></>
+            : <><p>Bản đang lưu trên hệ thống – Tên: {baseline.settings.signerName || "Chưa cấu hình"} · Chức danh: {baseline.settings.signerTitle || "Chưa có chức danh"}</p>
+              {draft.signatureAction !== "keep" && renderSavedImage()}</>}
           <p>Bản nháp bên dưới vẫn được giữ. Bạn có thể sửa tiếp và bấm Lưu.</p>
-          {draft.signatureAction === "keep" && <p>Sẽ giữ ảnh hiện tại trên hệ thống.</p>}
+          {draft.signatureAction === "keep" && !refreshing && !reloadError && <p>Sẽ giữ ảnh hiện tại trên hệ thống.</p>}
           <Button disabled={saving || refreshing || !!reloadError} onClick={useLatest}>Dùng bản mới</Button>
         </SectionCard>}
         <SectionCard title={baseline.settings.configured ? "Thông tin người ký" : "Chưa cấu hình người ký"}>
@@ -324,7 +329,8 @@ const CertificateSettings = () => {
         </SectionCard>
       </>}
       <Modal open={blocker.state === "blocked"} title="Rời trang khi chưa lưu?"
-        okText="Rời trang" cancelText="Ở lại" onOk={() => blocker.state === "blocked" && blocker.proceed()}
+        okText="Rời trang" cancelText="Ở lại" okButtonProps={{ danger: true }} cancelButtonProps={{ autoFocus: true, id: "certificate-settings-stay" }}
+        afterOpenChange={open => { if (open) document.getElementById("certificate-settings-stay")?.focus(); }} onOk={() => blocker.state === "blocked" && blocker.proceed()}
         onCancel={() => blocker.state === "blocked" && blocker.reset()}>
         <p>{saving ? "Yêu cầu lưu đang được xử lý. Rời trang không hủy thao tác trên máy chủ." : "Thay đổi chưa lưu sẽ bị mất nếu bạn rời trang."}</p>
       </Modal>
