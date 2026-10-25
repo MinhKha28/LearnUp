@@ -31,6 +31,7 @@ import Profile from "./pages/admin/profile";
 import AdminProfileEdit from "./pages/admin/profile.edit";
 import ChangePassword from "./pages/admin/password.change";
 import LayoutOrganizer from "./components/layout/layout.organizer";
+import CertificateSettings from "@/pages/organizer/certificate.settings";
 import OrganizerDashboard from "./pages/organizer/dashboard";
 import OrganizerSubscription from "./pages/organizer/subscription";
 import OrganizerSubscriptionRenew from "./pages/organizer/subscription.renew";
@@ -231,6 +232,7 @@ export const router = createBrowserRouter([
       },
       { path: "organization", element: <OrganizerOrganization /> },
       { path: "organization/edit", element: <OrganizerOrganizationEdit /> },
+      { path: "certificate-settings", element: <CertificateSettings /> },
       { path: "instructors", element: <OrganizerInstructors /> },
       { path: "instructors/add", element: <OrganizerInstructorCreate /> },
       { path: "instructors/import", element: <OrganizerInstructorImport /> },
