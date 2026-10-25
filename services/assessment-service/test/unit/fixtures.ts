@@ -11,6 +11,7 @@ import {
   CourseAuthoringContext,
   CourseServiceClient,
 } from '../../src/infrastructure/clients/course/course-service.client';
+import { FakeNotificationClient } from '../../src/infrastructure/clients/notification/fake-notification.client';
 import { PeerReviewRepository } from '../../src/modules/peer-review/peer-review.repository';
 import { PeerReviewService } from '../../src/modules/peer-review/peer-review.service';
 import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
@@ -163,7 +164,9 @@ class StubCourseClient extends CourseServiceClient {
   }
   getAuthoringContext(): Promise<CourseAuthoringContext> {
     this.reads += 1;
-    return Promise.resolve(this.reads > 1 && this.later ? this.later : this.ctx);
+    return Promise.resolve(
+      this.reads > 1 && this.later ? this.later : this.ctx,
+    );
   }
   setAssignmentMinutes(courseId: string, minutes: number): Promise<void> {
     if (this.failMinutes) {
@@ -309,7 +312,9 @@ export function build(opts: BuildOptions = {}) {
 
   const courses = new StubCourseClient(
     draftCourse(opts.course),
-    opts.courseLater ? draftCourse({ ...opts.course, ...opts.courseLater }) : undefined,
+    opts.courseLater
+      ? draftCourse({ ...opts.course, ...opts.courseLater })
+      : undefined,
   );
   const rubrics = new RubricsService();
   const storage = new MemoryStorage();
@@ -344,6 +349,7 @@ export function build(opts: BuildOptions = {}) {
       new PeerReviewRepository(prisma),
       repository,
       assessments,
+      new FakeNotificationClient(),
     ),
   };
 }

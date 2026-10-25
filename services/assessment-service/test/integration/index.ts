@@ -16,3 +16,5 @@ import './peer-review-cycles.integration-test';
 import './assessment-activity.integration-test';
 import './assignment-minutes.integration-test';
 import './withdrawal-demo-seed.integration-test';
+import './peer-review-close.integration-test';
+import './peer-review-schedule.integration-test';

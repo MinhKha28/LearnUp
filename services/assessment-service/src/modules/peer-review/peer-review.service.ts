@@ -1,26 +1,46 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import type { PeerReviewCycle } from 'generated/prisma/client';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 
+import { NotificationClient } from '../../infrastructure/clients/notification/notification.client';
 import { AssessmentsRepository } from '../assessments/assessments.repository';
 import {
   AssessmentsService,
   AUTHORABLE_STATUSES,
 } from '../assessments/assessments.service';
 import { cycleStatusOf } from './cycle-status';
-import type { IPeerReviewCycleList } from './interfaces/peer-review-cycle.interface';
+import type {
+  IClosedCycle,
+  IPeerReviewCycleList,
+} from './interfaces/peer-review-cycle.interface';
 import { UpdatePeerReviewDto } from './dto/update-peer-review.dto';
+import {
+  assignReviews,
+  canAssign,
+  type ReviewPair,
+  shuffle,
+} from './review-assignment';
 import { PeerReviewRepository } from './peer-review.repository';
 import type { PeerReviewUpdateData } from './interfaces/peer-review-update-data.interface';
 
 @Injectable()
 export class PeerReviewService {
+  private readonly logger = new Logger(PeerReviewService.name);
   /** The clock of the status of a cycle; a test replaces it to travel in time. */
   clock: () => Date = () => new Date();
+  /** The randomness of the permutation (BR-203); a test replaces it to know the result. */
+  random: () => number = Math.random;
 
   constructor(
     private readonly repository: PeerReviewRepository,
     private readonly assessmentsRepository: AssessmentsRepository,
     private readonly assessments: AssessmentsService,
+    private readonly notifications: NotificationClient,
   ) {}
 
   /** UC33 — the cycles of an Assignment of the Instructor in charge, oldest first (BR-200). */
@@ -66,6 +86,7 @@ export class PeerReviewService {
           closesAt: cycle.closesAt.toISOString(),
           reviewDueAt: cycle.reviewDueAt.toISOString(),
           submissionCount,
+          closed: cycle.status !== 'Open',
           status: cycleStatusOf({
             stored: cycle.status,
             closesAt: cycle.closesAt,
@@ -75,6 +96,186 @@ export class PeerReviewService {
           }),
         };
       }),
+    };
+  }
+
+  /**
+   * UC33 — close a cycle: hand out the reviews (BR-203) or send the submissions to the Instructor (BR-197).
+   * Closing before the closing line is allowed (the Instructor does it from the screen): the cycle then closes now,
+   * so later submissions go to the next cycle (BR-167). Closing a closed cycle changes nothing.
+   * ponytail: a submission in flight at this moment can still join the cycle after it closed; lock the row from
+   * the submit transaction too if that ever matters.
+   */
+  async closeCycle(
+    user: CurrentUser,
+    assignmentId: string,
+    cycleId: string,
+  ): Promise<IClosedCycle> {
+    const { assignment } = await this.assessments.findOwnAssignment(
+      user,
+      assignmentId,
+    );
+    if (!assignment.peerReviewEnabled) {
+      throw new ConflictException({
+        code: 'PEER_REVIEW_NOT_ENABLED',
+        message: 'Peer Review is not enabled for this Assignment.',
+      });
+    }
+    const cycle = await this.repository.findCycle(assignment.id, cycleId);
+    if (!cycle) {
+      throw new NotFoundException({
+        code: 'CYCLE_NOT_FOUND',
+        message: 'Peer Review cycle not found.',
+      });
+    }
+    const now = this.clock();
+    if (cycle.status !== 'Open') return this.alreadyClosed(cycle);
+    if (now < cycle.opensAt) {
+      throw new ConflictException({
+        code: 'CYCLE_NOT_OPEN',
+        message: 'This cycle has not opened yet.',
+      });
+    }
+
+    return this.closeOpen(cycle, assignment.title, now);
+  }
+
+  /**
+   * Closes a cycle that is Open: the work of UC33 that the Instructor starts from the screen and the schedule starts
+   * when the closing line passes (BR-188). Then each reviewer is told what to review (BR-189).
+   */
+  async closeOpen(
+    cycle: PeerReviewCycle,
+    assignmentTitle: string,
+    now: Date,
+  ): Promise<IClosedCycle> {
+    const early = Math.max(0, cycle.closesAt.getTime() - now.getTime());
+    const n = cycle.reviewersPerSubmission;
+    const result = await this.repository.transaction(async (tx) => {
+      const claimed = await this.repository.claimOpenCycle(tx, cycle.id, {
+        status: 'Closing',
+        closesAt: new Date(cycle.closesAt.getTime() - early),
+        // BR-187: the review deadline keeps its distance from the closing line.
+        reviewDueAt: new Date(cycle.reviewDueAt.getTime() - early),
+        closedAt: now,
+      });
+      if (claimed.count === 0) return null;
+
+      const submissions = await this.repository.currentSubmissions(
+        tx,
+        cycle.id,
+      );
+      if (!canAssign(submissions.length, n)) {
+        await this.repository.sendToInstructor(
+          tx,
+          cycle.id,
+          'TOO_FEW_SUBMISSIONS',
+        );
+        await this.repository.finishCycle(tx, cycle.id, {
+          status: 'InstructorOnly',
+          reviewerPermutation: [],
+        });
+        return {
+          status: 'InstructorOnly' as const,
+          submissions: submissions.length,
+          reviews: 0,
+          pairs: [] as ReviewPair[],
+        };
+      }
+
+      const permutation = shuffle(
+        submissions.map((submission) => submission.learnerId),
+        this.random,
+      );
+      const submissionOf = new Map(
+        submissions.map((submission) => [submission.learnerId, submission]),
+      );
+      const pairs = assignReviews(permutation, n);
+      await this.repository.createReviews(
+        tx,
+        pairs.map((pair) => ({
+          organizationId: cycle.organizationId,
+          submissionId: submissionOf.get(pair.authorId)!.id,
+          cycleId: cycle.id,
+          reviewerId: pair.reviewerId,
+          reviewerRole: 'Learner',
+          status: 'Pending',
+        })),
+      );
+      await this.repository.finishCycle(tx, cycle.id, {
+        status: 'Assigned',
+        reviewerPermutation: permutation,
+      });
+      return {
+        status: 'Assigned' as const,
+        submissions: submissions.length,
+        reviews: pairs.length,
+        pairs,
+      };
+    });
+
+    // another caller closed it between our read and our claim
+    if (!result) {
+      const current = await this.repository.findCycle(
+        cycle.assessmentId,
+        cycle.id,
+      );
+      return this.alreadyClosed(current!);
+    }
+    await this.notifyReviewers(cycle, assignmentTitle, result.pairs);
+    return {
+      cycleId: cycle.id,
+      status: result.status,
+      submissionCount: result.submissions,
+      reviewCount: result.reviews,
+      closedAt: now.toISOString(),
+      alreadyClosed: false,
+    };
+  }
+
+  /** BR-189: tell each reviewer how many submissions to review and by when. Best effort: it never undoes the closing. */
+  private async notifyReviewers(
+    cycle: PeerReviewCycle,
+    assignmentTitle: string,
+    pairs: ReviewPair[],
+  ): Promise<void> {
+    const count = new Map<string, number>();
+    for (const pair of pairs) {
+      count.set(pair.reviewerId, (count.get(pair.reviewerId) ?? 0) + 1);
+    }
+    for (const [reviewerId, total] of count) {
+      try {
+        await this.notifications.send({
+          organizationId: cycle.organizationId,
+          recipientUserId: reviewerId,
+          title: 'Submissions to review',
+          message: `You have ${total} submission${total === 1 ? '' : 's'} to review for "${assignmentTitle}". Please finish by ${cycle.reviewDueAt.toISOString()}.`,
+          metadata: { assignmentId: cycle.assessmentId, cycleId: cycle.id },
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Could not notify ${reviewerId} about cycle ${cycle.id}: ${String(error)}`,
+        );
+      }
+    }
+  }
+
+  private async alreadyClosed(cycle: {
+    id: string;
+    status: string;
+    closedAt: Date | null;
+    closesAt: Date;
+  }): Promise<IClosedCycle> {
+    const [submissionCount, reviewCount] = await this.repository.countForCycle(
+      cycle.id,
+    );
+    return {
+      cycleId: cycle.id,
+      status: cycle.status as IClosedCycle['status'],
+      submissionCount,
+      reviewCount,
+      closedAt: (cycle.closedAt ?? cycle.closesAt).toISOString(),
+      alreadyClosed: true,
     };
   }
 

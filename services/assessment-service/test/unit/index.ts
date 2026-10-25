@@ -13,3 +13,5 @@ import './assessment-activity-service.unit-test';
 import './grading-result.unit-test';
 import './cycle-status.unit-test';
 import './course-clients.unit-test';
+import './review-assignment.unit-test';
+import './reminder-due.unit-test';
