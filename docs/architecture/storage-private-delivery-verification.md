@@ -239,3 +239,92 @@ The successful run at **23:20:29–23:20:33 (UTC+07:00)** observed:
 The script and sanitized results remain outside the repository. This verifies the
 tested account/fixture only; it does not establish byte preservation for every
 image input or deployed service behavior.
+
+## Storage consumers and Assessment compile regression, 25/10/2026
+
+The repository-wide import scan covered services, libraries and frontend at both
+`origin/develop` (`634b24a`) and S1 (`e3e8b0b`). The direct consumers at these
+snapshots are Tenant, Course and Assessment. No other service or library imports
+the package. Achievement's stacked branches are separate from these two snapshots
+and are not included in this comparison.
+
+| Consumer | Import sites, relative to its service directory |
+| --- | --- |
+| Tenant | `src/infrastructure/storage/storage.provider.ts`, `src/modules/profile/profile.service.ts`, `src/modules/users/users.service.ts` |
+| Course | `src/infrastructure/storage/storage.provider.ts`, `src/modules/courses/courses.service.ts` |
+| Assessment | `src/infrastructure/storage/storage.provider.ts`, `src/modules/assessments/assignment-media.service.ts`, `src/modules/instructor-submissions/instructor-submissions.service.ts`, `src/modules/learner-submissions/learner-submissions.service.ts`, `test/unit/fixtures.ts`, `test/unit/assessments-service.unit-test.ts`, `test/unit/learner-submissions-service.unit-test.ts` |
+
+Each consumer declares `file:../../libraries/ts-storage`. Verification used
+isolated full-repository source archives for develop, S1 before the fix, and S1
+with the Assessment fix. Every snapshot started without library dist outputs: ts-common and ts-storage
+were built from that snapshot's source, then Prisma clients were generated from
+each service's own schema. No old dist or incremental build cache was used.
+Course's default configuration also follows test imports into Learning source;
+the full snapshots include that source and its dependencies and freshly generated
+Prisma client. No Learning source was changed. An initial reduced snapshot was
+discarded because it omitted this transitive source; the table below reports only
+the complete-repository runs.
+Existing dependency directories were reused only after checking identical
+lockfiles; snapshot-specific @learnup package links and realpath checks confirmed
+each consumer resolved its own freshly built libraries. Consumer TypeScript was
+5.9.3, Node was 22.23.3. No package install, dependency upgrade or lockfile change
+was needed.
+
+Commands for each consumer were `tsc --noEmit --incremental false --pretty false
+-p tsconfig.build.json` and the same command with `-p tsconfig.json`.
+The table counts compiler diagnostics, rather than affected files:
+
+| Consumer | Configuration | develop | S1 before fix | S1 after fix |
+| --- | --- | --- | --- | --- |
+| Tenant | tsconfig.build.json | Pass | Pass | Pass |
+| Tenant | tsconfig.json | Pass | Pass | Pass |
+| Course | tsconfig.build.json | Pass | Pass | Pass |
+| Course | tsconfig.json | 141 existing errors | 140 existing errors | Same 140 errors |
+| Assessment | tsconfig.build.json | Pass | 2 new errors | Pass |
+| Assessment | tsconfig.json | Pass | 6 new errors | Pass |
+
+All 140 Course diagnostics on S1 were also present on develop. The one additional
+develop diagnostic is TS2322 in
+`src/modules/internal-courses/internal-courses.batch.service.spec.ts` (a Jest
+return value is incompatible with the node:test callback type). The other Course
+diagnostics concern test globals such as describe/it/expect/jest, cross-service
+module/alias resolution and resulting type errors under Course's default config. The complete
+Course diagnostic output is identical before and after the Assessment fix.
+These baseline issues are not new storage regressions and are left unchanged;
+Course's normal build and Jest checks pass below. No consumer outside Assessment
+developed a new error from S1.
+
+Assessment's build errors were TS2416/TS2322 because its unconfigured provider
+still returned Promise<void> from delete. The default configuration also found
+missing deliveryType in MemoryStorage's upload response, the same delete return
+mismatch in MemoryStorage, and TS2345 at both fixture injection sites. The fix
+aligns the fallback annotation with IStorageDeleteResult while retaining the same
+rejection. MemoryStorage returns the selected delivery type (default upload) and
+uses Map.delete's existence result to return deleted/not_found, preserving its
+call history. Correcting that structural contract fixes both injection sites
+without casts or changes to their callers. ts-storage source is unchanged.
+
+### Consumer follow-up checks
+
+- Assessment: normal build passed; the full unit entrypoint passed **181 tests**
+  in 31 suites, including three new provider/fixture regressions. The first
+  `npm run test:unit` attempt could not launch because the reused dependency tree
+  lacked its ts-node executable shim. Running the identical entrypoint directly
+  succeeded: `node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register -P
+  tsconfig.seed.json test/unit/index.ts`. No test or assertion was skipped.
+- Storage: rebuilt, typecheck passed, all **71/71 tests** passed.
+- Tenant: build and **8/8 unit tests** passed.
+- Course: build and **74/74 tests in 2 Jest suites** passed.
+- Assessment resolved both libraries to the rebuilt outputs in its own S1
+  checkout. Source, lockfiles and library contracts were not changed for tooling.
+- No Docker operation, database connection, migration or live Cloudinary call was
+  needed. These checks do not claim deployed Assessment/PostgreSQL integration.
+
+### Existing delete-result behavior deferred to Danh
+
+`assignment-media.service.ts` still awaits delete in `discardPromptFile` and
+`removeIfUnused`; `learner-submissions.service.ts` still awaits delete in
+`removeFile`. These call sites currently ignore the returned status, including
+`not_found`, and react only to thrown failures. Their implementation and business
+behavior are unchanged by this fix. Danh must decide separately whether either
+status requires different handling; this compatibility fix adds no such rule.
