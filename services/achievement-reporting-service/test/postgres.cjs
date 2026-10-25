@@ -27,6 +27,15 @@ async function isolatedDatabase() {
         'utf8',
       ).replace(/^CREATE SCHEMA IF NOT EXISTS "public";\s*/m, ''),
     );
+    await pool.query(
+      readFileSync(
+        join(
+          __dirname,
+          '../prisma/migrations/20261025000000_certificate_signer_settings/migration.sql',
+        ),
+        'utf8',
+      ),
+    );
     const db = new PrismaService({ getOrThrow: () => url.toString() });
     await db.$connect();
     return {

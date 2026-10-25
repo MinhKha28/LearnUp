@@ -8,12 +8,19 @@ import type {
 import type { LogoBytes } from './issuance.clients';
 import { IssuanceError } from './issuance.config';
 export interface IssuanceStorage {
+  isConfigured(): boolean;
   upload(
-    row: PendingCertificate,
+    row: Pick<PendingCertificate, 'organization_id'>,
     image: LogoBytes,
     key: string,
   ): Promise<AssetSnapshot>;
   delete(key: string): Promise<void>;
+  read(
+    key: string,
+    mime: string,
+    timeoutMs: number,
+    maxSizeBytes: number,
+  ): Promise<Buffer>;
 }
 export const ISSUANCE_STORAGE = Symbol('ISSUANCE_STORAGE');
 export const logoKey = (row: PendingCertificate) =>
@@ -32,8 +39,11 @@ export class CloudinaryIssuanceStorage implements IssuanceStorage {
         secure: true,
       });
   }
+  isConfigured(): boolean {
+    return this.provider !== undefined;
+  }
   async upload(
-    _row: PendingCertificate,
+    _row: Pick<PendingCertificate, 'organization_id'>,
     image: LogoBytes,
     key: string,
   ): Promise<AssetSnapshot> {
@@ -43,7 +53,7 @@ export class CloudinaryIssuanceStorage implements IssuanceStorage {
       const result = await this.provider.upload(
         {
           buffer: image.bytes,
-          originalFilename: 'logo',
+          originalFilename: 'certificate-image',
           mimeType: image.mime,
           sizeBytes: image.bytes.length,
         },
@@ -74,6 +84,23 @@ export class CloudinaryIssuanceStorage implements IssuanceStorage {
       if (error instanceof IssuanceError) throw error;
       throw new IssuanceError('CLOUDINARY_UNAVAILABLE');
     }
+  }
+  async read(
+    key: string,
+    mime: string,
+    timeoutMs: number,
+    maxSizeBytes: number,
+  ): Promise<Buffer> {
+    if (!this.provider) throw new IssuanceError('CLOUDINARY_UNCONFIGURED');
+    return this.provider.readBytes(key, {
+      deliveryType: 'authenticated',
+      resourceType: 'image',
+      format: mime === 'image/png' ? 'png' : 'jpg',
+      expiresAt:
+        Math.floor(Date.now() / 1000) + Math.ceil(timeoutMs / 1000) + 60,
+      timeoutMs,
+      maxSizeBytes,
+    });
   }
   async delete(key: string): Promise<void> {
     if (!this.provider) throw new IssuanceError('CLOUDINARY_UNCONFIGURED');

@@ -413,15 +413,21 @@ function workerFixture(overrides = {}) {
     ...overrides,
   };
   mock.method(Logger.prototype, 'warn', (v) => warnings.push(v));
-  const worker = new IssuanceWorker(repository, config(), directory(), {
-    upload: async (_r, image, key) => ({
-      key,
-      hash: '0'.repeat(64),
-      mime: image.mime,
-      size: image.bytes.length,
-    }),
-    delete: async (key) => deleted.push(key),
-  });
+  const worker = new IssuanceWorker(
+    repository,
+    config(),
+    directory(),
+    {
+      upload: async (_r, image, key) => ({
+        key,
+        hash: '0'.repeat(64),
+        mime: image.mime,
+        size: image.bytes.length,
+      }),
+      delete: async (key) => deleted.push(key),
+    },
+    { get: async () => null, enqueue: async () => {} },
+  );
   return { worker, repository, issued, deleted, warnings };
 }
 test('no signer configuration and no logo still issue, without touching storage', async () => {

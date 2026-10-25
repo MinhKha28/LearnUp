@@ -1,3 +1,4 @@
+import { lockSigner } from './signer.repository';
 import { Injectable } from '@nestjs/common';
 import { v7 } from 'uuid';
 import { Prisma } from '../../../generated/prisma/client';
@@ -31,6 +32,12 @@ export interface IssuanceSnapshot {
   versionNumber: number;
   chainId: string;
   logo: AssetSnapshot | null;
+  signer?: {
+    version: number;
+    name: string | null;
+    title: string | null;
+    asset: AssetSnapshot | null;
+  };
 }
 @Injectable()
 export class CertificatesRepository {
@@ -136,16 +143,35 @@ export class CertificatesRepository {
   async issue(
     row: PendingCertificate,
     snapshot: IssuanceSnapshot,
-  ): Promise<boolean> {
-    const a = snapshot.logo;
-    return (
-      (await this.db
-        .$executeRaw`UPDATE certificates SET status='Issued',learner_name=${snapshot.learnerName},organization_name=${snapshot.organizationName},course_name=${snapshot.courseName},
-      version_number=${snapshot.versionNumber},chain_id=${snapshot.chainId}::uuid,logo_asset_key=${a?.key ?? null},logo_hash=${a?.hash ?? null},logo_mime=${a?.mime ?? null},logo_size=${a?.size ?? null},
-      issued_recorded_at=clock_timestamp(),next_attempt_at=NULL,last_error=NULL,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp()
-      WHERE id=${row.id}::uuid AND organization_id=${row.organization_id}::uuid AND status='Pending' AND lease_token=${row.lease_token}::uuid AND lease_until>clock_timestamp()`) ===
-      1
-    );
+  ): Promise<boolean | 'version_changed'> {
+    const a = snapshot.logo,
+      signer = snapshot.signer,
+      signature = signer?.asset;
+    return this.db.$transaction(async (tx) => {
+      await lockSigner(tx, row.organization_id);
+      const lease = await tx.$queryRaw<
+        { valid: boolean }[]
+      >`SELECT EXISTS(SELECT 1 FROM certificates WHERE id=${row.id}::uuid AND organization_id=${row.organization_id}::uuid AND status='Pending' AND lease_token=${row.lease_token}::uuid AND lease_until>clock_timestamp()) AS valid`;
+      if (!lease[0].valid) return false;
+      const current = await tx.$queryRaw<
+        { version: number }[]
+      >`SELECT version FROM certificate_signer_settings WHERE organization_id=${row.organization_id}::uuid`;
+      if ((current[0]?.version ?? 0) !== (signer?.version ?? 0))
+        return 'version_changed';
+      const count =
+        await tx.$executeRaw`UPDATE certificates SET status='Issued',learner_name=${snapshot.learnerName},organization_name=${snapshot.organizationName},course_name=${snapshot.courseName},
+        version_number=${snapshot.versionNumber},chain_id=${snapshot.chainId}::uuid,logo_asset_key=${a?.key ?? null},logo_hash=${a?.hash ?? null},logo_mime=${a?.mime ?? null},logo_size=${a?.size ?? null},
+        signer_name=${signer?.name ?? null},signer_title=${signer?.title ?? null},signature_asset_key=${signature?.key ?? null},signature_hash=${signature?.hash ?? null},signature_mime=${signature?.mime ?? null},
+        issued_recorded_at=clock_timestamp(),next_attempt_at=NULL,last_error=NULL,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp()
+        WHERE id=${row.id}::uuid AND organization_id=${row.organization_id}::uuid AND status='Pending' AND lease_token=${row.lease_token}::uuid AND lease_until>clock_timestamp()
+        AND COALESCE((SELECT version FROM certificate_signer_settings WHERE organization_id=${row.organization_id}::uuid),0)=${signer?.version ?? 0}`;
+      return count === 1;
+    });
+  }
+  async retryVersionChange(row: PendingCertificate): Promise<void> {
+    await this.db
+      .$executeRaw`UPDATE certificates SET next_attempt_at=clock_timestamp(),last_error=NULL,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp()
+      WHERE id=${row.id}::uuid AND organization_id=${row.organization_id}::uuid AND status='Pending' AND lease_token=${row.lease_token}::uuid AND lease_until>clock_timestamp()`;
   }
   async retry(
     row: PendingCertificate,
@@ -162,7 +188,7 @@ export class CertificatesRepository {
   ): Promise<boolean> {
     const rows = await this.db.$queryRaw<
       { found: boolean }[]
-    >`SELECT EXISTS(SELECT 1 FROM certificates WHERE id=${row.id}::uuid AND organization_id=${row.organization_id}::uuid AND logo_asset_key=${key}) AS found`;
+    >`SELECT EXISTS(SELECT 1 FROM certificates WHERE id=${row.id}::uuid AND organization_id=${row.organization_id}::uuid AND (logo_asset_key=${key} OR signature_asset_key=${key})) AS found`;
     return rows[0].found;
   }
   async metricsAcrossOrganizations(): Promise<{

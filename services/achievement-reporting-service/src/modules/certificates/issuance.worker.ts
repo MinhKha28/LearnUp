@@ -1,3 +1,7 @@
+import { createHash } from 'node:crypto';
+import { v7 } from 'uuid';
+import { SignerRepository } from './signer.repository';
+import { SIGNATURE_MAX_BYTES, signatureImage } from './signer.validation';
 import {
   Inject,
   Injectable,
@@ -37,6 +41,7 @@ export class IssuanceWorker implements OnModuleInit, OnModuleDestroy {
     @Inject(ISSUANCE_CONFIG) private readonly config: IssuanceConfig,
     @Inject(ISSUANCE_DIRECTORY) private readonly directory: IssuanceDirectory,
     @Inject(ISSUANCE_STORAGE) private readonly storage: IssuanceStorage,
+    private readonly signers: SignerRepository,
   ) {}
   onModuleInit(): void {
     if (!this.config.enabled) return;
@@ -77,7 +82,7 @@ export class IssuanceWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
   async process(row: PendingCertificate): Promise<void> {
-    let key: string | undefined;
+    const keys: string[] = [];
     try {
       const [learnerName, course, initialProfile] = await Promise.all([
         this.directory.learnerName(row.organization_id, row.learner_id),
@@ -100,9 +105,54 @@ export class IssuanceWorker implements OnModuleInit, OnModuleDestroy {
             image = await downloadLogo(profile.logo.url, this.config);
         }
       }
+      let setting = await this.signers.get(row.organization_id);
+      let signature = null;
+      for (
+        let attempt = 0;
+        setting?.signature_asset_key && attempt < 2;
+        attempt++
+      ) {
+        let bytes: Buffer;
+        try {
+          bytes = await this.storage.read(
+            setting.signature_asset_key,
+            setting.signature_mime!,
+            this.config.timeoutMs,
+            SIGNATURE_MAX_BYTES,
+          );
+        } catch (error) {
+          if (
+            attempt === 0 &&
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            error.code === 'NOT_FOUND'
+          ) {
+            setting = await this.signers.get(row.organization_id);
+            continue;
+          }
+          throw error;
+        }
+        if (
+          createHash('sha256').update(bytes).digest('hex') !==
+          setting.signature_hash
+        )
+          throw new IssuanceError('SIGNATURE_HASH_MISMATCH');
+        const image = signatureImage(bytes);
+        if (
+          image.mime !== setting.signature_mime ||
+          bytes.length !== setting.signature_size_bytes
+        )
+          throw new IssuanceError('SIGNATURE_METADATA_MISMATCH');
+        const key = `achievement/${row.organization_id}/certificates/${row.id}/signature/${v7()}`;
+        keys.push(key);
+        signature = await this.storage.upload(row, image, key);
+        break;
+      }
       let logo = null;
       if (image) {
-        key = logoKey(row);
+        const key = logoKey(row);
+        keys.push(key);
         logo = await this.storage.upload(row, image, key);
       }
       const won = await this.repository.issue(row, {
@@ -112,8 +162,16 @@ export class IssuanceWorker implements OnModuleInit, OnModuleDestroy {
         chainId: course.chainId,
         versionNumber: course.versionNumber,
         logo,
+        signer: {
+          version: setting?.version ?? 0,
+          name: setting?.signer_name ?? null,
+          title: setting?.signer_title ?? null,
+          asset: signature,
+        },
       });
-      if (won) key = undefined;
+      if (won === true) keys.length = 0;
+      else if (won === 'version_changed')
+        await this.repository.retryVersionChange(row);
     } catch (error) {
       const code =
         error instanceof IssuanceError
@@ -124,9 +182,21 @@ export class IssuanceWorker implements OnModuleInit, OnModuleDestroy {
         .retry(row, code, retrySeconds(row.issue_attempts + 1))
         .catch(() => this.logger.warn('CERTIFICATE_RETRY_PERSIST_FAILED'));
     } finally {
-      if (key) {
+      for (const key of keys) {
         try {
-          // A commit can succeed even if its acknowledgement is lost. Do not delete an Issued asset.
+          // Enqueue before best-effort deletion: process failure or an ambiguous commit remains recoverable.
+          await this.signers.enqueue(
+            key,
+            'ISSUANCE_ATTEMPT_UNUSED',
+            this.config.leaseMs + this.config.timeoutMs + 1000,
+          );
+        } catch {
+          this.logger.warn({
+            code: 'CERTIFICATE_ORPHAN_CLEANUP_REQUIRED',
+            assetKey: key,
+          });
+        }
+        try {
           if (!(await this.repository.assetIsReferenced(row, key)))
             await this.storage.delete(key);
         } catch {
