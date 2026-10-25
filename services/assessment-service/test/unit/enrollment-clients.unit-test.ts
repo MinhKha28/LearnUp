@@ -184,8 +184,32 @@ describe('HttpEnrollmentClient', () => {
       { enrollmentId: ENROLLMENT, status: 'InProgress' },
       { enrollmentId: 7, status: 'InProgress', access: 'Full' },
       { enrollmentId: ENROLLMENT, status: null, access: 'Full' },
+      { enrollmentId: 'not-a-uuid', status: 'InProgress', access: 'Full' },
+      { enrollmentId: ENROLLMENT, status: 'Overdue', access: 'Full' },
     ]) {
       answer = bad;
+      await rejectsWith(
+        client().getAssessmentAccess(COURSE, learner),
+        ServiceUnavailableException,
+        'LEARNING_SERVICE_UNAVAILABLE',
+      );
+    }
+  });
+
+  test('a status and an access that contradict each other is a 503: Completed + Full or Halted + Full would allow a write', async () => {
+    reset();
+    for (const [status, access] of [
+      ['Completed', 'Full'],
+      ['Completed', 'None'],
+      ['Halted', 'Full'],
+      ['Halted', 'ReadOnly'],
+      ['Withdrawn', 'Full'],
+      ['InProgress', 'ReadOnly'],
+      ['InProgress', 'None'],
+      ['Exempted', 'ReadOnly'],
+      ['NotStarted', 'None'],
+    ] as const) {
+      answer = { enrollmentId: ENROLLMENT, status, access };
       await rejectsWith(
         client().getAssessmentAccess(COURSE, learner),
         ServiceUnavailableException,

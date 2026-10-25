@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { CurrentUser } from '@learnup/ts-common';
 import { HEADER_NAMES } from '@learnup/ts-common';
 import {
-  ASSESSMENT_ACCESS_LEVELS,
+  ACCESS_OF_STATUS,
   type AssessmentAccess,
   type AssessmentAccessLevel,
   EnrollmentClient,
@@ -11,6 +11,7 @@ import {
 
 const DEFAULT_TIMEOUT_MS = 2000;
 const NOT_FOUND_CODE = 'ENROLLMENT_NOT_FOUND';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Gọi learning-service thật (ENROLLMENT_CLIENT_MODE=http, là chế độ mặc định).
@@ -95,9 +96,10 @@ export class HttpEnrollmentClient extends EnrollmentClient {
     if (
       !data ||
       typeof data.enrollmentId !== 'string' ||
+      !UUID.test(data.enrollmentId) ||
       typeof data.status !== 'string' ||
-      typeof level !== 'string' ||
-      !(ASSESSMENT_ACCESS_LEVELS as readonly string[]).includes(level)
+      !Object.hasOwn(ACCESS_OF_STATUS, data.status) ||
+      ACCESS_OF_STATUS[data.status] !== level
     ) {
       this.logger.warn(
         'learning-service trả về câu trả lời quyền làm bài sai dạng.',
