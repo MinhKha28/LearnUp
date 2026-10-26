@@ -16,7 +16,7 @@ export default {
     const learner = shared.learner;
     const courseId = SEED.coursePrivate;
     const body = { courseId, learnerIds: [learner.userId] };
-    const since = endOffsets(TOPIC);
+    const since = await step("record Kafka end offsets of the enrollment topic", () => endOffsets(TOPIC));
 
     await step("organizer's organization courses list the published private course", async () => {
       const res = expectStatus(await request("GET", `${GATEWAY}/api/v1/courses/organization?current=1&pageSize=50`, { token: a.token, label: "/api/v1/courses/organization" }), 200);

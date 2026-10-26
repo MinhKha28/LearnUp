@@ -57,6 +57,11 @@ export default {
       });
     }
     await step("spoofed org/user headers on a learner request are replaced by the gateway", async () => {
+      const orgA = expectStatus(
+        await request("GET", `${GATEWAY}/api/v1/courses/organization?current=1&pageSize=50`, { token: shared.organizers.a.token, label: "/api/v1/courses/organization" }),
+        200,
+      );
+      const orgACourses = new Set((data(orgA).result ?? []).map((c) => c.id));
       const res = expectStatus(
         await request("GET", `${GATEWAY}/api/v1/enrollments/me`, {
           token: learner.token,
@@ -65,7 +70,11 @@ export default {
         }),
         200,
       );
-      if (shared.selfEnrollmentId) assert.ok(data(res).items.some((i) => i.enrollmentId === shared.selfEnrollmentId), "learner's own enrollments not returned");
+      const items = data(res).items;
+      assert.ok(items.length > 0, "learner's own enrollments not returned");
+      const foreign = items.filter((i) => !orgACourses.has(i.courseId));
+      assert.deepEqual(foreign, [], "enrollments outside organization A returned");
+      if (shared.selfEnrollmentId) assert.ok(items.some((i) => i.enrollmentId === shared.selfEnrollmentId), "learner's own enrollment missing");
     });
   },
 };

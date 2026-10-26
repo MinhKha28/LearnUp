@@ -41,6 +41,7 @@ export async function waitForEvent(topic, since, match, { timeoutMs = 20000 } = 
         }
       }
     }
+    await new Promise((r) => setTimeout(r, 500));
   }
   return null;
 }
