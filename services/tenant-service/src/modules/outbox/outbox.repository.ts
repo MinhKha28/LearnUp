@@ -17,17 +17,28 @@ export class OutboxRepository extends BaseRepository {
     return this.db(tx).outboxEvent.create({ data });
   }
 
-  /** Các event chưa gửi, cũ nhất trước (id là uuid v7 nên tăng theo thời gian). */
-  findUnpublished(
+  /**
+   * Khóa một event chưa gửi, cũ nhất trước (id là uuid v7 nên tăng theo thời gian).
+   * SKIP LOCKED: dòng instance khác đang giữ thì bỏ qua, nên một email không bị hai instance cùng gửi.
+   * excludeIds: các event đã thử trong lượt này, để một email lỗi không bị lấy lại liên tục.
+   */
+  async claimNextUnpublished(
     eventType: string,
-    take: number,
-    tx?: Prisma.TransactionClient,
-  ) {
-    return this.db(tx).outboxEvent.findMany({
-      where: { eventType, publishedAt: null },
-      orderBy: { id: 'asc' },
-      take,
-    });
+    excludeIds: string[],
+    tx: Prisma.TransactionClient,
+  ): Promise<{ id: string; payload: Prisma.JsonValue } | null> {
+    const rows = await tx.$queryRaw<
+      { id: string; payload: Prisma.JsonValue }[]
+    >`
+      SELECT id, payload
+      FROM outbox_events
+      WHERE event_type = ${eventType}
+        AND published_at IS NULL
+        AND NOT (id = ANY(${excludeIds}::uuid[]))
+      ORDER BY id
+      LIMIT 1
+      FOR UPDATE SKIP LOCKED`;
+    return rows[0] ?? null;
   }
 
   /** Đánh dấu đã gửi và thay payload bằng bản đã che nội dung. */

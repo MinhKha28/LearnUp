@@ -46,7 +46,7 @@ export function issuanceConfig(
       .map((x) => x.trim()),
     topic: 'learnup.learning.enrollment-events',
     groupId: 'achievement-reporting-certificate-v1',
-    tenantUrl: get('TENANT_SERVICE_URL') ?? 'http://tenant-service:8082',
+    tenantUrl: get('TENANT_SERVICE_URL') ?? 'http://tenant-service:8084',
     courseUrl: get('COURSE_SERVICE_URL') ?? 'http://course-service:8083',
     internalKey: get('INTERNAL_SERVICE_KEY') ?? '',
     profileMode: mode('CERTIFICATE_PROFILE_CLIENT_MODE'),

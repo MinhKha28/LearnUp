@@ -40,7 +40,7 @@ async function main() {
     const env = {
       ...process.env,
       DATABASE_URL: url.toString(),
-      INTERNAL_SERVICE_KEY: 'synthetic-runtime-check-key',
+      INTERNAL_SERVICE_KEY: 'synthetic-runtime-check-key-32-bytes',
       CERTIFICATE_CONSUMER_ENABLED: 'true',
       KAFKA_BROKERS: '127.0.0.1:1',
       TENANT_SERVICE_URL: 'http://127.0.0.1:1',
