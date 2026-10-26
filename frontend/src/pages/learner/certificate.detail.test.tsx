@@ -63,6 +63,7 @@ describe("certificate detail states", () => {
       "Nguyễn Thị Ánh",
       "Tổ chức A",
       "An toàn lao động",
+      "đã hoàn thành khóa học",
       "Phiên bản 2",
       "01/11/2026",
       "0123-4567-89AB",

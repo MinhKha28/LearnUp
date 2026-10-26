@@ -11,6 +11,7 @@ import {
   LearnerButton,
   LearnerPage,
   PageHeader,
+  StatusTag,
 } from "@/components/learner/learner.ui";
 import {
   LearnerSkeleton,
@@ -85,50 +86,64 @@ const Certificates = () => {
       {items.length > 0 && (
         <>
           <div className="learner-certificates-card">
-            <table className="learner-certificates-table">
-              <thead>
-                <tr>
-                  <th>Khóa học</th>
-                  <th>Phiên bản</th>
-                  <th>Ngày cấp</th>
-                  <th>Hoàn thành</th>
-                  <th>Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <strong>{item.courseTitle}</strong>
-                    </td>
-                    <td>{item.versionNumber}</td>
-                    <td>{certificateDate(item.issuedDate)}</td>
-                    <td>{item.completedLate ? "Sau hạn" : "Đúng hạn"}</td>
-                    <td>
-                      <div className="learner-certificates-actions">
-                        <LearnerButton
-                          onClick={() =>
-                            navigate("/learner/certificates/" + item.id)
-                          }
-                        >
-                          Xem chi tiết
-                        </LearnerButton>
-                        <LearnerButton
-                          loading={downloads.busy.has(item.id)}
-                          disabled={downloads.busy.has(item.id)}
-                          onClick={() => void downloads.download(item.id)}
-                        >
-                          Tải PDF
-                        </LearnerButton>
-                      </div>
-                      {downloads.messages[item.id] && (
-                        <p role="status">{downloads.messages[item.id]}</p>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="learner-certificates-columns" aria-hidden="true">
+              <span>Khóa học</span>
+              <span>Phiên bản</span>
+              <span>Ngày cấp</span>
+              <span>Hoàn thành</span>
+              <span>Thao tác</span>
+            </div>
+            <div className="learner-certificates-items">
+              {items.map((item) => (
+                <article
+                  className="learner-certificate-item"
+                  key={item.id}
+                  aria-label={item.courseTitle}
+                >
+                  <h2 className="learner-certificate-course">
+                    {item.courseTitle}
+                  </h2>
+                  <div className="learner-certificate-meta">
+                    <span>Phiên bản</span>
+                    <strong>{item.versionNumber}</strong>
+                  </div>
+                  <div className="learner-certificate-meta">
+                    <span>Ngày cấp</span>
+                    <strong>{certificateDate(item.issuedDate)}</strong>
+                  </div>
+                  <div className="learner-certificate-status">
+                    <StatusTag
+                      tone={item.completedLate ? "warning" : "success"}
+                    >
+                      {item.completedLate
+                        ? "Hoàn thành sau hạn"
+                        : "Hoàn thành đúng hạn"}
+                    </StatusTag>
+                  </div>
+                  <div className="learner-certificate-controls">
+                    <div className="learner-certificates-actions">
+                      <LearnerButton
+                        onClick={() =>
+                          navigate("/learner/certificates/" + item.id)
+                        }
+                      >
+                        Xem chi tiết
+                      </LearnerButton>
+                      <LearnerButton
+                        loading={downloads.busy.has(item.id)}
+                        disabled={downloads.busy.has(item.id)}
+                        onClick={() => void downloads.download(item.id)}
+                      >
+                        Tải PDF
+                      </LearnerButton>
+                    </div>
+                    {downloads.messages[item.id] && (
+                      <p role="status">{downloads.messages[item.id]}</p>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
           {cursor && (
             <LearnerButton

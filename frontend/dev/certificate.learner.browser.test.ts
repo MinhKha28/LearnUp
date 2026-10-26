@@ -579,6 +579,22 @@ describe.skipIf(!enabled)(
       await visit(true);
       await waitText("Nguyễn Thị Ánh");
       await waitText("Trần Bình");
+      await waitText("đã hoàn thành khóa học");
+      const detail = await page().evaluate<{
+        gap: number;
+        contrasts: number[];
+      }>(`(() => {
+        const signer = document.querySelector('.certificate-detail-signer');
+        const gap = signer.children[1].getBoundingClientRect().top - signer.children[0].getBoundingClientRect().bottom;
+        const luminance = color => { const channels = color.match(/\\d+/g).slice(0,3).map(Number).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);return .2126*channels[0]+.7152*channels[1]+.0722*channels[2]; };
+        const background = luminance(getComputedStyle(document.querySelector('.certificate-detail-card')).backgroundColor);
+        return {gap,contrasts:[...document.querySelectorAll('.certificate-detail-meta .learner-detail-item > span')].map(label=>{const foreground=luminance(getComputedStyle(label).color);return (Math.max(foreground,background)+.05)/(Math.min(foreground,background)+.05);})};
+      })()`);
+      expect(detail.gap).toBeLessThanOrEqual(4.5);
+      expect(detail.contrasts).toHaveLength(2);
+      detail.contrasts.forEach((ratio) =>
+        expect(ratio).toBeGreaterThanOrEqual(4.5),
+      );
       await shot("detail");
       mode = "not-found";
       await visit(true);
@@ -620,7 +636,23 @@ describe.skipIf(!enabled)(
       );
       await waitText("Hệ thống đang bận. Vui lòng thử tải lại sau.");
       expect(pdfRequests()).toHaveLength(3);
+      await page().waitFor(
+        '!document.querySelector("button.ant-btn-loading")',
+        "retries finished",
+      );
+      const enabled = await page().evaluate<boolean>(
+        '(()=>{const b=[...document.querySelectorAll("button")].find(b=>b.textContent.replace(/\\s/g,"")==="TảiPDF");return !!b&&!b.disabled})()',
+      );
+      expect(enabled).toBe(true);
+      await page().waitFor(
+        '(()=>{const buttons=[...document.querySelectorAll(".learner-certificates-actions button")];return getComputedStyle(buttons[0]).color===getComputedStyle(buttons[1]).color&&getComputedStyle(buttons[1]).cursor!=="not-allowed"})()',
+        "enabled download appearance",
+      );
       await shot("busy-503");
+      pdfStatus = 200;
+      await button("Tải PDF");
+      await waitText("Đã tải chứng chỉ.");
+      expect(pdfRequests()).toHaveLength(4);
     });
     it("handles network loss during a download without duplicate requests", async () => {
       await visit();
@@ -670,9 +702,28 @@ describe.skipIf(!enabled)(
       await delay(100);
       expect(
         await page().evaluate(
-          "document.documentElement.scrollWidth<=window.innerWidth",
+          "document.documentElement.scrollWidth<=document.documentElement.clientWidth",
         ),
       ).toBe(true);
+      const mobile = await page().evaluate<{
+        left: number;
+        right: number;
+        width: number;
+        buttons: { left: number; right: number; top: number; bottom: number }[];
+        height: number;
+      }>(
+        `(() => {const card=document.querySelector('.learner-certificate-item').getBoundingClientRect();return {left:card.left,right:card.right,width:document.documentElement.clientWidth,height:innerHeight,buttons:[...document.querySelectorAll('.learner-certificates-actions button')].map(button=>{const b=button.getBoundingClientRect();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom};})};})()`,
+      );
+      expect(mobile.left).toBe(16);
+      expect(mobile.right).toBe(mobile.width - 16);
+      expect(mobile.buttons).toHaveLength(4);
+      mobile.buttons.forEach((button) => {
+        expect(button.left).toBeGreaterThanOrEqual(16);
+        expect(button.right).toBeLessThanOrEqual(mobile.width - 16);
+        expect(button.top).toBeGreaterThanOrEqual(0);
+        expect(button.bottom).toBeLessThanOrEqual(mobile.height);
+      });
+      await waitText("Hoàn thành sau hạn");
       await shot("mobile");
       await page().call("Emulation.clearDeviceMetricsOverride");
     });

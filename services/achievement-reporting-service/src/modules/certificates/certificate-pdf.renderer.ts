@@ -19,51 +19,150 @@ export interface TextRegion {
   size: number;
   font: 'Regular' | 'Bold';
 }
+export const PDF_PAGE = { width: 841.89, height: 595.28 };
+export const PDF_FRAME = {
+  x: 25,
+  y: 25,
+  width: PDF_PAGE.width - 50,
+  height: PDF_PAGE.height - 50,
+};
+const centered = (
+  y: number,
+  height: number,
+  size: number,
+  font: 'Regular' | 'Bold',
+): TextRegion => ({
+  x: 60,
+  y,
+  width: PDF_PAGE.width - 120,
+  height,
+  size,
+  font,
+});
 export const PDF_REGIONS: Record<string, TextRegion> = {
   organization: {
     x: 150,
-    y: 45,
-    width: 640,
-    height: 55,
-    size: 20,
+    y: 44,
+    width: PDF_PAGE.width - 300,
+    height: 64,
+    size: 18,
     font: 'Bold',
   },
-  heading: { x: 60, y: 115, width: 720, height: 38, size: 28, font: 'Bold' },
-  awarded: { x: 60, y: 165, width: 720, height: 25, size: 14, font: 'Regular' },
-  recipient: { x: 60, y: 195, width: 720, height: 70, size: 27, font: 'Bold' },
-  course: { x: 60, y: 280, width: 720, height: 78, size: 23, font: 'Bold' },
-  version: { x: 60, y: 365, width: 720, height: 20, size: 12, font: 'Regular' },
-  date: { x: 60, y: 390, width: 720, height: 20, size: 12, font: 'Regular' },
-  late: { x: 60, y: 415, width: 720, height: 22, size: 12, font: 'Regular' },
-  signer: { x: 60, y: 480, width: 720, height: 38, size: 15, font: 'Bold' },
-  title: { x: 60, y: 520, width: 720, height: 48, size: 14, font: 'Regular' },
+  heading: centered(120, 38, 25, 'Bold'),
+  awarded: centered(0, 22, 13, 'Regular'),
+  recipient: centered(0, 64, 25, 'Bold'),
+  completed: centered(0, 24, 14, 'Regular'),
+  course: centered(0, 66, 22, 'Bold'),
+  version: centered(0, 20, 12, 'Regular'),
+  date: centered(0, 20, 12, 'Regular'),
+  late: centered(0, 20, 12, 'Regular'),
+  signer: centered(0, 40, 14, 'Bold'),
+  title: centered(0, 58, 13, 'Regular'),
 };
-/** All PDF text uses normalized strings and the same shaping options. */
+const textOptions = (width: number) => ({
+  width,
+  align: 'center' as const,
+  lineGap: 2,
+  features: { ccmp: false as const },
+});
+function measureText(doc: PDFDocument, value: string, region: TextRegion) {
+  const text = value.normalize('NFC');
+  const options = textOptions(region.width);
+  doc.font(region.font);
+  let size = region.size;
+  while (size >= 10) {
+    doc.fontSize(size);
+    const height = doc.heightOfString(text, options);
+    if (height <= region.height) return { size, height };
+    size -= 0.5;
+  }
+  throw new Error('CERTIFICATE_LAYOUT_OVERFLOW');
+}
+/** Every text write shares NFC normalization and the shaping options used for measurement. */
 export function pdfText(
   doc: PDFDocument,
   value: string,
   region: TextRegion,
-): number {
-  const text = value.normalize('NFC');
-  const options = {
-    width: region.width,
-    align: 'center' as const,
-    lineGap: 2,
-    features: { ccmp: false as const },
-  };
-  doc.font(region.font);
-  let size = region.size;
-  while (size > 10) {
-    doc.fontSize(size);
-    if (doc.heightOfString(text, options) <= region.height) break;
-    size -= 0.5;
-  }
-  doc.fontSize(size);
-  if (doc.heightOfString(text, options) > region.height)
-    throw new Error('CERTIFICATE_LAYOUT_OVERFLOW');
+): void {
+  const measured = measureText(doc, value, region);
+  doc.font(region.font).fontSize(measured.size);
   // Disabling ccmp preserves Vietnamese dotted letters in PDFKit ToUnicode mappings.
-  doc.text(text, region.x, region.y, options);
-  return size;
+  doc.text(
+    value.normalize('NFC'),
+    region.x,
+    region.y,
+    textOptions(region.width),
+  );
+}
+function certificateLayout(
+  doc: PDFDocument,
+  fields: Record<string, string>,
+  signature: boolean,
+) {
+  const regions = Object.fromEntries(
+    Object.entries(PDF_REGIONS).map(([key, region]) => [key, { ...region }]),
+  );
+  const sizes = new Map<string, { size: number; height: number }>();
+  const measure = (key: string) =>
+    sizes.set(key, measureText(doc, fields[key], regions[key]));
+  for (const key of Object.keys(regions)) if (fields[key]) measure(key);
+  const flow = [
+    'heading',
+    'awarded',
+    'recipient',
+    'completed',
+    'course',
+    'version',
+    'date',
+    'late',
+  ].filter((key) => fields[key]);
+  const footer = ['signer', 'title'].filter((key) => fields[key]);
+  const bottom = PDF_FRAME.y + PDF_FRAME.height - 24;
+  let gap = 8;
+  const footerHeight = () =>
+    (signature ? 32 + (footer.length ? 6 : 0) : 0) +
+    footer.reduce((sum, key) => sum + sizes.get(key)!.height, 0) +
+    Math.max(0, footer.length - 1) * 2;
+  const bodyHeight = () =>
+    flow.reduce((sum, key) => sum + sizes.get(key)!.height, 0) +
+    Math.max(0, flow.length - 1) * gap;
+  const fits = () =>
+    PDF_REGIONS.heading.y + bodyHeight() + 12 <= bottom - footerHeight();
+  const flexible = ['recipient', 'course', 'signer', 'title'].filter(
+    (key) => fields[key],
+  );
+  while (!fits()) {
+    let shrunk = false;
+    for (const key of flexible) {
+      const measured = sizes.get(key)!;
+      if (measured.size > 10) {
+        regions[key].size = measured.size - 0.5;
+        measure(key);
+        shrunk = true;
+        if (fits()) break;
+      }
+    }
+    if (!shrunk) break;
+  }
+  while (!fits() && gap > 0) gap -= 1;
+  if (!fits()) throw new Error('CERTIFICATE_LAYOUT_OVERFLOW');
+  const organization = sizes.get('organization')!;
+  regions.organization.y +=
+    (regions.organization.height - organization.height) / 2;
+  let y = PDF_REGIONS.heading.y;
+  for (const key of flow) {
+    regions[key].y = y;
+    regions[key].size = sizes.get(key)!.size;
+    y += sizes.get(key)!.height + gap;
+  }
+  const signatureY = bottom - footerHeight();
+  y = signatureY + (signature ? 32 + (footer.length ? 6 : 0) : 0);
+  for (const key of footer) {
+    regions[key].y = y;
+    regions[key].size = sizes.get(key)!.size;
+    y += sizes.get(key)!.height + 2;
+  }
+  return { regions, signatureY };
 }
 export function unsupportedGlyphCount(
   values: string[],
@@ -193,6 +292,7 @@ export class CertificatePdfRenderer {
           heading: 'Chứng chỉ hoàn thành',
           awarded: 'Chứng nhận học viên',
           recipient: text.recipient,
+          completed: 'đã hoàn thành khóa học',
           course: text.courseTitle,
           version: 'Phiên bản ' + text.versionNumber,
           date:
@@ -216,14 +316,15 @@ export class CertificatePdfRenderer {
           doc.on('error', reject);
           doc.on('end', () => resolvePdf(Buffer.concat(chunks)));
           try {
+            const layout = certificateLayout(doc, fields, Boolean(signature));
             doc
               .strokeColor('#1e293b')
               .lineWidth(2)
-              .rect(25, 25, 792, 545)
+              .rect(PDF_FRAME.x, PDF_FRAME.y, PDF_FRAME.width, PDF_FRAME.height)
               .stroke();
             doc.fillColor('#1e293b');
             for (const [key, value] of Object.entries(fields))
-              if (value) pdfText(doc, value, PDF_REGIONS[key]);
+              if (value) pdfText(doc, value, layout.regions[key]);
             if (logo)
               doc.image(logo, 50, 45, {
                 fit: [85, 55],
@@ -231,11 +332,16 @@ export class CertificatePdfRenderer {
                 valign: 'center',
               });
             if (signature)
-              doc.image(signature, 345, 443, {
-                fit: [150, 32],
-                align: 'center',
-                valign: 'center',
-              });
+              doc.image(
+                signature,
+                (PDF_PAGE.width - 150) / 2,
+                layout.signatureY,
+                {
+                  fit: [150, 32],
+                  align: 'center',
+                  valign: 'center',
+                },
+              );
             doc.end();
           } catch (error) {
             doc.destroy();

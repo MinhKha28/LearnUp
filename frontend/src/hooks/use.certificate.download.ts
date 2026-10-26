@@ -3,8 +3,10 @@ import { downloadCertificate } from "@/services/achievement.service";
 import { ApiError } from "@/types/api.types";
 export function useCertificateDownload() {
   const requests = useRef(new Map<string, AbortController>());
-  const [busy, setBusy] = useState<Set<string>>(new Set());
-  const [messages, setMessages] = useState<Record<string, string>>({});
+  const [state, setState] = useState<{
+    busy: Set<string>;
+    messages: Record<string, string>;
+  }>({ busy: new Set(), messages: {} });
   useEffect(() => {
     const pending = requests.current;
     return () => {
@@ -16,8 +18,11 @@ export function useCertificateDownload() {
     if (requests.current.has(id)) return;
     const controller = new AbortController();
     requests.current.set(id, controller);
-    setBusy(new Set(requests.current.keys()));
-    setMessages((previous) => ({ ...previous, [id]: "" }));
+    setState((previous) => ({
+      busy: new Set(requests.current.keys()),
+      messages: { ...previous.messages, [id]: "" },
+    }));
+    let message = "";
     try {
       const result = await downloadCertificate(id, controller.signal);
       if (controller.signal.aborted) return;
@@ -29,20 +34,25 @@ export function useCertificateDownload() {
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMessages((previous) => ({ ...previous, [id]: "Đã tải chứng chỉ." }));
+      message = "Đã tải chứng chỉ.";
     } catch (error) {
       if (controller.signal.aborted) return;
-      const message =
+      message =
         error instanceof ApiError && error.status === 503
           ? "Hệ thống đang bận. Vui lòng thử tải lại sau."
           : error instanceof ApiError && error.status === 404
             ? "Không tìm thấy chứng chỉ."
             : "Không tải được chứng chỉ. Kiểm tra kết nối và thử lại.";
-      setMessages((previous) => ({ ...previous, [id]: message }));
     } finally {
-      requests.current.delete(id);
-      if (!controller.signal.aborted) setBusy(new Set(requests.current.keys()));
+      if (requests.current.get(id) === controller) {
+        requests.current.delete(id);
+        if (!controller.signal.aborted)
+          setState((previous) => ({
+            busy: new Set(requests.current.keys()),
+            messages: { ...previous.messages, [id]: message },
+          }));
+      }
     }
   };
-  return { busy, messages, download };
+  return { ...state, download };
 }

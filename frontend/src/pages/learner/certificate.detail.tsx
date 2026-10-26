@@ -71,6 +71,7 @@ const CertificateDetail = () => {
           <strong className="certificate-detail-name">
             {certificate.recipient}
           </strong>
+          <p className="certificate-detail-completed">đã hoàn thành khóa học</p>
           <p className="certificate-detail-course">
             {certificate.courseTitle} · Phiên bản {certificate.versionNumber}
           </p>
@@ -87,8 +88,16 @@ const CertificateDetail = () => {
               {certificate.certificateCode}
             </DetailItem>
           </div>
-          {certificate.signerName && <p>{certificate.signerName}</p>}
-          {certificate.signerTitle && <p>{certificate.signerTitle}</p>}
+          {(certificate.signerName || certificate.signerTitle) && (
+            <div className="certificate-detail-signer">
+              {certificate.signerName && (
+                <strong>{certificate.signerName}</strong>
+              )}
+              {certificate.signerTitle && (
+                <span>{certificate.signerTitle}</span>
+              )}
+            </div>
+          )}
         </div>
       )}
     </LearnerPage>

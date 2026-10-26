@@ -1,29 +1,56 @@
+.learner-certificates {
+  min-width: 0;
+}
 .learner-certificates-card {
-  overflow-x: auto;
   padding: var(--space-6);
   border: thin solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
 }
-.learner-certificates-table {
-  width: 100%;
-  min-width: var(--table-min-width);
-  border-collapse: collapse;
+.learner-certificates-columns,
+.learner-certificate-item {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 2fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.4fr)
+    minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: center;
 }
-.learner-certificates-table th,
-.learner-certificates-table td {
+.learner-certificates-columns {
+  padding: var(--space-4) var(--space-3);
+  background: var(--color-surface-secondary);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+}
+.learner-certificate-item {
   padding: var(--space-4) var(--space-3);
   border-bottom: thin solid var(--color-border);
   color: var(--color-text-secondary);
-  text-align: left;
-  overflow-wrap: break-word;
 }
-.learner-certificates-table th {
-  background: var(--color-surface-secondary);
-  font-size: var(--font-size-caption);
-}
-.learner-certificates-table strong {
+.learner-certificate-course {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-body);
   color: var(--color-text-primary);
+}
+.learner-certificate-meta {
+  min-width: 0;
+}
+.learner-certificate-meta > span {
+  display: none;
+}
+.learner-certificate-meta > strong {
+  font-weight: 400;
+  white-space: nowrap;
+}
+.learner-certificate-controls {
+  min-width: 0;
+}
+.learner-certificate-controls > p {
+  margin: var(--space-2) 0 0;
+  overflow-wrap: anywhere;
 }
 .learner-certificates-actions {
   display: flex;
@@ -33,7 +60,61 @@
 .learner-certificates > .learner-button {
   margin-top: var(--space-4);
 }
+@media (max-width: 640px) {
+  .learner-main:has(.learner-certificates) {
+    padding-inline: 0;
+  }
+  .learner-certificates {
+    padding-inline: var(--space-4);
+  }
+  .learner-certificates-card {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .learner-certificates-columns {
+    display: none;
+  }
+  .learner-certificates-items {
+    display: grid;
+    gap: var(--space-4);
+  }
+  .learner-certificate-item {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: var(--space-4);
+    border: thin solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+  .learner-certificate-course,
+  .learner-certificate-status,
+  .learner-certificate-controls {
+    grid-column: 1 / -1;
+  }
+  .learner-certificate-meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .learner-certificate-meta > span {
+    display: block;
+    font-size: var(--font-size-caption);
+    color: var(--color-text-secondary);
+  }
+  .learner-certificates-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .learner-certificates-actions > .learner-button {
+    padding-inline: var(--space-2);
+  }
+}
 
-.learner-certificates-table td:nth-child(3) {
-  white-space: nowrap;
+.learner-certificate-status .learner-status {
+  max-width: 100%;
+  white-space: normal;
+}
+
+.learner-certificates-actions .learner-button:not(:disabled) {
+  transition: none;
 }

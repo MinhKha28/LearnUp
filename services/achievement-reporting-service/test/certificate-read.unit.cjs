@@ -15,6 +15,7 @@ const {
 const {
   CertificatePdfRenderer,
   unsupportedGlyphCount,
+  PDF_FRAME,
 } = require('../dist/src/modules/certificates/certificate-pdf.renderer');
 const {
   certificateReadConfig,
@@ -36,6 +37,7 @@ const {
   headers,
 } = require('./certificate-read.helpers.cjs');
 const { png, hash } = require('./signer.helpers.cjs');
+const { maximumText } = require('./certificate-visual.fixtures.cjs');
 const originalFetch = global.fetch;
 afterEach(() => {
   mock.restoreAll();
@@ -455,8 +457,13 @@ test('maximum database text lengths with Vietnamese diacritics fit bounded regio
       if (!item.str) continue;
       const x = item.transform[4],
         y = item.transform[5];
-      assert.ok(x >= 25 && x + item.width <= viewport.width - 20);
-      assert.ok(y >= 20 && y + item.height <= viewport.height - 20);
+      assert.ok(
+        x >= PDF_FRAME.x && x + item.width <= PDF_FRAME.x + PDF_FRAME.width,
+      );
+      assert.ok(
+        y >= viewport.height - PDF_FRAME.y - PDF_FRAME.height &&
+          y + item.height <= viewport.height - PDF_FRAME.y,
+      );
       assert.ok(Math.hypot(item.transform[0], item.transform[1]) >= 10);
     }
   } finally {
@@ -523,4 +530,138 @@ test('renderer checks frozen magic bytes and verifies supported PNG bytes before
     '%PDF',
   );
   assert.equal(warnings.length, 1);
+});
+
+const normalizedWords = (text) =>
+  text.normalize('NFC').replace(/\s+/gu, ' ').trim();
+function assertTextInsideFrame(content, page) {
+  const viewport = page.getViewport({ scale: 1 });
+  for (const item of content.items) {
+    if (!item.str.trim()) continue;
+    const size = Math.hypot(item.transform[0], item.transform[1]);
+    const style = content.styles[item.fontName];
+    const bottom = item.transform[5] + style.descent * size;
+    const top = item.transform[5] + style.ascent * size;
+    assert.ok(item.transform[4] >= PDF_FRAME.x, 'Text left of frame');
+    assert.ok(
+      item.transform[4] + item.width <= PDF_FRAME.x + PDF_FRAME.width,
+      'Text right of frame',
+    );
+    assert.ok(
+      bottom >= viewport.height - PDF_FRAME.y - PDF_FRAME.height,
+      'Text below frame',
+    );
+    assert.ok(top <= viewport.height - PDF_FRAME.y, 'Text above frame');
+    assert.ok(size >= 10, 'Text below minimum font size');
+  }
+}
+for (const withImages of [false, true])
+  test(
+    'full maximum-length Vietnamese fields remain inside one frame ' +
+      (withImages ? 'with verified logo and signature' : 'without images'),
+    async () => {
+      const image = png(),
+        reads = [];
+      const row = record({
+        ...maximumText,
+        ...(withImages
+          ? {
+              logoAssetKey: 'synthetic/logo',
+              logoMime: 'image/png',
+              logoHash: hash(image),
+              signatureAssetKey: 'synthetic/signature',
+              signatureMime: 'image/png',
+              signatureHash: hash(image),
+            }
+          : {}),
+      });
+      for (const [key, length] of Object.entries({
+        learnerName: 100,
+        courseName: 200,
+        organizationName: 200,
+        signerName: 100,
+        signerTitle: 200,
+      }))
+        assert.equal([...row[key].normalize('NFC')].length, length);
+      const render = new CertificatePdfRenderer(
+        new CertificatePdfQueue(settings),
+        {
+          read: async (key) => {
+            reads.push(key);
+            return image;
+          },
+        },
+        config(),
+      );
+      const doc = await extract(
+        await render.render(row, service().response(row)),
+      );
+      try {
+        assert.equal(doc.numPages, 1);
+        const page = await doc.getPage(1),
+          content = await page.getTextContent();
+        const text = normalizedWords(
+          content.items.map((item) => item.str).join(' '),
+        );
+        for (const input of Object.values(maximumText))
+          assert.ok(
+            text.includes(normalizedWords(input)),
+            'Full input text lost: ' + input,
+          );
+        assertTextInsideFrame(content, page);
+        assert.equal(reads.length, withImages ? 2 : 0);
+        if (withImages) {
+          const operators = await page.getOperatorList();
+          assert.equal(
+            operators.fnArray.filter((code) =>
+              [
+                pdfjs.OPS.paintImageXObject,
+                pdfjs.OPS.paintInlineImageXObject,
+              ].includes(code),
+            ).length,
+            2,
+          );
+        }
+      } finally {
+        await doc.cleanup();
+      }
+    },
+  );
+test('normal certificate centers organization text and keeps completion wording and compact vertical flow', async () => {
+  const row = record(),
+    doc = await extract(await renderer().render(row, service().response(row)));
+  try {
+    assert.equal(doc.numPages, 1);
+    const page = await doc.getPage(1),
+      content = await page.getTextContent(),
+      width = page.getViewport({ scale: 1 }).width;
+    const find = (text) => content.items.find((item) => item.str === text);
+    for (const value of [row.organizationName, 'Chứng chỉ hoàn thành']) {
+      const item = find(value);
+      assert.ok(item);
+      assert.ok(Math.abs(item.transform[4] + item.width / 2 - width / 2) < 0.1);
+    }
+    const sequence = [
+      row.learnerName,
+      'đã hoàn thành khóa học',
+      row.courseName,
+      'Phiên bản ' + row.versionNumber,
+    ].map(find);
+    assert.ok(sequence.every(Boolean));
+    for (let index = 1; index < sequence.length; index++) {
+      const previous = sequence[index - 1],
+        next = sequence[index],
+        previousSize = Math.hypot(previous.transform[0], previous.transform[1]),
+        nextSize = Math.hypot(next.transform[0], next.transform[1]);
+      const gap =
+        previous.transform[5] +
+        content.styles[previous.fontName].descent * previousSize -
+        next.transform[5] -
+        content.styles[next.fontName].ascent * nextSize;
+      assert.ok(gap >= 0 && gap <= 16, 'Uneven body gap: ' + gap);
+    }
+    assertTextInsideFrame(content, page);
+  } finally {
+    await doc.cleanup();
+  }
 });
