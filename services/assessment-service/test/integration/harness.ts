@@ -50,6 +50,9 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     process.env.DATABASE_URL ??
       'postgresql://postgres:postgres@localhost:5432/assessment_db',
   );
+  // "localhost" is tried as ::1 first, and the IPv6 port of Docker Desktop on Windows sometimes accepts the connection and then
+  // resets it (ECONNRESET, a service that dies or hangs on its first requests). Ask for IPv4 outright.
+  if (base.hostname === 'localhost') base.hostname = '127.0.0.1';
   const name = `assessment_it_${process.pid}_${Date.now()}`;
 
   const admin = new Client({ connectionString: base.toString() });
