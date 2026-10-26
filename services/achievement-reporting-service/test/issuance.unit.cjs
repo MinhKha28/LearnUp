@@ -108,6 +108,7 @@ test('Optional requires no deadline and no late flag', () => {
 });
 test('consumer is disabled by default and retry delay is capped/jittered', () => {
   const c = issuanceConfig(() => undefined);
+  assert.equal(c.tenantUrl, 'http://tenant-service:8084');
   assert.equal(c.enabled, false);
   assert.equal(c.concurrency, 4);
   assert.deepEqual(
