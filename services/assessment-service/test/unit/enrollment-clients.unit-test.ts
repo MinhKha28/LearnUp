@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { after, before, describe, test } from 'node:test';
+import { after, before, describe, mock, test } from 'node:test';
 import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -184,6 +184,8 @@ describe('HttpEnrollmentClient', () => {
       { enrollmentId: ENROLLMENT, status: 'InProgress' },
       { enrollmentId: 7, status: 'InProgress', access: 'Full' },
       { enrollmentId: ENROLLMENT, status: null, access: 'Full' },
+      { enrollmentId: 'not-a-uuid', status: 'InProgress', access: 'Full' },
+      { enrollmentId: ENROLLMENT, status: 'Overdue', access: 'Full' },
     ]) {
       answer = bad;
       await rejectsWith(
@@ -191,6 +193,74 @@ describe('HttpEnrollmentClient', () => {
         ServiceUnavailableException,
         'LEARNING_SERVICE_UNAVAILABLE',
       );
+    }
+  });
+
+  test('a status and an access that contradict each other is a 503: Completed + Full or Halted + Full would allow a write', async () => {
+    reset();
+    for (const [status, access] of [
+      ['Completed', 'Full'],
+      ['Completed', 'None'],
+      ['Halted', 'Full'],
+      ['Halted', 'ReadOnly'],
+      ['Withdrawn', 'Full'],
+      ['InProgress', 'ReadOnly'],
+      ['InProgress', 'None'],
+      ['Exempted', 'ReadOnly'],
+      ['NotStarted', 'None'],
+    ] as const) {
+      answer = { enrollmentId: ENROLLMENT, status, access };
+      await rejectsWith(
+        client().getAssessmentAccess(COURSE, learner),
+        ServiceUnavailableException,
+        'LEARNING_SERVICE_UNAVAILABLE',
+      );
+    }
+  });
+
+  test('a rejected answer is logged with a short reason code, and never with its values', async () => {
+    reset();
+    const warn = mock.method(Logger.prototype, 'warn', () => undefined);
+    try {
+      const reasonOf = async (bad: Record<string, unknown>) => {
+        warn.mock.resetCalls();
+        answer = bad;
+        await rejectsWith(
+          client().getAssessmentAccess(COURSE, learner),
+          ServiceUnavailableException,
+          'LEARNING_SERVICE_UNAVAILABLE',
+        );
+        return String(warn.mock.calls[0]?.arguments[0]);
+      };
+      assert.match(
+        await reasonOf({ enrollmentId: 'not-a-uuid', status: 'InProgress', access: 'Full' }),
+        /INVALID_ENROLLMENT_ID/,
+      );
+      assert.match(
+        await reasonOf({ enrollmentId: ENROLLMENT, status: 'Overdue', access: 'Full' }),
+        /INVALID_STATUS/,
+      );
+      assert.match(
+        await reasonOf({ enrollmentId: ENROLLMENT, status: 'Completed', access: 'Full' }),
+        /ACCESS_MISMATCH/,
+      );
+      const withValues = await reasonOf({
+        enrollmentId: ENROLLMENT,
+        status: 'SomethingSecret42',
+        access: 'Full',
+      });
+      assert.equal(withValues.includes('SomethingSecret42'), false);
+      mode = 'no-data';
+      warn.mock.resetCalls();
+      await rejectsWith(
+        client().getAssessmentAccess(COURSE, learner),
+        ServiceUnavailableException,
+        'LEARNING_SERVICE_UNAVAILABLE',
+      );
+      assert.match(String(warn.mock.calls[0]?.arguments[0]), /NO_DATA/);
+    } finally {
+      warn.mock.restore();
+      reset();
     }
   });
 

@@ -8,11 +8,18 @@ import type { CurrentUser } from '@learnup/ts-common';
  */
 export type AssessmentAccessLevel = 'Full' | 'ReadOnly' | 'None';
 
-export const ASSESSMENT_ACCESS_LEVELS: readonly AssessmentAccessLevel[] = [
-  'Full',
-  'ReadOnly',
-  'None',
-];
+/**
+ * Trạng thái Enrollment learning-service lưu (không có Overdue) và quyền tương ứng. Câu trả lời mâu thuẫn với bảng này
+ * (ví dụ Completed + Full) bị từ chối, để không cho ghi nhầm.
+ */
+export const ACCESS_OF_STATUS: Readonly<Record<string, AssessmentAccessLevel>> = {
+  NotStarted: 'Full',
+  InProgress: 'Full',
+  Exempted: 'Full',
+  Completed: 'ReadOnly',
+  Halted: 'None',
+  Withdrawn: 'None',
+};
 
 export interface AssessmentAccess {
   enrollmentId: string;

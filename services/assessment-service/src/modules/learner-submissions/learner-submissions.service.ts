@@ -173,11 +173,44 @@ export class LearnerSubmissionsService {
     const organizationId = requireLearner(user);
     const assignment = await this.loadAssignment(organizationId, assessmentId);
     await requireAccess(this.enrollments, user, assignment.courseId);
+    return this.resultOf(organizationId, assignment, user.userId, submissionId);
+  }
+
+  /**
+   * UC30.2 — the result of the latest submission, in one request: the screen does not need to read the Assignment
+   * first to learn the id, so Learning Service is asked once (BR-210).
+   */
+  async getLatestResult(
+    user: CurrentUser,
+    assessmentId: string,
+  ): Promise<IGradingResult> {
+    const organizationId = requireLearner(user);
+    const assignment = await this.loadAssignment(organizationId, assessmentId);
+    await requireAccess(this.enrollments, user, assignment.courseId);
+    const latest = await this.repository.findLatestSubmission(
+      assignment.id,
+      user.userId,
+    );
+    if (!latest) {
+      throw new NotFoundException({
+        code: 'SUBMISSION_NOT_FOUND',
+        message: 'You have not submitted this Assignment yet.',
+      });
+    }
+    return this.resultOf(organizationId, assignment, user.userId, latest.id);
+  }
+
+  private async resultOf(
+    organizationId: string,
+    assignment: Awaited<ReturnType<LearnerSubmissionsService['loadAssignment']>>,
+    learnerId: string,
+    submissionId: string,
+  ): Promise<IGradingResult> {
     const submission = await this.repository.findSubmissionWithReviews(
       organizationId,
       assignment.id,
       submissionId,
-      user.userId,
+      learnerId,
     );
     if (!submission) {
       throw new NotFoundException({

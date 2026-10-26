@@ -36,6 +36,16 @@ export class LearnerSubmissionsController {
     return this.service.getAssignment(user, id);
   }
 
+  /** UC30.2 - View Grading Results of the latest submission (one call to Learning Service). */
+  @Get(':id/result')
+  @ResponseMessage('Grading result retrieved successfully.')
+  getLatestResult(
+    @User() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.getLatestResult(user, id);
+  }
+
   /** UC30.2 - View Grading Results of a Finalized submission. */
   @Get(':id/submissions/:submissionId/result')
   @ResponseMessage('Grading result retrieved successfully.')

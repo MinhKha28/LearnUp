@@ -6,6 +6,7 @@ import { DetailItem, InfoPanel, LearnerButton, PageHeader, WarningPanel } from "
 import {
   assessmentErrorCode,
   assessmentErrorText,
+  ENROLLMENT_NOT_ACTIVE_FORM_TEXT,
   downloadLearnerPromptFileAPI,
   fetchLearnerAssignmentAPI,
   resubmitAssignmentAPI,
@@ -21,14 +22,11 @@ const CONTENT_MAX_LENGTH = 20000;
 // MSG20
 const FILE_MESSAGE = "File must be PDF, DOCX or ZIP, at most 50 MB.";
 // the answers that mean the page shows an old state: load it again
-// ENROLLMENT_COMPLETED and ENROLLMENT_NOT_ACTIVE: the Enrollment changed while the form was open (Completed, or Halted/Withdrawn).
-const STALE_CODES = [
-  "ASSESSMENT_LOCKED",
-  "SUBMISSION_EXISTS",
-  "NO_PREVIOUS_SUBMISSION",
-  "ENROLLMENT_COMPLETED",
-  "ENROLLMENT_NOT_ACTIVE",
-];
+// ENROLLMENT_COMPLETED: the Enrollment changed while the form was open, and the GET still answers (read-only).
+const STALE_CODES = ["ASSESSMENT_LOCKED", "SUBMISSION_EXISTS", "NO_PREVIOUS_SUBMISSION", "ENROLLMENT_COMPLETED"];
+// ENROLLMENT_NOT_ACTIVE (Halted, Withdrawn): the GET is refused too, so there is nothing to reload; the form stays,
+// with the draft, and is closed.
+const NOT_ACTIVE_CODE = "ENROLLMENT_NOT_ACTIVE";
 
 const formatTime = (iso: string) => new Date(iso).toLocaleString();
 
@@ -59,6 +57,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [notActive, setNotActive] = useState("");
   const [answer, setAnswer] = useState("");
   const [file, setFile] = useState<File | null>(null);
 
@@ -102,7 +101,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
   const previous = assignment.latestSubmission;
   const submitted = previous !== null;
   // PRE-1 / PRE-2 of UC30 and UC30.1, and BR-210. UC30 is for the first submission, UC30.1 needs one to replace.
-  const blocked = locked || assignment.readOnly || (resubmitting ? !submitted : submitted);
+  const blocked = locked || assignment.readOnly || notActive !== "" || (resubmitting ? !submitted : submitted);
   const notice = resubmitting ? resubmissionNotice(assignment) : null;
 
   const pickFile = (picked: File) => {
@@ -142,11 +141,17 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
         navigate(`${base}/submitted`, { state: { receipt: res.data, title: assignment.title } });
         return;
       }
+      // The state may have changed (locked, submitted elsewhere): show the real one.
+      const code = assessmentErrorCode(res).code ?? "";
+      if (code === NOT_ACTIVE_CODE) {
+        message.error(ENROLLMENT_NOT_ACTIVE_FORM_TEXT);
+        setNotActive(ENROLLMENT_NOT_ACTIVE_FORM_TEXT);
+        return;
+      }
       message.error(
         assessmentErrorText(res, resubmitting ? "Unable to resubmit the Assignment." : "Unable to submit the Assignment."),
       );
-      // The state may have changed (locked, submitted elsewhere): show the real one.
-      if (STALE_CODES.includes(assessmentErrorCode(res).code ?? "")) {
+      if (STALE_CODES.includes(code)) {
         await load();
       }
     } catch {
@@ -176,6 +181,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
               {formatTime(attempts.lockedUntil!)}.
             </WarningPanel>
           )}
+          {notActive && <WarningPanel title="Không thể nộp bài">{notActive}</WarningPanel>}
           {assignment.readOnly && (
             <WarningPanel title="Course completed">
               This Course is completed, so the Assignment is read-only.
