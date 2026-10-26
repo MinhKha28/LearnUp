@@ -17,6 +17,11 @@ state read back through the API, Kafka event observed) and never deletes anythin
 
 ## Start the cluster (Linux host, Docker, JDK 21, Node 22)
 
+Windows: run everything (build, `cluster/start.sh`, `run.mjs`, `cleanup.mjs`) inside WSL2 with
+Docker Desktop's WSL integration; Git Bash is not supported (no `lsof`, different `/tmp`).
+`E2E_STATE_DIR` must be the same for the cluster scripts and the runner/cleanup, otherwise they
+read different state (secrets, mailbox, run records).
+
 Build once (no lockfile changes):
 
 ```bash
