@@ -1,8 +1,11 @@
+import { closeAll, closeApp } from './deadlines';
+import { deadline, BARRIER_TIMEOUT_MS } from './deadlines';
+import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { after, before, test } from 'node:test';
+import { after, before, test } from './test-runner';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -34,13 +37,19 @@ before(async () => {
   await prisma.$connect();
 });
 after(async () => {
-  await prisma.$executeRaw`DELETE FROM outbox_events WHERE organization_id=${org}::uuid`;
-  await prisma.$executeRaw`DELETE FROM enrollments WHERE organization_id=${org}::uuid`;
-  await prisma.$executeRaw`DELETE FROM material_snapshots WHERE organization_id=${org}::uuid`;
-  await prisma.$executeRaw`DELETE FROM lesson_snapshots WHERE organization_id=${org}::uuid`;
-  await prisma.$executeRaw`DELETE FROM organization_suspensions WHERE organization_id=${org}::uuid`;
-  await prisma.$executeRaw`DELETE FROM course_version_snapshots WHERE organization_id=${org}::uuid`;
-  await prisma.$disconnect();
+  try {
+    await prisma.$executeRaw`DELETE FROM outbox_events WHERE organization_id=${org}::uuid`;
+    await prisma.$executeRaw`DELETE FROM enrollments WHERE organization_id=${org}::uuid`;
+    await prisma.$executeRaw`DELETE FROM material_snapshots WHERE organization_id=${org}::uuid`;
+    await prisma.$executeRaw`DELETE FROM lesson_snapshots WHERE organization_id=${org}::uuid`;
+    await prisma.$executeRaw`DELETE FROM organization_suspensions WHERE organization_id=${org}::uuid`;
+    await prisma.$executeRaw`DELETE FROM course_version_snapshots WHERE organization_id=${org}::uuid`;
+  } finally {
+    await deadline(
+      prisma.$disconnect(),
+      'course-completion.integration-test shutdown',
+    );
+  }
 });
 
 for (const kind of ['CONVERT', 'RESTORE', 'CONVERT_COMPLETED'] as const)
@@ -207,7 +216,7 @@ test('outbox INSERT failure rolls back Completed and retains request', async () 
       fake,
     ).evaluate(r);
   } finally {
-    await isolated.$disconnect();
+    await deadline(isolated.$disconnect(), 'isolated Prisma shutdown');
   }
   assert.equal((await state(f.id)).status, 'NotStarted');
   assert.equal(await eventCount(f.id), 0);
@@ -331,12 +340,20 @@ test('trigger during assessment wait survives obsolete result and is evaluated o
   const r = await take(f.id);
   let entered!: () => void;
   let release!: () => void;
-  const waiting = new Promise<void>((resolve) => {
-    entered = resolve;
-  });
-  const barrier = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const waiting = deadline(
+    new Promise<void>((resolve) => {
+      entered = resolve;
+    }),
+    'course-completion.integration-test: waiting',
+    BARRIER_TIMEOUT_MS,
+  );
+  const barrier = deadline(
+    new Promise<void>((resolve) => {
+      release = resolve;
+    }),
+    'course-completion.integration-test: barrier',
+    BARRIER_TIMEOUT_MS,
+  );
   const blocked = new CompletionService(repo, {
     async getCompletionSnapshot() {
       entered();
@@ -440,12 +457,20 @@ test('expired lease while old worker writes cannot let a second worker duplicate
   await prisma.$executeRaw`UPDATE completion_evaluation_requests SET next_attempt_at=clock_timestamp()-interval '1 second' WHERE enrollment_id=${f.id}::uuid`;
   let entered!: () => void;
   let release!: () => void;
-  const inside = new Promise<void>((resolve) => {
-    entered = resolve;
-  });
-  const barrier = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const inside = deadline(
+    new Promise<void>((resolve) => {
+      entered = resolve;
+    }),
+    'course-completion.integration-test: inside',
+    BARRIER_TIMEOUT_MS,
+  );
+  const barrier = deadline(
+    new Promise<void>((resolve) => {
+      release = resolve;
+    }),
+    'course-completion.integration-test: barrier',
+    BARRIER_TIMEOUT_MS,
+  );
   const isolated = new PrismaService(new ConfigService()),
     original = isolated.$transaction.bind(isolated);
   const paused = new Proxy(isolated, {
@@ -491,7 +516,7 @@ test('expired lease while old worker writes cannot let a second worker duplicate
   } finally {
     release();
     await processing;
-    await isolated.$disconnect();
+    await deadline(isolated.$disconnect(), 'isolated Prisma shutdown');
   }
   assert.equal((await state(f.id)).status, 'Completed');
   assert.equal(await eventCount(f.id), 1);
@@ -588,15 +613,18 @@ test('API starts with Kafka and course-service unreachable and retains assessmen
     assert.equal((await state(f.id)).status, 'Completed');
     assert.equal(await eventCount(f.id), 1);
   } finally {
-    await app.close();
-    for (const [key, value] of Object.entries({
-      COMPLETION_WORKER_ENABLED: previous.worker,
-      OUTBOX_RELAY_ENABLED: previous.relay,
-      KAFKA_BROKERS: previous.brokers,
-      COURSE_SERVICE_URL: previous.course,
-    })) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
+    try {
+      await closeAll(() => closeApp(app));
+    } finally {
+      for (const [key, value] of Object.entries({
+        COMPLETION_WORKER_ENABLED: previous.worker,
+        OUTBOX_RELAY_ENABLED: previous.relay,
+        KAFKA_BROKERS: previous.brokers,
+        COURSE_SERVICE_URL: previous.course,
+      })) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
     }
   }
 });
