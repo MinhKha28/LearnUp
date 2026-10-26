@@ -168,12 +168,9 @@ export const fetchPeerReviewCyclesAPI = (assignmentId: string) =>
     requestConfig,
   );
 
-/** UC30.2 — the grading result of a Finalized submission. */
-export const fetchLearnerResultAPI = (assignmentId: string, submissionId: string) =>
-  axios.get<IBackendRes<IGradingResult>>(
-    `/api/v1/assessments/learner/assignments/${assignmentId}/submissions/${submissionId}/result`,
-    requestConfig,
-  );
+/** UC30.2 — the grading result of the latest submission, when it is Finalized (one request, so one check of the Enrollment). */
+export const fetchLearnerResultAPI = (assignmentId: string) =>
+  axios.get<IBackendRes<IGradingResult>>(`/api/v1/assessments/learner/assignments/${assignmentId}/result`, requestConfig);
 
 /** UC30 — Submit an Assignment: text and/or one PDF, DOCX or ZIP (50 MB). */
 export const submitAssignmentAPI = (assignmentId: string, content: string, file?: File | null) => {
@@ -214,9 +211,24 @@ export const assessmentErrorCode = (res: unknown): { code?: string; lockedUntil?
   return typeof error === "object" ? { code: error?.code, lockedUntil: error?.lockedUntil } : {};
 };
 
+/**
+ * Learner-facing text (Vietnamese) of the codes that close a screen: the server message is English. This one is for the
+ * screens that have nothing of the Learner to keep (the list, the result, the form when it is opened).
+ */
+const LEARNER_LOCK_TEXT: Record<string, string> = {
+  ENROLLMENT_NOT_ACTIVE:
+    "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể xem hoặc nộp bài tập. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.",
+};
+
+/** The same lock on the form, when the Learner has typed something: the draft stays on the page (BR-210). */
+export const ENROLLMENT_NOT_ACTIVE_FORM_TEXT =
+  "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể nộp bài nữa. Nội dung bạn đã nhập vẫn được giữ trên trang này. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.";
+
 /** The axios interceptor resolves error responses instead of rejecting; pull the message out of them. */
 export const assessmentErrorText = (res: unknown, fallback: string): string => {
   const { error, message } = res as IAssessmentError;
+  const code = typeof error === "object" ? error?.code : undefined;
+  if (code && LEARNER_LOCK_TEXT[code]) return LEARNER_LOCK_TEXT[code];
   const raw = typeof error === "object" ? error?.message : (error ?? message);
   return (Array.isArray(raw) ? raw.join(" ") : raw) || fallback;
 };

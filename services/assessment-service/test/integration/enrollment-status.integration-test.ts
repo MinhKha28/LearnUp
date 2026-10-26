@@ -37,6 +37,8 @@ describe('the Enrollment decides what the Learner may do', () => {
     api('GET', `/learner/assignments/${assignmentId}`, undefined, as);
   const list = () =>
     api('GET', `/learner/courses/${COURSE}/assessments`, undefined, as);
+  const latestResult = () =>
+    api('GET', `/learner/assignments/${assignmentId}/result`, undefined, as);
   const send = async (kind: 'submissions' | 'resubmissions') => {
     const form = new FormData();
     form.append('content', 'my work');
@@ -110,6 +112,20 @@ describe('the Enrollment decides what the Learner may do', () => {
     assert.equal(listed.data.readOnly, true);
   });
 
+  test('ReadOnly (Completed): the result of a Finalized submission can still be read, with one question to Learning Service', async () => {
+    await db.query(
+      `UPDATE submissions SET grading_status = 'Finalized', final_score = 80, finalized_at = now()
+       WHERE assessment_id = $1 AND superseded_at IS NULL`,
+      [assignmentId],
+    );
+    learning.setAnswer(LEARNER, COURSE, 'ReadOnly');
+    const asked = learning.calls.length;
+    const r = await latestResult();
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    assert.equal(r.data.finalScore, 80);
+    assert.equal(learning.calls.length - asked, 1);
+  });
+
   test('the answer is read at every request: Full again opens it again', async () => {
     learning.setAnswer(LEARNER, COURSE, 'Full');
     assert.equal((await send('resubmissions')).status, 201);
@@ -121,7 +137,7 @@ describe('the Enrollment decides what the Learner may do', () => {
       (await db.query('SELECT count(*) AS n FROM submissions'))[0].n,
     );
     learning.setAnswer(LEARNER, COURSE, 'None');
-    for (const r of [await view(), await list()]) {
+    for (const r of [await view(), await list(), await latestResult()]) {
       assert.equal(r.status, 409);
       assert.equal(r.code, 'ENROLLMENT_NOT_ACTIVE');
     }
