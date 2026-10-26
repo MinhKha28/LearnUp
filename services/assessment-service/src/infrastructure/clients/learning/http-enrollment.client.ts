@@ -13,6 +13,25 @@ const DEFAULT_TIMEOUT_MS = 2000;
 const NOT_FOUND_CODE = 'ENROLLMENT_NOT_FOUND';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Why an answer is not trusted. Only this code goes to the log, never the values: they are not ours to repeat. */
+type Rejection =
+  | 'NO_DATA'
+  | 'INVALID_ENROLLMENT_ID'
+  | 'INVALID_STATUS'
+  | 'ACCESS_MISMATCH';
+
+function rejectionOf(data: Record<string, unknown> | undefined): Rejection | null {
+  if (!data || typeof data !== 'object') return 'NO_DATA';
+  if (typeof data.enrollmentId !== 'string' || !UUID.test(data.enrollmentId)) {
+    return 'INVALID_ENROLLMENT_ID';
+  }
+  if (typeof data.status !== 'string' || !Object.hasOwn(ACCESS_OF_STATUS, data.status)) {
+    return 'INVALID_STATUS';
+  }
+  // the status is known; the access must be the one the table gives it (Completed + Full would allow a write)
+  return ACCESS_OF_STATUS[data.status] === data.access ? null : 'ACCESS_MISMATCH';
+}
+
 /**
  * Gọi learning-service thật (ENROLLMENT_CLIENT_MODE=http, là chế độ mặc định).
  *
@@ -92,24 +111,17 @@ export class HttpEnrollmentClient extends EnrollmentClient {
   /** An answer that does not have the agreed shape is not trusted: the caller is refused with 503. */
   private parse(body: unknown): AssessmentAccess {
     const data = (body as { data?: Record<string, unknown> } | undefined)?.data;
-    const level = data?.access;
-    if (
-      !data ||
-      typeof data.enrollmentId !== 'string' ||
-      !UUID.test(data.enrollmentId) ||
-      typeof data.status !== 'string' ||
-      !Object.hasOwn(ACCESS_OF_STATUS, data.status) ||
-      ACCESS_OF_STATUS[data.status] !== level
-    ) {
+    const rejection = rejectionOf(data);
+    if (rejection || !data) {
       this.logger.warn(
-        'learning-service trả về câu trả lời quyền làm bài sai dạng.',
+        `learning-service trả về câu trả lời quyền làm bài sai dạng: ${rejection ?? 'NO_DATA'}.`,
       );
       throw this.unavailable('Learning Service returned an unexpected answer.');
     }
     return {
-      enrollmentId: data.enrollmentId,
-      status: data.status,
-      access: level as AssessmentAccessLevel,
+      enrollmentId: data.enrollmentId as string,
+      status: data.status as string,
+      access: data.access as AssessmentAccessLevel,
     };
   }
 
