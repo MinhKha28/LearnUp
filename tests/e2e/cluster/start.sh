@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Starts the disposable LearnUP E2E cluster on one Linux host:
-#   docker compose: postgres + kafka only
+#   docker compose: postgres + kafka from cluster/compose.e2e.yml, project learnup-e2e
+#                   (never the root docker-compose.yml stack; refuses to run beside it)
 #   host processes: eureka, gateway, identity, notification, audit (jars) and
 #                   tenant, course, learning, assessment, achievement (node dist)
 #   smtp-sink: loopback SMTP capture used instead of a real mail provider
@@ -11,6 +12,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+# shellcheck source=compose.sh
+. "$ROOT/tests/e2e/cluster/compose.sh"
 STATE="${E2E_STATE_DIR:-/tmp/learnup-e2e}"
 LOGS="$STATE/logs"
 PIDS="$STATE/pids"
@@ -56,12 +59,11 @@ wait_http() { # name url [timeout_s]
   log "$name is serving ($url)"
 }
 
-log "infrastructure: postgres + kafka"
-(cd "$ROOT" && DB_PASSWORD="$DB_PASSWORD" JWT_SECRET=unused INTERNAL_SERVICE_KEY=unused \
-  PASSWORD_RECOVERY_FRONTEND_BASE_URL=unused POSTGRES_PORT="$POSTGRES_PORT" \
-  docker compose up -d postgres kafka)
-until docker exec learnup-postgres pg_isready -U "$DB_USERNAME" > /dev/null 2>&1; do sleep 2; done
-until docker exec learnup-kafka kafka-topics --bootstrap-server kafka:29092 --list > /dev/null 2>&1; do sleep 3; done
+log "infrastructure: postgres + kafka (compose project $E2E_PROJECT)"
+assert_dev_stack_stopped
+e2e_compose up -d postgres kafka
+until e2e_compose exec -T postgres pg_isready -U "$DB_USERNAME" > /dev/null 2>&1; do sleep 2; done
+until e2e_compose exec -T kafka kafka-topics --bootstrap-server kafka:29092 --list > /dev/null 2>&1; do sleep 3; done
 log "postgres and kafka ready"
 
 start_proc smtp-sink "$SMTP_SINK_PORT" "$ROOT" env MAILBOX_DIR="$STATE/mailbox" SMTP_SINK_PORT="$SMTP_SINK_PORT" \
@@ -162,7 +164,8 @@ for svc in "${NODE_SERVICES[@]}"; do
   log "$svc migrations applied"
 done
 
-if [[ ! -f "$STATE/seeded" || "${1:-}" == "--reseed" ]]; then
+SEEDED="$STATE/seeded-$E2E_PROJECT"
+if [[ ! -f "$SEEDED" || "${1:-}" == "--reseed" ]]; then
   # NODE_PATH=. lets ts-node resolve the learning seed's baseUrl import ('generated/prisma/client').
   seed() { # service npm-script
     ( set -a; . "$STATE/$1.env"; set +a; cd "$ROOT/services/$1"; NODE_PATH=. npm run -s "$2" ) >> "$LOGS/seed.log" 2>&1 \
@@ -174,7 +177,7 @@ if [[ ! -f "$STATE/seeded" || "${1:-}" == "--reseed" ]]; then
   seed course-service prisma:seed
   seed learning-service db:seed
   seed assessment-service db:seed
-  touch "$STATE/seeded"
+  touch "$SEEDED"
 fi
 
 # ---- Java services ----

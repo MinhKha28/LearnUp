@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 
-const CONTAINER = process.env.E2E_KAFKA_CONTAINER ?? "learnup-kafka";
+// Compose v2 container name of the "kafka" service in the E2E project (cluster/compose.sh).
+const CONTAINER = process.env.E2E_KAFKA_CONTAINER ?? `${process.env.E2E_COMPOSE_PROJECT ?? "learnup-e2e"}-kafka-1`;
 const BOOTSTRAP = "kafka:29092";
 
 const kafka = (args, timeoutMs = 20000) =>

@@ -34,7 +34,14 @@ for s in tenant course learning assessment achievement-reporting; do
 tests/e2e/cluster/start.sh      # idempotent; tests/e2e/cluster/stop.sh stops host processes
 ```
 
-`start.sh` runs only postgres and kafka from `docker-compose.yml`. It starts every service from
+`start.sh` runs postgres and kafka from the E2E-only `cluster/compose.e2e.yml` under the compose
+project `learnup-e2e` (`cluster/compose.sh`; `E2E_COMPOSE_PROJECT` may only be changed to another
+name ending in `-e2e`). Containers, volumes (`learnup-e2e_postgres_data`, `learnup-e2e_kafka_data`)
+and the network (`learnup-e2e_default`) are separate from the developer's root `docker-compose.yml`
+stack (project `learnup`). That stack uses the same host ports (5433, 9092), so `start.sh` refuses
+to run while any of its containers is running; stop it yourself, E2E never stops or deletes it.
+`stop.sh` kills whatever listens on the recorded service ports (8080-8093, 8761, 2525), so on a
+shared machine make sure nothing else uses them. It starts every service from
 the host builds, applies migrations, runs each service's own seed once, and starts a loopback
 SMTP sink. It then provisions credentials for the two seeded Organizers through Identity's
 authenticated internal channel. Everything it generates, including random secrets in
@@ -82,8 +89,17 @@ node tests/e2e/cleanup.mjs --run <runId> --yes  # or --all
 
 Uses business APIs only: Optional enrollments are withdrawn and InProgress assignments are
 exempted. Accounts, credentials, Kafka events and signer history have no deletion API and are
-kept. A full reset of the disposable environment is manual:
-`tests/e2e/cluster/stop.sh && docker compose down -v && rm -rf /tmp/learnup-e2e`.
+kept. A full reset of the E2E infrastructure is a separate explicit command:
+
+```bash
+tests/e2e/cluster/reset.sh        # dry run: lists the learnup-e2e volumes it would remove
+tests/e2e/cluster/reset.sh --yes  # stop.sh, then docker compose -p learnup-e2e down -v
+```
+
+It only removes volumes that compose resolves for the E2E project and that carry the label
+`com.docker.compose.project=learnup-e2e`; anything else aborts without deleting. Never run
+`docker compose down -v` from the repository root for E2E: that is the dev stack and removes
+its volumes. `$E2E_STATE_DIR` (secrets, mailbox, run records) is kept; delete it by hand if wanted.
 
 ## Known failures
 
