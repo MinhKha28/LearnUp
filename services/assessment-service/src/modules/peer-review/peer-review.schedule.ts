@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { NotificationClient } from '../../infrastructure/clients/notification/notification.client';
 import { PeerReviewRepository } from './peer-review.repository';
+import { reminderNotice } from './review-notice';
 import { PeerReviewService } from './peer-review.service';
 
 const HOUR_MS = 3_600_000;
@@ -110,8 +111,7 @@ export class PeerReviewSchedule
         const owed = await this.repository.pendingReviewCounts(cycle.id);
         for (const [reviewerId, total] of owed) {
           await this.notifyOne(cycle.organizationId, reviewerId, {
-            title: 'Reviews are due soon',
-            message: `You still have ${total} submission${total === 1 ? '' : 's'} to review for "${cycle.assessment.title}". They are due by ${cycle.reviewDueAt.toISOString()}.`,
+            ...reminderNotice(total, cycle.assessment.title, cycle.reviewDueAt),
             metadata: { assignmentId: cycle.assessmentId, cycleId: cycle.id },
           });
         }

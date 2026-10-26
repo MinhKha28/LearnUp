@@ -39,7 +39,10 @@ describe('UC33 schedule over HTTP', () => {
   let sent: Sent[];
   let assignment: string;
 
-  const until = async (check: () => Promise<boolean>, what: string) => {
+  const until = async (
+    check: () => Promise<boolean> | boolean,
+    what: string,
+  ) => {
     for (let i = 0; i < 60; i += 1) {
       if (await check()) return;
       await sleep(200);
@@ -204,12 +207,14 @@ describe('UC33 schedule over HTTP', () => {
       4,
     );
     await until(
-      async () =>
-        sent.filter((s) => s.body.title === 'Submissions to review').length ===
-        4,
+      () =>
+        sent.filter((s) => s.body.title === 'Bạn có bài cần chấm chéo')
+          .length === 4,
       'four notifications',
     );
-    const told = sent.filter((s) => s.body.title === 'Submissions to review');
+    const told = sent.filter(
+      (s) => s.body.title === 'Bạn có bài cần chấm chéo',
+    );
     assert.deepEqual(
       told.map((s) => s.body.recipientUserId).sort(),
       [...learners].sort(),
@@ -217,7 +222,7 @@ describe('UC33 schedule over HTTP', () => {
     for (const item of told) {
       assert.match(
         item.body.message,
-        /2 submissions to review for "Scheduled"/,
+        /Bạn có 2 bài nộp cần chấm cho "Scheduled"\. Vui lòng hoàn thành trước \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}\./,
       );
       assert.equal(item.body.type, 'PEER_REVIEW');
       assert.equal(item.body.channel, 'IN_APP');
@@ -282,20 +287,20 @@ describe('UC33 schedule over HTTP', () => {
       'the reminder to be recorded',
     );
     await until(
-      async () =>
-        sent.filter((s) => s.body.title === 'Reviews are due soon').length >= 3,
+      () =>
+        sent.filter((s) => s.body.title === 'Sắp đến hạn chấm chéo').length >= 3,
       'three reminders',
     );
     await sleep(1000); // several more runs of the timer
     const reminders = sent.filter(
-      (s) => s.body.title === 'Reviews are due soon',
+      (s) => s.body.title === 'Sắp đến hạn chấm chéo',
     );
     assert.equal(reminders.length, 3, 'once per Learner, not once per run');
     assert.deepEqual(
       reminders.map((s) => s.body.recipientUserId).sort(),
       [...learners].sort(),
     );
-    assert.match(reminders[0].body.message, /2 submissions/);
+    assert.match(reminders[0].body.message, /Bạn còn 2 bài nộp chưa chấm/);
   });
 
   test('outside the reminder window nobody is reminded', async () => {

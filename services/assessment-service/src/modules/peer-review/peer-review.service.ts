@@ -9,6 +9,7 @@ import type { CurrentUser } from '@learnup/ts-common';
 
 import { NotificationClient } from '../../infrastructure/clients/notification/notification.client';
 import { cycleLockKey } from './cycle-lock';
+import { assignedNotice } from './review-notice';
 import { AssessmentsRepository } from '../assessments/assessments.repository';
 import {
   AssessmentsService,
@@ -254,8 +255,7 @@ export class PeerReviewService {
           await this.notifications.send({
             organizationId: cycle.organizationId,
             recipientUserId: reviewerId,
-            title: 'Submissions to review',
-            message: `You have ${total} submission${total === 1 ? '' : 's'} to review for "${assignmentTitle}". Please finish by ${cycle.reviewDueAt.toISOString()}.`,
+            ...assignedNotice(total, assignmentTitle, cycle.reviewDueAt),
             metadata: { assignmentId: cycle.assessmentId, cycleId: cycle.id },
           });
         } catch (error) {
