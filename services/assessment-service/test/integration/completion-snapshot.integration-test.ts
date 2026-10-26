@@ -127,6 +127,21 @@ describe('completion snapshot over HTTP (CT-1)', () => {
     );
   });
 
+  test('the other routes still ask for a user: the key and the Organization alone do not open them', async () => {
+    const serviceCaller = { 'x-internal-key': KEY, 'x-organization-id': ORG };
+    for (const path of [
+      `/api/v1/assessments/assignments?courseId=${COURSE}`,
+      `/api/v1/assessments/quizzes?courseId=${COURSE}`,
+      `/api/v1/assessments/learner/courses/${COURSE}/assessments`,
+      `/api/v1/internal/learners/${LEARNER}/courses/${COURSE}/assessment-activity`,
+    ]) {
+      const response = await fetch(`${service.baseUrl}${path}`, {
+        headers: serviceCaller,
+      });
+      assert.equal(response.status, 401, path);
+    }
+  });
+
   test('an Organization in the query that differs from the header is 404; the same one is 200; bad IDs are 400', async () => {
     const headers = { 'x-internal-key': KEY, 'x-organization-id': ORG };
     assert.equal(

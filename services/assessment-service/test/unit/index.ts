@@ -16,3 +16,4 @@ import './grading-result.unit-test';
 import './cycle-status.unit-test';
 import './course-clients.unit-test';
 import './completion-snapshot.unit-test';
+import './internal-auth-guard.unit-test';

@@ -92,6 +92,16 @@ describe('the score of a Quiz (BR-198)', () => {
     accepted(snapshot);
   });
 
+  test('an attempt that scored 0 is a result: it has an attempt and a score of 0.00, and passes only a passing score of 0', () => {
+    const fails = build([quiz(1, '70', ['0'])], []).quizzes[0];
+    assert.equal(fails.recordedScore, '0.00');
+    assert.notEqual(fails.attemptId, null);
+    assert.equal(fails.passed, false);
+    const passes = build([quiz(1, '0', ['0'])], []);
+    assert.equal(passes.quizzes[0].passed, true);
+    accepted(passes);
+  });
+
   test('exactly the passing score passes; one hundredth under does not', () => {
     const at = build([quiz(1, '70', ['70'])], []);
     const under = build([quiz(1, '70', ['69.99'])], []);
@@ -146,6 +156,21 @@ describe('the score of an Assignment (BR-212)', () => {
     assert.equal(a.finalizedAt, '2026-10-25T08:30:00.000Z');
     assert.equal(a.passed, true);
     accepted(snapshot);
+  });
+
+  test('Finalized without a score or without a time is not a result (the row is incomplete, never guess)', () => {
+    for (const latest of [
+      { ...finalized('90')!, finalScore: null },
+      { ...finalized('90')!, finalizedAt: null },
+    ]) {
+      const snapshot = build([], [assignment(1, '70', latest)]);
+      const a = snapshot.assignments[0];
+      assert.equal(a.submissionId, latest.id);
+      assert.equal(a.finalScore, null);
+      assert.equal(a.finalizedAt, null);
+      assert.equal(a.passed, false);
+      accepted(snapshot);
+    }
   });
 
   test('never submitted: no submission, not passed', () => {
