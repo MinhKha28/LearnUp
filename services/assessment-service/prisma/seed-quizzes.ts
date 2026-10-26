@@ -1192,27 +1192,21 @@ async function seed(prisma: PrismaClient): Promise<void> {
         }
 
         for (const state of learnerStates(quiz)) {
+          // By id, not by Assessment and Learner: a database seeded with the old IDs has this row under the old
+          // Learner, and the seed has to move it to the new one, not create a second row with the same id.
           const stateData = {
             organizationId,
+            assessmentId: id,
+            learnerId: state.learnerId,
             firstActivityAt: state.firstActivityAt,
             consecutiveCount: state.consecutiveCount,
             lockedUntil: state.lockedUntil,
             recordedAttemptId: state.recordedAttemptId,
           };
           await tx.learnerAssessmentState.upsert({
-            where: {
-              assessmentId_learnerId: {
-                assessmentId: id,
-                learnerId: state.learnerId,
-              },
-            },
+            where: { id: state.id },
             update: stateData,
-            create: {
-              id: state.id,
-              assessmentId: id,
-              learnerId: state.learnerId,
-              ...stateData,
-            },
+            create: { id: state.id, ...stateData },
           });
         }
       }
