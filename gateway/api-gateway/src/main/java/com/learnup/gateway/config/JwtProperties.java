@@ -54,8 +54,6 @@ public class JwtProperties {
             "/api/auth/refresh",
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
-            "/api/v1/certificates/verify/**",
-            "/api/certificates/verify/**",
             "/actuator/health",
             "/fallback/**"
     ));
