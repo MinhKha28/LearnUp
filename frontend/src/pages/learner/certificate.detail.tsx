@@ -1,79 +1,97 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { findCertificate } from "@/components/learner/learner.data";
-import { DetailItem, LearnerButton, LearnerPage, PageHeader, StatusTag } from "@/components/learner/learner.ui";
+import {
+  getCertificate,
+  certificateDate,
+} from "@/services/achievement.service";
+import { useApiQuery } from "@/hooks/use.api.query";
+import { useCertificateDownload } from "@/hooks/use.certificate.download";
+import {
+  DetailItem,
+  LearnerButton,
+  LearnerPage,
+  PageHeader,
+  StatusTag,
+} from "@/components/learner/learner.ui";
+import {
+  LearnerSkeleton,
+  LearnerEmptyState,
+  LearnerErrorState,
+} from "@/components/learner/learner.states";
 import "./certificate.detail.scss";
-
 const CertificateDetail = () => {
-  const { certificateId } = useParams();
+  const { certificateId = "" } = useParams();
   const navigate = useNavigate();
-  const certificate = findCertificate(certificateId);
-  const learnerName = "Alex Morgan";
-
-  if (!certificate) {
-    return (
-      <LearnerPage className="certificate-detail">
-        <PageHeader eyebrow="CERTIFICATES / DETAIL" title="Certificate not found" subtitle="" back />
-        <LearnerButton onClick={() => navigate("/learner/certificates")}>
-          Back to My Certificates
-        </LearnerButton>
-      </LearnerPage>
-    );
-  }
-
-  const downloadCertificate = () => {
-    const content = [
-      "LEARNUP",
-      "Certificate of Completion",
-      `Awarded to: ${learnerName}`,
-      `${certificate.courseTitle} • Course version ${certificate.version}`,
-      certificate.completionLabel,
-      `Completion date: ${certificate.completionDate}`,
-      `Issue date: ${certificate.issuedDate}`,
-      `Certificate ID: ${certificate.certificateId}`,
-    ].join("\n");
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${certificate.certificateId}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
+  const query = useApiQuery(
+    (signal) => getCertificate(certificateId, signal),
+    [certificateId],
+  );
+  const downloads = useCertificateDownload();
+  const certificate = query.data;
   return (
     <LearnerPage className="certificate-detail">
+      <LearnerButton onClick={() => navigate("/learner/certificates")}>
+        Về danh sách chứng chỉ
+      </LearnerButton>
       <PageHeader
-        eyebrow="CERTIFICATES / DETAIL"
-        title="Certificate Details"
-        subtitle={`Issued Certificate / Course version ${certificate.version}`}
-        back
+        title="Chi tiết chứng chỉ"
+        subtitle="Thông tin được chốt tại thời điểm cấp chứng chỉ."
         actions={
-          <LearnerButton type="primary" onClick={downloadCertificate}>
-            Download PDF
-          </LearnerButton>
+          certificate && (
+            <LearnerButton
+              type="primary"
+              loading={downloads.busy.has(certificateId)}
+              disabled={downloads.busy.has(certificateId)}
+              onClick={() => void downloads.download(certificateId)}
+            >
+              Tải PDF
+            </LearnerButton>
+          )
         }
       />
-      <div className="certificate-detail-card">
-        <span className="certificate-detail-bar" />
-        <span className="certificate-detail-brand">LEARNUP</span>
-        <h2>Certificate of Completion</h2>
-        <span className="certificate-detail-awarded">Awarded to</span>
-        <strong className="certificate-detail-name">{learnerName}</strong>
-        <p className="certificate-detail-course">
-          {certificate.courseTitle} • Course version {certificate.version}
-        </p>
-        <StatusTag tone={certificate.completionLabel === "On time" ? "success" : "warning"}>
-          {certificate.completionLabel}
-        </StatusTag>
-        <hr />
-        <div className="certificate-detail-meta">
-          <DetailItem label="Completion date">{certificate.completionDate}</DetailItem>
-          <DetailItem label="Issue date">{certificate.issuedDate}</DetailItem>
-          <DetailItem label="Certificate ID">{certificate.certificateId}</DetailItem>
+      {query.status === "loading" && <LearnerSkeleton variant="detail" />}
+      {query.status === "error" &&
+        (query.error.status === 404 ? (
+          <LearnerEmptyState
+            title="Không tìm thấy chứng chỉ"
+            description="Chứng chỉ không tồn tại hoặc không thuộc tài khoản của bạn."
+          />
+        ) : (
+          <LearnerErrorState error={query.error} onRetry={query.reload} />
+        ))}
+      {downloads.messages[certificateId] && (
+        <p role="status">{downloads.messages[certificateId]}</p>
+      )}
+      {certificate && (
+        <div className="certificate-detail-card">
+          <strong className="certificate-detail-brand">
+            {certificate.organizationName}
+          </strong>
+          <h2>Chứng chỉ hoàn thành</h2>
+          <span>Chứng nhận học viên</span>
+          <strong className="certificate-detail-name">
+            {certificate.recipient}
+          </strong>
+          <p className="certificate-detail-course">
+            {certificate.courseTitle} · Phiên bản {certificate.versionNumber}
+          </p>
+          <StatusTag tone={certificate.completedLate ? "warning" : "success"}>
+            {certificate.completedLate
+              ? "Hoàn thành sau hạn"
+              : "Hoàn thành đúng hạn"}
+          </StatusTag>
+          <div className="certificate-detail-meta">
+            <DetailItem label="Ngày cấp">
+              {certificateDate(certificate.issuedDate)}
+            </DetailItem>
+            <DetailItem label="Mã chứng chỉ">
+              {certificate.certificateCode}
+            </DetailItem>
+          </div>
+          {certificate.signerName && <p>{certificate.signerName}</p>}
+          {certificate.signerTitle && <p>{certificate.signerTitle}</p>}
         </div>
-      </div>
+      )}
     </LearnerPage>
   );
 };
-
 export default CertificateDetail;

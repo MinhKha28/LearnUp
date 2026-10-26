@@ -816,42 +816,6 @@ export const peerReviewTasks: IPeerReviewTask[] = [
 export const findPeerReviewTask = (submissionId?: string) =>
   peerReviewTasks.find((task) => task.id === submissionId);
 
-// ---- Certificates ---------------------------------------------------------
-
-export interface ICertificate {
-  id: string;
-  courseTitle: string;
-  version: string;
-  issuedDate: string;
-  completionDate: string;
-  completionLabel: "On time" | "Completed late";
-  certificateId: string;
-}
-
-export const certificates: ICertificate[] = [
-  {
-    id: "cert-service-communication",
-    courseTitle: "Service Communication",
-    version: "v1",
-    issuedDate: "18 Sep 2026",
-    completionDate: "18 Sep 2026",
-    completionLabel: "On time",
-    certificateId: "CERT-2026-0142",
-  },
-  {
-    id: "cert-data-protection",
-    courseTitle: "Data Protection Basics",
-    version: "v2",
-    issuedDate: "08 Sep 2026",
-    completionDate: "05 Sep 2026",
-    completionLabel: "Completed late",
-    certificateId: "CERT-2026-0098",
-  },
-];
-
-export const findCertificate = (certificateId?: string) =>
-  certificates.find((certificate) => certificate.id === certificateId);
-
 // ---- Content Reports -------------------------------------------------------
 
 export type ReportContentType = "Lesson" | "Video" | "Reading" | "Quiz" | "Assignment";
