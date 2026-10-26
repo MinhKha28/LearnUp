@@ -6,6 +6,7 @@ import { DetailItem, InfoPanel, LearnerButton, PageHeader, WarningPanel } from "
 import {
   assessmentErrorCode,
   assessmentErrorText,
+  ENROLLMENT_NOT_ACTIVE_FORM_TEXT,
   downloadLearnerPromptFileAPI,
   fetchLearnerAssignmentAPI,
   resubmitAssignmentAPI,
@@ -140,14 +141,17 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
         navigate(`${base}/submitted`, { state: { receipt: res.data, title: assignment.title } });
         return;
       }
-      message.error(
-        assessmentErrorText(res, resubmitting ? "Unable to resubmit the Assignment." : "Unable to submit the Assignment."),
-      );
       // The state may have changed (locked, submitted elsewhere): show the real one.
       const code = assessmentErrorCode(res).code ?? "";
       if (code === NOT_ACTIVE_CODE) {
-        setNotActive(assessmentErrorText(res, "Your Enrollment in this Course is not active."));
-      } else if (STALE_CODES.includes(code)) {
+        message.error(ENROLLMENT_NOT_ACTIVE_FORM_TEXT);
+        setNotActive(ENROLLMENT_NOT_ACTIVE_FORM_TEXT);
+        return;
+      }
+      message.error(
+        assessmentErrorText(res, resubmitting ? "Unable to resubmit the Assignment." : "Unable to submit the Assignment."),
+      );
+      if (STALE_CODES.includes(code)) {
         await load();
       }
     } catch {
@@ -177,7 +181,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
               {formatTime(attempts.lockedUntil!)}.
             </WarningPanel>
           )}
-          {notActive && <WarningPanel title="Enrollment not active">{notActive}</WarningPanel>}
+          {notActive && <WarningPanel title="Không thể nộp bài">{notActive}</WarningPanel>}
           {assignment.readOnly && (
             <WarningPanel title="Course completed">
               This Course is completed, so the Assignment is read-only.
