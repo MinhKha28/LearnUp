@@ -1,0 +1,144 @@
+openapi: 3.0.3
+info:
+  title: LearnUP Assessment internal API
+  version: 1.0.0
+  description: Internal endpoints of assessment-service. Only the completion snapshot is described here for now; the public Learner and Instructor routes are listed in the Swagger UI of the service. The routes below are for other services and are never exposed through Gateway.
+security:
+  - InternalKey: []
+paths:
+  /api/v1/internal/learners/{learnerId}/courses/{courseId}/completion-snapshot:
+    get:
+      summary: What a Learner has done in the Quizzes and Assignments a Course requires (CT-1)
+      description: |
+        Called by learning-service to decide whether the Learner has finished the Course. The caller sends `x-internal-key` and `x-organization-id`; no user or role is sent or checked. `organizationId` in the query is optional; when it is sent it must equal the header, otherwise the answer is 404.
+
+        Computed on read, nothing is stored. The required components are every Assignment and every Quiz marked required, not Disabled (BR-206). A Course with none is `eligible: true` with `requiredComponentCount: 0`.
+
+        Rules (they follow the validator of learning-service word for word; a snapshot that breaks one is rejected there as INVALID_SNAPSHOT):
+        - Quiz: `recordedScore` is the best submitted attempt (BR-198), the earlier one on a tie. `passed` is `attemptId` and `recordedScore` present and `recordedScore >= passingScore`.
+        - Assignment: the newest submission that was not replaced (BR-170). `finalScore` and `finalizedAt` are present only when the grading status is Finalized (BR-212). `passed` is `submissionId`, `finalizedAt`, `finalScore` present and `finalScore >= passingScore`.
+        - peerReview: only the reviews the Learner owes as a peer, never the Instructor's. None means NotApplicable with 0 of 0. Any review missed, or still Pending past the deadline of its cycle (judged at read time), means Missed; all done means Satisfied; otherwise Pending. Waived is not returned until learning accepts it (L22).
+        - `eligible` is true when every component is passed and every peerReview is NotApplicable or Satisfied.
+        - Scores are text with two decimals (`85.00`). `revision` changes when, and only when, what the Learner did changes; `snapshotId` is a UUID v5 of the Organization, Learner, Course and revision; `asOf` is the time of the reading.
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+        - name: learnerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: courseId
+          in: path
+          required: true
+          description: The Course version, as in the other services.
+          schema: { type: string, format: uuid }
+        - name: organizationId
+          in: query
+          required: false
+          description: Optional. Must equal the `x-organization-id` header when sent.
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The snapshot, in `data` of the common envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/CompletionSnapshot" }
+        "400":
+          description: learnerId or courseId is not a UUID.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401":
+          description: Missing or wrong internal key, or a missing or malformed `x-organization-id`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: The Organization of the query differs from the header.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+components:
+  securitySchemes:
+    InternalKey: { type: apiKey, in: header, name: x-internal-key }
+  parameters:
+    OrganizationId:
+      name: x-organization-id
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    Score:
+      type: string
+      description: Two decimals, no leading zero, 0.00 to 100.00.
+      pattern: '^(?:0|[1-9]\d?)(?:\.\d{1,2})?$|^100(?:\.0{1,2})?$'
+      example: "85.00"
+    CompletionSnapshot:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, snapshotId, asOf, revision, organizationId, learnerId, courseId, eligible, requiredComponentCount, quizzes, assignments]
+      properties:
+        schemaVersion: { type: integer, enum: [1] }
+        snapshotId: { type: string, format: uuid }
+        asOf: { type: string, format: date-time, description: UTC, ends in Z }
+        revision: { type: string, minLength: 1 }
+        organizationId: { type: string, format: uuid }
+        learnerId: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        eligible: { type: boolean }
+        requiredComponentCount:
+          type: integer
+          minimum: 0
+          description: Equals the number of items in quizzes plus assignments.
+        quizzes:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [assessmentId, attemptId, recordedScore, passingScore, passed]
+            properties:
+              assessmentId: { type: string, format: uuid }
+              attemptId: { type: string, format: uuid, nullable: true }
+              recordedScore:
+                nullable: true
+                allOf: [{ $ref: "#/components/schemas/Score" }]
+              passingScore: { $ref: "#/components/schemas/Score" }
+              passed: { type: boolean }
+        assignments:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [assessmentId, submissionId, finalScore, passingScore, finalizedAt, passed, peerReview]
+            properties:
+              assessmentId: { type: string, format: uuid }
+              submissionId: { type: string, format: uuid, nullable: true }
+              finalScore:
+                nullable: true
+                allOf: [{ $ref: "#/components/schemas/Score" }]
+              passingScore: { $ref: "#/components/schemas/Score" }
+              finalizedAt: { type: string, format: date-time, nullable: true }
+              passed: { type: boolean }
+              peerReview:
+                type: object
+                additionalProperties: false
+                required: [status, requiredCount, completedCount]
+                properties:
+                  status: { type: string, enum: [NotApplicable, Pending, Satisfied, Missed] }
+                  requiredCount: { type: integer, minimum: 0 }
+                  completedCount: { type: integer, minimum: 0, description: At most requiredCount; equals it when Satisfied; 0 when NotApplicable. }
+    Error:
+      type: object
+      properties:
+        statusCode: { type: integer }
+        error:
+          type: object
+          properties:
+            message: {}
+            error: { type: string }
+            statusCode: { type: integer }
