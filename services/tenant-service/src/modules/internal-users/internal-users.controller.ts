@@ -1,6 +1,7 @@
 import { HEADER_NAMES } from '@learnup/ts-common';
 import { Body, Controller, Headers, HttpCode, Post } from '@nestjs/common';
 import {
+  ApiHeader,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiSecurity,
@@ -75,6 +76,12 @@ export class InternalUsersController {
         },
       },
     },
+  })
+  @ApiHeader({
+    name: HEADER_NAMES.ORGANIZATION_ID,
+    required: true,
+    description:
+      'Organization of the caller; must equal organizationId in the body.',
   })
   @ApiNotFoundResponse({
     description:

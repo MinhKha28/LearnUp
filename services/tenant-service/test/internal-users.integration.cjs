@@ -34,6 +34,9 @@ const {
 const {
   TransformInterceptor,
 } = require('../dist/src/common/interceptors/transform.interceptor');
+const {
+  HttpExceptionFilter,
+} = require('../dist/src/common/filters/http-exception.filter');
 
 test('internal lookup with isolated organization fixtures', async (t) => {
   const organizationId = '019a1111-2420-7000-8000-000000000001';
@@ -59,6 +62,7 @@ test('internal lookup with isolated organization fixtures', async (t) => {
       forbidNonWhitelisted: true,
     }),
   );
+  app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor(app.get(Reflector)));
   const db = app.get(PrismaService);
   const cleanup = async () => {
@@ -206,7 +210,7 @@ test('internal lookup with isolated organization fixtures', async (t) => {
     await t.test('returns 404 when x-organization-id is missing', async () => {
       const missing = await call(process.env.INTERNAL_SERVICE_KEY);
       assert.equal(missing.status, 404);
-      assert.equal((await missing.json()).code, 'ORGANIZATION_NOT_FOUND');
+      assert.equal((await missing.json()).error.code, 'ORGANIZATION_NOT_FOUND');
     });
     await t.test('returns 404 when x-organization-id differs', async () => {
       const mismatched = await call(
@@ -214,7 +218,10 @@ test('internal lookup with isolated organization fixtures', async (t) => {
         otherOrganizationId,
       );
       assert.equal(mismatched.status, 404);
-      assert.equal((await mismatched.json()).code, 'ORGANIZATION_NOT_FOUND');
+      assert.equal(
+        (await mismatched.json()).error.code,
+        'ORGANIZATION_NOT_FOUND',
+      );
     });
     await t.test('EXPLAIN ANALYZE with 500 IDs', async () => {
       const plan = await db.$queryRaw(

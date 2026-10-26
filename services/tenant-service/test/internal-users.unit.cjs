@@ -66,6 +66,8 @@ test('looks up when x-organization-id matches the body, ignoring case', async ()
 for (const [name, header] of [
   ['another organization', randomUUID()],
   ['an empty header', ''],
+  ['a whitespace-only header', '   '],
+  ['a non-UUID header', 'not-a-uuid'],
   ['a missing header', undefined],
 ]) {
   test(`returns 404 without querying for ${name}`, async () => {
