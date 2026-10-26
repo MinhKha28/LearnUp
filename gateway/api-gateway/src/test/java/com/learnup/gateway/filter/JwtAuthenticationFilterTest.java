@@ -352,6 +352,111 @@ class JwtAuthenticationFilterTest {
         assertThatThrownBy(jwtProperties::validateSecrets).isInstanceOf(IllegalStateException.class);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("BR-264: certificate verification requires JWT with defaults and YAML configuration")
+    void shouldRejectAnonymousCertificateVerification(boolean configured) throws Exception {
+        Binder binder = certificateTestConfiguration(configured);
+        for (String prefix : new String[] {"/api/v1", "/api"}) {
+            String path = prefix + "/certificates/verify/certificate-123/nested";
+            assertAchievementRoute(binder, path);
+            var exchange = MockServerWebExchange.from(MockServerHttpRequest.get(path));
+            AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
+            StepVerifier.create(filter.filter(exchange, next -> {
+                forwarded.set(next);
+                return Mono.empty();
+            })).verifyComplete();
+            assertThat(jwtProperties.isWhitelisted(path)).as(path).isFalse();
+            assertThat(exchange.getResponse().getStatusCode()).as(path).isEqualTo(HttpStatus.UNAUTHORIZED);
+            assertThat(forwarded.get()).as(path).isNull();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldForwardAuthenticatedCertificateSettings(boolean configured) throws Exception {
+        Binder binder = certificateTestConfiguration(configured);
+        String token = createToken("organizer-1", "ORGANIZER", "org-1", 3600000L);
+        for (String prefix : new String[] {"/api/v1", "/api"}) {
+            String path = prefix + "/certificates/signer-settings";
+            assertAchievementRoute(binder, path);
+            var exchange = MockServerWebExchange.from(MockServerHttpRequest.get(path)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token));
+            AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
+            StepVerifier.create(filter.filter(exchange, next -> {
+                forwarded.set(next);
+                return Mono.empty();
+            })).verifyComplete();
+            assertThat(forwarded.get()).as(path).isNotNull();
+            assertThat(forwarded.get().getRequest().getURI().getPath()).isEqualTo(path);
+            var headers = forwarded.get().getRequest().getHeaders();
+            assertThat(headers.getFirst(HeaderConstants.X_USER_ID)).isEqualTo("organizer-1");
+            assertThat(headers.getFirst(HeaderConstants.X_USER_ROLE)).isEqualTo("ORGANIZER");
+            assertThat(headers.getFirst(HeaderConstants.X_ORGANIZATION_ID)).isEqualTo("org-1");
+            assertThat(headers.getFirst(HeaderConstants.X_INTERNAL_KEY)).isEqualTo(INTERNAL_KEY);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPreserveOtherPublicRoutes(boolean configured) throws Exception {
+        certificateTestConfiguration(configured);
+        var paths = new ArrayList<String>(java.util.List.of("/actuator/health", "/fallback/unavailable"));
+        for (String prefix : new String[] {"/api/v1", "/api"}) {
+            for (String action : new String[] {"login", "refresh", "forgot-password", "reset-password"}) {
+                paths.add(prefix + "/auth/" + action);
+            }
+            if (configured) {
+                paths.add(prefix + "/subscription-plans/plan-1");
+                paths.add(prefix + "/registrations/registration-1");
+                paths.add(prefix + "/invitations/accept");
+            }
+        }
+        assertThat(jwtProperties.getWhitelist()).hasSize(paths.size());
+        for (String path : paths) {
+            var exchange = MockServerWebExchange.from(MockServerHttpRequest.get(path));
+            AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
+            StepVerifier.create(filter.filter(exchange, next -> {
+                forwarded.set(next);
+                return Mono.empty();
+            })).verifyComplete();
+            assertThat(forwarded.get()).as(path).isNotNull();
+            assertThat(forwarded.get().getRequest().getURI().getPath()).isEqualTo(path);
+            assertThat(forwarded.get().getRequest().getHeaders().getFirst(HeaderConstants.X_INTERNAL_KEY))
+                    .isEqualTo(INTERNAL_KEY);
+        }
+    }
+
+    private Binder certificateTestConfiguration(boolean configured) throws Exception {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("certificate-test-secrets",
+                Map.of("JWT_SECRET", TEST_SECRET, "INTERNAL_SERVICE_KEY", INTERNAL_KEY)));
+        new YamlPropertySourceLoader().load("gateway-application", new ClassPathResource("application.yml"))
+                .forEach(environment.getPropertySources()::addLast);
+        Binder binder = Binder.get(environment);
+        if (configured) {
+            jwtProperties = binder.bind("jwt", Bindable.of(JwtProperties.class)).get();
+            filter = new JwtAuthenticationFilter(jwtProperties, objectMapper);
+        }
+        return binder;
+    }
+
+    private void assertAchievementRoute(Binder binder, String path) {
+        GatewayProperties gateway = binder.bind("spring.cloud.gateway", Bindable.of(GatewayProperties.class)).get();
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest.get(path));
+        var factory = new PathRoutePredicateFactory();
+        var routes = gateway.getRoutes().stream()
+                .filter(route -> route.getPredicates().stream()
+                        .filter(predicate -> "Path".equals(predicate.getName()))
+                        .anyMatch(predicate -> factory.apply(new PathRoutePredicateFactory.Config()
+                                .setPatterns(new ArrayList<>(predicate.getArgs().values()))).test(exchange)))
+                .toList();
+        assertThat(routes).as(path).hasSize(1);
+        assertThat(routes.get(0).getId()).isEqualTo("achievement-reporting-service");
+        assertThat(routes.get(0).getUri().toString()).isEqualTo("http://achievement-reporting-service:8087");
+        assertThat(routes.get(0).getFilters()).isEmpty();
+    }
+
     private void assertRegistrationRejectedWithoutForwarding(String path) {
         assertThat(jwtProperties.isWhitelisted(path)).isFalse();
         MockServerHttpRequest request = MockServerHttpRequest.post(path)
