@@ -525,26 +525,20 @@ async function seed(prisma: PrismaClient): Promise<void> {
       create: { id: SUBMISSION_ID, ...submissionData },
     });
 
+    // Tìm theo id (không theo cặp Assessment + Learner): một DB đã seed bằng bản cũ có dòng này với Learner 0199a…,
+    // và seed lại phải chuyển nó sang Learner mới chứ không tạo thêm dòng trùng id.
     const stateData = {
       organizationId: submitted.organizationId,
+      assessmentId: submitted.id,
+      learnerId: LEARNER_1,
       firstActivityAt: SUBMITTED_AT,
       consecutiveCount: 1,
       latestSubmissionId: SUBMISSION_ID,
     };
     await prisma.learnerAssessmentState.upsert({
-      where: {
-        assessmentId_learnerId: {
-          assessmentId: submitted.id,
-          learnerId: LEARNER_1,
-        },
-      },
+      where: { id: LEARNER_STATE_ID },
       update: stateData,
-      create: {
-        id: LEARNER_STATE_ID,
-        assessmentId: submitted.id,
-        learnerId: LEARNER_1,
-        ...stateData,
-      },
+      create: { id: LEARNER_STATE_ID, ...stateData },
     });
   }
 
