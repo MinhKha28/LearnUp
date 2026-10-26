@@ -13,6 +13,7 @@ import {
   INSTRUCTOR,
   LEARNER,
   ORG,
+  OTHER_ORG,
   startCourseStub,
   startService,
   type CourseStub,
@@ -171,6 +172,21 @@ describe('UC30.2 over HTTP', () => {
     for (const hidden of [PEER_1, PEER_2, INSTRUCTOR, 'reviewerId', 'reviewerRole']) {
       assert.equal(text.includes(hidden), false, hidden);
     }
+  });
+
+  test('a Learner of another Organization reaches neither result of a Finalized submission: 404 ASSIGNMENT_NOT_FOUND', async () => {
+    const stranger = identity({ user: LEARNER, org: OTHER_ORG, role: 'LEARNER' });
+    const byLatest = await api(
+      'GET',
+      `/learner/assignments/${assignmentId}/result`,
+      undefined,
+      stranger,
+    );
+    assert.equal(byLatest.status, 404);
+    assert.equal(byLatest.code, 'ASSIGNMENT_NOT_FOUND');
+    const byId = await api('GET', resultPath(submissionId), undefined, stranger);
+    assert.equal(byId.status, 404);
+    assert.equal(byId.code, 'ASSIGNMENT_NOT_FOUND');
   });
 
   test('below the passing score the result says not passed', async () => {

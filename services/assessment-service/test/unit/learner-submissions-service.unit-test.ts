@@ -31,9 +31,11 @@ const OTHER_LEARNER = '00000000-0000-4000-8000-0000000000c2';
 const ENROLLMENT = '00000000-0000-4000-8000-0000000000e1';
 const HOUR = 3_600_000;
 
-const learner = (userId = LEARNER): CurrentUser => ({
+const OTHER_ORG = '00000000-0000-4000-8000-0000000000bb';
+
+const learner = (userId = LEARNER, organizationId = ORG): CurrentUser => ({
   userId,
-  organizationId: ORG,
+  organizationId,
   role: 'LEARNER',
   isAuthenticated: true,
 });
@@ -105,7 +107,31 @@ function build(over: Partial<World> = {}) {
 
   const repository = {
     transaction: (fn: (tx: unknown) => Promise<unknown>) => fn({}),
-    findAssignment: () => Promise.resolve(world.assignment),
+    // like the real one: an Assignment of another Organization is not found
+    findAssignment: (organizationId: string, id: string) =>
+      Promise.resolve(
+        world.assignment &&
+          world.assignment.organizationId === organizationId &&
+          world.assignment.id === id
+          ? world.assignment
+          : null,
+      ),
+    // like the real one: only a submission of this Organization, this Assignment and this Learner
+    findSubmissionWithReviews: (
+      organizationId: string,
+      assessmentId: string,
+      id: string,
+      learnerId: string,
+    ) => {
+      const found = world.submissions.find(
+        (x) =>
+          x.id === id &&
+          x.assessmentId === assessmentId &&
+          x.organizationId === organizationId &&
+          x.learnerId === learnerId,
+      );
+      return Promise.resolve(found ? { ...found, reviews: [] } : null);
+    },
     findState: (a: string, l: string) =>
       Promise.resolve(world.states.get(stateKey(a, l)) ?? null),
     findLatestSubmission: (a: string, l: string) =>
@@ -757,6 +783,96 @@ describe('resubmit (UC30.1)', () => {
       .resubmission;
     assert.equal(closed?.placement, 'INSTRUCTOR');
     assert.equal(closed?.cycleClosesAt, null);
+  });
+});
+
+/** The grader finished: the submission is Finalized with this score. */
+const finalize = (
+  row: SubmissionRow,
+  score = '80',
+  comment: string | null = 'Well done',
+) =>
+  Object.assign(row, {
+    gradingStatus: 'Finalized',
+    finalScore: { toString: () => score },
+    finalizedAt: new Date('2026-10-20T08:00:00Z'),
+    finalizationComment: comment,
+  });
+
+describe('getLatestResult (UC30.2)', () => {
+  let ctx: ReturnType<typeof build>;
+  beforeEach(() => {
+    ctx = build();
+  });
+
+  test('a Finalized submission gives its result, under Full and under ReadOnly (Completed), asking Learning Service once', async () => {
+    const receipt = await ctx.service.submit(learner(), ASSIGNMENT, {
+      content: 'x',
+    });
+    finalize(ctx.world.submissions[0]);
+    for (const access of ['Full', 'ReadOnly'] as const) {
+      ctx.enrollments.access = access;
+      ctx.enrollments.asked = 0;
+      const result = await ctx.service.getLatestResult(learner(), ASSIGNMENT);
+      assert.equal(result.submission.id, receipt.id, access);
+      assert.equal(result.assignment.id, ASSIGNMENT, access);
+      assert.equal(result.finalScore, 80, access);
+      assert.equal(result.passed, true, access);
+      assert.equal(result.finalizationComment, 'Well done', access);
+      assert.equal(ctx.enrollments.asked, 1, `${access}: one question`);
+    }
+  });
+
+  test('below the passing score the result says not passed', async () => {
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    finalize(ctx.world.submissions[0], '55');
+    const result = await ctx.service.getLatestResult(learner(), ASSIGNMENT);
+    assert.equal(result.finalScore, 55);
+    assert.equal(result.passed, false);
+  });
+
+  test('a submission that is not Finalized yet is 409 SUBMISSION_NOT_FINALIZED, after one question', async () => {
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    ctx.enrollments.asked = 0;
+    await rejectsWith(
+      ctx.service.getLatestResult(learner(), ASSIGNMENT),
+      ConflictException,
+      'SUBMISSION_NOT_FINALIZED',
+    );
+    assert.equal(ctx.enrollments.asked, 1);
+  });
+
+  test("another Learner's submission is never returned: 404 SUBMISSION_NOT_FOUND, by the latest and by id", async () => {
+    await ctx.service.submit(learner(OTHER_LEARNER), ASSIGNMENT, {
+      content: 'theirs',
+    });
+    const theirs = finalize(ctx.world.submissions[0]);
+    await rejectsWith(
+      ctx.service.getLatestResult(learner(), ASSIGNMENT),
+      NotFoundException,
+      'SUBMISSION_NOT_FOUND',
+    );
+    await rejectsWith(
+      ctx.service.getResult(learner(), ASSIGNMENT, theirs.id),
+      NotFoundException,
+      'SUBMISSION_NOT_FOUND',
+    );
+  });
+
+  test("a Learner of another Organization cannot reach the Assignment or its results: 404 ASSIGNMENT_NOT_FOUND", async () => {
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    const mine = finalize(ctx.world.submissions[0]);
+    const stranger = learner(LEARNER, OTHER_ORG);
+    await rejectsWith(
+      ctx.service.getLatestResult(stranger, ASSIGNMENT),
+      NotFoundException,
+      'ASSIGNMENT_NOT_FOUND',
+    );
+    await rejectsWith(
+      ctx.service.getResult(stranger, ASSIGNMENT, mine.id),
+      NotFoundException,
+      'ASSIGNMENT_NOT_FOUND',
+    );
   });
 });
 
