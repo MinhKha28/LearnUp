@@ -78,7 +78,7 @@ export class InternalUsersController {
   })
   @ApiNotFoundResponse({
     description:
-      'x-organization-id is present and differs from organizationId in the body (ORGANIZATION_NOT_FOUND).',
+      'x-organization-id is missing or differs from organizationId in the body (ORGANIZATION_NOT_FOUND).',
   })
   lookup(
     @Headers(HEADER_NAMES.ORGANIZATION_ID) organizationId: string | undefined,

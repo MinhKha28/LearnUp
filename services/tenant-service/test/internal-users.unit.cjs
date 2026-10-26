@@ -66,6 +66,7 @@ test('looks up when x-organization-id matches the body, ignoring case', async ()
 for (const [name, header] of [
   ['another organization', randomUUID()],
   ['an empty header', ''],
+  ['a missing header', undefined],
 ]) {
   test(`returns 404 without querying for ${name}`, async () => {
     const { service, calls } = createService();
@@ -78,12 +79,6 @@ for (const [name, header] of [
     assert.equal(calls.length, 0);
   });
 }
-
-test('still accepts a call without x-organization-id during the transition', async () => {
-  const { service, calls } = createService();
-  await service.lookup(undefined, lookupDto);
-  assert.deepEqual(calls, [[organizationId, [repeated]]]);
-});
 
 test('accepts one and 500 unique UUIDs', async () => {
   for (const length of [1, 500]) {
