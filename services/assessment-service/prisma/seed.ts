@@ -15,13 +15,16 @@ import { PrismaClient } from '../generated/prisma/client';
 // ---------------------------------------------------------------------------
 // ID cố định (trùng với prisma/seed.ts của course-service)
 // ---------------------------------------------------------------------------
-const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
+// Tổ chức ABC, Instructor và Learner của tài khoản dev (identity-service DevAccountSeeder, course-service prisma/seed.ts).
+const ORG_A = '01900000-0000-7000-8000-00000000a001'; // ABC
+const LEARNER_1 = '01900000-0000-7000-8000-00000000a201'; // learner@learnup.local
+// Tổ chức thứ hai chỉ để thử không xem chéo giữa các tổ chức; course-service không có tổ chức và Course nào như vậy.
 const ORG_B = '0199a000-0000-7000-8000-0a0000000002';
-const LEARNER_1 = '0199a000-0000-7000-8000-0b0000000001'; // org A
 
-const COURSE_AN_TOAN_V2 = '0199a000-0000-7000-8000-0e0000000002'; // Published
-const COURSE_BAO_MAT = '0199a000-0000-7000-8000-0e0000000003'; // Published
-const COURSE_QUY_TRINH = '0199a000-0000-7000-8000-0e0000000004'; // Published
+// Course version của prisma/seed.ts của course-service: 01900000-…-c002 + (chuỗi * 10 + phiên bản) viết hex 8 chữ số.
+const COURSE_AN_TOAN_V2 = '01900000-0000-7000-8000-c0020000005c'; // VERSION2_PUBLISHED
+const COURSE_BAO_MAT = '01900000-0000-7000-8000-c00200000065'; // PUBLISHED_PRIVATE
+const COURSE_QUY_TRINH = '01900000-0000-7000-8000-c00200000079'; // PUBLISHED_DISABLED_MATERIAL
 const COURSE_NHAP_MON = '0199a000-0000-7000-8000-0e0000000006'; // Published, org B
 // COURSE_GIAO_TIEP (…0e0000000005, Draft) cố ý không có Assignment: dùng để thử tạo mới (UC19.2).
 
@@ -604,7 +607,7 @@ function printIds(): void {
     '\nCourse không có Assignment (thử tạo mới): 0199a000-0000-7000-8000-0e0000000005 (Draft)',
   );
   console.log(
-    'Instructor org A: 0199a000-0000-7000-8000-0c0000000001, org A: 0199a000-0000-7000-8000-0a0000000001',
+    'Instructor org ABC: 01900000-0000-7000-8000-00000000a101, org ABC: 01900000-0000-7000-8000-00000000a001',
   );
 }
 

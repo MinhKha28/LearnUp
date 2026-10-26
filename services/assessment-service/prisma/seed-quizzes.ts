@@ -8,7 +8,8 @@
  *
  * Dùng ID tổ chức / Course / Module của prisma/seed.ts bên course-service (chạy seed đó trước):
  *   - Bộ UI (danh tính frontend đang gắn cứng: org 2222…, Instructor 3333…)
- *   - Bộ 0199a000-… (org A, Instructor …0c0000000001) và một Quiz của org B để thử không xem chéo.
+ *   - Bộ org A (nay là org ABC 01900000-…a001, Learner …a201) trên Course VERSION2_PUBLISHED của course-service, và
+ *     một Quiz của org B (0199a000-…) để thử không xem chéo; course-service không có org B.
  *   - Bộ UC18.1 (Quiz 11–16): org ABC 01900000-…a001, Instructor instructor@learnup.local (…a101), trên các Course
  *     01900000-…-c002… mà prisma/seed.ts HIỆN TẠI của course-service tạo (DRAFT_VIDEO, SUBMITTED_PUBLIC,
  *     PUBLISHED_LOCKED), cộng một Quiz trỏ tới Course không tồn tại để thử 404. Chạy seed course-service trước.
@@ -27,11 +28,11 @@ import { QUIZ_KIND } from '../src/modules/quiz/interfaces/quiz-list.interface';
 // ---------------------------------------------------------------------------
 // ID cố định lấy từ prisma/seed.ts của course-service
 // ---------------------------------------------------------------------------
-const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
+const ORG_A = '01900000-0000-7000-8000-00000000a001'; // ABC, cùng tổ chức của prisma/seed.ts của course-service
 const ORG_B = '0199a000-0000-7000-8000-0a0000000002';
 const ORG_UI = '22222222-2222-7222-8222-222222222222';
 
-const LEARNER_1 = '0199a000-0000-7000-8000-0b0000000001'; // org A
+const LEARNER_1 = '01900000-0000-7000-8000-00000000a201'; // learner@learnup.local, org ABC
 // Course seed không có Learner nào cho org UI: ID logic đặt riêng cho demo, tenant không có user này.
 const LEARNER_UI = '33333333-eeee-7333-8333-000000000001';
 
@@ -64,12 +65,12 @@ const COURSE_UI_PUBLISHED: SeedCourse = {
   moduleIds: ['33333333-cccc-7333-8333-000000000003'], // Security fundamentals
 };
 const COURSE_AN_TOAN_V2: SeedCourse = {
-  id: '0199a000-0000-7000-8000-0e0000000002', // An toàn lao động v2, Published
+  id: '01900000-0000-7000-8000-c0020000005c', // VERSION2_PUBLISHED, Published
   organizationId: ORG_A,
   status: 'Published',
   moduleIds: [
-    '0199a000-0000-7000-8000-1a0000000011', // Nhận diện mối nguy
-    '0199a000-0000-7000-8000-1a0000000012',
+    '01900000-0000-7000-8000-c00300000399', // Kiến thức nền tảng
+    '01900000-0000-7000-8000-c0030000039a', // Thực hành và tình huống
   ],
 };
 const COURSE_NHAP_MON: SeedCourse = {
