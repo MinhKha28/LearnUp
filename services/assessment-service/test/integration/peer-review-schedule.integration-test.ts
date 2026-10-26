@@ -56,16 +56,24 @@ describe('UC33 schedule over HTTP', () => {
         [cycleId],
       )
     )[0];
+  /** Far enough that the schedule leaves a cycle alone. */
+  const PARKED_HOURS = 100_000;
   const count = async (sql: string, params: unknown[]) =>
     Number((await db.query(sql, params))[0].count);
 
-  /** One cycle with its submissions (one per Learner, in order) as the clock would have left it. */
+  /**
+   * One cycle with its submissions (one per Learner, in order) as the clock would have left it.
+   * The schedule runs every 200 ms, so a cycle must not look due while the test is still adding what belongs to it (the
+   * submissions, the reviews, the states): it is created with its dates far away and the real dates are set at the end
+   * (`release`). A test that adds more after makeCycle asks for `parked` and calls `release` itself when it is done.
+   */
   const makeCycle = async (spec: {
     status: 'Open' | 'Assigned';
     closesInHours: number;
     dueInHours: number;
     learners: string[];
     reminderHours?: number;
+    parked?: boolean;
   }) => {
     const [{ id: cycleId }] = await db.query(
       `INSERT INTO peer_review_cycles (id, organization_id, assessment_id, opens_at, closes_at, review_due_at,
@@ -75,8 +83,8 @@ describe('UC33 schedule over HTTP', () => {
       [
         ORG,
         assignment,
-        spec.closesInHours,
-        spec.dueInHours,
+        PARKED_HOURS,
+        PARKED_HOURS,
         spec.reminderHours ?? 24,
         spec.status,
         spec.status === 'Assigned' ? spec.learners : [],
@@ -93,7 +101,15 @@ describe('UC33 schedule over HTTP', () => {
       );
       submissionIds.push(row.id as string);
     }
-    return { cycleId: cycleId as string, submissionIds };
+    const release = async () => {
+      await db.query(
+        `UPDATE peer_review_cycles SET closes_at = now() + $2::int * interval '1 hour',
+                review_due_at = now() + $3::int * interval '1 hour' WHERE id = $1`,
+        [cycleId, spec.closesInHours, spec.dueInHours],
+      );
+    };
+    if (!spec.parked) await release();
+    return { cycleId: cycleId as string, submissionIds, release };
   };
   /** The reviews the closing would have handed out for a ring: the author at i is reviewed by i + 1 and i + 2. */
   const makeReviews = async (
@@ -275,13 +291,15 @@ describe('UC33 schedule over HTTP', () => {
 
   test('inside the reminder window, each Learner who owes reviews is reminded once (BR-232)', async () => {
     const learners = [id(31), id(32), id(33)];
-    const { cycleId, submissionIds } = await makeCycle({
+    const { cycleId, submissionIds, release } = await makeCycle({
       status: 'Assigned',
       closesInHours: -50,
       dueInHours: 20, // reminder_hours is 24, so the window is open
       learners,
+      parked: true,
     });
     await makeReviews(cycleId, submissionIds, learners, new Set());
+    await release();
     await until(
       async () => (await cycle(cycleId)).reminded_at !== null,
       'the reminder to be recorded',
@@ -305,13 +323,15 @@ describe('UC33 schedule over HTTP', () => {
 
   test('outside the reminder window nobody is reminded', async () => {
     const learners = [id(41), id(42), id(43)];
-    const { cycleId, submissionIds } = await makeCycle({
+    const { cycleId, submissionIds, release } = await makeCycle({
       status: 'Assigned',
       closesInHours: -10,
       dueInHours: 60, // more than 24 hours away
       learners,
+      parked: true,
     });
     await makeReviews(cycleId, submissionIds, learners, new Set());
+    await release();
     const before = sent.length;
     await sleep(1000);
     assert.equal((await cycle(cycleId)).reminded_at, null);
@@ -320,11 +340,12 @@ describe('UC33 schedule over HTTP', () => {
 
   test('past the review deadline: what was not reviewed goes to the Instructor, who skipped is marked (BR-236, BR-237, BR-243, BR-239)', async () => {
     const learners = [id(51), id(52), id(53), id(54)];
-    const { cycleId, submissionIds } = await makeCycle({
+    const { cycleId, submissionIds, release } = await makeCycle({
       status: 'Assigned',
       closesInHours: -100,
-      dueInHours: 60, // not due, and outside the reminder window: the schedule must not touch the cycle before its reviews exist
+      dueInHours: -1,
       learners,
+      parked: true,
     });
     // ring of 4, N = 2: the author at i is reviewed by i + 1 and i + 2. Done: both reviews of submission 0 and the review
     // of submission 1 by Learner 2. So Learner 2 did all its work; Learners 0, 1 and 3 skipped some.
@@ -341,10 +362,7 @@ describe('UC33 schedule over HTTP', () => {
       [learners[0]],
     );
     // now the review deadline passes
-    await db.query(
-      `UPDATE peer_review_cycles SET review_due_at = now() - interval '1 hour' WHERE id = $1`,
-      [cycleId],
-    );
+    await release();
 
     await until(
       async () => (await cycle(cycleId)).status === 'Completed',
