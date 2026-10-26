@@ -7,10 +7,12 @@ export function validateRuntimeConfig(
 
   if (
     typeof environment.INTERNAL_SERVICE_KEY !== 'string' ||
-    !environment.INTERNAL_SERVICE_KEY.trim()
+    !environment.INTERNAL_SERVICE_KEY.trim() ||
+    Buffer.byteLength(environment.INTERNAL_SERVICE_KEY, 'utf8') < 32 ||
+    environment.INTERNAL_SERVICE_KEY.trim() === 'learnup-internal-secret'
   )
     throw new Error(
-      'INTERNAL_SERVICE_KEY is required outside development/test',
+      'INTERNAL_SERVICE_KEY must be explicitly configured, non-default and at least 32 UTF-8 bytes outside development/test',
     );
 
   try {

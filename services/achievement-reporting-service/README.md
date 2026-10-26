@@ -36,11 +36,14 @@ The runtime Docker image defaults to production.
 Use `.env.example` for configuration names and development-only placeholders.
 The Tenant service listens on port 8084; set `TENANT_SERVICE_URL` accordingly.
 In production, or when `NODE_ENV` is missing, startup requires a nonblank
-`INTERNAL_SERVICE_KEY` and a PostgreSQL `DATABASE_URL` containing an explicit
+`INTERNAL_SERVICE_KEY` of at least 32 UTF-8 bytes whose trimmed value is not
+`learnup-internal-secret`, and a PostgreSQL `DATABASE_URL` containing an explicit
 username and password. Invalid/missing credentials stop startup before database
 connections or workers start; diagnostics never include credential values.
 Only explicit `NODE_ENV=development` or `test` skips this credential guard.
-Compose requires explicit `DB_USERNAME`, `DB_PASSWORD` and `INTERNAL_SERVICE_KEY`.
+Compose defaults `DB_USERNAME` to `postgres` and requires explicit `DB_PASSWORD`
+and `INTERNAL_SERVICE_KEY`. The runtime guard enforces explicit username and
+password in the resulting database URL and the internal-key rule above.
 Do not use the development example credentials for deployment.
 
 Compose forwards signer access mode and all cleanup settings from the environment.

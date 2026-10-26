@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { validateRuntimeConfig } = require('../dist/src/runtime.config');
 
 const credentials = {
-  INTERNAL_SERVICE_KEY: 'synthetic-runtime-test-key',
+  INTERNAL_SERVICE_KEY: 'synthetic-runtime-test-key-32-bytes',
   DATABASE_URL:
     'postgresql://fixture_user:fixture_password@127.0.0.1:1/fixture',
 };
@@ -21,7 +21,7 @@ for (const mode of ['production', undefined, '', 'staging']) {
               ...environment,
               INTERNAL_SERVICE_KEY: key,
             }),
-          /INTERNAL_SERVICE_KEY is required/,
+          /INTERNAL_SERVICE_KEY must be explicitly configured/,
         );
     },
   );
@@ -58,6 +58,8 @@ for (const mode of ['development', 'test'])
     () => {
       const config = { NODE_ENV: mode };
       assert.equal(validateRuntimeConfig(config), config);
+      config.INTERNAL_SERVICE_KEY = 'learnup-internal-secret';
+      assert.equal(validateRuntimeConfig(config), config);
     },
   );
 
@@ -86,3 +88,42 @@ test('startup diagnostics never expose credential values or connection strings',
     },
   );
 });
+
+for (const [name, key] of [
+  ['empty', ''],
+  ['31 UTF-8 bytes', 'a'.repeat(31)],
+  ['multibyte 30 UTF-8 bytes', 'é'.repeat(15)],
+  ['example value', 'learnup-internal-secret'],
+  ['padded example value exceeding 32 bytes', '        learnup-internal-secret        '],
+  ['blank exceeding 32 bytes', ' '.repeat(32)],
+]) {
+  test('rejects production internal key: ' + name, () => {
+    assert.throws(
+      () => validateRuntimeConfig({
+        ...credentials,
+        NODE_ENV: 'production',
+        INTERNAL_SERVICE_KEY: key,
+      }),
+      (error) => {
+        assert.match(error.message, /INTERNAL_SERVICE_KEY must be explicitly configured, non-default and at least 32 UTF-8 bytes/);
+        if (key) assert.ok(!error.message.includes(key));
+        return true;
+      },
+    );
+  });
+}
+
+for (const [name, key] of [
+  ['ASCII', 'a'.repeat(32)],
+  ['multibyte (16 characters)', 'é'.repeat(16)],
+]) {
+  test('accepts production internal key at exactly 32 UTF-8 bytes: ' + name, () => {
+    assert.equal(Buffer.byteLength(key, 'utf8'), 32);
+    const config = {
+      ...credentials,
+      NODE_ENV: 'production',
+      INTERNAL_SERVICE_KEY: key,
+    };
+    assert.equal(validateRuntimeConfig(config), config);
+  });
+}
