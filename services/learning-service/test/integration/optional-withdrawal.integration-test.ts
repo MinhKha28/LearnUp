@@ -1,12 +1,16 @@
+import { closeAll, closeApp } from './deadlines';
+import { courseStub } from './course-stub';
+import { deadline, BARRIER_TIMEOUT_MS } from './deadlines';
+import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { after, before, beforeEach, describe, test } from 'node:test';
+import { after, before, beforeEach, describe, test } from './test-runner';
 import type { AddressInfo } from 'node:net';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import {
@@ -26,7 +30,6 @@ import {
 } from '../../src/modules/enrollments/optional-enrollment.repository';
 import {
   databaseUrl,
-  courseDatabaseUrl,
   ENROLL_IT_ORG as ORG,
   ENROLL_IT_PUBLIC_COURSE as COURSE,
   ENROLL_IT_LEARNER_1 as USER,
@@ -36,8 +39,7 @@ import {
 
 if (process.env.NODE_ENV === 'production')
   throw new Error('Refusing withdrawal tests in production.');
-const db = new Client({ connectionString: databaseUrl('learning_db') });
-const courseDb = new Client({ connectionString: courseDatabaseUrl() });
+const db = new Client({ connectionString: databaseUrl() });
 let app: NestExpressApplication;
 let baseUrl: string;
 let assessment: AssessmentClient;
@@ -71,7 +73,7 @@ const withdraw = (id: string, user = USER) =>
   call(`enrollments/${id}/withdrawal`, undefined, user);
 async function clear() {
   await db.query('DELETE FROM outbox_events WHERE organization_id=$1', [ORG]);
-  await resetEnrollFixture(db, courseDb);
+  await resetEnrollFixture(db);
 }
 async function prepare(status = 'InProgress') {
   const result = await enroll();
@@ -120,7 +122,6 @@ async function counts(id: string) {
 void describe('UC25.4 real database withdrawal and restoration', () => {
   before(async () => {
     await db.connect();
-    await courseDb.connect();
     connected = true;
     const previousLimit = process.env.ENROLLMENT_RATE_LIMIT_PER_MINUTE;
     process.env.ENROLLMENT_RATE_LIMIT_PER_MINUTE = '1000';
@@ -165,21 +166,16 @@ void describe('UC25.4 real database withdrawal and restoration', () => {
     try {
       if (connected) await clear();
     } finally {
-      await app?.close();
-      await db.end();
-      await courseDb.end();
+      await closeAll(
+        () => closeApp(app),
+        () => db.end(),
+      );
     }
   });
 
   test('DELETED cascades progress/intervals, keeps Locked/snapshot, reenrollment creates new id', async () => {
     const id = await prepare();
-    const locked = (
-      await courseDb.query(
-        'SELECT locked_at::text FROM courses WHERE id=$1 AND organization_id=$2',
-        [COURSE, ORG],
-      )
-    ).rows[0];
-    assert.ok(locked.locked_at);
+    const callsBeforeWithdrawal = structuredClone(courseStub.calls);
     assert.deepEqual(await withdraw(id), {
       status: 200,
       body: { statusCode: 200, message: '', data: { outcome: 'DELETED' } },
@@ -191,13 +187,9 @@ void describe('UC25.4 real database withdrawal and restoration', () => {
       events: 0,
     });
     assert.deepEqual(
-      (
-        await courseDb.query(
-          'SELECT locked_at::text FROM courses WHERE id=$1 AND organization_id=$2',
-          [COURSE, ORG],
-        )
-      ).rows[0],
-      locked,
+      courseStub.calls,
+      callsBeforeWithdrawal,
+      'withdrawal must not call Course or unlock it',
     );
     assert.equal(
       (
@@ -343,12 +335,20 @@ void describe('UC25.4 real database withdrawal and restoration', () => {
     const id = await prepare();
     let entered!: () => void;
     let release!: () => void;
-    const waiting = new Promise<void>((resolve) => {
-      entered = resolve;
-    });
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const waiting = deadline(
+      new Promise<void>((resolve) => {
+        entered = resolve;
+      }),
+      'optional-withdrawal.integration-test: waiting',
+      BARRIER_TIMEOUT_MS,
+    );
+    const gate = deadline(
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+      'optional-withdrawal.integration-test: gate',
+      BARRIER_TIMEOUT_MS,
+    );
     assessmentHook = async () => {
       entered();
       await gate;
