@@ -1,12 +1,14 @@
+import { closeAll, closeApp } from './deadlines';
+import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import { after, before, beforeEach, describe, test } from 'node:test';
+import { after, before, beforeEach, describe, test } from './test-runner';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
@@ -26,7 +28,7 @@ const learner = randomUUID(),
   course = randomUUID(),
   lesson = randomUUID(),
   material = randomUUID();
-const db = new Client({ connectionString: databaseUrl('learning_db') });
+const db = new Client({ connectionString: databaseUrl() });
 let app: NestExpressApplication, url: string, calls: number, tree: CourseTree;
 let connected = false;
 const clientReportedAt = new Date().toISOString();
@@ -154,8 +156,7 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
     try {
       if (connected) await cleanup();
     } finally {
-      await app?.close();
-      await db.end();
+      await closeAll(() => closeApp(app), () => db.end());
     }
   });
   test('playback reads title from I2, duration from snapshot and writes nothing', async () => {

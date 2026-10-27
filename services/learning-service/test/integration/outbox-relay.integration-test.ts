@@ -1,9 +1,12 @@
+import { closeAll, closeApp } from './deadlines';
+import { deadline } from './deadlines';
+import { testFetch as fetch } from './test-io';
 import { Logger } from '@nestjs/common';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { after, before, test } from 'node:test';
+import { after, before, test } from './test-runner';
 import { execFileSync } from 'node:child_process';
 import { ConfigService } from '@nestjs/config';
 import { KafkaJS } from '@confluentinc/kafka-javascript';
@@ -92,17 +95,25 @@ before(async () => {
 });
 after(async () => {
   if (!enabled) return;
-  await Promise.all([
-    r1.beforeApplicationShutdown(),
-    r2.beforeApplicationShutdown(),
-  ]);
-  await consumer.disconnect();
   const admin = kafka.admin();
-  await admin.connect();
-  await admin.deleteTopics({ topics: [config.topic] });
-  await admin.disconnect();
-  await clear();
-  await prisma.$disconnect();
+  try {
+    await closeAll(
+      () => r1.beforeApplicationShutdown(),
+      () => r2.beforeApplicationShutdown(),
+      () => consumer.disconnect(),
+    );
+    await deadline(admin.connect(), 'relay cleanup admin connect');
+    await deadline(
+      admin.deleteTopics({ topics: [config.topic] }),
+      'relay cleanup delete topic',
+    );
+    await clear();
+  } finally {
+    await closeAll(
+      () => admin.disconnect(),
+      () => prisma.$disconnect(),
+    );
+  }
 });
 test(
   'Postgres claim keeps a backoff head blocking all later aggregate rows',
@@ -223,7 +234,10 @@ test(
       });
       configureApp(app);
       await app.listen(0, '127.0.0.1');
-      execFileSync('docker', ['stop', container], { stdio: 'ignore' });
+      execFileSync('docker', ['stop', container], {
+        stdio: 'ignore',
+        timeout: 10000,
+      });
       const start = performance.now();
       const tick = relay.tick();
       const apiStart = performance.now();
@@ -285,8 +299,14 @@ test(
         JSON.stringify({ heldMs, transactionCalls }),
       );
     } finally {
-      execFileSync('docker', ['start', container], { stdio: 'ignore' });
-      await app?.close();
+      try {
+        execFileSync('docker', ['start', container], {
+          stdio: 'ignore',
+          timeout: 10000,
+        });
+      } finally {
+        await closeAll(() => closeApp(app));
+      }
     }
     await waitFor(() => p1.ready(), 40000);
     await r1.tick();
@@ -330,7 +350,10 @@ test(
       readerConnected = false;
     try {
       await clear();
-      execFileSync('docker', ['stop', container], { stdio: 'ignore' });
+      execFileSync('docker', ['stop', container], {
+        stdio: 'ignore',
+        timeout: 10000,
+      });
       process.env.OUTBOX_RELAY_ENABLED = 'true';
       process.env.OUTBOX_TOPIC = topic;
       const start = performance.now();
@@ -361,7 +384,10 @@ test(
       >`SELECT attempts,published_at FROM outbox_events WHERE id=${id(10000)}::uuid`;
       assert.equal(pending[0].attempts, 0);
       assert.equal(pending[0].published_at, null);
-      execFileSync('docker', ['start', container], { stdio: 'ignore' });
+      execFileSync('docker', ['start', container], {
+        stdio: 'ignore',
+        timeout: 10000,
+      });
       await admin.connect();
       adminConnected = true;
       await waitFor(async () => {
@@ -396,13 +422,29 @@ test(
         'L6 cold start: HTTP 200 without Kafka; scheduled relay created topic and delivered after recovery',
       );
     } finally {
-      execFileSync('docker', ['start', container], { stdio: 'ignore' });
-      await app?.close();
-      if (readerConnected) await reader.disconnect();
-      if (adminConnected) {
-        await admin.deleteTopics({ topics: [topic] }).catch(() => {});
-        await admin.disconnect();
+      try {
+        execFileSync('docker', ['start', container], {
+          stdio: 'ignore',
+          timeout: 10000,
+        });
+      } finally {
+        await closeAll(() => closeApp(app));
       }
+      await closeAll(
+        () => (readerConnected ? reader.disconnect() : undefined),
+        async () => {
+          if (adminConnected) {
+            try {
+              await deadline(
+                admin.deleteTopics({ topics: [topic] }),
+                'chaos cleanup delete topic',
+              );
+            } finally {
+              await deadline(admin.disconnect(), 'chaos admin disconnect');
+            }
+          }
+        },
+      );
       Logger.prototype.warn = originalWarn;
       if (previous.enabled === undefined)
         delete process.env.OUTBOX_RELAY_ENABLED;
