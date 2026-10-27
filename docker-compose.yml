@@ -186,10 +186,17 @@ services:
       MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
       LEARNUP_MAIL_ENABLED: ${LEARNUP_MAIL_ENABLED:-false}
       LEARNUP_MAIL_FROM: ${LEARNUP_MAIL_FROM:-noreply@learnup.com}
+      # Consumer of the learning enrollment events (e-mail and in-app notice to the Learner).
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      ENROLLMENT_EVENTS_CONSUMER_ENABLED: ${ENROLLMENT_EVENTS_CONSUMER_ENABLED:-true}
+      TENANT_SERVICE_URL: http://tenant-service:8084
+      COURSE_SERVICE_URL: http://course-service:8083
     depends_on:
       postgres:
         condition: service_healthy
       eureka-server:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - learnup-network
