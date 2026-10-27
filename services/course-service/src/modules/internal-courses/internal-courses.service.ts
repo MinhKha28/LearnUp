@@ -3,8 +3,10 @@ import { createApiError } from '@learnup/ts-common';
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { PrismaService } from '@infra/prisma/prisma.service';
@@ -15,6 +17,11 @@ import { InstructorCourseCountsDto } from './dto/instructor-course-counts.dto';
 import { LessonContentDto } from './dto/lesson-content.dto';
 import { LockedCourseDto } from './dto/locked-course.dto';
 import { OrganizationUsageDto } from './dto/organization-usage.dto';
+import { STORAGE_PROVIDER } from '@/infrastructure/storage/storage.constants';
+import {
+  StorageProviderError,
+  type IReadableStorageProvider,
+} from '@learnup/ts-storage';
 
 interface LockableCourseRow {
   id: string;
@@ -60,7 +67,11 @@ function validateEnrollmentCourse(
  */
 @Injectable()
 export class InternalCoursesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(STORAGE_PROVIDER)
+    private readonly storage: IReadableStorageProvider,
+  ) {}
 
   /**
    * Course đã Locked không cần khóa lại: locked_at không quay về NULL (BR-83).
@@ -367,5 +378,135 @@ export class InternalCoursesService {
       counts[group.instructorId] = group._count._all;
     }
     return { counts };
+  }
+  async getMaterialSignedUrl(
+    organizationId: string,
+    courseId: string,
+    materialId: string,
+  ) {
+    const material = await this.prisma.material.findFirst({
+      where: {
+        id: materialId,
+        organizationId,
+        lesson: {
+          organizationId,
+          module: {
+            organizationId,
+            courseId,
+            course: { organizationId },
+          },
+        },
+      },
+      select: {
+        materialType: true,
+        disabledAt: true,
+        lesson: {
+          select: {
+            disabledAt: true,
+            module: {
+              select: {
+                course: {
+                  select: {
+                    disabledAt: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        file: {
+          select: {
+            status: true,
+            releasedAt: true,
+            readyAt: true,
+            purpose: true,
+            storageKey: true,
+            mimeType: true,
+            deliveryType: true,
+            storageFormat: true,
+            organizationId: true,
+          },
+        },
+      },
+    });
+
+    if (!material) {
+      throw new NotFoundException({
+        code: 'MATERIAL_NOT_FOUND',
+        message: 'Material not found.',
+      });
+    }
+
+    if (
+      material.disabledAt !== null ||
+      material.lesson.disabledAt !== null ||
+      material.lesson.module.course.disabledAt !== null
+    ) {
+      throw new ConflictException({
+        code: 'MATERIAL_DISABLED',
+        message: 'Material is unavailable.',
+      });
+    }
+
+    const file = material.file;
+
+    if (
+      file.organizationId !== organizationId ||
+      file.status !== 'Ready' ||
+      file.readyAt === null ||
+      file.releasedAt !== null ||
+      file.deliveryType !== 'authenticated'
+    ) {
+      throw new ConflictException({
+        code: 'MATERIAL_FILE_NOT_READY',
+        message: 'Protected material file is not ready.',
+      });
+    }
+
+    const isVideo = material.materialType === 'Video';
+    const isReading = material.materialType === 'Reading';
+
+    if (
+      (!isVideo && !isReading) ||
+      file.purpose !== (isVideo ? 'LessonVideo' : 'LessonReading') ||
+      (isVideo && !file.mimeType.startsWith('video/')) ||
+      (isReading && file.mimeType !== 'application/pdf')
+    ) {
+      throw new ConflictException({
+        code: 'MATERIAL_FILE_NOT_READY',
+        message: 'Invalid material file.',
+      });
+    }
+
+    const expiresAtSeconds = Math.floor(Date.now() / 1000) + 900;
+
+    try {
+      const url = this.storage.getSignedUrl(file.storageKey, {
+        resourceType: isVideo ? 'video' : 'raw',
+        format: isVideo ? file.storageFormat : '',
+        deliveryType: 'authenticated',
+        expiresAt: expiresAtSeconds,
+      });
+
+      return {
+        url,
+        expiresAt: new Date(expiresAtSeconds * 1000).toISOString(),
+        mimeType: file.mimeType,
+      };
+    } catch (error) {
+      if (error instanceof StorageProviderError) {
+        console.error('[Signed URL Error]', {
+          name: error.name,
+          message: error.message,
+        });
+
+        throw new ServiceUnavailableException({
+          code: 'MATERIAL_URL_UNAVAILABLE',
+          message: 'Unable to generate material URL.',
+        });
+      }
+
+      throw error;
+    }
   }
 }

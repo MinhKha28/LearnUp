@@ -1216,6 +1216,7 @@ export class CoursesService {
         {
           folder: `learnup/${organizationId}/courses/videos`,
           resourceType: 'video',
+          deliveryType: 'authenticated',
           validation: {
             maxSizeBytes: Number(effectiveMaxBytes),
             allowedMimeTypes: settings.allowedVideoMimeTypes,
@@ -1274,6 +1275,8 @@ export class CoursesService {
         maxStorageBytes: BigInt(latestPolicy.maxStorageBytes),
         file: {
           storageKey: storedFile.storageKey,
+          deliveryType: storedFile.deliveryType,
+          storageFormat: storedFile.format ?? '',
           originalFilename: storedFile.originalFilename,
           mimeType: storedFile.mimeType,
           sizeBytes: storedFile.sizeBytes,
@@ -1331,6 +1334,7 @@ export class CoursesService {
         try {
           await this.storage.delete(storedFile.storageKey, {
             resourceType: storedFile.resourceType,
+            deliveryType: storedFile.deliveryType,
           });
         } catch (cleanupError) {
           console.error('Unable to clean up uploaded Video:', cleanupError);
@@ -1584,6 +1588,8 @@ export class CoursesService {
           maxStorageBytes: BigInt(latestPolicy.maxStorageBytes),
           file: {
             storageKey: storedFile.storageKey,
+            deliveryType: storedFile.deliveryType,
+            storageFormat: storedFile.format ?? '',
             originalFilename: file.originalname,
             mimeType: file.mimetype,
             sizeBytes: storedFile.sizeBytes,
@@ -1635,6 +1641,7 @@ export class CoursesService {
         try {
           await this.storage.delete(storedFile.storageKey, {
             resourceType: storedFile.resourceType,
+            deliveryType: storedFile.deliveryType,
           });
         } catch (error) {
           console.error('Reading cleanup failed:', error);
