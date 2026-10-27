@@ -80,7 +80,6 @@ jwt:
     - /api/v1/subscription-plans/**
     - /api/v1/registrations/**
     - /api/v1/invitations/**
-    - /api/v1/certificates/verify/**
     - /api/auth/login
     - /api/auth/refresh
     - /api/auth/forgot-password
@@ -88,7 +87,6 @@ jwt:
     - /api/subscription-plans/**
     - /api/registrations/**
     - /api/invitations/**
-    - /api/certificates/verify/**
     - /actuator/health
     - /fallback/**
 
