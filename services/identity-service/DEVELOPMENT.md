@@ -109,7 +109,7 @@ remains the authority for the supplied metadata and business eligibility.
 
 Only an existing exact User ID is accepted (404 otherwise). The transaction locks
 that account using the same row-lock order as password/refresh operations. It
-never calls `releaseEmailFromOtherUser()`, creates users or changes another owner.
+never releases an email claim, creates users or changes another owner.
 An existing email owner (checked case-insensitively) yields 409. The unchanged
 unique email constraint also rejects concurrent claims after both preflight reads;
 flushing inside the service
@@ -123,11 +123,16 @@ the usual API envelope and a fixed confirmation message, never credentials. This
 is not password replacement or business account activation. It does not rewrite
 already-issued JWT claims or implement immediate JWT revocation.
 
-Existing registration/invitation callers of `POST /api/internal/credentials`
-are unchanged, including password replacement/token revocation and legacy email
-handoff. That older handoff still assumes the other Identity owner is stale
-without verifying Tenant deletion; it is **not** a safe reconciliation operation.
-Do not use it to correct existing metadata.
+Existing registration/invitation callers retain `POST /api/internal/credentials`
+and its request/success format. New credentials require a valid email; supported
+same-user password replacement may omit it. Cross-user BR-31 reuse now requires
+the authenticated Tenant existence lookup and retains the old canonical user
+with a NULL email through forward Flyway V5. The unique constraint and the old
+credential/session/recovery records remain. Active owners yield `409 EMAIL_IN_USE`,
+untrustworthy Tenant results yield 503, and database races roll back with 409.
+See [BR31-INTEGRATION.md](BR31-INTEGRATION.md) for transaction semantics, required
+Tenant visibility/locking contracts and disposable integration steps. Provisioning
+is not a metadata repair operation; use the existing-ID-only PUT for metadata.
 
 Tests exercise the real security chain, transaction rollback, credential/token
 preservation, idempotency and forced concurrent claims in isolated H2. The same

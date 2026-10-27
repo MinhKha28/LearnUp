@@ -6,6 +6,7 @@ import com.learnup.identity.domain.User;
 import com.learnup.identity.dto.LoginRequest;
 import com.learnup.identity.dto.internal.SetCredentialsRequest;
 import com.learnup.identity.dto.internal.SignInAccess;
+import com.learnup.identity.exception.CredentialProvisioningConflictException;
 import com.learnup.identity.repository.LoginThrottleRepository;
 import com.learnup.identity.repository.PasswordResetTokenRepository;
 import com.learnup.identity.repository.RefreshTokenRepository;
@@ -17,7 +18,6 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Instant;
@@ -210,7 +210,9 @@ abstract class CredentialProvisioningContract {
         second.setUsername("user_" + first.getUserId());
 
         assertThatThrownBy(() -> authService.setCredentials(second))
-                .isInstanceOf(DataIntegrityViolationException.class);
+                .isInstanceOf(CredentialProvisioningConflictException.class)
+                .satisfies(failure -> assertThat(((CredentialProvisioningConflictException) failure).getCode())
+                        .isEqualTo("CREDENTIAL_CONFLICT"));
 
         assertThat(users.count()).isEqualTo(1);
         assertThat(users.findById(second.getUserId())).isEmpty();

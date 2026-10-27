@@ -18,7 +18,8 @@ public class User {
     @Column(name = "username", nullable = false, unique = true, length = 50)
     private String username;
 
-    @Column(name = "email", nullable = false, unique = true, length = 100)
+    // NULL only after a Tenant-verified BR-31 release; new credentials require a valid email.
+    @Column(name = "email", unique = true, length = 100)
     private String email;
 
     @Column(name = "password_hash", nullable = false)
@@ -62,6 +63,9 @@ public class User {
 
     @PrePersist
     public void prePersist() {
+        if (email == null || email.isBlank()) {
+            throw new IllegalStateException("New credentials require an email");
+        }
         if (this.id == null) {
             this.id = UUID.randomUUID();
         }

@@ -1,7 +1,6 @@
 package com.learnup.identity.service;
 
 import com.learnup.common.exception.BusinessException;
-import com.learnup.common.security.UserRole;
 import com.learnup.identity.client.TenantAccessClient;
 import com.learnup.identity.domain.RefreshToken;
 import com.learnup.identity.domain.User;
@@ -25,6 +24,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -42,6 +42,7 @@ public class AuthService {
     private final UserMapper userMapper;
     private final RecoveryRequestLimiter recoveryRequestLimiter;
     private final PasswordRecoveryDelivery recoveryDelivery;
+    private final CredentialProvisioningService credentialProvisioning;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
@@ -52,7 +53,8 @@ public class AuthService {
                        LoginThrottleService loginThrottleService,
                        UserMapper userMapper,
                        RecoveryRequestLimiter recoveryRequestLimiter,
-                       PasswordRecoveryDelivery recoveryDelivery) {
+                       PasswordRecoveryDelivery recoveryDelivery,
+                       CredentialProvisioningService credentialProvisioning) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
@@ -63,6 +65,7 @@ public class AuthService {
         this.userMapper = userMapper;
         this.recoveryRequestLimiter = recoveryRequestLimiter;
         this.recoveryDelivery = recoveryDelivery;
+        this.credentialProvisioning = credentialProvisioning;
     }
 
     @Transactional
@@ -70,7 +73,7 @@ public class AuthService {
         String identifier = request.getUsername().trim();
         loginThrottleService.assertNotLocked(identifier);
 
-        User user = userRepository.findByUsernameOrEmailForUpdate(identifier, identifier.toLowerCase()).orElse(null);
+        User user = userRepository.findByUsernameOrEmailForUpdate(identifier, identifier.toLowerCase(Locale.ROOT)).orElse(null);
         if (user == null) {
             loginThrottleService.recordFailure(identifier);
             throw BusinessException.unauthorized("Invalid username or password");
@@ -91,6 +94,9 @@ public class AuthService {
         loginThrottleService.reset(identifier);
 
         SignInAccess access = tenantAccessClient.check(user.getId());
+        if (user.getEmail() == null) {
+            throw BusinessException.unauthorized("Invalid username or password");
+        }
         if (!access.allowed()) {
             log.warn("event=login_rejected reason={} user_id={} correlation_id={}",
                     SignInDeniedException.normalizeReason(access.reason()), user.getId(), AuthenticationDiagnostics.correlationId());
@@ -121,6 +127,11 @@ public class AuthService {
                 .orElseThrow(() -> BusinessException.unauthorized("Invalid, expired, or revoked refresh token"));
         User user = userRepository.findByIdForUpdate(ownerId)
                 .orElseThrow(() -> BusinessException.unauthorized("User account not found"));
+        if (user.getEmail() == null) {
+            // Retain released-owner sessions, including rotated families, without granting new tokens.
+            tenantAccessClient.check(user.getId());
+            throw BusinessException.unauthorized("Invalid, expired, or revoked refresh token");
+        }
         RefreshToken refreshToken = refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(() -> BusinessException.unauthorized("Invalid, expired, or revoked refresh token"));
 
@@ -173,6 +184,10 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> BusinessException.notFound("User with ID " + userId + " not found"));
 
+        if (user.getEmail() == null) {
+            throw BusinessException.unauthorized("User account is unavailable");
+        }
+
         return userMapper.toResponse(user);
     }
 
@@ -219,6 +234,10 @@ public class AuthService {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> BusinessException.notFound("User not found"));
 
+        if (user.getEmail() == null) {
+            throw BusinessException.unauthorized("User account is unavailable");
+        }
+
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             log.warn("Password change failed for user [{}]: invalid current password", userId);
             throw BusinessException.badRequest("Current password is incorrect");
@@ -236,7 +255,7 @@ public class AuthService {
 
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
-        String email = request.getEmail().trim().toLowerCase();
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         User user = userRepository.findByEmailForUpdate(email).orElse(null);
         if (user == null || !user.isEnabled()) {
             // Mitigate email enumeration attack: return quietly without disclosing email
@@ -294,7 +313,7 @@ public class AuthService {
         }
 
         // Recovery is not activation or an alternate access path. Tenant remains the access authority.
-        if (!tenantAccessClient.check(user.getId()).allowed()) {
+        if (!tenantAccessClient.check(user.getId()).allowed() || user.getEmail() == null) {
             throw invalidResetToken();
         }
 
@@ -316,80 +335,8 @@ public class AuthService {
         log.info("Password successfully reset via reset token for user [{}]", user.getId());
     }
 
-    @Transactional
     public void setCredentials(com.learnup.identity.dto.internal.SetCredentialsRequest request) {
-        UUID userId = request.getUserId();
-        String rawPassword = request.getPassword().trim();
-        User user = userRepository.findByIdForUpdate(userId).orElse(null);
-        // Tenant là nguồn sự thật về tài khoản (BR-30: email duy nhất trong các tài
-        // khoản chưa xóa).
-        // Email đã thuộc một userId khác nghĩa là tài khoản cũ đã bị tenant xóa mềm
-        // (đăng ký lại theo BR-276, đăng ký quá hạn theo BR-7/BR-31) -> giải phóng
-        // email cho userId mới.
-        if (request.getEmail() != null && !request.getEmail().isBlank()) {
-            releaseEmailFromOtherUser(request.getEmail().trim().toLowerCase(), userId);
-        }
-
-        if (user == null) {
-            // UUIDv7 accounts can share timestamp prefixes; retain the full canonical ID.
-            String username = (request.getUsername() != null && !request.getUsername().isBlank())
-                    ? request.getUsername().trim()
-                    : "user_" + userId.toString();
-            String email = (request.getEmail() != null && !request.getEmail().isBlank())
-                    ? request.getEmail().trim().toLowerCase()
-                    : userId + "@learnup.local";
-            UserRole role = request.getRole() != null ? request.getRole() : UserRole.LEARNER;
-
-            user = new User();
-            user.setId(userId);
-            user.setUsername(username);
-            user.setEmail(email);
-            user.setFullName(request.getFullName());
-            user.setRole(role);
-            user.setOrganizationId(request.getOrganizationId());
-            user.setEnabled(true);
-            user.setCreatedAt(Instant.now());
-        } else {
-            if (request.getUsername() != null && !request.getUsername().isBlank()) {
-                user.setUsername(request.getUsername().trim());
-            }
-            if (request.getEmail() != null && !request.getEmail().isBlank()) {
-                user.setEmail(request.getEmail().trim().toLowerCase());
-            }
-            if (request.getRole() != null) {
-                user.setRole(request.getRole());
-            }
-            if (request.getOrganizationId() != null) {
-                user.setOrganizationId(request.getOrganizationId());
-            }
-        }
-
-        user.setPasswordHash(passwordEncoder.encode(rawPassword));
-        user.setUpdatedAt(Instant.now());
-        userRepository.save(user);
-
-        passwordResetTokenRepository.deleteByUserId(userId);
-        // Revoke all existing refresh tokens if password is reset/updated
-        refreshTokenRepository.deleteByUserId(userId);
-        log.info("Credentials successfully set for user [{}]", userId);
-    }
-
-    /**
-     * Xóa thông tin đăng nhập cũ đang giữ email của một userId khác.
-     * refresh_tokens và password_reset_tokens của user cũ tự xóa theo (ON DELETE
-     * CASCADE).
-     */
-    private void releaseEmailFromOtherUser(String email, UUID ownerId) {
-        userRepository.findByEmail(email)
-                .filter(other -> !other.getId().equals(ownerId))
-                .ifPresent(other -> {
-                    userRepository.delete(other);
-                    // DELETE phải xuống DB ngay; nếu để Hibernate tự flush thì INSERT chạy trước và
-                    // vẫn vướng UNIQUE(email)
-                    userRepository.flush();
-                    log.info("Released email from stale credentials of user [{}] for user [{}]",
-                            other.getId(), ownerId);
-                });
+        credentialProvisioning.setCredentials(request);
     }
 
     private String createAndPersistRefreshToken(UUID userId) {

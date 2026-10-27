@@ -21,14 +21,16 @@ public class RecoveryDeliveryState {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public boolean isDeliverable(UUID userId, UUID tokenId, String email) {
-        return users.findById(userId).filter(user -> user.isEnabled() && user.getEmail().equals(email)).isPresent()
+        return email != null && users.findById(userId)
+                .filter(user -> user.isEnabled() && email.equals(user.getEmail())).isPresent()
                 && tokens.findById(tokenId).filter(token -> token.getUserId().equals(userId) && token.isValid()).isPresent();
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void revoke(UUID userId, UUID tokenId) {
         // Same User -> Token order as issuance/reset; never revoke a newer recovery request.
-        if (users.findByIdForUpdate(userId).isPresent()) {
+        // An obsolete delivery after BR-31 must not erase the retained former owner's recovery record.
+        if (users.findByIdForUpdate(userId).filter(user -> user.getEmail() != null).isPresent()) {
             tokens.deleteDeliveryToken(tokenId, userId);
         }
     }
