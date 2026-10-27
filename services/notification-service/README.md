@@ -25,6 +25,7 @@ The **Notification Service** is one of the 3 finalized LearnUP Supporting/Platfo
 * `Notification` (`id`, `organizationId`, `recipientUserId`, `title`, `message`, `type`, `channel`, `isRead`, `readAt`, `createdAt`)
 * `NotificationTemplate` (`id`, `templateCode`, `subjectTemplate`, `bodyTemplate`, `channel`, `createdAt`)
 * `EmailLog` (`id`, `recipientEmail`, `subject`, `status`, `errorMessage`, `sentAt`)
+* `EnrollmentEventDelivery` (`id`, `eventId`, `eventType`, `organizationId`, `enrollmentId`, `recipientUserId`, `channel` EMAIL or IN_APP, `status` PENDING, SENT, FAILED or SKIPPED, `attempts`, `lastError` (a fixed code), `occurredAt`, `sentAt`): what was sent for which learning event; unique on (`eventId`, `recipientUserId`, `channel`)
 
 ---
 
@@ -37,6 +38,8 @@ The **Notification Service** is one of the 3 finalized LearnUP Supporting/Platfo
 ---
 
 ## 6. Event Interactions
+* **Learning enrollment events** (`learnup.learning.enrollment-events`): tells the Learner in the app and by e-mail about `EnrollmentAssigned`, `EnrollmentDueDateExtended` and `EnrollmentExempted`; `LearnerWithdrew` writes to nobody. Retry with backoff, then `learnup.learning.enrollment-events.DLT`. Contract and rules: `contracts/events/learning-enrollment-events.md`.
+  * Settings: `ENROLLMENT_EVENTS_CONSUMER_ENABLED` (default `false`; Compose sets `true`), `SPRING_KAFKA_BOOTSTRAP_SERVERS`, `ENROLLMENT_EVENTS_GROUP_ID`, `ENROLLMENT_EVENTS_TOPIC`, `ENROLLMENT_EVENTS_MAX_AGE` (72h), `ENROLLMENT_EVENTS_RETRY_ATTEMPTS` (5), `ENROLLMENT_EVENTS_RETRY_INITIAL_BACKOFF` (1s), `ENROLLMENT_EVENTS_RETRY_MAX_BACKOFF` (30s), `ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS` (3000), `ENROLLMENT_EVENTS_DEFAULT_TIME_ZONE` (Asia/Ho_Chi_Minh), `TENANT_SERVICE_URL`, `COURSE_SERVICE_URL`.
 * **Consumed Events**:
   * `learnup.tenant.user-invited`
   * `learnup.tenant.user-created`

@@ -4,7 +4,9 @@ Topic: `learnup.learning.enrollment-events`; three partitions; key: enrollmentId
 (outbox aggregate_id); retention: 30 days; replication factor: configurable.
 This shared topic is an intentional naming exception to preserve per-Enrollment
 ordering across event types. Producer: learning-service. Delivery: at-least-once;
-consumers deduplicate eventId. No notification consumer is included in L6.
+consumers deduplicate eventId. notification-service consumes EnrollmentAssigned,
+EnrollmentDueDateExtended, EnrollmentExempted and LearnerWithdrew (see the section
+"notification-service consumer" below); the relay of L6 itself includes no consumer.
 
 Use event-envelope.schema.json. eventId = outbox.id; occurredAt = outbox.occurred_at
 as ISO UTC; organizationId = outbox.organization_id; version = 1; data = payload.
@@ -60,3 +62,37 @@ The five event types currently have no configured secret fields to redact after
 publication. The event-type registry is extended when a future contract needs it;
 redaction updates the database payload in the publication transaction, after ACK.
 Arbitrary payload or broker error text must never appear in logs or last_error.
+
+## notification-service consumer
+
+Group `notification-enrollment-events-v1` (`earliest` for a group with no committed offset),
+enabled by `ENROLLMENT_EVENTS_CONSUMER_ENABLED` (off in the service by default, on in Compose). It reads
+the envelope only: eventId, occurredAt and organizationId come from the envelope and the copy in `data`
+is not read. Other event types, including EnrollmentCompleted, are ignored.
+
+| eventType | What the Learner (data.learnerId) gets |
+| --- | --- |
+| EnrollmentAssigned, kind CREATE, CONVERT, RESTORE | In-app notice and e-mail with the Course name and the due date |
+| EnrollmentAssigned, kind CONVERT_COMPLETED | The same without a due date |
+| EnrollmentDueDateExtended | The new due date, the previous one and the reason when sent |
+| EnrollmentExempted | The reason |
+| LearnerWithdrew | Nothing (decision D2 of 23/10) |
+
+`dueAt`, `newDueAt` and `previousDueAt` are written as the end of the day in the time zone of the
+Organization (BR-167; learning stores 00:00 of the next day), for example "hết ngày 10/01/2027"; the zone is
+Asia/Ho_Chi_Minh until tenant-service gives the one of the Organization. The name and e-mail of the Learner
+come from tenant-service (`POST /api/v1/internal/users/display-names`, with `x-organization-id` from the
+envelope) and the Course name from course-service (`POST /api/v1/internal/courses/batch`).
+
+Each message owed has one row in `notification_db.enrollment_event_deliveries`, unique on (eventId,
+recipient, channel), so a repeated event sends nothing again. Status: PENDING, SENT, FAILED, SKIPPED; a fixed
+error code, never text of a payload or of an error. An event older than `ENROLLMENT_EVENTS_MAX_AGE` (72 h)
+is SKIPPED (EVENT_TOO_OLD); a Learner who is missing, deleted or deactivated is SKIPPED
+(RECIPIENT_UNAVAILABLE); a Learner without an e-mail still gets the in-app notice (EMAIL SKIPPED, NO_EMAIL).
+
+A service that does not answer (tenant, course, SMTP) is tried again with a growing pause (5 tries by
+default, 1 s to 30 s). After the last try, and at once for a message that is not a valid event, the message
+goes to `learnup.learning.enrollment-events.DLT` and the offset moves on. Nothing replays the dead-letter
+topic automatically. Delivery is at least once: an e-mail cannot share a database transaction, so if the
+process stops between the SMTP server accepting it and the row saying SENT, that mail may be sent twice; the
+in-app notice and its row are written together and cannot be doubled.
