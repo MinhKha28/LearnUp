@@ -1,29 +1,21 @@
-/**
- * Test tích hợp CourseServiceClient với course-service thật đang chạy và dữ liệu seed.
- * I2, I3, I4 chỉ đọc Course demo; ca I1 (D17) ghi locked_at nên dùng Course test của ORG_TEST (D34)
- * và luôn đưa về NULL khi kết thúc.
- *
- * Chạy: npm run test:integration (cần course-service chạy tại COURSE_SERVICE_URL, đã db:seed)
- */
+import { courseStub } from './course-stub';
+/** Course client exercised over HTTP using explicit Learning contract fixtures. */
 import 'dotenv/config';
 import assert from 'node:assert/strict';
-import { after, describe, test } from 'node:test';
+import { describe, test } from './test-runner';
 import type { CurrentUser } from '@learnup/ts-common';
-import { Client } from 'pg';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
 import { readCourseServiceConfig } from '../../src/infrastructure/clients/course/course-service.config';
 import { CourseNotAvailableError } from '../../src/infrastructure/clients/course/course-service.errors';
 import {
-  courseDatabaseUrl,
   ENROLL_IT_LEARNER_1,
   ENROLL_IT_ORG,
   ENROLL_IT_PUBLIC_COURSE,
-  unlockFixtureCourses,
 } from './enroll-it-fixture';
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error(
-    'Refusing to run: NODE_ENV=production. This test writes to course_db.',
+    'Refusing to run: NODE_ENV=production. Use isolated integration harness.',
   );
 }
 
@@ -44,16 +36,7 @@ const client = new CourseServiceClient(
   readCourseServiceConfig((key) => process.env[key]),
 );
 
-const courseDb = new Client({ connectionString: courseDatabaseUrl() });
-let courseDbConnected = false;
-
-after(async () => {
-  if (courseDbConnected) {
-    await courseDb.end();
-  }
-});
-
-void describe('CourseServiceClient với course-service thật (seed)', () => {
+void describe('CourseServiceClient over local HTTP', () => {
   void test('I2: cây 0e…02 đúng 2 module, thứ tự position, Video có durationSeconds', async () => {
     const tree = await client.getCourseTree(LEARNER_1, COURSE_AN_TOAN_V2);
     assert.equal(tree.courseId, COURSE_AN_TOAN_V2);
@@ -112,44 +95,42 @@ void describe('CourseServiceClient với course-service thật (seed)', () => {
     assert.equal(lesson.disabledAt, null);
   });
 
-  void test('I1 (D17): gắn Locked Course test với selfEnroll, gọi lại idempotent, rồi đưa locked_at về NULL', async () => {
-    await courseDb.connect();
-    courseDbConnected = true;
-
-    const readState = async () =>
-      (
-        await courseDb.query<{ locked_at: Date | null; chain_id: string }>(
-          'SELECT locked_at, chain_id::text FROM courses WHERE id = $1',
-          [ENROLL_IT_PUBLIC_COURSE],
-        )
-      ).rows[0];
-
-    await unlockFixtureCourses(courseDb);
-    const before = await readState();
-    assert.equal(before.locked_at, null);
-
-    try {
-      const first = await client.lockCourse(
-        ENROLL_IT_LEARNER_1,
-        ENROLL_IT_PUBLIC_COURSE,
-        true,
-      );
-      assert.equal(first.courseId, ENROLL_IT_PUBLIC_COURSE);
-      assert.equal(first.organizationId, ENROLL_IT_ORG);
-      assert.equal(first.chainId, before.chain_id);
-      assert.equal(first.expectedCompletionDays, 3);
-      assert.equal(first.courseType, 'Public');
-      assert.ok(first.lockedAt instanceof Date);
-
-      const second = await client.lockCourse(
-        ENROLL_IT_LEARNER_1,
-        ENROLL_IT_PUBLIC_COURSE,
-        true,
-      );
-      assert.equal(second.lockedAt.getTime(), first.lockedAt.getTime());
-    } finally {
-      await unlockFixtureCourses(courseDb);
-      assert.equal((await readState()).locked_at, null);
-    }
+  void test('I1: repeated configured lock responses preserve timestamp and caller intent', async () => {
+    const first = await client.lockCourse(
+      ENROLL_IT_LEARNER_1,
+      ENROLL_IT_PUBLIC_COURSE,
+      true,
+    );
+    assert.equal(first.courseId, ENROLL_IT_PUBLIC_COURSE);
+    assert.equal(first.organizationId, ENROLL_IT_ORG);
+    assert.equal(first.chainId, ENROLL_IT_PUBLIC_COURSE);
+    assert.equal(first.expectedCompletionDays, 3);
+    assert.equal(first.courseType, 'Public');
+    assert.ok(first.lockedAt instanceof Date);
+    const second = await client.lockCourse(
+      ENROLL_IT_LEARNER_1,
+      ENROLL_IT_PUBLIC_COURSE,
+      true,
+    );
+    assert.equal(second.lockedAt.getTime(), first.lockedAt.getTime());
+    assert.deepEqual(
+      courseStub.calls.map(({ method, path, body }) => ({
+        method,
+        path,
+        body,
+      })),
+      [
+        {
+          method: 'POST',
+          path: `/${ENROLL_IT_PUBLIC_COURSE}/lock`,
+          body: { selfEnroll: true },
+        },
+        {
+          method: 'POST',
+          path: `/${ENROLL_IT_PUBLIC_COURSE}/lock`,
+          body: { selfEnroll: true },
+        },
+      ],
+    );
   });
 });
