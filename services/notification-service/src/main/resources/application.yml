@@ -67,6 +67,8 @@ learnup:
     retry-initial-backoff: ${ENROLLMENT_EVENTS_RETRY_INITIAL_BACKOFF:1s}
     retry-max-backoff: ${ENROLLMENT_EVENTS_RETRY_MAX_BACKOFF:30s}
     default-time-zone: ${ENROLLMENT_EVENTS_DEFAULT_TIME_ZONE:Asia/Ho_Chi_Minh}
+    # Timeout of the calls to tenant-service and course-service.
+    client-timeout-ms: ${ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS:3000}
 
 security:
   internal-key: ${INTERNAL_SERVICE_KEY:}
@@ -76,7 +78,6 @@ tenant:
   service-url: ${TENANT_SERVICE_URL:http://localhost:8084}
 course:
   service-url: ${COURSE_SERVICE_URL:http://localhost:8083}
-  timeout-ms: ${COURSE_SERVICE_TIMEOUT_MS:3000}
 
 eureka:
   instance:
