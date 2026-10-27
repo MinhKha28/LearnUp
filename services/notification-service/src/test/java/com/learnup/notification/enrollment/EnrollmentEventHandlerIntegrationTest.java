@@ -65,7 +65,7 @@ class EnrollmentEventHandlerIntegrationTest {
         assertThat(notifications.findByRecipientUserIdOrderByCreatedAtDesc(learner, org.springframework.data.domain.Pageable.unpaged()).getContent())
                 .singleElement().satisfies(notice -> {
                     assertThat(notice.getTitle()).isEqualTo("Bạn được giao một khóa học");
-                    assertThat(notice.getMessage()).contains("An toàn lao động").contains("01/12/2026 00:00");
+                    assertThat(notice.getMessage()).contains("An toàn lao động").contains("hết ngày 30/11/2026");
                     assertThat(notice.getType()).isEqualTo("ENROLLMENT_ASSIGNED");
                     assertThat(notice.getOrganizationId()).isEqualTo(event.organizationId());
                     assertThat(notice.isRead()).isFalse();

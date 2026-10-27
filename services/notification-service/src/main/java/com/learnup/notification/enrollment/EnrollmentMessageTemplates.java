@@ -4,18 +4,23 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.util.HtmlUtils;
 
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 /**
  * The words of the messages about an enrollment (Vietnamese: the Learner reads them in the bell and in the mailbox).
- * Dates are written as dd/MM/yyyy HH:mm in the time zone given, never as a raw ISO time. A withdrawal writes to nobody.
+ * Dates are written in the time zone given, never as a raw ISO time. A due date is the end of a day (BR-167) and
+ * learning stores it as 00:00 of the next day, so that is written as "hết ngày" and the day before: the Learner reads the
+ * day the Organizer chose. Any other time is written as dd/MM/yyyy HH:mm. A withdrawal writes to nobody.
  */
 @Component
 public class EnrollmentMessageTemplates {
 
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public Optional<EnrollmentMessage> render(EnrollmentEvent event, String courseName, String learnerName, ZoneId zone) {
         String course = courseName == null || courseName.isBlank() ? null : courseName.strip();
@@ -89,6 +94,10 @@ public class EnrollmentMessageTemplates {
     }
 
     private static String date(Instant instant, ZoneId zone) {
-        return DATE_TIME.format(instant.atZone(zone));
+        ZonedDateTime local = instant.atZone(zone);
+        if (local.toLocalTime().equals(LocalTime.MIDNIGHT)) {
+            return "hết ngày " + DATE.format(local.minusDays(1));
+        }
+        return DATE_TIME.format(local);
     }
 }

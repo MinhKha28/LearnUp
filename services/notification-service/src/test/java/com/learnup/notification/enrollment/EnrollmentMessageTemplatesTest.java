@@ -45,14 +45,30 @@ class EnrollmentMessageTemplatesTest {
                 "Nguyễn Văn An", VN).orElseThrow();
 
         assertThat(message.title()).isEqualTo("Bạn được giao một khóa học");
-        assertThat(message.text()).isEqualTo("Bạn được giao khóa học «An toàn lao động». Hạn hoàn thành: 01/12/2026 00:00.");
+        assertThat(message.text()).isEqualTo("Bạn được giao khóa học «An toàn lao động». Hạn hoàn thành: hết ngày 30/11/2026.");
         assertThat(message.type()).isEqualTo("ENROLLMENT_ASSIGNED");
     }
 
     @Test
-    void midnightIsWrittenAsZeroZeroNeverTwentyFour() {
+    void aDueDateIsTheEndOfTheDayTheOrganizerChoseNotMidnightOfTheNextOne() {
+        // learning stores the end of 30/11 as 00:00 of 01/12 (BR-167); the Learner reads 30/11
         EnrollmentMessage message = templates.render(assigned(AssignmentKind.CREATE, DUE), "X", "A", VN).orElseThrow();
-        assertThat(message.text()).contains("01/12/2026 00:00").doesNotContain("24:00");
+        assertThat(message.text()).contains("hết ngày 30/11/2026").doesNotContain("01/12/2026").doesNotContain("24:00");
+    }
+
+    @Test
+    void aTimeThatIsNotMidnightIsWrittenWithTheHour() {
+        EnrollmentMessage message = templates.render(assigned(AssignmentKind.CREATE, Instant.parse("2026-12-01T03:30:00Z")),
+                "X", "A", VN).orElseThrow();
+        assertThat(message.text()).contains("Hạn hoàn thành: 01/12/2026 10:30.");
+    }
+
+    @Test
+    void theEndOfAMonthAndOfAYearRollBackCorrectly() {
+        // 00:00 on 01/01/2027 in Ho Chi Minh is the end of 31/12/2026
+        EnrollmentMessage message = templates.render(assigned(AssignmentKind.CREATE, Instant.parse("2026-12-31T17:00:00Z")),
+                "X", "A", VN).orElseThrow();
+        assertThat(message.text()).contains("hết ngày 31/12/2026");
     }
 
     @Test
@@ -66,7 +82,7 @@ class EnrollmentMessageTemplatesTest {
     void everyKindThatHasADueDateWritesIt() {
         for (AssignmentKind kind : new AssignmentKind[]{AssignmentKind.CREATE, AssignmentKind.CONVERT, AssignmentKind.RESTORE}) {
             EnrollmentMessage message = templates.render(assigned(kind, DUE), "X", "A", VN).orElseThrow();
-            assertThat(message.text()).as(kind.name()).contains("Hạn hoàn thành: 01/12/2026 00:00");
+            assertThat(message.text()).as(kind.name()).contains("Hạn hoàn thành: hết ngày 30/11/2026");
         }
     }
 
@@ -94,14 +110,14 @@ class EnrollmentMessageTemplatesTest {
                 "An toàn lao động", "A", VN).orElseThrow();
         assertThat(message.title()).isEqualTo("Hạn hoàn thành đã được gia hạn");
         assertThat(message.text()).isEqualTo(
-                "Hạn hoàn thành khóa học «An toàn lao động» được gia hạn đến 08/12/2026 00:00 (trước đó: 01/12/2026 00:00). Lý do: Bận công tác.");
+                "Hạn hoàn thành khóa học «An toàn lao động» được gia hạn đến hết ngày 07/12/2026 (trước đó: hết ngày 30/11/2026). Lý do: Bận công tác.");
         assertThat(message.type()).isEqualTo("ENROLLMENT_DUE_DATE_EXTENDED");
     }
 
     @Test
     void anExtensionWithoutAPreviousDateOrAReasonLeavesThemOut() {
         EnrollmentMessage message = templates.render(extended(null, DUE, null), "X", "A", VN).orElseThrow();
-        assertThat(message.text()).isEqualTo("Hạn hoàn thành khóa học «X» được gia hạn đến 01/12/2026 00:00.");
+        assertThat(message.text()).isEqualTo("Hạn hoàn thành khóa học «X» được gia hạn đến hết ngày 30/11/2026.");
     }
 
     @Test
@@ -122,7 +138,7 @@ class EnrollmentMessageTemplatesTest {
     @Test
     void whenTheCourseIsNotKnownTheMessageStillReads() {
         EnrollmentMessage message = templates.render(assigned(AssignmentKind.CREATE, DUE), null, "A", VN).orElseThrow();
-        assertThat(message.text()).isEqualTo("Bạn được giao một khóa học. Hạn hoàn thành: 01/12/2026 00:00.");
+        assertThat(message.text()).isEqualTo("Bạn được giao một khóa học. Hạn hoàn thành: hết ngày 30/11/2026.");
         EnrollmentMessage exemption = templates.render(exempted(null), "  ", "A", VN).orElseThrow();
         assertThat(exemption.text()).isEqualTo("Bạn được miễn một khóa học.");
     }
@@ -133,7 +149,7 @@ class EnrollmentMessageTemplatesTest {
                 "Nguyễn Văn An", VN).orElseThrow();
         assertThat(message.emailSubject()).isEqualTo("Bạn được giao một khóa học");
         assertThat(message.emailHtml()).startsWith("<p>Xin chào Nguyễn Văn An,</p>");
-        assertThat(message.emailHtml()).contains("<p>Bạn được giao khóa học «An toàn lao động». Hạn hoàn thành: 01/12/2026 00:00.</p>");
+        assertThat(message.emailHtml()).contains("<p>Bạn được giao khóa học «An toàn lao động». Hạn hoàn thành: hết ngày 30/11/2026.</p>");
     }
 
     @Test

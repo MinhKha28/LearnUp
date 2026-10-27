@@ -156,7 +156,7 @@ class EnrollmentEventHandlerTest {
         assertThat(inApp.getValue().getRecipientUserId()).isEqualTo(LEARNER);
         assertThat(inApp.getValue().getTitle()).isEqualTo("Bạn được giao một khóa học");
         assertThat(inApp.getValue().getMessage())
-                .isEqualTo("Bạn được giao khóa học «An toàn lao động». Hạn hoàn thành: 01/12/2026 00:00.");
+                .isEqualTo("Bạn được giao khóa học «An toàn lao động». Hạn hoàn thành: hết ngày 30/11/2026.");
         assertThat(inApp.getValue().getType()).isEqualTo("ENROLLMENT_ASSIGNED");
         assertThat(inApp.getValue().getChannel()).isEqualTo("IN_APP");
         assertThat(inApp.getValue().getMetadata()).contains(ENROLLMENT.toString()).contains(COURSE.toString());
