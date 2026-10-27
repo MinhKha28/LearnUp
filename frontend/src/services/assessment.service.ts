@@ -173,8 +173,6 @@ export const fetchPeerReviewCyclesAPI = (assignmentId: string) =>
 export const closePeerReviewCycleAPI = (assignmentId: string, cycleId: string) =>
   axios.post<IBackendRes<IClosedPeerReviewCycle>>(
     `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles/${cycleId}/close`,
-    undefined,
-    requestConfig,
   );
 
 /** UC30.2 — the grading result of the latest submission, when it is Finalized (one request, so one check of the Enrollment). */
