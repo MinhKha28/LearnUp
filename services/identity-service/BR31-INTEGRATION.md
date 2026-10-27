@@ -4,6 +4,9 @@
 
 Base: `b2c2409` (including `712eacd` and `a891584`). Tenant owns canonical users,
 deletion, membership and eligibility. Identity owns credentials and its records.
+The branch is synchronized with `origin/develop` at `85af44f`. See
+[REVIEW-BR31-DEVELOP.md](REVIEW-BR31-DEVELOP.md) for the current source review,
+release blockers and verification results.
 
 `V5__allow_released_credential_email.sql` only drops NOT NULL from `users.email`.
 It preserves existing values, all users/token rows, `users_email_key`, username
@@ -22,8 +25,10 @@ NULL-email user at persist time; only a verified existing owner is released.
 `AuthService.setCredentials()` delegates to `CredentialProvisioningService`.
 No owner, or the same canonical owner, follows the existing supported creation or
 password-replacement workflow without a Tenant existence lookup. Canonical UUIDs,
-full-UUID generated usernames, password hashing, default roles and Organization
-metadata retain their existing semantics. Existing full-name synchronization
+compact full-UUID generated usernames (`user_` plus all 32 hexadecimal digits,
+as already used by develop), password hashing, default roles and Organization
+metadata retain their existing semantics. Existing usernames, including legacy
+hyphenated forms, are preserved on retries. Existing full-name synchronization
 continues to use the metadata operation.
 
 | Different Identity owner: Tenant response | Identity result |
@@ -141,9 +146,9 @@ loopback HTTP stub exercising provisioning failure responses. PostgreSQL also
 checks an actual unique-index timeout and migrates a populated separate V4 schema
 to V5, preserving user/token values and validating real constraints.
 
-Local verification on 2026-10-27 used Java 21.0.2 and `mvn clean verify` against an
-owned native PostgreSQL 16.15 cluster because Docker was unavailable. Of 608 tests,
-605 passed and three optional recovery-email end-to-end tests were skipped; there
+Post-sync verification on 2026-10-27 used Java 21.0.2 and `mvn clean verify` against
+an owned native PostgreSQL 16.15 cluster because Docker was unavailable. Of 610 tests,
+607 passed and three optional recovery-email end-to-end tests were skipped; there
 were no failures or errors. All 129 PostgreSQL tests passed, including 42 BR-31
 tests and the populated forward-migration test. The shared BR-31 contract also
 passed all 41 H2 tests. Existing metadata, provisioning, reset, refresh, HTTP-client
