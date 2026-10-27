@@ -19,17 +19,3 @@ export async function seededOrganizers() {
     b: { ...SEED.organizerB, token: await login(SEED.organizerB.email, env.FIXTURE_ORGANIZER_PASSWORD) },
   };
 }
-
-/**
- * Headers the gateway injects after JWT validation. Used ONLY by diagnostic steps that
- * bypass a missing gateway route, to keep checking the business rule behind it.
- */
-export function gatewayEquivalentHeaders(actor, role) {
-  const env = loadClusterEnv();
-  return {
-    "x-internal-key": env.INTERNAL_SERVICE_KEY,
-    "x-user-id": actor.userId,
-    "x-organization-id": actor.organizationId,
-    "x-user-role": role,
-  };
-}

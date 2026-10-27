@@ -50,8 +50,7 @@ authenticated internal channel. Everything it generates, including random secret
 
 Topology mirrors the production frontend build (compose builds every `VITE_*_BACKEND_URL` as
 the gateway): every journey call goes through the gateway on `:8080`. Direct service calls are
-used only for trust-boundary checks and for steps marked `diagnostic`, which bypass a missing
-gateway route (GW-1) with gateway-equivalent headers to keep checking the rule behind it.
+used only for trust-boundary checks.
 
 Fakes and non-default settings used:
 
@@ -77,9 +76,6 @@ correct behaviour; it fails only because of a bug listed below. Fixing a bug tur
 (`$E2E_STATE_DIR/runs/<runId>.json`) holds every created ID plus per-journey and per-route
 latency (single-user, not a load test).
 
-J2 waits up to about 65 s for a fresh UUIDv7 window before the first activation. This works
-around ID-1 so that consecutive runs stay deterministic.
-
 ## Cleanup (explicit, never run by the suite)
 
 ```bash
@@ -103,24 +99,8 @@ its volumes. `$E2E_STATE_DIR` (secrets, mailbox, run records) is kept; delete it
 
 ## Known failures
 
-`$ORG` is an Organizer access token, `$KEY` the `INTERNAL_SERVICE_KEY` from `cluster.env`.
+`$KEY` is the `INTERNAL_SERVICE_KEY` from `cluster.env`.
 
-- **ID-1 (identity-service).** Tenant does not send a username, so Identity defaults it to
-  `user_` plus the first 8 hex digits of the user ID. Tenant IDs are UUIDv7, which share those
-  digits for about 65 s. The second account created in that window cannot activate: accept
-  returns 503 `IDENTITY_UNAVAILABLE`, Identity logs 500 `users_username_key`, and the account
-  stays Pending.
-  ```bash
-  for n in 1 2; do curl -s -X POST localhost:8080/api/v1/users/learners -H "Authorization: Bearer $ORG" \
-    -H 'content-type: application/json' -d "{\"fullName\":\"Repro $n\",\"email\":\"repro$n-$RANDOM@e2e.learnup.test\"}"; done
-  # take both /activate/<token> links from $E2E_STATE_DIR/mailbox, then:
-  curl -X POST localhost:8080/api/v1/invitations/accept -H 'content-type: application/json' -d '{"token":"<t1>","password":"Repro-Pw1!"}'  # 200
-  curl -X POST localhost:8080/api/v1/invitations/accept -H 'content-type: application/json' -d '{"token":"<t2>","password":"Repro-Pw1!"}'  # 503
-  ```
-- **GW-1 (api-gateway).** There is no route for `/api/v1/assignments/**`, which the frontend
-  organizer assignment pages call through the gateway.
-  `curl -i localhost:8080/api/v1/assignments -H "Authorization: Bearer $ORG"` returns 404
-  `RESOURCE_NOT_FOUND`.
 - **CT-1 (assessment-service, contract with learning-service).** The `completion-snapshot`
   endpoint is missing, so no enrollment ever reaches Completed. The learning fake cannot stand in
   for it, because its default snapshot is not eligible.
@@ -137,5 +117,4 @@ Contract gaps worked around with documented fakes (not counted as failures):
 
 Not covered yet: quiz attempts and assignment submissions. The assessment seed uses
 `0199a000-…` course IDs, which do not match the course seed (`01900000-…`), so no assessment
-exists for any course in this cluster. A learner of organization B is not exercised either,
-because creating one costs another UUIDv7 window (ID-1).
+exists for any course in this cluster. A learner of organization B is not exercised either.

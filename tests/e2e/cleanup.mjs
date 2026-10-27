@@ -12,8 +12,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { DIRECT, GATEWAY, STATE_DIR } from "./lib/config.mjs";
-import { gatewayEquivalentHeaders, login, seededOrganizers } from "./lib/actors.mjs";
+import { GATEWAY, STATE_DIR } from "./lib/config.mjs";
+import { login, seededOrganizers } from "./lib/actors.mjs";
 import { data, request } from "./lib/http.mjs";
 
 const args = process.argv.slice(2);
@@ -62,9 +62,8 @@ for (const record of records) {
     const res =
       e.type === "Optional"
         ? await request("POST", `${GATEWAY}/api/v1/enrollments/${e.id}/withdrawal`, { token })
-        : // Through learning-service directly: the gateway has no /api/v1/assignments route (GW-1).
-          await request("POST", `${DIRECT.learning}/api/v1/assignments/${e.id}/exemption`, {
-            headers: gatewayEquivalentHeaders(a, "ORGANIZER"),
+        : await request("POST", `${GATEWAY}/api/v1/assignments/${e.id}/exemption`, {
+            token: a.token,
             json: { reason: `E2E cleanup ${record.runId}` },
           });
     const code = res.body?.error?.code ? ` ${res.body.error.code}` : "";
