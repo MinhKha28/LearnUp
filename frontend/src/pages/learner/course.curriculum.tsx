@@ -6,6 +6,7 @@ import { LearnerSkeleton } from "@/components/learner/learner.states";
 import { LearnerPage, StatusTag } from "@/components/learner/learner.ui";
 import { LearningError } from "@/components/learner/learning.error";
 import { useApiQuery } from "@/hooks/use.api.query";
+import { useLearningRefresh } from "@/hooks/use.learning.refresh";
 import { fetchCurriculum } from "@/services/learning.service";
 import type { CurriculumData, CurriculumModule } from "@/types/learning.types";
 import { buildCurriculumHeader, completionMark, type CompletionMark } from "@/utils/curriculum.view";
@@ -67,6 +68,7 @@ const ModuleBlock = ({ module, enrollmentId }: { module: CurriculumModule; enrol
 const CourseCurriculum = () => {
   const { enrollmentId = "" } = useParams();
   const query = useApiQuery((signal) => fetchCurriculum(enrollmentId, signal), [enrollmentId]);
+  useLearningRefresh(query.reload, enrollmentId);
   const modules = useMemo(
     () => (query.status === "success" ? byPosition(query.data.modules) : []),
     [query.status, query.data],

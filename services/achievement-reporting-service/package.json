@@ -4,6 +4,9 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "test": "npm run build && node --test test/*.unit.cjs test/*.integration.cjs",
+    "test:unit": "npm run build && node --test test/*.unit.cjs",
+    "test:integration": "npm run build && node --test test/*.integration.cjs",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "nest start",
@@ -14,6 +17,9 @@
     "lint": "eslint \"src/**/*.ts\" --fix"
   },
   "dependencies": {
+    "@confluentinc/kafka-javascript": "1.11.0",
+    "@learnup/ts-storage": "file:../../libraries/ts-storage",
+    "uuid": "^11.1.1",
     "@learnup/ts-common": "file:../../libraries/ts-common",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^12.0.1",

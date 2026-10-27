@@ -1,5 +1,6 @@
-import axios from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import { retryWithFreshToken } from "@/services/auth.session";
+import { ownsProgress, type ProgressOwner } from "@/utils/video.progress.queue";
 
 import { ApiError, type ApiEnvelope } from "@/types/api.types";
 
@@ -31,11 +32,11 @@ const client = axios.create({ baseURL, timeout: 10000 });
 export const apiRequestUrl = (path: string) =>
   `${baseURL?.replace(/\/+$/, "") ?? ""}${path}`;
 
-// Kiểu phản hồi thô; src/types/axios.d.ts biến AxiosResponse thành thenable nên không dùng trực tiếp được
-type RawResponse<T> = { data: ApiEnvelope<T> };
-
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
+  const owner = (config as InternalAxiosRequestConfig & { progressOwner?: ProgressOwner }).progressOwner;
+  if (owner && !ownsProgress(owner, token))
+    throw new ApiError(401, "UNAUTHORIZED", "Session changed");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -94,7 +95,10 @@ export const toApiError = (error: unknown): ApiError => {
 
   if (bodyError && typeof bodyError.code === "string") {
     const { code, message, ...details } = bodyError;
-    return new ApiError(status, code, firstString(message) ?? "", details);
+    return new ApiError(status, code, firstString(message) ?? "", {
+      ...details,
+      ...(response.headers?.["x-correlation-id"] ? { correlationId: response.headers["x-correlation-id"] } : {}),
+    });
   }
 
   // Nest mặc định để mảng ở body.message; HttpExceptionFilter của service bọc nó trong body.error
@@ -115,49 +119,68 @@ export const toApiError = (error: unknown): ApiError => {
       body.error,
       axios.isAxiosError(error) ? error.message : undefined,
     ) ?? `HTTP ${status}`;
-  return new ApiError(status, `HTTP_${status}`, message);
+  return new ApiError(status, `HTTP_${status}`, message, response.headers?.["x-correlation-id"]
+    ? { correlationId: response.headers["x-correlation-id"] } : {});
 };
 
-export const apiGet = async <T>(
-  path: string,
-  options: { params?: Record<string, unknown>; signal?: AbortSignal } = {},
-): Promise<T> => {
-  try {
-    const response = await client.get<ApiEnvelope<T>, RawResponse<T>>(
-      path,
-      options,
-    );
-    return response.data.data;
-  } catch (error) {
-    throw toApiError(error);
+export interface ApiOptions {
+  params?: Record<string, unknown>;
+  signal?: AbortSignal;
+  headers?: Record<string, string>;
+  responseType?: "json" | "blob";
+  progressOwner?: ProgressOwner;
+}
+
+export interface ApiResult<T> {
+  data: T;
+  headers: Record<string, unknown>;
+}
+
+/** Blob requests can receive the same JSON error envelope as ordinary requests. */
+export const toApiErrorAsync = async (error: unknown): Promise<ApiError> => {
+  if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {
+    try {
+      error.response.data = JSON.parse(await error.response.data.text());
+    } catch {
+      // Non-JSON proxy errors retain their HTTP status.
+    }
   }
+  return toApiError(error);
 };
 
-export const apiPost = async <T>(
+const requestWithHeaders = async <T>(
+  method: "get" | "post" | "patch" | "put",
   path: string,
   body: unknown,
-  options: { signal?: AbortSignal } = {},
-): Promise<T> => {
+  options: ApiOptions = {},
+): Promise<ApiResult<T>> => {
   try {
-    const response = await client.post<ApiEnvelope<T>, RawResponse<T>>(
-      path,
-      body,
-      options,
-    );
-    return response.data.data;
+    const response = await client.request<unknown, { data: ApiEnvelope<T> | T; headers: Record<string, unknown> }>({
+      method, url: path, data: body, ...options,
+    });
+    return {
+      data: options.responseType === "blob" ? response.data as T : (response.data as ApiEnvelope<T>).data,
+      headers: response.headers,
+    };
   } catch (error) {
-    throw toApiError(error);
+    throw await toApiErrorAsync(error);
   }
 };
 
-export const apiPatch = async <T>(path: string, body: unknown): Promise<T> => {
-  try {
-    const response = await client.patch<ApiEnvelope<T>, RawResponse<T>>(
-      path,
-      body,
-    );
-    return response.data.data;
-  } catch (error) {
-    throw toApiError(error);
-  }
-};
+export const apiGetWithHeaders = <T>(path: string, options: ApiOptions = {}) =>
+  requestWithHeaders<T>("get", path, undefined, options);
+
+export const apiPutWithHeaders = <T>(path: string, body: unknown, options: ApiOptions = {}) =>
+  requestWithHeaders<T>("put", path, body, options);
+
+export const apiGet = async <T>(path: string, options: ApiOptions = {}): Promise<T> =>
+  (await apiGetWithHeaders<T>(path, options)).data;
+
+export const apiPost = async <T>(path: string, body: unknown, options: ApiOptions = {}): Promise<T> =>
+  (await requestWithHeaders<T>("post", path, body, options)).data;
+
+export const apiPatch = async <T>(path: string, body: unknown, options: ApiOptions = {}): Promise<T> =>
+  (await requestWithHeaders<T>("patch", path, body, options)).data;
+
+export const apiPut = async <T>(path: string, body: unknown, options: ApiOptions = {}): Promise<T> =>
+  (await apiPutWithHeaders<T>(path, body, options)).data;

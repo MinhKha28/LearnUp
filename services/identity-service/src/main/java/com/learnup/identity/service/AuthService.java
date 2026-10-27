@@ -339,6 +339,11 @@ public class AuthService {
         credentialProvisioning.setCredentials(request);
     }
 
+    /** Full canonical UUID in the compact username format already adopted by develop. */
+    static String defaultUsername(UUID userId) {
+        return "user_" + userId.toString().replace("-", "");
+    }
+
     private String createAndPersistRefreshToken(UUID userId) {
         return issueRefreshToken(userId, null).rawToken();
     }

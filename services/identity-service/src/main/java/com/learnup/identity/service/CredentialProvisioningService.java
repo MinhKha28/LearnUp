@@ -111,7 +111,7 @@ public class CredentialProvisioningService {
             user = new User();
             user.setId(userId);
             user.setUsername(request.getUsername() == null || request.getUsername().isBlank()
-                    ? "user_" + userId : request.getUsername().trim());
+                    ? AuthService.defaultUsername(userId) : request.getUsername().trim());
             user.setEmail(email);
             user.setFullName(request.getFullName());
             user.setRole(request.getRole() == null ? UserRole.LEARNER : request.getRole());

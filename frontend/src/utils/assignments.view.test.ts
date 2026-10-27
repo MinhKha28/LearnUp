@@ -20,7 +20,7 @@ describe("UC24 view", () => {
     expect(assignmentCalendarDay(now, timezone)).toBe("2026-10-17");
     expect(
       assignmentExtensionRange("2026-01-01T17:00:00Z", timezone, now),
-    ).toEqual({ min: "2026-10-17", max: "2027-10-17" });
+    ).toEqual({ min: "2026-10-17" });
   });
   it("requires the day after the current end date", () => {
     expect(
@@ -33,18 +33,17 @@ describe("UC24 view", () => {
       extensionDateError("2026-10-21", "2026-10-20T17:00:00Z", timezone, now),
     ).toBeNull();
   });
-  it("accepts today and +365 inclusively, rejects outside boundaries", () => {
+  it("accepts today and distant future dates, rejects past dates", () => {
     const due = "2026-01-01T17:00:00Z";
     expect(extensionDateError("2026-10-17", due, timezone, now)).toBeNull();
     expect(extensionDateError("2027-10-17", due, timezone, now)).toBeNull();
     expect(extensionDateError("2026-10-16", due, timezone, now)).toBe(
       "DUE_DATE_IN_PAST",
     );
-    expect(extensionDateError("2027-10-18", due, timezone, now)).toBe(
-      "DUE_DATE_TOO_FAR",
-    );
+    for (const day of ["2027-10-18", "2100-12-31", "9999-12-31"])
+      expect(extensionDateError(day, due, timezone, now)).toBeNull();
   });
-  it("today as current deadline starts tomorrow; distant deadline produces no valid range", () => {
+  it("today and distant current deadlines start on the following day", () => {
     expect(
       assignmentExtensionRange("2026-10-17T17:00:00Z", timezone, now).min,
     ).toBe("2026-10-18");
@@ -53,7 +52,7 @@ describe("UC24 view", () => {
       timezone,
       now,
     );
-    expect(range.min > range.max).toBe(true);
+    expect(range).toEqual({ min: "2027-10-18" });
   });
   it("adds calendar days across DST and leap year", () => {
     expect(
@@ -62,11 +61,11 @@ describe("UC24 view", () => {
         "America/New_York",
         new Date("2028-03-11T12:00:00Z"),
       ),
-    ).toEqual({ min: "2028-03-12", max: "2029-03-11" });
+    ).toEqual({ min: "2028-03-12" });
     expect(
       assignmentExtensionRange(null, "UTC", new Date("2028-02-29T12:00:00Z"))
-        .max,
-    ).toBe("2029-02-28");
+        .min,
+    ).toBe("2028-02-29");
   });
   it("null timezone uses the device calendar", () => {
     const expected = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -155,7 +154,6 @@ describe("UC24 view", () => {
     "ALREADY_ASSIGNED",
     "DUE_DATE_NOT_LATER",
     "DUE_DATE_IN_PAST",
-    "DUE_DATE_TOO_FAR",
     "ASSIGNMENT_INVALID_LEARNERS",
     "CONCURRENT_CHANGE",
     "ENROLLMENT_NOT_EXTENDABLE",

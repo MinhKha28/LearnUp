@@ -110,8 +110,18 @@ export interface IRubricRow {
 /**
  * UC18: why a Quiz cannot be fully edited (BR-99).
  * QUIZ_HAS_ATTEMPTS (BR-96, BR-97), COURSE_LOCKED (BR-94), COURSE_SUBMITTED (BR-285).
+ * UC18.1 permissions add COURSE_NOT_EDITABLE (Archived/Disabled, BR-285) and COURSE_LEFT_DRAFT (BR-323);
+ * the UC18 list never sends those two.
  */
-export type QuizLockReason = "QUIZ_HAS_ATTEMPTS" | "COURSE_LOCKED" | "COURSE_SUBMITTED";
+export type QuizLockReason =
+  | "QUIZ_HAS_ATTEMPTS"
+  | "COURSE_LOCKED"
+  | "COURSE_SUBMITTED"
+  | "COURSE_NOT_EDITABLE"
+  | "COURSE_LEFT_DRAFT";
+
+/** BR-155: the three auto-graded question types. */
+export type QuizQuestionType = "SingleChoice" | "MultipleChoice" | "TrueFalse";
 
 /** UC18 list row. `moduleId` null = attached to the Course (BR-154). `disabled` is not a lock reason. */
 export interface IQuizSummary {
@@ -130,6 +140,50 @@ export interface IQuizSummary {
   locked: boolean;
   lockReasons: QuizLockReason[];
   disabled: boolean;
+}
+
+/** UC18.1: one answer option; `isCorrect` is the answer key (Instructor only). */
+export interface IQuizOption {
+  id: string;
+  position: number;
+  content: string;
+  isCorrect: boolean;
+}
+
+export interface IQuizQuestion {
+  id: string;
+  position: number;
+  /** Normally a QuizQuestionType; any other stored value is passed through as is. */
+  type: string;
+  content: string;
+  options: IQuizOption[];
+}
+
+/** UC18.1: whether one change is possible now and why not (BR-99). */
+export interface IQuizPermission {
+  allowed: boolean;
+  reasons: QuizLockReason[];
+}
+
+export interface IQuizPermissions {
+  editQuestions: IQuizPermission;
+  editTimeLimit: IQuizPermission;
+  editAttemptRule: IQuizPermission;
+  editPassingScore: IQuizPermission;
+  editRequired: IQuizPermission;
+  deleteQuiz: IQuizPermission;
+  deleteLastQuestion: IQuizPermission;
+}
+
+/** UC18.1 response: the list row plus placement, Course facts, permissions and questions in display order. */
+export interface IQuizDetail extends IQuizSummary {
+  placement: "MODULE" | "COURSE";
+  courseStatus: string;
+  courseLocked: boolean;
+  permissions: IQuizPermissions;
+  questions: IQuizQuestion[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** UC18 response: same page shape as UC19 plus the Course-level flags. */
@@ -154,6 +208,11 @@ export interface ICreateQuizReq {
   maxConsecutiveAttempts?: number;
   lockoutHours?: number;
 }
+
+/** UC18.4 payload: the five configuration fields (BR-156); send only what changed. */
+export type IUpdateQuizConfigReq = Partial<
+  Pick<ICreateQuizReq, "timeLimitMinutes" | "passingScore" | "isRequired" | "maxConsecutiveAttempts" | "lockoutHours">
+>;
 
 /** UC19.3 payload: send only what changed. `promptFile: null` removes the attachment. */
 export type IUpdateAssignment = Partial<Omit<ICreateAssignment, "courseId" | "promptFile">> & {

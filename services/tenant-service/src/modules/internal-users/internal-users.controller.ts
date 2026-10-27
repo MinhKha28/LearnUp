@@ -1,5 +1,12 @@
-import { Body, Controller, HttpCode, Post } from '@nestjs/common';
-import { ApiOkResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { HEADER_NAMES } from '@learnup/ts-common';
+import { Body, Controller, Headers, HttpCode, Post } from '@nestjs/common';
+import {
+  ApiHeader,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiSecurity,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ResponseMessage, ServiceCall } from '../../common/decorator/customize';
 import { LookupUsersDto } from './dto/lookup-users.dto';
 import { InternalUsersService } from './internal-users.service';
@@ -70,7 +77,20 @@ export class InternalUsersController {
       },
     },
   })
-  lookup(@Body() dto: LookupUsersDto) {
-    return this.service.lookup(dto);
+  @ApiHeader({
+    name: HEADER_NAMES.ORGANIZATION_ID,
+    required: true,
+    description:
+      'Organization of the caller; must equal organizationId in the body.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'x-organization-id is missing or differs from organizationId in the body (ORGANIZATION_NOT_FOUND).',
+  })
+  lookup(
+    @Headers(HEADER_NAMES.ORGANIZATION_ID) organizationId: string | undefined,
+    @Body() dto: LookupUsersDto,
+  ) {
+    return this.service.lookup(organizationId, dto);
   }
 }

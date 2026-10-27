@@ -188,7 +188,7 @@ abstract class CredentialProvisioningContract {
     void emailAndUsernameLoginContractsStillCheckCanonicalTenantAccess() {
         SetCredentialsRequest request = request(0);
         authService.setCredentials(request);
-        String username = "user_" + request.getUserId();
+        String username = "user_" + request.getUserId().toString().replace("-", "");
 
         for (String identifier : List.of(request.getEmail(), username)) {
             var response = authService.login(new LoginRequest(identifier, PASSWORD));
@@ -207,7 +207,7 @@ abstract class CredentialProvisioningContract {
         SetCredentialsRequest first = request(0);
         authService.setCredentials(first);
         SetCredentialsRequest second = request(1);
-        second.setUsername("user_" + first.getUserId());
+        second.setUsername("user_" + first.getUserId().toString().replace("-", ""));
 
         assertThatThrownBy(() -> authService.setCredentials(second))
                 .isInstanceOf(CredentialProvisioningConflictException.class)
@@ -222,7 +222,7 @@ abstract class CredentialProvisioningContract {
     private User assertProvisioned(SetCredentialsRequest request) {
         User user = users.findById(request.getUserId()).orElseThrow();
         assertThat(user.getId()).isEqualTo(request.getUserId());
-        assertThat(user.getUsername()).isEqualTo("user_" + request.getUserId()).hasSize(41);
+        assertThat(user.getUsername()).isEqualTo("user_" + request.getUserId().toString().replace("-", "")).hasSize(37);
         assertThat(user.getEmail()).isEqualTo(request.getEmail());
         assertThat(user.getRole()).isEqualTo(request.getRole());
         assertThat(user.getOrganizationId()).isEqualTo(request.getOrganizationId());

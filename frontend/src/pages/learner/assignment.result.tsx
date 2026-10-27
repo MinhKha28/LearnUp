@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { DetailItem, InfoPanel, LearnerButton, PageHeader, StatusTag } from "@/components/learner/learner.ui";
-import {
-  assessmentErrorText,
-  fetchLearnerAssignmentAPI,
-  fetchLearnerResultAPI,
-} from "@/services/assessment.service";
+import { assessmentErrorText, fetchLearnerResultAPI } from "@/services/assessment.service";
 import type { IGradingResult } from "@/types/assessment.types";
 import "./assignment.result.scss";
 
@@ -16,9 +12,8 @@ const AssignmentResult = () => {
   const { enrollmentId: courseId, assignmentId } = useParams();
   const navigate = useNavigate();
   const [result, setResult] = useState<IGradingResult | null>(null);
-  const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
-  // set when there is nothing to show: not graded yet, or the call failed
+  // set when there is nothing to show: not submitted, not graded yet (PRE-1), or the call failed
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -26,24 +21,8 @@ const AssignmentResult = () => {
     let active = true;
     const load = async () => {
       try {
-        const assignment = await fetchLearnerAssignmentAPI(assignmentId);
-        if (!active) return;
-        const latest = assignment.data?.latestSubmission;
-        if (!assignment.data) {
-          setNotice(assessmentErrorText(assignment, "Unable to load the Assignment."));
-          return;
-        }
-        setTitle(assignment.data.title);
-        // PRE-1: only a Finalized submission has a result.
-        if (!latest || latest.gradingStatus !== "Finalized") {
-          setNotice(
-            latest
-              ? "The result is not available yet. Your submission is still being graded."
-              : "You have not submitted this Assignment yet.",
-          );
-          return;
-        }
-        const res = await fetchLearnerResultAPI(assignmentId, latest.id);
+        // PRE-1: only a Finalized submission has a result; the server says so when it has none.
+        const res = await fetchLearnerResultAPI(assignmentId);
         if (!active) return;
         if (res.data) setResult(res.data);
         else setNotice(assessmentErrorText(res, "Unable to load the result."));
@@ -66,7 +45,7 @@ const AssignmentResult = () => {
       <>
         <PageHeader
           eyebrow="ASSESSMENTS / RESULT"
-          title={loading ? "Loading result..." : title ? `${title} - result` : "Result unavailable"}
+          title={loading ? "Loading result..." : "Result unavailable"}
           subtitle={loading ? "Please wait." : notice}
           back
         />

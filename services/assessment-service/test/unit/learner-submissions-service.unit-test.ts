@@ -11,7 +11,8 @@ import {
 import { StorageProviderError } from '@learnup/ts-storage';
 import type { CurrentUser } from '@learnup/ts-common';
 import {
-  EnrolledCourse,
+  type AssessmentAccess,
+  type AssessmentAccessLevel,
   EnrollmentClient,
 } from '../../src/infrastructure/clients/learning/enrollment.client';
 import { LearnerSubmissionsService } from '../../src/modules/learner-submissions/learner-submissions.service';
@@ -30,9 +31,11 @@ const OTHER_LEARNER = '00000000-0000-4000-8000-0000000000c2';
 const ENROLLMENT = '00000000-0000-4000-8000-0000000000e1';
 const HOUR = 3_600_000;
 
-const learner = (userId = LEARNER): CurrentUser => ({
+const OTHER_ORG = '00000000-0000-4000-8000-0000000000bb';
+
+const learner = (userId = LEARNER, organizationId = ORG): CurrentUser => ({
   userId,
-  organizationId: ORG,
+  organizationId,
   role: 'LEARNER',
   isAuthenticated: true,
 });
@@ -85,7 +88,6 @@ interface World {
   submissions: SubmissionRow[];
   cycles: CycleRow[];
   outbox: Record<string, unknown>[];
-  completed: Set<string>;
   failCreateSubmission: boolean;
 }
 
@@ -96,7 +98,6 @@ function build(over: Partial<World> = {}) {
     submissions: [],
     cycles: [],
     outbox: [],
-    completed: new Set(),
     failCreateSubmission: false,
     ...over,
   };
@@ -106,7 +107,31 @@ function build(over: Partial<World> = {}) {
 
   const repository = {
     transaction: (fn: (tx: unknown) => Promise<unknown>) => fn({}),
-    findAssignment: () => Promise.resolve(world.assignment),
+    // like the real one: an Assignment of another Organization is not found
+    findAssignment: (organizationId: string, id: string) =>
+      Promise.resolve(
+        world.assignment &&
+          world.assignment.organizationId === organizationId &&
+          world.assignment.id === id
+          ? world.assignment
+          : null,
+      ),
+    // like the real one: only a submission of this Organization, this Assignment and this Learner
+    findSubmissionWithReviews: (
+      organizationId: string,
+      assessmentId: string,
+      id: string,
+      learnerId: string,
+    ) => {
+      const found = world.submissions.find(
+        (x) =>
+          x.id === id &&
+          x.assessmentId === assessmentId &&
+          x.organizationId === organizationId &&
+          x.learnerId === learnerId,
+      );
+      return Promise.resolve(found ? { ...found, reviews: [] } : null);
+    },
     findState: (a: string, l: string) =>
       Promise.resolve(world.states.get(stateKey(a, l)) ?? null),
     findLatestSubmission: (a: string, l: string) =>
@@ -117,8 +142,6 @@ function build(over: Partial<World> = {}) {
           )
           .sort((x, y) => y.submissionNumber - x.submissionNumber)[0] ?? null,
       ),
-    isEnrollmentCompleted: (e: string) =>
-      Promise.resolve(world.completed.has(e)),
     findPlatformSetting: () => Promise.resolve(null),
     lock: () => Promise.resolve(),
     ensureState: (
@@ -199,9 +222,20 @@ function build(over: Partial<World> = {}) {
 
   class StubEnrollments extends EnrollmentClient {
     enrolled = true;
-    findEnrollment(courseId: string): Promise<EnrolledCourse | null> {
+    /** What Learning Service says the Enrollment allows (assessment-access): Full, ReadOnly (Completed) or None. */
+    access: AssessmentAccessLevel = 'Full';
+    /** How many times Learning Service was asked. */
+    asked = 0;
+    getAssessmentAccess(): Promise<AssessmentAccess | null> {
+      this.asked += 1;
       return Promise.resolve(
-        this.enrolled ? { courseId, enrollmentId: ENROLLMENT } : null,
+        this.enrolled
+          ? {
+              enrollmentId: ENROLLMENT,
+              status: this.access === 'ReadOnly' ? 'Completed' : 'InProgress',
+              access: this.access,
+            }
+          : null,
       );
     }
   }
@@ -267,7 +301,7 @@ describe('submit (UC30)', () => {
     assert.equal(ctx.world.cycles.length, 0);
   });
 
-  test('with peer review on the submission waits in a cycle that is created on demand (BR-312)', async () => {
+  test('with peer review on the submission waits in a cycle that is created on demand (BR-231)', async () => {
     ctx = build({ assignment: assignmentRow(peerOn) });
     const r = await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
     assert.equal(r.gradingStatus, 'AwaitingPeerReview');
@@ -279,7 +313,7 @@ describe('submit (UC30)', () => {
     assert.equal(ctx.world.submissions[0].cycleId, ctx.world.cycles[0].id);
   });
 
-  test('another Learner in the same cycle joins it, a later day outside it opens the next one (BR-167)', async () => {
+  test('another Learner in the same cycle joins it, a later day outside it opens the next one (BR-208)', async () => {
     ctx = build({ assignment: assignmentRow(peerOn) });
     await ctx.service.submit(learner(), ASSIGNMENT, { content: 'a' });
     ctx.setNow(new Date('2026-10-15T10:00:00Z'));
@@ -342,7 +376,7 @@ describe('submit (UC30)', () => {
     }
   });
 
-  test('only an enrolled Learner may submit (403), a Completed Enrollment is read-only (BR-169)', async () => {
+  test('only an enrolled Learner may submit (403), a Completed Enrollment is read-only (BR-210)', async () => {
     await rejectsWith(
       ctx.service.submit({ ...learner(), role: 'INSTRUCTOR' }, ASSIGNMENT, {
         content: 'x',
@@ -357,7 +391,7 @@ describe('submit (UC30)', () => {
       'NOT_ENROLLED',
     );
     ctx.enrollments.enrolled = true;
-    ctx.world.completed.add(ENROLLMENT);
+    ctx.enrollments.access = 'ReadOnly';
     await rejectsWith(
       ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' }),
       ConflictException,
@@ -389,7 +423,7 @@ describe('submit (UC30)', () => {
     assert.equal(ctx.world.submissions.length, 1);
   });
 
-  test('n consecutive submissions lock the Assignment for m hours, for this Learner only (BR-176, BR-178)', async () => {
+  test('n consecutive submissions lock the Assignment for m hours, for this Learner only (BR-218, BR-220)', async () => {
     // two earlier submissions, replaced since: the next one is the third = n
     ctx.world.states.set(`${ASSIGNMENT}:${LEARNER}`, {
       id: 's1',
@@ -414,7 +448,7 @@ describe('submit (UC30)', () => {
     assert.equal(other.attempts.remainingAttempts, 2);
   });
 
-  test('while locked a submission is refused with the reopen time; after it, counting starts again (BR-176, BR-179)', async () => {
+  test('while locked a submission is refused with the reopen time; after it, counting starts again (BR-218, BR-221)', async () => {
     const lockedUntil = new Date('2026-10-15T06:00:00Z');
     ctx.world.states.set(`${ASSIGNMENT}:${LEARNER}`, {
       id: 's1',
@@ -496,7 +530,8 @@ describe('getAssignment (UC30 step 1)', () => {
   });
 
   test('a Completed Enrollment is read-only; someone not enrolled gets 403', async () => {
-    const done = build({ completed: new Set([ENROLLMENT]) });
+    const done = build();
+    done.enrollments.access = 'ReadOnly';
     assert.equal(
       (await done.service.getAssignment(learner(), ASSIGNMENT)).readOnly,
       true,
@@ -527,7 +562,7 @@ describe('resubmit (UC30.1)', () => {
     return { ctx, first };
   };
 
-  test('a resubmission in the same open cycle takes the place of the previous one (BR-171)', async () => {
+  test('a resubmission in the same open cycle takes the place of the previous one (BR-213)', async () => {
     const { ctx, first } = await submitted();
     ctx.setNow(new Date('2026-10-16T10:00:00Z'));
     const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
@@ -544,12 +579,12 @@ describe('resubmit (UC30.1)', () => {
     assert.equal(current.supersededAt, undefined);
     assert.equal(current.cycleId, old.cycleId);
     assert.equal(current.content, 'second');
-    // the latest one is the one that counts (BR-170)
+    // the latest one is the one that counts (BR-212)
     const view = await ctx.service.getAssignment(learner(), ASSIGNMENT);
     assert.equal(view.latestSubmission?.submissionNumber, 2);
   });
 
-  test('it counts as one more submission in a row (BR-176) and is announced as Resubmitted', async () => {
+  test('it counts as one more submission in a row (BR-218) and is announced as Resubmitted', async () => {
     const { ctx, first } = await submitted();
     const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
       content: 'second',
@@ -562,7 +597,7 @@ describe('resubmit (UC30.1)', () => {
     assert.equal(event.consecutiveCount, 2);
   });
 
-  test('A1: after the closing line of the previous cycle it goes straight to the Instructor (BR-171)', async () => {
+  test('A1: after the closing line of the previous cycle it goes straight to the Instructor (BR-213)', async () => {
     const { ctx } = await submitted();
     ctx.setNow(afterCutoff);
     const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
@@ -579,7 +614,7 @@ describe('resubmit (UC30.1)', () => {
     assert.ok(ctx.world.submissions[0].supersededAt);
   });
 
-  test('A2: a Learner who owes a peer review duty joins the cycle that is open now (BR-313)', async () => {
+  test('A2: a Learner who owes a peer review duty joins the cycle that is open now (BR-239)', async () => {
     const { ctx } = await submitted();
     ctx.world.states.get(`${ASSIGNMENT}:${LEARNER}`)!.peerReviewObligation =
       'Missed';
@@ -630,7 +665,7 @@ describe('resubmit (UC30.1)', () => {
     assert.equal(ctx.world.states.size, 0, 'nothing is counted');
   });
 
-  test('there is no limit on resubmissions: every n in a row pause it, then it opens again (BR-168, BR-176)', async () => {
+  test('there is no limit on resubmissions: every n in a row pause it, then it opens again (BR-209, BR-218)', async () => {
     const { ctx } = await submitted({ ...peerOn, maxConsecutiveAttempts: 2 });
     // the second one of two in a row locks the Assignment for lockoutHours (24)
     const second = await ctx.service.resubmit(learner(), ASSIGNMENT, {
@@ -662,9 +697,9 @@ describe('resubmit (UC30.1)', () => {
     assert.equal(third.attempts.lockedUntil, null);
   });
 
-  test('a Completed Enrollment is read-only (BR-169)', async () => {
+  test('a Completed Enrollment is read-only (BR-210)', async () => {
     const { ctx } = await submitted();
-    ctx.world.completed.add(ENROLLMENT);
+    ctx.enrollments.access = 'ReadOnly';
     await rejectsWith(
       ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'x' }),
       ConflictException,
@@ -748,5 +783,152 @@ describe('resubmit (UC30.1)', () => {
       .resubmission;
     assert.equal(closed?.placement, 'INSTRUCTOR');
     assert.equal(closed?.cycleClosesAt, null);
+  });
+});
+
+/** The grader finished: the submission is Finalized with this score. */
+const finalize = (
+  row: SubmissionRow,
+  score = '80',
+  comment: string | null = 'Well done',
+) =>
+  Object.assign(row, {
+    gradingStatus: 'Finalized',
+    finalScore: { toString: () => score },
+    finalizedAt: new Date('2026-10-20T08:00:00Z'),
+    finalizationComment: comment,
+  });
+
+describe('getLatestResult (UC30.2)', () => {
+  let ctx: ReturnType<typeof build>;
+  beforeEach(() => {
+    ctx = build();
+  });
+
+  test('a Finalized submission gives its result, under Full and under ReadOnly (Completed), asking Learning Service once', async () => {
+    const receipt = await ctx.service.submit(learner(), ASSIGNMENT, {
+      content: 'x',
+    });
+    finalize(ctx.world.submissions[0]);
+    for (const access of ['Full', 'ReadOnly'] as const) {
+      ctx.enrollments.access = access;
+      ctx.enrollments.asked = 0;
+      const result = await ctx.service.getLatestResult(learner(), ASSIGNMENT);
+      assert.equal(result.submission.id, receipt.id, access);
+      assert.equal(result.assignment.id, ASSIGNMENT, access);
+      assert.equal(result.finalScore, 80, access);
+      assert.equal(result.passed, true, access);
+      assert.equal(result.finalizationComment, 'Well done', access);
+      assert.equal(ctx.enrollments.asked, 1, `${access}: one question`);
+    }
+  });
+
+  test('below the passing score the result says not passed', async () => {
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    finalize(ctx.world.submissions[0], '55');
+    const result = await ctx.service.getLatestResult(learner(), ASSIGNMENT);
+    assert.equal(result.finalScore, 55);
+    assert.equal(result.passed, false);
+  });
+
+  test('a submission that is not Finalized yet is 409 SUBMISSION_NOT_FINALIZED, after one question', async () => {
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    ctx.enrollments.asked = 0;
+    await rejectsWith(
+      ctx.service.getLatestResult(learner(), ASSIGNMENT),
+      ConflictException,
+      'SUBMISSION_NOT_FINALIZED',
+    );
+    assert.equal(ctx.enrollments.asked, 1);
+  });
+
+  test("another Learner's submission is never returned: 404 SUBMISSION_NOT_FOUND, by the latest and by id", async () => {
+    await ctx.service.submit(learner(OTHER_LEARNER), ASSIGNMENT, {
+      content: 'theirs',
+    });
+    const theirs = finalize(ctx.world.submissions[0]);
+    await rejectsWith(
+      ctx.service.getLatestResult(learner(), ASSIGNMENT),
+      NotFoundException,
+      'SUBMISSION_NOT_FOUND',
+    );
+    await rejectsWith(
+      ctx.service.getResult(learner(), ASSIGNMENT, theirs.id),
+      NotFoundException,
+      'SUBMISSION_NOT_FOUND',
+    );
+  });
+
+  test("a Learner of another Organization cannot reach the Assignment or its results: 404 ASSIGNMENT_NOT_FOUND", async () => {
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    const mine = finalize(ctx.world.submissions[0]);
+    const stranger = learner(LEARNER, OTHER_ORG);
+    await rejectsWith(
+      ctx.service.getLatestResult(stranger, ASSIGNMENT),
+      NotFoundException,
+      'ASSIGNMENT_NOT_FOUND',
+    );
+    await rejectsWith(
+      ctx.service.getResult(stranger, ASSIGNMENT, mine.id),
+      NotFoundException,
+      'ASSIGNMENT_NOT_FOUND',
+    );
+  });
+});
+
+describe('what the Enrollment allows (BR-210, L17)', () => {
+  let ctx: ReturnType<typeof build>;
+  beforeEach(() => {
+    ctx = build();
+  });
+
+  test('Halted or Withdrawn (None) shuts the Learner out of every screen: 409 ENROLLMENT_NOT_ACTIVE', async () => {
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    ctx.enrollments.access = 'None';
+    const calls = [
+      () => ctx.service.getAssignment(learner(), ASSIGNMENT),
+      () => ctx.service.submit(learner(), ASSIGNMENT, { content: 'y' }),
+      () => ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'y' }),
+      () => ctx.service.getResult(learner(), ASSIGNMENT, ASSIGNMENT),
+      () => ctx.service.getLatestResult(learner(), ASSIGNMENT),
+      () => ctx.service.downloadPromptFile(learner(), ASSIGNMENT),
+    ];
+    for (const call of calls) {
+      await rejectsWith(call(), ConflictException, 'ENROLLMENT_NOT_ACTIVE');
+    }
+    assert.equal(ctx.world.submissions.length, 1, 'nothing new was saved');
+  });
+
+  test('Completed (ReadOnly) still lets the Learner read the Assignment and the prompt file, but not write', async () => {
+    await ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' });
+    ctx.enrollments.access = 'ReadOnly';
+    const view = await ctx.service.getAssignment(learner(), ASSIGNMENT);
+    assert.equal(view.readOnly, true);
+    assert.equal(view.resubmission, null);
+    await rejectsWith(
+      ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'y' }),
+      ConflictException,
+      'ENROLLMENT_COMPLETED',
+    );
+    assert.equal(ctx.world.submissions.length, 1);
+  });
+
+  test('the latest result asks Learning Service once, and a Learner who has not submitted gets 404 SUBMISSION_NOT_FOUND', async () => {
+    await rejectsWith(
+      ctx.service.getLatestResult(learner(), ASSIGNMENT),
+      NotFoundException,
+      'SUBMISSION_NOT_FOUND',
+    );
+    assert.equal(ctx.enrollments.asked, 1);
+  });
+
+  test('when Learning Service cannot answer, nothing is saved and the Learner gets the 503', async () => {
+    ctx.enrollments.getAssessmentAccess = () =>
+      Promise.reject(new ServiceUnavailableException());
+    await assert.rejects(
+      ctx.service.submit(learner(), ASSIGNMENT, { content: 'x' }),
+      ServiceUnavailableException,
+    );
+    assert.equal(ctx.world.submissions.length, 0);
   });
 });

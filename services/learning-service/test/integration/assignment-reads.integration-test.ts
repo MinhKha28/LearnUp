@@ -1,13 +1,15 @@
+import { closeAll, closeApp } from './deadlines';
+import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import { before, after, beforeEach, describe, test } from 'node:test';
+import { before, after, beforeEach, describe, test } from './test-runner';
 import { HEADER_NAMES, type CurrentUser } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { Prisma } from '../../generated/prisma/client';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
@@ -39,7 +41,7 @@ const user: CurrentUser = {
   role: 'ORGANIZER',
   isAuthenticated: true,
 };
-const db = new Client({ connectionString: databaseUrl('learning_db') });
+const db = new Client({ connectionString: databaseUrl() });
 let app: NestExpressApplication;
 let url: string;
 let connected = false;
@@ -235,8 +237,7 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
       if (connected) await cleanup();
     } finally {
       if (timezoneService) timezoneService.getTimezone = getTimezone;
-      await app?.close();
-      await db.end();
+      await closeAll(() => closeApp(app), () => db.end());
     }
   });
 

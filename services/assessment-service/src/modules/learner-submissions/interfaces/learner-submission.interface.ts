@@ -41,7 +41,7 @@ export interface ILearnerAssignment {
     maxPoints: number;
   }[];
   attempts: ILearnerAttemptState;
-  /** BR-169: the Enrollment is Completed, so the Assignment is read-only. */
+  /** BR-210: the Enrollment is Completed, so the Assignment is read-only. */
   readOnly: boolean;
   latestSubmission: ILearnerSubmissionSummary | null;
   /** Set once the Learner has submitted and the Course is not completed. */

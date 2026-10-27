@@ -250,18 +250,6 @@ model SubmissionReviewScore {
   @@map("submission_review_scores")
 }
 
-model CompletedEnrollment {
-  enrollmentId   String   @id @map("enrollment_id") @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
-  learnerId      String   @map("learner_id") @db.Uuid
-  courseId       String   @map("course_id") @db.Uuid
-  completedAt    DateTime @map("completed_at") @db.Timestamptz
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
-
-  @@map("completed_enrollments")
-}
-
 model LearnerAccount {
   userId         String    @id @map("user_id") @db.Uuid
   organizationId String    @map("organization_id") @db.Uuid

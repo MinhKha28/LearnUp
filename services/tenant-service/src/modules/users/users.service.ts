@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -19,6 +20,7 @@ import {
 } from '../../infrastructure/clients/learning/learning-service.client';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { OutboxService } from '../outbox/outbox.service';
+import { AccountTokensService } from '../account-tokens/account-tokens.service';
 import {
   DAY_MS,
   OrganizationStatus,
@@ -30,6 +32,8 @@ import {
 import { generateSecretToken } from '../../common/utils/token.util';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
+import { ListDepartmentsQueryDto } from './dto/list-departments-query.dto';
+import { UpdateAccountDto } from './dto/update-account.dto';
 import {
   AccountListItem,
   InstructorListItem,
@@ -41,6 +45,7 @@ import {
 } from './interfaces/instructor-detail.interface';
 import { LearnerDetail } from './interfaces/learner-detail.interface';
 import { SeatUsage } from './interfaces/seat-usage.interface';
+import { UpdateAccountResult } from './interfaces/update-account-result.interface';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CourseServiceClient } from 'src/infrastructure/clients/course/course-service.client';
@@ -60,6 +65,47 @@ const INVITATION_TEMPLATE: Record<SeatRole, string> = {
   Learner: 'LEARNER_INVITATION',
 };
 
+// UC12.2: chỉ Subscription Active mới tạo tài khoản (BR-15, BR-17).
+const CREATE_SUBSCRIPTION_STATUSES = [SubscriptionStatus.Active];
+// UC12.3: ân hạn vẫn sửa được (BR-15 chỉ cấm tạo); Suspended chỉ xem (BR-17).
+const UPDATE_SUBSCRIPTION_STATUSES = [
+  SubscriptionStatus.Active,
+  SubscriptionStatus.Grace,
+];
+
+// Partial unique index (migration init_tenant_schema) mà UC12.3 đổi thành 409 riêng.
+const USERS_EMAIL_UNIQUE_INDEX = 'users_email_not_deleted_key';
+const ONE_OPEN_LINK_UNIQUE_INDEX = 'account_tokens_one_open_link_key';
+
+const ACCOUNT_NOT_FOUND: Record<SeatRole, { code: string; message: string }> = {
+  Instructor: {
+    code: 'INSTRUCTOR_NOT_FOUND',
+    message: 'Không tìm thấy Instructor.',
+  },
+  Learner: { code: 'LEARNER_NOT_FOUND', message: 'Không tìm thấy Learner.' },
+};
+
+/**
+ * Tên unique index bị vi phạm trong lỗi P2002.
+ * Prisma 7 + adapter-pg: meta.driverAdapterError.cause.constraint.index (tên index của Postgres);
+ * engine cũ (không adapter): meta.target là tên index hoặc danh sách cột.
+ */
+function violatedUniqueIndex(
+  error: Prisma.PrismaClientKnownRequestError,
+): string | undefined {
+  const meta = error.meta as
+    | {
+        target?: unknown;
+        driverAdapterError?: {
+          cause?: { constraint?: { index?: unknown } };
+        };
+      }
+    | undefined;
+  const index = meta?.driverAdapterError?.cause?.constraint?.index;
+  if (typeof index === 'string') return index;
+  return typeof meta?.target === 'string' ? meta.target : undefined;
+}
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -72,6 +118,7 @@ export class UsersService {
     private readonly outbox: OutboxService,
     private readonly learningClient: LearningServiceClient, // UC13
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider, // UC12.1: avatarUrl
+    private readonly accountTokens: AccountTokensService, // UC12.3: lời mời khi đổi email
   ) {}
 
   // ===========================================================================
@@ -408,39 +455,15 @@ export class UsersService {
 
     try {
       return await this.prisma.$transaction(async (tx) => {
-        // ---- 1. Khóa dòng tổ chức để 2 request đồng thời không cùng lấy chỗ cuối
-        // (tenant_db: "Kiểm số chỗ khi thao tác đồng thời").
-        const [organization] = await tx.$queryRaw<
-          Array<{ name: string; status: string }>
-        >`SELECT name, status FROM organizations WHERE id = ${organizationId}::uuid FOR UPDATE`;
-
-        // ---- 2. BR-45: tổ chức bị tạm khóa thì không thao tác.
-        if (
-          !organization ||
-          organization.status !== OrganizationStatus.Active
-        ) {
-          throw new ForbiddenException({
-            code: 'ORGANIZATION_NOT_ACTIVE',
-            message:
-              'Tổ chức đang không hoạt động nên không tạo được tài khoản.',
+        // ---- 1-3. Khóa dòng tổ chức để 2 request đồng thời không cùng lấy chỗ cuối
+        // (tenant_db: "Kiểm số chỗ khi thao tác đồng thời"); BR-45; BR-15 (ân hạn: không tạo
+        // tài khoản), BR-17 (Suspended: chỉ xem, kết xuất báo cáo).
+        const { organization, subscription } =
+          await this.assertCanManageAccounts(tx, organizationId, {
+            action: 'tạo',
+            subscriptionStatuses: CREATE_SUBSCRIPTION_STATUSES,
+            lockOrganization: true,
           });
-        }
-
-        // ---- 3. BR-15 (ân hạn: không tạo tài khoản), BR-17 (Suspended: chỉ xem, kết xuất báo cáo).
-        const subscription = await this.findCurrentSubscription(
-          tx,
-          organizationId,
-        );
-        if (
-          !subscription ||
-          subscription.status !== SubscriptionStatus.Active
-        ) {
-          throw new ForbiddenException({
-            code: 'SUBSCRIPTION_NOT_ACTIVE',
-            message:
-              'Subscription không ở trạng thái hoạt động nên không tạo được tài khoản.',
-          });
-        }
 
         // ---- 4. BR-23: kiểm số chỗ còn lại theo bản chụp giới hạn trên Subscription.
         const used = await this.countUsedSeats(tx, organizationId, role);
@@ -494,20 +517,15 @@ export class UsersService {
         });
 
         // ---- 8. Thư mời qua outbox, cùng transaction: rollback thì thư cũng không gửi.
-        await this.outbox.enqueueEmail(tx, {
-          aggregateType: 'User',
-          aggregateId: created.id,
+        await this.enqueueInvitationEmail(tx, {
           organizationId,
-          email: {
-            to: created.email,
-            subject: `LearnUP - Lời mời tham gia ${organization.name}`,
-            templateCode: INVITATION_TEMPLATE[role],
-            body:
-              `Xin chào ${created.fullName},\n` +
-              `${organization.name} đã tạo cho bạn tài khoản ${role} trên LearnUP.\n` +
-              `Mở liên kết sau để đặt mật khẩu và kích hoạt tài khoản: ${this.activationLink(rawToken)}\n` +
-              `Liên kết có hiệu lực tới ${expiresAt.toISOString()}.`,
-          },
+          organizationName: organization.name,
+          userId: created.id,
+          to: created.email,
+          fullName: created.fullName,
+          role,
+          rawToken,
+          expiresAt,
         });
 
         return { ...created, invitationExpired: false };
@@ -522,6 +540,321 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  // ===========================================================================
+  // UC12.3 - Cập nhật thông tin Instructor
+  // ===========================================================================
+  updateInstructor(
+    user: CurrentUser,
+    instructorId: string,
+    dto: UpdateAccountDto,
+  ): Promise<UpdateAccountResult> {
+    return this.updateAccount(
+      user,
+      instructorId,
+      dto,
+      UserRoleValue.Instructor,
+    );
+  }
+
+  // ===========================================================================
+  // UC13.3 - Cập nhật thông tin Learner (cùng quy tắc, cùng phạm vi sửa với UC12.3)
+  // ===========================================================================
+  updateLearner(
+    user: CurrentUser,
+    learnerId: string,
+    dto: UpdateAccountDto,
+  ): Promise<UpdateAccountResult> {
+    return this.updateAccount(user, learnerId, dto, UserRoleValue.Learner);
+  }
+
+  /**
+   * UC12.3, UC13.3. Sửa họ tên, email (chỉ khi chưa kích hoạt) và đơn vị công tác (mọi lúc) - BR-34, BR-35.
+   * Không kiểm số chỗ (BR-23): không tạo tài khoản, không đổi deleted_at.
+   * Thứ tự khóa: token TRƯỚC, user SAU, cùng thứ tự với InvitationsService.accept (UC04)
+   * để Organizer lưu đúng lúc người dùng kích hoạt không gây deadlock.
+   */
+  private async updateAccount(
+    user: CurrentUser,
+    accountId: string,
+    dto: UpdateAccountDto,
+    role: SeatRole,
+  ): Promise<UpdateAccountResult> {
+    const organizationId = this.organizationIdOf(user);
+    if (
+      dto.fullName === undefined &&
+      dto.email === undefined &&
+      dto.department === undefined
+    ) {
+      throw new BadRequestException({
+        code: 'NO_FIELDS_TO_UPDATE',
+        message: 'Cần gửi ít nhất một trường để cập nhật.',
+      });
+    }
+    const settings = await this.settingsService.get();
+    const scope: Prisma.UserWhereInput = {
+      id: accountId,
+      organizationId,
+      role,
+      deletedAt: null,
+    };
+
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        // ---- 1. BR-45, BR-17; ân hạn vẫn sửa được. Không khóa dòng tổ chức (không đụng số chỗ).
+        const { organization } = await this.assertCanManageAccounts(
+          tx,
+          organizationId,
+          {
+            action: 'cập nhật',
+            subscriptionStatuses: UPDATE_SUBSCRIPTION_STATUSES,
+            lockOrganization: false,
+          },
+        );
+
+        // ---- 2. Không tồn tại, khác tổ chức, đã xóa, sai role đều là cùng một 404 (như UC12.1).
+        const account = await tx.user.findFirst({
+          where: scope,
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            department: true,
+            status: true,
+            activatedAt: true,
+            createdAt: true,
+          },
+        });
+        if (!account) throw this.accountNotFound(role);
+
+        // ---- 3. So với giá trị đang lưu (DTO đã chuẩn hóa như lúc tạo). Trùng = không đổi (H2).
+        const nameChanged =
+          dto.fullName !== undefined && dto.fullName !== account.fullName;
+        const emailChanged =
+          dto.email !== undefined && dto.email !== account.email;
+        const departmentChanged =
+          dto.department !== undefined && dto.department !== account.department;
+        if (!nameChanged && !emailChanged && !departmentChanged) {
+          return { account, invitationResent: false };
+        }
+
+        // ---- 4. BR-34: từ khi kích hoạt, họ tên do người dùng quản lý, email không sửa được.
+        if ((nameChanged || emailChanged) && account.activatedAt !== null) {
+          throw this.accountAlreadyActivated();
+        }
+
+        // Giá trị sau khi sửa: trường không gửi giữ nguyên.
+        const updated = {
+          ...account,
+          fullName: dto.fullName ?? account.fullName,
+          email: dto.email ?? account.email,
+          department:
+            dto.department === undefined ? account.department : dto.department,
+        };
+
+        // ---- 5. BR-30, BR-31: email mới chưa thuộc tài khoản chưa xóa nào (kể cả tổ chức khác).
+        let invitation: { rawToken: string; expiresAt: Date } | null = null;
+        if (emailChanged) {
+          if (
+            await this.findAccountByEmailAcrossOrganizations(tx, updated.email)
+          ) {
+            throw this.emailAlreadyUsed();
+          }
+
+          // ---- 6. BR-35: lời mời cũ mất hiệu lực. Pending -> phát liên kết mới (BR-278);
+          // Deactivated chưa kích hoạt -> chỉ thu hồi, không gửi thư.
+          if (account.status === UserStatus.Pending) {
+            invitation = await this.accountTokens.issue(tx, {
+              organizationId,
+              userId: account.id,
+              purpose: TokenPurpose.Invitation,
+              ttlDays: settings.invitationLinkTtlDays,
+            });
+          } else {
+            await this.accountTokens.revokeOpen(tx, {
+              userId: account.id,
+              purpose: TokenPurpose.Invitation,
+            });
+          }
+        }
+
+        // ---- 7. Cập nhật có điều kiện: người dùng vừa kích hoạt, hoặc request khác vừa đổi email
+        // -> 0 dòng, throw để rollback cả bước 6.
+        const { count } = await tx.user.updateMany({
+          where: {
+            ...scope,
+            ...((nameChanged || emailChanged) && { activatedAt: null }),
+            ...(emailChanged && { email: account.email }),
+          },
+          data: {
+            ...(nameChanged && { fullName: updated.fullName }),
+            ...(emailChanged && { email: updated.email }),
+            ...(departmentChanged && { department: updated.department }),
+          },
+        });
+        if (count === 0) throw await this.updateConflict(tx, scope, role);
+
+        // ---- 8. Thư mời tới email mới qua outbox, cùng transaction.
+        if (invitation) {
+          await this.enqueueInvitationEmail(tx, {
+            organizationId,
+            organizationName: organization.name,
+            userId: updated.id,
+            to: updated.email,
+            fullName: updated.fullName,
+            role,
+            rawToken: invitation.rawToken,
+            expiresAt: invitation.expiresAt,
+          });
+        }
+        return { account: updated, invitationResent: invitation !== null };
+      });
+
+      const { account, invitationResent } = result;
+      const expiredIds =
+        account.status === UserStatus.Pending && !invitationResent
+          ? await this.findExpiredInvitationUserIds(organizationId, [
+              account.id,
+            ])
+          : new Set<string>();
+      return {
+        ...account,
+        invitationExpired: expiredIds.has(account.id),
+        invitationResent,
+      };
+    } catch (error) {
+      // P2002 theo index: hai request đổi sang cùng email (users_email_not_deleted_key);
+      // hai request cùng phát lời mời cho một tài khoản (account_tokens_one_open_link_key).
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const index = violatedUniqueIndex(error);
+        if (index === USERS_EMAIL_UNIQUE_INDEX) throw this.emailAlreadyUsed();
+        if (index === ONE_OPEN_LINK_UNIQUE_INDEX) throw this.concurrentUpdate();
+      }
+      throw error;
+    }
+  }
+
+  /** updateMany = 0 dòng: đọc lại để phân biệt 404 / đã kích hoạt / request khác vừa sửa. */
+  private async updateConflict(
+    tx: Prisma.TransactionClient,
+    scope: Prisma.UserWhereInput,
+    role: SeatRole,
+  ): Promise<NotFoundException | ConflictException> {
+    const current = await tx.user.findFirst({
+      where: scope,
+      select: { activatedAt: true },
+    });
+    if (!current) return this.accountNotFound(role);
+    if (current.activatedAt !== null) return this.accountAlreadyActivated();
+    return this.concurrentUpdate();
+  }
+
+  // ===========================================================================
+  // UC12.3 - Gợi ý đơn vị công tác (BR-279)
+  // ===========================================================================
+  /**
+   * Đơn vị công tác đã có trong tổ chức (Instructor + Learner chưa xóa).
+   * Gom nhóm không phân biệt hoa thường, mỗi nhóm trả một giá trị đại diện; tối đa 10, theo chữ cái.
+   */
+  async suggestDepartments(
+    user: CurrentUser,
+    query: ListDepartmentsQueryDto,
+  ): Promise<string[]> {
+    const organizationId = this.organizationIdOf(user);
+    // Escape "\", "%", "_" như findAccountPage để từ khóa không thành wildcard.
+    const pattern = query.keyword?.replace(/[\\%_]/g, (char) => `\\${char}`);
+    const keywordFilter = pattern
+      ? Prisma.sql`AND department ILIKE '%' || ${pattern} || '%'`
+      : Prisma.empty;
+
+    const rows = await this.prisma.$queryRaw<Array<{ department: string }>>`
+      SELECT MIN(department) AS department
+      FROM users
+      WHERE organization_id = ${organizationId}::uuid
+        AND deleted_at IS NULL
+        AND role IN (${UserRoleValue.Instructor}, ${UserRoleValue.Learner})
+        AND department IS NOT NULL
+        ${keywordFilter}
+      GROUP BY lower(department)
+      ORDER BY lower(department)
+      LIMIT 10`;
+    return rows.map((row) => row.department);
+  }
+
+  /**
+   * Điều kiện chung trước khi thao tác tài khoản trong tổ chức (UC12.2, UC12.3, UC13.2, UC13.3).
+   * BR-45: tổ chức phải Active. Subscription hiện hành phải thuộc subscriptionStatuses.
+   * lockOrganization: khóa dòng tổ chức FOR UPDATE (cần khi kiểm số chỗ lúc tạo tài khoản).
+   */
+  private async assertCanManageAccounts(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    options: {
+      action: string;
+      subscriptionStatuses: readonly string[];
+      lockOrganization: boolean;
+    },
+  ) {
+    const lock = options.lockOrganization
+      ? Prisma.sql`FOR UPDATE`
+      : Prisma.empty;
+    const [organization] = await tx.$queryRaw<
+      Array<{ name: string; status: string }>
+    >`SELECT name, status FROM organizations WHERE id = ${organizationId}::uuid ${lock}`;
+
+    if (!organization || organization.status !== OrganizationStatus.Active) {
+      throw new ForbiddenException({
+        code: 'ORGANIZATION_NOT_ACTIVE',
+        message: `Tổ chức đang không hoạt động nên không ${options.action} được tài khoản.`,
+      });
+    }
+
+    const subscription = await this.findCurrentSubscription(tx, organizationId);
+    if (
+      !subscription ||
+      !options.subscriptionStatuses.includes(subscription.status)
+    ) {
+      throw new ForbiddenException({
+        code: 'SUBSCRIPTION_NOT_ACTIVE',
+        message: `Subscription không ở trạng thái hoạt động nên không ${options.action} được tài khoản.`,
+      });
+    }
+    return { organization, subscription };
+  }
+
+  /** Thư mời kích hoạt qua outbox (UC12.2, UC12.3, UC13.2, UC13.3). Relay xóa liên kết khỏi payload sau khi gửi. */
+  private enqueueInvitationEmail(
+    tx: Prisma.TransactionClient,
+    params: {
+      organizationId: string;
+      organizationName: string;
+      userId: string;
+      to: string;
+      fullName: string;
+      role: SeatRole;
+      rawToken: string;
+      expiresAt: Date;
+    },
+  ): Promise<void> {
+    return this.outbox.enqueueEmail(tx, {
+      aggregateType: 'User',
+      aggregateId: params.userId,
+      organizationId: params.organizationId,
+      email: {
+        to: params.to,
+        subject: `LearnUP - Lời mời tham gia ${params.organizationName}`,
+        templateCode: INVITATION_TEMPLATE[params.role],
+        body:
+          `Xin chào ${params.fullName},\n` +
+          `${params.organizationName} đã tạo cho bạn tài khoản ${params.role} trên LearnUP.\n` +
+          `Mở liên kết sau để đặt mật khẩu và kích hoạt tài khoản: ${this.activationLink(params.rawToken)}\n` +
+          `Liên kết có hiệu lực tới ${params.expiresAt.toISOString()}.`,
+      },
+    });
   }
 
   /** Truy vấn ngoại lệ toàn nền tảng (tenant_db: hậu tố AcrossOrganizations). Email đã ở chữ thường. */
@@ -558,6 +891,25 @@ export class UsersService {
     return new ConflictException({
       code: 'EMAIL_ALREADY_USED',
       message: 'Email đã được sử dụng cho một tài khoản khác.',
+    });
+  }
+
+  private accountNotFound(role: SeatRole): NotFoundException {
+    return new NotFoundException(ACCOUNT_NOT_FOUND[role]);
+  }
+
+  private accountAlreadyActivated(): ConflictException {
+    return new ConflictException({
+      code: 'ACCOUNT_ALREADY_ACTIVATED',
+      message:
+        'Tài khoản đã kích hoạt: họ tên và email do người dùng quản lý, không chỉnh sửa được.',
+    });
+  }
+
+  private concurrentUpdate(): ConflictException {
+    return new ConflictException({
+      code: 'CONCURRENT_UPDATE',
+      message: 'Tài khoản vừa được cập nhật bởi thao tác khác. Hãy tải lại.',
     });
   }
 

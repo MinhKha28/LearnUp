@@ -109,7 +109,7 @@ abstract class Br31CredentialProvisioningContract {
                 .andExpect(jsonPath("$.data.accessToken").doesNotExist());
         User saved = users.findById(request.getUserId()).orElseThrow();
         assertThat(saved.getEmail()).isEqualTo("new.owner@br31.invalid");
-        assertThat(saved.getUsername()).isEqualTo("user_" + request.getUserId());
+        assertThat(saved.getUsername()).isEqualTo("user_" + request.getUserId().toString().replace("-", ""));
         assertThat(saved.getOrganizationId()).isEqualTo(request.getOrganizationId());
         assertThat(saved.getRole()).isEqualTo(UserRole.ORGANIZER);
         assertThat(saved.getFullName()).isEqualTo(request.getFullName());

@@ -1,17 +1,47 @@
 import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { ApiResponse, CurrentUser } from '@learnup/ts-common';
+import type { CurrentUser } from '@learnup/ts-common';
 import { HEADER_NAMES } from '@learnup/ts-common';
-import { EnrolledCourse, EnrollmentClient } from './enrollment.client';
+import {
+  ACCESS_OF_STATUS,
+  type AssessmentAccess,
+  type AssessmentAccessLevel,
+  EnrollmentClient,
+} from './enrollment.client';
 
-const DEFAULT_TIMEOUT_MS = 5000;
+const DEFAULT_TIMEOUT_MS = 2000;
+const NOT_FOUND_CODE = 'ENROLLMENT_NOT_FOUND';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Why an answer is not trusted. Only this code goes to the log, never the values: they are not ours to repeat. */
+type Rejection =
+  | 'NO_DATA'
+  | 'INVALID_ENROLLMENT_ID'
+  | 'INVALID_STATUS'
+  | 'ACCESS_MISMATCH';
+
+function rejectionOf(data: Record<string, unknown> | undefined): Rejection | null {
+  if (!data || typeof data !== 'object') return 'NO_DATA';
+  if (typeof data.enrollmentId !== 'string' || !UUID.test(data.enrollmentId)) {
+    return 'INVALID_ENROLLMENT_ID';
+  }
+  if (typeof data.status !== 'string' || !Object.hasOwn(ACCESS_OF_STATUS, data.status)) {
+    return 'INVALID_STATUS';
+  }
+  // the status is known; the access must be the one the table gives it (Completed + Full would allow a write)
+  return ACCESS_OF_STATUS[data.status] === data.access ? null : 'ACCESS_MISMATCH';
+}
 
 /**
  * Gọi learning-service thật (ENROLLMENT_CLIENT_MODE=http, là chế độ mặc định).
  *
- *   GET {LEARNING_SERVICE_URL}/api/v1/enrollments/me/course-ids
- *   Header: x-internal-key + x-user-id, x-organization-id, x-user-role của Learner
- *   200:    { statusCode, message, data: [{ courseId, enrollmentId }] } (mọi Enrollment chưa Withdrawn của Learner)
+ *   GET {LEARNING_SERVICE_URL}/api/v1/internal/enrollments/assessment-access?learnerId=&courseId=
+ *   Header: x-internal-key + x-user-id, x-organization-id, x-user-role của Learner (guard của learning bắt đủ các header này)
+ *   200:    { statusCode, message, data: { enrollmentId, status, access: Full | ReadOnly | None } }
+ *   404:    error.code = ENROLLMENT_NOT_FOUND (chưa Enroll Course này, hoặc Enrollment thuộc Organization khác)
+ *
+ * Hợp đồng: contracts/openapi/learning-service.yaml. Timeout mặc định 2000 ms (chỉnh qua LEARNING_SERVICE_TIMEOUT_MS):
+ * Learner đang chờ, và p99 đo được ở learning là dưới 300 ms.
  */
 export class HttpEnrollmentClient extends EnrollmentClient {
   private readonly logger = new Logger(HttpEnrollmentClient.name);
@@ -29,14 +59,15 @@ export class HttpEnrollmentClient extends EnrollmentClient {
       DEFAULT_TIMEOUT_MS;
   }
 
-  async findEnrollment(
+  async getAssessmentAccess(
     courseId: string,
     user: CurrentUser,
-  ): Promise<EnrolledCourse | null> {
+  ): Promise<AssessmentAccess | null> {
+    const query = new URLSearchParams({ learnerId: user.userId, courseId });
     let response: Response;
     try {
       response = await fetch(
-        `${this.baseUrl}/api/v1/enrollments/me/course-ids`,
+        `${this.baseUrl}/api/v1/internal/enrollments/assessment-access?${query.toString()}`,
         {
           headers: {
             [HEADER_NAMES.INTERNAL_KEY]: this.internalKey,
@@ -53,14 +84,45 @@ export class HttpEnrollmentClient extends EnrollmentClient {
       );
       throw this.unavailable();
     }
+
+    if (
+      response.status === 404 &&
+      (await this.errorCode(response)) === NOT_FOUND_CODE
+    ) {
+      return null;
+    }
     if (!response.ok) {
       this.logger.warn(`learning-service trả về HTTP ${response.status}.`);
       throw this.unavailable(
         `Learning Service returned HTTP ${response.status}.`,
       );
     }
-    const body = (await response.json()) as ApiResponse<EnrolledCourse[]>;
-    return body.data.find((e) => e.courseId === courseId) ?? null;
+    return this.parse(await response.json().catch(() => undefined));
+  }
+
+  /** error.code of an error answer; other 404s (for example a learning-service without this route) are not "not enrolled". */
+  private async errorCode(response: Response): Promise<string | undefined> {
+    const body = (await response.json().catch(() => undefined)) as
+      { error?: { code?: unknown } } | undefined;
+    const code = body?.error?.code;
+    return typeof code === 'string' ? code : undefined;
+  }
+
+  /** An answer that does not have the agreed shape is not trusted: the caller is refused with 503. */
+  private parse(body: unknown): AssessmentAccess {
+    const data = (body as { data?: Record<string, unknown> } | undefined)?.data;
+    const rejection = rejectionOf(data);
+    if (rejection || !data) {
+      this.logger.warn(
+        `learning-service trả về câu trả lời quyền làm bài sai dạng: ${rejection ?? 'NO_DATA'}.`,
+      );
+      throw this.unavailable('Learning Service returned an unexpected answer.');
+    }
+    return {
+      enrollmentId: data.enrollmentId as string,
+      status: data.status as string,
+      access: data.access as AssessmentAccessLevel,
+    };
   }
 
   private unavailable(

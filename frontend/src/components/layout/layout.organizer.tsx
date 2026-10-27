@@ -61,6 +61,9 @@ const organizerMenuItems: MenuItem[] = [
         label: "Tổ chức",
       },
       {
+        key: "/organizer/certificate-settings", icon: <SafetyCertificateOutlined />, label: "Cấu hình Certificate",
+      },
+      {
         key: "/organizer/instructors",
         icon: <SolutionOutlined />,
         label: "Giảng viên",
@@ -130,6 +133,7 @@ const organizerMenuItems: MenuItem[] = [
 ];
 
 const getPageMeta = (pathname: string) => {
+  if (pathname === "/organizer/certificate-settings") return ["Quản lý đào tạo", "Cấu hình Certificate"];
   if (pathname === "/organizer") return ["Quản lý đào tạo", "Tổng quan"];
   if (pathname === "/organizer/subscription")
     return ["Quản lý đào tạo", "Gói dịch vụ"];
@@ -145,6 +149,8 @@ const getPageMeta = (pathname: string) => {
     return ["Quản lý đào tạo", "Thêm giảng viên"];
   if (pathname === "/organizer/instructors/import")
     return ["Quản lý đào tạo", "Nhập danh sách giảng viên"];
+  if (pathname.startsWith("/organizer/instructors/") && pathname.endsWith("/edit"))
+    return ["Quản lý đào tạo", "Chỉnh sửa giảng viên"];
   if (pathname.includes("/organizer/instructors/"))
     return ["Quản lý đào tạo", "Chi tiết giảng viên"];
   if (pathname === "/organizer/instructors")
@@ -155,6 +161,8 @@ const getPageMeta = (pathname: string) => {
     return ["Quản lý đào tạo", "Nhập danh sách học viên"];
   if (pathname.startsWith("/organizer/learners/") && pathname.endsWith("/report"))
     return ["Quản lý đào tạo", "Báo cáo học viên"];
+  if (pathname.startsWith("/organizer/learners/") && pathname.endsWith("/edit"))
+    return ["Quản lý đào tạo", "Chỉnh sửa học viên"];
   if (pathname.includes("/organizer/learners/"))
     return ["Quản lý đào tạo", "Chi tiết học viên"];
   if (pathname === "/organizer/learners") return ["Quản lý đào tạo", "Học viên"];
@@ -198,6 +206,7 @@ const LayoutOrganizer = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [eyebrow, pageLabel] = getPageMeta(location.pathname);
   const selectedKey = useMemo(() => {
+    if (location.pathname.startsWith("/organizer/certificate-settings")) return "/organizer/certificate-settings";
     if (location.pathname.startsWith("/organizer/subscription"))
       return "/organizer/subscription";
     if (location.pathname.startsWith("/organizer/organization"))

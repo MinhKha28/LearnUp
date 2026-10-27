@@ -1,13 +1,16 @@
+import { closeAll, closeApp } from './deadlines';
+import { courseStub } from './course-stub';
+import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import { after, before, beforeEach, describe, test } from 'node:test';
+import { after, before, beforeEach, describe, test } from './test-runner';
 import { HEADER_NAMES, type CurrentUser } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
@@ -29,7 +32,6 @@ import {
 } from '../../src/modules/assignments/assignments.repository';
 import {
   databaseUrl,
-  courseDatabaseUrl,
   ENROLL_IT_ORG as ORG,
   ENROLL_IT_PUBLIC_COURSE as COURSE,
   ENROLL_IT_PRIVATE_COURSE as PRIVATE,
@@ -39,8 +41,7 @@ import {
 
 if (process.env.NODE_ENV === 'production')
   throw new Error('Refusing assignment integration tests in production.');
-const learningDb = new Client({ connectionString: databaseUrl('learning_db') });
-const courseDb = new Client({ connectionString: courseDatabaseUrl() });
+const learningDb = new Client({ connectionString: databaseUrl() });
 const users = new Map<string, LookupLearner>();
 let app: NestExpressApplication;
 let baseUrl: string;
@@ -141,10 +142,9 @@ async function prepare(courseId = COURSE) {
       );
 }
 
-void describe('UC24.2 assignments (real learning/course databases, stub tenant lookup)', () => {
+void describe('UC24.2 assignments (isolated Learning database and HTTP Course stub, stub tenant lookup)', () => {
   before(async () => {
     await learningDb.connect();
-    await courseDb.connect();
     connected = true;
     app = await NestFactory.create<NestExpressApplication>(AppModule, {
       logger: ['error'],
@@ -174,23 +174,27 @@ void describe('UC24.2 assignments (real learning/course databases, stub tenant l
       "DELETE FROM outbox_events WHERE organization_id=$1 AND event_type='EnrollmentAssigned'",
       [ORG],
     );
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     users.clear();
     tenantCalls = 0;
     i1Calls = 0;
     subscriptionStatus = 'Active';
   });
   after(async () => {
-    if (connected) {
-      await learningDb.query(
-        "DELETE FROM outbox_events WHERE organization_id=$1 AND event_type='EnrollmentAssigned'",
-        [ORG],
+    try {
+      if (connected) {
+        await learningDb.query(
+          "DELETE FROM outbox_events WHERE organization_id=$1 AND event_type='EnrollmentAssigned'",
+          [ORG],
+        );
+        await resetEnrollFixture(learningDb);
+      }
+    } finally {
+      await closeAll(
+        () => closeApp(app),
+        () => learningDb.end(),
       );
-      await resetEnrollFixture(learningDb, courseDb);
     }
-    if (app) await app.close();
-    await learningDb.end();
-    await courseDb.end();
   });
 
   test('creates three including Pending with one lookup, one assignedAt, one outbox each, no intervals', async () => {
@@ -266,6 +270,8 @@ void describe('UC24.2 assignments (real learning/course databases, stub tenant l
     assert.equal(row.id, old.id);
     assert.equal(row.status, 'InProgress');
     assert.equal(row.video_completion_percent, 41);
+    assert.deepEqual(row.due_at, row.base_due_at);
+    assert.equal(BigInt(row.extension_seconds), 0n);
     assert.deepEqual(row.first_activity_at, old.first_activity_at);
     assert.deepEqual(
       (
@@ -318,6 +324,103 @@ void describe('UC24.2 assignments (real learning/course databases, stub tenant l
     assert.ok((await events()).every((e) => e.payload.kind === 'RESTORE'));
   });
 
+  test('restores Required Withdrawn with a fresh deadline and no previous extension', async () => {
+    const ids = [addUser(), addUser()];
+    await optional(ids[0], 'Withdrawn');
+    await optional(ids[1], 'Withdrawn');
+    await learningDb.query(
+      `UPDATE enrollments SET enrollment_type='Required',
+      assigned_at='2025-01-01Z', expected_completion_days=1, base_due_at='2025-01-03Z',
+      due_at='2025-01-05Z', extension_seconds=172800,
+      first_activity_at=CASE WHEN learner_id=$2 THEN now() ELSE NULL END
+      WHERE organization_id=$1`,
+      [ORG, ids[1]],
+    );
+    const result = await assign(ids);
+    assert.equal(result.status, 201);
+    assert.equal(result.body.data.restored, 2);
+    for (const row of await rows()) {
+      assert.equal(
+        row.status,
+        row.learner_id === ids[0] ? 'NotStarted' : 'InProgress',
+      );
+      assert.equal(BigInt(row.extension_seconds), 0n);
+      assert.deepEqual(row.due_at, row.base_due_at);
+      assert.ok(row.assigned_at > new Date('2025-01-01Z'));
+      assert.equal(row.withdrawn_at, null);
+      assert.equal(row.withdrawn_reason, null);
+      const event = (await events()).find((e) => e.aggregate_id === row.id);
+      assert.ok(event);
+      assert.equal(event.payload.kind, 'RESTORE');
+      assert.equal(event.payload.dueAt, row.due_at.toISOString());
+    }
+  });
+
+  for (const withdrawnReason of ['AccountDeleted', 'HaltedClosed']) {
+    for (const enrollmentType of ['Required', 'Optional']) {
+      test(`${enrollmentType} Withdrawn ${withdrawnReason} retains assignment behavior`, async () => {
+        const id = addUser();
+        await optional(id, 'Withdrawn');
+        await learningDb.query(
+          `UPDATE enrollments SET withdrawn_reason=$2 WHERE organization_id=$1`,
+          [ORG, withdrawnReason],
+        );
+        if (enrollmentType === 'Required')
+          await learningDb.query(
+            `UPDATE enrollments SET enrollment_type='Required', assigned_at=now(),
+            expected_completion_days=1, base_due_at=now(), due_at=now() WHERE organization_id=$1`,
+            [ORG],
+          );
+        const result = await assign([id]);
+        assert.equal(result.status, enrollmentType === 'Required' ? 422 : 201);
+        if (enrollmentType === 'Required') {
+          assert.deepEqual(result.body.error.errors, [
+            { learnerId: id, reason: 'ALREADY_ASSIGNED' },
+          ]);
+          assert.equal((await rows())[0].withdrawn_reason, withdrawnReason);
+          assert.equal((await events()).length, 0);
+        } else assert.equal(result.body.data.restored, 1);
+      });
+    }
+  }
+
+  test('an invalid learner prevents restoring any Withdrawn in the batch', async () => {
+    const id = addUser();
+    await optional(id, 'Withdrawn');
+    const before = await rows();
+    const result = await assign([id, randomUUID()]);
+    assert.equal(result.status, 422);
+    assert.deepEqual(await rows(), before);
+    assert.equal((await events()).length, 0);
+  });
+
+  test('locked reclassification rejects a concurrent Required change before writing the batch', async () => {
+    const id = addUser();
+    const newId = addUser();
+    await optional(id, 'Withdrawn');
+    const courses = app.get(CourseServiceClient);
+    const original = courses.lockCourse.bind(courses);
+    courses.lockCourse = async (...args) => {
+      const lock = await original(...args);
+      await learningDb.query(
+        `UPDATE enrollments SET enrollment_type='Required', status='InProgress',
+          assigned_at=now(), expected_completion_days=1, base_due_at=now(), due_at=now(),
+          first_activity_at=now(), withdrawn_at=NULL, withdrawn_reason=NULL WHERE organization_id=$1`,
+        [ORG],
+      );
+      return lock;
+    };
+    try {
+      const result = await assign([id, newId]);
+      assert.equal(result.status, 409);
+      assert.equal(result.body.error.code, 'CONCURRENT_CHANGE');
+      assert.equal((await rows()).length, 1);
+      assert.equal((await events()).length, 0);
+    } finally {
+      courses.lockCourse = original;
+    }
+  });
+
   for (const reason of [
     'NOT_IN_ORGANIZATION',
     'NOT_A_LEARNER',
@@ -357,37 +460,39 @@ void describe('UC24.2 assignments (real learning/course databases, stub tenant l
   test('Private course is assignable', async () => {
     assert.equal((await assign([addUser()], PRIVATE)).status, 201);
   });
-  test('unpublished course returns 404 and is not locked', async () => {
-    const old = (
-      await courseDb.query(
-        'SELECT status FROM courses WHERE id=$1 AND organization_id=$2',
-        [PRIVATE, ORG],
-      )
-    ).rows[0].status;
-    try {
-      await courseDb.query(
-        "UPDATE courses SET status='Draft' WHERE id=$1 AND organization_id=$2",
-        [PRIVATE, ORG],
-      );
-      const result = await assign([addUser()], PRIVATE);
-      assert.equal(result.status, 404);
-      assert.equal(result.body.error.code, 'COURSE_NOT_ASSIGNABLE');
-      assert.equal(
-        (
-          await courseDb.query(
-            'SELECT locked_at FROM courses WHERE id=$1 AND organization_id=$2',
-            [PRIVATE, ORG],
-          )
-        ).rows[0].locked_at,
-        null,
-      );
-      assert.deepEqual(await rows(), []);
-    } finally {
-      await courseDb.query(
-        'UPDATE courses SET status=$1 WHERE id=$2 AND organization_id=$3',
-        [old, PRIVATE, ORG],
-      );
-    }
+  test('configured Draft/409 response returns 404 and creates no Learning records', async () => {
+    courseStub.lock(PRIVATE, ORG, false, {
+      status: 409,
+      error: { code: 'COURSE_NOT_AVAILABLE', message: 'Draft fixture' },
+    });
+    const result = await assign([addUser()], PRIVATE);
+    assert.equal(result.status, 404);
+    assert.equal(result.body.error.code, 'COURSE_NOT_ASSIGNABLE');
+    assert.deepEqual(await rows(), []);
+    assert.deepEqual(await events(), []);
+    assert.deepEqual(
+      courseStub.calls.map(({ method, path, body }) => ({
+        method,
+        path,
+        body,
+      })),
+      [
+        {
+          method: 'POST',
+          path: `/${PRIVATE}/lock`,
+          body: { selfEnroll: false },
+        },
+      ],
+    );
+    assert.equal(
+      (
+        await learningDb.query(
+          'SELECT count(*)::int AS n FROM course_version_snapshots WHERE course_id=$1',
+          [PRIVATE],
+        )
+      ).rows[0].n,
+      0,
+    );
   });
   test('501 ids, empty ids and malformed UUID return 400 before lookup', async () => {
     for (const ids of [
@@ -478,7 +583,7 @@ void describe('UC24.2 assignments (real learning/course databases, stub tenant l
     }
   });
 
-  test('500 new learners: elapsed time and EXPLAIN ANALYZE for batch read/insert/update', async () => {
+  test('500 learners among 50000: compare EXPLAIN before and after assignment rule changes', async () => {
     const ids = Array.from({ length: 500 }, () => addUser());
     const start = performance.now();
     const result = await assign(ids);
@@ -488,6 +593,15 @@ void describe('UC24.2 assignments (real learning/course databases, stub tenant l
     assert.equal(result.status, 201);
     assert.equal(result.body.data.created, 500);
     assert.equal((await events()).length, 500);
+    await learningDb.query(
+      `INSERT INTO enrollments
+      (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,
+       expected_completion_days,base_due_at,due_at,video_completion_percent)
+      SELECT gen_random_uuid(),$1,gen_random_uuid(),$2,'Required','NotStarted',now(),1,now(),now(),80
+      FROM generate_series(1,49500)`,
+      [ORG, COURSE],
+    );
+    await learningDb.query('ANALYZE enrollments');
     const existing = await app
       .get(AssignmentsRepository)
       .findExisting(ORG, COURSE, ids);
@@ -500,7 +614,35 @@ void describe('UC24.2 assignments (real learning/course databases, stub tenant l
       expectedCompletionDays: 1,
       videoCompletionPercent: 80,
     };
+    const read = existingEnrollmentsSql(ORG, COURSE, ids);
+    const lockedRead = existingEnrollmentsSql(ORG, COURSE, ids, true);
+    const update = updateAssignmentsSql(
+      existing.map((row) => ({
+        learnerId: row.learnerId,
+        kind: 'CONVERT' as const,
+        existing: row,
+      })),
+      batch,
+    );
+    const beforeRead = (query: Prisma.Sql) => ({
+      text: query.text.replace('withdrawn_reason AS "withdrawnReason", ', ''),
+      values: query.values,
+    });
+    const beforeUpdate = {
+      text: update.text.replace(
+        /due_at = (\$\d+)::timestamptz, extension_seconds = 0,/,
+        "due_at = $1::timestamptz + e.extension_seconds * interval '1 second',",
+      ),
+      values: update.values,
+    };
+    assert.notEqual(beforeUpdate.text, update.text);
     const queries = [
+      ['read-before', beforeRead(read)],
+      ['read-after', read],
+      ['locked-read-before', beforeRead(lockedRead)],
+      ['locked-read-after', lockedRead],
+      ['update-before', beforeUpdate],
+      ['update-after', update],
       ['read', existingEnrollmentsSql(ORG, COURSE, ids)],
       ['locked-read', existingEnrollmentsSql(ORG, COURSE, ids, true)],
       [

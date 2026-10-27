@@ -3,7 +3,10 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useApiQuery } from "@/hooks/use.api.query";
 import { useVideoProgress } from "@/hooks/useVideoProgress";
-import { fetchVideoPlayback } from "@/services/learning.service";
+import { fetchVideoPlayback, fetchLessonDetail } from "@/services/learning.service";
+import { ReadingResource } from "./reading.resource";
+import { useLearningRefresh } from "@/hooks/use.learning.refresh";
+import { LearningError } from "@/components/learner/learning.error";
 import type { VideoPlayback } from "@/types/learning.types";
 import { videoThresholdPercent } from "@/utils/video.threshold";
 import { videoOutcome } from "@/utils/video.outcome";
@@ -19,10 +22,8 @@ function VideoPlayer({
   lessonId: string;
 }) {
   const navigate = useNavigate();
-  const { video, progress, warning, events, flush } = useVideoProgress(
-    enrollmentId,
-    playback,
-  );
+  const { video, videoRef, progress, warning, events, flush } =
+    useVideoProgress(enrollmentId, playback);
   const [rate, setRate] = useState(1);
   return (
     <section className="lesson-resource">
@@ -37,7 +38,7 @@ function VideoPlayer({
       </Button>
       <h1>{playback.title}</h1>
       <video
-        ref={video}
+        ref={videoRef}
         {...events}
         src={playback.playbackUrl}
         controls
@@ -56,13 +57,11 @@ function VideoPlayer({
             if (video.current) video.current.playbackRate = value;
           }}
         >
-          {[0.5, 0.75, 1, 1.25, 1.5, 2]
-            .filter((r) => r <= progress.maxPlaybackRate)
-            .map((r) => (
-              <option key={r} value={r}>
-                {r.toLocaleString("vi-VN")}×
-              </option>
-            ))}
+          {[0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 8, 16].map((r) => (
+            <option key={r} value={r}>
+              {r.toLocaleString("vi-VN")}×
+            </option>
+          ))}
         </select>
       </label>
       <div className="lesson-resource-progress">
@@ -85,6 +84,7 @@ function VideoPlayer({
         <strong>Đã xem {progress.watchedSeconds} / {progress.requiredSeconds} giây cần
         thiết</strong>
         <span>Thời lượng video: {progress.durationSeconds} giây. Mốc cần đạt: {progress.requiredSeconds} giây (≈ {videoThresholdPercent(progress.durationSeconds, progress.requiredSeconds)}% thời lượng video).</span>
+        <span>Mọi tốc độ phát đều được tính; không cộng trùng hoặc cộng khoảng tua qua.</span>
       </div>
       {warning && <Alert type="warning" message={warning} showIcon />}
       <p>
@@ -93,7 +93,7 @@ function VideoPlayer({
     </section>
   );
 }
-export default function LessonResource() {
+function VideoResource() {
   const { enrollmentId = "", lessonId = "", resourceId = "" } = useParams();
   const query = useApiQuery(
     (signal) => fetchVideoPlayback(enrollmentId, resourceId, signal),
@@ -116,4 +116,18 @@ export default function LessonResource() {
       lessonId={lessonId}
     />
   );
+}
+
+export default function LessonResource() {
+  const { enrollmentId = "", lessonId = "", resourceId = "" } = useParams();
+  const query = useApiQuery((signal) => fetchLessonDetail(enrollmentId, lessonId, signal), [enrollmentId, lessonId], true);
+  useLearningRefresh(query.reload, enrollmentId);
+  if (query.status === "loading" && !query.data) return <Spin aria-label="Đang tải học liệu" />;
+  if (query.status === "error") return <LearningError error={query.error} context="lesson" enrollmentId={enrollmentId} onRetry={query.reload} />;
+  if (!query.data) return null;
+  const material = query.data.materials.find((m) => m.materialId === resourceId);
+  if (!material) return <Alert type="error" message="Không tìm thấy học liệu." />;
+  return material.materialType === "Reading"
+    ? <ReadingResource key={enrollmentId + resourceId} enrollmentId={enrollmentId} lessonId={lessonId} material={material} />
+    : <VideoResource />;
 }

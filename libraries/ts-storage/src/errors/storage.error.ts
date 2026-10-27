@@ -12,9 +12,15 @@ export class StorageValidationError extends StorageError {
   }
 }
 
+export type StorageProviderErrorCode =
+  "NOT_FOUND" | "TIMEOUT" | "TOO_LARGE" | "UNAVAILABLE";
+
 export class StorageProviderError extends StorageError {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
+  constructor(
+    message: string,
+    public readonly code: StorageProviderErrorCode = "UNAVAILABLE",
+  ) {
+    super(message);
     this.name = "StorageProviderError";
   }
 }

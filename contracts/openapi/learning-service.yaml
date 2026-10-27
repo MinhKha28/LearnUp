@@ -1,0 +1,258 @@
+openapi: 3.0.3
+info:
+  title: LearnUP Learning access API
+  version: 1.0.0
+  description: Includes assessment access, enrolled Course IDs and UC27.3 Reading. Course IDs identify versions, not chains. Public learner routes are exposed through Gateway; trusted context and the internal key are supplied by Gateway. Reading follows BR-183/184/185/186/140/300/306/307. Assessment attempts and peer reviews remain assessment-service responsibilities.
+security:
+  - InternalKey: []
+paths:
+  /api/v1/enrollments/{enrollmentId}/materials/{materialId}/complete-reading:
+    post:
+      summary: Irreversibly mark Reading complete (UC27.3)
+      description: LEARNER only. Snapshot-only validation and Lesson completion, with no course-service call. NotStarted becomes InProgress on the first completion; InProgress and Exempted preserve status. The first transition enqueues evaluation in the same transaction. Duplicate requests preserve timestamps and do not enqueue again. Completed returns 200 without writes, including null completedAt and false alreadyCompleted if this material was never completed. Overdue is computed on read. L21 sequential access is not implemented; disabled snapshot freshness awaits L23.
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/MaterialId"
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      requestBody:
+        required: false
+        description: No business payload. An empty object is accepted; unknown keys return 422 VALIDATION_ERROR. Invalid JSON is rejected by the HTTP parser.
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, maxProperties: 0 }
+      responses:
+        "200":
+          description: Saved or idempotent no-op. Enrollment status is current, not a promise that asynchronous Course evaluation has finished.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [materialId, completedAt, alreadyCompleted, lessonCompleted, enrollmentStatus, completionEvaluationPending]
+                    properties:
+                      materialId: { type: string, format: uuid }
+                      completedAt: { type: string, format: date-time, nullable: true }
+                      alreadyCompleted: { type: boolean }
+                      lessonCompleted:
+                        type: boolean
+                        nullable: true
+                        description: BR-185/186 from active snapshots using the shared curriculum calculation. Null only for a Lesson with no visible materials.
+                      enrollmentStatus:
+                        type: string
+                        enum: [NotStarted, InProgress, Overdue, Exempted, Completed]
+                      completionEvaluationPending:
+                        type: boolean
+                        description: A durable evaluation request exists. Client refreshes Enrollment at most three times, two seconds apart.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ReadingForbidden" }
+        "404": { $ref: "#/components/responses/ReadingNotFound" }
+        "409": { $ref: "#/components/responses/NotReading" }
+        "422":
+          description: VALIDATION_ERROR for a business payload or unknown keys.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "500":
+          description: INVALID_ENROLLMENT_STATUS for an unknown stored status; transaction failures do not commit partial progress.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/enrollments/{enrollmentId}/materials/{materialId}/reading-access:
+    get:
+      summary: Get development Reading fixture access
+      description: LEARNER only. Validates Enrollment and snapshots first. Course mode returns 503 SERVICE_UNAVAILABLE until C10 supplies an access endpoint. Fixture mode is prohibited in production and checks I2 visibility; it does not claim to issue a signed URL. Opening a file is not required before marking completion and does not create learning progress.
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/MaterialId"
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      responses:
+        "200":
+          description: Explicit development/test fixture.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data:
+                    type: object
+                    required: [materialId, title, accessUrl, fixture]
+                    properties:
+                      materialId: { type: string, format: uuid }
+                      title: { type: string }
+                      accessUrl: { type: string, format: uri }
+                      fixture: { type: boolean, enum: [true] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ReadingForbidden" }
+        "404": { $ref: "#/components/responses/ReadingNotFound" }
+        "409": { $ref: "#/components/responses/NotReading" }
+        "503":
+          description: SERVICE_UNAVAILABLE for course mode without C10 or course-service failure/timeout.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/internal/enrollments/assessment-access:
+    get:
+      summary: Resolve assessment access using stored enrollment status
+      description: No additional role restriction. Organization comes from the trusted header. Missing or foreign-organization Enrollment returns the same 404. Overdue is never stored or returned; past-due NotStarted/InProgress retain Full access. Unknown stored status returns 500 and is logged. Unknown or repeated query parameters are rejected.
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+        - name: learnerId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: courseId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Full for NotStarted/InProgress/Exempted; ReadOnly for Completed; None for Halted/Withdrawn.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data:
+                    type: object
+                    required: [enrollmentId, status, access]
+                    properties:
+                      enrollmentId: { type: string, format: uuid }
+                      status: { $ref: "#/components/schemas/Status" }
+                      access: { type: string, enum: [Full, ReadOnly, None] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: error.code is ENROLLMENT_NOT_FOUND
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: error.code is VALIDATION_ERROR; missing, empty, malformed UUID, repeated or unknown query parameter.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "500":
+          description: Invalid stored status; error.code is INVALID_ENROLLMENT_STATUS.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/enrollments/me/course-ids:
+    get:
+      summary: List own enrolled Course versions with stored status
+      description: LEARNER role required. Restricted to authenticated learner and organization, excludes Withdrawn, sorted by courseId ascending. Does not compute Overdue.
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      responses:
+        "200":
+          description: Enrollment references
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [courseId, enrollmentId, status]
+                      properties:
+                        courseId: { type: string, format: uuid }
+                        enrollmentId: { type: string, format: uuid }
+                        status: { $ref: "#/components/schemas/Status" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Role is not LEARNER
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+components:
+  securitySchemes:
+    InternalKey: { type: apiKey, in: header, name: x-internal-key }
+  parameters:
+    EnrollmentId:
+      name: enrollmentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    MaterialId:
+      name: materialId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    UserId:
+      name: x-user-id
+      in: header
+      required: true
+      schema: { type: string }
+    OrganizationId:
+      name: x-organization-id
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+    UserRole:
+      name: x-user-role
+      in: header
+      required: true
+      description: A role recognized by the existing InternalAuthGuard. L17 imposes no additional role restriction.
+      schema: { type: string }
+  responses:
+    ReadingForbidden:
+      description: CONTENT_UNAVAILABLE for Halted or disabled Course/Lesson/material; non-LEARNER roles are forbidden.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ReadingNotFound:
+      description: ENROLLMENT_NOT_FOUND for Withdrawn, wrong owner or organization; MATERIAL_NOT_FOUND for missing material or wrong Course version.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotReading:
+      description: MATERIAL_NOT_READING when the material is Video.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or invalid internal key or authenticated context. T3 preserved; no business code.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Status:
+      type: string
+      enum: [NotStarted, InProgress, Completed, Exempted, Withdrawn, Halted]
+    Error:
+      type: object
+      required: [statusCode, timestamp, path, error]
+      properties:
+        statusCode: { type: integer }
+        timestamp: { type: string, format: date-time }
+        path: { type: string }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            statusCode: { type: integer }
+            error: { type: string }

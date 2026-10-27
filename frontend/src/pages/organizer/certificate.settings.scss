@@ -1,0 +1,35 @@
+.certificate-settings {
+  gap: var(--space-6);
+
+  .ant-alert, .certificate-settings-preview {
+    margin-bottom: var(--space-4);
+  }
+
+  .certificate-settings-preview {
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-secondary);
+  }
+
+  .certificate-settings-image {
+    display: block;
+    max-width: 100%;
+    max-height: 180px;
+    object-fit: contain;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+
+  .organizer-button.ant-btn-primary:disabled {
+    color: var(--color-text-secondary);
+    background: var(--color-surface-secondary);
+    border-color: var(--color-border);
+  }
+
+  ul {
+    padding-inline-start: var(--space-5);
+    margin: 0;
+  }
+}

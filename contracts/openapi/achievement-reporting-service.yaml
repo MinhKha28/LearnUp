@@ -1,0 +1,209 @@
+openapi: 3.0.3
+info:
+  title: LearnUP Achievement Reporting API
+  version: 0.2.0
+  description: UC34.3 Organizer certificate signer settings. Gateway authenticates the bearer token and injects trusted identity headers.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /certificates/signer-settings:
+    get:
+      operationId: getCertificateSignerSettings
+      summary: Read the current Organization signer settings
+      description: Organizer only. Does not query Tenant access. An unconfigured Organization has version 0 and null signer fields.
+      responses:
+        '200':
+          description: Current settings without storage keys, hashes or URLs
+          headers:
+            ETag:
+              schema: { type: string }
+              description: Strong quoted decimal version, including "0" when unconfigured
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SettingsEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      operationId: putCertificateSignerSettings
+      summary: Create or replace the current Organization signer settings
+      description: >-
+        Organizer only. Rejects non-Active Organizations and Suspended/Ended subscriptions;
+        Grace permits writes. Validates before Tenant access, uploads before the DB transaction,
+        and atomically checks version, saves settings and queues the previous image for delayed cleanup.
+        No organizationId or storage reference is accepted from the client.
+      parameters:
+        - in: header
+          name: If-Match
+          required: true
+          schema:
+            type: string
+            pattern: '^"(0|[1-9][0-9]*)"$'
+          description: Strong quoted decimal version; "0" creates the first settings row. Missing returns 428; a stale version returns 412.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [signerName, signerTitle, signatureAction]
+              properties:
+                signerName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  description: NFC normalized and trimmed; control characters and unpaired surrogates are rejected.
+                signerTitle:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: NFC normalized and trimmed; control characters and unpaired surrogates are rejected.
+                signatureAction:
+                  type: string
+                  enum: [keep, replace, remove]
+                signature:
+                  type: string
+                  format: binary
+                  description: >-
+                    Exactly one file required for replace, forbidden for keep/remove.
+                    PNG/JPEG magic bytes only; client Content-Type is not trusted.
+                    Maximum 2097152 bytes, 4096 pixels per side, 16000000 total pixels.
+                    Dimensions come from IHDR/SOF headers without image decoding or background removal.
+      responses:
+        '200':
+          description: Saved settings and incremented version
+          headers:
+            ETag:
+              schema: { type: string }
+              description: New strong quoted decimal version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SettingsEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '412':
+          description: VERSION_CONFLICT
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '413':
+          description: SIGNATURE_TOO_LARGE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '415':
+          description: SIGNATURE_UNSUPPORTED_TYPE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '428':
+          description: PRECONDITION_REQUIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /certificates/signer-settings/signature:
+    get:
+      operationId: previewCertificateSignerSignature
+      summary: Preview the current signer signature through achievement
+      description: Organizer only. Returns bytes directly, never a public or signed storage URL. No Tenant access call is made.
+      responses:
+        '200':
+          description: Private signature bytes without a JSON envelope
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+            X-Content-Type-Options:
+              schema: { type: string, enum: [nosniff] }
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: SIGNATURE_NOT_FOUND
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    SignerSettings:
+      type: object
+      additionalProperties: false
+      required: [configured, signerName, signerTitle, signature, version, updatedAt]
+      properties:
+        configured: { type: boolean }
+        signerName: { type: string, nullable: true, maxLength: 100 }
+        signerTitle: { type: string, nullable: true, maxLength: 200 }
+        signature:
+          type: object
+          nullable: true
+          additionalProperties: false
+          required: [mimeType, sizeBytes]
+          properties:
+            mimeType: { type: string, enum: [image/png, image/jpeg] }
+            sizeBytes: { type: integer, minimum: 1, maximum: 2097152 }
+        version: { type: integer, minimum: 0 }
+        updatedAt: { type: string, format: date-time, nullable: true }
+    SettingsEnvelope:
+      type: object
+      required: [statusCode, message, data]
+      properties:
+        statusCode: { type: integer, enum: [200] }
+        message: { type: string }
+        data: { $ref: '#/components/schemas/SignerSettings' }
+    ErrorEnvelope:
+      type: object
+      required: [statusCode, timestamp, path, error]
+      properties:
+        statusCode: { type: integer }
+        timestamp: { type: string, format: date-time }
+        path: { type: string }
+        error:
+          oneOf:
+            - type: string
+            - type: object
+              additionalProperties: true
+              properties:
+                code: { type: string }
+  responses:
+    BadRequest:
+      description: >-
+        Invalid context, If-Match, multipart fields, signer text or image header/dimensions.
+        DTO validation uses 400, not 422. Individual error.code values are:
+        INVALID_USER_CONTEXT (invalid Organization context),
+        INVALID_IF_MATCH (malformed or out-of-range version),
+        SIGNER_REQUEST_INVALID (invalid request fields),
+        SIGNER_NAME_INVALID (invalid signerName or signerTitle; this code covers both fields),
+        SIGNATURE_ACTION_INVALID (unsupported action),
+        SIGNATURE_FILE_INVALID (missing, unexpected or inconsistent file),
+        SIGNATURE_IMAGE_INVALID (invalid image header), and
+        SIGNATURE_DIMENSIONS_TOO_LARGE (pixel limits exceeded).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthorized:
+      description: Missing or invalid Gateway authentication/internal key/context
+    Forbidden:
+      description: FORBIDDEN_ROLE or ORGANIZATION_READ_ONLY
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unavailable:
+      description: TENANT_UNAVAILABLE or STORAGE_UNAVAILABLE
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }

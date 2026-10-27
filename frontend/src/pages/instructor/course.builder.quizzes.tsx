@@ -14,19 +14,11 @@ import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage, StatusTag } from "@/components/instructor/instructor.ui";
 import { assessmentErrorText, fetchQuizzesAPI } from "@/services/assessment.service";
-import type { IQuizSummary, QuizLockReason } from "@/types/assessment.types";
+import type { IQuizSummary } from "@/types/assessment.types";
+import { QUIZ_LOCK_REASON_TEXT as LOCK_REASON_TEXT } from "@/utils/quiz.view";
 import "./course.builder.scss";
 import "./course.builder.assignment.scss";
 import "./course.builder.quizzes.scss";
-
-// BR-99: say why a Quiz cannot be edited instead of only showing a state.
-const LOCK_REASON_TEXT: Record<QuizLockReason, string> = {
-  QUIZ_HAS_ATTEMPTS:
-    "A Learner has started this Quiz, so its questions, time limit, attempt limit and lockout period can no longer be changed.",
-  COURSE_LOCKED:
-    "The Course is Locked because a Learner has enrolled, so the passing score and Required setting can no longer be changed.",
-  COURSE_SUBMITTED: "The Course is Submitted for review, so nothing can be changed until it is withdrawn.",
-};
 
 interface IQuizGroup {
   key: string;
@@ -239,11 +231,13 @@ const CourseBuilderQuizzes = () => {
                           )}
 
                           <div className="builder-quiz-actions">
-                            <ComingSoon>
-                              <button type="button" className="builder-quiz-action" disabled>
-                                <EyeOutlined /> View details
-                              </button>
-                            </ComingSoon>
+                            <button
+                              type="button"
+                              className="builder-quiz-action"
+                              onClick={() => navigate(`${base}/quizzes/${quiz.id}`)}
+                            >
+                              <EyeOutlined /> View details
+                            </button>
                             <ComingSoon>
                               <button type="button" className="builder-quiz-action" disabled>
                                 <UnorderedListOutlined /> Manage questions

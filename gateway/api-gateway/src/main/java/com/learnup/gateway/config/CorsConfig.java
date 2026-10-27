@@ -32,7 +32,7 @@ public class CorsConfig {
         corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         corsConfig.setAllowedHeaders(List.of("*"));
         corsConfig.setAllowCredentials(true);
-        corsConfig.setExposedHeaders(List.of("X-Correlation-ID", "Content-Disposition"));
+        corsConfig.setExposedHeaders(List.of("X-Correlation-ID", "Content-Disposition", "ETag"));
         corsConfig.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

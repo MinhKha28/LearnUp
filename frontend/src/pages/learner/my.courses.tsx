@@ -7,6 +7,7 @@ import { LearnerEmptyState, LearnerErrorState, LearnerSkeleton } from "@/compone
 import { LearnerButton, LearnerPage, PageHeader, StatusTag } from "@/components/learner/learner.ui";
 import { UrlPagination } from "@/components/learner/url.pagination";
 import { useApiQuery } from "@/hooks/use.api.query";
+import { useLearningRefresh } from "@/hooks/use.learning.refresh";
 import { useReplacePage } from "@/hooks/use.replace.page";
 import { toApiError } from "@/services/api.client";
 import { fetchMyEnrollments, withdrawOptionalCourse } from "@/services/learning.service";
@@ -127,6 +128,7 @@ const MyCoursesContent = ({ page }: { page: number }) => {
   const navigate = useNavigate();
   const replacePage = useReplacePage();
   const query = useApiQuery((signal) => fetchMyEnrollments(page, signal), [page]);
+  useLearningRefresh(query.reload, "");
   const redirect = query.status === "success" ? resolvePageRedirect(query.data.meta, query.data.items.length) : null;
 
   useEffect(() => {

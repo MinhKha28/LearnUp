@@ -83,7 +83,6 @@ export const assignmentExtensionRange = (
     : today;
   return {
     min: afterCurrent > today ? afterCurrent : today,
-    max: addDays(today, 365),
   };
 };
 export const extensionDateError = (
@@ -100,8 +99,6 @@ export const extensionDateError = (
     return "DUE_DATE_NOT_LATER";
   const today = assignmentCalendarDay(now, timezone);
   if (day < today) return "DUE_DATE_IN_PAST";
-  if (day > assignmentExtensionRange(dueAt, timezone, now).max)
-    return "DUE_DATE_TOO_FAR";
   return null;
 };
 const messages: Record<string, string> = {
@@ -121,7 +118,6 @@ const messages: Record<string, string> = {
   ALREADY_ASSIGNED: "Học viên đã được phân công Khóa học này.",
   DUE_DATE_NOT_LATER: "Hạn mới phải sau hạn hiện tại.",
   DUE_DATE_IN_PAST: "Ngày hết hạn không được trước hôm nay.",
-  DUE_DATE_TOO_FAR: "Ngày hết hạn không được quá 365 ngày kể từ hôm nay.",
   ENROLLMENT_NOT_EXTENDABLE:
     "Trạng thái phân công đã thay đổi; không thể kéo dài hạn. Đang tải lại chi tiết.",
   ENROLLMENT_NOT_EXEMPTIBLE:

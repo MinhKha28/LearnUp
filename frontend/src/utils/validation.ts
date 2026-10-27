@@ -40,6 +40,11 @@ export const EFFORT_RULE: INumberRule = { required: true, integer: true, min: 1,
 export const ATTEMPTS_RULE: INumberRule = { integer: true, min: 1, max: 1000 };
 export const LOCK_HOURS_RULE: INumberRule = { integer: true, min: 1, max: 8760 };
 
+// Quiz limits, same as the API (UC18.2 / UC18.4): time limit 1–1440 minutes, passing score above 0 up to 100 with 2 decimals.
+export const TIME_LIMIT_RULE: INumberRule = { required: true, integer: true, min: 1, max: 1440 };
+// With at most 2 decimals, "greater than 0" is the same as "at least 0.01".
+export const QUIZ_PASSING_SCORE_RULE: INumberRule = { required: true, min: 0.01, max: 100, decimals: 2 };
+
 // Peer Review settings (BR-183).
 /** UC19.5 step 3: 2 to 5 reviewers for each submission. */
 export const PEER_REVIEWERS_RULE: INumberRule = { required: true, integer: true, min: 2, max: 5 };
