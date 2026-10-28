@@ -1,5 +1,5 @@
-import { DIRECT, GATEWAY } from "../lib/config.mjs";
-import { gatewayEquivalentHeaders } from "../lib/actors.mjs";
+import { GATEWAY } from "../lib/config.mjs";
+import { organizationCourseIds } from "../lib/courses.mjs";
 import { assert, expectStatus } from "../lib/harness.mjs";
 import { data, request } from "../lib/http.mjs";
 
@@ -21,11 +21,10 @@ export default {
       assert.ok(!JSON.stringify(data(res)).includes(learner.userId), "org A learner visible to org B");
     });
     await step("organizer B's organization courses contain no org A course", async () => {
-      const res = expectStatus(await request("GET", `${GATEWAY}/api/v1/courses/organization`, { token: b.token, label: "/api/v1/courses/organization (org B)" }), 200);
-      const ids = (data(res).result ?? []).map((c) => c.id);
-      const orgA = expectStatus(await request("GET", `${GATEWAY}/api/v1/courses/organization`, { token: shared.organizers.a.token }), 200);
-      const aIds = new Set((data(orgA).result ?? []).map((c) => c.id));
-      assert.ok(ids.every((id) => !aIds.has(id)), "org A course listed for org B");
+      const ids = await organizationCourseIds(b.token, "/api/v1/courses/organization (org B)");
+      const aIds = await organizationCourseIds(shared.organizers.a.token);
+      assert.ok(aIds.size > 0, "organization A has no courses, isolation not exercised");
+      assert.ok([...ids].every((id) => !aIds.has(id)), "org A course listed for org B");
     });
     if (shared.signerNameA) {
       await step("organizer B's signer settings are not org A's", async () => {
@@ -34,20 +33,10 @@ export default {
       });
     }
     if (shared.assignedEnrollmentId) {
-      await step(
-        "organizer B cannot read org A's assignment detail through gateway (404)",
-        async () => {
-          expectStatus(await request("GET", `${GATEWAY}/api/v1/assignments/${shared.assignedEnrollmentId}`, { token: b.token, label: "/api/v1/assignments/:id (other org)" }), 404);
-          const own = await request("GET", `${GATEWAY}/api/v1/assignments/${shared.assignedEnrollmentId}`, { token: shared.organizers.a.token, label: "/api/v1/assignments/:id" });
-          expectStatus(own, 200, "org A reads its own assignment (proves the 404 above is isolation, not routing)");
-        },
-        { knownBug: "GW-1" },
-      );
-      await step("diagnostic: learning-service itself hides org A's assignment from org B (404)", async () => {
-        expectStatus(
-          await request("GET", `${DIRECT.learning}/api/v1/assignments/${shared.assignedEnrollmentId}`, { headers: gatewayEquivalentHeaders(b, "ORGANIZER"), label: "direct learning /api/v1/assignments/:id (other org)" }),
-          404,
-        );
+      await step("organizer B cannot read org A's assignment detail through gateway (404)", async () => {
+        expectStatus(await request("GET", `${GATEWAY}/api/v1/assignments/${shared.assignedEnrollmentId}`, { token: b.token, label: "/api/v1/assignments/:id (other org)" }), 404);
+        const own = await request("GET", `${GATEWAY}/api/v1/assignments/${shared.assignedEnrollmentId}`, { token: shared.organizers.a.token, label: "/api/v1/assignments/:id" });
+        expectStatus(own, 200, "org A reads its own assignment (proves the 404 above is isolation, not routing)");
       });
     }
     if (shared.selfEnrollmentId) {
@@ -57,11 +46,7 @@ export default {
       });
     }
     await step("spoofed org/user headers on a learner request are replaced by the gateway", async () => {
-      const orgA = expectStatus(
-        await request("GET", `${GATEWAY}/api/v1/courses/organization?current=1&pageSize=50`, { token: shared.organizers.a.token, label: "/api/v1/courses/organization" }),
-        200,
-      );
-      const orgACourses = new Set((data(orgA).result ?? []).map((c) => c.id));
+      const orgACourses = await organizationCourseIds(shared.organizers.a.token);
       const res = expectStatus(
         await request("GET", `${GATEWAY}/api/v1/enrollments/me`, {
           token: learner.token,

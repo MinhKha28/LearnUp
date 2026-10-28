@@ -5,8 +5,7 @@
  * their passwords through Identity's authenticated internal channel, exactly as Tenant does
  * after activation, using the same canonical User IDs. Password comes from cluster.env.
  * Idempotent: re-running overwrites the same two credentials and touches nothing else.
- * An explicit username is sent because Identity's default (user_ + first 8 hex digits of the
- * UUIDv7 user ID) collides for these seed IDs; see tests/e2e/README.md, known bug ID-1.
+ * No username is sent, as Tenant sends none: Identity derives it from the full user ID.
  */
 import fs from "node:fs";
 import { loadClusterEnv, SEED } from "../lib/config.mjs";
@@ -21,7 +20,6 @@ for (const organizer of [SEED.organizerA, SEED.organizerB]) {
     body: JSON.stringify({
       userId: organizer.userId,
       password: env.FIXTURE_ORGANIZER_PASSWORD,
-      username: organizer.email,
       email: organizer.email,
       fullName: organizer.fullName,
       role: "ORGANIZER",
