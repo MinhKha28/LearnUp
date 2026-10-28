@@ -4,6 +4,7 @@ import type {
   IAssignment,
   IAssignmentList,
   IGradingResult,
+  IClosedPeerReviewCycle,
   IPeerReviewCycleList,
   ILearnerAssessmentList,
   ILearnerAssignment,
@@ -166,6 +167,12 @@ export const fetchPeerReviewCyclesAPI = (assignmentId: string) =>
   axios.get<IBackendRes<IPeerReviewCycleList>>(
     `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles`,
     requestConfig,
+  );
+
+/** UC33 — close a cycle now: hand out the reviews, or send the submissions to the Instructor when there are too few. */
+export const closePeerReviewCycleAPI = (assignmentId: string, cycleId: string) =>
+  axios.post<IBackendRes<IClosedPeerReviewCycle>>(
+    `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles/${cycleId}/close`,
   );
 
 /** UC30.2 — the grading result of the latest submission, when it is Finalized (one request, so one check of the Enrollment). */

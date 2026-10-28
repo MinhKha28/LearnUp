@@ -341,6 +341,10 @@ services:
       COURSE_SERVICE_TIMEOUT_MS: 5000
       TENANT_SERVICE_URL: http://tenant-service:8084
       LEARNING_SERVICE_URL: http://learning-service:8085
+      # UC33: the cycles close, remind and expire by themselves every minute (BR-230, BR-232, BR-237)
+      PEER_REVIEW_TICK_MS: ${PEER_REVIEW_TICK_MS:-60000}
+      NOTIFICATION_CLIENT_MODE: http
+      NOTIFICATION_SERVICE_URL: http://notification-service:8082
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}

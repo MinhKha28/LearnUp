@@ -6,6 +6,9 @@ import { HttpCourseServiceClient } from './course/http-course-service.client';
 import { EnrollmentClient } from './learning/enrollment.client';
 import { FakeEnrollmentClient } from './learning/fake-enrollment.client';
 import { HttpEnrollmentClient } from './learning/http-enrollment.client';
+import { FakeNotificationClient } from './notification/fake-notification.client';
+import { HttpNotificationClient } from './notification/http-notification.client';
+import { NotificationClient } from './notification/notification.client';
 import { FakeTenantDirectoryClient } from './tenant/fake-tenant-directory.client';
 import { HttpTenantDirectoryClient } from './tenant/http-tenant-directory.client';
 import { TenantDirectoryClient } from './tenant/tenant-directory.client';
@@ -40,7 +43,21 @@ import { TenantDirectoryClient } from './tenant/tenant-directory.client';
           ? new FakeTenantDirectoryClient()
           : new HttpTenantDirectoryClient(config),
     },
+    {
+      provide: NotificationClient,
+      inject: [ConfigService],
+      // Default is fake: a notification is a side effect that must never stop the work, so only a real stack sets http.
+      useFactory: (config: ConfigService): NotificationClient =>
+        config.get<string>('NOTIFICATION_CLIENT_MODE') === 'http'
+          ? new HttpNotificationClient(config)
+          : new FakeNotificationClient(),
+    },
   ],
-  exports: [CourseServiceClient, EnrollmentClient, TenantDirectoryClient],
+  exports: [
+    CourseServiceClient,
+    EnrollmentClient,
+    TenantDirectoryClient,
+    NotificationClient,
+  ],
 })
 export class IntegrationsModule {}
