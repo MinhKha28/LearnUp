@@ -66,11 +66,19 @@ Identity and the learner pages (catalog, enrollments) still use `VITE_BACKEND_UR
 VITE_BACKEND_URL=http://localhost:8080
 VITE_TENANT_BACKEND_URL=http://localhost:8084
 VITE_COURSE_BACKEND_URL=http://localhost:8083
-VITE_ASSESSMENT_BACKEND_URL=http://localhost:8086
+VITE_ASSESSMENT_BACKEND_URL=http://localhost:8080
 ```
 
 Copy them from `.env.example` into `.env.development.local` (not committed).
-When going through the api-gateway, point all of them at `http://localhost:8080`.
+When going through the api-gateway, point all of them at the gateway: `http://localhost:8080` when you run the gateway
+on its own, or `http://localhost:8088` when you run the stack with Docker Compose (the port is `GATEWAY_HOST_PORT`).
+
+The assessment service must always be reached through the gateway. The browser does not send the internal identity headers
+(`x-internal-key`, `x-user-id`, `x-organization-id`, `x-user-role`): the gateway adds them from the JWT. If
+`VITE_ASSESSMENT_BACKEND_URL` points straight at the service (port 8086), every assessment call fails with 401.
+
+If you already have a `.env.development.local` from before, change `VITE_ASSESSMENT_BACKEND_URL` from
+`http://localhost:8086` to the gateway address above and restart `npm run dev` (Vite reads the file at start).
 
 ### Run development server
 
