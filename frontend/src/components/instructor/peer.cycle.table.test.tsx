@@ -14,10 +14,13 @@ vi.mock("@/services/assessment.service", async (importOriginal) => ({
 import * as api from "@/services/assessment.service";
 import PeerCycleTable from "./peer.cycle.table";
 
+const HOUR = 3_600_000;
+// The closing line is read against the clock of the browser, so the dates are made from now.
+const ago = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();
 const cycle = (n: number, over: Record<string, unknown> = {}) => ({
   id: `cycle-${n}`,
-  opensAt: "2026-10-01T00:00:00Z",
-  closesAt: "2026-10-08T00:00:00Z",
+  opensAt: ago(24 * 8),
+  closesAt: ago(1),
   reviewDueAt: "2026-10-11T00:00:00Z",
   submissionCount: 7,
   status: "Open",
@@ -52,7 +55,7 @@ beforeAll(() => {
     ((query: string) => ({ matches: false, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false }) as unknown as MediaQueryList);
 });
 beforeEach(() => {
-  // Cycle 1 is already closed, Cycle 2 is open
+  // Cycle 1 is already closed, Cycle 2 is open and its closing line has passed
   vi.mocked(api.fetchPeerReviewCyclesAPI).mockResolvedValue(
     list([cycle(1, { status: "Completed", closed: true }), cycle(2)]) as never,
   );
@@ -75,10 +78,19 @@ const confirmClosing = async () => {
 };
 
 describe("the Close cycle action", () => {
-  it("is offered only on the cycles that are still open", async () => {
+  it("is offered only on a cycle that is still open and past its closing line", async () => {
     render(<PeerCycleTable assignmentId="a1" />);
     await screen.findByText("Cycle 2");
     expect(closeButtons()).toHaveLength(1);
+  });
+
+  it("is not offered on an open cycle that has not reached its closing line: the calendar closes it (BR-230)", async () => {
+    vi.mocked(api.fetchPeerReviewCyclesAPI).mockResolvedValue(
+      list([cycle(1, { status: "Completed", closed: true }), cycle(2, { closesAt: ago(-5) })]) as never,
+    );
+    render(<PeerCycleTable assignmentId="a1" />);
+    await screen.findByText("Cycle 2");
+    expect(closeButtons()).toHaveLength(0);
   });
 
   it("asks first, and sends nothing until the Instructor confirms", async () => {
@@ -86,7 +98,9 @@ describe("the Close cycle action", () => {
     await screen.findByText("Cycle 2");
     fireEvent.click(closeButtons()[0]);
     await screen.findByText("Close this cycle now?");
-    expect(screen.getByText(/Cycle 2 closes now and its 7 submissions are handed out for review/)).toBeTruthy();
+    expect(
+      screen.getByText(/Cycle 2 has passed its closing time and the schedule has not closed it yet\. Closing it hands out its 7 submissions for review/),
+    ).toBeTruthy();
     expect(api.closePeerReviewCycleAPI).not.toHaveBeenCalled();
   });
 
@@ -122,12 +136,12 @@ describe("the Close cycle action", () => {
   it("shows the server's reason when the closing is refused, and does not reload as if it worked", async () => {
     vi.mocked(api.closePeerReviewCycleAPI).mockResolvedValue({
       statusCode: 409,
-      error: { code: "CYCLE_NOT_OPEN", message: "This cycle has not opened yet." },
+      error: { code: "CYCLE_NOT_DUE", message: "This cycle has not reached its closing time yet." },
     } as never);
     render(<PeerCycleTable assignmentId="a1" />);
     await screen.findByText("Cycle 2");
     await confirmClosing();
-    await screen.findByText("This cycle has not opened yet.");
+    await screen.findByText("This cycle has not reached its closing time yet.");
     expect(api.fetchPeerReviewCyclesAPI).toHaveBeenCalledTimes(1);
   });
 

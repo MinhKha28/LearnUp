@@ -59,6 +59,37 @@ describe('UC33 closing a cycle over HTTP', () => {
       headers,
     );
 
+  // The closing line has to have passed (BR-230) and the clock of the service cannot be moved, so the calendar of the
+  // Assignment is moved back 8 whole days (the grid of BR-231 stays as it is) before a closing that has to work.
+  const makeDue = async (cycleId: string) => {
+    if (!/^[0-9a-f-]{36}$/.test(cycleId)) return;
+    await db.query(
+      `UPDATE peer_review_cycles
+          SET opens_at = opens_at - interval '8 days', closes_at = closes_at - interval '8 days',
+              review_due_at = review_due_at - interval '8 days'
+        WHERE assessment_id = (SELECT assessment_id FROM peer_review_cycles WHERE id = $1)
+          AND EXISTS (SELECT 1 FROM peer_review_cycles WHERE id = $1 AND status = 'Open' AND closes_at > now())`,
+      [cycleId],
+    );
+  };
+  const closeDue = async (cycleId: string, id = assignment) => {
+    await makeDue(cycleId);
+    return close(cycleId, id);
+  };
+  const resubmit = (assignmentId: string, user: string) => {
+    const form = new FormData();
+    form.append('content', 'again');
+    return fetch(
+      `${service.baseUrl}/api/v1/assessments/learner/assignments/${assignmentId}/resubmissions`,
+      {
+        method: 'POST',
+        headers: identity({ user, role: 'LEARNER' }),
+        body: form,
+      },
+    );
+  };
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
   before(async () => {
     db = await createTestDatabase();
     course = await startCourseStub();
@@ -124,10 +155,41 @@ describe('UC33 closing a cycle over HTTP', () => {
     assert.equal((await cycles())[0].closed, false);
   });
 
+  test('before the closing line the cycle is not closed: 409, and nothing about it changes (BR-230, BR-231)', async () => {
+    const [cycle] = await cycles();
+    const dates = () =>
+      db.query(
+        `SELECT status, opens_at, closes_at, review_due_at, closed_at FROM peer_review_cycles WHERE id = $1`,
+        [cycle.id],
+      );
+    const before = await dates();
+    const r = await close(cycle.id);
+    assert.equal(r.status, 409, JSON.stringify(r.json));
+    assert.equal(r.code, 'CYCLE_NOT_DUE');
+    assert.deepEqual(await dates(), before);
+    const [{ reviews }] = await db.query(
+      `SELECT count(*)::int AS reviews FROM submission_reviews WHERE cycle_id = $1`,
+      [cycle.id],
+    );
+    assert.equal(reviews, 0);
+    assert.equal((await cycles())[0].status, 'Open');
+  });
+
   test('2 submissions, N = 2: nobody to swap with, the Instructor grades them (BR-242)', async () => {
     const [cycle] = await cycles();
+    await makeDue(cycle.id);
+    const [dueBefore] = await db.query(
+      `SELECT opens_at, closes_at, review_due_at FROM peer_review_cycles WHERE id = $1`,
+      [cycle.id],
+    );
     const r = await close(cycle.id);
     assert.equal(r.status, 200, JSON.stringify(r.json));
+    // the closing does not move the dates of the cycle (BR-231)
+    const [dueAfter] = await db.query(
+      `SELECT opens_at, closes_at, review_due_at FROM peer_review_cycles WHERE id = $1`,
+      [cycle.id],
+    );
+    assert.deepEqual(dueAfter, dueBefore);
     assert.equal(r.data.status, 'InstructorOnly');
     assert.equal(r.data.submissionCount, 2);
     assert.equal(r.data.reviewCount, 0);
@@ -161,11 +223,21 @@ describe('UC33 closing a cycle over HTTP', () => {
     assert.equal(list.length, 2);
     assert.equal(list[1].status, 'Open');
     assert.equal(list[1].submissionCount, 5);
+    // BR-231: the next cycle opens exactly when the previous one closed, so no submission can belong to two cycles
+    const dates = await db.query(
+      `SELECT opens_at, closes_at FROM peer_review_cycles WHERE assessment_id = $1 ORDER BY opens_at`,
+      [assignment],
+    );
+    assert.equal(dates.length, 2);
+    assert.equal(
+      (dates[1].opens_at as Date).getTime(),
+      (dates[0].closes_at as Date).getTime(),
+    );
   });
 
   test('5 submissions, N = 2: 10 reviews, 2 per submission, none of the author (BR-249)', async () => {
     const cycle = (await cycles())[1];
-    const r = await close(cycle.id);
+    const r = await closeDue(cycle.id);
     assert.equal(r.status, 200, JSON.stringify(r.json));
     assert.equal(r.data.status, 'Assigned');
     assert.equal(r.data.submissionCount, 5);
@@ -234,6 +306,7 @@ describe('UC33 closing a cycle over HTTP', () => {
   test('two closings at the same moment hand out the reviews once', async () => {
     for (let i = 7; i <= 10; i += 1) await submit(assignment, learner(i));
     const cycle = (await cycles())[2];
+    await makeDue(cycle.id);
     const [a, b] = await Promise.all([close(cycle.id), close(cycle.id)]);
     assert.equal(a.status, 200);
     assert.equal(b.status, 200);
@@ -263,18 +336,26 @@ describe('UC33 closing a cycle over HTTP', () => {
     const target = (await cycles()).find(
       (c) => c.status === 'Open' && c.submissionCount === 3,
     )!;
+    // the closing line is 1.5 s away: a submission that starts now is still before it, the closing starts after it
+    await db.query(
+      `UPDATE peer_review_cycles SET closes_at = now() + interval '1500 milliseconds' WHERE id = $1`,
+      [target.id],
+    );
     // a submission in flight: it holds the lock of the cycles of this Assignment until it commits
     const holder = await db.connect();
     await holder.query('BEGIN');
     await holder.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
       `cycle:${assignment}`,
     ]);
+    // one more Learner submits before the closing line; it waits for the lock
+    const late = submit(assignment, learner(14));
+    await wait(1700); // the closing line has passed now
     let closed = false;
     const closing = close(target.id).then((r) => {
       closed = true;
       return r;
     });
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    await wait(700);
     assert.equal(closed, false, 'the closing waits for the lock');
     const [{ status }] = await db.query(
       `SELECT status FROM peer_review_cycles WHERE id = $1`,
@@ -282,9 +363,7 @@ describe('UC33 closing a cycle over HTTP', () => {
     );
     assert.equal(status, 'Open');
 
-    // one more Learner submits while the closing waits; they take turns when the lock is released
-    const late = submit(assignment, learner(14));
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // they take turns when the lock is released
     await holder.query('COMMIT');
     const [answer] = await Promise.all([closing, late]);
     assert.equal(answer.status, 200);
@@ -299,5 +378,65 @@ describe('UC33 closing a cycle over HTTP', () => {
       reviewed,
       'every submission of the closed cycle was handed out for review',
     );
+  });
+
+  test('a resubmission and the closing at the same moment: the reviews go only to current submissions (BR-213)', async () => {
+    const made = await api('POST', '/assignments', {
+      courseId: COURSE,
+      title: 'Race',
+      prompt: 'Write it',
+      passingScore: 70,
+      expectedDurationMinutes: 30,
+      maxConsecutiveAttempts: 50,
+      rubric: [{ name: 'A', description: 'A desc', maxPoints: 100 }],
+    });
+    assert.equal(made.status, 201, JSON.stringify(made.json));
+    const race = made.data.id as string;
+    const on = await api('PUT', `/assignments/${race}/peer-review`, {
+      enabled: true,
+      reviewersPerSubmission: 2,
+      scoreGap: 20,
+    });
+    assert.equal(on.status, 200, JSON.stringify(on.json));
+    for (const i of [20, 21, 22]) await submit(race, learner(i));
+    const [cycle] = (await api('GET', `/assignments/${race}/peer-review/cycles`))
+      .data.items as { id: string }[];
+    const [{ id: replaced }] = await db.query(
+      `SELECT id FROM submissions WHERE assessment_id = $1 AND learner_id = $2 AND superseded_at IS NULL`,
+      [race, learner(22)],
+    );
+
+    // A row lock on the submission that Learner 22 is about to replace: the resubmission has read the cycle and stops at
+    // the write. Without the lock of the cycles, the closing runs through in the meantime and hands the reviews out
+    // to the submission that is then replaced (BR-213).
+    const holder = await db.connect();
+    await holder.query('BEGIN');
+    await holder.query('SELECT 1 FROM submissions WHERE id = $1 FOR UPDATE', [
+      replaced,
+    ]);
+    const resubmitting = resubmit(race, learner(22));
+    await wait(600);
+    await makeDue(cycle.id);
+    const closing = close(cycle.id, race);
+    await wait(800);
+    await holder.query('COMMIT');
+    await holder.end();
+    const [answer, closed] = await Promise.all([resubmitting, closing]);
+    assert.equal(answer.status, 201, await answer.text());
+    assert.equal(closed.status, 200, JSON.stringify(closed.json));
+
+    const [{ onReplaced }] = await db.query(
+      `SELECT count(*)::int AS "onReplaced"
+         FROM submission_reviews r JOIN submissions s ON s.id = r.submission_id
+        WHERE r.cycle_id = $1 AND s.superseded_at IS NOT NULL`,
+      [cycle.id],
+    );
+    assert.equal(onReplaced, 0, 'no review is attached to a replaced submission');
+    const [{ current, reviewed }] = await db.query(
+      `SELECT (SELECT count(*) FROM submissions WHERE cycle_id = $1 AND superseded_at IS NULL)::int AS current,
+              (SELECT count(DISTINCT submission_id) FROM submission_reviews WHERE cycle_id = $1)::int AS reviewed`,
+      [cycle.id],
+    );
+    assert.equal(reviewed, current, 'every current submission is handed out for review');
   });
 });

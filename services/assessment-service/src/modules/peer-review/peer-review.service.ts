@@ -103,10 +103,11 @@ export class PeerReviewService {
 
   /**
    * UC33 — close a cycle: hand out the reviews (BR-249) or send the submissions to the Instructor (BR-242).
-   * Closing before the closing line is allowed (the Instructor does it from the screen): the cycle then closes now,
-   * so later submissions go to the next cycle (BR-208). Closing a closed cycle changes nothing.
-   * A submission being placed at this moment takes the same lock (cycleLockKey), so it is either counted here or goes
-   * to the next cycle.
+   * The cycles run on the calendar (BR-230, BR-231): a cycle that has not reached its closing line is not closed, and the
+   * dates of a cycle never move. The Instructor can close one whose line has passed but which the schedule has not closed
+   * yet. Closing a closed cycle changes nothing.
+   * A submission or a resubmission being placed at this moment takes the same lock (cycleLockKey), so it is either counted
+   * here or goes to the next cycle.
    */
   async closeCycle(
     user: CurrentUser,
@@ -132,10 +133,10 @@ export class PeerReviewService {
     }
     const now = this.clock();
     if (cycle.status !== 'Open') return this.alreadyClosed(cycle);
-    if (now < cycle.opensAt) {
+    if (now < cycle.closesAt) {
       throw new ConflictException({
-        code: 'CYCLE_NOT_OPEN',
-        message: 'This cycle has not opened yet.',
+        code: 'CYCLE_NOT_DUE',
+        message: 'This cycle has not reached its closing time yet.',
       });
     }
 
@@ -151,17 +152,14 @@ export class PeerReviewService {
     assignmentTitle: string,
     now: Date,
   ): Promise<IClosedCycle> {
-    const early = Math.max(0, cycle.closesAt.getTime() - now.getTime());
     const n = cycle.reviewersPerSubmission;
     const result = await this.repository.transaction(async (tx) => {
       // a submission being placed holds this lock until it commits: it is in the cycle when we read it, or it waits
       // and goes to the next cycle
       await this.repository.lock(tx, cycleLockKey(cycle.assessmentId));
+      // The dates stay as the calendar made them: the next cycle opens exactly when this one closes (BR-231).
       const claimed = await this.repository.claimOpenCycle(tx, cycle.id, {
         status: 'Closing',
-        closesAt: new Date(cycle.closesAt.getTime() - early),
-        // BR-229: the review deadline keeps its distance from the closing line.
-        reviewDueAt: new Date(cycle.reviewDueAt.getTime() - early),
         closedAt: now,
       });
       if (claimed.count === 0) return null;

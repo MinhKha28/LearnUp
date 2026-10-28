@@ -573,6 +573,11 @@ export class LearnerSubmissionsService {
     state: LearnerStateRow,
     now: Date,
   ) {
+    // The closing of a cycle takes this lock before it reads the submissions (BR-213). Taken first and read after, the
+    // cycle seen here is the one the closing left: either still Open with this work in it, or closed and not joined.
+    if (isPeerReviewOn(assignment)) {
+      await this.repository.lock(tx, cycleLockKey(assignment.id));
+    }
     const previousCycle = previous.cycleId
       ? await this.repository.findCycleById(previous.cycleId, tx)
       : null;

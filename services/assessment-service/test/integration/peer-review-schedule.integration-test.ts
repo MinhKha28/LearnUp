@@ -438,4 +438,60 @@ describe('UC33 schedule over HTTP', () => {
     assert.equal(await snapshot(), first);
     assert.equal(sent.length, sentBefore);
   });
+
+  test('after a stop, the cycles that are past their closing line close oldest first (BR-230)', async () => {
+    const older = await makeCycle({
+      status: 'Open',
+      closesInHours: -50,
+      dueInHours: 22,
+      learners: [id(80), id(81), id(82)],
+      parked: true,
+    });
+    const newer = await makeCycle({
+      status: 'Open',
+      closesInHours: -2,
+      dueInHours: 70,
+      learners: [id(83), id(84), id(85)],
+      parked: true,
+    });
+    // both become due in one statement, while the schedule was not looking: one run has to close the two of them
+    await db.query(
+      `UPDATE peer_review_cycles
+          SET closes_at = now() - CASE id WHEN $1 THEN 50 ELSE 2 END * interval '1 hour',
+              review_due_at = now() + CASE id WHEN $1 THEN 22 ELSE 70 END * interval '1 hour'
+        WHERE id IN ($1, $2)`,
+      [older.cycleId, newer.cycleId],
+    );
+    const status = async (cycleId: string) =>
+      (
+        await db.query(`SELECT status FROM peer_review_cycles WHERE id = $1`, [
+          cycleId,
+        ])
+      )[0].status;
+    const noticesOf = (cycleId: string) =>
+      sent.filter(
+        (item) =>
+          item.body.title === 'Bạn có bài cần chấm chéo' &&
+          JSON.parse(item.body.metadata).cycleId === cycleId,
+      ).length;
+    await until(
+      async () =>
+        (await status(older.cycleId)) === 'Assigned' &&
+        (await status(newer.cycleId)) === 'Assigned' &&
+        noticesOf(older.cycleId) === 3 &&
+        noticesOf(newer.cycleId) === 3,
+      'both cycles to be closed and their reviewers told',
+    );
+    // One run closes them with the same "now", so the order is the order of the notices: the older cycle's come first.
+    const firstNoticeOf = (cycleId: string) =>
+      sent.findIndex(
+        (item) =>
+          item.body.title === 'Bạn có bài cần chấm chéo' &&
+          JSON.parse(item.body.metadata).cycleId === cycleId,
+      );
+    assert.ok(
+      firstNoticeOf(older.cycleId) < firstNoticeOf(newer.cycleId),
+      'the older cycle is closed, and its reviewers told, before the newer one',
+    );
+  });
 });

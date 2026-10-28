@@ -79,6 +79,12 @@ export class PeerReviewSchedule
     } finally {
       this.running = false;
     }
+    // a run that did nothing stays quiet (it runs every tick); one that did something says how much
+    if (run.closed || run.reminded || run.expired) {
+      this.logger.log(
+        `Peer review schedule run: closed=${run.closed} reminded=${run.reminded} expired=${run.expired}`,
+      );
+    }
     return run;
   }
 

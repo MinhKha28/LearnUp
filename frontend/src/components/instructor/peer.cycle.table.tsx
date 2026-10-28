@@ -72,7 +72,10 @@ const PeerCycleTable = ({
     void load();
   }, [load, reloadKey]);
 
-  /** UC33: close the cycle now. The backend hands out the reviews or sends the work to the Instructor. */
+  /**
+   * UC33: close a cycle whose closing line has passed but which the schedule has not closed yet. The backend hands out
+   * the reviews or sends the work to the Instructor. Before the line the calendar closes it (BR-230), never this button.
+   */
   const closeCycle = async (cycleId: string) => {
     setClosingId(cycleId);
     try {
@@ -141,10 +144,10 @@ const PeerCycleTable = ({
                   </span>
                 </td>
                 <td>
-                  {!cycle.closed && (
+                  {!cycle.closed && Date.parse(cycle.closesAt) <= Date.now() && (
                     <Popconfirm
                       title="Close this cycle now?"
-                      description={`Cycle ${index + 1} closes now and its ${cycle.submissionCount} submissions are handed out for review. Later submissions go to a new cycle.`}
+                      description={`Cycle ${index + 1} has passed its closing time and the schedule has not closed it yet. Closing it hands out its ${cycle.submissionCount} submissions for review.`}
                       okText="Close cycle"
                       onConfirm={() => closeCycle(cycle.id)}
                     >
