@@ -76,6 +76,9 @@ on its own, or `http://localhost:8088` when you run the stack with Docker Compos
 The assessment service must always be reached through the gateway. The browser does not send the internal identity headers
 (`x-internal-key`, `x-user-id`, `x-organization-id`, `x-user-role`): the gateway adds them from the JWT. If
 `VITE_ASSESSMENT_BACKEND_URL` points straight at the service (port 8086), every assessment call fails with 401.
+In `docker-compose.yml` the service publishes port 8086 on `127.0.0.1` only, for tools on your own machine (a script, a
+test, `curl`); other machines on the network cannot reach it. Its `INTERNAL_SERVICE_KEY` is a secret with no default:
+set it in `.env` (the gateway needs it too). A deployment must not publish the port at all.
 
 If you already have a `.env.development.local` from before, change `VITE_ASSESSMENT_BACKEND_URL` from
 `http://localhost:8086` to the gateway address above and restart `npm run dev` (Vite reads the file at start).
