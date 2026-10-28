@@ -10,6 +10,8 @@ import { BaseRepository } from '../../common/repository/base.repository';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { IResendCounter } from './interfaces/resend-counter.interface';
 
+export const REGISTRATION_EMAIL_LOCK_NAMESPACE = 2402;
+
 @Injectable()
 export class RegistrationsRepository extends BaseRepository {
   constructor(prisma: PrismaService) {
@@ -19,6 +21,19 @@ export class RegistrationsRepository extends BaseRepository {
   // ---------------------------------------------------------------------------
   // UC02 - Đăng ký Organization
   // ---------------------------------------------------------------------------
+
+  /**
+   * Thử lấy khóa theo email trong transaction tx, tự nhả khi tx kết thúc. Trả false nếu lượt đăng ký khác
+   * đang giữ. Namespace riêng cho UC02 để không trùng khóa advisory của chức năng khác.
+   */
+  async tryLockRegistrationEmail(
+    email: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const rows = await tx.$queryRaw<{ locked: boolean }[]>`
+      SELECT pg_try_advisory_xact_lock(${REGISTRATION_EMAIL_LOCK_NAMESPACE}::int, hashtext(lower(${email}))) AS locked`;
+    return rows[0]?.locked === true;
+  }
 
   findPlanById(planId: string, tx?: Prisma.TransactionClient) {
     return this.db(tx).subscriptionPlan.findUnique({ where: { id: planId } });
