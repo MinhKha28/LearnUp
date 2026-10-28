@@ -18,7 +18,12 @@ interface ComponentRow {
     finalScore: string | null;
     finalizedAt: string | null;
   } | null;
-  reviews: { status: string; reviewDueAt: string | null }[];
+  reviews: {
+    status: string;
+    reviewDueAt: string | null;
+    cycleId: string | null;
+    cycleClosesAt: string | null;
+  }[];
 }
 
 export interface CourseFacts {
@@ -38,8 +43,9 @@ export class CompletionSnapshotRepository {
    * so the cost of a reading is mostly the number of statements, not their size (every lookup below uses an index).
    *  - attempts: Quiz attempts that were submitted and graded; an open attempt is no result.
    *  - latest: the newest submission that was not replaced (BR-170).
-   *  - reviews: the reviews the Learner owes or gave as a peer, with the deadline of their cycle; the Instructor's own
-   *    rows are not peer reviews (the role is compared without case, as UC25.4 does).
+   *  - reviews: the reviews the Learner owes or gave as a peer, with the cycle they belong to and its closing line and
+   *    review deadline (the state is read from the latest cycle, BR-239); the Instructor's own rows are not peer
+   *    reviews (the role is compared without case, as UC25.4 does).
    */
   async findFacts(
     organizationId: string,
@@ -66,7 +72,8 @@ export class CompletionSnapshotRepository {
                LIMIT 1
              ) AS latest,
              COALESCE((
-               SELECT json_agg(json_build_object('status', r.status, 'reviewDueAt', c.review_due_at))
+               SELECT json_agg(json_build_object('status', r.status, 'reviewDueAt', c.review_due_at,
+                                                 'cycleId', r.cycle_id, 'cycleClosesAt', c.closes_at))
                FROM submission_reviews r
                JOIN submissions rs ON rs.id = r.submission_id
                LEFT JOIN peer_review_cycles c ON c.id = r.cycle_id
@@ -99,6 +106,10 @@ export class CompletionSnapshotRepository {
             status: review.status,
             reviewDueAt: review.reviewDueAt
               ? new Date(review.reviewDueAt)
+              : null,
+            cycleId: review.cycleId,
+            cycleClosesAt: review.cycleClosesAt
+              ? new Date(review.cycleClosesAt)
               : null,
           })),
         });

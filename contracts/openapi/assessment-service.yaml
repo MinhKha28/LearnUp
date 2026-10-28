@@ -17,7 +17,7 @@ paths:
         Rules (they follow the validator of learning-service word for word; a snapshot that breaks one is rejected there as INVALID_SNAPSHOT):
         - Quiz: `recordedScore` is the best submitted attempt (BR-198), the earlier one on a tie. `passed` is `attemptId` and `recordedScore` present and `recordedScore >= passingScore`.
         - Assignment: the newest submission that was not replaced (BR-170). `finalScore` and `finalizedAt` are present only when the grading status is Finalized (BR-212). `passed` is `submissionId`, `finalizedAt`, `finalScore` present and `finalScore >= passingScore`.
-        - peerReview: only the reviews the Learner owes as a peer, never the Instructor's. None means NotApplicable with 0 of 0. Any review missed, or still Pending past the deadline of its cycle (judged at read time), means Missed; all done means Satisfied; otherwise Pending. Waived is not returned until learning accepts it (L22).
+        - peerReview: only the reviews the Learner owes as a peer, never the Instructor's, and of those only the ones of the latest cycle (by closing time) in which the Learner has review assignments (BR-236, BR-238, BR-239): a review Missed in an earlier cycle is a debt that the reviews of a later cycle pay. None means NotApplicable with 0 of 0. Any review of that cycle missed, or still Pending past the deadline of its cycle (judged at read time), means Missed; all done means Satisfied; otherwise Pending. A later cycle in which the Learner has no assignment (too few submissions, BR-242) does not erase an earlier Missed. `requiredCount` and `completedCount` count the reviews of that cycle. Waived is not returned until learning accepts it (L22).
         - `eligible` is true when every component is passed and every peerReview is NotApplicable or Satisfied.
         - Scores are text with two decimals (`85.00`). `revision` changes when, and only when, what the Learner did changes; `snapshotId` is a UUID v5 of the Organization, Learner, Course and revision; `asOf` is the time of the reading.
       parameters:
@@ -130,7 +130,7 @@ components:
                 required: [status, requiredCount, completedCount]
                 properties:
                   status: { type: string, enum: [NotApplicable, Pending, Satisfied, Missed] }
-                  requiredCount: { type: integer, minimum: 0 }
+                  requiredCount: { type: integer, minimum: 0, description: The reviews of the latest cycle in which the Learner has assignments. }
                   completedCount: { type: integer, minimum: 0, description: At most requiredCount; equals it when Satisfied; 0 when NotApplicable. }
     Error:
       type: object

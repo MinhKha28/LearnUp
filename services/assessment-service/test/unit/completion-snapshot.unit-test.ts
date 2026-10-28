@@ -226,6 +226,71 @@ describe('peer review of an Assignment', () => {
   test('Pending with no deadline known is not Missed', () => {
     assert.equal(of([r('Pending', null)]).status, 'Pending');
   });
+
+  describe('across cycles: only the latest cycle with assignments counts (BR-236, BR-238, BR-239)', () => {
+    // review of the cycle n (a later n closes later); the status and the deadline as in the cycle
+    const c = (status: string, n: number, due: Date | null = FUTURE) => ({
+      status,
+      reviewDueAt: due,
+      cycleId: id(900 + n),
+      cycleClosesAt: new Date(Date.UTC(2026, 9, 10 + 7 * n)),
+    });
+
+    test('Missed in cycle 1 and every review of cycle 2 Completed is Satisfied, counted over cycle 2', () => {
+      assert.deepEqual(
+        of([
+          c('Missed', 1, PAST),
+          c('Missed', 1, PAST),
+          c('Completed', 2),
+          c('Completed', 2),
+        ]),
+        { status: 'Satisfied', requiredCount: 2, completedCount: 2 },
+      );
+    });
+
+    test('the order of the rows does not matter', () => {
+      assert.deepEqual(
+        of([
+          c('Completed', 2),
+          c('Missed', 1, PAST),
+          c('Completed', 2),
+          c('Missed', 1, PAST),
+        ]),
+        { status: 'Satisfied', requiredCount: 2, completedCount: 2 },
+      );
+    });
+
+    test('Missed in cycle 1 and Missed again in cycle 2 stays Missed', () => {
+      assert.equal(
+        of([c('Missed', 1, PAST), c('Missed', 2, PAST), c('Completed', 2)])
+          .status,
+        'Missed',
+      );
+    });
+
+    test('Missed in cycle 1 and still to do in cycle 2 is Pending: the Learner is on the way out of the debt', () => {
+      assert.deepEqual(
+        of([c('Missed', 1, PAST), c('Completed', 2), c('Pending', 2)]),
+        { status: 'Pending', requiredCount: 2, completedCount: 1 },
+      );
+    });
+
+    test('a cycle with no assignment for this Learner changes nothing: the Missed of the earlier cycle stays (BR-242)', () => {
+      // the recovery cycle had too few submissions, so it has no row here at all
+      assert.equal(of([c('Missed', 1, PAST), c('Missed', 1, PAST)]).status, 'Missed');
+    });
+
+    test('three cycles: the third one decides', () => {
+      assert.equal(
+        of([
+          c('Missed', 1, PAST),
+          c('Missed', 2, PAST),
+          c('Completed', 3),
+        ]).status,
+        'Satisfied',
+      );
+    });
+  });
 });
 
 describe('eligible', () => {

@@ -315,6 +315,76 @@ describe('completion snapshot over HTTP (CT-1)', () => {
     assert.equal(data.eligible, false);
   });
 
+  test('a review Missed in an earlier cycle is a debt: the reviews of a later cycle pay it, and a later cycle with no assignment does not (BR-236, BR-239)', async () => {
+    // from the test before: the review of LEARNER in the first cycle is past its deadline, so the state is Missed
+    assert.equal((await snapshot()).assignments[0].peerReview.status, 'Missed');
+
+    // a recovery cycle: closes after the first one, with another Learner's work for LEARNER to review
+    const [{ id: recovery }] = await db.query(
+      `INSERT INTO peer_review_cycles (id, organization_id, assessment_id, opens_at, closes_at, review_due_at,
+                                       reviewers_per_submission, score_gap, reminder_hours, status, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, now() - interval '2 days', now() - interval '1 day', now() + interval '3 days',
+               2, 20, 24, 'Assigned', now(), now()) RETURNING id`,
+      [ORG, assignment],
+    );
+    const [{ id: work }] = await db.query(
+      `INSERT INTO submissions (id, organization_id, assessment_id, learner_id, submission_number, content, submitted_at,
+                                cycle_id, grading_status, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, gen_random_uuid(), 1, 'recovery work', now() - interval '2 days', $3,
+               'AwaitingPeerReview', now(), now()) RETURNING id`,
+      [ORG, assignment, recovery],
+    );
+    await db.query(
+      `INSERT INTO submission_reviews (id, organization_id, submission_id, cycle_id, reviewer_id, reviewer_role, status,
+                                       created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, 'Learner', 'Pending', now(), now())`,
+      [ORG, work, recovery, LEARNER],
+    );
+    // the Learner is on the way out of the debt: Pending, not Missed
+    let data = await snapshot();
+    assert.deepEqual(data.assignments[0].peerReview, {
+      status: 'Pending',
+      requiredCount: 1,
+      completedCount: 0,
+    });
+    assert.equal(data.eligible, false);
+
+    // the recovery reviews are done: the debt is paid
+    await db.query(
+      `UPDATE submission_reviews SET status = 'Completed', completed_at = now() WHERE submission_id = $1 AND reviewer_id = $2`,
+      [work, LEARNER],
+    );
+    data = await snapshot();
+    assert.deepEqual(data.assignments[0].peerReview, {
+      status: 'Satisfied',
+      requiredCount: 1,
+      completedCount: 1,
+    });
+    assert.equal(data.eligible, true);
+
+    // a later cycle with nothing assigned to this Learner (too few submissions, BR-242) changes nothing
+    await db.query(
+      `INSERT INTO peer_review_cycles (id, organization_id, assessment_id, opens_at, closes_at, review_due_at,
+                                       reviewers_per_submission, score_gap, reminder_hours, status, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, now() - interval '1 day', now() - interval '1 hour', now() + interval '3 days',
+               2, 20, 24, 'InstructorOnly', now(), now())`,
+      [ORG, assignment],
+    );
+    assert.equal(
+      (await snapshot()).assignments[0].peerReview.status,
+      'Satisfied',
+    );
+
+    // missing the recovery reviews as well keeps it Missed
+    await db.query(
+      `UPDATE submission_reviews SET status = 'Missed', completed_at = NULL WHERE submission_id = $1 AND reviewer_id = $2`,
+      [work, LEARNER],
+    );
+    data = await snapshot();
+    assert.equal(data.assignments[0].peerReview.status, 'Missed');
+    assert.equal(data.eligible, false);
+  });
+
   test('another Learner, another Organization and another Course see none of this', async () => {
     const stranger = await snapshot(OTHER_LEARNER);
     assert.equal(stranger.quizzes[0].attemptId, null);

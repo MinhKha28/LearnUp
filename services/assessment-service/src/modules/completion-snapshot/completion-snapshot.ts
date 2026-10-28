@@ -62,8 +62,16 @@ export interface AssignmentFacts {
     finalScore: DecimalText | null;
     finalizedAt: Date | null;
   } | null;
-  /** The reviews this Learner has to give or gave for the Assignment, as a peer (never the Instructor's own). */
-  reviews: { status: string; reviewDueAt: Date | null }[];
+  /**
+   * The reviews this Learner has to give or gave for the Assignment, as a peer (never the Instructor's own), each with
+   * the cycle it belongs to and the closing line of that cycle: which cycle is the latest is read from it.
+   */
+  reviews: {
+    status: string;
+    reviewDueAt: Date | null;
+    cycleId?: string | null;
+    cycleClosesAt?: Date | null;
+  }[];
 }
 
 export const FINALIZED = 'Finalized';
@@ -125,15 +133,45 @@ export function recordedAttempt(attempts: QuizFacts['attempts']) {
 }
 
 /**
- * The peer review state of one Assignment for one Learner. Only the reviews the Learner owes as a peer count. Order:
- * nothing assigned is NotApplicable; any review missed is Missed; all done is Satisfied; the rest is Pending.
+ * The reviews of the cycle that closes last. Rows with no cycle information are one group that counts as the oldest, so
+ * a reading without it (a review with no cycle) behaves as before. Two cycles never close at the same moment (BR-231); the
+ * id only makes the answer the same whatever the order of the rows.
+ */
+function reviewsOfLatestCycle(
+  reviews: AssignmentFacts['reviews'],
+): AssignmentFacts['reviews'] {
+  const key = (review: AssignmentFacts['reviews'][number]) =>
+    review.cycleId ?? '';
+  const closesAt = (review: AssignmentFacts['reviews'][number]) =>
+    review.cycleClosesAt?.getTime() ?? Number.NEGATIVE_INFINITY;
+  let latest: AssignmentFacts['reviews'][number] | null = null;
+  for (const review of reviews) {
+    if (
+      latest === null ||
+      closesAt(review) > closesAt(latest) ||
+      (closesAt(review) === closesAt(latest) && key(review) > key(latest))
+    )
+      latest = review;
+  }
+  if (latest === null) return [];
+  const target = key(latest);
+  return reviews.filter((review) => key(review) === target);
+}
+
+/**
+ * The peer review state of one Assignment for one Learner. Only the reviews the Learner owes as a peer count, and of
+ * those only the ones of the latest cycle in which the Learner has review assignments (BR-236, BR-238, BR-239): a Missed
+ * review is a debt, not a final result, and it is paid when the Learner completes the reviews of a later cycle. Order:
+ * nothing assigned is NotApplicable; any review of that cycle missed is Missed; all done is Satisfied; the rest is Pending.
+ * A cycle after it in which the Learner has no assignment (too few submissions, BR-242) does not erase the debt.
  * A Pending review past its deadline is Missed already, without waiting for the schedule that marks it.
  * Waived is not returned yet: learning does not accept it until L22 (it would be rejected as INVALID_SNAPSHOT).
  */
 export function peerReviewOf(
-  reviews: AssignmentFacts['reviews'],
+  allReviews: AssignmentFacts['reviews'],
   now: Date,
 ): CompletionSnapshot['assignments'][number]['peerReview'] {
+  const reviews = reviewsOfLatestCycle(allReviews);
   const requiredCount = reviews.length;
   if (requiredCount === 0)
     return { status: 'NotApplicable', requiredCount: 0, completedCount: 0 };
