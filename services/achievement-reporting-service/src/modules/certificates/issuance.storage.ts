@@ -92,6 +92,8 @@ export class CloudinaryIssuanceStorage implements IssuanceStorage {
     maxSizeBytes: number,
   ): Promise<Buffer> {
     if (!this.provider) throw new IssuanceError('CLOUDINARY_UNCONFIGURED');
+    if (mime !== 'image/png' && mime !== 'image/jpeg')
+      throw new IssuanceError('UNSUPPORTED_IMAGE_TYPE');
     return this.provider.readBytes(key, {
       deliveryType: 'authenticated',
       resourceType: 'image',
