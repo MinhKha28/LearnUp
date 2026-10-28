@@ -1,3 +1,11 @@
+import { CertificateLearnerGuard } from './certificate-learner.guard';
+import { CertificateReadRepository } from './certificate-read.repository';
+import { CertificatePdfQueue } from './certificate-pdf.queue';
+import { CertificatePdfRenderer } from './certificate-pdf.renderer';
+import {
+  CERTIFICATE_READ_CONFIG,
+  certificateReadConfig,
+} from './certificate-read.config';
 import { SignerController } from './signer.controller';
 import { SignerService } from './signer.service';
 import { SignerAccess } from './signer.access';
@@ -24,6 +32,16 @@ import {
   controllers: [CertificatesController, SignerController],
   providers: [
     CertificatesService,
+    CertificateLearnerGuard,
+    CertificateReadRepository,
+    CertificatePdfQueue,
+    CertificatePdfRenderer,
+    {
+      provide: CERTIFICATE_READ_CONFIG,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) =>
+        certificateReadConfig((key) => config.get<string>(key)),
+    },
     SignerService,
     SignerAccess,
     SignerRepository,

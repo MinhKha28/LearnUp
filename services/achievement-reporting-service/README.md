@@ -83,3 +83,17 @@ From the repository root, after building, a synthetic measurement can be run wit
 It uses real PostgreSQL and fake directory/storage/Kafka transport, recording
 technical issuance delay and counts rather than an HTTP SLA.
 See [verification report](../../docs/architecture/achievement-certificate-issuance-verification.md).
+
+### Learner certificates
+
+Learner list, detail and PDF endpoints are scoped to the authenticated organization and learner and expose issued records only. PDF documents are generated from frozen records, buffered before sending, and never stored.
+
+Settings: `CERTIFICATE_DISPLAY_TIMEZONE` defaults to `Asia/Ho_Chi_Minh`; `CERTIFICATE_PDF_QUEUE_SIZE` defaults to 16 waiting requests; `CERTIFICATE_PDF_QUEUE_WAIT_MS` defaults to 1500 ms. One render runs per instance. Overload or unavailable verified assets returns 503 with Retry-After: 1.
+
+### Third-party font notice
+
+Noto Sans static Regular and Bold, release v2.015, are bundled under the SIL Open Font License 1.1. See assets/fonts/OFL.txt and assets/fonts/sources.json for license, provenance and checksums. Font buffers are loaded and verified at startup; missing or changed files prevent startup.
+
+Verification uses the complete service suite (including isolated PostgreSQL schemas), default TypeScript configuration, and scoped ESLint. The frontend browser suite is enabled with `LEARNUP_RECOVERY_BROWSER_TESTS=1`; run Vitest with `--fileParallelism=false --hookTimeout=60000` to avoid browser harness port collisions.
+
+The repository-root load harness is `node perf/achievement/certificate-read.cjs`. It requires a non-production `DATABASE_URL` and `CERTIFICATE_PERF_OUTPUT` pointing outside the repository. `CERTIFICATE_PERF_STAGE_MS` controls each stage (default 5000 ms). It ramps to 1, 2, 100 and 200 VUs for PDF and list, using a separate service process and verified in-memory PNG storage. The generated schema is intentionally retained; the script prints its exact name and a manual DROP SCHEMA command.
