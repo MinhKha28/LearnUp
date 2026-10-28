@@ -142,3 +142,94 @@ test('organizerReadOnlyEndsAt: frozen value, else suspended_at + 30 days, else n
     null,
   );
 });
+
+const profileService = ({ org = organization, getUrl } = {}) => {
+  const urls = [];
+  const service = new InternalOrganizationsService(
+    { findOrganization: async () => org },
+    {
+      getUrl:
+        getUrl ??
+        ((key, type) => {
+          urls.push([key, type]);
+          return `https://cdn.test/${key}.png`;
+        }),
+    },
+  );
+  return { service, urls };
+};
+
+test('certificate profile: no logo gives logo null, with name and timezone', async () => {
+  const { service, urls } = profileService({
+    org: { ...organization, name: 'Công ty ABC', timezone: 'Asia/Tokyo' },
+  });
+  assert.deepEqual(
+    await service.certificateProfile(organizationId, organizationId),
+    {
+      organizationId,
+      name: 'Công ty ABC',
+      logo: null,
+      timezone: 'Asia/Tokyo',
+    },
+  );
+  assert.equal(urls.length, 0);
+});
+
+test('certificate profile: a logo key becomes a public URL with null expiry, type and size (#148)', async () => {
+  const { service, urls } = profileService({
+    org: { ...organization, logoFileKey: 'logos/abc' },
+  });
+  const profile = await service.certificateProfile(
+    organizationId,
+    organizationId,
+  );
+  assert.deepEqual(profile.logo, {
+    url: 'https://cdn.test/logos/abc.png',
+    expiresAt: null,
+    mimeType: null,
+    sizeBytes: null,
+  });
+  assert.deepEqual(urls, [['logos/abc', 'image']]);
+});
+
+test('certificate profile: a storage failure is 503 STORAGE_UNAVAILABLE, never logo null', async () => {
+  const { service } = profileService({
+    org: { ...organization, logoFileKey: 'logos/abc' },
+    getUrl: () => {
+      throw new Error('Cloudinary credentials are not configured.');
+    },
+  });
+  await assert.rejects(
+    service.certificateProfile(organizationId, organizationId),
+    (error) =>
+      error.getStatus() === 503 &&
+      error.getResponse().code === 'STORAGE_UNAVAILABLE',
+  );
+});
+
+test('certificate profile: returned whatever the organization status is', async () => {
+  for (const status of ['Active', 'Suspended', 'Cancelled']) {
+    const { service } = profileService({ org: { ...organization, status } });
+    const profile = await service.certificateProfile(
+      organizationId,
+      organizationId,
+    );
+    assert.equal(profile.organizationId, organizationId);
+  }
+});
+
+for (const [name, header, org] of [
+  ['a missing header', undefined, organization],
+  ['another organization', randomUUID(), organization],
+  ['an unknown organization', organizationId, null],
+]) {
+  test(`certificate profile: 404 for ${name}`, async () => {
+    const { service } = profileService({ org });
+    await assert.rejects(
+      service.certificateProfile(header, organizationId),
+      (error) =>
+        error.getStatus() === 404 &&
+        error.getResponse().code === 'ORGANIZATION_NOT_FOUND',
+    );
+  });
+}

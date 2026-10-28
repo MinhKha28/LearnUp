@@ -7,6 +7,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiSecurity,
+  ApiServiceUnavailableResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { ResponseMessage, ServiceCall } from '../../common/decorator/customize';
@@ -84,5 +85,66 @@ export class InternalOrganizationsController {
     @Param('organizationId', new ParseUUIDPipe()) organizationId: string,
   ) {
     return this.service.access(headerOrganizationId, organizationId);
+  }
+
+  @Get(':organizationId/certificate-profile')
+  @ServiceCall()
+  @ResponseMessage('Certificate profile fetched')
+  @ApiOperation({
+    summary:
+      'Organization name, logo and timezone that achievement-reporting freezes into a Certificate (#148; BR-263, BR-270).',
+  })
+  @organizationHeader
+  @ApiOkResponse({
+    description:
+      'Returned regardless of Organization status. logo is null only when the Organization has no logo.',
+    schema: {
+      type: 'object',
+      required: ['statusCode', 'message', 'data'],
+      properties: {
+        statusCode: { type: 'integer', example: 200 },
+        message: { type: 'string', example: 'Certificate profile fetched' },
+        data: {
+          type: 'object',
+          required: ['organizationId', 'name', 'logo', 'timezone'],
+          properties: {
+            organizationId: { type: 'string', format: 'uuid' },
+            name: { type: 'string' },
+            logo: {
+              type: 'object',
+              nullable: true,
+              required: ['url', 'expiresAt', 'mimeType', 'sizeBytes'],
+              properties: {
+                url: { type: 'string', format: 'uri' },
+                expiresAt: {
+                  type: 'string',
+                  format: 'date-time',
+                  nullable: true,
+                },
+                mimeType: { type: 'string', nullable: true },
+                sizeBytes: { type: 'integer', nullable: true },
+              },
+            },
+            timezone: { type: 'string', example: 'Asia/Ho_Chi_Minh' },
+          },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: ':organizationId is not a UUID.' })
+  @organizationNotFound
+  @ApiServiceUnavailableResponse({
+    description:
+      'The Organization has a logo but its URL cannot be built (STORAGE_UNAVAILABLE).',
+  })
+  certificateProfile(
+    @Headers(HEADER_NAMES.ORGANIZATION_ID)
+    headerOrganizationId: string | undefined,
+    @Param('organizationId', new ParseUUIDPipe()) organizationId: string,
+  ) {
+    return this.service.certificateProfile(
+      headerOrganizationId,
+      organizationId,
+    );
   }
 }

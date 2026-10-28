@@ -38,6 +38,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 test('internal organization access with isolated fixtures', async (t) => {
   process.env.INTERNAL_SERVICE_KEY = 'org-access-integration-key-0123456789';
+  for (const key of [
+    'CLOUDINARY_CLOUD_NAME',
+    'CLOUDINARY_API_KEY',
+    'CLOUDINARY_API_SECRET',
+  ]) {
+    delete process.env[key];
+  }
   class TestModule {}
   Module({
     imports: [
@@ -66,6 +73,7 @@ test('internal organization access with isolated fixtures', async (t) => {
     grace: randomUUID(),
     suspended: randomUUID(),
     noSubscription: randomUUID(),
+    withLogo: randomUUID(),
   };
   const ids = Object.values(fixtures);
   const cleanup = async () => {
@@ -89,6 +97,8 @@ test('internal organization access with isolated fixtures', async (t) => {
         contactPhone: '0900000000',
         status: id === fixtures.noSubscription ? 'Suspended' : 'Active',
         timezone: id === fixtures.grace ? 'Asia/Tokyo' : 'Asia/Ho_Chi_Minh',
+        logoFileKey:
+          id === fixtures.withLogo ? 'logos/integration-fixture' : null,
       })),
     });
     const subscription = (organizationId, status, extra = {}) => ({
@@ -240,6 +250,73 @@ test('internal organization access with isolated fixtures', async (t) => {
         400,
       );
     });
+
+    const profile = (
+      id,
+      { key = process.env.INTERNAL_SERVICE_KEY, org = id } = {},
+    ) =>
+      fetch(`${base}/${id}/certificate-profile`, {
+        headers: {
+          ...(key ? { 'x-internal-key': key } : {}),
+          ...(org ? { 'x-organization-id': org } : {}),
+        },
+      });
+    await t.test(
+      'certificate profile: no logo, with name and timezone',
+      async () => {
+        const response = await profile(fixtures.grace);
+        assert.equal(response.status, 200);
+        const body = await response.json();
+        assert.equal(body.message, 'Certificate profile fetched');
+        assert.deepEqual(body.data, {
+          organizationId: fixtures.grace,
+          name: 'Access integration fixture',
+          logo: null,
+          timezone: 'Asia/Tokyo',
+        });
+      },
+    );
+    await t.test(
+      'certificate profile: returned for a Suspended organization',
+      async () => {
+        const response = await profile(fixtures.noSubscription);
+        assert.equal(response.status, 200);
+        assert.equal(
+          (await response.json()).data.organizationId,
+          fixtures.noSubscription,
+        );
+      },
+    );
+    await t.test(
+      'certificate profile: a logo without configured storage is 503, never logo null',
+      async () => {
+        const response = await profile(fixtures.withLogo);
+        assert.equal(response.status, 503);
+        assert.equal((await response.json()).error.code, 'STORAGE_UNAVAILABLE');
+      },
+    );
+    await t.test(
+      'certificate profile: 404 for a missing or mismatched header, 401 without key, 400 for a non-UUID id',
+      async () => {
+        assert.equal(
+          (await profile(fixtures.active, { org: null })).status,
+          404,
+        );
+        assert.equal(
+          (await profile(fixtures.active, { org: fixtures.grace })).status,
+          404,
+        );
+        assert.equal((await profile(randomUUID())).status, 404);
+        assert.equal(
+          (await profile(fixtures.active, { key: null })).status,
+          401,
+        );
+        assert.equal(
+          (await profile('not-a-uuid', { org: 'not-a-uuid' })).status,
+          400,
+        );
+      },
+    );
   } finally {
     try {
       await cleanup();
