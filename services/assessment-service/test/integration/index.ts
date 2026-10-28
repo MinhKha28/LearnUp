@@ -5,6 +5,7 @@
  */
 import './assignments.integration-test';
 import './course-client-modes.integration-test';
+import './seed-reseed.integration-test';
 import './prompt-file.integration-test';
 import './quiz.integration-test';
 import './quiz-detail.integration-test';
