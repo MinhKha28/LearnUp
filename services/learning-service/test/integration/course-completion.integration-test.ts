@@ -1,3 +1,6 @@
+import { AssignmentChangesRepository } from '../../src/modules/assignments/assignment-changes.repository';
+import { BaseDueAtRepository } from '../../src/modules/enrollments/base-due-at.repository';
+import { validateExtension } from '../../src/modules/assignments/assignment-change-rules';
 import { closeAll, closeApp } from './deadlines';
 import { deadline, BARRIER_TIMEOUT_MS } from './deadlines';
 import { testFetch as fetch } from './test-io';
@@ -628,3 +631,109 @@ test('API starts with Kafka and course-service unreachable and retains assessmen
     }
   }
 });
+
+test('microsecond base deadline completes without losing precision', async () => {
+  const f = await fixture('NotStarted', 'Required');
+  await prisma.$executeRaw`UPDATE enrollments SET base_due_at='2026-10-13 16:44:59.572527+00'::timestamptz,
+    due_at='2026-10-13 16:44:59.572527+00'::timestamptz WHERE id=${f.id}::uuid`;
+  await service.evaluate(await take(f.id));
+  assert.equal((await state(f.id)).status, 'Completed');
+  const [row] = await prisma.$queryRaw<
+    { exact: boolean }[]
+  >`SELECT due_at=base_due_at AS exact FROM enrollments WHERE id=${f.id}::uuid`;
+  assert.equal(row.exact, true);
+  assert.equal(await eventCount(f.id), 1);
+});
+
+test('microsecond interval start closes without ck_intervals_range failure', async () => {
+  const f = await fixture('Exempted', 'Required');
+  await prisma.$executeRaw`INSERT INTO enrollment_status_intervals(id,organization_id,enrollment_id,kind,started_at,reason)
+    VALUES (${randomUUID()}::uuid,${org}::uuid,${f.id}::uuid,'Exempted','2026-10-13 16:44:59.572527+00'::timestamptz,'synthetic precision')`;
+  const original = prisma.$transaction.bind(prisma);
+  const controlled = new Proxy(prisma, {
+    get(target, property) {
+      if (property === '$transaction')
+        return (work: (tx: unknown) => Promise<unknown>, options: unknown) =>
+          original(
+            async (tx) =>
+              work(
+                new Proxy(tx, {
+                  get(t, p) {
+                    if (p === '$queryRaw')
+                      return (
+                        strings: TemplateStringsArray,
+                        ...values: unknown[]
+                      ) => {
+                        if (
+                          Array.isArray(strings) &&
+                          strings.join('').trim() ===
+                            'SELECT clock_timestamp() AS "completedAt"'
+                        )
+                          return Promise.resolve([
+                            {
+                              completedAt: new Date('2026-10-13T16:44:59.572Z'),
+                            },
+                          ]);
+                        return t.$queryRaw(strings, ...values);
+                      };
+                    const value = Reflect.get(t, p);
+                    return typeof value === 'function' ? value.bind(t) : value;
+                  },
+                }),
+              ),
+            options as never,
+          );
+      const value = Reflect.get(target, property);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  await new CompletionService(
+    new CompletionRepository(controlled, repo.config),
+    fake,
+  ).evaluate(await take(f.id));
+  assert.equal((await state(f.id)).status, 'Completed');
+  const [row] = await prisma.$queryRaw<
+    { valid: boolean }[]
+  >`SELECT ended_at >= started_at AS valid FROM enrollment_status_intervals WHERE enrollment_id=${f.id}::uuid`;
+  assert.equal(row.valid, true);
+});
+
+for (const fraction of ['572527', '000527'])
+  test(`fractional base extension ${fraction} recomputes within requested Ho Chi Minh calendar day`, async () => {
+    const f = await fixture('NotStarted', 'Required');
+    await prisma.$executeRaw`UPDATE enrollments SET base_due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz,
+    due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz WHERE id=${f.id}::uuid`;
+    await prisma.$transaction(async (tx) => {
+      const changes = new AssignmentChangesRepository();
+      const row = await changes.lock(tx, org, f.id);
+      const boundary = await new BaseDueAtRepository(
+        prisma,
+      ).computeDueAtForDate('2026-10-14', 'Asia/Ho_Chi_Minh', tx);
+      assert.equal(boundary.toISOString(), '2026-10-14T17:00:00.000Z');
+      const seconds = validateExtension(
+        row.dueAt,
+        boundary,
+        '2026-10-14',
+        '2026-10-13',
+        row.dueAtHasSubMillisecond,
+      );
+      assert.equal(seconds, 87300n);
+      await changes.extend(tx, org, f.id, boundary, seconds);
+    });
+    const [stored] = await prisma.$queryRaw<
+      { boundary: boolean }[]
+    >`SELECT due_at='2026-10-14 17:00:00+00'::timestamptz AS boundary FROM enrollments WHERE id=${f.id}::uuid`;
+    assert.equal(stored.boundary, true);
+    await service.evaluate(await take(f.id));
+    assert.equal((await state(f.id)).status, 'Completed');
+    const [row] = await prisma.$queryRaw<
+      { day: string; valid: boolean; exact: boolean }[]
+    >`SELECT
+    to_char(due_at AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM-DD') AS day,
+    due_at >= base_due_at AND due_at < '2026-10-14 17:00:00+00'::timestamptz AS valid,
+    due_at=${`2026-10-14 16:59:59.${fraction}+00`}::timestamptz AS exact
+    FROM enrollments WHERE id=${f.id}::uuid`;
+    assert.equal(row.day, '2026-10-14');
+    assert.equal(row.valid, true);
+    assert.equal(row.exact, true);
+  });
