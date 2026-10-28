@@ -89,6 +89,10 @@ interface World {
   cycles: CycleRow[];
   outbox: Record<string, unknown>[];
   failCreateSubmission: boolean;
+  /** The order of the locks (by key) and of the reads of a cycle by id, to show the cycle lock comes first (BR-213). */
+  log: string[];
+  /** Runs when the lock of the cycles of the Assignment is taken: a stand-in for the closing that held it first. */
+  onLock: (() => void) | null;
 }
 
 function build(over: Partial<World> = {}) {
@@ -99,6 +103,8 @@ function build(over: Partial<World> = {}) {
     cycles: [],
     outbox: [],
     failCreateSubmission: false,
+    log: [],
+    onLock: null,
     ...over,
   };
   let seq = 0;
@@ -143,7 +149,12 @@ function build(over: Partial<World> = {}) {
           .sort((x, y) => y.submissionNumber - x.submissionNumber)[0] ?? null,
       ),
     findPlatformSetting: () => Promise.resolve(null),
-    lock: () => Promise.resolve(),
+    lock: (_tx: unknown, key: string) => {
+      world.log.push(`lock:${key}`);
+      // only the lock of the cycles of the Assignment is the one the closing takes
+      if (key.startsWith('cycle:')) world.onLock?.();
+      return Promise.resolve();
+    },
     ensureState: (
       _tx: unknown,
       org: string,
@@ -185,8 +196,10 @@ function build(over: Partial<World> = {}) {
           (x, y) => y.closesAt.getTime() - x.closesAt.getTime(),
         )[0] ?? null,
       ),
-    findCycleById: (id: string) =>
-      Promise.resolve(world.cycles.find((c) => c.id === id) ?? null),
+    findCycleById: (id: string) => {
+      world.log.push('findCycleById');
+      return Promise.resolve(world.cycles.find((c) => c.id === id) ?? null);
+    },
     markSuperseded: (_tx: unknown, id: string, at: Date) => {
       const row = world.submissions.find((x) => x.id === id)!;
       row.supersededAt = at;
@@ -582,6 +595,38 @@ describe('resubmit (UC30.1)', () => {
     // the latest one is the one that counts (BR-212)
     const view = await ctx.service.getAssignment(learner(), ASSIGNMENT);
     assert.equal(view.latestSubmission?.submissionNumber, 2);
+  });
+
+  test('it takes the lock of the cycles of the Assignment before it reads the cycle of the previous submission (BR-213)', async () => {
+    const { ctx } = await submitted();
+    ctx.world.log.length = 0;
+    ctx.setNow(new Date('2026-10-16T10:00:00Z'));
+    await ctx.service.resubmit(learner(), ASSIGNMENT, { content: 'second' });
+    const lock = ctx.world.log.indexOf(`lock:cycle:${ASSIGNMENT}`);
+    const read = ctx.world.log.indexOf('findCycleById');
+    assert.ok(lock >= 0, 'the lock of the cycles is taken');
+    assert.ok(read >= 0, 'the cycle of the previous submission is read');
+    assert.ok(lock < read, `the lock comes first, got ${ctx.world.log.join(',')}`);
+  });
+
+  test('a cycle that closes while the resubmission waits for the lock is not joined: the Instructor grades it (BR-213, A1)', async () => {
+    const { ctx } = await submitted();
+    const cycle = ctx.world.cycles[0];
+    // the closing holds the lock first and finishes before this resubmission gets it
+    ctx.world.onLock = () => {
+      cycle.status = 'Assigned';
+    };
+    ctx.setNow(new Date('2026-10-16T10:00:00Z')); // before the closing line, as far as the clock goes
+    const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
+      content: 'second',
+    });
+    assert.equal(r.placement, 'INSTRUCTOR');
+    assert.equal(r.cycle, null);
+    assert.equal(ctx.world.submissions[1].cycleId ?? null, null);
+    assert.equal(
+      ctx.world.submissions[1].interventionReason,
+      'RESUBMITTED_AFTER_CUTOFF',
+    );
   });
 
   test('it counts as one more submission in a row (BR-218) and is announced as Resubmitted', async () => {
