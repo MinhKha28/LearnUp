@@ -1,7 +1,7 @@
 # Thiết kế database assessment-service (`assessment_db`)
 
 Trạng thái: **14 bảng** trên `develop` sau migration `20261025000000_drop_completed_enrollments` (bản đầu `20260930084438_assessment` tạo 15 bảng, trong đó `completed_enrollments` đã bị bỏ).
-Tài liệu mô tả đúng những gì có trên `develop`. Phần chỉ có ở PR UC33 (chốt chu kỳ chấm chéo, chạy theo lịch) ghi rõ là **đang chờ merge** ở mục 6 và trong các ô "Giá trị".
+Tài liệu mô tả đúng những gì có trên `develop`. Phần chỉ có ở PR UC33 (chốt chu kỳ chấm chéo, chạy theo lịch) ghi rõ là **đang chờ merge** ở mục 4.2, 4.3, 6 và trong các ô "Giá trị".
 Nhãn BR dùng số mới của bộ quy tắc v1.5 (`LearnUP_Business_Rules.docx`); mỗi số trích đều đã đối chiếu nội dung với bộ quy tắc, không lấy từ chú thích trong code (chú thích trong code còn lẫn số cũ và số mới).
 
 Nguồn: `services/assessment-service/prisma/schema.prisma`, hai file migration, và code trong `src/modules`. Những điều chưa kiểm chứng hoặc chưa quyết định ghi ở mục 7, 8 và 10, không suy đoán.
@@ -16,7 +16,7 @@ Hai điểm cần biết ngay:
 | Chỗ | Thực tế trên `develop` |
 |---|---|
 | Khóa chính | `uuid`, sinh UUID v7 ở ứng dụng (`@default(uuid(7))`), không có `DEFAULT` ở DB. Ngoại lệ: `learner_accounts.user_id` là ID gốc từ service khác, không sinh ở đây |
-| `organization_id` | Có ở mọi bảng, `uuid NOT NULL`, **không có khóa ngoại** (tổ chức thuộc tenant-service) |
+| `organization_id` | `uuid NOT NULL` ở 12 trong 14 bảng, **không có khóa ngoại** (tổ chức thuộc tenant-service). **Hai ngoại lệ:** `platform_settings` **không có cột này** (tham số mặc định cấp nền tảng, không thuộc Organization nào; BR-335); `outbox_events.organization_id` **cho phép NULL** (cả bốn chỗ ghi hiện có đều điền giá trị; schema không bắt buộc, và không có BR hay quyết định nào ghi lại lý do) |
 | Thời gian | `timestamptz`. `created_at` có `DEFAULT CURRENT_TIMESTAMP`; `updated_at` do ứng dụng điền |
 | Điểm | `numeric(5,2)` (điểm Quiz, điểm Assignment, điểm đạt) |
 | Xóa | Xóa Assessment kéo theo con bằng `ON DELETE CASCADE` (mục 3). Hai khóa ngoại dùng `RESTRICT` (`quiz_attempt_answers.question_id`, `submission_review_scores.criterion_id`) và một dùng `SET NULL` (`submission_reviews.cycle_id`) |
@@ -28,20 +28,26 @@ Chưa rà toàn bộ truy vấn của repository để lập danh sách ngoại 
 
 ### 1.2 Giới hạn
 
-| Ô nhập | Giới hạn ở DB | Ghi chú |
-|---|---|---|
-| Tiêu đề Assessment | `varchar(200)` | |
-| Đề bài Assignment | `varchar(8000)` | Cần đề bài chữ hoặc một file đề (UC19.2) |
-| File đề bài | Một file PDF, tối đa 50 MB (`PROMPT_FILE_MAX_BYTES`); tên `varchar(255)`, MIME `varchar(255)`, kích thước `bigint` | Lưu ở kho ngoài, DB chỉ giữ `prompt_file_key` |
-| Câu hỏi Quiz | `varchar(2000)` | |
-| Đáp án Quiz | `varchar(500)` | |
-| Tên và mô tả tiêu chí Rubric | `varchar(200)` và `varchar(500)` | |
-| Điểm tối đa của tiêu chí | `smallint` | |
-| Nội dung bài nộp | `varchar(20000)` (`SUBMISSION_CONTENT_MAX_LENGTH`) | |
-| File bài nộp | PDF, DOCX hoặc ZIP, một file, tối đa 50 MB (`SUBMISSION_FILE_MAX_BYTES`), kiểm cả chữ ký đầu file | Thư mục kho: `learnup/{organizationId}/assignments/{assessmentId}/submissions` |
-| Nhận xét của người chấm | `varchar(2000)` | Dùng cho chấm chéo và chấm của Instructor |
-| Nhận xét khi chốt điểm | `varchar(2000)` | `finalization_comment` |
-| Số người đánh giá mỗi bài | `smallint` | |
+Mỗi giới hạn có một lý do. **Lý do là căn cứ nghiệp vụ (BR) thì ghi số BR; là ràng buộc kỹ thuật thì ghi rõ; không có cả hai thì ghi "lựa chọn triển khai, chưa có BR"** để người đọc biết con số đó chưa được ai quyết ở tầng nghiệp vụ và có thể đưa vào thảo luận BR. Những giá trị "lựa chọn triển khai" là con số có trong code và DB, không phải con số tài liệu nghiệp vụ đã chốt.
+
+| Ô nhập | Giới hạn ở DB | Lý do | Ghi chú |
+|---|---|---|---|
+| Tiêu đề Assessment | `varchar(200)` | Lựa chọn triển khai, chưa có BR | |
+| Đề bài Assignment | `varchar(8000)` | Lựa chọn triển khai, chưa có BR | Cần đề bài chữ hoặc một file đề (UC19.2) |
+| File đề bài: số lượng | Một file | BR-189: mỗi Assignment có tối đa một tệp đề bài | Lưu ở kho ngoài, DB chỉ giữ `prompt_file_key` |
+| File đề bài: kích thước và định dạng | Tối đa 50 MB (`PROMPT_FILE_MAX_BYTES`), chỉ PDF | BR-189 đòi tệp đề bài có **cùng giới hạn kích thước và định dạng với tệp bài nộp** nhưng **không nêu con số**. 50 MB là lựa chọn triển khai (trùng mức 50 MB của học liệu Reading trong bảng tham số, nhưng đó là trùng khớp, không có quyết định nào gắn hai giới hạn). **Lệch với BR-189 về định dạng:** đề bài chỉ nhận PDF còn bài nộp nhận PDF, DOCX, ZIP (mục 10 việc 9) | |
+| File đề bài: tên và MIME | `varchar(255)` mỗi cột; kích thước tệp `bigint` | Ràng buộc kỹ thuật: 255 là độ dài tối đa của tên tệp trên các hệ tệp phổ biến và đủ cho một kiểu MIME (type và subtype mỗi phần tối đa 127 ký tự, RFC 6838). `bigint` để lưu kích thước tính bằng byte, không phụ thuộc giới hạn 50 MB | |
+| Câu hỏi Quiz | `varchar(2000)` | Lựa chọn triển khai, chưa có BR (BR-194 chỉ quy định các dạng câu hỏi) | |
+| Đáp án Quiz | `varchar(500)` | Lựa chọn triển khai, chưa có BR | |
+| Dạng câu hỏi Quiz | Danh sách cho phép `SingleChoice`, `MultipleChoice`, `TrueFalse` | BR-194: ba dạng câu hỏi, đều chấm tự động | DB không kiểm; mục 3.2 |
+| Tên và mô tả tiêu chí Rubric | `varchar(200)` và `varchar(500)` | Lựa chọn triển khai, chưa có BR | |
+| Điểm tối đa của tiêu chí | `smallint` | BR-257: điểm mỗi tiêu chí là số nguyên từ 0 đến điểm tối đa của tiêu chí; BR không đặt trần cho điểm tối đa. `smallint` (trần 32.767 do kiểu dữ liệu) là lựa chọn kỹ thuật cho số nguyên nhỏ | Cùng lý do cho `submission_review_scores.points` |
+| Nội dung bài nộp | `varchar(20000)` (`SUBMISSION_CONTENT_MAX_LENGTH`) | Lựa chọn triển khai, chưa có BR | |
+| File bài nộp | PDF, DOCX hoặc ZIP, một file, tối đa 50 MB (`SUBMISSION_FILE_MAX_BYTES`) | Lựa chọn triển khai, chưa có BR: BR-189 nhắc "giới hạn kích thước và định dạng" của tệp bài nộp nhưng không nêu giá trị (BR-188 chỉ nói tệp bài nộp không tính vào dung lượng của Subscription). Kiểm cả chữ ký đầu file là ràng buộc kỹ thuật (không tin loại tệp do trình duyệt báo) | Thư mục kho: `learnup/{organizationId}/assignments/{assessmentId}/submissions` |
+| Nhận xét của người chấm | `varchar(2000)` | BR-323: nhận xét tự do của chấm chéo tối đa 2000 ký tự. Chấm của Instructor dùng cùng cột và cùng giới hạn cho đồng nhất (BR-257 chỉ đòi nhận xét không rỗng, không nêu độ dài): lựa chọn triển khai | Dùng cho chấm chéo và chấm của Instructor |
+| Nhận xét khi chốt điểm | `varchar(2000)` | Lựa chọn triển khai, chưa có BR (BR-255 quy định điểm cuối, không nêu độ dài nhận xét); lấy cùng mức với nhận xét của người chấm | `finalization_comment` |
+| Số người đánh giá mỗi bài (N) | `smallint` | BR-226 và BR-242 chỉ coi N là một số nhỏ (chu kỳ phải gom ít nhất N + 1 bài); BR không đặt trần cho N. `smallint` là lựa chọn kỹ thuật | |
+| Điểm Quiz, điểm Assignment, điểm đạt, chênh lệch điểm | `numeric(5,2)` | BR-202: thang 0–100, làm tròn 2 chữ số thập phân; BR-253: chênh lệch điểm tính trên cùng thang. Kiểu chứa tới 999,99, đủ cho 100,00 | Áp dụng cho mọi cột điểm ở mục 3 (`passing_score`, `peer_review_score_gap`, `score_gap`, `score`, `final_score`) |
 
 ---
 
@@ -72,7 +78,7 @@ assessment-service **không có** bảng Enrollment, Course, Certificate hay th�
 
 ## 3. Chi tiết từng bảng
 
-Ký hiệu: **B** = `NOT NULL`. Mọi bảng có `organization_id` (B), `created_at` (B), `updated_at` (B) như mục 1; các cột đó không lặp lại dưới đây.
+Ký hiệu: **B** = `NOT NULL`. Mọi bảng có `created_at` (B) và `updated_at` (B), và có `organization_id` (B) **trừ hai ngoại lệ ở mục 1** (`platform_settings` không có cột này; `outbox_events.organization_id` cho phép NULL); các cột đó không lặp lại dưới đây.
 
 ### 3.1 `assessments`
 
@@ -121,9 +127,9 @@ Chưa có code ghi hai bảng; UC18.1 chỉ đọc chúng để hiển thị.
 | `locked_until` | `timestamptz` | Có giá trị khi đủ n lượt: tạm khóa m giờ, hiển thị cho Learner (BR-218, BR-221). Sau mốc này đếm lại từ 0 |
 | `recorded_attempt_id` | `uuid` | **Chưa có code dùng.** Điểm ghi nhận của Quiz hiện tính lúc đọc, không lưu |
 | `latest_submission_id` | `uuid` | Bài nộp mới nhất; không có khóa ngoại |
-| `peer_review_obligation` | `text` | Giá trị `Missed`: Learner đã bỏ chấm ở chu kỳ trước (BR-239). Người ghi giá trị này là job lịch của UC33 (đang chờ); code trên `develop` chỉ **đọc** để quyết định bài nộp lại đi đâu |
-| `exempted_at` | `timestamptz` | Instructor miễn nghĩa vụ (BR-241) |
-| `exempted_by` | `uuid` | **Chưa có code dùng** |
+| `peer_review_obligation` | `text` | Giá trị `Missed`: Learner đã bỏ chấm ở chu kỳ trước (BR-239). Người ghi giá trị này là job lịch của UC33 (đang chờ); code trên `develop` chỉ **đọc** để quyết định bài nộp lại đi đâu. Khi PR UC33 vào, giá trị này chỉ được ghi là `Missed`; **chưa có chỗ nào đặt lại** khi Learner bù xong các review của chu kỳ sau (BR-239; việc cần làm, mục 10 việc 10). Vì vậy `completion-snapshot` (#176) không đọc cột này mà tính từ các dòng `submission_reviews` |
+| `exempted_at` | `timestamptz` | Instructor miễn nghĩa vụ chấm chéo (BR-241, UC33.2). Cột và phép kiểm miễn đã có (đọc ở `owesPeerReviewDuty`), nhưng **chưa có code ghi**: người ghi là việc miễn nghĩa vụ UC33.2, **chưa làm** |
+| `exempted_by` | `uuid` | **Chưa có code dùng**; cùng người ghi UC33.2 (chưa làm) |
 
 Duy nhất `(assessment_id, learner_id)`. Mỗi dòng đóng vai trò khóa đếm lượt cho một Learner trên một Assessment.
 
@@ -246,15 +252,19 @@ Bản sao tham số mặc định: `default_peer_review_cycle_days` 7, `default_
 
 1. Hỏi learning-service quyền làm bài (L17): `Full` được nộp, `ReadOnly` chỉ đọc (409 `ENROLLMENT_COMPLETED`), `None` bị chặn (409 `ENROLLMENT_NOT_ACTIVE`), chưa Enroll thì 403, lỗi hoặc câu trả lời không hợp lệ thì 503. Không lưu lại câu trả lời.
 2. Kiểm tệp (loại, chữ ký, kích thước), tải lên kho ngoài trước giao dịch.
-3. Một transaction: khóa theo `(assessment, learner)` (`{assessmentId}:{userId}`); tạo hoặc lấy dòng `learner_assessment_states`; kiểm khóa tạm; đặt chỗ cho bài: chấm chéo bật thì khóa theo Assignment (`cycle:{assessmentId}`), tìm chu kỳ đang `Open` chứa thời điểm nộp, chưa có thì tạo (sao chép tham số của Assignment, BR-335, BR-208), `grading_status = AwaitingPeerReview`; chấm chéo tắt thì `AwaitingInstructor` với lý do `PEER_REVIEW_DISABLED`; ghi `submissions`; cập nhật `consecutive_count`, `locked_until`, `latest_submission_id`; ghi `outbox_events` loại `LearnerAssessmentStatusChanged`.
+3. Một transaction: khóa theo `(assessment, learner)` (`{assessmentId}:{userId}`); tạo hoặc lấy dòng `learner_assessment_states`; kiểm khóa tạm; đặt chỗ cho bài: chấm chéo bật thì khóa theo Assignment (`cycle:{assessmentId}`), tìm chu kỳ chứa thời điểm nộp, chưa có thì tạo (sao chép tham số của Assignment, BR-335, BR-208), `grading_status = AwaitingPeerReview`; chấm chéo tắt thì `AwaitingInstructor` với lý do `PEER_REVIEW_DISABLED`; ghi `submissions`; cập nhật `consecutive_count`, `locked_until`, `latest_submission_id`; ghi `outbox_events` loại `LearnerAssessmentStatusChanged`.
 4. Ghi dở: nếu transaction thất bại thì xóa file đã tải lên.
+
+**Chọn chu kỳ ở bước 3, hiện trạng và phần đang chờ.** Ý định thiết kế: bài lần đầu chỉ vào một chu kỳ `Open`. **Trên `develop` hôm nay** truy vấn `findCycleContaining` chỉ lọc theo Assessment và hai mốc thời gian (`opens_at <= thời điểm < closes_at`), **không lọc `status`**. PR UC33 (#173) thêm điều kiện `status = 'Open'`, để một chu kỳ vừa được chốt trong lúc bài chờ khóa không bị vào. **Phần đó đang chờ #173.**
 
 ### 4.3 Nộp lại (UC30.1)
 
-Cùng các bước trên; khác ở chỗ đặt bài (BR-213, BR-239):
-- chu kỳ của bài trước **chưa tới mốc chốt**: bài mới thay bài cũ trong cùng chu kỳ;
-- **đã qua mốc chốt**: bài mới đi thẳng cho Instructor (`RESUBMITTED_AFTER_CUTOFF`), trừ khi Learner đang nợ nghĩa vụ chấm chéo (`peer_review_obligation = Missed`, chưa được miễn): khi đó bài vào chu kỳ đang mở để bù nghĩa vụ.
+Cùng các bước trên; khác ở chỗ đặt bài (BR-213, BR-239). Hiện trạng trên `develop` (`decideResubmission`, `resubmission-placement.ts`):
+- chu kỳ của bài trước còn **`Open` và chưa tới mốc chốt** (cả hai điều kiện): bài mới thay bài cũ trong cùng chu kỳ;
+- chu kỳ đó **đã chốt, hoặc đã qua mốc chốt, hoặc bài trước không ở trong chu kỳ nào**: bài mới đi thẳng cho Instructor (`RESUBMITTED_AFTER_CUTOFF`), trừ khi Learner đang nợ nghĩa vụ chấm chéo (`peer_review_obligation = Missed`, chưa được miễn): khi đó bài vào chu kỳ đang mở để bù nghĩa vụ.
 Bài cũ được đặt `superseded_at` và giữ lại làm lịch sử. Không giới hạn tổng số lần nộp lại cho tới khi Enrollment Completed (BR-209, BR-210).
+
+**Đang chờ #173.** Đường thay bài trong cùng chu kỳ hiện **không lấy khóa theo Assignment** (`cycle:{assessmentId}`) và đọc chu kỳ của bài trước trước khi lấy khóa, nên việc chốt chu kỳ chạy cùng lúc có thể giao review cho bài vừa bị thay (BR-213). #173 sửa: lấy cùng khóa trước, rồi đọc lại chu kỳ trong cùng transaction và quyết định lại; chu kỳ vừa đóng trong lúc chờ thì không được vào. Cho tới khi #173 vào, bảo đảm "bài nộp hoặc ở trong chu kỳ khi chốt, hoặc sang chu kỳ sau" **chỉ đúng cho bài nộp lần đầu và bài nộp lại vào chu kỳ mới, chưa đúng cho thay bài trong cùng chu kỳ**.
 
 ### 4.4 Chấm của Instructor (UC32)
 
@@ -286,7 +296,7 @@ Mô tả ở mục 6. Chưa có trên `develop`.
 | Cho | Cách | Nội dung |
 |---|---|---|
 | learning-service | REST nội bộ `GET /internal/learners/{learnerId}/courses/{courseId}/assessment-activity` (UC25.4) | `hasQuizAttempt`, `hasSubmission`, `hasPeerReviewGiven`: Learner đã làm gì trong phiên bản Course (learning-service dùng để quyết định xóa Enrollment hay giữ ở Withdrawn khi Learner rút) |
-| learning-service | `completion-snapshot` (REST nội bộ) | **Chưa có.** Kế hoạch giai đoạn 3; hợp đồng với learning đã chốt |
+| learning-service | `completion-snapshot` (REST nội bộ) | **Chưa có trên `develop`** (PR #176 đang chờ); hợp đồng với learning đã chốt. Quy tắc `peerReview` đã thỏa thuận trên #176: tính theo **chu kỳ mới nhất mà Learner có phân công review** (BR-236, BR-238, BR-239): đã miễn thì `Waived` (chờ learning nhận, L22); ngược lại tất cả `Completed` là `Satisfied`, có `Missed` hoặc `Pending` quá hạn là `Missed`, còn lại `Pending`; không có phân công ở chu kỳ nào là `NotApplicable`. Một chu kỳ sau không có phân công cho Learner (ít hơn N + 1 bài, BR-242) không xóa `Missed` cũ. Nguồn là các dòng `submission_reviews`, không phải cột `peer_review_obligation` (mục 3.5) |
 
 ### 5.3 Event phát ra (qua `outbox_events`)
 
@@ -309,7 +319,7 @@ Payload của `LearnerAssessmentStatusChanged` sẽ được mở rộng (`reaso
 | Nhắc | `Assigned`, `reminded_at` rỗng, còn trong cửa sổ `reminder_hours` trước `review_due_at` | Gửi một thông báo mỗi người còn nợ, đặt `reminded_at` (BR-232) |
 | Hết hạn đánh giá | `Assigned` và `review_due_at` đã qua | Đánh `Pending → Missed`; bài chưa đủ N đánh giá hợp lệ chuyển cho Instructor (BR-237, BR-243); người bỏ chấm bị đặt `peer_review_obligation = Missed` trừ người đã được miễn (BR-241); chu kỳ `Completed` |
 
-Mỗi bước tranh giành chu kỳ bằng cập nhật có điều kiện (`WHERE status = ...`) nên hai lần chạy cùng lúc, hoặc hai bản của service, chỉ làm một lần. Chốt tay của Instructor và việc đặt bài nộp vào chu kỳ dùng chung một khóa theo Assignment (`cycle:{assessmentId}`).
+Mỗi bước tranh giành chu kỳ bằng cập nhật có điều kiện (`WHERE status = ...`) nên hai lần chạy cùng lúc, hoặc hai bản của service, chỉ làm một lần. Chốt tay của Instructor và việc đặt bài nộp (lần đầu, hoặc nộp lại vào chu kỳ mới) vào chu kỳ dùng chung một khóa theo Assignment (`cycle:{assessmentId}`). **Nộp lại thay bài trong cùng chu kỳ chưa dùng khóa này trên `develop`;** #173 sửa việc đó (mục 4.3). Chốt tay chỉ được khi đã qua mốc chốt (chưa tới thì trả 409 `CYCLE_NOT_DUE`) và không bao giờ dịch ngày của chu kỳ, để chu kỳ sau mở đúng lúc chu kỳ trước đóng (BR-230, BR-231); đó là phần của #173 sau khi sửa theo review, chưa có trên `develop`.
 
 ---
 
@@ -370,7 +380,7 @@ Hướng dẫn bố trí cho dbdiagram.io chưa viết (mục 10).
 
 ## 10. Việc tiếp theo
 
-1. **Cập nhật sau khi PR UC33 được merge:** mục 3.9, 3.10, 5.3 và 6 đổi từ "đang chờ" thành hiện trạng; thêm giá trị `TOO_FEW_SUBMISSIONS` và `REVIEW_MISSED`.
+1. **Cập nhật sau khi PR UC33 được merge:** mục 3.9, 3.10, 5.3 và 6 đổi từ "đang chờ" thành hiện trạng; thêm giá trị `TOO_FEW_SUBMISSIONS` và `REVIEW_MISSED`; mục 4.2 và 4.3 bỏ các đoạn "đang chờ #173" (lọc `Open` khi đặt bài lần đầu, khóa khi nộp lại trong cùng chu kỳ). Sau khi #176 được merge, cập nhật dòng `completion-snapshot` ở mục 5.2 thành hiện trạng.
 2. **Rà các truy vấn không lọc theo `organization_id`** và lập bảng ngoại lệ như mục 1.1 của tài liệu learning-service.
 3. **File riêng tư (P4):** cả hai nơi upload (`assignment-media.service.ts`, `learner-submissions.service.ts`) gọi `storage.upload` với `resourceType: 'raw'` và **không truyền `deliveryType`**; `@learnup/ts-storage` khi đó dùng `upload`, tức giao hàng công khai. Dịch vụ tải file bằng `storage.getUrl(key, 'raw')` là URL thường. Vì vậy ai có URL đều tải được, bất kể kiểm quyền ở API; đây là vấn đề chính, hơn cả việc URL hết hạn. Hướng đi: dùng helper URL ký của course-service (#146) rồi chuyển sang `authenticated`/`private`. Gói Free của Cloudinary chỉ có link hết hạn qua `private_download_url` (api.cloudinary.com), liên quan câu hỏi mở về giới hạn Admin API. Cần kiểm trước: file đã upload là kiểu nào trên môi trường thật (đọc code chưa đủ).
 4. **Chỉ mục:** hiện chỉ có `assessments(organization_id, course_id)`, `submission_reviews(organization_id, reviewer_id)` và `outbox_events(published_at)` ngoài các khóa duy nhất. Các truy vấn theo `submissions.cycle_id`, `submission_reviews.cycle_id`, `submission_reviews.submission_id` chưa có chỉ mục. **Chưa đo, và tài liệu không nói chúng cần chỉ mục.** Bước cụ thể: chạy `EXPLAIN ANALYZE` các truy vấn của UC33 trên `cycle_id` / `submission_id` với dữ liệu seed, rồi mới quyết định.
@@ -378,3 +388,6 @@ Hướng dẫn bố trí cho dbdiagram.io chưa viết (mục 10).
 6. **Các luồng ghi còn thiếu:** câu hỏi và đáp án Quiz (UC18.3), lượt làm Quiz và tự nộp khi hết giờ (UC29.1, BR-200), chốt điểm Assignment (UC32.3), consumer event cho `learner_accounts` và `platform_settings`, ghi `disabled_at`.
 7. **Relay outbox** và mở rộng payload `LearnerAssessmentStatusChanged` (giai đoạn 5), endpoint `completion-snapshot` (giai đoạn 3).
 8. **Sơ đồ ERD cho dbdiagram.io** và số đo thực nghiệm: chưa làm.
+9. **File đề bài: lệch giữa BR-189 và code.** BR-189 nói tệp đề bài có cùng giới hạn kích thước **và định dạng** với tệp bài nộp; code cho đề bài chỉ PDF, bài nộp PDF, DOCX hoặc ZIP. Cần quyết: sửa code cho đề bài nhận cùng định dạng, hay sửa BR-189. Ngoài ra BR không nêu con số cho giới hạn tệp (mục 1.2): nên có một BR chốt giá trị, hoặc xác nhận 50 MB là mặc định chấp nhận được.
+10. **Đặt lại `peer_review_obligation`.** Cột chỉ được ghi `Missed` (khi PR UC33 vào); chưa có chỗ nào đặt lại khi Learner bù xong các review của chu kỳ sau (BR-239). `owesPeerReviewDuty` đọc cột này nên vẫn coi Learner còn nợ sau khi bù. Cần làm cùng phần hoàn thành review của #173 hoặc tách riêng.
+11. **Giới hạn "lựa chọn triển khai"** ở mục 1.2 (độ dài các ô văn bản, định dạng tệp bài nộp): chưa có BR; xác nhận hoặc đưa vào thảo luận BR.
