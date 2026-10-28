@@ -333,7 +333,7 @@ public class AuthService {
         if (user == null) {
             String username = (request.getUsername() != null && !request.getUsername().isBlank())
                     ? request.getUsername().trim()
-                    : "user_" + userId.toString().substring(0, 8);
+                    : defaultUsername(userId);
             String email = (request.getEmail() != null && !request.getEmail().isBlank())
                     ? request.getEmail().trim().toLowerCase()
                     : userId + "@learnup.local";
@@ -371,6 +371,15 @@ public class AuthService {
         // Revoke all existing refresh tokens if password is reset/updated
         refreshTokenRepository.deleteByUserId(userId);
         log.info("Credentials successfully set for user [{}]", userId);
+    }
+
+    /**
+     * Username mặc định khi Tenant không gửi username: dùng đủ 32 ký tự hex của userId nên duy nhất như userId.
+     * Không cắt ngắn: 8 ký tự đầu của UUIDv7 là phần thời gian, chỉ đổi sau khoảng 65 giây, nên các tài khoản
+     * tạo gần nhau sẽ trùng username và vi phạm UNIQUE(username).
+     */
+    static String defaultUsername(UUID userId) {
+        return "user_" + userId.toString().replace("-", "");
     }
 
     /**
