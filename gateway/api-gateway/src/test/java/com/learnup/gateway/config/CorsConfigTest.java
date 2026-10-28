@@ -33,6 +33,20 @@ class CorsConfigTest {
     }
 
     @Test
+    void exposesRetryAfterOnCrossOriginOverloadResponse() {
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest
+                .get("http://localhost:8080/api/v1/certificates/00000000-0000-0000-0000-000000000001/pdf")
+                .header(HttpHeaders.ORIGIN, "http://localhost:5173"));
+        config().corsWebFilter().filter(exchange, chain -> {
+            chain.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "1");
+            return Mono.empty();
+        }).block();
+        assertThat(exchange.getResponse().getHeaders().getAccessControlExposeHeaders()).contains("Retry-After");
+        assertThat(exchange.getResponse().getHeaders().getFirst(HttpHeaders.RETRY_AFTER)).isEqualTo("1");
+        assertThat(exchange.getResponse().getHeaders().getAccessControlAllowOrigin()).isEqualTo("http://localhost:5173");
+    }
+
+    @Test
     void permitsIfMatchAndMultipartPutPreflight() {
         var exchange = MockServerWebExchange.from(MockServerHttpRequest
                 .options("http://localhost:8080/api/v1/certificates/signer-settings")
