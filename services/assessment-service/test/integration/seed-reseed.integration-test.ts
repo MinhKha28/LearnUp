@@ -5,6 +5,8 @@
  */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { createTestDatabase, SERVICE_DIR, type TestDatabase } from './harness';
 
@@ -19,7 +21,8 @@ const NEW_COURSE = '01900000-0000-7000-8000-c0020000005c';
 describe('the demo seeds on a database seeded with the old IDs', () => {
   let db: TestDatabase;
 
-  const seed = (file: string) => {
+  /** Runs a seed and returns what it printed. */
+  const seed = (file: string): string => {
     const result = spawnSync(
       'npx',
       ['ts-node', '-P', 'tsconfig.seed.json', file],
@@ -36,6 +39,7 @@ describe('the demo seeds on a database seeded with the old IDs', () => {
       .join(' | ')
       .slice(0, 1500);
     assert.equal(result.status, 0, `${file} failed: ${log}`);
+    return result.stdout;
   };
   const count = async (sql: string) =>
     ((await db.query(sql)) as { n: number }[])[0].n;
@@ -64,6 +68,33 @@ describe('the demo seeds on a database seeded with the old IDs', () => {
         `SELECT count(*)::int AS n FROM learner_assessment_states WHERE learner_id = '${LEARNER_ABC}'`,
       )) >= 1,
       'the demo Learner state belongs to the Learner a201',
+    );
+  });
+
+  test('the Course it names for trying to create an Assignment is a Draft that the course seed creates, and has none', async () => {
+    // course-service/prisma/seed.ts: the Course version id is fixtureId(0xc002, chain * 10 + version)
+    const courseSeed = readFileSync(
+      join(SERVICE_DIR, '..', 'course-service', 'prisma', 'seed.ts'),
+      'utf8',
+    );
+    const draft = courseSeed.match(
+      /code:'DRAFT_EMPTY',chain:(\d+),version:(\d+),[^}]*?status:STATUS\.DRAFT/,
+    );
+    assert.ok(draft, 'the course seed still has the Draft DRAFT_EMPTY');
+    const expected = `01900000-0000-7000-8000-c002${(Number(draft[1]) * 10 + Number(draft[2])).toString(16).padStart(8, '0')}`;
+
+    const printed = seed('prisma/seed.ts');
+    const named = printed.match(
+      /Course không có Assignment \(thử tạo mới\): ([0-9a-f-]{36})/,
+    );
+    assert.ok(named, 'the seed says which Course has no Assignment');
+    assert.equal(named[1], expected, 'it is a Draft Course of the course seed');
+    assert.equal(
+      await count(
+        `SELECT count(*)::int AS n FROM assessments WHERE course_id = '${named[1]}'`,
+      ),
+      0,
+      'and it has no Assignment, so a new one can be tried',
     );
   });
 
