@@ -58,7 +58,7 @@ Fakes and non-default settings used:
 | :-- | :-- |
 | smtp-sink on `127.0.0.1:2525`, `LEARNUP_MAIL_ENABLED=true` | Read OTP and invitation links; nothing leaves the host |
 | Cloudinary variables empty | Storage stays unconfigured; no journey uploads files |
-| learning `TENANT_CLIENT_MODE=fake` | Same as compose |
+| learning `TENANT_CLIENT_MODE=fake` | E2E explicitly uses fake; root Compose defaults to HTTP |
 | learning `VIDEO_PLAYBACK_MODE=fixture`, `READING_ACCESS_MODE=fixture` | course-service playback/reading contract not built (CT-3) |
 | achievement `CERTIFICATE_SIGNER_ACCESS_CLIENT_MODE=fake` | Tenant organization-access endpoint not built (CT-2) |
 | achievement `CERTIFICATE_CLEANUP_ENABLED=false`, consumer off | No storage, no certificate issuance in scope |
