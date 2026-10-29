@@ -11,6 +11,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.enableShutdownHooks();
   const configService = app.get(ConfigService);
   const reflector = app.get(Reflector);
 

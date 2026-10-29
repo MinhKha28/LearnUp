@@ -16,6 +16,10 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { ResponseMessage, User } from '../../common/decorator/customize';
+import {
+  FileSizeLimitInterceptor,
+  uploadLimitBytes,
+} from '../../infrastructure/storage/upload-limit';
 import { PROMPT_FILE_MAX_BYTES } from './assignment-media.constants';
 import { DiscardPromptFileDto } from './dto/discard-prompt-file.dto';
 import { AssignmentMediaService } from './assignment-media.service';
@@ -30,11 +34,12 @@ export class AssignmentMediaController {
     private readonly assessmentsService: AssessmentsService,
   ) {}
 
-  /** UC19.2 / UC19.3 — Upload the prompt file (one PDF, BR-320). Send it as multipart field "file". */
+  /** UC19.2 / UC19.3 — Upload the prompt file (one PDF, DOCX or ZIP, BR-320). Send it as multipart field "file". */
   @Post('assignments/prompt-file')
   @HttpCode(HttpStatus.CREATED)
   @ResponseMessage('Prompt file uploaded successfully.')
   @UseInterceptors(
+    new FileSizeLimitInterceptor(PROMPT_FILE_MAX_BYTES),
     FileInterceptor('file', {
       limits: { files: 1, fileSize: PROMPT_FILE_MAX_BYTES },
     }),
@@ -44,6 +49,13 @@ export class AssignmentMediaController {
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.mediaService.uploadPromptFile(user, file);
+  }
+
+  /** The largest prompt file the API accepts now (the product ceiling lowered to the storage plan): the screen checks the file with it before uploading. */
+  @Get('assignments/prompt-file/limit')
+  @ResponseMessage('Prompt file limit retrieved successfully.')
+  getPromptFileLimit() {
+    return { maxFileBytes: uploadLimitBytes(PROMPT_FILE_MAX_BYTES) };
   }
 
   /** UC19.2 / UC19.3 — Remove an uploaded prompt file that was not saved with an Assignment (cancel or replace). */

@@ -312,7 +312,7 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
   test('BR-184 Completed ignores ranges; Exempted accepts them; both accept position', async () => {
     for (const status of ['Completed', 'Exempted']) {
       await db.query(
-        `UPDATE enrollments SET status=$2, first_activity_at=now(),completed_at=CASE WHEN $2='Completed' THEN now() ELSE NULL END,
+        `UPDATE enrollments SET due_timezone='Asia/Ho_Chi_Minh',status=$2, first_activity_at=now(),completed_at=CASE WHEN $2='Completed' THEN now() ELSE NULL END,
          enrollment_type='Required', assigned_at=now(),expected_completion_days=1,base_due_at=now()+interval '1 day',due_at=now()+interval '1 day',
          completed_late=CASE WHEN $2='Completed' THEN false ELSE NULL END WHERE organization_id=$1`,
         [ORG, status],

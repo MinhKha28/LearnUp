@@ -13,6 +13,7 @@ export interface AssignmentBatch {
   assignedBy: string;
   assignedAt: Date;
   dueAt: Date;
+  dueTimezone: string;
   expectedCompletionDays: number;
   videoCompletionPercent: number;
 }
@@ -37,9 +38,9 @@ export function insertAssignmentsSql(
 ): Prisma.Sql {
   return Prisma.sql`INSERT INTO enrollments
     (id, organization_id, learner_id, course_id, enrollment_type, status, assigned_at,
-     expected_completion_days, base_due_at, due_at, video_completion_percent)
+     expected_completion_days, base_due_at, due_at, due_timezone, video_completion_percent)
     SELECT r.id, ${batch.organizationId}::uuid, r.learner_id, ${batch.courseId}::uuid, 'Required',
-      'NotStarted', ${batch.assignedAt}, ${batch.expectedCompletionDays}, ${batch.dueAt}, ${batch.dueAt}, ${batch.videoCompletionPercent}
+      'NotStarted', ${batch.assignedAt}, ${batch.expectedCompletionDays}, ${batch.dueAt}, ${batch.dueAt}, ${batch.dueTimezone}, ${batch.videoCompletionPercent}
     FROM unnest(${ids}::uuid[], ${plans.map((plan) => plan.learnerId)}::uuid[]) AS r(id, learner_id)
     ON CONFLICT (learner_id, course_id) DO NOTHING RETURNING id`;
 }
@@ -52,7 +53,7 @@ export function updateAssignmentsSql(
   return Prisma.sql`UPDATE enrollments e SET
     enrollment_type = 'Required', assigned_at = ${batch.assignedAt},
     expected_completion_days = ${batch.expectedCompletionDays}, base_due_at = ${batch.dueAt},
-    due_at = ${batch.dueAt}::timestamptz, extension_seconds = 0,
+    due_at = ${batch.dueAt}::timestamptz, extension_seconds = 0, due_timezone = ${batch.dueTimezone},
     status = CASE WHEN p.kind = 'RESTORE' THEN ${enrollmentRestoredStatusSql(Prisma.sql`e.first_activity_at`)} ELSE e.status END,
     withdrawn_at = CASE WHEN p.kind = 'RESTORE' THEN NULL ELSE e.withdrawn_at END,
     withdrawn_reason = CASE WHEN p.kind = 'RESTORE' THEN NULL ELSE e.withdrawn_reason END,

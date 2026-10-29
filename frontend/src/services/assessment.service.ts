@@ -51,7 +51,11 @@ export const createAssignmentAPI = (payload: ICreateAssignment) =>
     payload,
   );
 
-/** UC19.2 / UC19.3 — Upload the prompt file (one PDF, 50 MB). The result goes into `promptFile` of create/update. */
+/** The largest prompt file the API accepts now (it depends on the storage plan), so the screen can refuse a bigger file on selection. */
+export const getPromptFileLimitAPI = () =>
+  axios.get<IBackendRes<{ maxFileBytes: number }>>("/api/v1/assessments/assignments/prompt-file/limit");
+
+/** UC19.2 / UC19.3 — Upload the prompt file (one PDF, DOCX or ZIP). The result goes into `promptFile` of create/update. */
 export const uploadPromptFileAPI = (file: File) => {
   const form = new FormData();
   form.append("file", file);

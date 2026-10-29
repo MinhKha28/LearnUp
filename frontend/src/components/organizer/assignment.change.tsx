@@ -37,7 +37,7 @@ export const AssignmentChange = ({
   const [form] = Form.useForm<{ newDueDate: Dayjs; reason?: string }>();
   const selectedDay: Dayjs | undefined = Form.useWatch("newDueDate", form);
   const [notice, contextHolder] = message.useMessage();
-  const range = assignmentExtensionRange(item.dueAt, item.organizationTimezone);
+  const range = assignmentExtensionRange(item.dueAt, item.dueTimezone);
   const open = (value: "extend" | "exempt") => {
     setError(null);
     form.resetFields();
@@ -144,12 +144,12 @@ export const AssignmentChange = ({
           <>
             <p>
               Hạn hiện tại:{" "}
-              {assignmentDueDate(item.dueAt, item.organizationTimezone)} → Hạn mới:{" "}
+              {assignmentDueDate(item.dueAt, item.dueTimezone)} → Hạn mới:{" "}
               {selectedDay
                 ? selectedDay.format("DD/MM/YYYY")
                 : "Chưa chọn"}
             </p>
-            {!item.organizationTimezone && (
+            {!item.dueTimezone && (
               <Alert
                 type="info"
                 showIcon
@@ -176,7 +176,7 @@ export const AssignmentChange = ({
                     const code = extensionDateError(
                       value.format("YYYY-MM-DD"),
                       item.dueAt,
-                      item.organizationTimezone,
+                      item.dueTimezone,
                     );
                     return code
                       ? Promise.reject(new Error(assignmentErrorMessage(code)))

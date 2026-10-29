@@ -66,8 +66,8 @@ async function enrollment(
   await db.query(
     `INSERT INTO enrollments
     (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,expected_completion_days,
-     base_due_at,due_at,video_completion_percent,first_activity_at,completed_at,completed_late,withdrawn_at,withdrawn_reason)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,80,$10,$11,$12,$13,$14)`,
+     base_due_at,due_at,video_completion_percent,first_activity_at,completed_at,completed_late,withdrawn_at,withdrawn_reason,due_timezone)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,80,$10,$11,$12,$13,$14,CASE WHEN ($9)::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END )`,
     [
       randomUUID(),
       org,
@@ -210,9 +210,9 @@ describe('UC13 learner enrollment summary', () => {
     await db.query(
       `INSERT INTO enrollments
       (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,expected_completion_days,
-       base_due_at,due_at,video_completion_percent)
+       base_due_at,due_at,video_completion_percent,due_timezone)
       SELECT gen_random_uuid(),$1,gen_random_uuid(),$2,'Required','NotStarted',now(),1,
-        now()-interval '1 day',now()-interval '1 day',80 FROM generate_series(1,50000)`,
+        now()-interval '1 day',now()-interval '1 day',80 ,CASE WHEN (now()-interval '1 day')::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END FROM generate_series(1,50000)`,
       [ORG, course],
     );
     await db.query('ANALYZE enrollments');

@@ -37,7 +37,7 @@ export const restoreOptionalEnrollmentSql = (
 ) => Prisma.sql`
   UPDATE enrollments SET enrollment_type = 'Optional', status = ${enrollmentRestoredStatusSql(Prisma.sql`first_activity_at`)},
     withdrawn_at = NULL, withdrawn_reason = NULL, assigned_at = NULL, expected_completion_days = NULL,
-    base_due_at = NULL, due_at = NULL, extension_seconds = 0, updated_at = now()
+    base_due_at = NULL, due_at = NULL, due_timezone = NULL, extension_seconds = 0, updated_at = now()
   WHERE id = ${row.id}::uuid AND organization_id = ${row.organizationId}::uuid
   RETURNING id, course_id AS "courseId", enrollment_type AS "enrollmentType", status, enrolled_at AS "enrolledAt"`;
 

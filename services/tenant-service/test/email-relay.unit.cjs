@@ -8,6 +8,10 @@ const {
 const {
   OutboxRepository,
 } = require('../dist/src/modules/outbox/outbox.repository');
+const {
+  OUTBOX_MAX_ATTEMPTS,
+  nextRetryState,
+} = require('../dist/src/modules/outbox/outbox-retry.policy');
 
 const secretBody =
   'Mã xác thực của bạn là 482913. Liên kết: https://app.test/r?token=secret-token';
@@ -37,19 +41,41 @@ afterEach(() => {
 });
 
 const createRelay = ({ env = {}, events = [], fail = {} } = {}) => {
-  const pending = events.map((id) => ({ id, payload: { ...email } }));
+  const rows = events.map((event) =>
+    typeof event === 'string'
+      ? { id: event, attempts: 0, nextAttemptAt: null, failedAt: null }
+      : { attempts: 0, nextAttemptAt: null, failedAt: null, ...event },
+  );
+  rows.forEach((row) => (row.payload = { ...email }));
   const published = [];
+  const failures = [];
   const transactions = [];
+  const due = (row) =>
+    !row.publishedAt &&
+    !row.failedAt &&
+    (!row.nextAttemptAt || row.nextAttemptAt <= new Date());
   const repository = {
     claimNextUnpublished: async (eventType, excludeIds) => {
       assert.equal(eventType, 'EmailRequested');
-      if (fail.claim) throw new Error('database unavailable');
-      return pending.find((event) => !excludeIds.includes(event.id)) ?? null;
+      if (fail.claim) throw new Error('connection refused to db.internal:5432');
+      const row = rows.find(
+        (item) => due(item) && !excludeIds.includes(item.id),
+      );
+      return row
+        ? { id: row.id, payload: row.payload, attempts: row.attempts }
+        : null;
     },
     markPublished: async (id, payload) => {
+      if (fail.markPublished) throw new Error('write failed');
       published.push({ id, payload });
-      const index = pending.findIndex((event) => event.id === id);
-      pending.splice(index, 1);
+      rows.find((item) => item.id === id).publishedAt = new Date();
+    },
+    recordFailure: async (id, state) => {
+      failures.push({ id, ...state });
+      Object.assign(
+        rows.find((item) => item.id === id),
+        state,
+      );
     },
   };
   const config = {
@@ -68,7 +94,8 @@ const createRelay = ({ env = {}, events = [], fail = {} } = {}) => {
     },
   };
   const relay = new EmailRelayService(repository, config, prisma);
-  return { relay, published, pending, transactions };
+  const pending = () => rows.filter((row) => !row.publishedAt);
+  return { relay, rows, published, failures, pending, transactions };
 };
 
 const respondWith = (status, data = { status: 'SENT' }) => {
@@ -88,7 +115,9 @@ const loggedText = () => logs.map((entry) => entry.message).join('\n');
 
 test('sends an email, then stores only the redacted payload', async () => {
   const requests = respondWith(201);
-  const { relay, published, transactions } = createRelay({ events: ['e1'] });
+  const { relay, published, failures, transactions } = createRelay({
+    events: ['e1'],
+  });
   await relay.relayPendingEmails();
   assert.equal(requests.length, 1);
   assert.equal(
@@ -110,81 +139,171 @@ test('sends an email, then stores only the redacted payload', async () => {
       },
     },
   ]);
+  assert.equal(failures.length, 0);
   assert.ok(transactions[0].timeout > transactions[0].maxWait);
 });
 
-for (const [name, setup] of [
-  ['an HTTP error', () => respondWith(503)],
+for (const [name, setup, code] of [
+  ['an HTTP error', () => respondWith(503), 'HTTP_503'],
   [
     'an SMTP failure',
-    () => respondWith(201, { status: 'FAILED', errorMessage: 'mailbox full' }),
+    () =>
+      respondWith(201, {
+        status: 'FAILED',
+        errorMessage: 'mailbox guest@example.test full',
+      }),
+    'SMTP_FAILED',
   ],
   [
     'a timeout',
     () => {
       global.fetch = async () => {
-        throw new DOMException(
-          'The operation was aborted due to timeout',
-          'TimeoutError',
-        );
+        throw new DOMException('signal timed out', 'TimeoutError');
       };
     },
+    'TIMEOUT',
+  ],
+  [
+    'a network error',
+    () => {
+      global.fetch = async () => {
+        throw new TypeError('fetch failed: getaddrinfo notification.test');
+      };
+    },
+    'NETWORK',
+  ],
+  [
+    'an invalid response body',
+    () => {
+      global.fetch = async () => ({
+        ok: true,
+        status: 201,
+        json: async () => {
+          throw new SyntaxError('Unexpected token < in JSON');
+        },
+      });
+    },
+    'INVALID_RESPONSE',
   ],
 ]) {
-  test(`keeps the email pending after ${name}, without logging its body`, async () => {
+  test(`records ${code} after ${name} and logs only the event id and code`, async () => {
     setup();
-    const { relay, published, pending } = createRelay({ events: ['e1'] });
+    const { relay, published, failures } = createRelay({ events: ['e1'] });
+    const before = Date.now();
     await relay.relayPendingEmails();
     assert.equal(published.length, 0);
-    assert.equal(pending.length, 1);
-    assert.match(loggedText(), /e1/);
-    assert.doesNotMatch(loggedText(), /482913|secret-token/);
+    assert.equal(failures.length, 1);
+    assert.equal(failures[0].attempts, 1);
+    assert.equal(failures[0].lastErrorCode, code);
+    assert.equal(failures[0].failedAt, null);
+    assert.ok(failures[0].nextAttemptAt.getTime() >= before + 5000);
+    assert.match(loggedText(), new RegExp(`e1.*${code}`));
+    assert.doesNotMatch(
+      loggedText(),
+      /482913|secret-token|guest@example|getaddrinfo|Unexpected token/,
+    );
   });
 }
 
-test('tries each pending email once per round, so a failing one does not block the others', async () => {
-  let calls = 0;
-  global.fetch = async () => {
-    calls += 1;
-    return calls === 1
-      ? { ok: false, status: 500, json: async () => ({}) }
-      : {
-          ok: true,
-          status: 201,
-          json: async () => ({ success: true, data: { status: 'SENT' } }),
-        };
-  };
-  const { relay, published, pending } = createRelay({
-    events: ['e1', 'e2', 'e3'],
+test('backoff doubles from 5 s, and the 8th failure is permanent', () => {
+  const now = new Date('2026-10-26T00:00:00Z');
+  const delays = [];
+  for (let previous = 0; previous < OUTBOX_MAX_ATTEMPTS - 1; previous++) {
+    const state = nextRetryState(previous, 'HTTP_503', now);
+    assert.equal(state.attempts, previous + 1);
+    assert.equal(state.failedAt, null);
+    delays.push(state.nextAttemptAt.getTime() - now.getTime());
+  }
+  assert.deepEqual(
+    delays,
+    [5, 10, 20, 40, 80, 160, 320].map((s) => s * 1000),
+  );
+  const last = nextRetryState(OUTBOX_MAX_ATTEMPTS - 1, 'SMTP_FAILED', now);
+  assert.deepEqual(last, {
+    attempts: OUTBOX_MAX_ATTEMPTS,
+    lastErrorCode: 'SMTP_FAILED',
+    nextAttemptAt: null,
+    failedAt: now,
+  });
+});
+
+test('backoff never exceeds 10 minutes', () => {
+  const now = new Date('2026-10-26T00:00:00Z');
+  const state = nextRetryState(5, 'TIMEOUT', now);
+  assert.ok(state.nextAttemptAt.getTime() - now.getTime() <= 10 * 60 * 1000);
+});
+
+test('the last failure marks the email failed and logs it as an error', async () => {
+  respondWith(503);
+  const { relay, failures } = createRelay({
+    events: [{ id: 'e1', attempts: OUTBOX_MAX_ATTEMPTS - 1 }],
   });
   await relay.relayPendingEmails();
-  assert.equal(calls, 3);
+  assert.equal(failures[0].attempts, OUTBOX_MAX_ATTEMPTS);
+  assert.ok(failures[0].failedAt instanceof Date);
+  assert.equal(failures[0].nextAttemptAt, null);
+  const errors = logs.filter((entry) => entry.level === 'error');
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].message, /e1 failed permanently \(HTTP_503\)/);
+});
+
+test(`${RELAY_BATCH_SIZE} failing emails no longer block a newer one`, async () => {
+  let calls = 0;
+  global.fetch = async (_url, init) => {
+    calls += 1;
+    const ok = JSON.parse(init.body).subject === 'new';
+    return {
+      ok,
+      status: ok ? 201 : 500,
+      json: async () => ({ success: true, data: { status: 'SENT' } }),
+    };
+  };
+  const failing = Array.from({ length: RELAY_BATCH_SIZE }, (_, i) => `f${i}`);
+  const { relay, rows, published } = createRelay({
+    events: [...failing, 'new'],
+  });
+  rows.find((row) => row.id === 'new').payload.subject = 'new';
+  await relay.relayPendingEmails();
+  assert.equal(calls, RELAY_BATCH_SIZE);
+  assert.equal(published.length, 0);
+  await relay.relayPendingEmails();
   assert.deepEqual(
     published.map((item) => item.id),
-    ['e2', 'e3'],
+    ['new'],
   );
+  assert.equal(calls, RELAY_BATCH_SIZE + 1);
+});
+
+test('emails waiting for their next attempt or already failed are skipped', async () => {
+  const requests = respondWith(201);
+  const { relay, published } = createRelay({
+    events: [
+      { id: 'later', nextAttemptAt: new Date(Date.now() + 60_000) },
+      { id: 'dead', failedAt: new Date() },
+      { id: 'due', attempts: 2, nextAttemptAt: new Date(Date.now() - 1000) },
+    ],
+  });
+  await relay.relayPendingEmails();
+  assert.equal(requests.length, 1);
   assert.deepEqual(
-    pending.map((item) => item.id),
-    ['e1'],
+    published.map((item) => item.id),
+    ['due'],
   );
 });
 
 test(`sends at most ${RELAY_BATCH_SIZE} emails per round`, async () => {
   const requests = respondWith(201);
-  const ids = Array.from(
-    { length: RELAY_BATCH_SIZE + 5 },
-    (_, index) => `e${index}`,
-  );
+  const ids = Array.from({ length: RELAY_BATCH_SIZE + 5 }, (_, i) => `e${i}`);
   const { relay, pending } = createRelay({ events: ids });
   await relay.relayPendingEmails();
   assert.equal(requests.length, RELAY_BATCH_SIZE);
-  assert.equal(pending.length, 5);
+  assert.equal(pending().length, 5);
 });
 
 for (const nodeEnv of [undefined, 'production', 'test']) {
   test(`without NOTIFICATION_SERVICE_URL and NODE_ENV=${nodeEnv}, keeps emails pending and never logs them`, async () => {
     const requests = respondWith(201);
-    const { relay, published, pending } = createRelay({
+    const { relay, published, failures, pending } = createRelay({
       env: { NOTIFICATION_SERVICE_URL: '  ', NODE_ENV: nodeEnv },
       events: ['e1'],
     });
@@ -192,7 +311,8 @@ for (const nodeEnv of [undefined, 'production', 'test']) {
     await relay.relayPendingEmails();
     assert.equal(requests.length, 0);
     assert.equal(published.length, 0);
-    assert.equal(pending.length, 1);
+    assert.equal(failures.length, 0);
+    assert.equal(pending().length, 1);
     assert.equal(logs.filter((entry) => entry.level === 'error').length, 1);
     assert.doesNotMatch(loggedText(), /482913|secret-token|guest@example/);
   });
@@ -210,12 +330,25 @@ test('in development without NOTIFICATION_SERVICE_URL, prints the email to the l
   assert.match(loggedText(), /\[DEV EMAIL\][\s\S]*482913/);
 });
 
-test('stops the round when the outbox cannot be read', async () => {
+test('stops the round when the outbox cannot be read, logging a fixed code only', async () => {
   const requests = respondWith(201);
   const { relay } = createRelay({ events: ['e1'], fail: { claim: true } });
   await relay.relayPendingEmails();
   assert.equal(requests.length, 0);
-  assert.match(loggedText(), /database unavailable/);
+  assert.match(loggedText(), /DATABASE_ERROR/);
+  assert.doesNotMatch(loggedText(), /db\.internal/);
+});
+
+test('a database error after sending keeps the email pending without counting an attempt', async () => {
+  respondWith(201);
+  const { relay, failures, pending } = createRelay({
+    events: ['e1'],
+    fail: { markPublished: true },
+  });
+  await relay.relayPendingEmails();
+  assert.equal(failures.length, 0);
+  assert.equal(pending().length, 1);
+  assert.match(loggedText(), /e1.*DATABASE_ERROR/);
 });
 
 test('skips a round while the previous one is still running', async () => {
@@ -238,6 +371,50 @@ test('skips a round while the previous one is still running', async () => {
   assert.equal(published.length, 1);
 });
 
+test('on shutdown, waits for the running round and starts no new one', async () => {
+  let release;
+  const requests = [];
+  global.fetch = (url) =>
+    new Promise((resolve) => {
+      requests.push(url);
+      release = () =>
+        resolve({
+          ok: true,
+          status: 201,
+          json: async () => ({ success: true, data: { status: 'SENT' } }),
+        });
+    });
+  const { relay, published } = createRelay({ events: ['e1', 'e2'] });
+  const round = relay.relayPendingEmails();
+  await new Promise((resolve) => setImmediate(resolve));
+  let destroyed = false;
+  const destroy = relay.onModuleDestroy().then(() => (destroyed = true));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(destroyed, false);
+  release();
+  await Promise.all([round, destroy]);
+  assert.equal(destroyed, true);
+  assert.deepEqual(
+    published.map((item) => item.id),
+    ['e1'],
+  );
+  await relay.relayPendingEmails();
+  assert.equal(requests.length, 1);
+});
+
+test('on shutdown, stops waiting after the timeout when a round hangs', async () => {
+  global.fetch = () => new Promise(() => {});
+  const { relay } = createRelay({
+    env: { NOTIFICATION_SERVICE_TIMEOUT_MS: '1' },
+    events: ['e1'],
+  });
+  void relay.relayPendingEmails();
+  await new Promise((resolve) => setImmediate(resolve));
+  const started = Date.now();
+  await relay.onModuleDestroy();
+  assert.ok(Date.now() - started < 10_000);
+});
+
 test('uses the configured timeout, falling back to 5000 ms for invalid values', async () => {
   respondWith(201);
   for (const [value, expected] of [
@@ -255,7 +432,7 @@ test('uses the configured timeout, falling back to 5000 ms for invalid values', 
   }
 });
 
-test('claims with FOR UPDATE SKIP LOCKED, excluding emails already tried', async () => {
+test('claims only due, non-failed emails with FOR UPDATE SKIP LOCKED', async () => {
   const queries = [];
   const repository = new OutboxRepository({});
   const tx = {
@@ -269,7 +446,12 @@ test('claims with FOR UPDATE SKIP LOCKED, excluding emails already tried', async
     null,
   );
   const sql = queries[0].sql.replace(/\s+/g, ' ');
-  assert.match(sql, /published_at IS NULL/);
+  assert.match(sql, /SELECT id, payload, attempts/);
+  assert.match(sql, /published_at IS NULL AND failed_at IS NULL/);
+  assert.match(
+    sql,
+    /\(next_attempt_at IS NULL OR next_attempt_at <= now\(\)\)/,
+  );
   assert.match(sql, /NOT \(id = ANY\(\?::uuid\[\]\)\)/);
   assert.match(sql, /ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED/);
   assert.deepEqual(queries[0].values, ['EmailRequested', ['e1']]);

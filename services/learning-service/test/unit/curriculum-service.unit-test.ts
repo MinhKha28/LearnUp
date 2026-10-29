@@ -22,8 +22,6 @@ import type {
   CourseTree,
   LessonContent,
 } from '../../src/infrastructure/clients/course/course-service.interface';
-import { OrganizationTimezoneService } from '../../src/infrastructure/clients/tenant/organization-timezone.service';
-import { TenantUnavailableError } from '../../src/infrastructure/clients/tenant/tenant.client';
 
 const ORG = '0199a000-0000-7000-8000-0a0000000001';
 const COURSE = '0199a000-0000-7000-8000-0e0000000002';
@@ -52,6 +50,7 @@ const ENROLLMENT_ROW: AccessibleEnrollment = {
   storedStatus: 'InProgress',
   status: 'Overdue',
   dueAt: new Date('2026-09-29T17:00:00Z'),
+  dueTimezone: 'Asia/Ho_Chi_Minh',
   versionDisabledAt: null,
 };
 
@@ -207,30 +206,10 @@ function setup(
         : Promise.resolve(lessonContent());
     },
   };
-  const timezone = new OrganizationTimezoneService({
-    getOrganizationAccess: () => {
-      calls.tenant += 1;
-      return options.tenantFails
-        ? Promise.reject(new TenantUnavailableError('down'))
-        : Promise.resolve({
-            subscriptionStatus: 'Active',
-            organizationStatus: 'Active',
-            readOnlyEndsAt: null,
-            timezone: 'Asia/Ho_Chi_Minh',
-          });
-    },
-  });
-  mock.method(
-    (timezone as unknown as { logger: Logger }).logger,
-    'error',
-    () => undefined,
-  );
-
   const service = new CurriculumService(
     repository as never,
     enrollments as never,
     courseService as never,
-    timezone,
   );
   const logger = (service as unknown as { logger: Logger }).logger;
   const loggerError = mock.method(logger, 'error', () => undefined);
@@ -375,23 +354,23 @@ void describe('CurriculumService – kiểm quyền D28 (cả UC27 và UC27.1)',
 });
 
 void describe('CurriculumService.getCurriculum (UC27)', () => {
-  void test('đúng dạng response; status gồm Overdue; I2, I3, tenant mỗi thứ một lần', async () => {
+  void test('đúng dạng response; status gồm Overdue; I2 and I3 once, no Tenant call', async () => {
     const { service, calls } = setup();
     const result = await service.getCurriculum(LEARNER, ENROLLMENT);
     assert.deepEqual(Object.keys(result).sort(), [
       'course',
       'courseId',
       'dueAt',
+      'dueTimezone',
       'enrollmentId',
       'enrollmentType',
       'modules',
-      'organizationTimezone',
       'requiredMaterials',
       'status',
     ]);
     assert.equal(result.status, 'Overdue');
     assert.equal(result.dueAt, '2026-09-29T17:00:00.000Z');
-    assert.equal(result.organizationTimezone, 'Asia/Ho_Chi_Minh');
+    assert.equal(result.dueTimezone, 'Asia/Ho_Chi_Minh');
     assert.deepEqual(result.course, {
       name: 'An toàn lao động',
       versionNumber: 2,
@@ -412,7 +391,7 @@ void describe('CurriculumService.getCurriculum (UC27)', () => {
       'position',
       'title',
     ]);
-    assert.deepEqual([calls.tree, calls.batch, calls.tenant], [1, 1, 1]);
+    assert.deepEqual([calls.tree, calls.batch, calls.tenant], [1, 1, 0]);
   });
 
   void test('I3 thiếu Course → course: null + logger.error, vẫn trả cây', async () => {
@@ -439,14 +418,14 @@ void describe('CurriculumService.getCurriculum (UC27)', () => {
     );
   });
 
-  void test('tenant lỗi → organizationTimezone null, vẫn trả cây', async () => {
+  void test('stored timezone remains available without Tenant', async () => {
     const { service } = setup({ tenantFails: true });
     const result = await service.getCurriculum(LEARNER, ENROLLMENT);
-    assert.equal(result.organizationTimezone, null);
+    assert.equal(result.dueTimezone, 'Asia/Ho_Chi_Minh');
     assert.equal(result.modules.length, 2);
   });
 
-  void test('Optional → không gọi tenant, organizationTimezone null', async () => {
+  void test('Optional → không gọi tenant, dueTimezone null', async () => {
     const { service, calls } = setup({
       enrollment: {
         ...ENROLLMENT_ROW,
@@ -454,11 +433,12 @@ void describe('CurriculumService.getCurriculum (UC27)', () => {
         status: 'NotStarted',
         storedStatus: 'NotStarted',
         dueAt: null,
+        dueTimezone: null,
       },
     });
     const result = await service.getCurriculum(LEARNER, ENROLLMENT);
     assert.equal(calls.tenant, 0);
-    assert.equal(result.organizationTimezone, null);
+    assert.equal(result.dueTimezone, null);
   });
 
   void test('học liệu chỉ có ở I2 → logger.warn một lần kèm số lượng', async () => {

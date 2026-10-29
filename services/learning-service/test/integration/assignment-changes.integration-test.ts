@@ -50,8 +50,8 @@ async function seed(status = 'InProgress', optional = false) {
   await db.query(
     `INSERT INTO enrollments
     (id, organization_id, learner_id, course_id, enrollment_type, status, assigned_at, expected_completion_days,
-     base_due_at, due_at, video_completion_percent, first_activity_at, completed_at, completed_late, withdrawn_at, withdrawn_reason)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,80,$10,$11,$12,$13,$14)`,
+     base_due_at, due_at, video_completion_percent, first_activity_at, completed_at, completed_late, withdrawn_at, withdrawn_reason,due_timezone)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,80,$10,$11,$12,$13,$14,CASE WHEN ($9)::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END )`,
     [
       id,
       ORG,
@@ -263,7 +263,10 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
           : { reason: 'Miễn' },
       );
       assert.equal(result.status, 200);
-      assert.equal(result.body.data.organizationTimezone, timezone);
+      assert.equal(
+        result.body.data.dueTimezone,
+        action === 'due-date' ? timezone : 'Asia/Ho_Chi_Minh',
+      );
       assert.equal(accessCalls, 1);
     });
   }
@@ -484,9 +487,9 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
   test('EXPLAIN ANALYZE BUFFERS lock and updates on 50000 enrollments use primary key', async () => {
     await db.query(
       `INSERT INTO enrollments
-      (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,expected_completion_days,base_due_at,due_at,video_completion_percent,first_activity_at)
+      (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,expected_completion_days,base_due_at,due_at,video_completion_percent,first_activity_at,due_timezone)
       SELECT gen_random_uuid(),$1,gen_random_uuid(),$2,'Required','InProgress',now(),30,now()+interval '30 days',now()+interval '30 days',80,now()
-      FROM generate_series(1,50000)`,
+      ,CASE WHEN (now()+interval '30 days')::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END FROM generate_series(1,50000)`,
       [ORG, COURSE],
     );
     await db.query('ANALYZE enrollments');
@@ -505,7 +508,7 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
         ],
         [
           'UPDATE due date',
-          "UPDATE enrollments SET due_at=due_at+interval '1 day',extension_seconds=extension_seconds+86400,updated_at=now() WHERE id=$1 AND organization_id=$2 AND enrollment_type='Required'",
+          "UPDATE enrollments SET due_timezone=due_timezone,due_at=due_at+interval '1 day',extension_seconds=extension_seconds+86400,updated_at=now() WHERE id=$1 AND organization_id=$2 AND enrollment_type='Required'",
         ],
         [
           'UPDATE exemption',
