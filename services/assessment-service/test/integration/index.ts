@@ -5,6 +5,7 @@
  */
 import './assignments.integration-test';
 import './course-client-modes.integration-test';
+import './seed-reseed.integration-test';
 import './prompt-file.integration-test';
 import './quiz.integration-test';
 import './quiz-detail.integration-test';
@@ -16,4 +17,7 @@ import './peer-review-cycles.integration-test';
 import './assessment-activity.integration-test';
 import './assignment-minutes.integration-test';
 import './withdrawal-demo-seed.integration-test';
+import './peer-review-close.integration-test';
+import './peer-review-schedule.integration-test';
 import './enrollment-status.integration-test';
+import './completion-snapshot.integration-test';

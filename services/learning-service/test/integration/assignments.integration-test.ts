@@ -17,6 +17,7 @@ import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import {
   TENANT_CLIENT,
+  TenantUnavailableError,
   type LookupLearner,
   type TenantClient,
 } from '../../src/infrastructure/clients/tenant/tenant.client';
@@ -48,6 +49,8 @@ let baseUrl: string;
 let tenantCalls = 0;
 let i1Calls = 0;
 let subscriptionStatus = 'Active';
+let organizationStatus = 'Active';
+let tenantDown = false;
 let connected = false;
 const learner = (id: string): CurrentUser => ({
   ...ORGANIZER,
@@ -155,11 +158,15 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
       tenantCalls++;
       return ids.flatMap((id) => (users.has(id) ? [users.get(id)!] : []));
     };
-    tenant.getOrganizationAccess = async () => ({
-      subscriptionStatus,
-      readOnlyEndsAt: null,
-      timezone: 'Asia/Ho_Chi_Minh',
-    });
+    tenant.getOrganizationAccess = async () => {
+      if (tenantDown) throw new TenantUnavailableError('network');
+      return {
+        subscriptionStatus,
+        organizationStatus,
+        readOnlyEndsAt: null,
+        timezone: 'Asia/Ho_Chi_Minh',
+      };
+    };
     const courses = app.get(CourseServiceClient);
     const lock = courses.lockCourse.bind(courses);
     courses.lockCourse = async (...args) => {
@@ -168,6 +175,24 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
     };
     await app.listen(0, '127.0.0.1');
     baseUrl = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
+  });
+  void test('inactive organization blocks assignment before learner lookup', async () => {
+    organizationStatus = 'Suspended';
+    const result = await assign([addUser()]);
+    assert.equal(result.status, 403);
+    assert.equal(result.body.error.code, 'ORGANIZATION_NOT_ACTIVE');
+    assert.equal(tenantCalls, 0);
+    assert.equal(i1Calls, 0);
+    assert.equal((await rows()).length, 0);
+  });
+  void test('tenant access outage blocks assignment with 503', async () => {
+    tenantDown = true;
+    const result = await assign([addUser()]);
+    assert.equal(result.status, 503);
+    assert.equal(result.body.error.code, 'SERVICE_UNAVAILABLE');
+    assert.equal(tenantCalls, 0);
+    assert.equal(i1Calls, 0);
+    assert.equal((await rows()).length, 0);
   });
   beforeEach(async () => {
     await learningDb.query(
@@ -179,6 +204,8 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
     tenantCalls = 0;
     i1Calls = 0;
     subscriptionStatus = 'Active';
+    organizationStatus = 'Active';
+    tenantDown = false;
   });
   after(async () => {
     try {

@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '../../common/decorator/customize';
@@ -19,6 +28,18 @@ export class PeerReviewController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.service.listCycles(user, id);
+  }
+
+  /** UC33 — Close a cycle and hand out the reviews (BR-242, BR-249); closing again changes nothing. */
+  @Post('cycles/:cycleId/close')
+  @HttpCode(200)
+  @ResponseMessage('Peer Review cycle closed successfully.')
+  closeCycle(
+    @User() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('cycleId', ParseUUIDPipe) cycleId: string,
+  ) {
+    return this.service.closeCycle(user, id, cycleId);
   }
 
   /** UC19.5 — Configure Peer Review */

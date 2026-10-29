@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { InternalAuthGuard } from './common/guards/internal-auth.guard';
 import { AssessmentActivityModule } from './modules/assessment-activity/assessment-activity.module';
+import { CompletionSnapshotModule } from './modules/completion-snapshot/completion-snapshot.module';
 import { AssessmentsModule } from './modules/assessments/assessments.module';
 import { IntegrationsModule } from './infrastructure/clients/integrations.module';
 import { InstructorSubmissionsModule } from './modules/instructor-submissions/instructor-submissions.module';
@@ -18,6 +19,7 @@ import { QuizModule } from './modules/quiz/quiz.module';
     PrismaModule,
     IntegrationsModule,
     AssessmentActivityModule,
+    CompletionSnapshotModule,
     InstructorSubmissionsModule,
     LearnerAssessmentsModule,
     LearnerSubmissionsModule,

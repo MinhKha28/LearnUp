@@ -1,5 +1,6 @@
 import {
   CloudinaryStorageProvider,
+  resolveStoragePlanLimits,
   StorageProviderError,
   type IStorageProvider,
   type IStorageDeleteResult,
@@ -45,5 +46,6 @@ export const createStorageProvider = (
     apiKey,
     apiSecret,
     secure: true,
+        planLimits: resolveStoragePlanLimits(process.env),
   });
 };

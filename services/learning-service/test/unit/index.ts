@@ -26,3 +26,6 @@ import './assessment-access.unit-test';
 import './course-completion.unit-test';
 import './completion-worker.unit-test';
 import './reading-completion.unit-test';
+
+import './tenant-access.unit-test';
+import './tenant-access-services.unit-test';

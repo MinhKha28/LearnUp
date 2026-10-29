@@ -1,3 +1,4 @@
+import type { Prisma } from '../../../generated/prisma/client';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   ASSESSMENT_COMPLETION_CLIENT,
@@ -88,8 +89,9 @@ export class CompletionService {
             { completedAt: Date }[]
           >`SELECT clock_timestamp() AS "completedAt"`;
           // BR-150/151: close before recomputing the union, never add pauses repeatedly.
-          await tx.$executeRaw`UPDATE enrollment_status_intervals SET ended_at=${completedAt},updated_at=${completedAt}
+          await tx.$executeRaw`UPDATE enrollment_status_intervals SET ended_at=GREATEST(started_at,clock_timestamp()),updated_at=clock_timestamp()
           WHERE enrollment_id=${r.enrollment_id}::uuid AND organization_id=${r.organization_id}::uuid AND kind='Exempted' AND ended_at IS NULL`;
+          // Preserve microseconds in CHECK operands by computing and storing the deadline in SQL.
           const [deadline] = await tx.$queryRaw<
             { dueAt: Date | null; completedLate: boolean }[]
           >`
@@ -104,14 +106,15 @@ export class CompletionService {
           effective AS (SELECT e.enrollment_type,e.base_due_at+e.extension_seconds*interval '1 second'+
             COALESCE((SELECT sum(upper(p)-lower(p)) FROM merged,unnest(spans) p),interval '0 seconds') AS due_at
             FROM enrollments e WHERE e.id=${r.enrollment_id}::uuid)
-          SELECT due_at AS "dueAt",COALESCE(enrollment_type='Required' AND due_at<=${completedAt} AND NOT EXISTS(
-            SELECT 1 FROM organization_suspensions s WHERE s.organization_id=${r.organization_id}::uuid AND s.ended_at IS NULL AND s.started_at<due_at),false) AS "completedLate" FROM effective`;
-          const updated =
-            await tx.$executeRaw`UPDATE enrollments SET status='Completed',completed_at=${completedAt},
-          completed_late=${current.enrollment_type === 'Required' ? deadline.completedLate : null},due_at=${deadline.dueAt},
-          completion_snapshot=${JSON.stringify(snapshot)}::jsonb,updated_at=${completedAt}
-          WHERE id=${r.enrollment_id}::uuid AND organization_id=${r.organization_id}::uuid AND status=${current.status}`;
-          if (updated !== 1) throw new Error('COMPLETION_TRANSACTION_FAILED');
+          UPDATE enrollments e SET status='Completed',completed_at=${completedAt},
+          completed_late=CASE WHEN effective.enrollment_type='Required' THEN
+            COALESCE(effective.due_at<=${completedAt} AND NOT EXISTS(
+              SELECT 1 FROM organization_suspensions s WHERE s.organization_id=${r.organization_id}::uuid
+                AND s.ended_at IS NULL AND s.started_at<effective.due_at),false) ELSE NULL END,
+          due_at=effective.due_at,completion_snapshot=${JSON.stringify(snapshot)}::jsonb,updated_at=${completedAt}
+          FROM effective WHERE e.id=${r.enrollment_id}::uuid AND e.organization_id=${r.organization_id}::uuid AND e.status=${current.status}
+          RETURNING e.due_at AS "dueAt",e.completed_late AS "completedLate"`;
+          if (!deadline) throw new Error('COMPLETION_TRANSACTION_FAILED');
           await tx.outboxEvent.create({
             data: {
               aggregateType: 'Enrollment',
@@ -131,7 +134,9 @@ export class CompletionService {
                   current.enrollment_type === 'Required'
                     ? deadline.completedLate
                     : false,
-                scoreSnapshot: JSON.parse(JSON.stringify(snapshot)),
+                scoreSnapshot: JSON.parse(
+                  JSON.stringify(snapshot),
+                ) as Prisma.InputJsonValue,
                 occurredAt: completedAt.toISOString(),
               },
             },
@@ -145,8 +150,39 @@ export class CompletionService {
         error instanceof CompletionClientError
           ? error.code
           : 'COMPLETION_TRANSACTION_FAILED';
-      this.logger.warn(code);
+      if (error instanceof CompletionClientError) this.logger.warn(code);
+      else this.logger.warn({ code, ...transactionFailureDetails(error) });
       this.affected(await this.repository.retry(r, code));
     }
   }
+}
+
+function transactionFailureDetails(error: unknown) {
+  const root = error as { code?: unknown } | null;
+  const errorCode =
+    typeof root?.code === 'string' && /^[A-Z0-9_]{1,64}$/.test(root.code)
+      ? root.code
+      : 'UNKNOWN';
+  let constraint: string | null = null;
+  const visit = (value: unknown, depth: number) => {
+    if (!value || typeof value !== 'object' || depth > 6) return;
+    const row = value as Record<string, unknown>;
+    if (
+      typeof row.constraint === 'string' &&
+      /^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/.test(row.constraint)
+    )
+      constraint = row.constraint;
+    for (const key of ['message', 'originalMessage']) {
+      if (typeof row[key] === 'string') {
+        const match = row[key].match(
+          /constraint "([a-zA-Z_][a-zA-Z0-9_]{0,62})"/,
+        );
+        if (match) constraint = match[1];
+      }
+    }
+    for (const key of ['meta', 'cause', 'driverAdapterError'])
+      visit(row[key], depth + 1);
+  };
+  visit(error, 0);
+  return { errorCode, constraint };
 }
