@@ -363,6 +363,7 @@ test('real PostgreSQL snapshot version fencing, absent config and Issued immutab
   const snapshot = (version) => ({
     learnerName: 'Learner',
     organizationName: 'Org',
+    organizationTimezone: 'Asia/Ho_Chi_Minh',
     courseName: 'Course',
     versionNumber: 1,
     chainId: randomUUID(),
