@@ -28,6 +28,7 @@ const assignment = {
   rubric: [{ id: "r1", name: "Content", description: "d", maxPoints: 10 }],
   attempts: { maxConsecutiveAttempts: 3, remaining: 3, lockedUntil: null },
   readOnly: false,
+  maxFileBytes: 10 * 1024 * 1024, // the default storage plan, lower than the 50 MB ceiling
   latestSubmission: {
     id: "s1",
     submissionNumber: 1,
@@ -141,5 +142,40 @@ describe("the form when the Enrollment stops being active while it is open", () 
     await screen.findByText("Course completed");
     expect(screen.queryByText("Không thể nộp bài")).toBeNull();
     expect(sendButton().disabled).toBe(true);
+  });
+});
+
+describe("the size limit of the file comes from the API (maxFileBytes)", () => {
+  const pick = (name: string, size: number) => {
+    const file = new File(["%PDF-1.7 x"], name, { type: "application/pdf" });
+    Object.defineProperty(file, "size", { value: size });
+    fireEvent.change(fileInput(), { target: { files: [file] } });
+  };
+
+  for (const mode of ["submit", "resubmit"] as const) {
+    it(`${mode}: a file one byte over the limit is refused on selection, in Vietnamese`, async () => {
+      mount(mode);
+      await screen.findByPlaceholderText("Write your response here...");
+      expect(screen.getByText(/tối đa 10.0 MB/)).toBeTruthy(); // the hint shows the limit of the API, not 50 MB
+      pick("big.pdf", 10 * 1024 * 1024 + 1);
+      // antd keeps the message of the previous test in the page, so there can be more than one
+      expect((await screen.findAllByText("Tệp quá lớn. Dung lượng tối đa là 10.0 MB.")).length).toBeGreaterThan(0);
+      expect(screen.queryByText("big.pdf")).toBeNull();
+    });
+
+    it(`${mode}: a file of exactly the limit is accepted`, async () => {
+      mount(mode);
+      await screen.findByPlaceholderText("Write your response here...");
+      pick("edge.pdf", 10 * 1024 * 1024);
+      await screen.findByText("edge.pdf");
+    });
+  }
+
+  it("a file of another type is refused with the types and the limit", async () => {
+    mount("submit");
+    await screen.findByPlaceholderText("Write your response here...");
+    const file = new File(["MZ"], "virus.exe");
+    fireEvent.change(fileInput(), { target: { files: [file] } });
+    await screen.findByText("Tệp phải là PDF, DOCX hoặc ZIP, tối đa 10.0 MB.");
   });
 });

@@ -6,6 +6,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  PayloadTooLargeException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { StorageProviderError } from '@learnup/ts-storage';
@@ -79,7 +80,7 @@ describe('createAssignment (UC19.2)', () => {
       promptFile: {
         fileKey,
         fileName: 'brief.pdf',
-        mimeType: 'text/plain', // ignored: the type is always PDF
+        mimeType: 'text/plain', // ignored: the type follows the file name
         sizeBytes: 10,
       },
     });
@@ -539,7 +540,7 @@ describe('deleteAssignment (UC19.4)', () => {
   });
 });
 
-describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row)', () => {
+describe('Prompt file (BR-320: one PDF, DOCX or ZIP, stored outside the Assignment row)', () => {
   const pdf = (name = 'brief.pdf', size?: number) => {
     const buffer = Buffer.from('%PDF-1.4 content');
     return {
@@ -560,6 +561,36 @@ describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row
     assert.deepEqual(storage.uploads, [
       { folder: `learnup/${ORG}/assignments/prompts`, resourceType: 'raw' },
     ]);
+  });
+
+  test('a DOCX and a ZIP are accepted with their own type', async () => {
+    const { media } = build();
+    const docx = await media.uploadPromptFile(instructor, {
+      buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04, 1]),
+      originalname: 'brief.docx',
+      size: 5,
+    });
+    assert.equal(
+      docx.mimeType,
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    const zip = await media.uploadPromptFile(instructor, {
+      buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04, 1]),
+      originalname: 'brief.zip',
+      size: 5,
+    });
+    assert.equal(zip.mimeType, 'application/zip');
+  });
+
+  test('a storage that refuses the size is a 413, not a 503', async () => {
+    const { media, storage } = build();
+    storage.upload = () =>
+      Promise.reject(new StorageProviderError('too big', 'TOO_LARGE'));
+    await rejectsWith(
+      media.uploadPromptFile(instructor, pdf()),
+      PayloadTooLargeException,
+      'FILE_TOO_LARGE',
+    );
   });
 
   test('a storage that is down is a 503, not a crash', async () => {
@@ -588,7 +619,7 @@ describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row
     );
   });
 
-  test('no file, a file that is not a PDF, or one over 50 MB is refused', async () => {
+  test('no file, a file that is not a PDF, DOCX or ZIP, or one over the upload limit is refused', async () => {
     const { media, storage } = build();
     await rejectsWith(
       media.uploadPromptFile(instructor, undefined),
@@ -602,12 +633,22 @@ describe('Prompt file (BR-320: one PDF, 50 MB, stored outside the Assignment row
         size: 12,
       }),
       BadRequestException,
-      'PROMPT_FILE_NOT_PDF',
+      'PROMPT_FILE_INVALID',
     );
     await rejectsWith(
-      media.uploadPromptFile(instructor, pdf('big.pdf', 50 * 1024 * 1024 + 1)),
+      media.uploadPromptFile(instructor, {
+        buffer: Buffer.from('%PDF-1.4 x'),
+        originalname: 'prompt.exe',
+        size: 10,
+      }),
       BadRequestException,
-      'PROMPT_FILE_TOO_LARGE',
+      'PROMPT_FILE_INVALID',
+    );
+    // 10 MiB + 1: the raw limit of the default storage plan is lower than the 50 MiB ceiling
+    await rejectsWith(
+      media.uploadPromptFile(instructor, pdf('big.pdf', 10 * 1024 * 1024 + 1)),
+      PayloadTooLargeException,
+      'FILE_TOO_LARGE',
     );
     assert.equal(storage.files.size, 0);
   });
@@ -814,7 +855,7 @@ describe('attaching a prompt file looks at the stored file (BR-320)', () => {
     }
   });
 
-  test('a stored file over 50 MB is refused even when the request says it is small', async () => {
+  test('a stored file over the upload limit is refused even when the request says it is small', async () => {
     const { assessments, media } = build();
     const { fileKey } = await upload(media);
     media.head = () =>
@@ -829,8 +870,8 @@ describe('attaching a prompt file looks at the stored file (BR-320)', () => {
         ...validCreate,
         promptFile: attach(fileKey, 10),
       }),
-      BadRequestException,
-      'PROMPT_FILE_TOO_LARGE',
+      PayloadTooLargeException,
+      'FILE_TOO_LARGE',
     );
   });
 
