@@ -75,7 +75,7 @@ public class TenantAccessClient {
                     .exchange((request, response) -> {
                         if (response.getStatusCode().value() != 200
                                 || response.getHeaders().getContentType() == null
-                                || !MediaType.APPLICATION_JSON.isCompatibleWith(response.getHeaders().getContentType())) {
+                                || !MediaType.APPLICATION_JSON.includes(response.getHeaders().getContentType())) {
                             throw new TenantUnavailableException(null);
                         }
                         // Parse directly: message converters/debug logs must never render a Tenant error body.
@@ -83,12 +83,21 @@ public class TenantAccessClient {
                         if (body.length > MAX_EXISTENCE_BODY_BYTES) {
                             throw new TenantUnavailableException(null);
                         }
-                        JsonNode result = EXISTENCE_JSON.readTree(body);
-                        if (result == null || !result.isObject() || result.size() != 1
-                                || !result.path("exists").isBoolean()) {
+                        // Tenant's global TransformInterceptor uses the same envelope as sign-in-access.
+                        // Validate node types before extraction: coercion must never authorize a release.
+                        JsonNode envelope = EXISTENCE_JSON.readTree(body);
+                        if (envelope == null || !envelope.isObject() || envelope.size() != 3
+                                || !envelope.path("statusCode").isIntegralNumber()
+                                || !envelope.path("statusCode").canConvertToInt()
+                                || envelope.path("statusCode").intValue() != 200
+                                || !envelope.path("message").isTextual()) {
                             throw new TenantUnavailableException(null);
                         }
-                        return result.get("exists").booleanValue();
+                        JsonNode data = envelope.path("data");
+                        if (!data.isObject() || data.size() != 1 || !data.path("exists").isBoolean()) {
+                            throw new TenantUnavailableException(null);
+                        }
+                        return data.get("exists").booleanValue();
                     });
         } catch (RestClientException | IllegalArgumentException ex) {
             // Conversion/HTTP exceptions can contain arbitrary response content. Do not retain it.

@@ -30,7 +30,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 @ActiveProfiles({"test", "postgres-test"})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @EnabledIfEnvironmentVariable(named = "IDENTITY_TEST_POSTGRES_URL", matches = ".+")
-class Br31CredentialProvisioningPostgresIntegrationTest extends Br31CredentialProvisioningContract {
+class Br39CredentialProvisioningPostgresIntegrationTest extends Br39CredentialProvisioningContract {
     @DynamicPropertySource
     static void disposableDatabase(DynamicPropertyRegistry properties) {
         PasswordResetPostgresIntegrationTest.disposableDatabase(properties);

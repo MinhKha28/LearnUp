@@ -64,9 +64,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Real HTTP security, real independent DB transactions and forced races; Tenant has no deployment dependency. */
-@Import(Br31CredentialProvisioningContract.ObservationConfiguration.class)
-abstract class Br31CredentialProvisioningContract {
+/** BR-39 email reuse (legacy BR-31): real HTTP security, DB transactions and forced races; mocked Tenant authority. */
+@Import(Br39CredentialProvisioningContract.ObservationConfiguration.class)
+abstract class Br39CredentialProvisioningContract {
     private static final String PATH = "/api/internal/credentials";
     private static final String KEY = "testInternalServiceKeyAtLeast32BytesLong!";
     private static final String PASSWORD = "SyntheticBr31OriginalPassword!31";
@@ -247,7 +247,49 @@ abstract class Br31CredentialProvisioningContract {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"401", "403", "500", "503", "invalid", "coerced", "missing", "timeout", "disconnect"})
+    @ValueSource(booleans = {true, false})
+    void realEnvelopedExistenceControlsConflictOrPreservingHandoff(boolean exists) throws Exception {
+        User owner = user(EMAIL);
+        User unrelated = user("unrelated@br31.invalid");
+        tokens(owner);
+        tokens(unrelated);
+        Snapshot before = snapshot();
+        var ownerBefore = userRow(owner.getId());
+        var unrelatedBefore = userRow(unrelated.getId());
+        UUID requester = UUID.randomUUID();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/api/v1/internal/users/" + owner.getId() + "/existence", exchange -> {
+            assertThat(exchange.getRequestHeaders().getFirst(HeaderConstants.X_INTERNAL_KEY)).isEqualTo(KEY);
+            respond(exchange, 200, existenceEnvelope(Boolean.toString(exists)));
+        });
+        server.start();
+        TenantAccessClient realClient = new TenantAccessClient("http://127.0.0.1:" + server.getAddress().getPort(), KEY);
+        doAnswer(call -> realClient.exists(call.getArgument(0))).when(tenant).exists(owner.getId());
+        try {
+            ResultActions response = postCredentials(request(requester, EMAIL));
+            if (exists) {
+                response.andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("EMAIL_IN_USE"));
+                assertThat(snapshot().equals(before)).isTrue();
+            } else {
+                response.andExpect(status().isOk());
+                assertReleasedOwner(ownerBefore, owner.getId());
+                assertThat(unrelatedBefore.equals(userRow(unrelated.getId()))).isTrue();
+                assertThat(snapshot().sessions()).isEqualTo(before.sessions());
+                assertThat(snapshot().recovery()).isEqualTo(before.recovery());
+                assertThat(users.findByEmail(EMAIL).orElseThrow().getId()).isEqualTo(requester);
+                assertThat(users.count()).isEqualTo(3);
+            }
+            verify(tenant).exists(owner.getId());
+            verify(tenant, never()).check(any());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"201", "401", "403", "404", "500", "503", "invalid", "coerced", "missing",
+            "raw", "null-data", "missing-data", "extra-data", "bad-envelope", "non-json", "oversized", "redirect",
+            "timeout", "disconnect"})
     void realExistenceHttpFailuresReturn503AndLeaveEveryAccountAndTokenUnchanged(String failure) throws Exception {
         User owner = user(EMAIL);
         User requester = user("requester@br31.invalid");
@@ -272,12 +314,22 @@ abstract class Br31CredentialProvisioningContract {
                     return;
                 }
             }
-            int status = failure.matches("[0-9]+") ? Integer.parseInt(failure) : 200;
+            int status = "redirect".equals(failure) ? 302
+                    : failure.matches("[0-9]+") ? Integer.parseInt(failure) : 200;
             String body = switch (failure) {
-                case "coerced" -> "{\"exists\":\"false\"}";
-                case "missing" -> "{}";
+                case "coerced" -> existenceEnvelope("\"false\"");
+                case "missing" -> existenceEnvelope("false").replace("{\"exists\":false}", "{}");
+                case "raw" -> "{\"exists\":false}";
+                case "null-data" -> existenceEnvelope("false").replace("{\"exists\":false}", "null");
+                case "missing-data" -> "{\"statusCode\":200,\"message\":\"User existence checked\"}";
+                case "extra-data" -> existenceEnvelope("false").replace("false}", "false,\"allowed\":false}");
+                case "bad-envelope" -> "{\"data\":{\"exists\":false}}";
+                case "oversized" -> existenceEnvelope("false") + " ".repeat(1024);
+                case "201", "non-json", "redirect" -> existenceEnvelope("false");
                 default -> "synthetic-br31-private-tenant-response";
             };
+            if ("non-json".equals(failure)) exchange.getResponseHeaders().set("Content-Type", "text/plain");
+            if ("redirect".equals(failure)) exchange.getResponseHeaders().set("Location", "/redirect-target");
             respond(exchange, status, body);
         });
         server.start();
@@ -696,17 +748,23 @@ abstract class Br31CredentialProvisioningContract {
 
     private static void respond(HttpExchange exchange, int status, String body) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        if (!exchange.getResponseHeaders().containsKey("Content-Type")) {
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+        }
         exchange.sendResponseHeaders(status, bytes.length);
         exchange.getResponseBody().write(bytes);
         exchange.close();
+    }
+
+    private static String existenceEnvelope(String exists) {
+        return "{\"statusCode\":200,\"message\":\"User existence checked\",\"data\":{\"exists\":" + exists + "}}";
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class ObservationConfiguration {
         @Bean
         @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
-        static Observation br31Observation() { return new Observation(); }
+        static Observation emailReuseObservation() { return new Observation(); }
     }
 
     /** Gates real queries/flushes. No repository results or database lock behavior are mocked. */

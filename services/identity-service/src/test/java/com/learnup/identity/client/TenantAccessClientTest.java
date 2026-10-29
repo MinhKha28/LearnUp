@@ -13,6 +13,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -77,7 +79,8 @@ class TenantAccessClientTest {
         server.createContext(PATH, exchange -> {
             headers.set(exchange.getRequestHeaders());
             method.set(exchange.getRequestMethod());
-            respond(exchange, 200, "{\"exists\":" + exists + "}");
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+            respond(exchange, 200, envelope(Boolean.toString(exists)));
         });
 
         assertThat(client.exists(USER_ID)).isEqualTo(exists);
@@ -89,12 +92,43 @@ class TenantAccessClientTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "{}", "null", "[]", "false", "{\"exists\":null}",
-            "{\"exists\":\"false\"}", "{\"exists\":0}", "{\"data\":{\"exists\":false}}",
-            "{\"exists\":false,\"allowed\":false}", "{\"exists\":true,\"exists\":false}",
-            "{\"exists\":false} {}", "synthetic-private-tenant-response"})
+    @MethodSource("invalidBodies")
     void rejectsMissingCoercedAmbiguousAndMalformedBodies(String body) {
         server.createContext(PATH, exchange -> respond(exchange, 200, body));
+        assertUnavailable();
+    }
+
+    private static Stream<String> invalidBodies() {
+        return Stream.of("", "{}", "null", "[]", "false", SENSITIVE_BODY,
+                "{\"data\":{\"exists\":false}}",
+                "{\"statusCode\":200,\"message\":\"User existence checked\"}",
+                "{\"statusCode\":200,\"message\":\"User existence checked\",\"data\":null}",
+                "{\"statusCode\":200,\"message\":\"User existence checked\",\"data\":[]}",
+                "{\"statusCode\":200,\"message\":\"User existence checked\",\"data\":false}",
+                "{\"statusCode\":200,\"message\":\"User existence checked\",\"data\":{}}",
+                envelope("null"), envelope("\"false\""), envelope("0"), envelope("1"),
+                envelope("[]"), envelope("{}"),
+                envelope("false").replace("false}", "false,\"allowed\":false}"),
+                envelope("false").replace("false}", "true,\"exists\":false}"),
+                envelope("false").replace("\"data\":", "\"data\":{},\"data\":"),
+                envelope("false").replace("\"statusCode\":200", "\"statusCode\":503,\"statusCode\":200"),
+                envelope("false").replace("200", "201"),
+                envelope("false").replace("200", "\"200\""),
+                envelope("false").replace("200", "200.0"),
+                envelope("false").replace("200", "4294967496"),
+                envelope("false").replace("\"statusCode\":200,", ""),
+                envelope("false").replace("\"User existence checked\"", "null"),
+                envelope("false").replace("\"User existence checked\"", "200"),
+                envelope("false").replace("\"message\":\"User existence checked\",", ""),
+                envelope("false").replace("\"statusCode\":200", "\"statusCode\":200,\"exists\":false"),
+                envelope("false") + " {}",
+                envelope("false").substring(0, envelope("false").length() - 1));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void rejectsTheFormerRawContract(boolean exists) {
+        server.createContext(PATH, exchange -> respond(exchange, 200, "{\"exists\":" + exists + "}"));
         assertUnavailable();
     }
 
@@ -111,14 +145,28 @@ class TenantAccessClientTest {
     }
 
     @Test
-    void rejectsOversizedBodiesAndNonJsonContent() {
-        server.createContext(PATH, exchange -> respond(exchange, 200,
-                " ".repeat(1024) + "{\"exists\":false}"));
-        assertUnavailable();
+    void acceptsExactlyOneKiBButRejectsAnOversizedEnvelope() {
+        String body = envelope("false");
+        String maximum = body + " ".repeat(1024 - body.getBytes(StandardCharsets.UTF_8).length);
+        server.createContext(PATH, exchange -> respond(exchange, 200, maximum));
+        assertThat(client.exists(USER_ID)).isFalse();
         server.removeContext(PATH);
+        server.createContext(PATH, exchange -> respond(exchange, 200,
+                maximum + " "));
+        assertUnavailable();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"text/plain", "text/html", "application/jsonp", "application/*", "*/*", ""})
+    void rejectsNonJsonOrMissingContentTypesEvenWithAValidEnvelope(String contentType) {
         server.createContext(PATH, exchange -> {
-            exchange.getResponseHeaders().set("Content-Type", "text/plain");
-            respond(exchange, 200, "{\"exists\":false}");
+            if (!contentType.isEmpty()) {
+                exchange.getResponseHeaders().set("Content-Type", contentType);
+            }
+            byte[] body = envelope("false").getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
         });
         assertUnavailable();
     }
@@ -129,7 +177,7 @@ class TenantAccessClientTest {
         AtomicInteger targetCalls = new AtomicInteger();
         server.createContext("/redirect-target", exchange -> {
             targetCalls.incrementAndGet();
-            respond(exchange, 200, "{\"exists\":false}");
+            respond(exchange, 200, envelope("false"));
         });
         server.createContext(PATH, exchange -> {
             exchange.getResponseHeaders().set("Location", "/redirect-target");
@@ -144,7 +192,7 @@ class TenantAccessClientTest {
         server.createContext(PATH, exchange -> {
             try {
                 Thread.sleep(5000);
-                respond(exchange, 200, "{\"exists\":false}");
+                respond(exchange, 200, envelope("false"));
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
             } finally {
@@ -173,6 +221,10 @@ class TenantAccessClientTest {
     private void assertUnavailable() {
         assertThatThrownBy(() -> client.exists(USER_ID)).isInstanceOf(TenantUnavailableException.class)
                 .hasMessage("Account status service is temporarily unavailable").hasNoCause();
+    }
+
+    private static String envelope(String exists) {
+        return "{\"statusCode\":200,\"message\":\"User existence checked\",\"data\":{\"exists\":" + exists + "}}";
     }
 
     private static void respond(HttpExchange exchange, int status, String body) throws IOException {

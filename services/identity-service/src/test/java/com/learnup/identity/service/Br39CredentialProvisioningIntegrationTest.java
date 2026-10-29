@@ -7,5 +7,5 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class Br31CredentialProvisioningIntegrationTest extends Br31CredentialProvisioningContract {
+class Br39CredentialProvisioningIntegrationTest extends Br39CredentialProvisioningContract {
 }
