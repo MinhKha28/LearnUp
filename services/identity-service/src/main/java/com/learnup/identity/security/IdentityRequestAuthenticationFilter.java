@@ -37,6 +37,7 @@ public final class IdentityRequestAuthenticationFilter extends OncePerRequestFil
     private static final Logger log = LoggerFactory.getLogger(IdentityRequestAuthenticationFilter.class);
 
     public static final String CREDENTIALS_PATH = "/api/internal/credentials";
+    public static final String METADATA_PATH = CREDENTIALS_PATH + "/metadata";
     private static final Set<String> USER_PATHS = Set.of(
             "/api/v1/auth/me", "/api/auth/me", "/api/v1/users/me", "/api/users/me",
             "/api/v1/auth/logout", "/api/auth/logout",
@@ -80,7 +81,7 @@ public final class IdentityRequestAuthenticationFilter extends OncePerRequestFil
             if (path.isEmpty()) {
                 path = request.getRequestURI().substring(request.getContextPath().length());
             }
-            boolean credentialsRequest = CREDENTIALS_PATH.equals(path);
+            boolean credentialsRequest = CREDENTIALS_PATH.equals(path) || METADATA_PATH.equals(path);
             if (credentialsRequest || USER_PATHS.contains(path)) {
                 if (!hasInternalKey(request)) {
                     log.warn("event=authentication_rejected reason=INVALID_INTERNAL_CREDENTIAL correlation_id={}", correlationId);

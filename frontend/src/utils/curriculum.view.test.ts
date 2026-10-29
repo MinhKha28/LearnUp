@@ -10,7 +10,7 @@ const curriculum = (overrides: Partial<CurriculumData>): CurriculumData => ({
   enrollmentType: "Required",
   status: "Overdue",
   dueAt: "2026-09-29T17:00:00.000Z",
-  organizationTimezone: "Asia/Ho_Chi_Minh",
+  dueTimezone: "Asia/Ho_Chi_Minh",
   requiredMaterials: { completed: 1, total: 6 },
   course: { name: "An toàn lao động", versionNumber: 2 },
   modules: [],
@@ -28,6 +28,12 @@ const material = (overrides: Partial<LessonMaterial>): LessonMaterial => ({
 });
 
 describe("buildCurriculumHeader", () => {
+  it("formats the deadline using the curriculum item's zone", () => {
+    const dueAt = "2026-10-29T17:00:00.000Z";
+    expect(buildCurriculumHeader(curriculum({ dueAt, dueTimezone: "Asia/Ho_Chi_Minh" })).due?.text).toBe("Hết ngày 29/10/2026");
+    expect(buildCurriculumHeader(curriculum({ dueAt, dueTimezone: "Pacific/Auckland" })).due?.text).toBe("06:00 30/10/2026");
+  });
+
   it("Required Overdue với hạn theo múi giờ Organization", () => {
     expect(buildCurriculumHeader(curriculum({}))).toEqual({
       title: "An toàn lao động",
@@ -64,8 +70,8 @@ describe("buildCurriculumHeader", () => {
     expect(header.versionLabel).toBeNull();
   });
 
-  it("organizationTimezone null → giờ máy", () => {
-    expect(buildCurriculumHeader(curriculum({ organizationTimezone: null, dueAt: "2026-10-11T17:00:00.000Z" })).due).toEqual({
+  it("dueTimezone null → giờ máy", () => {
+    expect(buildCurriculumHeader(curriculum({ dueTimezone: null, dueAt: "2026-10-11T17:00:00.000Z" })).due).toEqual({
       text: "00:00 12/10/2026 (giờ trên máy bạn, GMT+7)",
       isDeviceTime: true,
     });

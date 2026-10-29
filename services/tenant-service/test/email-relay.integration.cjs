@@ -21,7 +21,7 @@ const {
 
 const eventType = `EmailRelayIntegration-${randomUUID()}`;
 
-test('claimNextUnpublished skips rows locked by another transaction', async (t) => {
+test('outbox claim, retry state and index against PostgreSQL', async (t) => {
   const prisma = new PrismaService({
     getOrThrow: () => process.env.DATABASE_URL,
   });
@@ -87,6 +87,76 @@ test('claimNextUnpublished skips rows locked by another transaction', async (t) 
         repository.claimNextUnpublished(eventType, [ids[0]], tx),
       );
       assert.equal(claimed, null);
+    });
+
+    await t.test('recordFailure stores the retry state', async () => {
+      const nextAttemptAt = new Date(Date.now() + 60_000);
+      await prisma.$transaction((tx) =>
+        repository.recordFailure(
+          ids[0],
+          {
+            attempts: 1,
+            lastErrorCode: 'HTTP_503',
+            nextAttemptAt,
+            failedAt: null,
+          },
+          tx,
+        ),
+      );
+      const row = await prisma.outboxEvent.findUnique({
+        where: { id: ids[0] },
+      });
+      assert.equal(row.attempts, 1);
+      assert.equal(row.lastErrorCode, 'HTTP_503');
+      assert.equal(row.nextAttemptAt.getTime(), nextAttemptAt.getTime());
+      assert.equal(row.failedAt, null);
+      assert.equal(row.publishedAt, null);
+    });
+
+    await t.test(
+      'emails waiting for their next attempt or failed are not claimed',
+      async () => {
+        const create = (data) =>
+          prisma.outboxEvent.create({
+            data: {
+              aggregateType: 'EmailRelayIntegration',
+              aggregateId: randomUUID(),
+              eventType,
+              payload: {},
+              occurredAt: new Date(),
+              ...data,
+            },
+          });
+        await create({ failedAt: new Date(), attempts: 8 });
+        const due = await create({
+          attempts: 2,
+          nextAttemptAt: new Date(Date.now() - 1000),
+        });
+        const claimed = await prisma.$transaction((tx) =>
+          repository.claimNextUnpublished(eventType, [], tx),
+        );
+        assert.equal(claimed.id, due.id);
+        assert.equal(claimed.attempts, 2);
+      },
+    );
+
+    await t.test('the claim query uses the partial index', async () => {
+      const plan = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SET LOCAL enable_seqscan = off`;
+        return tx.$queryRaw`
+          EXPLAIN (FORMAT JSON)
+          SELECT id, payload, attempts
+          FROM outbox_events
+          WHERE event_type = ${eventType}
+            AND published_at IS NULL
+            AND failed_at IS NULL
+            AND (next_attempt_at IS NULL OR next_attempt_at <= now())
+            AND NOT (id = ANY(${[]}::uuid[]))
+          ORDER BY id
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED`;
+      });
+      assert.match(JSON.stringify(plan), /outbox_events_pending_claim_idx/);
     });
   } finally {
     await cleanup();

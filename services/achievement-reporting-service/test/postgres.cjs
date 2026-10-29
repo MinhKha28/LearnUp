@@ -8,7 +8,7 @@ const {
 const {
   CertificatesRepository,
 } = require('../dist/src/modules/certificates/certificates.repository');
-async function isolatedDatabase() {
+async function isolatedDatabase({ beforeTimezoneMigration } = {}) {
   if (process.env.NODE_ENV === 'production' || !process.env.DATABASE_URL)
     throw new Error('Non-production DATABASE_URL required');
   const schema = 'ar1_test_' + randomUUID().replaceAll('-', '');
@@ -32,6 +32,16 @@ async function isolatedDatabase() {
         join(
           __dirname,
           '../prisma/migrations/20261025000000_certificate_signer_settings/migration.sql',
+        ),
+        'utf8',
+      ),
+    );
+    if (beforeTimezoneMigration) await beforeTimezoneMigration(pool);
+    await pool.query(
+      readFileSync(
+        join(
+          __dirname,
+          '../prisma/migrations/20261029000000_certificate_organization_timezone/migration.sql',
         ),
         'utf8',
       ),

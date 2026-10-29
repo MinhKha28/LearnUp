@@ -90,6 +90,65 @@ they are not instructions for deployed data. Historical known demo passwords may
 still exist in persisted databases or Git history; coordinate any necessary
 credential rotation through the owning account lifecycle, not a startup reset.
 
+## Existing-user metadata synchronization (internal only)
+
+`PUT /api/internal/credentials/metadata` accepts a complete, explicitly supplied
+Tenant-owned metadata snapshot: `userId` (UUID), `email`, `role` (uppercase enum),
+`fullName` and `organizationId` (nullable). Email is normalized to lowercase using
+`Locale.ROOT`; it and the optional full name must fit the existing 100-character
+columns. Null/omitted full name or Organization ID clears that nullable metadata;
+callers must supply the complete intended snapshot, not a partial patch. Unknown
+fields, including passwords, usernames and enabled state, are rejected.
+
+This route requires the existing private `X-Internal-Key`/`INTERNAL_SERVICE`
+boundary. A browser JWT or forwarded user headers alone do not authorize it. It
+is hidden from OpenAPI, has no public alias or Gateway route, and does not publish
+Identity's port. The shared internal key authenticates the trusted service
+channel, not a distinct per-service principal; protect it accordingly. Tenant
+remains the authority for the supplied metadata and business eligibility.
+
+Only an existing exact User ID is accepted (404 otherwise). The transaction locks
+that account using the same row-lock order as password/refresh operations. It
+never releases an email claim, creates users or changes another owner.
+An existing email owner (checked case-insensitively) yields 409. The unchanged
+unique email constraint also rejects concurrent claims after both preflight reads;
+flushing inside the service
+translates that failure to a safe 409 and rolls back every change. Callers must
+stop on conflicts, not retry with a different owner or automatically repair data.
+
+User ID, username, password hash, enabled state, creation time, refresh sessions
+and recovery tokens are preserved. Metadata changes update the normal audit
+timestamp; an identical request leaves the row unchanged. Success returns only
+the usual API envelope and a fixed confirmation message, never credentials. This
+is not password replacement or business account activation. It does not rewrite
+already-issued JWT claims or implement immediate JWT revocation.
+
+Existing registration/invitation callers retain `POST /api/internal/credentials`
+and its request/success format. New credentials require a valid email; supported
+same-user password replacement may omit it. Cross-user email reuse (BR-39, legacy BR-31) requires
+the authenticated Tenant existence lookup and retains the old canonical user
+with a NULL email through forward Flyway V5. The unique constraint and the old
+credential/session/recovery records remain. Active owners yield `409 EMAIL_IN_USE`,
+untrustworthy Tenant results yield 503, and database races roll back with 409.
+See [BR39-INTEGRATION.md](BR39-INTEGRATION.md) for transaction semantics, required
+Tenant visibility/locking contracts and disposable integration steps. Provisioning
+is not a metadata repair operation; use the existing-ID-only PUT for metadata.
+
+Tests exercise the real security chain, transaction rollback, credential/token
+preservation, idempotency and forced concurrent claims in isolated H2. The same
+contract runs against migrated disposable PostgreSQL using the existing runner:
+
+```powershell
+./src/test/scripts/Test-PasswordResetPostgres.ps1 -AllTests -MavenGoals clean,verify
+```
+
+This starts only an owned test database, not the demo-account stack, and never
+connects to persistent `tenant_db` or `identity_db`. Tenant access is mocked.
+Deploying this operation or using it for a live fixture requires a separate
+authorized step. Tenant-owned Organization activation likewise requires explicit
+Tenant-owner approval and revalidated payment/Subscription evidence; do not replay
+registration or payment to repair an already-paid fixture.
+
 ## Local Swagger / OpenAPI
 
 The Spring MVC UI starter is pinned to **2.6.0** because the official

@@ -17,6 +17,7 @@ import { ApiConsumes, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { ResponseMessage, User } from '../../common/decorator/customize';
 import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
+import { FileSizeLimitInterceptor } from '../../infrastructure/storage/upload-limit';
 import { SUBMISSION_FILE_MAX_BYTES } from './learner-submissions.constants';
 import { LearnerSubmissionsService } from './learner-submissions.service';
 
@@ -82,6 +83,7 @@ export class LearnerSubmissionsController {
   @ResponseMessage('Assignment submitted successfully.')
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
+    new FileSizeLimitInterceptor(SUBMISSION_FILE_MAX_BYTES),
     FileInterceptor('file', {
       limits: { files: 1, fileSize: SUBMISSION_FILE_MAX_BYTES },
     }),
@@ -101,6 +103,7 @@ export class LearnerSubmissionsController {
   @ResponseMessage('Assignment resubmitted successfully.')
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
+    new FileSizeLimitInterceptor(SUBMISSION_FILE_MAX_BYTES),
     FileInterceptor('file', {
       limits: { files: 1, fileSize: SUBMISSION_FILE_MAX_BYTES },
     }),

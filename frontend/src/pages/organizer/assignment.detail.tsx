@@ -45,7 +45,7 @@ const AssignmentDetail = () => {
       setListError(toApiError(cause)),
     );
   };
-  const timezone = item?.organizationTimezone ?? null;
+  const timezone = item?.dueTimezone ?? null;
   const date = (value: string | null) => assignmentTimestamp(value, timezone);
   return (
     <OrganizerPage className="organizer-assignment-detail">

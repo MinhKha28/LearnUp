@@ -11,9 +11,9 @@ export interface MyCourseRow extends EnrollmentSummary {
 }
 
 /** Mô hình hiển thị một dòng UC26; không tính phần trăm (D4). */
-export const buildMyCourseRow = (item: MyEnrollmentItem, organizationTimezone: string | null): MyCourseRow => ({
+export const buildMyCourseRow = (item: MyEnrollmentItem): MyCourseRow => ({
   key: item.enrollmentId,
-  ...summarizeEnrollment(item, organizationTimezone),
+  ...summarizeEnrollment(item),
   coverFileId: item.course?.coverFileId ?? null,
   action:
     item.status === "Halted"

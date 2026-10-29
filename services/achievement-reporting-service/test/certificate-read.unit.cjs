@@ -46,7 +46,7 @@ afterEach(() => {
 const error = (status, code) => (e) =>
   e.getStatus() === status && e.getResponse().code === code;
 const service = (repository = {}) =>
-  new CertificatesService(repository, {}, settings);
+  new CertificatesService(repository, {});
 test('repository applies organization, learner and Issued predicates in each database query', async () => {
   const seen = [];
   const repo = new CertificateReadRepository({
@@ -167,14 +167,15 @@ test('safe response uses Vietnam calendar date and frozen text without technical
     ].sort(),
   );
   assert.equal(
-    issuedDate(new Date('2026-10-31T17:00:00Z'), settings.timezone),
+    issuedDate(new Date('2026-10-31T17:00:00Z'), record().organizationTimezone),
     '2026-11-01',
   );
   assert.equal(certificateReadConfig(() => undefined).queueSize, 16);
-  assert.throws(() =>
+  assert.equal(
     certificateReadConfig((k) =>
       k === 'CERTIFICATE_DISPLAY_TIMEZONE' ? 'bad zone' : undefined,
-    ),
+    ).queueSize,
+    16,
   );
 });
 test('download filename supplies safe ASCII fallback and RFC 5987 encoding', () => {

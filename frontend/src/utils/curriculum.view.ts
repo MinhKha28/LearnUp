@@ -6,7 +6,7 @@ import { formatDuration, MATERIAL_TYPE_LABELS, type StatusTone } from "@/utils/l
 export type CompletionMark = { label: string; tone: StatusTone } | null;
 
 export const buildCurriculumHeader = (data: CurriculumData): EnrollmentSummary =>
-  summarizeEnrollment(data, data.organizationTimezone);
+  summarizeEnrollment(data);
 
 /** null: Lesson hoặc Module không có học liệu, không hiện dấu (D30). */
 export const completionMark = (completed: boolean | null): CompletionMark => {
