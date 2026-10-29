@@ -40,7 +40,6 @@ const Assignments = () => {
     if (lastPage !== null && page > lastPage)
       setParams({ page: String(lastPage) }, { replace: true });
   }, [lastPage, page, setParams]);
-  const timezone = query.data?.organizationTimezone ?? null;
   const columns: ColumnsType<Assignment> = [
     {
       title: "Học viên",
@@ -75,14 +74,14 @@ const Assignments = () => {
       key: "assigned",
       className: "organizer-assignment-nowrap",
       width: "1%",
-      render: (_, row) => assignmentDateOnly(row.assignedAt, timezone),
+      render: (_, row) => assignmentDateOnly(row.assignedAt, row.dueTimezone),
     },
     {
-      title: <span className="organizer-assignment-column-title">Hạn <Tooltip title={assignmentDueNote(timezone)}><InfoCircleOutlined aria-label={assignmentDueNote(timezone)} tabIndex={0} /></Tooltip></span>,
+      title: "Hạn",
       key: "due",
       className: "organizer-assignment-nowrap",
       width: "1%",
-      render: (_, row) => assignmentDueDate(row.dueAt, timezone),
+      render: (_, row) => <Tooltip title={assignmentDueNote(row.dueTimezone)}><span>{assignmentDueDate(row.dueAt, row.dueTimezone)}</span></Tooltip>,
     },
     {
       title: "Trạng thái",

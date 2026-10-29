@@ -75,3 +75,15 @@ export function maxUploadBytesFor(
       return undefined;
   }
 }
+
+/** The largest upload a consumer accepts: its own product ceiling, lowered to the storage plan limit of the resource type. */
+export function effectiveUploadLimit(
+  ceilingBytes: number,
+  limits: IStoragePlanLimits,
+  resourceType: StorageResourceType,
+): number {
+  const planBytes = maxUploadBytesFor(limits, resourceType);
+  return planBytes === undefined
+    ? ceilingBytes
+    : Math.min(ceilingBytes, planBytes);
+}

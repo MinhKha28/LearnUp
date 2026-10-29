@@ -10,7 +10,6 @@ import { CourseSnapshotsRepository } from '../../src/modules/course-snapshots/co
 import { BaseDueAtRepository } from '../../src/modules/enrollments/base-due-at.repository';
 import { EnrollmentsRepository } from '../../src/modules/enrollments/enrollments.repository';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
-import { OrganizationTimezoneService } from '../../src/infrastructure/clients/tenant/organization-timezone.service';
 import { PlatformSettingsRepository } from '../../src/modules/platform-settings/platform-settings.repository';
 import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { ENROLL_IT_ORG, ENROLL_IT_ORGANIZER } from './enroll-it-fixture';
@@ -28,10 +27,7 @@ export async function createRequiredEnrollment(
     false,
   );
   const tree = await courseClient.getCourseTree(ENROLL_IT_ORGANIZER, courseId);
-  const timezone = await app
-    .get(OrganizationTimezoneService)
-    .getTimezone(ENROLL_IT_ORGANIZER);
-  assert.ok(timezone, 'tenant phải trả múi giờ cho ORG_TEST');
+  const timezone = 'Asia/Ho_Chi_Minh';
   const videoCompletionPercent = await app
     .get(PlatformSettingsRepository)
     .getVideoCompletionPercent();
@@ -60,6 +56,7 @@ export async function createRequiredEnrollment(
         expectedCompletionDays: lock.expectedCompletionDays,
         baseDueAt,
         dueAt: baseDueAt,
+        dueTimezone: timezone,
         extensionSeconds: 0,
         videoCompletionPercent,
       },

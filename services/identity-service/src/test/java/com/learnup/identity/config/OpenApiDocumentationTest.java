@@ -54,7 +54,7 @@ class OpenApiDocumentationTest {
         JsonNode password = spec.path("components").path("schemas").path("LoginRequest").path("properties").path("password");
         assertThat(password.path("writeOnly").asBoolean()).isTrue();
         assertThat(password.has("example")).isFalse();
-        assertThat(json).doesNotContain("/api/internal/", "SetCredentialsRequest", "X-Internal-Key", "passwordHash",
+        assertThat(json).doesNotContain("/api/internal/", "SetCredentialsRequest", "UpdateUserMetadataRequest", "X-Internal-Key", "passwordHash",
                 "testInternalServiceKeyAtLeast32BytesLong!", "testSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong!");
     }
 

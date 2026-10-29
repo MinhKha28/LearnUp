@@ -492,6 +492,7 @@ class AuthControllerIntegrationTest {
 
         // Match Tenant's payload (no username), retaining its canonical ID and metadata.
         User provisioned = userRepository.findById(newUserId).orElseThrow();
+        assertThat(provisioned.getUsername()).isEqualTo("user_" + newUserId.toString().replace("-", "")).hasSize(37);
         assertThat(provisioned.getEmail()).isEqualTo(request.getEmail());
         assertThat(provisioned.getRole()).isEqualTo(role);
         assertThat(provisioned.getOrganizationId()).isEqualTo(organizationId);
@@ -630,6 +631,8 @@ class AuthControllerIntegrationTest {
         UUID oldUserId = UUID.randomUUID();
         UUID newUserId = UUID.randomUUID();
 
+        when(tenantAccessClient.exists(oldUserId)).thenReturn(false);
+
         for (UUID id : new UUID[] {oldUserId, newUserId}) {
             com.learnup.identity.dto.internal.SetCredentialsRequest request =
                     new com.learnup.identity.dto.internal.SetCredentialsRequest(id, "reRegisterPass123");
@@ -643,7 +646,13 @@ class AuthControllerIntegrationTest {
                     .andExpect(status().isOk());
         }
 
-        assertThat(userRepository.findById(oldUserId)).isEmpty();
+        assertThat(userRepository.findById(oldUserId)).isPresent().get().satisfies(old -> {
+            assertThat(old.getEmail()).isNull();
+            assertThat(old.getUsername()).isEqualTo("user_" + oldUserId.toString().replace("-", ""));
+            assertThat(passwordEncoder.matches("reRegisterPass123", old.getPasswordHash())).isTrue();
+        });
+        assertThat(userRepository.count()).isEqualTo(2);
+        verify(tenantAccessClient).exists(oldUserId);
 
         LoginRequest loginReq = new LoginRequest("re-register@abc.vn", "reRegisterPass123");
         mockMvc.perform(post("/api/v1/auth/login")

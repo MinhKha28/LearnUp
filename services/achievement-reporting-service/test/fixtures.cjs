@@ -62,6 +62,7 @@ const config = (overrides) => ({
   tenantUrl: 'http://tenant.invalid',
   courseUrl: 'http://course.invalid',
   internalKey: 'synthetic-test-key',
+  fallbackTimezone: 'Asia/Ho_Chi_Minh',
   profileMode: 'http',
   courseMode: 'http',
   concurrency: 4,
@@ -86,6 +87,7 @@ const directory = () => ({
   profile: async (org) => ({
     organizationId: org,
     name: 'Tổ chức kiểm thử',
+    timezone: 'Asia/Ho_Chi_Minh',
     logo: null,
   }),
   course: async (_org, id) => ({

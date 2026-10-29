@@ -1,5 +1,5 @@
 import type { CertificateListQuery } from './dto/certificate-list-query.dto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import type { CurrentUser } from '@learnup/ts-common';
 import {
@@ -7,12 +7,7 @@ import {
   type CertificateText,
   type CertificateCursor,
 } from './certificate-read.repository';
-import {
-  CERTIFICATE_READ_CONFIG,
-  type CertificateReadConfig,
-  issuedDate,
-  formattedCode,
-} from './certificate-read.config';
+import { issuedDate, formattedCode } from './certificate-read.config';
 import { CertificatePdfRenderer } from './certificate-pdf.renderer';
 import { fail } from './signer.validation';
 export interface CertificateResponse {
@@ -32,8 +27,6 @@ export class CertificatesService {
   constructor(
     private readonly repository: CertificateReadRepository,
     private readonly renderer: CertificatePdfRenderer,
-    @Inject(CERTIFICATE_READ_CONFIG)
-    private readonly config: CertificateReadConfig,
   ) {}
   authorize(user: CurrentUser) {
     if (
@@ -56,7 +49,7 @@ export class CertificatesService {
       courseTitle: row.courseName,
       versionNumber: row.versionNumber,
       issuedAt: row.issuedAt.toISOString(),
-      issuedDate: issuedDate(row.issuedAt, this.config.timezone),
+      issuedDate: issuedDate(row.issuedAt, row.organizationTimezone),
       certificateCode: formattedCode(row.certificateCode),
       completedLate: row.completedLate,
       signerName: row.signerName,
@@ -110,7 +103,7 @@ export class CertificatesService {
         courseTitle: row.courseName,
         versionNumber: row.versionNumber,
         issuedAt: row.issuedAt.toISOString(),
-        issuedDate: issuedDate(row.issuedAt, this.config.timezone),
+        issuedDate: issuedDate(row.issuedAt, row.organizationTimezone),
         completedLate: row.completedLate,
       })),
       nextCursor:

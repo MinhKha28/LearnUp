@@ -1,20 +1,23 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { HEADER_NAMES } from '@learnup/ts-common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { OutboxRepository } from './outbox.repository';
 import { EMAIL_REQUESTED_EVENT } from './outbox.service';
+import { OUTBOX_MAX_ATTEMPTS, nextRetryState } from './outbox-retry.policy';
 import { EmailMessage } from './interfaces/email-message.interface';
 import { NotificationEmailResponse } from './interfaces/notification-email-response.interface';
+import { IOutboxRetryState } from './interfaces/outbox-retry-state.interface';
 
 export const RELAY_BATCH_SIZE = 20;
 export const DEFAULT_NOTIFICATION_TIMEOUT_MS = 5000;
 
 @Injectable()
-export class EmailRelayService {
+export class EmailRelayService implements OnModuleDestroy {
   private readonly logger = new Logger(EmailRelayService.name);
-  private running = false;
+  private currentRound: Promise<void> | null = null;
+  private stopping = false;
   private missingUrlReported = false;
 
   constructor(
@@ -23,49 +26,69 @@ export class EmailRelayService {
     private readonly prisma: PrismaService,
   ) {}
 
-  /**
-   * Thiếu NOTIFICATION_SERVICE_URL ngoài development: không có nơi gửi, nên email được giữ ở trạng thái
-   * chưa gửi và nội dung (mã xác thực, liên kết) không bị ghi ra log; lỗi cấu hình chỉ báo một lần.
-   */
   @Interval(1000)
   async relayPendingEmails(): Promise<void> {
-    if (this.running) return;
-    this.running = true;
+    if (this.currentRound || this.stopping) return;
+    this.currentRound = this.runRound();
     try {
-      const baseUrl = this.notificationBaseUrl();
-      if (!baseUrl && !this.isDevelopment()) {
-        if (!this.missingUrlReported) {
-          this.logger.error(
-            'NOTIFICATION_SERVICE_URL is not configured; emails stay pending until it is set.',
-          );
-          this.missingUrlReported = true;
-        }
-        return;
-      }
-      this.missingUrlReported = false;
-
-      const attempted: string[] = [];
-      while (attempted.length < RELAY_BATCH_SIZE) {
-        const eventId = await this.relayNext(baseUrl, attempted);
-        if (!eventId) break;
-        attempted.push(eventId);
-      }
+      await this.currentRound;
     } finally {
-      this.running = false;
+      this.currentRound = null;
     }
   }
 
   /**
-   * Một email một transaction: khóa dòng, gửi, đánh dấu đã gửi rồi mới commit.
-   * Gửi lỗi thì rollback, email vẫn chưa gửi và được thử lại ở lượt sau.
-   * Trả về id event đã thử, hoặc null khi hết email hay không đọc được database.
+   * Khi tắt service: không mở lượt mới, chờ lượt đang chạy xong (có giới hạn) rồi mới để Prisma ngắt kết nối.
+   * OutboxModule đăng ký sau PrismaModule, nên hook này chạy trước PrismaService.onModuleDestroy.
+   */
+  async onModuleDestroy(): Promise<void> {
+    this.stopping = true;
+    const round = this.currentRound;
+    if (!round) return;
+    let timer: NodeJS.Timeout | undefined;
+    const limit = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, this.timeoutMs() + 5000);
+    });
+    await Promise.race([round, limit]);
+    clearTimeout(timer);
+  }
+
+  /**
+   * Thiếu NOTIFICATION_SERVICE_URL ngoài development: không có nơi gửi, nên email được giữ ở trạng thái
+   * chưa gửi và nội dung (mã xác thực, liên kết) không bị ghi ra log; lỗi cấu hình chỉ báo một lần.
+   */
+  private async runRound(): Promise<void> {
+    const baseUrl = this.notificationBaseUrl();
+    if (!baseUrl && !this.isDevelopment()) {
+      if (!this.missingUrlReported) {
+        this.logger.error(
+          'NOTIFICATION_SERVICE_URL is not configured; emails stay pending until it is set.',
+        );
+        this.missingUrlReported = true;
+      }
+      return;
+    }
+    this.missingUrlReported = false;
+
+    const attempted: string[] = [];
+    while (attempted.length < RELAY_BATCH_SIZE && !this.stopping) {
+      const eventId = await this.relayNext(baseUrl, attempted);
+      if (!eventId) break;
+      attempted.push(eventId);
+    }
+  }
+
+  /**
+   * Một email một transaction: khóa dòng, gửi, rồi ghi kết quả (đã gửi, hoặc số lần thử và lần thử kế tiếp)
+   * trước khi commit. Log chỉ chứa id event và mã lỗi cố định, không chứa nội dung hay thông báo lỗi gốc.
+   * Trả về id event đã thử, hoặc null khi hết email đến hạn hay không đọc được database.
    */
   private async relayNext(
     baseUrl: string | undefined,
     attempted: string[],
   ): Promise<string | null> {
     const timeoutMs = this.timeoutMs();
-    const claim: { id?: string } = {};
+    const outcome: { id?: string; failure?: IOutboxRetryState } = {};
     try {
       await this.prisma.$transaction(
         async (tx) => {
@@ -75,10 +98,23 @@ export class EmailRelayService {
             tx,
           );
           if (!event) return;
-          claim.id = event.id;
+          outcome.id = event.id;
 
           const email = event.payload as unknown as EmailMessage;
-          await this.deliver(baseUrl, email, timeoutMs);
+          const errorCode = await this.deliver(baseUrl, email, timeoutMs);
+          if (errorCode) {
+            outcome.failure = nextRetryState(
+              event.attempts,
+              errorCode,
+              new Date(),
+            );
+            await this.outboxRepository.recordFailure(
+              event.id,
+              outcome.failure,
+              tx,
+            );
+            return;
+          }
           await this.outboxRepository.markPublished(
             event.id,
             { to: email.to, templateCode: email.templateCode, redacted: true },
@@ -87,55 +123,80 @@ export class EmailRelayService {
         },
         { maxWait: timeoutMs, timeout: timeoutMs + 5000 },
       );
-    } catch (error) {
-      const reason = (error as Error).message;
-      if (!claim.id) {
-        this.logger.warn(`Không đọc được outbox: ${reason}`);
+    } catch {
+      if (!outcome.id) {
+        this.logger.warn('Outbox unavailable (DATABASE_ERROR).');
         return null;
       }
-      this.logger.warn(`Gửi email ${claim.id} thất bại: ${reason}`);
+      this.logger.warn(
+        `Email ${outcome.id}: result not saved (DATABASE_ERROR); it stays pending and may be sent again.`,
+      );
+      return outcome.id;
     }
-    return claim.id ?? null;
+
+    this.logFailure(outcome.id, outcome.failure);
+    return outcome.id ?? null;
   }
 
+  private logFailure(id: string | undefined, failure?: IOutboxRetryState) {
+    if (!id || !failure) return;
+    if (failure.failedAt) {
+      this.logger.error(
+        `Email ${id} failed permanently (${failure.lastErrorCode}) after ${failure.attempts} attempts.`,
+      );
+      return;
+    }
+    this.logger.warn(
+      `Email ${id} failed (${failure.lastErrorCode}), attempt ${failure.attempts}/${OUTBOX_MAX_ATTEMPTS}, next attempt at ${failure.nextAttemptAt?.toISOString()}.`,
+    );
+  }
+
+  /** Trả về null khi gửi được, hoặc một mã lỗi cố định khi không gửi được. */
   private async deliver(
     baseUrl: string | undefined,
     email: EmailMessage,
     timeoutMs: number,
-  ): Promise<void> {
+  ): Promise<string | null> {
     if (!baseUrl) {
       this.logger.warn(
         `\n[DEV EMAIL] NODE_ENV=development, NOTIFICATION_SERVICE_URL trống: chỉ in ra log, không gửi.\nTo: ${email.to}\nSubject: ${email.subject}\n${email.body}\n`,
       );
-      return;
+      return null;
     }
 
-    const response = await fetch(`${baseUrl}/api/notifications/email/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        [HEADER_NAMES.INTERNAL_KEY]: this.config.getOrThrow<string>(
-          'INTERNAL_SERVICE_KEY',
-        ),
-      },
-      body: JSON.stringify({
-        recipientEmail: email.to,
-        subject: email.subject,
-        body: email.body,
-        templateCode: email.templateCode,
-      }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (!response.ok) {
-      throw new Error(`notification-service trả về HTTP ${response.status}`);
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}/api/notifications/email/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          [HEADER_NAMES.INTERNAL_KEY]: this.config.getOrThrow<string>(
+            'INTERNAL_SERVICE_KEY',
+          ),
+        },
+        body: JSON.stringify({
+          recipientEmail: email.to,
+          subject: email.subject,
+          body: email.body,
+          templateCode: email.templateCode,
+        }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (error) {
+      const name = (error as Error | undefined)?.name;
+      return name === 'TimeoutError' || name === 'AbortError'
+        ? 'TIMEOUT'
+        : 'NETWORK';
     }
+    if (!response.ok) return `HTTP_${response.status}`;
 
-    const result = (await response.json()) as NotificationEmailResponse;
-    if (result.data?.status === 'FAILED') {
-      throw new Error(
-        `SMTP gửi thất bại: ${result.data.errorMessage ?? 'không rõ lý do'}`,
-      );
+    let result: NotificationEmailResponse;
+    try {
+      result = (await response.json()) as NotificationEmailResponse;
+    } catch {
+      return 'INVALID_RESPONSE';
     }
+    return result.data?.status === 'FAILED' ? 'SMTP_FAILED' : null;
   }
 
   private notificationBaseUrl(): string | undefined {
