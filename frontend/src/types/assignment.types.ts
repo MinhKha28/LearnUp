@@ -19,6 +19,7 @@ export interface Assignment {
   course: { id: string; title: string; versionNumber: number } | null;
   assignedAt: string | null;
   dueAt: string | null;
+  dueTimezone: string | null;
   status: AssignmentStatus;
   requiredCompleted: number;
   requiredTotal: number;
@@ -28,10 +29,8 @@ export interface AssignmentPage {
   page: number;
   pageSize: number;
   total: number;
-  organizationTimezone: string | null;
 }
 export interface AssignmentDetail extends Assignment {
-  organizationTimezone: string | null;
   baseDueAt: string | null;
   extensionSeconds: number;
   firstActivityAt: string | null;
