@@ -687,6 +687,11 @@ describe('resubmit (UC30.1)', () => {
 
   test('D-045: a debt repaid in a later cycle follows the Instructor path after the cutoff', async () => {
     const { ctx } = await submitted();
+    // The stale marker develop keeps after the debt is repaid (the column is dropped here; the property only reproduces
+    // develop's state, so this test fails on develop's source and passes on this change).
+    Object.assign(ctx.world.states.get(`${ASSIGNMENT}:${LEARNER}`)!, {
+      peerReviewObligation: 'Missed',
+    });
     ctx.world.peerReviews = [
       missedReview,
       {
