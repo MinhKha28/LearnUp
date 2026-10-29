@@ -597,3 +597,37 @@ describe("safe provider contract", () => {
     );
   });
 });
+
+describe("plan upload enforcement", () => {
+  it.each(["raw", "image", "video"] as const)(
+    "honours custom %s boundary using Buffer length",
+    async (resourceType) => {
+      provider = new CloudinaryStorageProvider({
+        cloudName: "fixture",
+        apiKey: "fixture",
+        apiSecret: "fixture",
+        planLimits: { rawMaxBytes: 7, imageMaxBytes: 7, videoMaxBytes: 7 },
+      });
+      await expect(
+        provider.upload(
+          { ...file, buffer: Buffer.alloc(8), sizeBytes: 1 },
+          { folder: "folder", resourceType },
+        ),
+      ).rejects.toMatchObject({ code: "TOO_LARGE" });
+      expect(sdk.upload).not.toHaveBeenCalled();
+      expect(sdk.chunked).not.toHaveBeenCalled();
+      await expect(
+        provider.upload(file, { folder: "folder", resourceType }),
+      ).resolves.toHaveProperty("storageKey");
+    },
+  );
+  it.each([
+    ["File size too large. Got 11534336. Maximum is 10485760.", "TOO_LARGE"],
+    ["Invalid parameter", "UNAVAILABLE"],
+  ])("classifies 400 %s safely", async (message, code) => {
+    sdk.destroy.mockRejectedValue({ http_code: 400, message, name: "Error" });
+    await expect(
+      provider.delete("key", { resourceType: "raw" }),
+    ).rejects.toEqual(safeError(code, "Cloudinary delete failed."));
+  });
+});
