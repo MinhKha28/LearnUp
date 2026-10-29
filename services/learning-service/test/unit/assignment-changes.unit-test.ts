@@ -110,3 +110,55 @@ describe('UC24.3 / UC24.5 rules and DTOs', () => {
       );
   });
 });
+
+test('fractional extension 112500.428 is floored to whole seconds', () => {
+  assert.equal(
+    validateExtension(
+      new Date('2026-10-13T16:44:59.572Z'),
+      new Date('2026-10-15T00:00:00Z'),
+      '2026-10-14',
+      '2026-10-13',
+    ),
+    112500n,
+  );
+});
+test('positive sub-second extension uses the existing not-later validation error', () => {
+  assert.throws(
+    () =>
+      validateExtension(
+        new Date('2026-10-14T23:59:59.572Z'),
+        new Date('2026-10-15T00:00:00Z'),
+        '2026-10-14',
+        '2026-10-13',
+      ),
+    (error: { getResponse(): unknown }) =>
+      typeof error.getResponse === 'function' &&
+      JSON.stringify(error.getResponse()).includes('DUE_DATE_NOT_LATER'),
+  );
+});
+
+test('hidden microseconds at an exact JS second are floored without crossing midnight', () => {
+  assert.equal(
+    validateExtension(
+      new Date('2026-10-13T16:44:59.000Z'),
+      new Date('2026-10-14T17:00:00Z'),
+      '2026-10-14',
+      '2026-10-13',
+      true,
+    ),
+    87300n,
+  );
+});
+test('hidden microseconds making an extension shorter than one second are rejected', () => {
+  assert.throws(
+    () =>
+      validateExtension(
+        new Date('2026-10-14T16:59:59.000Z'),
+        new Date('2026-10-14T17:00:00Z'),
+        '2026-10-14',
+        '2026-10-13',
+        true,
+      ),
+    /sau hạn/,
+  );
+});

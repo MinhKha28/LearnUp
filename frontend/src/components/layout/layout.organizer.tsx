@@ -61,7 +61,7 @@ const organizerMenuItems: MenuItem[] = [
         label: "Tổ chức",
       },
       {
-        key: "/organizer/certificate-settings", icon: <SafetyCertificateOutlined />, label: "Cấu hình Certificate",
+        key: "/organizer/certificate-settings", icon: <SafetyCertificateOutlined />, label: "Chứng chỉ",
       },
       {
         key: "/organizer/instructors",
@@ -133,7 +133,7 @@ const organizerMenuItems: MenuItem[] = [
 ];
 
 const getPageMeta = (pathname: string) => {
-  if (pathname === "/organizer/certificate-settings") return ["Quản lý đào tạo", "Cấu hình Certificate"];
+  if (pathname === "/organizer/certificate-settings") return ["Quản lý đào tạo", "Chứng chỉ"];
   if (pathname === "/organizer") return ["Quản lý đào tạo", "Tổng quan"];
   if (pathname === "/organizer/subscription")
     return ["Quản lý đào tạo", "Gói dịch vụ"];

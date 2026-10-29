@@ -259,6 +259,9 @@ services:
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      STORAGE_MAX_RAW_BYTES: ${STORAGE_MAX_RAW_BYTES:-}
+      STORAGE_MAX_IMAGE_BYTES: ${STORAGE_MAX_IMAGE_BYTES:-}
+      STORAGE_MAX_VIDEO_BYTES: ${STORAGE_MAX_VIDEO_BYTES:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -281,6 +284,9 @@ services:
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      STORAGE_MAX_RAW_BYTES: ${STORAGE_MAX_RAW_BYTES:-}
+      STORAGE_MAX_IMAGE_BYTES: ${STORAGE_MAX_IMAGE_BYTES:-}
+      STORAGE_MAX_VIDEO_BYTES: ${STORAGE_MAX_VIDEO_BYTES:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -302,8 +308,8 @@ services:
       COURSE_SERVICE_URL: http://course-service:8083
       COURSE_SERVICE_TIMEOUT_MS: 3000
       TENANT_SERVICE_URL: http://tenant-service:8084
-      TENANT_CLIENT_MODE: fake
-      TENANT_FAKE_TIMEZONE: Asia/Ho_Chi_Minh
+      TENANT_CLIENT_MODE: ${LEARNING_TENANT_CLIENT_MODE:-http}
+      TENANT_FAKE_TIMEZONE: ${LEARNING_TENANT_FAKE_TIMEZONE:-Asia/Ho_Chi_Minh}
       ASSESSMENT_CLIENT_MODE: http
       ASSESSMENT_SERVICE_URL: http://assessment-service:8086
       KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:29092}
@@ -331,19 +337,30 @@ services:
       context: .
       dockerfile: services/assessment-service/Dockerfile
     container_name: learnup-assessment-service
+    # Development only, and only this machine: the browser and the other services go through the gateway. Without the
+    # 127.0.0.1 Docker publishes the port on every network of the machine, shared Wi-Fi included. A deployment must not
+    # publish it at all.
     ports:
-      - "8086:8086"
+      - "127.0.0.1:8086:8086"
     environment:
       PORT: 8086
       DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/assessment_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      # The service trusts the identity of whoever sends this key, so it is a secret and has no default.
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       COURSE_SERVICE_URL: http://course-service:8083
       COURSE_SERVICE_TIMEOUT_MS: 5000
       TENANT_SERVICE_URL: http://tenant-service:8084
       LEARNING_SERVICE_URL: http://learning-service:8085
+      # UC33: the cycles close, remind and expire by themselves every minute (BR-230, BR-232, BR-237)
+      PEER_REVIEW_TICK_MS: ${PEER_REVIEW_TICK_MS:-60000}
+      NOTIFICATION_CLIENT_MODE: http
+      NOTIFICATION_SERVICE_URL: http://notification-service:8082
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      STORAGE_MAX_RAW_BYTES: ${STORAGE_MAX_RAW_BYTES:-}
+      STORAGE_MAX_IMAGE_BYTES: ${STORAGE_MAX_IMAGE_BYTES:-}
+      STORAGE_MAX_VIDEO_BYTES: ${STORAGE_MAX_VIDEO_BYTES:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -381,6 +398,9 @@ services:
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      STORAGE_MAX_RAW_BYTES: ${STORAGE_MAX_RAW_BYTES:-}
+      STORAGE_MAX_IMAGE_BYTES: ${STORAGE_MAX_IMAGE_BYTES:-}
+      STORAGE_MAX_VIDEO_BYTES: ${STORAGE_MAX_VIDEO_BYTES:-}
       DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:?Set a private database password}@postgres:5432/achievement_reporting_db?schema=public
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 UTF-8 bytes; trimmed value must not be learnup-internal-secret}
     depends_on:

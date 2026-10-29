@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { v7 } from 'uuid';
-import { CloudinaryStorageProvider } from '@learnup/ts-storage';
+import { CloudinaryStorageProvider, resolveStoragePlanLimits } from '@learnup/ts-storage';
 import type {
   AssetSnapshot,
   PendingCertificate,
@@ -37,6 +37,7 @@ export class CloudinaryIssuanceStorage implements IssuanceStorage {
         apiKey,
         apiSecret,
         secure: true,
+        planLimits: resolveStoragePlanLimits(process.env),
       });
   }
   isConfigured(): boolean {
@@ -92,6 +93,8 @@ export class CloudinaryIssuanceStorage implements IssuanceStorage {
     maxSizeBytes: number,
   ): Promise<Buffer> {
     if (!this.provider) throw new IssuanceError('CLOUDINARY_UNCONFIGURED');
+    if (mime !== 'image/png' && mime !== 'image/jpeg')
+      throw new IssuanceError('UNSUPPORTED_IMAGE_TYPE');
     return this.provider.readBytes(key, {
       deliveryType: 'authenticated',
       resourceType: 'image',

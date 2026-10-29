@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: LearnUP Achievement Reporting API
-  version: 0.2.0
-  description: UC34.3 Organizer certificate signer settings. Gateway authenticates the bearer token and injects trusted identity headers.
+  version: 0.3.0
+  description: Learner certificate list, detail and PDF downloads, and Organizer certificate signer settings. Gateway authenticates the bearer token and injects trusted identity headers.
 servers:
   - url: /api/v1
 security:
@@ -133,6 +133,227 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
         '503': { $ref: '#/components/responses/Unavailable' }
+  /certificates/me:
+    get:
+      operationId: listMyCertificates
+      summary: List issued certificates owned by the authenticated learner
+      description: >-
+        Learner role required. Organization, learner and Issued status are enforced in the database query.
+        Keyset order is issuedAt DESC, id DESC. No filters or total count. Unknown query fields return 400.
+      parameters:
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: cursor
+          description: Opaque cursor returned by the previous page
+          schema:
+            type: string
+            maxLength: 256
+      responses:
+        '200':
+          description: Frozen text and a navigation ID; no storage metadata or scores
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - statusCode
+                  - message
+                  - data
+                properties:
+                  statusCode:
+                    type: integer
+                    enum:
+                      - 200
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required:
+                      - items
+                      - nextCursor
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CertificateListItem'
+                      nextCursor:
+                        type: string
+                        nullable: true
+        '400':
+          description: INVALID_CURSOR, INVALID_PAGE_SIZE or INVALID_QUERY
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Missing/invalid Gateway authentication, internal key or non-UUID identity context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: 'FORBIDDEN_ROLE: authenticated user is not a learner'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: SERVICE_UNAVAILABLE
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                enum:
+                  - 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /certificates/me/{id}:
+    get:
+      operationId: getMyCertificate
+      summary: Read a frozen issued certificate owned by the authenticated learner
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Certificate ID; malformed UUID returns 404
+      responses:
+        '200':
+          description: Frozen text without internal identity IDs, image URLs, storage metadata or scores
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - statusCode
+                  - message
+                  - data
+                properties:
+                  statusCode:
+                    type: integer
+                    enum:
+                      - 200
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/CertificateDetail'
+        '401':
+          description: Missing/invalid Gateway authentication, internal key or non-UUID identity context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: 'FORBIDDEN_ROLE: authenticated user is not a learner'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: 'CERTIFICATE_NOT_FOUND: foreign learner/organization, Pending, unknown or malformed ID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: SERVICE_UNAVAILABLE
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                enum:
+                  - 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /certificates/me/{id}/pdf:
+    get:
+      operationId: downloadMyCertificatePdf
+      summary: Render and download a frozen certificate
+      description: >-
+        Learner only. One active render per instance with a bounded configurable queue. Supported images require
+        readable SHA-256 verified bytes; unsupported formats are skipped. PDF is buffered fully before sending
+        headers and never stored. Failure returns JSON. Missing glyphs warn and still render. Dates use
+        CERTIFICATE_DISPLAY_TIMEZONE, default Asia/Ho_Chi_Minh.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Certificate ID; malformed UUID returns 404
+      responses:
+        '200':
+          description: Completed A4 landscape PDF without JSON envelope
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum:
+                  - application/pdf
+            Content-Disposition:
+              description: attachment with certificate-code ASCII-safe filename and RFC 5987 UTF-8 filename*
+              schema:
+                type: string
+            Content-Length:
+              schema:
+                type: integer
+                minimum: 1
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                  - private, no-store
+            X-Content-Type-Options:
+              schema:
+                type: string
+                enum:
+                  - nosniff
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Missing/invalid Gateway authentication, internal key or non-UUID identity context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: 'FORBIDDEN_ROLE: authenticated user is not a learner'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: 'CERTIFICATE_NOT_FOUND: foreign learner/organization, Pending, unknown or malformed ID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: SERVICE_UNAVAILABLE
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                enum:
+                  - 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   securitySchemes:
     bearerAuth:
@@ -140,6 +361,85 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    CertificateListItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - courseTitle
+        - versionNumber
+        - issuedAt
+        - issuedDate
+        - completedLate
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseTitle:
+          type: string
+          maxLength: 200
+        versionNumber:
+          type: integer
+          minimum: 1
+        issuedAt:
+          type: string
+          format: date-time
+        issuedDate:
+          type: string
+          format: date
+          description: >-
+            Server calendar date in CERTIFICATE_DISPLAY_TIMEZONE; UI formats as dd/MM/yyyy without recomputing
+            from issuedAt
+        completedLate:
+          type: boolean
+    CertificateDetail:
+      type: object
+      required:
+        - recipient
+        - organizationName
+        - courseTitle
+        - versionNumber
+        - issuedAt
+        - issuedDate
+        - certificateCode
+        - completedLate
+        - signerName
+        - signerTitle
+      properties:
+        recipient:
+          type: string
+          maxLength: 100
+        organizationName:
+          type: string
+          maxLength: 200
+        courseTitle:
+          type: string
+          maxLength: 200
+        versionNumber:
+          type: integer
+          minimum: 1
+        issuedAt:
+          type: string
+          format: date-time
+        issuedDate:
+          type: string
+          format: date
+          description: >-
+            Server calendar date in CERTIFICATE_DISPLAY_TIMEZONE; UI formats as dd/MM/yyyy without recomputing
+            from issuedAt
+        certificateCode:
+          type: string
+          pattern: ^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$
+        completedLate:
+          type: boolean
+        signerName:
+          type: string
+          nullable: true
+          maxLength: 100
+        signerTitle:
+          type: string
+          nullable: true
+          maxLength: 200
     SignerSettings:
       type: object
       additionalProperties: false

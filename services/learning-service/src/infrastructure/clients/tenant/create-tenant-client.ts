@@ -1,5 +1,6 @@
 import type { LoggerService } from '@nestjs/common';
 import { FakeTenantClient } from './fake-tenant.client';
+import { TenantAccessHttp } from './tenant-access.http';
 import type { TenantClient } from './tenant.client';
 
 export const FAKE_TENANT_CLIENT_WARNING =
@@ -36,9 +37,7 @@ export function createTenantClient(
   }
 
   if (mode === 'http') {
-    throw new Error(
-      'TENANT_CLIENT_MODE=http chưa dùng được: tenant-service chưa có REST trạng thái truy cập tổ chức. Dùng TENANT_CLIENT_MODE=fake trong môi trường dev.',
-    );
+    return TenantAccessHttp.fromConfig(get);
   }
 
   throw new Error(

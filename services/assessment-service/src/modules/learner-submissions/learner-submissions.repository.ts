@@ -121,7 +121,14 @@ export class LearnerSubmissionsRepository {
     at: Date,
   ) {
     return tx.peerReviewCycle.findFirst({
-      where: { assessmentId, opensAt: { lte: at }, closesAt: { gt: at } },
+      // Open only: a cycle that closed while this submission waited for its lock is not joined, even when the closing
+      // time is later than the time this request started.
+      where: {
+        assessmentId,
+        status: 'Open',
+        opensAt: { lte: at },
+        closesAt: { gt: at },
+      },
     });
   }
 

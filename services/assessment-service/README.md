@@ -18,8 +18,12 @@ npm run db:seed
 It creates the default `platform_settings` row and demo Assignments (with Rubric) for the Courses seeded by
 course-service, reusing the same ids for organizations, instructors and courses.
 
-Run `npm run db:seed` in `services/course-service` first: this service asks Course Service for the owner, status and
+Run `npm run prisma:seed` in `services/course-service` first: this service asks Course Service for the owner, status and
 Locked flag of a Course before it lets you create, edit or delete an Assignment.
+
+The seed creates no accounts. Organization ABC and the Instructor and Learner it uses (`…a001`, `…a101`, `…a201`) have
+the ids of `course-service/prisma/seed.ts` and of `infrastructure/postgres/seed-dev-accounts.sql`; Identity does not create
+demo accounts by itself, so to log in as them provision them through Tenant or with that SQL file.
 
 ### Demo of UC25.4 (a Learner leaves an optional Course)
 
@@ -43,18 +47,24 @@ pointing at this service (`docker-compose.yml` sets both). Stop assessment-servi
 
 | Course (course-service seed) | Demo Assignment |
 | --- | --- |
-| An toan lao dong v2 (Published) | Peer Review ON |
-| Bao mat thong tin (Published) | Peer Review off |
-| Quy trinh noi bo (Published) | Has a submission, so Instructions / Rubric / n / m are read-only |
-| Nhap mon san pham (organization B) | For checking tenant isolation |
-| Ky nang giao tiep (Draft) | None, use it to try creating an Assignment |
+| `[SEED] An toàn phòng cháy - phiên bản 2` (Published, `VERSION2_PUBLISHED`) | Peer Review ON |
+| `[SEED] Bảo vệ dữ liệu cá nhân` (Published, `PUBLISHED_PRIVATE`) | Peer Review off |
+| `[SEED] Sơ cứu - học liệu bị vô hiệu hóa` (Published, `PUBLISHED_DISABLED_MATERIAL`) | Has a submission, so Instructions / Rubric / n / m are read-only |
+| `[SEED] Bản nháp chưa có nội dung` (Draft, `DRAFT_EMPTY`) | None, use it to try creating an Assignment |
 
-### Demo data for the identity the UI sends
+Not in the course-service seed, kept for the UI and not part of the demos above: `Nhap mon san pham` in Organization B
+(`0199a000-…-0a0000000002`), for checking tenant isolation. Course Service does not know that Organization or that Course;
+see the next section for how to work with this kind of data.
 
-The Course UI sends user `3333…` / organization `2222…` (see `course.service.ts`). `npm run db:seed` in `course-service` creates
-10 Courses for it, one per case, and this seed adds Assignments to them:
+### Legacy demo data for an older UI identity (not login-ready)
 
-| Course (course-service seed) | Case | Assignments |
+This seed also adds Assignments for an older fixture: Organization `2222…` and user `3333…`, once seeded by
+`course-service` with 10 Courses, one per case. **`course-service` no longer creates that Organization or those Courses**
+(its seed has no `ORG_UI` and none of these Course ids), so these rows have no owner there. With `COURSE_CLIENT_MODE=http`
+(the default) a call about them is refused with `COURSE_NOT_FOUND`; use `COURSE_CLIENT_MODE=fake` to try them. No account
+can log in as this identity. Keep them apart from the demos above; they may move to an opt-in seed command later.
+
+| Course (legacy fixture, not in the course-service seed) | Case | Assignments |
 | --- | --- | --- |
 | Workplace Safety Essentials | Draft | none, use it to try creating one |
 | Data Security Basics | Published, not Locked | Peer Review ON |
@@ -86,7 +96,7 @@ the owner check does not apply: use it for local work only.** Errors from the cl
 
 ## Prompt file (Cloudinary)
 
-An Assignment can have one PDF as its prompt (BR-320: one file, PDF, 50 MB at most) besides or instead of the text.
+An Assignment can have one PDF as its prompt (BR-189: one file, with the size and format limits of a submission file; the BR gives no values, and this service accepts PDF only, 50 MB at most, `PROMPT_FILE_MAX_BYTES`) besides or instead of the text.
 
 1. `POST /api/v1/assessments/assignments/prompt-file` (multipart field `file`) stores it in Cloudinary
    (`learnup/<organizationId>/assignments/prompts`, resource type `raw`) and returns

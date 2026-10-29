@@ -1,23 +1,24 @@
+import { closeAll, closeApp } from './deadlines';
+import { testFetch as fetch } from './test-io';
 /**
  * Test tích hợp UC27 (GET /enrollments/:id/curriculum) và UC27.1 (GET /enrollments/:id/lessons/:lessonId)
  * trên fixture ORG_TEST (D34), không dùng dữ liệu demo. Mọi câu ghi trong test lọc theo ENROLL_IT_ORG.
  * Mỗi ca tự dọn ở đầu; dọn lần cuối khi kết thúc (D17).
  *
- * Chạy: npm run test:integration (cần course-service chạy tại COURSE_SERVICE_URL, cả hai DB đã seed)
+ * Chạy: npm run test:integration (isolated PostgreSQL and local HTTP stub)
  */
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import { after, before, describe, test } from 'node:test';
+import { after, before, describe, test } from './test-runner';
 import { HEADER_NAMES, type CurrentUser } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import {
-  courseDatabaseUrl,
   databaseUrl,
   ENROLL_IT_LEARNER_1,
   ENROLL_IT_LEARNER_2,
@@ -29,11 +30,11 @@ import { createRequiredEnrollment } from './enroll-it-required';
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error(
-    'Refusing to run: NODE_ENV=production. This test writes to learning_db and course_db.',
+    'Refusing to run: NODE_ENV=production. This test writes to the isolated Learning database.',
   );
 }
 
-/** Cây của Course test Public và Lesson của Course test Private trong seed course_db. */
+/** Cây của Course test Public và Lesson của Course test Private trong HTTP fixtures. */
 const PUBLIC_MODULE = '0199a000-0000-7000-8000-1a00000000f1';
 const PUBLIC_LESSON = '0199a000-0000-7000-8000-1b00000000f1';
 const PUBLIC_REQUIRED_VIDEO = '0199a000-0000-7000-8000-1c00000000f1';
@@ -42,8 +43,7 @@ const PRIVATE_LESSON = '0199a000-0000-7000-8000-1b00000000f2';
 /** Tổ chức demo chỉ dùng làm header, không ghi gì. */
 const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
 
-const learningDb = new Client({ connectionString: databaseUrl('learning_db') });
-const courseDb = new Client({ connectionString: courseDatabaseUrl() });
+const learningDb = new Client({ connectionString: databaseUrl() });
 
 let app: NestExpressApplication | null = null;
 let baseUrl = '';
@@ -162,9 +162,8 @@ async function learningState(enrollmentId: string) {
 void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   before(async () => {
     await learningDb.connect();
-    await courseDb.connect();
     connected = true;
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
 
     app = await NestFactory.create<NestExpressApplication>(AppModule, {
       logger: ['error'],
@@ -178,17 +177,15 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   after(async () => {
     try {
       if (connected) {
-        await resetEnrollFixture(learningDb, courseDb);
+        await resetEnrollFixture(learningDb);
       }
     } finally {
-      await app?.close();
-      await learningDb.end().catch(() => undefined);
-      await courseDb.end().catch(() => undefined);
+      await closeAll(() => closeApp(app), () => learningDb.end());
     }
   });
 
   void test('role khác LEARNER → 403 ở cả hai endpoint', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(ENROLL_IT_LEARNER_1);
     for (const role of ['INSTRUCTOR', 'ORGANIZER', 'ADMIN'] as const) {
       const user = { ...ENROLL_IT_LEARNER_1, role };
@@ -199,7 +196,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   });
 
   void test('Optional trên Course Public: 1 Module, 1 Lesson bắt buộc chưa xong, x/y 0/1; hoàn thành Video bắt buộc → true, 1/1', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(ENROLL_IT_LEARNER_1);
 
     const before = await curriculum(ENROLL_IT_LEARNER_1, id);
@@ -250,7 +247,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   });
 
   void test('Required: status, dueAt và organizationTimezone theo tổ chức', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const { id, dueAt } = await createRequiredEnrollment(
       app!,
       ENROLL_IT_LEARNER_1,
@@ -265,7 +262,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   });
 
   void test('404 ENROLLMENT_NOT_FOUND: Learner khác, tổ chức khác, id ngẫu nhiên, id không phải UUID, Withdrawn', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(ENROLL_IT_LEARNER_1);
     const cases: [CurrentUser, string][] = [
       [ENROLL_IT_LEARNER_2, id],
@@ -294,7 +291,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   });
 
   void test('Halted → 403 CONTENT_UNAVAILABLE; bản sao phiên bản có disabled_at → 403 với Enrollment không Halted', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(ENROLL_IT_LEARNER_1);
     await learningDb.query(
       `UPDATE enrollments SET status = 'Halted' WHERE id = $1 AND organization_id = $2`,
@@ -304,7 +301,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
       await expectError(ENROLL_IT_LEARNER_1, path, 403, 'CONTENT_UNAVAILABLE');
     }
 
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const active = await createOptional(ENROLL_IT_LEARNER_1);
     await learningDb.query(
       `UPDATE course_version_snapshots SET disabled_at = now()
@@ -320,7 +317,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   });
 
   void test('học liệu bắt buộc bị vô hiệu hóa trong bản sao → biến khỏi UC27.1, Lesson tính lại, x/y giảm; Lesson bị vô hiệu hóa → UC27 ẩn Lesson và Module, UC27.1 403', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(ENROLL_IT_LEARNER_1);
     await completeRequiredVideo(id);
     assert.deepEqual(
@@ -360,7 +357,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   });
 
   void test('UC27.1: Lesson của Course khác hoặc ngẫu nhiên hoặc không phải UUID → 404 LESSON_NOT_FOUND; Lesson hợp lệ trả nội dung, 2 học liệu, không có trước/sau', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(ENROLL_IT_LEARNER_1);
     for (const lessonId of [PRIVATE_LESSON, randomUUID(), 'abc']) {
       await expectError(
@@ -405,7 +402,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   });
 
   void test('BR-307: xem UC27, UC27.1 nhiều lần không đổi Enrollment, tiến độ hay bản sao', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const { id } = await createRequiredEnrollment(
       app!,
       ENROLL_IT_LEARNER_1,

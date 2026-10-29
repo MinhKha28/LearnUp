@@ -4,6 +4,7 @@ import type {
   IAssignment,
   IAssignmentList,
   IGradingResult,
+  IClosedPeerReviewCycle,
   IPeerReviewCycleList,
   ILearnerAssessmentList,
   ILearnerAssignment,
@@ -19,25 +20,9 @@ import type {
   IUpdateQuizConfigReq,
 } from "@/types/assessment.types";
 
-// TẠM THỜI (giống course.service.ts): gateway chưa gắn được danh tính nên tự gửi các header dưới đây.
-// Mặc định trùng danh tính mà course.service.ts dùng khi tạo Course, để qua được kiểm tra người phụ trách (BR-79).
-// Muốn dùng dữ liệu seed (npm run db:seed) thì đặt VITE_DEV_USER_ID / VITE_DEV_ORGANIZATION_ID trong .env.development.local.
-// Gỡ bỏ khi gateway tự gắn các header này.
-const devHeaders = {
-  "x-internal-key":
-    import.meta.env.VITE_DEV_INTERNAL_KEY ?? "learnup-internal-secret",
-  "x-user-id":
-    import.meta.env.VITE_DEV_USER_ID ?? "33333333-3333-7333-8333-333333333333",
-  "x-organization-id":
-    import.meta.env.VITE_DEV_ORGANIZATION_ID ??
-    "22222222-2222-7222-8222-222222222222",
-  "x-user-role": import.meta.env.VITE_DEV_USER_ROLE ?? "INSTRUCTOR",
-};
-
+// The identity headers (x-internal-key, x-user-id, x-organization-id, x-user-role) are set by the gateway from the JWT.
+// The browser sends none of them: a build must never carry an internal key, even a default one.
 // Base URL lấy từ VITE_ASSESSMENT_BACKEND_URL qua assessmentAxios.
-const requestConfig = {
-  headers: devHeaders,
-};
 
 /** DEV ONLY: mock course ids are slugs, the API needs a real Course UUID. */
 export const toApiCourseId = (courseId: string) =>
@@ -50,7 +35,6 @@ export const toApiCourseId = (courseId: string) =>
 /** UC19 — List Assignments of a Course. */
 export const fetchAssignmentsAPI = (courseId: string) =>
   axios.get<IBackendRes<IAssignmentList>>("/api/v1/assessments/assignments", {
-    ...requestConfig,
     params: { courseId: toApiCourseId(courseId) },
   });
 
@@ -58,7 +42,6 @@ export const fetchAssignmentsAPI = (courseId: string) =>
 export const fetchAssignmentAPI = (assignmentId: string) =>
   axios.get<IBackendRes<IAssignment>>(
     `/api/v1/assessments/assignments/${assignmentId}`,
-    requestConfig,
   );
 
 /** UC19.2 — Create Assignment. */
@@ -66,14 +49,13 @@ export const createAssignmentAPI = (payload: ICreateAssignment) =>
   axios.post<IBackendRes<IAssignment>>(
     "/api/v1/assessments/assignments",
     payload,
-    requestConfig,
   );
 
 /** UC19.2 / UC19.3 — Upload the prompt file (one PDF, 50 MB). The result goes into `promptFile` of create/update. */
 export const uploadPromptFileAPI = (file: File) => {
   const form = new FormData();
   form.append("file", file);
-  return axios.post<IBackendRes<IPromptFile>>("/api/v1/assessments/assignments/prompt-file", form, requestConfig);
+  return axios.post<IBackendRes<IPromptFile>>("/api/v1/assessments/assignments/prompt-file", form);
 };
 
 /**
@@ -83,7 +65,7 @@ export const uploadPromptFileAPI = (file: File) => {
  */
 export const discardPromptFileAPI = async (fileKey: string): Promise<void> => {
   try {
-    await axios.post("/api/v1/assessments/assignments/prompt-file/discard", { fileKey }, requestConfig);
+    await axios.post("/api/v1/assessments/assignments/prompt-file/discard", { fileKey });
   } catch {
     // nothing to do
   }
@@ -95,7 +77,6 @@ export const discardPromptFileAPI = async (fileKey: string): Promise<void> => {
  */
 export const downloadPromptFileAPI = async (assignmentId: string): Promise<Blob | null> => {
   const res = (await axios.get(`/api/v1/assessments/assignments/${assignmentId}/prompt-file`, {
-    ...requestConfig,
     responseType: "blob",
   })) as unknown as { status?: number; data?: unknown };
   return res.status === 200 && res.data instanceof Blob ? res.data : null;
@@ -109,14 +90,12 @@ export const updateAssignmentAPI = (
   axios.patch<IBackendRes<IAssignment>>(
     `/api/v1/assessments/assignments/${assignmentId}`,
     payload,
-    requestConfig,
   );
 
 /** UC19.4 — Delete Assignment. */
 export const deleteAssignmentAPI = (assignmentId: string) =>
   axios.delete<IBackendRes<{ id: string }>>(
     `/api/v1/assessments/assignments/${assignmentId}`,
-    requestConfig,
   );
 
 /** UC19.5 — Configure Peer Review. */
@@ -127,50 +106,53 @@ export const updatePeerReviewAPI = (
   axios.put<IBackendRes<IAssignment>>(
     `/api/v1/assessments/assignments/${assignmentId}/peer-review`,
     payload,
-    requestConfig,
   );
 
 /** UC18 — List Quizzes of a Course, optionally of one Module. */
 export const fetchQuizzesAPI = (courseId: string, moduleId?: string) =>
   axios.get<IBackendRes<IQuizList>>("/api/v1/assessments/quizzes", {
-    ...requestConfig,
     params: { courseId: toApiCourseId(courseId), moduleId },
   });
 
 /** UC18.1 — one Quiz with configuration, questions, answer keys and what may be changed (Instructor only). */
 export const fetchQuizAPI = (quizId: string) =>
-  axios.get<IBackendRes<IQuizDetail>>(`/api/v1/assessments/quizzes/${quizId}`, requestConfig);
+  axios.get<IBackendRes<IQuizDetail>>(`/api/v1/assessments/quizzes/${quizId}`);
 
 /** UC18.2 — Create Quiz. */
 export const createQuizAPI = (payload: ICreateQuizReq) =>
-  axios.post<IBackendRes<IQuizSummary>>("/api/v1/assessments/quizzes", payload, requestConfig);
+  axios.post<IBackendRes<IQuizSummary>>("/api/v1/assessments/quizzes", payload);
 
 /** UC18.4 — Update Quiz configuration; answers with the Quiz detail and its new permissions. */
 export const updateQuizConfigAPI = (quizId: string, payload: IUpdateQuizConfigReq) =>
-  axios.patch<IBackendRes<IQuizDetail>>(`/api/v1/assessments/quizzes/${quizId}`, payload, requestConfig);
+  axios.patch<IBackendRes<IQuizDetail>>(`/api/v1/assessments/quizzes/${quizId}`, payload);
 
 /** UC18.5 — Delete Quiz. */
 export const deleteQuizAPI = (quizId: string) =>
-  axios.delete<IBackendRes<{ id: string }>>(`/api/v1/assessments/quizzes/${quizId}`, requestConfig);
+  axios.delete<IBackendRes<{ id: string }>>(`/api/v1/assessments/quizzes/${quizId}`);
 
 /** UC29 — the Quizzes and Assignments of an enrolled Course with status, score and tries left. */
 export const fetchLearnerAssessmentsAPI = (courseId: string) =>
-  axios.get<IBackendRes<ILearnerAssessmentList>>(`/api/v1/assessments/learner/courses/${courseId}/assessments`, requestConfig);
+  axios.get<IBackendRes<ILearnerAssessmentList>>(`/api/v1/assessments/learner/courses/${courseId}/assessments`);
 
 /** UC30 step 1 — the Assignment as the enrolled Learner reads it (prompt, Rubric, attempts left). */
 export const fetchLearnerAssignmentAPI = (assignmentId: string) =>
-  axios.get<IBackendRes<ILearnerAssignment>>(`/api/v1/assessments/learner/assignments/${assignmentId}`, requestConfig);
+  axios.get<IBackendRes<ILearnerAssignment>>(`/api/v1/assessments/learner/assignments/${assignmentId}`);
 
 /** UC33 — the peer review cycles of an Assignment of the Instructor. */
 export const fetchPeerReviewCyclesAPI = (assignmentId: string) =>
   axios.get<IBackendRes<IPeerReviewCycleList>>(
     `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles`,
-    requestConfig,
+  );
+
+/** UC33 — close a cycle now: hand out the reviews, or send the submissions to the Instructor when there are too few. */
+export const closePeerReviewCycleAPI = (assignmentId: string, cycleId: string) =>
+  axios.post<IBackendRes<IClosedPeerReviewCycle>>(
+    `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles/${cycleId}/close`,
   );
 
 /** UC30.2 — the grading result of the latest submission, when it is Finalized (one request, so one check of the Enrollment). */
 export const fetchLearnerResultAPI = (assignmentId: string) =>
-  axios.get<IBackendRes<IGradingResult>>(`/api/v1/assessments/learner/assignments/${assignmentId}/result`, requestConfig);
+  axios.get<IBackendRes<IGradingResult>>(`/api/v1/assessments/learner/assignments/${assignmentId}/result`);
 
 /** UC30 — Submit an Assignment: text and/or one PDF, DOCX or ZIP (50 MB). */
 export const submitAssignmentAPI = (assignmentId: string, content: string, file?: File | null) => {
@@ -180,7 +162,6 @@ export const submitAssignmentAPI = (assignmentId: string, content: string, file?
   return axios.post<IBackendRes<ISubmissionReceipt>>(
     `/api/v1/assessments/learner/assignments/${assignmentId}/submissions`,
     form,
-    requestConfig,
   );
 };
 
@@ -192,14 +173,12 @@ export const resubmitAssignmentAPI = (assignmentId: string, content: string, fil
   return axios.post<IBackendRes<ISubmissionReceipt>>(
     `/api/v1/assessments/learner/assignments/${assignmentId}/resubmissions`,
     form,
-    requestConfig,
   );
 };
 
 /** The prompt file for a Learner; like UC19.1, only a real 200 response yields the file. */
 export const downloadLearnerPromptFileAPI = async (assignmentId: string): Promise<Blob | null> => {
   const res = (await axios.get(`/api/v1/assessments/learner/assignments/${assignmentId}/prompt-file`, {
-    ...requestConfig,
     responseType: "blob",
   })) as unknown as { status?: number; data?: unknown };
   return res.status === 200 && res.data instanceof Blob ? res.data : null;

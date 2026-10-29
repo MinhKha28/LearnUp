@@ -7,8 +7,10 @@
  */
 import 'dotenv/config';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
+import { appendFileSync, mkdirSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { Client } from 'pg';
 
@@ -48,6 +50,9 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     process.env.DATABASE_URL ??
       'postgresql://postgres:postgres@localhost:5432/assessment_db',
   );
+  // "localhost" is tried as ::1 first, and the IPv6 port of Docker Desktop on Windows sometimes accepts the connection and then
+  // resets it (ECONNRESET, a service that dies or hangs on its first requests). Ask for IPv4 outright.
+  if (base.hostname === 'localhost') base.hostname = '127.0.0.1';
   const name = `assessment_it_${process.pid}_${Date.now()}`;
 
   const admin = new Client({ connectionString: base.toString() });
@@ -309,8 +314,25 @@ export async function startService(
     },
   });
   let output = '';
-  child.stdout?.on('data', (chunk: Buffer) => (output += chunk.toString()));
-  child.stderr?.on('data', (chunk: Buffer) => (output += chunk.toString()));
+  // HARNESS_SERVICE_LOG_DIR keeps what each service printed, in a file per port, to read after a failed run.
+  const logDir = process.env.HARNESS_SERVICE_LOG_DIR;
+  if (logDir) mkdirSync(logDir, { recursive: true });
+  const keep = (chunk: Buffer) => {
+    output += chunk.toString();
+    if (logDir) appendFileSync(join(logDir, `service-${port}.log`), chunk);
+  };
+  child.stdout?.on('data', keep);
+  child.stderr?.on('data', keep);
+  // A service that dies while a test still talks to it shows up as ECONNRESET or ECONNREFUSED, which says nothing about why.
+  // Say why, once, in the output of the run (not when the test stops it on purpose).
+  let stopping = false;
+  child.once('exit', (code, signal) => {
+    if (stopping) return;
+    console.error(
+      `[harness] the service on port ${port} exited by itself (code ${code}, signal ${signal}). Its last output:
+${output.slice(-4000)}`,
+    );
+  });
   const baseUrl = `http://127.0.0.1:${port}`;
 
   for (let i = 0; i < 80; i++) {
@@ -333,6 +355,7 @@ export async function startService(
     baseUrl,
     log: () => output,
     stop: async () => {
+      stopping = true;
       if (child.exitCode === null) {
         const exited = new Promise((resolve) => child.once('exit', resolve));
         child.kill();

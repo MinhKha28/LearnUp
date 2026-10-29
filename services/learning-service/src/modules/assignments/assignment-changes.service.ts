@@ -12,6 +12,7 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   TENANT_CLIENT,
   TenantUnavailableError,
+  TenantOrganizationNotFoundError,
   type TenantClient,
 } from '../../infrastructure/clients/tenant/tenant.client';
 import { serviceUnavailable } from '../../infrastructure/clients/course/service-unavailable';
@@ -47,6 +48,8 @@ export class AssignmentChangesService {
       );
     try {
       const access = await this.tenant.getOrganizationAccess(user);
+      if (access.organizationStatus !== 'Active')
+        throw this.organizationNotActive();
       if (access.subscriptionStatus !== 'Active')
         throw new ForbiddenException(
           createApiError(
@@ -56,6 +59,8 @@ export class AssignmentChangesService {
         );
       return { organizationId: user.organizationId, timezone: access.timezone };
     } catch (error) {
+      if (error instanceof TenantOrganizationNotFoundError)
+        throw this.organizationNotActive();
       if (error instanceof TenantUnavailableError) {
         this.logger.warn(error.message);
         throw serviceUnavailable();
@@ -82,6 +87,7 @@ export class AssignmentChangesService {
         newDueAt,
         dto.newDueDate,
         today,
+        row.dueAtHasSubMillisecond,
       );
       await this.changes.extend(tx, organizationId, id, newDueAt, seconds);
       await this.changes.event(
@@ -144,6 +150,15 @@ export class AssignmentChangesService {
   private notFound() {
     return new NotFoundException(
       createApiError('ASSIGNMENT_NOT_FOUND', 'Không tìm thấy phân công.'),
+    );
+  }
+
+  private organizationNotActive(): ForbiddenException {
+    return new ForbiddenException(
+      createApiError(
+        'ORGANIZATION_NOT_ACTIVE',
+        'Tổ chức hiện không hoạt động. Vui lòng liên hệ quản trị viên nền tảng.',
+      ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   Logger,
   ServiceUnavailableException,
@@ -16,14 +17,27 @@ import { ISetCredentialsParams } from './interfaces/set-credentials-params.inter
  *   Body:   { userId, password, email, fullName, role, organizationId }
  *           role viết HOA theo enum Java (ORGANIZER, INSTRUCTOR, LEARNER, ADMIN).
  *   identity tạo mới nếu chưa có userId, có rồi thì ghi đè mật khẩu và thông tin.
+ *   Email đang thuộc tài khoản khác chưa bị xóa (identity hỏi lại tenant existence) thì identity trả 409.
  *
  * Chưa cấu hình IDENTITY_SERVICE_URL: chạy chế độ giả lập, chỉ ghi log.
  */
+export const DEFAULT_IDENTITY_TIMEOUT_MS = 8000;
+
 @Injectable()
 export class IdentityClient {
   private readonly logger = new Logger(IdentityClient.name);
 
   constructor(private readonly config: ConfigService) {}
+
+  /** Thời gian chờ tối đa một lời gọi identity; UC02 dùng để tính thời gian giữ khóa theo email. */
+  get timeoutMs(): number {
+    const value = Number(
+      this.config.get<string>('IDENTITY_SERVICE_TIMEOUT_MS'),
+    );
+    return Number.isInteger(value) && value > 0
+      ? value
+      : DEFAULT_IDENTITY_TIMEOUT_MS;
+  }
 
   async setCredentials(params: ISetCredentialsParams): Promise<void> {
     const baseUrl = this.config.get<string>('IDENTITY_SERVICE_URL');
@@ -52,11 +66,18 @@ export class IdentityClient {
           role: params.role.toUpperCase(), // 'Organizer' -> 'ORGANIZER' (enum Java)
           organizationId: params.organizationId,
         }),
+        signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch {
       throw new ServiceUnavailableException({
         code: 'IDENTITY_UNAVAILABLE',
         message: 'Không kết nối được identity-service. Vui lòng thử lại sau.',
+      });
+    }
+    if (response.status === 409) {
+      throw new ConflictException({
+        code: 'IDENTITY_CREDENTIAL_CONFLICT',
+        message: 'Email đã được sử dụng cho một tài khoản khác.',
       });
     }
     if (!response.ok) {

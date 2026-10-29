@@ -2,6 +2,7 @@ import type { CurrentUser } from '@learnup/ts-common';
 
 /** Trạng thái truy cập của tổ chức (BR-15, BR-17, BR-44). */
 export interface OrganizationAccess {
+  organizationStatus: string;
   subscriptionStatus: string;
   readOnlyEndsAt: Date | null;
   timezone: string;
@@ -32,6 +33,14 @@ export const TENANT_CLIENT = Symbol('TENANT_CLIENT');
 export class TenantUnavailableError extends Error {
   constructor(message: string) {
     super(message);
+    this.name = new.target.name;
+  }
+}
+
+/** D-050: the caller's organization was not found; write services block with 403. */
+export class TenantOrganizationNotFoundError extends Error {
+  constructor() {
+    super('Tenant organization not found.');
     this.name = new.target.name;
   }
 }

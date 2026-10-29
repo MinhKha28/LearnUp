@@ -19,6 +19,7 @@ import { ProfileController } from './modules/profile/profile.controller';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { SubscriptionsController } from './modules/subscriptions/subscriptions.controller';
 import { InternalUsersModule } from './modules/internal-users/internal-users.module';
+import { InternalOrganizationsModule } from './modules/internal-organizations/internal-organizations.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { InternalUsersModule } from './modules/internal-users/internal-users.mod
     InvitationsModule,
     SignInAccessModule,
     InternalUsersModule,
+    InternalOrganizationsModule,
     UserDirectoryModule,
     ProfileModule,
     SubscriptionsModule,
