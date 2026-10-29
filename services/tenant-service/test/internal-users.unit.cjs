@@ -66,6 +66,9 @@ test('looks up when x-organization-id matches the body, ignoring case', async ()
 for (const [name, header] of [
   ['another organization', randomUUID()],
   ['an empty header', ''],
+  ['a whitespace-only header', '   '],
+  ['a non-UUID header', 'not-a-uuid'],
+  ['a missing header', undefined],
 ]) {
   test(`returns 404 without querying for ${name}`, async () => {
     const { service, calls } = createService();
@@ -79,12 +82,6 @@ for (const [name, header] of [
   });
 }
 
-test('still accepts a call without x-organization-id during the transition', async () => {
-  const { service, calls } = createService();
-  await service.lookup(undefined, lookupDto);
-  assert.deepEqual(calls, [[organizationId, [repeated]]]);
-});
-
 test('accepts one and 500 unique UUIDs', async () => {
   for (const length of [1, 500]) {
     const result = await validate({
@@ -94,3 +91,26 @@ test('accepts one and 500 unique UUIDs', async () => {
     assert.equal(result.userIds.length, length);
   }
 });
+
+for (const [name, row, expected] of [
+  ['an existing user', { deletedAt: null }, true],
+  [
+    'a soft-deleted user',
+    { deletedAt: new Date('2026-10-20T00:00:00Z') },
+    false,
+  ],
+  ['a user that never existed', null, false],
+]) {
+  test(`existence returns exists=${expected} for ${name}`, async () => {
+    const userId = randomUUID();
+    const calls = [];
+    const service = new InternalUsersService({
+      findDeletedAt: async (...args) => {
+        calls.push(args);
+        return row;
+      },
+    });
+    assert.deepEqual(await service.existence(userId), { exists: expected });
+    assert.deepEqual(calls, [[userId]]);
+  });
+}

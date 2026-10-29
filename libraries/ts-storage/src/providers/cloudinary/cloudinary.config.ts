@@ -1,3 +1,7 @@
+import {
+  resolveStoragePlanLimits,
+  validateStoragePlanLimits,
+} from "../../storage-plan-limits.js";
 import type { ICloudinaryStorageConfig } from "./cloudinary.interface.js";
 import { StorageValidationError } from "../../errors/storage.error.js";
 
@@ -21,5 +25,9 @@ export function validateCloudinaryConfig(
     apiKey: config.apiKey.trim(),
     apiSecret: config.apiSecret.trim(),
     secure: config.secure ?? true,
+    planLimits:
+      config.planLimits === undefined
+        ? resolveStoragePlanLimits({})
+        : validateStoragePlanLimits(config.planLimits),
   };
 }

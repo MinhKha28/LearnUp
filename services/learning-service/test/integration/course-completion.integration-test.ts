@@ -1,8 +1,14 @@
+import { AssignmentChangesRepository } from '../../src/modules/assignments/assignment-changes.repository';
+import { BaseDueAtRepository } from '../../src/modules/enrollments/base-due-at.repository';
+import { validateExtension } from '../../src/modules/assignments/assignment-change-rules';
+import { closeAll, closeApp } from './deadlines';
+import { deadline, BARRIER_TIMEOUT_MS } from './deadlines';
+import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { after, before, test } from 'node:test';
+import { after, before, test } from './test-runner';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -34,13 +40,19 @@ before(async () => {
   await prisma.$connect();
 });
 after(async () => {
-  await prisma.$executeRaw`DELETE FROM outbox_events WHERE organization_id=${org}::uuid`;
-  await prisma.$executeRaw`DELETE FROM enrollments WHERE organization_id=${org}::uuid`;
-  await prisma.$executeRaw`DELETE FROM material_snapshots WHERE organization_id=${org}::uuid`;
-  await prisma.$executeRaw`DELETE FROM lesson_snapshots WHERE organization_id=${org}::uuid`;
-  await prisma.$executeRaw`DELETE FROM organization_suspensions WHERE organization_id=${org}::uuid`;
-  await prisma.$executeRaw`DELETE FROM course_version_snapshots WHERE organization_id=${org}::uuid`;
-  await prisma.$disconnect();
+  try {
+    await prisma.$executeRaw`DELETE FROM outbox_events WHERE organization_id=${org}::uuid`;
+    await prisma.$executeRaw`DELETE FROM enrollments WHERE organization_id=${org}::uuid`;
+    await prisma.$executeRaw`DELETE FROM material_snapshots WHERE organization_id=${org}::uuid`;
+    await prisma.$executeRaw`DELETE FROM lesson_snapshots WHERE organization_id=${org}::uuid`;
+    await prisma.$executeRaw`DELETE FROM organization_suspensions WHERE organization_id=${org}::uuid`;
+    await prisma.$executeRaw`DELETE FROM course_version_snapshots WHERE organization_id=${org}::uuid`;
+  } finally {
+    await deadline(
+      prisma.$disconnect(),
+      'course-completion.integration-test shutdown',
+    );
+  }
 });
 
 for (const kind of ['CONVERT', 'RESTORE', 'CONVERT_COMPLETED'] as const)
@@ -207,7 +219,7 @@ test('outbox INSERT failure rolls back Completed and retains request', async () 
       fake,
     ).evaluate(r);
   } finally {
-    await isolated.$disconnect();
+    await deadline(isolated.$disconnect(), 'isolated Prisma shutdown');
   }
   assert.equal((await state(f.id)).status, 'NotStarted');
   assert.equal(await eventCount(f.id), 0);
@@ -331,12 +343,20 @@ test('trigger during assessment wait survives obsolete result and is evaluated o
   const r = await take(f.id);
   let entered!: () => void;
   let release!: () => void;
-  const waiting = new Promise<void>((resolve) => {
-    entered = resolve;
-  });
-  const barrier = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const waiting = deadline(
+    new Promise<void>((resolve) => {
+      entered = resolve;
+    }),
+    'course-completion.integration-test: waiting',
+    BARRIER_TIMEOUT_MS,
+  );
+  const barrier = deadline(
+    new Promise<void>((resolve) => {
+      release = resolve;
+    }),
+    'course-completion.integration-test: barrier',
+    BARRIER_TIMEOUT_MS,
+  );
   const blocked = new CompletionService(repo, {
     async getCompletionSnapshot() {
       entered();
@@ -440,12 +460,20 @@ test('expired lease while old worker writes cannot let a second worker duplicate
   await prisma.$executeRaw`UPDATE completion_evaluation_requests SET next_attempt_at=clock_timestamp()-interval '1 second' WHERE enrollment_id=${f.id}::uuid`;
   let entered!: () => void;
   let release!: () => void;
-  const inside = new Promise<void>((resolve) => {
-    entered = resolve;
-  });
-  const barrier = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const inside = deadline(
+    new Promise<void>((resolve) => {
+      entered = resolve;
+    }),
+    'course-completion.integration-test: inside',
+    BARRIER_TIMEOUT_MS,
+  );
+  const barrier = deadline(
+    new Promise<void>((resolve) => {
+      release = resolve;
+    }),
+    'course-completion.integration-test: barrier',
+    BARRIER_TIMEOUT_MS,
+  );
   const isolated = new PrismaService(new ConfigService()),
     original = isolated.$transaction.bind(isolated);
   const paused = new Proxy(isolated, {
@@ -491,7 +519,7 @@ test('expired lease while old worker writes cannot let a second worker duplicate
   } finally {
     release();
     await processing;
-    await isolated.$disconnect();
+    await deadline(isolated.$disconnect(), 'isolated Prisma shutdown');
   }
   assert.equal((await state(f.id)).status, 'Completed');
   assert.equal(await eventCount(f.id), 1);
@@ -588,15 +616,124 @@ test('API starts with Kafka and course-service unreachable and retains assessmen
     assert.equal((await state(f.id)).status, 'Completed');
     assert.equal(await eventCount(f.id), 1);
   } finally {
-    await app.close();
-    for (const [key, value] of Object.entries({
-      COMPLETION_WORKER_ENABLED: previous.worker,
-      OUTBOX_RELAY_ENABLED: previous.relay,
-      KAFKA_BROKERS: previous.brokers,
-      COURSE_SERVICE_URL: previous.course,
-    })) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
+    try {
+      await closeAll(() => closeApp(app));
+    } finally {
+      for (const [key, value] of Object.entries({
+        COMPLETION_WORKER_ENABLED: previous.worker,
+        OUTBOX_RELAY_ENABLED: previous.relay,
+        KAFKA_BROKERS: previous.brokers,
+        COURSE_SERVICE_URL: previous.course,
+      })) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
     }
   }
 });
+
+test('microsecond base deadline completes without losing precision', async () => {
+  const f = await fixture('NotStarted', 'Required');
+  await prisma.$executeRaw`UPDATE enrollments SET base_due_at='2026-10-13 16:44:59.572527+00'::timestamptz,
+    due_at='2026-10-13 16:44:59.572527+00'::timestamptz WHERE id=${f.id}::uuid`;
+  await service.evaluate(await take(f.id));
+  assert.equal((await state(f.id)).status, 'Completed');
+  const [row] = await prisma.$queryRaw<
+    { exact: boolean }[]
+  >`SELECT due_at=base_due_at AS exact FROM enrollments WHERE id=${f.id}::uuid`;
+  assert.equal(row.exact, true);
+  assert.equal(await eventCount(f.id), 1);
+});
+
+test('microsecond interval start closes without ck_intervals_range failure', async () => {
+  const f = await fixture('Exempted', 'Required');
+  await prisma.$executeRaw`INSERT INTO enrollment_status_intervals(id,organization_id,enrollment_id,kind,started_at,reason)
+    VALUES (${randomUUID()}::uuid,${org}::uuid,${f.id}::uuid,'Exempted','2026-10-13 16:44:59.572527+00'::timestamptz,'synthetic precision')`;
+  const original = prisma.$transaction.bind(prisma);
+  const controlled = new Proxy(prisma, {
+    get(target, property) {
+      if (property === '$transaction')
+        return (work: (tx: unknown) => Promise<unknown>, options: unknown) =>
+          original(
+            async (tx) =>
+              work(
+                new Proxy(tx, {
+                  get(t, p) {
+                    if (p === '$queryRaw')
+                      return (
+                        strings: TemplateStringsArray,
+                        ...values: unknown[]
+                      ) => {
+                        if (
+                          Array.isArray(strings) &&
+                          strings.join('').trim() ===
+                            'SELECT clock_timestamp() AS "completedAt"'
+                        )
+                          return Promise.resolve([
+                            {
+                              completedAt: new Date('2026-10-13T16:44:59.572Z'),
+                            },
+                          ]);
+                        return t.$queryRaw(strings, ...values);
+                      };
+                    const value = Reflect.get(t, p);
+                    return typeof value === 'function' ? value.bind(t) : value;
+                  },
+                }),
+              ),
+            options as never,
+          );
+      const value = Reflect.get(target, property);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  await new CompletionService(
+    new CompletionRepository(controlled, repo.config),
+    fake,
+  ).evaluate(await take(f.id));
+  assert.equal((await state(f.id)).status, 'Completed');
+  const [row] = await prisma.$queryRaw<
+    { valid: boolean }[]
+  >`SELECT ended_at >= started_at AS valid FROM enrollment_status_intervals WHERE enrollment_id=${f.id}::uuid`;
+  assert.equal(row.valid, true);
+});
+
+for (const fraction of ['572527', '000527'])
+  test(`fractional base extension ${fraction} recomputes within requested Ho Chi Minh calendar day`, async () => {
+    const f = await fixture('NotStarted', 'Required');
+    await prisma.$executeRaw`UPDATE enrollments SET base_due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz,
+    due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz WHERE id=${f.id}::uuid`;
+    await prisma.$transaction(async (tx) => {
+      const changes = new AssignmentChangesRepository();
+      const row = await changes.lock(tx, org, f.id);
+      const boundary = await new BaseDueAtRepository(
+        prisma,
+      ).computeDueAtForDate('2026-10-14', 'Asia/Ho_Chi_Minh', tx);
+      assert.equal(boundary.toISOString(), '2026-10-14T17:00:00.000Z');
+      const seconds = validateExtension(
+        row.dueAt,
+        boundary,
+        '2026-10-14',
+        '2026-10-13',
+        row.dueAtHasSubMillisecond,
+      );
+      assert.equal(seconds, 87300n);
+      await changes.extend(tx, org, f.id, boundary, seconds);
+    });
+    const [stored] = await prisma.$queryRaw<
+      { boundary: boolean }[]
+    >`SELECT due_at='2026-10-14 17:00:00+00'::timestamptz AS boundary FROM enrollments WHERE id=${f.id}::uuid`;
+    assert.equal(stored.boundary, true);
+    await service.evaluate(await take(f.id));
+    assert.equal((await state(f.id)).status, 'Completed');
+    const [row] = await prisma.$queryRaw<
+      { day: string; valid: boolean; exact: boolean }[]
+    >`SELECT
+    to_char(due_at AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM-DD') AS day,
+    due_at >= base_due_at AND due_at < '2026-10-14 17:00:00+00'::timestamptz AS valid,
+    due_at=${`2026-10-14 16:59:59.${fraction}+00`}::timestamptz AS exact
+    FROM enrollments WHERE id=${f.id}::uuid`;
+    assert.equal(row.day, '2026-10-14');
+    assert.equal(row.valid, true);
+    assert.equal(row.exact, true);
+  });

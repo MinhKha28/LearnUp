@@ -1,19 +1,23 @@
+import { closeAll, closeApp } from './deadlines';
+import { courseStub } from './course-stub';
+import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import { after, before, beforeEach, describe, test } from 'node:test';
+import { after, before, beforeEach, describe, test } from './test-runner';
 import { HEADER_NAMES, type CurrentUser } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import {
   TENANT_CLIENT,
+  TenantUnavailableError,
   type LookupLearner,
   type TenantClient,
 } from '../../src/infrastructure/clients/tenant/tenant.client';
@@ -29,7 +33,6 @@ import {
 } from '../../src/modules/assignments/assignments.repository';
 import {
   databaseUrl,
-  courseDatabaseUrl,
   ENROLL_IT_ORG as ORG,
   ENROLL_IT_PUBLIC_COURSE as COURSE,
   ENROLL_IT_PRIVATE_COURSE as PRIVATE,
@@ -39,14 +42,15 @@ import {
 
 if (process.env.NODE_ENV === 'production')
   throw new Error('Refusing assignment integration tests in production.');
-const learningDb = new Client({ connectionString: databaseUrl('learning_db') });
-const courseDb = new Client({ connectionString: courseDatabaseUrl() });
+const learningDb = new Client({ connectionString: databaseUrl() });
 const users = new Map<string, LookupLearner>();
 let app: NestExpressApplication;
 let baseUrl: string;
 let tenantCalls = 0;
 let i1Calls = 0;
 let subscriptionStatus = 'Active';
+let organizationStatus = 'Active';
+let tenantDown = false;
 let connected = false;
 const learner = (id: string): CurrentUser => ({
   ...ORGANIZER,
@@ -141,10 +145,9 @@ async function prepare(courseId = COURSE) {
       );
 }
 
-void describe('UC24.2 assignments (real learning/course databases, stub tenant lookup)', () => {
+void describe('UC24.2 assignments (isolated Learning database and HTTP Course stub, stub tenant lookup)', () => {
   before(async () => {
     await learningDb.connect();
-    await courseDb.connect();
     connected = true;
     app = await NestFactory.create<NestExpressApplication>(AppModule, {
       logger: ['error'],
@@ -155,11 +158,15 @@ void describe('UC24.2 assignments (real learning/course databases, stub tenant l
       tenantCalls++;
       return ids.flatMap((id) => (users.has(id) ? [users.get(id)!] : []));
     };
-    tenant.getOrganizationAccess = async () => ({
-      subscriptionStatus,
-      readOnlyEndsAt: null,
-      timezone: 'Asia/Ho_Chi_Minh',
-    });
+    tenant.getOrganizationAccess = async () => {
+      if (tenantDown) throw new TenantUnavailableError('network');
+      return {
+        subscriptionStatus,
+        organizationStatus,
+        readOnlyEndsAt: null,
+        timezone: 'Asia/Ho_Chi_Minh',
+      };
+    };
     const courses = app.get(CourseServiceClient);
     const lock = courses.lockCourse.bind(courses);
     courses.lockCourse = async (...args) => {
@@ -169,28 +176,52 @@ void describe('UC24.2 assignments (real learning/course databases, stub tenant l
     await app.listen(0, '127.0.0.1');
     baseUrl = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
   });
+  void test('inactive organization blocks assignment before learner lookup', async () => {
+    organizationStatus = 'Suspended';
+    const result = await assign([addUser()]);
+    assert.equal(result.status, 403);
+    assert.equal(result.body.error.code, 'ORGANIZATION_NOT_ACTIVE');
+    assert.equal(tenantCalls, 0);
+    assert.equal(i1Calls, 0);
+    assert.equal((await rows()).length, 0);
+  });
+  void test('tenant access outage blocks assignment with 503', async () => {
+    tenantDown = true;
+    const result = await assign([addUser()]);
+    assert.equal(result.status, 503);
+    assert.equal(result.body.error.code, 'SERVICE_UNAVAILABLE');
+    assert.equal(tenantCalls, 0);
+    assert.equal(i1Calls, 0);
+    assert.equal((await rows()).length, 0);
+  });
   beforeEach(async () => {
     await learningDb.query(
       "DELETE FROM outbox_events WHERE organization_id=$1 AND event_type='EnrollmentAssigned'",
       [ORG],
     );
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     users.clear();
     tenantCalls = 0;
     i1Calls = 0;
     subscriptionStatus = 'Active';
+    organizationStatus = 'Active';
+    tenantDown = false;
   });
   after(async () => {
-    if (connected) {
-      await learningDb.query(
-        "DELETE FROM outbox_events WHERE organization_id=$1 AND event_type='EnrollmentAssigned'",
-        [ORG],
+    try {
+      if (connected) {
+        await learningDb.query(
+          "DELETE FROM outbox_events WHERE organization_id=$1 AND event_type='EnrollmentAssigned'",
+          [ORG],
+        );
+        await resetEnrollFixture(learningDb);
+      }
+    } finally {
+      await closeAll(
+        () => closeApp(app),
+        () => learningDb.end(),
       );
-      await resetEnrollFixture(learningDb, courseDb);
     }
-    if (app) await app.close();
-    await learningDb.end();
-    await courseDb.end();
   });
 
   test('creates three including Pending with one lookup, one assignedAt, one outbox each, no intervals', async () => {
@@ -456,37 +487,39 @@ void describe('UC24.2 assignments (real learning/course databases, stub tenant l
   test('Private course is assignable', async () => {
     assert.equal((await assign([addUser()], PRIVATE)).status, 201);
   });
-  test('unpublished course returns 404 and is not locked', async () => {
-    const old = (
-      await courseDb.query(
-        'SELECT status FROM courses WHERE id=$1 AND organization_id=$2',
-        [PRIVATE, ORG],
-      )
-    ).rows[0].status;
-    try {
-      await courseDb.query(
-        "UPDATE courses SET status='Draft' WHERE id=$1 AND organization_id=$2",
-        [PRIVATE, ORG],
-      );
-      const result = await assign([addUser()], PRIVATE);
-      assert.equal(result.status, 404);
-      assert.equal(result.body.error.code, 'COURSE_NOT_ASSIGNABLE');
-      assert.equal(
-        (
-          await courseDb.query(
-            'SELECT locked_at FROM courses WHERE id=$1 AND organization_id=$2',
-            [PRIVATE, ORG],
-          )
-        ).rows[0].locked_at,
-        null,
-      );
-      assert.deepEqual(await rows(), []);
-    } finally {
-      await courseDb.query(
-        'UPDATE courses SET status=$1 WHERE id=$2 AND organization_id=$3',
-        [old, PRIVATE, ORG],
-      );
-    }
+  test('configured Draft/409 response returns 404 and creates no Learning records', async () => {
+    courseStub.lock(PRIVATE, ORG, false, {
+      status: 409,
+      error: { code: 'COURSE_NOT_AVAILABLE', message: 'Draft fixture' },
+    });
+    const result = await assign([addUser()], PRIVATE);
+    assert.equal(result.status, 404);
+    assert.equal(result.body.error.code, 'COURSE_NOT_ASSIGNABLE');
+    assert.deepEqual(await rows(), []);
+    assert.deepEqual(await events(), []);
+    assert.deepEqual(
+      courseStub.calls.map(({ method, path, body }) => ({
+        method,
+        path,
+        body,
+      })),
+      [
+        {
+          method: 'POST',
+          path: `/${PRIVATE}/lock`,
+          body: { selfEnroll: false },
+        },
+      ],
+    );
+    assert.equal(
+      (
+        await learningDb.query(
+          'SELECT count(*)::int AS n FROM course_version_snapshots WHERE course_id=$1',
+          [PRIVATE],
+        )
+      ).rows[0].n,
+      0,
+    );
   });
   test('501 ids, empty ids and malformed UUID return 400 before lookup', async () => {
     for (const ids of [

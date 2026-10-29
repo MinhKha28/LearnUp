@@ -654,6 +654,62 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.user.role").value(UserRole.ORGANIZER.name()));
     }
 
+    @Test
+    @DisplayName("ID-1: Accounts whose UUIDv7 ids share the first 8 hex chars get distinct default usernames")
+    void shouldProvisionUuidV7AccountsCreatedInTheSameMinute() throws Exception {
+        UUID organizationId = UUID.randomUUID();
+        UUID[] ids = {
+                UUID.fromString("0199a1b2-c3d4-7000-8000-000000000001"),
+                UUID.fromString("0199a1b2-c3d5-7000-8000-000000000002"),
+                UUID.fromString("0199a1b2-c3d6-7000-8000-000000000003")
+        };
+
+        for (int i = 0; i < ids.length; i++) {
+            com.learnup.identity.dto.internal.SetCredentialsRequest request =
+                    new com.learnup.identity.dto.internal.SetCredentialsRequest(ids[i], "bulkInvitePass123");
+            request.setEmail("bulk-" + i + "@abc.vn");
+            request.setRole(UserRole.LEARNER);
+            request.setOrganizationId(organizationId);
+
+            mockMvc.perform(post("/api/internal/credentials")
+                            .header(HeaderConstants.X_INTERNAL_KEY, INTERNAL_KEY)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk());
+        }
+
+        for (int i = 0; i < ids.length; i++) {
+            User user = userRepository.findById(ids[i]).orElseThrow();
+            assertThat(user.getUsername()).isEqualTo("user_" + ids[i].toString().replace("-", ""));
+            assertThat(user.getUsername()).hasSizeLessThanOrEqualTo(50);
+            mockMvc.perform(post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new LoginRequest("bulk-" + i + "@abc.vn", "bulkInvitePass123"))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.user.id").value(ids[i].toString()));
+        }
+        assertThat(userRepository.findAll().stream().map(User::getUsername).distinct()).hasSize(ids.length);
+    }
+
+    @Test
+    @DisplayName("ID-1: An explicit username from the caller is kept as is")
+    void shouldKeepExplicitUsernameWhenProvisioning() throws Exception {
+        UUID userId = UUID.fromString("0199a1b2-c3d4-7000-8000-0000000000aa");
+        com.learnup.identity.dto.internal.SetCredentialsRequest request =
+                new com.learnup.identity.dto.internal.SetCredentialsRequest(userId, "explicitNamePass123");
+        request.setUsername("  explicit_name  ");
+        request.setEmail("explicit@abc.vn");
+
+        mockMvc.perform(post("/api/internal/credentials")
+                        .header(HeaderConstants.X_INTERNAL_KEY, INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        assertThat(userRepository.findById(userId).orElseThrow().getUsername()).isEqualTo("explicit_name");
+    }
+
     private void attemptLogin(String username, String password, org.springframework.test.web.servlet.ResultMatcher expected) throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

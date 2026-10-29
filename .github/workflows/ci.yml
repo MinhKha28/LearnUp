@@ -1,0 +1,379 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Decides which packages need to run, from the files changed in the push or PR.
+  # Plain git diff is used instead of a third-party path-filter action.
+  changes:
+    name: Detect changed packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      node_matrix: ${{ steps.detect.outputs.node_matrix }}
+      has_node: ${{ steps.detect.outputs.has_node }}
+      java_matrix: ${{ steps.detect.outputs.java_matrix }}
+      has_java: ${{ steps.detect.outputs.has_java }}
+      ts_libs: ${{ steps.detect.outputs.ts_libs }}
+      learning_it: ${{ steps.detect.outputs.learning_it }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed packages
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          base=""
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            base="$PR_BASE_SHA"
+          elif [ "$EVENT_NAME" = "push" ]; then
+            base="$PUSH_BEFORE_SHA"
+          fi
+
+          run_all=false
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] \
+            || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            run_all=true
+            changed=""
+          else
+            changed="$(git diff --name-only "$base" "$GITHUB_SHA")"
+          fi
+
+          touched() {
+            [ "$run_all" = true ] && return 0
+            printf '%s\n' "$changed" | grep -Eq "$1"
+          }
+
+          if touched '^\.github/workflows/ci\.yml$'; then run_all=true; fi
+
+          # Every package with a file: dependency on a library under libraries/.
+          # Derived from package.json files, not hard-coded.
+          mapfile -t consumers < <(
+            grep -l '"file:[./]*libraries/' services/*/package.json frontend/package.json 2>/dev/null \
+              | xargs -r -n1 dirname | sort -u
+          )
+          echo "ts library consumers: ${consumers[*]}"
+
+          libs_changed=false
+          if touched '^libraries/(ts-common|ts-storage)/'; then libs_changed=true; fi
+
+          node='[]'
+          add_node() { # name dir prisma unit lint_glob tsc_blocking
+            node="$(jq -c --arg n "$1" --arg d "$2" --argjson p "$3" --arg u "$4" \
+              --arg l "$5" --argjson t "$6" \
+              '. + [{name:$n, dir:$d, prisma:$p, unit:$u, lint:$l, tsc_blocking:$t}]' <<<"$node")"
+          }
+
+          is_consumer() { printf '%s\n' "${consumers[@]}" | grep -qx "$1"; }
+          want() { # dir
+            [ "$run_all" = true ] && return 0
+            { [ "$libs_changed" = true ] && is_consumer "$1"; } && return 0
+            touched "^$1/"
+          }
+
+          want services/learning-service && add_node learning services/learning-service true \
+            'NODE_PATH="$PWD" npm run test:unit' '"src/**/*.ts"' true
+          want services/tenant-service && add_node tenant services/tenant-service true \
+            'npm run test:unit' '"src/**/*.ts"' true
+          want services/course-service && add_node course services/course-service true \
+            'npx jest --ci' '"{src,apps,libs,test}/**/*.ts"' false
+          want services/assessment-service && add_node assessment services/assessment-service true \
+            'npm run test:unit' '"src/**/*.ts"' true
+          want services/achievement-reporting-service && add_node achievement services/achievement-reporting-service true \
+            'npm run test:unit' '"src/**/*.ts"' true
+          want frontend && add_node frontend frontend false \
+            'npm test' '.' true
+
+          java='[]'
+          add_java() { # name dir needs_common
+            java="$(jq -c --arg n "$1" --arg d "$2" --argjson c "$3" \
+              '. + [{name:$n, dir:$d, needs_common:$c}]' <<<"$java")"
+          }
+          jwant() { # dir
+            [ "$run_all" = true ] && return 0
+            touched '^libraries/java-common/' && return 0
+            touched "^$1/"
+          }
+          jwant gateway/api-gateway && add_java gateway gateway/api-gateway true
+          jwant infrastructure/eureka-server && add_java eureka infrastructure/eureka-server false
+          jwant services/identity-service && add_java identity services/identity-service true
+          jwant services/notification-service && add_java notification services/notification-service true
+          jwant services/audit-service && add_java audit services/audit-service true
+
+          ts_libs=false
+          if [ "$libs_changed" = true ] || [ "$run_all" = true ]; then ts_libs=true; fi
+
+          # Learning integration suite: the service itself or its only library.
+          learning_it=false
+          if [ "$run_all" = true ] || touched '^services/learning-service/' \
+            || touched '^libraries/ts-common/'; then learning_it=true; fi
+
+          has_node=false; [ "$node" != '[]' ] && has_node=true
+          has_java=false; [ "$java" != '[]' ] && has_java=true
+
+          {
+            echo "node_matrix=$node"
+            echo "has_node=$has_node"
+            echo "java_matrix=$java"
+            echo "has_java=$has_java"
+            echo "ts_libs=$ts_libs"
+            echo "learning_it=$learning_it"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Detected packages"
+            echo "- run_all: $run_all"
+            echo "- node: $(jq -r '[.[].name] | join(", ")' <<<"$node")"
+            echo "- java: $(jq -r '[.[].name] | join(", ")' <<<"$java")"
+            echo "- ts libraries: $ts_libs"
+            echo "- learning integration: $learning_it"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  ts-libraries:
+    name: ts-lib (${{ matrix.lib }})
+    needs: changes
+    if: needs.changes.outputs.ts_libs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        lib: [ts-common, ts-storage]
+    defaults:
+      run:
+        working-directory: libraries/${{ matrix.lib }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: libraries/${{ matrix.lib }}/package-lock.json
+
+      # npm ci also runs the package's prepare script, which builds it.
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # ts-common has failing tests on develop; ts-storage tests are blocking.
+      - name: Unit tests
+        id: unit
+        continue-on-error: ${{ matrix.lib == 'ts-common' }}
+        run: |
+          set +e
+          npx vitest run 2>&1 | tee "$RUNNER_TEMP/vitest.log"
+          rc=${PIPESTATUS[0]}
+          {
+            echo "### ${{ matrix.lib }} unit tests (exit $rc)"
+            grep -E '^\s*(Test Files|Tests)\s' "$RUNNER_TEMP/vitest.log" || true
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+
+  node:
+    name: node (${{ matrix.name }})
+    needs: changes
+    if: needs.changes.outputs.has_node == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.node_matrix) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            ${{ matrix.dir }}/package-lock.json
+            libraries/ts-common/package-lock.json
+            libraries/ts-storage/package-lock.json
+
+      # Services consume the libraries through file: dependencies, so the
+      # libraries have to be installed and built before the service install.
+      - name: Build ts libraries
+        if: matrix.name != 'frontend'
+        working-directory: libraries
+        run: |
+          for lib in ts-common ts-storage; do
+            (cd "$lib" && npm ci && npm run build)
+          done
+
+      - name: Install
+        run: npm ci
+
+      - name: Prisma generate
+        if: matrix.prisma
+        run: npx prisma generate
+
+      - name: Build
+        run: npm run build
+
+      - name: Typecheck (default tsconfig)
+        if: matrix.name != 'frontend'
+        continue-on-error: ${{ !matrix.tsc_blocking }}
+        run: |
+          set +e
+          npx tsc --noEmit 2>&1 | tee "$RUNNER_TEMP/tsc.log"
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then
+            {
+              echo "### ${{ matrix.name }} tsc --noEmit: $(grep -c 'error TS' "$RUNNER_TEMP/tsc.log" || true) errors (non-blocking, known on develop)"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $rc
+
+      - name: Unit tests
+        run: ${{ matrix.unit }}
+
+      # Lint is run without --fix. It fails on develop today, so it never blocks.
+      - name: Lint (non-blocking)
+        continue-on-error: true
+        run: |
+          set +e
+          npx eslint ${{ matrix.lint }} -f json -o "$RUNNER_TEMP/eslint.json"
+          rc=$?
+          errors="$(jq '[.[].errorCount] | add // 0' "$RUNNER_TEMP/eslint.json")"
+          warnings="$(jq '[.[].warningCount] | add // 0' "$RUNNER_TEMP/eslint.json")"
+          echo "### ${{ matrix.name }} eslint: $errors errors, $warnings warnings (non-blocking)" >> "$GITHUB_STEP_SUMMARY"
+          npx eslint ${{ matrix.lint }} | tail -n 40
+          exit $rc
+
+  java:
+    name: java (${{ matrix.name }})
+    needs: changes
+    if: needs.changes.outputs.has_java == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.java_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Install java-common
+        if: matrix.needs_common
+        working-directory: libraries/java-common
+        run: mvn -B -ntp install
+
+      - name: Verify
+        working-directory: ${{ matrix.dir }}
+        run: mvn -B -ntp verify
+
+  # Self-contained Learning integration suite (disposable database, in-process
+  # Course stub). Deliberately NOT in the needs of "CI result" until it has a
+  # track record on pull requests.
+  learning-integration:
+    name: learning integration (non-required)
+    needs: changes
+    if: needs.changes.outputs.learning_it == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: services/learning-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            services/learning-service/package-lock.json
+            libraries/ts-common/package-lock.json
+
+      - name: Build ts-common
+        working-directory: libraries/ts-common
+        run: npm ci && npm run build
+
+      - name: Install
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      # run.cjs creates and drops its own learning_it_* database on this server.
+      - name: Integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/learning_db
+          LEARNING_IT_TIMING: '1'
+        run: |
+          set -o pipefail
+          npm run test:integration 2>&1 | tee "$RUNNER_TEMP/learning-it.log"
+
+      # Exposes the longest observed waits as an annotation readable via the API.
+      - name: Timing annotation
+        if: always()
+        run: |
+          timing="$(grep -h '^it-timing ' "$RUNNER_TEMP/learning-it.log" | tr '\n' ' ' || true)"
+          echo "::notice title=it-timing::$timing"
+
+  # Single stable check name for branch protection; passes when every
+  # job that ran succeeded and fails if any job failed or was cancelled.
+  ci-result:
+    name: CI result
+    if: always()
+    needs: [changes, ts-libraries, node, java]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          case " $RESULTS " in
+            *" failure "*|*" cancelled "*) exit 1 ;;
+          esac

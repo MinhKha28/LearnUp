@@ -81,6 +81,21 @@ export class IssuanceWorker implements OnModuleInit, OnModuleDestroy {
         });
     }
   }
+  private async readLogo(url: string, certificateId: string) {
+    try {
+      const image = await downloadLogo(url, this.config);
+      if (image.mime === 'image/png' || image.mime === 'image/jpeg')
+        return image;
+    } catch (error) {
+      if (
+        !(error instanceof IssuanceError) ||
+        error.code !== 'INVALID_LOGO_TYPE'
+      )
+        throw error;
+    }
+    this.logger.warn({ certificateId, code: 'CERTIFICATE_LOGO_UNSUPPORTED' });
+    return undefined;
+  }
   async process(row: PendingCertificate): Promise<void> {
     const keys: string[] = [];
     try {
@@ -93,7 +108,7 @@ export class IssuanceWorker implements OnModuleInit, OnModuleDestroy {
         image;
       if (profile.logo) {
         try {
-          image = await downloadLogo(profile.logo.url, this.config);
+          image = await this.readLogo(profile.logo.url, row.id);
         } catch (error) {
           if (
             !(error instanceof IssuanceError) ||
@@ -102,7 +117,7 @@ export class IssuanceWorker implements OnModuleInit, OnModuleDestroy {
             throw error;
           profile = await this.directory.profile(row.organization_id);
           if (profile.logo)
-            image = await downloadLogo(profile.logo.url, this.config);
+            image = await this.readLogo(profile.logo.url, row.id);
         }
       }
       let setting = await this.signers.get(row.organization_id);

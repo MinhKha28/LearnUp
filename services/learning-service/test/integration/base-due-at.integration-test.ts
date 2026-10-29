@@ -1,3 +1,4 @@
+import { deadline } from './deadlines';
 /**
  * Test hạn gốc BR-300 (D33) trên PostgreSQL thật. Chỉ đọc, không ghi dữ liệu.
  *
@@ -5,7 +6,7 @@
  */
 import 'dotenv/config';
 import assert from 'node:assert/strict';
-import { after, describe, test } from 'node:test';
+import { after, describe, test } from './test-runner';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client';
 import {
@@ -23,7 +24,7 @@ const compute = (assignedAt: string, days: number, timezone: string) =>
   repository.computeBaseDueAt(new Date(assignedAt), days, timezone);
 
 after(async () => {
-  await prisma.$disconnect();
+  await deadline(prisma.$disconnect(), 'base-due-at.integration-test shutdown');
 });
 
 void describe('BaseDueAtRepository.computeBaseDueAt (BR-300, D33)', () => {

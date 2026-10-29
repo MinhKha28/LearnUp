@@ -1,23 +1,16 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { LookupUsersDto } from './dto/lookup-users.dto';
 import { InternalUsersRepository } from './internal-users.repository';
+import { IUserExistence } from './interfaces/user-existence.interface';
 
 @Injectable()
 export class InternalUsersService {
-  private readonly logger = new Logger(InternalUsersService.name);
-
   constructor(private readonly repository: InternalUsersRepository) {}
 
-  /**
-   * Chuẩn @ServiceCall (#145): tổ chức trong body phải trùng header x-organization-id, lệch thì 404.
-   * Tạm chấp nhận khi thiếu header cho tới khi learning-service gửi header này.
-   */
+  /** Chuẩn @ServiceCall (#145): tổ chức trong body phải trùng header x-organization-id; thiếu hoặc lệch thì 404. */
   async lookup(headerOrganizationId: string | undefined, dto: LookupUsersDto) {
-    if (headerOrganizationId === undefined) {
-      this.logger.warn(
-        'Internal user lookup without x-organization-id; using organizationId from the body.',
-      );
-    } else if (
+    if (
+      !headerOrganizationId ||
       headerOrganizationId.toLowerCase() !== dto.organizationId.toLowerCase()
     ) {
       throw new NotFoundException({
@@ -29,5 +22,15 @@ export class InternalUsersService {
     return {
       items: await this.repository.lookup(dto.organizationId, dto.userIds),
     };
+  }
+
+  /**
+   * Identity hỏi trước khi cấp lại email của tài khoản cũ cho tài khoản mới (BR-38, BR-39).
+   * Còn trong DB và chưa xóa mềm (kể cả Organizer Pending của đăng ký còn hạn) thì exists = true;
+   * đã xóa mềm hoặc chưa từng có thì exists = false. Không đọc theo tổ chức vì identity không biết tổ chức.
+   */
+  async existence(userId: string): Promise<IUserExistence> {
+    const user = await this.repository.findDeletedAt(userId);
+    return { exists: user !== null && user.deletedAt === null };
   }
 }

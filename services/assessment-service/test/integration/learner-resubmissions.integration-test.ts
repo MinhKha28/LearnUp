@@ -110,6 +110,33 @@ describe('UC30.1 over HTTP', () => {
   const view = async (id: string, user = LEARNER) =>
     (await api('GET', `/learner/assignments/${id}`, undefined, as(user))).data;
 
+  describe('the size limit of a file', () => {
+    test('the Assignment tells the Learner the limit that applies now (maxFileBytes)', async () => {
+      assert.equal((await view(reviewed)).maxFileBytes, 10 * 1024 * 1024);
+    });
+
+    for (const kind of ['submissions', 'resubmissions'] as const) {
+      test(`${kind}: a body above 50 MiB is a 413 FILE_TOO_LARGE in Vietnamese (Multer answers before the service)`, async () => {
+        const form = new FormData();
+        form.append(
+          'file',
+          new Blob([new Uint8Array(50 * 1024 * 1024 + 1024)]),
+          'big.zip',
+        );
+        const response = await fetch(
+          `${service.baseUrl}/api/v1/assessments/learner/assignments/${reviewed}/${kind}`,
+          { method: 'POST', headers: as(LEARNER), body: form },
+        );
+        const json = (await response.json()) as {
+          error?: { code?: string; message?: string };
+        };
+        assert.equal(response.status, 413);
+        assert.equal(json.error?.code, 'FILE_TOO_LARGE');
+        assert.match(String(json.error?.message), /Tệp quá lớn/);
+      });
+    }
+  });
+
   describe('guards', () => {
     test('there must be a previous submission (409), Learners only (403), a UUID (400)', async () => {
       const none = await resubmit(reviewed, LEARNER);

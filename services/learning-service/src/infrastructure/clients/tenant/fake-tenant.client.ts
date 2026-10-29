@@ -12,6 +12,7 @@ export class FakeTenantClient implements Pick<
 
   getOrganizationAccess(): Promise<OrganizationAccess> {
     return Promise.resolve({
+      organizationStatus: 'Active',
       subscriptionStatus: 'Active',
       readOnlyEndsAt: null,
       timezone: this.timezone,

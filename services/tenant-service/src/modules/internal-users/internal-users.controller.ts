@@ -1,8 +1,20 @@
 import { HEADER_NAMES } from '@learnup/ts-common';
-import { Body, Controller, Headers, HttpCode, Post } from '@nestjs/common';
 import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+} from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiHeader,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiOperation,
   ApiSecurity,
   ApiTags,
 } from '@nestjs/swagger';
@@ -76,14 +88,50 @@ export class InternalUsersController {
       },
     },
   })
+  @ApiHeader({
+    name: HEADER_NAMES.ORGANIZATION_ID,
+    required: true,
+    description:
+      'Organization of the caller; must equal organizationId in the body.',
+  })
   @ApiNotFoundResponse({
     description:
-      'x-organization-id is present and differs from organizationId in the body (ORGANIZATION_NOT_FOUND).',
+      'x-organization-id is missing or differs from organizationId in the body (ORGANIZATION_NOT_FOUND).',
   })
   lookup(
     @Headers(HEADER_NAMES.ORGANIZATION_ID) organizationId: string | undefined,
     @Body() dto: LookupUsersDto,
   ) {
     return this.service.lookup(organizationId, dto);
+  }
+
+  @Get(':userId/existence')
+  @ServiceCall()
+  @ResponseMessage('User existence checked')
+  @ApiOperation({
+    summary:
+      'Identity: does this canonical user still exist (not soft-deleted)? Used before reusing an email (BR-38, BR-39).',
+  })
+  @ApiOkResponse({
+    description:
+      'exists = true when the user exists and is not soft-deleted (including a Pending organizer); false when soft-deleted or never created. Never 404.',
+    schema: {
+      type: 'object',
+      required: ['statusCode', 'message', 'data'],
+      properties: {
+        statusCode: { type: 'integer', example: 200 },
+        message: { type: 'string', example: 'User existence checked' },
+        data: {
+          type: 'object',
+          required: ['exists'],
+          additionalProperties: false,
+          properties: { exists: { type: 'boolean' } },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'userId is not a UUID.' })
+  existence(@Param('userId', new ParseUUIDPipe()) userId: string) {
+    return this.service.existence(userId);
   }
 }

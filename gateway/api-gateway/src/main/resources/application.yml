@@ -46,7 +46,7 @@ spring:
         - id: learning-service
           uri: ${LEARNING_SERVICE_URL:http://learning-service:8085}
           predicates:
-            - Path=/api/v1/learning/**, /api/v1/enrollments/**, /api/learning/**, /api/enrollments/**
+            - Path=/api/v1/learning/**, /api/v1/enrollments/**, /api/v1/assignments/**, /api/learning/**, /api/enrollments/**, /api/assignments/**
 
         # Business 4: Assessment Service Routes (Docker DNS)
         - id: assessment-service
@@ -80,7 +80,6 @@ jwt:
     - /api/v1/subscription-plans/**
     - /api/v1/registrations/**
     - /api/v1/invitations/**
-    - /api/v1/certificates/verify/**
     - /api/auth/login
     - /api/auth/refresh
     - /api/auth/forgot-password
@@ -88,7 +87,6 @@ jwt:
     - /api/subscription-plans/**
     - /api/registrations/**
     - /api/invitations/**
-    - /api/certificates/verify/**
     - /actuator/health
     - /fallback/**
 

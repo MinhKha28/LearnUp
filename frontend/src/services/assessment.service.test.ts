@@ -1,8 +1,17 @@
+import fs from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
-// the text helpers do not need the HTTP client, and the client wants the environment of a running app
-vi.mock("./axios.customize", () => ({ default: {} }));
+// the client wants the environment of a running app: replace it with a recorder of the calls
+const http = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  patch: vi.fn(),
+  delete: vi.fn(),
+}));
+vi.mock("./axios.customize", () => ({ assessmentAxios: http, default: http }));
 
+import * as service from "./assessment.service";
 import { ENROLLMENT_NOT_ACTIVE_FORM_TEXT, assessmentErrorText } from "./assessment.service";
 
 const refused = (code: string, message = "An English message from the server.") => ({
@@ -31,5 +40,41 @@ describe("assessmentErrorText", () => {
     expect(assessmentErrorText(refused("ASSESSMENT_LOCKED", "Locked until noon."), "fallback")).toBe("Locked until noon.");
     expect(assessmentErrorText({ statusCode: 500 }, "fallback")).toBe("fallback");
     expect(assessmentErrorText({ message: ["a", "b"] }, "fallback")).toBe("a b");
+  });
+});
+
+/** The identity belongs to the gateway (from the JWT): a browser must never send the internal key or a fixed identity. */
+describe("what the assessment service sends from the browser", () => {
+  const IDENTITY_HEADERS = ["x-internal-key", "x-user-id", "x-organization-id", "x-user-role", "x-dev-user-id"];
+
+  it("sends none of the internal or identity headers, from any of its calls", async () => {
+    for (const method of Object.values(http)) method.mockReset().mockResolvedValue({ status: 200, data: {} });
+    const calls = Object.entries(service).filter(
+      (entry): entry is [string, (...args: unknown[]) => unknown] =>
+        entry[0].endsWith("API") && typeof entry[1] === "function",
+    );
+    expect(calls.length).toBeGreaterThan(15); // the guard sees the whole service, not an empty list
+    for (const [, call] of calls) {
+      try {
+        await call("id-1", "id-2", "id-3");
+      } catch {
+        // some calls need real arguments (a file, a payload); what they sent before that is still checked
+      }
+    }
+    const sent = Object.values(http).flatMap((method) => method.mock.calls);
+    expect(sent.length).toBeGreaterThan(15);
+    for (const args of sent) {
+      for (const arg of args) {
+        const headers = (arg as { headers?: Record<string, unknown> } | undefined)?.headers ?? {};
+        const names = Object.keys(headers).map((name) => name.toLowerCase());
+        for (const forbidden of IDENTITY_HEADERS) expect(names).not.toContain(forbidden);
+      }
+    }
+  });
+
+  it("does not carry a default internal key anywhere in the module", () => {
+    const text = fs.readFileSync(new URL("./assessment.service.ts", import.meta.url), "utf8");
+    expect(text).not.toMatch(/learnup-internal-secret/);
+    expect(text).not.toMatch(/x-internal-keys*["']s*:/i);
   });
 });

@@ -11,7 +11,7 @@ export interface IPromptFile {
   sizeBytes: number;
 }
 
-/** UC19.2 payload. No required flag or deadline: BR-165 / BR-166. */
+/** UC19.2 payload. No required flag or deadline: BR-206 / BR-207. */
 export interface ICreateAssignment {
   courseId: string;
   title: string;
@@ -24,7 +24,7 @@ export interface ICreateAssignment {
   rubric: IRubricCriterionInput[];
 }
 
-/** UC19 response: a page ({ meta, items } as in the other list endpoints) plus the Course-level lock that decides whether adding is allowed (BR-318). */
+/** UC19 response: a page ({ meta, items } as in the other list endpoints) plus the Course-level lock that decides whether adding is allowed (BR-114). */
 export interface IAssignmentList {
   meta: { current: number; pageSize: number; pages: number; total: number };
   items: IAssignmentSummary[];
@@ -40,7 +40,7 @@ export interface ICourseBuilderContext {
   assignments: IAssignmentSummary[] | null;
 }
 
-/** UC19 list row. `locked` = a submission exists (BR-98). */
+/** UC19 list row. `locked` = a submission exists (BR-120). */
 export interface IAssignmentSummary {
   id: string;
   courseId: string;
@@ -86,7 +86,7 @@ export interface IAssignment {
   lockoutHours: number;
   peerReview: IPeerReviewConfig;
   locked: boolean;
-  /** Course-level Locked (BR-80): blocks the Peer Review on/off switch (BR-185). */
+  /** Course-level Locked (BR-97): blocks the Peer Review on/off switch (BR-227). */
   courseLocked: boolean;
   disabled: boolean;
   rubric: (IRubricCriterionInput & { id: string; position: number })[];
@@ -108,9 +108,9 @@ export interface IRubricRow {
 }
 
 /**
- * UC18: why a Quiz cannot be fully edited (BR-99).
- * QUIZ_HAS_ATTEMPTS (BR-96, BR-97), COURSE_LOCKED (BR-94), COURSE_SUBMITTED (BR-285).
- * UC18.1 permissions add COURSE_NOT_EDITABLE (Archived/Disabled, BR-285) and COURSE_LEFT_DRAFT (BR-323);
+ * UC18: why a Quiz cannot be fully edited (BR-121).
+ * QUIZ_HAS_ATTEMPTS (BR-117, BR-119), COURSE_LOCKED (BR-113), COURSE_SUBMITTED (BR-83).
+ * UC18.1 permissions add COURSE_NOT_EDITABLE (Archived/Disabled, BR-83) and COURSE_LEFT_DRAFT (BR-118);
  * the UC18 list never sends those two.
  */
 export type QuizLockReason =
@@ -120,10 +120,10 @@ export type QuizLockReason =
   | "COURSE_NOT_EDITABLE"
   | "COURSE_LEFT_DRAFT";
 
-/** BR-155: the three auto-graded question types. */
+/** BR-194: the three auto-graded question types. */
 export type QuizQuestionType = "SingleChoice" | "MultipleChoice" | "TrueFalse";
 
-/** UC18 list row. `moduleId` null = attached to the Course (BR-154). `disabled` is not a lock reason. */
+/** UC18 list row. `moduleId` null = attached to the Course (BR-192). `disabled` is not a lock reason. */
 export interface IQuizSummary {
   id: string;
   courseId: string;
@@ -159,7 +159,7 @@ export interface IQuizQuestion {
   options: IQuizOption[];
 }
 
-/** UC18.1: whether one change is possible now and why not (BR-99). */
+/** UC18.1: whether one change is possible now and why not (BR-121). */
 export interface IQuizPermission {
   allowed: boolean;
   reasons: QuizLockReason[];
@@ -195,8 +195,8 @@ export interface IQuizList {
 }
 
 /**
- * UC18.2 payload (BR-156). `moduleId` omitted = attached to the Course (BR-154).
- * `isRequired` has no default; n and m fall back to the platform defaults when omitted (BR-175).
+ * UC18.2 payload (BR-195). `moduleId` omitted = attached to the Course (BR-192).
+ * `isRequired` has no default; n and m fall back to the platform defaults when omitted (BR-217).
  */
 export interface ICreateQuizReq {
   courseId: string;
@@ -209,7 +209,7 @@ export interface ICreateQuizReq {
   lockoutHours?: number;
 }
 
-/** UC18.4 payload: the five configuration fields (BR-156); send only what changed. */
+/** UC18.4 payload: the five configuration fields (BR-195); send only what changed. */
 export type IUpdateQuizConfigReq = Partial<
   Pick<ICreateQuizReq, "timeLimitMinutes" | "passingScore" | "isRequired" | "maxConsecutiveAttempts" | "lockoutHours">
 >;
@@ -219,7 +219,7 @@ export type IUpdateAssignment = Partial<Omit<ICreateAssignment, "courseId" | "pr
   promptFile?: IPromptFile | null;
 };
 
-/** What the Learner sees about the lock of one Assignment (BR-176, BR-179). */
+/** What the Learner sees about the lock of one Assignment (BR-218, BR-221). */
 export interface ILearnerAttemptState {
   maxConsecutiveAttempts: number;
   remainingAttempts: number;
@@ -238,7 +238,7 @@ export interface ILearnerSubmissionSummary {
 }
 
 /** UC30 step 1: the Assignment as the enrolled Learner reads it. */
-/** UC30 / UC30.1: where a submission goes (BR-171, BR-313). */
+/** UC30 / UC30.1: where a submission goes (BR-213, BR-239). */
 export type SubmissionPlacement = "REPLACES_IN_CYCLE" | "OPEN_CYCLE" | "INSTRUCTOR";
 
 /** UC30.1: where a resubmission would go right now. */
@@ -259,8 +259,10 @@ export interface ILearnerAssignment {
   peerReviewEnabled: boolean;
   rubric: { id: string; name: string; description: string; maxPoints: number }[];
   attempts: ILearnerAttemptState;
-  /** BR-169: the Enrollment is Completed. */
+  /** BR-210: the Enrollment is Completed. */
   readOnly: boolean;
+  /** The largest file a submission may carry now (it depends on the storage plan). */
+  maxFileBytes: number;
   latestSubmission: ILearnerSubmissionSummary | null;
   /** Set once the Learner has submitted and the Course is not completed. */
   resubmission: IResubmissionOutlook | null;
@@ -294,7 +296,7 @@ export interface ILearnerAssessmentItem {
   timeLimitMinutes: number | null;
   expectedDurationMinutes: number | null;
   status: LearnerAssessmentStatus;
-  /** Quiz: best attempt (BR-159). Assignment: final score of the latest submission (BR-170). */
+  /** Quiz: best attempt (BR-198). Assignment: final score of the latest submission (BR-212). */
   recordedScore: number | null;
   passed: boolean | null;
   submittedAt: string | null;
@@ -304,12 +306,12 @@ export interface ILearnerAssessmentItem {
 export interface ILearnerAssessmentList {
   courseId: string;
   enrollmentId: string;
-  /** BR-169: the Enrollment is Completed. */
+  /** BR-210: the Enrollment is Completed. */
   readOnly: boolean;
   items: ILearnerAssessmentItem[];
 }
 
-/** UC30.2: the result of a Finalized submission. Reviewers are never named (BR-191). */
+/** UC30.2: the result of a Finalized submission. Reviewers are never named (BR-234). */
 export interface IGradingResult {
   submission: { id: string; submissionNumber: number; submittedAt: string; fileName: string | null };
   assignment: { id: string; courseId: string; title: string; passingScore: number };
@@ -331,6 +333,8 @@ export interface IPeerReviewCycleItem {
   reviewDueAt: string;
   submissionCount: number;
   status: TPeerReviewCycleStatus;
+  /** The closing has run; until then the status only shows what the closing will do. */
+  closed: boolean;
 }
 
 export interface IPeerReviewCycleList {
@@ -343,4 +347,13 @@ export interface IPeerReviewCycleList {
     scoreGap: number | null;
   };
   items: IPeerReviewCycleItem[];
+}
+
+export interface IClosedPeerReviewCycle {
+  cycleId: string;
+  status: TPeerReviewCycleStatus;
+  submissionCount: number;
+  reviewCount: number;
+  closedAt: string;
+  alreadyClosed: boolean;
 }

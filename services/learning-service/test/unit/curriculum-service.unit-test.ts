@@ -214,6 +214,7 @@ function setup(
         ? Promise.reject(new TenantUnavailableError('down'))
         : Promise.resolve({
             subscriptionStatus: 'Active',
+            organizationStatus: 'Active',
             readOnlyEndsAt: null,
             timezone: 'Asia/Ho_Chi_Minh',
           });

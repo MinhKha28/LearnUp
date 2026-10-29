@@ -1,17 +1,20 @@
+import { closeAll, closeApp } from './deadlines';
+import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import { after, before, beforeEach, describe, test } from 'node:test';
+import { after, before, beforeEach, describe, test } from './test-runner';
 import { HEADER_NAMES } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import {
   TENANT_CLIENT,
+  TenantUnavailableError,
   type TenantClient,
 } from '../../src/infrastructure/clients/tenant/tenant.client';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
@@ -25,11 +28,13 @@ const ORG = '0199a000-2450-7000-8000-0a00000000f1';
 const OTHER = '0199a000-2450-7000-8000-0a00000000f2';
 const COURSE = '0199a000-2450-7000-8000-0e00000000f1';
 const ACTOR = randomUUID();
-const db = new Client({ connectionString: databaseUrl('learning_db') });
+const db = new Client({ connectionString: databaseUrl() });
 let app: NestExpressApplication;
 let url: string;
 let today: string;
 let subscriptionStatus = 'Active';
+let organizationStatus = 'Active';
+let tenantDown = false;
 let timezone = 'Asia/Ho_Chi_Minh';
 let accessCalls = 0;
 async function cleanup() {
@@ -118,7 +123,13 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
     const tenant = app.get<TenantClient>(TENANT_CLIENT);
     tenant.getOrganizationAccess = async () => {
       accessCalls++;
-      return { subscriptionStatus, timezone, readOnlyEndsAt: null };
+      if (tenantDown) throw new TenantUnavailableError('network');
+      return {
+        organizationStatus,
+        subscriptionStatus,
+        timezone,
+        readOnlyEndsAt: null,
+      };
     };
     tenant.lookupLearners = async (_user, ids) =>
       ids.map((userId) => ({
@@ -139,9 +150,41 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
       )
     ).rows[0].today;
   });
+  for (const action of ['due-date', 'exemption']) {
+    void test(`${action}: inactive organization blocks with active subscription`, async () => {
+      const id = await seed();
+      organizationStatus = 'Suspended';
+      const result = await call(
+        id,
+        action,
+        action === 'due-date'
+          ? { newDueDate: plusDays(5) }
+          : { reason: 'test' },
+      );
+      assert.equal(result.status, 403);
+      assert.equal(result.body.error.code, 'ORGANIZATION_NOT_ACTIVE');
+      assert.equal(await eventCount(), 0);
+    });
+    void test(`${action}: tenant access outage fails closed`, async () => {
+      const id = await seed();
+      tenantDown = true;
+      const result = await call(
+        id,
+        action,
+        action === 'due-date'
+          ? { newDueDate: plusDays(5) }
+          : { reason: 'test' },
+      );
+      assert.equal(result.status, 503);
+      assert.equal(result.body.error.code, 'SERVICE_UNAVAILABLE');
+      assert.equal(await eventCount(), 0);
+    });
+  }
   beforeEach(async () => {
     await cleanup();
     subscriptionStatus = 'Active';
+    organizationStatus = 'Active';
+    tenantDown = false;
     timezone = 'Asia/Ho_Chi_Minh';
     accessCalls = 0;
     await db.query(
@@ -153,8 +196,10 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
     try {
       await cleanup();
     } finally {
-      await app?.close();
-      await db.end();
+      await closeAll(
+        () => closeApp(app),
+        () => db.end(),
+      );
     }
   });
   test('two extensions accumulate and UC24/UC24.1 no longer display Overdue', async () => {

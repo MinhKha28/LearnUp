@@ -161,6 +161,7 @@ describe("UC24 view", () => {
     "ASSIGNMENT_NOT_FOUND",
     "COURSE_NOT_ASSIGNABLE",
     "SUBSCRIPTION_NOT_ACTIVE",
+    "ORGANIZATION_NOT_ACTIVE",
     "FORBIDDEN",
     "NETWORK",
     "TIMEOUT",
@@ -172,4 +173,10 @@ describe("UC24 view", () => {
     );
     expect(assignmentErrorMessage(code)).not.toContain(code);
   });
+});
+
+it("explains inactive organizations for assignment create, extend and exempt", () => {
+  expect(assignmentErrorMessage("ORGANIZATION_NOT_ACTIVE")).toBe(
+    "Tổ chức hiện không hoạt động. Vui lòng liên hệ quản trị viên nền tảng.",
+  );
 });

@@ -19,6 +19,7 @@ function setup(fail = false, empty = false) {
       if (fail) throw new Error('Tenant unavailable');
       return {
         subscriptionStatus: 'Active',
+        organizationStatus: 'Active',
         readOnlyEndsAt: null,
         timezone: 'Asia/Ho_Chi_Minh',
       };

@@ -59,6 +59,7 @@ const batchItem = (courseId: string): CourseBatchItem => ({
 
 const ACCESS: OrganizationAccess = {
   subscriptionStatus: 'Active',
+  organizationStatus: 'Active',
   readOnlyEndsAt: null,
   timezone: 'Asia/Ho_Chi_Minh',
 };

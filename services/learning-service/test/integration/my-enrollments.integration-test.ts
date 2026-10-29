@@ -1,24 +1,25 @@
+import { closeAll, closeApp } from './deadlines';
+import { testFetch as fetch } from './test-io';
 /**
  * Test tích hợp UC26 (GET /enrollments/me) trên fixture ORG_TEST (D34), không dùng dữ liệu demo.
  * Optional tạo qua POST /enrollments; Required tạo như phân công bằng createRequiredEnrollment.
  * Mỗi ca tự dọn ở đầu; dọn lần cuối khi kết thúc (D17).
  *
- * Chạy: npm run test:integration (cần course-service chạy tại COURSE_SERVICE_URL, cả hai DB đã seed)
+ * Chạy: npm run test:integration (isolated PostgreSQL and local HTTP stub)
  */
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import { after, before, describe, test } from 'node:test';
+import { after, before, describe, test } from './test-runner';
 import { HEADER_NAMES, type CurrentUser } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { EnrollmentsRepository } from '../../src/modules/enrollments/enrollments.repository';
 import {
-  courseDatabaseUrl,
   databaseUrl,
   ENROLL_IT_LEARNER_1,
   ENROLL_IT_LEARNER_2,
@@ -31,19 +32,18 @@ import { createRequiredEnrollment } from './enroll-it-required';
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error(
-    'Refusing to run: NODE_ENV=production. This test writes to learning_db and course_db.',
+    'Refusing to run: NODE_ENV=production. This test writes to the isolated Learning database.',
   );
 }
 
-/** Học liệu và Lesson của Course test Public trong seed course_db. */
+/** Học liệu và Lesson của Course test Public trong HTTP fixtures. */
 const PUBLIC_REQUIRED_VIDEO = '0199a000-0000-7000-8000-1c00000000f1';
 const PUBLIC_LESSON = '0199a000-0000-7000-8000-1b00000000f1';
 /** Tổ chức demo chỉ dùng làm header, không ghi gì. */
 const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const learningDb = new Client({ connectionString: databaseUrl('learning_db') });
-const courseDb = new Client({ connectionString: courseDatabaseUrl() });
+const learningDb = new Client({ connectionString: databaseUrl() });
 
 let app: NestExpressApplication | null = null;
 let baseUrl = '';
@@ -113,9 +113,8 @@ const daysAgo = (days: number) => new Date(Date.now() - days * DAY_MS);
 void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
   before(async () => {
     await learningDb.connect();
-    await courseDb.connect();
     connected = true;
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
 
     app = await NestFactory.create<NestExpressApplication>(AppModule, {
       logger: ['error'],
@@ -129,12 +128,10 @@ void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
   after(async () => {
     try {
       if (connected) {
-        await resetEnrollFixture(learningDb, courseDb);
+        await resetEnrollFixture(learningDb);
       }
     } finally {
-      await app?.close();
-      await learningDb.end().catch(() => undefined);
-      await courseDb.end().catch(() => undefined);
+      await closeAll(() => closeApp(app), () => learningDb.end());
     }
   });
 
@@ -150,7 +147,7 @@ void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
   });
 
   void test('Learner chưa có Enrollment → items rỗng, total 0, organizationTimezone null', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     assert.deepEqual(await myPage(ENROLL_IT_LEARNER_1), {
       meta: { current: 1, pageSize: 20, pages: 0, total: 0 },
       items: [],
@@ -159,7 +156,7 @@ void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
   });
 
   void test('Withdrawn không hiện', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(
       ENROLL_IT_LEARNER_1,
       ENROLL_IT_PUBLIC_COURSE,
@@ -178,7 +175,7 @@ void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
   });
 
   void test('Required quá hạn → Overdue; tạm khóa đang mở bắt đầu trước due_at → không Overdue; đóng tạm khóa → Overdue lại', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const { id, dueAt } = await createRequired(
       ENROLL_IT_LEARNER_1,
       ENROLL_IT_PUBLIC_COURSE,
@@ -214,7 +211,7 @@ void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
   });
 
   void test('thứ tự D22: hai Required theo due_at tăng dần; Required chưa xong đứng trước Optional', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     // Tạo Required hạn sớm trước: id nhỏ hơn, nên chỉ đứng đầu nếu xếp theo due_at
     const earlier = await createRequired(
       ENROLL_IT_LEARNER_1,
@@ -232,7 +229,7 @@ void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
       [earlier.id, later.id],
     );
 
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const required = await createRequired(
       ENROLL_IT_LEARNER_1,
       ENROLL_IT_PRIVATE_COURSE,
@@ -254,7 +251,7 @@ void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
   });
 
   void test('phân trang ổn định: repository limit 1 qua từng trang không lặp, không sót; page vượt int64 → 200 rỗng, total đúng', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     await createRequired(
       ENROLL_IT_LEARNER_1,
       ENROLL_IT_PRIVATE_COURSE,
@@ -302,7 +299,7 @@ void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
   });
 
   void test('x/y: chỉ đếm học liệu bắt buộc còn hoạt động; hoàn thành → x tăng; vô hiệu hóa học liệu hoặc Lesson → y giảm', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const enrollmentId = await createOptional(
       ENROLL_IT_LEARNER_1,
       ENROLL_IT_PUBLIC_COURSE,
@@ -341,7 +338,7 @@ void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
   });
 
   void test('Learner khác và tổ chức khác không thấy Enrollment của nhau', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     await createOptional(ENROLL_IT_LEARNER_1, ENROLL_IT_PUBLIC_COURSE);
 
     assert.equal((await myPage(ENROLL_IT_LEARNER_1)).meta.total, 1);
