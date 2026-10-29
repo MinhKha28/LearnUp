@@ -7,6 +7,7 @@ import {
   ForbiddenException,
   NotFoundException,
   ServiceUnavailableException,
+  PayloadTooLargeException,
 } from '@nestjs/common';
 import { StorageProviderError } from '@learnup/ts-storage';
 import type { CurrentUser } from '@learnup/ts-common';
@@ -355,17 +356,23 @@ describe('submit (UC30)', () => {
   });
 
   test('a file must be a PDF, DOCX or ZIP of at most 50 MB, judged by its bytes (MSG20)', async () => {
-    const reject = async (file: ReturnType<typeof pdf>, code: string) => {
+    const reject = async (
+      file: ReturnType<typeof pdf>,
+      code: string,
+      exception: new (...args: never[]) => Error = BadRequestException,
+    ) => {
       await rejectsWith(
         ctx.service.submit(learner(), ASSIGNMENT, {}, file),
-        BadRequestException,
+        exception,
         code,
       );
       assert.equal(ctx.storage.uploads.length, 0);
     };
+    // the raw limit of the default storage plan (10 MiB) is lower than the 50 MiB ceiling
     await reject(
-      { ...pdf(), size: 50 * 1024 * 1024 + 1 },
-      'SUBMISSION_FILE_TOO_LARGE',
+      { ...pdf(), size: 10 * 1024 * 1024 + 1 },
+      'FILE_TOO_LARGE',
+      PayloadTooLargeException,
     );
     await reject(
       { ...pdf(), originalname: 'virus.exe' },

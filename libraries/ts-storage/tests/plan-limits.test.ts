@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   resolveStoragePlanLimits,
   maxUploadBytesFor,
+  effectiveUploadLimit,
   StorageError,
   validateCloudinaryConfig,
 } from "../src/index.js";
@@ -62,5 +63,17 @@ describe("storage plan limits", () => {
         planLimits: { ...defaults, rawMaxBytes: 0 },
       }),
     ).toThrow(StorageError);
+  });
+});
+
+describe("effectiveUploadLimit", () => {
+  const MiB = 1024 * 1024;
+  it("takes the lower of the product ceiling and the plan limit", () => {
+    expect(effectiveUploadLimit(50 * MiB, defaults, "raw")).toBe(10 * MiB);
+    expect(effectiveUploadLimit(5 * MiB, defaults, "raw")).toBe(5 * MiB);
+    expect(effectiveUploadLimit(200 * MiB, defaults, "video")).toBe(100 * MiB);
+  });
+  it("uses the ceiling alone when the resource type has no plan limit", () => {
+    expect(effectiveUploadLimit(50 * MiB, defaults, "auto")).toBe(50 * MiB);
   });
 });

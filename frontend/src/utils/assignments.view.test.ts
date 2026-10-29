@@ -180,3 +180,10 @@ it("explains inactive organizations for assignment create, extend and exempt", (
     "Tổ chức hiện không hoạt động. Vui lòng liên hệ quản trị viên nền tảng.",
   );
 });
+
+it("UC24.3 range follows the item's zone after the organization zone changes", () => {
+  const item = { dueAt: "2026-10-29T17:00:00Z", dueTimezone: "Asia/Ho_Chi_Minh" };
+  const now = new Date("2026-10-29T12:00:00Z");
+  expect(assignmentExtensionRange(item.dueAt, item.dueTimezone, now).min).toBe("2026-10-30");
+  expect(assignmentExtensionRange(item.dueAt, "Pacific/Auckland", now).min).toBe("2026-10-31");
+});

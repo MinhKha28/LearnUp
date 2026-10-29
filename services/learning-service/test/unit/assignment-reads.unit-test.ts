@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { CurrentUser } from '@learnup/ts-common';
 import { AssignmentReadsService } from '../../src/modules/assignments/assignment-reads.service';
-import { OrganizationTimezoneService } from '../../src/infrastructure/clients/tenant/organization-timezone.service';
 
 const user: CurrentUser = {
   userId: 'organizer',
@@ -10,82 +9,57 @@ const user: CurrentUser = {
   role: 'ORGANIZER',
   isAuthenticated: true,
 };
-
-function setup(fail = false, empty = false) {
-  let calls = 0;
-  const timezone = new OrganizationTimezoneService({
-    getOrganizationAccess: async () => {
-      calls++;
-      if (fail) throw new Error('Tenant unavailable');
-      return {
-        subscriptionStatus: 'Active',
-        organizationStatus: 'Active',
-        readOnlyEndsAt: null,
-        timezone: 'Asia/Ho_Chi_Minh',
-      };
-    },
-  });
+function setup(empty = false, dueTimezone: string | null = 'Asia/Ho_Chi_Minh') {
+  let accessCalls = 0;
   const row = {
     enrollmentId: 'enrollment',
     learnerId: 'learner',
     courseId: 'course',
-    dueAt: new Date(),
+    dueAt: dueTimezone ? new Date('2026-10-29T17:00:00Z') : null,
+    dueTimezone,
     extensionSeconds: 0n,
   };
   const service = new AssignmentReadsService(
     {
-      count: async () => (empty ? 0 : 1),
-      page: async () => [row],
-      detail: async () => row,
-      intervals: async () => [],
+      count: () => Promise.resolve(empty ? 0 : 1),
+      page: () => Promise.resolve([row]),
+      detail: () => Promise.resolve(row),
+      intervals: () => Promise.resolve([]),
     } as never,
-    { countRequiredMaterials: async () => new Map() } as never,
-    { lookupLearners: async () => [] } as never,
-    { getCoursesBatch: async () => [] } as never,
-    timezone,
+    { countRequiredMaterials: () => Promise.resolve(new Map()) } as never,
+    {
+      lookupLearners: () => Promise.resolve([]),
+      getOrganizationAccess: () => {
+        accessCalls++;
+        return Promise.reject(new Error('Tenant unavailable'));
+      },
+    },
+    { getCoursesBatch: () => Promise.resolve([]) } as never,
   );
-  return { service, calls: () => calls };
+  return { service, calls: () => accessCalls };
 }
-
-describe('UC24 organization timezone', () => {
-  test('list and detail reuse the UC26 organization cache', async () => {
-    const { service, calls } = setup();
-    assert.equal(
-      (await service.list(user, 1)).organizationTimezone,
-      'Asia/Ho_Chi_Minh',
-    );
-    assert.equal(
-      (await service.detail(user, 'enrollment')).organizationTimezone,
-      'Asia/Ho_Chi_Minh',
-    );
-    assert.equal(calls(), 1);
-  });
-  test('tenant failure returns null without caching the failure', async () => {
-    const { service, calls } = setup(true);
-    assert.equal((await service.list(user, 1)).organizationTimezone, null);
-    assert.equal(
-      (await service.detail(user, 'enrollment')).organizationTimezone,
-      null,
-    );
-    assert.equal(calls(), 2);
-  });
-  for (const knownTimezone of ['America/New_York', null]) {
-    test(`known timezone ${knownTimezone} avoids tenant access`, async () => {
-      const { service, calls } = setup();
-      assert.equal(
-        (await service.detail(user, 'enrollment', knownTimezone))
-          .organizationTimezone,
-        knownTimezone,
-      );
+void describe('UC24 frozen deadline timezone', () => {
+  for (const zone of ['Asia/Ho_Chi_Minh', 'Pacific/Auckland', null]) {
+    void test(`list and detail return stored zone ${zone} without Tenant access`, async () => {
+      const { service, calls } = setup(false, zone);
+      const page = await service.list(user, 1);
+      const detail = await service.detail(user, 'enrollment');
+      assert.equal(page.items[0].dueTimezone, zone);
+      assert.equal(detail.dueTimezone, zone);
+      assert.ok(!('organizationTimezone' in page));
+      assert.ok(!('organizationTimezone' in detail));
       assert.equal(calls(), 0);
     });
   }
-  test('empty and overflow pages include null without tenant access', async () => {
-    const { service, calls } = setup(false, true);
+  void test('empty and overflow pages omit the response timezone', async () => {
+    const { service, calls } = setup(true);
     for (const page of [1, 2]) {
-      const result = await service.list(user, page);
-      assert.deepEqual(result.items, []);
-      assert.equal(result.organizationTimezone, null);
+      assert.deepEqual(await service.list(user, page), {
+        items: [],
+        page,
+        pageSize: 20,
+        total: 0,
+      });
     }
     assert.equal(calls(), 0);
   });

@@ -261,6 +261,8 @@ export interface ILearnerAssignment {
   attempts: ILearnerAttemptState;
   /** BR-210: the Enrollment is Completed. */
   readOnly: boolean;
+  /** The largest file a submission may carry now (it depends on the storage plan). */
+  maxFileBytes: number;
   latestSubmission: ILearnerSubmissionSummary | null;
   /** Set once the Learner has submitted and the Course is not completed. */
   resubmission: IResubmissionOutlook | null;

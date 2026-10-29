@@ -34,4 +34,12 @@ export class InternalUsersRepository extends BaseRepository {
       lookupUsersQuery(organizationId, userIds),
     );
   }
+
+  /** Chỉ đọc, không khóa: được gọi khi UC02 đang giữ khóa theo email nên không được chờ khóa nào. */
+  findDeletedAt(userId: string) {
+    return this.db().user.findUnique({
+      where: { id: userId },
+      select: { deletedAt: true },
+    });
+  }
 }
