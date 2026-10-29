@@ -44,6 +44,10 @@ import { IVerifyEmailOtpResult } from './interfaces/verify-email-otp-result.inte
 import { IPaymentResult } from './interfaces/payment-result.interface';
 import { RegistrationsRepository } from './registrations.repository';
 
+export const REGISTRATION_LOCK_POLL_MS = 100;
+export const REGISTRATION_LOCK_EXTRA_WAIT_MS = 5000;
+export const REGISTRATION_LOCK_WORK_BUDGET_MS = 15000;
+
 @Injectable()
 export class RegistrationsService {
   constructor(
@@ -68,7 +72,54 @@ export class RegistrationsService {
       message:
         'Nếu thông tin hợp lệ, mã xác thực đã được gửi tới email của bạn.',
     };
+    return this.withRegistrationEmailLock(dto.organizer.email, result, () =>
+      this.createLocked(dto, settings, result),
+    );
+  }
 
+  /**
+   * Giữ khóa theo email suốt lượt đăng ký: kiểm email → hủy đăng ký cũ → gọi identity → ghi đăng ký mới.
+   * Khóa nằm trong một transaction riêng chỉ để giữ khóa; các bước bên trong vẫn commit riêng như cũ, nên
+   * Organizer cũ đã xóa mềm được commit trước khi identity hỏi lại tenant existence (BR-38, BR-39).
+   * Hai lượt cùng email chạy lần lượt, nên identity không bao giờ thấy credential của một lượt chưa commit.
+   * Chờ quá lâu thì trả phản hồi trung tính như trường hợp hai request trùng nhau (BR-12).
+   */
+  private async withRegistrationEmailLock(
+    email: string,
+    neutral: ICreateRegistrationResult,
+    work: () => Promise<ICreateRegistrationResult>,
+  ): Promise<ICreateRegistrationResult> {
+    const identityTimeoutMs = this.identity.timeoutMs;
+    const lockWaitMs = identityTimeoutMs + REGISTRATION_LOCK_EXTRA_WAIT_MS;
+    return this.prisma.$transaction(
+      async (tx) => {
+        const deadline = Date.now() + lockWaitMs;
+        while (
+          !(await this.registrationsRepository.tryLockRegistrationEmail(
+            email,
+            tx,
+          ))
+        ) {
+          if (Date.now() >= deadline) return neutral;
+          await new Promise((resolve) =>
+            setTimeout(resolve, REGISTRATION_LOCK_POLL_MS),
+          );
+        }
+        return work();
+      },
+      {
+        maxWait: REGISTRATION_LOCK_EXTRA_WAIT_MS,
+        timeout:
+          lockWaitMs + identityTimeoutMs + REGISTRATION_LOCK_WORK_BUDGET_MS,
+      },
+    );
+  }
+
+  private async createLocked(
+    dto: CreateRegistrationDto,
+    settings: Awaited<ReturnType<PlatformSettingsService['get']>>,
+    result: ICreateRegistrationResult,
+  ): Promise<ICreateRegistrationResult> {
     // BR-3, BR-4: phải chọn một gói đang được cung cấp.
     const plan = await this.registrationsRepository.findPlanById(dto.planId);
     if (!plan || !plan.isOffered) {
@@ -121,14 +172,19 @@ export class RegistrationsService {
     const organizationId = uuidv7();
     const organizerId = uuidv7();
     const registrationId = uuidv7(); // cần trước để gắn vào mã băm OTP
-    await this.identity.setCredentials({
-      userId: organizerId,
-      password: dto.organizer.password,
-      email: dto.organizer.email,
-      fullName: dto.organizer.fullName,
-      role: UserRoleValue.Organizer,
-      organizationId,
-    });
+    try {
+      await this.identity.setCredentials({
+        userId: organizerId,
+        password: dto.organizer.password,
+        email: dto.organizer.email,
+        fullName: dto.organizer.fullName,
+        role: UserRoleValue.Organizer,
+        organizationId,
+      });
+    } catch (error) {
+      if (error instanceof ConflictException) return result;
+      throw error;
+    }
 
     const now = new Date();
     const expiresAt = new Date(
