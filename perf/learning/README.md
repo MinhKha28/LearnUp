@@ -7,6 +7,7 @@ learnup_learnup-network and calls http://learning-service:8085; learning calls
 http://course-service:8083. Docker-to-Windows-host HTTP measurements are excluded.
 
 The workload sends gateway identity headers directly: **gateway/JWT are excluded**.
+Root Compose defaults to Tenant HTTP. This benchmark explicitly overrides it:
 Tenant access is fake: TENANT_CLIENT_MODE=fake returns Active with
 TENANT_FAKE_TIMEZONE=Asia/Ho_Chi_Minh. Course-service and both databases are real.
 Keep one learning instance, default pool 10 per service, course HTTP timeout 3000 ms
@@ -15,8 +16,11 @@ and enrollment rate limit 10/minute/user. Do not tune these to pass thresholds.
 ## Start and verify connectivity
 
 ```powershell
+$env:LEARNING_TENANT_CLIENT_MODE='fake'
+$env:LEARNING_TENANT_FAKE_TIMEZONE='Asia/Ho_Chi_Minh'
 docker compose build course-service learning-service
 docker compose up -d postgres course-service learning-service
+# Recreate learning-service if it was already running in HTTP mode.
 docker run --rm --network learnup_learnup-network --mount "type=bind,source=$PWD/perf/learning,target=/scripts,readonly" grafana/k6 run /scripts/connectivity.js
 $env:PERF_DB_PORT='5433'
 node perf/learning/fixture.cjs seed

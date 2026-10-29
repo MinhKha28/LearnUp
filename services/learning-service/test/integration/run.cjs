@@ -1,10 +1,14 @@
 // Parent owns the disposable database even if a test hangs or the child crashes.
+// Relative paths below (prisma/, .env.example, ../../docker-compose.yml) are
+// resolved from the learning-service directory, whatever the caller's cwd.
+const { resolve } = require('node:path');
+process.chdir(resolve(__dirname, '../..'));
+process.env.NODE_PATH ||= process.cwd();
 require('dotenv/config');
 require('ts-node').register({ project: 'tsconfig.seed.json' });
 const { randomUUID } = require('node:crypto');
 const { spawn } = require('node:child_process');
 const { readFileSync, readdirSync } = require('node:fs');
-const { resolve } = require('node:path');
 const { Client } = require('pg');
 const { deadline, IO_TIMEOUT_MS, SUITE_TIMEOUT_MS } = require('./deadlines');
 
@@ -58,8 +62,6 @@ function child(args, env, cap, label) {
 async function main() {
   if (process.env.NODE_ENV === 'production' || !process.env.DATABASE_URL)
     throw new Error('Non-production DATABASE_URL is required');
-  if (!process.env.NODE_PATH)
-    throw new Error('Set NODE_PATH to the absolute learning-service directory');
   const timeout = deployedCourseTimeout();
   const name = `learning_it_${randomUUID().replaceAll('-', '')}`;
   const base = new URL(process.env.DATABASE_URL);

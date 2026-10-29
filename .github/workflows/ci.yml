@@ -28,6 +28,7 @@ jobs:
       java_matrix: ${{ steps.detect.outputs.java_matrix }}
       has_java: ${{ steps.detect.outputs.has_java }}
       ts_libs: ${{ steps.detect.outputs.ts_libs }}
+      learning_it: ${{ steps.detect.outputs.learning_it }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -122,6 +123,11 @@ jobs:
           ts_libs=false
           if [ "$libs_changed" = true ] || [ "$run_all" = true ]; then ts_libs=true; fi
 
+          # Learning integration suite: the service itself or its only library.
+          learning_it=false
+          if [ "$run_all" = true ] || touched '^services/learning-service/' \
+            || touched '^libraries/ts-common/'; then learning_it=true; fi
+
           has_node=false; [ "$node" != '[]' ] && has_node=true
           has_java=false; [ "$java" != '[]' ] && has_java=true
 
@@ -131,6 +137,7 @@ jobs:
             echo "java_matrix=$java"
             echo "has_java=$has_java"
             echo "ts_libs=$ts_libs"
+            echo "learning_it=$learning_it"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -139,6 +146,7 @@ jobs:
             echo "- node: $(jq -r '[.[].name] | join(", ")' <<<"$node")"
             echo "- java: $(jq -r '[.[].name] | join(", ")' <<<"$java")"
             echo "- ts libraries: $ts_libs"
+            echo "- learning integration: $learning_it"
           } >> "$GITHUB_STEP_SUMMARY"
 
   ts-libraries:
@@ -289,6 +297,68 @@ jobs:
       - name: Verify
         working-directory: ${{ matrix.dir }}
         run: mvn -B -ntp verify
+
+  # Self-contained Learning integration suite (disposable database, in-process
+  # Course stub). Deliberately NOT in the needs of "CI result" until it has a
+  # track record on pull requests.
+  learning-integration:
+    name: learning integration (non-required)
+    needs: changes
+    if: needs.changes.outputs.learning_it == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: services/learning-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            services/learning-service/package-lock.json
+            libraries/ts-common/package-lock.json
+
+      - name: Build ts-common
+        working-directory: libraries/ts-common
+        run: npm ci && npm run build
+
+      - name: Install
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      # run.cjs creates and drops its own learning_it_* database on this server.
+      - name: Integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/learning_db
+          LEARNING_IT_TIMING: '1'
+        run: |
+          set -o pipefail
+          npm run test:integration 2>&1 | tee "$RUNNER_TEMP/learning-it.log"
+
+      # Exposes the longest observed waits as an annotation readable via the API.
+      - name: Timing annotation
+        if: always()
+        run: |
+          timing="$(grep -h '^it-timing ' "$RUNNER_TEMP/learning-it.log" | tr '\n' ' ' || true)"
+          echo "::notice title=it-timing::$timing"
 
   # Single stable check name for branch protection; passes when every
   # job that ran succeeded and fails if any job failed or was cancelled.

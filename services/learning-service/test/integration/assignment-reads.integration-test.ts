@@ -184,6 +184,7 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
       if (timezoneFails) throw new Error('Timezone timeout');
       return {
         subscriptionStatus: 'Active',
+        organizationStatus: 'Active',
         readOnlyEndsAt: null,
         timezone: 'Asia/Ho_Chi_Minh',
       };
@@ -237,7 +238,10 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
       if (connected) await cleanup();
     } finally {
       if (timezoneService) timezoneService.getTimezone = getTimezone;
-      await closeAll(() => closeApp(app), () => db.end());
+      await closeAll(
+        () => closeApp(app),
+        () => db.end(),
+      );
     }
   });
 

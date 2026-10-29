@@ -1,3 +1,7 @@
+import {
+  maxUploadBytesFor,
+  type IStoragePlanLimits,
+} from "../../storage-plan-limits.js";
 import { randomUUID } from "node:crypto";
 import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 
@@ -24,6 +28,7 @@ import { validateCloudinaryConfig } from "./cloudinary.config.js";
 import type { ICloudinaryStorageConfig } from "./cloudinary.interface.js";
 
 export class CloudinaryStorageProvider implements IReadableStorageProvider {
+  readonly #planLimits: IStoragePlanLimits;
   readonly #signingConfig: {
     cloud_name: string;
     api_key: string;
@@ -32,6 +37,7 @@ export class CloudinaryStorageProvider implements IReadableStorageProvider {
   };
   constructor(config: ICloudinaryStorageConfig) {
     const validatedConfig = validateCloudinaryConfig(config);
+    this.#planLimits = validatedConfig.planLimits!;
     this.#signingConfig = {
       cloud_name: validatedConfig.cloudName,
       api_key: validatedConfig.apiKey,
@@ -53,6 +59,15 @@ export class CloudinaryStorageProvider implements IReadableStorageProvider {
   ): Promise<IStoredFile> {
     validateStorageFile(file, options.validation);
 
+    const resourceType = options.resourceType ?? "auto";
+    const maxBytes = maxUploadBytesFor(this.#planLimits, resourceType);
+    if (maxBytes !== undefined && file.buffer.length > maxBytes) {
+      throw new StorageProviderError(
+        "File exceeds storage plan upload limit.",
+        "TOO_LARGE",
+      );
+    }
+
     const folder = this.normalizeFolder(options.folder);
     const publicId = options.publicId?.trim() || randomUUID();
     this.validateDeliveryType(options.deliveryType);
@@ -61,7 +76,7 @@ export class CloudinaryStorageProvider implements IReadableStorageProvider {
       const result = await this.uploadBuffer(file, {
         folder,
         publicId,
-        resourceType: options.resourceType ?? "auto",
+        resourceType,
         overwrite: options.overwrite ?? false,
         tags: options.tags,
         deliveryType: options.deliveryType,
@@ -257,10 +272,15 @@ export class CloudinaryStorageProvider implements IReadableStorageProvider {
     message: string,
     error: unknown,
   ): StorageProviderError {
-    // Only inspect structured classification fields; messages and causes may contain secrets.
+    // Inspect the message prefix only to classify the provider size error; never expose it.
     const details =
       typeof error === "object" && error !== null
-        ? (error as { http_code?: unknown; code?: unknown; name?: unknown })
+        ? (error as {
+            http_code?: unknown;
+            code?: unknown;
+            name?: unknown;
+            message?: unknown;
+          })
         : undefined;
     const code =
       details?.http_code === 404
@@ -270,7 +290,10 @@ export class CloudinaryStorageProvider implements IReadableStorageProvider {
             details?.code === "ESOCKETTIMEDOUT" ||
             details?.name === "TimeoutError"
           ? "TIMEOUT"
-          : details?.http_code === 413
+          : details?.http_code === 413 ||
+              (details?.http_code === 400 &&
+                typeof details.message === "string" &&
+                details.message.startsWith("File size too large"))
             ? "TOO_LARGE"
             : "UNAVAILABLE";
     return new StorageProviderError(message, code);

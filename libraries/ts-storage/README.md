@@ -107,3 +107,11 @@ empty `format` to omit that SDK parameter; the raw format convention still needs
 test-account verification.
 
 See [verification and Cloudinary sources](../../docs/architecture/storage-private-delivery-verification.md).
+
+## Storage plan upload limits
+
+D-049 / #186: resolveStoragePlanLimits(env) reads an explicitly supplied environment map; the library never reads process.env. Cloudinary Free plan defaults in bytes are STORAGE_MAX_RAW_BYTES=10485760, STORAGE_MAX_IMAGE_BYTES=10485760, STORAGE_MAX_VIDEO_BYTES=104857600. Unset or empty values use defaults. Invalid values fail configuration at startup with StorageError naming the variable; values must be positive safe decimal integers.
+
+Pass the result as planLimits in Cloudinary configuration. maxUploadBytesFor(limits, resourceType) returns the matching limit, or undefined for auto. Explicit raw/image/video uploads above their limit reject before SDK upload using Buffer length with StorageProviderError code TOO_LARGE; the boundary is inclusive. Auto uploads rely on provider classification. HTTP 413 and HTTP 400 messages beginning with File size too large also classify as TOO_LARGE without exposing provider messages.
+
+Services must expose min(product ceiling, plan limit) and map TOO_LARGE to HTTP 413 FILE_TOO_LARGE. Existing service HTTP mappings are unchanged here; owners update them under #186.
