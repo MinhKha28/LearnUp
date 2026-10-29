@@ -4,6 +4,8 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
+    hikari:
+      exception-override-class-name: com.learnup.identity.support.H2LockTimeoutExceptionOverride
   jpa:
     hibernate:
       ddl-auto: create-drop

@@ -60,7 +60,7 @@ Fakes and non-default settings used:
 | Cloudinary variables empty | Storage stays unconfigured; no journey uploads files |
 | learning `TENANT_CLIENT_MODE=fake` | E2E explicitly uses fake; root Compose defaults to HTTP |
 | learning `VIDEO_PLAYBACK_MODE=fixture`, `READING_ACCESS_MODE=fixture` | course-service playback/reading contract not built (CT-3) |
-| achievement `CERTIFICATE_SIGNER_ACCESS_CLIENT_MODE=fake` | Tenant organization-access endpoint not built (CT-2) |
+| achievement signer access uses the default HTTP mode | J7 checks the real Tenant organization-access endpoint |
 | achievement `CERTIFICATE_CLEANUP_ENABLED=false`, consumer off | No storage, no certificate issuance in scope |
 | tenant `DEV_FAKE_AUTH=false`, `LEARNING_CLIENT_MODE=http`, `COURSE_CLIENT_MODE=http` | Real gateway identity and real calls |
 
@@ -107,10 +107,10 @@ its volumes. `$E2E_STATE_DIR` (secrets, mailbox, run records) is kept; delete it
   `curl -i -H "x-internal-key: $KEY" localhost:8086/api/v1/internal/learners/<learnerId>/courses/<courseId>/completion-snapshot`
   returns 404.
 
-Contract gaps worked around with documented fakes (not counted as failures):
+Tenant CT-2 is resolved: J7 uses the real `GET /api/v1/internal/organizations/:id/access` endpoint with matching internal-key and Organization headers. Tenant unavailability fails closed with `503 TENANT_UNAVAILABLE`.
 
-- **CT-2 (tenant-service).** `GET /api/v1/internal/organizations/:id/access` is missing. In http
-  mode (the compose default), signer save returns 503 `TENANT_UNAVAILABLE`.
+Remaining contract gaps worked around with documented fakes (not counted as failures):
+
 - **CT-3 (course-service).** No playback or reading contract exists. In course mode (the compose
   default), `GET /api/v1/enrollments/:id/materials/:mid/playback` returns 503
   `PLAYBACK_UNAVAILABLE`, and `reading-access` returns 503.

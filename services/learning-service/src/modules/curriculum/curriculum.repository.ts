@@ -15,6 +15,7 @@ export interface AccessibleEnrollment {
   /** status hiển thị, đã gồm Overdue (D23). */
   status: string;
   dueAt: Date | null;
+  dueTimezone: string | null;
   /** disabled_at của bản sao phiên bản. */
   versionDisabledAt: Date | null;
 }
@@ -38,7 +39,7 @@ export class CurriculumRepository extends BaseRepository {
              e.enrollment_type AS "enrollmentType",
              e.status AS "storedStatus",
              ${enrollmentDisplayStatusSql('e')} AS "status",
-             e.due_at AS "dueAt",
+             e.due_at AS "dueAt", e.due_timezone AS "dueTimezone",
              c.disabled_at AS "versionDisabledAt"
         FROM enrollments e
         LEFT JOIN course_version_snapshots c

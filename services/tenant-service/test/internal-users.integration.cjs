@@ -223,6 +223,37 @@ test('internal lookup with isolated organization fixtures', async (t) => {
         'ORGANIZATION_NOT_FOUND',
       );
     });
+    const existence = (userId, key = process.env.INTERNAL_SERVICE_KEY) =>
+      fetch(url.replace(/\/lookup$/, `/${userId}/existence`), {
+        headers: key ? { 'x-internal-key': key } : {},
+      });
+    const pendingLearner = cases.find((c) => c.name === 'unactivated Learner');
+    const deletedLearner = cases.find((c) => c.name === 'deleted Learner');
+    for (const [name, userId, expected] of [
+      ['an active user', cases[0].id, true],
+      ['a Pending user', pendingLearner.id, true],
+      ['a soft-deleted user', deletedLearner.id, false],
+      ['a user that never existed', missingId, false],
+    ]) {
+      await t.test(`existence: ${name} -> exists=${expected}`, async () => {
+        const response = await existence(userId);
+        assert.equal(response.status, 200);
+        const body = await response.json();
+        assert.equal(body.statusCode, 200);
+        assert.equal(body.message, 'User existence checked');
+        assert.deepEqual(body.data, { exists: expected });
+      });
+    }
+    await t.test(
+      'existence needs no x-organization-id but rejects a missing key',
+      async () => {
+        assert.equal((await existence(cases[0].id, null)).status, 401);
+        assert.equal((await existence(cases[0].id, 'wrong-key')).status, 401);
+      },
+    );
+    await t.test('existence rejects a non-UUID userId with 400', async () => {
+      assert.equal((await existence('not-a-uuid')).status, 400);
+    });
     await t.test('EXPLAIN ANALYZE with 500 IDs', async () => {
       const plan = await db.$queryRaw(
         Prisma.sql`EXPLAIN (ANALYZE, FORMAT JSON) ${lookupUsersQuery(organizationId, userIds)}`,

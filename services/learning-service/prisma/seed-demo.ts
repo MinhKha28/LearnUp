@@ -298,6 +298,7 @@ async function run(): Promise<void> {
             expectedCompletionDays: lock.expectedCompletionDays,
             baseDueAt: dueAt,
             dueAt,
+            dueTimezone: timezone,
             extensionSeconds: 0,
             videoCompletionPercent,
             firstActivityAt: material ? activityAt : null,

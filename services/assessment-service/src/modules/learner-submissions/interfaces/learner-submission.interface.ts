@@ -31,6 +31,8 @@ export interface ILearnerAssignment {
   title: string;
   prompt: string | null;
   promptFile: { fileName: string; sizeBytes: number } | null;
+  /** The largest file a submission may carry now (the product ceiling lowered to the storage plan). */
+  maxFileBytes: number;
   passingScore: number;
   expectedDurationMinutes: number | null;
   peerReviewEnabled: boolean;

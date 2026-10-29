@@ -13,14 +13,15 @@ import {
   submitAssignmentAPI,
 } from "@/services/assessment.service";
 import type { ILearnerAssignment } from "@/types/assessment.types";
+import { formatFileSize } from "@/utils/helper";
 import "./assignment.work.scss";
 
-// UC30 step 2: one PDF, DOCX or ZIP of at most 50 MB. The server checks the file again.
+// UC30 step 2: one PDF, DOCX or ZIP. The size limit comes with the Assignment (`maxFileBytes`: the 50 MB ceiling lowered
+// to the storage plan). The server checks the file again.
 const FILE_EXTENSIONS = ["pdf", "docx", "zip"];
-const FILE_MAX_BYTES = 50 * 1024 * 1024;
 const CONTENT_MAX_LENGTH = 20000;
 // MSG20
-const FILE_MESSAGE = "File must be PDF, DOCX or ZIP, at most 50 MB.";
+const fileMessage = (maxBytes: number) => `Tệp phải là PDF, DOCX hoặc ZIP, tối đa ${formatFileSize(maxBytes)}.`;
 // the answers that mean the page shows an old state: load it again
 // ENROLLMENT_COMPLETED: the Enrollment changed while the form was open, and the GET still answers (read-only).
 const STALE_CODES = ["ASSESSMENT_LOCKED", "SUBMISSION_EXISTS", "NO_PREVIOUS_SUBMISSION", "ENROLLMENT_COMPLETED"];
@@ -106,8 +107,12 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
 
   const pickFile = (picked: File) => {
     const extension = picked.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!FILE_EXTENSIONS.includes(extension) || picked.size > FILE_MAX_BYTES) {
-      message.error(FILE_MESSAGE);
+    if (!FILE_EXTENSIONS.includes(extension) || picked.size > assignment.maxFileBytes) {
+      message.error(
+        FILE_EXTENSIONS.includes(extension)
+          ? `Tệp quá lớn. Dung lượng tối đa là ${formatFileSize(assignment.maxFileBytes)}.`
+          : fileMessage(assignment.maxFileBytes),
+      );
     } else {
       setFile(picked);
     }
@@ -263,7 +268,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
               <InboxOutlined />
             </p>
             <p className="ant-upload-text">{file ? file.name : "Upload your work"}</p>
-            <p className="ant-upload-hint">PDF, DOCX or ZIP, up to 50 MB. One file.</p>
+            <p className="ant-upload-hint">PDF, DOCX hoặc ZIP, tối đa {formatFileSize(assignment.maxFileBytes)}. Một tệp.</p>
           </Upload.Dragger>
           <InfoPanel title="Assessment result">
             Your latest submission determines the recorded Assignment score. There is no limit on resubmissions until

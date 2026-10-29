@@ -261,6 +261,7 @@ test('real PostgreSQL certificate transactions, constraints, leases and quaranti
           await repo.issue(r, {
             learnerName: 'Fixture',
             organizationName: 'Fixture',
+            organizationTimezone: 'Asia/Ho_Chi_Minh',
             courseName: 'Fixture',
             versionNumber: 1,
             chainId: randomUUID(),

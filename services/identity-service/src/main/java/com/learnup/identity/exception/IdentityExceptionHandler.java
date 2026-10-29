@@ -28,6 +28,13 @@ import java.util.List;
 public class IdentityExceptionHandler extends GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(IdentityExceptionHandler.class);
 
+    @ExceptionHandler(CredentialProvisioningConflictException.class)
+    public ResponseEntity<ApiResponse<Void>> handleProvisioningConflict(CredentialProvisioningConflictException ex) {
+        log.warn("event=credential_provisioning_rejected reason={} correlation_id={}",
+                ex.getCode(), AuthenticationDiagnostics.correlationId());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getCode(), ex.getMessage()));
+    }
+
     @Override
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {

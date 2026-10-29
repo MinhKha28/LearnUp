@@ -244,11 +244,16 @@ model OutboxEvent {
   payload        Json
   occurredAt     DateTime  @map("occurred_at") @db.Timestamptz
   publishedAt    DateTime? @map("published_at") @db.Timestamptz
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz
+  failedAt       DateTime? @map("failed_at") @db.Timestamptz
+  lastErrorCode  String?   @map("last_error_code")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   organization Organization? @relation(fields: [organizationId], references: [id])
 
   @@index([publishedAt])
+  @@index([eventType, id], map: "outbox_events_pending_claim_idx", where: raw("published_at IS NULL AND failed_at IS NULL"))
   @@map("outbox_events")
 }

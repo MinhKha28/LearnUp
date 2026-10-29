@@ -24,6 +24,7 @@ model Certificate {
   versionNumber   Int?      @map("version_number")
   chainId         String?   @map("chain_id") @db.Uuid
   completionFingerprint String @map("completion_fingerprint") @db.VarChar(64)
+  organizationTimezone String? @map("organization_timezone") @db.Text
   organizationName String? @map("organization_name") @db.VarChar(200)
   logoAssetKey String? @map("logo_asset_key")
   logoHash String? @map("logo_hash") @db.VarChar(64)
