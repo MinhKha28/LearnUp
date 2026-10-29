@@ -18,6 +18,10 @@ import {
   EnrollmentClient,
 } from '../../infrastructure/clients/learning/enrollment.client';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
+import {
+  fileTooLarge,
+  uploadLimitBytes,
+} from '../../infrastructure/storage/upload-limit';
 import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import type {
   ICycleWindow,
@@ -610,12 +614,8 @@ export class LearnerSubmissionsService {
 
   /** UC30 step 2: one PDF, DOCX or ZIP of at most 50 MB. The browser-reported type can be anything, so the bytes are checked. */
   private validateFile(file: UploadedSubmissionFile): ValidFile {
-    if (file.size > SUBMISSION_FILE_MAX_BYTES) {
-      throw new BadRequestException({
-        code: 'SUBMISSION_FILE_TOO_LARGE',
-        message: 'File must be PDF, DOCX or ZIP, at most 50 MB.',
-      });
-    }
+    const limit = uploadLimitBytes(SUBMISSION_FILE_MAX_BYTES);
+    if (file.size > limit) throw fileTooLarge(limit);
     // multer reads the name as latin1; turn it back into UTF-8 so accented names survive.
     const fileName = Buffer.from(file.originalname, 'latin1')
       .toString('utf8')
@@ -661,7 +661,7 @@ export class LearnerSubmissionsService {
           folder: submissionFolder(organizationId, assessmentId),
           resourceType: 'raw',
           validation: {
-            maxSizeBytes: SUBMISSION_FILE_MAX_BYTES,
+            maxSizeBytes: uploadLimitBytes(SUBMISSION_FILE_MAX_BYTES),
             allowedMimeTypes: [file.mimeType],
           },
         },
@@ -672,6 +672,9 @@ export class LearnerSubmissionsService {
           code: 'SUBMISSION_FILE_INVALID',
           message: error.message,
         });
+      }
+      if (error instanceof StorageProviderError && error.code === 'TOO_LARGE') {
+        throw fileTooLarge(uploadLimitBytes(SUBMISSION_FILE_MAX_BYTES));
       }
       if (error instanceof StorageProviderError) {
         this.logger.error(`Submission file upload failed: ${error.message}`);

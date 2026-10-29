@@ -6,8 +6,9 @@ import { assessmentErrorText, discardPromptFileAPI, uploadPromptFileAPI } from "
 import type { IPromptFile } from "@/types/assessment.types";
 import { formatFileSize } from "@/utils/helper";
 
-/** BR-320: one prompt file per Assignment, PDF only, 50 MB at most (same limits the API enforces). */
+/** BR-320: one prompt file per Assignment, PDF, DOCX or ZIP, 50 MB at most. The API may lower the size to the storage plan and then says so. */
 const MAX_BYTES = 50 * 1024 * 1024;
+const EXTENSIONS = ["pdf", "docx", "zip"];
 
 type TProps = {
   value: IPromptFile | null;
@@ -15,7 +16,7 @@ type TProps = {
   disabled?: boolean;
 };
 
-/** Picks a PDF, uploads it right away and hands the stored file's description to the form. */
+/** Picks a PDF, DOCX or ZIP, uploads it right away and hands the stored file's description to the form. */
 const PromptFileField = ({ value, onChange, disabled }: TProps) => {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -34,8 +35,8 @@ const PromptFileField = ({ value, onChange, disabled }: TProps) => {
       setError("The file must be 50 MB or smaller.");
       return;
     }
-    if (file.type !== "application/pdf" && !/\.pdf$/i.test(file.name)) {
-      setError("Only PDF files are accepted.");
+    if (!EXTENSIONS.includes(file.name.split(".").pop()?.toLowerCase() ?? "")) {
+      setError("Only PDF, DOCX or ZIP files are accepted.");
       return;
     }
     setBusy(true);
@@ -44,7 +45,7 @@ const PromptFileField = ({ value, onChange, disabled }: TProps) => {
       if (res.data) {
         // The file is only linked to the Assignment once the form is saved.
         void message.success(
-          value ? "PDF replaced. Save the Assignment to keep it." : "PDF attached. Save the Assignment to keep it.",
+          value ? "File replaced. Save the Assignment to keep it." : "File attached. Save the Assignment to keep it.",
         );
         dropIfFresh(value);
         fresh.current.add(res.data.fileKey);
@@ -57,7 +58,7 @@ const PromptFileField = ({ value, onChange, disabled }: TProps) => {
       }
     } catch {
       setError("Unable to reach the Assessment service. Please try again.");
-      void message.error("Unable to upload the PDF.");
+      void message.error("Unable to upload the file.");
     } finally {
       setBusy(false);
       if (input.current) input.current.value = "";
@@ -67,12 +68,12 @@ const PromptFileField = ({ value, onChange, disabled }: TProps) => {
   return (
     <div>
       <label className="instructor-form-label instructor-form-label-spaced">
-        Attachment (optional, one PDF up to 50 MB)
+        Attachment (optional, one PDF, DOCX or ZIP up to 50 MB)
       </label>
       <input
         ref={input}
         type="file"
-        accept="application/pdf,.pdf"
+        accept=".pdf,.docx,.zip"
         hidden
         onChange={(event) => void pick(event.target.files?.[0])}
       />
@@ -91,7 +92,7 @@ const PromptFileField = ({ value, onChange, disabled }: TProps) => {
                 <InstructorButton disabled={busy} danger onClick={() => {
                     dropIfFresh(value);
                     onChange(null);
-                    void message.success("PDF removed. Save the Assignment to apply.");
+                    void message.success("File removed. Save the Assignment to apply.");
                   }}
                 >
                   Remove
@@ -101,7 +102,7 @@ const PromptFileField = ({ value, onChange, disabled }: TProps) => {
           </>
         ) : (
           <InstructorButton disabled={disabled || busy} onClick={() => input.current?.click()}>
-            {busy ? "Uploading..." : "Choose PDF"}
+            {busy ? "Uploading..." : "Choose file"}
           </InstructorButton>
         )}
       </div>

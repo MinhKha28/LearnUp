@@ -62,7 +62,7 @@ describe('Prompt file over HTTP', () => {
     ...(promptFile ? { promptFile } : {}),
   });
 
-  test('only an Instructor can upload; a missing file or a non-PDF is a 400', async () => {
+  test('only an Instructor can upload; a missing file or a file of another type is a 400', async () => {
     const learner = await upload(
       pdfBytes,
       'a.pdf',
@@ -76,7 +76,17 @@ describe('Prompt file over HTTP', () => {
 
     const fake = await upload(Buffer.from('MZ this is not a pdf'), 'fake.pdf');
     assert.equal(fake.status, 400);
-    assert.equal(fake.json.error?.code, 'PROMPT_FILE_NOT_PDF');
+    assert.equal(fake.json.error?.code, 'PROMPT_FILE_INVALID');
+  });
+
+  test('a file over the storage plan limit is a 413 FILE_TOO_LARGE with the limit', async () => {
+    const big = Buffer.concat([
+      Buffer.from('%PDF-'),
+      Buffer.alloc(10 * 1024 * 1024),
+    ]);
+    const r = await upload(big, 'big.pdf');
+    assert.equal(r.status, 413);
+    assert.equal(r.json.error?.code, 'FILE_TOO_LARGE');
   });
 
   test('a file over 50 MB is refused while it is received', async () => {
@@ -95,7 +105,7 @@ describe('Prompt file over HTTP', () => {
       body({
         fileKey: `learnup/${ORG}/assignments/prompts/brief`,
         fileName: 'brief.pdf',
-        mimeType: 'text/plain', // ignored: always PDF
+        mimeType: 'text/plain', // ignored: the type follows the file name
         sizeBytes: pdfBytes.length,
       }),
     );
