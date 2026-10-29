@@ -1,3 +1,10 @@
+import { Logger } from '@nestjs/common';
+import { mock } from 'node:test';
+import { CompletionService } from '../../src/modules/course-completion/completion.service';
+import {
+  CompletionRepository,
+  CompletionRequest,
+} from '../../src/modules/course-completion/completion.repository';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { randomUUID } from 'node:crypto';
@@ -206,3 +213,75 @@ test('fake timeout and malformed fixture fail safely; low Quiz score is not elig
     false,
   );
 });
+
+for (const nested of [false, true])
+  test(`transaction diagnostics include code and constraint without PII nested=${nested}`, async () => {
+    const s = snapshot();
+    const error = Object.assign(
+      new Error('private learner@example.test constraint "ck_enrollments_due"'),
+      {
+        code: 'P2010',
+        ...(nested
+          ? {
+              message: 'private learner@example.test',
+              meta: {
+                driverAdapterError: {
+                  cause: {
+                    originalMessage:
+                      'private row constraint "ck_enrollments_due"',
+                  },
+                },
+              },
+            }
+          : {}),
+      },
+    );
+    let retried = '';
+    const repository = {
+      enrollment: async () => ({
+        status: 'NotStarted',
+        disabled_at: null,
+        learner_id: s.learnerId,
+        course_id: s.courseId,
+      }),
+      materials: async () => ({ ready: true, required: 0 }),
+      prisma: {
+        $transaction: async () => {
+          throw error;
+        },
+      },
+      config: { transactionMs: 1000 },
+      retry: async (_r: unknown, code: string) => {
+        retried = code;
+        return 1;
+      },
+    } as unknown as CompletionRepository;
+    const log = mock.method(Logger.prototype, 'warn', () => undefined);
+    try {
+      await new CompletionService(repository, {
+        getCompletionSnapshot: async () =>
+          validateCompletionSnapshot(
+            s,
+            s.organizationId,
+            s.learnerId,
+            s.courseId,
+          ),
+      }).evaluate({
+        organization_id: s.organizationId,
+        enrollment_id: randomUUID(),
+        generation: 0n,
+      } as CompletionRequest);
+      assert.equal(retried, 'COMPLETION_TRANSACTION_FAILED');
+      assert.deepEqual(log.mock.calls[0].arguments[0], {
+        code: 'COMPLETION_TRANSACTION_FAILED',
+        errorCode: 'P2010',
+        constraint: 'ck_enrollments_due',
+      });
+      assert.equal(
+        JSON.stringify(log.mock.calls).includes('learner@example.test'),
+        false,
+      );
+    } finally {
+      log.mock.restore();
+    }
+  });

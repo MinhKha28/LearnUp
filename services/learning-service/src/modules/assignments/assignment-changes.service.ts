@@ -82,6 +82,7 @@ export class AssignmentChangesService {
         newDueAt,
         dto.newDueDate,
         today,
+        row.dueAtHasSubMillisecond,
       );
       await this.changes.extend(tx, organizationId, id, newDueAt, seconds);
       await this.changes.event(
