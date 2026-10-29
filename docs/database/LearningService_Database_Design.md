@@ -85,6 +85,7 @@ Ký hiệu: **B** = `NOT NULL`. Mọi bảng có `created_at`, `updated_at` theo
 | `base_due_at` | timestamptz | | — | Hạn gốc theo BR-167: 00:00 ngày kế tiếp ngày thứ N, múi giờ tổ chức lúc phân công |
 | `extension_seconds` | bigint | ✓ | 0 | Tổng thời gian Organizer đã kéo dài (UC24.3, BR-171) |
 | `due_at` | timestamptz | | — | Hạn hiện hành, tính lại từ đầu (mục 3.1.2) |
+| `due_timezone` | text | | — | IANA zone id, nullable, không có mặc định. Ghi cùng câu lệnh với mọi lần ghi hạn (UC24.2 tạo/chuyển/khôi phục, UC24.3 gia hạn); giữ nguyên khi chỉ ghi duration; xóa cùng hạn. CHECK `enrollments_due_timezone_check`: `(due_at IS NULL) = (due_timezone IS NULL)`. Migration `20261029160000_freeze_deadline_timezone` backfill `'Asia/Ho_Chi_Minh'` cho các dòng đã có hạn |
 | `video_completion_percent` | integer | ✓ | — | **Ảnh chụp** `platform_settings` lúc tạo (BR-181, BR-335) |
 | `first_activity_at` | timestamptz | | — | Với UC27.2, chỉ gán khi học liệu vừa hoàn thành (BR-140), không gán khi chỉ lưu coverage/bookmark. Các nguồn khác theo luồng thiết kế bên dưới |
 | `completed_at` | timestamptz | | — | — |
