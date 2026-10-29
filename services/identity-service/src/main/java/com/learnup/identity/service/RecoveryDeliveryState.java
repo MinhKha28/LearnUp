@@ -29,7 +29,7 @@ public class RecoveryDeliveryState {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void revoke(UUID userId, UUID tokenId) {
         // Same User -> Token order as issuance/reset; never revoke a newer recovery request.
-        // An obsolete delivery after BR-31 must not erase the retained former owner's recovery record.
+        // An obsolete delivery after email reuse must not erase the retained former owner's recovery record.
         if (users.findByIdForUpdate(userId).filter(user -> user.getEmail() != null).isPresent()) {
             tokens.deleteDeliveryToken(tokenId, userId);
         }

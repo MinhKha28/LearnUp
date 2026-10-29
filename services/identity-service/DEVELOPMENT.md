@@ -125,12 +125,12 @@ already-issued JWT claims or implement immediate JWT revocation.
 
 Existing registration/invitation callers retain `POST /api/internal/credentials`
 and its request/success format. New credentials require a valid email; supported
-same-user password replacement may omit it. Cross-user BR-31 reuse now requires
+same-user password replacement may omit it. Cross-user email reuse (BR-39, legacy BR-31) requires
 the authenticated Tenant existence lookup and retains the old canonical user
 with a NULL email through forward Flyway V5. The unique constraint and the old
 credential/session/recovery records remain. Active owners yield `409 EMAIL_IN_USE`,
 untrustworthy Tenant results yield 503, and database races roll back with 409.
-See [BR31-INTEGRATION.md](BR31-INTEGRATION.md) for transaction semantics, required
+See [BR39-INTEGRATION.md](BR39-INTEGRATION.md) for transaction semantics, required
 Tenant visibility/locking contracts and disposable integration steps. Provisioning
 is not a metadata repair operation; use the existing-ID-only PUT for metadata.
 

@@ -18,7 +18,7 @@ public class User {
     @Column(name = "username", nullable = false, unique = true, length = 50)
     private String username;
 
-    // NULL only after a Tenant-verified BR-31 release; new credentials require a valid email.
+    // NULL only after Tenant-verified email reuse (BR-39, legacy BR-31); new credentials require a valid email.
     @Column(name = "email", unique = true, length = 100)
     private String email;
 
