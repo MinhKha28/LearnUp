@@ -17,7 +17,7 @@ import { InstructorCourseCountsDto } from './dto/instructor-course-counts.dto';
 import { LessonContentDto } from './dto/lesson-content.dto';
 import { LockedCourseDto } from './dto/locked-course.dto';
 import { OrganizationUsageDto } from './dto/organization-usage.dto';
-import { STORAGE_PROVIDER } from '@/infrastructure/storage/storage.constants';
+import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
 import {
   StorageProviderError,
   type IReadableStorageProvider,

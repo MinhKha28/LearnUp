@@ -70,6 +70,6 @@ export const createStorageProvider = (
     apiKey,
     apiSecret,
     secure: true,
-        planLimits: resolveStoragePlanLimits(process.env),
+    planLimits: resolveStoragePlanLimits(process.env),
   });
 };
