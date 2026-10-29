@@ -152,6 +152,7 @@ export class LearnerSubmissionsService {
             sizeBytes: Number(assignment.promptFileSizeBytes ?? 0),
           }
         : null,
+      maxFileBytes: uploadLimitBytes(SUBMISSION_FILE_MAX_BYTES),
       passingScore: Number(assignment.passingScore.toString()),
       expectedDurationMinutes: assignment.expectedDurationMinutes,
       peerReviewEnabled: assignment.peerReviewEnabled,

@@ -65,7 +65,7 @@ export class AssignmentMediaService {
     if (!file) {
       throw new BadRequestException({
         code: 'PROMPT_FILE_REQUIRED',
-        message: 'Send one PDF, DOCX or ZIP file in the "file" field.',
+        message: 'Hãy gửi một tệp PDF, DOCX hoặc ZIP trong trường "file".',
       });
     }
     const limit = uploadLimitBytes(PROMPT_FILE_MAX_BYTES);
@@ -85,7 +85,7 @@ export class AssignmentMediaService {
     ) {
       throw new BadRequestException({
         code: 'PROMPT_FILE_INVALID',
-        message: 'The prompt file must be a PDF, DOCX or ZIP file.',
+        message: 'Tệp đề bài phải là PDF, DOCX hoặc ZIP.',
       });
     }
 
@@ -157,7 +157,7 @@ export class AssignmentMediaService {
     if (!type) {
       throw new BadRequestException({
         code: 'PROMPT_FILE_INVALID',
-        message: 'The prompt file must be a PDF, DOCX or ZIP file.',
+        message: 'Tệp đề bài phải là PDF, DOCX hoặc ZIP.',
       });
     }
     return { ...file, mimeType: type.mimeType };

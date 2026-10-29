@@ -96,6 +96,18 @@ describe('Prompt file over HTTP', () => {
     ]);
     const r = await upload(big, 'big.pdf');
     assert.equal(r.status, 413);
+    // Multer refuses it before the service runs: same code and Vietnamese message as every other 413
+    assert.equal(r.json.error?.code, 'FILE_TOO_LARGE');
+    assert.match(
+      String((r.json.error as { message?: string }).message),
+      /Tệp quá lớn/,
+    );
+  });
+
+  test('the limit that applies now is told to the screen (maxFileBytes)', async () => {
+    const r = await api('GET', '/assignments/prompt-file/limit');
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    assert.equal(r.data?.maxFileBytes, 10 * 1024 * 1024);
   });
 
   test("a file kept in the Organization's prompt folder can be attached, then removed while a prompt text remains", async () => {
