@@ -461,12 +461,11 @@ sequenceDiagram
 | Variable Name | Component | Default Development Value | Sensitive? | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
 | `DB_USERNAME` | Platform / Compose | `postgres` | No | PostgreSQL master user |
-| `DB_PASSWORD` | Platform / Compose | none (required) | Yes | PostgreSQL master password; Compose refuses to start without it |
+| `DB_PASSWORD` | Platform / Compose | none (required) | Yes | PostgreSQL master password; Compose refuses to start without it. It is placed in the `DATABASE_URL` of the NestJS services, so use URL-safe characters only (letters, digits, `-`, `_`) or percent-encode it |
 | `POSTGRES_PORT` | Platform / Host | `5433` | No | Host port for PostgreSQL |
 | `GATEWAY_HOST_PORT` | Gateway / Host | `8088` | No | Host port for API Gateway |
 | `JWT_SECRET` | Gateway, Identity | `devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong` | Dev only | HMAC-SHA256 signing secret for JWT |
-| `INTERNAL_GATEWAY_KEY` | Gateway | `learnup-internal-secret` | Dev only | Internal header `x-internal-key` |
-| `INTERNAL_SERVICE_KEY` | All 5 NestJS services | none (required) | Yes | Verified by `InternalAuthGuard`; Compose refuses to start without it |
+| `INTERNAL_SERVICE_KEY` | Gateway and all 5 NestJS services | none (required) | Yes | Sent by the Gateway as `x-internal-key` and verified by `InternalAuthGuard`; Compose refuses to start without it, and the Gateway refuses `learnup-internal-secret` at startup |
 | `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | Java services | `http://eureka-server:8761/eureka/` | No | Eureka discovery URL |
 | `LEARNUP_MAIL_ENABLED` | Notification | `false` | No | Disable physical SMTP in dev |
 | `SPRING_MAIL_HOST` | Notification | `smtp.gmail.com` | No | SMTP host |
