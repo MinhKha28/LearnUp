@@ -18,4 +18,4 @@ This folder holds cross-service (internal) contracts and the endpoints other tea
 
 Contracts here are hand-written and must be updated in the same PR as the code change. Removing, renaming or retyping a field that another service or the frontend reads is a breaking contract change: add the `contract` label and complete the PR template's "Breaking contract changes" section.
 
-All APIs follow the conventions defined in [`docs/api/conventions.md`](file:///d:/Study/learnup/docs/api/conventions.md).
+All APIs follow the conventions defined in [`docs/api/conventions.md`](../../docs/api/conventions.md).
