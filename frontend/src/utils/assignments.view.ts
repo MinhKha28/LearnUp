@@ -102,6 +102,7 @@ export const extensionDateError = (
   return null;
 };
 const messages: Record<string, string> = {
+  ORGANIZATION_NOT_ACTIVE: "Tổ chức hiện không hoạt động. Vui lòng liên hệ quản trị viên nền tảng.",
   FORBIDDEN: "Bạn không có quyền thực hiện thao tác này.",
   UNAUTHORIZED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
   SUBSCRIPTION_NOT_ACTIVE: "Gói đăng ký của tổ chức chưa hoạt động.",

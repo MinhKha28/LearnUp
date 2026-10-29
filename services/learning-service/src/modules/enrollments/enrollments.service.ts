@@ -35,6 +35,7 @@ import { OrganizationTimezoneService } from '../../infrastructure/clients/tenant
 import {
   TENANT_CLIENT,
   TenantUnavailableError,
+  TenantOrganizationNotFoundError,
   type TenantClient,
 } from '../../infrastructure/clients/tenant/tenant.client';
 import { PlatformSettingsRepository } from '../platform-settings/platform-settings.repository';
@@ -314,8 +315,12 @@ export class EnrollmentsService {
     let subscriptionStatus: string;
     try {
       const access = await this.tenant.getOrganizationAccess(user);
+      if (access.organizationStatus !== 'Active')
+        throw this.organizationNotActive();
       subscriptionStatus = access.subscriptionStatus;
     } catch (error) {
+      if (error instanceof TenantOrganizationNotFoundError)
+        throw this.organizationNotActive();
       if (error instanceof TenantUnavailableError) {
         this.logger.warn(`tenant-service không trả lời: ${error.message}`);
         throw serviceUnavailable();
@@ -338,6 +343,15 @@ export class EnrollmentsService {
       `Chặn đăng ký Course: tổ chức ${user.organizationId} có subscriptionStatus "${subscriptionStatus}".`,
     );
     throw new ForbiddenException(
+      createApiError(
+        STANDARD_ERROR_CODES.FORBIDDEN,
+        'Không thể đăng ký Course lúc này',
+      ),
+    );
+  }
+
+  private organizationNotActive(): ForbiddenException {
+    return new ForbiddenException(
       createApiError(
         STANDARD_ERROR_CODES.FORBIDDEN,
         'Không thể đăng ký Course lúc này',
