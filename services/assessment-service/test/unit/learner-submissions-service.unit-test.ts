@@ -685,6 +685,30 @@ describe('resubmit (UC30.1)', () => {
     assert.equal(ctx.world.submissions[1].interventionReason, null);
   });
 
+  test('D-045: a debt repaid in a later cycle follows the Instructor path after the cutoff', async () => {
+    const { ctx } = await submitted();
+    ctx.world.peerReviews = [
+      missedReview,
+      {
+        status: 'Completed',
+        reviewDueAt: new Date('2026-10-26T00:00:00Z'),
+        cycleId: 'c2',
+        cycleClosesAt: new Date('2026-10-23T00:00:00Z'),
+      },
+    ];
+    ctx.setNow(afterCutoff);
+    const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
+      content: 'repaid',
+    });
+    assert.equal(r.placement, 'INSTRUCTOR');
+    assert.equal(r.gradingStatus, 'AwaitingInstructor');
+    assert.equal(r.cycle, null);
+    assert.equal(
+      ctx.world.submissions[1].interventionReason,
+      'RESUBMITTED_AFTER_CUTOFF',
+    );
+  });
+
   test('a duty that was waived (exempted) gives no second chance', async () => {
     const { ctx } = await submitted();
     const state = ctx.world.states.get(`${ASSIGNMENT}:${LEARNER}`)!;
