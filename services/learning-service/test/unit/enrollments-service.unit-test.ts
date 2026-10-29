@@ -28,6 +28,7 @@ import type {
 } from '../../src/infrastructure/clients/course/course-service.interface';
 import {
   TenantUnavailableError,
+  TenantOrganizationNotFoundError,
   type OrganizationAccess,
 } from '../../src/infrastructure/clients/tenant/tenant.client';
 
@@ -139,6 +140,7 @@ function setup(
         ? options.tenant()
         : Promise.resolve({
             subscriptionStatus: 'Active',
+            organizationStatus: 'Active',
             readOnlyEndsAt: null,
             timezone: 'Asia/Ho_Chi_Minh',
           });
@@ -184,6 +186,7 @@ function access(subscriptionStatus: string) {
   return () =>
     Promise.resolve({
       subscriptionStatus,
+      organizationStatus: 'Active',
       readOnlyEndsAt: null,
       timezone: 'Asia/Ho_Chi_Minh',
     });
@@ -438,4 +441,37 @@ void describe('EnrollmentsController', () => {
     );
     assert.equal(ok.length, 0);
   });
+});
+
+for (const organizationStatus of ['PendingPayment', 'Suspended', 'Cancelled']) {
+  for (const subscriptionStatus of ['Active', 'Grace']) {
+    void test(`enrollment blocks ${organizationStatus} before subscription ${subscriptionStatus}`, async () => {
+      const { service, calls } = setup({
+        tenant: () =>
+          Promise.resolve({
+            organizationStatus,
+            subscriptionStatus,
+            readOnlyEndsAt: null,
+            timezone: 'Asia/Ho_Chi_Minh',
+          }),
+      });
+      await rejectsWith(
+        service.enrollOptional(LEARNER, COURSE_ID),
+        403,
+        'FORBIDDEN',
+      );
+      assert.equal(calls.lock, 0);
+    });
+  }
+}
+void test('enrollment blocks recognized organization-not-found with FORBIDDEN', async () => {
+  const { service, calls } = setup({
+    tenant: () => Promise.reject(new TenantOrganizationNotFoundError()),
+  });
+  await rejectsWith(
+    service.enrollOptional(LEARNER, COURSE_ID),
+    403,
+    'FORBIDDEN',
+  );
+  assert.equal(calls.lock, 0);
 });

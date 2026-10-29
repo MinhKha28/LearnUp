@@ -16,6 +16,7 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   TENANT_CLIENT,
   TenantUnavailableError,
+  TenantOrganizationNotFoundError,
   type TenantClient,
 } from '../../infrastructure/clients/tenant/tenant.client';
 import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
@@ -63,6 +64,8 @@ export class AssignmentsService {
     let items;
     try {
       access = await this.tenant.getOrganizationAccess(user);
+      if (access.organizationStatus !== 'Active')
+        throw this.organizationNotActive();
       if (access.subscriptionStatus !== 'Active')
         throw new ForbiddenException(
           createApiError(
@@ -72,6 +75,8 @@ export class AssignmentsService {
         );
       items = await this.tenant.lookupLearners(user, learnerIds);
     } catch (error) {
+      if (error instanceof TenantOrganizationNotFoundError)
+        throw this.organizationNotActive();
       if (error instanceof TenantUnavailableError) {
         this.logger.warn(error.message);
         throw serviceUnavailable();
@@ -171,6 +176,15 @@ export class AssignmentsService {
       this.logger,
       courseId,
       learnerIds.length,
+    );
+  }
+
+  private organizationNotActive(): ForbiddenException {
+    return new ForbiddenException(
+      createApiError(
+        'ORGANIZATION_NOT_ACTIVE',
+        'Tổ chức hiện không hoạt động. Vui lòng liên hệ quản trị viên nền tảng.',
+      ),
     );
   }
 }
