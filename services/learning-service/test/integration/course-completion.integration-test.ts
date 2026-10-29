@@ -93,6 +93,7 @@ for (const kind of ['CONVERT', 'RESTORE', 'CONVERT_COMPLETED'] as const)
           assignedBy: randomUUID(),
           assignedAt: new Date(),
           dueAt: new Date(Date.now() + 86400000),
+          dueTimezone: 'Asia/Ho_Chi_Minh',
           expectedCompletionDays: 1,
           videoCompletionPercent: 80,
         },
@@ -242,10 +243,10 @@ async function fixture(
   const assigned = type === 'Required' ? new Date(Date.now() - 86400000) : null;
   const due = type === 'Required' ? new Date(Date.now() + dueOffset) : null;
   await prisma.$executeRaw`INSERT INTO enrollments(id,organization_id,learner_id,course_id,enrollment_type,status,video_completion_percent,
-    assigned_at,expected_completion_days,base_due_at,due_at,first_activity_at,completed_at,completed_late,withdrawn_at,withdrawn_reason)
+    assigned_at,expected_completion_days,base_due_at,due_at,first_activity_at,completed_at,completed_late,withdrawn_at,withdrawn_reason,due_timezone)
     VALUES (${id}::uuid,${org}::uuid,${learner}::uuid,${course}::uuid,${type},${status},80,${assigned},${assigned ? 1 : null},${due},${due},
       ${status === 'InProgress' ? new Date() : null},${status === 'Completed' ? new Date() : null},${status === 'Completed' && assigned ? false : null},
-      ${status === 'Withdrawn' ? new Date() : null},${status === 'Withdrawn' ? 'LearnerWithdrew' : null})`;
+      ${status === 'Withdrawn' ? new Date() : null},${status === 'Withdrawn' ? 'LearnerWithdrew' : null},CASE WHEN (${due})::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END )`;
   const snapshot = {
     schemaVersion: 1,
     snapshotId: randomUUID(),
@@ -416,16 +417,22 @@ test('effective deadline unions overlapping pauses and keeps extensions', async 
   const f = await fixture('Exempted', 'Required', -3600000);
   const assigned = new Date(Date.now() - 86400000),
     base = new Date(Date.now() - 3600000);
-  await prisma.$executeRaw`UPDATE enrollments SET assigned_at=${assigned},base_due_at=${base},due_at=${new Date(base.getTime() + 1800000)},extension_seconds=1800 WHERE id=${f.id}::uuid`;
+  await prisma.$executeRaw`UPDATE enrollments SET due_timezone='Pacific/Auckland',assigned_at=${assigned},base_due_at=${base},due_at=${new Date(base.getTime() + 1800000)},extension_seconds=1800 WHERE id=${f.id}::uuid`;
   await prisma.$executeRaw`INSERT INTO enrollment_status_intervals(id,organization_id,enrollment_id,kind,started_at,ended_at,reason)
     VALUES (${randomUUID()}::uuid,${org}::uuid,${f.id}::uuid,'Exempted',${new Date(Date.now() - 7200000)},${new Date(Date.now() - 3600000)},'synthetic overlap'),
       (${randomUUID()}::uuid,${org}::uuid,${f.id}::uuid,'Exempted',${new Date(Date.now() - 5400000)},NULL,'synthetic open')`;
   await service.evaluate(await take(f.id));
   const [row] = await prisma.$queryRaw<
-    { due_at: Date; completed_at: Date; completed_late: boolean }[]
-  >`SELECT due_at,completed_at,completed_late FROM enrollments WHERE id=${f.id}::uuid`;
+    {
+      due_at: Date;
+      completed_at: Date;
+      completed_late: boolean;
+      due_timezone: string;
+    }[]
+  >`SELECT due_at,completed_at,completed_late,due_timezone FROM enrollments WHERE id=${f.id}::uuid`;
   assert.ok(row.due_at > row.completed_at);
   assert.equal(row.completed_late, false);
+  assert.equal(row.due_timezone, 'Pacific/Auckland');
   // Two hours in the union plus thirty minutes extension, not 2.5 hours of overlapping intervals.
   assert.ok(Math.abs(row.due_at.getTime() - base.getTime() - 9000000) < 2000);
   const [open] = await prisma.$queryRaw<
@@ -634,7 +641,7 @@ test('API starts with Kafka and course-service unreachable and retains assessmen
 
 test('microsecond base deadline completes without losing precision', async () => {
   const f = await fixture('NotStarted', 'Required');
-  await prisma.$executeRaw`UPDATE enrollments SET base_due_at='2026-10-13 16:44:59.572527+00'::timestamptz,
+  await prisma.$executeRaw`UPDATE enrollments SET due_timezone='Asia/Ho_Chi_Minh',base_due_at='2026-10-13 16:44:59.572527+00'::timestamptz,
     due_at='2026-10-13 16:44:59.572527+00'::timestamptz WHERE id=${f.id}::uuid`;
   await service.evaluate(await take(f.id));
   assert.equal((await state(f.id)).status, 'Completed');
@@ -701,7 +708,7 @@ test('microsecond interval start closes without ck_intervals_range failure', asy
 for (const fraction of ['572527', '000527'])
   test(`fractional base extension ${fraction} recomputes within requested Ho Chi Minh calendar day`, async () => {
     const f = await fixture('NotStarted', 'Required');
-    await prisma.$executeRaw`UPDATE enrollments SET base_due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz,
+    await prisma.$executeRaw`UPDATE enrollments SET due_timezone='Asia/Ho_Chi_Minh',base_due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz,
     due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz WHERE id=${f.id}::uuid`;
     await prisma.$transaction(async (tx) => {
       const changes = new AssignmentChangesRepository();
@@ -718,7 +725,14 @@ for (const fraction of ['572527', '000527'])
         row.dueAtHasSubMillisecond,
       );
       assert.equal(seconds, 87300n);
-      await changes.extend(tx, org, f.id, boundary, seconds);
+      await changes.extend(
+        tx,
+        org,
+        f.id,
+        boundary,
+        seconds,
+        'Asia/Ho_Chi_Minh',
+      );
     });
     const [stored] = await prisma.$queryRaw<
       { boundary: boolean }[]
@@ -737,3 +751,13 @@ for (const fraction of ['572527', '000527'])
     assert.equal(row.valid, true);
     assert.equal(row.exact, true);
   });
+
+void test('Optional completion preserves NULL deadline and timezone', async () => {
+  const f = await fixture('InProgress', 'Optional');
+  await service.evaluate(await take(f.id));
+  const stored = await prisma.enrollment.findUniqueOrThrow({
+    where: { id: f.id },
+    select: { dueAt: true, dueTimezone: true },
+  });
+  assert.deepEqual(stored, { dueAt: null, dueTimezone: null });
+});

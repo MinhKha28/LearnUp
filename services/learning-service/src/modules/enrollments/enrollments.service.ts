@@ -31,7 +31,6 @@ import {
 } from '../../infrastructure/clients/course/course-service.errors';
 import type { CourseBatchItem } from '../../infrastructure/clients/course/course-service.interface';
 import { serviceUnavailable } from '../../infrastructure/clients/course/service-unavailable';
-import { OrganizationTimezoneService } from '../../infrastructure/clients/tenant/organization-timezone.service';
 import {
   TENANT_CLIENT,
   TenantUnavailableError,
@@ -57,6 +56,7 @@ export interface MyEnrollmentItem {
   enrollmentType: string;
   status: string;
   dueAt: string | null;
+  dueTimezone: string | null;
   requiredMaterials: { completed: number; total: number };
   course: {
     name: string;
@@ -65,9 +65,7 @@ export interface MyEnrollmentItem {
   } | null;
 }
 
-export interface MyEnrollmentsPage extends PageResponse<MyEnrollmentItem> {
-  organizationTimezone: string | null;
-}
+export type MyEnrollmentsPage = PageResponse<MyEnrollmentItem>;
 
 /** 409 kèm ID Enrollment đã có để client mở thẳng Enrollment đó. */
 function alreadyEnrolled(enrollmentId: string): ConflictException {
@@ -97,7 +95,6 @@ export class EnrollmentsService {
     private readonly courseService: CourseServiceClient,
     @Inject(TENANT_CLIENT)
     private readonly tenant: Pick<TenantClient, 'getOrganizationAccess'>,
-    private readonly organizationTimezone: OrganizationTimezoneService,
     @Optional() snapshotPreparation?: CourseSnapshotPreparationService,
     private readonly optionalEnrollments: OptionalEnrollmentRepository = new OptionalEnrollmentRepository(
       prisma,
@@ -176,6 +173,7 @@ export class EnrollmentsService {
             expectedCompletionDays: null,
             baseDueAt: null,
             dueAt: null,
+            dueTimezone: null,
             extensionSeconds: 0,
           },
           tx,
@@ -208,7 +206,7 @@ export class EnrollmentsService {
 
   /**
    * UC26: Course của tôi. Đếm trước; trang rỗng hoặc vượt tổng thì trả ngay, không chạy truy vấn danh sách,
-   * không gọi I3 hay tenant. I3 và tenant chạy song song; tenant chỉ gọi khi trang có Required có hạn (D24).
+   * không gọi I3. Múi giờ hạn lấy từ Enrollment, không gọi tenant (D-051).
    */
   async findMyEnrollments(
     user: CurrentUser,
@@ -218,7 +216,6 @@ export class EnrollmentsService {
     const pageSize = MY_ENROLLMENTS_PAGE_SIZE;
     const emptyPage = (total: number): MyEnrollmentsPage => ({
       ...createPageResponse<MyEnrollmentItem>([], page, pageSize, total),
-      organizationTimezone: null,
     });
     // Header không phải UUID thì không thể có Enrollment nào
     const invalidHeaders = [
@@ -254,19 +251,11 @@ export class EnrollmentsService {
       rows.map((row) => row.id),
       organizationId,
     );
-    const hasRequiredDeadline = rows.some(
-      (row) => row.enrollmentType === 'Required' && row.dueAt !== null,
+    const courses = await this.callCourseService(() =>
+      this.courseService.getCoursesBatch(user, [
+        ...new Set(rows.map((row) => row.courseId)),
+      ]),
     );
-    const [courses, organizationTimezone] = await Promise.all([
-      this.callCourseService(() =>
-        this.courseService.getCoursesBatch(user, [
-          ...new Set(rows.map((row) => row.courseId)),
-        ]),
-      ),
-      hasRequiredDeadline
-        ? this.organizationTimezone.getTimezone(user)
-        : Promise.resolve(null),
-    ]);
 
     const courseById = new Map(courses.map((c) => [c.courseId, c]));
     const items = rows.map((row) =>
@@ -278,7 +267,6 @@ export class EnrollmentsService {
     );
     return {
       ...createPageResponse(items, page, pageSize, total),
-      organizationTimezone,
     };
   }
 
@@ -299,6 +287,7 @@ export class EnrollmentsService {
       enrollmentType: row.enrollmentType,
       status: row.status,
       dueAt: row.dueAt ? row.dueAt.toISOString() : null,
+      dueTimezone: row.dueTimezone,
       requiredMaterials: count ?? { completed: 0, total: 0 },
       course: course
         ? {

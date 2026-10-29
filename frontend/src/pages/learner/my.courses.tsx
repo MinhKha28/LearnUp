@@ -158,13 +158,13 @@ const MyCoursesContent = ({ page }: { page: number }) => {
     );
   }
 
-  const { items, meta, organizationTimezone } = query.data;
+  const { items, meta } = query.data;
   return (
     <>
       {/* Giữ đúng thứ tự backend trả về (D22) */}
       <ul className="learner-my-course-list">
         {items.map((item) => (
-          <MyCourseListRow key={item.enrollmentId} item={item} row={buildMyCourseRow(item, organizationTimezone)} onReload={query.reload} />
+          <MyCourseListRow key={item.enrollmentId} item={item} row={buildMyCourseRow(item)} onReload={query.reload} />
         ))}
       </ul>
       <UrlPagination meta={meta} />

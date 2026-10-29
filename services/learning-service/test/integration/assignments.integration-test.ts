@@ -1,3 +1,7 @@
+import { CurriculumService } from '../../src/modules/curriculum/curriculum.service';
+import { EnrollmentsService } from '../../src/modules/enrollments/enrollments.service';
+import { AssignmentChangesService } from '../../src/modules/assignments/assignment-changes.service';
+import { AssignmentReadsService } from '../../src/modules/assignments/assignment-reads.service';
 import { closeAll, closeApp } from './deadlines';
 import { courseStub } from './course-stub';
 import { testFetch as fetch } from './test-io';
@@ -51,6 +55,8 @@ let i1Calls = 0;
 let subscriptionStatus = 'Active';
 let organizationStatus = 'Active';
 let tenantDown = false;
+let timezone = 'Asia/Ho_Chi_Minh';
+let accessCalls = 0;
 let connected = false;
 const learner = (id: string): CurrentUser => ({
   ...ORGANIZER,
@@ -159,12 +165,13 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
       return ids.flatMap((id) => (users.has(id) ? [users.get(id)!] : []));
     };
     tenant.getOrganizationAccess = async () => {
+      accessCalls++;
       if (tenantDown) throw new TenantUnavailableError('network');
       return {
         subscriptionStatus,
         organizationStatus,
         readOnlyEndsAt: null,
-        timezone: 'Asia/Ho_Chi_Minh',
+        timezone,
       };
     };
     const courses = app.get(CourseServiceClient);
@@ -176,6 +183,49 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
     await app.listen(0, '127.0.0.1');
     baseUrl = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
   });
+  void test('deadline zone stays frozen across an organization zone change, then extension captures the new zone', async () => {
+    const learnerId = addUser();
+    assert.equal((await assign([learnerId])).status, 201);
+    const [stored] = (await rows()) as {
+      id: string;
+      due_at: Date;
+      due_timezone: string;
+    }[];
+    assert.equal(stored.due_timezone, 'Asia/Ho_Chi_Minh');
+    const reads = app.get(AssignmentReadsService);
+    const original = await reads.detail(ORGANIZER, stored.id);
+    timezone = 'Pacific/Auckland';
+    tenantDown = true;
+    const previousCalls = accessCalls;
+    const detail = await reads.detail(ORGANIZER, stored.id);
+    assert.deepEqual(detail.dueAt, original.dueAt);
+    assert.equal(detail.dueTimezone, 'Asia/Ho_Chi_Minh');
+    assert.equal(
+      (await reads.list(ORGANIZER, 1)).items[0].dueTimezone,
+      'Asia/Ho_Chi_Minh',
+    );
+    const mine = await app
+      .get(EnrollmentsService)
+      .findMyEnrollments(learner(learnerId), 1);
+    assert.equal(mine.items[0].dueTimezone, 'Asia/Ho_Chi_Minh');
+    assert.ok(!('organizationTimezone' in mine));
+    const curriculum = await app
+      .get(CurriculumService)
+      .getCurriculum(learner(learnerId), stored.id);
+    assert.equal(curriculum.dueTimezone, 'Asia/Ho_Chi_Minh');
+    assert.equal(accessCalls, previousCalls);
+    tenantDown = false;
+    const newDueDate = new Date(stored.due_at.getTime() + 5 * 86400000)
+      .toISOString()
+      .slice(0, 10);
+    const extended = await app
+      .get(AssignmentChangesService)
+      .extend(ORGANIZER, stored.id, { newDueDate });
+    assert.equal(extended.dueTimezone, 'Pacific/Auckland');
+    const [afterExtension] = (await rows()) as { due_timezone: string }[];
+    assert.equal(afterExtension.due_timezone, 'Pacific/Auckland');
+  });
+
   void test('inactive organization blocks assignment before learner lookup', async () => {
     organizationStatus = 'Suspended';
     const result = await assign([addUser()]);
@@ -206,6 +256,8 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
     subscriptionStatus = 'Active';
     organizationStatus = 'Active';
     tenantDown = false;
+    timezone = 'Asia/Ho_Chi_Minh';
+    accessCalls = 0;
   });
   after(async () => {
     try {
@@ -356,7 +408,7 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
     await optional(ids[0], 'Withdrawn');
     await optional(ids[1], 'Withdrawn');
     await learningDb.query(
-      `UPDATE enrollments SET enrollment_type='Required',
+      `UPDATE enrollments SET due_timezone='Asia/Ho_Chi_Minh',enrollment_type='Required',
       assigned_at='2025-01-01Z', expected_completion_days=1, base_due_at='2025-01-03Z',
       due_at='2025-01-05Z', extension_seconds=172800,
       first_activity_at=CASE WHEN learner_id=$2 THEN now() ELSE NULL END
@@ -394,7 +446,7 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
         );
         if (enrollmentType === 'Required')
           await learningDb.query(
-            `UPDATE enrollments SET enrollment_type='Required', assigned_at=now(),
+            `UPDATE enrollments SET due_timezone='Asia/Ho_Chi_Minh',enrollment_type='Required', assigned_at=now(),
             expected_completion_days=1, base_due_at=now(), due_at=now() WHERE organization_id=$1`,
             [ORG],
           );
@@ -430,7 +482,7 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
     courses.lockCourse = async (...args) => {
       const lock = await original(...args);
       await learningDb.query(
-        `UPDATE enrollments SET enrollment_type='Required', status='InProgress',
+        `UPDATE enrollments SET due_timezone='Asia/Ho_Chi_Minh',enrollment_type='Required', status='InProgress',
           assigned_at=now(), expected_completion_days=1, base_due_at=now(), due_at=now(),
           first_activity_at=now(), withdrawn_at=NULL, withdrawn_reason=NULL WHERE organization_id=$1`,
         [ORG],
@@ -623,9 +675,9 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
     await learningDb.query(
       `INSERT INTO enrollments
       (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,
-       expected_completion_days,base_due_at,due_at,video_completion_percent)
+       expected_completion_days,base_due_at,due_at,video_completion_percent,due_timezone)
       SELECT gen_random_uuid(),$1,gen_random_uuid(),$2,'Required','NotStarted',now(),1,now(),now(),80
-      FROM generate_series(1,49500)`,
+      ,CASE WHEN (now())::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END FROM generate_series(1,49500)`,
       [ORG, COURSE],
     );
     await learningDb.query('ANALYZE enrollments');
@@ -638,6 +690,7 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
       assignedBy: ORGANIZER.userId,
       assignedAt: new Date(),
       dueAt: new Date(Date.now() + 86400000),
+      dueTimezone: 'Asia/Ho_Chi_Minh',
       expectedCompletionDays: 1,
       videoCompletionPercent: 80,
     };

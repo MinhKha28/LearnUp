@@ -89,7 +89,14 @@ export class AssignmentChangesService {
         today,
         row.dueAtHasSubMillisecond,
       );
-      await this.changes.extend(tx, organizationId, id, newDueAt, seconds);
+      await this.changes.extend(
+        tx,
+        organizationId,
+        id,
+        newDueAt,
+        seconds,
+        timezone,
+      );
       await this.changes.event(
         tx,
         organizationId,
@@ -105,7 +112,7 @@ export class AssignmentChangesService {
         },
       );
     });
-    return this.reads.detail(user, id, timezone);
+    return this.reads.detail(user, id);
   }
 
   async exempt(user: CurrentUser, id: string, dto: ExemptAssignmentDto) {
@@ -144,7 +151,7 @@ export class AssignmentChangesService {
         );
       throw error;
     }
-    return this.reads.detail(user, id, timezone);
+    return this.reads.detail(user, id);
   }
 
   private notFound() {
