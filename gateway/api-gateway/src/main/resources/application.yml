@@ -29,6 +29,8 @@ spring:
           uri: lb://AUDIT-SERVICE
           predicates:
             - Path=/api/v1/audit/**, /api/audit/**
+            # The trail is read through the gateway; entries are written by the services directly (never by a user).
+            - Method=GET
 
         # Business 1: Tenant Service Routes (Docker DNS)
         - id: tenant-service
