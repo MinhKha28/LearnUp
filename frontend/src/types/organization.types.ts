@@ -208,6 +208,13 @@ export interface IUpdateAccountResult extends IAccountListItem {
   invitationResent: boolean;
 }
 
+export interface IReinvitationResult {
+  id: string;
+  status: AccountStatus;
+  invitationExpired: false;
+  invitation: { sentAt: string; expiresAt: string };
+}
+
 // UC12.2 - số chỗ theo Subscription hiện hành (GET /api/v1/users/instructors/seats)
 export interface ISeatUsage {
   used: number;
