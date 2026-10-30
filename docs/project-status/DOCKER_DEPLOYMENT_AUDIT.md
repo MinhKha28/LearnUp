@@ -461,7 +461,7 @@ sequenceDiagram
 | Variable Name | Component | Default Development Value | Sensitive? | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
 | `DB_USERNAME` | Platform / Compose | `postgres` | No | PostgreSQL master user |
-| `DB_PASSWORD` | Platform / Compose | none (required) | Yes | PostgreSQL master password; Compose refuses to start without it. It is placed in the `DATABASE_URL` of the NestJS services, so use URL-safe characters only (letters, digits, `-`, `_`) or percent-encode it |
+| `DB_PASSWORD` | Platform / Compose | none (required) | Yes | PostgreSQL master password; Compose refuses to start without it. It is placed in the `DATABASE_URL` of the NestJS services, so use URL-safe characters only (letters, digits, `-`, `_`). Do not percent-encode it: the same value is passed raw to PostgreSQL and the JDBC services |
 | `POSTGRES_PORT` | Platform / Host | `5433` | No | Host port for PostgreSQL |
 | `GATEWAY_HOST_PORT` | Gateway / Host | `8088` | No | Host port for API Gateway |
 | `JWT_SECRET` | Gateway, Identity | `devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong` | Dev only | HMAC-SHA256 signing secret for JWT |
