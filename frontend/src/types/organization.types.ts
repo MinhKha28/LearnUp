@@ -7,6 +7,26 @@ export interface IOrganization {
 }
 
 // UC01 - dữ liệu một gói do GET /api/v1/subscription-plans trả về
+export interface IOrganizationProfile {
+  id: string;
+  name: string;
+  taxCode: string;
+  address: string;
+  contactPhone: string;
+  contactEmail: string | null;
+  logoUrl: string | null;
+  timezone: string;
+  status: string;
+  updatedAt: string;
+}
+
+export type IUpdateOrganizationReq = Partial<
+  Pick<
+    IOrganizationProfile,
+    "name" | "taxCode" | "address" | "contactPhone" | "contactEmail" | "timezone"
+  >
+>;
+
 export interface ISubscriptionPlan {
   id: string;
   name: string;
