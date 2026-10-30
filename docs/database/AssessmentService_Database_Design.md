@@ -1,7 +1,7 @@
 # Thiết kế database assessment-service (`assessment_db`)
 
 Trạng thái: **14 bảng** trên `develop` sau migration `20261025000000_drop_completed_enrollments` (bản đầu `20260930084438_assessment` tạo 15 bảng, trong đó `completed_enrollments` đã bị bỏ).
-Tài liệu mô tả đúng những gì có trên `develop`, đã gồm PR UC33 (#173, chốt chu kỳ chấm chéo và chạy theo lịch) và PR `completion-snapshot` (#176), cả hai merge ngày 28/10/2026. Việc bỏ cột `peer_review_obligation` (D10) đã làm ở PR #190 (chờ merge; mục dưới viết theo trạng thái sau khi #190 vào `develop`). Những việc đã quyết nhưng **chưa làm** (cho đề bài nhận PDF/DOCX/ZIP, thêm `CHECK`) ghi rõ ở mục 8 và 10.
+Tài liệu mô tả đúng những gì có trên `develop`, đã gồm PR UC33 (#173, chốt chu kỳ chấm chéo và chạy theo lịch) và PR `completion-snapshot` (#176), cả hai merge ngày 29/10/2026 (giờ Sài Gòn; 28/10 theo UTC), PR #189 (tệp đề bài nhận PDF/DOCX/ZIP, giới hạn tải lên theo gói lưu trữ, 29/10/2026) và PR #190 (bỏ cột `peer_review_obligation`, D10, 30/10/2026). Những việc đã quyết nhưng **chưa làm** (thêm `CHECK`) ghi rõ ở mục 8 và 10.
 Nhãn BR dùng số mới của bộ quy tắc v1.5 (`LearnUP_Business_Rules.docx`); mỗi số trích đều đã đối chiếu nội dung với bộ quy tắc, không lấy từ chú thích trong code (chú thích trong code còn lẫn số cũ và số mới).
 
 Nguồn: `services/assessment-service/prisma/schema.prisma`, hai file migration, và code trong `src/modules`. Những điều chưa kiểm chứng hoặc chưa quyết định ghi ở mục 7, 8 và 10, không suy đoán.
@@ -37,7 +37,7 @@ Lưu ý nguồn: các số "agreed UI limits" dưới đây lấy theo danh sác
 | Tiêu đề Assessment | `varchar(200)` | "Agreed UI limits" (Conventions mục 2): tiêu đề 200 | |
 | Đề bài Assignment | `varchar(8000)` | "Agreed UI limits": đề bài Assignment 8000 | Cần đề bài chữ hoặc một file đề (UC19.2) |
 | File đề bài: số lượng | Một file | BR-189: mỗi Assignment có tối đa một tệp đề bài; "agreed UI limits": 1 file | Lưu ở kho ngoài, DB chỉ giữ `prompt_file_key` |
-| File đề bài: kích thước và định dạng | **Đích:** PDF, DOCX hoặc ZIP, tối đa 50 MB, dùng một hằng số chung với tệp bài nộp. **Hiện tại trong code:** chỉ PDF, 50 MB (`PROMPT_FILE_MAX_BYTES`, `PROMPT_FILE_MIME_TYPES`) | BR-189 (số cũ BR-320): tệp đề bài có **cùng giới hạn kích thước và định dạng với tệp bài nộp**; "agreed UI limits": tệp PDF/DOCX/ZIP tối đa 50 MB. **Code chưa khớp:** đề bài mới chỉ nhận PDF; sửa ở một PR nhỏ riêng (mục 10 việc 9) | |
+| File đề bài: kích thước và định dạng | PDF, DOCX hoặc ZIP, trần 50 MB (`PROMPT_FILE_MAX_BYTES`), cùng bảng loại tệp với bài nộp (`SUBMISSION_FILE_TYPES`). **Giới hạn thực tế = min(50 MB, giới hạn tệp raw của gói lưu trữ)** (`STORAGE_MAX_RAW_BYTES`, mặc định 10 MiB cho gói Cloudinary Free), quá thì trả 413 `FILE_TOO_LARGE` | BR-189 (số cũ BR-320): tệp đề bài có **cùng giới hạn kích thước và định dạng với tệp bài nộp**; "agreed UI limits": tệp PDF/DOCX/ZIP tối đa 50 MB. Code đã khớp từ PR #189 (mục 10 việc 9). Giới hạn thực tế được API trả cho màn hình (`maxFileBytes`) để chặn tệp quá cỡ ngay lúc chọn | |
 | File đề bài: tên và MIME | `varchar(255)` mỗi cột; kích thước tệp `bigint` | Ràng buộc kỹ thuật: 255 là độ dài tối đa của tên tệp trên các hệ tệp phổ biến và đủ cho một kiểu MIME (type và subtype mỗi phần tối đa 127 ký tự, RFC 6838). `bigint` để lưu kích thước tính bằng byte, không phụ thuộc giới hạn 50 MB | |
 | Câu hỏi Quiz | `varchar(2000)` | "Agreed UI limits": câu hỏi 2000 (BR-194 chỉ quy định các dạng câu hỏi, không độ dài) | |
 | Đáp án Quiz | `varchar(500)` | "Agreed UI limits": đáp án 500 | |
@@ -45,7 +45,7 @@ Lưu ý nguồn: các số "agreed UI limits" dưới đây lấy theo danh sác
 | Tên và mô tả tiêu chí Rubric | `varchar(200)` và `varchar(500)` | "Agreed UI limits": tên rubric 200, mô tả rubric 500 | |
 | Điểm tối đa của tiêu chí | `smallint` | BR-257: điểm mỗi tiêu chí là số nguyên từ 0 đến điểm tối đa của tiêu chí; BR không đặt trần cho điểm tối đa. `smallint` (trần 32.767 do kiểu dữ liệu) là lựa chọn kỹ thuật cho số nguyên nhỏ | Cùng lý do cho `submission_review_scores.points` |
 | Nội dung bài nộp | `varchar(20000)` (`SUBMISSION_CONTENT_MAX_LENGTH`) | "Agreed UI limits": bài nộp dạng chữ 20000 | |
-| File bài nộp | PDF, DOCX hoặc ZIP, một file, tối đa 50 MB (`SUBMISSION_FILE_MAX_BYTES`) | "Agreed UI limits": 1 file, PDF/DOCX/ZIP, tối đa 50 MB (BR-189 nhắc "giới hạn kích thước và định dạng" của tệp bài nộp mà không nêu giá trị; BR-188 chỉ nói tệp bài nộp không tính vào dung lượng của Subscription). Kiểm cả chữ ký đầu file là ràng buộc kỹ thuật (không tin loại tệp do trình duyệt báo) | Thư mục kho: `learnup/{organizationId}/assignments/{assessmentId}/submissions` |
+| File bài nộp | PDF, DOCX hoặc ZIP, một file, trần 50 MB (`SUBMISSION_FILE_MAX_BYTES`); giới hạn thực tế = min(50 MB, giới hạn tệp raw của gói lưu trữ), quá thì trả 413 `FILE_TOO_LARGE` | "Agreed UI limits": 1 file, PDF/DOCX/ZIP, tối đa 50 MB (BR-189 nhắc "giới hạn kích thước và định dạng" của tệp bài nộp mà không nêu giá trị; BR-188 chỉ nói tệp bài nộp không tính vào dung lượng của Subscription). Kiểm cả chữ ký đầu file là ràng buộc kỹ thuật (không tin loại tệp do trình duyệt báo) | Thư mục kho: `learnup/{organizationId}/assignments/{assessmentId}/submissions` |
 | Nhận xét của người chấm | `varchar(2000)` | BR-323: nhận xét tự do của chấm chéo tối đa 2000 ký tự; "agreed UI limits": nhận xét review 2000. Chấm của Instructor dùng cùng cột và cùng giới hạn (BR-257 chỉ đòi nhận xét không rỗng) | Dùng cho chấm chéo và chấm của Instructor |
 | Nhận xét khi chốt điểm | `varchar(2000)` | "Agreed UI limits": nhận xét chốt điểm 2000 (BR-255 quy định điểm cuối, không nêu độ dài nhận xét) | `finalization_comment` |
 | Số người đánh giá mỗi bài (N) | `smallint` | BR-226 và BR-242 chỉ coi N là một số nhỏ (chu kỳ phải gom ít nhất N + 1 bài); BR không đặt trần cho N. `smallint` là lựa chọn kỹ thuật | |
@@ -257,7 +257,7 @@ Bản sao tham số mặc định: `default_peer_review_cycle_days` 7, `default_
 3. Một transaction: khóa theo `(assessment, learner)` (`{assessmentId}:{userId}`); tạo hoặc lấy dòng `learner_assessment_states`; kiểm khóa tạm; đặt chỗ cho bài: chấm chéo bật thì khóa theo Assignment (`cycle:{assessmentId}`), tìm chu kỳ chứa thời điểm nộp, chưa có thì tạo (sao chép tham số của Assignment, BR-335, BR-208), `grading_status = AwaitingPeerReview`; chấm chéo tắt thì `AwaitingInstructor` với lý do `PEER_REVIEW_DISABLED`; ghi `submissions`; cập nhật `consecutive_count`, `locked_until`, `latest_submission_id`; ghi `outbox_events` loại `LearnerAssessmentStatusChanged`.
 4. Ghi dở: nếu transaction thất bại thì xóa file đã tải lên.
 
-**Chọn chu kỳ ở bước 3.** Bài lần đầu chỉ vào một chu kỳ `Open`: truy vấn `findCycleContaining` lọc theo Assessment, `status = 'Open'` và hai mốc thời gian (`opens_at <= thời điểm < closes_at`), nên một chu kỳ vừa được chốt trong lúc bài chờ khóa không bị vào. (Trước PR UC33 #173, merge 28/10/2026, truy vấn này chưa lọc `status`.)
+**Chọn chu kỳ ở bước 3.** Bài lần đầu chỉ vào một chu kỳ `Open`: truy vấn `findCycleContaining` lọc theo Assessment, `status = 'Open'` và hai mốc thời gian (`opens_at <= thời điểm < closes_at`), nên một chu kỳ vừa được chốt trong lúc bài chờ khóa không bị vào. (Trước PR UC33 #173, merge 29/10/2026, truy vấn này chưa lọc `status`.)
 
 ### 4.3 Nộp lại (UC30.1)
 
@@ -278,7 +278,7 @@ Không ghi gì. File đề bài do dịch vụ tải từ kho (URL dựng từ k
 
 ### 4.6 Chốt chu kỳ, nhắc, hết hạn (UC33)
 
-Mô tả ở mục 6. Có trên `develop` từ PR #173 (28/10/2026).
+Mô tả ở mục 6. Có trên `develop` từ PR #173 (29/10/2026).
 
 ---
 
@@ -298,7 +298,7 @@ Mô tả ở mục 6. Có trên `develop` từ PR #173 (28/10/2026).
 | Cho | Cách | Nội dung |
 |---|---|---|
 | learning-service | REST nội bộ `GET /internal/learners/{learnerId}/courses/{courseId}/assessment-activity` (UC25.4) | `hasQuizAttempt`, `hasSubmission`, `hasPeerReviewGiven`: Learner đã làm gì trong phiên bản Course (learning-service dùng để quyết định xóa Enrollment hay giữ ở Withdrawn khi Learner rút) |
-| learning-service | `completion-snapshot` (REST nội bộ) | **Có trên `develop`** từ PR #176 (28/10/2026): `GET /api/v1/internal/learners/{learnerId}/courses/{courseId}/completion-snapshot`, chỉ cho learning-service gọi (`x-internal-key` và `x-organization-id`, không qua gateway); hợp đồng ở `contracts/openapi/assessment-service.yaml`. Quy tắc `peerReview` (D10): tính theo **chu kỳ mới nhất mà Learner có phân công review** (BR-236, BR-238, BR-239): tất cả `Completed` là `Satisfied`, có `Missed` hoặc `Pending` quá hạn là `Missed`, còn lại `Pending`; không có phân công ở chu kỳ nào là `NotApplicable`. Một chu kỳ sau không có phân công cho Learner (ít hơn N + 1 bài, BR-242) không xóa `Missed` cũ. **`Waived` chưa được trả** và `exempted_at` chưa được đọc (chờ learning nhận `Waived`, L22). Nguồn là các dòng `submission_reviews`, không phải cột `peer_review_obligation` (đã bỏ ở #190, mục 3.5) |
+| learning-service | `completion-snapshot` (REST nội bộ) | **Có trên `develop`** từ PR #176 (29/10/2026): `GET /api/v1/internal/learners/{learnerId}/courses/{courseId}/completion-snapshot`, dành cho learning-service (guard kiểm khóa nội bộ dùng chung và header tổ chức, không kiểm danh tính riêng của learning-service; không qua gateway); hợp đồng ở `contracts/openapi/assessment-service.yaml`. Quy tắc `peerReview` (D10): tính theo **chu kỳ mới nhất mà Learner có phân công review** (BR-236, BR-238, BR-239): tất cả `Completed` là `Satisfied`, có `Missed` hoặc `Pending` quá hạn là `Missed`, còn lại `Pending`; không có phân công ở chu kỳ nào là `NotApplicable`. Một chu kỳ sau không có phân công cho Learner (ít hơn N + 1 bài, BR-242) không xóa `Missed` cũ. **`Waived` chưa được trả** và `exempted_at` chưa được đọc (chờ learning nhận `Waived`, L22). Nguồn là các dòng `submission_reviews`, không phải cột `peer_review_obligation` (đã bỏ ở #190, mục 3.5) |
 
 ### 5.3 Event phát ra (qua `outbox_events`)
 
@@ -313,7 +313,7 @@ Payload của `LearnerAssessmentStatusChanged` sẽ được mở rộng (`reaso
 
 ## 6. Việc chạy theo lịch
 
-PR UC33 (#173, merge 28/10/2026) thêm một bộ hẹn giờ trong tiến trình (`PEER_REVIEW_TICK_MS`, mặc định 60 giây trong Compose, không đặt hoặc 0 là tắt). Mỗi lượt chạy có việc thì ghi một dòng log tóm tắt (số chu kỳ đã chốt, đã nhắc, đã hết hạn):
+PR UC33 (#173, merge 29/10/2026) thêm một bộ hẹn giờ trong tiến trình (`PEER_REVIEW_TICK_MS`, mặc định 60 giây trong Compose, không đặt hoặc 0 là tắt). Mỗi lượt chạy có việc thì ghi một dòng log tóm tắt (số chu kỳ đã chốt, đã nhắc, đã hết hạn):
 
 | Việc | Điều kiện | Kết quả |
 |---|---|---|
@@ -347,11 +347,11 @@ Mỗi bước tranh giành chu kỳ bằng cập nhật có điều kiện (`WHE
 | # | Quyết định | Tình trạng |
 |---|---|---|
 | D5 | Bỏ bảng `completed_enrollments`: nó chỉ là bản chiếu dữ liệu của learning, không có nguồn ghi, nên BR-210 gần như không bao giờ có hiệu lực. Quyền làm bài lấy từ L17 mỗi lần. Migration `20261025000000_drop_completed_enrollments` | Đã chốt; migration cần chạy khi triển khai (PR #159) |
-| D6 | Bộ ba trạng thái đánh giá `Pending → Completed \| Missed` | Hào đã chấp nhận; có trên `develop` (PR #173, 28/10/2026) |
+| D6 | Bộ ba trạng thái đánh giá `Pending → Completed \| Missed` | Hào đã chấp nhận; có trên `develop` (PR #173, 29/10/2026) |
 | D7 | Bốn giá trị trạng thái chu kỳ `Open`, `Assigned`, `InstructorOnly`, `Completed` | Như trên |
 | D8 | Thêm `CHECK` cho các cột trạng thái | Hào đồng ý (bình luận trên #174): làm ở PR migration riêng, sau khi PR UC33 (#173) merge vì UC33 thêm giá trị mới. #173 đã merge nên có thể làm; **chưa làm**. Xem mục 10 việc 5 |
 | D9 | File nộp bài và file đề bài nằm ở kho Cloudinary qua `@learnup/ts-storage`; DB giữ khóa, dịch vụ tải file từ kho rồi trả qua API sau khi kiểm quyền. Chuyển sang giao hàng riêng tư với URL ký có hạn (việc P4) | Hào đồng ý hướng đi: dùng chung helper URL ký của course-service (#146, khoảng 28/10), không tự làm riêng. **Hiện file đang ở kiểu giao hàng công khai** (xem mục 10 việc 3) |
-| D10 | Xếp bài (`owesPeerReviewDuty`) và `completion-snapshot` dùng **cùng một định nghĩa** "còn nợ chấm chéo", qua hàm `peerReviewOf` (các dòng review của Learner trên Assignment đó, giờ của yêu cầu); **bỏ cột `peer_review_obligation`** và hàm ghi `markObligationMissed` | Hào quyết định ở #176 (D-038). **Đã làm ở #190** (chờ merge): migration mới theo chiều tiến xóa cột, giữ `exempted_at` và `exempted_by` cho UC33.2; người đọc, người ghi và cột đổi trong cùng một PR vì chưa có deployment. Hệ quả: Learner đã bù review ở chu kỳ sau không còn bị coi là nợ, và một review `Pending` đã quá hạn được tính là `Missed` ngay (như ở `completion-snapshot`) |
+| D10 | Xếp bài (`owesPeerReviewDuty`) và `completion-snapshot` dùng **cùng một định nghĩa** "còn nợ chấm chéo", qua hàm `peerReviewOf` (các dòng review của Learner trên Assignment đó, giờ của yêu cầu); **bỏ cột `peer_review_obligation`** và hàm ghi `markObligationMissed` | Hào quyết định ở #176 (D-038). **Đã làm ở #190** (merge 30/10/2026): migration mới theo chiều tiến xóa cột, giữ `exempted_at` và `exempted_by` cho UC33.2; người đọc, người ghi và cột đổi trong cùng một PR vì chưa có deployment. Hệ quả: Learner đã bù review ở chu kỳ sau không còn bị coi là nợ, và một review `Pending` đã quá hạn được tính là `Missed` ngay (như ở `completion-snapshot`) |
 | D11 | `completion-snapshot` chưa trả `Waived` và chưa đọc `exempted_at` | Hào (D-039): chờ learning nhận `Waived` (L22), rồi UC33.2 |
 
 ---
@@ -384,7 +384,7 @@ Hướng dẫn bố trí cho dbdiagram.io chưa viết (mục 10).
 
 ## 10. Việc tiếp theo
 
-1. **Đã cập nhật** sau khi #173 và #176 merge (28/10/2026): mục 2, 3.5, 3.8.1, 3.9.1, 3.10.1, 4.2, 4.3, 4.6, 5.2 và 6 chuyển từ "đang chờ" thành hiện trạng, thêm `TOO_FEW_SUBMISSIONS` và `REVIEW_MISSED`. Việc bỏ cột `peer_review_obligation` (D10) đã cập nhật theo #190 (các dòng liên quan ở mục 3.5, 4.3 và 5). Khi các việc còn lại vào (đề bài nhận PDF/DOCX/ZIP, `CHECK`), cập nhật tiếp các mục 1.2, 3.5, 4.3 và 8.
+1. **Đã cập nhật** sau khi #173 và #176 merge (29/10/2026): mục 2, 3.5, 3.8.1, 3.9.1, 3.10.1, 4.2, 4.3, 4.6, 5.2 và 6 chuyển từ "đang chờ" thành hiện trạng, thêm `TOO_FEW_SUBMISSIONS` và `REVIEW_MISSED`. Việc bỏ cột `peer_review_obligation` (D10, #190) và việc đề bài nhận PDF/DOCX/ZIP với giới hạn theo gói lưu trữ (#189) đã cập nhật (mục 1.2, 3.5, 4.3 và 5). Khi việc còn lại vào (`CHECK`), cập nhật tiếp mục 8.
 2. **Rà các truy vấn không lọc theo `organization_id`** và lập bảng ngoại lệ như mục 1.1 của tài liệu learning-service.
 3. **File riêng tư (P4):** cả hai nơi upload (`assignment-media.service.ts`, `learner-submissions.service.ts`) gọi `storage.upload` với `resourceType: 'raw'` và **không truyền `deliveryType`**; `@learnup/ts-storage` khi đó dùng `upload`, tức giao hàng công khai. Dịch vụ tải file bằng `storage.getUrl(key, 'raw')` là URL thường. Vì vậy ai có URL đều tải được, bất kể kiểm quyền ở API; đây là vấn đề chính, hơn cả việc URL hết hạn. Hướng đi: dùng helper URL ký của course-service (#146) rồi chuyển sang `authenticated`/`private`. Gói Free của Cloudinary chỉ có link hết hạn qua `private_download_url` (api.cloudinary.com), liên quan câu hỏi mở về giới hạn Admin API. Cần kiểm trước: file đã upload là kiểu nào trên môi trường thật (đọc code chưa đủ).
 4. **Chỉ mục:** hiện chỉ có `assessments(organization_id, course_id)`, `submission_reviews(organization_id, reviewer_id)` và `outbox_events(published_at)` ngoài các khóa duy nhất. Các truy vấn theo `submissions.cycle_id`, `submission_reviews.cycle_id`, `submission_reviews.submission_id` chưa có chỉ mục. **Chưa đo, và tài liệu không nói chúng cần chỉ mục.** Bước cụ thể: chạy `EXPLAIN ANALYZE` các truy vấn của UC33 trên `cycle_id` / `submission_id` với dữ liệu seed, rồi mới quyết định.
@@ -392,6 +392,6 @@ Hướng dẫn bố trí cho dbdiagram.io chưa viết (mục 10).
 6. **Các luồng ghi còn thiếu:** câu hỏi và đáp án Quiz (UC18.3), lượt làm Quiz và tự nộp khi hết giờ (UC29.1, BR-200), chốt điểm Assignment (UC32.3), consumer event cho `learner_accounts` và `platform_settings`, ghi `disabled_at`.
 7. **Relay outbox** và mở rộng payload `LearnerAssessmentStatusChanged` (giai đoạn 5). Endpoint `completion-snapshot` đã có (mục 5.2).
 8. **Sơ đồ ERD cho dbdiagram.io** và số đo thực nghiệm: chưa làm.
-9. **File đề bài: đưa code khớp BR-189 (PR nhỏ riêng, chưa làm).** Đích: đề bài nhận PDF, DOCX hoặc ZIP, cùng giới hạn kích thước với bài nộp, dùng một hằng số chung (BR-189 và quy ước CSDL mục 2). Hiện `PROMPT_FILE_MIME_TYPES` chỉ có PDF còn bài nộp nhận cả ba loại. Ngoài ra Cloudinary gói Free chỉ cho tệp raw tới 10 MB (Plus 20, Advanced 40), thấp hơn 50 MB: Hào sẽ kiểm tra hành vi khi tải quá cỡ và quyết định giới hạn (ngoài phạm vi tài liệu này).
-10. **Bỏ cột `peer_review_obligation` (D10): đã làm ở #190, chờ merge.** Cột chỉ được ghi `Missed` và không bao giờ được đặt lại khi Learner bù xong các review của chu kỳ sau (BR-239), nên `owesPeerReviewDuty` vẫn coi Learner còn nợ. Cách làm: `owesPeerReviewDuty` gọi `peerReviewOf` (cùng hàm với `completion-snapshot`, đọc các dòng review trong transaction nộp lại, dưới khóa chu kỳ hiện có; còn nợ = kết quả `Missed` và chưa có `exempted_at`), đã bỏ `markObligationMissed`, và cột bị xóa bằng migration `20261029000000_drop_peer_review_obligation`. Sau khi #190 merge không còn việc nào ở mục này.
+9. **File đề bài: đưa code khớp BR-189 (đã làm ở #189, merge 29/10/2026).** Đề bài nhận PDF, DOCX hoặc ZIP, cùng bảng loại tệp với bài nộp (BR-189 và quy ước CSDL mục 2). Cloudinary gói Free chỉ cho tệp raw tới 10 MB (Plus 20, Advanced 40), thấp hơn trần 50 MB, nên giới hạn thực tế là min(50 MB, giới hạn tệp raw của gói) (D-048): tệp quá cỡ bị từ chối trước khi tải lên với 413 `FILE_TOO_LARGE`, và API cho màn hình biết giới hạn đó (`maxFileBytes`). Không còn việc nào ở mục này.
+10. **Bỏ cột `peer_review_obligation` (D10): đã làm ở #190 (merge 30/10/2026).** Cột chỉ được ghi `Missed` và không bao giờ được đặt lại khi Learner bù xong các review của chu kỳ sau (BR-239), nên `owesPeerReviewDuty` vẫn coi Learner còn nợ. Cách làm: `owesPeerReviewDuty` gọi `peerReviewOf` (cùng hàm với `completion-snapshot`, đọc các dòng review trong transaction nộp lại, dưới khóa chu kỳ hiện có; còn nợ = kết quả `Missed` và chưa có `exempted_at`), đã bỏ `markObligationMissed`, và cột bị xóa bằng migration `20261029000000_drop_peer_review_obligation`. Không còn việc nào ở mục này.
 11. **Đối chiếu các số "agreed UI limits"** ở mục 1.2 với `Database_Conventions.md` mục 2 khi file đó có trong repo (hiện các số lấy theo danh sách của Hào ở review #174).
