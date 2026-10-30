@@ -968,6 +968,7 @@ export class UsersService {
           `${params.organizationName} đã tạo cho bạn tài khoản ${params.role} trên LearnUP.\n` +
           `Mở liên kết sau để đặt mật khẩu và kích hoạt tài khoản: ${this.activationLink(params.rawToken)}\n` +
           `Liên kết có hiệu lực tới ${params.expiresAt.toISOString()}.`,
+        expiresAt: params.expiresAt.toISOString(),
       },
     });
   }
