@@ -103,6 +103,98 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/internal/enrollments/summary-by-learners:
+    post:
+      operationId: summarizeEnrollmentsByLearners
+      summary: Count active and overdue Course enrollments by learner
+      description: >-
+        Internal only; called by tenant-service for UC13 learner lists and not routed by Gateway.
+        Counts only enrollments in the organization from the trusted header; no additional role restriction
+        or learner existence check. Each requested ID is returned with its original casing, with zero counts
+        when no matching enrollments exist. Active counts Required/Optional NotStarted/InProgress enrollments,
+        including overdue ones. Overdue counts Required NotStarted/InProgress enrollments with due_at <= database
+        now(), unless an open organization suspension started before due_at.
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - name: x-organization-id
+          in: header
+          required: true
+          description: Guard requires a string only; the database query casts it to UUID.
+          schema: { type: string }
+        - name: x-user-role
+          in: header
+          required: true
+          description: Trimmed and uppercased, then must match ADMIN, ORGANIZER, INSTRUCTOR or LEARNER.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [learnerIds]
+              properties:
+                learnerIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  uniqueItems: true
+                  description: UUIDs accepted by IsUUID('all'); duplicates are rejected case-insensitively.
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Counts for every requested learner ID; no pagination.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string, enum: [Learner enrollment summaries fetched successfully] }
+                  data:
+                    type: object
+                    required: [summaries]
+                    properties:
+                      summaries:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          required: [activeCourseCount, overdueCourseCount]
+                          properties:
+                            activeCourseCount: { type: integer, minimum: 0 }
+                            overdueCourseCount: { type: integer, minimum: 0 }
+        "400":
+          description: DTO validation failure (including unknown keys) or malformed JSON; no custom business error code. Validation messages are an array.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, timestamp, path, error]
+                properties:
+                  statusCode: { type: integer, enum: [400] }
+                  timestamp: { type: string, format: date-time }
+                  path: { type: string }
+                  error:
+                    type: object
+                    properties:
+                      statusCode: { type: integer, enum: [400] }
+                      error: { type: string }
+                      message:
+                        oneOf:
+                          - { type: string }
+                          - { type: array, items: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Unhandled database/configuration failure, including a non-UUID organization header; default NestJS error response, not a business error envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode: { type: integer, enum: [500] }
+                  message: { type: string }
   /api/v1/internal/enrollments/assessment-access:
     get:
       summary: Resolve assessment access using stored enrollment status
