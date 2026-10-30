@@ -34,6 +34,9 @@ const {
   SubscriptionUpgradesService,
 } = require('../dist/src/modules/subscriptions/subscription-upgrades.service');
 const {
+  MockPaymentGateway,
+} = require('../dist/src/modules/payments/mock-payment.gateway');
+const {
   InternalAuthGuard,
 } = require('../dist/src/common/guards/internal-auth.guard');
 const {
@@ -384,6 +387,72 @@ test('UC10.2 upgrade a Subscription', async (t) => {
             error.getResponse().code === 'USAGE_UNAVAILABLE',
         );
         assert.equal((await paymentsOf(id)).length, 0);
+      },
+    );
+
+    const failingService = () => {
+      class FailingRepository extends SubscriptionsRepository {
+        createSubscription() {
+          throw new Error('database down: secret detail');
+        }
+      }
+      return new SubscriptionUpgradesService(
+        db,
+        new FailingRepository(db),
+        {
+          getOrganizationUsage: async () => ({
+            courseChains: 0,
+            storageBytes: 0,
+          }),
+        },
+        new MockPaymentGateway(),
+      );
+    };
+    const organizerOf = (organizationId) => ({
+      userId: randomUUID(),
+      role: 'ORGANIZER',
+      organizationId,
+      isAuthenticated: true,
+    });
+
+    await t.test(
+      'P1: the database fails after a successful charge: Failed with the reference, nothing applied',
+      async () => {
+        const { id, current } = await fixture();
+        const target = await newPlan();
+        await assert.rejects(
+          failingService().upgrade(organizerOf(id), { planId: target.id }),
+          (error) =>
+            error.getStatus() === 503 &&
+            error.getResponse().code === 'UPGRADE_NOT_APPLIED' &&
+            !JSON.stringify(error.getResponse()).includes('secret detail'),
+        );
+        const [payment] = await paymentsOf(id);
+        assert.equal(payment.status, 'Failed');
+        assert.equal(payment.failureReason, 'CHARGED_NOT_APPLIED');
+        assert.match(payment.providerReference, /^MOCK-/);
+        assert.equal(payment.subscriptionId, null);
+        const rows = await subscriptionsOf(id);
+        assert.equal(rows.length, 1);
+        assert.equal(rows[0].id, current.id);
+        assert.equal(rows[0].status, 'Active');
+        assert.equal(rows[0].endedAt, null);
+      },
+    );
+
+    await t.test(
+      'with nothing to pay, a database failure is reported as it is and no Payment exists',
+      async () => {
+        const { id, current } = await fixture();
+        const target = await newPlan({ price: 3000n });
+        await assert.rejects(
+          failingService().upgrade(organizerOf(id), { planId: target.id }),
+          /database down/,
+        );
+        assert.equal((await paymentsOf(id)).length, 0);
+        const rows = await subscriptionsOf(id);
+        assert.equal(rows.length, 1);
+        assert.equal(rows[0].id, current.id);
       },
     );
 

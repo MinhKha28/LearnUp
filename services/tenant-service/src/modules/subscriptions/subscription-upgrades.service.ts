@@ -21,7 +21,10 @@ import { MockPaymentGateway } from '../payments/mock-payment.gateway';
 import { UpgradeSubscriptionDto } from './dto/upgrade-subscription.dto';
 import { IUpgradeOptions } from './interfaces/upgrade-options.interface';
 import { IUpgradeResult } from './interfaces/upgrade-result.interface';
-import { SubscriptionsRepository } from './subscriptions.repository';
+import {
+  CHARGED_NOT_APPLIED,
+  SubscriptionsRepository,
+} from './subscriptions.repository';
 import {
   blockingLimits,
   ILimitValues,
@@ -196,7 +199,7 @@ export class SubscriptionUpgradesService {
     }
 
     const paidAt = new Date();
-    const subscription = await this.prisma.$transaction(async (tx) => {
+    const apply = this.prisma.$transaction(async (tx) => {
       await this.repository.endSubscription(current.id, paidAt, tx);
       const created = await this.repository.createSubscription(
         {
@@ -223,6 +226,21 @@ export class SubscriptionUpgradesService {
         );
       }
       return created;
+    });
+    const subscription = await apply.catch(async (error: unknown) => {
+      if (!paymentId) throw error;
+      await this.repository.markPaymentChargedNotApplied(
+        paymentId,
+        providerReference,
+      );
+      this.logger.error(
+        `Upgrade payment ${paymentId} was charged but not applied (${CHARGED_NOT_APPLIED}); it needs a refund.`,
+      );
+      throw new ServiceUnavailableException({
+        code: 'UPGRADE_NOT_APPLIED',
+        message:
+          'Thanh toán đã ghi nhận nhưng chưa nâng cấp được. Vui lòng liên hệ hỗ trợ, không thanh toán lại.',
+      });
     });
 
     return {
