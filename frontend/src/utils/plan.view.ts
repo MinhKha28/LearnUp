@@ -2,6 +2,16 @@ import type { ICreatePlanReq } from "@/types/organization.types";
 
 export const BYTES_PER_GB = 1024 ** 3;
 
+export const PLAN_LIMITS = {
+  price: 1_000_000_000_000,
+  durationDays: 3650,
+  maxLearners: 1_000_000,
+  maxInstructors: 100_000,
+  maxCourseChains: 100_000,
+  minStorageGb: 0.1,
+  maxStorageGb: Math.floor(Number.MAX_SAFE_INTEGER / BYTES_PER_GB),
+} as const;
+
 export interface PlanFormValues {
   name: string;
   price: number;

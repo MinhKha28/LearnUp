@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AdminButton, AdminPage, PageHeader, SectionCard, StatusTag, WarningPanel } from "@/components/admin/admin.ui";
 import { createPlanAPI } from "@/services/subscription.service";
 import type { IApiError } from "@/types/organization.types";
-import { planErrorMessage, toCreatePlanBody, type PlanFormValues } from "@/utils/plan.view";
+import { PLAN_LIMITS, planErrorMessage, toCreatePlanBody, type PlanFormValues } from "@/utils/plan.view";
 import "./plan.form.scss";
 
 const wholeNumber = { precision: 0, style: { width: "100%" } } as const;
@@ -76,22 +76,22 @@ const PlanCreate = () => {
               <Input placeholder="Professional" />
             </Form.Item>
             <Form.Item label="Price (VND)" name="price" rules={[{ required: true, message: "Enter a price." }]}>
-              <InputNumber {...wholeNumber} min={0} placeholder="4990000" />
+              <InputNumber {...wholeNumber} min={0} max={PLAN_LIMITS.price} placeholder="4990000" />
             </Form.Item>
             <Form.Item label="Duration (days)" name="durationDays" rules={[{ required: true, message: "Enter a duration." }]}>
-              <InputNumber {...wholeNumber} min={1} max={3650} placeholder="180" />
+              <InputNumber {...wholeNumber} min={1} max={PLAN_LIMITS.durationDays} placeholder="180" />
             </Form.Item>
             <Form.Item label="Learners" name="maxLearners" rules={[{ required: true, message: "Enter a limit." }]}>
-              <InputNumber {...wholeNumber} min={1} placeholder="1000" />
+              <InputNumber {...wholeNumber} min={1} max={PLAN_LIMITS.maxLearners} placeholder="1000" />
             </Form.Item>
             <Form.Item label="Instructors" name="maxInstructors" rules={[{ required: true, message: "Enter a limit." }]}>
-              <InputNumber {...wholeNumber} min={1} placeholder="50" />
+              <InputNumber {...wholeNumber} min={1} max={PLAN_LIMITS.maxInstructors} placeholder="50" />
             </Form.Item>
             <Form.Item label="Courses" name="maxCourseChains" rules={[{ required: true, message: "Enter a limit." }]}>
-              <InputNumber {...wholeNumber} min={1} placeholder="100" />
+              <InputNumber {...wholeNumber} min={1} max={PLAN_LIMITS.maxCourseChains} placeholder="100" />
             </Form.Item>
             <Form.Item label="Storage (GB)" name="storageGb" rules={[{ required: true, message: "Enter a storage limit." }]}>
-              <InputNumber min={0.1} step={1} precision={1} style={{ width: "100%" }} placeholder="250" />
+              <InputNumber min={PLAN_LIMITS.minStorageGb} max={PLAN_LIMITS.maxStorageGb} step={1} precision={1} style={{ width: "100%" }} placeholder="250" />
             </Form.Item>
           </div>
           <div className="admin-plan-form-note">
@@ -112,9 +112,9 @@ const PlanEditPreview = () => {
   const initialValues = { name: "Growth", duration: 6, learners: 500, instructors: 25, courses: 50, storage: 120 };
   return (
     <AdminPage className="admin-plan-form">
-      <PageHeader title="Edit Growth Plan" subtitle="Changes apply to future registrations and renewals only." actions={<><AdminButton>Discontinue plan</AdminButton><AdminButton onClick={() => navigate(-1)}>Cancel</AdminButton><AdminButton type="primary" htmlType="submit" form="plan-form">Save changes</AdminButton></>} />
+      <PageHeader title="Edit Plan (preview)" subtitle="Editing is not available yet (UC43.2). This preview shows sample data and saves nothing." actions={<><AdminButton disabled>Discontinue plan</AdminButton><AdminButton onClick={() => navigate(-1)}>Back</AdminButton><AdminButton type="primary" disabled>Save changes</AdminButton></>} />
       <SectionCard title={<>Current configuration <StatusTag tone="success">Available</StatusTag></>}>
-        <Form id="plan-form" className="admin-form" layout="vertical" initialValues={initialValues} onFinish={() => navigate("/admin/plans")}>
+        <Form className="admin-form" layout="vertical" initialValues={initialValues} disabled>
           <div className="admin-form-grid"><Form.Item label="Plan name" name="name" rules={[{ required: true }]}><Input placeholder="Professional" /></Form.Item><Form.Item label="Duration" name="duration" rules={[{ required: true }]}><Select placeholder="Select duration" options={[3,6,12].map((value) => ({ value, label: `${value} months` }))} /></Form.Item><Form.Item label="Learners" name="learners" rules={[{ required: true }]}><InputNumber min={1} placeholder="1,000" /></Form.Item><Form.Item label="Instructors" name="instructors" rules={[{ required: true }]}><InputNumber min={1} placeholder="50" /></Form.Item><Form.Item label="Courses" name="courses" rules={[{ required: true }]}><InputNumber min={1} placeholder="100" /></Form.Item><Form.Item label="Storage (GB)" name="storage" rules={[{ required: true }]}><InputNumber min={1} placeholder="250" /></Form.Item></div>
         </Form>
       </SectionCard>

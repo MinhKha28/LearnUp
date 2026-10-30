@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BYTES_PER_GB,
   organizationsUsingLabel,
+  PLAN_LIMITS,
   planErrorMessage,
   toCreatePlanBody,
 } from "./plan.view";
@@ -41,6 +42,26 @@ describe("UC43 / UC43.1 plan view", () => {
     });
     expect(body.maxStorageBytes).toBe(BYTES_PER_GB / 2);
     expect(Number.isInteger(body.maxStorageBytes)).toBe(true);
+  });
+
+  it("stays a safe positive integer at the storage bounds of the form", () => {
+    const bytes = (storageGb: number) =>
+      toCreatePlanBody({
+        name: "Bound",
+        price: 0,
+        durationDays: 1,
+        maxLearners: 1,
+        maxInstructors: 1,
+        maxCourseChains: 1,
+        storageGb,
+      }).maxStorageBytes;
+    expect(bytes(PLAN_LIMITS.minStorageGb)).toBe(107_374_182);
+    const largest = bytes(PLAN_LIMITS.maxStorageGb);
+    expect(Number.isSafeInteger(largest)).toBe(true);
+    expect(largest).toBe(PLAN_LIMITS.maxStorageGb * BYTES_PER_GB);
+    expect(bytes(PLAN_LIMITS.maxStorageGb + 1)).toBeGreaterThan(
+      Number.MAX_SAFE_INTEGER,
+    );
   });
 
   it("maps backend errors without showing raw codes", () => {
