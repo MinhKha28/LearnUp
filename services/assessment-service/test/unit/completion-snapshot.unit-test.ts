@@ -277,16 +277,16 @@ describe('peer review of an Assignment', () => {
 
     test('a cycle with no assignment for this Learner changes nothing: the Missed of the earlier cycle stays (BR-242)', () => {
       // the recovery cycle had too few submissions, so it has no row here at all
-      assert.equal(of([c('Missed', 1, PAST), c('Missed', 1, PAST)]).status, 'Missed');
+      assert.equal(
+        of([c('Missed', 1, PAST), c('Missed', 1, PAST)]).status,
+        'Missed',
+      );
     });
 
     test('three cycles: the third one decides', () => {
       assert.equal(
-        of([
-          c('Missed', 1, PAST),
-          c('Missed', 2, PAST),
-          c('Completed', 3),
-        ]).status,
+        of([c('Missed', 1, PAST), c('Missed', 2, PAST), c('Completed', 3)])
+          .status,
         'Satisfied',
       );
     });
