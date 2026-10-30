@@ -9,6 +9,8 @@ test('TN3: IANA zone names are accepted', () => {
   for (const zone of [
     'Asia/Ho_Chi_Minh',
     'Asia/Tokyo',
+    'Asia/TOKYO',
+    'asia/ho_chi_minh',
     'Europe/Kyiv',
     'America/Argentina/Buenos_Aires',
     'America/Port-au-Prince',
@@ -24,7 +26,6 @@ test('TN3: names Intl tolerates but that are not IANA names are rejected', () =>
     '+07:00',
     'UTC+7',
     'EST',
-    'asia/tokyo',
     'Asia/Hanoi',
     'Asia/',
     '/Tokyo',

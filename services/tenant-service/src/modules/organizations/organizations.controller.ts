@@ -14,6 +14,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { ResponseMessage, Roles, User } from '../../common/decorator/customize';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { ImageSizeLimitInterceptor } from '../../infrastructure/storage/upload-limit';
 import type { IUploadedImage } from '../profile/interfaces/uploaded-image.interface';
 import { UpdateOrganizationProfileDto } from './dto/update-organization-profile.dto';
 import {
@@ -46,6 +47,7 @@ export class OrganizationsController {
 
   @Put('logo')
   @UseInterceptors(
+    new ImageSizeLimitInterceptor(LOGO_MAX_SIZE_BYTES),
     FileInterceptor('file', { limits: { fileSize: LOGO_MAX_SIZE_BYTES } }),
   )
   @ResponseMessage('Cập nhật logo thành công')

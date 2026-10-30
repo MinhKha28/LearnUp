@@ -22,6 +22,10 @@ import {
 import { isIanaTimezone } from '../../common/utils/timezone.util';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
+import {
+  fileTooLarge,
+  imageUploadLimitBytes,
+} from '../../infrastructure/storage/upload-limit';
 import type { IUploadedImage } from '../profile/interfaces/uploaded-image.interface';
 import { UpdateOrganizationProfileDto } from './dto/update-organization-profile.dto';
 import { IOrganizationProfile } from './interfaces/organization-profile.interface';
@@ -111,11 +115,17 @@ export class OrganizationsService {
         message: 'Cần gửi ít nhất một trường để cập nhật.',
       });
     }
-    if (dto.timezone !== undefined && !isIanaTimezone(dto.timezone)) {
-      throw new BadRequestException({
-        code: 'INVALID_TIMEZONE',
-        message: 'Múi giờ phải là tên IANA hợp lệ, ví dụ Asia/Ho_Chi_Minh.',
-      });
+    if (dto.timezone !== undefined) {
+      const timezone = isIanaTimezone(dto.timezone)
+        ? await this.repository.findCanonicalTimezone(dto.timezone)
+        : null;
+      if (!timezone) {
+        throw new BadRequestException({
+          code: 'INVALID_TIMEZONE',
+          message: 'Múi giờ phải là tên IANA hợp lệ, ví dụ Asia/Ho_Chi_Minh.',
+        });
+      }
+      data.timezone = timezone;
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -137,8 +147,10 @@ export class OrganizationsService {
         message: 'Vui lòng chọn tệp logo.',
       });
     }
+    const limit = imageUploadLimitBytes(LOGO_MAX_SIZE_BYTES);
+    if (file.size > limit) throw fileTooLarge(limit);
     const mimeType = detectLogoType(file.buffer);
-    if (!mimeType || file.size > LOGO_MAX_SIZE_BYTES) throw this.invalidLogo();
+    if (!mimeType) throw this.invalidLogo();
     await this.prisma.$transaction((tx) =>
       this.assertWritable(organizationId, tx),
     );
@@ -156,13 +168,13 @@ export class OrganizationsService {
           folder: `learnup/${organizationId}/logos`,
           resourceType: 'image',
           validation: {
-            maxSizeBytes: LOGO_MAX_SIZE_BYTES,
+            maxSizeBytes: limit,
             allowedMimeTypes: [...LOGO_MIME_TYPES],
           },
         },
       );
     } catch (error) {
-      throw this.toUploadException(error);
+      throw this.toUploadException(error, limit);
     }
 
     let previousKey: string | null = null;
@@ -266,12 +278,15 @@ export class OrganizationsService {
   private invalidLogo(): BadRequestException {
     return new BadRequestException({
       code: 'LOGO_INVALID',
-      message: 'Logo phải là ảnh PNG hoặc JPEG và không quá 2 MB.',
+      message: 'Logo phải là ảnh PNG hoặc JPEG.',
     });
   }
 
-  private toUploadException(error: unknown) {
+  private toUploadException(error: unknown, limit: number) {
     if (error instanceof StorageValidationError) return this.invalidLogo();
+    if (error instanceof StorageProviderError && error.code === 'TOO_LARGE') {
+      return fileTooLarge(limit);
+    }
     if (error instanceof StorageProviderError) {
       return new ServiceUnavailableException({
         code: 'STORAGE_UNAVAILABLE',

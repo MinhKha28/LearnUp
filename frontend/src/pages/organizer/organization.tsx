@@ -1,4 +1,4 @@
-import { Alert, Avatar, Button, Skeleton } from "antd";
+import { Alert, Button, Skeleton } from "antd";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -8,7 +8,7 @@ import {
   SectionCard,
   WarningPanel,
 } from "@/components/organizer/organizer.ui";
-import { initialsOf } from "@/hooks/use.my.profile";
+import { OrganizationLogo } from "@/components/organizer/organization.logo";
 import { getMyOrganizationAPI } from "@/services/organization.service";
 import type { IOrganizationProfile } from "@/types/organization.types";
 import "./organization.scss";
@@ -64,9 +64,7 @@ const Organization = () => {
     return (
       <SectionCard>
         <div className="organizer-org-identity">
-          <Avatar shape="square" size={72} src={profile.logoUrl ?? undefined}>
-            {initialsOf(profile.name)}
-          </Avatar>
+          <OrganizationLogo name={profile.name} logoUrl={profile.logoUrl} />
           <div>
             <h2>{profile.name}</h2>
             <span>Organization profile</span>

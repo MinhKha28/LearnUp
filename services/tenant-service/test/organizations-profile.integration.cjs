@@ -14,6 +14,7 @@ require('node:module').Module._initPaths();
 
 const { Module, ValidationPipe, VersioningType } = require('@nestjs/common');
 const { ConfigModule } = require('@nestjs/config');
+const { StorageProviderError } = require('@learnup/ts-storage');
 const { APP_GUARD, NestFactory, Reflector } = require('@nestjs/core');
 const {
   PrismaModule,
@@ -232,12 +233,48 @@ test('UC11 / UC11.1 organization profile', async (t) => {
       },
     );
 
+    for (const [typed, canonical] of [
+      ['Asia/TOKYO', 'Asia/Tokyo'],
+      ['asia/tokyo', 'Asia/Tokyo'],
+      ['Asia/Ho_chi_minh', 'Asia/Ho_Chi_Minh'],
+      ['Asia/Ho_Chi_Minh', 'Asia/Ho_Chi_Minh'],
+      ['utc', 'UTC'],
+    ]) {
+      await t.test(`TN3: "${typed}" is stored as ${canonical}`, async () => {
+        const response = await patch(orgs.active, { timezone: typed });
+        assert.equal(response.status, 200);
+        assert.equal((await response.json()).data.timezone, canonical);
+        const row = await db.organization.findUnique({
+          where: { id: orgs.active },
+        });
+        assert.equal(row.timezone, canonical);
+      });
+    }
+
+    for (const field of [
+      'name',
+      'taxCode',
+      'address',
+      'contactPhone',
+      'timezone',
+    ]) {
+      await t.test(`400 for null ${field}, row unchanged`, async () => {
+        const before = await db.organization.findUnique({
+          where: { id: orgs.active },
+        });
+        assert.equal((await patch(orgs.active, { [field]: null })).status, 400);
+        const after = await db.organization.findUnique({
+          where: { id: orgs.active },
+        });
+        assert.equal(after[field], before[field]);
+      });
+    }
+
     for (const timezone of [
       'Asia/Hanoi',
       'UTC+7',
       '+07:00',
       'EST',
-      'asia/tokyo',
       '',
       'Asia/Ho_Chi_Minh/Extra',
     ]) {
@@ -320,10 +357,11 @@ test('UC11 / UC11.1 organization profile', async (t) => {
       });
     }
 
-    await t.test('a logo over 2 MB is rejected', async () => {
+    await t.test('D-048: a logo over 2 MB is 413 FILE_TOO_LARGE', async () => {
       const big = Buffer.concat([PNG, Buffer.alloc(2 * 1024 * 1024)]);
       const response = await uploadLogo(orgs.active, big, 'image/png');
-      assert.ok([400, 413].includes(response.status), String(response.status));
+      assert.equal(response.status, 413);
+      assert.equal(await errorCode(response), 'FILE_TOO_LARGE');
     });
 
     await t.test('400 LOGO_REQUIRED without a file', async () => {
@@ -381,6 +419,46 @@ test('UC11 / UC11.1 organization profile', async (t) => {
       mimetype,
       size: buffer.length,
     });
+
+    await t.test(
+      'D-048: storage reporting TOO_LARGE is 413 FILE_TOO_LARGE, never 503',
+      async () => {
+        const tooLarge = new OrganizationsService(
+          db,
+          new OrganizationsRepository(db),
+          {
+            ...storage,
+            upload: () =>
+              Promise.reject(new StorageProviderError('big', 'TOO_LARGE')),
+          },
+        );
+        await assert.rejects(
+          tooLarge.replaceLogo(organizer, file(PNG)),
+          (error) =>
+            error.getStatus() === 413 &&
+            error.getResponse().code === 'FILE_TOO_LARGE',
+        );
+      },
+    );
+
+    await t.test(
+      'D-048: a storage plan limit below 2 MB lowers the effective limit',
+      async () => {
+        process.env.STORAGE_MAX_IMAGE_BYTES = '32';
+        try {
+          await assert.rejects(
+            service.replaceLogo(organizer, file(PNG)),
+            (error) =>
+              error.getStatus() === 413 &&
+              error.getResponse().code === 'FILE_TOO_LARGE' &&
+              error.getResponse().maxSizeBytes === 32,
+          );
+        } finally {
+          delete process.env.STORAGE_MAX_IMAGE_BYTES;
+        }
+        assert.equal(calls.uploads.length, 0);
+      },
+    );
 
     await t.test(
       'replacing the logo stores the detected type, then deletes the old file',

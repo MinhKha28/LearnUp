@@ -1,7 +1,6 @@
 import {
   Alert,
   App,
-  Avatar,
   Button,
   Form,
   Input,
@@ -19,7 +18,7 @@ import {
   SectionCard,
   WarningPanel,
 } from "@/components/organizer/organizer.ui";
-import { initialsOf } from "@/hooks/use.my.profile";
+import { OrganizationLogo } from "@/components/organizer/organization.logo";
 import {
   getMyOrganizationAPI,
   removeOrganizationLogoAPI,
@@ -194,9 +193,7 @@ const OrganizationEdit = () => {
       <>
         <SectionCard title="Organization logo">
           <div className="organizer-org-identity">
-            <Avatar shape="square" size={72} src={profile.logoUrl ?? undefined}>
-              {initialsOf(profile.name)}
-            </Avatar>
+            <OrganizationLogo name={profile.name} logoUrl={profile.logoUrl} />
             <div>
               <Upload
                 accept={LOGO_ACCEPT}

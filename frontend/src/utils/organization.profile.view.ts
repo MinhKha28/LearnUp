@@ -83,7 +83,9 @@ export const organizationErrorMessage = (
     case "INVALID_TIMEZONE":
       return "Choose a timezone from the list.";
     case "LOGO_INVALID":
-      return "The logo must be a PNG or JPEG image of at most 2 MB.";
+      return "The logo must be a PNG or JPEG image.";
+    case "FILE_TOO_LARGE":
+      return "The logo is too large. It must be at most 2 MB.";
     case "STORAGE_UNAVAILABLE":
       return "The logo could not be uploaded right now. Please try again later.";
     case "SUBSCRIPTION_NOT_ACTIVE":

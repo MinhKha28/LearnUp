@@ -30,6 +30,16 @@ export class OrganizationsRepository extends BaseRepository {
     });
   }
 
+  /** Tên chuẩn của múi giờ theo PostgreSQL, nơi learning-service tra múi giờ; null nếu không có. */
+  async findCanonicalTimezone(name: string): Promise<string | null> {
+    const rows = await this.prisma.$queryRaw<Array<{ name: string }>>`
+      SELECT name FROM pg_timezone_names
+      WHERE lower(name) = lower(${name})
+        AND name NOT LIKE 'posix/%' AND name NOT LIKE 'right/%'
+      LIMIT 1`;
+    return rows[0]?.name ?? null;
+  }
+
   /** Khóa dòng tổ chức tới hết transaction, để hai lượt sửa hoặc thay logo chạy lần lượt. */
   async lockOrganization(organizationId: string, tx: Prisma.TransactionClient) {
     const rows = await tx.$queryRaw<Array<{ status: string }>>`

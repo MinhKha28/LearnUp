@@ -84,6 +84,7 @@ describe("UC11.1 organization form", () => {
     expect(organizationErrorMessage(400, "INVALID_TIMEZONE")).toBe(
       "Choose a timezone from the list.",
     );
+    expect(organizationErrorMessage(413, "FILE_TOO_LARGE")).toContain("2 MB");
     expect(organizationErrorMessage(500, "WHATEVER")).not.toContain("WHATEVER");
   });
 });

@@ -16,9 +16,12 @@ import {
   normalizeText,
 } from '../../../common/utils/text.util';
 
+/** Không gửi thì bỏ qua; khác @IsOptional(), null vẫn bị kiểm nên bị từ chối (cột NOT NULL). */
+const WhenSent = () => ValidateIf((_, value) => value !== undefined);
+
 export class UpdateOrganizationProfileDto {
   @ApiPropertyOptional({ example: 'Công ty ABC' })
-  @IsOptional()
+  @WhenSent()
   @Transform(({ value }) => normalizeText(value))
   @IsString()
   @IsNotEmpty()
@@ -29,7 +32,7 @@ export class UpdateOrganizationProfileDto {
     example: '0312345678',
     description: '10 hoặc 13 chữ số',
   })
-  @IsOptional()
+  @WhenSent()
   @Transform(({ value }) => normalizeTaxCode(value))
   @IsString()
   @Matches(/^[0-9]{10}([0-9]{3})?$/, {
@@ -38,7 +41,7 @@ export class UpdateOrganizationProfileDto {
   taxCode?: string;
 
   @ApiPropertyOptional({ example: '123 Nguyễn Huệ, Quận 1, TP.HCM' })
-  @IsOptional()
+  @WhenSent()
   @Transform(({ value }) => normalizeText(value))
   @IsString()
   @IsNotEmpty()
@@ -49,7 +52,7 @@ export class UpdateOrganizationProfileDto {
     example: '0901234567',
     description: 'Lưu dạng +84901234567',
   })
-  @IsOptional()
+  @WhenSent()
   @Transform(({ value }) => normalizePhone(value))
   @IsString()
   @Matches(/^\+[1-9][0-9]{1,14}$/, { message: 'Số điện thoại không hợp lệ' })
@@ -69,9 +72,9 @@ export class UpdateOrganizationProfileDto {
 
   @ApiPropertyOptional({
     example: 'Asia/Ho_Chi_Minh',
-    description: 'Tên múi giờ IANA (BR-55)',
+    description: 'Tên múi giờ IANA, lưu theo tên chuẩn (BR-55)',
   })
-  @IsOptional()
+  @WhenSent()
   @IsString()
   timezone?: string;
 }
