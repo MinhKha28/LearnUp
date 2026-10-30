@@ -59,12 +59,24 @@ class EnrollmentEventDeliveriesMigrationTest {
     }
 
     @Test
-    void onlyTheFourStatesAreAccepted() {
+    void onlyTheFiveStatesAreAccepted() {
         for (String status : new String[]{"PENDING", "SENT", "FAILED", "SKIPPED"}) {
             insert(UUID.randomUUID(), UUID.randomUUID(), "EMAIL", status, 0);
         }
+        jdbc.update("""
+                INSERT INTO enrollment_event_deliveries
+                  (id, event_id, event_type, organization_id, enrollment_id, recipient_user_id, channel, status, attempts, occurred_at, claimed_at)
+                VALUES (?, ?, 'EnrollmentAssigned', ?, ?, ?, 'EMAIL', 'PROCESSING', 1, ?, ?)
+                """, UUID.randomUUID(), UUID.randomUUID(), ORGANIZATION, UUID.randomUUID(), UUID.randomUUID(),
+                Timestamp.from(Instant.parse("2026-10-27T01:00:00Z")), Timestamp.from(Instant.parse("2026-10-27T01:00:05Z")));
         assertThatThrownBy(() -> insert(UUID.randomUUID(), UUID.randomUUID(), "EMAIL", "DONE", 0))
                 .hasMessageContaining("CK_ENROLLMENT_EVENT_DELIVERY_STATUS");
+    }
+
+    @Test
+    void aProcessingRowAlwaysSaysWhenItWasClaimed() {
+        assertThatThrownBy(() -> insert(UUID.randomUUID(), UUID.randomUUID(), "EMAIL", "PROCESSING", 1))
+                .hasMessageContaining("CK_ENROLLMENT_EVENT_DELIVERY_CLAIM");
     }
 
     @Test

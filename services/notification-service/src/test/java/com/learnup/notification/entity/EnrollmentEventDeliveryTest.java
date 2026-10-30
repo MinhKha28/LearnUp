@@ -29,13 +29,13 @@ class EnrollmentEventDeliveryTest {
     @Test
     void aFailureKeepsOnlyTheCodeAndALaterSuccessClearsIt() {
         EnrollmentEventDelivery delivery = delivery();
-        delivery.startAttempt(T0);
+        delivery.claimed(T0);
         delivery.markFailed("TENANT_UNAVAILABLE", T0);
         assertThat(delivery.getStatus()).isEqualTo(DeliveryStatus.FAILED);
         assertThat(delivery.getLastError()).isEqualTo("TENANT_UNAVAILABLE");
         assertThat(delivery.getAttempts()).isEqualTo(1);
 
-        delivery.startAttempt(T1);
+        delivery.claimed(T1);
         delivery.markSent(T1);
         assertThat(delivery.getStatus()).isEqualTo(DeliveryStatus.SENT);
         assertThat(delivery.getLastError()).isNull();
@@ -48,7 +48,29 @@ class EnrollmentEventDeliveryTest {
         assertThat(DeliveryStatus.SENT.isFinal()).isTrue();
         assertThat(DeliveryStatus.SKIPPED.isFinal()).isTrue();
         assertThat(DeliveryStatus.PENDING.isFinal()).isFalse();
+        assertThat(DeliveryStatus.PROCESSING.isFinal()).isFalse();
         assertThat(DeliveryStatus.FAILED.isFinal()).isFalse();
+    }
+
+    @Test
+    void claimingMakesTheRowProcessingWithTheClaimTimeAndOneMoreAttemptAndEveryEndClearsTheClaim() {
+        EnrollmentEventDelivery delivery = delivery();
+        delivery.claimed(T0);
+        assertThat(delivery.getStatus()).isEqualTo(DeliveryStatus.PROCESSING);
+        assertThat(delivery.getClaimedAt()).isEqualTo(T0);
+        assertThat(delivery.getAttempts()).isEqualTo(1);
+
+        delivery.markFailed("EMAIL_FAILED", T1);
+        assertThat(delivery.getClaimedAt()).isNull();
+
+        delivery.claimed(T1);
+        delivery.markSkipped("NO_EMAIL", T1);
+        assertThat(delivery.getClaimedAt()).isNull();
+
+        delivery.claimed(T1);
+        delivery.markSent(T1);
+        assertThat(delivery.getClaimedAt()).isNull();
+        assertThat(delivery.getAttempts()).isEqualTo(3);
     }
 
     @Test

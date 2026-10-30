@@ -72,7 +72,7 @@ class EnrollmentEventDeliveryRepositoryTest {
         UUID event = UUID.randomUUID();
         UUID person = UUID.randomUUID();
         EnrollmentEventDelivery delivery = repository.saveAndFlush(delivery(event, person, DeliveryChannel.IN_APP));
-        delivery.startAttempt(NOW.plusSeconds(1));
+        delivery.claimed(NOW.plusSeconds(1));
         delivery.markFailed("TENANT_UNAVAILABLE", NOW.plusSeconds(1));
         repository.saveAndFlush(delivery);
 
@@ -80,6 +80,20 @@ class EnrollmentEventDeliveryRepositoryTest {
                 .findByEventIdAndRecipientUserIdAndChannel(event, person, DeliveryChannel.IN_APP).orElseThrow();
         assertThat(found.getStatus()).isEqualTo(DeliveryStatus.FAILED);
         assertThat(found.getLastError()).isEqualTo("TENANT_UNAVAILABLE");
+        assertThat(found.getAttempts()).isEqualTo(1);
+    }
+
+    @Test
+    void aProcessingRowIsStoredWithItsClaimTime() {
+        UUID event = UUID.randomUUID();
+        UUID person = UUID.randomUUID();
+        EnrollmentEventDelivery row = repository.saveAndFlush(delivery(event, person, DeliveryChannel.EMAIL));
+        row.claimed(NOW.plusSeconds(5));
+        repository.saveAndFlush(row);
+
+        EnrollmentEventDelivery found = repository.lockById(row.getId()).orElseThrow();
+        assertThat(found.getStatus()).isEqualTo(DeliveryStatus.PROCESSING);
+        assertThat(found.getClaimedAt()).isEqualTo(NOW.plusSeconds(5));
         assertThat(found.getAttempts()).isEqualTo(1);
     }
 

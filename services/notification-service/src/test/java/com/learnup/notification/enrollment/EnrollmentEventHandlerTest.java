@@ -69,6 +69,15 @@ class EnrollmentEventHandlerTest {
         }
 
         @Override
+        public boolean claim(EnrollmentEventDelivery delivery, Instant now) {
+            if (!delivery.claimableAt(now, java.time.Duration.ofSeconds(120))) {
+                return false;
+            }
+            delivery.claimed(now);
+            return true;
+        }
+
+        @Override
         public void record(EnrollmentEventDelivery delivery) {
             // rows are mutable objects held here: nothing to store
         }
@@ -192,6 +201,52 @@ class EnrollmentEventHandlerTest {
         verifyNoInteractions(notifications, emails);
         assertThat(lookups).isEmpty();
         assertThat(ledger.rows).isEmpty();
+    }
+
+    // ---- two handlers on one event
+
+    @Test
+    void rowsHeldByAnotherHandlerAreLeftAloneAndNothingIsSent() {
+        EnrollmentEvent event = assigned();
+        ledger.open(event, LEARNER, DeliveryChannel.IN_APP, NOW).claimed(NOW.minusSeconds(5));
+        ledger.open(event, LEARNER, DeliveryChannel.EMAIL, NOW).claimed(NOW.minusSeconds(5));
+
+        handler.handle(event);
+
+        verifyNoInteractions(notifications, emails);
+        assertThat(lookups).isEmpty();
+        assertThat(ledger.row(event, DeliveryChannel.IN_APP).getStatus()).isEqualTo(DeliveryStatus.PROCESSING);
+        assertThat(ledger.row(event, DeliveryChannel.EMAIL).getStatus()).isEqualTo(DeliveryStatus.PROCESSING);
+        assertThat(ledger.row(event, DeliveryChannel.EMAIL).getAttempts()).isEqualTo(1);
+    }
+
+    @Test
+    void aClaimOlderThanTheLeaseIsTakenOverAndTheEventIsSent() {
+        EnrollmentEvent event = assigned();
+        ledger.open(event, LEARNER, DeliveryChannel.IN_APP, NOW).claimed(NOW.minusSeconds(600));
+        ledger.open(event, LEARNER, DeliveryChannel.EMAIL, NOW).claimed(NOW.minusSeconds(600));
+
+        handler.handle(event);
+
+        verify(notifications).sendNotification(any());
+        verify(emails).sendEmail(any());
+        assertThat(ledger.row(event, DeliveryChannel.IN_APP).getStatus()).isEqualTo(DeliveryStatus.SENT);
+        assertThat(ledger.row(event, DeliveryChannel.EMAIL).getStatus()).isEqualTo(DeliveryStatus.SENT);
+        assertThat(ledger.row(event, DeliveryChannel.EMAIL).getAttempts()).isEqualTo(2);
+    }
+
+    @Test
+    void anUnforeseenErrorNeverLeavesARowProcessing() {
+        recipientAnswer.set(new IllegalStateException("not one of the known failures"));
+        EnrollmentEvent event = assigned();
+
+        assertThatThrownBy(() -> handler.handle(event)).isInstanceOf(IllegalStateException.class);
+
+        for (DeliveryChannel channel : DeliveryChannel.values()) {
+            assertThat(ledger.row(event, channel).getStatus()).isEqualTo(DeliveryStatus.FAILED);
+            assertThat(ledger.row(event, channel).getLastError()).isEqualTo("INTERRUPTED");
+            assertThat(ledger.row(event, channel).getClaimedAt()).isNull();
+        }
     }
 
     // ---- the same event twice

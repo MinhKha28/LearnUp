@@ -1,5 +1,8 @@
 -- One row for each thing the service owes to one person for one learning event: one e-mail, one in-app notice.
 -- The unique key is what makes a repeated event harmless (Kafka delivers at least once).
+-- PROCESSING + claimed_at: one handler has claimed the row with a conditional UPDATE and is working on it, so two
+-- handlers on the same event never both send. A claim older than the lease (EnrollmentEventsProperties.claimLease)
+-- can be taken over by another handler.
 CREATE TABLE enrollment_event_deliveries (
     id UUID PRIMARY KEY,
     event_id UUID NOT NULL,
@@ -14,12 +17,14 @@ CREATE TABLE enrollment_event_deliveries (
     last_error VARCHAR(100),
     occurred_at TIMESTAMP WITH TIME ZONE NOT NULL,
     sent_at TIMESTAMP WITH TIME ZONE,
+    claimed_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_enrollment_event_delivery UNIQUE (event_id, recipient_user_id, channel),
-    CONSTRAINT ck_enrollment_event_delivery_status CHECK (status IN ('PENDING', 'SENT', 'FAILED', 'SKIPPED')),
+    CONSTRAINT ck_enrollment_event_delivery_status CHECK (status IN ('PENDING', 'PROCESSING', 'SENT', 'FAILED', 'SKIPPED')),
     CONSTRAINT ck_enrollment_event_delivery_channel CHECK (channel IN ('EMAIL', 'IN_APP')),
-    CONSTRAINT ck_enrollment_event_delivery_attempts CHECK (attempts >= 0)
+    CONSTRAINT ck_enrollment_event_delivery_attempts CHECK (attempts >= 0),
+    CONSTRAINT ck_enrollment_event_delivery_claim CHECK (status <> 'PROCESSING' OR claimed_at IS NOT NULL)
 );
 
 CREATE INDEX idx_enrollment_event_deliveries_enrollment ON enrollment_event_deliveries(enrollment_id);

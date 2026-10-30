@@ -27,6 +27,20 @@ public class EnrollmentEventsProperties {
 
     private Duration retryMaxBackoff = Duration.ofSeconds(30);
 
+    /**
+     * How long a handler may hold a delivery (status PROCESSING) before another one may take it over. It must be longer
+     * than the slowest handling of one event (the calls to tenant and course, the e-mail) and than the retry pauses.
+     */
+    private Duration claimLease = Duration.ofMinutes(2);
+
+    /** Pause between two tries to start the consumer while it is not running (see EnrollmentEventListenerStarter). */
+    private Duration startRetryInterval = Duration.ofSeconds(10);
+
+    /** Partitions and replicas of the dead-letter topic when this service has to create it. */
+    private int deadLetterPartitions = 3;
+
+    private short deadLetterReplicas = 1;
+
     /** Time zone of the dates in the messages until tenant-service gives the one of the Organization. */
     private String defaultTimeZone = "Asia/Ho_Chi_Minh";
 
@@ -81,6 +95,38 @@ public class EnrollmentEventsProperties {
 
     public void setRetryMaxBackoff(Duration retryMaxBackoff) {
         this.retryMaxBackoff = retryMaxBackoff;
+    }
+
+    public Duration getStartRetryInterval() {
+        return startRetryInterval;
+    }
+
+    public void setStartRetryInterval(Duration startRetryInterval) {
+        this.startRetryInterval = startRetryInterval;
+    }
+
+    public Duration getClaimLease() {
+        return claimLease;
+    }
+
+    public void setClaimLease(Duration claimLease) {
+        this.claimLease = claimLease;
+    }
+
+    public int getDeadLetterPartitions() {
+        return deadLetterPartitions;
+    }
+
+    public void setDeadLetterPartitions(int deadLetterPartitions) {
+        this.deadLetterPartitions = deadLetterPartitions;
+    }
+
+    public short getDeadLetterReplicas() {
+        return deadLetterReplicas;
+    }
+
+    public void setDeadLetterReplicas(short deadLetterReplicas) {
+        this.deadLetterReplicas = deadLetterReplicas;
     }
 
     public String getDefaultTimeZone() {

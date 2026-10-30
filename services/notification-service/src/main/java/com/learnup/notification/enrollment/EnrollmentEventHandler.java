@@ -9,6 +9,7 @@ import com.learnup.notification.dto.CreateNotificationRequest;
 import com.learnup.notification.dto.EmailLogResponse;
 import com.learnup.notification.dto.SendEmailRequest;
 import com.learnup.notification.entity.DeliveryChannel;
+import com.learnup.notification.entity.DeliveryStatus;
 import com.learnup.notification.entity.EnrollmentEventDelivery;
 import com.learnup.notification.service.EmailDeliveryService;
 import com.learnup.notification.service.NotificationService;
@@ -32,6 +33,11 @@ import java.util.stream.Stream;
  * (tenant, course, SMTP) throws {@link DependencyUnavailableException} after the rows say so, and the caller tries the
  * event again later; a refusal is recorded and not retried. Errors are stored as fixed codes, never as text of an
  * exception or of a payload.
+ * <p>
+ * Before anything is looked up or sent, the handler claims each open row ({@link DeliveryLedger#claim}: the row is
+ * locked, checked and set to PROCESSING in one transaction). Only the handler that wins a row works on it; a second handler on the same event (two
+ * consumers during a rebalance, or one evicted while it still runs) finds the row held and sends nothing. A claim that
+ * is older than the lease is taken over, so a handler that died does not block the event for ever.
  * <p>
  * The in-app notice and the mark SENT of its row are written in one transaction, so it cannot be written twice. An
  * e-mail cannot be part of a database transaction: if the process stops between the SMTP server accepting it and the
@@ -84,12 +90,24 @@ public class EnrollmentEventHandler {
         Instant now = clock.instant();
         EnrollmentEventDelivery inApp = ledger.open(event, event.learnerId(), DeliveryChannel.IN_APP, now);
         EnrollmentEventDelivery email = ledger.open(event, event.learnerId(), DeliveryChannel.EMAIL, now);
-        List<EnrollmentEventDelivery> open = Stream.of(inApp, email).filter(row -> !row.getStatus().isFinal()).toList();
-        if (open.isEmpty()) {
-            log.info("event=enrollment_event_ignored reason=ALREADY_HANDLED event_id={} type={}", event.eventId(), event.type());
+        List<EnrollmentEventDelivery> owned = Stream.of(inApp, email)
+                .filter(row -> !row.getStatus().isFinal())
+                .filter(row -> ledger.claim(row, now))
+                .toList();
+        if (owned.isEmpty()) {
+            log.info("event=enrollment_event_ignored reason=ALREADY_HANDLED_OR_CLAIMED event_id={} type={}", event.eventId(), event.type());
             return;
         }
+        try {
+            deliver(event, now, owned, owned.contains(inApp) ? inApp : null, owned.contains(email) ? email : null);
+        } finally {
+            releaseUnfinished(owned);
+        }
+    }
 
+    /** Works on the rows this handler owns; every one of them leaves PROCESSING before this returns. */
+    private void deliver(EnrollmentEvent event, Instant now, List<EnrollmentEventDelivery> open,
+                         EnrollmentEventDelivery inApp, EnrollmentEventDelivery email) {
         if (Duration.between(event.occurredAt(), now).compareTo(properties.getMaxAge()) > 0) {
             skip(open, "EVENT_TOO_OLD");
             log.info("event=enrollment_event_skipped reason=EVENT_TOO_OLD event_id={} type={}", event.eventId(), event.type());
@@ -120,14 +138,15 @@ public class EnrollmentEventHandler {
                 .render(event, courseName, recipient.fullName(), zones.of(event.organizationId()))
                 .orElse(null);
         if (message == null) {
+            skip(open, "NO_MESSAGE");
             return;
         }
 
         boolean failed = false;
-        if (!inApp.getStatus().isFinal()) {
+        if (inApp != null) {
             failed |= !sendInApp(event, inApp, message);
         }
-        if (!email.getStatus().isFinal()) {
+        if (email != null) {
             failed |= !sendEmail(email, recipient, message);
         }
         if (failed) {
@@ -138,7 +157,6 @@ public class EnrollmentEventHandler {
     }
 
     private boolean sendInApp(EnrollmentEvent event, EnrollmentEventDelivery delivery, EnrollmentMessage message) {
-        delivery.startAttempt(clock.instant());
         try {
             transaction.executeWithoutResult(status -> {
                 notifications.sendNotification(new CreateNotificationRequest(event.organizationId(), event.learnerId(),
@@ -160,7 +178,6 @@ public class EnrollmentEventHandler {
             ledger.record(delivery);
             return true;
         }
-        delivery.startAttempt(clock.instant());
         try {
             EmailLogResponse result = emails.sendEmail(new SendEmailRequest(
                     recipient.email(), message.emailSubject(), message.emailHtml(), message.type()));
@@ -188,9 +205,25 @@ public class EnrollmentEventHandler {
 
     private void fail(List<EnrollmentEventDelivery> rows, String code) {
         for (EnrollmentEventDelivery row : rows) {
-            row.startAttempt(clock.instant());
             row.markFailed(code, clock.instant());
             ledger.record(row);
+        }
+    }
+
+    /**
+     * A row still PROCESSING here means the handling stopped on something unforeseen (an exception nobody caught). It is
+     * set to FAILED with a fixed code so that the next try can take it at once, instead of waiting for the lease.
+     */
+    private void releaseUnfinished(List<EnrollmentEventDelivery> rows) {
+        for (EnrollmentEventDelivery row : rows) {
+            if (row.getStatus() == DeliveryStatus.PROCESSING) {
+                try {
+                    row.markFailed("INTERRUPTED", clock.instant());
+                    ledger.record(row);
+                } catch (RuntimeException ignored) {
+                    // The lease frees the row if even this write fails; the original failure is the one that matters.
+                }
+            }
         }
     }
 }

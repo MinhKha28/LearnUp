@@ -1,10 +1,13 @@
 package com.learnup.notification.enrollment;
 
+import com.learnup.notification.config.EnrollmentEventsProperties;
 import com.learnup.notification.entity.DeliveryChannel;
 import com.learnup.notification.entity.EnrollmentEventDelivery;
 import com.learnup.notification.repository.EnrollmentEventDeliveryRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -18,9 +21,14 @@ import java.util.UUID;
 public class JpaDeliveryLedger implements DeliveryLedger {
 
     private final EnrollmentEventDeliveryRepository repository;
+    private final EnrollmentEventsProperties properties;
+    private final TransactionTemplate transaction;
 
-    public JpaDeliveryLedger(EnrollmentEventDeliveryRepository repository) {
+    public JpaDeliveryLedger(EnrollmentEventDeliveryRepository repository, EnrollmentEventsProperties properties,
+                             PlatformTransactionManager transactionManager) {
         this.repository = repository;
+        this.properties = properties;
+        this.transaction = new TransactionTemplate(transactionManager);
     }
 
     @Override
@@ -39,6 +47,23 @@ public class JpaDeliveryLedger implements DeliveryLedger {
             return repository.findByEventIdAndRecipientUserIdAndChannel(event.eventId(), recipientUserId, channel)
                     .orElseThrow(() -> raced);
         }
+    }
+
+    @Override
+    public boolean claim(EnrollmentEventDelivery delivery, Instant now) {
+        Boolean won = transaction.execute(status -> {
+            // The row is locked until this transaction ends: a second handler waits here and then sees the state the
+            // first one left, so only one of them finds it claimable.
+            EnrollmentEventDelivery stored = repository.lockById(delivery.getId()).orElse(null);
+            if (stored == null || !stored.claimableAt(now, properties.getClaimLease())) {
+                return false;
+            }
+            stored.claimed(now);
+            repository.saveAndFlush(stored);
+            delivery.refreshFrom(stored);
+            return true;
+        });
+        return Boolean.TRUE.equals(won);
     }
 
     @Override

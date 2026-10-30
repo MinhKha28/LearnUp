@@ -7,6 +7,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -57,6 +58,10 @@ public class EnrollmentEventDelivery {
     @Column(name = "sent_at")
     private Instant sentAt;
 
+    /** When the handler that owns the row (status PROCESSING) claimed it; empty otherwise. */
+    @Column(name = "claimed_at")
+    private Instant claimedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -82,8 +87,28 @@ public class EnrollmentEventDelivery {
         this.updatedAt = now;
     }
 
-    /** One more try is starting. */
-    public void startAttempt(Instant now) {
+    /** Whether a handler may take the row now: not final, and not held by a claim younger than the lease. */
+    public boolean claimableAt(Instant now, Duration lease) {
+        boolean held = status == DeliveryStatus.PROCESSING && claimedAt != null && claimedAt.isAfter(now.minus(lease));
+        return !status.isFinal() && !held;
+    }
+
+    /** Takes the state of the row as the database holds it, so that this object does not write an older state back. */
+    public void refreshFrom(EnrollmentEventDelivery stored) {
+        this.status = stored.status;
+        this.attempts = stored.attempts;
+        this.lastError = stored.lastError;
+        this.sentAt = stored.sentAt;
+        this.claimedAt = stored.claimedAt;
+        this.updatedAt = stored.updatedAt;
+    }
+
+    /**
+     * One more try is starting and this handler owns the row (see {@code DeliveryLedger#claim}).
+     */
+    public void claimed(Instant now) {
+        this.status = DeliveryStatus.PROCESSING;
+        this.claimedAt = now;
         this.attempts++;
         this.updatedAt = now;
     }
@@ -92,6 +117,7 @@ public class EnrollmentEventDelivery {
         this.status = DeliveryStatus.SENT;
         this.lastError = null;
         this.sentAt = now;
+        this.claimedAt = null;
         this.updatedAt = now;
     }
 
@@ -99,12 +125,14 @@ public class EnrollmentEventDelivery {
     public void markFailed(String code, Instant now) {
         this.status = DeliveryStatus.FAILED;
         this.lastError = code;
+        this.claimedAt = null;
         this.updatedAt = now;
     }
 
     public void markSkipped(String code, Instant now) {
         this.status = DeliveryStatus.SKIPPED;
         this.lastError = code;
+        this.claimedAt = null;
         this.updatedAt = now;
     }
 
@@ -154,6 +182,10 @@ public class EnrollmentEventDelivery {
 
     public Instant getSentAt() {
         return sentAt;
+    }
+
+    public Instant getClaimedAt() {
+        return claimedAt;
     }
 
     public Instant getCreatedAt() {

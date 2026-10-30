@@ -9,6 +9,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
@@ -21,15 +22,23 @@ import org.springframework.util.backoff.ExponentialBackOff;
  * dead-letter topic and the offset moves on, so one bad message never holds up the ones behind it.
  */
 @Configuration
+@EnableScheduling
 @ConditionalOnProperty(prefix = "learnup.enrollment-events", name = "enabled", havingValue = "true")
 public class EnrollmentEventsKafkaConfig {
 
     private static final Logger log = LoggerFactory.getLogger(EnrollmentEventsKafkaConfig.class);
 
-    /** The dead-letter topic is made here when the broker does not have it yet; the three partitions match the topic. */
+    /**
+     * The dead-letter topic is made here when the broker does not have it yet. Its partitions need not match the source
+     * topic (the recoverer below lets the broker choose the partition); partitions and replicas come from the
+     * settings, so a deployment with more than one broker can raise the replication factor.
+     */
     @Bean
     public NewTopic enrollmentEventsDeadLetterTopic(EnrollmentEventsProperties properties) {
-        return TopicBuilder.name(properties.getDeadLetterTopic()).partitions(3).replicas(1).build();
+        return TopicBuilder.name(properties.getDeadLetterTopic())
+                .partitions(properties.getDeadLetterPartitions())
+                .replicas(properties.getDeadLetterReplicas())
+                .build();
     }
 
     /** Boot puts a CommonErrorHandler bean on the listener container factory. */
@@ -46,10 +55,11 @@ public class EnrollmentEventsKafkaConfig {
         backOff.setMaxAttempts(Math.max(0, properties.getRetryAttempts() - 1));
 
         DefaultErrorHandler handler = new DefaultErrorHandler((record, exception) -> {
+            // When the publish fails it throws and the container tries the record again: nothing is claimed as dead-lettered.
+            recoverer.accept(record, exception);
             // Only the place of the message and the kind of failure: never the payload or the text of the error.
             log.error("event=enrollment_event_dead_lettered topic={} partition={} offset={} failure={}",
                     record.topic(), record.partition(), record.offset(), exception.getClass().getSimpleName());
-            recoverer.accept(record, exception);
         }, backOff);
         handler.addNotRetryableExceptions(InvalidEventException.class);
         return handler;

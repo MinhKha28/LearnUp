@@ -85,8 +85,11 @@ come from tenant-service (`POST /api/v1/internal/users/display-names`, with `x-o
 envelope) and the Course name from course-service (`POST /api/v1/internal/courses/batch`).
 
 Each message owed has one row in `notification_db.enrollment_event_deliveries`, unique on (eventId,
-recipient, channel), so a repeated event sends nothing again. Status: PENDING, SENT, FAILED, SKIPPED; a fixed
-error code, never text of a payload or of an error. An event older than `ENROLLMENT_EVENTS_MAX_AGE` (72 h)
+recipient, channel), so a repeated event sends nothing again. Status: PENDING, PROCESSING, SENT, FAILED, SKIPPED
+(SENT and SKIPPED are final; a mail that is only simulated because mail is off counts as SENT, so enabling SMTP
+later does not resend it); a fixed error code, never text of a payload or of an error. A handler claims a
+delivery (PROCESSING, with the time of the claim) before it sends anything, so two handlers on one event send once;
+a claim older than `ENROLLMENT_EVENTS_CLAIM_LEASE` (2 m) is taken over. An event older than `ENROLLMENT_EVENTS_MAX_AGE` (72 h)
 is SKIPPED (EVENT_TOO_OLD); a Learner who is missing, deleted or deactivated is SKIPPED
 (RECIPIENT_UNAVAILABLE); a Learner without an e-mail still gets the in-app notice (EMAIL SKIPPED, NO_EMAIL).
 
@@ -96,3 +99,9 @@ goes to `learnup.learning.enrollment-events.DLT` and the offset moves on. Nothin
 topic automatically. Delivery is at least once: an e-mail cannot share a database transaction, so if the
 process stops between the SMTP server accepting it and the row saying SENT, that mail may be sent twice; the
 in-app notice and its row are written together and cannot be doubled.
+
+The consumer is started by the service, not by Spring at start-up: when Kafka is down at that moment the
+service still starts (its REST API does not depend on Kafka) and the consumer is started again every
+`ENROLLMENT_EVENTS_START_RETRY_INTERVAL` (10 s) until the broker answers. The dead-letter topic is created with
+`ENROLLMENT_EVENTS_DLT_PARTITIONS` (3) and `ENROLLMENT_EVENTS_DLT_REPLICAS` (1) if the broker does not have it;
+its partitions need not match the source topic. The DLT values keep the original event: treat them as restricted data.

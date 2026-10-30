@@ -15,6 +15,13 @@ public interface DeliveryLedger {
      */
     EnrollmentEventDelivery open(EnrollmentEvent event, UUID recipientUserId, DeliveryChannel channel, Instant now);
 
+    /**
+     * Takes the row for the caller before anything is sent. True: the caller owns it (status PROCESSING, one more
+     * attempt) and must leave it SENT, SKIPPED or FAILED. False: another handler holds it, or it is already final; the
+     * caller sends nothing. A claim older than the lease is taken over, so a handler that died does not block the row.
+     */
+    boolean claim(EnrollmentEventDelivery delivery, Instant now);
+
     /** Stores the new state of a row. */
     void record(EnrollmentEventDelivery delivery);
 }
