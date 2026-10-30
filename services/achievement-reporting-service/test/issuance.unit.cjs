@@ -682,3 +682,62 @@ for (const [name, mutate] of [
       'INVALID_COMPLETION_SCHEMA',
     );
   });
+
+for (const field of [
+  'recordedScore',
+  'finalScore',
+  'quizPassingScore',
+  'assignmentPassingScore',
+]) {
+  for (const value of [
+    '-5',
+    '+5',
+    '5.',
+    '.5',
+    '100000',
+    '100.01',
+    '100.001',
+    '1.234',
+    '0',
+    '0.5',
+    '99.99',
+    '100',
+    '100.00',
+    null,
+  ]) {
+    test(`bounded certificate score ${field}=${value}`, () => {
+      const e = event();
+      const candidate = e.data.scoreSnapshot;
+      const assignment = {
+        assessmentId: require('node:crypto').randomUUID(),
+        submissionId: require('node:crypto').randomUUID(),
+        finalScore: '90',
+        passingScore: '80',
+        finalizedAt: candidate.asOf,
+        passed: true,
+        peerReview: {
+          status: 'NotApplicable',
+          requiredCount: 0,
+          completedCount: 0,
+        },
+      };
+      candidate.assignments = [assignment];
+      candidate.requiredComponentCount = 2;
+      if (field === 'recordedScore')
+        Object.assign(candidate.quizzes[0], { recordedScore: value });
+      if (field === 'finalScore')
+        Object.assign(assignment, { finalScore: value });
+      if (field === 'quizPassingScore')
+        Object.assign(candidate.quizzes[0], { passingScore: value });
+      if (field === 'assignmentPassingScore')
+        Object.assign(assignment, { passingScore: value });
+      const validate = () => decodeCompletion(delivery(e));
+      const accepted =
+        ['0', '0.5', '99.99', '100', '100.00'].includes(value) ||
+        (value === null && ['recordedScore', 'finalScore'].includes(field));
+      if (accepted)
+        assert.deepEqual(validate().event.data.scoreSnapshot, candidate);
+      else assert.ok(validate().reason);
+    });
+  }
+}

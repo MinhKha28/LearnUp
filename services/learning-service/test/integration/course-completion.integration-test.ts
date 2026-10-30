@@ -923,16 +923,6 @@ for (const [name, change, completed, mismatch, itemMismatch] of [
     false,
     false,
   ],
-  [
-    'finite decimal precision',
-    (s: CompletionSnapshot) => {
-      s.quizzes[0].recordedScore = '90.001';
-      s.quizzes[0].passingScore = '90.0001';
-    },
-    true,
-    false,
-    false,
-  ],
 ] as const)
   void test(`L22 completion follows facts: ${name}`, async () => {
     const f = await fixture();
@@ -1066,6 +1056,19 @@ for (const [name, change] of [
     'nondecimal',
     (s: CompletionSnapshot) => {
       s.quizzes[0].passingScore = '0x10';
+    },
+  ],
+  [
+    'excess decimal precision',
+    (s: CompletionSnapshot) => {
+      s.quizzes[0].recordedScore = '90.001';
+      s.quizzes[0].passingScore = '90.0001';
+    },
+  ],
+  [
+    'out-of-range score',
+    (s: CompletionSnapshot) => {
+      s.quizzes[0].recordedScore = '100.01';
     },
   ],
   [

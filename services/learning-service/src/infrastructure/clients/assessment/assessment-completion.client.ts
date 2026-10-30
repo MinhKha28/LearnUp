@@ -64,8 +64,7 @@ const uuid = (v: unknown): v is string =>
   typeof v === 'string' && isUUID(v, 'all');
 const score = (v: unknown): v is string =>
   typeof v === 'string' &&
-  /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(v) &&
-  Number.isFinite(Number(v));
+  /^(?:0|[1-9]\d?)(?:\.\d{1,2})?$|^100(?:\.0{1,2})?$/.test(v);
 export function validateCompletionSnapshot(
   value: unknown,
   organizationId: string,

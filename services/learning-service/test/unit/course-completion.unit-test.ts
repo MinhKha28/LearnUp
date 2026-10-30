@@ -469,3 +469,120 @@ for (const kind of [
       log.mock.restore();
     }
   });
+
+for (const field of [
+  'recordedScore',
+  'finalScore',
+  'quizPassingScore',
+  'assignmentPassingScore',
+]) {
+  for (const value of [
+    '-5',
+    '+5',
+    '5.',
+    '.5',
+    '100000',
+    '100.01',
+    '100.001',
+    '1.234',
+    '0',
+    '0.5',
+    '99.99',
+    '100',
+    '100.00',
+    null,
+  ]) {
+    test(`bounded completion score ${field}=${value}`, () => {
+      const s = snapshot();
+      const assignment = {
+        assessmentId: randomUUID(),
+        submissionId: randomUUID(),
+        finalScore: '90',
+        passingScore: '80',
+        finalizedAt: s.asOf,
+        passed: true,
+        peerReview: {
+          status: 'NotApplicable',
+          requiredCount: 0,
+          completedCount: 0,
+        },
+      };
+      const candidate = {
+        ...s,
+        requiredComponentCount: 2,
+        assignments: [assignment],
+      };
+      if (field === 'recordedScore')
+        Object.assign(candidate.quizzes[0], { recordedScore: value });
+      if (field === 'finalScore')
+        Object.assign(assignment, { finalScore: value });
+      if (field === 'quizPassingScore')
+        Object.assign(candidate.quizzes[0], { passingScore: value });
+      if (field === 'assignmentPassingScore')
+        Object.assign(assignment, { passingScore: value });
+      const validate = () =>
+        validateCompletionSnapshot(
+          candidate,
+          s.organizationId,
+          s.learnerId,
+          s.courseId,
+        );
+      const accepted =
+        ['0', '0.5', '99.99', '100', '100.00'].includes(value as string) ||
+        (value === null && ['recordedScore', 'finalScore'].includes(field));
+      if (accepted) assert.equal(validate(), candidate);
+      else assert.throws(validate, /INVALID_SNAPSHOT/);
+    });
+  }
+}
+
+test('out-of-range HTTP snapshot never enters the enrollment completion transaction', async () => {
+  const s = snapshot();
+  s.quizzes[0].recordedScore = '100.01';
+  const original = global.fetch;
+  const log = mock.method(Logger.prototype, 'error', () => undefined);
+  let transactions = 0;
+  const retries: string[] = [];
+  const enrollment = {
+    status: 'NotStarted',
+    disabled_at: null,
+    learner_id: s.learnerId,
+    course_id: s.courseId,
+  };
+  try {
+    global.fetch = async () => Response.json({ data: s });
+    const client = createCompletionClient((k) =>
+      k === 'INTERNAL_SERVICE_KEY' ? 'synthetic-key' : undefined,
+    );
+    const repository = {
+      enrollment: async () => enrollment,
+      materials: async () => ({ ready: true, required: 0 }),
+      prisma: {
+        $transaction: async () => {
+          transactions++;
+          throw new Error('must not complete');
+        },
+      },
+      retry: async (_r: unknown, code: string) => {
+        retries.push(code);
+        return 1;
+      },
+    } as unknown as CompletionRepository;
+    await new CompletionService(repository, client).evaluate({
+      organization_id: s.organizationId,
+      enrollment_id: randomUUID(),
+      generation: 0n,
+    } as CompletionRequest);
+    assert.equal(transactions, 0);
+    assert.equal(enrollment.status, 'NotStarted');
+    assert.deepEqual(retries, ['INVALID_SNAPSHOT']);
+    assert.deepEqual(log.mock.calls[0].arguments[0], {
+      code: 'INVALID_SNAPSHOT',
+      httpStatus: 200,
+      permanent: true,
+    });
+  } finally {
+    global.fetch = original;
+    log.mock.restore();
+  }
+});
