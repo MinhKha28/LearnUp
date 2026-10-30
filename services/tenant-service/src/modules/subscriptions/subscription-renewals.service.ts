@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   OrganizationStatus,
@@ -19,7 +20,10 @@ import { RenewSubscriptionDto } from './dto/renew-subscription.dto';
 import { IRenewalQuote } from './interfaces/renewal-quote.interface';
 import { IRenewalResult } from './interfaces/renewal-result.interface';
 import { exceededLimits, renewalPeriod } from './renewal.policy';
-import { SubscriptionsRepository } from './subscriptions.repository';
+import {
+  CHARGED_NOT_APPLIED,
+  SubscriptionsRepository,
+} from './subscriptions.repository';
 
 const RENEWAL_TIMEOUT_MS = 30_000;
 
@@ -142,7 +146,7 @@ export class SubscriptionRenewalsService {
     }
 
     const paidAt = new Date();
-    const subscription = await this.prisma.$transaction(async (tx) => {
+    const apply = this.prisma.$transaction(async (tx) => {
       const fresh = await this.repository.findCurrentWithPlan(
         organizationId,
         tx,
@@ -179,6 +183,20 @@ export class SubscriptionRenewalsService {
         tx,
       );
       return created;
+    });
+    const subscription = await apply.catch(async () => {
+      await this.repository.markPaymentChargedNotApplied(
+        payment.id,
+        charge.providerReference,
+      );
+      this.logger.error(
+        `Renewal payment ${payment.id} was charged but not applied (${CHARGED_NOT_APPLIED}); it needs a refund.`,
+      );
+      throw new ServiceUnavailableException({
+        code: 'RENEWAL_NOT_APPLIED',
+        message:
+          'Thanh toán đã ghi nhận nhưng chưa gia hạn được. Vui lòng liên hệ hỗ trợ, không thanh toán lại.',
+      });
     });
 
     return {

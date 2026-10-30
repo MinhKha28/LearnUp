@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '../../../generated/prisma/client';
 import {
+  PaymentKind,
   PaymentStatus,
   SubscriptionStatus,
 } from '../../common/constants/tenant.constants';
@@ -8,6 +9,8 @@ import { BaseRepository } from '../../common/repository/base.repository';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 
 export const RENEWAL_LOCK_NAMESPACE = 2404;
+export const CHARGED_NOT_APPLIED = 'CHARGED_NOT_APPLIED';
+export const STALE_PENDING = 'STALE_PENDING';
 
 @Injectable()
 export class SubscriptionsRepository extends BaseRepository {
@@ -95,6 +98,34 @@ export class SubscriptionsRepository extends BaseRepository {
     });
   }
 
+  /** Đã trừ tiền nhưng không áp dụng được kỳ mới: giữ mã giao dịch để đối soát và hoàn tiền. */
+  markPaymentChargedNotApplied(
+    paymentId: string,
+    providerReference: string | null,
+  ) {
+    return this.prisma.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: PaymentStatus.Failed,
+        failureReason: CHARGED_NOT_APPLIED,
+        providerReference,
+      },
+    });
+  }
+
+  /** Service dừng giữa lúc xử lý nên Payment gia hạn hoặc nâng cấp còn Pending: không để kẹt mãi. */
+  async failStalePayments(olderThan: Date): Promise<number> {
+    const { count } = await this.prisma.payment.updateMany({
+      where: {
+        kind: { in: [PaymentKind.Renewal, PaymentKind.Upgrade] },
+        status: PaymentStatus.Pending,
+        createdAt: { lt: olderThan },
+      },
+      data: { status: PaymentStatus.Failed, failureReason: STALE_PENDING },
+    });
+    return count;
+  }
+
   markPaymentSucceeded(
     paymentId: string,
     data: {
@@ -138,6 +169,11 @@ export class SubscriptionsRepository extends BaseRepository {
       LIMIT 1
       FOR UPDATE SKIP LOCKED`;
     return rows[0] ?? null;
+  }
+
+  /** Cùng khóa với UC12.2 khi kiểm số chỗ, để tạo tài khoản và đổi giới hạn không chạy xen kẽ. */
+  async lockOrganization(organizationId: string, tx: Prisma.TransactionClient) {
+    await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${organizationId}::uuid FOR UPDATE`;
   }
 
   endCurrent(

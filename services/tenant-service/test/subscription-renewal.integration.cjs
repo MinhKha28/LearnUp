@@ -31,6 +31,17 @@ const {
   SubscriptionActivationService,
 } = require('../dist/src/modules/subscriptions/subscription-activation.service');
 const {
+  SubscriptionRenewalsService,
+} = require('../dist/src/modules/subscriptions/subscription-renewals.service');
+const {
+  SubscriptionsRepository,
+} = require('../dist/src/modules/subscriptions/subscriptions.repository');
+const {
+  MockPaymentGateway,
+} = require('../dist/src/modules/payments/mock-payment.gateway');
+const { OutboxModule } = require('../dist/src/modules/outbox/outbox.module');
+const { UsersModule } = require('../dist/src/modules/users/users.module');
+const {
   InternalAuthGuard,
 } = require('../dist/src/common/guards/internal-auth.guard');
 const {
@@ -49,8 +60,10 @@ test('UC10.1 renew a Subscription', async (t) => {
     imports: [
       ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
       PrismaModule,
+      OutboxModule,
       IntegrationsModule,
       SubscriptionsModule,
+      UsersModule,
     ],
     providers: [{ provide: APP_GUARD, useClass: InternalAuthGuard }],
   })(TestModule);
@@ -363,7 +376,189 @@ test('UC10.1 renew a Subscription', async (t) => {
       assert.equal((await renew(id, { amount: 1 })).status, 400);
     });
 
+    const failAfterCharge = (extra = {}) => {
+      class FailingRepository extends SubscriptionsRepository {
+        createSubscription() {
+          throw new Error('database down: secret detail');
+        }
+      }
+      return new SubscriptionRenewalsService(
+        db,
+        Object.assign(new FailingRepository(db), extra),
+        { getOrganizationUsage: async () => null },
+        new MockPaymentGateway(),
+      );
+    };
+    const organizerOf = (organizationId) => ({
+      userId: randomUUID(),
+      role: 'ORGANIZER',
+      organizationId,
+      isAuthenticated: true,
+    });
+
+    for (const [status, expiresAt] of [
+      ['Active', undefined],
+      ['Grace', new Date(Date.now() - DAY_MS)],
+    ]) {
+      await t.test(
+        `P1: ${status}, the database fails after a successful charge: Failed with the reference, nothing applied`,
+        async () => {
+          const { id, current } = await fixture(status, { expiresAt });
+          await assert.rejects(
+            failAfterCharge().renew(organizerOf(id), {}),
+            (error) =>
+              error.getStatus() === 503 &&
+              error.getResponse().code === 'RENEWAL_NOT_APPLIED' &&
+              !JSON.stringify(error.getResponse()).includes('secret detail'),
+          );
+          const [payment] = await paymentsOf(id);
+          assert.equal(payment.status, 'Failed');
+          assert.equal(payment.failureReason, 'CHARGED_NOT_APPLIED');
+          assert.match(payment.providerReference, /^MOCK-/);
+          assert.equal(payment.subscriptionId, null);
+          const rows = await subscriptionsOf(id);
+          assert.equal(rows.length, 1);
+          assert.equal(rows[0].id, current.id);
+          assert.equal(rows[0].status, status);
+          assert.equal(rows[0].endedAt, null);
+        },
+      );
+    }
+
     const job = app.get(SubscriptionActivationService);
+    await t.test(
+      'the job marks only old Pending renewal and upgrade payments as Failed',
+      async () => {
+        const { id, plan } = await fixture('Active');
+        const old = new Date(Date.now() - 11 * 60 * 1000);
+        const payment = (kind, createdAt) => ({
+          organizationId: id,
+          planId: plan.id,
+          kind,
+          amount: 1n,
+          status: 'Pending',
+          createdAt,
+        });
+        await db.payment.createMany({
+          data: [
+            payment('Renewal', old),
+            payment('Upgrade', old),
+            payment('Renewal', new Date()),
+            payment('Registration', old),
+          ],
+        });
+        await job.activateDue();
+        const rows = await paymentsOf(id);
+        const result = (kind, recent) =>
+          rows.find(
+            (row) =>
+              row.kind === kind &&
+              row.createdAt.getTime() > old.getTime() === recent,
+          );
+        assert.equal(result('Renewal', false).status, 'Failed');
+        assert.equal(result('Renewal', false).failureReason, 'STALE_PENDING');
+        assert.equal(result('Upgrade', false).status, 'Failed');
+        assert.equal(result('Renewal', true).status, 'Pending');
+        assert.equal(result('Registration', false).status, 'Pending');
+      },
+    );
+
+    const dueTerm = async (limits = {}) => {
+      const fixtureData = await fixture('Active');
+      const { id, plan, current } = fixtureData;
+      await db.subscription.create({
+        data: {
+          organizationId: id,
+          planId: plan.id,
+          source: 'Renewal',
+          status: 'Scheduled',
+          price: 500n,
+          durationDays: 30,
+          maxLearners: 5,
+          maxInstructors: 5,
+          maxCourseChains: 5,
+          maxStorageBytes: 5n,
+          startsAt: new Date(Date.now() - 1000),
+          expiresAt: new Date(current.expiresAt.getTime() + 30 * DAY_MS),
+          ...limits,
+        },
+      });
+      return fixtureData;
+    };
+
+    await t.test(
+      'activation waits for the Organization lock that UC12.2 holds while checking seats',
+      async () => {
+        const { id } = await dueTerm();
+        let release;
+        const held = new Promise((resolve) => (release = resolve));
+        let locked;
+        const isLocked = new Promise((resolve) => (locked = resolve));
+        const holder = db.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${id}::uuid FOR UPDATE`;
+          locked();
+          await held;
+        });
+        await isLocked;
+        const activation = job.activateDue();
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        assert.deepEqual(
+          (await subscriptionsOf(id)).map((row) => row.status),
+          ['Active', 'Scheduled'],
+          'no change while the lock is held',
+        );
+        release();
+        await holder;
+        await activation;
+        assert.deepEqual(
+          (await subscriptionsOf(id)).map((row) => row.status),
+          ['Ended', 'Active'],
+        );
+      },
+    );
+
+    await t.test(
+      'BR-4: below the new limit after activation, existing accounts stay and new ones are refused',
+      async () => {
+        const { id } = await dueTerm({ maxInstructors: 5 });
+        await db.user.createMany({
+          data: Array.from({ length: 8 }, (_, index) => ({
+            organizationId: id,
+            email: `renew-seat-${id}-${index}@example.test`,
+            fullName: `Instructor ${index}`,
+            role: 'Instructor',
+            status: index === 0 ? 'Deactivated' : 'Active',
+          })),
+        });
+        await job.activateDue();
+        const usersBase = base.replace('/subscriptions', '/users');
+        const seats = await fetch(`${usersBase}/instructors/seats`, {
+          headers: headers(id),
+        });
+        assert.equal(seats.status, 200);
+        const usage = (await seats.json()).data;
+        assert.equal(usage.used, 8);
+        assert.equal(usage.max, 5);
+        assert.equal(usage.remaining, 0);
+        assert.equal(usage.canCreate, false);
+        const created = await fetch(`${usersBase}/instructors`, {
+          method: 'POST',
+          headers: headers(id),
+          body: JSON.stringify({
+            fullName: 'One More',
+            email: `renew-seat-${id}-new@example.test`,
+          }),
+        });
+        assert.equal(created.status, 409);
+        assert.equal(await errorCode(created), 'SEAT_LIMIT_REACHED');
+        const rows = await db.user.findMany({
+          where: { organizationId: id, role: 'Instructor' },
+        });
+        assert.equal(rows.length, 8);
+        assert.equal(rows.filter((row) => row.status === 'Active').length, 7);
+      },
+    );
+
     await t.test(
       'the job activates a due Scheduled term and ends the current one',
       async () => {
