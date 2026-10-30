@@ -73,13 +73,15 @@ export class AssignmentChangesService {
   }
 
   async extend(user: CurrentUser, id: string, dto: ExtendAssignmentDto) {
-    const { organizationId, timezone } = await this.access(user);
+    const { organizationId, timezone: tenantTimezone } =
+      await this.access(user);
+    let timezone: string;
     try {
-      await this.deadlines.validateTimezone(timezone);
+      timezone = await this.deadlines.resolveTimezoneName(tenantTimezone);
     } catch (error) {
       if (error instanceof InvalidBaseDueAtInputError) {
         this.logger.error(
-          `Tenant timezone contract violation: organizationId=${organizationId}, timezone=${timezone}`,
+          `Tenant timezone contract violation: organizationId=${organizationId}, timezone=${tenantTimezone}`,
         );
         throw serviceUnavailable();
       }

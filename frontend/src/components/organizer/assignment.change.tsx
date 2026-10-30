@@ -19,7 +19,7 @@ import {
   extensionDateError,
 } from "@/utils/assignments.view";
 import { assignmentDueDate, assignmentExtensionDeadline } from "@/utils/assignment.date";
-import { formatTimezone } from "@/utils/timezone.format";
+import { formatTimezone, isSameZone } from "@/utils/timezone.format";
 import "./assignment.change.scss";
 
 export const AssignmentChange = ({
@@ -46,7 +46,7 @@ export const AssignmentChange = ({
     ? assignmentExtensionDeadline(selectedDay.format("YYYY-MM-DD"), pickerTimezone)
     : new Date();
   const showSummaryZones = Boolean(item.organizationTimezone && item.dueTimezone &&
-    item.organizationTimezone !== item.dueTimezone);
+    !isSameZone(item.organizationTimezone, item.dueTimezone));
   const open = (value: "extend" | "exempt") => {
     setError(null);
     form.resetFields();
@@ -162,7 +162,7 @@ export const AssignmentChange = ({
                 : "Chưa chọn"}
               {showSummaryZones && ` (${formatTimezone(pickerTimezone!, newDeadline)})`}
             </p>
-            {item.organizationTimezone && item.organizationTimezone !== item.dueTimezone && (
+            {item.organizationTimezone && !isSameZone(item.organizationTimezone, item.dueTimezone) && (
               <p>Hạn mới được tính theo múi giờ hiện tại của tổ chức: {formatTimezone(item.organizationTimezone, newDeadline)}</p>
             )}
             {!pickerTimezone && (

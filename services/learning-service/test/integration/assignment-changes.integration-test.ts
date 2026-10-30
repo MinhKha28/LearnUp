@@ -8,9 +8,10 @@ import { createServer } from 'node:http';
 import { AssignmentChangesRepository } from '../../src/modules/assignments/assignment-changes.repository';
 import { TenantAccessHttp } from '../../src/infrastructure/clients/tenant/tenant-access.http';
 import type { AddressInfo } from 'node:net';
-import { after, before, beforeEach, describe, test } from './test-runner';
+import { after, before, beforeEach, describe, test, mock } from './test-runner';
 import { HEADER_NAMES } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
+import { Logger } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { TestClient as Client } from './test-io';
 import { AppModule } from '../../src/app.module';
@@ -251,64 +252,119 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
       repo.clock = original;
     }
   });
-  test('mixed-case HTTP tenant zone is canonicalized and stored by extension', async () => {
-    const id = await seed();
-    const tenant = app.get<TenantClient>(TENANT_CLIENT);
-    const original = tenant.getOrganizationAccess;
-    const server = createServer((_request, response) => {
-      response.setHeader('content-type', 'application/json');
-      response.end(
-        JSON.stringify({
-          data: {
-            organizationId: ORG,
-            organizationStatus: 'Active',
-            subscriptionStatus: 'Active',
-            readOnlyEndsAt: null,
-            timezone: 'Asia/TOKYO',
-          },
-        }),
+  for (const [tenantZone, storedZone] of [
+    ['Asia/Ho_Chi_Minh', 'Asia/Ho_Chi_Minh'],
+    ['asia/ho_chi_minh', 'Asia/Ho_Chi_Minh'],
+    ['Asia/TOKYO', 'Asia/Tokyo'],
+    ['Asia/Kolkata', 'Asia/Kolkata'],
+    ['+01:00', null],
+  ] as const) {
+    test(`HTTP Tenant ${tenantZone}: detail preserves input; extension resolves PostgreSQL spelling`, async () => {
+      const id = await seed();
+      const tenant = app.get<TenantClient>(TENANT_CLIENT);
+      const originalAccess = tenant.getOrganizationAccess;
+      const deadlines = app.get(BaseDueAtRepository);
+      const originalResolve = deadlines.resolveTimezoneName;
+      const changes = app.get(AssignmentChangesRepository);
+      const originalClock = changes.clock;
+      let resolveCalls = 0;
+      let clockZone: string | undefined;
+      deadlines.resolveTimezoneName = (zone) => {
+        resolveCalls++;
+        return originalResolve.call(deadlines, zone);
+      };
+      changes.clock = (tx, zone) => {
+        clockZone = zone;
+        return originalClock.call(changes, tx, zone);
+      };
+      const errors: string[] = [];
+      const errorLog = mock.method(
+        Logger.prototype,
+        'error',
+        (message: unknown) => {
+          errors.push(String(message));
+        },
       );
+      const server = createServer((_request, response) => {
+        response.setHeader('content-type', 'application/json');
+        response.end(
+          JSON.stringify({
+            data: {
+              organizationId: ORG,
+              organizationStatus: 'Active',
+              subscriptionStatus: 'Active',
+              readOnlyEndsAt: null,
+              timezone: tenantZone,
+            },
+          }),
+        );
+      });
+      await new Promise<void>((resolve) =>
+        server.listen(0, '127.0.0.1', resolve),
+      );
+      const client = new TenantAccessHttp(
+        `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+        'synthetic-unit-key',
+      );
+      tenant.getOrganizationAccess = (user) =>
+        client.getOrganizationAccess(user);
+      try {
+        const detail = await call(id);
+        assert.equal(detail.status, 200);
+        assert.equal(detail.body.data.organizationTimezone, tenantZone);
+        assert.equal(detail.body.data.dueTimezone, 'Asia/Ho_Chi_Minh');
+        assert.equal(
+          resolveCalls,
+          0,
+          'detail must not resolve PostgreSQL zone names',
+        );
+        const newDueDate = plusDays(2);
+        const result = await call(id, 'due-date', { newDueDate });
+        assert.equal(resolveCalls, 1);
+        const row = (
+          await db.query(
+            'SELECT due_at,due_timezone FROM enrollments WHERE id=$1',
+            [id],
+          )
+        ).rows[0];
+        if (storedZone === null) {
+          assert.equal(result.status, 503);
+          assert.equal(result.body.error.code, 'SERVICE_UNAVAILABLE');
+          assert.equal(await eventCount(), 0);
+          assert.equal(row.due_timezone, 'Asia/Ho_Chi_Minh');
+          assert.equal(row.due_at.toISOString(), detail.body.data.dueAt);
+          assert.equal(clockZone, undefined);
+          assert.ok(
+            errors.some(
+              (message) =>
+                message.includes(ORG) && message.includes(tenantZone),
+            ),
+          );
+        } else {
+          assert.equal(result.status, 200);
+          assert.equal(clockZone, storedZone);
+          assert.equal(result.body.data.organizationTimezone, tenantZone);
+          assert.equal(result.body.data.dueTimezone, storedZone);
+          assert.equal(row.due_timezone, storedZone);
+          const expected = (
+            await db.query(
+              'SELECT (($1::date + 1)::timestamp AT TIME ZONE $2) AS due',
+              [newDueDate, storedZone],
+            )
+          ).rows[0].due.toISOString();
+          assert.equal(result.body.data.dueAt, expected);
+          assert.equal(row.due_at.toISOString(), expected);
+        }
+      } finally {
+        tenant.getOrganizationAccess = originalAccess;
+        deadlines.resolveTimezoneName = originalResolve;
+        changes.clock = originalClock;
+        errorLog.mock.restore();
+        server.closeAllConnections();
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
     });
-    await new Promise<void>((resolve) =>
-      server.listen(0, '127.0.0.1', resolve),
-    );
-    const client = new TenantAccessHttp(
-      `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
-      'synthetic-unit-key',
-    );
-    tenant.getOrganizationAccess = (user) => client.getOrganizationAccess(user);
-    try {
-      const result = await call(id, 'due-date', { newDueDate: plusDays(2) });
-      assert.equal(result.status, 200);
-      assert.equal(result.body.data.dueTimezone, 'Asia/Tokyo');
-      assert.equal(
-        (
-          await db.query('SELECT due_timezone FROM enrollments WHERE id=$1', [
-            id,
-          ])
-        ).rows[0].due_timezone,
-        'Asia/Tokyo',
-      );
-    } finally {
-      tenant.getOrganizationAccess = original;
-      server.closeAllConnections();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    }
-  });
-  test('PostgreSQL rejects tenant zone with 503 and no writes', async () => {
-    const id = await seed();
-    // Intl accepts fixed-offset IDs that pg_timezone_names does not contain.
-    timezone = '+01:00';
-    const result = await call(id, 'due-date', { newDueDate: plusDays(1) });
-    assert.equal(result.status, 503);
-    assert.equal(result.body.error.code, 'SERVICE_UNAVAILABLE');
-    assert.equal(await eventCount(), 0);
-    assert.equal(
-      (await db.query('SELECT due_timezone FROM enrollments WHERE id=$1', [id]))
-        .rows[0].due_timezone,
-      'Asia/Ho_Chi_Minh',
-    );
-  });
+  }
   test('two extensions accumulate and UC24/UC24.1 no longer display Overdue', async () => {
     const id = await seed();
     assert.equal((await call(id)).body.data.status, 'Overdue');

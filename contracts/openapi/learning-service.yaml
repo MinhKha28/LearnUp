@@ -50,7 +50,9 @@ paths:
         and the deadline must be later than the current dueAt; the positive delta is floored to
         whole seconds and added to extensionSeconds. No 365-day or other business upper limit.
         Updates dueAt and dueTimezone together and writes EnrollmentDueDateExtended atomically.
-        Tenant HTTP timezone IDs are canonicalized through Intl. A timezone rejected by PostgreSQL
+        Tenant HTTP preserves the supplied timezone string after Intl validation. Extension alone resolves
+        its case-insensitive PostgreSQL name, excluding posix/ and right/ entries, for today, the new
+        deadline and dueTimezone. Detail returns the Tenant string unchanged without this lookup. A timezone rejected by PostgreSQL
         logs organizationId and the zone as a Tenant contract violation and returns 503.
         The response reuses detail enrichment, including a fresh live organizationTimezone.
       parameters:
@@ -480,7 +482,7 @@ components:
         organizationTimezone:
           type: string
           nullable: true
-          description: Live organization zone from Tenant access, used for a new extension. May differ from dueTimezone; null when Tenant access fails. Picker falls back to dueTimezone, then device time.
+          description: Live organization zone exactly as supplied by Tenant access, used for a new extension. May differ from dueTimezone; null when Tenant access fails. Picker falls back to dueTimezone, then device time.
         status:
           type: string
           enum: [NotStarted, InProgress, Overdue, Completed, Exempted, Halted, Withdrawn]

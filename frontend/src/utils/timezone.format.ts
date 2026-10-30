@@ -23,3 +23,14 @@ export const formatTimezone = (timeZone: string, instant: Date): string => {
     return "múi giờ không xác định";
   }
 };
+
+/** Compare zone identities without exposing or persisting ICU's alias spelling. */
+export const isSameZone = (a: string | null, b: string | null): boolean => {
+  if (!a || !b) return false;
+  try {
+    const left = new Intl.DateTimeFormat("en", { timeZone: a }).resolvedOptions().timeZone;
+    return a === b || left === new Intl.DateTimeFormat("en", { timeZone: b }).resolvedOptions().timeZone;
+  } catch {
+    return false;
+  }
+};

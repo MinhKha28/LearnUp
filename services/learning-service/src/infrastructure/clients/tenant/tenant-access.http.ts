@@ -124,9 +124,7 @@ export class TenantAccessHttp {
       subscriptionStatus: data.subscriptionStatus,
       readOnlyEndsAt:
         data.readOnlyEndsAt === null ? null : new Date(data.readOnlyEndsAt),
-      timezone: new Intl.DateTimeFormat('en', {
-        timeZone: data.timezone,
-      }).resolvedOptions().timeZone,
+      timezone: data.timezone,
     };
   }
 

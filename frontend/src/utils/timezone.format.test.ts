@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { formatTimezone } from "./timezone.format";
+import { formatTimezone, isSameZone } from "./timezone.format";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -26,5 +26,24 @@ describe("readable timezone names at an instant", () => {
   });
   it("does not expose an invalid identifier", () => {
     expect(formatTimezone("Invalid/Raw_Zone", new Date())).toBe("múi giờ không xác định");
+  });
+});
+
+describe("timezone identity without persisting ICU aliases", () => {
+  it.each([
+    ["Asia/Ho_Chi_Minh", "Asia/Ho_Chi_Minh", true],
+    ["Asia/Saigon", "Asia/Ho_Chi_Minh", true],
+    ["Asia/Ho_Chi_Minh", "Asia/Saigon", true],
+    ["Asia/Kolkata", "Asia/Calcutta", true],
+    ["Asia/Calcutta", "Asia/Kolkata", true],
+    ["asia/ho_chi_minh", "Asia/Ho_Chi_Minh", true],
+    ["Asia/Ho_Chi_Minh", "Pacific/Auckland", false],
+    [null, "Asia/Ho_Chi_Minh", false],
+    [null, null, false],
+    ["Mars/Invalid", "Mars/Invalid", false],
+    ["Asia/Ho_Chi_Minh", "Mars/Invalid", false],
+    ["", "UTC", false],
+  ])("compares %s with %s", (a, b, expected) => {
+    expect(isSameZone(a, b)).toBe(expected);
   });
 });

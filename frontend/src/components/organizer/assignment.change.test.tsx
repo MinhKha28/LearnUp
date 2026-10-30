@@ -113,3 +113,26 @@ it.each([
   const modal = await screen.findByRole("dialog");
   expect(within(modal).getByText(`Hạn hiện tại: ${currentDate} → Hạn mới: Chưa chọn`)).toBeTruthy();
 });
+
+it.each(["Asia/Ho_Chi_Minh", "Asia/Saigon"])("%s matches the stored default zone without a changed-zone label or two-zone summary", async organizationTimezone => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-29T12:00:00Z"));
+  render(<AssignmentChange item={{ ...detail, organizationTimezone }} onChanged={() => undefined} onConflict={() => undefined} onReload={() => undefined} />);
+  fireEvent.click(screen.getByRole("button", { name: "Kéo dài hạn" }));
+  const modal = await screen.findByRole("dialog");
+  expect(within(modal).queryByText(/Hạn mới được tính theo/)).toBeNull();
+  expect(within(modal).getByText("Hạn hiện tại: 29/10/2026 → Hạn mới: Chưa chọn")).toBeTruthy();
+});
+it("Ho Chi Minh versus Auckland shows the changed-zone label and both deadline zones", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-29T12:00:00Z"));
+  render(<AssignmentChange item={{ ...detail, organizationTimezone: "Pacific/Auckland" }} onChanged={() => undefined} onConflict={() => undefined} onReload={() => undefined} />);
+  fireEvent.click(screen.getByRole("button", { name: "Kéo dài hạn" }));
+  const modal = await screen.findByRole("dialog");
+  const input = within(modal).getByPlaceholderText("Chọn ngày");
+  fireEvent.change(input, { target: { value: "30/10/2026" } });
+  fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+  fireEvent.blur(input);
+  await waitFor(() => expect(within(modal).getByText("Hạn hiện tại: 29/10/2026 (giờ Đông Dương (GMT+7)) → Hạn mới: 30/10/2026 (giờ New Zealand (GMT+13))")).toBeTruthy());
+  expect(within(modal).getByText("Hạn mới được tính theo múi giờ hiện tại của tổ chức: giờ New Zealand (GMT+13)")).toBeTruthy();
+});
