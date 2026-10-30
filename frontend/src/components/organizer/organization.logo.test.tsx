@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/hooks/use.my.profile", () => ({
@@ -24,18 +30,43 @@ beforeAll(() => {
 });
 afterEach(cleanup);
 
+const logoButton = () =>
+  screen.getByRole("button", { name: "View a larger logo of ABC" });
+
 describe("UC11 organization logo", () => {
-  it("opens a larger preview when the logo is clicked", async () => {
+  it("is a real button, so Tab reaches it and Enter or Space activates it", () => {
     render(<OrganizationLogo name="ABC" logoUrl="https://cdn.test/logo.png" />);
-    expect(document.querySelector(".ant-image-preview")).toBeNull();
-    fireEvent.click(screen.getByAltText("ABC logo"));
-    expect(await screen.findAllByAltText("ABC logo")).toHaveLength(2);
-    expect(document.querySelector(".ant-image-preview")).not.toBeNull();
+    const button = logoButton();
+    expect(button.tagName).toBe("BUTTON");
+    expect(button.getAttribute("type")).toBe("button");
+    expect(button.getAttribute("tabindex")).not.toBe("-1");
+    button.focus();
+    expect(document.activeElement).toBe(button);
   });
 
-  it("shows initials and no preview without a logo", () => {
+  it("opens a larger preview when activated", async () => {
+    render(<OrganizationLogo name="ABC" logoUrl="https://cdn.test/logo.png" />);
+    expect(document.querySelector(".ant-image-preview-img")).toBeNull();
+    fireEvent.click(logoButton());
+    await waitFor(() =>
+      expect(document.querySelector(".ant-image-preview-img")).not.toBeNull(),
+    );
+  });
+
+  it("returns focus to the logo when Escape closes the preview", async () => {
+    render(<OrganizationLogo name="ABC" logoUrl="https://cdn.test/logo.png" />);
+    fireEvent.click(logoButton());
+    await waitFor(() =>
+      expect(document.querySelector(".ant-image-preview-img")).not.toBeNull(),
+    );
+    fireEvent.keyDown(window, { key: "Escape", keyCode: 27 });
+    await waitFor(() => expect(document.activeElement).toBe(logoButton()));
+  });
+
+  it("shows initials and no button without a logo", () => {
     render(<OrganizationLogo name="Cong Ty" logoUrl={null} />);
-    expect(screen.queryByRole("img", { name: /logo/ })).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByText("CO")).toBeTruthy();
     expect(document.querySelector(".ant-image")).toBeNull();
   });
 });

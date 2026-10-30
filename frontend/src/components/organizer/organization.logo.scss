@@ -1,0 +1,23 @@
+.organization-logo-button {
+    display: inline-flex;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    cursor: zoom-in;
+    transition: box-shadow .15s ease;
+}
+
+.organization-logo-button:hover {
+    box-shadow: 0 0 0 2px #94a3b8;
+}
+
+.organization-logo-button:focus-visible {
+    outline: 2px solid #0f172a;
+    outline-offset: 2px;
+}
+
+.organization-logo-image {
+    border-radius: 8px;
+    object-fit: contain;
+}
