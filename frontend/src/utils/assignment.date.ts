@@ -1,4 +1,18 @@
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+import { formatTimezone } from "@/utils/timezone.format";
 import { formatDueAt } from "@/utils/due.format";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Parse the following midnight in the target zone, rather than adding 24 hours
+// to a zoned instant: a daylight-saving transition can change the offset.
+export const assignmentExtensionDeadline = (day: string, zone: string | null): Date => {
+  const followingDay = dayjs.utc(day).add(1, "day").format("YYYY-MM-DD");
+  return (zone ? dayjs.tz(followingDay, zone) : dayjs(followingDay)).toDate();
+};
 
 const partsFor = (value: string | null, timezone: string | null) => {
   if (!value || Number.isNaN(new Date(value).getTime())) return null;
@@ -29,11 +43,11 @@ export const assignmentTimestamp = (value: string | null, timezone: string | nul
 export const assignmentDueDate = (value: string | null, timezone: string | null): string =>
   value ? (formatDueAt(value, timezone).text.match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? "—") : "—";
 
-export const assignmentDueNote = (timezone: string | null): string => {
+export const assignmentDueNote = (timezone: string | null, instant: string | null = null): string => {
   if (timezone) {
     try {
       new Intl.DateTimeFormat("vi-VN", { timeZone: timezone });
-      return `Tính đến hết ngày theo giờ tổ chức (${timezone})`;
+      return `Tính đến hết ngày theo giờ tổ chức (${formatTimezone(timezone, instant ? new Date(instant) : new Date())})`;
     } catch { /* An unavailable timezone uses the same device-time fallback as formatDueAt. */ }
   }
   return "Tính đến hết ngày theo giờ trên máy bạn (chưa có múi giờ tổ chức)";

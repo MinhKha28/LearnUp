@@ -18,7 +18,8 @@ import {
   canExtendAssignment,
   extensionDateError,
 } from "@/utils/assignments.view";
-import { assignmentDueDate } from "@/utils/assignment.date";
+import { assignmentDueDate, assignmentExtensionDeadline } from "@/utils/assignment.date";
+import { formatTimezone } from "@/utils/timezone.format";
 import "./assignment.change.scss";
 
 export const AssignmentChange = ({
@@ -41,6 +42,11 @@ export const AssignmentChange = ({
   const [notice, contextHolder] = message.useMessage();
   const pickerTimezone = item.organizationTimezone ?? item.dueTimezone;
   const range = assignmentExtensionRange(item.dueAt, pickerTimezone);
+  const newDeadline = selectedDay
+    ? assignmentExtensionDeadline(selectedDay.format("YYYY-MM-DD"), pickerTimezone)
+    : new Date();
+  const showSummaryZones = Boolean(item.organizationTimezone && item.dueTimezone &&
+    item.organizationTimezone !== item.dueTimezone);
   const open = (value: "extend" | "exempt") => {
     setError(null);
     form.resetFields();
@@ -148,13 +154,16 @@ export const AssignmentChange = ({
           <>
             <p>
               Hạn hiện tại:{" "}
-              {assignmentDueDate(item.dueAt, item.dueTimezone)} → Hạn mới:{" "}
+              {assignmentDueDate(item.dueAt, item.dueTimezone)}
+              {showSummaryZones && ` (${formatTimezone(item.dueTimezone!, new Date(item.dueAt ?? Date.now()))})`}
+              {" → Hạn mới: "}
               {selectedDay
                 ? selectedDay.format("DD/MM/YYYY")
                 : "Chưa chọn"}
+              {showSummaryZones && ` (${formatTimezone(pickerTimezone!, newDeadline)})`}
             </p>
             {item.organizationTimezone && item.organizationTimezone !== item.dueTimezone && (
-              <p>Hạn mới được tính theo múi giờ hiện tại của tổ chức: {item.organizationTimezone}</p>
+              <p>Hạn mới được tính theo múi giờ hiện tại của tổ chức: {formatTimezone(item.organizationTimezone, newDeadline)}</p>
             )}
             {!pickerTimezone && (
               <Alert

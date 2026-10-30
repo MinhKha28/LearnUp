@@ -153,7 +153,7 @@ const AssignmentDetail = () => {
                 {
                   key: "due",
                   label: "Hạn hiện hành",
-                  children: <><span>{assignmentDueDate(item.dueAt, timezone)}</span><small>{assignmentDueNote(timezone)}</small></>,
+                  children: <><span>{assignmentDueDate(item.dueAt, timezone)}</span><small>{assignmentDueNote(timezone, item.dueAt)}</small></>,
                 },
                 {
                   key: "extension",
