@@ -3,7 +3,23 @@ import type {
   IRenewalQuote,
   IRenewalResult,
   ISubscriptionOverview,
+  IUpgradeOptions,
+  IUpgradeResult,
 } from "@/types/subscription.types";
+
+export const getUpgradeOptionsAPI = () =>
+  tenantAxios.get<IBackendRes<IUpgradeOptions>>(
+    "/api/v1/subscriptions/upgrade-options",
+  );
+
+export const upgradeSubscriptionAPI = (
+  planId: string,
+  simulateFailure: boolean,
+) =>
+  tenantAxios.post<IBackendRes<IUpgradeResult>>(
+    "/api/v1/subscriptions/upgrades",
+    { planId, ...(simulateFailure ? { simulateFailure } : {}) },
+  );
 
 export const getRenewalQuoteAPI = () =>
   tenantAxios.get<IBackendRes<IRenewalQuote>>(
