@@ -15,7 +15,8 @@ import {
 } from "@/services/subscription.service";
 import type { IApiError } from "@/types/organization.types";
 import type { IRenewalQuote } from "@/types/subscription.types";
-import { formatDateVN, formatStorage, formatVnd } from "@/utils/helper";
+import { formatDateVN, formatVnd } from "@/utils/helper";
+import { planLimitsLine } from "@/utils/upgrade.view";
 import {
   exceededLimitLines,
   renewalErrorMessage,
@@ -128,9 +129,7 @@ const SubscriptionRenew = () => {
                 {formatDateVN(quote.startsAt)} - {formatDateVN(quote.expiresAt)}
               </DetailItem>
               <DetailItem label="Plan limits">
-                {quote.maxLearners} Learners · {quote.maxInstructors}{" "}
-                Instructors · {quote.maxCourseChains} Courses ·{" "}
-                {formatStorage(quote.maxStorageBytes)}
+                {planLimitsLine(quote)}
               </DetailItem>
             </div>
           </SectionCard>

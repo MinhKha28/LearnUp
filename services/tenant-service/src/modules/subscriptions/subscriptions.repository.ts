@@ -81,6 +81,17 @@ export class SubscriptionsRepository extends BaseRepository {
     });
   }
 
+  findOfferedPlans() {
+    return this.prisma.subscriptionPlan.findMany({
+      where: { isOffered: true },
+      orderBy: { price: 'asc' },
+    });
+  }
+
+  findPlanById(planId: string) {
+    return this.prisma.subscriptionPlan.findUnique({ where: { id: planId } });
+  }
+
   createPayment(
     data: Prisma.PaymentUncheckedCreateInput,
     tx?: Prisma.TransactionClient,

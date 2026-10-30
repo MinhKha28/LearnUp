@@ -12,16 +12,19 @@ import { ApiTags } from '@nestjs/swagger';
 import { ResponseMessage, Roles, User } from '../../common/decorator/customize';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { RenewSubscriptionDto } from './dto/renew-subscription.dto';
+import { UpgradeSubscriptionDto } from './dto/upgrade-subscription.dto';
 import { SubscriptionRenewalsService } from './subscription-renewals.service';
+import { SubscriptionUpgradesService } from './subscription-upgrades.service';
 import { SubscriptionsService } from './subscriptions.service';
 
-@ApiTags('UC10 / UC10.1 - Subscription')
+@ApiTags('UC10 / UC10.1 / UC10.2 - Subscription')
 @UseGuards(RolesGuard)
 @Controller('subscriptions')
 export class SubscriptionsController {
   constructor(
     private readonly subscriptionsService: SubscriptionsService,
     private readonly renewalsService: SubscriptionRenewalsService,
+    private readonly upgradesService: SubscriptionUpgradesService,
   ) {}
 
   @Roles('ORGANIZER')
@@ -44,6 +47,21 @@ export class SubscriptionsController {
   @ResponseMessage('Đã xử lý thanh toán gia hạn')
   renew(@User() user: CurrentUser, @Body() dto: RenewSubscriptionDto) {
     return this.renewalsService.renew(user, dto);
+  }
+
+  @Roles('ORGANIZER')
+  @Get('upgrade-options')
+  @ResponseMessage('Lấy danh sách gói nâng cấp thành công')
+  getUpgradeOptions(@User() user: CurrentUser) {
+    return this.upgradesService.getOptions(user);
+  }
+
+  @Roles('ORGANIZER')
+  @Post('upgrades')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Đã xử lý nâng cấp')
+  upgrade(@User() user: CurrentUser, @Body() dto: UpgradeSubscriptionDto) {
+    return this.upgradesService.upgrade(user, dto);
   }
 
   @Roles('INSTRUCTOR')
