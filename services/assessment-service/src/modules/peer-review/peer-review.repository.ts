@@ -170,20 +170,12 @@ export class PeerReviewRepository {
     });
   }
 
-  /** Reviews that were not done in time stop being Pending (BR-236); returns who skipped. */
-  async expirePendingReviews(
-    tx: Prisma.TransactionClient,
-    cycleId: string,
-  ): Promise<string[]> {
-    const pending = await tx.submissionReview.findMany({
-      where: { cycleId, status: 'Pending' },
-      select: { reviewerId: true },
-    });
-    await tx.submissionReview.updateMany({
+  /** Reviews that were not done in time stop being Pending (BR-236). */
+  expirePendingReviews(tx: Prisma.TransactionClient, cycleId: string) {
+    return tx.submissionReview.updateMany({
       where: { cycleId, status: 'Pending' },
       data: { status: 'Missed' },
     });
-    return [...new Set(pending.map((review) => review.reviewerId))];
   }
 
   /**
@@ -218,21 +210,5 @@ export class PeerReviewRepository {
       },
     });
     return short.length;
-  }
-
-  /** BR-239: a Learner who skipped reviews owes them, unless the Instructor waived it (BR-241). */
-  markObligationMissed(
-    tx: Prisma.TransactionClient,
-    assessmentId: string,
-    learnerIds: string[],
-  ) {
-    return tx.learnerAssessmentState.updateMany({
-      where: {
-        assessmentId,
-        learnerId: { in: learnerIds },
-        exemptedAt: null,
-      },
-      data: { peerReviewObligation: 'Missed' },
-    });
   }
 }

@@ -116,9 +116,10 @@ export class LearnerSubmissionsService {
       assignment.courseId,
     );
     const completed = isReadOnly(access);
-    const [state, latest] = await Promise.all([
+    const [state, latest, reviews] = await Promise.all([
       this.repository.findState(assignment.id, user.userId),
       this.repository.findLatestSubmission(assignment.id, user.userId),
+      this.repository.findPeerReviews(assignment.id, user.userId),
     ]);
     const now = this.clock();
     let resubmission: ILearnerAssignment['resubmission'] = null;
@@ -129,7 +130,7 @@ export class LearnerSubmissionsService {
       const decision = decideResubmission({
         peerReviewOn: isPeerReviewOn(assignment),
         previousCycle,
-        owesDuty: owesPeerReviewDuty(state),
+        owesDuty: owesPeerReviewDuty(state, reviews, now),
         now,
       });
       resubmission = {
@@ -586,10 +587,16 @@ export class LearnerSubmissionsService {
     const previousCycle = previous.cycleId
       ? await this.repository.findCycleById(previous.cycleId, tx)
       : null;
+    // Read under the cycle lock above, in the same transaction, so a closing cannot change it between the read and the placement.
+    const reviews = await this.repository.findPeerReviews(
+      assignment.id,
+      previous.learnerId,
+      tx,
+    );
     const decision = decideResubmission({
       peerReviewOn: isPeerReviewOn(assignment),
       previousCycle,
-      owesDuty: owesPeerReviewDuty(state),
+      owesDuty: owesPeerReviewDuty(state, reviews, now),
       now,
     });
     if (decision.placement === 'REPLACES_IN_CYCLE' && previousCycle) {

@@ -406,19 +406,16 @@ describe('UC33 schedule over HTTP', () => {
         [cycleId],
       )
     ).map((row) => row.reviewer_id as string);
-    const marked = (
-      await db.query(
-        `SELECT learner_id FROM learner_assessment_states WHERE assessment_id = $1 AND peer_review_obligation = 'Missed'`,
-        [assignment],
-      )
-    ).map((row) => row.learner_id as string);
-    // everyone who skipped, except the one the Instructor waived
-    assert.deepEqual(
-      marked.sort(),
-      missed.filter((learner) => learner !== learners[0]).sort(),
+    // the debt is read from these review rows (D10); nothing is written to the Learner state any more
+    assert.ok(missed.length > 0);
+    assert.equal(
+      (
+        await db.query(
+          `SELECT 1 FROM information_schema.columns WHERE table_name = 'learner_assessment_states' AND column_name = 'peer_review_obligation'`,
+        )
+      ).length,
+      0,
     );
-    assert.ok(marked.length > 0);
-    assert.ok(!marked.includes(learners[0]));
   });
 
   test('running again changes nothing: every step is claimed once', async () => {
