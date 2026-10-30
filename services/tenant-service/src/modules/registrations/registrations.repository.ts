@@ -124,6 +124,23 @@ export class RegistrationsRepository extends BaseRepository {
     });
   }
 
+  /** UC03.1: mã xác thực và liên kết mới thay cho cái cũ, số lần nhập sai về 0 (BR-13, BR-40). */
+  updateVerificationCode(
+    registrationId: string,
+    data: {
+      reopenTokenHash: Uint8Array<ArrayBuffer>;
+      otpHash: Uint8Array<ArrayBuffer>;
+      otpExpiresAt: Date;
+    },
+    counter: IResendCounter,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.db(tx).registration.update({
+      where: { id: registrationId },
+      data: { ...data, otpFailedAttempts: 0, ...counter },
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // UC02.1 / UC03 - liên kết mở lại đăng ký
   // ---------------------------------------------------------------------------

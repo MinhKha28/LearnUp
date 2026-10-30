@@ -40,6 +40,7 @@ import { IRegistrationSummary } from './interfaces/registration-summary.interfac
 import { MockPaymentGateway } from '../payments/mock-payment.gateway';
 import { PayRegistrationDto } from './dto/pay-registration.dto';
 import { VerifyEmailOtpDto } from './dto/verify-email-otp.dto';
+import { ResendRegistrationEmailDto } from './dto/resend-registration-email.dto';
 import { IVerifyEmailOtpResult } from './interfaces/verify-email-otp-result.interface';
 import { IPaymentResult } from './interfaces/payment-result.interface';
 import { RegistrationsRepository } from './registrations.repository';
@@ -284,6 +285,100 @@ export class RegistrationsService {
       throw error;
     }
     return result;
+  }
+
+  // ===========================================================================
+  // UC03.1 - Gửi lại liên kết đăng ký (BR-40, BR-12, BR-13)
+  // ===========================================================================
+  /**
+   * Chỉ gửi khi email gắn với đăng ký Pending Payment còn hạn (BR-8); giới hạn chung với UC02 theo email
+   * trong 24 giờ. Mọi trường hợp trả cùng một phản hồi trung tính, kể cả khi không gửi.
+   */
+  async resendEmail(
+    dto: ResendRegistrationEmailDto,
+  ): Promise<ICreateRegistrationResult> {
+    const settings = await this.settingsService.get();
+    const result: ICreateRegistrationResult = {
+      email: dto.email,
+      otpTtlMinutes: settings.emailOtpTtlMinutes,
+      message:
+        'Nếu email gắn với một đăng ký đang chờ thanh toán, thư đăng ký mới đã được gửi.',
+    };
+    return this.withRegistrationEmailLock(dto.email, result, async () => {
+      const user = await this.registrationsRepository.findActiveUserByEmail(
+        dto.email,
+      );
+      if (!user) return result;
+      const pending = await this.registrationsRepository.findPendingByOrganizer(
+        user.id,
+      );
+      if (!pending) return result;
+      if (pending.expiresAt.getTime() <= Date.now()) {
+        await this.expireRegistration(pending);
+        return result;
+      }
+      const counter = this.nextResendCounter(
+        pending,
+        settings.maxLinkResendsPer24h,
+      );
+      if (!counter) return result;
+
+      if (pending.emailVerifiedAt) {
+        await this.resendReopenLink(pending, counter);
+      } else {
+        await this.resendVerificationCode(
+          pending,
+          counter,
+          settings.emailOtpTtlMinutes,
+        );
+      }
+      return result;
+    });
+  }
+
+  /** Email chưa xác thực: mã mới và liên kết mới, mã và liên kết cũ mất hiệu lực (BR-13). */
+  private async resendVerificationCode(
+    registration: Prisma.RegistrationGetPayload<{
+      include: { organization: true; organizer: true };
+    }>,
+    counter: IResendCounter,
+    otpTtlMinutes: number,
+  ): Promise<void> {
+    const { rawToken, tokenHash } = generateSecretToken();
+    const otp = generateOtp();
+    const otpExpiresAt = new Date(Date.now() + otpTtlMinutes * MINUTE_MS);
+    const email = renderVerificationEmail({
+      fullName: registration.organizer.fullName,
+      organizationName: registration.organization.name,
+      code: otp,
+      codeTtlMinutes: otpTtlMinutes,
+      reopenLink: this.reopenLink(rawToken),
+      registrationExpiresAt: registration.expiresAt,
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.registrationsRepository.updateVerificationCode(
+        registration.id,
+        {
+          reopenTokenHash: tokenHash,
+          otpHash: hashOtp(this.otpSecret(), registration.id, otp),
+          otpExpiresAt,
+        },
+        counter,
+        tx,
+      );
+      await this.outbox.enqueueEmail(tx, {
+        aggregateType: 'Organization',
+        aggregateId: registration.organizationId,
+        organizationId: registration.organizationId,
+        email: {
+          to: registration.organizer.email,
+          subject: email.subject,
+          templateCode: email.templateCode,
+          body: email.html,
+        },
+      });
+    });
   }
 
   // ===========================================================================

@@ -222,6 +222,10 @@ export default function LoginPage() {
             <Link to="/register">Explore subscription plans →</Link>
           </div>
           <div>
+            <span>Registration not finished?</span>
+            <Link to="/resend-registration">Resend registration email →</Link>
+          </div>
+          <div>
             <span>Invited by your organization?</span>
             <Link to="/activate/demo-token">Activate your account →</Link>
           </div>
