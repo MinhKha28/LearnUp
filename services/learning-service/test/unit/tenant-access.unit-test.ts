@@ -78,7 +78,9 @@ void test('access unwraps data, accepts mixed-case UUIDs and sends exactly the t
         organizationStatus: 'Active',
         subscriptionStatus: 'Active',
         readOnlyEndsAt: null,
-        timezone: data.timezone,
+        timezone: new Intl.DateTimeFormat('en', {
+          timeZone: data.timezone,
+        }).resolvedOptions().timeZone,
       },
     );
   } finally {
@@ -286,3 +288,16 @@ for (const change of [
     };
     assert.throws(() => TenantAccessHttp.fromConfig((key) => config[key]));
   });
+
+void test('access canonicalizes mixed-case tenant timezone identifiers', async () => {
+  await withResponse(
+    { data: { ...data, timezone: 'Asia/TOKYO' } },
+    200,
+    async (client) => {
+      assert.equal(
+        (await client.getOrganizationAccess(user)).timezone,
+        'Asia/Tokyo',
+      );
+    },
+  );
+});

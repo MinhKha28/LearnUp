@@ -138,6 +138,8 @@ Chuyển Optional → Required được từ NotStarted, InProgress, Completed, 
 - Khoảng tạm dừng gồm: khoảng Exempted/Halted **đã đóng** (BR-151) và lần tạm khóa tổ chức **đã gỡ** (BR-57, BR-58, BR-59).
 - Mỗi khoảng chỉ tính phần sau `assigned_at`. Phần hợp tính bằng `range_agg(tstzrange(...))` nên khoảng chồng nhau chỉ tính một lần (đã thử).
 - Tính lại **từ đầu** khi: kéo dài hạn, đóng khoảng Exempted/Halted, nhận `OrganizationReinstated`, chuyển Optional → Required. Enrollment đã Completed hoặc Withdrawn không tính lại.
+- **Current organization timezone (UC24.1 / UC24.3):** Detail returns live `organizationTimezone` from Tenant access (null with a warning on failure); `dueTimezone` remains the zone used to set the stored deadline. A new extension uses the live zone, allows today or later in that zone, and must end strictly after the current deadline. There is no 365-day extension cap. Tenant HTTP zones are canonicalized with Intl; a zone rejected by PostgreSQL is a tenant contract violation (503 `SERVICE_UNAVAILABLE`). Lists do not call Tenant access. No database schema change.
+
 - **Kéo dài hạn:** hạn mới (cuối ngày theo múi giờ tổ chức hỏi REST lúc đó) trừ `due_at` hiện tại, cộng phần chênh vào `extension_seconds`. Lưu phần chênh để các lần tạm dừng sau vẫn cộng lên trên.
 
 **Overdue khi đọc:** Required, `status IN ('NotStarted','InProgress')`, `due_at <= now()`, và không có lần tạm khóa tổ chức nào đang mở bắt đầu trước `due_at` (BR-175). `completed_late` dùng cùng quy tắc lúc hoàn thành.

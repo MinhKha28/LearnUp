@@ -61,25 +61,16 @@ export const assignmentCalendarDay = (date: Date, timezone: string | null) => {
     parts.find((value) => value.type === type)!.value;
   return `${part("year")}-${part("month")}-${part("day")}`;
 };
-const addDays = (day: string, count: number) => {
-  const date = new Date(`${day}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + count);
-  return date.toISOString().slice(0, 10);
-};
 export const assignmentExtensionRange = (
   dueAt: string | null,
   timezone: string | null,
   now = new Date(),
 ) => {
   const today = assignmentCalendarDay(now, timezone);
+  // The end of this local date is strictly later than any instant on it,
+  // including midnight. The previous date ends at or before that instant.
   const afterCurrent = dueAt
-    ? addDays(
-        assignmentCalendarDay(
-          new Date(new Date(dueAt).getTime() - 1),
-          timezone,
-        ),
-        1,
-      )
+    ? assignmentCalendarDay(new Date(dueAt), timezone)
     : today;
   return {
     min: afterCurrent > today ? afterCurrent : today,
@@ -93,8 +84,7 @@ export const extensionDateError = (
 ) => {
   if (
     dueAt &&
-    day <=
-      assignmentCalendarDay(new Date(new Date(dueAt).getTime() - 1), timezone)
+    day < assignmentCalendarDay(new Date(dueAt), timezone)
   )
     return "DUE_DATE_NOT_LATER";
   const today = assignmentCalendarDay(now, timezone);

@@ -34,11 +34,15 @@ const AssignmentDetail = () => {
   const query = useApiQuery(
     (signal) => fetchAssignment(assignmentId, signal),
     [assignmentId],
+    true, // Keep the extension form mounted while refreshing date constraints.
   );
   const [updated, setUpdated] = useState<AssignmentDetailData | null>(null);
   const [listError, setListError] = useState<ApiError | null>(null);
   const [conflictError, setConflictError] = useState<ApiError | null>(null);
-  const item = updated?.enrollmentId === assignmentId ? updated : query.data;
+  const queryItem = query.data?.enrollmentId.toLowerCase() === assignmentId.toLowerCase()
+    ? query.data
+    : null;
+  const item = updated?.enrollmentId === assignmentId ? updated : queryItem;
   const refreshList = () => {
     setListError(null);
     void fetchAssignments(page).catch((cause) =>
@@ -61,6 +65,10 @@ const AssignmentDetail = () => {
                   setConflictError(null);
                   setUpdated(value);
                   refreshList();
+                }}
+                onReload={() => {
+                  setUpdated(null);
+                  query.reload();
                 }}
                 onConflict={(error) => {
                   setConflictError(error);
