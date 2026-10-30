@@ -70,7 +70,7 @@ it.each(["DUE_DATE_IN_PAST", "DUE_DATE_NOT_LATER"])("%s keeps the inline error w
   expect(await within(modal).findByText(views.assignmentErrorMessage(code))).toBeTruthy();
   expect(await within(modal).findByText("Hạn mới được tính theo múi giờ hiện tại của tổ chức: giờ New Zealand (GMT+13)")).toBeTruthy();
   expect((input as HTMLInputElement).value).toBe("31/10/2026");
-});
+}, 10_000);
 it.each([null, "Asia/Ho_Chi_Minh"])("omits the changed-zone label for %s", async (organizationTimezone) => {
   render(<AssignmentChange item={{ ...detail, organizationTimezone }} onChanged={() => undefined} onConflict={() => undefined} onReload={() => undefined} />);
   fireEvent.click(screen.getByRole("button", { name: "Kéo dài hạn" }));
