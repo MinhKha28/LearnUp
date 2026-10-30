@@ -100,6 +100,22 @@ class GatewayRoutesTest {
         assertThat(routes.get(0).getId()).isEqualTo("learning-service");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/audit/logs", "/api/v1/audit/logs/0199a000-0000-7000-8000-000000000001", "/api/audit/logs"})
+    @DisplayName("The audit trail is routed to audit-service, for reading only and with a JWT")
+    void routesAuditForReadingOnly(String path) {
+        List<RouteDefinition> routes = routesMatching(path);
+
+        assertThat(routes).as(path).hasSize(1);
+        RouteDefinition audit = routes.get(0);
+        assertThat(audit.getId()).isEqualTo("audit-service");
+        // entries are written by the services directly, never through the gateway
+        var methods = audit.getPredicates().stream().filter(predicate -> "Method".equals(predicate.getName())).toList();
+        assertThat(methods).as("a Method predicate").hasSize(1);
+        assertThat(methods.get(0).getArgs().values()).containsExactly("GET");
+        assertThat(jwtProperties.isWhitelisted(path)).as(path + " is not whitelisted").isFalse();
+    }
+
     private List<RouteDefinition> routesMatching(String path) {
         var exchange = MockServerWebExchange.from(MockServerHttpRequest.get(path));
         var pathFactory = new PathRoutePredicateFactory();
