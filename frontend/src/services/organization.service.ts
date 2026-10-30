@@ -11,6 +11,7 @@ import type {
   IPaymentResult,
   IPayRegistrationReq,
   IRegistrationSummary,
+  IReinvitationResult,
   ISeatUsage,
   ISubscriptionPlan,
   IUpdateAccountReq,
@@ -138,6 +139,16 @@ export const updateLearnerAPI = (learnerId: string, body: IUpdateAccountReq) =>
   axios.patch<IBackendRes<IUpdateAccountResult>>(
     `/api/v1/users/learners/${encodeURIComponent(learnerId)}`,
     body,
+  );
+
+export const resendInstructorInvitationAPI = (instructorId: string) =>
+  axios.post<IBackendRes<IReinvitationResult>>(
+    `/api/v1/users/instructors/${encodeURIComponent(instructorId)}/invitations`,
+  );
+
+export const resendLearnerInvitationAPI = (learnerId: string) =>
+  axios.post<IBackendRes<IReinvitationResult>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}/invitations`,
   );
 
 // UC04 - Xem lời mời trước khi đặt mật khẩu

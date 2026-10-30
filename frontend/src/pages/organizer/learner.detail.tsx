@@ -3,6 +3,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { statusLabel } from "@/components/organizer/account.table";
+import { ResendInvitationButton } from "@/components/organizer/resend.invitation.button";
 import {
   DetailItem,
   OrganizerButton,
@@ -125,9 +126,19 @@ const LearnerDetail = () => {
 
   // UC13.5 / 13.6 / 13.7 gắn thêm nút vào đây. UC13.3: sửa được ở mọi trạng thái (đơn vị công tác, BR-34)
   const headerActions: ReactNode = detail ? (
-    <Link to={`/organizer/learners/${detail.id}/edit`}>
-      <OrganizerButton type="primary">Edit</OrganizerButton>
-    </Link>
+    <>
+      {detail.status === "Pending" && (
+        <ResendInvitationButton
+          role="Learner"
+          accountId={detail.id}
+          email={detail.email}
+          onChanged={() => setReloadKey((key) => key + 1)}
+        />
+      )}
+      <Link to={`/organizer/learners/${detail.id}/edit`}>
+        <OrganizerButton type="primary">Edit</OrganizerButton>
+      </Link>
+    </>
   ) : null;
 
   const renderBody = () => {

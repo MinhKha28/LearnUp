@@ -44,6 +44,7 @@ import {
   InstructorInvitation,
 } from './interfaces/instructor-detail.interface';
 import { LearnerDetail } from './interfaces/learner-detail.interface';
+import { IReinvitationResult } from './interfaces/reinvitation-result.interface';
 import { SeatUsage } from './interfaces/seat-usage.interface';
 import { UpdateAccountResult } from './interfaces/update-account-result.interface';
 import { Prisma } from '../../../generated/prisma/client';
@@ -736,6 +737,120 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  // ===========================================================================
+  // UC12.7 - Mời lại Instructor / UC13.7 - Mời lại Learner
+  // ===========================================================================
+  resendInstructorInvitation(
+    user: CurrentUser,
+    instructorId: string,
+  ): Promise<IReinvitationResult> {
+    return this.resendInvitation(user, instructorId, UserRoleValue.Instructor);
+  }
+
+  resendLearnerInvitation(
+    user: CurrentUser,
+    learnerId: string,
+  ): Promise<IReinvitationResult> {
+    return this.resendInvitation(user, learnerId, UserRoleValue.Learner);
+  }
+
+  /**
+   * BR-29: chỉ tài khoản chưa kích hoạt (Pending). BR-30: liên kết mới, liên kết cũ mất hiệu lực.
+   * Không tạo tài khoản nên không kiểm số chỗ; ân hạn vẫn mời lại được, Suspended thì không.
+   * Thứ tự khóa: token trước, user sau, như InvitationsService.accept (UC04).
+   */
+  private async resendInvitation(
+    user: CurrentUser,
+    accountId: string,
+    role: SeatRole,
+  ): Promise<IReinvitationResult> {
+    const organizationId = this.organizationIdOf(user);
+    const settings = await this.settingsService.get();
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const { organization } = await this.assertCanManageAccounts(
+          tx,
+          organizationId,
+          {
+            action: 'mời lại',
+            subscriptionStatuses: UPDATE_SUBSCRIPTION_STATUSES,
+            lockOrganization: false,
+          },
+        );
+
+        const account = await tx.user.findFirst({
+          where: { id: accountId, organizationId, role, deletedAt: null },
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            status: true,
+            activatedAt: true,
+          },
+        });
+        if (!account) throw this.accountNotFound(role);
+        if (account.status !== UserStatus.Pending || account.activatedAt) {
+          throw this.accountNotPending();
+        }
+
+        const invitation = await this.accountTokens.issue(tx, {
+          organizationId,
+          userId: account.id,
+          purpose: TokenPurpose.Invitation,
+          ttlDays: settings.invitationLinkTtlDays,
+        });
+
+        const [locked] = await tx.$queryRaw<
+          Array<{ status: string; email: string; activated_at: Date | null }>
+        >`SELECT status, email, activated_at FROM users
+          WHERE id = ${account.id}::uuid AND deleted_at IS NULL FOR UPDATE`;
+        if (!locked) throw this.accountNotFound(role);
+        if (locked.status !== UserStatus.Pending || locked.activated_at) {
+          throw this.accountNotPending();
+        }
+        if (locked.email !== account.email) throw this.concurrentUpdate();
+
+        await this.enqueueInvitationEmail(tx, {
+          organizationId,
+          organizationName: organization.name,
+          userId: account.id,
+          to: account.email,
+          fullName: account.fullName,
+          role,
+          rawToken: invitation.rawToken,
+          expiresAt: invitation.expiresAt,
+        });
+
+        return {
+          id: account.id,
+          status: account.status,
+          invitationExpired: false as const,
+          invitation: {
+            sentAt: invitation.issuedAt,
+            expiresAt: invitation.expiresAt,
+          },
+        };
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        violatedUniqueIndex(error) === ONE_OPEN_LINK_UNIQUE_INDEX
+      ) {
+        throw this.concurrentUpdate();
+      }
+      throw error;
+    }
+  }
+
+  private accountNotPending(): ConflictException {
+    return new ConflictException({
+      code: 'ACCOUNT_NOT_PENDING',
+      message: 'Chỉ mời lại được tài khoản chưa kích hoạt.',
+    });
   }
 
   /** updateMany = 0 dòng: đọc lại để phân biệt 404 / đã kích hoạt / request khác vừa sửa. */
