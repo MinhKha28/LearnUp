@@ -14,9 +14,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Prisma } from 'generated/prisma/client';
-import {
-  EnrollmentClient,
-} from '../../infrastructure/clients/learning/enrollment.client';
+import { EnrollmentClient } from '../../infrastructure/clients/learning/enrollment.client';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
 import {
   fileTooLarge,
@@ -208,7 +206,9 @@ export class LearnerSubmissionsService {
 
   private async resultOf(
     organizationId: string,
-    assignment: Awaited<ReturnType<LearnerSubmissionsService['loadAssignment']>>,
+    assignment: Awaited<
+      ReturnType<LearnerSubmissionsService['loadAssignment']>
+    >,
     learnerId: string,
     submissionId: string,
   ): Promise<IGradingResult> {
@@ -232,7 +232,8 @@ export class LearnerSubmissionsService {
     ) {
       throw new ConflictException({
         code: 'SUBMISSION_NOT_FINALIZED',
-        message: 'The result is not available yet. The submission is still being graded.',
+        message:
+          'The result is not available yet. The submission is still being graded.',
       });
     }
     const finalScore = Number(submission.finalScore.toString());

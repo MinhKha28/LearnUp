@@ -11,6 +11,10 @@ spring:
   flyway:
     enabled: false
 
+security:
+  # a synthetic key for the isolated tests, not a deployment secret
+  internal-key: audit-test-only-key-0123456789abcdef0123
+
 eureka:
   client:
     enabled: false

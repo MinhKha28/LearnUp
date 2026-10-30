@@ -8,10 +8,10 @@ services:
     container_name: learnup-postgres
     environment:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set a private database password}
       POSTGRES_DB: identity_db
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
@@ -31,8 +31,8 @@ services:
     image: confluentinc/cp-kafka:7.6.0
     container_name: learnup-kafka
     ports:
-      - "9092:9092"
-      - "29092:29092"
+      - "127.0.0.1:9092:9092"
+      - "127.0.0.1:29092:29092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "broker,controller"
@@ -69,7 +69,7 @@ services:
       dockerfile: Dockerfile
     container_name: learnup-eureka
     ports:
-      - "8761:8761"
+      - "127.0.0.1:8761:8761"
     environment:
       SPRING_PROFILES_ACTIVE: docker
     networks:
@@ -94,7 +94,7 @@ services:
       dockerfile: gateway/api-gateway/Dockerfile
     container_name: learnup-gateway
     ports:
-      - "${GATEWAY_HOST_PORT:-8088}:8080"
+      - "127.0.0.1:${GATEWAY_HOST_PORT:-8088}:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
@@ -177,7 +177,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Set a private database password}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-localhost}
       SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
@@ -209,13 +209,14 @@ services:
       dockerfile: services/audit-service/Dockerfile
     container_name: learnup-audit-service
     ports:
-      - "8093:8083"
+      - "127.0.0.1:8093:8083"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/audit_db
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Set a private database password}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
     depends_on:
       postgres:
         condition: service_healthy
@@ -242,10 +243,10 @@ services:
       dockerfile: services/tenant-service/Dockerfile
     container_name: learnup-tenant-service
     ports:
-      - "8084:8084"
+      - "127.0.0.1:8084:8084"
     environment:
       PORT: 8084
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/tenant_db?schema=public
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:?Set a private database password}@postgres:5432/tenant_db?schema=public
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       FRONTEND_URL: http://localhost:3000
       IDENTITY_SERVICE_URL: http://identity-service:8081
@@ -274,11 +275,11 @@ services:
       dockerfile: services/course-service/Dockerfile
     container_name: learnup-course-service
     ports:
-      - "8089:8083"
+      - "127.0.0.1:8089:8083"
     environment:
       PORT: 8083
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/course_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:?Set a private database password}@postgres:5432/course_db?schema=public
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       TENANT_SERVICE_URL: http://tenant-service:8084
       LEARNING_SERVICE_URL: http://learning-service:8085
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
@@ -299,12 +300,12 @@ services:
       dockerfile: services/learning-service/Dockerfile
     container_name: learnup-learning-service
     ports:
-      - "8085:8085"
+      - "127.0.0.1:8085:8085"
     environment:
       PORT: 8085
       VIDEO_PLAYBACK_MODE: course
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/learning_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:?Set a private database password}@postgres:5432/learning_db?schema=public
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       COURSE_SERVICE_URL: http://course-service:8083
       COURSE_SERVICE_TIMEOUT_MS: 3000
       TENANT_SERVICE_URL: http://tenant-service:8084
@@ -345,7 +346,7 @@ services:
       - "127.0.0.1:8086:8086"
     environment:
       PORT: 8086
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/assessment_db?schema=public
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:?Set a private database password}@postgres:5432/assessment_db?schema=public
       # The service trusts the identity of whoever sends this key, so it is a secret and has no default.
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       COURSE_SERVICE_URL: http://course-service:8083
@@ -374,7 +375,7 @@ services:
       dockerfile: services/achievement-reporting-service/Dockerfile
     container_name: learnup-achievement-reporting-service
     ports:
-      - "8087:8087"
+      - "127.0.0.1:8087:8087"
     environment:
       PORT: 8087
       CERTIFICATE_CONSUMER_ENABLED: ${CERTIFICATE_CONSUMER_ENABLED:-false}
@@ -424,7 +425,7 @@ services:
         VITE_ASSESSMENT_BACKEND_URL: http://localhost:${GATEWAY_HOST_PORT:-8088}
     container_name: learnup-web
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - api-gateway
     networks:

@@ -58,3 +58,23 @@ The **Audit Service** is a cross-cutting supporting platform capability that cap
 * `POST /api/audit/logs` — Record a new immutable audit entry.
 * `GET /api/audit/logs` — Query paginated audit trails with filtering by `organizationId`, `targetResourceType`, `targetResourceId`, `actorUserId`, and date range.
 * `GET /api/audit/logs/{id}` — Fetch full detail of a specific audit event.
+
+---
+
+## 6. Access control
+
+The trail is append-only and holds who did what in every Organization, so access is checked by the service itself (`AuditServiceAuthenticationFilter`), not only by the gateway.
+
+| Who | `POST /api/v1/audit/logs` | `GET /api/v1/audit/logs`, `GET /api/v1/audit/logs/{id}` |
+| --- | --- | --- |
+| No `x-internal-key`, or a wrong one | 401 | 401 |
+| A service (the internal key, no user context) | 201 | 403 |
+| Admin (gateway headers) | 403 | All entries, any `organizationId` filter |
+| Organizer (gateway headers, with `X-Organization-ID`) | 403 | Only the own Organization; another `organizationId` is 403; an entry of another Organization or a platform entry is 404 |
+| Instructor, Learner, any other or missing role | 403 | 403 |
+
+(UC50 and UC51: an Organizer reads the own Organization, an Admin reads the platform and the actions on Organizations, Instructors and Learners read nothing.)
+
+* The gateway routes only `GET` to this service; the services write entries to it directly (internal key, no user headers).
+* `INTERNAL_SERVICE_KEY` is required (at least 32 bytes, not `learnup-internal-secret`); the service does not start without it. It is the same key as in the other services.
+* Every path except `/actuator/health` goes through the filter.
