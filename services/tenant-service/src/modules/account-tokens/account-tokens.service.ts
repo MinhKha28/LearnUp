@@ -30,7 +30,7 @@ export class AccountTokensService {
       purpose: TokenPurposeValue;
       ttlDays: number;
     },
-  ): Promise<{ rawToken: string; expiresAt: Date }> {
+  ): Promise<{ rawToken: string; issuedAt: Date; expiresAt: Date }> {
     const now = new Date();
     await this.revokeOpen(tx, params, now);
 
@@ -46,7 +46,7 @@ export class AccountTokensService {
       },
       tx,
     );
-    return { rawToken, expiresAt };
+    return { rawToken, issuedAt: now, expiresAt };
   }
 
   /** Thu hồi liên kết đang mở (chưa dùng, chưa thu hồi) mà không phát liên kết mới (UC12.3, BR-35). */

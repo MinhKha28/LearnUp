@@ -71,6 +71,7 @@ const createService = ({ locks = [true], identity } = {}) => {
     },
     createOrganizer: async () => log.push(['createOrganizer']),
     createRegistration: async () => log.push(['createRegistration']),
+    updateReopenToken: async () => log.push(['updateReopenToken']),
   };
   const prisma = {
     $transaction: async (fn, options) => {
@@ -99,7 +100,7 @@ const createService = ({ locks = [true], identity } = {}) => {
     repository,
     config,
     { get: async () => settings },
-    { enqueueEmail: async () => log.push(['enqueueEmail']) },
+    { enqueueEmail: async (_tx, params) => log.push(['enqueueEmail', params]) },
     identityClient,
     {},
   );
@@ -131,6 +132,41 @@ test('takes the email lock before reading the email, then registers inside it', 
   const lockTx = transactions[0];
   assert.equal(lockTx.maxWait, REGISTRATION_LOCK_EXTRA_WAIT_MS);
   assert.ok(lockTx.timeout > 50 + REGISTRATION_LOCK_EXTRA_WAIT_MS + 50);
+});
+
+test('the verification email expires together with its OTP (BR-13)', async () => {
+  const { service, log } = createService();
+  const before = Date.now();
+  await service.create(dto);
+  const after = Date.now();
+  const { email: message } = log.find(
+    (entry) => entry[0] === 'enqueueEmail',
+  )[1];
+  const ttl = settings.emailOtpTtlMinutes * 60_000;
+  const expiresAt = Date.parse(message.expiresAt);
+  assert.equal(message.templateCode, 'REGISTRATION_VERIFICATION_CODE');
+  assert.equal(new Date(expiresAt).toISOString(), message.expiresAt);
+  assert.ok(expiresAt >= before + ttl && expiresAt <= after + ttl);
+});
+
+test('the reopen-link email expires with the registration', async () => {
+  const { service, log } = createService();
+  const registrationExpiresAt = new Date('2026-11-05T00:00:00.000Z');
+  await service.resendReopenLink(
+    {
+      id: 'r1',
+      organizationId: 'o1',
+      expiresAt: registrationExpiresAt,
+      organization: { name: 'Lock Test' },
+      organizer: { email, fullName: 'Lock Owner' },
+    },
+    { resendCount: 1, resendWindowStartedAt: new Date() },
+  );
+  const { email: message } = log.find(
+    (entry) => entry[0] === 'enqueueEmail',
+  )[1];
+  assert.equal(message.templateCode, 'REGISTRATION_REOPEN_LINK');
+  assert.equal(message.expiresAt, registrationExpiresAt.toISOString());
 });
 
 test('waits while another registration holds the same email lock', async () => {
