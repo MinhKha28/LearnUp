@@ -32,12 +32,28 @@ effects by enrollmentId (one completion per enrollment). Conversion of an alread
 Completed Optional enrollment never emits a second EnrollmentCompleted.
 scoreSnapshot is the validated versioned assessment completion response, including
 required Quiz attempts/scores, finalized Assignment submissions/scores, and peer
-review obligations. Scores are decimal strings; schemaVersion is 1. Learning retains
+review obligations. Scores and passing scores are strings from 0 to 100 inclusive,
+with at most two decimal places, no sign, and no leading or trailing decimal point
+(BR-202). Recorded and final scores may be null; passing scores are required.
+schemaVersion is 1. Learning retains
 the identical object in enrollments.completion_snapshot (BR-269). Fields include
 snapshotId, asOf, revision, organizationId, learnerId, courseId, eligible,
 requiredComponentCount, quizzes and assignments. Disabled assessments are excluded.
 `scoreSnapshot` is an object, never an array. Achievement stores the exact
 versioned object; it does not fetch current assessment scores when issuing.
+Peer-review status accepts `Waived` alongside `NotApplicable`, `Pending`, `Satisfied`
+and `Missed`. A waiver may retain partially completed review counts. Learning computes
+completion from score facts, finalization and satisfied peer duty (`Waived`,
+`NotApplicable`, `Satisfied`). The original assessment `eligible` and item `passed`
+flags remain unchanged in both snapshots, even when they differ from Learning's
+decision; Achievement validates structure and trusts `EnrollmentCompleted` for
+issuance without re-judging these flags. In a stored certificate,
+`scoreSnapshot.eligible` and item `passed` remain Assessment's own figures for
+traceability; Learning's recomputation decides whether to complete the enrollment.
+
+A course whose only required components are materials completes and is eligible
+for a certificate when all required materials are done (BR-260, BR-196). A course
+with no required component never completes.
 
 Achievement commits a Pending Certificate and its `processed_completion_events`
 receipt atomically before committing Kafka offset + 1. Duplicate event IDs and

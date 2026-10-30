@@ -1,3 +1,11 @@
+import { Logger } from '@nestjs/common';
+import { mock } from 'node:test';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
+import {
+  createCompletionClient,
+  type CompletionSnapshot,
+} from '../../src/infrastructure/clients/assessment/assessment-completion.client';
 import { AssignmentChangesRepository } from '../../src/modules/assignments/assignment-changes.repository';
 import { BaseDueAtRepository } from '../../src/modules/enrollments/base-due-at.repository';
 import { validateExtension } from '../../src/modules/assignments/assignment-change-rules';
@@ -760,4 +768,427 @@ void test('Optional completion preserves NULL deadline and timezone', async () =
     select: { dueAt: true, dueTimezone: true },
   });
   assert.deepEqual(stored, { dueAt: null, dueTimezone: null });
+});
+
+const assignmentSnapshot = (
+  s: CompletionSnapshot,
+  status: CompletionSnapshot['assignments'][number]['peerReview']['status'] = 'Waived',
+) => {
+  s.quizzes = [];
+  s.assignments = [
+    {
+      assessmentId: randomUUID(),
+      submissionId: randomUUID(),
+      finalScore: '90',
+      passingScore: '80',
+      finalizedAt: s.asOf,
+      passed: true,
+      peerReview: {
+        status,
+        requiredCount: status === 'NotApplicable' ? 0 : 3,
+        completedCount:
+          status === 'Satisfied' ? 3 : status === 'NotApplicable' ? 0 : 1,
+      },
+    },
+  ];
+};
+for (const [name, change, completed, mismatch, itemMismatch] of [
+  [
+    'Waived partly reviewed',
+    (s: CompletionSnapshot) => assignmentSnapshot(s),
+    true,
+    false,
+    false,
+  ],
+  [
+    'eligible=false with passing facts',
+    (s: CompletionSnapshot) => {
+      s.eligible = false;
+    },
+    true,
+    true,
+    false,
+  ],
+  [
+    'eligible=true with low quiz score',
+    (s: CompletionSnapshot) => {
+      s.quizzes[0].recordedScore = '20';
+    },
+    false,
+    true,
+    true,
+  ],
+  [
+    'quiz passed=false with passing facts',
+    (s: CompletionSnapshot) => {
+      s.quizzes[0].passed = false;
+    },
+    true,
+    true,
+    true,
+  ],
+  [
+    'null quiz score with passed=true',
+    (s: CompletionSnapshot) => {
+      s.quizzes[0].recordedScore = null;
+    },
+    false,
+    true,
+    true,
+  ],
+  [
+    'assignment passed=false with passing facts',
+    (s: CompletionSnapshot) => {
+      assignmentSnapshot(s);
+      s.assignments[0].passed = false;
+    },
+    true,
+    true,
+    true,
+  ],
+  [
+    'null assignment score with passed=true',
+    (s: CompletionSnapshot) => {
+      assignmentSnapshot(s);
+      s.assignments[0].finalScore = null;
+    },
+    false,
+    true,
+    true,
+  ],
+  [
+    'unfinalized assignment',
+    (s: CompletionSnapshot) => {
+      assignmentSnapshot(s);
+      s.assignments[0].finalizedAt = null;
+    },
+    false,
+    true,
+    true,
+  ],
+  [
+    'missing quiz attempt',
+    (s: CompletionSnapshot) => {
+      s.quizzes[0].attemptId = null;
+    },
+    false,
+    true,
+    true,
+  ],
+  [
+    'missing assignment submission',
+    (s: CompletionSnapshot) => {
+      assignmentSnapshot(s);
+      s.assignments[0].submissionId = null;
+    },
+    false,
+    true,
+    true,
+  ],
+  [
+    'Waived with low assignment score',
+    (s: CompletionSnapshot) => {
+      assignmentSnapshot(s);
+      s.assignments[0].finalScore = '20';
+    },
+    false,
+    true,
+    true,
+  ],
+  [
+    'Pending peer duty',
+    (s: CompletionSnapshot) => assignmentSnapshot(s, 'Pending'),
+    false,
+    true,
+    true,
+  ],
+  [
+    'Missed peer duty',
+    (s: CompletionSnapshot) => assignmentSnapshot(s, 'Missed'),
+    false,
+    true,
+    true,
+  ],
+  [
+    'Satisfied peer duty',
+    (s: CompletionSnapshot) => assignmentSnapshot(s, 'Satisfied'),
+    true,
+    false,
+    false,
+  ],
+  [
+    'NotApplicable peer duty',
+    (s: CompletionSnapshot) => assignmentSnapshot(s, 'NotApplicable'),
+    true,
+    false,
+    false,
+  ],
+] as const)
+  void test(`L22 completion follows facts: ${name}`, async () => {
+    const f = await fixture();
+    const s: CompletionSnapshot = { ...f.snapshot, schemaVersion: 1 };
+    change(s);
+    const original = structuredClone(s);
+    fake.fixtures.set(f.key, { value: s });
+    const warnings = mock.method(Logger.prototype, 'warn', () => undefined);
+    const errors = mock.method(Logger.prototype, 'error', () => undefined);
+    try {
+      await service.evaluate(await take(f.id));
+      const saved = await state(f.id);
+      assert.equal(saved.status, completed ? 'Completed' : 'NotStarted');
+      assert.equal(await eventCount(f.id), completed ? 1 : 0);
+      assert.equal(errors.mock.callCount(), 0);
+      assert.equal(warnings.mock.callCount(), mismatch ? 1 : 0);
+      if (mismatch) {
+        const item = s.quizzes[0] ?? s.assignments[0];
+        assert.deepEqual(warnings.mock.calls[0].arguments[0], {
+          code: 'COMPLETION_SNAPSHOT_MISMATCH',
+          organizationId: org,
+          learnerId: f.learner,
+          courseId: f.course,
+          revision: s.revision,
+          assessmentEligible: s.eligible,
+          learningEligible: completed,
+          items: itemMismatch
+            ? [
+                {
+                  assessmentId: item.assessmentId,
+                  assessment: item.passed,
+                  learning: completed,
+                },
+              ]
+            : [],
+        });
+      }
+      assert.deepEqual(s, original);
+      if (completed) {
+        assert.deepEqual(saved.completion_snapshot, original);
+        const [event] = await prisma.$queryRaw<
+          { payload: { scoreSnapshot: unknown } }[]
+        >`SELECT payload FROM outbox_events WHERE aggregate_id=${f.id}::uuid AND event_type='EnrollmentCompleted'`;
+        assert.deepEqual(event.payload.scoreSnapshot, original);
+      } else assert.equal(saved.completion_snapshot, null);
+    } finally {
+      warnings.mock.restore();
+      errors.mock.restore();
+    }
+  });
+
+for (const [name, change] of [
+  [
+    'unknown peer status',
+    (s: CompletionSnapshot) => {
+      assignmentSnapshot(s);
+      (s.assignments[0].peerReview as { status: string }).status = 'Exempted';
+    },
+  ],
+  [
+    'count mismatch',
+    (s: CompletionSnapshot) => {
+      s.requiredComponentCount = 2;
+    },
+  ],
+  [
+    'duplicate id',
+    (s: CompletionSnapshot) => {
+      s.quizzes.push({ ...s.quizzes[0] });
+      s.requiredComponentCount = 2;
+    },
+  ],
+  [
+    'excess completed count',
+    (s: CompletionSnapshot) => {
+      assignmentSnapshot(s);
+      s.assignments[0].peerReview.completedCount = 4;
+    },
+  ],
+  [
+    'wrong learnerId',
+    (s: CompletionSnapshot) => {
+      s.learnerId = randomUUID();
+    },
+  ],
+  [
+    'wrong courseId',
+    (s: CompletionSnapshot) => {
+      s.courseId = randomUUID();
+    },
+  ],
+  [
+    'wrong organizationId',
+    (s: CompletionSnapshot) => {
+      s.organizationId = randomUUID();
+    },
+  ],
+  [
+    'negative count',
+    (s: CompletionSnapshot) => {
+      s.requiredComponentCount = -1;
+    },
+  ],
+  [
+    'unsafe count',
+    (s: CompletionSnapshot) => {
+      s.requiredComponentCount = Number.MAX_SAFE_INTEGER + 1;
+    },
+  ],
+  [
+    'NotApplicable counts',
+    (s: CompletionSnapshot) => {
+      assignmentSnapshot(s, 'NotApplicable');
+      s.assignments[0].peerReview.requiredCount = 1;
+    },
+  ],
+  [
+    'Satisfied counts',
+    (s: CompletionSnapshot) => {
+      assignmentSnapshot(s, 'Satisfied');
+      s.assignments[0].peerReview.completedCount = 1;
+    },
+  ],
+  [
+    'NaN decimal',
+    (s: CompletionSnapshot) => {
+      s.quizzes[0].recordedScore = 'NaN';
+    },
+  ],
+  [
+    'nondecimal',
+    (s: CompletionSnapshot) => {
+      s.quizzes[0].passingScore = '0x10';
+    },
+  ],
+  [
+    'excess decimal precision',
+    (s: CompletionSnapshot) => {
+      s.quizzes[0].recordedScore = '90.001';
+      s.quizzes[0].passingScore = '90.0001';
+    },
+  ],
+  [
+    'out-of-range score',
+    (s: CompletionSnapshot) => {
+      s.quizzes[0].recordedScore = '100.01';
+    },
+  ],
+  [
+    'infinite decimal',
+    (s: CompletionSnapshot) => {
+      s.quizzes[0].passingScore = '9'.repeat(400);
+    },
+  ],
+] as const)
+  void test(`L22 structural failure retries: ${name}`, async () => {
+    const f = await fixture();
+    const s: CompletionSnapshot = { ...f.snapshot, schemaVersion: 1 };
+    change(s);
+    fake.fixtures.set(f.key, { value: s });
+    const errors = mock.method(Logger.prototype, 'error', () => undefined);
+    try {
+      await service.evaluate(await take(f.id));
+      assert.equal((await state(f.id)).status, 'NotStarted');
+      const [r] = await prisma.$queryRaw<
+        { attempts: bigint; last_error: string }[]
+      >`SELECT attempts,last_error FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
+      assert.equal(r.attempts, 1n);
+      assert.equal(r.last_error, 'INVALID_SNAPSHOT');
+      assert.deepEqual(errors.mock.calls[0].arguments[0], {
+        code: 'INVALID_SNAPSHOT',
+        httpStatus: null,
+        permanent: true,
+      });
+    } finally {
+      errors.mock.restore();
+    }
+  });
+
+for (const httpStatus of [404, 503])
+  void test(`L22 HTTP ${httpStatus} retries repeatedly then recovers`, async () => {
+    const f = await fixture();
+    let status = httpStatus;
+    const server = createServer((_req, res) => {
+      res.writeHead(status, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ data: f.snapshot }));
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const errors = mock.method(Logger.prototype, 'error', () => undefined);
+    try {
+      const address = server.address() as AddressInfo;
+      const client = createCompletionClient(
+        (k) =>
+          ({
+            ASSESSMENT_SERVICE_URL: `http://127.0.0.1:${address.port}`,
+            INTERNAL_SERVICE_KEY: 'synthetic-l22-key',
+          })[k],
+      );
+      const evaluator = new CompletionService(repo, client);
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        if (attempt > 1) await f.enqueue();
+        await evaluator.evaluate(await take(f.id));
+        const [r] = await prisma.$queryRaw<
+          { attempts: bigint; last_error: string }[]
+        >`SELECT attempts,last_error FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
+        assert.equal(r.attempts, BigInt(attempt));
+        assert.equal(r.last_error, 'ASSESSMENT_UNAVAILABLE');
+        assert.equal((await state(f.id)).status, 'NotStarted');
+      }
+      assert.equal(errors.mock.callCount(), 2);
+      assert.deepEqual(errors.mock.calls[0].arguments[0], {
+        code: 'ASSESSMENT_UNAVAILABLE',
+        httpStatus,
+        permanent: httpStatus === 404,
+      });
+      status = 200;
+      await f.enqueue();
+      await evaluator.evaluate(await take(f.id));
+      assert.equal((await state(f.id)).status, 'Completed');
+      assert.equal(await eventCount(f.id), 1);
+    } finally {
+      errors.mock.restore();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+void test('L22 multiple flag differences produce one warning and preserve all original flags', async () => {
+  const f = await fixture();
+  const s: CompletionSnapshot = {
+    ...f.snapshot,
+    schemaVersion: 1,
+    eligible: false,
+    quizzes: [
+      { ...f.snapshot.quizzes[0], passed: false },
+      { ...f.snapshot.quizzes[0], assessmentId: randomUUID(), passed: false },
+    ],
+    requiredComponentCount: 2,
+  };
+  fake.fixtures.set(f.key, { value: s });
+  const original = structuredClone(s);
+  const warnings = mock.method(Logger.prototype, 'warn', () => undefined);
+  try {
+    await service.evaluate(await take(f.id));
+    assert.equal((await state(f.id)).status, 'Completed');
+    assert.equal(warnings.mock.callCount(), 1);
+    assert.deepEqual(warnings.mock.calls[0].arguments[0], {
+      code: 'COMPLETION_SNAPSHOT_MISMATCH',
+      organizationId: org,
+      learnerId: f.learner,
+      courseId: f.course,
+      revision: s.revision,
+      assessmentEligible: false,
+      learningEligible: true,
+      items: s.quizzes.map((q) => ({
+        assessmentId: q.assessmentId,
+        assessment: false,
+        learning: true,
+      })),
+    });
+    assert.deepEqual((await state(f.id)).completion_snapshot, original);
+    const [e] = await prisma.$queryRaw<
+      { payload: { scoreSnapshot: unknown } }[]
+    >`SELECT payload FROM outbox_events WHERE aggregate_id=${f.id}::uuid AND event_type='EnrollmentCompleted'`;
+    assert.deepEqual(e.payload.scoreSnapshot, original);
+  } finally {
+    warnings.mock.restore();
+  }
 });
