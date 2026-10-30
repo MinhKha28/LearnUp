@@ -74,6 +74,12 @@ export const payRegistrationAPI = (body: IPayRegistrationReq) =>
   );
 
 // UC03 - Xác thực email bằng mã 6 số trong email thứ nhất (trước khi thanh toán)
+export const resendRegistrationEmailAPI = (email: string) =>
+  axios.post<IBackendRes<ICreateRegistrationRes>>(
+    "/api/v1/registrations/resend",
+    { email },
+  );
+
 export const verifyEmailOtpAPI = (body: IVerifyEmailOtpReq) =>
   axios.post<IBackendRes<IVerifyEmailOtpRes>>(
     "/api/v1/registrations/verify-email",
