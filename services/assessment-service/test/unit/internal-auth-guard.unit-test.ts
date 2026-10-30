@@ -117,3 +117,33 @@ describe('InternalAuthGuard', () => {
     assert.equal(run('public', {}).result, true);
   });
 });
+
+describe('InternalAuthGuard of a service started without a key', () => {
+  const U = { 'x-user-id': USER, 'x-user-role': 'LEARNER' };
+  const call = (configured: string, headers: Record<string, string>) =>
+    new InternalAuthGuard(
+      { getAllAndOverride: () => false } as unknown as Reflector,
+      { getOrThrow: () => configured } as unknown as ConfigService,
+    ).canActivate({
+      getHandler: () => undefined,
+      getClass: () => undefined,
+      switchToHttp: () => ({ getRequest: () => ({ headers }) }),
+    } as never);
+
+  for (const configured of ['', '   ']) {
+    test(`a blank key (${JSON.stringify(configured)}) accepts nothing, not even an empty key header`, () => {
+      assert.throws(
+        () => call(configured, { 'x-internal-key': configured, ...org, ...U }),
+        UnauthorizedException,
+      );
+      assert.throws(
+        () => call(configured, { 'x-internal-key': '', ...org, ...U }),
+        UnauthorizedException,
+      );
+      assert.throws(
+        () => call(configured, { ...org, ...U }),
+        UnauthorizedException,
+      );
+    });
+  }
+});

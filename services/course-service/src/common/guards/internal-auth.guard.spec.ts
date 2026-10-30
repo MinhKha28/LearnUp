@@ -94,3 +94,47 @@ describe('ServiceCall authentication', () => {
     ).toBe(true);
   });
 });
+
+describe('a service started without a key', () => {
+  const org = '0199a000-0000-7000-8000-0a0000000001';
+  const user = {
+    'x-organization-id': org,
+    'x-user-id': org,
+    'x-user-role': 'LEARNER',
+  };
+  function invokeWith(
+    configured: string,
+    headers: Record<string, unknown>,
+    serviceCall: boolean,
+  ) {
+    const guard = new InternalAuthGuard(
+      new Reflector(),
+      new ConfigService({ INTERNAL_SERVICE_KEY: configured }),
+    );
+    const handler = () => undefined;
+    Reflect.defineMetadata(IS_SERVICE_CALL_KEY, serviceCall, handler);
+    const context = {
+      getHandler: () => handler,
+      getClass: () => class TestController {},
+      switchToHttp: () => ({ getRequest: () => ({ headers }) }),
+    } as unknown as ExecutionContext;
+    return guard.canActivate(context);
+  }
+
+  it.each(['', '   '])(
+    'a blank key %j accepts no request, user-context or service call, even with an empty key header',
+    (configured) => {
+      for (const serviceCall of [false, true]) {
+        for (const header of [undefined, '', configured]) {
+          expect(() =>
+            invokeWith(
+              configured,
+              { 'x-internal-key': header, ...user },
+              serviceCall,
+            ),
+          ).toThrow(expect.objectContaining({ status: 401 }));
+        }
+      }
+    },
+  );
+});

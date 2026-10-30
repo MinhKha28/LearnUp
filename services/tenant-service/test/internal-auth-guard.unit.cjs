@@ -37,3 +37,17 @@ for (const [name, value] of [
     );
   });
 }
+
+for (const configured of ['', '   ']) {
+  test(`a service started with a blank key (${JSON.stringify(configured)}) accepts nothing, not even an empty key header`, () => {
+    const blank = new InternalAuthGuard(serviceCallReflector, {
+      getOrThrow: () => configured,
+    });
+    for (const header of [undefined, '', configured]) {
+      assert.throws(
+        () => blank.canActivate(contextWith({ 'x-internal-key': header })),
+        UnauthorizedException,
+      );
+    }
+  });
+}

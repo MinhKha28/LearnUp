@@ -38,8 +38,10 @@ export class InternalAuthGuard implements CanActivate {
       'INTERNAL_SERVICE_KEY',
     );
 
+    // Fail closed: a service that was started without a key must not accept a request whose key header is empty too.
     if (
       typeof internalKey !== 'string' ||
+      !expectedInternalKey.trim() ||
       internalKey !== expectedInternalKey
     ) {
       throw new UnauthorizedException(
