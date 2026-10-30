@@ -71,8 +71,9 @@ public class IdentityExceptionHandler extends GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(ApiResponse.error("VALIDATION_ERROR", "Constraint validation failed"));
     }
 
+    @Override
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse<Void>> handleUnreadableRequest(HttpMessageNotReadableException ex) {
+    public ResponseEntity<ApiResponse<Void>> handleNotReadable(HttpMessageNotReadableException ex) {
         log.warn("event=request_rejected reason=UNREADABLE_REQUEST correlation_id={}", AuthenticationDiagnostics.correlationId());
         return ResponseEntity.badRequest().body(ApiResponse.error("BAD_REQUEST", "Request body is missing or invalid"));
     }
