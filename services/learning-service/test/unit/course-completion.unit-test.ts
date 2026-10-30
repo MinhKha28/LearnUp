@@ -12,6 +12,7 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import {
+  CompletionClientError,
   validateCompletionSnapshot,
   createCompletionClient,
   FakeAssessmentCompletionClient,
@@ -77,11 +78,10 @@ for (const field of [
     );
   });
 }
-test('completion rejects mismatched tenant and inconsistent eligibility/count/score', () => {
+void test('completion rejects mismatched tenant and invalid count/score', () => {
   const s = snapshot();
   for (const v of [
     { ...s, organizationId: randomUUID() },
-    { ...s, eligible: false },
     { ...s, requiredComponentCount: 0 },
     { ...s, quizzes: [{ ...s.quizzes[0], recordedScore: 'NaN' }] },
   ])
@@ -282,6 +282,190 @@ for (const nested of [false, true])
         false,
       );
     } finally {
+      log.mock.restore();
+    }
+  });
+
+for (const kind of [
+  'Waived',
+  'eligible mismatch',
+  'passed mismatch',
+  'null score',
+])
+  void test(`L22 accepts ${kind} without modifying the snapshot`, () => {
+    const s = snapshot();
+    const value =
+      kind === 'Waived'
+        ? {
+            ...s,
+            quizzes: [],
+            assignments: [
+              {
+                assessmentId: randomUUID(),
+                submissionId: randomUUID(),
+                finalScore: '90',
+                passingScore: '80',
+                finalizedAt: s.asOf,
+                passed: true,
+                peerReview: {
+                  status: 'Waived',
+                  requiredCount: 3,
+                  completedCount: 1,
+                },
+              },
+            ],
+          }
+        : {
+            ...s,
+            eligible: kind === 'eligible mismatch' ? false : true,
+            quizzes: [
+              {
+                ...s.quizzes[0],
+                passed: kind === 'passed mismatch' ? false : true,
+                recordedScore: kind === 'null score' ? null : '90.00',
+              },
+            ],
+          };
+    const before = structuredClone(value);
+    assert.equal(
+      validateCompletionSnapshot(
+        value,
+        s.organizationId,
+        s.learnerId,
+        s.courseId,
+      ),
+      value,
+    );
+    assert.deepEqual(value, before);
+  });
+
+for (const status of [400, 401, 403, 404, 422, 503])
+  void test(`L22 HTTP ${status} retains status, logs permanence and retries`, async () => {
+    const s = snapshot();
+    const server = createServer((_req, res) => {
+      res.writeHead(status);
+      res.end('synthetic private response');
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const log = mock.method(Logger.prototype, 'error', () => undefined);
+    const retries: string[] = [];
+    try {
+      const client = createCompletionClient(
+        (k) =>
+          ({
+            ASSESSMENT_SERVICE_URL: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+            INTERNAL_SERVICE_KEY: 'synthetic-completion-test-key',
+          })[k],
+      );
+      await assert.rejects(
+        client.getCompletionSnapshot(s.organizationId, s.learnerId, s.courseId),
+        (e: unknown) =>
+          e instanceof CompletionClientError &&
+          e.httpStatus === status &&
+          e.code === 'ASSESSMENT_UNAVAILABLE',
+      );
+      const repository = {
+        enrollment: () =>
+          Promise.resolve({
+            status: 'NotStarted',
+            disabled_at: null,
+            learner_id: s.learnerId,
+            course_id: s.courseId,
+          }),
+        materials: () => Promise.resolve({ ready: true, required: 0 }),
+        retry: (_r: unknown, code: string) => {
+          retries.push(code);
+          return Promise.resolve(1);
+        },
+      } as unknown as CompletionRepository;
+      await new CompletionService(repository, client).evaluate({
+        organization_id: s.organizationId,
+        enrollment_id: randomUUID(),
+        generation: 0n,
+      } as CompletionRequest);
+      assert.deepEqual(retries, ['ASSESSMENT_UNAVAILABLE']);
+      assert.deepEqual(log.mock.calls[0].arguments[0], {
+        code: 'ASSESSMENT_UNAVAILABLE',
+        httpStatus: status,
+        permanent: status < 500,
+      });
+      assert.equal(
+        JSON.stringify(log.mock.calls).includes('synthetic private response'),
+        false,
+      );
+    } finally {
+      log.mock.restore();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+for (const kind of [
+  'timeout',
+  'network',
+  'malformed JSON',
+  'invalid snapshot',
+  'body network',
+  'body timeout',
+])
+  void test(`L22 ${kind} retains response status when available and retries`, async () => {
+    const s = snapshot();
+    const original = global.fetch;
+    const log = mock.method(Logger.prototype, 'error', () => undefined);
+    let retry = '';
+    try {
+      global.fetch = () => {
+        if (kind === 'timeout')
+          throw new DOMException('synthetic', 'TimeoutError');
+        if (kind === 'network') throw new TypeError('synthetic network');
+        if (kind === 'body network' || kind === 'body timeout') {
+          const response = Response.json({ data: s });
+          response.json = () =>
+            Promise.reject(
+              kind === 'body timeout'
+                ? new DOMException('synthetic', 'TimeoutError')
+                : new TypeError('synthetic network'),
+            );
+          return Promise.resolve(response);
+        }
+        return kind === 'malformed JSON'
+          ? Promise.resolve(new Response('{bad', { status: 200 }))
+          : Promise.resolve(Response.json({ data: {} }));
+      };
+      const client = createCompletionClient((k) =>
+        k === 'INTERNAL_SERVICE_KEY' ? 'synthetic-key' : undefined,
+      );
+      const repository = {
+        enrollment: () =>
+          Promise.resolve({
+            status: 'NotStarted',
+            disabled_at: null,
+            learner_id: s.learnerId,
+            course_id: s.courseId,
+          }),
+        materials: () => Promise.resolve({ ready: true, required: 0 }),
+        retry: (_r: unknown, code: string) => {
+          retry = code;
+          return Promise.resolve(1);
+        },
+      } as unknown as CompletionRepository;
+      await new CompletionService(repository, client).evaluate({
+        organization_id: s.organizationId,
+        enrollment_id: randomUUID(),
+        generation: 0n,
+      } as CompletionRequest);
+      const permanent =
+        kind === 'malformed JSON' || kind === 'invalid snapshot';
+      assert.equal(
+        retry,
+        permanent ? 'INVALID_SNAPSHOT' : 'ASSESSMENT_UNAVAILABLE',
+      );
+      assert.deepEqual(log.mock.calls[0].arguments[0], {
+        code: retry,
+        httpStatus: permanent || kind.startsWith('body ') ? 200 : null,
+        permanent,
+      });
+    } finally {
+      global.fetch = original;
       log.mock.restore();
     }
   });

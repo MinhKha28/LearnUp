@@ -38,6 +38,13 @@ snapshotId, asOf, revision, organizationId, learnerId, courseId, eligible,
 requiredComponentCount, quizzes and assignments. Disabled assessments are excluded.
 `scoreSnapshot` is an object, never an array. Achievement stores the exact
 versioned object; it does not fetch current assessment scores when issuing.
+Peer-review status accepts `Waived` alongside `NotApplicable`, `Pending`, `Satisfied`
+and `Missed`. A waiver may retain partially completed review counts. Learning computes
+completion from score facts, finalization and satisfied peer duty (`Waived`,
+`NotApplicable`, `Satisfied`). The original assessment `eligible` and item `passed`
+flags remain unchanged in both snapshots, even when they differ from Learning's
+decision; Achievement validates structure and trusts `EnrollmentCompleted` for
+issuance without re-judging these flags.
 
 Achievement commits a Pending Certificate and its `processed_completion_events`
 receipt atomically before committing Kafka offset + 1. Duplicate event IDs and

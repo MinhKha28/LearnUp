@@ -29,7 +29,7 @@ export interface CompletionSnapshot {
     finalizedAt: string | null;
     passed: boolean;
     peerReview: {
-      status: 'NotApplicable' | 'Pending' | 'Satisfied' | 'Missed';
+      status: 'NotApplicable' | 'Pending' | 'Satisfied' | 'Missed' | 'Waived';
       requiredCount: number;
       completedCount: number;
     };
@@ -43,7 +43,10 @@ export interface AssessmentCompletionClient {
   ): Promise<CompletionSnapshot>;
 }
 export class CompletionClientError extends Error {
-  constructor(readonly code: 'INVALID_SNAPSHOT' | 'ASSESSMENT_UNAVAILABLE') {
+  constructor(
+    readonly code: 'INVALID_SNAPSHOT' | 'ASSESSMENT_UNAVAILABLE',
+    readonly httpStatus?: number,
+  ) {
     super(code);
   }
 }
@@ -61,7 +64,8 @@ const uuid = (v: unknown): v is string =>
   typeof v === 'string' && isUUID(v, 'all');
 const score = (v: unknown): v is string =>
   typeof v === 'string' &&
-  /^(?:0|[1-9]\d?)(?:\.\d{1,2})?$|^100(?:\.0{1,2})?$/.test(v);
+  /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(v) &&
+  Number.isFinite(Number(v));
 export function validateCompletionSnapshot(
   value: unknown,
   organizationId: string,
@@ -101,7 +105,6 @@ export function validateCompletionSnapshot(
   )
     return fail();
   const ids = new Set<string>();
-  let eligible = true;
   for (const q of value.quizzes) {
     if (
       !object(q) ||
@@ -121,12 +124,6 @@ export function validateCompletionSnapshot(
     )
       return fail();
     ids.add(q.assessmentId);
-    const passed =
-      q.attemptId !== null &&
-      q.recordedScore !== null &&
-      Number(q.recordedScore) >= Number(q.passingScore);
-    if (q.passed !== passed) return fail();
-    eligible &&= passed;
   }
   for (const a of value.assignments) {
     if (
@@ -154,7 +151,8 @@ export function validateCompletionSnapshot(
     const p = a.peerReview;
     if (
       !only(p, ['status', 'requiredCount', 'completedCount']) ||
-      !['NotApplicable', 'Pending', 'Satisfied', 'Missed'].includes(
+      typeof p.status !== 'string' ||
+      !['NotApplicable', 'Pending', 'Satisfied', 'Missed', 'Waived'].includes(
         String(p.status),
       ) ||
       !count(p.requiredCount) ||
@@ -165,17 +163,8 @@ export function validateCompletionSnapshot(
       (p.status === 'Satisfied' && p.completedCount !== p.requiredCount)
     )
       return fail();
-    const passed =
-      a.submissionId !== null &&
-      a.finalizedAt !== null &&
-      a.finalScore !== null &&
-      Number(a.finalScore) >= Number(a.passingScore);
-    if (a.passed !== passed) return fail();
-    eligible &&=
-      passed && ['NotApplicable', 'Satisfied'].includes(String(p.status));
   }
-  if (value.requiredComponentCount !== ids.size || value.eligible !== eligible)
-    return fail();
+  if (value.requiredComponentCount !== ids.size) return fail();
   return value as unknown as CompletionSnapshot;
 }
 
@@ -270,6 +259,7 @@ export function createCompletionClient(
   return {
     async getCompletionSnapshot(organizationId, learnerId, courseId) {
       let value: unknown;
+      let httpStatus: number | undefined;
       try {
         const response = await fetch(
           `${url.toString().replace(/\/+$/, '')}/api/v1/internal/learners/${encodeURIComponent(learnerId)}/courses/${encodeURIComponent(courseId)}/completion-snapshot`,
@@ -281,18 +271,32 @@ export function createCompletionClient(
             signal: AbortSignal.timeout(timeout),
           },
         );
-        if (!response.ok) throw new Error();
-        const body: unknown = await response.json();
+        httpStatus = response.status;
+        if (!response.ok)
+          throw new CompletionClientError('ASSESSMENT_UNAVAILABLE', httpStatus);
+        let body: unknown;
+        try {
+          body = await response.json();
+        } catch (error) {
+          if (error instanceof SyntaxError)
+            throw new CompletionClientError('INVALID_SNAPSHOT', httpStatus);
+          throw error;
+        }
         value = object(body) ? body.data : undefined;
-      } catch {
-        throw new CompletionClientError('ASSESSMENT_UNAVAILABLE');
+      } catch (error) {
+        if (error instanceof CompletionClientError) throw error;
+        throw new CompletionClientError('ASSESSMENT_UNAVAILABLE', httpStatus);
       }
-      return validateCompletionSnapshot(
-        value,
-        organizationId,
-        learnerId,
-        courseId,
-      );
+      try {
+        return validateCompletionSnapshot(
+          value,
+          organizationId,
+          learnerId,
+          courseId,
+        );
+      } catch {
+        throw new CompletionClientError('INVALID_SNAPSHOT', httpStatus);
+      }
     },
   };
 }
