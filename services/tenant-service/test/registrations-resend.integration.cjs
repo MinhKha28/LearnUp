@@ -115,6 +115,7 @@ test('UC03.1 resend registration email against PostgreSQL', async (t) => {
         assert.equal(second.templateCode, 'REGISTRATION_VERIFICATION_CODE');
         const newCode = codeIn(second);
         const row = await registrationOf(email);
+        assert.equal(second.expiresAt, row.otpExpiresAt.toISOString());
         assert.equal(row.otpFailedAttempts, 0);
         assert.equal(row.resendCount, 1);
         assert.ok(row.resendWindowStartedAt instanceof Date);
@@ -150,6 +151,7 @@ test('UC03.1 resend registration email against PostgreSQL', async (t) => {
         const message = lastSentTo(email);
         assert.equal(message.templateCode, 'REGISTRATION_REOPEN_LINK');
         const after = await registrationOf(email);
+        assert.equal(message.expiresAt, after.expiresAt.toISOString());
         assert.notDeepEqual(after.reopenTokenHash, before.reopenTokenHash);
         assert.equal(after.otpHash, null);
         const summary = await service.getByToken(tokenIn(message));
