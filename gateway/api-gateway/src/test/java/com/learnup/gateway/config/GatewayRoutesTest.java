@@ -88,6 +88,33 @@ class GatewayRoutesTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/admin/subscription-plans", "/api/admin/subscription-plans"})
+    @DisplayName("UC43/UC43.1 Admin plan endpoints go to tenant-service and require a JWT")
+    void routesAdminPlansToTenantWithJwt(String path) {
+        List<RouteDefinition> routes = routesMatching(path);
+        assertThat(routes).as(path).hasSize(1);
+        assertThat(routes.get(0).getId()).isEqualTo("tenant-service");
+        assertThat(jwtProperties.isWhitelisted(path)).as(path).isFalse();
+
+        var filter = new JwtAuthenticationFilter(jwtProperties, new ObjectMapper());
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest.post(path));
+        AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
+        StepVerifier.create(filter.filter(exchange, next -> {
+            forwarded.set(next);
+            return Mono.empty();
+        })).verifyComplete();
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(forwarded.get()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/admin/organizations", "/api/v1/admin/courses"})
+    @DisplayName("Only the Admin plan branch is claimed by tenant-service")
+    void doesNotClaimOtherAdminPaths(String path) {
+        assertThat(routesMatching(path)).as(path).isEmpty();
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {
             "/api/v1/learning/x", "/api/v1/enrollments", "/api/v1/enrollments/x/curriculum",
             "/api/learning/x", "/api/enrollments"

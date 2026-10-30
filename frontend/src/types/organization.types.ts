@@ -18,6 +18,14 @@ export interface ISubscriptionPlan {
   maxStorageBytes: number;
 }
 
+export interface IAdminPlan extends ISubscriptionPlan {
+  isOffered: boolean;
+  organizationCount: number;
+  createdAt: string;
+}
+
+export type ICreatePlanReq = Omit<ISubscriptionPlan, "id">;
+
 // UC02 - body gửi lên POST /api/v1/registrations (khớp CreateRegistrationDto ở backend)
 export interface ICreateRegistrationReq {
   planId: string;
