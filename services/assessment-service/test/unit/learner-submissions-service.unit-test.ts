@@ -17,6 +17,7 @@ import {
   EnrollmentClient,
 } from '../../src/infrastructure/clients/learning/enrollment.client';
 import { LearnerSubmissionsService } from '../../src/modules/learner-submissions/learner-submissions.service';
+import type { AssignmentFacts } from '../../src/modules/completion-snapshot/completion-snapshot';
 import type {
   CycleRow,
   LearnerAssignmentRow,
@@ -86,6 +87,8 @@ const peerOn = {
 interface World {
   assignment: LearnerAssignmentRow | null;
   states: Map<string, LearnerStateRow>;
+  /** The reviews the Learner owes as a peer on the Assignment (D10: the debt is read from these). */
+  peerReviews: AssignmentFacts['reviews'];
   submissions: SubmissionRow[];
   cycles: CycleRow[];
   outbox: Record<string, unknown>[];
@@ -100,6 +103,7 @@ function build(over: Partial<World> = {}) {
   const world: World = {
     assignment: assignmentRow(),
     states: new Map(),
+    peerReviews: [],
     submissions: [],
     cycles: [],
     outbox: [],
@@ -141,6 +145,7 @@ function build(over: Partial<World> = {}) {
     },
     findState: (a: string, l: string) =>
       Promise.resolve(world.states.get(stateKey(a, l)) ?? null),
+    findPeerReviews: () => Promise.resolve(world.peerReviews),
     findLatestSubmission: (a: string, l: string) =>
       Promise.resolve(
         world.submissions
@@ -666,10 +671,16 @@ describe('resubmit (UC30.1)', () => {
     assert.ok(ctx.world.submissions[0].supersededAt);
   });
 
+  const missedReview = {
+    status: 'Missed',
+    reviewDueAt: new Date('2026-10-20T00:00:00Z'),
+    cycleId: 'c1',
+    cycleClosesAt: new Date('2026-10-19T00:00:00Z'),
+  };
+
   test('A2: a Learner who owes a peer review duty joins the cycle that is open now (BR-239)', async () => {
     const { ctx } = await submitted();
-    ctx.world.states.get(`${ASSIGNMENT}:${LEARNER}`)!.peerReviewObligation =
-      'Missed';
+    ctx.world.peerReviews = [missedReview];
     ctx.setNow(afterCutoff);
     const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
       content: 'making up',
@@ -681,10 +692,39 @@ describe('resubmit (UC30.1)', () => {
     assert.equal(ctx.world.submissions[1].interventionReason, null);
   });
 
+  test('D-045: a debt repaid in a later cycle follows the Instructor path after the cutoff', async () => {
+    const { ctx } = await submitted();
+    // The stale marker develop keeps after the debt is repaid (the column is dropped here; the property only reproduces
+    // develop's state, so this test fails on develop's source and passes on this change).
+    Object.assign(ctx.world.states.get(`${ASSIGNMENT}:${LEARNER}`)!, {
+      peerReviewObligation: 'Missed',
+    });
+    ctx.world.peerReviews = [
+      missedReview,
+      {
+        status: 'Completed',
+        reviewDueAt: new Date('2026-10-26T00:00:00Z'),
+        cycleId: 'c2',
+        cycleClosesAt: new Date('2026-10-23T00:00:00Z'),
+      },
+    ];
+    ctx.setNow(afterCutoff);
+    const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
+      content: 'repaid',
+    });
+    assert.equal(r.placement, 'INSTRUCTOR');
+    assert.equal(r.gradingStatus, 'AwaitingInstructor');
+    assert.equal(r.cycle, null);
+    assert.equal(
+      ctx.world.submissions[1].interventionReason,
+      'RESUBMITTED_AFTER_CUTOFF',
+    );
+  });
+
   test('a duty that was waived (exempted) gives no second chance', async () => {
     const { ctx } = await submitted();
     const state = ctx.world.states.get(`${ASSIGNMENT}:${LEARNER}`)!;
-    state.peerReviewObligation = 'Missed';
+    ctx.world.peerReviews = [missedReview];
     state.exemptedAt = new Date('2026-10-22T00:00:00Z');
     ctx.setNow(afterCutoff);
     const r = await ctx.service.resubmit(learner(), ASSIGNMENT, {
