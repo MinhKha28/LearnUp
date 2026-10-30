@@ -1,3 +1,6 @@
+/* Test doubles intentionally implement promise APIs synchronously and throw
+ * code-shaped broker/Prisma failures. Original methods are saved for restoration. */
+/* eslint-disable @typescript-eslint/require-await, @typescript-eslint/only-throw-error, @typescript-eslint/unbound-method */
 import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -34,6 +37,7 @@ const row = (id = '019a0000-0000-7000-8000-000000000001'): OutboxRow => ({
 function fixture(
   send: (rows: OutboxRow[]) => Promise<void>,
   rows = [row(), row('019a0000-0000-7000-8000-000000000002')],
+  settings = config,
 ) {
   const published: string[] = [],
     failed: { id: string; code: string }[] = [];
@@ -64,11 +68,12 @@ function fixture(
   const relay = new RelayService(
     repository as unknown as RelayRepository,
     producer as unknown as RelayProducer,
-    config,
+    settings,
   );
   return {
     relay,
     producer,
+    repository,
     published,
     failed,
     transactions: () => transactions,
@@ -186,7 +191,7 @@ test('relay alerts from attempt ten using only event id and sanitized code', asy
       throw new Error('private payload');
     }, [{ ...row(), attempts: 9 }]);
     await f.relay.tick();
-    assert.equal(logs.length, 1);
+    assert.equal(logs.length, 2);
     assert.ok(!JSON.stringify(logs).includes('private payload'));
   } finally {
     Logger.prototype.error = original;
@@ -327,5 +332,215 @@ test('producer replaces failed initial clients before trying to connect again', 
   } finally {
     proto.admin = originalAdmin;
     proto.producer = originalProducer;
+  }
+});
+
+const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
+test('gap zero: full batches commit and yield before claiming again without polling', async () => {
+  const f = fixture(async () => {}, [row(), row()], {
+    ...config,
+    batchSize: 2,
+    drainGapMs: 0,
+  });
+  let calls = 0;
+  let committed = false;
+  let yielded = false;
+  setImmediate(() => {
+    yielded = true;
+  });
+  f.repository.transaction = async (work) => {
+    if (calls++) {
+      assert.equal(committed, true);
+      assert.equal(yielded, true);
+    }
+    await work(
+      {} as Prisma.TransactionClient,
+      calls < 3 ? [row(), row()] : [row()],
+    );
+    committed = true;
+  };
+  await f.relay.tick();
+  assert.equal(calls, 3);
+  assert.equal(f.published.length, 5);
+  await f.relay.beforeApplicationShutdown();
+});
+
+test('full batch waits exactly drainGapMs before the next claim', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = fixture(async () => {}, [row()], {
+    ...config,
+    batchSize: 1,
+    drainGapMs: 100,
+  });
+  let claims = 0;
+  f.repository.transaction = async (work) => {
+    await work({} as Prisma.TransactionClient, ++claims === 1 ? [row()] : []);
+  };
+  try {
+    const wave = f.relay.tick();
+    await flush();
+    assert.equal(claims, 1);
+    t.mock.timers.tick(99);
+    await flush();
+    assert.equal(claims, 1);
+    t.mock.timers.tick(1);
+    await wave;
+    assert.equal(claims, 2);
+  } finally {
+    await f.relay.beforeApplicationShutdown();
+    t.mock.timers.reset();
+  }
+});
+
+test(
+  'shutdown interrupts the drain gap promptly without another claim',
+  { timeout: 2000 },
+  async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const f = fixture(async () => {}, [row()], {
+      ...config,
+      batchSize: 1,
+      drainGapMs: 60000,
+    });
+    try {
+      const wave = f.relay.tick();
+      await flush();
+      assert.equal(f.transactions(), 1);
+      await f.relay.beforeApplicationShutdown();
+      await wave;
+      assert.equal(f.closed(), true);
+      t.mock.timers.tick(60000);
+      await flush();
+      assert.equal(f.transactions(), 1);
+    } finally {
+      t.mock.timers.reset();
+    }
+  },
+);
+
+test('drain gap accepts zero and nonnegative integers and rejects invalid settings', () => {
+  for (const value of ['0', '50', '100']) {
+    assert.equal(
+      readRelayConfig((key) =>
+        key === 'OUTBOX_DRAIN_GAP_MS' ? value : undefined,
+      ).drainGapMs,
+      Number(value),
+    );
+  }
+  for (const value of [
+    '',
+    '-1',
+    '1.5',
+    'NaN',
+    'Infinity',
+    ' 50',
+    '9007199254740992',
+  ]) {
+    assert.throws(
+      () =>
+        readRelayConfig((key) =>
+          key === 'OUTBOX_DRAIN_GAP_MS' ? value : undefined,
+        ),
+      /Invalid OUTBOX_DRAIN_GAP_MS/,
+    );
+  }
+});
+
+for (const failure of [
+  'none',
+  'batch',
+  'individual',
+  'transaction',
+  'broker',
+]) {
+  test(`${failure}: scheduled relay waits pollMs after under-full or failed batch`, async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const f = fixture(
+      async (rows) => {
+        if (failure === 'batch') throw { code: -195 };
+        if (failure === 'individual' && rows.length > 1) throw { code: 10 };
+      },
+      [row(), row()],
+      { ...config, enabled: true, batchSize: failure === 'none' ? 3 : 2 },
+    );
+    let claims = 0;
+    let probes = 0;
+    const transaction = f.repository.transaction;
+    f.repository.transaction = async (work) => {
+      claims++;
+      if (failure === 'transaction') throw { code: 'P2028' };
+      await transaction(work);
+    };
+    f.producer.ready = async () => {
+      probes++;
+      return failure !== 'broker';
+    };
+    try {
+      f.relay.onModuleInit();
+      t.mock.timers.tick(0);
+      await flush();
+      await flush();
+      assert.equal(probes, 1);
+      assert.equal(claims, failure === 'broker' ? 0 : 1);
+      t.mock.timers.tick(config.pollMs - 1);
+      await flush();
+      assert.equal(probes, 1);
+      t.mock.timers.tick(1);
+      await flush();
+      assert.equal(probes, 2);
+    } finally {
+      await f.relay.beforeApplicationShutdown();
+      t.mock.timers.reset();
+    }
+  });
+}
+
+test('shutdown during full-batch delivery finishes it without another claim', async () => {
+  let release!: () => void;
+  const f = fixture(
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    [row(), row()],
+    { ...config, batchSize: 2 },
+  );
+  const wave = f.relay.tick();
+  assert.equal(f.relay.tick(), wave);
+  await flush();
+  const stopped = f.relay.beforeApplicationShutdown();
+  assert.equal(f.closed(), false);
+  release();
+  await stopped;
+  assert.equal(f.published.length, 2);
+  assert.equal(f.transactions(), 1);
+  assert.equal(f.closed(), true);
+});
+
+test('structured failure logs preserve Prisma and Kafka codes without error content', async () => {
+  const logs: unknown[] = [];
+  const original = Logger.prototype.error;
+  Logger.prototype.error = (entry: unknown) => {
+    logs.push(entry);
+  };
+  try {
+    for (const code of ['P2028', -195, 'private-token']) {
+      const f = fixture(async () => {});
+      f.repository.transaction = async () => {
+        throw { code, message: 'private-payload' };
+      };
+      await f.relay.tick();
+      await f.relay.beforeApplicationShutdown();
+    }
+    assert.deepEqual(
+      logs,
+      ['P2028', -195, 'OUTBOX_UNKNOWN'].map((code) => ({
+        message: 'OUTBOX_RELAY_FAILURE',
+        code,
+      })),
+    );
+    assert.equal(JSON.stringify(logs).includes('private'), false);
+  } finally {
+    Logger.prototype.error = original;
   }
 });
