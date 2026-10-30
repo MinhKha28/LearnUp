@@ -1,5 +1,7 @@
 package com.learnup.identity.service;
 
+import com.learnup.common.exception.BusinessException;
+import com.learnup.common.exception.ErrorCode;
 import com.learnup.common.security.UserRole;
 import com.learnup.identity.client.TenantAccessClient;
 import com.learnup.identity.domain.User;
@@ -205,14 +207,33 @@ abstract class CredentialProvisioningContract {
     @Test
     void databaseStillRejectsAnExplicitDuplicateUsername() {
         SetCredentialsRequest first = request(0);
+        first.setUsername("explicit_shared_name");
         authService.setCredentials(first);
         SetCredentialsRequest second = request(1);
-        second.setUsername("user_" + first.getUserId().toString().replace("-", ""));
+        second.setUsername("explicit_shared_name");
 
         assertThatThrownBy(() -> authService.setCredentials(second))
                 .isInstanceOf(CredentialProvisioningConflictException.class)
                 .satisfies(failure -> assertThat(((CredentialProvisioningConflictException) failure).getCode())
                         .isEqualTo("CREDENTIAL_CONFLICT"));
+
+        assertThat(users.count()).isEqualTo(1);
+        assertThat(users.findById(second.getUserId())).isEmpty();
+        assertThat(users.findById(first.getUserId()).orElseThrow().getUsername()).isEqualTo("explicit_shared_name");
+    }
+
+    @Test
+    void rejectsAnExplicitUsernameThatIsAnotherUsersDefaultBeforeWriting() {
+        SetCredentialsRequest first = request(0);
+        authService.setCredentials(first);
+        SetCredentialsRequest second = request(1);
+        second.setUsername("user_" + first.getUserId().toString().replace("-", ""));
+
+        assertThatThrownBy(() -> authService.setCredentials(second))
+                .isInstanceOf(BusinessException.class)
+                .isNotInstanceOf(CredentialProvisioningConflictException.class)
+                .satisfies(failure -> assertThat(((BusinessException) failure).getErrorCode())
+                        .isEqualTo(ErrorCode.BAD_REQUEST));
 
         assertThat(users.count()).isEqualTo(1);
         assertThat(users.findById(second.getUserId())).isEmpty();
