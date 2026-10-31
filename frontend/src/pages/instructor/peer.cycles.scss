@@ -198,3 +198,38 @@
   margin: 0;
   padding: 0 4px;
 }
+
+.instructor-cycle-obligation {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.instructor-cycle-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.instructor-cycle-chip-Missed {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.instructor-cycle-chip-Satisfied {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.instructor-cycle-chip-Pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.instructor-cycle-chip-Waived {
+  background: #e2e8f0;
+  color: #475569;
+}

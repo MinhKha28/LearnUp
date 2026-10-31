@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { message, Popconfirm } from "antd";
+import { Link } from "react-router-dom";
 import { InstructorButton } from "@/components/instructor/instructor.ui";
 import {
   assessmentErrorCode,
@@ -144,6 +145,11 @@ const PeerCycleTable = ({
                   </span>
                 </td>
                 <td>
+                  {cycle.submissionCount > 0 && (
+                    <Link className="peer-cycles-detail-link" to={`/instructor/peer-cycles/${assignmentId}/${cycle.id}`}>
+                      Details
+                    </Link>
+                  )}{" "}
                   {!cycle.closed && Date.parse(cycle.closesAt) <= Date.now() && (
                     <Popconfirm
                       title="Đóng chu kỳ này ngay bây giờ?"

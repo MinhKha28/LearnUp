@@ -5,7 +5,9 @@ import type {
   IAssignmentList,
   IGradingResult,
   IClosedPeerReviewCycle,
+  IPeerReviewCycleDetail,
   IPeerReviewCycleList,
+  IPeerReviewWaiver,
   ILearnerAssessmentList,
   ILearnerAssignment,
   ISubmissionReceipt,
@@ -146,6 +148,18 @@ export const fetchLearnerAssignmentAPI = (assignmentId: string) =>
 export const fetchPeerReviewCyclesAPI = (assignmentId: string) =>
   axios.get<IBackendRes<IPeerReviewCycleList>>(
     `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles`,
+  );
+
+/** UC33.1 — one cycle: its submissions with the reviews they got, and the reviewers with the state of their duty. */
+export const fetchPeerReviewCycleDetailAPI = (assignmentId: string, cycleId: string) =>
+  axios.get<IBackendRes<IPeerReviewCycleDetail>>(
+    `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles/${cycleId}`,
+  );
+
+/** UC33.2 — waive the peer review duty of a Learner who owes it (BR-241); waiving again changes nothing. */
+export const waivePeerReviewDutyAPI = (assignmentId: string, learnerId: string) =>
+  axios.post<IBackendRes<IPeerReviewWaiver>>(
+    `/api/v1/assessments/assignments/${assignmentId}/peer-review/learners/${learnerId}/waiver`,
   );
 
 /** UC33 — close a cycle now: hand out the reviews, or send the submissions to the Instructor when there are too few. */

@@ -2,6 +2,7 @@
 // UC33, the "Đóng chu kỳ" action of the Instructor, by interaction. jsdom is for this file only; the other suites keep node.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { message } from "antd";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/services/axios.customize", () => ({ assessmentAxios: {}, default: {} }));
@@ -13,6 +14,13 @@ vi.mock("@/services/assessment.service", async (importOriginal) => ({
 
 import * as api from "@/services/assessment.service";
 import PeerCycleTable from "./peer.cycle.table";
+
+const renderTable = () =>
+  render(
+    <MemoryRouter>
+      <PeerCycleTable assignmentId="a1" />
+    </MemoryRouter>,
+  );
 
 const HOUR = 3_600_000;
 // The closing line is read against the clock of the browser, so the dates are made from now.
@@ -77,9 +85,30 @@ const confirmClosing = async () => {
   fireEvent.click(ok);
 };
 
+describe("the link to the cycle detail (UC33.1)", () => {
+  it("is on every cycle that has submissions and goes to the detail of that cycle of the Assignment", async () => {
+    renderTable();
+    await screen.findByText("Cycle 2");
+    const links = screen.getAllByRole("link", { name: "Details" });
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "/instructor/peer-cycles/a1/cycle-1",
+      "/instructor/peer-cycles/a1/cycle-2",
+    ]);
+  });
+
+  it("is not on a cycle with no submission: there is nothing to read", async () => {
+    vi.mocked(api.fetchPeerReviewCyclesAPI).mockResolvedValue(
+      list([cycle(1, { submissionCount: 0, closesAt: ago(-5) })]) as never,
+    );
+    renderTable();
+    await screen.findByText("Cycle 1");
+    expect(screen.queryAllByRole("link", { name: "Details" })).toHaveLength(0);
+  });
+});
+
 describe("the Đóng chu kỳ action", () => {
   it("is offered only on a cycle that is still open and past its closing line", async () => {
-    render(<PeerCycleTable assignmentId="a1" />);
+    renderTable();
     await screen.findByText("Cycle 2");
     expect(closeButtons()).toHaveLength(1);
   });
@@ -88,13 +117,13 @@ describe("the Đóng chu kỳ action", () => {
     vi.mocked(api.fetchPeerReviewCyclesAPI).mockResolvedValue(
       list([cycle(1, { status: "Completed", closed: true }), cycle(2, { closesAt: ago(-5) })]) as never,
     );
-    render(<PeerCycleTable assignmentId="a1" />);
+    renderTable();
     await screen.findByText("Cycle 2");
     expect(closeButtons()).toHaveLength(0);
   });
 
   it("asks first, and sends nothing until the Instructor confirms", async () => {
-    render(<PeerCycleTable assignmentId="a1" />);
+    renderTable();
     await screen.findByText("Cycle 2");
     fireEvent.click(closeButtons()[0]);
     await screen.findByText("Đóng chu kỳ này ngay bây giờ?");
@@ -106,7 +135,7 @@ describe("the Đóng chu kỳ action", () => {
 
   it("closes the chosen cycle, says how many reviews went to how many Learners, and reloads the table", async () => {
     vi.mocked(api.closePeerReviewCycleAPI).mockResolvedValue(closed() as never);
-    render(<PeerCycleTable assignmentId="a1" />);
+    renderTable();
     await screen.findByText("Cycle 2");
     await confirmClosing();
     await screen.findByText("Cycle closed. 14 reviews were handed out to 7 Learners.");
@@ -118,7 +147,7 @@ describe("the Đóng chu kỳ action", () => {
     vi.mocked(api.closePeerReviewCycleAPI).mockResolvedValue(
       closed({ status: "InstructorOnly", submissionCount: 2, reviewCount: 0 }) as never,
     );
-    render(<PeerCycleTable assignmentId="a1" />);
+    renderTable();
     await screen.findByText("Cycle 2");
     await confirmClosing();
     await screen.findByText("Cycle closed. Only 2 submissions, so you grade them all.");
@@ -126,7 +155,7 @@ describe("the Đóng chu kỳ action", () => {
 
   it("a cycle that someone else closed first says so, and nothing is promised twice", async () => {
     vi.mocked(api.closePeerReviewCycleAPI).mockResolvedValue(closed({ alreadyClosed: true }) as never);
-    render(<PeerCycleTable assignmentId="a1" />);
+    renderTable();
     await screen.findByText("Cycle 2");
     await confirmClosing();
     await screen.findByText("This cycle was already closed.");
@@ -138,7 +167,7 @@ describe("the Đóng chu kỳ action", () => {
       statusCode: 409,
       error: { code: "CYCLE_NOT_DUE", message: "This cycle has not reached its closing time yet." },
     } as never);
-    render(<PeerCycleTable assignmentId="a1" />);
+    renderTable();
     await screen.findByText("Cycle 2");
     await confirmClosing();
     await screen.findByText("This cycle has not reached its closing time yet.");
@@ -147,7 +176,7 @@ describe("the Đóng chu kỳ action", () => {
 
   it("tells the Instructor when the Assessment service cannot be reached", async () => {
     vi.mocked(api.closePeerReviewCycleAPI).mockRejectedValue(new Error("network"));
-    render(<PeerCycleTable assignmentId="a1" />);
+    renderTable();
     await screen.findByText("Cycle 2");
     await confirmClosing();
     await screen.findByText("Unable to reach the Assessment service. Please try again.");

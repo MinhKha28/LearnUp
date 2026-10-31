@@ -1,7 +1,11 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HEADER_NAMES } from '@learnup/ts-common';
-import { INotificationItem, NotificationClient } from './notification.client';
+import {
+  IEmailItem,
+  INotificationItem,
+  NotificationClient,
+} from './notification.client';
 
 const DEFAULT_TIMEOUT_MS = 5000;
 
@@ -41,6 +45,44 @@ export class HttpNotificationClient extends NotificationClient {
         }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
+    } catch {
+      throw new ServiceUnavailableException({
+        code: 'NOTIFICATION_SERVICE_UNAVAILABLE',
+        message: 'Unable to reach the notification service.',
+      });
+    }
+    if (!response.ok) {
+      throw new ServiceUnavailableException({
+        code: 'NOTIFICATION_SERVICE_UNAVAILABLE',
+        message: `The notification service answered ${response.status}.`,
+      });
+    }
+  }
+
+  /**
+   * POST /api/v1/notifications/email/send is for services only, like the bell: the key, and no user headers. The
+   * address and the text are not logged here.
+   */
+  async sendEmail(item: IEmailItem): Promise<void> {
+    let response: Response;
+    try {
+      response = await fetch(
+        `${this.baseUrl}/api/v1/notifications/email/send`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            [HEADER_NAMES.INTERNAL_KEY]: this.internalKey,
+          },
+          body: JSON.stringify({
+            recipientEmail: item.recipientEmail,
+            subject: item.subject,
+            body: item.body,
+            templateCode: item.templateCode,
+          }),
+          signal: AbortSignal.timeout(this.timeoutMs),
+        },
+      );
     } catch {
       throw new ServiceUnavailableException({
         code: 'NOTIFICATION_SERVICE_UNAVAILABLE',
