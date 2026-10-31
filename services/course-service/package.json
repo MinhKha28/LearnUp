@@ -28,6 +28,7 @@
     "test:migration": "ts-node -P tsconfig.seed.json test/course-values.migration-test.ts"
   },
   "dependencies": {
+    "@confluentinc/kafka-javascript": "^1.11.0",
     "@learnup/ts-common": "file:../../libraries/ts-common",
     "@learnup/ts-storage": "file:../../libraries/ts-storage",
     "@nestjs/axios": "^12.0.1",

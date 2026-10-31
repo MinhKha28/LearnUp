@@ -29,35 +29,35 @@ model CourseChain {
 }
 
 model Course {
-  id                    String    @id @default(uuid(7)) @db.Uuid
-  organizationId        String    @map("organization_id") @db.Uuid
-  chainId               String    @map("chain_id") @db.Uuid
-  versionNumber         Int       @map("version_number")
-  name                  String    @db.VarChar(200)
-  shortDescription      String?   @map("short_description") @db.VarChar(500)
-  trainingObjectives    String?   @map("training_objectives") @db.VarChar(2000)
-  learningOutcomes      String[]  @map("learning_outcomes") @db.VarChar(200)
-  coverFileId           String?   @map("cover_file_id") @db.Uuid
-  expectedCompletionDays Int      @map("expected_completion_days")
-  courseType            String    @map("course_type")
-  status                String
-  lockedAt              DateTime? @map("locked_at") @db.Timestamptz
-  submittedAt           DateTime? @map("submitted_at") @db.Timestamptz
-  publishedAt           DateTime? @map("published_at") @db.Timestamptz
-  archivedAt            DateTime? @map("archived_at") @db.Timestamptz
-  rejectedAt            DateTime? @map("rejected_at") @db.Timestamptz
-  rejectionReason       String?   @map("rejection_reason") @db.VarChar(1000)
-  disabledAt            DateTime? @map("disabled_at") @db.Timestamptz
-  disabledReason        String?   @map("disabled_reason") @db.VarChar(1000)
-  assignmentMinutes     Int       @default(0) @map("assignment_minutes")
-  assignmentMinutesAsOf DateTime? @map("assignment_minutes_as_of") @db.Timestamptz
-  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  id                     String    @id @default(uuid(7)) @db.Uuid
+  organizationId         String    @map("organization_id") @db.Uuid
+  chainId                String    @map("chain_id") @db.Uuid
+  versionNumber          Int       @map("version_number")
+  name                   String    @db.VarChar(200)
+  shortDescription       String?   @map("short_description") @db.VarChar(500)
+  trainingObjectives     String?   @map("training_objectives") @db.VarChar(2000)
+  learningOutcomes       String[]  @map("learning_outcomes") @db.VarChar(200)
+  coverFileId            String?   @map("cover_file_id") @db.Uuid
+  expectedCompletionDays Int       @map("expected_completion_days")
+  courseType             String    @map("course_type")
+  status                 String
+  lockedAt               DateTime? @map("locked_at") @db.Timestamptz
+  submittedAt            DateTime? @map("submitted_at") @db.Timestamptz
+  publishedAt            DateTime? @map("published_at") @db.Timestamptz
+  archivedAt             DateTime? @map("archived_at") @db.Timestamptz
+  rejectedAt             DateTime? @map("rejected_at") @db.Timestamptz
+  rejectionReason        String?   @map("rejection_reason") @db.VarChar(1000)
+  disabledAt             DateTime? @map("disabled_at") @db.Timestamptz
+  disabledReason         String?   @map("disabled_reason") @db.VarChar(1000)
+  assignmentMinutes      Int       @default(0) @map("assignment_minutes")
+  assignmentMinutesAsOf  DateTime? @map("assignment_minutes_as_of") @db.Timestamptz
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  chain       CourseChain    @relation(fields: [chainId], references: [id], onDelete: Cascade)
-  coverFile   MediaFile?     @relation("CourseCover", fields: [coverFileId], references: [id])
-  modules     CourseModule[]
-  reports     ContentReport[]
+  chain     CourseChain     @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  coverFile MediaFile?      @relation("CourseCover", fields: [coverFileId], references: [id])
+  modules   CourseModule[]
+  reports   ContentReport[]
 
   @@unique([chainId, versionNumber])
   @@index([organizationId, status])
@@ -134,48 +134,50 @@ model MediaFile {
   sizeBytes        BigInt    @map("size_bytes")
   durationSeconds  Int?      @map("duration_seconds")
   wordCount        Int?      @map("word_count")
+  deliveryType     String    @default("upload") @map("delivery_type")
+  storageFormat    String    @default("") @map("storage_format")
   readyAt          DateTime? @map("ready_at") @db.Timestamptz
   releasedAt       DateTime? @map("released_at") @db.Timestamptz
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   materials Material[]
-  covers    Course[] @relation("CourseCover")
+  covers    Course[]   @relation("CourseCover")
 
   @@index([organizationId, status])
   @@map("media_files")
 }
 
 model ContentReport {
-  id                   String    @id @default(uuid(7)) @db.Uuid
-  organizationId       String    @map("organization_id") @db.Uuid
-  courseId             String    @map("course_id") @db.Uuid
-  targetType           String    @map("target_type")
-  targetId             String    @map("target_id") @db.Uuid
-  ownerInstructorId    String    @map("owner_instructor_id") @db.Uuid
-  reporterId           String    @map("reporter_id") @db.Uuid
-  reason               String    @db.VarChar(1000)
-  level                String
-  status               String
-  dueAt                DateTime  @map("due_at") @db.Timestamptz
-  orgDecision          String?   @map("org_decision")
-  orgSeverity          String?   @map("org_severity")
-  orgDecisionReason    String?   @map("org_decision_reason") @db.VarChar(1000)
-  orgDecidedBy         String?   @map("org_decided_by") @db.Uuid
-  orgDecidedAt         DateTime? @map("org_decided_at") @db.Timestamptz
-  escalationType       String?   @map("escalation_type")
-  escalationReason     String?   @map("escalation_reason") @db.VarChar(1000)
-  escalatedBy          String?   @map("escalated_by") @db.Uuid
-  escalatedAt          DateTime? @map("escalated_at") @db.Timestamptz
-  adminDecision        String?   @map("admin_decision")
-  adminSeverity        String?   @map("admin_severity")
-  adminDecisionReason  String?   @map("admin_decision_reason") @db.VarChar(1000)
-  adminDecidedBy       String?   @map("admin_decided_by") @db.Uuid
-  adminDecidedAt       DateTime? @map("admin_decided_at") @db.Timestamptz
-  revisionRequestedAt  DateTime? @map("revision_requested_at") @db.Timestamptz
-  reviewRequestedAt    DateTime? @map("review_requested_at") @db.Timestamptz
-  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  organizationId      String    @map("organization_id") @db.Uuid
+  courseId            String    @map("course_id") @db.Uuid
+  targetType          String    @map("target_type")
+  targetId            String    @map("target_id") @db.Uuid
+  ownerInstructorId   String    @map("owner_instructor_id") @db.Uuid
+  reporterId          String    @map("reporter_id") @db.Uuid
+  reason              String    @db.VarChar(1000)
+  level               String
+  status              String
+  dueAt               DateTime  @map("due_at") @db.Timestamptz
+  orgDecision         String?   @map("org_decision")
+  orgSeverity         String?   @map("org_severity")
+  orgDecisionReason   String?   @map("org_decision_reason") @db.VarChar(1000)
+  orgDecidedBy        String?   @map("org_decided_by") @db.Uuid
+  orgDecidedAt        DateTime? @map("org_decided_at") @db.Timestamptz
+  escalationType      String?   @map("escalation_type")
+  escalationReason    String?   @map("escalation_reason") @db.VarChar(1000)
+  escalatedBy         String?   @map("escalated_by") @db.Uuid
+  escalatedAt         DateTime? @map("escalated_at") @db.Timestamptz
+  adminDecision       String?   @map("admin_decision")
+  adminSeverity       String?   @map("admin_severity")
+  adminDecisionReason String?   @map("admin_decision_reason") @db.VarChar(1000)
+  adminDecidedBy      String?   @map("admin_decided_by") @db.Uuid
+  adminDecidedAt      DateTime? @map("admin_decided_at") @db.Timestamptz
+  revisionRequestedAt DateTime? @map("revision_requested_at") @db.Timestamptz
+  reviewRequestedAt   DateTime? @map("review_requested_at") @db.Timestamptz
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
@@ -196,7 +198,7 @@ model PlatformSetting {
   allowedVideoMimeTypes        String[] @default(["video/mp4"]) @map("allowed_video_mime_types")
   allowedReadingMimeTypes      String[] @default(["application/pdf"]) @map("allowed_reading_mime_types")
   reportHandlingDays           Int      @default(7) @map("report_handling_days")
-  instructorViolationThreshold Int     @default(3) @map("instructor_violation_threshold")
+  instructorViolationThreshold Int      @default(3) @map("instructor_violation_threshold")
   createdAt                    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                    DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -210,11 +212,15 @@ model OutboxEvent {
   eventType      String    @map("event_type")
   organizationId String?   @map("organization_id") @db.Uuid
   payload        Json
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error")
+  nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz
   occurredAt     DateTime  @map("occurred_at") @db.Timestamptz
   publishedAt    DateTime? @map("published_at") @db.Timestamptz
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
+  @@index([aggregateId, id])
   @@index([publishedAt])
   @@map("outbox_events")
 }
