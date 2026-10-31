@@ -213,7 +213,8 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
       .get(CurriculumService)
       .getCurriculum(learner(learnerId), stored.id);
     assert.equal(curriculum.dueTimezone, 'Asia/Ho_Chi_Minh');
-    assert.equal(accessCalls, previousCalls);
+    assert.equal(detail.organizationTimezone, null);
+    assert.equal(accessCalls, previousCalls + 1);
     tenantDown = false;
     const newDueDate = new Date(stored.due_at.getTime() + 5 * 86400000)
       .toISOString()

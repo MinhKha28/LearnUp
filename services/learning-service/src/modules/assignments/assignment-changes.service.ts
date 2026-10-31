@@ -16,7 +16,10 @@ import {
   type TenantClient,
 } from '../../infrastructure/clients/tenant/tenant.client';
 import { serviceUnavailable } from '../../infrastructure/clients/course/service-unavailable';
-import { BaseDueAtRepository } from '../enrollments/base-due-at.repository';
+import {
+  BaseDueAtRepository,
+  InvalidBaseDueAtInputError,
+} from '../enrollments/base-due-at.repository';
 import { AssignmentChangesRepository } from './assignment-changes.repository';
 import { AssignmentReadsService } from './assignment-reads.service';
 import {
@@ -70,8 +73,20 @@ export class AssignmentChangesService {
   }
 
   async extend(user: CurrentUser, id: string, dto: ExtendAssignmentDto) {
-    const { organizationId, timezone } = await this.access(user);
-    await this.deadlines.validateTimezone(timezone);
+    const { organizationId, timezone: tenantTimezone } =
+      await this.access(user);
+    let timezone: string;
+    try {
+      timezone = await this.deadlines.resolveTimezoneName(tenantTimezone);
+    } catch (error) {
+      if (error instanceof InvalidBaseDueAtInputError) {
+        this.logger.error(
+          `Tenant timezone contract violation: organizationId=${organizationId}, timezone=${tenantTimezone}`,
+        );
+        throw serviceUnavailable();
+      }
+      throw error;
+    }
     await this.prisma.$transaction(async (tx) => {
       const row = await this.changes.lock(tx, organizationId, id);
       if (!row) throw this.notFound();

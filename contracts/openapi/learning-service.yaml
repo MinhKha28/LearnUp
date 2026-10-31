@@ -6,6 +6,98 @@ info:
 security:
   - InternalKey: []
 paths:
+  /api/v1/assignments/{enrollmentId}:
+    get:
+      operationId: getAssignmentDetail
+      summary: Get required Course assignment detail (UC24.1)
+      description: >-
+        ORGANIZER only, scoped to the trusted organization. Returns the stored deadline zone
+        as dueTimezone and the live Tenant access zone as organizationTimezone for a new extension.
+        Tenant access runs concurrently with enrichment; failure or timeout logs a warning and
+        returns organizationTimezone null with HTTP 200. Learner and Course enrichment may also
+        degrade to null. UC24 lists remain unchanged and do not call Tenant access.
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      responses:
+        "200": { $ref: "#/components/responses/AssignmentDetail" }
+        "400":
+          description: Invalid enrollment UUID.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Requires ORGANIZER and an organization in the trusted context.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: ASSIGNMENT_NOT_FOUND for missing, Optional or another organization's Enrollment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/assignments/{enrollmentId}/due-date:
+    patch:
+      operationId: extendAssignmentDueDate
+      summary: Extend a required Course deadline (UC24.3)
+      description: >-
+        ORGANIZER only. Requires an Active organization and subscription via Tenant access.
+        Converts newDueDate to midnight at the start of the following calendar day in the live
+        organization timezone, including DST. The selected date must be today or later in that zone
+        and the deadline must be later than the current dueAt; the positive delta is floored to
+        whole seconds and added to extensionSeconds. No 365-day or other business upper limit.
+        Updates dueAt and dueTimezone together and writes EnrollmentDueDateExtended atomically.
+        Tenant HTTP preserves the supplied timezone string after Intl validation. Extension alone resolves
+        its case-insensitive PostgreSQL name, excluding posix/ and right/ entries, for today, the new
+        deadline and dueTimezone. Detail returns the Tenant string unchanged without this lookup. A timezone rejected by PostgreSQL
+        logs organizationId and the zone as a Tenant contract violation and returns 503.
+        The response reuses detail enrichment, including a fresh live organizationTimezone.
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExtendAssignment" }
+      responses:
+        "200": { $ref: "#/components/responses/AssignmentDetail" }
+        "400":
+          description: Invalid UUID, calendar date, reason or request DTO.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: FORBIDDEN, ORGANIZATION_NOT_ACTIVE or SUBSCRIPTION_NOT_ACTIVE.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: ASSIGNMENT_NOT_FOUND for missing, Optional or another organization's Enrollment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: ENROLLMENT_NOT_EXTENDABLE for Completed or Withdrawn.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: DUE_DATE_NOT_LATER (checked first), DUE_DATE_IN_PAST, or VALIDATION_ERROR if the resulting instant exceeds the supported four-digit ISO year range. Clients retain the inline date error and reload detail for current zone constraints on the first two codes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: SERVICE_UNAVAILABLE for Tenant failure, timeout, malformed access data or a timezone rejected by PostgreSQL. No extension writes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
   /api/v1/enrollments/{enrollmentId}/materials/{materialId}/complete-reading:
     post:
       summary: Irreversibly mark Reading complete (UC27.3)
@@ -310,6 +402,17 @@ components:
       description: A role recognized by the existing InternalAuthGuard. L17 imposes no additional role restriction.
       schema: { type: string }
   responses:
+    AssignmentDetail:
+      description: Assignment detail with frozen deadline and live organization zones.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [statusCode, message, data]
+            properties:
+              statusCode: { type: integer, enum: [200] }
+              message: { type: string }
+              data: { $ref: "#/components/schemas/AssignmentDetail" }
     ReadingForbidden:
       description: CONTENT_UNAVAILABLE for Halted or disabled Course/Lesson/material; non-LEARNER roles are forbidden.
       content:
@@ -331,6 +434,77 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    ExtendAssignment:
+      type: object
+      additionalProperties: false
+      required: [newDueDate]
+      properties:
+        newDueDate:
+          type: string
+          format: date
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Calendar date in the live organization timezone. No business upper limit.
+          example: "2026-10-30"
+        reason:
+          type: string
+          maxLength: 1000
+          description: Optional, NFC-normalized and trimmed; empty allowed, null rejected. Included in the event.
+    AssignmentDetail:
+      type: object
+      required: [enrollmentId, learner, course, assignedAt, dueAt, dueTimezone, organizationTimezone, status, requiredCompleted, requiredTotal, baseDueAt, extensionSeconds, firstActivityAt, completedAt, completedLate, withdrawnAt, withdrawnReason, intervals]
+      properties:
+        enrollmentId: { type: string, format: uuid }
+        learner:
+          type: object
+          nullable: true
+          required: [id, fullName, email, status, activatedAt, deletedAt]
+          properties:
+            id: { type: string, format: uuid }
+            fullName: { type: string }
+            email: { type: string, format: email }
+            status: { type: string }
+            activatedAt: { type: string, format: date-time, nullable: true }
+            deletedAt: { type: string, format: date-time, nullable: true }
+        course:
+          type: object
+          nullable: true
+          required: [id, title, versionNumber]
+          properties:
+            id: { type: string, format: uuid }
+            title: { type: string }
+            versionNumber: { type: integer }
+        assignedAt: { type: string, format: date-time, nullable: true }
+        dueAt: { type: string, format: date-time, nullable: true }
+        dueTimezone:
+          type: string
+          nullable: true
+          description: Frozen zone in which the current deadline was set. Preserved until a new deadline is written.
+        organizationTimezone:
+          type: string
+          nullable: true
+          description: Live organization zone exactly as supplied by Tenant access, used for a new extension. May differ from dueTimezone; null when Tenant access fails. Picker falls back to dueTimezone, then device time.
+        status:
+          type: string
+          enum: [NotStarted, InProgress, Overdue, Completed, Exempted, Halted, Withdrawn]
+        requiredCompleted: { type: integer, minimum: 0 }
+        requiredTotal: { type: integer, minimum: 0 }
+        baseDueAt: { type: string, format: date-time, nullable: true }
+        extensionSeconds: { type: integer, minimum: 0 }
+        firstActivityAt: { type: string, format: date-time, nullable: true }
+        completedAt: { type: string, format: date-time, nullable: true }
+        completedLate: { type: boolean, nullable: true }
+        withdrawnAt: { type: string, format: date-time, nullable: true }
+        withdrawnReason: { type: string, nullable: true }
+        intervals:
+          type: array
+          items:
+            type: object
+            required: [kind, startedAt, endedAt, reason]
+            properties:
+              kind: { type: string, enum: [Exempted, Halted] }
+              startedAt: { type: string, format: date-time }
+              endedAt: { type: string, format: date-time, nullable: true }
+              reason: { type: string, nullable: true }
     Status:
       type: string
       enum: [NotStarted, InProgress, Completed, Exempted, Withdrawn, Halted]

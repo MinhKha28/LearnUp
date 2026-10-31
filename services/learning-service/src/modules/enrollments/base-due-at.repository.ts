@@ -21,6 +21,19 @@ export class BaseDueAtRepository extends BaseRepository {
     super(prisma);
   }
 
+  /** UC24.3: preserve Tenant's zone identity and resolve only PostgreSQL's spelling. */
+  async resolveTimezoneName(timezone: string): Promise<string> {
+    const [row] = await this.db().$queryRaw<{ name: string }[]>`
+      SELECT name FROM pg_timezone_names WHERE lower(name) = lower(${timezone})
+        AND name NOT LIKE 'posix/%' AND name NOT LIKE 'right/%' LIMIT 1`;
+    if (!row) {
+      throw new InvalidBaseDueAtInputError(
+        `Múi giờ "${timezone}" không có trong danh sách múi giờ của PostgreSQL.`,
+      );
+    }
+    return row.name;
+  }
+
   async validateTimezone(
     timezone: string,
     tx?: Prisma.TransactionClient,

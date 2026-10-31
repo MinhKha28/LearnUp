@@ -18,17 +18,20 @@ import {
   canExtendAssignment,
   extensionDateError,
 } from "@/utils/assignments.view";
-import { assignmentDueDate } from "@/utils/assignment.date";
+import { assignmentDueDate, assignmentExtensionDeadline } from "@/utils/assignment.date";
+import { formatTimezone, isSameZone } from "@/utils/timezone.format";
 import "./assignment.change.scss";
 
 export const AssignmentChange = ({
   item,
   onChanged,
   onConflict,
+  onReload,
 }: {
   item: AssignmentDetail;
   onChanged: (item: AssignmentDetail) => void;
   onConflict: (error: ApiError) => void;
+  onReload: () => void;
 }) => {
   const [mode, setMode] = useState<"extend" | "exempt" | null>(null);
   const [pending, setPending] = useState(false);
@@ -37,7 +40,13 @@ export const AssignmentChange = ({
   const [form] = Form.useForm<{ newDueDate: Dayjs; reason?: string }>();
   const selectedDay: Dayjs | undefined = Form.useWatch("newDueDate", form);
   const [notice, contextHolder] = message.useMessage();
-  const range = assignmentExtensionRange(item.dueAt, item.dueTimezone);
+  const pickerTimezone = item.organizationTimezone ?? item.dueTimezone;
+  const range = assignmentExtensionRange(item.dueAt, pickerTimezone);
+  const newDeadline = selectedDay
+    ? assignmentExtensionDeadline(selectedDay.format("YYYY-MM-DD"), pickerTimezone)
+    : new Date();
+  const showSummaryZones = Boolean(item.organizationTimezone && item.dueTimezone &&
+    !isSameZone(item.organizationTimezone, item.dueTimezone));
   const open = (value: "extend" | "exempt") => {
     setError(null);
     form.resetFields();
@@ -77,6 +86,7 @@ export const AssignmentChange = ({
           apiError.code,
         )
       ) {
+        onReload();
         form.setFields([
           {
             name: "newDueDate",
@@ -144,12 +154,18 @@ export const AssignmentChange = ({
           <>
             <p>
               Hạn hiện tại:{" "}
-              {assignmentDueDate(item.dueAt, item.dueTimezone)} → Hạn mới:{" "}
+              {assignmentDueDate(item.dueAt, item.dueTimezone)}
+              {showSummaryZones && ` (${formatTimezone(item.dueTimezone!, new Date(item.dueAt ?? Date.now()))})`}
+              {" → Hạn mới: "}
               {selectedDay
                 ? selectedDay.format("DD/MM/YYYY")
                 : "Chưa chọn"}
+              {showSummaryZones && ` (${formatTimezone(pickerTimezone!, newDeadline)})`}
             </p>
-            {!item.dueTimezone && (
+            {item.organizationTimezone && !isSameZone(item.organizationTimezone, item.dueTimezone) && (
+              <p>Hạn mới được tính theo múi giờ hiện tại của tổ chức: {formatTimezone(item.organizationTimezone, newDeadline)}</p>
+            )}
+            {!pickerTimezone && (
               <Alert
                 type="info"
                 showIcon
@@ -176,7 +192,7 @@ export const AssignmentChange = ({
                     const code = extensionDateError(
                       value.format("YYYY-MM-DD"),
                       item.dueAt,
-                      item.dueTimezone,
+                      pickerTimezone,
                     );
                     return code
                       ? Promise.reject(new Error(assignmentErrorMessage(code)))

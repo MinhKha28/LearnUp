@@ -86,7 +86,7 @@ for (const action of ['assign', 'extend', 'exempt'] as const) {
         { $transaction: downstream } as never,
         {} as never,
         {} as never,
-        { validateTimezone: downstream } as never,
+        { resolveTimezoneName: downstream } as never,
         tenant,
       );
       const warn = mock.method(Logger.prototype, 'warn', () => undefined);
