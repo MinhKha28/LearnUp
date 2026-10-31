@@ -18,6 +18,20 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
     show-sql: false
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${ENROLLMENT_EVENTS_GROUP_ID:notification-enrollment-events-v1}
+      # A group without a committed offset starts from the oldest message of the topic.
+      auto-offset-reset: earliest
+      # The container commits the offsets (ack mode BATCH, not manual) after the listener returned for the records it
+      # polled; an event that fails goes through the error handler (retry, then the DLT) before that.
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -43,8 +57,35 @@ learnup:
     enabled: ${LEARNUP_MAIL_ENABLED:false}
     from: ${LEARNUP_MAIL_FROM:noreply@learnup.com}
 
+  # Learning enrollment events (EnrollmentAssigned, EnrollmentDueDateExtended, EnrollmentExempted, LearnerWithdrew).
+  # Off by default: the service starts without Kafka; Compose turns it on.
+  enrollment-events:
+    enabled: ${ENROLLMENT_EVENTS_CONSUMER_ENABLED:false}
+    topic: ${ENROLLMENT_EVENTS_TOPIC:learnup.learning.enrollment-events}
+    # An event older than this is recorded as SKIPPED, not sent: a mail about a due date of last week helps nobody.
+    max-age: ${ENROLLMENT_EVENTS_MAX_AGE:72h}
+    retry-attempts: ${ENROLLMENT_EVENTS_RETRY_ATTEMPTS:5}
+    retry-initial-backoff: ${ENROLLMENT_EVENTS_RETRY_INITIAL_BACKOFF:1s}
+    retry-max-backoff: ${ENROLLMENT_EVENTS_RETRY_MAX_BACKOFF:30s}
+    # How long a handler may hold a delivery before another one may take it over (longer than one handling and the retry pauses).
+    claim-lease: ${ENROLLMENT_EVENTS_CLAIM_LEASE:2m}
+    # While the consumer is not running (for example Kafka was down at start-up) it is started again at this pause.
+    start-retry-interval: ${ENROLLMENT_EVENTS_START_RETRY_INTERVAL:10s}
+    # The dead-letter topic is created with these values when the broker does not have it; raise the replicas with several brokers.
+    dead-letter-partitions: ${ENROLLMENT_EVENTS_DLT_PARTITIONS:3}
+    dead-letter-replicas: ${ENROLLMENT_EVENTS_DLT_REPLICAS:1}
+    default-time-zone: ${ENROLLMENT_EVENTS_DEFAULT_TIME_ZONE:Asia/Ho_Chi_Minh}
+    # Timeout of the calls to tenant-service and course-service.
+    client-timeout-ms: ${ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS:3000}
+
 security:
   internal-key: ${INTERNAL_SERVICE_KEY:}
+
+# Other services this one asks for the names and e-mail of the people it writes to (event consumer).
+tenant:
+  service-url: ${TENANT_SERVICE_URL:http://localhost:8084}
+course:
+  service-url: ${COURSE_SERVICE_URL:http://localhost:8083}
 
 eureka:
   instance:
