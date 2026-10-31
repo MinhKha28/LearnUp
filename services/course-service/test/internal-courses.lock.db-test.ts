@@ -5,6 +5,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { InternalCoursesService } from '../src/modules/internal-courses/internal-courses.service';
 import type { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import type { IReadableStorageProvider } from '@learnup/ts-storage';
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error('Refusing database tests: NODE_ENV=production.');
@@ -23,7 +24,10 @@ const prisma = new PrismaClient({
   log: [{ emit: 'event', level: 'query' }],
 });
 prisma.$on('query', (event) => queries.push(event.query));
-const service = new InternalCoursesService(prisma as unknown as PrismaService);
+const storageStub = {
+  getSignedUrl: () => { throw new Error('Storage should not be used in lock DB tests'); },
+} as unknown as IReadableStorageProvider;
+const service = new InternalCoursesService(prisma as unknown as PrismaService, storageStub);
 
 async function cleanup() {
   await prisma.course.deleteMany({
