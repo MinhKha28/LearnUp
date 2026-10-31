@@ -270,6 +270,7 @@ export class RegistrationsService {
             subject: email.subject,
             templateCode: email.templateCode,
             body: email.html,
+            expiresAt: otpExpiresAt.toISOString(),
           },
         });
       });
@@ -647,6 +648,7 @@ export class RegistrationsService {
           subject: email.subject,
           templateCode: email.templateCode,
           body: email.html,
+          expiresAt: registration.expiresAt.toISOString(),
         },
       });
     });

@@ -4,6 +4,7 @@ import { BaseRepository } from '../../common/repository/base.repository';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { IClaimedOutboxEvent } from './interfaces/claimed-outbox-event.interface';
 import { IOutboxRetryState } from './interfaces/outbox-retry-state.interface';
+import { OUTBOX_EXPIRED_CODE } from './outbox-retry.policy';
 
 @Injectable()
 export class OutboxRepository extends BaseRepository {
@@ -51,6 +52,24 @@ export class OutboxRepository extends BaseRepository {
     tx: Prisma.TransactionClient,
   ) {
     return tx.outboxEvent.update({ where: { id }, data: state });
+  }
+
+  /** Dừng hẳn email đã quá hạn (EXPIRED) mà không tính thêm lần thử, và che nội dung như khi đã gửi. */
+  markExpired(
+    id: string,
+    redactedPayload: Prisma.InputJsonValue,
+    now: Date,
+    tx: Prisma.TransactionClient,
+  ) {
+    return tx.outboxEvent.update({
+      where: { id },
+      data: {
+        failedAt: now,
+        nextAttemptAt: null,
+        lastErrorCode: OUTBOX_EXPIRED_CODE,
+        payload: redactedPayload,
+      },
+    });
   }
 
   /** Đánh dấu đã gửi và thay payload bằng bản đã che nội dung. */
