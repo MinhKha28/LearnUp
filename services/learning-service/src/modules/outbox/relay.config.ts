@@ -4,6 +4,7 @@ export interface RelayConfig {
   topic: string;
   replicationFactor: number;
   pollMs: number;
+  drainGapMs: number;
   batchSize: number;
   deliveryMs: number;
   transactionMs: number;
@@ -15,12 +16,12 @@ export interface RelayConfig {
 export function readRelayConfig(
   get: (key: string) => string | undefined,
 ): RelayConfig {
-  const integer = (key: string, fallback: number) => {
+  const integer = (key: string, fallback: number, minimum = 1) => {
     const value = get(key) ?? String(fallback);
     if (
       !/^\d+$/.test(value) ||
       !Number.isSafeInteger(Number(value)) ||
-      Number(value) < 1
+      Number(value) < minimum
     )
       throw new Error(`Invalid ${key}`);
     return Number(value);
@@ -36,6 +37,7 @@ export function readRelayConfig(
     topic: get('OUTBOX_TOPIC') ?? 'learnup.learning.enrollment-events',
     replicationFactor: integer('OUTBOX_REPLICATION_FACTOR', 1),
     pollMs: integer('OUTBOX_POLL_INTERVAL_MS', 1000),
+    drainGapMs: integer('OUTBOX_DRAIN_GAP_MS', 50, 0),
     batchSize: integer('OUTBOX_BATCH_SIZE', 20),
     deliveryMs: integer('OUTBOX_DELIVERY_TIMEOUT_MS', 10000),
     transactionMs: integer('OUTBOX_TRANSACTION_TIMEOUT_MS', 30000),
