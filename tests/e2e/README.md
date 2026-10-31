@@ -14,6 +14,7 @@ state read back through the API, Kafka event observed) and never deletes anythin
 | J6 | Assessment access follows enrollment status (L17) | gateway, assessment, learning |
 | J7 | Certificate signer settings: ETag, If-Match save, 412/428 | gateway, achievement-reporting |
 | J8 | Tenant isolation between organization A and B | gateway, tenant, course, learning, achievement-reporting |
+| J9 | Re-registration with the same email: replaced unverified registration, expired registration, active-account email (observation), 10 concurrent same-email registrations | gateway, tenant, identity, notification |
 
 ## Start the cluster (Linux host, Docker, JDK 21, Node 22)
 
