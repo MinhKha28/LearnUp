@@ -18,6 +18,9 @@ const {
 const {
   OutboxRepository,
 } = require('../dist/src/modules/outbox/outbox.repository');
+const {
+  EmailRelayService,
+} = require('../dist/src/modules/outbox/email-relay.service');
 
 const eventType = `EmailRelayIntegration-${randomUUID()}`;
 
@@ -137,6 +140,77 @@ test('outbox claim, retry state and index against PostgreSQL', async (t) => {
         );
         assert.equal(claimed.id, due.id);
         assert.equal(claimed.attempts, 2);
+      },
+    );
+
+    await t.test(
+      'an expired email is stopped as EXPIRED, redacted, and never claimed again',
+      async () => {
+        await prisma.outboxEvent.updateMany({
+          where: { eventType, publishedAt: null, failedAt: null },
+          data: { failedAt: new Date() },
+        });
+        const expiresAt = new Date(Date.now() - 1000).toISOString();
+        const event = await prisma.outboxEvent.create({
+          data: {
+            aggregateType: 'EmailRelayIntegration',
+            aggregateId: randomUUID(),
+            eventType,
+            payload: {
+              to: 'expired@example.test',
+              subject: 'Xác thực email',
+              body: 'Mã xác thực 482913',
+              templateCode: 'REGISTRATION_VERIFICATION_CODE',
+              expiresAt,
+            },
+            occurredAt: new Date(),
+            attempts: 2,
+          },
+        });
+        class ScopedRepository extends OutboxRepository {
+          claimNextUnpublished(_type, excludeIds, tx) {
+            return super.claimNextUnpublished(eventType, excludeIds, tx);
+          }
+        }
+        const relay = new EmailRelayService(
+          new ScopedRepository(prisma),
+          {
+            get: (key) =>
+              ({
+                NOTIFICATION_SERVICE_URL: 'http://notification.invalid',
+                INTERNAL_SERVICE_KEY: 'relay-integration-key',
+              })[key],
+            getOrThrow: () => 'relay-integration-key',
+          },
+          prisma,
+        );
+        const originalFetch = global.fetch;
+        let calls = 0;
+        global.fetch = async () => {
+          calls += 1;
+          throw new Error('must not send an expired email');
+        };
+        try {
+          await relay.relayPendingEmails();
+          await relay.relayPendingEmails();
+        } finally {
+          global.fetch = originalFetch;
+        }
+        assert.equal(calls, 0);
+        const row = await prisma.outboxEvent.findUnique({
+          where: { id: event.id },
+        });
+        assert.ok(row.failedAt instanceof Date);
+        assert.equal(row.lastErrorCode, 'EXPIRED');
+        assert.equal(row.attempts, 2);
+        assert.equal(row.nextAttemptAt, null);
+        assert.equal(row.publishedAt, null);
+        assert.deepEqual(row.payload, {
+          to: 'expired@example.test',
+          templateCode: 'REGISTRATION_VERIFICATION_CODE',
+          expiresAt,
+          redacted: true,
+        });
       },
     );
 

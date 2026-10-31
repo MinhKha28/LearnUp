@@ -50,23 +50,17 @@ for (const [name, mutate] of [
     (e) => (e.data.scoreSnapshot.learnerId = e.data.courseId),
   ],
   ['invalid date', (e) => (e.data.completedAt = 'bad')],
-  ['ineligible snapshot', (e) => (e.data.scoreSnapshot.eligible = false)],
   [
     'wrong score type',
     (e) => (e.data.scoreSnapshot.quizzes[0].recordedScore = 90),
-  ],
-  [
-    'inconsistent passing score',
-    (e) => (e.data.scoreSnapshot.quizzes[0].passed = false),
   ],
   ['missing completedLate', (e) => delete e.data.completedLate],
   ['bad UUID', (e) => (e.data.enrollmentId = 'bad')],
   ['mismatched event time', (e) => (e.occurredAt = new Date(0).toISOString())],
   [
-    'zero components',
+    'component count mismatch',
     (e) => {
       e.data.scoreSnapshot.requiredComponentCount = 0;
-      e.data.scoreSnapshot.quizzes = [];
     },
   ],
 ])
@@ -598,3 +592,152 @@ test('deep JSON, nonfinite JSON numbers and unknown completion fields are quaran
   e.data.unexpected = 'future field';
   assert.ok(decodeCompletion(delivery(e)).reason);
 });
+
+for (const kind of [
+  'Waived',
+  'eligible=false',
+  'passed mismatch',
+  'empty assessments',
+])
+  test(`L22 accepts ${kind} and preserves the received snapshot`, () => {
+    const e = event();
+    const s = e.data.scoreSnapshot;
+    if (kind === 'eligible=false') s.eligible = false;
+    if (kind === 'passed mismatch') s.quizzes[0].passed = false;
+    if (kind === 'empty assessments') {
+      s.quizzes = [];
+      s.requiredComponentCount = 0;
+    }
+    if (kind === 'Waived') {
+      s.quizzes = [];
+      s.assignments = [
+        {
+          assessmentId: require('node:crypto').randomUUID(),
+          submissionId: null,
+          finalScore: null,
+          passingScore: '50',
+          finalizedAt: null,
+          passed: true,
+          peerReview: { status: 'Waived', requiredCount: 3, completedCount: 1 },
+        },
+      ];
+    }
+    const decoded = decodeCompletion(delivery(e));
+    assert.equal(decoded.reason, undefined);
+    assert.deepEqual(decoded.event.data.scoreSnapshot, s);
+  });
+for (const [name, mutate] of [
+  [
+    'duplicate assessment',
+    (s) => {
+      s.quizzes.push({ ...s.quizzes[0] });
+      s.requiredComponentCount++;
+    },
+  ],
+  ['nonfinite decimal', (s) => (s.quizzes[0].recordedScore = 'Infinity')],
+  [
+    'unknown peer status',
+    (s) => {
+      s.assignments = [
+        {
+          assessmentId: require('node:crypto').randomUUID(),
+          submissionId: null,
+          finalScore: null,
+          passingScore: '50',
+          finalizedAt: null,
+          passed: false,
+          peerReview: {
+            status: 'Exempted',
+            requiredCount: 3,
+            completedCount: 1,
+          },
+        },
+      ];
+      s.requiredComponentCount++;
+    },
+  ],
+  [
+    'excess peer count',
+    (s) => {
+      s.assignments = [
+        {
+          assessmentId: require('node:crypto').randomUUID(),
+          submissionId: null,
+          finalScore: null,
+          passingScore: '50',
+          finalizedAt: null,
+          passed: false,
+          peerReview: { status: 'Waived', requiredCount: 1, completedCount: 2 },
+        },
+      ];
+      s.requiredComponentCount++;
+    },
+  ],
+])
+  test(`L22 quarantines ${name}`, () => {
+    const e = event();
+    mutate(e.data.scoreSnapshot);
+    assert.equal(
+      decodeCompletion(delivery(e)).reason,
+      'INVALID_COMPLETION_SCHEMA',
+    );
+  });
+
+for (const field of [
+  'recordedScore',
+  'finalScore',
+  'quizPassingScore',
+  'assignmentPassingScore',
+]) {
+  for (const value of [
+    '-5',
+    '+5',
+    '5.',
+    '.5',
+    '100000',
+    '100.01',
+    '100.001',
+    '1.234',
+    '0',
+    '0.5',
+    '99.99',
+    '100',
+    '100.00',
+    null,
+  ]) {
+    test(`bounded certificate score ${field}=${value}`, () => {
+      const e = event();
+      const candidate = e.data.scoreSnapshot;
+      const assignment = {
+        assessmentId: require('node:crypto').randomUUID(),
+        submissionId: require('node:crypto').randomUUID(),
+        finalScore: '90',
+        passingScore: '80',
+        finalizedAt: candidate.asOf,
+        passed: true,
+        peerReview: {
+          status: 'NotApplicable',
+          requiredCount: 0,
+          completedCount: 0,
+        },
+      };
+      candidate.assignments = [assignment];
+      candidate.requiredComponentCount = 2;
+      if (field === 'recordedScore')
+        Object.assign(candidate.quizzes[0], { recordedScore: value });
+      if (field === 'finalScore')
+        Object.assign(assignment, { finalScore: value });
+      if (field === 'quizPassingScore')
+        Object.assign(candidate.quizzes[0], { passingScore: value });
+      if (field === 'assignmentPassingScore')
+        Object.assign(assignment, { passingScore: value });
+      const validate = () => decodeCompletion(delivery(e));
+      const accepted =
+        ['0', '0.5', '99.99', '100', '100.00'].includes(value) ||
+        (value === null && ['recordedScore', 'finalScore'].includes(field));
+      if (accepted)
+        assert.deepEqual(validate().event.data.scoreSnapshot, candidate);
+      else assert.ok(validate().reason);
+    });
+  }
+}

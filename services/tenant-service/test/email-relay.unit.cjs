@@ -10,6 +10,7 @@ const {
 } = require('../dist/src/modules/outbox/outbox.repository');
 const {
   OUTBOX_MAX_ATTEMPTS,
+  isEmailExpired,
   nextRetryState,
 } = require('../dist/src/modules/outbox/outbox-retry.policy');
 
@@ -46,9 +47,16 @@ const createRelay = ({ env = {}, events = [], fail = {} } = {}) => {
       ? { id: event, attempts: 0, nextAttemptAt: null, failedAt: null }
       : { attempts: 0, nextAttemptAt: null, failedAt: null, ...event },
   );
-  rows.forEach((row) => (row.payload = { ...email }));
+  rows.forEach(
+    (row) =>
+      (row.payload = {
+        ...email,
+        ...(row.expiresAt ? { expiresAt: row.expiresAt } : {}),
+      }),
+  );
   const published = [];
   const failures = [];
+  const expired = [];
   const transactions = [];
   const due = (row) =>
     !row.publishedAt &&
@@ -69,6 +77,13 @@ const createRelay = ({ env = {}, events = [], fail = {} } = {}) => {
       if (fail.markPublished) throw new Error('write failed');
       published.push({ id, payload });
       rows.find((item) => item.id === id).publishedAt = new Date();
+    },
+    markExpired: async (id, payload, now) => {
+      expired.push({ id, payload, now });
+      Object.assign(
+        rows.find((item) => item.id === id),
+        { failedAt: now, lastErrorCode: 'EXPIRED', payload },
+      );
     },
     recordFailure: async (id, state) => {
       failures.push({ id, ...state });
@@ -95,7 +110,7 @@ const createRelay = ({ env = {}, events = [], fail = {} } = {}) => {
   };
   const relay = new EmailRelayService(repository, config, prisma);
   const pending = () => rows.filter((row) => !row.publishedAt);
-  return { relay, rows, published, failures, pending, transactions };
+  return { relay, rows, published, failures, expired, pending, transactions };
 };
 
 const respondWith = (status, data = { status: 'SENT' }) => {
@@ -430,6 +445,99 @@ test('uses the configured timeout, falling back to 5000 ms for invalid values', 
     await relay.relayPendingEmails();
     assert.equal(transactions[0].maxWait, expected, String(value));
   }
+});
+
+test('an expired email is not sent: it stops as EXPIRED, redacted, without counting an attempt', async () => {
+  const requests = respondWith(201);
+  const past = new Date(Date.now() - 1000).toISOString();
+  const { relay, published, failures, expired, rows } = createRelay({
+    events: [{ id: 'old', attempts: 3, expiresAt: past }, 'fresh'],
+  });
+  await relay.relayPendingEmails();
+  assert.equal(requests.length, 1);
+  assert.equal(JSON.parse(requests[0].init.body).subject, email.subject);
+  assert.deepEqual(
+    published.map((item) => item.id),
+    ['fresh'],
+  );
+  assert.equal(failures.length, 0);
+  assert.equal(expired.length, 1);
+  assert.equal(expired[0].id, 'old');
+  assert.ok(expired[0].now instanceof Date);
+  assert.deepEqual(expired[0].payload, {
+    to: email.to,
+    templateCode: email.templateCode,
+    expiresAt: past,
+    redacted: true,
+  });
+  assert.equal(rows.find((row) => row.id === 'old').attempts, 3);
+  const warnings = logs.filter((entry) => entry.level === 'warn');
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0].message, /Email old skipped \(EXPIRED\)/);
+  assert.doesNotMatch(loggedText(), /482913|secret-token|guest@example/);
+  await relay.relayPendingEmails();
+  assert.equal(requests.length, 1);
+});
+
+test('an email before its expiry is sent and keeps the expiry in the redacted payload', async () => {
+  const requests = respondWith(201);
+  const future = new Date(Date.now() + 60_000).toISOString();
+  const { relay, published, expired } = createRelay({
+    events: [{ id: 'e1', expiresAt: future }],
+  });
+  await relay.relayPendingEmails();
+  assert.equal(requests.length, 1);
+  assert.equal(expired.length, 0);
+  assert.deepEqual(published[0].payload, {
+    to: email.to,
+    templateCode: email.templateCode,
+    expiresAt: future,
+    redacted: true,
+  });
+});
+
+test('in development, an expired email is not printed to the log', async () => {
+  respondWith(201);
+  const { relay, published, expired } = createRelay({
+    env: { NOTIFICATION_SERVICE_URL: '', NODE_ENV: 'development' },
+    events: [{ id: 'e1', expiresAt: new Date(Date.now() - 1).toISOString() }],
+  });
+  await relay.relayPendingEmails();
+  assert.equal(published.length, 0);
+  assert.equal(expired.length, 1);
+  assert.doesNotMatch(loggedText(), /DEV EMAIL|482913/);
+});
+
+test('isEmailExpired: expired at the exact instant; missing or invalid expiry is sent', () => {
+  const now = new Date('2026-10-30T00:00:00.000Z');
+  assert.equal(isEmailExpired({ expiresAt: now.toISOString() }, now), true);
+  assert.equal(
+    isEmailExpired({ expiresAt: '2026-10-30T00:00:00.001Z' }, now),
+    false,
+  );
+  for (const expiresAt of [undefined, null, 1, 'not-a-date', ''])
+    assert.equal(isEmailExpired({ expiresAt }, now), false, String(expiresAt));
+});
+
+test('markExpired sets failed_at and EXPIRED without touching attempts', async () => {
+  const updates = [];
+  const repository = new OutboxRepository({});
+  const now = new Date('2026-10-30T00:00:00Z');
+  const tx = {
+    outboxEvent: { update: async (args) => updates.push(args) },
+  };
+  await repository.markExpired('e1', { redacted: true }, now, tx);
+  assert.deepEqual(updates, [
+    {
+      where: { id: 'e1' },
+      data: {
+        failedAt: now,
+        nextAttemptAt: null,
+        lastErrorCode: 'EXPIRED',
+        payload: { redacted: true },
+      },
+    },
+  ]);
 });
 
 test('claims only due, non-failed emails with FOR UPDATE SKIP LOCKED', async () => {
