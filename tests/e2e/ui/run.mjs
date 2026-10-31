@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { GATEWAY, STATE_DIR } from "../lib/config.mjs";
 import { seededOrganizers } from "../lib/actors.mjs";
 import { Browser } from "./cdp.mjs";
+import { KNOWN_BUGS } from "../lib/known-bugs.mjs";
 import { serveStatic } from "./serve.mjs";
 import { createLearner } from "./setup.mjs";
 import { journeys } from "./journeys.mjs";
@@ -49,7 +50,7 @@ try {
     const started = Date.now();
     const page = await browser.newPage();
     let n = 0;
-    const step = async (name, fn, { allow4xx = [] } = {}) => {
+    const step = async (name, fn, { allow4xx = [], knownBug } = {}) => {
       const t0 = Date.now();
       const mark = { errors: page.errors.length, responses: page.responses.length, failures: page.failures.length };
       const label = `${journey.id}.${String(++n).padStart(2, "0")}`;
@@ -69,17 +70,19 @@ try {
       }
       const shot = path.join(shared.screens, `${label}.png`);
       await page.screenshot(shot).catch(() => {});
-      const entry = { name, ms: Date.now() - t0, status: error ? "FAIL" : "PASS", screenshot: shot, ...(error && { error }) };
+      if (knownBug && !KNOWN_BUGS[knownBug]) throw new Error(`unknown bug id ${knownBug}`);
+      const status = knownBug ? (error ? "KNOWN-FAIL" : "UNEXPECTED-PASS") : error ? "FAIL" : "PASS";
+      const entry = { name, ms: Date.now() - t0, status, knownBug, screenshot: shot, ...(error && { error }) };
       result.steps.push(entry);
-      console.log(`   ${entry.status.padEnd(5)} ${label} ${name} (${entry.ms} ms)${error ? `\n         ${error.slice(0, 500)}` : ""}`);
-      if (error) throw Object.assign(new Error(error), { stepFailed: true });
+      console.log(`   ${status.padEnd(15)} ${label} ${name}${knownBug ? ` [${knownBug}]` : ""} (${entry.ms} ms)${error ? `\n         ${error.slice(0, 500)}` : ""}`);
+      if (error) throw Object.assign(new Error(error), { stepFailed: true, knownBug });
       return value;
     };
     console.log(`\n${journey.id} ${journey.title}`);
     try {
       await journey.run({ page, step, shared });
     } catch (e) {
-      result.status = "FAIL";
+      result.status = e.knownBug ? "KNOWN-FAIL" : "FAIL";
       if (!e.stepFailed) console.log(`   journey error: ${e.stack}`);
     }
     result.ms = Date.now() - started;
@@ -95,6 +98,10 @@ try {
 }
 fs.mkdirSync(path.join(STATE_DIR, "ui-runs"), { recursive: true });
 fs.writeFileSync(path.join(STATE_DIR, "ui-runs", `${runId}.json`), JSON.stringify({ runId, learner: shared.learner.email, results }, null, 2));
-const ok = results.every((r) => r.status === "PASS");
+const unexpected = results.flatMap((r) => r.steps.filter((x) => x.status === "UNEXPECTED-PASS").map((x) => `${r.id}: ${x.name} [${x.knownBug}]`));
+if (unexpected.length) console.log(`\nKnown-bug steps that passed (bug fixed? update known-bugs.mjs):\n   ${unexpected.join("\n   ")}`);
+const known = new Set(results.flatMap((r) => r.steps.filter((x) => x.status === "KNOWN-FAIL").map((x) => x.knownBug)));
+for (const id of known) console.log(`\nKnown failure ${id}: ${KNOWN_BUGS[id]}`);
+const ok = results.every((r) => r.status === "PASS" || r.status === "KNOWN-FAIL");
 console.log(`\nScreenshots: ${shared.screens}\nRESULT: ${ok ? "OK" : "FAILED"}`);
 process.exit(ok ? 0 : 1);

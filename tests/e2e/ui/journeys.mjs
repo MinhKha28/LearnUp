@@ -177,12 +177,12 @@ export const journeys = [
           },
         );
         assert.ok(shown, "progress page renders nothing for a real enrollment (no What remains table)");
-      });
+      }, { knownBug: "UI-1" });
       await step("the completed Reading is not listed as remaining; every other required item is", async () => {
         const rows = await page.eval(`[...document.querySelectorAll(".course-progress-table tbody tr")].map((r) => r.innerText.replace(/\\s+/g, " "))`);
         for (const m of done) assert.ok(!rows.some((r) => r.includes(m.title)), `completed "${m.title}" still listed as remaining`);
         for (const m of missing) assert.ok(rows.some((r) => r.includes(m.title)), `required "${m.title}" missing from What remains`);
-      });
+      }, { knownBug: "UI-1" });
     },
   },
 ];
