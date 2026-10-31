@@ -5,7 +5,6 @@ import { MaterialProgressService } from '../../src/modules/material-progress/mat
 import {
   MaterialProgressRepository,
   type ProgressRow,
-  type ProgressPreview,
 } from '../../src/modules/material-progress/material-progress.repository';
 import type { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
 import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
@@ -58,17 +57,7 @@ function fixture(status = 'NotStarted') {
       calls.push('lock');
       return row;
     },
-    preview: async () => {
-      calls.push('preview');
-      return {
-        ...row,
-        watchedRanges: [[0, 100]],
-        watchedSeconds: 100,
-        newSeconds: 100,
-        now: at,
-      };
-    },
-    save: async () => {
+    saveCoverage: () => {
       calls.push('coverage');
       row = {
         ...row,
@@ -76,7 +65,7 @@ function fixture(status = 'NotStarted') {
         watchedSeconds: 100,
         completedAt: at,
       };
-      return row;
+      return Promise.resolve(row);
     },
     savePosition: async (
       _e: string,
@@ -155,34 +144,38 @@ test('BR-181 accepts an entire video without a playback rate budget', async () =
 function repositoryFixture() {
   const queries: Prisma.Sql[] = [];
   let row = state();
+  let transition: { newlyCompleted: boolean; completedAt: Date | null } | null =
+    null;
   const tx = {
     $executeRaw: async (
       query: Prisma.Sql | TemplateStringsArray,
       ...values: unknown[]
     ) => {
-      queries.push(
-        Array.isArray(query)
-          ? Prisma.sql(query as unknown as TemplateStringsArray, ...values)
-          : query,
-      );
+      queries.push('sql' in query ? query : Prisma.sql(query, ...values));
       return 1;
     },
     $queryRaw: (
       query: Prisma.Sql | TemplateStringsArray,
       ...values: unknown[]
     ) => {
-      queries.push(
-        Array.isArray(query)
-          ? Prisma.sql(query as unknown as TemplateStringsArray, ...values)
-          : query,
+      queries.push('sql' in query ? query : Prisma.sql(query, ...values));
+      const sql = queries[queries.length - 1].sql;
+      return Promise.resolve(
+        sql.includes('WITH proposed')
+          ? transition
+            ? [transition]
+            : []
+          : [row],
       );
-      return Promise.resolve([row]);
     },
   } as unknown as Prisma.TransactionClient;
   return {
     repository: new MaterialProgressRepository({} as PrismaService),
     tx,
     queries,
+    setTransition: (value: typeof transition) => {
+      transition = value;
+    },
     setRow: (value: ProgressRow) => {
       row = value;
     },
@@ -195,14 +188,11 @@ test('BR-140 activates only on the edge from incomplete to completed', async () 
     [at, 100, false],
   ] as const) {
     const f = repositoryFixture();
-    const preview: ProgressPreview = {
-      ...state(),
-      completedAt: previous,
-      watchedSeconds: seconds,
-      newSeconds: seconds,
-      now: at,
-    };
-    await f.repository.save(id, id, id, preview, 90, [[0, seconds]], f.tx);
+    f.setTransition({
+      newlyCompleted: activates,
+      completedAt: previous ?? (activates ? at : null),
+    });
+    await f.repository.saveCoverage(id, id, id, 90, [[0, seconds]], f.tx);
     assert.equal(
       f.queries.some((q) => q.sql.includes('UPDATE enrollments')),
       activates,

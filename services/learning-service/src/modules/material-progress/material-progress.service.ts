@@ -365,23 +365,14 @@ export class MaterialProgressService {
       );
       if (ranges.length) {
         const normalized = normalizeRanges(ranges, duration);
-        const preview = await this.repository.preview(
+        await this.repository.saveCoverage(
           enrollmentId,
           materialId,
           user.organizationId!,
+          requiredSeconds(duration, current.videoCompletionPercent),
           normalized,
           tx,
         );
-        if (preview.newSeconds > 0)
-          await this.repository.save(
-            enrollmentId,
-            materialId,
-            user.organizationId!,
-            preview,
-            requiredSeconds(duration, current.videoCompletionPercent),
-            normalized,
-            tx,
-          );
       }
       const row = await this.repository.savePosition(
         enrollmentId,

@@ -22,11 +22,6 @@ export interface ProgressRow {
   positionSeconds: number | null;
   positionReportedAt: Date | null;
 }
-export interface ProgressPreview extends ProgressRow {
-  newSeconds: number;
-  now: Date;
-}
-
 export const progressAccessSql = (
   enrollmentId: string,
   learnerId: string,
@@ -59,22 +54,30 @@ export const lockProgressSql = (
     FROM material_progress WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid
      AND organization_id=${organizationId}::uuid FOR UPDATE`;
 
-export const previewProgressSql = (
+export const saveCoverageSql = (
   enrollmentId: string,
   materialId: string,
   organizationId: string,
   ranges: WatchedRange[],
+  required: number,
 ) => Prisma.sql`
-  WITH proposed AS (
+  WITH proposed AS MATERIALIZED (
     SELECT COALESCE(watched_ranges,'{}'::int4multirange) + ${rangesValue(ranges)} AS merged,
            ${rangesValue(ranges)} - COALESCE(watched_ranges,'{}'::int4multirange) AS novel,
-           completed_at, last_reported_at, position_seconds, position_reported_at
+           completed_at,
+           date_trunc('milliseconds', clock_timestamp()) AS now
       FROM material_progress WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid
        AND organization_id=${organizationId}::uuid)
-  SELECT ${rangesJson(Prisma.sql`merged`)} AS "watchedRanges", ${seconds(Prisma.sql`merged`)} AS "watchedSeconds",
-         ${seconds(Prisma.sql`novel`)} AS "newSeconds", completed_at AS "completedAt",
-          last_reported_at AS "lastReportedAt", position_seconds AS "positionSeconds",
-          position_reported_at AS "positionReportedAt", clock_timestamp() AS "now" FROM proposed`;
+  UPDATE material_progress p
+     SET watched_ranges=proposed.merged,
+         completed_at=COALESCE(p.completed_at, CASE WHEN ${seconds(Prisma.sql`proposed.merged`)} >= ${required}
+           THEN proposed.now END),
+         last_reported_at=proposed.now, updated_at=proposed.now
+    FROM proposed
+   WHERE p.enrollment_id=${enrollmentId}::uuid AND p.material_id=${materialId}::uuid AND p.organization_id=${organizationId}::uuid
+     AND NOT isempty(proposed.novel)
+  RETURNING proposed.completed_at IS NULL AND p.completed_at IS NOT NULL AS "newlyCompleted",
+            p.completed_at AS "completedAt"`;
 
 export const activateEnrollmentSql = (
   enrollmentId: string,
@@ -255,39 +258,25 @@ export class MaterialProgressRepository {
     );
     return row;
   }
-  async preview(
+  async saveCoverage(
     enrollmentId: string,
     materialId: string,
     org: string,
-    ranges: WatchedRange[],
-    tx: Prisma.TransactionClient,
-  ) {
-    const [row] = await tx.$queryRaw<ProgressPreview[]>(
-      previewProgressSql(enrollmentId, materialId, org, ranges),
-    );
-    return row;
-  }
-  async save(
-    enrollmentId: string,
-    materialId: string,
-    org: string,
-    row: ProgressPreview,
     required: number,
     ranges: WatchedRange[],
     tx: Prisma.TransactionClient,
-  ): Promise<ProgressRow> {
-    const completedAt =
-      row.completedAt ?? (row.watchedSeconds >= required ? row.now : null);
-    await tx.$executeRaw`UPDATE material_progress
-      SET watched_ranges=COALESCE(watched_ranges,'{}'::int4multirange)+${rangesValue(ranges)},
-          completed_at=COALESCE(completed_at,${completedAt}::timestamptz),
-          last_reported_at=${row.now}::timestamptz, updated_at=${row.now}::timestamptz
-      WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid AND organization_id=${org}::uuid`;
-    if (row.completedAt === null && completedAt !== null) {
-      await tx.$executeRaw(activateEnrollmentSql(enrollmentId, org, row.now));
+  ): Promise<void> {
+    // Keep the old JS Date round-trip's millisecond precision, but calculate the
+    // union, novel seconds and completion edge entirely in PostgreSQL 16.
+    const [changed] = await tx.$queryRaw<
+      { newlyCompleted: boolean; completedAt: Date | null }[]
+    >(saveCoverageSql(enrollmentId, materialId, org, ranges, required));
+    if (changed?.newlyCompleted) {
+      await tx.$executeRaw(
+        activateEnrollmentSql(enrollmentId, org, changed.completedAt!),
+      );
       await requestCompletion(tx, org, enrollmentId, 'VIDEO_COMPLETED');
     }
-    return { ...row, completedAt };
   }
   async savePosition(
     enrollmentId: string,
