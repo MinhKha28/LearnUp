@@ -59,7 +59,7 @@ Fakes and non-default settings used:
 | :-- | :-- |
 | smtp-sink on `127.0.0.1:2525`, `LEARNUP_MAIL_ENABLED=true` | Read OTP and invitation links; nothing leaves the host |
 | Cloudinary variables empty | Storage stays unconfigured; no journey uploads files |
-| learning `TENANT_CLIENT_MODE=fake` | E2E explicitly uses fake; root Compose defaults to HTTP |
+| learning `TENANT_CLIENT_MODE=http` | Not a fake: learning calls the real Tenant organization-access endpoint, as the root Compose does |
 | learning `VIDEO_PLAYBACK_MODE=fixture`, `READING_ACCESS_MODE=fixture` | course-service playback/reading contract not built (CT-3) |
 | achievement signer access uses the default HTTP mode | J7 checks the real Tenant organization-access endpoint |
 | achievement `CERTIFICATE_CLEANUP_ENABLED=false`, consumer off | No storage, no certificate issuance in scope |
@@ -100,13 +100,8 @@ its volumes. `$E2E_STATE_DIR` (secrets, mailbox, run records) is kept; delete it
 
 ## Known failures
 
-`$KEY` is the `INTERNAL_SERVICE_KEY` from `cluster.env`.
-
-- **CT-1 (assessment-service, contract with learning-service).** The `completion-snapshot`
-  endpoint is missing, so no enrollment ever reaches Completed. The learning fake cannot stand in
-  for it, because its default snapshot is not eligible.
-  `curl -i -H "x-internal-key: $KEY" localhost:8086/api/v1/internal/learners/<learnerId>/courses/<courseId>/completion-snapshot`
-  returns 404.
+None at present. CT-1 (assessment-service had no `completion-snapshot` endpoint, so no enrollment reached
+Completed) is resolved: J5 now asserts that the enrollment becomes Completed.
 
 Tenant CT-2 is resolved: J7 uses the real `GET /api/v1/internal/organizations/:id/access` endpoint with matching internal-key and Organization headers. Tenant unavailability fails closed with `503 TENANT_UNAVAILABLE`.
 

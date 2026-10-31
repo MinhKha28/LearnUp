@@ -80,7 +80,6 @@ export default {
         }
         assert.fail(`enrollment status is ${last?.status}, expected Completed`);
       },
-      { knownBug: "CT-1" },
     );
   },
 };
