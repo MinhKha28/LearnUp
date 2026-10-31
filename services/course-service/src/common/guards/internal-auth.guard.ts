@@ -61,7 +61,7 @@ export class InternalAuthGuard implements CanActivate {
       );
       const expected = Buffer.from(expectedInternalKey);
       if (
-        expected.length === 0 ||
+        !expectedInternalKey.trim() ||
         supplied.length !== expected.length ||
         !timingSafeEqual(supplied, expected)
       ) {
@@ -83,8 +83,10 @@ export class InternalAuthGuard implements CanActivate {
       return true;
     }
 
+    // Fail closed: a service that was started without a key must not accept a request whose key header is empty too.
     if (
       typeof internalKey !== 'string' ||
+      !expectedInternalKey.trim() ||
       internalKey !== expectedInternalKey
     ) {
       throw new UnauthorizedException(
