@@ -24,6 +24,7 @@ interface ComponentRow {
     cycleId: string | null;
     cycleClosesAt: string | null;
   }[];
+  exemptedAt: string | null;
 }
 
 export interface CourseFacts {
@@ -80,7 +81,13 @@ export class CompletionSnapshotRepository {
                WHERE rs.assessment_id = a.id AND r.organization_id = ${organizationId}::uuid
                  AND r.reviewer_id = ${learnerId}::uuid
                  AND lower(r.reviewer_role) <> ${INSTRUCTOR_REVIEWER_ROLE}
-             ), '[]'::json) AS reviews
+             ), '[]'::json) AS reviews,
+             (
+               SELECT st.exempted_at
+               FROM learner_assessment_states st
+               WHERE st.assessment_id = a.id AND st.organization_id = ${organizationId}::uuid
+                 AND st.learner_id = ${learnerId}::uuid
+             ) AS "exemptedAt"
       FROM assessments a
       WHERE a.organization_id = ${organizationId}::uuid AND a.course_id = ${courseId}::uuid AND a.disabled_at IS NULL
         AND (a.kind = ${ASSIGNMENT_KIND} OR (a.kind = ${QUIZ_KIND} AND a.is_required))
@@ -102,6 +109,7 @@ export class CompletionSnapshotRepository {
               ? new Date(row.latest.finalizedAt)
               : null,
           },
+          exemptedAt: row.exemptedAt ? new Date(row.exemptedAt) : null,
           reviews: row.reviews.map((review) => ({
             status: review.status,
             reviewDueAt: review.reviewDueAt

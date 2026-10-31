@@ -4,6 +4,8 @@
  * the two services share no library. A snapshot that breaks any of them is rejected as INVALID_SNAPSHOT and no Learner
  * of the Course is marked Completed. Returns the list of rules broken; empty means learning accepts it.
  * If learning changes its validator, change this file and the tests that use it in the same PR.
+ * Since L22 (#207) learning checks the structure only: it recomputes `passed` and `eligible` itself, so they are no
+ * longer compared with the rule here, and `Waived` is a known peer review status.
  */
 import { isUUID } from 'class-validator';
 
@@ -70,7 +72,6 @@ export function brokenRules(
     return broken;
   }
   const ids = new Set<string>();
-  let eligible = true;
   for (const q of value.quizzes) {
     if (
       !object(q) ||
@@ -92,12 +93,6 @@ export function brokenRules(
       continue;
     }
     ids.add(q.assessmentId);
-    const passed =
-      q.attemptId !== null &&
-      q.recordedScore !== null &&
-      Number(q.recordedScore) >= Number(q.passingScore);
-    need(q.passed === passed, 'Quiz passed matches the rule');
-    eligible &&= passed;
   }
   for (const a of value.assignments) {
     if (
@@ -129,7 +124,7 @@ export function brokenRules(
     const p = a.peerReview;
     const peerOk =
       only(p, ['status', 'requiredCount', 'completedCount']) &&
-      ['NotApplicable', 'Pending', 'Satisfied', 'Missed'].includes(
+      ['NotApplicable', 'Pending', 'Satisfied', 'Missed', 'Waived'].includes(
         String(p.status),
       ) &&
       count(p.requiredCount) &&
@@ -141,19 +136,10 @@ export function brokenRules(
       ) &&
       !(p.status === 'Satisfied' && p.completedCount !== p.requiredCount);
     need(peerOk, 'peerReview follows its rules');
-    const passed =
-      a.submissionId !== null &&
-      a.finalizedAt !== null &&
-      a.finalScore !== null &&
-      Number(a.finalScore) >= Number(a.passingScore);
-    need(a.passed === passed, 'Assignment passed matches the rule');
-    eligible &&=
-      passed && ['NotApplicable', 'Satisfied'].includes(String(p.status));
   }
   need(
     value.requiredComponentCount === ids.size,
     'requiredComponentCount equals the number of components',
   );
-  need(value.eligible === eligible, 'eligible matches the rule of learning');
   return broken;
 }

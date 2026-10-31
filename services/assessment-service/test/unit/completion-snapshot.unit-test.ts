@@ -461,13 +461,37 @@ describe('the copy of the validator of learning rejects what learning rejects (t
     ));
   test('a wrong requiredComponentCount', () =>
     assert.ok(broken((v) => (v.requiredComponentCount = 5)).length > 0));
-  test('a wrong passed on a Quiz', () =>
-    assert.ok(broken((v) => (v.quizzes[0].passed = false)).length > 0));
-  test('a wrong eligible', () =>
-    assert.ok(broken((v) => (v.eligible = false)).length > 0));
-  test('Waived (learning does not accept it until L22)', () =>
+  test('learning recomputes passed and eligible itself, so a different value is not a broken rule (L22)', () => {
+    assert.deepEqual(
+      broken((v) => (v.quizzes[0].passed = false)),
+      [],
+    );
+    assert.deepEqual(
+      broken((v) => (v.eligible = false)),
+      [],
+    );
+  });
+  test('Waived is a known status; it may keep a part of the reviews done', () => {
+    assert.deepEqual(
+      broken((v) => {
+        v.assignments[0].peerReview = {
+          status: 'Waived',
+          requiredCount: 3,
+          completedCount: 1,
+        };
+      }),
+      [],
+    );
+  });
+  test('Waived with more reviews done than required', () =>
     assert.ok(
-      broken((v) => (v.assignments[0].peerReview.status = 'Waived')).length > 0,
+      broken((v) => {
+        v.assignments[0].peerReview = {
+          status: 'Waived',
+          requiredCount: 1,
+          completedCount: 2,
+        };
+      }).length > 0,
     ));
   test('Satisfied with fewer done than required', () =>
     assert.ok(
@@ -542,5 +566,69 @@ describe('settleExpiredAttempts (the frame for UC29.1)', () => {
       NOW_,
     );
     assert.equal(first, second);
+  });
+});
+
+describe('a waived peer review duty (UC33.2, BR-241)', () => {
+  const missed = [
+    { status: 'Completed', reviewDueAt: PAST },
+    { status: 'Missed', reviewDueAt: PAST },
+    { status: 'Missed', reviewDueAt: PAST },
+  ];
+
+  test('Waived whatever the reviews say, and the counts stay as they are', () => {
+    assert.deepEqual(peerReviewOf(missed, NOW, PAST), {
+      status: 'Waived',
+      requiredCount: 3,
+      completedCount: 1,
+    });
+    assert.deepEqual(peerReviewOf([], NOW, PAST), {
+      status: 'Waived',
+      requiredCount: 0,
+      completedCount: 0,
+    });
+  });
+
+  test('without a waiver the same reviews are Missed', () => {
+    assert.equal(peerReviewOf(missed, NOW).status, 'Missed');
+    assert.equal(peerReviewOf(missed, NOW, null).status, 'Missed');
+  });
+
+  test('a Learner who passed the Assignment but missed the reviews is not eligible until the Instructor waives', () => {
+    const facts = (exemptedAt: Date | null) =>
+      build(
+        [],
+        [{ ...assignment(1, '70', finalized('90'), missed), exemptedAt }],
+      );
+    const owing = facts(null);
+    assert.equal(owing.eligible, false);
+    assert.equal(owing.assignments[0].peerReview.status, 'Missed');
+
+    const waived = facts(PAST);
+    assert.equal(waived.eligible, true);
+    assert.equal(waived.assignments[0].peerReview.status, 'Waived');
+    accepted(waived);
+  });
+
+  test('a waiver does not pass a failed Assignment: the score still counts', () => {
+    const snapshot = build(
+      [],
+      [{ ...assignment(1, '70', finalized('40'), missed), exemptedAt: PAST }],
+    );
+    assert.equal(snapshot.assignments[0].peerReview.status, 'Waived');
+    assert.equal(snapshot.eligible, false);
+  });
+
+  test('the revision changes when the waiver is given, so learning sees a new snapshot', () => {
+    const before = build(
+      [],
+      [{ ...assignment(1, '70', finalized('90'), missed), exemptedAt: null }],
+    );
+    const after = build(
+      [],
+      [{ ...assignment(1, '70', finalized('90'), missed), exemptedAt: PAST }],
+    );
+    assert.notEqual(before.revision, after.revision);
+    assert.notEqual(before.snapshotId, after.snapshotId);
   });
 });

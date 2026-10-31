@@ -65,6 +65,32 @@ export class PeerReviewController {
     return this.service.closeCycle(user, id, cycleId);
   }
 
+  /** UC33.2 — Waive the peer review duty of one Learner who owes it (BR-241); waiving again changes nothing. */
+  @Post('learners/:learnerId/waiver')
+  @ApiOperation({
+    summary: 'Waive the peer review duty of a Learner who owes it (UC33.2)',
+  })
+  @ApiOkResponse({
+    description:
+      'The duty is waived and the Learner is told. Waiving a waived duty answers 200 with alreadyWaived true, the first date, and changes nothing.',
+  })
+  @ApiNotFoundResponse({
+    description: 'The Assignment is not one of the Instructor.',
+  })
+  @ApiConflictResponse({
+    description:
+      'NOT_OWING_PEER_REVIEW: the Learner owes no peer review (reviews done, still in time, none assigned, or never took part); PEER_REVIEW_NOT_ENABLED: Peer Review is off for this Assignment.',
+  })
+  @HttpCode(200)
+  @ResponseMessage('Peer Review duty waived successfully.')
+  waiveDuty(
+    @User() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('learnerId', ParseUUIDPipe) learnerId: string,
+  ) {
+    return this.service.waiveDuty(user, id, learnerId);
+  }
+
   /** UC19.5 — Configure Peer Review */
   @Put()
   @ResponseMessage('Peer Review settings saved successfully.')

@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from 'generated/prisma/client';
+import { Prisma } from 'generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { assignmentInclude } from '../assessments/assessments.repository';
+import type { AssignmentFacts } from '../completion-snapshot/completion-snapshot';
 import type { PeerReviewUpdateData } from './interfaces/peer-review-update-data.interface';
 
 /** Database access of UC19.5; the Peer Review settings live on the Assignment row. */
@@ -39,6 +40,68 @@ export class PeerReviewRepository {
       if (row.cycleId) counts.set(row.cycleId, row._count._all);
     }
     return counts;
+  }
+
+  /** UC33.2: the state of one Learner on one Assignment (BR-176 counters, and when the duty was waived). */
+  findLearnerState(
+    tx: Prisma.TransactionClient,
+    assessmentId: string,
+    learnerId: string,
+  ) {
+    return tx.learnerAssessmentState.findUnique({
+      where: { assessmentId_learnerId: { assessmentId, learnerId } },
+    });
+  }
+
+  /**
+   * UC33.2: the reviews the Learner owes or gave as a peer on one Assignment (never the Instructor's own), each with its
+   * cycle: the facts the completion snapshot reads, so "owes a peer review" is decided with peerReviewOf everywhere (D10).
+   */
+  async findLearnerPeerReviews(
+    tx: Prisma.TransactionClient,
+    assessmentId: string,
+    learnerId: string,
+  ): Promise<AssignmentFacts['reviews']> {
+    return tx.$queryRaw<AssignmentFacts['reviews']>(Prisma.sql`
+      SELECT r.status, c.review_due_at AS "reviewDueAt", r.cycle_id AS "cycleId", c.closes_at AS "cycleClosesAt"
+      FROM submission_reviews r
+      JOIN submissions rs ON rs.id = r.submission_id
+      LEFT JOIN peer_review_cycles c ON c.id = r.cycle_id
+      WHERE rs.assessment_id = ${assessmentId}::uuid AND r.reviewer_id = ${learnerId}::uuid
+        AND lower(r.reviewer_role) <> 'instructor'
+    `);
+  }
+
+  /**
+   * UC33.2: records the waiver and the event that tells learning the status of the Learner changed, in one transaction.
+   * The update only takes a row that is not waived yet, so of two requests at the same moment exactly one gets true,
+   * whatever the locks around it do; the other writes nothing.
+   */
+  async waive(
+    tx: Prisma.TransactionClient,
+    state: { id: string; organizationId: string },
+    by: string,
+    now: Date,
+    event: Omit<
+      Prisma.OutboxEventUncheckedCreateInput,
+      'aggregateType' | 'aggregateId' | 'organizationId' | 'occurredAt'
+    >,
+  ): Promise<boolean> {
+    const taken = await tx.learnerAssessmentState.updateMany({
+      where: { id: state.id, exemptedAt: null },
+      data: { exemptedAt: now, exemptedBy: by },
+    });
+    if (taken.count === 0) return false;
+    await tx.outboxEvent.create({
+      data: {
+        ...event,
+        aggregateType: 'LearnerAssessmentState',
+        aggregateId: state.id,
+        organizationId: state.organizationId,
+        occurredAt: now,
+      },
+    });
+    return true;
   }
 
   transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
