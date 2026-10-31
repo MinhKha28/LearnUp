@@ -419,6 +419,7 @@ test(
 );
 
 test('drain gap accepts zero and nonnegative integers and rejects invalid settings', () => {
+  assert.equal(readRelayConfig(() => undefined).drainGapMs, 50);
   for (const value of ['0', '50', '100']) {
     assert.equal(
       readRelayConfig((key) =>

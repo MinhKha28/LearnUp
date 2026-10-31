@@ -37,7 +37,7 @@ export function readRelayConfig(
     topic: get('OUTBOX_TOPIC') ?? 'learnup.learning.enrollment-events',
     replicationFactor: integer('OUTBOX_REPLICATION_FACTOR', 1),
     pollMs: integer('OUTBOX_POLL_INTERVAL_MS', 1000),
-    drainGapMs: integer('OUTBOX_DRAIN_GAP_MS', 100, 0),
+    drainGapMs: integer('OUTBOX_DRAIN_GAP_MS', 50, 0),
     batchSize: integer('OUTBOX_BATCH_SIZE', 20),
     deliveryMs: integer('OUTBOX_DELIVERY_TIMEOUT_MS', 10000),
     transactionMs: integer('OUTBOX_TRANSACTION_TIMEOUT_MS', 30000),
