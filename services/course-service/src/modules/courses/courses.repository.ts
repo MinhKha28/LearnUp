@@ -960,6 +960,8 @@ export class CoursesRepository {
     maxStorageBytes: bigint;
     file: {
       storageKey: string;
+      deliveryType: string;
+      storageFormat: string;
       originalFilename: string;
       mimeType: string;
       sizeBytes: number;
@@ -1086,6 +1088,8 @@ export class CoursesRepository {
             purpose: 'LessonVideo',
             status: 'Ready',
             storageKey: data.file.storageKey,
+            deliveryType: data.file.deliveryType,
+            storageFormat: data.file.storageFormat,
             originalFilename: data.file.originalFilename,
             mimeType: data.file.mimeType,
             sizeBytes: incomingBytes,
@@ -1150,6 +1154,8 @@ export class CoursesRepository {
     maxStorageBytes: bigint;
     file: {
       storageKey: string;
+      deliveryType: string;
+      storageFormat: string;
       originalFilename: string;
       mimeType: string;
       sizeBytes: number;
@@ -1283,6 +1289,8 @@ export class CoursesRepository {
             purpose: 'LessonReading',
             status: 'Ready',
             storageKey: data.file.storageKey,
+            deliveryType: data.file.deliveryType,
+            storageFormat: data.file.storageFormat,
             originalFilename: data.file.originalFilename,
             mimeType: data.file.mimeType,
             sizeBytes: incomingBytes,

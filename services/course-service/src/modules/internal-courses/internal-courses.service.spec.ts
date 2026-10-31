@@ -1,5 +1,8 @@
 import { InternalCoursesService } from './internal-courses.service';
 import type { PrismaService } from '@infra/prisma/prisma.service';
+import type { IReadableStorageProvider } from '@learnup/ts-storage';
+
+const storageStub = { getSignedUrl: jest.fn() } as unknown as IReadableStorageProvider;
 
 jest.mock('@learnup/ts-common', () => ({
   createApiError: (code: string, message: string) => ({ code, message }),
@@ -26,7 +29,7 @@ describe('I1 lock fast path', () => {
   const service = new InternalCoursesService({
     $queryRaw: query,
     $transaction: transaction,
-  } as unknown as PrismaService);
+  } as unknown as PrismaService, storageStub);
 
   beforeEach(() => jest.resetAllMocks());
 
@@ -116,7 +119,7 @@ describe('UC19 assignment minutes (BR-51, BR-172, BR-173)', () => {
   const query = jest.fn();
   const service = new InternalCoursesService({
     $queryRaw: query,
-  } as unknown as PrismaService);
+  } as unknown as PrismaService, storageStub);
 
   beforeEach(() => jest.resetAllMocks());
 
@@ -158,7 +161,7 @@ describe('UC10 organization usage', () => {
   const service = new InternalCoursesService({
     courseChain: { count },
     mediaFile: { aggregate },
-  } as unknown as PrismaService);
+  } as unknown as PrismaService, storageStub);
 
   beforeEach(() => jest.resetAllMocks());
 
@@ -205,7 +208,7 @@ describe('UC12 course chains by Instructor', () => {
   const groupBy = jest.fn();
   const service = new InternalCoursesService({
     courseChain: { groupBy },
-  } as unknown as PrismaService);
+  } as unknown as PrismaService, storageStub);
   const first = '25039003-0000-4000-8000-000000000001';
   const second = '25039003-0000-4000-8000-000000000002';
 
