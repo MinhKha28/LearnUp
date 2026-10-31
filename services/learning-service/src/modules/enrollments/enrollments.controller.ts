@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
   Param,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { EnrollmentWithdrawalService } from './enrollment-withdrawal.service';
 import { EnrollmentRateLimitGuard } from './enrollment-rate-limit.guard';
@@ -75,5 +76,15 @@ export class EnrollmentsController {
     @Body() dto: GetCourseLearnerCountsDto,
   ) {
     return this.service.getCourseLearnerCounts(user, dto.courseIds);
+  }
+
+  @Get('internal/courses/:courseId/history')
+  @Roles('INSTRUCTOR')
+  @ResponseMessage('Enrollment history checked successfully')
+  hasEverEnrollment(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.service.hasEverEnrollment(user, courseId);
   }
 }

@@ -9,6 +9,7 @@ import {
   UseInterceptors,
   UploadedFile,
   Put,
+  Delete,
 } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '@common/decorator/customize';
@@ -34,6 +35,12 @@ import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
 @Controller('courses')
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
+
+  @Get('trash')
+  @ResponseMessage('Course trash fetched successfully')
+  getTrash(@User() user: CurrentUser) {
+    return this.coursesService.getTrash(user);
+  }
 
   @Get()
   @ResponseMessage('Courses fetched successfully')
@@ -261,5 +268,32 @@ export class CoursesController {
       dto,
       file,
     );
+  }
+
+  @Delete(':courseId')
+  @ResponseMessage('Course moved to trash successfully')
+  softDelete(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.softDelete(user, courseId);
+  }
+
+  @Post(':courseId/restore')
+  @ResponseMessage('Course restored successfully')
+  restore(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.restore(user, courseId);
+  }
+
+  @Delete(':courseId/permanent')
+  @ResponseMessage('Course permanently deleted successfully')
+  permanentDelete(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.permanentDelete(user, courseId);
   }
 }

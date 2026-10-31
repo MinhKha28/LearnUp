@@ -425,4 +425,20 @@ export class EnrollmentsService {
       learnerCount: countMap.get(courseId) ?? 0,
     }));
   }
+
+  async hasEverEnrollment(
+    user: CurrentUser,
+    courseId: string,
+  ): Promise<{ hasEverEnrolled: boolean }> {
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    const hasEverEnrolled = await this.enrollments.hasEverEnrollment(
+      user.organizationId,
+      courseId,
+    );
+
+    return { hasEverEnrolled };
+  }
 }

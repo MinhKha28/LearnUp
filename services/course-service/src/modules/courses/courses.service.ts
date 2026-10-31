@@ -12,6 +12,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   PayloadTooLargeException,
   ServiceUnavailableException,
@@ -39,6 +40,8 @@ import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
 import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
 import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
 import { extractReadingText } from './reading-text-extractor';
+import { getPurgeAt } from './course-trash.constants';
+import { Interval } from '@nestjs/schedule';
 
 @Injectable()
 export class CoursesService {
@@ -48,6 +51,9 @@ export class CoursesService {
     private readonly learningClient: LearningClient,
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
   ) {}
+
+  private readonly logger = new Logger(CoursesService.name);
+  private running = false;
 
   async findAll(user: CurrentUser, query: CourseListQueryDto) {
     if (user.role !== 'INSTRUCTOR') {
@@ -66,6 +72,7 @@ export class CoursesService {
 
     const where = {
       organizationId: user.organizationId,
+      deletedAt: null,
       chain: {
         instructorId: user.userId,
       },
@@ -1640,6 +1647,189 @@ export class CoursesService {
           console.error('Reading cleanup failed:', error);
         }
       }
+    }
+  }
+
+  private requireInstructor(user: CurrentUser): string {
+    if (user.role !== 'INSTRUCTOR') {
+      throw new ForbiddenException('Only Instructor can manage Course trash.');
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    return user.organizationId;
+  }
+
+  async softDelete(user: CurrentUser, courseId: string) {
+    const organizationId = this.requireInstructor(user);
+
+    const hasEnrollment = await this.learningClient.hasEverEnrolled(
+      user,
+      courseId,
+    );
+
+    if (hasEnrollment) {
+      throw new ConflictException({
+        code: 'COURSE_HAS_ENROLLMENT',
+        message: 'Course đã từng phát sinh Enrollment nên không thể xóa.',
+      });
+    }
+
+    const result = await this.coursesRepository.softDeleteCourse({
+      organizationId,
+      instructorId: user.userId,
+      courseId,
+    });
+
+    switch (result.status) {
+      case 'NOT_FOUND':
+        throw new NotFoundException({
+          code: 'COURSE_NOT_FOUND',
+          message: 'Không tìm thấy Course.',
+        });
+
+      case 'INVALID_STATUS':
+        throw new ConflictException({
+          code: 'COURSE_NOT_DELETABLE',
+          message: 'Chỉ được xóa Course Draft hoặc Rejected.',
+        });
+
+      case 'LOCKED':
+        throw new ConflictException({
+          code: 'COURSE_LOCKED',
+          message: 'Course đã Locked nên không thể xóa.',
+        });
+
+      case 'DELETED':
+        return {
+          courseId: result.courseId,
+          deletedAt: result.deletedAt,
+          purgeAt: result.purgeAt,
+        };
+    }
+  }
+
+  async getTrash(user: CurrentUser) {
+    const organizationId = this.requireInstructor(user);
+
+    const courses = await this.coursesRepository.findCourseTrash(
+      organizationId,
+      user.userId,
+    );
+
+    return courses.map((course) => ({
+      ...course,
+      purgeAt: getPurgeAt(course.deletedAt!),
+    }));
+  }
+
+  async restore(user: CurrentUser, courseId: string) {
+    const organizationId = this.requireInstructor(user);
+
+    const result = await this.coursesRepository.restoreCourse({
+      organizationId,
+      instructorId: user.userId,
+      courseId,
+    });
+
+    switch (result.status) {
+      case 'NOT_FOUND':
+        throw new NotFoundException({
+          code: 'COURSE_NOT_FOUND',
+          message: 'Course không tồn tại trong thùng rác.',
+        });
+
+      case 'EXPIRED':
+        throw new ConflictException({
+          code: 'COURSE_TRASH_EXPIRED',
+          message: 'Course đã hết thời hạn khôi phục.',
+        });
+
+      case 'VERSION_CONFLICT':
+        throw new ConflictException({
+          code: 'COURSE_DRAFT_VERSION_CONFLICT',
+          message:
+            'Chuỗi Course đã có phiên bản đang soạn khác. Không thể khôi phục.',
+        });
+
+      case 'RESTORED':
+        return {
+          courseId: result.courseId,
+          restored: true,
+        };
+    }
+  }
+
+  async permanentDelete(user: CurrentUser, courseId: string) {
+    const organizationId = this.requireInstructor(user);
+
+    const result = await this.coursesRepository.permanentDeleteCourse({
+      organizationId,
+      courseId,
+      instructorId: user.userId,
+      requireExpired: false,
+    });
+
+    switch (result.status) {
+      case 'NOT_FOUND':
+        throw new NotFoundException({
+          code: 'COURSE_NOT_FOUND',
+          message: 'Không tìm thấy Course.',
+        });
+
+      case 'NOT_IN_TRASH':
+        throw new ConflictException({
+          code: 'COURSE_NOT_IN_TRASH',
+          message: 'Cần đưa Course vào thùng rác trước khi xóa vĩnh viễn.',
+        });
+
+      case 'NOT_EXPIRED':
+        throw new ConflictException({
+          code: 'COURSE_NOT_EXPIRED',
+          message: 'Course chưa đến hạn xóa tự động.',
+        });
+
+      case 'DELETED':
+        return {
+          courseId: result.courseId,
+          permanentlyDeleted: true,
+          chainDeleted: result.chainDeleted,
+          releasedFileCount: result.releasedFileIds.length,
+        };
+    }
+  }
+
+  @Interval(60_000)
+  async cleanupExpiredCourses() {
+    if (this.running) return;
+
+    this.running = true;
+
+    try {
+      const expired = await this.coursesRepository.findExpiredTrash(20);
+
+      for (const course of expired) {
+        try {
+          const result = await this.coursesRepository.permanentDeleteCourse({
+            organizationId: course.organizationId,
+            courseId: course.id,
+            requireExpired: true,
+          });
+
+          if (result.status === 'DELETED') {
+            this.logger.log(`Permanently deleted Course ${course.id}`);
+          }
+        } catch (error) {
+          this.logger.error(
+            `Unable to purge Course ${course.id}`,
+            error instanceof Error ? error.stack : undefined,
+          );
+        }
+      }
+    } finally {
+      this.running = false;
     }
   }
 }
