@@ -47,10 +47,7 @@ export const lockProgressSql = (
   materialId: string,
   organizationId: string,
 ) => Prisma.sql`
-  SELECT ${rangesJson(Prisma.sql`watched_ranges`)} AS "watchedRanges",
-         ${seconds(Prisma.sql`watched_ranges`)} AS "watchedSeconds",
-         completed_at AS "completedAt", last_reported_at AS "lastReportedAt",
-         position_seconds AS "positionSeconds", position_reported_at AS "positionReportedAt"
+  SELECT 1
     FROM material_progress WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid
      AND organization_id=${organizationId}::uuid FOR UPDATE`;
 
@@ -249,14 +246,13 @@ export class MaterialProgressRepository {
     materialId: string,
     organizationId: string,
     tx: Prisma.TransactionClient,
-  ): Promise<ProgressRow> {
+  ): Promise<void> {
     await tx.$executeRaw`INSERT INTO material_progress(id,organization_id,enrollment_id,material_id,watched_ranges)
       VALUES (${randomUUID()}::uuid,${organizationId}::uuid,${enrollmentId}::uuid,${materialId}::uuid,'{}'::int4multirange)
       ON CONFLICT (enrollment_id,material_id) DO NOTHING`;
-    const [row] = await tx.$queryRaw<ProgressRow[]>(
+    await tx.$queryRaw(
       lockProgressSql(enrollmentId, materialId, organizationId),
     );
-    return row;
   }
   async saveCoverage(
     enrollmentId: string,

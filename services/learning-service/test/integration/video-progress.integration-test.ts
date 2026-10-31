@@ -632,6 +632,8 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
       assert.match(locks[0], /FROM enrollments/);
       assert.match(locks[0], /FOR UPDATE OF e/);
       assert.match(locks[1], /FROM material_progress/);
+      assert.match(locks[1], /^SELECT 1\s+FROM material_progress/);
+      assert.ok(!locks[1].includes('watched_ranges'));
       assert.ok(
         trace.indexOf(locks[0]) <
           trace.findIndex((q) => /^INSERT INTO material_progress/.test(q)),
