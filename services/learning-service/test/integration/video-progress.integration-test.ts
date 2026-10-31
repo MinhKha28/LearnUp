@@ -18,6 +18,11 @@ import {
   type VideoPlaybackConfig,
 } from '../../src/modules/material-progress/video-playback.config';
 import { databaseUrl } from './enroll-it-fixture';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../../generated/prisma/client';
+import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
+import { MaterialProgressRepository } from '../../src/modules/material-progress/material-progress.repository';
+import { MaterialProgressService } from '../../src/modules/material-progress/material-progress.service';
 
 if (process.env.NODE_ENV === 'production')
   throw new Error('Refusing UC27.2 integration tests in production.');
@@ -31,6 +36,36 @@ const learner = randomUUID(),
 const db = new Client({ connectionString: databaseUrl() });
 let app: NestExpressApplication, url: string, calls: number, tree: CourseTree;
 let connected = false;
+const queryEvents: string[] = [];
+const measuredPrisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: databaseUrl() }),
+  log: [{ level: 'query', emit: 'event' }],
+});
+measuredPrisma.$on('query', (event) => queryEvents.push(event.query));
+function measuredProgress() {
+  const repository = new MaterialProgressRepository(
+    measuredPrisma as unknown as PrismaService,
+  );
+  const service = new MaterialProgressService(
+    repository,
+    app.get(CourseServiceClient),
+    { mode: 'course' },
+    { mode: 'course' },
+  );
+  const send = (ranges: [number, number][]) =>
+    service.report(
+      {
+        userId: learner,
+        organizationId: ORG,
+        role: 'LEARNER',
+        isAuthenticated: true,
+      },
+      enrollment,
+      material,
+      { ranges, positionSeconds: 0, reportedAt: clientReportedAt },
+    );
+  return { repository, send };
+}
 const clientReportedAt = new Date().toISOString();
 
 async function cleanup() {
@@ -86,6 +121,7 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
   before(async () => {
     await db.connect();
     connected = true;
+    await measuredPrisma.$connect();
     app = await NestFactory.create<NestExpressApplication>(AppModule, {
       logger: ['error'],
     });
@@ -156,7 +192,11 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
     try {
       if (connected) await cleanup();
     } finally {
-      await closeAll(() => closeApp(app), () => db.end());
+      await closeAll(
+        () => closeApp(app),
+        () => db.end(),
+        () => measuredPrisma.$disconnect(),
+      );
     }
   });
   test('playback reads title from I2, duration from snapshot and writes nothing', async () => {
@@ -406,6 +446,213 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
       assert.deepEqual(after[key], before[key]);
     assert.equal(after.position_seconds, 8);
     assert.equal((await response.json()).data.completed, true);
+  });
+  void test('L35 stale and equal position reports return byte-identical full responses, including Completed', async () => {
+    await report([[0, 91]]);
+    for (const status of ['InProgress', 'Completed']) {
+      await db.query(
+        "UPDATE enrollments SET status=$2,completed_at=CASE WHEN $2='Completed' THEN now() ELSE NULL END WHERE id=$1",
+        [enrollment, status],
+      );
+      const timestamp = new Date(Date.now() - 1000).toISOString();
+      const fresh = await request([], {}, 'POST', {
+        positionSeconds: 60,
+        reportedAt: timestamp,
+      });
+      assert.equal(fresh.status, 200);
+      const expected = await fresh.text();
+      const saved: unknown = await row();
+      for (const reportedAt of [
+        new Date(Date.parse(timestamp) - 1000).toISOString(),
+        timestamp,
+      ]) {
+        const retry = await request([], {}, 'POST', {
+          positionSeconds: 8,
+          reportedAt,
+        });
+        assert.equal(retry.status, 200);
+        assert.equal(await retry.text(), expected);
+        assert.deepEqual(await row(), saved);
+      }
+    }
+  });
+  void test('L35 concurrent threshold crossings activate and enqueue exactly once with LEAST first activity', async () => {
+    const progress = measuredProgress();
+    for (const previous of [
+      null,
+      new Date('2026-10-20T00:00:00Z'),
+      new Date(Date.now() + 3600000),
+    ]) {
+      await db.query('DELETE FROM material_progress WHERE enrollment_id=$1', [
+        enrollment,
+      ]);
+      await db.query(
+        'DELETE FROM completion_evaluation_requests WHERE enrollment_id=$1',
+        [enrollment],
+      );
+      await db.query(
+        'UPDATE enrollments SET status=$2,first_activity_at=$3 WHERE id=$1',
+        [enrollment, previous ? 'InProgress' : 'NotStarted', previous],
+      );
+      await progress.send([[0, 90]]);
+      queryEvents.length = 0;
+      await Promise.all([progress.send([[90, 91]]), progress.send([[91, 92]])]);
+      assert.equal(
+        queryEvents.filter((q) => /UPDATE enrollments SET status/.test(q))
+          .length,
+        1,
+      );
+      assert.equal(
+        queryEvents.filter((q) =>
+          /INSERT INTO completion_evaluation_requests/.test(q),
+        ).length,
+        1,
+      );
+      const evaluation = await db.query<{ n: number; generation: number }>(
+        'SELECT count(*)::int AS n,max(generation)::int AS generation FROM completion_evaluation_requests WHERE enrollment_id=$1',
+        [enrollment],
+      );
+      assert.deepEqual(evaluation.rows[0], { n: 1, generation: 0 });
+      const saved = await db.query<{
+        status: string;
+        watched: string;
+        first: Date;
+        completed: Date;
+        milliseconds: boolean;
+      }>(
+        "SELECT e.status,p.watched_ranges::text AS watched,e.first_activity_at AS first,p.completed_at AS completed,p.last_reported_at=date_trunc('milliseconds',p.last_reported_at) AS milliseconds FROM enrollments e JOIN material_progress p ON p.enrollment_id=e.id WHERE e.id=$1",
+        [enrollment],
+      );
+      assert.equal(saved.rows[0].status, 'InProgress');
+      assert.equal(saved.rows[0].watched, '{[0,92)}');
+      assert.ok(saved.rows[0].milliseconds);
+      assert.equal(
+        saved.rows[0].first.getTime(),
+        Math.min(
+          previous?.getTime() ?? Infinity,
+          saved.rows[0].completed.getTime(),
+        ),
+      );
+    }
+  });
+  void test('L35 failure after coverage rolls back progress, activation and completion evaluation', async () => {
+    await report([[0, 90]]);
+    const before: unknown = await row();
+    const progress = measuredProgress();
+    progress.repository.savePosition = () =>
+      Promise.reject(new Error('L35 injected after coverage'));
+    await assert.rejects(
+      progress.send([[90, 91]]),
+      /L35 injected after coverage/,
+    );
+    assert.deepEqual(await row(), before);
+    const evaluation = await db.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM completion_evaluation_requests WHERE enrollment_id=$1',
+      [enrollment],
+    );
+    assert.equal(evaluation.rows[0].n, 0);
+  });
+  void test('L35 zero novel whole seconds change only a newer position', async () => {
+    await report([[0, 10]]);
+    let before: Record<string, unknown> = (
+      await db.query<Record<string, unknown>>(
+        'SELECT to_jsonb(e) AS enrollment,to_jsonb(p) AS progress FROM enrollments e JOIN material_progress p ON p.enrollment_id=e.id WHERE e.id=$1',
+        [enrollment],
+      )
+    ).rows[0];
+    for (const [index, ranges] of [[[10.1, 10.9]], [[0, 10]]].entries()) {
+      const response = await request(ranges, {}, 'POST', {
+        positionSeconds: index + 1,
+        reportedAt: new Date(
+          Date.parse(clientReportedAt) + index + 1,
+        ).toISOString(),
+      });
+      assert.equal(response.status, 200);
+      const after = (
+        await db.query<Record<string, unknown>>(
+          'SELECT to_jsonb(e) AS enrollment,to_jsonb(p) AS progress FROM enrollments e JOIN material_progress p ON p.enrollment_id=e.id WHERE e.id=$1',
+          [enrollment],
+        )
+      ).rows[0];
+      const stripPosition = (value: Record<string, unknown>) => {
+        const progress = { ...(value.progress as Record<string, unknown>) };
+        delete progress.position_seconds;
+        delete progress.position_reported_at;
+        return { ...value, progress };
+      };
+      assert.deepEqual(stripPosition(after), stripPosition(before));
+      assert.equal(
+        (after.progress as Record<string, unknown>).position_seconds,
+        index + 1,
+      );
+      before = after;
+    }
+  });
+  void test('L35 statement counts and enrollment-before-progress lock trace match each case', async () => {
+    const progress = measuredProgress();
+    for (const [label, expected] of [
+      ['a', 11],
+      ['b', 13],
+      ['c', 10],
+      ['d', 12],
+    ] as const) {
+      if (label === 'd') {
+        await db.query('DELETE FROM material_progress WHERE enrollment_id=$1', [
+          enrollment,
+        ]);
+        await db.query('DELETE FROM material_snapshots WHERE material_id=$1', [
+          material,
+        ]);
+      }
+      if (label === 'b')
+        await db.query('DELETE FROM material_progress WHERE enrollment_id=$1', [
+          enrollment,
+        ]);
+      await db.query(
+        "UPDATE enrollments SET status=$2,first_activity_at=CASE WHEN $2='NotStarted' THEN NULL ELSE now() END,completed_at=CASE WHEN $2='Completed' THEN now() ELSE NULL END WHERE id=$1",
+        [
+          enrollment,
+          label === 'b'
+            ? 'NotStarted'
+            : label === 'c'
+              ? 'Completed'
+              : 'InProgress',
+        ],
+      );
+      queryEvents.length = 0;
+      await progress.send(label === 'b' ? [[0, 91]] : [[0, 15]]);
+      const trace = queryEvents.map((q) => q.trim());
+      // Prisma 7's pg adapter emits COMMIT but not BEGIN; STEP 0 verified the
+      // missing BEGIN independently in PostgreSQL's log and pg_stat_statements.
+      assert.equal(trace.filter((q) => q === 'COMMIT').length, 1, label);
+      const beginCount = trace.filter((q) => q === 'BEGIN').length;
+      assert.equal(trace.length + (beginCount === 0 ? 1 : 0), expected, label);
+      const locks = trace.filter((q) => /FOR UPDATE/.test(q));
+      assert.equal(locks.length, 2, label);
+      assert.match(locks[0], /FROM enrollments/);
+      assert.match(locks[0], /FOR UPDATE OF e/);
+      assert.match(locks[1], /FROM material_progress/);
+      assert.match(locks[1], /^SELECT 1\s+FROM material_progress/);
+      assert.ok(!locks[1].includes('watched_ranges'));
+      assert.ok(
+        trace.indexOf(locks[0]) <
+          trace.findIndex((q) => /^INSERT INTO material_progress/.test(q)),
+      );
+      assert.ok(
+        trace.findIndex((q) => /^INSERT INTO material_progress/.test(q)) <
+          trace.indexOf(locks[1]),
+      );
+      assert.match(trace[0], /FROM enrollments/);
+      assert.ok(!trace[0].includes('FOR UPDATE'));
+      assert.match(trace[1], /FROM "public"."material_snapshots"/);
+      assert.equal(trace.filter((q) => /FROM enrollments/.test(q)).length, 2);
+      assert.equal(
+        trace.filter((q) => /FROM "public"."material_snapshots"/.test(q))
+          .length,
+        2,
+      );
+    }
+    assert.equal(calls, 1);
   });
   test('playback applies I2 disabled flags and course mode returns 503', async () => {
     tree.modules[0].lessons[0].materials[0].disabledAt = new Date();
