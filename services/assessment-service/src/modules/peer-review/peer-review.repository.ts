@@ -42,6 +42,82 @@ export class PeerReviewRepository {
     return counts;
   }
 
+  /** UC33.1: the current submissions of a cycle with the peer reviews handed out for each (the Instructor's own are not peer reviews). */
+  cycleSubmissionRows(cycleId: string) {
+    return this.prisma.$queryRaw<
+      {
+        id: string;
+        learnerId: string;
+        submittedAt: Date;
+        assigned: number;
+        completed: number;
+      }[]
+    >(Prisma.sql`
+      SELECT s.id, s.learner_id AS "learnerId", s.submitted_at AS "submittedAt",
+             count(r.id)::int AS assigned,
+             (count(r.id) FILTER (WHERE r.status = 'Completed'))::int AS completed
+      FROM submissions s
+      LEFT JOIN submission_reviews r ON r.submission_id = s.id AND lower(r.reviewer_role) <> 'instructor'
+      WHERE s.cycle_id = ${cycleId}::uuid AND s.superseded_at IS NULL
+      GROUP BY s.id
+      ORDER BY s.submitted_at, s.id
+    `);
+  }
+
+  /** UC33.1: the Learners who have peer reviews to give in a cycle, with how many were handed out and how many are done. */
+  cycleReviewerRows(cycleId: string) {
+    return this.prisma.$queryRaw<
+      { learnerId: string; assigned: number; completed: number }[]
+    >(Prisma.sql`
+      SELECT r.reviewer_id AS "learnerId", count(*)::int AS assigned,
+             (count(*) FILTER (WHERE r.status = 'Completed'))::int AS completed
+      FROM submission_reviews r
+      WHERE r.cycle_id = ${cycleId}::uuid AND lower(r.reviewer_role) <> 'instructor'
+      GROUP BY r.reviewer_id
+      ORDER BY r.reviewer_id
+    `);
+  }
+
+  /** UC33.1: every peer review of the given Learners on the Assignment (all cycles): the duty is read from the latest cycle. */
+  async peerReviewsOf(
+    assessmentId: string,
+    learnerIds: string[],
+  ): Promise<Map<string, AssignmentFacts['reviews']>> {
+    const byLearner = new Map<string, AssignmentFacts['reviews']>();
+    if (learnerIds.length === 0) return byLearner;
+    const rows = await this.prisma.$queryRaw<
+      {
+        reviewerId: string;
+        status: string;
+        reviewDueAt: Date | null;
+        cycleId: string | null;
+        cycleClosesAt: Date | null;
+      }[]
+    >(Prisma.sql`
+      SELECT r.reviewer_id AS "reviewerId", r.status, c.review_due_at AS "reviewDueAt",
+             r.cycle_id AS "cycleId", c.closes_at AS "cycleClosesAt"
+      FROM submission_reviews r
+      JOIN submissions rs ON rs.id = r.submission_id
+      LEFT JOIN peer_review_cycles c ON c.id = r.cycle_id
+      WHERE rs.assessment_id = ${assessmentId}::uuid AND r.reviewer_id = ANY(${learnerIds}::uuid[])
+        AND lower(r.reviewer_role) <> 'instructor'
+    `);
+    for (const { reviewerId, ...review } of rows) {
+      const list = byLearner.get(reviewerId) ?? [];
+      list.push(review);
+      byLearner.set(reviewerId, list);
+    }
+    return byLearner;
+  }
+
+  /** UC33.1: the states (with the waiver date) of the given Learners on the Assignment. */
+  findLearnerStates(assessmentId: string, learnerIds: string[]) {
+    return this.prisma.learnerAssessmentState.findMany({
+      where: { assessmentId, learnerId: { in: learnerIds } },
+      select: { learnerId: true, exemptedAt: true },
+    });
+  }
+
   /** UC33.2: the state of one Learner on one Assignment (BR-176 counters, and when the duty was waived). */
   findLearnerState(
     tx: Prisma.TransactionClient,

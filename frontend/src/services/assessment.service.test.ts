@@ -78,3 +78,20 @@ describe("what the assessment service sends from the browser", () => {
     expect(text).not.toMatch(/x-internal-keys*["']s*:/i);
   });
 });
+
+describe("the peer review calls of the Instructor (UC33.1, UC33.2)", () => {
+  it("reads one cycle of an Assignment", async () => {
+    http.get.mockReset().mockResolvedValue({ statusCode: 200, data: {} });
+    await service.fetchPeerReviewCycleDetailAPI("assignment-1", "cycle-1");
+    expect(http.get).toHaveBeenCalledWith("/api/v1/assessments/assignments/assignment-1/peer-review/cycles/cycle-1");
+  });
+
+  it("waives the duty of one Learner with a POST and no body", async () => {
+    http.post.mockReset().mockResolvedValue({ statusCode: 200, data: {} });
+    await service.waivePeerReviewDutyAPI("assignment-1", "learner-1");
+    expect(http.post).toHaveBeenCalledTimes(1);
+    expect(http.post.mock.calls[0]).toEqual([
+      "/api/v1/assessments/assignments/assignment-1/peer-review/learners/learner-1/waiver",
+    ]);
+  });
+});

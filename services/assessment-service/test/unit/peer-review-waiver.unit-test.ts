@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { waiverDecision } from '../../src/modules/peer-review/waiver';
+import { obligationOf } from '../../src/modules/peer-review/cycle-detail';
 import { waivedNotice } from '../../src/modules/peer-review/review-notice';
 
 const NOW = new Date('2026-10-27T10:00:00.000Z');
@@ -101,5 +102,54 @@ describe('the notice of a waiver', () => {
     assert.equal(notice.title, 'Bạn được miễn nghĩa vụ chấm chéo');
     assert.match(notice.message, /"Báo cáo tuần 3"/);
     assert.match(notice.message, /không cần chấm thêm/);
+  });
+});
+
+describe('obligationOf: the duty of a reviewer as UC33.1 shows it', () => {
+  const later = new Date('2026-10-25T00:00:00.000Z');
+  test('Missed and not waived: Missed, and the Instructor can waive it', () => {
+    assert.deepEqual(
+      obligationOf({ exemptedAt: null }, [review('Missed', PAST)], NOW),
+      { obligation: 'Missed', canWaive: true },
+    );
+  });
+
+  test('waived: Waived, nothing left to waive', () => {
+    assert.deepEqual(
+      obligationOf({ exemptedAt: PAST }, [review('Missed', PAST)], NOW),
+      { obligation: 'Waived', canWaive: false },
+    );
+  });
+
+  test('all done is Satisfied, still in time is Pending: neither can be waived', () => {
+    assert.deepEqual(
+      obligationOf({ exemptedAt: null }, [review('Completed')], NOW),
+      { obligation: 'Satisfied', canWaive: false },
+    );
+    assert.deepEqual(
+      obligationOf({ exemptedAt: null }, [review('Pending', FUTURE)], NOW),
+      { obligation: 'Pending', canWaive: false },
+    );
+  });
+
+  test('a debt of an older cycle that a later cycle paid is Satisfied (BR-239)', () => {
+    assert.deepEqual(
+      obligationOf(
+        { exemptedAt: null },
+        [
+          review('Missed', PAST, 'c1', PAST),
+          review('Completed', PAST, 'c2', later),
+        ],
+        NOW,
+      ),
+      { obligation: 'Satisfied', canWaive: false },
+    );
+  });
+
+  test('no review at all is nothing owed, shown as Satisfied', () => {
+    assert.deepEqual(obligationOf({ exemptedAt: null }, [], NOW), {
+      obligation: 'Satisfied',
+      canWaive: false,
+    });
   });
 });

@@ -37,6 +37,29 @@ export class PeerReviewController {
     return this.service.listCycles(user, id);
   }
 
+  /** UC33.1 — One cycle: its submissions and the Learners who have reviews to give, with the state of their duty. */
+  @Get('cycles/:cycleId')
+  @ApiOperation({
+    summary:
+      'Read one cycle: submissions with their reviews and the reviewers with the state of their duty (UC33.1)',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'CYCLE_NOT_FOUND, or the Assignment is not one of the Instructor.',
+  })
+  @ApiConflictResponse({
+    description:
+      'PEER_REVIEW_NOT_ENABLED: Peer Review is off for this Assignment.',
+  })
+  @ResponseMessage('Peer Review cycle retrieved successfully.')
+  cycleDetail(
+    @User() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('cycleId', ParseUUIDPipe) cycleId: string,
+  ) {
+    return this.service.cycleDetail(user, id, cycleId);
+  }
+
   /** UC33 — Close a cycle and hand out the reviews (BR-242, BR-249); closing again changes nothing. */
   @Post('cycles/:cycleId/close')
   @ApiOperation({

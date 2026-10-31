@@ -14,6 +14,8 @@ import { cycleLockKey } from './cycle-lock';
 import { assignedNotice, waivedNotice } from './review-notice';
 import { waiverDecision } from './waiver';
 import type { IPeerReviewWaiver } from './interfaces/peer-review-waiver.interface';
+import type { IPeerReviewCycleDetail } from './interfaces/peer-review-cycle-detail.interface';
+import { obligationOf } from './cycle-detail';
 import { AssessmentsRepository } from '../assessments/assessments.repository';
 import {
   AssessmentsService,
@@ -234,6 +236,109 @@ export class PeerReviewService {
         };
       }),
     };
+  }
+
+  /**
+   * UC33.1 — one cycle of an Assignment of the Instructor in charge: its submissions with the reviews they got, and the
+   * Learners who have reviews to give with the state of their duty (BR-239, BR-241), so the Instructor sees whom to grade
+   * for and whose duty can be waived (UC33.2). Reading changes nothing.
+   */
+  async cycleDetail(
+    user: CurrentUser,
+    assignmentId: string,
+    cycleId: string,
+  ): Promise<IPeerReviewCycleDetail> {
+    const { assignment } = await this.assessments.findOwnAssignment(
+      user,
+      assignmentId,
+    );
+    if (!assignment.peerReviewEnabled) {
+      throw new ConflictException({
+        code: 'PEER_REVIEW_NOT_ENABLED',
+        message: 'Peer Review is not enabled for this Assignment.',
+      });
+    }
+    const cycle = await this.repository.findCycle(assignment.id, cycleId);
+    if (!cycle) {
+      throw new NotFoundException({
+        code: 'CYCLE_NOT_FOUND',
+        message: 'Peer Review cycle not found.',
+      });
+    }
+    const now = this.clock();
+    const [submissions, reviewers] = await Promise.all([
+      this.repository.cycleSubmissionRows(cycle.id),
+      this.repository.cycleReviewerRows(cycle.id),
+    ]);
+    const reviewerIds = reviewers.map((reviewer) => reviewer.learnerId);
+    const [reviewsOf, states] = await Promise.all([
+      this.repository.peerReviewsOf(assignment.id, reviewerIds),
+      this.repository.findLearnerStates(assignment.id, reviewerIds),
+    ]);
+    const stateOf = new Map(states.map((state) => [state.learnerId, state]));
+    const names = await this.displayNames(user, [
+      ...new Set([
+        ...submissions.map((submission) => submission.learnerId),
+        ...reviewerIds,
+      ]),
+    ]);
+
+    return {
+      assignmentId: assignment.id,
+      title: assignment.title,
+      cycle: {
+        id: cycle.id,
+        opensAt: cycle.opensAt.toISOString(),
+        closesAt: cycle.closesAt.toISOString(),
+        reviewDueAt: cycle.reviewDueAt.toISOString(),
+        reviewersPerSubmission: cycle.reviewersPerSubmission,
+        submissionCount: submissions.length,
+        status: cycleStatusOf({
+          stored: cycle.status,
+          closesAt: cycle.closesAt,
+          reviewersPerSubmission: cycle.reviewersPerSubmission,
+          submissionCount: submissions.length,
+          now,
+        }),
+        closed: cycle.status !== 'Open',
+      },
+      submissions: submissions.map((submission) => ({
+        id: submission.id,
+        learnerId: submission.learnerId,
+        fullName: names.get(submission.learnerId) ?? '',
+        submittedAt: submission.submittedAt.toISOString(),
+        reviewsAssigned: submission.assigned,
+        reviewsCompleted: submission.completed,
+        reviewsMissing: submission.assigned - submission.completed,
+      })),
+      reviewers: reviewers.map((reviewer) => ({
+        learnerId: reviewer.learnerId,
+        fullName: names.get(reviewer.learnerId) ?? '',
+        assigned: reviewer.assigned,
+        completed: reviewer.completed,
+        ...obligationOf(
+          stateOf.get(reviewer.learnerId) ?? null,
+          reviewsOf.get(reviewer.learnerId) ?? [],
+          now,
+        ),
+      })),
+    };
+  }
+
+  /** The names of Learners from tenant-service; one that does not answer leaves the names empty and does not fail the read. */
+  private async displayNames(
+    user: CurrentUser,
+    ids: string[],
+  ): Promise<Map<string, string>> {
+    try {
+      const found = await this.tenant.getDisplayNames(user, ids);
+      return new Map([...found].map(([id, person]) => [id, person.fullName]));
+    } catch (error) {
+      this.logger.warn(
+        `The names of ${ids.length} Learners were not read: ${String(error)}`,
+      );
+      return new Map();
+    }
   }
 
   /**

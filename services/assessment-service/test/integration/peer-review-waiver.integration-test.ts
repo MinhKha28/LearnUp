@@ -63,6 +63,20 @@ describe('UC33.2 waiving a peer review duty over HTTP', () => {
           AND payload->>'learnerId' = $1`,
       [who],
     );
+  const detail = (cycleId: string, id = assignment, headers = identity()) =>
+    api(
+      'GET',
+      `/assignments/${id}/peer-review/cycles/${cycleId}`,
+      undefined,
+      headers,
+    );
+  const firstCycle = async () =>
+    (
+      await db.query(
+        `SELECT id FROM peer_review_cycles WHERE assessment_id = $1 ORDER BY created_at LIMIT 1`,
+        [assignment],
+      )
+    )[0].id as string;
   const exempted = async (who: string) =>
     (
       await db.query(
@@ -263,6 +277,95 @@ describe('UC33.2 waiving a peer review duty over HTTP', () => {
     assert.equal(sent.length, 0);
   });
 
+  test('UC33.1 refused: a Learner (403), another Instructor (404), Peer Review off (409), a cycle that is not there or not of this Assignment (404), a bad id (400)', async () => {
+    const cycleId = await firstCycle();
+    assert.equal(
+      (
+        await detail(
+          cycleId,
+          assignment,
+          identity({ user: learner(1), role: 'LEARNER' }),
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (await detail(cycleId, assignment, identity({ user: OTHER_INSTRUCTOR })))
+        .status,
+      404,
+    );
+    const off = await detail(cycleId, direct);
+    assert.equal(off.status, 409);
+    assert.equal(off.code, 'PEER_REVIEW_NOT_ENABLED');
+    const missing = await detail(UNKNOWN);
+    assert.equal(missing.status, 404);
+    assert.equal(missing.code, 'CYCLE_NOT_FOUND');
+    assert.equal((await detail('abc')).status, 400);
+  });
+
+  test('UC33.1 the cycle: submissions with the reviews they got, and the reviewers with the state of their duty', async () => {
+    const cycleId = await firstCycle();
+    const r = await detail(cycleId);
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    assert.equal(r.data.assignmentId, assignment);
+    assert.equal(r.data.title, 'Reviewed <b>work</b>');
+    assert.equal(r.data.cycle.id, cycleId);
+    assert.equal(r.data.cycle.status, 'Assigned');
+    assert.equal(r.data.cycle.closed, true); // a status other than Open means the closing has run
+    assert.equal(r.data.cycle.submissionCount, 4);
+    assert.equal(r.data.cycle.reviewersPerSubmission, 2);
+
+    // the ring: the author at i is reviewed by i + 1 and i + 2 (L0 and L3 Missed, L1 Completed, L2 Pending)
+    const submissions = r.data.submissions as {
+      learnerId: string;
+      fullName: string;
+      reviewsAssigned: number;
+      reviewsCompleted: number;
+      reviewsMissing: number;
+    }[];
+    assert.deepEqual(
+      submissions
+        .map((s) => [
+          s.learnerId,
+          s.reviewsAssigned,
+          s.reviewsCompleted,
+          s.reviewsMissing,
+        ])
+        .sort(),
+      [
+        [learner(0), 2, 1, 1],
+        [learner(1), 2, 0, 2],
+        [learner(2), 2, 0, 2],
+        [learner(3), 2, 1, 1],
+      ],
+    );
+    assert.match(submissions[0].fullName, /^Learner [0-9A-F]{4}$/);
+
+    const reviewers = r.data.reviewers as {
+      learnerId: string;
+      assigned: number;
+      completed: number;
+      obligation: string;
+      canWaive: boolean;
+    }[];
+    const row = (who: string) => reviewers.find((x) => x.learnerId === who);
+    assert.equal(reviewers.length, 4);
+    assert.deepEqual(
+      [0, 1, 2, 3].map((i) => [
+        row(learner(i))?.assigned,
+        row(learner(i))?.completed,
+        row(learner(i))?.obligation,
+        row(learner(i))?.canWaive,
+      ]),
+      [
+        [2, 0, 'Missed', true],
+        [2, 2, 'Satisfied', false],
+        [2, 0, 'Pending', false],
+        [2, 0, 'Missed', true],
+      ],
+    );
+  });
+
   test('before the waiver the Learner who missed the reviews is Missed in the completion snapshot', async () => {
     const result = await snapshot(learner(0));
     assert.equal(result.assignments[0].peerReview.status, 'Missed');
@@ -324,6 +427,27 @@ describe('UC33.2 waiving a peer review duty over HTTP', () => {
     assert.equal(
       (await snapshot(learner(3))).assignments[0].peerReview.status,
       'Missed',
+    );
+  });
+
+  test('UC33.1 after the waiver the reviewer is Waived and cannot be waived again; the other one who missed is untouched', async () => {
+    const r = await detail(await firstCycle());
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    const row = (who: string) =>
+      (
+        r.data.reviewers as {
+          learnerId: string;
+          obligation: string;
+          canWaive: boolean;
+        }[]
+      ).find((x) => x.learnerId === who);
+    assert.deepEqual(
+      [row(learner(0))?.obligation, row(learner(0))?.canWaive],
+      ['Waived', false],
+    );
+    assert.deepEqual(
+      [row(learner(3))?.obligation, row(learner(3))?.canWaive],
+      ['Missed', true],
     );
   });
 
