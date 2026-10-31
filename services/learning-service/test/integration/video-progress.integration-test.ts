@@ -407,6 +407,35 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
     assert.equal(after.position_seconds, 8);
     assert.equal((await response.json()).data.completed, true);
   });
+  void test('L35 stale and equal position reports return byte-identical full responses, including Completed', async () => {
+    await report([[0, 91]]);
+    for (const status of ['InProgress', 'Completed']) {
+      await db.query(
+        "UPDATE enrollments SET status=$2,completed_at=CASE WHEN $2='Completed' THEN now() ELSE NULL END WHERE id=$1",
+        [enrollment, status],
+      );
+      const timestamp = new Date(Date.now() - 1000).toISOString();
+      const fresh = await request([], {}, 'POST', {
+        positionSeconds: 60,
+        reportedAt: timestamp,
+      });
+      assert.equal(fresh.status, 200);
+      const expected = await fresh.text();
+      const saved: unknown = await row();
+      for (const reportedAt of [
+        new Date(Date.parse(timestamp) - 1000).toISOString(),
+        timestamp,
+      ]) {
+        const retry = await request([], {}, 'POST', {
+          positionSeconds: 8,
+          reportedAt,
+        });
+        assert.equal(retry.status, 200);
+        assert.equal(await retry.text(), expected);
+        assert.deepEqual(await row(), saved);
+      }
+    }
+  });
   test('playback applies I2 disabled flags and course mode returns 503', async () => {
     tree.modules[0].lessons[0].materials[0].disabledAt = new Date();
     assert.equal((await request(undefined, {}, 'GET')).status, 403);

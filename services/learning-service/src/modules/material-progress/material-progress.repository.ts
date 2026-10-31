@@ -297,10 +297,28 @@ export class MaterialProgressRepository {
     reportedAt: Date,
     tx: Prisma.TransactionClient,
   ): Promise<ProgressRow> {
-    await tx.$executeRaw`UPDATE material_progress
-      SET position_seconds=${position}, position_reported_at=${reportedAt}::timestamptz
-      WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid AND organization_id=${org}::uuid
-        AND (position_reported_at IS NULL OR position_reported_at < ${reportedAt}::timestamptz)`;
-    return this.read(enrollmentId, materialId, org, tx);
+    // The enrollment and progress rows are already locked by report(). PostgreSQL
+    // 16 shares one snapshot across this CTE: return the updated row, or the
+    // unchanged row when the strictly-newer timestamp predicate rejects a report.
+    const [row] = await tx.$queryRaw<ProgressRow[]>`
+      WITH updated AS (
+        UPDATE material_progress
+           SET position_seconds=${position}, position_reported_at=${reportedAt}::timestamptz
+         WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid AND organization_id=${org}::uuid
+           AND (position_reported_at IS NULL OR position_reported_at < ${reportedAt}::timestamptz)
+         RETURNING watched_ranges, completed_at, last_reported_at, position_seconds, position_reported_at
+      ), state AS (
+        SELECT * FROM updated
+        UNION ALL
+        SELECT watched_ranges, completed_at, last_reported_at, position_seconds, position_reported_at
+          FROM material_progress
+         WHERE enrollment_id=${enrollmentId}::uuid AND material_id=${materialId}::uuid AND organization_id=${org}::uuid
+           AND NOT EXISTS (SELECT 1 FROM updated)
+      )
+      SELECT ${rangesJson(Prisma.sql`watched_ranges`)} AS "watchedRanges", ${seconds(Prisma.sql`watched_ranges`)} AS "watchedSeconds",
+             completed_at AS "completedAt", last_reported_at AS "lastReportedAt",
+             position_seconds AS "positionSeconds", position_reported_at AS "positionReportedAt"
+        FROM state`;
+    return row;
   }
 }

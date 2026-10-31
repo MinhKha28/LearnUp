@@ -163,11 +163,21 @@ function repositoryFixture() {
       queries.push(
         Array.isArray(query)
           ? Prisma.sql(query as unknown as TemplateStringsArray, ...values)
-          : (query as Prisma.Sql),
+          : query,
       );
       return 1;
     },
-    $queryRaw: async () => [row],
+    $queryRaw: (
+      query: Prisma.Sql | TemplateStringsArray,
+      ...values: unknown[]
+    ) => {
+      queries.push(
+        Array.isArray(query)
+          ? Prisma.sql(query as unknown as TemplateStringsArray, ...values)
+          : query,
+      );
+      return Promise.resolve([row]);
+    },
   } as unknown as Prisma.TransactionClient;
   return {
     repository: new MaterialProgressRepository({} as PrismaService),
@@ -211,6 +221,9 @@ test('BR-182 position update requires a strictly newer client timestamp', async 
     f.tx,
   );
   assert.equal(result.positionSeconds, 8);
+  assert.equal(f.queries.length, 1);
+  assert.match(f.queries[0].sql, /WITH updated AS/);
+  assert.match(f.queries[0].sql, /NOT EXISTS \(SELECT 1 FROM updated\)/);
   assert.match(
     f.queries[0].sql,
     /position_reported_at IS NULL OR position_reported_at </,
