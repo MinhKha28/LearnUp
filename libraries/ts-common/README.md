@@ -78,7 +78,7 @@ Mẫu cấu hình:
 ```env
 PORT=8083
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/course_db"
-INTERNAL_SERVICE_KEY=learnup-internal-secret
+INTERNAL_SERVICE_KEY=<private random key, at least 32 bytes>
 ```
 
 > Không commit file `.env`.
@@ -156,7 +156,7 @@ x-user-role
 Ví dụ:
 
 ```http
-x-internal-key: learnup-internal-secret
+x-internal-key: <INTERNAL_SERVICE_KEY>
 x-user-id: user-001
 x-organization-id: org-001
 x-user-role: INSTRUCTOR
