@@ -54,17 +54,18 @@ export class InternalAuthGuard implements CanActivate {
     const rawRole = request.headers[HEADER_NAMES.USER_ROLE];
     const role = typeof rawRole === 'string' ? parseUserRole(rawRole) : null;
 
+    const platformAdmin = role === 'ADMIN' && organizationId === undefined;
     if (
       typeof userId !== 'string' ||
-      typeof organizationId !== 'string' ||
-      !role
+      !role ||
+      (typeof organizationId !== 'string' && !platformAdmin)
     ) {
       throw new UnauthorizedException('Missing authenticated user context.');
     }
 
     request.user = {
       userId,
-      organizationId,
+      ...(typeof organizationId === 'string' && { organizationId }),
       role,
       isAuthenticated: true,
     };
