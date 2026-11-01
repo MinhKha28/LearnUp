@@ -104,6 +104,7 @@ const PeerCycleDetail = () => {
   }
 
   const { cycle } = detail;
+  const flagged = detail.submissions.filter((row) => row.needsReview).length;
   return (
     <InstructorPage className="instructor-peer-cycles">
       <PageHeader
@@ -130,6 +131,7 @@ const PeerCycleDetail = () => {
               <span>Submission</span>
               <span>Reviews</span>
               <span>Need</span>
+              <span>Score gap</span>
             </div>
             {detail.submissions.map((row) => (
               <div
@@ -141,6 +143,14 @@ const PeerCycleDetail = () => {
                   {row.reviewsCompleted} of {row.reviewsAssigned}
                 </span>
                 <span>{row.reviewsMissing}</span>
+                <span className="instructor-cycle-obligation">
+                  {row.scoreGap === null ? "-" : row.scoreGap}
+                  {row.needsReview && (
+                    <span className="instructor-cycle-chip instructor-cycle-chip-Missed">
+                      Needs review
+                    </span>
+                  )}
+                </span>
               </div>
             ))}
             {detail.submissions.length === 0 && (
@@ -148,9 +158,17 @@ const PeerCycleDetail = () => {
                 <span>No Submissions in this Cycle yet.</span>
                 <span />
                 <span />
+                <span />
               </div>
             )}
           </div>
+          {flagged > 0 && (
+            <p className="instructor-cycle-gap-note">
+              {flagged} submission{flagged === 1 ? " differs" : "s differ"} by
+              more than {cycle.scoreGap} points between reviewers. Review{" "}
+              {flagged === 1 ? "it" : "them"} and set the final score (BR-252).
+            </p>
+          )}
         </SectionCard>
         <SectionCard title="Reviewer obligations">
           <div className="instructor-cycle-table">
