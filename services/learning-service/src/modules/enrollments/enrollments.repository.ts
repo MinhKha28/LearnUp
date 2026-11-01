@@ -21,6 +21,7 @@ export interface MyEnrollmentRow {
   enrollmentType: string;
   status: string;
   dueAt: Date | null;
+  dueTimezone: string | null;
 }
 
 /** Course Learner đã đăng ký kèm Enrollment, để mở UC27 từ UC25/UC25.1 (D20, D48). */
@@ -140,7 +141,7 @@ export class EnrollmentsRepository extends BaseRepository {
              e.course_id::text AS "courseId",
              e.enrollment_type AS "enrollmentType",
              ${enrollmentDisplayStatusSql('e')} AS "status",
-             e.due_at AS "dueAt"
+             e.due_at AS "dueAt", e.due_timezone AS "dueTimezone"
         FROM enrollments e
        WHERE ${myEnrollmentsWhere(learnerId, organizationId)}
        ORDER BY CASE WHEN ${REQUIRED_UNFINISHED} THEN 0 ELSE 1 END,

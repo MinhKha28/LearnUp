@@ -8,7 +8,14 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
-import { ApiSecurity, ApiTags } from '@nestjs/swagger';
+import {
+  ApiConflictResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiSecurity,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '../../common/decorator/customize';
 import { UpdatePeerReviewDto } from './dto/update-peer-review.dto';
@@ -32,6 +39,22 @@ export class PeerReviewController {
 
   /** UC33 — Close a cycle and hand out the reviews (BR-242, BR-249); closing again changes nothing. */
   @Post('cycles/:cycleId/close')
+  @ApiOperation({
+    summary:
+      'Close a cycle whose closing line has passed and which the schedule has not closed yet (UC33)',
+  })
+  @ApiOkResponse({
+    description:
+      'The cycle is closed (reviews handed out, or submissions sent to the Instructor). Closing a closed cycle answers 200 with alreadyClosed true and changes nothing.',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'CYCLE_NOT_FOUND, or the Assignment is not one of the Instructor.',
+  })
+  @ApiConflictResponse({
+    description:
+      'CYCLE_NOT_DUE: the cycle has not reached its closing line (BR-230, BR-231); PEER_REVIEW_NOT_ENABLED: Peer Review is off for this Assignment.',
+  })
   @HttpCode(200)
   @ResponseMessage('Peer Review cycle closed successfully.')
   closeCycle(

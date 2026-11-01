@@ -719,6 +719,121 @@ class AuthControllerIntegrationTest {
         assertThat(userRepository.findById(userId).orElseThrow().getUsername()).isEqualTo("explicit_name");
     }
 
+    @Test
+    @DisplayName("ID-1: 50 UUIDv7 accounts from the same millisecond provisioned in parallel all succeed")
+    void shouldProvisionSameMillisecondAccountsInParallel() throws Exception {
+        int count = 50;
+        UUID organizationId = UUID.randomUUID();
+        UUID[] ids = new UUID[count];
+        for (int i = 0; i < count; i++) {
+            ids[i] = UUID.fromString(String.format("0199a1b2-c3d4-7%03x-8%03x-%012x", i, i, i));
+        }
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(count);
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        try {
+            java.util.List<java.util.concurrent.Future<Integer>> results = new java.util.ArrayList<>();
+            for (int i = 0; i < count; i++) {
+                com.learnup.identity.dto.internal.SetCredentialsRequest request =
+                        new com.learnup.identity.dto.internal.SetCredentialsRequest(ids[i], "parallelInvitePass123");
+                request.setEmail("parallel-" + i + "@abc.vn");
+                request.setRole(UserRole.LEARNER);
+                request.setOrganizationId(organizationId);
+                String body = objectMapper.writeValueAsString(request);
+                results.add(pool.submit(() -> {
+                    start.await();
+                    return mockMvc.perform(post("/api/internal/credentials")
+                                    .header(HeaderConstants.X_INTERNAL_KEY, INTERNAL_KEY)
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(body))
+                            .andReturn().getResponse().getStatus();
+                }));
+            }
+            start.countDown();
+            for (java.util.concurrent.Future<Integer> result : results) {
+                assertThat(result.get(60, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(200);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertThat(userRepository.count()).isEqualTo(count);
+        assertThat(userRepository.findAll().stream().map(User::getUsername).distinct()).hasSize(count);
+        for (int i = 0; i < count; i++) {
+            assertThat(userRepository.findById(ids[i]).orElseThrow().getUsername())
+                    .isEqualTo("user_" + ids[i].toString().replace("-", ""));
+            mockMvc.perform(post("/api/v1/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(
+                                    new LoginRequest("parallel-" + i + "@abc.vn", "parallelInvitePass123"))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.user.id").value(ids[i].toString()));
+        }
+    }
+
+    @Test
+    @DisplayName("ID-1: An explicit username cannot take another user's generated username")
+    void shouldRejectAnotherUsersDefaultUsername() throws Exception {
+        UUID userId = UUID.fromString("0199a1b2-c3d4-7000-8000-0000000000b1");
+        UUID otherId = UUID.fromString("0199a1b2-c3d4-7000-8000-0000000000b2");
+        com.learnup.identity.dto.internal.SetCredentialsRequest request =
+                new com.learnup.identity.dto.internal.SetCredentialsRequest(userId, "reservedNamePass123");
+        request.setUsername(" " + "user_" + otherId.toString().replace("-", "") + " ");
+        request.setEmail("reserved@abc.vn");
+
+        mockMvc.perform(post("/api/internal/credentials")
+                        .header(HeaderConstants.X_INTERNAL_KEY, INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+        assertThat(userRepository.count()).isZero();
+
+        com.learnup.identity.dto.internal.SetCredentialsRequest other =
+                new com.learnup.identity.dto.internal.SetCredentialsRequest(otherId, "reservedNamePass123");
+        other.setEmail("reserved-other@abc.vn");
+        mockMvc.perform(post("/api/internal/credentials")
+                        .header(HeaderConstants.X_INTERNAL_KEY, INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(other)))
+                .andExpect(status().isOk());
+        assertThat(userRepository.findById(otherId).orElseThrow().getUsername())
+                .isEqualTo("user_" + otherId.toString().replace("-", ""));
+    }
+
+    @Test
+    @DisplayName("ID-1: An explicit username equal to the user's own generated username is accepted")
+    void shouldAcceptOwnDefaultUsername() throws Exception {
+        UUID userId = UUID.fromString("0199a1b2-c3d4-7000-8000-0000000000b3");
+        String own = "user_" + userId.toString().replace("-", "");
+        com.learnup.identity.dto.internal.SetCredentialsRequest request =
+                new com.learnup.identity.dto.internal.SetCredentialsRequest(userId, "ownNamePass123");
+        request.setUsername(own);
+        request.setEmail("own-default@abc.vn");
+
+        mockMvc.perform(post("/api/internal/credentials")
+                        .header(HeaderConstants.X_INTERNAL_KEY, INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+        assertThat(userRepository.findById(userId).orElseThrow().getUsername()).isEqualTo(own);
+    }
+
+    @Test
+    @DisplayName("ID-1: A username longer than the 50-character column is a 400, not a conflict")
+    void shouldRejectTooLongUsername() throws Exception {
+        UUID userId = UUID.fromString("0199a1b2-c3d4-7000-8000-0000000000b4");
+        com.learnup.identity.dto.internal.SetCredentialsRequest request =
+                new com.learnup.identity.dto.internal.SetCredentialsRequest(userId, "longNamePass123");
+        request.setUsername("n".repeat(51));
+        request.setEmail("long-name@abc.vn");
+
+        mockMvc.perform(post("/api/internal/credentials")
+                        .header(HeaderConstants.X_INTERNAL_KEY, INTERNAL_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+        assertThat(userRepository.count()).isZero();
+    }
+
     private void attemptLogin(String username, String password, org.springframework.test.web.servlet.ResultMatcher expected) throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

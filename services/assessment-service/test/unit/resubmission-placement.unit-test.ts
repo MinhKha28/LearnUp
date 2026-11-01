@@ -111,25 +111,73 @@ describe('what the decision is based on', () => {
     assert.equal(isPeerReviewOn({ ...base, peerReviewScoreGap: null }), false);
   });
 
-  test('a duty is owed only while it is Missed and not exempted', () => {
-    assert.equal(owesPeerReviewDuty(null), false);
+  test('a duty is owed only while the latest cycle with reviews is Missed and the Learner is not exempted (D10)', () => {
+    const now = new Date('2026-10-25T00:00:00Z');
+    const review = (
+      status: string,
+      cycle: string,
+      closes: string,
+      due = '2026-10-20T00:00:00Z',
+    ) => ({
+      status,
+      reviewDueAt: new Date(due),
+      cycleId: cycle,
+      cycleClosesAt: new Date(closes),
+    });
+    const missed = review('Missed', 'c1', '2026-10-18T00:00:00Z');
     assert.equal(
-      owesPeerReviewDuty({ peerReviewObligation: 'Missed', exemptedAt: null }),
-      true,
+      owesPeerReviewDuty(null, [], now),
+      false,
+      'no review, no duty',
     );
+    assert.equal(owesPeerReviewDuty(null, [missed], now), true);
+    assert.equal(owesPeerReviewDuty({ exemptedAt: null }, [missed], now), true);
     assert.equal(
-      owesPeerReviewDuty({
-        peerReviewObligation: 'Missed',
-        exemptedAt: new Date(),
-      }),
+      owesPeerReviewDuty({ exemptedAt: new Date() }, [missed], now),
+      false,
+      'waived',
+    );
+    // made up in a later cycle: the debt is paid (the old column never reset)
+    assert.equal(
+      owesPeerReviewDuty(
+        { exemptedAt: null },
+        [missed, review('Completed', 'c2', '2026-10-24T00:00:00Z')],
+        now,
+      ),
       false,
     );
-    for (const value of [null, 'Pending', 'Fulfilled', 'Exempted']) {
-      assert.equal(
-        owesPeerReviewDuty({ peerReviewObligation: value, exemptedAt: null }),
-        false,
-        String(value),
-      );
-    }
+    // a later cycle with no review of the Learner does not erase the debt (BR-242)
+    assert.equal(owesPeerReviewDuty({ exemptedAt: null }, [missed], now), true);
+    // still Pending and not yet due: nothing owed; Pending past its deadline is Missed already
+    assert.equal(
+      owesPeerReviewDuty(
+        { exemptedAt: null },
+        [
+          review(
+            'Pending',
+            'c3',
+            '2026-10-30T00:00:00Z',
+            '2026-10-31T00:00:00Z',
+          ),
+        ],
+        now,
+      ),
+      false,
+    );
+    assert.equal(
+      owesPeerReviewDuty(
+        { exemptedAt: null },
+        [
+          review(
+            'Pending',
+            'c3',
+            '2026-10-22T00:00:00Z',
+            '2026-10-23T00:00:00Z',
+          ),
+        ],
+        now,
+      ),
+      true,
+    );
   });
 });

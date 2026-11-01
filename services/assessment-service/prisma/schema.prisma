@@ -109,7 +109,6 @@ model LearnerAssessmentState {
   lockedUntil           DateTime? @map("locked_until") @db.Timestamptz
   recordedAttemptId     String?   @map("recorded_attempt_id") @db.Uuid
   latestSubmissionId    String?   @map("latest_submission_id") @db.Uuid
-  peerReviewObligation  String?   @map("peer_review_obligation")
   exemptedAt            DateTime? @map("exempted_at") @db.Timestamptz
   exemptedBy            String?   @map("exempted_by") @db.Uuid
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz

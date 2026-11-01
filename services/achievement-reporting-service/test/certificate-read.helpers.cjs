@@ -28,7 +28,6 @@ const {
 } = require('../dist/src/common/interceptors/transform.interceptor');
 const { event, delivery, config } = require('./fixtures.cjs');
 const settings = {
-  timezone: 'Asia/Ho_Chi_Minh',
   queueSize: 16,
   queueWaitMs: 1500,
 };
@@ -44,6 +43,7 @@ const record = (overrides = {}) => ({
   organizationName: 'Tổ chức học tập',
   courseName: 'Khóa học kỹ năng',
   versionNumber: 2,
+  organizationTimezone: 'Asia/Ho_Chi_Minh',
   issuedAt: new Date('2026-10-31T23:00:00.000Z'),
   certificateCode: '0123456789AB',
   completedLate: true,
@@ -97,7 +97,12 @@ async function httpApp(service) {
 async function seed(
   f,
   u,
-  { pending = false, at = '2026-10-31T23:00:00.000Z', assets = {} } = {},
+  {
+    pending = false,
+    at = '2026-10-31T23:00:00.000Z',
+    assets = {},
+    timezone = 'Asia/Ho_Chi_Minh',
+  } = {},
 ) {
   const e = event({
     organizationId: u.organizationId,
@@ -119,6 +124,7 @@ async function seed(
       organizationName: 'Tổ chức học tập',
       courseName: 'Khóa học kỹ năng',
       chainId: randomUUID(),
+      organizationTimezone: timezone,
       versionNumber: 2,
       logo: assets.logo ?? null,
       signer: undefined,
@@ -142,7 +148,7 @@ function services(
     repository,
     queue,
     renderer,
-    service: new CertificatesService(repository, renderer, settings),
+    service: new CertificatesService(repository, renderer),
   };
 }
 module.exports = { settings, user, record, headers, httpApp, seed, services };

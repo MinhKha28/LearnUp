@@ -98,7 +98,7 @@ async function setStatus(status: string) {
     enrollment_type=CASE WHEN $2='Exempted' THEN 'Required' ELSE enrollment_type END,
     assigned_at=CASE WHEN $2='Exempted' THEN now() ELSE assigned_at END,
     expected_completion_days=CASE WHEN $2='Exempted' THEN 1 ELSE expected_completion_days END,
-    base_due_at=CASE WHEN $2='Exempted' THEN now()+interval '1 day' ELSE base_due_at END,
+    due_timezone=CASE WHEN $2='Exempted' THEN 'Asia/Ho_Chi_Minh' ELSE due_timezone END,base_due_at=CASE WHEN $2='Exempted' THEN now()+interval '1 day' ELSE base_due_at END,
     due_at=CASE WHEN $2='Exempted' THEN now()+interval '1 day' ELSE due_at END WHERE id=$1`,
     [enrollment, status],
   );
@@ -173,7 +173,7 @@ describe('UC27.3 Reading HTTP + PostgreSQL', () => {
   });
   test('Overdue is computed on read and does not block completion', async () => {
     await db.query(
-      `UPDATE enrollments SET enrollment_type='Required',expected_completion_days=1,assigned_at=now()-interval '2 days',base_due_at=now()-interval '1 day',due_at=now()-interval '1 day' WHERE id=$1`,
+      `UPDATE enrollments SET due_timezone='Asia/Ho_Chi_Minh',enrollment_type='Required',expected_completion_days=1,assigned_at=now()-interval '2 days',base_due_at=now()-interval '1 day',due_at=now()-interval '1 day' WHERE id=$1`,
       [enrollment],
     );
     assert.equal((await mark()).enrollmentStatus, 'Overdue');

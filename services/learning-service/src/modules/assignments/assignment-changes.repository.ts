@@ -33,8 +33,9 @@ export class AssignmentChangesRepository {
     id: string,
     dueAt: Date,
     seconds: bigint,
+    dueTimezone: string,
   ) {
-    return tx.$executeRaw`UPDATE enrollments SET due_at = ${dueAt},
+    return tx.$executeRaw`UPDATE enrollments SET due_at = ${dueAt}, due_timezone = ${dueTimezone},
       extension_seconds = extension_seconds + ${seconds}::bigint, updated_at = now()
       WHERE id = ${id}::uuid AND organization_id = ${organizationId}::uuid AND enrollment_type = 'Required'`;
   }

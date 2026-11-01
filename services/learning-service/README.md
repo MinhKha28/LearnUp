@@ -83,8 +83,14 @@ Also stop on HTTP errors >1% or incorrect Completed/event counts. Warn when medi
 increases >20%. k6 and service share the same host. Small finite bursts are not steady-state
 capacity measurements, and probe overhead is part of the instrumented branch measurement.
 
-ASSESSMENT_COMPLETION_CLIENT_MODE defaults http. Its endpoint is not yet implemented
-in assessment; until supplied, errors retain requests with bounded exponential backoff.
+ASSESSMENT_COMPLETION_CLIENT_MODE defaults http. Assessment supplies
+GET /api/v1/internal/learners/:learnerId/courses/:courseId/completion-snapshot.
+Errors retain requests with bounded exponential backoff and no retry cap.
+Learning recomputes completion from scores, finalization and peer duty; Waived,
+NotApplicable and Satisfied satisfy peer duty. Assessment flag disagreements produce
+one COMPLETION_SNAPSHOT_MISMATCH warning per evaluation; the stored and published
+snapshot stays unchanged. HTTP failures retain their status in error diagnostics;
+INVALID_SNAPSHOT and HTTP 400/401/403/404/422 are marked permanent but still retried.
 fake mode is forbidden in production. FakeAssessmentCompletionClient.fixtures is keyed
 by organizationId/learnerId/courseId; missing fixtures return eligible=false. Explicit
 fixtures support passing/failing scores, unfinalized assignments, pending/missed peer

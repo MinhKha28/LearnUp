@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   ASSESSMENT_COMPLETION_CLIENT,
   type AssessmentCompletionClient,
+  type CompletionSnapshot,
   CompletionClientError,
   validateCompletionSnapshot,
 } from '../../infrastructure/clients/assessment/assessment-completion.client';
@@ -24,6 +25,47 @@ export class CompletionService {
   ) {}
   private affected(count: number) {
     if (count === 0) this.metrics.generationDiscarded++;
+  }
+  /** BR-260/261, BR-236 and BR-241: completion follows facts and satisfied or waived peer duty. */
+  private assessmentEligible(snapshot: CompletionSnapshot): boolean {
+    const items = [
+      ...snapshot.quizzes.map((q) => ({
+        assessmentId: q.assessmentId,
+        assessment: q.passed,
+        learning:
+          q.attemptId !== null &&
+          q.recordedScore !== null &&
+          Number(q.recordedScore) >= Number(q.passingScore),
+      })),
+      ...snapshot.assignments.map((a) => ({
+        assessmentId: a.assessmentId,
+        assessment: a.passed,
+        learning:
+          a.submissionId !== null &&
+          a.finalizedAt !== null &&
+          a.finalScore !== null &&
+          Number(a.finalScore) >= Number(a.passingScore) &&
+          ['Waived', 'NotApplicable', 'Satisfied'].includes(
+            a.peerReview.status,
+          ),
+      })),
+    ];
+    const eligible = items.every((item) => item.learning);
+    const differences = items.filter(
+      (item) => item.assessment !== item.learning,
+    );
+    if (snapshot.eligible !== eligible || differences.length > 0)
+      this.logger.warn({
+        code: 'COMPLETION_SNAPSHOT_MISMATCH',
+        organizationId: snapshot.organizationId,
+        learnerId: snapshot.learnerId,
+        courseId: snapshot.courseId,
+        revision: snapshot.revision,
+        assessmentEligible: snapshot.eligible,
+        learningEligible: eligible,
+        items: differences,
+      });
+    return eligible;
   }
   async evaluate(r: CompletionRequest): Promise<void> {
     if (r.expired) this.metrics.leaseExpired++;
@@ -48,6 +90,7 @@ export class CompletionService {
         e.learner_id,
         e.course_id,
       );
+      const eligible = this.assessmentEligible(snapshot);
       await this.repository.prisma.$transaction(
         async (tx) => {
           const current = await this.repository.enrollment(r, tx, true);
@@ -81,7 +124,7 @@ export class CompletionService {
             await this.repository.remove(r, tx);
             return;
           }
-          if (!snapshot.eligible) {
+          if (!eligible) {
             await this.repository.remove(r, tx);
             return;
           }
@@ -150,7 +193,14 @@ export class CompletionService {
         error instanceof CompletionClientError
           ? error.code
           : 'COMPLETION_TRANSACTION_FAILED';
-      if (error instanceof CompletionClientError) this.logger.warn(code);
+      if (error instanceof CompletionClientError)
+        this.logger.error({
+          code,
+          httpStatus: error.httpStatus ?? null,
+          permanent:
+            code === 'INVALID_SNAPSHOT' ||
+            [400, 401, 403, 404, 422].includes(error.httpStatus ?? 0),
+        });
       else this.logger.warn({ code, ...transactionFailureDetails(error) });
       this.affected(await this.repository.retry(r, code));
     }

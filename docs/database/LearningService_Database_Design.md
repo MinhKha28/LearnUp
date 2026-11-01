@@ -85,6 +85,7 @@ Ký hiệu: **B** = `NOT NULL`. Mọi bảng có `created_at`, `updated_at` theo
 | `base_due_at` | timestamptz | | — | Hạn gốc theo BR-167: 00:00 ngày kế tiếp ngày thứ N, múi giờ tổ chức lúc phân công |
 | `extension_seconds` | bigint | ✓ | 0 | Tổng thời gian Organizer đã kéo dài (UC24.3, BR-171) |
 | `due_at` | timestamptz | | — | Hạn hiện hành, tính lại từ đầu (mục 3.1.2) |
+| `due_timezone` | text | | — | IANA zone id, nullable, không có mặc định. Ghi cùng câu lệnh với mọi lần ghi hạn (UC24.2 tạo/chuyển/khôi phục, UC24.3 gia hạn); giữ nguyên khi chỉ ghi duration; xóa cùng hạn. CHECK `enrollments_due_timezone_check`: `(due_at IS NULL) = (due_timezone IS NULL)`. Migration `20261029160000_freeze_deadline_timezone` backfill `'Asia/Ho_Chi_Minh'` cho các dòng đã có hạn |
 | `video_completion_percent` | integer | ✓ | — | **Ảnh chụp** `platform_settings` lúc tạo (BR-181, BR-335) |
 | `first_activity_at` | timestamptz | | — | Với UC27.2, chỉ gán khi học liệu vừa hoàn thành (BR-140), không gán khi chỉ lưu coverage/bookmark. Các nguồn khác theo luồng thiết kế bên dưới |
 | `completed_at` | timestamptz | | — | — |
@@ -137,6 +138,8 @@ Chuyển Optional → Required được từ NotStarted, InProgress, Completed, 
 - Khoảng tạm dừng gồm: khoảng Exempted/Halted **đã đóng** (BR-151) và lần tạm khóa tổ chức **đã gỡ** (BR-57, BR-58, BR-59).
 - Mỗi khoảng chỉ tính phần sau `assigned_at`. Phần hợp tính bằng `range_agg(tstzrange(...))` nên khoảng chồng nhau chỉ tính một lần (đã thử).
 - Tính lại **từ đầu** khi: kéo dài hạn, đóng khoảng Exempted/Halted, nhận `OrganizationReinstated`, chuyển Optional → Required. Enrollment đã Completed hoặc Withdrawn không tính lại.
+- **Current organization timezone (UC24.1 / UC24.3):** Detail returns live `organizationTimezone` from Tenant access (null with a warning on failure); `dueTimezone` remains the zone used to set the stored deadline. A new extension uses the live zone, allows today or later in that zone, and must end strictly after the current deadline. There is no 365-day extension cap. Tenant HTTP preserves zone strings after Intl validation. UC24.3 alone resolves the case-insensitive name from `pg_timezone_names` (excluding `posix/` and `right/`) for today, the deadline and `due_timezone`; detail returns the Tenant string unchanged without that lookup. Frontend compares aliases by zone identity; a zone rejected by PostgreSQL is a tenant contract violation (503 `SERVICE_UNAVAILABLE`). Lists do not call Tenant access. No database schema change.
+
 - **Kéo dài hạn:** hạn mới (cuối ngày theo múi giờ tổ chức hỏi REST lúc đó) trừ `due_at` hiện tại, cộng phần chênh vào `extension_seconds`. Lưu phần chênh để các lần tạm dừng sau vẫn cộng lên trên.
 
 **Overdue khi đọc:** Required, `status IN ('NotStarted','InProgress')`, `due_at <= now()`, và không có lần tạm khóa tổ chức nào đang mở bắt đầu trước `due_at` (BR-175). `completed_late` dùng cùng quy tắc lúc hoàn thành.

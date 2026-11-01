@@ -5,6 +5,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -67,6 +68,8 @@ function validateEnrollmentCourse(
  */
 @Injectable()
 export class InternalCoursesService {
+  private readonly logger = new Logger(InternalCoursesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(STORAGE_PROVIDER)
@@ -495,10 +498,7 @@ export class InternalCoursesService {
       };
     } catch (error) {
       if (error instanceof StorageProviderError) {
-        console.error('[Signed URL Error]', {
-          name: error.name,
-          message: error.message,
-        });
+        this.logger.error(`Material signed URL generation failed: ${error.name}`);
 
         throw new ServiceUnavailableException({
           code: 'MATERIAL_URL_UNAVAILABLE',

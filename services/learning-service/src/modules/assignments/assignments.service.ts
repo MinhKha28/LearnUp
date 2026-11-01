@@ -159,6 +159,7 @@ export class AssignmentsService {
               assignedBy: user.userId,
               assignedAt,
               dueAt,
+              dueTimezone: access.timezone,
               expectedCompletionDays,
               videoCompletionPercent,
             },

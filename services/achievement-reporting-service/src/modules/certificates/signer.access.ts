@@ -59,8 +59,12 @@ export class SignerAccess {
         throw new Error();
       data = envelope.data as Record<string, unknown>;
       if (
-        data.organizationId !== org ||
+        typeof data.organizationId !== 'string' ||
+        data.organizationId.toLowerCase() !== org.toLowerCase() ||
         typeof data.organizationStatus !== 'string' ||
+        !['PendingPayment', 'Active', 'Suspended', 'Cancelled'].includes(
+          String(data.organizationStatus),
+        ) ||
         !['Active', 'Grace', 'Suspended', 'Ended'].includes(
           String(data.subscriptionStatus),
         )

@@ -8,9 +8,12 @@ import type {
   IInstructorListItem,
   ILearnerDetail,
   ILearnerListItem,
+  IOrganizationProfile,
+  IUpdateOrganizationReq,
   IPaymentResult,
   IPayRegistrationReq,
   IRegistrationSummary,
+  IReinvitationResult,
   ISeatUsage,
   ISubscriptionPlan,
   IUpdateAccountReq,
@@ -24,6 +27,29 @@ import type {
 import { tenantAxios as axios } from "@/services/axios.customize";
 
 // UC01 - Xem Subscription Plan (Guest, không cần đăng nhập)
+export const getMyOrganizationAPI = () =>
+  axios.get<IBackendRes<IOrganizationProfile>>("/api/v1/organizations/me");
+
+export const updateMyOrganizationAPI = (body: IUpdateOrganizationReq) =>
+  axios.patch<IBackendRes<IOrganizationProfile>>(
+    "/api/v1/organizations/me",
+    body,
+  );
+
+export const uploadOrganizationLogoAPI = (file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return axios.put<IBackendRes<IOrganizationProfile>>(
+    "/api/v1/organizations/me/logo",
+    form,
+  );
+};
+
+export const removeOrganizationLogoAPI = () =>
+  axios.delete<IBackendRes<IOrganizationProfile>>(
+    "/api/v1/organizations/me/logo",
+  );
+
 export const getSubscriptionPlansAPI = () =>
   axios.get<IBackendRes<ISubscriptionPlan[]>>("/api/v1/subscription-plans");
 
@@ -138,6 +164,16 @@ export const updateLearnerAPI = (learnerId: string, body: IUpdateAccountReq) =>
   axios.patch<IBackendRes<IUpdateAccountResult>>(
     `/api/v1/users/learners/${encodeURIComponent(learnerId)}`,
     body,
+  );
+
+export const resendInstructorInvitationAPI = (instructorId: string) =>
+  axios.post<IBackendRes<IReinvitationResult>>(
+    `/api/v1/users/instructors/${encodeURIComponent(instructorId)}/invitations`,
+  );
+
+export const resendLearnerInvitationAPI = (learnerId: string) =>
+  axios.post<IBackendRes<IReinvitationResult>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}/invitations`,
   );
 
 // UC04 - Xem lời mời trước khi đặt mật khẩu

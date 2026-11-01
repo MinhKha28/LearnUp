@@ -8,6 +8,9 @@ import {
   IStorageSignedUrlOptions,
 } from '@learnup/ts-storage';
 import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
+
+const logger = new Logger('CourseStorageProvider');
 
 class UnconfiguredStorageProvider implements IReadableStorageProvider {
   upload(): Promise<IStoredFile> {
@@ -54,16 +57,12 @@ export const createStorageProvider = (
   const apiSecret = configService.get<string>('CLOUDINARY_API_SECRET')?.trim();
 
   if (!cloudName || !apiKey || !apiSecret) {
-    console.error('[Storage] Cloudinary configuration missing', {
-      cloudNameConfigured: !!cloudName,
-      apiKeyConfigured: !!apiKey,
-      apiSecretConfigured: !!apiSecret,
-    });
+    logger.error('Cloudinary configuration missing; protected media access is unavailable.');
 
     return new UnconfiguredStorageProvider();
   }
 
-  console.log('[Storage] CloudinaryStorageProvider initialized');
+  logger.log('CloudinaryStorageProvider initialized');
 
   return new CloudinaryStorageProvider({
     cloudName,

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// UC33, the "Close cycle" action of the Instructor, by interaction. jsdom is for this file only; the other suites keep node.
+// UC33, the "Đóng chu kỳ" action of the Instructor, by interaction. jsdom is for this file only; the other suites keep node.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { message } from "antd";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -66,7 +66,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const closeButtons = () => screen.queryAllByRole("button", { name: "Close cycle" });
+const closeButtons = () => screen.queryAllByRole("button", { name: "Đóng chu kỳ" });
 const confirmClosing = async () => {
   fireEvent.click(closeButtons()[0]);
   const ok = await waitFor(() => {
@@ -77,7 +77,7 @@ const confirmClosing = async () => {
   fireEvent.click(ok);
 };
 
-describe("the Close cycle action", () => {
+describe("the Đóng chu kỳ action", () => {
   it("is offered only on a cycle that is still open and past its closing line", async () => {
     render(<PeerCycleTable assignmentId="a1" />);
     await screen.findByText("Cycle 2");
@@ -97,9 +97,9 @@ describe("the Close cycle action", () => {
     render(<PeerCycleTable assignmentId="a1" />);
     await screen.findByText("Cycle 2");
     fireEvent.click(closeButtons()[0]);
-    await screen.findByText("Close this cycle now?");
+    await screen.findByText("Đóng chu kỳ này ngay bây giờ?");
     expect(
-      screen.getByText(/Cycle 2 has passed its closing time and the schedule has not closed it yet\. Closing it hands out its 7 submissions for review/),
+      screen.getByText(/Chu kỳ 2 đã qua giờ chốt và lịch chưa đóng nó\. Đóng chu kỳ sẽ phân 7 bài nộp để người học chấm chéo/),
     ).toBeTruthy();
     expect(api.closePeerReviewCycleAPI).not.toHaveBeenCalled();
   });

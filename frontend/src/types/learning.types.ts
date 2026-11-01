@@ -32,6 +32,7 @@ export interface MyEnrollmentItem {
   enrollmentType: EnrollmentType;
   status: EnrollmentStatus;
   dueAt: string | null;
+  dueTimezone: string | null;
   requiredMaterials: { completed: number; total: number };
   /** null khi course-service không trả Course này (D26). */
   course: {
@@ -41,10 +42,7 @@ export interface MyEnrollmentItem {
   } | null;
 }
 
-export interface MyEnrollmentsPage extends PageResponse<MyEnrollmentItem> {
-  /** null khi tenant lỗi hoặc trang không có Required có hạn (D24). */
-  organizationTimezone: string | null;
-}
+export type MyEnrollmentsPage = PageResponse<MyEnrollmentItem>;
 
 /** completed null: không có học liệu hiển thị, trạng thái trung tính (D30). */
 export interface CurriculumLesson {
@@ -71,7 +69,7 @@ export interface CurriculumData {
   enrollmentType: EnrollmentType;
   status: EnrollmentStatus;
   dueAt: string | null;
-  organizationTimezone: string | null;
+  dueTimezone: string | null;
   requiredMaterials: { completed: number; total: number };
   course: { name: string; versionNumber: number } | null;
   modules: CurriculumModule[];

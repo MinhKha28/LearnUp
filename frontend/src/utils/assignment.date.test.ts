@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assignmentDateOnly, assignmentTimestamp, assignmentDueDate, assignmentDueNote } from "./assignment.date";
+import { assignmentDateOnly, assignmentTimestamp, assignmentDueDate, assignmentDueNote, assignmentExtensionDeadline } from "./assignment.date";
 import { formatDueAt } from "./due.format";
 
 describe("organizer dates", () => {
@@ -30,6 +30,18 @@ describe("organizer dates", () => {
     expect(assignmentDueDate(value, null)).toBe(formatDueAt(value, null).text.match(/\d{2}\/\d{2}\/\d{4}/)?.[0]);
     expect(assignmentDueNote(null)).toContain("giờ trên máy bạn");
     expect(assignmentDueNote("invalid")).toContain("giờ trên máy bạn");
-    expect(assignmentDueNote("Asia/Ho_Chi_Minh")).toBe("Tính đến hết ngày theo giờ tổ chức (Asia/Ho_Chi_Minh)");
+    expect(assignmentDueNote("Asia/Ho_Chi_Minh", value)).toBe("Tính đến hết ngày theo giờ tổ chức (giờ Đông Dương (GMT+7))");
   });
+});
+
+it.each([
+  ["2026-03-08", "America/New_York", "2026-03-09T04:00:00.000Z"],
+  ["2026-11-01", "America/New_York", "2026-11-02T05:00:00.000Z"],
+  ["2026-10-30", "Pacific/Auckland", "2026-10-30T11:00:00.000Z"],
+])("computes the extension deadline after %s in %s", (day, zone, expected) => {
+  expect(assignmentExtensionDeadline(day, zone).toISOString()).toBe(expected);
+});
+it("the detail deadline note uses the stored deadline instant for DST", () => {
+  expect(assignmentDueNote("America/New_York", "2026-07-01T04:00:00Z")).toContain("GMT-4");
+  expect(assignmentDueNote("America/New_York", "2026-01-01T05:00:00Z")).toContain("GMT-5");
 });

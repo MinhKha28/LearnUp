@@ -1,5 +1,8 @@
 import {
-  OBLIGATION_MISSED,
+  peerReviewOf,
+  type AssignmentFacts,
+} from '../completion-snapshot/completion-snapshot';
+import {
   PEER_REVIEW_DISABLED,
   RESUBMITTED_AFTER_CUTOFF,
 } from './learner-submissions.constants';
@@ -34,16 +37,17 @@ export const isPeerReviewOn = (assignment: {
   !!assignment.peerReviewersPerSubmission &&
   assignment.peerReviewScoreGap !== null;
 
-/** BR-313: the Learner skipped the reviews of an earlier cycle and has not been exempted since. */
+/**
+ * BR-313, BR-239: the Learner skipped the reviews of the latest cycle in which reviews were assigned and has not been
+ * exempted. The same definition as the completion snapshot (peerReviewOf), so a Learner who made the reviews up
+ * of a later cycle no longer owes anything.
+ */
 export const owesPeerReviewDuty = (
-  state: {
-    peerReviewObligation: string | null;
-    exemptedAt: Date | null;
-  } | null,
+  state: { exemptedAt: Date | null } | null,
+  reviews: AssignmentFacts['reviews'],
+  now: Date,
 ): boolean =>
-  state !== null &&
-  state.peerReviewObligation === OBLIGATION_MISSED &&
-  !state.exemptedAt;
+  !state?.exemptedAt && peerReviewOf(reviews, now).status === 'Missed';
 
 /**
  * UC30.1 (BR-171, BR-313): where a resubmission goes.

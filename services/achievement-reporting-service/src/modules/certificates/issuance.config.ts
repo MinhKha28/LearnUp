@@ -7,6 +7,7 @@ export interface IssuanceConfig {
   tenantUrl: string;
   courseUrl: string;
   internalKey: string;
+  fallbackTimezone: string;
   profileMode: ClientMode;
   courseMode: ClientMode;
   concurrency: number;
@@ -15,6 +16,15 @@ export interface IssuanceConfig {
   timeoutMs: number;
   maxLogoBytes: number;
   logoHosts: string[];
+}
+export function isValidTimezone(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
 }
 export const ISSUANCE_CONFIG = Symbol('ISSUANCE_CONFIG');
 export function issuanceConfig(
@@ -36,6 +46,10 @@ export function issuanceConfig(
       throw new Error(`Fake client forbidden outside development/test: ${key}`);
     return value;
   };
+  const fallbackTimezone =
+    get('CERTIFICATE_DISPLAY_TIMEZONE') ?? 'Asia/Ho_Chi_Minh';
+  if (!isValidTimezone(fallbackTimezone))
+    throw new Error('Invalid CERTIFICATE_DISPLAY_TIMEZONE');
   const enabled = get('CERTIFICATE_CONSUMER_ENABLED') ?? 'false';
   if (!['true', 'false'].includes(enabled))
     throw new Error('Invalid CERTIFICATE_CONSUMER_ENABLED');
@@ -49,6 +63,7 @@ export function issuanceConfig(
     tenantUrl: get('TENANT_SERVICE_URL') ?? 'http://tenant-service:8084',
     courseUrl: get('COURSE_SERVICE_URL') ?? 'http://course-service:8083',
     internalKey: get('INTERNAL_SERVICE_KEY') ?? '',
+    fallbackTimezone,
     profileMode: mode('CERTIFICATE_PROFILE_CLIENT_MODE'),
     courseMode: mode('CERTIFICATE_COURSE_CLIENT_MODE'),
     concurrency: number('CERTIFICATE_CONCURRENCY', 4, 64),

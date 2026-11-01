@@ -6,6 +6,7 @@ export interface CertificateSummary {
   courseName: string;
   versionNumber: number;
   issuedAt: Date;
+  organizationTimezone: string;
   completedLate: boolean;
 }
 export interface CertificateText {
@@ -15,6 +16,7 @@ export interface CertificateText {
   courseName: string;
   versionNumber: number;
   issuedAt: Date;
+  organizationTimezone: string;
   certificateCode: string;
   completedLate: boolean;
   signerName: string | null;
@@ -33,7 +35,7 @@ export interface CertificateCursor {
   id: string;
 }
 const textColumns = Prisma.sql`id, learner_name AS "learnerName", organization_name AS "organizationName",
- course_name AS "courseName", version_number AS "versionNumber", issued_at AS "issuedAt",
+ course_name AS "courseName", version_number AS "versionNumber", issued_at AS "issuedAt", organization_timezone AS "organizationTimezone",
  certificate_code AS "certificateCode", completed_late AS "completedLate", signer_name AS "signerName", signer_title AS "signerTitle"`;
 @Injectable()
 export class CertificateReadRepository {
@@ -48,7 +50,7 @@ export class CertificateReadRepository {
       ? Prisma.sql`AND (issued_at,id) < (${new Date(cursor.issuedAt)},${cursor.id}::uuid)`
       : Prisma.empty;
     return this.db
-      .$queryRaw(Prisma.sql`SELECT id, course_name AS "courseName", version_number AS "versionNumber", issued_at AS "issuedAt", completed_late AS "completedLate" FROM certificates
+      .$queryRaw(Prisma.sql`SELECT id, course_name AS "courseName", version_number AS "versionNumber", issued_at AS "issuedAt", organization_timezone AS "organizationTimezone", completed_late AS "completedLate" FROM certificates
       WHERE organization_id=${org}::uuid AND learner_id=${learner}::uuid AND status='Issued'
       ${after} ORDER BY issued_at DESC,id DESC LIMIT ${size + 1}`);
   }

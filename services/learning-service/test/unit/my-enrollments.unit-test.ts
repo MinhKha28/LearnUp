@@ -13,7 +13,6 @@ import {
   CourseServiceUnavailableError,
 } from '../../src/infrastructure/clients/course/course-service.errors';
 import type { CourseBatchItem } from '../../src/infrastructure/clients/course/course-service.interface';
-import { OrganizationTimezoneService } from '../../src/infrastructure/clients/tenant/organization-timezone.service';
 import {
   TenantUnavailableError,
   type OrganizationAccess,
@@ -38,6 +37,7 @@ const REQUIRED_ROW: MyEnrollmentRow = {
   enrollmentType: 'Required',
   status: 'Overdue',
   dueAt: new Date('2026-09-29T17:00:00Z'),
+  dueTimezone: 'Asia/Ho_Chi_Minh',
 };
 const OPTIONAL_ROW: MyEnrollmentRow = {
   id: ENROLLMENT_2,
@@ -45,6 +45,7 @@ const OPTIONAL_ROW: MyEnrollmentRow = {
   enrollmentType: 'Optional',
   status: 'NotStarted',
   dueAt: null,
+  dueTimezone: null,
 };
 
 const batchItem = (courseId: string): CourseBatchItem => ({
@@ -118,7 +119,6 @@ function setup(
       return options.tenant ? options.tenant() : Promise.resolve(ACCESS);
     },
   };
-  const organizationTimezone = new OrganizationTimezoneService(tenant);
 
   const service = new EnrollmentsService(
     {} as never,
@@ -127,7 +127,6 @@ function setup(
     {} as never,
     courseService as never,
     tenant,
-    organizationTimezone,
   );
   const loggerError = mock.method(
     (service as unknown as { logger: Logger }).logger,
@@ -139,12 +138,7 @@ function setup(
     'warn',
     () => undefined,
   );
-  const timezoneLoggerError = mock.method(
-    (organizationTimezone as unknown as { logger: Logger }).logger,
-    'error',
-    () => undefined,
-  );
-  return { service, calls, loggerError, loggerWarn, timezoneLoggerError };
+  return { service, calls, loggerError, loggerWarn };
 }
 
 async function rejectsWithStatus(
@@ -167,7 +161,6 @@ void describe('EnrollmentsService.findMyEnrollments (UC26)', () => {
     assert.deepEqual(result, {
       meta: { current: 1, pageSize: 20, pages: 0, total: 0 },
       items: [],
-      organizationTimezone: null,
     });
     assert.deepEqual(
       [calls.page, calls.materials, calls.batch.length, calls.tenant],
@@ -218,18 +211,15 @@ void describe('EnrollmentsService.findMyEnrollments (UC26)', () => {
     const { service, calls } = setup();
     const result = await service.findMyEnrollments(LEARNER, 1);
     assert.deepEqual(calls.batch, [[COURSE_1, COURSE_2]]);
-    assert.deepEqual(Object.keys(result).sort(), [
-      'items',
-      'meta',
-      'organizationTimezone',
-    ]);
-    assert.equal(result.organizationTimezone, 'Asia/Ho_Chi_Minh');
+    assert.deepEqual(Object.keys(result).sort(), ['items', 'meta']);
+    assert.equal(result.items[0].dueTimezone, 'Asia/Ho_Chi_Minh');
     assert.deepEqual(result.items[0], {
       enrollmentId: ENROLLMENT_1,
       courseId: COURSE_1,
       enrollmentType: 'Required',
       status: 'Overdue',
       dueAt: '2026-09-29T17:00:00.000Z',
+      dueTimezone: 'Asia/Ho_Chi_Minh',
       requiredMaterials: { completed: 1, total: 6 },
       course: { name: 'Course 02', versionNumber: 2, coverFileId: null },
     });
@@ -266,60 +256,22 @@ void describe('EnrollmentsService.findMyEnrollments (UC26)', () => {
     });
   }
 
-  void test('tenant lỗi → organizationTimezone null + logger.error, vẫn trả danh sách', async () => {
-    const { service, timezoneLoggerError } = setup({
+  void test('Tenant outage cannot change stored deadline timezone', async () => {
+    const { service, calls } = setup({
       tenant: () => Promise.reject(new TenantUnavailableError('down')),
     });
     const result = await service.findMyEnrollments(LEARNER, 1);
-    assert.equal(result.organizationTimezone, null);
+    assert.ok(!('organizationTimezone' in result));
+    assert.equal(result.items[0].dueTimezone, 'Asia/Ho_Chi_Minh');
     assert.equal(result.items.length, 2);
-    assert.equal(timezoneLoggerError.mock.callCount(), 1);
+    assert.equal(calls.tenant, 0);
   });
 
   void test('trang không có Required có hạn → không gọi tenant', async () => {
     const { service, calls } = setup({ rows: [OPTIONAL_ROW] });
     const result = await service.findMyEnrollments(LEARNER, 1);
     assert.equal(calls.tenant, 0);
-    assert.equal(result.organizationTimezone, null);
-  });
-});
-
-void describe('OrganizationTimezoneService (D24)', () => {
-  void test('cache theo organizationId, TTL 5 phút; lần lỗi không được cache (đồng hồ giả)', async (t) => {
-    t.mock.timers.enable({ apis: ['Date'], now: 0 });
-    let fail = false;
-    let calls = 0;
-    const service = new OrganizationTimezoneService({
-      getOrganizationAccess: () => {
-        calls += 1;
-        return fail
-          ? Promise.reject(new TenantUnavailableError('down'))
-          : Promise.resolve(ACCESS);
-      },
-    });
-    mock.method(
-      (service as unknown as { logger: Logger }).logger,
-      'error',
-      () => undefined,
-    );
-
-    assert.equal(await service.getTimezone(LEARNER), 'Asia/Ho_Chi_Minh');
-    t.mock.timers.tick(5 * 60 * 1000 - 1);
-    assert.equal(await service.getTimezone(LEARNER), 'Asia/Ho_Chi_Minh');
-    assert.equal(calls, 1, 'trong TTL không gọi lại tenant');
-
-    t.mock.timers.tick(1);
-    fail = true;
-    assert.equal(await service.getTimezone(LEARNER), null);
-    assert.equal(calls, 2, 'hết TTL thì gọi lại');
-
-    fail = false;
-    assert.equal(await service.getTimezone(LEARNER), 'Asia/Ho_Chi_Minh');
-    assert.equal(calls, 3, 'lần lỗi không được cache');
-
-    const otherOrg = { ...LEARNER, organizationId: COURSE_1 };
-    await service.getTimezone(otherOrg);
-    assert.equal(calls, 4, 'tổ chức khác có cache riêng');
+    assert.ok(!('organizationTimezone' in result));
   });
 });
 

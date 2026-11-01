@@ -26,6 +26,7 @@ export interface AssetSnapshot {
   size: number;
 }
 export interface IssuanceSnapshot {
+  organizationTimezone: string;
   learnerName: string;
   organizationName: string;
   courseName: string;
@@ -159,7 +160,7 @@ export class CertificatesRepository {
       if ((current[0]?.version ?? 0) !== (signer?.version ?? 0))
         return 'version_changed';
       const count =
-        await tx.$executeRaw`UPDATE certificates SET status='Issued',learner_name=${snapshot.learnerName},organization_name=${snapshot.organizationName},course_name=${snapshot.courseName},
+        await tx.$executeRaw`UPDATE certificates SET status='Issued',organization_timezone=${snapshot.organizationTimezone},learner_name=${snapshot.learnerName},organization_name=${snapshot.organizationName},course_name=${snapshot.courseName},
         version_number=${snapshot.versionNumber},chain_id=${snapshot.chainId}::uuid,logo_asset_key=${a?.key ?? null},logo_hash=${a?.hash ?? null},logo_mime=${a?.mime ?? null},logo_size=${a?.size ?? null},
         signer_name=${signer?.name ?? null},signer_title=${signer?.title ?? null},signature_asset_key=${signature?.key ?? null},signature_hash=${signature?.hash ?? null},signature_mime=${signature?.mime ?? null},
         issued_recorded_at=clock_timestamp(),next_attempt_at=NULL,last_error=NULL,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp()

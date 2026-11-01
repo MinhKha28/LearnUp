@@ -88,6 +88,33 @@ class GatewayRoutesTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/admin/subscription-plans", "/api/admin/subscription-plans"})
+    @DisplayName("UC43/UC43.1 Admin plan endpoints go to tenant-service and require a JWT")
+    void routesAdminPlansToTenantWithJwt(String path) {
+        List<RouteDefinition> routes = routesMatching(path);
+        assertThat(routes).as(path).hasSize(1);
+        assertThat(routes.get(0).getId()).isEqualTo("tenant-service");
+        assertThat(jwtProperties.isWhitelisted(path)).as(path).isFalse();
+
+        var filter = new JwtAuthenticationFilter(jwtProperties, new ObjectMapper());
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest.post(path));
+        AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
+        StepVerifier.create(filter.filter(exchange, next -> {
+            forwarded.set(next);
+            return Mono.empty();
+        })).verifyComplete();
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(forwarded.get()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/admin/organizations", "/api/v1/admin/courses"})
+    @DisplayName("Only the Admin plan branch is claimed by tenant-service")
+    void doesNotClaimOtherAdminPaths(String path) {
+        assertThat(routesMatching(path)).as(path).isEmpty();
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {
             "/api/v1/learning/x", "/api/v1/enrollments", "/api/v1/enrollments/x/curriculum",
             "/api/learning/x", "/api/enrollments"
@@ -98,6 +125,22 @@ class GatewayRoutesTest {
 
         assertThat(routes).as(path).hasSize(1);
         assertThat(routes.get(0).getId()).isEqualTo("learning-service");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/audit/logs", "/api/v1/audit/logs/0199a000-0000-7000-8000-000000000001", "/api/audit/logs"})
+    @DisplayName("The audit trail is routed to audit-service, for reading only and with a JWT")
+    void routesAuditForReadingOnly(String path) {
+        List<RouteDefinition> routes = routesMatching(path);
+
+        assertThat(routes).as(path).hasSize(1);
+        RouteDefinition audit = routes.get(0);
+        assertThat(audit.getId()).isEqualTo("audit-service");
+        // entries are written by the services directly, never through the gateway
+        var methods = audit.getPredicates().stream().filter(predicate -> "Method".equals(predicate.getName())).toList();
+        assertThat(methods).as("a Method predicate").hasSize(1);
+        assertThat(methods.get(0).getArgs().values()).containsExactly("GET");
+        assertThat(jwtProperties.isWhitelisted(path)).as(path + " is not whitelisted").isFalse();
     }
 
     private List<RouteDefinition> routesMatching(String path) {

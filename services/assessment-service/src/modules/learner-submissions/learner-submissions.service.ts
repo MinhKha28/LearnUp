@@ -14,9 +14,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Prisma } from 'generated/prisma/client';
-import {
-  EnrollmentClient,
-} from '../../infrastructure/clients/learning/enrollment.client';
+import { EnrollmentClient } from '../../infrastructure/clients/learning/enrollment.client';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
 import {
   fileTooLarge,
@@ -116,9 +114,10 @@ export class LearnerSubmissionsService {
       assignment.courseId,
     );
     const completed = isReadOnly(access);
-    const [state, latest] = await Promise.all([
+    const [state, latest, reviews] = await Promise.all([
       this.repository.findState(assignment.id, user.userId),
       this.repository.findLatestSubmission(assignment.id, user.userId),
+      this.repository.findPeerReviews(assignment.id, user.userId),
     ]);
     const now = this.clock();
     let resubmission: ILearnerAssignment['resubmission'] = null;
@@ -129,7 +128,7 @@ export class LearnerSubmissionsService {
       const decision = decideResubmission({
         peerReviewOn: isPeerReviewOn(assignment),
         previousCycle,
-        owesDuty: owesPeerReviewDuty(state),
+        owesDuty: owesPeerReviewDuty(state, reviews, now),
         now,
       });
       resubmission = {
@@ -207,7 +206,9 @@ export class LearnerSubmissionsService {
 
   private async resultOf(
     organizationId: string,
-    assignment: Awaited<ReturnType<LearnerSubmissionsService['loadAssignment']>>,
+    assignment: Awaited<
+      ReturnType<LearnerSubmissionsService['loadAssignment']>
+    >,
     learnerId: string,
     submissionId: string,
   ): Promise<IGradingResult> {
@@ -231,7 +232,8 @@ export class LearnerSubmissionsService {
     ) {
       throw new ConflictException({
         code: 'SUBMISSION_NOT_FINALIZED',
-        message: 'The result is not available yet. The submission is still being graded.',
+        message:
+          'The result is not available yet. The submission is still being graded.',
       });
     }
     const finalScore = Number(submission.finalScore.toString());
@@ -586,10 +588,16 @@ export class LearnerSubmissionsService {
     const previousCycle = previous.cycleId
       ? await this.repository.findCycleById(previous.cycleId, tx)
       : null;
+    // Read under the cycle lock above, in the same transaction, so a closing cannot change it between the read and the placement.
+    const reviews = await this.repository.findPeerReviews(
+      assignment.id,
+      previous.learnerId,
+      tx,
+    );
     const decision = decideResubmission({
       peerReviewOn: isPeerReviewOn(assignment),
       previousCycle,
-      owesDuty: owesPeerReviewDuty(state),
+      owesDuty: owesPeerReviewDuty(state, reviews, now),
       now,
     });
     if (decision.placement === 'REPLACES_IN_CYCLE' && previousCycle) {

@@ -1,7 +1,6 @@
 import { Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTenantClient } from './create-tenant-client';
-import { OrganizationTimezoneService } from './organization-timezone.service';
 import { TENANT_CLIENT } from './tenant.client';
 import { TenantLookupHttp } from './tenant-lookup.http';
 
@@ -25,8 +24,7 @@ import { TenantLookupHttp } from './tenant-lookup.http';
         };
       },
     },
-    OrganizationTimezoneService,
   ],
-  exports: [TENANT_CLIENT, OrganizationTimezoneService],
+  exports: [TENANT_CLIENT],
 })
 export class TenantModule {}

@@ -204,17 +204,17 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
       'course',
       'courseId',
       'dueAt',
+      'dueTimezone',
       'enrollmentId',
       'enrollmentType',
       'modules',
-      'organizationTimezone',
       'requiredMaterials',
       'status',
     ]);
     assert.equal(before.enrollmentType, 'Optional');
     assert.equal(before.status, 'NotStarted');
     assert.equal(before.dueAt, null);
-    assert.equal(before.organizationTimezone, null);
+    assert.equal(before.dueTimezone, null);
     assert.deepEqual(before.course, {
       name: 'Course kiểm thử tích hợp (không dùng cho demo)',
       versionNumber: 1,
@@ -246,7 +246,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
     assert.deepEqual(after.requiredMaterials, { completed: 1, total: 1 });
   });
 
-  void test('Required: status, dueAt và organizationTimezone theo tổ chức', async () => {
+  void test('Required: status, dueAt và dueTimezone theo tổ chức', async () => {
     await resetEnrollFixture(learningDb);
     const { id, dueAt } = await createRequiredEnrollment(
       app!,
@@ -258,7 +258,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
     assert.equal(result.enrollmentType, 'Required');
     assert.equal(result.status, 'NotStarted');
     assert.equal(result.dueAt, dueAt.toISOString());
-    assert.equal(result.organizationTimezone, process.env.TENANT_FAKE_TIMEZONE);
+    assert.equal(result.dueTimezone, process.env.TENANT_FAKE_TIMEZONE);
   });
 
   void test('404 ENROLLMENT_NOT_FOUND: Learner khác, tổ chức khác, id ngẫu nhiên, id không phải UUID, Withdrawn', async () => {

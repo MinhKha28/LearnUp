@@ -259,7 +259,7 @@ void describe('UC25.4 real database withdrawal and restoration', () => {
     assert.equal(completed.body.error?.reason, 'COMPLETED');
     assert.equal(completed.body.error?.code, 'ENROLLMENT_NOT_WITHDRAWABLE');
     await db.query(
-      "UPDATE enrollments SET enrollment_type='Required', assigned_at=now(), expected_completion_days=1, base_due_at=now(), due_at=now(), completed_late=false WHERE id=$1 AND organization_id=$2",
+      "UPDATE enrollments SET due_timezone='Asia/Ho_Chi_Minh',enrollment_type='Required', assigned_at=now(), expected_completion_days=1, base_due_at=now(), due_at=now(), completed_late=false WHERE id=$1 AND organization_id=$2",
       [id, ORG],
     );
     const required = await withdraw(id);

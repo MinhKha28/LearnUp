@@ -180,3 +180,18 @@ it("explains inactive organizations for assignment create, extend and exempt", (
     "Tổ chức hiện không hoạt động. Vui lòng liên hệ quản trị viên nền tảng.",
   );
 });
+
+it("UC24.3 range allows the local date containing the current deadline after a zone change", () => {
+  const item = { dueAt: "2026-10-29T17:00:00Z", dueTimezone: "Asia/Ho_Chi_Minh" };
+  const now = new Date("2026-10-29T12:00:00Z");
+  expect(assignmentExtensionRange(item.dueAt, item.dueTimezone, now).min).toBe("2026-10-30");
+  expect(assignmentExtensionRange(item.dueAt, "Pacific/Auckland", now).min).toBe("2026-10-30");
+});
+
+it("Auckland 06:00 deadline permits the same local date, but rejects the preceding date", () => {
+  const dueAt = "2026-10-29T17:00:00Z";
+  const now = new Date("2026-10-29T12:00:00Z");
+  expect(assignmentCalendarDay(new Date(dueAt), "Pacific/Auckland")).toBe("2026-10-30");
+  expect(extensionDateError("2026-10-30", dueAt, "Pacific/Auckland", now)).toBeNull();
+  expect(extensionDateError("2026-10-29", dueAt, "Pacific/Auckland", now)).toBe("DUE_DATE_NOT_LATER");
+});

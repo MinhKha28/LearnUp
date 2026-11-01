@@ -139,22 +139,12 @@ export class PeerReviewSchedule
             now,
           );
           if (claimed.count === 0) return false;
-          const skipped = await this.repository.expirePendingReviews(
-            tx,
-            cycle.id,
-          );
+          await this.repository.expirePendingReviews(tx, cycle.id);
           await this.repository.sendUnderReviewedToInstructor(
             tx,
             cycle.id,
             cycle.reviewersPerSubmission,
           );
-          if (skipped.length > 0) {
-            await this.repository.markObligationMissed(
-              tx,
-              cycle.assessmentId,
-              skipped,
-            );
-          }
           return true;
         });
         if (done) expired += 1;

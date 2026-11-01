@@ -19,6 +19,7 @@ model Enrollment {
   expectedCompletionDays    Int?      @map("expected_completion_days")
   baseDueAt                 DateTime? @map("base_due_at") @db.Timestamptz
   extensionSeconds          BigInt    @default(0) @map("extension_seconds")
+  dueTimezone               String?   @map("due_timezone")
   dueAt                     DateTime? @map("due_at") @db.Timestamptz
   videoCompletionPercent    Int       @map("video_completion_percent")
   firstActivityAt           DateTime? @map("first_activity_at") @db.Timestamptz
@@ -54,7 +55,7 @@ model CompletionEvaluationRequest {
   lastError String? @map("last_error")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  enrollment Enrollment @relation(fields: [enrollmentId,organizationId], references: [id,organizationId], onDelete: Cascade)
+  enrollment Enrollment @relation(fields: [enrollmentId,organizationId], references: [id,organizationId], onDelete: Cascade, onUpdate: NoAction, map: "completion_evaluation_request_enrollment_id_organization_i_fkey")
   @@index([nextAttemptAt,id], map: "completion_evaluation_requests_due_idx")
   @@map("completion_evaluation_requests")
 }

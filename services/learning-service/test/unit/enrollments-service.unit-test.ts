@@ -157,7 +157,6 @@ function setup(
     platformSettings as never,
     courseService as never,
     tenant,
-    {} as never,
     undefined,
     {
       findRegistration: async () => {
@@ -358,6 +357,7 @@ void describe('EnrollmentsService.enrollOptional (UC25.3)', () => {
       expectedCompletionDays: null,
       baseDueAt: null,
       dueAt: null,
+      dueTimezone: null,
       extensionSeconds: 0,
     });
     assert.deepEqual(Object.keys(result).sort(), [

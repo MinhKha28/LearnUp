@@ -13,6 +13,7 @@ export interface EnrollmentSummarySource {
   enrollmentType: EnrollmentType;
   status: EnrollmentStatus;
   dueAt: string | null;
+  dueTimezone: string | null;
   requiredMaterials: { completed: number; total: number };
   course: { name: string; versionNumber: number } | null;
 }
@@ -30,7 +31,6 @@ export interface EnrollmentSummary {
 /** Phần mô tả Enrollment dùng chung cho UC26 và phần đầu UC27 (D4, D24–D27). */
 export const summarizeEnrollment = (
   source: EnrollmentSummarySource,
-  organizationTimezone: string | null,
 ): EnrollmentSummary => {
   const { completed, total } = source.requiredMaterials;
   return {
@@ -41,7 +41,7 @@ export const summarizeEnrollment = (
     status: ENROLLMENT_STATUS_LABELS[source.status] ?? UNKNOWN_STATUS,
     due:
       source.enrollmentType === "Required" && source.dueAt !== null
-        ? formatDueAt(source.dueAt, organizationTimezone)
+        ? formatDueAt(source.dueAt, source.dueTimezone)
         : null,
     progress: total > 0 ? `Học liệu bắt buộc ${completed}/${total}` : null,
   };

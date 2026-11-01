@@ -283,8 +283,9 @@ paths:
       description: >-
         Learner only. One active render per instance with a bounded configurable queue. Supported images require
         readable SHA-256 verified bytes; unsupported formats are skipped. PDF is buffered fully before sending
-        headers and never stored. Failure returns JSON. Missing glyphs warn and still render. Dates use
-        CERTIFICATE_DISPLAY_TIMEZONE, default Asia/Ho_Chi_Minh.
+        headers and never stored. Failure returns JSON. Missing glyphs warn and still render. Dates use the timezone
+        stored on the certificate at issuance (normally the Organization's timezone; certificates issued before
+        29/10/2026 use Asia/Ho_Chi_Minh).
       parameters:
         - in: path
           name: id
@@ -388,8 +389,8 @@ components:
           type: string
           format: date
           description: >-
-            Server calendar date in CERTIFICATE_DISPLAY_TIMEZONE; UI formats as dd/MM/yyyy without recomputing
-            from issuedAt
+            Calendar date of issuedAt in the timezone stored on the certificate at issuance; UI formats as
+            dd/MM/yyyy without recomputing from issuedAt
         completedLate:
           type: boolean
     CertificateDetail:
@@ -425,8 +426,8 @@ components:
           type: string
           format: date
           description: >-
-            Server calendar date in CERTIFICATE_DISPLAY_TIMEZONE; UI formats as dd/MM/yyyy without recomputing
-            from issuedAt
+            Calendar date of issuedAt in the timezone stored on the certificate at issuance; UI formats as
+            dd/MM/yyyy without recomputing from issuedAt
         certificateCode:
           type: string
           pattern: ^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$

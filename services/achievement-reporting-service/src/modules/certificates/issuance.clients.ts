@@ -1,7 +1,13 @@
+import { Logger } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { object } from './completion-event';
-import { IssuanceError, type IssuanceConfig } from './issuance.config';
+import {
+  isValidTimezone,
+  IssuanceError,
+  type IssuanceConfig,
+} from './issuance.config';
 export interface CertificateProfile {
+  timezone: string;
   organizationId: string;
   name: string;
   logo: null | {
@@ -53,6 +59,7 @@ async function boundedBody(response: Response, max: number): Promise<Buffer> {
   }
 }
 export class HttpIssuanceDirectory implements IssuanceDirectory {
+  private readonly logger = new Logger(HttpIssuanceDirectory.name);
   constructor(private readonly config: IssuanceConfig) {}
   private async request(
     base: string,
@@ -116,6 +123,7 @@ export class HttpIssuanceDirectory implements IssuanceDirectory {
     if (this.config.profileMode === 'fake')
       return {
         organizationId: org,
+        timezone: this.config.fallbackTimezone,
         name: 'Synthetic Organization',
         logo: null,
       };
@@ -126,7 +134,8 @@ export class HttpIssuanceDirectory implements IssuanceDirectory {
     );
     if (
       !object(data) ||
-      data.organizationId !== org ||
+      typeof data.organizationId !== 'string' ||
+      data.organizationId.toLowerCase() !== org.toLowerCase() ||
       !(data.logo === null || object(data.logo))
     )
       throw new IssuanceError('INVALID_DIRECTORY_RESPONSE');
@@ -147,8 +156,17 @@ export class HttpIssuanceDirectory implements IssuanceDirectory {
         ))
     )
       throw new IssuanceError('INVALID_DIRECTORY_RESPONSE');
+    const timezone = isValidTimezone(data.timezone)
+      ? data.timezone
+      : this.config.fallbackTimezone;
+    if (!isValidTimezone(data.timezone))
+      this.logger.error({
+        code: 'CERTIFICATE_TIMEZONE_FALLBACK',
+        organizationId: org,
+      });
     return {
       organizationId: org,
+      timezone,
       name,
       logo: logo as CertificateProfile['logo'],
     };

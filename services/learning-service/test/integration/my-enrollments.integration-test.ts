@@ -55,13 +55,14 @@ interface MyItem {
   enrollmentType: string;
   status: string;
   dueAt: string | null;
+  dueTimezone: string | null;
   requiredMaterials: { completed: number; total: number };
   course: Record<string, unknown> | null;
 }
 interface MyPage {
   meta: { current: number; pageSize: number; pages: number; total: number };
   items: MyItem[];
-  organizationTimezone: string | null;
+  dueTimezone: string | null;
 }
 
 async function request(
@@ -146,12 +147,11 @@ void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
     }
   });
 
-  void test('Learner chưa có Enrollment → items rỗng, total 0, organizationTimezone null', async () => {
+  void test('Learner chưa có Enrollment → items rỗng, total 0, dueTimezone null', async () => {
     await resetEnrollFixture(learningDb);
     assert.deepEqual(await myPage(ENROLL_IT_LEARNER_1), {
       meta: { current: 1, pageSize: 20, pages: 0, total: 0 },
       items: [],
-      organizationTimezone: null,
     });
   });
 
@@ -191,7 +191,7 @@ void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
     assert.equal(overdue.items[0].status, 'Overdue');
     assert.equal(overdue.items[0].dueAt, dueAt.toISOString());
     assert.equal(
-      overdue.organizationTimezone,
+      overdue.items[0].dueTimezone,
       process.env.TENANT_FAKE_TIMEZONE,
     );
 

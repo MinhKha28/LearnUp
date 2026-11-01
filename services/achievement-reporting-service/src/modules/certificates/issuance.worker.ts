@@ -173,6 +173,7 @@ export class IssuanceWorker implements OnModuleInit, OnModuleDestroy {
       const won = await this.repository.issue(row, {
         learnerName,
         organizationName: profile.name,
+        organizationTimezone: profile.timezone,
         courseName: course.name,
         chainId: course.chainId,
         versionNumber: course.versionNumber,

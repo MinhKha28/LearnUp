@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from 'generated/prisma/client';
+import { Prisma } from 'generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import type { AssignmentFacts } from '../completion-snapshot/completion-snapshot';
 import {
   ASSIGNMENT_KIND,
   REVIEW_COMPLETED,
@@ -49,6 +50,33 @@ export class LearnerSubmissionsRepository {
     return this.db(tx).learnerAssessmentState.findUnique({
       where: { assessmentId_learnerId: { assessmentId, learnerId } },
     });
+  }
+
+  /**
+   * The reviews the Learner owes or gave as a peer on one Assignment (never the Instructor's own), each with its cycle:
+   * the same facts the completion snapshot reads, so both decide "owes a peer review" with peerReviewOf (D10).
+   */
+  async findPeerReviews(
+    assessmentId: string,
+    learnerId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<AssignmentFacts['reviews']> {
+    const rows = await this.db(tx).$queryRaw<
+      {
+        status: string;
+        reviewDueAt: Date | null;
+        cycleId: string | null;
+        cycleClosesAt: Date | null;
+      }[]
+    >(Prisma.sql`
+      SELECT r.status, c.review_due_at AS "reviewDueAt", r.cycle_id AS "cycleId", c.closes_at AS "cycleClosesAt"
+      FROM submission_reviews r
+      JOIN submissions rs ON rs.id = r.submission_id
+      LEFT JOIN peer_review_cycles c ON c.id = r.cycle_id
+      WHERE rs.assessment_id = ${assessmentId}::uuid AND r.reviewer_id = ${learnerId}::uuid
+        AND lower(r.reviewer_role) <> 'instructor'
+    `);
+    return rows;
   }
 
   /** The submission that counts: the newest one that has not been replaced (BR-170). */

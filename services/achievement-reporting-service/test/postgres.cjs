@@ -8,7 +8,10 @@ const {
 const {
   CertificatesRepository,
 } = require('../dist/src/modules/certificates/certificates.repository');
-async function isolatedDatabase() {
+async function isolatedDatabase({
+  beforeTimezoneMigration,
+  skipSnapshotMigration = false,
+} = {}) {
   if (process.env.NODE_ENV === 'production' || !process.env.DATABASE_URL)
     throw new Error('Non-production DATABASE_URL required');
   const schema = 'ar1_test_' + randomUUID().replaceAll('-', '');
@@ -36,6 +39,26 @@ async function isolatedDatabase() {
         'utf8',
       ),
     );
+    if (beforeTimezoneMigration) await beforeTimezoneMigration(pool);
+    await pool.query(
+      readFileSync(
+        join(
+          __dirname,
+          '../prisma/migrations/20261029000000_certificate_organization_timezone/migration.sql',
+        ),
+        'utf8',
+      ),
+    );
+    if (!skipSnapshotMigration)
+      await pool.query(
+        readFileSync(
+          join(
+            __dirname,
+            '../prisma/migrations/20261030000000_completion_snapshot_structure/migration.sql',
+          ),
+          'utf8',
+        ),
+      );
     const db = new PrismaService({ getOrThrow: () => url.toString() });
     await db.$connect();
     return {

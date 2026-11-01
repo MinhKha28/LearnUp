@@ -25,11 +25,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /** Identity-only atomic transition. Tenant owns deletion/eligibility; a different ID is never proof. */
 @Service
 public class CredentialProvisioningService {
     private static final Logger log = LoggerFactory.getLogger(CredentialProvisioningService.class);
+    private static final Pattern DEFAULT_USERNAME = Pattern.compile("^user_[0-9a-f]{32}$");
     private final UserRepository users;
     private final PasswordResetTokenRepository recovery;
     private final RefreshTokenRepository sessions;
@@ -54,7 +56,7 @@ public class CredentialProvisioningService {
     }
 
     public void setCredentials(SetCredentialsRequest request) {
-        if (request == null || !validator.validate(request).isEmpty()) {
+        if (request == null || !validator.validate(request).isEmpty() || claimsAnotherDefaultUsername(request)) {
             throw BusinessException.badRequest("Invalid credential provisioning request");
         }
         String email = request.getEmail() == null || request.getEmail().isBlank()
@@ -67,6 +69,13 @@ public class CredentialProvisioningService {
             throw CredentialProvisioningConflictException.concurrentClaim();
         }
         log.info("Credentials successfully set for user [{}]", request.getUserId());
+    }
+
+    /** Generated usernames are reserved for their own user id, so no explicit username may take another's. */
+    private static boolean claimsAnotherDefaultUsername(SetCredentialsRequest request) {
+        String username = request.getUsername() == null ? "" : request.getUsername().trim();
+        return DEFAULT_USERNAME.matcher(username).matches()
+                && !username.equals(AuthService.defaultUsername(request.getUserId()));
     }
 
     private void provision(SetCredentialsRequest request, String email) {

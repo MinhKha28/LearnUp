@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -25,6 +26,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class AuditLogControllerTest {
+
+    /** The synthetic key of the test profile (application-test.yml). */
+    private static final String KEY = "audit-test-only-key-0123456789abcdef0123";
+
+    /** What the gateway sends for an Admin who reads the trail. */
+    private static HttpHeaders admin() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("x-internal-key", KEY);
+        headers.add("X-User-ID", UUID.randomUUID().toString());
+        headers.add("X-User-Role", "ADMIN");
+        return headers;
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -59,6 +72,7 @@ class AuditLogControllerTest {
         );
 
         String responseBody = mockMvc.perform(post("/api/audit/logs")
+                        .header("x-internal-key", KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -75,14 +89,14 @@ class AuditLogControllerTest {
         String logId = objectMapper.readTree(responseBody).path("data").path("id").asText();
 
         // Get by ID
-        mockMvc.perform(get("/api/audit/logs/" + logId))
+        mockMvc.perform(get("/api/audit/logs/" + logId).headers(admin()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(logId))
                 .andExpect(jsonPath("$.data.actionType").value("COURSE_PUBLISHED"));
 
         // Query with filters
-        mockMvc.perform(get("/api/audit/logs")
+        mockMvc.perform(get("/api/audit/logs").headers(admin())
                         .param("organizationId", orgId.toString())
                         .param("actionType", "COURSE_PUBLISHED"))
                 .andExpect(status().isOk())
@@ -96,7 +110,7 @@ class AuditLogControllerTest {
     void shouldReturn404WhenNotFound() throws Exception {
         UUID unknownId = UUID.randomUUID();
 
-        mockMvc.perform(get("/api/audit/logs/" + unknownId))
+        mockMvc.perform(get("/api/audit/logs/" + unknownId).headers(admin()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
@@ -109,6 +123,7 @@ class AuditLogControllerTest {
         // actionType is null/blank
 
         mockMvc.perform(post("/api/audit/logs")
+                        .header("x-internal-key", KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())
@@ -135,6 +150,7 @@ class AuditLogControllerTest {
         );
 
         String res = mockMvc.perform(post("/api/v1/audit/logs")
+                        .header("x-internal-key", KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -143,12 +159,12 @@ class AuditLogControllerTest {
 
         String id = objectMapper.readTree(res).path("data").path("id").asText();
 
-        mockMvc.perform(get("/api/v1/audit/logs/" + id))
+        mockMvc.perform(get("/api/v1/audit/logs/" + id).headers(admin()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.actionType").value("SETTING_CHANGED"));
 
-        mockMvc.perform(get("/api/v1/audit/logs")
+        mockMvc.perform(get("/api/v1/audit/logs").headers(admin())
                         .param("organizationId", orgId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))

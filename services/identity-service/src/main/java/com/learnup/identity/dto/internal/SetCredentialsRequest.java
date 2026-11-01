@@ -17,6 +17,7 @@ public class SetCredentialsRequest {
     @Size(min = 6, message = "password must be at least 6 characters")
     private String password;
 
+    @Size(max = 50, message = "username must be at most 50 characters")
     private String username;
     // Optional only for password replacement on an existing email-owning canonical user.
     @Email(message = "invalid email format")

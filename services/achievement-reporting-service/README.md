@@ -88,7 +88,9 @@ See [verification report](../../docs/architecture/achievement-certificate-issuan
 
 Learner list, detail and PDF endpoints are scoped to the authenticated organization and learner and expose issued records only. PDF documents are generated from frozen records, buffered before sending, and never stored.
 
-Settings: `CERTIFICATE_DISPLAY_TIMEZONE` defaults to `Asia/Ho_Chi_Minh`; `CERTIFICATE_PDF_QUEUE_SIZE` defaults to 16 waiting requests; `CERTIFICATE_PDF_QUEUE_WAIT_MS` defaults to 1500 ms. One render runs per instance. Overload or unavailable verified assets returns 503 with Retry-After: 1.
+Each Issued certificate freezes its Organization timezone in `organization_timezone`; list, detail and PDF dates use that snapshot even after the Organization timezone changes. Pending rows keep it NULL. Missing or invalid Tenant profile timezones use `CERTIFICATE_DISPLAY_TIMEZONE` (default `Asia/Ho_Chi_Minh`) at issuance and log `CERTIFICATE_TIMEZONE_FALLBACK` with the Organization ID, without logging the response. This setting no longer controls read-time formatting. The forward migration backfills existing Issued rows with the literal historical default `Asia/Ho_Chi_Minh`, temporarily disabling and re-enabling the immutability trigger within one transaction. Changing the environment does not change that SQL backfill literal.
+
+Settings: `CERTIFICATE_PDF_QUEUE_SIZE` defaults to 16 waiting requests; `CERTIFICATE_PDF_QUEUE_WAIT_MS` defaults to 1500 ms. One render runs per instance. Overload or unavailable verified assets returns 503 with Retry-After: 1.
 
 ### Third-party font notice
 

@@ -49,8 +49,8 @@ async function enrollment(
   await db.query(
     `INSERT INTO enrollments
     (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,expected_completion_days,
-     base_due_at,due_at,video_completion_percent,first_activity_at,completed_at,completed_late,withdrawn_at,withdrawn_reason)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,80,$10,$11,$12,$13,$14)`,
+     base_due_at,due_at,video_completion_percent,first_activity_at,completed_at,completed_late,withdrawn_at,withdrawn_reason,due_timezone)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,80,$10,$11,$12,$13,$14,CASE WHEN ($9)::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END )`,
     [
       randomUUID(),
       org,

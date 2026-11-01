@@ -1,19 +1,12 @@
 import { HttpException } from '@nestjs/common';
 export const CERTIFICATE_READ_CONFIG = Symbol('CERTIFICATE_READ_CONFIG');
 export interface CertificateReadConfig {
-  timezone: string;
   queueSize: number;
   queueWaitMs: number;
 }
 export function certificateReadConfig(
   get: (key: string) => string | undefined,
 ): CertificateReadConfig {
-  const timezone = get('CERTIFICATE_DISPLAY_TIMEZONE') ?? 'Asia/Ho_Chi_Minh';
-  try {
-    new Intl.DateTimeFormat('en', { timeZone: timezone }).format();
-  } catch {
-    throw new Error('Invalid CERTIFICATE_DISPLAY_TIMEZONE');
-  }
   const integer = (key: string, fallback: number, max: number) => {
     const value = Number(get(key) ?? fallback);
     if (!Number.isSafeInteger(value) || value < 1 || value > max)
@@ -21,7 +14,6 @@ export function certificateReadConfig(
     return value;
   };
   return {
-    timezone,
     queueSize: integer('CERTIFICATE_PDF_QUEUE_SIZE', 16, 100),
     queueWaitMs: integer('CERTIFICATE_PDF_QUEUE_WAIT_MS', 1500, 10000),
   };

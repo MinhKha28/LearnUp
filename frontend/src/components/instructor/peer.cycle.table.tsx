@@ -146,13 +146,13 @@ const PeerCycleTable = ({
                 <td>
                   {!cycle.closed && Date.parse(cycle.closesAt) <= Date.now() && (
                     <Popconfirm
-                      title="Close this cycle now?"
-                      description={`Cycle ${index + 1} has passed its closing time and the schedule has not closed it yet. Closing it hands out its ${cycle.submissionCount} submissions for review.`}
-                      okText="Close cycle"
+                      title="Đóng chu kỳ này ngay bây giờ?"
+                      description={`Chu kỳ ${index + 1} đã qua giờ chốt và lịch chưa đóng nó. Đóng chu kỳ sẽ phân ${cycle.submissionCount} bài nộp để người học chấm chéo.`}
+                      okText="Đóng chu kỳ"
                       onConfirm={() => closeCycle(cycle.id)}
                     >
                       <InstructorButton size="small" loading={closingId === cycle.id}>
-                        Close cycle
+                        Đóng chu kỳ
                       </InstructorButton>
                     </Popconfirm>
                   )}

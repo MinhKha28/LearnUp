@@ -243,6 +243,15 @@ describe('UC30.1 over HTTP', () => {
   });
 
   describe('past the closing line (A1, A2)', () => {
+    // D10: "owes the reviews of an earlier cycle" is read from the review rows, so the Learner gets a Missed review
+    // of someone else's submission, in a cycle of the Assignment
+    const owe = (assignmentId: string, learner: string) =>
+      db.query(
+        `INSERT INTO submission_reviews (id, organization_id, submission_id, cycle_id, reviewer_id, reviewer_role, status, updated_at)
+         SELECT gen_random_uuid(), s.organization_id, s.id, s.cycle_id, $2, 'Learner', 'Missed', now()
+         FROM submissions s WHERE s.assessment_id = $1 AND s.learner_id <> $2 AND s.cycle_id IS NOT NULL LIMIT 1`,
+        [assignmentId, learner],
+      );
     // moves the cycle of the Assignment into the past, as if its closing line had gone by
     const closeCycle = (assignmentId: string) =>
       db.query(
@@ -281,10 +290,7 @@ describe('UC30.1 over HTTP', () => {
     });
 
     test('A2: a Learner who owes the reviews of an earlier cycle joins the cycle that is open now (BR-313)', async () => {
-      await db.query(
-        "UPDATE learner_assessment_states SET peer_review_obligation = 'Missed' WHERE assessment_id = $1 AND learner_id = $2",
-        [reviewed, LEARNER],
-      );
+      await owe(reviewed, LEARNER);
       assert.equal((await view(reviewed)).resubmission.placement, 'OPEN_CYCLE');
 
       const r = await resubmit(reviewed, LEARNER, 'making up');
@@ -301,8 +307,9 @@ describe('UC30.1 over HTTP', () => {
       );
 
       // a duty that was waived gives no second chance
+      await owe(reviewed, LEARNER_2);
       await db.query(
-        "UPDATE learner_assessment_states SET peer_review_obligation = 'Missed', exempted_at = now() WHERE assessment_id = $1 AND learner_id = $2",
+        'UPDATE learner_assessment_states SET exempted_at = now() WHERE assessment_id = $1 AND learner_id = $2',
         [reviewed, LEARNER_2],
       );
       await closeCycle(reviewed);

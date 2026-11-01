@@ -1554,12 +1554,22 @@ export class CoursesService {
         {
           folder: `learnup/${organizationId}/courses/readings`,
           resourceType: 'raw',
+          deliveryType: 'authenticated',
           validation: {
             maxSizeBytes: Number(maxBytes),
             allowedMimeTypes: ['application/pdf'],
           },
         },
       );
+
+      if (
+        storedFile.resourceType !== 'raw' ||
+        storedFile.deliveryType !== 'authenticated'
+      ) {
+        throw new BadRequestException(
+          'Invalid protected Reading metadata returned by Cloudinary.',
+        );
+      }
 
       if (
         storedFile.sizeBytes <= 0 ||
