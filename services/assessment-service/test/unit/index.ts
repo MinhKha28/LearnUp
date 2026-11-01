@@ -6,6 +6,7 @@ import './peer-review-service.unit-test';
 import './peer-review-waiver.unit-test';
 import './completion-signal.unit-test';
 import './relay-config.unit-test';
+import './relay-kafka.unit-test';
 import './quiz-service.unit-test';
 import './quiz-detail.unit-test';
 import './peer-review-calendar.unit-test';

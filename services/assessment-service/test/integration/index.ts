@@ -21,5 +21,6 @@ import './peer-review-close.integration-test';
 import './peer-review-schedule.integration-test';
 import './peer-review-waiver.integration-test';
 import './outbox-relay.integration-test';
+import './outbox-kafka.integration-test';
 import './enrollment-status.integration-test';
 import './completion-snapshot.integration-test';

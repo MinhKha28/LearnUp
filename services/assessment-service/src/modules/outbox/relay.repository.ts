@@ -41,6 +41,13 @@ export const claimSql = (limit: number, types: readonly string[]) => Prisma.sql`
   LIMIT ${limit}
   FOR UPDATE SKIP LOCKED`;
 
+/** Rows sent more than a week ago, a batch at a time; rows not sent are never touched. SKIP LOCKED leaves what another instance is cleaning. */
+export const cleanupSql = (types: readonly string[]) => Prisma.sql`
+  DELETE FROM outbox_events WHERE id IN (
+    SELECT id FROM outbox_events
+    WHERE published_at < now() - interval '7 days' AND event_type IN (${Prisma.join(types)})
+    ORDER BY id LIMIT 1000 FOR UPDATE SKIP LOCKED)`;
+
 @Injectable()
 export class RelayRepository {
   constructor(
@@ -68,6 +75,10 @@ export class RelayRepository {
     await tx.$executeRaw`UPDATE outbox_events
       SET published_at = clock_timestamp(), last_error = NULL, next_attempt_at = NULL, updated_at = clock_timestamp()
       WHERE id = ${row.id}::uuid`;
+  }
+
+  async cleanup(): Promise<void> {
+    await this.prisma.$executeRaw(cleanupSql(RELAYED_EVENT_TYPES));
   }
 
   /** One more failed attempt: the code of the failure is kept (never its message) and the next try waits longer. */

@@ -1,37 +1,34 @@
 /**
- * Step 22 of the plan on a real Postgres: the relay claims events with `FOR UPDATE SKIP LOCKED`, so two relays (two
- * instances of the service) never send the same event, a failed event waits and tries again, and the events of one
+ * Steps 22 and 23 of the plan on a real Postgres: the relay claims events with `FOR UPDATE SKIP LOCKED`, so two relays
+ * (two instances of the service) never send the same event, a failed event waits and tries again, and the events of one
  * Learner go out in the order they were written. The relays run in this process over their own connections, with a gate
- * that records what it was given.
+ * that records what it was given; the Kafka gate itself is tested in outbox-kafka.integration-test.ts.
  */
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
 import { after, before, describe, test } from 'node:test';
 import type { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { LEARNER_STATUS_CHANGED_EVENT } from '../../src/modules/learner-submissions/learner-submissions.constants';
-import {
-  readRelayConfig,
-  type RelayConfig,
-} from '../../src/modules/outbox/relay.config';
-import { OutboxGate } from '../../src/modules/outbox/relay.gate';
+import { GateFailure, OutboxGate } from '../../src/modules/outbox/relay.gate';
 import {
   RelayRepository,
   type RelayRow,
 } from '../../src/modules/outbox/relay.repository';
-import { RelayService } from '../../src/modules/outbox/relay.service';
 import {
   createTestDatabase,
-  ORG,
   sleep,
   startService,
   type TestDatabase,
 } from './harness';
+import { addEvents, aggregate, relayConfig, relayOver } from './outbox-helpers';
 
 class RecordingGate extends OutboxGate {
   sent: string[] = [];
+  calls = 0;
   open = true;
+  /** When it matches a row of the batch the gate refuses with this failure. */
   failEvery: ((row: RelayRow) => boolean) | null = null;
+  failure = new GateFailure('TEST_REFUSED', true);
   /** The time the gate takes: long enough for the other relay to claim while this one holds its rows. */
   constructor(private readonly delayMs = 0) {
     super();
@@ -40,9 +37,9 @@ class RecordingGate extends OutboxGate {
     return Promise.resolve(this.open);
   }
   async send(rows: RelayRow[]) {
+    this.calls += 1;
     await sleep(this.delayMs);
-    if (this.failEvery && rows.some(this.failEvery))
-      throw new Error('the destination refused it');
+    if (this.failEvery && rows.some(this.failEvery)) throw this.failure;
     this.sent.push(...rows.map((row) => row.id));
   }
   close() {
@@ -50,51 +47,16 @@ class RecordingGate extends OutboxGate {
   }
 }
 
-/** A UUID v7 like the ones Prisma writes: the first 48 bits are the time, so a later row sorts after an earlier one. */
-const uuid7 = (): string => {
-  const hex = Date.now().toString(16).padStart(12, '0');
-  const random = randomBytes(10).toString('hex');
-  const variant = ((parseInt(random[3], 16) & 3) | 8).toString(16);
-  return `${hex.slice(0, 8)}-${hex.slice(8)}-7${random.slice(0, 3)}-${variant}${random.slice(4, 7)}-${random.slice(7, 19)}`;
-};
-
-const aggregate = (n: number) =>
-  `00000000-0000-4000-8000-${(0xb00 + n).toString(16).padStart(12, '0')}`;
-
 describe('the relay of the outbox over Postgres', () => {
   let db: TestDatabase;
   const prismas: PrismaService[] = [];
-  const config = (over: Record<string, string> = {}): RelayConfig =>
-    readRelayConfig((key) => ({ OUTBOX_BACKOFF_MS: '60000', ...over })[key]);
-  const relay = (gate: OutboxGate, over: Record<string, string> = {}) => {
-    const prisma = new PrismaService({
-      getOrThrow: () => db.url,
-    } as unknown as ConfigService);
-    prismas.push(prisma);
-    const settings = config(over);
-    return new RelayService(
-      new RelayRepository(prisma, settings),
-      gate,
-      settings,
-    );
-  };
-  const add = async (
+  const relay = (gate: OutboxGate, over: Record<string, string> = {}) =>
+    relayOver(db, prismas, gate, over);
+  const add = (
     aggregateId: string,
     type = LEARNER_STATUS_CHANGED_EVENT,
     n = 1,
-  ) => {
-    const ids: string[] = [];
-    for (let i = 0; i < n; i += 1) {
-      const [row] = await db.query(
-        `INSERT INTO outbox_events (id, aggregate_type, aggregate_id, event_type, organization_id, payload, occurred_at, created_at, updated_at)
-         VALUES ($4, 'LearnerAssessmentState', $1, $2, $3, '{"n": 1}', now(), now(), now()) RETURNING id`,
-        [aggregateId, type, ORG, uuid7()],
-      );
-      ids.push(row.id as string);
-      await sleep(2); // ids are time-ordered: two rows of the same moment would have no order
-    }
-    return ids;
-  };
+  ) => addEvents(db, aggregateId, type, n);
   const state = async (id: string) =>
     (
       await db.query(
@@ -202,7 +164,7 @@ describe('the relay of the outbox over Postgres', () => {
     const failed = await state(first);
     assert.equal(failed.published_at, null);
     assert.equal(failed.attempts, 1);
-    assert.equal(failed.last_error, 'OUTBOX_SEND_FAILED');
+    assert.equal(failed.last_error, 'TEST_REFUSED');
     assert.ok(
       (failed.next_attempt_at as Date).getTime() > Date.now() + 30000,
       'it waits',
@@ -233,7 +195,39 @@ describe('the relay of the outbox over Postgres', () => {
     const waiting = await state(bad);
     assert.equal(waiting.published_at, null);
     assert.equal(waiting.attempts, 1);
-    assert.equal(waiting.last_error, 'OUTBOX_SEND_FAILED');
+    assert.equal(waiting.last_error, 'TEST_REFUSED');
+  });
+
+  test('when the destination fails, every row waits and none is tried alone: one send, not one per row', async () => {
+    await clear();
+    const gate = new RecordingGate();
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i += 1) ids.push(...(await add(aggregate(550 + i))));
+    gate.failEvery = () => true;
+    gate.failure = new GateFailure('KAFKA_-187', false);
+    await relay(gate).tick();
+    assert.equal(gate.calls, 1, 'one send for the whole batch, not five more');
+    for (const id of ids) {
+      const row = await state(id);
+      assert.equal(row.published_at, null);
+      assert.equal(row.attempts, 1);
+      assert.equal(row.last_error, 'KAFKA_-187');
+    }
+  });
+
+  test('an error the gate cannot name is a failure of the whole batch with a fixed code', async () => {
+    await clear();
+    const [id] = await add(aggregate(580));
+    const gate = new RecordingGate();
+    gate.send = () => Promise.reject(new Error('secret detail of the broker'));
+    await relay(gate).tick();
+    const row = await state(id);
+    assert.equal(
+      row.last_error,
+      'OUTBOX_UNKNOWN',
+      'the message is never stored',
+    );
+    assert.equal(row.attempts, 1);
   });
 
   test('after the wait it is sent and the failure is forgotten', async () => {
@@ -284,24 +278,50 @@ describe('the relay of the outbox over Postgres', () => {
     assert.deepEqual(gate.sent, []);
     assert.equal((await state(id)).published_at, null);
   });
+
+  test('cleanup removes the sent events older than a week and nothing else', async () => {
+    await clear();
+    const prisma = new PrismaService({
+      getOrThrow: () => db.url,
+    } as unknown as ConfigService);
+    prismas.push(prisma);
+    const repository = new RelayRepository(prisma, relayConfig());
+    const [oldSent, recentSent, oldNotSent] = [
+      ...(await add(aggregate(900))),
+      ...(await add(aggregate(901))),
+      ...(await add(aggregate(902))),
+    ];
+    const [otherType] = await add(aggregate(903), 'AssignmentMinutesChanged');
+    await db.query(
+      "UPDATE outbox_events SET published_at = now() - interval '8 days' WHERE id = ANY($1)",
+      [[oldSent, otherType]],
+    );
+    await db.query(
+      "UPDATE outbox_events SET published_at = now() - interval '1 day' WHERE id = $1",
+      [recentSent],
+    );
+    await db.query(
+      "UPDATE outbox_events SET created_at = now() - interval '9 days' WHERE id = $1",
+      [oldNotSent],
+    );
+    await repository.cleanup();
+    const left = (await db.query('SELECT id FROM outbox_events')).map(
+      (row) => row.id,
+    );
+    assert.deepEqual(left.sort(), [recentSent, oldNotSent, otherType].sort());
+  });
 });
 
-describe('the relay inside the running service', () => {
+describe('the relay inside the running service, without a Kafka', () => {
   let db: TestDatabase;
-  const rowId = async (aggregateId: string) => {
-    const [row] = await db.query(
-      `INSERT INTO outbox_events (id, aggregate_type, aggregate_id, event_type, organization_id, payload, occurred_at, created_at, updated_at)
-       VALUES ($4, 'LearnerAssessmentState', $1, $2, $3, '{"n": 1}', now(), now(), now()) RETURNING id`,
-      [aggregateId, LEARNER_STATUS_CHANGED_EVENT, ORG, uuid7()],
-    );
-    return row.id as string;
-  };
-  const publishedAt = async (id: string) =>
+  const rowOf = async (id: string) =>
     (
-      await db.query('SELECT published_at FROM outbox_events WHERE id = $1', [
-        id,
-      ])
-    )[0].published_at as Date | null;
+      await db.query(
+        'SELECT published_at, attempts FROM outbox_events WHERE id = $1',
+        [id],
+      )
+    )[0];
+  const event = async (n: number) => (await addEvents(db, aggregate(n)))[0];
 
   before(async () => {
     db = await createTestDatabase();
@@ -313,24 +333,32 @@ describe('the relay inside the running service', () => {
   test('is off by default: an event stays where it was written', async () => {
     const service = await startService(db.url);
     try {
-      const id = await rowId(aggregate(900));
+      const id = await event(900);
       await sleep(2500);
-      assert.equal(await publishedAt(id), null);
+      assert.equal((await rowOf(id)).published_at, null);
     } finally {
       await service.stop();
     }
   });
 
-  test('turned on, the service claims and marks the event by itself, and stops cleanly', async () => {
+  test('with a Kafka that cannot be reached the service starts and serves, and holds no event locked: nothing is tried', async () => {
     const service = await startService(db.url, {
       OUTBOX_RELAY_ENABLED: 'true',
       OUTBOX_POLL_INTERVAL_MS: '200',
+      KAFKA_BROKERS: '127.0.0.1:9',
     });
     try {
-      const id = await rowId(aggregate(901));
-      for (let i = 0; i < 40 && !(await publishedAt(id)); i += 1)
-        await sleep(100);
-      assert.ok(await publishedAt(id), 'the relay of the service sent it');
+      const id = await event(901);
+      await sleep(2500);
+      const response = await fetch(`${service.baseUrl}/api/v1/assessments`);
+      assert.ok(response.status >= 200, 'the service answers requests');
+      const row = await rowOf(id);
+      assert.equal(row.published_at, null);
+      assert.equal(
+        row.attempts,
+        0,
+        'the broker was not reachable, so no row was claimed',
+      );
     } finally {
       await service.stop();
     }
@@ -340,6 +368,13 @@ describe('the relay inside the running service', () => {
     await assert.rejects(
       startService(db.url, { OUTBOX_BATCH_SIZE: '0' }),
       /OUTBOX_BATCH_SIZE|exited|did not/i,
+    );
+  });
+
+  test('a relay that is on with a topic that is not valid stops it too', async () => {
+    await assert.rejects(
+      startService(db.url, { OUTBOX_TOPIC: 'not a topic!' }),
+      /OUTBOX_TOPIC|exited|did not/i,
     );
   });
 });
