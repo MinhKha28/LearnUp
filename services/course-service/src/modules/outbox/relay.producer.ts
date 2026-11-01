@@ -22,6 +22,7 @@ const eventTypes = new Set([
   'CourseReactivated',
   'CourseComponentDisabled',
   'CourseComponentReactivated',
+  'CourseSubmitted',
 ]);
 
 const uuidPattern =
