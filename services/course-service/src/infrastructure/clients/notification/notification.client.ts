@@ -8,6 +8,7 @@ import {
   EmailStatus,
   NotificationResponse,
 } from './notification.interface';
+import { buildCourseApprovalEmail } from './templates/course-approval-email.template';
 
 @Injectable()
 export class NotificationClient {
@@ -44,14 +45,10 @@ export class NotificationClient {
   ): Promise<EmailStatus> {
     const url = `${this.getBaseUrl()}/api/v1/notifications/email/send`;
 
-    const body = [
-      'A Course has been submitted for approval.',
-      '',
-      `Course: ${courseName}`,
-      `Version: ${versionNumber}`,
-      '',
-      'Please sign in to LearnUP to review this Course.',
-    ].join('\n');
+    const body = buildCourseApprovalEmail({
+      courseName,
+      versionNumber,
+    });
 
     const response = await firstValueFrom(
       this.httpService.post<ApiResponse<EmailResponse>>(
