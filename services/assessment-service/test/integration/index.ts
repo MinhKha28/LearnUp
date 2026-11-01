@@ -21,6 +21,7 @@ import './peer-review-close.integration-test';
 import './peer-review-schedule.integration-test';
 import './peer-review-waiver.integration-test';
 import './learner-peer-review.integration-test';
+import './learner-peer-review-storage.integration-test';
 import './cycle-score-gap.integration-test';
 import './enrollment-status.integration-test';
 import './completion-snapshot.integration-test';
