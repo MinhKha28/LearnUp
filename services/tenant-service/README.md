@@ -13,6 +13,7 @@ Emails are written to `outbox_events` (`event_type = 'EmailRequested'`) in the s
 
 - A failed send increments `attempts`, stores a fixed `last_error_code` and schedules `next_attempt_at` (5 s, doubling, capped at 10 minutes).
 - The 8th failure sets `failed_at`; the relay no longer picks that row up.
+- An email whose `payload.expiresAt` has passed is not sent: the relay sets `failed_at`, `last_error_code = 'EXPIRED'` and redacts the payload without counting an attempt. Set: verification email = OTP expiry (BR-13), reopen-link email = registration expiry, invitation = link expiry (BR-30); the activation notice has none.
 - Delivery is at-least-once: if the result cannot be committed after notification-service accepted the email, the email may be sent again.
 - `NOTIFICATION_SERVICE_TIMEOUT_MS` (default `5000`) bounds each HTTP call. Without `NOTIFICATION_SERVICE_URL`, emails stay pending; only `NODE_ENV=development` prints them to the log instead.
 
@@ -24,4 +25,4 @@ SET failed_at = NULL, attempts = 0, next_attempt_at = NULL, last_error_code = NU
 WHERE id = '<event id from the log>' AND published_at IS NULL;
 ```
 
-Check that the email is still useful first: an OTP expires after 10 minutes (BR-13), and an invitation link has its own expiry (BR-30).
+Check that the email is still useful first: an OTP expires after 10 minutes (BR-13), and an invitation link has its own expiry (BR-30). Rows with `last_error_code = 'EXPIRED'` have no content left and stay skipped after a reset.

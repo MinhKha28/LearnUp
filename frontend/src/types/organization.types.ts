@@ -7,6 +7,26 @@ export interface IOrganization {
 }
 
 // UC01 - dữ liệu một gói do GET /api/v1/subscription-plans trả về
+export interface IOrganizationProfile {
+  id: string;
+  name: string;
+  taxCode: string;
+  address: string;
+  contactPhone: string;
+  contactEmail: string | null;
+  logoUrl: string | null;
+  timezone: string;
+  status: string;
+  updatedAt: string;
+}
+
+export type IUpdateOrganizationReq = Partial<
+  Pick<
+    IOrganizationProfile,
+    "name" | "taxCode" | "address" | "contactPhone" | "contactEmail" | "timezone"
+  >
+>;
+
 export interface ISubscriptionPlan {
   id: string;
   name: string;
@@ -17,6 +37,14 @@ export interface ISubscriptionPlan {
   maxCourseChains: number;
   maxStorageBytes: number;
 }
+
+export interface IAdminPlan extends ISubscriptionPlan {
+  isOffered: boolean;
+  organizationCount: number;
+  createdAt: string;
+}
+
+export type ICreatePlanReq = Omit<ISubscriptionPlan, "id">;
 
 // UC02 - body gửi lên POST /api/v1/registrations (khớp CreateRegistrationDto ở backend)
 export interface ICreateRegistrationReq {
@@ -206,6 +234,13 @@ export interface IUpdateAccountReq {
 // UC12.3 - kết quả sửa; invitationResent: đổi email của tài khoản Pending -> đã gửi lời mời mới
 export interface IUpdateAccountResult extends IAccountListItem {
   invitationResent: boolean;
+}
+
+export interface IReinvitationResult {
+  id: string;
+  status: AccountStatus;
+  invitationExpired: false;
+  invitation: { sentAt: string; expiresAt: string };
 }
 
 // UC12.2 - số chỗ theo Subscription hiện hành (GET /api/v1/users/instructors/seats)

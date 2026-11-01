@@ -5,7 +5,13 @@ import { HEADER_NAMES } from '@learnup/ts-common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { OutboxRepository } from './outbox.repository';
 import { EMAIL_REQUESTED_EVENT } from './outbox.service';
-import { OUTBOX_MAX_ATTEMPTS, nextRetryState } from './outbox-retry.policy';
+import type { Prisma } from '../../../generated/prisma/client';
+import {
+  OUTBOX_EXPIRED_CODE,
+  OUTBOX_MAX_ATTEMPTS,
+  isEmailExpired,
+  nextRetryState,
+} from './outbox-retry.policy';
 import { EmailMessage } from './interfaces/email-message.interface';
 import { NotificationEmailResponse } from './interfaces/notification-email-response.interface';
 import { IOutboxRetryState } from './interfaces/outbox-retry-state.interface';
@@ -88,7 +94,11 @@ export class EmailRelayService implements OnModuleDestroy {
     attempted: string[],
   ): Promise<string | null> {
     const timeoutMs = this.timeoutMs();
-    const outcome: { id?: string; failure?: IOutboxRetryState } = {};
+    const outcome: {
+      id?: string;
+      failure?: IOutboxRetryState;
+      expired?: boolean;
+    } = {};
     try {
       await this.prisma.$transaction(
         async (tx) => {
@@ -101,6 +111,17 @@ export class EmailRelayService implements OnModuleDestroy {
           outcome.id = event.id;
 
           const email = event.payload as unknown as EmailMessage;
+          const now = new Date();
+          if (isEmailExpired(email, now)) {
+            outcome.expired = true;
+            await this.outboxRepository.markExpired(
+              event.id,
+              this.redact(email),
+              now,
+              tx,
+            );
+            return;
+          }
           const errorCode = await this.deliver(baseUrl, email, timeoutMs);
           if (errorCode) {
             outcome.failure = nextRetryState(
@@ -117,7 +138,7 @@ export class EmailRelayService implements OnModuleDestroy {
           }
           await this.outboxRepository.markPublished(
             event.id,
-            { to: email.to, templateCode: email.templateCode, redacted: true },
+            this.redact(email),
             tx,
           );
         },
@@ -134,8 +155,23 @@ export class EmailRelayService implements OnModuleDestroy {
       return outcome.id;
     }
 
+    if (outcome.id && outcome.expired) {
+      this.logger.warn(
+        `Email ${outcome.id} skipped (${OUTBOX_EXPIRED_CODE}): its code or link has expired.`,
+      );
+    }
     this.logFailure(outcome.id, outcome.failure);
     return outcome.id ?? null;
+  }
+
+  /** Payload lưu lại sau khi xử lý: bỏ tiêu đề và nội dung (mã xác thực, liên kết), giữ hạn để không gửi lại thư đã hết hạn. */
+  private redact(email: EmailMessage): Prisma.InputJsonValue {
+    return {
+      to: email.to,
+      templateCode: email.templateCode,
+      ...(email.expiresAt ? { expiresAt: email.expiresAt } : {}),
+      redacted: true,
+    };
   }
 
   private logFailure(id: string | undefined, failure?: IOutboxRetryState) {
