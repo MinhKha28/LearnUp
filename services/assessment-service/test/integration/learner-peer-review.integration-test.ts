@@ -597,4 +597,47 @@ describe('UC31 and UC31.1 over HTTP', () => {
       'the file of a review of somebody else is not found',
     );
   });
+
+  test('the last two reviews of a submission given at the same moment: the submission still moves on, once (the reviews take turns)', async () => {
+    for (let round = 0; round < 8; round += 1) {
+      const [work] = await db.query(
+        `INSERT INTO submissions (id, organization_id, assessment_id, learner_id, submission_number, content,
+                submitted_at, cycle_id, grading_status, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, 'race', now(), $5, 'AwaitingPeerReview', now(), now()) RETURNING id`,
+        [ORG, assignment, L[0], round + 2, cycle],
+      );
+      const ids: string[] = [];
+      for (const reviewer of [L[1], L[2]]) {
+        const [r] = await db.query(
+          `INSERT INTO submission_reviews (id, organization_id, submission_id, cycle_id, reviewer_id, reviewer_role, status, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, 'Learner', 'Pending', now(), now()) RETURNING id`,
+          [ORG, work.id, cycle, reviewer],
+        );
+        ids.push(r.id as string);
+      }
+      // the second reviewer disagrees by more than the threshold in the odd rounds, so both outcomes are raced
+      const high = 0.9;
+      const low = round % 2 === 1 ? 0.2 : 0.8;
+      const [a, b] = await Promise.all([
+        give(ids[0], L[1], high),
+        give(ids[1], L[2], low),
+      ]);
+      assert.equal(a.status, 200, `round ${round}: ${JSON.stringify(a.json)}`);
+      assert.equal(b.status, 200, `round ${round}: ${JSON.stringify(b.json)}`);
+      const [after] = await db.query(
+        'SELECT grading_status, intervention_reason FROM submissions WHERE id = $1',
+        [work.id],
+      );
+      assert.equal(
+        after.grading_status,
+        round % 2 === 1 ? 'AwaitingInstructor' : 'AwaitingFinalization',
+        `round ${round}: the submission must leave AwaitingPeerReview once both reviews are in`,
+      );
+      assert.equal(
+        after.intervention_reason,
+        round % 2 === 1 ? 'SCORE_GAP_EXCEEDED' : null,
+        `round ${round}`,
+      );
+    }
+  });
 });
