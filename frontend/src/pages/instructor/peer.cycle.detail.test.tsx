@@ -50,6 +50,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
       closesAt: "2026-10-08T00:00:00Z",
       reviewDueAt: "2026-10-11T00:00:00Z",
       reviewersPerSubmission: 2,
+      scoreGap: 20,
       submissionCount: 3,
       status: "Assigned",
       closed: true,
@@ -63,6 +64,10 @@ const detail = (over: Record<string, unknown> = {}) => ({
         reviewsAssigned: 2,
         reviewsCompleted: 1,
         reviewsMissing: 1,
+        lowestScore: null,
+        highestScore: null,
+        scoreGap: null,
+        needsReview: false,
       },
       {
         id: "s2",
@@ -72,6 +77,10 @@ const detail = (over: Record<string, unknown> = {}) => ({
         reviewsAssigned: 2,
         reviewsCompleted: 2,
         reviewsMissing: 0,
+        lowestScore: 60,
+        highestScore: 90,
+        scoreGap: 30,
+        needsReview: true,
       },
     ],
     reviewers: [
@@ -144,6 +153,36 @@ describe("UC33.1 the detail of a cycle", () => {
     await screen.findByText("Author One");
     expect(screen.getByText("1 of 2")).toBeTruthy();
     expect(screen.getByText("Learner …00a2")).toBeTruthy();
+  });
+
+  it("shows the score gap of each submission and marks only the one above the threshold", async () => {
+    renderPage();
+    await screen.findByText("Author One");
+    expect(screen.getByText("30")).toBeTruthy();
+    expect(screen.getAllByText("Needs review")).toHaveLength(1);
+    expect(
+      screen.getByText(
+        "1 submission differs by more than 20 points between reviewers. Review it and set the final score (BR-252).",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("says nothing about the gap when no submission is above the threshold", async () => {
+    const base = detail();
+    vi.mocked(api.fetchPeerReviewCycleDetailAPI).mockResolvedValue({
+      ...base,
+      data: {
+        ...base.data,
+        submissions: base.data.submissions.map((s: object) => ({
+          ...s,
+          needsReview: false,
+        })),
+      },
+    } as never);
+    renderPage();
+    await screen.findByText("Author One");
+    expect(screen.queryByText("Needs review")).toBeNull();
+    expect(screen.queryByText(/differ by more than/)).toBeNull();
   });
 
   it("shows the state of each duty and offers Waive only on a Missed one", async () => {
