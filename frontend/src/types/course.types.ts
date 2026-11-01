@@ -356,3 +356,19 @@ export interface ICreateReadingMaterialResponse {
   wordCount: number;
   extractionWarning: string | null;
 }
+
+export interface IUpdateMaterialRequest {
+  title?: string;
+  isRequired?: boolean;
+}
+
+export interface IUpdateMaterialResponse {
+  id: string;
+  title: string;
+  isRequired: boolean;
+}
+
+export interface ITechnicalReplacementResponse {
+  fileId: string;
+  // Các metadata file trả về khi triển khai Service.
+}

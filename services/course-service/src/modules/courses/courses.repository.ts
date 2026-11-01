@@ -1318,4 +1318,426 @@ export class CoursesRepository {
       },
     );
   }
+
+  async updateMaterialMetadata(data: {
+    organizationId: string;
+    instructorId: string;
+    courseId: string;
+    lessonId: string;
+    materialId: string;
+    title?: string;
+    isRequired?: boolean;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      // Khóa Course để đồng bộ với thao tác tạo Enrollment.
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM courses
+      WHERE id = ${data.courseId}::uuid
+        AND organization_id = ${data.organizationId}::uuid
+      FOR UPDATE
+    `;
+
+      if (!rows.length) {
+        return { status: 'NOT_FOUND' as const };
+      }
+
+      const material = await tx.material.findFirst({
+        where: {
+          id: data.materialId,
+          organizationId: data.organizationId,
+          lessonId: data.lessonId,
+          lesson: {
+            organizationId: data.organizationId,
+            module: {
+              courseId: data.courseId,
+              course: {
+                organizationId: data.organizationId,
+                chain: {
+                  instructorId: data.instructorId,
+                },
+              },
+            },
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          isRequired: true,
+          lesson: {
+            select: {
+              disabledAt: true,
+              module: {
+                select: {
+                  course: {
+                    select: {
+                      status: true,
+                      lockedAt: true,
+                      disabledAt: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!material) {
+        return { status: 'NOT_FOUND' as const };
+      }
+
+      const course = material.lesson.module.course;
+
+      if (course.status === COURSE_STATUS.SUBMITTED) {
+        return { status: 'SUBMITTED' as const };
+      }
+
+      if (
+        ![
+          COURSE_STATUS.DRAFT,
+          COURSE_STATUS.REJECTED,
+          COURSE_STATUS.PUBLISHED,
+        ].includes(
+          course.status as
+            | typeof COURSE_STATUS.DRAFT
+            | typeof COURSE_STATUS.REJECTED
+            | typeof COURSE_STATUS.PUBLISHED,
+        ) ||
+        course.disabledAt !== null ||
+        material.lesson.disabledAt !== null
+      ) {
+        return { status: 'NOT_EDITABLE' as const };
+      }
+
+      const requiredChanged =
+        data.isRequired !== undefined &&
+        data.isRequired !== material.isRequired;
+
+      if (course.lockedAt !== null && requiredChanged) {
+        return { status: 'LOCKED_REQUIRED' as const };
+      }
+
+      const nextTitle = data.title ?? material.title;
+      const nextRequired = data.isRequired ?? material.isRequired;
+
+      if (
+        nextTitle === material.title &&
+        nextRequired === material.isRequired
+      ) {
+        return {
+          status: 'UPDATED' as const,
+          material: {
+            id: material.id,
+            title: material.title,
+            isRequired: material.isRequired,
+          },
+        };
+      }
+
+      const updated = await tx.material.update({
+        where: { id: material.id },
+        data: {
+          title: nextTitle,
+          isRequired: nextRequired,
+        },
+        select: {
+          id: true,
+          title: true,
+          isRequired: true,
+        },
+      });
+
+      return {
+        status: 'UPDATED' as const,
+        material: updated,
+      };
+    });
+  }
+  async findMaterialForUpdate(
+    organizationId: string,
+    instructorId: string,
+    courseId: string,
+    lessonId: string,
+    materialId: string,
+  ) {
+    return this.prisma.material.findFirst({
+      where: {
+        id: materialId,
+        organizationId,
+        lessonId,
+        lesson: {
+          organizationId,
+          module: {
+            courseId,
+            course: {
+              organizationId,
+              chain: { instructorId },
+            },
+          },
+        },
+      },
+      include: {
+        file: true,
+        lesson: {
+          include: {
+            module: {
+              include: {
+                course: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async commitTechnicalReplacement(data: {
+    organizationId: string;
+    instructorId: string;
+    courseId: string;
+    lessonId: string;
+    materialId: string;
+    expectedFileId: string;
+    expectedStorageKey: string;
+    maxStorageBytes: bigint;
+    replacement: {
+      storageKey: string;
+      originalFilename: string;
+      mimeType: string;
+      sizeBytes: number;
+      deliveryType: string;
+      storageFormat: string;
+      durationSeconds: number | null;
+      wordCount: number | null;
+    };
+  }) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        // 1. Khóa quota của Organization.
+        await tx.$executeRaw`
+        INSERT INTO organization_quota_locks
+          (organization_id, created_at, updated_at)
+        VALUES (
+          ${data.organizationId}::uuid,
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (organization_id) DO NOTHING
+      `;
+
+        await tx.$queryRaw`
+        SELECT organization_id
+        FROM organization_quota_locks
+        WHERE organization_id = ${data.organizationId}::uuid
+        FOR UPDATE
+      `;
+
+        // 2. Khóa Course.
+        const lockedCourses = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id
+        FROM courses
+        WHERE id = ${data.courseId}::uuid
+          AND organization_id = ${data.organizationId}::uuid
+        FOR UPDATE
+      `;
+
+        if (lockedCourses.length === 0) {
+          return { status: 'NOT_FOUND' as const };
+        }
+
+        // 3. Khóa MediaFile dùng chung.
+        const lockedFiles = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id
+        FROM media_files
+        WHERE id = ${data.expectedFileId}::uuid
+          AND organization_id = ${data.organizationId}::uuid
+        FOR UPDATE
+      `;
+
+        if (lockedFiles.length === 0) {
+          return { status: 'NOT_FOUND' as const };
+        }
+
+        // 4. Kiểm tra lại Material, Tenant và Instructor.
+        const material = await tx.material.findFirst({
+          where: {
+            id: data.materialId,
+            organizationId: data.organizationId,
+            lessonId: data.lessonId,
+            fileId: data.expectedFileId,
+            lesson: {
+              organizationId: data.organizationId,
+              module: {
+                courseId: data.courseId,
+                organizationId: data.organizationId,
+                course: {
+                  organizationId: data.organizationId,
+                  chain: {
+                    instructorId: data.instructorId,
+                  },
+                },
+              },
+            },
+          },
+          include: {
+            file: true,
+            lesson: {
+              include: {
+                module: {
+                  include: {
+                    course: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!material) {
+          return { status: 'NOT_FOUND' as const };
+        }
+
+        const course = material.lesson.module.course;
+
+        // 5. Kiểm tra trạng thái Course.
+        if (course.status === COURSE_STATUS.SUBMITTED) {
+          return { status: 'SUBMITTED' as const };
+        }
+
+        if (
+          ![
+            COURSE_STATUS.DRAFT,
+            COURSE_STATUS.REJECTED,
+            COURSE_STATUS.PUBLISHED,
+          ].includes(
+            course.status as
+              | typeof COURSE_STATUS.DRAFT
+              | typeof COURSE_STATUS.REJECTED
+              | typeof COURSE_STATUS.PUBLISHED,
+          ) ||
+          course.disabledAt !== null ||
+          material.lesson.disabledAt !== null
+        ) {
+          return { status: 'NOT_EDITABLE' as const };
+        }
+
+        // 6. Kiểm tra file hiện tại.
+        if (
+          material.file.storageKey !== data.expectedStorageKey ||
+          material.file.status !== 'Ready' ||
+          material.file.releasedAt !== null
+        ) {
+          return { status: 'STALE_FILE' as const };
+        }
+
+        // Không dùng lại storageKey cũ.
+        if (data.replacement.storageKey === material.file.storageKey) {
+          return { status: 'INVALID_REPLACEMENT' as const };
+        }
+
+        // 7. Kiểm tra metadata phù hợp Material type.
+        if (material.materialType === 'Video') {
+          if (
+            data.replacement.durationSeconds === null ||
+            !Number.isInteger(data.replacement.durationSeconds) ||
+            data.replacement.durationSeconds <= 0 ||
+            data.replacement.wordCount !== null
+          ) {
+            return { status: 'INVALID_REPLACEMENT' as const };
+          }
+        } else if (material.materialType === 'Reading') {
+          if (
+            data.replacement.wordCount === null ||
+            !Number.isInteger(data.replacement.wordCount) ||
+            data.replacement.wordCount < 0 ||
+            data.replacement.durationSeconds !== null
+          ) {
+            return { status: 'INVALID_REPLACEMENT' as const };
+          }
+        } else {
+          return { status: 'INVALID_REPLACEMENT' as const };
+        }
+
+        if (
+          !Number.isSafeInteger(data.replacement.sizeBytes) ||
+          data.replacement.sizeBytes <= 0
+        ) {
+          return { status: 'INVALID_REPLACEMENT' as const };
+        }
+
+        // 8. Kiểm tra Storage quota trong transaction.
+        const usage = await tx.mediaFile.aggregate({
+          where: {
+            organizationId: data.organizationId,
+            status: 'Ready',
+            releasedAt: null,
+          },
+          _sum: {
+            sizeBytes: true,
+          },
+        });
+
+        const usedBytes = usage._sum.sizeBytes ?? 0n;
+        const incomingBytes = BigInt(data.replacement.sizeBytes);
+
+        const nextBytes = usedBytes - material.file.sizeBytes + incomingBytes;
+
+        if (nextBytes > data.maxStorageBytes) {
+          return { status: 'QUOTA_EXCEEDED' as const };
+        }
+
+        // 9. Lưu thông tin file cũ để Service cleanup sau commit.
+        const oldFile = {
+          storageKey: material.file.storageKey,
+          deliveryType: material.file.deliveryType,
+          resourceType:
+            material.materialType === 'Video'
+              ? ('video' as const)
+              : ('raw' as const),
+        };
+
+        // 10. Cập nhật MediaFile hiện tại.
+        // Không tạo MediaFile mới.
+        // Không thay đổi Material.fileId.
+        const updatedFile = await tx.mediaFile.update({
+          where: {
+            id: material.file.id,
+          },
+          data: {
+            storageKey: data.replacement.storageKey,
+            originalFilename: data.replacement.originalFilename,
+            mimeType: data.replacement.mimeType,
+            sizeBytes: incomingBytes,
+            deliveryType: data.replacement.deliveryType,
+            storageFormat: data.replacement.storageFormat,
+            durationSeconds: data.replacement.durationSeconds,
+            wordCount: data.replacement.wordCount,
+            status: 'Ready',
+            readyAt: new Date(),
+          },
+          select: {
+            id: true,
+            storageKey: true,
+            sizeBytes: true,
+            durationSeconds: true,
+            wordCount: true,
+          },
+        });
+
+        return {
+          status: 'REPLACED' as const,
+          fileId: updatedFile.id,
+          storageKey: updatedFile.storageKey,
+          sizeBytes: updatedFile.sizeBytes.toString(),
+          durationSeconds: updatedFile.durationSeconds,
+          wordCount: updatedFile.wordCount,
+          oldFile,
+        };
+      },
+      {
+        timeout: 20000,
+      },
+    );
+  }
 }
