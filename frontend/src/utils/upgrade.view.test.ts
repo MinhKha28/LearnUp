@@ -50,7 +50,19 @@ describe("UC10.2 upgrade view", () => {
     expect(
       upgradeFormulaLine(plan, { price: 30_000_000, durationDays: 365 }, 183),
     ).toBe(
-      `(${formatVnd(271_233)} − ${formatVnd(82_192)}) per day × 183 remaining days = ${formatVnd(34_594_521)}`,
+      `(${formatVnd(99_000_000)} ÷ 365 days − ${formatVnd(30_000_000)} ÷ 365 days) × 183 remaining days, rounded up = ${formatVnd(34_594_521)}`,
+    );
+  });
+
+  it("BR-19: fractional daily prices are not rounded, the amount comes from the backend", () => {
+    expect(
+      upgradeFormulaLine(
+        { ...plan, price: 1_000_000, durationDays: 30, amount: 47_620 },
+        { price: 200_000, durationDays: 7 },
+        10,
+      ),
+    ).toBe(
+      `(${formatVnd(1_000_000)} ÷ 30 days − ${formatVnd(200_000)} ÷ 7 days) × 10 remaining days, rounded up = ${formatVnd(47_620)}`,
     );
   });
 
@@ -66,5 +78,8 @@ describe("UC10.2 upgrade view", () => {
     expect(upgradeErrorMessage("UPGRADE_LIMITS_TOO_LOW")).toContain("below");
     expect(upgradeErrorMessage("SUBSCRIPTION_NOT_ACTIVE")).toContain("renew");
     expect(upgradeErrorMessage("NEW_CODE")).not.toContain("NEW_CODE");
+    expect(upgradeErrorMessage("UPGRADE_NOT_APPLIED")).toContain(
+      "Do not pay again",
+    );
   });
 });

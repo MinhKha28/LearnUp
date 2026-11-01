@@ -27,8 +27,8 @@ export const upgradeFormulaLine = (
   remainingDays: number,
 ) => {
   const daily = (price: number, days: number) =>
-    formatVnd(Math.round(price / days));
-  return `(${daily(plan.price, plan.durationDays)} − ${daily(held.price, held.durationDays)}) per day × ${formatCount(remainingDays)} remaining days = ${formatVnd(plan.amount)}`;
+    `${formatVnd(price)} ÷ ${formatCount(days)} days`;
+  return `(${daily(plan.price, plan.durationDays)} − ${daily(held.price, held.durationDays)}) × ${formatCount(remainingDays)} remaining days, rounded up = ${formatVnd(plan.amount)}`;
 };
 
 export const blockedLimitLines = (blockedBy: IUpgradeOption["blockedBy"]) =>
@@ -50,8 +50,12 @@ export const upgradeBlockedMessage = (reason: string | null) => {
   }
 };
 
+export const UPGRADE_NOT_APPLIED = "UPGRADE_NOT_APPLIED";
+
 export const upgradeErrorMessage = (code: string | undefined) => {
   switch (code) {
+    case UPGRADE_NOT_APPLIED:
+      return "Your payment was recorded, but the upgrade could not be applied. Do not pay again. Please contact support.";
     case "UPGRADE_LIMITS_TOO_LOW":
       return "This plan's limits are below your current usage or limits.";
     case "PLAN_NOT_AVAILABLE":

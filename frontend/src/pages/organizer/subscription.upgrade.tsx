@@ -16,6 +16,7 @@ import type { IApiError } from "@/types/organization.types";
 import type { IUpgradeOptions } from "@/types/subscription.types";
 import { formatDateVN, formatVnd } from "@/utils/helper";
 import {
+  UPGRADE_NOT_APPLIED,
   blockedLimitLines,
   planLimitsLine,
   planPriceLine,
@@ -34,6 +35,7 @@ const SubscriptionUpgrade = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [chargedNotApplied, setChargedNotApplied] = useState(false);
   const [simulateFailure, setSimulateFailure] = useState(false);
 
   useEffect(() => {
@@ -88,6 +90,10 @@ const SubscriptionUpgrade = () => {
       }
       const code = (res as unknown as { error?: IApiError }).error?.code;
       setPayError(upgradeErrorMessage(code));
+      if (code === UPGRADE_NOT_APPLIED) {
+        setChargedNotApplied(true);
+        return;
+      }
       setReloadKey((key) => key + 1);
     } catch {
       setPayError("Could not connect to the server. Please try again later.");
@@ -223,7 +229,7 @@ const SubscriptionUpgrade = () => {
           <OrganizerButton
             type="primary"
             loading={paying}
-            disabled={!selected}
+            disabled={!selected || chargedNotApplied}
             onClick={pay}
           >
             {selected && selected.amount > 0
