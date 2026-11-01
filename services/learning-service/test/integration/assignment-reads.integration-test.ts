@@ -345,7 +345,7 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     assert.equal(tenantCalls, 2);
     assert.equal(courseCalls, 2);
   });
-  test('timezone access is never called by list or detail', async () => {
+  test('list skips access; detail degrades to null on timezone timeout', async () => {
     const id = await enrollment();
     timezoneFails = true;
     const list = await page();
@@ -354,7 +354,8 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     const detail = await call(`/${id}`);
     assert.equal(detail.status, 200);
     assert.equal(detail.body.data.dueTimezone, 'Asia/Ho_Chi_Minh');
-    assert.equal(accessCalls, 0);
+    assert.equal(detail.body.data.organizationTimezone, null);
+    assert.equal(accessCalls, 1);
   });
   test('empty list includes null timezone without tenant access', async () => {
     assert.deepEqual(await page(), {
