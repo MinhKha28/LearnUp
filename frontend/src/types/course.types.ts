@@ -369,6 +369,11 @@ export interface IUpdateMaterialResponse {
 }
 
 export interface ITechnicalReplacementResponse {
+  materialId: string;
   fileId: string;
-  // Các metadata file trả về khi triển khai Service.
+  storageKey: string;
+  sizeBytes: string;
+  durationSeconds: number | null;
+  wordCount: number | null;
+  extractionWarning: string | null;
 }
