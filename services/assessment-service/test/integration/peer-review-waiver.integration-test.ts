@@ -394,6 +394,16 @@ describe('UC33.2 waiving a peer review duty over HTTP', () => {
     assert.equal(payload.assessmentId, assignment);
     assert.equal(payload.courseId, COURSE);
     assert.equal(payload.kind, 'ASSIGNMENT');
+    // step 21: the reason, the organization, the first activity and the revision of the snapshot the change leaves
+    assert.equal(payload.reason, 'PEER_REVIEW_WAIVED');
+    assert.equal(payload.organizationId, ORG);
+    assert.match(payload.revision, /^[0-9a-f]{64}$/);
+    assert.ok(Number.isFinite(Date.parse(payload.firstActivityAt)));
+    assert.equal(
+      payload.revision,
+      (await snapshot(learner(0))).revision,
+      'the event carries the revision the snapshot has right after the waiver',
+    );
 
     await until(() => sent.length >= 2, 'the bell and the e-mail');
     const bell = sent.find((s) => s.path.endsWith('/notifications/send'));

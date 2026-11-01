@@ -29,7 +29,6 @@ import type {
   ISubmissionReceipt,
 } from './interfaces/learner-submission.interface';
 import {
-  LEARNER_STATUS_CHANGED_EVENT,
   AWAITING_INSTRUCTOR,
   FINALIZED,
   OPEN_CYCLE_STATUS,
@@ -432,24 +431,23 @@ export class LearnerSubmissionsService {
           lockedUntil,
           latestSubmissionId: submission.id,
         });
-        await this.repository.createOutboxEvent(tx, {
-          aggregateType: 'LearnerAssessmentState',
-          aggregateId: updated.id,
-          eventType: LEARNER_STATUS_CHANGED_EVENT,
+        await this.repository.emitSignal(tx, {
+          stateId: updated.id,
           organizationId,
-          occurredAt: now,
-          payload: {
-            assessmentId: assignment.id,
-            courseId: assignment.courseId,
-            learnerId: user.userId,
-            kind: 'ASSIGNMENT',
-            status: mode === 'FIRST' ? 'Submitted' : 'Resubmitted',
+          assessmentId: assignment.id,
+          courseId: assignment.courseId,
+          learnerId: user.userId,
+          kind: 'ASSIGNMENT',
+          reason: 'ASSIGNMENT_SUBMITTED',
+          status: mode === 'FIRST' ? 'Submitted' : 'Resubmitted',
+          extra: {
             submissionId: submission.id,
             previousSubmissionId:
               mode === 'RESUBMIT' ? (latest?.id ?? null) : null,
             consecutiveCount,
             lockedUntil: lockedUntil?.toISOString() ?? null,
           },
+          now,
         });
 
         return {
