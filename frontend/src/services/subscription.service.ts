@@ -1,4 +1,5 @@
 import { tenantAxios } from "@/services/axios.customize";
+import type { IAdminPlan, ICreatePlanReq } from "@/types/organization.types";
 import type {
   IRenewalQuote,
   IRenewalResult,
@@ -7,18 +8,20 @@ import type {
   IUpgradeResult,
 } from "@/types/subscription.types";
 
-export const getUpgradeOptionsAPI = () =>
-  tenantAxios.get<IBackendRes<IUpgradeOptions>>(
-    "/api/v1/subscriptions/upgrade-options",
+export const getAdminPlansAPI = () =>
+  tenantAxios.get<IBackendRes<IAdminPlan[]>>(
+    "/api/v1/admin/subscription-plans",
   );
 
-export const upgradeSubscriptionAPI = (
-  planId: string,
-  simulateFailure: boolean,
-) =>
-  tenantAxios.post<IBackendRes<IUpgradeResult>>(
-    "/api/v1/subscriptions/upgrades",
-    { planId, ...(simulateFailure ? { simulateFailure } : {}) },
+export const createPlanAPI = (body: ICreatePlanReq) =>
+  tenantAxios.post<IBackendRes<IAdminPlan>>(
+    "/api/v1/admin/subscription-plans",
+    body,
+  );
+
+export const getCurrentSubscriptionAPI = () =>
+  tenantAxios.get<IBackendRes<ISubscriptionOverview>>(
+    "/api/v1/subscriptions/current",
   );
 
 export const getRenewalQuoteAPI = () =>
@@ -32,7 +35,16 @@ export const renewSubscriptionAPI = (simulateFailure: boolean) =>
     simulateFailure ? { simulateFailure } : {},
   );
 
-export const getCurrentSubscriptionAPI = () =>
-  tenantAxios.get<IBackendRes<ISubscriptionOverview>>(
-    "/api/v1/subscriptions/current",
+export const getUpgradeOptionsAPI = () =>
+  tenantAxios.get<IBackendRes<IUpgradeOptions>>(
+    "/api/v1/subscriptions/upgrade-options",
+  );
+
+export const upgradeSubscriptionAPI = (
+  planId: string,
+  simulateFailure: boolean,
+) =>
+  tenantAxios.post<IBackendRes<IUpgradeResult>>(
+    "/api/v1/subscriptions/upgrades",
+    { planId, ...(simulateFailure ? { simulateFailure } : {}) },
   );

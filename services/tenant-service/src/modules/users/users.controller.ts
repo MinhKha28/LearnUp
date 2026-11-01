@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -20,7 +21,7 @@ import { UpdateAccountDto } from './dto/update-account.dto';
 import { UsersService } from './users.service';
 import { GetUsersBatchDto } from './dto/get-users-batch.dto';
 
-@ApiTags('Users') // UC12, UC12.1, UC12.2, UC12.3, UC13, UC13.1, UC13.2, UC13.3
+@ApiTags('Users') // UC12, UC12.1, UC12.2, UC12.3, UC12.7, UC13, UC13.1, UC13.2, UC13.3, UC13.7
 @ApiSecurity('internal-key')
 @UseGuards(RolesGuard)
 @Controller('users')
@@ -76,6 +77,18 @@ export class UsersController {
     @Body() dto: UpdateAccountDto,
   ) {
     return this.service.updateInstructor(user, id, dto);
+  }
+
+  // UC12.7
+  @Roles('ORGANIZER')
+  @Post('instructors/:id/invitations')
+  @HttpCode(200)
+  @ResponseMessage('Đã gửi lại lời mời Instructor')
+  resendInstructorInvitation(
+    @User() user: CurrentUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.service.resendInstructorInvitation(user, id);
   }
 
   // UC12.3 - BR-279: gợi ý đơn vị công tác đã có trong tổ chức.
@@ -143,5 +156,17 @@ export class UsersController {
     @Body() dto: UpdateAccountDto,
   ) {
     return this.service.updateLearner(user, id, dto);
+  }
+
+  // UC13.7
+  @Roles('ORGANIZER')
+  @Post('learners/:id/invitations')
+  @HttpCode(200)
+  @ResponseMessage('Đã gửi lại lời mời Learner')
+  resendLearnerInvitation(
+    @User() user: CurrentUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.service.resendLearnerInvitation(user, id);
   }
 }

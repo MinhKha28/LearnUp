@@ -55,12 +55,18 @@ export class AssignmentReadsService {
       throw new NotFoundException(
         createApiError('ASSIGNMENT_NOT_FOUND', 'Không tìm thấy phân công.'),
       );
-    const [items, intervals] = await Promise.all([
+    const [items, intervals, organizationTimezone] = await Promise.all([
       this.enrich(user, [row]),
       this.assignments.intervals(organizationId, id),
+      this.fallback<string | null>(
+        'tenant access',
+        async () => (await this.tenant.getOrganizationAccess(user)).timezone,
+        null,
+      ),
     ]);
     return {
       ...items[0],
+      organizationTimezone,
       baseDueAt: row.baseDueAt,
       extensionSeconds: toSafeNumber(row.extensionSeconds),
       firstActivityAt: row.firstActivityAt,

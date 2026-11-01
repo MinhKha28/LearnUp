@@ -20,6 +20,8 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { SubscriptionsController } from './modules/subscriptions/subscriptions.controller';
 import { InternalUsersModule } from './modules/internal-users/internal-users.module';
 import { InternalOrganizationsModule } from './modules/internal-organizations/internal-organizations.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { OrganizationsController } from './modules/organizations/organizations.controller';
 
 @Module({
   imports: [
@@ -38,6 +40,7 @@ import { InternalOrganizationsModule } from './modules/internal-organizations/in
     UserDirectoryModule,
     ProfileModule,
     SubscriptionsModule,
+    OrganizationsModule, // UC11, UC11.1
   ],
   providers: [
     {
@@ -52,6 +55,11 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
       .apply(DevFakeAuthMiddleware)
-      .forRoutes(UsersController, ProfileController, SubscriptionsController);
+      .forRoutes(
+        UsersController,
+        ProfileController,
+        SubscriptionsController,
+        OrganizationsController,
+      );
   }
 }

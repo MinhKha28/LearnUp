@@ -418,3 +418,154 @@ test('real PostgreSQL certificate transactions, constraints, leases and quaranti
     await fixture.cleanup();
   }
 });
+
+test('L22 consumer issues certificates for Waived and Learning decisions without changing snapshots', async () => {
+  const f = await isolatedDatabase();
+  try {
+    const consumer = new CompletionConsumer(
+      f.repository,
+      { kick() {} },
+      config(),
+    );
+    const worker = new IssuanceWorker(
+      f.repository,
+      config(),
+      directory(),
+      storage,
+      { get: async () => null, enqueue: async () => {} },
+    );
+    for (const [index, kind] of [
+      'Waived',
+      'eligible=false',
+      'passed mismatch',
+    ].entries()) {
+      const e = event();
+      const s = e.data.scoreSnapshot;
+      if (kind === 'eligible=false') s.eligible = false;
+      if (kind === 'passed mismatch') s.quizzes[0].passed = false;
+      if (kind === 'Waived') {
+        s.quizzes = [];
+        s.assignments = [
+          {
+            assessmentId: randomUUID(),
+            submissionId: randomUUID(),
+            finalScore: '90',
+            passingScore: '50',
+            finalizedAt: s.asOf,
+            passed: true,
+            peerReview: {
+              status: 'Waived',
+              requiredCount: 3,
+              completedCount: 1,
+            },
+          },
+        ];
+      }
+      await consumer.handle(delivery(e, String(index)), async () => {});
+      await worker.tick();
+      const { rows } = await f.pool.query(
+        'SELECT status,score_snapshot FROM certificates WHERE enrollment_id=$1',
+        [e.data.enrollmentId],
+      );
+      assert.equal(rows[0]?.status, 'Issued', kind);
+      assert.deepEqual(rows[0].score_snapshot, s);
+    }
+    const e = event();
+    e.data.scoreSnapshot.quizzes.push({ ...e.data.scoreSnapshot.quizzes[0] });
+    await consumer.handle(delivery(e, '10'), async () => {});
+    const badPeer = event();
+    badPeer.data.scoreSnapshot.quizzes = [];
+    badPeer.data.scoreSnapshot.assignments = [
+      {
+        assessmentId: randomUUID(),
+        submissionId: null,
+        finalScore: null,
+        passingScore: '50',
+        finalizedAt: null,
+        passed: false,
+        peerReview: { status: 'Exempted', requiredCount: 3, completedCount: 1 },
+      },
+    ];
+    await consumer.handle(delivery(badPeer, '11'), async () => {});
+    assert.equal(
+      (
+        await f.pool.query(
+          'SELECT count(*)::int AS n FROM completion_event_quarantine',
+        )
+      ).rows[0].n,
+      2,
+    );
+  } finally {
+    await f.cleanup();
+  }
+});
+
+test('L22 forward migration preserves existing Issued rows and immutability on upgrade from develop', async () => {
+  const f = await isolatedDatabase({ skipSnapshotMigration: true });
+  try {
+    const e = event();
+    await f.repository.receive(e, delivery(e), e);
+    const worker = new IssuanceWorker(
+      f.repository,
+      config(),
+      directory(),
+      storage,
+      { get: async () => null, enqueue: async () => {} },
+    );
+    await worker.tick();
+    const before = (
+      await f.pool.query('SELECT * FROM certificates ORDER BY id')
+    ).rows;
+    assert.equal(before[0].status, 'Issued');
+    const triggers = async () =>
+      (
+        await f.pool.query(
+          `SELECT pg_get_triggerdef(oid) AS definition FROM pg_trigger WHERE tgrelid='certificates'::regclass AND NOT tgisinternal ORDER BY tgname`,
+        )
+      ).rows;
+    const beforeTriggers = await triggers();
+    await f.pool.query(
+      require('node:fs').readFileSync(
+        require('node:path').join(
+          __dirname,
+          '../prisma/migrations/20261030000000_completion_snapshot_structure/migration.sql',
+        ),
+        'utf8',
+      ),
+    );
+    assert.deepEqual(
+      (await f.pool.query('SELECT * FROM certificates ORDER BY id')).rows,
+      before,
+    );
+    assert.deepEqual(await triggers(), beforeTriggers);
+    assert.equal(
+      (
+        await f.pool.query(
+          `SELECT count(*)::int AS n FROM certificates WHERE NOT (jsonb_typeof(score_snapshot)='object' AND score_snapshot @> '{"schemaVersion":1}'::jsonb AND jsonb_typeof(score_snapshot->'eligible') = 'boolean')`,
+        )
+      ).rows[0].n,
+      0,
+    );
+    await assert.rejects(
+      f.pool.query(
+        "UPDATE certificates SET learner_name='Changed' WHERE id=$1",
+        [before[0].id],
+      ),
+      (e) => e.code === '23514',
+    );
+    const next = event();
+    next.data.scoreSnapshot.eligible = false;
+    await f.repository.receive(next, delivery(next, '1'), next);
+    await worker.tick();
+    assert.equal(
+      (
+        await f.pool.query(
+          "SELECT count(*)::int AS n FROM certificates WHERE status='Issued'",
+        )
+      ).rows[0].n,
+      2,
+    );
+  } finally {
+    await f.cleanup();
+  }
+});

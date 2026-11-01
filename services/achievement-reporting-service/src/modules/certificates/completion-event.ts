@@ -166,13 +166,12 @@ export function decodeCompletion(delivery: Delivery): {
   )
     return bad();
   try {
-    const snapshot = validateCompletionSnapshot(
+    validateCompletionSnapshot(
       d.scoreSnapshot,
       d.organizationId,
       d.learnerId as string,
       d.courseId as string,
     );
-    if (!snapshot.eligible || snapshot.requiredComponentCount < 1) return bad();
   } catch {
     return bad();
   }
