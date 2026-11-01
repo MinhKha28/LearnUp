@@ -157,10 +157,10 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
-  /api/v1/enrollments/{enrollmentId}/materials/{materialId}/reading-access:
+  /api/v1/enrollments/{enrollmentId}/materials/{materialId}/playback:
     get:
-      summary: Get development Reading fixture access
-      description: LEARNER only. Validates Enrollment and snapshots first. Course mode returns 503 SERVICE_UNAVAILABLE until C10 supplies an access endpoint. Fixture mode is prohibited in production and checks I2 visibility; it does not claim to issue a signed URL. Opening a file is not required before marking completion and does not create learning progress.
+      summary: Get Video progress and a fresh signed playback URL
+      description: LEARNER only. Validates Enrollment, existing material snapshot and live content visibility. Signs through course-service on every successful request without URL caching. Does not write progress. URLs expire after 15 minutes; renew on media error or before resuming near expiry. Dependency errors use SERVICE_UNAVAILABLE (formerly PLAYBACK_UNAVAILABLE).
       parameters:
         - $ref: "#/components/parameters/EnrollmentId"
         - $ref: "#/components/parameters/MaterialId"
@@ -169,7 +169,7 @@ paths:
         - $ref: "#/components/parameters/UserRole"
       responses:
         "200":
-          description: Explicit development/test fixture.
+          description: Current progress and signed URL.
           content:
             application/json:
               schema:
@@ -180,18 +180,82 @@ paths:
                   message: { type: string }
                   data:
                     type: object
-                    required: [materialId, title, accessUrl, fixture]
+                    required: [materialId, title, playbackUrl, expiresAt, mimeType, durationSeconds, watchedRanges, watchedSeconds, requiredSeconds, completed, completedAt, positionSeconds, positionReportedAt, heartbeatSeconds]
+                    properties:
+                      materialId: { type: string, format: uuid }
+                      title: { type: string }
+                      playbackUrl: { type: string, format: uri }
+                      expiresAt: { type: string, format: date-time }
+                      mimeType: { type: string, example: video/mp4 }
+                      durationSeconds: { type: integer, minimum: 1 }
+                      watchedRanges:
+                        type: array
+                        items:
+                          type: array
+                          minItems: 2
+                          maxItems: 2
+                          items: { type: number, minimum: 0 }
+                      watchedSeconds: { type: integer, minimum: 0 }
+                      requiredSeconds: { type: integer, minimum: 1 }
+                      completed: { type: boolean }
+                      completedAt: { type: string, format: date-time, nullable: true }
+                      positionSeconds: { type: integer, nullable: true, minimum: 0 }
+                      positionReportedAt: { type: string, format: date-time, nullable: true }
+                      heartbeatSeconds: { type: integer, enum: [15] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ReadingForbidden" }
+        "404": { $ref: "#/components/responses/ReadingNotFound" }
+        "409":
+          description: MATERIAL_NOT_VIDEO for wrong material type, or MATERIAL_NOT_READY for an unusable protected file.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: SERVICE_UNAVAILABLE for dependency failure, timeout, invalid signing response or missing valid duration.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/enrollments/{enrollmentId}/materials/{materialId}/reading-access:
+    get:
+      summary: Get a fresh signed Reading URL
+      description: LEARNER only. Validates Enrollment, snapshots and live content visibility, then requests a fresh protected URL from course-service without caching. Opening a file does not create learning progress. URLs expire after 15 minutes; request a new URL on every open. Current raw PDF delivery uses application/octet-stream and attachment disposition; the frontend starts a same-page download and keeps the lesson visible.
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/MaterialId"
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      responses:
+        "200":
+          description: Fresh signed HTTPS URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data:
+                    type: object
+                    required: [materialId, title, accessUrl, fixture, expiresAt, mimeType]
                     properties:
                       materialId: { type: string, format: uuid }
                       title: { type: string }
                       accessUrl: { type: string, format: uri }
-                      fixture: { type: boolean, enum: [true] }
+                      fixture: { type: boolean, enum: [false] }
+                      expiresAt: { type: string, format: date-time }
+                      mimeType: { type: string, enum: [application/pdf] }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/ReadingForbidden" }
         "404": { $ref: "#/components/responses/ReadingNotFound" }
-        "409": { $ref: "#/components/responses/NotReading" }
+        "409":
+          description: MATERIAL_NOT_READING for wrong material type, or MATERIAL_NOT_READY for an unusable protected file.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "503":
-          description: SERVICE_UNAVAILABLE for course mode without C10 or course-service failure/timeout.
+          description: SERVICE_UNAVAILABLE for content or signing dependency failure, timeout, or invalid response.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
