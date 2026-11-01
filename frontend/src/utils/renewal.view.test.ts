@@ -35,5 +35,8 @@ describe("UC10.1 renewal view", () => {
     );
     expect(renewalErrorMessage("SOMETHING_NEW")).not.toContain("SOMETHING_NEW");
     expect(renewalErrorMessage(undefined)).toContain("try again later");
+    expect(renewalErrorMessage("RENEWAL_NOT_APPLIED")).toContain(
+      "Do not pay again",
+    );
   });
 });

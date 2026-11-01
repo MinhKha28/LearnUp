@@ -17,6 +17,7 @@ import type { IApiError } from "@/types/organization.types";
 import type { IRenewalQuote } from "@/types/subscription.types";
 import { formatDateVN, formatStorage, formatVnd } from "@/utils/helper";
 import {
+  RENEWAL_NOT_APPLIED,
   exceededLimitLines,
   renewalErrorMessage,
   renewalTermNote,
@@ -31,6 +32,7 @@ const SubscriptionRenew = () => {
   const [reloadKey, setReloadKey] = useState(0);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [chargedNotApplied, setChargedNotApplied] = useState(false);
   const [simulateFailure, setSimulateFailure] = useState(false);
 
   useEffect(() => {
@@ -79,6 +81,10 @@ const SubscriptionRenew = () => {
       }
       const code = (res as unknown as { error?: IApiError }).error?.code;
       setPayError(renewalErrorMessage(code));
+      if (code === RENEWAL_NOT_APPLIED) {
+        setChargedNotApplied(true);
+        return;
+      }
       setReloadKey((key) => key + 1);
     } catch {
       setPayError("Could not connect to the server. Please try again later.");
@@ -198,7 +204,7 @@ const SubscriptionRenew = () => {
           <OrganizerButton
             type="primary"
             loading={paying}
-            disabled={blocked}
+            disabled={blocked || chargedNotApplied}
             onClick={pay}
           >
             Pay {formatVnd(quote.price)} with mock payment

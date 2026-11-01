@@ -29,8 +29,12 @@ export const renewalTermNote = (status: IRenewalQuote["currentStatus"]) => {
   }
 };
 
+export const RENEWAL_NOT_APPLIED = "RENEWAL_NOT_APPLIED";
+
 export const renewalErrorMessage = (code: string | undefined) => {
   switch (code) {
+    case RENEWAL_NOT_APPLIED:
+      return "Your payment was recorded, but the renewal could not be applied. Do not pay again. Please contact support.";
     case "RENEWAL_ALREADY_SCHEDULED":
       return "A renewal is already paid and waiting to start. You can renew again after it starts.";
     case "RENEWAL_IN_PROGRESS":
