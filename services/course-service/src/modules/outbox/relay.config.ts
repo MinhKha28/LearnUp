@@ -48,10 +48,13 @@ export function readRelayConfig(
   }
 
   if (
-    config.transactionMs <= 2 * config.deliveryMs + 5000 ||
+    config.transactionMs < 2 * config.deliveryMs ||
+    config.transactionMs <= 5000 ||
     config.transactionMs > 30000
   ) {
-    throw new Error('Invalid outbox transaction timeout');
+    throw new Error(
+      'OUTBOX_TRANSACTION_TIMEOUT_MS must be >= 2 * OUTBOX_DELIVERY_TIMEOUT_MS, > 5000ms and <= 30000ms',
+    );
   }
 
   if (
