@@ -1,97 +1,259 @@
-import { useState } from "react";
-import { Input, Select, message } from "antd";
+import { useCallback, useEffect, useState } from "react";
+import { Input, InputNumber, message } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
-import { findPeerReviewTask } from "@/components/learner/learner.data";
 import {
+  InfoPanel,
   LearnerButton,
   LearnerPage,
   PageHeader,
   StatusTag,
 } from "@/components/learner/learner.ui";
+import {
+  assessmentErrorCode,
+  assessmentErrorText,
+  downloadLearnerPromptFileAPI,
+  downloadLearnerReviewFileAPI,
+  fetchLearnerPeerReviewAPI,
+  giveLearnerPeerReviewAPI,
+} from "@/services/assessment.service";
+import type { ILearnerReviewDetail } from "@/types/assessment.types";
 import "./peer.review.form.scss";
 
-const scoreOptions = [0, 1, 2, 3, 4, 5].map((value) => ({
-  value,
-  label: `${value} / 5`,
-}));
+const COMMENT_MAX_LENGTH = 2000;
 
+const formatTime = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleString() : "-";
+
+const saveBlob = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+/**
+ * UC31.1 - the Learner reviews one assigned submission against the Rubric: a whole-number score for every criterion and a
+ * general comment (BR-257), before the deadline of the cycle. The work comes without its author (BR-233). A review that was
+ * given is final, so it is shown here as it was given.
+ */
 const PeerReviewForm = () => {
-  const { submissionId } = useParams();
+  const { reviewId = "" } = useParams();
   const navigate = useNavigate();
-  const task = findPeerReviewTask(submissionId);
-  const isReadOnly = task?.status === "completed";
+  const [detail, setDetail] = useState<ILearnerReviewDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [scores, setScores] = useState<Record<string, number | null>>({});
+  const [comment, setComment] = useState("");
 
-  const [scores, setScores] = useState<Record<number, number | undefined>>(
-    () =>
-      Object.fromEntries(
-        (task?.criteria ?? []).map((_, index) => [index, task?.result?.scores[index]]),
-      ),
-  );
-  const [feedback, setFeedback] = useState(task?.result?.feedback ?? "");
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetchLearnerPeerReviewAPI(reviewId);
+      if (res.data) {
+        setDetail(res.data);
+        setNotice("");
+        setScores(
+          Object.fromEntries(
+            res.data.assignment.rubric.map((criterion) => [
+              criterion.id,
+              res.data?.myReview?.scores.find(
+                (score) => score.criterionId === criterion.id,
+              )?.points ?? null,
+            ]),
+          ),
+        );
+        setComment(res.data.myReview?.comment ?? "");
+      } else {
+        setDetail(null);
+        setNotice(
+          assessmentErrorCode(res).code === "REVIEW_NOT_FOUND"
+            ? "This review may have been removed, or it is not yours."
+            : assessmentErrorText(res, "Unable to load this review."),
+        );
+      }
+    } catch {
+      setDetail(null);
+      setNotice("Unable to reach the Assessment service. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [reviewId]);
 
-  if (!task) {
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const back = () => navigate("/learner/peer-review");
+
+  if (loading) {
     return (
       <LearnerPage className="peer-review-form">
-        <PageHeader eyebrow="PEER REVIEW / ASSIGNED WORK" title="Submission not found" subtitle="" back />
-        <LearnerButton onClick={() => navigate("/learner/peer-review")}>
-          Back to Peer Review
-        </LearnerButton>
+        <PageHeader
+          eyebrow="PEER REVIEW / ASSIGNED WORK"
+          title="Loading review..."
+          subtitle=""
+          back
+        />
       </LearnerPage>
     );
   }
 
-  const submit = () => {
-    const missing = task.criteria.some((_, index) => scores[index] === undefined);
-    if (missing) {
-      message.warning("Select a score for every criterion before submitting.");
+  if (!detail) {
+    return (
+      <LearnerPage className="peer-review-form">
+        <PageHeader
+          eyebrow="PEER REVIEW / ASSIGNED WORK"
+          title="Review not available"
+          subtitle={notice}
+          back
+        />
+        <LearnerButton onClick={() => void load()}>Try again</LearnerButton>{" "}
+        <LearnerButton onClick={back}>Back to Peer Review</LearnerButton>
+      </LearnerPage>
+    );
+  }
+
+  const isOpen = detail.state === "Open";
+  const rubric = detail.assignment.rubric;
+
+  const downloadWork = async () => {
+    const blob = await downloadLearnerReviewFileAPI(detail.id);
+    if (!blob || !detail.submission.file) {
+      message.error("Unable to download the file.");
       return;
     }
-    message.success("Review submitted.");
-    navigate("/learner/peer-review");
+    saveBlob(blob, detail.submission.file.fileName);
+  };
+
+  const downloadPrompt = async () => {
+    const blob = await downloadLearnerPromptFileAPI(detail.assignmentId);
+    if (!blob) {
+      message.error("Unable to download the file.");
+      return;
+    }
+    saveBlob(blob, detail.assignment.promptFileName ?? "prompt.pdf");
+  };
+
+  const submit = async () => {
+    if (saving) return;
+    if (rubric.some((criterion) => scores[criterion.id] === null)) {
+      message.warning("Give a score for every criterion before submitting.");
+      return;
+    }
+    if (!comment.trim()) {
+      message.warning("Write a general comment before submitting.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await giveLearnerPeerReviewAPI(detail.id, {
+        scores: rubric.map((criterion) => ({
+          criterionId: criterion.id,
+          points: scores[criterion.id] as number,
+        })),
+        comment: comment.trim(),
+      });
+      if (res.data) {
+        message.success("Review submitted.");
+        back();
+        return;
+      }
+      const { code } = assessmentErrorCode(res);
+      if (code === "REVIEW_ALREADY_GIVEN") {
+        message.info("This review was already given.");
+        await load();
+      } else if (code === "REVIEW_CLOSED") {
+        message.warning(
+          "The deadline of this review has passed, so it can no longer be given.",
+        );
+        await load();
+      } else {
+        message.error(assessmentErrorText(res, "Unable to submit the review."));
+      }
+    } catch {
+      message.error(
+        "Unable to reach the Assessment service. Please try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <LearnerPage className="peer-review-form">
       <PageHeader
         eyebrow="PEER REVIEW / ASSIGNED WORK"
-        title={`Review Submission ${task.id}`}
-        subtitle={`${task.assignmentTitle} / Deadline ${task.reviewDeadline}`}
+        title={`Review: ${detail.assignmentTitle}`}
+        subtitle={`Deadline ${formatTime(detail.reviewDueAt)}`}
         back
       />
       <div className="peer-review-form-body">
         <div className="peer-review-submission-card">
           <h3>Anonymous submission</h3>
           <StatusTag tone="neutral">Author hidden</StatusTag>
-          <span className="peer-review-submission-label">Submitted response</span>
-          <p>{task.submittedResponse}</p>
-          {task.attachmentName && (
+          {detail.assignment.prompt && (
+            <>
+              <span className="peer-review-submission-label">Assignment</span>
+              <p>{detail.assignment.prompt}</p>
+              {detail.assignment.promptFileUrl && (
+                <div className="peer-review-attachment">
+                  <button type="button" onClick={() => void downloadPrompt()}>
+                    Download the assignment file
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          <span className="peer-review-submission-label">
+            Submitted response
+          </span>
+          <p>{detail.submission.content || "No text answer."}</p>
+          {detail.submission.file && (
             <>
               <hr />
-              <span className="peer-review-submission-label">Attached work</span>
+              <span className="peer-review-submission-label">
+                Attached work
+              </span>
               <div className="peer-review-attachment">
-                <a
-                  href={`data:text/plain,${encodeURIComponent(
-                    `Attachment placeholder for ${task.attachmentName}`,
-                  )}`}
-                  download={task.attachmentName}
-                >
-                  View submitted attachment
-                </a>
+                <button type="button" onClick={() => void downloadWork()}>
+                  Download submitted work ({detail.submission.file.fileName})
+                </button>
               </div>
             </>
           )}
         </div>
         <div className="peer-review-score-card">
           <h3>Score using the Rubric</h3>
-          {task.criteria.map((criterion, index) => (
-            <div className="peer-review-criterion" key={criterion}>
-              <span>{criterion}</span>
-              <Select
-                placeholder="Select score"
-                options={scoreOptions}
-                value={scores[index]}
-                disabled={isReadOnly}
-                onChange={(value) => setScores((prev) => ({ ...prev, [index]: value }))}
+          {detail.state === "Closed" && (
+            <InfoPanel title="Closed">
+              The deadline of this review has passed, so it can no longer be
+              given. The Instructor grades the submission.
+            </InfoPanel>
+          )}
+          {rubric.map((criterion) => (
+            <div className="peer-review-criterion" key={criterion.id}>
+              <span>
+                {criterion.name} (0 to {criterion.maxPoints})
+              </span>
+              {criterion.description && <small>{criterion.description}</small>}
+              <InputNumber
+                aria-label={`Score for ${criterion.name}`}
+                min={0}
+                max={criterion.maxPoints}
+                precision={0}
+                step={1}
+                placeholder="Score"
+                value={scores[criterion.id]}
+                disabled={!isOpen || saving}
+                onChange={(value) =>
+                  setScores((previous) => ({
+                    ...previous,
+                    [criterion.id]: value,
+                  }))
+                }
               />
             </div>
           ))}
@@ -99,22 +261,32 @@ const PeerReviewForm = () => {
             <span>Feedback</span>
             <Input.TextArea
               rows={4}
+              maxLength={COMMENT_MAX_LENGTH}
+              showCount
               placeholder="Write specific feedback..."
-              value={feedback}
-              disabled={isReadOnly}
-              onChange={(event) => setFeedback(event.target.value)}
+              value={comment}
+              disabled={!isOpen || saving}
+              onChange={(event) => setComment(event.target.value)}
             />
           </div>
-          {isReadOnly ? (
+          {detail.state === "Done" ? (
             <p className="peer-review-completed-note">
-              Reviewed on {task.result?.completedAt}. This review can no longer be edited.
+              Reviewed on {formatTime(detail.completedAt)}
+              {detail.score !== null ? ` (score ${detail.score} / 100)` : ""}.
+              This review can no longer be edited.
             </p>
           ) : (
-            <div className="peer-review-form-actions">
-              <LearnerButton type="primary" onClick={submit}>
-                Submit review
-              </LearnerButton>
-            </div>
+            isOpen && (
+              <div className="peer-review-form-actions">
+                <LearnerButton
+                  type="primary"
+                  loading={saving}
+                  onClick={() => void submit()}
+                >
+                  Submit review
+                </LearnerButton>
+              </div>
+            )
           )}
         </div>
       </div>

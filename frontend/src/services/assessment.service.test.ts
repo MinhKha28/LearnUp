@@ -95,3 +95,34 @@ describe("the peer review calls of the Instructor (UC33.1, UC33.2)", () => {
     ]);
   });
 });
+
+describe("the peer review calls of the Learner (UC31, UC31.1)", () => {
+  it("lists the reviews assigned to the Learner", async () => {
+    http.get.mockReset().mockResolvedValue({ statusCode: 200, data: {} });
+    await service.fetchLearnerPeerReviewsAPI();
+    expect(http.get).toHaveBeenCalledWith("/api/v1/assessments/learner/peer-reviews");
+  });
+
+  it("reads one review by its own id, never by the submission", async () => {
+    http.get.mockReset().mockResolvedValue({ statusCode: 200, data: {} });
+    await service.fetchLearnerPeerReviewAPI("review-1");
+    expect(http.get).toHaveBeenCalledWith("/api/v1/assessments/learner/peer-reviews/review-1");
+  });
+
+  it("gives a review with a POST of the scores and the comment", async () => {
+    http.post.mockReset().mockResolvedValue({ statusCode: 200, data: {} });
+    const body = { scores: [{ criterionId: "c1", points: 3 }], comment: "Fine." };
+    await service.giveLearnerPeerReviewAPI("review-1", body);
+    expect(http.post).toHaveBeenCalledWith("/api/v1/assessments/learner/peer-reviews/review-1", body);
+  });
+
+  it("downloads the work as a file, and gives nothing when the answer is not a real file", async () => {
+    http.get.mockReset().mockResolvedValue({ status: 200, data: new Blob(["x"]) });
+    expect(await service.downloadLearnerReviewFileAPI("review-1")).toBeInstanceOf(Blob);
+    expect(http.get).toHaveBeenCalledWith("/api/v1/assessments/learner/peer-reviews/review-1/file", {
+      responseType: "blob",
+    });
+    http.get.mockResolvedValue({ status: 404, data: { error: "no" } });
+    expect(await service.downloadLearnerReviewFileAPI("review-1")).toBeNull();
+  });
+});

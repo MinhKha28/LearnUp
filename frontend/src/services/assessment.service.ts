@@ -8,6 +8,10 @@ import type {
   IPeerReviewCycleDetail,
   IPeerReviewCycleList,
   IPeerReviewWaiver,
+  IGiveLearnerReview,
+  ILearnerReviewDetail,
+  ILearnerReviewList,
+  ILearnerReviewResult,
   ILearnerAssessmentList,
   ILearnerAssignment,
   ISubmissionReceipt,
@@ -197,6 +201,26 @@ export const resubmitAssignmentAPI = (assignmentId: string, content: string, fil
 /** The prompt file for a Learner; like UC19.1, only a real 200 response yields the file. */
 export const downloadLearnerPromptFileAPI = async (assignmentId: string): Promise<Blob | null> => {
   const res = (await axios.get(`/api/v1/assessments/learner/assignments/${assignmentId}/prompt-file`, {
+    responseType: "blob",
+  })) as unknown as { status?: number; data?: unknown };
+  return res.status === 200 && res.data instanceof Blob ? res.data : null;
+};
+
+/** UC31 — the reviews assigned to the Learner, the ones to give first, with the deadline of the cycle. */
+export const fetchLearnerPeerReviewsAPI = () =>
+  axios.get<IBackendRes<ILearnerReviewList>>("/api/v1/assessments/learner/peer-reviews");
+
+/** UC31 — one review: the work without its author, the Rubric, and the review so far. */
+export const fetchLearnerPeerReviewAPI = (reviewId: string) =>
+  axios.get<IBackendRes<ILearnerReviewDetail>>(`/api/v1/assessments/learner/peer-reviews/${reviewId}`);
+
+/** UC31.1 — give the review. It is final once given. */
+export const giveLearnerPeerReviewAPI = (reviewId: string, body: IGiveLearnerReview) =>
+  axios.post<IBackendRes<ILearnerReviewResult>>(`/api/v1/assessments/learner/peer-reviews/${reviewId}`, body);
+
+/** UC31 — the file of the work under review, with a neutral name; like the prompt file, only a real 200 response yields it. */
+export const downloadLearnerReviewFileAPI = async (reviewId: string): Promise<Blob | null> => {
+  const res = (await axios.get(`/api/v1/assessments/learner/peer-reviews/${reviewId}/file`, {
     responseType: "blob",
   })) as unknown as { status?: number; data?: unknown };
   return res.status === 200 && res.data instanceof Blob ? res.data : null;

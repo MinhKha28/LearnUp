@@ -308,7 +308,7 @@ export const router = createBrowserRouter([
       { path: "catalog/:courseId", element: <LearnerCourseOverview /> },
       { path: "peer-review", element: <LearnerPeerReviewQueue /> },
       { path: "peer-review/history", element: <LearnerPeerReviewHistory /> },
-      { path: "peer-review/:submissionId", element: <LearnerPeerReviewForm /> },
+      { path: "peer-review/:reviewId", element: <LearnerPeerReviewForm /> },
       { path: "certificates", element: <LearnerCertificates /> },
       {
         path: "certificates/:certificateId",
