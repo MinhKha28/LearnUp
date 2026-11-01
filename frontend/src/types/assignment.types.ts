@@ -31,6 +31,7 @@ export interface AssignmentPage {
   total: number;
 }
 export interface AssignmentDetail extends Assignment {
+  organizationTimezone: string | null;
   baseDueAt: string | null;
   extensionSeconds: number;
   firstActivityAt: string | null;

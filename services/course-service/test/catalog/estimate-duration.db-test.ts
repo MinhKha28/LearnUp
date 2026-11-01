@@ -49,7 +49,7 @@ async function withRollback(fn: (tx: Tx) => Promise<void>): Promise<void> {
 }
 
 function repositoryFor(tx: Tx): CatalogRepository {
-  return new CatalogRepository(tx as unknown as PrismaService);
+  return new CatalogRepository(tx);
 }
 
 /** platform_settings chỉ còn một dòng với tốc độ đọc đã biết (trong transaction). */

@@ -81,7 +81,7 @@ const Assignments = () => {
       key: "due",
       className: "organizer-assignment-nowrap",
       width: "1%",
-      render: (_, row) => <Tooltip title={assignmentDueNote(row.dueTimezone)}><span>{assignmentDueDate(row.dueAt, row.dueTimezone)}</span></Tooltip>,
+      render: (_, row) => <Tooltip title={assignmentDueNote(row.dueTimezone, row.dueAt)}><span>{assignmentDueDate(row.dueAt, row.dueTimezone)}</span></Tooltip>,
     },
     {
       title: "Trạng thái",
