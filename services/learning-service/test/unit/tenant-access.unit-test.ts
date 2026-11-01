@@ -286,3 +286,18 @@ for (const change of [
     };
     assert.throws(() => TenantAccessHttp.fromConfig((key) => config[key]));
   });
+
+for (const timezone of [
+  'Asia/Ho_Chi_Minh',
+  'asia/ho_chi_minh',
+  'Asia/TOKYO',
+  'Asia/Kolkata',
+])
+  void test(`access preserves Tenant timezone spelling: ${timezone}`, async () => {
+    await withResponse({ data: { ...data, timezone } }, 200, async (client) => {
+      assert.equal(
+        (await client.getOrganizationAccess(user)).timezone,
+        timezone,
+      );
+    });
+  });
