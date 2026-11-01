@@ -24,7 +24,8 @@ export function obligationOf(
 }
 
 /** The validated score of a review has two decimals (0-100, BR-202): compare whole hundredths, never floats. */
-const cents = (score: number | string): number => Math.round(Number(score) * 100);
+const cents = (score: number | string): number =>
+  Math.round(Number(score) * 100);
 
 /**
  * BR-253: the gap of a submission is the highest minus the lowest of its valid peer review scores. Fewer than two scores
