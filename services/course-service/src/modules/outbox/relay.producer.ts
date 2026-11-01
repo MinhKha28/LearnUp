@@ -228,13 +228,19 @@ export class RelayProducer {
     }
   }
 
-  async send(row: OutboxRow): Promise<void> {
-    const kafkaMessage = message(row);
-
-    await this.producer.send({
-      topic: this.config.topic,
-      messages: [kafkaMessage],
-    });
+  async send(rows: OutboxRow[]): Promise<PromiseSettledResult<void>[]> {
+    // Enqueue the entire claim before awaiting delivery. A single multi-message
+    // send rejects on the first failure and hides the other delivery outcomes.
+    // Keeping one promise per event lets us drain every report and retry only
+    // failed events; librdkafka still batches the concurrent sends on the wire.
+    return Promise.allSettled(
+      rows.map(async (row) => {
+        await this.producer.send({
+          topic: this.config.topic,
+          messages: [message(row)],
+        });
+      }),
+    );
   }
 
   async close(): Promise<void> {
