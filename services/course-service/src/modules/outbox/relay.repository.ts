@@ -24,7 +24,8 @@ export const claimSql = (limit: number) => Prisma.sql`
       'CourseDisabled',
       'CourseReactivated',
       'CourseComponentDisabled',
-      'CourseComponentReactivated'
+      'CourseComponentReactivated',
+      'CourseSubmitted'
     )
     AND (
       o.next_attempt_at IS NULL
