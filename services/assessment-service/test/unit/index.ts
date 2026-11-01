@@ -5,6 +5,7 @@ import './assessments-service.unit-test';
 import './peer-review-service.unit-test';
 import './peer-review-waiver.unit-test';
 import './completion-signal.unit-test';
+import './learner-review-rules.unit-test';
 import './cycle-score-gap.unit-test';
 import './quiz-service.unit-test';
 import './quiz-detail.unit-test';

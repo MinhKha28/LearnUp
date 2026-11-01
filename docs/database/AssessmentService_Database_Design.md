@@ -20,7 +20,7 @@ Hai điểm cần biết ngay:
 | Thời gian | `timestamptz`. `created_at` có `DEFAULT CURRENT_TIMESTAMP`; `updated_at` do ứng dụng điền |
 | Điểm | `numeric(5,2)` (điểm Quiz, điểm Assignment, điểm đạt) |
 | Xóa | Xóa Assessment kéo theo con bằng `ON DELETE CASCADE` (mục 3). Hai khóa ngoại dùng `RESTRICT` (`quiz_attempt_answers.question_id`, `submission_review_scores.criterion_id`) và một dùng `SET NULL` (`submission_reviews.cycle_id`) |
-| Khóa chặn tương tranh | Ba khóa tư vấn `pg_advisory_xact_lock(hashtext(...))`: theo Course (UC19.2, mục 4.1), theo `{assessmentId}:{learnerId}` (UC30, UC30.1) và theo `cycle:{assessmentId}` (đặt bài vào chu kỳ ở UC30 và UC30.1, và chốt chu kỳ ở UC33; mục 4.2, 4.3, 6). Chấm của Instructor dùng khóa dòng `SELECT … FOR UPDATE` trên bài nộp (UC32, mục 4.4) |
+| Khóa chặn tương tranh | Bốn khóa tư vấn `pg_advisory_xact_lock(hashtext(...))`: theo Course (UC19.2, mục 4.1), theo `{assessmentId}:{learnerId}` (UC30, UC30.1), theo `review:{submissionId}` (các lượt chấm của một bài lần lượt xong, UC31.1, mục 4.7) và theo `cycle:{assessmentId}` (đặt bài vào chu kỳ ở UC30 và UC30.1, và chốt chu kỳ ở UC33; mục 4.2, 4.3, 6). Chấm của Instructor dùng khóa dòng `SELECT … FOR UPDATE` trên bài nộp (UC32, mục 4.4) |
 
 ### 1.1 Truy vấn không lọc theo `organization_id`
 
@@ -170,7 +170,7 @@ Duy nhất `(assessment_id, learner_id, submission_number)`. **Điểm ghi nhậ
 | `AwaitingFinalization` | Đã có đủ đánh giá, chờ chốt điểm | Chấm của Instructor (UC32): từ `AwaitingInstructor` |
 | `Finalized` | Đã chốt điểm | **Chưa có code đặt** (UC32.3) |
 
-`intervention_reason`: `PEER_REVIEW_DISABLED` (chấm chéo tắt) và `RESUBMITTED_AFTER_CUTOFF` (nộp lại sau mốc chốt, BR-213). UC33 thêm `TOO_FEW_SUBMISSIONS` (chu kỳ ít hơn N + 1 bài, BR-242) và `REVIEW_MISSED` (bài chưa đủ đánh giá hợp lệ khi hết hạn, BR-243), do việc chốt chu kỳ và việc hết hạn đánh giá ghi (mục 6).
+`intervention_reason`: `PEER_REVIEW_DISABLED` (chấm chéo tắt) và `RESUBMITTED_AFTER_CUTOFF` (nộp lại sau mốc chốt, BR-213). UC33 thêm `TOO_FEW_SUBMISSIONS` (chu kỳ ít hơn N + 1 bài, BR-242) và `REVIEW_MISSED` (bài chưa đủ đánh giá hợp lệ khi hết hạn, BR-243), do việc chốt chu kỳ và việc hết hạn đánh giá ghi (mục 6). UC31.1 thêm `SCORE_GAP_EXCEEDED` (các lượt chấm của bài lệch nhau quá ngưỡng của chu kỳ, BR-252, BR-253), ghi cùng lúc với `grading_status` `AwaitingInstructor` khi lượt chấm cuối cùng của bài xong (mục 4.7).
 
 ### 3.9 `peer_review_cycles`
 
@@ -279,6 +279,12 @@ Không ghi gì. File đề bài do dịch vụ tải từ kho (URL dựng từ k
 ### 4.6 Chốt chu kỳ, nhắc, hết hạn (UC33)
 
 Mô tả ở mục 6. Có trên `develop` từ PR #173 (29/10/2026).
+
+### 4.7 Learner xem bài cần chấm và chấm bài chéo (UC31, UC31.1)
+
+**UC31 (`GET /api/v1/assessments/learner/peer-reviews`, `.../{reviewId}`, `.../{reviewId}/file`).** Không ghi gì. Danh sách là các dòng `submission_reviews` của Learner (không phải của Instructor), tối đa 200 dòng mới nhất, kèm hạn đánh giá của chu kỳ và `pendingCount` (BR-232). Mỗi dòng có `state`: `Open` (còn `Pending`, chu kỳ `Assigned`, chưa tới `review_due_at`), `Done` (`Completed`) hoặc `Closed` (còn lại, kể cả `Missed`). Học viên không thấy tác giả (BR-233): câu trả lời không có id tác giả, id bài nộp, số lần nộp hay ngày nộp; tệp trả qua `.../file` với tên trung tính `submitted-work.<đuôi>` thay tên tệp gốc. Lượt chấm của người khác trả 404. Quyền vào Course theo L17: `Full` hoặc `ReadOnly` (Course đã Completed vẫn chấm được các lượt đã phân công, BR-211), `None` thì 409 `ENROLLMENT_NOT_ACTIVE`.
+
+**UC31.1 (`POST .../{reviewId}`).** Một transaction: khóa `review:{submissionId}`; đọc lại lượt chấm; `Done` hoặc đã bị giành mất thì 409 `REVIEW_ALREADY_GIVEN`, `Closed` thì 409 `REVIEW_CLOSED`; kiểm điểm từng tiêu chí bằng `scoreFromRubric` (cùng hàm với UC32.2: đủ mọi tiêu chí, số nguyên, không quá điểm tối đa, nhận xét không rỗng, BR-257; lỗi 400, chưa ghi gì); đặt `status = Completed`, `score` (BR-202), `comment`, `completed_at` bằng cập nhật có điều kiện `WHERE status = Pending` rồi ghi `submission_review_scores`; nếu mọi lượt chấm đã phân công của bài đều `Completed` và bài còn `AwaitingPeerReview` (chưa bị thay thế) thì chuyển bài: chênh lệch điểm lớn hơn `peer_review_cycles.score_gap` thì `AwaitingInstructor` với `intervention_reason = SCORE_GAP_EXCEEDED`, ngược lại `AwaitingFinalization` (BR-251, BR-252, BR-253); ghi event `LearnerAssessmentStatusChanged` với `reason = PEER_REVIEW_COMPLETED`, `status = PeerReviewCompleted` và `reviewId` qua `emitCompletionSignal`. Lượt chấm đã nộp là cuối cùng, không sửa được. Nghĩa vụ của người chấm không có cột riêng (D10): `completion-snapshot` tính lại từ các dòng, nên chấm đủ thì `Satisfied` ngay.
 
 ---
 
