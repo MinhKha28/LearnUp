@@ -22,3 +22,36 @@ export function obligationOf(
     canWaive: waiverDecision(state, reviews, now) === 'WAIVE',
   };
 }
+
+/** The validated score of a review has two decimals (0-100, BR-202): compare whole hundredths, never floats. */
+const cents = (score: number | string): number => Math.round(Number(score) * 100);
+
+/**
+ * BR-253: the gap of a submission is the highest minus the lowest of its valid peer review scores. Fewer than two scores
+ * have no gap (nothing to compare). The gap is returned on the 0-100 scale with two decimals.
+ */
+export function scoreSpread(
+  scores: (number | string)[],
+): { lowest: number; highest: number; gap: number } | null {
+  if (scores.length < 2) return null;
+  const hundredths = scores.map(cents);
+  const lowest = Math.min(...hundredths);
+  const highest = Math.max(...hundredths);
+  return {
+    lowest: lowest / 100,
+    highest: highest / 100,
+    gap: (highest - lowest) / 100,
+  };
+}
+
+/**
+ * BR-252, BR-253: a submission goes to the Instructor for review when its gap is greater than the threshold of the cycle
+ * (equal is not greater). One the Instructor has already finalized needs nothing more.
+ */
+export function needsScoreReview(
+  gap: number | null,
+  threshold: number,
+  finalized: boolean,
+): boolean {
+  return gap !== null && !finalized && cents(gap) > cents(threshold);
+}

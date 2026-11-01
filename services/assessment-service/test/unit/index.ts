@@ -4,6 +4,7 @@ import './storage-provider.unit-test';
 import './assessments-service.unit-test';
 import './peer-review-service.unit-test';
 import './peer-review-waiver.unit-test';
+import './cycle-score-gap.unit-test';
 import './quiz-service.unit-test';
 import './quiz-detail.unit-test';
 import './peer-review-calendar.unit-test';

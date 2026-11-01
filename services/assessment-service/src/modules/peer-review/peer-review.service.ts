@@ -15,7 +15,7 @@ import { assignedNotice, waivedNotice } from './review-notice';
 import { waiverDecision } from './waiver';
 import type { IPeerReviewWaiver } from './interfaces/peer-review-waiver.interface';
 import type { IPeerReviewCycleDetail } from './interfaces/peer-review-cycle-detail.interface';
-import { obligationOf } from './cycle-detail';
+import { needsScoreReview, obligationOf, scoreSpread } from './cycle-detail';
 import { AssessmentsRepository } from '../assessments/assessments.repository';
 import {
   AssessmentsService,
@@ -292,6 +292,7 @@ export class PeerReviewService {
         closesAt: cycle.closesAt.toISOString(),
         reviewDueAt: cycle.reviewDueAt.toISOString(),
         reviewersPerSubmission: cycle.reviewersPerSubmission,
+        scoreGap: Number(cycle.scoreGap.toString()),
         submissionCount: submissions.length,
         status: cycleStatusOf({
           stored: cycle.status,
@@ -302,15 +303,26 @@ export class PeerReviewService {
         }),
         closed: cycle.status !== 'Open',
       },
-      submissions: submissions.map((submission) => ({
-        id: submission.id,
-        learnerId: submission.learnerId,
-        fullName: names.get(submission.learnerId) ?? '',
-        submittedAt: submission.submittedAt.toISOString(),
-        reviewsAssigned: submission.assigned,
-        reviewsCompleted: submission.completed,
-        reviewsMissing: submission.assigned - submission.completed,
-      })),
+      submissions: submissions.map((submission) => {
+        const spread = scoreSpread(submission.scores);
+        return {
+          id: submission.id,
+          learnerId: submission.learnerId,
+          fullName: names.get(submission.learnerId) ?? '',
+          submittedAt: submission.submittedAt.toISOString(),
+          reviewsAssigned: submission.assigned,
+          reviewsCompleted: submission.completed,
+          reviewsMissing: submission.assigned - submission.completed,
+          lowestScore: spread?.lowest ?? null,
+          highestScore: spread?.highest ?? null,
+          scoreGap: spread?.gap ?? null,
+          needsReview: needsScoreReview(
+            spread?.gap ?? null,
+            Number(cycle.scoreGap.toString()),
+            submission.finalized,
+          ),
+        };
+      }),
       reviewers: reviewers.map((reviewer) => ({
         learnerId: reviewer.learnerId,
         fullName: names.get(reviewer.learnerId) ?? '',

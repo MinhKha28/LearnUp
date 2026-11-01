@@ -15,6 +15,13 @@ export interface IPeerReviewCycleSubmission {
   reviewsCompleted: number;
   /** Assigned and not completed: the Instructor grades these (BR-243). */
   reviewsMissing: number;
+  /** Lowest and highest valid peer review score (0-100); null with fewer than two scores (BR-253). */
+  lowestScore: number | null;
+  highestScore: number | null;
+  /** Highest minus lowest; null when there is nothing to compare. */
+  scoreGap: number | null;
+  /** The gap is above the threshold of the cycle and the Instructor has not finalized it yet (BR-252). */
+  needsReview: boolean;
 }
 
 /** UC33.1: one Learner who has reviews to give in the cycle, with the state of the whole duty. */
@@ -38,6 +45,8 @@ export interface IPeerReviewCycleDetail {
     closesAt: string;
     reviewDueAt: string;
     reviewersPerSubmission: number;
+    /** The score gap above which a submission goes to the Instructor, on the 0-100 scale (BR-252). */
+    scoreGap: number;
     submissionCount: number;
     status: CycleStatus;
     closed: boolean;
