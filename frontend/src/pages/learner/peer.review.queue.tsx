@@ -28,7 +28,7 @@ const STATE_VIEW: Record<
 };
 
 const formatTime = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString() : "-";
+  iso ? new Date(iso).toLocaleString("vi-VN") : "-";
 
 /** What the Learner calls a review without knowing the author: the end of its id, like the other anonymous labels. */
 const reviewLabel = (item: ILearnerReviewItem) =>

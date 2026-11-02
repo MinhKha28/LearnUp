@@ -22,7 +22,7 @@ import "./peer.review.form.scss";
 const COMMENT_MAX_LENGTH = 2000;
 
 const formatTime = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString() : "-";
+  iso ? new Date(iso).toLocaleString("vi-VN") : "-";
 
 const saveBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
