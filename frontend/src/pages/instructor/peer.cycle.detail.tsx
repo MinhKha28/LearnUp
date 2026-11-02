@@ -21,7 +21,7 @@ import type {
 } from "@/types/assessment.types";
 import "./peer.cycles.scss";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString();
+const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
 
 const OBLIGATION_LABEL: Record<TReviewerObligation, string> = {
   Pending: "Đang thực hiện",

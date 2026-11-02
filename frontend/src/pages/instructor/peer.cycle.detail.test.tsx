@@ -139,6 +139,18 @@ describe("UC33.1 the detail of a cycle", () => {
     expect(screen.getByText("HẠN CHẤM")).toBeTruthy();
   });
 
+  it("shows the dates in the Vietnamese format whatever the language of the browser: day first, no AM or PM", async () => {
+    // the machine that runs the test may already be Vietnamese, so the locale is also checked where it is chosen
+    const format = vi.spyOn(Date.prototype, "toLocaleString");
+    renderPage();
+    await screen.findByText("Essay");
+    expect(format).toHaveBeenCalledWith("vi-VN");
+    format.mockRestore();
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/\b(AM|PM)\b/);
+    expect(text).toMatch(/\d{1,2}\/\d{1,2}\/2026/);
+  });
+
   it("lists the submissions with the reviews done, and a Learner the tenant does not know by the end of the id", async () => {
     renderPage();
     await screen.findByText("Author One");
