@@ -87,8 +87,8 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
   }
   private async run(): Promise<void> {
     do {
-      const full = await this.batch();
-      if (this.stopped || !full) return;
+      const published = await this.batch();
+      if (this.stopped || !published) return;
       await this.waitForDrainGap();
     } while (!this.stopped);
   }
@@ -113,7 +113,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
       return false;
     }
     this.brokerUnavailable = false;
-    let full = false;
+    let published = false;
     await this.repository.transaction(async (tx, rows) => {
       if (!rows.length) return;
       try {
@@ -130,9 +130,10 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
         );
         for (let i = 0; i < rows.length; i++) {
           const result = outcomes[i];
-          if (result.status === 'fulfilled')
+          if (result.status === 'fulfilled') {
             await this.repository.published(tx, rows[i]);
-          else {
+            published = true;
+          } else {
             this.logFailure('OUTBOX_RELAY_FAILURE', result.reason);
             await this.failure(tx, rows[i], result.reason);
           }
@@ -140,9 +141,9 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
         return;
       }
       for (const row of rows) await this.repository.published(tx, row);
-      full = rows.length === this.config.batchSize;
+      published = true;
     });
-    return full;
+    return published;
   }
   async beforeApplicationShutdown(): Promise<void> {
     this.stopped = true;

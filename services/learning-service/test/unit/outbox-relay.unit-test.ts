@@ -49,6 +49,10 @@ function fixture(
     ) => {
       transactions++;
       await work({} as Prisma.TransactionClient, rows);
+      // Published rows and rows in retry backoff are no longer claimable.
+      rows = rows.filter(
+        (r) => !published.includes(r.id) && !failed.some((f) => f.id === r.id),
+      );
     },
     published: async (_: unknown, r: OutboxRow) => {
       published.push(r.id);
@@ -355,12 +359,12 @@ test('gap zero: full batches commit and yield before claiming again without poll
     }
     await work(
       {} as Prisma.TransactionClient,
-      calls < 3 ? [row(), row()] : [row()],
+      calls < 3 ? [row(), row()] : calls === 3 ? [row()] : [],
     );
     committed = true;
   };
   await f.relay.tick();
-  assert.equal(calls, 3);
+  assert.equal(calls, 4);
   assert.equal(f.published.length, 5);
   await f.relay.beforeApplicationShutdown();
 });
@@ -447,22 +451,79 @@ test('drain gap accepts zero and nonnegative integers and rejects invalid settin
   }
 });
 
+for (const key of ['OUTBOX_DRAIN_GAP_MS', 'OUTBOX_POLL_INTERVAL_MS']) {
+  test(`${key}: accepts 60000 and rejects 60001`, () => {
+    const accepted = readRelayConfig((k) => (k === key ? '60000' : undefined));
+    assert.equal(
+      key === 'OUTBOX_DRAIN_GAP_MS' ? accepted.drainGapMs : accepted.pollMs,
+      60000,
+    );
+    assert.throws(
+      () => readRelayConfig((k) => (k === key ? '60001' : undefined)),
+      new RegExp(`Invalid ${key}`),
+    );
+  });
+}
+
+for (const partialFailure of [false, true]) {
+  test(`${partialFailure ? 'partial single-row failure' : 'under-full batch'}: progress uses drain gap, then empty claim uses pollMs`, async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const f = fixture(
+      async (rows) => {
+        if (partialFailure && (rows.length > 1 || rows[0].id.endsWith('2')))
+          throw { code: 10 };
+      },
+      [row(), row('019a0000-0000-7000-8000-000000000002')],
+      { ...config, enabled: true, batchSize: 3 },
+    );
+    let claims = 0;
+    const transaction = f.repository.transaction;
+    f.repository.transaction = async (work) => {
+      if (++claims === 1) await transaction(work);
+      else await work({} as Prisma.TransactionClient, []);
+    };
+    try {
+      f.relay.onModuleInit();
+      t.mock.timers.tick(0);
+      await flush();
+      assert.equal(claims, 1);
+      assert.equal(f.published.length, partialFailure ? 1 : 2);
+      assert.equal(f.failed.length, partialFailure ? 1 : 0);
+      t.mock.timers.tick(config.drainGapMs - 1);
+      await flush();
+      assert.equal(claims, 1);
+      t.mock.timers.tick(1);
+      await flush();
+      assert.equal(claims, 2);
+      t.mock.timers.tick(config.pollMs - 1);
+      await flush();
+      assert.equal(claims, 2);
+      t.mock.timers.tick(1);
+      await flush();
+      assert.equal(claims, 3);
+    } finally {
+      await f.relay.beforeApplicationShutdown();
+      t.mock.timers.reset();
+    }
+  });
+}
+
 for (const failure of [
-  'none',
+  'empty',
   'batch',
   'individual',
   'transaction',
   'broker',
 ]) {
-  test(`${failure}: scheduled relay waits pollMs after under-full or failed batch`, async (t) => {
+  test(`${failure}: scheduled relay waits pollMs when no rows publish`, async (t) => {
     t.mock.timers.enable({ apis: ['setTimeout'] });
     const f = fixture(
-      async (rows) => {
+      async () => {
         if (failure === 'batch') throw { code: -195 };
-        if (failure === 'individual' && rows.length > 1) throw { code: 10 };
+        if (failure === 'individual') throw { code: 10 };
       },
-      [row(), row()],
-      { ...config, enabled: true, batchSize: failure === 'none' ? 3 : 2 },
+      failure === 'empty' ? [] : [row(), row()],
+      { ...config, enabled: true, batchSize: 2 },
     );
     let claims = 0;
     let probes = 0;
