@@ -30,3 +30,21 @@ erDiagram
         text error_message "Error message if failed"
         timestamptz sent_at "Sent timestamp"
     }
+
+    enrollment_event_deliveries {
+        uuid id PK "Primary Key"
+        uuid event_id UK "Event id (unique with recipient and channel)"
+        varchar event_type "EnrollmentAssigned | ..."
+        uuid organization_id "Tenant reference"
+        uuid enrollment_id "Enrollment the event is about"
+        uuid recipient_user_id UK "Learner who is told"
+        varchar channel UK "EMAIL | IN_APP"
+        varchar status "PENDING | PROCESSING | SENT | FAILED | SKIPPED"
+        integer attempts "Times a handler claimed the row"
+        varchar last_error "Fixed error code"
+        timestamptz occurred_at "When the event happened"
+        timestamptz sent_at "When marked SENT"
+        timestamptz claimed_at "Claim time while PROCESSING"
+        timestamptz created_at "Created timestamp"
+        timestamptz updated_at "Updated timestamp"
+    }
