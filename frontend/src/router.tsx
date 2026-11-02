@@ -427,9 +427,12 @@ export const router = createBrowserRouter([
         element: <InstructorSubmissionFinalize />,
       },
       { path: "peer-cycles", element: <InstructorPeerCycles /> },
-      { path: "peer-cycles/:cycleId", element: <InstructorPeerCycleDetail /> },
       {
-        path: "peer-cycles/:cycleId/waive/:reviewerId",
+        path: "peer-cycles/:assignmentId/:cycleId",
+        element: <InstructorPeerCycleDetail />,
+      },
+      {
+        path: "peer-cycles/:assignmentId/:cycleId/waive/:learnerId",
         element: <InstructorPeerCycleWaive />,
       },
       { path: "monitoring", element: <InstructorMonitoring /> },

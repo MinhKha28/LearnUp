@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from 'generated/prisma/client';
+import { Prisma } from 'generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { assignmentInclude } from '../assessments/assessments.repository';
+import type { AssignmentFacts } from '../completion-snapshot/completion-snapshot';
 import type { PeerReviewUpdateData } from './interfaces/peer-review-update-data.interface';
 
 /** Database access of UC19.5; the Peer Review settings live on the Assignment row. */
@@ -39,6 +40,144 @@ export class PeerReviewRepository {
       if (row.cycleId) counts.set(row.cycleId, row._count._all);
     }
     return counts;
+  }
+
+  /** UC33.1: the current submissions of a cycle with the peer reviews handed out for each (the Instructor's own are not peer reviews). */
+  cycleSubmissionRows(cycleId: string) {
+    return this.prisma.$queryRaw<
+      {
+        id: string;
+        learnerId: string;
+        submittedAt: Date;
+        assigned: number;
+        completed: number;
+      }[]
+    >(Prisma.sql`
+      SELECT s.id, s.learner_id AS "learnerId", s.submitted_at AS "submittedAt",
+             count(r.id)::int AS assigned,
+             (count(r.id) FILTER (WHERE r.status = 'Completed'))::int AS completed
+      FROM submissions s
+      LEFT JOIN submission_reviews r ON r.submission_id = s.id AND lower(r.reviewer_role) <> 'instructor'
+      WHERE s.cycle_id = ${cycleId}::uuid AND s.superseded_at IS NULL
+      GROUP BY s.id
+      ORDER BY s.submitted_at, s.id
+    `);
+  }
+
+  /** UC33.1: the Learners who have peer reviews to give in a cycle, with how many were handed out and how many are done. */
+  cycleReviewerRows(cycleId: string) {
+    return this.prisma.$queryRaw<
+      { learnerId: string; assigned: number; completed: number }[]
+    >(Prisma.sql`
+      SELECT r.reviewer_id AS "learnerId", count(*)::int AS assigned,
+             (count(*) FILTER (WHERE r.status = 'Completed'))::int AS completed
+      FROM submission_reviews r
+      WHERE r.cycle_id = ${cycleId}::uuid AND lower(r.reviewer_role) <> 'instructor'
+      GROUP BY r.reviewer_id
+      ORDER BY r.reviewer_id
+    `);
+  }
+
+  /** UC33.1: every peer review of the given Learners on the Assignment (all cycles): the duty is read from the latest cycle. */
+  async peerReviewsOf(
+    assessmentId: string,
+    learnerIds: string[],
+  ): Promise<Map<string, AssignmentFacts['reviews']>> {
+    const byLearner = new Map<string, AssignmentFacts['reviews']>();
+    if (learnerIds.length === 0) return byLearner;
+    const rows = await this.prisma.$queryRaw<
+      {
+        reviewerId: string;
+        status: string;
+        reviewDueAt: Date | null;
+        cycleId: string | null;
+        cycleClosesAt: Date | null;
+      }[]
+    >(Prisma.sql`
+      SELECT r.reviewer_id AS "reviewerId", r.status, c.review_due_at AS "reviewDueAt",
+             r.cycle_id AS "cycleId", c.closes_at AS "cycleClosesAt"
+      FROM submission_reviews r
+      JOIN submissions rs ON rs.id = r.submission_id
+      LEFT JOIN peer_review_cycles c ON c.id = r.cycle_id
+      WHERE rs.assessment_id = ${assessmentId}::uuid AND r.reviewer_id = ANY(${learnerIds}::uuid[])
+        AND lower(r.reviewer_role) <> 'instructor'
+    `);
+    for (const { reviewerId, ...review } of rows) {
+      const list = byLearner.get(reviewerId) ?? [];
+      list.push(review);
+      byLearner.set(reviewerId, list);
+    }
+    return byLearner;
+  }
+
+  /** UC33.1: the states (with the waiver date) of the given Learners on the Assignment. */
+  findLearnerStates(assessmentId: string, learnerIds: string[]) {
+    return this.prisma.learnerAssessmentState.findMany({
+      where: { assessmentId, learnerId: { in: learnerIds } },
+      select: { learnerId: true, exemptedAt: true },
+    });
+  }
+
+  /** UC33.2: the state of one Learner on one Assignment (BR-176 counters, and when the duty was waived). */
+  findLearnerState(
+    tx: Prisma.TransactionClient,
+    assessmentId: string,
+    learnerId: string,
+  ) {
+    return tx.learnerAssessmentState.findUnique({
+      where: { assessmentId_learnerId: { assessmentId, learnerId } },
+    });
+  }
+
+  /**
+   * UC33.2: the reviews the Learner owes or gave as a peer on one Assignment (never the Instructor's own), each with its
+   * cycle: the facts the completion snapshot reads, so "owes a peer review" is decided with peerReviewOf everywhere (D10).
+   */
+  async findLearnerPeerReviews(
+    tx: Prisma.TransactionClient,
+    assessmentId: string,
+    learnerId: string,
+  ): Promise<AssignmentFacts['reviews']> {
+    return tx.$queryRaw<AssignmentFacts['reviews']>(Prisma.sql`
+      SELECT r.status, c.review_due_at AS "reviewDueAt", r.cycle_id AS "cycleId", c.closes_at AS "cycleClosesAt"
+      FROM submission_reviews r
+      JOIN submissions rs ON rs.id = r.submission_id
+      LEFT JOIN peer_review_cycles c ON c.id = r.cycle_id
+      WHERE rs.assessment_id = ${assessmentId}::uuid AND r.reviewer_id = ${learnerId}::uuid
+        AND lower(r.reviewer_role) <> 'instructor'
+    `);
+  }
+
+  /**
+   * UC33.2: records the waiver and the event that tells learning the status of the Learner changed, in one transaction.
+   * The update only takes a row that is not waived yet, so of two requests at the same moment exactly one gets true,
+   * whatever the locks around it do; the other writes nothing.
+   */
+  async waive(
+    tx: Prisma.TransactionClient,
+    state: { id: string; organizationId: string },
+    by: string,
+    now: Date,
+    event: Omit<
+      Prisma.OutboxEventUncheckedCreateInput,
+      'aggregateType' | 'aggregateId' | 'organizationId' | 'occurredAt'
+    >,
+  ): Promise<boolean> {
+    const taken = await tx.learnerAssessmentState.updateMany({
+      where: { id: state.id, exemptedAt: null },
+      data: { exemptedAt: now, exemptedBy: by },
+    });
+    if (taken.count === 0) return false;
+    await tx.outboxEvent.create({
+      data: {
+        ...event,
+        aggregateType: 'LearnerAssessmentState',
+        aggregateId: state.id,
+        organizationId: state.organizationId,
+        occurredAt: now,
+      },
+    });
+    return true;
   }
 
   transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
