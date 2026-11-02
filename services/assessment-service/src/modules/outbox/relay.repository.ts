@@ -23,9 +23,10 @@ export interface RelayRow {
 }
 
 /**
- * The rows of one batch: not sent yet, due, and the oldest of their aggregate (a row waits while an older one of the same
- * aggregate is not sent, so the events of a Learner on an Assessment go out in the order they were written, even when a
- * relay fails or holds the older row). `SKIP LOCKED` lets two relays, or two instances, take different rows.
+ * The rows of one batch: not sent yet, due, and the oldest of their Learner (a row waits while an older one of the same
+ * Learner is not sent, whatever Assessment it is about, so the events of a Learner go out in the order they were written,
+ * even when a relay fails or holds the older row). The Learner is the Kafka key, and Kafka keeps order only within a key,
+ * so this is the order the consumers can count on. `SKIP LOCKED` lets two relays, or two instances, take different rows.
  */
 export const claimSql = (limit: number, types: readonly string[]) => Prisma.sql`
   SELECT o.id, o.aggregate_id, o.event_type, o.organization_id, o.payload, o.occurred_at, o.attempts
@@ -35,7 +36,7 @@ export const claimSql = (limit: number, types: readonly string[]) => Prisma.sql`
     AND (o.next_attempt_at IS NULL OR o.next_attempt_at <= now())
     AND NOT EXISTS (
       SELECT 1 FROM outbox_events p
-      WHERE p.aggregate_id = o.aggregate_id AND p.published_at IS NULL
+      WHERE p.payload ->> 'learnerId' = o.payload ->> 'learnerId' AND p.published_at IS NULL
         AND p.event_type IN (${Prisma.join(types)}) AND p.id < o.id)
   ORDER BY o.id
   LIMIT ${limit}

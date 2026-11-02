@@ -178,6 +178,85 @@ describe('the relay of the outbox over Postgres', () => {
     assert.equal((await state(second)).published_at, null);
   });
 
+  test('the events of one Learner go out in order even when they are about different Assessments: the later one waits for the earlier', async () => {
+    await clear();
+    const learner = { learnerId: aggregate(600) };
+    // the same Learner on two Assessments: two aggregates, one Kafka key
+    const [older] = await addEvents(
+      db,
+      aggregate(601),
+      LEARNER_STATUS_CHANGED_EVENT,
+      1,
+      learner,
+    );
+    const [newer] = await addEvents(
+      db,
+      aggregate(602),
+      LEARNER_STATUS_CHANGED_EVENT,
+      1,
+      learner,
+    );
+    const gate = new RecordingGate();
+    gate.failEvery = (row) => row.id === older;
+    const worker = relay(gate);
+    await worker.tick();
+    assert.equal((await state(older)).attempts, 1);
+    await worker.tick();
+    assert.deepEqual(
+      gate.sent,
+      [],
+      'the newer event does not overtake the older one, which waits',
+    );
+    assert.equal((await state(newer)).published_at, null);
+    // once the older one can go, it goes first and the newer follows
+    await db.query(
+      'UPDATE outbox_events SET next_attempt_at = NULL WHERE id = $1',
+      [older],
+    );
+    gate.failEvery = null;
+    await worker.tick();
+    await worker.tick();
+    assert.deepEqual(gate.sent, [older, newer]);
+  });
+
+  test('a batch never holds two events of one Learner, so the rows tried one by one cannot swap places', async () => {
+    await clear();
+    const calls: RelayRow[][] = [];
+    class SpyGate extends RecordingGate {
+      override async send(rows: RelayRow[]) {
+        calls.push(rows);
+        await super.send(rows);
+      }
+    }
+    // three Learners, each on three Assessments: nine rows, three per Learner
+    for (let learner = 0; learner < 3; learner += 1) {
+      for (let assessment = 0; assessment < 3; assessment += 1) {
+        await addEvents(
+          db,
+          aggregate(700 + learner * 10 + assessment),
+          LEARNER_STATUS_CHANGED_EVENT,
+          1,
+          { learnerId: aggregate(690 + learner) },
+        );
+      }
+    }
+    const worker = relay(new SpyGate());
+    for (let i = 0; i < 4; i += 1) await worker.tick();
+    assert.equal(
+      calls.flat().length,
+      9,
+      'every row went out within three runs, one per Learner each',
+    );
+    for (const rows of calls) {
+      const learners = rows.map((row) => row.payload.learnerId as string);
+      assert.equal(
+        new Set(learners).size,
+        learners.length,
+        'two rows of one Learner in the same batch',
+      );
+    }
+  });
+
   test('a bad event does not hold back the others of its batch: they go out, only it waits', async () => {
     await clear();
     const gate = new RecordingGate();
@@ -350,8 +429,11 @@ describe('the relay inside the running service, without a Kafka', () => {
     try {
       const id = await event(901);
       await sleep(2500);
-      const response = await fetch(`${service.baseUrl}/api/v1/assessments`);
-      assert.ok(response.status >= 200, 'the service answers requests');
+      const response = await fetch(
+        `${service.baseUrl}/api/v1/assessments/assignments`,
+      );
+      // no key and no user: the guard answers 401, which only a service that is up and serving can say (not a 500)
+      assert.equal(response.status, 401, 'the service answers requests');
       const row = await rowOf(id);
       assert.equal(row.published_at, null);
       assert.equal(

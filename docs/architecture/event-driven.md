@@ -78,7 +78,7 @@ To maintain simplicity, clarity, and avoid unnecessary technical failure modes f
 
 ## Assessment outbox relay (step 23)
 
-`learnup.assessment.learner-status-changed` carries `LearnerAssessmentStatusChanged` (UC30, UC30.1, UC33.2 and later UC29.1, UC31, UC32.3): key = learnerId, so the events of one Learner stay in order on one partition; three partitions, 30-day retention, envelope v1 with producer `assessment-service`. The relay is the same design as the learning one (non-overlapping run, `FOR UPDATE SKIP LOCKED`, a lower unsent row of the same aggregate blocks its successors, at-least-once, consumers deduplicate `eventId`); its details and the verification are in [assessment-outbox-relay-verification.md](assessment-outbox-relay-verification.md). Off unless `OUTBOX_RELAY_ENABLED=true`; Compose turns it on.
+`learnup.assessment.learner-assessment-events` carries `LearnerAssessmentStatusChanged` (UC30, UC30.1, UC33.2 and later UC29.1, UC31, UC32.3): key = learnerId, so the events of one Learner stay in order on one partition; three partitions, 30-day retention, envelope v1 with producer `assessment-service`. The relay is the same design as the learning one (non-overlapping run, `FOR UPDATE SKIP LOCKED`, a lower unsent row of the same Learner (the Kafka key) blocks its successors, at-least-once, consumers deduplicate `eventId`); its details and the verification are in [assessment-outbox-relay-verification.md](assessment-outbox-relay-verification.md). Off unless `OUTBOX_RELAY_ENABLED=true`; Compose turns it on.
 
 ## Learning Enrollment outbox relay (L6, BR-143)
 

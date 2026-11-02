@@ -11,7 +11,7 @@ Base: origin/develop 44fabb1, branch feat/assessment/completion-signal (on top o
 - Compose configuration validation: successful.
 - `prisma migrate deploy` of every migration on an empty database, then `prisma migrate diff` against `schema.prisma`: no difference.
 - Windows Confluent 1.11.0 native install: successful.
-- Mutation checks, each caught by a test: no `SKIP LOCKED`, no per-aggregate ordering, no event type filter, a failure of the whole batch for one bad row, a failure of the destination handled row by row, the key of the message not the Learner, a wrong producer, a constant `revision`.
+- Mutation checks, each caught by a test: no `SKIP LOCKED`, no per-Learner ordering (the old per-aggregate claim fails it too), no event type filter, a failure of the whole batch for one bad row, a failure of the destination handled row by row, the key of the message not the Learner, a wrong producer, a constant `revision`.
 - Image and API smoke on the Compose stack (assessment-service container, Compose Postgres and Kafka): a real waiver (UC33.2) through the container wrote one outbox row, the relay of the container published it, and the message was read from the topic with `kafka-console-consumer` (below).
 - Two relays at the same moment (integration): 20 Learners x 3 events, two Kafka gates, every event received once and the events of a Learner in the order they were written.
 - Kafka stopped before the relay turn: the service serves a database read with HTTP 200, the waiver answers 200, the row stays unsent with `attempts` 0 (no row was claimed), one `OUTBOX_GATE_UNAVAILABLE` warning. Kafka started again: the same running service delivered the queued event, 28 seconds after the start of the Kafka container (this includes the time the broker needs to become healthy), with no restart.
@@ -47,7 +47,7 @@ Synthetic dev fixture (a dev Learner and the dev UC33 Assignment):
 }
 ```
 
-The topic is `learnup.assessment.learner-status-changed` (3 partitions, replication factor 1 in Compose, retention 30 days). The key is the Learner, so the events of one Learner stay in order on one partition.
+The topic is `learnup.assessment.learner-assessment-events` (3 partitions, replication factor 1 in Compose, retention 30 days). The key is the Learner, so the events of one Learner stay in order on one partition.
 
 ## Error classification
 

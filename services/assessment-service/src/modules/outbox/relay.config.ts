@@ -42,7 +42,8 @@ export function readRelayConfig(
     brokers: (get('KAFKA_BROKERS') ?? 'localhost:9092')
       .split(',')
       .map((broker) => broker.trim()),
-    topic: get('OUTBOX_TOPIC') ?? 'learnup.assessment.learner-status-changed',
+    topic:
+      get('OUTBOX_TOPIC') ?? 'learnup.assessment.learner-assessment-events',
     replicationFactor: integer('OUTBOX_REPLICATION_FACTOR', 1),
     pollMs: integer('OUTBOX_POLL_INTERVAL_MS', 1000),
     batchSize: integer('OUTBOX_BATCH_SIZE', 20),

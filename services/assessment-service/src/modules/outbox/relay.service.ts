@@ -99,6 +99,8 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
         }
         // The failure belongs to some rows: the others must not wait for them. A row the gate had accepted before it failed
         // may go out a second time, which the consumer tolerates (same eventId).
+        // These sends run together, which cannot swap two events of a Learner: the claim takes only the oldest unsent row of
+        // each Learner, so a batch never holds two of them.
         const outcomes = await Promise.allSettled(
           rows.map((row) => this.gate.send([row])),
         );

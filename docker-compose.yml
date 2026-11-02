@@ -367,7 +367,7 @@ services:
       # host because learning-service reads OUTBOX_TOPIC and the others from the same .env.
       KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:29092}
       OUTBOX_RELAY_ENABLED: ${ASSESSMENT_OUTBOX_RELAY_ENABLED:-true}
-      OUTBOX_TOPIC: ${ASSESSMENT_OUTBOX_TOPIC:-learnup.assessment.learner-status-changed}
+      OUTBOX_TOPIC: ${ASSESSMENT_OUTBOX_TOPIC:-learnup.assessment.learner-assessment-events}
       OUTBOX_REPLICATION_FACTOR: ${ASSESSMENT_OUTBOX_REPLICATION_FACTOR:-1}
       OUTBOX_POLL_INTERVAL_MS: ${ASSESSMENT_OUTBOX_POLL_INTERVAL_MS:-1000}
       OUTBOX_BATCH_SIZE: ${ASSESSMENT_OUTBOX_BATCH_SIZE:-20}
