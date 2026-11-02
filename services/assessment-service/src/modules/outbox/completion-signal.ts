@@ -69,7 +69,7 @@ export function signalPayload(
 /**
  * Writes the status-changed event into the outbox of the transaction the change itself runs in, so the event exists if
  * and only if the change does. The revision is read inside the same transaction, so it already sees the change.
- * The relay that publishes the row is a later step.
+ * The relay (relay.service.ts) publishes the row to Kafka afterwards.
  */
 export async function emitCompletionSignal(
   tx: Prisma.TransactionClient,
