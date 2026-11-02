@@ -1,3 +1,4 @@
+import { AssessmentStatusModule } from './modules/assessment-status/assessment-status.module';
 import { Module } from '@nestjs/common';
 import { CompletionModule } from './modules/course-completion/completion.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
@@ -21,6 +22,7 @@ import { PrismaModule } from './infrastructure/prisma/prisma.module';
 @Module({
   imports: [
     CompletionModule,
+    AssessmentStatusModule,
     AssignmentsModule,
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
