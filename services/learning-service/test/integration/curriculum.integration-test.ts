@@ -1,3 +1,10 @@
+import { mock } from 'node:test';
+import {
+  ASSESSMENT_COMPLETION_CLIENT,
+  type AssessmentCompletionClient,
+  type CompletionSnapshot,
+} from '../../src/infrastructure/clients/assessment/assessment-completion.client';
+import type { ProgressView } from '../../src/modules/curriculum/progress.service';
 import { closeAll, closeApp } from './deadlines';
 import { testFetch as fetch } from './test-io';
 /**
@@ -152,7 +159,9 @@ async function learningState(enrollmentId: string) {
             (SELECT count(*) FROM material_snapshots m WHERE m.organization_id = $2) AS materials,
             (SELECT count(*) FROM lesson_snapshots l WHERE l.organization_id = $2) AS lessons,
             (SELECT count(*) FROM course_version_snapshots c WHERE c.organization_id = $2) AS versions,
-            (SELECT count(*) FROM enrollments x WHERE x.organization_id = $2) AS enrollments
+            (SELECT count(*) FROM enrollments x WHERE x.organization_id = $2) AS enrollments,
+            (SELECT count(*) FROM completion_evaluation_requests r WHERE r.organization_id = $2) AS evaluations,
+            (SELECT count(*) FROM outbox_events o WHERE o.organization_id = $2) AS outbox
        FROM enrollments e WHERE e.id = $1 AND e.organization_id = $2`,
     [enrollmentId, ENROLL_IT_ORG],
   );
@@ -180,7 +189,10 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
         await resetEnrollFixture(learningDb);
       }
     } finally {
-      await closeAll(() => closeApp(app), () => learningDb.end());
+      await closeAll(
+        () => closeApp(app),
+        () => learningDb.end(),
+      );
     }
   });
 
@@ -417,5 +429,170 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
     assert.deepEqual(await learningState(id), before);
     assert.equal(before.status, 'NotStarted');
     assert.equal(before.first_activity_at, null);
+  });
+  void test('UC28 owner sees real materials and counts; repeated reads perform no Learning writes', async () => {
+    await resetEnrollFixture(learningDb);
+    const { id } = await createRequiredEnrollment(
+      app!,
+      ENROLL_IT_LEARNER_1,
+      ENROLL_IT_PUBLIC_COURSE,
+      new Date(),
+    );
+    const assessment = app!.get<AssessmentCompletionClient>(
+      ASSESSMENT_COMPLETION_CLIENT,
+    );
+    const spy = mock.method(
+      assessment,
+      'getCompletionSnapshot',
+      async (
+        organizationId: string,
+        learnerId: string,
+        courseId: string,
+      ): Promise<CompletionSnapshot> => ({
+        schemaVersion: 1,
+        snapshotId: randomUUID(),
+        revision: 'materials-only',
+        asOf: new Date().toISOString(),
+        organizationId,
+        learnerId,
+        courseId,
+        eligible: true,
+        requiredComponentCount: 0,
+        quizzes: [],
+        assignments: [],
+      }),
+    );
+    try {
+      const before = await learningState(id);
+      for (let i = 0; i < 2; i++) {
+        const response = await get(
+          ENROLL_IT_LEARNER_1,
+          `/enrollments/${id}/progress`,
+        );
+        assert.equal(response.status, 200);
+        const data = response.data as unknown as ProgressView;
+        assert.equal(data.materials?.length, 2);
+        assert.equal(
+          data.materials?.find((m) => m.materialId === PUBLIC_REQUIRED_VIDEO)
+            ?.required,
+          true,
+        );
+        assert.deepEqual(data.assessment, { state: 'ok', items: [] });
+        assert.deepEqual(data.conditions, {
+          state: 'ok',
+          met: 0,
+          total: 1,
+          missing: [{ kind: 'material', id: PUBLIC_REQUIRED_VIDEO }],
+        });
+      }
+      assert.deepEqual(await learningState(id), before);
+      assert.equal(spy.mock.callCount(), 2);
+    } finally {
+      spy.mock.restore();
+    }
+  });
+
+  void test('UC28 foreign, missing, Withdrawn, Halted and role errors match curriculum', async () => {
+    await resetEnrollFixture(learningDb);
+    const { id } = await createRequiredEnrollment(
+      app!,
+      ENROLL_IT_LEARNER_1,
+      ENROLL_IT_PUBLIC_COURSE,
+      new Date(),
+    );
+    const path = `/enrollments/${id}/progress`;
+    await expectError(ENROLL_IT_LEARNER_2, path, 404, 'ENROLLMENT_NOT_FOUND');
+    await expectError(
+      ENROLL_IT_LEARNER_1,
+      `/enrollments/${randomUUID()}/progress`,
+      404,
+      'ENROLLMENT_NOT_FOUND',
+    );
+    await expectError(
+      ENROLL_IT_LEARNER_1,
+      '/enrollments/invalid/progress',
+      404,
+      'ENROLLMENT_NOT_FOUND',
+    );
+    assert.equal(
+      (await get({ ...ENROLL_IT_LEARNER_1, role: 'ORGANIZER' }, path)).status,
+      403,
+    );
+    for (const [status, http, code] of [
+      ['Halted', 403, 'CONTENT_UNAVAILABLE'],
+      ['Withdrawn', 404, 'ENROLLMENT_NOT_FOUND'],
+    ] as const) {
+      await learningDb.query(
+        `UPDATE enrollments SET status=$1,withdrawn_at=CASE WHEN $1='Withdrawn' THEN now() ELSE NULL END,withdrawn_reason=CASE WHEN $1='Withdrawn' THEN 'HaltedClosed' ELSE NULL END WHERE id=$2 AND organization_id=$3`,
+        [status, id, ENROLL_IT_ORG],
+      );
+      await expectError(ENROLL_IT_LEARNER_1, path, http, code);
+    }
+  });
+
+  void test('UC28 Completed uses stored completion summary and never calls Assessment', async () => {
+    await resetEnrollFixture(learningDb);
+    const { id } = await createRequiredEnrollment(
+      app!,
+      ENROLL_IT_LEARNER_1,
+      ENROLL_IT_PUBLIC_COURSE,
+      new Date(),
+    );
+    await learningDb.query(
+      `UPDATE enrollments SET status='Completed',completed_at=now(),completed_late=false WHERE id=$1 AND organization_id=$2`,
+      [id, ENROLL_IT_ORG],
+    );
+    const assessment = app!.get<AssessmentCompletionClient>(
+      ASSESSMENT_COMPLETION_CLIENT,
+    );
+    const spy = mock.method(assessment, 'getCompletionSnapshot', async () => {
+      throw new Error('must not call');
+    });
+    try {
+      const before = await learningState(id);
+      const response = await get(
+        ENROLL_IT_LEARNER_1,
+        `/enrollments/${id}/progress`,
+      );
+      assert.equal(response.status, 200);
+      assert.deepEqual(Object.keys(response.data), ['enrollment']);
+      assert.equal(
+        (response.data.enrollment as ProgressView['enrollment']).status,
+        'Completed',
+      );
+      assert.equal(spy.mock.callCount(), 0);
+      assert.deepEqual(await learningState(id), before);
+    } finally {
+      spy.mock.restore();
+    }
+  });
+
+  void test('UC28 failed snapshot still returns 200 and materials without writes', async () => {
+    await resetEnrollFixture(learningDb);
+    const { id } = await createRequiredEnrollment(
+      app!,
+      ENROLL_IT_LEARNER_1,
+      ENROLL_IT_PUBLIC_COURSE,
+      new Date(),
+    );
+    const assessment = app!.get<AssessmentCompletionClient>(
+      ASSESSMENT_COMPLETION_CLIENT,
+    );
+    const spy = mock.method(assessment, 'getCompletionSnapshot', async () => {
+      throw new Error('unavailable');
+    });
+    try {
+      const before = await learningState(id);
+      const response = await get(
+        ENROLL_IT_LEARNER_1,
+        `/enrollments/${id}/progress`,
+      );
+      assert.equal(response.status, 200);
+      assert.deepEqual(response.data.assessment, { state: 'unavailable' });
+      assert.equal((response.data.materials as unknown[]).length, 2);
+      assert.deepEqual(await learningState(id), before);
+    } finally {
+      spy.mock.restore();
+    }
   });
 });

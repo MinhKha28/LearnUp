@@ -619,6 +619,44 @@ describe('a waived peer review duty (UC33.2, BR-241)', () => {
     assert.equal(snapshot.eligible, false);
   });
 
+  test('over several cycles: a waiver counts the latest cycle only, covers the debt of an older one, and a later cycle does not undo it', () => {
+    // cycle 1 was missed, cycle 2 (the latest with reviews) is half done and still in time
+    const cycle = (status: string, n: number, due: Date) => ({
+      status,
+      reviewDueAt: due,
+      cycleId: `cycle-${n}`,
+      cycleClosesAt: new Date(Date.UTC(2026, 9, 10 + 7 * n)),
+    });
+    const reviews = [
+      cycle('Missed', 1, PAST),
+      cycle('Missed', 1, PAST),
+      cycle('Completed', 2, FUTURE),
+      cycle('Pending', 2, FUTURE),
+    ];
+    const facts = (exemptedAt: Date | null) =>
+      build(
+        [],
+        [{ ...assignment(1, '70', finalized('90'), reviews), exemptedAt }],
+      );
+
+    const owing = facts(null);
+    assert.deepEqual(owing.assignments[0].peerReview, {
+      status: 'Pending',
+      requiredCount: 2,
+      completedCount: 1,
+    });
+    assert.equal(owing.eligible, false);
+
+    const waived = facts(PAST);
+    assert.deepEqual(waived.assignments[0].peerReview, {
+      status: 'Waived',
+      requiredCount: 2, // the counts of cycle 2 only, not the four reviews of both cycles
+      completedCount: 1,
+    });
+    assert.equal(waived.eligible, true);
+    accepted(waived);
+  });
+
   test('the revision changes when the waiver is given, so learning sees a new snapshot', () => {
     const before = build(
       [],

@@ -16,6 +16,8 @@ export interface AccessibleEnrollment {
   status: string;
   dueAt: Date | null;
   dueTimezone: string | null;
+  completedAt: Date | null;
+  completedLate: boolean | null;
   /** disabled_at của bản sao phiên bản. */
   versionDisabledAt: Date | null;
 }
@@ -40,6 +42,7 @@ export class CurriculumRepository extends BaseRepository {
              e.status AS "storedStatus",
              ${enrollmentDisplayStatusSql('e')} AS "status",
              e.due_at AS "dueAt", e.due_timezone AS "dueTimezone",
+             e.completed_at AS "completedAt", e.completed_late AS "completedLate",
              c.disabled_at AS "versionDisabledAt"
         FROM enrollments e
         LEFT JOIN course_version_snapshots c

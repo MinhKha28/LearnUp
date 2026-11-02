@@ -147,7 +147,7 @@ const PeerCycleTable = ({
                 <td>
                   {cycle.submissionCount > 0 && (
                     <Link className="peer-cycles-detail-link" to={`/instructor/peer-cycles/${assignmentId}/${cycle.id}`}>
-                      Details
+                      Chi tiết
                     </Link>
                   )}{" "}
                   {!cycle.closed && Date.parse(cycle.closesAt) <= Date.now() && (
