@@ -10,11 +10,11 @@ import {
 } from "@/components/learner/learner.ui";
 import {
   assessmentErrorCode,
-  assessmentErrorText,
   downloadLearnerPromptFileAPI,
   downloadLearnerReviewFileAPI,
   fetchLearnerPeerReviewAPI,
   giveLearnerPeerReviewAPI,
+  vietnameseErrorText,
 } from "@/services/assessment.service";
 import type { ILearnerReviewDetail } from "@/types/assessment.types";
 import "./peer.review.form.scss";
@@ -70,13 +70,13 @@ const PeerReviewForm = () => {
         setDetail(null);
         setNotice(
           assessmentErrorCode(res).code === "REVIEW_NOT_FOUND"
-            ? "This review may have been removed, or it is not yours."
-            : assessmentErrorText(res, "Unable to load this review."),
+            ? "Bài chấm này có thể đã bị xóa hoặc không phải của bạn."
+            : vietnameseErrorText(res, "Không thể tải bài chấm này."),
         );
       }
     } catch {
       setDetail(null);
-      setNotice("Unable to reach the Assessment service. Please try again.");
+      setNotice("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -92,8 +92,8 @@ const PeerReviewForm = () => {
     return (
       <LearnerPage className="peer-review-form">
         <PageHeader
-          eyebrow="PEER REVIEW / ASSIGNED WORK"
-          title="Loading review..."
+          eyebrow="CHẤM CHÉO / BÀI ĐƯỢC GIAO"
+          title="Đang tải bài chấm..."
           subtitle=""
           back
         />
@@ -105,13 +105,13 @@ const PeerReviewForm = () => {
     return (
       <LearnerPage className="peer-review-form">
         <PageHeader
-          eyebrow="PEER REVIEW / ASSIGNED WORK"
-          title="Review not available"
+          eyebrow="CHẤM CHÉO / BÀI ĐƯỢC GIAO"
+          title="Không xem được bài chấm"
           subtitle={notice}
           back
         />
-        <LearnerButton onClick={() => void load()}>Try again</LearnerButton>{" "}
-        <LearnerButton onClick={back}>Back to Peer Review</LearnerButton>
+        <LearnerButton onClick={() => void load()}>Thử lại</LearnerButton>{" "}
+        <LearnerButton onClick={back}>Quay lại chấm chéo</LearnerButton>
       </LearnerPage>
     );
   }
@@ -122,7 +122,7 @@ const PeerReviewForm = () => {
   const downloadWork = async () => {
     const blob = await downloadLearnerReviewFileAPI(detail.id);
     if (!blob || !detail.submission.file) {
-      message.error("Unable to download the file.");
+      message.error("Không tải được tệp.");
       return;
     }
     saveBlob(blob, detail.submission.file.fileName);
@@ -131,7 +131,7 @@ const PeerReviewForm = () => {
   const downloadPrompt = async () => {
     const blob = await downloadLearnerPromptFileAPI(detail.assignmentId);
     if (!blob) {
-      message.error("Unable to download the file.");
+      message.error("Không tải được tệp.");
       return;
     }
     saveBlob(blob, detail.assignment.promptFileName ?? "prompt.pdf");
@@ -140,11 +140,11 @@ const PeerReviewForm = () => {
   const submit = async () => {
     if (saving) return;
     if (rubric.some((criterion) => scores[criterion.id] === null)) {
-      message.warning("Give a score for every criterion before submitting.");
+      message.warning("Hãy chấm điểm cho từng tiêu chí trước khi gửi.");
       return;
     }
     if (!comment.trim()) {
-      message.warning("Write a general comment before submitting.");
+      message.warning("Hãy viết nhận xét chung trước khi gửi.");
       return;
     }
     setSaving(true);
@@ -157,26 +157,24 @@ const PeerReviewForm = () => {
         comment: comment.trim(),
       });
       if (res.data) {
-        message.success("Review submitted.");
+        message.success("Đã gửi nhận xét.");
         back();
         return;
       }
       const { code } = assessmentErrorCode(res);
       if (code === "REVIEW_ALREADY_GIVEN") {
-        message.info("This review was already given.");
+        message.info("Bài chấm này đã được gửi trước đó.");
         await load();
       } else if (code === "REVIEW_CLOSED") {
         message.warning(
-          "The deadline of this review has passed, so it can no longer be given.",
+          "Đã quá hạn chấm bài này nên không thể gửi nữa.",
         );
         await load();
       } else {
-        message.error(assessmentErrorText(res, "Unable to submit the review."));
+        message.error(vietnameseErrorText(res, "Không thể gửi nhận xét."));
       }
     } catch {
-      message.error(
-        "Unable to reach the Assessment service. Please try again.",
-      );
+      message.error("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setSaving(false);
     }
@@ -185,67 +183,67 @@ const PeerReviewForm = () => {
   return (
     <LearnerPage className="peer-review-form">
       <PageHeader
-        eyebrow="PEER REVIEW / ASSIGNED WORK"
-        title={`Review: ${detail.assignmentTitle}`}
-        subtitle={`Deadline ${formatTime(detail.reviewDueAt)}`}
+        eyebrow="CHẤM CHÉO / BÀI ĐƯỢC GIAO"
+        title={`Chấm bài: ${detail.assignmentTitle}`}
+        subtitle={`Hạn ${formatTime(detail.reviewDueAt)}`}
         back
       />
       <div className="peer-review-form-body">
         <div className="peer-review-submission-card">
-          <h3>Anonymous submission</h3>
-          <StatusTag tone="neutral">Author hidden</StatusTag>
+          <h3>Bài nộp ẩn danh</h3>
+          <StatusTag tone="neutral">Đã ẩn tác giả</StatusTag>
           {detail.assignment.prompt && (
             <>
-              <span className="peer-review-submission-label">Assignment</span>
+              <span className="peer-review-submission-label">Đề bài</span>
               <p>{detail.assignment.prompt}</p>
               {detail.assignment.promptFileUrl && (
                 <div className="peer-review-attachment">
                   <button type="button" onClick={() => void downloadPrompt()}>
-                    Download the assignment file
+                    Tải tệp đề bài
                   </button>
                 </div>
               )}
             </>
           )}
           <span className="peer-review-submission-label">
-            Submitted response
+            Bài làm đã nộp
           </span>
-          <p>{detail.submission.content || "No text answer."}</p>
+          <p>{detail.submission.content || "Không có nội dung văn bản."}</p>
           {detail.submission.file && (
             <>
               <hr />
               <span className="peer-review-submission-label">
-                Attached work
+                Tệp đính kèm
               </span>
               <div className="peer-review-attachment">
                 <button type="button" onClick={() => void downloadWork()}>
-                  Download submitted work ({detail.submission.file.fileName})
+                  Tải bài làm đã nộp ({detail.submission.file.fileName})
                 </button>
               </div>
             </>
           )}
         </div>
         <div className="peer-review-score-card">
-          <h3>Score using the Rubric</h3>
+          <h3>Chấm điểm theo Rubric</h3>
           {detail.state === "Closed" && (
-            <InfoPanel title="Closed">
-              The deadline of this review has passed, so it can no longer be
-              given. The Instructor grades the submission.
+            <InfoPanel title="Đã đóng">
+              Đã quá hạn chấm bài này nên không thể gửi nữa. Instructor sẽ
+              chấm bài nộp.
             </InfoPanel>
           )}
           {rubric.map((criterion) => (
             <div className="peer-review-criterion" key={criterion.id}>
               <span>
-                {criterion.name} (0 to {criterion.maxPoints})
+                {criterion.name} (0 đến {criterion.maxPoints})
               </span>
               {criterion.description && <small>{criterion.description}</small>}
               <InputNumber
-                aria-label={`Score for ${criterion.name}`}
+                aria-label={`Điểm cho ${criterion.name}`}
                 min={0}
                 max={criterion.maxPoints}
                 precision={0}
                 step={1}
-                placeholder="Score"
+                placeholder="Điểm"
                 value={scores[criterion.id]}
                 disabled={!isOpen || saving}
                 onChange={(value) =>
@@ -258,12 +256,12 @@ const PeerReviewForm = () => {
             </div>
           ))}
           <div className="peer-review-feedback">
-            <span>Feedback</span>
+            <span>Nhận xét</span>
             <Input.TextArea
               rows={4}
               maxLength={COMMENT_MAX_LENGTH}
               showCount
-              placeholder="Write specific feedback..."
+              placeholder="Viết nhận xét cụ thể..."
               value={comment}
               disabled={!isOpen || saving}
               onChange={(event) => setComment(event.target.value)}
@@ -271,9 +269,9 @@ const PeerReviewForm = () => {
           </div>
           {detail.state === "Done" ? (
             <p className="peer-review-completed-note">
-              Reviewed on {formatTime(detail.completedAt)}
-              {detail.score !== null ? ` (score ${detail.score} / 100)` : ""}.
-              This review can no longer be edited.
+              Đã chấm lúc {formatTime(detail.completedAt)}
+              {detail.score !== null ? ` (điểm ${detail.score}/100)` : ""}.
+              Không thể sửa nhận xét này nữa.
             </p>
           ) : (
             isOpen && (
@@ -283,7 +281,7 @@ const PeerReviewForm = () => {
                   loading={saving}
                   onClick={() => void submit()}
                 >
-                  Submit review
+                  Gửi nhận xét
                 </LearnerButton>
               </div>
             )

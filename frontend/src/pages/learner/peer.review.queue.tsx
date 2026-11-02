@@ -8,8 +8,8 @@ import {
   StatusTag,
 } from "@/components/learner/learner.ui";
 import {
-  assessmentErrorText,
   fetchLearnerPeerReviewsAPI,
+  vietnameseErrorText,
 } from "@/services/assessment.service";
 import type {
   ILearnerReviewItem,
@@ -22,9 +22,9 @@ const STATE_VIEW: Record<
   TLearnerReviewState,
   { label: string; tone: "info" | "success" | "neutral"; action: string }
 > = {
-  Open: { label: "To do", tone: "info", action: "Start review" },
-  Done: { label: "Completed", tone: "success", action: "View review" },
-  Closed: { label: "Closed", tone: "neutral", action: "View" },
+  Open: { label: "Cần chấm", tone: "info", action: "Bắt đầu chấm" },
+  Done: { label: "Đã chấm", tone: "success", action: "Xem nhận xét" },
+  Closed: { label: "Đã đóng", tone: "neutral", action: "Xem" },
 };
 
 const formatTime = (iso: string | null) =>
@@ -32,7 +32,7 @@ const formatTime = (iso: string | null) =>
 
 /** What the Learner calls a review without knowing the author: the end of its id, like the other anonymous labels. */
 const reviewLabel = (item: ILearnerReviewItem) =>
-  `Submission ${item.id.slice(-4).toUpperCase()}`;
+  `Bài nộp ${item.id.slice(-4).toUpperCase()}`;
 
 /**
  * UC31 - the reviews the system handed out to the Learner, with the deadline of the cycle (BR-229). The number still to
@@ -54,12 +54,12 @@ const PeerReviewQueue = () => {
       } else {
         setList(null);
         setNotice(
-          assessmentErrorText(res, "Unable to load your peer reviews."),
+          vietnameseErrorText(res, "Không thể tải danh sách chấm chéo của bạn."),
         );
       }
     } catch {
       setList(null);
-      setNotice("Unable to reach the Assessment service. Please try again.");
+      setNotice("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -72,41 +72,41 @@ const PeerReviewQueue = () => {
   return (
     <LearnerPage className="peer-review-queue">
       <PageHeader
-        eyebrow="LEARNER"
-        title="Peer Review Tasks"
-        subtitle="Review the anonymous submissions assigned to you."
+        eyebrow="HỌC VIÊN"
+        title="Nhiệm vụ chấm chéo"
+        subtitle="Chấm các bài nộp ẩn danh được giao cho bạn."
         actions={
           <LearnerButton
             onClick={() => navigate("/learner/peer-review/history")}
           >
-            Review history
+            Lịch sử chấm
           </LearnerButton>
         }
       />
-      {loading && <p className="peer-review-queue-footnote">Loading...</p>}
+      {loading && <p className="peer-review-queue-footnote">Đang tải...</p>}
       {!loading && notice && (
-        <InfoPanel title="Peer reviews not available">
+        <InfoPanel title="Chưa xem được danh sách chấm chéo">
           {notice}{" "}
-          <LearnerButton onClick={() => void load()}>Try again</LearnerButton>
+          <LearnerButton onClick={() => void load()}>Thử lại</LearnerButton>
         </InfoPanel>
       )}
       {list && (
         <>
-          <InfoPanel title="Review deadline">
+          <InfoPanel title="Hạn chấm">
             {list.pendingCount > 0
-              ? `You have ${list.pendingCount} ${list.pendingCount === 1 ? "review" : "reviews"} to give. `
-              : "You have no review to give right now. "}
-            The cycle deadline is shared by all assigned reviewers.
+              ? `Bạn còn ${list.pendingCount} bài cần chấm. `
+              : "Hiện bạn không có bài nào cần chấm. "}
+            Hạn của chu kỳ áp dụng chung cho mọi người chấm được phân công.
           </InfoPanel>
           <div className="peer-review-queue-card">
             <table className="peer-review-queue-table">
               <thead>
                 <tr>
-                  <th>Assigned submission</th>
-                  <th>Assignment</th>
-                  <th>Review deadline</th>
-                  <th>Status</th>
-                  <th>Action</th>
+                  <th>Bài nộp được giao</th>
+                  <th>Bài tập</th>
+                  <th>Hạn chấm</th>
+                  <th>Trạng thái</th>
+                  <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -136,14 +136,14 @@ const PeerReviewQueue = () => {
                 {list.items.length === 0 && (
                   <tr>
                     <td colSpan={5}>
-                      No Peer Review tasks are assigned to you right now.
+                      Hiện chưa có nhiệm vụ chấm chéo nào được giao cho bạn.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
             <p className="peer-review-queue-footnote">
-              Author names are hidden from Learner reviewers.
+              Tên tác giả được ẩn với người chấm là học viên.
             </p>
           </div>
         </>

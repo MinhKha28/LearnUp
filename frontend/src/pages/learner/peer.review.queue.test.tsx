@@ -98,28 +98,28 @@ afterEach(() => {
 describe("UC31 the queue of reviews", () => {
   it("says first how many reviews are to give, and lists each with its deadline and state", async () => {
     renderPage();
-    await screen.findByText(/You have 1 review to give\./);
+    await screen.findByText(/Bạn còn 1 bài cần chấm\./);
     expect(screen.getAllByText("Essay")).toHaveLength(3);
-    expect(screen.getByText("To do")).toBeTruthy();
-    expect(screen.getByText("Completed")).toBeTruthy();
-    expect(screen.getByText("Closed")).toBeTruthy();
+    expect(screen.getByText("Cần chấm")).toBeTruthy();
+    expect(screen.getByText("Đã chấm")).toBeTruthy();
+    expect(screen.getByText("Đã đóng")).toBeTruthy();
   });
 
   it("names the work by the end of the id of the review and shows nothing of its author (BR-233)", async () => {
     renderPage();
-    await screen.findByText("Submission 0001");
-    expect(screen.getByText("Submission 0002")).toBeTruthy();
+    await screen.findByText("Bài nộp 0001");
+    expect(screen.getByText("Bài nộp 0002")).toBeTruthy();
     expect(
-      screen.getByText("Author names are hidden from Learner reviewers."),
+      screen.getByText("Tên tác giả được ẩn với người chấm là học viên."),
     ).toBeTruthy();
   });
 
   it("offers the action that fits each state and goes to the review by its own id", async () => {
     renderPage();
-    await screen.findByText("Submission 0001");
-    expect(screen.getByRole("button", { name: "Start review" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "View review" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Start review" }));
+    await screen.findByText("Bài nộp 0001");
+    expect(screen.getByRole("button", { name: "Bắt đầu chấm" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Xem nhận xét" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Bắt đầu chấm" }));
     await waitFor(() =>
       expect(screen.getByTestId("where").textContent).toBe(
         "/learner/peer-review/aaaa-0001",
@@ -132,7 +132,7 @@ describe("UC31 the queue of reviews", () => {
       list([item("bbbb-0002", { state: "Done" })], 0) as never,
     );
     renderPage();
-    await screen.findByText(/You have no review to give right now\./);
+    await screen.findByText(/Hiện bạn không có bài nào cần chấm\./);
   });
 
   it("says so when no review is assigned", async () => {
@@ -141,7 +141,7 @@ describe("UC31 the queue of reviews", () => {
     );
     renderPage();
     await screen.findByText(
-      "No Peer Review tasks are assigned to you right now.",
+      "Hiện chưa có nhiệm vụ chấm chéo nào được giao cho bạn.",
     );
   });
 
@@ -154,9 +154,9 @@ describe("UC31 the queue of reviews", () => {
       .mockResolvedValue(list([], 0) as never);
     renderPage();
     await screen.findByText(/Khóa học đã tạm dừng/);
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
     await screen.findByText(
-      "No Peer Review tasks are assigned to you right now.",
+      "Hiện chưa có nhiệm vụ chấm chéo nào được giao cho bạn.",
     );
     expect(api.fetchLearnerPeerReviewsAPI).toHaveBeenCalledTimes(2);
   });
@@ -167,7 +167,7 @@ describe("UC31 the queue of reviews", () => {
     );
     renderPage();
     await screen.findByText(
-      /Unable to reach the Assessment service\. Please try again\./,
+      /Không kết nối được dịch vụ Đánh giá\. Vui lòng thử lại\./,
     );
   });
 });

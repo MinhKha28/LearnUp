@@ -96,15 +96,15 @@ const renderPage = () =>
   );
 
 const fill = (name: string, value: string) =>
-  fireEvent.change(screen.getByLabelText(`Score for ${name}`), {
+  fireEvent.change(screen.getByLabelText(`Điểm cho ${name}`), {
     target: { value },
   });
 const writeComment = (text: string) =>
-  fireEvent.change(screen.getByPlaceholderText("Write specific feedback..."), {
+  fireEvent.change(screen.getByPlaceholderText("Viết nhận xét cụ thể..."), {
     target: { value: text },
   });
 const submit = () =>
-  fireEvent.click(screen.getByRole("button", { name: "Submit review" }));
+  fireEvent.click(screen.getByRole("button", { name: "Gửi nhận xét" }));
 
 beforeAll(() => {
   window.matchMedia =
@@ -133,37 +133,37 @@ afterEach(() => {
 describe("UC31.1 giving a review", () => {
   it("shows the work without its author, the Rubric with each maximum, and sends nothing until submitted", async () => {
     renderPage();
-    await screen.findByText("Review: Essay");
-    expect(screen.getByText("Author hidden")).toBeTruthy();
+    await screen.findByText("Chấm bài: Essay");
+    expect(screen.getByText("Đã ẩn tác giả")).toBeTruthy();
     expect(screen.getByText("My <b>essay</b>")).toBeTruthy(); // text, not markup
-    expect(screen.getByText("Argument (0 to 10)")).toBeTruthy();
-    expect(screen.getByText("Style (0 to 5)")).toBeTruthy();
+    expect(screen.getByText("Argument (0 đến 10)")).toBeTruthy();
+    expect(screen.getByText("Style (0 đến 5)")).toBeTruthy();
     expect(screen.getByText("Is it argued?")).toBeTruthy();
     expect(
-      screen.getByText(/Download submitted work \(submitted-work\.pdf\)/),
+      screen.getByText(/Tải bài làm đã nộp \(submitted-work\.pdf\)/),
     ).toBeTruthy();
     expect(api.giveLearnerPeerReviewAPI).not.toHaveBeenCalled();
   });
 
   it("asks the review by the id in the address", async () => {
     renderPage();
-    await screen.findByText("Review: Essay");
+    await screen.findByText("Chấm bài: Essay");
     expect(api.fetchLearnerPeerReviewAPI).toHaveBeenCalledWith("review-1");
   });
 
   it("does not send a review with a criterion left out or without a comment (BR-257)", async () => {
     renderPage();
-    await screen.findByText("Review: Essay");
+    await screen.findByText("Chấm bài: Essay");
     fill("Argument", "7");
     writeComment("Good.");
     submit();
     await screen.findByText(
-      "Give a score for every criterion before submitting.",
+      "Hãy chấm điểm cho từng tiêu chí trước khi gửi.",
     );
     fill("Style", "4");
     writeComment("   ");
     submit();
-    await screen.findByText("Write a general comment before submitting.");
+    await screen.findByText("Hãy viết nhận xét chung trước khi gửi.");
     expect(api.giveLearnerPeerReviewAPI).not.toHaveBeenCalled();
   });
 
@@ -179,12 +179,12 @@ describe("UC31.1 giving a review", () => {
       },
     } as never);
     renderPage();
-    await screen.findByText("Review: Essay");
+    await screen.findByText("Chấm bài: Essay");
     fill("Argument", "7");
     fill("Style", "4");
     writeComment("  Clear and well argued.  ");
     submit();
-    await screen.findByText("Review submitted.");
+    await screen.findByText("Đã gửi nhận xét.");
     expect(api.giveLearnerPeerReviewAPI).toHaveBeenCalledWith("review-1", {
       scores: [
         { criterionId: "c1", points: 7 },
@@ -205,11 +205,11 @@ describe("UC31.1 giving a review", () => {
       new Promise((resolve) => (finish = resolve)) as never,
     );
     renderPage();
-    await screen.findByText("Review: Essay");
+    await screen.findByText("Chấm bài: Essay");
     fill("Argument", "7");
     fill("Style", "4");
     writeComment("Fine.");
-    const button = screen.getByRole("button", { name: "Submit review" });
+    const button = screen.getByRole("button", { name: "Gửi nhận xét" });
     fireEvent.click(button);
     fireEvent.click(button); // the button now says it is loading, so it is the same element that is pressed again
     expect(api.giveLearnerPeerReviewAPI).toHaveBeenCalledTimes(1);
@@ -253,14 +253,14 @@ describe("UC31.1 giving a review", () => {
         }) as never,
       );
     renderPage();
-    await screen.findByText("Review: Essay");
+    await screen.findByText("Chấm bài: Essay");
     fill("Argument", "7");
     fill("Style", "4");
     writeComment("Fine.");
     submit();
-    await screen.findByText("This review was already given.");
-    await screen.findByText(/This review can no longer be edited\./);
-    expect(screen.queryByRole("button", { name: "Submit review" })).toBeNull();
+    await screen.findByText("Bài chấm này đã được gửi trước đó.");
+    await screen.findByText(/Không thể sửa nhận xét này nữa\./);
+    expect(screen.queryByRole("button", { name: "Gửi nhận xét" })).toBeNull();
   });
 
   it("a deadline that passed meanwhile says so and closes the form", async () => {
@@ -272,17 +272,17 @@ describe("UC31.1 giving a review", () => {
       .mockResolvedValueOnce(detail() as never)
       .mockResolvedValue(detail({ state: "Closed" }) as never);
     renderPage();
-    await screen.findByText("Review: Essay");
+    await screen.findByText("Chấm bài: Essay");
     fill("Argument", "7");
     fill("Style", "4");
     writeComment("Fine.");
     submit();
     await screen.findByText(
-      "The deadline of this review has passed, so it can no longer be given.",
+      "Đã quá hạn chấm bài này nên không thể gửi nữa.",
     );
     await waitFor(() =>
       expect(
-        screen.queryByRole("button", { name: "Submit review" }),
+        screen.queryByRole("button", { name: "Gửi nhận xét" }),
       ).toBeNull(),
     );
   });
@@ -296,13 +296,15 @@ describe("UC31.1 giving a review", () => {
       },
     } as never);
     renderPage();
-    await screen.findByText("Review: Essay");
+    await screen.findByText("Chấm bài: Essay");
     fill("Argument", "7");
     fill("Style", "4");
     writeComment("Fine.");
     submit();
-    await screen.findByText("A criterion score cannot exceed 10 points.");
-    expect(screen.getByRole("button", { name: "Submit review" })).toBeTruthy();
+    await screen.findByText(
+      "Điểm của một tiêu chí không được vượt quá điểm tối đa của tiêu chí đó.",
+    );
+    expect(screen.getByRole("button", { name: "Gửi nhận xét" })).toBeTruthy();
   });
 
   it("says the service cannot be reached and keeps what was typed", async () => {
@@ -310,18 +312,18 @@ describe("UC31.1 giving a review", () => {
       new Error("network"),
     );
     renderPage();
-    await screen.findByText("Review: Essay");
+    await screen.findByText("Chấm bài: Essay");
     fill("Argument", "7");
     fill("Style", "4");
     writeComment("Fine.");
     submit();
     await screen.findByText(
-      "Unable to reach the Assessment service. Please try again.",
+      "Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.",
     );
     expect(
       (
         screen.getByPlaceholderText(
-          "Write specific feedback...",
+          "Viết nhận xét cụ thể...",
         ) as HTMLTextAreaElement
       ).value,
     ).toBe("Fine.");
@@ -346,23 +348,23 @@ describe("UC31 reading a review that is done or closed", () => {
       }) as never,
     );
     renderPage();
-    await screen.findByText(/This review can no longer be edited\./);
-    expect(screen.getByText(/score 80 \/ 100/)).toBeTruthy();
+    await screen.findByText(/Không thể sửa nhận xét này nữa\./);
+    expect(screen.getByText(/điểm 80\/100/)).toBeTruthy();
     expect(
-      (screen.getByLabelText("Score for Argument") as HTMLInputElement).value,
+      (screen.getByLabelText("Điểm cho Argument") as HTMLInputElement).value,
     ).toBe("8");
     expect(
-      (screen.getByLabelText("Score for Argument") as HTMLInputElement)
+      (screen.getByLabelText("Điểm cho Argument") as HTMLInputElement)
         .disabled,
     ).toBe(true);
     expect(
       (
         screen.getByPlaceholderText(
-          "Write specific feedback...",
+          "Viết nhận xét cụ thể...",
         ) as HTMLTextAreaElement
       ).value,
     ).toBe("Given before.");
-    expect(screen.queryByRole("button", { name: "Submit review" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Gửi nhận xét" })).toBeNull();
   });
 
   it("a closed review says the Instructor grades it and offers no submit", async () => {
@@ -370,8 +372,8 @@ describe("UC31 reading a review that is done or closed", () => {
       detail({ state: "Closed", status: "Missed" }) as never,
     );
     renderPage();
-    await screen.findByText(/The Instructor grades the submission\./);
-    expect(screen.queryByRole("button", { name: "Submit review" })).toBeNull();
+    await screen.findByText(/Instructor sẽ chấm bài nộp\./);
+    expect(screen.queryByRole("button", { name: "Gửi nhận xét" })).toBeNull();
   });
 
   it("a review that is not found, or is not the Learner's, says so with a way back", async () => {
@@ -381,10 +383,10 @@ describe("UC31 reading a review that is done or closed", () => {
     } as never);
     renderPage();
     await screen.findByText(
-      "This review may have been removed, or it is not yours.",
+      "Bài chấm này có thể đã bị xóa hoặc không phải của bạn.",
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Back to Peer Review" }),
+      screen.getByRole("button", { name: "Quay lại chấm chéo" }),
     );
     await waitFor(() =>
       expect(screen.getByTestId("where").textContent).toBe(
@@ -404,12 +406,12 @@ describe("UC31 reading a review that is done or closed", () => {
       .mockResolvedValueOnce(new Blob(["x"]))
       .mockResolvedValueOnce(null);
     renderPage();
-    const button = await screen.findByText(/Download submitted work/);
+    const button = await screen.findByText(/Tải bài làm đã nộp/);
     fireEvent.click(button);
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(api.downloadLearnerReviewFileAPI).toHaveBeenCalledWith("review-1");
     fireEvent.click(button);
-    await screen.findByText("Unable to download the file.");
+    await screen.findByText("Không tải được tệp.");
     click.mockRestore();
   });
 });

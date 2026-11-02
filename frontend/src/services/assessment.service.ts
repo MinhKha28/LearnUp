@@ -245,6 +245,21 @@ const LEARNER_LOCK_TEXT: Record<string, string> = {
 export const ENROLLMENT_NOT_ACTIVE_FORM_TEXT =
   "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể nộp bài nữa. Nội dung bạn đã nhập vẫn được giữ trên trang này. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.";
 
+/** The codes a Learner can meet on the peer review screens, in Vietnamese: the server message is English. */
+const REVIEW_ERROR_TEXT: Record<string, string> = {
+  ...LEARNER_LOCK_TEXT,
+  RUBRIC_MISSING: "Bài tập này chưa có tiêu chí Rubric để chấm.",
+  RUBRIC_SCORES_INCOMPLETE: "Hãy chấm đúng một điểm cho mỗi tiêu chí Rubric.",
+  RUBRIC_SCORE_OUT_OF_RANGE: "Điểm của một tiêu chí không được vượt quá điểm tối đa của tiêu chí đó.",
+};
+
+/** For the screens that must stay fully Vietnamese: the English message of the server is never shown. */
+export const vietnameseErrorText = (res: unknown, fallback: string): string => {
+  const { error } = res as IAssessmentError;
+  const code = typeof error === "object" ? error?.code : undefined;
+  return (code && REVIEW_ERROR_TEXT[code]) || fallback;
+};
+
 /** The axios interceptor resolves error responses instead of rejecting; pull the message out of them. */
 export const assessmentErrorText = (res: unknown, fallback: string): string => {
   const { error, message } = res as IAssessmentError;
