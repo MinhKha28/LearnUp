@@ -134,32 +134,32 @@ describe("UC33.1 the detail of a cycle", () => {
       "assignment-1",
       "cycle-1",
     );
-    expect(screen.getByText("OPEN")).toBeTruthy();
-    expect(screen.getByText("CLOSE & ASSIGN")).toBeTruthy();
-    expect(screen.getByText("REVIEW DEADLINE")).toBeTruthy();
+    expect(screen.getByText("MỞ")).toBeTruthy();
+    expect(screen.getByText("ĐÓNG VÀ PHÂN CÔNG")).toBeTruthy();
+    expect(screen.getByText("HẠN CHẤM")).toBeTruthy();
   });
 
   it("lists the submissions with the reviews done, and a Learner the tenant does not know by the end of the id", async () => {
     renderPage();
     await screen.findByText("Author One");
-    expect(screen.getByText("1 of 2")).toBeTruthy();
-    expect(screen.getByText("Learner …00a2")).toBeTruthy();
+    expect(screen.getByText("1/2")).toBeTruthy();
+    expect(screen.getByText("Học viên …00a2")).toBeTruthy();
   });
 
   it("shows the state of each duty and offers Waive only on a Missed one", async () => {
     renderPage();
     await screen.findByText("Reviewer 1");
-    expect(screen.getAllByText("Missed").length).toBeGreaterThan(0);
-    expect(screen.getByText("Done")).toBeTruthy();
-    expect(screen.getByText("Waived")).toBeTruthy();
-    expect(screen.getByText("In progress")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Waive" })).toHaveLength(1);
+    expect(screen.getAllByText("Bỏ lỡ").length).toBeGreaterThan(0);
+    expect(screen.getByText("Đã hoàn thành")).toBeTruthy();
+    expect(screen.getByText("Đã miễn")).toBeTruthy();
+    expect(screen.getByText("Đang thực hiện")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Miễn" })).toHaveLength(1);
   });
 
   it("goes to the waiver screen of that Learner when Waive is pressed", async () => {
     renderPage();
     await screen.findByText("Reviewer 1");
-    fireEvent.click(screen.getByRole("button", { name: "Waive" }));
+    fireEvent.click(screen.getByRole("button", { name: "Miễn" }));
     await waitFor(() =>
       expect(screen.getByTestId("where").textContent).toBe(
         "/instructor/peer-cycles/assignment-1/cycle-1/waive/00000000-0000-4000-8000-000000000001",
@@ -172,15 +172,15 @@ describe("UC33.1 the detail of a cycle", () => {
       detail({ submissions: [], reviewers: [] }) as never,
     );
     renderPage();
-    await screen.findByText("No Submissions in this Cycle yet.");
-    expect(screen.getByText("No Reviewers assigned yet.")).toBeTruthy();
+    await screen.findByText("Chu kỳ này chưa có bài nộp.");
+    expect(screen.getByText("Chưa phân công người chấm.")).toBeTruthy();
   });
 
   it.each([
-    ["CYCLE_NOT_FOUND", "This Peer Review Cycle may have been removed."],
+    ["CYCLE_NOT_FOUND", "Chu kỳ chấm chéo này có thể đã bị xóa."],
     [
       "PEER_REVIEW_NOT_ENABLED",
-      "Peer Review is not enabled for this Assignment, so it has no cycles.",
+      "Bài tập này chưa bật chấm chéo nên chưa có chu kỳ nào.",
     ],
   ])("explains %s instead of showing an empty page", async (code, text) => {
     vi.mocked(api.fetchPeerReviewCycleDetailAPI).mockResolvedValue({
@@ -189,7 +189,7 @@ describe("UC33.1 the detail of a cycle", () => {
     } as never);
     renderPage();
     await screen.findByText(text);
-    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Thử lại" })).toBeTruthy();
   });
 
   it("says the service cannot be reached, and Try again asks again", async () => {
@@ -198,9 +198,9 @@ describe("UC33.1 the detail of a cycle", () => {
       .mockResolvedValue(detail() as never);
     renderPage();
     await screen.findByText(
-      "Unable to reach the Assessment service. Please try again.",
+      "Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
     await screen.findByText("Reviewer 1");
     expect(api.fetchPeerReviewCycleDetailAPI).toHaveBeenCalledTimes(2);
   });

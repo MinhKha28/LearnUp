@@ -8,10 +8,12 @@ import {
   SectionCard,
   WarningPanel,
 } from "@/components/instructor/instructor.ui";
-import { learnerLabel } from "@/components/instructor/peer.cycle.format";
+import {
+  cycleErrorText,
+  learnerLabel,
+} from "@/components/instructor/peer.cycle.format";
 import {
   assessmentErrorCode,
-  assessmentErrorText,
   fetchPeerReviewCycleDetailAPI,
   waivePeerReviewDutyAPI,
 } from "@/services/assessment.service";
@@ -40,11 +42,11 @@ const PeerCycleWaive = () => {
         setNotice("");
       } else {
         setDetail(null);
-        setNotice(assessmentErrorText(res, "Unable to load this cycle."));
+        setNotice(cycleErrorText(res, "Không thể tải chu kỳ này."));
       }
     } catch {
       setDetail(null);
-      setNotice("Unable to reach the Assessment service. Please try again.");
+      setNotice("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -62,28 +64,24 @@ const PeerCycleWaive = () => {
       const res = await waivePeerReviewDutyAPI(assignmentId, learnerId);
       if (res.data) {
         if (res.data.alreadyWaived)
-          message.info("This obligation was already waived.");
+          message.info("Nghĩa vụ này đã được miễn trước đó.");
         else
           message.success(
-            "Peer Review obligation waived. The Learner has been told.",
+            "Đã miễn nghĩa vụ chấm chéo. Học viên đã được thông báo.",
           );
         navigate(back);
         return;
       }
       if (assessmentErrorCode(res).code === "NOT_OWING_PEER_REVIEW") {
         message.warning(
-          "This Learner no longer owes a peer review, so there is nothing to waive.",
+          "Học viên này không còn nghĩa vụ chấm chéo nên không có gì để miễn.",
         );
         navigate(back);
         return;
       }
-      message.error(
-        assessmentErrorText(res, "Unable to waive the obligation."),
-      );
+      message.error(cycleErrorText(res, "Không thể miễn nghĩa vụ này."));
     } catch {
-      message.error(
-        "Unable to reach the Assessment service. Please try again.",
-      );
+      message.error("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setSaving(false);
     }
@@ -93,12 +91,12 @@ const PeerCycleWaive = () => {
     return (
       <InstructorPage className="instructor-peer-cycles">
         <PageHeader
-          eyebrow="CYCLE / OBLIGATION"
-          title="Waive Peer Review Obligation"
-          subtitle="Loading..."
+          eyebrow="CHU KỲ / NGHĨA VỤ"
+          title="Miễn nghĩa vụ chấm chéo"
+          subtitle="Đang tải..."
           back
         />
-        <p className="peer-cycles-empty">Loading...</p>
+        <p className="peer-cycles-empty">Đang tải...</p>
       </InstructorPage>
     );
   }
@@ -107,13 +105,13 @@ const PeerCycleWaive = () => {
     return (
       <InstructorPage className="instructor-peer-cycles">
         <PageHeader
-          eyebrow="CYCLE / OBLIGATION"
-          title="Reviewer not found"
-          subtitle={notice || "This Reviewer obligation may have been removed."}
+          eyebrow="CHU KỲ / NGHĨA VỤ"
+          title="Không tìm thấy người chấm"
+          subtitle={notice || "Nghĩa vụ chấm chéo này có thể đã bị xóa."}
           back
         />
         <InstructorButton onClick={() => navigate("/instructor/peer-cycles")}>
-          Back to Peer Cycles
+          Quay lại danh sách chu kỳ
         </InstructorButton>
       </InstructorPage>
     );
@@ -123,27 +121,26 @@ const PeerCycleWaive = () => {
   return (
     <InstructorPage className="instructor-peer-cycles">
       <PageHeader
-        eyebrow="CYCLE / OBLIGATION"
-        title="Waive Peer Review Obligation"
-        subtitle="Use it when the Learner cannot be expected to make up the reviews."
+        eyebrow="CHU KỲ / NGHĨA VỤ"
+        title="Miễn nghĩa vụ chấm chéo"
+        subtitle="Dùng khi không thể yêu cầu học viên chấm bù."
         back
       />
       <SectionCard className="instructor-waive-card">
-        <h2>Learner: {name}</h2>
-        <p>Assignment: {detail.title}</p>
+        <h2>Học viên: {name}</h2>
+        <p>Bài tập: {detail.title}</p>
         <p>
-          Reviews completed in this cycle: {reviewer.completed} of{" "}
+          Số bài đã chấm trong chu kỳ này: {reviewer.completed}/
           {reviewer.assigned}
         </p>
         {reviewer.canWaive ? (
           <>
-            <WarningPanel title="Before you confirm">
-              You can waive a missed obligation at any time (BR-241), for
-              example when the deadline passed because the Organization was
-              suspended. A Learner who resubmits can still make it up by
-              reviewing in the open cycle (BR-239). The Learner is told in the
-              app and by e-mail, and the duty then counts as satisfied for
-              completion.
+            <WarningPanel title="Trước khi xác nhận">
+              Bạn có thể miễn nghĩa vụ đã bỏ lỡ vào bất kỳ lúc nào (BR-241),
+              ví dụ khi quá hạn vì tổ chức bị tạm ngừng. Học viên nộp lại bài
+              vẫn có thể chấm bù trong chu kỳ đang mở (BR-239). Học viên được
+              thông báo trong ứng dụng và qua e-mail, và nghĩa vụ này sẽ được
+              tính là đã đáp ứng khi xét hoàn thành.
             </WarningPanel>
             <div className="instructor-waive-actions">
               <InstructorButton
@@ -151,23 +148,23 @@ const PeerCycleWaive = () => {
                 loading={saving}
                 onClick={() => void confirm()}
               >
-                Confirm waiver
+                Xác nhận miễn
               </InstructorButton>
               <InstructorButton onClick={() => navigate(back)}>
-                Cancel
+                Hủy
               </InstructorButton>
             </div>
           </>
         ) : (
           <>
-            <WarningPanel title="Nothing to waive">
+            <WarningPanel title="Không có gì để miễn">
               {reviewer.obligation === "Waived"
-                ? "This obligation is already waived."
-                : "This Learner does not owe a peer review on this Assignment now (the reviews are done or still in time)."}
+                ? "Nghĩa vụ này đã được miễn."
+                : "Học viên này hiện không có nghĩa vụ chấm chéo ở bài tập này (đã chấm xong hoặc vẫn còn hạn)."}
             </WarningPanel>
             <div className="instructor-waive-actions">
               <InstructorButton onClick={() => navigate(back)}>
-                Back to the cycle
+                Quay lại chu kỳ
               </InstructorButton>
             </div>
           </>
