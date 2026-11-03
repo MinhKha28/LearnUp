@@ -171,10 +171,10 @@ describe("UC33.1 the detail of a cycle", () => {
     renderPage();
     await screen.findByText("Author One");
     expect(screen.getByText("30")).toBeTruthy();
-    expect(screen.getAllByText("Needs review")).toHaveLength(1);
+    expect(screen.getAllByText("Cần xem lại")).toHaveLength(1);
     expect(
       screen.getByText(
-        "1 submission differs by more than 20 points between reviewers. Review it and set the final score (BR-252).",
+        "1 bài nộp có điểm của các người chấm chênh nhau hơn 20 điểm. Hãy xem lại và chốt điểm cuối (BR-252).",
       ),
     ).toBeTruthy();
   });
@@ -193,8 +193,8 @@ describe("UC33.1 the detail of a cycle", () => {
     } as never);
     renderPage();
     await screen.findByText("Author One");
-    expect(screen.queryByText("Needs review")).toBeNull();
-    expect(screen.queryByText(/differ by more than/)).toBeNull();
+    expect(screen.queryByText("Cần xem lại")).toBeNull();
+    expect(screen.queryByText(/chênh nhau hơn/)).toBeNull();
   });
 
   it("shows the state of each duty and offers Waive only on a Missed one", async () => {
