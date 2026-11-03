@@ -8,10 +8,11 @@ import {
   SectionCard,
   WarningPanel,
 } from "@/components/instructor/instructor.ui";
-import { learnerLabel } from "@/components/instructor/peer.cycle.format";
 import {
-  assessmentErrorCode,
-  assessmentErrorText,
+  cycleErrorText,
+  learnerLabel,
+} from "@/components/instructor/peer.cycle.format";
+import {
   fetchPeerReviewCycleDetailAPI,
 } from "@/services/assessment.service";
 import type {
@@ -20,13 +21,13 @@ import type {
 } from "@/types/assessment.types";
 import "./peer.cycles.scss";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString();
+const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
 
 const OBLIGATION_LABEL: Record<TReviewerObligation, string> = {
-  Pending: "In progress",
-  Satisfied: "Done",
-  Missed: "Missed",
-  Waived: "Waived",
+  Pending: "Đang thực hiện",
+  Satisfied: "Đã hoàn thành",
+  Missed: "Bỏ lỡ",
+  Waived: "Đã miễn",
 };
 
 /**
@@ -49,18 +50,11 @@ const PeerCycleDetail = () => {
         setNotice("");
       } else {
         setDetail(null);
-        const code = assessmentErrorCode(res).code;
-        if (code === "CYCLE_NOT_FOUND")
-          setNotice("This Peer Review Cycle may have been removed.");
-        else if (code === "PEER_REVIEW_NOT_ENABLED")
-          setNotice(
-            "Peer Review is not enabled for this Assignment, so it has no cycles.",
-          );
-        else setNotice(assessmentErrorText(res, "Unable to load this cycle."));
+        setNotice(cycleErrorText(res, "Không thể tải chu kỳ này."));
       }
     } catch {
       setDetail(null);
-      setNotice("Unable to reach the Assessment service. Please try again.");
+      setNotice("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -74,12 +68,12 @@ const PeerCycleDetail = () => {
     return (
       <InstructorPage className="instructor-peer-cycles">
         <PageHeader
-          eyebrow="PEER CYCLES / DETAIL"
-          title="Peer Review Cycle Details"
-          subtitle="Loading..."
+          eyebrow="CHU KỲ CHẤM CHÉO / CHI TIẾT"
+          title="Chi tiết chu kỳ chấm chéo"
+          subtitle="Đang tải..."
           back
         />
-        <p className="peer-cycles-empty">Loading the cycle...</p>
+        <p className="peer-cycles-empty">Đang tải chu kỳ...</p>
       </InstructorPage>
     );
   }
@@ -88,16 +82,16 @@ const PeerCycleDetail = () => {
     return (
       <InstructorPage className="instructor-peer-cycles">
         <PageHeader
-          eyebrow="PEER CYCLES / DETAIL"
-          title="Cycle not available"
+          eyebrow="CHU KỲ CHẤM CHÉO / CHI TIẾT"
+          title="Không xem được chu kỳ"
           subtitle={notice}
           back
         />
         <InstructorButton onClick={() => void load()}>
-          Try again
+          Thử lại
         </InstructorButton>{" "}
         <InstructorButton onClick={() => navigate("/instructor/peer-cycles")}>
-          Back to Peer Cycles
+          Quay lại danh sách chu kỳ
         </InstructorButton>
       </InstructorPage>
     );
@@ -107,29 +101,29 @@ const PeerCycleDetail = () => {
   return (
     <InstructorPage className="instructor-peer-cycles">
       <PageHeader
-        eyebrow="PEER CYCLES / DETAIL"
-        title="Peer Review Cycle Details"
+        eyebrow="CHU KỲ CHẤM CHÉO / CHI TIẾT"
+        title="Chi tiết chu kỳ chấm chéo"
         subtitle={detail.title}
         back
       />
       <SectionCard className="instructor-cycle-meta-card">
         <div className="instructor-cycle-meta-grid">
-          <DetailItem label="OPEN">{formatTime(cycle.opensAt)}</DetailItem>
-          <DetailItem label="CLOSE & ASSIGN">
+          <DetailItem label="MỞ">{formatTime(cycle.opensAt)}</DetailItem>
+          <DetailItem label="ĐÓNG VÀ PHÂN CÔNG">
             {formatTime(cycle.closesAt)}
           </DetailItem>
-          <DetailItem label="REVIEW DEADLINE">
+          <DetailItem label="HẠN CHẤM">
             {formatTime(cycle.reviewDueAt)}
           </DetailItem>
         </div>
       </SectionCard>
       <div className="instructor-cycle-detail-grid">
-        <SectionCard title="Submissions in cycle">
+        <SectionCard title="Bài nộp trong chu kỳ">
           <div className="instructor-cycle-table">
             <div className="instructor-cycle-row instructor-cycle-row-submissions instructor-cycle-head">
-              <span>Submission</span>
-              <span>Reviews</span>
-              <span>Need</span>
+              <span>Bài nộp</span>
+              <span>Lượt chấm</span>
+              <span>Còn thiếu</span>
             </div>
             {detail.submissions.map((row) => (
               <div
@@ -138,27 +132,27 @@ const PeerCycleDetail = () => {
               >
                 <strong>{learnerLabel(row.fullName, row.learnerId)}</strong>
                 <span>
-                  {row.reviewsCompleted} of {row.reviewsAssigned}
+                  {row.reviewsCompleted}/{row.reviewsAssigned}
                 </span>
                 <span>{row.reviewsMissing}</span>
               </div>
             ))}
             {detail.submissions.length === 0 && (
               <div className="instructor-cycle-row instructor-cycle-row-submissions">
-                <span>No Submissions in this Cycle yet.</span>
+                <span>Chu kỳ này chưa có bài nộp.</span>
                 <span />
                 <span />
               </div>
             )}
           </div>
         </SectionCard>
-        <SectionCard title="Reviewer obligations">
+        <SectionCard title="Nghĩa vụ chấm chéo">
           <div className="instructor-cycle-table">
             <div className="instructor-cycle-row instructor-cycle-head">
-              <span>Reviewer</span>
-              <span>Assigned</span>
-              <span>Completed</span>
-              <span>Obligation</span>
+              <span>Người chấm</span>
+              <span>Được giao</span>
+              <span>Đã chấm</span>
+              <span>Nghĩa vụ</span>
             </div>
             {detail.reviewers.map((reviewer) => (
               <div className="instructor-cycle-row" key={reviewer.learnerId}>
@@ -183,7 +177,7 @@ const PeerCycleDetail = () => {
                         )
                       }
                     >
-                      Waive
+                      Miễn
                     </button>
                   )}
                 </span>
@@ -191,7 +185,7 @@ const PeerCycleDetail = () => {
             ))}
             {detail.reviewers.length === 0 && (
               <div className="instructor-cycle-row">
-                <span>No Reviewers assigned yet.</span>
+                <span>Chưa phân công người chấm.</span>
                 <span />
                 <span />
                 <span />
@@ -200,9 +194,9 @@ const PeerCycleDetail = () => {
           </div>
         </SectionCard>
       </div>
-      <WarningPanel title="Interventions">
-        Grade missing reviews directly and inspect submissions with score
-        discrepancies.
+      <WarningPanel title="Can thiệp">
+        Chấm trực tiếp các lượt chấm còn thiếu và xem lại các bài nộp có điểm
+        chênh lệch.
       </WarningPanel>
     </InstructorPage>
   );

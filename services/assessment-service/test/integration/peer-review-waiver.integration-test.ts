@@ -505,4 +505,155 @@ describe('UC33.2 waiving a peer review duty over HTTP', () => {
     assert.ok((await exempted(learner(5))).exempted_at);
     assert.equal(await events(learner(5)), 1);
   });
+
+  test('a waiver and the closing of a cycle at the same moment: no error, the reviews are handed out once, and the waiver either lands first or finds nothing to waive', async () => {
+    const outcomes = new Set<number>();
+    for (let round = 0; round < 4; round += 1) {
+      const who = learner(60 + round * 6);
+      const fresh = [1, 2, 3].map((k) => learner(60 + round * 6 + k));
+      const helpers = [4, 5].map((k) => learner(60 + round * 6 + k));
+      // the duty of `who` is missed in a cycle that was handed out earlier
+      await makeCycle([
+        { id: who, reviews: 'Missed' },
+        { id: helpers[0], reviews: 'Completed' },
+        { id: helpers[1], reviews: 'Completed' },
+      ]);
+      // and `who` has a submission in the cycle that is Open and past its closing line, with three others
+      const [{ id: openCycle }] = await db.query(
+        `INSERT INTO peer_review_cycles (id, organization_id, assessment_id, opens_at, closes_at, review_due_at,
+                reviewers_per_submission, score_gap, reminder_hours, status, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, now() - interval '8 days', now() - interval '1 minute', now() + interval '3 days',
+                 2, 20, 24, 'Open', now(), now()) RETURNING id`,
+        [ORG, assignment],
+      );
+      const cycleId = openCycle as string;
+      for (const [index, author] of [who, ...fresh].entries()) {
+        await db.query(
+          `INSERT INTO submissions (id, organization_id, assessment_id, learner_id, submission_number, content,
+                  submitted_at, cycle_id, grading_status, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, 'again', now() - interval '1 day', $5, 'AwaitingPeerReview', now(), now())`,
+          [ORG, assignment, author, index === 0 ? 2 : 1, cycleId],
+        );
+        if (index > 0) {
+          await db.query(
+            `INSERT INTO learner_assessment_states (id, organization_id, assessment_id, learner_id, first_activity_at,
+                    created_at, updated_at)
+             VALUES (gen_random_uuid(), $1, $2, $3, now() - interval '1 day', now(), now())`,
+            [ORG, assignment, author],
+          );
+        }
+      }
+
+      const [closed, waived] = await Promise.all([
+        api(
+          'POST',
+          `/assignments/${assignment}/peer-review/cycles/${cycleId}/close`,
+        ),
+        waive(who),
+      ]);
+      assert.equal(
+        closed.status,
+        200,
+        `round ${round}: ${JSON.stringify(closed.json)}`,
+      );
+      assert.equal(closed.data.alreadyClosed, false);
+      assert.equal(closed.data.status, 'Assigned');
+      assert.equal(
+        closed.data.reviewCount,
+        8,
+        `round ${round}: 4 submissions x 2 reviews`,
+      );
+      assert.equal(
+        await count(
+          `SELECT count(*) FROM submission_reviews WHERE cycle_id = $1`,
+          [cycleId],
+        ),
+        8,
+        `round ${round}: every review exists once`,
+      );
+      outcomes.add(waived.status);
+      if (waived.status === 200) {
+        assert.equal(waived.data.alreadyWaived, false);
+        assert.ok((await exempted(who)).exempted_at, `round ${round}`);
+        assert.equal(await events(who), 1);
+        assert.equal(
+          (await snapshot(who)).assignments[0].peerReview.status,
+          'Waived',
+        );
+      } else {
+        // the closing came first: the Learner now has reviews in time, so nothing is owed and nothing was written
+        assert.equal(
+          waived.status,
+          409,
+          `round ${round}: ${JSON.stringify(waived.json)}`,
+        );
+        assert.equal((await exempted(who)).exempted_at, null);
+        assert.equal(await events(who), 0);
+        assert.equal(
+          (await snapshot(who)).assignments[0].peerReview.status,
+          'Pending',
+        );
+      }
+    }
+    assert.ok(
+      [...outcomes].every((status) => status === 200 || status === 409),
+    );
+  });
+
+  test('a waiver and a resubmission at the same moment take turns: the duty is waived once and the new work lands in one place or the other, never half way (BR-239, BR-241)', async () => {
+    const resubmit = (who: string) => {
+      const form = new FormData();
+      form.append('content', 'second try');
+      return fetch(
+        `${service.baseUrl}/api/v1/assessments/learner/assignments/${assignment}/resubmissions`,
+        {
+          method: 'POST',
+          headers: identity({ user: who, role: 'LEARNER' }),
+          body: form,
+        },
+      );
+    };
+    for (let round = 0; round < 6; round += 1) {
+      const who = learner(100 + round * 3);
+      await makeCycle([
+        { id: who, reviews: 'Missed' },
+        { id: learner(101 + round * 3), reviews: 'Completed' },
+        { id: learner(102 + round * 3), reviews: 'Completed' },
+      ]);
+      const [waived, sent] = await Promise.all([waive(who), resubmit(who)]);
+      assert.equal(
+        waived.status,
+        200,
+        `round ${round}: ${JSON.stringify(waived.json)}`,
+      );
+      assert.equal(waived.data.alreadyWaived, false);
+      assert.equal(sent.status, 201, `round ${round}: ${await sent.text()}`);
+      assert.ok((await exempted(who)).exempted_at, `round ${round}`);
+      assert.equal(await events(who), 1, `round ${round}: one event`);
+      assert.equal(
+        await count(
+          `SELECT count(*) FROM submissions WHERE assessment_id = $1 AND learner_id = $2`,
+          [assignment, who],
+        ),
+        2,
+        `round ${round}: the old work and the new one`,
+      );
+      const [work] = await db.query(
+        `SELECT cycle_id, grading_status FROM submissions
+          WHERE assessment_id = $1 AND learner_id = $2 ORDER BY submission_number DESC LIMIT 1`,
+        [assignment, who],
+      );
+      // waived first: nobody owes a duty, the Instructor grades it. Resubmitted first: it joins the open cycle.
+      const place = work.cycle_id ? 'in the open cycle' : 'to the Instructor';
+      assert.ok(
+        (work.cycle_id && work.grading_status === 'AwaitingPeerReview') ||
+          (!work.cycle_id && work.grading_status === 'AwaitingInstructor'),
+        `round ${round}: ${String(work.grading_status)} ${place}`,
+      );
+      assert.equal(
+        (await snapshot(who)).assignments[0].peerReview.status,
+        'Waived',
+      );
+    }
+  });
 });
