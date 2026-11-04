@@ -28,6 +28,7 @@ This document provides a consolidated technical reference for the physical datab
 | `notification_db` | `notifications` | `id` (UUID) | *None* | *None* | `idx_notifications_recipient`<br>`idx_notifications_org`<br>`idx_notifications_is_read`<br>`idx_notifications_created_at` | `V1__create_notifications_tables.sql` | In-app notification center |
 | `notification_db` | `notification_templates` | `id` (UUID) | *None* | `template_code` | `notification_templates_template_code_key` | `V1__create_notifications_tables.sql` | Multi-channel templates |
 | `notification_db` | `email_logs` | `id` (UUID) | *None* | *None* | `idx_email_logs_recipient`<br>`idx_email_logs_status`<br>`idx_email_logs_sent_at` | `V1__create_notifications_tables.sql` | Email dispatch log ledger |
+| `notification_db` | `enrollment_event_deliveries` | `id` (UUID) | *None* | `(event_id, recipient_user_id, channel)` | `idx_enrollment_event_deliveries_enrollment`<br>`idx_enrollment_event_deliveries_status` | `V2__create_enrollment_event_deliveries.sql` | Ledger of learning enrollment events told to people (duplicate guard and claim) |
 | `audit_db` | `audit_logs` | `id` (UUID) | *None* | *None* | `idx_audit_logs_org_id`<br>`idx_audit_logs_actor_id`<br>`idx_audit_logs_action`<br>`idx_audit_logs_resource`<br>`idx_audit_logs_created_at` | `V1__create_audit_logs_table.sql` | Append-only governance audit trail |
 
 ---
@@ -55,5 +56,5 @@ This document provides a consolidated technical reference for the physical datab
 All elements documented have been cross-checked and classified:
 
 1. **`identity_db`**: `VERIFIED MATCH` (Live PostgreSQL 16 schema matches `V1__init_identity_schema.sql` and JPA entities).
-2. **`notification_db`**: `VERIFIED MATCH` (Live PostgreSQL 16 schema matches `V1__create_notifications_tables.sql` and JPA entities).
+2. **`notification_db`**: `VERIFIED MATCH` (PostgreSQL 16 schema built by `V1__create_notifications_tables.sql` and `V2__create_enrollment_event_deliveries.sql` matches the JPA entities, `ddl-auto=validate`).
 3. **`audit_db`**: `VERIFIED MATCH` (Live PostgreSQL 16 schema matches `V1__create_audit_logs_table.sql` and JPA entity).

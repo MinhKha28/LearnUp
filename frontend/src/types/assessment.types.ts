@@ -349,6 +349,56 @@ export interface IPeerReviewCycleList {
   items: IPeerReviewCycleItem[];
 }
 
+/** UC33.1: the state of the peer review duty of one Learner on the Assignment (BR-239, BR-241). */
+export type TReviewerObligation = "Pending" | "Satisfied" | "Missed" | "Waived";
+
+export interface IPeerReviewCycleSubmission {
+  id: string;
+  learnerId: string;
+  /** Empty when the Learner is not known to tenant-service. */
+  fullName: string;
+  submittedAt: string;
+  reviewsAssigned: number;
+  reviewsCompleted: number;
+  /** Assigned and not completed: the Instructor grades these (BR-243). */
+  reviewsMissing: number;
+}
+
+export interface IPeerReviewCycleReviewer {
+  learnerId: string;
+  fullName: string;
+  assigned: number;
+  completed: number;
+  obligation: TReviewerObligation;
+  /** UC33.2: the duty is Missed and not waived, so the Instructor can waive it now. */
+  canWaive: boolean;
+}
+
+export interface IPeerReviewCycleDetail {
+  assignmentId: string;
+  title: string;
+  cycle: {
+    id: string;
+    opensAt: string;
+    closesAt: string;
+    reviewDueAt: string;
+    reviewersPerSubmission: number;
+    submissionCount: number;
+    status: TPeerReviewCycleStatus;
+    closed: boolean;
+  };
+  submissions: IPeerReviewCycleSubmission[];
+  reviewers: IPeerReviewCycleReviewer[];
+}
+
+/** UC33.2: what waiving a duty answers; waiving again answers the first date with alreadyWaived true. */
+export interface IPeerReviewWaiver {
+  assignmentId: string;
+  learnerId: string;
+  waivedAt: string;
+  alreadyWaived: boolean;
+}
+
 export interface IClosedPeerReviewCycle {
   cycleId: string;
   status: TPeerReviewCycleStatus;

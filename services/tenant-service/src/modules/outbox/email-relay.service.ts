@@ -170,6 +170,9 @@ export class EmailRelayService implements OnModuleDestroy {
       to: email.to,
       templateCode: email.templateCode,
       ...(email.expiresAt ? { expiresAt: email.expiresAt } : {}),
+      ...(email.countsTowardResendLimit
+        ? { countsTowardResendLimit: true }
+        : {}),
       redacted: true,
     };
   }
