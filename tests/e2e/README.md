@@ -14,6 +14,7 @@ state read back through the API, Kafka event observed) and never deletes anythin
 | J6 | Assessment access follows enrollment status (L17) | gateway, assessment, learning |
 | J7 | Certificate signer settings: ETag, If-Match save, 412/428 | gateway, achievement-reporting |
 | J8 | Tenant isolation between organization A and B | gateway, tenant, course, learning, achievement-reporting |
+| J9 | Re-registration with the same email: replaced unverified registration, expired registration, active-account email (observation), 10 concurrent same-email registrations | gateway, tenant, identity, notification |
 
 ## Start the cluster (Linux host, Docker, JDK 21, Node 22)
 
@@ -58,7 +59,7 @@ Fakes and non-default settings used:
 | :-- | :-- |
 | smtp-sink on `127.0.0.1:2525`, `LEARNUP_MAIL_ENABLED=true` | Read OTP and invitation links; nothing leaves the host |
 | Cloudinary variables empty | Storage stays unconfigured; no journey uploads files |
-| learning `TENANT_CLIENT_MODE=fake` | E2E explicitly uses fake; root Compose defaults to HTTP |
+| learning `TENANT_CLIENT_MODE=http` | Not a fake: learning calls the real Tenant organization-access endpoint, as the root Compose does |
 | learning `VIDEO_PLAYBACK_MODE=fixture`, `READING_ACCESS_MODE=fixture` | course-service playback/reading contract not built (CT-3) |
 | achievement signer access uses the default HTTP mode | J7 checks the real Tenant organization-access endpoint |
 | achievement `CERTIFICATE_CLEANUP_ENABLED=false`, consumer off | No storage, no certificate issuance in scope |
@@ -127,13 +128,10 @@ its volumes. `$E2E_STATE_DIR` (secrets, mailbox, run records) is kept; delete it
 
 ## Known failures
 
-`$KEY` is the `INTERNAL_SERVICE_KEY` from `cluster.env`.
+UI-1: UC28 progress uses hardcoded learner data; blank for real enrollments, with no curriculum link.
 
-- **CT-1 (assessment-service, contract with learning-service).** The `completion-snapshot`
-  endpoint is missing, so no enrollment ever reaches Completed. The learning fake cannot stand in
-  for it, because its default snapshot is not eligible.
-  `curl -i -H "x-internal-key: $KEY" localhost:8086/api/v1/internal/learners/<learnerId>/courses/<courseId>/completion-snapshot`
-  returns 404.
+CT-1 (assessment-service had no `completion-snapshot` endpoint, so no enrollment reached
+Completed) is resolved: J5 now asserts that the enrollment becomes Completed.
 
 - **UI-1 (learner frontend, owner Hào).** The UC28 progress page renders the hardcoded
   `learner.data` mock (`frontend/src/pages/learner/course.progress.tsx`, `courseDetails[courseId]`),

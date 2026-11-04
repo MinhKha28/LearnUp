@@ -12,6 +12,7 @@ import {
   CourseServiceClient,
 } from '../../src/infrastructure/clients/course/course-service.client';
 import { FakeNotificationClient } from '../../src/infrastructure/clients/notification/fake-notification.client';
+import { FakeTenantDirectoryClient } from '../../src/infrastructure/clients/tenant/fake-tenant-directory.client';
 import { PeerReviewRepository } from '../../src/modules/peer-review/peer-review.repository';
 import { PeerReviewService } from '../../src/modules/peer-review/peer-review.service';
 import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
@@ -352,6 +353,7 @@ export function build(opts: BuildOptions = {}) {
       repository,
       assessments,
       new FakeNotificationClient(),
+      new FakeTenantDirectoryClient(),
     ),
   };
 }

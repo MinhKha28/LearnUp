@@ -1,3 +1,5 @@
+import { CompletionModule } from '../course-completion/completion.module';
+import { ProgressService } from './progress.service';
 import { Module } from '@nestjs/common';
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
 import { CourseServiceModule } from '../../infrastructure/clients/course/course-service.module';
@@ -7,8 +9,13 @@ import { CurriculumRepository } from './curriculum.repository';
 import { CurriculumService } from './curriculum.service';
 
 @Module({
-  imports: [EnrollmentsModule, CourseServiceModule, TenantModule],
+  imports: [
+    CompletionModule,
+    EnrollmentsModule,
+    CourseServiceModule,
+    TenantModule,
+  ],
   controllers: [CurriculumController],
-  providers: [CurriculumService, CurriculumRepository],
+  providers: [ProgressService, CurriculumService, CurriculumRepository],
 })
 export class CurriculumModule {}

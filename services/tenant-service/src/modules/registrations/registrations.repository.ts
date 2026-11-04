@@ -8,7 +8,6 @@ import {
 } from '../../common/constants/tenant.constants';
 import { BaseRepository } from '../../common/repository/base.repository';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { IResendCounter } from './interfaces/resend-counter.interface';
 
 export const REGISTRATION_EMAIL_LOCK_NAMESPACE = 2402;
 
@@ -111,16 +110,31 @@ export class RegistrationsRepository extends BaseRepository {
     });
   }
 
-  /** TH B (BR-276): ghi đè mã băm liên kết (liên kết cũ mất hiệu lực) và bộ đếm gửi lại. */
+  /** TH B (BR-276): ghi đè mã băm liên kết (liên kết cũ mất hiệu lực). */
   updateReopenToken(
     registrationId: string,
     tokenHash: Uint8Array<ArrayBuffer>,
-    counter: IResendCounter,
     tx?: Prisma.TransactionClient,
   ) {
     return this.db(tx).registration.update({
       where: { id: registrationId },
-      data: { reopenTokenHash: tokenHash, ...counter },
+      data: { reopenTokenHash: tokenHash },
+    });
+  }
+
+  /** UC03.1: mã xác thực và liên kết mới thay cho cái cũ, số lần nhập sai về 0 (BR-13, BR-40). */
+  updateVerificationCode(
+    registrationId: string,
+    data: {
+      reopenTokenHash: Uint8Array<ArrayBuffer>;
+      otpHash: Uint8Array<ArrayBuffer>;
+      otpExpiresAt: Date;
+    },
+    tx?: Prisma.TransactionClient,
+  ) {
+    return this.db(tx).registration.update({
+      where: { id: registrationId },
+      data: { ...data, otpFailedAttempts: 0 },
     });
   }
 
