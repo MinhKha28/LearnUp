@@ -16,8 +16,7 @@
   font-size: 28px;
 }
 .course-progress-summary,
-.course-progress-remains,
-.course-progress-unavailable {
+.course-progress-remains {
   padding: 24px;
   margin-bottom: 24px;
   border: 1px solid var(--color-border);
@@ -37,7 +36,18 @@
   flex-wrap: wrap;
 }
 .course-progress-unavailable {
-  border-color: var(--color-warning, #f59e0b);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.course-progress-unavailable > p {
+  margin: 0;
 }
 .course-progress-table-wrap {
   overflow-x: auto;
@@ -57,8 +67,7 @@
 }
 @media (max-width: 768px) {
   .course-progress-summary,
-  .course-progress-remains,
-  .course-progress-unavailable {
+  .course-progress-remains {
     padding: 16px;
   }
   .course-progress-heading h1 {
