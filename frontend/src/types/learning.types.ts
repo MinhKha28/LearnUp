@@ -118,12 +118,16 @@ export interface VideoProgress {
 export interface VideoPlayback extends VideoProgress {
   title: string;
   playbackUrl: string;
+  expiresAt: string;
+  mimeType: string;
 }
 
 export interface ReadingAccess {
   materialId: string;
   title: string;
   accessUrl: string;
+  expiresAt: string;
+  mimeType: string;
   fixture: boolean;
 }
 export interface ReadingCompletion {

@@ -22,7 +22,7 @@ function VideoPlayer({
   lessonId: string;
 }) {
   const navigate = useNavigate();
-  const { video, videoRef, progress, warning, events, flush } =
+  const { video, videoRef, progress, warning, events, flush, mediaError, retryMedia } =
     useVideoProgress(enrollmentId, playback);
   const [rate, setRate] = useState(1);
   return (
@@ -46,6 +46,7 @@ function VideoPlayer({
         preload="metadata"
         aria-label={playback.title}
       />
+      {mediaError && <Alert type="error" message={mediaError} action={<Button onClick={retryMedia}>Thử lại</Button>} />}
       <label>
         Tốc độ phát{" "}
         <select

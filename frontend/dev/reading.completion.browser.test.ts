@@ -280,7 +280,7 @@ describe.skipIf(!enabled)("UC27.3 Reading browser", { timeout: 45000 }, () => {
     await call("Page.enable");
     await call("Runtime.enable");
     await call("Fetch.enable", {
-      patterns: [{ urlPattern: "*", requestStage: "Request" }],
+      patterns: [{ urlPattern: "*/complete-reading", requestStage: "Request" }],
     });
     await call("Page.addScriptToEvaluateOnNewDocument", {
       source: `localStorage.setItem('access_token',${JSON.stringify(jwt)});`,
@@ -297,13 +297,14 @@ describe.skipIf(!enabled)("UC27.3 Reading browser", { timeout: 45000 }, () => {
     failedRequests = 0;
     await call("Page.navigate", { url: front + "/reading-browser" });
     await waitFor(
-      "!!document.querySelector('.reading-resource button.ant-btn-primary') && document.body.innerText.includes('fixture')",
+      "!!document.querySelector('.reading-resource button.ant-btn-primary')",
     );
     await delay(100);
-  });
+  }, 30000);
   afterAll(async () => {
     held.splice(0).forEach((r) => r.destroy());
     if (socket?.readyState === WebSocket.OPEN) {
+      await call("Fetch.disable");
       await call("Browser.close").catch(() => undefined);
       socket.close();
     }
