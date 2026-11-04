@@ -99,7 +99,7 @@ screenshot to `$E2E_STATE_DIR/ui-screens/<runId>/` (never committed). Nothing is
 | S1 | UC05 Organizer login; records the organization name shown in the header |
 | S2 | UC13 learner list, UC24.2 assign a course; success message and the assignment with its due date |
 | S3 | UC26 My courses, UC27 curriculum, UC27.1 lesson, UC27.3 Reading completion (kept after reload), UC27.2 Video page against the unreachable fixture URL |
-| S4 | UC28 progress page: completed Reading not listed as remaining, other required items listed (`KNOWN-FAIL` UI-1) |
+| S4 | UC28 progress page: completed Reading counted, other required materials listed as missing (`KNOWN-FAIL` UI-1 until the real page is on develop) |
 
 The assign form has no due-date input; the due date is computed per learner by the backend and
 checked in the assignment list. The video step records what the page shows when the fixture media

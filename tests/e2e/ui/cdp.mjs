@@ -127,7 +127,6 @@ export class Page {
     this.errors = []; // uncaught exceptions
     this.responses = []; // { status, url, method }
     this.failures = []; // network-level failures
-    this.inflight = new Map();
     this.requestMethods = new Map();
   }
 
@@ -137,14 +136,10 @@ export class Page {
     this.browser.onSession(this.sessionId, (method, p) => {
       if (method === "Runtime.exceptionThrown")
         this.errors.push(p.exceptionDetails.exception?.description ?? p.exceptionDetails.text);
-      else if (method === "Network.requestWillBeSent") {
-        this.inflight.set(p.requestId, p.request.url);
-        this.requestMethods.set(p.requestId, p.request.method);
-      } else if (method === "Network.responseReceived")
+      else if (method === "Network.requestWillBeSent") this.requestMethods.set(p.requestId, p.request.method);
+      else if (method === "Network.responseReceived")
         this.responses.push({ status: p.response.status, url: p.response.url, method: this.requestMethods.get(p.requestId) ?? "GET" });
-      else if (method === "Network.loadingFinished") this.inflight.delete(p.requestId);
       else if (method === "Network.loadingFailed") {
-        this.inflight.delete(p.requestId);
         if (!p.canceled) this.failures.push({ url: p.request?.url, error: p.errorText });
       }
     });
@@ -170,20 +165,6 @@ export class Page {
     }
     const text = await this.bodyText().catch(() => "");
     throw new Error(`timed out waiting for ${what ?? expression}; page shows: ${text.slice(0, 300).replace(/\s+/g, " ")}`);
-  }
-
-  /** Waits until the page has had no request in flight for `quietMs`. */
-  async networkIdle(quietMs = 400, timeoutMs = 20000) {
-    const deadline = Date.now() + timeoutMs;
-    let quietSince = null;
-    while (Date.now() < deadline) {
-      if (this.inflight.size === 0) {
-        quietSince ??= Date.now();
-        if (Date.now() - quietSince >= quietMs) return;
-      } else quietSince = null;
-      await new Promise((r) => setTimeout(r, 40));
-    }
-    throw new Error(`network not idle; pending: ${[...this.inflight.values()].join(", ").slice(0, 300)}`);
   }
 
   bodyText = () => this.eval("document.body.innerText");

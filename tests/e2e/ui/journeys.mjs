@@ -19,6 +19,21 @@ const organizerLogin = (page, shared) =>
   signIn(page, shared, shared.organizer.email, loadClusterEnv().FIXTURE_ORGANIZER_PASSWORD, "/organizer");
 const learnerLogin = (page, shared) => signIn(page, shared, shared.learner.email, shared.learner.password, "/learner");
 
+/** Pages through the antd table until a row containing `text` is visible; returns the page-side row expression. */
+async function findRow(page, text, what) {
+  const row = `[...document.querySelectorAll(".ant-table-tbody tr")].find((r) => r.innerText.includes(${JSON.stringify(text)}))`;
+  const firstRow = `document.querySelector(".ant-table-tbody tr.ant-table-row")?.innerText`;
+  await page.waitFor(firstRow, `${what}: table rows`);
+  for (let i = 0; i < 200 && !(await page.eval(`Boolean(${row})`)); i++) {
+    const more = await page.eval(`Boolean(document.querySelector(".ant-table-wrapper .ant-pagination-next:not(.ant-pagination-disabled)"))`);
+    assert.ok(more, `${what}: "${text}" not found on any page of the table`);
+    const before = await page.eval(firstRow);
+    await page.click(`document.querySelector(".ant-table-wrapper .ant-pagination-next")`, `${what}: next page`);
+    await page.waitFor(`${firstRow} !== ${JSON.stringify(before)}`, `${what}: next page rows`);
+  }
+  return row;
+}
+
 const get = async (token, p) => data(await request("GET", `${GATEWAY}${p}`, { token, label: p.replace(/[0-9a-f-]{36}/g, ":id") }));
 
 export const journeys = [
@@ -65,18 +80,19 @@ export const journeys = [
       });
       await step("select the course and the learner", async () => {
         await page.click(`document.querySelector(".ant-select-selector")`, "course select");
-        await page.cmd("Input.insertText", { text: course.name });
+        // A query with a bracketed prefix such as "[SEED] ..." returns no course (finding), so search the plain part.
+        const query = course.name.replace(/^\[[^\]]*\]\s*/, "");
+        await page.cmd("Input.insertText", { text: query });
         const label = `${course.name} · Phiên bản ${course.versionNumber}`;
+        // The search is debounced and re-fetched; click only once the list holds nothing but matches.
+        await page.waitFor(
+          `(() => { const o = [...document.querySelectorAll(".ant-select-item-option")]; return o.length > 0 && o.every((x) => x.innerText.includes(${JSON.stringify(query)})); })()`,
+          "course options filtered by the search",
+        );
         await page.clickText(".ant-select-item-option", label, "course option");
         await page.waitFor(`document.querySelector(".ant-select-selection-item")`, "course chosen");
         // The learner table has no search: page through until the run's learner shows up.
-        const row = `[...document.querySelectorAll(".ant-table-tbody tr")].find((r) => r.innerText.includes(${JSON.stringify(email)}))`;
-        for (let i = 0; i < 200 && !(await page.eval(`Boolean(${row})`)); i++) {
-          const more = await page.eval(`(() => { const b = document.querySelector('.ant-pagination-next:not(.ant-pagination-disabled)'); return Boolean(b); })()`);
-          assert.ok(more, "learner not found on any page of the learner table");
-          await page.click(`document.querySelector(".ant-table-wrapper .ant-pagination-next")`, "next learner page");
-          await page.networkIdle();
-        }
+        const row = await findRow(page, email, "learner table");
         await page.click(`(${row}).querySelector("input[type=checkbox]")`, "learner checkbox");
         await page.waitForText("Đã chọn 1 / 500");
       });
@@ -85,8 +101,7 @@ export const journeys = [
         await page.waitFor(`location.pathname === "/organizer/assignments"`, "redirect to assignments");
         await page.waitFor(`document.querySelector(".ant-alert-success")`, "success message");
         shared.summary = await page.eval(`document.querySelector(".ant-alert-success").innerText`);
-        const row = `[...document.querySelectorAll(".ant-table-tbody tr")].find((r) => r.innerText.includes(${JSON.stringify(email)}))`;
-        await page.waitFor(row, "assignment row for the learner");
+        const row = await findRow(page, email, "assignment list");
         const cells = await page.eval(`(${row}).innerText`);
         (page.observations ??= []).push(`success message: "${shared.summary}"; row: ${cells.replace(/\s+/g, " ")}`);
         assert.ok(/\d{1,2}\/\d{1,2}\/\d{4}/.test(cells), `no due date in the assignment row: ${cells}`);
@@ -167,21 +182,23 @@ export const journeys = [
       const missing = required.filter((x) => !x.completed);
       assert.ok(done.length >= 1 && missing.length >= 1, "S3 must leave a completed Reading and other required items open");
       await learnerLogin(page, shared);
-      await step("progress page opens for the enrollment and shows the What remains list", async () => {
+      const remaining = `document.querySelector('section[aria-label="Điều kiện còn thiếu"]')`;
+      await step("progress page opens for the enrollment and shows the remaining conditions", async () => {
         await page.goto(`${shared.origin}/learner/courses/${shared.enrollmentId}/progress`);
-        const shown = await page.waitFor(`document.querySelector(".course-progress-table")`, "What remains table", 10000).then(
-          () => true,
-          async () => {
-            (page.observations ??= []).push(`progress page body: "${(await page.bodyText()).replace(/\s+/g, " ").trim()}"`);
-            return false;
-          },
-        );
-        assert.ok(shown, "progress page renders nothing for a real enrollment (no What remains table)");
+        try {
+          await page.waitFor(remaining, "remaining conditions section", 10000);
+        } catch {
+          (page.observations ??= []).push(`progress page body: "${(await page.bodyText()).replace(/\s+/g, " ").trim()}"`);
+          throw new Error("progress page shows no remaining-conditions section for a real enrollment");
+        }
       }, { knownBug: "UI-1" });
-      await step("the completed Reading is not listed as remaining; every other required item is", async () => {
-        const rows = await page.eval(`[...document.querySelectorAll(".course-progress-table tbody tr")].map((r) => r.innerText.replace(/\\s+/g, " "))`);
-        for (const m of done) assert.ok(!rows.some((r) => r.includes(m.title)), `completed "${m.title}" still listed as remaining`);
-        for (const m of missing) assert.ok(rows.some((r) => r.includes(m.title)), `required "${m.title}" missing from What remains`);
+      await step("the completed Reading is counted; every other required material is listed as missing", async () => {
+        await page.waitFor(`/Điều kiện hoàn thành: \\d+\\/\\d+ đã đạt/.test(document.body.innerText)`, "completion summary");
+        const met = Number(await page.eval(`/Điều kiện hoàn thành: (\\d+)\\/\\d+ đã đạt/.exec(document.body.innerText)[1]`));
+        assert.ok(met >= done.length, `summary counts ${met} conditions met, expected at least ${done.length}`);
+        const missingText = await page.eval(`(${remaining}).innerText`);
+        for (const m of done) assert.ok(!missingText.includes(m.title), `completed "${m.title}" still listed as missing`);
+        for (const m of missing) assert.ok(missingText.includes(m.title), `required "${m.title}" not listed as missing`);
       }, { knownBug: "UI-1" });
     },
   },

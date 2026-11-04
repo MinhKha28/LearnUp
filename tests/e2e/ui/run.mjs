@@ -58,7 +58,6 @@ try {
       let value;
       try {
         value = await fn();
-        await page.networkIdle();
         const bad = page.responses.slice(mark.responses).filter(
           (r) => r.status >= 500 || (r.status >= 400 && !allow4xx.some((a) => r.status === a)),
         );
@@ -67,6 +66,10 @@ try {
         if (errs.length) throw new Error(`uncaught page error: ${errs[0].split("\n")[0]}`);
       } catch (e) {
         error = String(e.message ?? e);
+        const errs = page.errors.slice(mark.errors).map((x) => x.split("\n")[0]);
+        const failed = page.failures.slice(mark.failures).map((x) => `${x.error} ${x.url}`);
+        if (errs.length) error += ` | page errors: ${errs.join("; ").slice(0, 300)}`;
+        if (failed.length) error += ` | failed requests: ${failed.join("; ").slice(0, 300)}`;
       }
       const shot = path.join(shared.screens, `${label}.png`);
       await page.screenshot(shot).catch(() => {});
