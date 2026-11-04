@@ -89,7 +89,7 @@ describe("the link to the cycle detail (UC33.1)", () => {
   it("is on every cycle that has submissions and goes to the detail of that cycle of the Assignment", async () => {
     renderTable();
     await screen.findByText("Cycle 2");
-    const links = screen.getAllByRole("link", { name: "Details" });
+    const links = screen.getAllByRole("link", { name: "Chi tiết" });
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/instructor/peer-cycles/a1/cycle-1",
       "/instructor/peer-cycles/a1/cycle-2",
@@ -102,7 +102,7 @@ describe("the link to the cycle detail (UC33.1)", () => {
     );
     renderTable();
     await screen.findByText("Cycle 1");
-    expect(screen.queryAllByRole("link", { name: "Details" })).toHaveLength(0);
+    expect(screen.queryAllByRole("link", { name: "Chi tiết" })).toHaveLength(0);
   });
 });
 

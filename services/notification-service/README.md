@@ -25,6 +25,7 @@ The **Notification Service** is one of the 3 finalized LearnUP Supporting/Platfo
 * `Notification` (`id`, `organizationId`, `recipientUserId`, `title`, `message`, `type`, `channel`, `isRead`, `readAt`, `createdAt`)
 * `NotificationTemplate` (`id`, `templateCode`, `subjectTemplate`, `bodyTemplate`, `channel`, `createdAt`)
 * `EmailLog` (`id`, `recipientEmail`, `subject`, `status`, `errorMessage`, `sentAt`)
+* `EnrollmentEventDelivery` (`id`, `eventId`, `eventType`, `organizationId`, `enrollmentId`, `recipientUserId`, `channel` EMAIL or IN_APP, `status` PENDING, SENT, FAILED or SKIPPED, `attempts`, `lastError` (a fixed code), `occurredAt`, `sentAt`): what was sent for which learning event; unique on (`eventId`, `recipientUserId`, `channel`)
 
 ---
 
@@ -37,6 +38,10 @@ The **Notification Service** is one of the 3 finalized LearnUP Supporting/Platfo
 ---
 
 ## 6. Event Interactions
+* **Learning enrollment events** (`learnup.learning.enrollment-events`): tells the Learner in the app and by e-mail about `EnrollmentAssigned`, `EnrollmentDueDateExtended` and `EnrollmentExempted`; `LearnerWithdrew` writes to nobody. Retry with backoff, then `learnup.learning.enrollment-events.DLT`. Contract and rules: `contracts/events/learning-enrollment-events.md`.
+  * Settings: `ENROLLMENT_EVENTS_CONSUMER_ENABLED` (default `false`; Compose sets `true`), `SPRING_KAFKA_BOOTSTRAP_SERVERS`, `ENROLLMENT_EVENTS_GROUP_ID`, `ENROLLMENT_EVENTS_TOPIC`, `ENROLLMENT_EVENTS_MAX_AGE` (72h), `ENROLLMENT_EVENTS_RETRY_ATTEMPTS` (5), `ENROLLMENT_EVENTS_RETRY_INITIAL_BACKOFF` (1s), `ENROLLMENT_EVENTS_RETRY_MAX_BACKOFF` (30s), `ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS` (3000), `ENROLLMENT_EVENTS_DEFAULT_TIME_ZONE` (Asia/Ho_Chi_Minh), `ENROLLMENT_EVENTS_CLAIM_LEASE` (2m), `ENROLLMENT_EVENTS_START_RETRY_INTERVAL` (10s), `ENROLLMENT_EVENTS_DLT_PARTITIONS` (3), `ENROLLMENT_EVENTS_DLT_REPLICAS` (1), `TENANT_SERVICE_URL`, `COURSE_SERVICE_URL`. Compose forwards all of them.
+  * Kafka down at start-up: the service starts anyway (the notification API does not depend on Kafka) and the consumer is started again every `ENROLLMENT_EVENTS_START_RETRY_INTERVAL` until it runs.
+  * Two handlers on one event (two instances during a rebalance, or a consumer evicted while it still runs): each delivery is claimed with `SELECT ... FOR UPDATE` before anything is sent (status `PROCESSING`), so only one of them sends; a claim older than `ENROLLMENT_EVENTS_CLAIM_LEASE` is taken over.
 * **Consumed Events**:
   * `learnup.tenant.user-invited`
   * `learnup.tenant.user-created`

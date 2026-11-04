@@ -1,3 +1,10 @@
+import {
+  ApiOperation,
+  ApiOkResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+} from '@nestjs/swagger';
+import { ProgressService, type ProgressView } from './progress.service';
 import type { CurrentUser } from '@learnup/ts-common';
 import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
 import { User } from '../../common/decorator/customize';
@@ -11,7 +18,32 @@ import {
 // Không dùng ParseUUIDPipe: id sai định dạng trả 404 như không tìm thấy, giống UC25.1 của course-service
 @Controller('enrollments')
 export class CurriculumController {
-  constructor(private readonly service: CurriculumService) {}
+  constructor(
+    private readonly service: CurriculumService,
+    private readonly progress: ProgressService,
+  ) {}
+
+  @Get(':enrollmentId/progress')
+  @Roles('LEARNER')
+  @ApiOperation({
+    summary: 'UC28: read own completion conditions; never updates progress',
+  })
+  @ApiOkResponse({
+    description:
+      'Completed summary, or materials and assessment conditions (assessment may be unavailable)',
+  })
+  @ApiForbiddenResponse({
+    description: 'CONTENT_UNAVAILABLE, same as curriculum',
+  })
+  @ApiNotFoundResponse({
+    description: 'ENROLLMENT_NOT_FOUND, same as curriculum',
+  })
+  getProgress(
+    @User() user: CurrentUser,
+    @Param('enrollmentId') enrollmentId: string,
+  ): Promise<ProgressView> {
+    return this.progress.getProgress(user, enrollmentId);
+  }
 
   /** UC27: chương trình học của một Enrollment. */
   @Get(':enrollmentId/curriculum')

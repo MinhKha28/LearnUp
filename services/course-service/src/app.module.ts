@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { CoursesModule } from './modules/courses/courses.module';
 import { InternalCoursesModule } from './modules/internal-courses/internal-courses.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { OutboxModule } from './modules/outbox/outbox.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
     CatalogModule,
     CoursesModule,
     InternalCoursesModule,
+    OutboxModule,
   ],
   providers: [
     {

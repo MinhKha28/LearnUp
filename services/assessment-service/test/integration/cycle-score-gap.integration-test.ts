@@ -23,7 +23,7 @@ const person = (i: number) =>
 
 interface Case {
   author: number;
-  reviews: { status: 'Completed' | 'Pending'; score?: number; role?: string }[];
+  reviews: { status: string; score?: number; role?: string }[];
   grading?: string;
 }
 
@@ -78,6 +78,51 @@ describe('UC33.1 the score gap of the submissions of a cycle over HTTP', () => {
     },
     // no review done yet
     { author: 5, reviews: [{ status: 'Pending' }, { status: 'Pending' }] },
+    // rows that are not Completed keep a number (a removed, expired, missed or pending review): none of them counts
+    {
+      author: 6,
+      reviews: [
+        { status: 'Completed', score: 80 },
+        { status: 'Completed', score: 78 },
+        { status: 'Expired', score: 10 },
+        { status: 'Removed', score: 5 },
+        { status: 'Pending', score: 99 },
+        { status: 'Missed', score: 0 },
+      ],
+    },
+    // three reviewers: the gap is the highest minus the lowest of all three
+    {
+      author: 7,
+      reviews: [
+        { status: 'Completed', score: 90 },
+        { status: 'Completed', score: 70 },
+        { status: 'Completed', score: 50 },
+      ],
+    },
+    // all scores equal: a gap of zero, which is not the same as no gap
+    {
+      author: 8,
+      reviews: [
+        { status: 'Completed', score: 70 },
+        { status: 'Completed', score: 70 },
+        { status: 'Completed', score: 70 },
+      ],
+    },
+    // fractional scores through PostgreSQL and JSON: 19.75 is not above 20, 20.5 is
+    {
+      author: 9,
+      reviews: [
+        { status: 'Completed', score: 80.25 },
+        { status: 'Completed', score: 60.5 },
+      ],
+    },
+    {
+      author: 10,
+      reviews: [
+        { status: 'Completed', score: 80.25 },
+        { status: 'Completed', score: 59.75 },
+      ],
+    },
   ];
 
   before(async () => {
@@ -138,10 +183,10 @@ describe('UC33.1 the score gap of the submissions of a cycle over HTTP', () => {
             ORG,
             row.id,
             cycle,
-            person(10 + c.author * 3 + k),
+            person(100 + c.author * 10 + k),
             review.role ?? 'Learner',
             review.status,
-            review.status === 'Completed' ? review.score : null,
+            review.score ?? null,
             review.status === 'Completed' ? 'fine' : null,
             review.status === 'Completed' ? new Date() : null,
           ],
@@ -216,8 +261,63 @@ describe('UC33.1 the score gap of the submissions of a cycle over HTTP', () => {
   test('exactly one submission needs review in this cycle', async () => {
     const { data } = await read();
     assert.deepEqual(
-      (data.submissions as any[]).filter((s) => s.needsReview).map((s) => s.id),
-      [submissionOf.get(0)],
+      (data.submissions as any[])
+        .filter((s) => s.needsReview)
+        .map((s) => s.id)
+        .sort(),
+      [0, 7, 10].map((author) => submissionOf.get(author)!).sort(),
     );
+  });
+
+  test('a review that is not Completed never counts, whatever number it keeps', async () => {
+    const s = (await read()).of(6);
+    assert.equal(s.lowestScore, 78);
+    assert.equal(s.highestScore, 80);
+    assert.equal(s.scoreGap, 2);
+    assert.equal(s.needsReview, false);
+  });
+
+  test('three reviewers: the gap is the highest minus the lowest', async () => {
+    const s = (await read()).of(7);
+    assert.equal(s.lowestScore, 50);
+    assert.equal(s.highestScore, 90);
+    assert.equal(s.scoreGap, 40);
+    assert.equal(s.needsReview, true);
+  });
+
+  test('equal scores give a gap of zero, not a missing one', async () => {
+    const s = (await read()).of(8);
+    assert.equal(s.scoreGap, 0);
+    assert.equal(s.lowestScore, 70);
+    assert.equal(s.highestScore, 70);
+    assert.equal(s.needsReview, false);
+  });
+
+  test('fractional scores and threshold: 19.75 is below 20, 20.5 is above', async () => {
+    const { of } = await read();
+    assert.equal(of(9).lowestScore, 60.5);
+    assert.equal(of(9).highestScore, 80.25);
+    assert.equal(of(9).scoreGap, 19.75);
+    assert.equal(of(9).needsReview, false);
+    assert.equal(of(10).scoreGap, 20.5);
+    assert.equal(of(10).needsReview, true);
+  });
+
+  test('a threshold changed on the Assignment after the cycle was created does not change that cycle (it keeps its own)', async () => {
+    await db.query(
+      'UPDATE assessments SET peer_review_score_gap = 50 WHERE id = $1',
+      [assignment],
+    );
+    try {
+      const { data, of } = await read();
+      assert.equal(data.cycle.scoreGap, 20);
+      assert.equal(of(0).needsReview, true); // 30 apart is still above the 20 of the cycle
+      assert.equal(of(1).needsReview, false); // exactly 20 apart is still not above it
+    } finally {
+      await db.query(
+        'UPDATE assessments SET peer_review_score_gap = 20 WHERE id = $1',
+        [assignment],
+      );
+    }
   });
 });

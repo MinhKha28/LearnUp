@@ -10,6 +10,7 @@ import { InstructorSubmissionsModule } from './modules/instructor-submissions/in
 import { LearnerAssessmentsModule } from './modules/learner-assessments/learner-assessments.module';
 import { LearnerReviewsModule } from './modules/learner-reviews/learner-reviews.module';
 import { LearnerSubmissionsModule } from './modules/learner-submissions/learner-submissions.module';
+import { OutboxModule } from './modules/outbox/outbox.module';
 import { PeerReviewModule } from './modules/peer-review/peer-review.module';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
 import { QuizModule } from './modules/quiz/quiz.module';
@@ -26,6 +27,7 @@ import { QuizModule } from './modules/quiz/quiz.module';
     LearnerReviewsModule,
     LearnerSubmissionsModule,
     AssessmentsModule,
+    OutboxModule,
     PeerReviewModule,
     QuizModule,
   ],

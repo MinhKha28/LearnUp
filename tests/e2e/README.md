@@ -14,6 +14,7 @@ state read back through the API, Kafka event observed) and never deletes anythin
 | J6 | Assessment access follows enrollment status (L17) | gateway, assessment, learning |
 | J7 | Certificate signer settings: ETag, If-Match save, 412/428 | gateway, achievement-reporting |
 | J8 | Tenant isolation between organization A and B | gateway, tenant, course, learning, achievement-reporting |
+| J9 | Re-registration with the same email: replaced unverified registration, expired registration, active-account email (observation), 10 concurrent same-email registrations | gateway, tenant, identity, notification |
 
 ## Start the cluster (Linux host, Docker, JDK 21, Node 22)
 
@@ -58,7 +59,7 @@ Fakes and non-default settings used:
 | :-- | :-- |
 | smtp-sink on `127.0.0.1:2525`, `LEARNUP_MAIL_ENABLED=true` | Read OTP and invitation links; nothing leaves the host |
 | Cloudinary variables empty | Storage stays unconfigured; no journey uploads files |
-| learning `TENANT_CLIENT_MODE=fake` | E2E explicitly uses fake; root Compose defaults to HTTP |
+| learning `TENANT_CLIENT_MODE=http` | Not a fake: learning calls the real Tenant organization-access endpoint, as the root Compose does |
 | learning `VIDEO_PLAYBACK_MODE=fixture`, `READING_ACCESS_MODE=fixture` | course-service playback/reading contract not built (CT-3) |
 | achievement signer access uses the default HTTP mode | J7 checks the real Tenant organization-access endpoint |
 | achievement `CERTIFICATE_CLEANUP_ENABLED=false`, consumer off | No storage, no certificate issuance in scope |
@@ -75,6 +76,34 @@ correct behaviour; it fails only because of a bug listed below. Fixing a bug tur
 `UNEXPECTED-PASS`; then remove the bug ID from `lib/known-bugs.mjs`. The run record
 (`$E2E_STATE_DIR/runs/<runId>.json`) holds every created ID plus per-journey and per-route
 latency (single-user, not a load test).
+
+## Browser smoke (demo journeys)
+
+```bash
+(cd frontend && npm ci)            # once
+node tests/e2e/ui/run.mjs          # all of S1-S4; or e.g. node tests/e2e/ui/run.mjs S1 S3
+```
+
+Drives the production frontend bundle through the gateway on `:8080` (every `VITE_*_BACKEND_URL`
+is the gateway, as in the compose build) with headless Chromium over raw CDP: Node's built-in
+WebSocket, no npm dependency. The runner builds the bundle into `$E2E_STATE_DIR/ui-dist` on first
+use (`E2E_UI_REBUILD=1` rebuilds), serves it on `localhost:3000` (`E2E_UI_PORT`; the gateway CORS
+list allows `:3000`/`:5173`) and finds Chrome via `CHROME_PATH`, `PATH`, or a Playwright cache.
+Each journey runs in a fresh browser context with its own run-prefixed learner (created through the
+API as in J2, setup only). Every step asserts the visible element/text, no uncaught page error, no
+HTTP >= 500 and no unexpected 4xx; it waits on conditions, never fixed sleeps, and writes one
+screenshot to `$E2E_STATE_DIR/ui-screens/<runId>/` (never committed). Nothing is deleted.
+
+| ID | Journey |
+| :-- | :-- |
+| S1 | UC05 Organizer login; records the organization name shown in the header |
+| S2 | UC13 learner list, UC24.2 assign a course; success message and the assignment with its due date |
+| S3 | UC26 My courses, UC27 curriculum, UC27.1 lesson, UC27.3 Reading completion (kept after reload), UC27.2 Video page against the unreachable fixture URL |
+| S4 | UC28 progress page: completed Reading counted, other required materials listed as missing (`KNOWN-FAIL` UI-1 until the real page is on develop) |
+
+The assign form has no due-date input; the due date is computed per learner by the backend and
+checked in the assignment list. The video step records what the page shows when the fixture media
+cannot load (no crash; the page does not show a message of its own).
 
 ## Cleanup (explicit, never run by the suite)
 
@@ -99,13 +128,17 @@ its volumes. `$E2E_STATE_DIR` (secrets, mailbox, run records) is kept; delete it
 
 ## Known failures
 
-`$KEY` is the `INTERNAL_SERVICE_KEY` from `cluster.env`.
+UI-1: UC28 progress uses hardcoded learner data; blank for real enrollments, with no curriculum link.
 
-- **CT-1 (assessment-service, contract with learning-service).** The `completion-snapshot`
-  endpoint is missing, so no enrollment ever reaches Completed. The learning fake cannot stand in
-  for it, because its default snapshot is not eligible.
-  `curl -i -H "x-internal-key: $KEY" localhost:8086/api/v1/internal/learners/<learnerId>/courses/<courseId>/completion-snapshot`
-  returns 404.
+CT-1 (assessment-service had no `completion-snapshot` endpoint, so no enrollment reached
+Completed) is resolved: J5 now asserts that the enrollment becomes Completed.
+
+- **UI-1 (learner frontend, owner Hào).** The UC28 progress page renders the hardcoded
+  `learner.data` mock (`frontend/src/pages/learner/course.progress.tsx`, `courseDetails[courseId]`),
+  so it is blank for a real enrollment, and the curriculum has no link to it. Reproduce: sign in as
+  a learner with an assigned course, open `/learner/courses/<enrollmentId>/progress`; the page
+  shows only the "Khóa học của tôi" back link. Browser smoke S4 asserts the correct outcome and is
+  reported as `KNOWN-FAIL [UI-1]`.
 
 Tenant CT-2 is resolved: J7 uses the real `GET /api/v1/internal/organizations/:id/access` endpoint with matching internal-key and Organization headers. Tenant unavailability fails closed with `503 TENANT_UNAVAILABLE`.
 

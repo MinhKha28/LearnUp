@@ -138,7 +138,10 @@ describe('UC27.3 Reading HTTP + PostgreSQL', () => {
     try {
       await cleanup();
     } finally {
-      await closeAll(() => closeApp(app), () => db.end());
+      await closeAll(
+        () => closeApp(app),
+        () => db.end(),
+      );
     }
   });
   test('first completion, retry and parallel duplicates enqueue once without I2; timestamps are immutable', async () => {
@@ -198,18 +201,10 @@ describe('UC27.3 Reading HTTP + PostgreSQL', () => {
       await repository.transaction(async (tx) => {
         await repository.access(enrollment, learner, org, tx);
         await repository.lock(enrollment, material, org, tx);
-        const preview = await repository.preview(
+        await repository.saveCoverage(
           enrollment,
           material,
           org,
-          [[0, 100]],
-          tx,
-        );
-        await repository.save(
-          enrollment,
-          material,
-          org,
-          preview,
           80,
           [[0, 100]],
           tx,
