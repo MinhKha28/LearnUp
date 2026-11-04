@@ -179,6 +179,33 @@ describe("UC33.1 the detail of a cycle", () => {
     ).toBeTruthy();
   });
 
+  it("writes the spread and the threshold with the Vietnamese decimal comma, and shows a missing spread as a dash", async () => {
+    const base = detail();
+    const [first, second] = base.data.submissions as object[];
+    vi.mocked(api.fetchPeerReviewCycleDetailAPI).mockResolvedValue({
+      ...base,
+      data: {
+        ...base.data,
+        cycle: { ...base.data.cycle, scoreGap: 20.5 },
+        submissions: [
+          { ...second, scoreGap: 24.5, needsReview: true },
+          { ...first, id: "submission-zero", scoreGap: 0, needsReview: false },
+          { ...first, id: "submission-none", scoreGap: null, needsReview: false },
+        ],
+      },
+    } as never);
+    renderPage();
+    await screen.findByText("24,5");
+    expect(
+      screen.getByText(
+        "1 bài nộp có điểm của các người chấm chênh nhau hơn 20,5 điểm. Hãy xem lại và chốt điểm cuối (BR-252).",
+      ),
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toContain("24.5");
+    expect(document.body.textContent).not.toContain("20.5");
+    expect(screen.getAllByText("-")).toHaveLength(1); // only the submission without a spread
+  });
+
   it("says nothing about the gap when no submission is above the threshold", async () => {
     const base = detail();
     vi.mocked(api.fetchPeerReviewCycleDetailAPI).mockResolvedValue({

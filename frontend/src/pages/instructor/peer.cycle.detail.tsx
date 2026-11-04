@@ -23,6 +23,9 @@ import "./peer.cycles.scss";
 
 const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
 
+/** Scores have at most two decimals (BR-202): 24.5 is written 24,5. */
+const formatScore = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 });
+
 const OBLIGATION_LABEL: Record<TReviewerObligation, string> = {
   Pending: "Đang thực hiện",
   Satisfied: "Đã hoàn thành",
@@ -138,7 +141,7 @@ const PeerCycleDetail = () => {
                 </span>
                 <span>{row.reviewsMissing}</span>
                 <span className="instructor-cycle-obligation">
-                  {row.scoreGap === null ? "-" : row.scoreGap}
+                  {row.scoreGap === null ? "-" : formatScore.format(row.scoreGap)}
                   {row.needsReview && (
                     <span className="instructor-cycle-chip instructor-cycle-chip-Missed">
                       Cần xem lại
@@ -159,7 +162,7 @@ const PeerCycleDetail = () => {
           {flagged > 0 && (
             <p className="instructor-cycle-gap-note">
               {flagged} bài nộp có điểm của các người chấm chênh nhau hơn{" "}
-              {cycle.scoreGap} điểm. Hãy xem lại và chốt điểm cuối (BR-252).
+              {formatScore.format(cycle.scoreGap)} điểm. Hãy xem lại và chốt điểm cuối (BR-252).
             </p>
           )}
         </SectionCard>
