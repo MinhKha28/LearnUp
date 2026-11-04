@@ -3,6 +3,10 @@ import { Prisma } from 'generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import type { AssignmentFacts } from '../completion-snapshot/completion-snapshot';
 import {
+  emitCompletionSignal,
+  type CompletionSignal,
+} from '../outbox/completion-signal';
+import {
   ASSIGNMENT_KIND,
   REVIEW_COMPLETED,
 } from './learner-submissions.constants';
@@ -202,10 +206,8 @@ export class LearnerSubmissionsRepository {
     return tx.submission.create({ data });
   }
 
-  createOutboxEvent(
-    tx: Prisma.TransactionClient,
-    data: Prisma.OutboxEventUncheckedCreateInput,
-  ) {
-    return tx.outboxEvent.create({ data });
+  /** The status-changed event of the Learner, written in the transaction of the change (see emitCompletionSignal). */
+  emitSignal(tx: Prisma.TransactionClient, signal: CompletionSignal) {
+    return emitCompletionSignal(tx, signal);
   }
 }

@@ -205,3 +205,16 @@ model OutboxEvent {
   // Index (published_at) bị bỏ; thay bằng index (id) WHERE published_at IS NULL viết tay trong migration add_design_constraints
   @@map("outbox_events")
 }
+
+model AssessmentEventQuarantine {
+  id String @id @default(uuid(7)) @db.Uuid
+  topic String
+  partition Int
+  offset BigInt
+  eventId String? @map("event_id")
+  reason String @db.VarChar(64)
+  payload Json
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz
+  @@unique([topic, partition, offset])
+  @@map("assessment_event_quarantine")
+}
