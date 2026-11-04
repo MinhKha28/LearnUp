@@ -18,6 +18,11 @@ import {
 } from '../../src/infrastructure/clients/learning/enrollment.client';
 import { LearnerSubmissionsService } from '../../src/modules/learner-submissions/learner-submissions.service';
 import type { AssignmentFacts } from '../../src/modules/completion-snapshot/completion-snapshot';
+import { LEARNER_STATUS_CHANGED_EVENT } from '../../src/modules/learner-submissions/learner-submissions.constants';
+import {
+  signalPayload,
+  type CompletionSignal,
+} from '../../src/modules/outbox/completion-signal';
 import type {
   CycleRow,
   LearnerAssignmentRow,
@@ -233,9 +238,13 @@ function build(over: Partial<World> = {}) {
       world.submissions.push(row);
       return Promise.resolve(row);
     },
-    createOutboxEvent: (_tx: unknown, data: Record<string, unknown>) => {
-      world.outbox.push(data);
-      return Promise.resolve(data);
+    emitSignal: (_tx: unknown, signal: CompletionSignal) => {
+      const event = {
+        eventType: LEARNER_STATUS_CHANGED_EVENT,
+        payload: signalPayload(signal, 'revision-of-the-test', null),
+      };
+      world.outbox.push(event);
+      return Promise.resolve(event);
     },
   } as unknown as LearnerSubmissionsRepository;
 

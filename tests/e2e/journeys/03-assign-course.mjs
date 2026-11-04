@@ -4,6 +4,7 @@ import { assert, expectStatus } from "../lib/harness.mjs";
 import { data, request } from "../lib/http.mjs";
 import { endOffsets, waitForEvent } from "../lib/kafka.mjs";
 
+const MAX_ASSIGNMENT_PAGES = 20;
 const TOPIC = "learnup.learning.enrollment-events";
 
 export default {
@@ -41,9 +42,18 @@ export default {
     });
 
     await step("organizer assignment list through gateway shows the learner", async () => {
-      const res = expectStatus(await request("GET", `${GATEWAY}/api/v1/assignments`, { token: a.token }), 200);
-      const row = data(res).items.find((i) => i.enrollmentId === enrollment.enrollmentId);
-      assert.ok(row, "enrollment missing from organizer assignment list");
+      // The list has no filter (only `page`, 20 per page); page through with a hard cap.
+      let row;
+      for (let page = 1; page <= MAX_ASSIGNMENT_PAGES && !row; page++) {
+        const res = expectStatus(
+          await request("GET", `${GATEWAY}/api/v1/assignments?page=${page}`, { token: a.token, label: "/api/v1/assignments?page=:n" }),
+          200,
+        );
+        const { items, total } = data(res);
+        row = items.find((i) => i.enrollmentId === enrollment.enrollmentId);
+        if (page * 20 >= total) break;
+      }
+      assert.ok(row, `enrollment missing from organizer assignment list (searched up to ${MAX_ASSIGNMENT_PAGES} pages)`);
       assert.equal(row.learner.id, learner.userId);
       assert.equal(row.course.id, courseId);
     });
