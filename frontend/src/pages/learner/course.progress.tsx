@@ -9,9 +9,11 @@ import {
 import { LearningError } from "@/components/learner/learning.error";
 import { useApiQuery } from "@/hooks/use.api.query";
 import { useLearningRefresh } from "@/hooks/use.learning.refresh";
-import { fetchEnrollmentProgress } from "@/services/learning.service";
+import { fetchCurriculum, fetchEnrollmentProgress } from "@/services/learning.service";
 import { fetchLearnerAssessmentsAPI } from "@/services/assessment.service";
 import type { EnrollmentProgress } from "@/types/learning.types";
+import { formatLocalDateTime } from "@/utils/helper";
+import { ENROLLMENT_TYPE_LABELS } from "@/utils/learner.labels";
 import { formatDueAt } from "@/utils/due.format";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import "./course.progress.scss";
@@ -34,6 +36,11 @@ const ProgressDetails = ({
   reload: () => void;
 }) => {
   const { enrollment, materials = [], assessment, conditions } = data;
+  const curriculum = useApiQuery(
+    (signal) => fetchCurriculum(enrollment.id, signal),
+    [enrollment.id],
+  );
+  const courseName = curriculum.status === "success" ? curriculum.data.course?.name : null;
   const base = LEARNER_ROUTES.curriculum(enrollment.id);
   const due =
     enrollment.enrollmentType === "Required" && enrollment.dueAt
@@ -47,6 +54,7 @@ const ProgressDetails = ({
       <header className="course-progress-heading">
         <Link to={base}>Về chương trình học</Link>
         <h1>Tiến độ hoàn thành Khóa học</h1>
+        {courseName && <p className="course-progress-course-name">{courseName}</p>}
       </header>
       <section
         className="course-progress-summary"
@@ -64,7 +72,9 @@ const ProgressDetails = ({
                   : "Đang học"}
         </StatusTag>
         <p>
-          {enrollment.enrollmentType === "Required" ? "Bắt buộc" : "Tự chọn"}
+          Loại phân công: {enrollment.enrollmentType === "Required"
+            ? ENROLLMENT_TYPE_LABELS.Required
+            : ENROLLMENT_TYPE_LABELS.Optional}
         </p>
         {due && (
           <p>
@@ -77,11 +87,7 @@ const ProgressDetails = ({
             <p>
               Ngày hoàn thành:{" "}
               {enrollment.completedAt
-                ? new Intl.DateTimeFormat("vi-VN", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                    timeZone: enrollment.dueTimezone || undefined,
-                  }).format(new Date(enrollment.completedAt))
+                ? formatLocalDateTime(enrollment.completedAt)
                 : "Chưa có thông tin"}
             </p>
             {enrollment.completedLate && <p>Hoàn thành sau hạn</p>}

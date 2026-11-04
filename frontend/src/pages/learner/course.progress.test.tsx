@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchEnrollmentProgress } from "@/services/learning.service";
+import { fetchCurriculum, fetchEnrollmentProgress } from "@/services/learning.service";
 import { fetchLearnerAssessmentsAPI } from "@/services/assessment.service";
 import type { EnrollmentProgress } from "@/types/learning.types";
 import { ApiError } from "@/types/api.types";
@@ -17,6 +17,7 @@ import CourseProgress from "./course.progress";
 
 vi.mock("@/services/learning.service", () => ({
   fetchEnrollmentProgress: vi.fn(),
+  fetchCurriculum: vi.fn(),
 }));
 vi.mock("@/services/assessment.service", () => ({
   fetchLearnerAssessmentsAPI: vi.fn(),
@@ -24,8 +25,10 @@ vi.mock("@/services/assessment.service", () => ({
 vi.mock("@/hooks/use.learning.refresh", () => ({
   useLearningRefresh: vi.fn(),
 }));
+const curriculum = vi.mocked(fetchCurriculum);
 const progress = vi.mocked(fetchEnrollmentProgress);
 const assessments = vi.mocked(fetchLearnerAssessmentsAPI);
+const deviceTimezone = process.env.TZ;
 const fixture = (): EnrollmentProgress => ({
   enrollment: {
     id: "enrollment",
@@ -87,8 +90,10 @@ const mount = () =>
     </MemoryRouter>,
   );
 beforeEach(() => {
+  process.env.TZ = "Asia/Ho_Chi_Minh";
   vi.resetAllMocks();
   progress.mockResolvedValue(fixture());
+  curriculum.mockResolvedValue({ course: { name: "An toàn lao động", versionNumber: 1 } } as never);
   assessments.mockResolvedValue({
     data: {
       items: [
@@ -98,8 +103,30 @@ beforeEach(() => {
     },
   } as never);
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  if (deviceTimezone === undefined) delete process.env.TZ;
+  else process.env.TZ = deviceTimezone;
+});
 describe("UC28 real progress page", () => {
+  it("shows the course name from the existing curriculum endpoint and labels the assignment type", async () => {
+    mount();
+    await screen.findByText("An toàn lao động");
+    expect(curriculum).toHaveBeenCalledWith("enrollment", expect.any(AbortSignal));
+    expect(screen.getByText("Loại phân công: Bắt buộc")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Về chương trình học" }).getAttribute("href"))
+      .toBe("/learner/courses/enrollment");
+  });
+  it.each(["missing", "unavailable"])("keeps the heading when the course name is %s", async (state) => {
+    if (state === "missing") curriculum.mockResolvedValue({ course: null } as never);
+    else curriculum.mockRejectedValue(new ApiError(503, "SERVICE_UNAVAILABLE", ""));
+    mount();
+    await screen.findByText("Điều kiện hoàn thành: 1/4 đã đạt");
+    await waitFor(() => expect(curriculum).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("heading", { name: "Tiến độ hoàn thành Khóa học" })).toBeTruthy();
+    expect(screen.queryByText("An toàn lao động")).toBeNull();
+  });
+
   it("shows counts, a complete missing list, joined names and due date without percentage", async () => {
     const { container } = mount();
     await screen.findByText("Điều kiện hoàn thành: 1/4 đã đạt");
@@ -148,13 +175,14 @@ describe("UC28 real progress page", () => {
       enrollment: {
         ...fixture().enrollment,
         status: "Completed",
+        dueTimezone: "America/New_York",
         completedAt: "2026-11-03T00:00:00Z",
         completedLate: true,
       },
     });
     mount();
     await screen.findByText("Hoàn thành");
-    expect(screen.getByText(/Ngày hoàn thành:/)).toBeTruthy();
+    expect(screen.getByText("Ngày hoàn thành: 07:00, 03/11/2026")).toBeTruthy();
     expect(screen.getByText("Hoàn thành sau hạn")).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "Xem chứng chỉ" }).getAttribute("href"),
