@@ -9,7 +9,6 @@ import type { CurrentUser } from '@learnup/ts-common';
 
 import { NotificationClient } from '../../infrastructure/clients/notification/notification.client';
 import { TenantDirectoryClient } from '../../infrastructure/clients/tenant/tenant-directory.client';
-import { LEARNER_STATUS_CHANGED_EVENT } from '../learner-submissions/learner-submissions.constants';
 import { cycleLockKey } from './cycle-lock';
 import { assignedNotice, waivedNotice } from './review-notice';
 import { waiverDecision } from './waiver';
@@ -99,18 +98,22 @@ export class PeerReviewService {
             'This Learner does not owe a peer review on this Assignment, so there is nothing to waive.',
         });
       }
-      const waived = await this.repository.waive(tx, state, user.userId, now, {
-        eventType: LEARNER_STATUS_CHANGED_EVENT,
-        payload: {
+      const waived = await this.repository.waive(tx, state, user.userId, now);
+      if (waived) {
+        await this.repository.emitSignal(tx, {
+          stateId: state.id,
+          organizationId: assignment.organizationId,
           assessmentId: assignment.id,
           courseId: assignment.courseId,
           learnerId,
           kind: 'ASSIGNMENT',
+          reason: 'PEER_REVIEW_WAIVED',
           status: 'PeerReviewWaived',
-          waivedBy: user.userId,
-        },
-      });
-      if (waived) return { waivedAt: now, alreadyWaived: false };
+          extra: { waivedBy: user.userId },
+          now,
+        });
+        return { waivedAt: now, alreadyWaived: false };
+      }
       // Another request waived it between the read and the update: the answer is the same as a repeated request.
       const again = await this.repository.findLearnerState(
         tx,
