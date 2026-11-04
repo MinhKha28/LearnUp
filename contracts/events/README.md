@@ -11,6 +11,7 @@ This directory contains the canonical JSON Schemas and sample payloads for domai
 ---
 
 ## 2. Topic Catalog
+* `learnup.assessment.learner-assessment-events` — Assessment Service produces `LearnerAssessmentStatusChanged`; Learning Service consumes it for activation and completion re-evaluation. See [assessment status contract](assessment-status-events.md).
 * `learnup.learning.course-completed` — Fired by Learning Service when a learner finishes all mandatory lessons/quizzes.
 * `learnup.learning.enrollment-events` — EnrollmentAssigned, EnrollmentDueDateExtended, EnrollmentExempted and LearnerWithdrew; see [Enrollment contracts](learning-enrollment-events.md).
 * `learnup.assessment.peer-review-assigned` — Fired by Assessment Service when peer reviews are distributed.

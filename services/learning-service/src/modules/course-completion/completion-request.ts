@@ -2,6 +2,7 @@ import { Prisma } from '../../../generated/prisma/client';
 import { randomUUID } from 'node:crypto';
 
 export type CompletionSource =
+  | 'assessment'
   | 'VIDEO_COMPLETED'
   | 'READING_COMPLETED'
   | 'ASSIGNMENT_CONVERT'
