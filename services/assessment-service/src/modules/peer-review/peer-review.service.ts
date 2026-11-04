@@ -8,8 +8,14 @@ import {
 import type { CurrentUser } from '@learnup/ts-common';
 
 import { NotificationClient } from '../../infrastructure/clients/notification/notification.client';
+import { TenantDirectoryClient } from '../../infrastructure/clients/tenant/tenant-directory.client';
+import { LEARNER_STATUS_CHANGED_EVENT } from '../learner-submissions/learner-submissions.constants';
 import { cycleLockKey } from './cycle-lock';
-import { assignedNotice } from './review-notice';
+import { assignedNotice, waivedNotice } from './review-notice';
+import { waiverDecision } from './waiver';
+import type { IPeerReviewWaiver } from './interfaces/peer-review-waiver.interface';
+import type { IPeerReviewCycleDetail } from './interfaces/peer-review-cycle-detail.interface';
+import { obligationOf } from './cycle-detail';
 import { AssessmentsRepository } from '../assessments/assessments.repository';
 import {
   AssessmentsService,
@@ -43,7 +49,138 @@ export class PeerReviewService {
     private readonly assessmentsRepository: AssessmentsRepository,
     private readonly assessments: AssessmentsService,
     private readonly notifications: NotificationClient,
+    private readonly tenant: TenantDirectoryClient,
   ) {}
+
+  /**
+   * UC33.2, BR-241 — the Instructor waives the peer review duty of a Learner who owes it, at any time (for example the
+   * Learner missed the deadline because the Organization was suspended). The Learner's status counts Waived from then on,
+   * and the status-changed event tells learning to look at the Course again. Waiving a duty that is already waived
+   * answers 200 with the first date and changes nothing; a Learner who owes nothing is a 409.
+   * The Learner is told in the bell and by e-mail after the waiver is saved; a notice that fails never undoes it.
+   */
+  async waiveDuty(
+    user: CurrentUser,
+    assignmentId: string,
+    learnerId: string,
+  ): Promise<IPeerReviewWaiver> {
+    const { assignment } = await this.assessments.findOwnAssignment(
+      user,
+      assignmentId,
+    );
+    if (!assignment.peerReviewEnabled) {
+      throw new ConflictException({
+        code: 'PEER_REVIEW_NOT_ENABLED',
+        message: 'Peer Review is not enabled for this Assignment.',
+      });
+    }
+    const now = this.clock();
+    const result = await this.repository.transaction(async (tx) => {
+      // The same key as the Learner's own submission: a resubmission and a waiver take turns.
+      await this.repository.lock(tx, `${assignment.id}:${learnerId}`);
+      const state = await this.repository.findLearnerState(
+        tx,
+        assignment.id,
+        learnerId,
+      );
+      const reviews = await this.repository.findLearnerPeerReviews(
+        tx,
+        assignment.id,
+        learnerId,
+      );
+      const decision = waiverDecision(state, reviews, now);
+      if (decision === 'ALREADY_WAIVED' && state?.exemptedAt) {
+        return { waivedAt: state.exemptedAt, alreadyWaived: true };
+      }
+      if (decision !== 'WAIVE' || !state) {
+        throw new ConflictException({
+          code: 'NOT_OWING_PEER_REVIEW',
+          message:
+            'This Learner does not owe a peer review on this Assignment, so there is nothing to waive.',
+        });
+      }
+      const waived = await this.repository.waive(tx, state, user.userId, now, {
+        eventType: LEARNER_STATUS_CHANGED_EVENT,
+        payload: {
+          assessmentId: assignment.id,
+          courseId: assignment.courseId,
+          learnerId,
+          kind: 'ASSIGNMENT',
+          status: 'PeerReviewWaived',
+          waivedBy: user.userId,
+        },
+      });
+      if (waived) return { waivedAt: now, alreadyWaived: false };
+      // Another request waived it between the read and the update: the answer is the same as a repeated request.
+      const again = await this.repository.findLearnerState(
+        tx,
+        assignment.id,
+        learnerId,
+      );
+      return {
+        waivedAt: again?.exemptedAt ?? now,
+        alreadyWaived: true,
+      };
+    });
+
+    if (!result.alreadyWaived) {
+      await this.tellLearnerWaived(user, learnerId, assignment);
+    }
+    return {
+      assignmentId: assignment.id,
+      learnerId,
+      waivedAt: result.waivedAt.toISOString(),
+      alreadyWaived: result.alreadyWaived,
+    };
+  }
+
+  /** The bell and the e-mail of UC33.2. Best effort, each on its own: neither stops the other or the waiver. */
+  private async tellLearnerWaived(
+    user: CurrentUser,
+    learnerId: string,
+    assignment: {
+      id: string;
+      title: string;
+      courseId: string;
+      organizationId: string;
+    },
+  ): Promise<void> {
+    const notice = waivedNotice(assignment.title);
+    try {
+      await this.notifications.send({
+        organizationId: assignment.organizationId,
+        recipientUserId: learnerId,
+        title: notice.title,
+        message: notice.message,
+        metadata: {
+          assignmentId: assignment.id,
+          courseId: assignment.courseId,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `The bell of Learner ${learnerId} was not told about the waiver of ${assignment.id}: ${String(error)}`,
+      );
+    }
+    try {
+      const learner = (
+        await this.tenant.getDisplayNames(user, [learnerId])
+      ).get(learnerId);
+      if (!learner?.email) return;
+      // The text goes out as plain text: a title with angle brackets would turn the whole mail into HTML.
+      const plain = (text: string) => text.replace(/[<>]/g, '');
+      await this.notifications.sendEmail({
+        recipientEmail: learner.email,
+        subject: notice.title,
+        body: `Xin chào ${plain(learner.fullName)},\n\n${plain(notice.message)}`,
+        templateCode: 'PEER_REVIEW_WAIVED',
+      });
+    } catch (error) {
+      this.logger.warn(
+        `The e-mail of Learner ${learnerId} about the waiver of ${assignment.id} was not sent: ${String(error)}`,
+      );
+    }
+  }
 
   /** UC33 — the cycles of an Assignment of the Instructor in charge, oldest first (BR-200). */
   async listCycles(
@@ -99,6 +236,109 @@ export class PeerReviewService {
         };
       }),
     };
+  }
+
+  /**
+   * UC33.1 — one cycle of an Assignment of the Instructor in charge: its submissions with the reviews they got, and the
+   * Learners who have reviews to give with the state of their duty (BR-239, BR-241), so the Instructor sees whom to grade
+   * for and whose duty can be waived (UC33.2). Reading changes nothing.
+   */
+  async cycleDetail(
+    user: CurrentUser,
+    assignmentId: string,
+    cycleId: string,
+  ): Promise<IPeerReviewCycleDetail> {
+    const { assignment } = await this.assessments.findOwnAssignment(
+      user,
+      assignmentId,
+    );
+    if (!assignment.peerReviewEnabled) {
+      throw new ConflictException({
+        code: 'PEER_REVIEW_NOT_ENABLED',
+        message: 'Peer Review is not enabled for this Assignment.',
+      });
+    }
+    const cycle = await this.repository.findCycle(assignment.id, cycleId);
+    if (!cycle) {
+      throw new NotFoundException({
+        code: 'CYCLE_NOT_FOUND',
+        message: 'Peer Review cycle not found.',
+      });
+    }
+    const now = this.clock();
+    const [submissions, reviewers] = await Promise.all([
+      this.repository.cycleSubmissionRows(cycle.id),
+      this.repository.cycleReviewerRows(cycle.id),
+    ]);
+    const reviewerIds = reviewers.map((reviewer) => reviewer.learnerId);
+    const [reviewsOf, states] = await Promise.all([
+      this.repository.peerReviewsOf(assignment.id, reviewerIds),
+      this.repository.findLearnerStates(assignment.id, reviewerIds),
+    ]);
+    const stateOf = new Map(states.map((state) => [state.learnerId, state]));
+    const names = await this.displayNames(user, [
+      ...new Set([
+        ...submissions.map((submission) => submission.learnerId),
+        ...reviewerIds,
+      ]),
+    ]);
+
+    return {
+      assignmentId: assignment.id,
+      title: assignment.title,
+      cycle: {
+        id: cycle.id,
+        opensAt: cycle.opensAt.toISOString(),
+        closesAt: cycle.closesAt.toISOString(),
+        reviewDueAt: cycle.reviewDueAt.toISOString(),
+        reviewersPerSubmission: cycle.reviewersPerSubmission,
+        submissionCount: submissions.length,
+        status: cycleStatusOf({
+          stored: cycle.status,
+          closesAt: cycle.closesAt,
+          reviewersPerSubmission: cycle.reviewersPerSubmission,
+          submissionCount: submissions.length,
+          now,
+        }),
+        closed: cycle.status !== 'Open',
+      },
+      submissions: submissions.map((submission) => ({
+        id: submission.id,
+        learnerId: submission.learnerId,
+        fullName: names.get(submission.learnerId) ?? '',
+        submittedAt: submission.submittedAt.toISOString(),
+        reviewsAssigned: submission.assigned,
+        reviewsCompleted: submission.completed,
+        reviewsMissing: submission.assigned - submission.completed,
+      })),
+      reviewers: reviewers.map((reviewer) => ({
+        learnerId: reviewer.learnerId,
+        fullName: names.get(reviewer.learnerId) ?? '',
+        assigned: reviewer.assigned,
+        completed: reviewer.completed,
+        ...obligationOf(
+          stateOf.get(reviewer.learnerId) ?? null,
+          reviewsOf.get(reviewer.learnerId) ?? [],
+          now,
+        ),
+      })),
+    };
+  }
+
+  /** The names of Learners from tenant-service; one that does not answer leaves the names empty and does not fail the read. */
+  private async displayNames(
+    user: CurrentUser,
+    ids: string[],
+  ): Promise<Map<string, string>> {
+    try {
+      const found = await this.tenant.getDisplayNames(user, ids);
+      return new Map([...found].map(([id, person]) => [id, person.fullName]));
+    } catch (error) {
+      this.logger.warn(
+        `The names of ${ids.length} Learners were not read: ${String(error)}`,
+      );
+      return new Map();
+    }
   }
 
   /**

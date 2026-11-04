@@ -6,6 +6,43 @@ info:
 security:
   - InternalKey: []
 paths:
+  /api/v1/enrollments/{enrollmentId}/progress:
+    get:
+      operationId: getLearnerEnrollmentProgress
+      summary: Read own completion conditions (UC28)
+      description: >-
+        LEARNER only; ownership and Halted/Withdrawn handling match curriculum.
+        Read-only: never completes an Enrollment or enqueues evaluation.
+        Completed returns enrollment summary only, without reading the current tree or Assessment.
+        Otherwise materials use the curriculum builder; assessment facts use the validated completion snapshot
+        and Learning's shared worker recomputation. No percentage is returned.
+        Assessment failure, timeout or invalid data returns 200 with assessment.state unavailable;
+        conditions counts are null and missing contains known material conditions only.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/UserRole'
+        - name: enrollmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Enrollment summary and, unless Completed, current completion conditions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LearnerProgress'
+        '403':
+          description: CONTENT_UNAVAILABLE for Halted or disabled Course; role forbidden
+        '404':
+          description: ENROLLMENT_NOT_FOUND for foreign, missing, invalid or Withdrawn Enrollment
+        '503':
+          description: Course curriculum unavailable (assessment failure alone does not produce 503)
+
   /api/v1/assignments/{enrollmentId}:
     get:
       operationId: getAssignmentDetail
@@ -498,6 +535,78 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    LearnerProgress:
+      type: object
+      required: [enrollment]
+      properties:
+        enrollment:
+          type: object
+          required: [id, courseId, status, enrollmentType, dueAt, dueTimezone, completedAt, completedLate]
+          properties:
+            id: { type: string, format: uuid }
+            courseId: { type: string, format: uuid }
+            status: { type: string }
+            enrollmentType: { type: string, enum: [Required, Optional] }
+            dueAt: { type: string, format: date-time, nullable: true }
+            dueTimezone: { type: string, nullable: true }
+            completedAt: { type: string, format: date-time, nullable: true }
+            completedLate: { type: boolean, nullable: true }
+        materials:
+          type: array
+          items:
+            type: object
+            required: [materialId, lessonId, title, materialType, required, done]
+            properties:
+              materialId: { type: string, format: uuid }
+              lessonId: { type: string, format: uuid }
+              title: { type: string }
+              materialType: { type: string }
+              required: { type: boolean }
+              done: { type: boolean }
+        assessment:
+          oneOf:
+            - type: object
+              required: [state]
+              properties:
+                state: { type: string, enum: [unavailable] }
+            - type: object
+              required: [state, items]
+              properties:
+                state: { type: string, enum: [ok] }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [kind, assessmentId, passed, peerReview]
+                    properties:
+                      kind: { type: string, enum: [quiz, assignment] }
+                      assessmentId: { type: string, format: uuid }
+                      passed: { type: boolean }
+                      peerReview:
+                        type: object
+                        nullable: true
+                        required: [status, requiredCount, completedCount, done]
+                        properties:
+                          status: { type: string, enum: [NotApplicable, Pending, Satisfied, Missed, Waived] }
+                          requiredCount: { type: integer, minimum: 0 }
+                          completedCount: { type: integer, minimum: 0 }
+                          done: { type: boolean }
+        conditions:
+          type: object
+          required: [state, met, total, missing]
+          properties:
+            state: { type: string, enum: [ok, unavailable] }
+            met: { type: integer, minimum: 0, nullable: true }
+            total: { type: integer, minimum: 0, nullable: true }
+            missing:
+              type: array
+              items:
+                type: object
+                required: [kind, id]
+                properties:
+                  kind: { type: string, enum: [material, quiz, assignment, peerReview] }
+                  id: { type: string, format: uuid }
+
     ExtendAssignment:
       type: object
       additionalProperties: false

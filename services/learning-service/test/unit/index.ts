@@ -31,4 +31,5 @@ import './tenant-access.unit-test';
 import './tenant-access-services.unit-test';
 
 import './material-signing.unit-test';
+import './progress.unit-test';
 import './internal-auth-guard.unit-test';

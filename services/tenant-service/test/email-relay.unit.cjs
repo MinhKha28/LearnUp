@@ -479,6 +479,25 @@ test('an expired email is not sent: it stops as EXPIRED, redacted, without count
   assert.equal(requests.length, 1);
 });
 
+test('the redacted payload keeps the resend-limit mark (BR-40)', () => {
+  const { relay } = createRelay();
+  assert.deepEqual(
+    relay.redact({
+      to: 'a@test.local',
+      subject: 'S',
+      body: 'secret',
+      templateCode: 'T',
+      countsTowardResendLimit: true,
+    }),
+    {
+      to: 'a@test.local',
+      templateCode: 'T',
+      countsTowardResendLimit: true,
+      redacted: true,
+    },
+  );
+});
+
 test('an email before its expiry is sent and keeps the expiry in the redacted payload', async () => {
   const requests = respondWith(201);
   const future = new Date(Date.now() + 60_000).toISOString();

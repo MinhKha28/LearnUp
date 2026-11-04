@@ -51,6 +51,8 @@ const ENROLLMENT_ROW: AccessibleEnrollment = {
   status: 'Overdue',
   dueAt: new Date('2026-09-29T17:00:00Z'),
   dueTimezone: 'Asia/Ho_Chi_Minh',
+  completedAt: null,
+  completedLate: null,
   versionDisabledAt: null,
 };
 

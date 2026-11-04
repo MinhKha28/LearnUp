@@ -10,6 +10,12 @@ The Prisma schema follows `LearnUP_Database_Guide.docx` service ownership and ta
 
 ## L6 outbox relay
 
+`OUTBOX_DRAIN_GAP_MS` defaults to 50 ms between rounds that publish at least one row.
+An explicit environment value overrides the default; zero yields without a timed pause.
+Compose exposes the override as `LEARNING_OUTBOX_DRAIN_GAP_MS`.
+The prefix avoids collisions in the root `.env` shared by all services; assessment has its own relay settings.
+Both `OUTBOX_DRAIN_GAP_MS` and `OUTBOX_POLL_INTERVAL_MS` must be at most 60000 ms.
+
 Enable with OUTBOX_RELAY_ENABLED=true; default false keeps unrelated tests isolated.
 See .env.example for Kafka brokers, topic, replication factor, poll/batch size,
 delivery/probe/transaction timeouts, exponential backoff and alert threshold.
