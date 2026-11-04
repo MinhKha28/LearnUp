@@ -284,6 +284,9 @@ model OutboxEvent {
   payload        Json
   occurredAt     DateTime  @map("occurred_at") @db.Timestamptz
   publishedAt    DateTime? @map("published_at") @db.Timestamptz
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error")
+  nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
