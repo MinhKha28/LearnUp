@@ -566,9 +566,7 @@ test('two concurrent Video completions enqueue only on the first transition', as
     prisma.$transaction(async (tx) => {
       await video.access(f.id, f.learner, org, tx);
       await video.lock(f.id, material, org, tx);
-      const preview = await video.preview(f.id, material, org, [[0, 80]], tx);
-      if (preview.newSeconds > 0)
-        await video.save(f.id, material, org, preview, 80, [[0, 80]], tx);
+      await video.saveCoverage(f.id, material, org, 80, [[0, 80]], tx);
     });
   await Promise.all([finish(), finish()]);
   const [request] = await prisma.$queryRaw<

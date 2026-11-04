@@ -1,3 +1,4 @@
+import { assessmentConditions } from './assessment-conditions';
 import type { Prisma } from '../../../generated/prisma/client';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
@@ -28,28 +29,13 @@ export class CompletionService {
   }
   /** BR-260/261, BR-236 and BR-241: completion follows facts and satisfied or waived peer duty. */
   private assessmentEligible(snapshot: CompletionSnapshot): boolean {
-    const items = [
-      ...snapshot.quizzes.map((q) => ({
-        assessmentId: q.assessmentId,
-        assessment: q.passed,
-        learning:
-          q.attemptId !== null &&
-          q.recordedScore !== null &&
-          Number(q.recordedScore) >= Number(q.passingScore),
-      })),
-      ...snapshot.assignments.map((a) => ({
-        assessmentId: a.assessmentId,
-        assessment: a.passed,
-        learning:
-          a.submissionId !== null &&
-          a.finalizedAt !== null &&
-          a.finalScore !== null &&
-          Number(a.finalScore) >= Number(a.passingScore) &&
-          ['Waived', 'NotApplicable', 'Satisfied'].includes(
-            a.peerReview.status,
-          ),
-      })),
-    ];
+    const items = assessmentConditions(snapshot).map(
+      ({ assessmentId, assessment, learning }) => ({
+        assessmentId,
+        assessment,
+        learning,
+      }),
+    );
     const eligible = items.every((item) => item.learning);
     const differences = items.filter(
       (item) => item.assessment !== item.learning,

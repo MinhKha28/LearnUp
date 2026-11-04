@@ -235,7 +235,7 @@ export class CurriculumService {
    * D28: kiểm cục bộ trước khi gọi course-service. Không thấy hoặc Withdrawn → 404;
    * Halted hoặc bản sao phiên bản bị vô hiệu hóa → 403.
    */
-  private async findAccessibleEnrollment(
+  async findAccessibleEnrollment(
     user: CurrentUser,
     enrollmentId: string,
   ): Promise<AccessibleEnrollment> {
@@ -268,6 +268,18 @@ export class CurriculumService {
       throw contentUnavailable();
     }
     return enrollment;
+  }
+
+  /** Reuse UC27 visibility, snapshot flags and error mapping for UC28. */
+  async getProgressCurriculum(
+    user: CurrentUser,
+    enrollment: AccessibleEnrollment,
+  ) {
+    const tree = this.treeOrThrow(
+      await settle(this.courseService.getCourseTree(user, enrollment.courseId)),
+      enrollment,
+    );
+    return this.buildFor(tree, enrollment, user.organizationId!);
   }
 
   private async buildFor(

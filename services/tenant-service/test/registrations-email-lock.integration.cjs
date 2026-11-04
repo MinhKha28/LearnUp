@@ -59,7 +59,7 @@ test('UC02 serializes registrations of the same email with an advisory lock', as
         })[key],
     },
     new PlatformSettingsService(new PlatformSettingsRepository(prisma)),
-    { enqueueEmail: async () => undefined },
+    { countResendEmails: async () => 0, enqueueEmail: async () => undefined },
     identity,
     {},
   );

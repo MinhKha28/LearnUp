@@ -122,10 +122,10 @@ const backToCycle = "/instructor/peer-cycles/assignment-1/cycle-1";
 describe("UC33.2 the waiver screen", () => {
   it("names the Learner and the Assignment, says what the Learner has done, and sends nothing until confirmed", async () => {
     renderPage();
-    await screen.findByText("Learner: Reviewer One");
-    expect(screen.getByText("Assignment: Essay")).toBeTruthy();
+    await screen.findByText("Học viên: Reviewer One");
+    expect(screen.getByText("Bài tập: Essay")).toBeTruthy();
     expect(
-      screen.getByText("Reviews completed in this cycle: 0 of 2"),
+      screen.getByText("Số bài đã chấm trong chu kỳ này: 0/2"),
     ).toBeTruthy();
     expect(screen.getByText(/BR-241/)).toBeTruthy();
     expect(api.waivePeerReviewDutyAPI).not.toHaveBeenCalled();
@@ -134,10 +134,10 @@ describe("UC33.2 the waiver screen", () => {
   it("confirming waives that Learner on that Assignment, says the Learner was told, and goes back to the cycle", async () => {
     vi.mocked(api.waivePeerReviewDutyAPI).mockResolvedValue(waived() as never);
     renderPage();
-    await screen.findByText("Learner: Reviewer One");
-    fireEvent.click(screen.getByRole("button", { name: "Confirm waiver" }));
+    await screen.findByText("Học viên: Reviewer One");
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận miễn" }));
     await screen.findByText(
-      "Peer Review obligation waived. The Learner has been told.",
+      "Đã miễn nghĩa vụ chấm chéo. Học viên đã được thông báo.",
     );
     expect(api.waivePeerReviewDutyAPI).toHaveBeenCalledWith(
       "assignment-1",
@@ -154,8 +154,8 @@ describe("UC33.2 the waiver screen", () => {
       new Promise((resolve) => (finish = resolve)) as never,
     );
     renderPage();
-    await screen.findByText("Learner: Reviewer One");
-    const button = screen.getByRole("button", { name: "Confirm waiver" });
+    await screen.findByText("Học viên: Reviewer One");
+    const button = screen.getByRole("button", { name: "Xác nhận miễn" });
     fireEvent.click(button);
     fireEvent.click(button);
     expect(api.waivePeerReviewDutyAPI).toHaveBeenCalledTimes(1);
@@ -170,9 +170,9 @@ describe("UC33.2 the waiver screen", () => {
       waived({ alreadyWaived: true }) as never,
     );
     renderPage();
-    await screen.findByText("Learner: Reviewer One");
-    fireEvent.click(screen.getByRole("button", { name: "Confirm waiver" }));
-    await screen.findByText("This obligation was already waived.");
+    await screen.findByText("Học viên: Reviewer One");
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận miễn" }));
+    await screen.findByText("Nghĩa vụ này đã được miễn trước đó.");
     await waitFor(() =>
       expect(screen.getByTestId("where").textContent).toBe(backToCycle),
     );
@@ -184,10 +184,10 @@ describe("UC33.2 the waiver screen", () => {
       error: { code: "NOT_OWING_PEER_REVIEW", message: "x" },
     } as never);
     renderPage();
-    await screen.findByText("Learner: Reviewer One");
-    fireEvent.click(screen.getByRole("button", { name: "Confirm waiver" }));
+    await screen.findByText("Học viên: Reviewer One");
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận miễn" }));
     await screen.findByText(
-      "This Learner no longer owes a peer review, so there is nothing to waive.",
+      "Học viên này không còn nghĩa vụ chấm chéo nên không có gì để miễn.",
     );
     await waitFor(() =>
       expect(screen.getByTestId("where").textContent).toBe(backToCycle),
@@ -200,10 +200,10 @@ describe("UC33.2 the waiver screen", () => {
       error: { code: "ASSIGNMENT_NOT_FOUND", message: "Assignment not found." },
     } as never);
     renderPage();
-    await screen.findByText("Learner: Reviewer One");
-    fireEvent.click(screen.getByRole("button", { name: "Confirm waiver" }));
-    await screen.findByText("Assignment not found.");
-    expect(screen.getByRole("button", { name: "Confirm waiver" })).toBeTruthy();
+    await screen.findByText("Học viên: Reviewer One");
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận miễn" }));
+    await screen.findByText("Không tìm thấy bài tập.");
+    expect(screen.getByRole("button", { name: "Xác nhận miễn" })).toBeTruthy();
     expect(screen.queryByTestId("where")).toBeNull();
   });
 
@@ -212,16 +212,16 @@ describe("UC33.2 the waiver screen", () => {
       new Error("network"),
     );
     renderPage();
-    await screen.findByText("Learner: Reviewer One");
-    fireEvent.click(screen.getByRole("button", { name: "Confirm waiver" }));
+    await screen.findByText("Học viên: Reviewer One");
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận miễn" }));
     await screen.findByText(
-      "Unable to reach the Assessment service. Please try again.",
+      "Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.",
     );
     await waitFor(() =>
       expect(
         (
           screen.getByRole("button", {
-            name: "Confirm waiver",
+            name: "Xác nhận miễn",
           }) as HTMLButtonElement
         ).disabled,
       ).toBe(false),
@@ -229,10 +229,10 @@ describe("UC33.2 the waiver screen", () => {
   });
 
   it.each([
-    ["Waived", "This obligation is already waived."],
+    ["Waived", "Nghĩa vụ này đã được miễn."],
     [
       "Satisfied",
-      "This Learner does not owe a peer review on this Assignment now (the reviews are done or still in time).",
+      "Học viên này hiện không có nghĩa vụ chấm chéo ở bài tập này (đã chấm xong hoặc vẫn còn hạn).",
     ],
   ])(
     "a %s duty has no confirm button: there is nothing to waive",
@@ -243,14 +243,14 @@ describe("UC33.2 the waiver screen", () => {
       renderPage();
       await screen.findByText(text);
       expect(
-        screen.queryByRole("button", { name: "Confirm waiver" }),
+        screen.queryByRole("button", { name: "Xác nhận miễn" }),
       ).toBeNull();
     },
   );
 
   it("a Learner who is not a reviewer of the cycle is not found", async () => {
     renderPage("00000000-0000-4000-8000-0000000000ff");
-    await screen.findByText("Reviewer not found");
-    expect(screen.queryByRole("button", { name: "Confirm waiver" })).toBeNull();
+    await screen.findByText("Không tìm thấy người chấm");
+    expect(screen.queryByRole("button", { name: "Xác nhận miễn" })).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Button, Checkbox, Form, Input, Spin } from "antd";
 import {
   Link,
@@ -15,6 +15,7 @@ import {
   getRegistrationByTokenAPI,
   getSubscriptionPlansAPI,
   payRegistrationAPI,
+  resendRegistrationEmailAPI,
   verifyEmailOtpAPI,
 } from "@/services/organization.service";
 import type {
@@ -176,13 +177,9 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [emailInUse, setEmailInUse] = useState(false); // UC02 trường hợp F: 409 EMAIL_ALREADY_USED
-  // UC02 → UC03: lần gửi mã gần nhất; dữ liệu đăng ký giữ trong bộ nhớ để "gửi lại mã"
-  // (gửi lại = gửi lại đăng ký, backend thay đăng ký chưa xác thực bằng đăng ký mới, BR-276).
-  // Dùng useRef, không lưu localStorage: mật khẩu chỉ nằm trong bộ nhớ của tab này.
   const [verification, setVerification] = useState<VerificationInfo | null>(
     null,
   );
-  const lastRequestRef = useRef<ICreateRegistrationReq | null>(null);
   // UC03: ô nhập mã, trạng thái gửi mã, lỗi, đồng hồ đếm ngược
   const [otp, setOtp] = useState("");
   const [otpReady, setOtpReady] = useState(false); // đủ 6 ô thì mới cho bấm "Verify email"
@@ -367,7 +364,6 @@ export default function RegisterPage() {
         // BR-276: phản hồi trung tính → luôn sang màn nhập mã, không lộ email đã có đăng ký hay chưa
         organizerForm.resetFields(["password"]);
         setAccountError(false);
-        lastRequestRef.current = request;
         startVerification(res.data.email, res.data.otpTtlMinutes);
         navigate("/register/verify-email");
       } else {
@@ -405,7 +401,6 @@ export default function RegisterPage() {
       });
       if (res.data) {
         // Mã đúng: email đã xác thực, có token để thanh toán (UC02.1). Mật khẩu không cần giữ nữa.
-        lastRequestRef.current = null;
         setPaymentToken(res.data.paymentToken);
         navigate("/register/payment");
         return;
@@ -425,9 +420,8 @@ export default function RegisterPage() {
     }
   }
 
-  // UC03: "Resend code" → gửi lại đăng ký với cùng dữ liệu, backend tạo mã mới (giới hạn 24h, BR-32)
   async function resendOtp() {
-    if (!lastRequestRef.current) {
+    if (!verification) {
       navigate("/register/organizer");
       return;
     }
@@ -435,7 +429,7 @@ export default function RegisterPage() {
     setOtpError(null);
     setResentNotice(false);
     try {
-      const res = await createRegistrationAPI(lastRequestRef.current);
+      const res = await resendRegistrationEmailAPI(verification.email);
       if (res.data) {
         startVerification(res.data.email, res.data.otpTtlMinutes);
         setResentNotice(true);

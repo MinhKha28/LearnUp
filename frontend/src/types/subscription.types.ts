@@ -1,5 +1,34 @@
 export type SubscriptionStatus = "Active" | "Grace" | "Suspended";
 
+export interface IRenewalQuote {
+  planName: string;
+  planOffered: boolean;
+  currentStatus: SubscriptionStatus;
+  price: number;
+  durationDays: number;
+  maxLearners: number;
+  maxInstructors: number;
+  maxCourseChains: number;
+  maxStorageBytes: number;
+  startsAt: string;
+  expiresAt: string;
+  scheduledRenewal: { startsAt: string; expiresAt: string } | null;
+  usageAvailable: boolean;
+  exceededLimits: Array<{ limit: string; used: number; newLimit: number }>;
+}
+
+export interface IRenewalResult {
+  paymentId: string;
+  paymentStatus: "Succeeded" | "Failed";
+  failureReason?: string | null;
+  subscription?: {
+    id: string;
+    status: string;
+    startsAt: string;
+    expiresAt: string;
+  };
+}
+
 export interface IUsageItem {
   used: number | null;
   limit: number;
