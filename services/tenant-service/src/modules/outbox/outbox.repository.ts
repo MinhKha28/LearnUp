@@ -20,6 +20,23 @@ export class OutboxRepository extends BaseRepository {
     return this.db(tx).outboxEvent.create({ data });
   }
 
+  /** BR-40: số thư tính vào giới hạn gửi lại của một email từ thời điểm since, kể cả thư chưa gửi hoặc gửi lỗi. */
+  async countResendEmails(
+    eventType: string,
+    email: string,
+    since: Date,
+    tx?: Prisma.TransactionClient,
+  ): Promise<number> {
+    const rows = await this.db(tx).$queryRaw<{ count: number }[]>`
+      SELECT count(*)::int AS count
+        FROM outbox_events
+       WHERE event_type = ${eventType}
+         AND created_at > ${since}
+         AND lower(payload->>'to') = lower(${email})
+         AND payload->>'countsTowardResendLimit' = 'true'`;
+    return rows[0]?.count ?? 0;
+  }
+
   /**
    * Khóa một event chưa gửi đã đến hạn thử, cũ nhất trước (id là uuid v7 nên tăng theo thời gian).
    * Event đang chờ lần thử sau (next_attempt_at) hoặc đã dừng hẳn (failed_at) không được lấy,
