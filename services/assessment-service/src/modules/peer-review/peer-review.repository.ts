@@ -55,11 +55,15 @@ export class PeerReviewRepository {
         submittedAt: Date;
         assigned: number;
         completed: number;
+        scores: string[];
+        finalized: boolean;
       }[]
     >(Prisma.sql`
       SELECT s.id, s.learner_id AS "learnerId", s.submitted_at AS "submittedAt",
              count(r.id)::int AS assigned,
-             (count(r.id) FILTER (WHERE r.status = 'Completed'))::int AS completed
+             (count(r.id) FILTER (WHERE r.status = 'Completed'))::int AS completed,
+             coalesce(array_agg(r.score::text) FILTER (WHERE r.status = 'Completed' AND r.score IS NOT NULL), '{}') AS scores,
+             (s.grading_status = 'Finalized') AS finalized
       FROM submissions s
       LEFT JOIN submission_reviews r ON r.submission_id = s.id AND lower(r.reviewer_role) <> 'instructor'
       WHERE s.cycle_id = ${cycleId}::uuid AND s.superseded_at IS NULL

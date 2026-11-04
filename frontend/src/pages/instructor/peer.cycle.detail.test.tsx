@@ -50,6 +50,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
       closesAt: "2026-10-08T00:00:00Z",
       reviewDueAt: "2026-10-11T00:00:00Z",
       reviewersPerSubmission: 2,
+      scoreGap: 20,
       submissionCount: 3,
       status: "Assigned",
       closed: true,
@@ -63,6 +64,10 @@ const detail = (over: Record<string, unknown> = {}) => ({
         reviewsAssigned: 2,
         reviewsCompleted: 1,
         reviewsMissing: 1,
+        lowestScore: null,
+        highestScore: null,
+        scoreGap: null,
+        needsReview: false,
       },
       {
         id: "s2",
@@ -72,6 +77,10 @@ const detail = (over: Record<string, unknown> = {}) => ({
         reviewsAssigned: 2,
         reviewsCompleted: 2,
         reviewsMissing: 0,
+        lowestScore: 60,
+        highestScore: 90,
+        scoreGap: 30,
+        needsReview: true,
       },
     ],
     reviewers: [
@@ -156,6 +165,63 @@ describe("UC33.1 the detail of a cycle", () => {
     await screen.findByText("Author One");
     expect(screen.getByText("1/2")).toBeTruthy();
     expect(screen.getByText("Học viên …00a2")).toBeTruthy();
+  });
+
+  it("shows the score gap of each submission and marks only the one above the threshold", async () => {
+    renderPage();
+    await screen.findByText("Author One");
+    expect(screen.getByText("30")).toBeTruthy();
+    expect(screen.getAllByText("Cần xem lại")).toHaveLength(1);
+    expect(
+      screen.getByText(
+        "1 bài nộp có điểm của các người chấm chênh nhau hơn 20 điểm. Hãy xem lại và chốt điểm cuối (BR-252).",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("writes the spread and the threshold with the Vietnamese decimal comma, and shows a missing spread as a dash", async () => {
+    const base = detail();
+    const [first, second] = base.data.submissions as object[];
+    vi.mocked(api.fetchPeerReviewCycleDetailAPI).mockResolvedValue({
+      ...base,
+      data: {
+        ...base.data,
+        cycle: { ...base.data.cycle, scoreGap: 20.5 },
+        submissions: [
+          { ...second, scoreGap: 24.5, needsReview: true },
+          { ...first, id: "submission-zero", scoreGap: 0, needsReview: false },
+          { ...first, id: "submission-none", scoreGap: null, needsReview: false },
+        ],
+      },
+    } as never);
+    renderPage();
+    await screen.findByText("24,5");
+    expect(
+      screen.getByText(
+        "1 bài nộp có điểm của các người chấm chênh nhau hơn 20,5 điểm. Hãy xem lại và chốt điểm cuối (BR-252).",
+      ),
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toContain("24.5");
+    expect(document.body.textContent).not.toContain("20.5");
+    expect(screen.getAllByText("-")).toHaveLength(1); // only the submission without a spread
+  });
+
+  it("says nothing about the gap when no submission is above the threshold", async () => {
+    const base = detail();
+    vi.mocked(api.fetchPeerReviewCycleDetailAPI).mockResolvedValue({
+      ...base,
+      data: {
+        ...base.data,
+        submissions: base.data.submissions.map((s: object) => ({
+          ...s,
+          needsReview: false,
+        })),
+      },
+    } as never);
+    renderPage();
+    await screen.findByText("Author One");
+    expect(screen.queryByText("Cần xem lại")).toBeNull();
+    expect(screen.queryByText(/chênh nhau hơn/)).toBeNull();
   });
 
   it("shows the state of each duty and offers Waive only on a Missed one", async () => {

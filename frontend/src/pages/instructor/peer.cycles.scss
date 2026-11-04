@@ -102,7 +102,16 @@
 }
 
 .instructor-cycle-row-submissions {
-  grid-template-columns: 1.2fr 1fr 1fr;
+  grid-template-columns: 1.2fr 1fr 1fr 1.6fr;
+}
+
+.instructor-cycle-gap-note {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  font-size: 13px;
 }
 
 .instructor-cycle-waive-link {
