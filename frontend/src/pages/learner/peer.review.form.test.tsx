@@ -157,9 +157,7 @@ describe("UC31.1 giving a review", () => {
     fill("Argument", "7");
     writeComment("Good.");
     submit();
-    await screen.findByText(
-      "Hãy chấm điểm cho từng tiêu chí trước khi gửi.",
-    );
+    await screen.findByText("Hãy chấm điểm cho từng tiêu chí trước khi gửi.");
     fill("Style", "4");
     writeComment("   ");
     submit();
@@ -277,13 +275,9 @@ describe("UC31.1 giving a review", () => {
     fill("Style", "4");
     writeComment("Fine.");
     submit();
-    await screen.findByText(
-      "Đã quá hạn chấm bài này nên không thể gửi nữa.",
-    );
+    await screen.findByText("Đã quá hạn chấm bài này nên không thể gửi nữa.");
     await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: "Gửi nhận xét" }),
-      ).toBeNull(),
+      expect(screen.queryByRole("button", { name: "Gửi nhận xét" })).toBeNull(),
     );
   });
 
@@ -354,8 +348,7 @@ describe("UC31 reading a review that is done or closed", () => {
       (screen.getByLabelText("Điểm cho Argument") as HTMLInputElement).value,
     ).toBe("8");
     expect(
-      (screen.getByLabelText("Điểm cho Argument") as HTMLInputElement)
-        .disabled,
+      (screen.getByLabelText("Điểm cho Argument") as HTMLInputElement).disabled,
     ).toBe(true);
     expect(
       (
@@ -385,14 +378,66 @@ describe("UC31 reading a review that is done or closed", () => {
     await screen.findByText(
       "Bài chấm này có thể đã bị xóa hoặc không phải của bạn.",
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Quay lại chấm chéo" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Quay lại chấm chéo" }));
     await waitFor(() =>
       expect(screen.getByTestId("where").textContent).toBe(
         "/learner/peer-review",
       ),
     );
+  });
+
+  it("shows the prompt file when the Assignment has no prompt text, only a file, and downloads it", async () => {
+    const create = vi.fn(() => "blob:x");
+    Object.assign(URL, { createObjectURL: create, revokeObjectURL: vi.fn() });
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    const base = detail();
+    vi.mocked(api.fetchLearnerPeerReviewAPI).mockResolvedValue({
+      ...base,
+      data: {
+        ...base.data,
+        assignment: {
+          ...base.data.assignment,
+          prompt: null,
+          promptFileUrl:
+            "/api/v1/assessments/learner/assignments/assignment-1/prompt-file",
+          promptFileName: "de-bai.pdf",
+        },
+      },
+    } as never);
+    vi.mocked(api.downloadLearnerPromptFileAPI).mockResolvedValue(
+      new Blob(["x"]),
+    );
+    renderPage();
+    const button = await screen.findByText(/Tải tệp đề bài \(de-bai\.pdf\)/);
+    expect(screen.getByText("Đề bài")).toBeTruthy();
+    fireEvent.click(button);
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    expect(api.downloadLearnerPromptFileAPI).toHaveBeenCalledWith(
+      "assignment-1",
+    );
+    click.mockRestore();
+  });
+
+  it("shows no prompt section when the Assignment has neither a prompt text nor a prompt file", async () => {
+    const base = detail();
+    vi.mocked(api.fetchLearnerPeerReviewAPI).mockResolvedValue({
+      ...base,
+      data: {
+        ...base.data,
+        assignment: {
+          ...base.data.assignment,
+          prompt: null,
+          promptFileUrl: null,
+          promptFileName: null,
+        },
+      },
+    } as never);
+    renderPage();
+    await screen.findByText("Bài làm đã nộp");
+    expect(screen.queryByText("Đề bài")).toBeNull();
+    expect(screen.queryByText(/Tải tệp đề bài/)).toBeNull();
   });
 
   it("the work can be downloaded under the neutral name, and a failed download says so", async () => {

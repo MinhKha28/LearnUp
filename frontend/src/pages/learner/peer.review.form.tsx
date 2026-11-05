@@ -166,9 +166,7 @@ const PeerReviewForm = () => {
         message.info("Bài chấm này đã được gửi trước đó.");
         await load();
       } else if (code === "REVIEW_CLOSED") {
-        message.warning(
-          "Đã quá hạn chấm bài này nên không thể gửi nữa.",
-        );
+        message.warning("Đã quá hạn chấm bài này nên không thể gửi nữa.");
         await load();
       } else {
         message.error(vietnameseErrorText(res, "Không thể gửi nhận xét."));
@@ -192,29 +190,28 @@ const PeerReviewForm = () => {
         <div className="peer-review-submission-card">
           <h3>Bài nộp ẩn danh</h3>
           <StatusTag tone="neutral">Đã ẩn tác giả</StatusTag>
-          {detail.assignment.prompt && (
+          {(detail.assignment.prompt || detail.assignment.promptFileUrl) && (
             <>
               <span className="peer-review-submission-label">Đề bài</span>
-              <p>{detail.assignment.prompt}</p>
+              {detail.assignment.prompt && <p>{detail.assignment.prompt}</p>}
               {detail.assignment.promptFileUrl && (
                 <div className="peer-review-attachment">
                   <button type="button" onClick={() => void downloadPrompt()}>
                     Tải tệp đề bài
+                    {detail.assignment.promptFileName
+                      ? ` (${detail.assignment.promptFileName})`
+                      : ""}
                   </button>
                 </div>
               )}
             </>
           )}
-          <span className="peer-review-submission-label">
-            Bài làm đã nộp
-          </span>
+          <span className="peer-review-submission-label">Bài làm đã nộp</span>
           <p>{detail.submission.content || "Không có nội dung văn bản."}</p>
           {detail.submission.file && (
             <>
               <hr />
-              <span className="peer-review-submission-label">
-                Tệp đính kèm
-              </span>
+              <span className="peer-review-submission-label">Tệp đính kèm</span>
               <div className="peer-review-attachment">
                 <button type="button" onClick={() => void downloadWork()}>
                   Tải bài làm đã nộp ({detail.submission.file.fileName})
@@ -227,8 +224,8 @@ const PeerReviewForm = () => {
           <h3>Chấm điểm theo Rubric</h3>
           {detail.state === "Closed" && (
             <InfoPanel title="Đã đóng">
-              Đã quá hạn chấm bài này nên không thể gửi nữa. Instructor sẽ
-              chấm bài nộp.
+              Đã quá hạn chấm bài này nên không thể gửi nữa. Instructor sẽ chấm
+              bài nộp.
             </InfoPanel>
           )}
           {rubric.map((criterion) => (
