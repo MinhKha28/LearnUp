@@ -86,6 +86,9 @@ const CourseCurriculum = () => {
           <Link className="course-curriculum-assessments-link" to={`${LEARNER_ROUTES.curriculum(enrollmentId)}/assessments`}>
             Bài trắc nghiệm và Bài tập của Khóa học →
           </Link>
+          <Link className="course-curriculum-assessments-link" to={`${LEARNER_ROUTES.curriculum(enrollmentId)}/progress`}>
+            Theo dõi tiến độ hoàn thành →
+          </Link>
           <section className="course-curriculum-tree" aria-label="Chương trình học">
             <h2 className="course-curriculum-title">Chương trình học</h2>
             {modules.length === 0 ? (
