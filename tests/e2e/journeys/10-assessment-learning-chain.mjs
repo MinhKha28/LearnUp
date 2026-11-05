@@ -97,7 +97,9 @@ export default {
           return data(me).items.find((i) => i.enrollmentId === enrollmentId);
         },
         (i) => i?.status === "InProgress",
-      );
+      ).catch((error) => {
+        throw new Error(`${error.message}. The event is on Kafka but learning did not apply it: is ASSESSMENT_CONSUMER_ENABLED=true and group ${GROUP} alive?`);
+      });
       assert.equal(row.status, "InProgress");
       const detail = await readAssignment();
       assert.equal(new Date(detail.firstActivityAt).getTime(), new Date(published.event.data.firstActivityAt).getTime(), `first_activity_at ${detail.firstActivityAt} vs event ${published.event.data.firstActivityAt}`);
