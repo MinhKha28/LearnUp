@@ -42,9 +42,20 @@ const item = (id: string, over: Record<string, unknown> = {}) => ({
   score: null,
   ...over,
 });
-const list = (items: unknown[], pendingCount: number) => ({
+const list = (
+  items: unknown[],
+  pendingCount: number,
+  over: Record<string, unknown> = {},
+) => ({
   statusCode: 200,
-  data: { pendingCount, items },
+  data: {
+    pendingCount,
+    total: items.length,
+    page: 1,
+    pageSize: 20,
+    items,
+    ...over,
+  },
 });
 
 const Where = () => <p data-testid="where">{useLocation().pathname}</p>;
@@ -125,6 +136,46 @@ describe("UC31 the queue of reviews", () => {
         "/learner/peer-review/aaaa-0001",
       ),
     );
+  });
+
+  it("takes the number to give from the whole queue, not from the page it shows", async () => {
+    vi.mocked(api.fetchLearnerPeerReviewsAPI).mockResolvedValue(
+      list([item("aaaa-0001", { state: "Done", status: "Completed" })], 7, {
+        total: 30,
+        page: 2,
+      }) as never,
+    );
+    renderPage();
+    await screen.findByText(/Bạn còn 7 bài cần chấm/);
+  });
+
+  it("pages the queue: the control shows only when there is more than a page, and asks for the page that is chosen", async () => {
+    vi.mocked(api.fetchLearnerPeerReviewsAPI)
+      .mockResolvedValueOnce(
+        list([item("aaaa-0001"), item("aaaa-0002")], 3, {
+          total: 45,
+          page: 1,
+        }) as never,
+      )
+      .mockResolvedValueOnce(
+        list([item("bbbb-0003", { assignmentTitle: "Second page" })], 3, {
+          total: 45,
+          page: 2,
+        }) as never,
+      );
+    renderPage();
+    await screen.findByText("Bài nộp 0001");
+    expect(api.fetchLearnerPeerReviewsAPI).toHaveBeenLastCalledWith(1, 20);
+    fireEvent.click(await screen.findByTitle("2"));
+    await screen.findByText("Second page");
+    expect(api.fetchLearnerPeerReviewsAPI).toHaveBeenLastCalledWith(2, 20);
+    expect(screen.queryByText("Bài nộp 0001")).toBeNull();
+  });
+
+  it("shows no page control when everything fits on one page", async () => {
+    renderPage();
+    await screen.findByText(/Bạn còn/);
+    expect(document.querySelector(".ant-pagination")).toBeNull();
   });
 
   it("says there is nothing to give when every review is done", async () => {

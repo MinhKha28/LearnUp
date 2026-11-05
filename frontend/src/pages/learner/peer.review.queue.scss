@@ -35,6 +35,11 @@
   font-weight: 650;
 }
 
+.peer-review-queue-pagination {
+  margin: var(--space-4);
+  text-align: right;
+}
+
 .peer-review-queue-footnote {
   margin: 16px 0 0;
   color: var(--color-text-muted);

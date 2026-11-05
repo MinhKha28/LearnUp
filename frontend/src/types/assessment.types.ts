@@ -427,8 +427,12 @@ export interface ILearnerReviewItem {
 }
 
 export interface ILearnerReviewList {
-  /** Reviews the Learner can still give (BR-232). */
+  /** Reviews the Learner can still give, in the whole queue and not only on this page (BR-232). */
   pendingCount: number;
+  /** Every review in the queue. */
+  total: number;
+  page: number;
+  pageSize: number;
   items: ILearnerReviewItem[];
 }
 

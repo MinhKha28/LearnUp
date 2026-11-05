@@ -207,8 +207,10 @@ export const downloadLearnerPromptFileAPI = async (assignmentId: string): Promis
 };
 
 /** UC31 — the reviews assigned to the Learner, the ones to give first, with the deadline of the cycle. */
-export const fetchLearnerPeerReviewsAPI = () =>
-  axios.get<IBackendRes<ILearnerReviewList>>("/api/v1/assessments/learner/peer-reviews");
+export const fetchLearnerPeerReviewsAPI = (page = 1, pageSize = 20) =>
+  axios.get<IBackendRes<ILearnerReviewList>>("/api/v1/assessments/learner/peer-reviews", {
+    params: { page, pageSize },
+  });
 
 /** UC31 — one review: the work without its author, the Rubric, and the review so far. */
 export const fetchLearnerPeerReviewAPI = (reviewId: string) =>

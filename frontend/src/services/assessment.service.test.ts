@@ -97,10 +97,16 @@ describe("the peer review calls of the Instructor (UC33.1, UC33.2)", () => {
 });
 
 describe("the peer review calls of the Learner (UC31, UC31.1)", () => {
-  it("lists the reviews assigned to the Learner", async () => {
+  it("lists the reviews assigned to the Learner, one page at a time (the first page of 20 when none is given)", async () => {
     http.get.mockReset().mockResolvedValue({ statusCode: 200, data: {} });
     await service.fetchLearnerPeerReviewsAPI();
-    expect(http.get).toHaveBeenCalledWith("/api/v1/assessments/learner/peer-reviews");
+    expect(http.get).toHaveBeenLastCalledWith("/api/v1/assessments/learner/peer-reviews", {
+      params: { page: 1, pageSize: 20 },
+    });
+    await service.fetchLearnerPeerReviewsAPI(3, 50);
+    expect(http.get).toHaveBeenLastCalledWith("/api/v1/assessments/learner/peer-reviews", {
+      params: { page: 3, pageSize: 50 },
+    });
   });
 
   it("reads one review by its own id, never by the submission", async () => {

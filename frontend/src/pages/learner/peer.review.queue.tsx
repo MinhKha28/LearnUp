@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Pagination } from "antd";
 import { useNavigate } from "react-router-dom";
 import {
   InfoPanel,
@@ -27,6 +28,8 @@ const STATE_VIEW: Record<
   Closed: { label: "Đã đóng", tone: "neutral", action: "Xem" },
 };
 
+const PAGE_SIZE = 20;
+
 const formatTime = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString("vi-VN") : "-";
 
@@ -43,18 +46,22 @@ const PeerReviewQueue = () => {
   const [list, setList] = useState<ILearnerReviewList | null>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetchLearnerPeerReviewsAPI();
+      const res = await fetchLearnerPeerReviewsAPI(page, PAGE_SIZE);
       if (res.data) {
         setList(res.data);
         setNotice("");
       } else {
         setList(null);
         setNotice(
-          vietnameseErrorText(res, "Không thể tải danh sách chấm chéo của bạn."),
+          vietnameseErrorText(
+            res,
+            "Không thể tải danh sách chấm chéo của bạn.",
+          ),
         );
       }
     } catch {
@@ -63,7 +70,7 @@ const PeerReviewQueue = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     void load();
@@ -142,6 +149,16 @@ const PeerReviewQueue = () => {
                 )}
               </tbody>
             </table>
+            {list.total > list.pageSize && (
+              <Pagination
+                className="peer-review-queue-pagination"
+                current={list.page}
+                pageSize={list.pageSize}
+                total={list.total}
+                showSizeChanger={false}
+                onChange={setPage}
+              />
+            )}
             <p className="peer-review-queue-footnote">
               Tên tác giả được ẩn với người chấm là học viên.
             </p>
