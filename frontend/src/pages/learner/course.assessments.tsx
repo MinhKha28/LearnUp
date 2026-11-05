@@ -11,7 +11,7 @@ import { fetchCurriculum } from "@/services/learning.service";
 import type { ILearnerAssessmentItem, ILearnerAssessmentList } from "@/types/assessment.types";
 import "./course.assessments.scss";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString();
+const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
 
 const statusView = (item: ILearnerAssessmentItem) => {
   switch (item.status) {

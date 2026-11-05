@@ -36,7 +36,7 @@ export const PageHeader = ({
             icon={<ArrowLeftOutlined />}
             onClick={() => navigate(-1)}
           >
-            Back
+            Quay lại
           </Button>
         )}
         {eyebrow && <span className="instructor-page-eyebrow">{eyebrow}</span>}
