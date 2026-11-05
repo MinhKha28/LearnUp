@@ -2,30 +2,10 @@ import { GATEWAY } from "../lib/config.mjs";
 import { login } from "../lib/actors.mjs";
 import { assert, expectStatus } from "../lib/harness.mjs";
 import { data, request } from "../lib/http.mjs";
-import { invitationToken, waitForMail } from "../lib/mailbox.mjs";
+import { inviteAndActivate } from "../lib/learners.mjs";
 
 /** Identity's default username when Tenant sends none: "user_" + the full user ID without dashes. */
 const defaultUsername = (userId) => `user_${userId.replace(/-/g, "")}`;
-
-async function inviteAndActivate(organizer, email, fullName, password) {
-  const created = expectStatus(
-    await request("POST", `${GATEWAY}/api/v1/users/learners`, { token: organizer.token, json: { fullName, email } }),
-    201,
-    "create learner",
-  );
-  const learner = data(created);
-  assert.equal(learner.status, "Pending");
-  const mail = await waitForMail(email);
-  const token = invitationToken(mail);
-  const preview = expectStatus(
-    await request("GET", `${GATEWAY}/api/v1/invitations/${token}`, { label: "/api/v1/invitations/:token" }),
-    200,
-    "invitation preview",
-  );
-  assert.equal(data(preview).email ?? email, email);
-  const accepted = await request("POST", `${GATEWAY}/api/v1/invitations/accept`, { json: { token, password } });
-  return { learner, token, accepted };
-}
 
 export default {
   id: "J2",
