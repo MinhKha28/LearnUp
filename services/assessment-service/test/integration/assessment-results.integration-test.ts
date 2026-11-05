@@ -6,8 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-// the validator learning-service applies to the answer: the contract is checked against the real response
-import { validateAssessmentResults } from '../../../learning-service/src/infrastructure/clients/assessment/assessment-results.client';
+import { brokenResultRules } from '../unit/assessment-results-contract';
 import {
   apiFor,
   COURSE,
@@ -370,12 +369,26 @@ describe('UC28.1 the results of a Learner in a Course over HTTP', () => {
       assert.equal(find((await results()).data, quiz1).recordedScore, 85);
     });
 
-    test('the real answer passes the check learning-service makes of it (the contract)', async () => {
+    test('the real answer follows the rules learning-service checks (the contract)', async () => {
       const r = await results();
       assert.ok((r.data.items as unknown[]).length >= 4);
-      assert.doesNotThrow(() => validateAssessmentResults(r.data, COURSE));
-      assert.doesNotThrow(() =>
-        validateAssessmentResults({ courseId: COURSE, items: [] }, COURSE),
+      assert.deepEqual(brokenResultRules(r.data, COURSE), []);
+      assert.deepEqual(
+        brokenResultRules({ courseId: COURSE, items: [] }, COURSE),
+        [],
+      );
+      // and the rules do bite: a verdict that is not the passing score's, and another Course
+      const first = (r.data.items as Record<string, unknown>[])[0];
+      assert.notDeepEqual(
+        brokenResultRules(
+          { courseId: COURSE, items: [{ ...first, passed: !first.passed }] },
+          COURSE,
+        ),
+        [],
+      );
+      assert.notDeepEqual(
+        brokenResultRules({ courseId: UNKNOWN, items: [] }, COURSE),
+        [],
       );
     });
 
