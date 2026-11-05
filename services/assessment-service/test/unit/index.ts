@@ -20,6 +20,7 @@ import './assessment-activity-service.unit-test';
 import './completion-snapshot.unit-test';
 import './quiz-grading.unit-test';
 import './quiz-attempts-schedule.unit-test';
+import './assessment-results.unit-test';
 import './internal-auth-guard.unit-test';
 import './grading-result.unit-test';
 import './cycle-status.unit-test';
