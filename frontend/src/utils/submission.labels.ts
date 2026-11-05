@@ -3,20 +3,21 @@ import type { ISubmissionPerson } from "@/types/submission.types";
 export type LabelTone = "neutral" | "success" | "warning" | "error" | "info";
 
 const GRADING_STATUS: Record<string, { label: string; tone: LabelTone }> = {
-  AwaitingPeerReview: { label: "In peer review", tone: "info" },
-  AwaitingInstructor: { label: "Awaiting your grading", tone: "warning" },
-  AwaitingFinalization: { label: "Ready to finalize", tone: "info" },
-  Finalized: { label: "Finalized", tone: "success" },
-  Pending: { label: "Pending", tone: "neutral" },
+  AwaitingPeerReview: { label: "Đang chấm chéo", tone: "info" },
+  AwaitingInstructor: { label: "Chờ bạn chấm", tone: "warning" },
+  AwaitingFinalization: { label: "Chờ chốt điểm", tone: "info" },
+  Finalized: { label: "Đã chốt điểm", tone: "success" },
+  Pending: { label: "Chưa xử lý", tone: "neutral" },
 };
 
 const INTERVENTION_REASON: Record<string, string> = {
-  PEER_REVIEW_DISABLED: "Peer review is off",
-  NOT_ENOUGH_SUBMISSIONS: "Not enough submissions for peer review",
-  REVIEWER_MISSED_DEADLINE: "A reviewer missed the deadline",
-  REVIEWER_DEACTIVATED: "A reviewer was deactivated",
-  SCORE_GAP_EXCEEDED: "Reviewer scores differ too much",
-  RESUBMITTED_AFTER_CUTOFF: "Resubmitted after the cycle cutoff",
+  PEER_REVIEW_DISABLED: "Assignment không bật chấm chéo",
+  NOT_ENOUGH_SUBMISSIONS: "Không đủ bài nộp để chấm chéo",
+  REVIEWER_MISSED_DEADLINE: "Có người chấm không hoàn thành đúng hạn",
+  REVIEW_MISSED: "Có người chấm không hoàn thành đúng hạn",
+  REVIEWER_DEACTIVATED: "Có người chấm đã bị vô hiệu hóa",
+  SCORE_GAP_EXCEEDED: "Điểm giữa các người chấm chênh lệch quá lớn",
+  RESUBMITTED_AFTER_CUTOFF: "Nộp lại sau ngày chốt của chu kỳ",
 };
 
 export const gradingStatusView = (status: string) =>
@@ -30,9 +31,9 @@ export const personName = (person: ISubmissionPerson) =>
 
 export const formatDateTime = (value?: string | null) =>
   value
-    ? new Date(value).toLocaleString("en-GB", {
+    ? new Date(value).toLocaleString("vi-VN", {
         day: "2-digit",
-        month: "short",
+        month: "2-digit",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
