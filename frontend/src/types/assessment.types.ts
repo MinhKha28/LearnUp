@@ -96,7 +96,9 @@ export interface IAssignment {
 /** Error envelope from the NestJS HttpExceptionFilter. */
 export interface IAssessmentError {
   statusCode: number;
-  error?: { code?: string; message?: string | string[]; lockedUntil?: string } | string;
+  error?:
+    | { code?: string; message?: string | string[]; lockedUntil?: string }
+    | string;
   message?: string | string[];
 }
 
@@ -211,11 +213,20 @@ export interface ICreateQuizReq {
 
 /** UC18.4 payload: the five configuration fields (BR-195); send only what changed. */
 export type IUpdateQuizConfigReq = Partial<
-  Pick<ICreateQuizReq, "timeLimitMinutes" | "passingScore" | "isRequired" | "maxConsecutiveAttempts" | "lockoutHours">
+  Pick<
+    ICreateQuizReq,
+    | "timeLimitMinutes"
+    | "passingScore"
+    | "isRequired"
+    | "maxConsecutiveAttempts"
+    | "lockoutHours"
+  >
 >;
 
 /** UC19.3 payload: send only what changed. `promptFile: null` removes the attachment. */
-export type IUpdateAssignment = Partial<Omit<ICreateAssignment, "courseId" | "promptFile">> & {
+export type IUpdateAssignment = Partial<
+  Omit<ICreateAssignment, "courseId" | "promptFile">
+> & {
   promptFile?: IPromptFile | null;
 };
 
@@ -239,7 +250,8 @@ export interface ILearnerSubmissionSummary {
 
 /** UC30 step 1: the Assignment as the enrolled Learner reads it. */
 /** UC30 / UC30.1: where a submission goes (BR-213, BR-239). */
-export type SubmissionPlacement = "REPLACES_IN_CYCLE" | "OPEN_CYCLE" | "INSTRUCTOR";
+export type SubmissionPlacement =
+  "REPLACES_IN_CYCLE" | "OPEN_CYCLE" | "INSTRUCTOR";
 
 /** UC30.1: where a resubmission would go right now. */
 export interface IResubmissionOutlook {
@@ -257,7 +269,12 @@ export interface ILearnerAssignment {
   passingScore: number;
   expectedDurationMinutes: number | null;
   peerReviewEnabled: boolean;
-  rubric: { id: string; name: string; description: string; maxPoints: number }[];
+  rubric: {
+    id: string;
+    name: string;
+    description: string;
+    maxPoints: number;
+  }[];
   attempts: ILearnerAttemptState;
   /** BR-210: the Enrollment is Completed. */
   readOnly: boolean;
@@ -275,7 +292,12 @@ export interface ISubmissionReceipt {
   submissionNumber: number;
   submittedAt: string;
   gradingStatus: string;
-  cycle: { id: string; opensAt: string; closesAt: string; reviewDueAt: string } | null;
+  cycle: {
+    id: string;
+    opensAt: string;
+    closesAt: string;
+    reviewDueAt: string;
+  } | null;
   attempts: ILearnerAttemptState;
   /** Where the work went: a cycle (new or the same one), or straight to the Instructor. */
   placement: SubmissionPlacement;
@@ -284,7 +306,8 @@ export interface ISubmissionReceipt {
 }
 
 /** UC29: what the Learner sees about one Quiz or Assignment of a Course. */
-export type LearnerAssessmentStatus = "NotStarted" | "InProgress" | "AwaitingResult" | "Completed";
+export type LearnerAssessmentStatus =
+  "NotStarted" | "InProgress" | "AwaitingResult" | "Completed";
 
 export interface ILearnerAssessmentItem {
   id: string;
@@ -313,18 +336,38 @@ export interface ILearnerAssessmentList {
 
 /** UC30.2: the result of a Finalized submission. Reviewers are never named (BR-234). */
 export interface IGradingResult {
-  submission: { id: string; submissionNumber: number; submittedAt: string; fileName: string | null };
-  assignment: { id: string; courseId: string; title: string; passingScore: number };
+  submission: {
+    id: string;
+    submissionNumber: number;
+    submittedAt: string;
+    fileName: string | null;
+  };
+  assignment: {
+    id: string;
+    courseId: string;
+    title: string;
+    passingScore: number;
+  };
   finalScore: number;
   passed: boolean;
   finalizationComment: string | null;
   finalizedAt: string;
-  criteria: { id: string; name: string; maxPoints: number; averagePoints: number | null }[];
-  comments: { source: "PEER" | "INSTRUCTOR"; comment: string; completedAt: string | null }[];
+  criteria: {
+    id: string;
+    name: string;
+    maxPoints: number;
+    averagePoints: number | null;
+  }[];
+  comments: {
+    source: "PEER" | "INSTRUCTOR";
+    comment: string;
+    completedAt: string | null;
+  }[];
 }
 
 /** UC33: what a cycle of a peer review is called on the Instructor screen. */
-export type TPeerReviewCycleStatus = "Open" | "Assigned" | "InstructorOnly" | "Completed";
+export type TPeerReviewCycleStatus =
+  "Open" | "Assigned" | "InstructorOnly" | "Completed";
 
 export interface IPeerReviewCycleItem {
   id: string;
@@ -454,10 +497,18 @@ export interface ILearnerReviewDetail extends ILearnerReviewItem {
   /** The work to review, without its author, its number or its date. */
   submission: {
     content: string | null;
-    file: { fileName: string; mimeType: string | null; sizeBytes: number | null; url: string } | null;
+    file: {
+      fileName: string;
+      mimeType: string | null;
+      sizeBytes: number | null;
+      url: string;
+    } | null;
   };
   /** The review as the Learner gave it, once given. */
-  myReview: { comment: string | null; scores: { criterionId: string; points: number }[] } | null;
+  myReview: {
+    comment: string | null;
+    scores: { criterionId: string; points: number }[];
+  } | null;
 }
 
 /** UC31.1: the body of a review: a whole-number score for every criterion and a general comment (BR-257). */
@@ -482,4 +533,46 @@ export interface IClosedPeerReviewCycle {
   reviewCount: number;
   closedAt: string;
   alreadyClosed: boolean;
+}
+
+/** UC31.2: the state of the peer review duty of the Learner, as learning-service judges it for the Certificate. */
+export type TObligationStatus =
+  "NotApplicable" | "Pending" | "Satisfied" | "Missed" | "Waived";
+
+export interface IReviewObligation {
+  assignmentId: string;
+  assignmentTitle: string;
+  courseId: string;
+  status: TObligationStatus;
+  /** The reviews handed to the Learner in the latest cycle in which they have any. */
+  requiredCount: number;
+  completedCount: number;
+}
+
+/** UC31.2: one review the Learner gave. Nothing in it says who wrote the work (BR-233). */
+export interface IReviewHistoryItem {
+  id: string;
+  assignmentId: string;
+  assignmentTitle: string;
+  courseId: string;
+  score: number | null;
+  completedAt: string | null;
+  comment: string | null;
+  criteria: {
+    criterionId: string;
+    name: string;
+    points: number;
+    maxPoints: number;
+  }[];
+}
+
+export interface IReviewHistory {
+  overall: TObligationStatus;
+  obligations: IReviewObligation[];
+  assignedCount: number;
+  completedCount: number;
+  total: number;
+  page: number;
+  pageSize: number;
+  items: IReviewHistoryItem[];
 }
