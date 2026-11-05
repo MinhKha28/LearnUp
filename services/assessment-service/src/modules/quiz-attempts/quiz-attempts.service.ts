@@ -15,13 +15,15 @@ import {
   requireLearner,
 } from '../learner-submissions/learner-access';
 import type {
+  IAttemptHistoryItem,
   IAttemptInProgress,
   IAttemptResult,
   IAttemptView,
   ILearnerQuiz,
+  IQuizHistory,
   ISavedAnswer,
 } from './interfaces/quiz-attempt.interface';
-import { allowsSeveralOptions } from './quiz-grading';
+import { allowsSeveralOptions, bestAttemptOf } from './quiz-grading';
 import {
   MINUTE_MS,
   SUBMISSION_MANUAL,
@@ -98,6 +100,66 @@ export class QuizAttemptsService {
       recordedScore,
       passed: recordedScore === null ? null : recordedScore >= passingScore,
       submittedAttemptCount: submitted.length,
+    };
+  }
+
+  /**
+   * UC29.2: the attempts the Learner has done on the Quiz, newest first, with the score of each, the tries left before
+   * the lock and, when locked, the time the Quiz opens again. An attempt that ran out of time is submitted first, so its
+   * score is there. The answer key is not part of it.
+   */
+  async history(user: CurrentUser, quizId: string): Promise<IQuizHistory> {
+    const organizationId = requireLearner(user);
+    const quiz = await this.requireQuiz(organizationId, quizId);
+    const access = await requireAccess(this.enrollments, user, quiz.courseId);
+    const now = this.clock();
+    await this.settler.settleExpired(now, {
+      assessmentId: quiz.id,
+      learnerId: user.userId,
+    });
+    const [state, attempts] = await Promise.all([
+      this.repository.findState(quiz.id, user.userId),
+      this.repository.findAttempts(quiz.id, user.userId),
+    ]);
+    const passingScore = Number(quiz.passingScore.toString());
+    const best = bestAttemptOf(
+      attempts.map((a) => ({
+        id: a.id,
+        attemptNumber: a.attemptNumber,
+        submittedAt: a.submittedAt,
+        score: toNumber(a.score),
+      })),
+    );
+    const items = [...attempts]
+      .sort((a, b) => b.attemptNumber - a.attemptNumber)
+      .map((a): IAttemptHistoryItem => {
+        const score = toNumber(a.score);
+        const done = a.submittedAt !== null;
+        return {
+          attemptId: a.id,
+          attemptNumber: a.attemptNumber,
+          status: done ? 'Submitted' : 'InProgress',
+          startedAt: a.startedAt.toISOString(),
+          submittedAt: a.submittedAt?.toISOString() ?? null,
+          submissionKind: a.submissionKind,
+          score: done ? score : null,
+          passed: done && score !== null ? score >= passingScore : null,
+          correctCount: done ? this.correctCountOf(quiz, a) : null,
+          totalQuestions: quiz.questions.length,
+          isRecorded: a.id === best,
+        };
+      });
+    const recordedScore = items.find((i) => i.isRecorded)?.score ?? null;
+    return {
+      quizId: quiz.id,
+      courseId: quiz.courseId,
+      title: quiz.title,
+      passingScore,
+      readOnly: isReadOnly(access),
+      attempts: attemptStateOf(quiz, state, now),
+      recordedScore,
+      passed: recordedScore === null ? null : recordedScore >= passingScore,
+      items,
     };
   }
 
@@ -422,16 +484,7 @@ export class QuizAttemptsService {
       .map((a) => toNumber(a.score))
       .filter((s): s is number => s !== null);
     const recordedScore = scores.length ? Math.max(...scores) : null;
-    const chosen = chosenBy(attempt);
-    const correctCount = quiz.questions.filter((question) => {
-      const key = question.options.filter((o) => o.isCorrect).map((o) => o.id);
-      const picked = new Set(chosen.get(question.id) ?? []);
-      return (
-        picked.size > 0 &&
-        picked.size === key.length &&
-        key.every((id) => picked.has(id))
-      );
-    }).length;
+    const correctCount = this.correctCountOf(quiz, attempt);
     return {
       status: 'Submitted',
       attemptId: attempt.id,
@@ -451,6 +504,20 @@ export class QuizAttemptsService {
         recordedScore === null ? null : recordedScore >= passingScore,
       attempts: attemptStateOf(quiz, state, this.clock()),
     };
+  }
+
+  /** The questions answered right, by the same rule as the grading (BR-197). */
+  private correctCountOf(quiz: QuizRow, attempt: AttemptRow): number {
+    const chosen = chosenBy(attempt);
+    return quiz.questions.filter((question) => {
+      const key = question.options.filter((o) => o.isCorrect).map((o) => o.id);
+      const picked = new Set(chosen.get(question.id) ?? []);
+      return (
+        picked.size > 0 &&
+        picked.size === key.length &&
+        key.every((id) => picked.has(id))
+      );
+    }).length;
   }
 
   // ----------------------------------------------------------------- loading

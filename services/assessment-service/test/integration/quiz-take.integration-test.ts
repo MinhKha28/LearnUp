@@ -1030,6 +1030,194 @@ describe('UC29.1 taking a Quiz over HTTP', () => {
     });
   });
 
+  describe('UC29.2 the history of a Quiz', () => {
+    const LEARNER_3 = '00000000-0000-4000-8000-0000000000c3';
+    const history = (user = LEARNER_2, id = quizId) =>
+      api('GET', `${quizUrl(id)}/history`, undefined, as(user));
+    const answerAll = async (id: string, right: boolean, user = LEARNER_2) => {
+      const choices = right
+        ? ([
+            [0, [0]],
+            [1, [0, 1]],
+            [2, [0]],
+            [3, [1]],
+          ] as [number, number[]][])
+        : ([
+            [0, [0]],
+            [1, [0, 1]],
+            [2, [1]],
+          ] as [number, number[]][]);
+      for (const [q, o] of choices) await save(id, q, o, user);
+    };
+
+    test('who may read it: a Learner of the Course only; ids are checked', async () => {
+      assert.equal(
+        (await api('GET', `${quizUrl()}/history`, undefined, {})).status,
+        401,
+      );
+      assert.equal(
+        (
+          await api(
+            'GET',
+            `${quizUrl()}/history`,
+            undefined,
+            identity({ role: 'INSTRUCTOR' }),
+          )
+        ).status,
+        403,
+      );
+      assert.equal(
+        (
+          await api(
+            'GET',
+            '/learner/quizzes/abc/history',
+            undefined,
+            as(LEARNER_2),
+          )
+        ).status,
+        400,
+      );
+      assert.equal((await history(LEARNER_2, UNKNOWN)).status, 404);
+      assert.equal(
+        (
+          await api(
+            'GET',
+            `${quizUrl()}/history`,
+            undefined,
+            as(LEARNER_2, OTHER_ORG),
+          )
+        ).status,
+        404,
+      );
+      learning.setAnswer(LEARNER_2, COURSE, 'NotFound');
+      assert.equal((await history()).status, 403);
+      learning.setAnswer(LEARNER_2, COURSE, 'None');
+      assert.equal((await history()).code, 'ENROLLMENT_NOT_ACTIVE');
+      learning.reset();
+    });
+
+    test('before any attempt: nothing to list, all tries left, no recorded score', async () => {
+      const r = await history();
+      assert.equal(r.status, 200, JSON.stringify(r.json));
+      assert.deepEqual(r.data.items, []);
+      assert.equal(r.data.recordedScore, null);
+      assert.equal(r.data.passed, null);
+      assert.equal(r.data.attempts.remainingAttempts, 2);
+      assert.equal(r.data.attempts.lockedUntil, null);
+      assert.equal(r.data.title, 'Safety quiz');
+      assert.equal(r.data.passingScore, 70);
+    });
+
+    test('a submitted attempt shows its score and how it was submitted; the running one has no score; newest first', async () => {
+      const first = (await start(LEARNER_2)).data.attemptId as string;
+      await answerAll(first, false);
+      await submit(first, LEARNER_2);
+      const second = (await start(LEARNER_2)).data.attemptId as string;
+      await save(second, 0, [0], LEARNER_2);
+      const r = await history();
+      assert.deepEqual(
+        r.data.items.map((i: any) => [
+          i.attemptNumber,
+          i.status,
+          i.score,
+          i.passed,
+          i.correctCount,
+          i.submissionKind,
+          i.isRecorded,
+        ]),
+        [
+          [2, 'InProgress', null, null, null, null, false],
+          [1, 'Submitted', 50, false, 2, 'Manual', true],
+        ],
+      );
+      assert.equal(r.data.items[1].totalQuestions, 4);
+      assert.ok(r.data.items[1].submittedAt && r.data.items[1].startedAt);
+      assert.equal(r.data.recordedScore, 50);
+      assert.equal(r.data.passed, false);
+      assert.equal(
+        r.data.attempts.remainingAttempts,
+        0,
+        'both tries are used: the running one counts',
+      );
+      assert.ok(
+        !/isCorrect|is_correct/i.test(JSON.stringify(r.json)),
+        'no answer key',
+      );
+    });
+
+    test('the best attempt is marked, and the lock with the time it opens again is shown after the n-th', async () => {
+      const running = (await getQuiz(LEARNER_2)).data
+        .inProgressAttemptId as string;
+      await answerAll(running, true);
+      await submit(running, LEARNER_2);
+      const r = await history();
+      assert.deepEqual(
+        r.data.items.map((i: any) => [i.attemptNumber, i.score, i.isRecorded]),
+        [
+          [2, 100, true],
+          [1, 50, false],
+        ],
+      );
+      assert.equal(r.data.recordedScore, 100);
+      assert.equal(r.data.attempts.remainingAttempts, 0);
+      const lockedUntil = new Date(
+        (await state(LEARNER_2)).locked_until,
+      ).toISOString();
+      assert.equal(r.data.attempts.lockedUntil, lockedUntil);
+    });
+
+    test('a tie is marked on the earlier attempt', async () => {
+      await db.query(
+        'UPDATE quiz_attempts SET score = 100 WHERE learner_id = $1 AND attempt_number = 1',
+        [LEARNER_2],
+      );
+      const r = await history();
+      assert.deepEqual(
+        r.data.items.map((i: any) => [i.attemptNumber, i.isRecorded]),
+        [
+          [2, false],
+          [1, true],
+        ],
+      );
+      assert.equal(r.data.items.filter((i: any) => i.isRecorded).length, 1);
+    });
+
+    test('an attempt that ran out of time is in the history with its score, as TimedOut', async () => {
+      await db.query(
+        'UPDATE learner_assessment_states SET locked_until = NULL, consecutive_count = 0 WHERE learner_id = $1 AND assessment_id = $2',
+        [LEARNER_2, quizId],
+      );
+      const third = (await start(LEARNER_2)).data.attemptId as string;
+      await save(third, 0, [0], LEARNER_2);
+      await ageAttempt(third, 11);
+      const r = await history();
+      const item = r.data.items[0];
+      assert.deepEqual(
+        [
+          item.attemptNumber,
+          item.status,
+          item.submissionKind,
+          item.score,
+          item.correctCount,
+        ],
+        [3, 'Submitted', 'TimedOut', 25, 1],
+      );
+      assert.equal(r.data.items.length, 3);
+    });
+
+    test('it is the Learner’s own: another Learner has an empty history, and a Completed Course still shows it (read only)', async () => {
+      const other = await history(LEARNER_3);
+      assert.equal(other.status, 200);
+      assert.deepEqual(other.data.items, []);
+      learning.setAnswer(LEARNER_2, COURSE, 'ReadOnly');
+      const r = await history();
+      assert.equal(r.status, 200);
+      assert.equal(r.data.readOnly, true);
+      assert.equal(r.data.items.length, 3);
+      learning.reset();
+    });
+  });
+
   describe('the job', () => {
     test('submits the attempts that ran out of time without anybody reading them, and a second run finds nothing', async () => {
       await db.query('DELETE FROM quiz_attempts WHERE learner_id = $1', [

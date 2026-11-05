@@ -29,6 +29,15 @@ export class QuizAttemptsController {
     return this.service.getQuiz(user, id);
   }
 
+  /** UC29.2 - the attempts done on the Quiz, with score, tries left and the time it opens again. */
+  @Get(':id/history')
+  @ApiTags('UC29.2 - Quiz history')
+  @ApiOperation({ summary: 'The attempts of the Learner on the Quiz' })
+  @ResponseMessage('Quiz history retrieved successfully.')
+  history(@User() user: CurrentUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.history(user, id);
+  }
+
   /** UC29.1 - Start an attempt; asking again while one is running returns that attempt. */
   @Post(':id/attempts')
   @ApiOperation({

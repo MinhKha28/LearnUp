@@ -531,3 +531,32 @@ export interface ISavedQuizAnswer {
   selectedOptionIds: string[];
   remainingSeconds: number;
 }
+
+/** UC29.2: one attempt in the history of a Quiz. */
+export interface IQuizHistoryItem {
+  attemptId: string;
+  attemptNumber: number;
+  status: "InProgress" | "Submitted";
+  startedAt: string;
+  submittedAt: string | null;
+  submissionKind: "Manual" | "TimedOut" | string | null;
+  score: number | null;
+  passed: boolean | null;
+  correctCount: number | null;
+  totalQuestions: number;
+  /** BR-198: the attempt whose score is the recorded one. */
+  isRecorded: boolean;
+}
+
+export interface IQuizHistory {
+  quizId: string;
+  courseId: string;
+  title: string;
+  passingScore: number;
+  readOnly: boolean;
+  attempts: ILearnerAttemptState;
+  recordedScore: number | null;
+  passed: boolean | null;
+  /** Newest first. */
+  items: IQuizHistoryItem[];
+}

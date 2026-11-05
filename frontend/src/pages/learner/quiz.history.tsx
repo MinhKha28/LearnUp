@@ -1,103 +1,187 @@
-import { useState } from "react";
-import { Modal } from "antd";
-import { useParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, Spin } from "antd";
+import { useNavigate, useParams } from "react-router-dom";
 import {
-  courseDetails,
-  findQuiz,
-  quizAttemptsRemaining,
-  quizRecordedScore,
-  type IQuizAttempt,
-} from "@/components/learner/learner.data";
-import { LearnerButton, PageHeader, StatCard } from "@/components/learner/learner.ui";
+  LearnerButton,
+  LearnerPage,
+  PageHeader,
+  StatCard,
+  StatusTag,
+  WarningPanel,
+} from "@/components/learner/learner.ui";
+import {
+  assessmentErrorCode,
+  fetchQuizHistoryAPI,
+} from "@/services/assessment.service";
+import type { IQuizHistory, IQuizHistoryItem } from "@/types/assessment.types";
+import { formatDateTime, formatScore, quizErrorText } from "@/utils/quiz.take";
 import "./quiz.history.scss";
 
-const QuizHistory = () => {
-  const { enrollmentId: courseId, quizId } = useParams();
-  const course = courseId ? courseDetails[courseId] : undefined;
-  const quiz = course ? findQuiz(course, quizId) : undefined;
-  const [viewing, setViewing] = useState<IQuizAttempt | undefined>(undefined);
+/** How the attempt was submitted, in words the Learner uses. */
+export const submissionKindLabel = (item: IQuizHistoryItem) => {
+  if (item.status === "InProgress") return "Đang làm";
+  return item.submissionKind === "TimedOut" ? "Hết giờ, tự nộp" : "Bạn nộp";
+};
 
-  if (!course || !quiz) {
-    return null;
+/** UC29.2 — the attempts the Learner has done on a Quiz, with the score of each and the lock. */
+const QuizHistory = () => {
+  const { enrollmentId = "", quizId = "" } = useParams();
+  const navigate = useNavigate();
+  const base = `/learner/courses/${encodeURIComponent(enrollmentId)}`;
+  const [history, setHistory] = useState<IQuizHistory | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetchQuizHistoryAPI(quizId);
+      // The axios interceptor resolves HTTP errors too, so only res.data tells success apart.
+      if (res.data) setHistory(res.data);
+      else
+        setError(
+          quizErrorText(
+            assessmentErrorCode(res).code,
+            "Không tải được lịch sử làm bài.",
+          ),
+        );
+    } catch {
+      setError("Không kết nối được với máy chủ. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
+    }
+  }, [quizId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading && !history) {
+    return (
+      <LearnerPage className="quiz-history">
+        <Spin />
+      </LearnerPage>
+    );
+  }
+  if (!history) {
+    return (
+      <LearnerPage className="quiz-history">
+        <PageHeader
+          eyebrow="BÀI KIỂM TRA / LỊCH SỬ"
+          title="Lịch sử làm bài"
+          subtitle=""
+          back
+        />
+        <Alert type="error" showIcon message={error} />
+        <LearnerButton onClick={() => void load()}>Thử lại</LearnerButton>
+      </LearnerPage>
+    );
   }
 
-  const remaining = quizAttemptsRemaining(quiz);
-  const recorded = quizRecordedScore(quiz);
-  const attemptsDesc = [...quiz.attempts].reverse();
-
+  const { attempts } = history;
+  const locked = attempts.lockedUntil !== null;
   return (
     <>
       <PageHeader
-        eyebrow="ASSESSMENTS / QUIZ HISTORY"
-        title="Quiz History"
-        subtitle={`All attempts for ${quiz.title}.`}
+        eyebrow="BÀI KIỂM TRA / LỊCH SỬ"
+        title="Lịch sử làm bài"
+        subtitle={`Tất cả các lượt làm của ${history.title}.`}
+        back
       />
       <div className="course-learning-content">
-          <div className="quiz-history-summary">
-            <StatCard
-              label="Recorded score"
-              value={quiz.attempts.length > 0 ? `Highest attempt: ${recorded}%` : "No attempts yet"}
-            />
-            <StatCard
-              label="Consecutive attempts remaining"
-              value={quiz.locked ? "0 · Locked" : `${remaining} before temporary lock`}
-            />
-          </div>
-          <div className="quiz-history-table-card">
-            <h3>Attempt history</h3>
-            <table className="quiz-history-table">
-              <thead>
-                <tr>
-                  <th>Attempt</th>
-                  <th>Submitted</th>
-                  <th>Score</th>
-                  <th>Result</th>
-                  <th>Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attemptsDesc.map((attempt, index) => (
-                  <tr key={attempt.id}>
-                    <td>
-                      <strong>Attempt {attemptsDesc.length - index}</strong>
-                    </td>
-                    <td>{attempt.submittedAt}</td>
-                    <td>{attempt.score}%</td>
-                    <td>{attempt.passed ? "Passed" : "Below threshold"}</td>
-                    <td>
-                      <LearnerButton onClick={() => setViewing(attempt)}>View attempt</LearnerButton>
-                    </td>
-                  </tr>
-                ))}
-                {attemptsDesc.length === 0 && (
-                  <tr>
-                    <td colSpan={5}>No attempts recorded yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-      </div>
-      <Modal
-        open={Boolean(viewing)}
-        onCancel={() => setViewing(undefined)}
-        footer={null}
-        title="Attempt details"
-      >
-        {viewing && (
-          <div className="quiz-history-modal">
-            <p>
-              Submitted: <strong>{viewing.submittedAt}</strong>
-            </p>
-            <p>
-              Score: <strong>{viewing.score}%</strong>
-            </p>
-            <p>
-              Result: <strong>{viewing.passed ? "Passed" : "Below threshold"}</strong>
-            </p>
-          </div>
+        {locked && (
+          <WarningPanel title="Bài kiểm tra đang tạm khóa">
+            Bạn đã làm đủ {attempts.maxConsecutiveAttempts} lượt liên tiếp. Bạn
+            làm lại được từ{" "}
+            <strong>{formatDateTime(attempts.lockedUntil!)}</strong>.
+          </WarningPanel>
         )}
-      </Modal>
+        <div className="quiz-history-summary">
+          <StatCard
+            label="Điểm được ghi nhận"
+            value={
+              history.recordedScore === null
+                ? "Chưa có lượt nào được nộp"
+                : `${formatScore(history.recordedScore)} (lượt cao nhất) · ${history.passed ? "Đạt" : "Chưa đạt"}`
+            }
+          />
+          <StatCard
+            label="Số lượt còn lại trước khi tạm khóa"
+            value={
+              locked
+                ? `0 · mở lại ${formatDateTime(attempts.lockedUntil!)}`
+                : `${attempts.remainingAttempts}/${attempts.maxConsecutiveAttempts}`
+            }
+          />
+        </div>
+        <div className="quiz-history-table-card">
+          <h3>Các lượt đã làm</h3>
+          <table className="quiz-history-table">
+            <thead>
+              <tr>
+                <th>Lượt</th>
+                <th>Bắt đầu</th>
+                <th>Nộp lúc</th>
+                <th>Cách nộp</th>
+                <th>Điểm</th>
+                <th>Số câu đúng</th>
+                <th>Kết quả</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.items.map((item) => (
+                <tr key={item.attemptId}>
+                  <td>
+                    <strong>Lượt {item.attemptNumber}</strong>
+                    {item.isRecorded && (
+                      <StatusTag tone="success">Được ghi nhận</StatusTag>
+                    )}
+                  </td>
+                  <td>{formatDateTime(item.startedAt)}</td>
+                  <td>
+                    {item.submittedAt ? formatDateTime(item.submittedAt) : "-"}
+                  </td>
+                  <td>{submissionKindLabel(item)}</td>
+                  <td>{item.score === null ? "-" : formatScore(item.score)}</td>
+                  <td>
+                    {item.correctCount === null
+                      ? "-"
+                      : `${item.correctCount}/${item.totalQuestions}`}
+                  </td>
+                  <td>
+                    {item.passed === null
+                      ? "-"
+                      : item.passed
+                        ? "Đạt"
+                        : "Chưa đạt"}
+                  </td>
+                </tr>
+              ))}
+              {history.items.length === 0 && (
+                <tr>
+                  <td colSpan={7}>Bạn chưa làm lượt nào.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="quiz-result-actions">
+          {!history.readOnly && !locked && (
+            <LearnerButton
+              type="primary"
+              onClick={() => navigate(`${base}/quizzes/${quizId}`)}
+            >
+              {history.items.some((i) => i.status === "InProgress")
+                ? "Tiếp tục làm bài"
+                : "Làm bài"}
+            </LearnerButton>
+          )}
+          <LearnerButton onClick={() => navigate(`${base}/assessments`)}>
+            Về danh sách bài kiểm tra
+          </LearnerButton>
+        </div>
+      </div>
     </>
   );
 };

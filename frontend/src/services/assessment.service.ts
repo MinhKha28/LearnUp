@@ -13,6 +13,7 @@ import type {
   IQuizAttemptInProgress,
   IQuizAttemptResult,
   IQuizAttemptView,
+  IQuizHistory,
   ISavedQuizAnswer,
   ILearnerAssignment,
   ISubmissionReceipt,
@@ -326,4 +327,10 @@ export const saveQuizAnswerAPI = (
 export const submitQuizAttemptAPI = (attemptId: string) =>
   axios.post<IBackendRes<IQuizAttemptResult>>(
     `${QUIZ_BASE}/attempts/${encodeURIComponent(attemptId)}/submit`,
+  );
+
+/** UC29.2 — the attempts of the Learner on a Quiz, with score, tries left and the time it opens again. */
+export const fetchQuizHistoryAPI = (quizId: string) =>
+  axios.get<IBackendRes<IQuizHistory>>(
+    `${QUIZ_BASE}/${encodeURIComponent(quizId)}/history`,
   );

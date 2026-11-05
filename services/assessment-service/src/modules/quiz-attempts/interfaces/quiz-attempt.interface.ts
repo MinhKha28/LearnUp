@@ -80,3 +80,34 @@ export interface ISavedAnswer {
   selectedOptionIds: string[];
   remainingSeconds: number;
 }
+
+/** UC29.2: one attempt in the history of a Quiz. */
+export interface IAttemptHistoryItem {
+  attemptId: string;
+  attemptNumber: number;
+  status: 'InProgress' | 'Submitted';
+  startedAt: string;
+  submittedAt: string | null;
+  /** `Manual` or `TimedOut`; null while the attempt runs. */
+  submissionKind: string | null;
+  score: number | null;
+  passed: boolean | null;
+  correctCount: number | null;
+  totalQuestions: number;
+  /** BR-198: the attempt whose score is the recorded one. */
+  isRecorded: boolean;
+}
+
+/** UC29.2: the attempts of a Learner on a Quiz with the score of each, the tries left and when the Quiz opens again. */
+export interface IQuizHistory {
+  quizId: string;
+  courseId: string;
+  title: string;
+  passingScore: number;
+  readOnly: boolean;
+  attempts: ILearnerAttemptState;
+  recordedScore: number | null;
+  passed: boolean | null;
+  /** Newest first. */
+  items: IAttemptHistoryItem[];
+}
