@@ -20,6 +20,19 @@ const INTERVENTION_REASON: Record<string, string> = {
   RESUBMITTED_AFTER_CUTOFF: "Nộp lại sau ngày chốt của chu kỳ",
 };
 
+const REVIEW_STATUS: Record<string, { label: string; tone: LabelTone }> = {
+  Completed: { label: "Đã chấm", tone: "success" },
+  Pending: { label: "Chưa chấm", tone: "neutral" },
+  Missed: { label: "Bỏ lỡ", tone: "warning" },
+  Waived: { label: "Được miễn", tone: "info" },
+};
+
+export const reviewStatusView = (status: string) =>
+  REVIEW_STATUS[status] ?? { label: status, tone: "neutral" as LabelTone };
+
+export const reviewerRoleLabel = (role: string) =>
+  role === "Instructor" ? "Giảng viên" : role === "Learner" ? "Học viên" : role;
+
 export const gradingStatusView = (status: string) =>
   GRADING_STATUS[status] ?? { label: status, tone: "neutral" as LabelTone };
 
