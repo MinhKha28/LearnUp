@@ -3,7 +3,7 @@ import { CheckCircleOutlined, ExclamationCircleOutlined, InfoCircleOutlined } fr
 import type { INotification } from "@/types/notification.types";
 import "./notification.item.scss";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString();
+const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
 
 /** The type only picks the look of the icon; an unknown type looks like INFO. */
 const typeView = (type: string): { tone: "info" | "success" | "warning"; icon: ReactNode } => {
