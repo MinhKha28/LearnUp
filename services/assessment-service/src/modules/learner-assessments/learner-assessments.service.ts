@@ -14,6 +14,7 @@ import type {
   ILearnerAssessmentList,
   LearnerAssessmentStatus,
 } from './interfaces/learner-assessment.interface';
+import { QuizAttemptSettler } from '../quiz-attempts/quiz-attempt-settler';
 import { LearnerAssessmentsRepository } from './learner-assessments.repository';
 
 const FINALIZED = 'Finalized';
@@ -36,6 +37,7 @@ export class LearnerAssessmentsService {
     private readonly repository: LearnerAssessmentsRepository,
     private readonly enrollments: EnrollmentClient,
     private readonly courses: CourseServiceClient,
+    private readonly quizSettler: QuizAttemptSettler,
   ) {}
 
   /**
@@ -49,6 +51,11 @@ export class LearnerAssessmentsService {
     const organizationId = requireLearner(user);
     const access = await requireAccess(this.enrollments, user, courseId);
     const readOnly = isReadOnly(access);
+    // BR-200: an attempt that ran out of time is submitted before its score is read
+    await this.quizSettler.settleExpired(this.clock(), {
+      learnerId: user.userId,
+      courseId,
+    });
     const [rows, moduleOrder] = await Promise.all([
       this.repository.findAssessments(organizationId, courseId),
       this.moduleOrder(user, courseId),
