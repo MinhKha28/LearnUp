@@ -60,24 +60,65 @@ export type ReviewRow = Prisma.SubmissionReviewGetPayload<{
 export class LearnerReviewsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** The peer reviews of one Learner on Assignments, the newest first; the Instructor's own rows are not peer reviews. */
-  findOfReviewer(
+  /**
+   * The queue of one Learner: their peer reviews on Assignments (not the Instructor's rows, not the ones whose access ended),
+   * in the order the screen shows them. The state is the one of `reviewStateOf`, judged at `now`: Open (Pending, the cycle
+   * handed out, the deadline ahead) first with the earliest deadline first, then the given, then the closed, the newest first.
+   */
+  private queueFrom(organizationId: string, reviewerId: string) {
+    return Prisma.sql`
+      FROM submission_reviews r
+      JOIN submissions s ON s.id = r.submission_id
+      JOIN assessments a ON a.id = s.assessment_id
+      LEFT JOIN peer_review_cycles c ON c.id = r.cycle_id
+      WHERE r.organization_id = ${organizationId}::uuid AND r.reviewer_id = ${reviewerId}::uuid
+        AND lower(r.reviewer_role) <> ${INSTRUCTOR_ROLE}
+        AND r.status NOT IN (${Prisma.join([...ACCESS_ENDED_STATUSES])})
+        AND a.kind = ${ASSIGNMENT_KIND}`;
+  }
+
+  /** How many reviews are in the queue of the Learner, and how many of them are Open now (the number of the screen, BR-232). */
+  async countQueue(
     organizationId: string,
     reviewerId: string,
+    now: Date,
+  ): Promise<{ total: number; open: number }> {
+    const [row] = await this.prisma.$queryRaw<
+      { total: number; open: number }[]
+    >(
+      Prisma.sql`
+      SELECT count(*)::int AS total,
+             (count(*) FILTER (WHERE r.status = 'Pending' AND c.status = 'Assigned' AND c.review_due_at > ${now}::timestamptz))::int AS open
+      ${this.queueFrom(organizationId, reviewerId)}`,
+    );
+    return row;
+  }
+
+  /** One page of the queue of the Learner, with what the screen and the rules need. */
+  async pageOfQueue(
+    organizationId: string,
+    reviewerId: string,
+    now: Date,
     limit: number,
+    offset: number,
   ): Promise<ReviewRow[]> {
-    return this.prisma.submissionReview.findMany({
-      where: {
-        organizationId,
-        reviewerId,
-        NOT: { reviewerRole: { equals: INSTRUCTOR_ROLE, mode: 'insensitive' } },
-        status: { notIn: [...ACCESS_ENDED_STATUSES] },
-        submission: { assessment: { kind: ASSIGNMENT_KIND } },
-      },
+    const open = Prisma.sql`(r.status = 'Pending' AND c.status = 'Assigned' AND c.review_due_at > ${now}::timestamptz)`;
+    const ids = await this.prisma.$queryRaw<{ id: string }[]>(
+      Prisma.sql`
+      SELECT r.id ${this.queueFrom(organizationId, reviewerId)}
+      ORDER BY CASE WHEN r.status = 'Completed' THEN 1 WHEN ${open} THEN 0 ELSE 2 END,
+               CASE WHEN ${open} THEN c.review_due_at END ASC,
+               coalesce(r.completed_at, c.review_due_at) DESC NULLS LAST,
+               r.id DESC
+      LIMIT ${limit}::bigint OFFSET ${offset}::bigint`,
+    );
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.submissionReview.findMany({
+      where: { id: { in: ids.map((row) => row.id) } },
       include: reviewInclude,
-      orderBy: { id: 'desc' },
-      take: limit,
     });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    return ids.flatMap((row) => byId.get(row.id) ?? []);
   }
 
   /** One review of this Learner: someone else's review is not found. Inside a transaction when one is given. */

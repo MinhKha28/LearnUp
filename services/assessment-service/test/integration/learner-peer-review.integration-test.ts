@@ -788,4 +788,188 @@ describe('UC31 and UC31.1 over HTTP', () => {
     ])
       assert.equal((await row(id)).status, status, 'nothing was changed');
   });
+
+  /** Rows of reviews for one reviewer, all on the same submission, written in bulk. */
+  const bulkReviews = (
+    reviewer: string,
+    work: string,
+    cycleOf: string,
+    status: string,
+    count: number,
+    role = 'Learner',
+  ) =>
+    db.query(
+      `INSERT INTO submission_reviews (id, organization_id, submission_id, cycle_id, reviewer_id, reviewer_role, status,
+              score, comment, completed_at, created_at, updated_at)
+       SELECT gen_random_uuid(), $1, $2, $3, $4, $5, $6,
+              CASE WHEN $6 = 'Completed' THEN 80 END, CASE WHEN $6 = 'Completed' THEN 'ok' END,
+              CASE WHEN $6 = 'Completed' THEN now() - i * interval '1 minute' END, now(), now()
+       FROM generate_series(1, $7::int) i`,
+      [ORG, work, cycleOf, reviewer, role, status, count],
+    );
+
+  test('UC31: the queue is paged, in the order of the screen, and the number to give counts the whole queue (page, pageSize)', async () => {
+    const reviewer = '00000000-0000-4000-8000-0000000000f1';
+    const [soon] = await db.query(
+      `INSERT INTO peer_review_cycles (id, organization_id, assessment_id, opens_at, closes_at, review_due_at,
+              reviewers_per_submission, score_gap, reminder_hours, status, reviewer_permutation, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, now() - interval '9 days', now() - interval '2 days', now() + interval '1 day',
+               2, 20, 24, 'Assigned', $3, now(), now()) RETURNING id`,
+      [ORG, assignment, L],
+    );
+    // 25 to give (12 due sooner, 13 later), 10 given, 15 missed; and rows that are not in the queue at all
+    await bulkReviews(
+      reviewer,
+      submission[0],
+      soon.id as string,
+      'Pending',
+      12,
+    );
+    await bulkReviews(reviewer, submission[0], cycle, 'Pending', 13);
+    await bulkReviews(reviewer, submission[0], cycle, 'Completed', 10);
+    await bulkReviews(reviewer, submission[0], cycle, 'Missed', 15);
+    await bulkReviews(reviewer, submission[0], cycle, 'Removed', 3);
+    await bulkReviews(reviewer, submission[0], cycle, 'Expired', 2);
+    await bulkReviews(
+      reviewer,
+      submission[0],
+      cycle,
+      'Pending',
+      2,
+      'Instructor',
+    );
+
+    const get = (query: string) =>
+      api('GET', `/learner/peer-reviews${query}`, undefined, as(reviewer));
+    const first = await get('?page=1&pageSize=20');
+    assert.equal(first.status, 200, JSON.stringify(first.json));
+    assert.equal(first.data.total, 50);
+    assert.equal(
+      first.data.pendingCount,
+      25,
+      'the number to give is of the whole queue',
+    );
+    assert.equal(first.data.page, 1);
+    assert.equal(first.data.pageSize, 20);
+    const one = first.data.items as {
+      id: string;
+      state: string;
+      reviewDueAt: string;
+      completedAt: string | null;
+    }[];
+    assert.equal(one.length, 20);
+    assert.ok(one.every((item) => item.state === 'Open'));
+    const due = one.map((item) => Date.parse(item.reviewDueAt));
+    assert.deepEqual(
+      [...due].sort((a, b) => a - b),
+      due,
+      'the earliest deadline first',
+    );
+    assert.ok(
+      due[11] < due[12],
+      'the 12 of the sooner cycle come before the others',
+    );
+
+    const second = (await get('?page=2&pageSize=20')).data;
+    const two = second.items as typeof one;
+    assert.equal(second.pendingCount, 25, 'the same on every page');
+    assert.deepEqual(
+      two.map((item) => item.state),
+      [
+        ...Array(5).fill('Open'),
+        ...Array(10).fill('Done'),
+        ...Array(5).fill('Closed'),
+      ],
+    );
+    const given = two
+      .filter((item) => item.state === 'Done')
+      .map((item) => Date.parse(item.completedAt as string));
+    assert.deepEqual(
+      [...given].sort((a, b) => b - a),
+      given,
+      'the given, the newest first',
+    );
+
+    const third = (await get('?page=3&pageSize=20')).data;
+    assert.equal((third.items as typeof one).length, 10);
+    assert.ok(
+      (third.items as typeof one).every((item) => item.state === 'Closed'),
+    );
+    const beyond = (await get('?page=4&pageSize=20')).data;
+    assert.deepEqual(beyond.items, []);
+    assert.equal(
+      beyond.total,
+      50,
+      'a page past the end is empty, not an error',
+    );
+
+    const ids = [...one, ...two, ...(third.items as typeof one)].map(
+      (item) => item.id,
+    );
+    assert.equal(
+      new Set(ids).size,
+      50,
+      'every review exactly once over the pages',
+    );
+    const whole = (await get('?pageSize=100')).data;
+    assert.deepEqual(
+      (whole.items as typeof one).map((item) => item.id),
+      ids,
+      'the same order in one page',
+    );
+    const byDefault = (await get('')).data;
+    assert.equal(byDefault.pageSize, 20);
+    assert.equal((byDefault.items as typeof one).length, 20);
+    assert.deepEqual(
+      (byDefault.items as typeof one).map((item) => item.id),
+      one.map((item) => item.id),
+    );
+  });
+
+  test('UC31: a page or a page size that is not a whole number in its range is a 400', async () => {
+    const reviewer = '00000000-0000-4000-8000-0000000000f1';
+    for (const query of [
+      '?page=0',
+      '?page=abc',
+      '?page=1.5',
+      '?pageSize=0',
+      '?pageSize=101',
+      '?pageSize=x',
+    ])
+      assert.equal(
+        (
+          await api(
+            'GET',
+            `/learner/peer-reviews${query}`,
+            undefined,
+            as(reviewer),
+          )
+        ).status,
+        400,
+        query,
+      );
+  });
+
+  test('UC31: a Learner with many reviews still sees every one to give first and counts them all (no cap of 200)', async () => {
+    const reviewer = '00000000-0000-4000-8000-0000000000f2';
+    // 10 to give among 230 rows; the old queue cut at the 200 newest rows and could lose them
+    await bulkReviews(reviewer, submission[0], cycle, 'Pending', 10);
+    await bulkReviews(reviewer, submission[0], cycle, 'Completed', 220);
+    const get = (query: string) =>
+      api('GET', `/learner/peer-reviews${query}`, undefined, as(reviewer));
+    const first = (await get('?pageSize=100')).data;
+    assert.equal(first.total, 230);
+    assert.equal(first.pendingCount, 10);
+    const items = first.items as { state: string }[];
+    assert.ok(
+      items.slice(0, 10).every((item) => item.state === 'Open'),
+      'the ones to give are on top',
+    );
+    let seen = 0;
+    for (let page = 1; page <= 3; page += 1)
+      seen += (
+        (await get(`?page=${page}&pageSize=100`)).data.items as unknown[]
+      ).length;
+    assert.equal(seen, 230, 'all of them over the pages');
+  });
 });

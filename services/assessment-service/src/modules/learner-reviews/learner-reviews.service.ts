@@ -14,6 +14,7 @@ import {
   requireLearner,
 } from '../learner-submissions/learner-access';
 import { scoreFromRubric } from '../peer-review/rubric-score';
+import { ListReviewsQueryDto } from './dto/list-reviews-query.dto';
 import { SubmitReviewDto } from './dto/submit-review.dto';
 import type {
   ILearnerReviewDetail,
@@ -30,9 +31,6 @@ import {
   outcomeOfReviews,
   reviewStateOf,
 } from './review-rules';
-
-/** The screen of the queue lists the newest reviews; a Learner has a few per cycle, so this is far above what is real. */
-const QUEUE_LIMIT = 200;
 
 const ROUTE = '/api/v1/assessments/learner';
 
@@ -55,30 +53,33 @@ export class LearnerReviewsService {
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
   ) {}
 
-  /** UC31 — the reviews assigned to the Learner, the ones to give first, with the deadline of the cycle. */
-  async list(user: CurrentUser): Promise<ILearnerReviewList> {
+  /**
+   * UC31 — the reviews assigned to the Learner, one page at a time: the ones to give first (the earliest deadline first),
+   * then the given, then the closed. The number still to give counts the whole queue, so it does not depend on the page.
+   */
+  async list(
+    user: CurrentUser,
+    query: ListReviewsQueryDto = new ListReviewsQueryDto(),
+  ): Promise<ILearnerReviewList> {
     const organizationId = requireLearner(user);
-    const rows = await this.repository.findOfReviewer(
-      organizationId,
-      user.userId,
-      QUEUE_LIMIT,
-    );
     const now = this.clock();
-    const order = { Open: 0, Done: 1, Closed: 2 };
-    const items = rows
-      .map((row) => this.toItem(row, now))
-      .sort(
-        (a, b) =>
-          order[a.state] - order[b.state] ||
-          (a.state === 'Open'
-            ? (a.reviewDueAt ?? '').localeCompare(b.reviewDueAt ?? '')
-            : (b.completedAt ?? b.reviewDueAt ?? '').localeCompare(
-                a.completedAt ?? a.reviewDueAt ?? '',
-              )),
-      );
+    const { page, pageSize } = query;
+    const [counts, rows] = await Promise.all([
+      this.repository.countQueue(organizationId, user.userId, now),
+      this.repository.pageOfQueue(
+        organizationId,
+        user.userId,
+        now,
+        pageSize,
+        (page - 1) * pageSize,
+      ),
+    ]);
     return {
-      pendingCount: items.filter((item) => item.state === 'Open').length,
-      items,
+      pendingCount: counts.open,
+      total: counts.total,
+      page,
+      pageSize,
+      items: rows.map((row) => this.toItem(row, now)),
     };
   }
 

@@ -18,8 +18,13 @@ export interface ILearnerReviewItem {
 }
 
 export interface ILearnerReviewList {
-  /** Reviews the Learner can still give: the number the screen shows first (BR-232). */
+  /** Reviews the Learner can still give, in the whole queue and not only on this page: the number the screen shows first (BR-232). */
   pendingCount: number;
+  /** Every review of the Learner that is in the queue. */
+  total: number;
+  page: number;
+  pageSize: number;
+  /** This page: the ones to give first (the earliest deadline first), then the given, then the closed. */
   items: ILearnerReviewItem[];
 }
 
