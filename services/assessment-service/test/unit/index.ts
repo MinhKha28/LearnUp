@@ -25,3 +25,4 @@ import './course-clients.unit-test';
 import './review-assignment.unit-test';
 import './reminder-due.unit-test';
 import './review-notice.unit-test';
+import './peer-review-assigned.unit-test';

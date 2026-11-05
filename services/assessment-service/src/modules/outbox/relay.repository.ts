@@ -1,7 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from 'generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { LEARNER_STATUS_CHANGED_EVENT } from '../learner-submissions/learner-submissions.constants';
+import {
+  LEARNER_STATUS_CHANGED_EVENT,
+  PEER_REVIEW_ASSIGNED_EVENT,
+} from '../learner-submissions/learner-submissions.constants';
 import { RELAY_CONFIG, retryDelay, type RelayConfig } from './relay.config';
 
 /**
@@ -10,6 +13,7 @@ import { RELAY_CONFIG, retryDelay, type RelayConfig } from './relay.config';
  */
 export const RELAYED_EVENT_TYPES: readonly string[] = [
   LEARNER_STATUS_CHANGED_EVENT,
+  PEER_REVIEW_ASSIGNED_EVENT,
 ];
 
 export interface RelayRow {
