@@ -1,6 +1,7 @@
 import type { CurrentUser } from '@learnup/ts-common';
 import type { IStorageProvider } from '@learnup/ts-storage';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
