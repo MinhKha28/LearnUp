@@ -20,24 +20,30 @@ const SubmissionFinalize = () => {
   const { submissionId } = useParams();
   const navigate = useNavigate();
   const submission = findSubmission(submissionId);
-  const structure = submission ? findCourseStructure(submission.courseId) : undefined;
+  const structure = submission
+    ? findCourseStructure(submission.courseId)
+    : undefined;
   const assignment =
-    structure && submission ? findBuilderAssignment(structure, submission.assignmentId) : undefined;
+    structure && submission
+      ? findBuilderAssignment(structure, submission.assignmentId)
+      : undefined;
 
-  const [finalScore, setFinalScore] = useState<number | null>(submission?.finalScore ?? null);
+  const [finalScore, setFinalScore] = useState<number | null>(
+    submission?.finalScore ?? null,
+  );
   const [feedback, setFeedback] = useState(submission?.feedback ?? "");
 
   if (!submission) {
     return (
       <InstructorPage className="instructor-submissions">
         <PageHeader
-          eyebrow="SUBMISSIONS / FINALIZE"
-          title="Submission not found"
-          subtitle="This Submission may have been removed."
+          eyebrow="BÀI NỘP / CHỐT ĐIỂM"
+          title="Không tìm thấy bài nộp"
+          subtitle="Bài nộp này có thể đã bị xóa."
           back
         />
         <InstructorButton onClick={() => navigate("/instructor/submissions")}>
-          Back to Submissions
+          Về danh sách bài nộp
         </InstructorButton>
       </InstructorPage>
     );
@@ -45,56 +51,58 @@ const SubmissionFinalize = () => {
 
   const handlePublish = () => {
     publishSubmissionGrade(submission, finalScore ?? 0, feedback);
-    message.success("Final score published.");
+    message.success("Đã công bố điểm cuối cùng.");
     navigate("/instructor/submissions");
   };
 
   return (
     <InstructorPage className="instructor-submissions">
       <PageHeader
-        eyebrow="SUBMISSIONS / FINALIZE"
-        title="Finalize Assignment Score"
-        subtitle="Confirm or adjust the summary before publication."
+        eyebrow="BÀI NỘP / CHỐT ĐIỂM"
+        title="Chốt điểm Assignment"
+        subtitle="Xác nhận hoặc điều chỉnh điểm tổng hợp trước khi công bố."
         back
       />
       <SectionCard>
         <div className="instructor-finalize-aggregate">
-          <span>Peer Review aggregate</span>
-          <strong>[Average of valid reviewer scores]</strong>
+          <span>Điểm tổng hợp từ chấm chéo</span>
+          <strong>Trung bình các điểm đánh giá hợp lệ</strong>
         </div>
         <div className="instructor-finalize-fields">
           <div>
-            <label>Final score</label>
+            <label>Điểm cuối cùng</label>
             <InputNumber
               style={{ width: "100%" }}
-              placeholder="[Confirmed or adjusted score]"
+              placeholder="Điểm xác nhận hoặc đã điều chỉnh"
               min={0}
               value={finalScore ?? undefined}
-              onChange={(value) => setFinalScore(typeof value === "number" ? value : null)}
+              onChange={(value) =>
+                setFinalScore(typeof value === "number" ? value : null)
+              }
             />
           </div>
           <div>
-            <label>Minimum passing score</label>
+            <label>Điểm đạt tối thiểu</label>
             <p className="instructor-finalize-configured">
-              {assignment?.passingScore ?? "[Configured score]"}
+              {assignment?.passingScore ?? "Chưa cấu hình"}
             </p>
           </div>
         </div>
         <div className="instructor-finalize-feedback">
-          <label>Feedback for Learner</label>
+          <label>Nhận xét cho học viên</label>
           <Input.TextArea
             rows={5}
-            placeholder="Explain the final assessment..."
+            placeholder="Giải thích kết quả đánh giá cuối cùng..."
             value={feedback}
             onChange={(event) => setFeedback(event.target.value)}
           />
         </div>
-        <InfoPanel title="Publication">
-          The Learner receives the final score and rubric feedback.
+        <InfoPanel title="Công bố kết quả">
+          Học viên nhận được điểm cuối cùng và nhận xét theo Rubric.
         </InfoPanel>
         <div className="instructor-finalize-actions" style={{ marginTop: 20 }}>
           <InstructorButton type="primary" onClick={handlePublish}>
-            Publish final score
+            Công bố điểm cuối cùng
           </InstructorButton>
         </div>
       </SectionCard>
