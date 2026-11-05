@@ -27,3 +27,4 @@ import './enrollment-status.integration-test';
 import './completion-snapshot.integration-test';
 import './outbox-relay.integration-test';
 import './outbox-kafka.integration-test';
+import './learner-review-history.integration-test';

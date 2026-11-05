@@ -13,6 +13,7 @@ import type {
   ILearnerReviewList,
   ILearnerReviewResult,
   ILearnerAssessmentList,
+  IReviewHistory,
   ILearnerAssignment,
   ISubmissionReceipt,
   IPromptFile,
@@ -34,7 +35,9 @@ import type {
 export const toApiCourseId = (courseId: string) =>
   import.meta.env.DEV &&
   import.meta.env.VITE_DEV_COURSE_ID &&
-  !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId)
+  !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    courseId,
+  )
     ? import.meta.env.VITE_DEV_COURSE_ID
     : courseId;
 
@@ -59,13 +62,18 @@ export const createAssignmentAPI = (payload: ICreateAssignment) =>
 
 /** The largest prompt file the API accepts now (it depends on the storage plan), so the screen can refuse a bigger file on selection. */
 export const getPromptFileLimitAPI = () =>
-  axios.get<IBackendRes<{ maxFileBytes: number }>>("/api/v1/assessments/assignments/prompt-file/limit");
+  axios.get<IBackendRes<{ maxFileBytes: number }>>(
+    "/api/v1/assessments/assignments/prompt-file/limit",
+  );
 
 /** UC19.2 / UC19.3 — Upload the prompt file (one PDF, DOCX or ZIP). The result goes into `promptFile` of create/update. */
 export const uploadPromptFileAPI = (file: File) => {
   const form = new FormData();
   form.append("file", file);
-  return axios.post<IBackendRes<IPromptFile>>("/api/v1/assessments/assignments/prompt-file", form);
+  return axios.post<IBackendRes<IPromptFile>>(
+    "/api/v1/assessments/assignments/prompt-file",
+    form,
+  );
 };
 
 /**
@@ -75,7 +83,9 @@ export const uploadPromptFileAPI = (file: File) => {
  */
 export const discardPromptFileAPI = async (fileKey: string): Promise<void> => {
   try {
-    await axios.post("/api/v1/assessments/assignments/prompt-file/discard", { fileKey });
+    await axios.post("/api/v1/assessments/assignments/prompt-file/discard", {
+      fileKey,
+    });
   } catch {
     // nothing to do
   }
@@ -85,10 +95,15 @@ export const discardPromptFileAPI = async (fileKey: string): Promise<void> => {
  * UC19.1 — Download the prompt file. The interceptor hands a failed response back as the body (a Blob here),
  * so only a real 200 response yields the file.
  */
-export const downloadPromptFileAPI = async (assignmentId: string): Promise<Blob | null> => {
-  const res = (await axios.get(`/api/v1/assessments/assignments/${assignmentId}/prompt-file`, {
-    responseType: "blob",
-  })) as unknown as { status?: number; data?: unknown };
+export const downloadPromptFileAPI = async (
+  assignmentId: string,
+): Promise<Blob | null> => {
+  const res = (await axios.get(
+    `/api/v1/assessments/assignments/${assignmentId}/prompt-file`,
+    {
+      responseType: "blob",
+    },
+  )) as unknown as { status?: number; data?: unknown };
   return res.status === 200 && res.data instanceof Blob ? res.data : null;
 };
 
@@ -133,20 +148,32 @@ export const createQuizAPI = (payload: ICreateQuizReq) =>
   axios.post<IBackendRes<IQuizSummary>>("/api/v1/assessments/quizzes", payload);
 
 /** UC18.4 — Update Quiz configuration; answers with the Quiz detail and its new permissions. */
-export const updateQuizConfigAPI = (quizId: string, payload: IUpdateQuizConfigReq) =>
-  axios.patch<IBackendRes<IQuizDetail>>(`/api/v1/assessments/quizzes/${quizId}`, payload);
+export const updateQuizConfigAPI = (
+  quizId: string,
+  payload: IUpdateQuizConfigReq,
+) =>
+  axios.patch<IBackendRes<IQuizDetail>>(
+    `/api/v1/assessments/quizzes/${quizId}`,
+    payload,
+  );
 
 /** UC18.5 — Delete Quiz. */
 export const deleteQuizAPI = (quizId: string) =>
-  axios.delete<IBackendRes<{ id: string }>>(`/api/v1/assessments/quizzes/${quizId}`);
+  axios.delete<IBackendRes<{ id: string }>>(
+    `/api/v1/assessments/quizzes/${quizId}`,
+  );
 
 /** UC29 — the Quizzes and Assignments of an enrolled Course with status, score and tries left. */
 export const fetchLearnerAssessmentsAPI = (courseId: string) =>
-  axios.get<IBackendRes<ILearnerAssessmentList>>(`/api/v1/assessments/learner/courses/${courseId}/assessments`);
+  axios.get<IBackendRes<ILearnerAssessmentList>>(
+    `/api/v1/assessments/learner/courses/${courseId}/assessments`,
+  );
 
 /** UC30 step 1 — the Assignment as the enrolled Learner reads it (prompt, Rubric, attempts left). */
 export const fetchLearnerAssignmentAPI = (assignmentId: string) =>
-  axios.get<IBackendRes<ILearnerAssignment>>(`/api/v1/assessments/learner/assignments/${assignmentId}`);
+  axios.get<IBackendRes<ILearnerAssignment>>(
+    `/api/v1/assessments/learner/assignments/${assignmentId}`,
+  );
 
 /** UC33 — the peer review cycles of an Assignment of the Instructor. */
 export const fetchPeerReviewCyclesAPI = (assignmentId: string) =>
@@ -155,29 +182,44 @@ export const fetchPeerReviewCyclesAPI = (assignmentId: string) =>
   );
 
 /** UC33.1 — one cycle: its submissions with the reviews they got, and the reviewers with the state of their duty. */
-export const fetchPeerReviewCycleDetailAPI = (assignmentId: string, cycleId: string) =>
+export const fetchPeerReviewCycleDetailAPI = (
+  assignmentId: string,
+  cycleId: string,
+) =>
   axios.get<IBackendRes<IPeerReviewCycleDetail>>(
     `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles/${cycleId}`,
   );
 
 /** UC33.2 — waive the peer review duty of a Learner who owes it (BR-241); waiving again changes nothing. */
-export const waivePeerReviewDutyAPI = (assignmentId: string, learnerId: string) =>
+export const waivePeerReviewDutyAPI = (
+  assignmentId: string,
+  learnerId: string,
+) =>
   axios.post<IBackendRes<IPeerReviewWaiver>>(
     `/api/v1/assessments/assignments/${assignmentId}/peer-review/learners/${learnerId}/waiver`,
   );
 
 /** UC33 — close a cycle now: hand out the reviews, or send the submissions to the Instructor when there are too few. */
-export const closePeerReviewCycleAPI = (assignmentId: string, cycleId: string) =>
+export const closePeerReviewCycleAPI = (
+  assignmentId: string,
+  cycleId: string,
+) =>
   axios.post<IBackendRes<IClosedPeerReviewCycle>>(
     `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles/${cycleId}/close`,
   );
 
 /** UC30.2 — the grading result of the latest submission, when it is Finalized (one request, so one check of the Enrollment). */
 export const fetchLearnerResultAPI = (assignmentId: string) =>
-  axios.get<IBackendRes<IGradingResult>>(`/api/v1/assessments/learner/assignments/${assignmentId}/result`);
+  axios.get<IBackendRes<IGradingResult>>(
+    `/api/v1/assessments/learner/assignments/${assignmentId}/result`,
+  );
 
 /** UC30 — Submit an Assignment: text and/or one PDF, DOCX or ZIP (50 MB). */
-export const submitAssignmentAPI = (assignmentId: string, content: string, file?: File | null) => {
+export const submitAssignmentAPI = (
+  assignmentId: string,
+  content: string,
+  file?: File | null,
+) => {
   const form = new FormData();
   if (content.trim()) form.append("content", content);
   if (file) form.append("file", file);
@@ -188,7 +230,11 @@ export const submitAssignmentAPI = (assignmentId: string, content: string, file?
 };
 
 /** UC30.1 - Resubmit an Assignment: replaces the previous submission; same body as UC30. */
-export const resubmitAssignmentAPI = (assignmentId: string, content: string, file?: File | null) => {
+export const resubmitAssignmentAPI = (
+  assignmentId: string,
+  content: string,
+  file?: File | null,
+) => {
   const form = new FormData();
   if (content.trim()) form.append("content", content);
   if (file) form.append("file", file);
@@ -199,39 +245,64 @@ export const resubmitAssignmentAPI = (assignmentId: string, content: string, fil
 };
 
 /** The prompt file for a Learner; like UC19.1, only a real 200 response yields the file. */
-export const downloadLearnerPromptFileAPI = async (assignmentId: string): Promise<Blob | null> => {
-  const res = (await axios.get(`/api/v1/assessments/learner/assignments/${assignmentId}/prompt-file`, {
-    responseType: "blob",
-  })) as unknown as { status?: number; data?: unknown };
+export const downloadLearnerPromptFileAPI = async (
+  assignmentId: string,
+): Promise<Blob | null> => {
+  const res = (await axios.get(
+    `/api/v1/assessments/learner/assignments/${assignmentId}/prompt-file`,
+    {
+      responseType: "blob",
+    },
+  )) as unknown as { status?: number; data?: unknown };
   return res.status === 200 && res.data instanceof Blob ? res.data : null;
 };
 
 /** UC31 — the reviews assigned to the Learner, the ones to give first, with the deadline of the cycle. */
 export const fetchLearnerPeerReviewsAPI = (page = 1, pageSize = 20) =>
-  axios.get<IBackendRes<ILearnerReviewList>>("/api/v1/assessments/learner/peer-reviews", {
-    params: { page, pageSize },
-  });
+  axios.get<IBackendRes<ILearnerReviewList>>(
+    "/api/v1/assessments/learner/peer-reviews",
+    {
+      params: { page, pageSize },
+    },
+  );
 
 /** UC31 — one review: the work without its author, the Rubric, and the review so far. */
 export const fetchLearnerPeerReviewAPI = (reviewId: string) =>
-  axios.get<IBackendRes<ILearnerReviewDetail>>(`/api/v1/assessments/learner/peer-reviews/${reviewId}`);
+  axios.get<IBackendRes<ILearnerReviewDetail>>(
+    `/api/v1/assessments/learner/peer-reviews/${reviewId}`,
+  );
 
 /** UC31.1 — give the review. It is final once given. */
-export const giveLearnerPeerReviewAPI = (reviewId: string, body: IGiveLearnerReview) =>
-  axios.post<IBackendRes<ILearnerReviewResult>>(`/api/v1/assessments/learner/peer-reviews/${reviewId}`, body);
+export const giveLearnerPeerReviewAPI = (
+  reviewId: string,
+  body: IGiveLearnerReview,
+) =>
+  axios.post<IBackendRes<ILearnerReviewResult>>(
+    `/api/v1/assessments/learner/peer-reviews/${reviewId}`,
+    body,
+  );
 
 /** UC31 — the file of the work under review, with a neutral name; like the prompt file, only a real 200 response yields it. */
-export const downloadLearnerReviewFileAPI = async (reviewId: string): Promise<Blob | null> => {
-  const res = (await axios.get(`/api/v1/assessments/learner/peer-reviews/${reviewId}/file`, {
-    responseType: "blob",
-  })) as unknown as { status?: number; data?: unknown };
+export const downloadLearnerReviewFileAPI = async (
+  reviewId: string,
+): Promise<Blob | null> => {
+  const res = (await axios.get(
+    `/api/v1/assessments/learner/peer-reviews/${reviewId}/file`,
+    {
+      responseType: "blob",
+    },
+  )) as unknown as { status?: number; data?: unknown };
   return res.status === 200 && res.data instanceof Blob ? res.data : null;
 };
 
 /** Code of a failed answer and, for ASSESSMENT_LOCKED, the time the Assignment opens again. */
-export const assessmentErrorCode = (res: unknown): { code?: string; lockedUntil?: string } => {
+export const assessmentErrorCode = (
+  res: unknown,
+): { code?: string; lockedUntil?: string } => {
   const { error } = res as IAssessmentError;
-  return typeof error === "object" ? { code: error?.code, lockedUntil: error?.lockedUntil } : {};
+  return typeof error === "object"
+    ? { code: error?.code, lockedUntil: error?.lockedUntil }
+    : {};
 };
 
 /**
@@ -252,7 +323,8 @@ const REVIEW_ERROR_TEXT: Record<string, string> = {
   ...LEARNER_LOCK_TEXT,
   RUBRIC_MISSING: "Bài tập này chưa có tiêu chí Rubric để chấm.",
   RUBRIC_SCORES_INCOMPLETE: "Hãy chấm đúng một điểm cho mỗi tiêu chí Rubric.",
-  RUBRIC_SCORE_OUT_OF_RANGE: "Điểm của một tiêu chí không được vượt quá điểm tối đa của tiêu chí đó.",
+  RUBRIC_SCORE_OUT_OF_RANGE:
+    "Điểm của một tiêu chí không được vượt quá điểm tối đa của tiêu chí đó.",
 };
 
 /** For the screens that must stay fully Vietnamese: the English message of the server is never shown. */
@@ -270,3 +342,16 @@ export const assessmentErrorText = (res: unknown, fallback: string): string => {
   const raw = typeof error === "object" ? error?.message : (error ?? message);
   return (Array.isArray(raw) ? raw.join(" ") : raw) || fallback;
 };
+
+/** UC31.2 — the reviews the Learner gave, newest first, and where the duty of peer review stands. */
+export const fetchLearnerReviewHistoryAPI = (
+  page = 1,
+  pageSize = 20,
+  assignmentId?: string,
+) =>
+  axios.get<IBackendRes<IReviewHistory>>(
+    "/api/v1/assessments/learner/peer-reviews/history",
+    {
+      params: { page, pageSize, ...(assignmentId ? { assignmentId } : {}) },
+    },
+  );
