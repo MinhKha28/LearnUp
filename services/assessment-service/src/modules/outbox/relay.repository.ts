@@ -78,6 +78,17 @@ export class RelayRepository {
       WHERE id = ${row.id}::uuid`;
   }
 
+  /** How many events wait to be sent and since when the oldest of them has been waiting (what an outage costs). */
+  async unsentSummary(): Promise<{ count: number; oldestAt: Date | null }> {
+    const [row] = await this.prisma.$queryRaw<
+      { count: number; oldestAt: Date | null }[]
+    >(Prisma.sql`
+      SELECT count(*)::int AS count, min(occurred_at) AS "oldestAt"
+      FROM outbox_events
+      WHERE published_at IS NULL AND event_type IN (${Prisma.join(RELAYED_EVENT_TYPES)})`);
+    return row;
+  }
+
   async cleanup(): Promise<void> {
     await this.prisma.$executeRaw(cleanupSql(RELAYED_EVENT_TYPES));
   }
