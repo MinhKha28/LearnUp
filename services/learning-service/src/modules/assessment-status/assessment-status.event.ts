@@ -13,7 +13,12 @@ export interface AssessmentStatusEvent {
     learnerId: string;
     courseId: string;
     status:
-      'Submitted' | 'Resubmitted' | 'PeerReviewWaived' | 'PeerReviewCompleted';
+      | 'Submitted'
+      | 'Resubmitted'
+      | 'PeerReviewWaived'
+      | 'PeerReviewCompleted'
+      | 'PeerReviewAssigned'
+      | 'PeerReviewMissed';
     firstActivityAt?: string | null;
   };
 }
@@ -104,6 +109,8 @@ export function decodeAssessment(delivery: AssessmentDelivery): {
       'Resubmitted',
       'PeerReviewWaived',
       'PeerReviewCompleted',
+      'PeerReviewAssigned',
+      'PeerReviewMissed',
     ].includes(d.status as string) ||
     (d.firstActivityAt != null && !time(d.firstActivityAt)) ||
     (d.revision !== undefined && typeof d.revision !== 'string') ||
