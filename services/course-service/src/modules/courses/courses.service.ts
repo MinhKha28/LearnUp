@@ -12,6 +12,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   PayloadTooLargeException,
   ServiceUnavailableException,
@@ -39,13 +40,18 @@ import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
 import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
 import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
 import { extractReadingText } from './reading-text-extractor';
+import { AssessmentClient } from '@/infrastructure/clients/assessment/assessment.client';
+import { NotificationClient } from '@/infrastructure/clients/notification/notification.client';
 
 @Injectable()
 export class CoursesService {
+  private readonly logger = new Logger(CoursesService.name);
   constructor(
     private readonly coursesRepository: CoursesRepository,
     private readonly tenantClient: TenantClient,
     private readonly learningClient: LearningClient,
+    private readonly assessmentClient: AssessmentClient,
+    private readonly notificationClient: NotificationClient,
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
   ) {}
 
@@ -1658,5 +1664,152 @@ export class CoursesService {
         }
       }
     }
+  }
+
+  private async notifyOrganizerAfterSubmission(
+    organizationId: string,
+    course: {
+      id: string;
+      name: string;
+      versionNumber: number;
+    },
+  ): Promise<void> {
+    // 1. Tra cứu Organizer sau khi Course đã commit.
+    let organizer: { id: string; email: string };
+
+    try {
+      organizer = await this.tenantClient.getActiveOrganizer(organizationId);
+    } catch (error) {
+      this.logger.error(
+        `UC20: Organizer lookup failed for Course ${course.id}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return;
+    }
+
+    // 2. Gửi hai thông báo độc lập.
+    // Email lỗi không ngăn in-app và ngược lại.
+    const [emailResult, notificationResult] = await Promise.allSettled([
+      this.notificationClient.sendCourseApprovalEmail(
+        organizer.email,
+        course.name,
+        course.versionNumber,
+      ),
+      this.notificationClient.sendCourseApprovalNotification({
+        organizationId,
+        organizerId: organizer.id,
+        courseId: course.id,
+        courseName: course.name,
+      }),
+    ]);
+
+    // 3. Ghi log lỗi để dễ kiểm tra.
+    if (emailResult.status === 'rejected') {
+      this.logger.error(
+        `UC20: Email delivery failed for Course ${course.id}`,
+        emailResult.reason instanceof Error
+          ? emailResult.reason.stack
+          : undefined,
+      );
+    }
+
+    if (notificationResult.status === 'rejected') {
+      this.logger.error(
+        `UC20: In-app notification failed for Course ${course.id}`,
+        notificationResult.reason instanceof Error
+          ? notificationResult.reason.stack
+          : undefined,
+      );
+    }
+  }
+
+  /**
+   * UC20 - Submit Course for Approval.
+   * BR-63, BR-81, BR-85, BR-118.
+   */
+  async submitCourseForApproval(user: CurrentUser, courseId: string) {
+    // 1. Phân quyền Instructor.
+    if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Only Instructor can submit Course for approval.',
+      });
+    }
+
+    // 2. Kiểm tra Course thuộc Instructor đang đăng nhập.
+    const course = await this.coursesRepository.findDetail(
+      courseId,
+      user.organizationId,
+      user.userId,
+    );
+
+    if (!course) {
+      throw new NotFoundException('Course not found.');
+    }
+
+    // 3. BR-81 và BR-85:
+    // Chỉ Draft hoặc Rejected được gửi phê duyệt.
+    if (
+      course.status !== COURSE_STATUS.DRAFT &&
+      course.status !== COURSE_STATUS.REJECTED
+    ) {
+      throw new ConflictException({
+        code: 'INVALID_COURSE_STATUS',
+        message: 'Only Draft or Rejected Course can be submitted.',
+      });
+    }
+
+    // 4. BR-63: Kiểm tra thông tin bắt buộc.
+    const hasRequiredInformation =
+      Boolean(course.shortDescription?.trim()) &&
+      Boolean(course.trainingObjectives?.trim()) &&
+      course.learningOutcomes.some((item) => item.trim().length > 0);
+
+    if (!hasRequiredInformation) {
+      throw new BadRequestException({
+        code: 'INCOMPLETE_COURSE',
+        message:
+          'Course requires a short description, training objectives and at least one Learning Outcome.',
+      });
+    }
+
+    // 5. BR-118: Lấy dữ liệu Quiz từ Assessment Service.
+    const quizzes = await this.assessmentClient.getCourseQuizzes(
+      user,
+      courseId,
+    );
+
+    // Business Rule nằm trong Service, không nằm trong HTTP Client.
+    if (quizzes.some((quiz) => quiz.questionCount < 1)) {
+      throw new ConflictException({
+        code: 'QUIZ_WITHOUT_QUESTIONS',
+        message:
+          'Every Quiz must have at least one question before submission.',
+      });
+    }
+
+    // 6. Repository chịu trách nhiệm ghi dữ liệu và Outbox.
+    const result = await this.coursesRepository.submitCourseForApproval({
+      courseId,
+      organizationId: user.organizationId,
+      instructorId: user.userId,
+      expectedUpdatedAt: course.updatedAt,
+    });
+
+    if (result.status === 'CONFLICT') {
+      throw new ConflictException({
+        code: 'COURSE_CHANGED',
+        message: 'Course was modified. Please reload and try again.',
+      });
+    }
+    // Course đã được commit thành Submitted.
+    // Gửi thông báo bên ngoài transaction.
+    await this.notifyOrganizerAfterSubmission(
+      user.organizationId,
+      result.course,
+    );
+
+    // 7. Trả trạng thái thực sự từ DB.
+    return result.course;
   }
 }

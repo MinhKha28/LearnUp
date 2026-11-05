@@ -262,4 +262,13 @@ export class CoursesController {
       file,
     );
   }
+
+  @Post(':courseId/submit')
+  @ResponseMessage('Course submitted for approval successfully')
+  submitCourseForApproval(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.submitCourseForApproval(user, courseId);
+  }
 }

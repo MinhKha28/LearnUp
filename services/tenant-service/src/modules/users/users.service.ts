@@ -50,6 +50,7 @@ import { UpdateAccountResult } from './interfaces/update-account-result.interfac
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CourseServiceClient } from 'src/infrastructure/clients/course/course-service.client';
+import { UsersRepository } from './users.repository';
 
 // Role do Organizer tạo và bị giới hạn số chỗ theo Subscription (BR-23).
 type SeatRole = typeof UserRoleValue.Instructor | typeof UserRoleValue.Learner;
@@ -118,6 +119,7 @@ export class UsersService {
     private readonly settingsService: PlatformSettingsService,
     private readonly outbox: OutboxService,
     private readonly learningClient: LearningServiceClient, // UC13
+    private readonly usersRepository: UsersRepository,
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider, // UC12.1: avatarUrl
     private readonly accountTokens: AccountTokensService, // UC12.3: lời mời khi đổi email
   ) {}
@@ -1212,5 +1214,19 @@ export class UsersService {
         fullName: true,
       },
     });
+  }
+
+  async getOrganizerForNotification(organizationId: string) {
+    const organizer =
+      await this.usersRepository.findActiveOrganizer(organizationId);
+
+    if (!organizer) {
+      throw new NotFoundException({
+        code: 'ORGANIZER_NOT_FOUND',
+        message: 'Active Organizer not found.',
+      });
+    }
+
+    return organizer;
   }
 }

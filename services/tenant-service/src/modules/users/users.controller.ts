@@ -8,11 +8,17 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Headers,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiSecurity, ApiTags } from '@nestjs/swagger';
-import { ResponseMessage, Roles, User } from '../../common/decorator/customize';
+import {
+  ResponseMessage,
+  Roles,
+  ServiceCall,
+  User,
+} from '../../common/decorator/customize';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
@@ -168,5 +174,14 @@ export class UsersController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.service.resendLearnerInvitation(user, id);
+  }
+
+  @ServiceCall()
+  @Get('internal/organizer')
+  @ResponseMessage('Organizer retrieved successfully')
+  getOrganizerForNotification(
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.service.getOrganizerForNotification(organizationId);
   }
 }

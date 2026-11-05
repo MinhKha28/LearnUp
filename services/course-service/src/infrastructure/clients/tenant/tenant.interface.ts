@@ -13,3 +13,8 @@ export interface TenantMaterialUploadPolicy {
   reason: string | null;
   maxStorageBytes: string;
 }
+
+export interface TenantOrganizer {
+  id: string;
+  email: string;
+}
