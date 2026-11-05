@@ -57,11 +57,13 @@ learnup:
     enabled: ${LEARNUP_MAIL_ENABLED:false}
     from: ${LEARNUP_MAIL_FROM:noreply@learnup.com}
 
-  # Learning enrollment events (EnrollmentAssigned, EnrollmentDueDateExtended, EnrollmentExempted, LearnerWithdrew).
+  # Learning enrollment events (EnrollmentAssigned, EnrollmentDueDateExtended, EnrollmentExempted, LearnerWithdrew) and the
+  # PeerReviewAssigned events of assessment-service (a closed peer review cycle handed out reviews), on their own topic.
   # Off by default: the service starts without Kafka; Compose turns it on.
   enrollment-events:
     enabled: ${ENROLLMENT_EVENTS_CONSUMER_ENABLED:false}
     topic: ${ENROLLMENT_EVENTS_TOPIC:learnup.learning.enrollment-events}
+    peer-review-topic: ${PEER_REVIEW_ASSIGNED_TOPIC:learnup.assessment.peer-review-assigned}
     # An event older than this is recorded as SKIPPED, not sent: a mail about a due date of last week helps nobody.
     max-age: ${ENROLLMENT_EVENTS_MAX_AGE:72h}
     retry-attempts: ${ENROLLMENT_EVENTS_RETRY_ATTEMPTS:5}

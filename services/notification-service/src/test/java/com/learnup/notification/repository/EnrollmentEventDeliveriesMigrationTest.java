@@ -13,7 +13,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** The real migrations (V1, V2) run on a fresh database, and the rules of the table are the ones of the database. */
+/** The real migrations (V1, V2, V3) run on a fresh database, and the rules of the table are the ones of the database. */
 class EnrollmentEventDeliveriesMigrationTest {
 
     private static JdbcTemplate jdbc;
@@ -71,6 +71,30 @@ class EnrollmentEventDeliveriesMigrationTest {
                 Timestamp.from(Instant.parse("2026-10-27T01:00:00Z")), Timestamp.from(Instant.parse("2026-10-27T01:00:05Z")));
         assertThatThrownBy(() -> insert(UUID.randomUUID(), UUID.randomUUID(), "EMAIL", "DONE", 0))
                 .hasMessageContaining("CK_ENROLLMENT_EVENT_DELIVERY_STATUS");
+    }
+
+    @Test
+    void aDeliveryOfAnEventThatIsNotAboutAnEnrollmentHasNoEnrollment() {
+        // V3: PeerReviewAssigned is about a cycle of a peer review
+        UUID event = UUID.randomUUID();
+        UUID person = UUID.randomUUID();
+        for (String channel : new String[]{"EMAIL", "IN_APP"}) {
+            jdbc.update("""
+                    INSERT INTO enrollment_event_deliveries
+                      (id, event_id, event_type, organization_id, enrollment_id, recipient_user_id, channel, status, attempts, occurred_at)
+                    VALUES (?, ?, 'PeerReviewAssigned', ?, NULL, ?, ?, 'PENDING', 0, ?)
+                    """, UUID.randomUUID(), event, ORGANIZATION, person, channel,
+                    Timestamp.from(Instant.parse("2026-11-07T03:00:00Z")));
+        }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM enrollment_event_deliveries WHERE event_id = ? AND enrollment_id IS NULL",
+                Integer.class, event)).isEqualTo(2);
+        // the repeated event is still harmless: the unique key does not depend on the Enrollment
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO enrollment_event_deliveries
+                  (id, event_id, event_type, organization_id, enrollment_id, recipient_user_id, channel, status, attempts, occurred_at)
+                VALUES (?, ?, 'PeerReviewAssigned', ?, NULL, ?, 'EMAIL', 'PENDING', 0, ?)
+                """, UUID.randomUUID(), event, ORGANIZATION, person, Timestamp.from(Instant.parse("2026-11-07T03:00:00Z"))))
+                .hasMessageContaining("UQ_ENROLLMENT_EVENT_DELIVERY");
     }
 
     @Test
