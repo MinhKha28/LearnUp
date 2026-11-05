@@ -32,6 +32,17 @@ export function reviewStateOf(
 }
 
 /**
+ * The reviews whose reviewer is no longer one of the work: the reviewer was taken off it (Removed) or the review lapsed
+ * (Expired). Such a reviewer gets nothing of the work any more: the review is not found, whatever they ask for. A Missed
+ * review stays: the work was handed to that Learner and the duty is theirs on record, so it shows as Closed, read-only.
+ */
+export const ACCESS_ENDED_STATUSES: readonly string[] = ['Removed', 'Expired'];
+
+/** Whether the reviewer of a review in this status may still see the work. */
+export const reviewerKeepsAccess = (status: string): boolean =>
+  !ACCESS_ENDED_STATUSES.includes(status);
+
+/**
  * Where a submission goes once every review handed out for it is Completed: to the Instructor to look at it again when the
  * peer scores differ by more than the threshold of its cycle (BR-252, BR-253), otherwise to the final grade (BR-251, BR-254).
  */

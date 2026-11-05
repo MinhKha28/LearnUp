@@ -6,6 +6,7 @@ import {
   emitCompletionSignal,
   type CompletionSignal,
 } from '../outbox/completion-signal';
+import { ACCESS_ENDED_STATUSES } from './review-rules';
 
 /** The Instructor's own reviews are compared without case, as everywhere else (UC25.4). */
 const INSTRUCTOR_ROLE = 'instructor';
@@ -70,6 +71,7 @@ export class LearnerReviewsRepository {
         organizationId,
         reviewerId,
         NOT: { reviewerRole: { equals: INSTRUCTOR_ROLE, mode: 'insensitive' } },
+        status: { notIn: [...ACCESS_ENDED_STATUSES] },
         submission: { assessment: { kind: ASSIGNMENT_KIND } },
       },
       include: reviewInclude,
@@ -91,6 +93,7 @@ export class LearnerReviewsRepository {
         organizationId,
         reviewerId,
         NOT: { reviewerRole: { equals: INSTRUCTOR_ROLE, mode: 'insensitive' } },
+        status: { notIn: [...ACCESS_ENDED_STATUSES] },
         submission: { assessment: { kind: ASSIGNMENT_KIND } },
       },
       include: reviewInclude,
@@ -107,6 +110,17 @@ export class LearnerReviewsRepository {
     submissionId: string,
   ): Promise<void> {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`review:${submissionId}`}))`;
+  }
+
+  /**
+   * The time of the database now. `clock_timestamp()` moves while a transaction runs (`now()` is the moment the transaction
+   * started), so read after the lock of a submission it is the time at which this caller really holds the turn.
+   */
+  async databaseNow(tx: Prisma.TransactionClient): Promise<Date> {
+    const [row] = await tx.$queryRaw<
+      { now: Date }[]
+    >`SELECT clock_timestamp() AS now`;
+    return row.now;
   }
 
   /** Takes the review: only one caller sees count 1 while it is Pending, so a second press changes nothing. */

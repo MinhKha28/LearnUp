@@ -18,6 +18,8 @@ import {
   INSTRUCTOR,
   KEY,
   ORG,
+  OTHER_ORG,
+  sleep,
   startCourseStub,
   startLearningStub,
   startService,
@@ -639,5 +641,151 @@ describe('UC31 and UC31.1 over HTTP', () => {
         `round ${round}`,
       );
     }
+  });
+
+  test('the deadline is judged when the review gets its turn, not when it was asked: one that waited for the lock past the deadline is refused (BR-229)', async () => {
+    const [late] = await db.query(
+      `INSERT INTO peer_review_cycles (id, organization_id, assessment_id, opens_at, closes_at, review_due_at,
+              reviewers_per_submission, score_gap, reminder_hours, status, reviewer_permutation, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, now() - interval '9 days', now() - interval '2 days', now() + interval '3 seconds',
+               2, 20, 24, 'Assigned', $3, now(), now()) RETURNING id`,
+      [ORG, assignment, L],
+    );
+    const [work] = await db.query(
+      `INSERT INTO submissions (id, organization_id, assessment_id, learner_id, submission_number, content,
+              submitted_at, cycle_id, grading_status, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, '00000000-0000-4000-8000-0000000000e1', 1, 'slow lock', now(), $3,
+               'AwaitingPeerReview', now(), now()) RETURNING id`,
+      [ORG, assignment, late.id],
+    );
+    const [waiting] = await db.query(
+      `INSERT INTO submission_reviews (id, organization_id, submission_id, cycle_id, reviewer_id, reviewer_role, status, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, 'Learner', 'Pending', now(), now()) RETURNING id`,
+      [ORG, work.id, late.id, L[0]],
+    );
+    // Another session holds the turn of this submission. The review is asked while its deadline is still ahead (3 s), waits
+    // for the turn, and the deadline passes before it gets it: it must be refused, as the deadline is the one at its turn.
+    const holder = await db.connect();
+    try {
+      await holder.query('BEGIN');
+      await holder.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `review:${work.id as string}`,
+      ]);
+      const asked = give(waiting.id as string, L[0], 1);
+      await sleep(4500);
+      await holder.query('COMMIT');
+      const result = await asked;
+      assert.equal(result.status, 409, JSON.stringify(result.json));
+      assert.equal(result.code, 'REVIEW_CLOSED');
+    } finally {
+      await holder.query('ROLLBACK').catch(() => undefined);
+      await holder.end();
+    }
+    assert.equal((await row(waiting.id as string)).status, 'Pending');
+    assert.equal(
+      await count(
+        "SELECT count(*) FROM outbox_events WHERE payload->>'reviewId' = $1",
+        [waiting.id],
+      ),
+      0,
+      'nothing was told to learning',
+    );
+  });
+
+  test('tenant isolation: a Learner of another Organization finds nothing of a review of this one, whatever they ask for (404, no data)', async () => {
+    const ids = Object.values(review);
+    const before = await db.query(
+      'SELECT id, status, score, completed_at FROM submission_reviews ORDER BY id',
+    );
+    // the very same user id, in another Organization, and another user of that Organization
+    for (const user of [L[0], L[1], '00000000-0000-4000-8000-0000000000e9']) {
+      const other = identity({ user, org: OTHER_ORG, role: 'LEARNER' });
+      for (const id of ids) {
+        const got = await detail(id, user, other);
+        assert.equal(got.status, 404, `detail ${id} for ${user}`);
+        const body = JSON.stringify(got.json);
+        assert.doesNotMatch(body, /Essay number|Nguyen|learnup\/key|prompt/i);
+        assert.equal((await give(id, user, 1, {}, other)).status, 404);
+        const file = await fetch(
+          `${service.baseUrl}/api/v1/assessments/learner/peer-reviews/${id}/file`,
+          { headers: other },
+        );
+        assert.equal(file.status, 404, `file ${id} for ${user}`);
+      }
+      const list = await queue(user, other);
+      assert.equal(list.status, 200);
+      assert.deepEqual(list.data.items, []);
+      assert.equal(list.data.pendingCount, 0);
+    }
+    assert.deepEqual(
+      await db.query(
+        'SELECT id, status, score, completed_at FROM submission_reviews ORDER BY id',
+      ),
+      before,
+      'nothing was changed',
+    );
+  });
+
+  test('a reviewer who was taken off the work (Removed) or whose review lapsed (Expired) gets nothing of it; a Missed one stays in the history; an Instructor review is never found', async () => {
+    const [work] = await db.query(
+      `INSERT INTO submissions (id, organization_id, assessment_id, learner_id, submission_number, content,
+              submitted_at, cycle_id, grading_status, file_key, file_name, file_mime, file_size_bytes, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, '00000000-0000-4000-8000-0000000000e2', 1, 'ended access', now(), $3,
+               'AwaitingPeerReview', 'learnup/key/ended', 'who.pdf', 'application/pdf', 10, now(), now()) RETURNING id`,
+      [ORG, assignment, cycle],
+    );
+    const make = async (status: string, reviewer: string, role = 'Learner') =>
+      (
+        await db.query(
+          `INSERT INTO submission_reviews (id, organization_id, submission_id, cycle_id, reviewer_id, reviewer_role, status, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, now(), now()) RETURNING id`,
+          [ORG, work.id, cycle, reviewer, role, status],
+        )
+      )[0].id as string;
+    const removed = await make('Removed', L[0]);
+    const expired = await make('Expired', L[0]);
+    const missed = await make('Missed', L[0]);
+    const instructorOfLearner = await make('Pending', L[0], 'Instructor');
+    const instructorOwn = await make('Pending', INSTRUCTOR, 'Instructor');
+
+    const file = (id: string) =>
+      fetch(
+        `${service.baseUrl}/api/v1/assessments/learner/peer-reviews/${id}/file`,
+        { headers: as(L[0]) },
+      );
+    for (const id of [removed, expired, instructorOfLearner, instructorOwn]) {
+      const got = await detail(id, L[0]);
+      assert.equal(got.status, 404, id);
+      assert.doesNotMatch(
+        JSON.stringify(got.json),
+        /ended access|learnup\/key/,
+      );
+      assert.equal((await give(id, L[0], 1)).status, 404, id);
+      assert.equal((await file(id)).status, 404, id);
+    }
+    const listed = (await queue(L[0])).data.items as {
+      id: string;
+      state: string;
+    }[];
+    for (const id of [removed, expired, instructorOfLearner, instructorOwn])
+      assert.ok(
+        !listed.some((item) => item.id === id),
+        `${id} is not in the queue`,
+      );
+    // Missed: the work was handed to this Learner, so it stays in their history as Closed, read-only
+    assert.equal(listed.find((item) => item.id === missed)?.state, 'Closed');
+    const kept = await detail(missed, L[0]);
+    assert.equal(kept.status, 200);
+    assert.equal(kept.data.state, 'Closed');
+    assert.equal((await give(missed, L[0], 1)).code, 'REVIEW_CLOSED');
+
+    for (const [id, status] of [
+      [removed, 'Removed'],
+      [expired, 'Expired'],
+      [missed, 'Missed'],
+      [instructorOfLearner, 'Pending'],
+      [instructorOwn, 'Pending'],
+    ])
+      assert.equal((await row(id)).status, status, 'nothing was changed');
   });
 });

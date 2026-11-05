@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { BadRequestException } from '@nestjs/common';
 import {
+  ACCESS_ENDED_STATUSES,
   neutralFileName,
   outcomeOfReviews,
+  reviewerKeepsAccess,
   reviewStateOf,
 } from '../../src/modules/learner-reviews/review-rules';
 import {
@@ -15,6 +17,16 @@ import {
 const NOW = new Date('2026-11-02T03:00:00.000Z');
 const FUTURE = new Date('2026-11-05T00:00:00.000Z');
 const PAST = new Date('2026-10-30T00:00:00.000Z');
+
+describe('who is still a reviewer of a work (Removed and Expired end the access)', () => {
+  test('Pending, Completed and Missed keep it; Removed and Expired do not', () => {
+    for (const status of ['Pending', 'Completed', 'Missed'])
+      assert.equal(reviewerKeepsAccess(status), true, status);
+    for (const status of ['Removed', 'Expired'])
+      assert.equal(reviewerKeepsAccess(status), false, status);
+    assert.deepEqual([...ACCESS_ENDED_STATUSES].sort(), ['Expired', 'Removed']);
+  });
+});
 
 describe('reviewStateOf', () => {
   test('a Pending review of a cycle that was handed out, before its deadline, is Open', () => {

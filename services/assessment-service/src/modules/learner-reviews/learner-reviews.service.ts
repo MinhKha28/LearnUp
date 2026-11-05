@@ -174,11 +174,13 @@ export class LearnerReviewsService {
     const first = await this.load(user, reviewId);
     const organizationId = first.organizationId;
     const submissionId = first.submission.id;
-    const now = this.clock();
 
     return this.repository.transaction(async (tx) => {
       // The reviews of one submission take turns: the one that comes last sees all the others.
       await this.repository.lockSubmission(tx, submissionId);
+      // The deadline (BR-229) is judged now, when this caller holds the turn, on the clock of the database: a review that
+      // waited for the lock while the deadline passed is refused, and the time it is given at is the time it really was.
+      const now = await this.repository.databaseNow(tx);
       const review = await this.repository.findOne(
         organizationId,
         user.userId,
