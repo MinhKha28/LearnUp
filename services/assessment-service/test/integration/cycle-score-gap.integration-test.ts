@@ -258,7 +258,7 @@ describe('UC33.1 the score gap of the submissions of a cycle over HTTP', () => {
     assert.equal(s.needsReview, false);
   });
 
-  test('exactly one submission needs review in this cycle', async () => {
+  test('exactly the three submissions above the threshold need review in this cycle', async () => {
     const { data } = await read();
     assert.deepEqual(
       (data.submissions as any[])

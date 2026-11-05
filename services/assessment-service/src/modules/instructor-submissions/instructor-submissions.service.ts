@@ -1,7 +1,6 @@
 import type { CurrentUser } from '@learnup/ts-common';
 import type { IStorageProvider } from '@learnup/ts-storage';
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -13,6 +12,7 @@ import { CourseServiceClient } from '../../infrastructure/clients/course/course-
 import type { IUserDisplayName } from '../../infrastructure/clients/tenant/interfaces/user-display-name.interface';
 import { TenantDirectoryClient } from '../../infrastructure/clients/tenant/tenant-directory.client';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
+import { roundScore, scoreFromRubric } from '../peer-review/rubric-score';
 import { InstructorReviewDto } from './dto/instructor-review.dto';
 import { ListSubmissionsQueryDto } from './dto/list-submissions-query.dto';
 import type { IInstructorReviewResult } from './interfaces/instructor-review-result.interface';
@@ -33,8 +33,6 @@ import {
   INSTRUCTOR_REVIEWER_ROLE,
   REVIEW_COMPLETED,
 } from './instructor-submissions.constants';
-
-const roundScore = (value: number) => Math.round(value * 100) / 100;
 
 const toNumber = (value: { toString(): string } | null | undefined) =>
   value === null || value === undefined ? null : Number(value.toString());
@@ -275,7 +273,7 @@ export class InstructorSubmissionsService {
         throw this.notAwaitingInstructor();
       }
 
-      const score = this.scoreFromRubric(
+      const score = scoreFromRubric(
         submission.assessment.rubricCriteria,
         dto.scores,
       );
@@ -334,43 +332,6 @@ export class InstructorSubmissionsService {
         suggestedScore,
       };
     });
-  }
-
-  private scoreFromRubric(
-    rubric: { id: string; maxPoints: number }[],
-    scores: { criterionId: string; points: number }[],
-  ): number {
-    if (rubric.length === 0) {
-      throw new BadRequestException({
-        code: 'RUBRIC_MISSING',
-        message: 'This Assignment has no Rubric criteria to grade against.',
-      });
-    }
-    const given = new Map(
-      scores.map((item) => [item.criterionId, item.points]),
-    );
-    const incomplete = new BadRequestException({
-      code: 'RUBRIC_SCORES_INCOMPLETE',
-      message: 'Give exactly one score for every Rubric criterion.',
-    });
-    if (given.size !== scores.length || given.size !== rubric.length) {
-      throw incomplete;
-    }
-    let earned = 0;
-    let possible = 0;
-    for (const criterion of rubric) {
-      const points = given.get(criterion.id);
-      if (points === undefined) throw incomplete;
-      if (points > criterion.maxPoints) {
-        throw new BadRequestException({
-          code: 'RUBRIC_SCORE_OUT_OF_RANGE',
-          message: `A criterion score cannot exceed ${criterion.maxPoints} points.`,
-        });
-      }
-      earned += points;
-      possible += criterion.maxPoints;
-    }
-    return roundScore((earned / possible) * 100);
   }
 
   private notAwaitingInstructor() {
