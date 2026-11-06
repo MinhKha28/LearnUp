@@ -165,6 +165,7 @@ for (const status of [
 for (const [status, reason] of [
   ['PeerReviewAssigned', 'PEER_REVIEW_ASSIGNED'],
   ['PeerReviewMissed', 'PEER_REVIEW_MISSED'],
+  ['Finalized', 'ASSIGNMENT_FINALIZED'],
 ] as const)
   void test(`assessment ${status} commits re-evaluation without activating enrollment`, async () => {
     const f = await fixture();
@@ -187,33 +188,43 @@ for (const [status, reason] of [
         kind: 'ASSIGNMENT',
         status,
         reason,
+        ...(status === 'Finalized'
+          ? { submissionId: 'unread', finalScore: 'abc', finalizedAt: 'unread' }
+          : {}),
         firstActivityAt: '2026-10-29T12:00:00.000Z',
       },
     };
     let commits = 0;
-    await consumer.handle(
-      {
-        topic: 'l18-' + org,
-        partition: 3,
-        offset: status === 'PeerReviewAssigned' ? '0' : '1',
-        value: Buffer.from(JSON.stringify(input)),
-      },
-      async () => {
-        // Independent reads observe both effects before Kafka acknowledgement.
-        const [row] = await prisma.$queryRaw<
-          { status: string; first_activity_at: Date | null; source: string }[]
-        >`SELECT e.status,e.first_activity_at,q.source
+    const delivery = {
+      topic: 'l18-' + org,
+      partition: 3,
+      offset: status === 'PeerReviewAssigned' ? '0' : '1',
+      value: Buffer.from(JSON.stringify(input)),
+    };
+    const commit = async () => {
+      // Independent reads observe both effects before Kafka acknowledgement.
+      const [row] = await prisma.$queryRaw<
+        { status: string; first_activity_at: Date | null; source: string }[]
+      >`SELECT e.status,e.first_activity_at,q.source
           FROM enrollments e JOIN completion_evaluation_requests q ON q.enrollment_id=e.id
           WHERE e.id=${f.id}::uuid`;
-        assert.deepEqual(row, {
-          status: 'NotStarted',
-          first_activity_at: null,
-          source: 'assessment',
-        });
-        commits++;
-      },
-    );
+      assert.deepEqual(row, {
+        status: 'NotStarted',
+        first_activity_at: null,
+        source: 'assessment',
+      });
+      commits++;
+    };
+    await consumer.handle(delivery, commit);
     assert.equal(commits, 1);
+    await consumer.handle(delivery, commit);
+    const [queue] = await prisma.$queryRaw<
+      { count: bigint; generation: bigint }[]
+    >`
+      SELECT count(*) AS count, min(generation) AS generation
+      FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
+    assert.deepEqual(queue, { count: 1n, generation: 1n });
+    assert.equal(commits, 2);
   });
 void test('assessment handler durably quarantines poison and missing enrollment; duplicate delivery adds no row', async () => {
   const consumer = new AssessmentStatusConsumer(
@@ -244,6 +255,15 @@ void test('assessment handler durably quarantines poison and missing enrollment;
     '{',
     { eventId: 'bad\0id', invalid: '\ud800' },
     { ...valid, data: { ...valid.data, status: 'FutureStatus' } },
+    {
+      ...valid,
+      data: {
+        ...valid.data,
+        kind: 'ASSIGNMENT',
+        status: 'Finalized',
+        reason: 'ASSIGNMENT_SUBMITTED',
+      },
+    },
   ].entries()) {
     const d = {
       topic: 'l18-' + org,
@@ -266,6 +286,7 @@ void test('assessment handler durably quarantines poison and missing enrollment;
           'INVALID_JSON',
           'INVALID_ENVELOPE',
           'INVALID_PAYLOAD',
+          'INVALID_PAYLOAD',
         ][index],
       );
       commits++;
@@ -276,8 +297,8 @@ void test('assessment handler durably quarantines poison and missing enrollment;
   const [count] = await prisma.$queryRaw<
     { count: bigint }[]
   >`SELECT count(*) FROM assessment_event_quarantine WHERE topic=${'l18-' + org}`;
-  assert.equal(count.count, 6n);
-  assert.equal(commits, 12);
+  assert.equal(count.count, 7n);
+  assert.equal(commits, 14);
 });
 void test('assessment queue SQL failure rolls back activation and prevents offset commit', async () => {
   const f = await fixture();

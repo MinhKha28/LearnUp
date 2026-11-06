@@ -33,7 +33,9 @@ function event(status = 'Submitted') {
           ? 'PEER_REVIEW_ASSIGNED'
           : status === 'PeerReviewMissed'
             ? 'PEER_REVIEW_MISSED'
-            : 'ASSIGNMENT_SUBMITTED',
+            : status === 'Finalized'
+              ? 'ASSIGNMENT_FINALIZED'
+              : 'ASSIGNMENT_SUBMITTED',
       revision: 'unordered-hash',
       firstActivityAt: '2026-10-29T08:00:00.000Z' as string | null | undefined,
     },
@@ -109,6 +111,7 @@ for (const status of [
   'PeerReviewCompleted',
   'PeerReviewAssigned',
   'PeerReviewMissed',
+  'Finalized',
 ])
   void test(`assessment ${status}: activation policy, one queue write, DB before offset`, async () => {
     const h = harness();
@@ -137,14 +140,49 @@ for (const value of [undefined, null])
     await h.consumer.handle(delivery(e), h.commit);
     assert.equal(h.activity[0].toISOString(), e.occurredAt);
   });
-void test('assessment duplicate signals each request evaluation without revision ordering', async () => {
-  const h = harness(),
-    d = delivery(event());
-  await h.consumer.handle(d, h.commit);
-  await h.consumer.handle(d, h.commit);
-  assert.equal(h.trace.filter((s) => s === 'queue').length, 2);
-  assert.equal(h.activity[0].getTime(), h.activity[1].getTime());
-});
+for (const status of ['Submitted', 'Finalized'])
+  void test(`assessment duplicate ${status} signals each request evaluation without revision ordering`, async () => {
+    const h = harness(),
+      d = delivery(event(status));
+    await h.consumer.handle(d, h.commit);
+    await h.consumer.handle(d, h.commit);
+    assert.equal(h.trace.filter((s) => s === 'queue').length, 2);
+    if (status === 'Submitted')
+      assert.equal(h.activity[0].getTime(), h.activity[1].getTime());
+    else assert.equal(h.activity.length, 0);
+  });
+for (const extras of [
+  {},
+  { submissionId: randomUUID(), finalScore: 80, finalizedAt: null },
+  { submissionId: 'bad', finalScore: 'abc', finalizedAt: 'bad' },
+])
+  void test(`assessment Finalized ignores unread extras ${JSON.stringify(extras)}`, async () => {
+    const h = harness(),
+      e = event('Finalized');
+    Object.assign(e.data, extras);
+    await h.consumer.handle(delivery(e), h.commit);
+    assert.deepEqual(h.trace, [
+      'begin',
+      'lookup',
+      'queue',
+      'db-commit',
+      'offset-commit',
+    ]);
+  });
+for (const reason of ['ASSIGNMENT_SUBMITTED', undefined, null])
+  void test(`assessment Finalized rejects reason ${reason}`, async () => {
+    const h = harness(),
+      e = event('Finalized');
+    Object.assign(e.data, { reason });
+    assert.equal(decodeAssessment(delivery(e)).reason, 'INVALID_PAYLOAD');
+    await h.consumer.handle(delivery(e), h.commit);
+    assert.deepEqual(h.trace, [
+      'begin',
+      'quarantine',
+      'db-commit',
+      'offset-commit',
+    ]);
+  });
 for (const mode of [
   'missing-enrollment',
   'missing-course',
