@@ -13,6 +13,10 @@
  *   Header: như trên
  *   200:    data = { chains: IManagedCourseChain[] } — mỗi chuỗi một phần tử, xem http-course-service.client.ts.
  *
+ *   POST /api/v1/internal/course-chains/transfer                     (UC12.5)
+ *   Header: như trên. Body: { fromInstructorId, toInstructorId }
+ *   200:    data = { transferred: IManagedCourseChain[] } — idempotent, xem http-course-service.client.ts.
+ *
  * Cách chuyển sang dùng thật khi course-service có endpoint:
  *   COURSE_CLIENT_MODE=http, COURSE_SERVICE_URL=http://localhost:8083
  *   (tùy chọn COURSE_SERVICE_TIMEOUT_MS, mặc định 3000). Không phải sửa code nghiệp vụ.
@@ -132,21 +136,15 @@ const FAKE_CHAINS: Record<string, IManagedCourseChain[]> = {
   ],
 };
 
-// UC12: số chuỗi sinh từ FAKE_CHAINS để cột Courses khớp trang chi tiết. Instructor không có trong bảng -> 0.
-const FAKE_COUNTS: Record<string, number> = Object.fromEntries(
-  Object.entries(FAKE_CHAINS).map(([instructorId, chains]) => [
-    instructorId,
-    chains.length,
-  ]),
-);
-
 export class FakeCourseServiceClient extends CourseServiceClient {
+  // UC12: số chuỗi đếm trực tiếp từ FAKE_CHAINS để cột Courses luôn khớp trang chi tiết,
+  // kể cả sau khi UC12.5 chuyển chuỗi trong bộ nhớ. Instructor không có trong bảng -> 0.
   countCourseChainsByInstructors(
     _user: CurrentUser,
     instructorIds: string[],
   ): Promise<Record<string, number>> {
     const counts: Record<string, number> = {};
-    for (const id of instructorIds) counts[id] = FAKE_COUNTS[id] ?? 0;
+    for (const id of instructorIds) counts[id] = FAKE_CHAINS[id]?.length ?? 0;
     return Promise.resolve(counts);
   }
 
@@ -154,7 +152,29 @@ export class FakeCourseServiceClient extends CourseServiceClient {
     _user: CurrentUser,
     instructorId: string,
   ): Promise<IManagedCourseChain[]> {
-    return Promise.resolve(FAKE_CHAINS[instructorId] ?? []);
+    return Promise.resolve([...(FAKE_CHAINS[instructorId] ?? [])]);
+  }
+
+  /**
+   * UC12.5: chuyển cả chuỗi (BR-287) trong BỘ NHỚ - mất khi restart tenant-service.
+   * Idempotent như hợp đồng thật: from không còn chuỗi nào thì trả [].
+   * Không kiểm tổ chức: ID trong FAKE_CHAINS khớp seed và tenant đã kiểm người tiếp nhận.
+   */
+  transferCourseChains(
+    _user: CurrentUser,
+    fromInstructorId: string,
+    toInstructorId: string,
+  ): Promise<IManagedCourseChain[]> {
+    const moved = FAKE_CHAINS[fromInstructorId] ?? [];
+    if (moved.length === 0 || fromInstructorId === toInstructorId) {
+      return Promise.resolve([]);
+    }
+    delete FAKE_CHAINS[fromInstructorId];
+    FAKE_CHAINS[toInstructorId] = [
+      ...(FAKE_CHAINS[toInstructorId] ?? []),
+      ...moved,
+    ];
+    return Promise.resolve([...moved]);
   }
 
   getOrganizationUsage(): Promise<IOrganizationCourseUsage> {
