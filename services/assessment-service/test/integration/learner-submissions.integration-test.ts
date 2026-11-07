@@ -171,6 +171,17 @@ describe('UC30 over HTTP', () => {
         ),
         1,
       );
+      // step 21: the event says why, for whom, and which revision of the snapshot the submission leaves
+      const [event] = await db.query(
+        "SELECT organization_id, payload FROM outbox_events WHERE event_type = 'LearnerAssessmentStatusChanged'",
+      );
+      const payload = event.payload as Record<string, unknown>;
+      assert.equal(payload.reason, 'ASSIGNMENT_SUBMITTED');
+      assert.equal(payload.status, 'Submitted');
+      assert.equal(payload.organizationId, event.organization_id);
+      assert.equal(payload.learnerId, LEARNER);
+      assert.match(String(payload.revision), /^[0-9a-f]{64}$/);
+      assert.ok(Number.isFinite(Date.parse(String(payload.firstActivityAt))));
     });
 
     test('another Learner in the same cycle joins it instead of opening one (BR-167)', async () => {

@@ -7,6 +7,7 @@ import { CoursesModule } from './modules/courses/courses.module';
 import { InternalCoursesModule } from './modules/internal-courses/internal-courses.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { OutboxModule } from './modules/outbox/outbox.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     CatalogModule,
     CoursesModule,
     InternalCoursesModule,
+    OutboxModule,
   ],
   providers: [
     {

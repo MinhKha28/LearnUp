@@ -36,7 +36,7 @@ spring:
         - id: tenant-service
           uri: ${TENANT_SERVICE_URL:http://tenant-service:8084}
           predicates:
-            - Path=/api/v1/users/**, /api/v1/organizations/**, /api/v1/subscriptions/**, /api/v1/subscription-plans/**, /api/v1/registrations/**, /api/v1/invitations/**, /api/v1/payments/**, /api/users/**, /api/organizations/**, /api/subscriptions/**, /api/subscription-plans/**, /api/registrations/**, /api/invitations/**, /api/payments/**
+            - Path=/api/v1/users/**, /api/v1/organizations/**, /api/v1/subscriptions/**, /api/v1/subscription-plans/**, /api/v1/registrations/**, /api/v1/invitations/**, /api/v1/payments/**, /api/v1/admin/subscription-plans/**, /api/users/**, /api/organizations/**, /api/subscriptions/**, /api/subscription-plans/**, /api/registrations/**, /api/invitations/**, /api/payments/**, /api/admin/subscription-plans/**
 
         # Business 2: Course Service Routes (Docker DNS)
         - id: course-service

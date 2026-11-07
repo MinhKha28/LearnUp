@@ -1,4 +1,7 @@
 import { Logger } from '@nestjs/common';
+import { AssessmentStatusConsumer } from '../../src/modules/assessment-status/assessment-status.consumer';
+import { AssessmentStatusRepository } from '../../src/modules/assessment-status/assessment-status.repository';
+import { readAssessmentStatusConfig } from '../../src/modules/assessment-status/assessment-status.config';
 import { mock } from 'node:test';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
@@ -49,6 +52,7 @@ before(async () => {
 });
 after(async () => {
   try {
+    await prisma.$executeRaw`DELETE FROM assessment_event_quarantine WHERE topic=${'l18-' + org}`;
     await prisma.$executeRaw`DELETE FROM outbox_events WHERE organization_id=${org}::uuid`;
     await prisma.$executeRaw`DELETE FROM enrollments WHERE organization_id=${org}::uuid`;
     await prisma.$executeRaw`DELETE FROM material_snapshots WHERE organization_id=${org}::uuid`;
@@ -61,6 +65,237 @@ after(async () => {
       'course-completion.integration-test shutdown',
     );
   }
+});
+
+for (const status of [
+  'NotStarted',
+  'InProgress',
+  'Exempted',
+  'Halted',
+  'Withdrawn',
+  'Completed',
+  'Exempted-ineligible',
+])
+  test(`assessment handler queues ${status} and preserves worker status rules`, async () => {
+    const initial = status === 'Exempted-ineligible' ? 'Exempted' : status;
+    const f = await fixture(
+      initial,
+      initial === 'Exempted' ? 'Required' : 'Optional',
+    );
+    await prisma.$executeRaw`DELETE FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
+    if (initial === 'Exempted')
+      await prisma.$executeRaw`INSERT INTO enrollment_status_intervals(id,organization_id,enrollment_id,kind,started_at,reason)
+        VALUES (${randomUUID()}::uuid,${org}::uuid,${f.id}::uuid,'Exempted',now()-interval '1 hour','synthetic assessment fixture')`;
+    if (status === 'Exempted-ineligible')
+      fake.fixtures.set(f.key, {
+        value: {
+          ...f.snapshot,
+          eligible: false,
+          quizzes: [
+            { ...f.snapshot.quizzes[0], recordedScore: '10', passed: false },
+          ],
+        },
+      });
+    const consumer = new AssessmentStatusConsumer(
+      new AssessmentStatusRepository(prisma),
+      readAssessmentStatusConfig(() => undefined),
+    );
+    const input = {
+      eventId: randomUUID(),
+      eventType: 'LearnerAssessmentStatusChanged',
+      version: 1,
+      occurredAt: '2026-10-30T12:00:00.000Z',
+      organizationId: org,
+      producer: 'assessment-service',
+      data: {
+        assessmentId: randomUUID(),
+        organizationId: org,
+        learnerId: f.learner,
+        courseId: f.course,
+        kind: 'ASSIGNMENT',
+        status: 'Submitted',
+        revision: 'arbitrary-unordered-hash',
+        firstActivityAt: '2026-10-29T12:00:00.000Z',
+      },
+    };
+    const delivery = {
+      topic: 'l18-' + org,
+      partition: 0,
+      offset: '1',
+      value: Buffer.from(JSON.stringify(input)),
+    };
+    let commits = 0;
+    const commit = async () => {
+      // A separate query sees the committed transaction before acknowledgement.
+      const [q] = await prisma.$queryRaw<
+        { source: string; generation: bigint }[]
+      >`SELECT source,generation FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
+      assert.equal(q.source, 'assessment');
+      assert.equal(q.generation, BigInt(commits));
+      commits++;
+    };
+    await consumer.handle(delivery, commit);
+    assert.equal(
+      (await state(f.id)).status,
+      initial === 'NotStarted' ? 'InProgress' : initial,
+    );
+    const [beforeDuplicate] = await prisma.$queryRaw<
+      { first_activity_at: Date | null }[]
+    >`SELECT first_activity_at FROM enrollments WHERE id=${f.id}::uuid`;
+    await consumer.handle(delivery, commit);
+    const [afterDuplicate] = await prisma.$queryRaw<
+      { first_activity_at: Date | null }[]
+    >`SELECT first_activity_at FROM enrollments WHERE id=${f.id}::uuid`;
+    assert.deepEqual(afterDuplicate, beforeDuplicate);
+    assert.equal(commits, 2);
+    await service.evaluate(await take(f.id));
+    const expected = [
+      'Halted',
+      'Withdrawn',
+      'Completed',
+      'Exempted-ineligible',
+    ].includes(status)
+      ? initial
+      : 'Completed';
+    assert.equal((await state(f.id)).status, expected);
+    if (status === 'Exempted-ineligible')
+      assert.equal(await eventCount(f.id), 0);
+  });
+
+test('assessment handler durably quarantines poison and missing enrollment; duplicate delivery adds no row', async () => {
+  const consumer = new AssessmentStatusConsumer(
+    new AssessmentStatusRepository(prisma),
+    readAssessmentStatusConfig(() => undefined),
+  );
+  const valid = {
+    eventId: randomUUID(),
+    eventType: 'LearnerAssessmentStatusChanged',
+    version: 1,
+    occurredAt: new Date().toISOString(),
+    organizationId: org,
+    producer: 'assessment-service',
+    data: {
+      assessmentId: randomUUID(),
+      learnerId: randomUUID(),
+      courseId: randomUUID(),
+      kind: 'QUIZ',
+      status: 'Resubmitted',
+    },
+  };
+  const missing = { ...valid, data: { ...valid.data, courseId: undefined } };
+  let commits = 0;
+  for (const [index, input] of [
+    valid,
+    missing,
+    {},
+    '{',
+    { eventId: 'bad\0id', invalid: '\ud800' },
+  ].entries()) {
+    const d = {
+      topic: 'l18-' + org,
+      partition: 1,
+      offset: String(index),
+      value: Buffer.from(
+        typeof input === 'string' ? input : JSON.stringify(input),
+      ),
+    };
+    const commit = async () => {
+      const [row] = await prisma.$queryRaw<
+        { reason: string }[]
+      >`SELECT reason FROM assessment_event_quarantine WHERE topic=${d.topic} AND partition=1 AND "offset"=${BigInt(index)}`;
+      assert.equal(
+        row.reason,
+        [
+          'ENROLLMENT_NOT_FOUND',
+          'MISSING_COURSE_ID',
+          'INVALID_ENVELOPE',
+          'INVALID_JSON',
+          'INVALID_ENVELOPE',
+        ][index],
+      );
+      commits++;
+    };
+    await consumer.handle(d, commit);
+    await consumer.handle(d, commit);
+  }
+  const [count] = await prisma.$queryRaw<
+    { count: bigint }[]
+  >`SELECT count(*) FROM assessment_event_quarantine WHERE topic=${'l18-' + org}`;
+  assert.equal(count.count, 5n);
+  assert.equal(commits, 10);
+});
+
+test('assessment queue SQL failure rolls back activation and prevents offset commit', async () => {
+  const f = await fixture();
+  await prisma.$executeRaw`DELETE FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
+  const transaction = prisma.$transaction.bind(prisma);
+  const broken = new Proxy(prisma, {
+    get(target, property) {
+      if (property === '$transaction')
+        return (work: (tx: unknown) => Promise<unknown>) =>
+          transaction(async (tx) =>
+            work(
+              new Proxy(tx, {
+                get(t, p) {
+                  if (p === '$executeRaw')
+                    return (sql: TemplateStringsArray, ...values: unknown[]) =>
+                      Array.isArray(sql) &&
+                      sql
+                        .join('')
+                        .includes('INSERT INTO completion_evaluation_requests')
+                        ? tx.$executeRaw`SELECT 1/0`
+                        : (tx.$executeRaw as Function)(sql, ...values);
+                  const value = Reflect.get(t, p);
+                  return typeof value === 'function' ? value.bind(t) : value;
+                },
+              }),
+            ),
+          );
+      const value = Reflect.get(target, property);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  const consumer = new AssessmentStatusConsumer(
+    new AssessmentStatusRepository(broken),
+    readAssessmentStatusConfig(() => undefined),
+  );
+  const value = {
+    eventId: randomUUID(),
+    eventType: 'LearnerAssessmentStatusChanged',
+    version: 1,
+    occurredAt: new Date().toISOString(),
+    organizationId: org,
+    producer: 'assessment-service',
+    data: {
+      learnerId: f.learner,
+      courseId: f.course,
+      assessmentId: randomUUID(),
+      kind: 'QUIZ',
+      status: 'Submitted',
+    },
+  };
+  let committed = false;
+  await assert.rejects(
+    consumer.handle(
+      {
+        topic: 'l18-' + org,
+        partition: 2,
+        offset: '0',
+        value: Buffer.from(JSON.stringify(value)),
+      },
+      async () => {
+        committed = true;
+      },
+    ),
+  );
+  assert.equal(committed, false);
+  assert.equal((await state(f.id)).status, 'NotStarted');
+  const [e] = await prisma.$queryRaw<
+    { first_activity_at: Date | null; pending: bigint }[]
+  >`SELECT first_activity_at,
+    (SELECT count(*) FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid) AS pending FROM enrollments WHERE id=${f.id}::uuid`;
+  assert.equal(e.first_activity_at, null);
+  assert.equal(e.pending, 0n);
 });
 
 for (const kind of ['CONVERT', 'RESTORE', 'CONVERT_COMPLETED'] as const)
@@ -566,9 +801,7 @@ test('two concurrent Video completions enqueue only on the first transition', as
     prisma.$transaction(async (tx) => {
       await video.access(f.id, f.learner, org, tx);
       await video.lock(f.id, material, org, tx);
-      const preview = await video.preview(f.id, material, org, [[0, 80]], tx);
-      if (preview.newSeconds > 0)
-        await video.save(f.id, material, org, preview, 80, [[0, 80]], tx);
+      await video.saveCoverage(f.id, material, org, 80, [[0, 80]], tx);
     });
   await Promise.all([finish(), finish()]);
   const [request] = await prisma.$queryRaw<

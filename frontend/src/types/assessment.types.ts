@@ -349,6 +349,132 @@ export interface IPeerReviewCycleList {
   items: IPeerReviewCycleItem[];
 }
 
+/** UC33.1: the state of the peer review duty of one Learner on the Assignment (BR-239, BR-241). */
+export type TReviewerObligation = "Pending" | "Satisfied" | "Missed" | "Waived";
+
+export interface IPeerReviewCycleSubmission {
+  id: string;
+  learnerId: string;
+  /** Empty when the Learner is not known to tenant-service. */
+  fullName: string;
+  submittedAt: string;
+  reviewsAssigned: number;
+  reviewsCompleted: number;
+  /** Assigned and not completed: the Instructor grades these (BR-243). */
+  reviewsMissing: number;
+  /** Lowest and highest valid peer review score (0-100); null with fewer than two scores (BR-253). */
+  lowestScore: number | null;
+  highestScore: number | null;
+  /** Highest minus lowest; null when there is nothing to compare. */
+  scoreGap: number | null;
+  /** The gap is above the threshold of the cycle and the submission is not finalized yet (BR-252). */
+  needsReview: boolean;
+}
+
+export interface IPeerReviewCycleReviewer {
+  learnerId: string;
+  fullName: string;
+  assigned: number;
+  completed: number;
+  obligation: TReviewerObligation;
+  /** UC33.2: the duty is Missed and not waived, so the Instructor can waive it now. */
+  canWaive: boolean;
+}
+
+export interface IPeerReviewCycleDetail {
+  assignmentId: string;
+  title: string;
+  cycle: {
+    id: string;
+    opensAt: string;
+    closesAt: string;
+    reviewDueAt: string;
+    reviewersPerSubmission: number;
+    /** The score gap above which a submission goes to the Instructor, on the 0-100 scale (BR-252). */
+    scoreGap: number;
+    submissionCount: number;
+    status: TPeerReviewCycleStatus;
+    closed: boolean;
+  };
+  submissions: IPeerReviewCycleSubmission[];
+  reviewers: IPeerReviewCycleReviewer[];
+}
+
+/** UC33.2: what waiving a duty answers; waiving again answers the first date with alreadyWaived true. */
+export interface IPeerReviewWaiver {
+  assignmentId: string;
+  learnerId: string;
+  waivedAt: string;
+  alreadyWaived: boolean;
+}
+
+/** UC31: what a Learner can do with a review handed out to them: give it, see it given, or nothing (the deadline passed). */
+export type TLearnerReviewState = "Open" | "Done" | "Closed";
+
+/** UC31: one review assigned to the Learner. Nothing in it says who wrote the work (BR-233). */
+export interface ILearnerReviewItem {
+  id: string;
+  assignmentId: string;
+  assignmentTitle: string;
+  courseId: string;
+  status: string;
+  state: TLearnerReviewState;
+  /** The deadline of the cycle, shared by every reviewer of it (BR-229). */
+  reviewDueAt: string | null;
+  completedAt: string | null;
+  /** The score the Learner gave, once given. */
+  score: number | null;
+}
+
+export interface ILearnerReviewList {
+  /** Reviews the Learner can still give, in the whole queue and not only on this page (BR-232). */
+  pendingCount: number;
+  /** Every review in the queue. */
+  total: number;
+  page: number;
+  pageSize: number;
+  items: ILearnerReviewItem[];
+}
+
+export interface IReviewCriterion {
+  id: string;
+  name: string;
+  description: string | null;
+  maxPoints: number;
+  position: number;
+}
+
+export interface ILearnerReviewDetail extends ILearnerReviewItem {
+  assignment: {
+    prompt: string | null;
+    rubric: IReviewCriterion[];
+    promptFileUrl: string | null;
+    promptFileName: string | null;
+  };
+  /** The work to review, without its author, its number or its date. */
+  submission: {
+    content: string | null;
+    file: { fileName: string; mimeType: string | null; sizeBytes: number | null; url: string } | null;
+  };
+  /** The review as the Learner gave it, once given. */
+  myReview: { comment: string | null; scores: { criterionId: string; points: number }[] } | null;
+}
+
+/** UC31.1: the body of a review: a whole-number score for every criterion and a general comment (BR-257). */
+export interface IGiveLearnerReview {
+  scores: { criterionId: string; points: number }[];
+  comment: string;
+}
+
+export interface ILearnerReviewResult {
+  id: string;
+  status: "Completed";
+  score: number;
+  completedAt: string;
+  /** The reviews of this Assignment that the Learner still owes and can give. */
+  remainingInAssignment: number;
+}
+
 export interface IClosedPeerReviewCycle {
   cycleId: string;
   status: TPeerReviewCycleStatus;

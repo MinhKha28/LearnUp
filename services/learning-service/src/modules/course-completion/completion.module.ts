@@ -43,6 +43,10 @@ const WORKER_DATABASE = Symbol('COMPLETION_WORKER_DATABASE');
         createCompletionClient((k) => c.get<string>(k)),
     },
   ],
-  exports: [CompletionService, CompletionRepository],
+  exports: [
+    CompletionService,
+    CompletionRepository,
+    ASSESSMENT_COMPLETION_CLIENT,
+  ],
 })
 export class CompletionModule {}

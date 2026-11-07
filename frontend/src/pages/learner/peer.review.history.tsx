@@ -10,32 +10,32 @@ const PeerReviewHistory = () => {
   return (
     <LearnerPage className="peer-review-history">
       <PageHeader
-        eyebrow="LEARNER"
-        title="My Review History"
-        subtitle="Your completed peer reviews and review obligation status."
+        eyebrow="HỌC VIÊN"
+        title="Lịch sử chấm của tôi"
+        subtitle="Các bài chấm chéo bạn đã hoàn thành và tình trạng nghĩa vụ chấm."
         back
       />
       <div className="peer-review-history-obligation">
         <div>
-          <span>Review obligation</span>
+          <span>Nghĩa vụ chấm chéo</span>
           <StatusTag tone={obligationComplete ? "success" : "warning"}>
-            {obligationComplete ? "Complete" : "In progress"}
+            {obligationComplete ? "Hoàn thành" : "Đang thực hiện"}
           </StatusTag>
         </div>
         <p>
-          Assigned reviews: {totalAssigned} Completed: {completed.length}
+          Số bài được giao: {totalAssigned}. Đã chấm: {completed.length}
         </p>
       </div>
       <div className="peer-review-history-card">
-        <h3>Completed reviews</h3>
+        <h3>Các bài đã chấm</h3>
         <table className="peer-review-history-table">
           <thead>
             <tr>
-              <th>Submission</th>
-              <th>Assignment</th>
-              <th>Score given</th>
-              <th>Completed</th>
-              <th>Status</th>
+              <th>Bài nộp</th>
+              <th>Bài tập</th>
+              <th>Điểm đã chấm</th>
+              <th>Ngày chấm</th>
+              <th>Trạng thái</th>
             </tr>
           </thead>
           <tbody>
@@ -45,27 +45,27 @@ const PeerReviewHistory = () => {
               return (
                 <tr key={task.id}>
                   <td>
-                    <strong>Submission {task.id}</strong>
+                    <strong>Bài nộp {task.id}</strong>
                   </td>
                   <td>{task.assignmentTitle}</td>
                   <td>
                     {total}/{max}
                   </td>
                   <td>{task.result?.completedAt}</td>
-                  <td>Complete</td>
+                  <td>Hoàn thành</td>
                 </tr>
               );
             })}
             {completed.length === 0 && (
               <tr>
-                <td colSpan={5}>No Peer Reviews have been completed yet.</td>
+                <td colSpan={5}>Chưa có bài chấm chéo nào hoàn thành.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-      <InfoPanel title="Assessment condition">
-        Assigned reviews must be completed for the peer-reviewed Assignment.
+      <InfoPanel title="Điều kiện đánh giá">
+        Phải chấm xong các bài được giao của bài tập có chấm chéo.
       </InfoPanel>
     </LearnerPage>
   );

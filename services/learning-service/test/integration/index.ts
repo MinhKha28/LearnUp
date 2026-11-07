@@ -20,3 +20,4 @@ import './course-completion.integration-test';
 import './reading-completion.integration-test';
 
 import './deadline-timezone-migration.integration-test';
+import './assessment-status-migration.integration-test';
