@@ -173,7 +173,7 @@ const CourseTrash = () => {
       dataIndex: "name",
       key: "name",
       render: (name: string, course) => (
-        <div className="course-trash__name">
+        <div className="course-trash-name">
           <strong>{name}</strong>
           <span>Version {course.versionNumber}</span>
         </div>
@@ -219,7 +219,7 @@ const CourseTrash = () => {
         const isProcessing = processingId === course.id;
 
         return (
-          <div className="course-trash__actions">
+          <div className="course-trash-actions">
             <Button
               size="small"
               disabled={expired || Boolean(processingId)}
@@ -269,7 +269,7 @@ const CourseTrash = () => {
       />
 
       <Alert
-        className="course-trash__notice"
+        className="course-trash-notice"
         type="info"
         showIcon
         message="Course and Storage limits"
@@ -278,7 +278,7 @@ const CourseTrash = () => {
 
       {loadError && (
         <Alert
-          className="course-trash__error"
+          className="course-trash-error"
           type="error"
           showIcon
           message="Unable to load Course Trash"
@@ -288,7 +288,7 @@ const CourseTrash = () => {
       )}
 
       <Table<ICourseTrashItem>
-        className="instructor-table course-trash__table"
+        className="instructor-table course-trash-table"
         rowKey="id"
         columns={columns}
         dataSource={courses}
