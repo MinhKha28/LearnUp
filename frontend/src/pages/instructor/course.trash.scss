@@ -1,17 +1,17 @@
 .course-trash {
-    &__notice {
+    &-notice {
         margin-bottom: 20px;
     }
 
-    &__error {
+    &-error {
         margin-bottom: 20px;
     }
 
-    &__table {
+    &-table {
         width: 100%;
     }
 
-    &__name {
+    &-name {
         display: flex;
         flex-direction: column;
         gap: 4px;
@@ -28,7 +28,7 @@
         }
     }
 
-    &__actions {
+    &-actions {
         display: flex;
         align-items: center;
         flex-wrap: wrap;
@@ -37,12 +37,12 @@
 
     @media (max-width: 768px) {
 
-        &__notice,
-        &__error {
+        &-notice,
+        &-error {
             margin-bottom: 16px;
         }
 
-        &__actions {
+        &-actions {
             gap: 6px;
         }
     }
