@@ -4,6 +4,18 @@ import { Prisma } from '@generated/prisma/browser';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { COURSE_STATUS } from './course-values';
 import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
+import {
+  COURSE_TRASH_MS,
+  getPurgeAt,
+  isTrashExpired,
+} from './course-trash.constants';
+
+type PermanentDeleteInput = {
+  organizationId: string;
+  courseId: string;
+  instructorId?: string;
+  requireExpired: boolean;
+};
 
 @Injectable()
 export class CoursesRepository {
@@ -41,6 +53,7 @@ export class CoursesRepository {
     return this.prisma.course.findFirst({
       where: {
         id: courseId,
+        deletedAt: null,
         ...(organizationId ? { organizationId } : {}),
       },
       include: {
@@ -115,6 +128,7 @@ export class CoursesRepository {
       where: {
         id: courseId,
         organizationId,
+        deletedAt: null,
         chain: { instructorId },
       },
       select: {
@@ -155,6 +169,7 @@ export class CoursesRepository {
       where: {
         id: courseId,
         organizationId,
+        deletedAt: null,
         chain: { instructorId },
       },
       select: {
@@ -1317,5 +1332,488 @@ export class CoursesRepository {
         timeout: 20000,
       },
     );
+  }
+
+  async softDeleteCourse(input: {
+    organizationId: string;
+    instructorId: string;
+    courseId: string;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Khóa dòng Course để ngăn hai request
+      // cùng thay đổi trạng thái.
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT c.id
+      FROM courses c
+      JOIN course_chains cc
+        ON cc.id = c.chain_id
+      WHERE c.id = ${input.courseId}::uuid
+        AND c.organization_id = ${input.organizationId}::uuid
+        AND cc.instructor_id = ${input.instructorId}::uuid
+      FOR UPDATE OF c
+    `;
+
+      if (locked.length === 0) {
+        return { status: 'NOT_FOUND' as const };
+      }
+
+      const course = await tx.course.findUnique({
+        where: { id: input.courseId },
+        select: {
+          id: true,
+          status: true,
+          lockedAt: true,
+          deletedAt: true,
+        },
+      });
+
+      if (!course || course.deletedAt !== null) {
+        return { status: 'NOT_FOUND' as const };
+      }
+
+      if (
+        course.status !== COURSE_STATUS.DRAFT &&
+        course.status !== COURSE_STATUS.REJECTED
+      ) {
+        return { status: 'INVALID_STATUS' as const };
+      }
+
+      if (course.lockedAt !== null) {
+        return { status: 'LOCKED' as const };
+      }
+
+      const deletedAt = new Date();
+
+      await tx.course.update({
+        where: { id: course.id },
+        data: {
+          deletedAt,
+          deletedBy: input.instructorId,
+        },
+      });
+
+      return {
+        status: 'DELETED' as const,
+        courseId: course.id,
+        deletedAt,
+        purgeAt: getPurgeAt(deletedAt),
+      };
+    });
+  }
+
+  findCourseTrash(organizationId: string, instructorId: string) {
+    return this.prisma.course.findMany({
+      where: {
+        organizationId,
+        chain: {
+          instructorId,
+        },
+        deletedAt: {
+          not: null,
+        },
+      },
+      select: {
+        id: true,
+        chainId: true,
+        name: true,
+        versionNumber: true,
+        status: true,
+        deletedAt: true,
+        deletedBy: true,
+      },
+      orderBy: {
+        deletedAt: 'desc',
+      },
+    });
+  }
+
+  async restoreCourse(input: {
+    organizationId: string;
+    instructorId: string;
+    courseId: string;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      // Tìm chain của Course.
+      const target = await tx.course.findFirst({
+        where: {
+          id: input.courseId,
+          organizationId: input.organizationId,
+          chain: {
+            instructorId: input.instructorId,
+          },
+          deletedAt: {
+            not: null,
+          },
+        },
+        select: {
+          id: true,
+          chainId: true,
+        },
+      });
+
+      if (!target) {
+        return { status: 'NOT_FOUND' as const };
+      }
+
+      // Khóa chain để các thao tác trên cùng chuỗi
+      // có thể phối hợp đồng thời.
+      await tx.$queryRaw`
+      SELECT id
+      FROM course_chains
+      WHERE id = ${target.chainId}::uuid
+      FOR UPDATE
+    `;
+
+      // Khóa bản cần Restore.
+      await tx.$queryRaw`
+      SELECT id
+      FROM courses
+      WHERE id = ${input.courseId}::uuid
+      FOR UPDATE
+    `;
+
+      // Đọc lại điều kiện sau khi khóa.
+      const course = await tx.course.findFirst({
+        where: {
+          id: input.courseId,
+          organizationId: input.organizationId,
+          chain: {
+            instructorId: input.instructorId,
+          },
+          deletedAt: {
+            not: null,
+          },
+        },
+      });
+
+      if (!course || !course.deletedAt) {
+        return { status: 'NOT_FOUND' as const };
+      }
+
+      if (isTrashExpired(course.deletedAt)) {
+        return { status: 'EXPIRED' as const };
+      }
+
+      // Tìm phiên bản khác đang soạn.
+      const conflict = await tx.course.findFirst({
+        where: {
+          chainId: course.chainId,
+          id: { not: course.id },
+          deletedAt: null,
+          status: {
+            in: ['Draft', 'Submitted', 'Rejected'],
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (conflict) {
+        return { status: 'VERSION_CONFLICT' as const };
+      }
+
+      // Khôi phục.
+      await tx.course.update({
+        where: { id: course.id },
+        data: {
+          deletedAt: null,
+          deletedBy: null,
+        },
+      });
+
+      return {
+        status: 'RESTORED' as const,
+        courseId: course.id,
+      };
+    });
+  }
+
+  async permanentDeleteCourse(input: PermanentDeleteInput) {
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Khóa quota của Organization.
+      await tx.$executeRaw`
+      INSERT INTO organization_quota_locks
+        (organization_id, created_at, updated_at)
+      VALUES (
+        ${input.organizationId}::uuid,
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT (organization_id) DO NOTHING
+    `;
+
+      await tx.$queryRaw`
+      SELECT organization_id
+      FROM organization_quota_locks
+      WHERE organization_id = ${input.organizationId}::uuid
+      FOR UPDATE
+    `;
+
+      // 2. Đọc Course để xác định chain.
+      const initial = await tx.course.findFirst({
+        where: {
+          id: input.courseId,
+          organizationId: input.organizationId,
+        },
+        select: {
+          chainId: true,
+        },
+      });
+
+      if (!initial) {
+        return { status: 'NOT_FOUND' as const };
+      }
+
+      // 3. Khóa chain.
+      await tx.$queryRaw`
+      SELECT id
+      FROM course_chains
+      WHERE id = ${initial.chainId}::uuid
+      FOR UPDATE
+    `;
+
+      // 4. Khóa Course.
+      await tx.$queryRaw`
+      SELECT id
+      FROM courses
+      WHERE id = ${input.courseId}::uuid
+      FOR UPDATE
+    `;
+
+      // 5. Đọc lại dữ liệu và các Media references.
+      const course = await tx.course.findFirst({
+        where: {
+          id: input.courseId,
+          organizationId: input.organizationId,
+          ...(input.instructorId
+            ? {
+                chain: {
+                  instructorId: input.instructorId,
+                },
+              }
+            : {}),
+        },
+        include: {
+          chain: {
+            select: {
+              instructorId: true,
+            },
+          },
+          modules: {
+            include: {
+              lessons: {
+                include: {
+                  materials: {
+                    select: {
+                      fileId: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!course) {
+        return { status: 'NOT_FOUND' as const };
+      }
+
+      if (!course.deletedAt) {
+        return { status: 'NOT_IN_TRASH' as const };
+      }
+
+      if (input.requireExpired && !isTrashExpired(course.deletedAt)) {
+        return { status: 'NOT_EXPIRED' as const };
+      }
+
+      // 6. Thu thập toàn bộ MediaFile ID.
+      const fileIds = new Set<string>();
+
+      if (course.coverFileId) {
+        fileIds.add(course.coverFileId);
+      }
+
+      for (const module of course.modules) {
+        for (const lesson of module.lessons) {
+          for (const material of lesson.materials) {
+            fileIds.add(material.fileId);
+          }
+        }
+      }
+
+      // 7. Xóa Course và dữ liệu phụ thuộc.
+      await tx.course.delete({
+        where: { id: course.id },
+      });
+
+      // 8. Kiểm tra xem chain còn phiên bản không.
+      const remainingVersions = await tx.course.count({
+        where: {
+          chainId: course.chainId,
+        },
+      });
+
+      if (remainingVersions === 0) {
+        await tx.courseChain.delete({
+          where: { id: course.chainId },
+        });
+      }
+
+      // 9. Release chỉ những MediaFile
+      // không còn tham chiếu.
+      const releasedFileIds: string[] = [];
+      const releasedFiles: Array<{
+        storageKey: string;
+        resourceType: 'image' | 'video' | 'raw';
+        deliveryType: string;
+      }> = [];
+      for (const fileId of fileIds) {
+        const coverRefs = await tx.course.count({
+          where: { coverFileId: fileId },
+        });
+
+        const materialRefs = await tx.material.count({
+          where: { fileId },
+        });
+
+        if (coverRefs > 0 || materialRefs > 0) {
+          continue;
+        }
+
+        const released = await tx.mediaFile.updateMany({
+          where: {
+            id: fileId,
+            organizationId: input.organizationId,
+            status: 'Ready',
+            releasedAt: null,
+          },
+          data: {
+            releasedAt: new Date(),
+          },
+        });
+
+        if (released.count === 1) {
+          releasedFileIds.push(fileId);
+          const file = await tx.mediaFile.findUniqueOrThrow({
+            where: { id: fileId },
+            select: {
+              storageKey: true,
+              mimeType: true,
+              deliveryType: true,
+            },
+          });
+
+          const resourceType: 'image' | 'video' | 'raw' =
+            file.mimeType.startsWith('image/')
+              ? 'image'
+              : file.mimeType.startsWith('video/')
+                ? 'video'
+                : 'raw';
+
+          releasedFiles.push({
+            storageKey: file.storageKey,
+            resourceType,
+            deliveryType: file.deliveryType,
+          });
+        }
+      }
+
+      // 10. Ghi event CourseDeleted.
+      await tx.outboxEvent.create({
+        data: {
+          aggregateType: 'Course',
+          aggregateId: course.id,
+          organizationId: input.organizationId,
+          eventType: 'CourseDeleted',
+          occurredAt: new Date(),
+          payload: {
+            courseId: course.id,
+            chainId: course.chainId,
+            organizationId: input.organizationId,
+            instructorId: course.chain.instructorId,
+            releasedFiles,
+          },
+        },
+      });
+
+      return {
+        status: 'DELETED' as const,
+        courseId: course.id,
+        chainDeleted: remainingVersions === 0,
+        releasedFileIds,
+      };
+    });
+  }
+
+  findExpiredTrash(limit = 20) {
+    const cutoff = new Date(Date.now() - COURSE_TRASH_MS);
+
+    return this.prisma.course.findMany({
+      where: {
+        deletedAt: {
+          lte: cutoff,
+        },
+      },
+      select: {
+        id: true,
+        organizationId: true,
+      },
+      orderBy: [{ deletedAt: 'asc' }, { id: 'asc' }],
+      take: limit,
+    });
+  }
+
+  findPendingCourseDeletionJobs(limit = 20) {
+    return this.prisma.outboxEvent.findMany({
+      where: {
+        eventType: 'CourseDeleted',
+        publishedAt: null,
+        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: new Date() } }],
+      },
+      orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+      take: limit,
+    });
+  }
+
+  async claimCourseDeletionJob(id: string) {
+    const now = new Date();
+
+    const result = await this.prisma.outboxEvent.updateMany({
+      where: {
+        id,
+        eventType: 'CourseDeleted',
+        publishedAt: null,
+        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+      },
+      data: {
+        nextAttemptAt: new Date(now.getTime() + 120_000),
+        attempts: { increment: 1 },
+      },
+    });
+
+    return result.count === 1;
+  }
+
+  markCourseDeletionJobCompleted(id: string) {
+    return this.prisma.outboxEvent.update({
+      where: { id },
+      data: {
+        publishedAt: new Date(),
+        nextAttemptAt: null,
+        lastError: null,
+      },
+    });
+  }
+
+  markCourseDeletionJobFailed(id: string, error: string) {
+    return this.prisma.outboxEvent.update({
+      where: { id },
+      data: {
+        lastError: error.slice(0, 1000),
+        nextAttemptAt: new Date(Date.now() + 60_000),
+      },
+    });
   }
 }

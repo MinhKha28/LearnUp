@@ -373,7 +373,7 @@ export class InternalCoursesService {
       where: {
         organizationId,
         instructorId: { in: instructorIds },
-        courses: { some: {} },
+        courses: { some: { deletedAt: null } },
       },
       _count: { _all: true },
     });
@@ -498,7 +498,9 @@ export class InternalCoursesService {
       };
     } catch (error) {
       if (error instanceof StorageProviderError) {
-        this.logger.error(`Material signed URL generation failed: ${error.name}`);
+        this.logger.error(
+          `Material signed URL generation failed: ${error.name}`,
+        );
 
         throw new ServiceUnavailableException({
           code: 'MATERIAL_URL_UNAVAILABLE',

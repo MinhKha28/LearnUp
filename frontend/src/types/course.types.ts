@@ -356,3 +356,36 @@ export interface ICreateReadingMaterialResponse {
   wordCount: number;
   extractionWarning: string | null;
 }
+
+/**
+ * UC14.5 - Course Trash
+ * A deleted Course remains in Trash for 7 days.
+ */
+export interface ICourseTrashItem {
+  id: string;
+  chainId: string;
+  name: string;
+  versionNumber: number;
+  status: "Draft" | "Rejected";
+  deletedAt: string;
+  deletedBy: string | null;
+  purgeAt: string;
+}
+
+export interface ISoftDeleteCourseResult {
+  courseId: string;
+  deletedAt: string;
+  purgeAt: string;
+}
+
+export interface IRestoreCourseResult {
+  courseId: string;
+  restored: boolean;
+}
+
+export interface IPermanentDeleteCourseResult {
+  courseId: string;
+  permanentlyDeleted: boolean;
+  chainDeleted: boolean;
+  releasedFileCount: number;
+}

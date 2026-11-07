@@ -6,6 +6,7 @@ import type {
   ICourseListQuery,
   ICourseModule,
   ICourseStructure,
+  ICourseTrashItem,
   ICreateCourseLessonRequest,
   ICreateCourseModuleRequest,
   ICreateCourseRequest,
@@ -20,7 +21,10 @@ import type {
   IOrganizationCourseFilterInstructor,
   IOrganizationCourseListItem,
   IOrganizationCourseListQuery,
+  IPermanentDeleteCourseResult,
   IReadingUploadContext,
+  IRestoreCourseResult,
+  ISoftDeleteCourseResult,
   IUpdateCourseRequest,
   IUpdateCourseResponse,
   IUpdateCourseStructureRequest,
@@ -205,3 +209,33 @@ export const createReadingMaterialAPI = (
     },
   );
 };
+
+/**
+ * UC14.5 - Move a Course to Trash.
+ */
+export const softDeleteCourseAPI = (courseId: string) =>
+  axios.delete<IBackendRes<ISoftDeleteCourseResult>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}`,
+  );
+
+/**
+ * UC14.5 - Get the current Instructor's deleted Courses.
+ */
+export const fetchCourseTrashAPI = () =>
+  axios.get<IBackendRes<ICourseTrashItem[]>>("/api/v1/courses/trash");
+
+/**
+ * UC14.5 - Restore a Course from Trash.
+ */
+export const restoreCourseAPI = (courseId: string) =>
+  axios.post<IBackendRes<IRestoreCourseResult>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/restore`,
+  );
+
+/**
+ * UC14.5 - Permanently delete a Course in Trash.
+ */
+export const permanentDeleteCourseAPI = (courseId: string) =>
+  axios.delete<IBackendRes<IPermanentDeleteCourseResult>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/permanent`,
+  );
