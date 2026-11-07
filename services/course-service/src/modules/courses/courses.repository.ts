@@ -1664,7 +1664,11 @@ export class CoursesRepository {
       // 9. Release chỉ những MediaFile
       // không còn tham chiếu.
       const releasedFileIds: string[] = [];
-
+      const releasedFiles: Array<{
+        storageKey: string;
+        resourceType: 'image' | 'video' | 'raw';
+        deliveryType: string;
+      }> = [];
       for (const fileId of fileIds) {
         const coverRefs = await tx.course.count({
           where: { coverFileId: fileId },
@@ -1692,6 +1696,27 @@ export class CoursesRepository {
 
         if (released.count === 1) {
           releasedFileIds.push(fileId);
+          const file = await tx.mediaFile.findUniqueOrThrow({
+            where: { id: fileId },
+            select: {
+              storageKey: true,
+              mimeType: true,
+              deliveryType: true,
+            },
+          });
+
+          const resourceType: 'image' | 'video' | 'raw' =
+            file.mimeType.startsWith('image/')
+              ? 'image'
+              : file.mimeType.startsWith('video/')
+                ? 'video'
+                : 'raw';
+
+          releasedFiles.push({
+            storageKey: file.storageKey,
+            resourceType,
+            deliveryType: file.deliveryType,
+          });
         }
       }
 
@@ -1708,6 +1733,7 @@ export class CoursesRepository {
             chainId: course.chainId,
             organizationId: input.organizationId,
             instructorId: course.chain.instructorId,
+            releasedFiles,
           },
         },
       });
@@ -1736,6 +1762,58 @@ export class CoursesRepository {
       },
       orderBy: [{ deletedAt: 'asc' }, { id: 'asc' }],
       take: limit,
+    });
+  }
+
+  findPendingCourseDeletionJobs(limit = 20) {
+    return this.prisma.outboxEvent.findMany({
+      where: {
+        eventType: 'CourseDeleted',
+        publishedAt: null,
+        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: new Date() } }],
+      },
+      orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+      take: limit,
+    });
+  }
+
+  async claimCourseDeletionJob(id: string) {
+    const now = new Date();
+
+    const result = await this.prisma.outboxEvent.updateMany({
+      where: {
+        id,
+        eventType: 'CourseDeleted',
+        publishedAt: null,
+        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+      },
+      data: {
+        nextAttemptAt: new Date(now.getTime() + 120_000),
+        attempts: { increment: 1 },
+      },
+    });
+
+    return result.count === 1;
+  }
+
+  markCourseDeletionJobCompleted(id: string) {
+    return this.prisma.outboxEvent.update({
+      where: { id },
+      data: {
+        publishedAt: new Date(),
+        nextAttemptAt: null,
+        lastError: null,
+      },
+    });
+  }
+
+  markCourseDeletionJobFailed(id: string, error: string) {
+    return this.prisma.outboxEvent.update({
+      where: { id },
+      data: {
+        lastError: error.slice(0, 1000),
+        nextAttemptAt: new Date(Date.now() + 60_000),
+      },
     });
   }
 }

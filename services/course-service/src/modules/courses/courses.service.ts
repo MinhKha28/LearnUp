@@ -42,6 +42,7 @@ import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
 import { extractReadingText } from './reading-text-extractor';
 import { getPurgeAt } from './course-trash.constants';
 import { Interval } from '@nestjs/schedule';
+import { AssessmentClient } from '@/infrastructure/clients/assessment/assessment.client';
 
 @Injectable()
 export class CoursesService {
@@ -49,6 +50,7 @@ export class CoursesService {
     private readonly coursesRepository: CoursesRepository,
     private readonly tenantClient: TenantClient,
     private readonly learningClient: LearningClient,
+    private readonly assessmentClient: AssessmentClient,
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
   ) {}
 
@@ -403,7 +405,7 @@ export class CoursesService {
 
     const where: Prisma.CourseWhereInput = {
       organizationId: user.organizationId,
-
+      deletedAt: null,
       ...(search
         ? {
             name: {
@@ -1814,6 +1816,7 @@ export class CoursesService {
           permanentlyDeleted: true,
           chainDeleted: result.chainDeleted,
           releasedFileCount: result.releasedFileIds.length,
+          cleanupPending: true,
         };
     }
   }
@@ -1847,6 +1850,68 @@ export class CoursesService {
       }
     } finally {
       this.running = false;
+    }
+  }
+
+  @Interval(60_000)
+  async cleanupDeletedCourseResources() {
+    const jobs = await this.coursesRepository.findPendingCourseDeletionJobs();
+
+    for (const job of jobs) {
+      const claimed = await this.coursesRepository.claimCourseDeletionJob(
+        job.id,
+      );
+
+      if (!claimed) continue;
+
+      try {
+        const payload = job.payload as {
+          courseId?: string;
+          organizationId?: string;
+          releasedFiles?: Array<{
+            storageKey: string;
+            resourceType: 'image' | 'video' | 'raw';
+            deliveryType: string;
+          }>;
+        };
+
+        if (
+          !payload.courseId ||
+          !payload.organizationId ||
+          !Array.isArray(payload.releasedFiles)
+        ) {
+          throw new Error('Invalid CourseDeleted payload.');
+        }
+
+        // Step 1: Cleanup Assessment Service.
+        await this.assessmentClient.deleteCourseAssessments(
+          payload.organizationId,
+          payload.courseId,
+        );
+
+        // Step 2: Cleanup files no longer referenced.
+        for (const file of payload.releasedFiles) {
+          await this.storage.delete(file.storageKey, {
+            resourceType: file.resourceType,
+            deliveryType: file.deliveryType as
+              'upload' | 'private' | 'authenticated',
+          });
+        }
+
+        await this.coursesRepository.markCourseDeletionJobCompleted(job.id);
+
+        this.logger.log(`Course cleanup completed: ${payload.courseId}`);
+      } catch (error) {
+        this.logger.error(
+          `Course cleanup failed: ${job.aggregateId}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+
+        await this.coursesRepository.markCourseDeletionJobFailed(
+          job.id,
+          error instanceof Error ? error.message : 'Unknown cleanup error',
+        );
+      }
     }
   }
 }
