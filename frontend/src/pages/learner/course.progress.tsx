@@ -48,7 +48,7 @@ const ProgressDetails = ({
       ? formatDueAt(enrollment.dueAt, enrollment.dueTimezone)
       : null;
   const assessmentName = (id: string, kind: string) =>
-    names?.get(id) || (kind === "quiz" ? "Bài kiểm tra" : "Bài tập");
+    names?.get(id) || (kind === "quiz" ? "Bài trắc nghiệm" : "Bài tập");
   const completed = enrollment.status === "Completed";
   const statusLabel = ENROLLMENT_STATUS_LABELS[enrollment.status];
   return (
@@ -108,7 +108,7 @@ const ProgressDetails = ({
         <>
           {assessment?.state === "unavailable" && (
             <section className="course-progress-unavailable" role="alert">
-              <p>Chưa tải được thông tin bài kiểm tra/bài tập</p>
+              <p>Chưa tải được thông tin Bài trắc nghiệm và Bài tập</p>
               <LearnerButton onClick={reload}>Thử lại</LearnerButton>
             </section>
           )}
@@ -120,20 +120,20 @@ const ProgressDetails = ({
             {conditions?.missing.length ? (
               <ul>
                 {conditions.missing.map((item) => {
-                  const material = materials.find(
-                    (m) => m.materialId === item.id,
-                  );
-                  const label =
-                    item.kind === "material"
-                      ? material?.title || "Học liệu"
-                      : item.kind === "peerReview"
-                        ? `Hoàn thành chấm chéo: ${assessmentName(item.id, "assignment")}`
-                        : `Đạt điểm yêu cầu: ${assessmentName(item.id, item.kind)}`;
+                  let label: string;
                   let target = `${base}/assessments`;
                   if (item.kind === "material") {
+                    const material = materials.find((entry) => entry.materialId === item.id);
+                    label = material
+                      ? material.title || "Học liệu"
+                      : "Một Học liệu bắt buộc khác (xem trong chương trình học)";
                     target = material
                       ? LEARNER_ROUTES.lesson(enrollment.id, material.lessonId)
                       : base;
+                  } else if (item.kind === "peerReview") {
+                    label = `Hoàn thành chấm chéo: ${assessmentName(item.id, "assignment")}`;
+                  } else {
+                    label = `Đạt điểm yêu cầu: ${assessmentName(item.id, item.kind)}`;
                   }
                   return (
                     <li key={`${item.kind}:${item.id}`}>
@@ -148,7 +148,7 @@ const ProgressDetails = ({
                   ? conditions?.total === 0
                     ? "Khóa học chưa có điều kiện hoàn thành."
                     : "Đã đạt các điều kiện hiện có. Hệ thống đang ghi nhận kết quả hoàn thành."
-                  : "Các học liệu bắt buộc đã hoàn thành; thông tin bài kiểm tra/bài tập chưa có."}
+                  : "Các học liệu bắt buộc đã hoàn thành. Chưa có thông tin về Bài trắc nghiệm và Bài tập."}
               </p>
             )}
           </section>
@@ -185,11 +185,11 @@ const ProgressDetails = ({
           {assessment?.state === "ok" && (
             <section
               className="course-progress-remains"
-              aria-label="Bài kiểm tra và bài tập"
+              aria-label="Bài trắc nghiệm và Bài tập"
             >
-              <h2>Bài kiểm tra và bài tập</h2>
+              <h2>Bài trắc nghiệm và Bài tập</h2>
               {assessment.items.length === 0 ? (
-                <p>Không có bài kiểm tra hoặc bài tập bắt buộc.</p>
+                <p>Không có Bài trắc nghiệm hoặc Bài tập bắt buộc.</p>
               ) : (
                 <ul>
                   {assessment.items.map((item) => (

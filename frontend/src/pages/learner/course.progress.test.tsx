@@ -141,6 +141,8 @@ describe("UC28 real progress page", () => {
     const { container } = mount();
     await screen.findByText("Điều kiện hoàn thành: 1/4 đã đạt");
     await screen.findByText("Đạt điểm yêu cầu: Kiểm tra an toàn");
+    const assessmentSection = screen.getByRole("region", { name: "Bài trắc nghiệm và Bài tập" });
+    expect(within(assessmentSection).getByRole("heading", { name: "Bài trắc nghiệm và Bài tập" })).toBeTruthy();
     const missing = screen.getByRole("region", { name: "Điều kiện còn thiếu" });
     expect(within(missing).getAllByRole("listitem")).toHaveLength(3);
     expect(
@@ -171,7 +173,7 @@ describe("UC28 real progress page", () => {
     };
     progress.mockResolvedValueOnce(degraded).mockResolvedValue(fixture());
     mount();
-    await screen.findByText("Chưa tải được thông tin bài kiểm tra/bài tập");
+    await screen.findByText("Chưa tải được thông tin Bài trắc nghiệm và Bài tập");
     expect(
       screen.getByRole("region", { name: "Học liệu" }).textContent,
     ).toContain("Đọc tài liệu an toàn");
@@ -377,7 +379,7 @@ describe("UC28 real progress page", () => {
     mount();
 
     const missing = await screen.findByRole("region", { name: "Điều kiện còn thiếu" });
-    expect(within(missing).getByRole("link", { name: "Học liệu" }).getAttribute("href"))
+    expect(within(missing).getByRole("link", { name: "Một Học liệu bắt buộc khác (xem trong chương trình học)" }).getAttribute("href"))
       .toBe("/learner/courses/enrollment");
     expect(within(missing).getByRole("link", { name: "Đọc tài liệu an toàn" }).getAttribute("href"))
       .toBe("/learner/courses/enrollment/lessons/lesson");
@@ -414,7 +416,7 @@ describe("UC28 real progress page", () => {
   it("falls back to Vietnamese generic names if the assessment list fails", async () => {
     assessments.mockRejectedValue(new Error("unavailable"));
     mount();
-    await screen.findByText("Đạt điểm yêu cầu: Bài kiểm tra");
+    await screen.findByText("Đạt điểm yêu cầu: Bài trắc nghiệm");
     await waitFor(() => expect(assessments).toHaveBeenCalledTimes(1));
     expect(screen.getByText("Hoàn thành chấm chéo: Bài tập")).toBeTruthy();
   });
