@@ -1,13 +1,14 @@
 import { GATEWAY } from "../lib/config.mjs";
 import { assert, expectStatus } from "../lib/harness.mjs";
 import { data, request } from "../lib/http.mjs";
+import { literal, sql } from "../lib/db.mjs";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export default {
   id: "J5",
   title: "Learner opens curriculum, reports video/reading progress, completion is reflected",
-  services: ["api-gateway", "learning", "course"],
+  services: ["api-gateway", "learning", "course", "achievement-reporting", "kafka"],
   async run({ step, shared, skip }) {
     if (!shared.selfEnrollmentId) skip("no self-enrollment from J4");
     const { token } = shared.learner;
@@ -81,5 +82,24 @@ export default {
         assert.fail(`enrollment status is ${last?.status}, expected Completed`);
       },
     );
+    await step("exactly one Issued certificate for the completed enrollment within 15 s, listed for the learner", async () => {
+      // SQL: the learner certificate API lists certificates without their enrollment ID, so "one per enrollment" is read here.
+      const rows = () =>
+        sql("achievement_reporting_db", `SELECT id, status, coalesce(last_error, '') FROM certificates WHERE enrollment_id = ${literal(e)}`)
+          .split("\n")
+          .filter(Boolean)
+          .map((line) => line.split("|"));
+      let found = [];
+      for (let i = 0; i < 30 && !(found.length === 1 && found[0][1] === "Issued"); i++) {
+        await sleep(500);
+        found = rows();
+      }
+      assert.ok(
+        found.length === 1 && found[0][1] === "Issued",
+        `enrollment ${e}: expected exactly 1 Issued certificate, found ${found.length ? found.map(([id, status, error]) => `${id} ${status}${error ? ` (${error})` : ""}`).join(", ") : "none"}`,
+      );
+      const list = expectStatus(await request("GET", `${GATEWAY}/api/v1/certificates/me`, { token }), 200);
+      assert.ok(data(list).items.some((c) => c.id === found[0][0]), `certificate ${found[0][0]} of enrollment ${e} missing from /api/v1/certificates/me`);
+    });
   },
 };
