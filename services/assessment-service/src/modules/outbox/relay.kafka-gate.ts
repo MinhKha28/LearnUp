@@ -1,6 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CODES, KafkaJS } from '@confluentinc/kafka-javascript';
-import { RELAY_CONFIG, type RelayConfig } from './relay.config';
+import {
+  RELAY_CONFIG,
+  topicOf,
+  topicsOf,
+  type RelayConfig,
+} from './relay.config';
 import { GateFailure, OutboxGate } from './relay.gate';
 import type { RelayRow } from './relay.repository';
 
@@ -154,29 +159,34 @@ export class KafkaOutboxGate extends OutboxGate {
       }
       if (this.initialized) {
         await this.admin.fetchTopicMetadata({
-          topics: [this.config.topic],
+          topics: topicsOf(this.config),
           timeout: this.config.probeMs,
         });
       } else {
         await this.admin.listTopics({ timeout: this.config.probeMs });
-        try {
-          await this.admin.createTopics({
-            timeout: this.config.probeMs,
-            topics: [
-              {
-                topic: this.config.topic,
-                numPartitions: 3,
-                replicationFactor: this.config.replicationFactor,
-                configEntries: [{ name: 'retention.ms', value: '2592000000' }],
-              },
-            ],
-          });
-        } catch (error) {
-          if (
-            (error as { code?: number }).code !==
-            errors.ERR_TOPIC_ALREADY_EXISTS
-          )
-            throw error;
+        // One call for each topic: one that exists already must not stop the other from being made.
+        for (const topic of topicsOf(this.config)) {
+          try {
+            await this.admin.createTopics({
+              timeout: this.config.probeMs,
+              topics: [
+                {
+                  topic,
+                  numPartitions: 3,
+                  replicationFactor: this.config.replicationFactor,
+                  configEntries: [
+                    { name: 'retention.ms', value: '2592000000' },
+                  ],
+                },
+              ],
+            });
+          } catch (error) {
+            if (
+              (error as { code?: number }).code !==
+              errors.ERR_TOPIC_ALREADY_EXISTS
+            )
+              throw error;
+          }
         }
         if (generation !== this.generation) return false;
         this.initialized = true;
@@ -189,10 +199,20 @@ export class KafkaOutboxGate extends OutboxGate {
   }
 
   async send(rows: RelayRow[]): Promise<void> {
-    const messages = rows.map(message);
+    // One batch, the topic of each event (its order inside a topic is the order of the rows).
+    const byTopic = new Map<string, { key: string; value: string }[]>();
+    for (const row of rows) {
+      const topic = topicOf(row.event_type, this.config);
+      byTopic.set(topic, [...(byTopic.get(topic) ?? []), message(row)]);
+    }
     const started = Date.now();
     try {
-      await this.producer.send({ topic: this.config.topic, messages });
+      await this.producer.sendBatch({
+        topicMessages: [...byTopic].map(([topic, messages]) => ({
+          topic,
+          messages,
+        })),
+      });
     } catch (error) {
       // send() rejects on the first failure: let the other delivery reports of the batch arrive before the relay retries.
       if (classifyError(error).individual) {

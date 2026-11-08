@@ -32,7 +32,8 @@ public class EnrollmentEventDelivery {
     @Column(name = "organization_id", nullable = false, updatable = false)
     private UUID organizationId;
 
-    @Column(name = "enrollment_id", nullable = false, updatable = false)
+    /** Null for an event that is not about an Enrollment (PeerReviewAssigned). */
+    @Column(name = "enrollment_id", updatable = false)
     private UUID enrollmentId;
 
     @Column(name = "recipient_user_id", nullable = false, updatable = false)

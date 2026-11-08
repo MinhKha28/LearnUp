@@ -1,7 +1,8 @@
 import { DEFAULT_ORG_TIMEZONE } from '../learner-submissions/peer-review-calendar';
 
 /**
- * The two notices a reviewer reads in the bell of the app (UC33, UC49). The Learner reads them, so the text is Vietnamese.
+ * The notices of UC33 that this service still sends itself by REST (the waiver and the reminder); the notice of the hand-out
+ * is an event that notification-service words. The Learner reads them, so the text is Vietnamese.
  * The time is the one on the wall of the Organization, not UTC.
  */
 export interface ReviewNotice {
@@ -29,16 +30,6 @@ export function formatDeadline(
   );
   return `${part.get('day')}/${part.get('month')}/${part.get('year')} ${part.get('hour')}:${part.get('minute')}`;
 }
-
-/** The cycle closed and the reviews were handed out. */
-export const assignedNotice = (
-  total: number,
-  assignmentTitle: string,
-  reviewDueAt: Date,
-): ReviewNotice => ({
-  title: 'Bạn có bài cần chấm chéo',
-  message: `Bạn có ${total} bài nộp cần chấm cho "${assignmentTitle}". Vui lòng hoàn thành trước ${formatDeadline(reviewDueAt)}.`,
-});
 
 /** The Instructor waived the peer review duty of the Learner (UC33.2). The Learner reads it, so it is Vietnamese. */
 export const waivedNotice = (assignmentTitle: string): ReviewNotice => ({
