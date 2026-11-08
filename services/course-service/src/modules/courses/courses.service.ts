@@ -12,6 +12,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   PayloadTooLargeException,
   ServiceUnavailableException,
@@ -26,6 +27,8 @@ import { LearningClient } from '@infra/clients/learning/learning.client';
 import { Prisma } from '@generated/prisma/browser';
 import { STORAGE_PROVIDER } from '@/infrastructure/storage/storage.constants';
 import {
+  effectiveUploadLimit,
+  resolveStoragePlanLimits,
   StorageProviderError,
   StorageValidationError,
   type IStorageProvider,
@@ -43,6 +46,7 @@ import { UpdateMaterialDto } from './dto/update-material.dto';
 
 @Injectable()
 export class CoursesService {
+  private readonly logger = new Logger(CoursesService.name);
   constructor(
     private readonly coursesRepository: CoursesRepository,
     private readonly tenantClient: TenantClient,
@@ -1819,12 +1823,17 @@ export class CoursesService {
     let expectedVideoFormat: string | null = null;
     let wordCount: number | null = null;
     let extractionWarning: string | null = null;
+    const storagePlanLimits = resolveStoragePlanLimits(process.env);
 
     if (isVideo && videoSettings) {
-      maxBytes =
+      const productLimit =
         videoSettings.maxVideoSizeBytes < BigInt(VIDEO_UPLOAD_BUFFER_MAX_BYTES)
           ? videoSettings.maxVideoSizeBytes
           : BigInt(VIDEO_UPLOAD_BUFFER_MAX_BYTES);
+
+      maxBytes = BigInt(
+        effectiveUploadLimit(Number(productLimit), storagePlanLimits, 'video'),
+      );
 
       if (!videoSettings.allowedVideoMimeTypes.includes(file.mimetype)) {
         throw new BadRequestException('Video MIME type is not allowed.');
@@ -1833,11 +1842,15 @@ export class CoursesService {
       // Tái sử dụng validation của UC17.1.
       expectedVideoFormat = this.validateVideoSignature(file);
     } else if (isReading && readingSettings) {
-      maxBytes =
+      const productLimit =
         readingSettings.maxReadingSizeBytes <
         BigInt(READING_UPLOAD_BUFFER_MAX_BYTES)
           ? readingSettings.maxReadingSizeBytes
           : BigInt(READING_UPLOAD_BUFFER_MAX_BYTES);
+
+      maxBytes = BigInt(
+        effectiveUploadLimit(Number(productLimit), storagePlanLimits, 'raw'),
+      );
 
       if (
         file.mimetype !== 'application/pdf' ||
@@ -1870,9 +1883,11 @@ export class CoursesService {
     }
 
     if (BigInt(file.size) > maxBytes) {
-      throw new PayloadTooLargeException(
-        'Replacement exceeds the allowed size.',
-      );
+      throw new PayloadTooLargeException({
+        statusCode: 413,
+        code: 'FILE_TOO_LARGE',
+        message: 'Replacement exceeds the allowed size.',
+      });
     }
 
     // 7. Kiểm tra Subscription theo cơ chế upload hiện có.
@@ -1958,13 +1973,16 @@ export class CoursesService {
         throw new BadRequestException('Invalid replacement Reading metadata.');
       }
 
-      if (
-        storedFile.sizeBytes <= 0 ||
-        BigInt(storedFile.sizeBytes) > maxBytes
-      ) {
-        throw new PayloadTooLargeException(
-          'Uploaded replacement exceeds the size limit.',
-        );
+      if (storedFile.sizeBytes <= 0) {
+        throw new BadRequestException('Invalid uploaded replacement size.');
+      }
+
+      if (BigInt(storedFile.sizeBytes) > maxBytes) {
+        throw new PayloadTooLargeException({
+          statusCode: 413,
+          code: 'FILE_TOO_LARGE',
+          message: 'Uploaded replacement exceeds the size limit.',
+        });
       }
 
       // 11. Đảm bảo file mới không dùng lại storageKey cũ.
@@ -2029,6 +2047,21 @@ export class CoursesService {
           // Từ đây không được xóa storedFile mới.
           committed = true;
 
+          this.logger.log(
+            JSON.stringify({
+              action: 'COURSE_MATERIAL_TECHNICAL_REPLACEMENT',
+              organizationId,
+              actorId: user.userId,
+              courseId,
+              lessonId,
+              materialId,
+              fileId: result.fileId,
+              previousStorageKey: result.oldFile.storageKey,
+              newStorageKey: result.storageKey,
+              outcome: 'SUCCESS',
+            }),
+          );
+
           // 15. Dọn file Cloudinary cũ sau commit.
           // Đây là best-effort cleanup, không thuộc DB transaction.
           try {
@@ -2073,6 +2106,14 @@ export class CoursesService {
       }
 
       if (error instanceof StorageProviderError) {
+        if (error.code === 'TOO_LARGE') {
+          throw new PayloadTooLargeException({
+            statusCode: 413,
+            code: 'FILE_TOO_LARGE',
+            message: 'Replacement exceeds the storage upload limit.',
+          });
+        }
+
         throw new ServiceUnavailableException(
           'Unable to upload replacement file.',
         );

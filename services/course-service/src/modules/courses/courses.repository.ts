@@ -1697,9 +1697,15 @@ export class CoursesRepository {
               : ('raw' as const),
         };
 
-        // 10. Cập nhật MediaFile hiện tại.
-        // Không tạo MediaFile mới.
-        // Không thay đổi Material.fileId.
+        // BR-126: Technical replacement repairs the existing shared MediaFile.
+        // It intentionally preserves MediaFile.id and Material.fileId.
+        //
+        // TODO(UC22 / BR-125):
+        // Version-specific content replacement is a separate operation.
+        // For Draft/Rejected versions sharing an existing MediaFile,
+        // create a new MediaFile and update only that version's Material.fileId.
+        //
+        // Never reuse this in-place update for content replacement.
         const updatedFile = await tx.mediaFile.update({
           where: {
             id: material.file.id,

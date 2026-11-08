@@ -54,6 +54,24 @@ const formatBytes = (value: number | string): string => {
   return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 };
 
+const ensureApiSuccess = <T,>(response: IBackendRes<T>): T => {
+  const statusCode = Number(response.statusCode);
+
+  if (!Number.isInteger(statusCode) || statusCode < 200 || statusCode >= 300) {
+    const message = Array.isArray(response.error)
+      ? response.error.join(", ")
+      : response.message || response.error;
+
+    throw new Error(message || "The request could not be completed.");
+  }
+
+  if (response.data === undefined || response.data === null) {
+    throw new Error("The server response could not be verified.");
+  }
+
+  return response.data;
+};
+
 const CourseBuilderMaterialEdit = () => {
   const { courseId = "", lessonId = "", materialId = "" } = useParams();
 
@@ -108,7 +126,9 @@ const CourseBuilderMaterialEdit = () => {
           throw new Error("Lesson details not found.");
         }
 
-        const found = response.data.materials.find(
+        const lessonDetail = ensureApiSuccess(response);
+
+        const found = lessonDetail.materials.find(
           (item) => item.id === materialId,
         );
 
@@ -118,7 +138,7 @@ const CourseBuilderMaterialEdit = () => {
 
         if (cancelled) return;
 
-        setDetail(response.data);
+        setDetail(lessonDetail);
         setTitle(found.title);
         setIsRequired(found.isRequired);
         setReplacementFile(null);
@@ -248,26 +268,43 @@ const CourseBuilderMaterialEdit = () => {
             },
           );
 
-          if (!response.data?.fileId) {
-            // Response is unexpected. The DB commit
-            // status must be verified before retry.
+          const replaced = ensureApiSuccess(response);
+
+          if (
+            replaced.materialId !== materialId ||
+            replaced.fileId !== material.fileId
+          ) {
             throw new Error(
-              "File replacement status could not be confirmed. Reload the material before trying again.",
+              "File replacement response does not match the current material.",
             );
           }
+
+          fileReplaced = true;
 
           fileReplaced = true;
           setUploadingFile(false);
         }
 
         // STEP 2: Save metadata if changed.
-        if (metadataChanged) {
-          await updateMaterialAPI(courseId, lessonId, materialId, {
-            title: normalizedTitle,
 
-            // Required cannot change when Locked.
-            ...(locked ? {} : { isRequired }),
-          });
+        if (metadataChanged) {
+          const response = await updateMaterialAPI(
+            courseId,
+            lessonId,
+            materialId,
+            {
+              title: normalizedTitle,
+              ...(locked ? {} : { isRequired }),
+            },
+          );
+
+          const updated = ensureApiSuccess(response);
+
+          if (updated.id !== materialId) {
+            throw new Error(
+              "Updated material response does not match the current material.",
+            );
+          }
         }
 
         message.success("Learning material saved successfully.");
