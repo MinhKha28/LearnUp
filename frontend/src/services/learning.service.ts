@@ -83,9 +83,13 @@ export const enrollOptionalCourse = (courseId: string) =>
 export const withdrawOptionalCourse = (enrollmentId: string) =>
   apiPost<WithdrawalResult>(API_PATHS.withdrawal(enrollmentId), undefined);
 
-export const fetchMyEnrollments = (page: number, signal?: AbortSignal) =>
+export const fetchMyEnrollments = (
+  page: number,
+  filters: { q?: string; type?: string; status?: string },
+  signal?: AbortSignal,
+) =>
   apiGet<MyEnrollmentsPage>(API_PATHS.myEnrollments, {
-    params: { page },
+    params: { page, ...filters },
     signal,
   });
 

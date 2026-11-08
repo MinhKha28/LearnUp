@@ -1,3 +1,18 @@
+.learner-my-course-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+
+  > .ant-input-affix-wrapper {
+    flex: 2 1 min-content;
+  }
+
+  > .ant-select {
+    flex: 1 1 max-content;
+  }
+}
+
 .learner-my-course-list {
   display: flex;
   margin: 0;
@@ -98,6 +113,10 @@ a.learner-my-course-title:hover {
 }
 
 @media (max-width: 640px) {
+  .learner-my-course-filters > .ant-input-affix-wrapper {
+    flex-basis: 100%;
+  }
+
   .learner-my-course {
     flex-wrap: wrap;
     align-items: flex-start;

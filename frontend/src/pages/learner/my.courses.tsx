@@ -1,6 +1,6 @@
-import { App, Modal } from "antd";
+import { App, Modal, Spin } from "antd";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useNavigationType, useSearchParams } from "react-router-dom";
 
 import { CourseCover } from "@/components/learner/course.cover";
 import { LearnerEmptyState, LearnerErrorState, LearnerSkeleton } from "@/components/learner/learner.states";
@@ -16,6 +16,7 @@ import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import { buildMyCourseRow, type MyCourseRow } from "@/utils/my.courses.view";
 import { parsePageParam, resolvePageRedirect } from "@/utils/page.param";
 import { canWithdrawEnrollment, resolveWithdrawalOutcome, WITHDRAWAL_CONFIRMATION, WITHDRAWAL_MESSAGES } from "@/utils/withdrawal.outcome";
+import { MyCourseFilters } from "./my.course.filters";
 import "./my.courses.scss";
 
 const MY_COURSES_ERROR_MESSAGES: Record<string, string> = {
@@ -124,10 +125,79 @@ const MyCourseListRow = ({ row, item, onReload }: {
   );
 };
 
-const MyCoursesContent = ({ page }: { page: number }) => {
+const useMyCourseFilters = () => {
+  const [params, setParams] = useSearchParams();
+  const currentUrl = useRef({ params, setParams });
+  currentUrl.current = { params, setParams };
+  const { key } = useLocation();
+  const navigationType = useNavigationType();
+  const keyword = params.get("q")?.trim() ?? "";
+  const [draft, setDraft] = useState(keyword);
+  const [previousLocation, setPreviousLocation] = useState({ key, keyword });
+
+  if (previousLocation.key !== key) {
+    setPreviousLocation({ key, keyword });
+    if (previousLocation.keyword !== keyword || navigationType === "POP") {
+      setDraft(keyword);
+    }
+  }
+
+  useEffect(() => {
+    const q = draft.trim();
+    if (q === keyword) return;
+    const timer = setTimeout(() => {
+      const { params, setParams } = currentUrl.current;
+      const next = new URLSearchParams(params);
+      if (q) next.set("q", q);
+      else next.delete("q");
+      next.set("page", "1");
+      setParams(next);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [draft, keyword]);
+
+  const updateFilter = (name: "type" | "status", value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(name, value);
+    else next.delete(name);
+    next.set("page", "1");
+    setParams(next);
+  };
+
+  const clear = () => {
+    setDraft("");
+    const next = new URLSearchParams(params);
+    for (const filter of ["q", "type", "status"]) next.delete(filter);
+    next.set("page", "1");
+    setParams(next);
+  };
+
+  return {
+    q: keyword || undefined,
+    type: params.get("type") ?? undefined,
+    status: params.get("status") ?? undefined,
+    draft,
+    setDraft,
+    updateFilter,
+    clear,
+  };
+};
+
+const MyCoursesContent = ({
+  page, filters,
+}: { page: number; filters: ReturnType<typeof useMyCourseFilters> }) => {
   const navigate = useNavigate();
   const replacePage = useReplacePage();
-  const query = useApiQuery((signal) => fetchMyEnrollments(page, signal), [page]);
+  const { q, type, status, clear } = filters;
+  const [hasSettled, setHasSettled] = useState(false);
+  const query = useApiQuery(
+    (signal) => fetchMyEnrollments(page, { q, type, status }, signal),
+    [page, q, type, status],
+    true,
+  );
+  useEffect(() => {
+    if (query.status !== "loading") setHasSettled(true);
+  }, [query.status]);
   useLearningRefresh(query.reload, "");
   const redirect = query.status === "success" ? resolvePageRedirect(query.data.meta, query.data.items.length) : null;
 
@@ -136,9 +206,6 @@ const MyCoursesContent = ({ page }: { page: number }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [redirect]);
 
-  if (query.status === "loading" || typeof redirect === "number") {
-    return <LearnerSkeleton variant="list" />;
-  }
   if (query.status === "error") {
     return (
       <LearnerErrorState
@@ -149,7 +216,20 @@ const MyCoursesContent = ({ page }: { page: number }) => {
       />
     );
   }
+  if (!query.data || typeof redirect === "number") {
+    return hasSettled
+      ? <Spin size="small" aria-label="Đang tải Khóa học" />
+      : <LearnerSkeleton variant="list" />;
+  }
   if (redirect === "empty") {
+    if (q || type || status) {
+      return (
+        <LearnerEmptyState
+          title="Không tìm thấy Khóa học phù hợp"
+          action={<LearnerButton onClick={clear}>Xóa bộ lọc</LearnerButton>}
+        />
+      );
+    }
     return (
       <LearnerEmptyState
         title="Bạn chưa có Khóa học nào"
@@ -160,15 +240,15 @@ const MyCoursesContent = ({ page }: { page: number }) => {
 
   const { items, meta } = query.data;
   return (
-    <>
-      {/* Giữ đúng thứ tự backend trả về (D22) */}
+    <div aria-busy={query.status === "loading"}>
+      {query.status === "loading" && <Spin size="small" aria-label="Đang tải Khóa học" />}
       <ul className="learner-my-course-list">
         {items.map((item) => (
           <MyCourseListRow key={item.enrollmentId} item={item} row={buildMyCourseRow(item)} onReload={query.reload} />
         ))}
       </ul>
       <UrlPagination meta={meta} />
-    </>
+    </div>
   );
 };
 
@@ -176,6 +256,7 @@ const MyCourses = () => {
   const [searchParams] = useSearchParams();
   const replacePage = useReplacePage();
   const page = parsePageParam(searchParams.get("page"));
+  const filters = useMyCourseFilters();
 
   useEffect(() => {
     if (page === null) replacePage(1);
@@ -185,7 +266,8 @@ const MyCourses = () => {
   return (
     <LearnerPage className="learner-courses">
       <PageHeader title="Khóa học của tôi" subtitle="Các Khóa học bạn được phân công và đã tự đăng ký." />
-      {page === null ? <LearnerSkeleton variant="list" /> : <MyCoursesContent page={page} />}
+      <MyCourseFilters {...filters} />
+      {page === null ? <LearnerSkeleton variant="list" /> : <MyCoursesContent page={page} filters={filters} />}
     </LearnerPage>
   );
 };
