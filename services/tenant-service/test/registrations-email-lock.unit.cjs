@@ -160,7 +160,7 @@ test('the reopen-link email expires with the registration', async () => {
       organization: { name: 'Lock Test' },
       organizer: { email, fullName: 'Lock Owner' },
     },
-    { resendCount: 1, resendWindowStartedAt: new Date() },
+    {},
   );
   const { email: message } = log.find(
     (entry) => entry[0] === 'enqueueEmail',

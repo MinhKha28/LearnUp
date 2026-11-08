@@ -29,3 +29,7 @@ import './reading-completion.unit-test';
 
 import './tenant-access.unit-test';
 import './tenant-access-services.unit-test';
+
+import './progress.unit-test';
+import './internal-auth-guard.unit-test';
+import './assessment-status.unit-test';

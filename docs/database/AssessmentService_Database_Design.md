@@ -1,7 +1,7 @@
 # Thiết kế database assessment-service (`assessment_db`)
 
 Trạng thái: **14 bảng** trên `develop` sau migration `20261025000000_drop_completed_enrollments` (bản đầu `20260930084438_assessment` tạo 15 bảng, trong đó `completed_enrollments` đã bị bỏ).
-Tài liệu mô tả đúng những gì có trên `develop`, đã gồm PR UC33 (#173, chốt chu kỳ chấm chéo và chạy theo lịch) và PR `completion-snapshot` (#176), cả hai merge ngày 29/10/2026 (giờ Sài Gòn; 28/10 theo UTC), PR #189 (tệp đề bài nhận PDF/DOCX/ZIP, giới hạn tải lên theo gói lưu trữ, 29/10/2026) và PR #190 (bỏ cột `peer_review_obligation`, D10, 30/10/2026). Những việc đã quyết nhưng **chưa làm** (thêm `CHECK`) ghi rõ ở mục 8 và 10.
+Tài liệu mô tả đúng những gì có trên `develop`, đã gồm PR UC33 (#173, chốt chu kỳ chấm chéo và chạy theo lịch) và PR `completion-snapshot` (#176), cả hai merge ngày 29/10/2026 (giờ Sài Gòn; 28/10 theo UTC), PR #189 (tệp đề bài nhận PDF/DOCX/ZIP, giới hạn tải lên theo gói lưu trữ, 29/10/2026) và PR #190 (bỏ cột `peer_review_obligation`, D10, 30/10/2026). **UC33.2 (miễn nghĩa vụ chấm chéo, D11) đã làm ở nhánh `feat/assessment/uc33-2-waive-peer-review`** (viết trước khi merge; sau khi merge thì mô tả này nằm trên `develop`). Những việc đã quyết nhưng **chưa làm** (thêm `CHECK`) ghi rõ ở mục 8 và 10.
 Nhãn BR dùng số mới của bộ quy tắc v1.5 (`LearnUP_Business_Rules.docx`); mỗi số trích đều đã đối chiếu nội dung với bộ quy tắc, không lấy từ chú thích trong code (chú thích trong code còn lẫn số cũ và số mới).
 
 Nguồn: `services/assessment-service/prisma/schema.prisma`, hai file migration, và code trong `src/modules`. Những điều chưa kiểm chứng hoặc chưa quyết định ghi ở mục 7, 8 và 10, không suy đoán.
@@ -20,7 +20,7 @@ Hai điểm cần biết ngay:
 | Thời gian | `timestamptz`. `created_at` có `DEFAULT CURRENT_TIMESTAMP`; `updated_at` do ứng dụng điền |
 | Điểm | `numeric(5,2)` (điểm Quiz, điểm Assignment, điểm đạt) |
 | Xóa | Xóa Assessment kéo theo con bằng `ON DELETE CASCADE` (mục 3). Hai khóa ngoại dùng `RESTRICT` (`quiz_attempt_answers.question_id`, `submission_review_scores.criterion_id`) và một dùng `SET NULL` (`submission_reviews.cycle_id`) |
-| Khóa chặn tương tranh | Ba khóa tư vấn `pg_advisory_xact_lock(hashtext(...))`: theo Course (UC19.2, mục 4.1), theo `{assessmentId}:{learnerId}` (UC30, UC30.1) và theo `cycle:{assessmentId}` (đặt bài vào chu kỳ ở UC30 và UC30.1, và chốt chu kỳ ở UC33; mục 4.2, 4.3, 6). Chấm của Instructor dùng khóa dòng `SELECT … FOR UPDATE` trên bài nộp (UC32, mục 4.4) |
+| Khóa chặn tương tranh | Bốn khóa tư vấn `pg_advisory_xact_lock(hashtext(...))`: theo Course (UC19.2, mục 4.1), theo `{assessmentId}:{learnerId}` (UC30, UC30.1), theo `review:{submissionId}` (các lượt chấm của một bài lần lượt xong, UC31.1, mục 4.7) và theo `cycle:{assessmentId}` (đặt bài vào chu kỳ ở UC30 và UC30.1, và chốt chu kỳ ở UC33; mục 4.2, 4.3, 6). Chấm của Instructor dùng khóa dòng `SELECT … FOR UPDATE` trên bài nộp (UC32, mục 4.4) |
 
 ### 1.1 Truy vấn không lọc theo `organization_id`
 
@@ -72,7 +72,7 @@ Cột "Có code ghi" cho biết trên `develop` đã có chỗ nào ghi vào b�
 | 11 | `submission_review_scores` | Điểm từng tiêu chí trong một lượt đánh giá | | Có (cùng giao dịch với chấm của Instructor) |
 | 12 | `learner_accounts` | Tài khoản Learner bị vô hiệu hóa hoặc đã xóa, bảng thưa | | **Chưa** (chưa có consumer event) |
 | 13 | `platform_settings` | Bản sao tham số mặc định của nền tảng | BR-335 | **Chưa** (chỉ đọc, không có chỗ ghi; thiếu dòng thì dùng giá trị mặc định trong code) |
-| 14 | `outbox_events` | Event ghi cùng giao dịch với thay đổi | Quy ước outbox | Có; **chưa có relay đưa lên Kafka** |
+| 14 | `outbox_events` | Event ghi cùng giao dịch với thay đổi | Quy ước outbox | Có; relay đưa lên Kafka (mục 3.14) |
 
 assessment-service **không có** bảng Enrollment, Course, Certificate hay thông báo. Quyền làm bài của Learner (BR-210: Course Completed thì chỉ đọc; Halted và Withdrawn thì bị chặn) do learning-service trả lời từng lần qua REST `assessment-access` (L17), không lưu ở đây. Bảng `completed_enrollments` từng làm việc đó nhưng không có nguồn ghi, đã bị bỏ (mục 8).
 
@@ -130,8 +130,8 @@ Chưa có code ghi hai bảng; UC18.1 chỉ đọc chúng để hiển thị.
 | `recorded_attempt_id` | `uuid` | **Chưa có code dùng.** Điểm ghi nhận của Quiz hiện tính lúc đọc, không lưu |
 | `latest_submission_id` | `uuid` | Bài nộp mới nhất; không có khóa ngoại |
 | ~~`peer_review_obligation`~~ | (đã bỏ) | **Đã bỏ ở #190** (D10, quyết định của Hào ở #176). Cột từng chỉ được ghi `Missed` khi hết hạn đánh giá và không bao giờ được đặt lại khi Learner bù xong review của chu kỳ sau (BR-239). Nay "còn nợ chấm chéo" được tính từ các dòng `submission_reviews` bằng `peerReviewOf`, cùng hàm với `completion-snapshot`; migration `20261029000000_drop_peer_review_obligation` xóa cột, `markObligationMissed` bị bỏ |
-| `exempted_at` | `timestamptz` | Instructor miễn nghĩa vụ chấm chéo (BR-241, UC33.2). Cột và phép kiểm miễn đã có (đọc ở `owesPeerReviewDuty`, kết hợp với kết quả `peerReviewOf`), nhưng **chưa có code ghi**: người ghi là việc miễn nghĩa vụ UC33.2, **chưa làm** |
-| `exempted_by` | `uuid` | **Chưa có code dùng**; cùng người ghi UC33.2 (chưa làm) |
+| `exempted_at` | `timestamptz` | Instructor miễn nghĩa vụ chấm chéo (BR-241, UC33.2). **Ghi bởi** `POST /api/v1/assessments/assignments/{id}/peer-review/learners/{learnerId}/waiver` bằng `UPDATE ... WHERE exempted_at IS NULL`, nên hai yêu cầu cùng lúc chỉ có một bên ghi được. **Đọc bởi** `owesPeerReviewDuty` (Learner đã được miễn thì không còn bị coi là nợ khi nộp lại) và `completion-snapshot` (trả `Waived`, giữ nguyên `requiredCount` và `completedCount`) |
+| `exempted_by` | `uuid` | Instructor đã miễn (`userId` của người gọi), ghi cùng lúc với `exempted_at` |
 
 Duy nhất `(assessment_id, learner_id)`. Mỗi dòng đóng vai trò khóa đếm lượt cho một Learner trên một Assessment.
 
@@ -170,7 +170,7 @@ Duy nhất `(assessment_id, learner_id, submission_number)`. **Điểm ghi nhậ
 | `AwaitingFinalization` | Đã có đủ đánh giá, chờ chốt điểm | Chấm của Instructor (UC32): từ `AwaitingInstructor` |
 | `Finalized` | Đã chốt điểm | **Chưa có code đặt** (UC32.3) |
 
-`intervention_reason`: `PEER_REVIEW_DISABLED` (chấm chéo tắt) và `RESUBMITTED_AFTER_CUTOFF` (nộp lại sau mốc chốt, BR-213). UC33 thêm `TOO_FEW_SUBMISSIONS` (chu kỳ ít hơn N + 1 bài, BR-242) và `REVIEW_MISSED` (bài chưa đủ đánh giá hợp lệ khi hết hạn, BR-243), do việc chốt chu kỳ và việc hết hạn đánh giá ghi (mục 6).
+`intervention_reason`: `PEER_REVIEW_DISABLED` (chấm chéo tắt) và `RESUBMITTED_AFTER_CUTOFF` (nộp lại sau mốc chốt, BR-213). UC33 thêm `TOO_FEW_SUBMISSIONS` (chu kỳ ít hơn N + 1 bài, BR-242) và `REVIEW_MISSED` (bài chưa đủ đánh giá hợp lệ khi hết hạn, BR-243), do việc chốt chu kỳ và việc hết hạn đánh giá ghi (mục 6). UC31.1 thêm `SCORE_GAP_EXCEEDED` (các lượt chấm của bài lệch nhau quá ngưỡng của chu kỳ, BR-252, BR-253), ghi cùng lúc với `grading_status` `AwaitingInstructor` khi lượt chấm cuối cùng của bài xong (mục 4.7).
 
 ### 3.9 `peer_review_cycles`
 
@@ -211,7 +211,7 @@ Trong lúc chốt, mã UC33 đặt tạm giá trị `Closing` **bên trong một
 | `comment` | `varchar(2000)` | |
 | `completed_at` | `timestamptz` | |
 
-Chỉ mục: `(organization_id, reviewer_id)`. Không có chỉ mục theo `submission_id` hay `cycle_id` (mục 10).
+Chỉ mục: `(organization_id, reviewer_id)` (hàng đợi của Learner), `(submission_id)` (các lượt chấm của một bài nộp) và `(cycle_id, status)` (người chấm và lượt chấm `Pending` của một chu kỳ), thêm ở migration `20261105000000_peer_review_indexes`.
 
 #### 3.10.1 Giá trị của `status`
 
@@ -237,7 +237,9 @@ Bản sao tham số mặc định: `default_peer_review_cycle_days` 7, `default_
 
 ### 3.14 `outbox_events`
 
-`aggregate_type` B, `aggregate_id` B, `event_type` B, `organization_id`, `payload` `jsonb` B, `occurred_at` B, `published_at`. Chỉ mục `(published_at)`. Dòng được ghi cùng giao dịch với thay đổi nó thông báo. Xem mục 5.3 về việc gửi.
+`aggregate_type` B, `aggregate_id` B, `event_type` B, `organization_id`, `payload` `jsonb` B, `occurred_at` B, `published_at`, `attempts` B (mặc định 0), `last_error`, `next_attempt_at`. Chỉ mục `(published_at)`. Dòng được ghi cùng giao dịch với thay đổi nó thông báo. Xem mục 5.3 về việc gửi.
+
+**Relay (bước 22 và 23 của kế hoạch):** `RelayService` (`src/modules/outbox/relay.service.ts`) mỗi giây (`OUTBOX_POLL_INTERVAL_MS`) lấy tối đa 20 dòng (`OUTBOX_BATCH_SIZE`) chưa gửi, đã đến hạn và là dòng cũ nhất của cùng Learner (`payload->>'learnerId'`, cũng là key Kafka, dù event nói về Assessment nào), bằng `FOR UPDATE SKIP LOCKED`, nên hai relay hay hai bản của service không lấy cùng dòng và các event của một Learner đi đúng thứ tự ghi. Việc lấy, gửi qua `OutboxGate` và đặt `published_at` nằm trong một transaction: sập giữa chừng thì dòng chưa gửi và lần sau gửi lại (ít nhất một lần; bên nhận chịu trùng `eventId`). Gate báo lỗi **của từng dòng** (không dựng được message: thiếu tổ chức hoặc thiếu `learnerId`; message quá lớn) thì relay gửi từng dòng, nên một dòng hỏng không giữ các dòng khác; lỗi **của đích** (Kafka không trả lời, mạng) thì giữ cả lô và không gửi từng dòng, vì mỗi lần thử lại chờ Kafka thêm và giao dịch sẽ hết giờ. Dòng hỏng tăng `attempts`, ghi mã `last_error` (`KAFKA_<số>`, `OUTBOX_SERIALIZATION` hoặc `OUTBOX_UNKNOWN`; không bao giờ ghi nội dung lỗi) và chờ `next_attempt_at` gấp đôi mỗi lần (`OUTBOX_BACKOFF_MS` đến `OUTBOX_BACKOFF_MAX_MS`); từ `OUTBOX_ALERT_ATTEMPTS` lần trở đi mỗi lần thất bại ghi log `OUTBOX_RETRY_ALERT`. `KafkaOutboxGate` hỏi `ready()` (một yêu cầu metadata, giới hạn thời gian) trước khi khóa dòng nên Kafka tắt thì không giữ transaction mở; sau 3 lần thăm dò thất bại liên tiếp, hoặc một lần quá giờ, nó dựng lại client Kafka. Topic `learnup.assessment.learner-assessment-events` (`OUTBOX_TOPIC`) có 3 phân vùng, lưu 30 ngày, khóa là `learnerId`; message là envelope v1 (`eventId` = id dòng outbox, `producer` = `assessment-service`). Producer idempotent, `acks=-1`. Dừng service thì relay chờ lô đang giữ xong rồi mới đóng Kafka và Prisma (`enableShutdownHooks`). Mỗi giờ xóa các dòng đã gửi quá 7 ngày (chỉ loại relay; topic giữ 30 ngày). Chỉ các loại trong `RELAYED_EVENT_TYPES` (hiện là `LearnerAssessmentStatusChanged`) đi qua relay; `AssignmentMinutesChanged` vẫn đi bằng REST. **Relay tắt theo mặc định khi chạy cục bộ (`OUTBOX_RELAY_ENABLED=false`)** vì cần một Kafka kết nối được; Compose bật nó. `EmptyOutboxGate` (không gửi đi đâu) chỉ còn để thử relay.
 
 ---
 
@@ -280,6 +282,12 @@ Không ghi gì. File đề bài do dịch vụ tải từ kho (URL dựng từ k
 
 Mô tả ở mục 6. Có trên `develop` từ PR #173 (29/10/2026).
 
+### 4.7 Learner xem bài cần chấm và chấm bài chéo (UC31, UC31.1)
+
+**UC31 (`GET /api/v1/assessments/learner/peer-reviews`, `.../{reviewId}`, `.../{reviewId}/file`).** Không ghi gì. Danh sách là các dòng `submission_reviews` của Learner (không phải của Instructor; không gồm dòng `Removed` hoặc `Expired`, người chấm đó không còn thấy bài), phân trang (`page` từ 1, `pageSize` mặc định 20, tối đa 100), xếp `Open` trước (hạn gần nhất trước), rồi `Done`, rồi `Closed` (mới nhất trước), kèm hạn đánh giá của chu kỳ. `pendingCount` và `total` đếm bằng câu truy vấn riêng trên **toàn bộ** hàng đợi, không phụ thuộc trang (BR-232); trước đây giới hạn 200 dòng có thể cắt mất bài còn phải chấm. Mỗi dòng có `state`: `Open` (còn `Pending`, chu kỳ `Assigned`, chưa tới `review_due_at`), `Done` (`Completed`) hoặc `Closed` (còn lại, kể cả `Missed`). Học viên không thấy tác giả (BR-233): câu trả lời không có id tác giả, id bài nộp, số lần nộp hay ngày nộp; tệp trả qua `.../file` với tên trung tính `submitted-work.<đuôi>` thay tên tệp gốc. Lượt chấm của người khác trả 404. Quyền vào Course theo L17: `Full` hoặc `ReadOnly` (Course đã Completed vẫn chấm được các lượt đã phân công, BR-211), `None` thì 409 `ENROLLMENT_NOT_ACTIVE`.
+
+**UC31.1 (`POST .../{reviewId}`).** Một transaction: khóa `review:{submissionId}`; đọc lại lượt chấm; `Done` hoặc đã bị giành mất thì 409 `REVIEW_ALREADY_GIVEN`, `Closed` thì 409 `REVIEW_CLOSED`; kiểm điểm từng tiêu chí bằng `scoreFromRubric` (cùng hàm với UC32.2: đủ mọi tiêu chí, số nguyên, không quá điểm tối đa, nhận xét không rỗng, BR-257; lỗi 400, chưa ghi gì); đặt `status = Completed`, `score` (BR-202), `comment`, `completed_at` bằng cập nhật có điều kiện `WHERE status = Pending` rồi ghi `submission_review_scores`; nếu mọi lượt chấm đã phân công của bài đều `Completed` và bài còn `AwaitingPeerReview` (chưa bị thay thế) thì chuyển bài: chênh lệch điểm lớn hơn `peer_review_cycles.score_gap` thì `AwaitingInstructor` với `intervention_reason = SCORE_GAP_EXCEEDED`, ngược lại `AwaitingFinalization` (BR-251, BR-252, BR-253); ghi event `LearnerAssessmentStatusChanged` với `reason = PEER_REVIEW_COMPLETED`, `status = PeerReviewCompleted` và `reviewId` qua `emitCompletionSignal`. Lượt chấm đã nộp là cuối cùng, không sửa được. Nghĩa vụ của người chấm không có cột riêng (D10): `completion-snapshot` tính lại từ các dòng, nên chấm đủ thì `Satisfied` ngay.
+
 ---
 
 ## 5. Dữ liệu trao đổi với service khác
@@ -298,16 +306,16 @@ Mô tả ở mục 6. Có trên `develop` từ PR #173 (29/10/2026).
 | Cho | Cách | Nội dung |
 |---|---|---|
 | learning-service | REST nội bộ `GET /internal/learners/{learnerId}/courses/{courseId}/assessment-activity` (UC25.4) | `hasQuizAttempt`, `hasSubmission`, `hasPeerReviewGiven`: Learner đã làm gì trong phiên bản Course (learning-service dùng để quyết định xóa Enrollment hay giữ ở Withdrawn khi Learner rút) |
-| learning-service | `completion-snapshot` (REST nội bộ) | **Có trên `develop`** từ PR #176 (29/10/2026): `GET /api/v1/internal/learners/{learnerId}/courses/{courseId}/completion-snapshot`, dành cho learning-service (guard kiểm khóa nội bộ dùng chung và header tổ chức, không kiểm danh tính riêng của learning-service; không qua gateway); hợp đồng ở `contracts/openapi/assessment-service.yaml`. Quy tắc `peerReview` (D10): tính theo **chu kỳ mới nhất mà Learner có phân công review** (BR-236, BR-238, BR-239): tất cả `Completed` là `Satisfied`, có `Missed` hoặc `Pending` quá hạn là `Missed`, còn lại `Pending`; không có phân công ở chu kỳ nào là `NotApplicable`. Một chu kỳ sau không có phân công cho Learner (ít hơn N + 1 bài, BR-242) không xóa `Missed` cũ. **`Waived` chưa được trả** và `exempted_at` chưa được đọc (chờ learning nhận `Waived`, L22). Nguồn là các dòng `submission_reviews`, không phải cột `peer_review_obligation` (đã bỏ ở #190, mục 3.5) |
+| learning-service | `completion-snapshot` (REST nội bộ) | **Có trên `develop`** từ PR #176 (29/10/2026): `GET /api/v1/internal/learners/{learnerId}/courses/{courseId}/completion-snapshot`, dành cho learning-service (guard kiểm khóa nội bộ dùng chung và header tổ chức, không kiểm danh tính riêng của learning-service; không qua gateway); hợp đồng ở `contracts/openapi/assessment-service.yaml`. Quy tắc `peerReview` (D10): tính theo **chu kỳ mới nhất mà Learner có phân công review** (BR-236, BR-238, BR-239): tất cả `Completed` là `Satisfied`, có `Missed` hoặc `Pending` quá hạn là `Missed`, còn lại `Pending`; không có phân công ở chu kỳ nào là `NotApplicable`. Nếu Instructor đã miễn (`exempted_at` khác rỗng, UC33.2) thì là `Waived` bất kể trạng thái các review, giữ nguyên số đếm; learning coi `Waived` là đã thỏa nghĩa vụ. Một chu kỳ sau không có phân công cho Learner (ít hơn N + 1 bài, BR-242) không xóa `Missed` cũ. `Waived` được trả từ UC33.2 (learning nhận từ L22, #207). Nguồn là các dòng `submission_reviews`, không phải cột `peer_review_obligation` (đã bỏ ở #190, mục 3.5) |
 
 ### 5.3 Event phát ra (qua `outbox_events`)
 
 | `event_type` | `aggregate_type` | Khi nào | Payload chính | Việc gửi hiện nay |
 |---|---|---|---|---|
 | `AssignmentMinutesChanged` | `Assignment` | Tạo, đổi thời lượng, xóa Assignment (`change`: `Created`, `DurationChanged`, `Deleted`) | `assignmentId`, `courseId`, `change`, `expectedDurationMinutes` | Gửi bằng **REST** sang course-service ngay sau commit (mục 4.1), không qua Kafka; dòng được đánh dấu đã gửi khi REST thành công |
-| `LearnerAssessmentStatusChanged` | `LearnerAssessmentState` | Mỗi lần nộp hoặc nộp lại | `assessmentId`, `courseId`, `learnerId`, `kind`, `status` (`Submitted` hoặc `Resubmitted`), `submissionId`, `previousSubmissionId`, `consecutiveCount`, `lockedUntil` | **Chưa có relay**: `OutboxService` là lớp rỗng, nên dòng được ghi nhưng không bao giờ được gửi và `published_at` luôn rỗng. Learning-service chờ event này (kế hoạch giai đoạn 5) |
+| `LearnerAssessmentStatusChanged` | `LearnerAssessmentState` | Mỗi lần nộp hoặc nộp lại, và mỗi lần Instructor miễn nghĩa vụ chấm chéo (UC33.2) | Chung: `assessmentId`, `courseId`, `learnerId`, `organizationId`, `kind`, `status`, `reason`, `revision`, `firstActivityAt`. Riêng: nộp và nộp lại có thêm `submissionId`, `previousSubmissionId`, `consecutiveCount`, `lockedUntil` (`status`: `Submitted` hoặc `Resubmitted`, `reason`: `ASSIGNMENT_SUBMITTED`); UC33.2 có thêm `waivedBy` (`status`: `PeerReviewWaived`, `reason`: `PEER_REVIEW_WAIVED`) | **Chưa có relay**: `OutboxService` là lớp rỗng, nên dòng được ghi nhưng không bao giờ được gửi và `published_at` luôn rỗng. Learning-service chờ event này (kế hoạch giai đoạn 5) |
 
-Payload của `LearnerAssessmentStatusChanged` sẽ được mở rộng (`reason`, `revision`, `firstActivityAt`…) ở giai đoạn 5; tài liệu này mô tả bản đang ghi.
+Mọi nơi ghi `LearnerAssessmentStatusChanged` đi qua hàm dùng chung `emitCompletionSignal(tx, …)` (`src/modules/outbox/completion-signal.ts`), gọi trong transaction của chính thay đổi. `reason` là một trong tám giá trị: `QUIZ_STARTED`, `QUIZ_SUBMITTED`, `ASSIGNMENT_SUBMITTED`, `ASSIGNMENT_FINALIZED`, `PEER_REVIEW_COMPLETED`, `PEER_REVIEW_WAIVED`, `ASSESSMENT_DISABLED`, `ASSESSMENT_ENABLED`; hai giá trị cuối nằm trong hợp đồng nhưng hàm từ chối phát cho tới khi UC38.3 công bố sự kiện của nó. `revision` là revision của `completion-snapshot` ngay sau thay đổi (tính trong cùng transaction), `firstActivityAt` là `first_activity_at` của dòng `learner_assessment_states` (BR-140). Đã gọi từ UC30, UC30.1 (`ASSIGNMENT_SUBMITTED`) và UC33.2 (`PEER_REVIEW_WAIVED`); UC29.1, UC31, UC31.1 và UC32.3 sẽ gọi cùng hàm. Relay (mục 3.14) đưa dòng lên topic `learnup.assessment.learner-assessment-events`; learning chưa có consumer (L18).
 
 ---
 
@@ -333,12 +341,12 @@ Mỗi bước tranh giành chu kỳ bằng cập nhật có điều kiện (`WHE
 |---|---|---|
 | Ràng buộc `CHECK` | Không có một cái nào | Mọi trạng thái là chuỗi tự do; chỉ ứng dụng giữ tập giá trị. Xem mục 8 |
 | Khóa ngoại mềm | `submissions.cycle_id`, `learner_assessment_states.latest_submission_id`, `recorded_attempt_id`, `quiz_attempt_answers.option_id`, mọi `organization_id`, `course_id`, `learner_id`, `reviewer_id` | Không có khóa ngoại; toàn vẹn do ứng dụng giữ |
-| Cột chưa có code dùng | `assessments.copied_from_id`, `learner_assessment_states.recorded_attempt_id`, `exempted_by` | Dành cho tính năng sau |
+| Cột chưa có code dùng | `assessments.copied_from_id`, `learner_assessment_states.recorded_attempt_id` | Dành cho tính năng sau |
 | Bảng chưa có luồng ghi | `quiz_questions`, `quiz_question_options`, `quiz_attempts`, `quiz_attempt_answers`, `learner_accounts`, `platform_settings` | Chờ UC18.3, UC29.1 và consumer event |
 | Điểm ghi nhận | Không lưu | Tính lúc đọc từ lượt làm hoặc bài nộp gần nhất |
 | Trạng thái Overdue, tính lại điểm khi đổi tham số | Không có | Đổi tham số chỉ áp dụng cho dữ liệu sinh sau (BR-335) |
 | Bảng `completed_enrollments` | Đã bỏ | Mục 8 |
-| Relay outbox sang Kafka | Chưa có | Giai đoạn 5 |
+| Relay outbox sang Kafka | Đã có (bước 22 và 23) | Xem mục Relay ở trên; chưa có consumer nào đọc topic |
 
 ---
 
@@ -352,7 +360,7 @@ Mỗi bước tranh giành chu kỳ bằng cập nhật có điều kiện (`WHE
 | D8 | Thêm `CHECK` cho các cột trạng thái | Hào đồng ý (bình luận trên #174): làm ở PR migration riêng, sau khi PR UC33 (#173) merge vì UC33 thêm giá trị mới. #173 đã merge nên có thể làm; **chưa làm**. Xem mục 10 việc 5 |
 | D9 | File nộp bài và file đề bài nằm ở kho Cloudinary qua `@learnup/ts-storage`; DB giữ khóa, dịch vụ tải file từ kho rồi trả qua API sau khi kiểm quyền. Chuyển sang giao hàng riêng tư với URL ký có hạn (việc P4) | Hào đồng ý hướng đi: dùng chung helper URL ký của course-service (#146, khoảng 28/10), không tự làm riêng. **Hiện file đang ở kiểu giao hàng công khai** (xem mục 10 việc 3) |
 | D10 | Xếp bài (`owesPeerReviewDuty`) và `completion-snapshot` dùng **cùng một định nghĩa** "còn nợ chấm chéo", qua hàm `peerReviewOf` (các dòng review của Learner trên Assignment đó, giờ của yêu cầu); **bỏ cột `peer_review_obligation`** và hàm ghi `markObligationMissed` | Hào quyết định ở #176 (D-038). **Đã làm ở #190** (merge 30/10/2026): migration mới theo chiều tiến xóa cột, giữ `exempted_at` và `exempted_by` cho UC33.2; người đọc, người ghi và cột đổi trong cùng một PR vì chưa có deployment. Hệ quả: Learner đã bù review ở chu kỳ sau không còn bị coi là nợ, và một review `Pending` đã quá hạn được tính là `Missed` ngay (như ở `completion-snapshot`) |
-| D11 | `completion-snapshot` chưa trả `Waived` và chưa đọc `exempted_at` | Hào (D-039): chờ learning nhận `Waived` (L22), rồi UC33.2 |
+| D11 | `completion-snapshot` trả `Waived` và đọc `exempted_at` | Hào (D-039): chờ learning nhận `Waived` (L22, đã merge #207 ngày 30/10/2026), rồi UC33.2. **Đã làm ở nhánh `feat/assessment/uc33-2-waive-peer-review`**: Instructor miễn bằng endpoint `waiver` (màn hình chọn người cần miễn đọc chi tiết chu kỳ ở `GET /api/v1/assessments/assignments/{id}/peer-review/cycles/{cycleId}`, phần bài nộp và nghĩa vụ của người chấm của UC33.1; mỗi bài nộp kèm điểm thấp nhất, cao nhất, chênh lệch và cờ cần xem lại khi chênh lệch lớn hơn ngưỡng của chu kỳ và bài chưa chốt (BR-252, BR-253), tính lúc đọc từ các lượt chấm Completed không phải của Instructor, không lưu thêm cột), snapshot trả `Waived` và tính là thỏa nghĩa vụ trong `eligible`. Learning chưa đánh giá lại Course sau một thay đổi chỉ của assessment (L18, consumer của `LearnerAssessmentStatusChanged`, chưa có relay): Learner sẽ được đánh dấu hoàn thành ở lần đánh giá kế tiếp |
 
 ---
 
@@ -387,10 +395,10 @@ Hướng dẫn bố trí cho dbdiagram.io chưa viết (mục 10).
 1. **Đã cập nhật** sau khi #173 và #176 merge (29/10/2026): mục 2, 3.5, 3.8.1, 3.9.1, 3.10.1, 4.2, 4.3, 4.6, 5.2 và 6 chuyển từ "đang chờ" thành hiện trạng, thêm `TOO_FEW_SUBMISSIONS` và `REVIEW_MISSED`. Việc bỏ cột `peer_review_obligation` (D10, #190) và việc đề bài nhận PDF/DOCX/ZIP với giới hạn theo gói lưu trữ (#189) đã cập nhật (mục 1.2, 3.5, 4.3 và 5). Khi việc còn lại vào (`CHECK`), cập nhật tiếp mục 8.
 2. **Rà các truy vấn không lọc theo `organization_id`** và lập bảng ngoại lệ như mục 1.1 của tài liệu learning-service.
 3. **File riêng tư (P4):** cả hai nơi upload (`assignment-media.service.ts`, `learner-submissions.service.ts`) gọi `storage.upload` với `resourceType: 'raw'` và **không truyền `deliveryType`**; `@learnup/ts-storage` khi đó dùng `upload`, tức giao hàng công khai. Dịch vụ tải file bằng `storage.getUrl(key, 'raw')` là URL thường. Vì vậy ai có URL đều tải được, bất kể kiểm quyền ở API; đây là vấn đề chính, hơn cả việc URL hết hạn. Hướng đi: dùng helper URL ký của course-service (#146) rồi chuyển sang `authenticated`/`private`. Gói Free của Cloudinary chỉ có link hết hạn qua `private_download_url` (api.cloudinary.com), liên quan câu hỏi mở về giới hạn Admin API. Cần kiểm trước: file đã upload là kiểu nào trên môi trường thật (đọc code chưa đủ).
-4. **Chỉ mục:** hiện chỉ có `assessments(organization_id, course_id)`, `submission_reviews(organization_id, reviewer_id)` và `outbox_events(published_at)` ngoài các khóa duy nhất. Các truy vấn theo `submissions.cycle_id`, `submission_reviews.cycle_id`, `submission_reviews.submission_id` chưa có chỉ mục. **Chưa đo, và tài liệu không nói chúng cần chỉ mục.** Bước cụ thể: chạy `EXPLAIN ANALYZE` các truy vấn của UC33 trên `cycle_id` / `submission_id` với dữ liệu seed, rồi mới quyết định.
+4. **Chỉ mục (đã làm ở #229, 05/11/2026):** trước đây chỉ có `assessments(organization_id, course_id)`, `submission_reviews(organization_id, reviewer_id)` và `outbox_events(published_at)` ngoài các khóa duy nhất. `EXPLAIN (ANALYZE)` trên 20 000 chu kỳ, 400 000 bài nộp và 800 000 lượt chấm cho thấy các truy vấn theo `cycle_id` và `submission_id` quét tuần tự cả bảng (chi tiết chu kỳ 110 ms, các lượt chấm của một bài nộp 26 ms, bài nộp của chu kỳ 15 ms, lượt `Pending` của chu kỳ 29 ms, người chấm của chu kỳ 26 ms). Sau khi thêm `submissions(cycle_id)`, `submission_reviews(submission_id)` và `submission_reviews(cycle_id, status)` chúng đều dưới 0,5 ms (quét chỉ mục); hàng đợi của Learner vẫn dùng `(organization_id, reviewer_id)`. `CREATE INDEX` khóa ghi bảng khi dựng; với bảng rất lớn, dựng trước bằng `CREATE INDEX CONCURRENTLY` cùng tên (migration dùng `IF NOT EXISTS`).
 5. **`CHECK` cho trạng thái (PR migration riêng; #173 đã merge nên có thể làm, chưa làm):** đếm trước các dòng có giá trị ngoài tập hợp; thêm từng constraint `NOT VALID` rồi `VALIDATE` (cách course-service đã làm); xác nhận Prisma không báo các `CHECK` viết tay là drift.
 6. **Các luồng ghi còn thiếu:** câu hỏi và đáp án Quiz (UC18.3), lượt làm Quiz và tự nộp khi hết giờ (UC29.1, BR-200), chốt điểm Assignment (UC32.3), consumer event cho `learner_accounts` và `platform_settings`, ghi `disabled_at`.
-7. **Relay outbox** và mở rộng payload `LearnerAssessmentStatusChanged` (giai đoạn 5). Endpoint `completion-snapshot` đã có (mục 5.2).
+7. **Consumer phía learning** (L18) của `LearnerAssessmentStatusChanged`; chuyển thông báo chấm chéo sang event (bước 24). Endpoint `completion-snapshot` đã có (mục 5.2).
 8. **Sơ đồ ERD cho dbdiagram.io** và số đo thực nghiệm: chưa làm.
 9. **File đề bài: đưa code khớp BR-189 (đã làm ở #189, merge 29/10/2026).** Đề bài nhận PDF, DOCX hoặc ZIP, cùng bảng loại tệp với bài nộp (BR-189 và quy ước CSDL mục 2). Cloudinary gói Free chỉ cho tệp raw tới 10 MB (Plus 20, Advanced 40), thấp hơn trần 50 MB, nên giới hạn thực tế là min(50 MB, giới hạn tệp raw của gói) (D-048): tệp quá cỡ bị từ chối trước khi tải lên với 413 `FILE_TOO_LARGE`, và API cho màn hình biết giới hạn đó (`maxFileBytes`). Không còn việc nào ở mục này.
 10. **Bỏ cột `peer_review_obligation` (D10): đã làm ở #190 (merge 30/10/2026).** Cột chỉ được ghi `Missed` và không bao giờ được đặt lại khi Learner bù xong các review của chu kỳ sau (BR-239), nên `owesPeerReviewDuty` vẫn coi Learner còn nợ. Cách làm: `owesPeerReviewDuty` gọi `peerReviewOf` (cùng hàm với `completion-snapshot`, đọc các dòng review trong transaction nộp lại, dưới khóa chu kỳ hiện có; còn nợ = kết quả `Missed` và chưa có `exempted_at`), đã bỏ `markObligationMissed`, và cột bị xóa bằng migration `20261029000000_drop_peer_review_obligation`. Không còn việc nào ở mục này.

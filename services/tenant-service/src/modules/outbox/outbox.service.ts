@@ -31,4 +31,12 @@ export class OutboxService {
       tx,
     );
   }
+
+  countResendEmails(email: string, since: Date): Promise<number> {
+    return this.outboxRepository.countResendEmails(
+      EMAIL_REQUESTED_EVENT,
+      email,
+      since,
+    );
+  }
 }

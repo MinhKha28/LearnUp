@@ -37,7 +37,11 @@ export class InternalAuthGuard implements CanActivate {
       'INTERNAL_SERVICE_KEY',
     );
 
-    if (!this.internalKeyMatches(internalKey, expectedInternalKey)) {
+    // Fail closed: a service that was started without a key must not accept a request whose key header is empty too.
+    if (
+      !expectedInternalKey.trim() ||
+      !this.internalKeyMatches(internalKey, expectedInternalKey)
+    ) {
       throw new UnauthorizedException(
         'Invalid or missing internal service key.',
       );
@@ -54,17 +58,18 @@ export class InternalAuthGuard implements CanActivate {
     const rawRole = request.headers[HEADER_NAMES.USER_ROLE];
     const role = typeof rawRole === 'string' ? parseUserRole(rawRole) : null;
 
+    const platformAdmin = role === 'ADMIN' && organizationId === undefined;
     if (
       typeof userId !== 'string' ||
-      typeof organizationId !== 'string' ||
-      !role
+      !role ||
+      (typeof organizationId !== 'string' && !platformAdmin)
     ) {
       throw new UnauthorizedException('Missing authenticated user context.');
     }
 
     request.user = {
       userId,
-      organizationId,
+      ...(typeof organizationId === 'string' && { organizationId }),
       role,
       isAuthenticated: true,
     };
