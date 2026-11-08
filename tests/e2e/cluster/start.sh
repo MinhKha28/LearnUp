@@ -95,6 +95,7 @@ DATABASE_URL=$PG/tenant_db?schema=public
 FRONTEND_URL=http://localhost:3000
 IDENTITY_SERVICE_URL=http://localhost:8081
 NOTIFICATION_SERVICE_URL=http://localhost:8082
+AUDIT_SERVICE_URL=http://localhost:8093
 DEV_FAKE_AUTH=false
 COURSE_CLIENT_MODE=http
 COURSE_SERVICE_URL=http://localhost:8083

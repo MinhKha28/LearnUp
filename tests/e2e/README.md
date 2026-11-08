@@ -16,6 +16,7 @@ state read back through the API, Kafka event observed) and never deletes anythin
 | J8 | Tenant isolation between organization A and B | gateway, tenant, course, learning, achievement-reporting |
 | J9 | Re-registration with the same email: replaced unverified registration, expired registration, active-account email (observation), 10 concurrent same-email registrations | gateway, tenant, identity, notification |
 | J10 | Assessment -> learning chain: a fresh Learner assigned the course submits a text-only Assignment (no peer review); the Enrollment moves NotStarted -> InProgress with the event's `firstActivityAt`; one published outbox row, no quarantine; a byte-identical duplicate event changes nothing | gateway, assessment, learning, kafka |
+| J11 | Audit trail (UC50, UC51): an Organizer deactivates and reactivates an Instructor through the gateway; the entries reach audit-service through the tenant outbox and relay, dated by the time of the action, with who, what, on what, whose and why; the Organizer, the Admin (real logins) read them, another Organization does not and gets 403 for the first one's Organization; time range, order and page size; nothing is written through the gateway; forged identity headers are replaced. Safe to run again (it picks its own entries by their reason) | gateway, identity, tenant, audit |
 
 ## Start the cluster (Linux host, Docker, JDK 21, Node 22)
 
