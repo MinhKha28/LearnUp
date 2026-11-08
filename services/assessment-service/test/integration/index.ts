@@ -28,4 +28,6 @@ import './enrollment-status.integration-test';
 import './completion-snapshot.integration-test';
 import './outbox-relay.integration-test';
 import './outbox-kafka.integration-test';
+import './quiz-take.integration-test';
+import './quiz-take-kafka.integration-test';
 import './instructor-submission-search.integration-test';

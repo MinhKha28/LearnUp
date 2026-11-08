@@ -96,7 +96,9 @@ export interface IAssignment {
 /** Error envelope from the NestJS HttpExceptionFilter. */
 export interface IAssessmentError {
   statusCode: number;
-  error?: { code?: string; message?: string | string[]; lockedUntil?: string } | string;
+  error?:
+    | { code?: string; message?: string | string[]; lockedUntil?: string }
+    | string;
   message?: string | string[];
 }
 
@@ -211,11 +213,20 @@ export interface ICreateQuizReq {
 
 /** UC18.4 payload: the five configuration fields (BR-195); send only what changed. */
 export type IUpdateQuizConfigReq = Partial<
-  Pick<ICreateQuizReq, "timeLimitMinutes" | "passingScore" | "isRequired" | "maxConsecutiveAttempts" | "lockoutHours">
+  Pick<
+    ICreateQuizReq,
+    | "timeLimitMinutes"
+    | "passingScore"
+    | "isRequired"
+    | "maxConsecutiveAttempts"
+    | "lockoutHours"
+  >
 >;
 
 /** UC19.3 payload: send only what changed. `promptFile: null` removes the attachment. */
-export type IUpdateAssignment = Partial<Omit<ICreateAssignment, "courseId" | "promptFile">> & {
+export type IUpdateAssignment = Partial<
+  Omit<ICreateAssignment, "courseId" | "promptFile">
+> & {
   promptFile?: IPromptFile | null;
 };
 
@@ -239,7 +250,8 @@ export interface ILearnerSubmissionSummary {
 
 /** UC30 step 1: the Assignment as the enrolled Learner reads it. */
 /** UC30 / UC30.1: where a submission goes (BR-213, BR-239). */
-export type SubmissionPlacement = "REPLACES_IN_CYCLE" | "OPEN_CYCLE" | "INSTRUCTOR";
+export type SubmissionPlacement =
+  "REPLACES_IN_CYCLE" | "OPEN_CYCLE" | "INSTRUCTOR";
 
 /** UC30.1: where a resubmission would go right now. */
 export interface IResubmissionOutlook {
@@ -257,7 +269,12 @@ export interface ILearnerAssignment {
   passingScore: number;
   expectedDurationMinutes: number | null;
   peerReviewEnabled: boolean;
-  rubric: { id: string; name: string; description: string; maxPoints: number }[];
+  rubric: {
+    id: string;
+    name: string;
+    description: string;
+    maxPoints: number;
+  }[];
   attempts: ILearnerAttemptState;
   /** BR-210: the Enrollment is Completed. */
   readOnly: boolean;
@@ -275,7 +292,12 @@ export interface ISubmissionReceipt {
   submissionNumber: number;
   submittedAt: string;
   gradingStatus: string;
-  cycle: { id: string; opensAt: string; closesAt: string; reviewDueAt: string } | null;
+  cycle: {
+    id: string;
+    opensAt: string;
+    closesAt: string;
+    reviewDueAt: string;
+  } | null;
   attempts: ILearnerAttemptState;
   /** Where the work went: a cycle (new or the same one), or straight to the Instructor. */
   placement: SubmissionPlacement;
@@ -284,7 +306,8 @@ export interface ISubmissionReceipt {
 }
 
 /** UC29: what the Learner sees about one Quiz or Assignment of a Course. */
-export type LearnerAssessmentStatus = "NotStarted" | "InProgress" | "AwaitingResult" | "Completed";
+export type LearnerAssessmentStatus =
+  "NotStarted" | "InProgress" | "AwaitingResult" | "Completed";
 
 export interface ILearnerAssessmentItem {
   id: string;
@@ -313,18 +336,38 @@ export interface ILearnerAssessmentList {
 
 /** UC30.2: the result of a Finalized submission. Reviewers are never named (BR-234). */
 export interface IGradingResult {
-  submission: { id: string; submissionNumber: number; submittedAt: string; fileName: string | null };
-  assignment: { id: string; courseId: string; title: string; passingScore: number };
+  submission: {
+    id: string;
+    submissionNumber: number;
+    submittedAt: string;
+    fileName: string | null;
+  };
+  assignment: {
+    id: string;
+    courseId: string;
+    title: string;
+    passingScore: number;
+  };
   finalScore: number;
   passed: boolean;
   finalizationComment: string | null;
   finalizedAt: string;
-  criteria: { id: string; name: string; maxPoints: number; averagePoints: number | null }[];
-  comments: { source: "PEER" | "INSTRUCTOR"; comment: string; completedAt: string | null }[];
+  criteria: {
+    id: string;
+    name: string;
+    maxPoints: number;
+    averagePoints: number | null;
+  }[];
+  comments: {
+    source: "PEER" | "INSTRUCTOR";
+    comment: string;
+    completedAt: string | null;
+  }[];
 }
 
 /** UC33: what a cycle of a peer review is called on the Instructor screen. */
-export type TPeerReviewCycleStatus = "Open" | "Assigned" | "InstructorOnly" | "Completed";
+export type TPeerReviewCycleStatus =
+  "Open" | "Assigned" | "InstructorOnly" | "Completed";
 
 export interface IPeerReviewCycleItem {
   id: string;
@@ -482,4 +525,105 @@ export interface IClosedPeerReviewCycle {
   reviewCount: number;
   closedAt: string;
   alreadyClosed: boolean;
+}
+
+/** UC29.1: a Quiz as the Learner sees it before starting (no question, no answer key). */
+export interface ILearnerQuiz {
+  id: string;
+  courseId: string;
+  title: string;
+  passingScore: number;
+  timeLimitMinutes: number | null;
+  questionCount: number;
+  isRequired: boolean;
+  /** BR-210: the Enrollment is Completed, so no new attempt can be started. */
+  readOnly: boolean;
+  attempts: ILearnerAttemptState;
+  /** The attempt being done now, to continue it. */
+  inProgressAttemptId: string | null;
+  /** BR-198: the best attempt. */
+  recordedScore: number | null;
+  passed: boolean | null;
+  submittedAttemptCount: number;
+}
+
+export interface IQuizAttemptQuestion {
+  id: string;
+  position: number;
+  type: "SingleChoice" | "MultipleChoice" | "TrueFalse" | string;
+  content: string;
+  options: { id: string; position: number; content: string }[];
+  selectedOptionIds: string[];
+}
+
+export interface IQuizAttemptInProgress {
+  status: "InProgress";
+  attemptId: string;
+  assessmentId: string;
+  attemptNumber: number;
+  title: string;
+  startedAt: string;
+  deadlineAt: string;
+  /** The clock of the server when the answer was built; the countdown starts from it, not from the clock of the device. */
+  serverNow: string;
+  remainingSeconds: number;
+  questions: IQuizAttemptQuestion[];
+  resumed?: boolean;
+}
+
+export interface IQuizAttemptResult {
+  status: "Submitted";
+  attemptId: string;
+  assessmentId: string;
+  attemptNumber: number;
+  title: string;
+  startedAt: string;
+  submittedAt: string;
+  submissionKind: "Manual" | "TimedOut" | string;
+  score: number;
+  passed: boolean;
+  correctCount: number;
+  totalQuestions: number;
+  passingScore: number;
+  recordedScore: number | null;
+  recordedPassed: boolean | null;
+  attempts: ILearnerAttemptState;
+  alreadySubmitted?: boolean;
+}
+
+export type IQuizAttemptView = IQuizAttemptInProgress | IQuizAttemptResult;
+
+export interface ISavedQuizAnswer {
+  questionId: string;
+  selectedOptionIds: string[];
+  remainingSeconds: number;
+}
+
+/** UC29.2: one attempt in the history of a Quiz. */
+export interface IQuizHistoryItem {
+  attemptId: string;
+  attemptNumber: number;
+  status: "InProgress" | "Submitted";
+  startedAt: string;
+  submittedAt: string | null;
+  submissionKind: "Manual" | "TimedOut" | string | null;
+  score: number | null;
+  passed: boolean | null;
+  correctCount: number | null;
+  totalQuestions: number;
+  /** BR-198: the attempt whose score is the recorded one. */
+  isRecorded: boolean;
+}
+
+export interface IQuizHistory {
+  quizId: string;
+  courseId: string;
+  title: string;
+  passingScore: number;
+  readOnly: boolean;
+  attempts: ILearnerAttemptState;
+  recordedScore: number | null;
+  passed: boolean | null;
+  /** Newest first. */
+  items: IQuizHistoryItem[];
 }
