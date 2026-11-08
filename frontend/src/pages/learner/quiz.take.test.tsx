@@ -390,6 +390,191 @@ describe("during the attempt", () => {
     expect(screen.getByText("Chưa lưu được")).toBeTruthy();
   });
 
+  const pressed = (text: string) =>
+    screen.getByText(text).closest("button")!.getAttribute("aria-pressed");
+
+  it("a failed save is not forgotten when another question is answered: the choice goes back, the question stays marked and the page does not say 'Đã lưu'", async () => {
+    await begin();
+    save.mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(screen.getByText("Phương án A"));
+    expect(
+      await screen.findByText(/Đáp án của câu này chưa được lưu lên máy chủ/),
+    ).toBeTruthy();
+    // the page shows what the server has, not a choice that never arrived
+    expect(pressed("Phương án A")).toBe("false");
+    expect(screen.getByText("Đã trả lời 0/3 câu")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Đúng"));
+    await waitFor(() =>
+      expect(save).toHaveBeenLastCalledWith("att-1", "q3", ["q3-o0"]),
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Đã trả lời 1/3 câu")).toBeTruthy(),
+    );
+    expect(screen.queryByText("Đã lưu")).toBeNull();
+    expect(screen.getByText("Chưa lưu được")).toBeTruthy();
+    expect(
+      screen.getAllByText(/Đáp án của câu này chưa được lưu lên máy chủ/)
+        .length,
+    ).toBe(1);
+    expect(screen.getByText(/Câu 1 chưa được lưu/)).toBeTruthy();
+  });
+
+  it("choosing the same option again after a failure sends the save again, and a save that works clears the mark", async () => {
+    await begin();
+    save.mockResolvedValueOnce(refused("SOMETHING_ELSE"));
+    fireEvent.click(screen.getByText("Phương án A"));
+    await screen.findByText(/Đáp án của câu này chưa được lưu lên máy chủ/);
+    expect(save).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText("Phương án A"));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(save).toHaveBeenLastCalledWith("att-1", "q1", ["q1-o0"]);
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/Đáp án của câu này chưa được lưu lên máy chủ/),
+      ).toBeNull(),
+    );
+    expect(pressed("Phương án A")).toBe("true");
+    expect(await screen.findByText("Đã lưu")).toBeTruthy();
+    expect(screen.getByText("Đã trả lời 1/3 câu")).toBeTruthy();
+  });
+
+  it("a failed save in a multiple-choice question goes back to the set the server has", async () => {
+    await begin();
+    fireEvent.click(screen.getByText("X"));
+    await waitFor(() =>
+      expect(save).toHaveBeenLastCalledWith("att-1", "q2", ["q2-o0"]),
+    );
+    await screen.findByText("Đã lưu");
+    save.mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(screen.getByText("Y"));
+    await screen.findByText(/Đáp án của câu này chưa được lưu lên máy chủ/);
+    expect(pressed("X")).toBe("true");
+    expect(pressed("Y")).toBe("false");
+  });
+
+  it("an older click that fails does not undo a newer click on the same question that works", async () => {
+    let failFirst: () => void = () => undefined;
+    save.mockImplementationOnce(
+      (() =>
+        new Promise((_resolve, reject) => {
+          failFirst = () => reject(new Error("offline"));
+        })) as never,
+    );
+    await begin();
+    fireEvent.click(screen.getByText("X"));
+    fireEvent.click(screen.getByText("Y"));
+    // the first save is on its way (the second waits behind it); now it fails
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    failFirst();
+    // the second save carries both options, so the question is saved as the Learner sees it
+    await waitFor(() =>
+      expect(save).toHaveBeenLastCalledWith("att-1", "q2", ["q2-o0", "q2-o1"]),
+    );
+    expect(await screen.findByText("Đã lưu")).toBeTruthy();
+    expect(pressed("X")).toBe("true");
+    expect(pressed("Y")).toBe("true");
+    expect(
+      screen.queryByText(/Đáp án của câu này chưa được lưu lên máy chủ/),
+    ).toBeNull();
+  });
+
+  it("the mark stays while a newer click on the question is still on its way, and goes when that save works", async () => {
+    let releaseLast: () => void = () => undefined;
+    let calls = 0;
+    save.mockImplementation(((
+      _a: string,
+      questionId: string,
+      ids: string[],
+    ) => {
+      calls += 1;
+      const reply = ok({
+        questionId,
+        selectedOptionIds: ids,
+        remainingSeconds: 1,
+      });
+      if (calls === 1) return Promise.reject(new Error("offline"));
+      if (calls === 2) return Promise.resolve(reply);
+      return new Promise((resolve) => {
+        releaseLast = () => resolve(reply);
+      });
+    }) as never);
+    await begin();
+    fireEvent.click(screen.getByText("X")); // call 1 fails
+    await screen.findByText(/Đáp án của câu này chưa được lưu lên máy chủ/);
+    fireEvent.click(screen.getByText("Y")); // call 2 works
+    fireEvent.click(screen.getByText("Z")); // call 3 is held
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(3));
+    expect(
+      screen.getByText(/Đáp án của câu này chưa được lưu lên máy chủ/),
+    ).toBeTruthy();
+    releaseLast();
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/Đáp án của câu này chưa được lưu lên máy chủ/),
+      ).toBeNull(),
+    );
+    expect(await screen.findByText("Đã lưu")).toBeTruthy();
+  });
+
+  it("when the newest click fails after an older one worked, the question goes back to the older choice", async () => {
+    await begin();
+    fireEvent.click(screen.getByText("X"));
+    await screen.findByText("Đã lưu");
+    save.mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(screen.getByText("Y"));
+    await screen.findByText(/Đáp án của câu này chưa được lưu lên máy chủ/);
+    expect(pressed("X")).toBe("true");
+    expect(pressed("Y")).toBe("false");
+  });
+
+  it("the question that failed is named in the footer and before submitting, and submitting still works", async () => {
+    await begin();
+    save.mockRejectedValueOnce(new Error("offline"));
+    fireEvent.click(screen.getByText("Phương án B"));
+    await screen.findByText(/Đáp án của câu này chưa được lưu lên máy chủ/);
+    submit.mockResolvedValue(ok(result()));
+    fireEvent.click(screen.getAllByText("Nộp bài")[0]);
+    expect(
+      await screen.findByText(
+        /Câu 1 chưa được lưu lên máy chủ nên sẽ không được chấm/,
+      ),
+    ).toBeTruthy();
+    fireEvent.click(screen.getAllByText("Nộp bài")[1]);
+    await waitFor(() => expect(submit).toHaveBeenCalledWith("att-1"));
+  });
+
+  it("when the page reads a running attempt again from the server, the marks are gone because the server is the truth", async () => {
+    await begin();
+    save.mockResolvedValueOnce(refused("ATTEMPT_SUBMITTED"));
+    // the server still has an attempt in progress, with the answer it really holds
+    attemptOf.mockResolvedValue(
+      ok(
+        running({
+          questions: [
+            question(
+              "q1",
+              "SingleChoice",
+              ["Phương án A", "Phương án B"],
+              ["q1-o1"],
+            ),
+            question("q2", "MultipleChoice", ["X", "Y", "Z"]),
+            question("q3", "TrueFalse", ["Đúng", "Sai"]),
+          ],
+        }),
+      ),
+    );
+    fireEvent.click(screen.getByText("Phương án A"));
+    await waitFor(() => expect(attemptOf).toHaveBeenCalled());
+    await waitFor(() => expect(pressed("Phương án B")).toBe("true"));
+    expect(pressed("Phương án A")).toBe("false");
+    expect(
+      screen.queryByText(/Đáp án của câu này chưa được lưu lên máy chủ/),
+    ).toBeNull();
+    expect(screen.queryByText(/chưa được lưu./)).toBeNull();
+  });
+
   it("when the server says the time is over, the attempt is read again and the result is shown", async () => {
     await begin();
     save.mockResolvedValueOnce(refused("ATTEMPT_EXPIRED"));
