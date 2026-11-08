@@ -12,39 +12,39 @@ export type ChangePasswordFields = {
 };
 
 const BACKEND_MESSAGES: Record<string, string> = {
-  "Current password is incorrect": "Current password is incorrect.",
+  "Current password is incorrect": "Mật khẩu hiện tại không đúng.",
   "New password cannot be the same as the current password":
-    "Choose a new password that is different from the current one.",
+    "Hãy chọn mật khẩu mới khác mật khẩu hiện tại.",
   "New password and confirmation password do not match":
-    "Passwords do not match.",
+    "Mật khẩu nhập lại không khớp.",
 };
 
 export const currentPasswordRules: Rule[] = [
-  { required: true, message: "Enter your current password." },
+  { required: true, message: "Hãy nhập mật khẩu hiện tại." },
 ];
 
 export const newPasswordRules: Rule[] = [
-  { required: true, message: "Enter a new password." },
-  { min: 8, message: "Use at least 8 characters." },
-  { max: 72, message: "Use at most 72 characters." },
+  { required: true, message: "Hãy nhập mật khẩu mới." },
+  { min: 8, message: "Mật khẩu cần ít nhất 8 ký tự." },
+  { max: 72, message: "Mật khẩu tối đa 72 ký tự." },
   ({ getFieldValue }) => ({
     validator(_, value?: string) {
       return !value || value !== getFieldValue("current")
         ? Promise.resolve()
         : Promise.reject(
-            new Error("Choose a password different from the current one."),
+            new Error("Hãy chọn mật khẩu khác mật khẩu hiện tại."),
           );
     },
   }),
 ];
 
 export const confirmPasswordRules: Rule[] = [
-  { required: true, message: "Confirm your new password." },
+  { required: true, message: "Hãy nhập lại mật khẩu mới." },
   ({ getFieldValue }) => ({
     validator(_, value?: string) {
       return !value || getFieldValue("password") === value
         ? Promise.resolve()
-        : Promise.reject(new Error("Passwords do not match"));
+        : Promise.reject(new Error("Mật khẩu nhập lại không khớp."));
     },
   }),
 ];
@@ -76,10 +76,10 @@ export const useChangePassword = () => {
         "";
       setError(
         BACKEND_MESSAGES[message] ??
-          "The password could not be changed. Please try again.",
+          "Chưa đổi được mật khẩu. Vui lòng thử lại.",
       );
     } catch {
-      setError("Could not connect to the server. Please try again later.");
+      setError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setSubmitting(false);
     }

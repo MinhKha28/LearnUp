@@ -18,7 +18,7 @@ export default function ResetPasswordPage() {
   const pending = useRef(false);
   const currentToken = useRef(token);
   currentToken.current = token;
-  const invalidLink = "This reset link is invalid, expired, or no longer usable. Request a new link.";
+  const invalidLink = "Liên kết đặt lại mật khẩu không hợp lệ, đã hết hạn hoặc không còn dùng được. Hãy yêu cầu liên kết mới.";
 
   useEffect(() => {
     // Also cover client-side entry. Initial hard loads are protected before CSS
@@ -64,11 +64,11 @@ export default function ResetPasswordPage() {
         setDone(true);
       } else {
         setError(result.error === "invalid-token" ? invalidLink
-          : "Unable to reset your password right now. Please try again later.");
+          : "Hiện chưa đặt lại được mật khẩu. Vui lòng thử lại sau.");
       }
     } catch {
       if (currentToken.current === submittedToken) {
-        setError("Unable to reset your password right now. Please try again later.");
+        setError("Hiện chưa đặt lại được mật khẩu. Vui lòng thử lại sau.");
       }
     } finally {
       pending.current = false;
@@ -82,14 +82,14 @@ export default function ResetPasswordPage() {
         <AuthResult
           icon={<CheckOutlined />}
           tone="success"
-          title="Password reset"
+          title="Đã đặt lại mật khẩu"
           action={
             <Button type="primary" onClick={() => navigate("/login", { replace: true })}>
-              Continue to sign in
+              Tiếp tục đăng nhập
             </Button>
           }
         >
-          <p>Your password has been updated. Sign in with your new password.</p>
+          <p>Mật khẩu của bạn đã được cập nhật. Hãy đăng nhập bằng mật khẩu mới.</p>
         </AuthResult>
       </AuthCard>
     );
@@ -97,8 +97,8 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthCard>
-      <h1>Set a new password</h1>
-      <p>Use the recovery link sent to your registered email.</p>
+      <h1>Đặt mật khẩu mới</h1>
+      <p>Dùng liên kết khôi phục đã gửi tới email đăng ký của bạn.</p>
       {(error || !token?.trim()) && (
         <Alert type="error" showIcon message={error ?? invalidLink} role="alert" />
       )}
@@ -111,41 +111,41 @@ export default function ResetPasswordPage() {
         onValuesChange={() => setError(null)}
       >
         <Form.Item
-          label="New password"
+          label="Mật khẩu mới"
           name="password"
           rules={[
-            { required: true, whitespace: true, message: "Enter a new password." },
-            { min: 6, message: "Use at least 6 characters." },
+            { required: true, whitespace: true, message: "Hãy nhập mật khẩu mới." },
+            { min: 6, message: "Mật khẩu cần ít nhất 6 ký tự." },
             {
               validator(_, value?: string) {
                 // BCrypt's existing backend limit is bytes, not Unicode characters.
                 return !value || new TextEncoder().encode(value.trim()).length <= 72
                   ? Promise.resolve()
-                  : Promise.reject(new Error("Password is too long. Use fewer characters."));
+                  : Promise.reject(new Error("Mật khẩu quá dài. Hãy dùng ít ký tự hơn."));
               },
             },
           ]}
         >
-          <Input.Password autoComplete="new-password" placeholder="Enter new password" />
+          <Input.Password autoComplete="new-password" placeholder="Nhập mật khẩu mới" />
         </Form.Item>
         <Form.Item
-          label="Confirm new password"
+          label="Nhập lại mật khẩu mới"
           name="confirm"
           dependencies={["password"]}
           rules={confirmPasswordRules}
         >
-          <Input.Password autoComplete="new-password" placeholder="Enter confirm new password" />
+          <Input.Password autoComplete="new-password" placeholder="Nhập lại mật khẩu mới" />
         </Form.Item>
         <Button type="primary" htmlType="submit" block loading={submitting} disabled={submitting || !token?.trim()}>
-          Reset password
+          Đặt lại mật khẩu
         </Button>
       </Form>
       <Link className="auth-link" to="/forgot-password">
-        Request a new reset link
+        Yêu cầu liên kết mới
       </Link>
       <br />
       <Link className="auth-link" to="/login">
-        Back to sign in
+        Quay lại đăng nhập
       </Link>
     </AuthCard>
   );

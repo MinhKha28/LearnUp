@@ -19,32 +19,32 @@ import "@/pages/guest/home.scss";
 
 const capabilities = [
   {
-    title: "Course governance",
+    title: "Quản lý khóa học",
     icon: <BookOutlined />,
-    text: "Draft, review and publish Course versions with clear ownership.",
+    text: "Soạn, duyệt và xuất bản các phiên bản khóa học với người phụ trách rõ ràng.",
   },
   {
-    title: "People and assignments",
+    title: "Thành viên và phân công đào tạo",
     icon: <TeamOutlined />,
-    text: "Invite members and assign required Courses to selected Learners.",
+    text: "Mời thành viên và phân công khóa học bắt buộc cho từng học viên.",
   },
   {
-    title: "Assessments and grading",
+    title: "Đánh giá và chấm điểm",
     icon: <FileDoneOutlined />,
-    text: "Run Quizzes, Assignments and Peer Review with clear grading steps.",
+    text: "Tổ chức bài trắc nghiệm, bài tập và chấm chéo với các bước chấm rõ ràng.",
   },
   {
-    title: "Progress and certificates",
+    title: "Tiến độ và chứng chỉ",
     icon: <SafetyCertificateOutlined />,
-    text: "Monitor completion and issue Certificates when requirements are met.",
+    text: "Theo dõi mức hoàn thành và cấp chứng chỉ khi đủ điều kiện.",
   },
 ];
 
 const gettingStarted = [
-  ["01", "Select a plan", "Compare capacity and duration."],
-  ["02", "Register", "Enter Organization and Organizer details."],
-  ["03", "Complete payment", "Use the mock payment service."],
-  ["04", "Verify email", "Activate the Organizer account."],
+  ["01", "Chọn gói", "So sánh giới hạn và thời hạn sử dụng."],
+  ["02", "Đăng ký", "Khai thông tin tổ chức và Quản lý đào tạo."],
+  ["03", "Xác thực email", "Nhập mã gửi tới email của Quản lý đào tạo."],
+  ["04", "Thanh toán", "Thanh toán mô phỏng để kích hoạt tài khoản."],
 ];
 
 export default function HomePage() {
@@ -74,70 +74,74 @@ export default function HomePage() {
     <main className="home" id="guest-main">
       <section className="home-section home-hero" id="platform">
         <div className="home-hero-copy">
-          <span className="home-eyebrow-pill">BUILT FOR ORGANIZATIONS</span>
+          <span className="home-eyebrow-pill">Dành cho tổ chức</span>
           <h1>
-            Training that helps
+            Đào tạo giúp
             <br />
-            your organization
+            tổ chức của bạn
             <br />
-            move forward.
+            tiến xa hơn.
           </h1>
           <p>
-            Create structured courses, assign required learning and see where
-            every team stands in one workspace.
+            Xây dựng khóa học bài bản, phân công đào tạo bắt buộc và theo dõi
+            tiến độ của mọi nhóm trong một không gian làm việc.
           </p>
           <div className="home-actions">
             <Link className="guest-link guest-link-primary" to="/register">
-              Explore plans <ArrowRightOutlined />
+              Xem các gói <ArrowRightOutlined />
             </Link>
             <a className="guest-link" href="#how-it-works">
-              See how it works <ArrowRightOutlined />
+              Xem cách hoạt động <ArrowRightOutlined />
             </a>
           </div>
-          <div className="home-lifecycle" aria-label="Training lifecycle">
-            <span>COURSES</span>
+          <div className="home-lifecycle" aria-label="Vòng đời đào tạo">
+            <span>Khóa học</span>
             <ArrowRightOutlined />
-            <span>ASSIGNMENTS</span>
+            <span>Phân công đào tạo</span>
             <ArrowRightOutlined />
-            <span>RESULTS</span>
+            <span>Kết quả</span>
           </div>
         </div>
 
         <div
           className="home-preview"
-          aria-label="LearnUP training overview preview"
+          aria-label="Xem trước tổng quan đào tạo LearnUP"
         >
           <div className="home-preview-bar">
             <span className="home-preview-dots" aria-hidden="true">
               <i /> <i /> <i />
             </span>
-            <span>LearnUP / Training workspace</span>
+            <span>LearnUP / Không gian đào tạo</span>
           </div>
           <div className="home-preview-body">
             <aside>
               <img src="/logo/learnup-logo-dark.png" alt="" />
-              {["Overview", "People", "Courses", "Assignments", "Reports"].map(
-                (label, index) => (
-                  <div
-                    key={label}
-                    className={index === 0 ? "home-preview-active" : undefined}
-                  >
-                    <span aria-hidden="true">
-                      {index === 0 ? "\u25CF" : "\u2022"}
-                    </span>
-                    {label}
-                  </div>
-                ),
-              )}
+              {[
+                "Tổng quan",
+                "Thành viên",
+                "Khóa học",
+                "Phân công đào tạo",
+                "Báo cáo",
+              ].map((label, index) => (
+                <div
+                  key={label}
+                  className={index === 0 ? "home-preview-active" : undefined}
+                >
+                  <span aria-hidden="true">
+                    {index === 0 ? "\u25CF" : "\u2022"}
+                  </span>
+                  {label}
+                </div>
+              ))}
             </aside>
             <div className="home-preview-content">
-              <h2>Training overview</h2>
-              <p>Keep required learning on track.</p>
+              <h2>Tổng quan đào tạo</h2>
+              <p>Giữ đào tạo bắt buộc đúng tiến độ.</p>
               <div className="home-preview-metrics">
                 {[
-                  ["24", "Courses"],
-                  ["86%", "On-time progress"],
-                  ["12", "To review"],
+                  ["24", "Khóa học"],
+                  ["86%", "Đúng tiến độ"],
+                  ["12", "Cần duyệt"],
                 ].map(([value, label], index) => (
                   <div key={label}>
                     <i
@@ -150,12 +154,12 @@ export default function HomePage() {
               </div>
               <div className="home-activity">
                 <div className="home-activity-title">
-                  <b>Course activity</b>
+                  <b>Hoạt động khóa học</b>
                 </div>
                 {[
-                  ["Workplace Safety Essentials", "Published"],
-                  ["Data Protection Basics", "In progress"],
-                  ["Service Communication", "Draft"],
+                  ["An toàn lao động cơ bản", "Đã xuất bản"],
+                  ["Bảo vệ dữ liệu cơ bản", "Đang biên soạn"],
+                  ["Giao tiếp với khách hàng", "Bản nháp"],
                 ].map(([label, status], index) => (
                   <div className="home-activity-row" key={label}>
                     <span>{label}</span>
@@ -174,18 +178,20 @@ export default function HomePage() {
 
       <section className="home-workflow-strip">
         <div>
-          <h2>One connected training workflow</h2>
+          <h2>Một quy trình đào tạo liền mạch</h2>
           <p>
-            Give every role a clear place to create, learn and measure progress.
+            Mỗi vai trò có chỗ riêng để xây dựng, học tập và đo lường tiến độ.
           </p>
         </div>
         <div>
-          {["Create", "Assign", "Learn", "Measure"].map((item, index) => (
-            <span key={item}>
-              <i>{index + 1}</i>
-              {item}
-            </span>
-          ))}
+          {["Xây dựng", "Phân công", "Học tập", "Đo lường"].map(
+            (item, index) => (
+              <span key={item}>
+                <i>{index + 1}</i>
+                {item}
+              </span>
+            ),
+          )}
         </div>
       </section>
 
@@ -193,10 +199,11 @@ export default function HomePage() {
         className="home-section home-capability-section"
         id="capabilities"
       >
-        <span className="guest-eyebrow">CAPABILITIES</span>
-        <h2>Everything your training team needs to keep learning moving</h2>
+        <span className="guest-eyebrow">Tính năng</span>
+        <h2>Mọi thứ nhóm đào tạo cần để việc học luôn tiến triển</h2>
         <p>
-          A structured workspace for people, courses and measurable progress.
+          Không gian làm việc bài bản cho thành viên, khóa học và tiến độ đo
+          được.
         </p>
         <div className="home-capabilities">
           {capabilities.map((item, index) => (
@@ -207,7 +214,7 @@ export default function HomePage() {
               <div>
                 <h3>{item.title}</h3>
                 <p>{item.text}</p>
-                <a href="#how-it-works">Explore capability</a>
+                <a href="#how-it-works">Tìm hiểu thêm</a>
               </div>
             </article>
           ))}
@@ -216,24 +223,24 @@ export default function HomePage() {
 
       <section className="home-section home-why">
         <div className="home-why-copy">
-          <span className="guest-eyebrow">WHY LEARNUP</span>
+          <span className="guest-eyebrow">Vì sao chọn LearnUP</span>
           <h2>
-            Keep internal training
+            Đào tạo nội bộ
             <br />
-            clear and accountable.
+            rõ ràng và có trách nhiệm.
           </h2>
           {[
             [
-              "One place to coordinate",
-              "Courses, people and required learning stay in a shared workflow.",
+              "Một nơi để điều phối",
+              "Khóa học, thành viên và đào tạo bắt buộc nằm chung một quy trình.",
             ],
             [
-              "Clear responsibilities",
-              "Organizers assign; Instructors build and grade; Learners progress.",
+              "Trách nhiệm rõ ràng",
+              "Quản lý đào tạo phân công; giảng viên xây dựng và chấm bài; học viên học tập.",
             ],
             [
-              "Progress you can act on",
-              "Review completion, overdue training and assessment outcomes.",
+              "Tiến độ để hành động",
+              "Xem mức hoàn thành, các trường hợp quá hạn và kết quả đánh giá.",
             ],
           ].map(([title, text]) => (
             <div className="home-reason" key={title}>
@@ -247,20 +254,20 @@ export default function HomePage() {
         </div>
         <div className="home-course-map">
           <div className="home-course-orb" aria-hidden="true" />
-          <span className="guest-eyebrow">LEARNING WORKSPACE</span>
-          <h3>A clear path through every course</h3>
+          <span className="guest-eyebrow">Không gian học tập</span>
+          <h3>Lộ trình rõ ràng cho mọi khóa học</h3>
           <div className="home-course-card">
             <BookOutlined />
             <span>
-              <b>Workplace Safety Essentials</b>
-              <small>{"Course curriculum \u2022 demo"}</small>
+              <b>An toàn lao động cơ bản</b>
+              <small>{"Chương trình khóa học \u2022 minh họa"}</small>
             </span>
           </div>
           {[
-            ["Module 01 \u2022 Safety foundations", "module"],
-            ["Lesson \u2022 Safety at work", "lesson"],
-            ["Quiz \u2022 Check your understanding", "quiz"],
-            ["Assignment \u2022 Apply the procedure", "assignment"],
+            ["Module 01 \u2022 Nền tảng an toàn", "module"],
+            ["Bài học \u2022 An toàn khi làm việc", "bài học"],
+            ["Bài trắc nghiệm \u2022 Kiểm tra hiểu biết", "trắc nghiệm"],
+            ["Bài tập \u2022 Áp dụng quy trình", "bài tập"],
           ].map(([item, type], index) => (
             <div className="home-course-row" key={item}>
               <i className={`home-course-dot home-course-dot-${index}`} />
@@ -270,14 +277,14 @@ export default function HomePage() {
           ))}
           <div className="home-course-progress">
             <span />
-            <small>Learning progress</small>
+            <small>Tiến độ học tập</small>
           </div>
         </div>
       </section>
 
       <section className="home-section home-steps-section" id="how-it-works">
-        <span className="guest-eyebrow">GETTING STARTED</span>
-        <h2>From a plan to an active organization</h2>
+        <span className="guest-eyebrow">Bắt đầu</span>
+        <h2>Từ chọn gói đến tổ chức hoạt động</h2>
         <div className="home-steps">
           {gettingStarted.map(([number, title, text]) => (
             <article key={title}>
@@ -289,39 +296,41 @@ export default function HomePage() {
         </div>
         <div className="home-certificate-showcase">
           <div className="home-showcase-copy">
-            <span className="home-showcase-pill">FROM LEARNING TO RESULTS</span>
+            <span className="home-showcase-pill">Từ học tập đến kết quả</span>
             <h2>
-              Make progress visible.
+              Tiến độ luôn rõ ràng.
               <br />
-              Recognize completed learning.
+              Ghi nhận việc học đã hoàn thành.
             </h2>
             <p>
-              Organizers follow assigned training and overdue work. Learners can
-              earn a Certificate after meeting the Course completion
-              requirements.
+              Quản lý đào tạo theo dõi đào tạo đã phân công và các trường hợp
+              quá hạn. Học viên nhận chứng chỉ khi đáp ứng đủ điều kiện hoàn
+              thành khóa học.
             </p>
           </div>
           <div className="home-certificate-card">
             <div>
               <FlagOutlined />
               <span>
-                <b>Training progress</b>
-                <small>Workplace Safety Essentials</small>
+                <b>Tiến độ đào tạo</b>
+                <small>An toàn lao động cơ bản</small>
               </span>
             </div>
             <div>
               <TeamOutlined />
               <span>
-                <b>Required learning</b>
-                <small>Assigned learners and deadline tracking</small>
+                <b>Đào tạo bắt buộc</b>
+                <small>
+                  Học viên được phân công và theo dõi hạn hoàn thành
+                </small>
               </span>
             </div>
             <div className="home-certificate-award">
               <SafetyCertificateOutlined />
               <span>
-                <b>Certificate of completion</b>
-                <small>Issued when Course requirements are met</small>
-                <em>{"LearnUP \u2022 Organization training"}</em>
+                <b>Chứng chỉ hoàn thành</b>
+                <small>Cấp khi đủ điều kiện hoàn thành khóa học</small>
+                <em>{"LearnUP \u2022 Đào tạo tổ chức"}</em>
               </span>
             </div>
           </div>
@@ -331,18 +340,18 @@ export default function HomePage() {
       </section>
 
       <section className="home-section home-plans" id="plans">
-        <span className="guest-eyebrow">SUBSCRIPTION PLANS</span>
-        <h2>Find the right capacity for your organization</h2>
+        <span className="guest-eyebrow">Các gói</span>
+        <h2>Chọn gói phù hợp với quy mô tổ chức</h2>
         <p>
-          Plans currently offered on the platform. The price is locked in when
-          you register.
+          Các gói đang được cung cấp trên nền tảng. Giá được giữ nguyên từ lúc
+          bạn đăng ký.
         </p>
         {loadingPlans && <Spin size="large" />}
         {planError && (
           <Alert
             type="error"
             showIcon
-            message="Could not load subscription plans. Please try again later."
+            message="Không tải được danh sách gói. Vui lòng thử lại sau."
           />
         )}
         {!loadingPlans && !planError && (
@@ -364,30 +373,30 @@ export default function HomePage() {
 
       <section className="home-cta">
         <div>
-          <h2>Ready to organize training in one place?</h2>
-          <p>Choose a plan and create a workspace for your organization.</p>
+          <h2>Sẵn sàng quản lý đào tạo ở một nơi?</h2>
+          <p>Chọn gói và tạo không gian làm việc cho tổ chức của bạn.</p>
         </div>
         <Link className="guest-link guest-link-primary" to="/register">
-          Explore plans <ArrowRightOutlined />
+          Xem các gói <ArrowRightOutlined />
         </Link>
       </section>
 
       <section className="home-section home-before" id="before-you-start">
-        <span className="guest-eyebrow">COMMON QUESTIONS</span>
-        <h2>Before you get started</h2>
+        <span className="guest-eyebrow">Câu hỏi thường gặp</span>
+        <h2>Trước khi bắt đầu</h2>
         <div>
           {[
             [
-              "Who can register?",
-              "A representative registers the Organization and activates an Organizer account.",
+              "Ai có thể đăng ký?",
+              "Người đại diện đăng ký tổ chức và trở thành Quản lý đào tạo sau khi thanh toán.",
             ],
             [
-              "How is payment handled?",
-              "This project uses a mock payment service. The amount shown is illustrative.",
+              "Thanh toán thế nào?",
+              "Dự án dùng dịch vụ thanh toán mô phỏng. Số tiền hiển thị chỉ để minh họa.",
             ],
             [
-              "Can team members use Google sign-in?",
-              "Existing Organizer, Instructor and Learner accounts can sign in with Google.",
+              "Thành viên có đăng nhập bằng Google được không?",
+              "Tài khoản Quản lý đào tạo, giảng viên và học viên đã có có thể đăng nhập bằng Google.",
             ],
           ].map(([title, text]) => (
             <article key={title}>

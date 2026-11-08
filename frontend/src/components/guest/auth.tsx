@@ -15,7 +15,7 @@ export const AuthCard = ({
   className?: string;
 }) => (
   <main className="auth-page" id="guest-main">
-    <Link className="auth-page-logo" to="/" aria-label="LearnUP home">
+    <Link className="auth-page-logo" to="/" aria-label="Trang chủ LearnUP">
       <img src="/logo/learnup-logo-dark.png" alt="LearnUP" />
     </Link>
     <section className={`auth-card ${className}`.trim()}>{children}</section>

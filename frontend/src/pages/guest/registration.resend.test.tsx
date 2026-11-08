@@ -43,10 +43,10 @@ const submit = (email: string) => {
       <RegistrationResendPage />
     </MemoryRouter>,
   );
-  fireEvent.change(screen.getByLabelText("Email address"), {
+  fireEvent.change(screen.getByLabelText("Địa chỉ email"), {
     target: { value: email },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Resend email" }));
+  fireEvent.click(screen.getByRole("button", { name: "Gửi lại thư" }));
 };
 
 describe("UC03.1 resend registration email", () => {
@@ -56,10 +56,10 @@ describe("UC03.1 resend registration email", () => {
       data: { email: "lan@abc.vn", otpTtlMinutes: 10, message: "ok" },
     } as never);
     submit("  Lan@ABC.vn ");
-    await screen.findByText("Request received");
+    await screen.findByText("Đã nhận yêu cầu");
     expect(api.resendRegistrationEmailAPI).toHaveBeenCalledWith("lan@abc.vn");
     expect(screen.getByRole("status").textContent).toContain(
-      "Previous links and codes no longer work",
+      "Liên kết và mã trước đó không còn dùng được",
     );
   });
 
@@ -71,10 +71,10 @@ describe("UC03.1 resend registration email", () => {
     submit("lan@abc.vn");
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toContain(
-        "Unable to send the registration email right now",
+        "Hiện chưa gửi được thư đăng ký",
       ),
     );
-    expect(screen.queryByText("Request received")).toBeNull();
+    expect(screen.queryByText("Đã nhận yêu cầu")).toBeNull();
     expect(screen.queryByText("Email không hợp lệ")).toBeNull();
   });
 
@@ -85,7 +85,7 @@ describe("UC03.1 resend registration email", () => {
     submit("lan@abc.vn");
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toContain(
-        "Could not connect to the server",
+        "Không kết nối được với máy chủ",
       ),
     );
   });

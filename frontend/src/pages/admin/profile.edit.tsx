@@ -11,7 +11,7 @@ const ProfileEdit = () => {
   const navigate = useNavigate();
   return (
     <AdminPage className="admin-profile-edit">
-      <PageHeader title="Edit Profile" subtitle="Update your name and avatar." />
+      <PageHeader title="Sửa hồ sơ" subtitle="Cập nhật họ tên và ảnh đại diện." />
       <SectionCard>
         <ProfileEditor
           button={AdminButton}

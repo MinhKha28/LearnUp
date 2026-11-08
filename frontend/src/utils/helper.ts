@@ -33,17 +33,26 @@ export const formatStorage = (bytes: number) => {
 // UC01: chuyển dữ liệu gói từ API sang dạng PlanCard hiển thị (dùng ở trang chủ và trang đăng ký)
 export const toPlanDetails = (plan: ISubscriptionPlan) => ({
   name: plan.name,
-  description: `${plan.durationDays} days of access`,
+  description: `Sử dụng ${plan.durationDays} ngày`,
   price: formatVnd(plan.price),
-  priceNote: `for ${plan.durationDays} days`,
+  priceNote: `cho ${plan.durationDays} ngày`,
   limits: [
-    ["Learner seats", String(plan.maxLearners)],
-    ["Instructor seats", String(plan.maxInstructors)],
-    ["Courses", String(plan.maxCourseChains)],
-    ["Storage", formatStorage(plan.maxStorageBytes)],
+    ["Số học viên", String(plan.maxLearners)],
+    ["Số giảng viên", String(plan.maxInstructors)],
+    ["Số khóa học", String(plan.maxCourseChains)],
+    ["Dung lượng lưu trữ", formatStorage(plan.maxStorageBytes)],
   ] as Array<[string, string]>,
-  footer: "The price is locked in when you register.",
+  footer: "Giá được giữ nguyên từ lúc bạn đăng ký.",
 });
+
+export const ROLE_LABELS: Record<string, string> = {
+  Admin: "Quản trị viên",
+  Organizer: "Quản lý đào tạo",
+  Instructor: "Giảng viên",
+  Learner: "Học viên",
+};
+
+export const roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
 
 export const newRubricRow = (
   description = "",
