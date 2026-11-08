@@ -1,15 +1,11 @@
 .learner-my-course-filters {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) repeat(2, minmax(0, 3fr));
   gap: var(--space-3);
   margin-bottom: var(--space-4);
 
-  > .ant-input-affix-wrapper {
-    flex: 2 1 min-content;
-  }
-
-  > .ant-select {
-    flex: 1 1 max-content;
+  > * {
+    min-width: 0;
   }
 }
 
@@ -113,8 +109,12 @@ a.learner-my-course-title:hover {
 }
 
 @media (max-width: 640px) {
-  .learner-my-course-filters > .ant-input-affix-wrapper {
-    flex-basis: 100%;
+  .learner-my-course-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    > .ant-input-affix-wrapper {
+      grid-column: 1 / -1;
+    }
   }
 
   .learner-my-course {
