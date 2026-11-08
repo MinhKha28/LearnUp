@@ -320,6 +320,15 @@ export interface ILearnerStatusResult {
   changed: boolean; // false: đã ở trạng thái đích (bấm lặp)
 }
 
+// UC13.6 - DELETE /api/v1/users/learners/:id (body JSON; Learner không có chuyển quyền)
+export type IDeleteLearnerReq = Omit<IDeleteAccountReq, "receiverInstructorId">;
+
+export interface ILearnerDeletionResult {
+  id: string;
+  changed: boolean; // false: đã bị xóa từ trước (bấm lặp)
+  seats: ISeatUsage; // số chỗ Learner sau khi xóa (BR-23, BR-37)
+}
+
 // UC12.2 - số chỗ theo Subscription hiện hành (GET /api/v1/users/instructors/seats)
 export interface ISeatUsage {
   used: number;

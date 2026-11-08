@@ -3,6 +3,7 @@ import { Prisma } from '../../../generated/prisma/client';
 import { AccountStatusEvent } from './interfaces/account-status-event.interface';
 import { AuditRecord } from './interfaces/audit-record.interface';
 import { EmailMessage } from './interfaces/email-message.interface';
+import { UserDeletedEvent } from './interfaces/user-deleted-event.interface';
 import { OutboxRepository } from './outbox.repository';
 
 export const EMAIL_REQUESTED_EVENT = 'EmailRequested';
@@ -11,6 +12,9 @@ export const AUDIT_RECORDED_EVENT = 'AuditRecorded';
 // Tenant chưa có relay Kafka nên các dòng này nằm chờ (published_at NULL) tới khi có relay.
 export const USER_DEACTIVATED_EVENT = 'UserDeactivated';
 export const USER_REACTIVATED_EVENT = 'UserReactivated';
+// UC13.6: Learner bị xóa -> learning-service chuyển Enrollment chưa Completed sang Withdrawn (BR-304),
+// assessment-service cập nhật bản sao thưa (BR-39, BR-199). Cũng nằm chờ tới khi có relay Kafka.
+export const USER_DELETED_EVENT = 'UserDeleted';
 
 /** (giữ nguyên khối chú thích Transactional Outbox cũ) */
 @Injectable()
@@ -97,6 +101,39 @@ export class OutboxService {
         organizationId: params.organizationId,
         payload: payload as unknown as Prisma.InputJsonValue,
         occurredAt,
+      },
+      tx,
+    );
+  }
+
+  /**
+   * UC13.6: UserDeleted, cùng transaction với việc gán users.deleted_at (kiến trúc 2.1, 2.3).
+   * occurredAt = deletedAt để bên nhận so được với status_as_of của UserDeactivated / UserReactivated.
+   */
+  async enqueueUserDeletedEvent(
+    tx: Prisma.TransactionClient,
+    params: {
+      userId: string;
+      organizationId: string;
+      role: string;
+      deletedAt: Date;
+    },
+  ): Promise<void> {
+    const payload: UserDeletedEvent = {
+      userId: params.userId,
+      organizationId: params.organizationId,
+      role: params.role,
+      deletedAt: params.deletedAt.toISOString(),
+      occurredAt: params.deletedAt.toISOString(),
+    };
+    await this.outboxRepository.create(
+      {
+        aggregateType: 'User',
+        aggregateId: params.userId,
+        eventType: USER_DELETED_EVENT,
+        organizationId: params.organizationId,
+        payload: payload as unknown as Prisma.InputJsonValue,
+        occurredAt: params.deletedAt,
       },
       tx,
     );

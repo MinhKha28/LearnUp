@@ -7,12 +7,14 @@ import type {
   ICreateRegistrationReq,
   ICreateRegistrationRes,
   IDeleteAccountReq,
+  IDeleteLearnerReq,
   IInstructorDeletion,
   IInstructorDeletionResult,
   IInstructorDetail,
   IInstructorListItem,
   IInstructorStatusChange,
   IInstructorStatusResult,
+  ILearnerDeletionResult,
   ILearnerDetail,
   ILearnerListItem,
   ILearnerStatusResult,
@@ -220,6 +222,13 @@ export const changeLearnerStatusAPI = (
   axios.patch<IBackendRes<ILearnerStatusResult>>(
     `/api/v1/users/learners/${encodeURIComponent(learnerId)}/status`,
     body,
+  );
+
+// UC13.6 - xóa Learner (xóa mềm, BR-37). Lý do đi trong body, không lên URL (như UC12.6).
+export const deleteLearnerAPI = (learnerId: string, body: IDeleteLearnerReq) =>
+  axios.delete<IBackendRes<ILearnerDeletionResult>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}`,
+    { data: body },
   );
 
 export const resendInstructorInvitationAPI = (instructorId: string) =>
