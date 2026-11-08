@@ -3,37 +3,52 @@ import { Tooltip } from "antd";
 import { LockOutlined } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { LearnerSkeleton } from "@/components/learner/learner.states";
-import { InfoPanel, LearnerButton, PageHeader, StatusTag } from "@/components/learner/learner.ui";
+import {
+  InfoPanel,
+  LearnerButton,
+  PageHeader,
+  StatusTag,
+} from "@/components/learner/learner.ui";
 import { LearningError } from "@/components/learner/learning.error";
 import { useApiQuery } from "@/hooks/use.api.query";
-import { assessmentErrorText, fetchLearnerAssessmentsAPI } from "@/services/assessment.service";
+import {
+  assessmentErrorText,
+  fetchLearnerAssessmentsAPI,
+} from "@/services/assessment.service";
 import { fetchCurriculum } from "@/services/learning.service";
-import type { ILearnerAssessmentItem, ILearnerAssessmentList } from "@/types/assessment.types";
+import type {
+  ILearnerAssessmentItem,
+  ILearnerAssessmentList,
+} from "@/types/assessment.types";
 import "./course.assessments.scss";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString();
+const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
 
 const statusView = (item: ILearnerAssessmentItem) => {
   switch (item.status) {
     case "InProgress":
-      return { label: "In progress", tone: "info" as const };
+      return { label: "Đang làm", tone: "info" as const };
     case "AwaitingResult":
-      return { label: "Awaiting result", tone: "warning" as const };
+      return { label: "Chờ kết quả", tone: "warning" as const };
     case "Completed":
       return item.passed
-        ? { label: "Passed", tone: "success" as const }
-        : { label: "Not passed", tone: "error" as const };
+        ? { label: "Đạt", tone: "success" as const }
+        : { label: "Chưa đạt", tone: "error" as const };
     default:
       // BR-153: nothing submitted is "not completed", never "failed".
-      return { label: "Not started", tone: "neutral" as const };
+      return { label: "Chưa làm", tone: "neutral" as const };
   }
 };
 
 const CourseAssessments = () => {
   const { enrollmentId = "" } = useParams();
   const navigate = useNavigate();
-  const curriculum = useApiQuery((signal) => fetchCurriculum(enrollmentId, signal), [enrollmentId]);
-  const courseId = curriculum.status === "success" ? curriculum.data.courseId : null;
+  const curriculum = useApiQuery(
+    (signal) => fetchCurriculum(enrollmentId, signal),
+    [enrollmentId],
+  );
+  const courseId =
+    curriculum.status === "success" ? curriculum.data.courseId : null;
 
   const [list, setList] = useState<ILearnerAssessmentList | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,9 +66,13 @@ const CourseAssessments = () => {
         if (!active) return;
         // The axios interceptor resolves HTTP errors too, so only res.data tells success apart.
         if (res.data) setList(res.data);
-        else setErrorMessage(assessmentErrorText(res, "Unable to load the Assessments."));
+        else
+          setErrorMessage(
+            assessmentErrorText(res, "Không tải được danh sách bài đánh giá."),
+          );
       } catch {
-        if (active) setErrorMessage("Unable to reach the Assessment service. Please try again.");
+        if (active)
+          setErrorMessage("Không kết nối được với máy chủ. Vui lòng thử lại.");
       } finally {
         if (active) setLoading(false);
       }
@@ -64,10 +83,16 @@ const CourseAssessments = () => {
     };
   }, [courseId, reloadKey]);
 
-  if (curriculum.status === "loading") return <LearnerSkeleton variant="detail" />;
+  if (curriculum.status === "loading")
+    return <LearnerSkeleton variant="detail" />;
   if (curriculum.status === "error") {
     return (
-      <LearningError error={curriculum.error} context="curriculum" enrollmentId={enrollmentId} onRetry={curriculum.reload} />
+      <LearningError
+        error={curriculum.error}
+        context="curriculum"
+        enrollmentId={enrollmentId}
+        onRetry={curriculum.reload}
+      />
     );
   }
 
@@ -76,13 +101,33 @@ const CourseAssessments = () => {
   const action = (item: ILearnerAssessmentItem) => {
     const locked = item.attempts.lockedUntil !== null;
     if (item.kind === "QUIZ") {
-      // Taking a Quiz is UC29.1; until then the row only shows the state.
-      return (
-        <Tooltip title="Taking a Quiz is coming soon.">
-          <span>
-            <LearnerButton disabled>{locked ? "Locked" : "Start Quiz"}</LearnerButton>
-          </span>
-        </Tooltip>
+      // UC29.1: the Quiz page shows the rules, the lock and the attempt to continue.
+      const quizPath = `${base}/quizzes/${item.id}`;
+      if (item.status === "InProgress") {
+        return (
+          <LearnerButton type="primary" onClick={() => navigate(quizPath)}>
+            Tiếp tục làm bài
+          </LearnerButton>
+        );
+      }
+      if (list?.readOnly)
+        return (
+          <LearnerButton onClick={() => navigate(quizPath)}>Xem</LearnerButton>
+        );
+      if (locked) return <LearnerButton disabled>Đang tạm khóa</LearnerButton>;
+      return item.status === "NotStarted" ? (
+        <LearnerButton type="primary" onClick={() => navigate(quizPath)}>
+          Bắt đầu làm bài
+        </LearnerButton>
+      ) : (
+        <span className="course-assessments-actions">
+          <LearnerButton onClick={() => navigate(`${quizPath}/history`)}>
+            Lịch sử
+          </LearnerButton>
+          <LearnerButton onClick={() => navigate(quizPath)}>
+            Làm lại
+          </LearnerButton>
+        </span>
       );
     }
     const submitted = item.status !== "NotStarted";
@@ -90,28 +135,47 @@ const CourseAssessments = () => {
     const graded = item.status === "Completed";
     if (list?.readOnly) {
       return graded ? (
-        <LearnerButton onClick={() => navigate(`${base}/assignments/${item.id}/result`)}>View result</LearnerButton>
+        <LearnerButton
+          onClick={() => navigate(`${base}/assignments/${item.id}/result`)}
+        >
+          Xem kết quả
+        </LearnerButton>
       ) : (
-        <LearnerButton onClick={() => navigate(`${base}/assignments/${item.id}/submit`)}>View</LearnerButton>
+        <LearnerButton
+          onClick={() => navigate(`${base}/assignments/${item.id}/submit`)}
+        >
+          Xem
+        </LearnerButton>
       );
     }
     if (locked) {
-      return <LearnerButton disabled>Locked</LearnerButton>;
+      return <LearnerButton disabled>Đang tạm khóa</LearnerButton>;
     }
     // UC30.1: there is no limit on resubmissions, so a submitted Assignment can always be replaced.
     if (submitted) {
       return (
         <span className="course-assessments-actions">
           {graded && (
-            <LearnerButton onClick={() => navigate(`${base}/assignments/${item.id}/result`)}>View result</LearnerButton>
+            <LearnerButton
+              onClick={() => navigate(`${base}/assignments/${item.id}/result`)}
+            >
+              Xem kết quả
+            </LearnerButton>
           )}
-          <LearnerButton onClick={() => navigate(`${base}/assignments/${item.id}/resubmit`)}>Resubmit</LearnerButton>
+          <LearnerButton
+            onClick={() => navigate(`${base}/assignments/${item.id}/resubmit`)}
+          >
+            Nộp lại
+          </LearnerButton>
         </span>
       );
     }
     return (
-      <LearnerButton type="primary" onClick={() => navigate(`${base}/assignments/${item.id}/submit`)}>
-        Start Assignment
+      <LearnerButton
+        type="primary"
+        onClick={() => navigate(`${base}/assignments/${item.id}/submit`)}
+      >
+        Bắt đầu làm bài
       </LearnerButton>
     );
   };
@@ -119,48 +183,53 @@ const CourseAssessments = () => {
   return (
     <>
       <PageHeader
-        eyebrow="COURSE / ASSESSMENTS"
-        title="Assessments"
-        subtitle="Quizzes and Assignments of this Course."
+        eyebrow="Khóa học / Bài đánh giá"
+        title="Bài đánh giá"
+        subtitle="Các bài trắc nghiệm và bài tập của khóa học này."
         back
       />
-      <InfoPanel title="How results are recorded">
-        Quiz uses your best attempt; Assignment uses your latest submission. Submitting several times in a row pauses
-        that Assessment for a while.
+      <InfoPanel title="Cách ghi nhận kết quả">
+        Bài trắc nghiệm lấy điểm của lượt làm cao nhất; bài tập lấy điểm của lần
+        nộp gần nhất. Làm hoặc nộp nhiều lần liên tiếp thì bài đó tạm khóa một
+        thời gian.
       </InfoPanel>
       {list?.readOnly && (
-        <InfoPanel title="Course completed">This Course is completed, so its Assessments are read-only.</InfoPanel>
+        <InfoPanel title="Khóa học đã hoàn thành">
+          Khóa học này đã hoàn thành nên các bài đánh giá chỉ để xem.
+        </InfoPanel>
       )}
       <div className="course-learning-content">
         <div className="course-assessments-table-card">
           {errorMessage ? (
             <div className="course-assessments-error">
-              <strong>The Assessments could not be loaded</strong>
+              <strong>Không tải được danh sách bài đánh giá</strong>
               <p>{errorMessage}</p>
-              <LearnerButton onClick={() => setReloadKey((key) => key + 1)}>Try again</LearnerButton>
+              <LearnerButton onClick={() => setReloadKey((key) => key + 1)}>
+                Thử lại
+              </LearnerButton>
             </div>
           ) : (
             <table className="course-assessments-table">
               <thead>
                 <tr>
-                  <th>Assessment</th>
-                  <th>Requirement</th>
-                  <th>Passing score</th>
-                  <th>Status</th>
-                  <th>Score</th>
-                  <th>Tries left</th>
-                  <th>Action</th>
+                  <th>Bài đánh giá</th>
+                  <th>Yêu cầu</th>
+                  <th>Điểm đạt</th>
+                  <th>Trạng thái</th>
+                  <th>Điểm</th>
+                  <th>Lượt còn lại</th>
+                  <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={7}>Loading Assessments...</td>
+                    <td colSpan={7}>Đang tải bài đánh giá...</td>
                   </tr>
                 )}
                 {!loading && list?.items.length === 0 && (
                   <tr>
-                    <td colSpan={7}>No Assessments are configured for this Course.</td>
+                    <td colSpan={7}>Khóa học này chưa có bài đánh giá nào.</td>
                   </tr>
                 )}
                 {!loading &&
@@ -174,28 +243,37 @@ const CourseAssessments = () => {
                           <small className="course-assessments-kind">
                             {item.kind === "QUIZ"
                               ? item.timeLimitMinutes
-                                ? `Quiz, ${item.timeLimitMinutes} min`
-                                : "Quiz"
+                                ? `Bài trắc nghiệm, ${item.timeLimitMinutes} phút`
+                                : "Bài trắc nghiệm"
                               : item.expectedDurationMinutes
-                                ? `Assignment, about ${item.expectedDurationMinutes} min`
-                                : "Assignment"}
+                                ? `Bài tập, khoảng ${item.expectedDurationMinutes} phút`
+                                : "Bài tập"}
                           </small>
                         </td>
-                        <td>{item.isRequired ? "Required" : "Optional"}</td>
+                        <td>
+                          {item.isRequired ? "Bắt buộc" : "Không bắt buộc"}
+                        </td>
                         <td>{item.passingScore}%</td>
                         <td>
                           <StatusTag tone={view.tone}>{view.label}</StatusTag>
                         </td>
-                        <td>{item.recordedScore === null ? "-" : `${item.recordedScore}%`}</td>
+                        <td>
+                          {item.recordedScore === null
+                            ? "-"
+                            : `${item.recordedScore}%`}
+                        </td>
                         <td>
                           {locked ? (
-                            <Tooltip title={`You can try again at ${formatTime(item.attempts.lockedUntil!)}`}>
+                            <Tooltip
+                              title={`Bạn làm lại được từ ${formatTime(item.attempts.lockedUntil!)}`}
+                            >
                               <span className="course-assessments-locked">
-                                <LockOutlined /> Opens {formatTime(item.attempts.lockedUntil!)}
+                                <LockOutlined /> Mở lại{" "}
+                                {formatTime(item.attempts.lockedUntil!)}
                               </span>
                             </Tooltip>
                           ) : (
-                            `${item.attempts.remainingAttempts} of ${item.attempts.maxConsecutiveAttempts}`
+                            `${item.attempts.remainingAttempts}/${item.attempts.maxConsecutiveAttempts}`
                           )}
                         </td>
                         <td>{action(item)}</td>
@@ -206,8 +284,8 @@ const CourseAssessments = () => {
             </table>
           )}
           <p className="course-assessments-footnote">
-            After a set number of submissions in a row an Assessment pauses for a few hours, then opens again with a
-            fresh count.
+            Sau một số lần làm hoặc nộp liên tiếp, bài đánh giá tạm khóa vài giờ
+            rồi mở lại và đếm lại từ đầu.
           </p>
         </div>
       </div>

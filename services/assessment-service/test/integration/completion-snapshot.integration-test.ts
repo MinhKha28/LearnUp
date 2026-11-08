@@ -185,12 +185,13 @@ describe('completion snapshot over HTTP (CT-1)', () => {
     assert.equal(data.eligible, false);
   });
 
-  test('a Quiz: an open attempt is no result; the best submitted attempt is; passing ends the Quiz', async () => {
+  test('a Quiz: an open attempt (still within its time) is no result; the best submitted attempt is; passing ends the Quiz', async () => {
     const attempt = (n: number, score: string | null, submitted: boolean) =>
       db.query(
         `INSERT INTO quiz_attempts (id, organization_id, assessment_id, learner_id, attempt_number, started_at, deadline_at,
                                     submitted_at, score, created_at, updated_at)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, now() - interval '1 hour', now() - interval '50 minutes',
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, now() - interval '1 hour',
+                 ${submitted ? "now() - interval '50 minutes'" : "now() + interval '50 minutes'"},
                  ${submitted ? "now() - interval '55 minutes'" : 'NULL'}, $5, now(), now())`,
         [ORG, requiredQuiz, LEARNER, n, score],
       );

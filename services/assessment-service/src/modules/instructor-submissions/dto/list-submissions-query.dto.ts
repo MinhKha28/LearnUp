@@ -3,8 +3,10 @@ import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -16,6 +18,39 @@ export class ListSubmissionsQueryDto {
   @IsString()
   @MaxLength(50)
   status?: string;
+
+  @ApiPropertyOptional({ description: 'Only the submissions of this Learner' })
+  @IsOptional()
+  @IsUUID()
+  learnerId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'true to list only the submissions the Instructor has to grade (status AwaitingInstructor)',
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  needsIntervention?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Lowest final score to list (submissions not finalized have no score)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minScore?: number;
+
+  @ApiPropertyOptional({ description: 'Highest final score to list' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  maxScore?: number;
 
   @ApiPropertyOptional({ description: 'Search by learner name or email' })
   @IsOptional()

@@ -49,7 +49,8 @@ export const instructorCourses: ICourse[] = [
     id: "workplace-safety",
     title: "Workplace Safety Essentials",
     shortDescription: "An introduction to workplace safety practices",
-    trainingObjective: "Provide organizational safety guidance and practical procedures.",
+    trainingObjective:
+      "Provide organizational safety guidance and practical procedures.",
     learningOutcomes: [
       "Recognize required procedures.",
       "Apply guidance in relevant workplace scenarios.",
@@ -65,7 +66,8 @@ export const instructorCourses: ICourse[] = [
     id: "data-protection",
     title: "Data Protection Basics",
     shortDescription: "Learn the essentials of handling organizational data.",
-    trainingObjective: "Understand how to handle organizational data responsibly.",
+    trainingObjective:
+      "Understand how to handle organizational data responsibly.",
     learningOutcomes: [
       "Understand how to handle organizational data responsibly.",
       "Apply internal processes when using shared information.",
@@ -81,7 +83,8 @@ export const instructorCourses: ICourse[] = [
     id: "service-communication",
     title: "Service Communication",
     shortDescription: "Practice clear communication in everyday work.",
-    trainingObjective: "Practice clear, professional communication in everyday work.",
+    trainingObjective:
+      "Practice clear, professional communication in everyday work.",
     learningOutcomes: [
       "Communicate clearly with colleagues and customers.",
       "Apply the Organization's communication standards.",
@@ -98,7 +101,8 @@ export const instructorCourses: ICourse[] = [
     id: "operational-procedures",
     title: "Operational Procedures",
     shortDescription: "Core operating procedures for daily tasks.",
-    trainingObjective: "Explain the core operating procedures used in daily tasks.",
+    trainingObjective:
+      "Explain the core operating procedures used in daily tasks.",
     learningOutcomes: [
       "Follow the documented operating procedure for common tasks.",
       "Identify who to contact when a step is unclear.",
@@ -165,7 +169,9 @@ export interface ICourseVersionRecord {
 // Draft version (if a new one has been started) followed by the currently
 // live Published version. Figures the Organization has not yet computed are
 // rendered as literal placeholders, consistent with the rest of this demo data.
-export const courseVersionRecords = (course: ICourse): ICourseVersionRecord[] => {
+export const courseVersionRecords = (
+  course: ICourse,
+): ICourseVersionRecord[] => {
   const records: ICourseVersionRecord[] = [];
   if (course.publishedVersion && course.version !== course.publishedVersion) {
     records.push({
@@ -193,13 +199,18 @@ export const courseVersionRecords = (course: ICourse): ICourseVersionRecord[] =>
 };
 
 export const canCreateNewCourseVersion = (course: ICourse) =>
-  Boolean(course.locked && course.publishedVersion && course.version === course.publishedVersion);
+  Boolean(
+    course.locked &&
+    course.publishedVersion &&
+    course.version === course.publishedVersion,
+  );
 
 // Copies a Locked, Published Course into a new Draft version. The previous
 // version stays live for enrolled Learners (`publishedVersion` is unchanged)
 // until the new version is itself approved and Published by the Organizer.
 export const createNewCourseVersion = (course: ICourse) => {
-  const currentNumber = Number.parseInt(course.version.replace(/[^0-9]/g, ""), 10) || 1;
+  const currentNumber =
+    Number.parseInt(course.version.replace(/[^0-9]/g, ""), 10) || 1;
   course.publishedVersion = course.publishedVersion ?? course.version;
   course.version = `v${currentNumber + 1}`;
   course.status = "draft";
@@ -273,30 +284,38 @@ export const instructorSubmissions: ISubmission[] = [
     assignmentTitle: "Safety Assignment",
     learnerName: "Riley Park",
     reviewState: "discrepancy",
-    scoreLabel: "[Average]",
-    interventionLabel: "Review required",
+    scoreLabel: "-",
+    interventionLabel: "Cần xử lý",
     reviewers: [
-      { reviewerName: "Alex Morgan", scoreLabel: "[Score]", feedbackLabel: "[Comment]" },
-      { reviewerName: "Taylor Kim", scoreLabel: "[Score]", feedbackLabel: "[Comment]" },
+      {
+        reviewerName: "Alex Morgan",
+        scoreLabel: "Chưa có",
+        feedbackLabel: "Chưa có",
+      },
+      {
+        reviewerName: "Taylor Kim",
+        scoreLabel: "Chưa có",
+        feedbackLabel: "Chưa có",
+      },
     ],
     criteriaComparison: [
       {
-        criterionLabel: "Criterion 1",
-        reviewerAScoreLabel: "[Score]",
-        reviewerBScoreLabel: "[Score]",
-        differenceLabel: "[Difference]",
+        criterionLabel: "Tiêu chí 1",
+        reviewerAScoreLabel: "Chưa có",
+        reviewerBScoreLabel: "Chưa có",
+        differenceLabel: "-",
       },
       {
-        criterionLabel: "Criterion 2",
-        reviewerAScoreLabel: "[Score]",
-        reviewerBScoreLabel: "[Score]",
-        differenceLabel: "[Difference]",
+        criterionLabel: "Tiêu chí 2",
+        reviewerAScoreLabel: "Chưa có",
+        reviewerBScoreLabel: "Chưa có",
+        differenceLabel: "-",
       },
       {
-        criterionLabel: "Criterion 3",
-        reviewerAScoreLabel: "[Score]",
-        reviewerBScoreLabel: "[Score]",
-        differenceLabel: "[Difference]",
+        criterionLabel: "Tiêu chí 3",
+        reviewerAScoreLabel: "Chưa có",
+        reviewerBScoreLabel: "Chưa có",
+        differenceLabel: "-",
       },
     ],
     isResubmission: false,
@@ -326,8 +345,16 @@ export const instructorSubmissions: ISubmission[] = [
     scoreLabel: "[Score]",
     interventionLabel: "Finalize",
     reviewers: [
-      { reviewerName: "Alex Morgan", scoreLabel: "[Score]", feedbackLabel: "[Comment]" },
-      { reviewerName: "Taylor Kim", scoreLabel: "[Score]", feedbackLabel: "[Comment]" },
+      {
+        reviewerName: "Alex Morgan",
+        scoreLabel: "Chưa có",
+        feedbackLabel: "Chưa có",
+      },
+      {
+        reviewerName: "Taylor Kim",
+        scoreLabel: "Chưa có",
+        feedbackLabel: "Chưa có",
+      },
     ],
     criteriaComparison: [],
     isResubmission: false,
@@ -353,7 +380,9 @@ export const findSubmission = (submissionId?: string) =>
   instructorSubmissions.find((submission) => submission.id === submissionId);
 
 export const submissionsForAssignment = (assignmentId: string) =>
-  instructorSubmissions.filter((submission) => submission.assignmentId === assignmentId);
+  instructorSubmissions.filter(
+    (submission) => submission.assignmentId === assignmentId,
+  );
 
 export const publishSubmissionGrade = (
   submission: ISubmission,
@@ -365,21 +394,27 @@ export const publishSubmissionGrade = (
   submission.published = true;
   submission.reviewState = "graded";
   submission.scoreLabel = String(finalScore);
-  submission.interventionLabel = "Published";
+  submission.interventionLabel = "Đã công bố";
 };
 
-export const saveDirectGrade = (submission: ISubmission, finalScore: number, feedback: string) => {
+export const saveDirectGrade = (
+  submission: ISubmission,
+  finalScore: number,
+  feedback: string,
+) => {
   submission.finalScore = finalScore;
   submission.feedback = feedback;
   submission.reviewState = "graded";
   submission.scoreLabel = String(finalScore);
-  submission.interventionLabel = "Draft saved";
+  submission.interventionLabel = "Đã lưu nháp";
 };
 
 // ---- Peer Review Cycles ----
 
 export const discrepancySubmissions = () =>
-  instructorSubmissions.filter((submission) => submission.reviewState === "discrepancy");
+  instructorSubmissions.filter(
+    (submission) => submission.reviewState === "discrepancy",
+  );
 
 // ---- Dashboard grading highlights (Batch 1 placeholders; wired in Batch 5) ----
 
@@ -389,8 +424,14 @@ export interface IGradingHighlight {
 }
 
 export const gradingHighlights: IGradingHighlight[] = [
-  { label: "Submissions requiring direct grading", to: "/instructor/submissions" },
-  { label: "Peer review cycles approaching deadline", to: "/instructor/peer-cycles" },
+  {
+    label: "Submissions requiring direct grading",
+    to: "/instructor/submissions",
+  },
+  {
+    label: "Peer review cycles approaching deadline",
+    to: "/instructor/peer-cycles",
+  },
   { label: "Review score discrepancies", to: "/instructor/submissions" },
 ];
 
@@ -526,7 +567,8 @@ export const courseStructures: Record<string, ICourseStructure> = {
             id: "m1-l1",
             title: "Lesson 1 · Introduction",
             required: true,
-            introText: "This Lesson introduces the Course and its safety expectations.",
+            introText:
+              "This Lesson introduces the Course and its safety expectations.",
             completedByLearner: false,
             resources: [
               {
@@ -604,9 +646,21 @@ export const courseStructures: Record<string, ICourseStructure> = {
             type: "single",
             text: "Follow the safety process?",
             options: [
-              { id: "m2-quiz-q1-a", text: "Follow the procedure", correct: true },
-              { id: "m2-quiz-q1-b", text: "Skip required checks", correct: false },
-              { id: "m2-quiz-q1-c", text: "Ignore instructions", correct: false },
+              {
+                id: "m2-quiz-q1-a",
+                text: "Follow the procedure",
+                correct: true,
+              },
+              {
+                id: "m2-quiz-q1-b",
+                text: "Skip required checks",
+                correct: false,
+              },
+              {
+                id: "m2-quiz-q1-c",
+                text: "Ignore instructions",
+                correct: false,
+              },
             ],
           },
           {
@@ -616,7 +670,11 @@ export const courseStructures: Record<string, ICourseStructure> = {
             options: [
               { id: "m2-quiz-q2-a", text: "Review guidance", correct: true },
               { id: "m2-quiz-q2-b", text: "Complete checks", correct: true },
-              { id: "m2-quiz-q2-c", text: "Skip the procedure", correct: false },
+              {
+                id: "m2-quiz-q2-c",
+                text: "Skip the procedure",
+                correct: false,
+              },
             ],
           },
           {
@@ -643,10 +701,17 @@ export const courseStructures: Record<string, ICourseStructure> = {
       {
         id: "safety-assignment",
         title: "Safety Assignment",
-        instructions: "Prepare a response using the documented safety procedures.",
+        instructions:
+          "Prepare a response using the documented safety procedures.",
         rubric: [
-          { id: "safety-assignment-c1", description: "Completeness of response" },
-          { id: "safety-assignment-c2", description: "Application of procedure" },
+          {
+            id: "safety-assignment-c1",
+            description: "Completeness of response",
+          },
+          {
+            id: "safety-assignment-c2",
+            description: "Application of procedure",
+          },
           { id: "safety-assignment-c3", description: "Clarity of explanation" },
         ],
         peerReviewEnabled: true,
@@ -656,7 +721,9 @@ export const courseStructures: Record<string, ICourseStructure> = {
         id: "practice-reflection",
         title: "Practice reflection",
         instructions: "Write a short reflection on today's practice session.",
-        rubric: [{ id: "practice-reflection-c1", description: "Depth of reflection" }],
+        rubric: [
+          { id: "practice-reflection-c1", description: "Depth of reflection" },
+        ],
         peerReviewEnabled: false,
         locked: false,
       },
@@ -714,8 +781,16 @@ export const courseStructures: Record<string, ICourseStructure> = {
             type: "single",
             text: "Which greeting matches the Organization's standard?",
             options: [
-              { id: "communication-final-quiz-q1-a", text: "Use the approved greeting script", correct: true },
-              { id: "communication-final-quiz-q1-b", text: "Use any informal greeting", correct: false },
+              {
+                id: "communication-final-quiz-q1-a",
+                text: "Use the approved greeting script",
+                correct: true,
+              },
+              {
+                id: "communication-final-quiz-q1-b",
+                text: "Use any informal greeting",
+                correct: false,
+              },
             ],
           },
         ],
@@ -725,14 +800,23 @@ export const courseStructures: Record<string, ICourseStructure> = {
       {
         id: "communication-assignment",
         title: "Communication Assignment",
-        instructions: "Respond to the sample customer scenario using the Service Communication standard.",
+        instructions:
+          "Respond to the sample customer scenario using the Service Communication standard.",
         passingScore: 70,
         estimatedEffortMinutes: 30,
         consecutiveSubmissions: 2,
         lockHours: 24,
         rubric: [
-          { id: "communication-assignment-c1", description: "Tone and professionalism", maxScore: 10 },
-          { id: "communication-assignment-c2", description: "Accuracy of information", maxScore: 10 },
+          {
+            id: "communication-assignment-c1",
+            description: "Tone and professionalism",
+            maxScore: 10,
+          },
+          {
+            id: "communication-assignment-c2",
+            description: "Accuracy of information",
+            maxScore: 10,
+          },
         ],
         peerReviewEnabled: true,
         reviewersPerSubmission: 2,
@@ -748,10 +832,15 @@ export const courseStructures: Record<string, ICourseStructure> = {
 export const findCourseStructure = (courseId?: string) =>
   courseId ? courseStructures[courseId] : undefined;
 
-export const findBuilderModule = (structure: ICourseStructure, moduleId?: string) =>
-  structure.modules.find((module) => module.id === moduleId);
+export const findBuilderModule = (
+  structure: ICourseStructure,
+  moduleId?: string,
+) => structure.modules.find((module) => module.id === moduleId);
 
-export const findBuilderLesson = (structure: ICourseStructure, lessonId?: string) => {
+export const findBuilderLesson = (
+  structure: ICourseStructure,
+  lessonId?: string,
+) => {
   for (const module of structure.modules) {
     const lesson = module.lessons.find((item) => item.id === lessonId);
     if (lesson) return { module, lesson };
@@ -766,7 +855,9 @@ export const findBuilderResource = (
 ) => {
   const found = findBuilderLesson(structure, lessonId);
   if (!found) return undefined;
-  const resource = found.lesson.resources.find((item) => item.id === resourceId);
+  const resource = found.lesson.resources.find(
+    (item) => item.id === resourceId,
+  );
   if (!resource) return undefined;
   return { ...found, resource };
 };
@@ -798,12 +889,18 @@ export const addBuilderResource = (
   found.lesson.resources.push(resource);
 };
 
-export const removeBuilderModule = (structure: ICourseStructure, moduleId: string) => {
+export const removeBuilderModule = (
+  structure: ICourseStructure,
+  moduleId: string,
+) => {
   const index = structure.modules.findIndex((module) => module.id === moduleId);
   if (index !== -1) structure.modules.splice(index, 1);
 };
 
-export const removeBuilderLesson = (structure: ICourseStructure, lessonId: string) => {
+export const removeBuilderLesson = (
+  structure: ICourseStructure,
+  lessonId: string,
+) => {
   for (const module of structure.modules) {
     const index = module.lessons.findIndex((lesson) => lesson.id === lessonId);
     if (index !== -1) {
@@ -813,10 +910,15 @@ export const removeBuilderLesson = (structure: ICourseStructure, lessonId: strin
   }
 };
 
-export const removeBuilderResource = (structure: ICourseStructure, resourceId: string) => {
+export const removeBuilderResource = (
+  structure: ICourseStructure,
+  resourceId: string,
+) => {
   for (const module of structure.modules) {
     for (const lesson of module.lessons) {
-      const index = lesson.resources.findIndex((resource) => resource.id === resourceId);
+      const index = lesson.resources.findIndex(
+        (resource) => resource.id === resourceId,
+      );
       if (index !== -1) {
         lesson.resources.splice(index, 1);
         return;
@@ -825,7 +927,11 @@ export const removeBuilderResource = (structure: ICourseStructure, resourceId: s
   }
 };
 
-export const moveBuilderModule = (structure: ICourseStructure, moduleId: string, delta: 1 | -1) => {
+export const moveBuilderModule = (
+  structure: ICourseStructure,
+  moduleId: string,
+  delta: 1 | -1,
+) => {
   const index = structure.modules.findIndex((module) => module.id === moduleId);
   const target = index + delta;
   if (index === -1 || target < 0 || target >= structure.modules.length) return;
@@ -859,23 +965,37 @@ export const slugify = (value: string) =>
 export const findBuilderQuiz = (structure: ICourseStructure, quizId?: string) =>
   structure.quizzes.find((quiz) => quiz.id === quizId);
 
-export const findBuilderQuizQuestion = (quiz: IBuilderQuiz, questionId?: string) =>
-  quiz.questions.find((question) => question.id === questionId);
+export const findBuilderQuizQuestion = (
+  quiz: IBuilderQuiz,
+  questionId?: string,
+) => quiz.questions.find((question) => question.id === questionId);
 
-export const addBuilderQuiz = (structure: ICourseStructure, quiz: IBuilderQuiz) => {
+export const addBuilderQuiz = (
+  structure: ICourseStructure,
+  quiz: IBuilderQuiz,
+) => {
   structure.quizzes.push(quiz);
 };
 
-export const removeBuilderQuiz = (structure: ICourseStructure, quizId: string) => {
+export const removeBuilderQuiz = (
+  structure: ICourseStructure,
+  quizId: string,
+) => {
   const index = structure.quizzes.findIndex((quiz) => quiz.id === quizId);
   if (index !== -1) structure.quizzes.splice(index, 1);
 };
 
-export const addBuilderQuizQuestion = (quiz: IBuilderQuiz, question: IBuilderQuizQuestion) => {
+export const addBuilderQuizQuestion = (
+  quiz: IBuilderQuiz,
+  question: IBuilderQuizQuestion,
+) => {
   quiz.questions.push(question);
 };
 
-export const saveBuilderQuizQuestion = (quiz: IBuilderQuiz, question: IBuilderQuizQuestion) => {
+export const saveBuilderQuizQuestion = (
+  quiz: IBuilderQuiz,
+  question: IBuilderQuizQuestion,
+) => {
   const index = quiz.questions.findIndex((item) => item.id === question.id);
   if (index === -1) {
     quiz.questions.push(question);
@@ -884,12 +1004,20 @@ export const saveBuilderQuizQuestion = (quiz: IBuilderQuiz, question: IBuilderQu
   }
 };
 
-export const removeBuilderQuizQuestion = (quiz: IBuilderQuiz, questionId: string) => {
-  const index = quiz.questions.findIndex((question) => question.id === questionId);
+export const removeBuilderQuizQuestion = (
+  quiz: IBuilderQuiz,
+  questionId: string,
+) => {
+  const index = quiz.questions.findIndex(
+    (question) => question.id === questionId,
+  );
   if (index !== -1) quiz.questions.splice(index, 1);
 };
 
-export const quizLocationLabel = (structure: ICourseStructure, quiz: IBuilderQuiz) => {
+export const quizLocationLabel = (
+  structure: ICourseStructure,
+  quiz: IBuilderQuiz,
+) => {
   if (quiz.location === "course") return "Course";
   const module = findBuilderModule(structure, quiz.moduleId);
   return module?.title.split("·")[0]?.trim() || module?.title || "Module";
@@ -903,24 +1031,42 @@ export const quizQuestionTypeLabel: Record<QuizQuestionType, string> = {
 
 // ---- Assignment helpers ----
 
-export const findBuilderAssignment = (structure: ICourseStructure, assignmentId?: string) =>
-  structure.assignments.find((assignment) => assignment.id === assignmentId);
+export const findBuilderAssignment = (
+  structure: ICourseStructure,
+  assignmentId?: string,
+) => structure.assignments.find((assignment) => assignment.id === assignmentId);
 
-export const addBuilderAssignment = (structure: ICourseStructure, assignment: IBuilderAssignment) => {
+export const addBuilderAssignment = (
+  structure: ICourseStructure,
+  assignment: IBuilderAssignment,
+) => {
   structure.assignments.push(assignment);
 };
 
-export const removeBuilderAssignment = (structure: ICourseStructure, assignmentId: string) => {
-  const index = structure.assignments.findIndex((assignment) => assignment.id === assignmentId);
+export const removeBuilderAssignment = (
+  structure: ICourseStructure,
+  assignmentId: string,
+) => {
+  const index = structure.assignments.findIndex(
+    (assignment) => assignment.id === assignmentId,
+  );
   if (index !== -1) structure.assignments.splice(index, 1);
 };
 
-export const addRubricCriterion = (assignment: IBuilderAssignment, criterion: IBuilderRubricCriterion) => {
+export const addRubricCriterion = (
+  assignment: IBuilderAssignment,
+  criterion: IBuilderRubricCriterion,
+) => {
   assignment.rubric.push(criterion);
 };
 
-export const removeRubricCriterion = (assignment: IBuilderAssignment, criterionId: string) => {
-  const index = assignment.rubric.findIndex((criterion) => criterion.id === criterionId);
+export const removeRubricCriterion = (
+  assignment: IBuilderAssignment,
+  criterionId: string,
+) => {
+  const index = assignment.rubric.findIndex(
+    (criterion) => criterion.id === criterionId,
+  );
   if (index !== -1) assignment.rubric.splice(index, 1);
 };
 
@@ -928,7 +1074,8 @@ export const removeRubricCriterion = (assignment: IBuilderAssignment, criterionI
 // scoped to Courses this Instructor currently owns.
 
 export type MonitoringEnrollmentType = "Required" | "Optional";
-export type MonitoringCompletionStatus = "Not started" | "In progress" | "Completed";
+export type MonitoringCompletionStatus =
+  "Not started" | "In progress" | "Completed";
 export type MonitoringDueStatus = "Overdue" | "No deadline" | "In progress";
 
 export interface IMonitoringRow {
@@ -1011,24 +1158,40 @@ export const resetMonitoringFilters = () => {
 export const hasActiveMonitoringFilters = () =>
   Boolean(
     monitoringFilters.courseTitle ||
-      monitoringFilters.learnerName ||
-      monitoringFilters.enrollmentType ||
-      monitoringFilters.completionStatus,
+    monitoringFilters.learnerName ||
+    monitoringFilters.enrollmentType ||
+    monitoringFilters.completionStatus,
   );
 
 export const filteredMonitoringRows = () =>
   monitoringRows.filter((row) => {
-    if (monitoringFilters.courseTitle && row.courseTitle !== monitoringFilters.courseTitle) return false;
-    if (monitoringFilters.learnerName && row.learnerName !== monitoringFilters.learnerName) return false;
-    if (monitoringFilters.enrollmentType && row.enrollmentType !== monitoringFilters.enrollmentType)
+    if (
+      monitoringFilters.courseTitle &&
+      row.courseTitle !== monitoringFilters.courseTitle
+    )
       return false;
-    if (monitoringFilters.completionStatus && row.completionStatus !== monitoringFilters.completionStatus)
+    if (
+      monitoringFilters.learnerName &&
+      row.learnerName !== monitoringFilters.learnerName
+    )
+      return false;
+    if (
+      monitoringFilters.enrollmentType &&
+      row.enrollmentType !== monitoringFilters.enrollmentType
+    )
+      return false;
+    if (
+      monitoringFilters.completionStatus &&
+      row.completionStatus !== monitoringFilters.completionStatus
+    )
       return false;
     return true;
   });
 
 export const findMonitoringRow = (courseId?: string, learnerId?: string) =>
-  monitoringRows.find((row) => row.courseId === courseId && row.learnerId === learnerId);
+  monitoringRows.find(
+    (row) => row.courseId === courseId && row.learnerId === learnerId,
+  );
 
 // ---- Learner Progress drill-down ----
 
@@ -1041,17 +1204,50 @@ export interface ILearnerProgressComponent {
 
 const learnerProgressByPair: Record<string, ILearnerProgressComponent[]> = {
   "workplace-safety__alex-morgan": [
-    { component: "Module 1 required resources", completion: "Complete", result: "—", attention: "—" },
-    { component: "Module 2 required resources", completion: "In progress", result: "—", attention: "Continue" },
-    { component: "Module 2 Quiz", completion: "Completed", result: "[Highest attempt]", attention: "—" },
-    { component: "Safety Assignment", completion: "Awaiting grade", result: "[Latest submission]", attention: "Grade" },
+    {
+      component: "Module 1 required resources",
+      completion: "Complete",
+      result: "—",
+      attention: "—",
+    },
+    {
+      component: "Module 2 required resources",
+      completion: "In progress",
+      result: "—",
+      attention: "Continue",
+    },
+    {
+      component: "Module 2 Quiz",
+      completion: "Completed",
+      result: "[Highest attempt]",
+      attention: "—",
+    },
+    {
+      component: "Safety Assignment",
+      completion: "Awaiting grade",
+      result: "[Latest submission]",
+      attention: "Grade",
+    },
   ],
 };
 
-export const learnerProgressComponents = (courseId: string, learnerId: string): ILearnerProgressComponent[] =>
+export const learnerProgressComponents = (
+  courseId: string,
+  learnerId: string,
+): ILearnerProgressComponent[] =>
   learnerProgressByPair[`${courseId}__${learnerId}`] ?? [
-    { component: "Module 1 required resources", completion: "[Status]", result: "—", attention: "—" },
-    { component: "Module 2 required resources", completion: "[Status]", result: "—", attention: "—" },
+    {
+      component: "Module 1 required resources",
+      completion: "[Status]",
+      result: "—",
+      attention: "—",
+    },
+    {
+      component: "Module 2 required resources",
+      completion: "[Status]",
+      result: "—",
+      attention: "—",
+    },
   ];
 
 export const dueStatusMessage: Record<MonitoringDueStatus, string> = {
@@ -1060,7 +1256,10 @@ export const dueStatusMessage: Record<MonitoringDueStatus, string> = {
   "In progress": "In progress • Learner can continue learning",
 };
 
-export const dueStatusTone: Record<MonitoringDueStatus, "error" | "neutral" | "warning"> = {
+export const dueStatusTone: Record<
+  MonitoringDueStatus,
+  "error" | "neutral" | "warning"
+> = {
   Overdue: "error",
   "No deadline": "neutral",
   "In progress": "warning",
@@ -1152,12 +1351,18 @@ export const contentModerationCases: Record<string, IContentModerationCase> = {
 export const findContentModerationCase = (courseId?: string) =>
   courseId ? contentModerationCases[courseId] : undefined;
 
-export const submitReconsideration = (item: IContentModerationCase, summary: string) => {
+export const submitReconsideration = (
+  item: IContentModerationCase,
+  summary: string,
+) => {
   item.correctionSubmitted = true;
   item.reconsiderationSummary = summary;
 };
 
-export const escalateContentDecision = (item: IContentModerationCase, reason: string) => {
+export const escalateContentDecision = (
+  item: IContentModerationCase,
+  reason: string,
+) => {
   item.escalated = true;
   item.escalationReason = reason;
 };
