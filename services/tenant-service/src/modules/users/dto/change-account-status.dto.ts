@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsIn,
@@ -46,3 +46,10 @@ export class ChangeAccountStatusDto {
   @Matches(NO_CONTROL_CHARS, { message: 'Lý do chứa ký tự không hợp lệ' })
   reason?: string;
 }
+
+// UC13.5 - Đổi trạng thái Learner. Cùng action / reason (cùng validate) với UC12.5; Learner không có
+// chuyển quyền phụ trách (BR-41 chỉ cho Instructor) nên gửi receiverInstructorId -> 400 (forbidNonWhitelisted).
+export class ChangeLearnerStatusDto extends PickType(ChangeAccountStatusDto, [
+  'action',
+  'reason',
+] as const) {}
