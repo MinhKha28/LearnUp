@@ -12,7 +12,7 @@ import {
 } from '../../src/modules/assessment-status/assessment-status.event';
 import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 
-function event(status = 'Submitted') {
+function event(status = 'Submitted', overrides: Record<string, unknown> = {}) {
   const organizationId = randomUUID();
   return {
     eventId: randomUUID(),
@@ -26,7 +26,7 @@ function event(status = 'Submitted') {
       assessmentId: randomUUID(),
       learnerId: randomUUID(),
       courseId: randomUUID(),
-      kind: 'ASSIGNMENT',
+      kind: status === 'Started' ? 'QUIZ' : 'ASSIGNMENT',
       status,
       reason:
         status === 'PeerReviewAssigned'
@@ -35,9 +35,12 @@ function event(status = 'Submitted') {
             ? 'PEER_REVIEW_MISSED'
             : status === 'Finalized'
               ? 'ASSIGNMENT_FINALIZED'
-              : 'ASSIGNMENT_SUBMITTED',
+              : status === 'Started'
+                ? 'QUIZ_STARTED'
+                : 'ASSIGNMENT_SUBMITTED',
       revision: 'unordered-hash',
       firstActivityAt: '2026-10-29T08:00:00.000Z' as string | null | undefined,
+      ...overrides,
     },
   };
 }
@@ -105,6 +108,7 @@ function harness(found = true) {
   };
 }
 for (const status of [
+  'Started',
   'Submitted',
   'Resubmitted',
   'PeerReviewWaived',
@@ -115,16 +119,17 @@ for (const status of [
 ])
   void test(`assessment ${status}: activation policy, one queue write, DB before offset`, async () => {
     const h = harness();
+    const activates = ['Started', 'Submitted', 'Resubmitted'].includes(status);
     await h.consumer.handle(delivery(event(status)), h.commit);
     assert.equal(
       h.trace.filter((s) => s === 'activate').length,
-      ['Submitted', 'Resubmitted'].includes(status) ? 1 : 0,
+      activates ? 1 : 0,
     );
     assert.equal(h.trace.filter((s) => s === 'queue').length, 1);
     assert.deepEqual(h.trace, [
       'begin',
       'lookup',
-      ...(['Submitted', 'Resubmitted'].includes(status) ? ['activate'] : []),
+      ...(activates ? ['activate'] : []),
       'queue',
       'db-commit',
       'offset-commit',
@@ -140,16 +145,48 @@ for (const value of [undefined, null])
     await h.consumer.handle(delivery(e), h.commit);
     assert.equal(h.activity[0].toISOString(), e.occurredAt);
   });
-for (const status of ['Submitted', 'Finalized'])
+void test('assessment Started with null activity falls back to envelope', async () => {
+  const h = harness();
+  const e = event('Started', { firstActivityAt: null });
+  await h.consumer.handle(delivery(e), h.commit);
+  assert.deepEqual(h.activity, [new Date(e.occurredAt)]);
+  assert.equal(h.trace.filter((step) => step === 'queue').length, 1);
+});
+for (const [name, overrides] of [
+  [
+    'ignores malformed attempt extras',
+    {
+      attemptId: 42,
+      attemptNumber: 'second',
+      consecutiveCount: [],
+      deadlineAt: 'invalid',
+    },
+  ],
+  [
+    'accepts a different supported kind and reason',
+    { kind: 'ASSIGNMENT', reason: 'ASSIGNMENT_SUBMITTED' },
+  ],
+] as const)
+  void test(`assessment Started ${name}`, async () => {
+    const h = harness();
+    const e = event('Started', overrides);
+    await h.consumer.handle(delivery(e), h.commit);
+    assert.deepEqual(h.activity, [new Date(e.data.firstActivityAt!)]);
+    assert.equal(h.trace.filter((step) => step === 'queue').length, 1);
+    assert.ok(!h.trace.includes('quarantine'));
+  });
+for (const status of ['Started', 'Submitted', 'Finalized'])
   void test(`assessment duplicate ${status} signals each request evaluation without revision ordering`, async () => {
     const h = harness(),
       d = delivery(event(status));
     await h.consumer.handle(d, h.commit);
     await h.consumer.handle(d, h.commit);
     assert.equal(h.trace.filter((s) => s === 'queue').length, 2);
-    if (status === 'Submitted')
+    if (status === 'Finalized') assert.equal(h.activity.length, 0);
+    else {
+      assert.equal(h.activity.length, 2);
       assert.equal(h.activity[0].getTime(), h.activity[1].getTime());
-    else assert.equal(h.activity.length, 0);
+    }
   });
 for (const extras of [
   {},

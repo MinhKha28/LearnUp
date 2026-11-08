@@ -13,6 +13,7 @@ export interface AssessmentStatusEvent {
     learnerId: string;
     courseId: string;
     status:
+      | 'Started'
       | 'Submitted'
       | 'Resubmitted'
       | 'PeerReviewWaived'
@@ -106,6 +107,7 @@ export function decodeAssessment(delivery: AssessmentDelivery): {
       d.organizationId !== payload.organizationId) ||
     !['QUIZ', 'ASSIGNMENT'].includes(d.kind as string) ||
     ![
+      'Started',
       'Submitted',
       'Resubmitted',
       'PeerReviewWaived',

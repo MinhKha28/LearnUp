@@ -6,14 +6,19 @@ Key: learnerId. Envelope: [v1](event-envelope.schema.json), with occurredAt at i
 Event type: `LearnerAssessmentStatusChanged`.
 
 Payload fields: assessmentId, learnerId, courseId (UUIDs), kind (QUIZ or ASSIGNMENT),
-status (Submitted, Resubmitted, PeerReviewWaived, PeerReviewCompleted,
+status (Started, Submitted, Resubmitted, PeerReviewWaived, PeerReviewCompleted,
 PeerReviewAssigned, PeerReviewMissed, Finalized).
 organizationId, when supplied, must match the envelope. Producer also supplies reason,
 revision and nullable firstActivityAt. Missing/null firstActivityAt falls back to
-envelope occurredAt for Submitted/Resubmitted only. Revision is an unordered,
+envelope occurredAt for Started/Submitted/Resubmitted only. Revision is an unordered,
 learner/course-scoped snapshot hash; Learning neither orders nor stores it.
 
-Submitted/Resubmitted use Learning's shared earliest-activity activation helper.
+`Started` is sent when a Learner starts a Quiz attempt (UC29.1, BR-201: the attempt is learning data from that moment),
+with reason `QUIZ_STARTED`, kind `QUIZ` and extra fields attemptId, attemptNumber, consecutiveCount, deadlineAt.
+
+Learning does not read, validate, or store these four `Started` extras.
+
+Started/Submitted/Resubmitted use Learning's shared earliest-activity activation helper.
 PeerReviewWaived/PeerReviewCompleted/PeerReviewAssigned/PeerReviewMissed/Finalized never activate.
 The additive status values below are accepted by learning and are planned for
 the Assessment paths listed below (not yet emitted):
