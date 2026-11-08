@@ -140,8 +140,8 @@ export interface EnrollmentProgress {
   enrollment: {
     id: string;
     courseId: string;
-    status: string;
-    enrollmentType: string;
+    status: EnrollmentStatus;
+    enrollmentType: EnrollmentType;
     dueAt: string | null;
     dueTimezone: string | null;
     completedAt: string | null;

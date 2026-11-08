@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -7,7 +8,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchCurriculum, fetchEnrollmentProgress } from "@/services/learning.service";
 import { fetchLearnerAssessmentsAPI } from "@/services/assessment.service";
@@ -22,13 +23,20 @@ vi.mock("@/services/learning.service", () => ({
 vi.mock("@/services/assessment.service", () => ({
   fetchLearnerAssessmentsAPI: vi.fn(),
 }));
-vi.mock("@/hooks/use.learning.refresh", () => ({
-  useLearningRefresh: vi.fn(),
-}));
 const curriculum = vi.mocked(fetchCurriculum);
 const progress = vi.mocked(fetchEnrollmentProgress);
 const assessments = vi.mocked(fetchLearnerAssessmentsAPI);
 const deviceTimezone = process.env.TZ;
+const refreshNotice = "Chưa cập nhật được tiến độ mới nhất. Đang hiển thị dữ liệu lần tải trước.";
+const heading = "Tiến độ hoàn thành Khóa học";
+
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+};
+
+const focus = () => fireEvent(window, new Event("focus"));
 const fixture = (): EnrollmentProgress => ({
   enrollment: {
     id: "enrollment",
@@ -81,6 +89,7 @@ const fixture = (): EnrollmentProgress => ({
 const mount = () =>
   render(
     <MemoryRouter initialEntries={["/learner/courses/enrollment/progress"]}>
+      <Link to="/learner/courses/other-enrollment/progress">Khóa học khác</Link>
       <Routes>
         <Route
           path="/learner/courses/:enrollmentId/progress"
@@ -105,6 +114,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   if (deviceTimezone === undefined) delete process.env.TZ;
   else process.env.TZ = deviceTimezone;
 });
@@ -148,7 +158,7 @@ describe("UC28 real progress page", () => {
       "enrollment",
       expect.any(AbortSignal),
     );
-    expect(assessments).toHaveBeenCalledWith("course");
+    expect(assessments).toHaveBeenCalledWith("course", expect.any(AbortSignal));
   });
   it("keeps materials when Assessment is unavailable and retries the endpoint", async () => {
     const degraded = fixture();
@@ -181,7 +191,7 @@ describe("UC28 real progress page", () => {
       },
     });
     mount();
-    await screen.findByText("Hoàn thành");
+    await screen.findByText("Đã hoàn thành");
     expect(screen.getByText("Ngày hoàn thành: 07:00, 03/11/2026")).toBeTruthy();
     expect(screen.getByText("Hoàn thành sau hạn")).toBeTruthy();
     expect(
@@ -213,6 +223,194 @@ describe("UC28 real progress page", () => {
       expect(assessments).not.toHaveBeenCalled();
     });
   }
+  it("shows the initial skeleton until progress first resolves", async () => {
+    const pending = deferred<EnrollmentProgress>();
+    progress.mockReturnValueOnce(pending.promise);
+    mount();
+
+    expect(screen.getByRole("status", { name: "Đang tải" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: heading })).toBeNull();
+    await act(async () => pending.resolve(fixture()));
+    expect(screen.getByRole("heading", { name: heading })).toBeTruthy();
+    expect(screen.queryByRole("status", { name: "Đang tải" })).toBeNull();
+  });
+
+  it("keeps the same details mounted and course name visible during a refresh", async () => {
+    const pending = deferred<EnrollmentProgress>();
+    progress.mockResolvedValueOnce(fixture()).mockReturnValueOnce(pending.promise);
+    mount();
+
+    const title = await screen.findByRole("heading", { name: heading });
+    await screen.findByText("An toàn lao động");
+    focus();
+
+    expect(progress).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("heading", { name: heading })).toBe(title);
+    expect(screen.getByText("An toàn lao động")).toBeTruthy();
+    expect(screen.queryByRole("status", { name: "Đang tải" })).toBeNull();
+    await act(async () => pending.resolve(fixture()));
+    expect(screen.getByRole("heading", { name: heading })).toBe(title);
+    expect(curriculum).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the previous enrollment immediately when the route changes", async () => {
+    const pending = deferred<EnrollmentProgress>();
+    progress.mockResolvedValueOnce(fixture()).mockReturnValueOnce(pending.promise);
+    mount();
+    await screen.findByText("An toàn lao động");
+
+    fireEvent.click(screen.getByRole("link", { name: "Khóa học khác" }));
+
+    expect(screen.getByRole("status", { name: "Đang tải" })).toBeTruthy();
+    expect(screen.queryByText("An toàn lao động")).toBeNull();
+    expect(screen.queryByRole("heading", { name: heading })).toBeNull();
+    expect(progress).toHaveBeenLastCalledWith("other-enrollment", expect.any(AbortSignal));
+    const next = fixture();
+    next.enrollment.id = "other-enrollment";
+    await act(async () => pending.resolve(next));
+    expect(screen.getByRole("link", { name: "Về chương trình học" }).getAttribute("href"))
+      .toBe("/learner/courses/other-enrollment");
+  });
+
+  it.each([
+    [403, "CONTENT_UNAVAILABLE", "Khóa học đang tạm dừng, bạn chưa thể truy cập nội dung"],
+    [404, "ENROLLMENT_NOT_FOUND", "Không tìm thấy Khóa học"],
+  ] as const)("replaces an existing snapshot when refresh returns %s", async (status, code, text) => {
+    const pending = deferred<EnrollmentProgress>();
+    progress.mockResolvedValueOnce(fixture())
+      .mockRejectedValueOnce(new ApiError(status, code, ""))
+      .mockReturnValueOnce(pending.promise);
+    mount();
+    await screen.findByRole("heading", { name: heading });
+
+    focus();
+    await screen.findByText(text);
+    expect(screen.queryByRole("heading", { name: heading })).toBeNull();
+    expect(screen.queryByText(refreshNotice)).toBeNull();
+
+    focus();
+    expect(screen.getByRole("status", { name: "Đang tải" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: heading })).toBeNull();
+  });
+
+  it.each([
+    new ApiError(503, "SERVICE_UNAVAILABLE", ""),
+    new ApiError(0, "NETWORK", ""),
+  ])("keeps the snapshot with a retry notice after a temporary $code error", async (error) => {
+    const pending = deferred<EnrollmentProgress>();
+    progress.mockResolvedValueOnce(fixture())
+      .mockRejectedValueOnce(error)
+      .mockReturnValueOnce(pending.promise);
+    mount();
+    const title = await screen.findByRole("heading", { name: heading });
+
+    focus();
+    const notice = await screen.findByRole("alert");
+    expect(within(notice).getByText(refreshNotice)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: heading })).toBe(title);
+
+    fireEvent.click(within(notice).getByRole("button", { name: "Thử lại" }));
+    expect(progress).toHaveBeenCalledTimes(3);
+    expect(screen.getByRole("heading", { name: heading })).toBe(title);
+    expect(screen.queryByRole("status", { name: "Đang tải" })).toBeNull();
+    await act(async () => pending.resolve(fixture()));
+    expect(screen.queryByText(refreshNotice)).toBeNull();
+  });
+
+  it("shows the full error and retries when there is no snapshot", async () => {
+    progress.mockRejectedValueOnce(new ApiError(503, "SERVICE_UNAVAILABLE", ""));
+    mount();
+
+    const error = await screen.findByRole("alert");
+    expect(within(error).getByText("Không tải được dữ liệu. Vui lòng thử lại.")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: heading })).toBeNull();
+    fireEvent.click(within(error).getByRole("button", { name: "Thử lại" }));
+    await screen.findByRole("heading", { name: heading });
+    expect(progress).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores a slow focus response after a newer visibility response", async () => {
+    const older = deferred<EnrollmentProgress>();
+    const newer = deferred<EnrollmentProgress>();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    progress.mockResolvedValueOnce(fixture())
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(newer.promise);
+    mount();
+    await screen.findByText("Đang học");
+
+    focus();
+    fireEvent(document, new Event("visibilitychange"));
+    expect(progress).toHaveBeenCalledTimes(3);
+    expect(progress.mock.calls[1][1]?.aborted).toBe(true);
+    const updated = fixture();
+    updated.enrollment.status = "Overdue";
+    await act(async () => newer.resolve(updated));
+    expect(screen.getByText("Quá hạn").classList).toContain("learner-status-error");
+    await act(async () => older.resolve(fixture()));
+    expect(screen.getByText("Quá hạn")).toBeTruthy();
+    expect(screen.queryByText("Đang học")).toBeNull();
+  });
+
+  it("fetches assessment titles once per eligible enrollment and course", async () => {
+    mount();
+    await screen.findByText("Đạt điểm yêu cầu: Kiểm tra an toàn");
+    const updated = fixture();
+    updated.enrollment.status = "Overdue";
+    progress.mockResolvedValueOnce(updated);
+    focus();
+    await screen.findByText("Quá hạn");
+    expect(assessments).toHaveBeenCalledTimes(1);
+
+    const anotherCourse = fixture();
+    anotherCourse.enrollment.courseId = "another-course";
+    progress.mockResolvedValueOnce(anotherCourse);
+    focus();
+    await waitFor(() => expect(assessments).toHaveBeenCalledTimes(2));
+    expect(assessments).toHaveBeenLastCalledWith("another-course", expect.any(AbortSignal));
+  });
+
+  it("links an unmatched material to the curriculum and leaves assessment links intact", async () => {
+    const data = fixture();
+    data.conditions?.missing.push({ kind: "material", id: "missing" });
+    progress.mockResolvedValueOnce(data);
+    mount();
+
+    const missing = await screen.findByRole("region", { name: "Điều kiện còn thiếu" });
+    expect(within(missing).getByRole("link", { name: "Học liệu" }).getAttribute("href"))
+      .toBe("/learner/courses/enrollment");
+    expect(within(missing).getByRole("link", { name: "Đọc tài liệu an toàn" }).getAttribute("href"))
+      .toBe("/learner/courses/enrollment/lessons/lesson");
+    expect((await within(missing).findByRole("link", { name: "Đạt điểm yêu cầu: Kiểm tra an toàn" })).getAttribute("href"))
+      .toBe("/learner/courses/enrollment/assessments");
+  });
+
+  it("aborts pending title requests on cleanup without clearing titles or surfacing an error", async () => {
+    const { unmount } = mount();
+    const title = "Đạt điểm yêu cầu: Kiểm tra an toàn";
+    await screen.findByText(title);
+
+    assessments.mockImplementation((_courseId, signal) => new Promise((_resolve, reject) => {
+      signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+    }));
+    const anotherCourse = fixture();
+    anotherCourse.enrollment.courseId = "another-course";
+    progress.mockResolvedValueOnce(anotherCourse);
+    focus();
+    await waitFor(() => expect(assessments).toHaveBeenCalledTimes(2));
+    const superseded = assessments.mock.calls[1][1];
+    progress.mockResolvedValueOnce(fixture());
+    focus();
+    await waitFor(() => expect(assessments).toHaveBeenCalledTimes(3));
+    expect(superseded?.aborted).toBe(true);
+    expect(screen.getByText(title)).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    const pending = assessments.mock.calls[2][1];
+    await act(async () => unmount());
+    expect(pending?.aborted).toBe(true);
+  });
+
   it("falls back to Vietnamese generic names if the assessment list fails", async () => {
     assessments.mockRejectedValue(new Error("unavailable"));
     mount();

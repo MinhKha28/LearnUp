@@ -6,7 +6,7 @@ import { ApiError, type ApiEnvelope } from "@/types/api.types";
 
 const API_PREFIX = "/api/v1";
 
-/** Đường dẫn 7 endpoint của 6 UC learner; khi gateway đổi tiền tố chỉ sửa ở đây. */
+/** Đường dẫn endpoint learner; khi gateway đổi tiền tố chỉ sửa ở đây. */
 export const API_PATHS = {
   catalog: `${API_PREFIX}/courses/catalog`,
   courseIntroduction: (courseId: string) =>
@@ -18,6 +18,8 @@ export const API_PATHS = {
   myEnrollments: `${API_PREFIX}/enrollments/me`,
   curriculum: (enrollmentId: string) =>
     `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/curriculum`,
+  progress: (enrollmentId: string) =>
+    `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/progress`,
   lesson: (enrollmentId: string, lessonId: string) =>
     `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/lessons/${encodeURIComponent(lessonId)}`,
 } as const;

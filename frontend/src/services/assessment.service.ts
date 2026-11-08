@@ -169,9 +169,10 @@ export const deleteQuizAPI = (quizId: string) =>
   );
 
 /** UC29 — the Quizzes and Assignments of an enrolled Course with status, score and tries left. */
-export const fetchLearnerAssessmentsAPI = (courseId: string) =>
+export const fetchLearnerAssessmentsAPI = (courseId: string, signal?: AbortSignal) =>
   axios.get<IBackendRes<ILearnerAssessmentList>>(
     `/api/v1/assessments/learner/courses/${courseId}/assessments`,
+    { signal },
   );
 
 /** UC30 step 1 — the Assignment as the enrolled Learner reads it (prompt, Rubric, attempts left). */

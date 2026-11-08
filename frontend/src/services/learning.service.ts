@@ -103,6 +103,4 @@ export const fetchLessonDetail = (
   });
 
 export const fetchEnrollmentProgress = (enrollmentId: string, signal?: AbortSignal) =>
-  apiGet<EnrollmentProgress>(
-    `/api/v1/enrollments/${encodeURIComponent(enrollmentId)}/progress`, { signal },
-  );
+  apiGet<EnrollmentProgress>(API_PATHS.progress(enrollmentId), { signal });

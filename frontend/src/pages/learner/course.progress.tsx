@@ -1,3 +1,4 @@
+import { Alert, Button } from "antd";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { LearnerSkeleton } from "@/components/learner/learner.states";
@@ -11,9 +12,10 @@ import { useApiQuery } from "@/hooks/use.api.query";
 import { useLearningRefresh } from "@/hooks/use.learning.refresh";
 import { fetchCurriculum, fetchEnrollmentProgress } from "@/services/learning.service";
 import { fetchLearnerAssessmentsAPI } from "@/services/assessment.service";
+import { isRetryableError } from "@/types/api.types";
 import type { EnrollmentProgress } from "@/types/learning.types";
 import { formatLocalDateTime } from "@/utils/helper";
-import { ENROLLMENT_TYPE_LABELS } from "@/utils/learner.labels";
+import { ENROLLMENT_STATUS_LABELS, ENROLLMENT_TYPE_LABELS } from "@/utils/learner.labels";
 import { formatDueAt } from "@/utils/due.format";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import "./course.progress.scss";
@@ -29,26 +31,26 @@ const peerLabels = {
 const ProgressDetails = ({
   data,
   names,
+  courseName,
+  refreshFailed,
   reload,
 }: {
   data: EnrollmentProgress;
-  names: ReadonlyMap<string, string>;
+  names: ReadonlyMap<string, string> | undefined;
+  courseName: string | undefined;
+  refreshFailed: boolean;
   reload: () => void;
 }) => {
   const { enrollment, materials = [], assessment, conditions } = data;
-  const curriculum = useApiQuery(
-    (signal) => fetchCurriculum(enrollment.id, signal),
-    [enrollment.id],
-  );
-  const courseName = curriculum.status === "success" ? curriculum.data.course?.name : null;
   const base = LEARNER_ROUTES.curriculum(enrollment.id);
   const due =
     enrollment.enrollmentType === "Required" && enrollment.dueAt
       ? formatDueAt(enrollment.dueAt, enrollment.dueTimezone)
       : null;
   const assessmentName = (id: string, kind: string) =>
-    names.get(id) || (kind === "quiz" ? "Bài kiểm tra" : "Bài tập");
+    names?.get(id) || (kind === "quiz" ? "Bài kiểm tra" : "Bài tập");
   const completed = enrollment.status === "Completed";
+  const statusLabel = ENROLLMENT_STATUS_LABELS[enrollment.status];
   return (
     <>
       <header className="course-progress-heading">
@@ -56,26 +58,21 @@ const ProgressDetails = ({
         <h1>Tiến độ hoàn thành Khóa học</h1>
         {courseName && <p className="course-progress-course-name">{courseName}</p>}
       </header>
+      {refreshFailed && (
+        <Alert
+          className="course-progress-refresh-notice"
+          type="warning"
+          showIcon
+          message="Chưa cập nhật được tiến độ mới nhất. Đang hiển thị dữ liệu lần tải trước."
+          action={<Button size="small" onClick={reload}>Thử lại</Button>}
+        />
+      )}
       <section
         className="course-progress-summary"
         aria-label="Tình trạng hoàn thành"
       >
-        <StatusTag tone={completed ? "success" : "info"}>
-          {completed
-            ? "Hoàn thành"
-            : enrollment.status === "Overdue"
-              ? "Quá hạn"
-              : enrollment.status === "Exempted"
-                ? "Được miễn học"
-                : enrollment.status === "NotStarted"
-                  ? "Chưa bắt đầu"
-                  : "Đang học"}
-        </StatusTag>
-        <p>
-          Loại phân công: {enrollment.enrollmentType === "Required"
-            ? ENROLLMENT_TYPE_LABELS.Required
-            : ENROLLMENT_TYPE_LABELS.Optional}
-        </p>
+        <StatusTag tone={statusLabel.tone}>{statusLabel.label}</StatusTag>
+        <p>Loại phân công: {ENROLLMENT_TYPE_LABELS[enrollment.enrollmentType]}</p>
         {due && (
           <p>
             Hạn hoàn thành: {due.text}
@@ -95,8 +92,8 @@ const ProgressDetails = ({
               className="course-progress-links"
               aria-label="Sau khi hoàn thành"
             >
-              <Link to="/learner/certificates">Xem chứng chỉ</Link>
-              <Link to={`${base}/evaluation`}>Đánh giá Khóa học</Link>
+              <Link to={LEARNER_ROUTES.certificates()}>Xem chứng chỉ</Link>
+              <Link to={LEARNER_ROUTES.evaluation(enrollment.id)}>Đánh giá Khóa học</Link>
             </nav>
           </>
         ) : (
@@ -132,20 +129,15 @@ const ProgressDetails = ({
                       : item.kind === "peerReview"
                         ? `Hoàn thành chấm chéo: ${assessmentName(item.id, "assignment")}`
                         : `Đạt điểm yêu cầu: ${assessmentName(item.id, item.kind)}`;
+                  let target = `${base}/assessments`;
+                  if (item.kind === "material") {
+                    target = material
+                      ? LEARNER_ROUTES.lesson(enrollment.id, material.lessonId)
+                      : base;
+                  }
                   return (
                     <li key={`${item.kind}:${item.id}`}>
-                      <Link
-                        to={
-                          item.kind === "material" && material
-                            ? LEARNER_ROUTES.lesson(
-                                enrollment.id,
-                                material.lessonId,
-                              )
-                            : `${base}/assessments`
-                        }
-                      >
-                        {label}
-                      </Link>
+                      <Link to={target}>{label}</Link>
                     </li>
                   );
                 })}
@@ -232,50 +224,61 @@ const ProgressDetails = ({
   );
 };
 
-const CourseProgress = () => {
-  const { enrollmentId = "" } = useParams();
+const EnrollmentProgressPage = ({ enrollmentId }: { enrollmentId: string }) => {
   const query = useApiQuery(
     (signal) => fetchEnrollmentProgress(enrollmentId, signal),
     [enrollmentId],
+    true,
   );
   useLearningRefresh(query.reload, enrollmentId);
-  const [names, setNames] = useState<{
-    enrollmentId: string;
-    items: Map<string, string>;
-  } | null>(null);
-  const data = query.status === "success" ? query.data : null;
+  const curriculum = useApiQuery(
+    (signal) => fetchCurriculum(enrollmentId, signal),
+    [enrollmentId],
+  );
+  const courseName = curriculum.status === "success" ? curriculum.data.course?.name : undefined;
+  const [snapshot, setSnapshot] = useState<EnrollmentProgress | null>(null);
+  const { status, data: queryData, error } = query;
+  const retryableError = error !== null && isRetryableError(error);
+
   useEffect(() => {
-    if (
-      !data ||
-      data.enrollment.status === "Completed" ||
-      data.assessment?.state !== "ok"
-    )
-      return;
-    let active = true;
+    if (status === "success") setSnapshot(queryData);
+    if (error && !retryableError) setSnapshot(null);
+  }, [status, queryData, error, retryableError]);
+
+  const data = queryData ?? (status === "loading" || retryableError ? snapshot : null);
+  const courseId =
+    data?.enrollment.status !== "Completed" && data?.assessment?.state === "ok"
+      ? data.enrollment.courseId
+      : undefined;
+  const [names, setNames] = useState<{
+    courseId: string;
+    items: ReadonlyMap<string, string>;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!courseId) return;
+    const controller = new AbortController();
     void (async () => {
       try {
-        const res = await fetchLearnerAssessmentsAPI(data.enrollment.courseId);
-        if (active)
+        const res = await fetchLearnerAssessmentsAPI(courseId, controller.signal);
+        if (!controller.signal.aborted) {
           setNames({
-            enrollmentId,
-            items: new Map(
-              (res.data?.items ?? []).map((item) => [item.id, item.title]),
-            ),
+            courseId,
+            items: new Map((res.data?.items ?? []).map((item) => [item.id, item.title])),
           });
+        }
       } catch {
-        if (active) setNames(null);
+        if (!controller.signal.aborted) setNames(null);
       }
     })();
-    return () => {
-      active = false;
-    };
-  }, [data, enrollmentId]);
+    return () => controller.abort();
+  }, [courseId]);
   return (
     <LearnerPage className="course-progress">
-      {query.status === "loading" && <LearnerSkeleton variant="detail" />}
-      {query.status === "error" && (
+      {status === "loading" && !data && <LearnerSkeleton variant="detail" />}
+      {error && !data && (
         <LearningError
-          error={query.error}
+          error={error}
           context="curriculum"
           enrollmentId={enrollmentId}
           onRetry={query.reload}
@@ -284,12 +287,19 @@ const CourseProgress = () => {
       {data && (
         <ProgressDetails
           data={data}
-          names={names?.enrollmentId === enrollmentId ? names.items : new Map()}
+          names={names && names.courseId === courseId ? names.items : undefined}
+          courseName={courseName}
+          refreshFailed={retryableError}
           reload={query.reload}
         />
       )}
     </LearnerPage>
   );
+};
+
+const CourseProgress = () => {
+  const { enrollmentId = "" } = useParams();
+  return <EnrollmentProgressPage key={enrollmentId} enrollmentId={enrollmentId} />;
 };
 
 export default CourseProgress;
