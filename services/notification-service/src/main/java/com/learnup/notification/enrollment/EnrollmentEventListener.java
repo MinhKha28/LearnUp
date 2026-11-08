@@ -1,5 +1,6 @@
 package com.learnup.notification.enrollment;
 
+import com.learnup.notification.config.EnrollmentEventsProperties;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,10 +23,18 @@ public class EnrollmentEventListener {
 
     private final EnrollmentEventParser parser;
     private final EnrollmentEventHandler handler;
+    private final PeerReviewAssignedParser peerReviewParser;
+    private final PeerReviewAssignedHandler peerReviewHandler;
+    private final String peerReviewTopic;
 
-    public EnrollmentEventListener(EnrollmentEventParser parser, EnrollmentEventHandler handler) {
+    public EnrollmentEventListener(EnrollmentEventParser parser, EnrollmentEventHandler handler,
+                                   PeerReviewAssignedParser peerReviewParser, PeerReviewAssignedHandler peerReviewHandler,
+                                   EnrollmentEventsProperties properties) {
         this.parser = parser;
         this.handler = handler;
+        this.peerReviewParser = peerReviewParser;
+        this.peerReviewHandler = peerReviewHandler;
+        this.peerReviewTopic = properties.getPeerReviewTopic();
     }
 
     /** The id is how {@link EnrollmentEventListenerStarter} finds the container. */
@@ -33,11 +42,20 @@ public class EnrollmentEventListener {
 
     // autoStartup = false: the starter starts the container and starts it again when the broker could not be reached,
     // so a Kafka that is down when this service starts does not stop the service (and its REST API) from starting.
-    @KafkaListener(id = LISTENER_ID, autoStartup = "false", topics = "${learnup.enrollment-events.topic}",
+    @KafkaListener(id = LISTENER_ID, autoStartup = "false",
+            topics = {"${learnup.enrollment-events.topic}", "${learnup.enrollment-events.peer-review-topic}"},
             groupId = "${spring.kafka.consumer.group-id}")
     public void onMessage(ConsumerRecord<String, String> record) {
         // An invalid message throws InvalidEventException: it goes to the dead-letter topic without a retry.
         // The payload is never logged.
+        // The topic says which kind of event to expect; an event of another type on it is ignored, as before.
+        if (peerReviewTopic.equals(record.topic())) {
+            peerReviewParser.parse(record.value()).ifPresentOrElse(
+                    peerReviewHandler::handle,
+                    () -> log.debug("event=peer_review_event_ignored reason=TYPE_NOT_HANDLED partition={} offset={}",
+                            record.partition(), record.offset()));
+            return;
+        }
         parser.parse(record.value()).ifPresentOrElse(
                 handler::handle,
                 () -> log.debug("event=enrollment_event_ignored reason=TYPE_NOT_HANDLED partition={} offset={}",

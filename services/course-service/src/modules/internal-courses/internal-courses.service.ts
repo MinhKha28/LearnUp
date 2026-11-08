@@ -18,6 +18,15 @@ import { InstructorCourseCountsDto } from './dto/instructor-course-counts.dto';
 import { LessonContentDto } from './dto/lesson-content.dto';
 import { LockedCourseDto } from './dto/locked-course.dto';
 import { OrganizationUsageDto } from './dto/organization-usage.dto';
+import {
+  ManagedCourseChainsDto,
+  TransferredCourseChainsDto,
+} from './dto/managed-course-chain.dto';
+import {
+  findChainRepresentatives,
+  findManagedChains,
+  transferCourseChain,
+} from './course-chain-ownership';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
 import {
   StorageProviderError,
@@ -381,6 +390,78 @@ export class InternalCoursesService {
       counts[group.instructorId] = group._count._all;
     }
     return { counts };
+  }
+
+  /** UC12.1, UC12.5: các chuỗi Instructor phụ trách trong tổ chức người gọi, đếm giống count-by-instructors. */
+  async listCourseChainsByInstructor(
+    organizationId: string | undefined,
+    instructorId: string,
+  ): Promise<ManagedCourseChainsDto> {
+    if (!organizationId || !isUUID(organizationId, 'all')) {
+      return { chains: [] };
+    }
+    return {
+      chains: await findManagedChains(
+        this.prisma,
+        organizationId,
+        instructorId,
+      ),
+    };
+  }
+
+  /**
+   * UC12.5: chuyển MỌI chuỗi của fromInstructorId sang toInstructorId trong một transaction (BR-287: chuyển
+   * nguyên chuỗi). Khóa từng chuỗi theo id tăng dần nên hai lần chuyển chạy song song không deadlock. Idempotent:
+   * chuỗi đã chuyển thì bỏ qua, gọi lại chỉ chuyển nốt phần còn lại. Trạng thái tài khoản do tenant-service kiểm.
+   */
+  async transferCourseChains(
+    organizationId: string | undefined,
+    fromInstructorId: string,
+    toInstructorId: string,
+  ): Promise<TransferredCourseChainsDto> {
+    if (!organizationId || !isUUID(organizationId, 'all')) {
+      throw new BadRequestException(
+        createApiError(
+          'ORGANIZATION_REQUIRED',
+          'A valid organization header is required.',
+        ),
+      );
+    }
+    if (fromInstructorId.toLowerCase() === toInstructorId.toLowerCase()) {
+      throw new BadRequestException(
+        createApiError(
+          'SAME_INSTRUCTOR',
+          'The receiving instructor must differ from the current one.',
+        ),
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const candidates = await tx.courseChain.findMany({
+        where: {
+          organizationId,
+          instructorId: fromInstructorId,
+          courses: { some: {} },
+        },
+        select: { id: true },
+        orderBy: { id: 'asc' },
+      });
+
+      const moved: string[] = [];
+      for (const { id } of candidates) {
+        const result = await transferCourseChain(tx, {
+          organizationId,
+          chainId: id,
+          fromInstructorId,
+          toInstructorId,
+        });
+        if (result === 'TRANSFERRED') moved.push(id);
+      }
+
+      return {
+        transferred: await findChainRepresentatives(tx, organizationId, moved),
+      };
+    });
   }
   async getMaterialSignedUrl(
     organizationId: string,

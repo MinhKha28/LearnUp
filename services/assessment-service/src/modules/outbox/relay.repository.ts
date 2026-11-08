@@ -1,7 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from 'generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { LEARNER_STATUS_CHANGED_EVENT } from '../learner-submissions/learner-submissions.constants';
+import {
+  LEARNER_STATUS_CHANGED_EVENT,
+  PEER_REVIEW_ASSIGNED_EVENT,
+} from '../learner-submissions/learner-submissions.constants';
 import { RELAY_CONFIG, retryDelay, type RelayConfig } from './relay.config';
 
 /**
@@ -10,6 +13,7 @@ import { RELAY_CONFIG, retryDelay, type RelayConfig } from './relay.config';
  */
 export const RELAYED_EVENT_TYPES: readonly string[] = [
   LEARNER_STATUS_CHANGED_EVENT,
+  PEER_REVIEW_ASSIGNED_EVENT,
 ];
 
 export interface RelayRow {
@@ -76,6 +80,17 @@ export class RelayRepository {
     await tx.$executeRaw`UPDATE outbox_events
       SET published_at = clock_timestamp(), last_error = NULL, next_attempt_at = NULL, updated_at = clock_timestamp()
       WHERE id = ${row.id}::uuid`;
+  }
+
+  /** How many events wait to be sent and since when the oldest of them has been waiting (what an outage costs). */
+  async unsentSummary(): Promise<{ count: number; oldestAt: Date | null }> {
+    const [row] = await this.prisma.$queryRaw<
+      { count: number; oldestAt: Date | null }[]
+    >(Prisma.sql`
+      SELECT count(*)::int AS count, min(occurred_at) AS "oldestAt"
+      FROM outbox_events
+      WHERE published_at IS NULL AND event_type IN (${Prisma.join(RELAYED_EVENT_TYPES)})`);
+    return row;
   }
 
   async cleanup(): Promise<void> {

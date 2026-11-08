@@ -27,7 +27,7 @@ demo accounts by itself, so to log in as them provision them through Tenant or w
 
 ### Demo of UC25.4 (a Learner leaves an optional Course)
 
-learning-service asks `GET /api/v1/internal/learners/:learnerId/courses/:courseId/assessment-activity` (BR-131) to decide
+learning-service asks `GET /api/v1/internal/learners/:learnerId/courses/:courseId/assessment-activity` (BR-159) to decide
 whether leaving deletes the Enrollment (no assessment data) or keeps it as Withdrawn. To demo the real answer:
 
 ```bash
@@ -68,11 +68,11 @@ can log in as this identity. Keep them apart from the demos above; they may move
 | --- | --- | --- |
 | Workplace Safety Essentials | Draft | none, use it to try creating one |
 | Data Security Basics | Published, not Locked | Peer Review ON |
-| Customer Service Fundamentals | Published and Locked | one with 2 submissions (frozen, BR-98), one without; no new Assignment (BR-318) |
-| Onboarding for New Hires | Submitted | one, nothing can be edited (BR-285) |
+| Customer Service Fundamentals | Published and Locked | one with 2 submissions (frozen, BR-120), one without; no new Assignment (BR-114) |
+| Onboarding for New Hires | Submitted | one, nothing can be edited (BR-83) |
 | Remote Work Etiquette | Rejected | one, editable like a Draft |
 | Fire Safety Basics v1 / v2 | Archived / Published (version chain) | v1 has one with a submission, v2 has none |
-| Legacy Compliance Training | Disabled | one disabled by the Organizer (BR-239) |
+| Legacy Compliance Training | Disabled | one disabled by the Organizer (BR-296) |
 | Executive Leadership Program | Private, Published | Peer Review ON |
 | Blank Draft | Draft without Modules | none |
 
@@ -121,8 +121,8 @@ npm test                  # both
 
 They use `node:test` through `ts-node`, like `learning-service`, so nothing extra is installed.
 
-- **Unit** (`test/unit`): the UC19 business rules (BR-79, BR-92, BR-98, BR-165, BR-173, BR-185, BR-284, BR-318,
-  BR-319...) with Prisma and Course Service replaced by fakes, request validation, and the two Course clients.
+- **Unit** (`test/unit`): the UC19 business rules (BR-95, BR-111, BR-120, BR-206, BR-215, BR-227, BR-101, BR-114,
+  BR-115...) with Prisma and Course Service replaced by fakes, request validation, and the two Course clients.
 - **Integration** (`test/integration`): the real service over HTTP and real Postgres: guards, every rule, the outbox rows,
   the cascade on delete, and a submission arriving while an update is running (row lock).
 

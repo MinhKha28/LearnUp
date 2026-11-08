@@ -10,7 +10,11 @@ import type { CurrentUser } from '@learnup/ts-common';
 import { NotificationClient } from '../../infrastructure/clients/notification/notification.client';
 import { TenantDirectoryClient } from '../../infrastructure/clients/tenant/tenant-directory.client';
 import { cycleLockKey } from './cycle-lock';
-import { assignedNotice, waivedNotice } from './review-notice';
+import { waivedNotice } from './review-notice';
+import {
+  emitPeerReviewAssigned,
+  reviewCounts,
+} from '../outbox/peer-review-assigned';
 import { waiverDecision } from './waiver';
 import type { IPeerReviewWaiver } from './interfaces/peer-review-waiver.interface';
 import type { IPeerReviewCycleDetail } from './interfaces/peer-review-cycle-detail.interface';
@@ -400,7 +404,8 @@ export class PeerReviewService {
 
   /**
    * Closes a cycle that is Open: the work of UC33 that the Instructor starts from the screen and the schedule starts
-   * when the closing line passes (BR-230). Then each reviewer is told what to review (BR-232).
+   * when the closing line passes (BR-230). Each reviewer is told what to review (BR-232) through the outbox, in the same
+   * transaction.
    */
   async closeOpen(
     cycle: PeerReviewCycle,
@@ -464,6 +469,21 @@ export class PeerReviewService {
         status: 'Assigned',
         reviewerPermutation: permutation,
       });
+      // BR-232: each reviewer is told what to review. The notice is an event of this transaction (outbox), so it exists if
+      // and only if the reviews do, and a Kafka or a notification-service that is down only delays it.
+      await emitPeerReviewAssigned(
+        tx,
+        [...reviewCounts(pairs)].map(([reviewerId, reviewCount]) => ({
+          organizationId: cycle.organizationId,
+          assessmentId: cycle.assessmentId,
+          cycleId: cycle.id,
+          assignmentTitle,
+          reviewDueAt: cycle.reviewDueAt,
+          reviewerId,
+          reviewCount,
+        })),
+        now,
+      );
       return {
         status: 'Assigned' as const,
         submissions: submissions.length,
@@ -480,7 +500,6 @@ export class PeerReviewService {
       );
       return this.alreadyClosed(current!);
     }
-    await this.notifyReviewers(cycle, assignmentTitle, result.pairs);
     return {
       cycleId: cycle.id,
       status: result.status,
@@ -489,35 +508,6 @@ export class PeerReviewService {
       closedAt: now.toISOString(),
       alreadyClosed: false,
     };
-  }
-
-  /** BR-232: tell each reviewer how many submissions to review and by when. Best effort: it never undoes the closing. */
-  private async notifyReviewers(
-    cycle: PeerReviewCycle,
-    assignmentTitle: string,
-    pairs: ReviewPair[],
-  ): Promise<void> {
-    const count = new Map<string, number>();
-    for (const pair of pairs) {
-      count.set(pair.reviewerId, (count.get(pair.reviewerId) ?? 0) + 1);
-    }
-    // in parallel: a slow notification-service must not hold the Instructor's request for one timeout per reviewer
-    await Promise.all(
-      [...count].map(async ([reviewerId, total]) => {
-        try {
-          await this.notifications.send({
-            organizationId: cycle.organizationId,
-            recipientUserId: reviewerId,
-            ...assignedNotice(total, assignmentTitle, cycle.reviewDueAt),
-            metadata: { assignmentId: cycle.assessmentId, cycleId: cycle.id },
-          });
-        } catch (error) {
-          this.logger.warn(
-            `Could not notify ${reviewerId} about cycle ${cycle.id}: ${String(error)}`,
-          );
-        }
-      }),
-    );
   }
 
   private async alreadyClosed(cycle: {

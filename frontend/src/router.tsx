@@ -95,6 +95,7 @@ import LearnerReportContent from "./pages/learner/report.content";
 import LearnerReports from "./pages/learner/reports";
 import LearnerReportEscalate from "./pages/learner/report.escalate";
 import LearnerCourseEvaluation from "./pages/learner/course.evaluation";
+import LearnerCourseResults from "./pages/learner/course.results";
 import LearnerProfile from "./pages/learner/profile";
 import LearnerProfileEdit from "./pages/learner/profile.edit";
 import LearnerChangePassword from "./pages/learner/password.change";
@@ -344,6 +345,7 @@ export const router = createBrowserRouter([
         element: <LearnerLessonResource />,
       },
       { path: "assessments", element: <LearnerCourseAssessments /> },
+      { path: "results", element: <LearnerCourseResults /> },
       { path: "quizzes/:quizId", element: <LearnerQuizTake /> },
       { path: "quizzes/:quizId/history", element: <LearnerQuizHistory /> },
       {

@@ -1,14 +1,21 @@
 import { Global, Module } from '@nestjs/common';
 import { OutboxController } from './outbox.controller';
+import { AuditRelayService } from './audit-relay.service';
 import { EmailRelayService } from './email-relay.service';
 import { OutboxService } from './outbox.service';
 import { OutboxRepository } from './outbox.repository';
 
 // @Global: module nào cũng tiêm được OutboxService mà không phải import OutboxModule.
+// UC12.5: AuditRelayService gửi bản ghi nhật ký (AuditRecorded) sang audit-service.
 @Global()
 @Module({
   controllers: [OutboxController],
-  providers: [OutboxService, EmailRelayService, OutboxRepository],
+  providers: [
+    OutboxService,
+    EmailRelayService,
+    AuditRelayService,
+    OutboxRepository,
+  ],
   exports: [OutboxService],
 })
 export class OutboxModule {}

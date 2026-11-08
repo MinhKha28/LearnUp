@@ -90,6 +90,40 @@ paths:
         '503':
           description: Course curriculum unavailable (assessment failure alone does not produce 503)
 
+  /api/v1/enrollments/{enrollmentId}/assessment-results:
+    get:
+      operationId: getLearnerAssessmentResults
+      summary: Read own Quiz and Assignment results against the passing scores (UC28.1)
+      description: >-
+        LEARNER only; ownership and Halted/Withdrawn handling match curriculum (404 ENROLLMENT_NOT_FOUND for foreign,
+        missing, invalid or Withdrawn, 403 CONTENT_UNAVAILABLE for Halted). A Completed Enrollment still shows its
+        results. Read-only. Learning asks assessment-service for the Course of the Enrollment and never for one the
+        caller names. When assessment-service cannot be asked, times out or answers something that is not the contract,
+        the answer is 200 with state unavailable and no items; it is not an empty list. The summary leaves out disabled
+        components (BR-296); a component without a score counts as pending, never as not passed (BR-191).
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/UserRole'
+        - name: enrollmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: state ok with summary and items, or state unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LearnerAssessmentResults'
+        '403':
+          description: CONTENT_UNAVAILABLE for Halted; role forbidden
+        '404':
+          description: ENROLLMENT_NOT_FOUND for foreign, missing, invalid or Withdrawn Enrollment
+
   /api/v1/assignments/{enrollmentId}:
     get:
       operationId: getAssignmentDetail
@@ -518,6 +552,78 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    LearnerAssessmentResults:
+      type: object
+      required: [enrollment, state]
+      properties:
+        enrollment:
+          type: object
+          required: [id, courseId, status]
+          properties:
+            id: { type: string, format: uuid }
+            courseId: { type: string, format: uuid }
+            status: { type: string }
+        state: { type: string, enum: [ok, unavailable] }
+        summary:
+          type: object
+          description: Present when state is ok.
+          required: [total, passed, notPassed, pending]
+          properties:
+            total: { type: integer, minimum: 0 }
+            passed: { type: integer, minimum: 0 }
+            notPassed: { type: integer, minimum: 0 }
+            pending: { type: integer, minimum: 0 }
+        items:
+          type: array
+          description: Present when state is ok. Most recent activity first.
+          items: { $ref: '#/components/schemas/AssessmentResultItem' }
+
+    AssessmentResultItem:
+      type: object
+      required: [assessmentId, kind, title, isRequired, disabled, passingScore, status, recordedScore, passed, attemptCount, lastActivityAt, quiz, assignment]
+      properties:
+        assessmentId: { type: string, format: uuid }
+        kind: { type: string, enum: [QUIZ, ASSIGNMENT] }
+        title: { type: string }
+        isRequired: { type: boolean, description: Every Assignment is required (BR-206); a Quiz only when its flag says so. }
+        disabled: { type: boolean, description: "BR-296: the score stays but the component no longer counts for the Certificate." }
+        passingScore: { type: number, minimum: 0, maximum: 100 }
+        status: { type: string, enum: [InProgress, AwaitingResult, Completed] }
+        recordedScore:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 100
+          description: Quiz, the best submitted attempt (BR-198). Assignment, the final score of the latest submission that was not replaced, only once Finalized (BR-212). Null while there is none.
+        passed:
+          type: boolean
+          nullable: true
+          description: recordedScore >= passingScore; null exactly when recordedScore is null (BR-191, never "failed").
+        attemptCount: { type: integer, minimum: 0, description: Quiz, attempts submitted. Assignment, submissions made. }
+        lastActivityAt: { type: string, format: date-time }
+        quiz:
+          nullable: true
+          type: object
+          required: [bestAttemptNumber, attempts]
+          properties:
+            bestAttemptNumber: { type: integer, nullable: true }
+            attempts:
+              type: array
+              items:
+                type: object
+                required: [attemptNumber, score, submittedAt, submissionKind]
+                properties:
+                  attemptNumber: { type: integer }
+                  score: { type: number, minimum: 0, maximum: 100 }
+                  submittedAt: { type: string, format: date-time }
+                  submissionKind: { type: string, nullable: true, description: "Manual, or TimedOut when the time ran out and the system submitted." }
+        assignment:
+          nullable: true
+          type: object
+          required: [latestSubmissionNumber, gradingStatus]
+          properties:
+            latestSubmissionNumber: { type: integer }
+            gradingStatus: { type: string }
     LearnerProgress:
       type: object
       required: [enrollment]
