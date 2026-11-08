@@ -283,6 +283,31 @@ export interface IInstructorStatusResult {
   receiver: { id: string; fullName: string } | null;
 }
 
+// UC12.6 - GET /api/v1/users/instructors/:id/deletion (mọi trạng thái đều xóa được, BR-37)
+export interface IInstructorDeletion {
+  id: string;
+  status: AccountStatus;
+  activated: boolean;
+  canDelete: boolean;
+  blockReason: "NO_VALID_RECEIVER" | "COURSE_SERVICE_UNAVAILABLE" | null;
+  courses: IManagedCourseChain[] | null; // null: không hỏi được course-service
+  receivers: IStatusChangeReceiver[];
+}
+
+// UC12.6 - DELETE /api/v1/users/instructors/:id (body JSON)
+export interface IDeleteAccountReq {
+  receiverInstructorId?: string;
+  reason?: string;
+}
+
+export interface IInstructorDeletionResult {
+  id: string;
+  changed: boolean; // false: đã bị xóa từ trước (bấm lặp)
+  transferredCourses: IManagedCourseChain[];
+  receiver: { id: string; fullName: string } | null;
+  seats: ISeatUsage; // số chỗ sau khi xóa (BR-23, BR-37)
+}
+
 // UC12.2 - số chỗ theo Subscription hiện hành (GET /api/v1/users/instructors/seats)
 export interface ISeatUsage {
   used: number;

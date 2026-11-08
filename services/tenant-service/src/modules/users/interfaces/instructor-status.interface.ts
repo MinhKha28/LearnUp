@@ -27,6 +27,16 @@ export interface IInstructorStatusChange {
   receivers: IStatusChangeReceiver[];
 }
 
+/** BR-41: phần chung của modal vô hiệu hóa (UC12.5) và dialog xóa (UC12.6). */
+export type HandOverBlockReason =
+  'NO_VALID_RECEIVER' | 'COURSE_SERVICE_UNAVAILABLE';
+
+export interface IHandOverPreview {
+  courses: IManagedCourseChain[] | null;
+  receivers: IStatusChangeReceiver[];
+  blockReason: HandOverBlockReason | null;
+}
+
 /** UC12.5: kết quả PATCH instructors/:id/status. changed = false: đã ở trạng thái đích (bấm lặp). */
 export interface IInstructorStatusResult {
   id: string;
