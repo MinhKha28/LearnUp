@@ -10,12 +10,13 @@ in [the issuance verification report](../../docs/architecture/achievement-certif
 
 ## Automatic certificate issuance (PR1)
 
-`CERTIFICATE_CONSUMER_ENABLED` defaults to `false` and controls both the Kafka
+`CERTIFICATE_CONSUMER_ENABLED` defaults to `true` in Compose and controls both the Kafka
 consumer and issuance worker. When enabled, the dedicated group
 `achievement-reporting-certificate-v1` reads EnrollmentCompleted from
 `learnup.learning.enrollment-events`, starting at earliest if no offset exists.
 Receiving commits Pending plus receipt (or quarantine) before committing the
 offset. HTTP and Cloudinary calls run after that transaction.
+Enabled by default; set CERTIFICATE_CONSUMER_ENABLED=false to run the stack without certificate issuance. On first start the consumer issues certificates for completion events still retained in Kafka (idempotent).
 
 Configure the three `CLOUDINARY_*` variables through the environment. They are
 only required when an actual logo is copied. Missing configuration never aborts
