@@ -126,7 +126,7 @@ describe("the list of assessments", () => {
       expect(screen.getAllByText(text).length).toBeGreaterThan(0);
     }
     expect(
-      screen.getAllByText("Bài kiểm tra, 15 phút", { selector: "small" }),
+      screen.getAllByText("Bài trắc nghiệm, 15 phút", { selector: "small" }),
     ).toHaveLength(2);
     expect(screen.getByText("Bài tập, khoảng 45 phút")).toBeTruthy();
     expect(screen.getByText("Không bắt buộc")).toBeTruthy();

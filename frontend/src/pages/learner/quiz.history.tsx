@@ -68,7 +68,7 @@ const QuizHistory = () => {
     return (
       <LearnerPage className="quiz-history">
         <PageHeader
-          eyebrow="BÀI KIỂM TRA / LỊCH SỬ"
+          eyebrow="Bài trắc nghiệm / Lịch sử"
           title="Lịch sử làm bài"
           subtitle=""
           back
@@ -84,14 +84,14 @@ const QuizHistory = () => {
   return (
     <>
       <PageHeader
-        eyebrow="BÀI KIỂM TRA / LỊCH SỬ"
+        eyebrow="Bài trắc nghiệm / Lịch sử"
         title="Lịch sử làm bài"
         subtitle={`Tất cả các lượt làm của ${history.title}.`}
         back
       />
       <div className="course-learning-content">
         {locked && (
-          <WarningPanel title="Bài kiểm tra đang tạm khóa">
+          <WarningPanel title="Bài trắc nghiệm đang tạm khóa">
             Bạn đã làm đủ {attempts.maxConsecutiveAttempts} lượt liên tiếp. Bạn
             làm lại được từ{" "}
             <strong>{formatDateTime(attempts.lockedUntil!)}</strong>.
@@ -178,7 +178,7 @@ const QuizHistory = () => {
             </LearnerButton>
           )}
           <LearnerButton onClick={() => navigate(`${base}/assessments`)}>
-            Về danh sách bài kiểm tra
+            Về danh sách bài đánh giá
           </LearnerButton>
         </div>
       </div>

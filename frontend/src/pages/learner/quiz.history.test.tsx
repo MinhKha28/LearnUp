@@ -202,7 +202,7 @@ describe("the history of a Quiz", () => {
       ),
     );
     open();
-    expect(await screen.findByText("Bài kiểm tra đang tạm khóa")).toBeTruthy();
+    expect(await screen.findByText("Bài trắc nghiệm đang tạm khóa")).toBeTruthy();
     expect(screen.getByText(/0 · mở lại/)).toBeTruthy();
     expect(screen.queryByText("Làm bài")).toBeNull();
   });
@@ -212,7 +212,7 @@ describe("the history of a Quiz", () => {
     open();
     await screen.findByText("Lượt 2");
     expect(screen.queryByText("Làm bài")).toBeNull();
-    expect(screen.getByText("Về danh sách bài kiểm tra")).toBeTruthy();
+    expect(screen.getByText("Về danh sách bài đánh giá")).toBeTruthy();
   });
 
   it("no attempt yet: says so, and there is no recorded score", async () => {
@@ -238,7 +238,7 @@ describe("the history of a Quiz", () => {
     expect(path).toBe("/learner/courses/enr-1/quizzes/quiz-1");
     cleanup();
     open();
-    fireEvent.click(await screen.findByText("Về danh sách bài kiểm tra"));
+    fireEvent.click(await screen.findByText("Về danh sách bài đánh giá"));
     expect(path).toBe("/learner/courses/enr-1/assessments");
   });
 
@@ -273,7 +273,7 @@ describe("the history of a Quiz", () => {
     open();
     expect(
       await screen.findByText(
-        "Bạn chưa ghi danh vào khóa học có bài kiểm tra này.",
+        "Bạn chưa ghi danh vào khóa học có bài trắc nghiệm này.",
       ),
     ).toBeTruthy();
     fetchHistory.mockRejectedValueOnce(new Error("offline"));
