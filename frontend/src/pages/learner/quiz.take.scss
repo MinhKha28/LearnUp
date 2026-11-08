@@ -277,3 +277,16 @@
     grid-template-columns: 1fr;
   }
 }
+
+.quiz-question-unsaved {
+  margin: 0 0 12px;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.quiz-footer .quiz-footer-unsaved {
+  display: block;
+  color: #b91c1c;
+  font-weight: 600;
+}
