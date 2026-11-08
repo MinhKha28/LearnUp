@@ -184,9 +184,9 @@ const CourseAssessments = () => {
   return (
     <>
       <PageHeader
-        eyebrow="KHÓA HỌC / BÀI ĐÁNH GIÁ"
+        eyebrow="Khóa học / Bài đánh giá"
         title="Bài đánh giá"
-        subtitle="Các bài kiểm tra và bài tập của khóa học này."
+        subtitle="Các bài trắc nghiệm và bài tập của khóa học này."
         back
         actions={
           <LearnerButton
@@ -197,7 +197,7 @@ const CourseAssessments = () => {
         }
       />
       <InfoPanel title="Cách ghi nhận kết quả">
-        Bài kiểm tra lấy điểm của lượt làm cao nhất; bài tập lấy điểm của lần
+        Bài trắc nghiệm lấy điểm của lượt làm cao nhất; bài tập lấy điểm của lần
         nộp gần nhất. Làm hoặc nộp nhiều lần liên tiếp thì bài đó tạm khóa một
         thời gian.
       </InfoPanel>
@@ -251,8 +251,8 @@ const CourseAssessments = () => {
                           <small className="course-assessments-kind">
                             {item.kind === "QUIZ"
                               ? item.timeLimitMinutes
-                                ? `Bài kiểm tra, ${item.timeLimitMinutes} phút`
-                                : "Bài kiểm tra"
+                                ? `Bài trắc nghiệm, ${item.timeLimitMinutes} phút`
+                                : "Bài trắc nghiệm"
                               : item.expectedDurationMinutes
                                 ? `Bài tập, khoảng ${item.expectedDurationMinutes} phút`
                                 : "Bài tập"}

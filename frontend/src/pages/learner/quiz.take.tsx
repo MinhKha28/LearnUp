@@ -86,7 +86,7 @@ const QuizTake = () => {
         setLoadError(
           quizErrorText(
             assessmentErrorCode(res).code,
-            "Không tải được bài kiểm tra.",
+            "Không tải được bài trắc nghiệm.",
           ),
         );
     } catch {
@@ -316,15 +316,15 @@ const QuizTake = () => {
     return (
       <LearnerPage className="quiz-take">
         <PageHeader
-          eyebrow="BÀI KIỂM TRA"
-          title="Bài kiểm tra"
+          eyebrow="Bài trắc nghiệm"
+          title="Bài trắc nghiệm"
           subtitle=""
           back
         />
         <Alert
           type="error"
           showIcon
-          message={loadError || "Không tìm thấy bài kiểm tra."}
+          message={loadError || "Không tìm thấy bài trắc nghiệm."}
         />
         <LearnerButton onClick={() => void loadQuiz()}>Thử lại</LearnerButton>
       </LearnerPage>
@@ -351,7 +351,7 @@ const QuizTake = () => {
     return (
       <>
         <PageHeader
-          eyebrow="BÀI KIỂM TRA / ĐANG LÀM"
+          eyebrow="Bài trắc nghiệm / Đang làm"
           title={running.title}
           subtitle={`Lượt ${running.attemptNumber}. Mỗi lựa chọn được lưu ngay khi bạn chọn.`}
         />
@@ -379,7 +379,7 @@ const QuizTake = () => {
           {running.questions.map((question, index) => (
             <div className="quiz-question-card" key={question.id}>
               <div className="quiz-question-head">
-                <span className="quiz-question-pill">CÂU {index + 1}</span>
+                <span className="quiz-question-pill">Câu {index + 1}</span>
                 <span className="quiz-question-type">
                   {questionTypeLabel(question.type)}
                 </span>
@@ -441,7 +441,7 @@ const QuizTake = () => {
           title={null}
           className="quiz-submit-modal"
         >
-          <p className="quiz-modal-eyebrow">BÀI KIỂM TRA</p>
+          <p className="quiz-modal-eyebrow">Bài trắc nghiệm</p>
           <h2>{running.title}</h2>
           <div className="quiz-modal-body">
             <h3>Nộp bài?</h3>
@@ -489,19 +489,19 @@ const QuizTake = () => {
   return (
     <>
       <PageHeader
-        eyebrow="BÀI KIỂM TRA"
+        eyebrow="Bài trắc nghiệm"
         title={quiz.title}
         subtitle={
           quiz.isRequired
-            ? "Bài kiểm tra bắt buộc."
-            : "Bài kiểm tra không bắt buộc."
+            ? "Bài trắc nghiệm bắt buộc."
+            : "Bài trắc nghiệm không bắt buộc."
         }
         back
       />
       <div className="course-learning-content">
         {notice && <Alert type="warning" showIcon message={notice} />}
         {locked && (
-          <WarningPanel title="Bài kiểm tra đang tạm khóa">
+          <WarningPanel title="Bài trắc nghiệm đang tạm khóa">
             Bạn đã làm đủ {quiz.attempts.maxConsecutiveAttempts} lượt liên tiếp.
             Bạn làm lại được từ{" "}
             <strong>{formatDateTime(quiz.attempts.lockedUntil!)}</strong>. Sau
@@ -544,7 +544,7 @@ const QuizTake = () => {
           Đồng hồ chạy theo thời gian thực và không dừng khi bạn thoát khỏi màn
           hình hay mất kết nối. Hết giờ, bài được tự động nộp với các câu đã trả
           lời. Lượt làm bài được tính ngay khi bạn bắt đầu. Làm đủ{" "}
-          {quiz.attempts.maxConsecutiveAttempts} lượt liên tiếp thì bài kiểm tra
+          {quiz.attempts.maxConsecutiveAttempts} lượt liên tiếp thì bài trắc nghiệm
           tạm khóa {quiz.attempts.lockoutHours} giờ, dù đã đạt hay chưa.
         </InfoPanel>
         <div className="quiz-footer">
@@ -597,8 +597,8 @@ const Result = ({
   return (
     <>
       <PageHeader
-        eyebrow="BÀI KIỂM TRA / KẾT QUẢ"
-        title="Kết quả bài kiểm tra"
+        eyebrow="Bài trắc nghiệm / Kết quả"
+        title="Kết quả bài trắc nghiệm"
         subtitle={`${result.title} • Chấm tự động`}
       />
       <div className="course-learning-content">
@@ -636,7 +636,7 @@ const Result = ({
             />
           </div>
           <InfoPanel title="Cách tính điểm">
-            Điểm ghi nhận của bài kiểm tra là điểm của lượt làm cao nhất. Mỗi
+            Điểm ghi nhận của bài trắc nghiệm là điểm của lượt làm cao nhất. Mỗi
             câu có điểm như nhau và chỉ đúng khi chọn đúng toàn bộ đáp án.
           </InfoPanel>
         </div>
@@ -645,13 +645,13 @@ const Result = ({
           {locked ? (
             <p>
               Bạn đã làm đủ {result.attempts.maxConsecutiveAttempts} lượt liên
-              tiếp nên bài kiểm tra tạm khóa. Bạn làm lại được từ{" "}
+              tiếp nên bài trắc nghiệm tạm khóa. Bạn làm lại được từ{" "}
               <strong>{formatDateTime(result.attempts.lockedUntil!)}</strong>.
             </p>
           ) : (
             <p>
               Bạn còn {result.attempts.remainingAttempts} lượt trước khi bài
-              kiểm tra tạm khóa.
+              trắc nghiệm tạm khóa.
             </p>
           )}
           <div className="quiz-result-actions">
@@ -662,7 +662,7 @@ const Result = ({
             )}
             <LearnerButton onClick={onHistory}>Lịch sử làm bài</LearnerButton>
             <LearnerButton onClick={onCourse}>
-              Về danh sách bài kiểm tra
+              Về danh sách bài đánh giá
             </LearnerButton>
           </div>
         </div>

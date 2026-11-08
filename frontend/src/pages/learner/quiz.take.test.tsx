@@ -58,7 +58,7 @@ const attempts = (over: Record<string, unknown> = {}) => ({
 const quizInfo = (over: Record<string, unknown> = {}) => ({
   id: "quiz-1",
   courseId: "course-1",
-  title: "Bài kiểm tra an toàn",
+  title: "Bài trắc nghiệm an toàn",
   passingScore: 70,
   timeLimitMinutes: 10,
   questionCount: 3,
@@ -94,7 +94,7 @@ const running = (over: Record<string, unknown> = {}) => ({
   attemptId: "att-1",
   assessmentId: "quiz-1",
   attemptNumber: 1,
-  title: "Bài kiểm tra an toàn",
+  title: "Bài trắc nghiệm an toàn",
   startedAt: "2026-11-05T10:00:00.000Z",
   deadlineAt: "2026-11-05T10:10:00.000Z",
   serverNow: "2026-11-05T10:00:00.000Z",
@@ -111,7 +111,7 @@ const result = (over: Record<string, unknown> = {}) => ({
   attemptId: "att-1",
   assessmentId: "quiz-1",
   attemptNumber: 1,
-  title: "Bài kiểm tra an toàn",
+  title: "Bài trắc nghiệm an toàn",
   startedAt: "2026-11-05T10:00:00.000Z",
   submittedAt: "2026-11-05T10:05:00.000Z",
   submissionKind: "Manual",
@@ -151,7 +151,7 @@ const open = () =>
 const begin = async () => {
   open();
   fireEvent.click(await screen.findByText("Bắt đầu làm bài"));
-  await screen.findByText("CÂU 1");
+  await screen.findByText("Câu 1");
 };
 
 beforeAll(() => {
@@ -180,7 +180,7 @@ afterEach(() => {
 describe("before the attempt", () => {
   it("shows the rules in Vietnamese: questions, time, passing score, tries left; nothing in English", async () => {
     open();
-    expect(await screen.findByText("Bài kiểm tra an toàn")).toBeTruthy();
+    expect(await screen.findByText("Bài trắc nghiệm an toàn")).toBeTruthy();
     expect(screen.getByText("Số câu hỏi")).toBeTruthy();
     expect(screen.getByText("10 phút")).toBeTruthy();
     expect(screen.getByText("2/2")).toBeTruthy();
@@ -220,7 +220,9 @@ describe("before the attempt", () => {
       ),
     );
     open();
-    expect(await screen.findByText("Bài kiểm tra đang tạm khóa")).toBeTruthy();
+    expect(
+      await screen.findByText("Bài trắc nghiệm đang tạm khóa"),
+    ).toBeTruthy();
     expect(screen.getByText(/Bạn làm lại được từ/)).toBeTruthy();
     expect(
       (
@@ -256,7 +258,7 @@ describe("before the attempt", () => {
   it("a Quiz without question cannot be started", async () => {
     quiz.mockResolvedValue(ok(quizInfo({ questionCount: 0 })));
     open();
-    await screen.findByText("Bài kiểm tra an toàn");
+    await screen.findByText("Bài trắc nghiệm an toàn");
     expect(
       (
         screen
@@ -271,7 +273,7 @@ describe("before the attempt", () => {
     open();
     expect(
       await screen.findByText(
-        "Bạn chưa ghi danh vào khóa học có bài kiểm tra này.",
+        "Bạn chưa ghi danh vào khóa học có bài trắc nghiệm này.",
       ),
     ).toBeTruthy();
     quiz.mockResolvedValue(ok(quizInfo()));
@@ -285,7 +287,7 @@ describe("before the attempt", () => {
     fireEvent.click(await screen.findByText("Bắt đầu làm bài"));
     expect(
       await screen.findByText(
-        "Bạn đã làm đủ số lượt liên tiếp nên bài kiểm tra đang tạm khóa.",
+        "Bạn đã làm đủ số lượt liên tiếp nên bài trắc nghiệm đang tạm khóa.",
       ),
     ).toBeTruthy();
     await waitFor(() => expect(quiz).toHaveBeenCalledTimes(2));
@@ -582,7 +584,7 @@ describe("during the attempt", () => {
       ok(result({ submissionKind: "TimedOut", score: 33.33, correctCount: 1 })),
     );
     fireEvent.click(screen.getByText("Phương án A"));
-    expect(await screen.findByText("Kết quả bài kiểm tra")).toBeTruthy();
+    expect(await screen.findByText("Kết quả bài trắc nghiệm")).toBeTruthy();
     expect(attemptOf).toHaveBeenCalledWith("att-1");
     expect(screen.getByText(/Hết giờ nên bài được nộp tự động/)).toBeTruthy();
     expect(screen.getByText("33,33")).toBeTruthy();
@@ -627,7 +629,7 @@ describe("during the attempt", () => {
       await vi.advanceTimersByTimeAsync(2000);
     });
     expect(attemptOf).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Kết quả bài kiểm tra")).toBeTruthy();
+    expect(screen.getByText("Kết quả bài trắc nghiệm")).toBeTruthy();
     expect(screen.getByText(/Hết giờ nên bài được nộp tự động/)).toBeTruthy();
   });
 
@@ -705,7 +707,7 @@ describe("submitting", () => {
     });
     expect(events).toEqual(["save start"]);
     release();
-    expect(await screen.findByText("Kết quả bài kiểm tra")).toBeTruthy();
+    expect(await screen.findByText("Kết quả bài trắc nghiệm")).toBeTruthy();
     expect(events).toEqual(["save start", "save end", "submit"]);
   });
 
@@ -730,7 +732,7 @@ describe("submitting", () => {
     expect(
       await screen.findByText("Không nộp được bài. Vui lòng thử lại."),
     ).toBeTruthy();
-    expect(screen.getByText("CÂU 1")).toBeTruthy();
+    expect(screen.getByText("Câu 1")).toBeTruthy();
   });
 
   it("a lost connection keeps the attempt and tells the Learner to submit again", async () => {
@@ -742,7 +744,7 @@ describe("submitting", () => {
     expect(
       await screen.findByText(/Bài của bạn vẫn được lưu, hãy nộp lại/),
     ).toBeTruthy();
-    expect(screen.getByText("CÂU 1")).toBeTruthy();
+    expect(screen.getByText("Câu 1")).toBeTruthy();
   });
 });
 
@@ -753,7 +755,7 @@ describe("the result", () => {
     fireEvent.click(screen.getByText("Nộp bài"));
     const buttons = await screen.findAllByText("Nộp bài");
     fireEvent.click(buttons[buttons.length - 1]);
-    await screen.findByText("Kết quả bài kiểm tra");
+    await screen.findByText("Kết quả bài trắc nghiệm");
   };
 
   it("shows the score of the attempt, the recorded score, the passing score and the questions right, in Vietnamese", async () => {
@@ -764,7 +766,7 @@ describe("the result", () => {
     expect(screen.getByText("2/3")).toBeTruthy();
     expect(screen.getByText("Chưa đạt")).toBeTruthy();
     expect(
-      screen.getByText(/Bạn còn 1 lượt trước khi bài kiểm tra tạm khóa/),
+      screen.getByText(/Bạn còn 1 lượt trước khi bài trắc nghiệm tạm khóa/),
     ).toBeTruthy();
     expect(document.body.textContent).not.toMatch(
       /Quiz result|Recorded|Attempt score/,
@@ -789,7 +791,7 @@ describe("the result", () => {
         lockedUntil: "2026-11-05T12:00:00.000Z",
       }),
     });
-    expect(screen.getByText(/nên bài kiểm tra tạm khóa/)).toBeTruthy();
+    expect(screen.getByText(/nên bài trắc nghiệm tạm khóa/)).toBeTruthy();
     expect(screen.queryByText("Làm lại")).toBeNull();
   });
 
@@ -816,7 +818,49 @@ describe("the result", () => {
     expect(path).toBe("/learner/courses/enr-1/quizzes/quiz-1/history");
     cleanup();
     await submitted();
-    fireEvent.click(screen.getByText("Về danh sách bài kiểm tra"));
+    fireEvent.click(screen.getByText("Về danh sách bài đánh giá"));
     expect(path).toBe("/learner/courses/enr-1/assessments");
+  });
+});
+
+describe("the words of the glossary", () => {
+  // bài trắc nghiệm, never bài kiểm tra; and no line of text in capitals (docs/frontend/ui-glossary-vi.md)
+  const wordsOk = () => {
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/kiểm tra/i);
+    expect(text).not.toMatch(/BÀI TRẮC|BÀI KIỂM|CÂU \d/);
+    expect(document.body.textContent).toContain("Bài trắc nghiệm");
+  };
+
+  it("the rules, the attempt and the result say bài trắc nghiệm, and nothing is in capitals", async () => {
+    open();
+    await screen.findByText("Bắt đầu làm bài");
+    wordsOk();
+    fireEvent.click(screen.getByText("Bắt đầu làm bài"));
+    await screen.findByText("Câu 1");
+    wordsOk();
+    submit.mockResolvedValue(ok(result()));
+    fireEvent.click(screen.getByText("Nộp bài"));
+    const buttons = await screen.findAllByText("Nộp bài");
+    wordsOk();
+    fireEvent.click(buttons[buttons.length - 1]);
+    await screen.findByText("Kết quả bài trắc nghiệm");
+    wordsOk();
+  });
+
+  it("a Quiz that cannot be opened or started says bài trắc nghiệm too", async () => {
+    quiz.mockRejectedValue(new Error("down"));
+    open();
+    await screen.findByText("Thử lại");
+    expect(document.body.textContent).not.toMatch(/kiểm tra/i);
+    cleanup();
+    quiz.mockResolvedValue(ok(quizInfo()));
+    start.mockResolvedValue(refused("QUIZ_HAS_NO_QUESTIONS"));
+    open();
+    fireEvent.click(await screen.findByText("Bắt đầu làm bài"));
+    expect(
+      await screen.findByText(/Bài trắc nghiệm này chưa có câu hỏi nào/),
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/kiểm tra/i);
   });
 });

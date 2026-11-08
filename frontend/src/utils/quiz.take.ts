@@ -67,25 +67,25 @@ export const formatScore = (score: number): string =>
 
 const QUIZ_ERRORS: Record<string, string> = {
   ASSESSMENT_LOCKED:
-    "Bạn đã làm đủ số lượt liên tiếp nên bài kiểm tra đang tạm khóa.",
-  ASSESSMENT_DISABLED: "Bài kiểm tra này đã bị vô hiệu hóa.",
+    "Bạn đã làm đủ số lượt liên tiếp nên bài trắc nghiệm đang tạm khóa.",
+  ASSESSMENT_DISABLED: "Bài trắc nghiệm này đã bị vô hiệu hóa.",
   ENROLLMENT_COMPLETED:
     "Bạn đã hoàn thành khóa học nên không thể bắt đầu lượt làm bài mới.",
   ENROLLMENT_NOT_ACTIVE:
-    "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể làm bài kiểm tra. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.",
-  NOT_ENROLLED: "Bạn chưa ghi danh vào khóa học có bài kiểm tra này.",
-  QUIZ_NOT_FOUND: "Không tìm thấy bài kiểm tra.",
+    "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể làm bài trắc nghiệm. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.",
+  NOT_ENROLLED: "Bạn chưa ghi danh vào khóa học có bài trắc nghiệm này.",
+  QUIZ_NOT_FOUND: "Không tìm thấy bài trắc nghiệm.",
   ATTEMPT_NOT_FOUND: "Không tìm thấy lượt làm bài.",
   QUIZ_HAS_NO_QUESTIONS:
-    "Bài kiểm tra này chưa có câu hỏi nào nên chưa thể làm.",
+    "Bài trắc nghiệm này chưa có câu hỏi nào nên chưa thể làm.",
   QUIZ_HAS_NO_TIME_LIMIT:
-    "Bài kiểm tra này chưa được đặt thời gian làm bài nên chưa thể làm.",
+    "Bài trắc nghiệm này chưa được đặt thời gian làm bài nên chưa thể làm.",
   ATTEMPT_EXPIRED:
     "Đã hết thời gian. Bài được nộp tự động với các câu bạn đã trả lời.",
   ATTEMPT_SUBMITTED: "Lượt làm bài này đã được nộp.",
   OPTION_NOT_IN_QUESTION: "Đáp án không thuộc câu hỏi này.",
   TOO_MANY_OPTIONS: "Câu hỏi này chỉ chọn được một đáp án.",
-  QUESTION_NOT_FOUND: "Câu hỏi không thuộc bài kiểm tra này.",
+  QUESTION_NOT_FOUND: "Câu hỏi không thuộc bài trắc nghiệm này.",
 };
 
 /** Codes after which what the page shows is out of date: it loads the attempt again and shows what the server decided. */
