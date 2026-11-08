@@ -29,3 +29,4 @@ import './outbox-relay.integration-test';
 import './outbox-kafka.integration-test';
 import './quiz-take.integration-test';
 import './quiz-take-kafka.integration-test';
+import './instructor-submission-search.integration-test';

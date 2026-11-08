@@ -17,6 +17,12 @@ export interface RelayConfig {
   backoffMaxMs: number;
   /** From this many failed attempts on a row, every further failure is logged as an alert. */
   alertAttempts: number;
+  /**
+   * While the destination cannot be reached no row is claimed, so no row counts an attempt and `alertAttempts` never fires.
+   * After this long without the destination, and then again after each period, the relay logs an alert with how long it has
+   * been down and how many events wait.
+   */
+  outageAlertMs: number;
 }
 
 export const RELAY_CONFIG = Symbol('RELAY_CONFIG');
@@ -53,6 +59,7 @@ export function readRelayConfig(
     backoffMs: integer('OUTBOX_BACKOFF_MS', 1000),
     backoffMaxMs: integer('OUTBOX_BACKOFF_MAX_MS', 300000),
     alertAttempts: integer('OUTBOX_ALERT_ATTEMPTS', 10),
+    outageAlertMs: integer('OUTBOX_OUTAGE_ALERT_MS', 300000),
   };
   if (
     !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(config.topic) ||

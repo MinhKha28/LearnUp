@@ -36,7 +36,7 @@ export const PageHeader = ({
             icon={<ArrowLeftOutlined />}
             onClick={() => navigate(-1)}
           >
-            Back
+            Quay lại
           </Button>
         )}
         <h1>{title}</h1>
