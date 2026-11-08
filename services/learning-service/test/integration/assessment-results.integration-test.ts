@@ -3,7 +3,7 @@
  * assessment-service (the Course of the Enrollment, never one the caller names), the answer when it cannot be asked,
  * and that reading writes nothing. assessment-service itself is replaced by the client of the app, as in the UC28 tests.
  *
- * Chạy: npm run test:integration (isolated PostgreSQL and local HTTP stub)
+ * Run: npm run test:integration (isolated PostgreSQL and local HTTP stub)
  */
 import 'dotenv/config';
 import assert from 'node:assert/strict';
