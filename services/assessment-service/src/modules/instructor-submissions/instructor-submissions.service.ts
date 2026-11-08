@@ -1,6 +1,7 @@
 import type { CurrentUser } from '@learnup/ts-common';
 import type { IStorageProvider } from '@learnup/ts-storage';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -54,6 +55,16 @@ export class InstructorSubmissionsService {
     query: ListSubmissionsQueryDto,
   ): Promise<ISubmissionList> {
     const organizationId = this.requireInstructor(user);
+    if (
+      query.minScore !== undefined &&
+      query.maxScore !== undefined &&
+      query.minScore > query.maxScore
+    ) {
+      throw new BadRequestException({
+        code: 'SCORE_RANGE_INVALID',
+        message: 'The lowest score is higher than the highest score.',
+      });
+    }
     const assignment = await this.repository.findAssignment(
       organizationId,
       assessmentId,
@@ -87,7 +98,20 @@ export class InstructorSubmissionsService {
     );
     const keyword = query.q?.toLowerCase();
     const filtered = visible.filter((row) => {
+      if (query.learnerId && row.learnerId !== query.learnerId) return false;
       if (query.status && row.gradingStatus !== query.status) return false;
+      if (query.needsIntervention !== undefined) {
+        const needs = row.gradingStatus === AWAITING_INSTRUCTOR;
+        if (needs !== query.needsIntervention) return false;
+      }
+      if (query.minScore !== undefined || query.maxScore !== undefined) {
+        const score = toNumber(row.finalScore);
+        if (score === null) return false;
+        if (query.minScore !== undefined && score < query.minScore)
+          return false;
+        if (query.maxScore !== undefined && score > query.maxScore)
+          return false;
+      }
       if (!keyword) return true;
       const learner = names.map?.get(row.learnerId);
       return [learner?.fullName, learner?.email]

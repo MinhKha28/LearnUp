@@ -29,6 +29,45 @@ export interface IRenewalResult {
   };
 }
 
+export interface IUpgradeOption {
+  id: string;
+  name: string;
+  price: number;
+  durationDays: number;
+  maxLearners: number;
+  maxInstructors: number;
+  maxCourseChains: number;
+  maxStorageBytes: number;
+  amount: number;
+  blockedBy: Array<{ limit: string; newLimit: number; required: number }>;
+}
+
+export interface IUpgradeOptions {
+  currentPlanName: string;
+  currentPrice: number;
+  currentDurationDays: number;
+  currentStatus: SubscriptionStatus;
+  expiresAt: string;
+  remainingDays: number;
+  blockedReason: string | null;
+  usageAvailable: boolean;
+  options: IUpgradeOption[];
+}
+
+export interface IUpgradeResult {
+  paymentId: string | null;
+  paymentStatus: "Succeeded" | "Failed" | "NotRequired";
+  amount: number;
+  failureReason?: string | null;
+  subscription?: {
+    id: string;
+    planName: string;
+    status: string;
+    startsAt: string;
+    expiresAt: string;
+  };
+}
+
 export interface IUsageItem {
   used: number | null;
   limit: number;
