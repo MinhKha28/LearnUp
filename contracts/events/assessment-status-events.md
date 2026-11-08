@@ -26,7 +26,7 @@ The additive status values below are accepted by learning. Assessment emits them
 | --- | --- | --- | --- |
 | PeerReviewAssigned | PEER_REVIEW_ASSIGNED | a peer review cycle closes (`closeOpen`, by the schedule or by the Instructor) | `cycleId`, `reviewCount` |
 | PeerReviewMissed | PEER_REVIEW_MISSED | the review deadline of a cycle passes and reviews were not done (schedule) | `cycleId`, `missedCount` |
-| Finalized | ASSIGNMENT_FINALIZED | separate finalization publish action (UC32.3) | `submissionId`, `finalScore`, `finalizedAt` |
+| Finalized | ASSIGNMENT_FINALIZED | the Instructor finalizes a submission (UC32.3) | `submissionId`, `finalScore`, `finalizedAt` |
 
 `PeerReviewAssigned` and `PeerReviewMissed` are written once for each Learner who got reviews to give, or who left some
 undone, in the same transaction that creates the reviews or marks them Missed (so the event exists if and only if the
