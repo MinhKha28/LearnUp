@@ -75,11 +75,11 @@ describe("UC50, UC51 list of the audit trail", () => {
   });
 
   it("shows a dash when there is no reason and falls back to the arrival time and to the raw code of an unknown action", async () => {
-    fetchLogs.mockResolvedValue(answer([log({ details: null, actionType: "COURSE_REJECTED", actorRole: null, actorUserId: null, targetResourceType: "Plan" })]));
+    fetchLogs.mockResolvedValue(answer([log({ details: null, actionType: "SOMETHING_NEW", actorRole: null, actorUserId: null, targetResourceType: "Gadget" })]));
     renderView();
-    await screen.findByText(/COURSE_REJECTED/);
-    const row = screen.getByText(/COURSE_REJECTED/).closest("tr")!;
-    expect(within(row).getByText(/(Plan)/)).toBeTruthy(); // the same for a type of target the screen has no word for
+    await screen.findByText(/SOMETHING_NEW/);
+    const row = screen.getByText(/SOMETHING_NEW/).closest("tr")!;
+    expect(within(row).getByText(/(Gadget)/)).toBeTruthy(); // the same for a type of target the screen has no word for
     expect(within(row).getByText("Đối tượng khác", { exact: false })).toBeTruthy();
     expect(within(row).getByText("Hành động khác")).toBeTruthy(); // a code with no word is called "other" and the code is written next to it
     expect(within(row).getByText("02/11/2026 10:04")).toBeTruthy();
@@ -88,9 +88,9 @@ describe("UC50, UC51 list of the audit trail", () => {
   });
 
   it("UC51: the Admin also sees the Organization of each action, and the platform actions say so", async () => {
-    fetchLogs.mockResolvedValue(answer([log(), log({ organizationId: null, actionType: "PLAN_DISABLED" })]));
+    fetchLogs.mockResolvedValue(answer([log(), log({ organizationId: null, actionType: "PLAN_DISCONTINUED", targetResourceType: "Plan" })]));
     renderView("/", true);
-    await screen.findByText(/PLAN_DISABLED/);
+    await screen.findByText("Ngừng cung cấp gói dịch vụ");
     expect(screen.getByText("Tổ chức")).toBeTruthy();
     expect(screen.getByText("Cấp nền tảng")).toBeTruthy();
     expect(screen.getByText("…00000001")).toBeTruthy();

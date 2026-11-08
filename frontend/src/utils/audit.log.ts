@@ -7,14 +7,47 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const AUDIT_PAGE_SIZE = 20;
 export const AUDIT_TARGET_ID_MAX_LENGTH = 255;
 
-/** BR-336 lists what is recorded; these are the action types the services write today. Any other code is shown as it is. */
+/**
+ * BR-336 lists what is recorded. The first two are written by tenant today; the others are the codes proposed for the actions of the list
+ * (ENTITY_PAST_TENSE, like the first two) so that the screen has words ready when a service starts to write them: a service that picks another
+ * code adds it here. Any code not in the table is called "Hành động khác" and the code is written next to it.
+ * Not in the table on purpose: the actions on an Enrollment (BR-146, BR-149, BR-170), until the word for Enrollment is chosen.
+ */
 const ACTION_LABELS: Record<string, string> = {
   INSTRUCTOR_DEACTIVATED: "Ngừng hoạt động tài khoản giảng viên",
   INSTRUCTOR_REACTIVATED: "Kích hoạt lại tài khoản giảng viên",
+  LEARNER_DEACTIVATED: "Ngừng hoạt động tài khoản học viên",
+  LEARNER_REACTIVATED: "Kích hoạt lại tài khoản học viên",
+  ACCOUNT_DELETED: "Xóa tài khoản",
+  PLAN_UPDATED: "Chỉnh sửa gói dịch vụ",
+  PLAN_DISCONTINUED: "Ngừng cung cấp gói dịch vụ",
+  ORGANIZATION_SUSPENDED: "Tạm khóa tổ chức",
+  ORGANIZATION_SUSPENSION_LIFTED: "Gỡ tạm khóa tổ chức",
+  ORGANIZER_REPLACED: "Thay quản trị viên tổ chức",
+  COURSE_APPROVED: "Phê duyệt khóa học",
+  COURSE_REJECTED: "Từ chối khóa học",
+  COURSE_TYPE_CHANGED: "Đổi loại khóa học",
+  COURSE_OWNERSHIP_TRANSFERRED: "Chuyển quyền phụ trách khóa học",
+  COURSE_DELETED: "Xóa khóa học",
+  COURSE_RESTORED: "Khôi phục khóa học",
+  COURSE_PURGED: "Xóa vĩnh viễn khóa học",
+  MATERIAL_FILE_REPLACED: "Thay tệp học liệu",
+  ARCHIVED_MATERIAL_RELEASED: "Giải phóng học liệu của phiên bản đã lưu trữ",
+  CONTENT_DISABLED: "Vô hiệu hóa nội dung",
+  CONTENT_REACTIVATED: "Kích hoạt lại nội dung",
+  REPORT_DECIDED: "Quyết định về báo cáo",
+  SCORE_FINALIZED: "Chốt điểm",
+  SCORE_ADJUSTED: "Điều chỉnh điểm tổng hợp",
 };
 
 const TARGET_LABELS: Record<string, string> = {
   User: "Tài khoản",
+  Organization: "Tổ chức",
+  Plan: "Gói dịch vụ",
+  Course: "Khóa học",
+  Material: "Học liệu",
+  Report: "Báo cáo",
+  Submission: "Bài nộp",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -23,6 +56,9 @@ const ROLE_LABELS: Record<string, string> = {
   INSTRUCTOR: "Giảng viên",
   LEARNER: "Học viên",
 };
+
+/** The action types the screen has words for (the table above). */
+export const AUDIT_ACTION_CODES = Object.keys(ACTION_LABELS);
 
 /** Suggestions for the "target type" field (the field also takes any other value). */
 export const TARGET_TYPE_OPTIONS = Object.entries(TARGET_LABELS).map(([value, label]) => ({

@@ -78,3 +78,28 @@ The trail is append-only and holds who did what in every Organization, so access
 * The gateway routes only `GET` to this service; the services write entries to it directly (internal key, no user headers).
 * `INTERNAL_SERVICE_KEY` is required (at least 32 bytes, not `learnup-internal-secret`); the service does not start without it. It is the same key as in the other services.
 * Every path except `/actuator/health` goes through the filter.
+
+## Action types (BR-336)
+
+`actionType` is a code in `ENTITY_PAST_TENSE` capitals; `targetResourceType` names the entity (`User`, `Organization`, `Plan`, `Course`, `Material`, `Report`, `Submission`).
+The reason (BR-337) goes in `details` as `{"reason": "..."}`, and the time of the action as the `occurredAt` field of the request.
+The page of the audit trail (`frontend/src/utils/audit.log.ts`) has a Vietnamese word for each code of the table below; a code that is not in it is shown
+as "Hành động khác" with the code next to it, so a service that picks another code only adds one line to that table.
+
+| Code | BR-336 | Written by |
+| --- | --- | --- |
+| `INSTRUCTOR_DEACTIVATED`, `INSTRUCTOR_REACTIVATED` | accounts (BR-45, BR-46, BR-51) | tenant (today) |
+| `LEARNER_DEACTIVATED`, `LEARNER_REACTIVATED`, `ACCOUNT_DELETED` | accounts (BR-45, BR-46, BR-51) | proposed |
+| `PLAN_UPDATED`, `PLAN_DISCONTINUED` | Plan (BR-2, BR-3) | proposed |
+| `ORGANIZATION_SUSPENDED`, `ORGANIZATION_SUSPENSION_LIFTED` | suspension (BR-56, BR-58) | proposed |
+| `ORGANIZER_REPLACED` | Organizer (BR-50) | proposed |
+| `COURSE_APPROVED`, `COURSE_REJECTED` | approval (BR-84) | proposed |
+| `COURSE_TYPE_CHANGED` | courseType (BR-75) | proposed |
+| `COURSE_OWNERSHIP_TRANSFERRED` | ownership (BR-92) | proposed |
+| `COURSE_DELETED`, `COURSE_RESTORED`, `COURSE_PURGED` | trash (BR-89, BR-340, BR-341) | proposed |
+| `MATERIAL_FILE_REPLACED`, `ARCHIVED_MATERIAL_RELEASED` | materials (BR-105, BR-126, BR-91) | proposed |
+| `CONTENT_DISABLED`, `CONTENT_REACTIVATED` | moderation (BR-296, BR-299, BR-306) | proposed |
+| `REPORT_DECIDED` | report decisions (BR-294, BR-317) | proposed |
+| `SCORE_FINALIZED`, `SCORE_ADJUSTED` | scores (BR-254) | proposed |
+
+Not in the table yet: the actions on an Enrollment (exempted, due date: BR-146, BR-149, BR-170), until the Vietnamese word for Enrollment is chosen.

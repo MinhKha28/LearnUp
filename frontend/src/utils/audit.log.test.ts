@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AUDIT_ACTION_CODES,
   actionLabel,
   actorRoleLabel,
   auditTime,
@@ -22,7 +23,7 @@ describe("labels", () => {
   it("names the action types the services write and shows any other code as it is", () => {
     expect(actionLabel("INSTRUCTOR_DEACTIVATED")).toBe("Ngừng hoạt động tài khoản giảng viên");
     expect(actionLabel("INSTRUCTOR_REACTIVATED")).toBe("Kích hoạt lại tài khoản giảng viên");
-    expect(actionLabel("COURSE_REJECTED")).toBe("Hành động khác");
+    expect(actionLabel("SOMETHING_NEW")).toBe("Hành động khác");
     expect(actionLabel("constructor")).toBe("Hành động khác"); // not a word of the table
     expect(isKnownAction("INSTRUCTOR_DEACTIVATED")).toBe(true);
     expect(isKnownAction("toString")).toBe(false);
@@ -39,15 +40,38 @@ describe("labels", () => {
 
   it("names the target types", () => {
     expect(targetTypeLabel("User")).toBe("Tài khoản");
-    expect(targetTypeLabel("Plan")).toBe("Đối tượng khác");
+    expect(targetTypeLabel("Gadget")).toBe("Đối tượng khác");
     expect(isKnownTargetType("User")).toBe(true);
-    expect(isKnownTargetType("Plan")).toBe(false);
+    expect(isKnownTargetType("Gadget")).toBe(false);
     expect(targetTypeLabel(null)).toBe("—");
   });
 
   it("shortens an id to its last characters", () => {
     expect(shortId("0199a000-0000-7000-8000-0a0000000001")).toBe("…00000001");
     expect(shortId(null)).toBe("—");
+  });
+});
+
+describe("the words of the action types (BR-336)", () => {
+  it("every action type of the table has a Vietnamese sentence-case label, not its code and not all capitals", () => {
+    expect(AUDIT_ACTION_CODES.length).toBeGreaterThanOrEqual(24);
+    for (const code of AUDIT_ACTION_CODES) {
+      const label = actionLabel(code);
+      expect(label, code).not.toBe(code);
+      expect(label, code).not.toBe("Hành động khác");
+      expect(label, code).toMatch(/^\p{Lu}/u); // starts with a capital
+      expect(label, code).not.toBe(label.toUpperCase()); // but is not all capitals
+      expect(label, code).not.toMatch(/[_]/);
+    }
+  });
+
+  it("two codes never share a label (the screen would not tell the actions apart)", () => {
+    const labels = AUDIT_ACTION_CODES.map(actionLabel);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("the code is kept as the code: the codes are ENTITY_PAST_TENSE capitals", () => {
+    for (const code of AUDIT_ACTION_CODES) expect(code).toMatch(/^[A-Z]+(_[A-Z]+)+$/);
   });
 });
 
