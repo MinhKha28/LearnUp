@@ -265,8 +265,9 @@ function createHarness({ chains } = {}) {
     { get: () => undefined },
     {},
     outbox,
-    {},
-    {},
+    {}, // learningClient
+    {}, // usersRepository
+    {}, // storage
     accountTokens,
   );
   return { db, course, service, user: ORGANIZER };

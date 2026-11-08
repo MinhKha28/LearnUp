@@ -21,7 +21,10 @@ import {
   User,
 } from '../../common/decorator/customize';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { ChangeAccountStatusDto } from './dto/change-account-status.dto';
+import {
+  ChangeAccountStatusDto,
+  ChangeLearnerStatusDto,
+} from './dto/change-account-status.dto';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { DeleteAccountDto } from './dto/delete-account.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
@@ -30,7 +33,7 @@ import { UpdateAccountDto } from './dto/update-account.dto';
 import { UsersService } from './users.service';
 import { GetUsersBatchDto } from './dto/get-users-batch.dto';
 
-@ApiTags('Users') // UC12, UC12.1, UC12.2, UC12.3, UC12.5, UC12.6, UC12.7, UC13, UC13.1, UC13.2, UC13.3, UC13.7
+@ApiTags('Users') // UC12, UC12.1, UC12.2, UC12.3, UC12.5, UC12.6, UC12.7, UC13, UC13.1, UC13.2, UC13.3, UC13.5, UC13.7
 @ApiSecurity('internal-key')
 @UseGuards(RolesGuard)
 @Controller('users')
@@ -212,6 +215,18 @@ export class UsersController {
     @Body() dto: UpdateAccountDto,
   ) {
     return this.service.updateLearner(user, id, dto);
+  }
+
+  // UC13.5 - vô hiệu hóa / kích hoạt lại Learner. Đã ở trạng thái đích -> 200 changed:false.
+  @Roles('ORGANIZER')
+  @Patch('learners/:id/status')
+  @ResponseMessage('Đổi trạng thái Learner thành công')
+  changeLearnerStatus(
+    @User() user: CurrentUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ChangeLearnerStatusDto,
+  ) {
+    return this.service.changeLearnerStatus(user, id, dto);
   }
 
   // UC13.7

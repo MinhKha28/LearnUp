@@ -308,6 +308,18 @@ export interface IInstructorDeletionResult {
   seats: ISeatUsage; // số chỗ sau khi xóa (BR-23, BR-37)
 }
 
+// UC13.5 - PATCH /api/v1/users/learners/:id/status (Learner không có chuyển quyền nên không gửi receiverInstructorId)
+export type IChangeLearnerStatusReq = Omit<
+  IChangeAccountStatusReq,
+  "receiverInstructorId"
+>;
+
+export interface ILearnerStatusResult {
+  id: string;
+  status: AccountStatus;
+  changed: boolean; // false: đã ở trạng thái đích (bấm lặp)
+}
+
 // UC12.2 - số chỗ theo Subscription hiện hành (GET /api/v1/users/instructors/seats)
 export interface ISeatUsage {
   used: number;

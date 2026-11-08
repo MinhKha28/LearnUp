@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PickType } from '@nestjs/swagger';
 import { IsIn } from 'class-validator';
 import { DeleteAccountDto } from './delete-account.dto';
 
@@ -19,3 +19,10 @@ export class ChangeAccountStatusDto extends DeleteAccountDto {
   })
   action!: AccountStatusActionValue;
 }
+
+// UC13.5 - Đổi trạng thái Learner. Cùng action / reason (cùng validate) với UC12.5; Learner không có
+// chuyển quyền phụ trách (BR-41 chỉ cho Instructor) nên gửi receiverInstructorId -> 400 (forbidNonWhitelisted).
+export class ChangeLearnerStatusDto extends PickType(ChangeAccountStatusDto, [
+  'action',
+  'reason',
+] as const) {}
