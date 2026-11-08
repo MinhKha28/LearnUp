@@ -10,6 +10,7 @@ import com.learnup.common.response.ApiResponse;
 import com.learnup.common.response.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -28,6 +29,9 @@ import java.util.UUID;
 @RestController
 @RequestMapping({"/api/v1/audit/logs", "/api/audit/logs"})
 public class AuditLogController {
+
+    /** A page of the trail is at most this many entries, whatever the caller asks for. */
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final AuditLogService auditLogService;
 
@@ -55,10 +59,14 @@ public class AuditLogController {
             @RequestParam(required = false) UUID actorUserId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @PageableDefault(size = 20) Pageable requested,
             HttpServletRequest httpRequest) {
 
         UUID scope = AuditCaller.require(httpRequest).scopeOf(organizationId);
+        // The order is not the caller's choice: newest first, with the id to break ties so that no entry repeats or is skipped from one
+        // page to the next. A sort the caller sends is ignored (an unknown property used to be a 500), and the page size has a ceiling.
+        Pageable pageable = PageRequest.of(requested.getPageNumber(), Math.min(requested.getPageSize(), MAX_PAGE_SIZE),
+                Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
         if (from != null && to != null && !from.isBefore(to)) {
             throw BusinessException.badRequest("The start of the time range must be before its end");
         }
