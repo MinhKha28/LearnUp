@@ -63,7 +63,7 @@ afterEach(() => {
 });
 
 const typeDraft = async () => {
-  const box = (await screen.findByPlaceholderText("Write your response here...")) as HTMLTextAreaElement;
+  const box = (await screen.findByPlaceholderText("Viết câu trả lời của bạn tại đây...")) as HTMLTextAreaElement;
   fireEvent.change(box, { target: { value: "my draft" } });
   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
   fireEvent.change(input, { target: { files: [new File(["%PDF-1.7 x"], "work.pdf", { type: "application/pdf" })] } });
@@ -79,7 +79,7 @@ const pickerOpensOnClick = () => {
   spy.mockRestore();
   return opened;
 };
-const sendButton = () => screen.getByRole("button", { name: /resubmit work|submit work/i }) as HTMLButtonElement;
+const sendButton = () => screen.getByRole("button", { name: /nộp lại bài|nộp bài/i }) as HTMLButtonElement;
 
 describe("the form when the Enrollment stops being active while it is open", () => {
   it("keeps the text and the file, closes the form and says why in Vietnamese; does not reload", async () => {
@@ -139,7 +139,7 @@ describe("the form when the Enrollment stops being active while it is open", () 
     vi.mocked(api.fetchLearnerAssignmentAPI).mockResolvedValue({ statusCode: 200, data: { ...assignment, readOnly: true } } as never);
     fireEvent.click(sendButton());
     await waitFor(() => expect(api.fetchLearnerAssignmentAPI).toHaveBeenCalledTimes(2));
-    await screen.findByText("Course completed");
+    await screen.findByText("Khóa học đã hoàn thành");
     expect(screen.queryByText("Không thể nộp bài")).toBeNull();
     expect(sendButton().disabled).toBe(true);
   });
@@ -155,7 +155,7 @@ describe("the size limit of the file comes from the API (maxFileBytes)", () => {
   for (const mode of ["submit", "resubmit"] as const) {
     it(`${mode}: a file one byte over the limit is refused on selection, in Vietnamese`, async () => {
       mount(mode);
-      await screen.findByPlaceholderText("Write your response here...");
+      await screen.findByPlaceholderText("Viết câu trả lời của bạn tại đây...");
       expect(screen.getByText(/tối đa 10.0 MB/)).toBeTruthy(); // the hint shows the limit of the API, not 50 MB
       pick("big.pdf", 10 * 1024 * 1024 + 1);
       // antd keeps the message of the previous test in the page, so there can be more than one
@@ -165,7 +165,7 @@ describe("the size limit of the file comes from the API (maxFileBytes)", () => {
 
     it(`${mode}: a file of exactly the limit is accepted`, async () => {
       mount(mode);
-      await screen.findByPlaceholderText("Write your response here...");
+      await screen.findByPlaceholderText("Viết câu trả lời của bạn tại đây...");
       pick("edge.pdf", 10 * 1024 * 1024);
       await screen.findByText("edge.pdf");
     });
@@ -173,7 +173,7 @@ describe("the size limit of the file comes from the API (maxFileBytes)", () => {
 
   it("a file of another type is refused with the types and the limit", async () => {
     mount("submit");
-    await screen.findByPlaceholderText("Write your response here...");
+    await screen.findByPlaceholderText("Viết câu trả lời của bạn tại đây...");
     const file = new File(["MZ"], "virus.exe");
     fireEvent.change(fileInput(), { target: { files: [file] } });
     await screen.findByText("Tệp phải là PDF, DOCX hoặc ZIP, tối đa 10.0 MB.");

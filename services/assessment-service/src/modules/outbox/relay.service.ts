@@ -28,7 +28,11 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
   private running?: Promise<void>;
   private cleaning?: Promise<void>;
   private stopped = false;
-  private gateDown = false;
+  /** When the destination was first found unreachable in this outage; undefined while it answers. */
+  private gateDownSince?: number;
+  private lastOutageAlertAt?: number;
+  /** The clock of the outage alert; a test replaces it to travel in time. */
+  now: () => number = () => Date.now();
 
   constructor(
     private readonly repository: RelayRepository,
@@ -78,12 +82,17 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
   private async run(): Promise<void> {
     // Ask the gate before taking any lock: with the destination down nothing is claimed and no transaction is kept open.
     if (!(await this.gate.ready())) {
-      if (!this.gateDown)
-        this.logger.warn('OUTBOX_GATE_UNAVAILABLE: the relay will retry');
-      this.gateDown = true;
+      await this.onGateDown();
       return;
     }
-    this.gateDown = false;
+    if (this.gateDownSince !== undefined) {
+      const seconds = Math.round((this.now() - this.gateDownSince) / 1000);
+      this.logger.log(
+        `OUTBOX_GATE_RECOVERED: the destination answers again after ${seconds}s`,
+      );
+      this.gateDownSince = undefined;
+      this.lastOutageAlertAt = undefined;
+    }
     await this.repository.transaction(async (tx, rows) => {
       if (rows.length === 0) return;
       try {
@@ -121,6 +130,41 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
       }
       for (const row of rows) await this.repository.published(tx, row);
     });
+  }
+
+  /**
+   * The destination does not answer: nothing is claimed, so no row counts an attempt and the alert of the retries cannot
+   * fire. The first turn logs a warning; once the outage has lasted `outageAlertMs`, and after each further period, an
+   * alert says for how long and how many events wait (the oldest one's age is the delay the consumers see).
+   */
+  private async onGateDown(): Promise<void> {
+    const now = this.now();
+    if (this.gateDownSince === undefined) {
+      this.gateDownSince = now;
+      this.logger.warn('OUTBOX_GATE_UNAVAILABLE: the relay will retry');
+      return;
+    }
+    if (
+      now - (this.lastOutageAlertAt ?? this.gateDownSince) <
+      this.config.outageAlertMs
+    )
+      return;
+    this.lastOutageAlertAt = now;
+    const downSeconds = Math.round((now - this.gateDownSince) / 1000);
+    try {
+      const { count, oldestAt } = await this.repository.unsentSummary();
+      const oldestSeconds = oldestAt
+        ? Math.round((now - oldestAt.getTime()) / 1000)
+        : 0;
+      this.logger.error(
+        `OUTBOX_RETRY_ALERT code=OUTBOX_GATE_UNAVAILABLE down_for_s=${downSeconds} unsent=${count} oldest_unsent_age_s=${oldestSeconds}`,
+      );
+    } catch {
+      // The database is the other thing that can be down; the alert is still worth sending, without the numbers.
+      this.logger.error(
+        `OUTBOX_RETRY_ALERT code=OUTBOX_GATE_UNAVAILABLE down_for_s=${downSeconds} unsent=unknown`,
+      );
+    }
   }
 
   private async failure(

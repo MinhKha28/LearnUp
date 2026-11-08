@@ -60,11 +60,12 @@ class EnrollmentEventHandlerTest {
         final List<String> order = new ArrayList<>();
 
         @Override
-        public EnrollmentEventDelivery open(EnrollmentEvent event, UUID recipient, DeliveryChannel channel, Instant now) {
-            return rows.computeIfAbsent(event.eventId() + "/" + recipient + "/" + channel, key -> {
+        public EnrollmentEventDelivery open(UUID eventId, String eventType, UUID organizationId, UUID enrollmentId,
+                                            UUID recipient, DeliveryChannel channel, Instant occurredAt, Instant now) {
+            return rows.computeIfAbsent(eventId + "/" + recipient + "/" + channel, key -> {
                 order.add(key);
-                return new EnrollmentEventDelivery(event.eventId(), event.type().wireName(), event.organizationId(),
-                        event.enrollmentId(), recipient, channel, event.occurredAt(), now);
+                return new EnrollmentEventDelivery(eventId, eventType, organizationId, enrollmentId, recipient, channel,
+                        occurredAt, now);
             });
         }
 

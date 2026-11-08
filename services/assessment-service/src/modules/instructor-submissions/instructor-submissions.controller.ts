@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { ResponseMessage, User } from '../../common/decorator/customize';
+import { FinalizeSubmissionDto } from './dto/finalize-submission.dto';
 import { InstructorReviewDto } from './dto/instructor-review.dto';
 import { ListSubmissionsQueryDto } from './dto/list-submissions-query.dto';
 import { InstructorSubmissionsService } from './instructor-submissions.service';
@@ -50,5 +51,16 @@ export class InstructorSubmissionsController {
     @Body() dto: InstructorReviewDto,
   ) {
     return this.service.grade(user, submissionId, dto);
+  }
+
+  @Post('submissions/:submissionId/finalize')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Đã chốt điểm bài nộp.')
+  finalize(
+    @User() user: CurrentUser,
+    @Param('submissionId', ParseUUIDPipe) submissionId: string,
+    @Body() dto: FinalizeSubmissionDto,
+  ) {
+    return this.service.finalize(user, submissionId, dto);
   }
 }
