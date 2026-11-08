@@ -37,7 +37,7 @@ afterEach(cleanup);
 describe("Learner dashboard", () => {
   it("is in Vietnamese and sends the Learner to the review tasks", async () => {
     renderAt("/learner", <Dashboard />);
-    expect(screen.getByText("Việc học của bạn trong một cái nhìn")).toBeTruthy();
+    expect(screen.getByText("Tổng quan việc học của bạn")).toBeTruthy();
     expect(screen.getByText("Đào tạo bắt buộc")).toBeTruthy();
     expect(screen.getByText("Nhiệm vụ chấm chéo")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/Required training|Up next|Peer review tasks|View tasks/);
