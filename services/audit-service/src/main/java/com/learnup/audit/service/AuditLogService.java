@@ -13,6 +13,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,8 +28,21 @@ public class AuditLogService {
         this.auditLogRepository = auditLogRepository;
     }
 
+    /** A little clock difference between two services is normal; an action dated further in the future than this is refused. */
+    private static final Duration CLOCK_SKEW = Duration.ofMinutes(5);
+    /** The platform did not exist before this: a date earlier than it (an epoch of 0, a number out of range) is a writer's mistake. */
+    private static final Instant EARLIEST_ACTION = Instant.parse("2020-01-01T00:00:00Z");
+
     @Transactional
     public AuditLogResponse recordAuditLog(CreateAuditLogRequest request) {
+        Instant now = Instant.now();
+        Instant occurredAt = request.getOccurredAt();
+        if (occurredAt != null && occurredAt.isAfter(now.plus(CLOCK_SKEW))) {
+            throw BusinessException.badRequest("occurredAt cannot be in the future");
+        }
+        if (occurredAt != null && occurredAt.isBefore(EARLIEST_ACTION)) {
+            throw BusinessException.badRequest("occurredAt is before the platform existed");
+        }
         AuditLog auditLog = new AuditLog(
                 UUID.randomUUID(),
                 request.getOrganizationId(),
@@ -40,7 +54,8 @@ public class AuditLogService {
                 request.getDetails(),
                 request.getIpAddress(),
                 request.getCorrelationId(),
-                Instant.now()
+                // the time of the action when the writer says it, else the time of the delivery
+                occurredAt != null ? occurredAt : now
         );
 
         AuditLog saved = auditLogRepository.save(auditLog);
