@@ -17,6 +17,9 @@ public class EnrollmentEventsProperties {
 
     private String topic = "learnup.learning.enrollment-events";
 
+    /** The topic of assessment-service where it publishes what a closed peer review cycle handed out (PeerReviewAssigned). */
+    private String peerReviewTopic = "learnup.assessment.peer-review-assigned";
+
     /** An event older than this is recorded as SKIPPED instead of being sent. */
     private Duration maxAge = Duration.ofHours(72);
 
@@ -63,6 +66,24 @@ public class EnrollmentEventsProperties {
     /** The dead-letter topic of the events that could not be handled. */
     public String getDeadLetterTopic() {
         return topic + ".DLT";
+    }
+
+    public String getPeerReviewTopic() {
+        return peerReviewTopic;
+    }
+
+    public void setPeerReviewTopic(String peerReviewTopic) {
+        this.peerReviewTopic = peerReviewTopic;
+    }
+
+    /** The dead-letter topic of the peer review events that could not be handled. */
+    public String getPeerReviewDeadLetterTopic() {
+        return peerReviewTopic + ".DLT";
+    }
+
+    /** The dead-letter topic that belongs to the topic a record came from (each topic has its own). */
+    public String deadLetterTopicOf(String sourceTopic) {
+        return peerReviewTopic.equals(sourceTopic) ? getPeerReviewDeadLetterTopic() : getDeadLetterTopic();
     }
 
     public Duration getMaxAge() {

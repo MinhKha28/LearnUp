@@ -32,19 +32,21 @@ public class JpaDeliveryLedger implements DeliveryLedger {
     }
 
     @Override
-    public EnrollmentEventDelivery open(EnrollmentEvent event, UUID recipientUserId, DeliveryChannel channel, Instant now) {
-        return repository.findByEventIdAndRecipientUserIdAndChannel(event.eventId(), recipientUserId, channel)
-                .orElseGet(() -> create(event, recipientUserId, channel, now));
+    public EnrollmentEventDelivery open(UUID eventId, String eventType, UUID organizationId, UUID enrollmentId,
+                                        UUID recipientUserId, DeliveryChannel channel, Instant occurredAt, Instant now) {
+        return repository.findByEventIdAndRecipientUserIdAndChannel(eventId, recipientUserId, channel)
+                .orElseGet(() -> create(eventId, eventType, organizationId, enrollmentId, recipientUserId, channel,
+                        occurredAt, now));
     }
 
-    private EnrollmentEventDelivery create(EnrollmentEvent event, UUID recipientUserId, DeliveryChannel channel, Instant now) {
+    private EnrollmentEventDelivery create(UUID eventId, String eventType, UUID organizationId, UUID enrollmentId,
+                                           UUID recipientUserId, DeliveryChannel channel, Instant occurredAt, Instant now) {
         try {
             return repository.saveAndFlush(new EnrollmentEventDelivery(
-                    event.eventId(), event.type().wireName(), event.organizationId(), event.enrollmentId(),
-                    recipientUserId, channel, event.occurredAt(), now));
+                    eventId, eventType, organizationId, enrollmentId, recipientUserId, channel, occurredAt, now));
         } catch (DataIntegrityViolationException raced) {
             // Another consumer made the row between the look and the insert: use theirs.
-            return repository.findByEventIdAndRecipientUserIdAndChannel(event.eventId(), recipientUserId, channel)
+            return repository.findByEventIdAndRecipientUserIdAndChannel(eventId, recipientUserId, channel)
                     .orElseThrow(() -> raced);
         }
     }

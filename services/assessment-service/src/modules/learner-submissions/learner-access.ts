@@ -47,12 +47,14 @@ export async function requireAccess(
 export const isReadOnly = (access: AssessmentAccess): boolean =>
   access.access === 'ReadOnly';
 
-export function assertCanWrite(access: AssessmentAccess): void {
+export function assertCanWrite(
+  access: AssessmentAccess,
+  message = 'This Course is completed, so the Assignment can no longer be submitted.',
+): void {
   if (isReadOnly(access)) {
     throw new ConflictException({
       code: 'ENROLLMENT_COMPLETED',
-      message:
-        'This Course is completed, so the Assignment can no longer be submitted.',
+      message,
     });
   }
 }

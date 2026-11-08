@@ -363,7 +363,7 @@ Chi tiết ở `CourseService_Database_Design.md` mục 4.2, 4.3.
 2. REST theo lô: ai trong danh sách đã đạt (BR-301).
 3. REST: đã có lượt Quiz, bài nộp, chấm chéo chưa (BR-145, BR-159).
 4. `LearnerAssessmentStatusChanged` (key `learnerId`), mang `firstActivityAt` (BR-140).
-5. REST điểm các bài đã làm (UC28.1).
+5. REST điểm các bài đã làm (UC28.1). **Đã làm:** `GET /api/v1/enrollments/{enrollmentId}/assessment-results` (LEARNER, không ghi gì) kiểm Enrollment thuộc Learner như màn hình Course rồi hỏi `GET /internal/learners/{learnerId}/courses/{courseId}/assessment-results` của assessment-service; assessment lỗi, quá hạn hoặc trả sai hợp đồng thì trả 200 với `state: unavailable` (không phải danh sách rỗng); Enrollment đã Completed vẫn xem được. Cấu hình `ASSESSMENT_RESULTS_CLIENT_MODE` (`http` hoặc `fake`), `ASSESSMENT_RESULTS_TIMEOUT_MS`.
 6. assessment-service hỏi REST `GET /api/v1/internal/enrollments/assessment-access` (L17, quy ước mục 6B) khi bắt đầu lượt Quiz và khi nộp bài; không nhận `EnrollmentCompleted` và không giữ bản sao Enrollment Completed (BR-210 (số cũ 169), BR-211 (số cũ 325)). Hợp đồng HTTP: `contracts/openapi/learning-service.yaml`.
 
 Mục 1, 2 và 4 là hợp đồng thiết kế đích: endpoint completion-snapshot phía assessment và consumer nhận trạng thái ở learning còn chờ. Bước 1 có client fake/http; bản chốt được validate thành object schemaVersion 1 rồi lưu nguyên bản vào completion_snapshot và payload scoreSnapshot. Mục 6 dùng REST truy cập, không cần assessment nhận event hoàn thành.

@@ -356,3 +356,11 @@ export interface ICreateReadingMaterialResponse {
   wordCount: number;
   extractionWarning: string | null;
 }
+
+export interface ISubmitCourseResponse {
+  id: string;
+  name: string;
+  versionNumber: number;
+  status: CourseStatus;
+  submittedAt: string;
+}
