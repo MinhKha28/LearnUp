@@ -364,3 +364,11 @@ export interface ISubmitCourseResponse {
   status: CourseStatus;
   submittedAt: string;
 }
+
+export interface IWithdrawCourseResponse {
+  id: string;
+  name: string;
+  versionNumber: number;
+  status: "Draft";
+  submittedAt: null;
+}

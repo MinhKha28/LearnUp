@@ -30,6 +30,7 @@ import type {
   IUpdateLessonContentResponse,
   IUploadCourseCoverResponse,
   IVideoUploadContext,
+  IWithdrawCourseResponse,
 } from "@/types/course.types";
 import type { AxiosProgressEvent } from "axios";
 
@@ -210,4 +211,9 @@ export const createReadingMaterialAPI = (
 export const submitCourseForApprovalAPI = (courseId: string) =>
   axios.post<IBackendRes<ISubmitCourseResponse>>(
     `/api/v1/courses/${encodeURIComponent(courseId)}/submit`,
+  );
+
+export const withdrawCourseSubmissionAPI = (courseId: string) =>
+  axios.post<IBackendRes<IWithdrawCourseResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/withdraw`,
   );

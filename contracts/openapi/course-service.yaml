@@ -17,24 +17,54 @@ paths:
             type: string
             format: uuid
       responses:
-        '201':
+        "201":
           description: Course was submitted, and CourseSubmitted was persisted in the same transaction.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SubmitCourseResponse'
-        '400':
+                $ref: "#/components/schemas/SubmitCourseResponse"
+        "400":
           description: Invalid UUID or INCOMPLETE_COURSE.
-        '401':
+        "401":
           description: Authentication required.
-        '403':
+        "403":
           description: Only the assigned Instructor can submit the Course.
-        '404':
+        "404":
           description: Course not found or not assigned to the Instructor.
-        '409':
+        "409":
           description: INVALID_COURSE_STATUS, QUIZ_WITHOUT_QUESTIONS, or COURSE_CHANGED.
-        '503':
+        "503":
           description: ASSESSMENT_UNAVAILABLE or INVALID_ASSESSMENT_RESPONSE.
+  /api/v1/courses/{courseId}/withdraw:
+    post:
+      summary: Withdraw a Submitted Course before Organizer approval (UC20.1)
+      operationId: withdrawCourseSubmission
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Course withdrawn successfully and returned to Draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WithdrawCourseResponse"
+        "400":
+          description: Invalid Course UUID.
+        "401":
+          description: Authentication required.
+        "403":
+          description: Only the assigned Instructor can withdraw.
+        "404":
+          description: Course not found or not assigned to the Instructor.
+        "409":
+          description: INVALID_COURSE_STATUS or COURSE_CHANGED.
 components:
   securitySchemes:
     bearerAuth:
