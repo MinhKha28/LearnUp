@@ -10,6 +10,7 @@ import {
   StatusTag,
 } from "@/components/learner/learner.ui";
 import { LearningError } from "@/components/learner/learning.error";
+import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import { useApiQuery } from "@/hooks/use.api.query";
 import {
   assessmentErrorText,
@@ -187,6 +188,13 @@ const CourseAssessments = () => {
         title="Bài đánh giá"
         subtitle="Các bài trắc nghiệm và bài tập của khóa học này."
         back
+        actions={
+          <LearnerButton
+            onClick={() => navigate(LEARNER_ROUTES.results(enrollmentId))}
+          >
+            Xem kết quả
+          </LearnerButton>
+        }
       />
       <InfoPanel title="Cách ghi nhận kết quả">
         Bài trắc nghiệm lấy điểm của lượt làm cao nhất; bài tập lấy điểm của lần

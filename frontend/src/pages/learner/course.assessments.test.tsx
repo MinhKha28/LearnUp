@@ -252,9 +252,16 @@ describe("the list of assessments", () => {
     );
     open();
     expect(await screen.findByText("Bắt đầu làm bài")).toBeTruthy();
-    expect(screen.getByText("Xem kết quả")).toBeTruthy();
+    expect(screen.getAllByText("Xem kết quả")).toHaveLength(2); // the header of the page and the row
     fireEvent.click(screen.getByText("Nộp lại"));
     expect(path).toBe("/learner/courses/enr-1/assignments/a2/resubmit");
+  });
+
+  it("the page leads to the results of the Course (UC28.1)", async () => {
+    list.mockResolvedValue(answer([item({ id: "q1" })]));
+    open();
+    fireEvent.click(await screen.findByText("Xem kết quả"));
+    expect(path).toBe("/learner/courses/enr-1/results");
   });
 
   it("a failed load is told in Vietnamese and can be retried", async () => {
