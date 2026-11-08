@@ -29,4 +29,5 @@ import './review-assignment.unit-test';
 import './reminder-due.unit-test';
 import './review-notice.unit-test';
 import './review-history.unit-test';
+import './peer-review-assigned.unit-test';
 import './relay-outage.unit-test';

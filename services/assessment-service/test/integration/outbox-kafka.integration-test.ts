@@ -86,6 +86,7 @@ describe(
     const settings = (name: string, over: Record<string, string> = {}) => ({
       KAFKA_BROKERS: BROKERS as string,
       OUTBOX_TOPIC: name,
+      OUTBOX_PEER_REVIEW_TOPIC: `${name}.peer-review`,
       ...over,
     });
     const gateFor = (name: string, over: Record<string, string> = {}) => {
@@ -138,6 +139,65 @@ describe(
         assert.ok((await row(id)).published_at, 'and the row is marked sent');
       } finally {
         await listener.stop();
+      }
+    });
+
+    test('PeerReviewAssigned goes to its own topic, keyed by the reviewer, and never to the topic of the status events (BR-232)', async () => {
+      const name = topic();
+      const gate = gateFor(name);
+      assert.equal(await becomesReady(gate), true, 'both topics are created');
+      const statuses = await listen(name);
+      const assigned = await listen(`${name}.peer-review`);
+      try {
+        const cycle = aggregate(7);
+        const [status] = await addEvents(db, aggregate(1), undefined, 1, {
+          learnerId: aggregate(1),
+          status: 'Submitted',
+        });
+        const ids = [
+          await addEvents(db, cycle, 'PeerReviewAssigned', 1, {
+            learnerId: aggregate(2),
+            cycleId: cycle,
+            reviewCount: 2,
+          }),
+          await addEvents(db, cycle, 'PeerReviewAssigned', 1, {
+            learnerId: aggregate(3),
+            cycleId: cycle,
+            reviewCount: 1,
+          }),
+        ].flat();
+        // one batch holds all three events: each goes to the topic of its kind
+        await relayOver(db, prismas, gate, settings(name)).tick();
+        assert.equal(await assigned.waitFor(2), 2);
+        assert.equal(await statuses.waitFor(1), 1);
+        await sleep(500);
+        assert.equal(assigned.received.length, 2, 'two notices, nothing else');
+        assert.equal(statuses.received.length, 1, 'the status event alone');
+        assert.equal(statuses.received[0].body.eventId, status);
+        assert.deepEqual(
+          assigned.received.map((m) => m.key).sort(),
+          [aggregate(2), aggregate(3)].sort(),
+          'the key is the reviewer',
+        );
+        for (const message of assigned.received) {
+          assert.equal(message.body.eventType, 'PeerReviewAssigned');
+          assert.equal(message.body.version, 1);
+          assert.equal(message.body.producer, 'assessment-service');
+          assert.equal(message.body.organizationId, ORG);
+          assert.equal(message.body.data.cycleId, cycle);
+          assert.equal(message.body.data.learnerId, message.key);
+        }
+        assert.deepEqual(
+          assigned.received.map((m) => m.body.eventId).sort(),
+          [...ids].sort(),
+        );
+        for (const id of [status, ...ids])
+          assert.ok(
+            (await row(id)).published_at,
+            'and every row is marked sent',
+          );
+      } finally {
+        await Promise.all([statuses.stop(), assigned.stop()]);
       }
     });
 

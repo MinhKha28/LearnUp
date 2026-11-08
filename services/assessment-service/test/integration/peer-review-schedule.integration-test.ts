@@ -222,32 +222,60 @@ describe('UC33 schedule over HTTP', () => {
       ((await cycle(cycleId)).reviewer_permutation as string[]).length,
       4,
     );
-    await until(
-      () =>
-        sent.filter((s) => s.body.title === 'Bạn có bài cần chấm chéo')
-          .length === 4,
-      'four notifications',
-    );
-    const told = sent.filter(
-      (s) => s.body.title === 'Bạn có bài cần chấm chéo',
-    );
+    // BR-232: each reviewer is told through the outbox, in the transaction of the closing; nothing goes out by REST
+    const events = (await db.query(
+      `SELECT aggregate_type, aggregate_id, organization_id, payload, occurred_at, published_at
+         FROM outbox_events WHERE event_type = 'PeerReviewAssigned' AND aggregate_id = $1`,
+      [cycleId],
+    )) as {
+      aggregate_type: string;
+      organization_id: string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      payload: Record<string, any>;
+      occurred_at: Date;
+    }[];
+    assert.equal(events.length, 4);
     assert.deepEqual(
-      told.map((s) => s.body.recipientUserId).sort(),
+      events.map((e) => e.payload.learnerId as string).sort(),
       [...learners].sort(),
     );
-    for (const item of told) {
-      assert.match(
-        item.body.message,
-        /Bạn có 2 bài nộp cần chấm cho "Scheduled"\. Vui lòng hoàn thành trước \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}\./,
+    const [closed] = await db.query(
+      `SELECT assessment_id, review_due_at, closed_at FROM peer_review_cycles WHERE id = $1`,
+      [cycleId],
+    );
+    for (const event of events) {
+      assert.equal(event.aggregate_type, 'PeerReviewCycle');
+      assert.equal(event.organization_id, ORG);
+      assert.equal(event.payload.organizationId, ORG);
+      assert.equal(event.payload.cycleId, cycleId);
+      assert.equal(event.payload.assessmentId, closed.assessment_id);
+      assert.equal(event.payload.assignmentTitle, 'Scheduled');
+      assert.equal(event.payload.reviewCount, 2);
+      assert.equal(
+        new Date(event.payload.reviewDueAt).getTime(),
+        new Date(closed.review_due_at as Date).getTime(),
       );
-      assert.equal(item.body.type, 'PEER_REVIEW');
-      assert.equal(item.body.channel, 'IN_APP');
-      assert.equal(item.body.organizationId, ORG);
-      assert.equal(JSON.parse(item.body.metadata).cycleId, cycleId);
-      // notification-service only takes service calls: the key and no user (a user gets 403)
-      assert.equal(item.hasInternalKey, true);
-      assert.equal(item.hasUserId, false);
+      // the time of the closing, and nothing about the authors of the submissions (BR-233)
+      assert.equal(
+        new Date(event.occurred_at).getTime(),
+        new Date(closed.closed_at as Date).getTime(),
+      );
+      assert.deepEqual(Object.keys(event.payload).sort(), [
+        'assessmentId',
+        'assignmentTitle',
+        'cycleId',
+        'learnerId',
+        'organizationId',
+        'reviewCount',
+        'reviewDueAt',
+      ]);
     }
+    await sleep(300);
+    assert.equal(
+      sent.filter((s) => s.body.title === 'Bạn có bài cần chấm chéo').length,
+      0,
+      'the hand-out notice no longer goes by REST',
+    );
   });
 
   test('too few submissions: the Instructor grades them (BR-242)', async () => {
@@ -306,7 +334,8 @@ describe('UC33 schedule over HTTP', () => {
     );
     await until(
       () =>
-        sent.filter((s) => s.body.title === 'Sắp đến hạn chấm chéo').length >= 3,
+        sent.filter((s) => s.body.title === 'Sắp đến hạn chấm chéo').length >=
+        3,
       'three reminders',
     );
     await sleep(1000); // several more runs of the timer
@@ -465,29 +494,24 @@ describe('UC33 schedule over HTTP', () => {
           cycleId,
         ])
       )[0].status;
-    const noticesOf = (cycleId: string) =>
-      sent.filter(
-        (item) =>
-          item.body.title === 'Bạn có bài cần chấm chéo' &&
-          JSON.parse(item.body.metadata).cycleId === cycleId,
-      ).length;
+    const eventsOf = async (cycleId: string) =>
+      db.query(
+        `SELECT id FROM outbox_events WHERE event_type = 'PeerReviewAssigned' AND aggregate_id = $1 ORDER BY id`,
+        [cycleId],
+      );
     await until(
       async () =>
         (await status(older.cycleId)) === 'Assigned' &&
         (await status(newer.cycleId)) === 'Assigned' &&
-        noticesOf(older.cycleId) === 3 &&
-        noticesOf(newer.cycleId) === 3,
+        (await eventsOf(older.cycleId)).length === 3 &&
+        (await eventsOf(newer.cycleId)).length === 3,
       'both cycles to be closed and their reviewers told',
     );
-    // One run closes them with the same "now", so the order is the order of the notices: the older cycle's come first.
-    const firstNoticeOf = (cycleId: string) =>
-      sent.findIndex(
-        (item) =>
-          item.body.title === 'Bạn có bài cần chấm chéo' &&
-          JSON.parse(item.body.metadata).cycleId === cycleId,
-      );
+    // One run closes them with the same "now", so the order is the order of the events: the older cycle's come first.
+    const lastOlder = String((await eventsOf(older.cycleId)).at(-1)?.id);
+    const firstNewer = String((await eventsOf(newer.cycleId))[0]?.id);
     assert.ok(
-      firstNoticeOf(older.cycleId) < firstNoticeOf(newer.cycleId),
+      lastOlder < firstNewer,
       'the older cycle is closed, and its reviewers told, before the newer one',
     );
   });
