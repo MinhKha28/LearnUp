@@ -12,7 +12,7 @@ export const formatResultScore = (score: number): string =>
   score.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
 
 export const kindLabel = (item: AssessmentResultItem): string =>
-  item.kind === "QUIZ" ? "Bài kiểm tra" : "Bài tập";
+  item.kind === "QUIZ" ? "Bài trắc nghiệm" : "Bài tập";
 
 export const requirementLabel = (item: AssessmentResultItem): string =>
   item.isRequired ? "Bắt buộc" : "Không bắt buộc";
@@ -63,7 +63,7 @@ export const attemptsLine = (item: AssessmentResultItem): string => {
 
 export const summaryLine = (summary: AssessmentResultsSummary): string => {
   if (summary.total === 0)
-    return "Bạn chưa làm bài kiểm tra hoặc bài tập nào trong khóa học này.";
+    return "Bạn chưa làm bài trắc nghiệm hoặc bài tập nào trong khóa học này.";
   const parts = [`Đã làm ${summary.total} bài`];
   parts.push(`đạt ${summary.passed}`);
   if (summary.notPassed > 0) parts.push(`chưa đạt ${summary.notPassed}`);

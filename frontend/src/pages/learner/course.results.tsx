@@ -53,9 +53,9 @@ const CourseResults = () => {
   const data = query.data;
   const header = (
     <PageHeader
-      eyebrow="KHÓA HỌC / KẾT QUẢ"
+      eyebrow="Khóa học / Kết quả"
       title="Kết quả bài đánh giá"
-      subtitle="Điểm các bài kiểm tra và bài tập bạn đã làm, so với điểm đạt tối thiểu."
+      subtitle="Điểm các bài trắc nghiệm và bài tập bạn đã làm, so với điểm đạt tối thiểu."
       back
     />
   );
@@ -90,7 +90,7 @@ const CourseResults = () => {
         {header}
         <LearnerEmptyState
           title="Bạn chưa làm bài nào"
-          description="Khi bạn làm bài kiểm tra hoặc nộp bài tập, điểm sẽ hiện ở đây."
+          description="Khi bạn làm bài trắc nghiệm hoặc nộp bài tập, điểm sẽ hiện ở đây."
           action={
             <LearnerButton onClick={toAssessments}>
               Đến danh sách bài đánh giá
@@ -189,7 +189,7 @@ const CourseResults = () => {
         </div>
 
         <InfoPanel title="Cách tính điểm">
-          Bài kiểm tra lấy điểm của lượt làm cao nhất; bài tập lấy điểm của lần
+          Bài trắc nghiệm lấy điểm của lượt làm cao nhất; bài tập lấy điểm của lần
           nộp gần nhất sau khi giảng viên chốt. Bài chưa có điểm là "chờ kết
           quả", không phải "chưa đạt".
         </InfoPanel>

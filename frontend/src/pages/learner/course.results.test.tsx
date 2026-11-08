@@ -161,6 +161,10 @@ describe("the results of a Course", () => {
     expect(document.body.textContent).not.toMatch(
       /Score|Passing|Passed|Awaiting|Quiz result|Back/,
     );
+    // the words of the glossary: bài trắc nghiệm, never bài kiểm tra; no line of text in capitals
+    expect(document.body.textContent).not.toMatch(/kiểm tra/i);
+    expect(document.body.textContent).not.toMatch(/KHÓA HỌC|KẾT QUẢ|BÀI TRẮC/);
+    expect(document.body.textContent).toContain("Bài trắc nghiệm");
   });
 
   it("the summary above the list counts what passed, what did not and what waits", async () => {

@@ -75,7 +75,7 @@ describe("the words of the results", () => {
   });
 
   it("the kind and the requirement", () => {
-    expect(kindLabel(quiz())).toBe("Bài kiểm tra");
+    expect(kindLabel(quiz())).toBe("Bài trắc nghiệm");
     expect(kindLabel(assignment())).toBe("Bài tập");
     expect(requirementLabel(quiz())).toBe("Bắt buộc");
     expect(requirementLabel(quiz({ isRequired: false }))).toBe(
@@ -144,7 +144,7 @@ describe("the words of the results", () => {
 
   it("the summary is a sentence that leaves out what is zero", () => {
     expect(summaryLine({ total: 0, passed: 0, notPassed: 0, pending: 0 })).toBe(
-      "Bạn chưa làm bài kiểm tra hoặc bài tập nào trong khóa học này.",
+      "Bạn chưa làm bài trắc nghiệm hoặc bài tập nào trong khóa học này.",
     );
     expect(summaryLine({ total: 3, passed: 3, notPassed: 0, pending: 0 })).toBe(
       "Đã làm 3 bài, đạt 3.",
