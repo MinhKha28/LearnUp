@@ -41,7 +41,11 @@ export class AssessmentStatusRepository {
         );
         return 'ENROLLMENT_NOT_FOUND';
       }
-      if (d.status === 'Submitted' || d.status === 'Resubmitted')
+      if (
+        d.status === 'Started' ||
+        d.status === 'Submitted' ||
+        d.status === 'Resubmitted'
+      )
         await tx.$executeRaw(
           activateEnrollmentSql(
             enrollment.id,
