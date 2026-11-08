@@ -40,6 +40,12 @@ const renderView = (url = "/", showOrganization = false) => {
   return router;
 };
 const search = (router: ReturnType<typeof renderView>) => new URLSearchParams(router.state.location.search);
+/** Types a day in the date field the way a person does (dd/mm/yyyy) and confirms it with Enter. */
+const pickDay = (label: string, value: string) => {
+  const field = screen.getByLabelText(label);
+  fireEvent.change(field, { target: { value } });
+  fireEvent.keyDown(field, { key: "Enter", keyCode: 13 });
+};
 const lastQuery = () => fetchLogs.mock.calls[fetchLogs.mock.calls.length - 1][0];
 
 beforeEach(() => {
@@ -69,10 +75,13 @@ describe("UC50, UC51 list of the audit trail", () => {
   });
 
   it("shows a dash when there is no reason and falls back to the arrival time and to the raw code of an unknown action", async () => {
-    fetchLogs.mockResolvedValue(answer([log({ details: null, actionType: "COURSE_REJECTED", actorRole: null, actorUserId: null })]));
+    fetchLogs.mockResolvedValue(answer([log({ details: null, actionType: "COURSE_REJECTED", actorRole: null, actorUserId: null, targetResourceType: "Plan" })]));
     renderView();
-    await screen.findByText("COURSE_REJECTED");
-    const row = screen.getByText("COURSE_REJECTED").closest("tr")!;
+    await screen.findByText(/COURSE_REJECTED/);
+    const row = screen.getByText(/COURSE_REJECTED/).closest("tr")!;
+    expect(within(row).getByText(/(Plan)/)).toBeTruthy(); // the same for a type of target the screen has no word for
+    expect(within(row).getByText("Đối tượng khác", { exact: false })).toBeTruthy();
+    expect(within(row).getByText("Hành động khác")).toBeTruthy(); // a code with no word is called "other" and the code is written next to it
     expect(within(row).getByText("02/11/2026 10:04")).toBeTruthy();
     expect(within(row).getByText("Hệ thống")).toBeTruthy();
     expect(within(row).getAllByText("—").length).toBeGreaterThan(0);
@@ -81,7 +90,7 @@ describe("UC50, UC51 list of the audit trail", () => {
   it("UC51: the Admin also sees the Organization of each action, and the platform actions say so", async () => {
     fetchLogs.mockResolvedValue(answer([log(), log({ organizationId: null, actionType: "PLAN_DISABLED" })]));
     renderView("/", true);
-    await screen.findByText("PLAN_DISABLED");
+    await screen.findByText(/PLAN_DISABLED/);
     expect(screen.getByText("Tổ chức")).toBeTruthy();
     expect(screen.getByText("Cấp nền tảng")).toBeTruthy();
     expect(screen.getByText("…00000001")).toBeTruthy();
@@ -99,8 +108,8 @@ describe("UC50, UC51 list of the audit trail", () => {
     const router = renderView("/?page=3");
     await screen.findByText("Ngừng hoạt động tài khoản giảng viên");
     fireEvent.change(screen.getByLabelText("Mã đối tượng"), { target: { value: "  abc-123 " } });
-    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "2026-11-01" } });
-    fireEvent.change(screen.getByLabelText("Đến ngày"), { target: { value: "2026-11-08" } });
+    pickDay("Từ ngày", "01/11/2026");
+    pickDay("Đến ngày", "08/11/2026");
     fireEvent.click(screen.getByRole("button", { name: "Lọc" }));
     await waitFor(() => expect(lastQuery()).toEqual({
       page: 1, targetResourceType: undefined, targetResourceId: "abc-123", from: "2026-11-01", to: "2026-11-08",
@@ -127,8 +136,8 @@ describe("UC50, UC51 list of the audit trail", () => {
     await screen.findByText("Ngừng hoạt động tài khoản giảng viên");
     expect(lastQuery()).toEqual({ page: 2, targetResourceType: "User", targetResourceId: "abc", from: "2026-11-01", to: "2026-11-08" });
     expect((screen.getByLabelText("Mã đối tượng") as HTMLInputElement).value).toBe("abc");
-    expect((screen.getByLabelText("Từ ngày") as HTMLInputElement).value).toBe("2026-11-01");
-    expect((screen.getByLabelText("Đến ngày") as HTMLInputElement).value).toBe("2026-11-08");
+    expect((screen.getByLabelText("Từ ngày") as HTMLInputElement).value).toBe("01/11/2026"); // dd/mm/yyyy, whatever the language of the browser
+    expect((screen.getByLabelText("Đến ngày") as HTMLInputElement).value).toBe("08/11/2026");
   });
 
   it("ignores a bad day or a blank text in the URL instead of sending it", async () => {
@@ -143,8 +152,8 @@ describe("UC50, UC51 list of the audit trail", () => {
     renderView();
     await screen.findByText("Ngừng hoạt động tài khoản giảng viên");
     const calls = fetchLogs.mock.calls.length;
-    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "2026-11-08" } });
-    fireEvent.change(screen.getByLabelText("Đến ngày"), { target: { value: "2026-11-01" } });
+    pickDay("Từ ngày", "08/11/2026");
+    pickDay("Đến ngày", "01/11/2026");
     fireEvent.click(screen.getByRole("button", { name: "Lọc" }));
     await screen.findByText("Ngày bắt đầu phải trước hoặc cùng ngày với ngày kết thúc.");
     expect(fetchLogs.mock.calls.length).toBe(calls);

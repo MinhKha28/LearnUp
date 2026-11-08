@@ -30,9 +30,14 @@ export const TARGET_TYPE_OPTIONS = Object.entries(TARGET_LABELS).map(([value, la
   label: `${label} (${value})`,
 }));
 
-export const actionLabel = (code: string) => ACTION_LABELS[code] ?? code;
+/** A code the screen has no word for is called "other"; the view writes the code itself next to it so nothing is hidden. */
+export const isKnownAction = (code: string) => Object.hasOwn(ACTION_LABELS, code);
+export const isKnownTargetType = (code: string) => Object.hasOwn(TARGET_LABELS, code);
 
-export const targetTypeLabel = (code: string | null) => (code ? (TARGET_LABELS[code] ?? code) : "—");
+export const actionLabel = (code: string) => (isKnownAction(code) ? ACTION_LABELS[code] : "Hành động khác");
+
+export const targetTypeLabel = (code: string | null) =>
+  code ? (isKnownTargetType(code) ? TARGET_LABELS[code] : "Đối tượng khác") : "—";
 
 export const actorRoleLabel = (role: string | null) => (role ? (ROLE_LABELS[role] ?? role) : "Hệ thống");
 

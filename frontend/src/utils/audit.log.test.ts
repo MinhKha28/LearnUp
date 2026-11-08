@@ -8,6 +8,8 @@ import {
   dayStartInstant,
   formatAuditTime,
   hasAuditFilter,
+  isKnownAction,
+  isKnownTargetType,
   parseAuditDetails,
   rangeIsReversed,
   readAuditFilter,
@@ -20,7 +22,10 @@ describe("labels", () => {
   it("names the action types the services write and shows any other code as it is", () => {
     expect(actionLabel("INSTRUCTOR_DEACTIVATED")).toBe("Ngừng hoạt động tài khoản giảng viên");
     expect(actionLabel("INSTRUCTOR_REACTIVATED")).toBe("Kích hoạt lại tài khoản giảng viên");
-    expect(actionLabel("COURSE_REJECTED")).toBe("COURSE_REJECTED");
+    expect(actionLabel("COURSE_REJECTED")).toBe("Hành động khác");
+    expect(actionLabel("constructor")).toBe("Hành động khác"); // not a word of the table
+    expect(isKnownAction("INSTRUCTOR_DEACTIVATED")).toBe(true);
+    expect(isKnownAction("toString")).toBe(false);
   });
 
   it("names the roles, and an entry without a role is the system", () => {
@@ -34,7 +39,9 @@ describe("labels", () => {
 
   it("names the target types", () => {
     expect(targetTypeLabel("User")).toBe("Tài khoản");
-    expect(targetTypeLabel("Plan")).toBe("Plan");
+    expect(targetTypeLabel("Plan")).toBe("Đối tượng khác");
+    expect(isKnownTargetType("User")).toBe(true);
+    expect(isKnownTargetType("Plan")).toBe(false);
     expect(targetTypeLabel(null)).toBe("—");
   });
 

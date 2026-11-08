@@ -1,5 +1,6 @@
-import { Alert, AutoComplete, Button, Input, Table } from "antd";
+import { Alert, AutoComplete, Button, DatePicker, Input, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import dayjs from "dayjs";
 import { type FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -11,6 +12,8 @@ import {
   TARGET_TYPE_OPTIONS,
   actionLabel,
   actorRoleLabel,
+  isKnownAction,
+  isKnownTargetType,
   auditTime,
   formatAuditTime,
   hasAuditFilter,
@@ -30,6 +33,8 @@ interface Props {
 const MESSAGES: Record<string, string> = {
   FORBIDDEN: "Bạn không có quyền xem nhật ký.",
 };
+/** The days of the filter travel as yyyy-MM-dd in the URL and show as dd/MM/yyyy in the field. */
+const DAY_FORMAT = "YYYY-MM-DD";
 const GENERIC_ERROR = "Không tải được nhật ký. Vui lòng thử lại.";
 
 /** The answer of an HTTP error arrives as the body, not as an exception (see the axios interceptor). */
@@ -140,13 +145,25 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
         </span>
       ),
     },
-    { title: "Hành động", key: "action", render: (_, log) => actionLabel(log.actionType) },
+    {
+      title: "Hành động",
+      key: "action",
+      render: (_, log) => (
+        <>
+          {actionLabel(log.actionType)}
+          {isKnownAction(log.actionType) ? null : <span className="audit-log-id"> ({log.actionType})</span>}
+        </>
+      ),
+    },
     {
       title: "Đối tượng tác động",
       key: "target",
       render: (_, log) => (
         <span title={log.targetResourceId ?? undefined}>
           {targetTypeLabel(log.targetResourceType)}
+          {log.targetResourceType && !isKnownTargetType(log.targetResourceType) ? (
+            <span className="audit-log-id"> ({log.targetResourceType})</span>
+          ) : null}
           {log.targetResourceId ? <span className="audit-log-id"> ({shortId(log.targetResourceId)})</span> : null}
         </span>
       ),
@@ -190,22 +207,28 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
             onChange={(event) => setDraft((current) => ({ ...current, target: event.target.value }))}
           />
         </label>
-        <label>
+        <label htmlFor="audit-from">
           <span>Từ ngày</span>
-          <Input
-            aria-label="Từ ngày"
-            type="date"
-            value={draft.from}
-            onChange={(event) => setDraft((current) => ({ ...current, from: event.target.value }))}
+          <DatePicker
+            id="audit-from"
+            allowClear
+            format="DD/MM/YYYY"
+            placeholder="dd/mm/yyyy"
+            style={{ width: "100%" }}
+            value={draft.from ? dayjs(draft.from, DAY_FORMAT, true) : null}
+            onChange={(day) => setDraft((current) => ({ ...current, from: day ? day.format(DAY_FORMAT) : "" }))}
           />
         </label>
-        <label>
+        <label htmlFor="audit-to">
           <span>Đến ngày</span>
-          <Input
-            aria-label="Đến ngày"
-            type="date"
-            value={draft.to}
-            onChange={(event) => setDraft((current) => ({ ...current, to: event.target.value }))}
+          <DatePicker
+            id="audit-to"
+            allowClear
+            format="DD/MM/YYYY"
+            placeholder="dd/mm/yyyy"
+            style={{ width: "100%" }}
+            value={draft.to ? dayjs(draft.to, DAY_FORMAT, true) : null}
+            onChange={(day) => setDraft((current) => ({ ...current, to: day ? day.format(DAY_FORMAT) : "" }))}
           />
         </label>
         <div className="audit-log-filter-actions">
