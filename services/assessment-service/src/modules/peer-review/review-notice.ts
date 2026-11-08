@@ -40,6 +40,12 @@ export const assignedNotice = (
   message: `Bạn có ${total} bài nộp cần chấm cho "${assignmentTitle}". Vui lòng hoàn thành trước ${formatDeadline(reviewDueAt)}.`,
 });
 
+/** The Instructor waived the peer review duty of the Learner (UC33.2). The Learner reads it, so it is Vietnamese. */
+export const waivedNotice = (assignmentTitle: string): ReviewNotice => ({
+  title: 'Bạn được miễn nghĩa vụ chấm chéo',
+  message: `Giảng viên đã miễn nghĩa vụ chấm chéo của bạn cho "${assignmentTitle}". Bạn không cần chấm thêm bài nào cho bài tập này.`,
+});
+
 /** The review deadline is close and some reviews are still not done. */
 export const reminderNotice = (
   total: number,

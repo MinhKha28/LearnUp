@@ -1,6 +1,6 @@
 # Thiết kế database learning-service (`learning_db`)
 
-Trạng thái: **11 bảng** sau Bước 1 xét hoàn thành Course; hàng đợi và snapshot mô tả tại mục 11. UC27.2 có migration `20261022000000_video_resume_position`.
+Trạng thái: **12 bảng** sau Bước 1 xét hoàn thành Course; hàng đợi và snapshot mô tả tại mục 11. UC27.2 có migration `20261022000000_video_resume_position`.
 Toàn bộ nhãn BR trong tài liệu dùng số mới theo bảng chuyển đổi cũ→mới. Dấu vết UC27.2: BR-140 (số cũ 307), BR-184 (số cũ 309), BR-182 (số cũ 339), BR-181 (số cũ 299).
 
 Nguồn nghiệp vụ: `LearnUP_QuyTacNghiepVu.docx`, `LearnUP_UseCase.docx` (167 UC), `LearnUP_Service_Architecture.docx`.
@@ -535,3 +535,32 @@ khi lease hết. Snapshot lệch thời điểm xuyên service vẫn là giới 
 
 Event dùng completedLate, không dùng isLate; Optional gửi false và dueAt null. Các điểm Reading,
 gỡ Exempted và consumer learning nhận event assessment/course chưa được triển khai trong Bước 1. Assessment kiểm quyền bằng REST tại mục 5.4, không nhận EnrollmentCompleted.
+
+## 12. Assessment status consumer storage
+
+Migration: `20261103120000_assessment_status_consumer`.
+
+`completion_evaluation_requests.source` CHECK additionally accepts `assessment`.
+The existing enrollment-unique queue and generation behavior are unchanged.
+
+`assessment_event_quarantine` follows Achievement's quarantine shape:
+
+| Column | Type | Constraints / purpose |
+| --- | --- | --- |
+| id | uuid | Primary key, supplied by application |
+| topic | text | Required delivery topic |
+| partition | integer | Required delivery partition |
+| offset | bigint | Required delivery offset |
+| event_id | text | Nullable; invalid identifiers retained unless they contain NUL |
+| reason | varchar(64) | Required fixed reason code; same limit as Achievement |
+| payload | jsonb | Required parsed event; invalid JSON retained as base64 string; tombstone as JSON null |
+| received_at | timestamptz | Required, defaults to current timestamp |
+
+JSON values with NUL or lone surrogate escapes are retained as a base64 wrapper
+containing the original delivery bytes, because PostgreSQL jsonb rejects them.
+
+Unique index: `(topic, partition, offset)`. Inserts use `ON CONFLICT DO NOTHING`.
+Quarantine writes or activation plus completion requests commit before Kafka offsets.
+There is no processed-message table and no ordered assessment revision storage.
+No backfill or existing data mutation is required. Apply migrations and regenerate
+the Learning Prisma client after pulling. No automatic quarantine retention policy.

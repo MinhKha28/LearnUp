@@ -20,6 +20,7 @@ import {
   User,
 } from '../../common/decorator/customize';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { ChangeAccountStatusDto } from './dto/change-account-status.dto';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
 import { ListDepartmentsQueryDto } from './dto/list-departments-query.dto';
@@ -27,7 +28,7 @@ import { UpdateAccountDto } from './dto/update-account.dto';
 import { UsersService } from './users.service';
 import { GetUsersBatchDto } from './dto/get-users-batch.dto';
 
-@ApiTags('Users') // UC12, UC12.1, UC12.2, UC12.3, UC12.7, UC13, UC13.1, UC13.2, UC13.3, UC13.7
+@ApiTags('Users') // UC12, UC12.1, UC12.2, UC12.3, UC12.5, UC12.7, UC13, UC13.1, UC13.2, UC13.3, UC13.7
 @ApiSecurity('internal-key')
 @UseGuards(RolesGuard)
 @Controller('users')
@@ -83,6 +84,29 @@ export class UsersController {
     @Body() dto: UpdateAccountDto,
   ) {
     return this.service.updateInstructor(user, id, dto);
+  }
+
+  // UC12.5 - dữ liệu cho modal vô hiệu hóa: chuỗi Course đang phụ trách + Instructor tiếp nhận hợp lệ.
+  @Roles('ORGANIZER')
+  @Get('instructors/:id/status-change')
+  @ResponseMessage('Lấy thông tin đổi trạng thái Instructor thành công')
+  getInstructorStatusChange(
+    @User() user: CurrentUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.service.getInstructorStatusChange(user, id);
+  }
+
+  // UC12.5 - vô hiệu hóa (kèm chuyển quyền theo BR-41) / kích hoạt lại. Đã ở trạng thái đích -> 200 changed:false.
+  @Roles('ORGANIZER')
+  @Patch('instructors/:id/status')
+  @ResponseMessage('Đổi trạng thái Instructor thành công')
+  changeInstructorStatus(
+    @User() user: CurrentUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ChangeAccountStatusDto,
+  ) {
+    return this.service.changeInstructorStatus(user, id, dto);
   }
 
   // UC12.7

@@ -3,12 +3,14 @@ import { createHash } from 'node:crypto';
 /**
  * The completion snapshot learning-service asks for (CT-1): what a Learner has done in the Quizzes and Assignments that
  * a Course requires, in the shape its `validateCompletionSnapshot` accepts. Anything the validator rejects (an unknown
- * field, a score that is not a two-digit decimal, a `passed` or `eligible` that does not match the rule) means no
- * Learner of the Course is marked Completed, so the rules below follow the validator word for word.
+ * field, a score that is not a two-digit decimal, a peer review status it does not know) means no Learner of the
+ * Course is marked Completed, so the rules below follow the validator word for word. Learning recomputes `passed` and
+ * `eligible` from the scores and the peer review status and decides by itself (L22); the values here are this
+ * service's own reading and a difference is only logged by learning.
  */
 
 export type PeerReviewStatus =
-  'NotApplicable' | 'Pending' | 'Satisfied' | 'Missed';
+  'NotApplicable' | 'Pending' | 'Satisfied' | 'Missed' | 'Waived';
 
 export interface CompletionSnapshot {
   schemaVersion: 1;
@@ -72,6 +74,8 @@ export interface AssignmentFacts {
     cycleId?: string | null;
     cycleClosesAt?: Date | null;
   }[];
+  /** When the Instructor waived the peer review duty of this Learner on this Assignment (UC33.2, BR-241), or null. */
+  exemptedAt?: Date | null;
 }
 
 export const FINALIZED = 'Finalized';
@@ -165,19 +169,23 @@ function reviewsOfLatestCycle(
  * nothing assigned is NotApplicable; any review of that cycle missed is Missed; all done is Satisfied; the rest is Pending.
  * A cycle after it in which the Learner has no assignment (too few submissions, BR-242) does not erase the debt.
  * A Pending review past its deadline is Missed already, without waiting for the schedule that marks it.
- * Waived is not returned yet: learning does not accept it until L22 (it would be rejected as INVALID_SNAPSHOT).
+ * When the Instructor waived the duty (UC33.2, BR-241) the status is Waived whatever the reviews say, and the counts
+ * stay as they are (a waiver may keep a part of the reviews done); learning counts Waived as a satisfied duty.
  */
 export function peerReviewOf(
   allReviews: AssignmentFacts['reviews'],
   now: Date,
+  exemptedAt: Date | null = null,
 ): CompletionSnapshot['assignments'][number]['peerReview'] {
   const reviews = reviewsOfLatestCycle(allReviews);
   const requiredCount = reviews.length;
-  if (requiredCount === 0)
-    return { status: 'NotApplicable', requiredCount: 0, completedCount: 0 };
   const completedCount = reviews.filter(
     (review) => review.status === REVIEW_COMPLETED,
   ).length;
+  if (exemptedAt !== null)
+    return { status: 'Waived', requiredCount, completedCount };
+  if (requiredCount === 0)
+    return { status: 'NotApplicable', requiredCount: 0, completedCount: 0 };
   const missed = reviews.some(
     (review) =>
       review.status === REVIEW_MISSED ||
@@ -234,7 +242,11 @@ export function buildCompletionSnapshot(input: {
       passingScore: scoreText(assignment.passingScore),
       finalizedAt: graded ? graded.at.toISOString() : null,
       passed,
-      peerReview: peerReviewOf(assignment.reviews, input.now),
+      peerReview: peerReviewOf(
+        assignment.reviews,
+        input.now,
+        assignment.exemptedAt ?? null,
+      ),
     };
   });
 
@@ -244,7 +256,8 @@ export function buildCompletionSnapshot(input: {
       (assignment) =>
         assignment.passed &&
         (assignment.peerReview.status === 'NotApplicable' ||
-          assignment.peerReview.status === 'Satisfied'),
+          assignment.peerReview.status === 'Satisfied' ||
+          assignment.peerReview.status === 'Waived'),
     );
 
   // The revision changes when, and only when, what the Learner did changes; `asOf` and `snapshotId` do not feed it.

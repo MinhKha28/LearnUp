@@ -243,6 +243,46 @@ export interface IReinvitationResult {
   invitation: { sentAt: string; expiresAt: string };
 }
 
+// UC12.5 - Instructor tiếp nhận hợp lệ (cùng tổ chức, đã kích hoạt, Active, khác người bị vô hiệu hóa)
+export interface IStatusChangeReceiver {
+  id: string;
+  fullName: string;
+  email: string;
+  department: string | null;
+}
+
+export type DeactivationBlockReason =
+  | "ACCOUNT_NOT_ACTIVATED"
+  | "ALREADY_DEACTIVATED"
+  | "NO_VALID_RECEIVER"
+  | "COURSE_SERVICE_UNAVAILABLE";
+
+// UC12.5 - GET /api/v1/users/instructors/:id/status-change
+export interface IInstructorStatusChange {
+  id: string;
+  status: AccountStatus;
+  activated: boolean;
+  canDeactivate: boolean;
+  blockReason: DeactivationBlockReason | null;
+  courses: IManagedCourseChain[] | null; // null: không hỏi được course-service
+  receivers: IStatusChangeReceiver[];
+}
+
+// UC12.5 - PATCH /api/v1/users/instructors/:id/status
+export interface IChangeAccountStatusReq {
+  action: "DEACTIVATE" | "REACTIVATE";
+  receiverInstructorId?: string;
+  reason?: string;
+}
+
+export interface IInstructorStatusResult {
+  id: string;
+  status: AccountStatus;
+  changed: boolean; // false: đã ở trạng thái đích (bấm lặp)
+  transferredCourses: IManagedCourseChain[];
+  receiver: { id: string; fullName: string } | null;
+}
+
 // UC12.2 - số chỗ theo Subscription hiện hành (GET /api/v1/users/instructors/seats)
 export interface ISeatUsage {
   used: number;

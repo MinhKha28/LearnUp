@@ -14,6 +14,7 @@ import RegisterPage from "@/pages/guest/register";
 import ActivatePage from "@/pages/guest/activate";
 import ActivationSuccess from "@/pages/guest/activation.success";
 import ForgotPasswordPage from "@/pages/guest/password.forgot";
+import RegistrationResendPage from "@/pages/guest/registration.resend";
 import ResetPasswordPage from "@/pages/guest/password.reset";
 import LayoutAdmin from "./components/layout/layout.admin";
 import ManageDashboard from "./pages/admin/dashboard";
@@ -177,6 +178,7 @@ export const router = createBrowserRouter([
       { path: "activate/:token", element: <ActivatePage /> },
       { path: "activate/:token/success", element: <ActivationSuccess /> },
       { path: "forgot-password", element: <ForgotPasswordPage /> },
+      { path: "resend-registration", element: <RegistrationResendPage /> },
       { path: "reset-password/:token", element: <ResetPasswordPage /> },
     ],
   },
@@ -308,7 +310,7 @@ export const router = createBrowserRouter([
       { path: "catalog/:courseId", element: <LearnerCourseOverview /> },
       { path: "peer-review", element: <LearnerPeerReviewQueue /> },
       { path: "peer-review/history", element: <LearnerPeerReviewHistory /> },
-      { path: "peer-review/:submissionId", element: <LearnerPeerReviewForm /> },
+      { path: "peer-review/:reviewId", element: <LearnerPeerReviewForm /> },
       { path: "certificates", element: <LearnerCertificates /> },
       {
         path: "certificates/:certificateId",
@@ -427,9 +429,12 @@ export const router = createBrowserRouter([
         element: <InstructorSubmissionFinalize />,
       },
       { path: "peer-cycles", element: <InstructorPeerCycles /> },
-      { path: "peer-cycles/:cycleId", element: <InstructorPeerCycleDetail /> },
       {
-        path: "peer-cycles/:cycleId/waive/:reviewerId",
+        path: "peer-cycles/:assignmentId/:cycleId",
+        element: <InstructorPeerCycleDetail />,
+      },
+      {
+        path: "peer-cycles/:assignmentId/:cycleId/waive/:learnerId",
         element: <InstructorPeerCycleWaive />,
       },
       { path: "monitoring", element: <InstructorMonitoring /> },

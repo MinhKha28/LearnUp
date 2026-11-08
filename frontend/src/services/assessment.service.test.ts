@@ -78,3 +78,57 @@ describe("what the assessment service sends from the browser", () => {
     expect(text).not.toMatch(/x-internal-keys*["']s*:/i);
   });
 });
+
+describe("the peer review calls of the Instructor (UC33.1, UC33.2)", () => {
+  it("reads one cycle of an Assignment", async () => {
+    http.get.mockReset().mockResolvedValue({ statusCode: 200, data: {} });
+    await service.fetchPeerReviewCycleDetailAPI("assignment-1", "cycle-1");
+    expect(http.get).toHaveBeenCalledWith("/api/v1/assessments/assignments/assignment-1/peer-review/cycles/cycle-1");
+  });
+
+  it("waives the duty of one Learner with a POST and no body", async () => {
+    http.post.mockReset().mockResolvedValue({ statusCode: 200, data: {} });
+    await service.waivePeerReviewDutyAPI("assignment-1", "learner-1");
+    expect(http.post).toHaveBeenCalledTimes(1);
+    expect(http.post.mock.calls[0]).toEqual([
+      "/api/v1/assessments/assignments/assignment-1/peer-review/learners/learner-1/waiver",
+    ]);
+  });
+});
+
+describe("the peer review calls of the Learner (UC31, UC31.1)", () => {
+  it("lists the reviews assigned to the Learner, one page at a time (the first page of 20 when none is given)", async () => {
+    http.get.mockReset().mockResolvedValue({ statusCode: 200, data: {} });
+    await service.fetchLearnerPeerReviewsAPI();
+    expect(http.get).toHaveBeenLastCalledWith("/api/v1/assessments/learner/peer-reviews", {
+      params: { page: 1, pageSize: 20 },
+    });
+    await service.fetchLearnerPeerReviewsAPI(3, 50);
+    expect(http.get).toHaveBeenLastCalledWith("/api/v1/assessments/learner/peer-reviews", {
+      params: { page: 3, pageSize: 50 },
+    });
+  });
+
+  it("reads one review by its own id, never by the submission", async () => {
+    http.get.mockReset().mockResolvedValue({ statusCode: 200, data: {} });
+    await service.fetchLearnerPeerReviewAPI("review-1");
+    expect(http.get).toHaveBeenCalledWith("/api/v1/assessments/learner/peer-reviews/review-1");
+  });
+
+  it("gives a review with a POST of the scores and the comment", async () => {
+    http.post.mockReset().mockResolvedValue({ statusCode: 200, data: {} });
+    const body = { scores: [{ criterionId: "c1", points: 3 }], comment: "Fine." };
+    await service.giveLearnerPeerReviewAPI("review-1", body);
+    expect(http.post).toHaveBeenCalledWith("/api/v1/assessments/learner/peer-reviews/review-1", body);
+  });
+
+  it("downloads the work as a file, and gives nothing when the answer is not a real file", async () => {
+    http.get.mockReset().mockResolvedValue({ status: 200, data: new Blob(["x"]) });
+    expect(await service.downloadLearnerReviewFileAPI("review-1")).toBeInstanceOf(Blob);
+    expect(http.get).toHaveBeenCalledWith("/api/v1/assessments/learner/peer-reviews/review-1/file", {
+      responseType: "blob",
+    });
+    http.get.mockResolvedValue({ status: 404, data: { error: "no" } });
+    expect(await service.downloadLearnerReviewFileAPI("review-1")).toBeNull();
+  });
+});

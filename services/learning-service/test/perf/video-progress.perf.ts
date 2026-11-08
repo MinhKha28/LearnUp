@@ -163,18 +163,10 @@ async function explain() {
         tx,
       );
       await repo.lock(id('0001', 1), id('0004', 1), ORG, tx);
-      const preview = await repo.preview(
+      await repo.saveCoverage(
         id('0001', 1),
         id('0004', 1),
         ORG,
-        [[0, 15]],
-        tx,
-      );
-      await repo.save(
-        id('0001', 1),
-        id('0004', 1),
-        ORG,
-        preview,
         9000,
         [[0, 15]],
         tx,
