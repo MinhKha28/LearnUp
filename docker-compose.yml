@@ -191,6 +191,9 @@ services:
       # Consumer of the learning enrollment events (e-mail and in-app notice to the Learner).
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       ENROLLMENT_EVENTS_CONSUMER_ENABLED: ${ENROLLMENT_EVENTS_CONSUMER_ENABLED:-true}
+      COURSE_EVENTS_CONSUMER_ENABLED: ${COURSE_EVENTS_CONSUMER_ENABLED:-true}
+      COURSE_EVENTS_TOPIC: ${COURSE_EVENTS_TOPIC:-learnup.course.course-component-events}
+      COURSE_EVENTS_GROUP_ID: ${COURSE_EVENTS_GROUP_ID:-notification-course-submission-v1}
       ENROLLMENT_EVENTS_GROUP_ID: ${ENROLLMENT_EVENTS_GROUP_ID:-notification-enrollment-events-v1}
       ENROLLMENT_EVENTS_TOPIC: ${ENROLLMENT_EVENTS_TOPIC:-learnup.learning.enrollment-events}
       PEER_REVIEW_ASSIGNED_TOPIC: ${PEER_REVIEW_ASSIGNED_TOPIC:-learnup.assessment.peer-review-assigned}
@@ -309,6 +312,11 @@ services:
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
       TENANT_SERVICE_URL: http://tenant-service:8084
       LEARNING_SERVICE_URL: http://learning-service:8085
+      ASSESSMENT_SERVICE_URL: http://assessment-service:8086
+      NOTIFICATION_SERVICE_URL: http://notification-service:8082
+      KAFKA_BROKERS: kafka:29092
+      OUTBOX_RELAY_ENABLED: ${COURSE_OUTBOX_RELAY_ENABLED:-true}
+      OUTBOX_TOPIC: learnup.course.course-component-events
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
