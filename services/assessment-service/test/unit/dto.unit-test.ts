@@ -5,6 +5,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CreateAssignmentDto } from '../../src/modules/assessments/dto/create-assignment.dto';
 import { UpdateAssignmentDto } from '../../src/modules/assessments/dto/update-assignment.dto';
+import { FinalizeSubmissionDto } from '../../src/modules/instructor-submissions/dto/finalize-submission.dto';
 import { ListSubmissionsQueryDto } from '../../src/modules/instructor-submissions/dto/list-submissions-query.dto';
 import { UpdatePeerReviewDto } from '../../src/modules/peer-review/dto/update-peer-review.dto';
 
@@ -18,6 +19,51 @@ async function problems(
   });
   return errors.map((e) => e.property);
 }
+
+describe('FinalizeSubmissionDto', () => {
+  test('requires a JSON number from 0 to 100 with at most two decimal places', async () => {
+    for (const finalScore of [0, 0.01, 17.29, 99.99, 100]) {
+      assert.deepEqual(
+        await problems(FinalizeSubmissionDto, { finalScore }),
+        [],
+      );
+    }
+    for (const finalScore of [
+      undefined,
+      null,
+      '70',
+      -0.01,
+      100.01,
+      50.001,
+      1e-7,
+      NaN,
+      Infinity,
+    ]) {
+      assert.deepEqual(await problems(FinalizeSubmissionDto, { finalScore }), [
+        'finalScore',
+      ]);
+    }
+  });
+
+  test('validates the comment after trimming and rejects null and unknown fields', async () => {
+    const dto = plainToInstance(FinalizeSubmissionDto, {
+      finalScore: 70,
+      comment: '  ' + 'a'.repeat(2000) + '  ',
+    });
+    assert.equal(dto.comment?.length, 2000);
+    assert.deepEqual(await validate(dto), []);
+    for (const comment of [null, 7, 'a\0b', '  ' + 'a'.repeat(2001)]) {
+      assert.deepEqual(
+        await problems(FinalizeSubmissionDto, { finalScore: 70, comment }),
+        ['comment'],
+      );
+    }
+    assert.deepEqual(
+      await problems(FinalizeSubmissionDto, { finalScore: 70, score: 70 }),
+      ['score'],
+    );
+  });
+});
 
 const create = {
   courseId: '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b',
