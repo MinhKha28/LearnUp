@@ -8,6 +8,10 @@ import type {
   IPeerReviewCycleDetail,
   IPeerReviewCycleList,
   IPeerReviewWaiver,
+  IGiveLearnerReview,
+  ILearnerReviewDetail,
+  ILearnerReviewList,
+  ILearnerReviewResult,
   ILearnerAssessmentList,
   ILearnerQuiz,
   IQuizAttemptInProgress,
@@ -258,6 +262,28 @@ export const downloadLearnerPromptFileAPI = async (
   return res.status === 200 && res.data instanceof Blob ? res.data : null;
 };
 
+/** UC31 — the reviews assigned to the Learner, the ones to give first, with the deadline of the cycle. */
+export const fetchLearnerPeerReviewsAPI = (page = 1, pageSize = 20) =>
+  axios.get<IBackendRes<ILearnerReviewList>>("/api/v1/assessments/learner/peer-reviews", {
+    params: { page, pageSize },
+  });
+
+/** UC31 — one review: the work without its author, the Rubric, and the review so far. */
+export const fetchLearnerPeerReviewAPI = (reviewId: string) =>
+  axios.get<IBackendRes<ILearnerReviewDetail>>(`/api/v1/assessments/learner/peer-reviews/${reviewId}`);
+
+/** UC31.1 — give the review. It is final once given. */
+export const giveLearnerPeerReviewAPI = (reviewId: string, body: IGiveLearnerReview) =>
+  axios.post<IBackendRes<ILearnerReviewResult>>(`/api/v1/assessments/learner/peer-reviews/${reviewId}`, body);
+
+/** UC31 — the file of the work under review, with a neutral name; like the prompt file, only a real 200 response yields it. */
+export const downloadLearnerReviewFileAPI = async (reviewId: string): Promise<Blob | null> => {
+  const res = (await axios.get(`/api/v1/assessments/learner/peer-reviews/${reviewId}/file`, {
+    responseType: "blob",
+  })) as unknown as { status?: number; data?: unknown };
+  return res.status === 200 && res.data instanceof Blob ? res.data : null;
+};
+
 /** Code of a failed answer and, for ASSESSMENT_LOCKED, the time the Assignment opens again. */
 export const assessmentErrorCode = (
   res: unknown,
@@ -280,6 +306,21 @@ const LEARNER_LOCK_TEXT: Record<string, string> = {
 /** The same lock on the form, when the Learner has typed something: the draft stays on the page (BR-210). */
 export const ENROLLMENT_NOT_ACTIVE_FORM_TEXT =
   "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể nộp bài nữa. Nội dung bạn đã nhập vẫn được giữ trên trang này. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.";
+
+/** The codes a Learner can meet on the peer review screens, in Vietnamese: the server message is English. */
+const REVIEW_ERROR_TEXT: Record<string, string> = {
+  ...LEARNER_LOCK_TEXT,
+  RUBRIC_MISSING: "Bài tập này chưa có tiêu chí Rubric để chấm.",
+  RUBRIC_SCORES_INCOMPLETE: "Hãy chấm đúng một điểm cho mỗi tiêu chí Rubric.",
+  RUBRIC_SCORE_OUT_OF_RANGE: "Điểm của một tiêu chí không được vượt quá điểm tối đa của tiêu chí đó.",
+};
+
+/** For the screens that must stay fully Vietnamese: the English message of the server is never shown. */
+export const vietnameseErrorText = (res: unknown, fallback: string): string => {
+  const { error } = res as IAssessmentError;
+  const code = typeof error === "object" ? error?.code : undefined;
+  return (code && REVIEW_ERROR_TEXT[code]) || fallback;
+};
 
 /** The axios interceptor resolves error responses instead of rejecting; pull the message out of them. */
 export const assessmentErrorText = (res: unknown, fallback: string): string => {
