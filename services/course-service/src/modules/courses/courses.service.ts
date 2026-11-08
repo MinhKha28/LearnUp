@@ -43,6 +43,7 @@ import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
 import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
 import { extractReadingText } from './reading-text-extractor';
 import { UpdateMaterialDto } from './dto/update-material.dto';
+import { randomUUID } from 'node:crypto';
 
 @Injectable()
 export class CoursesService {
@@ -1558,8 +1559,13 @@ export class CoursesService {
         },
         {
           folder: `learnup/${organizationId}/courses/readings`,
+
+          // C19: Cloudinary raw public IDs must retain .pdf.
+          publicId: `${randomUUID()}.pdf`,
+
           resourceType: 'raw',
           deliveryType: 'authenticated',
+          overwrite: false,
           validation: {
             maxSizeBytes: Number(maxBytes),
             allowedMimeTypes: ['application/pdf'],
@@ -1923,10 +1929,15 @@ export class CoursesService {
           mimeType: file.mimetype,
           sizeBytes: file.size,
         },
+
         {
           folder: isVideo
             ? `learnup/${organizationId}/courses/videos`
             : `learnup/${organizationId}/courses/readings`,
+
+          // C19: Only Reading needs an extension in the raw public ID.
+          ...(isReading ? { publicId: `${randomUUID()}.pdf` } : {}),
+
           resourceType: isVideo ? 'video' : 'raw',
           deliveryType: 'authenticated',
           overwrite: false,

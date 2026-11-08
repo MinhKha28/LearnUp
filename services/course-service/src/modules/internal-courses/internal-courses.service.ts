@@ -489,6 +489,9 @@ export class InternalCoursesService {
         format: isVideo ? file.storageFormat : '',
         deliveryType: 'authenticated',
         expiresAt: expiresAtSeconds,
+
+        // C19: Reading should download as a PDF attachment.
+        ...(isReading ? { attachment: true } : {}),
       });
 
       return {
@@ -498,7 +501,9 @@ export class InternalCoursesService {
       };
     } catch (error) {
       if (error instanceof StorageProviderError) {
-        this.logger.error(`Material signed URL generation failed: ${error.name}`);
+        this.logger.error(
+          `Material signed URL generation failed: ${error.name}`,
+        );
 
         throw new ServiceUnavailableException({
           code: 'MATERIAL_URL_UNAVAILABLE',
