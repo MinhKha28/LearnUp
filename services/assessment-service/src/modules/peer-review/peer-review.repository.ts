@@ -307,12 +307,77 @@ export class PeerReviewRepository {
     });
   }
 
-  /** Reviews that were not done in time stop being Pending (BR-236). */
-  expirePendingReviews(tx: Prisma.TransactionClient, cycleId: string) {
-    return tx.submissionReview.updateMany({
-      where: { cycleId, status: 'Pending' },
-      data: { status: 'Missed' },
+  /**
+   * Reviews that were not done in time stop being Pending (BR-236). Answers the reviewer of each review that was marked,
+   * from the same statement, so a review given at this very moment is neither marked nor counted.
+   */
+  async expirePendingReviews(
+    tx: Prisma.TransactionClient,
+    cycleId: string,
+  ): Promise<string[]> {
+    const rows = await tx.$queryRaw<{ reviewer_id: string }[]>`
+      UPDATE submission_reviews SET status = 'Missed', updated_at = now()
+      WHERE cycle_id = ${cycleId}::uuid AND status = 'Pending'
+      RETURNING reviewer_id`;
+    return rows.map((row) => row.reviewer_id);
+  }
+
+  /**
+   * The status-changed events of the Learners of a cycle (`PeerReviewAssigned` when it closes, `PeerReviewMissed` when
+   * the deadline passes): one for each Learner, written in the transaction of the change so learning looks at the Course
+   * again if and only if the change is there. `counts` is how many reviews each Learner got or missed.
+   * A Learner without a state row on the Assignment cannot have an event (the state is the aggregate of the event). Every
+   * Learner who submitted has one, so this is not expected; the ones skipped are answered so the caller can say so
+   * instead of failing a closing that nobody could repeat.
+   * ponytail: one snapshot reading per Learner inside the transaction; batch it if a cycle ever has thousands of reviewers.
+   */
+  async emitReviewerSignals(
+    tx: Prisma.TransactionClient,
+    cycle: { organizationId: string; assessmentId: string; id: string },
+    kind: 'Assigned' | 'Missed',
+    counts: Map<string, number>,
+    now: Date,
+  ): Promise<{ sent: number; skipped: string[] }> {
+    if (counts.size === 0) return { sent: 0, skipped: [] };
+    const assessment = await tx.assessment.findUniqueOrThrow({
+      where: { id: cycle.assessmentId },
+      select: { courseId: true },
     });
+    const states = await tx.learnerAssessmentState.findMany({
+      where: {
+        assessmentId: cycle.assessmentId,
+        learnerId: { in: [...counts.keys()] },
+      },
+      select: { id: true, learnerId: true },
+    });
+    const stateOf = new Map(states.map((s) => [s.learnerId, s.id]));
+    const skipped: string[] = [];
+    let sent = 0;
+    for (const [learnerId, count] of counts) {
+      const stateId = stateOf.get(learnerId);
+      if (!stateId) {
+        skipped.push(learnerId);
+        continue;
+      }
+      await emitCompletionSignal(tx, {
+        stateId,
+        organizationId: cycle.organizationId,
+        assessmentId: cycle.assessmentId,
+        courseId: assessment.courseId,
+        learnerId,
+        kind: 'ASSIGNMENT',
+        reason:
+          kind === 'Assigned' ? 'PEER_REVIEW_ASSIGNED' : 'PEER_REVIEW_MISSED',
+        status: kind === 'Assigned' ? 'PeerReviewAssigned' : 'PeerReviewMissed',
+        extra:
+          kind === 'Assigned'
+            ? { cycleId: cycle.id, reviewCount: count }
+            : { cycleId: cycle.id, missedCount: count },
+        now,
+      });
+      sent += 1;
+    }
+    return { sent, skipped };
   }
 
   /**

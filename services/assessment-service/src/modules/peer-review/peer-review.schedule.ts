@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NotificationClient } from '../../infrastructure/clients/notification/notification.client';
+import { reviewCounts } from '../outbox/peer-review-assigned';
 import { PeerReviewRepository } from './peer-review.repository';
 import { reminderNotice } from './review-notice';
 import { PeerReviewService } from './peer-review.service';
@@ -139,12 +140,29 @@ export class PeerReviewSchedule
             now,
           );
           if (claimed.count === 0) return false;
-          await this.repository.expirePendingReviews(tx, cycle.id);
+          const missed = await this.repository.expirePendingReviews(
+            tx,
+            cycle.id,
+          );
           await this.repository.sendUnderReviewedToInstructor(
             tx,
             cycle.id,
             cycle.reviewersPerSubmission,
           );
+          // Learning looks at the Course again for each Learner who skipped reviews (BR-236, BR-239); the ones who gave all
+          // theirs get nothing. Same transaction as the marks, so the event exists if and only if they do.
+          const signals = await this.repository.emitReviewerSignals(
+            tx,
+            cycle,
+            'Missed',
+            reviewCounts(missed.map((reviewerId) => ({ reviewerId }))),
+            now,
+          );
+          if (signals.skipped.length > 0) {
+            this.logger.warn(
+              `Cycle ${cycle.id}: no state row for ${signals.skipped.join(', ')}, so learning was not told about their missed reviews.`,
+            );
+          }
           return true;
         });
         if (done) expired += 1;
