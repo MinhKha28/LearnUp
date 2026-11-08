@@ -54,6 +54,8 @@ public class AuditLogService {
             String targetResourceType,
             String targetResourceId,
             UUID actorUserId,
+            Instant from,
+            Instant to,
             Pageable pageable) {
 
         Specification<AuditLog> spec = (root, query, criteriaBuilder) -> {
@@ -73,6 +75,13 @@ public class AuditLogService {
             }
             if (actorUserId != null) {
                 predicates.add(criteriaBuilder.equal(root.get("actorUserId"), actorUserId));
+            }
+            // UC50, UC51: a time range, from included to excluded (so "a whole day" is [00:00 of the day, 00:00 of the next day)).
+            if (from != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), from));
+            }
+            if (to != null) {
+                predicates.add(criteriaBuilder.lessThan(root.get("createdAt"), to));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

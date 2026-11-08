@@ -56,7 +56,7 @@ The **Audit Service** is a cross-cutting supporting platform capability that cap
 
 ## 5. REST API Endpoints
 * `POST /api/audit/logs` — Record a new immutable audit entry.
-* `GET /api/audit/logs` — Query paginated audit trails with filtering by `organizationId`, `targetResourceType`, `targetResourceId`, `actorUserId`, and date range.
+* `GET /api/audit/logs` — Query paginated audit trails with filtering by `organizationId`, `actionType`, `targetResourceType`, `targetResourceId`, `actorUserId`, and a time range. The range is `from` (included) to `to` (excluded), both ISO-8601 instants (for example `2026-11-01T00:00:00Z`); either may be given alone, and `from` not before `to` is `400`. The time compared is when audit-service received the entry (`createdAt`).
 * `GET /api/audit/logs/{id}` — Fetch full detail of a specific audit event.
 
 ---

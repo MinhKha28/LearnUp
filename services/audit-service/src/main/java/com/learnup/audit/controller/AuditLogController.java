@@ -13,10 +13,12 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -51,12 +53,17 @@ public class AuditLogController {
             @RequestParam(required = false) String targetResourceType,
             @RequestParam(required = false) String targetResourceId,
             @RequestParam(required = false) UUID actorUserId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             HttpServletRequest httpRequest) {
 
         UUID scope = AuditCaller.require(httpRequest).scopeOf(organizationId);
+        if (from != null && to != null && !from.isBefore(to)) {
+            throw BusinessException.badRequest("The start of the time range must be before its end");
+        }
         PageResponse<AuditLogResponse> response = auditLogService.queryAuditLogs(
-                scope, actionType, targetResourceType, targetResourceId, actorUserId, pageable);
+                scope, actionType, targetResourceType, targetResourceId, actorUserId, from, to, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
