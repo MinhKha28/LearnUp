@@ -11,6 +11,7 @@ This directory contains the canonical JSON Schemas and sample payloads for domai
 ---
 
 ## 2. Topic Catalog
+* `learnup.course.course-component-events` — Course Service publishes `CourseSubmitted` (UC20) and Course lifecycle events; see [CourseSubmitted contract](course-submitted.md) and [example](course-submitted.example.json).
 * `learnup.assessment.learner-assessment-events` — Assessment Service produces `LearnerAssessmentStatusChanged`; Learning Service consumes it for activation and completion re-evaluation. See [assessment status contract](assessment-status-events.md).
 * `learnup.learning.course-completed` — Fired by Learning Service when a learner finishes all mandatory lessons/quizzes.
 * `learnup.learning.enrollment-events` — EnrollmentAssigned, EnrollmentDueDateExtended, EnrollmentExempted and LearnerWithdrew; see [Enrollment contracts](learning-enrollment-events.md).

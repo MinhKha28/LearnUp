@@ -10,6 +10,8 @@ This directory holds hand-written OpenAPI 3.0 / Swagger contracts for LearnUP in
 
 * `learning-service.yaml`
 * `assessment-service.yaml`
+* `course-service.yaml` — UC20 Course submit contract
+* `tenant-service.yaml` — UC20 internal Organizer lookup contract
 * `achievement-reporting-service.yaml`
 
 ## Scope
