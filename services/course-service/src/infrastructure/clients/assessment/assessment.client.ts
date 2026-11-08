@@ -20,16 +20,15 @@ export class AssessmentClient {
     user: CurrentUser,
     courseId: string,
   ): Promise<QuizSummary[]> {
-    const baseUrl = this.configService.getOrThrow<string>(
-      'ASSESSMENT_SERVICE_URL',
-    );
-
     let result: QuizListResponse | undefined;
 
     try {
+      const baseUrl = this.configService.getOrThrow<string>(
+        'ASSESSMENT_SERVICE_URL',
+      );
       const response = await firstValueFrom(
         this.httpService.get<ApiResponse<QuizListResponse>>(
-          `${baseUrl}/api/v1/assessments/quizzes`,
+          `${baseUrl.replace(/\/+$/, '')}/api/v1/assessments/quizzes`,
           {
             params: {
               courseId,

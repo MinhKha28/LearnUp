@@ -203,9 +203,13 @@ export class UsersController {
   @ServiceCall()
   @Get('internal/organizer')
   @ResponseMessage('Organizer retrieved successfully')
-  getOrganizerForNotification(
+  async getOrganizerForNotification(
     @Headers('x-organization-id') organizationId: string,
   ) {
-    return this.service.getOrganizerForNotification(organizationId);
+    const validOrganizationId = await new ParseUUIDPipe().transform(
+      organizationId,
+      { type: 'custom' },
+    );
+    return this.service.getOrganizerForNotification(validOrganizationId);
   }
 }

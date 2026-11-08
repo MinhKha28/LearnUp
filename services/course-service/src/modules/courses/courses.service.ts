@@ -1802,13 +1802,9 @@ export class CoursesService {
         message: 'Course was modified. Please reload and try again.',
       });
     }
-    // Course đã được commit thành Submitted.
-    // Gửi thông báo bên ngoài transaction.
-    await this.notifyOrganizerAfterSubmission(
-      user.organizationId,
-      result.course,
-    );
-
+    // CourseSubmitted was committed to Outbox with the status change.
+    // Notification Service consumes the event asynchronously, with retry
+    // and idempotent per-channel delivery. Do not send here as well.
     // 7. Trả trạng thái thực sự từ DB.
     return result.course;
   }

@@ -17,6 +17,7 @@ import {
 import type { ICourseDetail } from "@/types/course.types";
 
 import "./course.submit.scss";
+import { getSubmitErrorMessage } from "./course.submit.errors";
 
 const CourseSubmit = () => {
   const { courseId } = useParams();
@@ -44,7 +45,11 @@ const CourseSubmit = () => {
     try {
       const response = await fetchCourseDetailAPI(courseId);
 
-      if (!response.data) {
+      if (
+        Number(response.statusCode) < 200 ||
+        Number(response.statusCode) >= 300 ||
+        !response.data
+      ) {
         throw new Error("Course not found.");
       }
 
@@ -75,11 +80,15 @@ const CourseSubmit = () => {
     try {
       const response = await submitCourseForApprovalAPI(course.id);
 
-      // Interceptor có thể trả error response.
-      if (response.data?.status !== "Submitted") {
-        message.error(
-          "Unable to submit Course. Check Course information and Quiz questions.",
-        );
+      // The Axios interceptor can resolve an HTTP error body.
+      const statusCode = Number(response.statusCode);
+      if (
+        !Number.isInteger(statusCode) ||
+        statusCode < 200 ||
+        statusCode >= 300 ||
+        response.data?.status !== "Submitted"
+      ) {
+        message.error(getSubmitErrorMessage(response));
 
         await loadCourse();
         return;
@@ -88,8 +97,8 @@ const CourseSubmit = () => {
       message.success("Course submitted successfully.");
 
       navigate(`/instructor/courses/${course.id}/submitted`, { replace: true });
-    } catch {
-      message.error("Unable to submit Course.");
+    } catch (error: unknown) {
+      message.error(getSubmitErrorMessage(error));
 
       await loadCourse();
     } finally {

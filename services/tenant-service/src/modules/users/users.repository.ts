@@ -10,6 +10,8 @@ import {
 export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Business rule: each Organization has one active Organizer.
+  // This lookup is not meant to choose between multiple active accounts.
   findActiveOrganizer(organizationId: string) {
     return this.prisma.user.findFirst({
       where: {
