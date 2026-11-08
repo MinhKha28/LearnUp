@@ -34,7 +34,7 @@ export const obligationView = (
       return {
         label: "Chưa hoàn thành",
         tone: "error",
-        help: "Có bài được giao đã quá hạn mà chưa chấm. Chấm đủ các bài của chu kỳ sau sẽ hoàn thành nghĩa vụ.",
+        help: "Có bài được giao đã quá hạn mà chưa chấm. Hãy nộp lại bài để được giao chấm ở chu kỳ sau và chấm đủ các bài đó, hoặc nhờ giảng viên miễn nghĩa vụ.",
       };
     default:
       return {

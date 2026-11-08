@@ -189,7 +189,10 @@ describe("the history of the reviews", () => {
       document.querySelector(".peer-review-history-obligation") as HTMLElement,
     );
     expect(overall.getByText("Chưa hoàn thành")).toBeTruthy();
-    expect(overall.getByText(/chu kỳ sau/)).toBeTruthy();
+    expect(
+      overall.getByText(/nộp lại bài để được giao chấm ở chu kỳ sau/),
+    ).toBeTruthy();
+    expect(overall.getByText(/nhờ giảng viên miễn nghĩa vụ/)).toBeTruthy();
   });
 
   it("a duty that is done says so", async () => {

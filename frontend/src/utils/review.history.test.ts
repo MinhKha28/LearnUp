@@ -67,7 +67,12 @@ describe("the duty of peer review in words", () => {
   });
 
   it("a missed duty tells how it is paid back (BR-239)", () => {
-    expect(obligationView("Missed").help).toMatch(/chu kỳ sau/);
+    // paying it back needs a new submission (so that the Learner is assigned in a later cycle) or a waiver, not just waiting
+    const help = obligationView("Missed").help;
+    expect(help).toMatch(/nộp lại bài/);
+    expect(help).toMatch(/chu kỳ sau/);
+    expect(help).toMatch(/giảng viên miễn/);
+    expect(help).not.toMatch(/^Chấm đủ/);
   });
 
   it("the line above the table says how many were handed out and given, or that none was", () => {
