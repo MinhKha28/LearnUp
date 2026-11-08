@@ -83,8 +83,8 @@ describe("the bell", () => {
     expect(screen.getByText("1 chưa đọc")).toBeTruthy();
     expect(screen.getByText("Xem tất cả thông báo")).toBeTruthy();
     expect(screen.getByLabelText("Chưa đọc")).toBeTruthy();
-    // 05/11/2026 in the Vietnamese order (time first, then d/M/yyyy), never the American 11/5/2026
-    expect(screen.getByText(/\d{1,2}:\d{2}:\d{2} \d{1,2}\/\d{1,2}\/2026/)).toBeTruthy();
+    // 05/11/2026 08:33 in the Vietnamese order (day first, as on every other page), never the American 11/5/2026
+    expect(screen.getByText("05/11/2026 08:33")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/Notifications|unread|View all|Loading|AM|PM/);
   });
 
