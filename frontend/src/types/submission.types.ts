@@ -35,6 +35,10 @@ export interface ISubmissionList {
 export interface ISubmissionListQuery {
   status?: string;
   q?: string;
+  learnerId?: string;
+  needsIntervention?: boolean;
+  minScore?: number;
+  maxScore?: number;
   latestOnly?: boolean;
   page?: number;
   pageSize?: number;
