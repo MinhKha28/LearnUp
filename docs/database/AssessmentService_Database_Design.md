@@ -20,7 +20,7 @@ Hai điểm cần biết ngay:
 | Thời gian | `timestamptz`. `created_at` có `DEFAULT CURRENT_TIMESTAMP`; `updated_at` do ứng dụng điền |
 | Điểm | `numeric(5,2)` (điểm Quiz, điểm Assignment, điểm đạt) |
 | Xóa | Xóa Assessment kéo theo con bằng `ON DELETE CASCADE` (mục 3). Hai khóa ngoại dùng `RESTRICT` (`quiz_attempt_answers.question_id`, `submission_review_scores.criterion_id`) và một dùng `SET NULL` (`submission_reviews.cycle_id`) |
-| Khóa chặn tương tranh | Ba khóa tư vấn `pg_advisory_xact_lock(hashtext(...))`: theo Course (UC19.2, mục 4.1), theo `{assessmentId}:{learnerId}` (UC30, UC30.1) và theo `cycle:{assessmentId}` (đặt bài vào chu kỳ ở UC30 và UC30.1, và chốt chu kỳ ở UC33; mục 4.2, 4.3, 6). Chấm của Instructor dùng khóa dòng `SELECT … FOR UPDATE` trên bài nộp (UC32, mục 4.4) |
+| Khóa chặn tương tranh | Bốn khóa tư vấn `pg_advisory_xact_lock(hashtext(...))`: theo Course (UC19.2, mục 4.1), theo `{assessmentId}:{learnerId}` (UC30, UC30.1), theo `review:{submissionId}` (các lượt chấm của một bài lần lượt xong, UC31.1, mục 4.7) và theo `cycle:{assessmentId}` (đặt bài vào chu kỳ ở UC30 và UC30.1, và chốt chu kỳ ở UC33; mục 4.2, 4.3, 6). Chấm của Instructor dùng khóa dòng `SELECT … FOR UPDATE` trên bài nộp (UC32, mục 4.4) |
 
 ### 1.1 Truy vấn không lọc theo `organization_id`
 
@@ -170,7 +170,7 @@ Duy nhất `(assessment_id, learner_id, submission_number)`. **Điểm ghi nhậ
 | `AwaitingFinalization` | Đã có đủ đánh giá, chờ chốt điểm | Chấm của Instructor (UC32): từ `AwaitingInstructor` |
 | `Finalized` | Đã chốt điểm | **Chưa có code đặt** (UC32.3) |
 
-`intervention_reason`: `PEER_REVIEW_DISABLED` (chấm chéo tắt) và `RESUBMITTED_AFTER_CUTOFF` (nộp lại sau mốc chốt, BR-213). UC33 thêm `TOO_FEW_SUBMISSIONS` (chu kỳ ít hơn N + 1 bài, BR-242) và `REVIEW_MISSED` (bài chưa đủ đánh giá hợp lệ khi hết hạn, BR-243), do việc chốt chu kỳ và việc hết hạn đánh giá ghi (mục 6).
+`intervention_reason`: `PEER_REVIEW_DISABLED` (chấm chéo tắt) và `RESUBMITTED_AFTER_CUTOFF` (nộp lại sau mốc chốt, BR-213). UC33 thêm `TOO_FEW_SUBMISSIONS` (chu kỳ ít hơn N + 1 bài, BR-242) và `REVIEW_MISSED` (bài chưa đủ đánh giá hợp lệ khi hết hạn, BR-243), do việc chốt chu kỳ và việc hết hạn đánh giá ghi (mục 6). UC31.1 thêm `SCORE_GAP_EXCEEDED` (các lượt chấm của bài lệch nhau quá ngưỡng của chu kỳ, BR-252, BR-253), ghi cùng lúc với `grading_status` `AwaitingInstructor` khi lượt chấm cuối cùng của bài xong (mục 4.7).
 
 ### 3.9 `peer_review_cycles`
 
@@ -211,7 +211,7 @@ Trong lúc chốt, mã UC33 đặt tạm giá trị `Closing` **bên trong một
 | `comment` | `varchar(2000)` | |
 | `completed_at` | `timestamptz` | |
 
-Chỉ mục: `(organization_id, reviewer_id)`. Không có chỉ mục theo `submission_id` hay `cycle_id` (mục 10).
+Chỉ mục: `(organization_id, reviewer_id)` (hàng đợi của Learner), `(submission_id)` (các lượt chấm của một bài nộp) và `(cycle_id, status)` (người chấm và lượt chấm `Pending` của một chu kỳ), thêm ở migration `20261105000000_peer_review_indexes`.
 
 #### 3.10.1 Giá trị của `status`
 
@@ -281,6 +281,12 @@ Không ghi gì. File đề bài do dịch vụ tải từ kho (URL dựng từ k
 ### 4.6 Chốt chu kỳ, nhắc, hết hạn (UC33)
 
 Mô tả ở mục 6. Có trên `develop` từ PR #173 (29/10/2026).
+
+### 4.7 Learner xem bài cần chấm và chấm bài chéo (UC31, UC31.1)
+
+**UC31 (`GET /api/v1/assessments/learner/peer-reviews`, `.../{reviewId}`, `.../{reviewId}/file`).** Không ghi gì. Danh sách là các dòng `submission_reviews` của Learner (không phải của Instructor; không gồm dòng `Removed` hoặc `Expired`, người chấm đó không còn thấy bài), phân trang (`page` từ 1, `pageSize` mặc định 20, tối đa 100), xếp `Open` trước (hạn gần nhất trước), rồi `Done`, rồi `Closed` (mới nhất trước), kèm hạn đánh giá của chu kỳ. `pendingCount` và `total` đếm bằng câu truy vấn riêng trên **toàn bộ** hàng đợi, không phụ thuộc trang (BR-232); trước đây giới hạn 200 dòng có thể cắt mất bài còn phải chấm. Mỗi dòng có `state`: `Open` (còn `Pending`, chu kỳ `Assigned`, chưa tới `review_due_at`), `Done` (`Completed`) hoặc `Closed` (còn lại, kể cả `Missed`). Học viên không thấy tác giả (BR-233): câu trả lời không có id tác giả, id bài nộp, số lần nộp hay ngày nộp; tệp trả qua `.../file` với tên trung tính `submitted-work.<đuôi>` thay tên tệp gốc. Lượt chấm của người khác trả 404. Quyền vào Course theo L17: `Full` hoặc `ReadOnly` (Course đã Completed vẫn chấm được các lượt đã phân công, BR-211), `None` thì 409 `ENROLLMENT_NOT_ACTIVE`.
+
+**UC31.1 (`POST .../{reviewId}`).** Một transaction: khóa `review:{submissionId}`; đọc lại lượt chấm; `Done` hoặc đã bị giành mất thì 409 `REVIEW_ALREADY_GIVEN`, `Closed` thì 409 `REVIEW_CLOSED`; kiểm điểm từng tiêu chí bằng `scoreFromRubric` (cùng hàm với UC32.2: đủ mọi tiêu chí, số nguyên, không quá điểm tối đa, nhận xét không rỗng, BR-257; lỗi 400, chưa ghi gì); đặt `status = Completed`, `score` (BR-202), `comment`, `completed_at` bằng cập nhật có điều kiện `WHERE status = Pending` rồi ghi `submission_review_scores`; nếu mọi lượt chấm đã phân công của bài đều `Completed` và bài còn `AwaitingPeerReview` (chưa bị thay thế) thì chuyển bài: chênh lệch điểm lớn hơn `peer_review_cycles.score_gap` thì `AwaitingInstructor` với `intervention_reason = SCORE_GAP_EXCEEDED`, ngược lại `AwaitingFinalization` (BR-251, BR-252, BR-253); ghi event `LearnerAssessmentStatusChanged` với `reason = PEER_REVIEW_COMPLETED`, `status = PeerReviewCompleted` và `reviewId` qua `emitCompletionSignal`. Lượt chấm đã nộp là cuối cùng, không sửa được. Nghĩa vụ của người chấm không có cột riêng (D10): `completion-snapshot` tính lại từ các dòng, nên chấm đủ thì `Satisfied` ngay.
 
 ---
 
@@ -390,7 +396,7 @@ Hướng dẫn bố trí cho dbdiagram.io chưa viết (mục 10).
 1. **Đã cập nhật** sau khi #173 và #176 merge (29/10/2026): mục 2, 3.5, 3.8.1, 3.9.1, 3.10.1, 4.2, 4.3, 4.6, 5.2 và 6 chuyển từ "đang chờ" thành hiện trạng, thêm `TOO_FEW_SUBMISSIONS` và `REVIEW_MISSED`. Việc bỏ cột `peer_review_obligation` (D10, #190) và việc đề bài nhận PDF/DOCX/ZIP với giới hạn theo gói lưu trữ (#189) đã cập nhật (mục 1.2, 3.5, 4.3 và 5). Khi việc còn lại vào (`CHECK`), cập nhật tiếp mục 8.
 2. **Rà các truy vấn không lọc theo `organization_id`** và lập bảng ngoại lệ như mục 1.1 của tài liệu learning-service.
 3. **File riêng tư (P4):** cả hai nơi upload (`assignment-media.service.ts`, `learner-submissions.service.ts`) gọi `storage.upload` với `resourceType: 'raw'` và **không truyền `deliveryType`**; `@learnup/ts-storage` khi đó dùng `upload`, tức giao hàng công khai. Dịch vụ tải file bằng `storage.getUrl(key, 'raw')` là URL thường. Vì vậy ai có URL đều tải được, bất kể kiểm quyền ở API; đây là vấn đề chính, hơn cả việc URL hết hạn. Hướng đi: dùng helper URL ký của course-service (#146) rồi chuyển sang `authenticated`/`private`. Gói Free của Cloudinary chỉ có link hết hạn qua `private_download_url` (api.cloudinary.com), liên quan câu hỏi mở về giới hạn Admin API. Cần kiểm trước: file đã upload là kiểu nào trên môi trường thật (đọc code chưa đủ).
-4. **Chỉ mục:** hiện chỉ có `assessments(organization_id, course_id)`, `submission_reviews(organization_id, reviewer_id)` và `outbox_events(published_at)` ngoài các khóa duy nhất. Các truy vấn theo `submissions.cycle_id`, `submission_reviews.cycle_id`, `submission_reviews.submission_id` chưa có chỉ mục. **Chưa đo, và tài liệu không nói chúng cần chỉ mục.** Bước cụ thể: chạy `EXPLAIN ANALYZE` các truy vấn của UC33 trên `cycle_id` / `submission_id` với dữ liệu seed, rồi mới quyết định.
+4. **Chỉ mục (đã làm ở #229, 05/11/2026):** trước đây chỉ có `assessments(organization_id, course_id)`, `submission_reviews(organization_id, reviewer_id)` và `outbox_events(published_at)` ngoài các khóa duy nhất. `EXPLAIN (ANALYZE)` trên 20 000 chu kỳ, 400 000 bài nộp và 800 000 lượt chấm cho thấy các truy vấn theo `cycle_id` và `submission_id` quét tuần tự cả bảng (chi tiết chu kỳ 110 ms, các lượt chấm của một bài nộp 26 ms, bài nộp của chu kỳ 15 ms, lượt `Pending` của chu kỳ 29 ms, người chấm của chu kỳ 26 ms). Sau khi thêm `submissions(cycle_id)`, `submission_reviews(submission_id)` và `submission_reviews(cycle_id, status)` chúng đều dưới 0,5 ms (quét chỉ mục); hàng đợi của Learner vẫn dùng `(organization_id, reviewer_id)`. `CREATE INDEX` khóa ghi bảng khi dựng; với bảng rất lớn, dựng trước bằng `CREATE INDEX CONCURRENTLY` cùng tên (migration dùng `IF NOT EXISTS`).
 5. **`CHECK` cho trạng thái (PR migration riêng; #173 đã merge nên có thể làm, chưa làm):** đếm trước các dòng có giá trị ngoài tập hợp; thêm từng constraint `NOT VALID` rồi `VALIDATE` (cách course-service đã làm); xác nhận Prisma không báo các `CHECK` viết tay là drift.
 6. **Các luồng ghi còn thiếu:** câu hỏi và đáp án Quiz (UC18.3), lượt làm Quiz và tự nộp khi hết giờ (UC29.1, BR-200), chốt điểm Assignment (UC32.3), consumer event cho `learner_accounts` và `platform_settings`, ghi `disabled_at`.
 7. **Consumer phía learning** (L18) của `LearnerAssessmentStatusChanged`; chuyển thông báo chấm chéo sang event (bước 24). Endpoint `completion-snapshot` đã có (mục 5.2).

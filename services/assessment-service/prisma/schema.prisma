@@ -184,6 +184,7 @@ model Submission {
   reviews    SubmissionReview[]
 
   @@unique([assessmentId, learnerId, submissionNumber])
+  @@index([cycleId])
   @@map("submissions")
 }
 
@@ -230,6 +231,8 @@ model SubmissionReview {
   scores     SubmissionReviewScore[]
 
   @@index([organizationId, reviewerId])
+  @@index([submissionId])
+  @@index([cycleId, status])
   @@map("submission_reviews")
 }
 

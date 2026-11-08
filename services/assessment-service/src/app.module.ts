@@ -9,6 +9,7 @@ import { AssessmentsModule } from './modules/assessments/assessments.module';
 import { IntegrationsModule } from './infrastructure/clients/integrations.module';
 import { InstructorSubmissionsModule } from './modules/instructor-submissions/instructor-submissions.module';
 import { LearnerAssessmentsModule } from './modules/learner-assessments/learner-assessments.module';
+import { LearnerReviewsModule } from './modules/learner-reviews/learner-reviews.module';
 import { LearnerSubmissionsModule } from './modules/learner-submissions/learner-submissions.module';
 import { OutboxModule } from './modules/outbox/outbox.module';
 import { PeerReviewModule } from './modules/peer-review/peer-review.module';
@@ -26,6 +27,7 @@ import { QuizModule } from './modules/quiz/quiz.module';
     CompletionSnapshotModule,
     InstructorSubmissionsModule,
     LearnerAssessmentsModule,
+    LearnerReviewsModule,
     LearnerSubmissionsModule,
     AssessmentsModule,
     OutboxModule,
