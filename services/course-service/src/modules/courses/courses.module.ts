@@ -8,6 +8,8 @@ import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
 import { StorageModule } from '@infra/storage/storage.module';
 import { CoursesRepository } from './courses.repository';
+import { AssessmentClient } from '@/infrastructure/clients/assessment/assessment.client';
+import { NotificationClient } from '@/infrastructure/clients/notification/notification.client';
 
 @Module({
   imports: [
@@ -18,7 +20,14 @@ import { CoursesRepository } from './courses.repository';
     StorageModule,
   ],
   controllers: [CoursesController],
-  providers: [CoursesService, CoursesRepository, TenantClient, LearningClient],
+  providers: [
+    CoursesService,
+    CoursesRepository,
+    TenantClient,
+    LearningClient,
+    AssessmentClient,
+    NotificationClient,
+  ],
   exports: [CoursesService],
 })
 export class CoursesModule {}

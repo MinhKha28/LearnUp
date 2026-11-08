@@ -614,3 +614,13 @@
     align-items: stretch;
   }
 }
+
+.instructor-submissions-score {
+  flex-wrap: wrap;
+  color: #475569;
+  font-size: 13px;
+}
+
+.instructor-submissions-active {
+  margin-bottom: 12px;
+}

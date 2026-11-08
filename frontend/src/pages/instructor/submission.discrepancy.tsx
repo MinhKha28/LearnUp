@@ -18,13 +18,13 @@ const SubmissionDiscrepancy = () => {
     return (
       <InstructorPage className="instructor-submissions">
         <PageHeader
-          eyebrow="SUBMISSIONS / INTERVENTION"
-          title="Submission not found"
-          subtitle="This Submission may have been removed."
+          eyebrow="BÀI NỘP / CẦN CAN THIỆP"
+          title="Không tìm thấy bài nộp"
+          subtitle="Bài nộp này có thể đã bị xóa."
           back
         />
         <InstructorButton onClick={() => navigate("/instructor/submissions")}>
-          Back to Submissions
+          Về danh sách bài nộp
         </InstructorButton>
       </InstructorPage>
     );
@@ -35,24 +35,28 @@ const SubmissionDiscrepancy = () => {
   return (
     <InstructorPage className="instructor-submissions">
       <PageHeader
-        eyebrow="SUBMISSIONS / INTERVENTION"
-        title="Review Score Discrepancy"
-        subtitle="Peer reviewers gave scores beyond the configured threshold."
+        eyebrow="BÀI NỘP / CẦN CAN THIỆP"
+        title="Chênh lệch điểm giữa các người chấm"
+        subtitle="Điểm của các người chấm chéo chênh nhau quá ngưỡng đã cấu hình."
         back
       />
-      <WarningPanel title="Instructor review required">
-        Compare reviewers&apos; criterion scores and decide a final result.
+      <WarningPanel title="Cần Giảng viên xử lý">
+        So sánh điểm theo từng tiêu chí của các người chấm rồi quyết định kết
+        quả cuối cùng.
       </WarningPanel>
       <SectionCard className="instructor-discrepancy-card">
         <div className="instructor-discrepancy-table">
           <div className="instructor-discrepancy-row instructor-discrepancy-head">
-            <span>Rubric criterion</span>
-            <span>Reviewer: {reviewerA?.reviewerName ?? "[Name]"}</span>
-            <span>Reviewer: {reviewerB?.reviewerName ?? "[Name]"}</span>
-            <span>Difference</span>
+            <span>Tiêu chí Rubric</span>
+            <span>Người chấm: {reviewerA?.reviewerName ?? "Chưa rõ"}</span>
+            <span>Người chấm: {reviewerB?.reviewerName ?? "Chưa rõ"}</span>
+            <span>Chênh lệch</span>
           </div>
           {submission.criteriaComparison.map((row) => (
-            <div className="instructor-discrepancy-row" key={row.criterionLabel}>
+            <div
+              className="instructor-discrepancy-row"
+              key={row.criterionLabel}
+            >
               <strong>{row.criterionLabel}</strong>
               <span>{row.reviewerAScoreLabel}</span>
               <span>{row.reviewerBScoreLabel}</span>
@@ -61,7 +65,7 @@ const SubmissionDiscrepancy = () => {
           ))}
           {submission.criteriaComparison.length === 0 && (
             <div className="instructor-discrepancy-row">
-              <span>No criterion comparison recorded.</span>
+              <span>Chưa có so sánh theo tiêu chí.</span>
               <span />
               <span />
               <span />
@@ -71,9 +75,11 @@ const SubmissionDiscrepancy = () => {
         <div className="instructor-grade-actions">
           <InstructorButton
             type="primary"
-            onClick={() => navigate(`/instructor/submissions/${submission.id}/finalize`)}
+            onClick={() =>
+              navigate(`/instructor/submissions/${submission.id}/finalize`)
+            }
           >
-            Grade or adjust final score
+            Chấm hoặc điều chỉnh điểm cuối cùng
           </InstructorButton>
         </div>
       </SectionCard>
