@@ -3,6 +3,7 @@ import {
   CreditCardOutlined,
   DashboardOutlined,
   ExclamationCircleOutlined,
+  FileSearchOutlined,
   LockOutlined,
   LogoutOutlined,
   MenuOutlined,
@@ -60,6 +61,11 @@ const adminMenuItems: MenuItem[] = [
         icon: <BarChartOutlined />,
         label: "Platform statistics",
       },
+      {
+        key: "/admin/audit-logs",
+        icon: <FileSearchOutlined />,
+        label: "Nhật ký nền tảng",
+      },
     ],
   },
   {
@@ -113,6 +119,8 @@ const getPageMeta = (pathname: string) => {
     return ["PLATFORM ADMIN", "Configuration"];
   if (pathname === "/admin/statistics")
     return ["PLATFORM ADMIN", "Platform statistics"];
+  if (pathname === "/admin/audit-logs")
+    return ["PLATFORM ADMIN", "Nhật ký nền tảng"];
   if (pathname === "/admin/suspended-organizations")
     return ["PLATFORM ADMIN", "Suspended Organizations"];
   if (pathname === "/admin/profile/change-password")
