@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from 'generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import {
+  emitCompletionSignal,
+  type CompletionSignal,
+} from '../outbox/completion-signal';
+import { FINALIZED } from './instructor-submissions.constants';
 
 export const ASSIGNMENT_KIND = 'ASSIGNMENT';
 
@@ -96,8 +101,21 @@ export class InstructorSubmissionsRepository {
   ) {
     return this.db(tx).submission.findFirst({
       where: { id: submissionId, organizationId },
-      select: { assessment: { select: { kind: true, courseId: true } } },
+      select: {
+        assessmentId: true,
+        learnerId: true,
+        assessment: { select: { kind: true, courseId: true } },
+      },
     });
+  }
+
+  async lockAssignmentLearner(
+    tx: Prisma.TransactionClient,
+    assessmentId: string,
+    learnerId: string,
+  ) {
+    const key = `${assessmentId}:${learnerId}`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
   }
 
   async lockSubmission(tx: Prisma.TransactionClient, submissionId: string) {
@@ -133,6 +151,38 @@ export class InstructorSubmissionsRepository {
       _max: { submissionNumber: true },
     });
     return result._max.submissionNumber;
+  }
+
+  findLearnerStateId(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    assessmentId: string,
+    learnerId: string,
+  ) {
+    return tx.learnerAssessmentState.findFirst({
+      where: { organizationId, assessmentId, learnerId },
+      select: { id: true },
+    });
+  }
+
+  publishFinalization(
+    tx: Prisma.TransactionClient,
+    submissionId: string,
+    data: {
+      finalScore: number;
+      finalizationComment: string | null;
+      finalizedAt: Date;
+      finalizedBy: string;
+    },
+  ) {
+    return tx.submission.update({
+      where: { id: submissionId },
+      data: { ...data, gradingStatus: FINALIZED },
+    });
+  }
+
+  emitSignal(tx: Prisma.TransactionClient, signal: CompletionSignal) {
+    return emitCompletionSignal(tx, signal);
   }
 
   createReview(

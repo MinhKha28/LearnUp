@@ -10,7 +10,7 @@ const SubmissionFileLink = ({ file }: { file: IAttachedFile }) => (
     rel="noreferrer"
   >
     <PaperClipOutlined />
-    <span>{file.fileName ?? "Attached file"}</span>
+    <span>{file.fileName ?? "Tệp đính kèm"}</span>
     <small>{formatFileSize(file.sizeBytes)}</small>
     {file.url && <DownloadOutlined />}
   </a>

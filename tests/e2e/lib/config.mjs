@@ -35,5 +35,7 @@ export const SEED = {
   coursePublicNoAssignment: `01900000-0000-7000-8000-c002${(151).toString(16).padStart(8, "0")}`,
   coursePublicV2: `01900000-0000-7000-8000-c002${(92).toString(16).padStart(8, "0")}`,
   coursePrivate: `01900000-0000-7000-8000-c002${(101).toString(16).padStart(8, "0")}`,
+  // assessment seed: Assignment of coursePrivate, no peer review (fixture 2a...02)
+  assignmentNoPeerReview: "0199a000-0000-7000-8000-2a0000000002",
   courseDraft: `01900000-0000-7000-8000-c002${(11).toString(16).padStart(8, "0")}`,
 };

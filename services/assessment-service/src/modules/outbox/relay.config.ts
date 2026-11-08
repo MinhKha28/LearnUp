@@ -1,9 +1,14 @@
+import { PEER_REVIEW_ASSIGNED_EVENT } from '../learner-submissions/learner-submissions.constants';
+
 /** What the relay that publishes the outbox events of assessment-service reads from the environment. */
 export interface RelayConfig {
   /** Off unless OUTBOX_RELAY_ENABLED=true: the relay needs a reachable Kafka, and a local run without one has no use for it. */
   enabled: boolean;
   brokers: string[];
+  /** Where `LearnerAssessmentStatusChanged` goes. */
   topic: string;
+  /** Where `PeerReviewAssigned` goes (notification-service reads it). */
+  peerReviewTopic: string;
   replicationFactor: number;
   pollMs: number;
   batchSize: number;
@@ -17,6 +22,12 @@ export interface RelayConfig {
   backoffMaxMs: number;
   /** From this many failed attempts on a row, every further failure is logged as an alert. */
   alertAttempts: number;
+  /**
+   * While the destination cannot be reached no row is claimed, so no row counts an attempt and `alertAttempts` never fires.
+   * After this long without the destination, and then again after each period, the relay logs an alert with how long it has
+   * been down and how many events wait.
+   */
+  outageAlertMs: number;
 }
 
 export const RELAY_CONFIG = Symbol('RELAY_CONFIG');
@@ -44,6 +55,9 @@ export function readRelayConfig(
       .map((broker) => broker.trim()),
     topic:
       get('OUTBOX_TOPIC') ?? 'learnup.assessment.learner-assessment-events',
+    peerReviewTopic:
+      get('OUTBOX_PEER_REVIEW_TOPIC') ??
+      'learnup.assessment.peer-review-assigned',
     replicationFactor: integer('OUTBOX_REPLICATION_FACTOR', 1),
     pollMs: integer('OUTBOX_POLL_INTERVAL_MS', 1000),
     batchSize: integer('OUTBOX_BATCH_SIZE', 20),
@@ -53,13 +67,22 @@ export function readRelayConfig(
     backoffMs: integer('OUTBOX_BACKOFF_MS', 1000),
     backoffMaxMs: integer('OUTBOX_BACKOFF_MAX_MS', 300000),
     alertAttempts: integer('OUTBOX_ALERT_ATTEMPTS', 10),
+    outageAlertMs: integer('OUTBOX_OUTAGE_ALERT_MS', 300000),
   };
   if (
-    !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(config.topic) ||
-    config.topic.length > 249 ||
+    topicsOf(config).some(
+      (topic) =>
+        !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(topic) || topic.length > 249,
+    ) ||
     config.brokers.some((broker) => !broker)
   )
-    throw new Error('Invalid OUTBOX_TOPIC or KAFKA_BROKERS');
+    throw new Error(
+      'Invalid OUTBOX_TOPIC, OUTBOX_PEER_REVIEW_TOPIC or KAFKA_BROKERS',
+    );
+  if (config.topic === config.peerReviewTopic)
+    throw new Error(
+      'OUTBOX_TOPIC and OUTBOX_PEER_REVIEW_TOPIC must be different topics',
+    );
   // A batch that falls back to one send per row can hold the transaction for two deliveries; it must still fit.
   if (
     config.transactionMs <= 2 * config.deliveryMs + 5000 ||
@@ -77,6 +100,17 @@ export function readRelayConfig(
   if (config.batchSize > 1000) throw new Error('Invalid OUTBOX_BATCH_SIZE');
   return config;
 }
+
+/** The topic an event goes to: each kind of event has its own, so its consumer reads only what it acts on. */
+export const topicOf = (eventType: string, config: RelayConfig): string =>
+  eventType === PEER_REVIEW_ASSIGNED_EVENT
+    ? config.peerReviewTopic
+    : config.topic;
+
+/** Every topic the relay writes to. */
+export const topicsOf = (
+  config: Pick<RelayConfig, 'topic' | 'peerReviewTopic'>,
+): string[] => [config.topic, config.peerReviewTopic];
 
 /** Milliseconds to wait after the given number of failed attempts: doubles each time, up to a ceiling. */
 export const retryDelay = (attempts: number, config: RelayConfig): number =>

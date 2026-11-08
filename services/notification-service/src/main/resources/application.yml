@@ -53,15 +53,28 @@ spring:
           writetimeout: ${SPRING_MAIL_SMTP_WRITE_TIMEOUT:5000}
 
 learnup:
+  # UC20: durable Organizer approval notices from CourseSubmitted Outbox events.
+  course-events:
+    enabled: ${COURSE_EVENTS_CONSUMER_ENABLED:false}
+    topic: ${COURSE_EVENTS_TOPIC:learnup.course.course-component-events}
+    group-id: ${COURSE_EVENTS_GROUP_ID:notification-course-submission-v1}
+    dlt: ${COURSE_EVENTS_DLT:learnup.course.course-submission-dlt}
+    retry-attempts: ${COURSE_EVENTS_RETRY_ATTEMPTS:10}
+    retry-initial-ms: ${COURSE_EVENTS_RETRY_INITIAL_MS:1000}
+    retry-max-ms: ${COURSE_EVENTS_RETRY_MAX_MS:30000}
+    start-retry-ms: ${COURSE_EVENTS_START_RETRY_MS:10000}
+
   mail:
     enabled: ${LEARNUP_MAIL_ENABLED:false}
     from: ${LEARNUP_MAIL_FROM:noreply@learnup.com}
 
-  # Learning enrollment events (EnrollmentAssigned, EnrollmentDueDateExtended, EnrollmentExempted, LearnerWithdrew).
+  # Learning enrollment events (EnrollmentAssigned, EnrollmentDueDateExtended, EnrollmentExempted, LearnerWithdrew) and the
+  # PeerReviewAssigned events of assessment-service (a closed peer review cycle handed out reviews), on their own topic.
   # Off by default: the service starts without Kafka; Compose turns it on.
   enrollment-events:
     enabled: ${ENROLLMENT_EVENTS_CONSUMER_ENABLED:false}
     topic: ${ENROLLMENT_EVENTS_TOPIC:learnup.learning.enrollment-events}
+    peer-review-topic: ${PEER_REVIEW_ASSIGNED_TOPIC:learnup.assessment.peer-review-assigned}
     # An event older than this is recorded as SKIPPED, not sent: a mail about a due date of last week helps nobody.
     max-age: ${ENROLLMENT_EVENTS_MAX_AGE:72h}
     retry-attempts: ${ENROLLMENT_EVENTS_RETRY_ATTEMPTS:5}

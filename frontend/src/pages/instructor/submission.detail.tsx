@@ -18,6 +18,8 @@ import {
   gradingStatusView,
   interventionLabel,
   personName,
+  reviewerRoleLabel,
+  reviewStatusView,
 } from "@/utils/submission.labels";
 import "./submissions.scss";
 
@@ -38,9 +40,12 @@ const SubmissionDetail = () => {
         const res = await getSubmissionDetailAPI(submissionId);
         if (!active) return;
         if (res.data) setDetail(res.data);
-        else setError("This submission was not found or is not yours to review.");
+        else
+          setError(
+            "Không tìm thấy bài nộp này, hoặc bạn không phụ trách chấm bài này.",
+          );
       } catch {
-        if (active) setError("Could not connect to the server.");
+        if (active) setError("Không kết nối được với máy chủ.");
       } finally {
         if (active) setLoading(false);
       }
@@ -63,13 +68,13 @@ const SubmissionDetail = () => {
     return (
       <InstructorPage className="instructor-submissions">
         <PageHeader
-          eyebrow="SUBMISSIONS / DETAIL"
-          title="Submission not found"
-          subtitle={error ?? "This submission may have been removed."}
+          eyebrow="BÀI NỘP / CHI TIẾT"
+          title="Không tìm thấy bài nộp"
+          subtitle={error ?? "Bài nộp này có thể đã bị xóa."}
           back
         />
         <InstructorButton onClick={() => navigate("/instructor/courses")}>
-          Back to My Courses
+          Về Khóa học của tôi
         </InstructorButton>
       </InstructorPage>
     );
@@ -87,9 +92,9 @@ const SubmissionDetail = () => {
   return (
     <InstructorPage className="instructor-submissions">
       <PageHeader
-        eyebrow="SUBMISSIONS / DETAIL"
+        eyebrow="BÀI NỘP / CHI TIẾT"
         title={personName(detail.learner)}
-        subtitle={`${detail.assignment.title} / Attempt #${detail.submissionNumber}`}
+        subtitle={`${detail.assignment.title} / Lần nộp #${detail.submissionNumber}`}
         back
         actions={
           canGrade && (
@@ -100,7 +105,7 @@ const SubmissionDetail = () => {
                 navigate(`/instructor/submissions/${detail.id}/grade`)
               }
             >
-              Grade submission
+              Chấm bài nộp
             </InstructorButton>
           )
         }
@@ -109,19 +114,19 @@ const SubmissionDetail = () => {
         <Alert
           type="info"
           showIcon
-          message="This submission was replaced by a newer one. Only the latest submission counts toward the score."
+          message="Bài nộp này đã được thay bằng một bài mới hơn. Chỉ bài nộp mới nhất được tính vào điểm."
         />
       )}
 
       <div className="instructor-submission-detail-grid">
         <div className="instructor-submission-column">
-          <SectionCard title="Learner work">
+          <SectionCard title="Bài làm của học viên">
             <div className="instructor-submission-status">
               <StatusTag tone={status.tone}>{status.label}</StatusTag>
               {reason && <span>{reason}</span>}
             </div>
             <p className="instructor-submission-meta">
-              Submitted {formatDateTime(detail.submittedAt)}
+              Nộp lúc {formatDateTime(detail.submittedAt)}
               {detail.learner.email ? ` / ${detail.learner.email}` : ""}
             </p>
             <div className="instructor-submission-body">
@@ -129,14 +134,14 @@ const SubmissionDetail = () => {
                 <p>{detail.content}</p>
               ) : (
                 <p className="instructor-submission-empty-text">
-                  No written answer.
+                  Không có bài làm dạng văn bản.
                 </p>
               )}
             </div>
             {detail.file && <FileLink file={detail.file} />}
             {detail.finalScore !== null && (
               <div className="instructor-submission-final">
-                <span>Final score</span>
+                <span>Điểm cuối cùng</span>
                 <strong>{detail.finalScore}</strong>
                 {detail.finalizationComment && (
                   <p>{detail.finalizationComment}</p>
@@ -145,21 +150,19 @@ const SubmissionDetail = () => {
             )}
           </SectionCard>
 
-          <SectionCard title="Reviews">
+          <SectionCard title="Các lượt chấm">
             {detail.reviews.length === 0 ? (
               <p className="instructor-submission-empty-text">
-                No reviews yet.
+                Chưa có lượt chấm nào.
               </p>
             ) : (
               detail.reviews.map((review) => (
                 <div className="instructor-submission-review" key={review.id}>
                   <div className="instructor-submission-review-head">
                     <strong>{personName(review.reviewer)}</strong>
-                    <span>{review.reviewerRole}</span>
-                    <StatusTag
-                      tone={review.status === "Completed" ? "success" : "neutral"}
-                    >
-                      {review.status}
+                    <span>{reviewerRoleLabel(review.reviewerRole)}</span>
+                    <StatusTag tone={reviewStatusView(review.status).tone}>
+                      {reviewStatusView(review.status).label}
                     </StatusTag>
                     <b>{review.score ?? "-"}</b>
                   </div>
@@ -184,8 +187,9 @@ const SubmissionDetail = () => {
                 </div>
               ))
             )}
-            <InfoPanel title="Instructor visibility">
-              Learner and reviewer identities are visible to the Instructor.
+            <InfoPanel title="Danh tính hiển thị">
+              Giảng viên thấy đầy đủ danh tính của học viên làm bài và của người
+              chấm.
             </InfoPanel>
           </SectionCard>
         </div>
@@ -193,13 +197,13 @@ const SubmissionDetail = () => {
         <div className="instructor-submission-column">
           <SectionCard title="Assignment">
             <p className="instructor-submission-prompt">
-              {detail.assignment.prompt ?? "No written prompt."}
+              {detail.assignment.prompt ?? "Đề bài không có phần văn bản."}
             </p>
             {detail.assignment.promptFile && (
               <FileLink file={detail.assignment.promptFile} />
             )}
             <p className="instructor-submission-meta">
-              Passing score: {detail.assignment.passingScore} / 100
+              Điểm đạt: {detail.assignment.passingScore} / 100
             </p>
             <div className="instructor-submission-rubric">
               {detail.assignment.rubric.map((criterion) => (
@@ -208,19 +212,19 @@ const SubmissionDetail = () => {
                     <strong>{criterion.name}</strong>
                     <small>{criterion.description}</small>
                   </span>
-                  <b>{criterion.maxPoints} pts</b>
+                  <b>{criterion.maxPoints} điểm</b>
                 </div>
               ))}
               <div className="instructor-submission-rubric-total">
-                <span>Total</span>
-                <b>{rubricMax} pts</b>
+                <span>Tổng</span>
+                <b>{rubricMax} điểm</b>
               </div>
             </div>
           </SectionCard>
 
-          <SectionCard title="Submission history">
+          <SectionCard title="Lịch sử nộp bài">
             <p className="instructor-submission-history-note">
-              The latest submission determines the recorded score.
+              Bài nộp mới nhất quyết định điểm được ghi nhận.
             </p>
             {detail.history.map((item) => (
               <button
