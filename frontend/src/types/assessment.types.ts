@@ -497,10 +497,18 @@ export interface ILearnerReviewDetail extends ILearnerReviewItem {
   /** The work to review, without its author, its number or its date. */
   submission: {
     content: string | null;
-    file: { fileName: string; mimeType: string | null; sizeBytes: number | null; url: string } | null;
+    file: {
+      fileName: string;
+      mimeType: string | null;
+      sizeBytes: number | null;
+      url: string;
+    } | null;
   };
   /** The review as the Learner gave it, once given. */
-  myReview: { comment: string | null; scores: { criterionId: string; points: number }[] } | null;
+  myReview: {
+    comment: string | null;
+    scores: { criterionId: string; points: number }[];
+  } | null;
 }
 
 /** UC31.1: the body of a review: a whole-number score for every criterion and a general comment (BR-257). */
@@ -525,6 +533,48 @@ export interface IClosedPeerReviewCycle {
   reviewCount: number;
   closedAt: string;
   alreadyClosed: boolean;
+}
+
+/** UC31.2: the state of the peer review duty of the Learner, as learning-service judges it for the Certificate. */
+export type TObligationStatus =
+  "NotApplicable" | "Pending" | "Satisfied" | "Missed" | "Waived";
+
+export interface IReviewObligation {
+  assignmentId: string;
+  assignmentTitle: string;
+  courseId: string;
+  status: TObligationStatus;
+  /** The reviews handed to the Learner in the latest cycle in which they have any. */
+  requiredCount: number;
+  completedCount: number;
+}
+
+/** UC31.2: one review the Learner gave. Nothing in it says who wrote the work (BR-233). */
+export interface IReviewHistoryItem {
+  id: string;
+  assignmentId: string;
+  assignmentTitle: string;
+  courseId: string;
+  score: number | null;
+  completedAt: string | null;
+  comment: string | null;
+  criteria: {
+    criterionId: string;
+    name: string;
+    points: number;
+    maxPoints: number;
+  }[];
+}
+
+export interface IReviewHistory {
+  overall: TObligationStatus;
+  obligations: IReviewObligation[];
+  assignedCount: number;
+  completedCount: number;
+  total: number;
+  page: number;
+  pageSize: number;
+  items: IReviewHistoryItem[];
 }
 
 /** UC29.1: a Quiz as the Learner sees it before starting (no question, no answer key). */
