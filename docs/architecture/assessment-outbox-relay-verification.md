@@ -60,6 +60,8 @@ The topic is `learnup.assessment.learner-assessment-events` (3 partitions, repli
 
 `last_error` holds `KAFKA_<code>` or a fixed `OUTBOX_*` identifier. The retry delay is `min(1000 * 2^(attempts - 1), 300000)` ms; from attempt 10 every failure logs `OUTBOX_RETRY_ALERT`. Nothing is skipped or published by itself.
 
+An outage of Kafka claims no row, so no row counts an attempt and that alert cannot fire. The relay therefore alerts by itself: the first turn without Kafka logs one `OUTBOX_GATE_UNAVAILABLE` warning; once the outage has lasted `OUTBOX_OUTAGE_ALERT_MS` (default 300000, 5 minutes), and after each further period, it logs `OUTBOX_RETRY_ALERT code=OUTBOX_GATE_UNAVAILABLE down_for_s=<seconds> unsent=<events waiting> oldest_unsent_age_s=<seconds>` (`unsent=unknown` when the database cannot be read either). When Kafka answers again it logs `OUTBOX_GATE_RECOVERED` with the length of the outage. Checked with the real Kafka container stopped for about 40 s under a 4 s period: one warning, alerts at 14, 24 and 35 s (the check of a broker that does not answer takes up to 10 s, so an alert can come that much late), the row stayed unsent with `attempts` 0, and it was published after Kafka was back.
+
 ## Environment and limits
 
 - Delivery is at-least-once: the PostgreSQL commit and the Kafka acknowledgement are not atomic, and a batch that falls back to one send per row can send a row twice. Consumers must deduplicate `eventId`.

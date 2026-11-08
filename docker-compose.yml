@@ -277,6 +277,7 @@ services:
       FRONTEND_URL: http://localhost:3000
       IDENTITY_SERVICE_URL: http://identity-service:8081
       NOTIFICATION_SERVICE_URL: http://notification-service:8082
+      AUDIT_SERVICE_URL: http://audit-service:8083
       COURSE_CLIENT_MODE: http
       COURSE_SERVICE_URL: http://course-service:8083
       COURSE_SERVICE_TIMEOUT_MS: 3000
@@ -409,6 +410,7 @@ services:
       OUTBOX_BACKOFF_MS: ${ASSESSMENT_OUTBOX_BACKOFF_MS:-1000}
       OUTBOX_BACKOFF_MAX_MS: ${ASSESSMENT_OUTBOX_BACKOFF_MAX_MS:-300000}
       OUTBOX_ALERT_ATTEMPTS: ${ASSESSMENT_OUTBOX_ALERT_ATTEMPTS:-10}
+      OUTBOX_OUTAGE_ALERT_MS: ${ASSESSMENT_OUTBOX_OUTAGE_ALERT_MS:-300000}
     depends_on:
       postgres:
         condition: service_healthy

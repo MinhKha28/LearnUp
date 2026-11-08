@@ -48,6 +48,20 @@ describe('the topic of each event', () => {
 });
 
 describe('readRelayConfig', () => {
+  test('the alert for an outage of the destination is after five minutes by default and takes a number of milliseconds', () => {
+    assert.equal(read().outageAlertMs, 300000);
+    assert.equal(
+      read({ OUTBOX_OUTAGE_ALERT_MS: '60000' }).outageAlertMs,
+      60000,
+    );
+    for (const bad of ['0', '-1', '1.5', 'abc', ''])
+      assert.throws(
+        () => read({ OUTBOX_OUTAGE_ALERT_MS: bad }),
+        /OUTBOX_OUTAGE_ALERT_MS/,
+        bad,
+      );
+  });
+
   test('is off by default, polls every second and takes batches of 20', () => {
     const config = read();
     assert.equal(config.enabled, false);

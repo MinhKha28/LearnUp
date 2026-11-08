@@ -16,13 +16,13 @@
   padding: 24px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .peer-review-submission-card h3,
 .peer-review-score-card h3 {
   margin: 0 0 16px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   font-size: 16px;
   font-weight: 700;
 }
@@ -34,14 +34,14 @@
 .peer-review-submission-label {
   display: block;
   margin: 16px 0 8px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   font-size: 13px;
   font-weight: 650;
 }
 
 .peer-review-submission-card > p {
   margin: 0;
-  color: #334155;
+  color: var(--color-text-secondary);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -52,15 +52,26 @@
   border-top: 1px solid var(--color-border);
 }
 
-.peer-review-attachment a {
+.peer-review-attachment a,
+.peer-review-attachment button {
   display: block;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
   padding: 14px 16px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: #f8fafc;
-  color: #2563eb;
+  background: var(--color-bg);
+  color: var(--color-info);
   font-size: 13px;
   font-weight: 600;
+}
+
+.peer-review-criterion small {
+  display: block;
+  margin: 2px 0 8px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
 }
 
 .peer-review-criterion {
@@ -70,7 +81,7 @@
 .peer-review-criterion > span {
   display: block;
   margin-bottom: 8px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   font-size: 13px;
   font-weight: 650;
 }
@@ -82,14 +93,14 @@
 .peer-review-feedback > span {
   display: block;
   margin-bottom: 8px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   font-size: 13px;
   font-weight: 650;
 }
 
 .peer-review-completed-note {
   margin: 16px 0 0;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 
