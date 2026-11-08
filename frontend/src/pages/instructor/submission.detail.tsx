@@ -68,7 +68,7 @@ const SubmissionDetail = () => {
     return (
       <InstructorPage className="instructor-submissions">
         <PageHeader
-          eyebrow="BÀI NỘP / CHI TIẾT"
+          eyebrow="Bài nộp / Chi tiết"
           title="Không tìm thấy bài nộp"
           subtitle={error ?? "Bài nộp này có thể đã bị xóa."}
           back
@@ -92,7 +92,7 @@ const SubmissionDetail = () => {
   return (
     <InstructorPage className="instructor-submissions">
       <PageHeader
-        eyebrow="BÀI NỘP / CHI TIẾT"
+        eyebrow="Bài nộp / Chi tiết"
         title={personName(detail.learner)}
         subtitle={`${detail.assignment.title} / Lần nộp #${detail.submissionNumber}`}
         back

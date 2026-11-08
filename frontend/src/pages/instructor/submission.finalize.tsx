@@ -37,7 +37,7 @@ const SubmissionFinalize = () => {
     return (
       <InstructorPage className="instructor-submissions">
         <PageHeader
-          eyebrow="BÀI NỘP / CHỐT ĐIỂM"
+          eyebrow="Bài nộp / Chốt điểm"
           title="Không tìm thấy bài nộp"
           subtitle="Bài nộp này có thể đã bị xóa."
           back
@@ -58,8 +58,8 @@ const SubmissionFinalize = () => {
   return (
     <InstructorPage className="instructor-submissions">
       <PageHeader
-        eyebrow="BÀI NỘP / CHỐT ĐIỂM"
-        title="Chốt điểm Assignment"
+        eyebrow="Bài nộp / Chốt điểm"
+        title="Chốt điểm bài tập"
         subtitle="Xác nhận hoặc điều chỉnh điểm tổng hợp trước khi công bố."
         back
       />
@@ -98,7 +98,7 @@ const SubmissionFinalize = () => {
           />
         </div>
         <InfoPanel title="Công bố kết quả">
-          Học viên nhận được điểm cuối cùng và nhận xét theo Rubric.
+          Học viên nhận được điểm cuối cùng và nhận xét theo tiêu chí chấm.
         </InfoPanel>
         <div className="instructor-finalize-actions" style={{ marginTop: 20 }}>
           <InstructorButton type="primary" onClick={handlePublish}>

@@ -65,7 +65,7 @@ const ENGLISH =
 describe("finalizing a score", () => {
   it("is in Vietnamese, with no placeholder in brackets", async () => {
     open("finalize");
-    expect(await screen.findByText("Chốt điểm Assignment")).toBeTruthy();
+    expect(await screen.findByText("Chốt điểm bài tập")).toBeTruthy();
     for (const text of [
       "Xác nhận hoặc điều chỉnh điểm tổng hợp trước khi công bố.",
       "Điểm tổng hợp từ chấm chéo",
@@ -113,7 +113,7 @@ describe("the discrepancy of the reviewers", () => {
     ).toBeTruthy();
     for (const text of [
       "Cần Giảng viên xử lý",
-      "Tiêu chí Rubric",
+      "Tiêu chí chấm",
       "Chênh lệch",
       "Tiêu chí 1",
       "Tiêu chí 3",
