@@ -88,7 +88,7 @@ const confirmClosing = async () => {
 describe("the link to the cycle detail (UC33.1)", () => {
   it("is on every cycle that has submissions and goes to the detail of that cycle of the Assignment", async () => {
     renderTable();
-    await screen.findByText("Cycle 2");
+    await screen.findByText("Chu kỳ 2");
     const links = screen.getAllByRole("link", { name: "Chi tiết" });
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/instructor/peer-cycles/a1/cycle-1",
@@ -101,7 +101,7 @@ describe("the link to the cycle detail (UC33.1)", () => {
       list([cycle(1, { submissionCount: 0, closesAt: ago(-5) })]) as never,
     );
     renderTable();
-    await screen.findByText("Cycle 1");
+    await screen.findByText("Chu kỳ 1");
     expect(screen.queryAllByRole("link", { name: "Chi tiết" })).toHaveLength(0);
   });
 });
@@ -109,7 +109,7 @@ describe("the link to the cycle detail (UC33.1)", () => {
 describe("the Đóng chu kỳ action", () => {
   it("is offered only on a cycle that is still open and past its closing line", async () => {
     renderTable();
-    await screen.findByText("Cycle 2");
+    await screen.findByText("Chu kỳ 2");
     expect(closeButtons()).toHaveLength(1);
   });
 
@@ -118,13 +118,13 @@ describe("the Đóng chu kỳ action", () => {
       list([cycle(1, { status: "Completed", closed: true }), cycle(2, { closesAt: ago(-5) })]) as never,
     );
     renderTable();
-    await screen.findByText("Cycle 2");
+    await screen.findByText("Chu kỳ 2");
     expect(closeButtons()).toHaveLength(0);
   });
 
   it("asks first, and sends nothing until the Instructor confirms", async () => {
     renderTable();
-    await screen.findByText("Cycle 2");
+    await screen.findByText("Chu kỳ 2");
     fireEvent.click(closeButtons()[0]);
     await screen.findByText("Đóng chu kỳ này ngay bây giờ?");
     expect(
@@ -136,9 +136,9 @@ describe("the Đóng chu kỳ action", () => {
   it("closes the chosen cycle, says how many reviews went to how many Learners, and reloads the table", async () => {
     vi.mocked(api.closePeerReviewCycleAPI).mockResolvedValue(closed() as never);
     renderTable();
-    await screen.findByText("Cycle 2");
+    await screen.findByText("Chu kỳ 2");
     await confirmClosing();
-    await screen.findByText("Cycle closed. 14 reviews were handed out to 7 Learners.");
+    await screen.findByText("Đã đóng chu kỳ. 14 bài chấm đã được giao cho 7 học viên.");
     expect(api.closePeerReviewCycleAPI).toHaveBeenCalledWith("a1", "cycle-2");
     await waitFor(() => expect(api.fetchPeerReviewCyclesAPI).toHaveBeenCalledTimes(2));
   });
@@ -148,18 +148,18 @@ describe("the Đóng chu kỳ action", () => {
       closed({ status: "InstructorOnly", submissionCount: 2, reviewCount: 0 }) as never,
     );
     renderTable();
-    await screen.findByText("Cycle 2");
+    await screen.findByText("Chu kỳ 2");
     await confirmClosing();
-    await screen.findByText("Cycle closed. Only 2 submissions, so you grade them all.");
+    await screen.findByText("Đã đóng chu kỳ. Chỉ có 2 bài nộp nên bạn chấm tất cả.");
   });
 
   it("a cycle that someone else closed first says so, and nothing is promised twice", async () => {
     vi.mocked(api.closePeerReviewCycleAPI).mockResolvedValue(closed({ alreadyClosed: true }) as never);
     renderTable();
-    await screen.findByText("Cycle 2");
+    await screen.findByText("Chu kỳ 2");
     await confirmClosing();
-    await screen.findByText("This cycle was already closed.");
-    expect(screen.queryByText(/reviews were handed out/)).toBeNull();
+    await screen.findByText("Chu kỳ này đã được đóng từ trước.");
+    expect(screen.queryByText(/bài chấm đã được giao/)).toBeNull();
   });
 
   it("shows the server's reason when the closing is refused, and does not reload as if it worked", async () => {
@@ -168,7 +168,7 @@ describe("the Đóng chu kỳ action", () => {
       error: { code: "CYCLE_NOT_DUE", message: "This cycle has not reached its closing time yet." },
     } as never);
     renderTable();
-    await screen.findByText("Cycle 2");
+    await screen.findByText("Chu kỳ 2");
     await confirmClosing();
     await screen.findByText("This cycle has not reached its closing time yet.");
     expect(api.fetchPeerReviewCyclesAPI).toHaveBeenCalledTimes(1);
@@ -177,8 +177,8 @@ describe("the Đóng chu kỳ action", () => {
   it("tells the Instructor when the Assessment service cannot be reached", async () => {
     vi.mocked(api.closePeerReviewCycleAPI).mockRejectedValue(new Error("network"));
     renderTable();
-    await screen.findByText("Cycle 2");
+    await screen.findByText("Chu kỳ 2");
     await confirmClosing();
-    await screen.findByText("Unable to reach the Assessment service. Please try again.");
+    await screen.findByText("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
   });
 });

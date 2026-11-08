@@ -27,8 +27,9 @@ The relay forwards the existing writer payload without inventing business fields
 EnrollmentCompleted is consumed by achievement-reporting-service; notification-service
 may ignore it. It uses the shared topic and enrollmentId key, envelope version 1.
 The certificate consumer group is `achievement-reporting-certificate-v1`, with
-`earliest` for a group with no committed offset. It is disabled by default through
-`CERTIFICATE_CONSUMER_ENABLED=false`.
+`earliest` for a group with no committed offset. Compose enables it by default through
+`CERTIFICATE_CONSUMER_ENABLED=true`.
+Enabled by default; set CERTIFICATE_CONSUMER_ENABLED=false to run the stack without certificate issuance. On first start the consumer issues certificates for completion events still retained in Kafka (idempotent).
 Delivery remains at-least-once: deduplicate eventId and prevent duplicate completion
 effects by enrollmentId (one completion per enrollment). Conversion of an already
 Completed Optional enrollment never emits a second EnrollmentCompleted.
