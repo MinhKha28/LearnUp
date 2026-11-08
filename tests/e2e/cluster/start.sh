@@ -66,6 +66,17 @@ until e2e_compose exec -T postgres pg_isready -U "$DB_USERNAME" > /dev/null 2>&1
 until e2e_compose exec -T kafka kafka-topics --bootstrap-server kafka:29092 --list > /dev/null 2>&1; do sleep 3; done
 log "postgres and kafka ready"
 
+# Topics are created explicitly (same settings as the producers' own createTopics: 3 partitions,
+# RF 1, 30-day retention) so consumers that never auto-create (learning) find them from the first start.
+# --if-not-exists makes this a no-op on every later start.
+create_topic() { # name
+  e2e_compose exec -T kafka kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+    --topic "$1" --partitions 3 --replication-factor 1 --config retention.ms=2592000000 > /dev/null
+  log "topic $1 present"
+}
+create_topic learnup.learning.enrollment-events
+create_topic learnup.assessment.learner-assessment-events
+
 start_proc smtp-sink "$SMTP_SINK_PORT" "$ROOT" env MAILBOX_DIR="$STATE/mailbox" SMTP_SINK_PORT="$SMTP_SINK_PORT" \
   node tests/e2e/cluster/smtp-sink.mjs
 
@@ -115,6 +126,7 @@ COURSE_SERVICE_TIMEOUT_MS=3000
 TENANT_SERVICE_URL=http://localhost:8084
 TENANT_CLIENT_MODE=http
 ASSESSMENT_CLIENT_MODE=http
+ASSESSMENT_CONSUMER_ENABLED=true
 ASSESSMENT_SERVICE_URL=http://localhost:8086
 ASSESSMENT_COMPLETION_CLIENT_MODE=http
 KAFKA_BROKERS=localhost:9092
@@ -134,6 +146,10 @@ LEARNING_SERVICE_URL=http://localhost:8085
 ENROLLMENT_CLIENT_MODE=http
 TENANT_SERVICE_URL=http://localhost:8084
 TENANT_CLIENT_MODE=http
+KAFKA_BROKERS=localhost:9092
+OUTBOX_RELAY_ENABLED=true
+OUTBOX_TOPIC=learnup.assessment.learner-assessment-events
+OUTBOX_REPLICATION_FACTOR=1
 EOF
     ;;
     achievement-reporting-service) cat <<EOF
@@ -143,7 +159,7 @@ DATABASE_URL=$PG/achievement_reporting_db?schema=public
 TENANT_SERVICE_URL=http://localhost:8084
 COURSE_SERVICE_URL=http://localhost:8083
 KAFKA_BROKERS=localhost:9092
-CERTIFICATE_CONSUMER_ENABLED=false
+CERTIFICATE_CONSUMER_ENABLED=true
 CERTIFICATE_CLEANUP_ENABLED=false
 CERTIFICATE_PROFILE_CLIENT_MODE=http
 CERTIFICATE_COURSE_CLIENT_MODE=http
@@ -235,6 +251,20 @@ until [[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: app
   http://localhost:8080/api/v1/auth/login)" != 503 ]]; do
   sleep 3; t=$((t + 3)); (( t < 120 )) || { log "gateway does not route to identity"; exit 1; }
 done
+
+# A consumer that has not joined its group yet would make the first journeys race the event:
+# wait until both groups have an active member (kafka-consumer-groups --members lists only live members).
+wait_group_member() { # group
+  local t=0
+  until e2e_compose exec -T kafka kafka-consumer-groups --bootstrap-server kafka:29092 --describe --group "$1" --members 2> /dev/null \
+    | awk 'NR > 1 && NF >= 4 && $1 == "'"$1"'" { n++ } END { exit n ? 0 : 1 }'; do
+    sleep 2; t=$((t + 2))
+    (( t < 120 )) || { log "consumer group $1 has no active member (see $LOGS)"; exit 1; }
+  done
+  log "consumer group $1 has an active member"
+}
+wait_group_member learning-assessment-status-v1
+wait_group_member achievement-reporting-certificate-v1
 
 (cd "$ROOT" && node tests/e2e/cluster/bootstrap-fixtures.mjs)
 log "cluster ready: gateway http://localhost:8080, state $STATE"

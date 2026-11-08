@@ -576,3 +576,104 @@ export interface IReviewHistory {
   pageSize: number;
   items: IReviewHistoryItem[];
 }
+
+/** UC29.1: a Quiz as the Learner sees it before starting (no question, no answer key). */
+export interface ILearnerQuiz {
+  id: string;
+  courseId: string;
+  title: string;
+  passingScore: number;
+  timeLimitMinutes: number | null;
+  questionCount: number;
+  isRequired: boolean;
+  /** BR-210: the Enrollment is Completed, so no new attempt can be started. */
+  readOnly: boolean;
+  attempts: ILearnerAttemptState;
+  /** The attempt being done now, to continue it. */
+  inProgressAttemptId: string | null;
+  /** BR-198: the best attempt. */
+  recordedScore: number | null;
+  passed: boolean | null;
+  submittedAttemptCount: number;
+}
+
+export interface IQuizAttemptQuestion {
+  id: string;
+  position: number;
+  type: "SingleChoice" | "MultipleChoice" | "TrueFalse" | string;
+  content: string;
+  options: { id: string; position: number; content: string }[];
+  selectedOptionIds: string[];
+}
+
+export interface IQuizAttemptInProgress {
+  status: "InProgress";
+  attemptId: string;
+  assessmentId: string;
+  attemptNumber: number;
+  title: string;
+  startedAt: string;
+  deadlineAt: string;
+  /** The clock of the server when the answer was built; the countdown starts from it, not from the clock of the device. */
+  serverNow: string;
+  remainingSeconds: number;
+  questions: IQuizAttemptQuestion[];
+  resumed?: boolean;
+}
+
+export interface IQuizAttemptResult {
+  status: "Submitted";
+  attemptId: string;
+  assessmentId: string;
+  attemptNumber: number;
+  title: string;
+  startedAt: string;
+  submittedAt: string;
+  submissionKind: "Manual" | "TimedOut" | string;
+  score: number;
+  passed: boolean;
+  correctCount: number;
+  totalQuestions: number;
+  passingScore: number;
+  recordedScore: number | null;
+  recordedPassed: boolean | null;
+  attempts: ILearnerAttemptState;
+  alreadySubmitted?: boolean;
+}
+
+export type IQuizAttemptView = IQuizAttemptInProgress | IQuizAttemptResult;
+
+export interface ISavedQuizAnswer {
+  questionId: string;
+  selectedOptionIds: string[];
+  remainingSeconds: number;
+}
+
+/** UC29.2: one attempt in the history of a Quiz. */
+export interface IQuizHistoryItem {
+  attemptId: string;
+  attemptNumber: number;
+  status: "InProgress" | "Submitted";
+  startedAt: string;
+  submittedAt: string | null;
+  submissionKind: "Manual" | "TimedOut" | string | null;
+  score: number | null;
+  passed: boolean | null;
+  correctCount: number | null;
+  totalQuestions: number;
+  /** BR-198: the attempt whose score is the recorded one. */
+  isRecorded: boolean;
+}
+
+export interface IQuizHistory {
+  quizId: string;
+  courseId: string;
+  title: string;
+  passingScore: number;
+  readOnly: boolean;
+  attempts: ILearnerAttemptState;
+  recordedScore: number | null;
+  passed: boolean | null;
+  /** Newest first. */
+  items: IQuizHistoryItem[];
+}

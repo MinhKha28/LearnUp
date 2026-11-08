@@ -13,6 +13,7 @@ import { LearnerSubmissionsModule } from './modules/learner-submissions/learner-
 import { OutboxModule } from './modules/outbox/outbox.module';
 import { PeerReviewModule } from './modules/peer-review/peer-review.module';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
+import { QuizAttemptsModule } from './modules/quiz-attempts/quiz-attempts.module';
 import { QuizModule } from './modules/quiz/quiz.module';
 
 @Module({
@@ -30,6 +31,7 @@ import { QuizModule } from './modules/quiz/quiz.module';
     OutboxModule,
     PeerReviewModule,
     QuizModule,
+    QuizAttemptsModule,
   ],
   providers: [
     {

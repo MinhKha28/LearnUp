@@ -125,9 +125,9 @@ function build(over: Partial<World> = {}) {
       throw new Error('not used');
     }
     setAssignmentMinutes(): Promise<void> {
-    return Promise.resolve();
-  }
-  getModuleIds(): Promise<string[] | null> {
+      return Promise.resolve();
+    }
+    getModuleIds(): Promise<string[] | null> {
       if (world.moduleIds === 'down') {
         return Promise.reject(new ServiceUnavailableException());
       }
@@ -138,6 +138,7 @@ function build(over: Partial<World> = {}) {
     repository,
     new StubEnrollments(),
     new StubCourses(),
+    { settleExpired: () => Promise.resolve(0) } as never,
   );
   service.clock = () => NOW;
   return { service, world };

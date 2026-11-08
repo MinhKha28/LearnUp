@@ -14,6 +14,12 @@ import type {
   ILearnerReviewResult,
   ILearnerAssessmentList,
   IReviewHistory,
+  ILearnerQuiz,
+  IQuizAttemptInProgress,
+  IQuizAttemptResult,
+  IQuizAttemptView,
+  IQuizHistory,
+  ISavedQuizAnswer,
   ILearnerAssignment,
   ISubmissionReceipt,
   IPromptFile,
@@ -354,4 +360,49 @@ export const fetchLearnerReviewHistoryAPI = (
     {
       params: { page, pageSize, ...(assignmentId ? { assignmentId } : {}) },
     },
+  );
+
+// ------------------------------------------------------------------------------------------------ UC29.1 — Quiz
+
+const QUIZ_BASE = "/api/v1/assessments/learner/quizzes";
+
+/** UC29.1 — the Quiz before starting: rules, tries left, lock, the attempt to continue. */
+export const fetchLearnerQuizAPI = (quizId: string) =>
+  axios.get<IBackendRes<ILearnerQuiz>>(
+    `${QUIZ_BASE}/${encodeURIComponent(quizId)}`,
+  );
+
+/** UC29.1 — start an attempt; while one is running the same attempt comes back (`resumed`). */
+export const startQuizAttemptAPI = (quizId: string) =>
+  axios.post<IBackendRes<IQuizAttemptInProgress>>(
+    `${QUIZ_BASE}/${encodeURIComponent(quizId)}/attempts`,
+  );
+
+/** The running attempt (questions and the saved answers), or its result once it is over. */
+export const fetchQuizAttemptAPI = (attemptId: string) =>
+  axios.get<IBackendRes<IQuizAttemptView>>(
+    `${QUIZ_BASE}/attempts/${encodeURIComponent(attemptId)}`,
+  );
+
+/** UC29.1 — save the choice of one question at once. An empty list clears the answer. */
+export const saveQuizAnswerAPI = (
+  attemptId: string,
+  questionId: string,
+  optionIds: string[],
+) =>
+  axios.put<IBackendRes<ISavedQuizAnswer>>(
+    `${QUIZ_BASE}/attempts/${encodeURIComponent(attemptId)}/answers/${encodeURIComponent(questionId)}`,
+    { optionIds },
+  );
+
+/** UC29.1 — submit the attempt; the answer is the result. */
+export const submitQuizAttemptAPI = (attemptId: string) =>
+  axios.post<IBackendRes<IQuizAttemptResult>>(
+    `${QUIZ_BASE}/attempts/${encodeURIComponent(attemptId)}/submit`,
+  );
+
+/** UC29.2 — the attempts of the Learner on a Quiz, with score, tries left and the time it opens again. */
+export const fetchQuizHistoryAPI = (quizId: string) =>
+  axios.get<IBackendRes<IQuizHistory>>(
+    `${QUIZ_BASE}/${encodeURIComponent(quizId)}/history`,
   );

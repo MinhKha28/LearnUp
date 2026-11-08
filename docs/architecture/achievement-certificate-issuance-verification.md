@@ -9,11 +9,12 @@ certificate holders and UC34.3 configuration remain for later work.
 The Kafka dependency is pinned to `@confluentinc/kafka-javascript` 1.11.0.
 The consumer group is `achievement-reporting-certificate-v1`, initial offset
 policy earliest, automatic commits disabled. `CERTIFICATE_CONSUMER_ENABLED`
-defaults false. Receipt/Pending and quarantine transactions commit before the
+defaults true in Compose. Receipt/Pending and quarantine transactions commit before the
 consumer explicitly commits offset + 1. A database failure leaves the offset
 uncommitted. The adapter's retry-on-handler-error behavior was checked in the
 installed SDK source. The separate live local-broker check is recorded below;
 automated callback tests remain distinct from that smoke test.
+Enabled by default; set CERTIFICATE_CONSUMER_ENABLED=false to run the stack without certificate issuance. On first start the consumer issues certificates for completion events still retained in Kafka (idempotent).
 
 Completion payload validation includes envelope v1, producer, topic key identity,
 organization identity, dates, Optional late/deadline rules, and the exact object
