@@ -1,4 +1,6 @@
 import type {
+  IAdminOrganizationListItem,
+  IAdminOrganizationListQuery,
   IAccountListItem,
   IAccountListQuery,
   IChangeAccountStatusReq,
@@ -210,3 +212,18 @@ export const getInvitationAPI = (token: string) =>
 // UC04 - Đặt mật khẩu và kích hoạt tài khoản
 export const acceptInvitationAPI = (body: IAcceptInvitationReq) =>
   axios.post<IBackendRes<IAcceptInvitationResult>>("/api/v1/invitations/accept", body);
+
+// UC44 - Admin xem danh sách Organization; mặc định backend ẩn Cancelled, chỉ gửi cờ khi cần hiện
+export const getAdminOrganizationsAPI = ({
+  includeCancelled,
+  ...query
+}: IAdminOrganizationListQuery) =>
+  axios.get<IBackendRes<IPageResponse<IAdminOrganizationListItem>>>(
+    "/api/v1/organizations",
+    {
+      params: {
+        ...query,
+        ...(includeCancelled ? { includeCancelled: true } : {}),
+      },
+    },
+  );

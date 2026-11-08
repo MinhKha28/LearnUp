@@ -22,6 +22,7 @@ import { InternalUsersModule } from './modules/internal-users/internal-users.mod
 import { InternalOrganizationsModule } from './modules/internal-organizations/internal-organizations.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { OrganizationsController } from './modules/organizations/organizations.controller';
+import { AdminOrganizationsController } from './modules/organizations/admin-organizations.controller';
 
 @Module({
   imports: [
@@ -53,13 +54,12 @@ export class AppModule implements NestModule {
   // TẠM THỜI: fake danh tính khi chưa đi qua api-gateway. Chỉ có tác dụng khi
   // DEV_FAKE_AUTH=true và NODE_ENV !== 'production' (xem dev-fake-auth.middleware.ts).
   configure(consumer: MiddlewareConsumer): void {
-    consumer
-      .apply(DevFakeAuthMiddleware)
-      .forRoutes(
-        UsersController,
-        ProfileController,
-        SubscriptionsController,
-        OrganizationsController,
-      );
+    consumer.apply(DevFakeAuthMiddleware).forRoutes(
+      UsersController,
+      ProfileController,
+      SubscriptionsController,
+      OrganizationsController,
+      AdminOrganizationsController, // UC44
+    );
   }
 }

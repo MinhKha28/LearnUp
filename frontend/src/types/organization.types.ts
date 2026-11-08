@@ -46,6 +46,38 @@ export interface IAdminPlan extends ISubscriptionPlan {
 
 export type ICreatePlanReq = Omit<ISubscriptionPlan, "id">;
 
+// UC44 - Admin xem danh sách Organization (khớp IAdminOrganizationListItem ở tenant-service)
+export type AdminOrganizationStatus =
+  | "PendingPayment"
+  | "Active"
+  | "Suspended"
+  | "Cancelled";
+export type AdminSubscriptionStatus = "Active" | "Grace" | "Suspended";
+
+export interface IAdminOrganizationListItem {
+  id: string;
+  name: string;
+  contactEmail: string | null;
+  // Trạng thái hiệu lực: PendingPayment quá hạn thanh toán đã được tính là Cancelled (BR-7)
+  status: AdminOrganizationStatus;
+  plan: { id: string; name: string } | null;
+  // Độc lập với trạng thái Organization (BR-283); null khi chưa có hoặc đã kết thúc
+  subscription: {
+    status: AdminSubscriptionStatus;
+    startsAt: string;
+    expiresAt: string;
+    graceEndsAt: string | null;
+  } | null;
+  paymentDueAt: string | null;
+  createdAt: string;
+}
+
+export interface IAdminOrganizationListQuery {
+  page: number;
+  pageSize: number;
+  includeCancelled: boolean;
+}
+
 // UC02 - body gửi lên POST /api/v1/registrations (khớp CreateRegistrationDto ở backend)
 export interface ICreateRegistrationReq {
   planId: string;
