@@ -85,19 +85,19 @@ const NotificationBell = ({ basePath }: { basePath: string }) => {
   const content = (
     <div className="notification-bell-panel">
       <div className="notification-bell-head">
-        <strong>Notifications</strong>
-        {unread > 0 && <span>{unread} unread</span>}
+        <strong>Thông báo</strong>
+        {unread > 0 && <span>{unread} chưa đọc</span>}
       </div>
       <div className="notification-bell-list">
-        {loading && items.length === 0 && <p className="notification-bell-empty">Loading...</p>}
-        {failed && <p className="notification-bell-empty">Unable to load notifications. Try again later.</p>}
-        {!loading && !failed && items.length === 0 && <p className="notification-bell-empty">You have no notifications.</p>}
+        {loading && items.length === 0 && <p className="notification-bell-empty">Đang tải...</p>}
+        {failed && <p className="notification-bell-empty">Không tải được thông báo. Hãy thử lại sau.</p>}
+        {!loading && !failed && items.length === 0 && <p className="notification-bell-empty">Bạn chưa có thông báo nào.</p>}
         {items.map((notification) => (
           <NotificationItem key={notification.id} notification={notification} onOpen={openNotification} />
         ))}
       </div>
       <button type="button" className="notification-bell-all" onClick={viewAll}>
-        View all notifications
+        Xem tất cả thông báo
       </button>
     </div>
   );
@@ -113,7 +113,7 @@ const NotificationBell = ({ basePath }: { basePath: string }) => {
       overlayClassName="notification-bell-popover"
     >
       <Badge count={unread} size="small" overflowCount={99}>
-        <Button className="notification-bell-button" type="text" icon={<BellOutlined />} aria-label="Notifications" />
+        <Button className="notification-bell-button" type="text" icon={<BellOutlined />} aria-label="Thông báo" />
       </Badge>
     </Popover>
   );

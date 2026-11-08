@@ -80,18 +80,18 @@ const NotificationPage = () => {
     <div className="notification-page">
       <div className="notification-page-head">
         <div className="notification-page-title">
-          <h1>Notifications</h1>
+          <h1>Thông báo</h1>
           <p>
-            Updates about your Courses, assessments and reviews.
-            {unread !== null && unread > 0 && <span className="notification-page-count">{unread} unread</span>}
+            Cập nhật về Khóa học, bài tập và bài chấm của bạn.
+            {unread !== null && unread > 0 && <span className="notification-page-count">{unread} chưa đọc</span>}
           </p>
         </div>
         <Segmented
           value={filter}
           onChange={(value) => changeFilter(value as Filter)}
           options={[
-            { label: "All", value: "all" },
-            { label: "Unread", value: "unread" },
+            { label: "Tất cả", value: "all" },
+            { label: "Chưa đọc", value: "unread" },
           ]}
         />
       </div>
@@ -110,9 +110,9 @@ const NotificationPage = () => {
             <span className="notification-page-state-icon">
               <ExclamationCircleOutlined />
             </span>
-            <strong>Unable to load notifications</strong>
-            <p>Something went wrong. Please try again.</p>
-            <Button onClick={() => void load()}>Try again</Button>
+            <strong>Không tải được thông báo</strong>
+            <p>Đã có lỗi xảy ra. Vui lòng thử lại.</p>
+            <Button onClick={() => void load()}>Thử lại</Button>
           </div>
         )}
 
@@ -121,13 +121,13 @@ const NotificationPage = () => {
             <span className="notification-page-state-icon">
               <BellOutlined />
             </span>
-            <strong>{filter === "unread" ? "You're all caught up" : "No notifications yet"}</strong>
+            <strong>{filter === "unread" ? "Bạn đã xem hết thông báo" : "Chưa có thông báo nào"}</strong>
             <p>
               {filter === "unread"
-                ? "You have no unread notifications."
-                : "When something needs your attention, it will show up here."}
+                ? "Bạn không có thông báo chưa đọc."
+                : "Khi có việc cần bạn chú ý, thông báo sẽ hiện ở đây."}
             </p>
-            {filter === "unread" && <Button onClick={() => changeFilter("all")}>View all notifications</Button>}
+            {filter === "unread" && <Button onClick={() => changeFilter("all")}>Xem tất cả thông báo</Button>}
           </div>
         )}
 

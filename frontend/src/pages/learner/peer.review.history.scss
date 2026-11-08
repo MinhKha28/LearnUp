@@ -69,3 +69,49 @@
   color: #0f172a;
   font-weight: 650;
 }
+
+.peer-review-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.peer-review-history-head h3 {
+  margin: 0;
+}
+
+.peer-review-history-duties {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.peer-review-history-duties li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.peer-review-history-duties li:last-child {
+  border-bottom: 0;
+}
+
+.peer-review-history-duties span {
+  margin-left: auto;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.peer-review-history-criteria {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+}
