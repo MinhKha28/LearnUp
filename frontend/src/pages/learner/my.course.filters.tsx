@@ -2,12 +2,12 @@ import { Input, Select } from "antd";
 
 import { ENROLLMENT_STATUS_LABELS, ENROLLMENT_TYPE_LABELS } from "@/utils/learner.labels";
 
-const typeOptions = [
+export const typeOptions = [
   { value: "", label: "Tất cả loại Khóa học" },
   ...Object.entries(ENROLLMENT_TYPE_LABELS).map(([value, label]) => ({ value, label })),
 ];
 
-const statusOptions = [
+export const statusOptions = [
   { value: "", label: "Tất cả trạng thái" },
   ...Object.entries(ENROLLMENT_STATUS_LABELS)
     .filter(([value]) => value !== "Withdrawn")
@@ -30,6 +30,7 @@ export const MyCourseFilters = ({
       aria-label="Tìm theo tên Khóa học"
       placeholder="Tìm theo tên Khóa học"
       value={draft}
+      maxLength={200}
       onChange={(event) => setDraft(event.target.value)}
       allowClear
     />
