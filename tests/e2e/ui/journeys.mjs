@@ -191,7 +191,7 @@ export const journeys = [
           (page.observations ??= []).push(`progress page body: "${(await page.bodyText()).replace(/\s+/g, " ").trim()}"`);
           throw new Error("progress page shows no remaining-conditions section for a real enrollment");
         }
-      }, { knownBug: "UI-1" });
+      });
       await step("the completed Reading is counted; every other required material is listed as missing", async () => {
         await page.waitFor(`/Điều kiện hoàn thành: \\d+\\/\\d+ đã đạt/.test(document.body.innerText)`, "completion summary");
         const met = Number(await page.eval(`/Điều kiện hoàn thành: (\\d+)\\/\\d+ đã đạt/.exec(document.body.innerText)[1]`));
@@ -199,7 +199,7 @@ export const journeys = [
         const missingText = await page.eval(`(${remaining}).innerText`);
         for (const m of done) assert.ok(!missingText.includes(m.title), `completed "${m.title}" still listed as missing`);
         for (const m of missing) assert.ok(missingText.includes(m.title), `required "${m.title}" not listed as missing`);
-      }, { knownBug: "UI-1" });
+      });
     },
   },
 ];

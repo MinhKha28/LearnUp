@@ -1,16 +1,15 @@
 import type { CurrentUser } from '@learnup/ts-common';
-import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
-import {
-  READING_ACCESS_CONFIG,
-  type ReadingAccessConfig,
-} from './reading-access.config';
+import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import type {
   MaterialSnapshot,
   Prisma,
 } from '../../../generated/prisma/client';
 import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
-import { CourseServiceError } from '../../infrastructure/clients/course/course-service.errors';
+import {
+  CourseServiceError,
+  MaterialSigningError,
+} from '../../infrastructure/clients/course/course-service.errors';
 import type { CourseTree } from '../../infrastructure/clients/course/course-service.interface';
 import {
   MaterialProgressRepository,
@@ -23,10 +22,6 @@ import {
   requiredSeconds,
 } from './video-progress.rules';
 import type { ReportProgressDto } from './report-progress.dto';
-import {
-  VIDEO_PLAYBACK_CONFIG,
-  type VideoPlaybackConfig,
-} from './video-playback.config';
 
 const fail = (
   status: number,
@@ -46,10 +41,6 @@ export class MaterialProgressService {
   constructor(
     private readonly repository: MaterialProgressRepository,
     private readonly course: CourseServiceClient,
-    @Inject(VIDEO_PLAYBACK_CONFIG)
-    private readonly playbackConfig: VideoPlaybackConfig,
-    @Inject(READING_ACCESS_CONFIG)
-    private readonly readingConfig: ReadingAccessConfig,
   ) {}
 
   private async access(
@@ -161,22 +152,23 @@ export class MaterialProgressService {
     const access = await this.access(user, enrollmentId);
     await this.readingMaterial(user, access, materialId);
     // L21: insert sequential-access policy before issuing a content URL.
-    if (this.readingConfig.mode === 'course')
-      return fail(
-        503,
-        'SERVICE_UNAVAILABLE',
-        'Reading access is awaiting the course-service contract.',
-      );
     let tree: CourseTree;
     try {
       tree = await this.course.getCourseTree(user, access.courseId);
     } catch (error) {
-      if (error instanceof CourseServiceError)
+      if (error instanceof CourseServiceError) {
+        this.logger.error({
+          message: 'Course content unavailable',
+          enrollmentId,
+          materialId,
+          courseStatus: null,
+        });
         return fail(
           503,
           'SERVICE_UNAVAILABLE',
           'Reading content is temporarily unavailable.',
         );
+      }
       throw error;
     }
     if (tree.disabledAt !== null)
@@ -192,22 +184,82 @@ export class MaterialProgressService {
         return {
           materialId,
           title: material.title,
-          accessUrl: this.readingConfig.fixtureUrl!,
-          fixture: true,
+          ...(await this.signedUrl(user, access, materialId, 'Reading')),
+          fixture: false,
         };
       }
     return fail(404, 'MATERIAL_NOT_FOUND', 'Không tìm thấy học liệu.');
   }
-  private async tree(user: CurrentUser, courseId: string) {
+  private async signedUrl(
+    user: CurrentUser,
+    access: ProgressAccess,
+    materialId: string,
+    kind: 'Video' | 'Reading',
+  ) {
+    try {
+      const signed = await this.course.getMaterialSignedUrl(
+        user,
+        access.courseId,
+        materialId,
+      );
+      if (
+        kind === 'Video'
+          ? !signed.mimeType.startsWith('video/')
+          : signed.mimeType !== 'application/pdf'
+      )
+        throw new MaterialSigningError(200, null);
+      return {
+        ...(kind === 'Video'
+          ? { playbackUrl: signed.url }
+          : { accessUrl: signed.url }),
+        expiresAt: signed.expiresAt,
+        mimeType: signed.mimeType,
+      };
+    } catch (error) {
+      const status =
+        error instanceof MaterialSigningError ? error.status : null;
+      const code = error instanceof MaterialSigningError ? error.code : null;
+      if (status === 409 && code === 'MATERIAL_DISABLED')
+        return fail(403, 'CONTENT_UNAVAILABLE', 'Nội dung đang tạm ngưng.');
+      this.logger.error({
+        message: 'Material signing failed',
+        materialId,
+        enrollmentId: access.id,
+        courseStatus: status,
+      });
+      if (status === 404 && code === 'MATERIAL_NOT_FOUND')
+        return fail(404, 'MATERIAL_NOT_FOUND', 'Không tìm thấy học liệu.');
+      if (status === 409 && code === 'MATERIAL_FILE_NOT_READY')
+        return fail(409, 'MATERIAL_NOT_READY', 'Học liệu chưa sẵn sàng.');
+      return fail(
+        503,
+        'SERVICE_UNAVAILABLE',
+        'Nội dung tạm thời không khả dụng. Vui lòng thử lại.',
+      );
+    }
+  }
+  private async tree(
+    user: CurrentUser,
+    courseId: string,
+    enrollmentId?: string,
+    materialId?: string,
+  ) {
     try {
       return await this.course.getCourseTree(user, courseId);
     } catch (error) {
-      if (error instanceof CourseServiceError)
+      if (error instanceof CourseServiceError) {
+        this.logger.error({
+          message: 'Course content unavailable',
+          enrollmentId,
+          materialId,
+          courseStatus: null,
+        });
         return fail(
           503,
-          'PLAYBACK_UNAVAILABLE',
+          'SERVICE_UNAVAILABLE',
           'Không thể lấy học liệu từ course-service.',
         );
+      }
       throw error;
     }
   }
@@ -246,7 +298,7 @@ export class MaterialProgressService {
     if (material.durationSeconds === null || material.durationSeconds <= 0)
       fail(
         503,
-        'PLAYBACK_UNAVAILABLE',
+        'SERVICE_UNAVAILABLE',
         'Thiếu thời lượng Video hợp lệ trong bản sao.',
       );
     return material;
@@ -283,15 +335,9 @@ export class MaterialProgressService {
       user.organizationId!,
     );
     const { material } = this.treeMaterial(
-      await this.tree(user, access.courseId),
+      await this.tree(user, access.courseId, enrollmentId, materialId),
       materialId,
     );
-    if (this.playbackConfig.mode === 'course')
-      fail(
-        503,
-        'PLAYBACK_UNAVAILABLE',
-        'Chưa có hợp đồng phát Video từ course-service.',
-      );
     const row = await this.repository.read(
       enrollmentId,
       materialId,
@@ -305,7 +351,7 @@ export class MaterialProgressService {
         row,
       ),
       title: material.title,
-      playbackUrl: this.playbackConfig.fixtureUrl!,
+      ...(await this.signedUrl(user, access, materialId, 'Video')),
     };
   }
   async report(

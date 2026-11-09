@@ -118,12 +118,16 @@ export interface VideoProgress {
 export interface VideoPlayback extends VideoProgress {
   title: string;
   playbackUrl: string;
+  expiresAt: string;
+  mimeType: string;
 }
 
 export interface ReadingAccess {
   materialId: string;
   title: string;
   accessUrl: string;
+  expiresAt: string;
+  mimeType: string;
   fixture: boolean;
 }
 export interface ReadingCompletion {
@@ -175,4 +179,46 @@ export interface AssessmentResultsData {
   state: "ok" | "unavailable";
   summary?: AssessmentResultsSummary;
   items?: AssessmentResultItem[];
+}
+
+/** UC28: no current conditions are returned for a Completed Enrollment. */
+export interface EnrollmentProgress {
+  enrollment: {
+    id: string;
+    courseId: string;
+    status: EnrollmentStatus;
+    enrollmentType: EnrollmentType;
+    dueAt: string | null;
+    dueTimezone: string | null;
+    completedAt: string | null;
+    completedLate: boolean | null;
+  };
+  materials?: {
+    materialId: string;
+    lessonId: string;
+    title: string;
+    materialType: string;
+    required: boolean;
+    done: boolean;
+  }[];
+  assessment?: { state: "unavailable" } | {
+    state: "ok";
+    items: {
+      kind: "quiz" | "assignment";
+      assessmentId: string;
+      passed: boolean;
+      peerReview: null | {
+        status: "NotApplicable" | "Pending" | "Satisfied" | "Missed" | "Waived";
+        requiredCount: number;
+        completedCount: number;
+        done: boolean;
+      };
+    }[];
+  };
+  conditions?: {
+    state: "ok" | "unavailable";
+    met: number | null;
+    total: number | null;
+    missing: { kind: "material" | "quiz" | "assignment" | "peerReview"; id: string }[];
+  };
 }

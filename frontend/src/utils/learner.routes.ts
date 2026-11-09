@@ -19,6 +19,9 @@ export const LEARNER_ROUTES = {
     `/learner/courses/${encodeURIComponent(enrollmentId)}/assignments/${encodeURIComponent(assignmentId)}/result`,
   assignmentSubmit: (enrollmentId: string, assignmentId: string) =>
     `/learner/courses/${encodeURIComponent(enrollmentId)}/assignments/${encodeURIComponent(assignmentId)}/submit`,
+  certificates: () => "/learner/certificates",
+  progress: (enrollmentId: string) => `/learner/courses/${encodeURIComponent(enrollmentId)}/progress`,
+  evaluation: (enrollmentId: string) => `/learner/courses/${encodeURIComponent(enrollmentId)}/evaluation`,
   lesson: (enrollmentId: string, lessonId: string) =>
     `/learner/courses/${encodeURIComponent(enrollmentId)}/lessons/${encodeURIComponent(lessonId)}`,
 };
