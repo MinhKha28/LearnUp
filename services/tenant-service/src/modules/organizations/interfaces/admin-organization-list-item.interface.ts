@@ -4,7 +4,7 @@ export interface IAdminOrganizationPlan {
   name: string;
 }
 
-/** UC44: Subscription hiện hành (Active, Grace, Suspended), độc lập với trạng thái Organization (BR-283). */
+/** UC44: Subscription hiện hành (Active, Grace, Suspended), độc lập với trạng thái Organization (BR-60). */
 export interface IAdminOrganizationSubscription {
   status: string; // Active | Grace | Suspended
   startsAt: Date;
@@ -17,7 +17,7 @@ export interface IAdminOrganizationListItem {
   id: string;
   name: string;
   contactEmail: string | null;
-  // Trạng thái hiệu lực: PendingPayment đã quá hạn thanh toán được tính là Cancelled lúc đọc (BR-7).
+  // Trạng thái hiệu lực: PendingPayment đã quá hạn thanh toán được tính là Cancelled lúc đọc (BR-8).
   status: string; // PendingPayment | Active | Suspended | Cancelled
   plan: IAdminOrganizationPlan | null;
   subscription: IAdminOrganizationSubscription | null;

@@ -5,13 +5,14 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { ListOrganizationsQueryDto } from './dto/list-organizations-query.dto';
 import { OrganizationsService } from './organizations.service';
 
-// UC44 - Admin xem mọi Organization trên nền tảng. Không xung đột với organizations/me (UC11)
-// vì chỉ khai báo GET gốc; route dạng :id (UC44.1) phải xử lý được "me".
+// UC44 - Admin xem mọi Organization trên nền tảng.
+// Tiền tố admin/ tách hẳn khỏi organizations/me (UC11) như UC43 (admin/subscription-plans),
+// nên route không phụ thuộc thứ tự đăng ký controller.
 @ApiTags('UC44 - Admin Organizations')
 @ApiSecurity('internal-key')
 @UseGuards(RolesGuard)
 @Roles('ADMIN')
-@Controller('organizations')
+@Controller('admin/organizations')
 export class AdminOrganizationsController {
   constructor(private readonly service: OrganizationsService) {}
 

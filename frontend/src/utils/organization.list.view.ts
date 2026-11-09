@@ -7,7 +7,7 @@ import { formatDateVN } from "@/utils/helper";
 
 type Tone = "neutral" | "success" | "warning" | "error" | "info";
 
-// UC44 - trạng thái Organization (BR-7, BR-45), hiển thị riêng với Subscription (BR-283)
+// UC44 - trạng thái Organization (BR-8, BR-56), hiển thị riêng với Subscription (BR-60)
 export const organizationStatusView: Record<
   AdminOrganizationStatus,
   { label: string; tone: Tone }
@@ -18,7 +18,7 @@ export const organizationStatusView: Record<
   Cancelled: { label: "Cancelled", tone: "neutral" },
 };
 
-// UC44 - BR-15, BR-16: phân biệt đang hoạt động, ân hạn, Suspended
+// UC44 - BR-22, BR-23: phân biệt đang hoạt động, ân hạn, Suspended
 export const subscriptionStatusView: Record<
   AdminSubscriptionStatus,
   { label: string; tone: Tone }

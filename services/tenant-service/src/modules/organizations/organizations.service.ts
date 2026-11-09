@@ -89,7 +89,7 @@ export class OrganizationsService {
   ) {}
 
   // ===========================================================================
-  // UC44 - Xem danh sách Organization (Admin; BR-7, BR-276, BR-283)
+  // UC44 - Xem danh sách Organization (Admin; BR-8, BR-12, BR-60)
   // ===========================================================================
   async findAllForAdmin(
     query: ListOrganizationsQueryDto,
@@ -107,8 +107,8 @@ export class OrganizationsService {
   }
 
   /**
-   * Trạng thái Organization và Subscription là hai trường riêng (BR-283).
-   * PendingPayment mà đăng ký mới nhất không còn chờ thanh toán trong hạn thì tính là Cancelled (BR-7).
+   * Trạng thái Organization và Subscription là hai trường riêng (BR-60).
+   * PendingPayment mà đăng ký mới nhất không còn chờ thanh toán trong hạn thì tính là Cancelled (BR-8).
    */
   private toAdminListItem(
     row: AdminOrganizationRow,

@@ -68,8 +68,8 @@ export class OrganizationsRepository extends BaseRepository {
 
   /**
    * UC44: một trang Organization, mới nhất trước.
-   * Mặc định ẩn Cancelled (BR-7, BR-276), gồm cả tổ chức còn PendingPayment mà đăng ký đã quá hạn
-   * nhưng chưa được hủy (BR-7 chỉ chạy khi có request chạm vào đăng ký). Chỉ đọc, không ghi gì.
+   * Mặc định ẩn Cancelled (BR-8, BR-12), gồm cả tổ chức còn PendingPayment mà đăng ký đã quá hạn
+   * nhưng chưa được hủy (BR-8 chỉ chạy khi có request chạm vào đăng ký). Chỉ đọc, không ghi gì.
    */
   async findAdminPage(params: {
     includeCancelled: boolean;

@@ -21,7 +21,7 @@ export class ListOrganizationsQueryDto {
   })
   pageSize: number = 10;
 
-  // UC44: mặc định ẩn Organization Cancelled (BR-7, BR-276); true thì hiện cả nhóm này.
+  // UC44: mặc định ẩn Organization Cancelled (BR-8, BR-12); true thì hiện cả nhóm này.
   // Query string chỉ nhận "true" / "false"; giá trị khác giữ nguyên để IsBoolean báo lỗi.
   @ApiPropertyOptional({ type: Boolean, default: false })
   @Transform(({ value }: { value: unknown }) => {
