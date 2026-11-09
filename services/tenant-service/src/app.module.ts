@@ -23,10 +23,13 @@ import { InternalOrganizationsModule } from './modules/internal-organizations/in
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { OrganizationsController } from './modules/organizations/organizations.controller';
 import { AdminOrganizationsController } from './modules/organizations/admin-organizations.controller';
+import { MemberImportsModule } from './modules/member-imports/member-imports.module';
+import { MemberImportsController } from './modules/member-imports/member-imports.controller';
+import { validateEnvironment } from './common/utils/otp.util';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
     ScheduleModule.forRoot(), // bật @Interval / @Cron (EmailRelayService)
     PrismaModule,
     OutboxModule, // @Global: OutboxService + relay gửi email
@@ -42,6 +45,7 @@ import { AdminOrganizationsController } from './modules/organizations/admin-orga
     ProfileModule,
     SubscriptionsModule,
     OrganizationsModule, // UC11, UC11.1
+    MemberImportsModule, // UC12.8
   ],
   providers: [
     {
@@ -60,6 +64,7 @@ export class AppModule implements NestModule {
       SubscriptionsController,
       OrganizationsController,
       AdminOrganizationsController, // UC44
+      MemberImportsController, // UC12.8
     );
   }
 }

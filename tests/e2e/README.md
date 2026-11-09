@@ -106,7 +106,7 @@ screenshot to `$E2E_STATE_DIR/ui-screens/<runId>/` (never committed). Nothing is
 | S1 | UC05 Organizer login; records the organization name shown in the header |
 | S2 | UC13 learner list, UC24.2 assign a course; success message and the assignment with its due date |
 | S3 | UC26 My courses, UC27 curriculum, UC27.1 lesson, UC27.3 Reading completion (kept after reload), UC27.2 Video page against the unreachable fixture URL |
-| S4 | UC28 progress page: completed Reading counted, other required materials listed as missing (`KNOWN-FAIL` UI-1 until the real page is on develop) |
+| S4 | UC28 progress page: completed Reading counted, other required materials listed as missing |
 
 The assign form has no due-date input; the due date is computed per learner by the backend and
 checked in the assignment list. The video step records what the page shows when the fixture media
@@ -135,17 +135,8 @@ its volumes. `$E2E_STATE_DIR` (secrets, mailbox, run records) is kept; delete it
 
 ## Known failures
 
-UI-1: UC28 progress uses hardcoded learner data; blank for real enrollments, with no curriculum link.
-
 CT-1 (assessment-service had no `completion-snapshot` endpoint, so no enrollment reached
 Completed) is resolved: J5 now asserts that the enrollment becomes Completed.
-
-- **UI-1 (learner frontend, owner Hào).** The UC28 progress page renders the hardcoded
-  `learner.data` mock (`frontend/src/pages/learner/course.progress.tsx`, `courseDetails[courseId]`),
-  so it is blank for a real enrollment, and the curriculum has no link to it. Reproduce: sign in as
-  a learner with an assigned course, open `/learner/courses/<enrollmentId>/progress`; the page
-  shows only the "Khóa học của tôi" back link. Browser smoke S4 asserts the correct outcome and is
-  reported as `KNOWN-FAIL [UI-1]`.
 
 Tenant CT-2 is resolved: J7 uses the real `GET /api/v1/internal/organizations/:id/access` endpoint with matching internal-key and Organization headers. Tenant unavailability fails closed with `503 TENANT_UNAVAILABLE`.
 
