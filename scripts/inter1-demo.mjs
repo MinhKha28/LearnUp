@@ -279,8 +279,8 @@ function fail(error) {
 // này (giống tests/e2e/cluster/start.sh); mã OTP hết hạn sau vài phút nên khóa không cần giữ qua các lượt.
 function tenantDemoEnv(dir) {
   if (process.env.EMAIL_OTP_SECRET?.trim()) return undefined;
-  if (readEnvFile(path.join(dir, ".env"))?.get("EMAIL_OTP_SECRET")?.trim())
-    return undefined;
+  const fileKey = readEnvFile(path.join(dir, ".env"))?.get("EMAIL_OTP_SECRET");
+  if (fileKey?.trim()) return { EMAIL_OTP_SECRET: fileKey };
   detail("Chưa có EMAIL_OTP_SECRET: sinh khóa tạm cho lượt demo này.");
   return { EMAIL_OTP_SECRET: randomBytes(32).toString("base64url") };
 }
@@ -292,16 +292,19 @@ function readEnvFile(file) {
     const match =
       /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/.exec(line);
     if (!match || line.trimStart().startsWith("#")) continue;
-    let value = match[2].trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    env.set(match[1], value);
+    env.set(match[1], parseEnvValue(match[2]));
   }
   return env;
+}
+
+function parseEnvValue(raw) {
+  const value = raw.trim();
+  const quote = value[0];
+  if (quote === '"' || quote === "'" || quote === "`") {
+    const end = value.indexOf(quote, 1);
+    if (end > 0) return value.slice(1, end);
+  }
+  return value.replace(/#.*$/, "").trim();
 }
 
 // ---------------------------------------------------------------------------
