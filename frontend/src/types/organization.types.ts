@@ -316,3 +316,71 @@ export interface ISeatUsage {
   subscriptionStatus: "Active" | "Grace" | "Suspended" | null;
   canCreate: boolean;
 }
+
+// UC12.8 - Import Instructor hàng loạt (dùng lại cho UC13.8). Khớp tenant-service member-imports.
+export type ImportField = "fullName" | "email" | "department" | "role";
+
+export type ImportRowErrorCode =
+  | "MISSING_REQUIRED_FIELD"
+  | "INVALID_EMAIL"
+  | "DUPLICATE_EMAIL_IN_FILE"
+  | "EMAIL_ALREADY_USED"
+  | "INVALID_ROLE"
+  | "INVALID_VALUE";
+
+export interface IImportRowError {
+  field: ImportField;
+  code: ImportRowErrorCode;
+  message: string;
+  relatedRows?: number[];
+}
+
+export interface IValidImportRow {
+  rowNumber: number;
+  fullName: string;
+  email: string;
+  department: string | null;
+}
+
+export interface IInvalidImportRow {
+  rowNumber: number;
+  values: Record<ImportField, string>;
+  errors: IImportRowError[];
+}
+
+export interface IMemberImportPreview {
+  role: string;
+  totalRows: number;
+  validRows: IValidImportRow[];
+  invalidRows: IInvalidImportRow[];
+  seats: ISeatUsage;
+  exceedsSeats: boolean;
+  canConfirm: boolean;
+  previewDigest: string;
+}
+
+export interface IImportedAccount {
+  id: string;
+  rowNumber: number;
+  fullName: string;
+  email: string;
+  department: string | null;
+  status: AccountStatus;
+}
+
+export interface IMemberImportResult {
+  role: string;
+  createdCount: number;
+  skippedCount: number;
+  accounts: IImportedAccount[];
+}
+
+// Lỗi của API import: ngoài code/message còn có trường riêng (IMPORT_CHANGED kèm preview mới, ...)
+export interface IImportApiError extends IApiError {
+  preview?: IMemberImportPreview;
+  validCount?: number;
+  remaining?: number;
+  maxRows?: number;
+  maxSizeBytes?: number;
+  missingColumns?: string[];
+}

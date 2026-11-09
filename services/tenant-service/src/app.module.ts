@@ -22,6 +22,8 @@ import { InternalUsersModule } from './modules/internal-users/internal-users.mod
 import { InternalOrganizationsModule } from './modules/internal-organizations/internal-organizations.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { OrganizationsController } from './modules/organizations/organizations.controller';
+import { MemberImportsModule } from './modules/member-imports/member-imports.module';
+import { MemberImportsController } from './modules/member-imports/member-imports.controller';
 import { validateEnvironment } from './common/utils/otp.util';
 
 @Module({
@@ -42,6 +44,7 @@ import { validateEnvironment } from './common/utils/otp.util';
     ProfileModule,
     SubscriptionsModule,
     OrganizationsModule, // UC11, UC11.1
+    MemberImportsModule, // UC12.8
   ],
   providers: [
     {
@@ -61,6 +64,7 @@ export class AppModule implements NestModule {
         ProfileController,
         SubscriptionsController,
         OrganizationsController,
+        MemberImportsController,
       );
   }
 }
