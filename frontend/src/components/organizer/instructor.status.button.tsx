@@ -1,5 +1,9 @@
-import { Alert, App, Button, Form, Input, Modal, Select, Skeleton } from "antd";
+import { Alert, App, Button, Form, Input, Modal, Skeleton } from "antd";
 import { useCallback, useEffect, useState } from "react";
+import {
+  HandOverBlockAlert,
+  HandOverReceiverFields,
+} from "@/components/organizer/course.handover.fields";
 import { OrganizerButton } from "@/components/organizer/organizer.ui";
 import {
   changeInstructorStatusAPI,
@@ -9,7 +13,6 @@ import type {
   AccountStatus,
   IApiError,
   IInstructorStatusChange,
-  IManagedCourseChain,
 } from "@/types/organization.types";
 import {
   instructorStatusErrorMessage,
@@ -31,17 +34,6 @@ interface StatusForm {
   receiverInstructorId?: string;
   reason?: string;
 }
-
-const CourseList = ({ courses }: { courses: IManagedCourseChain[] }) => (
-  <ul className="instructor-status-courses">
-    {courses.map((course) => (
-      <li key={course.chainId}>
-        <strong>{course.name}</strong> · v{course.versionNumber} ·{" "}
-        {course.status}
-      </li>
-    ))}
-  </ul>
-);
 
 // UC12.5 - nút Deactivate / Reactivate trên trang chi tiết Instructor.
 // Chỉ tài khoản ĐÃ kích hoạt mới có nút (Pending hoặc chưa từng kích hoạt: dùng Xóa - UC12.6).
@@ -167,31 +159,14 @@ export const InstructorStatusButton = ({
     }
     switch (preview.blockReason) {
       case "COURSE_SERVICE_UNAVAILABLE":
-        return (
-          <Alert
-            type="warning"
-            showIcon
-            message="Course information is temporarily unavailable"
-            description="The instructor cannot be deactivated until we can check the courses they manage."
-            action={<Button onClick={loadPreview}>Try again</Button>}
-          />
-        );
       case "NO_VALID_RECEIVER":
         return (
-          <Alert
-            type="error"
-            showIcon
-            message="No instructor can take over these courses"
-            description={
-              <>
-                <p>
-                  {fullName} still manages the courses below and no other
-                  active instructor in your organization can take them over.
-                  Add or reactivate an instructor first.
-                </p>
-                <CourseList courses={courses} />
-              </>
-            }
+          <HandOverBlockAlert
+            blockReason={preview.blockReason}
+            fullName={fullName}
+            courses={courses}
+            actionPast="deactivated"
+            onRetry={loadPreview}
           />
         );
       case "ACCOUNT_NOT_ACTIVATED":
@@ -220,30 +195,11 @@ export const InstructorStatusButton = ({
           and the seat is not released.
         </p>
         {needsReceiver && (
-          <>
-            <Alert
-              type="info"
-              showIcon
-              message={`${fullName} manages ${courses.length} course(s). They will be moved, with all their versions, to the instructor you choose.`}
-              description={<CourseList courses={courses} />}
-            />
-            <Form.Item
-              className="instructor-status-receiver"
-              name="receiverInstructorId"
-              label="Take over by"
-              rules={[{ required: true, message: "Choose an instructor." }]}
-            >
-              <Select
-                showSearch
-                placeholder="Choose an active instructor"
-                optionFilterProp="label"
-                options={preview.receivers.map((receiver) => ({
-                  value: receiver.id,
-                  label: `${receiver.fullName} (${receiver.email})`,
-                }))}
-              />
-            </Form.Item>
-          </>
+          <HandOverReceiverFields
+            fullName={fullName}
+            courses={courses}
+            receivers={preview.receivers}
+          />
         )}
       </>
     );
