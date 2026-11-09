@@ -245,4 +245,50 @@ export class HttpCourseServiceClient extends CourseServiceClient {
     }
     return { courseChains, storageBytes };
   }
+
+  /**
+   * UC44.1. Service call (course-service @ServiceCall): chỉ internal key + header tổ chức, header phải
+   * trùng :organizationId. Admin không có tổ chức nên không gửi header người dùng.
+   *   GET {COURSE_SERVICE_URL}/api/v1/internal/platform/organizations/:organizationId/usage
+   *   200: { statusCode, message, data: { organizationId, courseChains, storageBytes (chuỗi) } }
+   */
+  async getOrganizationUsageById(
+    organizationId: string,
+  ): Promise<IOrganizationCourseUsage> {
+    const baseUrl = this.config.get<string>('COURSE_SERVICE_URL');
+    if (!baseUrl) {
+      throw new Error('Chưa cấu hình COURSE_SERVICE_URL.');
+    }
+    const timeoutMs =
+      Number(this.config.get<string>('COURSE_SERVICE_TIMEOUT_MS')) ||
+      DEFAULT_TIMEOUT_MS;
+
+    const response = await fetch(
+      `${baseUrl}/api/v1/internal/platform/organizations/${encodeURIComponent(organizationId)}/usage`,
+      {
+        method: 'GET',
+        headers: {
+          accept: 'application/json',
+          [HEADER_NAMES.INTERNAL_KEY]: this.config.getOrThrow<string>(
+            'INTERNAL_SERVICE_KEY',
+          ),
+          [HEADER_NAMES.ORGANIZATION_ID]: organizationId,
+        },
+        signal: AbortSignal.timeout(timeoutMs),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`course-service trả về HTTP ${response.status}.`);
+    }
+
+    const body = (await response.json()) as {
+      data?: Partial<IOrganizationCourseUsage>;
+    };
+    const courseChains = Number(body.data?.courseChains);
+    const storageBytes = Number(body.data?.storageBytes);
+    if (!Number.isFinite(courseChains) || !Number.isFinite(storageBytes)) {
+      throw new Error('Response của course-service sai hợp đồng.');
+    }
+    return { courseChains, storageBytes };
+  }
 }

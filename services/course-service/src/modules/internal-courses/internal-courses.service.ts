@@ -348,7 +348,28 @@ export class InternalCoursesService {
         createApiError('ORGANIZATION_NOT_FOUND', 'Organization not found.'),
       );
     }
+    return this.countOrganizationUsage(organizationId);
+  }
 
+  /**
+   * UC44.1: tenant-service hỏi thay Admin nền tảng (Admin không thuộc tổ chức nào). Gọi dạng
+   * service call: header tổ chức phải trùng tổ chức được hỏi, đếm giống getOrganizationUsage.
+   */
+  async getOrganizationUsageForPlatform(
+    headerOrganizationId: string | undefined,
+    organizationId: string,
+  ): Promise<OrganizationUsageDto> {
+    if (headerOrganizationId !== organizationId) {
+      throw new NotFoundException(
+        createApiError('ORGANIZATION_NOT_FOUND', 'Organization not found.'),
+      );
+    }
+    return this.countOrganizationUsage(organizationId);
+  }
+
+  private async countOrganizationUsage(
+    organizationId: string,
+  ): Promise<OrganizationUsageDto> {
     const [courseChains, storage] = await Promise.all([
       this.prisma.courseChain.count({
         where: { organizationId, courses: { some: {} } },
