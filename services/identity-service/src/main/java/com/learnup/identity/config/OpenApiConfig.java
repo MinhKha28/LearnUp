@@ -67,6 +67,8 @@ public class OpenApiConfig {
                 String action = path.substring(path.lastIndexOf('/') + 1);
                 List<String> codes = switch (action) {
                     case "login" -> List.of("400", "401", "403", "429", "503", "500");
+                    // UC05.1: 401 invalid/unlinked Google credential, 403 Admin or Tenant denial, 503 Google/Tenant unavailable.
+                    case "google" -> List.of("400", "401", "403", "503", "500");
                     case "refresh" -> List.of("400", "401", "403", "503", "500");
                     case "forgot-password" -> List.of("400", "500");
                     case "reset-password" -> List.of("400", "503", "500");
