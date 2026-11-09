@@ -142,7 +142,7 @@ for (const [name, target] of [
   });
 }
 
-test('email được cấp lại sau khi xóa (BR-30, BR-31)', async () => {
+test('email được cấp lại sau khi xóa (BR-38, BR-39)', async () => {
   const harness = createHarness();
   const lookup = () =>
     harness.service.findAccountByEmailAcrossOrganizations(harness.db.prisma, 'i103@a.test');
@@ -161,7 +161,7 @@ test('seat được giải phóng: hết chỗ -> xóa -> còn 1 chỗ, tạo đ
     [result.ok.seats.used, result.ok.seats.remaining, result.ok.seats.canCreate],
     [SEEDED_USED - 1, 1, true],
   );
-  // Vô hiệu hóa KHÔNG giải phóng chỗ (BR-36): 104 Deactivated vẫn được đếm.
+  // Vô hiệu hóa KHÔNG giải phóng chỗ (BR-45): 104 Deactivated vẫn được đếm.
   assert.equal(userRow(harness.db, '104').status, 'Deactivated');
 });
 

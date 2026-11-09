@@ -16,7 +16,7 @@ export const instructorDeleteErrorMessage = (
       return "Your Organization is suspended. Accounts cannot be deleted.";
     case "SUBSCRIPTION_NOT_ACTIVE":
       return "Your Subscription is suspended. Accounts cannot be deleted until it is renewed.";
-    // Mã chuyển quyền BR-41 dùng chung câu với UC12.5.
+    // Mã chuyển quyền BR-51 dùng chung câu với UC12.5.
     case "RECEIVER_REQUIRED":
     case "INVALID_RECEIVER":
     case "NO_VALID_RECEIVER":

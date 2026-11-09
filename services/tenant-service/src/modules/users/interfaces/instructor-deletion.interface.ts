@@ -5,7 +5,7 @@ import type {
 } from './instructor-status.interface';
 import type { SeatUsage } from './seat-usage.interface';
 
-/** UC12.6: dữ liệu cho dialog xóa (GET instructors/:id/deletion). Mọi trạng thái đều xóa được (BR-37). */
+/** UC12.6: dữ liệu cho dialog xóa (GET instructors/:id/deletion). Mọi trạng thái đều xóa được (BR-46). */
 export interface IInstructorDeletion {
   id: string;
   status: string;
@@ -24,6 +24,6 @@ export interface IInstructorDeletionResult {
   changed: boolean;
   transferredCourses: IManagedCourseChain[];
   receiver: { id: string; fullName: string } | null;
-  /** Số chỗ Instructor sau khi xóa (BR-23, BR-37: xóa giải phóng chỗ). */
+  /** Số chỗ Instructor sau khi xóa (BR-31, BR-46: xóa giải phóng chỗ). */
   seats: SeatUsage;
 }

@@ -34,8 +34,8 @@ interface DeleteForm {
   reason?: string;
 }
 
-// UC12.6 - nút Delete trên trang chi tiết Instructor. Mọi trạng thái đều xóa được (BR-37).
-// Còn phụ trách chuỗi Course thì phải chọn người tiếp nhận (BR-41, BR-287) như khi vô hiệu hóa.
+// UC12.6 - nút Delete trên trang chi tiết Instructor. Mọi trạng thái đều xóa được (BR-46).
+// Còn phụ trách chuỗi Course thì phải chọn người tiếp nhận (BR-51, BR-96) như khi vô hiệu hóa.
 export const InstructorDeleteButton = ({
   instructorId,
   fullName,

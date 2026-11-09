@@ -122,7 +122,7 @@ export class UsersController {
     return this.service.getInstructorDeletion(user, id);
   }
 
-  // UC12.6 - xóa mềm (BR-37), kèm chuyển quyền theo BR-41. Đã xóa (cùng tổ chức) -> 200 changed:false.
+  // UC12.6 - xóa mềm (BR-46), kèm chuyển quyền theo BR-51. Đã xóa (cùng tổ chức) -> 200 changed:false.
   // Body JSON { receiverInstructorId?, reason? }: không đưa lý do lên query string (lọt vào access log).
   @Roles('ORGANIZER')
   @Delete('instructors/:id')

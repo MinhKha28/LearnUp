@@ -27,7 +27,7 @@ export interface IInstructorStatusChange {
   receivers: IStatusChangeReceiver[];
 }
 
-/** BR-41: phần chung của modal vô hiệu hóa (UC12.5) và dialog xóa (UC12.6). */
+/** BR-51: phần chung của modal vô hiệu hóa (UC12.5) và dialog xóa (UC12.6). */
 export type HandOverBlockReason =
   'NO_VALID_RECEIVER' | 'COURSE_SERVICE_UNAVAILABLE';
 

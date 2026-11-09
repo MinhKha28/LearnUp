@@ -200,7 +200,7 @@ export const getInstructorDeletionAPI = (instructorId: string) =>
     `/api/v1/users/instructors/${encodeURIComponent(instructorId)}/deletion`,
   );
 
-// UC12.6 - xóa Instructor (xóa mềm, kèm chuyển quyền theo BR-41). Lý do đi trong body, không lên URL.
+// UC12.6 - xóa Instructor (xóa mềm, kèm chuyển quyền theo BR-51). Lý do đi trong body, không lên URL.
 export const deleteInstructorAPI = (
   instructorId: string,
   body: IDeleteAccountReq,

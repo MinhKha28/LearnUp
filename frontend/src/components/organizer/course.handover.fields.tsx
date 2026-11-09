@@ -5,7 +5,7 @@ import type {
 } from "@/types/organization.types";
 import "./course.handover.fields.scss";
 
-// BR-41 / BR-287 - phần chung của modal vô hiệu hóa (UC12.5) và dialog xóa (UC12.6):
+// BR-51 / BR-96 - phần chung của modal vô hiệu hóa (UC12.5) và dialog xóa (UC12.6):
 // danh sách chuỗi Course còn phụ trách, Alert khi bị chặn và ô chọn Instructor tiếp nhận.
 
 export const CourseList = ({ courses }: { courses: IManagedCourseChain[] }) => (

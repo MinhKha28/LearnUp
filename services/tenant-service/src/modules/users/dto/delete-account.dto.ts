@@ -12,17 +12,17 @@ import { normalizeText } from '../../../common/utils/text.util';
 const NO_CONTROL_CHARS = /^[^\p{Cc}]*$/u;
 
 /**
- * UC12.6 - Xóa Instructor (BR-37, BR-41, BR-271). Cũng là phần chung của ChangeAccountStatusDto (UC12.5):
+ * UC12.6 - Xóa Instructor (BR-46, BR-51, BR-337). Cũng là phần chung của ChangeAccountStatusDto (UC12.5):
  * người tiếp nhận chuỗi Course + lý do tùy chọn.
  */
 export class DeleteAccountDto {
-  // Chỉ dùng khi Instructor còn phụ trách chuỗi Course (BR-41, BR-287).
+  // Chỉ dùng khi Instructor còn phụ trách chuỗi Course (BR-51, BR-96).
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
   @IsUUID('all', { message: 'receiverInstructorId không hợp lệ' })
   receiverInstructorId?: string;
 
-  // BR-271: lý do tùy chọn. Rỗng sau chuẩn hóa -> coi như không gửi. Chỉ ghi nhật ký, không gửi trong thư.
+  // BR-337: lý do tùy chọn. Rỗng sau chuẩn hóa -> coi như không gửi. Chỉ ghi nhật ký, không gửi trong thư.
   @ApiPropertyOptional({ maxLength: 1000 })
   @Transform(({ value }) => {
     const normalized = normalizeText(value);
