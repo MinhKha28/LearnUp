@@ -14,7 +14,12 @@ if (!process.env.DATABASE_URL) {
 process.env.NODE_PATH = require('node:path').resolve(__dirname, '../dist');
 require('node:module').Module._initPaths();
 
-const { Module, ValidationPipe, VersioningType } = require('@nestjs/common');
+const {
+  Global,
+  Module,
+  ValidationPipe,
+  VersioningType,
+} = require('@nestjs/common');
 const { ConfigModule } = require('@nestjs/config');
 const { APP_GUARD, NestFactory, Reflector } = require('@nestjs/core');
 const {
@@ -26,6 +31,9 @@ const {
 const {
   OrganizationsModule,
 } = require('../dist/src/modules/organizations/organizations.module');
+const {
+  CourseServiceClient,
+} = require('../dist/src/infrastructure/clients/course/course-service.client');
 const {
   InternalAuthGuard,
 } = require('../dist/src/common/guards/internal-auth.guard');
@@ -48,11 +56,19 @@ test('UC44 Admin organization list (PostgreSQL)', async (t) => {
   ]) {
     delete process.env[key];
   }
+  // UC44.1 thêm CourseServiceClient vào OrganizationsService; danh sách UC44 không gọi tới nó.
+  class FakeClientsModule {}
+  Global()(FakeClientsModule);
+  Module({
+    providers: [{ provide: CourseServiceClient, useValue: {} }],
+    exports: [CourseServiceClient],
+  })(FakeClientsModule);
   class TestModule {}
   Module({
     imports: [
       ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
       PrismaModule,
+      FakeClientsModule,
       OrganizationsModule,
     ],
     providers: [{ provide: APP_GUARD, useClass: InternalAuthGuard }],
@@ -94,10 +110,35 @@ test('UC44 Admin organization list (PostgreSQL)', async (t) => {
       return { status: response.status, body: await response.json() };
     };
 
-    // Tổng trước khi thêm fixture, để không phụ thuộc dữ liệu seed đang có trong database.
-    const baseline = {
-      hidden: (await list()).body.data.meta.total,
-      all: (await list('?includeCancelled=true')).body.data.meta.total,
+    // Đếm thẳng trong DB theo định nghĩa của UC44 (viết lại độc lập với repository): mặc định chỉ
+    // Active, Suspended và PendingPayment còn đăng ký chờ thanh toán trong hạn; includeCancelled thì đếm hết.
+    const countInDb = (includeCancelled) =>
+      db.organization.count({
+        where: includeCancelled
+          ? {}
+          : {
+              OR: [
+                { status: { in: ['Active', 'Suspended'] } },
+                {
+                  status: 'PendingPayment',
+                  registrations: {
+                    some: { status: 'PendingPayment', expiresAt: { gt: new Date() } },
+                  },
+                },
+              ],
+            },
+      });
+    // Các file integration khác có thể tạo Organization cùng lúc, nên chỉ so total khi số đếm
+    // trước và sau request bằng nhau (không có ai ghi xen giữa).
+    const listWithExpectedTotal = async (query, includeCancelled) => {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const before = await countInDb(includeCancelled);
+        const result = await list(query);
+        if ((await countInDb(includeCancelled)) === before) {
+          return { ...result, expectedTotal: before };
+        }
+      }
+      throw new Error('Organizations kept changing while counting.');
     };
 
     const limits = {
@@ -193,19 +234,22 @@ test('UC44 Admin organization list (PostgreSQL)', async (t) => {
     await t.test(
       'the default list hides stored Cancelled and PendingPayment past its deadline, and keeps PendingPayment within its deadline',
       async () => {
-        const { status, body } = await list();
+        const { status, body, expectedTotal } = await listWithExpectedTotal('', false);
         assert.equal(status, 200);
         const ids = body.data.items.slice(0, 3).map((item) => item.id);
         assert.deepEqual(ids, [active, suspended, pendingOpen]);
         const all = body.data.items.map((item) => item.id);
         assert.ok(!all.includes(pendingExpired));
         assert.ok(!all.includes(cancelled));
-        assert.equal(body.data.meta.total, baseline.hidden + 3, 'total follows the filter');
+        assert.equal(body.data.meta.total, expectedTotal, 'total follows the filter');
       },
     );
 
     await t.test('includeCancelled=true shows them with Cancelled as the status', async () => {
-      const { body } = await list('?includeCancelled=true');
+      const { body, expectedTotal } = await listWithExpectedTotal(
+        '?includeCancelled=true',
+        true,
+      );
       const items = body.data.items.slice(0, 5);
       assert.deepEqual(
         items.map((item) => item.id),
@@ -215,7 +259,7 @@ test('UC44 Admin organization list (PostgreSQL)', async (t) => {
         items.map((item) => item.status),
         ['Active', 'Suspended', 'PendingPayment', 'Cancelled', 'Cancelled'],
       );
-      assert.equal(body.data.meta.total, baseline.all + 5);
+      assert.equal(body.data.meta.total, expectedTotal);
     });
 
     await t.test('the GET writes nothing: the expired PendingPayment is still stored as PendingPayment', async () => {
@@ -227,14 +271,23 @@ test('UC44 Admin organization list (PostgreSQL)', async (t) => {
     });
 
     await t.test('paging follows the filter', async () => {
-      const first = (await list('?pageSize=10&page=1')).body.data;
-      const total = first.meta.total;
-      assert.equal(first.meta.pages, Math.ceil(total / 10));
-      const last = (await list(`?pageSize=10&page=${first.meta.pages}`)).body.data;
-      assert.equal(last.items.length, total - (first.meta.pages - 1) * 10);
-      const beyond = (await list(`?pageSize=10&page=${first.meta.pages + 1}`)).body.data;
-      assert.deepEqual(beyond.items, []);
-      assert.equal(beyond.meta.total, total);
+      // Ba request phải thấy cùng một tập dữ liệu: lặp lại nếu có ai ghi xen giữa.
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const before = await countInDb(false);
+        const first = (await list('?pageSize=10&page=1')).body.data;
+        const pages = first.meta.pages;
+        const last = (await list(`?pageSize=10&page=${pages}`)).body.data;
+        const beyond = (await list(`?pageSize=10&page=${pages + 1}`)).body.data;
+        if ((await countInDb(false)) !== before) continue;
+
+        assert.equal(first.meta.total, before);
+        assert.equal(pages, Math.ceil(before / 10));
+        assert.equal(last.items.length, before - (pages - 1) * 10);
+        assert.deepEqual(beyond.items, []);
+        assert.equal(beyond.meta.total, before);
+        return;
+      }
+      assert.fail('Organizations kept changing while paging.');
     });
 
     await t.test('the plan comes from the current Subscription, or from the registration when there is none', async () => {

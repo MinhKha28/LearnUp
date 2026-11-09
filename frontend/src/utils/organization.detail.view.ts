@@ -4,7 +4,7 @@ import { formatFileSize, formatStorage } from "@/utils/helper";
 type Tone = "neutral" | "success" | "warning" | "error" | "info";
 type Organizer = NonNullable<IAdminOrganizationDetail["organizer"]>;
 
-// UC44.1 - BR-40: Organizer Pending là Organizer đang chờ nhận lời mời (hoặc chờ thanh toán lúc đăng ký)
+// UC44.1 - BR-50: Organizer Pending là Organizer đang chờ nhận lời mời (hoặc chờ thanh toán lúc đăng ký)
 export const organizerStatusView = (organizer: Organizer): { label: string; tone: Tone } => {
   if (organizer.status === "Active") return { label: "Active", tone: "success" };
   if (organizer.invitation?.expired) return { label: "Invitation expired", tone: "error" };

@@ -232,5 +232,5 @@ export const getAdminOrganizationsAPI = ({
 // UC44.1 - Admin xem chi tiết Organization (400 id sai định dạng, 404 không tìm thấy)
 export const getAdminOrganizationDetailAPI = (organizationId: string) =>
   axios.get<IBackendRes<IAdminOrganizationDetail>>(
-    `/api/v1/organizations/${encodeURIComponent(organizationId)}`,
+    `/api/v1/admin/organizations/${encodeURIComponent(organizationId)}`,
   );

@@ -63,7 +63,7 @@ export type AdminOrganizationRow = Prisma.OrganizationGetPayload<{
   select: typeof ADMIN_LIST_SELECT;
 }>;
 
-// Đăng ký mới nhất, đủ để tính trạng thái hiệu lực như UC44 (BR-7).
+// Đăng ký mới nhất, đủ để tính trạng thái hiệu lực như UC44 (BR-8).
 const LATEST_REGISTRATION = {
   orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   take: 1,
@@ -99,7 +99,7 @@ const ADMIN_DETAIL_SELECT = {
     },
   },
   registrations: LATEST_REGISTRATION,
-  // BR-40: Organizer hiện tại = chưa xóa và chưa vô hiệu hóa, gồm cả Pending (chờ nhận lời mời).
+  // BR-50: Organizer hiện tại = chưa xóa và chưa vô hiệu hóa, gồm cả Pending (chờ nhận lời mời).
   // Partial unique users_one_organizer_per_org_key bảo đảm tối đa một dòng.
   users: {
     where: {
@@ -127,7 +127,7 @@ const ADMIN_DETAIL_SELECT = {
       },
     },
   },
-  // BR-45: lịch sử tạm khóa, mới nhất trước.
+  // BR-56: lịch sử tạm khóa, mới nhất trước.
   suspensions: {
     orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
     select: { id: true, startedAt: true, endedAt: true, reason: true },
@@ -210,7 +210,7 @@ export class OrganizationsRepository extends BaseRepository {
   }
 
   /**
-   * UC44.1 - BR-280: Organization KHÁC cùng mã số thuế (so khớp nguyên văn, gồm cả Cancelled).
+   * UC44.1 - BR-54: Organization KHÁC cùng mã số thuế (so khớp nguyên văn, gồm cả Cancelled).
    * Trả tổng số và tối đa `take` tổ chức mới nhất.
    */
   async findDuplicateTaxCodes(
@@ -234,7 +234,7 @@ export class OrganizationsRepository extends BaseRepository {
     return { rows, total };
   }
 
-  /** BR-36, BR-37: tài khoản chưa xóa của role, mọi trạng thái (giống countSeats của UC15 / UC12.2). */
+  /** BR-45, BR-46: tài khoản chưa xóa của role, mọi trạng thái (giống countSeats của UC15 / UC12.2). */
   countSeats(organizationId: string, role: string) {
     return this.prisma.user.count({
       where: { organizationId, role, deletedAt: null },

@@ -4,7 +4,7 @@ import type {
   IAdminOrganizationSubscription,
 } from './admin-organization-list-item.interface';
 
-/** UC44.1 - BR-40: Organizer hiện tại; Organizer đang chờ nhận lời mời cũng là Organizer hiện tại. */
+/** UC44.1 - BR-50: Organizer hiện tại; Organizer đang chờ nhận lời mời cũng là Organizer hiện tại. */
 export interface IAdminOrganizationOrganizer {
   id: string;
   fullName: string;
@@ -12,7 +12,7 @@ export interface IAdminOrganizationOrganizer {
   status: string; // Pending | Active
   activatedAt: Date | null;
   // Lời mời đang mở (chưa dùng, chưa thu hồi), có thể đã quá hạn; null khi không có lời mời
-  // (Organizer đã kích hoạt, hoặc Organizer lúc đăng ký đang chờ thanh toán - BR-20).
+  // (Organizer đã kích hoạt, hoặc Organizer lúc đăng ký đang chờ thanh toán - BR-6).
   invitation: { sentAt: Date; expiresAt: Date; expired: boolean } | null;
 }
 
@@ -23,7 +23,7 @@ export interface IAdminOrganizationDetailSubscription extends IAdminOrganization
   daysRemaining: number;
 }
 
-/** UC44.1 - BR-45: một lượt tạm khóa; endedAt = null là đang khóa. */
+/** UC44.1 - BR-56: một lượt tạm khóa; endedAt = null là đang khóa. */
 export interface IAdminOrganizationSuspension {
   id: string;
   startedAt: Date;
@@ -31,7 +31,7 @@ export interface IAdminOrganizationSuspension {
   reason: string;
 }
 
-/** UC44.1 - BR-280: Organization khác dùng cùng mã số thuế. Chỉ cảnh báo, không chặn. */
+/** UC44.1 - BR-54: Organization khác dùng cùng mã số thuế. Chỉ cảnh báo, không chặn. */
 export interface IAdminDuplicateTaxCode {
   count: number; // tổng số Organization khác trùng mã số thuế
   organizations: { id: string; name: string; status: string }[]; // tối đa 10, mới nhất trước
@@ -44,7 +44,7 @@ export interface IAdminOrganizationUsage {
   learners: IUsageItem;
   instructors: IUsageItem;
   courses: IUsageItem; // đếm theo chuỗi phiên bản (course-service)
-  storageBytes: IUsageItem; // BR-288 (course-service tính)
+  storageBytes: IUsageItem; // BR-188 (course-service tính)
 }
 
 /** UC44.1: chi tiết Organization cho Admin nền tảng. */
@@ -57,7 +57,7 @@ export interface IAdminOrganizationDetail {
   contactEmail: string | null;
   logoUrl: string | null;
   timezone: string;
-  // Trạng thái hiệu lực như UC44: PendingPayment quá hạn thanh toán tính là Cancelled (BR-7).
+  // Trạng thái hiệu lực như UC44: PendingPayment quá hạn thanh toán tính là Cancelled (BR-8).
   status: string; // PendingPayment | Active | Suspended | Cancelled
   createdAt: Date;
   organizer: IAdminOrganizationOrganizer | null;

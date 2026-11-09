@@ -92,7 +92,7 @@ export interface IAdminOrganizationDetail {
   timezone: string;
   status: AdminOrganizationStatus;
   createdAt: string;
-  // BR-40: Organizer đang chờ nhận lời mời cũng là Organizer hiện tại
+  // BR-50: Organizer đang chờ nhận lời mời cũng là Organizer hiện tại
   organizer: {
     id: string;
     fullName: string;
@@ -121,9 +121,9 @@ export interface IAdminOrganizationDetail {
     courses: IAdminUsageItem;
     storageBytes: IAdminUsageItem;
   } | null;
-  // BR-45: mới nhất trước; endedAt = null là đang khóa
+  // BR-56: mới nhất trước; endedAt = null là đang khóa
   suspensions: { id: string; startedAt: string; endedAt: string | null; reason: string }[];
-  // BR-280: chỉ cảnh báo
+  // BR-54: chỉ cảnh báo
   duplicateTaxCode: {
     count: number;
     organizations: { id: string; name: string; status: AdminOrganizationStatus }[];

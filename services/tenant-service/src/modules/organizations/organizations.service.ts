@@ -60,7 +60,7 @@ const PROFILE_FIELDS = [
   'timezone',
 ] as const;
 
-// UC44.1 - BR-280: số Organization trùng mã số thuế liệt kê tối đa.
+// UC44.1 - BR-54: số Organization trùng mã số thuế liệt kê tối đa.
 const DUPLICATE_TAX_CODE_LIMIT = 10;
 
 /** Cùng cách tính với UC15 (subscriptions.service.ts): used = null khi không đếm được. */
@@ -171,7 +171,7 @@ export class OrganizationsService {
     };
   }
 
-  /** BR-7: PendingPayment mà đăng ký mới nhất không còn chờ thanh toán trong hạn thì tính là Cancelled. */
+  /** BR-8: PendingPayment mà đăng ký mới nhất không còn chờ thanh toán trong hạn thì tính là Cancelled. */
   private effectiveStatus(
     status: string,
     registration: { status: string; expiresAt: Date } | null,
@@ -185,11 +185,11 @@ export class OrganizationsService {
   }
 
   // ===========================================================================
-  // UC44.1 - Xem chi tiết Organization (Admin; BR-1, BR-40, BR-42, BR-45, BR-280, BR-288)
+  // UC44.1 - Xem chi tiết Organization (Admin; BR-1, BR-50, BR-52, BR-56, BR-54, BR-188)
   // ===========================================================================
   /**
    * Chỉ đọc: không ghi DB, không phát event, không ghi audit.
-   * Số Course và dung lượng do course-service đếm (BR-1, BR-288); hỏi không được thì vẫn trả các phần
+   * Số Course và dung lượng do course-service đếm (BR-1, BR-188); hỏi không được thì vẫn trả các phần
    * khác, đánh dấu courseUsageAvailable = false.
    */
   async findOneForAdmin(

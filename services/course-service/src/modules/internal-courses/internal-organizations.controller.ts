@@ -56,7 +56,8 @@ export class InternalOrganizationsController {
     );
   }
 
-  // UC44.1 - tenant-service hỏi thay Admin nền tảng: chỉ internal key + header tổ chức (= :organizationId)
+  // UC44.1 - tenant-service hỏi thay Admin nền tảng. Internal key là lớp bảo vệ duy nhất:
+  // header tổ chức phải trùng :organizationId nhưng cả hai do tenant đặt, nên đó chỉ là kiểm tra nhất quán.
   @Get('platform/organizations/:organizationId/usage')
   @ServiceCall()
   @ResponseMessage('Organization usage fetched successfully')
