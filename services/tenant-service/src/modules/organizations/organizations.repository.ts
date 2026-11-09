@@ -127,7 +127,7 @@ const ADMIN_DETAIL_SELECT = {
       },
     },
   },
-  // BR-56: lịch sử tạm khóa, mới nhất trước.
+  // BR-56, BR-58: lịch sử tạm khóa và gỡ tạm khóa, mới nhất trước.
   suspensions: {
     orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
     select: { id: true, startedAt: true, endedAt: true, reason: true },

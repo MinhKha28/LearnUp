@@ -23,7 +23,7 @@ export interface IAdminOrganizationDetailSubscription extends IAdminOrganization
   daysRemaining: number;
 }
 
-/** UC44.1 - BR-56: một lượt tạm khóa; endedAt = null là đang khóa. */
+/** UC44.1 - BR-56, BR-58: một lượt tạm khóa; endedAt = null là đang khóa, có endedAt là đã gỡ. */
 export interface IAdminOrganizationSuspension {
   id: string;
   startedAt: Date;

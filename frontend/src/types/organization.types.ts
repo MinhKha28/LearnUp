@@ -121,7 +121,7 @@ export interface IAdminOrganizationDetail {
     courses: IAdminUsageItem;
     storageBytes: IAdminUsageItem;
   } | null;
-  // BR-56: mới nhất trước; endedAt = null là đang khóa
+  // BR-56, BR-58: mới nhất trước; endedAt = null là đang khóa, có endedAt là đã gỡ
   suspensions: { id: string; startedAt: string; endedAt: string | null; reason: string }[];
   // BR-54: chỉ cảnh báo
   duplicateTaxCode: {
