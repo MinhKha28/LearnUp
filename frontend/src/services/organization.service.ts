@@ -220,7 +220,7 @@ export const getAdminOrganizationsAPI = ({
   ...query
 }: IAdminOrganizationListQuery) =>
   axios.get<IBackendRes<IPageResponse<IAdminOrganizationListItem>>>(
-    "/api/v1/organizations",
+    "/api/v1/admin/organizations",
     {
       params: {
         ...query,

@@ -58,10 +58,10 @@ export interface IAdminOrganizationListItem {
   id: string;
   name: string;
   contactEmail: string | null;
-  // Trạng thái hiệu lực: PendingPayment quá hạn thanh toán đã được tính là Cancelled (BR-7)
+  // Trạng thái hiệu lực: PendingPayment quá hạn thanh toán đã được tính là Cancelled (BR-8)
   status: AdminOrganizationStatus;
   plan: { id: string; name: string } | null;
-  // Độc lập với trạng thái Organization (BR-283); null khi chưa có hoặc đã kết thúc
+  // Độc lập với trạng thái Organization (BR-60); null khi chưa có hoặc đã kết thúc
   subscription: {
     status: AdminSubscriptionStatus;
     startsAt: string;

@@ -20,7 +20,7 @@ const Organizations = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  // Mặc định ẩn Cancelled (BR-7, BR-276); bật để xem cả nhóm này
+  // Mặc định ẩn Cancelled (BR-8, BR-12); bật để xem cả nhóm này
   const [includeCancelled, setIncludeCancelled] = useState(false);
   const [rows, setRows] = useState<IAdminOrganizationListItem[]>([]);
   const [total, setTotal] = useState(0);
