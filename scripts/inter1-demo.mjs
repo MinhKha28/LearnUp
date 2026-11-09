@@ -11,6 +11,7 @@
  * Chỉ dùng module có sẵn của Node, chạy được trên Windows, Linux và macOS.
  */
 import { spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -274,6 +275,16 @@ function fail(error) {
 // ---------------------------------------------------------------------------
 // Đọc .env (KEY=VALUE, bỏ dòng chú thích); không in giá trị
 // ---------------------------------------------------------------------------
+// BR-13: tenant không chạy nếu thiếu EMAIL_OTP_SECRET. Máy chưa đặt khóa thì sinh một khóa chỉ dùng cho lượt demo
+// này (giống tests/e2e/cluster/start.sh); mã OTP hết hạn sau vài phút nên khóa không cần giữ qua các lượt.
+function tenantDemoEnv(dir) {
+  if (process.env.EMAIL_OTP_SECRET?.trim()) return undefined;
+  if (readEnvFile(path.join(dir, ".env"))?.get("EMAIL_OTP_SECRET")?.trim())
+    return undefined;
+  detail("Chưa có EMAIL_OTP_SECRET: sinh khóa tạm cho lượt demo này.");
+  return { EMAIL_OTP_SECRET: randomBytes(32).toString("base64url") };
+}
+
 function readEnvFile(file) {
   if (!fs.existsSync(file)) return null;
   const env = new Map();
@@ -814,7 +825,12 @@ async function startService(name, dir, port, probePath, internalKey) {
     [path.join("dist", "src", "main.js")],
     {
       cwd: dir,
-      env: name === "learning-service" ? ASSESSMENT_DEMO_ENV : undefined,
+      env:
+        name === "learning-service"
+          ? ASSESSMENT_DEMO_ENV
+          : name === "tenant-service"
+            ? tenantDemoEnv(dir)
+            : undefined,
       logName: name,
       longRunning: true,
     },

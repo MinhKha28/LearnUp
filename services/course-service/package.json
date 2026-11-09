@@ -111,7 +111,7 @@
       ]
     },
     "transformIgnorePatterns": [
-      "/node_modules/(?!@nestjs/(config|axios)/)"
+      "/node_modules/(?!@nestjs/(config|axios|schedule)/)"
     ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"

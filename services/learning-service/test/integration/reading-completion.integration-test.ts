@@ -14,10 +14,6 @@ import { configureApp } from '../../src/app.setup';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
 import type { CourseTree } from '../../src/infrastructure/clients/course/course-service.interface';
 import { CourseServiceUnavailableError } from '../../src/infrastructure/clients/course/course-service.errors';
-import {
-  READING_ACCESS_CONFIG,
-  type ReadingAccessConfig,
-} from '../../src/modules/material-progress/reading-access.config';
 import { MaterialProgressRepository } from '../../src/modules/material-progress/material-progress.repository';
 import { databaseUrl } from './enroll-it-fixture';
 import { CompletionService } from '../../src/modules/course-completion/completion.service';
@@ -116,7 +112,6 @@ describe('UC27.3 Reading HTTP + PostgreSQL', () => {
   beforeEach(async () => {
     await cleanup();
     calls = 0;
-    app.get<ReadingAccessConfig>(READING_ACCESS_CONFIG).mode = 'course';
     app.get(CourseServiceClient).getCourseTree = async () => {
       calls++;
       throw new CourseServiceUnavailableError('offline');
@@ -410,14 +405,8 @@ describe('UC27.3 Reading HTTP + PostgreSQL', () => {
     assert.equal(row.status, 'NotStarted');
     assert.equal(row.generation, null);
   });
-  test('course mode and dependency outage return SERVICE_UNAVAILABLE, fixture is explicit', async () => {
+  test('Reading requires live content and a fresh signed URL; unavailable dependencies return 503', async () => {
     let r = await request({ get: true });
-    assert.equal(r.status, 503);
-    assert.equal((await r.json()).error.code, 'SERVICE_UNAVAILABLE');
-    const config = app.get<ReadingAccessConfig>(READING_ACCESS_CONFIG);
-    config.mode = 'fixture';
-    config.fixtureUrl = 'https://example.test/reading.pdf';
-    r = await request({ get: true });
     assert.equal(r.status, 503);
     assert.equal((await r.json()).error.code, 'SERVICE_UNAVAILABLE');
     const tree: CourseTree = {
@@ -454,9 +443,10 @@ describe('UC27.3 Reading HTTP + PostgreSQL', () => {
       ],
     };
     app.get(CourseServiceClient).getCourseTree = async () => tree;
+    app.get(CourseServiceClient).getMaterialSignedUrl = async () => ({ url: 'https://example.test/signed.pdf', expiresAt: new Date(Date.now()+900000).toISOString(), mimeType: 'application/pdf' });
     r = await request({ get: true });
     assert.equal(r.status, 200);
-    assert.equal((await r.json()).data.fixture, true);
+    assert.equal((await r.json()).data.fixture, false);
     assert.equal((await state()).completed_at, null);
     for (const target of [
       tree,

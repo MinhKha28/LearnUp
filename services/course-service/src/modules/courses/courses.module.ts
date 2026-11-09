@@ -9,6 +9,7 @@ import { CoursesService } from './courses.service';
 import { StorageModule } from '@infra/storage/storage.module';
 import { CoursesRepository } from './courses.repository';
 import { AssessmentClient } from '@/infrastructure/clients/assessment/assessment.client';
+import { NotificationClient } from '@/infrastructure/clients/notification/notification.client';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AssessmentClient } from '@/infrastructure/clients/assessment/assessment
     TenantClient,
     LearningClient,
     AssessmentClient,
+    NotificationClient,
   ],
   exports: [CoursesService],
 })

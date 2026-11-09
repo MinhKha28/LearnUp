@@ -20,7 +20,7 @@ import { PlatformSettingsModule } from '../platform-settings/platform-settings.m
 import { BaseDueAtRepository } from './base-due-at.repository';
 import { EnrollmentsController } from './enrollments.controller';
 import { EnrollmentsRepository } from './enrollments.repository';
-import { EnrollmentsService } from './enrollments.service';
+import { EnrollmentsService, MyEnrollmentClock } from './enrollments.service';
 import { AssessmentModule } from '../../infrastructure/clients/assessment/assessment.module';
 import { OptionalEnrollmentRepository } from './optional-enrollment.repository';
 import { EnrollmentWithdrawalService } from './enrollment-withdrawal.service';
@@ -68,6 +68,7 @@ class EnrollmentRateLimitStorageModule {}
     LearnerEnrollmentSummaryService,
     LearnerEnrollmentSummaryRepository,
     EnrollmentsService,
+    MyEnrollmentClock,
     OptionalEnrollmentRepository,
     EnrollmentWithdrawalService,
     EnrollmentsRepository,

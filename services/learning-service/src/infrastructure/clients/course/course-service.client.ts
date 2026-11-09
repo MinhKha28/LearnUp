@@ -9,6 +9,7 @@ import {
   CourseServiceContractError,
   CourseServiceError,
   CourseServiceUnavailableError,
+  MaterialSigningError,
 } from './course-service.errors';
 import type {
   CourseBatchItem,
@@ -30,6 +31,75 @@ export class CourseServiceClient {
   private readonly logger = new Logger(CourseServiceClient.name);
 
   constructor(private readonly config: CourseServiceConfig) {}
+
+  async getMaterialSignedUrl(
+    user: CurrentUser,
+    courseId: string,
+    materialId: string,
+  ) {
+    let status: number | null = null;
+    try {
+      const response = await fetch(
+        `${this.config.baseUrl}/api/v1/internal/materials/${encodeURIComponent(materialId)}/signed-url`,
+        {
+          method: 'POST',
+          headers: {
+            [HEADER_NAMES.INTERNAL_KEY]: this.config.internalKey,
+            [HEADER_NAMES.USER_ID]: user.userId,
+            [HEADER_NAMES.USER_ROLE]: user.role,
+            [HEADER_NAMES.ORGANIZATION_ID]: this.organizationIdOf(user),
+            'content-type': 'application/json',
+            accept: 'application/json',
+          },
+          body: JSON.stringify({ courseId }),
+          signal: AbortSignal.timeout(this.config.timeoutMs),
+        },
+      );
+      status = response.status;
+      const body = await this.readBody(response);
+      if (!response.ok) {
+        const code = this.errorOf(body).code;
+        throw new MaterialSigningError(
+          status,
+          [
+            'MATERIAL_NOT_FOUND',
+            'MATERIAL_DISABLED',
+            'MATERIAL_FILE_NOT_READY',
+          ].includes(code ?? '')
+            ? code
+            : null,
+        );
+      }
+      const data = body?.data as Record<string, unknown> | undefined;
+      if (
+        !data ||
+        typeof data.url !== 'string' ||
+        typeof data.expiresAt !== 'string' ||
+        typeof data.mimeType !== 'string'
+      )
+        throw new MaterialSigningError(status, null);
+      const url = new URL(data.url);
+      const expiry = new Date(data.expiresAt);
+      if (
+        url.protocol !== 'https:' ||
+        url.username ||
+        url.password ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(data.expiresAt) ||
+        !Number.isFinite(expiry.getTime()) ||
+        expiry.toISOString() !== data.expiresAt ||
+        !/^(video\/[a-z0-9.+-]+|application\/pdf)$/i.test(data.mimeType)
+      )
+        throw new MaterialSigningError(status, null);
+      return {
+        url: data.url,
+        expiresAt: data.expiresAt,
+        mimeType: data.mimeType,
+      };
+    } catch (error) {
+      if (error instanceof MaterialSigningError) throw error;
+      throw new MaterialSigningError(status, null);
+    }
+  }
 
   /** I1: gắn Locked và kiểm Course còn nhận Enrollment. */
   async lockCourse(

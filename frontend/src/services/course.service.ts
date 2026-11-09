@@ -24,6 +24,7 @@ import type {
   IPermanentDeleteCourseResult,
   IReadingUploadContext,
   IRestoreCourseResult,
+  ISubmitCourseResponse,
   ISoftDeleteCourseResult,
   IUpdateCourseRequest,
   IUpdateCourseResponse,
@@ -238,4 +239,9 @@ export const restoreCourseAPI = (courseId: string) =>
 export const permanentDeleteCourseAPI = (courseId: string) =>
   axios.delete<IBackendRes<IPermanentDeleteCourseResult>>(
     `/api/v1/courses/${encodeURIComponent(courseId)}/permanent`,
+  );
+
+export const submitCourseForApprovalAPI = (courseId: string) =>
+  axios.post<IBackendRes<ISubmitCourseResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/submit`,
   );

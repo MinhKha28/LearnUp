@@ -296,4 +296,13 @@ export class CoursesController {
   ) {
     return this.coursesService.permanentDelete(user, courseId);
   }
+
+  @Post(':courseId/submit')
+  @ResponseMessage('Course submitted for approval successfully')
+  submitCourseForApproval(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.submitCourseForApproval(user, courseId);
+  }
 }

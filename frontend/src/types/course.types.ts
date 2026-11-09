@@ -389,3 +389,11 @@ export interface IPermanentDeleteCourseResult {
   chainDeleted: boolean;
   releasedFileCount: number;
 }
+
+export interface ISubmitCourseResponse {
+  id: string;
+  name: string;
+  versionNumber: number;
+  status: CourseStatus;
+  submittedAt: string;
+}

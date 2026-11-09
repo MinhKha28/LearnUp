@@ -14,10 +14,14 @@ export function boundKafkaAdminConnections() {
     disconnect: () => Promise<void>;
   }>();
   const probeMs = readRelayConfig((key) => process.env[key]).probeMs;
+  const nativeProducerConnect =
+    process.env.OUTBOX_INTEGRATION === 'true' &&
+    process.env.OUTBOX_KAFKA_CHAOS === 'true';
   function bound<
     T extends { connect: () => Promise<void>; disconnect: () => Promise<void> },
-  >(client: T, label: string): T {
+  >(client: T, label: string, limitConnect = true): T {
     opened.add(client);
+    if (!limitConnect) return client;
     const connect = client.connect.bind(client);
     const disconnect = client.disconnect.bind(client);
     client.connect = async () => {
@@ -37,7 +41,11 @@ export function boundKafkaAdminConnections() {
     return bound(original.apply(this, args), 'admin');
   };
   prototype.producer = function (...args: Parameters<typeof originalProducer>) {
-    return bound(originalProducer.apply(this, args), 'producer');
+    return bound(
+      originalProducer.apply(this, args),
+      'producer',
+      !nativeProducerConnect,
+    );
   };
   return async () => {
     try {
