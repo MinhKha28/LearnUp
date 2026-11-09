@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Spin } from "antd";
 import { EditOutlined } from "@ant-design/icons";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   InfoPanel,
   InstructorButton,
@@ -13,8 +13,8 @@ import {
 import FileLink from "@/components/instructor/submission.file.link";
 import { getSubmissionDetailAPI } from "@/services/instructor.submission.service";
 import type { ISubmissionDetail } from "@/types/submission.types";
+import { formatLocalDateTime } from "@/utils/helper";
 import {
-  formatDateTime,
   gradingStatusView,
   interventionLabel,
   personName,
@@ -89,6 +89,9 @@ const SubmissionDetail = () => {
   const canGrade =
     detail.isLatest && detail.gradingStatus === "AwaitingInstructor";
 
+  const canFinalize =
+    detail.isLatest && detail.gradingStatus === "AwaitingFinalization";
+
   return (
     <InstructorPage className="instructor-submissions">
       <PageHeader
@@ -97,7 +100,11 @@ const SubmissionDetail = () => {
         subtitle={`${detail.assignment.title} / Lần nộp #${detail.submissionNumber}`}
         back
         actions={
-          canGrade && (
+          canFinalize ? (
+            <Link to={`/instructor/submissions/${detail.id}/finalize`}>
+              Chốt điểm
+            </Link>
+          ) : canGrade && (
             <InstructorButton
               type="primary"
               icon={<EditOutlined />}
@@ -126,7 +133,7 @@ const SubmissionDetail = () => {
               {reason && <span>{reason}</span>}
             </div>
             <p className="instructor-submission-meta">
-              Nộp lúc {formatDateTime(detail.submittedAt)}
+              Nộp lúc {formatLocalDateTime(detail.submittedAt)}
               {detail.learner.email ? ` / ${detail.learner.email}` : ""}
             </p>
             <div className="instructor-submission-body">
@@ -195,7 +202,7 @@ const SubmissionDetail = () => {
         </div>
 
         <div className="instructor-submission-column">
-          <SectionCard title="Assignment">
+          <SectionCard title="Bài tập">
             <p className="instructor-submission-prompt">
               {detail.assignment.prompt ?? "Đề bài không có phần văn bản."}
             </p>
@@ -234,7 +241,7 @@ const SubmissionDetail = () => {
                 onClick={() => navigate(`/instructor/submissions/${item.id}`)}
               >
                 <strong>#{item.submissionNumber}</strong>
-                <span>{formatDateTime(item.submittedAt)}</span>
+                <span>{formatLocalDateTime(item.submittedAt)}</span>
                 <StatusTag tone={gradingStatusView(item.gradingStatus).tone}>
                   {gradingStatusView(item.gradingStatus).label}
                 </StatusTag>
