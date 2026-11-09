@@ -8,6 +8,7 @@ import type {
   TenantApiResponse,
   TenantInstructor,
   TenantMaterialUploadPolicy,
+  TenantOrganizer,
 } from './tenant.interface';
 
 @Injectable()
@@ -59,6 +60,37 @@ export class TenantClient {
         'Unable to retrieve Instructor information.',
       );
     }
+  }
+
+  async getActiveOrganizer(organizationId: string): Promise<TenantOrganizer> {
+    const baseUrl = this.configService.getOrThrow<string>('TENANT_SERVICE_URL');
+
+    const response = await firstValueFrom(
+      this.httpService.get<TenantApiResponse<TenantOrganizer>>(
+        `${baseUrl}/api/v1/users/internal/organizer`,
+        {
+          headers: {
+            'x-internal-key': this.configService.getOrThrow<string>(
+              'INTERNAL_SERVICE_KEY',
+            ),
+            'x-organization-id': organizationId,
+          },
+        },
+      ),
+    );
+
+    const organizer = response.data?.data;
+
+    if (
+      !organizer ||
+      typeof organizer.id !== 'string' ||
+      typeof organizer.email !== 'string' ||
+      !organizer.email.trim()
+    ) {
+      throw new Error('Tenant Service returned invalid Organizer data');
+    }
+
+    return organizer;
   }
 
   async getInstructorMaterialUploadPolicy(

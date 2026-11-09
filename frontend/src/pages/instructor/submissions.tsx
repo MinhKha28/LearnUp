@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { Alert, Input, Pagination, Spin, Switch } from "antd";
+import {
+  Alert,
+  Button,
+  Input,
+  InputNumber,
+  Pagination,
+  Spin,
+  Switch,
+  Tag,
+} from "antd";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   InfoPanel,
@@ -19,22 +28,36 @@ import "./submissions.scss";
 
 const PAGE_SIZE = 20;
 
+const numberParam = (value: string | null) => {
+  if (value === null || value.trim() === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+};
+
 const Submissions = () => {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const assessmentId = params.get("assessmentId");
   const status = params.get("status") ?? undefined;
   const q = params.get("q") ?? undefined;
+  const learnerId = params.get("learnerId") ?? undefined;
+  const needsIntervention = params.get("needs") === "1";
+  const minScore = numberParam(params.get("min"));
+  const maxScore = numberParam(params.get("max"));
   const latestOnly = params.get("all") !== "1";
   const page = Number(params.get("page")) || 1;
+  const scoreRangeInvalid =
+    minScore !== undefined && maxScore !== undefined && minScore > maxScore;
 
   const [data, setData] = useState<ISubmissionList | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState(q ?? "");
+  const [minInput, setMinInput] = useState<number | null>(minScore ?? null);
+  const [maxInput, setMaxInput] = useState<number | null>(maxScore ?? null);
 
   useEffect(() => {
-    if (!assessmentId) return;
+    if (!assessmentId || scoreRangeInvalid) return;
     let active = true;
     const load = async () => {
       setLoading(true);
@@ -43,15 +66,19 @@ const Submissions = () => {
         const res = await getAssignmentSubmissionsAPI(assessmentId, {
           status,
           q,
+          learnerId,
+          needsIntervention: needsIntervention ? true : undefined,
+          minScore,
+          maxScore,
           latestOnly,
           page,
           pageSize: PAGE_SIZE,
         });
         if (!active) return;
         if (res.data) setData(res.data);
-        else setError("You cannot view the submissions of this Assignment.");
+        else setError("Bạn không có quyền xem bài nộp của Assignment này.");
       } catch {
-        if (active) setError("Could not connect to the server.");
+        if (active) setError("Không kết nối được với máy chủ.");
       } finally {
         if (active) setLoading(false);
       }
@@ -60,7 +87,18 @@ const Submissions = () => {
     return () => {
       active = false;
     };
-  }, [assessmentId, status, q, latestOnly, page]);
+  }, [
+    assessmentId,
+    status,
+    q,
+    learnerId,
+    needsIntervention,
+    minScore,
+    maxScore,
+    scoreRangeInvalid,
+    latestOnly,
+    page,
+  ]);
 
   const update = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
@@ -71,17 +109,45 @@ const Submissions = () => {
     setParams(next);
   };
 
+  const applyScore = () =>
+    update({
+      min: minInput === null ? null : String(minInput),
+      max: maxInput === null ? null : String(maxInput),
+    });
+
+  const filtering = Boolean(
+    status ||
+    q ||
+    learnerId ||
+    needsIntervention ||
+    minScore !== undefined ||
+    maxScore !== undefined,
+  );
+
+  const clearFilters = () => {
+    setKeyword("");
+    setMinInput(null);
+    setMaxInput(null);
+    update({
+      status: null,
+      q: null,
+      learnerId: null,
+      needs: null,
+      min: null,
+      max: null,
+    });
+  };
+
   if (!assessmentId) {
     return (
       <InstructorPage className="instructor-submissions">
         <PageHeader
-          eyebrow="SUBMISSIONS"
-          title="Assignment Submissions"
-          subtitle="Choose an Assignment first."
+          eyebrow="BÀI NỘP"
+          title="Bài nộp của Assignment"
+          subtitle="Hãy chọn một Assignment trước."
         />
-        <InfoPanel title="How to open submissions">
-          Open a Course in My Courses, select an Assignment, then choose
-          Submissions.
+        <InfoPanel title="Cách mở danh sách bài nộp">
+          Vào Khóa học của tôi, chọn một Assignment rồi chọn Bài nộp.
         </InfoPanel>
       </InstructorPage>
     );
@@ -94,12 +160,12 @@ const Submissions = () => {
   return (
     <InstructorPage className="instructor-submissions">
       <PageHeader
-        eyebrow="SUBMISSIONS / ASSIGNMENT"
-        title={data?.assignment.title ?? "Assignment Submissions"}
+        eyebrow="BÀI NỘP / ASSIGNMENT"
+        title={data?.assignment.title ?? "Bài nộp của Assignment"}
         subtitle={
           data?.assignment.peerReviewEnabled
-            ? "Peer review is on for this Assignment."
-            : "Peer review is off: you grade every submission."
+            ? "Assignment này có bật chấm chéo."
+            : "Assignment này không bật chấm chéo: bạn chấm mọi bài nộp."
         }
         back
       />
@@ -108,7 +174,7 @@ const Submissions = () => {
         <Alert
           type="warning"
           showIcon
-          message="Learner names are unavailable right now. Showing learner IDs."
+          message="Tạm thời không lấy được tên Learner, đang hiển thị mã Learner."
         />
       )}
 
@@ -120,7 +186,7 @@ const Submissions = () => {
             onClick={() => update({ status: null })}
           >
             <strong>{totalAll}</strong>
-            <span>All</span>
+            <span>Tất cả</span>
           </button>
           {Object.entries(data.statusCounts).map(([key, count]) => (
             <button
@@ -139,7 +205,7 @@ const Submissions = () => {
       <div className="instructor-submissions-toolbar">
         <Input.Search
           size="large"
-          placeholder="Search learner name or email"
+          placeholder="Tìm theo tên hoặc email Learner"
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
           onSearch={(value) => update({ q: value.trim() || null })}
@@ -147,22 +213,66 @@ const Submissions = () => {
         />
         <label className="instructor-submissions-toggle">
           <Switch
+            checked={needsIntervention}
+            onChange={(checked) => update({ needs: checked ? "1" : null })}
+          />
+          Chỉ bài cần tôi chấm
+        </label>
+        <label className="instructor-submissions-toggle">
+          <Switch
             checked={!latestOnly}
             onChange={(checked) => update({ all: checked ? "1" : null })}
           />
-          Show replaced submissions
+          Hiện cả bài đã được thay thế
         </label>
       </div>
+
+      <div className="instructor-submissions-toolbar instructor-submissions-score">
+        <span>Điểm cuối cùng từ</span>
+        <InputNumber
+          aria-label="Điểm thấp nhất"
+          min={0}
+          value={minInput}
+          onChange={setMinInput}
+          onPressEnter={applyScore}
+        />
+        <span>đến</span>
+        <InputNumber
+          aria-label="Điểm cao nhất"
+          min={0}
+          value={maxInput}
+          onChange={setMaxInput}
+          onPressEnter={applyScore}
+        />
+        <Button onClick={applyScore}>Lọc theo điểm</Button>
+        {filtering && <Button onClick={clearFilters}>Xóa bộ lọc</Button>}
+      </div>
+
+      {learnerId && (
+        <div className="instructor-submissions-active">
+          <Tag closable onClose={() => update({ learnerId: null })}>
+            Chỉ bài của một Learner
+            {data?.items[0] ? `: ${personName(data.items[0].learner)}` : ""}
+          </Tag>
+        </div>
+      )}
+      {scoreRangeInvalid && (
+        <Alert
+          type="warning"
+          showIcon
+          message="Điểm thấp nhất đang lớn hơn điểm cao nhất, hãy sửa lại khoảng điểm."
+        />
+      )}
 
       <Spin spinning={loading}>
         <div className="instructor-submissions-table">
           <div className="instructor-submissions-row instructor-submissions-head">
             <span>Learner</span>
-            <span>Submitted</span>
-            <span>Attempt</span>
-            <span>Grading status</span>
-            <span>Score</span>
-            <span>Note</span>
+            <span>Thời điểm nộp</span>
+            <span>Lần nộp</span>
+            <span>Trạng thái chấm</span>
+            <span>Điểm</span>
+            <span>Ghi chú</span>
           </div>
           {data?.items.map((item) => {
             const view = gradingStatusView(item.gradingStatus);
@@ -182,7 +292,7 @@ const Submissions = () => {
                   #{item.submissionNumber}
                   {!item.isLatest && (
                     <small className="instructor-submissions-replaced">
-                      replaced
+                      đã thay thế
                     </small>
                   )}
                 </span>
@@ -193,7 +303,7 @@ const Submissions = () => {
                 <span className="instructor-submissions-note">
                   {interventionLabel(item.interventionReason) ??
                     (item.reviews.total > 0
-                      ? `${item.reviews.completed}/${item.reviews.total} reviews done`
+                      ? `${item.reviews.completed}/${item.reviews.total} lượt chấm xong`
                       : "-")}
                 </span>
               </button>
@@ -201,7 +311,7 @@ const Submissions = () => {
           })}
           {data && data.items.length === 0 && (
             <div className="instructor-submissions-empty">
-              No submissions match these filters.
+              Không có bài nộp nào khớp với bộ lọc.
             </div>
           )}
         </div>
@@ -218,9 +328,10 @@ const Submissions = () => {
         />
       )}
 
-      <InfoPanel title="Recorded score">
-        The latest submission of each Learner determines the recorded
-        Assignment score. Replaced submissions stay visible for reference.
+      <InfoPanel title="Điểm được ghi nhận">
+        Bài nộp mới nhất của mỗi Learner quyết định điểm Assignment được ghi
+        nhận. Bài đã bị thay thế vẫn hiện để tham khảo. Bài chưa chốt điểm chưa
+        có điểm cuối cùng nên không nằm trong kết quả lọc theo điểm.
       </InfoPanel>
     </InstructorPage>
   );

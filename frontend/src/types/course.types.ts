@@ -357,6 +357,14 @@ export interface ICreateReadingMaterialResponse {
   extractionWarning: string | null;
 }
 
+export interface ISubmitCourseResponse {
+  id: string;
+  name: string;
+  versionNumber: number;
+  status: CourseStatus;
+  submittedAt: string;
+}
+
 export interface IUpdateMaterialRequest {
   title?: string;
   isRequired?: boolean;

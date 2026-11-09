@@ -20,6 +20,16 @@ export class CourseNotAvailableError extends CourseServiceError {
 /** course-service không trả lời kịp, lỗi mạng hoặc lỗi 5xx. */
 export class CourseServiceUnavailableError extends CourseServiceError {}
 
+/** Signing errors carry only bounded diagnostics, never provider URLs or messages. */
+export class MaterialSigningError extends CourseServiceError {
+  constructor(
+    readonly status: number | null,
+    readonly code: string | null,
+  ) {
+    super('Material signing failed.');
+  }
+}
+
 /** course-service từ chối khóa nội bộ hoặc user context (401, 403): sai cấu hình giữa hai service. */
 export class CourseServiceConfigurationError extends CourseServiceError {}
 

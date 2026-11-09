@@ -14,6 +14,7 @@ import {
   requireLearner,
 } from '../learner-submissions/learner-access';
 import { scoreFromRubric } from '../peer-review/rubric-score';
+import { ListHistoryQueryDto } from './dto/list-history-query.dto';
 import { ListReviewsQueryDto } from './dto/list-reviews-query.dto';
 import { SubmitReviewDto } from './dto/submit-review.dto';
 import type {
@@ -21,11 +22,15 @@ import type {
   ILearnerReviewItem,
   ILearnerReviewList,
   ILearnerReviewResult,
+  IReviewHistory,
+  IReviewHistoryItem,
 } from './interfaces/learner-review.interface';
 import {
+  type HistoryRow,
   LearnerReviewsRepository,
   type ReviewRow,
 } from './learner-reviews.repository';
+import { buildObligations, overallObligation } from './review-history';
 import {
   neutralFileName,
   outcomeOfReviews,
@@ -80,6 +85,62 @@ export class LearnerReviewsService {
       page,
       pageSize,
       items: rows.map((row) => this.toItem(row, now)),
+    };
+  }
+
+  /**
+   * UC31.2 — the reviews the Learner has given, newest first, and where the duty stands: for each Assignment and as a whole.
+   * The duty is judged by the rule learning-service uses for the Certificate, so the two agree. Nothing in it says who
+   * wrote the work (BR-233); a review is only listed once it is given and final (BR-257).
+   */
+  async history(
+    user: CurrentUser,
+    query: ListHistoryQueryDto = new ListHistoryQueryDto(),
+  ): Promise<IReviewHistory> {
+    const organizationId = requireLearner(user);
+    const now = this.clock();
+    const { page, pageSize, assignmentId } = query;
+    const [facts, total, rows] = await Promise.all([
+      this.repository.obligationRows(organizationId, user.userId),
+      this.repository.countGiven(organizationId, user.userId, assignmentId),
+      this.repository.pageOfGiven(
+        organizationId,
+        user.userId,
+        pageSize,
+        (page - 1) * pageSize,
+        assignmentId,
+      ),
+    ]);
+    const obligations = buildObligations(facts, now);
+    return {
+      overall: overallObligation(obligations),
+      obligations,
+      assignedCount: obligations.reduce((sum, o) => sum + o.requiredCount, 0),
+      completedCount: obligations.reduce((sum, o) => sum + o.completedCount, 0),
+      total,
+      page,
+      pageSize,
+      items: rows.map((row) => this.toHistoryItem(row)),
+    };
+  }
+
+  private toHistoryItem(row: HistoryRow): IReviewHistoryItem {
+    const assessment = row.submission.assessment;
+    const given = new Map(row.scores.map((s) => [s.criterionId, s.points]));
+    return {
+      id: row.id,
+      assignmentId: assessment.id,
+      assignmentTitle: assessment.title,
+      courseId: assessment.courseId,
+      score: toNumber(row.score),
+      completedAt: row.completedAt?.toISOString() ?? null,
+      comment: row.comment,
+      criteria: assessment.rubricCriteria.map((criterion) => ({
+        criterionId: criterion.id,
+        name: criterion.name,
+        points: given.get(criterion.id) ?? 0,
+        maxPoints: criterion.maxPoints,
+      })),
     };
   }
 

@@ -6,7 +6,7 @@ import { ApiError, type ApiEnvelope } from "@/types/api.types";
 
 const API_PREFIX = "/api/v1";
 
-/** Đường dẫn 7 endpoint của 6 UC learner; khi gateway đổi tiền tố chỉ sửa ở đây. */
+/** Đường dẫn endpoint learner; khi gateway đổi tiền tố chỉ sửa ở đây. */
 export const API_PATHS = {
   catalog: `${API_PREFIX}/courses/catalog`,
   courseIntroduction: (courseId: string) =>
@@ -18,6 +18,10 @@ export const API_PATHS = {
   myEnrollments: `${API_PREFIX}/enrollments/me`,
   curriculum: (enrollmentId: string) =>
     `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/curriculum`,
+  assessmentResults: (enrollmentId: string) =>
+    `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/assessment-results`,
+  progress: (enrollmentId: string) =>
+    `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/progress`,
   lesson: (enrollmentId: string, lessonId: string) =>
     `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/lessons/${encodeURIComponent(lessonId)}`,
 } as const;
@@ -34,7 +38,9 @@ export const apiRequestUrl = (path: string) =>
 
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
-  const owner = (config as InternalAxiosRequestConfig & { progressOwner?: ProgressOwner }).progressOwner;
+  const owner = (
+    config as InternalAxiosRequestConfig & { progressOwner?: ProgressOwner }
+  ).progressOwner;
   if (owner && !ownsProgress(owner, token))
     throw new ApiError(401, "UNAUTHORIZED", "Session changed");
   if (token) {
@@ -97,7 +103,9 @@ export const toApiError = (error: unknown): ApiError => {
     const { code, message, ...details } = bodyError;
     return new ApiError(status, code, firstString(message) ?? "", {
       ...details,
-      ...(response.headers?.["x-correlation-id"] ? { correlationId: response.headers["x-correlation-id"] } : {}),
+      ...(response.headers?.["x-correlation-id"]
+        ? { correlationId: response.headers["x-correlation-id"] }
+        : {}),
     });
   }
 
@@ -119,8 +127,14 @@ export const toApiError = (error: unknown): ApiError => {
       body.error,
       axios.isAxiosError(error) ? error.message : undefined,
     ) ?? `HTTP ${status}`;
-  return new ApiError(status, `HTTP_${status}`, message, response.headers?.["x-correlation-id"]
-    ? { correlationId: response.headers["x-correlation-id"] } : {});
+  return new ApiError(
+    status,
+    `HTTP_${status}`,
+    message,
+    response.headers?.["x-correlation-id"]
+      ? { correlationId: response.headers["x-correlation-id"] }
+      : {},
+  );
 };
 
 export interface ApiOptions {
@@ -155,11 +169,20 @@ const requestWithHeaders = async <T>(
   options: ApiOptions = {},
 ): Promise<ApiResult<T>> => {
   try {
-    const response = await client.request<unknown, { data: ApiEnvelope<T> | T; headers: Record<string, unknown> }>({
-      method, url: path, data: body, ...options,
+    const response = await client.request<
+      unknown,
+      { data: ApiEnvelope<T> | T; headers: Record<string, unknown> }
+    >({
+      method,
+      url: path,
+      data: body,
+      ...options,
     });
     return {
-      data: options.responseType === "blob" ? response.data as T : (response.data as ApiEnvelope<T>).data,
+      data:
+        options.responseType === "blob"
+          ? (response.data as T)
+          : (response.data as ApiEnvelope<T>).data,
       headers: response.headers,
     };
   } catch (error) {
@@ -170,17 +193,33 @@ const requestWithHeaders = async <T>(
 export const apiGetWithHeaders = <T>(path: string, options: ApiOptions = {}) =>
   requestWithHeaders<T>("get", path, undefined, options);
 
-export const apiPutWithHeaders = <T>(path: string, body: unknown, options: ApiOptions = {}) =>
-  requestWithHeaders<T>("put", path, body, options);
+export const apiPutWithHeaders = <T>(
+  path: string,
+  body: unknown,
+  options: ApiOptions = {},
+) => requestWithHeaders<T>("put", path, body, options);
 
-export const apiGet = async <T>(path: string, options: ApiOptions = {}): Promise<T> =>
-  (await apiGetWithHeaders<T>(path, options)).data;
+export const apiGet = async <T>(
+  path: string,
+  options: ApiOptions = {},
+): Promise<T> => (await apiGetWithHeaders<T>(path, options)).data;
 
-export const apiPost = async <T>(path: string, body: unknown, options: ApiOptions = {}): Promise<T> =>
+export const apiPost = async <T>(
+  path: string,
+  body: unknown,
+  options: ApiOptions = {},
+): Promise<T> =>
   (await requestWithHeaders<T>("post", path, body, options)).data;
 
-export const apiPatch = async <T>(path: string, body: unknown, options: ApiOptions = {}): Promise<T> =>
+export const apiPatch = async <T>(
+  path: string,
+  body: unknown,
+  options: ApiOptions = {},
+): Promise<T> =>
   (await requestWithHeaders<T>("patch", path, body, options)).data;
 
-export const apiPut = async <T>(path: string, body: unknown, options: ApiOptions = {}): Promise<T> =>
-  (await apiPutWithHeaders<T>(path, body, options)).data;
+export const apiPut = async <T>(
+  path: string,
+  body: unknown,
+  options: ApiOptions = {},
+): Promise<T> => (await apiPutWithHeaders<T>(path, body, options)).data;

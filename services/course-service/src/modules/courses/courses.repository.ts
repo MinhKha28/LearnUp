@@ -1319,6 +1319,88 @@ export class CoursesRepository {
     );
   }
 
+  async submitCourseForApproval(data: {
+    courseId: string;
+    organizationId: string;
+    instructorId: string;
+    expectedUpdatedAt: Date;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      const submittedAt = new Date();
+      const expectedMs = data.expectedUpdatedAt.getTime();
+      // Chỉ cập nhật khi Course vẫn thuộc đúng Instructor,
+      // đúng Organization, đúng trạng thái và chưa bị sửa.
+      const updated = await tx.course.updateMany({
+        where: {
+          id: data.courseId,
+          organizationId: data.organizationId,
+          chain: {
+            instructorId: data.instructorId,
+          },
+          status: {
+            in: [COURSE_STATUS.DRAFT, COURSE_STATUS.REJECTED],
+          },
+          // So sánh trong cùng một millisecond.
+          updatedAt: {
+            gte: new Date(expectedMs),
+            lt: new Date(expectedMs + 1),
+          },
+        },
+        data: {
+          status: COURSE_STATUS.SUBMITTED,
+          submittedAt,
+        },
+      });
+
+      // Không có dòng được sửa: dữ liệu đã thay đổi.
+      if (updated.count !== 1) {
+        return {
+          status: 'CONFLICT' as const,
+        };
+      }
+
+      const course = await tx.course.findUniqueOrThrow({
+        where: {
+          id: data.courseId,
+        },
+        select: {
+          id: true,
+          name: true,
+          versionNumber: true,
+          status: true,
+          submittedAt: true,
+        },
+      });
+
+      // Ghi Outbox trong chính transaction này.
+
+      await tx.outboxEvent.create({
+        data: {
+          aggregateType: 'Course',
+          aggregateId: course.id,
+          organizationId: data.organizationId,
+          eventType: 'CourseSubmitted',
+          occurredAt: submittedAt,
+          payload: {
+            organizationId: data.organizationId,
+            courseId: course.id,
+            occurredAt: submittedAt.toISOString(),
+
+            instructorId: data.instructorId,
+            courseName: course.name,
+            versionNumber: course.versionNumber,
+            submittedAt: submittedAt.toISOString(),
+          },
+        },
+      });
+
+      return {
+        status: 'SUBMITTED' as const,
+        course,
+      };
+    });
+  }
+
   async updateMaterialMetadata(data: {
     organizationId: string;
     instructorId: string;

@@ -39,8 +39,8 @@ const Dashboard = () => {
   return (
     <LearnerPage className="learner-dashboard">
       <PageHeader
-        eyebrow="HỌC VIÊN"
-        title="Việc học của bạn trong một cái nhìn"
+        eyebrow="Học viên"
+        title="Tổng quan việc học của bạn"
         subtitle="Khóa học bắt buộc được ưu tiên. Tiếp tục từ chỗ bạn đã dừng."
       />
       <WarningPanel title="Khóa học bắt buộc đã quá hạn">

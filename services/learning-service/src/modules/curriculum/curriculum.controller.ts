@@ -5,6 +5,10 @@ import {
   ApiNotFoundResponse,
 } from '@nestjs/swagger';
 import { ProgressService, type ProgressView } from './progress.service';
+import {
+  AssessmentResultsService,
+  type AssessmentResultsView,
+} from './assessment-results.service';
 import type { CurrentUser } from '@learnup/ts-common';
 import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
 import { User } from '../../common/decorator/customize';
@@ -21,6 +25,7 @@ export class CurriculumController {
   constructor(
     private readonly service: CurriculumService,
     private readonly progress: ProgressService,
+    private readonly results: AssessmentResultsService,
   ) {}
 
   @Get(':enrollmentId/progress')
@@ -43,6 +48,29 @@ export class CurriculumController {
     @Param('enrollmentId') enrollmentId: string,
   ): Promise<ProgressView> {
     return this.progress.getProgress(user, enrollmentId);
+  }
+
+  @Get(':enrollmentId/assessment-results')
+  @Roles('LEARNER')
+  @ApiOperation({
+    summary:
+      'UC28.1: scores of the Quizzes and Assignments done in the Course, against the passing scores; never writes',
+  })
+  @ApiOkResponse({
+    description:
+      'state ok with summary and items, or state unavailable when assessment-service cannot be asked',
+  })
+  @ApiForbiddenResponse({
+    description: 'CONTENT_UNAVAILABLE, same as curriculum',
+  })
+  @ApiNotFoundResponse({
+    description: 'ENROLLMENT_NOT_FOUND, same as curriculum',
+  })
+  getAssessmentResults(
+    @User() user: CurrentUser,
+    @Param('enrollmentId') enrollmentId: string,
+  ): Promise<AssessmentResultsView> {
+    return this.results.getResults(user, enrollmentId);
   }
 
   /** UC27: chương trình học của một Enrollment. */

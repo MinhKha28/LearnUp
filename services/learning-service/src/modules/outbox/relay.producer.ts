@@ -59,14 +59,15 @@ export function message(row: OutboxRow) {
 }
 @Injectable()
 export class RelayProducer {
-  private producer!: KafkaJS.Producer;
-  private admin!: KafkaJS.Admin;
+  private producer: KafkaJS.Producer;
+  private admin?: KafkaJS.Admin;
+  private connecting = false;
   private connected = false;
   private initialized = false;
   constructor(@Inject(RELAY_CONFIG) private readonly config: RelayConfig) {
-    this.createClients();
+    this.producer = this.createProducer();
   }
-  private createClients(): void {
+  private createProducer(): KafkaJS.Producer {
     const config = this.config;
     const kafka = new KafkaJS.Kafka({
       kafkaJS: {
@@ -78,7 +79,7 @@ export class RelayProducer {
         logLevel: KafkaJS.logLevel.NOTHING,
       },
     });
-    this.producer = kafka.producer({
+    return kafka.producer({
       kafkaJS: {
         acks: -1,
         idempotent: true,
@@ -88,20 +89,27 @@ export class RelayProducer {
       },
       'delivery.timeout.ms': config.deliveryMs,
     });
-    this.admin = kafka.admin();
   }
   /** A fresh metadata request checks broker reachability before acquiring database locks. */
-  async ready(): Promise<boolean> {
+  async ready(): Promise<true | string> {
     try {
       if (!this.connected) {
-        await this.admin.connect();
+        this.connecting = true;
         try {
           await this.producer.connect();
-        } catch (e) {
-          await this.admin.disconnect();
-          throw e;
+        } catch (error) {
+          // KafkaJS producers cannot reconnect after a terminal connect failure.
+          this.producer = this.createProducer();
+          throw error;
+        } finally {
+          this.connecting = false;
         }
         this.connected = true;
+      }
+      if (!this.admin) {
+        const admin = this.producer.dependentAdmin();
+        await admin.connect();
+        this.admin = admin;
       }
       if (this.initialized) {
         await this.admin.fetchTopicMetadata({
@@ -131,17 +139,12 @@ export class RelayProducer {
         this.initialized = true;
       }
       return true;
-    } catch {
-      if (!this.connected) {
-        // Confluent clients cannot reconnect after their initial connect fails.
-        await Promise.allSettled([
-          this.producer.disconnect(),
-          this.admin.disconnect(),
-        ]);
-        this.createClients();
-      }
-      return false;
+    } catch (error) {
+      return classifyError(error).code;
     }
+  }
+  async cancelConnect(): Promise<void> {
+    if (this.connecting) await this.producer.disconnect();
   }
   async send(rows: OutboxRow[]): Promise<void> {
     const messages = rows.map(message);
@@ -160,10 +163,8 @@ export class RelayProducer {
   }
   async close(): Promise<void> {
     if (this.connected) {
-      await Promise.allSettled([
-        this.producer.disconnect(),
-        this.admin.disconnect(),
-      ]);
+      this.admin = undefined;
+      await Promise.allSettled([this.producer.disconnect()]);
       this.connected = false;
     }
   }

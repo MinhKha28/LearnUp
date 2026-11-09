@@ -188,12 +188,7 @@ export class CloudinaryStorageProvider implements IReadableStorageProvider {
         resource_type: options.resourceType,
         type: options.deliveryType ?? "upload",
         expires_at: options.expiresAt,
-
-        ...(options.attachment === undefined
-          ? {}
-          : { attachment: options.attachment }),
       };
-
       return cloudinary.utils.private_download_url(
         storageKey,
         options.format,

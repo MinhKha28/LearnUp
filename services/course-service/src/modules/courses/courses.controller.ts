@@ -265,6 +265,15 @@ export class CoursesController {
     );
   }
 
+  @Post(':courseId/submit')
+  @ResponseMessage('Course submitted for approval successfully')
+  submitCourseForApproval(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.submitCourseForApproval(user, courseId);
+  }
+
   @Patch(':courseId/lessons/:lessonId/materials/:materialId')
   @ResponseMessage('Learning material updated successfully')
   updateMaterial(

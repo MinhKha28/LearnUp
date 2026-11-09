@@ -513,62 +513,6 @@ describe('the copy of the validator of learning rejects what learning rejects (t
     assert.ok(brokenRules(good(), ORG, id(9), COURSE).length > 0));
 });
 
-describe('settleExpiredAttempts (the frame for UC29.1)', () => {
-  const NOW_ = new Date('2026-10-27T10:00:00.000Z');
-  const build_ = () => {
-    const calls: any[] = [];
-    const prisma = {
-      quizAttempt: {
-        count: (args: unknown) => {
-          calls.push(args);
-          return Promise.resolve(2);
-        },
-        updateMany: () => {
-          throw new Error('the frame must not write');
-        },
-      },
-    };
-    return {
-      calls,
-      repository: new CompletionSnapshotRepository(prisma as never),
-    };
-  };
-
-  test('looks only at the attempts of this Learner, in this Organization and Course, never submitted and past the deadline', async () => {
-    const { repository, calls } = build_();
-    assert.equal(
-      await repository.settleExpiredAttempts(ORG, LEARNER, COURSE, NOW_),
-      2,
-    );
-    assert.deepEqual(calls[0], {
-      where: {
-        organizationId: ORG,
-        learnerId: LEARNER,
-        assessment: { courseId: COURSE },
-        submittedAt: null,
-        deadlineAt: { lte: NOW_ },
-      },
-    });
-  });
-
-  test('calling it again gives the same answer and writes nothing', async () => {
-    const { repository } = build_();
-    const first = await repository.settleExpiredAttempts(
-      ORG,
-      LEARNER,
-      COURSE,
-      NOW_,
-    );
-    const second = await repository.settleExpiredAttempts(
-      ORG,
-      LEARNER,
-      COURSE,
-      NOW_,
-    );
-    assert.equal(first, second);
-  });
-});
-
 describe('a waived peer review duty (UC33.2, BR-241)', () => {
   const missed = [
     { status: 'Completed', reviewDueAt: PAST },

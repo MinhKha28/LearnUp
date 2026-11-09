@@ -21,6 +21,7 @@ import type {
   IOrganizationCourseListItem,
   IOrganizationCourseListQuery,
   IReadingUploadContext,
+  ISubmitCourseResponse,
   ITechnicalReplacementResponse,
   IUpdateCourseRequest,
   IUpdateCourseResponse,
@@ -208,6 +209,11 @@ export const createReadingMaterialAPI = (
     },
   );
 };
+
+export const submitCourseForApprovalAPI = (courseId: string) =>
+  axios.post<IBackendRes<ISubmitCourseResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/submit`,
+  );
 
 export const updateMaterialAPI = (
   courseId: string,

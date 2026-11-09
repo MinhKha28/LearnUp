@@ -1,6 +1,6 @@
 import { assessmentConditions } from './assessment-conditions';
-import type { Prisma } from '../../../generated/prisma/client';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '../../../generated/prisma/client';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
   ASSESSMENT_COMPLETION_CLIENT,
   type AssessmentCompletionClient,
@@ -13,6 +13,8 @@ import {
   CompletionRequest,
 } from './completion.repository';
 
+const completionClock = Symbol('completionClock');
+
 const allowed = (status: string) =>
   ['NotStarted', 'InProgress', 'Exempted'].includes(status);
 @Injectable()
@@ -23,6 +25,9 @@ export class CompletionService {
     private readonly repository: CompletionRepository,
     @Inject(ASSESSMENT_COMPLETION_CLIENT)
     private readonly assessment: AssessmentCompletionClient,
+    @Optional()
+    @Inject(completionClock)
+    private readonly clock: () => Prisma.Sql = () => Prisma.sql`clock_timestamp()`,
   ) {}
   private affected(count: number) {
     if (count === 0) this.metrics.generationDiscarded++;
@@ -114,17 +119,15 @@ export class CompletionService {
             await this.repository.remove(r, tx);
             return;
           }
-          const [{ completedAt }] = await tx.$queryRaw<
-            { completedAt: Date }[]
-          >`SELECT clock_timestamp() AS "completedAt"`;
           // BR-150/151: close before recomputing the union, never add pauses repeatedly.
           await tx.$executeRaw`UPDATE enrollment_status_intervals SET ended_at=GREATEST(started_at,clock_timestamp()),updated_at=clock_timestamp()
           WHERE enrollment_id=${r.enrollment_id}::uuid AND organization_id=${r.organization_id}::uuid AND kind='Exempted' AND ended_at IS NULL`;
           // Preserve microseconds in CHECK operands by computing and storing the deadline in SQL.
           const [deadline] = await tx.$queryRaw<
-            { dueAt: Date | null; completedLate: boolean }[]
+            { dueAt: Date | null; completedLate: boolean; completedAt: Date }[]
           >`
-          WITH pauses AS (
+          WITH completion_time AS MATERIALIZED (SELECT ${this.clock()} AS completed_at),
+          pauses AS (
             SELECT greatest(i.started_at,e.assigned_at) AS start_at,i.ended_at AS end_at
             FROM enrollment_status_intervals i JOIN enrollments e ON e.id=i.enrollment_id AND e.organization_id=i.organization_id
             WHERE e.id=${r.enrollment_id}::uuid AND i.ended_at IS NOT NULL AND i.ended_at>e.assigned_at
@@ -135,15 +138,17 @@ export class CompletionService {
           effective AS (SELECT e.enrollment_type,e.base_due_at+e.extension_seconds*interval '1 second'+
             COALESCE((SELECT sum(upper(p)-lower(p)) FROM merged,unnest(spans) p),interval '0 seconds') AS due_at
             FROM enrollments e WHERE e.id=${r.enrollment_id}::uuid)
-          UPDATE enrollments e SET status='Completed',completed_at=${completedAt},
+          UPDATE enrollments e SET status='Completed',completed_at=completion_time.completed_at,
           completed_late=CASE WHEN effective.enrollment_type='Required' THEN
-            COALESCE(effective.due_at<=${completedAt} AND NOT EXISTS(
+            COALESCE(effective.due_at<=completion_time.completed_at AND NOT EXISTS(
               SELECT 1 FROM organization_suspensions s WHERE s.organization_id=${r.organization_id}::uuid
                 AND s.ended_at IS NULL AND s.started_at<effective.due_at),false) ELSE NULL END,
-          due_at=effective.due_at,completion_snapshot=${JSON.stringify(snapshot)}::jsonb,updated_at=${completedAt}
-          FROM effective WHERE e.id=${r.enrollment_id}::uuid AND e.organization_id=${r.organization_id}::uuid AND e.status=${current.status}
-          RETURNING e.due_at AS "dueAt",e.completed_late AS "completedLate"`;
+          due_at=effective.due_at,completion_snapshot=${JSON.stringify(snapshot)}::jsonb,updated_at=completion_time.completed_at
+          FROM effective CROSS JOIN completion_time
+          WHERE e.id=${r.enrollment_id}::uuid AND e.organization_id=${r.organization_id}::uuid AND e.status=${current.status}
+          RETURNING e.due_at AS "dueAt",e.completed_late AS "completedLate",e.completed_at AS "completedAt"`;
           if (!deadline) throw new Error('COMPLETION_TRANSACTION_FAILED');
+          const { completedAt } = deadline;
           await tx.outboxEvent.create({
             data: {
               aggregateType: 'Enrollment',

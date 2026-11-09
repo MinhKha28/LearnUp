@@ -1,7 +1,4 @@
-import {
-  StorageProviderError,
-  type IReadableStorageProvider,
-} from '@learnup/ts-storage';
+import { StorageProviderError, type IReadableStorageProvider } from '@learnup/ts-storage';
 import type { PrismaService } from '@infra/prisma/prisma.service';
 import { InternalCoursesService } from './internal-courses.service';
 
@@ -46,100 +43,55 @@ describe('InternalCoursesService.getMaterialSignedUrl', () => {
   it.each([
     ['Video', 'LessonVideo', 'video/mp4', 'video', 'mp4'],
     ['Reading', 'LessonReading', 'application/pdf', 'raw', ''],
-  ])(
-    'generates signed URL for %s',
-    async (type, purpose, mime, resourceType, format) => {
-      findFirst.mockResolvedValue({
-        ...fixture(),
-        materialType: type,
-        file: {
-          ...fixture().file,
-          purpose,
-          mimeType: mime,
-          storageFormat: format,
-        },
-      });
-      const before = Math.floor(Date.now() / 1000);
-      const result = await service.getMaterialSignedUrl(
-        organizationId,
-        courseId,
-        materialId,
-      );
-      const after = Math.floor(Date.now() / 1000);
-      expect(result.url).toBe('https://example.test/protected');
-      expect(result.mimeType).toBe(mime);
-      const expiresAt = Date.parse(result.expiresAt) / 1000;
-      expect(expiresAt).toBeGreaterThanOrEqual(before + 900);
-      expect(expiresAt).toBeLessThanOrEqual(after + 900);
-
-      expect(getSignedUrl).toHaveBeenCalledWith('learnup/test/video', {
-        resourceType,
-        format,
-        deliveryType: 'authenticated',
-        expiresAt,
-        ...(type === 'Reading' ? { attachment: true } : {}),
-      });
-    },
-  );
+  ])('generates signed URL for %s', async (type, purpose, mime, resourceType, format) => {
+    findFirst.mockResolvedValue({
+      ...fixture(),
+      materialType: type,
+      file: { ...fixture().file, purpose, mimeType: mime, storageFormat: format },
+    });
+    const before = Math.floor(Date.now() / 1000);
+    const result = await service.getMaterialSignedUrl(organizationId, courseId, materialId);
+    const after = Math.floor(Date.now() / 1000);
+    expect(result.url).toBe('https://example.test/protected');
+    expect(result.mimeType).toBe(mime);
+    const expiresAt = Date.parse(result.expiresAt) / 1000;
+    expect(expiresAt).toBeGreaterThanOrEqual(before + 900);
+    expect(expiresAt).toBeLessThanOrEqual(after + 900);
+    expect(getSignedUrl).toHaveBeenCalledWith('learnup/test/video', {
+      resourceType, format, deliveryType: 'authenticated', expiresAt,
+    });
+  });
 
   it.each([
-    [
-      'different organization',
-      '01900000-0000-7000-8000-00000000a002',
-      courseId,
-    ],
-    [
-      'different course',
-      organizationId,
-      '01900000-0000-7000-8000-c0020000009d',
-    ],
-  ])(
-    'returns 404 when lookup finds no material for %s',
-    async (_label, org, course) => {
-      findFirst.mockResolvedValue(null);
-      await expect(
-        service.getMaterialSignedUrl(org, course, materialId),
-      ).rejects.toMatchObject({
-        status: 404,
-        response: { code: 'MATERIAL_NOT_FOUND' },
-      });
-      expect(findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            id: materialId,
-            organizationId: org,
-            lesson: {
-              organizationId: org,
-              module: {
-                organizationId: org,
-                courseId: course,
-                course: { organizationId: org },
-              },
-            },
-          },
-        }),
-      );
-      expect(getSignedUrl).not.toHaveBeenCalled();
-    },
-  );
+    ['different organization', '01900000-0000-7000-8000-00000000a002', courseId],
+    ['different course', organizationId, '01900000-0000-7000-8000-c0020000009d'],
+  ])('returns 404 when lookup finds no material for %s', async (_label, org, course) => {
+    findFirst.mockResolvedValue(null);
+    await expect(service.getMaterialSignedUrl(org, course, materialId))
+      .rejects.toMatchObject({ status: 404, response: { code: 'MATERIAL_NOT_FOUND' } });
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        id: materialId,
+        organizationId: org,
+        lesson: {
+          organizationId: org,
+          module: { organizationId: org, courseId: course, course: { organizationId: org } },
+        },
+      },
+    }));
+    expect(getSignedUrl).not.toHaveBeenCalled();
+  });
 
-  it.each(['material', 'lesson', 'course'])(
-    'returns 409 when %s disabled',
-    async (target) => {
-      const row = fixture();
-      if (target === 'material') row.disabledAt = new Date();
-      if (target === 'lesson') row.lesson.disabledAt = new Date();
-      if (target === 'course') row.lesson.module.course.disabledAt = new Date();
-      findFirst.mockResolvedValue(row);
-      await expect(
-        service.getMaterialSignedUrl(organizationId, courseId, materialId),
-      ).rejects.toMatchObject({
-        status: 409,
-        response: { code: 'MATERIAL_DISABLED' },
-      });
-      expect(getSignedUrl).not.toHaveBeenCalled();
-    },
-  );
+  it.each(['material', 'lesson', 'course'])('returns 409 when %s disabled', async (target) => {
+    const row = fixture();
+    if (target === 'material') row.disabledAt = new Date();
+    if (target === 'lesson') row.lesson.disabledAt = new Date();
+    if (target === 'course') row.lesson.module.course.disabledAt = new Date();
+    findFirst.mockResolvedValue(row);
+    await expect(service.getMaterialSignedUrl(organizationId, courseId, materialId))
+      .rejects.toMatchObject({ status: 409, response: { code: 'MATERIAL_DISABLED' } });
+    expect(getSignedUrl).not.toHaveBeenCalled();
+  });
 
   it.each([
     ['upload delivery', { deliveryType: 'upload' }],
@@ -148,33 +100,17 @@ describe('InternalCoursesService.getMaterialSignedUrl', () => {
     ['no ready timestamp', { readyAt: null }],
     ['wrong purpose', { purpose: 'CourseCover' }],
     ['wrong mime', { mimeType: 'application/octet-stream' }],
-    [
-      'wrong file organization',
-      { organizationId: '01900000-0000-7000-8000-00000000a002' },
-    ],
+    ['wrong file organization', { organizationId: '01900000-0000-7000-8000-00000000a002' }],
   ])('returns 409 for %s', async (_label, override) => {
-    findFirst.mockResolvedValue({
-      ...fixture(),
-      file: { ...fixture().file, ...override },
-    });
-    await expect(
-      service.getMaterialSignedUrl(organizationId, courseId, materialId),
-    ).rejects.toMatchObject({
-      status: 409,
-      response: { code: 'MATERIAL_FILE_NOT_READY' },
-    });
+    findFirst.mockResolvedValue({ ...fixture(), file: { ...fixture().file, ...override } });
+    await expect(service.getMaterialSignedUrl(organizationId, courseId, materialId))
+      .rejects.toMatchObject({ status: 409, response: { code: 'MATERIAL_FILE_NOT_READY' } });
     expect(getSignedUrl).not.toHaveBeenCalled();
   });
 
   it('returns 503 on StorageProviderError', async () => {
-    getSignedUrl.mockImplementation(() => {
-      throw new StorageProviderError('signing unavailable');
-    });
-    await expect(
-      service.getMaterialSignedUrl(organizationId, courseId, materialId),
-    ).rejects.toMatchObject({
-      status: 503,
-      response: { code: 'MATERIAL_URL_UNAVAILABLE' },
-    });
+    getSignedUrl.mockImplementation(() => { throw new StorageProviderError('signing unavailable'); });
+    await expect(service.getMaterialSignedUrl(organizationId, courseId, materialId))
+      .rejects.toMatchObject({ status: 503, response: { code: 'MATERIAL_URL_UNAVAILABLE' } });
   });
 });

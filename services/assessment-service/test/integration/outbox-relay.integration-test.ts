@@ -358,6 +358,45 @@ describe('the relay of the outbox over Postgres', () => {
     assert.equal((await state(id)).published_at, null);
   });
 
+  test('the summary of what waits counts the events not sent yet, of the relayed types, and the age of the oldest', async () => {
+    await clear();
+    const prisma = new PrismaService({
+      getOrThrow: () => db.url,
+    } as unknown as ConfigService);
+    prismas.push(prisma);
+    const repository = new RelayRepository(prisma, relayConfig());
+    assert.deepEqual(await repository.unsentSummary(), {
+      count: 0,
+      oldestAt: null,
+    });
+
+    const [oldest, , sent] = [
+      ...(await add(aggregate(910))),
+      ...(await add(aggregate(911))),
+      ...(await add(aggregate(912))),
+    ];
+    const [otherType] = await add(aggregate(913), 'AssignmentMinutesChanged');
+    await db.query(
+      "UPDATE outbox_events SET occurred_at = now() - interval '2 hours' WHERE id = $1",
+      [oldest],
+    );
+    await db.query(
+      "UPDATE outbox_events SET published_at = now(), occurred_at = now() - interval '5 hours' WHERE id = $1",
+      [sent],
+    );
+    await db.query(
+      "UPDATE outbox_events SET occurred_at = now() - interval '9 hours' WHERE id = $1",
+      [otherType],
+    );
+    const { count, oldestAt } = await repository.unsentSummary();
+    assert.equal(count, 2, 'a sent event and one of another type do not wait');
+    const ageSeconds = (Date.now() - (oldestAt as Date).getTime()) / 1000;
+    assert.ok(
+      ageSeconds > 7100 && ageSeconds < 7400,
+      `the oldest waiting event is the one of 2 hours, not the sent one or the other type (${ageSeconds} s)`,
+    );
+  });
+
   test('cleanup removes the sent events older than a week and nothing else', async () => {
     await clear();
     const prisma = new PrismaService({

@@ -131,28 +131,4 @@ export class CompletionSnapshotRepository {
     }
     return { quizzes, assignments };
   }
-
-  /**
-   * The Quiz attempts of the Learner in the Course that ran past their deadline and were never submitted (UC29.1).
-   * A frame only: grading an attempt that timed out belongs to UC29.1, which does not exist yet, and until then nothing
-   * writes `quiz_attempts`, so there is nothing to settle. It changes no row, so calling it again changes nothing.
-   * When UC29.1 comes, the conditional update `WHERE submitted_at IS NULL AND deadline_at <= now` goes here and the
-   * snapshot calls it before it reads (it is left out of the reading now so that it does not cost a statement for nothing).
-   */
-  async settleExpiredAttempts(
-    organizationId: string,
-    learnerId: string,
-    courseId: string,
-    now: Date,
-  ): Promise<number> {
-    return this.prisma.quizAttempt.count({
-      where: {
-        organizationId,
-        learnerId,
-        assessment: { courseId },
-        submittedAt: null,
-        deadlineAt: { lte: now },
-      },
-    });
-  }
 }
