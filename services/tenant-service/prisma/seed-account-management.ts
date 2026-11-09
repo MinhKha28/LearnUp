@@ -94,7 +94,7 @@
  *   - Zeta: PendingPayment nhưng đăng ký đã quá hạn, chưa ai chạm vào (BR-7 chạy lazy)
  *     -> API tính là Cancelled, ẩn mặc định.
  *   - Eta: Cancelled, đăng ký Expired, Organizer đã xóa mềm (BR-7, BR-31) -> ẩn mặc định.
- *   - Theta: Organization Suspended (BR-45) nhưng Subscription vẫn Active (BR-283).
+ *   - Theta: Organization Suspended (BR-56) nhưng Subscription vẫn Active (BR-60).
  *   - Iota: Organization Active, Subscription Suspended (hết hạn + hết ân hạn, BR-16).
  *   -> Mặc định danh sách UC44 có 7 dòng (ABC, XYZ, Gamma, Delta, Epsilon, Theta, Iota);
  *      includeCancelled=true có 9 dòng.
@@ -108,7 +108,7 @@
  * Bổ sung UC44.1 (Admin xem chi tiết Organization):
  *   - BR-280: Eta (Cancelled) dùng mã số thuế của ABC; Iota dùng mã số thuế của Theta
  *     -> chi tiết ABC, Eta, Theta, Iota đều có cảnh báo trùng mã số thuế.
- *   - BR-45: Theta có thêm một lượt tạm khóa đã gỡ (15 -> 10 ngày trước), trước lượt đang mở.
+ *   - BR-58: Theta có thêm một lượt tạm khóa đã gỡ (15 -> 10 ngày trước), trước lượt đang mở.
  *   - BR-40: Iota đã thay Organizer: Lưu Thu Trang (e015) Deactivated, Organizer mới
  *     Quách Minh Tú (e016) Pending, lời mời còn hạn (phát 1 ngày trước).
  *   ID mới:
@@ -414,7 +414,7 @@ const UC441_INVITED_ORGANIZER = {
   fullName: 'Quách Minh Tú',
   tokenId: id('e046'),
 };
-// UC44.1 - BR-45: lượt tạm khóa Theta đã gỡ, trước lượt đang mở (e044).
+// UC44.1 - BR-58: lượt tạm khóa Theta đã gỡ, trước lượt đang mở (e044).
 const UC441_ENDED_SUSPENSION = {
   id: id('e045'),
   organizationId: id('e004'),
@@ -1397,7 +1397,7 @@ async function main(): Promise<void> {
       }
     }
 
-    // UC44.1 - BR-45: lượt tạm khóa đã gỡ (ended_at có giá trị nên không vướng index một lượt đang mở).
+    // UC44.1 - BR-58: lượt tạm khóa đã gỡ (ended_at có giá trị nên không vướng index một lượt đang mở).
     const endedSuspensionData = {
       organizationId: UC441_ENDED_SUSPENSION.organizationId,
       startedAt: addDays(now, -UC441_ENDED_SUSPENSION.startedDaysAgo),
