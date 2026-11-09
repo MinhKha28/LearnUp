@@ -416,3 +416,31 @@ export const fetchOrganizerAssessmentReviewAPI = (courseId: string) =>
   axios.get<IBackendRes<IReviewAssessmentsResponse>>(
     `/api/v1/assessments/organization/courses/${encodeURIComponent(courseId)}/review`,
   );
+
+/**
+ * UC21.2 - Download an Assignment attachment
+ * for Organizer review.
+ *
+ * The existing Axios interceptor may resolve an error
+ * response instead of throwing it.
+ */
+export const downloadOrganizerAssignmentPromptAPI = async (
+  courseId: string,
+  assignmentId: string,
+): Promise<Blob | null> => {
+  const response = (await axios.get(
+    `/api/v1/assessments/organization/courses/${encodeURIComponent(courseId)}/assignments/${encodeURIComponent(assignmentId)}/prompt-file`,
+    {
+      responseType: "blob",
+    },
+  )) as unknown as {
+    status?: number;
+    data?: unknown;
+  };
+
+  if (response.status !== 200 || !(response.data instanceof Blob)) {
+    return null;
+  }
+
+  return response.data;
+};

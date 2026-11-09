@@ -597,6 +597,13 @@ export class AssessmentsService {
         prompt: row.kind === 'ASSIGNMENT' ? row.prompt : null,
         promptFileName: row.kind === 'ASSIGNMENT' ? row.promptFileName : null,
         peerReviewEnabled: row.peerReviewEnabled,
+        peerReviewersPerSubmission: row.peerReviewersPerSubmission,
+        peerReviewCycleDays: row.peerReviewCycleDays,
+        peerReviewDeadlineDays: row.peerReviewDeadlineDays,
+        peerReviewScoreGap:
+          row.peerReviewScoreGap === null
+            ? null
+            : Number(row.peerReviewScoreGap),
         questions:
           row.kind === 'QUIZ'
             ? row.questions.map((question) => ({

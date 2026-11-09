@@ -427,6 +427,10 @@ export interface IReviewAssessment {
   prompt: string | null;
   promptFileName: string | null;
   peerReviewEnabled: boolean;
+  peerReviewersPerSubmission: number | null;
+  peerReviewCycleDays: number | null;
+  peerReviewDeadlineDays: number | null;
+  peerReviewScoreGap: number | null;
   questions: Array<{
     id: string;
     position: number;
