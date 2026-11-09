@@ -176,7 +176,6 @@ export default function RegisterPage() {
   // UC02: trạng thái gửi đăng ký
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [emailInUse, setEmailInUse] = useState(false); // UC02 trường hợp F: 409 EMAIL_ALREADY_USED
   const [verification, setVerification] = useState<VerificationInfo | null>(
     null,
   );
@@ -352,7 +351,6 @@ export default function RegisterPage() {
     }));
     setSubmitting(true);
     setSubmitError(null);
-    setEmailInUse(false);
     const request: ICreateRegistrationReq = {
       planId: selectedPlan.id,
       organization: draft.organization,
@@ -446,17 +444,6 @@ export default function RegisterPage() {
   // UC02: đổi mã lỗi backend thành thông báo tiếng Anh, đặt đúng chỗ
   function showRegistrationError(error?: IApiError) {
     switch (error?.code) {
-      case "EMAIL_ALREADY_USED":
-        // Trường hợp F: email thuộc tài khoản đã hoạt động → báo rõ ở đầu form và tại ô email
-        setAccountError(true);
-        setEmailInUse(true);
-        organizerForm.setFields([
-          {
-            name: "email",
-            errors: ["This email is already used by another account."],
-          },
-        ]);
-        return;
       case "PLAN_NOT_AVAILABLE":
         setSubmitError(
           "The selected plan is no longer available. Please choose another plan.",
@@ -680,6 +667,10 @@ export default function RegisterPage() {
             If this email was already verified, we sent a "Continue to payment"
             link instead of a code. Open it to finish your registration.
           </p>
+          <p>
+            If this email already has a LearnUP account, we sent sign-in
+            instructions instead.
+          </p>
           <b className="register-notice-next">Didn't receive the email?</b>
           <p>
             Check your spam folder or request a new code. Each request sends a
@@ -717,20 +708,7 @@ export default function RegisterPage() {
   function renderAccount() {
     return (
       <section className="register-card">
-        {emailInUse ? (
-          <Alert
-            type="error"
-            message="This email is already in use"
-            description={
-              <>
-                An active LearnUP account already uses this email.{" "}
-                <Link to="/login">Sign in</Link> instead, or enter a different
-                email for the new Organizer.
-              </>
-            }
-            role="alert"
-          />
-        ) : accountError ? (
+        {accountError ? (
           <Alert
             type="error"
             message="This account needs attention"
