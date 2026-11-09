@@ -88,7 +88,7 @@ as "Hành động khác" with the code next to it, so a service that picks anoth
 
 | Code | BR-336 | Written by |
 | --- | --- | --- |
-| `INSTRUCTOR_DEACTIVATED`, `INSTRUCTOR_REACTIVATED` | accounts (BR-45, BR-46, BR-51) | tenant (today) |
+| `INSTRUCTOR_DEACTIVATED`, `INSTRUCTOR_REACTIVATED`, `INSTRUCTOR_DELETED` | accounts (BR-45, BR-46, BR-51) | tenant (today) |
 | `LEARNER_DEACTIVATED`, `LEARNER_REACTIVATED`, `ACCOUNT_DELETED` | accounts (BR-45, BR-46, BR-51) | proposed |
 | `PLAN_UPDATED`, `PLAN_DISCONTINUED` | Plan (BR-2, BR-3) | proposed |
 | `ORGANIZATION_SUSPENDED`, `ORGANIZATION_SUSPENSION_LIFTED` | suspension (BR-56, BR-58) | proposed |

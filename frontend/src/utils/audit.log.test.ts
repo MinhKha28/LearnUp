@@ -26,6 +26,8 @@ describe("labels", () => {
     expect(actionLabel("SOMETHING_NEW")).toBe("Hành động khác");
     expect(actionLabel("constructor")).toBe("Hành động khác"); // not a word of the table
     expect(isKnownAction("INSTRUCTOR_DEACTIVATED")).toBe(true);
+    expect(actionLabel("INSTRUCTOR_DELETED")).toBe("Xóa tài khoản giảng viên");
+    expect(isKnownAction("INSTRUCTOR_DELETED")).toBe(true);
     expect(isKnownAction("toString")).toBe(false);
   });
 

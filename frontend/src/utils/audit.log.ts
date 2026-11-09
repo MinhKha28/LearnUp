@@ -8,7 +8,7 @@ export const AUDIT_PAGE_SIZE = 20;
 export const AUDIT_TARGET_ID_MAX_LENGTH = 255;
 
 /**
- * BR-336 lists what is recorded. The first two are written by tenant today; the others are the codes proposed for the actions of the list
+ * BR-336 lists what is recorded. The first three are written by tenant today; the others are the codes proposed for the actions of the list
  * (ENTITY_PAST_TENSE, like the first two) so that the screen has words ready when a service starts to write them: a service that picks another
  * code adds it here. Any code not in the table is called "Hành động khác" and the code is written next to it.
  * Not in the table on purpose: the actions on an Enrollment (BR-146, BR-149, BR-170), until the word for Enrollment is chosen.
@@ -16,6 +16,7 @@ export const AUDIT_TARGET_ID_MAX_LENGTH = 255;
 const ACTION_LABELS: Record<string, string> = {
   INSTRUCTOR_DEACTIVATED: "Ngừng hoạt động tài khoản giảng viên",
   INSTRUCTOR_REACTIVATED: "Kích hoạt lại tài khoản giảng viên",
+  INSTRUCTOR_DELETED: "Xóa tài khoản giảng viên",
   LEARNER_DEACTIVATED: "Ngừng hoạt động tài khoản học viên",
   LEARNER_REACTIVATED: "Kích hoạt lại tài khoản học viên",
   ACCOUNT_DELETED: "Xóa tài khoản",
