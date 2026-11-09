@@ -12,6 +12,7 @@ test('an invitation email expires with its activation link (BR-28, BR-30)', asyn
     { enqueueEmail: async (_tx, params) => enqueued.push(params) },
     {},
     {},
+    {}, // storage (UC12.1)
     {},
   );
   const expiresAt = new Date('2026-11-01T08:30:00.000Z');

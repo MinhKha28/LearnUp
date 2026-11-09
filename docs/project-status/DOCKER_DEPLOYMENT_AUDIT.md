@@ -466,6 +466,7 @@ sequenceDiagram
 | `GATEWAY_HOST_PORT` | Gateway / Host | `8088` | No | Host port for API Gateway |
 | `JWT_SECRET` | Gateway, Identity | `devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong` | Dev only | HMAC-SHA256 signing secret for JWT |
 | `INTERNAL_SERVICE_KEY` | Gateway and all 5 NestJS services | none (required) | Yes | Sent by the Gateway as `x-internal-key` and verified by `InternalAuthGuard`; Compose refuses to start without it, and the Gateway refuses `learnup-internal-secret` at startup |
+| `EMAIL_OTP_SECRET` | Tenant | none (required by tenant) | Yes | HMAC key for the 6-digit email verification codes (BR-13). Compose passes it through and does not require it, so commands that do not start tenant keep working. tenant refuses to start when it is missing, blank or shorter than 32 bytes. Changing it invalidates the codes already sent; a Guest asks for a new code. Setup: `services/tenant-service/README.md` |
 | `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | Java services | `http://eureka-server:8761/eureka/` | No | Eureka discovery URL |
 | `LEARNUP_MAIL_ENABLED` | Notification | `false` | No | Disable physical SMTP in dev |
 | `SPRING_MAIL_HOST` | Notification | `smtp.gmail.com` | No | SMTP host |

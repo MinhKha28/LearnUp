@@ -17,6 +17,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
+import { toSafeNumber } from '../../common/utils/to-safe-number';
 import { OptionalEnrollmentRepository } from './optional-enrollment.repository';
 import { assertRestorable } from './optional-enrollment.rules';
 import { Prisma } from '../../../generated/prisma/client';
@@ -30,6 +31,10 @@ import {
   CourseServiceUnavailableError,
 } from '../../infrastructure/clients/course/course-service.errors';
 import type { CourseBatchItem } from '../../infrastructure/clients/course/course-service.interface';
+import {
+  normalizeCourseName,
+  type MyEnrollmentFilters,
+} from './my-enrollment-filters';
 import { serviceUnavailable } from '../../infrastructure/clients/course/service-unavailable';
 import {
   TENANT_CLIENT,
@@ -67,6 +72,13 @@ export interface MyEnrollmentItem {
 
 export type MyEnrollmentsPage = PageResponse<MyEnrollmentItem>;
 
+@Injectable()
+export class MyEnrollmentClock {
+  now(): Prisma.Sql {
+    return Prisma.sql`now()`;
+  }
+}
+
 /** 409 kèm ID Enrollment đã có để client mở thẳng Enrollment đó. */
 function alreadyEnrolled(enrollmentId: string): ConflictException {
   return new ConflictException({
@@ -99,6 +111,7 @@ export class EnrollmentsService {
     private readonly optionalEnrollments: OptionalEnrollmentRepository = new OptionalEnrollmentRepository(
       prisma,
     ),
+    private readonly myEnrollmentClock: MyEnrollmentClock = new MyEnrollmentClock(),
   ) {
     this.snapshotPreparation =
       snapshotPreparation ??
@@ -211,6 +224,7 @@ export class EnrollmentsService {
   async findMyEnrollments(
     user: CurrentUser,
     page: number,
+    { q, type, status }: MyEnrollmentFilters = {},
   ): Promise<MyEnrollmentsPage> {
     const organizationId = this.organizationIdOf(user);
     const pageSize = MY_ENROLLMENTS_PAGE_SIZE;
@@ -231,33 +245,52 @@ export class EnrollmentsService {
       return emptyPage(0);
     }
 
-    const total = await this.enrollments.countMine(user.userId, organizationId);
+    const criteria = { type, status, now: this.myEnrollmentClock.now() };
     const offset = (page - 1) * pageSize;
-    if (offset >= total) {
-      return emptyPage(total);
+    let total: number;
+    let rows: MyEnrollmentRow[];
+    let courseById: Map<string, CourseBatchItem>;
+    if (q) {
+      const candidates = await this.enrollments.findMineCandidates(
+        user.userId,
+        organizationId,
+        criteria,
+      );
+      courseById = await this.getMyEnrollmentCourses(user, candidates);
+      const keyword = normalizeCourseName(q);
+      const matches = candidates.filter(({ courseId }) => {
+        const course = courseById.get(courseId);
+        return (
+          course !== undefined &&
+          normalizeCourseName(course.name).includes(keyword)
+        );
+      });
+      total = matches.length;
+      rows = matches.slice(offset, offset + pageSize);
+    } else {
+      const [count, pageRows] = await this.prisma.$transaction(
+        [
+          this.enrollments.countMine(user.userId, organizationId, criteria),
+          this.enrollments.findMinePage(
+            user.userId,
+            organizationId,
+            pageSize,
+            offset,
+            criteria,
+          ),
+        ],
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+      );
+      total = toSafeNumber(count[0].n);
+      rows = pageRows;
+      courseById = await this.getMyEnrollmentCourses(user, rows);
     }
+    if (rows.length === 0) return emptyPage(total);
 
-    const rows = await this.enrollments.findMinePage(
-      user.userId,
-      organizationId,
-      pageSize,
-      offset,
-    );
-    // Dòng bị xóa giữa lúc đếm và lúc đọc trang
-    if (rows.length === 0) {
-      return emptyPage(total);
-    }
     const counts = await this.enrollments.countRequiredMaterials(
       rows.map((row) => row.id),
       organizationId,
     );
-    const courses = await this.callCourseService(() =>
-      this.courseService.getCoursesBatch(user, [
-        ...new Set(rows.map((row) => row.courseId)),
-      ]),
-    );
-
-    const courseById = new Map(courses.map((c) => [c.courseId, c]));
     const items = rows.map((row) =>
       this.toMyEnrollmentItem(
         row,
@@ -268,6 +301,25 @@ export class EnrollmentsService {
     return {
       ...createPageResponse(items, page, pageSize, total),
     };
+  }
+
+  private async getMyEnrollmentCourses(
+    user: CurrentUser,
+    rows: MyEnrollmentRow[],
+  ) {
+    const ids = [...new Set(rows.map((row) => row.courseId))];
+    const courses = new Map<string, CourseBatchItem>();
+    const batchSize = 100;
+    for (let start = 0; start < ids.length; start += batchSize) {
+      const batch = await this.callCourseService(() =>
+        this.courseService.getCoursesBatch(
+          user,
+          ids.slice(start, start + batchSize),
+        ),
+      );
+      for (const course of batch) courses.set(course.courseId, course);
+    }
+    return courses;
   }
 
   private toMyEnrollmentItem(

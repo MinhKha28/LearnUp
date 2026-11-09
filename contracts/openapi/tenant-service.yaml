@@ -1,0 +1,53 @@
+openapi: 3.0.3
+info:
+  title: LearnUP Tenant Service UC20 internal integration
+  version: 1.0.0
+paths:
+  /api/v1/users/internal/organizer:
+    get:
+      summary: Resolve the active Organizer for one Organization
+      operationId: getOrganizerForNotification
+      security:
+        - internalKey: []
+      parameters:
+        - name: x-organization-id
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Active Organizer resolved for the requested Organization.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode:
+                    type: integer
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required: [id, email]
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      email:
+                        type: string
+                        format: email
+        '400':
+          description: Missing or invalid Organization UUID header.
+        '401':
+          description: Internal service authentication required.
+        '404':
+          description: No active Organizer for this Organization.
+components:
+  securitySchemes:
+    internalKey:
+      type: apiKey
+      in: header
+      name: x-internal-key
