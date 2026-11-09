@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { reportVideoProgress } from "@/services/learning.service";
+import { fetchVideoPlayback, reportVideoProgress } from "@/services/learning.service";
 import { refreshExpiringAccessToken } from "@/services/auth.session";
 import { createProgressQueue, type ProgressReport } from "@/utils/video.progress.queue";
 import { createVideoProgressSession } from "@/utils/video.progress.session";
@@ -37,6 +37,15 @@ export function useVideoProgress(
     video.current = element;
   }, []);
   const segments = useRef(createSegments());
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const expiresAt = useRef(playback.expiresAt);
+  const swapping = useRef(false);
+  const fetching = useRef(false);
+  const failures = useRef(0);
+  const healthyFrom = useRef<number | null>(null);
+  const wantsPlay = useRef(false);
+  const replacement = useRef<{ time: number; playing: boolean; rate: number } | null>(null);
+  const accessAbort = useRef<AbortController | null>(null);
   const [progress, setProgress] = useState<VideoProgress>(playback);
   const [warning, setWarning] = useState<string | null>(null);
   const mounted = useRef(false);
@@ -75,7 +84,7 @@ export function useVideoProgress(
       const media = element
         ? { time: element.currentTime, seeking: element.seeking }
         : detachedMedia.current;
-      if (!media || !interacted.current || !session.owns()) return;
+      if (swapping.current || !media || !interacted.current || !session.owns()) return;
       const positionSeconds = ended ? playback.durationSeconds : Math.floor(media.time);
       if (!media.seeking && segments.current.start !== null)
         segments.current = updateSegment(segments.current, media.time);
@@ -122,6 +131,50 @@ export function useVideoProgress(
     });
     await session.flush(keepalive, positionOnly ? position : undefined);
   }, [capture, session]);
+
+  const renew = useCallback(async (playing?: boolean) => {
+    const element = video.current;
+    if (!element || fetching.current) return;
+    fetching.current = true;
+    // Capture before load() resets currentTime. Keep the same durable queue and session.
+    if (!swapping.current) {
+      capture();
+      segments.current = closeSegment(segments.current);
+      replacement.current = { time: element.currentTime, playing: playing ?? (element.error ? wantsPlay.current : !element.paused), rate: element.playbackRate };
+    } else if (replacement.current && playing !== undefined) {
+      replacement.current.playing = playing;
+    }
+    swapping.current = true;
+    element.pause();
+    setMediaError(null);
+    const controller = new AbortController();
+    accessAbort.current = controller;
+    try {
+      const fresh = await fetchVideoPlayback(enrollmentId, playback.materialId, controller.signal);
+      if (!mounted.current || controller.signal.aborted) return;
+      expiresAt.current = fresh.expiresAt;
+      // load() also handles a provider returning the same URL within one second.
+      element.src = fresh.playbackUrl;
+      element.load();
+    } catch (error) {
+      if (!controller.signal.aborted && mounted.current) {
+        setMediaError(error instanceof ApiError ? videoOutcome(error) : 'Không tải được video. Vui lòng thử lại.');
+      }
+    } finally {
+      fetching.current = false;
+    }
+  }, [capture, enrollmentId, playback.materialId]);
+  const nearExpiry = () => Date.now() >= Date.parse(expiresAt.current) - 60_000;
+  useEffect(() => {
+    const visible = () => {
+      if (document.visibilityState === 'visible' && nearExpiry()) void renew();
+    };
+    document.addEventListener('visibilitychange', visible);
+    return () => {
+      document.removeEventListener('visibilitychange', visible);
+      accessAbort.current?.abort();
+    };
+  }, [renew]);
 
   useEffect(() => {
     mounted.current = true;
@@ -175,11 +228,27 @@ export function useVideoProgress(
     videoRef,
     progress,
     warning,
+    mediaError,
+    retryMedia: () => { failures.current = 0; void renew(); },
     flush: () => send(),
     events: {
+      onPlay: () => {
+        wantsPlay.current = true;
+        if (!swapping.current && nearExpiry()) void renew(true);
+      },
+      onError: () => {
+        if (fetching.current) return;
+        if (failures.current++ === 0) void renew();
+        else {
+          capture();
+          segments.current = closeSegment(segments.current);
+          setMediaError('Không tải được video. Vui lòng thử lại.');
+        }
+      },
       onPlaying: () => {
-        if (video.current) {
+        if (video.current && !swapping.current) {
           interacted.current = true;
+          healthyFrom.current = video.current.currentTime;
           segments.current = openSegment(
             segments.current,
             video.current.currentTime,
@@ -187,7 +256,8 @@ export function useVideoProgress(
         }
       },
       onTimeUpdate: () => {
-        if (video.current && !video.current.seeking) {
+        if (video.current && !video.current.seeking && !swapping.current) {
+          if (!video.current.paused && healthyFrom.current !== null && video.current.currentTime > healthyFrom.current + 1) failures.current = 0;
           segments.current = updateSegment(
             segments.current,
             video.current.currentTime,
@@ -196,10 +266,23 @@ export function useVideoProgress(
         }
       },
       onSeeking: () => {
+        healthyFrom.current = null;
+        if (swapping.current) return;
         if (!restoring.current) interacted.current = true;
         segments.current = closeSegment(segments.current);
       },
       onSeeked: () => {
+        healthyFrom.current = video.current?.currentTime ?? null;
+        if (swapping.current && replacement.current) {
+          const saved = replacement.current;
+          swapping.current = false;
+          replacement.current = null;
+          if (saved.playing && video.current) {
+            segments.current = openSegment(segments.current, video.current.currentTime);
+            void video.current.play().catch(() => setMediaError('Không tải được video. Vui lòng thử lại.'));
+          }
+          return;
+        }
         if (restoring.current) {
           restoring.current = false;
           return;
@@ -211,9 +294,26 @@ export function useVideoProgress(
           );
         void send();
       },
-      onPause: () => close(),
+      onPause: () => {
+        if (swapping.current || video.current?.error) return;
+        wantsPlay.current = false;
+        close();
+      },
       onEnded: () => close(true),
       onLoadedMetadata: () => {
+        if (replacement.current && video.current) {
+          const element = video.current;
+          const saved = replacement.current;
+          element.playbackRate = saved.rate;
+          const time = Math.min(saved.time, Number.isFinite(element.duration) ? element.duration : saved.time);
+          if (Math.abs(time - element.currentTime) > 0.01) element.currentTime = time;
+          else {
+            swapping.current = false;
+            replacement.current = null;
+            if (saved.playing) void element.play().catch(() => setMediaError('Không tải được video. Vui lòng thử lại.'));
+          }
+          return;
+        }
         let cached: VideoPosition | null = null;
         if (cacheEnabled && user?.id) {
           try {
