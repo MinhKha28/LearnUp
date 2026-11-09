@@ -23,6 +23,9 @@ import "./peer.cycles.scss";
 
 const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
 
+/** Scores have at most two decimals (BR-202): 24.5 is written 24,5. */
+const formatScore = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 });
+
 const OBLIGATION_LABEL: Record<TReviewerObligation, string> = {
   Pending: "Đang thực hiện",
   Satisfied: "Đã hoàn thành",
@@ -98,6 +101,7 @@ const PeerCycleDetail = () => {
   }
 
   const { cycle } = detail;
+  const flagged = detail.submissions.filter((row) => row.needsReview).length;
   return (
     <InstructorPage className="instructor-peer-cycles">
       <PageHeader
@@ -124,6 +128,7 @@ const PeerCycleDetail = () => {
               <span>Bài nộp</span>
               <span>Lượt chấm</span>
               <span>Còn thiếu</span>
+              <span>Chênh lệch điểm</span>
             </div>
             {detail.submissions.map((row) => (
               <div
@@ -135,6 +140,14 @@ const PeerCycleDetail = () => {
                   {row.reviewsCompleted}/{row.reviewsAssigned}
                 </span>
                 <span>{row.reviewsMissing}</span>
+                <span className="instructor-cycle-obligation">
+                  {row.scoreGap === null ? "-" : formatScore.format(row.scoreGap)}
+                  {row.needsReview && (
+                    <span className="instructor-cycle-chip instructor-cycle-chip-Missed">
+                      Cần xem lại
+                    </span>
+                  )}
+                </span>
               </div>
             ))}
             {detail.submissions.length === 0 && (
@@ -142,9 +155,16 @@ const PeerCycleDetail = () => {
                 <span>Chu kỳ này chưa có bài nộp.</span>
                 <span />
                 <span />
+                <span />
               </div>
             )}
           </div>
+          {flagged > 0 && (
+            <p className="instructor-cycle-gap-note">
+              {flagged} bài nộp có điểm của các người chấm chênh nhau hơn{" "}
+              {formatScore.format(cycle.scoreGap)} điểm. Hãy xem lại và chốt điểm cuối (BR-252).
+            </p>
+          )}
         </SectionCard>
         <SectionCard title="Nghĩa vụ chấm chéo">
           <div className="instructor-cycle-table">

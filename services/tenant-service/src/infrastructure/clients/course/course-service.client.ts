@@ -32,6 +32,18 @@ export abstract class CourseServiceClient {
     instructorId: string,
   ): Promise<IManagedCourseChain[]>;
 
+  /**
+   * UC12.5 (BR-41, BR-287): chuyển MỌI chuỗi Course fromInstructorId đang phụ trách sang
+   * toInstructorId, trong tổ chức của người gọi. Idempotent: gọi lại khi đã chuyển hết thì trả [].
+   * Trả các chuỗi vừa chuyển. tenant đã kiểm người tiếp nhận hợp lệ trước khi gọi.
+   * Lỗi / timeout thì ném lỗi: bên course có thể đã chuyển một phần hoặc toàn bộ, gọi lại để chuyển nốt.
+   */
+  abstract transferCourseChains(
+    user: CurrentUser,
+    fromInstructorId: string,
+    toInstructorId: string,
+  ): Promise<IManagedCourseChain[]>;
+
   abstract getOrganizationUsage(
     user: CurrentUser,
   ): Promise<IOrganizationCourseUsage>;

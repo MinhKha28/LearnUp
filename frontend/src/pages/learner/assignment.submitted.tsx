@@ -7,7 +7,7 @@ interface ISubmittedState {
   title?: string;
 }
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString();
+const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
 
 const AssignmentSubmitted = () => {
   const { enrollmentId: courseId, assignmentId } = useParams();

@@ -6,6 +6,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { CurrentUser, PageResponse } from '@learnup/ts-common';
@@ -30,7 +31,12 @@ import {
   UserStatus,
 } from '../../common/constants/tenant.constants';
 import { generateSecretToken } from '../../common/utils/token.util';
+import {
+  AccountStatusAction,
+  ChangeAccountStatusDto,
+} from './dto/change-account-status.dto';
 import { CreateAccountDto } from './dto/create-account.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
 import { ListDepartmentsQueryDto } from './dto/list-departments-query.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
@@ -43,6 +49,16 @@ import {
   InstructorDetail,
   InstructorInvitation,
 } from './interfaces/instructor-detail.interface';
+import {
+  IInstructorDeletion,
+  IInstructorDeletionResult,
+} from './interfaces/instructor-deletion.interface';
+import {
+  IHandOverPreview,
+  IInstructorStatusChange,
+  IInstructorStatusResult,
+  IStatusChangeReceiver,
+} from './interfaces/instructor-status.interface';
 import { LearnerDetail } from './interfaces/learner-detail.interface';
 import { IReinvitationResult } from './interfaces/reinvitation-result.interface';
 import { SeatUsage } from './interfaces/seat-usage.interface';
@@ -50,6 +66,7 @@ import { UpdateAccountResult } from './interfaces/update-account-result.interfac
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CourseServiceClient } from 'src/infrastructure/clients/course/course-service.client';
+import { UsersRepository } from './users.repository';
 
 // Role do Organizer tạo và bị giới hạn số chỗ theo Subscription (BR-23).
 type SeatRole = typeof UserRoleValue.Instructor | typeof UserRoleValue.Learner;
@@ -73,6 +90,21 @@ const UPDATE_SUBSCRIPTION_STATUSES = [
   SubscriptionStatus.Active,
   SubscriptionStatus.Grace,
 ];
+
+// UC12.5: thời gian chờ một lời gọi course-service, như HttpCourseServiceClient.
+const DEFAULT_COURSE_TIMEOUT_MS = 3000;
+
+// BR-51: thao tác kéo theo chuyển quyền phụ trách (UC12.5 vô hiệu hóa, UC12.6 xóa); dùng trong thông báo lỗi.
+type HandOverAction = 'vô hiệu hóa' | 'xóa';
+
+// UC12.5: một dòng users đã khóa FOR UPDATE.
+interface LockedInstructor {
+  id: string;
+  fullName: string;
+  email: string;
+  status: string;
+  activatedAt: Date | null;
+}
 
 // Partial unique index (migration init_tenant_schema) mà UC12.3 đổi thành 409 riêng.
 const USERS_EMAIL_UNIQUE_INDEX = 'users_email_not_deleted_key';
@@ -118,6 +150,7 @@ export class UsersService {
     private readonly settingsService: PlatformSettingsService,
     private readonly outbox: OutboxService,
     private readonly learningClient: LearningServiceClient, // UC13
+    private readonly usersRepository: UsersRepository,
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider, // UC12.1: avatarUrl
     private readonly accountTokens: AccountTokensService, // UC12.3: lời mời khi đổi email
   ) {}
@@ -853,6 +886,790 @@ export class UsersService {
     });
   }
 
+  // ===========================================================================
+  // UC12.5 - Đổi trạng thái Instructor
+  // BR-36: vô hiệu hóa không xóa dữ liệu học tập, không trả lại chỗ -> kích hoạt lại không kiểm số chỗ.
+  // BR-41: không vô hiệu hóa được Instructor còn phụ trách Course chưa Archived; phải chọn Instructor
+  //        tiếp nhận cùng Organization, chuyển quyền (BR-76) rồi mới vô hiệu hóa; không còn ai hợp lệ
+  //        thì chặn kèm danh sách Course.
+  // BR-287: điều kiện BR-41 xét theo chuỗi; chuyển quyền chuyển nguyên chuỗi (course-service làm).
+  // ===========================================================================
+  /** Dữ liệu cho modal: chuỗi đang phụ trách và Instructor tiếp nhận hợp lệ. Chỉ đọc, không khóa. */
+  async getInstructorStatusChange(
+    user: CurrentUser,
+    instructorId: string,
+  ): Promise<IInstructorStatusChange> {
+    const organizationId = this.organizationIdOf(user);
+    const instructor = await this.prisma.user.findFirst({
+      where: {
+        id: instructorId,
+        organizationId,
+        role: UserRoleValue.Instructor,
+        deletedAt: null,
+      },
+      select: { id: true, status: true, activatedAt: true },
+    });
+    if (!instructor) throw this.accountNotFound(UserRoleValue.Instructor);
+
+    const base = {
+      id: instructor.id,
+      status: instructor.status,
+      activated: instructor.activatedAt !== null,
+      receivers: [] as IStatusChangeReceiver[],
+    };
+    if (instructor.status === UserStatus.Deactivated) {
+      return {
+        ...base,
+        canDeactivate: false,
+        blockReason: 'ALREADY_DEACTIVATED',
+        courses: [],
+      };
+    }
+    if (
+      instructor.status !== UserStatus.Active ||
+      instructor.activatedAt === null
+    ) {
+      return {
+        ...base,
+        canDeactivate: false,
+        blockReason: 'ACCOUNT_NOT_ACTIVATED',
+        courses: [],
+      };
+    }
+
+    const preview = await this.previewHandOver(
+      user,
+      organizationId,
+      instructor.id,
+    );
+    if (preview.courses === null || preview.courses.length === 0) {
+      return {
+        ...base,
+        canDeactivate: preview.courses !== null,
+        blockReason: preview.blockReason,
+        courses: preview.courses,
+      };
+    }
+    return {
+      ...base,
+      receivers: preview.receivers,
+      courses: preview.courses,
+      canDeactivate: preview.blockReason === null,
+      blockReason: preview.blockReason,
+    };
+  }
+
+  /**
+   * BR-51 (phần chỉ đọc, dùng chung UC12.5 / UC12.6): chuỗi Instructor đang phụ trách và người tiếp nhận hợp lệ.
+   * Ca không có chuỗi chỉ gọi count-by-instructors; danh sách chỉ cần khi còn chuỗi.
+   * course-service lỗi -> courses null + COURSE_SERVICE_UNAVAILABLE (không ném lỗi).
+   */
+  private async previewHandOver(
+    user: CurrentUser,
+    organizationId: string,
+    instructorId: string,
+  ): Promise<IHandOverPreview> {
+    let courses: IManagedCourseChain[];
+    try {
+      const counts = await this.courseClient.countCourseChainsByInstructors(
+        user,
+        [instructorId],
+      );
+      courses =
+        (counts[instructorId] ?? 0) === 0
+          ? []
+          : await this.courseClient.listCourseChainsByInstructor(
+              user,
+              instructorId,
+            );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Không lấy được Course phụ trách từ course-service: ${reason}`,
+      );
+      return {
+        courses: null,
+        receivers: [],
+        blockReason: 'COURSE_SERVICE_UNAVAILABLE',
+      };
+    }
+    if (courses.length === 0) {
+      return { courses, receivers: [], blockReason: null };
+    }
+
+    const receivers = await this.findValidReceivers(
+      this.prisma,
+      organizationId,
+      instructorId,
+    );
+    return {
+      courses,
+      receivers,
+      blockReason: receivers.length > 0 ? null : 'NO_VALID_RECEIVER',
+    };
+  }
+
+  changeInstructorStatus(
+    user: CurrentUser,
+    instructorId: string,
+    dto: ChangeAccountStatusDto,
+  ): Promise<IInstructorStatusResult> {
+    const organizationId = this.organizationIdOf(user);
+    return dto.action === AccountStatusAction.Reactivate
+      ? this.reactivateInstructor(user, organizationId, instructorId, dto)
+      : this.deactivateInstructor(user, organizationId, instructorId, dto);
+  }
+
+  /**
+   * Một transaction. Khóa FOR UPDATE dòng users của người bị vô hiệu hóa và người tiếp nhận theo id
+   * tăng dần (không khóa organizations), kiểm lại cả hai sau khi khóa, rồi mới hỏi / chuyển quyền ở
+   * course-service. Chuyển quyền xong mà bước sau lỗi thì KHÔNG hoàn tác chuyển quyền: tenant rollback,
+   * lần bấm sau người này không còn chuỗi nên vô hiệu hóa thẳng (ca A).
+   */
+  private deactivateInstructor(
+    user: CurrentUser,
+    organizationId: string,
+    instructorId: string,
+    dto: ChangeAccountStatusDto,
+  ): Promise<IInstructorStatusResult> {
+    const targetId = instructorId.toLowerCase();
+    const receiverId = dto.receiverInstructorId?.toLowerCase();
+    if (receiverId === targetId) throw this.invalidReceiver('vô hiệu hóa');
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        // BR-15: ân hạn chỉ cấm tạo tài khoản / Course / tải học liệu -> vẫn đổi trạng thái được.
+        // BR-17: Suspended chỉ còn xem và kết xuất báo cáo -> chặn.
+        const { organization } = await this.assertCanManageAccounts(
+          tx,
+          organizationId,
+          {
+            action: 'vô hiệu hóa',
+            subscriptionStatuses: UPDATE_SUBSCRIPTION_STATUSES,
+            lockOrganization: false,
+          },
+        );
+
+        const locked = await this.lockInstructors(tx, organizationId, [
+          targetId,
+          ...(receiverId ? [receiverId] : []),
+        ]);
+        const target = locked.get(targetId);
+        if (!target) throw this.accountNotFound(UserRoleValue.Instructor);
+        if (target.status === UserStatus.Deactivated) {
+          return this.statusUnchanged(target);
+        }
+        if (
+          target.status !== UserStatus.Active ||
+          target.activatedAt === null
+        ) {
+          throw this.accountNotActivated(
+            'Tài khoản chưa kích hoạt nên không vô hiệu hóa được. Nếu không dùng nữa, hãy xóa tài khoản.',
+          );
+        }
+
+        const { transferred, receiver } = await this.handOverManagedChains(
+          tx,
+          user,
+          organizationId,
+          { target, locked, receiverId, action: 'vô hiệu hóa' },
+        );
+
+        const { count } = await tx.user.updateMany({
+          where: {
+            id: target.id,
+            organizationId,
+            role: UserRoleValue.Instructor,
+            deletedAt: null,
+            status: UserStatus.Active,
+            activatedAt: { not: null },
+          },
+          data: { status: UserStatus.Deactivated },
+        });
+        if (count === 0) throw this.concurrentUpdate();
+
+        await this.enqueueStatusEmail(tx, {
+          organizationId,
+          userId: target.id,
+          to: target.email,
+          templateCode: 'INSTRUCTOR_DEACTIVATED',
+          subject: `LearnUP - Tài khoản Instructor tại ${organization.name} đã bị vô hiệu hóa`,
+          // Không kèm lý do (quyết định đã chốt).
+          body:
+            `Xin chào ${target.fullName},\n` +
+            `${organization.name} đã vô hiệu hóa tài khoản Instructor của bạn trên LearnUP.\n` +
+            `Bạn không đăng nhập được cho tới khi tài khoản được kích hoạt lại. ` +
+            `Nếu có thắc mắc, hãy liên hệ Organizer của tổ chức.`,
+        });
+        await this.enqueueChainsTransferredEmail(tx, {
+          organizationId,
+          organizationName: organization.name,
+          receiver,
+          transferred,
+        });
+        await this.enqueueStatusAudit(tx, user, {
+          organizationId,
+          actionType: 'INSTRUCTOR_DEACTIVATED',
+          targetId: target.id,
+          reason: dto.reason,
+          receiverId: receiver?.id ?? null,
+          chainIds: transferred.map((chain) => chain.chainId),
+        });
+
+        return {
+          id: target.id,
+          status: UserStatus.Deactivated,
+          changed: true,
+          transferredCourses: transferred,
+          receiver: receiver
+            ? { id: receiver.id, fullName: receiver.fullName }
+            : null,
+        };
+      },
+      // Các lời gọi course-service nằm trong transaction: tối đa 4 lời gọi (đếm, liệt kê, chuyển, đếm lại).
+      { maxWait: 5000, timeout: this.courseTimeoutMs() * 5 + 5000 },
+    );
+  }
+
+  /** BR-36: kích hoạt lại không kiểm số chỗ. Course đã chuyển đi không quay về. */
+  private reactivateInstructor(
+    user: CurrentUser,
+    organizationId: string,
+    instructorId: string,
+    dto: ChangeAccountStatusDto,
+  ): Promise<IInstructorStatusResult> {
+    const targetId = instructorId.toLowerCase();
+    return this.prisma.$transaction(async (tx) => {
+      const { organization } = await this.assertCanManageAccounts(
+        tx,
+        organizationId,
+        {
+          action: 'kích hoạt lại',
+          subscriptionStatuses: UPDATE_SUBSCRIPTION_STATUSES,
+          lockOrganization: false,
+        },
+      );
+
+      const locked = await this.lockInstructors(tx, organizationId, [targetId]);
+      const target = locked.get(targetId);
+      if (!target) throw this.accountNotFound(UserRoleValue.Instructor);
+      if (target.status === UserStatus.Active) {
+        return this.statusUnchanged(target);
+      }
+      if (target.status !== UserStatus.Deactivated) {
+        throw new ConflictException({
+          code: 'ACCOUNT_NOT_DEACTIVATED',
+          message: 'Chỉ kích hoạt lại được tài khoản đang bị vô hiệu hóa.',
+        });
+      }
+      if (target.activatedAt === null) {
+        throw this.accountNotActivated(
+          'Tài khoản chưa từng kích hoạt nên không kích hoạt lại được. Nếu không dùng nữa, hãy xóa tài khoản.',
+        );
+      }
+
+      const { count } = await tx.user.updateMany({
+        where: {
+          id: target.id,
+          organizationId,
+          role: UserRoleValue.Instructor,
+          deletedAt: null,
+          status: UserStatus.Deactivated,
+          activatedAt: { not: null },
+        },
+        data: { status: UserStatus.Active },
+      });
+      if (count === 0) throw this.concurrentUpdate();
+
+      await this.enqueueStatusEmail(tx, {
+        organizationId,
+        userId: target.id,
+        to: target.email,
+        templateCode: 'INSTRUCTOR_REACTIVATED',
+        subject: `LearnUP - Tài khoản Instructor tại ${organization.name} đã được kích hoạt lại`,
+        body:
+          `Xin chào ${target.fullName},\n` +
+          `${organization.name} đã kích hoạt lại tài khoản Instructor của bạn trên LearnUP.\n` +
+          `Đăng nhập tại: ${this.loginLink()}`,
+      });
+      await this.enqueueStatusAudit(tx, user, {
+        organizationId,
+        actionType: 'INSTRUCTOR_REACTIVATED',
+        targetId: target.id,
+        reason: dto.reason,
+        receiverId: null,
+        chainIds: [],
+      });
+
+      return {
+        id: target.id,
+        status: UserStatus.Active,
+        changed: true,
+        transferredCourses: [],
+        receiver: null,
+      };
+    });
+  }
+
+  // ===========================================================================
+  // UC12.6 - Xóa tài khoản Instructor
+  // BR-46: xóa thu hồi quyền truy cập và giải phóng chỗ; kết quả đào tạo được giữ lại -> xóa mềm (deleted_at).
+  // BR-38, BR-39: unique email chỉ xét tài khoản chưa xóa -> email được cấp lại cho tài khoản mới.
+  // BR-51, BR-96: còn phụ trách chuỗi Course thì phải chọn Instructor tiếp nhận, chuyển quyền (BR-92) rồi mới xóa;
+  //                không còn ai hợp lệ thì chặn kèm danh sách Course. Dùng chung handOverManagedChains với UC12.5.
+  // ===========================================================================
+  /** Dữ liệu cho dialog xóa. Chỉ đọc, không khóa. Mọi trạng thái (Pending, Active, Deactivated) đều xóa được. */
+  async getInstructorDeletion(
+    user: CurrentUser,
+    instructorId: string,
+  ): Promise<IInstructorDeletion> {
+    const organizationId = this.organizationIdOf(user);
+    const instructor = await this.prisma.user.findFirst({
+      where: {
+        id: instructorId,
+        organizationId,
+        role: UserRoleValue.Instructor,
+        deletedAt: null,
+      },
+      select: { id: true, status: true, activatedAt: true },
+    });
+    if (!instructor) throw this.accountNotFound(UserRoleValue.Instructor);
+
+    const preview = await this.previewHandOver(
+      user,
+      organizationId,
+      instructor.id,
+    );
+    return {
+      id: instructor.id,
+      status: instructor.status,
+      activated: instructor.activatedAt !== null,
+      canDelete: preview.blockReason === null,
+      blockReason: preview.blockReason,
+      courses: preview.courses,
+      receivers: preview.receivers,
+    };
+  }
+
+  /**
+   * Một transaction như vô hiệu hóa (UC12.5). Thứ tự: kiểm tổ chức / Subscription -> thu hồi lời mời đang mở
+   * (khóa account_tokens TRƯỚC users, cùng thứ tự UC04 / UC12.3 / UC12.7) -> khóa users theo id tăng dần ->
+   * chuyển quyền (course-service commit riêng) -> gán deleted_at -> outbox. Chuyển quyền xong mà bước sau lỗi thì
+   * KHÔNG hoàn tác: lần bấm sau không còn chuỗi nên xóa thẳng.
+   * Đã xóa từ trước (cùng tổ chức) -> 200 changed:false; không tồn tại / tổ chức khác -> 404.
+   */
+  async deleteInstructor(
+    user: CurrentUser,
+    instructorId: string,
+    dto: DeleteAccountDto,
+  ): Promise<IInstructorDeletionResult> {
+    const organizationId = this.organizationIdOf(user);
+    const targetId = instructorId.toLowerCase();
+    const receiverId = dto.receiverInstructorId?.toLowerCase();
+    if (receiverId === targetId) throw this.invalidReceiver('xóa');
+
+    const outcome = await this.prisma.$transaction(
+      async (tx) => {
+        // BR-22: ân hạn chỉ cấm tạo tài khoản / Course / tải học liệu -> vẫn xóa được.
+        // BR-24: Suspended chỉ còn xem và kết xuất báo cáo -> chặn.
+        const { organization } = await this.assertCanManageAccounts(
+          tx,
+          organizationId,
+          {
+            action: 'xóa',
+            subscriptionStatuses: UPDATE_SUBSCRIPTION_STATUSES,
+            lockOrganization: false,
+          },
+        );
+
+        // Đọc không khóa, gồm cả dòng đã xóa: phân biệt 404 với bấm lặp (changed:false).
+        const existing = await tx.user.findFirst({
+          where: {
+            id: targetId,
+            organizationId,
+            role: UserRoleValue.Instructor,
+          },
+          select: { id: true, deletedAt: true },
+        });
+        if (!existing) throw this.accountNotFound(UserRoleValue.Instructor);
+        if (existing.deletedAt !== null)
+          return this.deletionUnchanged(targetId);
+
+        // Lời mời còn mở không dùng được nữa (findUsable đã chặn tài khoản đã xóa; thu hồi để chặn cả lúc
+        // UC04 đang kích hoạt dở). Rollback cùng transaction nếu bước sau lỗi.
+        await this.accountTokens.revokeOpen(tx, {
+          userId: targetId,
+          purpose: TokenPurpose.Invitation,
+        });
+
+        const locked = await this.lockInstructors(tx, organizationId, [
+          targetId,
+          ...(receiverId ? [receiverId] : []),
+        ]);
+        const target = locked.get(targetId);
+        // Request khác vừa xóa xong trong lúc chờ khóa.
+        if (!target) return this.deletionUnchanged(targetId);
+
+        const { transferred, receiver } = await this.handOverManagedChains(
+          tx,
+          user,
+          organizationId,
+          { target, locked, receiverId, action: 'xóa' },
+        );
+
+        const { count } = await tx.user.updateMany({
+          where: {
+            id: target.id,
+            organizationId,
+            role: UserRoleValue.Instructor,
+            deletedAt: null,
+          },
+          data: { deletedAt: new Date() },
+        });
+        if (count === 0) throw this.concurrentUpdate();
+
+        // Quyết định D7: chỉ báo cho tài khoản đã từng kích hoạt, không kèm lý do (BR-337: lý do tùy chọn).
+        if (target.activatedAt !== null) {
+          await this.enqueueStatusEmail(tx, {
+            organizationId,
+            userId: target.id,
+            to: target.email,
+            templateCode: 'INSTRUCTOR_DELETED',
+            subject: `LearnUP - Tài khoản Instructor tại ${organization.name} đã bị xóa`,
+            body:
+              `Xin chào ${target.fullName},\n` +
+              `${organization.name} đã xóa tài khoản Instructor của bạn trên LearnUP.\n` +
+              `Bạn không còn đăng nhập được bằng tài khoản này. ` +
+              `Nếu có thắc mắc, hãy liên hệ Organizer của tổ chức.`,
+          });
+        }
+        await this.enqueueChainsTransferredEmail(tx, {
+          organizationId,
+          organizationName: organization.name,
+          receiver,
+          transferred,
+        });
+        await this.enqueueStatusAudit(tx, user, {
+          organizationId,
+          actionType: 'INSTRUCTOR_DELETED',
+          targetId: target.id,
+          reason: dto.reason,
+          previousStatus: target.status,
+          receiverId: receiver?.id ?? null,
+          chainIds: transferred.map((chain) => chain.chainId),
+        });
+
+        return {
+          id: target.id,
+          changed: true,
+          transferredCourses: transferred,
+          receiver: receiver
+            ? { id: receiver.id, fullName: receiver.fullName }
+            : null,
+        };
+      },
+      // Như UC12.5: tối đa 4 lời gọi course-service trong transaction.
+      { maxWait: 5000, timeout: this.courseTimeoutMs() * 5 + 5000 },
+    );
+
+    // BR-31, BR-46: số chỗ sau khi xóa để màn hình cập nhật ngay (đọc sau commit).
+    return {
+      ...outcome,
+      seats: await this.getSeatUsage(organizationId, UserRoleValue.Instructor),
+    };
+  }
+
+  private deletionUnchanged(
+    id: string,
+  ): Omit<IInstructorDeletionResult, 'seats'> {
+    return { id, changed: false, transferredCourses: [], receiver: null };
+  }
+
+  /**
+   * BR-51, BR-96, BR-92 (dùng chung UC12.5 vô hiệu hóa / UC12.6 xóa), chạy trong transaction đang giữ khóa
+   * dòng users của người bị tác động và người tiếp nhận (lockInstructors). Không phụ trách chuỗi -> không làm gì.
+   * Còn chuỗi: người tiếp nhận phải hợp lệ (Quyết định 3) -> chuyển MỌI chuỗi ở course-service -> đếm lại.
+   * Lỗi course-service -> 503 (callCourseService).
+   */
+  private async handOverManagedChains(
+    tx: Prisma.TransactionClient,
+    user: CurrentUser,
+    organizationId: string,
+    params: {
+      target: LockedInstructor;
+      locked: Map<string, LockedInstructor>;
+      receiverId: string | undefined;
+      action: HandOverAction;
+    },
+  ): Promise<{
+    transferred: IManagedCourseChain[];
+    receiver: LockedInstructor | null;
+  }> {
+    const { target, locked, receiverId, action } = params;
+    const managed = await this.countManagedChainsOrFail(user, target.id);
+    if (managed === 0) return { transferred: [], receiver: null };
+
+    const courses = await this.callCourseService(() =>
+      this.courseClient.listCourseChainsByInstructor(user, target.id),
+    );
+    const candidate = receiverId ? locked.get(receiverId) : undefined;
+    if (
+      !candidate ||
+      candidate.status !== UserStatus.Active ||
+      candidate.activatedAt === null
+    ) {
+      const others = await this.findValidReceivers(
+        tx,
+        organizationId,
+        target.id,
+      );
+      if (others.length === 0) {
+        throw new ConflictException({
+          code: 'NO_VALID_RECEIVER',
+          message:
+            'Instructor còn phụ trách Course nhưng tổ chức không còn Instructor hợp lệ nào khác để tiếp nhận.',
+          courses,
+        });
+      }
+      if (!receiverId) {
+        throw new ConflictException({
+          code: 'RECEIVER_REQUIRED',
+          message:
+            'Instructor còn phụ trách Course: cần chọn Instructor tiếp nhận.',
+          courses,
+        });
+      }
+      throw this.invalidReceiver(action);
+    }
+
+    const transferred = await this.callCourseService(() =>
+      this.courseClient.transferCourseChains(user, target.id, candidate.id),
+    );
+    // Instructor có thể vừa tạo chuỗi mới trong lúc chuyển: còn chuỗi thì không làm tiếp (BR-51).
+    if ((await this.countManagedChainsOrFail(user, target.id)) > 0) {
+      const latest = await this.courseClient
+        .listCourseChainsByInstructor(user, target.id)
+        .catch(() => null);
+      throw new ConflictException({
+        code: 'MANAGED_COURSES_REMAINING',
+        message:
+          'Instructor vừa có thêm Course phụ trách. Hãy tải lại và thử lại.',
+        courses: latest,
+      });
+    }
+    return { transferred, receiver: candidate };
+  }
+
+  /**
+   * Khóa FOR UPDATE từng dòng users theo id tăng dần (thứ tự byte của uuid = thứ tự chuỗi hex chữ thường),
+   * để hai thao tác cùng chạm hai Instructor không deadlock. Sau khi chờ khóa, Postgres đánh giá lại WHERE
+   * trên bản mới nhất, nên giá trị trả về là trạng thái đã commit. Chỉ trả Instructor chưa xóa của tổ chức.
+   */
+  private async lockInstructors(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    ids: string[],
+  ): Promise<Map<string, LockedInstructor>> {
+    const sorted = [...new Set(ids)].sort();
+    const result = new Map<string, LockedInstructor>();
+    for (const id of sorted) {
+      const [row] = await tx.$queryRaw<
+        Array<{
+          id: string;
+          full_name: string;
+          email: string;
+          status: string;
+          activated_at: Date | null;
+        }>
+      >`SELECT id::text AS id, full_name, email, status, activated_at
+          FROM users
+         WHERE id = ${id}::uuid
+           AND organization_id = ${organizationId}::uuid
+           AND role = ${UserRoleValue.Instructor}
+           AND deleted_at IS NULL
+           FOR UPDATE`;
+      if (row) {
+        result.set(row.id, {
+          id: row.id,
+          fullName: row.full_name,
+          email: row.email,
+          status: row.status,
+          activatedAt: row.activated_at,
+        });
+      }
+    }
+    return result;
+  }
+
+  /** Quyết định 3: cùng Organization, đã kích hoạt, đang Active, chưa xóa, không phải người bị vô hiệu hóa. */
+  private findValidReceivers(
+    client: Prisma.TransactionClient,
+    organizationId: string,
+    excludeId: string,
+  ): Promise<IStatusChangeReceiver[]> {
+    return client.user.findMany({
+      where: {
+        organizationId,
+        role: UserRoleValue.Instructor,
+        deletedAt: null,
+        status: UserStatus.Active,
+        activatedAt: { not: null },
+        id: { not: excludeId },
+      },
+      orderBy: [{ fullName: 'asc' }, { id: 'asc' }],
+      select: { id: true, fullName: true, email: true, department: true },
+    });
+  }
+
+  private async countManagedChainsOrFail(
+    user: CurrentUser,
+    instructorId: string,
+  ): Promise<number> {
+    const counts = await this.callCourseService(() =>
+      this.courseClient.countCourseChainsByInstructors(user, [instructorId]),
+    );
+    return counts[instructorId] ?? 0;
+  }
+
+  /** Không hỏi / chuyển được ở course-service thì không xác minh được BR-41 -> 503, không vô hiệu hóa. */
+  private async callCourseService<T>(call: () => Promise<T>): Promise<T> {
+    try {
+      return await call();
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`UC12.5/UC12.6: lỗi khi gọi course-service: ${reason}`);
+      throw new ServiceUnavailableException({
+        code: 'COURSE_SERVICE_UNAVAILABLE',
+        message:
+          'Không kiểm tra hoặc chuyển được quyền phụ trách Course lúc này. Hãy thử lại sau.',
+      });
+    }
+  }
+
+  private statusUnchanged(target: LockedInstructor): IInstructorStatusResult {
+    return {
+      id: target.id,
+      status: target.status,
+      changed: false,
+      transferredCourses: [],
+      receiver: null,
+    };
+  }
+
+  private enqueueStatusEmail(
+    tx: Prisma.TransactionClient,
+    params: {
+      organizationId: string;
+      userId: string;
+      to: string;
+      templateCode: string;
+      subject: string;
+      body: string;
+    },
+  ): Promise<void> {
+    return this.outbox.enqueueEmail(tx, {
+      aggregateType: 'User',
+      aggregateId: params.userId,
+      organizationId: params.organizationId,
+      email: {
+        to: params.to,
+        subject: params.subject,
+        templateCode: params.templateCode,
+        body: params.body,
+      },
+    });
+  }
+
+  /** BR-270, BR-271: người thực hiện, loại hành động, đối tượng, thời điểm; lý do tùy chọn. */
+  private enqueueStatusAudit(
+    tx: Prisma.TransactionClient,
+    user: CurrentUser,
+    params: {
+      organizationId: string;
+      actionType: string;
+      targetId: string;
+      reason: string | undefined;
+      /** UC12.6: trạng thái lúc bị xóa (Pending / Active / Deactivated). */
+      previousStatus?: string;
+      receiverId: string | null;
+      chainIds: string[];
+    },
+  ): Promise<void> {
+    return this.outbox.enqueueAudit(tx, {
+      aggregateType: 'User',
+      aggregateId: params.targetId,
+      record: {
+        organizationId: params.organizationId,
+        actorUserId: user.userId,
+        actorRole: user.role,
+        actionType: params.actionType,
+        targetResourceType: 'User',
+        targetResourceId: params.targetId,
+        details: {
+          ...(params.reason ? { reason: params.reason } : {}),
+          ...(params.previousStatus
+            ? { previousStatus: params.previousStatus }
+            : {}),
+          receiverId: params.receiverId,
+          chainIds: params.chainIds,
+        },
+      },
+    });
+  }
+
+  /** Quyết định 4 (UC12.5): người tiếp nhận nhận MỘT thư liệt kê mọi chuỗi vừa chuyển. Không chuyển gì thì không gửi. */
+  private async enqueueChainsTransferredEmail(
+    tx: Prisma.TransactionClient,
+    params: {
+      organizationId: string;
+      organizationName: string;
+      receiver: LockedInstructor | null;
+      transferred: IManagedCourseChain[];
+    },
+  ): Promise<void> {
+    const { receiver, transferred, organizationName } = params;
+    if (!receiver || transferred.length === 0) return;
+    await this.enqueueStatusEmail(tx, {
+      organizationId: params.organizationId,
+      userId: receiver.id,
+      to: receiver.email,
+      templateCode: 'COURSE_CHAINS_TRANSFERRED',
+      subject: `LearnUP - Bạn được giao phụ trách ${transferred.length} Course tại ${organizationName}`,
+      body:
+        `Xin chào ${receiver.fullName},\n` +
+        `${organizationName} đã chuyển cho bạn quyền phụ trách các Course sau:\n` +
+        transferred
+          .map((chain) => `- ${chain.name} (phiên bản ${chain.versionNumber})`)
+          .join('\n') +
+        `\nBạn có quyền chỉnh sửa nội dung, chấm điểm và tạo phiên bản mới cho các Course này.`,
+    });
+  }
+
+  /** INVALID_RECEIVER: 400 như các lỗi dữ liệu đầu vào khác của tenant (PLAN_NOT_AVAILABLE, INVALID_TIMEZONE). */
+  private invalidReceiver(action: HandOverAction): BadRequestException {
+    return new BadRequestException({
+      code: 'INVALID_RECEIVER',
+      message: `Instructor tiếp nhận phải cùng tổ chức, đã kích hoạt, đang hoạt động và khác người bị ${action}.`,
+    });
+  }
+
+  private accountNotActivated(message: string): ConflictException {
+    return new ConflictException({ code: 'ACCOUNT_NOT_ACTIVATED', message });
+  }
+
+  private courseTimeoutMs(): number {
+    return (
+      Number(this.config.get<string>('COURSE_SERVICE_TIMEOUT_MS')) ||
+      DEFAULT_COURSE_TIMEOUT_MS
+    );
+  }
+
+  private loginLink(): string {
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+    return `${frontendUrl}/login`;
+  }
+
   /** updateMany = 0 dòng: đọc lại để phân biệt 404 / đã kích hoạt / request khác vừa sửa. */
   private async updateConflict(
     tx: Prisma.TransactionClient,
@@ -1212,5 +2029,19 @@ export class UsersService {
         fullName: true,
       },
     });
+  }
+
+  async getOrganizerForNotification(organizationId: string) {
+    const organizer =
+      await this.usersRepository.findActiveOrganizer(organizationId);
+
+    if (!organizer) {
+      throw new NotFoundException({
+        code: 'ORGANIZER_NOT_FOUND',
+        message: 'Active Organizer not found.',
+      });
+    }
+
+    return organizer;
   }
 }

@@ -4,6 +4,8 @@ import type {
   IRenewalQuote,
   IRenewalResult,
   ISubscriptionOverview,
+  IUpgradeOptions,
+  IUpgradeResult,
 } from "@/types/subscription.types";
 
 export const getAdminPlansAPI = () =>
@@ -31,4 +33,18 @@ export const renewSubscriptionAPI = (simulateFailure: boolean) =>
   tenantAxios.post<IBackendRes<IRenewalResult>>(
     "/api/v1/subscriptions/renewals",
     simulateFailure ? { simulateFailure } : {},
+  );
+
+export const getUpgradeOptionsAPI = () =>
+  tenantAxios.get<IBackendRes<IUpgradeOptions>>(
+    "/api/v1/subscriptions/upgrade-options",
+  );
+
+export const upgradeSubscriptionAPI = (
+  planId: string,
+  simulateFailure: boolean,
+) =>
+  tenantAxios.post<IBackendRes<IUpgradeResult>>(
+    "/api/v1/subscriptions/upgrades",
+    { planId, ...(simulateFailure ? { simulateFailure } : {}) },
   );

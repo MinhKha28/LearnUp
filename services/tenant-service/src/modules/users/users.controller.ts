@@ -2,26 +2,35 @@ import type { CurrentUser } from '@learnup/ts-common';
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Headers,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiSecurity, ApiTags } from '@nestjs/swagger';
-import { ResponseMessage, Roles, User } from '../../common/decorator/customize';
+import {
+  ResponseMessage,
+  Roles,
+  ServiceCall,
+  User,
+} from '../../common/decorator/customize';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { ChangeAccountStatusDto } from './dto/change-account-status.dto';
 import { CreateAccountDto } from './dto/create-account.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
 import { ListDepartmentsQueryDto } from './dto/list-departments-query.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { UsersService } from './users.service';
 import { GetUsersBatchDto } from './dto/get-users-batch.dto';
 
-@ApiTags('Users') // UC12, UC12.1, UC12.2, UC12.3, UC12.7, UC13, UC13.1, UC13.2, UC13.3, UC13.7
+@ApiTags('Users') // UC12, UC12.1, UC12.2, UC12.3, UC12.5, UC12.6, UC12.7, UC13, UC13.1, UC13.2, UC13.3, UC13.7
 @ApiSecurity('internal-key')
 @UseGuards(RolesGuard)
 @Controller('users')
@@ -77,6 +86,53 @@ export class UsersController {
     @Body() dto: UpdateAccountDto,
   ) {
     return this.service.updateInstructor(user, id, dto);
+  }
+
+  // UC12.5 - dữ liệu cho modal vô hiệu hóa: chuỗi Course đang phụ trách + Instructor tiếp nhận hợp lệ.
+  @Roles('ORGANIZER')
+  @Get('instructors/:id/status-change')
+  @ResponseMessage('Lấy thông tin đổi trạng thái Instructor thành công')
+  getInstructorStatusChange(
+    @User() user: CurrentUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.service.getInstructorStatusChange(user, id);
+  }
+
+  // UC12.5 - vô hiệu hóa (kèm chuyển quyền theo BR-41) / kích hoạt lại. Đã ở trạng thái đích -> 200 changed:false.
+  @Roles('ORGANIZER')
+  @Patch('instructors/:id/status')
+  @ResponseMessage('Đổi trạng thái Instructor thành công')
+  changeInstructorStatus(
+    @User() user: CurrentUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ChangeAccountStatusDto,
+  ) {
+    return this.service.changeInstructorStatus(user, id, dto);
+  }
+
+  // UC12.6 - dữ liệu cho dialog xóa: chuỗi Course đang phụ trách + Instructor tiếp nhận hợp lệ.
+  @Roles('ORGANIZER')
+  @Get('instructors/:id/deletion')
+  @ResponseMessage('Lấy thông tin xóa Instructor thành công')
+  getInstructorDeletion(
+    @User() user: CurrentUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.service.getInstructorDeletion(user, id);
+  }
+
+  // UC12.6 - xóa mềm (BR-46), kèm chuyển quyền theo BR-51. Đã xóa (cùng tổ chức) -> 200 changed:false.
+  // Body JSON { receiverInstructorId?, reason? }: không đưa lý do lên query string (lọt vào access log).
+  @Roles('ORGANIZER')
+  @Delete('instructors/:id')
+  @ResponseMessage('Xóa Instructor thành công')
+  deleteInstructor(
+    @User() user: CurrentUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: DeleteAccountDto,
+  ) {
+    return this.service.deleteInstructor(user, id, dto);
   }
 
   // UC12.7
@@ -168,5 +224,18 @@ export class UsersController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.service.resendLearnerInvitation(user, id);
+  }
+
+  @ServiceCall()
+  @Get('internal/organizer')
+  @ResponseMessage('Organizer retrieved successfully')
+  async getOrganizerForNotification(
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    const validOrganizationId = await new ParseUUIDPipe().transform(
+      organizationId,
+      { type: 'custom' },
+    );
+    return this.service.getOrganizerForNotification(validOrganizationId);
   }
 }

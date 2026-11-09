@@ -17,6 +17,8 @@ import './outbox-relay.integration-test';
 
 import './assessment-access.integration-test';
 import './course-completion.integration-test';
+import './assessment-results.integration-test';
 import './reading-completion.integration-test';
 
 import './deadline-timezone-migration.integration-test';
+import './assessment-status-migration.integration-test';

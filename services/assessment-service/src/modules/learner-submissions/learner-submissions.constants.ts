@@ -51,3 +51,6 @@ export const submissionFolder = (
 ) => `learnup/${organizationId}/assignments/${assessmentId}/submissions`;
 
 export const LEARNER_STATUS_CHANGED_EVENT = 'LearnerAssessmentStatusChanged';
+
+/** A closed cycle handed reviews out to a reviewer (BR-232); notification-service tells the reviewer. */
+export const PEER_REVIEW_ASSIGNED_EVENT = 'PeerReviewAssigned';

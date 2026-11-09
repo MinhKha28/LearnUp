@@ -1,6 +1,6 @@
 # Thiết kế database learning-service (`learning_db`)
 
-Trạng thái: **11 bảng** sau Bước 1 xét hoàn thành Course; hàng đợi và snapshot mô tả tại mục 11. UC27.2 có migration `20261022000000_video_resume_position`.
+Trạng thái: **12 bảng** sau Bước 1 xét hoàn thành Course; hàng đợi và snapshot mô tả tại mục 11. UC27.2 có migration `20261022000000_video_resume_position`.
 Toàn bộ nhãn BR trong tài liệu dùng số mới theo bảng chuyển đổi cũ→mới. Dấu vết UC27.2: BR-140 (số cũ 307), BR-184 (số cũ 309), BR-182 (số cũ 339), BR-181 (số cũ 299).
 
 Nguồn nghiệp vụ: `LearnUP_QuyTacNghiepVu.docx`, `LearnUP_UseCase.docx` (167 UC), `LearnUP_Service_Architecture.docx`.
@@ -363,7 +363,7 @@ Chi tiết ở `CourseService_Database_Design.md` mục 4.2, 4.3.
 2. REST theo lô: ai trong danh sách đã đạt (BR-301).
 3. REST: đã có lượt Quiz, bài nộp, chấm chéo chưa (BR-145, BR-159).
 4. `LearnerAssessmentStatusChanged` (key `learnerId`), mang `firstActivityAt` (BR-140).
-5. REST điểm các bài đã làm (UC28.1).
+5. REST điểm các bài đã làm (UC28.1). **Đã làm:** `GET /api/v1/enrollments/{enrollmentId}/assessment-results` (LEARNER, không ghi gì) kiểm Enrollment thuộc Learner như màn hình Course rồi hỏi `GET /internal/learners/{learnerId}/courses/{courseId}/assessment-results` của assessment-service; assessment lỗi, quá hạn hoặc trả sai hợp đồng thì trả 200 với `state: unavailable` (không phải danh sách rỗng); Enrollment đã Completed vẫn xem được. Cấu hình `ASSESSMENT_RESULTS_CLIENT_MODE` (`http` hoặc `fake`), `ASSESSMENT_RESULTS_TIMEOUT_MS`.
 6. assessment-service hỏi REST `GET /api/v1/internal/enrollments/assessment-access` (L17, quy ước mục 6B) khi bắt đầu lượt Quiz và khi nộp bài; không nhận `EnrollmentCompleted` và không giữ bản sao Enrollment Completed (BR-210 (số cũ 169), BR-211 (số cũ 325)). Hợp đồng HTTP: `contracts/openapi/learning-service.yaml`.
 
 Mục 1, 2 và 4 là hợp đồng thiết kế đích: endpoint completion-snapshot phía assessment và consumer nhận trạng thái ở learning còn chờ. Bước 1 có client fake/http; bản chốt được validate thành object schemaVersion 1 rồi lưu nguyên bản vào completion_snapshot và payload scoreSnapshot. Mục 6 dùng REST truy cập, không cần assessment nhận event hoàn thành.
@@ -535,3 +535,32 @@ khi lease hết. Snapshot lệch thời điểm xuyên service vẫn là giới 
 
 Event dùng completedLate, không dùng isLate; Optional gửi false và dueAt null. Các điểm Reading,
 gỡ Exempted và consumer learning nhận event assessment/course chưa được triển khai trong Bước 1. Assessment kiểm quyền bằng REST tại mục 5.4, không nhận EnrollmentCompleted.
+
+## 12. Assessment status consumer storage
+
+Migration: `20261103120000_assessment_status_consumer`.
+
+`completion_evaluation_requests.source` CHECK additionally accepts `assessment`.
+The existing enrollment-unique queue and generation behavior are unchanged.
+
+`assessment_event_quarantine` follows Achievement's quarantine shape:
+
+| Column | Type | Constraints / purpose |
+| --- | --- | --- |
+| id | uuid | Primary key, supplied by application |
+| topic | text | Required delivery topic |
+| partition | integer | Required delivery partition |
+| offset | bigint | Required delivery offset |
+| event_id | text | Nullable; invalid identifiers retained unless they contain NUL |
+| reason | varchar(64) | Required fixed reason code; same limit as Achievement |
+| payload | jsonb | Required parsed event; invalid JSON retained as base64 string; tombstone as JSON null |
+| received_at | timestamptz | Required, defaults to current timestamp |
+
+JSON values with NUL or lone surrogate escapes are retained as a base64 wrapper
+containing the original delivery bytes, because PostgreSQL jsonb rejects them.
+
+Unique index: `(topic, partition, offset)`. Inserts use `ON CONFLICT DO NOTHING`.
+Quarantine writes or activation plus completion requests commit before Kafka offsets.
+There is no processed-message table and no ordered assessment revision storage.
+No backfill or existing data mutation is required. Apply migrations and regenerate
+the Learning Prisma client after pulling. No automatic quarantine retention policy.

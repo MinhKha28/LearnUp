@@ -1,8 +1,10 @@
 import { Alert, Avatar, Button, Empty, Skeleton, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useEffect, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { statusLabel } from "@/components/organizer/account.table";
+import { InstructorDeleteButton } from "@/components/organizer/instructor.delete.button";
+import { InstructorStatusButton } from "@/components/organizer/instructor.status.button";
 import { ResendInvitationButton } from "@/components/organizer/resend.invitation.button";
 import {
   DetailItem,
@@ -74,6 +76,7 @@ type LoadError = "notFound" | "failed";
 
 const InstructorDetail = () => {
   const { instructorId = "" } = useParams();
+  const navigate = useNavigate();
   const [detail, setDetail] = useState<IInstructorDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<LoadError | null>(null);
@@ -111,9 +114,30 @@ const InstructorDetail = () => {
     };
   }, [instructorId, reloadKey]);
 
-  // UC12.5 / 12.6 / 12.7 gắn thêm nút vào đây. UC12.3: sửa được ở mọi trạng thái (đơn vị công tác, BR-34)
+  // UC12.6: xóa xong (hoặc tài khoản không còn) thì về danh sách UC12; toast do nút Delete hiện.
+  const backToList = useCallback(
+    () => navigate("/organizer/instructors", { replace: true }),
+    [navigate],
+  );
+
+  // UC12.3: sửa được ở mọi trạng thái (đơn vị công tác, BR-42).
+  // UC12.5: chỉ tài khoản đã kích hoạt mới có Deactivate / Reactivate (component tự ẩn khi không áp dụng).
+  // UC12.6: Delete ở mọi trạng thái (BR-46).
   const headerActions: ReactNode = detail ? (
     <>
+      <InstructorDeleteButton
+        instructorId={detail.id}
+        fullName={detail.fullName}
+        status={detail.status}
+        onDeleted={backToList}
+      />
+      <InstructorStatusButton
+        instructorId={detail.id}
+        fullName={detail.fullName}
+        status={detail.status}
+        activatedAt={detail.activatedAt}
+        onChanged={() => setReloadKey((key) => key + 1)}
+      />
       {detail.status === "Pending" && (
         <ResendInvitationButton
           role="Instructor"

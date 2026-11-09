@@ -3,6 +3,10 @@ import { Prisma } from 'generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { assignmentInclude } from '../assessments/assessments.repository';
 import type { AssignmentFacts } from '../completion-snapshot/completion-snapshot';
+import {
+  emitCompletionSignal,
+  type CompletionSignal,
+} from '../outbox/completion-signal';
 import type { PeerReviewUpdateData } from './interfaces/peer-review-update-data.interface';
 
 /** Database access of UC19.5; the Peer Review settings live on the Assignment row. */
@@ -51,11 +55,15 @@ export class PeerReviewRepository {
         submittedAt: Date;
         assigned: number;
         completed: number;
+        scores: string[];
+        finalized: boolean;
       }[]
     >(Prisma.sql`
       SELECT s.id, s.learner_id AS "learnerId", s.submitted_at AS "submittedAt",
              count(r.id)::int AS assigned,
-             (count(r.id) FILTER (WHERE r.status = 'Completed'))::int AS completed
+             (count(r.id) FILTER (WHERE r.status = 'Completed'))::int AS completed,
+             coalesce(array_agg(r.score::text) FILTER (WHERE r.status = 'Completed' AND r.score IS NOT NULL), '{}') AS scores,
+             (s.grading_status = 'Finalized') AS finalized
       FROM submissions s
       LEFT JOIN submission_reviews r ON r.submission_id = s.id AND lower(r.reviewer_role) <> 'instructor'
       WHERE s.cycle_id = ${cycleId}::uuid AND s.superseded_at IS NULL
@@ -149,35 +157,25 @@ export class PeerReviewRepository {
   }
 
   /**
-   * UC33.2: records the waiver and the event that tells learning the status of the Learner changed, in one transaction.
-   * The update only takes a row that is not waived yet, so of two requests at the same moment exactly one gets true,
-   * whatever the locks around it do; the other writes nothing.
+   * UC33.2: records the waiver. The update only takes a row that is not waived yet, so of two requests at the same
+   * moment exactly one gets true, whatever the locks around it do; the other writes nothing and sends no event.
    */
   async waive(
     tx: Prisma.TransactionClient,
-    state: { id: string; organizationId: string },
+    state: { id: string },
     by: string,
     now: Date,
-    event: Omit<
-      Prisma.OutboxEventUncheckedCreateInput,
-      'aggregateType' | 'aggregateId' | 'organizationId' | 'occurredAt'
-    >,
   ): Promise<boolean> {
     const taken = await tx.learnerAssessmentState.updateMany({
       where: { id: state.id, exemptedAt: null },
       data: { exemptedAt: now, exemptedBy: by },
     });
-    if (taken.count === 0) return false;
-    await tx.outboxEvent.create({
-      data: {
-        ...event,
-        aggregateType: 'LearnerAssessmentState',
-        aggregateId: state.id,
-        organizationId: state.organizationId,
-        occurredAt: now,
-      },
-    });
-    return true;
+    return taken.count > 0;
+  }
+
+  /** The status-changed event of the Learner, written in the transaction of the change (see emitCompletionSignal). */
+  emitSignal(tx: Prisma.TransactionClient, signal: CompletionSignal) {
+    return emitCompletionSignal(tx, signal);
   }
 
   transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {

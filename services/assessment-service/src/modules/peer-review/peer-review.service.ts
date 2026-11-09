@@ -9,13 +9,16 @@ import type { CurrentUser } from '@learnup/ts-common';
 
 import { NotificationClient } from '../../infrastructure/clients/notification/notification.client';
 import { TenantDirectoryClient } from '../../infrastructure/clients/tenant/tenant-directory.client';
-import { LEARNER_STATUS_CHANGED_EVENT } from '../learner-submissions/learner-submissions.constants';
 import { cycleLockKey } from './cycle-lock';
-import { assignedNotice, waivedNotice } from './review-notice';
+import { waivedNotice } from './review-notice';
+import {
+  emitPeerReviewAssigned,
+  reviewCounts,
+} from '../outbox/peer-review-assigned';
 import { waiverDecision } from './waiver';
 import type { IPeerReviewWaiver } from './interfaces/peer-review-waiver.interface';
 import type { IPeerReviewCycleDetail } from './interfaces/peer-review-cycle-detail.interface';
-import { obligationOf } from './cycle-detail';
+import { needsScoreReview, obligationOf, scoreSpread } from './cycle-detail';
 import { AssessmentsRepository } from '../assessments/assessments.repository';
 import {
   AssessmentsService,
@@ -99,18 +102,22 @@ export class PeerReviewService {
             'This Learner does not owe a peer review on this Assignment, so there is nothing to waive.',
         });
       }
-      const waived = await this.repository.waive(tx, state, user.userId, now, {
-        eventType: LEARNER_STATUS_CHANGED_EVENT,
-        payload: {
+      const waived = await this.repository.waive(tx, state, user.userId, now);
+      if (waived) {
+        await this.repository.emitSignal(tx, {
+          stateId: state.id,
+          organizationId: assignment.organizationId,
           assessmentId: assignment.id,
           courseId: assignment.courseId,
           learnerId,
           kind: 'ASSIGNMENT',
+          reason: 'PEER_REVIEW_WAIVED',
           status: 'PeerReviewWaived',
-          waivedBy: user.userId,
-        },
-      });
-      if (waived) return { waivedAt: now, alreadyWaived: false };
+          extra: { waivedBy: user.userId },
+          now,
+        });
+        return { waivedAt: now, alreadyWaived: false };
+      }
       // Another request waived it between the read and the update: the answer is the same as a repeated request.
       const again = await this.repository.findLearnerState(
         tx,
@@ -292,6 +299,7 @@ export class PeerReviewService {
         closesAt: cycle.closesAt.toISOString(),
         reviewDueAt: cycle.reviewDueAt.toISOString(),
         reviewersPerSubmission: cycle.reviewersPerSubmission,
+        scoreGap: Number(cycle.scoreGap.toString()),
         submissionCount: submissions.length,
         status: cycleStatusOf({
           stored: cycle.status,
@@ -302,15 +310,26 @@ export class PeerReviewService {
         }),
         closed: cycle.status !== 'Open',
       },
-      submissions: submissions.map((submission) => ({
-        id: submission.id,
-        learnerId: submission.learnerId,
-        fullName: names.get(submission.learnerId) ?? '',
-        submittedAt: submission.submittedAt.toISOString(),
-        reviewsAssigned: submission.assigned,
-        reviewsCompleted: submission.completed,
-        reviewsMissing: submission.assigned - submission.completed,
-      })),
+      submissions: submissions.map((submission) => {
+        const spread = scoreSpread(submission.scores);
+        return {
+          id: submission.id,
+          learnerId: submission.learnerId,
+          fullName: names.get(submission.learnerId) ?? '',
+          submittedAt: submission.submittedAt.toISOString(),
+          reviewsAssigned: submission.assigned,
+          reviewsCompleted: submission.completed,
+          reviewsMissing: submission.assigned - submission.completed,
+          lowestScore: spread?.lowest ?? null,
+          highestScore: spread?.highest ?? null,
+          scoreGap: spread?.gap ?? null,
+          needsReview: needsScoreReview(
+            spread?.gap ?? null,
+            Number(cycle.scoreGap.toString()),
+            submission.finalized,
+          ),
+        };
+      }),
       reviewers: reviewers.map((reviewer) => ({
         learnerId: reviewer.learnerId,
         fullName: names.get(reviewer.learnerId) ?? '',
@@ -385,7 +404,8 @@ export class PeerReviewService {
 
   /**
    * Closes a cycle that is Open: the work of UC33 that the Instructor starts from the screen and the schedule starts
-   * when the closing line passes (BR-230). Then each reviewer is told what to review (BR-232).
+   * when the closing line passes (BR-230). Each reviewer is told what to review (BR-232) through the outbox, in the same
+   * transaction.
    */
   async closeOpen(
     cycle: PeerReviewCycle,
@@ -449,6 +469,21 @@ export class PeerReviewService {
         status: 'Assigned',
         reviewerPermutation: permutation,
       });
+      // BR-232: each reviewer is told what to review. The notice is an event of this transaction (outbox), so it exists if
+      // and only if the reviews do, and a Kafka or a notification-service that is down only delays it.
+      await emitPeerReviewAssigned(
+        tx,
+        [...reviewCounts(pairs)].map(([reviewerId, reviewCount]) => ({
+          organizationId: cycle.organizationId,
+          assessmentId: cycle.assessmentId,
+          cycleId: cycle.id,
+          assignmentTitle,
+          reviewDueAt: cycle.reviewDueAt,
+          reviewerId,
+          reviewCount,
+        })),
+        now,
+      );
       return {
         status: 'Assigned' as const,
         submissions: submissions.length,
@@ -465,7 +500,6 @@ export class PeerReviewService {
       );
       return this.alreadyClosed(current!);
     }
-    await this.notifyReviewers(cycle, assignmentTitle, result.pairs);
     return {
       cycleId: cycle.id,
       status: result.status,
@@ -474,35 +508,6 @@ export class PeerReviewService {
       closedAt: now.toISOString(),
       alreadyClosed: false,
     };
-  }
-
-  /** BR-232: tell each reviewer how many submissions to review and by when. Best effort: it never undoes the closing. */
-  private async notifyReviewers(
-    cycle: PeerReviewCycle,
-    assignmentTitle: string,
-    pairs: ReviewPair[],
-  ): Promise<void> {
-    const count = new Map<string, number>();
-    for (const pair of pairs) {
-      count.set(pair.reviewerId, (count.get(pair.reviewerId) ?? 0) + 1);
-    }
-    // in parallel: a slow notification-service must not hold the Instructor's request for one timeout per reviewer
-    await Promise.all(
-      [...count].map(async ([reviewerId, total]) => {
-        try {
-          await this.notifications.send({
-            organizationId: cycle.organizationId,
-            recipientUserId: reviewerId,
-            ...assignedNotice(total, assignmentTitle, cycle.reviewDueAt),
-            metadata: { assignmentId: cycle.assessmentId, cycleId: cycle.id },
-          });
-        } catch (error) {
-          this.logger.warn(
-            `Could not notify ${reviewerId} about cycle ${cycle.id}: ${String(error)}`,
-          );
-        }
-      }),
-    );
   }
 
   private async alreadyClosed(cycle: {

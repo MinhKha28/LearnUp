@@ -10,7 +10,12 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
-import { ResponseMessage, User } from '@common/decorator/customize';
+import { ResponseMessage, Roles, User } from '@common/decorator/customize';
+import {
+  ManagedCourseChainsDto,
+  TransferredCourseChainsDto,
+} from './dto/managed-course-chain.dto';
+import { TransferCourseChainsDto } from './dto/transfer-course-chains.dto';
 import { InstructorCourseCountsDto } from './dto/instructor-course-counts.dto';
 import { InstructorCourseCountsQueryDto } from './dto/instructor-course-counts-query.dto';
 import { OrganizationUsageDto } from './dto/organization-usage.dto';
@@ -50,6 +55,34 @@ export class InternalOrganizationsController {
     return this.internalCoursesService.countCourseChainsByInstructors(
       user.organizationId,
       body.instructorIds,
+    );
+  }
+
+  // UC12.1, UC12.5 - mỗi chuỗi một phần tử, đại diện bằng phiên bản hiện hành (BR-336)
+  @Get('course-chains/by-instructor/:instructorId')
+  @ResponseMessage('Course chains fetched successfully')
+  @ApiOkResponse({ type: ManagedCourseChainsDto })
+  listByInstructor(
+    @User() user: CurrentUser,
+    @Param('instructorId', uuidPipe) instructorId: string,
+  ) {
+    return this.internalCoursesService.listCourseChainsByInstructor(
+      user.organizationId,
+      instructorId,
+    );
+  }
+
+  // UC12.5 - tenant-service gọi khi Organizer vô hiệu hóa Instructor còn phụ trách Course (BR-41, BR-287)
+  @Post('course-chains/transfer')
+  @Roles('ORGANIZER')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Course chains transferred successfully')
+  @ApiOkResponse({ type: TransferredCourseChainsDto })
+  transfer(@User() user: CurrentUser, @Body() body: TransferCourseChainsDto) {
+    return this.internalCoursesService.transferCourseChains(
+      user.organizationId,
+      body.fromInstructorId,
+      body.toInstructorId,
     );
   }
 }

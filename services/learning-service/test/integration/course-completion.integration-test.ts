@@ -1,4 +1,7 @@
 import { Logger } from '@nestjs/common';
+import { AssessmentStatusConsumer } from '../../src/modules/assessment-status/assessment-status.consumer';
+import { AssessmentStatusRepository } from '../../src/modules/assessment-status/assessment-status.repository';
+import { readAssessmentStatusConfig } from '../../src/modules/assessment-status/assessment-status.config';
 import { mock } from 'node:test';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
@@ -18,6 +21,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, test } from './test-runner';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '../../generated/prisma/client';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { AddressInfo } from 'node:net';
@@ -49,6 +53,7 @@ before(async () => {
 });
 after(async () => {
   try {
+    await prisma.$executeRaw`DELETE FROM assessment_event_quarantine WHERE topic=${'l18-' + org}`;
     await prisma.$executeRaw`DELETE FROM outbox_events WHERE organization_id=${org}::uuid`;
     await prisma.$executeRaw`DELETE FROM enrollments WHERE organization_id=${org}::uuid`;
     await prisma.$executeRaw`DELETE FROM material_snapshots WHERE organization_id=${org}::uuid`;
@@ -63,8 +68,359 @@ after(async () => {
   }
 });
 
+for (const [eventStatus, status] of [
+  ['Submitted', 'NotStarted'],
+  ['Submitted', 'InProgress'],
+  ['Submitted', 'Exempted'],
+  ['Submitted', 'Halted'],
+  ['Submitted', 'Withdrawn'],
+  ['Submitted', 'Completed'],
+  ['Submitted', 'Exempted-ineligible'],
+  ['Started', 'NotStarted'],
+  ['Started', 'Exempted'],
+  ['Started', 'Halted'],
+  ['Started', 'Withdrawn'],
+  ['Started', 'Completed'],
+] as const)
+  void test(`assessment ${eventStatus} queues ${status} and preserves worker status rules`, async () => {
+    const initial = status === 'Exempted-ineligible' ? 'Exempted' : status;
+    const f = await fixture(
+      initial,
+      initial === 'Exempted' ? 'Required' : 'Optional',
+    );
+    await prisma.$executeRaw`DELETE FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
+    if (initial === 'Exempted')
+      await prisma.$executeRaw`INSERT INTO enrollment_status_intervals(id,organization_id,enrollment_id,kind,started_at,reason)
+        VALUES (${randomUUID()}::uuid,${org}::uuid,${f.id}::uuid,'Exempted',now()-interval '1 hour','synthetic assessment fixture')`;
+    if (status === 'Exempted-ineligible')
+      fake.fixtures.set(f.key, {
+        value: {
+          ...f.snapshot,
+          eligible: false,
+          quizzes: [
+            { ...f.snapshot.quizzes[0], recordedScore: '10', passed: false },
+          ],
+        },
+      });
+    const consumer = new AssessmentStatusConsumer(
+      new AssessmentStatusRepository(prisma),
+      readAssessmentStatusConfig(() => undefined),
+    );
+    const input = {
+      eventId: randomUUID(),
+      eventType: 'LearnerAssessmentStatusChanged',
+      version: 1,
+      occurredAt: '2026-10-30T12:00:00.000Z',
+      organizationId: org,
+      producer: 'assessment-service',
+      data: {
+        assessmentId: f.snapshot.quizzes[0].assessmentId,
+        organizationId: org,
+        learnerId: f.learner,
+        courseId: f.course,
+        kind: eventStatus === 'Started' ? 'QUIZ' : 'ASSIGNMENT',
+        status: eventStatus,
+        reason:
+          eventStatus === 'Started' ? 'QUIZ_STARTED' : 'ASSIGNMENT_SUBMITTED',
+        revision: 'arbitrary-unordered-hash',
+        firstActivityAt: '2026-10-29T12:00:00.000Z',
+      },
+    };
+    const delivery = {
+      topic: 'l18-' + org,
+      partition: 0,
+      offset: '1',
+      value: Buffer.from(JSON.stringify(input)),
+    };
+    let commits = 0;
+    const commit = async () => {
+      // A separate query sees the committed transaction before acknowledgement.
+      const rows = await prisma.$queryRaw<
+        { source: string; generation: bigint }[]
+      >`SELECT source,generation FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
+      assert.equal(rows.length, 1);
+      const [q] = rows;
+      assert.equal(q.source, 'assessment');
+      assert.equal(q.generation, BigInt(commits));
+      commits++;
+    };
+    await consumer.handle(delivery, commit);
+    assert.equal(
+      (await state(f.id)).status,
+      initial === 'NotStarted' ? 'InProgress' : initial,
+    );
+    const [beforeDuplicate] = await prisma.$queryRaw<
+      { first_activity_at: Date | null }[]
+    >`SELECT first_activity_at FROM enrollments WHERE id=${f.id}::uuid`;
+    if (eventStatus === 'Started') {
+      assert.deepEqual(
+        beforeDuplicate.first_activity_at,
+        initial === 'NotStarted' || initial === 'Exempted'
+          ? new Date(input.data.firstActivityAt)
+          : null,
+      );
+    }
+    await consumer.handle(delivery, commit);
+    const [afterDuplicate] = await prisma.$queryRaw<
+      { first_activity_at: Date | null }[]
+    >`SELECT first_activity_at FROM enrollments WHERE id=${f.id}::uuid`;
+    assert.deepEqual(afterDuplicate, beforeDuplicate);
+    assert.equal(commits, 2);
+    if (eventStatus === 'Started' && initial === 'NotStarted') {
+      const later = {
+        ...input,
+        eventId: randomUUID(),
+        occurredAt: '2026-10-31T12:00:00.000Z',
+        data: { ...input.data, firstActivityAt: input.occurredAt },
+      };
+      await consumer.handle(
+        { ...delivery, offset: '2', value: Buffer.from(JSON.stringify(later)) },
+        commit,
+      );
+      const [afterLater] = await prisma.$queryRaw<
+        { first_activity_at: Date | null }[]
+      >`SELECT first_activity_at FROM enrollments WHERE id=${f.id}::uuid`;
+      assert.deepEqual(afterLater, beforeDuplicate);
+      assert.equal(commits, 3);
+    }
+    await service.evaluate(await take(f.id));
+    const expected = [
+      'Halted',
+      'Withdrawn',
+      'Completed',
+      'Exempted-ineligible',
+    ].includes(status)
+      ? initial
+      : 'Completed';
+    assert.equal((await state(f.id)).status, expected);
+    if (status === 'Exempted-ineligible')
+      assert.equal(await eventCount(f.id), 0);
+  });
+
+for (const [status, reason] of [
+  ['PeerReviewAssigned', 'PEER_REVIEW_ASSIGNED'],
+  ['PeerReviewMissed', 'PEER_REVIEW_MISSED'],
+  ['Finalized', 'ASSIGNMENT_FINALIZED'],
+] as const)
+  void test(`assessment ${status} commits re-evaluation without activating enrollment`, async () => {
+    const f = await fixture();
+    await prisma.$executeRaw`DELETE FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
+    const consumer = new AssessmentStatusConsumer(
+      new AssessmentStatusRepository(prisma),
+      readAssessmentStatusConfig(() => undefined),
+    );
+    const input = {
+      eventId: randomUUID(),
+      eventType: 'LearnerAssessmentStatusChanged',
+      version: 1,
+      occurredAt: new Date().toISOString(),
+      organizationId: org,
+      producer: 'assessment-service',
+      data: {
+        assessmentId: randomUUID(),
+        learnerId: f.learner,
+        courseId: f.course,
+        kind: 'ASSIGNMENT',
+        status,
+        reason,
+        ...(status === 'Finalized'
+          ? { submissionId: 'unread', finalScore: 'abc', finalizedAt: 'unread' }
+          : {}),
+        firstActivityAt: '2026-10-29T12:00:00.000Z',
+      },
+    };
+    let commits = 0;
+    const delivery = {
+      topic: 'l18-' + org,
+      partition: 3,
+      offset: status === 'PeerReviewAssigned' ? '0' : '1',
+      value: Buffer.from(JSON.stringify(input)),
+    };
+    const commit = async () => {
+      // Independent reads observe both effects before Kafka acknowledgement.
+      const [row] = await prisma.$queryRaw<
+        { status: string; first_activity_at: Date | null; source: string }[]
+      >`SELECT e.status,e.first_activity_at,q.source
+          FROM enrollments e JOIN completion_evaluation_requests q ON q.enrollment_id=e.id
+          WHERE e.id=${f.id}::uuid`;
+      assert.deepEqual(row, {
+        status: 'NotStarted',
+        first_activity_at: null,
+        source: 'assessment',
+      });
+      commits++;
+    };
+    await consumer.handle(delivery, commit);
+    assert.equal(commits, 1);
+    await consumer.handle(delivery, commit);
+    const [queue] = await prisma.$queryRaw<
+      { count: bigint; generation: bigint }[]
+    >`
+      SELECT count(*) AS count, min(generation) AS generation
+      FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
+    assert.deepEqual(queue, { count: 1n, generation: 1n });
+    assert.equal(commits, 2);
+  });
+void test('assessment handler durably quarantines poison and missing enrollment, including Started; duplicate delivery adds no row', async () => {
+  const consumer = new AssessmentStatusConsumer(
+    new AssessmentStatusRepository(prisma),
+    readAssessmentStatusConfig(() => undefined),
+  );
+  const valid = {
+    eventId: randomUUID(),
+    eventType: 'LearnerAssessmentStatusChanged',
+    version: 1,
+    occurredAt: new Date().toISOString(),
+    organizationId: org,
+    producer: 'assessment-service',
+    data: {
+      assessmentId: randomUUID(),
+      learnerId: randomUUID(),
+      courseId: randomUUID(),
+      kind: 'QUIZ',
+      status: 'Resubmitted',
+    },
+  };
+  const missing = { ...valid, data: { ...valid.data, courseId: undefined } };
+  let commits = 0;
+  for (const [index, input] of [
+    valid,
+    {
+      ...valid,
+      eventId: randomUUID(),
+      data: { ...valid.data, status: 'Started', reason: 'QUIZ_STARTED' },
+    },
+    missing,
+    {},
+    '{',
+    { eventId: 'bad\0id', invalid: '\ud800' },
+    { ...valid, data: { ...valid.data, status: 'FutureStatus' } },
+    {
+      ...valid,
+      data: {
+        ...valid.data,
+        kind: 'ASSIGNMENT',
+        status: 'Finalized',
+        reason: 'ASSIGNMENT_SUBMITTED',
+      },
+    },
+  ].entries()) {
+    const d = {
+      topic: 'l18-' + org,
+      partition: 1,
+      offset: String(index),
+      value: Buffer.from(
+        typeof input === 'string' ? input : JSON.stringify(input),
+      ),
+    };
+    const commit = async () => {
+      const [row] = await prisma.$queryRaw<
+        { reason: string }[]
+      >`SELECT reason FROM assessment_event_quarantine WHERE topic=${d.topic} AND partition=1 AND "offset"=${BigInt(index)}`;
+      assert.equal(
+        row.reason,
+        [
+          'ENROLLMENT_NOT_FOUND',
+          'ENROLLMENT_NOT_FOUND',
+          'MISSING_COURSE_ID',
+          'INVALID_ENVELOPE',
+          'INVALID_JSON',
+          'INVALID_ENVELOPE',
+          'INVALID_PAYLOAD',
+          'INVALID_PAYLOAD',
+        ][index],
+      );
+      commits++;
+    };
+    await consumer.handle(d, commit);
+    await consumer.handle(d, commit);
+  }
+  const [count] = await prisma.$queryRaw<
+    { count: bigint }[]
+  >`SELECT count(*) FROM assessment_event_quarantine WHERE topic=${'l18-' + org}`;
+  assert.equal(count.count, 8n);
+  assert.equal(commits, 16);
+});
+void test('assessment queue SQL failure rolls back activation and prevents offset commit', async () => {
+  const f = await fixture();
+  await prisma.$executeRaw`DELETE FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
+  const transaction = prisma.$transaction.bind(prisma);
+  const broken = new Proxy(prisma, {
+    get(target, property) {
+      if (property === '$transaction')
+        return (work: (tx: unknown) => Promise<unknown>) =>
+          transaction(async (tx) =>
+            work(
+              new Proxy(tx, {
+                get(t, p) {
+                  if (p === '$executeRaw')
+                    return (sql: TemplateStringsArray, ...values: unknown[]) =>
+                      Array.isArray(sql) &&
+                      sql
+                        .join('')
+                        .includes('INSERT INTO completion_evaluation_requests')
+                        ? tx.$executeRaw`SELECT 1/0`
+                        : tx.$executeRaw(sql, ...values);
+                  const value: unknown = Reflect.get(t, p);
+                  return (
+                    typeof value === 'function' ? value.bind(t) : value
+                  ) as unknown;
+                },
+              }),
+            ),
+          );
+      const value: unknown = Reflect.get(target, property);
+      return (
+        typeof value === 'function' ? value.bind(target) : value
+      ) as unknown;
+    },
+  });
+  const consumer = new AssessmentStatusConsumer(
+    new AssessmentStatusRepository(broken),
+    readAssessmentStatusConfig(() => undefined),
+  );
+  const value = {
+    eventId: randomUUID(),
+    eventType: 'LearnerAssessmentStatusChanged',
+    version: 1,
+    occurredAt: new Date().toISOString(),
+    organizationId: org,
+    producer: 'assessment-service',
+    data: {
+      learnerId: f.learner,
+      courseId: f.course,
+      assessmentId: randomUUID(),
+      kind: 'QUIZ',
+      status: 'Submitted',
+    },
+  };
+  let committed = false;
+  await assert.rejects(
+    consumer.handle(
+      {
+        topic: 'l18-' + org,
+        partition: 2,
+        offset: '0',
+        value: Buffer.from(JSON.stringify(value)),
+      },
+      () => {
+        committed = true;
+        return Promise.resolve();
+      },
+    ),
+  );
+  assert.equal(committed, false);
+  assert.equal((await state(f.id)).status, 'NotStarted');
+  const [e] = await prisma.$queryRaw<
+    { first_activity_at: Date | null; pending: bigint }[]
+  >`SELECT first_activity_at,
+    (SELECT count(*) FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid) AS pending FROM enrollments WHERE id=${f.id}::uuid`;
+  assert.equal(e.first_activity_at, null);
+  assert.equal(e.pending, 0n);
+});
+
 for (const kind of ['CONVERT', 'RESTORE', 'CONVERT_COMPLETED'] as const)
-  test(`assignment ${kind} preserves assigned payload and completion uniqueness`, async () => {
+  void test(`assignment ${kind} preserves assigned payload and completion uniqueness`, async () => {
     const f = await fixture(
       kind === 'RESTORE'
         ? 'Withdrawn'
@@ -121,7 +477,7 @@ for (const kind of ['CONVERT', 'RESTORE', 'CONVERT_COMPLETED'] as const)
     >`SELECT payload FROM outbox_events WHERE aggregate_id=${f.id}::uuid AND event_type='EnrollmentAssigned'`;
     assert.equal(event.payload.kind, kind);
   });
-test('Optional restore enqueues transactionally', async () => {
+void test('Optional restore enqueues transactionally', async () => {
   const f = await fixture('Withdrawn');
   await prisma.$executeRaw`DELETE FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
   await prisma.$transaction((tx) =>
@@ -144,7 +500,7 @@ for (const mode of [
   'disabled-material',
   'disabled-lesson',
 ])
-  test(`local material ${mode}`, async () => {
+  void test(`local material ${mode}`, async () => {
     const f = await fixture();
     const material = randomUUID(),
       lesson = randomUUID();
@@ -160,7 +516,7 @@ for (const mode of [
     );
   });
 for (const duty of ['Pending', 'Missed', 'Satisfied', 'unfinalized'])
-  test(`assignment snapshot ${duty}`, async () => {
+  void test(`assignment snapshot ${duty}`, async () => {
     const f = await fixture();
     const good = duty === 'Satisfied';
     fake.fixtures.set(f.key, {
@@ -190,7 +546,7 @@ for (const duty of ['Pending', 'Missed', 'Satisfied', 'unfinalized'])
     await service.evaluate(await take(f.id));
     assert.equal((await state(f.id)).status, good ? 'Completed' : 'NotStarted');
   });
-test('outbox INSERT failure rolls back Completed and retains request', async () => {
+void test('outbox INSERT failure rolls back Completed and retains request', async () => {
   const f = await fixture();
   const r = await take(f.id);
   // A separate Prisma client avoids replacing the shared client's transaction method.
@@ -207,19 +563,18 @@ test('outbox INSERT failure rolls back Completed and retains request', async () 
                   get(t, p) {
                     if (p === 'outboxEvent')
                       return {
-                        create: async () => {
-                          throw new Error('synthetic insert failure');
-                        },
+                        create: () =>
+                          Promise.reject(new Error('synthetic insert failure')),
                       };
-                    const v = Reflect.get(t, p);
-                    return typeof v === 'function' ? v.bind(t) : v;
+                    const v: unknown = Reflect.get(t, p);
+                    return (typeof v === 'function' ? v.bind(t) : v) as unknown;
                   },
                 }),
               ),
             options as never,
           );
-      const v = Reflect.get(target, property);
-      return typeof v === 'function' ? v.bind(target) : v;
+      const v: unknown = Reflect.get(target, property);
+      return (typeof v === 'function' ? v.bind(target) : v) as unknown;
     },
   });
   try {
@@ -301,6 +656,30 @@ async function state(id: string) {
     >`SELECT status,completion_snapshot,completed_late FROM enrollments WHERE id=${id}::uuid`
   )[0];
 }
+test('Persists the precise completion time and classifies the deadline boundary', async () => {
+  const fixed = '2030-01-02T03:04:05.123456Z';
+  const evaluator = new CompletionService(repo, fake, () => Prisma.sql`${fixed}::timestamptz`);
+  for (const [microseconds, expectedLate] of [[0, true], [1, false]] as const) {
+    const f = await fixture('NotStarted', 'Required');
+    await prisma.$executeRaw`
+      UPDATE enrollments SET base_due_at = ${fixed}::timestamptz + ${microseconds}::int * interval '1 microsecond',
+                             due_at = ${fixed}::timestamptz + ${microseconds}::int * interval '1 microsecond'
+      WHERE id = ${f.id}::uuid`;
+    await evaluator.evaluate(await take(f.id));
+    const [stored] = await prisma.$queryRaw<
+      { exactTime: boolean; late: boolean; payload: { completedAt: string; occurredAt: string; completedLate: boolean } }[]
+    >`
+      SELECT e.completed_at = ${fixed}::timestamptz AS "exactTime", e.completed_late AS late, o.payload
+      FROM enrollments e JOIN outbox_events o ON o.aggregate_id = e.id AND o.event_type = 'EnrollmentCompleted'
+      WHERE e.id = ${f.id}::uuid`;
+    assert.equal(stored?.exactTime, true);
+    assert.equal(stored.late, expectedLate);
+    assert.equal(stored.payload.completedLate, expectedLate);
+    assert.equal(stored.payload.completedAt, '2030-01-02T03:04:05.123Z');
+    assert.equal(stored.payload.occurredAt, stored.payload.completedAt);
+  }
+});
+
 async function eventCount(id: string) {
   return Number(
     (
@@ -318,7 +697,7 @@ for (const status of [
   'Withdrawn',
   'Completed',
 ])
-  test(`completion status ${status}`, async () => {
+  void test(`completion status ${status}`, async () => {
     const f = await fixture(
       status,
       status === 'Exempted' ? 'Required' : 'Optional',
@@ -336,7 +715,7 @@ for (const status of [
       ['Halted', 'Withdrawn', 'Completed'].includes(status) ? 0 : 1,
     );
   });
-test('lease abandoned after claim can be reclaimed; old generation cannot complete twice', async () => {
+void test('lease abandoned after claim can be reclaimed; old generation cannot complete twice', async () => {
   const f = await fixture();
   const abandoned = await take(f.id);
   await prisma.$executeRaw`UPDATE completion_evaluation_requests SET next_attempt_at=clock_timestamp()-interval '1 second' WHERE enrollment_id=${f.id}::uuid`;
@@ -347,7 +726,7 @@ test('lease abandoned after claim can be reclaimed; old generation cannot comple
   assert.equal(await eventCount(f.id), 1);
   assert.equal((await state(f.id)).status, 'Completed');
 });
-test('trigger during assessment wait survives obsolete result and is evaluated once', async () => {
+void test('trigger during assessment wait survives obsolete result and is evaluated once', async () => {
   const f = await fixture();
   const r = await take(f.id);
   let entered!: () => void;
@@ -382,7 +761,7 @@ test('trigger during assessment wait survives obsolete result and is evaluated o
   await service.evaluate(await take(f.id));
   assert.equal(await eventCount(f.id), 1);
 });
-test('timeout backs off, new signal bypasses backoff, recovered snapshot is immutable', async () => {
+void test('timeout backs off, new signal bypasses backoff, recovered snapshot is immutable', async () => {
   const f = await fixture();
   fake.fixtures.set(f.key, { value: f.snapshot, unavailable: true });
   await service.evaluate(await take(f.id));
@@ -403,12 +782,12 @@ test('timeout backs off, new signal bypasses backoff, recovered snapshot is immu
   assert.equal(await eventCount(f.id), 1);
 });
 for (const late of [false, true])
-  test(`Required late=${late}`, async () => {
+  void test(`Required late=${late}`, async () => {
     const f = await fixture('InProgress', 'Required', late ? -1000 : 86400000);
     await service.evaluate(await take(f.id));
     assert.equal((await state(f.id)).completed_late, late);
   });
-test('Course Disabled and empty aggregate never complete', async () => {
+void test('Course Disabled and empty aggregate never complete', async () => {
   const f = await fixture();
   await prisma.$executeRaw`UPDATE course_version_snapshots SET disabled_at=now() WHERE course_id=${f.course}::uuid`;
   await service.evaluate(await take(f.id));
@@ -420,8 +799,7 @@ test('Course Disabled and empty aggregate never complete', async () => {
   await service.evaluate(await take(empty.id));
   assert.equal((await state(empty.id)).status, 'NotStarted');
 });
-
-test('effective deadline unions overlapping pauses and keeps extensions', async () => {
+void test('effective deadline unions overlapping pauses and keeps extensions', async () => {
   const f = await fixture('Exempted', 'Required', -3600000);
   const assigned = new Date(Date.now() - 86400000),
     base = new Date(Date.now() - 3600000);
@@ -448,7 +826,7 @@ test('effective deadline unions overlapping pauses and keeps extensions', async 
   >`SELECT count(*) FROM enrollment_status_intervals WHERE enrollment_id=${f.id}::uuid AND ended_at IS NULL`;
   assert.equal(open.count, 0n);
 });
-test('stale failure cannot overwrite immediate eligibility time of a new trigger', async () => {
+void test('stale failure cannot overwrite immediate eligibility time of a new trigger', async () => {
   const f = await fixture();
   const old = await take(f.id);
   await f.enqueue();
@@ -456,7 +834,7 @@ test('stale failure cannot overwrite immediate eligibility time of a new trigger
   await service.evaluate(await take(f.id));
   assert.equal(await eventCount(f.id), 1);
 });
-test('two concurrent claimers get disjoint work', async () => {
+void test('two concurrent claimers get disjoint work', async () => {
   const f = await fixture();
   const other = new CompletionRepository(prisma, repo.config);
   const [a, b] = await Promise.all([repo.claim(), other.claim()]);
@@ -468,8 +846,7 @@ test('two concurrent claimers get disjoint work', async () => {
   );
   assert.equal(await eventCount(f.id), 1);
 });
-
-test('expired lease while old worker writes cannot let a second worker duplicate completion', async () => {
+void test('expired lease while old worker writes cannot let a second worker duplicate completion', async () => {
   const f = await fixture(),
     r = await take(f.id);
   await prisma.$executeRaw`UPDATE completion_evaluation_requests SET next_attempt_at=clock_timestamp()-interval '1 second' WHERE enrollment_id=${f.id}::uuid`;
@@ -510,15 +887,15 @@ test('expired lease while old worker writes cannot let a second worker duplicate
                           return tx.outboxEvent.create(args);
                         },
                       };
-                    const v = Reflect.get(t, p);
-                    return typeof v === 'function' ? v.bind(t) : v;
+                    const v: unknown = Reflect.get(t, p);
+                    return (typeof v === 'function' ? v.bind(t) : v) as unknown;
                   },
                 }),
               ),
             options as never,
           );
-      const v = Reflect.get(target, property);
-      return typeof v === 'function' ? v.bind(target) : v;
+      const v: unknown = Reflect.get(target, property);
+      return (typeof v === 'function' ? v.bind(target) : v) as unknown;
     },
   });
   const processing = new CompletionService(
@@ -539,7 +916,7 @@ test('expired lease while old worker writes cannot let a second worker duplicate
   assert.equal((await state(f.id)).status, 'Completed');
   assert.equal(await eventCount(f.id), 1);
 });
-test('invalid contract increments attempts without completing', async () => {
+void test('invalid contract increments attempts without completing', async () => {
   const f = await fixture();
   fake.fixtures.set(f.key, {
     value: { ...f.snapshot, organizationId: randomUUID() },
@@ -553,8 +930,7 @@ test('invalid contract increments attempts without completing', async () => {
   assert.equal((await state(f.id)).status, 'NotStarted');
   await prisma.$executeRaw`DELETE FROM completion_evaluation_requests WHERE enrollment_id=${f.id}::uuid`;
 });
-
-test('two concurrent Video completions enqueue only on the first transition', async () => {
+void test('two concurrent Video completions enqueue only on the first transition', async () => {
   const f = await fixture(),
     material = randomUUID(),
     lesson = randomUUID();
@@ -576,7 +952,7 @@ test('two concurrent Video completions enqueue only on the first transition', as
   await service.evaluate(await take(f.id));
   assert.equal(await eventCount(f.id), 1);
 });
-test('API starts with Kafka and course-service unreachable and retains assessment outage work until recovery', async () => {
+void test('API starts with Kafka and course-service unreachable and retains assessment outage work until recovery', async () => {
   const previous = {
     worker: process.env.COMPLETION_WORKER_ENABLED,
     relay: process.env.OUTBOX_RELAY_ENABLED,
@@ -644,8 +1020,7 @@ test('API starts with Kafka and course-service unreachable and retains assessmen
     }
   }
 });
-
-test('microsecond base deadline completes without losing precision', async () => {
+void test('microsecond base deadline completes without losing precision', async () => {
   const f = await fixture('NotStarted', 'Required');
   await prisma.$executeRaw`UPDATE enrollments SET due_timezone='Asia/Ho_Chi_Minh',base_due_at='2026-10-13 16:44:59.572527+00'::timestamptz,
     due_at='2026-10-13 16:44:59.572527+00'::timestamptz WHERE id=${f.id}::uuid`;
@@ -657,8 +1032,7 @@ test('microsecond base deadline completes without losing precision', async () =>
   assert.equal(row.exact, true);
   assert.equal(await eventCount(f.id), 1);
 });
-
-test('microsecond interval start closes without ck_intervals_range failure', async () => {
+void test('microsecond interval start closes without ck_intervals_range failure', async () => {
   const f = await fixture('Exempted', 'Required');
   await prisma.$executeRaw`INSERT INTO enrollment_status_intervals(id,organization_id,enrollment_id,kind,started_at,reason)
     VALUES (${randomUUID()}::uuid,${org}::uuid,${f.id}::uuid,'Exempted','2026-10-13 16:44:59.572527+00'::timestamptz,'synthetic precision')`;
@@ -689,15 +1063,19 @@ test('microsecond interval start closes without ck_intervals_range failure', asy
                           ]);
                         return t.$queryRaw(strings, ...values);
                       };
-                    const value = Reflect.get(t, p);
-                    return typeof value === 'function' ? value.bind(t) : value;
+                    const value: unknown = Reflect.get(t, p);
+                    return (
+                      typeof value === 'function' ? value.bind(t) : value
+                    ) as unknown;
                   },
                 }),
               ),
             options as never,
           );
-      const value = Reflect.get(target, property);
-      return typeof value === 'function' ? value.bind(target) : value;
+      const value: unknown = Reflect.get(target, property);
+      return (
+        typeof value === 'function' ? value.bind(target) : value
+      ) as unknown;
     },
   });
   await new CompletionService(
@@ -712,7 +1090,7 @@ test('microsecond interval start closes without ck_intervals_range failure', asy
 });
 
 for (const fraction of ['572527', '000527'])
-  test(`fractional base extension ${fraction} recomputes within requested Ho Chi Minh calendar day`, async () => {
+  void test(`fractional base extension ${fraction} recomputes within requested Ho Chi Minh calendar day`, async () => {
     const f = await fixture('NotStarted', 'Required');
     await prisma.$executeRaw`UPDATE enrollments SET due_timezone='Asia/Ho_Chi_Minh',base_due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz,
     due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz WHERE id=${f.id}::uuid`;

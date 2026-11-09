@@ -63,7 +63,8 @@ function fixture(
     cleanup: async () => {},
   };
   const producer = {
-    ready: async () => true,
+    ready: async (): Promise<true | string> => true,
+    cancelConnect: async () => {},
     send,
     close: async () => {
       closed = true;
@@ -142,7 +143,7 @@ test('broker outage before transaction skips all database locks', async () => {
   const f = fixture(async () => {
     throw new Error();
   });
-  f.producer.ready = async () => false;
+  f.producer.ready = async () => 'KAFKA_-195';
   const start = performance.now();
   await f.relay.tick();
   assert.equal(f.transactions(), 0);
@@ -280,14 +281,16 @@ test('broker unavailability warns once per outage and keeps retrying', async () 
       probes = 0;
     f.producer.ready = async () => {
       probes++;
-      return available;
+      return available ? true : 'KAFKA_-195';
     };
     await f.relay.tick();
     await f.relay.tick();
     assert.equal(logs.length, 1);
     assert.equal(probes, 2);
     assert.equal(f.transactions(), 0);
-    assert.deepEqual(logs[0], ['OUTBOX_BROKER_UNAVAILABLE: relay will retry']);
+    assert.deepEqual(logs[0], [
+      'OUTBOX_BROKER_UNAVAILABLE: relay will retry code=KAFKA_-195',
+    ]);
     available = true;
     await f.relay.tick();
     assert.equal(f.published.length, 2);
@@ -299,44 +302,93 @@ test('broker unavailability warns once per outage and keeps retrying', async () 
   }
 });
 
-test('producer replaces failed initial clients before trying to connect again', async () => {
+test('producer replaces a terminal failure and creates its admin only after connecting', async (t) => {
   const proto = KafkaJS.Kafka.prototype;
-  const originalAdmin = proto.admin,
-    originalProducer = proto.producer;
-  let admins = 0,
-    disconnected = 0;
-  proto.admin = () => {
-    const fail = ++admins === 1;
+  const standaloneAdmin = t.mock.method(proto, 'admin', () => {
+    assert.fail('Unexpected standalone admin');
+  });
+  const calls: string[] = [];
+  let instances = 0;
+  t.mock.method(proto, 'producer', () => {
+    const instance = ++instances;
+    let connected = false;
     return {
       connect: async () => {
-        if (fail) throw { code: -195 };
+        calls.push(`connect ${instance}`);
+        if (instance === 1) throw { code: -195 };
+        connected = true;
       },
       disconnect: async () => {
-        disconnected++;
+        calls.push(`disconnect ${instance}`);
       },
-      listTopics: async () => [],
-      createTopics: async () => true,
-    } as unknown as KafkaJS.Admin;
-  };
-  proto.producer = <K, V>() =>
-    ({
-      connect: async () => {},
-      disconnect: async () => {
-        disconnected++;
+      dependentAdmin: () => {
+        assert.equal(connected, true);
+        calls.push(`dependentAdmin ${instance}`);
+        return {
+          connect: async () => {
+            calls.push('admin connect');
+          },
+          listTopics: async () => {
+            calls.push('list');
+            return [];
+          },
+          createTopics: async () => {
+            calls.push('create');
+            return true;
+          },
+          fetchTopicMetadata: async () => {
+            calls.push('metadata');
+          },
+        };
       },
-    }) as unknown as KafkaJS.Producer<K, V>;
-  try {
-    const producer = new RelayProducer(config);
-    assert.equal(await producer.ready(), false);
-    assert.equal(admins, 2);
-    assert.equal(disconnected, 2);
-    assert.equal(await producer.ready(), true);
-    await producer.close();
-    assert.equal(disconnected, 4);
-  } finally {
-    proto.admin = originalAdmin;
-    proto.producer = originalProducer;
-  }
+    };
+  });
+  const producer = new RelayProducer(config);
+  assert.equal(await producer.ready(), 'KAFKA_-195');
+  assert.equal(instances, 2);
+  assert.deepEqual(calls, ['connect 1']);
+  assert.equal(await producer.ready(), true);
+  assert.equal(await producer.ready(), true);
+  await producer.close();
+  assert.equal(standaloneAdmin.mock.callCount(), 0);
+  assert.deepEqual(calls, [
+    'connect 1',
+    'connect 2',
+    'dependentAdmin 2',
+    'admin connect',
+    'list',
+    'create',
+    'metadata',
+    'disconnect 2',
+  ]);
+});
+
+test('shutdown cancels a pending connect before any admin or transaction is created', async (t) => {
+  let rejectConnect!: (error: unknown) => void;
+  const pending = new Promise<void>((_, reject) => {
+    rejectConnect = reject;
+  });
+  const disconnect = t.mock.fn(async () => {
+    rejectConnect({ code: CODES.ERRORS.ERR__STATE });
+  });
+  const dependentAdmin = t.mock.fn(() => assert.fail('Unexpected admin'));
+  t.mock.method(KafkaJS.Kafka.prototype, 'producer', () => ({
+    connect: () => pending,
+    disconnect,
+    dependentAdmin,
+  }));
+  const producer = new RelayProducer(config);
+  const f = fixture(async () => assert.fail('Unexpected send'));
+  f.producer.ready = () => producer.ready();
+  f.producer.cancelConnect = () => producer.cancelConnect();
+  f.producer.close = () => producer.close();
+  const running = f.relay.tick();
+  await f.relay.beforeApplicationShutdown();
+  await running;
+  await f.relay.tick();
+  assert.equal(f.transactions(), 0);
+  assert.equal(disconnect.mock.callCount(), 1);
+  assert.equal(dependentAdmin.mock.callCount(), 0);
 });
 
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
@@ -535,7 +587,7 @@ for (const failure of [
     };
     f.producer.ready = async () => {
       probes++;
-      return failure !== 'broker';
+      return failure === 'broker' ? 'KAFKA_-195' : true;
     };
     try {
       f.relay.onModuleInit();

@@ -12,22 +12,22 @@ import "./dashboard.scss";
 
 const requiredTraining = [
   {
-    title: "Workplace Safety Essentials",
+    title: "An toàn lao động cơ bản",
     pills: [
-      { label: "Required", tone: "warning" as const },
-      { label: "Overdue", tone: "error" as const },
+      { label: "Bắt buộc", tone: "warning" as const },
+      { label: "Quá hạn", tone: "error" as const },
     ],
-    meta: "Due 23 Sep 2026",
+    meta: "Hạn 23/09/2026",
     progress: 65,
     to: "/learner/courses/workplace-safety",
   },
   {
-    title: "Operational Procedures",
+    title: "Quy trình vận hành",
     pills: [
-      { label: "Required", tone: "warning" as const },
-      { label: "In Progress", tone: "neutral" as const },
+      { label: "Bắt buộc", tone: "warning" as const },
+      { label: "Đang học", tone: "neutral" as const },
     ],
-    meta: "Due 30 Sep 2026",
+    meta: "Hạn 30/09/2026",
     progress: 32,
     to: "/learner/courses/operational-procedures",
   },
@@ -39,14 +39,14 @@ const Dashboard = () => {
   return (
     <LearnerPage className="learner-dashboard">
       <PageHeader
-        eyebrow="LEARNER"
-        title="Your learning, at a glance"
-        subtitle="Required training comes first. Continue where you left off."
+        eyebrow="Học viên"
+        title="Tổng quan việc học của bạn"
+        subtitle="Khóa học bắt buộc được ưu tiên. Tiếp tục từ chỗ bạn đã dừng."
       />
-      <WarningPanel title="Required course overdue">
-        You can still continue and complete this Course.
+      <WarningPanel title="Khóa học bắt buộc đã quá hạn">
+        Bạn vẫn có thể tiếp tục và hoàn thành Khóa học này.
       </WarningPanel>
-      <h2 className="learner-dashboard-section-title">Required training</h2>
+      <h2 className="learner-dashboard-section-title">Đào tạo bắt buộc</h2>
       <div className="learner-course-list learner-dashboard-required">
         {requiredTraining.map((course) => (
           <CourseListItem
@@ -59,25 +59,25 @@ const Dashboard = () => {
           />
         ))}
       </div>
-      <h2 className="learner-dashboard-section-title">Up next</h2>
+      <h2 className="learner-dashboard-section-title">Tiếp theo</h2>
       <div className="learner-dashboard-upnext-grid">
         <SectionCard className="learner-upnext-card">
-          <h3>Peer review tasks</h3>
-          <p>Assigned reviews awaiting your feedback</p>
+          <h3>Nhiệm vụ chấm chéo</h3>
+          <p>Các bài được giao đang chờ nhận xét của bạn</p>
           <div className="learner-upnext-footer">
-            <StatusTag tone="warning">2 pending</StatusTag>
+            <StatusTag tone="warning">2 đang chờ</StatusTag>
             <LearnerButton onClick={() => navigate("/learner/peer-review")}>
-              View tasks
+              Xem nhiệm vụ
             </LearnerButton>
           </div>
         </SectionCard>
         <SectionCard className="learner-upnext-card">
-          <h3>Your certificates</h3>
-          <p>Keep a copy of issued Certificates.</p>
+          <h3>Chứng chỉ của bạn</h3>
+          <p>Lưu bản sao các Chứng chỉ đã cấp.</p>
           <div className="learner-upnext-footer">
             <span />
             <LearnerButton onClick={() => navigate("/learner/certificates")}>
-              View all
+              Xem tất cả
             </LearnerButton>
           </div>
         </SectionCard>
