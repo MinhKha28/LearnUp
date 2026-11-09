@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: LearnUP Course Service UC20 integration
+  version: 1.0.0
+paths:
+  /api/v1/courses/{courseId}/submit:
+    post:
+      summary: Submit a Draft or Rejected Course for Organizer approval (UC20)
+      operationId: submitCourseForApproval
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Course was submitted, and CourseSubmitted was persisted in the same transaction.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitCourseResponse'
+        '400':
+          description: Invalid UUID or INCOMPLETE_COURSE.
+        '401':
+          description: Authentication required.
+        '403':
+          description: Only the assigned Instructor can submit the Course.
+        '404':
+          description: Course not found or not assigned to the Instructor.
+        '409':
+          description: INVALID_COURSE_STATUS, QUIZ_WITHOUT_QUESTIONS, or COURSE_CHANGED.
+        '503':
+          description: ASSESSMENT_UNAVAILABLE or INVALID_ASSESSMENT_RESPONSE.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    SubmitCourseResponse:
+      type: object
+      required: [statusCode, message, data]
+      properties:
+        statusCode:
+          type: integer
+          example: 201
+        message:
+          type: string
+        data:
+          type: object
+          required: [id, name, versionNumber, status, submittedAt]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            versionNumber:
+              type: integer
+              minimum: 1
+            status:
+              type: string
+              enum: [Submitted]
+            submittedAt:
+              type: string
+              format: date-time

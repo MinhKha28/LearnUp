@@ -64,6 +64,36 @@ describe('the message of an event', () => {
   }
 });
 
+describe('the message of PeerReviewAssigned', () => {
+  const reviewer = '00000000-0000-4000-8000-0000000000f1';
+  const assigned = row({
+    event_type: 'PeerReviewAssigned',
+    payload: {
+      learnerId: reviewer,
+      assessmentId: '00000000-0000-4000-8000-0000000000f2',
+      cycleId: '00000000-0000-4000-8000-0000000000f3',
+      assignmentTitle: 'Bài tập an toàn',
+      reviewCount: 2,
+      reviewDueAt: '2026-11-10T17:00:00.000Z',
+    },
+  });
+
+  test('is the same envelope, keyed by the reviewer, with the data as the payload', () => {
+    const built = message(assigned);
+    assert.equal(built.key, reviewer);
+    const envelope = JSON.parse(built.value);
+    assert.equal(envelope.eventType, 'PeerReviewAssigned');
+    assert.equal(envelope.version, 1);
+    assert.equal(envelope.producer, 'assessment-service');
+    assert.equal(
+      envelope.organizationId,
+      '00000000-0000-4000-8000-0000000000e3',
+    );
+    assert.equal(envelope.data.reviewCount, 2);
+    assert.equal(envelope.data.assignmentTitle, 'Bài tập an toàn');
+  });
+});
+
 describe('classifyError', () => {
   const errors = CODES.ERRORS;
 
