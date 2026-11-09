@@ -26,7 +26,7 @@ const COMMENT_REQUIRED =
 const NOT_FOUND =
   "Không tìm thấy bài nộp này, hoặc bạn không phụ trách chấm bài này.";
 const TEMPORARY_ERROR = "Không kết nối được với máy chủ. Vui lòng thử lại.";
-const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
+const CONFLICT_MESSAGES = {
   SUBMISSION_ALREADY_FINALIZED: "Bài nộp này đã được chốt điểm.",
   SUBMISSION_NOT_LATEST:
     "Học viên đã nộp bài mới hơn. Chỉ chốt điểm được bài nộp mới nhất.",
@@ -34,7 +34,12 @@ const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
     "Bài nộp chưa sẵn sàng để chốt điểm.",
   SUBMISSION_STATE_INCOMPLETE:
     "Dữ liệu chấm điểm chưa đầy đủ. Vui lòng tải lại trang hoặc liên hệ quản trị viên.",
-};
+} as const;
+
+type ConflictCode = keyof typeof CONFLICT_MESSAGES;
+
+const isConflictCode = (code: string): code is ConflictCode =>
+  Object.hasOwn(CONFLICT_MESSAGES, code);
 
 type ApiResponse<T> = {
   data?: T | null;
@@ -42,14 +47,12 @@ type ApiResponse<T> = {
   error?: { code?: string } | null;
 };
 
-const blockedReason = (detail: ISubmissionDetail) => {
-  if (detail.gradingStatus === "Finalized")
-    return CONFLICT_MESSAGES.SUBMISSION_ALREADY_FINALIZED;
-  if (!detail.isLatest) return CONFLICT_MESSAGES.SUBMISSION_NOT_LATEST;
+const blockedCode = (detail: ISubmissionDetail): ConflictCode | null => {
+  if (detail.gradingStatus === "Finalized") return "SUBMISSION_ALREADY_FINALIZED";
+  if (!detail.isLatest) return "SUBMISSION_NOT_LATEST";
   if (detail.gradingStatus !== "AwaitingFinalization")
-    return CONFLICT_MESSAGES.SUBMISSION_NOT_AWAITING_FINALIZATION;
-  if (detail.aggregateScore == null)
-    return CONFLICT_MESSAGES.SUBMISSION_STATE_INCOMPLETE;
+    return "SUBMISSION_NOT_AWAITING_FINALIZATION";
+  if (detail.aggregateScore == null) return "SUBMISSION_STATE_INCOMPLETE";
   return null;
 };
 
@@ -86,7 +89,7 @@ const FinalizePage = ({ submissionId }: { submissionId: string }) => {
   const [loadError, setLoadError] = useState<{ text: string; retry: boolean }>();
   const [loading, setLoading] = useState(true);
   const [loadAttempt, setLoadAttempt] = useState(0);
-  const [conflict, setConflict] = useState<string>();
+  const [conflict, setConflict] = useState<ConflictCode>();
   const [score, setScore] = useState<string | null>(null);
   const [comment, setComment] = useState("");
   const [scoreError, setScoreError] = useState<string>();
@@ -134,8 +137,7 @@ const FinalizePage = ({ submissionId }: { submissionId: string }) => {
     setLoadAttempt((attempt) => attempt + 1);
   };
 
-  const reason = detail && blockedReason(detail);
-  const blocked = reason ?? conflict;
+  const blocked = (detail && blockedCode(detail)) ?? conflict;
 
   const prepare = () => {
     setScoreError(undefined);
@@ -178,8 +180,8 @@ const FinalizePage = ({ submissionId }: { submissionId: string }) => {
       const code = res.error?.code ?? "";
       if (status === 400 && code === "FINALIZATION_COMMENT_REQUIRED") {
         setCommentError(COMMENT_REQUIRED);
-      } else if (status === 409 && Object.hasOwn(CONFLICT_MESSAGES, code)) {
-        setConflict(CONFLICT_MESSAGES[code]);
+      } else if (status === 409 && isConflictCode(code)) {
+        setConflict(code);
         reload();
       } else if (inaccessible(res)) {
         setDetail(null);
@@ -204,16 +206,16 @@ const FinalizePage = ({ submissionId }: { submissionId: string }) => {
         title="Chốt điểm bài tập"
         subtitle={detail && !loadError ? detail.assignment.title : "Kiểm tra và công bố kết quả bài nộp."}
       />
-      <Link to={detail ? detailPath : SUBMISSIONS}>
+      <Link className="instructor-finalize-back" to={detail ? detailPath : SUBMISSIONS}>
         {detail ? "Về chi tiết bài nộp" : "Về danh sách bài nộp"}
       </Link>
       {loading ? (
         <Spin aria-label="Đang tải bài nộp" />
       ) : loadError || blocked ? (
         <Alert
-          type="error"
+          type={!loadError && blocked === "SUBMISSION_ALREADY_FINALIZED" ? "info" : "error"}
           showIcon
-          message={loadError?.text ?? blocked}
+          message={loadError?.text ?? (blocked && CONFLICT_MESSAGES[blocked])}
           action={loadError?.retry && <Button onClick={reload}>Thử lại</Button>}
         />
       ) : detail ? (
@@ -246,7 +248,7 @@ const FinalizePage = ({ submissionId }: { submissionId: string }) => {
                 label="Nhận xét cho học viên"
                 htmlFor="final-comment"
                 validateStatus={commentError ? "error" : undefined}
-                help={commentError && <span id="final-comment-error">{commentError}</span>}
+                help={null}
               >
                 <Input.TextArea
                   id="final-comment"
@@ -259,6 +261,11 @@ const FinalizePage = ({ submissionId }: { submissionId: string }) => {
                     setCommentError(undefined);
                   }}
                 />
+                {commentError && (
+                  <p id="final-comment-error" className="instructor-finalize-field-error" role="alert">
+                    {commentError}
+                  </p>
+                )}
               </Form.Item>
               {submitError && (
                 <Alert type="error" showIcon message={submitError} />

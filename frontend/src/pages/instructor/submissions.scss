@@ -255,6 +255,25 @@
   font-size: 13px;
 }
 
+.instructor-submissions .instructor-finalize-back {
+  display: block;
+  width: fit-content;
+  margin-bottom: var(--space-4);
+  color: var(--color-info);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.instructor-submissions .instructor-finalize-back:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: 3px;
+}
+
+.instructor-finalize-field-error {
+  margin: var(--space-1) 0 0;
+  color: var(--color-error);
+}
+
 .instructor-finalize-aggregate {
   margin-bottom: var(--space-6);
 }

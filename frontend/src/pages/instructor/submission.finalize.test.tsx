@@ -133,8 +133,16 @@ describe("UC32.3 finalizing a score", () => {
     fireEvent.change(score, { target: { value: "70.30" } });
     fireEvent.change(comment, { target: { value: "  " } });
     fireEvent.click(screen.getByRole("button", { name: "Công bố điểm cuối cùng" }));
-    expect(await screen.findByText(required)).toBeTruthy();
+    const error = await screen.findByRole("alert");
+    expect(error.textContent).toBe(required);
+    expect(comment.getAttribute("aria-invalid")).toBe("true");
+    expect(document.getElementById(comment.getAttribute("aria-describedby")!)).toBe(error);
     expect(publish).not.toHaveBeenCalled();
+
+    fireEvent.change(comment, { target: { value: "Giải thích điều chỉnh" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(comment.getAttribute("aria-invalid")).toBe("false");
+    expect(comment.hasAttribute("aria-describedby")).toBe(false);
   });
 
   it.each(["100.01", "-0.01", "70.290", ""])("rejects invalid input %j without rounding", async (value) => {
@@ -176,6 +184,8 @@ describe("UC32.3 finalizing a score", () => {
   it("explains the irreversible action, focuses cancel and sends nothing on cancel", async () => {
     open("finalize");
     await fields();
+    const trigger = screen.getByRole("button", { name: "Công bố điểm cuối cùng" });
+    trigger.focus();
     const dialog = await openConfirmation();
     const cancel = dialog.getByRole("button", { name: "Hủy" });
     expect(dialog.getByText("Công bố điểm cuối cùng?")).toBeTruthy();
@@ -184,6 +194,7 @@ describe("UC32.3 finalizing a score", () => {
     )).toBeTruthy();
     await waitFor(() => expect(document.activeElement).toBe(cancel));
     fireEvent.click(cancel);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
     expect(publish).not.toHaveBeenCalled();
   });
 
@@ -208,8 +219,9 @@ describe("UC32.3 finalizing a score", () => {
     open("finalize");
     const { comment } = await fields();
     fireEvent.click((await openConfirmation()).getByRole("button", { name: "Công bố điểm" }));
-    expect(await screen.findByText(required)).toBeTruthy();
+    const error = await screen.findByText(required);
     expect(comment.getAttribute("aria-invalid")).toBe("true");
+    expect(document.getElementById(comment.getAttribute("aria-describedby")!)).toBe(error);
   });
 
   const conflicts = [
@@ -219,10 +231,17 @@ describe("UC32.3 finalizing a score", () => {
     ["SUBMISSION_STATE_INCOMPLETE", { aggregateScore: null }, "Dữ liệu chấm điểm chưa đầy đủ. Vui lòng tải lại trang hoặc liên hệ quản trị viên."],
   ] as const;
 
-  it.each(conflicts)("blocks an initially ineligible submission (%s)", async (_code, state, text) => {
+  const expectBlockedAlert = async (code: string, text: string) => {
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain(text);
+    const tone = code === "SUBMISSION_ALREADY_FINALIZED" ? "info" : "error";
+    expect(alert.classList.contains(`ant-alert-${tone}`)).toBe(true);
+  };
+
+  it.each(conflicts)("blocks an initially ineligible submission (%s)", async (code, state, text) => {
     fetchDetail.mockResolvedValueOnce(ok(submission(state)));
     open("finalize");
-    expect(await screen.findByText(text)).toBeTruthy();
+    await expectBlockedAlert(code, text);
     expect(screen.getByRole("link", { name: "Về chi tiết bài nộp" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Công bố điểm cuối cùng" })).toBeNull();
   });
@@ -234,7 +253,7 @@ describe("UC32.3 finalizing a score", () => {
     open("finalize");
     await fields();
     fireEvent.click((await openConfirmation()).getByRole("button", { name: "Công bố điểm" }));
-    expect(await screen.findByText(text)).toBeTruthy();
+    await expectBlockedAlert(code, text);
     expect(fetchDetail).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole("button", { name: "Công bố điểm cuối cùng" })).toBeNull();
   });
@@ -261,7 +280,8 @@ describe("UC32.3 finalizing a score", () => {
   it("retries loading after a temporary failure", async () => {
     fetchDetail.mockResolvedValueOnce(failure(503, "SERVICE_UNAVAILABLE"));
     open("finalize");
-    fireEvent.click(await screen.findByRole("button", { name: "Thử lại" }));
+    expect((await screen.findByRole("alert")).classList.contains("ant-alert-error")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
     expect((await fields()).score.value).toBe("70.29");
   });
 
@@ -276,7 +296,9 @@ describe("UC32.3 finalizing a score", () => {
   it.each([400, 401, 403, 404])("shows a safe back link when the detail GET returns %s", async (status) => {
     fetchDetail.mockResolvedValueOnce(failure(status, "SUBMISSION_NOT_FOUND"));
     open("finalize", "unknown");
-    expect(await screen.findByText(/Không tìm thấy bài nộp này/)).toBeTruthy();
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Không tìm thấy bài nộp này");
+    expect(alert.classList.contains("ant-alert-error")).toBe(true);
     expect(screen.getByRole("link", { name: "Về danh sách bài nộp" }).getAttribute("href"))
       .toBe("/instructor/submissions");
     expect(screen.queryByRole("button", { name: "Công bố điểm cuối cùng" })).toBeNull();
