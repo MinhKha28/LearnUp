@@ -6,6 +6,9 @@ import type {
   ICreateAccountReq,
   ICreateRegistrationReq,
   ICreateRegistrationRes,
+  IDeleteAccountReq,
+  IInstructorDeletion,
+  IInstructorDeletionResult,
   IInstructorDetail,
   IInstructorListItem,
   IInstructorStatusChange,
@@ -203,7 +206,23 @@ export const changeLearnerStatusAPI = (
     body,
   );
 
-export const resendInstructorInvitationAPI =(instructorId: string) =>
+// UC12.6 - chuỗi Course đang phụ trách và Instructor tiếp nhận hợp lệ (cho dialog xóa)
+export const getInstructorDeletionAPI = (instructorId: string) =>
+  axios.get<IBackendRes<IInstructorDeletion>>(
+    `/api/v1/users/instructors/${encodeURIComponent(instructorId)}/deletion`,
+  );
+
+// UC12.6 - xóa Instructor (xóa mềm, kèm chuyển quyền theo BR-51). Lý do đi trong body, không lên URL.
+export const deleteInstructorAPI = (
+  instructorId: string,
+  body: IDeleteAccountReq,
+) =>
+  axios.delete<IBackendRes<IInstructorDeletionResult>>(
+    `/api/v1/users/instructors/${encodeURIComponent(instructorId)}`,
+    { data: body },
+  );
+
+export const resendInstructorInvitationAPI = (instructorId: string) =>
   axios.post<IBackendRes<IReinvitationResult>>(
     `/api/v1/users/instructors/${encodeURIComponent(instructorId)}/invitations`,
   );
