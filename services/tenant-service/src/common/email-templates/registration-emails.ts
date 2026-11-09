@@ -1,5 +1,6 @@
 import { IRenderedEmail } from './interfaces/rendered-email.interface';
 import {
+  IAccountExistsEmailParams,
   IOrganizerActivatedEmailParams,
   IReopenLinkEmailParams,
   IVerificationEmailParams,
@@ -68,6 +69,40 @@ export function renderReopenLinkEmail(
     html: renderLayout({
       preheader: 'Tiếp tục thanh toán đăng ký Organization của bạn',
       heading: 'Tiếp tục đăng ký',
+      bodyHtml,
+    }),
+  };
+}
+
+/** UC02, BR-12, BR-40: email đã có tài khoản, báo riêng cho chủ email thay vì báo trên màn hình đăng ký. */
+export function renderAccountExistsEmail(
+  params: IAccountExistsEmailParams,
+): IRenderedEmail {
+  const bodyHtml =
+    paragraph(`Xin chào <strong>${escapeHtml(params.fullName)}</strong>,`) +
+    paragraph(
+      'LearnUP vừa nhận được yêu cầu đăng ký Tổ chức mới bằng email này. ' +
+        'Email này đã có tài khoản LearnUP nên không tạo được đăng ký mới.',
+    ) +
+    paragraph('Nếu bạn muốn dùng tài khoản hiện có, hãy đăng nhập:') +
+    button('Đăng nhập LearnUP', params.loginUrl) +
+    paragraph(
+      `Quên mật khẩu? <a href="${escapeHtml(params.forgotPasswordUrl)}">Đặt lại mật khẩu</a>.`,
+    ) +
+    paragraph(
+      'Nếu bạn được mời tham gia LearnUP nhưng chưa kích hoạt tài khoản, hãy dùng liên kết trong thư mời, ' +
+        'hoặc nhờ Quản lý đào tạo của Tổ chức gửi lại thư mời.',
+    ) +
+    paragraph(
+      'Nếu bạn không gửi yêu cầu này, hãy bỏ qua thư. Tài khoản của bạn không thay đổi.',
+    );
+
+  return {
+    subject: 'LearnUP - Email của bạn đã có tài khoản',
+    templateCode: 'REGISTRATION_ACCOUNT_EXISTS',
+    html: renderLayout({
+      preheader: 'Email này đã có tài khoản LearnUP',
+      heading: 'Email này đã có tài khoản',
       bodyHtml,
     }),
   };

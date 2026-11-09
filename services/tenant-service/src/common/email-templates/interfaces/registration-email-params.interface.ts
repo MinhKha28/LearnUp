@@ -14,6 +14,12 @@ export interface IReopenLinkEmailParams {
   registrationExpiresAt: Date;
 }
 
+export interface IAccountExistsEmailParams {
+  fullName: string;
+  loginUrl: string;
+  forgotPasswordUrl: string;
+}
+
 export interface IOrganizerActivatedEmailParams {
   fullName: string;
   organizationName: string;

@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v7 as uuidv7 } from 'uuid';
-import { Prisma, Registration } from '../../../generated/prisma/client';
+import { Prisma, Registration, User } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { OutboxService } from '../outbox/outbox.service';
@@ -27,6 +27,7 @@ import {
 } from '../../common/constants/tenant.constants';
 import { generateOtp, hashOtp, isOtpMatch } from '../../common/utils/otp.util';
 import {
+  renderAccountExistsEmail,
   renderOrganizerActivatedEmail,
   renderReopenLinkEmail,
   renderVerificationEmail,
@@ -140,10 +141,11 @@ export class RegistrationsService {
         existingUser.id,
       );
       if (!pending) {
-        throw new ConflictException({
-          code: 'EMAIL_ALREADY_USED',
-          message: 'Email đã được sử dụng cho một tài khoản khác.',
-        });
+        await this.notifyExistingAccount(
+          existingUser,
+          settings.maxLinkResendsPer24h,
+        );
+        return result;
       }
 
       if (pending.expiresAt.getTime() <= Date.now()) {
@@ -706,6 +708,37 @@ export class RegistrationsService {
   }
 
   /** BR-12, BR-40: đếm theo email trong 24 giờ gần nhất, gọi trong khóa email để không vượt khi song song. */
+  /**
+   * Không tạo đăng ký, không gọi identity. Thư tính vào giới hạn theo email trong 24 giờ (BR-40);
+   * đã chạm giới hạn thì không gửi, phản hồi vẫn trung tính.
+   */
+  private async notifyExistingAccount(
+    user: User,
+    maxPer24h: number,
+  ): Promise<void> {
+    const withinLimit = await this.isWithinResendLimit(user.email, maxPer24h);
+    if (!withinLimit) return;
+    const email = renderAccountExistsEmail({
+      fullName: user.fullName,
+      loginUrl: `${this.frontendUrl()}/login`,
+      forgotPasswordUrl: `${this.frontendUrl()}/forgot-password`,
+    });
+    await this.prisma.$transaction(async (tx) => {
+      await this.outbox.enqueueEmail(tx, {
+        aggregateType: 'User',
+        aggregateId: user.id,
+        organizationId: user.organizationId,
+        email: {
+          to: user.email,
+          subject: email.subject,
+          templateCode: email.templateCode,
+          body: email.html,
+          countsTowardResendLimit: true,
+        },
+      });
+    });
+  }
+
   private async isWithinResendLimit(
     email: string,
     maxPer24h: number,
