@@ -35,6 +35,7 @@ import { LockedCourseDto } from './dto/locked-course.dto';
 import { AssignmentMinutesDto } from './dto/assignment-minutes.dto';
 import { SetAssignmentMinutesDto } from './dto/set-assignment-minutes.dto';
 import { InternalCoursesService } from './internal-courses.service';
+import { CoursesService } from '../courses/courses.service';
 
 // Không truyền version: mặc định của ParseUUIDPipe là regex 'all', nhận cả UUID v7.
 // Nest 11.2 không cho truyền version: 'all' (kiểu chỉ có '3' | '4' | '5' | '7').
@@ -46,6 +47,7 @@ const uuidPipe = new ParseUUIDPipe();
 export class InternalCoursesController {
   constructor(
     private readonly internalCoursesService: InternalCoursesService,
+    private readonly coursesService: CoursesService,
   ) {}
 
   @Post('batch')
@@ -150,6 +152,20 @@ export class InternalCoursesController {
       user.organizationId,
       courseId,
       lessonId,
+    );
+  }
+
+  @Get(':courseId/review-access')
+  @ServiceCall()
+  @ResponseMessage('Course review access verified')
+  getOrganizerReviewAccess(
+    @Headers(HEADER_NAMES.ORGANIZATION_ID)
+    organizationId: string,
+    @Param('courseId', uuidPipe) courseId: string,
+  ) {
+    return this.coursesService.verifyOrganizerCourseReviewAccess(
+      organizationId,
+      courseId,
     );
   }
 }

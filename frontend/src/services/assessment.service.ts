@@ -32,6 +32,7 @@ import type {
   IUpdatePeerReview,
   IUpdateQuizConfigReq,
 } from "@/types/assessment.types";
+import type { IReviewAssessmentsResponse } from "@/types/course.types";
 
 // The identity headers (x-internal-key, x-user-id, x-organization-id, x-user-role) are set by the gateway from the JWT.
 // The browser sends none of them: a build must never carry an internal key, even a default one.
@@ -170,7 +171,10 @@ export const deleteQuizAPI = (quizId: string) =>
   );
 
 /** UC29 — the Quizzes and Assignments of an enrolled Course with status, score and tries left. */
-export const fetchLearnerAssessmentsAPI = (courseId: string, signal?: AbortSignal) =>
+export const fetchLearnerAssessmentsAPI = (
+  courseId: string,
+  signal?: AbortSignal,
+) =>
   axios.get<IBackendRes<ILearnerAssessmentList>>(
     `/api/v1/assessments/learner/courses/${courseId}/assessments`,
     { signal },
@@ -406,4 +410,9 @@ export const submitQuizAttemptAPI = (attemptId: string) =>
 export const fetchQuizHistoryAPI = (quizId: string) =>
   axios.get<IBackendRes<IQuizHistory>>(
     `${QUIZ_BASE}/${encodeURIComponent(quizId)}/history`,
+  );
+
+export const fetchOrganizerAssessmentReviewAPI = (courseId: string) =>
+  axios.get<IBackendRes<IReviewAssessmentsResponse>>(
+    `/api/v1/assessments/organization/courses/${encodeURIComponent(courseId)}/review`,
   );

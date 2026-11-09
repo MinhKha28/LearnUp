@@ -17,9 +17,11 @@ import type {
   IInstructorCourseListItem,
   IInstructorLessonDetail,
   ILessonContentEditability,
+  IMaterialPreview,
   IOrganizationCourseFilterInstructor,
   IOrganizationCourseListItem,
   IOrganizationCourseListQuery,
+  IOrganizerCourseReview,
   IReadingUploadContext,
   ISubmitCourseResponse,
   IUpdateCourseRequest,
@@ -210,4 +212,17 @@ export const createReadingMaterialAPI = (
 export const submitCourseForApprovalAPI = (courseId: string) =>
   axios.post<IBackendRes<ISubmitCourseResponse>>(
     `/api/v1/courses/${encodeURIComponent(courseId)}/submit`,
+  );
+
+export const fetchOrganizerCourseReviewAPI = (courseId: string) =>
+  axios.get<IBackendRes<IOrganizerCourseReview>>(
+    `/api/v1/courses/organization/${encodeURIComponent(courseId)}/review`,
+  );
+
+export const fetchOrganizerMaterialPreviewAPI = (
+  courseId: string,
+  materialId: string,
+) =>
+  axios.get<IBackendRes<IMaterialPreview>>(
+    `/api/v1/courses/organization/${encodeURIComponent(courseId)}/materials/${encodeURIComponent(materialId)}/preview`,
   );

@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { CurrentUser } from '@learnup/ts-common';
 import {
@@ -54,5 +54,14 @@ export class FakeCourseServiceClient extends CourseServiceClient {
       `[FAKE] Course ${courseId}: tổng thời lượng Assignment ${minutes} phút (không gửi đi).`,
     );
     return Promise.resolve();
+  }
+
+  verifyOrganizerReviewAccess(): Promise<void> {
+    return Promise.reject(
+      new ServiceUnavailableException({
+        code: 'COURSE_REVIEW_VERIFICATION_UNAVAILABLE',
+        message: 'Real Course verification is required.',
+      }),
+    );
   }
 }

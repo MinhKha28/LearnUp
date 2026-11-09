@@ -75,4 +75,13 @@ export class AssessmentsController {
   ) {
     return this.service.createAssignment(user, dto);
   }
+
+  @Get('organization/courses/:courseId/review')
+  @ResponseMessage('Course Assessments retrieved successfully')
+  getOrganizerAssessmentReview(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.service.getOrganizerAssessmentReview(user, courseId);
+  }
 }
