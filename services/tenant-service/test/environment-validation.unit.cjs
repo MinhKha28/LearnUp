@@ -42,3 +42,27 @@ test('refuses a secret shorter than 32 bytes without showing its value', () => {
       /at least 32 bytes/.test(error.message) && !error.message.includes(short),
   );
 });
+
+test('AppModule runs the check when it is loaded, so removing the hook fails this test', () => {
+  const { spawnSync } = require('node:child_process');
+  const os = require('node:os');
+  const path = require('node:path');
+  const appModule = path.resolve(__dirname, '../dist/src/app.module.js');
+  const load = (secret) =>
+    spawnSync(
+      process.execPath,
+      ['-e', `require(${JSON.stringify(appModule)})`],
+      {
+        cwd: os.tmpdir(),
+        env: { ...process.env, EMAIL_OTP_SECRET: secret },
+        encoding: 'utf8',
+      },
+    );
+
+  const refused = load('');
+  assert.notEqual(refused.status, 0);
+  assert.match(refused.stderr, /EMAIL_OTP_SECRET is required/);
+
+  const loaded = load(longSecret);
+  assert.equal(loaded.status, 0, loaded.stderr);
+});
