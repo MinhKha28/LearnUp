@@ -93,6 +93,7 @@ export const reportVideoProgress = async (
   }
 };
 import type {
+  EnrollmentProgress,
   CreatedEnrollment,
   CurriculumData,
   EnrolledCourseLink,
@@ -140,3 +141,6 @@ export const fetchAssessmentResults = (
   apiGet<AssessmentResultsData>(API_PATHS.assessmentResults(enrollmentId), {
     signal,
   });
+
+export const fetchEnrollmentProgress = (enrollmentId: string, signal?: AbortSignal) =>
+  apiGet<EnrollmentProgress>(API_PATHS.progress(enrollmentId), { signal });
