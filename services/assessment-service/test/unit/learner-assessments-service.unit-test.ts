@@ -134,6 +134,13 @@ function build(over: Partial<World> = {}) {
       return Promise.resolve(world.moduleIds);
     }
   }
+
+  /** UC21.2: legacy test stubs must never grant Organizer review access. */
+  verifyOrganizerReviewAccess(): Promise<void> {
+    return Promise.reject(
+      new ServiceUnavailableException('Organizer review access is unavailable in this test stub.'),
+    );
+  }
   const service = new LearnerAssessmentsService(
     repository,
     new StubEnrollments(),

@@ -120,4 +120,128 @@ describe('UC21.2 - Organizer Assessment Review', () => {
 
     assert.equal(queried, false);
   });
+
+  test('maps Quiz answer keys and Assignment Peer Review settings', async () => {
+    const base = {
+      courseId,
+      moduleId: null,
+      position: 1,
+      disabledAt: null,
+      passingScore: 70,
+      isRequired: true,
+      timeLimitMinutes: 15,
+      maxConsecutiveAttempts: 3,
+      lockoutHours: 0,
+      expectedDurationMinutes: null,
+      prompt: null,
+      promptFileName: null,
+      peerReviewEnabled: false,
+      peerReviewersPerSubmission: null,
+      peerReviewCycleDays: null,
+      peerReviewDeadlineDays: null,
+      peerReviewScoreGap: null,
+      questions: [],
+      rubricCriteria: [],
+    };
+    const rows = [
+      {
+        ...base,
+        id: '019a0000-0000-7000-8000-000000000010',
+        kind: 'QUIZ',
+        title: 'Knowledge check',
+        questions: [{
+          id: '019a0000-0000-7000-8000-000000000011',
+          position: 1,
+          questionType: 'SingleChoice',
+          content: 'Wear a helmet?',
+          options: [{
+            id: '019a0000-0000-7000-8000-000000000012',
+            position: 1,
+            content: 'Yes',
+            isCorrect: true,
+          }],
+        }],
+      },
+      {
+        ...base,
+        id: '019a0000-0000-7000-8000-000000000020',
+        kind: 'ASSIGNMENT',
+        title: 'Safety exercise',
+        prompt: 'Submit a safety report.',
+        promptFileName: 'instructions.pdf',
+        peerReviewEnabled: true,
+        peerReviewersPerSubmission: 2,
+        peerReviewCycleDays: 7,
+        peerReviewDeadlineDays: 3,
+        peerReviewScoreGap: 12.5,
+        rubricCriteria: [{
+          id: '019a0000-0000-7000-8000-000000000021',
+          position: 1,
+          name: 'Accuracy',
+          description: 'Correct findings',
+          maxPoints: 100,
+        }],
+      },
+    ];
+
+    const service = new AssessmentsService(
+      {
+        findCourseAssessmentsForOrganizer: async () => rows,
+      } as unknown as AssessmentsRepository,
+      {
+        verifyOrganizerReviewAccess: async () => undefined,
+      } as unknown as CourseServiceClient,
+      {} as RubricsService,
+      {} as AssignmentMediaService,
+    );
+
+    const result = await service.getOrganizerAssessmentReview(organizer, courseId);
+    assert.equal(result.items.length, 2);
+    assert.equal(result.items[0].questions[0].options[0].isCorrect, true);
+    assert.equal(result.items[1].promptFileName, 'instructions.pdf');
+    assert.equal(result.items[1].peerReviewersPerSubmission, 2);
+    assert.equal(result.items[1].peerReviewCycleDays, 7);
+    assert.equal(result.items[1].peerReviewDeadlineDays, 3);
+    assert.equal(result.items[1].peerReviewScoreGap, 12.5);
+    assert.equal(result.items[1].rubric[0].maxPoints, 100);
+  });
+
+  test('rejects Learner attachment downloads without querying Course or storage', async () => {
+    let queried = false;
+    let verified = false;
+    let storageRead = false;
+    const service = new AssessmentsService(
+      {
+        findOrganizerAssignmentPrompt: async () => {
+          queried = true;
+          return { promptFileKey: 'secret' };
+        },
+      } as unknown as AssessmentsRepository,
+      {
+        verifyOrganizerReviewAccess: async () => {
+          verified = true;
+        },
+      } as unknown as CourseServiceClient,
+      {} as RubricsService,
+      {
+        readPromptFile: async () => {
+          storageRead = true;
+          return Buffer.from('secret');
+        },
+      } as unknown as AssignmentMediaService,
+    );
+
+    await assert.rejects(
+      () => service.downloadOrganizerAssignmentPrompt(
+        { ...organizer, role: 'LEARNER' } as CurrentUser,
+        courseId,
+        '019a0000-0000-7000-8000-000000000020',
+      ),
+      (error: any) => error.getStatus() === 403,
+    );
+    assert.equal(verified, false);
+    assert.equal(queried, false);
+    assert.equal(storageRead, false);
+  });
+
 });
