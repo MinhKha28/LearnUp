@@ -485,6 +485,8 @@ services:
         VITE_TENANT_BACKEND_URL: http://localhost:${GATEWAY_HOST_PORT:-8088}
         VITE_COURSE_BACKEND_URL: http://localhost:${GATEWAY_HOST_PORT:-8088}
         VITE_ASSESSMENT_BACKEND_URL: http://localhost:${GATEWAY_HOST_PORT:-8088}
+        # UC05.1: must equal identity-service GOOGLE_OAUTH_CLIENT_ID (token audience).
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
     container_name: learnup-web
     ports:
       - "127.0.0.1:3000:3000"

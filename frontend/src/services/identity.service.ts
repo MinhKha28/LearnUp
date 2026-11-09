@@ -28,6 +28,10 @@ export const loginAPI = (username: string, password: string) => {
   );
 };
 
+// UC05.1 - Sign in with Google: Identity verifies the Google ID token and returns the standard session.
+export const googleLoginAPI = (credential: string) =>
+  axios.post<IBackendRes<ILogin>>("/api/v1/auth/google", { credential });
+
 // UC06 - Đăng xuất: thu hồi refresh token của phiên hiện tại
 export const logoutAPI = (refreshToken: string) =>
   axios.post<IBackendRes<{ message: string }>>("/api/v1/auth/logout", {
