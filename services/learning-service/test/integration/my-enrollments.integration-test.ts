@@ -20,6 +20,9 @@ import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
 import { EnrollmentsRepository } from '../../src/modules/enrollments/enrollments.repository';
+import { EnrollmentsService, MyEnrollmentClock } from '../../src/modules/enrollments/enrollments.service';
+import { Prisma } from '../../generated/prisma/client';
+import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import {
   databaseUrl,
   ENROLL_IT_LEARNER_1,
@@ -491,6 +494,91 @@ void describe('UC26 GET /enrollments/me (thật, fixture ORG_TEST)', () => {
         .meta.total,
       0,
     );
+  });
+
+  void test('Uses one precise database clock for list status, total and page', async (t) => {
+    const learner = { ...ENROLL_IT_LEARNER_1, organizationId: randomUUID() };
+    const fixed = '2030-01-02T03:04:05.123456Z';
+    const later = '2030-01-02T03:04:05.123457Z';
+    const overdueIds = Array.from({ length: 21 }, () => randomUUID()).sort().reverse();
+    const futureId = randomUUID();
+    const ids = [...overdueIds, futureId];
+    const courses = ids.map(() => randomUUID());
+    await learningDb.query(
+      `INSERT INTO course_version_snapshots (course_id, organization_id, chain_id, tree_fetched_at, disabled_as_of)
+       SELECT course_id, $1, course_id, now(), now() FROM unnest($2::uuid[]) AS course_id`,
+      [learner.organizationId, courses],
+    );
+    await learningDb.query(
+      `INSERT INTO enrollments (id, organization_id, learner_id, course_id, enrollment_type,
+                                status, assigned_at, expected_completion_days, due_at, base_due_at,
+                                due_timezone, video_completion_percent)
+       SELECT id, $1, $2, course_id, 'Required', 'NotStarted', $5::timestamptz - interval '1 day', 1,
+              deadline, deadline, 'UTC', 90
+       FROM unnest($3::uuid[], $4::uuid[]) WITH ORDINALITY AS rows(id, course_id, position)
+       CROSS JOIN LATERAL (SELECT $5::timestamptz + CASE WHEN position = cardinality($3::uuid[])
+         THEN interval '1 microsecond' ELSE interval '0' END AS deadline) AS deadlines`,
+      [learner.organizationId, learner.userId, ids, courses, fixed],
+    );
+    t.mock.method(
+      app!.get(CourseServiceClient),
+      'getCoursesBatch',
+      async (_: CurrentUser, batch: string[]) =>
+        batch.map((courseId) => ({ courseId, versionNumber: 1, coverFileId: null, name: 'Clock course' })),
+    );
+    const clock = app!.get(MyEnrollmentClock);
+    let lookups = 0;
+    t.mock.method(clock, 'now', () => Prisma.sql`${lookups++ === 0 ? fixed : later}::timestamptz`);
+    const service = app!.get(EnrollmentsService) as unknown as {
+      prisma: Pick<PrismaService, '$transaction'>;
+    };
+    const prisma = service.prisma;
+    const observed = { $transaction: prisma.$transaction.bind(prisma) };
+    const transaction = t.mock.method(observed, '$transaction');
+    service.prisma = observed;
+    t.after(() => {
+      service.prisma = prisma;
+    });
+
+    const requestPage = async (params: URLSearchParams, page: number) => {
+      params.set('page', String(page));
+      lookups = 0;
+      transaction.mock.resetCalls();
+      const result = await myPage(learner, `?${params}`);
+      assert.equal(lookups, 1);
+      if (params.has('q')) {
+        assert.equal(transaction.mock.callCount(), 0);
+      } else {
+        assert.equal(transaction.mock.callCount(), 1);
+        const [queries, options] = transaction.mock.calls[0].arguments;
+        assert.ok(Array.isArray(queries));
+        assert.equal(queries.length, 2);
+        assert.deepEqual(options, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+      }
+      return result;
+    };
+
+    for (const keyword of ['', 'clock course']) {
+      const params = new URLSearchParams();
+      if (keyword) params.set('q', keyword);
+      const first = await requestPage(params, 1);
+      const second = await requestPage(params, 2);
+      assert.deepEqual(
+        [...first.items, ...second.items].map((item) => [item.enrollmentId, item.status]),
+        [...overdueIds.map((id) => [id, 'Overdue']), [futureId, 'NotStarted']],
+      );
+
+      params.set('status', 'Overdue');
+      for (const page of [1, 2, 3]) {
+        const result = await requestPage(params, page);
+        assert.equal(result.meta.total, overdueIds.length);
+        assert.deepEqual(
+          result.items.map((item) => item.enrollmentId),
+          overdueIds.slice((page - 1) * 20, page * 20),
+        );
+        assert.ok(result.items.every((item) => item.status === 'Overdue'));
+      }
+    }
   });
 
   void test('Learner khác và tổ chức khác không thấy Enrollment của nhau', async () => {

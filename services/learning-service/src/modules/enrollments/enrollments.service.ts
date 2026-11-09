@@ -17,6 +17,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
+import { toSafeNumber } from '../../common/utils/to-safe-number';
 import { OptionalEnrollmentRepository } from './optional-enrollment.repository';
 import { assertRestorable } from './optional-enrollment.rules';
 import { Prisma } from '../../../generated/prisma/client';
@@ -71,6 +72,13 @@ export interface MyEnrollmentItem {
 
 export type MyEnrollmentsPage = PageResponse<MyEnrollmentItem>;
 
+@Injectable()
+export class MyEnrollmentClock {
+  now(): Prisma.Sql {
+    return Prisma.sql`now()`;
+  }
+}
+
 /** 409 kèm ID Enrollment đã có để client mở thẳng Enrollment đó. */
 function alreadyEnrolled(enrollmentId: string): ConflictException {
   return new ConflictException({
@@ -103,6 +111,7 @@ export class EnrollmentsService {
     private readonly optionalEnrollments: OptionalEnrollmentRepository = new OptionalEnrollmentRepository(
       prisma,
     ),
+    private readonly myEnrollmentClock: MyEnrollmentClock = new MyEnrollmentClock(),
   ) {
     this.snapshotPreparation =
       snapshotPreparation ??
@@ -236,7 +245,7 @@ export class EnrollmentsService {
       return emptyPage(0);
     }
 
-    const criteria = { type, status, now: new Date() };
+    const criteria = { type, status, now: this.myEnrollmentClock.now() };
     const offset = (page - 1) * pageSize;
     let total: number;
     let rows: MyEnrollmentRow[];
@@ -259,19 +268,21 @@ export class EnrollmentsService {
       total = matches.length;
       rows = matches.slice(offset, offset + pageSize);
     } else {
-      total = await this.enrollments.countMine(
-        user.userId,
-        organizationId,
-        criteria,
+      const [count, pageRows] = await this.prisma.$transaction(
+        [
+          this.enrollments.countMine(user.userId, organizationId, criteria),
+          this.enrollments.findMinePage(
+            user.userId,
+            organizationId,
+            pageSize,
+            offset,
+            criteria,
+          ),
+        ],
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
       );
-      if (offset >= total) return emptyPage(total);
-      rows = await this.enrollments.findMinePage(
-        user.userId,
-        organizationId,
-        pageSize,
-        offset,
-        criteria,
-      );
+      total = toSafeNumber(count[0].n);
+      rows = pageRows;
       courseById = await this.getMyEnrollmentCourses(user, rows);
     }
     if (rows.length === 0) return emptyPage(total);

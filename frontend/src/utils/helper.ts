@@ -81,6 +81,7 @@ export const formatDateTimeVN = (value?: string | null) => {
   return `${part("day")}/${part("month")}/${part("year")} ${part("hour")}:${part("minute")}`;
 };
 
+
 // UC12.2 (sau này UC13.2): lý do không tạo được tài khoản, theo thứ tự kiểm của backend.
 // null = tạo được. seats null = chưa tải được số chỗ.
 export const seatBlockReason = (
