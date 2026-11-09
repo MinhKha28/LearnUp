@@ -1,16 +1,35 @@
 import { API_PATHS, apiGet, apiPost } from "@/services/api.client";
 import { apiRequestUrl } from "@/services/api.client";
 import { ApiError } from "@/types/api.types";
-import type { VideoPlayback, VideoProgress } from "@/types/learning.types";
+import type {
+  AssessmentResultsData,
+  VideoPlayback,
+  VideoProgress,
+} from "@/types/learning.types";
 import type { ReadingAccess, ReadingCompletion } from "@/types/learning.types";
 import { ownsProgress, type ProgressOwner } from "@/utils/video.progress.queue";
 
 const videoPath = (enrollmentId: string, materialId: string) =>
   `/api/v1/enrollments/${encodeURIComponent(enrollmentId)}/materials/${encodeURIComponent(materialId)}`;
-export const fetchReadingAccess = (enrollmentId: string, materialId: string, signal?: AbortSignal) =>
-  apiGet<ReadingAccess>(`${videoPath(enrollmentId, materialId)}/reading-access`, { signal });
-export const completeReading = (enrollmentId: string, materialId: string, owner: ProgressOwner) =>
-  apiPost<ReadingCompletion>(`${videoPath(enrollmentId, materialId)}/complete-reading`, undefined, { progressOwner: owner });
+export const fetchReadingAccess = (
+  enrollmentId: string,
+  materialId: string,
+  signal?: AbortSignal,
+) =>
+  apiGet<ReadingAccess>(
+    `${videoPath(enrollmentId, materialId)}/reading-access`,
+    { signal },
+  );
+export const completeReading = (
+  enrollmentId: string,
+  materialId: string,
+  owner: ProgressOwner,
+) =>
+  apiPost<ReadingCompletion>(
+    `${videoPath(enrollmentId, materialId)}/complete-reading`,
+    undefined,
+    { progressOwner: owner },
+  );
 export const fetchVideoPlayback = (
   enrollmentId: string,
   materialId: string,
@@ -31,36 +50,44 @@ export const reportVideoProgress = async (
   owner: ProgressOwner,
 ): Promise<VideoProgress> => {
   const path = `${videoPath(enrollmentId, materialId)}/progress`;
-  if (!keepalive) return apiPost<VideoProgress>(path, report, { progressOwner: owner });
+  if (!keepalive)
+    return apiPost<VideoProgress>(path, report, { progressOwner: owner });
   const token = localStorage.getItem("access_token");
-  if (!ownsProgress(owner, token)) throw new ApiError(401, "UNAUTHORIZED", "Session changed");
+  if (!ownsProgress(owner, token))
+    throw new ApiError(401, "UNAUTHORIZED", "Session changed");
   let response: Response;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
   try {
-    response = await fetch(
-      apiRequestUrl(path),
-      {
-        method: "POST",
-        keepalive,
-        signal: controller.signal,
-        headers: {
-          "content-type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(report),
+    response = await fetch(apiRequestUrl(path), {
+      method: "POST",
+      keepalive,
+      signal: controller.signal,
+      headers: {
+        "content-type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-    );
+      body: JSON.stringify(report),
+    });
     const body = await response.json();
     if (!response.ok)
-      throw new ApiError(response.status, body.error?.code ?? "HTTP_ERROR", "", {
-        details: body.error?.details,
-        correlationId: response.headers.get("X-Correlation-ID"),
-      });
+      throw new ApiError(
+        response.status,
+        body.error?.code ?? "HTTP_ERROR",
+        "",
+        {
+          details: body.error?.details,
+          correlationId: response.headers.get("X-Correlation-ID"),
+        },
+      );
     return body.data as VideoProgress;
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError(0, controller.signal.aborted ? "TIMEOUT" : "NETWORK", "");
+    throw new ApiError(
+      0,
+      controller.signal.aborted ? "TIMEOUT" : "NETWORK",
+      "",
+    );
   } finally {
     clearTimeout(timer);
   }
@@ -102,5 +129,14 @@ export const fetchLessonDetail = (
   signal?: AbortSignal,
 ) =>
   apiGet<LessonDetailData>(API_PATHS.lesson(enrollmentId, lessonId), {
+    signal,
+  });
+
+/** UC28.1: scores of the Quizzes and Assignments done in the Course of an Enrollment, against the passing scores. */
+export const fetchAssessmentResults = (
+  enrollmentId: string,
+  signal?: AbortSignal,
+) =>
+  apiGet<AssessmentResultsData>(API_PATHS.assessmentResults(enrollmentId), {
     signal,
   });

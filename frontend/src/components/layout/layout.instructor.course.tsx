@@ -114,7 +114,7 @@ const LayoutInstructorCourse = () => {
             className="builder-topbar-back"
             onClick={() => navigate("/instructor/courses")}
           >
-            ← Back
+            ← Quay lại
           </button>
 
           <div className="builder-topbar-course">

@@ -22,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { ResponseMessage, User } from '../../common/decorator/customize';
+import { ListHistoryQueryDto } from './dto/list-history-query.dto';
 import { ListReviewsQueryDto } from './dto/list-reviews-query.dto';
 import { SubmitReviewDto } from './dto/submit-review.dto';
 import { LearnerReviewsService } from './learner-reviews.service';
@@ -109,6 +110,42 @@ export class LearnerReviewsController {
   @ResponseMessage('Peer reviews retrieved successfully.')
   list(@User() user: CurrentUser, @Query() query: ListReviewsQueryDto) {
     return this.service.list(user, query);
+  }
+
+  /** UC31.2 — the reviews the Learner gave and the state of their duty. Before `:reviewId`, so `history` is not read as an id. */
+  @Get('history')
+  @ApiOperation({
+    summary:
+      'The reviews the Learner has given, and where the duty of peer review stands',
+    description:
+      'The reviews given, newest first, each with its score and the points of every criterion, one page at a time; and the duty for each Assignment on which reviews were handed to the Learner and as a whole, judged by the rule learning-service uses for the Certificate (Satisfied, Pending, Missed, Waived). Nothing in it says who wrote the work (BR-233).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'The duty and one page of the reviews given.',
+    schema: envelope({
+      overall: {
+        type: 'string',
+        enum: ['NotApplicable', 'Pending', 'Satisfied', 'Missed', 'Waived'],
+      },
+      obligations: { type: 'array', items: { type: 'object' } },
+      assignedCount: { type: 'integer' },
+      completedCount: { type: 'integer' },
+      total: { type: 'integer' },
+      page: { type: 'integer' },
+      pageSize: { type: 'integer' },
+      items: { type: 'array', items: { type: 'object' } },
+    }),
+  })
+  @ApiResponse({
+    status: 400,
+    description: '`page`, `pageSize` or `assignmentId` is not valid.',
+  })
+  @ApiResponse(UNAUTHORIZED)
+  @ApiResponse(FORBIDDEN)
+  @ResponseMessage('Peer review history retrieved successfully.')
+  history(@User() user: CurrentUser, @Query() query: ListHistoryQueryDto) {
+    return this.service.history(user, query);
   }
 
   /** UC31 — one review: the work without its author, the Rubric, and the review so far. */

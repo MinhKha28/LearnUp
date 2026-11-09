@@ -63,6 +63,51 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/internal/learners/{learnerId}/courses/{courseId}/assessment-results:
+    get:
+      summary: The scores of the Quizzes and Assignments a Learner has done in a Course (UC28.1)
+      description: |
+        Called by learning-service to show a Learner their results against the passing scores. The caller sends `x-internal-key` and the identity headers of the Learner (`x-user-id`, `x-user-role`, `x-organization-id`); the `learnerId` in the path must equal `x-user-id`, otherwise the answer is 403, so one Learner cannot ask about another.
+
+        Only the components the Learner has done something on are listed (a Quiz with an attempt, an Assignment with a submission); disabled ones are included and marked (BR-296). A Quiz attempt that ran out of time is submitted first, at its deadline (BR-200), so its score is there. Most recent activity first. Nothing is written except that submission of an attempt that was past its deadline.
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+        - name: learnerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The results, in `data` of the common envelope. An empty `items` is a Learner who has done nothing.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/AssessmentResults" }
+        "400":
+          description: learnerId or courseId is not a UUID.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401":
+          description: Missing or wrong internal key, or a missing or malformed `x-organization-id`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403":
+          description: The Learner in the path is not the one in the identity headers.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
 components:
   securitySchemes:
     InternalKey: { type: apiKey, in: header, name: x-internal-key }
@@ -73,6 +118,61 @@ components:
       required: true
       schema: { type: string, format: uuid }
   schemas:
+    AssessmentResults:
+      type: object
+      required: [courseId, items]
+      properties:
+        courseId: { type: string, format: uuid }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AssessmentResultItem" }
+
+    AssessmentResultItem:
+      type: object
+      required: [assessmentId, kind, title, isRequired, disabled, passingScore, status, recordedScore, passed, attemptCount, lastActivityAt, quiz, assignment]
+      properties:
+        assessmentId: { type: string, format: uuid }
+        kind: { type: string, enum: [QUIZ, ASSIGNMENT] }
+        title: { type: string }
+        isRequired: { type: boolean, description: Every Assignment is required (BR-206); a Quiz only when its flag says so. }
+        disabled: { type: boolean, description: "BR-296: the score stays but the component no longer counts for the Certificate." }
+        passingScore: { type: number, minimum: 0, maximum: 100 }
+        status: { type: string, enum: [InProgress, AwaitingResult, Completed] }
+        recordedScore:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 100
+          description: Quiz, the best submitted attempt (BR-198). Assignment, the final score of the latest submission that was not replaced, only once Finalized (BR-212). Null while there is none.
+        passed:
+          type: boolean
+          nullable: true
+          description: recordedScore >= passingScore; null exactly when recordedScore is null (BR-191, never "failed").
+        attemptCount: { type: integer, minimum: 0, description: Quiz, attempts submitted. Assignment, submissions made. }
+        lastActivityAt: { type: string, format: date-time }
+        quiz:
+          nullable: true
+          type: object
+          required: [bestAttemptNumber, attempts]
+          properties:
+            bestAttemptNumber: { type: integer, nullable: true }
+            attempts:
+              type: array
+              items:
+                type: object
+                required: [attemptNumber, score, submittedAt, submissionKind]
+                properties:
+                  attemptNumber: { type: integer }
+                  score: { type: number, minimum: 0, maximum: 100 }
+                  submittedAt: { type: string, format: date-time }
+                  submissionKind: { type: string, nullable: true, description: "Manual, or TimedOut when the time ran out and the system submitted." }
+        assignment:
+          nullable: true
+          type: object
+          required: [latestSubmissionNumber, gradingStatus]
+          properties:
+            latestSubmissionNumber: { type: integer }
+            gradingStatus: { type: string }
     Score:
       type: string
       description: Two decimals, no leading zero, 0.00 to 100.00.

@@ -1,6 +1,7 @@
 import type { CurrentUser } from '@learnup/ts-common';
 import type { IStorageProvider } from '@learnup/ts-storage';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -12,7 +13,10 @@ import { CourseServiceClient } from '../../infrastructure/clients/course/course-
 import type { IUserDisplayName } from '../../infrastructure/clients/tenant/interfaces/user-display-name.interface';
 import { TenantDirectoryClient } from '../../infrastructure/clients/tenant/tenant-directory.client';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
-import { roundScore, scoreFromRubric } from '../peer-review/rubric-score';
+import { scoreFromRubric } from '../peer-review/rubric-score';
+import { aggregateReviewScores } from './aggregate-review-scores';
+import { FinalizeSubmissionDto } from './dto/finalize-submission.dto';
+import type { IFinalizeSubmissionResult } from './interfaces/finalize-submission-result.interface';
 import { InstructorReviewDto } from './dto/instructor-review.dto';
 import { ListSubmissionsQueryDto } from './dto/list-submissions-query.dto';
 import type { IInstructorReviewResult } from './interfaces/instructor-review-result.interface';
@@ -30,6 +34,7 @@ import {
 import {
   AWAITING_FINALIZATION,
   AWAITING_INSTRUCTOR,
+  FINALIZED,
   INSTRUCTOR_REVIEWER_ROLE,
   REVIEW_COMPLETED,
 } from './instructor-submissions.constants';
@@ -54,6 +59,16 @@ export class InstructorSubmissionsService {
     query: ListSubmissionsQueryDto,
   ): Promise<ISubmissionList> {
     const organizationId = this.requireInstructor(user);
+    if (
+      query.minScore !== undefined &&
+      query.maxScore !== undefined &&
+      query.minScore > query.maxScore
+    ) {
+      throw new BadRequestException({
+        code: 'SCORE_RANGE_INVALID',
+        message: 'The lowest score is higher than the highest score.',
+      });
+    }
     const assignment = await this.repository.findAssignment(
       organizationId,
       assessmentId,
@@ -87,7 +102,20 @@ export class InstructorSubmissionsService {
     );
     const keyword = query.q?.toLowerCase();
     const filtered = visible.filter((row) => {
+      if (query.learnerId && row.learnerId !== query.learnerId) return false;
       if (query.status && row.gradingStatus !== query.status) return false;
+      if (query.needsIntervention !== undefined) {
+        const needs = row.gradingStatus === AWAITING_INSTRUCTOR;
+        if (needs !== query.needsIntervention) return false;
+      }
+      if (query.minScore !== undefined || query.maxScore !== undefined) {
+        const score = toNumber(row.finalScore);
+        if (score === null) return false;
+        if (query.minScore !== undefined && score < query.minScore)
+          return false;
+        if (query.maxScore !== undefined && score > query.maxScore)
+          return false;
+      }
       if (!keyword) return true;
       const learner = names.map?.get(row.learnerId);
       return [learner?.fullName, learner?.email]
@@ -283,17 +311,10 @@ export class InstructorSubmissionsService {
       );
       if (moved === 0) throw this.notAwaitingInstructor();
 
-      const validScores = [
-        ...submission.reviews
-          .filter(
-            (item) => item.status === REVIEW_COMPLETED && item.score !== null,
-          )
-          .map((item) => Number(item.score)),
-        score,
-      ];
-      const suggestedScore = roundScore(
-        validScores.reduce((sum, value) => sum + value, 0) / validScores.length,
-      );
+      const aggregate = aggregateReviewScores([
+        ...submission.reviews,
+        { status: REVIEW_COMPLETED, score },
+      ])!;
 
       return {
         submissionId: submission.id,
@@ -305,8 +326,124 @@ export class InstructorSubmissionsService {
           completedAt,
           scores: review.scores,
         },
-        validReviewCount: validScores.length,
-        suggestedScore,
+        ...aggregate,
+      };
+    });
+  }
+
+  /** UC32.3 (BR-250, BR-254, BR-255): publish the final score after grading. */
+  async finalize(
+    user: CurrentUser,
+    submissionId: string,
+    { finalScore, comment }: FinalizeSubmissionDto,
+  ): Promise<IFinalizeSubmissionResult> {
+    const organizationId = this.requireInstructor(user);
+    const target = await this.repository.findSubmissionCourse(
+      organizationId,
+      submissionId,
+    );
+    if (!target || target.assessment.kind !== ASSIGNMENT_KIND) {
+      throw this.submissionNotFound();
+    }
+    const { assessmentId, learnerId } = target;
+    const { courseId } = target.assessment;
+    await this.requireOwnCourse(user, courseId);
+
+    return this.repository.transaction(async (tx) => {
+      // Match the lock order of UC30.1, which supersedes the previous row.
+      await this.repository.lockAssignmentLearner(tx, assessmentId, learnerId);
+      await this.repository.lockSubmission(tx, submissionId);
+      const submission = await this.repository.findSubmissionForGrading(
+        tx,
+        organizationId,
+        submissionId,
+      );
+      if (!submission) throw this.submissionNotFound();
+      if (submission.gradingStatus === FINALIZED) {
+        throw new ConflictException({
+          code: 'SUBMISSION_ALREADY_FINALIZED',
+          message: 'Bài nộp này đã được chốt điểm.',
+        });
+      }
+
+      const latestNumber = await this.repository.findLatestSubmissionNumber(
+        tx,
+        assessmentId,
+        learnerId,
+      );
+      if (
+        submission.supersededAt ||
+        latestNumber !== submission.submissionNumber
+      ) {
+        throw new ConflictException({
+          code: 'SUBMISSION_NOT_LATEST',
+          message: 'Chỉ có thể chốt điểm cho lần nộp mới nhất.',
+        });
+      }
+      if (submission.gradingStatus !== AWAITING_FINALIZATION) {
+        throw new ConflictException({
+          code: 'SUBMISSION_NOT_AWAITING_FINALIZATION',
+          message: 'Bài nộp chưa ở trạng thái chờ chốt điểm.',
+        });
+      }
+
+      const aggregate = aggregateReviewScores(submission.reviews);
+      const state = await this.repository.findLearnerStateId(
+        tx,
+        organizationId,
+        assessmentId,
+        learnerId,
+      );
+      if (!aggregate || !state) {
+        this.logger.error(
+          `Incomplete finalization state for submission ${submissionId}`,
+        );
+        throw new ConflictException({
+          code: 'SUBMISSION_STATE_INCOMPLETE',
+          message: 'Bài nộp chưa có đủ dữ liệu để chốt điểm.',
+        });
+      }
+
+      const finalizationComment = comment || null;
+      if (
+        Math.round(finalScore * 100) !==
+          Math.round(aggregate.suggestedScore * 100) &&
+        finalizationComment === null
+      ) {
+        throw new BadRequestException({
+          code: 'FINALIZATION_COMMENT_REQUIRED',
+          message:
+            'Vui lòng nhập nhận xét khi điểm cuối cùng khác điểm tổng hợp.',
+        });
+      }
+
+      const now = new Date();
+      const finalizedAt = now.toISOString();
+      await this.repository.publishFinalization(tx, submissionId, {
+        finalScore,
+        finalizationComment,
+        finalizedAt: now,
+        finalizedBy: user.userId,
+      });
+      await this.repository.emitSignal(tx, {
+        stateId: state.id,
+        organizationId,
+        assessmentId,
+        courseId,
+        learnerId,
+        kind: ASSIGNMENT_KIND,
+        status: FINALIZED,
+        reason: 'ASSIGNMENT_FINALIZED',
+        extra: { submissionId, finalScore, finalizedAt },
+        now,
+      });
+
+      return {
+        submissionId,
+        gradingStatus: FINALIZED,
+        finalScore,
+        finalizationComment,
+        finalizedAt,
       };
     });
   }

@@ -1,0 +1,17 @@
+{
+  "eventId": "019a0000-0000-7000-8000-000000000001",
+  "eventType": "CourseSubmitted",
+  "version": 1,
+  "occurredAt": "2026-11-08T05:00:00.000Z",
+  "organizationId": "019a0000-0000-7000-8000-000000000002",
+  "producer": "course-service",
+  "data": {
+    "organizationId": "019a0000-0000-7000-8000-000000000002",
+    "courseId": "019a0000-0000-7000-8000-000000000003",
+    "occurredAt": "2026-11-08T05:00:00.000Z",
+    "instructorId": "019a0000-0000-7000-8000-000000000004",
+    "courseName": "Introduction to Workplace Safety",
+    "versionNumber": 1,
+    "submittedAt": "2026-11-08T05:00:00.000Z"
+  }
+}

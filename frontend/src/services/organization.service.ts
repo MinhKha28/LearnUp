@@ -1,11 +1,14 @@
 import type {
   IAccountListItem,
   IAccountListQuery,
+  IChangeAccountStatusReq,
   ICreateAccountReq,
   ICreateRegistrationReq,
   ICreateRegistrationRes,
   IInstructorDetail,
   IInstructorListItem,
+  IInstructorStatusChange,
+  IInstructorStatusResult,
   ILearnerDetail,
   ILearnerListItem,
   IOrganizationProfile,
@@ -169,6 +172,22 @@ export const createLearnerAPI = (body: ICreateAccountReq) =>
 export const updateLearnerAPI = (learnerId: string, body: IUpdateAccountReq) =>
   axios.patch<IBackendRes<IUpdateAccountResult>>(
     `/api/v1/users/learners/${encodeURIComponent(learnerId)}`,
+    body,
+  );
+
+// UC12.5 - chuỗi Course đang phụ trách và Instructor tiếp nhận hợp lệ (cho modal vô hiệu hóa)
+export const getInstructorStatusChangeAPI = (instructorId: string) =>
+  axios.get<IBackendRes<IInstructorStatusChange>>(
+    `/api/v1/users/instructors/${encodeURIComponent(instructorId)}/status-change`,
+  );
+
+// UC12.5 - vô hiệu hóa (kèm chuyển quyền, BR-41) hoặc kích hoạt lại Instructor
+export const changeInstructorStatusAPI = (
+  instructorId: string,
+  body: IChangeAccountStatusReq,
+) =>
+  axios.patch<IBackendRes<IInstructorStatusResult>>(
+    `/api/v1/users/instructors/${encodeURIComponent(instructorId)}/status`,
     body,
   );
 

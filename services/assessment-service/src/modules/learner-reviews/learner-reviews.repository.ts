@@ -6,6 +6,7 @@ import {
   emitCompletionSignal,
   type CompletionSignal,
 } from '../outbox/completion-signal';
+import type { ObligationRow } from './review-history';
 import { ACCESS_ENDED_STATUSES } from './review-rules';
 
 /** The Instructor's own reviews are compared without case, as everywhere else (UC25.4). */
@@ -54,6 +55,30 @@ const reviewInclude = {
 
 export type ReviewRow = Prisma.SubmissionReviewGetPayload<{
   include: typeof reviewInclude;
+}>;
+
+/** A review the Learner gave, with the Rubric of its Assignment to name the criteria (UC31.2). */
+const historyInclude = {
+  scores: true,
+  submission: {
+    select: {
+      assessment: {
+        select: {
+          id: true,
+          title: true,
+          courseId: true,
+          rubricCriteria: {
+            orderBy: { position: 'asc' as const },
+            select: { id: true, name: true, maxPoints: true },
+          },
+        },
+      },
+    },
+  },
+} satisfies Prisma.SubmissionReviewInclude;
+
+export type HistoryRow = Prisma.SubmissionReviewGetPayload<{
+  include: typeof historyInclude;
 }>;
 
 @Injectable()
@@ -119,6 +144,81 @@ export class LearnerReviewsRepository {
     });
     const byId = new Map(rows.map((row) => [row.id, row]));
     return ids.flatMap((row) => byId.get(row.id) ?? []);
+  }
+
+  /** The reviews the Learner gave as a peer (never the Instructor's rows), on Assignments, optionally on one of them. */
+  private givenFrom(
+    organizationId: string,
+    reviewerId: string,
+    assignmentId?: string,
+  ) {
+    return Prisma.sql`
+      FROM submission_reviews r
+      JOIN submissions s ON s.id = r.submission_id
+      JOIN assessments a ON a.id = s.assessment_id
+      WHERE r.organization_id = ${organizationId}::uuid AND r.reviewer_id = ${reviewerId}::uuid
+        AND lower(r.reviewer_role) <> ${INSTRUCTOR_ROLE}
+        AND r.status = 'Completed'
+        AND a.kind = ${ASSIGNMENT_KIND}
+        ${assignmentId ? Prisma.sql`AND a.id = ${assignmentId}::uuid` : Prisma.empty}`;
+  }
+
+  /** UC31.2: how many reviews the Learner has given. */
+  async countGiven(
+    organizationId: string,
+    reviewerId: string,
+    assignmentId?: string,
+  ): Promise<number> {
+    const [row] = await this.prisma.$queryRaw<{ total: number }[]>(
+      Prisma.sql`SELECT count(*)::int AS total ${this.givenFrom(organizationId, reviewerId, assignmentId)}`,
+    );
+    return row.total;
+  }
+
+  /** UC31.2: one page of the reviews the Learner gave, the newest first. */
+  async pageOfGiven(
+    organizationId: string,
+    reviewerId: string,
+    limit: number,
+    offset: number,
+    assignmentId?: string,
+  ): Promise<HistoryRow[]> {
+    const ids = await this.prisma.$queryRaw<{ id: string }[]>(
+      Prisma.sql`
+      SELECT r.id ${this.givenFrom(organizationId, reviewerId, assignmentId)}
+      ORDER BY r.completed_at DESC NULLS LAST, r.id DESC
+      LIMIT ${limit}::bigint OFFSET ${offset}::bigint`,
+    );
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.submissionReview.findMany({
+      where: { id: { in: ids.map((row) => row.id) } },
+      include: historyInclude,
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    return ids.flatMap((row) => byId.get(row.id) ?? []);
+  }
+
+  /**
+   * UC31.2: every review row of the Learner as a peer, with the cycle and the waiver of its Assignment: the facts the
+   * completion snapshot reads (same filters: Assignments that are not disabled), so the duty is judged by `peerReviewOf`.
+   */
+  obligationRows(
+    organizationId: string,
+    reviewerId: string,
+  ): Promise<ObligationRow[]> {
+    return this.prisma.$queryRaw<ObligationRow[]>(Prisma.sql`
+      SELECT a.id AS "assignmentId", a.title AS "assignmentTitle", a.course_id AS "courseId", r.status,
+             c.review_due_at AS "reviewDueAt", r.cycle_id AS "cycleId", c.closes_at AS "cycleClosesAt",
+             st.exempted_at AS "exemptedAt"
+      FROM submission_reviews r
+      JOIN submissions s ON s.id = r.submission_id
+      JOIN assessments a ON a.id = s.assessment_id
+      LEFT JOIN peer_review_cycles c ON c.id = r.cycle_id
+      LEFT JOIN learner_assessment_states st
+             ON st.assessment_id = a.id AND st.learner_id = r.reviewer_id AND st.organization_id = r.organization_id
+      WHERE r.organization_id = ${organizationId}::uuid AND r.reviewer_id = ${reviewerId}::uuid
+        AND lower(r.reviewer_role) <> ${INSTRUCTOR_ROLE}
+        AND a.kind = ${ASSIGNMENT_KIND} AND a.disabled_at IS NULL`);
   }
 
   /** One review of this Learner: someone else's review is not found. Inside a transaction when one is given. */
