@@ -165,17 +165,63 @@ it("reports a rejected metadata response and stays on the editor", async () => {
   expect(screen.queryByText("Material list")).toBeNull();
 });
 
-it("reports a 413 replacement response and skips the metadata patch", async () => {
+it.each([
+  {
+    response: { statusCode: 413, error: { code: "FILE_TOO_LARGE" } },
+    expected: "Tệp vượt quá kích thước cho phép. Vui lòng chọn tệp nhỏ hơn.",
+  },
+  {
+    response: {
+      statusCode: 413,
+      error: { code: "FILE_TOO_LARGE", maxSizeBytes: 12.5 * 1024 * 1024 },
+    },
+    expected: "Tệp vượt quá kích thước cho phép (12,5 MB). Vui lòng chọn tệp nhỏ hơn.",
+  },
+  {
+    response: { code: "FILE_TOO_LARGE" },
+    expected: "Tệp vượt quá kích thước cho phép. Vui lòng chọn tệp nhỏ hơn.",
+  },
+])("reports the size error for $response", async ({ response, expected }) => {
+  courseAxios.post.mockResolvedValueOnce(response);
+  const title = await openEditor();
+  fireEvent.change(title, { target: { value: "Revised reading" } });
+  await replaceFile(new File(["%PDF-1.7"], "replacement.pdf", { type: "application/pdf" }));
+
+  expect(error).toHaveBeenCalledWith(expected, 8);
+  expect(courseAxios.patch).not.toHaveBeenCalled();
+  expect(success).not.toHaveBeenCalled();
+  expect(screen.queryByText("Material list")).toBeNull();
+});
+
+it("reports the size error when Axios rejects with HTTP 413 and no body", async () => {
+  courseAxios.post.mockRejectedValueOnce({
+    isAxiosError: true,
+    response: { status: 413 },
+  });
+  await openEditor();
+  await replaceFile(new File(["%PDF-1.7"], "replacement.pdf", { type: "application/pdf" }));
+
+  expect(error).toHaveBeenCalledWith(
+    "Tệp vượt quá kích thước cho phép. Vui lòng chọn tệp nhỏ hơn.",
+    8,
+  );
+  expect(success).not.toHaveBeenCalled();
+  expect(screen.queryByText("Material list")).toBeNull();
+});
+
+it("keeps the generic message for another replacement HTTP error", async () => {
   courseAxios.post.mockResolvedValueOnce({
-    statusCode: 413,
-    code: "FILE_TOO_LARGE",
-    message: "Replacement exceeds the allowed size.",
+    statusCode: 503,
+    error: { code: "UPLOAD_UNAVAILABLE", message: "Upload unavailable." },
   });
   const title = await openEditor();
   fireEvent.change(title, { target: { value: "Revised reading" } });
   await replaceFile(new File(["%PDF-1.7"], "replacement.pdf", { type: "application/pdf" }));
 
-  expect(error).toHaveBeenCalledWith(expect.stringContaining("File replacement was not confirmed"), 8);
+  expect(error).toHaveBeenCalledWith(
+    "File replacement was not confirmed. Reload and check the current file before retrying.",
+    8,
+  );
   expect(courseAxios.patch).not.toHaveBeenCalled();
   expect(success).not.toHaveBeenCalled();
   expect(screen.queryByText("Material list")).toBeNull();

@@ -6,6 +6,7 @@ import {
 
 import { Alert, Input, message, Modal, Progress, Radio, Skeleton } from "antd";
 
+import { isAxiosError } from "axios";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -52,6 +53,37 @@ const formatBytes = (value: number | string): string => {
   }
 
   return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+};
+
+const getReplacementSizeError = (failure: unknown): string | undefined => {
+  const response = isAxiosError<unknown>(failure) ? failure.response : undefined;
+  const body = response?.data ?? failure;
+  const envelope =
+    body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  const details =
+    envelope.error && typeof envelope.error === "object"
+      ? (envelope.error as Record<string, unknown>)
+      : envelope;
+
+  if (
+    Number(response?.status ?? envelope.statusCode) !== 413 &&
+    envelope.code !== "FILE_TOO_LARGE" &&
+    details.code !== "FILE_TOO_LARGE"
+  ) {
+    return;
+  }
+
+  const maxSizeBytes = details.maxSizeBytes ?? envelope.maxSizeBytes;
+  const limit =
+    typeof maxSizeBytes === "number" &&
+    Number.isFinite(maxSizeBytes) &&
+    maxSizeBytes > 0
+      ? ` (${(maxSizeBytes / MiB).toLocaleString("vi-VN", {
+          maximumFractionDigits: 2,
+        })} MB)`
+      : "";
+
+  return `Tệp vượt quá kích thước cho phép${limit}. Vui lòng chọn tệp nhỏ hơn.`;
 };
 
 const ensureApiSuccess = <T,>(response: IBackendRes<T>): T => {
@@ -268,6 +300,12 @@ const CourseBuilderMaterialEdit = () => {
             },
           );
 
+          const sizeError = getReplacementSizeError(response);
+          if (sizeError) {
+            message.error(sizeError, 8);
+            return;
+          }
+
           const replaced = ensureApiSuccess(response);
 
           if (
@@ -278,8 +316,6 @@ const CourseBuilderMaterialEdit = () => {
               "File replacement response does not match the current material.",
             );
           }
-
-          fileReplaced = true;
 
           fileReplaced = true;
           setUploadingFile(false);
@@ -326,8 +362,9 @@ const CourseBuilderMaterialEdit = () => {
           setProgress(0);
         } else if (replacementFile && !fileReplaced) {
           message.error(
-            "File replacement was not confirmed. " +
-              "Reload and check the current file before retrying.",
+            getReplacementSizeError(err) ??
+              "File replacement was not confirmed. " +
+                "Reload and check the current file before retrying.",
             8,
           );
         } else {
