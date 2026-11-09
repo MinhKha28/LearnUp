@@ -59,6 +59,21 @@ describe('UC33 closing a cycle over HTTP', () => {
       headers,
     );
 
+  /** The PeerReviewAssigned events of a cycle (BR-232), oldest first. */
+  const assignedEvents = (cycleId: string) =>
+    db.query(
+      `SELECT payload, occurred_at, published_at FROM outbox_events
+        WHERE event_type = 'PeerReviewAssigned' AND aggregate_id = $1 ORDER BY id`,
+      [cycleId],
+    ) as Promise<
+      {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        payload: Record<string, any>;
+        occurred_at: Date;
+        published_at: Date | null;
+      }[]
+    >;
+
   // The closing line has to have passed (BR-230) and the clock of the service cannot be moved, so the calendar of the
   // Assignment is moved back 8 whole days (the grid of BR-231 stays as it is) before a closing that has to work.
   const makeDue = async (cycleId: string) => {
@@ -88,7 +103,8 @@ describe('UC33 closing a cycle over HTTP', () => {
       },
     );
   };
-  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const wait = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
 
   before(async () => {
     db = await createTestDatabase();
@@ -206,6 +222,8 @@ describe('UC33 closing a cycle over HTTP', () => {
     }
     assert.equal((await cycles())[0].status, 'InstructorOnly');
     assert.equal((await cycles())[0].closed, true);
+    // nobody is handed any review, so nobody is told to review (BR-232)
+    assert.equal((await assignedEvents(cycle.id)).length, 0);
   });
 
   test('closing again changes nothing', async () => {
@@ -276,6 +294,43 @@ describe('UC33 closing a cycle over HTTP', () => {
     assert.equal((stored.reviewer_permutation as string[]).length, 5);
     assert.equal(stored.status, 'Assigned');
     assert.ok(stored.closed_at);
+
+    // BR-232: one event for each reviewer, written by the closing itself, with how many reviews and by when
+    const events = await assignedEvents(cycle.id);
+    assert.equal(events.length, 5);
+    assert.deepEqual(
+      events.map((e) => e.payload.learnerId as string).sort(),
+      [...byReviewer.keys()].sort(),
+    );
+    const [assignment_] = await db.query(
+      `SELECT a.title, c.review_due_at FROM peer_review_cycles c JOIN assessments a ON a.id = c.assessment_id WHERE c.id = $1`,
+      [cycle.id],
+    );
+    for (const event of events) {
+      assert.equal(
+        event.payload.reviewCount,
+        byReviewer.get(event.payload.learnerId),
+      );
+      assert.equal(event.payload.assignmentTitle, assignment_.title);
+      assert.equal(
+        new Date(event.payload.reviewDueAt).getTime(),
+        new Date(assignment_.review_due_at as Date).getTime(),
+      );
+      assert.equal(event.published_at, null); // the relay publishes it later
+      // BR-233: nothing in the event names an author or a submission
+      const text = JSON.stringify(event.payload);
+      for (const author of byAuthor.keys()) {
+        if (author !== event.payload.learnerId) {
+          // a reviewer who is also the author of another work is only named as the reviewer
+          assert.equal(
+            text.split(author).length - 1,
+            0,
+            'an author in the event',
+          );
+        }
+      }
+      assert.doesNotMatch(text, /submissionId|authorId/);
+    }
   });
 
   test('closing the assigned cycle again keeps the same reviews and the same permutation', async () => {
@@ -301,6 +356,8 @@ describe('UC33 closing a cycle over HTTP', () => {
     assert.equal(again.data.reviewCount, 10);
     assert.deepEqual(await ids(), reviewsBefore);
     assert.deepEqual(await permutation(), permutationBefore);
+    // nobody is told twice
+    assert.equal((await assignedEvents(cycle.id)).length, 5);
   });
 
   test('two closings at the same moment hand out the reviews once', async () => {
@@ -319,6 +376,8 @@ describe('UC33 closing a cycle over HTTP', () => {
       [cycle.id],
     );
     assert.equal(count, 8);
+    // the loser of the race writes nothing: four reviewers, four events, once (BR-232)
+    assert.equal((await assignedEvents(cycle.id)).length, 4);
   });
 
   test('every Learner who submitted has a state row, so a skipped review can be marked at the deadline', async () => {
@@ -399,8 +458,9 @@ describe('UC33 closing a cycle over HTTP', () => {
     });
     assert.equal(on.status, 200, JSON.stringify(on.json));
     for (const i of [20, 21, 22]) await submit(race, learner(i));
-    const [cycle] = (await api('GET', `/assignments/${race}/peer-review/cycles`))
-      .data.items as { id: string }[];
+    const [cycle] = (
+      await api('GET', `/assignments/${race}/peer-review/cycles`)
+    ).data.items as { id: string }[];
     const [{ id: replaced }] = await db.query(
       `SELECT id FROM submissions WHERE assessment_id = $1 AND learner_id = $2 AND superseded_at IS NULL`,
       [race, learner(22)],
@@ -431,12 +491,20 @@ describe('UC33 closing a cycle over HTTP', () => {
         WHERE r.cycle_id = $1 AND s.superseded_at IS NOT NULL`,
       [cycle.id],
     );
-    assert.equal(onReplaced, 0, 'no review is attached to a replaced submission');
+    assert.equal(
+      onReplaced,
+      0,
+      'no review is attached to a replaced submission',
+    );
     const [{ current, reviewed }] = await db.query(
       `SELECT (SELECT count(*) FROM submissions WHERE cycle_id = $1 AND superseded_at IS NULL)::int AS current,
               (SELECT count(DISTINCT submission_id) FROM submission_reviews WHERE cycle_id = $1)::int AS reviewed`,
       [cycle.id],
     );
-    assert.equal(reviewed, current, 'every current submission is handed out for review');
+    assert.equal(
+      reviewed,
+      current,
+      'every current submission is handed out for review',
+    );
   });
 });

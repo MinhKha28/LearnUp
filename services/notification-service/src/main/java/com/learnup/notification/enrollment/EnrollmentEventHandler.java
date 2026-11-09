@@ -5,11 +5,7 @@ import com.learnup.notification.client.OrganizationTimeZones;
 import com.learnup.notification.client.Recipient;
 import com.learnup.notification.client.RecipientDirectory;
 import com.learnup.notification.config.EnrollmentEventsProperties;
-import com.learnup.notification.dto.CreateNotificationRequest;
-import com.learnup.notification.dto.EmailLogResponse;
-import com.learnup.notification.dto.SendEmailRequest;
 import com.learnup.notification.entity.DeliveryChannel;
-import com.learnup.notification.entity.DeliveryStatus;
 import com.learnup.notification.entity.EnrollmentEventDelivery;
 import com.learnup.notification.service.EmailDeliveryService;
 import com.learnup.notification.service.NotificationService;
@@ -53,9 +49,7 @@ public class EnrollmentEventHandler {
     private final CourseDirectory courses;
     private final EnrollmentMessageTemplates templates;
     private final OrganizationTimeZones zones;
-    private final NotificationService notifications;
-    private final EmailDeliveryService emails;
-    private final TransactionTemplate transaction;
+    private final ChannelDelivery channels;
     private final EnrollmentEventsProperties properties;
     private final Clock clock;
 
@@ -69,9 +63,7 @@ public class EnrollmentEventHandler {
         this.courses = courses;
         this.templates = templates;
         this.zones = zones;
-        this.notifications = notifications;
-        this.emails = emails;
-        this.transaction = new TransactionTemplate(transactionManager);
+        this.channels = new ChannelDelivery(ledger, notifications, emails, new TransactionTemplate(transactionManager), clock);
         this.properties = properties;
         this.clock = clock;
     }
@@ -101,7 +93,7 @@ public class EnrollmentEventHandler {
         try {
             deliver(event, now, owned, owned.contains(inApp) ? inApp : null, owned.contains(email) ? email : null);
         } finally {
-            releaseUnfinished(owned);
+            channels.releaseUnfinished(owned);
         }
     }
 
@@ -109,7 +101,7 @@ public class EnrollmentEventHandler {
     private void deliver(EnrollmentEvent event, Instant now, List<EnrollmentEventDelivery> open,
                          EnrollmentEventDelivery inApp, EnrollmentEventDelivery email) {
         if (Duration.between(event.occurredAt(), now).compareTo(properties.getMaxAge()) > 0) {
-            skip(open, "EVENT_TOO_OLD");
+            channels.skip(open, "EVENT_TOO_OLD");
             log.info("event=enrollment_event_skipped reason=EVENT_TOO_OLD event_id={} type={}", event.eventId(), event.type());
             return;
         }
@@ -119,17 +111,17 @@ public class EnrollmentEventHandler {
         try {
             recipient = recipients.find(event.organizationId(), event.learnerId()).orElse(null);
             if (recipient == null || !recipient.canBeWrittenTo()) {
-                skip(open, "RECIPIENT_UNAVAILABLE");
+                channels.skip(open, "RECIPIENT_UNAVAILABLE");
                 log.info("event=enrollment_event_skipped reason=RECIPIENT_UNAVAILABLE event_id={} type={}", event.eventId(), event.type());
                 return;
             }
             courseName = courses.nameOf(event.organizationId(), event.courseId()).orElse(null);
         } catch (DependencyUnavailableException unavailable) {
-            fail(open, unavailable.code());
+            channels.fail(open, unavailable.code());
             log.warn("event=enrollment_event_retry reason={} event_id={} type={}", unavailable.code(), event.eventId(), event.type());
             throw unavailable;
         } catch (PermanentDeliveryException refused) {
-            fail(open, refused.code());
+            channels.fail(open, refused.code());
             log.error("event=enrollment_event_failed reason={} event_id={} type={}", refused.code(), event.eventId(), event.type());
             return;
         }
@@ -138,92 +130,21 @@ public class EnrollmentEventHandler {
                 .render(event, courseName, recipient.fullName(), zones.of(event.organizationId()))
                 .orElse(null);
         if (message == null) {
-            skip(open, "NO_MESSAGE");
+            channels.skip(open, "NO_MESSAGE");
             return;
         }
 
         boolean failed = false;
         if (inApp != null) {
-            failed |= !sendInApp(event, inApp, message);
+            failed |= !channels.sendInApp(event.organizationId(), event.learnerId(), inApp, message);
         }
         if (email != null) {
-            failed |= !sendEmail(email, recipient, message);
+            failed |= !channels.sendEmail(email, recipient, message);
         }
         if (failed) {
             log.warn("event=enrollment_event_retry reason=DELIVERY_FAILED event_id={} type={}", event.eventId(), event.type());
             throw new DependencyUnavailableException("DELIVERY_FAILED");
         }
         log.info("event=enrollment_event_handled event_id={} type={}", event.eventId(), event.type());
-    }
-
-    private boolean sendInApp(EnrollmentEvent event, EnrollmentEventDelivery delivery, EnrollmentMessage message) {
-        try {
-            transaction.executeWithoutResult(status -> {
-                notifications.sendNotification(new CreateNotificationRequest(event.organizationId(), event.learnerId(),
-                        message.title(), message.text(), message.type(), DeliveryChannel.IN_APP.name(), message.metadata()));
-                delivery.markSent(clock.instant());
-                ledger.record(delivery);
-            });
-            return true;
-        } catch (RuntimeException e) {
-            delivery.markFailed("IN_APP_FAILED", clock.instant());
-            ledger.record(delivery);
-            return false;
-        }
-    }
-
-    private boolean sendEmail(EnrollmentEventDelivery delivery, Recipient recipient, EnrollmentMessage message) {
-        if (!recipient.hasEmail()) {
-            delivery.markSkipped("NO_EMAIL", clock.instant());
-            ledger.record(delivery);
-            return true;
-        }
-        try {
-            EmailLogResponse result = emails.sendEmail(new SendEmailRequest(
-                    recipient.email(), message.emailSubject(), message.emailHtml(), message.type()));
-            if (result != null && "FAILED".equals(result.getStatus())) {
-                delivery.markFailed("EMAIL_FAILED", clock.instant());
-                ledger.record(delivery);
-                return false;
-            }
-            delivery.markSent(clock.instant());
-            ledger.record(delivery);
-            return true;
-        } catch (RuntimeException e) {
-            delivery.markFailed("EMAIL_FAILED", clock.instant());
-            ledger.record(delivery);
-            return false;
-        }
-    }
-
-    private void skip(List<EnrollmentEventDelivery> rows, String code) {
-        for (EnrollmentEventDelivery row : rows) {
-            row.markSkipped(code, clock.instant());
-            ledger.record(row);
-        }
-    }
-
-    private void fail(List<EnrollmentEventDelivery> rows, String code) {
-        for (EnrollmentEventDelivery row : rows) {
-            row.markFailed(code, clock.instant());
-            ledger.record(row);
-        }
-    }
-
-    /**
-     * A row still PROCESSING here means the handling stopped on something unforeseen (an exception nobody caught). It is
-     * set to FAILED with a fixed code so that the next try can take it at once, instead of waiting for the lease.
-     */
-    private void releaseUnfinished(List<EnrollmentEventDelivery> rows) {
-        for (EnrollmentEventDelivery row : rows) {
-            if (row.getStatus() == DeliveryStatus.PROCESSING) {
-                try {
-                    row.markFailed("INTERRUPTED", clock.instant());
-                    ledger.record(row);
-                } catch (RuntimeException ignored) {
-                    // The lease frees the row if even this write fails; the original failure is the one that matters.
-                }
-            }
-        }
     }
 }

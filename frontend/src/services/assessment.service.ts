@@ -13,6 +13,7 @@ import type {
   ILearnerReviewList,
   ILearnerReviewResult,
   ILearnerAssessmentList,
+  IReviewHistory,
   ILearnerQuiz,
   IQuizAttemptInProgress,
   IQuizAttemptResult,
@@ -265,23 +266,39 @@ export const downloadLearnerPromptFileAPI = async (
 
 /** UC31 — the reviews assigned to the Learner, the ones to give first, with the deadline of the cycle. */
 export const fetchLearnerPeerReviewsAPI = (page = 1, pageSize = 20) =>
-  axios.get<IBackendRes<ILearnerReviewList>>("/api/v1/assessments/learner/peer-reviews", {
-    params: { page, pageSize },
-  });
+  axios.get<IBackendRes<ILearnerReviewList>>(
+    "/api/v1/assessments/learner/peer-reviews",
+    {
+      params: { page, pageSize },
+    },
+  );
 
 /** UC31 — one review: the work without its author, the Rubric, and the review so far. */
 export const fetchLearnerPeerReviewAPI = (reviewId: string) =>
-  axios.get<IBackendRes<ILearnerReviewDetail>>(`/api/v1/assessments/learner/peer-reviews/${reviewId}`);
+  axios.get<IBackendRes<ILearnerReviewDetail>>(
+    `/api/v1/assessments/learner/peer-reviews/${reviewId}`,
+  );
 
 /** UC31.1 — give the review. It is final once given. */
-export const giveLearnerPeerReviewAPI = (reviewId: string, body: IGiveLearnerReview) =>
-  axios.post<IBackendRes<ILearnerReviewResult>>(`/api/v1/assessments/learner/peer-reviews/${reviewId}`, body);
+export const giveLearnerPeerReviewAPI = (
+  reviewId: string,
+  body: IGiveLearnerReview,
+) =>
+  axios.post<IBackendRes<ILearnerReviewResult>>(
+    `/api/v1/assessments/learner/peer-reviews/${reviewId}`,
+    body,
+  );
 
 /** UC31 — the file of the work under review, with a neutral name; like the prompt file, only a real 200 response yields it. */
-export const downloadLearnerReviewFileAPI = async (reviewId: string): Promise<Blob | null> => {
-  const res = (await axios.get(`/api/v1/assessments/learner/peer-reviews/${reviewId}/file`, {
-    responseType: "blob",
-  })) as unknown as { status?: number; data?: unknown };
+export const downloadLearnerReviewFileAPI = async (
+  reviewId: string,
+): Promise<Blob | null> => {
+  const res = (await axios.get(
+    `/api/v1/assessments/learner/peer-reviews/${reviewId}/file`,
+    {
+      responseType: "blob",
+    },
+  )) as unknown as { status?: number; data?: unknown };
   return res.status === 200 && res.data instanceof Blob ? res.data : null;
 };
 
@@ -313,7 +330,8 @@ const REVIEW_ERROR_TEXT: Record<string, string> = {
   ...LEARNER_LOCK_TEXT,
   RUBRIC_MISSING: "Bài tập này chưa có tiêu chí Rubric để chấm.",
   RUBRIC_SCORES_INCOMPLETE: "Hãy chấm đúng một điểm cho mỗi tiêu chí Rubric.",
-  RUBRIC_SCORE_OUT_OF_RANGE: "Điểm của một tiêu chí không được vượt quá điểm tối đa của tiêu chí đó.",
+  RUBRIC_SCORE_OUT_OF_RANGE:
+    "Điểm của một tiêu chí không được vượt quá điểm tối đa của tiêu chí đó.",
 };
 
 /** For the screens that must stay fully Vietnamese: the English message of the server is never shown. */
@@ -331,6 +349,19 @@ export const assessmentErrorText = (res: unknown, fallback: string): string => {
   const raw = typeof error === "object" ? error?.message : (error ?? message);
   return (Array.isArray(raw) ? raw.join(" ") : raw) || fallback;
 };
+
+/** UC31.2 — the reviews the Learner gave, newest first, and where the duty of peer review stands. */
+export const fetchLearnerReviewHistoryAPI = (
+  page = 1,
+  pageSize = 20,
+  assignmentId?: string,
+) =>
+  axios.get<IBackendRes<IReviewHistory>>(
+    "/api/v1/assessments/learner/peer-reviews/history",
+    {
+      params: { page, pageSize, ...(assignmentId ? { assignmentId } : {}) },
+    },
+  );
 
 // ------------------------------------------------------------------------------------------------ UC29.1 — Quiz
 

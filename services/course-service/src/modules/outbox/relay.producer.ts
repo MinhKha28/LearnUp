@@ -22,6 +22,7 @@ const eventTypes = new Set([
   'CourseReactivated',
   'CourseComponentDisabled',
   'CourseComponentReactivated',
+  'CourseSubmitted',
 ]);
 
 const uuidPattern =
@@ -77,6 +78,22 @@ export function message(row: OutboxRow) {
   }
 
   const data = row.payload;
+
+  if (row.event_type === 'CourseSubmitted') {
+    if (
+      typeof data.instructorId !== 'string' ||
+      !uuidPattern.test(data.instructorId) ||
+      typeof data.courseName !== 'string' ||
+      !data.courseName.trim() ||
+      typeof data.versionNumber !== 'number' ||
+      !Number.isSafeInteger(data.versionNumber) ||
+      data.versionNumber < 1 ||
+      typeof data.submittedAt !== 'string' ||
+      Number.isNaN(Date.parse(data.submittedAt))
+    ) {
+      throw new SerializationFailure();
+    }
+  }
 
   if (
     data.organizationId !== row.organization_id ||

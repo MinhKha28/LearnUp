@@ -4,6 +4,7 @@ import { AccountTokensModule } from '../account-tokens/account-tokens.module';
 import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { UsersRepository } from './users.repository';
 
 @Module({
   imports: [
@@ -12,7 +13,7 @@ import { UsersService } from './users.service';
     AccountTokensModule, // UC12.3: thu hồi / phát lại lời mời khi đổi email
   ],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, UsersRepository],
   exports: [UsersService],
 })
 export class UsersModule {}

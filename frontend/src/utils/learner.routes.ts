@@ -1,9 +1,24 @@
 /** Đường dẫn màn hình learner; trang trong /learner/courses dùng enrollmentId (D40). */
 export const LEARNER_ROUTES = {
   myCourses: () => "/learner/courses",
-  catalog: (page?: number) => (page && page > 1 ? `/learner/catalog?page=${page}` : "/learner/catalog"),
-  courseIntro: (courseId: string) => `/learner/catalog/${encodeURIComponent(courseId)}`,
-  curriculum: (enrollmentId: string) => `/learner/courses/${encodeURIComponent(enrollmentId)}`,
+  catalog: (page?: number) =>
+    page && page > 1 ? `/learner/catalog?page=${page}` : "/learner/catalog",
+  courseIntro: (courseId: string) =>
+    `/learner/catalog/${encodeURIComponent(courseId)}`,
+  curriculum: (enrollmentId: string) =>
+    `/learner/courses/${encodeURIComponent(enrollmentId)}`,
+  assessments: (enrollmentId: string) =>
+    `/learner/courses/${encodeURIComponent(enrollmentId)}/assessments`,
+  results: (enrollmentId: string) =>
+    `/learner/courses/${encodeURIComponent(enrollmentId)}/results`,
+  quiz: (enrollmentId: string, quizId: string) =>
+    `/learner/courses/${encodeURIComponent(enrollmentId)}/quizzes/${encodeURIComponent(quizId)}`,
+  quizHistory: (enrollmentId: string, quizId: string) =>
+    `/learner/courses/${encodeURIComponent(enrollmentId)}/quizzes/${encodeURIComponent(quizId)}/history`,
+  assignmentResult: (enrollmentId: string, assignmentId: string) =>
+    `/learner/courses/${encodeURIComponent(enrollmentId)}/assignments/${encodeURIComponent(assignmentId)}/result`,
+  assignmentSubmit: (enrollmentId: string, assignmentId: string) =>
+    `/learner/courses/${encodeURIComponent(enrollmentId)}/assignments/${encodeURIComponent(assignmentId)}/submit`,
   certificates: () => "/learner/certificates",
   progress: (enrollmentId: string) => `/learner/courses/${encodeURIComponent(enrollmentId)}/progress`,
   evaluation: (enrollmentId: string) => `/learner/courses/${encodeURIComponent(enrollmentId)}/evaluation`,
