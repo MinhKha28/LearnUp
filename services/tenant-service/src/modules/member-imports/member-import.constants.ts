@@ -11,6 +11,14 @@ export const DEFAULT_IMPORT_MAX_FILE_BYTES = 1 * MIB;
 export const DEFAULT_IMPORT_MAX_ROWS = 500;
 export const IMPORT_MULTER_CEILING_BYTES = 5 * MIB;
 
+/**
+ * Chống zip bomb: tổng dung lượng THỰC SỰ bung ra của mọi mục trong gói .xlsx (đo khi giải nén thử,
+ * không tin kích thước khai trong tệp). Ghi đè bằng IMPORT_MAX_UNCOMPRESSED_BYTES.
+ */
+export const DEFAULT_IMPORT_MAX_UNCOMPRESSED_BYTES = 20 * MIB;
+/** Số mục tối đa trong gói ZIP (một tệp .xlsx bình thường chỉ khoảng 10 mục). */
+export const IMPORT_MAX_ZIP_ENTRIES = 1_000;
+
 /** Thời gian tối đa của transaction confirm (mặc định của Prisma là 5 giây, không đủ cho 500 dòng). */
 export const IMPORT_TRANSACTION_TIMEOUT_MS = 30_000;
 export const IMPORT_TRANSACTION_MAX_WAIT_MS = 10_000;
