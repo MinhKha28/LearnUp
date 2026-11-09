@@ -25,7 +25,9 @@ import type {
   IVerifyEmailOtpRes,
   IAcceptInvitationReq,
   IAcceptInvitationResult,
-  IInvitationInfo
+  IInvitationInfo,
+  IMemberImportPreview,
+  IMemberImportResult
 } from "@/types/organization.types";
 import { tenantAxios as axios } from "@/services/axios.customize";
 
@@ -120,6 +122,36 @@ export const getInstructorSeatsAPI = () =>
 // UC12.2 - Thêm Instructor (Organizer; backend gửi lời mời qua email)
 export const createInstructorAPI = (body: ICreateAccountReq) =>
   axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/instructors", body);
+
+// UC12.8 - tệp mẫu .xlsx. Interceptor trả body lỗi (cũng là Blob) thay vì throw,
+// nên chỉ response 200 thật mới là tệp (cùng cách với downloadPromptFileAPI).
+export const downloadInstructorImportTemplateAPI = async (): Promise<Blob | null> => {
+  const res = (await axios.get("/api/v1/users/instructors/imports/template", {
+    responseType: "blob",
+  })) as unknown as { status?: number; data?: unknown };
+  return res.status === 200 && res.data instanceof Blob ? res.data : null;
+};
+
+// UC12.8 - BR-32: xem trước tệp import (không tạo tài khoản)
+export const previewInstructorImportAPI = (file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return axios.post<IBackendRes<IMemberImportPreview>>(
+    "/api/v1/users/instructors/imports/preview",
+    form,
+  );
+};
+
+// UC12.8 - BR-32, BR-33: xác nhận; gửi lại cùng tệp và previewDigest, server kiểm lại toàn bộ
+export const confirmInstructorImportAPI = (file: File, previewDigest: string) => {
+  const form = new FormData();
+  form.append("previewDigest", previewDigest);
+  form.append("file", file);
+  return axios.post<IBackendRes<IMemberImportResult>>(
+    "/api/v1/users/instructors/imports",
+    form,
+  );
+};
 
 // UC12.3 - Cập nhật thông tin Instructor (Organizer; đổi email của tài khoản Pending thì gửi lời mời mới)
 export const updateInstructorAPI = (
