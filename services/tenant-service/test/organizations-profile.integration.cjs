@@ -12,7 +12,12 @@ if (!process.env.DATABASE_URL) {
 process.env.NODE_PATH = require('node:path').resolve(__dirname, '../dist');
 require('node:module').Module._initPaths();
 
-const { Module, ValidationPipe, VersioningType } = require('@nestjs/common');
+const {
+  Global,
+  Module,
+  ValidationPipe,
+  VersioningType,
+} = require('@nestjs/common');
 const { ConfigModule } = require('@nestjs/config');
 const { StorageProviderError } = require('@learnup/ts-storage');
 const { APP_GUARD, NestFactory, Reflector } = require('@nestjs/core');
@@ -34,6 +39,9 @@ const {
 const {
   InternalOrganizationsModule,
 } = require('../dist/src/modules/internal-organizations/internal-organizations.module');
+const {
+  CourseServiceClient,
+} = require('../dist/src/infrastructure/clients/course/course-service.client');
 const {
   InternalAuthGuard,
 } = require('../dist/src/common/guards/internal-auth.guard');
@@ -70,11 +78,19 @@ test('UC11 / UC11.1 organization profile', async (t) => {
   ]) {
     delete process.env[key];
   }
+  // UC44.1 thêm CourseServiceClient vào OrganizationsService; UC11 không gọi tới nó.
+  class FakeClientsModule {}
+  Global()(FakeClientsModule);
+  Module({
+    providers: [{ provide: CourseServiceClient, useValue: {} }],
+    exports: [CourseServiceClient],
+  })(FakeClientsModule);
   class TestModule {}
   Module({
     imports: [
       ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
       PrismaModule,
+      FakeClientsModule,
       OrganizationsModule,
       InternalOrganizationsModule,
     ],
