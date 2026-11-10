@@ -1,3 +1,4 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
 import { Input, Upload, message } from "antd";
 import { DownloadOutlined, InboxOutlined } from "@ant-design/icons";
@@ -29,7 +30,7 @@ const STALE_CODES = ["ASSESSMENT_LOCKED", "SUBMISSION_EXISTS", "NO_PREVIOUS_SUBM
 // with the draft, and is closed.
 const NOT_ACTIVE_CODE = "ENROLLMENT_NOT_ACTIVE";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
+const formatTime = (iso: string) => formatDateTimeVN(iso);
 
 /** UC30.1: tells the Learner, before sending, where the new work will go (BR-171, BR-313). */
 const resubmissionNotice = (assignment: ILearnerAssignment) => {

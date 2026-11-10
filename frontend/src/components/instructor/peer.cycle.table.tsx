@@ -1,3 +1,4 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
 import { message, Popconfirm } from "antd";
 import { Link } from "react-router-dom";
@@ -11,7 +12,7 @@ import {
 import type { IPeerReviewCycleList, TPeerReviewCycleStatus } from "@/types/assessment.types";
 import "./peer.cycle.table.scss";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
+const formatTime = (iso: string) => formatDateTimeVN(iso);
 
 const STATUS_LABEL: Record<TPeerReviewCycleStatus, string> = {
   Open: "Đang mở",
