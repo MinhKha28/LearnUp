@@ -153,3 +153,10 @@ test('repository returns the Prisma result without leaking another Organization'
   ), null);
   assert.equal(calls.findFirst[0].where.organizationId, otherOrganizationId);
 });
+
+test('UC23 permits an empty candidate list without inventing receivers', async () => {
+  const service = createService({
+    findTransferCandidates: async () => [],
+  });
+  assert.deepEqual(await service.getTransferCandidates(organizer, existingInstructorId), []);
+});
