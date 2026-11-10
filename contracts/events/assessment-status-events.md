@@ -35,6 +35,19 @@ change does), with `kind` `ASSIGNMENT`, `occurredAt` the time of the closing or 
 cycle gets no `PeerReviewMissed`. `revision` is the revision of the completion snapshot after the change, so the
 Learner's peer review duty is `Pending` (after `PeerReviewAssigned`) or `Missed` (after `PeerReviewMissed`) in the
 snapshot that learning reads. Learning ignores `cycleId`, `reviewCount` and `missedCount`.
+
+**The `status` of an event is a hint about what happened, not the source of truth.** With waived duties, or with late or
+overlapping cycles, the status an event names can differ from the duty status in the snapshot of that `revision` (for
+example a `PeerReviewMissed` for one cycle while a later cycle is still pending). A consumer must only treat the event as a
+trigger and read the completion snapshot over REST; it must not derive the Learner's status, or write any state, from the
+`status` field.
+
+Assessment does not filter the reviewers by the state of their account or enrollment: a reviewer whose account was deleted,
+or who withdrew from the Course, still has Pending reviews that are marked Missed at the deadline, and gets
+`PeerReviewAssigned` / `PeerReviewMissed` like the others. This is harmless for learning as it is: an Enrollment that is
+Withdrawn, Completed or Halted has its completion request dropped by the worker, and an Enrollment that does not exist
+is quarantined as `ENROLLMENT_NOT_FOUND` without blocking the partition (it only adds a row to triage). Removing these
+duties at the source (BR-244, BR-245: the work goes to the Instructor and does not count as missed) is a separate change.
 This is not the notification event `PeerReviewAssigned` of [assessment-peer-review-events.md](assessment-peer-review-events.md),
 which has its own topic and consumer.
 
