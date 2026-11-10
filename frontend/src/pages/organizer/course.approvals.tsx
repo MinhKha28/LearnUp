@@ -1,5 +1,6 @@
-import { Table } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import { Alert, Table } from "antd";
+import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   OrganizerButton,
@@ -8,49 +9,117 @@ import {
   SectionCard,
   StatusTag,
 } from "@/components/organizer/organizer.ui";
+import { fetchOrganizationCoursesAPI } from "@/services/course.service";
+import type { IOrganizationCourseListItem } from "@/types/course.types";
 
-type Submitted = {
-  key: string;
-  course: string;
-  instructor: string;
-  submitted: string;
-  type: "Public" | "Private";
+const isSuccess = (statusCode: unknown) => {
+  const status = Number(statusCode);
+  return Number.isInteger(status) && status >= 200 && status < 300;
 };
-
-const rows: Submitted[] = [
-  { key: "ir", course: "Incident Reporting", instructor: "Linh Phan", submitted: "21 Sep 2026", type: "Private" },
-  { key: "dpe", course: "Data Privacy Essentials", instructor: "Vy Nguyen", submitted: "20 Sep 2026", type: "Public" },
-  { key: "cs", course: "Customer Safety", instructor: "Giao Le", submitted: "18 Sep 2026", type: "Private" },
-  { key: "sa", course: "Security Awareness", instructor: "An Tran", submitted: "17 Sep 2026", type: "Public" },
-];
 
 const CourseApprovals = () => {
   const navigate = useNavigate();
-  const columns: ColumnsType<Submitted> = [
-    { title: "Course", dataIndex: "course" },
-    { title: "Instructor", dataIndex: "instructor" },
-    { title: "Submitted", dataIndex: "submitted" },
+  const [courses, setCourses] = useState<IOrganizationCourseListItem[]>([]);
+  const [current, setCurrent] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const loadCourses = useCallback(async () => {
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      const response = await fetchOrganizationCoursesAPI({
+        current, pageSize, status: "Submitted",
+      });
+
+      // The project interceptor may return a 4xx body without throwing.
+      if (
+        !isSuccess(response.statusCode) ||
+        !response.data ||
+        !Array.isArray(response.data.result) ||
+        !response.data.meta ||
+        !Number.isFinite(response.data.meta.total)
+      ) {
+        setCourses([]);
+        setTotal(0);
+        setErrorMessage("Unable to load pending approval Courses.");
+        return;
+      }
+
+      // Do not offer Review links to Courses that are no longer Submitted.
+      setCourses(response.data.result.filter((item) => item.status === "Submitted"));
+      setTotal(response.data.meta.total);
+    } catch {
+      setCourses([]);
+      setTotal(0);
+      setErrorMessage("Course Service is unavailable.");
+    } finally {
+      setLoading(false);
+    }
+  }, [current, pageSize]);
+
+  useEffect(() => {
+    void loadCourses();
+  }, [loadCourses]);
+
+  const columns: ColumnsType<IOrganizationCourseListItem> = [
+    {
+      title: "Course",
+      dataIndex: "name",
+      render: (name: string, item) => (
+        <div>
+          <strong>{name}</strong>
+          <div>Version {item.versionNumber}</div>
+        </div>
+      ),
+    },
+    {
+      title: "Instructor",
+      dataIndex: "instructor",
+      render: (value: IOrganizationCourseListItem["instructor"]) =>
+        value?.fullName ?? "—",
+    },
+    {
+      title: "Submitted",
+      dataIndex: "submittedAt",
+      render: (value: string | null) =>
+        value ? new Date(value).toLocaleDateString("en-GB") : "—",
+    },
     {
       title: "Type",
-      dataIndex: "type",
-      render: (type: Submitted["type"]) => (
-        <StatusTag tone={type === "Public" ? "info" : "neutral"}>{type}</StatusTag>
+      dataIndex: "courseType",
+      render: (type: IOrganizationCourseListItem["courseType"]) => (
+        <StatusTag tone={type === "Public" ? "info" : "neutral"}>
+          {type}
+        </StatusTag>
       ),
     },
     {
       title: "Action",
-      key: "action",
       align: "right",
       render: (_, item) => (
         <button
+          type="button"
           className="organizer-link"
-          onClick={() => navigate(`/organizer/courses/${item.key}/review`)}
+          onClick={() =>
+            navigate(`/organizer/courses/${encodeURIComponent(item.id)}/review`)
+          }
         >
-          Review →
+          Review
         </button>
       ),
     },
   ];
+
+  const onPageChange = (pagination: TablePaginationConfig) => {
+    const nextPageSize = pagination.pageSize ?? pageSize;
+    setCurrent(nextPageSize === pageSize ? (pagination.current ?? 1) : 1);
+    setPageSize(nextPageSize);
+  };
+
   return (
     <OrganizerPage className="organizer-course-approvals">
       <PageHeader
@@ -62,8 +131,36 @@ const CourseApprovals = () => {
           </Link>
         }
       />
-      <SectionCard title="4 submitted Courses">
-        <Table className="organizer-table" columns={columns} dataSource={rows} pagination={false} />
+
+      {errorMessage && (
+        <Alert
+          type="error"
+          showIcon
+          message={errorMessage}
+          action={
+            <OrganizerButton size="small" onClick={() => void loadCourses()}>
+              Retry
+            </OrganizerButton>
+          }
+        />
+      )}
+
+      <SectionCard title={`${total} submitted Courses`}>
+        <Table
+          rowKey="id"
+          className="organizer-table"
+          columns={columns}
+          dataSource={courses}
+          loading={loading}
+          locale={{ emptyText: "No Courses awaiting approval." }}
+          pagination={{
+            current,
+            pageSize,
+            total,
+            showSizeChanger: true,
+          }}
+          onChange={onPageChange}
+        />
       </SectionCard>
     </OrganizerPage>
   );
