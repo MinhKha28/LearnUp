@@ -1,7 +1,6 @@
 package com.learnup.identity.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public class ResetPasswordRequest {
@@ -11,7 +10,7 @@ public class ResetPasswordRequest {
     private String token;
 
     @NotBlank(message = "newPassword is required")
-    @Size(min = 6, message = "newPassword must be at least 6 characters")
+    @NewPassword(message = "newPassword must be at least 6 characters and at most 72 bytes, ignoring leading and trailing spaces")
     @Schema(accessMode = Schema.AccessMode.WRITE_ONLY, format = "password")
     private String newPassword;
 
