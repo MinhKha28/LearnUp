@@ -61,7 +61,7 @@ it("submits only when requested, resets the page, preserves q through pagination
   expect(query()).toBe("?page=2");
   expect(catalog).toHaveBeenLastCalledWith(2, expect.any(AbortSignal), undefined);
 
-  fireEvent.click(screen.getByRole("button", { name: "Tìm kiếm", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: /^Tìm kiếm$/ }));
   expect(new URLSearchParams(query() ?? "").get("q")).toBe("Đào tạo");
   expect(new URLSearchParams(query() ?? "").get("page")).toBe("1");
   await screen.findByRole("link", { name: course.name });
