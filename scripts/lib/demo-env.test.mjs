@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test } from "node:test";
+import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { loadDotenvParse, readEnvFile, tenantDemoEnv } from "./demo-env.mjs";
 
@@ -14,8 +14,14 @@ const ROOT = path.resolve(
 const parse = loadDotenvParse(path.join(ROOT, "services", "tenant-service"));
 const LONG_KEY = "k".repeat(24) + "-" + "q".repeat(24);
 
+const tempDirs = [];
+after(() => {
+  for (const dir of tempDirs) fs.rmSync(dir, { recursive: true, force: true });
+});
+
 const envFile = (content) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "demo-env-"));
+  tempDirs.push(dir);
   const file = path.join(dir, ".env");
   fs.writeFileSync(file, content);
   return file;
