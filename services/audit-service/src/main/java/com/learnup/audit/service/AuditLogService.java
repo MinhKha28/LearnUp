@@ -1,5 +1,8 @@
 package com.learnup.audit.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learnup.audit.dto.AuditLogResponse;
 import com.learnup.audit.dto.CreateAuditLogRequest;
 import com.learnup.audit.entity.AuditLog;
@@ -17,6 +20,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -33,12 +37,37 @@ public class AuditLogService {
     /** The platform did not exist before this: a date earlier than it (an epoch of 0, a number out of range) is a writer's mistake. */
     private static final Instant EARLIEST_ACTION = Instant.parse("2020-01-01T00:00:00Z");
 
+    /**
+     * BR-337: the actions whose affected party is notified must carry a reason. Writers put it in {@code details} as
+     * {@code {"reason": "..."}} (the convention Tenant already uses and the audit screen reads). Codes as agreed in the
+     * audit screen's vocabulary; the Exempted and Course-disable codes are added here when their writers choose them.
+     */
+    static final Set<String> REASON_REQUIRED = Set.of(
+            "ORGANIZATION_SUSPENDED", "ORGANIZER_REPLACED", "COURSE_REJECTED", "CONTENT_DISABLED");
+
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    static boolean hasReason(String details) {
+        if (details == null || details.isBlank()) {
+            return false;
+        }
+        try {
+            JsonNode reason = JSON.readTree(details).path("reason");
+            return reason.isTextual() && !reason.asText().isBlank();
+        } catch (JsonProcessingException e) {
+            return false;
+        }
+    }
+
     @Transactional
     public AuditLogResponse recordAuditLog(CreateAuditLogRequest request) {
         Instant now = Instant.now();
         Instant occurredAt = request.getOccurredAt();
         if (occurredAt != null && occurredAt.isAfter(now.plus(CLOCK_SKEW))) {
             throw BusinessException.badRequest("occurredAt cannot be in the future");
+        }
+        if (REASON_REQUIRED.contains(request.getActionType()) && !hasReason(request.getDetails())) {
+            throw BusinessException.badRequest("A reason is required for " + request.getActionType() + " (BR-337)");
         }
         if (occurredAt != null && occurredAt.isBefore(EARLIEST_ACTION)) {
             throw BusinessException.badRequest("occurredAt is before the platform existed");
