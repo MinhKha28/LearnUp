@@ -166,4 +166,35 @@ describe('UC21.2 - Organizer Course Review', () => {
     expect(storage.readBytes).not.toHaveBeenCalled();
   });
 
+
+  it('does not read PDF bytes after the Material is disabled between authorization and storage access', async () => {
+    const materialId = '019a0000-0000-7000-8000-000000000005';
+    const material = {
+      materialType: 'Reading',
+      disabledAt: null,
+      lesson: { disabledAt: null },
+      file: {
+        organizationId,
+        purpose: 'LessonReading',
+        status: 'Ready',
+        readyAt: new Date(),
+        releasedAt: null,
+        mimeType: 'application/pdf',
+        deliveryType: 'authenticated',
+        storageKey: 'protected/reading.pdf',
+        storageFormat: '',
+        sizeBytes: 15n,
+      },
+    };
+    repository.findOrganizerReviewMaterial
+      .mockResolvedValueOnce(material)
+      .mockResolvedValueOnce({ ...material, disabledAt: new Date() });
+    storage.getSignedUrl.mockReturnValue('https://example.invalid/signed');
+
+    await expect(service.readOrganizerReadingPreview(
+      organizer, courseId, materialId,
+    )).rejects.toMatchObject({ status: 409 });
+    expect(storage.readBytes).not.toHaveBeenCalled();
+  });
+
 });
