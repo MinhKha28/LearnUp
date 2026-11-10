@@ -16,6 +16,7 @@ import jakarta.persistence.PersistenceContext;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -34,11 +35,20 @@ public class AuditLogService {
 
     @Transactional
     public AuditLogResponse recordAuditLog(CreateAuditLogRequest request) {
-        // UC23: one durable Audit row per Course ownership-transfer event.
-        // Kafka delivery is at-least-once, so an event may arrive again.
-        if ("COURSE_OWNERSHIP_TRANSFERRED".equals(request.getActionType())
-                && request.getCorrelationId() != null
-                && !request.getCorrelationId().isBlank()) {
+        // Match PR #258: keep the action timestamp, not the relay delivery time.
+        final Instant now = Instant.now();
+        final Instant occurredAt = request.getOccurredAt();
+        if (occurredAt != null && occurredAt.isAfter(now.plus(Duration.ofMinutes(5)))) {
+            throw BusinessException.badRequest("occurredAt cannot be in the future");
+        }
+        if (occurredAt != null && occurredAt.isBefore(Instant.parse("2020-01-01T00:00:00Z"))) {
+            throw BusinessException.badRequest("occurredAt is before the platform existed");
+        }
+        final Instant eventTime = occurredAt != null ? occurredAt : now;
+
+        // General idempotency for all Outbox writers, not an UC23 special case.
+        // A unique index on (action_type, correlation_id) resolves concurrent retries.
+        if (request.getCorrelationId() != null && !request.getCorrelationId().isBlank()) {
             entityManager.createNativeQuery("""
                 INSERT INTO audit_logs
                     (id, organization_id, actor_user_id, actor_role, action_type,
@@ -46,7 +56,7 @@ public class AuditLogService {
                      correlation_id, created_at)
                 VALUES (:id, :organizationId, :actorUserId, :actorRole,
                         :actionType, :resourceType, :resourceId, :details,
-                        :ipAddress, :correlationId, now())
+                        :ipAddress, :correlationId, :createdAt)
                 ON CONFLICT DO NOTHING
                 """)
                 .setParameter("id", UUID.randomUUID())
@@ -59,12 +69,14 @@ public class AuditLogService {
                 .setParameter("details", request.getDetails())
                 .setParameter("ipAddress", request.getIpAddress())
                 .setParameter("correlationId", request.getCorrelationId())
+                .setParameter("createdAt", eventTime)
                 .executeUpdate();
+
             return auditLogRepository
                     .findFirstByActionTypeAndCorrelationId(
                             request.getActionType(), request.getCorrelationId())
                     .map(AuditLogResponse::fromEntity)
-                    .orElseThrow(() -> new IllegalStateException("UC23 audit record missing"));
+                    .orElseThrow(() -> new IllegalStateException("Audit record missing"));
         }
 
         AuditLog auditLog = new AuditLog(
@@ -78,7 +90,7 @@ public class AuditLogService {
                 request.getDetails(),
                 request.getIpAddress(),
                 request.getCorrelationId(),
-                Instant.now()
+                eventTime
         );
 
         AuditLog saved = auditLogRepository.save(auditLog);
