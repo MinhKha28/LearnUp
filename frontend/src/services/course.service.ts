@@ -22,12 +22,15 @@ import type {
   IOrganizationCourseListQuery,
   IReadingUploadContext,
   ISubmitCourseResponse,
+  ITechnicalReplacementResponse,
   IUpdateCourseRequest,
   IUpdateCourseResponse,
   IUpdateCourseStructureRequest,
   IUpdateCourseStructureResponse,
   IUpdateLessonContentRequest,
   IUpdateLessonContentResponse,
+  IUpdateMaterialRequest,
+  IUpdateMaterialResponse,
   IUploadCourseCoverResponse,
   IVideoUploadContext,
 } from "@/types/course.types";
@@ -211,3 +214,39 @@ export const submitCourseForApprovalAPI = (courseId: string) =>
   axios.post<IBackendRes<ISubmitCourseResponse>>(
     `/api/v1/courses/${encodeURIComponent(courseId)}/submit`,
   );
+
+export const updateMaterialAPI = (
+  courseId: string,
+  lessonId: string,
+  materialId: string,
+  payload: IUpdateMaterialRequest,
+) =>
+  axios.patch<IBackendRes<IUpdateMaterialResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}` +
+      `/lessons/${encodeURIComponent(lessonId)}` +
+      `/materials/${encodeURIComponent(materialId)}`,
+    payload,
+  );
+
+export const replaceTechnicalMaterialAPI = (
+  courseId: string,
+  lessonId: string,
+  materialId: string,
+  file: File,
+  onUploadProgress?: (event: AxiosProgressEvent) => void,
+) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return axios.post<IBackendRes<ITechnicalReplacementResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}` +
+      `/lessons/${encodeURIComponent(lessonId)}` +
+      `/materials/${encodeURIComponent(materialId)}` +
+      `/technical-replacement`,
+    formData,
+    {
+      onUploadProgress,
+      timeout: 15 * 60 * 1000,
+    },
+  );
+};
