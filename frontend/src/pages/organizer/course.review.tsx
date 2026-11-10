@@ -566,8 +566,13 @@ const CourseReview = () => {
     }
     let active = true;
     void fetchOrganizationCourseInstructorsAPI()
-      .then((result) => {
+      .then((response) => {
         if (!active) return;
+        // The project's response interceptor unwraps successful JSON envelopes.
+        const result = response as unknown as {
+          statusCode: number;
+          data?: Array<{ id: string; fullName: string }>;
+        };
         setInstructorName(
           isSuccess(result.statusCode)
             ? result.data?.find((item) => item.id === instructorId)?.fullName ?? null
