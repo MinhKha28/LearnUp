@@ -57,6 +57,10 @@ The **Audit Service** is a cross-cutting supporting platform capability that cap
 
 ## 5. REST API Endpoints
 * `POST /api/audit/logs` — Record a new immutable audit entry.
+  * For the actions whose reason is mandatory (BR-337, see "Reason required" below), an entry whose `details` has no non-blank string `reason` is
+    refused with `400` and **nothing is stored**. This check is a safety net: a writer must refuse a missing reason on its own endpoint **before**
+    it performs the action, because a `400` here is not retried to success — Tenant's outbox relay retries it like any error (8 attempts, about
+    10.6 minutes) and then marks the record failed for good (issue #287), so the trail would lose the record of an action that did happen.
 * `GET /api/audit/logs` — Query paginated audit trails with filtering by `organizationId`, `actionType`, `targetResourceType`, `targetResourceId`, `actorUserId`, and a time range. The range is `from` (included) to `to` (excluded), both ISO-8601 instants (for example `2026-11-01T00:00:00Z`); either may be given alone, and `from` not before `to` is `400`. The time compared, shown and used for the order is one: `createdAt`. For a write that sends `occurredAt` it holds the time of the action (so a late retry does not move the entry to another day); for a write without it, and for the entries written before `occurredAt` existed, it holds the time audit-service received the entry. The order is fixed (newest first, the id breaks ties) and a `sort` parameter is ignored; a page has at most 100 entries (default 20).
 * `GET /api/audit/logs/{id}` — Fetch full detail of a specific audit event.
 
@@ -104,3 +108,21 @@ as "Hành động khác" with the code next to it, so a service that picks anoth
 | `SCORE_FINALIZED`, `SCORE_ADJUSTED` | scores (BR-254) | proposed |
 
 Not in the table yet: the actions on an Enrollment (exempted, due date: BR-146, BR-149, BR-170), until the Vietnamese word for Enrollment is chosen.
+
+### Reason required (BR-337)
+
+BR-337 makes the reason mandatory for the actions whose affected party is notified. audit-service enforces it for exactly these codes, the set
+`REASON_REQUIRED` in `AuditLogService`:
+
+| Code | BR-337 action |
+| --- | --- |
+| `ORGANIZATION_SUSPENDED` | suspend an Organization |
+| `ORGANIZER_REPLACED` | replace the Organizer |
+| `COURSE_REJECTED` | reject a Course |
+| `CONTENT_DISABLED` | disable content or a Course |
+
+* **The writer must validate the reason before the action.** The endpoint that suspends, replaces, rejects or disables answers `400` without a
+  reason before it changes anything; a `400` from audit-service is not retried to success (see section 5).
+* **The list is closed by code.** "Mark Exempted" (BR-146, BR-149) is the fifth BR-337 action and has no code yet, so it is not checked. The writer
+  that chooses its code adds it to this table, to the table above and to `REASON_REQUIRED` (with a case in `AuditReasonRequirementTest`).
+* Every other action keeps an optional reason.
