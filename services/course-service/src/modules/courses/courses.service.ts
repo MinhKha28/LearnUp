@@ -2853,4 +2853,62 @@ export class CoursesService {
       reviewable: true,
     };
   }
+
+  /**
+   * UC20.1 - Withdraw Course Submission.
+   * BR-82, BR-83.
+   */
+  async withdrawCourseSubmission(user: CurrentUser, courseId: string) {
+    // 1. Only an Instructor can withdraw.
+    if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Only an Instructor can withdraw a Course.',
+      });
+    }
+
+    // 2. Find the Course under the current Organization
+    // and the assigned Instructor.
+    const course = await this.coursesRepository.findDetail(
+      courseId,
+      user.organizationId,
+      user.userId,
+    );
+
+    if (!course) {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    assertCourseNotInTrash(course.deletedAt);
+
+    // 3. BR-82: Only Submitted Courses can be withdrawn.
+    if (course.status !== COURSE_STATUS.SUBMITTED) {
+      throw new ConflictException({
+        code: 'INVALID_COURSE_STATUS',
+        message: 'Only a Submitted Course awaiting approval can be withdrawn.',
+      });
+    }
+
+    // 4. Conditional database update prevents overwriting
+    // an Organizer decision made concurrently.
+    const result = await this.coursesRepository.withdrawCourseSubmission({
+      courseId,
+      organizationId: user.organizationId,
+      instructorId: user.userId,
+      expectedUpdatedAt: course.updatedAt,
+    });
+
+    if (result.status === 'CONFLICT') {
+      throw new ConflictException({
+        code: 'COURSE_CHANGED',
+        message: 'Course status has changed. Please reload and try again.',
+      });
+    }
+
+    // 5. Return the persisted Draft status.
+    return result.course;
+  }
 }
