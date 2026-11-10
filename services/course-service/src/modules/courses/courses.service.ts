@@ -48,6 +48,7 @@ import { assertCourseNotInTrash, getPurgeAt } from './course-trash.constants';
 import { Interval } from '@nestjs/schedule';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { randomUUID } from 'node:crypto';
+import { RejectCourseDto } from './dto/reject-course.dto';
 
 @Injectable()
 export class CoursesService {
@@ -2591,6 +2592,80 @@ export class CoursesService {
     return user.organizationId;
   }
 
+  async approveCourse(user: CurrentUser, courseId: string) {
+    const organizationId = this.requireOrganizerReview(user);
+
+    const result = await this.coursesRepository.decideCourse({
+      courseId,
+      organizationId,
+      organizerId: user.userId,
+      decision: 'APPROVE',
+    });
+
+    if (result.status === 'NOT_FOUND') {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    if (result.status === 'CONFLICT') {
+      throw new ConflictException({
+        code: 'COURSE_NOT_SUBMITTED',
+        message: 'Course is no longer awaiting approval.',
+      });
+    }
+
+    return result.course;
+  }
+
+  async rejectCourse(
+    user: CurrentUser,
+    courseId: string,
+    dto: RejectCourseDto,
+  ) {
+    const organizationId = this.requireOrganizerReview(user);
+    const reason = dto.reason?.trim();
+
+    if (!reason) {
+      throw new BadRequestException({
+        code: 'REJECTION_REASON_REQUIRED',
+        message: 'Rejection reason is required.',
+      });
+    }
+
+    if (reason.length > 1000) {
+      throw new BadRequestException({
+        code: 'REJECTION_REASON_TOO_LONG',
+        message: 'Rejection reason exceeds 1000 characters.',
+      });
+    }
+
+    const result = await this.coursesRepository.decideCourse({
+      courseId,
+      organizationId,
+      organizerId: user.userId,
+      decision: 'REJECT',
+      reason,
+    });
+
+    if (result.status === 'NOT_FOUND') {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    if (result.status === 'CONFLICT') {
+      throw new ConflictException({
+        code: 'COURSE_NOT_SUBMITTED',
+        message: 'Course is no longer awaiting approval.',
+      });
+    }
+
+    return result.course;
+  }
+
   /**
    * UC21.2 – Read full Course content.
    */
@@ -2777,5 +2852,63 @@ export class CoursesService {
       courseId: course.id,
       reviewable: true,
     };
+  }
+
+  /**
+   * UC20.1 - Withdraw Course Submission.
+   * BR-82, BR-83.
+   */
+  async withdrawCourseSubmission(user: CurrentUser, courseId: string) {
+    // 1. Only an Instructor can withdraw.
+    if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Only an Instructor can withdraw a Course.',
+      });
+    }
+
+    // 2. Find the Course under the current Organization
+    // and the assigned Instructor.
+    const course = await this.coursesRepository.findDetail(
+      courseId,
+      user.organizationId,
+      user.userId,
+    );
+
+    if (!course) {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    assertCourseNotInTrash(course.deletedAt);
+
+    // 3. BR-82: Only Submitted Courses can be withdrawn.
+    if (course.status !== COURSE_STATUS.SUBMITTED) {
+      throw new ConflictException({
+        code: 'INVALID_COURSE_STATUS',
+        message: 'Only a Submitted Course awaiting approval can be withdrawn.',
+      });
+    }
+
+    // 4. Conditional database update prevents overwriting
+    // an Organizer decision made concurrently.
+    const result = await this.coursesRepository.withdrawCourseSubmission({
+      courseId,
+      organizationId: user.organizationId,
+      instructorId: user.userId,
+      expectedUpdatedAt: course.updatedAt,
+    });
+
+    if (result.status === 'CONFLICT') {
+      throw new ConflictException({
+        code: 'COURSE_CHANGED',
+        message: 'Course status has changed. Please reload and try again.',
+      });
+    }
+
+    // 5. Return the persisted Draft status.
+    return result.course;
   }
 }

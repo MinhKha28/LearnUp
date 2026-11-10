@@ -4,18 +4,22 @@ import type {
   IAccountListItem,
   IAccountListQuery,
   IChangeAccountStatusReq,
+  IChangeLearnerStatusReq,
   ICreateAccountReq,
   ICreateRegistrationReq,
   ICreateRegistrationRes,
   IDeleteAccountReq,
+  IDeleteLearnerReq,
   IInstructorDeletion,
   IInstructorDeletionResult,
   IInstructorDetail,
   IInstructorListItem,
   IInstructorStatusChange,
   IInstructorStatusResult,
+  ILearnerDeletionResult,
   ILearnerDetail,
   ILearnerListItem,
+  ILearnerStatusResult,
   IOrganizationProfile,
   IUpdateOrganizationReq,
   IPaymentResult,
@@ -205,6 +209,35 @@ export const getLearnerSeatsAPI = () =>
 export const createLearnerAPI = (body: ICreateAccountReq) =>
   axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/learners", body);
 
+// UC13.8 - tệp mẫu .xlsx (cùng cách với UC12.8: chỉ response 200 thật mới là tệp)
+export const downloadLearnerImportTemplateAPI = async (): Promise<Blob | null> => {
+  const res = (await axios.get("/api/v1/users/learners/imports/template", {
+    responseType: "blob",
+  })) as unknown as { status?: number; data?: unknown };
+  return res.status === 200 && res.data instanceof Blob ? res.data : null;
+};
+
+// UC13.8 - BR-32: xem trước tệp import (không tạo tài khoản)
+export const previewLearnerImportAPI = (file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return axios.post<IBackendRes<IMemberImportPreview>>(
+    "/api/v1/users/learners/imports/preview",
+    form,
+  );
+};
+
+// UC13.8 - BR-32, BR-33: xác nhận; gửi lại cùng tệp và previewDigest, server kiểm lại toàn bộ
+export const confirmLearnerImportAPI = (file: File, previewDigest: string) => {
+  const form = new FormData();
+  form.append("previewDigest", previewDigest);
+  form.append("file", file);
+  return axios.post<IBackendRes<IMemberImportResult>>(
+    "/api/v1/users/learners/imports",
+    form,
+  );
+};
+
 // UC13.3 - Cập nhật thông tin Learner (Organizer; đổi email của tài khoản Pending thì gửi lời mời mới)
 export const updateLearnerAPI = (learnerId: string, body: IUpdateAccountReq) =>
   axios.patch<IBackendRes<IUpdateAccountResult>>(
@@ -241,6 +274,23 @@ export const deleteInstructorAPI = (
 ) =>
   axios.delete<IBackendRes<IInstructorDeletionResult>>(
     `/api/v1/users/instructors/${encodeURIComponent(instructorId)}`,
+    { data: body },
+  );
+
+// UC13.5 - vô hiệu hóa hoặc kích hoạt lại Learner
+export const changeLearnerStatusAPI = (
+  learnerId: string,
+  body: IChangeLearnerStatusReq,
+) =>
+  axios.patch<IBackendRes<ILearnerStatusResult>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}/status`,
+    body,
+  );
+
+// UC13.6 - xóa Learner (xóa mềm, BR-46). Lý do đi trong body, không lên URL (như UC12.6).
+export const deleteLearnerAPI = (learnerId: string, body: IDeleteLearnerReq) =>
+  axios.delete<IBackendRes<ILearnerDeletionResult>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}`,
     { data: body },
   );
 

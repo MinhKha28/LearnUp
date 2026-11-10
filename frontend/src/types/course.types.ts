@@ -516,3 +516,27 @@ export interface IMaterialPreview {
   mimeType: string;
   expiresAt: string;
 }
+
+export interface IWithdrawCourseResponse {
+  id: string;
+  name: string;
+  versionNumber: number;
+  status: "Draft";
+  submittedAt: null;
+}
+
+
+/** UC21.3 - Organizer approval or rejection result. */
+export interface IRejectCourseRequest {
+  reason: string;
+}
+
+export interface ICourseDecisionResponse {
+  id: string;
+  name: string;
+  versionNumber: number;
+  status: CourseStatus;
+  publishedAt: string | null;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
+}

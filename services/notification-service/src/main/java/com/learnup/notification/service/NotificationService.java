@@ -46,17 +46,12 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public PageResponse<NotificationResponse> getUserNotifications(UUID recipientUserId, UUID organizationId, Boolean unreadOnly, Pageable pageable) {
-        Page<Notification> pageResult;
+        // UC49 scope: own notifications in the caller's Organization plus platform notices. A caller with
+        // no Organization (platform Admin) sees platform notices only; "= null" never matches in SQL.
         boolean unread = Boolean.TRUE.equals(unreadOnly);
-        if (organizationId != null) {
-            pageResult = unread
-                    ? notificationRepository.findVisibleUnread(recipientUserId, organizationId, pageable)
-                    : notificationRepository.findVisible(recipientUserId, organizationId, pageable);
-        } else if (unread) {
-            pageResult = notificationRepository.findByRecipientUserIdAndIsReadOrderByCreatedAtDesc(recipientUserId, false, pageable);
-        } else {
-            pageResult = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientUserId, pageable);
-        }
+        Page<Notification> pageResult = unread
+                ? notificationRepository.findVisibleUnread(recipientUserId, organizationId, pageable)
+                : notificationRepository.findVisible(recipientUserId, organizationId, pageable);
 
         List<NotificationResponse> items = pageResult.getContent().stream()
                 .map(NotificationResponse::fromEntity)
@@ -67,10 +62,9 @@ public class NotificationService {
 
     @Transactional
     public NotificationResponse markAsRead(UUID notificationId, UUID recipientUserId, UUID organizationId) {
-        Notification notification = (organizationId != null
-                ? notificationRepository.findVisibleById(notificationId, recipientUserId, organizationId)
-                : notificationRepository.findByIdAndRecipientUserId(notificationId, recipientUserId))
-                .orElseThrow(() -> BusinessException.notFound("Notification not found for ID: " + notificationId));
+        // Someone else's notification, or one outside the caller's scope, is indistinguishable from a missing one.
+        Notification notification = notificationRepository.findVisibleById(notificationId, recipientUserId, organizationId)
+                .orElseThrow(() -> BusinessException.notFound("Notification not found"));
 
         // Opening it again must not move the time it was first read.
         if (notification.isRead()) {
@@ -83,8 +77,6 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public long getUnreadCount(UUID recipientUserId, UUID organizationId) {
-        return organizationId != null
-                ? notificationRepository.countVisibleUnread(recipientUserId, organizationId)
-                : notificationRepository.countByRecipientUserIdAndIsReadFalse(recipientUserId);
+        return notificationRepository.countVisibleUnread(recipientUserId, organizationId);
     }
 }

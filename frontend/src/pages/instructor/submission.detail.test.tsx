@@ -206,7 +206,7 @@ describe("the detail of a submission", () => {
     expect(screen.getByText("50 / 60")).toBeTruthy();
     expect(screen.getByText("30 / 40")).toBeTruthy();
     // a reviewer whose name is unknown still has a label
-    expect(screen.getByText(/^Learner [0-9A-Z]{2,4}$/)).toBeTruthy();
+    expect(screen.getByText(/^Học viên [0-9A-Z]{2,4}$/)).toBeTruthy();
   });
 
   it("says when there is no written answer, no prompt text or no review", async () => {
@@ -259,6 +259,20 @@ describe("the detail of a submission", () => {
     expect(screen.queryByText("Chấm bài nộp")).toBeNull();
     expect(screen.getByText("85")).toBeTruthy();
     expect(screen.getByText("Tốt")).toBeTruthy();
+  });
+
+  it.each([
+    ["AwaitingFinalization", true, true],
+    ["AwaitingFinalization", false, false],
+    ["AwaitingInstructor", true, false],
+    ["Finalized", true, false],
+  ])("shows the finalize link for status %s and latest=%s only when eligible", async (gradingStatus, isLatest, visible) => {
+    fetchDetail.mockResolvedValue(ok(detail({ gradingStatus, isLatest })));
+    open();
+    await screen.findByText("Nguyễn Văn A");
+    const link = screen.queryByRole("link", { name: "Chốt điểm" });
+    if (visible) expect(link?.getAttribute("href")).toBe("/instructor/submissions/s1/finalize");
+    else expect(link).toBeNull();
   });
 
   it("a replaced submission says so and cannot be graded", async () => {

@@ -4,6 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { useCurrentApp } from "@/components/context/app.context";
 import { changePasswordAPI } from "@/services/identity.service";
 import { clearTokens } from "@/utils/auth";
+import {
+  changePasswordErrorMessage,
+  hasMinimumPasswordLength,
+  isSameStoredPassword,
+  isWithinPasswordByteLimit,
+} from "@/utils/password.policy";
 
 export type ChangePasswordFields = {
   current: string;
@@ -11,25 +17,30 @@ export type ChangePasswordFields = {
   confirm: string;
 };
 
-const BACKEND_MESSAGES: Record<string, string> = {
-  "Current password is incorrect": "Mật khẩu hiện tại không đúng.",
-  "New password cannot be the same as the current password":
-    "Hãy chọn mật khẩu mới khác mật khẩu hiện tại.",
-  "New password and confirmation password do not match":
-    "Mật khẩu nhập lại không khớp.",
-};
-
 export const currentPasswordRules: Rule[] = [
   { required: true, message: "Hãy nhập mật khẩu hiện tại." },
 ];
 
 export const newPasswordRules: Rule[] = [
-  { required: true, message: "Hãy nhập mật khẩu mới." },
-  { min: 8, message: "Mật khẩu cần ít nhất 8 ký tự." },
-  { max: 72, message: "Mật khẩu tối đa 72 ký tự." },
+  { required: true, whitespace: true, message: "Hãy nhập mật khẩu mới." },
+  {
+    validator(_, value?: string) {
+      return !value || hasMinimumPasswordLength(value, 8)
+        ? Promise.resolve()
+        : Promise.reject(new Error("Mật khẩu cần ít nhất 8 ký tự."));
+    },
+  },
+  {
+    validator(_, value?: string) {
+      // The stored limit is BCrypt's 72 bytes, not 72 Unicode characters.
+      return !value || isWithinPasswordByteLimit(value)
+        ? Promise.resolve()
+        : Promise.reject(new Error("Mật khẩu quá dài. Hãy dùng ít ký tự hơn."));
+    },
+  },
   ({ getFieldValue }) => ({
     validator(_, value?: string) {
-      return !value || value !== getFieldValue("current")
+      return !value || !isSameStoredPassword(value, getFieldValue("current"))
         ? Promise.resolve()
         : Promise.reject(
             new Error("Hãy chọn mật khẩu khác mật khẩu hiện tại."),
@@ -71,12 +82,11 @@ export const useChangePassword = () => {
         navigate("/login?state=password-changed", { replace: true });
         return;
       }
-      const message =
-        (res as unknown as { error?: { message?: string } }).error?.message ??
-        "";
       setError(
-        BACKEND_MESSAGES[message] ??
-          "Chưa đổi được mật khẩu. Vui lòng thử lại.",
+        changePasswordErrorMessage(
+          (res as unknown as { error?: { code?: string; message?: string } })
+            .error,
+        ),
       );
     } catch {
       setError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");

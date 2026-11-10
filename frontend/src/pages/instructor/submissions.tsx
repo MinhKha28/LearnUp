@@ -31,7 +31,10 @@ const PAGE_SIZE = 20;
 const numberParam = (value: string | null) => {
   if (value === null || value.trim() === "") return undefined;
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+  // a score is 0-100 (BR-202); a value outside it can never match, so it is not a filter
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100
+    ? parsed
+    : undefined;
 };
 
 const Submissions = () => {
@@ -55,6 +58,18 @@ const Submissions = () => {
   const [keyword, setKeyword] = useState(q ?? "");
   const [minInput, setMinInput] = useState<number | null>(minScore ?? null);
   const [maxInput, setMaxInput] = useState<number | null>(maxScore ?? null);
+  // The name on the tag of the Learner filter. It is read from a row while one is on the page and kept after that, so
+  // the tag still names the Learner when the other filters leave no row.
+  const [learnerName, setLearnerName] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLearnerName(null);
+  }, [learnerId]);
+  useEffect(() => {
+    if (!learnerId) return;
+    const row = data?.items.find((item) => item.learner.id === learnerId);
+    if (row) setLearnerName(personName(row.learner));
+  }, [learnerId, data]);
 
   useEffect(() => {
     if (!assessmentId || scoreRangeInvalid) return;
@@ -76,7 +91,7 @@ const Submissions = () => {
         });
         if (!active) return;
         if (res.data) setData(res.data);
-        else setError("Bạn không có quyền xem bài nộp của Assignment này.");
+        else setError("Bạn không có quyền xem bài nộp của bài tập này.");
       } catch {
         if (active) setError("Không kết nối được với máy chủ.");
       } finally {
@@ -142,12 +157,12 @@ const Submissions = () => {
     return (
       <InstructorPage className="instructor-submissions">
         <PageHeader
-          eyebrow="BÀI NỘP"
-          title="Bài nộp của Assignment"
-          subtitle="Hãy chọn một Assignment trước."
+          eyebrow="Bài nộp"
+          title="Bài nộp của bài tập"
+          subtitle="Hãy chọn một bài tập trước."
         />
         <InfoPanel title="Cách mở danh sách bài nộp">
-          Vào Khóa học của tôi, chọn một Assignment rồi chọn Bài nộp.
+          Vào Khóa học của tôi, chọn một bài tập rồi chọn Bài nộp.
         </InfoPanel>
       </InstructorPage>
     );
@@ -160,12 +175,12 @@ const Submissions = () => {
   return (
     <InstructorPage className="instructor-submissions">
       <PageHeader
-        eyebrow="BÀI NỘP / ASSIGNMENT"
-        title={data?.assignment.title ?? "Bài nộp của Assignment"}
+        eyebrow="Bài nộp / Bài tập"
+        title={data?.assignment.title ?? "Bài nộp của bài tập"}
         subtitle={
           data?.assignment.peerReviewEnabled
-            ? "Assignment này có bật chấm chéo."
-            : "Assignment này không bật chấm chéo: bạn chấm mọi bài nộp."
+            ? "Bài tập này có bật chấm chéo."
+            : "Bài tập này không bật chấm chéo: bạn chấm mọi bài nộp."
         }
         back
       />
@@ -174,7 +189,7 @@ const Submissions = () => {
         <Alert
           type="warning"
           showIcon
-          message="Tạm thời không lấy được tên Learner, đang hiển thị mã Learner."
+          message="Tạm thời không lấy được tên học viên, đang hiển thị mã học viên."
         />
       )}
 
@@ -205,7 +220,7 @@ const Submissions = () => {
       <div className="instructor-submissions-toolbar">
         <Input.Search
           size="large"
-          placeholder="Tìm theo tên hoặc email Learner"
+          placeholder="Tìm theo tên hoặc email học viên"
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
           onSearch={(value) => update({ q: value.trim() || null })}
@@ -232,6 +247,7 @@ const Submissions = () => {
         <InputNumber
           aria-label="Điểm thấp nhất"
           min={0}
+          max={100}
           value={minInput}
           onChange={setMinInput}
           onPressEnter={applyScore}
@@ -240,6 +256,7 @@ const Submissions = () => {
         <InputNumber
           aria-label="Điểm cao nhất"
           min={0}
+          max={100}
           value={maxInput}
           onChange={setMaxInput}
           onPressEnter={applyScore}
@@ -251,8 +268,8 @@ const Submissions = () => {
       {learnerId && (
         <div className="instructor-submissions-active">
           <Tag closable onClose={() => update({ learnerId: null })}>
-            Chỉ bài của một Learner
-            {data?.items[0] ? `: ${personName(data.items[0].learner)}` : ""}
+            Chỉ bài của một học viên:{" "}
+            {learnerName ?? `Học viên ${learnerId.slice(-4).toUpperCase()}`}
           </Tag>
         </div>
       )}
@@ -267,7 +284,7 @@ const Submissions = () => {
       <Spin spinning={loading}>
         <div className="instructor-submissions-table">
           <div className="instructor-submissions-row instructor-submissions-head">
-            <span>Learner</span>
+            <span>Học viên</span>
             <span>Thời điểm nộp</span>
             <span>Lần nộp</span>
             <span>Trạng thái chấm</span>
@@ -277,14 +294,32 @@ const Submissions = () => {
           {data?.items.map((item) => {
             const view = gradingStatusView(item.gradingStatus);
             return (
-              <button
-                type="button"
+              <div
+                role="link"
+                tabIndex={0}
                 key={item.id}
                 className="instructor-submissions-row instructor-submissions-row-link"
                 onClick={() => navigate(`/instructor/submissions/${item.id}`)}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    navigate(`/instructor/submissions/${item.id}`);
+                  }
+                }}
               >
                 <span className="instructor-submissions-learner">
-                  <strong>{personName(item.learner)}</strong>
+                  <button
+                    type="button"
+                    className="instructor-submissions-learner-filter"
+                    title="Chỉ xem bài của học viên này"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      update({ learnerId: item.learner.id });
+                    }}
+                  >
+                    {personName(item.learner)}
+                  </button>
                   {item.learner.email && <small>{item.learner.email}</small>}
                 </span>
                 <span>{formatDateTime(item.submittedAt)}</span>
@@ -306,7 +341,7 @@ const Submissions = () => {
                       ? `${item.reviews.completed}/${item.reviews.total} lượt chấm xong`
                       : "-")}
                 </span>
-              </button>
+              </div>
             );
           })}
           {data && data.items.length === 0 && (
@@ -329,7 +364,7 @@ const Submissions = () => {
       )}
 
       <InfoPanel title="Điểm được ghi nhận">
-        Bài nộp mới nhất của mỗi Learner quyết định điểm Assignment được ghi
+        Bài nộp mới nhất của mỗi học viên quyết định điểm bài tập được ghi
         nhận. Bài đã bị thay thế vẫn hiện để tham khảo. Bài chưa chốt điểm chưa
         có điểm cuối cùng nên không nằm trong kết quả lọc theo điểm.
       </InfoPanel>

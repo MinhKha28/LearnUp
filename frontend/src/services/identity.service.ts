@@ -34,6 +34,41 @@ export const logoutAPI = (refreshToken: string) =>
     refreshToken,
   });
 
+/**
+ * UC06: end this device's session with its refresh token. Needs no access token, so it also works after
+ * the access token expired. Resolves true only when Identity confirmed; never throws, never refreshes,
+ * and never exposes the token (Axios errors carry the request body).
+ */
+export const revokeSessionAPI = async (refreshToken: string): Promise<boolean> => {
+  try {
+    const response = await axios.post<string, { status: number; data: string }>(
+      "/api/v1/auth/revoke",
+      { refreshToken },
+      {
+        timeout: 10000,
+        withCredentials: false,
+        responseType: "text",
+        validateStatus: () => true,
+        transformResponse: [(value: unknown) => value],
+        headers: { "Content-Type": "application/json" },
+        transformRequest: [(payload: unknown, headers) => {
+          headers.delete("Authorization");
+          headers.delete("x-dev-user-id");
+          headers.delete("X-Internal-Key");
+          headers.delete("X-User-ID");
+          headers.delete("X-Organization-ID");
+          headers.delete("X-User-Role");
+          return JSON.stringify(payload);
+        }],
+      },
+    );
+    const envelope = JSON.parse(response.data) as { success?: boolean; error?: unknown } | null;
+    return response.status >= 200 && response.status < 300 && envelope?.success === true && envelope.error == null;
+  } catch {
+    return false;
+  }
+};
+
 export const changePasswordAPI = (body: IChangePasswordReq) =>
   axios.post<IBackendRes<{ message: string }>>(
     "/api/v1/auth/change-password",
