@@ -120,9 +120,9 @@ const InstructorDetail = () => {
     [navigate],
   );
 
-  // UC12.3: sửa được ở mọi trạng thái (đơn vị công tác, BR-34).
+  // UC12.3: sửa được ở mọi trạng thái (đơn vị công tác, BR-42).
   // UC12.5: chỉ tài khoản đã kích hoạt mới có Deactivate / Reactivate (component tự ẩn khi không áp dụng).
-  // UC12.6: Delete ở mọi trạng thái (BR-37).
+  // UC12.6: Delete ở mọi trạng thái (BR-46).
   const headerActions: ReactNode = detail ? (
     <>
       <InstructorDeleteButton

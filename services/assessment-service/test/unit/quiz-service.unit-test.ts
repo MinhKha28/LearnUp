@@ -5,6 +5,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   CourseAuthoringContext,
@@ -36,6 +37,13 @@ class StubCourseClient extends CourseServiceClient {
   }
   getModuleIds(): Promise<string[] | null> {
     return Promise.resolve(null);
+  }
+
+  /** UC21.2: legacy test stubs must never grant Organizer review access. */
+  verifyOrganizerReviewAccess(): Promise<void> {
+    return Promise.reject(
+      new ServiceUnavailableException('Organizer review access is unavailable in this test stub.'),
+    );
   }
 }
 

@@ -27,10 +27,27 @@ export function ReadingResource({
   material: LessonMaterial;
 }) {
   const { user } = useCurrentApp();
-  const access = useApiQuery(
-    (signal) => fetchReadingAccess(enrollmentId, material.materialId, signal),
-    [enrollmentId, material.materialId],
-  );
+  const [opening, setOpening] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const openReading = async () => {
+    setOpening(true);
+    setAccessError(null);
+    try {
+      const fresh = await fetchReadingAccess(enrollmentId, material.materialId);
+      // Course currently delivers Reading as an attachment. A same-page download
+      // preserves the lesson and avoids leaving an empty popup behind.
+      const link = document.createElement('a');
+      link.href = fresh.accessUrl;
+      link.download = '';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch {
+      setAccessError('Chưa thể mở tài liệu. Vui lòng thử lại.');
+    } finally {
+      setOpening(false);
+    }
+  };
   const enrollment = useApiQuery(
     (signal) => fetchCurriculum(enrollmentId, signal),
     [enrollmentId],
@@ -76,34 +93,8 @@ export function ReadingResource({
         </Tag>
         {status && <Tag aria-label="Trạng thái Enrollment">{ENROLLMENT_STATUS_LABELS[status].label}</Tag>}
       </Space>
-      {access.status === "loading" && (
-        <p role="status">Đang lấy liên kết tài liệu…</p>
-      )}
-      {access.status === "error" && (
-        <Alert
-          type="warning"
-          showIcon
-          message="Chưa thể mở tài liệu."
-          action={<Button onClick={access.reload}>Thử lại</Button>}
-        />
-      )}
-      {access.status === "success" && (
-        <>
-          {access.data.fixture && (
-            <Alert
-              type="info"
-              message="Tài liệu mẫu (fixture) dùng cho môi trường thử nghiệm."
-            />
-          )}
-          <Button
-            href={access.data.accessUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Mở tệp Reading
-          </Button>
-        </>
-      )}
+      {accessError && <Alert type="error" message={accessError} showIcon />}
+      <Button loading={opening} onClick={() => void openReading()}>Mở tệp Reading</Button>
       <Button
         type="primary"
         loading={sending}

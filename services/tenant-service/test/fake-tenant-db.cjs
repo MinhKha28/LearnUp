@@ -267,7 +267,7 @@ function createHarness({ chains } = {}) {
     outbox,
     {}, // learningClient
     {}, // usersRepository
-    {}, // storage
+    {}, // storage (UC12.1)
     accountTokens,
   );
   return { db, course, service, user: ORGANIZER };

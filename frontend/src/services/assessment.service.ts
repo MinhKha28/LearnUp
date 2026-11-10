@@ -32,6 +32,7 @@ import type {
   IUpdatePeerReview,
   IUpdateQuizConfigReq,
 } from "@/types/assessment.types";
+import type { IReviewAssessmentsResponse } from "@/types/course.types";
 
 // The identity headers (x-internal-key, x-user-id, x-organization-id, x-user-role) are set by the gateway from the JWT.
 // The browser sends none of them: a build must never carry an internal key, even a default one.
@@ -170,9 +171,13 @@ export const deleteQuizAPI = (quizId: string) =>
   );
 
 /** UC29 — the Quizzes and Assignments of an enrolled Course with status, score and tries left. */
-export const fetchLearnerAssessmentsAPI = (courseId: string) =>
+export const fetchLearnerAssessmentsAPI = (
+  courseId: string,
+  signal?: AbortSignal,
+) =>
   axios.get<IBackendRes<ILearnerAssessmentList>>(
     `/api/v1/assessments/learner/courses/${courseId}/assessments`,
+    { signal },
   );
 
 /** UC30 step 1 — the Assignment as the enrolled Learner reads it (prompt, Rubric, attempts left). */
@@ -406,3 +411,36 @@ export const fetchQuizHistoryAPI = (quizId: string) =>
   axios.get<IBackendRes<IQuizHistory>>(
     `${QUIZ_BASE}/${encodeURIComponent(quizId)}/history`,
   );
+
+export const fetchOrganizerAssessmentReviewAPI = (courseId: string) =>
+  axios.get<IBackendRes<IReviewAssessmentsResponse>>(
+    `/api/v1/assessments/organization/courses/${encodeURIComponent(courseId)}/review`,
+  );
+
+/**
+ * UC21.2 - Download an Assignment attachment
+ * for Organizer review.
+ *
+ * The existing Axios interceptor may resolve an error
+ * response instead of throwing it.
+ */
+export const downloadOrganizerAssignmentPromptAPI = async (
+  courseId: string,
+  assignmentId: string,
+): Promise<Blob | null> => {
+  const response = (await axios.get(
+    `/api/v1/assessments/organization/courses/${encodeURIComponent(courseId)}/assignments/${encodeURIComponent(assignmentId)}/prompt-file`,
+    {
+      responseType: "blob",
+    },
+  )) as unknown as {
+    status?: number;
+    data?: unknown;
+  };
+
+  if (response.status !== 200 || !(response.data instanceof Blob)) {
+    return null;
+  }
+
+  return response.data;
+};

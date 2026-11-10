@@ -77,7 +77,8 @@ import { CourseServiceClient } from 'src/infrastructure/clients/course/course-se
 import { UsersRepository } from './users.repository';
 
 // Role do Organizer tạo và bị giới hạn số chỗ theo Subscription (BR-23).
-type SeatRole = typeof UserRoleValue.Instructor | typeof UserRoleValue.Learner;
+export type SeatRole =
+  typeof UserRoleValue.Instructor | typeof UserRoleValue.Learner;
 
 // Subscription "hiện hành" (khớp partial unique subscriptions_one_current_per_org_key).
 const CURRENT_SUBSCRIPTION_STATUSES = [
@@ -92,7 +93,7 @@ const INVITATION_TEMPLATE: Record<SeatRole, string> = {
 };
 
 // UC12.2: chỉ Subscription Active mới tạo tài khoản (BR-15, BR-17).
-const CREATE_SUBSCRIPTION_STATUSES = [SubscriptionStatus.Active];
+export const CREATE_SUBSCRIPTION_STATUSES = [SubscriptionStatus.Active];
 // UC12.3: ân hạn vẫn sửa được (BR-15 chỉ cấm tạo); Suspended chỉ xem (BR-17).
 const UPDATE_SUBSCRIPTION_STATUSES = [
   SubscriptionStatus.Active,
@@ -102,7 +103,7 @@ const UPDATE_SUBSCRIPTION_STATUSES = [
 // UC12.5: thời gian chờ một lời gọi course-service, như HttpCourseServiceClient.
 const DEFAULT_COURSE_TIMEOUT_MS = 3000;
 
-// BR-41: thao tác kéo theo chuyển quyền phụ trách (UC12.5 vô hiệu hóa, UC12.6 xóa); dùng trong thông báo lỗi.
+// BR-51: thao tác kéo theo chuyển quyền phụ trách (UC12.5 vô hiệu hóa, UC12.6 xóa); dùng trong thông báo lỗi.
 type HandOverAction = 'vô hiệu hóa' | 'xóa';
 
 // UC12.5: một dòng users đã khóa FOR UPDATE.
@@ -968,7 +969,7 @@ export class UsersService {
   }
 
   /**
-   * BR-41 (phần chỉ đọc, dùng chung UC12.5 / UC12.6): chuỗi Instructor đang phụ trách và người tiếp nhận hợp lệ.
+   * BR-51 (phần chỉ đọc, dùng chung UC12.5 / UC12.6): chuỗi Instructor đang phụ trách và người tiếp nhận hợp lệ.
    * Ca không có chuỗi chỉ gọi count-by-instructors; danh sách chỉ cần khi còn chuỗi.
    * course-service lỗi -> courses null + COURSE_SERVICE_UNAVAILABLE (không ném lỗi).
    */
@@ -1228,9 +1229,9 @@ export class UsersService {
 
   // ===========================================================================
   // UC12.6 - Xóa tài khoản Instructor
-  // BR-37: xóa thu hồi quyền truy cập và giải phóng chỗ; kết quả đào tạo được giữ lại -> xóa mềm (deleted_at).
-  // BR-30, BR-31: unique email chỉ xét tài khoản chưa xóa -> email được cấp lại cho tài khoản mới.
-  // BR-41, BR-287: còn phụ trách chuỗi Course thì phải chọn Instructor tiếp nhận, chuyển quyền (BR-76) rồi mới xóa;
+  // BR-46: xóa thu hồi quyền truy cập và giải phóng chỗ; kết quả đào tạo được giữ lại -> xóa mềm (deleted_at).
+  // BR-38, BR-39: unique email chỉ xét tài khoản chưa xóa -> email được cấp lại cho tài khoản mới.
+  // BR-51, BR-96: còn phụ trách chuỗi Course thì phải chọn Instructor tiếp nhận, chuyển quyền (BR-92) rồi mới xóa;
   //                không còn ai hợp lệ thì chặn kèm danh sách Course. Dùng chung handOverManagedChains với UC12.5.
   // ===========================================================================
   /** Dữ liệu cho dialog xóa. Chỉ đọc, không khóa. Mọi trạng thái (Pending, Active, Deactivated) đều xóa được. */
@@ -1285,8 +1286,8 @@ export class UsersService {
 
     const outcome = await this.prisma.$transaction(
       async (tx) => {
-        // BR-15: ân hạn chỉ cấm tạo tài khoản / Course / tải học liệu -> vẫn xóa được.
-        // BR-17: Suspended chỉ còn xem và kết xuất báo cáo -> chặn.
+        // BR-22: ân hạn chỉ cấm tạo tài khoản / Course / tải học liệu -> vẫn xóa được.
+        // BR-24: Suspended chỉ còn xem và kết xuất báo cáo -> chặn.
         const { organization } = await this.assertCanManageAccounts(
           tx,
           organizationId,
@@ -1345,7 +1346,7 @@ export class UsersService {
         });
         if (count === 0) throw this.concurrentUpdate();
 
-        // Quyết định D7: chỉ báo cho tài khoản đã từng kích hoạt, không kèm lý do (BR-271: lý do tùy chọn).
+        // Quyết định D7: chỉ báo cho tài khoản đã từng kích hoạt, không kèm lý do (BR-337: lý do tùy chọn).
         if (target.activatedAt !== null) {
           await this.enqueueStatusEmail(tx, {
             organizationId,
@@ -1389,7 +1390,7 @@ export class UsersService {
       { maxWait: 5000, timeout: this.courseTimeoutMs() * 5 + 5000 },
     );
 
-    // BR-23, BR-37: số chỗ sau khi xóa để màn hình cập nhật ngay (đọc sau commit).
+    // BR-31, BR-46: số chỗ sau khi xóa để màn hình cập nhật ngay (đọc sau commit).
     return {
       ...outcome,
       seats: await this.getSeatUsage(organizationId, UserRoleValue.Instructor),
@@ -1403,7 +1404,7 @@ export class UsersService {
   }
 
   /**
-   * BR-41, BR-287, BR-76 (dùng chung UC12.5 vô hiệu hóa / UC12.6 xóa), chạy trong transaction đang giữ khóa
+   * BR-51, BR-96, BR-92 (dùng chung UC12.5 vô hiệu hóa / UC12.6 xóa), chạy trong transaction đang giữ khóa
    * dòng users của người bị tác động và người tiếp nhận (lockAccounts). Không phụ trách chuỗi -> không làm gì.
    * Còn chuỗi: người tiếp nhận phải hợp lệ (Quyết định 3) -> chuyển MỌI chuỗi ở course-service -> đếm lại.
    * Lỗi course-service -> 503 (callCourseService).
@@ -1462,7 +1463,7 @@ export class UsersService {
     const transferred = await this.callCourseService(() =>
       this.courseClient.transferCourseChains(user, target.id, candidate.id),
     );
-    // Instructor có thể vừa tạo chuỗi mới trong lúc chuyển: còn chuỗi thì không làm tiếp (BR-41).
+    // Instructor có thể vừa tạo chuỗi mới trong lúc chuyển: còn chuỗi thì không làm tiếp (BR-51).
     if ((await this.countManagedChainsOrFail(user, target.id)) > 0) {
       const latest = await this.courseClient
         .listCourseChainsByInstructor(user, target.id)
@@ -1986,7 +1987,7 @@ export class UsersService {
    * BR-45: tổ chức phải Active. Subscription hiện hành phải thuộc subscriptionStatuses.
    * lockOrganization: khóa dòng tổ chức FOR UPDATE (cần khi kiểm số chỗ lúc tạo tài khoản).
    */
-  private async assertCanManageAccounts(
+  async assertCanManageAccounts(
     tx: Prisma.TransactionClient,
     organizationId: string,
     options: {
@@ -2023,7 +2024,7 @@ export class UsersService {
   }
 
   /** Thư mời kích hoạt qua outbox (UC12.2, UC12.3, UC13.2, UC13.3). Relay xóa liên kết khỏi payload sau khi gửi. */
-  private enqueueInvitationEmail(
+  enqueueInvitationEmail(
     tx: Prisma.TransactionClient,
     params: {
       organizationId: string;
@@ -2075,7 +2076,7 @@ export class UsersService {
     });
   }
 
-  private seatLimitOf(
+  seatLimitOf(
     subscription: { maxInstructors: number; maxLearners: number },
     role: SeatRole,
   ): number {
@@ -2084,7 +2085,7 @@ export class UsersService {
       : subscription.maxLearners;
   }
 
-  private emailAlreadyUsed(): ConflictException {
+  emailAlreadyUsed(): ConflictException {
     return new ConflictException({
       code: 'EMAIL_ALREADY_USED',
       message: 'Email đã được sử dụng cho một tài khoản khác.',
