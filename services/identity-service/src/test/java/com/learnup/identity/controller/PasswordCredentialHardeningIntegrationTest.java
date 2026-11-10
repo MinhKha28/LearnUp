@@ -46,6 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -138,6 +139,27 @@ class PasswordCredentialHardeningIntegrationTest {
                 .andExpect(jsonPath("$.error.message").value("Invalid username or password"));
 
         verify(passwordEncoder, times(1)).matches(anyString(), anyString());
+    }
+
+    @ParameterizedTest(name = "[{index}] password \"{0}\"")
+    @ValueSource(strings = {"wrongPassword1", " wrongPassword1", "wrongPassword1 ", "  wrongPassword1  "})
+    @DisplayName("UC05: unknown and existing accounts cost the same BCrypt work, with or without surrounding spaces")
+    void unknownAndExistingAccountsCostTheSameBcryptWork(String wrongPassword) throws Exception {
+        createUser("timing@learnup.test", PASSWORD, true);
+
+        clearInvocations(passwordEncoder);
+        login("timing@learnup.test", wrongPassword).andExpect(status().isUnauthorized());
+        int existing = mockingDetails(passwordEncoder).getInvocations().stream()
+                .filter(call -> call.getMethod().getName().equals("matches")).toList().size();
+
+        clearInvocations(passwordEncoder);
+        login("nobody-timing@learnup.test", wrongPassword).andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.message").value("Invalid username or password"));
+        int unknown = mockingDetails(passwordEncoder).getInvocations().stream()
+                .filter(call -> call.getMethod().getName().equals("matches")).toList().size();
+
+        assertThat(unknown).isEqualTo(existing);
+        assertThat(existing).isEqualTo(wrongPassword.equals(wrongPassword.trim()) ? 1 : 2);
     }
 
     @Test

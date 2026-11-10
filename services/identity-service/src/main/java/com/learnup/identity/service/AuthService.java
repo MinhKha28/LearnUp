@@ -77,8 +77,9 @@ public class AuthService {
 
         User user = userRepository.findByUsernameOrEmailForUpdate(identifier, identifier.toLowerCase(Locale.ROOT)).orElse(null);
         if (user == null) {
-            // Spend the same BCrypt work as a real check, so response time does not reveal unknown accounts.
-            passwordEncoder.matches(request.getPassword(), unknownAccountHash());
+            // Spend exactly the BCrypt work of a failed check on a real account (one or two rounds, depending on
+            // surrounding spaces), so response time does not reveal which emails have an account.
+            matchesStoredPassword(request.getPassword(), unknownAccountHash());
             loginThrottleService.recordFailure(identifier);
             throw BusinessException.unauthorized("Invalid username or password");
         }
