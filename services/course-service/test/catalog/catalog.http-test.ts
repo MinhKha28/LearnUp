@@ -177,6 +177,32 @@ void describe('GET /courses/catalog (UC25)', () => {
     assert.equal(body.data.items.length, 2);
   });
 
+  void test('q trống trả đúng danh mục UC25', async () => {
+    const [blank, omitted] = await Promise.all([getCatalog('?q=%20%09'), getCatalog()]);
+    assert.equal(blank.status, 200);
+    assert.deepEqual(blank.body.data, omitted.body.data);
+  });
+
+  void test('q chuẩn hóa Unicode và khoảng trắng trước khi tìm', async () => {
+    for (const keyword of ['AN   TOAN LAO DONG', 'An toàn lao động'.normalize('NFD')]) {
+      const result = await getCatalog('?q=' + encodeURIComponent(keyword));
+      assert.equal(result.status, 200);
+      assert.deepEqual(result.body.data.items.map(({ id }) => id), [COURSE.anToanV2]);
+      assert.equal(result.body.data.meta.total, 1);
+    }
+  });
+
+  void test('q dài 201 code point hoặc lặp lại trả VALIDATION_ERROR', async () => {
+    const atLimit = await getCatalog('?q=' + encodeURIComponent('😀'.repeat(200)));
+    assert.equal(atLimit.status, 200);
+    assert.equal(atLimit.body.data.meta.total, 0);
+    for (const query of ['?q=' + encodeURIComponent('😀'.repeat(201)), '?q=a&q=b', '?q=%00']) {
+      const result = await getCatalog(query);
+      assert.equal(result.status, 400);
+      assert.equal((result.body.error as { code: string }).code, 'VALIDATION_ERROR');
+    }
+  });
+
   void test('INSTRUCTOR_1 bị từ chối 403', async () => {
     const { status } = await getCatalog('', 'INSTRUCTOR');
     assert.equal(status, 403);

@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from "react";
+import { Input } from "antd";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { CourseCover } from "@/components/learner/course.cover";
@@ -23,14 +24,16 @@ const CatalogCard = ({
   course,
   enrollmentId,
   page,
+  keyword,
 }: {
   course: CatalogCourse;
   enrollmentId?: string;
   page: number;
+  keyword: string;
 }) => {
   const navigate = useNavigate();
   const introPath = LEARNER_ROUTES.courseIntro(course.id);
-  const introState = { fromPage: page };
+  const introState = { fromPage: page, fromKeyword: keyword };
 
   return (
     <article className="learner-catalog-card">
@@ -60,9 +63,9 @@ const CatalogCard = ({
   );
 };
 
-const CatalogContent = ({ page }: { page: number }) => {
+const CatalogContent = ({ page, keyword }: { page: number; keyword: string }) => {
   const replacePage = useReplacePage();
-  const catalog = useApiQuery((signal) => fetchCatalog(page, signal), [page]);
+  const catalog = useApiQuery((signal) => fetchCatalog(page, signal, keyword || undefined), [page, keyword]);
   // Lỗi course-ids không chặn danh mục, chỉ mất nhãn "Đã đăng ký" (D49)
   const links = useApiQuery((signal) => fetchEnrolledCourseLinks(signal), []);
 
@@ -92,14 +95,16 @@ const CatalogContent = ({ page }: { page: number }) => {
     );
   }
   if (redirect === "empty") {
-    return <LearnerEmptyState title="Hiện chưa có Khóa học nào để tự đăng ký" />;
+    return <LearnerEmptyState title={keyword
+      ? "Không tìm thấy Khóa học nào phù hợp với từ khóa này"
+      : "Hiện chưa có Khóa học nào để tự đăng ký"} />;
   }
 
   return (
     <>
       <div className="learner-catalog-grid">
         {catalog.data.items.map((course) => (
-          <CatalogCard key={course.id} course={course} enrollmentId={enrolled.get(course.id)} page={page} />
+          <CatalogCard key={course.id} course={course} enrollmentId={enrolled.get(course.id)} page={page} keyword={keyword} />
         ))}
       </div>
       <UrlPagination meta={catalog.data.meta} />
@@ -107,10 +112,57 @@ const CatalogContent = ({ page }: { page: number }) => {
   );
 };
 
+const CatalogSearch = ({ keyword, onSearch }: { keyword: string; onSearch: (value: string) => void }) => {
+  const [draft, setDraft] = useState(keyword);
+  useEffect(() => setDraft(keyword), [keyword]);
+  const tooLong = [...draft.trim()].length > 200;
+
+  return (
+    <form
+      role="search"
+      className="learner-catalog-search"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (tooLong) return;
+        const value = draft.trim().replace(/\s+/g, " ");
+        setDraft(value);
+        onSearch(value);
+      }}
+    >
+      <label htmlFor="catalog-keyword">Tìm kiếm Khóa học</label>
+      <div className="learner-catalog-search-controls">
+        <Input
+          id="catalog-keyword"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Nhập tên Khóa học hoặc mục tiêu đào tạo"
+          status={tooLong ? "error" : undefined}
+          aria-invalid={tooLong}
+          aria-describedby={tooLong ? "catalog-keyword-error" : undefined}
+        />
+        <LearnerButton type="primary" htmlType="submit">Tìm kiếm</LearnerButton>
+        <LearnerButton onClick={() => { setDraft(""); onSearch(""); }}>Xóa tìm kiếm</LearnerButton>
+      </div>
+      {tooLong && <span id="catalog-keyword-error" role="alert">Từ khóa tối đa 200 ký tự.</span>}
+    </form>
+  );
+};
+
 const Catalog = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const replacePage = useReplacePage();
   const page = parsePageParam(searchParams.get("page"));
+  const keyword = searchParams.get("q")?.trim() ?? "";
+
+  const search = (value: string) => {
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set("page", "1");
+      if (value) next.set("q", value);
+      else next.delete("q");
+      return next;
+    });
+  };
 
   useEffect(() => {
     // Tham số page không hợp lệ: về trang 1, không gọi API (D41)
@@ -121,7 +173,8 @@ const Catalog = () => {
   return (
     <LearnerPage className="learner-catalog">
       <PageHeader title="Danh mục Khóa học" subtitle="Các Khóa học tổ chức của bạn mở cho Học viên tự đăng ký." />
-      {page === null ? <LearnerSkeleton variant="grid" /> : <CatalogContent page={page} />}
+      <CatalogSearch keyword={keyword} onSearch={search} />
+      {page === null ? <LearnerSkeleton variant="grid" /> : <CatalogContent page={page} keyword={keyword} />}
     </LearnerPage>
   );
 };
