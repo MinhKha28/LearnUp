@@ -13,6 +13,7 @@ vi.mock("@/services/course.service", () => ({
   rejectCourseAPI: vi.fn(),
   fetchOrganizerCourseReviewAPI: vi.fn(),
   fetchOrganizerMaterialPreviewAPI: vi.fn(),
+  fetchOrganizerReadingContentAPI: vi.fn(),
 }));
 vi.mock("@/services/assessment.service", () => ({
   fetchOrganizerAssessmentReviewAPI: vi.fn(),
