@@ -8,15 +8,20 @@
  *
  * Mọi lỗi môi trường phải lộ ra trước dòng "Sẵn sàng demo". Đầu ra của từng tiến trình ghi vào
  * <thư mục tạm>/learnup-demo/*.log. Ctrl+C tắt toàn bộ tiến trình con (không tắt postgres).
- * Chỉ dùng module có sẵn của Node, chạy được trên Windows, Linux và macOS.
+ * Chỉ dùng module có sẵn của Node (riêng .env đọc bằng dotenv của tenant-service, như các service), chạy được trên
+ * Windows, Linux và macOS.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  loadDotenvParse,
+  readEnvFile as readEnvFileWith,
+  tenantDemoEnv as pickTenantDemoEnv,
+} from "./lib/demo-env.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BACKEND_ROOT = process.env.DEMO_BACKEND_ROOT
@@ -273,38 +278,20 @@ function fail(error) {
 }
 
 // ---------------------------------------------------------------------------
-// Đọc .env (KEY=VALUE, bỏ dòng chú thích); không in giá trị
+// Đọc .env bằng dotenv.parse của tenant (scripts/lib/demo-env.mjs); không in giá trị
 // ---------------------------------------------------------------------------
-// BR-13: tenant không chạy nếu thiếu EMAIL_OTP_SECRET. Máy chưa đặt khóa thì sinh một khóa chỉ dùng cho lượt demo
-// này (giống tests/e2e/cluster/start.sh); mã OTP hết hạn sau vài phút nên khóa không cần giữ qua các lượt.
-function tenantDemoEnv(dir) {
-  if (process.env.EMAIL_OTP_SECRET?.trim()) return undefined;
-  const fileKey = readEnvFile(path.join(dir, ".env"))?.get("EMAIL_OTP_SECRET");
-  if (fileKey?.trim()) return { EMAIL_OTP_SECRET: fileKey };
-  detail("Chưa có EMAIL_OTP_SECRET: sinh khóa tạm cho lượt demo này.");
-  return { EMAIL_OTP_SECRET: randomBytes(32).toString("base64url") };
-}
-
+let dotenvParse;
 function readEnvFile(file) {
-  if (!fs.existsSync(file)) return null;
-  const env = new Map();
-  for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
-    const match =
-      /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/.exec(line);
-    if (!match || line.trimStart().startsWith("#")) continue;
-    env.set(match[1], parseEnvValue(match[2]));
-  }
-  return env;
+  dotenvParse ??= loadDotenvParse(DIRS.tenant);
+  return readEnvFileWith(file, dotenvParse);
 }
 
-function parseEnvValue(raw) {
-  const value = raw.trim();
-  const quote = value[0];
-  if (quote === '"' || quote === "'" || quote === "`") {
-    const end = value.indexOf(quote, 1);
-    if (end > 0) return value.slice(1, end);
-  }
-  return value.replace(/#.*$/, "").trim();
+function tenantDemoEnv(dir) {
+  return pickTenantDemoEnv({
+    processValue: process.env.EMAIL_OTP_SECRET,
+    fileEnv: readEnvFile(path.join(dir, ".env")),
+    onGenerate: detail,
+  });
 }
 
 // ---------------------------------------------------------------------------
