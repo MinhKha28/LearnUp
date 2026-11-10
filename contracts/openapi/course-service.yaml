@@ -1,8 +1,165 @@
 openapi: 3.0.3
 info:
-  title: LearnUP Course Service UC20 integration
+  title: LearnUP Course Service API
   version: 1.0.0
 paths:
+  /api/v1/courses/{courseId}:
+    delete:
+      summary: Move an Instructor-owned Course to Trash (UC14.5)
+      operationId: softDeleteCourse
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TrashCourseId'
+      responses:
+        '200':
+          description: Course moved to Trash. The recovery window is seven days.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CourseTrashSuccessEnvelope'
+                  - type: object
+                    properties:
+                      statusCode: { type: integer, enum: [200] }
+                      data:
+                        type: object
+                        required: [courseId, deletedAt, purgeAt]
+                        properties:
+                          courseId: { type: string, format: uuid }
+                          deletedAt: { type: string, format: date-time }
+                          purgeAt: { type: string, format: date-time }
+        '400':
+          $ref: '#/components/responses/TrashInvalidCourseId'
+        '401':
+          $ref: '#/components/responses/TrashUnauthorized'
+        '403':
+          $ref: '#/components/responses/TrashForbidden'
+        '404':
+          $ref: '#/components/responses/TrashCourseNotFound'
+        '409':
+          description: >-
+            COURSE_HAS_ENROLLMENT if any Enrollment history exists.
+            COURSE_NOT_DELETABLE if the Course is outside Draft or Rejected.
+            COURSE_LOCKED if the Course is locked.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CourseTrashErrorEnvelope' }
+        '503':
+          description: ENROLLMENT_CHECK_UNAVAILABLE if Learning cannot return a valid enrollment history response.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CourseTrashErrorEnvelope' }
+  /api/v1/courses/trash:
+    get:
+      summary: List Courses in the current Instructor's Trash (UC14.5)
+      operationId: listCourseTrash
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The Instructor's trashed versions in this Organization, newest deletion first.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CourseTrashSuccessEnvelope'
+                  - type: object
+                    properties:
+                      statusCode: { type: integer, enum: [200] }
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/CourseTrashItem' }
+        '401':
+          $ref: '#/components/responses/TrashUnauthorized'
+        '403':
+          $ref: '#/components/responses/TrashForbidden'
+  /api/v1/courses/{courseId}/restore:
+    post:
+      summary: Restore an Instructor-owned Course from Trash (UC14.5.1)
+      operationId: restoreCourse
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TrashCourseId'
+      responses:
+        '201':
+          description: The Course was restored to its previous state.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CourseTrashSuccessEnvelope'
+                  - type: object
+                    properties:
+                      statusCode: { type: integer, enum: [201] }
+                      data:
+                        type: object
+                        required: [courseId, restored]
+                        properties:
+                          courseId: { type: string, format: uuid }
+                          restored: { type: boolean, enum: [true] }
+        '400':
+          $ref: '#/components/responses/TrashInvalidCourseId'
+        '401':
+          $ref: '#/components/responses/TrashUnauthorized'
+        '403':
+          $ref: '#/components/responses/TrashForbidden'
+        '404':
+          $ref: '#/components/responses/TrashCourseNotFound'
+        '409':
+          description: >-
+            COURSE_TRASH_EXPIRED when the recovery window has ended.
+            COURSE_DRAFT_VERSION_CONFLICT when another non-trashed Draft,
+            Submitted, or Rejected version exists in the same chain.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CourseTrashErrorEnvelope' }
+  /api/v1/courses/{courseId}/permanent:
+    delete:
+      summary: Permanently delete a Course version in Trash (UC14.5.2)
+      operationId: permanentlyDeleteCourse
+      description: >-
+        The responsible Instructor can purge a version while it remains in Trash.
+        Shared files and any remaining chain versions are kept. Assessment and
+        storage cleanup runs after the Course transaction commits.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TrashCourseId'
+      responses:
+        '200':
+          description: The Course version was deleted and cleanup was queued.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/CourseTrashSuccessEnvelope'
+                  - type: object
+                    properties:
+                      statusCode: { type: integer, enum: [200] }
+                      data:
+                        type: object
+                        required: [courseId, permanentlyDeleted, chainDeleted, releasedFileCount, cleanupPending]
+                        properties:
+                          courseId: { type: string, format: uuid }
+                          permanentlyDeleted: { type: boolean, enum: [true] }
+                          chainDeleted: { type: boolean }
+                          releasedFileCount: { type: integer, minimum: 0 }
+                          cleanupPending: { type: boolean, enum: [true] }
+        '400':
+          $ref: '#/components/responses/TrashInvalidCourseId'
+        '401':
+          $ref: '#/components/responses/TrashUnauthorized'
+        '403':
+          $ref: '#/components/responses/TrashForbidden'
+        '404':
+          $ref: '#/components/responses/TrashCourseNotFound'
+        '409':
+          description: COURSE_NOT_IN_TRASH when the Course has not been moved to Trash.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CourseTrashErrorEnvelope' }
   /api/v1/courses/{courseId}/submit:
     post:
       summary: Submit a Draft or Rejected Course for Organizer approval (UC20)
@@ -32,7 +189,7 @@ paths:
         '404':
           description: Course not found or not assigned to the Instructor.
         '409':
-          description: INVALID_COURSE_STATUS, QUIZ_WITHOUT_QUESTIONS, or COURSE_CHANGED.
+          description: INVALID_COURSE_STATUS, QUIZ_WITHOUT_QUESTIONS, COURSE_IN_TRASH, or COURSE_CHANGED.
         '503':
           description: ASSESSMENT_UNAVAILABLE or INVALID_ASSESSMENT_RESPONSE.
 components:
@@ -41,7 +198,88 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    TrashCourseId:
+      name: courseId
+      in: path
+      required: true
+      description: UUID of one Course version.
+      schema: { type: string, format: uuid }
+  responses:
+    TrashInvalidCourseId:
+      description: Invalid Course UUID. The service supplies no application error code.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/CourseTrashErrorEnvelope' }
+    TrashUnauthorized:
+      description: >-
+        Missing or invalid authentication. Gateway returns UNAUTHORIZED.
+        The Course service's own authentication error has no application code.
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/CourseTrashErrorEnvelope'
+              - $ref: '#/components/schemas/GatewayUnauthorizedResponse'
+    TrashForbidden:
+      description: Instructor role and Organization context are required. The service supplies no application error code.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/CourseTrashErrorEnvelope' }
+    TrashCourseNotFound:
+      description: COURSE_NOT_FOUND when no eligible version is found for this Instructor and Organization.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/CourseTrashErrorEnvelope' }
   schemas:
+    CourseTrashSuccessEnvelope:
+      type: object
+      required: [statusCode, message, data]
+      properties:
+        statusCode: { type: integer }
+        message: { type: string }
+    CourseTrashErrorEnvelope:
+      type: object
+      required: [statusCode, timestamp, path, error]
+      properties:
+        statusCode: { type: integer }
+        timestamp: { type: string, format: date-time }
+        path: { type: string }
+        error:
+          type: object
+          required: [message]
+          properties:
+            message:
+              oneOf:
+                - { type: string }
+                - type: array
+                  items: { type: string }
+            code: { type: string }
+            error: { type: string }
+            statusCode: { type: integer }
+    GatewayUnauthorizedResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, enum: [false] }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, enum: [UNAUTHORIZED] }
+            message: { type: string }
+    CourseTrashItem:
+      type: object
+      required: [id, chainId, name, versionNumber, status, deletedAt, deletedBy, purgeAt]
+      properties:
+        id: { type: string, format: uuid }
+        chainId: { type: string, format: uuid }
+        name: { type: string }
+        versionNumber: { type: integer, minimum: 1 }
+        status: { type: string, enum: [Draft, Rejected] }
+        deletedAt: { type: string, format: date-time }
+        deletedBy: { type: string, format: uuid, nullable: true }
+        purgeAt: { type: string, format: date-time }
     SubmitCourseResponse:
       type: object
       required: [statusCode, message, data]
