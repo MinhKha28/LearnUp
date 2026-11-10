@@ -27,6 +27,7 @@ describe('UC21.2 - Organizer Course Review', () => {
 
   const storage = {
     getSignedUrl: jest.fn(),
+    readBytes: jest.fn(),
   };
 
   const service = new CoursesService(
@@ -113,4 +114,56 @@ describe('UC21.2 - Organizer Course Review', () => {
 
     expect(storage.getSignedUrl).not.toHaveBeenCalled();
   });
+
+  it('returns protected PDF bytes for an inline preview without marking attachment', async () => {
+    const materialId = '019a0000-0000-7000-8000-000000000005';
+    const pdf = Buffer.from('%PDF-1.7 test document');
+    repository.findOrganizerReviewMaterial.mockResolvedValue({
+      materialType: 'Reading',
+      disabledAt: null,
+      lesson: { disabledAt: null },
+      file: {
+        organizationId,
+        status: 'Ready',
+        readyAt: new Date(),
+        releasedAt: null,
+        deliveryType: 'authenticated',
+        purpose: 'LessonReading',
+        mimeType: 'application/pdf',
+        storageKey: 'secured/test.pdf',
+        storageFormat: '',
+        originalFilename: 'test.pdf',
+        sizeBytes: BigInt(pdf.length),
+      },
+    });
+    storage.getSignedUrl.mockReturnValue('https://example.invalid/signed');
+    storage.readBytes.mockResolvedValue(pdf);
+
+    await expect(service.readOrganizerReadingPreview(
+      organizer, courseId, materialId,
+    )).resolves.toEqual(pdf);
+
+    expect(storage.readBytes).toHaveBeenCalledWith(
+      'secured/test.pdf',
+      expect.objectContaining({
+        resourceType: 'raw',
+        attachment: false,
+        deliveryType: 'authenticated',
+        maxSizeBytes: 50 * 1024 * 1024,
+      }),
+    );
+    expect(storage.getSignedUrl).toHaveBeenCalledWith(
+      'secured/test.pdf',
+      expect.objectContaining({ attachment: false }),
+    );
+  });
+
+  it('never fetches bytes when the reviewer cannot access the Material', async () => {
+    repository.findOrganizerReviewMaterial.mockResolvedValue(null);
+    await expect(service.readOrganizerReadingPreview(
+      organizer, courseId, '019a0000-0000-7000-8000-000000000005',
+    )).rejects.toMatchObject({ status: 404 });
+    expect(storage.readBytes).not.toHaveBeenCalled();
+  });
+
 });

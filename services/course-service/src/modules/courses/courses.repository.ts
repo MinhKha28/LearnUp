@@ -2697,6 +2697,8 @@ export class CoursesRepository {
             deliveryType: true,
             storageKey: true,
             storageFormat: true,
+            originalFilename: true,
+            sizeBytes: true,
           },
         },
       },

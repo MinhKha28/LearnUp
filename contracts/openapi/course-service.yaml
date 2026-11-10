@@ -355,6 +355,36 @@ paths:
         '409': { description: Ownership changed since client snapshot }
         '503': { description: Tenant Service unavailable }
 
+  /api/v1/courses/organization/{courseId}/materials/{materialId}/reading-content:
+    get:
+      summary: UC21.2 - Obtain authenticated Reading PDF bytes for inline preview
+      operationId: readOrganizerReadingPreview
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: materialId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: PDF bytes with Content-Disposition inline (no automatic download)
+          headers:
+            Content-Disposition:
+              schema: { type: string, enum: ['inline; filename="reading.pdf"'] }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '403': { description: Organizer role required }
+        '404': { description: Material or Course not found }
+        '409': { description: Material not available for review }
+        '413': { description: PDF exceeds preview size limit }
+        '503': { description: Storage temporarily unavailable }
+
   /api/v1/courses/organization/{courseId}/transfer-context:
     get:
       summary: UC23 - Fetch current chain Instructor and version history
@@ -645,7 +675,8 @@ components:
               required: [id, fullName]
               properties:
                 id: { type: string, format: uuid }
-                fullName: { type: string }
+                fullName: { type: string, nullable: true }
+                resolved: { type: boolean }
             versions:
               type: array
               items:

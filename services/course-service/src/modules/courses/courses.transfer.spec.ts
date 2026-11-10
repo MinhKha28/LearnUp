@@ -115,9 +115,19 @@ describe('UC23 Course ownership transfer', () => {
       });
   });
 
+  it('does not invent a name when Tenant has no matching Instructor', async () => {
+    tenant.getInstructors.mockResolvedValue([]);
+    const response = await service.getTransferContext(organizer, courseId);
+    expect(response.currentInstructor).toEqual({
+      id: oldInstructor,
+      fullName: null,
+      resolved: false,
+    });
+  });
+
   it('returns the current Instructor and every Course version', async () => {
     const response = await service.getTransferContext(organizer, courseId);
-    expect(response.currentInstructor).toEqual({ id: oldInstructor, fullName: 'A' });
+    expect(response.currentInstructor).toEqual({ id: oldInstructor, fullName: 'A', resolved: true });
     expect(repository.findTransferVersions).toHaveBeenCalledWith(chainId, organizer.organizationId);
     expect(response.versions).toHaveLength(1);
   });
