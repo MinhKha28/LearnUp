@@ -35,6 +35,7 @@ import type { IUploadedImportFile } from './interfaces/uploaded-import-file.inte
 import {
   DEFAULT_IMPORT_MAX_FILE_BYTES,
   DEFAULT_IMPORT_MAX_ROWS,
+  DEFAULT_IMPORT_MAX_UNCOMPRESSED_BYTES,
   IMPORT_MULTER_CEILING_BYTES,
   IMPORT_TRANSACTION_MAX_WAIT_MS,
   IMPORT_TRANSACTION_TIMEOUT_MS,
@@ -285,7 +286,11 @@ export class MemberImportsService {
     if (file.size > maxBytes) throw fileTooLarge(maxBytes);
     assertXlsxFile(file.originalname, file.buffer);
 
-    const rawRows = await parseMemberImportFile(file.buffer, this.maxRows());
+    const rawRows = await parseMemberImportFile(
+      file.buffer,
+      this.maxRows(),
+      this.maxUncompressedBytes(),
+    );
     return checkImportRows(rawRows, role);
   }
 
@@ -336,6 +341,16 @@ export class MemberImportsService {
     return Number.isInteger(configured) && configured > 0
       ? configured
       : DEFAULT_IMPORT_MAX_ROWS;
+  }
+
+  /** UC13.8 - chống zip bomb: trần dung lượng giải nén thật của gói .xlsx. */
+  private maxUncompressedBytes(): number {
+    const configured = Number(
+      this.config.get<string>('IMPORT_MAX_UNCOMPRESSED_BYTES'),
+    );
+    return Number.isInteger(configured) && configured > 0
+      ? configured
+      : DEFAULT_IMPORT_MAX_UNCOMPRESSED_BYTES;
   }
 
   private organizationIdOf(user: CurrentUser): string {
