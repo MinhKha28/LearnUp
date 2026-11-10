@@ -11,6 +11,8 @@ import {
   Put,
   Delete,
   Patch,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '@common/decorator/customize';
@@ -390,7 +392,7 @@ export class CoursesController {
     return this.coursesService.withdrawCourseSubmission(user, courseId);
   }
 
-@Post(':courseId/transfer')
+  @Post(':courseId/transfer')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Course ownership transferred successfully')
   transferCourseOwnership(

@@ -1,6 +1,6 @@
-import { Form, Modal, Select, Table } from "antd";
+import { Alert, Form, Input, Modal, Select, Spin, Table, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   OrganizerButton,
@@ -9,109 +9,310 @@ import {
   SectionCard,
   StatusTag,
 } from "@/components/organizer/organizer.ui";
+import {
+  fetchTransferContextAPI,
+  transferCourseOwnershipAPI,
+} from "@/services/course.service";
+import { getTransferCandidatesAPI } from "@/services/organization.service";
+import type {
+  CourseStatus,
+  ITransferCandidate,
+  ITransferCourseContext,
+  ITransferCourseRequest,
+  ITransferCourseVersion,
+} from "@/types/course.types";
 import "./course.detail.scss";
 
-type Version = {
-  key: string;
-  version: string;
-  status: "Draft" | "Published" | "Archived";
-  created: string;
-  approved: string;
-  learners: string;
-  completed: string;
-  certificates: string;
+type ApiResult<T> = {
+  statusCode?: number;
+  data?: T;
+  code?: string;
+  error?: { code?: string };
+  message?: string;
 };
 
-const versions: Version[] = [
-  { key: "v3", version: "v3", status: "Draft", created: "16 Sep 2026", approved: "—", learners: "—", completed: "—", certificates: "—" },
-  { key: "v2", version: "v2", status: "Published", created: "12 Jun 2026", approved: "26 Jun 2026", learners: "86", completed: "54", certificates: "54" },
-  { key: "v1", version: "v1", status: "Archived", created: "01 Jan 2026", approved: "09 Jan 2026", learners: "42", completed: "42", certificates: "42" },
+const readApiResult = <T,>(raw: unknown): ApiResult<T> => {
+  if (!raw || typeof raw !== "object") return {};
+  const value = raw as ApiResult<T> & { data?: T | ApiResult<T> };
+  if (typeof value.statusCode === "number" || value.error || value.code) {
+    return value as ApiResult<T>;
+  }
+  // Axios interceptor sometimes returns an unwrapped AxiosResponse.
+  const nested = value.data;
+  if (nested && typeof nested === "object" && "statusCode" in nested) {
+    return nested as ApiResult<T>;
+  }
+  return {};
+};
+
+const apiErrorCode = (raw: unknown) => {
+  const result = readApiResult<unknown>(raw);
+  if (result.code || result.error?.code) return result.code ?? result.error?.code;
+  if (raw && typeof raw === "object" && "response" in raw) {
+    const response = (raw as { response?: { data?: unknown } }).response;
+    return readApiResult<unknown>(response?.data).code ??
+      readApiResult<unknown>(response?.data).error?.code;
+  }
+  return undefined;
+};
+
+const statusTone = (status: CourseStatus) =>
+  status === "Published" ? "info" :
+  status === "Submitted" ? "warning" :
+  status === "Rejected" || status === "Disabled" ? "error" : "neutral";
+
+const formatDate = (date?: string | null) => {
+  if (!date) return "—";
+  const parsed = new Date(date);
+  return Number.isNaN(parsed.getTime()) ? "—" : parsed.toLocaleDateString("vi-VN");
+};
+
+const columns: ColumnsType<ITransferCourseVersion> = [
+  { title: "Phiên bản", dataIndex: "versionNumber", key: "versionNumber",
+    render: (value: number) => "v" + value },
+  { title: "Trạng thái", dataIndex: "status", key: "status",
+    render: (status: CourseStatus) => (
+      <StatusTag tone={statusTone(status)}>{status}</StatusTag>
+    ) },
+  { title: "Ngày tạo", dataIndex: "createdAt", key: "createdAt",
+    render: (value: string) => formatDate(value) },
+  { title: "Ngày xuất bản", dataIndex: "publishedAt", key: "publishedAt",
+    render: (value: string | null) => formatDate(value) },
 ];
 
-const statusTone = (status: Version["status"]) =>
-  status === "Published" ? "info" : status === "Draft" ? "neutral" : "neutral";
-
 const CourseDetail = () => {
-  const { courseId } = useParams();
+  const { courseId } = useParams<{ courseId: string }>();
+  const [form] = Form.useForm<ITransferCourseRequest>();
+  const [context, setContext] = useState<ITransferCourseContext | null>(null);
+  const [candidates, setCandidates] = useState<ITransferCandidate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [error, setError] = useState("");
   const [transferOpen, setTransferOpen] = useState(false);
-  const columns: ColumnsType<Version> = [
-    { title: "Version", dataIndex: "version" },
-    {
-      title: "Status",
-      dataIndex: "status",
-      render: (status: Version["status"]) => (
-        <StatusTag tone={statusTone(status)}>{status}</StatusTag>
-      ),
-    },
-    { title: "Created", dataIndex: "created" },
-    { title: "Approved", dataIndex: "approved" },
-    { title: "Learners", dataIndex: "learners" },
-    { title: "Completed", dataIndex: "completed" },
-    { title: "Certificates", dataIndex: "certificates" },
-  ];
+  const [modalError, setModalError] = useState("");
+  const inFlight = useRef(false);
+  const loadSequence = useRef(0);
+
+  const loadContext = useCallback(async () => {
+    const sequence = ++loadSequence.current;
+    if (!courseId) {
+      setError("Không tìm thấy mã Course.");
+      setContext(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const raw: unknown = await fetchTransferContextAPI(courseId);
+      const response = readApiResult<ITransferCourseContext>(raw);
+      if (response.statusCode !== 200 || !response.data?.chainId) {
+        throw raw;
+      }
+      if (sequence !== loadSequence.current) return;
+      setContext(response.data);
+      setError("");
+    } catch {
+      if (sequence !== loadSequence.current) return;
+      setContext(null);
+      setError("Không thể tải thông tin Course. Vui lòng thử lại.");
+    } finally {
+      if (sequence === loadSequence.current) setLoading(false);
+    }
+  }, [courseId]);
+
+  useEffect(() => {
+    void loadContext();
+    return () => { loadSequence.current += 1; };
+  }, [loadContext]);
+
+  const openTransfer = async () => {
+    if (!context || candidatesLoading || inFlight.current) return;
+    setCandidatesLoading(true);
+    setModalError("");
+    try {
+      const raw: unknown = await getTransferCandidatesAPI(
+        context.currentInstructor.id,
+      );
+      const result = readApiResult<ITransferCandidate[]>(raw);
+      if (result.statusCode !== 200 || !Array.isArray(result.data)) {
+        throw raw;
+      }
+      setCandidates(result.data.filter(
+        (candidate) => candidate.id !== context.currentInstructor.id,
+      ));
+      form.resetFields();
+      setTransferOpen(true);
+    } catch {
+      message.error("Không lấy được danh sách Instructor tiếp nhận.");
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
+
+  const closeTransfer = () => {
+    if (inFlight.current) return;
+    setTransferOpen(false);
+    setModalError("");
+    form.resetFields();
+  };
+
+  const submitTransfer = async () => {
+    if (!courseId || !context || inFlight.current) return;
+    let values: ITransferCourseRequest;
+    try {
+      values = await form.validateFields();
+    } catch {
+      return;
+    }
+
+    inFlight.current = true;
+    setTransferring(true);
+    setModalError("");
+    try {
+      const raw: unknown = await transferCourseOwnershipAPI(courseId, {
+        toInstructorId: values.toInstructorId,
+        expectedInstructorId: context.currentInstructor.id,
+        ...(values.reason?.trim() ? { reason: values.reason.trim() } : {}),
+      });
+      const result = readApiResult<{ chainId: string }>(raw);
+      if (result.statusCode !== 200 || !result.data?.chainId) {
+        throw raw;
+      }
+      setTransferOpen(false);
+      form.resetFields();
+      message.success("Chuyển quyền phụ trách Course thành công.");
+      await loadContext();
+    } catch (failure) {
+      const code = apiErrorCode(failure);
+      const text = code === "INVALID_RECEIVER"
+        ? "Instructor tiếp nhận không hợp lệ hoặc không còn hoạt động."
+        : code === "COURSE_CHANGED" || code === "SAME_INSTRUCTOR"
+          ? "Quyền phụ trách đã thay đổi. Vui lòng tải lại dữ liệu."
+          : code === "TENANT_UNAVAILABLE"
+            ? "Tenant Service tạm thời không khả dụng."
+            : "Chuyển quyền thất bại. Vui lòng thử lại.";
+      setModalError(text);
+      message.error(text);
+      await loadContext();
+    } finally {
+      inFlight.current = false;
+      setTransferring(false);
+    }
+  };
+
   return (
     <OrganizerPage className="organizer-course-detail">
       <PageHeader
-        title="Course Version Chain"
-        subtitle="Workplace Safety Essentials"
+        title="Chuỗi phiên bản Course"
+        subtitle={context?.courseName ?? "Thông tin Course"}
         back
         actions={
           <>
-            <Link to={`/organizer/courses/${courseId}/version-report`}>
-              <OrganizerButton>View version report</OrganizerButton>
-            </Link>
-            <OrganizerButton onClick={() => setTransferOpen(true)}>
-              Transfer ownership
+            {courseId && (
+              <Link to={"/organizer/courses/" + courseId + "/version-report"}>
+                <OrganizerButton>Báo cáo phiên bản</OrganizerButton>
+              </Link>
+            )}
+            <OrganizerButton
+              type="primary"
+              disabled={!context || loading || candidatesLoading}
+              loading={candidatesLoading}
+              onClick={() => void openTransfer()}
+            >
+              Chuyển quyền phụ trách
             </OrganizerButton>
           </>
         }
       />
-      <SectionCard title="Version history">
-        <Table className="organizer-table" columns={columns} dataSource={versions} pagination={false} />
-        <p className="organizer-note organizer-course-detail-note">
-          When a new version is approved, the previous Published version
-          becomes Archived. Learners already enrolled in the archived version
-          continue learning and may still earn Certificates.
-        </p>
+
+      {error && (
+        <Alert
+          type="error"
+          showIcon
+          message={error}
+          action={<OrganizerButton size="small" onClick={() => void loadContext()}>Thử lại</OrganizerButton>}
+        />
+      )}
+
+      <SectionCard title="Lịch sử phiên bản">
+        {loading ? (
+          <div className="organizer-course-detail-loading"><Spin /></div>
+        ) : context ? (
+          <>
+            <p>Instructor hiện tại: <strong>{context.currentInstructor.fullName}</strong></p>
+            <Table<ITransferCourseVersion>
+              className="organizer-table"
+              rowKey="id"
+              columns={columns}
+              dataSource={context.versions}
+              pagination={false}
+              locale={{ emptyText: "Course chưa có phiên bản." }}
+            />
+            <p className="organizer-note organizer-course-detail-note">
+              Khi phiên bản mới được phê duyệt, phiên bản Published trước đó trở thành Archived.
+              Người học đã ghi danh vẫn tiếp tục học và có thể được cấp Certificate.
+            </p>
+          </>
+        ) : null}
       </SectionCard>
+
       <Modal
         className="organizer-transfer-modal"
         open={transferOpen}
         centered
-        title="Transfer Course Ownership"
-        onCancel={() => setTransferOpen(false)}
+        title="Chuyển quyền phụ trách Course"
+        onCancel={closeTransfer}
+        maskClosable={!transferring}
+        closable={!transferring}
         footer={
           <>
-            <OrganizerButton onClick={() => setTransferOpen(false)}>Cancel</OrganizerButton>
-            <OrganizerButton type="primary" onClick={() => setTransferOpen(false)}>
-              Transfer
+            <OrganizerButton disabled={transferring} onClick={closeTransfer}>Hủy</OrganizerButton>
+            <OrganizerButton
+              type="primary"
+              loading={transferring}
+              disabled={transferring || candidates.length === 0 || !context}
+              onClick={() => void submitTransfer()}
+            >
+              Xác nhận chuyển quyền
             </OrganizerButton>
           </>
         }
       >
-        <p>Assign Workplace Safety Essentials to another Instructor.</p>
-        <Form layout="vertical" className="organizer-form">
-          <Form.Item label="Current instructor">
-            <strong>An Tran</strong>
+        <p>Chuyển toàn bộ chuỗi phiên bản của <strong>{context?.courseName}</strong>.</p>
+        {modalError && <Alert showIcon type="error" message={modalError} />}
+        <Form<ITransferCourseRequest> form={form} layout="vertical" className="organizer-form">
+          <Form.Item label="Instructor hiện tại">
+            <strong>{context?.currentInstructor.fullName ?? "—"}</strong>
           </Form.Item>
-          <Form.Item label="New instructor" required>
+          <Form.Item
+            label="Instructor tiếp nhận"
+            name="toInstructorId"
+            rules={[{ required: true, message: "Vui lòng chọn Instructor tiếp nhận." }]}
+          >
             <Select
-              placeholder="Select instructor"
-              options={[
-                { value: "linh-phan", label: "Linh Phan" },
-                { value: "giao-le", label: "Giao Le" },
-                { value: "vy-nguyen", label: "Vy Nguyen" },
-              ]}
+              showSearch
+              optionFilterProp="label"
+              placeholder="Chọn Instructor"
+              options={candidates.map((item) => ({
+                value: item.id,
+                label: item.fullName,
+              }))}
+              notFoundContent="Không có Instructor phù hợp"
+              disabled={transferring}
             />
+          </Form.Item>
+          <Form.Item label="Lý do (không bắt buộc)" name="reason">
+            <Input.TextArea rows={3} maxLength={1000} showCount disabled={transferring} />
           </Form.Item>
         </Form>
         <div className="organizer-approval-note">
-          <strong>Transferred responsibilities</strong>
+          <strong>Lưu ý khi chuyển quyền</strong>
           <span>
-            The new Instructor inherits all editing rights, grading
-            responsibilities, and the right to invite future reviews. Any
-            grading action is handled by the Instructor responsible at the
-            time of processing.
+            Instructor mới tiếp nhận quyền phụ trách tất cả phiên bản Course, gồm quyền
+            chỉnh sửa trong phạm vi cho phép, chấm điểm và tạo phiên bản mới.
+            Instructor cũ không còn quyền phụ trách sau khi chuyển.
           </span>
         </div>
       </Modal>

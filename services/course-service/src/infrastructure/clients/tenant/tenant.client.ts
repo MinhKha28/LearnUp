@@ -1,6 +1,6 @@
 import { isAxiosError } from 'axios';
 import { HttpService } from '@nestjs/axios';
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { CurrentUser } from '@learnup/ts-common';
 import { firstValueFrom } from 'rxjs';
@@ -168,9 +168,10 @@ async validateTransferReceiver(
       // Chỉ chuyển 400 INVALID_RECEIVER thành lỗi nghiệp vụ.
       // Các lỗi còn lại không được xem là Instructor không hợp lệ.
       if (
-        isAxiosError<TenantErrorResponse>(error) &&
+        isAxiosError<{ code?: string; error?: { code?: string } }>(error) &&
         error.response?.status === 400 &&
-        error.response.data?.code === 'INVALID_RECEIVER'
+        (error.response.data?.code === 'INVALID_RECEIVER' ||
+          error.response.data?.error?.code === 'INVALID_RECEIVER')
       ) {
         throw new BadRequestException({
           code: 'INVALID_RECEIVER',
