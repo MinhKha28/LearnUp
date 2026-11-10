@@ -1,4 +1,4 @@
-// Prisma giả trong bộ nhớ cho unit test của UsersService (UC12.5, UC12.6).
+// Prisma giả trong bộ nhớ cho unit test của UsersService (UC12.5, UC12.6, UC13.5).
 // Chỉ hỗ trợ đúng các truy vấn mà luồng đổi trạng thái / xóa Instructor dùng. Transaction lỗi thì
 // trả lại toàn bộ trạng thái như trước khi bắt đầu (giống rollback). Không phải Postgres: không kiểm
 // khóa, chỉ mục duy nhất hay đồng thời – các ca đó thuộc integration test.
@@ -242,6 +242,9 @@ function createHarness({ chains } = {}) {
       db.state.outbox.push({ type: 'EmailRequested', ...structuredClone(params) }),
     enqueueAudit: async (_tx, params) =>
       db.state.outbox.push({ type: 'AuditRecorded', ...structuredClone(params) }),
+    // UC13.5: event UserDeactivated / UserReactivated.
+    enqueueAccountStatusEvent: async (_tx, params) =>
+      db.state.outbox.push({ type: params.eventType, ...structuredClone(params) }),
   };
   const accountTokens = {
     revokeOpen: async (_tx, { userId, purpose }, revokedAt = new Date()) => {
