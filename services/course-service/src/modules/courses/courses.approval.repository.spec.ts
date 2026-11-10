@@ -39,7 +39,7 @@ describe('UC21.3 approval transaction', () => {
   };
 
   beforeEach(() => {
-    jest.resetAllMocks();
+    jest.clearAllMocks();
     calls.length = 0;
     tx.$queryRaw.mockResolvedValue([{ id: chainId }]);
     tx.course.findFirst
