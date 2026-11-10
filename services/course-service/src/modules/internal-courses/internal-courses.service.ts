@@ -162,6 +162,8 @@ export class InternalCoursesService {
     if (!organizationId || !isUUID(organizationId, 'all')) {
       throw courseNotFound();
     }
+    // Assessment may finish syncing after the Course moves to Trash.
+    // Preserve the latest estimate for a subsequent restore.
     const rows = await this.prisma.$queryRaw<
       { id: string; assignment_minutes: number; as_of: Date }[]
     >`
