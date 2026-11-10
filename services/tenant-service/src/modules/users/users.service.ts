@@ -20,7 +20,11 @@ import {
   LearningServiceClient,
 } from '../../infrastructure/clients/learning/learning-service.client';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
-import { OutboxService } from '../outbox/outbox.service';
+import {
+  OutboxService,
+  USER_DEACTIVATED_EVENT,
+  USER_REACTIVATED_EVENT,
+} from '../outbox/outbox.service';
 import { AccountTokensService } from '../account-tokens/account-tokens.service';
 import {
   DAY_MS,
@@ -34,6 +38,7 @@ import { generateSecretToken } from '../../common/utils/token.util';
 import {
   AccountStatusAction,
   ChangeAccountStatusDto,
+  ChangeLearnerStatusDto,
 } from './dto/change-account-status.dto';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { DeleteAccountDto } from './dto/delete-account.dto';
@@ -60,6 +65,7 @@ import {
   IStatusChangeReceiver,
 } from './interfaces/instructor-status.interface';
 import { LearnerDetail } from './interfaces/learner-detail.interface';
+import { ILearnerStatusResult } from './interfaces/learner-status.interface';
 import { IReinvitationResult } from './interfaces/reinvitation-result.interface';
 import { SeatUsage } from './interfaces/seat-usage.interface';
 import { UpdateAccountResult } from './interfaces/update-account-result.interface';
@@ -69,7 +75,8 @@ import { CourseServiceClient } from 'src/infrastructure/clients/course/course-se
 import { UsersRepository } from './users.repository';
 
 // Role do Organizer tạo và bị giới hạn số chỗ theo Subscription (BR-23).
-type SeatRole = typeof UserRoleValue.Instructor | typeof UserRoleValue.Learner;
+export type SeatRole =
+  typeof UserRoleValue.Instructor | typeof UserRoleValue.Learner;
 
 // Subscription "hiện hành" (khớp partial unique subscriptions_one_current_per_org_key).
 const CURRENT_SUBSCRIPTION_STATUSES = [
@@ -84,7 +91,7 @@ const INVITATION_TEMPLATE: Record<SeatRole, string> = {
 };
 
 // UC12.2: chỉ Subscription Active mới tạo tài khoản (BR-15, BR-17).
-const CREATE_SUBSCRIPTION_STATUSES = [SubscriptionStatus.Active];
+export const CREATE_SUBSCRIPTION_STATUSES = [SubscriptionStatus.Active];
 // UC12.3: ân hạn vẫn sửa được (BR-15 chỉ cấm tạo); Suspended chỉ xem (BR-17).
 const UPDATE_SUBSCRIPTION_STATUSES = [
   SubscriptionStatus.Active,
@@ -1050,10 +1057,12 @@ export class UsersService {
           },
         );
 
-        const locked = await this.lockInstructors(tx, organizationId, [
-          targetId,
-          ...(receiverId ? [receiverId] : []),
-        ]);
+        const locked = await this.lockAccounts(
+          tx,
+          organizationId,
+          UserRoleValue.Instructor,
+          [targetId, ...(receiverId ? [receiverId] : [])],
+        );
         const target = locked.get(targetId);
         if (!target) throw this.accountNotFound(UserRoleValue.Instructor);
         if (target.status === UserStatus.Deactivated) {
@@ -1150,7 +1159,12 @@ export class UsersService {
         },
       );
 
-      const locked = await this.lockInstructors(tx, organizationId, [targetId]);
+      const locked = await this.lockAccounts(
+        tx,
+        organizationId,
+        UserRoleValue.Instructor,
+        [targetId],
+      );
       const target = locked.get(targetId);
       if (!target) throw this.accountNotFound(UserRoleValue.Instructor);
       if (target.status === UserStatus.Active) {
@@ -1302,10 +1316,12 @@ export class UsersService {
           purpose: TokenPurpose.Invitation,
         });
 
-        const locked = await this.lockInstructors(tx, organizationId, [
-          targetId,
-          ...(receiverId ? [receiverId] : []),
-        ]);
+        const locked = await this.lockAccounts(
+          tx,
+          organizationId,
+          UserRoleValue.Instructor,
+          [targetId, ...(receiverId ? [receiverId] : [])],
+        );
         const target = locked.get(targetId);
         // Request khác vừa xóa xong trong lúc chờ khóa.
         if (!target) return this.deletionUnchanged(targetId);
@@ -1387,7 +1403,7 @@ export class UsersService {
 
   /**
    * BR-51, BR-96, BR-92 (dùng chung UC12.5 vô hiệu hóa / UC12.6 xóa), chạy trong transaction đang giữ khóa
-   * dòng users của người bị tác động và người tiếp nhận (lockInstructors). Không phụ trách chuỗi -> không làm gì.
+   * dòng users của người bị tác động và người tiếp nhận (lockAccounts). Không phụ trách chuỗi -> không làm gì.
    * Còn chuỗi: người tiếp nhận phải hợp lệ (Quyết định 3) -> chuyển MỌI chuỗi ở course-service -> đếm lại.
    * Lỗi course-service -> 503 (callCourseService).
    */
@@ -1463,11 +1479,13 @@ export class UsersService {
   /**
    * Khóa FOR UPDATE từng dòng users theo id tăng dần (thứ tự byte của uuid = thứ tự chuỗi hex chữ thường),
    * để hai thao tác cùng chạm hai Instructor không deadlock. Sau khi chờ khóa, Postgres đánh giá lại WHERE
-   * trên bản mới nhất, nên giá trị trả về là trạng thái đã commit. Chỉ trả Instructor chưa xóa của tổ chức.
+   * trên bản mới nhất, nên giá trị trả về là trạng thái đã commit. Chỉ trả tài khoản chưa xóa, đúng role,
+   * của tổ chức. Dùng cho UC12.5 (Instructor) và UC13.5 (Learner).
    */
-  private async lockInstructors(
+  private async lockAccounts(
     tx: Prisma.TransactionClient,
     organizationId: string,
+    role: SeatRole,
     ids: string[],
   ): Promise<Map<string, LockedInstructor>> {
     const sorted = [...new Set(ids)].sort();
@@ -1485,7 +1503,7 @@ export class UsersService {
           FROM users
          WHERE id = ${id}::uuid
            AND organization_id = ${organizationId}::uuid
-           AND role = ${UserRoleValue.Instructor}
+           AND role = ${role}
            AND deleted_at IS NULL
            FOR UPDATE`;
       if (row) {
@@ -1580,7 +1598,10 @@ export class UsersService {
     });
   }
 
-  /** BR-270, BR-271: người thực hiện, loại hành động, đối tượng, thời điểm; lý do tùy chọn. */
+  /**
+   * BR-336, BR-337: người thực hiện, loại hành động, đối tượng, thời điểm; lý do tùy chọn.
+   * receiverId / chainIds chỉ có ở UC12.5 (Instructor); UC13.5 (Learner) bỏ qua -> details chỉ có reason.
+   */
   private enqueueStatusAudit(
     tx: Prisma.TransactionClient,
     user: CurrentUser,
@@ -1591,8 +1612,9 @@ export class UsersService {
       reason: string | undefined;
       /** UC12.6: trạng thái lúc bị xóa (Pending / Active / Deactivated). */
       previousStatus?: string;
-      receiverId: string | null;
-      chainIds: string[];
+      // Chỉ UC12.5 / UC12.6 (Instructor); UC13.5 (Learner) không gửi -> không có trong details.
+      receiverId?: string | null;
+      chainIds?: string[];
     },
   ): Promise<void> {
     return this.outbox.enqueueAudit(tx, {
@@ -1610,8 +1632,12 @@ export class UsersService {
           ...(params.previousStatus
             ? { previousStatus: params.previousStatus }
             : {}),
-          receiverId: params.receiverId,
-          chainIds: params.chainIds,
+          ...(params.receiverId !== undefined
+            ? { receiverId: params.receiverId }
+            : {}),
+          ...(params.chainIds !== undefined
+            ? { chainIds: params.chainIds }
+            : {}),
         },
       },
     });
@@ -1686,6 +1712,134 @@ export class UsersService {
   }
 
   // ===========================================================================
+  // UC13.5 - Đổi trạng thái Learner
+  // BR-45: vô hiệu hóa không xóa dữ liệu học tập, không trả lại chỗ -> kích hoạt lại không kiểm số chỗ.
+  // BR-48 / BR-144: learning-service, achievement-reporting-service tự loại khi đọc (tra trạng thái qua tenant).
+  // BR-49 / BR-199 / BR-317: assessment-service giữ bản sao thưa learner_accounts từ event
+  //        UserDeactivated / UserReactivated (outbox, cùng transaction - kiến trúc 2.1, 2.3).
+  // BR-51 (chuyển quyền phụ trách) chỉ dành cho Instructor, không áp dụng ở đây.
+  // ===========================================================================
+  changeLearnerStatus(
+    user: CurrentUser,
+    learnerId: string,
+    dto: ChangeLearnerStatusDto,
+  ): Promise<ILearnerStatusResult> {
+    const organizationId = this.organizationIdOf(user);
+    const deactivate = dto.action === AccountStatusAction.Deactivate;
+    const targetId = learnerId.toLowerCase();
+
+    return this.prisma.$transaction(async (tx) => {
+      // BR-22: ân hạn chỉ cấm tạo tài khoản / Course / tải học liệu -> vẫn đổi được.
+      // BR-24: Subscription Suspended (Organizer chỉ xem) hoặc Organization khác Active -> 403.
+      const { organization } = await this.assertCanManageAccounts(
+        tx,
+        organizationId,
+        {
+          action: deactivate ? 'vô hiệu hóa' : 'kích hoạt lại',
+          subscriptionStatuses: UPDATE_SUBSCRIPTION_STATUSES,
+          lockOrganization: false,
+        },
+      );
+
+      // Khóa dòng users rồi kiểm lại trạng thái trên bản đã commit (bấm lặp, hai Organizer cùng thao tác).
+      const locked = await this.lockAccounts(
+        tx,
+        organizationId,
+        UserRoleValue.Learner,
+        [targetId],
+      );
+      const target = locked.get(targetId);
+      if (!target) throw this.accountNotFound(UserRoleValue.Learner);
+
+      const fromStatus = deactivate
+        ? UserStatus.Active
+        : UserStatus.Deactivated;
+      const toStatus = deactivate ? UserStatus.Deactivated : UserStatus.Active;
+
+      // Đã ở trạng thái đích -> 200 changed:false, không ghi gì thêm.
+      if (target.status === toStatus) {
+        return { id: target.id, status: target.status, changed: false };
+      }
+      // Pending (chưa nhận lời mời): không vô hiệu hóa / kích hoạt lại; lời mời giữ nguyên hiệu lực.
+      if (target.status !== fromStatus) {
+        throw deactivate
+          ? this.accountNotActivated(
+              'Tài khoản chưa kích hoạt nên không vô hiệu hóa được. Nếu không dùng nữa, hãy xóa tài khoản.',
+            )
+          : new ConflictException({
+              code: 'ACCOUNT_NOT_DEACTIVATED',
+              message: 'Chỉ kích hoạt lại được tài khoản đang bị vô hiệu hóa.',
+            });
+      }
+      if (target.activatedAt === null) {
+        throw this.accountNotActivated(
+          deactivate
+            ? 'Tài khoản chưa kích hoạt nên không vô hiệu hóa được. Nếu không dùng nữa, hãy xóa tài khoản.'
+            : 'Tài khoản chưa từng kích hoạt nên không kích hoạt lại được. Nếu không dùng nữa, hãy xóa tài khoản.',
+        );
+      }
+
+      const { count } = await tx.user.updateMany({
+        where: {
+          id: target.id,
+          organizationId,
+          role: UserRoleValue.Learner,
+          deletedAt: null,
+          status: fromStatus,
+          activatedAt: { not: null },
+        },
+        data: { status: toStatus },
+      });
+      if (count === 0) throw this.concurrentUpdate();
+
+      // Thứ tự trong outbox: event trạng thái, thư, nhật ký - tất cả cùng transaction.
+      await this.outbox.enqueueAccountStatusEvent(tx, {
+        eventType: deactivate ? USER_DEACTIVATED_EVENT : USER_REACTIVATED_EVENT,
+        userId: target.id,
+        organizationId,
+        role: UserRoleValue.Learner,
+        status: toStatus,
+      });
+      await this.enqueueStatusEmail(
+        tx,
+        deactivate
+          ? {
+              organizationId,
+              userId: target.id,
+              to: target.email,
+              templateCode: 'LEARNER_DEACTIVATED',
+              subject: `LearnUP - Tài khoản Học viên tại ${organization.name} đã bị vô hiệu hóa`,
+              // Không kèm lý do (như UC12.5).
+              body:
+                `Xin chào ${target.fullName},\n` +
+                `${organization.name} đã vô hiệu hóa tài khoản Học viên của bạn trên LearnUP.\n` +
+                `Bạn không đăng nhập được cho tới khi tài khoản được kích hoạt lại; dữ liệu học tập của bạn vẫn được giữ. ` +
+                `Nếu có thắc mắc, hãy liên hệ Quản lý đào tạo của tổ chức.`,
+            }
+          : {
+              organizationId,
+              userId: target.id,
+              to: target.email,
+              templateCode: 'LEARNER_REACTIVATED',
+              subject: `LearnUP - Tài khoản Học viên tại ${organization.name} đã được kích hoạt lại`,
+              body:
+                `Xin chào ${target.fullName},\n` +
+                `${organization.name} đã kích hoạt lại tài khoản Học viên của bạn trên LearnUP.\n` +
+                `Đăng nhập tại: ${this.loginLink()}`,
+            },
+      );
+      await this.enqueueStatusAudit(tx, user, {
+        organizationId,
+        actionType: deactivate ? 'LEARNER_DEACTIVATED' : 'LEARNER_REACTIVATED',
+        targetId: target.id,
+        reason: dto.reason,
+      });
+
+      return { id: target.id, status: toStatus, changed: true };
+    });
+  }
+
+  // ===========================================================================
   // UC12.3 - Gợi ý đơn vị công tác (BR-279)
   // ===========================================================================
   /**
@@ -1722,7 +1876,7 @@ export class UsersService {
    * BR-45: tổ chức phải Active. Subscription hiện hành phải thuộc subscriptionStatuses.
    * lockOrganization: khóa dòng tổ chức FOR UPDATE (cần khi kiểm số chỗ lúc tạo tài khoản).
    */
-  private async assertCanManageAccounts(
+  async assertCanManageAccounts(
     tx: Prisma.TransactionClient,
     organizationId: string,
     options: {
@@ -1759,7 +1913,7 @@ export class UsersService {
   }
 
   /** Thư mời kích hoạt qua outbox (UC12.2, UC12.3, UC13.2, UC13.3). Relay xóa liên kết khỏi payload sau khi gửi. */
-  private enqueueInvitationEmail(
+  enqueueInvitationEmail(
     tx: Prisma.TransactionClient,
     params: {
       organizationId: string;
@@ -1811,7 +1965,7 @@ export class UsersService {
     });
   }
 
-  private seatLimitOf(
+  seatLimitOf(
     subscription: { maxInstructors: number; maxLearners: number },
     role: SeatRole,
   ): number {
@@ -1820,7 +1974,7 @@ export class UsersService {
       : subscription.maxLearners;
   }
 
-  private emailAlreadyUsed(): ConflictException {
+  emailAlreadyUsed(): ConflictException {
     return new ConflictException({
       code: 'EMAIL_ALREADY_USED',
       message: 'Email đã được sử dụng cho một tài khoản khác.',

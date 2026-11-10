@@ -106,6 +106,7 @@ import LayoutInstructor from "./components/layout/layout.instructor";
 import LayoutInstructorCourse from "./components/layout/layout.instructor.course";
 import InstructorDashboard from "./pages/instructor/dashboard";
 import InstructorMyCourses from "./pages/instructor/my.courses";
+import InstructorCourseTrash from "./pages/instructor/course.trash";
 import InstructorCourseCreate from "./pages/instructor/course.create";
 import InstructorCourseDetail from "./pages/instructor/course.detail";
 import InstructorCourseQuotaBlocked from "./pages/instructor/course.quota.blocked";
@@ -385,6 +386,10 @@ export const router = createBrowserRouter([
       { index: true, element: <InstructorDashboard /> },
       { path: "notifications", element: <NotificationPage /> },
       { path: "courses", element: <InstructorMyCourses /> },
+      {
+        path: "courses/trash",
+        element: <InstructorCourseTrash />,
+      },
       { path: "courses/create", element: <InstructorCourseCreate /> },
       {
         path: "courses/create/quota-blocked",

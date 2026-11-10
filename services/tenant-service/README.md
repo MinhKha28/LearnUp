@@ -7,6 +7,18 @@ Port: `8084`
 
 The Prisma schema follows `LearnUP_Database_Guide.docx` service ownership and table boundaries.
 
+## Email verification key (`EMAIL_OTP_SECRET`)
+
+tenant stores the 6-digit email verification codes only as an HMAC with this key (BR-13), so the key must be private to each machine. tenant refuses to start when it is missing, blank or shorter than 32 bytes, and names the variable in the error. Other services and Compose commands that do not start tenant (for example Kafka only) do not need it.
+
+Generate one and add it to the root `.env` (for Docker Compose) and to `services/tenant-service/.env` (for `npm run start:dev`):
+
+```powershell
+node -e "console.log('EMAIL_OTP_SECRET=' + require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+Changing the key invalidates the codes already sent; a Guest asks for a new code. Reopen links do not use this key and keep working. `scripts/inter1-demo.mjs` and `tests/e2e/cluster/start.sh` generate a key for the run when none is set.
+
 ## Email relay (outbox)
 
 Emails are written to `outbox_events` (`event_type = 'EmailRequested'`) in the same transaction as the business data, then sent to notification-service by `EmailRelayService` every second (up to 20 per round, `FOR UPDATE SKIP LOCKED`).
