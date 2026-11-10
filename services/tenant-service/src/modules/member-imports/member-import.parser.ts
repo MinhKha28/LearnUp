@@ -219,13 +219,12 @@ export async function parseMemberImportFile(
     });
   }
 
+  // eachRow chỉ đi qua các dòng có giá trị: một ô định dạng ở dòng 1 048 576 không kéo vòng lặp
+  // (và getRow tạo Row) qua cả triệu dòng trống như khi lặp theo sheet.rowCount.
+  // Ném lỗi trong callback dừng eachRow ngay, nên TOO_MANY_ROWS vẫn dừng sớm.
   const rows: IRawImportRow[] = [];
-  for (
-    let rowNumber = HEADER_ROW + 1;
-    rowNumber <= sheet.rowCount;
-    rowNumber++
-  ) {
-    const row = sheet.getRow(rowNumber);
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber <= HEADER_ROW) return;
     const raw: IRawImportRow = {
       rowNumber,
       fullName: cellText(row, columnOf.fullName),
@@ -236,7 +235,7 @@ export async function parseMemberImportFile(
     const isBlank = [raw.fullName, raw.email, raw.department, raw.role].every(
       (value) => value.trim() === '',
     );
-    if (isBlank) continue;
+    if (isBlank) return;
 
     rows.push(raw);
     if (rows.length > maxRows) {
@@ -246,7 +245,7 @@ export async function parseMemberImportFile(
         maxRows,
       });
     }
-  }
+  });
 
   if (rows.length === 0) {
     throw new BadRequestException({
