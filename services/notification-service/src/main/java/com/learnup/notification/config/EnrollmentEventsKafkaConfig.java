@@ -41,13 +41,22 @@ public class EnrollmentEventsKafkaConfig {
                 .build();
     }
 
+    /** The dead-letter topic of the peer review events, made here for the same reason. */
+    @Bean
+    public NewTopic peerReviewDeadLetterTopic(EnrollmentEventsProperties properties) {
+        return TopicBuilder.name(properties.getPeerReviewDeadLetterTopic())
+                .partitions(properties.getDeadLetterPartitions())
+                .replicas(properties.getDeadLetterReplicas())
+                .build();
+    }
+
     /** Boot puts a CommonErrorHandler bean on the listener container factory. */
     @Bean
     public CommonErrorHandler enrollmentEventsErrorHandler(KafkaTemplate<String, String> template,
                                                            EnrollmentEventsProperties properties) {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template,
                 // Partition -1: the broker chooses, so the dead-letter topic need not have as many partitions.
-                (record, exception) -> new TopicPartition(properties.getDeadLetterTopic(), -1));
+                (record, exception) -> new TopicPartition(properties.deadLetterTopicOf(record.topic()), -1));
 
         // retryAttempts counts the first try, so the pauses are one fewer.
         ExponentialBackOff backOff = new ExponentialBackOff(properties.getRetryInitialBackoff().toMillis(), 2.0);

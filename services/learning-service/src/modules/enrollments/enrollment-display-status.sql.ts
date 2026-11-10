@@ -8,7 +8,10 @@ const SQL_ALIAS = /^[a-z_][a-z0-9_]*$/;
  * tổ chức nào đang mở bắt đầu trước due_at (BR-144); ngược lại là status đã lưu.
  * `alias` là alias của bảng enrollments trong câu truy vấn gọi.
  */
-export function enrollmentDisplayStatusSql(alias: string): Prisma.Sql {
+export function enrollmentDisplayStatusSql(
+  alias: string,
+  now: Prisma.Sql = Prisma.sql`now()`,
+): Prisma.Sql {
   if (!SQL_ALIAS.test(alias)) {
     throw new Error(`Alias SQL không hợp lệ: "${alias}".`);
   }
@@ -16,7 +19,7 @@ export function enrollmentDisplayStatusSql(alias: string): Prisma.Sql {
   return Prisma.sql`CASE
     WHEN ${e}.enrollment_type = 'Required'
       AND ${e}.status IN ('NotStarted', 'InProgress')
-      AND ${e}.due_at <= now()
+      AND ${e}.due_at <= ${now}
       AND NOT EXISTS (
         SELECT 1 FROM organization_suspensions s
          WHERE s.organization_id = ${e}.organization_id

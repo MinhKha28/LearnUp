@@ -70,3 +70,49 @@ export interface ILearnerReviewResult {
   /** The reviews of this Assignment that the Learner still owes in this cycle and can give. */
   remainingInAssignment: number;
 }
+
+/** UC31.2: the state of the peer review duty of the Learner on one Assignment, as learning-service sees it. */
+export type TObligationStatus =
+  'NotApplicable' | 'Pending' | 'Satisfied' | 'Missed' | 'Waived';
+
+export interface IReviewObligation {
+  assignmentId: string;
+  assignmentTitle: string;
+  courseId: string;
+  status: TObligationStatus;
+  /** The reviews handed to the Learner in the latest cycle in which they have any. */
+  requiredCount: number;
+  completedCount: number;
+}
+
+/** UC31.2: one review the Learner gave: the score for the whole work and for each criterion. Nothing says who wrote the work (BR-233). */
+export interface IReviewHistoryItem {
+  id: string;
+  assignmentId: string;
+  assignmentTitle: string;
+  courseId: string;
+  /** The score of the review, on 0-100 (BR-197). */
+  score: number | null;
+  completedAt: string | null;
+  comment: string | null;
+  criteria: {
+    criterionId: string;
+    name: string;
+    points: number;
+    maxPoints: number;
+  }[];
+}
+
+export interface IReviewHistory {
+  /** The duty as a whole, and for each Assignment on which reviews were handed to the Learner. */
+  overall: TObligationStatus;
+  obligations: IReviewObligation[];
+  /** Reviews handed out (latest cycle of each Assignment) and given, summed. */
+  assignedCount: number;
+  completedCount: number;
+  /** The reviews given, newest first: this page, and the number of all of them (of the Assignment asked for, if any). */
+  total: number;
+  page: number;
+  pageSize: number;
+  items: IReviewHistoryItem[];
+}

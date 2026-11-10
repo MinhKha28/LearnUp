@@ -1,0 +1,136 @@
+.course-results-summary {
+  margin: 0 0 16px;
+  color: #334155;
+  font-size: 14px;
+}
+
+.course-results-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 700px) {
+  .course-results-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.course-results-list {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.course-results-item {
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  header strong {
+    display: block;
+    color: #0f172a;
+    font-size: 15px;
+  }
+
+  header small {
+    color: #64748b;
+    font-size: 12px;
+  }
+}
+
+.course-results-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.course-results-score {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.course-results-number {
+  color: #0f172a;
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+
+  small {
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 500;
+  }
+}
+
+.course-results-passing {
+  color: #475569;
+  font-size: 13px;
+}
+
+.course-results-bar {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.course-results-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
+.course-results-fill-success {
+  background: #16a34a;
+}
+
+.course-results-fill-error {
+  background: #dc2626;
+}
+
+.course-results-fill-warning {
+  background: #f59e0b;
+}
+
+.course-results-mark {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 16px;
+  background: #0f172a;
+}
+
+.course-results-gap {
+  margin: 10px 0 4px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.course-results-attempts {
+  margin: 0 0 10px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.course-results-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}

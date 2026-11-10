@@ -125,19 +125,27 @@ function build(over: Partial<World> = {}) {
       throw new Error('not used');
     }
     setAssignmentMinutes(): Promise<void> {
-    return Promise.resolve();
-  }
-  getModuleIds(): Promise<string[] | null> {
+      return Promise.resolve();
+    }
+    getModuleIds(): Promise<string[] | null> {
       if (world.moduleIds === 'down') {
         return Promise.reject(new ServiceUnavailableException());
       }
       return Promise.resolve(world.moduleIds);
+    }
+
+    /** UC21.2: legacy test stubs must never grant Organizer review access. */
+    verifyOrganizerReviewAccess(): Promise<void> {
+      return Promise.reject(
+        new ServiceUnavailableException('Organizer review access is unavailable in this test stub.'),
+      );
     }
   }
   const service = new LearnerAssessmentsService(
     repository,
     new StubEnrollments(),
     new StubCourses(),
+    { settleExpired: () => Promise.resolve(0) } as never,
   );
   service.clock = () => NOW;
   return { service, world };

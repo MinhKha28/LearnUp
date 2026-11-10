@@ -12,11 +12,13 @@ import './assignment-reads.integration-test';
 import './assignment-changes.integration-test';
 import './optional-withdrawal.integration-test';
 import './learner-enrollment-summary.integration-test';
+import './platform-settings.integration-test';
 import './video-progress.integration-test';
 import './outbox-relay.integration-test';
 
 import './assessment-access.integration-test';
 import './course-completion.integration-test';
+import './assessment-results.integration-test';
 import './reading-completion.integration-test';
 
 import './deadline-timezone-migration.integration-test';
