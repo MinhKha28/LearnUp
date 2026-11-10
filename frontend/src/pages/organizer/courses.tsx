@@ -333,15 +333,29 @@ const OrganizationCourses = () => {
       key: "action",
       width: 100,
       align: "right",
-      render: (_, course) => (
-        <button
-          type="button"
-          className="organizer-course-action"
-          onClick={() => navigate(`/organizer/courses/${course.id}`)}
-        >
-          View
-        </button>
-      ),
+      render: (_, course) => {
+        const isPendingApproval =
+          status === "Submitted" && course.status === "Submitted";
+
+        const handleViewCourse = () => {
+          if (isPendingApproval) {
+            navigate(`/organizer/courses/${course.id}/review`);
+            return;
+          }
+
+          navigate(`/organizer/courses/${course.id}`);
+        };
+
+        return (
+          <button
+            type="button"
+            className="organizer-course-action"
+            onClick={handleViewCourse}
+          >
+            {isPendingApproval ? "Review" : "View"}
+          </button>
+        );
+      },
     },
   ];
 

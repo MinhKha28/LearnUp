@@ -4,6 +4,7 @@ import type {
   IAccountListItem,
   IAccountListQuery,
   IChangeAccountStatusReq,
+  IChangeLearnerStatusReq,
   ICreateAccountReq,
   ICreateRegistrationReq,
   ICreateRegistrationRes,
@@ -16,6 +17,7 @@ import type {
   IInstructorStatusResult,
   ILearnerDetail,
   ILearnerListItem,
+  ILearnerStatusResult,
   IOrganizationProfile,
   IUpdateOrganizationReq,
   IPaymentResult,
@@ -254,6 +256,16 @@ export const changeInstructorStatusAPI = (
 ) =>
   axios.patch<IBackendRes<IInstructorStatusResult>>(
     `/api/v1/users/instructors/${encodeURIComponent(instructorId)}/status`,
+    body,
+  );
+
+// UC13.5 - vô hiệu hóa hoặc kích hoạt lại Learner
+export const changeLearnerStatusAPI = (
+  learnerId: string,
+  body: IChangeLearnerStatusReq,
+) =>
+  axios.patch<IBackendRes<ILearnerStatusResult>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}/status`,
     body,
   );
 

@@ -175,7 +175,29 @@ const columns: ColumnsType<IInstructorLessonMaterial> = [
 // Hiển thị nội dung khi đã nhận dữ liệu thành công.
 const MaterialsContent = ({ data }: { data: IInstructorLessonDetail }) => {
   const materials = data.materials;
+  const navigate = useNavigate();
 
+  const columnsWithActions: ColumnsType<IInstructorLessonMaterial> = [
+    ...columns,
+    {
+      title: "Actions",
+      key: "actions",
+      width: 100,
+      render: (_, material) => (
+        <InstructorButton
+          onClick={() =>
+            navigate(
+              `/instructor/courses/${data.course.id}` +
+                `/builder/lessons/${data.lesson.id}` +
+                `/materials/${material.id}/edit`,
+            )
+          }
+        >
+          Edit
+        </InstructorButton>
+      ),
+    },
+  ];
   const videoCount = materials.filter(
     (material) => material.materialType === "Video",
   ).length;
@@ -257,7 +279,7 @@ const MaterialsContent = ({ data }: { data: IInstructorLessonDetail }) => {
 
         <Table<IInstructorLessonMaterial>
           rowKey="id"
-          columns={columns}
+          columns={columnsWithActions}
           dataSource={materials}
           pagination={false}
           size="middle"

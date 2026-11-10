@@ -1,3 +1,4 @@
+import { afterAll, afterEach, beforeAll, describe, expect, it } from '@jest/globals';
 import { Test } from '@nestjs/testing';
 import {
   INestApplication,
@@ -83,6 +84,47 @@ describe('Course values (HTTP and real database)', () => {
       expect(row.courseType).toBe(courseType);
     },
   );
+
+  it('syncs Assignment minutes in Trash and keeps them after restore', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/courses')
+      .set(headers)
+      .send(payload)
+      .expect(201);
+    const id: string = created.body.id;
+    const deletedAt = new Date();
+    await prisma.course.update({
+      where: { id },
+      data: { deletedAt, deletedBy: instructorId, assignmentMinutes: 10 },
+    });
+
+    const updated = await request(app.getHttpServer())
+      .post(`/api/v1/internal/courses/${id}/assignment-minutes`)
+      .set(headers)
+      .send({ minutes: 25 })
+      .expect(200);
+    expect(updated.body).toMatchObject({
+      courseId: id,
+      assignmentMinutes: 25,
+    });
+    expect(await prisma.course.findUniqueOrThrow({ where: { id } })).toMatchObject({
+      assignmentMinutes: 25,
+      assignmentMinutesAsOf: new Date(updated.body.assignmentMinutesAsOf),
+      deletedAt,
+      deletedBy: instructorId,
+    });
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/courses/${id}/restore`)
+      .set(headers)
+      .expect(201);
+    expect(await prisma.course.findUniqueOrThrow({ where: { id } })).toMatchObject({
+      status: 'Draft',
+      assignmentMinutes: 25,
+      deletedAt: null,
+      deletedBy: null,
+    });
+  });
 
   it.each(['PUBLIC', 'PRIVATE'])(
     'rejects uppercase create courseType %s',
