@@ -2533,4 +2533,59 @@ export class CoursesRepository {
       select: { id: true },
     });
   }
+
+  async withdrawCourseSubmission(data: {
+    courseId: string;
+    organizationId: string;
+    instructorId: string;
+    expectedUpdatedAt: Date;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      const expectedMs = data.expectedUpdatedAt.getTime();
+
+      const updated = await tx.course.updateMany({
+        where: {
+          id: data.courseId,
+          organizationId: data.organizationId,
+          deletedAt: null,
+          chain: {
+            instructorId: data.instructorId,
+          },
+          status: COURSE_STATUS.SUBMITTED,
+          updatedAt: {
+            gte: new Date(expectedMs),
+            lt: new Date(expectedMs + 1),
+          },
+        },
+        data: {
+          status: COURSE_STATUS.DRAFT,
+          submittedAt: null,
+        },
+      });
+
+      if (updated.count !== 1) {
+        return {
+          status: 'CONFLICT' as const,
+        };
+      }
+
+      const course = await tx.course.findUniqueOrThrow({
+        where: {
+          id: data.courseId,
+        },
+        select: {
+          id: true,
+          name: true,
+          versionNumber: true,
+          status: true,
+          submittedAt: true,
+        },
+      });
+
+      return {
+        status: 'WITHDRAWN' as const,
+        course,
+      };
+    });
+  }
 }
