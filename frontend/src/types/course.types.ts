@@ -397,3 +397,24 @@ export interface ISubmitCourseResponse {
   status: CourseStatus;
   submittedAt: string;
 }
+
+export interface IUpdateMaterialRequest {
+  title?: string;
+  isRequired?: boolean;
+}
+
+export interface IUpdateMaterialResponse {
+  id: string;
+  title: string;
+  isRequired: boolean;
+}
+
+export interface ITechnicalReplacementResponse {
+  materialId: string;
+  fileId: string;
+  storageKey: string;
+  sizeBytes: string;
+  durationSeconds: number | null;
+  wordCount: number | null;
+  extractionWarning: string | null;
+}

@@ -10,6 +10,7 @@ import {
   UploadedFile,
   Put,
   Delete,
+  Patch,
 } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '@common/decorator/customize';
@@ -31,6 +32,7 @@ import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
 import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
 import { memoryStorage } from 'multer';
 import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
+import { UpdateMaterialDto } from './dto/update-material.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -304,5 +306,54 @@ export class CoursesController {
     @Param('courseId', ParseUUIDPipe) courseId: string,
   ) {
     return this.coursesService.submitCourseForApproval(user, courseId);
+  }
+
+  @Patch(':courseId/lessons/:lessonId/materials/:materialId')
+  @ResponseMessage('Learning material updated successfully')
+  updateMaterial(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+    @Param('materialId', ParseUUIDPipe) materialId: string,
+    @Body() dto: UpdateMaterialDto,
+  ) {
+    return this.coursesService.updateMaterial(
+      user,
+      courseId,
+      lessonId,
+      materialId,
+      dto,
+    );
+  }
+
+  @Post(
+    ':courseId/lessons/:lessonId/materials/:materialId/technical-replacement',
+  )
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: VIDEO_UPLOAD_BUFFER_MAX_BYTES,
+        files: 1,
+        fields: 0,
+        parts: 1,
+      },
+    }),
+  )
+  @ResponseMessage('Learning material file replaced successfully')
+  replaceTechnicalFile(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+    @Param('materialId', ParseUUIDPipe) materialId: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.coursesService.replaceTechnicalFile(
+      user,
+      courseId,
+      lessonId,
+      materialId,
+      file,
+    );
   }
 }

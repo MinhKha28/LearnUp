@@ -45,12 +45,19 @@ const tx = {
     create: mockAsync(),
     updateMany: mockAsync(),
   },
-  material: { count: mockAsync(), create: mockAsync() },
+  material: {
+    count: mockAsync(),
+    create: mockAsync(),
+    findFirst: mockAsync(),
+    update: mockAsync(),
+  },
   mediaFile: {
+    aggregate: mockAsync(),
     updateMany: mockAsync(),
     findUniqueOrThrow: mockAsync(),
     create: mockAsync(),
   },
+  platformSetting: { findFirst: mockAsync() },
   outboxEvent: { create: mockAsync() },
 };
 const prisma = {
@@ -67,10 +74,11 @@ const assessment = {
   getCourseQuizzes: mockAsync(),
 };
 const storage = { delete: mockAsync(), upload: mockAsync() };
+const tenant = { getInstructorMaterialUploadPolicy: mockAsync() };
 const repository = new CoursesRepository(prisma as unknown as PrismaService);
 const service = new CoursesService(
   repository,
-  {} as TenantClient,
+  tenant as unknown as TenantClient,
   learning as unknown as LearningClient,
   assessment as unknown as AssessmentClient,
   {} as NotificationClient,
@@ -438,6 +446,15 @@ const material = {
   },
 };
 
+const materialId = '01900000-0000-7000-8000-00000000c005';
+const replacementBuffer = Buffer.from('0000ftyp0000');
+const replacementVideo = {
+  buffer: replacementBuffer,
+  size: replacementBuffer.length,
+  originalname: 'replacement.mp4',
+  mimetype: 'video/mp4',
+} as Express.Multer.File;
+
 describe('BR-340 write guard', () => {
   const inTrash = { status: 409, response: { code: 'COURSE_IN_TRASH' } };
 
@@ -447,6 +464,7 @@ describe('BR-340 write guard', () => {
     expect(tx.lesson.create).not.toHaveBeenCalled();
     expect(tx.lesson.updateMany).not.toHaveBeenCalled();
     expect(tx.material.create).not.toHaveBeenCalled();
+    expect(tx.material.update).not.toHaveBeenCalled();
     expect(tx.mediaFile.create).not.toHaveBeenCalled();
     expect(tx.outboxEvent.create).not.toHaveBeenCalled();
     expect(learning.hasAnyLearnerCompletedLesson).not.toHaveBeenCalled();
@@ -562,6 +580,99 @@ describe('BR-340 write guard', () => {
       expectNoWrite();
     },
   );
+
+  it('rejects material metadata edits while the Course is in Trash', async () => {
+    tx.$queryRaw.mockResolvedValue([{ deletedAt: new Date() }]);
+
+    await expect(
+      service.updateMaterial(owner, courseId, lessonId, materialId, {
+        title: 'Updated title',
+      }),
+    ).rejects.toMatchObject(inTrash);
+    expect(tx.$queryRaw).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.stringContaining('FOR UPDATE OF c')]),
+      courseId,
+      organizationId,
+      instructorId,
+    );
+    expectNoWrite();
+  });
+
+  function replaceVideo() {
+    return service.replaceTechnicalFile(
+      owner,
+      courseId,
+      lessonId,
+      materialId,
+      replacementVideo,
+    );
+  }
+
+  it('rejects a file replacement for a trashed Course before upload', async () => {
+    tx.material.findFirst.mockResolvedValue({
+      lesson: { module: { course: trashedCourse() } },
+    });
+
+    await expect(replaceVideo()).rejects.toMatchObject(inTrash);
+    expectNoWrite();
+  });
+
+  it('rejects a Course trashed during replacement and deletes the new upload', async () => {
+    const replacementFile = {
+      storageKey: 'test/replacement',
+      resourceType: 'video',
+      deliveryType: 'authenticated',
+      sizeBytes: replacementVideo.size,
+      durationSeconds: 1,
+      format: 'mp4',
+    };
+    tx.material.findFirst.mockResolvedValue({
+      materialType: 'Video',
+      file: {
+        status: 'Ready',
+        releasedAt: null,
+        sizeBytes: 12n,
+        storageKey: 'test/original',
+      },
+      lesson: {
+        disabledAt: null,
+        module: {
+          course: { status: 'Draft', disabledAt: null, deletedAt: null },
+        },
+      },
+    });
+    tx.platformSetting.findFirst.mockResolvedValue({
+      maxVideoSizeBytes: 1000n,
+      maxVideoDurationMinutes: 1,
+      allowedVideoMimeTypes: ['video/mp4'],
+    });
+    tx.mediaFile.aggregate.mockResolvedValue({ _sum: { sizeBytes: 12n } });
+    tenant.getInstructorMaterialUploadPolicy.mockResolvedValue({
+      canUpload: true,
+      maxStorageBytes: 1000,
+    });
+    storage.upload.mockImplementation(async () => {
+      tx.$queryRaw
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ deletedAt: new Date() }]);
+      return replacementFile;
+    });
+
+    await expect(replaceVideo()).rejects.toMatchObject(inTrash);
+    expect(tx.$queryRaw).toHaveBeenLastCalledWith(
+      expect.arrayContaining([expect.stringContaining('FOR UPDATE OF c')]),
+      courseId,
+      organizationId,
+      instructorId,
+    );
+    expect(tx.material.update).not.toHaveBeenCalled();
+    expect(tx.mediaFile.updateMany).not.toHaveBeenCalled();
+    expect(storage.delete).toHaveBeenCalledTimes(1);
+    expect(storage.delete).toHaveBeenCalledWith(replacementFile.storageKey, {
+      resourceType: 'video',
+      deliveryType: 'authenticated',
+    });
+  });
 
   it('returns the trash error when the Course moves to Trash during submission', async () => {
     const course = {

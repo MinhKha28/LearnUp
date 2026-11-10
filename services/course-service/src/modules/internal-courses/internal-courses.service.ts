@@ -570,6 +570,7 @@ export class InternalCoursesService {
         format: isVideo ? file.storageFormat : '',
         deliveryType: 'authenticated',
         expiresAt: expiresAtSeconds,
+        ...(isReading ? { attachment: true } : {}),
       });
 
       return {

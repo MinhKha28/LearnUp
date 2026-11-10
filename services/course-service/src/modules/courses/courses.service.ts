@@ -27,6 +27,8 @@ import { LearningClient } from '@infra/clients/learning/learning.client';
 import { Prisma } from '@generated/prisma/browser';
 import { STORAGE_PROVIDER } from '@/infrastructure/storage/storage.constants';
 import {
+  effectiveUploadLimit,
+  resolveStoragePlanLimits,
   StorageProviderError,
   StorageValidationError,
   type IStorageProvider,
@@ -44,6 +46,8 @@ import { AssessmentClient } from '@/infrastructure/clients/assessment/assessment
 import { NotificationClient } from '@/infrastructure/clients/notification/notification.client';
 import { assertCourseNotInTrash, getPurgeAt } from './course-trash.constants';
 import { Interval } from '@nestjs/schedule';
+import { UpdateMaterialDto } from './dto/update-material.dto';
+import { randomUUID } from 'node:crypto';
 
 @Injectable()
 export class CoursesService {
@@ -1579,8 +1583,13 @@ export class CoursesService {
         },
         {
           folder: `learnup/${organizationId}/courses/readings`,
+
+          // C19: Cloudinary raw public IDs must retain .pdf.
+          publicId: `${randomUUID()}.pdf`,
+
           resourceType: 'raw',
           deliveryType: 'authenticated',
+          overwrite: false,
           validation: {
             maxSizeBytes: Number(maxBytes),
             allowedMimeTypes: ['application/pdf'],
@@ -2080,6 +2089,492 @@ export class CoursesService {
           job.id,
           error instanceof Error ? error.message : 'Unknown cleanup error',
         );
+      }
+    }
+  }
+
+  async updateMaterial(
+    user: CurrentUser,
+    courseId: string,
+    lessonId: string,
+    materialId: string,
+    dto: UpdateMaterialDto,
+  ) {
+    if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
+      throw new ForbiddenException(
+        'Only Instructor can update learning materials.',
+      );
+    }
+
+    if (dto.title === undefined && dto.isRequired === undefined) {
+      throw new BadRequestException('No changes were provided.');
+    }
+
+    const title = dto.title?.trim();
+
+    if (title !== undefined && (!title || title.length > 200)) {
+      throw new BadRequestException('Invalid material title.');
+    }
+
+    const result = await this.coursesRepository.updateMaterialMetadata({
+      organizationId: user.organizationId,
+      instructorId: user.userId,
+      courseId,
+      lessonId,
+      materialId,
+      title,
+      isRequired: dto.isRequired,
+    });
+
+    switch (result.status) {
+      case 'NOT_FOUND':
+        throw new NotFoundException('Learning material not found.');
+
+      case 'SUBMITTED':
+        throw new ConflictException('Submitted Course cannot be edited.');
+
+      case 'NOT_EDITABLE':
+        throw new ConflictException('Course or Lesson cannot be edited.');
+
+      case 'LOCKED_REQUIRED':
+        throw new ConflictException(
+          'Required setting cannot be changed after Course is Locked.',
+        );
+
+      case 'UPDATED':
+        return result.material;
+    }
+  }
+
+  async replaceTechnicalFile(
+    user: CurrentUser,
+    courseId: string,
+    lessonId: string,
+    materialId: string,
+    file?: Express.Multer.File,
+  ) {
+    // 1. Phân quyền Instructor.
+    if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
+      throw new ForbiddenException(
+        'Only Instructor can replace learning material files.',
+      );
+    }
+
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Replacement file is required.');
+    }
+
+    if (
+      !Number.isSafeInteger(file.size) ||
+      file.size <= 0 ||
+      file.originalname.length > 255
+    ) {
+      throw new BadRequestException('Invalid replacement file.');
+    }
+
+    const organizationId = user.organizationId;
+
+    // 2. Lấy Material và xác minh quyền sở hữu.
+    const material = await this.coursesRepository.findMaterialForUpdate(
+      organizationId,
+      user.userId,
+      courseId,
+      lessonId,
+      materialId,
+    );
+
+    if (!material) {
+      throw new NotFoundException('Learning material not found.');
+    }
+
+    const course = material.lesson.module.course;
+    assertCourseNotInTrash(course.deletedAt);
+
+    // 3. Kiểm tra trạng thái Course.
+    if (course.status === COURSE_STATUS.SUBMITTED) {
+      throw new ConflictException('Submitted Course cannot be edited.');
+    }
+
+    if (
+      ![
+        COURSE_STATUS.DRAFT,
+        COURSE_STATUS.REJECTED,
+        COURSE_STATUS.PUBLISHED,
+      ].includes(
+        course.status as
+          | typeof COURSE_STATUS.DRAFT
+          | typeof COURSE_STATUS.REJECTED
+          | typeof COURSE_STATUS.PUBLISHED,
+      ) ||
+      course.disabledAt !== null ||
+      material.lesson.disabledAt !== null
+    ) {
+      throw new ConflictException('Course or Lesson cannot be edited.');
+    }
+
+    // Course Locked không chặn Technical Replacement.
+
+    if (material.file.status !== 'Ready' || material.file.releasedAt !== null) {
+      throw new ConflictException('Current material file is unavailable.');
+    }
+
+    // 4. Xác định loại Material.
+    const isVideo = material.materialType === 'Video';
+    const isReading = material.materialType === 'Reading';
+
+    if (!isVideo && !isReading) {
+      throw new BadRequestException('Unsupported learning material type.');
+    }
+
+    // 5. Lấy Platform Settings theo loại file.
+    const videoSettings = isVideo
+      ? await this.coursesRepository.getVideoSettings()
+      : null;
+
+    const readingSettings = isReading
+      ? await this.coursesRepository.getReadingSettings()
+      : null;
+
+    if (isVideo && !videoSettings) {
+      throw new ServiceUnavailableException(
+        'Platform Video settings are unavailable.',
+      );
+    }
+
+    if (isReading && !readingSettings) {
+      throw new ServiceUnavailableException(
+        'Platform Reading settings are unavailable.',
+      );
+    }
+
+    // 6. Kiểm tra dung lượng, MIME và file signature.
+    let maxBytes: bigint;
+    let expectedVideoFormat: string | null = null;
+    let wordCount: number | null = null;
+    let extractionWarning: string | null = null;
+    const storagePlanLimits = resolveStoragePlanLimits(process.env);
+
+    if (isVideo && videoSettings) {
+      const productLimit =
+        videoSettings.maxVideoSizeBytes < BigInt(VIDEO_UPLOAD_BUFFER_MAX_BYTES)
+          ? videoSettings.maxVideoSizeBytes
+          : BigInt(VIDEO_UPLOAD_BUFFER_MAX_BYTES);
+
+      maxBytes = BigInt(
+        effectiveUploadLimit(Number(productLimit), storagePlanLimits, 'video'),
+      );
+
+      if (!videoSettings.allowedVideoMimeTypes.includes(file.mimetype)) {
+        throw new BadRequestException('Video MIME type is not allowed.');
+      }
+
+      // Tái sử dụng validation của UC17.1.
+      expectedVideoFormat = this.validateVideoSignature(file);
+    } else if (isReading && readingSettings) {
+      const productLimit =
+        readingSettings.maxReadingSizeBytes <
+        BigInt(READING_UPLOAD_BUFFER_MAX_BYTES)
+          ? readingSettings.maxReadingSizeBytes
+          : BigInt(READING_UPLOAD_BUFFER_MAX_BYTES);
+
+      maxBytes = BigInt(
+        effectiveUploadLimit(Number(productLimit), storagePlanLimits, 'raw'),
+      );
+
+      if (
+        file.mimetype !== 'application/pdf' ||
+        !readingSettings.allowedReadingMimeTypes.includes(file.mimetype)
+      ) {
+        throw new BadRequestException(
+          'Only configured PDF Reading files are supported.',
+        );
+      }
+
+      // Kiểm tra signature PDF như UC17.2.
+      if (
+        file.buffer.length < 8 ||
+        file.buffer.toString('ascii', 0, 5) !== '%PDF-'
+      ) {
+        throw new BadRequestException('Invalid PDF file signature.');
+      }
+
+      // Trích xuất word count.
+      try {
+        const extraction = await extractReadingText(file.buffer);
+
+        wordCount = extraction.wordCount;
+        extractionWarning = extraction.extractionWarning;
+      } catch {
+        throw new BadRequestException('Unable to read replacement PDF.');
+      }
+    } else {
+      throw new BadRequestException('Unsupported replacement type.');
+    }
+
+    if (BigInt(file.size) > maxBytes) {
+      throw new PayloadTooLargeException({
+        statusCode: 413,
+        code: 'FILE_TOO_LARGE',
+        message: 'Replacement exceeds the allowed size.',
+      });
+    }
+
+    // 7. Kiểm tra Subscription theo cơ chế upload hiện có.
+    const policy =
+      await this.tenantClient.getInstructorMaterialUploadPolicy(user);
+
+    if (!policy.canUpload) {
+      throw new ForbiddenException('Subscription does not allow file uploads.');
+    }
+
+    // 8. Kiểm tra quota sơ bộ.
+    // Transaction sẽ kiểm tra lại lần cuối.
+    const usedBytes =
+      await this.coursesRepository.getOrganizationStoredBytes(organizationId);
+
+    const expectedUsage =
+      usedBytes - material.file.sizeBytes + BigInt(file.size);
+
+    if (expectedUsage > BigInt(policy.maxStorageBytes)) {
+      throw new ConflictException('Insufficient Subscription storage.');
+    }
+
+    let storedFile: IStoredFile | null = null;
+    let committed = false;
+
+    try {
+      // 9. Upload file mới lên Cloudinary.
+      // Không overwrite storageKey hiện tại.
+      storedFile = await this.storage.upload(
+        {
+          buffer: file.buffer,
+          originalFilename: file.originalname,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+        },
+
+        {
+          folder: isVideo
+            ? `learnup/${organizationId}/courses/videos`
+            : `learnup/${organizationId}/courses/readings`,
+
+          // C19: Only Reading needs an extension in the raw public ID.
+          ...(isReading ? { publicId: `${randomUUID()}.pdf` } : {}),
+
+          resourceType: isVideo ? 'video' : 'raw',
+          deliveryType: 'authenticated',
+          overwrite: false,
+          validation: {
+            maxSizeBytes: Number(maxBytes),
+            allowedMimeTypes: isVideo
+              ? videoSettings!.allowedVideoMimeTypes
+              : ['application/pdf'],
+          },
+        },
+      );
+
+      // 10. Kiểm tra metadata Cloudinary.
+      let durationSeconds: number | null = null;
+
+      if (isVideo && videoSettings) {
+        const duration = storedFile.durationSeconds;
+
+        if (
+          storedFile.resourceType !== 'video' ||
+          storedFile.deliveryType !== 'authenticated' ||
+          storedFile.format?.toLowerCase() !== expectedVideoFormat ||
+          duration === undefined ||
+          !Number.isInteger(duration) ||
+          duration <= 0
+        ) {
+          throw new BadRequestException('Invalid replacement Video metadata.');
+        }
+
+        if (duration > videoSettings.maxVideoDurationMinutes * 60) {
+          throw new BadRequestException(
+            'Video exceeds maximum allowed duration.',
+          );
+        }
+
+        durationSeconds = duration;
+      }
+
+      if (
+        isReading &&
+        (storedFile.resourceType !== 'raw' ||
+          storedFile.deliveryType !== 'authenticated')
+      ) {
+        throw new BadRequestException('Invalid replacement Reading metadata.');
+      }
+
+      if (storedFile.sizeBytes <= 0) {
+        throw new BadRequestException('Invalid uploaded replacement size.');
+      }
+
+      if (BigInt(storedFile.sizeBytes) > maxBytes) {
+        throw new PayloadTooLargeException({
+          statusCode: 413,
+          code: 'FILE_TOO_LARGE',
+          message: 'Uploaded replacement exceeds the size limit.',
+        });
+      }
+
+      // 11. Đảm bảo file mới không dùng lại storageKey cũ.
+      if (storedFile.storageKey === material.file.storageKey) {
+        throw new ConflictException('Replacement must use a new storage key.');
+      }
+
+      // 12. Kiểm tra Subscription lần cuối.
+      const latestPolicy =
+        await this.tenantClient.getInstructorMaterialUploadPolicy(user);
+
+      if (!latestPolicy.canUpload) {
+        throw new ForbiddenException('Subscription no longer allows uploads.');
+      }
+
+      // 13. Commit replacement.
+      const result = await this.coursesRepository.commitTechnicalReplacement({
+        organizationId,
+        instructorId: user.userId,
+        courseId,
+        lessonId,
+        materialId,
+        expectedFileId: material.fileId,
+        expectedStorageKey: material.file.storageKey,
+        maxStorageBytes: BigInt(latestPolicy.maxStorageBytes),
+        replacement: {
+          storageKey: storedFile.storageKey,
+          originalFilename: file.originalname,
+          mimeType: file.mimetype,
+          sizeBytes: storedFile.sizeBytes,
+          deliveryType: storedFile.deliveryType,
+          storageFormat: storedFile.format ?? '',
+          durationSeconds,
+          wordCount,
+        },
+      });
+
+      // 14. Xử lý các status từ Repository.
+      switch (result.status) {
+        case 'NOT_FOUND':
+          throw new NotFoundException('Learning material not found.');
+
+        case 'SUBMITTED':
+          throw new ConflictException('Submitted Course cannot be edited.');
+
+        case 'NOT_EDITABLE':
+          throw new ConflictException('Course or Lesson cannot be edited.');
+
+        case 'STALE_FILE':
+          throw new ConflictException(
+            'Material file was modified concurrently. Reload and try again.',
+          );
+
+        case 'INVALID_REPLACEMENT':
+          throw new BadRequestException('Invalid replacement file metadata.');
+
+        case 'QUOTA_EXCEEDED':
+          throw new ConflictException('Insufficient Subscription storage.');
+
+        case 'REPLACED':
+          // DB transaction đã commit.
+          // Từ đây không được xóa storedFile mới.
+          committed = true;
+
+          this.logger.log(
+            JSON.stringify({
+              action: 'COURSE_MATERIAL_TECHNICAL_REPLACEMENT',
+              organizationId,
+              actorId: user.userId,
+              courseId,
+              lessonId,
+              materialId,
+              fileId: result.fileId,
+              previousStorageKey: result.oldFile.storageKey,
+              newStorageKey: result.storageKey,
+              outcome: 'SUCCESS',
+            }),
+          );
+
+          // 15. Dọn file Cloudinary cũ sau commit.
+          // Đây là best-effort cleanup, không thuộc DB transaction.
+          try {
+            const deliveryType = result.oldFile.deliveryType;
+
+            if (
+              deliveryType !== 'upload' &&
+              deliveryType !== 'authenticated' &&
+              deliveryType !== 'private'
+            ) {
+              throw new Error(`Unsupported delivery type: ${deliveryType}`);
+            }
+            await this.storage.delete(result.oldFile.storageKey, {
+              resourceType: result.oldFile.resourceType,
+              deliveryType,
+            });
+          } catch (cleanupError) {
+            console.error('Technical replacement old-file cleanup failed:', {
+              materialId,
+              fileId: result.fileId,
+              storageKey: result.oldFile.storageKey,
+              error:
+                cleanupError instanceof Error
+                  ? cleanupError.message
+                  : String(cleanupError),
+            });
+          }
+
+          return {
+            materialId,
+            fileId: result.fileId,
+            storageKey: result.storageKey,
+            sizeBytes: result.sizeBytes,
+            durationSeconds: result.durationSeconds,
+            wordCount: result.wordCount,
+            extractionWarning,
+          };
+      }
+    } catch (error) {
+      if (error instanceof StorageValidationError) {
+        throw new BadRequestException(error.message);
+      }
+
+      if (error instanceof StorageProviderError) {
+        if (error.code === 'TOO_LARGE') {
+          throw new PayloadTooLargeException({
+            statusCode: 413,
+            code: 'FILE_TOO_LARGE',
+            message: 'Replacement exceeds the storage upload limit.',
+          });
+        }
+
+        throw new ServiceUnavailableException(
+          'Unable to upload replacement file.',
+        );
+      }
+
+      throw error;
+    } finally {
+      // 16. Nếu DB chưa commit, dọn file mới.
+      if (storedFile && !committed) {
+        try {
+          // Không xóa key cũ trong nhánh bù trừ.
+          if (storedFile.storageKey !== material.file.storageKey) {
+            await this.storage.delete(storedFile.storageKey, {
+              resourceType: storedFile.resourceType,
+              deliveryType: storedFile.deliveryType,
+            });
+          }
+        } catch (cleanupError) {
+          console.error('Technical replacement uploaded-file cleanup failed:', {
+            materialId,
+            storageKey: storedFile.storageKey,
+            error:
+              cleanupError instanceof Error
+                ? cleanupError.message
+                : String(cleanupError),
+          });
+        }
       }
     }
   }
