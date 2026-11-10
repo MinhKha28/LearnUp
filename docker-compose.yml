@@ -8,7 +8,7 @@ services:
     container_name: learnup-postgres
     environment:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set a private database password}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-}
       POSTGRES_DB: identity_db
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
@@ -22,6 +22,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "127.0.0.1:8025:8025"
+    networks:
+      - learnup-network
 
   # ==============================================================================
   # Message Broker Infrastructure
@@ -98,8 +105,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      JWT_SECRET: ${JWT_SECRET:?Set a private random JWT_SECRET of at least 32 bytes}
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
+      JWT_SECRET: ${JWT_SECRET:-}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       TENANT_SERVICE_URL: http://tenant-service:8084
       COURSE_SERVICE_URL: http://course-service:8083
       LEARNING_SERVICE_URL: http://learning-service:8085
@@ -137,14 +144,14 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/identity_db
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Set a private database password}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      JWT_SECRET: ${JWT_SECRET:?Set a private random JWT_SECRET of at least 32 bytes}
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
+      JWT_SECRET: ${JWT_SECRET:-}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
       TENANT_SERVICE_URL: http://tenant-service:8084
       NOTIFICATION_SERVICE_URL: http://notification-service:8082
-      PASSWORD_RECOVERY_FRONTEND_BASE_URL: ${PASSWORD_RECOVERY_FRONTEND_BASE_URL:?Set the trusted frontend origin for recovery links}
+      PASSWORD_RECOVERY_FRONTEND_BASE_URL: ${PASSWORD_RECOVERY_FRONTEND_BASE_URL:-}
       # Automatic Identity-only demo accounts are retired; Tenant owns account provisioning.
       LEARNUP_SEED_ENABLED: "false"
     depends_on:
@@ -175,18 +182,18 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Set a private database password}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-localhost}
-      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-mailpit}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-1025}
       SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
       SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
       SPRING_MAIL_SMTP_AUTH: ${SPRING_MAIL_SMTP_AUTH:-false}
       SPRING_MAIL_SMTP_STARTTLS_ENABLE: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:-false}
       MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
-      LEARNUP_MAIL_ENABLED: ${LEARNUP_MAIL_ENABLED:-false}
+      LEARNUP_MAIL_ENABLED: ${LEARNUP_MAIL_ENABLED:-true}
       LEARNUP_MAIL_FROM: ${LEARNUP_MAIL_FROM:-noreply@learnup.com}
       # Consumer of the learning enrollment events (e-mail and in-app notice to the Learner).
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -214,6 +221,8 @@ services:
       TENANT_SERVICE_URL: http://tenant-service:8084
       COURSE_SERVICE_URL: http://course-service:8083
     depends_on:
+      mailpit:
+        condition: service_started
       postgres:
         condition: service_healthy
       eureka-server:
@@ -243,9 +252,9 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/audit_db
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Set a private database password}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -275,8 +284,8 @@ services:
       - "127.0.0.1:8084:8084"
     environment:
       PORT: 8084
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:?Set a private database password}@postgres:5432/tenant_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-}@postgres:5432/tenant_db?schema=public
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       FRONTEND_URL: http://localhost:3000
       IDENTITY_SERVICE_URL: http://identity-service:8081
       NOTIFICATION_SERVICE_URL: http://notification-service:8082
@@ -286,6 +295,7 @@ services:
       COURSE_SERVICE_TIMEOUT_MS: 3000
       LEARNING_SERVICE_URL: http://learning-service:8085
       LEARNING_SERVICE_TIMEOUT_MS: 3000
+      LEARNING_CLIENT_MODE: http
       EMAIL_OTP_SECRET: ${EMAIL_OTP_SECRET:-}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
@@ -308,8 +318,8 @@ services:
       - "127.0.0.1:8089:8083"
     environment:
       PORT: 8083
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:?Set a private database password}@postgres:5432/course_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-}@postgres:5432/course_db?schema=public
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       TENANT_SERVICE_URL: http://tenant-service:8084
       LEARNING_SERVICE_URL: http://learning-service:8085
       ASSESSMENT_SERVICE_URL: http://assessment-service:8086
@@ -339,8 +349,9 @@ services:
     environment:
       PORT: 8085
       VIDEO_PLAYBACK_MODE: course
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:?Set a private database password}@postgres:5432/learning_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-}@postgres:5432/learning_db?schema=public
+      DB_PASSWORD: ${DB_PASSWORD:-}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       COURSE_SERVICE_URL: http://course-service:8083
       COURSE_SERVICE_TIMEOUT_MS: 3000
       TENANT_SERVICE_URL: http://tenant-service:8084
@@ -386,9 +397,9 @@ services:
       - "127.0.0.1:8086:8086"
     environment:
       PORT: 8086
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:?Set a private database password}@postgres:5432/assessment_db?schema=public
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-}@postgres:5432/assessment_db?schema=public
       # The service trusts the identity of whoever sends this key, so it is a secret and has no default.
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 bytes}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       COURSE_SERVICE_URL: http://course-service:8083
       COURSE_SERVICE_TIMEOUT_MS: 5000
       TENANT_SERVICE_URL: http://tenant-service:8084
@@ -463,8 +474,9 @@ services:
       STORAGE_MAX_RAW_BYTES: ${STORAGE_MAX_RAW_BYTES:-}
       STORAGE_MAX_IMAGE_BYTES: ${STORAGE_MAX_IMAGE_BYTES:-}
       STORAGE_MAX_VIDEO_BYTES: ${STORAGE_MAX_VIDEO_BYTES:-}
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:?Set a private database password}@postgres:5432/achievement_reporting_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set a private random INTERNAL_SERVICE_KEY of at least 32 UTF-8 bytes; trimmed value must not be learnup-internal-secret}
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-}@postgres:5432/achievement_reporting_db?schema=public
+      DB_PASSWORD: ${DB_PASSWORD:-}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
