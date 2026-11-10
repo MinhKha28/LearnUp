@@ -315,18 +315,6 @@ export interface IInstructorStatusResult {
   receiver: { id: string; fullName: string } | null;
 }
 
-// UC13.5 - PATCH /api/v1/users/learners/:id/status (Learner không có chuyển quyền nên không gửi receiverInstructorId)
-export type IChangeLearnerStatusReq = Omit<
-  IChangeAccountStatusReq,
-  "receiverInstructorId"
->;
-
-export interface ILearnerStatusResult {
-  id: string;
-  status: AccountStatus;
-  changed: boolean; // false: đã ở trạng thái đích (bấm lặp)
-}
-
 // UC12.6 - GET /api/v1/users/instructors/:id/deletion (mọi trạng thái đều xóa được, BR-46)
 export interface IInstructorDeletion {
   id: string;
@@ -350,6 +338,27 @@ export interface IInstructorDeletionResult {
   transferredCourses: IManagedCourseChain[];
   receiver: { id: string; fullName: string } | null;
   seats: ISeatUsage; // số chỗ sau khi xóa (BR-31, BR-46)
+}
+
+// UC13.5 - PATCH /api/v1/users/learners/:id/status (Learner không có chuyển quyền nên không gửi receiverInstructorId)
+export type IChangeLearnerStatusReq = Omit<
+  IChangeAccountStatusReq,
+  "receiverInstructorId"
+>;
+
+export interface ILearnerStatusResult {
+  id: string;
+  status: AccountStatus;
+  changed: boolean; // false: đã ở trạng thái đích (bấm lặp)
+}
+
+// UC13.6 - DELETE /api/v1/users/learners/:id (body JSON; Learner không có chuyển quyền)
+export type IDeleteLearnerReq = Omit<IDeleteAccountReq, "receiverInstructorId">;
+
+export interface ILearnerDeletionResult {
+  id: string;
+  changed: boolean; // false: đã bị xóa từ trước (bấm lặp)
+  seats: ISeatUsage; // số chỗ Learner sau khi xóa (BR-31, BR-46)
 }
 
 // UC12.2 - số chỗ theo Subscription hiện hành (GET /api/v1/users/instructors/seats)

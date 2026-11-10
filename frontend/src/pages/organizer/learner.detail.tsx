@@ -1,8 +1,9 @@
 import { Alert, Avatar, Button, Empty, Skeleton, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useEffect, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { statusLabel } from "@/components/organizer/account.table";
+import { LearnerDeleteButton } from "@/components/organizer/learner.delete.button";
 import { LearnerStatusButton } from "@/components/organizer/learner.status.button";
 import { ResendInvitationButton } from "@/components/organizer/resend.invitation.button";
 import {
@@ -88,6 +89,7 @@ type LoadError = "notFound" | "failed";
 
 const LearnerDetail = () => {
   const { learnerId = "" } = useParams();
+  const navigate = useNavigate();
   const [detail, setDetail] = useState<ILearnerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<LoadError | null>(null);
@@ -125,9 +127,21 @@ const LearnerDetail = () => {
     };
   }, [learnerId, reloadKey]);
 
-  // UC13.6 gắn thêm nút vào đây. UC13.3: sửa được ở mọi trạng thái (đơn vị công tác, BR-34)
+  const backToList = useCallback(
+    () => navigate("/organizer/learners", { replace: true }),
+    [navigate],
+  );
+
+  // UC13.3: sửa được ở mọi trạng thái (đơn vị công tác, BR-42)
   const headerActions: ReactNode = detail ? (
     <>
+      {/* UC13.6 - xóa được ở mọi trạng thái; xóa xong về danh sách UC13 */}
+      <LearnerDeleteButton
+        learnerId={detail.id}
+        fullName={detail.fullName}
+        status={detail.status}
+        onDeleted={backToList}
+      />
       {/* UC13.5 - tự ẩn khi Pending / chưa từng kích hoạt */}
       <LearnerStatusButton
         learnerId={detail.id}

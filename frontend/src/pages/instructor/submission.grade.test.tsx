@@ -155,8 +155,8 @@ describe("grading a submission", () => {
     for (const text of [
       "Bài làm của học viên",
       "Vì sao bạn chấm bài này",
-      "Chấm theo Rubric",
-      "Tổng điểm Rubric",
+      "Chấm theo tiêu chí",
+      "Tổng điểm theo tiêu chí",
       "Điểm bạn chấm",
       "Điểm cuối cùng gợi ý",
       "Sau khi chấm",
