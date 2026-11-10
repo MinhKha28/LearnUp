@@ -15,6 +15,7 @@ import {
 
 import {
   fetchOrganizerCourseReviewAPI,
+  fetchOrganizationCourseInstructorsAPI,
   approveCourseAPI,
   rejectCourseAPI,
   fetchOrganizerMaterialPreviewAPI,
@@ -239,6 +240,7 @@ const CourseReview = () => {
   const navigate = useNavigate();
 
   const [course, setCourse] = useState<IOrganizerCourseReview | null>(null);
+  const [instructorName, setInstructorName] = useState<string | null>(null);
 
   const [assessments, setAssessments] = useState<IReviewAssessment[]>([]);
 
@@ -555,6 +557,29 @@ const CourseReview = () => {
     />
   );
 
+  // Display a real Instructor name; failure here must never block UC21 review.
+  useEffect(() => {
+    const instructorId = course?.instructorId;
+    if (!instructorId) {
+      setInstructorName(null);
+      return;
+    }
+    let active = true;
+    void fetchOrganizationCourseInstructorsAPI()
+      .then((result) => {
+        if (!active) return;
+        setInstructorName(
+          isSuccess(result.statusCode)
+            ? result.data?.find((item) => item.id === instructorId)?.fullName ?? null
+            : null,
+        );
+      })
+      .catch(() => {
+        if (active) setInstructorName(null);
+      });
+    return () => { active = false; };
+  }, [course?.instructorId]);
+
   // Initial loading.
   if (loading) {
     return (
@@ -660,8 +685,9 @@ const CourseReview = () => {
 
         <div className="organizer-detail-grid">
           <div className="organizer-detail-item">
-            <span>Instructor ID</span>
-            <strong>{course.instructorId}</strong>
+            <span>Instructor phụ trách</span>
+            <strong>{instructorName || "Chưa xác định"}</strong>
+            <small className="review-instructor-id">{course.instructorId}</small>
           </div>
 
           <div className="organizer-detail-item">

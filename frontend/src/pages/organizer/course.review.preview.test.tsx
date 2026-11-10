@@ -12,6 +12,7 @@ import CourseReview from "./course.review";
 
 vi.mock("@/services/course.service", () => ({
   fetchOrganizerCourseReviewAPI: vi.fn(),
+  fetchOrganizationCourseInstructorsAPI: vi.fn().mockResolvedValue({ statusCode: 200, data: [] }),
   fetchOrganizerReadingContentAPI: vi.fn(),
   fetchOrganizerMaterialPreviewAPI: vi.fn(),
   approveCourseAPI: vi.fn(),
