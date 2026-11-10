@@ -26,8 +26,10 @@ export const videoOutcome = (error: ApiError): string => {
     return "Không tìm thấy học liệu hoặc Khóa học của bạn.";
   if (error.status === 403)
     return "Nội dung đang tạm ngưng hoặc bạn không có quyền truy cập.";
-  if (error.code === "PLAYBACK_UNAVAILABLE")
+  if (error.code === "MATERIAL_NOT_READY")
     return "Video chưa sẵn sàng. Vui lòng thử lại sau.";
+  if (error.code === "SERVICE_UNAVAILABLE")
+    return "Video tạm thời không khả dụng. Vui lòng thử lại.";
   if (error.status === 0)
     return "Chưa lưu được tiến độ. Hệ thống sẽ thử lại ở nhịp tiếp theo.";
   return "Chưa thể tải hoặc lưu tiến độ Video. Vui lòng thử lại.";

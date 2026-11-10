@@ -120,7 +120,7 @@ const getPageMeta = (pathname: string) => {
   if (pathname === "/admin/statistics")
     return ["PLATFORM ADMIN", "Platform statistics"];
   if (pathname === "/admin/audit-logs")
-    return ["PLATFORM ADMIN", "Nhật ký nền tảng"];
+    return ["QUẢN TRỊ NỀN TẢNG", "Nhật ký nền tảng"];
   if (pathname === "/admin/suspended-organizations")
     return ["PLATFORM ADMIN", "Suspended Organizations"];
   if (pathname === "/admin/profile/change-password")

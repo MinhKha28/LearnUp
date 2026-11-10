@@ -230,9 +230,17 @@ const MyCourses = () => {
         title="My Courses"
         subtitle="Courses currently under your responsibility."
         actions={
-          <InstructorButton type="primary" onClick={handleCreateCourse}>
-            + Create Course
-          </InstructorButton>
+          <>
+            <InstructorButton
+              onClick={() => navigate("/instructor/courses/trash")}
+            >
+              Trash
+            </InstructorButton>
+
+            <InstructorButton type="primary" onClick={handleCreateCourse}>
+              + Create Course
+            </InstructorButton>
+          </>
         }
       />
 

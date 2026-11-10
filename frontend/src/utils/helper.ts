@@ -62,6 +62,26 @@ export const formatDateVN = (value: string) =>
     year: "numeric",
   }).format(new Date(value));
 
+// Ngày giờ theo giờ Việt Nam, ngày trước giờ sau, giống formatDateVN: "2026-11-07T07:03:00Z" -> "07/11/2026 14:03".
+// Không có giá trị hoặc giá trị không phải ngày giờ thì trả "-". Dùng hàm này thay cho toLocaleString("vi-VN"), vốn
+// ra "14:03:18 7/11/2026" theo múi giờ của trình duyệt.
+export const formatDateTimeVN = (value?: string | null) => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "-";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("day")}/${part("month")}/${part("year")} ${part("hour")}:${part("minute")}`;
+};
+
+
 // UC12.2 (sau này UC13.2): lý do không tạo được tài khoản, theo thứ tự kiểm của backend.
 // null = tạo được. seats null = chưa tải được số chỗ.
 export const seatBlockReason = (

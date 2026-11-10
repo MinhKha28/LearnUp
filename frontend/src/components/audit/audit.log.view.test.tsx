@@ -64,7 +64,7 @@ describe("UC50, UC51 list of the audit trail", () => {
     await screen.findByText("Ngừng hoạt động tài khoản giảng viên");
     const row = screen.getByText("Ngừng hoạt động tài khoản giảng viên").closest("tr")!;
     expect(within(row).getByText("02/11/2026 10:04")).toBeTruthy(); // 03:04Z is 10:04 in Vietnam: the time of the action, not of the arrival
-    expect(within(row).getByText(/Quản trị viên tổ chức/)).toBeTruthy();
+    expect(within(row).getByText(/Quản lý đào tạo/)).toBeTruthy();
     expect(within(row).getByText(/Tài khoản/)).toBeTruthy();
     expect(within(row).getByText(/…000000bb/)).toBeTruthy();
     expect(within(row).getByText("Vi phạm nội quy")).toBeTruthy();
@@ -72,6 +72,17 @@ describe("UC50, UC51 list of the audit trail", () => {
       expect(screen.getByText(heading)).toBeTruthy();
     }
     expect(screen.queryByText("Tổ chức")).toBeNull(); // the Organizer reads one Organization: no such column
+  });
+
+  it("shows, filters and orders by one time (createdAt): an entry whose details name another time is shown by createdAt", async () => {
+    fetchLogs.mockResolvedValue(
+      answer([log({ details: JSON.stringify({ reason: "Cũ", occurredAt: "2026-11-01T03:00:00.000Z" }), createdAt: "2026-11-02T10:00:00.000Z" })]),
+    );
+    renderView();
+    await screen.findByText("Ngừng hoạt động tài khoản giảng viên");
+    const row = screen.getByText("Ngừng hoạt động tài khoản giảng viên").closest("tr")!;
+    expect(within(row).getByText("02/11/2026 17:00")).toBeTruthy(); // the list, the day filter and the order all use createdAt
+    expect(within(row).queryByText("01/11/2026 10:00")).toBeNull();
   });
 
   it("shows a dash when there is no reason and falls back to the arrival time and to the raw code of an unknown action", async () => {

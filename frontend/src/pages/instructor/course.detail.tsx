@@ -1,4 +1,4 @@
-import { Alert, Skeleton } from "antd";
+import { Alert, App, Modal, Skeleton } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -9,10 +9,17 @@ import {
   SectionCard,
   StatusTag,
 } from "@/components/instructor/instructor.ui";
-import { fetchCourseDetailAPI } from "@/services/course.service";
+import {
+  fetchCourseDetailAPI,
+  softDeleteCourseAPI,
+} from "@/services/course.service";
 import type { CourseStatus, ICourseDetail } from "@/types/course.types";
 
 import "./course.detail.scss";
+import {
+  courseTrashErrorMessage,
+  getCourseApiErrorCode,
+} from "@/utils/course-trash";
 
 const courseStatusLabel: Record<CourseStatus, string> = {
   Draft: "Draft",
@@ -56,7 +63,9 @@ const formatEstimatedDuration = (minutes: number | null) => {
 const CourseDetail = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const { message } = App.useApp();
 
+  const [deleting, setDeleting] = useState(false);
   const [course, setCourse] = useState<ICourseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -124,6 +133,55 @@ const CourseDetail = () => {
       </InstructorPage>
     );
   }
+
+  const handleSoftDelete = () => {
+    if (!course || deleting) return;
+
+    Modal.confirm({
+      title: "Move Course to Trash?",
+      content: (
+        <>
+          <p>
+            "{course.name}" will be kept in Trash for 7 days before it is
+            permanently deleted.
+          </p>
+          <p>
+            The Course and its files will continue to count toward your Course
+            and Storage limits during this period.
+          </p>
+        </>
+      ),
+      okText: "Move to Trash",
+      cancelText: "Cancel",
+      okButtonProps: { danger: true },
+
+      onOk: async () => {
+        setDeleting(true);
+
+        try {
+          const response = await softDeleteCourseAPI(course.id);
+
+          if (!response.data) {
+            const code = getCourseApiErrorCode(response);
+
+            throw new Error(courseTrashErrorMessage(code, "delete"));
+          }
+
+          message.success("Course moved to Trash successfully.");
+          navigate("/instructor/courses");
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : courseTrashErrorMessage(getCourseApiErrorCode(error), "delete");
+
+          message.error(errorMessage);
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
+  };
 
   return (
     <InstructorPage className="instructor-course-detail">
@@ -269,6 +327,18 @@ const CourseDetail = () => {
               View Version Chain
             </InstructorButton>
           )}
+
+          {(course.status === "Draft" || course.status === "Rejected") &&
+            !course.locked && (
+              <InstructorButton
+                block
+                danger
+                loading={deleting}
+                onClick={handleSoftDelete}
+              >
+                Move to Trash
+              </InstructorButton>
+            )}
         </SectionCard>
       </div>
     </InstructorPage>

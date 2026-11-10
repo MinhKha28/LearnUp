@@ -4,10 +4,8 @@ import {
   AUDIT_ACTION_CODES,
   actionLabel,
   actorRoleLabel,
-  auditTime,
   dayEndExclusiveInstant,
   dayStartInstant,
-  formatAuditTime,
   hasAuditFilter,
   isKnownAction,
   isKnownTargetType,
@@ -32,7 +30,7 @@ describe("labels", () => {
   });
 
   it("names the roles, and an entry without a role is the system", () => {
-    expect(actorRoleLabel("ORGANIZER")).toBe("Quản trị viên tổ chức");
+    expect(actorRoleLabel("ORGANIZER")).toBe("Quản lý đào tạo");
     expect(actorRoleLabel("ADMIN")).toBe("Quản trị viên nền tảng");
     expect(actorRoleLabel("INSTRUCTOR")).toBe("Giảng viên");
     expect(actorRoleLabel("LEARNER")).toBe("Học viên");
@@ -80,7 +78,7 @@ describe("the words of the action types (BR-336)", () => {
 describe("details", () => {
   it("reads the reason and the time of the action", () => {
     const details = JSON.stringify({ reason: "  Vi phạm nội quy ", occurredAt: "2026-11-02T03:04:05.000Z", chainIds: [] });
-    expect(parseAuditDetails(details)).toEqual({ reason: "Vi phạm nội quy", occurredAt: "2026-11-02T03:04:05.000Z" });
+    expect(parseAuditDetails(details)).toEqual({ reason: "Vi phạm nội quy" });
   });
 
   it("is not an error when there is no reason, a blank one, a bad time or a text that is not JSON", () => {
@@ -89,33 +87,13 @@ describe("details", () => {
     expect(parseAuditDetails("not json")).toEqual({});
     expect(parseAuditDetails("[1,2]")).toEqual({});
     expect(parseAuditDetails("123")).toEqual({});
-    expect(parseAuditDetails(JSON.stringify({ reason: "   ", occurredAt: "yesterday" }))).toEqual({
-      reason: undefined,
-      occurredAt: undefined,
-    });
-    expect(parseAuditDetails(JSON.stringify({ reason: 5 }))).toEqual({ reason: undefined, occurredAt: undefined });
+    expect(parseAuditDetails(JSON.stringify({ reason: "   " }))).toEqual({ reason: undefined });
+    expect(parseAuditDetails(JSON.stringify({ reason: 5 }))).toEqual({ reason: undefined });
   });
 
-  it("shows the time of the action when the service said it, else the time the entry arrived", () => {
-    const createdAt = "2026-11-02T10:00:00Z";
-    expect(auditTime({ details: JSON.stringify({ occurredAt: "2026-11-02T03:00:00Z" }), createdAt })).toBe("2026-11-02T03:00:00Z");
-    expect(auditTime({ details: "{}", createdAt })).toBe(createdAt);
-    expect(auditTime({ details: null, createdAt })).toBe(createdAt);
-  });
 });
 
 describe("times", () => {
-  it("writes a time as dd/MM/yyyy HH:mm in Vietnam time, whatever the time zone of the machine", () => {
-    expect(formatAuditTime("2026-11-02T17:30:00Z")).toBe("03/11/2026 00:30");
-    expect(formatAuditTime("2026-11-02T00:00:00Z")).toBe("02/11/2026 07:00");
-    expect(formatAuditTime("2026-12-31T16:59:00Z")).toBe("31/12/2026 23:59");
-    expect(formatAuditTime("2026-12-31T17:00:00Z")).toBe("01/01/2027 00:00");
-  });
-
-  it("shows a dash for a value that is not a time", () => {
-    expect(formatAuditTime("nope")).toBe("—");
-  });
-
   it("accepts only real calendar days", () => {
     expect(validDay("2026-11-08")).toBe("2026-11-08");
     expect(validDay("2028-02-29")).toBe("2028-02-29");

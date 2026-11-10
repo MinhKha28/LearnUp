@@ -20,6 +20,7 @@ import './assignment-minutes.integration-test';
 import './withdrawal-demo-seed.integration-test';
 import './peer-review-close.integration-test';
 import './peer-review-schedule.integration-test';
+import './peer-review-status-events.integration-test';
 import './peer-review-waiver.integration-test';
 import './learner-peer-review.integration-test';
 import './learner-peer-review-storage.integration-test';

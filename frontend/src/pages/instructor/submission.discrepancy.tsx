@@ -18,7 +18,7 @@ const SubmissionDiscrepancy = () => {
     return (
       <InstructorPage className="instructor-submissions">
         <PageHeader
-          eyebrow="BÀI NỘP / CẦN CAN THIỆP"
+          eyebrow="Bài nộp / Cần can thiệp"
           title="Không tìm thấy bài nộp"
           subtitle="Bài nộp này có thể đã bị xóa."
           back
@@ -35,7 +35,7 @@ const SubmissionDiscrepancy = () => {
   return (
     <InstructorPage className="instructor-submissions">
       <PageHeader
-        eyebrow="BÀI NỘP / CẦN CAN THIỆP"
+        eyebrow="Bài nộp / Cần can thiệp"
         title="Chênh lệch điểm giữa các người chấm"
         subtitle="Điểm của các người chấm chéo chênh nhau quá ngưỡng đã cấu hình."
         back
@@ -47,7 +47,7 @@ const SubmissionDiscrepancy = () => {
       <SectionCard className="instructor-discrepancy-card">
         <div className="instructor-discrepancy-table">
           <div className="instructor-discrepancy-row instructor-discrepancy-head">
-            <span>Tiêu chí Rubric</span>
+            <span>Tiêu chí chấm</span>
             <span>Người chấm: {reviewerA?.reviewerName ?? "Chưa rõ"}</span>
             <span>Người chấm: {reviewerB?.reviewerName ?? "Chưa rõ"}</span>
             <span>Chênh lệch</span>

@@ -1,11 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
+import { AccountStatusEvent } from './interfaces/account-status-event.interface';
 import { AuditRecord } from './interfaces/audit-record.interface';
 import { EmailMessage } from './interfaces/email-message.interface';
 import { OutboxRepository } from './outbox.repository';
 
 export const EMAIL_REQUESTED_EVENT = 'EmailRequested';
 export const AUDIT_RECORDED_EVENT = 'AuditRecorded';
+// UC13.5: event trạng thái tài khoản cho bản sao thưa learner_accounts (assessment, learning).
+// Tenant chưa có relay Kafka nên các dòng này nằm chờ (published_at NULL) tới khi có relay.
+export const USER_DEACTIVATED_EVENT = 'UserDeactivated';
+export const USER_REACTIVATED_EVENT = 'UserReactivated';
 
 /** (giữ nguyên khối chú thích Transactional Outbox cũ) */
 @Injectable()
@@ -54,6 +59,42 @@ export class OutboxService {
         aggregateId: params.aggregateId,
         eventType: AUDIT_RECORDED_EVENT,
         organizationId: params.record.organizationId,
+        payload: payload as unknown as Prisma.InputJsonValue,
+        occurredAt,
+      },
+      tx,
+    );
+  }
+
+  /**
+   * UC13.5: UserDeactivated / UserReactivated, cùng transaction với việc đổi users.status
+   * (kiến trúc 2.1, 2.3). Gọi SAU khi đã khóa dòng users để occurredAt của hai thao tác nối tiếp
+   * trên cùng tài khoản luôn tăng dần.
+   */
+  async enqueueAccountStatusEvent(
+    tx: Prisma.TransactionClient,
+    params: {
+      eventType: typeof USER_DEACTIVATED_EVENT | typeof USER_REACTIVATED_EVENT;
+      userId: string;
+      organizationId: string;
+      role: string;
+      status: string;
+    },
+  ): Promise<void> {
+    const occurredAt = new Date();
+    const payload: AccountStatusEvent = {
+      userId: params.userId,
+      organizationId: params.organizationId,
+      role: params.role,
+      status: params.status,
+      occurredAt: occurredAt.toISOString(),
+    };
+    await this.outboxRepository.create(
+      {
+        aggregateType: 'User',
+        aggregateId: params.userId,
+        eventType: params.eventType,
+        organizationId: params.organizationId,
         payload: payload as unknown as Prisma.InputJsonValue,
         occurredAt,
       },

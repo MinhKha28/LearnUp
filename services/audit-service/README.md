@@ -10,6 +10,7 @@ The **Audit Service** is a cross-cutting supporting platform capability that cap
 * **Database**: PostgreSQL (`audit_db`)
 * **Eureka Service Name**: `AUDIT-SERVICE`
 * **Append-Oriented**: Audit records are strictly immutable and append-only.
+* **Port**: 8083 by default (`server.port` in `application.yml`). On a machine that also runs course-service (its `.env.example` uses 8083 too) run audit on another port: `SERVER_PORT=8093 java -jar target/audit-service-1.0.0-SNAPSHOT.jar` (or `SERVER_PORT=8093 mvn spring-boot:run`). Tenant reaches it through `AUDIT_SERVICE_URL`, which its `.env.example` and `tests/e2e/cluster/start.sh` set to `http://localhost:8093`; in Docker Compose the container listens on 8083 and the host maps 8093 to it.
 
 ---
 
@@ -56,7 +57,7 @@ The **Audit Service** is a cross-cutting supporting platform capability that cap
 
 ## 5. REST API Endpoints
 * `POST /api/audit/logs` — Record a new immutable audit entry.
-* `GET /api/audit/logs` — Query paginated audit trails with filtering by `organizationId`, `actionType`, `targetResourceType`, `targetResourceId`, `actorUserId`, and a time range. The range is `from` (included) to `to` (excluded), both ISO-8601 instants (for example `2026-11-01T00:00:00Z`); either may be given alone, and `from` not before `to` is `400`. The time compared is when audit-service received the entry (`createdAt`), which can be later than the time of the action (`occurredAt` inside `details`) when the writer retried. The order is fixed (newest first, the id breaks ties) and a `sort` parameter is ignored; a page has at most 100 entries (default 20).
+* `GET /api/audit/logs` — Query paginated audit trails with filtering by `organizationId`, `actionType`, `targetResourceType`, `targetResourceId`, `actorUserId`, and a time range. The range is `from` (included) to `to` (excluded), both ISO-8601 instants (for example `2026-11-01T00:00:00Z`); either may be given alone, and `from` not before `to` is `400`. The time compared, shown and used for the order is one: `createdAt`. For a write that sends `occurredAt` it holds the time of the action (so a late retry does not move the entry to another day); for a write without it, and for the entries written before `occurredAt` existed, it holds the time audit-service received the entry. The order is fixed (newest first, the id breaks ties) and a `sort` parameter is ignored; a page has at most 100 entries (default 20).
 * `GET /api/audit/logs/{id}` — Fetch full detail of a specific audit event.
 
 ---
