@@ -43,6 +43,8 @@ public class AuthService {
     private final RecoveryRequestLimiter recoveryRequestLimiter;
     private final PasswordRecoveryDelivery recoveryDelivery;
     private final CredentialProvisioningService credentialProvisioning;
+    /** Lazily created BCrypt hash of a random value, used only to equalize unknown-account timing. */
+    private volatile String unknownAccountHash;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
@@ -75,6 +77,17 @@ public class AuthService {
 
         User user = userRepository.findByUsernameOrEmailForUpdate(identifier, identifier.toLowerCase(Locale.ROOT)).orElse(null);
         if (user == null) {
+            // Spend exactly the BCrypt work of a failed check on a real account (one or two rounds, depending on
+            // surrounding spaces), so response time does not reveal which emails have an account.
+            matchesStoredPassword(request.getPassword(), unknownAccountHash());
+            loginThrottleService.recordFailure(identifier);
+            throw BusinessException.unauthorized("Invalid username or password");
+        }
+
+        // UC05: verify the password before revealing any account state, and throttle every failure.
+        if (!matchesStoredPassword(request.getPassword(), user.getPasswordHash())) {
+            log.warn("event=login_rejected reason=INVALID_PASSWORD user_id={} correlation_id={}",
+                    user.getId(), AuthenticationDiagnostics.correlationId());
             loginThrottleService.recordFailure(identifier);
             throw BusinessException.unauthorized("Invalid username or password");
         }
@@ -83,13 +96,6 @@ public class AuthService {
             log.warn("event=login_rejected reason=ACCOUNT_DISABLED user_id={} correlation_id={}",
                     user.getId(), AuthenticationDiagnostics.correlationId());
             throw BusinessException.unauthorized("User account is disabled");
-        }
-
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            log.warn("event=login_rejected reason=INVALID_PASSWORD user_id={} correlation_id={}",
-                    user.getId(), AuthenticationDiagnostics.correlationId());
-            loginThrottleService.recordFailure(identifier);
-            throw BusinessException.unauthorized("Invalid username or password");
         }
         loginThrottleService.reset(identifier);
 
@@ -263,9 +269,13 @@ public class AuthService {
             throw BusinessException.badRequest("New password and confirmation password do not match");
         }
 
-        if (request.getNewPassword().equals(request.getCurrentPassword())) {
+        // Passwords are stored trimmed, so compare the values that would actually be stored.
+        if (request.getNewPassword().trim().equals(request.getCurrentPassword().trim())) {
             throw BusinessException.badRequest("New password cannot be the same as the current password");
         }
+
+        // UC08: a stolen access token must not allow unlimited current-password guesses.
+        loginThrottleService.assertPasswordChangeNotLocked(userId);
 
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> BusinessException.notFound("User not found"));
@@ -274,10 +284,12 @@ public class AuthService {
             throw BusinessException.unauthorized("User account is unavailable");
         }
 
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+        if (!matchesStoredPassword(request.getCurrentPassword(), user.getPasswordHash())) {
             log.warn("Password change failed for user [{}]: invalid current password", userId);
+            loginThrottleService.recordPasswordChangeFailure(userId);
             throw BusinessException.badRequest("Current password is incorrect");
         }
+        loginThrottleService.resetPasswordChange(userId);
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword().trim()));
         user.setUpdatedAt(Instant.now());
@@ -378,6 +390,31 @@ public class AuthService {
     /** Full canonical UUID in the compact username format already adopted by develop. */
     static String defaultUsername(UUID userId) {
         return "user_" + userId.toString().replace("-", "");
+    }
+
+    /**
+     * Every password-setting path (activation, change, reset) stores the trimmed value, while sign-in
+     * used to compare the raw input, so a password typed with surrounding spaces stopped working after
+     * it was set. Accept the input as typed (older hashes) or as stored (trimmed); no hash is rewritten.
+     */
+    private boolean matchesStoredPassword(String rawPassword, String passwordHash) {
+        if (rawPassword == null || passwordHash == null) {
+            return false;
+        }
+        if (passwordEncoder.matches(rawPassword, passwordHash)) {
+            return true;
+        }
+        String stored = rawPassword.trim();
+        return !stored.isEmpty() && !stored.equals(rawPassword) && passwordEncoder.matches(stored, passwordHash);
+    }
+
+    private String unknownAccountHash() {
+        String hash = unknownAccountHash;
+        if (hash == null) {
+            hash = passwordEncoder.encode(UUID.randomUUID().toString());
+            unknownAccountHash = hash;
+        }
+        return hash;
     }
 
     private String createAndPersistRefreshToken(UUID userId) {
