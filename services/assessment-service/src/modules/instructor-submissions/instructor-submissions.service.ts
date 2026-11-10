@@ -185,7 +185,7 @@ export class InstructorSubmissionsService {
       learner: this.learnerOf(submission.learnerId, names.map),
       submissionNumber: submission.submissionNumber,
       submittedAt: submission.submittedAt,
-      isLatest: history[0]?.id === submission.id,
+      isLatest: !submission.supersededAt && history[0]?.id === submission.id,
       content: submission.content,
       file: this.fileOf(
         submission.fileKey,
@@ -196,6 +196,8 @@ export class InstructorSubmissionsService {
       gradingStatus: submission.gradingStatus,
       interventionReason: submission.interventionReason,
       finalScore: toNumber(submission.finalScore),
+      aggregateScore:
+        aggregateReviewScores(submission.reviews)?.suggestedScore ?? null,
       finalizationComment: submission.finalizationComment,
       finalizedAt: submission.finalizedAt,
       assignment: {

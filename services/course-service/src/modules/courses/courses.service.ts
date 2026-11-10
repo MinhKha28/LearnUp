@@ -31,7 +31,7 @@ import {
   resolveStoragePlanLimits,
   StorageProviderError,
   StorageValidationError,
-  type IStorageProvider,
+  type IReadableStorageProvider,
   type IStoredFile,
 } from '@learnup/ts-storage';
 import { CoursesRepository } from './courses.repository';
@@ -58,7 +58,8 @@ export class CoursesService {
     private readonly learningClient: LearningClient,
     private readonly assessmentClient: AssessmentClient,
     private readonly notificationClient: NotificationClient,
-    @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
+    @Inject(STORAGE_PROVIDER)
+    private readonly storage: IReadableStorageProvider,
   ) {}
 
   private running = false;
@@ -2577,5 +2578,204 @@ export class CoursesService {
         }
       }
     }
+  }
+
+  private requireOrganizerReview(user: CurrentUser): string {
+    if (user.role !== 'ORGANIZER' || !user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Only an Organizer can review Course content.',
+      });
+    }
+
+    return user.organizationId;
+  }
+
+  /**
+   * UC21.2 – Read full Course content.
+   */
+  async getOrganizerCourseReview(user: CurrentUser, courseId: string) {
+    const organizationId = this.requireOrganizerReview(user);
+
+    const course = await this.coursesRepository.findCourseForOrganizerReview(
+      organizationId,
+      courseId,
+    );
+
+    if (!course) {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    if (course.status !== COURSE_STATUS.SUBMITTED) {
+      throw new ConflictException({
+        code: 'COURSE_NOT_SUBMITTED',
+        message: 'Course is no longer awaiting approval.',
+      });
+    }
+
+    return {
+      id: course.id,
+      name: course.name,
+      shortDescription: course.shortDescription,
+      trainingObjectives: course.trainingObjectives,
+      learningOutcomes: course.learningOutcomes,
+      versionNumber: course.versionNumber,
+      courseType: course.courseType,
+      expectedCompletionDays: course.expectedCompletionDays,
+      status: course.status,
+      locked: course.lockedAt !== null,
+      submittedAt: course.submittedAt,
+      instructorId: course.chain.instructorId,
+
+      modules: course.modules.map((module) => ({
+        id: module.id,
+        title: module.title,
+        position: module.position,
+        lessons: module.lessons.map((lesson) => ({
+          id: lesson.id,
+          title: lesson.title,
+          content: lesson.content,
+          position: lesson.position,
+          disabled: lesson.disabledAt !== null,
+          materials: lesson.materials.map((material) => {
+            const file = material.file;
+            const isVideo = material.materialType === 'Video';
+            const isReading = material.materialType === 'Reading';
+
+            return {
+              id: material.id,
+              title: material.title,
+              position: material.position,
+              materialType: material.materialType,
+              isRequired: material.isRequired,
+              disabled: material.disabledAt !== null,
+              filename: file.originalFilename,
+              mimeType: file.mimeType,
+              durationSeconds: isVideo ? file.durationSeconds : null,
+              previewAvailable:
+                lesson.disabledAt === null &&
+                material.disabledAt === null &&
+                file.status === 'Ready' &&
+                file.readyAt !== null &&
+                file.releasedAt === null &&
+                file.deliveryType === 'authenticated' &&
+                (isVideo || isReading) &&
+                file.purpose === (isVideo ? 'LessonVideo' : 'LessonReading') &&
+                (isVideo
+                  ? file.mimeType.startsWith('video/')
+                  : file.mimeType === 'application/pdf'),
+            };
+          }),
+        })),
+      })),
+    };
+  }
+
+  /**
+   * UC21.2 – Obtain a protected Video/Reading URL.
+   */
+  async getOrganizerMaterialPreview(
+    user: CurrentUser,
+    courseId: string,
+    materialId: string,
+  ) {
+    const organizationId = this.requireOrganizerReview(user);
+
+    const material = await this.coursesRepository.findOrganizerReviewMaterial(
+      organizationId,
+      courseId,
+      materialId,
+    );
+
+    if (!material) {
+      throw new NotFoundException({
+        code: 'MATERIAL_NOT_FOUND',
+        message: 'Material not found.',
+      });
+    }
+
+    const file = material.file;
+    const isVideo = material.materialType === 'Video';
+    const isReading = material.materialType === 'Reading';
+
+    if (
+      material.disabledAt !== null ||
+      material.lesson.disabledAt !== null ||
+      file.organizationId !== organizationId ||
+      file.status !== 'Ready' ||
+      file.readyAt === null ||
+      file.releasedAt !== null ||
+      file.deliveryType !== 'authenticated' ||
+      (!isVideo && !isReading) ||
+      file.purpose !== (isVideo ? 'LessonVideo' : 'LessonReading') ||
+      (isVideo && !file.mimeType.startsWith('video/')) ||
+      (isReading && file.mimeType !== 'application/pdf')
+    ) {
+      throw new ConflictException({
+        code: 'MATERIAL_NOT_AVAILABLE',
+        message: 'Material is not available for preview.',
+      });
+    }
+
+    const expiresAtSeconds = Math.floor(Date.now() / 1000) + 900;
+
+    try {
+      const url = this.storage.getSignedUrl(file.storageKey, {
+        resourceType: isVideo ? 'video' : 'raw',
+        format: isVideo ? file.storageFormat : '',
+        deliveryType: 'authenticated',
+        expiresAt: expiresAtSeconds,
+      });
+
+      return {
+        url,
+        mimeType: file.mimeType,
+        expiresAt: new Date(expiresAtSeconds * 1000).toISOString(),
+      };
+    } catch (error) {
+      if (error instanceof StorageProviderError) {
+        throw new ServiceUnavailableException({
+          code: 'MATERIAL_PREVIEW_UNAVAILABLE',
+          message: 'Unable to generate material preview.',
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Internal check for Assessment Service.
+   */
+  async verifyOrganizerCourseReviewAccess(
+    organizationId: string | undefined,
+    courseId: string,
+  ) {
+    if (!organizationId) {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    const course = await this.coursesRepository.findOrganizerReviewAccess(
+      organizationId,
+      courseId,
+    );
+
+    if (!course) {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course is not available for review.',
+      });
+    }
+
+    return {
+      courseId: course.id,
+      reviewable: true,
+    };
   }
 }

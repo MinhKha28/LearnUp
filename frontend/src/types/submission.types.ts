@@ -62,6 +62,7 @@ export interface ISubmissionDetail {
   gradingStatus: string;
   interventionReason: string | null;
   finalScore: number | null;
+  aggregateScore: number | null;
   finalizationComment: string | null;
   finalizedAt: string | null;
   assignment: {
@@ -97,6 +98,19 @@ export interface ISubmissionDetail {
     gradingStatus: string;
     finalScore: number | null;
   }[];
+}
+
+export interface IFinalizeSubmissionPayload {
+  finalScore: number;
+  comment?: string;
+}
+
+export interface IFinalizeSubmissionResult {
+  submissionId: string;
+  gradingStatus: "Finalized";
+  finalScore: number;
+  finalizationComment: string | null;
+  finalizedAt: string;
 }
 
 export interface ICriterionScore {
