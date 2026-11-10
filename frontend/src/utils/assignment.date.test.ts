@@ -1,3 +1,4 @@
+import displayedDates from "../../../tests/fixtures/assignment-displayed-dates.json";
 import { describe, expect, it } from "vitest";
 import { assignmentDateOnly, assignmentTimestamp, assignmentDueDate, assignmentDueNote, assignmentExtensionDeadline } from "./assignment.date";
 import { formatDueAt } from "./due.format";
@@ -44,4 +45,8 @@ it.each([
 it("the detail deadline note uses the stored deadline instant for DST", () => {
   expect(assignmentDueNote("America/New_York", "2026-07-01T04:00:00Z")).toContain("GMT-4");
   expect(assignmentDueNote("America/New_York", "2026-01-01T05:00:00Z")).toContain("GMT-5");
+});
+
+it.each(displayedDates)("matches the SQL fixture for $dueAt in $timezone", ({ dueAt, timezone, date }) => {
+  expect(assignmentDueDate(dueAt, timezone)).toBe(date.split("-").reverse().join("/"));
 });

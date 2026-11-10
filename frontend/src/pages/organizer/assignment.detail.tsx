@@ -1,6 +1,6 @@
 import { Alert, Avatar, Button, Descriptions, Empty, Skeleton, Table } from "antd";
 import { useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { AssignmentError } from "@/components/organizer/assignment.error";
 import { AssignmentChange } from "@/components/organizer/assignment.change";
 import type { AssignmentDetail as AssignmentDetailData } from "@/types/assignment.types";
@@ -30,6 +30,8 @@ import "./assignment.detail.scss";
 const AssignmentDetail = () => {
   const { assignmentId = "" } = useParams();
   const [params] = useSearchParams();
+  const location = useLocation();
+  const listSearch = (location.state as { assignmentListSearch?: string } | null)?.assignmentListSearch;
   const page = parsePageParam(params.get("page")) ?? 1;
   const query = useApiQuery(
     (signal) => fetchAssignment(assignmentId, signal),
@@ -77,7 +79,7 @@ const AssignmentDetail = () => {
                 }}
               />
             )}
-            <Link to={`/organizer/assignments?page=${page}`}>
+            <Link to={`/organizer/assignments?${listSearch || `page=${page}`}`}>
               <Button>Về danh sách</Button>
             </Link>
           </>
