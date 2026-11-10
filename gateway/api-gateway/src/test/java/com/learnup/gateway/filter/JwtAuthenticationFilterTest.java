@@ -403,7 +403,7 @@ class JwtAuthenticationFilterTest {
         certificateTestConfiguration(configured);
         var paths = new ArrayList<String>(java.util.List.of("/actuator/health", "/fallback/unavailable"));
         for (String prefix : new String[] {"/api/v1", "/api"}) {
-            for (String action : new String[] {"login", "google", "refresh", "forgot-password", "reset-password"}) {
+            for (String action : new String[] {"login", "google", "refresh", "revoke", "forgot-password", "reset-password"}) {
                 paths.add(prefix + "/auth/" + action);
             }
             if (configured) {

@@ -145,6 +145,15 @@ export default function LoginPage() {
               role="status"
             />
           )}
+          {params.get("state") === "signed-out-unconfirmed" && !error && (
+            <Alert
+              className="login-alert"
+              type="warning"
+              message="Signed out on this device"
+              description="LearnUP could not confirm that your session ended on the server. Sign in again and sign out once you are back online."
+              role="status"
+            />
+          )}
           {error && (
             <Alert
               className="login-alert"
