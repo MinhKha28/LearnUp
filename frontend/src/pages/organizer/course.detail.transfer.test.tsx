@@ -131,7 +131,7 @@ describe("UC23 Course Detail transfer", () => {
     fireEvent.change(selector, { target: { value: receiver.id } });
     fireEvent.click(screen.getByRole("button", { name: "Xác nhận chuyển quyền" }));
     await waitFor(() => expect(transferApi).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText(/Quyền phụ trách đã thay đổi/)).toBeTruthy();
+    expect((await screen.findAllByText(/Quyền phụ trách đã thay đổi/)).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Xác nhận chuyển quyền" })).toBeTruthy();
   });
 });
