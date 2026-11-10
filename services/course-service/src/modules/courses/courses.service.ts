@@ -2861,7 +2861,28 @@ export class CoursesService {
       });
     }
 
-    if (material.file.sizeBytes > BigInt(READING_UPLOAD_BUFFER_MAX_BYTES)) {
+    // Recheck the file after the signed-URL authorization step, because
+    // another request may have disabled/replaced it between reads.
+    const file = material.file;
+    if (
+      material.materialType !== 'Reading' ||
+      material.disabledAt !== null ||
+      material.lesson.disabledAt !== null ||
+      file.organizationId !== organizationId ||
+      file.mimeType !== 'application/pdf' ||
+      file.purpose !== 'LessonReading' ||
+      file.deliveryType !== 'authenticated' ||
+      file.status !== 'Ready' ||
+      file.readyAt === null ||
+      file.releasedAt !== null
+    ) {
+      throw new ConflictException({
+        code: 'MATERIAL_NOT_AVAILABLE',
+        message: 'Reading Material is no longer available.',
+      });
+    }
+
+    if (file.sizeBytes > BigInt(READING_UPLOAD_BUFFER_MAX_BYTES)) {
       throw new PayloadTooLargeException({
         code: 'READING_TOO_LARGE',
         message: 'The PDF is too large to preview.',
