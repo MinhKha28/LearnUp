@@ -110,7 +110,7 @@ it("does not navigate after a non-successful API response", async () => {
 });
 
 it("ignores duplicate submission while request is pending", async () => {
-  let resolveRequest!: (value: unknown) => void;
+  let resolveRequest!: (value: Awaited<ReturnType<typeof withdrawCourseSubmissionAPI>>) => void;
   withdraw.mockImplementation(() => new Promise((resolve) => {
     resolveRequest = resolve;
   }) as ReturnType<typeof withdrawCourseSubmissionAPI>);
@@ -122,6 +122,6 @@ it("ignores duplicate submission while request is pending", async () => {
   resolveRequest({
     statusCode: 201,
     data: { ...course, status: "Draft", submittedAt: null },
-  });
+  } as Awaited<ReturnType<typeof withdrawCourseSubmissionAPI>>);
   expect(await screen.findByText("Course Detail")).toBeTruthy();
 });
