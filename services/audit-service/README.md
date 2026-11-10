@@ -10,6 +10,7 @@ The **Audit Service** is a cross-cutting supporting platform capability that cap
 * **Database**: PostgreSQL (`audit_db`)
 * **Eureka Service Name**: `AUDIT-SERVICE`
 * **Append-Oriented**: Audit records are strictly immutable and append-only.
+* **Port**: 8083 by default (`server.port` in `application.yml`). On a machine that also runs course-service (its `.env.example` uses 8083 too) run audit on another port: `SERVER_PORT=8093 java -jar target/audit-service-1.0.0-SNAPSHOT.jar` (or `SERVER_PORT=8093 mvn spring-boot:run`). Tenant reaches it through `AUDIT_SERVICE_URL`, which its `.env.example` and `tests/e2e/cluster/start.sh` set to `http://localhost:8093`; in Docker Compose the container listens on 8083 and the host maps 8093 to it.
 
 ---
 
