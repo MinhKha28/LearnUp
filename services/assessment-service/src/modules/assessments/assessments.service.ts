@@ -555,4 +555,33 @@ export class AssessmentsService {
       createdAt: a.createdAt,
     };
   }
+
+  /**
+   * UC14.5.2 — Internal cleanup after Course deletion.
+   *
+   * Idempotent: if no assessments exist, return zero counts.
+   */
+  async deleteCourseAssessments(organizationId: string, courseId: string) {
+    const result = await this.repository.deleteAssessmentsByCourse(
+      organizationId,
+      courseId,
+    );
+
+    for (const fileKey of result.promptFileKeys) {
+      await this.media.removeIfUnused(fileKey, '');
+    }
+
+    this.logger.log(
+      `Assessment cleanup completed for Course ${courseId}: ` +
+        `${result.deletedCount} assessments removed.`,
+    );
+
+    return {
+      courseId,
+      deleted: true,
+      deletedCount: result.deletedCount,
+      deletedQuizCount: result.deletedQuizCount,
+      deletedAssignmentCount: result.deletedAssignmentCount,
+    };
+  }
 }
