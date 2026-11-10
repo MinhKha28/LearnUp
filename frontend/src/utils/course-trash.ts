@@ -68,9 +68,6 @@ export function courseTrashErrorMessage(
     case "COURSE_TRASH_EXPIRED":
       return "The 7-day recovery period has expired.";
 
-    case "COURSE_DELETION_IN_PROGRESS":
-      return "This Course is currently being permanently deleted.";
-
     case "COURSE_NOT_IN_TRASH":
       return "This Course is not in Trash.";
 
