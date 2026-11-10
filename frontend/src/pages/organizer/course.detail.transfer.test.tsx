@@ -9,6 +9,43 @@ import {
 import { getTransferCandidatesAPI } from "@/services/organization.service";
 import CourseDetail from "./course.detail";
 
+// The real Ant Design Select uses a portal and popup animations that are
+// unreliable in JSDOM. Keep Form.Item and the page behavior real, while using
+// a native select for deterministic UC23 API/error-flow assertions.
+vi.mock("antd", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("antd")>();
+  return {
+    ...actual,
+    Select: ({
+      options = [],
+      value,
+      onChange,
+      disabled,
+      placeholder,
+    }: {
+      options?: Array<{ value: string; label: string }>;
+      value?: string;
+      onChange?: (value: string) => void;
+      disabled?: boolean;
+      placeholder?: string;
+    }) => (
+      <select
+        aria-label="Instructor tiếp nhận"
+        value={value ?? ""}
+        disabled={disabled}
+        onChange={(event) => onChange?.(event.target.value)}
+      >
+        <option value="">{placeholder ?? "Select Instructor"}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    ),
+  };
+});
+
 vi.mock("@/services/course.service", () => ({
   fetchTransferContextAPI: vi.fn(),
   transferCourseOwnershipAPI: vi.fn(),
@@ -90,9 +127,8 @@ describe("UC23 Course Detail transfer", () => {
     transferApi.mockResolvedValue({ statusCode: 409, error: { code: "COURSE_CHANGED" } } as never);
     openPage();
     fireEvent.click(await screen.findByRole("button", { name: "Chuyển quyền phụ trách" }));
-    const selector = await screen.findByRole("combobox");
-    fireEvent.mouseDown(selector);
-    fireEvent.click(await screen.findByText("Instructor B"));
+    const selector = await screen.findByRole("combobox", { name: "Instructor tiếp nhận" });
+    fireEvent.change(selector, { target: { value: receiver.id } });
     fireEvent.click(screen.getByRole("button", { name: "Xác nhận chuyển quyền" }));
     await waitFor(() => expect(transferApi).toHaveBeenCalledTimes(1));
     expect(await screen.findByText(/Quyền phụ trách đã thay đổi/)).toBeTruthy();
