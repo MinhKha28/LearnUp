@@ -3,6 +3,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { statusLabel } from "@/components/organizer/account.table";
+import { LearnerStatusButton } from "@/components/organizer/learner.status.button";
 import { ResendInvitationButton } from "@/components/organizer/resend.invitation.button";
 import {
   DetailItem,
@@ -124,9 +125,17 @@ const LearnerDetail = () => {
     };
   }, [learnerId, reloadKey]);
 
-  // UC13.5 / 13.6 / 13.7 gắn thêm nút vào đây. UC13.3: sửa được ở mọi trạng thái (đơn vị công tác, BR-34)
+  // UC13.6 gắn thêm nút vào đây. UC13.3: sửa được ở mọi trạng thái (đơn vị công tác, BR-34)
   const headerActions: ReactNode = detail ? (
     <>
+      {/* UC13.5 - tự ẩn khi Pending / chưa từng kích hoạt */}
+      <LearnerStatusButton
+        learnerId={detail.id}
+        fullName={detail.fullName}
+        status={detail.status}
+        activatedAt={detail.activatedAt}
+        onChanged={() => setReloadKey((key) => key + 1)}
+      />
       {detail.status === "Pending" && (
         <ResendInvitationButton
           role="Learner"
