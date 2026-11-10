@@ -326,7 +326,7 @@ describe("the discrepancy of the reviewers", () => {
     ).toBeTruthy();
     for (const text of [
       "Cần Giảng viên xử lý",
-      "Tiêu chí Rubric",
+      "Tiêu chí chấm",
       "Chênh lệch",
       "Tiêu chí 1",
       "Tiêu chí 3",
