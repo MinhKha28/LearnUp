@@ -125,3 +125,49 @@
     flex-basis: 100%;
   }
 }
+
+.learner-catalog-result-count {
+  min-height: 1.5em;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.learner-catalog-card-skeleton {
+  .course-cover,
+  .learner-catalog-card-title,
+  .learner-catalog-card-description,
+  .learner-catalog-card-objectives,
+  .learner-catalog-card-meta span,
+  .learner-button.ant-btn {
+    background: var(--color-border);
+  }
+
+  .course-cover::after,
+  .learner-catalog-card-title::after {
+    content: none;
+  }
+
+  .learner-catalog-card-title,
+  .learner-catalog-card-description,
+  .learner-catalog-card-objectives,
+  .learner-catalog-card-meta span {
+    border-radius: var(--radius-sm);
+  }
+
+  .learner-catalog-card-title {
+    width: 70%;
+  }
+
+  .learner-catalog-card-description {
+    width: 100%;
+  }
+
+  .learner-catalog-card-objectives {
+    width: 85%;
+  }
+
+  .learner-catalog-card-meta {
+    width: 60%;
+  }
+}

@@ -1,9 +1,9 @@
 import { Input } from "antd";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { CourseCover } from "@/components/learner/course.cover";
-import { LearnerEmptyState, LearnerErrorState, LearnerSkeleton } from "@/components/learner/learner.states";
+import { LearnerEmptyState, LearnerErrorState } from "@/components/learner/learner.states";
 import { LearnerButton, LearnerPage, PageHeader, StatusTag } from "@/components/learner/learner.ui";
 import { UrlPagination } from "@/components/learner/url.pagination";
 import { useApiQuery } from "@/hooks/use.api.query";
@@ -19,6 +19,27 @@ import "./catalog.scss";
 const CATALOG_ERROR_MESSAGES: Record<string, string> = {
   FORBIDDEN: "Bạn không có quyền xem danh mục Khóa học.",
 };
+
+const CATALOG_PAGE_SIZE = 12;
+const resultCountFormat = new Intl.NumberFormat("vi-VN");
+
+const CatalogSkeleton = ({ count = CATALOG_PAGE_SIZE }: { count?: number }) => (
+  <div className="learner-catalog-grid" role="status" aria-busy="true" aria-label="Đang tải">
+    {Array.from({ length: count }, (_, index) => (
+      <article className="learner-catalog-card learner-catalog-card-skeleton" aria-hidden="true" key={index}>
+        <div className="course-cover course-cover-lg" />
+        <span className="learner-catalog-card-title">&nbsp;</span>
+        <p className="learner-catalog-card-description">&nbsp;</p>
+        <p className="learner-catalog-card-objectives">&nbsp;</p>
+        <div className="learner-catalog-card-meta">
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+        </div>
+        <span className="learner-button ant-btn">&nbsp;</span>
+      </article>
+    ))}
+  </div>
+);
 
 const CatalogCard = ({
   course,
@@ -65,7 +86,11 @@ const CatalogCard = ({
 
 const CatalogContent = ({ page, keyword }: { page: number; keyword: string }) => {
   const replacePage = useReplacePage();
-  const catalog = useApiQuery((signal) => fetchCatalog(page, signal, keyword || undefined), [page, keyword]);
+  const catalog = useApiQuery(
+    (signal) => fetchCatalog(page, signal, keyword || undefined),
+    [page, keyword],
+    true,
+  );
   // Lỗi course-ids không chặn danh mục, chỉ mất nhãn "Đã đăng ký" (D49)
   const links = useApiQuery((signal) => fetchEnrolledCourseLinks(signal), []);
 
@@ -81,11 +106,14 @@ const CatalogContent = ({ page, keyword }: { page: number; keyword: string }) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [redirect]);
 
+  const loading = catalog.status === "loading" || typeof redirect === "number";
+  const total = catalog.status === "success" && !loading ? catalog.data.meta.total : 0;
+  let content: ReactNode;
+
   if (catalog.status === "loading" || typeof redirect === "number") {
-    return <LearnerSkeleton variant="grid" />;
-  }
-  if (catalog.status === "error") {
-    return (
+    content = <CatalogSkeleton count={catalog.data?.items.length || undefined} />;
+  } else if (catalog.status === "error") {
+    content = (
       <LearnerErrorState
         error={catalog.error}
         title="Không tải được danh mục Khóa học"
@@ -93,21 +121,33 @@ const CatalogContent = ({ page, keyword }: { page: number; keyword: string }) =>
         onRetry={catalog.reload}
       />
     );
-  }
-  if (redirect === "empty") {
-    return <LearnerEmptyState title={keyword
+  } else if (redirect === "empty") {
+    content = <LearnerEmptyState title={keyword
       ? "Không tìm thấy Khóa học nào phù hợp với từ khóa này"
       : "Hiện chưa có Khóa học nào để tự đăng ký"} />;
+  } else {
+    content = (
+      <>
+        <div className="learner-catalog-grid">
+          {catalog.data.items.map((course) => (
+            <CatalogCard key={course.id} course={course} enrollmentId={enrolled.get(course.id)} page={page} keyword={keyword} />
+          ))}
+        </div>
+        <UrlPagination meta={catalog.data.meta} />
+      </>
+    );
   }
 
   return (
     <>
-      <div className="learner-catalog-grid">
-        {catalog.data.items.map((course) => (
-          <CatalogCard key={course.id} course={course} enrollmentId={enrolled.get(course.id)} page={page} keyword={keyword} />
-        ))}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className={keyword && (loading || total > 0) ? "learner-catalog-result-count" : undefined}
+      >
+        {keyword && total > 0 ? "Tìm thấy " + resultCountFormat.format(total) + " Khóa học" : null}
       </div>
-      <UrlPagination meta={catalog.data.meta} />
+      {content}
     </>
   );
 };
@@ -141,7 +181,9 @@ const CatalogSearch = ({ keyword, onSearch }: { keyword: string; onSearch: (valu
           aria-describedby={tooLong ? "catalog-keyword-error" : undefined}
         />
         <LearnerButton type="primary" htmlType="submit">Tìm kiếm</LearnerButton>
-        <LearnerButton onClick={() => { setDraft(""); onSearch(""); }}>Xóa tìm kiếm</LearnerButton>
+        {(draft || keyword) && (
+          <LearnerButton onClick={() => { setDraft(""); onSearch(""); }}>Xóa tìm kiếm</LearnerButton>
+        )}
       </div>
       {tooLong && <span id="catalog-keyword-error" role="alert">Từ khóa tối đa 200 ký tự.</span>}
     </form>
@@ -174,7 +216,7 @@ const Catalog = () => {
     <LearnerPage className="learner-catalog">
       <PageHeader title="Danh mục Khóa học" subtitle="Các Khóa học tổ chức của bạn mở cho Học viên tự đăng ký." />
       <CatalogSearch keyword={keyword} onSearch={search} />
-      {page === null ? <LearnerSkeleton variant="grid" /> : <CatalogContent page={page} keyword={keyword} />}
+      {page === null ? <CatalogSkeleton /> : <CatalogContent page={page} keyword={keyword} />}
     </LearnerPage>
   );
 };
