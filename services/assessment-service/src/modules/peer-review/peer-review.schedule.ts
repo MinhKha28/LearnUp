@@ -158,9 +158,9 @@ export class PeerReviewSchedule
             reviewCounts(missed.map((reviewerId) => ({ reviewerId }))),
             now,
           );
-          if (signals.skipped.length > 0) {
+          if (signals.repaired.length > 0) {
             this.logger.warn(
-              `Cycle ${cycle.id}: no state row for ${signals.skipped.join(', ')}, so learning was not told about their missed reviews.`,
+              `Cycle ${cycle.id}: made the missing state row of ${signals.repaired.join(', ')} so learning is told about their missed reviews.`,
             );
           }
           return true;

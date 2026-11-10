@@ -326,9 +326,10 @@ export class PeerReviewRepository {
    * The status-changed events of the Learners of a cycle (`PeerReviewAssigned` when it closes, `PeerReviewMissed` when
    * the deadline passes): one for each Learner, written in the transaction of the change so learning looks at the Course
    * again if and only if the change is there. `counts` is how many reviews each Learner got or missed.
-   * A Learner without a state row on the Assignment cannot have an event (the state is the aggregate of the event). Every
-   * Learner who submitted has one, so this is not expected; the ones skipped are answered so the caller can say so
-   * instead of failing a closing that nobody could repeat.
+   * A Learner without a state row on the Assignment is a broken invariant (every Learner who submitted has one). The state
+   * is the aggregate of the event, and without the event learning never looks at the Course again, so the row is made here,
+   * in the same transaction, with the time of the first submission of the Learner as the first activity; `repaired` answers
+   * who got one so the caller can say so.
    * ponytail: one snapshot reading per Learner inside the transaction; batch it if a cycle ever has thousands of reviewers.
    */
   async emitReviewerSignals(
@@ -337,8 +338,8 @@ export class PeerReviewRepository {
     kind: 'Assigned' | 'Missed',
     counts: Map<string, number>,
     now: Date,
-  ): Promise<{ sent: number; skipped: string[] }> {
-    if (counts.size === 0) return { sent: 0, skipped: [] };
+  ): Promise<{ sent: number; repaired: string[] }> {
+    if (counts.size === 0) return { sent: 0, repaired: [] };
     const assessment = await tx.assessment.findUniqueOrThrow({
       where: { id: cycle.assessmentId },
       select: { courseId: true },
@@ -351,14 +352,44 @@ export class PeerReviewRepository {
       select: { id: true, learnerId: true },
     });
     const stateOf = new Map(states.map((s) => [s.learnerId, s.id]));
-    const skipped: string[] = [];
+    const repaired = [...counts.keys()].filter((id) => !stateOf.has(id));
+    if (repaired.length > 0) {
+      const firsts = await tx.submission.groupBy({
+        by: ['learnerId'],
+        where: {
+          assessmentId: cycle.assessmentId,
+          learnerId: { in: repaired },
+        },
+        _min: { submittedAt: true },
+      });
+      const firstOf = new Map(
+        firsts.map((r) => [r.learnerId, r._min.submittedAt]),
+      );
+      for (const learnerId of repaired) {
+        const row = await tx.learnerAssessmentState.upsert({
+          where: {
+            assessmentId_learnerId: {
+              assessmentId: cycle.assessmentId,
+              learnerId,
+            },
+          },
+          create: {
+            organizationId: cycle.organizationId,
+            assessmentId: cycle.assessmentId,
+            learnerId,
+            firstActivityAt: firstOf.get(learnerId) ?? now,
+          },
+          update: {},
+          select: { id: true },
+        });
+        stateOf.set(learnerId, row.id);
+      }
+    }
     let sent = 0;
     for (const [learnerId, count] of counts) {
       const stateId = stateOf.get(learnerId);
-      if (!stateId) {
-        skipped.push(learnerId);
-        continue;
-      }
+      // cannot happen: the rows were made above; failing here undoes the whole change instead of losing the event
+      if (!stateId) throw new Error(`No state row for ${learnerId}`);
       await emitCompletionSignal(tx, {
         stateId,
         organizationId: cycle.organizationId,
@@ -377,7 +408,7 @@ export class PeerReviewRepository {
       });
       sent += 1;
     }
-    return { sent, skipped };
+    return { sent, repaired };
   }
 
   /**

@@ -29,7 +29,7 @@ interface StatusEvent {
   aggregate_id: string;
   organization_id: string;
   occurred_at: Date;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   payload: Record<string, any>;
 }
 
@@ -67,7 +67,7 @@ describe('peer review cycle status events', () => {
       { headers: { 'x-internal-key': KEY, 'x-organization-id': ORG } },
     );
     assert.equal(response.status, 200);
-    return ((await response.json()) as { data: any }).data; // eslint-disable-line @typescript-eslint/no-explicit-any
+    return ((await response.json()) as { data: any }).data;
   };
 
   const state = (learner: string) =>
@@ -76,6 +76,21 @@ describe('peer review cycle status events', () => {
               created_at, updated_at) VALUES (gen_random_uuid(), $1, $2, $3, now(), now(), now()) RETURNING id`,
       [ORG, assignment, learner],
     );
+  /** The first activity recorded on the state row of a Learner, and the time of that Learner's submission in a cycle. */
+  const firstActivity = async (learner: string) =>
+    (
+      await db.query(
+        `SELECT first_activity_at FROM learner_assessment_states WHERE assessment_id = $1 AND learner_id = $2`,
+        [assignment, learner],
+      )
+    )[0]?.first_activity_at as Date | undefined;
+  const submittedAt = async (learner: string, cycleId: string) =>
+    (
+      await db.query(
+        `SELECT submitted_at FROM submissions WHERE learner_id = $1 AND cycle_id = $2`,
+        [learner, cycleId],
+      )
+    )[0].submitted_at as Date;
   /** A cycle with one submission per Learner. It is parked far away until `release`, so the timer leaves it alone. */
   const makeCycle = async (
     status: 'Open' | 'Assigned',
@@ -263,20 +278,32 @@ describe('peer review cycle status events', () => {
       );
     });
 
-    test('a Learner with no state row is left out and the closing still happens', async () => {
+    test('a Learner with no state row gets one in the same closing, and its event is written', async () => {
       const group = [id(21), id(22), id(23)];
       for (const learner of group.slice(0, 2)) await state(learner); // id(23) has none
+      assert.equal(await firstActivity(group[2]), undefined);
       const made = await makeCycle('Open', group, -1, 71);
       await made.release();
       await until(
         async () => (await cycle(made.cycleId)).status === 'Assigned',
         'the cycle to be Assigned',
       );
+      const sent = await events(made.cycleId, 'PeerReviewAssigned');
       assert.deepEqual(
-        (await events(made.cycleId, 'PeerReviewAssigned')).map(
-          (e) => e.payload.learnerId,
-        ),
-        group.slice(0, 2),
+        sent.map((e) => e.payload.learnerId),
+        group,
+        'the Learner without a row is told too, so learning looks at the Course again',
+      );
+      // the row exists now, and the first activity is the time of the first submission of the Learner
+      const made23 = await submittedAt(group[2], made.cycleId);
+      assert.equal(
+        new Date((await firstActivity(group[2])) as Date).getTime(),
+        new Date(made23).getTime(),
+      );
+      const event = sent.find((e) => e.payload.learnerId === group[2])!;
+      assert.equal(
+        event.payload.firstActivityAt,
+        new Date(made23).toISOString(),
       );
     });
 
@@ -382,6 +409,28 @@ describe('peer review cycle status events', () => {
           },
         );
       }
+    });
+
+    test('a reviewer with no state row gets one when the deadline passes, and its event is written', async () => {
+      const group = [id(81), id(82), id(83), id(84)];
+      for (const learner of group.slice(1)) await state(learner); // id(81) has none
+      const made = await makeCycle('Assigned', group, -100, -1);
+      await makeReviews(made.cycleId, made.submissionIds, group, new Set());
+      await made.release();
+      await until(
+        async () => (await cycle(made.cycleId)).status === 'Completed',
+        'the cycle to be Completed',
+      );
+      const sent = await events(made.cycleId, 'PeerReviewMissed');
+      assert.deepEqual(
+        sent.map((e) => e.payload.learnerId),
+        group,
+        'nobody gave a review: all four skipped, the one without a row included',
+      );
+      assert.equal(
+        new Date((await firstActivity(group[0])) as Date).getTime(),
+        new Date(await submittedAt(group[0], made.cycleId)).getTime(),
+      );
     });
 
     test('the revision is the one of the completion snapshot, and the snapshot says Missed', async () => {
