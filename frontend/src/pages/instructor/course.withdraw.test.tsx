@@ -110,10 +110,10 @@ it("does not navigate after a non-successful API response", async () => {
 });
 
 it("ignores duplicate submission while request is pending", async () => {
-  let resolveRequest!: (value: Awaited<ReturnType<typeof withdrawCourseSubmissionAPI>>) => void;
-  withdraw.mockImplementation(() => new Promise((resolve) => {
+  let resolveRequest!: (value: unknown) => void;
+  withdraw.mockImplementation(() => new Promise<unknown>((resolve) => {
     resolveRequest = resolve;
-  }) as ReturnType<typeof withdrawCourseSubmissionAPI>);
+  }) as unknown as ReturnType<typeof withdrawCourseSubmissionAPI>);
   open();
   const button = await screen.findByRole("button", { name: "Withdraw to Draft" });
   fireEvent.click(button);
@@ -122,6 +122,6 @@ it("ignores duplicate submission while request is pending", async () => {
   resolveRequest({
     statusCode: 201,
     data: { ...course, status: "Draft", submittedAt: null },
-  } as Awaited<ReturnType<typeof withdrawCourseSubmissionAPI>>);
+  });
   expect(await screen.findByText("Course Detail")).toBeTruthy();
 });
