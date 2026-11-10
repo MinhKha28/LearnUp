@@ -127,6 +127,19 @@ describe("UC32.3 finalizing a score", () => {
     expect(screen.getByText("Nhận xét lượt chấm")).toBeTruthy();
   });
 
+  it("shows a dash when a review completion timestamp is missing", async () => {
+    const detail = submission();
+    detail.reviews[0].completedAt = null;
+    fetchDetail.mockResolvedValueOnce(ok(detail));
+
+    open("finalize");
+
+    const timestamp = await screen.findByText("-",
+      { selector: ".instructor-submission-review p" },
+    );
+    expect(timestamp).toBeTruthy();
+  });
+
   it("requires a trimmed explanation for a one-hundredth change", async () => {
     open("finalize");
     const { score, comment } = await fields();

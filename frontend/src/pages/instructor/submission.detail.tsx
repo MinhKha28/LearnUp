@@ -13,8 +13,8 @@ import {
 import FileLink from "@/components/instructor/submission.file.link";
 import { getSubmissionDetailAPI } from "@/services/instructor.submission.service";
 import type { ISubmissionDetail } from "@/types/submission.types";
-import { formatLocalDateTime } from "@/utils/helper";
 import {
+  formatDateTime,
   gradingStatusView,
   interventionLabel,
   personName,
@@ -133,7 +133,7 @@ const SubmissionDetail = () => {
               {reason && <span>{reason}</span>}
             </div>
             <p className="instructor-submission-meta">
-              Nộp lúc {formatLocalDateTime(detail.submittedAt)}
+              Nộp lúc {formatDateTime(detail.submittedAt)}
               {detail.learner.email ? ` / ${detail.learner.email}` : ""}
             </p>
             <div className="instructor-submission-body">
@@ -241,7 +241,7 @@ const SubmissionDetail = () => {
                 onClick={() => navigate(`/instructor/submissions/${item.id}`)}
               >
                 <strong>#{item.submissionNumber}</strong>
-                <span>{formatLocalDateTime(item.submittedAt)}</span>
+                <span>{formatDateTime(item.submittedAt)}</span>
                 <StatusTag tone={gradingStatusView(item.gradingStatus).tone}>
                   {gradingStatusView(item.gradingStatus).label}
                 </StatusTag>

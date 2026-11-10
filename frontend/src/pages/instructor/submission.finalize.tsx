@@ -16,8 +16,11 @@ import type {
   IFinalizeSubmissionResult,
   ISubmissionDetail,
 } from "@/types/submission.types";
-import { formatLocalDateTime } from "@/utils/helper";
-import { reviewerRoleLabel, reviewStatusView } from "@/utils/submission.labels";
+import {
+  formatDateTime,
+  reviewerRoleLabel,
+  reviewStatusView,
+} from "@/utils/submission.labels";
 import "./submissions.scss";
 
 const SUBMISSIONS = "/instructor/submissions";
@@ -73,9 +76,7 @@ const ReviewSummary = ({ reviews }: Pick<ISubmissionDetail, "reviews">) => (
             <StatusTag tone={status.tone}>{status.label}</StatusTag>
             {review.score !== null && <b>{review.score}/100</b>}
           </div>
-          {review.completedAt && (
-            <p>{formatLocalDateTime(review.completedAt)}</p>
-          )}
+          <p>{formatDateTime(review.completedAt)}</p>
           {review.comment && <p>{review.comment}</p>}
         </div>
       );
