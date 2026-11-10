@@ -91,9 +91,6 @@ learnup:
     # Timeout of the calls to tenant-service and course-service.
     client-timeout-ms: ${ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS:3000}
 
-audit:
-  service-url: ${AUDIT_SERVICE_URL:}
-
 security:
   internal-key: ${INTERNAL_SERVICE_KEY:}
 
