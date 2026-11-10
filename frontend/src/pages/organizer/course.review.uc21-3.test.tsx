@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  approveCourseAPI, fetchOrganizerCourseReviewAPI, rejectCourseAPI,
+  approveCourseAPI, fetchOrganizerCourseReviewAPI, fetchOrganizationCourseInstructorsAPI, rejectCourseAPI,
 } from "@/services/course.service";
 import { fetchOrganizerAssessmentReviewAPI } from "@/services/assessment.service";
 import CourseReview from "./course.review";
@@ -43,6 +43,7 @@ beforeEach(() => {
   vi.mocked(fetchOrganizerAssessmentReviewAPI).mockResolvedValue({
     statusCode: 200, data: { courseId, items: [] },
   } as never);
+  vi.mocked(fetchOrganizationCourseInstructorsAPI).mockResolvedValue({ statusCode: 200, data: [] } as never);
 });
 afterEach(() => {
   cleanup();
