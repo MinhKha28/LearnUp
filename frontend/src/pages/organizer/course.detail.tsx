@@ -94,6 +94,9 @@ const CourseDetail = () => {
   const inFlight = useRef(false);
   const loadSequence = useRef(0);
 
+  const instructorResolved = Boolean(context?.currentInstructor.fullName?.trim()) &&
+    context?.currentInstructor.resolved !== false;
+
   const loadContext = useCallback(async () => {
     const sequence = ++loadSequence.current;
     if (!courseId) {
@@ -129,6 +132,10 @@ const CourseDetail = () => {
 
   const openTransfer = async () => {
     if (!context || candidatesLoading || inFlight.current) return;
+    if (!instructorResolved) {
+      message.warning("Không xác định được Instructor hiện tại. Vui lòng kiểm tra dữ liệu Tenant.");
+      return;
+    }
     setCandidatesLoading(true);
     setModalError("");
     try {
@@ -217,7 +224,7 @@ const CourseDetail = () => {
             )}
             <OrganizerButton
               type="primary"
-              disabled={!context || loading || candidatesLoading}
+              disabled={!context || !instructorResolved || loading || candidatesLoading}
               loading={candidatesLoading}
               onClick={() => void openTransfer()}
             >
@@ -241,7 +248,19 @@ const CourseDetail = () => {
           <div className="organizer-course-detail-loading"><Spin /></div>
         ) : context ? (
           <>
-            <p>Instructor hiện tại: <strong>{context.currentInstructor.fullName}</strong></p>
+            <div className="organizer-course-detail-owner">
+              <span>Instructor hiện tại</span>
+              <strong>{context.currentInstructor.fullName || "Chưa xác định"}</strong>
+            </div>
+            {!instructorResolved && (
+              <Alert
+                type="warning"
+                showIcon
+                message="Không tìm thấy Instructor phụ trách trong Tenant Service."
+                description={`Instructor ID: ${context.currentInstructor.id}. Hãy kiểm tra dữ liệu tài khoản và Organization trước khi chuyển quyền.`}
+                className="organizer-course-detail-warning"
+              />
+            )}
             <Table<ITransferCourseVersion>
               className="organizer-table"
               rowKey="id"
@@ -272,7 +291,7 @@ const CourseDetail = () => {
             <OrganizerButton
               type="primary"
               loading={transferring}
-              disabled={transferring || candidates.length === 0 || !context}
+              disabled={transferring || candidates.length === 0 || !context || !instructorResolved}
               onClick={() => void submitTransfer()}
             >
               Xác nhận chuyển quyền
@@ -284,7 +303,7 @@ const CourseDetail = () => {
         {modalError && <Alert showIcon type="error" message={modalError} />}
         <Form<ITransferCourseRequest> form={form} layout="vertical" className="organizer-form">
           <Form.Item label="Instructor hiện tại">
-            <strong>{context?.currentInstructor.fullName ?? "—"}</strong>
+            <strong>{context?.currentInstructor.fullName || "Chưa xác định"}</strong>
           </Form.Item>
           <Form.Item
             label="Instructor tiếp nhận"

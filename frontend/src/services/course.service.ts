@@ -303,6 +303,16 @@ export const fetchOrganizerCourseReviewAPI = (courseId: string) =>
     `/api/v1/courses/organization/${encodeURIComponent(courseId)}/review`,
   );
 
+/** UC21.2: authenticated PDF bytes, not an automatic file download. */
+export const fetchOrganizerReadingContentAPI = (
+  courseId: string,
+  materialId: string,
+) =>
+  axios.get<Blob>(
+    `/api/v1/courses/organization/${encodeURIComponent(courseId)}/materials/${encodeURIComponent(materialId)}/reading-content`,
+    { responseType: "blob", timeout: 30000 },
+  );
+
 export const fetchOrganizerMaterialPreviewAPI = (
   courseId: string,
   materialId: string,

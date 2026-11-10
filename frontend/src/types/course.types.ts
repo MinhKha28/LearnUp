@@ -556,7 +556,8 @@ export interface ITransferCourseContext {
   courseName: string;
   currentInstructor: {
     id: string;
-    fullName: string;
+    fullName: string | null;
+    resolved?: boolean;
   };
   versions: ITransferCourseVersion[];
 }

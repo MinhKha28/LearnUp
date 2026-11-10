@@ -232,3 +232,42 @@
     justify-content: flex-start;
   }
 }
+
+/* Align Course Review materials with the Organizer Course Detail design. */
+.review-material > .review-material-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.review-material > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-material-actions button {
+  white-space: nowrap;
+}
+
+.review-pdf {
+  min-height: 440px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.organizer-course-review .review-material {
+  border-color: #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+@media (max-width: 768px) {
+  .review-material > .review-material-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

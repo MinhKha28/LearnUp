@@ -1,4 +1,5 @@
 import { Alert, Collapse, Empty, Input, Modal, Skeleton, message } from "antd";
+import { EyeOutlined, DownloadOutlined } from "@ant-design/icons";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -17,6 +18,7 @@ import {
   approveCourseAPI,
   rejectCourseAPI,
   fetchOrganizerMaterialPreviewAPI,
+  fetchOrganizerReadingContentAPI,
 } from "@/services/course.service";
 
 import {
@@ -39,6 +41,25 @@ const isSuccess = (statusCode: unknown) => {
   const status = Number(statusCode);
 
   return Number.isInteger(status) && status >= 200 && status < 300;
+};
+
+// Present the real storage filename; append .pdf only when a PDF has no extension.
+const materialFilename = (material: IReviewMaterial) => {
+  const filename = (material.filename || material.title || "reading").trim();
+  return material.mimeType === "application/pdf" &&
+    !/\.[a-z\d]{1,8}$/i.test(filename)
+    ? filename + ".pdf"
+    : filename;
+};
+
+const readPdfBlob = async (courseId: string, materialId: string) => {
+  // Binary endpoint uses the authenticated course Axios instance.
+  const response = await fetchOrganizerReadingContentAPI(courseId, materialId);
+  const data: unknown = (response as { data?: unknown }).data;
+  if (!(data instanceof Blob) || !data.size) {
+    throw new Error("Invalid Reading PDF response");
+  }
+  return new Blob([data], { type: "application/pdf" });
 };
 
 const showValue = (value: number | null) =>
@@ -228,6 +249,10 @@ const CourseReview = () => {
   const [reloadKey, setReloadKey] = useState(0);
 
   const [preview, setPreview] = useState<IMaterialPreview | null>(null);
+  const [previewName, setPreviewName] = useState("");
+  const previewBlobUrl = useRef<string | null>(null);
+  const [readingDownloadingId, setReadingDownloadingId] = useState<string | null>(null);
+  const readingDownloadInFlight = useRef(false);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
@@ -244,6 +269,24 @@ const CourseReview = () => {
   // Ref closes the gap before React's next render: one request per decision.
   const decisionInFlightRef = useRef(false);
 
+  const releasePreviewUrl = () => {
+    if (previewBlobUrl.current) {
+      URL.revokeObjectURL(previewBlobUrl.current);
+      previewBlobUrl.current = null;
+    }
+  };
+
+  const closeMaterialPreview = () => {
+    setPreviewOpen(false);
+    setPreview(null);
+    setPreviewName("");
+    releasePreviewUrl();
+  };
+
+  useEffect(() => () => {
+    if (previewBlobUrl.current) URL.revokeObjectURL(previewBlobUrl.current);
+  }, []);
+
   // Load real Course and Assessment data.
   useEffect(() => {
     let active = true;
@@ -256,6 +299,11 @@ const CourseReview = () => {
       setAssessmentError("");
       setPreview(null);
       setPreviewOpen(false);
+      setPreviewName("");
+      if (previewBlobUrl.current) {
+        URL.revokeObjectURL(previewBlobUrl.current);
+        previewBlobUrl.current = null;
+      }
       setDecisionOpen(null);
       setRejectionReason("");
 
@@ -386,22 +434,34 @@ const CourseReview = () => {
     }
   };
 
-  // Obtain a protected Video / PDF URL.
+  // PDF: obtain authenticated bytes and create a local Blob URL.
+  // Video: retain the existing protected signed-URL player.
   const openMaterialPreview = async (material: IReviewMaterial) => {
-    if (!course || !material.previewAvailable) {
+    if (!course || !material.previewAvailable || previewLoadingId !== null) {
       return;
     }
-
-    setPreview(null);
-    setPreviewOpen(false);
+    closeMaterialPreview();
+    setPreviewName(materialFilename(material));
     setPreviewLoadingId(material.id);
 
     try {
+      if (material.mimeType === "application/pdf") {
+        const pdf = await readPdfBlob(course.id, material.id);
+        const url = URL.createObjectURL(pdf);
+        previewBlobUrl.current = url;
+        setPreview({
+          url,
+          mimeType: "application/pdf",
+          expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        });
+        setPreviewOpen(true);
+        return;
+      }
+
       const result = await fetchOrganizerMaterialPreviewAPI(
         course.id,
         material.id,
       );
-
       if (
         !isSuccess(result.statusCode) ||
         !result.data?.url ||
@@ -411,18 +471,39 @@ const CourseReview = () => {
         message.error("Unable to open material preview.");
         return;
       }
-
       if (new Date(result.data.expiresAt).getTime() <= Date.now()) {
         message.error("Preview URL has expired.");
         return;
       }
-
       setPreview(result.data);
       setPreviewOpen(true);
     } catch {
-      message.error("Unable to reach Course Service.");
+      message.error("Unable to open material preview.");
     } finally {
       setPreviewLoadingId(null);
+    }
+  };
+
+  // Explicit download action: Preview never invokes this function.
+  const downloadReading = async (material: IReviewMaterial) => {
+    if (!course || readingDownloadInFlight.current) return;
+    readingDownloadInFlight.current = true;
+    setReadingDownloadingId(material.id);
+    try {
+      const pdf = await readPdfBlob(course.id, material.id);
+      const url = URL.createObjectURL(pdf);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = materialFilename(material).replace(/[<>:"/\\|?*\x00-\x1f]/g, "_");
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      message.error("Unable to download Reading PDF.");
+    } finally {
+      readingDownloadInFlight.current = false;
+      setReadingDownloadingId(null);
     }
   };
 
@@ -693,20 +774,31 @@ const CourseReview = () => {
                                 {material.disabled ? " · Disabled" : ""}
                               </small>
 
-                              <small>{material.filename}</small>
+                              <small title={materialFilename(material)}>
+                                {materialFilename(material)}
+                              </small>
                             </div>
 
-                            <OrganizerButton
-                              size="small"
-                              loading={previewLoadingId === material.id}
-                              disabled={
-                                !material.previewAvailable ||
-                                previewLoadingId !== null
-                              }
-                              onClick={() => void openMaterialPreview(material)}
-                            >
-                              Preview
-                            </OrganizerButton>
+                            <div className="review-material-actions">
+                              <OrganizerButton
+                                size="small"
+                                loading={previewLoadingId === material.id}
+                                disabled={!material.previewAvailable || previewLoadingId !== null}
+                                onClick={() => void openMaterialPreview(material)}
+                              >
+                                <EyeOutlined /> Preview
+                              </OrganizerButton>
+                              {material.mimeType === "application/pdf" && (
+                                <OrganizerButton
+                                  size="small"
+                                  loading={readingDownloadingId === material.id}
+                                  disabled={!material.previewAvailable || readingDownloadingId !== null}
+                                  onClick={() => void downloadReading(material)}
+                                >
+                                  <DownloadOutlined /> Download
+                                </OrganizerButton>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </section>
@@ -749,15 +841,12 @@ const CourseReview = () => {
       </div>
 
       <Modal
-        title="Material preview"
+        title={previewName ? `Preview · ${previewName}` : "Material preview"}
         open={previewOpen}
         footer={null}
         width={960}
         destroyOnClose
-        onCancel={() => {
-          setPreviewOpen(false);
-          setPreview(null);
-        }}
+        onCancel={closeMaterialPreview}
       >
         {preview?.mimeType.startsWith("video/") ? (
           <video
@@ -771,7 +860,7 @@ const CourseReview = () => {
           <iframe
             className="review-pdf"
             title="Reading material preview"
-            src={preview.url}
+            src={preview.url + "#toolbar=0&navpanes=0"}
           />
         ) : (
           <Empty description="Preview unavailable" />
