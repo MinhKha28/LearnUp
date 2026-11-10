@@ -1,8 +1,10 @@
-import type { IAuditLog, IAuditLogFilter } from "@/types/audit.types";
+import type { IAuditLogFilter } from "@/types/audit.types";
 
-/** The times of the product are Vietnam times (UTC+7, no daylight saving). */
+/**
+ * The times of the product are Vietnam times (UTC+7, no daylight saving), and so is the day of the range filter: the screen shows Vietnam
+ * time (formatDateTimeVN), so a day typed in the filter must be the day the list shows, whatever the time zone of the viewer.
+ */
 const VIETNAM_OFFSET = "+07:00";
-const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh";
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const AUDIT_PAGE_SIZE = 20;
 export const AUDIT_TARGET_ID_MAX_LENGTH = 255;
@@ -24,7 +26,7 @@ const ACTION_LABELS: Record<string, string> = {
   PLAN_DISCONTINUED: "Ngừng cung cấp gói dịch vụ",
   ORGANIZATION_SUSPENDED: "Tạm khóa tổ chức",
   ORGANIZATION_SUSPENSION_LIFTED: "Gỡ tạm khóa tổ chức",
-  ORGANIZER_REPLACED: "Thay quản trị viên tổ chức",
+  ORGANIZER_REPLACED: "Thay quản lý đào tạo",
   COURSE_APPROVED: "Phê duyệt khóa học",
   COURSE_REJECTED: "Từ chối khóa học",
   COURSE_TYPE_CHANGED: "Đổi loại khóa học",
@@ -53,7 +55,7 @@ const TARGET_LABELS: Record<string, string> = {
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Quản trị viên nền tảng",
-  ORGANIZER: "Quản trị viên tổ chức",
+  ORGANIZER: "Quản lý đào tạo",
   INSTRUCTOR: "Giảng viên",
   LEARNER: "Học viên",
 };
@@ -85,38 +87,16 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** `details` is a JSON text; a bad or missing one is not an error of the screen. */
-export const parseAuditDetails = (details: string | null): { reason?: string; occurredAt?: string } => {
+export const parseAuditDetails = (details: string | null): { reason?: string } => {
   if (!details) return {};
   try {
     const parsed: unknown = JSON.parse(details);
     if (!isRecord(parsed)) return {};
     const reason = typeof parsed.reason === "string" && parsed.reason.trim() ? parsed.reason.trim() : undefined;
-    const occurredAt =
-      typeof parsed.occurredAt === "string" && !Number.isNaN(Date.parse(parsed.occurredAt)) ? parsed.occurredAt : undefined;
-    return { reason, occurredAt };
+    return { reason };
   } catch {
     return {};
   }
-};
-
-/** The time of the action when the service said it, else the time audit-service received the entry. */
-export const auditTime = (log: Pick<IAuditLog, "details" | "createdAt">) =>
-  parseAuditDetails(log.details).occurredAt ?? log.createdAt;
-
-export const formatAuditTime = (value: string) => {
-  const time = new Date(value);
-  if (Number.isNaN(time.getTime())) return "—";
-  const parts = new Intl.DateTimeFormat("vi-VN", {
-    timeZone: VIETNAM_TIME_ZONE,
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(time);
-  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
-  return `${part("day")}/${part("month")}/${part("year")} ${part("hour")}:${part("minute")}`;
 };
 
 /** A real calendar day written yyyy-MM-dd, else undefined. */

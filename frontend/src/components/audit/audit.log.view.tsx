@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { fetchAuditLogsAPI } from "@/services/audit.service";
+import { formatDateTimeVN } from "@/utils/helper";
 import type { IAuditLog, IAuditLogPage } from "@/types/audit.types";
 import {
   AUDIT_PAGE_SIZE,
@@ -14,8 +15,6 @@ import {
   actorRoleLabel,
   isKnownAction,
   isKnownTargetType,
-  auditTime,
-  formatAuditTime,
   hasAuditFilter,
   parseAuditDetails,
   rangeIsReversed,
@@ -134,7 +133,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
   };
 
   const columns: ColumnsType<IAuditLog> = [
-    { title: "Thời điểm", key: "time", width: 150, render: (_, log) => formatAuditTime(auditTime(log)) },
+    { title: "Thời điểm", key: "time", width: 150, render: (_, log) => formatDateTimeVN(log.createdAt) },
     {
       title: "Người thực hiện",
       key: "actor",

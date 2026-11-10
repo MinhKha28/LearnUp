@@ -88,3 +88,71 @@ test('a refusal or a network failure becomes an error code, not an exception', a
   };
   assert.equal(await service.deliver('http://audit.test', 'e', record, 1000), 'TIMEOUT');
 });
+
+// A refusal (400: a time before 2020 or more than five minutes ahead) is not a reason to block the rows behind it, nor to try for ever.
+function relayOf(rows, status) {
+  const failures = new Map();
+  const published = [];
+  const outbox = {
+    claimNextUnpublished: async (_type, excludeIds) => {
+      const row = rows.find(
+        (r) => !r.failedAt && !r.publishedAt && !excludeIds.includes(r.id) && (!r.nextAttemptAt || r.nextAttemptAt <= new Date()),
+      );
+      return row ? { id: row.id, payload: row.payload, attempts: row.attempts } : null;
+    },
+    recordFailure: async (id, state) => {
+      failures.set(id, state);
+      Object.assign(rows.find((r) => r.id === id), state);
+    },
+    markPublished: async (id) => {
+      published.push(id);
+      rows.find((r) => r.id === id).publishedAt = new Date();
+    },
+  };
+  const prisma = { $transaction: async (fn) => fn({}) };
+  const relay = new AuditRelayService(outbox, { ...config, get: () => 'http://audit.test' }, prisma);
+  global.fetch = async (_url, init) => {
+    const body = JSON.parse(init.body);
+    return { ok: status(body) < 300, status: status(body) };
+  };
+  return { relay, failures, published };
+}
+
+const row = (id, occurredAt, attempts = 0) => ({
+  id,
+  attempts,
+  payload: { ...record, occurredAt },
+  failedAt: null,
+  publishedAt: null,
+  nextAttemptAt: null,
+});
+
+test('a row audit-service refuses with 400 is scheduled for a later try and the rows behind it are still sent', async () => {
+  const rows = [row('bad', '1970-01-01T00:00:00.000Z'), row('good', '2026-11-05T10:00:00.000Z')];
+  const { relay, failures, published } = relayOf(rows, (body) => (body.occurredAt.startsWith('1970') ? 400 : 201));
+  await relay.runRound();
+  assert.deepEqual(published, ['good']);
+  const bad = failures.get('bad');
+  assert.equal(bad.lastErrorCode, 'HTTP_400');
+  assert.equal(bad.attempts, 1);
+  assert.equal(bad.failedAt, null);
+  assert.ok(bad.nextAttemptAt > new Date());
+  // not due yet: the next round neither resends it nor is blocked by it
+  rows.push(row('later', '2026-11-05T11:00:00.000Z'));
+  await relay.runRound();
+  assert.deepEqual(published, ['good', 'later']);
+  assert.equal(failures.get('bad').attempts, 1);
+});
+
+test('after the last attempt the row is marked failed for good and is never taken again', async () => {
+  const rows = [row('bad', '1970-01-01T00:00:00.000Z', 7), row('good', '2026-11-05T10:00:00.000Z')];
+  const { relay, failures, published } = relayOf(rows, (body) => (body.occurredAt.startsWith('1970') ? 400 : 201));
+  await relay.runRound();
+  assert.deepEqual(published, ['good']);
+  assert.equal(failures.get('bad').attempts, 8);
+  assert.ok(failures.get('bad').failedAt instanceof Date);
+  assert.equal(failures.get('bad').nextAttemptAt, null);
+  await relay.runRound();
+  assert.equal(failures.size, 1);
+  assert.equal(failures.get('bad').attempts, 8);
+});
