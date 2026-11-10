@@ -4,6 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { useCurrentApp } from "@/components/context/app.context";
 import { changePasswordAPI } from "@/services/identity.service";
 import { clearTokens } from "@/utils/auth";
+import {
+  changePasswordErrorMessage,
+  hasMinimumPasswordLength,
+  isSameStoredPassword,
+  isWithinPasswordByteLimit,
+} from "@/utils/password.policy";
 
 export type ChangePasswordFields = {
   current: string;
@@ -11,25 +17,30 @@ export type ChangePasswordFields = {
   confirm: string;
 };
 
-const BACKEND_MESSAGES: Record<string, string> = {
-  "Current password is incorrect": "Current password is incorrect.",
-  "New password cannot be the same as the current password":
-    "Choose a new password that is different from the current one.",
-  "New password and confirmation password do not match":
-    "Passwords do not match.",
-};
-
 export const currentPasswordRules: Rule[] = [
   { required: true, message: "Enter your current password." },
 ];
 
 export const newPasswordRules: Rule[] = [
-  { required: true, message: "Enter a new password." },
-  { min: 8, message: "Use at least 8 characters." },
-  { max: 72, message: "Use at most 72 characters." },
+  { required: true, whitespace: true, message: "Enter a new password." },
+  {
+    validator(_, value?: string) {
+      return !value || hasMinimumPasswordLength(value, 8)
+        ? Promise.resolve()
+        : Promise.reject(new Error("Use at least 8 characters."));
+    },
+  },
+  {
+    validator(_, value?: string) {
+      // The stored limit is BCrypt's 72 bytes, not 72 Unicode characters.
+      return !value || isWithinPasswordByteLimit(value)
+        ? Promise.resolve()
+        : Promise.reject(new Error("Password is too long. Use fewer characters."));
+    },
+  },
   ({ getFieldValue }) => ({
     validator(_, value?: string) {
-      return !value || value !== getFieldValue("current")
+      return !value || !isSameStoredPassword(value, getFieldValue("current"))
         ? Promise.resolve()
         : Promise.reject(
             new Error("Choose a password different from the current one."),
@@ -71,12 +82,11 @@ export const useChangePassword = () => {
         navigate("/login?state=password-changed", { replace: true });
         return;
       }
-      const message =
-        (res as unknown as { error?: { message?: string } }).error?.message ??
-        "";
       setError(
-        BACKEND_MESSAGES[message] ??
-          "The password could not be changed. Please try again.",
+        changePasswordErrorMessage(
+          (res as unknown as { error?: { code?: string; message?: string } })
+            .error,
+        ),
       );
     } catch {
       setError("Could not connect to the server. Please try again later.");
