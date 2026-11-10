@@ -19,10 +19,12 @@ model Enrollment {
   expectedCompletionDays    Int?      @map("expected_completion_days")
   baseDueAt                 DateTime? @map("base_due_at") @db.Timestamptz
   extensionSeconds          BigInt    @default(0) @map("extension_seconds")
+  dueTimezone               String?   @map("due_timezone")
   dueAt                     DateTime? @map("due_at") @db.Timestamptz
   videoCompletionPercent    Int       @map("video_completion_percent")
   firstActivityAt           DateTime? @map("first_activity_at") @db.Timestamptz
   completedAt               DateTime? @map("completed_at") @db.Timestamptz
+  completionSnapshot        Json?     @map("completion_snapshot")
   completedLate             Boolean?  @map("completed_late")
   withdrawnAt               DateTime? @map("withdrawn_at") @db.Timestamptz
   withdrawnReason           String?   @map("withdrawn_reason")
@@ -32,12 +34,30 @@ model Enrollment {
   courseSnapshot CourseVersionSnapshot @relation(fields: [courseId, organizationId], references: [courseId, organizationId])
   intervals      EnrollmentStatusInterval[]
   materialProgress MaterialProgress[]
+  completionRequests CompletionEvaluationRequest[]
 
   @@unique([id, organizationId])
   @@unique([learnerId, courseId])
   @@index([courseId, status])
   @@index([organizationId, enrollmentType, status])
   @@map("enrollments")
+}
+
+model CompletionEvaluationRequest {
+  id String @id @default(uuid(7)) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  enrollmentId String @unique @map("enrollment_id") @db.Uuid
+  source String
+  requestedAt DateTime @default(now()) @map("requested_at") @db.Timestamptz
+  attempts BigInt @default(0)
+  generation BigInt @default(0)
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
+  lastError String? @map("last_error")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  enrollment Enrollment @relation(fields: [enrollmentId,organizationId], references: [id,organizationId], onDelete: Cascade, onUpdate: NoAction, map: "completion_evaluation_request_enrollment_id_organization_i_fkey")
+  @@index([nextAttemptAt,id], map: "completion_evaluation_requests_due_idx")
+  @@map("completion_evaluation_requests")
 }
 
 model EnrollmentStatusInterval {
@@ -64,6 +84,8 @@ model MaterialProgress {
   materialId     String    @map("material_id") @db.Uuid
   watchedRanges  Unsupported("int4multirange")? @map("watched_ranges")
   lastReportedAt DateTime? @map("last_reported_at") @db.Timestamptz
+  positionSeconds Int? @map("position_seconds")
+  positionReportedAt DateTime? @map("position_reported_at") @db.Timestamptz
   completedAt    DateTime? @map("completed_at") @db.Timestamptz
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
@@ -166,6 +188,9 @@ model PlatformSetting {
 }
 
 model OutboxEvent {
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error")
+  nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz
   id             String    @id @default(uuid(7)) @db.Uuid
   aggregateType  String    @map("aggregate_type")
   aggregateId    String    @map("aggregate_id") @db.Uuid
@@ -179,4 +204,17 @@ model OutboxEvent {
 
   // Index (published_at) bị bỏ; thay bằng index (id) WHERE published_at IS NULL viết tay trong migration add_design_constraints
   @@map("outbox_events")
+}
+
+model AssessmentEventQuarantine {
+  id String @id @default(uuid(7)) @db.Uuid
+  topic String
+  partition Int
+  offset BigInt
+  eventId String? @map("event_id")
+  reason String @db.VarChar(64)
+  payload Json
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz
+  @@unique([topic, partition, offset])
+  @@map("assessment_event_quarantine")
 }

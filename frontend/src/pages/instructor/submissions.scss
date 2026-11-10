@@ -255,56 +255,41 @@
   font-size: 13px;
 }
 
+.instructor-submissions .instructor-finalize-back {
+  display: block;
+  width: fit-content;
+  margin-bottom: var(--space-4);
+  color: var(--color-info);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.instructor-submissions .instructor-finalize-back:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: 3px;
+}
+
+.instructor-finalize-field-error {
+  margin: var(--space-1) 0 0;
+  color: var(--color-error);
+}
+
 .instructor-finalize-aggregate {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 .instructor-finalize-aggregate span {
   display: block;
-  margin-bottom: 8px;
-  color: #64748b;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 600;
 }
 
 .instructor-finalize-aggregate strong {
-  color: #0f172a;
+  color: var(--color-text-primary);
   font-size: 20px;
   font-weight: 700;
-}
-
-.instructor-finalize-fields {
-  display: grid;
-  margin-bottom: 20px;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-.instructor-finalize-fields label {
-  display: block;
-  margin-bottom: 8px;
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.instructor-finalize-configured {
-  margin: 0;
-  color: #0f172a;
-  font-size: 15px;
-  font-weight: 650;
-}
-
-.instructor-finalize-feedback {
-  margin-bottom: 20px;
-}
-
-.instructor-finalize-feedback label {
-  display: block;
-  margin-bottom: 8px;
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 650;
 }
 
 .instructor-finalize-actions {
@@ -321,10 +306,6 @@
   .instructor-discrepancy-row {
     grid-template-columns: 1fr 1fr;
     row-gap: 6px;
-  }
-
-  .instructor-finalize-fields {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -612,5 +593,32 @@
   .instructor-submissions-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+.instructor-submissions-score {
+  flex-wrap: wrap;
+  color: #475569;
+  font-size: 13px;
+}
+
+.instructor-submissions-active {
+  margin-bottom: 12px;
+}
+
+.instructor-submissions-learner-filter {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    color: #b45309;
+    text-decoration: underline;
   }
 }

@@ -115,9 +115,9 @@ void describe('EnrollmentsRepository.findCourseIdsOfLearner (D20, D48)', () => {
     const result = await repository.findCourseIdsOfLearner(LEARNER_1, ORG_A);
 
     assert.deepEqual(result, [
-      { courseId: 'c-1', enrollmentId: 'e-1' },
-      { courseId: 'c-3', enrollmentId: 'e-3' },
-      { courseId: 'c-4', enrollmentId: 'e-4' },
+      { courseId: 'c-1', enrollmentId: 'e-1', status: 'NotStarted' },
+      { courseId: 'c-3', enrollmentId: 'e-3', status: 'InProgress' },
+      { courseId: 'c-4', enrollmentId: 'e-4', status: 'Completed' },
     ]);
     assert.deepEqual(calls[0].where, {
       learnerId: LEARNER_1,
@@ -132,11 +132,11 @@ void describe('EnrollmentsRepository.findCourseIdsOfLearner (D20, D48)', () => {
 
     assert.deepEqual(
       await repository.findCourseIdsOfLearner(LEARNER_2, ORG_A),
-      [{ courseId: 'c-1', enrollmentId: 'e-5' }],
+      [{ courseId: 'c-1', enrollmentId: 'e-5', status: 'NotStarted' }],
     );
     assert.deepEqual(
       await repository.findCourseIdsOfLearner(LEARNER_1, ORG_B),
-      [{ courseId: 'c-6', enrollmentId: 'e-6' }],
+      [{ courseId: 'c-6', enrollmentId: 'e-6', status: 'NotStarted' }],
     );
     assert.deepEqual(
       await repository.findCourseIdsOfLearner(LEARNER_2, ORG_B),
@@ -148,7 +148,9 @@ void describe('EnrollmentsRepository.findCourseIdsOfLearner (D20, D48)', () => {
 void describe('EnrollmentsService.getMyCourseIds (D20, D48)', () => {
   void test('trả nguyên danh sách { courseId, enrollmentId } theo userId và organizationId', async () => {
     const received: [string, string][] = [];
-    const refs = [{ courseId: 'c-1', enrollmentId: 'e-1' }];
+    const refs = [
+      { courseId: 'c-1', enrollmentId: 'e-1', status: 'NotStarted' },
+    ];
     const enrollments = {
       findCourseIdsOfLearner: (learnerId: string, organizationId: string) => {
         received.push([learnerId, organizationId]);

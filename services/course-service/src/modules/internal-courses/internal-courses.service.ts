@@ -1,17 +1,37 @@
 import { COURSE_STATUS, COURSE_TYPE } from '../courses/course-values';
 import { createApiError } from '@learnup/ts-common';
 import {
+  BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { PrismaService } from '@infra/prisma/prisma.service';
 import { CourseBatchItemDto } from './dto/course-batch-item.dto';
 import { AssignmentMinutesDto } from './dto/assignment-minutes.dto';
 import { CourseTreeDto } from './dto/course-tree.dto';
+import { InstructorCourseCountsDto } from './dto/instructor-course-counts.dto';
 import { LessonContentDto } from './dto/lesson-content.dto';
 import { LockedCourseDto } from './dto/locked-course.dto';
+import { OrganizationUsageDto } from './dto/organization-usage.dto';
+import {
+  ManagedCourseChainsDto,
+  TransferredCourseChainsDto,
+} from './dto/managed-course-chain.dto';
+import {
+  findChainRepresentatives,
+  findManagedChains,
+  transferCourseChain,
+} from './course-chain-ownership';
+import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
+import {
+  StorageProviderError,
+  type IReadableStorageProvider,
+} from '@learnup/ts-storage';
 
 interface LockableCourseRow {
   id: string;
@@ -57,7 +77,13 @@ function validateEnrollmentCourse(
  */
 @Injectable()
 export class InternalCoursesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(InternalCoursesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(STORAGE_PROVIDER)
+    private readonly storage: IReadableStorageProvider,
+  ) {}
 
   /**
    * Course đã Locked không cần khóa lại: locked_at không quay về NULL (BR-83).
@@ -136,6 +162,8 @@ export class InternalCoursesService {
     if (!organizationId || !isUUID(organizationId, 'all')) {
       throw courseNotFound();
     }
+    // Assessment may finish syncing after the Course moves to Trash.
+    // Preserve the latest estimate for a subsequent restore.
     const rows = await this.prisma.$queryRaw<
       { id: string; assignment_minutes: number; as_of: Date }[]
     >`
@@ -246,7 +274,10 @@ export class InternalCoursesService {
     courseIds: string[],
   ): Promise<CourseBatchItemDto[]> {
     if (!organizationId || !isUUID(organizationId, 'all')) {
-      return [];
+      throw new BadRequestException({
+        code: 'ORGANIZATION_REQUIRED',
+        message: 'A valid organization header is required.',
+      });
     }
 
     const courses = await this.prisma.course.findMany({
@@ -308,5 +339,260 @@ export class InternalCoursesService {
       content: lesson.content,
       disabledAt: lesson.disabledAt,
     };
+  }
+
+  async getOrganizationUsage(
+    callerOrganizationId: string | undefined,
+    organizationId: string,
+  ): Promise<OrganizationUsageDto> {
+    if (!callerOrganizationId || callerOrganizationId !== organizationId) {
+      throw new NotFoundException(
+        createApiError('ORGANIZATION_NOT_FOUND', 'Organization not found.'),
+      );
+    }
+
+    const [courseChains, storage] = await Promise.all([
+      this.prisma.courseChain.count({
+        where: { organizationId, courses: { some: {} } },
+      }),
+      this.prisma.mediaFile.aggregate({
+        where: { organizationId, status: 'Ready', releasedAt: null },
+        _sum: { sizeBytes: true },
+      }),
+    ]);
+
+    return {
+      organizationId,
+      courseChains,
+      storageBytes: (storage._sum.sizeBytes ?? 0n).toString(),
+    };
+  }
+
+  async countCourseChainsByInstructors(
+    organizationId: string | undefined,
+    instructorIds: string[],
+  ): Promise<InstructorCourseCountsDto> {
+    const counts: Record<string, number> = Object.fromEntries(
+      instructorIds.map((id) => [id, 0]),
+    );
+    if (!organizationId || !isUUID(organizationId, 'all')) {
+      return { counts };
+    }
+
+    const groups = await this.prisma.courseChain.groupBy({
+      by: ['instructorId'],
+      where: {
+        organizationId,
+        instructorId: { in: instructorIds },
+        courses: { some: { deletedAt: null } },
+      },
+      _count: { _all: true },
+    });
+    for (const group of groups) {
+      counts[group.instructorId] = group._count._all;
+    }
+    return { counts };
+  }
+
+  /** UC12.1, UC12.5: các chuỗi Instructor phụ trách trong tổ chức người gọi, đếm giống count-by-instructors. */
+  async listCourseChainsByInstructor(
+    organizationId: string | undefined,
+    instructorId: string,
+  ): Promise<ManagedCourseChainsDto> {
+    if (!organizationId || !isUUID(organizationId, 'all')) {
+      return { chains: [] };
+    }
+    return {
+      chains: await findManagedChains(
+        this.prisma,
+        organizationId,
+        instructorId,
+      ),
+    };
+  }
+
+  /**
+   * UC12.5: chuyển MỌI chuỗi của fromInstructorId sang toInstructorId trong một transaction (BR-287: chuyển
+   * nguyên chuỗi). Khóa từng chuỗi theo id tăng dần nên hai lần chuyển chạy song song không deadlock. Idempotent:
+   * chuỗi đã chuyển thì bỏ qua, gọi lại chỉ chuyển nốt phần còn lại. Trạng thái tài khoản do tenant-service kiểm.
+   */
+  async transferCourseChains(
+    organizationId: string | undefined,
+    fromInstructorId: string,
+    toInstructorId: string,
+  ): Promise<TransferredCourseChainsDto> {
+    if (!organizationId || !isUUID(organizationId, 'all')) {
+      throw new BadRequestException(
+        createApiError(
+          'ORGANIZATION_REQUIRED',
+          'A valid organization header is required.',
+        ),
+      );
+    }
+    if (fromInstructorId.toLowerCase() === toInstructorId.toLowerCase()) {
+      throw new BadRequestException(
+        createApiError(
+          'SAME_INSTRUCTOR',
+          'The receiving instructor must differ from the current one.',
+        ),
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const candidates = await tx.courseChain.findMany({
+        where: {
+          organizationId,
+          instructorId: fromInstructorId,
+          courses: { some: {} },
+        },
+        select: { id: true },
+        orderBy: { id: 'asc' },
+      });
+
+      const moved: string[] = [];
+      for (const { id } of candidates) {
+        const result = await transferCourseChain(tx, {
+          organizationId,
+          chainId: id,
+          fromInstructorId,
+          toInstructorId,
+        });
+        if (result === 'TRANSFERRED') moved.push(id);
+      }
+
+      return {
+        transferred: await findChainRepresentatives(tx, organizationId, moved),
+      };
+    });
+  }
+  async getMaterialSignedUrl(
+    organizationId: string,
+    courseId: string,
+    materialId: string,
+  ) {
+    const material = await this.prisma.material.findFirst({
+      where: {
+        id: materialId,
+        organizationId,
+        lesson: {
+          organizationId,
+          module: {
+            organizationId,
+            courseId,
+            course: { organizationId },
+          },
+        },
+      },
+      select: {
+        materialType: true,
+        disabledAt: true,
+        lesson: {
+          select: {
+            disabledAt: true,
+            module: {
+              select: {
+                course: {
+                  select: {
+                    disabledAt: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        file: {
+          select: {
+            status: true,
+            releasedAt: true,
+            readyAt: true,
+            purpose: true,
+            storageKey: true,
+            mimeType: true,
+            deliveryType: true,
+            storageFormat: true,
+            organizationId: true,
+          },
+        },
+      },
+    });
+
+    if (!material) {
+      throw new NotFoundException({
+        code: 'MATERIAL_NOT_FOUND',
+        message: 'Material not found.',
+      });
+    }
+
+    if (
+      material.disabledAt !== null ||
+      material.lesson.disabledAt !== null ||
+      material.lesson.module.course.disabledAt !== null
+    ) {
+      throw new ConflictException({
+        code: 'MATERIAL_DISABLED',
+        message: 'Material is unavailable.',
+      });
+    }
+
+    const file = material.file;
+
+    if (
+      file.organizationId !== organizationId ||
+      file.status !== 'Ready' ||
+      file.readyAt === null ||
+      file.releasedAt !== null ||
+      file.deliveryType !== 'authenticated'
+    ) {
+      throw new ConflictException({
+        code: 'MATERIAL_FILE_NOT_READY',
+        message: 'Protected material file is not ready.',
+      });
+    }
+
+    const isVideo = material.materialType === 'Video';
+    const isReading = material.materialType === 'Reading';
+
+    if (
+      (!isVideo && !isReading) ||
+      file.purpose !== (isVideo ? 'LessonVideo' : 'LessonReading') ||
+      (isVideo && !file.mimeType.startsWith('video/')) ||
+      (isReading && file.mimeType !== 'application/pdf')
+    ) {
+      throw new ConflictException({
+        code: 'MATERIAL_FILE_NOT_READY',
+        message: 'Invalid material file.',
+      });
+    }
+
+    const expiresAtSeconds = Math.floor(Date.now() / 1000) + 900;
+
+    try {
+      const url = this.storage.getSignedUrl(file.storageKey, {
+        resourceType: isVideo ? 'video' : 'raw',
+        format: isVideo ? file.storageFormat : '',
+        deliveryType: 'authenticated',
+        expiresAt: expiresAtSeconds,
+        ...(isReading ? { attachment: true } : {}),
+      });
+
+      return {
+        url,
+        expiresAt: new Date(expiresAtSeconds * 1000).toISOString(),
+        mimeType: file.mimeType,
+      };
+    } catch (error) {
+      if (error instanceof StorageProviderError) {
+        this.logger.error(
+          `Material signed URL generation failed: ${error.name}`,
+        );
+
+        throw new ServiceUnavailableException({
+          code: 'MATERIAL_URL_UNAVAILABLE',
+          message: 'Unable to generate material URL.',
+        });
+      }
+
+      throw error;
+    }
   }
 }

@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import {
   CanActivate,
   ExecutionContext,
@@ -32,12 +33,14 @@ export class InternalAuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const internalKey = request.headers[HEADER_NAMES.INTERNAL_KEY];
-    const expectedInternalKey =
-      this.configService.getOrThrow<string>('INTERNAL_SERVICE_KEY');
+    const expectedInternalKey = this.configService.getOrThrow<string>(
+      'INTERNAL_SERVICE_KEY',
+    );
 
+    // Fail closed: a service that was started without a key must not accept a request whose key header is empty too.
     if (
-      typeof internalKey !== 'string' ||
-      internalKey !== expectedInternalKey
+      !expectedInternalKey.trim() ||
+      !this.internalKeyMatches(internalKey, expectedInternalKey)
     ) {
       throw new UnauthorizedException(
         'Invalid or missing internal service key.',
@@ -55,21 +58,30 @@ export class InternalAuthGuard implements CanActivate {
     const rawRole = request.headers[HEADER_NAMES.USER_ROLE];
     const role = typeof rawRole === 'string' ? parseUserRole(rawRole) : null;
 
+    const platformAdmin = role === 'ADMIN' && organizationId === undefined;
     if (
       typeof userId !== 'string' ||
-      typeof organizationId !== 'string' ||
-      !role
+      !role ||
+      (typeof organizationId !== 'string' && !platformAdmin)
     ) {
       throw new UnauthorizedException('Missing authenticated user context.');
     }
 
     request.user = {
       userId,
-      organizationId,
+      ...(typeof organizationId === 'string' && { organizationId }),
       role,
       isAuthenticated: true,
     };
 
     return true;
+  }
+
+  /** So bằng digest cùng độ dài để thời gian so sánh không lộ khóa hay độ dài khóa. */
+  private internalKeyMatches(supplied: unknown, expected: string): boolean {
+    if (typeof supplied !== 'string') return false;
+    const digest = (value: string) =>
+      createHash('sha256').update(value).digest();
+    return timingSafeEqual(digest(supplied), digest(expected));
   }
 }

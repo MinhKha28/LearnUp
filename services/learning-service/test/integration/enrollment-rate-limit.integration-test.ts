@@ -1,6 +1,8 @@
+import { closeAll, closeApp } from './deadlines';
+import { testFetch as fetch } from './test-io';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
-import { after, before, describe, test, mock } from 'node:test';
+import { after, before, describe, test, mock } from './test-runner';
 import type { AddressInfo } from 'node:net';
 import { NotFoundException } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -32,7 +34,7 @@ void describe('UC25.3 rate limit HTTP', () => {
     baseUrl = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}/api/v1/enrollments`;
   });
   after(async () => {
-    await app?.close();
+    await closeAll(() => closeApp(app));
   });
   const headers = (userId: string) => ({
     'content-type': 'application/json',

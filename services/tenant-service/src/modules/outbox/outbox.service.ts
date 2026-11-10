@@ -1,9 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
+import { AccountStatusEvent } from './interfaces/account-status-event.interface';
+import { AuditRecord } from './interfaces/audit-record.interface';
 import { EmailMessage } from './interfaces/email-message.interface';
+import { UserDeletedEvent } from './interfaces/user-deleted-event.interface';
 import { OutboxRepository } from './outbox.repository';
 
 export const EMAIL_REQUESTED_EVENT = 'EmailRequested';
+export const AUDIT_RECORDED_EVENT = 'AuditRecorded';
+// UC13.5: event trạng thái tài khoản cho bản sao thưa learner_accounts (assessment, learning).
+// Tenant chưa có relay Kafka nên các dòng này nằm chờ (published_at NULL) tới khi có relay.
+export const USER_DEACTIVATED_EVENT = 'UserDeactivated';
+export const USER_REACTIVATED_EVENT = 'UserReactivated';
+// UC13.6: Learner bị xóa -> learning-service chuyển Enrollment chưa Completed sang Withdrawn (BR-47),
+// assessment-service cập nhật bản sao thưa learner_accounts. Cũng nằm chờ tới khi có relay Kafka.
+export const USER_DELETED_EVENT = 'UserDeleted';
 
 /** (giữ nguyên khối chú thích Transactional Outbox cũ) */
 @Injectable()
@@ -29,6 +40,110 @@ export class OutboxService {
         occurredAt: new Date(),
       },
       tx,
+    );
+  }
+
+  /** UC12.5: nhật ký hành động (BR-270) qua outbox, cùng transaction với dữ liệu nghiệp vụ. AuditRelayService gửi đi. */
+  async enqueueAudit(
+    tx: Prisma.TransactionClient,
+    params: {
+      aggregateType: string;
+      aggregateId: string;
+      record: Omit<AuditRecord, 'occurredAt'>;
+    },
+  ): Promise<void> {
+    const occurredAt = new Date();
+    const payload: AuditRecord = {
+      ...params.record,
+      occurredAt: occurredAt.toISOString(),
+    };
+    await this.outboxRepository.create(
+      {
+        aggregateType: params.aggregateType,
+        aggregateId: params.aggregateId,
+        eventType: AUDIT_RECORDED_EVENT,
+        organizationId: params.record.organizationId,
+        payload: payload as unknown as Prisma.InputJsonValue,
+        occurredAt,
+      },
+      tx,
+    );
+  }
+
+  /**
+   * UC13.5: UserDeactivated / UserReactivated, cùng transaction với việc đổi users.status
+   * (kiến trúc 2.1, 2.3). Gọi SAU khi đã khóa dòng users để occurredAt của hai thao tác nối tiếp
+   * trên cùng tài khoản luôn tăng dần.
+   */
+  async enqueueAccountStatusEvent(
+    tx: Prisma.TransactionClient,
+    params: {
+      eventType: typeof USER_DEACTIVATED_EVENT | typeof USER_REACTIVATED_EVENT;
+      userId: string;
+      organizationId: string;
+      role: string;
+      status: string;
+    },
+  ): Promise<void> {
+    const occurredAt = new Date();
+    const payload: AccountStatusEvent = {
+      userId: params.userId,
+      organizationId: params.organizationId,
+      role: params.role,
+      status: params.status,
+      occurredAt: occurredAt.toISOString(),
+    };
+    await this.outboxRepository.create(
+      {
+        aggregateType: 'User',
+        aggregateId: params.userId,
+        eventType: params.eventType,
+        organizationId: params.organizationId,
+        payload: payload as unknown as Prisma.InputJsonValue,
+        occurredAt,
+      },
+      tx,
+    );
+  }
+
+  /**
+   * UC13.6: UserDeleted, cùng transaction với việc gán users.deleted_at (kiến trúc 2.1, 2.3).
+   * occurredAt = deletedAt để bên nhận so được với status_as_of của UserDeactivated / UserReactivated.
+   */
+  async enqueueUserDeletedEvent(
+    tx: Prisma.TransactionClient,
+    params: {
+      userId: string;
+      organizationId: string;
+      role: string;
+      deletedAt: Date;
+    },
+  ): Promise<void> {
+    const payload: UserDeletedEvent = {
+      userId: params.userId,
+      organizationId: params.organizationId,
+      role: params.role,
+      deletedAt: params.deletedAt.toISOString(),
+      occurredAt: params.deletedAt.toISOString(),
+    };
+    await this.outboxRepository.create(
+      {
+        aggregateType: 'User',
+        aggregateId: params.userId,
+        eventType: USER_DELETED_EVENT,
+        organizationId: params.organizationId,
+        payload: payload as unknown as Prisma.InputJsonValue,
+        occurredAt: params.deletedAt,
+      },
+      tx,
+    );
+  }
+
+  countResendEmails(email: string, since: Date): Promise<number> {
+    return this.outboxRepository.countResendEmails(
+      EMAIL_REQUESTED_EVENT,
+      email,
+      since,
     );
   }
 }

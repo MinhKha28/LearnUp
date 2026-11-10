@@ -1,16 +1,23 @@
+import { closeAll, closeApp } from './deadlines';
+import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import { after, before, beforeEach, describe, test } from 'node:test';
+import { after, before, beforeEach, describe, test } from './test-runner';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { learnerEnrollmentSummarySql } from '../../src/modules/enrollments/learner-enrollment-summary.repository';
 import { databaseUrl } from './enroll-it-fixture';
+import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
+import {
+  TENANT_CLIENT,
+  type TenantClient,
+} from '../../src/infrastructure/clients/tenant/tenant.client';
 
 if (process.env.NODE_ENV === 'production')
   throw new Error('Refusing UC13 tests in production.');
@@ -25,7 +32,8 @@ const SUSPENSION_ORGS = [
   ),
 ];
 const LEARNER = randomUUID();
-const db = new Client({ connectionString: databaseUrl('learning_db') });
+const LEARNER_WITHOUT_ENROLLMENTS = randomUUID();
+const db = new Client({ connectionString: databaseUrl() });
 let app: NestExpressApplication;
 let url: string;
 let connected = false;
@@ -64,8 +72,8 @@ async function enrollment(
   await db.query(
     `INSERT INTO enrollments
     (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,expected_completion_days,
-     base_due_at,due_at,video_completion_percent,first_activity_at,completed_at,completed_late,withdrawn_at,withdrawn_reason)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,80,$10,$11,$12,$13,$14)`,
+     base_due_at,due_at,video_completion_percent,first_activity_at,completed_at,completed_late,withdrawn_at,withdrawn_reason,due_timezone)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,80,$10,$11,$12,$13,$14,CASE WHEN ($9)::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END )`,
     [
       randomUUID(),
       org,
@@ -83,6 +91,7 @@ async function enrollment(
       status === 'Withdrawn' ? 'LearnerWithdrew' : null,
     ],
   );
+  return course;
 }
 
 async function request(learnerIds: string[], key = true) {
@@ -99,6 +108,15 @@ async function request(learnerIds: string[], key = true) {
   });
 }
 
+function detailHeaders(organizationId = ORG, role = 'ORGANIZER') {
+  return {
+    'x-user-id': LEARNER,
+    'x-user-role': role,
+    'x-organization-id': organizationId,
+    'x-internal-key': process.env.INTERNAL_SERVICE_KEY!,
+  };
+}
+
 describe('UC13 learner enrollment summary', () => {
   before(async () => {
     await db.connect();
@@ -106,6 +124,30 @@ describe('UC13 learner enrollment summary', () => {
     app = await NestFactory.create<NestExpressApplication>(AppModule, {
       logger: ['error'],
     });
+    app.get<TenantClient>(TENANT_CLIENT).lookupLearners = async (user, ids) =>
+      user.organizationId === ORG
+        ? ids
+            .filter((id) => id === LEARNER || id === LEARNER_WITHOUT_ENROLLMENTS)
+            .map((userId) => ({
+              userId,
+              role: 'Learner',
+              status: 'Active',
+              activatedAt: null,
+              deletedAt: null,
+              fullName: 'Test Learner',
+              email: 'learner@example.test',
+            }))
+        : [];
+    app.get(CourseServiceClient).getCoursesBatch = async (_user, ids) =>
+      ids.slice(0, 1).map((courseId) => ({
+        courseId,
+        chainId: courseId,
+        versionNumber: 2,
+        name: 'Test Course',
+        courseType: 'Private',
+        status: 'Published',
+        coverFileId: null,
+      }));
     configureApp(app);
     await app.listen(0, '127.0.0.1');
     url = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
@@ -115,8 +157,7 @@ describe('UC13 learner enrollment summary', () => {
     try {
       if (connected) await cleanup();
     } finally {
-      await app?.close();
-      await db.end();
+      await closeAll(() => closeApp(app), () => db.end());
     }
   });
 
@@ -147,6 +188,46 @@ describe('UC13 learner enrollment summary', () => {
         [missing]: { activeCourseCount: 0, overdueCourseCount: 0 },
       },
     });
+  });
+
+  test('UC13.1 returns only same-organization visible enrollments with display status and metadata', async () => {
+    const overdueCourse = await enrollment('NotStarted');
+    const completedCourse = await enrollment('Completed', 'Optional');
+    await enrollment('Withdrawn', 'Optional');
+    await enrollment('NotStarted', 'Required', true, OTHER);
+
+    const response = await fetch(
+      `${url}/api/v1/internal/enrollments/by-learner/${LEARNER}`,
+      { headers: detailHeaders() },
+    );
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as any;
+    const [overdue, completed] = body.data.enrollments;
+    assert.equal(body.statusCode, 200);
+    assert.equal(body.data.enrollments.length, 2);
+    assert.equal(overdue.courseId, overdueCourse);
+    assert.equal(overdue.status, 'Overdue');
+    assert.deepEqual(overdue.course, { name: 'Test Course', versionNumber: 2 });
+    assert.deepEqual(overdue.requiredMaterials, { completed: 0, total: 0 });
+    assert.equal(typeof overdue.enrolledAt, 'string');
+    assert.equal(typeof overdue.assignedAt, 'string');
+    assert.equal(typeof overdue.dueAt, 'string');
+    assert.equal(overdue.completedAt, null);
+    assert.equal(completed.courseId, completedCourse);
+    assert.equal(completed.status, 'Completed');
+    assert.equal(completed.course, null);
+    assert.equal(completed.dueAt, null);
+    assert.equal(typeof completed.completedAt, 'string');
+  });
+
+  test('UC13.1 distinguishes an empty same-organization learner from missing access', async () => {
+    const path = `${url}/api/v1/internal/enrollments/by-learner/${LEARNER_WITHOUT_ENROLLMENTS}`;
+    const response = await fetch(path, { headers: detailHeaders() });
+    assert.equal(response.status, 200);
+    assert.deepEqual(((await response.json()) as any).data, { enrollments: [] });
+    assert.equal((await fetch(path, { headers: detailHeaders(OTHER) })).status, 404);
+    assert.equal((await fetch(path, { headers: detailHeaders(ORG, 'LEARNER') })).status, 403);
+    assert.equal((await fetch(path)).status, 401);
   });
 
   test('open organization suspension before due date suppresses Overdue only', async () => {
@@ -209,9 +290,9 @@ describe('UC13 learner enrollment summary', () => {
     await db.query(
       `INSERT INTO enrollments
       (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,expected_completion_days,
-       base_due_at,due_at,video_completion_percent)
+       base_due_at,due_at,video_completion_percent,due_timezone)
       SELECT gen_random_uuid(),$1,gen_random_uuid(),$2,'Required','NotStarted',now(),1,
-        now()-interval '1 day',now()-interval '1 day',80 FROM generate_series(1,50000)`,
+        now()-interval '1 day',now()-interval '1 day',80 ,CASE WHEN (now()-interval '1 day')::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END FROM generate_series(1,50000)`,
       [ORG, course],
     );
     await db.query('ANALYZE enrollments');

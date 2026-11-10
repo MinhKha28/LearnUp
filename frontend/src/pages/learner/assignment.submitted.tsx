@@ -1,3 +1,4 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { PageHeader, SuccessScreen } from "@/components/learner/learner.ui";
 import type { ISubmissionReceipt } from "@/types/assessment.types";
@@ -7,7 +8,7 @@ interface ISubmittedState {
   title?: string;
 }
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString();
+const formatTime = (iso: string) => formatDateTimeVN(iso);
 
 const AssignmentSubmitted = () => {
   const { enrollmentId: courseId, assignmentId } = useParams();

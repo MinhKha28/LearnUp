@@ -18,6 +18,11 @@ describe("validateCloudinaryConfig", () => {
       apiKey: "key",
       apiSecret: "secret",
       secure: true,
+      planLimits: {
+        rawMaxBytes: 10485760,
+        imageMaxBytes: 10485760,
+        videoMaxBytes: 104857600,
+      },
     });
   });
 

@@ -1,0 +1,909 @@
+openapi: 3.0.3
+info:
+  title: LearnUP Learning access API
+  version: 1.0.0
+  description: Includes assessment access, enrolled Course IDs and UC27.3 Reading. Course IDs identify versions, not chains. Public learner routes are exposed through Gateway; trusted context and the internal key are supplied by Gateway. Reading follows BR-183/184/185/186/140/300/306/307. Assessment attempts and peer reviews remain assessment-service responsibilities.
+security:
+  - InternalKey: []
+paths:
+  /api/v1/enrollments/internal/courses/{courseId}/history:
+    get:
+      operationId: hasEverEnrollment
+      summary: Check whether a Course version has ever had an Enrollment (UC14.5)
+      description: >-
+        Used by Course Service before moving an Instructor-owned Draft or Rejected Course
+        to Trash. Requires x-internal-key and authenticated INSTRUCTOR context
+        (x-user-id, x-user-role, x-organization-id), not a service-only call.
+        Returns true if any Enrollment row exists for this Course version in the
+        current Organization, regardless of its lifecycle status. A missing
+        enrollment returns false. The result is read-only; failures must not
+        be treated as false by Course Service.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/UserRole'
+        - name: courseId
+          in: path
+          required: true
+          description: UUID of the Course version, not Course Chain.
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Enrollment history result in the standard API envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [hasEverEnrolled]
+                    properties:
+                      hasEverEnrolled: { type: boolean }
+        '400':
+          description: Invalid Course UUID.
+        '401':
+          description: Missing or invalid internal key or authenticated context.
+        '403':
+          description: Requires INSTRUCTOR and a valid Organization context.
+        '500':
+          description: Internal database or service failure. Course Service must fail closed.
+
+  /api/v1/enrollments/{enrollmentId}/progress:
+    get:
+      operationId: getLearnerEnrollmentProgress
+      summary: Read own completion conditions (UC28)
+      description: >-
+        LEARNER only; ownership and Halted/Withdrawn handling match curriculum.
+        Read-only: never completes an Enrollment or enqueues evaluation.
+        Completed returns enrollment summary only, without reading the current tree or Assessment.
+        Otherwise materials use the curriculum builder; assessment facts use the validated completion snapshot
+        and Learning's shared worker recomputation. No percentage is returned.
+        Assessment failure, timeout or invalid data returns 200 with assessment.state unavailable;
+        conditions counts are null and missing contains known material conditions only.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/UserRole'
+        - name: enrollmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Enrollment summary and, unless Completed, current completion conditions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LearnerProgress'
+        '403':
+          description: CONTENT_UNAVAILABLE for Halted or disabled Course; role forbidden
+        '404':
+          description: ENROLLMENT_NOT_FOUND for foreign, missing, invalid or Withdrawn Enrollment
+        '503':
+          description: Course curriculum unavailable (assessment failure alone does not produce 503)
+
+  /api/v1/enrollments/{enrollmentId}/assessment-results:
+    get:
+      operationId: getLearnerAssessmentResults
+      summary: Read own Quiz and Assignment results against the passing scores (UC28.1)
+      description: >-
+        LEARNER only; ownership and Halted/Withdrawn handling match curriculum (404 ENROLLMENT_NOT_FOUND for foreign,
+        missing, invalid or Withdrawn, 403 CONTENT_UNAVAILABLE for Halted). A Completed Enrollment still shows its
+        results. Read-only. Learning asks assessment-service for the Course of the Enrollment and never for one the
+        caller names. When assessment-service cannot be asked, times out or answers something that is not the contract,
+        the answer is 200 with state unavailable and no items; it is not an empty list. The summary leaves out disabled
+        components (BR-296); a component without a score counts as pending, never as not passed (BR-191).
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/UserRole'
+        - name: enrollmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: state ok with summary and items, or state unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LearnerAssessmentResults'
+        '403':
+          description: CONTENT_UNAVAILABLE for Halted; role forbidden
+        '404':
+          description: ENROLLMENT_NOT_FOUND for foreign, missing, invalid or Withdrawn Enrollment
+
+  /api/v1/assignments/{enrollmentId}:
+    get:
+      operationId: getAssignmentDetail
+      summary: Get required Course assignment detail (UC24.1)
+      description: >-
+        ORGANIZER only, scoped to the trusted organization. Returns the stored deadline zone
+        as dueTimezone and the live Tenant access zone as organizationTimezone for a new extension.
+        Tenant access runs concurrently with enrichment; failure or timeout logs a warning and
+        returns organizationTimezone null with HTTP 200. Learner and Course enrichment may also
+        degrade to null. UC24 lists remain unchanged and do not call Tenant access.
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      responses:
+        "200": { $ref: "#/components/responses/AssignmentDetail" }
+        "400":
+          description: Invalid enrollment UUID.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Requires ORGANIZER and an organization in the trusted context.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: ASSIGNMENT_NOT_FOUND for missing, Optional or another organization's Enrollment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/assignments/{enrollmentId}/due-date:
+    patch:
+      operationId: extendAssignmentDueDate
+      summary: Extend a required Course deadline (UC24.3)
+      description: >-
+        ORGANIZER only. Requires an Active organization and subscription via Tenant access.
+        Converts newDueDate to midnight at the start of the following calendar day in the live
+        organization timezone, including DST. The selected date must be today or later in that zone
+        and the deadline must be later than the current dueAt; the positive delta is floored to
+        whole seconds and added to extensionSeconds. No 365-day or other business upper limit.
+        Updates dueAt and dueTimezone together and writes EnrollmentDueDateExtended atomically.
+        Tenant HTTP preserves the supplied timezone string after Intl validation. Extension alone resolves
+        its case-insensitive PostgreSQL name, excluding posix/ and right/ entries, for today, the new
+        deadline and dueTimezone. Detail returns the Tenant string unchanged without this lookup. A timezone rejected by PostgreSQL
+        logs organizationId and the zone as a Tenant contract violation and returns 503.
+        The response reuses detail enrichment, including a fresh live organizationTimezone.
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExtendAssignment" }
+      responses:
+        "200": { $ref: "#/components/responses/AssignmentDetail" }
+        "400":
+          description: Invalid UUID, calendar date, reason or request DTO.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: FORBIDDEN, ORGANIZATION_NOT_ACTIVE or SUBSCRIPTION_NOT_ACTIVE.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: ASSIGNMENT_NOT_FOUND for missing, Optional or another organization's Enrollment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: ENROLLMENT_NOT_EXTENDABLE for Completed or Withdrawn.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: DUE_DATE_NOT_LATER (checked first), DUE_DATE_IN_PAST, or VALIDATION_ERROR if the resulting instant exceeds the supported four-digit ISO year range. Clients retain the inline date error and reload detail for current zone constraints on the first two codes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: SERVICE_UNAVAILABLE for Tenant failure, timeout, malformed access data or a timezone rejected by PostgreSQL. No extension writes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/enrollments/{enrollmentId}/materials/{materialId}/complete-reading:
+    post:
+      summary: Irreversibly mark Reading complete (UC27.3)
+      description: LEARNER only. Snapshot-only validation and Lesson completion, with no course-service call. NotStarted becomes InProgress on the first completion; InProgress and Exempted preserve status. The first transition enqueues evaluation in the same transaction. Duplicate requests preserve timestamps and do not enqueue again. Completed returns 200 without writes, including null completedAt and false alreadyCompleted if this material was never completed. Overdue is computed on read. L21 sequential access is not implemented; disabled snapshot freshness awaits L23.
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/MaterialId"
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      requestBody:
+        required: false
+        description: No business payload. An empty object is accepted; unknown keys return 422 VALIDATION_ERROR. Invalid JSON is rejected by the HTTP parser.
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, maxProperties: 0 }
+      responses:
+        "200":
+          description: Saved or idempotent no-op. Enrollment status is current, not a promise that asynchronous Course evaluation has finished.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [materialId, completedAt, alreadyCompleted, lessonCompleted, enrollmentStatus, completionEvaluationPending]
+                    properties:
+                      materialId: { type: string, format: uuid }
+                      completedAt: { type: string, format: date-time, nullable: true }
+                      alreadyCompleted: { type: boolean }
+                      lessonCompleted:
+                        type: boolean
+                        nullable: true
+                        description: BR-185/186 from active snapshots using the shared curriculum calculation. Null only for a Lesson with no visible materials.
+                      enrollmentStatus:
+                        type: string
+                        enum: [NotStarted, InProgress, Overdue, Exempted, Completed]
+                      completionEvaluationPending:
+                        type: boolean
+                        description: A durable evaluation request exists. Client refreshes Enrollment at most three times, two seconds apart.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ReadingForbidden" }
+        "404": { $ref: "#/components/responses/ReadingNotFound" }
+        "409": { $ref: "#/components/responses/NotReading" }
+        "422":
+          description: VALIDATION_ERROR for a business payload or unknown keys.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "500":
+          description: INVALID_ENROLLMENT_STATUS for an unknown stored status; transaction failures do not commit partial progress.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/enrollments/{enrollmentId}/materials/{materialId}/playback:
+    get:
+      summary: Get Video progress and a fresh signed playback URL
+      description: LEARNER only. Validates Enrollment, existing material snapshot and live content visibility. Signs through course-service on every successful request without URL caching. Does not write progress. URLs expire after 15 minutes; renew on media error or before resuming near expiry. Dependency errors use SERVICE_UNAVAILABLE (formerly PLAYBACK_UNAVAILABLE).
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/MaterialId"
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      responses:
+        "200":
+          description: Current progress and signed URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data:
+                    type: object
+                    required: [materialId, title, playbackUrl, expiresAt, mimeType, durationSeconds, watchedRanges, watchedSeconds, requiredSeconds, completed, completedAt, positionSeconds, positionReportedAt, heartbeatSeconds]
+                    properties:
+                      materialId: { type: string, format: uuid }
+                      title: { type: string }
+                      playbackUrl: { type: string, format: uri }
+                      expiresAt: { type: string, format: date-time }
+                      mimeType: { type: string, example: video/mp4 }
+                      durationSeconds: { type: integer, minimum: 1 }
+                      watchedRanges:
+                        type: array
+                        items:
+                          type: array
+                          minItems: 2
+                          maxItems: 2
+                          items: { type: number, minimum: 0 }
+                      watchedSeconds: { type: integer, minimum: 0 }
+                      requiredSeconds: { type: integer, minimum: 1 }
+                      completed: { type: boolean }
+                      completedAt: { type: string, format: date-time, nullable: true }
+                      positionSeconds: { type: integer, nullable: true, minimum: 0 }
+                      positionReportedAt: { type: string, format: date-time, nullable: true }
+                      heartbeatSeconds: { type: integer, enum: [15] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ReadingForbidden" }
+        "404": { $ref: "#/components/responses/ReadingNotFound" }
+        "409":
+          description: MATERIAL_NOT_VIDEO for wrong material type, or MATERIAL_NOT_READY for an unusable protected file.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: SERVICE_UNAVAILABLE for dependency failure, timeout, invalid signing response or missing valid duration.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/enrollments/{enrollmentId}/materials/{materialId}/reading-access:
+    get:
+      summary: Get a fresh signed Reading URL
+      description: LEARNER only. Validates Enrollment, snapshots and live content visibility, then requests a fresh protected URL from course-service without caching. Opening a file does not create learning progress. URLs expire after 15 minutes; request a new URL on every open. Current raw PDF delivery uses application/octet-stream and attachment disposition; the frontend starts a same-page download and keeps the lesson visible.
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/MaterialId"
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      responses:
+        "200":
+          description: Fresh signed HTTPS URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data:
+                    type: object
+                    required: [materialId, title, accessUrl, fixture, expiresAt, mimeType]
+                    properties:
+                      materialId: { type: string, format: uuid }
+                      title: { type: string }
+                      accessUrl: { type: string, format: uri }
+                      fixture: { type: boolean, enum: [false] }
+                      expiresAt: { type: string, format: date-time }
+                      mimeType: { type: string, enum: [application/pdf] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ReadingForbidden" }
+        "404": { $ref: "#/components/responses/ReadingNotFound" }
+        "409":
+          description: MATERIAL_NOT_READING for wrong material type, or MATERIAL_NOT_READY for an unusable protected file.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: SERVICE_UNAVAILABLE for content or signing dependency failure, timeout, or invalid response.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/internal/enrollments/summary-by-learners:
+    post:
+      operationId: summarizeEnrollmentsByLearners
+      summary: Count active and overdue Course enrollments by learner
+      description: >-
+        Internal only; called by tenant-service for UC13 learner lists and not routed by Gateway.
+        Counts only enrollments in the organization from the trusted header; no additional role restriction
+        or learner existence check. Each requested ID is returned with its original casing, with zero counts
+        when no matching enrollments exist. Active counts Required/Optional NotStarted/InProgress enrollments,
+        including overdue ones. Overdue counts Required NotStarted/InProgress enrollments with due_at <= database
+        now(), unless an open organization suspension started before due_at.
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - name: x-organization-id
+          in: header
+          required: true
+          description: Guard requires a string only; the database query casts it to UUID.
+          schema: { type: string }
+        - name: x-user-role
+          in: header
+          required: true
+          description: Trimmed and uppercased, then must match ADMIN, ORGANIZER, INSTRUCTOR or LEARNER.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [learnerIds]
+              properties:
+                learnerIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  uniqueItems: true
+                  description: UUIDs accepted by IsUUID('all'); duplicates are rejected case-insensitively.
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Counts for every requested learner ID; no pagination.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string, enum: [Learner enrollment summaries fetched successfully] }
+                  data:
+                    type: object
+                    required: [summaries]
+                    properties:
+                      summaries:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          required: [activeCourseCount, overdueCourseCount]
+                          properties:
+                            activeCourseCount: { type: integer, minimum: 0 }
+                            overdueCourseCount: { type: integer, minimum: 0 }
+        "400":
+          description: DTO validation failure (including unknown keys) or malformed JSON; no custom business error code. Validation messages are an array.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, timestamp, path, error]
+                properties:
+                  statusCode: { type: integer, enum: [400] }
+                  timestamp: { type: string, format: date-time }
+                  path: { type: string }
+                  error:
+                    type: object
+                    properties:
+                      statusCode: { type: integer, enum: [400] }
+                      error: { type: string }
+                      message:
+                        oneOf:
+                          - { type: string }
+                          - { type: array, items: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500":
+          description: Unhandled database/configuration failure, including a non-UUID organization header; default NestJS error response, not a business error envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode: { type: integer, enum: [500] }
+                  message: { type: string }
+  /api/v1/internal/enrollments/by-learner/{learnerId}:
+    get:
+      operationId: listEnrollmentsByLearner
+      summary: List a learner's Course enrollments for UC13.1
+      description: Internal Organizer call scoped to the trusted organization. Returns all enrollments except Withdrawn in UC26 order. Computes Overdue using the same display rule as the summary route.
+      security:
+        - InternalKey: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - { name: x-organization-id, in: header, required: true, schema: { type: string, format: uuid } }
+        - { name: x-user-role, in: header, required: true, schema: { type: string, enum: [ORGANIZER] } }
+        - { name: learnerId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Enrollment list, empty for an existing learner with no visible enrollments.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string, enum: [Learner enrollments fetched successfully] }
+                  data:
+                    type: object
+                    required: [enrollments]
+                    properties:
+                      enrollments:
+                        type: array
+                        items:
+                          type: object
+                          required: [enrollmentId, courseId, course, enrollmentType, status, enrolledAt, assignedAt, dueAt, completedAt, requiredMaterials]
+                          properties:
+                            enrollmentId: { type: string, format: uuid }
+                            courseId: { type: string, format: uuid }
+                            course:
+                              type: object
+                              nullable: true
+                              required: [name, versionNumber]
+                              properties:
+                                name: { type: string }
+                                versionNumber: { type: integer }
+                            enrollmentType: { type: string, enum: [Required, Optional] }
+                            status: { type: string, enum: [NotStarted, InProgress, Overdue, Completed, Exempted, Halted] }
+                            enrolledAt: { type: string, format: date-time }
+                            assignedAt: { type: string, format: date-time, nullable: true }
+                            dueAt: { type: string, format: date-time, nullable: true }
+                            completedAt: { type: string, format: date-time, nullable: true }
+                            requiredMaterials:
+                              type: object
+                              required: [completed, total]
+                              properties:
+                                completed: { type: integer, minimum: 0 }
+                                total: { type: integer, minimum: 0 }
+        "400": { description: Invalid learner or organization UUID. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: Organizer role required. }
+        "404": { description: Learner is missing, deleted, or belongs to another organization. }
+        "503": { description: Tenant or Course service unavailable. }
+  /api/v1/internal/enrollments/assessment-access:
+    get:
+      summary: Resolve assessment access using stored enrollment status
+      description: No additional role restriction. Organization comes from the trusted header. Missing or foreign-organization Enrollment returns the same 404. Overdue is never stored or returned; past-due NotStarted/InProgress retain Full access. Unknown stored status returns 500 and is logged. Unknown or repeated query parameters are rejected.
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+        - name: learnerId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: courseId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Full for NotStarted/InProgress/Exempted; ReadOnly for Completed; None for Halted/Withdrawn.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data:
+                    type: object
+                    required: [enrollmentId, status, access]
+                    properties:
+                      enrollmentId: { type: string, format: uuid }
+                      status: { $ref: "#/components/schemas/Status" }
+                      access: { type: string, enum: [Full, ReadOnly, None] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: error.code is ENROLLMENT_NOT_FOUND
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: error.code is VALIDATION_ERROR; missing, empty, malformed UUID, repeated or unknown query parameter.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "500":
+          description: Invalid stored status; error.code is INVALID_ENROLLMENT_STATUS.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/enrollments/me/course-ids:
+    get:
+      summary: List own enrolled Course versions with stored status
+      description: LEARNER role required. Restricted to authenticated learner and organization, excludes Withdrawn, sorted by courseId ascending. Does not compute Overdue.
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      responses:
+        "200":
+          description: Enrollment references
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [courseId, enrollmentId, status]
+                      properties:
+                        courseId: { type: string, format: uuid }
+                        enrollmentId: { type: string, format: uuid }
+                        status: { $ref: "#/components/schemas/Status" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Role is not LEARNER
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+components:
+  securitySchemes:
+    InternalKey: { type: apiKey, in: header, name: x-internal-key }
+  parameters:
+    EnrollmentId:
+      name: enrollmentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    MaterialId:
+      name: materialId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    UserId:
+      name: x-user-id
+      in: header
+      required: true
+      schema: { type: string }
+    OrganizationId:
+      name: x-organization-id
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+    UserRole:
+      name: x-user-role
+      in: header
+      required: true
+      description: A role recognized by the existing InternalAuthGuard. L17 imposes no additional role restriction.
+      schema: { type: string }
+  responses:
+    AssignmentDetail:
+      description: Assignment detail with frozen deadline and live organization zones.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [statusCode, message, data]
+            properties:
+              statusCode: { type: integer, enum: [200] }
+              message: { type: string }
+              data: { $ref: "#/components/schemas/AssignmentDetail" }
+    ReadingForbidden:
+      description: CONTENT_UNAVAILABLE for Halted or disabled Course/Lesson/material; non-LEARNER roles are forbidden.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ReadingNotFound:
+      description: ENROLLMENT_NOT_FOUND for Withdrawn, wrong owner or organization; MATERIAL_NOT_FOUND for missing material or wrong Course version.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotReading:
+      description: MATERIAL_NOT_READING when the material is Video.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or invalid internal key or authenticated context. T3 preserved; no business code.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    LearnerAssessmentResults:
+      type: object
+      required: [enrollment, state]
+      properties:
+        enrollment:
+          type: object
+          required: [id, courseId, status]
+          properties:
+            id: { type: string, format: uuid }
+            courseId: { type: string, format: uuid }
+            status: { type: string }
+        state: { type: string, enum: [ok, unavailable] }
+        summary:
+          type: object
+          description: Present when state is ok.
+          required: [total, passed, notPassed, pending]
+          properties:
+            total: { type: integer, minimum: 0 }
+            passed: { type: integer, minimum: 0 }
+            notPassed: { type: integer, minimum: 0 }
+            pending: { type: integer, minimum: 0 }
+        items:
+          type: array
+          description: Present when state is ok. Most recent activity first.
+          items: { $ref: '#/components/schemas/AssessmentResultItem' }
+
+    AssessmentResultItem:
+      type: object
+      required: [assessmentId, kind, title, isRequired, disabled, passingScore, status, recordedScore, passed, attemptCount, lastActivityAt, quiz, assignment]
+      properties:
+        assessmentId: { type: string, format: uuid }
+        kind: { type: string, enum: [QUIZ, ASSIGNMENT] }
+        title: { type: string }
+        isRequired: { type: boolean, description: Every Assignment is required (BR-206); a Quiz only when its flag says so. }
+        disabled: { type: boolean, description: "BR-296: the score stays but the component no longer counts for the Certificate." }
+        passingScore: { type: number, minimum: 0, maximum: 100 }
+        status: { type: string, enum: [InProgress, AwaitingResult, Completed] }
+        recordedScore:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 100
+          description: Quiz, the best submitted attempt (BR-198). Assignment, the final score of the latest submission that was not replaced, only once Finalized (BR-212). Null while there is none.
+        passed:
+          type: boolean
+          nullable: true
+          description: recordedScore >= passingScore; null exactly when recordedScore is null (BR-191, never "failed").
+        attemptCount: { type: integer, minimum: 0, description: Quiz, attempts submitted. Assignment, submissions made. }
+        lastActivityAt: { type: string, format: date-time }
+        quiz:
+          nullable: true
+          type: object
+          required: [bestAttemptNumber, attempts]
+          properties:
+            bestAttemptNumber: { type: integer, nullable: true }
+            attempts:
+              type: array
+              items:
+                type: object
+                required: [attemptNumber, score, submittedAt, submissionKind]
+                properties:
+                  attemptNumber: { type: integer }
+                  score: { type: number, minimum: 0, maximum: 100 }
+                  submittedAt: { type: string, format: date-time }
+                  submissionKind: { type: string, nullable: true, description: "Manual, or TimedOut when the time ran out and the system submitted." }
+        assignment:
+          nullable: true
+          type: object
+          required: [latestSubmissionNumber, gradingStatus]
+          properties:
+            latestSubmissionNumber: { type: integer }
+            gradingStatus: { type: string }
+    LearnerProgress:
+      type: object
+      required: [enrollment]
+      properties:
+        enrollment:
+          type: object
+          required: [id, courseId, status, enrollmentType, dueAt, dueTimezone, completedAt, completedLate]
+          properties:
+            id: { type: string, format: uuid }
+            courseId: { type: string, format: uuid }
+            status: { type: string }
+            enrollmentType: { type: string, enum: [Required, Optional] }
+            dueAt: { type: string, format: date-time, nullable: true }
+            dueTimezone: { type: string, nullable: true }
+            completedAt: { type: string, format: date-time, nullable: true }
+            completedLate: { type: boolean, nullable: true }
+        materials:
+          type: array
+          items:
+            type: object
+            required: [materialId, lessonId, title, materialType, required, done]
+            properties:
+              materialId: { type: string, format: uuid }
+              lessonId: { type: string, format: uuid }
+              title: { type: string }
+              materialType: { type: string }
+              required: { type: boolean }
+              done: { type: boolean }
+        assessment:
+          oneOf:
+            - type: object
+              required: [state]
+              properties:
+                state: { type: string, enum: [unavailable] }
+            - type: object
+              required: [state, items]
+              properties:
+                state: { type: string, enum: [ok] }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [kind, assessmentId, passed, peerReview]
+                    properties:
+                      kind: { type: string, enum: [quiz, assignment] }
+                      assessmentId: { type: string, format: uuid }
+                      passed: { type: boolean }
+                      peerReview:
+                        type: object
+                        nullable: true
+                        required: [status, requiredCount, completedCount, done]
+                        properties:
+                          status: { type: string, enum: [NotApplicable, Pending, Satisfied, Missed, Waived] }
+                          requiredCount: { type: integer, minimum: 0 }
+                          completedCount: { type: integer, minimum: 0 }
+                          done: { type: boolean }
+        conditions:
+          type: object
+          required: [state, met, total, missing]
+          properties:
+            state: { type: string, enum: [ok, unavailable] }
+            met: { type: integer, minimum: 0, nullable: true }
+            total: { type: integer, minimum: 0, nullable: true }
+            missing:
+              type: array
+              items:
+                type: object
+                required: [kind, id]
+                properties:
+                  kind: { type: string, enum: [material, quiz, assignment, peerReview] }
+                  id: { type: string, format: uuid }
+
+    ExtendAssignment:
+      type: object
+      additionalProperties: false
+      required: [newDueDate]
+      properties:
+        newDueDate:
+          type: string
+          format: date
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Calendar date in the live organization timezone. No business upper limit.
+          example: "2026-10-30"
+        reason:
+          type: string
+          maxLength: 1000
+          description: Optional, NFC-normalized and trimmed; empty allowed, null rejected. Included in the event.
+    AssignmentDetail:
+      type: object
+      required: [enrollmentId, learner, course, assignedAt, dueAt, dueTimezone, organizationTimezone, status, requiredCompleted, requiredTotal, baseDueAt, extensionSeconds, firstActivityAt, completedAt, completedLate, withdrawnAt, withdrawnReason, intervals]
+      properties:
+        enrollmentId: { type: string, format: uuid }
+        learner:
+          type: object
+          nullable: true
+          required: [id, fullName, email, status, activatedAt, deletedAt]
+          properties:
+            id: { type: string, format: uuid }
+            fullName: { type: string }
+            email: { type: string, format: email }
+            status: { type: string }
+            activatedAt: { type: string, format: date-time, nullable: true }
+            deletedAt: { type: string, format: date-time, nullable: true }
+        course:
+          type: object
+          nullable: true
+          required: [id, title, versionNumber]
+          properties:
+            id: { type: string, format: uuid }
+            title: { type: string }
+            versionNumber: { type: integer }
+        assignedAt: { type: string, format: date-time, nullable: true }
+        dueAt: { type: string, format: date-time, nullable: true }
+        dueTimezone:
+          type: string
+          nullable: true
+          description: Frozen zone in which the current deadline was set. Preserved until a new deadline is written.
+        organizationTimezone:
+          type: string
+          nullable: true
+          description: Live organization zone exactly as supplied by Tenant access, used for a new extension. May differ from dueTimezone; null when Tenant access fails. Picker falls back to dueTimezone, then device time.
+        status:
+          type: string
+          enum: [NotStarted, InProgress, Overdue, Completed, Exempted, Halted, Withdrawn]
+        requiredCompleted: { type: integer, minimum: 0 }
+        requiredTotal: { type: integer, minimum: 0 }
+        baseDueAt: { type: string, format: date-time, nullable: true }
+        extensionSeconds: { type: integer, minimum: 0 }
+        firstActivityAt: { type: string, format: date-time, nullable: true }
+        completedAt: { type: string, format: date-time, nullable: true }
+        completedLate: { type: boolean, nullable: true }
+        withdrawnAt: { type: string, format: date-time, nullable: true }
+        withdrawnReason: { type: string, nullable: true }
+        intervals:
+          type: array
+          items:
+            type: object
+            required: [kind, startedAt, endedAt, reason]
+            properties:
+              kind: { type: string, enum: [Exempted, Halted] }
+              startedAt: { type: string, format: date-time }
+              endedAt: { type: string, format: date-time, nullable: true }
+              reason: { type: string, nullable: true }
+    Status:
+      type: string
+      enum: [NotStarted, InProgress, Completed, Exempted, Withdrawn, Halted]
+    Error:
+      type: object
+      required: [statusCode, timestamp, path, error]
+      properties:
+        statusCode: { type: integer }
+        timestamp: { type: string, format: date-time }
+        path: { type: string }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            statusCode: { type: integer }
+            error: { type: string }

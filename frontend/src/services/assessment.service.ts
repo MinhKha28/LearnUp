@@ -4,51 +4,53 @@ import type {
   IAssignment,
   IAssignmentList,
   IGradingResult,
+  IClosedPeerReviewCycle,
+  IPeerReviewCycleDetail,
   IPeerReviewCycleList,
+  IPeerReviewWaiver,
+  IGiveLearnerReview,
+  ILearnerReviewDetail,
+  ILearnerReviewList,
+  ILearnerReviewResult,
   ILearnerAssessmentList,
+  IReviewHistory,
+  ILearnerQuiz,
+  IQuizAttemptInProgress,
+  IQuizAttemptResult,
+  IQuizAttemptView,
+  IQuizHistory,
+  ISavedQuizAnswer,
   ILearnerAssignment,
   ISubmissionReceipt,
   IPromptFile,
   ICreateAssignment,
   IQuizList,
+  IQuizDetail,
   ICreateQuizReq,
   IQuizSummary,
   IUpdateAssignment,
   IUpdatePeerReview,
+  IUpdateQuizConfigReq,
 } from "@/types/assessment.types";
+import type { IReviewAssessmentsResponse } from "@/types/course.types";
 
-// TẠM THỜI (giống course.service.ts): gateway chưa gắn được danh tính nên tự gửi các header dưới đây.
-// Mặc định trùng danh tính mà course.service.ts dùng khi tạo Course, để qua được kiểm tra người phụ trách (BR-79).
-// Muốn dùng dữ liệu seed (npm run db:seed) thì đặt VITE_DEV_USER_ID / VITE_DEV_ORGANIZATION_ID trong .env.development.local.
-// Gỡ bỏ khi gateway tự gắn các header này.
-const devHeaders = {
-  "x-internal-key":
-    import.meta.env.VITE_DEV_INTERNAL_KEY ?? "learnup-internal-secret",
-  "x-user-id":
-    import.meta.env.VITE_DEV_USER_ID ?? "33333333-3333-7333-8333-333333333333",
-  "x-organization-id":
-    import.meta.env.VITE_DEV_ORGANIZATION_ID ??
-    "22222222-2222-7222-8222-222222222222",
-  "x-user-role": import.meta.env.VITE_DEV_USER_ROLE ?? "INSTRUCTOR",
-};
-
+// The identity headers (x-internal-key, x-user-id, x-organization-id, x-user-role) are set by the gateway from the JWT.
+// The browser sends none of them: a build must never carry an internal key, even a default one.
 // Base URL lấy từ VITE_ASSESSMENT_BACKEND_URL qua assessmentAxios.
-const requestConfig = {
-  headers: devHeaders,
-};
 
 /** DEV ONLY: mock course ids are slugs, the API needs a real Course UUID. */
 export const toApiCourseId = (courseId: string) =>
   import.meta.env.DEV &&
   import.meta.env.VITE_DEV_COURSE_ID &&
-  !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId)
+  !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    courseId,
+  )
     ? import.meta.env.VITE_DEV_COURSE_ID
     : courseId;
 
 /** UC19 — List Assignments of a Course. */
 export const fetchAssignmentsAPI = (courseId: string) =>
   axios.get<IBackendRes<IAssignmentList>>("/api/v1/assessments/assignments", {
-    ...requestConfig,
     params: { courseId: toApiCourseId(courseId) },
   });
 
@@ -56,7 +58,6 @@ export const fetchAssignmentsAPI = (courseId: string) =>
 export const fetchAssignmentAPI = (assignmentId: string) =>
   axios.get<IBackendRes<IAssignment>>(
     `/api/v1/assessments/assignments/${assignmentId}`,
-    requestConfig,
   );
 
 /** UC19.2 — Create Assignment. */
@@ -64,14 +65,22 @@ export const createAssignmentAPI = (payload: ICreateAssignment) =>
   axios.post<IBackendRes<IAssignment>>(
     "/api/v1/assessments/assignments",
     payload,
-    requestConfig,
   );
 
-/** UC19.2 / UC19.3 — Upload the prompt file (one PDF, 50 MB). The result goes into `promptFile` of create/update. */
+/** The largest prompt file the API accepts now (it depends on the storage plan), so the screen can refuse a bigger file on selection. */
+export const getPromptFileLimitAPI = () =>
+  axios.get<IBackendRes<{ maxFileBytes: number }>>(
+    "/api/v1/assessments/assignments/prompt-file/limit",
+  );
+
+/** UC19.2 / UC19.3 — Upload the prompt file (one PDF, DOCX or ZIP). The result goes into `promptFile` of create/update. */
 export const uploadPromptFileAPI = (file: File) => {
   const form = new FormData();
   form.append("file", file);
-  return axios.post<IBackendRes<IPromptFile>>("/api/v1/assessments/assignments/prompt-file", form, requestConfig);
+  return axios.post<IBackendRes<IPromptFile>>(
+    "/api/v1/assessments/assignments/prompt-file",
+    form,
+  );
 };
 
 /**
@@ -81,7 +90,9 @@ export const uploadPromptFileAPI = (file: File) => {
  */
 export const discardPromptFileAPI = async (fileKey: string): Promise<void> => {
   try {
-    await axios.post("/api/v1/assessments/assignments/prompt-file/discard", { fileKey }, requestConfig);
+    await axios.post("/api/v1/assessments/assignments/prompt-file/discard", {
+      fileKey,
+    });
   } catch {
     // nothing to do
   }
@@ -91,11 +102,15 @@ export const discardPromptFileAPI = async (fileKey: string): Promise<void> => {
  * UC19.1 — Download the prompt file. The interceptor hands a failed response back as the body (a Blob here),
  * so only a real 200 response yields the file.
  */
-export const downloadPromptFileAPI = async (assignmentId: string): Promise<Blob | null> => {
-  const res = (await axios.get(`/api/v1/assessments/assignments/${assignmentId}/prompt-file`, {
-    ...requestConfig,
-    responseType: "blob",
-  })) as unknown as { status?: number; data?: unknown };
+export const downloadPromptFileAPI = async (
+  assignmentId: string,
+): Promise<Blob | null> => {
+  const res = (await axios.get(
+    `/api/v1/assessments/assignments/${assignmentId}/prompt-file`,
+    {
+      responseType: "blob",
+    },
+  )) as unknown as { status?: number; data?: unknown };
   return res.status === 200 && res.data instanceof Blob ? res.data : null;
 };
 
@@ -107,14 +122,12 @@ export const updateAssignmentAPI = (
   axios.patch<IBackendRes<IAssignment>>(
     `/api/v1/assessments/assignments/${assignmentId}`,
     payload,
-    requestConfig,
   );
 
 /** UC19.4 — Delete Assignment. */
 export const deleteAssignmentAPI = (assignmentId: string) =>
   axios.delete<IBackendRes<{ id: string }>>(
     `/api/v1/assessments/assignments/${assignmentId}`,
-    requestConfig,
   );
 
 /** UC19.5 — Configure Peer Review. */
@@ -125,88 +138,309 @@ export const updatePeerReviewAPI = (
   axios.put<IBackendRes<IAssignment>>(
     `/api/v1/assessments/assignments/${assignmentId}/peer-review`,
     payload,
-    requestConfig,
   );
 
 /** UC18 — List Quizzes of a Course, optionally of one Module. */
 export const fetchQuizzesAPI = (courseId: string, moduleId?: string) =>
   axios.get<IBackendRes<IQuizList>>("/api/v1/assessments/quizzes", {
-    ...requestConfig,
     params: { courseId: toApiCourseId(courseId), moduleId },
   });
 
+/** UC18.1 — one Quiz with configuration, questions, answer keys and what may be changed (Instructor only). */
+export const fetchQuizAPI = (quizId: string) =>
+  axios.get<IBackendRes<IQuizDetail>>(`/api/v1/assessments/quizzes/${quizId}`);
+
 /** UC18.2 — Create Quiz. */
 export const createQuizAPI = (payload: ICreateQuizReq) =>
-  axios.post<IBackendRes<IQuizSummary>>("/api/v1/assessments/quizzes", payload, requestConfig);
+  axios.post<IBackendRes<IQuizSummary>>("/api/v1/assessments/quizzes", payload);
+
+/** UC18.4 — Update Quiz configuration; answers with the Quiz detail and its new permissions. */
+export const updateQuizConfigAPI = (
+  quizId: string,
+  payload: IUpdateQuizConfigReq,
+) =>
+  axios.patch<IBackendRes<IQuizDetail>>(
+    `/api/v1/assessments/quizzes/${quizId}`,
+    payload,
+  );
 
 /** UC18.5 — Delete Quiz. */
 export const deleteQuizAPI = (quizId: string) =>
-  axios.delete<IBackendRes<{ id: string }>>(`/api/v1/assessments/quizzes/${quizId}`, requestConfig);
+  axios.delete<IBackendRes<{ id: string }>>(
+    `/api/v1/assessments/quizzes/${quizId}`,
+  );
 
 /** UC29 — the Quizzes and Assignments of an enrolled Course with status, score and tries left. */
-export const fetchLearnerAssessmentsAPI = (courseId: string) =>
-  axios.get<IBackendRes<ILearnerAssessmentList>>(`/api/v1/assessments/learner/courses/${courseId}/assessments`, requestConfig);
+export const fetchLearnerAssessmentsAPI = (
+  courseId: string,
+  signal?: AbortSignal,
+) =>
+  axios.get<IBackendRes<ILearnerAssessmentList>>(
+    `/api/v1/assessments/learner/courses/${courseId}/assessments`,
+    { signal },
+  );
 
 /** UC30 step 1 — the Assignment as the enrolled Learner reads it (prompt, Rubric, attempts left). */
 export const fetchLearnerAssignmentAPI = (assignmentId: string) =>
-  axios.get<IBackendRes<ILearnerAssignment>>(`/api/v1/assessments/learner/assignments/${assignmentId}`, requestConfig);
+  axios.get<IBackendRes<ILearnerAssignment>>(
+    `/api/v1/assessments/learner/assignments/${assignmentId}`,
+  );
 
 /** UC33 — the peer review cycles of an Assignment of the Instructor. */
 export const fetchPeerReviewCyclesAPI = (assignmentId: string) =>
   axios.get<IBackendRes<IPeerReviewCycleList>>(
     `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles`,
-    requestConfig,
   );
 
-/** UC30.2 — the grading result of a Finalized submission. */
-export const fetchLearnerResultAPI = (assignmentId: string, submissionId: string) =>
+/** UC33.1 — one cycle: its submissions with the reviews they got, and the reviewers with the state of their duty. */
+export const fetchPeerReviewCycleDetailAPI = (
+  assignmentId: string,
+  cycleId: string,
+) =>
+  axios.get<IBackendRes<IPeerReviewCycleDetail>>(
+    `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles/${cycleId}`,
+  );
+
+/** UC33.2 — waive the peer review duty of a Learner who owes it (BR-241); waiving again changes nothing. */
+export const waivePeerReviewDutyAPI = (
+  assignmentId: string,
+  learnerId: string,
+) =>
+  axios.post<IBackendRes<IPeerReviewWaiver>>(
+    `/api/v1/assessments/assignments/${assignmentId}/peer-review/learners/${learnerId}/waiver`,
+  );
+
+/** UC33 — close a cycle now: hand out the reviews, or send the submissions to the Instructor when there are too few. */
+export const closePeerReviewCycleAPI = (
+  assignmentId: string,
+  cycleId: string,
+) =>
+  axios.post<IBackendRes<IClosedPeerReviewCycle>>(
+    `/api/v1/assessments/assignments/${assignmentId}/peer-review/cycles/${cycleId}/close`,
+  );
+
+/** UC30.2 — the grading result of the latest submission, when it is Finalized (one request, so one check of the Enrollment). */
+export const fetchLearnerResultAPI = (assignmentId: string) =>
   axios.get<IBackendRes<IGradingResult>>(
-    `/api/v1/assessments/learner/assignments/${assignmentId}/submissions/${submissionId}/result`,
-    requestConfig,
+    `/api/v1/assessments/learner/assignments/${assignmentId}/result`,
   );
 
 /** UC30 — Submit an Assignment: text and/or one PDF, DOCX or ZIP (50 MB). */
-export const submitAssignmentAPI = (assignmentId: string, content: string, file?: File | null) => {
+export const submitAssignmentAPI = (
+  assignmentId: string,
+  content: string,
+  file?: File | null,
+) => {
   const form = new FormData();
   if (content.trim()) form.append("content", content);
   if (file) form.append("file", file);
   return axios.post<IBackendRes<ISubmissionReceipt>>(
     `/api/v1/assessments/learner/assignments/${assignmentId}/submissions`,
     form,
-    requestConfig,
   );
 };
 
 /** UC30.1 - Resubmit an Assignment: replaces the previous submission; same body as UC30. */
-export const resubmitAssignmentAPI = (assignmentId: string, content: string, file?: File | null) => {
+export const resubmitAssignmentAPI = (
+  assignmentId: string,
+  content: string,
+  file?: File | null,
+) => {
   const form = new FormData();
   if (content.trim()) form.append("content", content);
   if (file) form.append("file", file);
   return axios.post<IBackendRes<ISubmissionReceipt>>(
     `/api/v1/assessments/learner/assignments/${assignmentId}/resubmissions`,
     form,
-    requestConfig,
   );
 };
 
 /** The prompt file for a Learner; like UC19.1, only a real 200 response yields the file. */
-export const downloadLearnerPromptFileAPI = async (assignmentId: string): Promise<Blob | null> => {
-  const res = (await axios.get(`/api/v1/assessments/learner/assignments/${assignmentId}/prompt-file`, {
-    ...requestConfig,
-    responseType: "blob",
-  })) as unknown as { status?: number; data?: unknown };
+export const downloadLearnerPromptFileAPI = async (
+  assignmentId: string,
+): Promise<Blob | null> => {
+  const res = (await axios.get(
+    `/api/v1/assessments/learner/assignments/${assignmentId}/prompt-file`,
+    {
+      responseType: "blob",
+    },
+  )) as unknown as { status?: number; data?: unknown };
+  return res.status === 200 && res.data instanceof Blob ? res.data : null;
+};
+
+/** UC31 — the reviews assigned to the Learner, the ones to give first, with the deadline of the cycle. */
+export const fetchLearnerPeerReviewsAPI = (page = 1, pageSize = 20) =>
+  axios.get<IBackendRes<ILearnerReviewList>>(
+    "/api/v1/assessments/learner/peer-reviews",
+    {
+      params: { page, pageSize },
+    },
+  );
+
+/** UC31 — one review: the work without its author, the Rubric, and the review so far. */
+export const fetchLearnerPeerReviewAPI = (reviewId: string) =>
+  axios.get<IBackendRes<ILearnerReviewDetail>>(
+    `/api/v1/assessments/learner/peer-reviews/${reviewId}`,
+  );
+
+/** UC31.1 — give the review. It is final once given. */
+export const giveLearnerPeerReviewAPI = (
+  reviewId: string,
+  body: IGiveLearnerReview,
+) =>
+  axios.post<IBackendRes<ILearnerReviewResult>>(
+    `/api/v1/assessments/learner/peer-reviews/${reviewId}`,
+    body,
+  );
+
+/** UC31 — the file of the work under review, with a neutral name; like the prompt file, only a real 200 response yields it. */
+export const downloadLearnerReviewFileAPI = async (
+  reviewId: string,
+): Promise<Blob | null> => {
+  const res = (await axios.get(
+    `/api/v1/assessments/learner/peer-reviews/${reviewId}/file`,
+    {
+      responseType: "blob",
+    },
+  )) as unknown as { status?: number; data?: unknown };
   return res.status === 200 && res.data instanceof Blob ? res.data : null;
 };
 
 /** Code of a failed answer and, for ASSESSMENT_LOCKED, the time the Assignment opens again. */
-export const assessmentErrorCode = (res: unknown): { code?: string; lockedUntil?: string } => {
+export const assessmentErrorCode = (
+  res: unknown,
+): { code?: string; lockedUntil?: string } => {
   const { error } = res as IAssessmentError;
-  return typeof error === "object" ? { code: error?.code, lockedUntil: error?.lockedUntil } : {};
+  return typeof error === "object"
+    ? { code: error?.code, lockedUntil: error?.lockedUntil }
+    : {};
+};
+
+/**
+ * Learner-facing text (Vietnamese) of the codes that close a screen: the server message is English. This one is for the
+ * screens that have nothing of the Learner to keep (the list, the result, the form when it is opened).
+ */
+const LEARNER_LOCK_TEXT: Record<string, string> = {
+  ENROLLMENT_NOT_ACTIVE:
+    "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể xem hoặc nộp bài tập. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.",
+};
+
+/** The same lock on the form, when the Learner has typed something: the draft stays on the page (BR-210). */
+export const ENROLLMENT_NOT_ACTIVE_FORM_TEXT =
+  "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể nộp bài nữa. Nội dung bạn đã nhập vẫn được giữ trên trang này. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.";
+
+/** The codes a Learner can meet on the peer review screens, in Vietnamese: the server message is English. */
+const REVIEW_ERROR_TEXT: Record<string, string> = {
+  ...LEARNER_LOCK_TEXT,
+  RUBRIC_MISSING: "Bài tập này chưa có tiêu chí Rubric để chấm.",
+  RUBRIC_SCORES_INCOMPLETE: "Hãy chấm đúng một điểm cho mỗi tiêu chí Rubric.",
+  RUBRIC_SCORE_OUT_OF_RANGE:
+    "Điểm của một tiêu chí không được vượt quá điểm tối đa của tiêu chí đó.",
+};
+
+/** For the screens that must stay fully Vietnamese: the English message of the server is never shown. */
+export const vietnameseErrorText = (res: unknown, fallback: string): string => {
+  const { error } = res as IAssessmentError;
+  const code = typeof error === "object" ? error?.code : undefined;
+  return (code && REVIEW_ERROR_TEXT[code]) || fallback;
 };
 
 /** The axios interceptor resolves error responses instead of rejecting; pull the message out of them. */
 export const assessmentErrorText = (res: unknown, fallback: string): string => {
   const { error, message } = res as IAssessmentError;
+  const code = typeof error === "object" ? error?.code : undefined;
+  if (code && LEARNER_LOCK_TEXT[code]) return LEARNER_LOCK_TEXT[code];
   const raw = typeof error === "object" ? error?.message : (error ?? message);
   return (Array.isArray(raw) ? raw.join(" ") : raw) || fallback;
+};
+
+/** UC31.2 — the reviews the Learner gave, newest first, and where the duty of peer review stands. */
+export const fetchLearnerReviewHistoryAPI = (
+  page = 1,
+  pageSize = 20,
+  assignmentId?: string,
+) =>
+  axios.get<IBackendRes<IReviewHistory>>(
+    "/api/v1/assessments/learner/peer-reviews/history",
+    {
+      params: { page, pageSize, ...(assignmentId ? { assignmentId } : {}) },
+    },
+  );
+
+// ------------------------------------------------------------------------------------------------ UC29.1 — Quiz
+
+const QUIZ_BASE = "/api/v1/assessments/learner/quizzes";
+
+/** UC29.1 — the Quiz before starting: rules, tries left, lock, the attempt to continue. */
+export const fetchLearnerQuizAPI = (quizId: string) =>
+  axios.get<IBackendRes<ILearnerQuiz>>(
+    `${QUIZ_BASE}/${encodeURIComponent(quizId)}`,
+  );
+
+/** UC29.1 — start an attempt; while one is running the same attempt comes back (`resumed`). */
+export const startQuizAttemptAPI = (quizId: string) =>
+  axios.post<IBackendRes<IQuizAttemptInProgress>>(
+    `${QUIZ_BASE}/${encodeURIComponent(quizId)}/attempts`,
+  );
+
+/** The running attempt (questions and the saved answers), or its result once it is over. */
+export const fetchQuizAttemptAPI = (attemptId: string) =>
+  axios.get<IBackendRes<IQuizAttemptView>>(
+    `${QUIZ_BASE}/attempts/${encodeURIComponent(attemptId)}`,
+  );
+
+/** UC29.1 — save the choice of one question at once. An empty list clears the answer. */
+export const saveQuizAnswerAPI = (
+  attemptId: string,
+  questionId: string,
+  optionIds: string[],
+) =>
+  axios.put<IBackendRes<ISavedQuizAnswer>>(
+    `${QUIZ_BASE}/attempts/${encodeURIComponent(attemptId)}/answers/${encodeURIComponent(questionId)}`,
+    { optionIds },
+  );
+
+/** UC29.1 — submit the attempt; the answer is the result. */
+export const submitQuizAttemptAPI = (attemptId: string) =>
+  axios.post<IBackendRes<IQuizAttemptResult>>(
+    `${QUIZ_BASE}/attempts/${encodeURIComponent(attemptId)}/submit`,
+  );
+
+/** UC29.2 — the attempts of the Learner on a Quiz, with score, tries left and the time it opens again. */
+export const fetchQuizHistoryAPI = (quizId: string) =>
+  axios.get<IBackendRes<IQuizHistory>>(
+    `${QUIZ_BASE}/${encodeURIComponent(quizId)}/history`,
+  );
+
+export const fetchOrganizerAssessmentReviewAPI = (courseId: string) =>
+  axios.get<IBackendRes<IReviewAssessmentsResponse>>(
+    `/api/v1/assessments/organization/courses/${encodeURIComponent(courseId)}/review`,
+  );
+
+/**
+ * UC21.2 - Download an Assignment attachment
+ * for Organizer review.
+ *
+ * The existing Axios interceptor may resolve an error
+ * response instead of throwing it.
+ */
+export const downloadOrganizerAssignmentPromptAPI = async (
+  courseId: string,
+  assignmentId: string,
+): Promise<Blob | null> => {
+  const response = (await axios.get(
+    `/api/v1/assessments/organization/courses/${encodeURIComponent(courseId)}/assignments/${encodeURIComponent(assignmentId)}/prompt-file`,
+    {
+      responseType: "blob",
+    },
+  )) as unknown as {
+    status?: number;
+    data?: unknown;
+  };
+
+  if (response.status !== 200 || !(response.data instanceof Blob)) {
+    return null;
+  }
+
+  return response.data;
 };

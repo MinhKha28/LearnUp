@@ -1,13 +1,15 @@
+import { closeAll, closeApp } from './deadlines';
+import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import { before, after, beforeEach, describe, test } from 'node:test';
+import { before, after, beforeEach, describe, test } from './test-runner';
 import { HEADER_NAMES, type CurrentUser } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { Prisma } from '../../generated/prisma/client';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
@@ -16,7 +18,6 @@ import {
   type TenantClient,
 } from '../../src/infrastructure/clients/tenant/tenant.client';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
-import { OrganizationTimezoneService } from '../../src/infrastructure/clients/tenant/organization-timezone.service';
 import {
   AssignmentReadsRepository,
   assignmentCountSql,
@@ -39,7 +40,7 @@ const user: CurrentUser = {
   role: 'ORGANIZER',
   isAuthenticated: true,
 };
-const db = new Client({ connectionString: databaseUrl('learning_db') });
+const db = new Client({ connectionString: databaseUrl() });
 let app: NestExpressApplication;
 let url: string;
 let connected = false;
@@ -49,8 +50,6 @@ let tenantFails = false;
 let courseFails = false;
 let accessCalls = 0;
 let timezoneFails = false;
-let timezoneService: OrganizationTimezoneService;
-let getTimezone: OrganizationTimezoneService['getTimezone'];
 type Item = {
   enrollmentId: string;
   status: string;
@@ -72,7 +71,6 @@ type Page = {
   total: number;
   page: number;
   pageSize: number;
-  organizationTimezone: string | null;
 };
 async function cleanup() {
   for (const table of [
@@ -120,8 +118,8 @@ async function enrollment(
   const dueAt = new Date(Date.UTC(2026, 0, 10 + day));
   await db.query(
     `INSERT INTO enrollments (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,
-    expected_completion_days,base_due_at,due_at,video_completion_percent,first_activity_at,completed_at,completed_late,withdrawn_at,withdrawn_reason)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,80,$10,$11,$12,$13,$14)`,
+    expected_completion_days,base_due_at,due_at,video_completion_percent,first_activity_at,completed_at,completed_late,withdrawn_at,withdrawn_reason,due_timezone)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,80,$10,$11,$12,$13,$14,CASE WHEN ($9)::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END )`,
     [
       id,
       org,
@@ -175,13 +173,12 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
       logger: ['error'],
     });
     configureApp(app);
-    timezoneService = app.get(OrganizationTimezoneService);
-    getTimezone = timezoneService.getTimezone.bind(timezoneService);
     app.get<TenantClient>(TENANT_CLIENT).getOrganizationAccess = async () => {
       accessCalls++;
       if (timezoneFails) throw new Error('Timezone timeout');
       return {
         subscriptionStatus: 'Active',
+        organizationStatus: 'Active',
         readOnlyEndsAt: null,
         timezone: 'Asia/Ho_Chi_Minh',
       };
@@ -225,18 +222,15 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     tenantFails = courseFails = false;
     accessCalls = 0;
     timezoneFails = false;
-    const fresh = new OrganizationTimezoneService(
-      app.get<TenantClient>(TENANT_CLIENT),
-    );
-    timezoneService.getTimezone = fresh.getTimezone.bind(fresh);
   });
   after(async () => {
     try {
       if (connected) await cleanup();
     } finally {
-      if (timezoneService) timezoneService.getTimezone = getTimezone;
-      await app?.close();
-      await db.end();
+      await closeAll(
+        () => closeApp(app),
+        () => db.end(),
+      );
     }
   });
 
@@ -262,7 +256,7 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     assert.equal(first.total, 25);
     assert.equal(first.pageSize, 20);
     assert.equal(first.page, 1);
-    assert.equal(first.organizationTimezone, 'Asia/Ho_Chi_Minh');
+    assert.equal(first.items[0].dueTimezone, 'Asia/Ho_Chi_Minh');
     assert.deepEqual(
       first.items.map((r) => r.enrollmentId),
       expected.slice(0, 20),
@@ -282,8 +276,8 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     );
     assert.equal(tenantCalls, 2);
     assert.equal(courseCalls, 2);
-    assert.equal(last.organizationTimezone, 'Asia/Ho_Chi_Minh');
-    assert.equal(accessCalls, 1);
+    assert.equal(last.items[0].dueTimezone, 'Asia/Ho_Chi_Minh');
+    assert.equal(accessCalls, 0);
     for (const row of [...first.items, ...last.items]) {
       assert.equal(row.requiredCompleted, 0);
       assert.equal(row.requiredTotal, 1);
@@ -329,7 +323,6 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
           page: Number(query.split('=')[1]),
           pageSize: 20,
           total: 1,
-          organizationTimezone: null,
         });
       assert.equal(tenantCalls, 0);
       assert.equal(courseCalls, 0);
@@ -352,25 +345,17 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     assert.equal(tenantCalls, 2);
     assert.equal(courseCalls, 2);
   });
-  test('timezone failure keeps list and detail 200, null is not cached', async () => {
+  test('list skips access; detail degrades to null on timezone timeout', async () => {
     const id = await enrollment();
     timezoneFails = true;
     const list = await page();
-    assert.equal(list.organizationTimezone, null);
-    assert.equal(list.items.length, 1);
+    assert.equal(list.items[0].dueTimezone, 'Asia/Ho_Chi_Minh');
+    assert.ok(!('organizationTimezone' in list));
     const detail = await call(`/${id}`);
     assert.equal(detail.status, 200);
+    assert.equal(detail.body.data.dueTimezone, 'Asia/Ho_Chi_Minh');
     assert.equal(detail.body.data.organizationTimezone, null);
-    assert.ok(detail.body.data.learner);
-    assert.ok(detail.body.data.course);
-    assert.equal(accessCalls, 2);
-    timezoneFails = false;
-    assert.equal(
-      (await call(`/${id}`)).body.data.organizationTimezone,
-      'Asia/Ho_Chi_Minh',
-    );
-    assert.equal((await page()).organizationTimezone, 'Asia/Ho_Chi_Minh');
-    assert.equal(accessCalls, 3);
+    assert.equal(accessCalls, 1);
   });
   test('empty list includes null timezone without tenant access', async () => {
     assert.deepEqual(await page(), {
@@ -378,7 +363,6 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
       page: 1,
       pageSize: 20,
       total: 0,
-      organizationTimezone: null,
     });
     assert.equal(accessCalls, 0);
   });
@@ -411,7 +395,7 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     assert.equal(item.requiredCompleted, 1);
     assert.equal(item.requiredTotal, 1);
     assert.equal(item.extensionSeconds, 0);
-    assert.equal(item.organizationTimezone, 'Asia/Ho_Chi_Minh');
+    assert.equal(item.dueTimezone, 'Asia/Ho_Chi_Minh');
     assert.equal(item.completedLate, true);
     assert.equal(item.baseDueAt, item.dueAt);
     assert.ok(item.firstActivityAt);
@@ -448,8 +432,8 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
 
   test('EXPLAIN ANALYZE count, first and last page with 2,000 Required', async () => {
     await db.query(
-      `INSERT INTO enrollments (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,expected_completion_days,base_due_at,due_at,video_completion_percent)
-      SELECT gen_random_uuid(),$1,gen_random_uuid(),$2,'Required','NotStarted',now(),30,now()+g*interval '1 day',now()+g*interval '1 day',80 FROM generate_series(1,2000) g`,
+      `INSERT INTO enrollments (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,expected_completion_days,base_due_at,due_at,video_completion_percent,due_timezone)
+      SELECT gen_random_uuid(),$1,gen_random_uuid(),$2,'Required','NotStarted',now(),30,now()+g*interval '1 day',now()+g*interval '1 day',80 ,CASE WHEN (now()+g*interval '1 day')::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END FROM generate_series(1,2000) g`,
       [ORG, COURSE],
     );
     const id = (

@@ -19,3 +19,29 @@
     border: 1px solid var(--color-border);
   }
 }
+
+.lesson-resource-progress {
+  position: relative;
+  padding-right: var(--space-8);
+  margin-top: var(--space-4);
+}
+.lesson-resource-target {
+  position: absolute;
+  right: var(--space-8);
+  top: 25%;
+  height: 50%;
+  border-left: var(--space-1) solid var(--color-text-primary);
+  pointer-events: none;
+}
+.lesson-resource-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-body);
+  line-height: var(--status-line-height);
+}
+.lesson-resource-summary .ant-tag {
+  font-size: var(--status-font-size);
+  padding: var(--status-padding-block) var(--status-padding-inline);
+}

@@ -1,3 +1,4 @@
+import viVN from "antd/locale/vi_VN";
 import { Pagination } from "antd";
 import { useSearchParams } from "react-router-dom";
 
@@ -21,6 +22,7 @@ export const UrlPagination = ({ meta }: { meta: PageMeta }) => {
 
   return (
     <Pagination
+      locale={viVN.Pagination}
       className="learner-url-pagination"
       align="center"
       current={meta.current}

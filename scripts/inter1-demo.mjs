@@ -11,6 +11,7 @@
  * Chỉ dùng module có sẵn của Node, chạy được trên Windows, Linux và macOS.
  */
 import { spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -274,6 +275,16 @@ function fail(error) {
 // ---------------------------------------------------------------------------
 // Đọc .env (KEY=VALUE, bỏ dòng chú thích); không in giá trị
 // ---------------------------------------------------------------------------
+// BR-13: tenant không chạy nếu thiếu EMAIL_OTP_SECRET. Máy chưa đặt khóa thì sinh một khóa chỉ dùng cho lượt demo
+// này (giống tests/e2e/cluster/start.sh); mã OTP hết hạn sau vài phút nên khóa không cần giữ qua các lượt.
+function tenantDemoEnv(dir) {
+  if (process.env.EMAIL_OTP_SECRET?.trim()) return undefined;
+  if (readEnvFile(path.join(dir, ".env"))?.get("EMAIL_OTP_SECRET")?.trim())
+    return undefined;
+  detail("Chưa có EMAIL_OTP_SECRET: sinh khóa tạm cho lượt demo này.");
+  return { EMAIL_OTP_SECRET: randomBytes(32).toString("base64url") };
+}
+
 function readEnvFile(file) {
   if (!fs.existsSync(file)) return null;
   const env = new Map();
@@ -814,7 +825,12 @@ async function startService(name, dir, port, probePath, internalKey) {
     [path.join("dist", "src", "main.js")],
     {
       cwd: dir,
-      env: name === "learning-service" ? ASSESSMENT_DEMO_ENV : undefined,
+      env:
+        name === "learning-service"
+          ? ASSESSMENT_DEMO_ENV
+          : name === "tenant-service"
+            ? tenantDemoEnv(dir)
+            : undefined,
       logName: name,
       longRunning: true,
     },
@@ -914,7 +930,7 @@ async function verifyDemoData(internalKey) {
     ids[1] !== E_DEMO_1
   ) {
     throw new DemoError(
-      `Course của tôi (LEARNER_1) trả ${mine.status} với ${ids.length} dòng, cần đúng E-demo-2 rồi E-demo-1.`,
+      `Khóa học của tôi (LEARNER_1) trả ${mine.status} với ${ids.length} dòng, cần đúng E-demo-2 rồi E-demo-1.`,
       hint,
       logPath("learning-seed-demo"),
     );
@@ -977,11 +993,30 @@ function printReady() {
     ),
     `Sẵn sàng demo (khởi động trong ${seconds} giây)`,
     "",
-    `Danh mục Course:     ${web}/learner/catalog`,
-    `Course của tôi:      ${web}/learner/courses`,
+    `Danh mục Khóa học:     ${web}/learner/catalog`,
+    `Khóa học của tôi:      ${web}/learner/courses`,
     `Chương trình học:    ${web}/learner/courses/${E_DEMO_2}`,
-    `Lesson L11:          ${web}/learner/courses/${E_DEMO_2}/lessons/${L11}`,
-    `Lesson L13:          ${web}/learner/courses/${E_DEMO_2}/lessons/${L13}`,
+    `Bài học L11:          ${web}/learner/courses/${E_DEMO_2}/lessons/${L11}`,
+    `Bài học L13:          ${web}/learner/courses/${E_DEMO_2}/lessons/${L13}`,
+    "",
+    "Inter 2 - Chọn persona trong Demo > Đổi danh tính demo (POST /__dev/identity):",
+    `UC24 | ORGANIZER / Quản lý đào tạo ABC | ${web}/organizer/assignments?page=1`,
+    `UC24.1 | ORGANIZER / Quản lý đào tạo ABC | ${web}/organizer/assignments/${E_DEMO_2}?page=1`,
+    `UC24.2 | ORGANIZER / Quản lý đào tạo ABC | ${web}/organizer/assignments/assign | Chọn Lê Văn Cường (...a203), Course P (...c00200000065).`,
+    `UC24.3 | ORGANIZER / Quản lý đào tạo ABC | ${web}/organizer/assignments/${E_DEMO_2}?page=1 | Bấm Kéo dài hạn; không có URL riêng.`,
+    `UC24.5 | ORGANIZER / Quản lý đào tạo ABC | ${web}/organizer/assignments/${E_DEMO_2}?page=1 | Bấm Đánh dấu Miễn sau gia hạn; không có URL riêng.`,
+    ...[
+      ["LEARNER_5", "Học viên 5 (Video chưa học)", "0027", "a"],
+      ["LEARNER_6", "Học viên 6 (Video đã xem 511 giây)", "0028", "b"],
+    ].map(
+      ([key, label, id, part]) =>
+        `UC27.2 (${part}) | ${key} / ${label} | ${web}/learner/courses/01900000-0000-7000-8000-2a000000${id}/lessons/${L11}/resources/01900000-0000-7000-8000-c0050001676b | Pause > Về Bài học, đợi lưu progress trước khi đổi persona.`,
+    ),
+    `UC25.4 X | LEARNER_4 / Học viên 4 (Tổ chức A) | ${web}/learner/courses | Rút X (...c0020000005c), enrollment ...2a0000000004; không có URL riêng.`,
+    `UC25.4 Y | LEARNER_4 / Học viên 4 (Tổ chức A) | ${web}/learner/courses | Rút Y (...c00200000097), enrollment ...2a0000000005; không có URL riêng.`,
+    `UC25.3 restore Y | LEARNER_4 / Học viên 4 (Tổ chức A) | ${web}/learner/catalog/${COURSE_03} | Mở tab A/B trước khi đăng ký ở A; giữ B chưa reload.`,
+    `UC25.3 429 | LEARNER_4 / Học viên 4 (Tổ chức A) | ${web}/learner/catalog/${COURSE_03} | Không có URL riêng: DevTools gửi lặp POST theo checklist, sau đó bấm Đăng ký ở tab B cũ.`,
+    `UC25.4 503 (http, CUỐI CÙNG) | LEARNER_4 / Học viên 4 (Tổ chức A) | ${web}/learner/courses | Không có URL riêng: dừng đúng tiến trình assessment 8086, rút Y; không Ctrl+C runner.`,
     "",
     `Log: ${LOG_DIR}`,
     "Nhấn Ctrl+C để tắt toàn bộ",
@@ -1143,7 +1178,7 @@ async function verifyVideoRange() {
 async function verifyVideoFixtures() {
   for (const [key, id, seconds, status] of [
     ["LEARNER_5", "01900000-0000-7000-8000-2a0000000027", 0, "NotStarted"],
-    ["LEARNER_6", "01900000-0000-7000-8000-2a0000000028", 511, "InProgress"],
+    ["LEARNER_6", "01900000-0000-7000-8000-2a0000000028", 511, "NotStarted"],
   ]) {
     await getJson(
       `http://localhost:${PORTS.frontend}/__dev/identity`,

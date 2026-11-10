@@ -45,10 +45,10 @@ void describe('createTenantClient', () => {
     );
   });
 
-  void test('http → lỗi khởi động vì tenant-service chưa có REST', () => {
+  void test('http requires valid configuration', () => {
     assert.throws(
       () => create({ TENANT_CLIENT_MODE: 'http' }),
-      /tenant-service chưa có REST/,
+      /TENANT_SERVICE_URL/,
     );
   });
 
@@ -78,6 +78,7 @@ void describe('createTenantClient', () => {
     assert.deepEqual(warnings, [FAKE_TENANT_CLIENT_WARNING]);
     assert.deepEqual(await client.getOrganizationAccess(USER), {
       subscriptionStatus: 'Active',
+      organizationStatus: 'Active',
       readOnlyEndsAt: null,
       timezone: 'Asia/Ho_Chi_Minh',
     });

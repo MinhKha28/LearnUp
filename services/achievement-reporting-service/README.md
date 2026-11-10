@@ -5,4 +5,98 @@ NestJS + Prisma 7 service for LearnUP.
 Database: `achievement_reporting_db`
 Port: `8087`
 
-The Prisma schema follows `LearnUP_Database_Guide.docx` service ownership and table boundaries.
+Certificate persistence and the approved database-design differences are recorded
+in [the issuance verification report](../../docs/architecture/achievement-certificate-issuance-verification.md).
+
+## Automatic certificate issuance (PR1)
+
+`CERTIFICATE_CONSUMER_ENABLED` defaults to `true` in Compose and controls both the Kafka
+consumer and issuance worker. When enabled, the dedicated group
+`achievement-reporting-certificate-v1` reads EnrollmentCompleted from
+`learnup.learning.enrollment-events`, starting at earliest if no offset exists.
+Receiving commits Pending plus receipt (or quarantine) before committing the
+offset. HTTP and Cloudinary calls run after that transaction.
+Enabled by default; set CERTIFICATE_CONSUMER_ENABLED=false to run the stack without certificate issuance. On first start the consumer issues certificates for completion events still retained in Kafka (idempotent).
+
+Configure the three `CLOUDINARY_*` variables through the environment. They are
+only required when an actual logo is copied. Missing configuration never aborts
+application construction; an attempted copy stays Pending. Certificates without
+a logo can issue without contacting storage. Protected uploads use the shared
+`@learnup/ts-storage` provider with authenticated delivery and no overwrite.
+Keys are private per attempt; hashes, MIME and byte size are stored without URLs.
+
+Directory calls send internal key and organization header, with no user context.
+Users lookup also sends the matching organization ID in its body. The Tenant
+certificate-profile and Course service-call contracts must be deployed by their
+owners before HTTP issuance works fully. Their failures do not trigger fake data.
+`CERTIFICATE_PROFILE_CLIENT_MODE=fake` and `CERTIFICATE_COURSE_CLIENT_MODE=fake`
+require explicit `NODE_ENV=development` or `test`; production and missing
+NODE_ENV reject those settings. Users lookup remains HTTP in application mode.
+The runtime Docker image defaults to production.
+
+Use `.env.example` for configuration names and development-only placeholders.
+The Tenant service listens on port 8084; set `TENANT_SERVICE_URL` accordingly.
+In production, or when `NODE_ENV` is missing, startup requires a nonblank
+`INTERNAL_SERVICE_KEY` of at least 32 UTF-8 bytes whose trimmed value is not
+`learnup-internal-secret`, and a PostgreSQL `DATABASE_URL` containing an explicit
+username and password. Invalid/missing credentials stop startup before database
+connections or workers start; diagnostics never include credential values.
+Only explicit `NODE_ENV=development` or `test` skips this credential guard.
+Compose defaults `DB_USERNAME` to `postgres` and requires explicit `DB_PASSWORD`
+and `INTERNAL_SERVICE_KEY`. The runtime guard enforces explicit username and
+password in the resulting database URL and the internal-key rule above.
+Do not use the development example credentials for deployment.
+
+Compose forwards signer access mode and all cleanup settings from the environment.
+Defaults remain HTTP access, cleanup enabled, delay 600000 ms, poll 1000 ms,
+cleanup lease 120000 ms and backlog warning 3600 seconds. Startup rejects
+cleanup delay ≤ issuance lease + storage timeout and cleanup lease ≤ storage timeout.
+
+Use the environment to supply production credentials. Do not log or
+commit credentials, source logo URLs, signed URLs, score payloads or email.
+Logo downloads require HTTPS, an exact allowlisted host and bounded reads.
+PNG/JPEG/WebP magic bytes determine the stored MIME. A download 404 refreshes
+the profile once before retrying. No signer configuration or public certificate
+API is added in PR1; signer columns remain null.
+
+## Verification
+
+```powershell
+npm run build
+npm run test:unit
+# Requires a non-production DATABASE_URL and NODE_ENV=test.
+npm run test:integration
+```
+
+PostgreSQL tests create a random `ar1_test_*` schema, apply the checked-in SQL
+there and remove it in finally. They never reset the baseline database or use
+real Cloudinary. Node native Kafka is loaded asynchronously only when needed;
+missing binding/broker causes a safe warning and reconnect attempt rather than
+rejecting application startup. A native package import and Linux build must
+still be verified; lazy import is not proof that deployment dependencies work.
+
+The baseline migration was designed for an empty PostgreSQL 16 database.
+Inspect the target catalog and obtain approval before running Prisma migrate.
+Do not mark an existing database baselined without checking its contents.
+
+From the repository root, after building, a synthetic measurement can be run with
+`node perf/achievement/certificate-issuance.cjs` and a non-production DATABASE_URL.
+It uses real PostgreSQL and fake directory/storage/Kafka transport, recording
+technical issuance delay and counts rather than an HTTP SLA.
+See [verification report](../../docs/architecture/achievement-certificate-issuance-verification.md).
+
+### Learner certificates
+
+Learner list, detail and PDF endpoints are scoped to the authenticated organization and learner and expose issued records only. PDF documents are generated from frozen records, buffered before sending, and never stored.
+
+Each Issued certificate freezes its Organization timezone in `organization_timezone`; list, detail and PDF dates use that snapshot even after the Organization timezone changes. Pending rows keep it NULL. Missing or invalid Tenant profile timezones use `CERTIFICATE_DISPLAY_TIMEZONE` (default `Asia/Ho_Chi_Minh`) at issuance and log `CERTIFICATE_TIMEZONE_FALLBACK` with the Organization ID, without logging the response. This setting no longer controls read-time formatting. The forward migration backfills existing Issued rows with the literal historical default `Asia/Ho_Chi_Minh`, temporarily disabling and re-enabling the immutability trigger within one transaction. Changing the environment does not change that SQL backfill literal.
+
+Settings: `CERTIFICATE_PDF_QUEUE_SIZE` defaults to 16 waiting requests; `CERTIFICATE_PDF_QUEUE_WAIT_MS` defaults to 1500 ms. One render runs per instance. Overload or unavailable verified assets returns 503 with Retry-After: 1.
+
+### Third-party font notice
+
+Noto Sans static Regular and Bold, release v2.015, are bundled under the SIL Open Font License 1.1. See assets/fonts/OFL.txt and assets/fonts/sources.json for license, provenance and checksums. Font buffers are loaded and verified at startup; missing or changed files prevent startup.
+
+Verification uses the complete service suite (including isolated PostgreSQL schemas), default TypeScript configuration, and scoped ESLint. The frontend browser suite is enabled with `LEARNUP_RECOVERY_BROWSER_TESTS=1`; run Vitest with `--fileParallelism=false --hookTimeout=60000` to avoid browser harness port collisions.
+
+The repository-root load harness is `node perf/achievement/certificate-read.cjs`. It requires a non-production `DATABASE_URL` and `CERTIFICATE_PERF_OUTPUT` pointing outside the repository. `CERTIFICATE_PERF_STAGE_MS` controls each stage (default 5000 ms). It ramps to 1, 2, 100 and 200 VUs for PDF and list, using a separate service process and verified in-memory PNG storage. The generated schema is intentionally retained; the script prints its exact name and a manual DROP SCHEMA command.

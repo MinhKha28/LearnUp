@@ -106,7 +106,7 @@ learnup/
  │     - X-Organization-ID: <organization-id>                  │
  │     - X-User-Role: <ADMIN | ORGANIZER | INSTRUCTOR | LEARNER>│
  │     - X-Correlation-ID: <uuid>                              │
-     - x-internal-key: <INTERNAL_GATEWAY_KEY>                │
+     - x-internal-key: <INTERNAL_SERVICE_KEY>                │
  └──────────────────────────────┬──────────────────────────────┘
                                 │
                ┌────────────────┼────────────────┐

@@ -1,4 +1,5 @@
 import type { UserRole } from "@/types/identity.types";
+import { clearVideoPositionSession } from "@/utils/video.position";
 
 export const ACCESS_TOKEN_KEY = "access_token";
 export const REFRESH_TOKEN_KEY = "refresh_token";
@@ -50,6 +51,8 @@ export const isSignInReason = (code: string | null): code is string =>
   Boolean(code && SIGN_IN_MESSAGES[code]);
 
 export const clearTokens = () => {
+  clearVideoPositionSession();
+  window.dispatchEvent(new Event("auth-cleared"));
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 };

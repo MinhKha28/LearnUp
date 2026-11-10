@@ -17,11 +17,14 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
+import {
+  fileTooLarge,
+  uploadLimitBytes,
+} from '../../infrastructure/storage/upload-limit';
+import { SUBMISSION_FILE_TYPES } from '../learner-submissions/learner-submissions.constants';
 import { AssessmentsRepository } from './assessments.repository';
 import {
-  PDF_MIME,
   PROMPT_FILE_MAX_BYTES,
-  PROMPT_FILE_MIME_TYPES,
   promptFileFolder,
 } from './assignment-media.constants';
 import type { PromptFileDto } from './dto/create-assignment.dto';
@@ -62,50 +65,51 @@ export class AssignmentMediaService {
     if (!file) {
       throw new BadRequestException({
         code: 'PROMPT_FILE_REQUIRED',
-        message: 'Send one PDF file in the "file" field.',
+        message: 'Hãy gửi một tệp PDF, DOCX hoặc ZIP trong trường "file".',
       });
     }
-    if (file.size > PROMPT_FILE_MAX_BYTES) {
-      throw new BadRequestException({
-        code: 'PROMPT_FILE_TOO_LARGE',
-        message: 'The prompt file must be 50 MB or smaller.',
-      });
-    }
-    // The browser-reported type can be anything, so check the PDF signature itself.
-    if (file.buffer.subarray(0, 5).toString('latin1') !== '%PDF-') {
-      throw new BadRequestException({
-        code: 'PROMPT_FILE_NOT_PDF',
-        message: 'The prompt file must be a PDF.',
-      });
-    }
+    const limit = uploadLimitBytes(PROMPT_FILE_MAX_BYTES);
+    if (file.size > limit) throw fileTooLarge(limit);
     // multer reads the name as latin1; turn it back into UTF-8 so accented names survive.
     const fileName = Buffer.from(file.originalname, 'latin1')
       .toString('utf8')
       .split(/[\\/]/)
       .pop()!
       .slice(0, 255);
+    // The browser-reported type can be anything, so judge the extension and the first bytes (same types as a submission).
+    const type =
+      SUBMISSION_FILE_TYPES[fileName.split('.').pop()?.toLowerCase() ?? ''];
+    if (
+      !type ||
+      !file.buffer.subarray(0, type.signature.length).equals(type.signature)
+    ) {
+      throw new BadRequestException({
+        code: 'PROMPT_FILE_INVALID',
+        message: 'Tệp đề bài phải là PDF, DOCX hoặc ZIP.',
+      });
+    }
 
     try {
       const stored = await this.storage.upload(
         {
           buffer: file.buffer,
           originalFilename: fileName,
-          mimeType: PDF_MIME,
+          mimeType: type.mimeType,
           sizeBytes: file.size,
         },
         {
           folder: promptFileFolder(user.organizationId),
           resourceType: 'raw',
           validation: {
-            maxSizeBytes: PROMPT_FILE_MAX_BYTES,
-            allowedMimeTypes: PROMPT_FILE_MIME_TYPES,
+            maxSizeBytes: limit,
+            allowedMimeTypes: [type.mimeType],
           },
         },
       );
       return {
         fileKey: stored.storageKey,
         fileName,
-        mimeType: PDF_MIME,
+        mimeType: type.mimeType,
         sizeBytes: stored.sizeBytes,
       };
     } catch (error) {
@@ -114,6 +118,9 @@ export class AssignmentMediaService {
           code: 'PROMPT_FILE_INVALID',
           message: error.message,
         });
+      }
+      if (error instanceof StorageProviderError && error.code === 'TOO_LARGE') {
+        throw fileTooLarge(limit);
       }
       if (error instanceof StorageProviderError) {
         this.logger.error(
@@ -128,7 +135,7 @@ export class AssignmentMediaService {
     }
   }
 
-  /** Only keys of this Organization's prompt folder are accepted (they come from uploadPromptFile); the type is always PDF. */
+  /** Only keys of this Organization's prompt folder are accepted (they come from uploadPromptFile); the type is one of PDF, DOCX or ZIP. */
   resolvePromptFile(
     organizationId: string,
     file: PromptFileDto,
@@ -142,13 +149,18 @@ export class AssignmentMediaService {
         message: 'The prompt file was not uploaded. Upload it first.',
       });
     }
-    if (file.sizeBytes > PROMPT_FILE_MAX_BYTES) {
+    const limit = uploadLimitBytes(PROMPT_FILE_MAX_BYTES);
+    if (file.sizeBytes > limit) throw fileTooLarge(limit);
+    // The type in the request is not trusted: it follows the extension of the file name, as at upload.
+    const type =
+      SUBMISSION_FILE_TYPES[file.fileName.split('.').pop()?.toLowerCase() ?? ''];
+    if (!type) {
       throw new BadRequestException({
-        code: 'PROMPT_FILE_TOO_LARGE',
-        message: 'The prompt file must be 50 MB or smaller.',
+        code: 'PROMPT_FILE_INVALID',
+        message: 'Tệp đề bài phải là PDF, DOCX hoặc ZIP.',
       });
     }
-    return { ...file, mimeType: PDF_MIME };
+    return { ...file, mimeType: type.mimeType };
   }
 
   /**
@@ -218,12 +230,8 @@ export class AssignmentMediaService {
     }
     const storedSize = Number(response.headers.get('content-length'));
     if (!Number.isFinite(storedSize) || storedSize <= 0) return resolved;
-    if (storedSize > PROMPT_FILE_MAX_BYTES) {
-      throw new BadRequestException({
-        code: 'PROMPT_FILE_TOO_LARGE',
-        message: 'The prompt file must be 50 MB or smaller.',
-      });
-    }
+    const limit = uploadLimitBytes(PROMPT_FILE_MAX_BYTES);
+    if (storedSize > limit) throw fileTooLarge(limit);
     return { ...resolved, sizeBytes: storedSize };
   }
 

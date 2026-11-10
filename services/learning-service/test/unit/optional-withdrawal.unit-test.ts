@@ -74,7 +74,6 @@ void describe('UC25.4 withdrawal rules and assessment factory', () => {
         {} as never,
         {} as never,
         {} as never,
-        {} as never,
         undefined,
         {
           findRegistration: async () => ({

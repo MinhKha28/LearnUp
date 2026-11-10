@@ -9,10 +9,12 @@ import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import type { CurrentUser } from '@learnup/ts-common';
 import { HEADER_NAMES, parseUserRole } from '@learnup/ts-common';
-import { IS_PUBLIC_KEY } from '../decorator/customize';
+import { isUUID } from 'class-validator';
+import { IS_PUBLIC_KEY, SERVICE_CALL_KEY } from '../decorator/customize';
 
 interface AuthenticatedRequest extends Request {
   user?: CurrentUser;
+  serviceOrganizationId?: string;
 }
 
 @Injectable()
@@ -36,13 +38,28 @@ export class InternalAuthGuard implements CanActivate {
       'INTERNAL_SERVICE_KEY',
     );
 
+    // Fail closed: a service that was started without a key must not accept a request whose key header is empty too.
     if (
       typeof internalKey !== 'string' ||
+      !expectedInternalKey.trim() ||
       internalKey !== expectedInternalKey
     ) {
       throw new UnauthorizedException(
         'Invalid or missing internal service key.',
       );
+    }
+
+    const isServiceCall = this.reflector.getAllAndOverride<boolean>(
+      SERVICE_CALL_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (isServiceCall) {
+      const organization = request.headers[HEADER_NAMES.ORGANIZATION_ID];
+      if (typeof organization !== 'string' || !isUUID(organization, 'all')) {
+        throw new UnauthorizedException('Missing organization context.');
+      }
+      request.serviceOrganizationId = organization;
+      return true;
     }
 
     const userId = request.headers[HEADER_NAMES.USER_ID];

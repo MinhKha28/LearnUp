@@ -62,6 +62,26 @@ export const formatDateVN = (value: string) =>
     year: "numeric",
   }).format(new Date(value));
 
+// Ngày giờ theo giờ Việt Nam, ngày trước giờ sau, giống formatDateVN: "2026-11-07T07:03:00Z" -> "07/11/2026 14:03".
+// Không có giá trị hoặc giá trị không phải ngày giờ thì trả "-". Dùng hàm này thay cho toLocaleString("vi-VN"), vốn
+// ra "14:03:18 7/11/2026" theo múi giờ của trình duyệt.
+export const formatDateTimeVN = (value?: string | null) => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "-";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("day")}/${part("month")}/${part("year")} ${part("hour")}:${part("minute")}`;
+};
+
+
 // UC12.2 (sau này UC13.2): lý do không tạo được tài khoản, theo thứ tự kiểm của backend.
 // null = tạo được. seats null = chưa tải được số chỗ.
 export const seatBlockReason = (
@@ -80,6 +100,30 @@ export const seatBlockReason = (
     return `All ${roleLabel} seats are in use (${seats.used} / ${seats.max}).`;
   return "Your Organization is suspended. New accounts cannot be created.";
 };
+
+// UC12.2, UC12.3: chuẩn hóa giống backend (CreateAccountDto / UpdateAccountDto): NFC, trim,
+// gộp khoảng trắng; email chữ thường.
+export const normalizeText = (value = "") =>
+  value.normalize("NFC").trim().replace(/\s+/g, " ");
+export const normalizeEmail = (value = "") =>
+  value.normalize("NFC").trim().toLowerCase();
+const CONTROL_CHARS = /\p{Cc}/u;
+// Giống backend: email gửi đi bị coi là HTML nếu có cả < và >
+const ANGLE_BRACKETS = /[<>]/;
+
+// Validator antd Form: kiểm độ dài SAU khi chuẩn hóa, giống backend
+export const textRule =
+  (label: string, max: number) =>
+  (_: unknown, value?: string) => {
+    const normalized = normalizeText(value);
+    if (normalized.length > max)
+      return Promise.reject(new Error(`${label} must be at most ${max} characters.`));
+    if (CONTROL_CHARS.test(normalized))
+      return Promise.reject(new Error(`${label} contains invalid characters.`));
+    if (ANGLE_BRACKETS.test(normalized))
+      return Promise.reject(new Error(`${label} cannot contain < or >.`));
+    return Promise.resolve();
+  };
 
 /** 1.5 MB / 320 KB style size for file lists. */
 export const formatFileSize = (bytes: number) =>

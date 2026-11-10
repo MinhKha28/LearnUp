@@ -1,5 +1,9 @@
 import type { CurrentUser } from '@learnup/ts-common';
-import { SetMetadata, createParamDecorator, ExecutionContext } from '@nestjs/common';
+import {
+  SetMetadata,
+  createParamDecorator,
+  ExecutionContext,
+} from '@nestjs/common';
 import type { Request } from 'express';
 
 export const IS_PUBLIC_KEY = 'isPublic';
@@ -19,3 +23,6 @@ export const User = createParamDecorator(
     return request.user;
   },
 );
+
+export const RAW_RESPONSE = 'rawResponse';
+export const RawResponse = () => SetMetadata(RAW_RESPONSE, true);

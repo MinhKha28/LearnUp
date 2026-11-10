@@ -6,7 +6,6 @@ import {
   mergeSegments,
   openSegment,
   pendingSegments,
-  rejectSegments,
   updateSegment,
 } from "./video.segments";
 describe("UC27.2 media segments", () => {
@@ -61,13 +60,5 @@ describe("UC27.2 media segments", () => {
         [0, 15],
       ]).closed,
     ).toEqual([[15, 20]]);
-  });
-  it("a rate rejection restarts at currentTime and discards rejected coverage", () => {
-    expect(rejectSegments(500, true)).toEqual({
-      start: 500,
-      lastTime: 500,
-      closed: [],
-    });
-    expect(rejectSegments(500, false).start).toBeNull();
   });
 });

@@ -2,6 +2,77 @@
   display: grid;
   gap: var(--space-6);
 }
+.organizer-assignment-title {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.organizer-assignment-learner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+.organizer-assignment-learner-profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.organizer-assignment-avatar {
+  width: var(--space-8);
+  height: var(--space-8);
+  line-height: var(--space-8);
+  flex-shrink: 0;
+  background: var(--color-primary);
+  color: var(--color-surface);
+  font-size: var(--font-size-body);
+}
+.organizer-assignment-learner-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+.organizer-assignment-email {
+  white-space: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  color: var(--color-text-secondary);
+  margin-top: var(--space-1);
+}
+.organizer-assignment-facts .ant-descriptions-view table {
+  table-layout: fixed;
+}
+.organizer-assignment-facts .ant-descriptions-item-label {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+.organizer-assignment-facts .ant-descriptions-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.organizer-assignment-facts small {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
 .organizer-assignment-reason {
   white-space: pre-wrap;
+}
+.organizer-assignment-detail .organizer-status {
+  font-size: var(--status-font-size);
+  line-height: var(--status-line-height);
+  padding: var(--status-padding-block) var(--status-padding-inline);
+}
+@media (max-width: 768px) {
+  .organizer-assignment-learner-account {
+    justify-content: flex-start;
+    flex-basis: 100%;
+  }
 }

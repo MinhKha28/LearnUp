@@ -1,3 +1,4 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
 import { Input, Upload, message } from "antd";
 import { DownloadOutlined, InboxOutlined } from "@ant-design/icons";
@@ -6,38 +7,44 @@ import { DetailItem, InfoPanel, LearnerButton, PageHeader, WarningPanel } from "
 import {
   assessmentErrorCode,
   assessmentErrorText,
+  ENROLLMENT_NOT_ACTIVE_FORM_TEXT,
   downloadLearnerPromptFileAPI,
   fetchLearnerAssignmentAPI,
   resubmitAssignmentAPI,
   submitAssignmentAPI,
 } from "@/services/assessment.service";
 import type { ILearnerAssignment } from "@/types/assessment.types";
+import { formatFileSize } from "@/utils/helper";
 import "./assignment.work.scss";
 
-// UC30 step 2: one PDF, DOCX or ZIP of at most 50 MB. The server checks the file again.
+// UC30 step 2: one PDF, DOCX or ZIP. The size limit comes with the Assignment (`maxFileBytes`: the 50 MB ceiling lowered
+// to the storage plan). The server checks the file again.
 const FILE_EXTENSIONS = ["pdf", "docx", "zip"];
-const FILE_MAX_BYTES = 50 * 1024 * 1024;
 const CONTENT_MAX_LENGTH = 20000;
 // MSG20
-const FILE_MESSAGE = "File must be PDF, DOCX or ZIP, at most 50 MB.";
+const fileMessage = (maxBytes: number) => `Tệp phải là PDF, DOCX hoặc ZIP, tối đa ${formatFileSize(maxBytes)}.`;
 // the answers that mean the page shows an old state: load it again
+// ENROLLMENT_COMPLETED: the Enrollment changed while the form was open, and the GET still answers (read-only).
 const STALE_CODES = ["ASSESSMENT_LOCKED", "SUBMISSION_EXISTS", "NO_PREVIOUS_SUBMISSION", "ENROLLMENT_COMPLETED"];
+// ENROLLMENT_NOT_ACTIVE (Halted, Withdrawn): the GET is refused too, so there is nothing to reload; the form stays,
+// with the draft, and is closed.
+const NOT_ACTIVE_CODE = "ENROLLMENT_NOT_ACTIVE";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString();
+const formatTime = (iso: string) => formatDateTimeVN(iso);
 
 /** UC30.1: tells the Learner, before sending, where the new work will go (BR-171, BR-313). */
 const resubmissionNotice = (assignment: ILearnerAssignment) => {
   const outlook = assignment.resubmission;
   if (!outlook) return null;
   if (outlook.placement === "REPLACES_IN_CYCLE" && outlook.cycleClosesAt) {
-    return `Your new work replaces your previous submission in the peer review cycle that closes on ${formatTime(outlook.cycleClosesAt)}.`;
+    return `Bài làm mới của bạn thay thế bài nộp trước trong chu kỳ chấm chéo sẽ đóng lúc ${formatTime(outlook.cycleClosesAt)}.`;
   }
   if (outlook.placement === "OPEN_CYCLE") {
-    return "You skipped the reviews of an earlier cycle, so your new work joins the peer review cycle that is open now and you can make them up.";
+    return "Bạn đã bỏ lỡ các bài chấm của chu kỳ trước, nên bài làm mới sẽ vào chu kỳ chấm chéo đang mở và bạn có thể chấm bù.";
   }
   return assignment.peerReviewEnabled
-    ? "The peer review cycle of your previous submission has closed, so your Instructor will grade the new work directly."
-    : "Your Instructor will grade the new work.";
+    ? "Chu kỳ chấm chéo của bài nộp trước đã đóng, nên giảng viên sẽ chấm thẳng bài làm mới."
+    : "Giảng viên sẽ chấm bài làm mới.";
 };
 
 /**
@@ -52,6 +59,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [notActive, setNotActive] = useState("");
   const [answer, setAnswer] = useState("");
   const [file, setFile] = useState<File | null>(null);
 
@@ -65,10 +73,10 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
         setAssignment(res.data);
         setLoadError("");
       } else {
-        setLoadError(assessmentErrorText(res, "Unable to load the Assignment."));
+        setLoadError(assessmentErrorText(res, "Không tải được Bài tập."));
       }
     } catch {
-      setLoadError("Unable to reach the Assessment service. Please try again.");
+      setLoadError("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -78,13 +86,13 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
     void load();
   }, [load]);
 
-  const eyebrow = resubmitting ? "ASSESSMENTS / RESUBMIT" : "ASSESSMENTS / SUBMIT";
+  const eyebrow = resubmitting ? "Bài trắc nghiệm và Bài tập / Nộp lại" : "Bài trắc nghiệm và Bài tập / Nộp bài";
   if (!assignment) {
     return (
       <PageHeader
         eyebrow={eyebrow}
-        title={loading ? "Loading Assignment..." : "Assignment unavailable"}
-        subtitle={loadError || "Please wait."}
+        title={loading ? "Đang tải Bài tập..." : "Chưa mở được Bài tập"}
+        subtitle={loadError || "Vui lòng đợi."}
         back
       />
     );
@@ -94,14 +102,18 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
   const locked = attempts.lockedUntil !== null;
   const previous = assignment.latestSubmission;
   const submitted = previous !== null;
-  // PRE-1 / PRE-2 of UC30 and UC30.1, and BR-169. UC30 is for the first submission, UC30.1 needs one to replace.
-  const blocked = locked || assignment.readOnly || (resubmitting ? !submitted : submitted);
+  // PRE-1 / PRE-2 of UC30 and UC30.1, and BR-210. UC30 is for the first submission, UC30.1 needs one to replace.
+  const blocked = locked || assignment.readOnly || notActive !== "" || (resubmitting ? !submitted : submitted);
   const notice = resubmitting ? resubmissionNotice(assignment) : null;
 
   const pickFile = (picked: File) => {
     const extension = picked.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!FILE_EXTENSIONS.includes(extension) || picked.size > FILE_MAX_BYTES) {
-      message.error(FILE_MESSAGE);
+    if (!FILE_EXTENSIONS.includes(extension) || picked.size > assignment.maxFileBytes) {
+      message.error(
+        FILE_EXTENSIONS.includes(extension)
+          ? `Tệp quá lớn. Dung lượng tối đa là ${formatFileSize(assignment.maxFileBytes)}.`
+          : fileMessage(assignment.maxFileBytes),
+      );
     } else {
       setFile(picked);
     }
@@ -111,7 +123,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
   const downloadPrompt = async () => {
     const blob = await downloadLearnerPromptFileAPI(assignment.id);
     if (!blob) {
-      message.error("Unable to download the file.");
+      message.error("Không tải được tệp.");
       return;
     }
     const url = URL.createObjectURL(blob);
@@ -124,7 +136,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
 
   const send = async () => {
     if (!answer.trim() && !file) {
-      message.warning("The answer or file field is required.");
+      message.warning("Cần nhập câu trả lời hoặc đính kèm tệp.");
       return;
     }
     setSubmitting(true);
@@ -135,15 +147,21 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
         navigate(`${base}/submitted`, { state: { receipt: res.data, title: assignment.title } });
         return;
       }
-      message.error(
-        assessmentErrorText(res, resubmitting ? "Unable to resubmit the Assignment." : "Unable to submit the Assignment."),
-      );
       // The state may have changed (locked, submitted elsewhere): show the real one.
-      if (STALE_CODES.includes(assessmentErrorCode(res).code ?? "")) {
+      const code = assessmentErrorCode(res).code ?? "";
+      if (code === NOT_ACTIVE_CODE) {
+        message.error(ENROLLMENT_NOT_ACTIVE_FORM_TEXT);
+        setNotActive(ENROLLMENT_NOT_ACTIVE_FORM_TEXT);
+        return;
+      }
+      message.error(
+        assessmentErrorText(res, resubmitting ? "Không nộp lại được Bài tập." : "Không nộp được Bài tập."),
+      );
+      if (STALE_CODES.includes(code)) {
         await load();
       }
     } catch {
-      message.error("Unable to reach the Assessment service. Please try again.");
+      message.error("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setSubmitting(false);
     }
@@ -153,62 +171,63 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
     <>
       <PageHeader
         eyebrow={eyebrow}
-        title={`${resubmitting ? "Resubmit" : "Submit"} ${assignment.title}`}
+        title={`${resubmitting ? "Nộp lại" : "Nộp bài"}: ${assignment.title}`}
         subtitle={
           resubmitting
-            ? "Your new submission replaces the previous one; the latest one counts."
-            : "Complete your answer and attach your work."
+            ? "Bài nộp mới thay thế bài nộp trước; bài nộp mới nhất được tính."
+            : "Hoàn thành câu trả lời và đính kèm bài làm của bạn."
         }
         back
       />
       <div className="course-learning-main">
         <div className="course-learning-content assignment-work-card">
           {locked && (
-            <WarningPanel title="Submitting is paused">
-              You have submitted {attempts.maxConsecutiveAttempts} times in a row. You can submit again at{" "}
+            <WarningPanel title="Tạm dừng nộp bài">
+              Bạn đã nộp {attempts.maxConsecutiveAttempts} lần liên tiếp. Bạn có thể nộp lại lúc{" "}
               {formatTime(attempts.lockedUntil!)}.
             </WarningPanel>
           )}
+          {notActive && <WarningPanel title="Không thể nộp bài">{notActive}</WarningPanel>}
           {assignment.readOnly && (
-            <WarningPanel title="Course completed">
-              This Course is completed, so the Assignment is read-only.
+            <WarningPanel title="Khóa học đã hoàn thành">
+              Khóa học này đã hoàn thành nên Bài tập chỉ để xem.
             </WarningPanel>
           )}
           {!resubmitting && submitted && !assignment.readOnly && (
-            <WarningPanel title="Already submitted">
-              You submitted this Assignment on {formatTime(previous.submittedAt)}. You can replace it with a new
-              submission.
+            <WarningPanel title="Đã nộp bài">
+              Bạn đã nộp Bài tập này lúc {formatTime(previous.submittedAt)}. Bạn có thể thay nó bằng một bài nộp
+              mới.
               <span className="assignment-work-action">
                 <LearnerButton type="primary" onClick={() => navigate(`${base}/resubmit`)}>
-                  Resubmit
+                  Nộp lại
                 </LearnerButton>
               </span>
             </WarningPanel>
           )}
           {resubmitting && !submitted && (
-            <WarningPanel title="Nothing to resubmit yet">
-              You have not submitted this Assignment yet.
+            <WarningPanel title="Chưa có gì để nộp lại">
+              Bạn chưa nộp Bài tập này.
               <span className="assignment-work-action">
                 <LearnerButton type="primary" onClick={() => navigate(`${base}/submit`)}>
-                  Submit work
+                  Nộp bài
                 </LearnerButton>
               </span>
             </WarningPanel>
           )}
           {resubmitting && previous && !assignment.readOnly && (
             <div className="assignment-work-previous">
-              <strong>Your previous submission</strong>
+              <strong>Bài nộp trước của bạn</strong>
               <span>
-                Submission {previous.submissionNumber}, sent on {formatTime(previous.submittedAt)}
-                {previous.fileName ? `, with ${previous.fileName}` : ""}.
+                Lần nộp thứ {previous.submissionNumber}, nộp lúc {formatTime(previous.submittedAt)}
+                {previous.fileName ? `, kèm ${previous.fileName}` : ""}.
               </span>
               {notice && <span>{notice}</span>}
             </div>
           )}
 
-          <h3>Instructions</h3>
+          <h3>Hướng dẫn</h3>
           <div className="assignment-work-prompt">
-            {assignment.prompt ? <p>{assignment.prompt}</p> : <p>Read the attached file and answer it.</p>}
+            {assignment.prompt ? <p>{assignment.prompt}</p> : <p>Đọc tệp đính kèm và trả lời.</p>}
             {assignment.promptFile && (
               <LearnerButton icon={<DownloadOutlined />} onClick={downloadPrompt}>
                 {assignment.promptFile.fileName}
@@ -224,21 +243,21 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
                   <strong>{criterion.name}</strong>
                   <span>{criterion.description}</span>
                 </div>
-                <em>{criterion.maxPoints} pts</em>
+                <em>{criterion.maxPoints} điểm</em>
               </li>
             ))}
           </ul>
 
-          <h3>{resubmitting ? "Your new answer" : "Your answer"}</h3>
+          <h3>{resubmitting ? "Câu trả lời mới của bạn" : "Câu trả lời của bạn"}</h3>
           <Input.TextArea
             rows={8}
             value={answer}
             maxLength={CONTENT_MAX_LENGTH}
             disabled={blocked}
             onChange={(event) => setAnswer(event.target.value)}
-            placeholder="Write your response here..."
+            placeholder="Viết câu trả lời của bạn tại đây..."
           />
-          <h3>Attachment</h3>
+          <h3>Tệp đính kèm</h3>
           <Upload.Dragger
             multiple={false}
             disabled={blocked}
@@ -249,34 +268,34 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
             <p className="ant-upload-drag-icon">
               <InboxOutlined />
             </p>
-            <p className="ant-upload-text">{file ? file.name : "Upload your work"}</p>
-            <p className="ant-upload-hint">PDF, DOCX or ZIP, up to 50 MB. One file.</p>
+            <p className="ant-upload-text">{file ? file.name : "Tải bài làm của bạn lên"}</p>
+            <p className="ant-upload-hint">PDF, DOCX hoặc ZIP, tối đa {formatFileSize(assignment.maxFileBytes)}. Một tệp.</p>
           </Upload.Dragger>
-          <InfoPanel title="Assessment result">
-            Your latest submission determines the recorded Assignment score. There is no limit on resubmissions until
-            the Course is completed.
+          <InfoPanel title="Kết quả đánh giá">
+            Bài nộp mới nhất quyết định điểm Bài tập được ghi nhận. Số lần nộp lại không bị giới hạn cho đến khi
+            Khóa học hoàn thành.
           </InfoPanel>
           <div className="assignment-work-actions">
             <LearnerButton type="primary" loading={submitting} disabled={blocked} onClick={send}>
-              {resubmitting ? "Resubmit work" : "Submit work"}
+              {resubmitting ? "Nộp lại bài" : "Nộp bài"}
             </LearnerButton>
           </div>
         </div>
         <div className="course-learning-side">
           <div className="assignment-work-info">
-            <h3>Submission information</h3>
-            <DetailItem label="Estimated effort">
-              {assignment.expectedDurationMinutes ? `${assignment.expectedDurationMinutes} min` : "Not set"}
+            <h3>Thông tin nộp bài</h3>
+            <DetailItem label="Thời gian dự kiến">
+              {assignment.expectedDurationMinutes ? `${assignment.expectedDurationMinutes} phút` : "Chưa đặt"}
             </DetailItem>
-            <DetailItem label="Minimum score">{assignment.passingScore}%</DetailItem>
-            <DetailItem label="Attempts remaining">
-              {attempts.remainingAttempts} of {attempts.maxConsecutiveAttempts}
+            <DetailItem label="Điểm tối thiểu">{assignment.passingScore}%</DetailItem>
+            <DetailItem label="Số lần nộp còn lại">
+              {attempts.remainingAttempts} trên {attempts.maxConsecutiveAttempts}
             </DetailItem>
-            <DetailItem label="Lock rule">
-              {attempts.maxConsecutiveAttempts} in a row pause submitting for {attempts.lockoutHours} h
+            <DetailItem label="Quy tắc khóa">
+              {attempts.maxConsecutiveAttempts} lần liên tiếp thì tạm dừng nộp bài trong {attempts.lockoutHours} giờ
             </DetailItem>
-            <DetailItem label="Grading">
-              {assignment.peerReviewEnabled ? "Peer review, then your Instructor" : "Your Instructor"}
+            <DetailItem label="Cách chấm">
+              {assignment.peerReviewEnabled ? "Chấm chéo, rồi giảng viên chấm" : "Giảng viên chấm"}
             </DetailItem>
           </div>
         </div>

@@ -2,6 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script id="password-recovery-privacy">
+      (() => {
+        // Run before resources: the recovery path contains a bearer-style secret.
+        const segment = window.location.pathname.split(/\/|%2f/i).filter(Boolean)[0] || "";
+        try {
+          if (decodeURIComponent(segment).toLowerCase() !== "reset-password") return;
+        } catch {
+          return;
+        }
+        const policy = document.createElement("meta");
+        policy.id = "password-recovery-referrer";
+        policy.name = "referrer";
+        policy.content = "no-referrer";
+        document.head.appendChild(policy);
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LearnUP</title>

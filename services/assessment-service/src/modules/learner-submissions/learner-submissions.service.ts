@@ -16,6 +16,10 @@ import {
 import type { Prisma } from 'generated/prisma/client';
 import { EnrollmentClient } from '../../infrastructure/clients/learning/enrollment.client';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
+import {
+  fileTooLarge,
+  uploadLimitBytes,
+} from '../../infrastructure/storage/upload-limit';
 import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import type {
   ICycleWindow,
@@ -25,7 +29,6 @@ import type {
   ISubmissionReceipt,
 } from './interfaces/learner-submission.interface';
 import {
-  LEARNER_STATUS_CHANGED_EVENT,
   AWAITING_INSTRUCTOR,
   FINALIZED,
   OPEN_CYCLE_STATUS,
@@ -43,10 +46,13 @@ import {
 } from './learner-submissions.repository';
 import {
   attemptStateOf,
+  assertCanWrite,
+  isReadOnly,
   lockExpired,
-  requireEnrollment,
+  requireAccess,
   requireLearner,
 } from './learner-access';
+import { cycleLockKey } from '../peer-review/cycle-lock';
 import { buildGradingResult } from './grading-result';
 import { cycleWindowFor } from './peer-review-calendar';
 import {
@@ -101,15 +107,16 @@ export class LearnerSubmissionsService {
   ): Promise<ILearnerAssignment> {
     const organizationId = requireLearner(user);
     const assignment = await this.loadAssignment(organizationId, assessmentId);
-    const enrollment = await requireEnrollment(
+    const access = await requireAccess(
       this.enrollments,
       user,
       assignment.courseId,
     );
-    const [state, latest, completed] = await Promise.all([
+    const completed = isReadOnly(access);
+    const [state, latest, reviews] = await Promise.all([
       this.repository.findState(assignment.id, user.userId),
       this.repository.findLatestSubmission(assignment.id, user.userId),
-      this.repository.isEnrollmentCompleted(enrollment.enrollmentId),
+      this.repository.findPeerReviews(assignment.id, user.userId),
     ]);
     const now = this.clock();
     let resubmission: ILearnerAssignment['resubmission'] = null;
@@ -120,7 +127,7 @@ export class LearnerSubmissionsService {
       const decision = decideResubmission({
         peerReviewOn: isPeerReviewOn(assignment),
         previousCycle,
-        owesDuty: owesPeerReviewDuty(state),
+        owesDuty: owesPeerReviewDuty(state, reviews, now),
         now,
       });
       resubmission = {
@@ -143,6 +150,7 @@ export class LearnerSubmissionsService {
             sizeBytes: Number(assignment.promptFileSizeBytes ?? 0),
           }
         : null,
+      maxFileBytes: uploadLimitBytes(SUBMISSION_FILE_MAX_BYTES),
       passingScore: Number(assignment.passingScore.toString()),
       expectedDurationMinutes: assignment.expectedDurationMinutes,
       peerReviewEnabled: assignment.peerReviewEnabled,
@@ -159,7 +167,7 @@ export class LearnerSubmissionsService {
     };
   }
 
-  /** UC30.2 — the grading result of a Finalized submission of the Learner (BR-170, BR-191, BR-208, BR-322). */
+  /** UC30.2 — the grading result of a Finalized submission of the Learner (BR-212, BR-234, BR-256, BR-255). */
   async getResult(
     user: CurrentUser,
     assessmentId: string,
@@ -167,12 +175,47 @@ export class LearnerSubmissionsService {
   ): Promise<IGradingResult> {
     const organizationId = requireLearner(user);
     const assignment = await this.loadAssignment(organizationId, assessmentId);
-    await requireEnrollment(this.enrollments, user, assignment.courseId);
+    await requireAccess(this.enrollments, user, assignment.courseId);
+    return this.resultOf(organizationId, assignment, user.userId, submissionId);
+  }
+
+  /**
+   * UC30.2 — the result of the latest submission, in one request: the screen does not need to read the Assignment
+   * first to learn the id, so Learning Service is asked once (BR-210).
+   */
+  async getLatestResult(
+    user: CurrentUser,
+    assessmentId: string,
+  ): Promise<IGradingResult> {
+    const organizationId = requireLearner(user);
+    const assignment = await this.loadAssignment(organizationId, assessmentId);
+    await requireAccess(this.enrollments, user, assignment.courseId);
+    const latest = await this.repository.findLatestSubmission(
+      assignment.id,
+      user.userId,
+    );
+    if (!latest) {
+      throw new NotFoundException({
+        code: 'SUBMISSION_NOT_FOUND',
+        message: 'You have not submitted this Assignment yet.',
+      });
+    }
+    return this.resultOf(organizationId, assignment, user.userId, latest.id);
+  }
+
+  private async resultOf(
+    organizationId: string,
+    assignment: Awaited<
+      ReturnType<LearnerSubmissionsService['loadAssignment']>
+    >,
+    learnerId: string,
+    submissionId: string,
+  ): Promise<IGradingResult> {
     const submission = await this.repository.findSubmissionWithReviews(
       organizationId,
       assignment.id,
       submissionId,
-      user.userId,
+      learnerId,
     );
     if (!submission) {
       throw new NotFoundException({
@@ -188,7 +231,8 @@ export class LearnerSubmissionsService {
     ) {
       throw new ConflictException({
         code: 'SUBMISSION_NOT_FINALIZED',
-        message: 'The result is not available yet. The submission is still being graded.',
+        message:
+          'The result is not available yet. The submission is still being graded.',
       });
     }
     const finalScore = Number(submission.finalScore.toString());
@@ -218,7 +262,7 @@ export class LearnerSubmissionsService {
   async downloadPromptFile(user: CurrentUser, assessmentId: string) {
     const organizationId = requireLearner(user);
     const assignment = await this.loadAssignment(organizationId, assessmentId);
-    await requireEnrollment(this.enrollments, user, assignment.courseId);
+    await requireAccess(this.enrollments, user, assignment.courseId);
     if (!assignment.promptFileKey) {
       throw new NotFoundException({
         code: 'PROMPT_FILE_NOT_FOUND',
@@ -250,8 +294,8 @@ export class LearnerSubmissionsService {
 
   /**
    * UC30 — submit work for an Assignment.
-   * BR-167: the submission joins the peer review cycle that is open now (created on demand, BR-312).
-   * BR-175 / BR-176: n consecutive submissions lock the Assignment for this Learner for m hours.
+   * BR-208: the submission joins the peer review cycle that is open now (created on demand, BR-231).
+   * BR-217 / BR-218: n consecutive submissions lock the Assignment for this Learner for m hours.
    * A Learner who already has a submission uses UC30.1 (resubmit) instead.
    */
   submit(
@@ -265,10 +309,10 @@ export class LearnerSubmissionsService {
 
   /**
    * UC30.1 — replace the previous submission by a new one. There is no limit on the number of resubmissions, before
-   * or after the result, until the Enrollment is Completed (BR-168, BR-169); the latest one counts (BR-170).
-   * Where it goes: the same cycle when that cycle has not closed yet (BR-171); otherwise straight to the
-   * Instructor (A1), unless the Learner owes a peer review duty and joins the open cycle (A2, BR-313).
-   * It counts as one more submission in a row (BR-176).
+   * or after the result, until the Enrollment is Completed (BR-209, BR-210); the latest one counts (BR-212).
+   * Where it goes: the same cycle when that cycle has not closed yet (BR-213); otherwise straight to the
+   * Instructor (A1), unless the Learner owes a peer review duty and joins the open cycle (A2, BR-239).
+   * It counts as one more submission in a row (BR-218).
    */
   resubmit(
     user: CurrentUser,
@@ -298,19 +342,13 @@ export class LearnerSubmissionsService {
     const file = uploaded ? this.validateFile(uploaded) : null;
 
     const assignment = await this.loadAssignment(organizationId, assessmentId);
-    const enrollment = await requireEnrollment(
+    const access = await requireAccess(
       this.enrollments,
       user,
       assignment.courseId,
     );
-    // BR-169: a Completed Enrollment is read-only.
-    if (await this.repository.isEnrollmentCompleted(enrollment.enrollmentId)) {
-      throw new ConflictException({
-        code: 'ENROLLMENT_COMPLETED',
-        message:
-          'This Course is completed, so the Assignment can no longer be submitted.',
-      });
-    }
+    // BR-210: a Completed Enrollment is read-only.
+    assertCanWrite(access);
     // Cheap early checks, so nothing is uploaded for a request that is going to be refused. They are repeated
     // under the lock below, where a concurrent request can no longer change the answer.
     const [state, previous] = await Promise.all([
@@ -323,9 +361,10 @@ export class LearnerSubmissionsService {
       ? await this.storeFile(organizationId, assignment.id, file)
       : null;
 
+    let receipt: ISubmissionReceipt;
     try {
-      return await this.repository.transaction(async (tx) => {
-        // One request at a time per Learner and Assignment, so the counters of BR-176 cannot be skipped.
+      receipt = await this.repository.transaction(async (tx) => {
+        // One request at a time per Learner and Assignment, so the counters of BR-218 cannot be skipped.
         await this.repository.lock(tx, `${assignment.id}:${user.userId}`);
         const now = this.clock();
         const current = await this.repository.ensureState(
@@ -342,7 +381,7 @@ export class LearnerSubmissionsService {
         );
         this.assertCanSubmit(assignment, current, latest, now, mode);
 
-        // The lock has run out (BR-176): counting starts again from this submission.
+        // The lock has run out (BR-218): counting starts again from this submission.
         const baseCount = lockExpired(current, now)
           ? 0
           : current.consecutiveCount;
@@ -392,24 +431,23 @@ export class LearnerSubmissionsService {
           lockedUntil,
           latestSubmissionId: submission.id,
         });
-        await this.repository.createOutboxEvent(tx, {
-          aggregateType: 'LearnerAssessmentState',
-          aggregateId: updated.id,
-          eventType: LEARNER_STATUS_CHANGED_EVENT,
+        await this.repository.emitSignal(tx, {
+          stateId: updated.id,
           organizationId,
-          occurredAt: now,
-          payload: {
-            assessmentId: assignment.id,
-            courseId: assignment.courseId,
-            learnerId: user.userId,
-            kind: 'ASSIGNMENT',
-            status: mode === 'FIRST' ? 'Submitted' : 'Resubmitted',
+          assessmentId: assignment.id,
+          courseId: assignment.courseId,
+          learnerId: user.userId,
+          kind: 'ASSIGNMENT',
+          reason: 'ASSIGNMENT_SUBMITTED',
+          status: mode === 'FIRST' ? 'Submitted' : 'Resubmitted',
+          extra: {
             submissionId: submission.id,
             previousSubmissionId:
               mode === 'RESUBMIT' ? (latest?.id ?? null) : null,
             consecutiveCount,
             lockedUntil: lockedUntil?.toISOString() ?? null,
           },
+          now,
         });
 
         return {
@@ -430,6 +468,7 @@ export class LearnerSubmissionsService {
       if (stored) await this.removeFile(stored.storageKey);
       throw error;
     }
+    return receipt;
   }
 
   // ------------------------------------------------------------------ rules
@@ -469,7 +508,7 @@ export class LearnerSubmissionsService {
 
   /**
    * UC30 step 6. With peer review on, the submission goes into the cycle that is open now, creating it when
-   * there is none (BR-167, BR-312); otherwise the Instructor grades it directly.
+   * there is none (BR-208, BR-231); otherwise the Instructor grades it directly.
    */
   private async place(
     tx: Prisma.TransactionClient,
@@ -488,7 +527,7 @@ export class LearnerSubmissionsService {
     }
 
     // Two Learners of the same Assignment must not both create the cycle.
-    await this.repository.lock(tx, `cycle:${assignment.id}`);
+    await this.repository.lock(tx, cycleLockKey(assignment.id));
     let cycle = await this.repository.findCycleContaining(
       tx,
       assignment.id,
@@ -499,7 +538,7 @@ export class LearnerSubmissionsService {
         this.repository.findLatestCycle(tx, assignment.id),
         this.repository.findPlatformSetting(),
       ]);
-      // BR-269: the values of the Assignment at this moment are copied into the cycle.
+      // BR-335: the values of the Assignment at this moment are copied into the cycle.
       const window = cycleWindowFor(
         now,
         last?.closesAt ?? null,
@@ -531,7 +570,7 @@ export class LearnerSubmissionsService {
     };
   }
 
-  /** UC30.1 step 3, A1 and A2 (BR-171, BR-313): see decideResubmission. */
+  /** UC30.1 step 3, A1 and A2 (BR-213, BR-239): see decideResubmission. */
   private async placeResubmission(
     tx: Prisma.TransactionClient,
     assignment: LearnerAssignmentRow,
@@ -539,13 +578,24 @@ export class LearnerSubmissionsService {
     state: LearnerStateRow,
     now: Date,
   ) {
+    // The closing of a cycle takes this lock before it reads the submissions (BR-213). Taken first and read after, the
+    // cycle seen here is the one the closing left: either still Open with this work in it, or closed and not joined.
+    if (isPeerReviewOn(assignment)) {
+      await this.repository.lock(tx, cycleLockKey(assignment.id));
+    }
     const previousCycle = previous.cycleId
       ? await this.repository.findCycleById(previous.cycleId, tx)
       : null;
+    // Read under the cycle lock above, in the same transaction, so a closing cannot change it between the read and the placement.
+    const reviews = await this.repository.findPeerReviews(
+      assignment.id,
+      previous.learnerId,
+      tx,
+    );
     const decision = decideResubmission({
       peerReviewOn: isPeerReviewOn(assignment),
       previousCycle,
-      owesDuty: owesPeerReviewDuty(state),
+      owesDuty: owesPeerReviewDuty(state, reviews, now),
       now,
     });
     if (decision.placement === 'REPLACES_IN_CYCLE' && previousCycle) {
@@ -571,12 +621,8 @@ export class LearnerSubmissionsService {
 
   /** UC30 step 2: one PDF, DOCX or ZIP of at most 50 MB. The browser-reported type can be anything, so the bytes are checked. */
   private validateFile(file: UploadedSubmissionFile): ValidFile {
-    if (file.size > SUBMISSION_FILE_MAX_BYTES) {
-      throw new BadRequestException({
-        code: 'SUBMISSION_FILE_TOO_LARGE',
-        message: 'File must be PDF, DOCX or ZIP, at most 50 MB.',
-      });
-    }
+    const limit = uploadLimitBytes(SUBMISSION_FILE_MAX_BYTES);
+    if (file.size > limit) throw fileTooLarge(limit);
     // multer reads the name as latin1; turn it back into UTF-8 so accented names survive.
     const fileName = Buffer.from(file.originalname, 'latin1')
       .toString('utf8')
@@ -604,7 +650,7 @@ export class LearnerSubmissionsService {
     };
   }
 
-  /** UC30 step 5: the file goes to Media Storage; it is not counted toward the Subscription storage (BR-288). */
+  /** UC30 step 5: the file goes to Media Storage; it is not counted toward the Subscription storage (BR-188). */
   private async storeFile(
     organizationId: string,
     assessmentId: string,
@@ -622,7 +668,7 @@ export class LearnerSubmissionsService {
           folder: submissionFolder(organizationId, assessmentId),
           resourceType: 'raw',
           validation: {
-            maxSizeBytes: SUBMISSION_FILE_MAX_BYTES,
+            maxSizeBytes: uploadLimitBytes(SUBMISSION_FILE_MAX_BYTES),
             allowedMimeTypes: [file.mimeType],
           },
         },
@@ -633,6 +679,9 @@ export class LearnerSubmissionsService {
           code: 'SUBMISSION_FILE_INVALID',
           message: error.message,
         });
+      }
+      if (error instanceof StorageProviderError && error.code === 'TOO_LARGE') {
+        throw fileTooLarge(uploadLimitBytes(SUBMISSION_FILE_MAX_BYTES));
       }
       if (error instanceof StorageProviderError) {
         this.logger.error(`Submission file upload failed: ${error.message}`);

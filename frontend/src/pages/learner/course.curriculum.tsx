@@ -6,6 +6,7 @@ import { LearnerSkeleton } from "@/components/learner/learner.states";
 import { LearnerPage, StatusTag } from "@/components/learner/learner.ui";
 import { LearningError } from "@/components/learner/learning.error";
 import { useApiQuery } from "@/hooks/use.api.query";
+import { useLearningRefresh } from "@/hooks/use.learning.refresh";
 import { fetchCurriculum } from "@/services/learning.service";
 import type { CurriculumData, CurriculumModule } from "@/types/learning.types";
 import { buildCurriculumHeader, completionMark, type CompletionMark } from "@/utils/curriculum.view";
@@ -67,6 +68,7 @@ const ModuleBlock = ({ module, enrollmentId }: { module: CurriculumModule; enrol
 const CourseCurriculum = () => {
   const { enrollmentId = "" } = useParams();
   const query = useApiQuery((signal) => fetchCurriculum(enrollmentId, signal), [enrollmentId]);
+  useLearningRefresh(query.reload, enrollmentId);
   const modules = useMemo(
     () => (query.status === "success" ? byPosition(query.data.modules) : []),
     [query.status, query.data],
@@ -82,12 +84,15 @@ const CourseCurriculum = () => {
         <>
           <CurriculumHeader data={query.data} />
           <Link className="course-curriculum-assessments-link" to={`${LEARNER_ROUTES.curriculum(enrollmentId)}/assessments`}>
-            Quiz và Assignment của Course →
+            Bài trắc nghiệm và Bài tập của Khóa học →
+          </Link>
+          <Link className="course-curriculum-assessments-link" to={LEARNER_ROUTES.progress(enrollmentId)}>
+            Theo dõi tiến độ hoàn thành →
           </Link>
           <section className="course-curriculum-tree" aria-label="Chương trình học">
             <h2 className="course-curriculum-title">Chương trình học</h2>
             {modules.length === 0 ? (
-              <p className="course-curriculum-empty">Course chưa có Lesson nào.</p>
+              <p className="course-curriculum-empty">Khóa học chưa có Bài học nào.</p>
             ) : (
               <ol className="course-curriculum-modules">
                 {modules.map((module) => (

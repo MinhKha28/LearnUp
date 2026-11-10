@@ -3,9 +3,24 @@ import { ConfigService } from '@nestjs/config';
 import type { CurrentUser } from '@learnup/ts-common';
 import { HEADER_NAMES } from '@learnup/ts-common';
 import { CourseServiceClient } from './course-service.client';
+import type { IManagedCourseChain } from './interfaces/managed-course-chain.interface';
 import type { IOrganizationCourseUsage } from './interfaces/organization-course-usage.interface';
 
 const DEFAULT_TIMEOUT_MS = 3000;
+
+/** Chỉ chép các trường của hợp đồng; approvedAt là chuỗi ISO trong JSON (UC12.1, UC12.5). */
+function toManagedChains(chains: unknown[]): IManagedCourseChain[] {
+  return (chains as Array<Record<string, unknown>>).map((chain) => ({
+    chainId: String(chain.chainId),
+    courseId: String(chain.courseId),
+    name: String(chain.name),
+    versionNumber: Number(chain.versionNumber),
+    status: String(chain.status),
+    courseType: String(chain.courseType),
+    approvedAt:
+      typeof chain.approvedAt === 'string' ? new Date(chain.approvedAt) : null,
+  }));
+}
 
 /**
  * Gọi course-service thật (COURSE_CLIENT_MODE=http).
@@ -72,6 +87,118 @@ export class HttpCourseServiceClient extends CourseServiceClient {
       throw new Error('Response của course-service sai hợp đồng.');
     }
     return counts as Record<string, number>;
+  }
+
+  /**
+   * UC12.1. Hợp đồng đề xuất (course-service CHƯA có):
+   *   GET {COURSE_SERVICE_URL}/api/v1/internal/course-chains/by-instructor/:instructorId
+   *   Header: như countCourseChainsByInstructors
+   *   200:    { statusCode, message, data: { chains: [{ chainId, courseId, name, versionNumber,
+   *           status, courseType, approvedAt }] } } — chỉ chuỗi thuộc x-organization-id,
+   *           mỗi chuỗi một phần tử, đại diện bằng phiên bản hiện hành (BR-336).
+   */
+  async listCourseChainsByInstructor(
+    user: CurrentUser,
+    instructorId: string,
+  ): Promise<IManagedCourseChain[]> {
+    const baseUrl = this.config.get<string>('COURSE_SERVICE_URL');
+    if (!baseUrl) {
+      throw new Error('Chưa cấu hình COURSE_SERVICE_URL.');
+    }
+    if (!user.organizationId) {
+      throw new Error('Thiếu organizationId của người gọi.');
+    }
+    const timeoutMs =
+      Number(this.config.get<string>('COURSE_SERVICE_TIMEOUT_MS')) ||
+      DEFAULT_TIMEOUT_MS;
+
+    const response = await fetch(
+      `${baseUrl}/api/v1/internal/course-chains/by-instructor/${encodeURIComponent(instructorId)}`,
+      {
+        method: 'GET',
+        headers: {
+          accept: 'application/json',
+          [HEADER_NAMES.INTERNAL_KEY]: this.config.getOrThrow<string>(
+            'INTERNAL_SERVICE_KEY',
+          ),
+          [HEADER_NAMES.USER_ID]: user.userId,
+          [HEADER_NAMES.USER_ROLE]: user.role,
+          [HEADER_NAMES.ORGANIZATION_ID]: user.organizationId,
+        },
+        signal: AbortSignal.timeout(timeoutMs),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`course-service trả về HTTP ${response.status}.`);
+    }
+
+    const body = (await response.json()) as {
+      data?: { chains?: unknown };
+    };
+    const chains = body.data?.chains;
+    if (!Array.isArray(chains)) {
+      this.logger.error('Response của course-service thiếu data.chains.');
+      throw new Error('Response của course-service sai hợp đồng.');
+    }
+    return toManagedChains(chains);
+  }
+
+  /**
+   * UC12.5. Hợp đồng đề xuất (course-service CHƯA có):
+   *   POST {COURSE_SERVICE_URL}/api/v1/internal/course-chains/transfer
+   *   Header: như countCourseChainsByInstructors
+   *   Body:   { fromInstructorId, toInstructorId }
+   *   200:    { statusCode, message, data: { transferred: [chain như by-instructor] } }
+   *           Chuyển MỌI chuỗi của from (chỉ trong x-organization-id) trong một transaction của
+   *           course_db, theo cả chuỗi (BR-287). Idempotent: from không còn chuỗi thì transferred = [].
+   */
+  async transferCourseChains(
+    user: CurrentUser,
+    fromInstructorId: string,
+    toInstructorId: string,
+  ): Promise<IManagedCourseChain[]> {
+    const baseUrl = this.config.get<string>('COURSE_SERVICE_URL');
+    if (!baseUrl) {
+      throw new Error('Chưa cấu hình COURSE_SERVICE_URL.');
+    }
+    if (!user.organizationId) {
+      throw new Error('Thiếu organizationId của người gọi.');
+    }
+    const timeoutMs =
+      Number(this.config.get<string>('COURSE_SERVICE_TIMEOUT_MS')) ||
+      DEFAULT_TIMEOUT_MS;
+
+    const response = await fetch(
+      `${baseUrl}/api/v1/internal/course-chains/transfer`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json',
+          [HEADER_NAMES.INTERNAL_KEY]: this.config.getOrThrow<string>(
+            'INTERNAL_SERVICE_KEY',
+          ),
+          [HEADER_NAMES.USER_ID]: user.userId,
+          [HEADER_NAMES.USER_ROLE]: user.role,
+          [HEADER_NAMES.ORGANIZATION_ID]: user.organizationId,
+        },
+        body: JSON.stringify({ fromInstructorId, toInstructorId }),
+        signal: AbortSignal.timeout(timeoutMs),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`course-service trả về HTTP ${response.status}.`);
+    }
+
+    const body = (await response.json()) as {
+      data?: { transferred?: unknown };
+    };
+    const transferred = body.data?.transferred;
+    if (!Array.isArray(transferred)) {
+      this.logger.error('Response của course-service thiếu data.transferred.');
+      throw new Error('Response của course-service sai hợp đồng.');
+    }
+    return toManagedChains(transferred);
   }
 
   async getOrganizationUsage(

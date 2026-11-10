@@ -4,10 +4,13 @@ import {
   Injectable,
   type PipeTransform,
 } from '@nestjs/common';
+import { isISO8601 } from 'class-validator';
 import type { WatchedRange } from './video-progress.rules';
 
 export interface ReportProgressDto {
   ranges: WatchedRange[];
+  positionSeconds: number;
+  reportedAt: string;
 }
 
 @Injectable()
@@ -21,7 +24,8 @@ export class ReportProgressPipe implements PipeTransform<
       new HttpException(
         {
           code: 'VALIDATION_ERROR',
-          message: 'ranges phải gồm 1–20 cặp số hữu hạn, 0 ≤ start < end.',
+          message:
+            'ranges gồm 0–20 cặp số hữu hạn (0 ≤ start < end), positionSeconds là số nguyên không âm và reportedAt là thời điểm ISO hợp lệ.',
         },
         HttpStatus.UNPROCESSABLE_ENTITY,
       );
@@ -29,10 +33,17 @@ export class ReportProgressPipe implements PipeTransform<
       !body ||
       typeof body !== 'object' ||
       Array.isArray(body) ||
-      Object.keys(body).some((key) => key !== 'ranges') ||
+      Object.keys(body).some(
+        (key) => !['ranges', 'positionSeconds', 'reportedAt'].includes(key),
+      ) ||
       !Array.isArray(body.ranges) ||
-      body.ranges.length < 1 ||
-      body.ranges.length > 20
+      body.ranges.length > 20 ||
+      !Number.isSafeInteger(body.positionSeconds) ||
+      body.positionSeconds! < 0 ||
+      typeof body.reportedAt !== 'string' ||
+      !isISO8601(body.reportedAt, { strict: true, strictSeparator: true }) ||
+      !/(?:Z|[+-]\d{2}:\d{2})$/.test(body.reportedAt) ||
+      !Number.isFinite(Date.parse(body.reportedAt))
     )
       throw fail();
     for (const pair of body.ranges) {
@@ -45,6 +56,10 @@ export class ReportProgressPipe implements PipeTransform<
       )
         throw fail();
     }
-    return { ranges: body.ranges };
+    return {
+      ranges: body.ranges,
+      positionSeconds: body.positionSeconds!,
+      reportedAt: body.reportedAt,
+    };
   }
 }

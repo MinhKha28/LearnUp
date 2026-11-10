@@ -76,7 +76,7 @@ The Gateway validates HMAC-SHA256 tokens signed with a shared secret (`JWT_SECRE
 * `POST /api/auth/login`
 * `POST /api/auth/register`
 * `POST /api/auth/refresh`
-* `GET /api/certificates/verify/**`
+* Certificate routes require JWT authentication; BR-264 excludes public certificate verification from the MVP.
 * `GET /actuator/health`
 
 ---

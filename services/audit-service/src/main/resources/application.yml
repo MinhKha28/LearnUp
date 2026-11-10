@@ -43,6 +43,10 @@ management:
       show-details: when_authorized
 
 
+security:
+  # The shared internal key (INTERNAL_SERVICE_KEY): the gateway and the services send it as x-internal-key. The service refuses to start without a private value of at least 32 bytes.
+  internal-key: ${INTERNAL_SERVICE_KEY:}
+
 logging:
   level:
     com.learnup.audit: INFO

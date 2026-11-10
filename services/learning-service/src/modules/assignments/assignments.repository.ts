@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { requestCompletion } from '../course-completion/completion-request';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -12,6 +13,7 @@ export interface AssignmentBatch {
   assignedBy: string;
   assignedAt: Date;
   dueAt: Date;
+  dueTimezone: string;
   expectedCompletionDays: number;
   videoCompletionPercent: number;
 }
@@ -23,7 +25,7 @@ export function existingEnrollmentsSql(
   lock = false,
 ): Prisma.Sql {
   return Prisma.sql`SELECT id, learner_id AS "learnerId", enrollment_type AS "enrollmentType",
-    status, first_activity_at AS "firstActivityAt" FROM enrollments
+    status, withdrawn_reason AS "withdrawnReason", first_activity_at AS "firstActivityAt" FROM enrollments
     WHERE organization_id = ${organizationId}::uuid AND course_id = ${courseId}::uuid
       AND learner_id = ANY(${learnerIds}::uuid[])
     ORDER BY learner_id ${lock ? Prisma.sql`FOR UPDATE` : Prisma.empty}`;
@@ -36,13 +38,14 @@ export function insertAssignmentsSql(
 ): Prisma.Sql {
   return Prisma.sql`INSERT INTO enrollments
     (id, organization_id, learner_id, course_id, enrollment_type, status, assigned_at,
-     expected_completion_days, base_due_at, due_at, video_completion_percent)
+     expected_completion_days, base_due_at, due_at, due_timezone, video_completion_percent)
     SELECT r.id, ${batch.organizationId}::uuid, r.learner_id, ${batch.courseId}::uuid, 'Required',
-      'NotStarted', ${batch.assignedAt}, ${batch.expectedCompletionDays}, ${batch.dueAt}, ${batch.dueAt}, ${batch.videoCompletionPercent}
+      'NotStarted', ${batch.assignedAt}, ${batch.expectedCompletionDays}, ${batch.dueAt}, ${batch.dueAt}, ${batch.dueTimezone}, ${batch.videoCompletionPercent}
     FROM unnest(${ids}::uuid[], ${plans.map((plan) => plan.learnerId)}::uuid[]) AS r(id, learner_id)
     ON CONFLICT (learner_id, course_id) DO NOTHING RETURNING id`;
 }
 
+/** BR-162/166/167: hạn phân công mới không kế thừa gia hạn của lần trước. */
 export function updateAssignmentsSql(
   plans: AssignmentPlan[],
   batch: AssignmentBatch,
@@ -50,7 +53,7 @@ export function updateAssignmentsSql(
   return Prisma.sql`UPDATE enrollments e SET
     enrollment_type = 'Required', assigned_at = ${batch.assignedAt},
     expected_completion_days = ${batch.expectedCompletionDays}, base_due_at = ${batch.dueAt},
-    due_at = ${batch.dueAt}::timestamptz + e.extension_seconds * interval '1 second',
+    due_at = ${batch.dueAt}::timestamptz, extension_seconds = 0, due_timezone = ${batch.dueTimezone},
     status = CASE WHEN p.kind = 'RESTORE' THEN ${enrollmentRestoredStatusSql(Prisma.sql`e.first_activity_at`)} ELSE e.status END,
     withdrawn_at = CASE WHEN p.kind = 'RESTORE' THEN NULL ELSE e.withdrawn_at END,
     withdrawn_reason = CASE WHEN p.kind = 'RESTORE' THEN NULL ELSE e.withdrawn_reason END,
@@ -129,6 +132,21 @@ export class AssignmentsRepository {
         >(updateAssignmentsSql(updates, batch))),
       );
     const kinds = new Map(plans.map((plan) => [plan.learnerId, plan.kind]));
+    for (const plan of updates) {
+      if (
+        plan.kind === 'RESTORE' ||
+        (plan.kind === 'CONVERT' &&
+          ['NotStarted', 'InProgress', 'Exempted'].includes(
+            plan.existing!.status,
+          ))
+      )
+        await requestCompletion(
+          tx,
+          batch.organizationId,
+          plan.existing!.id,
+          plan.kind === 'RESTORE' ? 'ASSIGNMENT_RESTORE' : 'ASSIGNMENT_CONVERT',
+        );
+    }
     await tx.outboxEvent.createMany({
       data: rows.map((row) => ({
         aggregateType: 'Enrollment',

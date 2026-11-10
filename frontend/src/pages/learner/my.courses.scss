@@ -1,3 +1,14 @@
+.learner-my-course-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) repeat(2, minmax(0, 3fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+
+  > * {
+    min-width: 0;
+  }
+}
+
 .learner-my-course-list {
   display: flex;
   margin: 0;
@@ -98,6 +109,14 @@ a.learner-my-course-title:hover {
 }
 
 @media (max-width: 640px) {
+  .learner-my-course-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    > .ant-input-affix-wrapper {
+      grid-column: 1 / -1;
+    }
+  }
+
   .learner-my-course {
     flex-wrap: wrap;
     align-items: flex-start;
@@ -107,4 +126,10 @@ a.learner-my-course-title:hover {
   .learner-my-course-action .learner-button.ant-btn {
     width: 100%;
   }
+}
+
+.learner-courses .learner-status {
+  font-size: var(--status-font-size);
+  line-height: var(--status-line-height);
+  padding: var(--status-padding-block) var(--status-padding-inline);
 }

@@ -22,12 +22,14 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:relay:db": "ts-node -r tsconfig-paths/register -P tsconfig.seed.json test/outbox-relay.db-test.ts",
     "test:catalog:db": "ts-node -r tsconfig-paths/register -P tsconfig.seed.json test/catalog/estimate-duration.db-test.ts",
     "test:catalog:http": "ts-node -P tsconfig.seed.json test/catalog/catalog.http-test.ts",
     "postinstall": "prisma skills sync || exit 0",
     "test:migration": "ts-node -P tsconfig.seed.json test/course-values.migration-test.ts"
   },
   "dependencies": {
+    "@confluentinc/kafka-javascript": "^1.11.0",
     "@learnup/ts-common": "file:../../libraries/ts-common",
     "@learnup/ts-storage": "file:../../libraries/ts-storage",
     "@nestjs/axios": "^12.0.1",
@@ -35,6 +37,7 @@
     "@nestjs/config": "^12.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/schedule": "^12.0.2",
     "@nestjs/swagger": "^11.4.7",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
@@ -85,10 +88,31 @@
       "ts"
     ],
     "rootDir": "src",
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1",
+      "^@common/(.*)$": "<rootDir>/common/$1",
+      "^@infra/(.*)$": "<rootDir>/infrastructure/$1",
+      "^@modules/(.*)$": "<rootDir>/modules/$1",
+      "^@courses/(.*)$": "<rootDir>/modules/courses/$1",
+      "^@generated/(.*)$": "<rootDir>/../generated/$1",
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "allowJs": true,
+            "module": "commonjs",
+            "resolvePackageJsonExports": false
+          }
+        }
+      ]
     },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!@nestjs/(config|axios|schedule)/)"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

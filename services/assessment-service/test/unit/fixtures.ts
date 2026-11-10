@@ -3,6 +3,7 @@
  * Every write the service makes is recorded in `calls` for the assertions.
  */
 import assert from 'node:assert/strict';
+import { ServiceUnavailableException } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { AssessmentsRepository } from '../../src/modules/assessments/assessments.repository';
 import { AssessmentsService } from '../../src/modules/assessments/assessments.service';
@@ -11,11 +12,14 @@ import {
   CourseAuthoringContext,
   CourseServiceClient,
 } from '../../src/infrastructure/clients/course/course-service.client';
+import { FakeNotificationClient } from '../../src/infrastructure/clients/notification/fake-notification.client';
+import { FakeTenantDirectoryClient } from '../../src/infrastructure/clients/tenant/fake-tenant-directory.client';
 import { PeerReviewRepository } from '../../src/modules/peer-review/peer-review.repository';
 import { PeerReviewService } from '../../src/modules/peer-review/peer-review.service';
 import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { RubricsService } from '../../src/modules/rubrics/rubrics.service';
 import type {
+  IStorageDeleteResult,
   IStorageFileInput,
   IStorageProvider,
   IStorageUploadOptions,
@@ -39,6 +43,7 @@ export class MemoryStorage implements IStorageProvider {
       resourceType: options.resourceType,
     });
     return Promise.resolve({
+      deliveryType: options.deliveryType ?? 'upload',
       storageKey: publicId,
       publicId,
       url: `http://files.test/${publicId}`,
@@ -50,10 +55,10 @@ export class MemoryStorage implements IStorageProvider {
     });
   }
 
-  delete(storageKey: string): Promise<void> {
-    this.files.delete(storageKey);
+  delete(storageKey: string): Promise<IStorageDeleteResult> {
+    const existed = this.files.delete(storageKey);
     this.deleted.push(storageKey);
-    return Promise.resolve();
+    return Promise.resolve({ status: existed ? 'deleted' : 'not_found' });
   }
 
   getUrl(storageKey: string): string {
@@ -163,7 +168,9 @@ class StubCourseClient extends CourseServiceClient {
   }
   getAuthoringContext(): Promise<CourseAuthoringContext> {
     this.reads += 1;
-    return Promise.resolve(this.reads > 1 && this.later ? this.later : this.ctx);
+    return Promise.resolve(
+      this.reads > 1 && this.later ? this.later : this.ctx,
+    );
   }
   setAssignmentMinutes(courseId: string, minutes: number): Promise<void> {
     if (this.failMinutes) {
@@ -174,6 +181,13 @@ class StubCourseClient extends CourseServiceClient {
   }
   getModuleIds(): Promise<string[] | null> {
     return Promise.resolve(null);
+  }
+
+  /** UC21.2: legacy test stubs must never grant Organizer review access. */
+  verifyOrganizerReviewAccess(): Promise<void> {
+    return Promise.reject(
+      new ServiceUnavailableException('Organizer review access is unavailable in this test stub.'),
+    );
   }
 }
 
@@ -309,7 +323,9 @@ export function build(opts: BuildOptions = {}) {
 
   const courses = new StubCourseClient(
     draftCourse(opts.course),
-    opts.courseLater ? draftCourse({ ...opts.course, ...opts.courseLater }) : undefined,
+    opts.courseLater
+      ? draftCourse({ ...opts.course, ...opts.courseLater })
+      : undefined,
   );
   const rubrics = new RubricsService();
   const storage = new MemoryStorage();
@@ -344,6 +360,8 @@ export function build(opts: BuildOptions = {}) {
       new PeerReviewRepository(prisma),
       repository,
       assessments,
+      new FakeNotificationClient(),
+      new FakeTenantDirectoryClient(),
     ),
   };
 }

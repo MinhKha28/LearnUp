@@ -1,11 +1,10 @@
 /**
  * UC29 through the real HTTP API and a real Postgres: the list of Quizzes and Assignments of an enrolled Course with
  * status, recorded score and tries left, for one Learner at a time.
- * Enrollment is answered by the fake client (ENROLLMENT_CLIENT_MODE=fake). The tests are one story and share state.
+ * Enrollment is answered by a fake Learning Service (assessment-access, ENROLLMENT_CLIENT_MODE=http). The tests are one story and share state.
  */
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { fakeEnrollmentId } from '../../src/infrastructure/clients/learning/fake-enrollment.client';
 import {
   apiFor,
   COURSE,
@@ -14,8 +13,10 @@ import {
   LEARNER,
   ORG,
   startCourseStub,
+  startLearningStub,
   startService,
   type CourseStub,
+  type LearningStub,
   type RunningService,
   type TestDatabase,
 } from './harness';
@@ -26,6 +27,7 @@ const as = (user: string) => identity({ user, role: 'LEARNER' });
 describe('UC29 over HTTP', () => {
   let db: TestDatabase;
   let course: CourseStub;
+  let learning: LearningStub;
   let service: RunningService;
   let api: ReturnType<typeof apiFor>;
   let quizId: string;
@@ -39,9 +41,11 @@ describe('UC29 over HTTP', () => {
   before(async () => {
     db = await createTestDatabase();
     course = await startCourseStub();
+    learning = await startLearningStub();
     service = await startService(db.url, {
       COURSE_SERVICE_URL: course.url,
-      ENROLLMENT_CLIENT_MODE: 'fake',
+      ENROLLMENT_CLIENT_MODE: 'http',
+      LEARNING_SERVICE_URL: learning.url,
     });
     api = apiFor(service.baseUrl);
 
@@ -68,6 +72,7 @@ describe('UC29 over HTTP', () => {
   after(async () => {
     await service?.stop();
     await course?.stop();
+    await learning?.stop();
     await db?.drop();
   });
 
@@ -184,19 +189,15 @@ describe('UC29 over HTTP', () => {
     assert.equal(open.attempts.lockedUntil, null);
   });
 
-  test('a Disabled Assessment is not listed, a Completed Enrollment is read-only (BR-169)', async () => {
+  test('a Disabled Assessment is not listed, a Completed Enrollment is read-only (BR-210)', async () => {
     await db.query('UPDATE assessments SET disabled_at = now() WHERE id = $1', [
       quizId,
     ]);
     assert.equal(await item(quizId), undefined);
     assert.equal((await list()).data.items.length, 1);
 
-    // the fake Enrollment id of this Learner and Course
-    await db.query(
-      `INSERT INTO completed_enrollments (enrollment_id, organization_id, learner_id, course_id, completed_at, updated_at)
-       VALUES ($1, $2, $3, $4, now(), now())`,
-      [fakeEnrollmentId(LEARNER, COURSE), ORG, LEARNER, COURSE],
-    );
+    // Learning Service now says the Enrollment of this Learner is Completed
+    learning.setAnswer(LEARNER, COURSE, 'ReadOnly');
     assert.equal((await list()).data.readOnly, true);
     assert.equal((await list(LEARNER_2)).data.readOnly, false);
   });

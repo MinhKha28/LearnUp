@@ -15,10 +15,12 @@
     "seed:demo": "ts-node -P tsconfig.seed.json prisma/seed-demo.ts",
     "demo:reset": "ts-node -P tsconfig.seed.json prisma/demo-reset.ts",
     "test:unit": "ts-node -P tsconfig.seed.json test/unit/index.ts",
-    "test:integration": "ts-node -P tsconfig.seed.json test/integration/index.ts",
-    "lint": "eslint \"src/**/*.ts\" --fix"
+    "test:integration": "node test/integration/run.cjs",
+    "lint": "eslint \"src/**/*.ts\" --fix",
+    "test:contract:course": "ts-node -P tsconfig.seed.json test/contract/course.contract-test.ts"
   },
   "dependencies": {
+    "@confluentinc/kafka-javascript": "1.11.0",
     "@learnup/ts-common": "file:../../libraries/ts-common",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^12.0.1",

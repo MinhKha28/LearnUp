@@ -33,7 +33,7 @@ export interface ILearnerAssessmentItem {
 export interface ILearnerAssessmentList {
   courseId: string;
   enrollmentId: string;
-  /** BR-169: the Enrollment is Completed, so nothing can be done any more. */
+  /** BR-210: the Enrollment is Completed, so nothing can be done any more. */
   readOnly: boolean;
   items: ILearnerAssessmentItem[];
 }

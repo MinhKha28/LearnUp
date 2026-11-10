@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:22-alpine3.24 AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN npm install
 RUN npx prisma generate
 RUN npm run build
 
-FROM node:22-alpine AS runner
+FROM node:22-alpine3.24 AS runner
 
 WORKDIR /app
 
@@ -30,4 +30,4 @@ COPY --from=builder /app/services/learning-service/generated ./services/learning
 WORKDIR /app/services/learning-service
 
 EXPOSE 8085
-CMD ["sh", "-c", "npx prisma migrate deploy && if [ -f dist/src/main.js ]; then node dist/src/main.js; else node dist/main.js; fi"]
+CMD ["sh", "-c", "if [ \"${DB_PASSWORD+x}\" = x ]; then : \"${DB_PASSWORD:?Set DB_PASSWORD}\" || exit 1; fi; : \"${DATABASE_URL:?Set DATABASE_URL}\" && npx prisma migrate deploy && if [ -f dist/src/main.js ]; then node dist/src/main.js; else node dist/main.js; fi"]

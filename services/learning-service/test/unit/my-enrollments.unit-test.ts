@@ -3,7 +3,14 @@ import { describe, mock, test } from 'node:test';
 import type { CurrentUser } from '@learnup/ts-common';
 import { BadRequestException, HttpException, Logger } from '@nestjs/common';
 import { ParsePagePipe } from '../../src/common/pipes/parse-page.pipe';
-import type { MyEnrollmentRow } from '../../src/modules/enrollments/enrollments.repository';
+import {
+  normalizeCourseName,
+  parseMyEnrollmentFilters,
+} from '../../src/modules/enrollments/my-enrollment-filters';
+import type {
+  MyEnrollmentCriteria,
+  MyEnrollmentRow,
+} from '../../src/modules/enrollments/enrollments.repository';
 import {
   EnrollmentsService,
   MY_ENROLLMENTS_PAGE_SIZE,
@@ -13,7 +20,6 @@ import {
   CourseServiceUnavailableError,
 } from '../../src/infrastructure/clients/course/course-service.errors';
 import type { CourseBatchItem } from '../../src/infrastructure/clients/course/course-service.interface';
-import { OrganizationTimezoneService } from '../../src/infrastructure/clients/tenant/organization-timezone.service';
 import {
   TenantUnavailableError,
   type OrganizationAccess,
@@ -38,6 +44,7 @@ const REQUIRED_ROW: MyEnrollmentRow = {
   enrollmentType: 'Required',
   status: 'Overdue',
   dueAt: new Date('2026-09-29T17:00:00Z'),
+  dueTimezone: 'Asia/Ho_Chi_Minh',
 };
 const OPTIONAL_ROW: MyEnrollmentRow = {
   id: ENROLLMENT_2,
@@ -45,6 +52,7 @@ const OPTIONAL_ROW: MyEnrollmentRow = {
   enrollmentType: 'Optional',
   status: 'NotStarted',
   dueAt: null,
+  dueTimezone: null,
 };
 
 const batchItem = (courseId: string): CourseBatchItem => ({
@@ -59,6 +67,7 @@ const batchItem = (courseId: string): CourseBatchItem => ({
 
 const ACCESS: OrganizationAccess = {
   subscriptionStatus: 'Active',
+  organizationStatus: 'Active',
   readOnlyEndsAt: null,
   timezone: 'Asia/Ho_Chi_Minh',
 };
@@ -75,6 +84,8 @@ function setup(
   const rows = options.rows ?? [REQUIRED_ROW, OPTIONAL_ROW];
   const calls = {
     count: 0,
+    criteria: [] as MyEnrollmentCriteria[],
+    materialIds: [] as string[][],
     page: 0,
     materials: 0,
     batch: [] as string[][],
@@ -82,21 +93,41 @@ function setup(
   };
 
   const enrollments = {
-    countMine: () => {
+    countMine: (
+      _learner: string,
+      _org: string,
+      criteria: MyEnrollmentCriteria,
+    ) => {
+      calls.criteria.push(criteria);
       calls.count += 1;
-      return Promise.resolve(options.total ?? rows.length);
+      return Promise.resolve([{ n: BigInt(options.total ?? rows.length) }]);
     },
     findMinePage: (
       _learnerId: string,
       _organizationId: string,
       limit: number,
       offset: number,
+      criteria: MyEnrollmentCriteria,
     ) => {
+      calls.criteria.push(criteria);
       calls.page += 1;
       assert.equal(limit, MY_ENROLLMENTS_PAGE_SIZE);
       return Promise.resolve(rows.slice(offset, offset + limit));
     },
+    findMineCandidates: (
+      _learner: string,
+      _org: string,
+      criteria: MyEnrollmentCriteria,
+    ) =>
+      Promise.resolve(
+        rows.filter(
+          (row) =>
+            (!criteria.type || row.enrollmentType === criteria.type) &&
+            (!criteria.status || row.status === criteria.status),
+        ),
+      ),
     countRequiredMaterials: (ids: string[]) => {
+      calls.materialIds.push(ids);
       calls.materials += 1;
       return Promise.resolve(
         new Map(ids.map((id) => [id, { completed: 1, total: 6 }])),
@@ -117,16 +148,14 @@ function setup(
       return options.tenant ? options.tenant() : Promise.resolve(ACCESS);
     },
   };
-  const organizationTimezone = new OrganizationTimezoneService(tenant);
 
   const service = new EnrollmentsService(
-    {} as never,
+    { $transaction: (queries: Promise<unknown>[]) => Promise.all(queries) } as never,
     enrollments as never,
     {} as never,
     {} as never,
     courseService as never,
     tenant,
-    organizationTimezone,
   );
   const loggerError = mock.method(
     (service as unknown as { logger: Logger }).logger,
@@ -138,12 +167,7 @@ function setup(
     'warn',
     () => undefined,
   );
-  const timezoneLoggerError = mock.method(
-    (organizationTimezone as unknown as { logger: Logger }).logger,
-    'error',
-    () => undefined,
-  );
-  return { service, calls, loggerError, loggerWarn, timezoneLoggerError };
+  return { service, calls, loggerError, loggerWarn };
 }
 
 async function rejectsWithStatus(
@@ -160,21 +184,20 @@ async function rejectsWithStatus(
 }
 
 void describe('EnrollmentsService.findMyEnrollments (UC26)', () => {
-  void test('chưa có Enrollment → items rỗng, total 0; không đọc trang, không gọi I3, không gọi tenant', async () => {
+  void test('chưa có Enrollment → items rỗng, total 0; không gọi I3, không gọi tenant', async () => {
     const { service, calls } = setup({ rows: [], total: 0 });
     const result = await service.findMyEnrollments(LEARNER, 1);
     assert.deepEqual(result, {
       meta: { current: 1, pageSize: 20, pages: 0, total: 0 },
       items: [],
-      organizationTimezone: null,
     });
     assert.deepEqual(
       [calls.page, calls.materials, calls.batch.length, calls.tenant],
-      [0, 0, 0, 0],
+      [1, 0, 0, 0],
     );
   });
 
-  void test('trang vượt tổng (kể cả page = 1e20) → items rỗng, total đúng; không chạy truy vấn danh sách', async () => {
+  void test('trang vượt tổng (kể cả page = 1e20) → items rỗng, total đúng', async () => {
     for (const page of [2, 1e20]) {
       const { service, calls } = setup();
       const result = await service.findMyEnrollments(LEARNER, page);
@@ -183,7 +206,7 @@ void describe('EnrollmentsService.findMyEnrollments (UC26)', () => {
       assert.equal(result.meta.current, page);
       assert.deepEqual(
         [calls.page, calls.batch.length, calls.tenant],
-        [0, 0, 0],
+        [1, 0, 0],
       );
     }
   });
@@ -217,18 +240,15 @@ void describe('EnrollmentsService.findMyEnrollments (UC26)', () => {
     const { service, calls } = setup();
     const result = await service.findMyEnrollments(LEARNER, 1);
     assert.deepEqual(calls.batch, [[COURSE_1, COURSE_2]]);
-    assert.deepEqual(Object.keys(result).sort(), [
-      'items',
-      'meta',
-      'organizationTimezone',
-    ]);
-    assert.equal(result.organizationTimezone, 'Asia/Ho_Chi_Minh');
+    assert.deepEqual(Object.keys(result).sort(), ['items', 'meta']);
+    assert.equal(result.items[0].dueTimezone, 'Asia/Ho_Chi_Minh');
     assert.deepEqual(result.items[0], {
       enrollmentId: ENROLLMENT_1,
       courseId: COURSE_1,
       enrollmentType: 'Required',
       status: 'Overdue',
       dueAt: '2026-09-29T17:00:00.000Z',
+      dueTimezone: 'Asia/Ho_Chi_Minh',
       requiredMaterials: { completed: 1, total: 6 },
       course: { name: 'Course 02', versionNumber: 2, coverFileId: null },
     });
@@ -265,60 +285,22 @@ void describe('EnrollmentsService.findMyEnrollments (UC26)', () => {
     });
   }
 
-  void test('tenant lỗi → organizationTimezone null + logger.error, vẫn trả danh sách', async () => {
-    const { service, timezoneLoggerError } = setup({
+  void test('Tenant outage cannot change stored deadline timezone', async () => {
+    const { service, calls } = setup({
       tenant: () => Promise.reject(new TenantUnavailableError('down')),
     });
     const result = await service.findMyEnrollments(LEARNER, 1);
-    assert.equal(result.organizationTimezone, null);
+    assert.ok(!('organizationTimezone' in result));
+    assert.equal(result.items[0].dueTimezone, 'Asia/Ho_Chi_Minh');
     assert.equal(result.items.length, 2);
-    assert.equal(timezoneLoggerError.mock.callCount(), 1);
+    assert.equal(calls.tenant, 0);
   });
 
   void test('trang không có Required có hạn → không gọi tenant', async () => {
     const { service, calls } = setup({ rows: [OPTIONAL_ROW] });
     const result = await service.findMyEnrollments(LEARNER, 1);
     assert.equal(calls.tenant, 0);
-    assert.equal(result.organizationTimezone, null);
-  });
-});
-
-void describe('OrganizationTimezoneService (D24)', () => {
-  void test('cache theo organizationId, TTL 5 phút; lần lỗi không được cache (đồng hồ giả)', async (t) => {
-    t.mock.timers.enable({ apis: ['Date'], now: 0 });
-    let fail = false;
-    let calls = 0;
-    const service = new OrganizationTimezoneService({
-      getOrganizationAccess: () => {
-        calls += 1;
-        return fail
-          ? Promise.reject(new TenantUnavailableError('down'))
-          : Promise.resolve(ACCESS);
-      },
-    });
-    mock.method(
-      (service as unknown as { logger: Logger }).logger,
-      'error',
-      () => undefined,
-    );
-
-    assert.equal(await service.getTimezone(LEARNER), 'Asia/Ho_Chi_Minh');
-    t.mock.timers.tick(5 * 60 * 1000 - 1);
-    assert.equal(await service.getTimezone(LEARNER), 'Asia/Ho_Chi_Minh');
-    assert.equal(calls, 1, 'trong TTL không gọi lại tenant');
-
-    t.mock.timers.tick(1);
-    fail = true;
-    assert.equal(await service.getTimezone(LEARNER), null);
-    assert.equal(calls, 2, 'hết TTL thì gọi lại');
-
-    fail = false;
-    assert.equal(await service.getTimezone(LEARNER), 'Asia/Ho_Chi_Minh');
-    assert.equal(calls, 3, 'lần lỗi không được cache');
-
-    const otherOrg = { ...LEARNER, organizationId: COURSE_1 };
-    await service.getTimezone(otherOrg);
-    assert.equal(calls, 4, 'tổ chức khác có cache riêng');
+    assert.ok(!('organizationTimezone' in result));
   });
 });
 
@@ -335,5 +317,143 @@ void describe('ParsePagePipe (chép từ 5a)', () => {
     for (const value of [0, -1, 1.5, Number.NaN]) {
       assert.throws(() => pipe.transform(value), BadRequestException);
     }
+  });
+});
+
+void describe('My enrollment filters', () => {
+  void test('Normalizes accents, đ, Unicode forms, case and whitespace', () => {
+    assert.equal(normalizeCourseName('Lập Trình'), 'lap trinh');
+    assert.equal(normalizeCourseName('ĐẠI'), 'dai');
+    assert.equal(
+      normalizeCourseName('Lập Trình'.normalize('NFD')),
+      'lap trinh',
+    );
+    assert.equal(normalizeCourseName('  Lập\t  Trình  '), 'lap trinh');
+  });
+
+  void test('Trims keyword, allows 200 characters and ignores whitespace', () => {
+    const limit = 'đ'.repeat(200);
+    assert.equal(
+      parseMyEnrollmentFilters(` ${limit}\t`, undefined, undefined).q,
+      limit,
+    );
+    assert.equal(
+      parseMyEnrollmentFilters('  \t', undefined, undefined).q,
+      undefined,
+    );
+  });
+
+  void test('Rejects oversized, invalid and repeated filters with VALIDATION_ERROR', () => {
+    const invalid = [
+      ['a'.repeat(201), undefined, undefined],
+      [undefined, 'required', undefined],
+      [undefined, undefined, 'Withdrawn'],
+      [['a', 'b'], undefined, undefined],
+      [undefined, ['Required', 'Required'], undefined],
+      [undefined, undefined, ['Halted', 'Completed']],
+    ] as const;
+    for (const [q, type, status] of invalid) {
+      assert.throws(
+        () => parseMyEnrollmentFilters(q, type, status),
+        (error) => {
+          assert.ok(error instanceof BadRequestException);
+          assert.equal(
+            (error.getResponse() as { code: string }).code,
+            'VALIDATION_ERROR',
+          );
+          return true;
+        },
+      );
+    }
+  });
+
+  void test('Shares the same request criteria and time between count and page', async () => {
+    const { service, calls } = setup();
+    await service.findMyEnrollments(LEARNER, 1, {
+      type: 'Required',
+      status: 'Overdue',
+    });
+    assert.equal(calls.criteria.length, 2);
+    assert.strictEqual(calls.criteria[0].now, calls.criteria[1].now);
+    assert.equal(calls.criteria[0].type, 'Required');
+    assert.equal(calls.criteria[1].status, 'Overdue');
+  });
+
+  void test('Combines type, status and keyword and excludes missing course data', async () => {
+    const rows = [
+      REQUIRED_ROW,
+      OPTIONAL_ROW,
+      { ...REQUIRED_ROW, courseId: 'missing' },
+    ];
+    const { service, calls } = setup({
+      rows,
+      batch: async () => [{ ...batchItem(COURSE_1), name: 'Lập Trình' }],
+    });
+    const page = await service.findMyEnrollments(LEARNER, 1, {
+      q: 'lap trinh',
+      type: 'Required',
+      status: 'Overdue',
+    });
+    assert.equal(calls.count, 0);
+    assert.equal(calls.page, 0);
+    assert.deepEqual(calls.batch, [[COURSE_1, 'missing']]);
+    assert.equal(page.meta.total, 1);
+    assert.deepEqual(
+      page.items.map((item) => item.courseId),
+      [COURSE_1],
+    );
+  });
+
+  void test('Loads 101 course IDs in sequential batches and counts materials for page 2', async () => {
+    const rows = Array.from({ length: 101 }, (_, index) => ({
+      ...OPTIONAL_ROW,
+      id: `enrollment-${index}`,
+      courseId: `course-${index}`,
+    }));
+    let active = 0;
+    const { service, calls } = setup({
+      rows,
+      batch: async (ids) => {
+        assert.equal(++active, 1);
+        await Promise.resolve();
+        active--;
+        return ids.map(batchItem);
+      },
+    });
+    const page = await service.findMyEnrollments(LEARNER, 2, { q: 'course' });
+    assert.deepEqual(
+      calls.batch.map((ids) => ids.length),
+      [100, 1],
+    );
+    assert.equal(page.meta.total, 101);
+    assert.deepEqual(calls.materialIds, [
+      rows.slice(20, 40).map((row) => row.id),
+    ]);
+    assert.deepEqual(
+      page.items.map((item) => item.enrollmentId),
+      calls.materialIds[0],
+    );
+  });
+
+  void test('Rejects a failed later batch without returning a partial count', async () => {
+    const rows = Array.from({ length: 101 }, (_, index) => ({
+      ...OPTIONAL_ROW,
+      id: `enrollment-${index}`,
+      courseId: `course-${index}`,
+    }));
+    const { service, calls } = setup({
+      rows,
+      batch: async (ids) => {
+        if (ids.length === 1)
+          throw new CourseServiceUnavailableError('timeout');
+        return ids.map(batchItem);
+      },
+    });
+    await rejectsWithStatus(
+      service.findMyEnrollments(LEARNER, 1, { q: 'course' }),
+      503,
+      'SERVICE_UNAVAILABLE',
+    );
+    assert.equal(calls.materials, 0);
   });
 });

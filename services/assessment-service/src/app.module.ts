@@ -3,13 +3,18 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { InternalAuthGuard } from './common/guards/internal-auth.guard';
 import { AssessmentActivityModule } from './modules/assessment-activity/assessment-activity.module';
+import { AssessmentResultsModule } from './modules/assessment-results/assessment-results.module';
+import { CompletionSnapshotModule } from './modules/completion-snapshot/completion-snapshot.module';
 import { AssessmentsModule } from './modules/assessments/assessments.module';
 import { IntegrationsModule } from './infrastructure/clients/integrations.module';
 import { InstructorSubmissionsModule } from './modules/instructor-submissions/instructor-submissions.module';
 import { LearnerAssessmentsModule } from './modules/learner-assessments/learner-assessments.module';
+import { LearnerReviewsModule } from './modules/learner-reviews/learner-reviews.module';
 import { LearnerSubmissionsModule } from './modules/learner-submissions/learner-submissions.module';
+import { OutboxModule } from './modules/outbox/outbox.module';
 import { PeerReviewModule } from './modules/peer-review/peer-review.module';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
+import { QuizAttemptsModule } from './modules/quiz-attempts/quiz-attempts.module';
 import { QuizModule } from './modules/quiz/quiz.module';
 
 @Module({
@@ -18,12 +23,17 @@ import { QuizModule } from './modules/quiz/quiz.module';
     PrismaModule,
     IntegrationsModule,
     AssessmentActivityModule,
+    AssessmentResultsModule,
+    CompletionSnapshotModule,
     InstructorSubmissionsModule,
     LearnerAssessmentsModule,
+    LearnerReviewsModule,
     LearnerSubmissionsModule,
     AssessmentsModule,
+    OutboxModule,
     PeerReviewModule,
     QuizModule,
+    QuizAttemptsModule,
   ],
   providers: [
     {

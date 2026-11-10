@@ -1,6 +1,8 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  /** "0" tắt sessionStorage cho kiểm thử race lưu vị trí video. */
+  readonly VITE_VIDEO_POSITION_SESSION_CACHE?: string;
   /** Base URL dùng chung cho các service chưa có biến riêng (identity, learner: catalog/learning). */
   readonly VITE_BACKEND_URL: string;
   /** tenant-service (8084): gói, đăng ký Organization, Instructor/Learner, lời mời. */

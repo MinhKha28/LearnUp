@@ -31,6 +31,8 @@ export interface ILearnerAssignment {
   title: string;
   prompt: string | null;
   promptFile: { fileName: string; sizeBytes: number } | null;
+  /** The largest file a submission may carry now (the product ceiling lowered to the storage plan). */
+  maxFileBytes: number;
   passingScore: number;
   expectedDurationMinutes: number | null;
   peerReviewEnabled: boolean;
@@ -41,7 +43,7 @@ export interface ILearnerAssignment {
     maxPoints: number;
   }[];
   attempts: ILearnerAttemptState;
-  /** BR-169: the Enrollment is Completed, so the Assignment is read-only. */
+  /** BR-210: the Enrollment is Completed, so the Assignment is read-only. */
   readOnly: boolean;
   latestSubmission: ILearnerSubmissionSummary | null;
   /** Set once the Learner has submitted and the Course is not completed. */

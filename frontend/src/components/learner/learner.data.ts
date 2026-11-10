@@ -762,95 +762,59 @@ export interface IPeerReviewTask {
 export const peerReviewTasks: IPeerReviewTask[] = [
   {
     id: "PR-027",
-    assignmentTitle: "Safety Assignment",
-    reviewDeadline: "28 Sep 2026",
+    assignmentTitle: "Bài tập An toàn lao động",
+    reviewDeadline: "28/09/2026",
     status: "pending",
     submittedResponse:
-      "[Learner submission content displayed without identifying details.]",
+      "[Nội dung bài nộp của học viên, hiển thị không kèm thông tin nhận dạng.]",
     attachmentName: "safety-response-pr027.pdf",
-    criteria: ["Criterion 1", "Criterion 2", "Criterion 3"],
+    criteria: ["Tiêu chí 1", "Tiêu chí 2", "Tiêu chí 3"],
   },
   {
     id: "PR-031",
-    assignmentTitle: "Safety Assignment",
-    reviewDeadline: "28 Sep 2026",
+    assignmentTitle: "Bài tập An toàn lao động",
+    reviewDeadline: "28/09/2026",
     status: "pending",
     submittedResponse:
-      "[Learner submission content displayed without identifying details.]",
+      "[Nội dung bài nộp của học viên, hiển thị không kèm thông tin nhận dạng.]",
     attachmentName: "safety-response-pr031.pdf",
-    criteria: ["Criterion 1", "Criterion 2", "Criterion 3"],
+    criteria: ["Tiêu chí 1", "Tiêu chí 2", "Tiêu chí 3"],
   },
   {
     id: "PR-018",
-    assignmentTitle: "Safety Assignment",
-    reviewDeadline: "21 Sep 2026",
+    assignmentTitle: "Bài tập An toàn lao động",
+    reviewDeadline: "21/09/2026",
     status: "completed",
     submittedResponse:
-      "[Learner submission content displayed without identifying details.]",
+      "[Nội dung bài nộp của học viên, hiển thị không kèm thông tin nhận dạng.]",
     attachmentName: "safety-response-pr018.pdf",
-    criteria: ["Criterion 1", "Criterion 2", "Criterion 3"],
+    criteria: ["Tiêu chí 1", "Tiêu chí 2", "Tiêu chí 3"],
     result: {
       scores: [4, 5, 4],
-      feedback: "Clear reasoning and followed the documented procedure closely.",
-      completedAt: "21 Sep 2026, 16:20",
+      feedback: "Lập luận rõ ràng và bám sát quy trình đã ghi trong tài liệu.",
+      completedAt: "21/09/2026, 16:20",
     },
   },
   {
     id: "PR-011",
-    assignmentTitle: "Safety Assignment",
-    reviewDeadline: "12 Sep 2026",
+    assignmentTitle: "Bài tập An toàn lao động",
+    reviewDeadline: "12/09/2026",
     status: "completed",
     submittedResponse:
-      "[Learner submission content displayed without identifying details.]",
+      "[Nội dung bài nộp của học viên, hiển thị không kèm thông tin nhận dạng.]",
     attachmentName: "safety-response-pr011.pdf",
-    criteria: ["Criterion 1", "Criterion 2", "Criterion 3"],
+    criteria: ["Tiêu chí 1", "Tiêu chí 2", "Tiêu chí 3"],
     hiddenFromQueue: true,
     result: {
       scores: [3, 4, 4],
-      feedback: "Good structure; could reference the handbook more directly.",
-      completedAt: "12 Sep 2026, 09:05",
+      feedback: "Bố cục tốt; có thể dẫn chiếu sổ tay trực tiếp hơn.",
+      completedAt: "12/09/2026, 09:05",
     },
   },
 ];
 
 export const findPeerReviewTask = (submissionId?: string) =>
   peerReviewTasks.find((task) => task.id === submissionId);
-
-// ---- Certificates ---------------------------------------------------------
-
-export interface ICertificate {
-  id: string;
-  courseTitle: string;
-  version: string;
-  issuedDate: string;
-  completionDate: string;
-  completionLabel: "On time" | "Completed late";
-  certificateId: string;
-}
-
-export const certificates: ICertificate[] = [
-  {
-    id: "cert-service-communication",
-    courseTitle: "Service Communication",
-    version: "v1",
-    issuedDate: "18 Sep 2026",
-    completionDate: "18 Sep 2026",
-    completionLabel: "On time",
-    certificateId: "CERT-2026-0142",
-  },
-  {
-    id: "cert-data-protection",
-    courseTitle: "Data Protection Basics",
-    version: "v2",
-    issuedDate: "08 Sep 2026",
-    completionDate: "05 Sep 2026",
-    completionLabel: "Completed late",
-    certificateId: "CERT-2026-0098",
-  },
-];
-
-export const findCertificate = (certificateId?: string) =>
-  certificates.find((certificate) => certificate.id === certificateId);
 
 // ---- Content Reports -------------------------------------------------------
 

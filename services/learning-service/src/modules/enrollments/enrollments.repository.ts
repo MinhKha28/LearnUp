@@ -4,6 +4,12 @@ import { BaseRepository } from '../../common/repository/base.repository';
 import { toSafeNumber } from '../../common/utils/to-safe-number';
 import { PrismaService } from 'src/infrastructure/prisma/prisma.service';
 import { enrollmentDisplayStatusSql } from './enrollment-display-status.sql';
+import type { MyEnrollmentFilters } from './my-enrollment-filters';
+
+export type MyEnrollmentCriteria = Pick<
+  MyEnrollmentFilters,
+  'type' | 'status'
+> & { now: Prisma.Sql };
 
 /** Kết quả trả về sau khi tạo Enrollment. */
 export interface CreatedEnrollment {
@@ -21,10 +27,12 @@ export interface MyEnrollmentRow {
   enrollmentType: string;
   status: string;
   dueAt: Date | null;
+  dueTimezone: string | null;
 }
 
 /** Course Learner đã đăng ký kèm Enrollment, để mở UC27 từ UC25/UC25.1 (D20, D48). */
 export interface EnrolledCourseRef {
+  status: string;
   courseId: string;
   enrollmentId: string;
 }
@@ -36,10 +44,17 @@ export interface RequiredMaterialCount {
 }
 
 /** Enrollment Learner thấy ở UC26: của chính Learner trong tổ chức, trừ Withdrawn (D3). */
-const myEnrollmentsWhere = (learnerId: string, organizationId: string) =>
+const myEnrollmentsWhere = (
+  learnerId: string,
+  organizationId: string,
+  criteria: MyEnrollmentCriteria,
+  displayStatus: Prisma.Sql,
+) =>
   Prisma.sql`e.learner_id = ${learnerId}::uuid
     AND e.organization_id = ${organizationId}::uuid
-    AND e.status <> 'Withdrawn'`;
+    AND e.status <> 'Withdrawn'
+    ${criteria.type ? Prisma.sql`AND e.enrollment_type = ${criteria.type}` : Prisma.empty}
+    ${criteria.status ? Prisma.sql`AND (${displayStatus}) = ${criteria.status}` : Prisma.empty}`;
 
 /** Nhóm 1 của D22: Required chưa xong (gồm Overdue). */
 const REQUIRED_UNFINISHED = Prisma.sql`(e.enrollment_type = 'Required' AND e.status IN ('NotStarted', 'InProgress'))`;
@@ -61,6 +76,18 @@ export class EnrollmentsRepository extends BaseRepository {
       select: { id: true },
     });
     return enrollment?.id ?? null;
+  }
+
+  /** BR-163: unique Learner/Course version, restricted to the trusted organization. */
+  findAssessmentAccess(
+    learnerId: string,
+    courseId: string,
+    organizationId: string,
+  ) {
+    return this.db().enrollment.findUnique({
+      where: { learnerId_courseId: { learnerId, courseId }, organizationId },
+      select: { id: true, status: true },
+    });
   }
 
   async create(
@@ -90,24 +117,42 @@ export class EnrollmentsRepository extends BaseRepository {
   ): Promise<EnrolledCourseRef[]> {
     const rows = await this.db(tx).enrollment.findMany({
       where: { learnerId, organizationId, status: { not: 'Withdrawn' } },
-      select: { id: true, courseId: true },
+      select: { id: true, courseId: true, status: true },
       orderBy: { courseId: 'asc' },
     });
     return rows.map((row) => ({
       courseId: row.courseId,
       enrollmentId: row.id,
+      status: row.status,
     }));
   }
 
-  async countMine(
+  countMine(
     learnerId: string,
     organizationId: string,
-    tx?: Prisma.TransactionClient,
-  ): Promise<number> {
-    const rows = await this.db(tx).$queryRaw<{ n: bigint }[]>`
+    criteria: MyEnrollmentCriteria,
+  ): Prisma.PrismaPromise<{ n: bigint }[]> {
+    const displayStatus = enrollmentDisplayStatusSql('e', criteria.now);
+    return this.db().$queryRaw<{ n: bigint }[]>`
       SELECT count(*) AS n FROM enrollments e
-       WHERE ${myEnrollmentsWhere(learnerId, organizationId)}`;
-    return toSafeNumber(rows[0].n);
+       WHERE ${myEnrollmentsWhere(learnerId, organizationId, criteria, displayStatus)}`;
+  }
+
+  async hasEverEnrollment(
+    organizationId: string,
+    courseId: string,
+  ): Promise<boolean> {
+    const enrollment = await this.db().enrollment.findFirst({
+      where: {
+        organizationId,
+        courseId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return enrollment !== null;
   }
 
   /**
@@ -119,21 +164,44 @@ export class EnrollmentsRepository extends BaseRepository {
     organizationId: string,
     limit: number,
     offset: number,
-    tx?: Prisma.TransactionClient,
+    criteria: MyEnrollmentCriteria = { now: Prisma.sql`now()` },
+  ): Prisma.PrismaPromise<MyEnrollmentRow[]> {
+    return this.findMine(
+      learnerId,
+      organizationId,
+      criteria,
+      Prisma.sql`LIMIT ${limit}::bigint OFFSET ${BigInt(Math.min(offset, Number.MAX_SAFE_INTEGER))}::bigint`,
+    );
+  }
+
+  findMineCandidates(
+    learnerId: string,
+    organizationId: string,
+    criteria: MyEnrollmentCriteria,
   ): Promise<MyEnrollmentRow[]> {
-    return this.db(tx).$queryRaw<MyEnrollmentRow[]>`
+    return this.findMine(learnerId, organizationId, criteria, Prisma.empty);
+  }
+
+  private findMine(
+    learnerId: string,
+    organizationId: string,
+    criteria: MyEnrollmentCriteria,
+    pagination: Prisma.Sql,
+  ): Prisma.PrismaPromise<MyEnrollmentRow[]> {
+    const displayStatus = enrollmentDisplayStatusSql('e', criteria.now);
+    return this.db().$queryRaw<MyEnrollmentRow[]>`
       SELECT e.id::text AS "id",
              e.course_id::text AS "courseId",
              e.enrollment_type AS "enrollmentType",
-             ${enrollmentDisplayStatusSql('e')} AS "status",
-             e.due_at AS "dueAt"
+             ${displayStatus} AS "status",
+             e.due_at AS "dueAt", e.due_timezone AS "dueTimezone"
         FROM enrollments e
-       WHERE ${myEnrollmentsWhere(learnerId, organizationId)}
+       WHERE ${myEnrollmentsWhere(learnerId, organizationId, criteria, displayStatus)}
        ORDER BY CASE WHEN ${REQUIRED_UNFINISHED} THEN 0 ELSE 1 END,
                 CASE WHEN ${REQUIRED_UNFINISHED} THEN e.due_at END ASC,
                 CASE WHEN NOT ${REQUIRED_UNFINISHED} THEN COALESCE(e.assigned_at, e.enrolled_at) END DESC,
                 e.id DESC
-       LIMIT ${limit}::bigint OFFSET ${offset}::bigint`;
+       ${pagination}`;
   }
 
   /**

@@ -1,0 +1,21 @@
+# Explicit standalone developer mode only; never combine with prod/docker/staging.
+server:
+  address: 127.0.0.1
+
+eureka:
+  client:
+    enabled: false
+
+learnup:
+  seed:
+    enabled: false
+  docs:
+    gateway-url: ${LEARNUP_DOCS_GATEWAY_URL:http://localhost:8088}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    disable-swagger-default-url: true
+    persist-authorization: false

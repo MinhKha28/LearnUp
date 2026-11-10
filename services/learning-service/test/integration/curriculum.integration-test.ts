@@ -1,23 +1,31 @@
+import { mock } from 'node:test';
+import {
+  ASSESSMENT_COMPLETION_CLIENT,
+  type AssessmentCompletionClient,
+  type CompletionSnapshot,
+} from '../../src/infrastructure/clients/assessment/assessment-completion.client';
+import type { ProgressView } from '../../src/modules/curriculum/progress.service';
+import { closeAll, closeApp } from './deadlines';
+import { testFetch as fetch } from './test-io';
 /**
  * Test tích hợp UC27 (GET /enrollments/:id/curriculum) và UC27.1 (GET /enrollments/:id/lessons/:lessonId)
  * trên fixture ORG_TEST (D34), không dùng dữ liệu demo. Mọi câu ghi trong test lọc theo ENROLL_IT_ORG.
  * Mỗi ca tự dọn ở đầu; dọn lần cuối khi kết thúc (D17).
  *
- * Chạy: npm run test:integration (cần course-service chạy tại COURSE_SERVICE_URL, cả hai DB đã seed)
+ * Chạy: npm run test:integration (isolated PostgreSQL and local HTTP stub)
  */
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import { after, before, describe, test } from 'node:test';
+import { after, before, describe, test } from './test-runner';
 import { HEADER_NAMES, type CurrentUser } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import {
-  courseDatabaseUrl,
   databaseUrl,
   ENROLL_IT_LEARNER_1,
   ENROLL_IT_LEARNER_2,
@@ -29,11 +37,11 @@ import { createRequiredEnrollment } from './enroll-it-required';
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error(
-    'Refusing to run: NODE_ENV=production. This test writes to learning_db and course_db.',
+    'Refusing to run: NODE_ENV=production. This test writes to the isolated Learning database.',
   );
 }
 
-/** Cây của Course test Public và Lesson của Course test Private trong seed course_db. */
+/** Cây của Course test Public và Lesson của Course test Private trong HTTP fixtures. */
 const PUBLIC_MODULE = '0199a000-0000-7000-8000-1a00000000f1';
 const PUBLIC_LESSON = '0199a000-0000-7000-8000-1b00000000f1';
 const PUBLIC_REQUIRED_VIDEO = '0199a000-0000-7000-8000-1c00000000f1';
@@ -42,8 +50,7 @@ const PRIVATE_LESSON = '0199a000-0000-7000-8000-1b00000000f2';
 /** Tổ chức demo chỉ dùng làm header, không ghi gì. */
 const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
 
-const learningDb = new Client({ connectionString: databaseUrl('learning_db') });
-const courseDb = new Client({ connectionString: courseDatabaseUrl() });
+const learningDb = new Client({ connectionString: databaseUrl() });
 
 let app: NestExpressApplication | null = null;
 let baseUrl = '';
@@ -152,7 +159,9 @@ async function learningState(enrollmentId: string) {
             (SELECT count(*) FROM material_snapshots m WHERE m.organization_id = $2) AS materials,
             (SELECT count(*) FROM lesson_snapshots l WHERE l.organization_id = $2) AS lessons,
             (SELECT count(*) FROM course_version_snapshots c WHERE c.organization_id = $2) AS versions,
-            (SELECT count(*) FROM enrollments x WHERE x.organization_id = $2) AS enrollments
+            (SELECT count(*) FROM enrollments x WHERE x.organization_id = $2) AS enrollments,
+            (SELECT count(*) FROM completion_evaluation_requests r WHERE r.organization_id = $2) AS evaluations,
+            (SELECT count(*) FROM outbox_events o WHERE o.organization_id = $2) AS outbox
        FROM enrollments e WHERE e.id = $1 AND e.organization_id = $2`,
     [enrollmentId, ENROLL_IT_ORG],
   );
@@ -162,9 +171,8 @@ async function learningState(enrollmentId: string) {
 void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   before(async () => {
     await learningDb.connect();
-    await courseDb.connect();
     connected = true;
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
 
     app = await NestFactory.create<NestExpressApplication>(AppModule, {
       logger: ['error'],
@@ -178,17 +186,18 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   after(async () => {
     try {
       if (connected) {
-        await resetEnrollFixture(learningDb, courseDb);
+        await resetEnrollFixture(learningDb);
       }
     } finally {
-      await app?.close();
-      await learningDb.end().catch(() => undefined);
-      await courseDb.end().catch(() => undefined);
+      await closeAll(
+        () => closeApp(app),
+        () => learningDb.end(),
+      );
     }
   });
 
   void test('role khác LEARNER → 403 ở cả hai endpoint', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(ENROLL_IT_LEARNER_1);
     for (const role of ['INSTRUCTOR', 'ORGANIZER', 'ADMIN'] as const) {
       const user = { ...ENROLL_IT_LEARNER_1, role };
@@ -199,7 +208,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   });
 
   void test('Optional trên Course Public: 1 Module, 1 Lesson bắt buộc chưa xong, x/y 0/1; hoàn thành Video bắt buộc → true, 1/1', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(ENROLL_IT_LEARNER_1);
 
     const before = await curriculum(ENROLL_IT_LEARNER_1, id);
@@ -207,17 +216,17 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
       'course',
       'courseId',
       'dueAt',
+      'dueTimezone',
       'enrollmentId',
       'enrollmentType',
       'modules',
-      'organizationTimezone',
       'requiredMaterials',
       'status',
     ]);
     assert.equal(before.enrollmentType, 'Optional');
     assert.equal(before.status, 'NotStarted');
     assert.equal(before.dueAt, null);
-    assert.equal(before.organizationTimezone, null);
+    assert.equal(before.dueTimezone, null);
     assert.deepEqual(before.course, {
       name: 'Course kiểm thử tích hợp (không dùng cho demo)',
       versionNumber: 1,
@@ -249,8 +258,8 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
     assert.deepEqual(after.requiredMaterials, { completed: 1, total: 1 });
   });
 
-  void test('Required: status, dueAt và organizationTimezone theo tổ chức', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+  void test('Required: status, dueAt và dueTimezone theo tổ chức', async () => {
+    await resetEnrollFixture(learningDb);
     const { id, dueAt } = await createRequiredEnrollment(
       app!,
       ENROLL_IT_LEARNER_1,
@@ -261,11 +270,11 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
     assert.equal(result.enrollmentType, 'Required');
     assert.equal(result.status, 'NotStarted');
     assert.equal(result.dueAt, dueAt.toISOString());
-    assert.equal(result.organizationTimezone, process.env.TENANT_FAKE_TIMEZONE);
+    assert.equal(result.dueTimezone, process.env.TENANT_FAKE_TIMEZONE);
   });
 
   void test('404 ENROLLMENT_NOT_FOUND: Learner khác, tổ chức khác, id ngẫu nhiên, id không phải UUID, Withdrawn', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(ENROLL_IT_LEARNER_1);
     const cases: [CurrentUser, string][] = [
       [ENROLL_IT_LEARNER_2, id],
@@ -294,7 +303,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   });
 
   void test('Halted → 403 CONTENT_UNAVAILABLE; bản sao phiên bản có disabled_at → 403 với Enrollment không Halted', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(ENROLL_IT_LEARNER_1);
     await learningDb.query(
       `UPDATE enrollments SET status = 'Halted' WHERE id = $1 AND organization_id = $2`,
@@ -304,7 +313,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
       await expectError(ENROLL_IT_LEARNER_1, path, 403, 'CONTENT_UNAVAILABLE');
     }
 
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const active = await createOptional(ENROLL_IT_LEARNER_1);
     await learningDb.query(
       `UPDATE course_version_snapshots SET disabled_at = now()
@@ -320,7 +329,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   });
 
   void test('học liệu bắt buộc bị vô hiệu hóa trong bản sao → biến khỏi UC27.1, Lesson tính lại, x/y giảm; Lesson bị vô hiệu hóa → UC27 ẩn Lesson và Module, UC27.1 403', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(ENROLL_IT_LEARNER_1);
     await completeRequiredVideo(id);
     assert.deepEqual(
@@ -360,7 +369,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   });
 
   void test('UC27.1: Lesson của Course khác hoặc ngẫu nhiên hoặc không phải UUID → 404 LESSON_NOT_FOUND; Lesson hợp lệ trả nội dung, 2 học liệu, không có trước/sau', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const id = await createOptional(ENROLL_IT_LEARNER_1);
     for (const lessonId of [PRIVATE_LESSON, randomUUID(), 'abc']) {
       await expectError(
@@ -405,7 +414,7 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
   });
 
   void test('BR-307: xem UC27, UC27.1 nhiều lần không đổi Enrollment, tiến độ hay bản sao', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
+    await resetEnrollFixture(learningDb);
     const { id } = await createRequiredEnrollment(
       app!,
       ENROLL_IT_LEARNER_1,
@@ -420,5 +429,170 @@ void describe('UC27, UC27.1 (thật, fixture ORG_TEST)', () => {
     assert.deepEqual(await learningState(id), before);
     assert.equal(before.status, 'NotStarted');
     assert.equal(before.first_activity_at, null);
+  });
+  void test('UC28 owner sees real materials and counts; repeated reads perform no Learning writes', async () => {
+    await resetEnrollFixture(learningDb);
+    const { id } = await createRequiredEnrollment(
+      app!,
+      ENROLL_IT_LEARNER_1,
+      ENROLL_IT_PUBLIC_COURSE,
+      new Date(),
+    );
+    const assessment = app!.get<AssessmentCompletionClient>(
+      ASSESSMENT_COMPLETION_CLIENT,
+    );
+    const spy = mock.method(
+      assessment,
+      'getCompletionSnapshot',
+      async (
+        organizationId: string,
+        learnerId: string,
+        courseId: string,
+      ): Promise<CompletionSnapshot> => ({
+        schemaVersion: 1,
+        snapshotId: randomUUID(),
+        revision: 'materials-only',
+        asOf: new Date().toISOString(),
+        organizationId,
+        learnerId,
+        courseId,
+        eligible: true,
+        requiredComponentCount: 0,
+        quizzes: [],
+        assignments: [],
+      }),
+    );
+    try {
+      const before = await learningState(id);
+      for (let i = 0; i < 2; i++) {
+        const response = await get(
+          ENROLL_IT_LEARNER_1,
+          `/enrollments/${id}/progress`,
+        );
+        assert.equal(response.status, 200);
+        const data = response.data as unknown as ProgressView;
+        assert.equal(data.materials?.length, 2);
+        assert.equal(
+          data.materials?.find((m) => m.materialId === PUBLIC_REQUIRED_VIDEO)
+            ?.required,
+          true,
+        );
+        assert.deepEqual(data.assessment, { state: 'ok', items: [] });
+        assert.deepEqual(data.conditions, {
+          state: 'ok',
+          met: 0,
+          total: 1,
+          missing: [{ kind: 'material', id: PUBLIC_REQUIRED_VIDEO }],
+        });
+      }
+      assert.deepEqual(await learningState(id), before);
+      assert.equal(spy.mock.callCount(), 2);
+    } finally {
+      spy.mock.restore();
+    }
+  });
+
+  void test('UC28 foreign, missing, Withdrawn, Halted and role errors match curriculum', async () => {
+    await resetEnrollFixture(learningDb);
+    const { id } = await createRequiredEnrollment(
+      app!,
+      ENROLL_IT_LEARNER_1,
+      ENROLL_IT_PUBLIC_COURSE,
+      new Date(),
+    );
+    const path = `/enrollments/${id}/progress`;
+    await expectError(ENROLL_IT_LEARNER_2, path, 404, 'ENROLLMENT_NOT_FOUND');
+    await expectError(
+      ENROLL_IT_LEARNER_1,
+      `/enrollments/${randomUUID()}/progress`,
+      404,
+      'ENROLLMENT_NOT_FOUND',
+    );
+    await expectError(
+      ENROLL_IT_LEARNER_1,
+      '/enrollments/invalid/progress',
+      404,
+      'ENROLLMENT_NOT_FOUND',
+    );
+    assert.equal(
+      (await get({ ...ENROLL_IT_LEARNER_1, role: 'ORGANIZER' }, path)).status,
+      403,
+    );
+    for (const [status, http, code] of [
+      ['Halted', 403, 'CONTENT_UNAVAILABLE'],
+      ['Withdrawn', 404, 'ENROLLMENT_NOT_FOUND'],
+    ] as const) {
+      await learningDb.query(
+        `UPDATE enrollments SET status=$1,withdrawn_at=CASE WHEN $1='Withdrawn' THEN now() ELSE NULL END,withdrawn_reason=CASE WHEN $1='Withdrawn' THEN 'HaltedClosed' ELSE NULL END WHERE id=$2 AND organization_id=$3`,
+        [status, id, ENROLL_IT_ORG],
+      );
+      await expectError(ENROLL_IT_LEARNER_1, path, http, code);
+    }
+  });
+
+  void test('UC28 Completed uses stored completion summary and never calls Assessment', async () => {
+    await resetEnrollFixture(learningDb);
+    const { id } = await createRequiredEnrollment(
+      app!,
+      ENROLL_IT_LEARNER_1,
+      ENROLL_IT_PUBLIC_COURSE,
+      new Date(),
+    );
+    await learningDb.query(
+      `UPDATE enrollments SET status='Completed',completed_at=now(),completed_late=false WHERE id=$1 AND organization_id=$2`,
+      [id, ENROLL_IT_ORG],
+    );
+    const assessment = app!.get<AssessmentCompletionClient>(
+      ASSESSMENT_COMPLETION_CLIENT,
+    );
+    const spy = mock.method(assessment, 'getCompletionSnapshot', async () => {
+      throw new Error('must not call');
+    });
+    try {
+      const before = await learningState(id);
+      const response = await get(
+        ENROLL_IT_LEARNER_1,
+        `/enrollments/${id}/progress`,
+      );
+      assert.equal(response.status, 200);
+      assert.deepEqual(Object.keys(response.data), ['enrollment']);
+      assert.equal(
+        (response.data.enrollment as ProgressView['enrollment']).status,
+        'Completed',
+      );
+      assert.equal(spy.mock.callCount(), 0);
+      assert.deepEqual(await learningState(id), before);
+    } finally {
+      spy.mock.restore();
+    }
+  });
+
+  void test('UC28 failed snapshot still returns 200 and materials without writes', async () => {
+    await resetEnrollFixture(learningDb);
+    const { id } = await createRequiredEnrollment(
+      app!,
+      ENROLL_IT_LEARNER_1,
+      ENROLL_IT_PUBLIC_COURSE,
+      new Date(),
+    );
+    const assessment = app!.get<AssessmentCompletionClient>(
+      ASSESSMENT_COMPLETION_CLIENT,
+    );
+    const spy = mock.method(assessment, 'getCompletionSnapshot', async () => {
+      throw new Error('unavailable');
+    });
+    try {
+      const before = await learningState(id);
+      const response = await get(
+        ENROLL_IT_LEARNER_1,
+        `/enrollments/${id}/progress`,
+      );
+      assert.equal(response.status, 200);
+      assert.deepEqual(response.data.assessment, { state: 'unavailable' });
+      assert.equal((response.data.materials as unknown[]).length, 2);
+      assert.deepEqual(await learningState(id), before);
+    } finally {
+      spy.mock.restore();
+    }
   });
 });

@@ -20,7 +20,7 @@ export const PageHeader = ({
   actions,
   back,
 }: {
-  title: string;
+  title: ReactNode;
   subtitle: string;
   actions?: ReactNode;
   back?: boolean;
@@ -36,7 +36,7 @@ export const PageHeader = ({
             icon={<ArrowLeftOutlined />}
             onClick={() => navigate(-1)}
           >
-            Back
+            Quay lại
           </Button>
         )}
         <h1>{title}</h1>

@@ -201,7 +201,7 @@ Identity and Tenant database records share identical UUIDs, preserving domain bo
    - The current configuration uses development defaults (shared secret keys, default demo passwords, and single-replica KRaft broker).
    - Production deployments must supply secure, randomly generated secrets via external secret management (e.g., Vault, AWS Secrets Manager) and configure a multi-broker Kafka cluster with appropriate replication factors.
 2. **Mock Inter-Service Client Modes**:
-   - `learning-service` uses `TENANT_CLIENT_MODE=fake` because `tenant-service` does not yet expose internal REST endpoints for learner suspension verification (BR-15).
+   - `learning-service` defaults to Tenant HTTP access (`LEARNING_TENANT_CLIENT_MODE=http`). Development/performance runs can explicitly set `LEARNING_TENANT_CLIENT_MODE=fake` and `LEARNING_TENANT_FAKE_TIMEZONE=Asia/Ho_Chi_Minh`; fake mode is rejected in production.
 3. **Achievement Reporting Migrations**:
    - `achievement-reporting-service` has no checked-in Prisma migration history. When database persistence for this service is activated, a formal initial migration must be created in compliance with migration guardrails.
 4. **Email Dispatch**:

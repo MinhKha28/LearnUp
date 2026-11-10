@@ -1,5 +1,10 @@
 import { InternalCoursesService } from './internal-courses.service';
 import type { PrismaService } from '@infra/prisma/prisma.service';
+import type { IReadableStorageProvider } from '@learnup/ts-storage';
+
+const storageStub = {
+  getSignedUrl: jest.fn(),
+} as unknown as IReadableStorageProvider;
 
 jest.mock('@learnup/ts-common', () => ({
   createApiError: (code: string, message: string) => ({ code, message }),
@@ -23,10 +28,13 @@ const row = {
 describe('I1 lock fast path', () => {
   const query = jest.fn();
   const transaction = jest.fn();
-  const service = new InternalCoursesService({
-    $queryRaw: query,
-    $transaction: transaction,
-  } as unknown as PrismaService);
+  const service = new InternalCoursesService(
+    {
+      $queryRaw: query,
+      $transaction: transaction,
+    } as unknown as PrismaService,
+    storageStub,
+  );
 
   beforeEach(() => jest.resetAllMocks());
 
@@ -114,9 +122,12 @@ describe('I1 lock fast path', () => {
 
 describe('UC19 assignment minutes (BR-51, BR-172, BR-173)', () => {
   const query = jest.fn();
-  const service = new InternalCoursesService({
-    $queryRaw: query,
-  } as unknown as PrismaService);
+  const service = new InternalCoursesService(
+    {
+      $queryRaw: query,
+    } as unknown as PrismaService,
+    storageStub,
+  );
 
   beforeEach(() => jest.resetAllMocks());
 
@@ -125,7 +136,9 @@ describe('UC19 assignment minutes (BR-51, BR-172, BR-173)', () => {
     query.mockResolvedValue([
       { id: row.id, assignment_minutes: 150, as_of: asOf },
     ]);
-    await expect(service.setAssignmentMinutes(org, row.id, 150)).resolves.toEqual({
+    await expect(
+      service.setAssignmentMinutes(org, row.id, 150),
+    ).resolves.toEqual({
       courseId: row.id,
       assignmentMinutes: 150,
       assignmentMinutesAsOf: asOf,
@@ -147,5 +160,94 @@ describe('UC19 assignment minutes (BR-51, BR-172, BR-173)', () => {
       ).rejects.toMatchObject({ status: 404 });
     }
     expect(query).not.toHaveBeenCalled();
+  });
+});
+
+describe('UC10 organization usage', () => {
+  const count = jest.fn();
+  const aggregate = jest.fn();
+  const service = new InternalCoursesService(
+    {
+      courseChain: { count },
+      mediaFile: { aggregate },
+    } as unknown as PrismaService,
+    storageStub,
+  );
+
+  beforeEach(() => jest.resetAllMocks());
+
+  it('counts chains with a version and Ready, not released bytes', async () => {
+    count.mockResolvedValue(3);
+    aggregate.mockResolvedValue({ _sum: { sizeBytes: 5368709120n } });
+    await expect(service.getOrganizationUsage(org, org)).resolves.toEqual({
+      organizationId: org,
+      courseChains: 3,
+      storageBytes: '5368709120',
+    });
+    expect(count).toHaveBeenCalledWith({
+      where: { organizationId: org, courses: { some: {} } },
+    });
+    expect(aggregate).toHaveBeenCalledWith({
+      where: { organizationId: org, status: 'Ready', releasedAt: null },
+      _sum: { sizeBytes: true },
+    });
+  });
+
+  it('returns zero bytes when the Organization has no file', async () => {
+    count.mockResolvedValue(0);
+    aggregate.mockResolvedValue({ _sum: { sizeBytes: null } });
+    await expect(service.getOrganizationUsage(org, org)).resolves.toEqual({
+      organizationId: org,
+      courseChains: 0,
+      storageBytes: '0',
+    });
+  });
+
+  it.each([
+    ['another Organization', '25039000-0000-4000-8000-000000000099'],
+    ['no Organization', undefined],
+  ])('hides the usage of %s', async (_label, caller) => {
+    await expect(
+      service.getOrganizationUsage(caller as string | undefined, org),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(count).not.toHaveBeenCalled();
+    expect(aggregate).not.toHaveBeenCalled();
+  });
+});
+
+describe('UC12 course chains by Instructor', () => {
+  const groupBy = jest.fn();
+  const service = new InternalCoursesService(
+    {
+      courseChain: { groupBy },
+    } as unknown as PrismaService,
+    storageStub,
+  );
+  const first = '25039003-0000-4000-8000-000000000001';
+  const second = '25039003-0000-4000-8000-000000000002';
+
+  beforeEach(() => jest.resetAllMocks());
+
+  it('returns a count for every requested Instructor, 0 when none', async () => {
+    groupBy.mockResolvedValue([{ instructorId: first, _count: { _all: 2 } }]);
+    await expect(
+      service.countCourseChainsByInstructors(org, [first, second]),
+    ).resolves.toEqual({ counts: { [first]: 2, [second]: 0 } });
+    expect(groupBy).toHaveBeenCalledWith({
+      by: ['instructorId'],
+      where: {
+        organizationId: org,
+        instructorId: { in: [first, second] },
+        courses: { some: { deletedAt: null } },
+      },
+      _count: { _all: true },
+    });
+  });
+
+  it('returns zeros without querying when the caller has no Organization', async () => {
+    await expect(
+      service.countCourseChainsByInstructors(undefined, [first]),
+    ).resolves.toEqual({ counts: { [first]: 0 } });
+    expect(groupBy).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,5 @@
 import type { CurrentUser } from '@learnup/ts-common';
+import type { IManagedCourseChain } from './interfaces/managed-course-chain.interface';
 import type { IOrganizationCourseUsage } from './interfaces/organization-course-usage.interface';
 
 /**
@@ -20,6 +21,28 @@ export abstract class CourseServiceClient {
     user: CurrentUser,
     instructorIds: string[],
   ): Promise<Record<string, number>>;
+
+  /**
+   * UC12.1: các chuỗi Course một Instructor đang phụ trách, mỗi chuỗi một phần tử.
+   * Số phần tử phải bằng số countCourseChainsByInstructors trả về cho cùng Instructor.
+   * Lỗi thì ném lỗi; bên gọi tự quyết định xử lý.
+   */
+  abstract listCourseChainsByInstructor(
+    user: CurrentUser,
+    instructorId: string,
+  ): Promise<IManagedCourseChain[]>;
+
+  /**
+   * UC12.5 (BR-41, BR-287): chuyển MỌI chuỗi Course fromInstructorId đang phụ trách sang
+   * toInstructorId, trong tổ chức của người gọi. Idempotent: gọi lại khi đã chuyển hết thì trả [].
+   * Trả các chuỗi vừa chuyển. tenant đã kiểm người tiếp nhận hợp lệ trước khi gọi.
+   * Lỗi / timeout thì ném lỗi: bên course có thể đã chuyển một phần hoặc toàn bộ, gọi lại để chuyển nốt.
+   */
+  abstract transferCourseChains(
+    user: CurrentUser,
+    fromInstructorId: string,
+    toInstructorId: string,
+  ): Promise<IManagedCourseChain[]>;
 
   abstract getOrganizationUsage(
     user: CurrentUser,

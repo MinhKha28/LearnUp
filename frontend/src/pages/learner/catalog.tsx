@@ -16,7 +16,7 @@ import { parsePageParam, resolvePageRedirect } from "@/utils/page.param";
 import "./catalog.scss";
 
 const CATALOG_ERROR_MESSAGES: Record<string, string> = {
-  FORBIDDEN: "Bạn không có quyền xem danh mục Course.",
+  FORBIDDEN: "Bạn không có quyền xem danh mục Khóa học.",
 };
 
 const CatalogCard = ({
@@ -85,14 +85,14 @@ const CatalogContent = ({ page }: { page: number }) => {
     return (
       <LearnerErrorState
         error={catalog.error}
-        title="Không tải được danh mục Course"
-        message={CATALOG_ERROR_MESSAGES[catalog.error.code] ?? "Đã có lỗi xảy ra khi tải danh mục Course."}
+        title="Không tải được danh mục Khóa học"
+        message={CATALOG_ERROR_MESSAGES[catalog.error.code] ?? "Đã có lỗi xảy ra khi tải danh mục Khóa học."}
         onRetry={catalog.reload}
       />
     );
   }
   if (redirect === "empty") {
-    return <LearnerEmptyState title="Hiện chưa có Course nào để tự đăng ký" />;
+    return <LearnerEmptyState title="Hiện chưa có Khóa học nào để tự đăng ký" />;
   }
 
   return (
@@ -120,7 +120,7 @@ const Catalog = () => {
 
   return (
     <LearnerPage className="learner-catalog">
-      <PageHeader title="Danh mục Course" subtitle="Các Course tổ chức của bạn mở cho Học viên tự đăng ký." />
+      <PageHeader title="Danh mục Khóa học" subtitle="Các Khóa học tổ chức của bạn mở cho Học viên tự đăng ký." />
       {page === null ? <LearnerSkeleton variant="grid" /> : <CatalogContent page={page} />}
     </LearnerPage>
   );

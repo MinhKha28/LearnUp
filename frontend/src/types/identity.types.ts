@@ -23,6 +23,27 @@ export interface IChangePasswordReq {
     confirmPassword: string;
 }
 
+export interface IForgotPasswordReq {
+  email: string;
+}
+
+export interface IResetPasswordReq {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+// Identity's Java envelope differs from the legacy global IBackendRes contract.
+export interface IPasswordRecoveryResponse {
+  success: boolean;
+  data?: { message: string };
+  error?: { code: string; message: string };
+}
+
+export type IPasswordRecoveryResult =
+  | { success: true }
+  | { success: false; error: "invalid-token" | "unavailable" };
+
 export interface IRegister {
   fullName: string;
   email: string;

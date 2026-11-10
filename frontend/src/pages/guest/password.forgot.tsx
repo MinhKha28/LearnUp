@@ -1,15 +1,36 @@
-import { useState } from "react";
-import { Button, Form, Input } from "antd";
+import { useRef, useState } from "react";
+import { Alert, Button, Form, Input } from "antd";
 import { Link } from "react-router-dom";
 import { AuthCard } from "@/components/guest/auth";
+import { forgotPasswordAPI } from "@/services/identity.service";
 
 type ForgotPasswordFields = { email: string };
 
 export default function ForgotPasswordPage() {
-  const [sent, setSent] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pending = useRef(false);
 
-  function submit(values: ForgotPasswordFields) {
-    setSent(values.email);
+  async function submit(values: ForgotPasswordFields) {
+    if (pending.current) return;
+    pending.current = true;
+    setSubmitting(true);
+    setSent(false);
+    setError(null);
+    try {
+      const result = await forgotPasswordAPI({ email: values.email.trim() });
+      if (result.success) {
+        setSent(true);
+      } else {
+        setError("Unable to request password recovery right now. Please try again later.");
+      }
+    } catch {
+      setError("Unable to request password recovery right now. Please try again later.");
+    } finally {
+      pending.current = false;
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -18,13 +39,15 @@ export default function ForgotPasswordPage() {
       <p>
         Enter the email address associated with your account.
         <br />
-        A password reset link will be sent to that address.
+        If your account is eligible, we will attempt to send recovery instructions.
       </p>
+      {error && <Alert type="error" showIcon message={error} role="alert" />}
       <Form<ForgotPasswordFields>
         layout="vertical"
         requiredMark={false}
+        disabled={submitting}
         onFinish={submit}
-        onValuesChange={() => setSent(null)}
+        onValuesChange={() => { setSent(false); setError(null); }}
       >
         <Form.Item
           label="Email address"
@@ -36,19 +59,16 @@ export default function ForgotPasswordPage() {
         >
           <Input autoComplete="email" placeholder="alex.morgan@example.com" />
         </Form.Item>
-        <Button type="primary" htmlType="submit" block>
+        <Button type="primary" htmlType="submit" block loading={submitting} disabled={submitting}>
           Send reset link
         </Button>
       </Form>
       {sent && (
-        <div className="auth-confirmation">
-          <b>Check your inbox</b>
+        <div className="auth-confirmation" role="status">
+          <b>Request received</b>
           <p>
-            A password reset link was sent to {sent}. For this demo, continue directly
-            to the{" "}
-            <Link className="auth-link auth-link-inline" to="/reset-password/demo-token">
-              reset password page →
-            </Link>
+            If this email is eligible for recovery, we will attempt to send instructions.
+            Check your inbox and spam folder; delivery is not guaranteed.
           </p>
         </div>
       )}

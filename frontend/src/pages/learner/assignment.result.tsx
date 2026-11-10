@@ -1,24 +1,20 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { DetailItem, InfoPanel, LearnerButton, PageHeader, StatusTag } from "@/components/learner/learner.ui";
-import {
-  assessmentErrorText,
-  fetchLearnerAssignmentAPI,
-  fetchLearnerResultAPI,
-} from "@/services/assessment.service";
+import { assessmentErrorText, fetchLearnerResultAPI } from "@/services/assessment.service";
 import type { IGradingResult } from "@/types/assessment.types";
 import "./assignment.result.scss";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString();
+const formatTime = (iso: string) => formatDateTimeVN(iso);
 
 /** UC30.2 - the final score, the score per criterion and the comments of a Finalized submission (BR-208, BR-322). */
 const AssignmentResult = () => {
   const { enrollmentId: courseId, assignmentId } = useParams();
   const navigate = useNavigate();
   const [result, setResult] = useState<IGradingResult | null>(null);
-  const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
-  // set when there is nothing to show: not graded yet, or the call failed
+  // set when there is nothing to show: not submitted, not graded yet (PRE-1), or the call failed
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -26,29 +22,13 @@ const AssignmentResult = () => {
     let active = true;
     const load = async () => {
       try {
-        const assignment = await fetchLearnerAssignmentAPI(assignmentId);
-        if (!active) return;
-        const latest = assignment.data?.latestSubmission;
-        if (!assignment.data) {
-          setNotice(assessmentErrorText(assignment, "Unable to load the Assignment."));
-          return;
-        }
-        setTitle(assignment.data.title);
-        // PRE-1: only a Finalized submission has a result.
-        if (!latest || latest.gradingStatus !== "Finalized") {
-          setNotice(
-            latest
-              ? "The result is not available yet. Your submission is still being graded."
-              : "You have not submitted this Assignment yet.",
-          );
-          return;
-        }
-        const res = await fetchLearnerResultAPI(assignmentId, latest.id);
+        // PRE-1: only a Finalized submission has a result; the server says so when it has none.
+        const res = await fetchLearnerResultAPI(assignmentId);
         if (!active) return;
         if (res.data) setResult(res.data);
-        else setNotice(assessmentErrorText(res, "Unable to load the result."));
+        else setNotice(assessmentErrorText(res, "Không tải được kết quả."));
       } catch {
-        if (active) setNotice("Unable to reach the Assessment service. Please try again.");
+        if (active) setNotice("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {
         if (active) setLoading(false);
       }
@@ -65,12 +45,12 @@ const AssignmentResult = () => {
     return (
       <>
         <PageHeader
-          eyebrow="ASSESSMENTS / RESULT"
-          title={loading ? "Loading result..." : title ? `${title} - result` : "Result unavailable"}
-          subtitle={loading ? "Please wait." : notice}
+          eyebrow="Bài trắc nghiệm và Bài tập / Kết quả"
+          title={loading ? "Đang tải kết quả..." : "Chưa có kết quả"}
+          subtitle={loading ? "Vui lòng đợi." : notice}
           back
         />
-        {!loading && <LearnerButton onClick={back}>Back to Assessments</LearnerButton>}
+        {!loading && <LearnerButton onClick={back}>Quay lại Bài trắc nghiệm và Bài tập</LearnerButton>}
       </>
     );
   }
@@ -78,42 +58,42 @@ const AssignmentResult = () => {
   return (
     <>
       <PageHeader
-        eyebrow="ASSESSMENTS / RESULT"
-        title={`${result.assignment.title} - result`}
-        subtitle={`Submission ${result.submission.submissionNumber}, sent on ${formatTime(result.submission.submittedAt)}.`}
+        eyebrow="Bài trắc nghiệm và Bài tập / Kết quả"
+        title={`${result.assignment.title} - kết quả`}
+        subtitle={`Lần nộp thứ ${result.submission.submissionNumber}, nộp lúc ${formatTime(result.submission.submittedAt)}.`}
         back
       />
       <div className="course-learning-main">
         <div className="course-learning-content assignment-result-card">
           <div className="assignment-result-score">
-            <span>Final score</span>
+            <span>Điểm cuối cùng</span>
             <strong>{result.finalScore}%</strong>
-            <StatusTag tone={result.passed ? "success" : "error"}>{result.passed ? "Passed" : "Not passed"}</StatusTag>
+            <StatusTag tone={result.passed ? "success" : "error"}>{result.passed ? "Đạt" : "Chưa đạt"}</StatusTag>
           </div>
           {result.finalizationComment && (
-            <InfoPanel title="Note from your Instructor">{result.finalizationComment}</InfoPanel>
+            <InfoPanel title="Ghi chú của giảng viên">{result.finalizationComment}</InfoPanel>
           )}
 
-          <h3>Score by criterion</h3>
+          <h3>Điểm theo tiêu chí</h3>
           <ul className="assignment-result-criteria">
             {result.criteria.map((criterion) => (
               <li key={criterion.id}>
                 <span>{criterion.name}</span>
                 <em>
-                  {criterion.averagePoints === null ? "-" : criterion.averagePoints} / {criterion.maxPoints} pts
+                  {criterion.averagePoints === null ? "-" : criterion.averagePoints} / {criterion.maxPoints} điểm
                 </em>
               </li>
             ))}
           </ul>
 
-          <h3>Comments</h3>
+          <h3>Nhận xét</h3>
           {result.comments.length === 0 ? (
-            <p className="assignment-result-empty">There are no comments.</p>
+            <p className="assignment-result-empty">Chưa có nhận xét nào.</p>
           ) : (
             <ul className="assignment-result-comments">
               {result.comments.map((item, index) => (
                 <li key={index}>
-                  <strong>{item.source === "INSTRUCTOR" ? "Instructor" : "Peer reviewer"}</strong>
+                  <strong>{item.source === "INSTRUCTOR" ? "Giảng viên" : "Người chấm chéo"}</strong>
                   <p>{item.comment}</p>
                 </li>
               ))}
@@ -121,16 +101,16 @@ const AssignmentResult = () => {
           )}
           <div className="assignment-result-actions">
             <LearnerButton type="primary" onClick={back}>
-              Back to Assessments
+              Quay lại Bài trắc nghiệm và Bài tập
             </LearnerButton>
           </div>
         </div>
         <div className="course-learning-side">
           <div className="assignment-result-info">
-            <h3>Result information</h3>
-            <DetailItem label="Minimum score">{result.assignment.passingScore}%</DetailItem>
-            <DetailItem label="Graded on">{formatTime(result.finalizedAt)}</DetailItem>
-            <DetailItem label="Reviewers">Hidden</DetailItem>
+            <h3>Thông tin kết quả</h3>
+            <DetailItem label="Điểm tối thiểu">{result.assignment.passingScore}%</DetailItem>
+            <DetailItem label="Chấm lúc">{formatTime(result.finalizedAt)}</DetailItem>
+            <DetailItem label="Người chấm">Ẩn</DetailItem>
           </div>
         </div>
       </div>

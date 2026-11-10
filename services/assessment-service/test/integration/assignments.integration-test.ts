@@ -158,7 +158,10 @@ describe('UC19 over HTTP', () => {
           api('POST', '/assignments', { ...valid, title: `P${i}` }),
         ),
       );
-      assert.ok(results.every((r) => r.status === 201));
+      assert.ok(
+        results.every((r) => r.status === 201),
+        JSON.stringify(results.map((r) => [r.status, r.code])),
+      );
       const positions = results
         .map((r) => r.data.position)
         .sort((a, b) => a - b);

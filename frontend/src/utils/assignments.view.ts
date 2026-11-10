@@ -61,29 +61,19 @@ export const assignmentCalendarDay = (date: Date, timezone: string | null) => {
     parts.find((value) => value.type === type)!.value;
   return `${part("year")}-${part("month")}-${part("day")}`;
 };
-const addDays = (day: string, count: number) => {
-  const date = new Date(`${day}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + count);
-  return date.toISOString().slice(0, 10);
-};
 export const assignmentExtensionRange = (
   dueAt: string | null,
   timezone: string | null,
   now = new Date(),
 ) => {
   const today = assignmentCalendarDay(now, timezone);
+  // The end of this local date is strictly later than any instant on it,
+  // including midnight. The previous date ends at or before that instant.
   const afterCurrent = dueAt
-    ? addDays(
-        assignmentCalendarDay(
-          new Date(new Date(dueAt).getTime() - 1),
-          timezone,
-        ),
-        1,
-      )
+    ? assignmentCalendarDay(new Date(dueAt), timezone)
     : today;
   return {
     min: afterCurrent > today ? afterCurrent : today,
-    max: addDays(today, 365),
   };
 };
 export const extensionDateError = (
@@ -94,34 +84,31 @@ export const extensionDateError = (
 ) => {
   if (
     dueAt &&
-    day <=
-      assignmentCalendarDay(new Date(new Date(dueAt).getTime() - 1), timezone)
+    day < assignmentCalendarDay(new Date(dueAt), timezone)
   )
     return "DUE_DATE_NOT_LATER";
   const today = assignmentCalendarDay(now, timezone);
   if (day < today) return "DUE_DATE_IN_PAST";
-  if (day > assignmentExtensionRange(dueAt, timezone, now).max)
-    return "DUE_DATE_TOO_FAR";
   return null;
 };
 const messages: Record<string, string> = {
+  ORGANIZATION_NOT_ACTIVE: "Tổ chức hiện không hoạt động. Vui lòng liên hệ quản trị viên nền tảng.",
   FORBIDDEN: "Bạn không có quyền thực hiện thao tác này.",
   UNAUTHORIZED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
   SUBSCRIPTION_NOT_ACTIVE: "Gói đăng ký của tổ chức chưa hoạt động.",
   ASSIGNMENT_NOT_FOUND: "Không tìm thấy phân công. Vui lòng quay về danh sách.",
   COURSE_NOT_ASSIGNABLE:
-    "Course không còn ở trạng thái có thể phân công. Vui lòng chọn lại.",
+    "Khóa học không còn ở trạng thái có thể phân công. Vui lòng chọn lại.",
   ASSIGNMENT_INVALID_LEARNERS:
-    "Không ai được phân công vì danh sách Learner có lỗi. Hãy kiểm tra bên dưới.",
+    "Không ai được phân công vì danh sách Học viên có lỗi. Hãy kiểm tra bên dưới.",
   CONCURRENT_CHANGE: "Dữ liệu vừa thay đổi. Vui lòng thử gửi lại.",
-  NOT_IN_ORGANIZATION: "Learner không thuộc tổ chức.",
-  NOT_A_LEARNER: "Tài khoản không có vai trò Learner.",
+  NOT_IN_ORGANIZATION: "Học viên không thuộc tổ chức.",
+  NOT_A_LEARNER: "Tài khoản không có vai trò Học viên.",
   ACCOUNT_DELETED: "Tài khoản đã bị xóa.",
   ACCOUNT_DEACTIVATED: "Tài khoản đã bị vô hiệu hóa.",
-  ALREADY_ASSIGNED: "Learner đã được phân công Course này.",
+  ALREADY_ASSIGNED: "Học viên đã được phân công Khóa học này.",
   DUE_DATE_NOT_LATER: "Hạn mới phải sau hạn hiện tại.",
   DUE_DATE_IN_PAST: "Ngày hết hạn không được trước hôm nay.",
-  DUE_DATE_TOO_FAR: "Ngày hết hạn không được quá 365 ngày kể từ hôm nay.",
   ENROLLMENT_NOT_EXTENDABLE:
     "Trạng thái phân công đã thay đổi; không thể kéo dài hạn. Đang tải lại chi tiết.",
   ENROLLMENT_NOT_EXEMPTIBLE:

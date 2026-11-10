@@ -1,19 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import {
-  DAY_MS,
   OrganizationStatus,
   SubscriptionStatus,
   UserRoleValue,
   UserStatus,
 } from '../../common/constants/tenant.constants';
+import { organizerReadOnlyEndsAt } from '../../common/utils/organizer-read-only.util';
 import {
   ISignInAccess,
   SignInAccessMode,
   SignInDenyReason,
 } from './interfaces/sign-in-access.interface';
 import { SignInAccessRepository } from './sign-in-access.repository';
-
-const ORGANIZER_READ_ONLY_DAYS = 30;
 
 const allow = (accessMode: SignInAccessMode): ISignInAccess => ({
   allowed: true,
@@ -67,14 +65,7 @@ export class SignInAccessService {
     if (user.role !== UserRoleValue.Organizer) {
       return deny('SUBSCRIPTION_SUSPENDED');
     }
-    const readOnlyEndsAt =
-      subscription.readOnlyEndsAt ??
-      (subscription.suspendedAt
-        ? new Date(
-            subscription.suspendedAt.getTime() +
-              ORGANIZER_READ_ONLY_DAYS * DAY_MS,
-          )
-        : null);
+    const readOnlyEndsAt = organizerReadOnlyEndsAt(subscription);
     return readOnlyEndsAt && readOnlyEndsAt.getTime() > Date.now()
       ? allow('ReadOnly')
       : deny('SUBSCRIPTION_SUSPENDED');

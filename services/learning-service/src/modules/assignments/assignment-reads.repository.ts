@@ -10,6 +10,7 @@ export interface AssignmentRow {
   courseId: string;
   assignedAt: Date | null;
   dueAt: Date | null;
+  dueTimezone: string | null;
   status: string;
   baseDueAt: Date | null;
   extensionSeconds: bigint;
@@ -21,7 +22,7 @@ export interface AssignmentRow {
 }
 
 const columns = Prisma.sql`e.id AS "enrollmentId", e.learner_id AS "learnerId",
-  e.course_id AS "courseId", e.assigned_at AS "assignedAt", e.due_at AS "dueAt",
+  e.course_id AS "courseId", e.assigned_at AS "assignedAt", e.due_at AS "dueAt", e.due_timezone AS "dueTimezone",
   ${enrollmentDisplayStatusSql('e')} AS status, e.base_due_at AS "baseDueAt",
   e.extension_seconds AS "extensionSeconds", e.first_activity_at AS "firstActivityAt",
   e.completed_at AS "completedAt", e.completed_late AS "completedLate",

@@ -23,7 +23,6 @@ import type {
   LessonContent,
 } from '../../infrastructure/clients/course/course-service.interface';
 import { serviceUnavailable } from '../../infrastructure/clients/course/service-unavailable';
-import { OrganizationTimezoneService } from '../../infrastructure/clients/tenant/organization-timezone.service';
 import {
   buildCurriculum,
   neighborLessons,
@@ -41,7 +40,7 @@ export interface CurriculumView {
   enrollmentType: string;
   status: string;
   dueAt: string | null;
-  organizationTimezone: string | null;
+  dueTimezone: string | null;
   requiredMaterials: { completed: number; total: number };
   course: { name: string; versionNumber: number } | null;
   modules: {
@@ -109,7 +108,6 @@ export class CurriculumService {
     private readonly curriculum: CurriculumRepository,
     private readonly enrollments: EnrollmentsRepository,
     private readonly courseService: CourseServiceClient,
-    private readonly organizationTimezone: OrganizationTimezoneService,
   ) {}
 
   /** UC27: phần đầu và cây Module, Lesson. Chỉ đọc (BR-307). */
@@ -119,15 +117,10 @@ export class CurriculumService {
   ): Promise<CurriculumView> {
     const enrollment = await this.findAccessibleEnrollment(user, enrollmentId);
     const organizationId = user.organizationId!;
-    const needsTimezone =
-      enrollment.enrollmentType === 'Required' && enrollment.dueAt !== null;
 
-    const [treeResult, batchResult, organizationTimezone] = await Promise.all([
+    const [treeResult, batchResult] = await Promise.all([
       settle(this.courseService.getCourseTree(user, enrollment.courseId)),
       settle(this.courseService.getCoursesBatch(user, [enrollment.courseId])),
-      needsTimezone
-        ? this.organizationTimezone.getTimezone(user)
-        : Promise.resolve(null),
     ]);
     const tree = this.treeOrThrow(treeResult, enrollment);
     const batch = this.valueOrThrow(batchResult, 'I3 batch', enrollment);
@@ -153,7 +146,7 @@ export class CurriculumService {
       enrollmentType: enrollment.enrollmentType,
       status: enrollment.status,
       dueAt: enrollment.dueAt ? enrollment.dueAt.toISOString() : null,
-      organizationTimezone,
+      dueTimezone: enrollment.dueTimezone,
       requiredMaterials: counts.get(enrollment.id) ?? {
         completed: 0,
         total: 0,
@@ -242,7 +235,7 @@ export class CurriculumService {
    * D28: kiểm cục bộ trước khi gọi course-service. Không thấy hoặc Withdrawn → 404;
    * Halted hoặc bản sao phiên bản bị vô hiệu hóa → 403.
    */
-  private async findAccessibleEnrollment(
+  async findAccessibleEnrollment(
     user: CurrentUser,
     enrollmentId: string,
   ): Promise<AccessibleEnrollment> {
@@ -275,6 +268,18 @@ export class CurriculumService {
       throw contentUnavailable();
     }
     return enrollment;
+  }
+
+  /** Reuse UC27 visibility, snapshot flags and error mapping for UC28. */
+  async getProgressCurriculum(
+    user: CurrentUser,
+    enrollment: AccessibleEnrollment,
+  ) {
+    const tree = this.treeOrThrow(
+      await settle(this.courseService.getCourseTree(user, enrollment.courseId)),
+      enrollment,
+    );
+    return this.buildFor(tree, enrollment, user.organizationId!);
   }
 
   private async buildFor(

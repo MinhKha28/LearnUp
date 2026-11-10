@@ -17,6 +17,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
+import { toSafeNumber } from '../../common/utils/to-safe-number';
 import { OptionalEnrollmentRepository } from './optional-enrollment.repository';
 import { assertRestorable } from './optional-enrollment.rules';
 import { Prisma } from '../../../generated/prisma/client';
@@ -30,11 +31,15 @@ import {
   CourseServiceUnavailableError,
 } from '../../infrastructure/clients/course/course-service.errors';
 import type { CourseBatchItem } from '../../infrastructure/clients/course/course-service.interface';
+import {
+  normalizeCourseName,
+  type MyEnrollmentFilters,
+} from './my-enrollment-filters';
 import { serviceUnavailable } from '../../infrastructure/clients/course/service-unavailable';
-import { OrganizationTimezoneService } from '../../infrastructure/clients/tenant/organization-timezone.service';
 import {
   TENANT_CLIENT,
   TenantUnavailableError,
+  TenantOrganizationNotFoundError,
   type TenantClient,
 } from '../../infrastructure/clients/tenant/tenant.client';
 import { PlatformSettingsRepository } from '../platform-settings/platform-settings.repository';
@@ -56,6 +61,7 @@ export interface MyEnrollmentItem {
   enrollmentType: string;
   status: string;
   dueAt: string | null;
+  dueTimezone: string | null;
   requiredMaterials: { completed: number; total: number };
   course: {
     name: string;
@@ -64,8 +70,13 @@ export interface MyEnrollmentItem {
   } | null;
 }
 
-export interface MyEnrollmentsPage extends PageResponse<MyEnrollmentItem> {
-  organizationTimezone: string | null;
+export type MyEnrollmentsPage = PageResponse<MyEnrollmentItem>;
+
+@Injectable()
+export class MyEnrollmentClock {
+  now(): Prisma.Sql {
+    return Prisma.sql`now()`;
+  }
 }
 
 /** 409 kèm ID Enrollment đã có để client mở thẳng Enrollment đó. */
@@ -96,11 +107,11 @@ export class EnrollmentsService {
     private readonly courseService: CourseServiceClient,
     @Inject(TENANT_CLIENT)
     private readonly tenant: Pick<TenantClient, 'getOrganizationAccess'>,
-    private readonly organizationTimezone: OrganizationTimezoneService,
     @Optional() snapshotPreparation?: CourseSnapshotPreparationService,
     private readonly optionalEnrollments: OptionalEnrollmentRepository = new OptionalEnrollmentRepository(
       prisma,
     ),
+    private readonly myEnrollmentClock: MyEnrollmentClock = new MyEnrollmentClock(),
   ) {
     this.snapshotPreparation =
       snapshotPreparation ??
@@ -175,6 +186,7 @@ export class EnrollmentsService {
             expectedCompletionDays: null,
             baseDueAt: null,
             dueAt: null,
+            dueTimezone: null,
             extensionSeconds: 0,
           },
           tx,
@@ -207,17 +219,17 @@ export class EnrollmentsService {
 
   /**
    * UC26: Course của tôi. Đếm trước; trang rỗng hoặc vượt tổng thì trả ngay, không chạy truy vấn danh sách,
-   * không gọi I3 hay tenant. I3 và tenant chạy song song; tenant chỉ gọi khi trang có Required có hạn (D24).
+   * không gọi I3. Múi giờ hạn lấy từ Enrollment, không gọi tenant (D-051).
    */
   async findMyEnrollments(
     user: CurrentUser,
     page: number,
+    { q, type, status }: MyEnrollmentFilters = {},
   ): Promise<MyEnrollmentsPage> {
     const organizationId = this.organizationIdOf(user);
     const pageSize = MY_ENROLLMENTS_PAGE_SIZE;
     const emptyPage = (total: number): MyEnrollmentsPage => ({
       ...createPageResponse<MyEnrollmentItem>([], page, pageSize, total),
-      organizationTimezone: null,
     });
     // Header không phải UUID thì không thể có Enrollment nào
     const invalidHeaders = [
@@ -233,41 +245,52 @@ export class EnrollmentsService {
       return emptyPage(0);
     }
 
-    const total = await this.enrollments.countMine(user.userId, organizationId);
+    const criteria = { type, status, now: this.myEnrollmentClock.now() };
     const offset = (page - 1) * pageSize;
-    if (offset >= total) {
-      return emptyPage(total);
+    let total: number;
+    let rows: MyEnrollmentRow[];
+    let courseById: Map<string, CourseBatchItem>;
+    if (q) {
+      const candidates = await this.enrollments.findMineCandidates(
+        user.userId,
+        organizationId,
+        criteria,
+      );
+      courseById = await this.getMyEnrollmentCourses(user, candidates);
+      const keyword = normalizeCourseName(q);
+      const matches = candidates.filter(({ courseId }) => {
+        const course = courseById.get(courseId);
+        return (
+          course !== undefined &&
+          normalizeCourseName(course.name).includes(keyword)
+        );
+      });
+      total = matches.length;
+      rows = matches.slice(offset, offset + pageSize);
+    } else {
+      const [count, pageRows] = await this.prisma.$transaction(
+        [
+          this.enrollments.countMine(user.userId, organizationId, criteria),
+          this.enrollments.findMinePage(
+            user.userId,
+            organizationId,
+            pageSize,
+            offset,
+            criteria,
+          ),
+        ],
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+      );
+      total = toSafeNumber(count[0].n);
+      rows = pageRows;
+      courseById = await this.getMyEnrollmentCourses(user, rows);
     }
+    if (rows.length === 0) return emptyPage(total);
 
-    const rows = await this.enrollments.findMinePage(
-      user.userId,
-      organizationId,
-      pageSize,
-      offset,
-    );
-    // Dòng bị xóa giữa lúc đếm và lúc đọc trang
-    if (rows.length === 0) {
-      return emptyPage(total);
-    }
     const counts = await this.enrollments.countRequiredMaterials(
       rows.map((row) => row.id),
       organizationId,
     );
-    const hasRequiredDeadline = rows.some(
-      (row) => row.enrollmentType === 'Required' && row.dueAt !== null,
-    );
-    const [courses, organizationTimezone] = await Promise.all([
-      this.callCourseService(() =>
-        this.courseService.getCoursesBatch(user, [
-          ...new Set(rows.map((row) => row.courseId)),
-        ]),
-      ),
-      hasRequiredDeadline
-        ? this.organizationTimezone.getTimezone(user)
-        : Promise.resolve(null),
-    ]);
-
-    const courseById = new Map(courses.map((c) => [c.courseId, c]));
     const items = rows.map((row) =>
       this.toMyEnrollmentItem(
         row,
@@ -277,8 +300,26 @@ export class EnrollmentsService {
     );
     return {
       ...createPageResponse(items, page, pageSize, total),
-      organizationTimezone,
     };
+  }
+
+  private async getMyEnrollmentCourses(
+    user: CurrentUser,
+    rows: MyEnrollmentRow[],
+  ) {
+    const ids = [...new Set(rows.map((row) => row.courseId))];
+    const courses = new Map<string, CourseBatchItem>();
+    const batchSize = 100;
+    for (let start = 0; start < ids.length; start += batchSize) {
+      const batch = await this.callCourseService(() =>
+        this.courseService.getCoursesBatch(
+          user,
+          ids.slice(start, start + batchSize),
+        ),
+      );
+      for (const course of batch) courses.set(course.courseId, course);
+    }
+    return courses;
   }
 
   private toMyEnrollmentItem(
@@ -298,6 +339,7 @@ export class EnrollmentsService {
       enrollmentType: row.enrollmentType,
       status: row.status,
       dueAt: row.dueAt ? row.dueAt.toISOString() : null,
+      dueTimezone: row.dueTimezone,
       requiredMaterials: count ?? { completed: 0, total: 0 },
       course: course
         ? {
@@ -314,8 +356,12 @@ export class EnrollmentsService {
     let subscriptionStatus: string;
     try {
       const access = await this.tenant.getOrganizationAccess(user);
+      if (access.organizationStatus !== 'Active')
+        throw this.organizationNotActive();
       subscriptionStatus = access.subscriptionStatus;
     } catch (error) {
+      if (error instanceof TenantOrganizationNotFoundError)
+        throw this.organizationNotActive();
       if (error instanceof TenantUnavailableError) {
         this.logger.warn(`tenant-service không trả lời: ${error.message}`);
         throw serviceUnavailable();
@@ -338,6 +384,15 @@ export class EnrollmentsService {
       `Chặn đăng ký Course: tổ chức ${user.organizationId} có subscriptionStatus "${subscriptionStatus}".`,
     );
     throw new ForbiddenException(
+      createApiError(
+        STANDARD_ERROR_CODES.FORBIDDEN,
+        'Không thể đăng ký Course lúc này',
+      ),
+    );
+  }
+
+  private organizationNotActive(): ForbiddenException {
+    return new ForbiddenException(
       createApiError(
         STANDARD_ERROR_CODES.FORBIDDEN,
         'Không thể đăng ký Course lúc này',
@@ -421,5 +476,21 @@ export class EnrollmentsService {
       courseId,
       learnerCount: countMap.get(courseId) ?? 0,
     }));
+  }
+
+  async hasEverEnrollment(
+    user: CurrentUser,
+    courseId: string,
+  ): Promise<{ hasEverEnrolled: boolean }> {
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    const hasEverEnrolled = await this.enrollments.hasEverEnrollment(
+      user.organizationId,
+      courseId,
+    );
+
+    return { hasEverEnrolled };
   }
 }

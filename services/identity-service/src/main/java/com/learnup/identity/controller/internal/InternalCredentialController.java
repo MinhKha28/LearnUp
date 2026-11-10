@@ -1,44 +1,41 @@
 package com.learnup.identity.controller.internal;
 
-import com.learnup.common.context.HeaderConstants;
-import com.learnup.common.exception.BusinessException;
 import com.learnup.common.response.ApiResponse;
 import com.learnup.identity.dto.internal.SetCredentialsRequest;
+import com.learnup.identity.dto.internal.UpdateUserMetadataRequest;
 import com.learnup.identity.service.AuthService;
+import com.learnup.identity.service.UserMetadataService;
 import jakarta.validation.Valid;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Hidden;
 
 @RestController
+@Hidden
 @RequestMapping("/api/internal/credentials")
 public class InternalCredentialController {
 
-    private static final Logger log = LoggerFactory.getLogger(InternalCredentialController.class);
-
     private final AuthService authService;
-    private final String expectedInternalKey;
+    private final UserMetadataService userMetadataService;
 
-    public InternalCredentialController(AuthService authService,
-                                        @Value("${security.internal-key:learnup-internal-secret}") String expectedInternalKey) {
+    public InternalCredentialController(AuthService authService, UserMetadataService userMetadataService) {
         this.authService = authService;
-        this.expectedInternalKey = expectedInternalKey;
+        this.userMetadataService = userMetadataService;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<java.util.Map<String, String>> setCredentials(
-            @RequestHeader(value = HeaderConstants.X_INTERNAL_KEY, required = false) String internalKey,
             @Valid @RequestBody SetCredentialsRequest request) {
-
-        if (internalKey == null || internalKey.isBlank() || !internalKey.trim().equals(expectedInternalKey.trim())) {
-            log.warn("Unauthorized attempt to access /api/internal/credentials with key: '{}'", internalKey);
-            throw BusinessException.forbidden("Invalid or missing internal key");
-        }
-
+        // Authenticated as INTERNAL_SERVICE by Identity's security chain before controller dispatch.
         authService.setCredentials(request);
         return ApiResponse.success(java.util.Map.of("message", "Credentials successfully set"));
+    }
+
+    @PutMapping("/metadata")
+    public ApiResponse<java.util.Map<String, String>> updateMetadata(
+            @Valid @RequestBody UpdateUserMetadataRequest request) {
+        userMetadataService.update(request);
+        return ApiResponse.success(java.util.Map.of("message", "Identity metadata successfully updated"));
     }
 }

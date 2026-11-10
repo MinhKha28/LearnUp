@@ -19,6 +19,8 @@ import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.util.Properties;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -46,7 +48,7 @@ class EmailDeliveryServiceTest {
     }
 
     @Test
-    @DisplayName("Should record SENT log in simulated mode when mail sending is disabled")
+    @DisplayName("Should record SIMULATED, not SMTP success, when mail sending is disabled")
     void shouldSimulateEmailSendingWhenDisabled() {
         mailProperties.setEnabled(false);
 
@@ -64,7 +66,7 @@ class EmailDeliveryServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getRecipientEmail()).isEqualTo("user@example.com");
         assertThat(response.getSubject()).isEqualTo("Test Subject");
-        assertThat(response.getStatus()).isEqualTo("SENT");
+        assertThat(response.getStatus()).isEqualTo("SIMULATED");
         verify(javaMailSender, never()).send(any(MimeMessage.class));
     }
 
@@ -116,6 +118,44 @@ class EmailDeliveryServiceTest {
 
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo("FAILED");
-        assertThat(response.getErrorMessage()).contains("SMTP connection refused");
+        assertThat(response.getErrorMessage()).isEqualTo("SMTP delivery failed");
+    }
+
+    @Test
+    void enabledMailWithoutSenderIsFailedNotSimulatedOrSent() {
+        mailProperties.setEnabled(true);
+        when(emailLogRepository.save(any(EmailLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmailLogResponse response = emailDeliveryService.sendEmail(
+                new SendEmailRequest("recipient@example.test", "Subject", "Body", "WELCOME"));
+
+        assertThat(response.getStatus()).isEqualTo("FAILED");
+        assertThat(response.getErrorMessage()).isEqualTo("SMTP sender unavailable");
+    }
+
+    @Test
+    void recoveryBodyIsSentButNeverCopiedIntoPersistedMetadata() throws Exception {
+        mailProperties.setEnabled(true);
+        when(mailSenderProvider.getIfAvailable()).thenReturn(javaMailSender);
+        when(javaMailSender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
+        when(emailLogRepository.save(any(EmailLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        String resetLink = "https://frontend.example.test/reset-password?token=synthetic-recovery-token";
+
+        EmailLogResponse response = emailDeliveryService.sendEmail(
+                new SendEmailRequest("recipient@example.test", resetLink, "Recovery link: " + resetLink,
+                        "IDENTITY_PASSWORD_RECOVERY"));
+
+        ArgumentCaptor<MimeMessage> message = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(javaMailSender).send(message.capture());
+        assertThat(message.getValue().getSubject()).isEqualTo("LearnUP password recovery");
+        ByteArrayOutputStream wireMessage = new ByteArrayOutputStream();
+        message.getValue().writeTo(wireMessage);
+        assertThat(wireMessage.toString(StandardCharsets.UTF_8)).contains("synthetic-recovery-token");
+        assertThat(response.getSubject()).isEqualTo("LearnUP password recovery");
+        assertThat(response.getErrorMessage()).isNull();
+        assertThat(response.getStatus()).isEqualTo("SENT");
+        ArgumentCaptor<EmailLog> metadata = ArgumentCaptor.forClass(EmailLog.class);
+        verify(emailLogRepository).save(metadata.capture());
+        assertThat(metadata.getValue().getSubject()).doesNotContain("synthetic-recovery-token");
     }
 }

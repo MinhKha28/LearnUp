@@ -14,6 +14,7 @@ import RegisterPage from "@/pages/guest/register";
 import ActivatePage from "@/pages/guest/activate";
 import ActivationSuccess from "@/pages/guest/activation.success";
 import ForgotPasswordPage from "@/pages/guest/password.forgot";
+import RegistrationResendPage from "@/pages/guest/registration.resend";
 import ResetPasswordPage from "@/pages/guest/password.reset";
 import LayoutAdmin from "./components/layout/layout.admin";
 import ManageDashboard from "./pages/admin/dashboard";
@@ -31,6 +32,7 @@ import Profile from "./pages/admin/profile";
 import AdminProfileEdit from "./pages/admin/profile.edit";
 import ChangePassword from "./pages/admin/password.change";
 import LayoutOrganizer from "./components/layout/layout.organizer";
+import CertificateSettings from "@/pages/organizer/certificate.settings";
 import OrganizerDashboard from "./pages/organizer/dashboard";
 import OrganizerSubscription from "./pages/organizer/subscription";
 import OrganizerSubscriptionRenew from "./pages/organizer/subscription.renew";
@@ -39,10 +41,12 @@ import OrganizerOrganization from "./pages/organizer/organization";
 import OrganizerOrganizationEdit from "./pages/organizer/organization.edit";
 import OrganizerInstructors from "./pages/organizer/instructors";
 import OrganizerInstructorDetail from "./pages/organizer/instructor.detail";
+import OrganizerInstructorEdit from "./pages/organizer/instructor.edit";
 import OrganizerInstructorCreate from "./pages/organizer/instructor.create";
 import OrganizerInstructorImport from "./pages/organizer/instructor.import";
 import OrganizerLearners from "./pages/organizer/learners";
 import OrganizerLearnerDetail from "./pages/organizer/learner.detail";
+import OrganizerLearnerEdit from "./pages/organizer/learner.edit";
 import OrganizerLearnerCreate from "./pages/organizer/learner.create";
 import OrganizerLearnerImport from "./pages/organizer/learner.import";
 import OrganizerLearnerReport from "./pages/organizer/learner.report";
@@ -91,6 +95,7 @@ import LearnerReportContent from "./pages/learner/report.content";
 import LearnerReports from "./pages/learner/reports";
 import LearnerReportEscalate from "./pages/learner/report.escalate";
 import LearnerCourseEvaluation from "./pages/learner/course.evaluation";
+import LearnerCourseResults from "./pages/learner/course.results";
 import LearnerProfile from "./pages/learner/profile";
 import LearnerProfileEdit from "./pages/learner/profile.edit";
 import LearnerChangePassword from "./pages/learner/password.change";
@@ -99,6 +104,7 @@ import LayoutInstructor from "./components/layout/layout.instructor";
 import LayoutInstructorCourse from "./components/layout/layout.instructor.course";
 import InstructorDashboard from "./pages/instructor/dashboard";
 import InstructorMyCourses from "./pages/instructor/my.courses";
+import InstructorCourseTrash from "./pages/instructor/course.trash";
 import InstructorCourseCreate from "./pages/instructor/course.create";
 import InstructorCourseDetail from "./pages/instructor/course.detail";
 import InstructorCourseQuotaBlocked from "./pages/instructor/course.quota.blocked";
@@ -174,6 +180,7 @@ export const router = createBrowserRouter([
       { path: "activate/:token", element: <ActivatePage /> },
       { path: "activate/:token/success", element: <ActivationSuccess /> },
       { path: "forgot-password", element: <ForgotPasswordPage /> },
+      { path: "resend-registration", element: <RegistrationResendPage /> },
       { path: "reset-password/:token", element: <ResetPasswordPage /> },
     ],
   },
@@ -229,6 +236,7 @@ export const router = createBrowserRouter([
       },
       { path: "organization", element: <OrganizerOrganization /> },
       { path: "organization/edit", element: <OrganizerOrganizationEdit /> },
+      { path: "certificate-settings", element: <CertificateSettings /> },
       { path: "instructors", element: <OrganizerInstructors /> },
       { path: "instructors/add", element: <OrganizerInstructorCreate /> },
       { path: "instructors/import", element: <OrganizerInstructorImport /> },
@@ -236,10 +244,18 @@ export const router = createBrowserRouter([
         path: "instructors/:instructorId",
         element: <OrganizerInstructorDetail />,
       },
+      {
+        path: "instructors/:instructorId/edit",
+        element: <OrganizerInstructorEdit />,
+      },
       { path: "learners", element: <OrganizerLearners /> },
       { path: "learners/add", element: <OrganizerLearnerCreate /> },
       { path: "learners/import", element: <OrganizerLearnerImport /> },
       { path: "learners/:learnerId", element: <OrganizerLearnerDetail /> },
+      {
+        path: "learners/:learnerId/edit",
+        element: <OrganizerLearnerEdit />,
+      },
       {
         path: "learners/:learnerId/report",
         element: <OrganizerLearnerReport />,
@@ -296,7 +312,7 @@ export const router = createBrowserRouter([
       { path: "catalog/:courseId", element: <LearnerCourseOverview /> },
       { path: "peer-review", element: <LearnerPeerReviewQueue /> },
       { path: "peer-review/history", element: <LearnerPeerReviewHistory /> },
-      { path: "peer-review/:submissionId", element: <LearnerPeerReviewForm /> },
+      { path: "peer-review/:reviewId", element: <LearnerPeerReviewForm /> },
       { path: "certificates", element: <LearnerCertificates /> },
       {
         path: "certificates/:certificateId",
@@ -329,6 +345,7 @@ export const router = createBrowserRouter([
         element: <LearnerLessonResource />,
       },
       { path: "assessments", element: <LearnerCourseAssessments /> },
+      { path: "results", element: <LearnerCourseResults /> },
       { path: "quizzes/:quizId", element: <LearnerQuizTake /> },
       { path: "quizzes/:quizId/history", element: <LearnerQuizHistory /> },
       {
@@ -365,6 +382,10 @@ export const router = createBrowserRouter([
       { index: true, element: <InstructorDashboard /> },
       { path: "notifications", element: <NotificationPage /> },
       { path: "courses", element: <InstructorMyCourses /> },
+      {
+        path: "courses/trash",
+        element: <InstructorCourseTrash />,
+      },
       { path: "courses/create", element: <InstructorCourseCreate /> },
       {
         path: "courses/create/quota-blocked",
@@ -415,9 +436,12 @@ export const router = createBrowserRouter([
         element: <InstructorSubmissionFinalize />,
       },
       { path: "peer-cycles", element: <InstructorPeerCycles /> },
-      { path: "peer-cycles/:cycleId", element: <InstructorPeerCycleDetail /> },
       {
-        path: "peer-cycles/:cycleId/waive/:reviewerId",
+        path: "peer-cycles/:assignmentId/:cycleId",
+        element: <InstructorPeerCycleDetail />,
+      },
+      {
+        path: "peer-cycles/:assignmentId/:cycleId/waive/:learnerId",
         element: <InstructorPeerCycleWaive />,
       },
       { path: "monitoring", element: <InstructorMonitoring /> },

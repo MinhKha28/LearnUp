@@ -1,0 +1,160 @@
+# Cross-service E2E API journeys
+
+Re-runnable API-level journeys against a real local cluster (no UI). Each run creates its own
+data under a unique run prefix (`e2eYYMMDDhhmmss`), asserts business outcomes (status codes,
+state read back through the API, Kafka event observed) and never deletes anything.
+
+| ID | Journey | Services |
+| :-- | :-- | :-- |
+| J1 | Login through identity, authorised gateway call, unauthorised calls rejected | gateway, identity, tenant |
+| J2 | Organizer creates learners, invitation email, accept, learner login | gateway, tenant, notification, identity |
+| J3 | Organizer assigns a course, learner sees it, `EnrollmentAssigned` reaches Kafka | gateway, learning, tenant, course, kafka |
+| J4 | Catalog, course introduction, self-enroll, My Enrollments | gateway, course, learning |
+| J5 | Curriculum, video/reading progress, completion | gateway, learning, course |
+| J6 | Assessment access follows enrollment status (L17) | gateway, assessment, learning |
+| J7 | Certificate signer settings: ETag, If-Match save, 412/428 | gateway, achievement-reporting |
+| J8 | Tenant isolation between organization A and B | gateway, tenant, course, learning, achievement-reporting |
+| J9 | Re-registration with the same email: replaced unverified registration, expired registration, active-account email (observation), 10 concurrent same-email registrations | gateway, tenant, identity, notification |
+| J10 | Assessment -> learning chain: a fresh Learner assigned the course submits a text-only Assignment (no peer review); the Enrollment moves NotStarted -> InProgress with the event's `firstActivityAt`; one published outbox row, no quarantine; a byte-identical duplicate event changes nothing | gateway, assessment, learning, kafka |
+
+## Start the cluster (Linux host, Docker, JDK 21, Node 22)
+
+Windows: run everything (build, `cluster/start.sh`, `run.mjs`, `cleanup.mjs`) inside WSL2 with
+Docker Desktop's WSL integration; Git Bash is not supported (no `lsof`, different `/tmp`).
+`E2E_STATE_DIR` must be the same for the cluster scripts and the runner/cleanup, otherwise they
+read different state (secrets, mailbox, run records).
+
+Build once (no lockfile changes):
+
+```bash
+(cd libraries/java-common && mvn -B -DskipTests install)
+for d in infrastructure/eureka-server gateway/api-gateway services/identity-service \
+         services/notification-service services/audit-service; do (cd $d && mvn -B -DskipTests package); done
+for d in libraries/ts-common libraries/ts-storage; do (cd $d && npm ci && npm run build); done
+for s in tenant course learning assessment achievement-reporting; do
+  (cd services/$s-service && npm ci && npx prisma generate && npm run build); done
+tests/e2e/cluster/start.sh      # idempotent; tests/e2e/cluster/stop.sh stops host processes
+```
+
+`start.sh` creates both Kafka topics explicitly on every start (`learnup.learning.enrollment-events`,
+`learnup.assessment.learner-assessment-events`: 3 partitions, RF 1, 30-day retention, `--if-not-exists`) and
+does not report ready before the consumer groups `learning-assessment-status-v1` and
+`achievement-reporting-certificate-v1` each have an active member.
+
+`start.sh` runs postgres and kafka from the E2E-only `cluster/compose.e2e.yml` under the compose
+project `learnup-e2e` (`cluster/compose.sh`; `E2E_COMPOSE_PROJECT` may only be changed to another
+name ending in `-e2e`). Containers, volumes (`learnup-e2e_postgres_data`, `learnup-e2e_kafka_data`)
+and the network (`learnup-e2e_default`) are separate from the developer's root `docker-compose.yml`
+stack (project `learnup`). That stack uses the same host ports (5433, 9092), so `start.sh` refuses
+to run while any of its containers is running; stop it yourself, E2E never stops or deletes it.
+`stop.sh` kills whatever listens on the recorded service ports (8080-8093, 8761, 2525), so on a
+shared machine make sure nothing else uses them. It starts every service from
+the host builds, applies migrations, runs each service's own seed once, and starts a loopback
+SMTP sink. It then provisions credentials for the two seeded Organizers through Identity's
+authenticated internal channel. Everything it generates, including random secrets in
+`cluster.env`, per-service env files, logs, the mailbox and run records, lives in
+`$E2E_STATE_DIR` (default `/tmp/learnup-e2e`) and never in the repository.
+
+Topology mirrors the production frontend build (compose builds every `VITE_*_BACKEND_URL` as
+the gateway): every journey call goes through the gateway on `:8080`. Direct service calls are
+used only for trust-boundary checks.
+
+Fakes and non-default settings used:
+
+| Setting | Why |
+| :-- | :-- |
+| smtp-sink on `127.0.0.1:2525`, `LEARNUP_MAIL_ENABLED=true` | Read OTP and invitation links; nothing leaves the host |
+| Cloudinary variables empty | Storage stays unconfigured; no journey uploads files |
+| learning `TENANT_CLIENT_MODE=http` | Not a fake: learning calls the real Tenant organization-access endpoint, as the root Compose does |
+| learning `VIDEO_PLAYBACK_MODE=fixture`, `READING_ACCESS_MODE=fixture` | course-service playback/reading contract not built (CT-3) |
+| achievement signer access uses the default HTTP mode | J7 checks the real Tenant organization-access endpoint |
+| achievement `CERTIFICATE_CLEANUP_ENABLED=false`, `CERTIFICATE_CONSUMER_ENABLED=true` | No storage cleanup; the consumer is on so the enrollment-events group is exercised end to end |
+| assessment `OUTBOX_RELAY_ENABLED=true`, learning `ASSESSMENT_CONSUMER_ENABLED=true` | The assessment -> learning chain runs by default (J10) |
+| tenant `DEV_FAKE_AUTH=false`, `LEARNING_CLIENT_MODE=http`, `COURSE_CLIENT_MODE=http` | Real gateway identity and real calls |
+
+## Run
+
+```bash
+node tests/e2e/run.mjs          # all journeys; or e.g. node tests/e2e/run.mjs J1 J7
+```
+
+Exit code 0 means every journey is `PASS` or `KNOWN-FAIL`. A `KNOWN-FAIL` step still asserts the
+correct behaviour; it fails only because of a bug listed below. Fixing a bug turns that step into
+`UNEXPECTED-PASS`; then remove the bug ID from `lib/known-bugs.mjs`. The run record
+(`$E2E_STATE_DIR/runs/<runId>.json`) holds every created ID plus per-journey and per-route
+latency (single-user, not a load test).
+
+## Browser smoke (demo journeys)
+
+```bash
+(cd frontend && npm ci)            # once
+node tests/e2e/ui/run.mjs          # all of S1-S4; or e.g. node tests/e2e/ui/run.mjs S1 S3
+```
+
+Drives the production frontend bundle through the gateway on `:8080` (every `VITE_*_BACKEND_URL`
+is the gateway, as in the compose build) with headless Chromium over raw CDP: Node's built-in
+WebSocket, no npm dependency. The runner builds the bundle into `$E2E_STATE_DIR/ui-dist` on first
+use (`E2E_UI_REBUILD=1` rebuilds), serves it on `localhost:3000` (`E2E_UI_PORT`; the gateway CORS
+list allows `:3000`/`:5173`) and finds Chrome via `CHROME_PATH`, `PATH`, or a Playwright cache.
+Each journey runs in a fresh browser context with its own run-prefixed learner (created through the
+API as in J2, setup only). Every step asserts the visible element/text, no uncaught page error, no
+HTTP >= 500 and no unexpected 4xx; it waits on conditions, never fixed sleeps, and writes one
+screenshot to `$E2E_STATE_DIR/ui-screens/<runId>/` (never committed). Nothing is deleted.
+
+| ID | Journey |
+| :-- | :-- |
+| S1 | UC05 Organizer login; records the organization name shown in the header |
+| S2 | UC13 learner list, UC24.2 assign a course; success message and the assignment with its due date |
+| S3 | UC26 My courses, UC27 curriculum, UC27.1 lesson, UC27.3 Reading completion (kept after reload), UC27.2 Video page against the unreachable fixture URL |
+| S4 | UC28 progress page: completed Reading counted, other required materials listed as missing |
+
+The assign form has no due-date input; the due date is computed per learner by the backend and
+checked in the assignment list. The video step records what the page shows when the fixture media
+cannot load (no crash; the page does not show a message of its own).
+
+## Cleanup (explicit, never run by the suite)
+
+```bash
+node tests/e2e/cleanup.mjs --run <runId>        # dry run
+node tests/e2e/cleanup.mjs --run <runId> --yes  # or --all
+```
+
+Uses business APIs only: Optional enrollments are withdrawn and InProgress assignments are
+exempted. Accounts, credentials, Kafka events and signer history have no deletion API and are
+kept. A full reset of the E2E infrastructure is a separate explicit command:
+
+```bash
+tests/e2e/cluster/reset.sh        # dry run: lists the learnup-e2e volumes it would remove
+tests/e2e/cluster/reset.sh --yes  # stop.sh, then docker compose -p learnup-e2e down -v
+```
+
+It only removes volumes that compose resolves for the E2E project and that carry the label
+`com.docker.compose.project=learnup-e2e`; anything else aborts without deleting. Never run
+`docker compose down -v` from the repository root for E2E: that is the dev stack and removes
+its volumes. `$E2E_STATE_DIR` (secrets, mailbox, run records) is kept; delete it by hand if wanted.
+
+## Known failures
+
+CT-1 (assessment-service had no `completion-snapshot` endpoint, so no enrollment reached
+Completed) is resolved: J5 now asserts that the enrollment becomes Completed.
+
+Tenant CT-2 is resolved: J7 uses the real `GET /api/v1/internal/organizations/:id/access` endpoint with matching internal-key and Organization headers. Tenant unavailability fails closed with `503 TENANT_UNAVAILABLE`.
+
+Remaining contract gaps worked around with documented fakes (not counted as failures):
+
+- **CT-3 (course-service).** No playback or reading contract exists. In course mode (the compose
+  default), `GET /api/v1/enrollments/:id/materials/:mid/playback` returns 503
+  `PLAYBACK_UNAVAILABLE`, and `reading-access` returns 503.
+
+### J10 scope
+
+J10 stops at the first activity. It does not finalize the submission (grading, `AwaitingFinalization`
+-> Completed, certificate issuance): Instructor finalization of an Assignment has no working
+end-to-end path yet (Issue #234), and J10 deliberately uses no SQL stand-in. J10 reads SQL only
+to observe (assessment outbox row, learning quarantine; no API exposes them) and never writes.
+Each hop is polled for at most 15 s (relay poll 1 s + consumer transaction is a few seconds on a
+healthy cluster). If learning's `ASSESSMENT_CONSUMER_ENABLED` or assessment's `OUTBOX_RELAY_ENABLED`
+is off, J10 fails at the Kafka-event step or J10a with the last observed state.
+
+Not covered yet: quiz attempts, peer review, Instructor finalization and certificate issuance for
+Assignments (Issue #234). A learner of organization B is not exercised either.

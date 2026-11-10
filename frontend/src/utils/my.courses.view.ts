@@ -2,7 +2,7 @@ import type { MyEnrollmentItem } from "@/types/learning.types";
 import { summarizeEnrollment, type EnrollmentSummary } from "@/utils/enrollment.summary";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 
-export const HALTED_NOTE = "Course đang tạm dừng, bạn chưa thể truy cập nội dung";
+export const HALTED_NOTE = "Khóa học đang tạm dừng, bạn chưa thể truy cập nội dung";
 
 export interface MyCourseRow extends EnrollmentSummary {
   key: string;
@@ -11,9 +11,9 @@ export interface MyCourseRow extends EnrollmentSummary {
 }
 
 /** Mô hình hiển thị một dòng UC26; không tính phần trăm (D4). */
-export const buildMyCourseRow = (item: MyEnrollmentItem, organizationTimezone: string | null): MyCourseRow => ({
+export const buildMyCourseRow = (item: MyEnrollmentItem): MyCourseRow => ({
   key: item.enrollmentId,
-  ...summarizeEnrollment(item, organizationTimezone),
+  ...summarizeEnrollment(item),
   coverFileId: item.course?.coverFileId ?? null,
   action:
     item.status === "Halted"

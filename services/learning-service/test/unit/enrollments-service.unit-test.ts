@@ -16,6 +16,8 @@ import type { CourseSnapshotRows } from '../../src/modules/course-snapshots/cour
 import { CreateEnrollmentDto } from '../../src/modules/enrollments/dto/create-enrollments.dto';
 import { EnrollmentsController } from '../../src/modules/enrollments/enrollments.controller';
 import { EnrollmentsService } from '../../src/modules/enrollments/enrollments.service';
+import { EnrollmentsRepository } from '../../src/modules/enrollments/enrollments.repository';
+import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import {
   CourseNotAvailableError,
   CourseServiceConfigurationError,
@@ -28,6 +30,7 @@ import type {
 } from '../../src/infrastructure/clients/course/course-service.interface';
 import {
   TenantUnavailableError,
+  TenantOrganizationNotFoundError,
   type OrganizationAccess,
 } from '../../src/infrastructure/clients/tenant/tenant.client';
 
@@ -139,6 +142,7 @@ function setup(
         ? options.tenant()
         : Promise.resolve({
             subscriptionStatus: 'Active',
+            organizationStatus: 'Active',
             readOnlyEndsAt: null,
             timezone: 'Asia/Ho_Chi_Minh',
           });
@@ -155,7 +159,6 @@ function setup(
     platformSettings as never,
     courseService as never,
     tenant,
-    {} as never,
     undefined,
     {
       findRegistration: async () => {
@@ -184,6 +187,7 @@ function access(subscriptionStatus: string) {
   return () =>
     Promise.resolve({
       subscriptionStatus,
+      organizationStatus: 'Active',
       readOnlyEndsAt: null,
       timezone: 'Asia/Ho_Chi_Minh',
     });
@@ -355,6 +359,7 @@ void describe('EnrollmentsService.enrollOptional (UC25.3)', () => {
       expectedCompletionDays: null,
       baseDueAt: null,
       dueAt: null,
+      dueTimezone: null,
       extensionSeconds: 0,
     });
     assert.deepEqual(Object.keys(result).sort(), [
@@ -437,5 +442,64 @@ void describe('EnrollmentsController', () => {
       plainToInstance(CreateEnrollmentDto, { courseId: COURSE_ID }),
     );
     assert.equal(ok.length, 0);
+  });
+});
+
+for (const organizationStatus of ['PendingPayment', 'Suspended', 'Cancelled']) {
+  for (const subscriptionStatus of ['Active', 'Grace']) {
+    void test(`enrollment blocks ${organizationStatus} before subscription ${subscriptionStatus}`, async () => {
+      const { service, calls } = setup({
+        tenant: () =>
+          Promise.resolve({
+            organizationStatus,
+            subscriptionStatus,
+            readOnlyEndsAt: null,
+            timezone: 'Asia/Ho_Chi_Minh',
+          }),
+      });
+      await rejectsWith(
+        service.enrollOptional(LEARNER, COURSE_ID),
+        403,
+        'FORBIDDEN',
+      );
+      assert.equal(calls.lock, 0);
+    });
+  }
+}
+void test('enrollment blocks recognized organization-not-found with FORBIDDEN', async () => {
+  const { service, calls } = setup({
+    tenant: () => Promise.reject(new TenantOrganizationNotFoundError()),
+  });
+  await rejectsWith(
+    service.enrollOptional(LEARNER, COURSE_ID),
+    403,
+    'FORBIDDEN',
+  );
+  assert.equal(calls.lock, 0);
+});
+
+void describe('Enrollment history for Course trash (UC14.5)', () => {
+  for (const status of ['Withdrawn', 'Completed'] as const) {
+    void test(`counts a ${status} Enrollment for this Organization and Course`, async () => {
+      const findFirst = mock.fn(async (_query: unknown) => ({ id: EXISTING_ID, status }));
+      const repository = new EnrollmentsRepository({
+        enrollment: { findFirst },
+      } as unknown as PrismaService);
+
+      assert.equal(await repository.hasEverEnrollment(ORG_A, COURSE_ID), true);
+      assert.equal(findFirst.mock.callCount(), 1);
+      assert.deepEqual(findFirst.mock.calls[0].arguments[0], {
+        where: { organizationId: ORG_A, courseId: COURSE_ID },
+        select: { id: true },
+      });
+    });
+  }
+
+  void test('returns false when no Enrollment matches the Organization and Course', async () => {
+    const repository = new EnrollmentsRepository({
+      enrollment: { findFirst: async () => null },
+    } as unknown as PrismaService);
+
+    assert.equal(await repository.hasEverEnrollment(ORG_A, COURSE_ID), false);
   });
 });

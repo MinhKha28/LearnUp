@@ -1,23 +1,31 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
+import { message, Popconfirm } from "antd";
+import { Link } from "react-router-dom";
 import { InstructorButton } from "@/components/instructor/instructor.ui";
-import { assessmentErrorCode, assessmentErrorText, fetchPeerReviewCyclesAPI } from "@/services/assessment.service";
+import {
+  assessmentErrorCode,
+  assessmentErrorText,
+  closePeerReviewCycleAPI,
+  fetchPeerReviewCyclesAPI,
+} from "@/services/assessment.service";
 import type { IPeerReviewCycleList, TPeerReviewCycleStatus } from "@/types/assessment.types";
 import "./peer.cycle.table.scss";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString();
+const formatTime = (iso: string) => formatDateTimeVN(iso);
 
 const STATUS_LABEL: Record<TPeerReviewCycleStatus, string> = {
-  Open: "Open",
-  Assigned: "Assigned",
-  InstructorOnly: "Instructor grades",
-  Completed: "Completed",
+  Open: "Đang mở",
+  Assigned: "Đã phân công",
+  InstructorOnly: "Giảng viên chấm",
+  Completed: "Hoàn tất",
 };
 
 const STATUS_HINT: Record<TPeerReviewCycleStatus, string> = {
-  Open: "Still taking submissions.",
-  Assigned: "Closed; the work is assigned to reviewers.",
-  InstructorOnly: "Closed with too few submissions for peer review, so you grade them all.",
-  Completed: "All reviews are done.",
+  Open: "Đang nhận bài nộp.",
+  Assigned: "Đã đóng; các bài nộp đã được giao cho người chấm.",
+  InstructorOnly: "Đã đóng nhưng có quá ít bài nộp để chấm chéo, nên bạn chấm tất cả.",
+  Completed: "Mọi bài chấm đã xong.",
 };
 
 /**
@@ -37,6 +45,7 @@ const PeerCycleTable = ({
   // set when there is nothing to show: peer review is off, or the call failed
   const [notice, setNotice] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [closingId, setClosingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,12 +57,12 @@ const PeerCycleTable = ({
         setNotice("");
       } else if (assessmentErrorCode(res).code === "PEER_REVIEW_NOT_ENABLED") {
         // PRE-1
-        setNotice("Peer Review is not enabled for this Assignment, so it has no cycles.");
+        setNotice("Bài tập này chưa bật chấm chéo nên không có chu kỳ.");
       } else {
-        setNotice(assessmentErrorText(res, "Unable to load the peer review cycles."));
+        setNotice(assessmentErrorText(res, "Không tải được các chu kỳ chấm chéo."));
       }
     } catch {
-      setNotice("Unable to reach the Assessment service. Please try again.");
+      setNotice("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setList(result);
       setLoading(false);
@@ -65,13 +74,38 @@ const PeerCycleTable = ({
     void load();
   }, [load, reloadKey]);
 
-  if (loading) return <p className="peer-cycles-empty">Loading cycles...</p>;
+  /**
+   * UC33: close a cycle whose closing line has passed but which the schedule has not closed yet. The backend hands out
+   * the reviews or sends the work to the Instructor. Before the line the calendar closes it (BR-230), never this button.
+   */
+  const closeCycle = async (cycleId: string) => {
+    setClosingId(cycleId);
+    try {
+      const res = await closePeerReviewCycleAPI(assignmentId, cycleId);
+      if (!res.data) {
+        message.error(assessmentErrorText(res, "Không đóng được chu kỳ."));
+        return;
+      }
+      const done = res.data;
+      if (done.alreadyClosed) message.info("Chu kỳ này đã được đóng từ trước.");
+      else if (done.status === "Assigned")
+        message.success(`Đã đóng chu kỳ. ${done.reviewCount} bài chấm đã được giao cho ${done.submissionCount} học viên.`);
+      else message.success(`Đã đóng chu kỳ. Chỉ có ${done.submissionCount} bài nộp nên bạn chấm tất cả.`);
+      setReloadKey((key) => key + 1);
+    } catch {
+      message.error("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
+    } finally {
+      setClosingId(null);
+    }
+  };
+
+  if (loading) return <p className="peer-cycles-empty">Đang tải các chu kỳ...</p>;
   if (!list) {
     return (
       <div className="builder-banner">
-        <strong>No cycles to show</strong>
+        <strong>Không có chu kỳ để hiển thị</strong>
         <p>{notice}</p>
-        <InstructorButton onClick={() => setReloadKey((key) => key + 1)}>Try again</InstructorButton>
+        <InstructorButton onClick={() => setReloadKey((key) => key + 1)}>Thử lại</InstructorButton>
       </div>
     );
   }
@@ -81,25 +115,26 @@ const PeerCycleTable = ({
     <>
       {list.items.length === 0 ? (
         <p className="peer-cycles-empty">
-          No cycle yet. The first one opens when a Learner submits work for this Assignment.
+          Chưa có chu kỳ nào. Chu kỳ đầu tiên mở khi một học viên nộp bài cho bài tập này.
         </p>
       ) : (
         <table className="peer-cycles-table">
           <thead>
             <tr>
-              <th>Cycle</th>
-              <th>Opens</th>
-              <th>Closes and assigns</th>
-              <th>Reviews due</th>
-              <th>Submissions</th>
-              <th>Status</th>
+              <th>Chu kỳ</th>
+              <th>Mở lúc</th>
+              <th>Đóng và phân công</th>
+              <th>Hạn chấm</th>
+              <th>Bài nộp</th>
+              <th>Trạng thái</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {list.items.map((cycle, index) => (
               <tr key={cycle.id}>
                 <td>
-                  <strong>Cycle {index + 1}</strong>
+                  <strong>Chu kỳ {index + 1}</strong>
                 </td>
                 <td>{formatTime(cycle.opensAt)}</td>
                 <td>{formatTime(cycle.closesAt)}</td>
@@ -110,14 +145,33 @@ const PeerCycleTable = ({
                     {STATUS_LABEL[cycle.status]}
                   </span>
                 </td>
+                <td>
+                  {cycle.submissionCount > 0 && (
+                    <Link className="peer-cycles-detail-link" to={`/instructor/peer-cycles/${assignmentId}/${cycle.id}`}>
+                      Chi tiết
+                    </Link>
+                  )}{" "}
+                  {!cycle.closed && Date.parse(cycle.closesAt) <= Date.now() && (
+                    <Popconfirm
+                      title="Đóng chu kỳ này ngay bây giờ?"
+                      description={`Chu kỳ ${index + 1} đã qua giờ chốt và lịch chưa đóng nó. Đóng chu kỳ sẽ phân ${cycle.submissionCount} bài nộp để người học chấm chéo.`}
+                      okText="Đóng chu kỳ"
+                      onConfirm={() => closeCycle(cycle.id)}
+                    >
+                      <InstructorButton size="small" loading={closingId === cycle.id}>
+                        Đóng chu kỳ
+                      </InstructorButton>
+                    </Popconfirm>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
       <p className="peer-cycles-footnote">
-        {n ?? "?"} reviewers per submission. With fewer than {(n ?? 0) + 1} submissions in a cycle, you grade them all.
-        Changing the settings applies to cycles made afterwards; cycles already made keep their dates.
+        Mỗi bài nộp có {n ?? "?"} người chấm. Nếu một chu kỳ có ít hơn {(n ?? 0) + 1} bài nộp thì bạn chấm tất cả.
+        Đổi cấu hình chỉ áp dụng cho các chu kỳ tạo sau đó; chu kỳ đã tạo giữ nguyên thời hạn.
       </p>
     </>
   );

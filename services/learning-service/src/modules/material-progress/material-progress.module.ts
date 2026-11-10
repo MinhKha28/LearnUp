@@ -1,14 +1,10 @@
 import { Module } from '@nestjs/common';
 import { MaterialProgressController } from './material-progress.controller';
 import { MaterialProgressService } from './material-progress.service';
-import { ConfigService } from '@nestjs/config';
 import { CourseServiceModule } from '../../infrastructure/clients/course/course-service.module';
 import { MaterialProgressRepository } from './material-progress.repository';
 import { ReportProgressPipe } from './report-progress.dto';
-import {
-  VIDEO_PLAYBACK_CONFIG,
-  readVideoPlaybackConfig,
-} from './video-playback.config';
+import { CompleteReadingPipe } from './complete-reading.pipe';
 
 @Module({
   imports: [CourseServiceModule],
@@ -17,12 +13,7 @@ import {
     MaterialProgressService,
     MaterialProgressRepository,
     ReportProgressPipe,
-    {
-      provide: VIDEO_PLAYBACK_CONFIG,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) =>
-        readVideoPlaybackConfig((key) => config.get<string>(key)),
-    },
+    CompleteReadingPipe,
   ],
   exports: [MaterialProgressService],
 })

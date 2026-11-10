@@ -8,10 +8,10 @@ services:
     container_name: learnup-postgres
     environment:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-}
       POSTGRES_DB: identity_db
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
@@ -23,6 +23,13 @@ services:
       timeout: 5s
       retries: 5
 
+  mailpit:
+    image: axllent/mailpit:v1.33.1
+    ports:
+      - "127.0.0.1:8025:8025"
+    networks:
+      - learnup-network
+
   # ==============================================================================
   # Message Broker Infrastructure
   # Apache Kafka in KRaft mode (no Zookeeper required)
@@ -31,8 +38,8 @@ services:
     image: confluentinc/cp-kafka:7.6.0
     container_name: learnup-kafka
     ports:
-      - "9092:9092"
-      - "29092:29092"
+      - "127.0.0.1:9092:9092"
+      - "127.0.0.1:29092:29092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "broker,controller"
@@ -69,7 +76,7 @@ services:
       dockerfile: Dockerfile
     container_name: learnup-eureka
     ports:
-      - "8761:8761"
+      - "127.0.0.1:8761:8761"
     environment:
       SPRING_PROFILES_ACTIVE: docker
     networks:
@@ -94,12 +101,12 @@ services:
       dockerfile: gateway/api-gateway/Dockerfile
     container_name: learnup-gateway
     ports:
-      - "${GATEWAY_HOST_PORT:-8088}:8080"
+      - "127.0.0.1:${GATEWAY_HOST_PORT:-8088}:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      JWT_SECRET: ${JWT_SECRET:-devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong}
-      INTERNAL_GATEWAY_KEY: ${INTERNAL_GATEWAY_KEY:-learnup-internal-secret}
+      JWT_SECRET: ${JWT_SECRET:-}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       TENANT_SERVICE_URL: http://tenant-service:8084
       COURSE_SERVICE_URL: http://course-service:8083
       LEARNING_SERVICE_URL: http://learning-service:8085
@@ -129,19 +136,24 @@ services:
       context: .
       dockerfile: services/identity-service/Dockerfile
     container_name: learnup-identity-service
-    ports:
-      - "8081:8081"
+    # Internal only: Gateway discovers :8081 through Eureka; Tenant uses identity-service:8081.
+    # Development host debugging, if needed: opt in with a local override bound to 127.0.0.1.
+    expose:
+      - "8081"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/identity_db
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      JWT_SECRET: ${JWT_SECRET:-devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong}
+      JWT_SECRET: ${JWT_SECRET:-}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
       TENANT_SERVICE_URL: http://tenant-service:8084
-      LEARNUP_SEED_ENABLED: ${LEARNUP_SEED_ENABLED:-true}
-      LEARNUP_SEED_DEFAULT_PASSWORD: ${LEARNUP_SEED_DEFAULT_PASSWORD:-LearnUp@123}
+      NOTIFICATION_SERVICE_URL: http://notification-service:8082
+      PASSWORD_RECOVERY_FRONTEND_BASE_URL: ${PASSWORD_RECOVERY_FRONTEND_BASE_URL:-}
+      # Automatic Identity-only demo accounts are retired; Tenant owns account provisioning.
+      LEARNUP_SEED_ENABLED: "false"
     depends_on:
       postgres:
         condition: service_healthy
@@ -164,25 +176,58 @@ services:
       context: .
       dockerfile: services/notification-service/Dockerfile
     container_name: learnup-notification-service
-    ports:
-      - "8082:8082"
+    # Email delivery is a private, authenticated service channel (Identity and Tenant).
+    expose:
+      - "8082"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-localhost}
-      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-mailpit}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-1025}
       SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
       SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      SPRING_MAIL_SMTP_AUTH: ${SPRING_MAIL_SMTP_AUTH:-false}
+      SPRING_MAIL_SMTP_STARTTLS_ENABLE: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:-false}
       MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
-      LEARNUP_MAIL_ENABLED: ${LEARNUP_MAIL_ENABLED:-false}
+      LEARNUP_MAIL_ENABLED: ${LEARNUP_MAIL_ENABLED:-true}
       LEARNUP_MAIL_FROM: ${LEARNUP_MAIL_FROM:-noreply@learnup.com}
+      # Consumer of the learning enrollment events (e-mail and in-app notice to the Learner).
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      ENROLLMENT_EVENTS_CONSUMER_ENABLED: ${ENROLLMENT_EVENTS_CONSUMER_ENABLED:-true}
+      COURSE_EVENTS_CONSUMER_ENABLED: ${COURSE_EVENTS_CONSUMER_ENABLED:-true}
+      COURSE_EVENTS_TOPIC: ${COURSE_EVENTS_TOPIC:-learnup.course.course-component-events}
+      COURSE_EVENTS_GROUP_ID: ${COURSE_EVENTS_GROUP_ID:-notification-course-submission-v1}
+      ENROLLMENT_EVENTS_GROUP_ID: ${ENROLLMENT_EVENTS_GROUP_ID:-notification-enrollment-events-v1}
+      ENROLLMENT_EVENTS_TOPIC: ${ENROLLMENT_EVENTS_TOPIC:-learnup.learning.enrollment-events}
+      PEER_REVIEW_ASSIGNED_TOPIC: ${PEER_REVIEW_ASSIGNED_TOPIC:-learnup.assessment.peer-review-assigned}
+      ENROLLMENT_EVENTS_MAX_AGE: ${ENROLLMENT_EVENTS_MAX_AGE:-72h}
+      ENROLLMENT_EVENTS_RETRY_ATTEMPTS: ${ENROLLMENT_EVENTS_RETRY_ATTEMPTS:-5}
+      ENROLLMENT_EVENTS_RETRY_INITIAL_BACKOFF: ${ENROLLMENT_EVENTS_RETRY_INITIAL_BACKOFF:-1s}
+      ENROLLMENT_EVENTS_RETRY_MAX_BACKOFF: ${ENROLLMENT_EVENTS_RETRY_MAX_BACKOFF:-30s}
+      ENROLLMENT_EVENTS_CLAIM_LEASE: ${ENROLLMENT_EVENTS_CLAIM_LEASE:-2m}
+      ENROLLMENT_EVENTS_START_RETRY_INTERVAL: ${ENROLLMENT_EVENTS_START_RETRY_INTERVAL:-10s}
+      ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS: ${ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS:-3000}
+      ENROLLMENT_EVENTS_DEFAULT_TIME_ZONE: ${ENROLLMENT_EVENTS_DEFAULT_TIME_ZONE:-Asia/Ho_Chi_Minh}
+      # The dead-letter topic is created with these values; raise the replicas when Kafka has more than one broker.
+      ENROLLMENT_EVENTS_DLT_PARTITIONS: ${ENROLLMENT_EVENTS_DLT_PARTITIONS:-3}
+      ENROLLMENT_EVENTS_DLT_REPLICAS: ${ENROLLMENT_EVENTS_DLT_REPLICAS:-1}
+      SPRING_MAIL_SMTP_CONNECTION_TIMEOUT: ${SPRING_MAIL_SMTP_CONNECTION_TIMEOUT:-5000}
+      SPRING_MAIL_SMTP_TIMEOUT: ${SPRING_MAIL_SMTP_TIMEOUT:-5000}
+      SPRING_MAIL_SMTP_WRITE_TIMEOUT: ${SPRING_MAIL_SMTP_WRITE_TIMEOUT:-5000}
+      TENANT_SERVICE_URL: http://tenant-service:8084
+      COURSE_SERVICE_URL: http://course-service:8083
     depends_on:
+      mailpit:
+        condition: service_started
       postgres:
         condition: service_healthy
       eureka-server:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - learnup-network
@@ -202,13 +247,14 @@ services:
       dockerfile: services/audit-service/Dockerfile
     container_name: learnup-audit-service
     ports:
-      - "8093:8083"
+      - "127.0.0.1:8093:8083"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/audit_db
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -235,22 +281,28 @@ services:
       dockerfile: services/tenant-service/Dockerfile
     container_name: learnup-tenant-service
     ports:
-      - "8084:8084"
+      - "127.0.0.1:8084:8084"
     environment:
       PORT: 8084
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/tenant_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-}@postgres:5432/tenant_db?schema=public
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       FRONTEND_URL: http://localhost:3000
       IDENTITY_SERVICE_URL: http://identity-service:8081
       NOTIFICATION_SERVICE_URL: http://notification-service:8082
+      AUDIT_SERVICE_URL: http://audit-service:8083
+      COURSE_CLIENT_MODE: http
       COURSE_SERVICE_URL: http://course-service:8083
       COURSE_SERVICE_TIMEOUT_MS: 3000
       LEARNING_SERVICE_URL: http://learning-service:8085
       LEARNING_SERVICE_TIMEOUT_MS: 3000
-      EMAIL_OTP_SECRET: ${EMAIL_OTP_SECRET:-devEmailOtpSecretMustBe32BytesLong123456}
+      LEARNING_CLIENT_MODE: http
+      EMAIL_OTP_SECRET: ${EMAIL_OTP_SECRET:-}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      STORAGE_MAX_RAW_BYTES: ${STORAGE_MAX_RAW_BYTES:-}
+      STORAGE_MAX_IMAGE_BYTES: ${STORAGE_MAX_IMAGE_BYTES:-}
+      STORAGE_MAX_VIDEO_BYTES: ${STORAGE_MAX_VIDEO_BYTES:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -263,16 +315,24 @@ services:
       dockerfile: services/course-service/Dockerfile
     container_name: learnup-course-service
     ports:
-      - "8089:8083"
+      - "127.0.0.1:8089:8083"
     environment:
       PORT: 8083
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/course_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-}@postgres:5432/course_db?schema=public
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       TENANT_SERVICE_URL: http://tenant-service:8084
       LEARNING_SERVICE_URL: http://learning-service:8085
+      ASSESSMENT_SERVICE_URL: http://assessment-service:8086
+      NOTIFICATION_SERVICE_URL: http://notification-service:8082
+      KAFKA_BROKERS: kafka:29092
+      OUTBOX_RELAY_ENABLED: ${COURSE_OUTBOX_RELAY_ENABLED:-true}
+      OUTBOX_TOPIC: learnup.course.course-component-events
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      STORAGE_MAX_RAW_BYTES: ${STORAGE_MAX_RAW_BYTES:-}
+      STORAGE_MAX_IMAGE_BYTES: ${STORAGE_MAX_IMAGE_BYTES:-}
+      STORAGE_MAX_VIDEO_BYTES: ${STORAGE_MAX_VIDEO_BYTES:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -285,20 +345,42 @@ services:
       dockerfile: services/learning-service/Dockerfile
     container_name: learnup-learning-service
     ports:
-      - "8085:8085"
+      - "127.0.0.1:8085:8085"
     environment:
       PORT: 8085
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/learning_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      VIDEO_PLAYBACK_MODE: course
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-}@postgres:5432/learning_db?schema=public
+      DB_PASSWORD: ${DB_PASSWORD:-}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       COURSE_SERVICE_URL: http://course-service:8083
       COURSE_SERVICE_TIMEOUT_MS: 3000
       TENANT_SERVICE_URL: http://tenant-service:8084
-      TENANT_CLIENT_MODE: fake
-      TENANT_FAKE_TIMEZONE: Asia/Ho_Chi_Minh
+      TENANT_CLIENT_MODE: ${LEARNING_TENANT_CLIENT_MODE:-http}
+      TENANT_FAKE_TIMEZONE: ${LEARNING_TENANT_FAKE_TIMEZONE:-Asia/Ho_Chi_Minh}
       ASSESSMENT_CLIENT_MODE: http
+      ASSESSMENT_COMPLETION_CLIENT_MODE: ${ASSESSMENT_COMPLETION_CLIENT_MODE:-http}
+      ASSESSMENT_RESULTS_CLIENT_MODE: ${ASSESSMENT_RESULTS_CLIENT_MODE:-http}
       ASSESSMENT_SERVICE_URL: http://assessment-service:8086
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:29092}
+      OUTBOX_RELAY_ENABLED: ${OUTBOX_RELAY_ENABLED:-true}
+      ASSESSMENT_CONSUMER_ENABLED: ${ASSESSMENT_CONSUMER_ENABLED:-true}
+      ASSESSMENT_CONSUMER_TOPIC: ${ASSESSMENT_CONSUMER_TOPIC:-learnup.assessment.learner-assessment-events}
+      ASSESSMENT_CONSUMER_GROUP_ID: ${ASSESSMENT_CONSUMER_GROUP_ID:-learning-assessment-status-v1}
+      OUTBOX_TOPIC: ${OUTBOX_TOPIC:-learnup.learning.enrollment-events}
+      OUTBOX_REPLICATION_FACTOR: ${OUTBOX_REPLICATION_FACTOR:-1}
+      OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-1000}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-20}
+      OUTBOX_DRAIN_GAP_MS: ${LEARNING_OUTBOX_DRAIN_GAP_MS:-50}
+      OUTBOX_DELIVERY_TIMEOUT_MS: ${OUTBOX_DELIVERY_TIMEOUT_MS:-10000}
+      OUTBOX_TRANSACTION_TIMEOUT_MS: ${OUTBOX_TRANSACTION_TIMEOUT_MS:-30000}
+      OUTBOX_PROBE_TIMEOUT_MS: ${OUTBOX_PROBE_TIMEOUT_MS:-1000}
+      OUTBOX_BACKOFF_MS: ${OUTBOX_BACKOFF_MS:-1000}
+      OUTBOX_BACKOFF_MAX_MS: ${OUTBOX_BACKOFF_MAX_MS:-300000}
+      OUTBOX_ALERT_ATTEMPTS: ${OUTBOX_ALERT_ATTEMPTS:-10}
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - learnup-network
@@ -308,21 +390,52 @@ services:
       context: .
       dockerfile: services/assessment-service/Dockerfile
     container_name: learnup-assessment-service
+    # Development only, and only this machine: the browser and the other services go through the gateway. Without the
+    # 127.0.0.1 Docker publishes the port on every network of the machine, shared Wi-Fi included. A deployment must not
+    # publish it at all.
     ports:
-      - "8086:8086"
+      - "127.0.0.1:8086:8086"
     environment:
       PORT: 8086
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/assessment_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-}@postgres:5432/assessment_db?schema=public
+      # The service trusts the identity of whoever sends this key, so it is a secret and has no default.
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
       COURSE_SERVICE_URL: http://course-service:8083
       COURSE_SERVICE_TIMEOUT_MS: 5000
       TENANT_SERVICE_URL: http://tenant-service:8084
       LEARNING_SERVICE_URL: http://learning-service:8085
+      # UC33: the cycles close, remind and expire by themselves every minute (BR-230, BR-232, BR-237)
+      PEER_REVIEW_TICK_MS: ${PEER_REVIEW_TICK_MS:-60000}
+      QUIZ_SETTLE_TICK_MS: ${QUIZ_SETTLE_TICK_MS:-30000}
+      NOTIFICATION_CLIENT_MODE: http
+      NOTIFICATION_SERVICE_URL: http://notification-service:8082
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      STORAGE_MAX_RAW_BYTES: ${STORAGE_MAX_RAW_BYTES:-}
+      STORAGE_MAX_IMAGE_BYTES: ${STORAGE_MAX_IMAGE_BYTES:-}
+      STORAGE_MAX_VIDEO_BYTES: ${STORAGE_MAX_VIDEO_BYTES:-}
+      # The relay that publishes LearnerAssessmentStatusChanged (step 23). The variables carry the ASSESSMENT_ prefix on the
+      # host because learning-service reads OUTBOX_TOPIC and the others from the same .env.
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:29092}
+      OUTBOX_RELAY_ENABLED: ${ASSESSMENT_OUTBOX_RELAY_ENABLED:-true}
+      OUTBOX_TOPIC: ${ASSESSMENT_OUTBOX_TOPIC:-learnup.assessment.learner-assessment-events}
+      # BR-232: the notice of the reviews handed out by a closed cycle; notification-service reads this topic.
+      OUTBOX_PEER_REVIEW_TOPIC: ${PEER_REVIEW_ASSIGNED_TOPIC:-learnup.assessment.peer-review-assigned}
+      OUTBOX_REPLICATION_FACTOR: ${ASSESSMENT_OUTBOX_REPLICATION_FACTOR:-1}
+      OUTBOX_POLL_INTERVAL_MS: ${ASSESSMENT_OUTBOX_POLL_INTERVAL_MS:-1000}
+      OUTBOX_BATCH_SIZE: ${ASSESSMENT_OUTBOX_BATCH_SIZE:-20}
+      OUTBOX_DELIVERY_TIMEOUT_MS: ${ASSESSMENT_OUTBOX_DELIVERY_TIMEOUT_MS:-10000}
+      OUTBOX_TRANSACTION_TIMEOUT_MS: ${ASSESSMENT_OUTBOX_TRANSACTION_TIMEOUT_MS:-30000}
+      OUTBOX_PROBE_TIMEOUT_MS: ${ASSESSMENT_OUTBOX_PROBE_TIMEOUT_MS:-1000}
+      OUTBOX_BACKOFF_MS: ${ASSESSMENT_OUTBOX_BACKOFF_MS:-1000}
+      OUTBOX_BACKOFF_MAX_MS: ${ASSESSMENT_OUTBOX_BACKOFF_MAX_MS:-300000}
+      OUTBOX_ALERT_ATTEMPTS: ${ASSESSMENT_OUTBOX_ALERT_ATTEMPTS:-10}
+      OUTBOX_OUTAGE_ALERT_MS: ${ASSESSMENT_OUTBOX_OUTAGE_ALERT_MS:-300000}
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - learnup-network
@@ -333,11 +446,37 @@ services:
       dockerfile: services/achievement-reporting-service/Dockerfile
     container_name: learnup-achievement-reporting-service
     ports:
-      - "8087:8087"
+      - "127.0.0.1:8087:8087"
     environment:
       PORT: 8087
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/achievement_reporting_db?schema=public
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-learnup-internal-secret}
+      CERTIFICATE_CONSUMER_ENABLED: ${CERTIFICATE_CONSUMER_ENABLED:-true}
+      CERTIFICATE_CLEANUP_ENABLED: ${CERTIFICATE_CLEANUP_ENABLED:-true}
+      CERTIFICATE_SIGNER_ACCESS_CLIENT_MODE: ${CERTIFICATE_SIGNER_ACCESS_CLIENT_MODE:-http}
+      # Keep delay greater than CERTIFICATE_LEASE_MS + CERTIFICATE_HTTP_TIMEOUT_MS.
+      CERTIFICATE_CLEANUP_DELAY_MS: ${CERTIFICATE_CLEANUP_DELAY_MS:-600000}
+      CERTIFICATE_CLEANUP_POLL_MS: ${CERTIFICATE_CLEANUP_POLL_MS:-1000}
+      CERTIFICATE_CLEANUP_LEASE_MS: ${CERTIFICATE_CLEANUP_LEASE_MS:-120000}
+      CERTIFICATE_CLEANUP_WARN_SECONDS: ${CERTIFICATE_CLEANUP_WARN_SECONDS:-3600}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:29092}
+      TENANT_SERVICE_URL: http://tenant-service:8084
+      COURSE_SERVICE_URL: http://course-service:8083
+      CERTIFICATE_PROFILE_CLIENT_MODE: ${CERTIFICATE_PROFILE_CLIENT_MODE:-http}
+      CERTIFICATE_COURSE_CLIENT_MODE: ${CERTIFICATE_COURSE_CLIENT_MODE:-http}
+      CERTIFICATE_CONCURRENCY: ${CERTIFICATE_CONCURRENCY:-4}
+      CERTIFICATE_LEASE_MS: ${CERTIFICATE_LEASE_MS:-120000}
+      CERTIFICATE_POLL_MS: ${CERTIFICATE_POLL_MS:-1000}
+      CERTIFICATE_HTTP_TIMEOUT_MS: ${CERTIFICATE_HTTP_TIMEOUT_MS:-5000}
+      CERTIFICATE_LOGO_MAX_BYTES: ${CERTIFICATE_LOGO_MAX_BYTES:-2097152}
+      CERTIFICATE_LOGO_HOSTS: ${CERTIFICATE_LOGO_HOSTS:-res.cloudinary.com}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      STORAGE_MAX_RAW_BYTES: ${STORAGE_MAX_RAW_BYTES:-}
+      STORAGE_MAX_IMAGE_BYTES: ${STORAGE_MAX_IMAGE_BYTES:-}
+      STORAGE_MAX_VIDEO_BYTES: ${STORAGE_MAX_VIDEO_BYTES:-}
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-}@postgres:5432/achievement_reporting_db?schema=public
+      DB_PASSWORD: ${DB_PASSWORD:-}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -358,7 +497,7 @@ services:
         VITE_ASSESSMENT_BACKEND_URL: http://localhost:${GATEWAY_HOST_PORT:-8088}
     container_name: learnup-web
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - api-gateway
     networks:

@@ -7,13 +7,15 @@ export interface LockedAssignment {
   courseId: string;
   status: string;
   dueAt: Date;
+  dueAtHasSubMillisecond: boolean;
 }
 
 @Injectable()
 export class AssignmentChangesRepository {
   async lock(tx: Prisma.TransactionClient, organizationId: string, id: string) {
     const [row] = await tx.$queryRaw<LockedAssignment[]>`
-      SELECT id, learner_id AS "learnerId", course_id AS "courseId", status, due_at AS "dueAt"
+      SELECT id, learner_id AS "learnerId", course_id AS "courseId", status, due_at AS "dueAt",
+        due_at <> date_trunc('milliseconds',due_at) AS "dueAtHasSubMillisecond"
       FROM enrollments WHERE id = ${id}::uuid AND organization_id = ${organizationId}::uuid
         AND enrollment_type = 'Required' FOR UPDATE`;
     return row;
@@ -31,8 +33,9 @@ export class AssignmentChangesRepository {
     id: string,
     dueAt: Date,
     seconds: bigint,
+    dueTimezone: string,
   ) {
-    return tx.$executeRaw`UPDATE enrollments SET due_at = ${dueAt},
+    return tx.$executeRaw`UPDATE enrollments SET due_at = ${dueAt}, due_timezone = ${dueTimezone},
       extension_seconds = extension_seconds + ${seconds}::bigint, updated_at = now()
       WHERE id = ${id}::uuid AND organization_id = ${organizationId}::uuid AND enrollment_type = 'Required'`;
   }

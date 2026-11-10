@@ -1,0 +1,16 @@
+# Test class validates these values before connecting. The runner creates a fresh,
+# loopback-only container; never point this profile at a development/shared database.
+spring:
+  datasource:
+    url: ${IDENTITY_TEST_POSTGRES_URL}
+    username: ${IDENTITY_TEST_POSTGRES_USERNAME}
+    password: ${IDENTITY_TEST_POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    clean-disabled: true

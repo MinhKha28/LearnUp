@@ -34,15 +34,18 @@ const roundScore = (value: number) => Math.round(value * 100) / 100;
 const reasonGuide = (reason: string | null, peerScores: number[]) => {
   if (reason === "SCORE_GAP_EXCEEDED" && peerScores.length > 1) {
     const gap = roundScore(Math.max(...peerScores) - Math.min(...peerScores));
-    return `Peer scores ${peerScores.join(", ")} differ by ${gap} points. Your grade is averaged with them to suggest the final score.`;
+    return `Điểm của các người chấm chéo là ${peerScores.join(", ")}, chênh nhau ${gap} điểm. Điểm bạn chấm được lấy trung bình cùng các điểm đó để gợi ý điểm cuối cùng.`;
   }
-  if (reason === "REVIEWER_MISSED_DEADLINE" || reason === "REVIEWER_DEACTIVATED") {
-    return "Your grade fills in for the missing peer review and is averaged with the completed ones.";
+  if (
+    reason === "REVIEWER_MISSED_DEADLINE" ||
+    reason === "REVIEWER_DEACTIVATED"
+  ) {
+    return "Điểm bạn chấm thay cho lượt chấm chéo còn thiếu và được lấy trung bình cùng các lượt đã chấm.";
   }
   if (peerScores.length > 0) {
-    return "Your grade is averaged with the completed peer reviews to suggest the final score.";
+    return "Điểm bạn chấm được lấy trung bình cùng các lượt chấm chéo đã xong để gợi ý điểm cuối cùng.";
   }
-  return "No completed peer review exists, so your grade becomes the suggested final score.";
+  return "Chưa có lượt chấm chéo nào xong, nên điểm bạn chấm là điểm cuối cùng được gợi ý.";
 };
 
 const SubmissionGrade = () => {
@@ -65,9 +68,12 @@ const SubmissionGrade = () => {
         const res = await getSubmissionDetailAPI(submissionId);
         if (!active) return;
         if (res.data) setDetail(res.data);
-        else setError("This submission was not found or is not yours to review.");
+        else
+          setError(
+            "Không tìm thấy bài nộp này, hoặc bạn không phụ trách chấm bài này.",
+          );
       } catch {
-        if (active) setError("Could not connect to the server.");
+        if (active) setError("Không kết nối được với máy chủ.");
       } finally {
         if (active) setLoading(false);
       }
@@ -82,13 +88,21 @@ const SubmissionGrade = () => {
   const peerScores = useMemo(
     () =>
       (detail?.reviews ?? [])
-        .filter((review) => review.status === "Completed" && review.score !== null)
+        .filter(
+          (review) => review.status === "Completed" && review.score !== null,
+        )
         .map((review) => review.score as number),
     [detail],
   );
 
-  const possible = rubric.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
-  const earned = rubric.reduce((sum, criterion) => sum + (points[criterion.id] ?? 0), 0);
+  const possible = rubric.reduce(
+    (sum, criterion) => sum + criterion.maxPoints,
+    0,
+  );
+  const earned = rubric.reduce(
+    (sum, criterion) => sum + (points[criterion.id] ?? 0),
+    0,
+  );
   const complete =
     rubric.length > 0 &&
     rubric.every((criterion) => typeof points[criterion.id] === "number");
@@ -111,13 +125,13 @@ const SubmissionGrade = () => {
     return (
       <InstructorPage className="instructor-submissions">
         <PageHeader
-          eyebrow="SUBMISSIONS / GRADE"
-          title="Submission not found"
-          subtitle={error ?? "This submission may have been removed."}
+          eyebrow="Bài nộp / Chấm điểm"
+          title="Không tìm thấy bài nộp"
+          subtitle={error ?? "Bài nộp này có thể đã bị xóa."}
           back
         />
         <InstructorButton onClick={() => navigate("/instructor/courses")}>
-          Back to My Courses
+          Về Khóa học của tôi
         </InstructorButton>
       </InstructorPage>
     );
@@ -131,11 +145,11 @@ const SubmissionGrade = () => {
 
   const handleSubmit = async () => {
     if (!complete) {
-      message.warning("Give a score for every Rubric criterion.");
+      message.warning("Hãy cho điểm mọi tiêu chí chấm.");
       return;
     }
     if (!hasComment) {
-      message.warning("Write a general comment for the Learner.");
+      message.warning("Hãy viết nhận xét chung cho học viên.");
       return;
     }
     setSubmitting(true);
@@ -149,18 +163,18 @@ const SubmissionGrade = () => {
       })) as unknown as IBackendRes<IInstructorReviewResult>;
       if (res.data) {
         message.success(
-          `Submission graded. Suggested final score: ${res.data.suggestedScore} / 100.`,
+          `Đã chấm bài. Điểm cuối cùng gợi ý: ${res.data.suggestedScore} / 100.`,
         );
         backToDetail();
       } else {
         message.error(
           typeof res.message === "string"
             ? res.message
-            : "Could not save the grade.",
+            : "Không lưu được điểm.",
         );
       }
     } catch {
-      message.error("Could not connect to the server.");
+      message.error("Không kết nối được với máy chủ.");
     } finally {
       setSubmitting(false);
     }
@@ -169,9 +183,9 @@ const SubmissionGrade = () => {
   return (
     <InstructorPage className="instructor-submissions">
       <PageHeader
-        eyebrow="SUBMISSIONS / GRADE"
-        title={`Grade ${personName(detail.learner)}`}
-        subtitle={`${detail.assignment.title} / Attempt #${detail.submissionNumber}`}
+        eyebrow="Bài nộp / Chấm điểm"
+        title={`Chấm bài của ${personName(detail.learner)}`}
+        subtitle={`${detail.assignment.title} / Lần nộp #${detail.submissionNumber}`}
         back
       />
 
@@ -181,35 +195,41 @@ const SubmissionGrade = () => {
           showIcon
           message={
             detail.isLatest
-              ? `This submission is "${status.label}" and is not waiting for your grading.`
-              : "This submission was replaced by a newer one. Only the latest submission can be graded."
+              ? `Bài nộp này đang ở trạng thái "${status.label}" nên không chờ bạn chấm.`
+              : "Bài nộp này đã được thay bằng một bài mới hơn. Chỉ chấm được bài nộp mới nhất."
           }
-          action={<InstructorButton onClick={backToDetail}>View submission</InstructorButton>}
+          action={
+            <InstructorButton onClick={backToDetail}>
+              Xem bài nộp
+            </InstructorButton>
+          }
         />
       )}
 
       <div className="instructor-submission-detail-grid">
         <div className="instructor-submission-column">
-          <SectionCard title="Learner work">
+          <SectionCard title="Bài làm của học viên">
             <div className="instructor-submission-status">
               <StatusTag tone={status.tone}>{status.label}</StatusTag>
               {reason && <span>{reason}</span>}
             </div>
             <p className="instructor-submission-meta">
-              Submitted {formatDateTime(detail.submittedAt)}
+              Nộp lúc {formatDateTime(detail.submittedAt)}
             </p>
             <div className="instructor-submission-body">
               {detail.content ? (
                 <p>{detail.content}</p>
               ) : (
-                <p className="instructor-submission-empty-text">No written answer.</p>
+                <p className="instructor-submission-empty-text">
+                  Không có bài làm dạng văn bản.
+                </p>
               )}
             </div>
             {detail.file && <FileLink file={detail.file} />}
           </SectionCard>
 
-          <SectionCard title="Why you are grading">
-            <WarningPanel title={reason ?? "Instructor grading"}>
+          <SectionCard title="Vì sao bạn chấm bài này">
+            <WarningPanel title={reason ?? "Giảng viên chấm bài"}>
               {reasonGuide(detail.interventionReason, peerScores)}
             </WarningPanel>
             {peerScores.length > 0 && (
@@ -228,10 +248,10 @@ const SubmissionGrade = () => {
         </div>
 
         <div className="instructor-submission-column">
-          <SectionCard title="Grade with Rubric">
+          <SectionCard title="Chấm theo tiêu chí">
             {rubric.length === 0 ? (
               <p className="instructor-submission-empty-text">
-                This Assignment has no Rubric criteria to grade against.
+                Bài tập này chưa có tiêu chí chấm.
               </p>
             ) : (
               <div className="instructor-submission-grade-form">
@@ -239,10 +259,12 @@ const SubmissionGrade = () => {
                   <div className="instructor-grade-field" key={criterion.id}>
                     <label>
                       {criterion.name}
-                      <small> / {criterion.maxPoints} pts</small>
+                      <small> / {criterion.maxPoints} điểm</small>
                     </label>
                     {criterion.description && (
-                      <p className="instructor-grade-reason">{criterion.description}</p>
+                      <p className="instructor-grade-reason">
+                        {criterion.description}
+                      </p>
                     )}
                     <InputNumber
                       style={{ width: "100%" }}
@@ -255,7 +277,8 @@ const SubmissionGrade = () => {
                       onChange={(value) =>
                         setPoints((prev) => ({
                           ...prev,
-                          [criterion.id]: typeof value === "number" ? value : null,
+                          [criterion.id]:
+                            typeof value === "number" ? value : null,
                         }))
                       }
                     />
@@ -264,13 +287,17 @@ const SubmissionGrade = () => {
 
                 <div className="instructor-grade-field">
                   <label>
-                    Feedback for the Learner
-                    <small> / required</small>
+                    Nhận xét cho học viên
+                    <small> / bắt buộc</small>
                   </label>
                   <Input.TextArea
                     rows={4}
-                    placeholder="Explain the strengths and what to improve."
-                    status={gradable && complete && !hasComment ? "warning" : undefined}
+                    placeholder="Nêu điểm mạnh và những điều cần cải thiện."
+                    status={
+                      gradable && complete && !hasComment
+                        ? "warning"
+                        : undefined
+                    }
                     maxLength={COMMENT_MAX_LENGTH}
                     showCount
                     disabled={!gradable}
@@ -281,35 +308,37 @@ const SubmissionGrade = () => {
 
                 <div className="instructor-grade-summary">
                   <div>
-                    <span>Rubric total</span>
+                    <span>Tổng điểm theo tiêu chí</span>
                     <strong>
-                      {earned} / {possible} pts
+                      {earned} / {possible} điểm
                     </strong>
                   </div>
                   <div>
-                    <span>Your score</span>
+                    <span>Điểm bạn chấm</span>
                     <strong>{complete ? score : "-"} / 100</strong>
                   </div>
                   <div>
-                    <span>Suggested final score</span>
+                    <span>Điểm cuối cùng gợi ý</span>
                     <strong>{complete ? suggested : "-"} / 100</strong>
                   </div>
                 </div>
 
-                <InfoPanel title="After grading">
-                  The submission moves to "Ready to finalize". The final score is
-                  only recorded when you finalize it.
+                <InfoPanel title="Sau khi chấm">
+                  Bài nộp chuyển sang "Chờ chốt điểm". Điểm cuối cùng chỉ được
+                  ghi nhận khi bạn chốt điểm.
                 </InfoPanel>
 
                 <div className="instructor-grade-actions">
-                  <InstructorButton onClick={backToDetail}>Cancel</InstructorButton>
+                  <InstructorButton onClick={backToDetail}>
+                    Hủy
+                  </InstructorButton>
                   <InstructorButton
                     type="primary"
                     loading={submitting}
                     disabled={!gradable || !complete || !hasComment}
                     onClick={handleSubmit}
                   >
-                    Submit grade
+                    Gửi điểm
                   </InstructorButton>
                 </div>
               </div>

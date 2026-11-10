@@ -16,9 +16,6 @@ export const PEER_REVIEW_DISABLED = 'PEER_REVIEW_DISABLED';
 /** BR-171: a resubmission after the closing line of the cycle of the previous submission (UC30.1). */
 export const RESUBMITTED_AFTER_CUTOFF = 'RESUBMITTED_AFTER_CUTOFF';
 
-/** learner_assessment_states.peer_review_obligation: the Learner skipped the reviews of an earlier cycle (BR-313). */
-export const OBLIGATION_MISSED = 'Missed';
-
 export const OPEN_CYCLE_STATUS = 'Open';
 
 /** Submission file: one PDF, DOCX or ZIP of at most 50 MB (UC30). Not counted toward the Subscription storage (BR-288). */
@@ -54,3 +51,6 @@ export const submissionFolder = (
 ) => `learnup/${organizationId}/assignments/${assessmentId}/submissions`;
 
 export const LEARNER_STATUS_CHANGED_EVENT = 'LearnerAssessmentStatusChanged';
+
+/** A closed cycle handed reviews out to a reviewer (BR-232); notification-service tells the reviewer. */
+export const PEER_REVIEW_ASSIGNED_EVENT = 'PeerReviewAssigned';

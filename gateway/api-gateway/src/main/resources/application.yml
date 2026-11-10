@@ -29,12 +29,14 @@ spring:
           uri: lb://AUDIT-SERVICE
           predicates:
             - Path=/api/v1/audit/**, /api/audit/**
+            # The trail is read through the gateway; entries are written by the services directly (never by a user).
+            - Method=GET
 
         # Business 1: Tenant Service Routes (Docker DNS)
         - id: tenant-service
           uri: ${TENANT_SERVICE_URL:http://tenant-service:8084}
           predicates:
-            - Path=/api/v1/users/**, /api/v1/organizations/**, /api/v1/subscriptions/**, /api/v1/subscription-plans/**, /api/v1/registrations/**, /api/v1/invitations/**, /api/v1/payments/**, /api/users/**, /api/organizations/**, /api/subscriptions/**, /api/subscription-plans/**, /api/registrations/**, /api/invitations/**, /api/payments/**
+            - Path=/api/v1/users/**, /api/v1/organizations/**, /api/v1/subscriptions/**, /api/v1/subscription-plans/**, /api/v1/registrations/**, /api/v1/invitations/**, /api/v1/payments/**, /api/v1/admin/subscription-plans/**, /api/v1/admin/organizations/**, /api/users/**, /api/organizations/**, /api/subscriptions/**, /api/subscription-plans/**, /api/registrations/**, /api/invitations/**, /api/payments/**, /api/admin/subscription-plans/**, /api/admin/organizations/**
 
         # Business 2: Course Service Routes (Docker DNS)
         - id: course-service
@@ -46,7 +48,7 @@ spring:
         - id: learning-service
           uri: ${LEARNING_SERVICE_URL:http://learning-service:8085}
           predicates:
-            - Path=/api/v1/learning/**, /api/v1/enrollments/**, /api/learning/**, /api/enrollments/**
+            - Path=/api/v1/learning/**, /api/v1/enrollments/**, /api/v1/assignments/**, /api/learning/**, /api/enrollments/**, /api/assignments/**
 
         # Business 4: Assessment Service Routes (Docker DNS)
         - id: assessment-service
@@ -70,27 +72,25 @@ eureka:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
 
 jwt:
-  secret: ${JWT_SECRET:devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong}
-  internal-key: ${INTERNAL_GATEWAY_KEY:learnup-internal-secret}
+  secret: ${JWT_SECRET}
+  internal-key: ${INTERNAL_SERVICE_KEY}
   whitelist:
     - /api/v1/auth/login
-    - /api/v1/auth/register
     - /api/v1/auth/refresh
+    - /api/v1/auth/revoke
     - /api/v1/auth/forgot-password
     - /api/v1/auth/reset-password
     - /api/v1/subscription-plans/**
     - /api/v1/registrations/**
     - /api/v1/invitations/**
-    - /api/v1/certificates/verify/**
     - /api/auth/login
-    - /api/auth/register
     - /api/auth/refresh
+    - /api/auth/revoke
     - /api/auth/forgot-password
     - /api/auth/reset-password
     - /api/subscription-plans/**
     - /api/registrations/**
     - /api/invitations/**
-    - /api/certificates/verify/**
     - /actuator/health
     - /fallback/**
 

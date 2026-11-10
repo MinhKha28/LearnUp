@@ -1,12 +1,15 @@
 import type { CurrentUser } from '@learnup/ts-common';
-import { HttpException, Inject, Injectable } from '@nestjs/common';
+import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import type {
   MaterialSnapshot,
   Prisma,
 } from '../../../generated/prisma/client';
 import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
-import { CourseServiceError } from '../../infrastructure/clients/course/course-service.errors';
+import {
+  CourseServiceError,
+  MaterialSigningError,
+} from '../../infrastructure/clients/course/course-service.errors';
 import type { CourseTree } from '../../infrastructure/clients/course/course-service.interface';
 import {
   MaterialProgressRepository,
@@ -15,14 +18,10 @@ import {
 } from './material-progress.repository';
 import {
   normalizeRanges,
-  progressBudget,
+  positionReportedAt,
   requiredSeconds,
-  type WatchedRange,
 } from './video-progress.rules';
-import {
-  VIDEO_PLAYBACK_CONFIG,
-  type VideoPlaybackConfig,
-} from './video-playback.config';
+import type { ReportProgressDto } from './report-progress.dto';
 
 const fail = (
   status: number,
@@ -38,11 +37,10 @@ const fail = (
 
 @Injectable()
 export class MaterialProgressService {
+  private readonly logger = new Logger(MaterialProgressService.name);
   constructor(
     private readonly repository: MaterialProgressRepository,
     private readonly course: CourseServiceClient,
-    @Inject(VIDEO_PLAYBACK_CONFIG)
-    private readonly playbackConfig: VideoPlaybackConfig,
   ) {}
 
   private async access(
@@ -62,22 +60,206 @@ export class MaterialProgressService {
       user.organizationId!,
       tx,
     );
+    if (
+      access &&
+      ![
+        'NotStarted',
+        'InProgress',
+        'Exempted',
+        'Completed',
+        'Halted',
+        'Withdrawn',
+      ].includes(access.status)
+    ) {
+      this.logger.error('INVALID_ENROLLMENT_STATUS');
+      fail(
+        500,
+        'INVALID_ENROLLMENT_STATUS',
+        'Invalid stored enrollment status.',
+      );
+    }
     if (!access || access.status === 'Withdrawn')
       return fail(404, 'ENROLLMENT_NOT_FOUND', 'Không tìm thấy Enrollment.');
     if (access.status === 'Halted' || access.disabledAt !== null)
       fail(403, 'CONTENT_UNAVAILABLE', 'Nội dung đang tạm ngưng.');
     return access;
   }
-  private async tree(user: CurrentUser, courseId: string) {
+  private async readingMaterial(
+    user: CurrentUser,
+    access: ProgressAccess,
+    materialId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    if (!isUUID(materialId, 'all'))
+      return fail(404, 'MATERIAL_NOT_FOUND', 'Không tìm thấy học liệu.');
+    const material = await this.repository.material(
+      materialId,
+      access.courseId,
+      user.organizationId!,
+      tx,
+    );
+    if (!material)
+      return fail(404, 'MATERIAL_NOT_FOUND', 'Không tìm thấy học liệu.');
+    if (
+      material.disabledAt !== null ||
+      (await this.repository.disabledLesson(
+        material.lessonId,
+        user.organizationId!,
+        tx,
+      ))
+    )
+      fail(403, 'CONTENT_UNAVAILABLE', 'Nội dung đang tạm ngưng.');
+    if (material.materialType !== 'Reading')
+      fail(409, 'MATERIAL_NOT_READING', 'Học liệu không phải Reading.');
+    return material;
+  }
+  async completeReading(
+    user: CurrentUser,
+    enrollmentId: string,
+    materialId: string,
+  ) {
+    return this.repository.transaction(async (tx) => {
+      const access = await this.access(user, enrollmentId, tx);
+      const material = await this.readingMaterial(user, access, materialId, tx);
+      // L21: insert sequential-access policy here before the progress transition.
+      const changed =
+        access.status !== 'Completed' &&
+        (await this.repository.completeReading(
+          enrollmentId,
+          materialId,
+          user.organizationId!,
+          tx,
+        ));
+      const state = await this.repository.readingState(
+        enrollmentId,
+        materialId,
+        access.courseId,
+        material.lessonId,
+        user.organizationId!,
+        tx,
+      );
+      return {
+        ...state,
+        alreadyCompleted: !changed && state.completedAt !== null,
+      };
+    });
+  }
+  async readingAccess(
+    user: CurrentUser,
+    enrollmentId: string,
+    materialId: string,
+  ) {
+    const access = await this.access(user, enrollmentId);
+    await this.readingMaterial(user, access, materialId);
+    // L21: insert sequential-access policy before issuing a content URL.
+    let tree: CourseTree;
+    try {
+      tree = await this.course.getCourseTree(user, access.courseId);
+    } catch (error) {
+      if (error instanceof CourseServiceError) {
+        this.logger.error({
+          message: 'Course content unavailable',
+          enrollmentId,
+          materialId,
+          courseStatus: null,
+        });
+        return fail(
+          503,
+          'SERVICE_UNAVAILABLE',
+          'Reading content is temporarily unavailable.',
+        );
+      }
+      throw error;
+    }
+    if (tree.disabledAt !== null)
+      fail(403, 'CONTENT_UNAVAILABLE', 'Nội dung đang tạm ngưng.');
+    for (const module of tree.modules)
+      for (const lesson of module.lessons) {
+        const material = lesson.materials.find((m) => m.id === materialId);
+        if (!material) continue;
+        if (lesson.disabledAt !== null || material.disabledAt !== null)
+          fail(403, 'CONTENT_UNAVAILABLE', 'Nội dung đang tạm ngưng.');
+        if (material.materialType !== 'Reading')
+          fail(409, 'MATERIAL_NOT_READING', 'Học liệu không phải Reading.');
+        return {
+          materialId,
+          title: material.title,
+          ...(await this.signedUrl(user, access, materialId, 'Reading')),
+          fixture: false,
+        };
+      }
+    return fail(404, 'MATERIAL_NOT_FOUND', 'Không tìm thấy học liệu.');
+  }
+  private async signedUrl(
+    user: CurrentUser,
+    access: ProgressAccess,
+    materialId: string,
+    kind: 'Video' | 'Reading',
+  ) {
+    try {
+      const signed = await this.course.getMaterialSignedUrl(
+        user,
+        access.courseId,
+        materialId,
+      );
+      if (
+        kind === 'Video'
+          ? !signed.mimeType.startsWith('video/')
+          : signed.mimeType !== 'application/pdf'
+      )
+        throw new MaterialSigningError(200, null);
+      return {
+        ...(kind === 'Video'
+          ? { playbackUrl: signed.url }
+          : { accessUrl: signed.url }),
+        expiresAt: signed.expiresAt,
+        mimeType: signed.mimeType,
+      };
+    } catch (error) {
+      const status =
+        error instanceof MaterialSigningError ? error.status : null;
+      const code = error instanceof MaterialSigningError ? error.code : null;
+      if (status === 409 && code === 'MATERIAL_DISABLED')
+        return fail(403, 'CONTENT_UNAVAILABLE', 'Nội dung đang tạm ngưng.');
+      this.logger.error({
+        message: 'Material signing failed',
+        materialId,
+        enrollmentId: access.id,
+        courseStatus: status,
+      });
+      if (status === 404 && code === 'MATERIAL_NOT_FOUND')
+        return fail(404, 'MATERIAL_NOT_FOUND', 'Không tìm thấy học liệu.');
+      if (status === 409 && code === 'MATERIAL_FILE_NOT_READY')
+        return fail(409, 'MATERIAL_NOT_READY', 'Học liệu chưa sẵn sàng.');
+      return fail(
+        503,
+        'SERVICE_UNAVAILABLE',
+        'Nội dung tạm thời không khả dụng. Vui lòng thử lại.',
+      );
+    }
+  }
+  private async tree(
+    user: CurrentUser,
+    courseId: string,
+    enrollmentId?: string,
+    materialId?: string,
+  ) {
     try {
       return await this.course.getCourseTree(user, courseId);
     } catch (error) {
-      if (error instanceof CourseServiceError)
+      if (error instanceof CourseServiceError) {
+        this.logger.error({
+          message: 'Course content unavailable',
+          enrollmentId,
+          materialId,
+          courseStatus: null,
+        });
         return fail(
           503,
-          'PLAYBACK_UNAVAILABLE',
+          'SERVICE_UNAVAILABLE',
           'Không thể lấy học liệu từ course-service.',
         );
+      }
       throw error;
     }
   }
@@ -116,7 +298,7 @@ export class MaterialProgressService {
     if (material.durationSeconds === null || material.durationSeconds <= 0)
       fail(
         503,
-        'PLAYBACK_UNAVAILABLE',
+        'SERVICE_UNAVAILABLE',
         'Thiếu thời lượng Video hợp lệ trong bản sao.',
       );
     return material;
@@ -135,7 +317,8 @@ export class MaterialProgressService {
       requiredSeconds: requiredSeconds(duration, percent),
       completed: row.completedAt !== null,
       completedAt: row.completedAt?.toISOString() ?? null,
-      maxPlaybackRate: 2,
+      positionSeconds: row.positionSeconds,
+      positionReportedAt: row.positionReportedAt?.toISOString() ?? null,
       heartbeatSeconds: 15,
     };
   }
@@ -152,15 +335,9 @@ export class MaterialProgressService {
       user.organizationId!,
     );
     const { material } = this.treeMaterial(
-      await this.tree(user, access.courseId),
+      await this.tree(user, access.courseId, enrollmentId, materialId),
       materialId,
     );
-    if (this.playbackConfig.mode === 'course')
-      fail(
-        503,
-        'PLAYBACK_UNAVAILABLE',
-        'Chưa có hợp đồng phát Video từ course-service.',
-      );
     const row = await this.repository.read(
       enrollmentId,
       materialId,
@@ -174,14 +351,14 @@ export class MaterialProgressService {
         row,
       ),
       title: material.title,
-      playbackUrl: this.playbackConfig.fixtureUrl!,
+      ...(await this.signedUrl(user, access, materialId, 'Video')),
     };
   }
   async report(
     user: CurrentUser,
     enrollmentId: string,
     materialId: string,
-    ranges: WatchedRange[],
+    report: ReportProgressDto,
   ) {
     const access = await this.access(user, enrollmentId);
     if (!isUUID(materialId, 'all'))
@@ -223,41 +400,34 @@ export class MaterialProgressService {
         tx,
       );
       const duration = saved.durationSeconds!;
+      const ranges = current.status === 'Completed' ? [] : report.ranges;
       if (ranges.some(([, end]) => end > duration + 1))
         fail(422, 'VALIDATION_ERROR', 'Đoạn xem vượt thời lượng Video.');
-      const old = await this.repository.lock(
+      await this.repository.lock(
         enrollmentId,
         materialId,
         user.organizationId!,
         tx,
       );
-      const normalized = normalizeRanges(ranges, duration);
-      const preview = await this.repository.preview(
-        enrollmentId,
-        materialId,
-        user.organizationId!,
-        normalized,
-        tx,
-      );
-      if (preview.newSeconds > progressBudget(preview.now, old.lastReportedAt))
-        fail(
-          409,
-          'PROGRESS_RATE_EXCEEDED',
-          'Đoạn xem vượt ngân sách thời gian.',
-          this.state(materialId, duration, current.videoCompletionPercent, old),
+      if (ranges.length) {
+        const normalized = normalizeRanges(ranges, duration);
+        await this.repository.saveCoverage(
+          enrollmentId,
+          materialId,
+          user.organizationId!,
+          requiredSeconds(duration, current.videoCompletionPercent),
+          normalized,
+          tx,
         );
-      const row =
-        preview.newSeconds === 0
-          ? old
-          : await this.repository.save(
-              enrollmentId,
-              materialId,
-              user.organizationId!,
-              preview,
-              requiredSeconds(duration, current.videoCompletionPercent),
-              normalized,
-              tx,
-            );
+      }
+      const row = await this.repository.savePosition(
+        enrollmentId,
+        materialId,
+        user.organizationId!,
+        Math.min(duration, report.positionSeconds),
+        positionReportedAt(report.reportedAt, new Date()),
+        tx,
+      );
       return this.state(
         materialId,
         duration,

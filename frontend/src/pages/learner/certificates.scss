@@ -1,72 +1,120 @@
+.learner-certificates {
+  min-width: 0;
+}
 .learner-certificates-card {
-  padding: 24px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: #fff;
+  padding: var(--space-6);
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
-
-.learner-certificates-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.learner-certificates-table th {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--color-border);
-  background: #f1f5f9;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 650;
-  text-align: left;
-}
-
-.learner-certificates-table td {
-  padding: 16px 12px;
-  border-bottom: 1px solid var(--color-border);
-  color: #334155;
-  font-size: 13px;
-}
-
-.learner-certificates-table strong {
-  color: #0f172a;
-  font-weight: 650;
-}
-
-.learner-certificates-empty {
-  display: flex;
-  padding: 64px 24px;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: #fff;
-  text-align: center;
-}
-
-.learner-certificates-empty-icon {
+.learner-certificates-columns,
+.learner-certificate-item {
   display: grid;
-  width: 72px;
-  height: 72px;
-  margin-bottom: 20px;
-  place-items: center;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #2563eb;
-  font-size: 26px;
+  grid-template-columns:
+    minmax(0, 2fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.4fr)
+    minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: center;
+}
+.learner-certificates-columns {
+  padding: var(--space-4) var(--space-3);
+  background: var(--color-surface-secondary);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+}
+.learner-certificate-item {
+  padding: var(--space-4) var(--space-3);
+  border-bottom: thin solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+.learner-certificate-course {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+}
+.learner-certificate-meta {
+  min-width: 0;
+}
+.learner-certificate-meta > span {
+  display: none;
+}
+.learner-certificate-meta > strong {
+  font-weight: 400;
+  white-space: nowrap;
+}
+.learner-certificate-controls {
+  min-width: 0;
+}
+.learner-certificate-controls > p {
+  margin: var(--space-2) 0 0;
+  overflow-wrap: anywhere;
+}
+.learner-certificates-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.learner-certificates > .learner-button {
+  margin-top: var(--space-4);
+}
+@media (max-width: 640px) {
+  .learner-main:has(.learner-certificates) {
+    padding-inline: 0;
+  }
+  .learner-certificates {
+    padding-inline: var(--space-4);
+  }
+  .learner-certificates-card {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .learner-certificates-columns {
+    display: none;
+  }
+  .learner-certificates-items {
+    display: grid;
+    gap: var(--space-4);
+  }
+  .learner-certificate-item {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: var(--space-4);
+    border: thin solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+  .learner-certificate-course,
+  .learner-certificate-status,
+  .learner-certificate-controls {
+    grid-column: 1 / -1;
+  }
+  .learner-certificate-meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .learner-certificate-meta > span {
+    display: block;
+    font-size: var(--font-size-caption);
+    color: var(--color-text-secondary);
+  }
+  .learner-certificates-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .learner-certificates-actions > .learner-button {
+    padding-inline: var(--space-2);
+  }
 }
 
-.learner-certificates-empty h2 {
-  margin: 0 0 12px;
-  color: #0f172a;
-  font-size: 22px;
-  font-weight: 700;
+.learner-certificate-status .learner-status {
+  max-width: 100%;
+  white-space: normal;
 }
 
-.learner-certificates-empty p {
-  max-width: 420px;
-  margin: 0 0 24px;
-  color: #64748b;
-  font-size: 14px;
-  line-height: 1.6;
+.learner-certificates-actions .learner-button:not(:disabled) {
+  transition: none;
 }

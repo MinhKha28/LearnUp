@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from 'generated/prisma/client';
+import { Prisma } from 'generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import type { AssignmentFacts } from '../completion-snapshot/completion-snapshot';
+import {
+  emitCompletionSignal,
+  type CompletionSignal,
+} from '../outbox/completion-signal';
 import {
   ASSIGNMENT_KIND,
   REVIEW_COMPLETED,
@@ -51,6 +56,33 @@ export class LearnerSubmissionsRepository {
     });
   }
 
+  /**
+   * The reviews the Learner owes or gave as a peer on one Assignment (never the Instructor's own), each with its cycle:
+   * the same facts the completion snapshot reads, so both decide "owes a peer review" with peerReviewOf (D10).
+   */
+  async findPeerReviews(
+    assessmentId: string,
+    learnerId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<AssignmentFacts['reviews']> {
+    const rows = await this.db(tx).$queryRaw<
+      {
+        status: string;
+        reviewDueAt: Date | null;
+        cycleId: string | null;
+        cycleClosesAt: Date | null;
+      }[]
+    >(Prisma.sql`
+      SELECT r.status, c.review_due_at AS "reviewDueAt", r.cycle_id AS "cycleId", c.closes_at AS "cycleClosesAt"
+      FROM submission_reviews r
+      JOIN submissions rs ON rs.id = r.submission_id
+      LEFT JOIN peer_review_cycles c ON c.id = r.cycle_id
+      WHERE rs.assessment_id = ${assessmentId}::uuid AND r.reviewer_id = ${learnerId}::uuid
+        AND lower(r.reviewer_role) <> 'instructor'
+    `);
+    return rows;
+  }
+
   /** The submission that counts: the newest one that has not been replaced (BR-170). */
   findLatestSubmission(
     assessmentId: string,
@@ -79,15 +111,6 @@ export class LearnerSubmissionsRepository {
         },
       },
     });
-  }
-
-  /** BR-169: an Enrollment that is Completed is read-only (the row comes from learning-service events). */
-  async isEnrollmentCompleted(enrollmentId: string): Promise<boolean> {
-    const row = await this.prisma.completedEnrollment.findUnique({
-      where: { enrollmentId },
-      select: { enrollmentId: true },
-    });
-    return row !== null;
   }
 
   findPlatformSetting() {
@@ -130,7 +153,14 @@ export class LearnerSubmissionsRepository {
     at: Date,
   ) {
     return tx.peerReviewCycle.findFirst({
-      where: { assessmentId, opensAt: { lte: at }, closesAt: { gt: at } },
+      // Open only: a cycle that closed while this submission waited for its lock is not joined, even when the closing
+      // time is later than the time this request started.
+      where: {
+        assessmentId,
+        status: 'Open',
+        opensAt: { lte: at },
+        closesAt: { gt: at },
+      },
     });
   }
 
@@ -176,10 +206,8 @@ export class LearnerSubmissionsRepository {
     return tx.submission.create({ data });
   }
 
-  createOutboxEvent(
-    tx: Prisma.TransactionClient,
-    data: Prisma.OutboxEventUncheckedCreateInput,
-  ) {
-    return tx.outboxEvent.create({ data });
+  /** The status-changed event of the Learner, written in the transaction of the change (see emitCompletionSignal). */
+  emitSignal(tx: Prisma.TransactionClient, signal: CompletionSignal) {
+    return emitCompletionSignal(tx, signal);
   }
 }

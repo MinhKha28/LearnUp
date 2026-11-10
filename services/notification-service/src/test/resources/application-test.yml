@@ -4,6 +4,9 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
+    hikari:
+      # Keep H2 Instant round-trips stable when the developer JVM uses a non-UTC zone.
+      connection-init-sql: SET TIME ZONE 'UTC'
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -14,3 +17,6 @@ spring:
 eureka:
   client:
     enabled: false
+
+security:
+  internal-key: notification-test-only-internal-key-32bytes

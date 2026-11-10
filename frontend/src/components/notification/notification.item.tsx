@@ -1,9 +1,10 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import type { ReactNode } from "react";
 import { CheckCircleOutlined, ExclamationCircleOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import type { INotification } from "@/types/notification.types";
 import "./notification.item.scss";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString();
+const formatTime = (iso: string) => formatDateTimeVN(iso);
 
 /** The type only picks the look of the icon; an unknown type looks like INFO. */
 const typeView = (type: string): { tone: "info" | "success" | "warning"; icon: ReactNode } => {
@@ -40,7 +41,7 @@ const NotificationItem = ({
         <span className="notification-item-message">{notification.message}</span>
         <small>{formatTime(notification.createdAt)}</small>
       </span>
-      <span className="notification-item-dot" aria-label={notification.isRead ? "Read" : "Unread"} />
+      <span className="notification-item-dot" aria-label={notification.isRead ? "Đã đọc" : "Chưa đọc"} />
     </button>
   );
 };

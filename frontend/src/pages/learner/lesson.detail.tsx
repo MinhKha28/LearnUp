@@ -1,5 +1,4 @@
 import { ArrowLeftOutlined, ArrowRightOutlined } from "@ant-design/icons";
-import { Tooltip } from "antd";
 import { useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -12,13 +11,12 @@ import {
 import { LearningError } from "@/components/learner/learning.error";
 import { LessonMarkdown } from "@/components/learner/lesson.markdown";
 import { useApiQuery } from "@/hooks/use.api.query";
+import { useLearningRefresh } from "@/hooks/use.learning.refresh";
 import { fetchLessonDetail } from "@/services/learning.service";
 import type { LessonDetailData } from "@/types/learning.types";
 import { buildMaterialRow, completionMark } from "@/utils/curriculum.view";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import "./lesson.detail.scss";
-
-const MATERIAL_SOON = "Học liệu Reading sẽ có ở phiên bản sau";
 
 const LessonBody = ({
   data,
@@ -44,7 +42,7 @@ const LessonBody = ({
 
       {/* Lesson không có nội dung: bỏ hẳn phần nội dung (luồng 3a) */}
       {hasContent && (
-        <section className="lesson-detail-card" aria-label="Nội dung Lesson">
+        <section className="lesson-detail-card" aria-label="Nội dung Bài học">
           <LessonMarkdown content={lesson.content ?? ""} />
         </section>
       )}
@@ -52,7 +50,7 @@ const LessonBody = ({
       <section className="lesson-detail-card">
         <h2>Học liệu</h2>
         {materials.length === 0 ? (
-          <p className="lesson-detail-empty">Lesson này chưa có học liệu</p>
+          <p className="lesson-detail-empty">Bài học này chưa có học liệu</p>
         ) : (
           <ol className="lesson-detail-materials">
             {materials.map((material) => {
@@ -74,28 +72,18 @@ const LessonBody = ({
                       {row.duration && <span>{row.duration}</span>}
                     </div>
                   </div>
-                  {/* Nút bị vô hiệu không nhận sự kiện chuột, bọc span để tooltip vẫn hiện */}
-                  <Tooltip
-                    title={
-                      material.materialType === "Video"
-                        ? undefined
-                        : MATERIAL_SOON
-                    }
-                  >
-                    <span className="lesson-detail-material-action">
-                      <LearnerButton
-                        disabled={material.materialType !== "Video"}
-                        onClick={() =>
-                          navigate(
-                            `/learner/courses/${enrollmentId}/lessons/${lesson.lessonId}/resources/${material.materialId}`,
-                          )
-                        }
-                        aria-label={`Mở học liệu ${row.title}`}
-                      >
-                        Mở học liệu
-                      </LearnerButton>
-                    </span>
-                  </Tooltip>
+                  <span className="lesson-detail-material-action">
+                    <LearnerButton
+                      onClick={() =>
+                        navigate(
+                          `/learner/courses/${enrollmentId}/lessons/${lesson.lessonId}/resources/${material.materialId}`,
+                        )
+                      }
+                      aria-label={`Mở học liệu ${row.title}`}
+                    >
+                      Mở học liệu
+                    </LearnerButton>
+                  </span>
                 </li>
               );
             })}
@@ -106,7 +94,7 @@ const LessonBody = ({
       {(previousLesson || nextLesson) && (
         <nav
           className="lesson-detail-neighbors"
-          aria-label="Lesson trước và sau"
+          aria-label="Bài học trước và sau"
         >
           {previousLesson ? (
             <LearnerButton
@@ -152,10 +140,7 @@ const LessonDetail = () => {
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [lessonId]);
-  useEffect(() => {
-    window.addEventListener("learning-progress", query.reload);
-    return () => window.removeEventListener("learning-progress", query.reload);
-  }, [query.reload]);
+  useLearningRefresh(query.reload, enrollmentId);
 
   return (
     <LearnerPage className="lesson-detail">

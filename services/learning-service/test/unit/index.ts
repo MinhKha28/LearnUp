@@ -18,4 +18,21 @@ import './curriculum-service.unit-test';
 import './optional-withdrawal.unit-test';
 import './learner-enrollment-summary.unit-test';
 import './video-progress.unit-test';
+import './video-resume.unit-test';
 import './withdrawal-demo-seed.unit-test';
+import './outbox-relay.unit-test';
+import './outbox-relay-shutdown.unit-test';
+
+import './assessment-access.unit-test';
+import './course-completion.unit-test';
+import './completion-worker.unit-test';
+import './reading-completion.unit-test';
+
+import './tenant-access.unit-test';
+import './tenant-access-services.unit-test';
+
+import './material-signing.unit-test';
+import './progress.unit-test';
+import './internal-auth-guard.unit-test';
+import './assessment-status.unit-test';
+import './assessment-results.unit-test';

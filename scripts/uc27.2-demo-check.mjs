@@ -17,7 +17,7 @@ if (process.env.NODE_ENV === "production")
 const base = "http://localhost:3000";
 const root = path.resolve(import.meta.dirname, "..");
 const results = [];
-const artifacts = path.join(root, "frontend", "dev", "uc27.2-results");
+const artifacts = process.env.DEMO_ARTIFACTS_DIR ?? path.join(root, "frontend", "dev", "uc27.2-results");
 mkdirSync(artifacts, { recursive: true });
 const chromeRoot = path.join(process.env.LOCALAPPDATA, "ms-playwright");
 const chrome =
@@ -108,10 +108,33 @@ async function until(expression, timeout = 20000) {
   }
   throw new Error("Browser condition timed out: " + expression);
 }
+let viewportWidth = 1440;
+async function viewport(width) {
+  viewportWidth = width;
+  await call("Emulation.setDeviceMetricsOverride", { width, height: 1024, deviceScaleFactor: 1, mobile: false });
+}
+async function assignmentScreenshots(name) {
+  await screenshot(name);
+  await viewport(1280);
+  await screenshot(name + "-1280");
+  if (name === "assignments-list") {
+    assert.equal(await evaluate("Array.from(document.querySelectorAll('.organizer-assignment-nowrap')).every(cell => getComputedStyle(cell).whiteSpace === 'nowrap')"), true);
+    assert.equal(await evaluate("document.querySelector('.organizer-assignments table').getBoundingClientRect().width <= document.querySelector('.ant-table-content').clientWidth + 1"), true);
+  }
+  await viewport(1440);
+}
+async function screenshot(name) {
+  await evaluate("document.fonts.ready");
+  await evaluate("Promise.all(document.getAnimations().filter(animation => Number.isFinite(animation.effect?.getComputedTiming().endTime)).map(animation => animation.finished.catch(() => {})))");
+  const metrics = await call("Page.getLayoutMetrics");
+  const image = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, clip: { x: 0, y: 0, width: viewportWidth, height: metrics.cssContentSize.height, scale: 1 } });
+  writeFileSync(path.join(artifacts, name + ".png"), Buffer.from(image.data, "base64"));
+}
 async function navigate(route) {
   await call("Page.navigate", { url: base + route });
   await until(
     "document.readyState==='complete' && !!document.querySelector('#root') && document.body.innerText.length>50",
+    60000,
   );
 }
 const api = async (route, method = "GET", payload) => {
@@ -199,6 +222,7 @@ async function playUntil(time, rate = 1) {
 }
 try {
   await connect();
+  await call("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1024, deviceScaleFactor: 1, mobile: false });
   await call("Page.enable");
   await call("Network.enable");
   await check("Inter 1: UC25/25.1/26/27/27.1", async () => {
@@ -239,6 +263,8 @@ try {
       (await api(`/api/v1/courses/${publicCourse}/introduction`)).status,
       404,
     );
+    await navigate("/learner/courses");
+    await until("document.querySelector('.learner-org-name')?.textContent === 'Tổ chức B'");
     return { empty: true, crossOrganization: 404 };
   });
   await check("UC25.3 enrollment and 429", async () => {
@@ -280,7 +306,7 @@ try {
         "!!document.querySelector('.ant-modal:not([style*=\"display: none\"])')",
       );
       await evaluate(
-        "Array.from(document.querySelectorAll('.ant-modal button')).find(x=>x.textContent.includes('Rút khỏi Course')).click()",
+        "Array.from(document.querySelectorAll('.ant-modal button')).find(x=>x.textContent.includes('Rút khỏi Khóa học')).click()",
       );
       return responseAfter(
         `/api/v1/enrollments/${enrollmentId}/withdrawal`,
@@ -321,6 +347,12 @@ try {
   });
   await check("UC24/24.1/24.2/24.3/24.5 one-page demo", async () => {
     await identity("ORGANIZER");
+    await navigate("/organizer/assignments/assign");
+    await until("!!document.querySelector('tr[data-row-key]')");
+    await screenshot("assignment-create");
+    await until("document.querySelector('.organizer-org-badge')?.textContent === 'Tổ chức A'");
+    assert.equal(await evaluate("document.querySelector('.organizer-user strong')?.textContent === 'Quản lý đào tạo ABC'"), true);
+    await screenshot("sidebar-organizer");
     const learners = await api("/api/v1/users/learners?page=1&pageSize=50");
     assert.equal(learners.status, 200);
     const previous = await api("/api/v1/assignments?page=1");
@@ -332,7 +364,7 @@ try {
     if(!existing) {
       await navigate("/organizer/assignments/assign");
       await until("!!document.querySelector('tr[data-row-key=\"01900000-0000-7000-8000-00000000a203\"]')");
-      await evaluate("document.querySelector('.ant-select-selector').dispatchEvent(new MouseEvent('mousedown',{bubbles:true}))");
+      await evaluate("document.querySelector('.organizer-assignment-create .ant-select-selector').dispatchEvent(new MouseEvent('mousedown',{bubbles:true}))");
       await until("Array.from(document.querySelectorAll('.ant-select-item-option-content')).some(x=>x.textContent.includes('Bảo vệ dữ liệu cá nhân'))");
       await evaluate("Array.from(document.querySelectorAll('.ant-select-item-option-content')).find(x=>x.textContent.includes('Bảo vệ dữ liệu cá nhân')).click()");
       await evaluate("document.querySelector('tr[data-row-key=\"01900000-0000-7000-8000-00000000a203\"] input[type=checkbox]').click()");
@@ -355,8 +387,13 @@ try {
     const assignmentId = row.enrollmentId ?? row.id;
     await navigate("/organizer/assignments");
     await until("document.body.innerText.includes('Lê Văn Cường')");
+    await assignmentScreenshots("assignments-list");
     await navigate(`/organizer/assignments/${assignmentId}`);
     await until("document.body.innerText.includes('Lê Văn Cường')");
+    await assignmentScreenshots("assignment-detail");
+    assert.equal(await evaluate("getComputedStyle(document.querySelector('.organizer-assignment-email')).wordBreak"), "normal");
+    assert.equal(await evaluate("document.body.innerText.includes('Northstar Learning') || document.body.innerText.includes('Mai Nguyen')"), false);
+    assert.equal(await evaluate("document.querySelector('.organizer-status') && parseFloat(getComputedStyle(document.querySelector('.organizer-status')).fontSize) >= 14"), true);
     const detail = await api(`/api/v1/assignments/${assignmentId}`);
     assert.equal(detail.status, 200);
     const next = new Date(
@@ -407,6 +444,8 @@ try {
     assert.equal(rejected.status, 409);
     assert.equal(await evaluate("Array.from(document.querySelectorAll('button')).some(x=>x.textContent.trim()==='Đánh dấu Miễn')"),false);
     await navigate(`/organizer/assignments/${id("2a0000000002")}`);
+    await until("!!document.querySelector('.organizer-assignment-learner')");
+    await screenshot("assignment-before-exemption");
     await click("Đánh dấu Miễn");
     await until("!!document.querySelector('.ant-modal textarea')");
     await evaluate("(()=>{const t=document.querySelector('.ant-modal textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(t,'Hồi quy demo\\nĐã có hoạt động');t.dispatchEvent(new Event('input',{bubbles:true}))})()");
@@ -414,6 +453,8 @@ try {
     await evaluate("Array.from(document.querySelectorAll('.ant-modal button')).find(x=>x.textContent.trim()==='Đánh dấu Miễn').click()");
     const exempted=await responseAfter(`/api/v1/assignments/${id("2a0000000002")}/exemption`,exemptionStart);
     assert.equal(exempted.status, 200, JSON.stringify(exempted.body));
+    await until("document.querySelector('.organizer-assignment-title .organizer-status')?.textContent === 'Miễn'");
+    await screenshot("assignment-after-exemption");
     return {
       learnerCount: learners.body.data.meta.total,
       created: created.body.data,
@@ -425,7 +466,7 @@ try {
     };
   });
   await check(
-    "UC27.2 (1): actual 20s playback activates Enrollment",
+    "UC27.2 (1): BR-140 partial playback keeps Enrollment NotStarted",
     async () => {
       await identity("LEARNER_5");
       assert.equal(
@@ -434,26 +475,38 @@ try {
         ).status,
         "NotStarted",
       );
+      await navigate("/learner/courses");
+      await until("!!document.querySelector('.learner-my-course')");
+      await screenshot("my-courses");
+      await screenshot("sidebar-learner");
+      await navigate(`/learner/catalog/${publicCourse}`);
+      await until("!!document.querySelector('.course-overview-card')");
+      assert.equal(await evaluate("document.body.innerText.includes('Learning Outcomes')"), false);
+      await screenshot("catalog-course");
       await loadPlayer(a);
+      await until("!!document.querySelector('.lesson-resource-target')");
+      assert.equal(await evaluate("document.body.innerText.includes('Chưa đủ thời lượng')"), true);
+      assert.equal(await evaluate("document.body.innerText.includes('trong proxy khi')"), false);
+      await screenshot("video-incomplete");
       await playUntil(20);
       const state = await playback(a);
       assert.ok(
         state.watchedSeconds >= 19 && state.watchedSeconds <= 22,
         JSON.stringify(state),
       );
-      await click("Về Lesson");
+      await click("Về Bài học");
       await navigate("/learner/courses");
-      await until("document.body.innerText.includes('Đang học')");
+      await until(`Array.from(document.querySelectorAll('.learner-my-course')).some(row=>row.querySelector('a')?.getAttribute('href')==='/learner/courses/${a}' && row.innerText.includes('Chưa bắt đầu'))`);
       assert.equal(
         (await api("/api/v1/enrollments/me?page=1")).body.data.items.find(
           (e) => e.enrollmentId === a,
         ).status,
-        "InProgress",
+        "NotStarted",
       );
       return {
         watchedSeconds: state.watchedSeconds,
         actualPlayback: true,
-        status: "InProgress",
+        status: "NotStarted",
       };
     },
   );
@@ -492,7 +545,7 @@ try {
       const state = await playback(b);
       assert.equal(state.completed, true);
       assert.ok(state.watchedSeconds >= 541);
-      await click("Về Lesson");
+      await click("Về Bài học");
       await until("document.body.innerText.includes('Đã hoàn thành')");
       const curriculum = (await api(`/api/v1/enrollments/${b}/curriculum`)).body
         .data;
@@ -519,11 +572,38 @@ try {
       return { completedAt: after.completedAt };
     },
   );
-  const screenshot = await call("Page.captureScreenshot", { format: "png" });
-  writeFileSync(
-    path.join(artifacts, "player.png"),
-    Buffer.from(screenshot.data, "base64"),
-  );
+  await check("UI: localized learner screenshots", async () => {
+    await identity("LEARNER_1");
+    await navigate("/learner/courses");
+    await until("!!document.querySelector('.learner-my-course')");
+    assert.equal(await evaluate("document.querySelector('.learner-status') && parseFloat(getComputedStyle(document.querySelector('.learner-status')).fontSize) >= 14"), true);
+    await until("document.querySelector('.learner-org-name')?.textContent === 'Tổ chức A'");
+    assert.equal(await evaluate("!!document.querySelector('.dev-identity-badge')"), false);
+    assert.equal(await evaluate("document.body.innerText.includes('Hết ngày')"), true);
+    await screenshot("my-courses");
+    await screenshot("sidebar-learner");
+    await navigate("/learner/catalog");
+    await until("!!document.querySelector('.learner-catalog-card')");
+    assert.equal(await evaluate("Array.from(document.querySelectorAll('.course-cover-initial')).some(x => x.textContent === '[')"), false);
+    await screenshot("catalog");
+    await navigate(`/learner/catalog/${publicCourse}`);
+    await until("!!document.querySelector('.course-overview-card')");
+    assert.equal(await evaluate("document.body.innerText.includes('Learning Outcomes')"), false);
+    await screenshot("catalog-course");
+    await identity("LEARNER_5");
+    await loadPlayer(a);
+    await screenshot("video-incomplete");
+    await identity("LEARNER_6");
+    await loadPlayer(b);
+    await until("document.body.innerText.includes('Đã hoàn thành')");
+    await screenshot("video-completed");
+    await identity("ORGANIZER");
+    await navigate(`/organizer/assignments/${id("2a0000000002")}`);
+    await until("document.querySelector('.organizer-assignment-title .organizer-status')?.textContent === 'Miễn'");
+    await screenshot("assignment-after-exemption");
+    await screenshot("sidebar-organizer");
+    return { viewportWidth: 1440, artifactDirectory: artifacts };
+  });
 } finally {
   const output = path.join(artifacts, "checks.json");
   const previous =

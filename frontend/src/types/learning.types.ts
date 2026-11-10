@@ -32,6 +32,7 @@ export interface MyEnrollmentItem {
   enrollmentType: EnrollmentType;
   status: EnrollmentStatus;
   dueAt: string | null;
+  dueTimezone: string | null;
   requiredMaterials: { completed: number; total: number };
   /** null khi course-service không trả Course này (D26). */
   course: {
@@ -41,10 +42,7 @@ export interface MyEnrollmentItem {
   } | null;
 }
 
-export interface MyEnrollmentsPage extends PageResponse<MyEnrollmentItem> {
-  /** null khi tenant lỗi hoặc trang không có Required có hạn (D24). */
-  organizationTimezone: string | null;
-}
+export type MyEnrollmentsPage = PageResponse<MyEnrollmentItem>;
 
 /** completed null: không có học liệu hiển thị, trạng thái trung tính (D30). */
 export interface CurriculumLesson {
@@ -71,7 +69,7 @@ export interface CurriculumData {
   enrollmentType: EnrollmentType;
   status: EnrollmentStatus;
   dueAt: string | null;
-  organizationTimezone: string | null;
+  dueTimezone: string | null;
   requiredMaterials: { completed: number; total: number };
   course: { name: string; versionNumber: number } | null;
   modules: CurriculumModule[];
@@ -113,10 +111,114 @@ export interface VideoProgress {
   requiredSeconds: number;
   completed: boolean;
   completedAt: string | null;
-  maxPlaybackRate: number;
+  positionSeconds: number | null;
+  positionReportedAt: string | null;
   heartbeatSeconds: number;
 }
 export interface VideoPlayback extends VideoProgress {
   title: string;
   playbackUrl: string;
+  expiresAt: string;
+  mimeType: string;
+}
+
+export interface ReadingAccess {
+  materialId: string;
+  title: string;
+  accessUrl: string;
+  expiresAt: string;
+  mimeType: string;
+  fixture: boolean;
+}
+export interface ReadingCompletion {
+  materialId: string;
+  completedAt: string | null;
+  alreadyCompleted: boolean;
+  lessonCompleted: boolean | null;
+  enrollmentStatus: EnrollmentStatus;
+  completionEvaluationPending: boolean;
+}
+
+/** UC28.1: what the Learner did on one Quiz or Assignment of the Course, set against the passing score. */
+export interface AssessmentResultItem {
+  assessmentId: string;
+  kind: "QUIZ" | "ASSIGNMENT";
+  title: string;
+  isRequired: boolean;
+  /** BR-296: disabled; the score stays but no longer counts for the Certificate. */
+  disabled: boolean;
+  passingScore: number;
+  status: "InProgress" | "AwaitingResult" | "Completed";
+  recordedScore: number | null;
+  /** null while there is no score: "not completed", never "failed" (BR-191). */
+  passed: boolean | null;
+  attemptCount: number;
+  lastActivityAt: string;
+  quiz: {
+    bestAttemptNumber: number | null;
+    attempts: {
+      attemptNumber: number;
+      score: number;
+      submittedAt: string;
+      submissionKind: string | null;
+    }[];
+  } | null;
+  assignment: { latestSubmissionNumber: number; gradingStatus: string } | null;
+}
+
+export interface AssessmentResultsSummary {
+  total: number;
+  passed: number;
+  notPassed: number;
+  pending: number;
+}
+
+export interface AssessmentResultsData {
+  enrollment: { id: string; courseId: string; status: string };
+  /** unavailable: assessment-service could not be asked. */
+  state: "ok" | "unavailable";
+  summary?: AssessmentResultsSummary;
+  items?: AssessmentResultItem[];
+}
+
+/** UC28: no current conditions are returned for a Completed Enrollment. */
+export interface EnrollmentProgress {
+  enrollment: {
+    id: string;
+    courseId: string;
+    status: EnrollmentStatus;
+    enrollmentType: EnrollmentType;
+    dueAt: string | null;
+    dueTimezone: string | null;
+    completedAt: string | null;
+    completedLate: boolean | null;
+  };
+  materials?: {
+    materialId: string;
+    lessonId: string;
+    title: string;
+    materialType: string;
+    required: boolean;
+    done: boolean;
+  }[];
+  assessment?: { state: "unavailable" } | {
+    state: "ok";
+    items: {
+      kind: "quiz" | "assignment";
+      assessmentId: string;
+      passed: boolean;
+      peerReview: null | {
+        status: "NotApplicable" | "Pending" | "Satisfied" | "Missed" | "Waived";
+        requiredCount: number;
+        completedCount: number;
+        done: boolean;
+      };
+    }[];
+  };
+  conditions?: {
+    state: "ok" | "unavailable";
+    met: number | null;
+    total: number | null;
+    missing: { kind: "material" | "quiz" | "assignment" | "peerReview"; id: string }[];
+  };
 }

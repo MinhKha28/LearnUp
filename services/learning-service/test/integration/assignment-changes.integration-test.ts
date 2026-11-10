@@ -1,17 +1,24 @@
+import { closeAll, closeApp } from './deadlines';
+import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { createServer } from 'node:http';
+import { AssignmentChangesRepository } from '../../src/modules/assignments/assignment-changes.repository';
+import { TenantAccessHttp } from '../../src/infrastructure/clients/tenant/tenant-access.http';
 import type { AddressInfo } from 'node:net';
-import { after, before, beforeEach, describe, test } from 'node:test';
+import { after, before, beforeEach, describe, test, mock } from './test-runner';
 import { HEADER_NAMES } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
+import { Logger } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import {
   TENANT_CLIENT,
+  TenantUnavailableError,
   type TenantClient,
 } from '../../src/infrastructure/clients/tenant/tenant.client';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
@@ -25,11 +32,13 @@ const ORG = '0199a000-2450-7000-8000-0a00000000f1';
 const OTHER = '0199a000-2450-7000-8000-0a00000000f2';
 const COURSE = '0199a000-2450-7000-8000-0e00000000f1';
 const ACTOR = randomUUID();
-const db = new Client({ connectionString: databaseUrl('learning_db') });
+const db = new Client({ connectionString: databaseUrl() });
 let app: NestExpressApplication;
 let url: string;
 let today: string;
 let subscriptionStatus = 'Active';
+let organizationStatus = 'Active';
+let tenantDown = false;
 let timezone = 'Asia/Ho_Chi_Minh';
 let accessCalls = 0;
 async function cleanup() {
@@ -45,8 +54,8 @@ async function seed(status = 'InProgress', optional = false) {
   await db.query(
     `INSERT INTO enrollments
     (id, organization_id, learner_id, course_id, enrollment_type, status, assigned_at, expected_completion_days,
-     base_due_at, due_at, video_completion_percent, first_activity_at, completed_at, completed_late, withdrawn_at, withdrawn_reason)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,80,$10,$11,$12,$13,$14)`,
+     base_due_at, due_at, video_completion_percent, first_activity_at, completed_at, completed_late, withdrawn_at, withdrawn_reason,due_timezone)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,80,$10,$11,$12,$13,$14,CASE WHEN ($9)::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END )`,
     [
       id,
       ORG,
@@ -118,7 +127,13 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
     const tenant = app.get<TenantClient>(TENANT_CLIENT);
     tenant.getOrganizationAccess = async () => {
       accessCalls++;
-      return { subscriptionStatus, timezone, readOnlyEndsAt: null };
+      if (tenantDown) throw new TenantUnavailableError('network');
+      return {
+        organizationStatus,
+        subscriptionStatus,
+        timezone,
+        readOnlyEndsAt: null,
+      };
     };
     tenant.lookupLearners = async (_user, ids) =>
       ids.map((userId) => ({
@@ -131,6 +146,7 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
         deletedAt: null,
       }));
     app.get(CourseServiceClient).getCoursesBatch = async () => [];
+    tenantDown = true; // Startup must not require Tenant access.
     await app.listen(0, '127.0.0.1');
     url = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
     today = (
@@ -139,9 +155,41 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
       )
     ).rows[0].today;
   });
+  for (const action of ['due-date', 'exemption']) {
+    void test(`${action}: inactive organization blocks with active subscription`, async () => {
+      const id = await seed();
+      organizationStatus = 'Suspended';
+      const result = await call(
+        id,
+        action,
+        action === 'due-date'
+          ? { newDueDate: plusDays(5) }
+          : { reason: 'test' },
+      );
+      assert.equal(result.status, 403);
+      assert.equal(result.body.error.code, 'ORGANIZATION_NOT_ACTIVE');
+      assert.equal(await eventCount(), 0);
+    });
+    void test(`${action}: tenant access outage fails closed`, async () => {
+      const id = await seed();
+      tenantDown = true;
+      const result = await call(
+        id,
+        action,
+        action === 'due-date'
+          ? { newDueDate: plusDays(5) }
+          : { reason: 'test' },
+      );
+      assert.equal(result.status, 503);
+      assert.equal(result.body.error.code, 'SERVICE_UNAVAILABLE');
+      assert.equal(await eventCount(), 0);
+    });
+  }
   beforeEach(async () => {
     await cleanup();
     subscriptionStatus = 'Active';
+    organizationStatus = 'Active';
+    tenantDown = false;
     timezone = 'Asia/Ho_Chi_Minh';
     accessCalls = 0;
     await db.query(
@@ -153,10 +201,170 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
     try {
       await cleanup();
     } finally {
-      await app?.close();
-      await db.end();
+      await closeAll(
+        () => closeApp(app),
+        () => db.end(),
+      );
     }
   });
+  test('detail survives tenant outage and recovers the live zone', async () => {
+    const id = await seed();
+    tenantDown = true;
+    const degraded = await call(id);
+    assert.equal(degraded.status, 200);
+    assert.equal(degraded.body.data.organizationTimezone, null);
+    tenantDown = false;
+    timezone = 'Pacific/Auckland';
+    const recovered = await call(id);
+    assert.equal(recovered.status, 200);
+    assert.equal(recovered.body.data.organizationTimezone, timezone);
+    assert.equal(recovered.body.data.dueTimezone, 'Asia/Ho_Chi_Minh');
+  });
+  test('fixed clock: changed organization zone rejects yesterday and accepts Auckland today', async () => {
+    const id = await seed();
+    const repo = app.get(AssignmentChangesRepository);
+    const original = repo.clock;
+    const now = new Date('2026-10-29T12:00:00Z');
+    repo.clock = async (tx, zone) => {
+      const [row] = await tx.$queryRaw<{ today: string }[]>`
+        SELECT to_char(${now}::timestamptz AT TIME ZONE ${zone}, 'YYYY-MM-DD') AS today`;
+      return { now, today: row.today };
+    };
+    timezone = 'Pacific/Auckland';
+    try {
+      // Keep the old deadline before both candidates to exercise the past-date rule.
+      const past = await call(id, 'due-date', { newDueDate: '2026-10-29' });
+      assert.equal(past.status, 422);
+      assert.equal(past.body.error.code, 'DUE_DATE_IN_PAST');
+      assert.equal(await eventCount(), 0);
+      await db.query(
+        "UPDATE enrollments SET due_at='2026-10-29T17:00Z' WHERE id=$1",
+        [id],
+      );
+      const result = await call(id, 'due-date', { newDueDate: '2026-10-30' });
+      assert.equal(result.status, 200);
+      assert.equal(result.body.data.dueAt, '2026-10-30T11:00:00.000Z');
+      const row = (
+        await db.query('SELECT due_timezone FROM enrollments WHERE id=$1', [id])
+      ).rows[0];
+      assert.equal(row.due_timezone, 'Pacific/Auckland');
+    } finally {
+      repo.clock = original;
+    }
+  });
+  for (const [tenantZone, storedZone] of [
+    ['Asia/Ho_Chi_Minh', 'Asia/Ho_Chi_Minh'],
+    ['asia/ho_chi_minh', 'Asia/Ho_Chi_Minh'],
+    ['Asia/TOKYO', 'Asia/Tokyo'],
+    ['Asia/Kolkata', 'Asia/Kolkata'],
+    ['+01:00', null],
+  ] as const) {
+    test(`HTTP Tenant ${tenantZone}: detail preserves input; extension resolves PostgreSQL spelling`, async () => {
+      const id = await seed();
+      const tenant = app.get<TenantClient>(TENANT_CLIENT);
+      const originalAccess = tenant.getOrganizationAccess;
+      const deadlines = app.get(BaseDueAtRepository);
+      const originalResolve = deadlines.resolveTimezoneName;
+      const changes = app.get(AssignmentChangesRepository);
+      const originalClock = changes.clock;
+      let resolveCalls = 0;
+      let clockZone: string | undefined;
+      deadlines.resolveTimezoneName = (zone) => {
+        resolveCalls++;
+        return originalResolve.call(deadlines, zone);
+      };
+      changes.clock = (tx, zone) => {
+        clockZone = zone;
+        return originalClock.call(changes, tx, zone);
+      };
+      const errors: string[] = [];
+      const errorLog = mock.method(
+        Logger.prototype,
+        'error',
+        (message: unknown) => {
+          errors.push(String(message));
+        },
+      );
+      const server = createServer((_request, response) => {
+        response.setHeader('content-type', 'application/json');
+        response.end(
+          JSON.stringify({
+            data: {
+              organizationId: ORG,
+              organizationStatus: 'Active',
+              subscriptionStatus: 'Active',
+              readOnlyEndsAt: null,
+              timezone: tenantZone,
+            },
+          }),
+        );
+      });
+      await new Promise<void>((resolve) =>
+        server.listen(0, '127.0.0.1', resolve),
+      );
+      const client = new TenantAccessHttp(
+        `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+        'synthetic-unit-key',
+      );
+      tenant.getOrganizationAccess = (user) =>
+        client.getOrganizationAccess(user);
+      try {
+        const detail = await call(id);
+        assert.equal(detail.status, 200);
+        assert.equal(detail.body.data.organizationTimezone, tenantZone);
+        assert.equal(detail.body.data.dueTimezone, 'Asia/Ho_Chi_Minh');
+        assert.equal(
+          resolveCalls,
+          0,
+          'detail must not resolve PostgreSQL zone names',
+        );
+        const newDueDate = plusDays(2);
+        const result = await call(id, 'due-date', { newDueDate });
+        assert.equal(resolveCalls, 1);
+        const row = (
+          await db.query(
+            'SELECT due_at,due_timezone FROM enrollments WHERE id=$1',
+            [id],
+          )
+        ).rows[0];
+        if (storedZone === null) {
+          assert.equal(result.status, 503);
+          assert.equal(result.body.error.code, 'SERVICE_UNAVAILABLE');
+          assert.equal(await eventCount(), 0);
+          assert.equal(row.due_timezone, 'Asia/Ho_Chi_Minh');
+          assert.equal(row.due_at.toISOString(), detail.body.data.dueAt);
+          assert.equal(clockZone, undefined);
+          assert.ok(
+            errors.some(
+              (message) =>
+                message.includes(ORG) && message.includes(tenantZone),
+            ),
+          );
+        } else {
+          assert.equal(result.status, 200);
+          assert.equal(clockZone, storedZone);
+          assert.equal(result.body.data.organizationTimezone, tenantZone);
+          assert.equal(result.body.data.dueTimezone, storedZone);
+          assert.equal(row.due_timezone, storedZone);
+          const expected = (
+            await db.query(
+              'SELECT (($1::date + 1)::timestamp AT TIME ZONE $2) AS due',
+              [newDueDate, storedZone],
+            )
+          ).rows[0].due.toISOString();
+          assert.equal(result.body.data.dueAt, expected);
+          assert.equal(row.due_at.toISOString(), expected);
+        }
+      } finally {
+        tenant.getOrganizationAccess = originalAccess;
+        deadlines.resolveTimezoneName = originalResolve;
+        changes.clock = originalClock;
+        errorLog.mock.restore();
+        server.closeAllConnections();
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    });
+  }
   test('two extensions accumulate and UC24/UC24.1 no longer display Overdue', async () => {
     const id = await seed();
     assert.equal((await call(id)).body.data.status, 'Overdue');
@@ -207,7 +415,7 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
         200,
       ));
   for (const action of ['due-date', 'exemption']) {
-    test(`${action} reuses access timezone without another tenant call`, async () => {
+    test(`${action} returns the live organization zone alongside the stored deadline zone`, async () => {
       const id = await seed();
       timezone = 'America/New_York';
       const result = await call(
@@ -218,8 +426,12 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
           : { reason: 'Miễn' },
       );
       assert.equal(result.status, 200);
+      assert.equal(
+        result.body.data.dueTimezone,
+        action === 'due-date' ? timezone : 'Asia/Ho_Chi_Minh',
+      );
       assert.equal(result.body.data.organizationTimezone, timezone);
-      assert.equal(accessCalls, 1);
+      assert.equal(accessCalls, 2);
     });
   }
   for (const status of ['Completed', 'Withdrawn'])
@@ -260,7 +472,6 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
     for (const [date, code] of [
       ['2025-01-01', 'DUE_DATE_NOT_LATER'],
       [plusDays(-1), 'DUE_DATE_IN_PAST'],
-      [plusDays(366), 'DUE_DATE_TOO_FAR'],
     ]) {
       const r = await call(id, 'due-date', { newDueDate: date });
       assert.equal(r.status, 422);
@@ -276,6 +487,55 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
         .status,
       200,
     ));
+  for (const zone of ['Asia/Ho_Chi_Minh', 'America/New_York', 'UTC']) {
+    for (const input of ['+366', '2100-12-31', '9999-12-30', '9999-12-31']) {
+      test(`extends to ${input} in ${zone} through DTO, PostgreSQL, Prisma and ISO`, async () => {
+        const date = input === '+366' ? plusDays(366) : input;
+        timezone = zone;
+        const id = await seed();
+        const before = await app
+          .get(PrismaService)
+          .enrollment.findUniqueOrThrow({ where: { id } });
+        const result = await call(id, 'due-date', { newDueDate: date });
+        if (date === '9999-12-31' && zone !== 'Asia/Ho_Chi_Minh') {
+          assert.equal(result.status, 422);
+          assert.equal(result.body.error.code, 'VALIDATION_ERROR');
+          assert.deepEqual(
+            await app
+              .get(PrismaService)
+              .enrollment.findUniqueOrThrow({ where: { id } }),
+            before,
+          );
+          assert.equal(await eventCount(), 0);
+          return;
+        }
+        assert.equal(result.status, 200);
+        const expected = (
+          await db.query(
+            `SELECT (($1::date + 1)::timestamp AT TIME ZONE $2) AS due`,
+            [date, zone],
+          )
+        ).rows[0].due.toISOString();
+        assert.equal(result.body.data.dueAt, expected);
+        const row = await app
+          .get(PrismaService)
+          .enrollment.findUniqueOrThrow({ where: { id } });
+        assert.equal(row.dueAt!.toISOString(), expected);
+        assert.equal(
+          row.extensionSeconds,
+          BigInt((row.dueAt!.getTime() - row.baseDueAt!.getTime()) / 1000),
+        );
+        const event = (
+          await db.query(
+            `SELECT event_type,payload FROM outbox_events WHERE aggregate_id=$1`,
+            [id],
+          )
+        ).rows[0];
+        assert.equal(event.event_type, 'EnrollmentDueDateExtended');
+        assert.equal(event.payload.newDueAt, expected);
+      });
+    }
+  }
   test('exemption writes one interval and event; preserves deadline; detail reused', async () => {
     const id = await seed();
     const previous = (await call(id)).body.data.dueAt;
@@ -353,7 +613,7 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
       assert.equal((await call(id, 'exemption', { reason })).status, 400);
     assert.equal(await eventCount(), 0);
   });
-  test('BR-300 shares calendar-end conversion for positive and negative timezones', async () => {
+  test('BR-167 shares calendar-end conversion for positive and negative timezones', async () => {
     for (const [zone, expected] of [
       ['Asia/Ho_Chi_Minh', '2026-10-16T17:00:00.000Z'],
       ['America/New_York', '2026-10-17T04:00:00.000Z'],
@@ -391,9 +651,9 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
   test('EXPLAIN ANALYZE BUFFERS lock and updates on 50000 enrollments use primary key', async () => {
     await db.query(
       `INSERT INTO enrollments
-      (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,expected_completion_days,base_due_at,due_at,video_completion_percent,first_activity_at)
+      (id,organization_id,learner_id,course_id,enrollment_type,status,assigned_at,expected_completion_days,base_due_at,due_at,video_completion_percent,first_activity_at,due_timezone)
       SELECT gen_random_uuid(),$1,gen_random_uuid(),$2,'Required','InProgress',now(),30,now()+interval '30 days',now()+interval '30 days',80,now()
-      FROM generate_series(1,50000)`,
+      ,CASE WHEN (now()+interval '30 days')::timestamptz IS NULL THEN NULL ELSE 'Asia/Ho_Chi_Minh' END FROM generate_series(1,50000)`,
       [ORG, COURSE],
     );
     await db.query('ANALYZE enrollments');
@@ -412,7 +672,7 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
         ],
         [
           'UPDATE due date',
-          "UPDATE enrollments SET due_at=due_at+interval '1 day',extension_seconds=extension_seconds+86400,updated_at=now() WHERE id=$1 AND organization_id=$2 AND enrollment_type='Required'",
+          "UPDATE enrollments SET due_timezone=due_timezone,due_at=due_at+interval '1 day',extension_seconds=extension_seconds+86400,updated_at=now() WHERE id=$1 AND organization_id=$2 AND enrollment_type='Required'",
         ],
         [
           'UPDATE exemption',
@@ -427,8 +687,10 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
         console.log(`UC24.3/UC24.5 ${label}, fixture 50000:\n${plan}`);
         assert.match(
           plan,
-          /Index Scan using enrollments_id_organization_id_key on enrollments/,
+          /Index Scan using enrollments_(?:pkey|id_organization_id_key) on enrollments/,
         );
+        assert.match(plan, /Index Cond: .*id =/);
+        assert.doesNotMatch(plan, /Seq Scan/);
       }
     } finally {
       await db.query('ROLLBACK');

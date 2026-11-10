@@ -1,7 +1,9 @@
 package com.learnup.identity.dto;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 public class LogoutRequest {
 
+    @Schema(accessMode = Schema.AccessMode.WRITE_ONLY, description = "Current session refresh token when not using logoutAll")
     private String refreshToken;
     private Boolean logoutAll = false;
 

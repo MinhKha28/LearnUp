@@ -1,9 +1,9 @@
 import { SearchOutlined } from "@ant-design/icons";
-import { Input, Select, Tooltip } from "antd";
+import { Empty, Input, Select, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import AccountTable from "@/components/organizer/account.table";
+import AccountTable, { statusLabel } from "@/components/organizer/account.table";
 import {
   OrganizerButton,
   OrganizerPage,
@@ -15,13 +15,24 @@ import {
   getInstructorsAPI,
 } from "@/services/organization.service";
 import type {
+  AccountStatus,
   IInstructorListItem,
   ISeatUsage,
 } from "@/types/organization.types";
 import { seatBlockReason } from "@/utils/helper";
 import "./instructors.scss";
 
-const COMING_SOON = "Coming soon";
+const SEARCH_DEBOUNCE_MS = 400;
+
+// UC12.4 - "all" = không gửi status; nhãn trạng thái lấy chung với cột Status
+type StatusFilter = AccountStatus | "all";
+const statusOptions: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "All statuses" },
+  ...(Object.keys(statusLabel) as AccountStatus[]).map((status) => ({
+    value: status,
+    label: statusLabel[status],
+  })),
+];
 
 // UC12 - cột riêng của Instructor: số Course đang phụ trách (null: chưa lấy được)
 const courseColumns: ColumnsType<IInstructorListItem> = [
@@ -41,13 +52,36 @@ const Instructors = () => {
   const [error, setError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
+  // UC12.4 - searchInput là giá trị đang gõ; keyword là giá trị đã debounce dùng để gọi API
+  const [searchInput, setSearchInput] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const hasFilter = keyword !== "" || status !== "all";
+
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const normalized = searchInput.trim().replace(/\s+/g, " ");
+      if (normalized !== keyword) {
+        setKeyword(normalized);
+        setPage(1);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [searchInput, keyword]);
+
+  useEffect(() => {
+    // ignore: bỏ kết quả của request cũ khi bộ lọc / trang đổi trước lúc nó trả về
     let ignore = false;
     const loadInstructors = async () => {
       setLoading(true);
       setError(false);
       try {
-        const res = await getInstructorsAPI({ page, pageSize });
+        const res = await getInstructorsAPI({
+          page,
+          pageSize,
+          keyword: keyword || undefined,
+          status: status === "all" ? undefined : status,
+        });
         if (ignore) return;
         if (res.data) {
           setRows(res.data.items);
@@ -65,7 +99,7 @@ const Instructors = () => {
     return () => {
       ignore = true;
     };
-  }, [page, pageSize, reloadKey]);
+  }, [page, pageSize, keyword, status, reloadKey]);
 
   // UC12.2 - số chỗ Instructor (quyết định bật nút Add Instructor)
   const [seats, setSeats] = useState<ISeatUsage | null>(null);
@@ -101,12 +135,18 @@ const Instructors = () => {
         subtitle="Manage instructor accounts in your organization."
         actions={
           <>
-            {/* UC12.8 */}
-            <Tooltip title={COMING_SOON}>
-              <span>
-                <OrganizerButton disabled>Import Excel</OrganizerButton>
-              </span>
-            </Tooltip>
+            {/* UC12.8 - cùng điều kiện với Add Instructor (BR-31); trang import kiểm lại số chỗ */}
+            {addBlockedReason ? (
+              <Tooltip title={addBlockedReason}>
+                <span>
+                  <OrganizerButton disabled>Import Excel</OrganizerButton>
+                </span>
+              </Tooltip>
+            ) : (
+              <Link to="/organizer/instructors/import">
+                <OrganizerButton>Import Excel</OrganizerButton>
+              </Link>
+            )}
             {/* UC12.2 */}
             {addBlockedReason ? (
               <Tooltip title={addBlockedReason}>
@@ -136,20 +176,22 @@ const Instructors = () => {
       >
         {/* UC12.4 */}
         <div className="organizer-filters organizer-instructors-filters">
-          <Tooltip title={COMING_SOON}>
-            <Input
-              prefix={<SearchOutlined />}
-              placeholder="Search by name or email"
-              disabled
-            />
-          </Tooltip>
-          <Tooltip title={COMING_SOON}>
-            <Select
-              defaultValue="all"
-              disabled
-              options={[{ value: "all", label: "All statuses" }]}
-            />
-          </Tooltip>
+          <Input
+            prefix={<SearchOutlined />}
+            placeholder="Search by name or email"
+            allowClear
+            maxLength={100}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+          />
+          <Select<StatusFilter>
+            value={status}
+            options={statusOptions}
+            onChange={(nextStatus) => {
+              setStatus(nextStatus);
+              setPage(1);
+            }}
+          />
         </div>
         <AccountTable<IInstructorListItem>
           rows={rows}
@@ -159,17 +201,25 @@ const Instructors = () => {
           loading={loading}
           error={error}
           itemLabel="instructors"
-          emptyText="No instructors yet."
+          emptyText={
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={
+                hasFilter
+                  ? "No matching instructors found."
+                  : "No instructors yet."
+              }
+            />
+          }
           extraColumns={courseColumns}
-          // UC12.1 / 12.3 / 12.5 / 12.6 / 12.7 gắn thao tác vào đây
-          renderActions={() => (
-            <Tooltip title={COMING_SOON}>
-              <span>
-                <button className="organizer-link" disabled>
-                  View details →
-                </button>
-              </span>
-            </Tooltip>
+          // UC12.1 - mở chi tiết; UC12.3 / 12.5 / 12.6 / 12.7 gắn thao tác ở trang chi tiết
+          renderActions={(item) => (
+            <Link
+              className="organizer-link"
+              to={`/organizer/instructors/${item.id}`}
+            >
+              View details →
+            </Link>
           )}
           onPageChange={(nextPage, nextPageSize) => {
             setPage(nextPage);

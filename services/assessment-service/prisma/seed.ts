@@ -15,15 +15,21 @@ import { PrismaClient } from '../generated/prisma/client';
 // ---------------------------------------------------------------------------
 // ID cố định (trùng với prisma/seed.ts của course-service)
 // ---------------------------------------------------------------------------
-const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
+// Tổ chức ABC, Instructor và Learner của tài khoản dev: cùng ID với course-service prisma/seed.ts và với
+// infrastructure/postgres/seed-dev-accounts.sql. identity-service không tự tạo tài khoản demo (DevAccountSeeder từ chối
+// chạy khi bật), nên muốn đăng nhập bằng các tài khoản này phải cấp chúng qua tenant-service hoặc file SQL đó.
+const ORG_A = '01900000-0000-7000-8000-00000000a001'; // ABC
+const LEARNER_1 = '01900000-0000-7000-8000-00000000a201'; // learner@learnup.local
+// Tổ chức thứ hai chỉ để thử không xem chéo giữa các tổ chức; course-service không có tổ chức và Course nào như vậy.
 const ORG_B = '0199a000-0000-7000-8000-0a0000000002';
-const LEARNER_1 = '0199a000-0000-7000-8000-0b0000000001'; // org A
 
-const COURSE_AN_TOAN_V2 = '0199a000-0000-7000-8000-0e0000000002'; // Published
-const COURSE_BAO_MAT = '0199a000-0000-7000-8000-0e0000000003'; // Published
-const COURSE_QUY_TRINH = '0199a000-0000-7000-8000-0e0000000004'; // Published
+// Course version của prisma/seed.ts của course-service: 01900000-…-c002 + (chuỗi * 10 + phiên bản) viết hex 8 chữ số.
+const COURSE_AN_TOAN_V2 = '01900000-0000-7000-8000-c0020000005c'; // VERSION2_PUBLISHED
+const COURSE_BAO_MAT = '01900000-0000-7000-8000-c00200000065'; // PUBLISHED_PRIVATE
+const COURSE_QUY_TRINH = '01900000-0000-7000-8000-c00200000079'; // PUBLISHED_DISABLED_MATERIAL
 const COURSE_NHAP_MON = '0199a000-0000-7000-8000-0e0000000006'; // Published, org B
-// COURSE_GIAO_TIEP (…0e0000000005, Draft) cố ý không có Assignment: dùng để thử tạo mới (UC19.2).
+// Course Draft của course-service, cố ý không có Assignment: dùng để thử tạo mới (UC19.2).
+const COURSE_BAN_NHAP = '01900000-0000-7000-8000-c0020000000b'; // DRAFT_EMPTY
 
 // ID của riêng assessment-service. Quy ước: 2a = Assignment, 2b = tiêu chí Rubric, 2c = bài nộp, 2d = trạng thái Learner.
 const PLATFORM_SETTINGS_ID = '0199a000-0000-7000-8000-1f0000000002';
@@ -199,7 +205,10 @@ const ASSIGNMENTS: SeedAssignment[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Danh tính của giao diện (course-service/prisma/seed.ts: ORG_UI, INSTRUCTOR_UI): mỗi Course demo một trạng thái.
+// Dữ liệu cũ cho danh tính của giao diện: mỗi Course demo một trạng thái. Trước đây course-service/prisma/seed.ts tạo tổ chức
+// ORG_UI và các Course này; seed đó không còn tạo chúng, nên các dòng dưới đây không có chủ sở hữu ở course-service (gọi qua
+// COURSE_CLIENT_MODE=http bị COURSE_NOT_FOUND, dùng COURSE_CLIENT_MODE=fake) và không dùng cho đăng nhập demo. Giữ lại để thử
+// giao diện; có thể chuyển sang một lệnh seed tùy chọn sau này (README).
 //   Course 1 Draft và Course 10 (Blank Draft): cố ý không có Assignment, dùng để thử tạo mới (UC19.2).
 // ---------------------------------------------------------------------------
 const ORG_UI = '22222222-2222-7222-8222-222222222222';
@@ -522,26 +531,20 @@ async function seed(prisma: PrismaClient): Promise<void> {
       create: { id: SUBMISSION_ID, ...submissionData },
     });
 
+    // Tìm theo id (không theo cặp Assessment + Learner): một DB đã seed bằng bản cũ có dòng này với Learner 0199a…,
+    // và seed lại phải chuyển nó sang Learner mới chứ không tạo thêm dòng trùng id.
     const stateData = {
       organizationId: submitted.organizationId,
+      assessmentId: submitted.id,
+      learnerId: LEARNER_1,
       firstActivityAt: SUBMITTED_AT,
       consecutiveCount: 1,
       latestSubmissionId: SUBMISSION_ID,
     };
     await prisma.learnerAssessmentState.upsert({
-      where: {
-        assessmentId_learnerId: {
-          assessmentId: submitted.id,
-          learnerId: LEARNER_1,
-        },
-      },
+      where: { id: LEARNER_STATE_ID },
       update: stateData,
-      create: {
-        id: LEARNER_STATE_ID,
-        assessmentId: submitted.id,
-        learnerId: LEARNER_1,
-        ...stateData,
-      },
+      create: { id: LEARNER_STATE_ID, ...stateData },
     });
   }
 
@@ -601,10 +604,10 @@ function printIds(): void {
     console.log(`  ${a.courseId} -> ${a.id}  ${a.title} [${tags}]`);
   }
   console.log(
-    '\nCourse không có Assignment (thử tạo mới): 0199a000-0000-7000-8000-0e0000000005 (Draft)',
+    `\nCourse không có Assignment (thử tạo mới): ${COURSE_BAN_NHAP} (Draft)`,
   );
   console.log(
-    'Instructor org A: 0199a000-0000-7000-8000-0c0000000001, org A: 0199a000-0000-7000-8000-0a0000000001',
+    'Instructor org ABC: 01900000-0000-7000-8000-00000000a101, org ABC: 01900000-0000-7000-8000-00000000a001',
   );
 }
 

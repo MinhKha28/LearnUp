@@ -1,5 +1,6 @@
 .organizer-learner-identity {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     margin-bottom: 14px;
@@ -14,4 +15,8 @@
 
 .organizer-learner-courses {
     margin: 16px 0;
+}
+
+.organizer-learner-courses .organizer-note {
+    margin-top: 0;
 }

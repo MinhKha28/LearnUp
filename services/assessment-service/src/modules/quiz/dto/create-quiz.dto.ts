@@ -62,17 +62,19 @@ export class CreateQuizDto {
   @IsBoolean()
   isRequired!: boolean;
 
-  /** n — defaults to the platform parameter when omitted (BR-175). */
-  @ApiPropertyOptional({ minimum: 1 })
+  /** n — defaults to the platform parameter when omitted (BR-175). Same limit as Assignments. */
+  @ApiPropertyOptional({ minimum: 1, maximum: 1000 })
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(1000)
   maxConsecutiveAttempts?: number;
 
-  /** m hours — defaults to the platform parameter when omitted (BR-175). */
-  @ApiPropertyOptional({ minimum: 1 })
+  /** m hours — defaults to the platform parameter when omitted (BR-175). At most one year, as for Assignments. */
+  @ApiPropertyOptional({ minimum: 1, maximum: 8760 })
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(8760)
   lockoutHours?: number;
 }

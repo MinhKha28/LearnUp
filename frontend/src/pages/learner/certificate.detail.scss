@@ -1,75 +1,56 @@
 .certificate-detail-card {
   display: flex;
-  padding: 40px 48px;
+  padding: var(--space-8);
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: #fff;
+  gap: var(--space-3);
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
   text-align: center;
+  overflow-wrap: anywhere;
 }
-
-.certificate-detail-bar {
-  display: block;
-  width: 100%;
-  height: 4px;
-  margin-bottom: 32px;
-  border-radius: 999px;
-  background: var(--color-accent);
-}
-
 .certificate-detail-brand {
-  color: #1e293b;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  color: var(--color-primary);
 }
-
-.certificate-detail-card h2 {
-  margin: 8px 0 24px;
-  color: #0f172a;
-  font-size: 26px;
-  font-weight: 700;
-}
-
-.certificate-detail-awarded {
-  color: #94a3b8;
-  font-size: 12px;
-  font-weight: 600;
-}
-
 .certificate-detail-name {
-  margin: 6px 0 16px;
-  color: #0f172a;
-  font-size: 24px;
-  font-weight: 700;
+  font-size: var(--font-size-title);
+  color: var(--color-text-primary);
 }
-
 .certificate-detail-course {
-  margin: 0 0 16px;
-  color: #334155;
-  font-size: 15px;
-  font-weight: 650;
+  color: var(--color-text-secondary);
 }
-
-.certificate-detail-card hr {
-  width: 100%;
-  margin: 32px 0 24px;
-  border: 0;
-  border-top: 1px solid var(--color-border);
-}
-
 .certificate-detail-meta {
-  display: grid;
-  width: 100%;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  text-align: left;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-6);
+  padding-top: var(--space-6);
 }
 
-@media (max-width: 700px) {
-  .certificate-detail-meta {
-    grid-template-columns: 1fr;
-  }
+.certificate-detail .learner-page-header {
+  flex-wrap: wrap;
+}
+
+.certificate-detail-card h2,
+.certificate-detail-card p {
+  margin: 0;
+}
+.certificate-detail-completed {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body);
+}
+.certificate-detail-signer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-4);
+}
+.certificate-detail .learner-detail-item > span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+
+.certificate-detail .learner-page-actions .learner-button:not(:disabled) {
+  transition: none;
 }

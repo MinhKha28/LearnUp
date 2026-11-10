@@ -62,7 +62,7 @@ describe('Prompt file over HTTP', () => {
     ...(promptFile ? { promptFile } : {}),
   });
 
-  test('only an Instructor can upload; a missing file or a non-PDF is a 400', async () => {
+  test('only an Instructor can upload; a missing file or a file of another type is a 400', async () => {
     const learner = await upload(
       pdfBytes,
       'a.pdf',
@@ -76,7 +76,17 @@ describe('Prompt file over HTTP', () => {
 
     const fake = await upload(Buffer.from('MZ this is not a pdf'), 'fake.pdf');
     assert.equal(fake.status, 400);
-    assert.equal(fake.json.error?.code, 'PROMPT_FILE_NOT_PDF');
+    assert.equal(fake.json.error?.code, 'PROMPT_FILE_INVALID');
+  });
+
+  test('a file over the storage plan limit is a 413 FILE_TOO_LARGE with the limit', async () => {
+    const big = Buffer.concat([
+      Buffer.from('%PDF-'),
+      Buffer.alloc(10 * 1024 * 1024),
+    ]);
+    const r = await upload(big, 'big.pdf');
+    assert.equal(r.status, 413);
+    assert.equal(r.json.error?.code, 'FILE_TOO_LARGE');
   });
 
   test('a file over 50 MB is refused while it is received', async () => {
@@ -86,6 +96,18 @@ describe('Prompt file over HTTP', () => {
     ]);
     const r = await upload(big, 'big.pdf');
     assert.equal(r.status, 413);
+    // Multer refuses it before the service runs: same code and Vietnamese message as every other 413
+    assert.equal(r.json.error?.code, 'FILE_TOO_LARGE');
+    assert.match(
+      String((r.json.error as { message?: string }).message),
+      /Tệp quá lớn/,
+    );
+  });
+
+  test('the limit that applies now is told to the screen (maxFileBytes)', async () => {
+    const r = await api('GET', '/assignments/prompt-file/limit');
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    assert.equal(r.data?.maxFileBytes, 10 * 1024 * 1024);
   });
 
   test("a file kept in the Organization's prompt folder can be attached, then removed while a prompt text remains", async () => {
@@ -95,7 +117,7 @@ describe('Prompt file over HTTP', () => {
       body({
         fileKey: `learnup/${ORG}/assignments/prompts/brief`,
         fileName: 'brief.pdf',
-        mimeType: 'text/plain', // ignored: always PDF
+        mimeType: 'text/plain', // ignored: the type follows the file name
         sizeBytes: pdfBytes.length,
       }),
     );

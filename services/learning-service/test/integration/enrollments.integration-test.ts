@@ -1,24 +1,26 @@
+import { closeAll, closeApp } from './deadlines';
+import { courseStub } from './course-stub';
+import { testFetch as fetch } from './test-io';
 /**
  * Test tích hợp UC25.3 + D20: learning-service chạy thật trong tiến trình (cấu hình như main.ts),
- * gọi course-service thật với fixture ORG_TEST của seed course_db (D34).
+ * calls the local Course HTTP stub with explicit ORG_TEST fixtures (D34).
  * Chỉ ghi dữ liệu của Course test; dọn ở đầu, đầu các ca cần "Enrollment đầu tiên" và cuối lần chạy (D17).
  *
- * Chạy: npm run test:integration (cần course-service chạy tại COURSE_SERVICE_URL, cả hai DB đã seed)
+ * Chạy: npm run test:integration (isolated PostgreSQL and local HTTP stub)
  */
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
-import { after, before, describe, test } from 'node:test';
+import { after, before, describe, test } from './test-runner';
 import { HEADER_NAMES, type CurrentUser } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
 import { readCourseServiceConfig } from '../../src/infrastructure/clients/course/course-service.config';
 import {
-  courseDatabaseUrl,
   databaseUrl,
   ENROLL_IT_LEARNER_1,
   ENROLL_IT_LEARNER_2,
@@ -30,7 +32,7 @@ import {
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error(
-    'Refusing to run: NODE_ENV=production. This test writes to learning_db and course_db.',
+    'Refusing to run: NODE_ENV=production. This test writes to the isolated Learning database.',
   );
 }
 
@@ -38,8 +40,7 @@ if (process.env.NODE_ENV === 'production') {
 const COURSE_NHAP_MON_ORG_B = '0199a000-0000-7000-8000-0e0000000006';
 const TEST_LEARNERS = [ENROLL_IT_LEARNER_1.userId, ENROLL_IT_LEARNER_2.userId];
 
-const learningDb = new Client({ connectionString: databaseUrl('learning_db') });
-const courseDb = new Client({ connectionString: courseDatabaseUrl() });
+const learningDb = new Client({ connectionString: databaseUrl() });
 const courseClient = new CourseServiceClient(
   readCourseServiceConfig((key) => process.env[key]),
 );
@@ -122,9 +123,9 @@ async function expectedSnapshotCounts(courseId: string) {
   };
 }
 
-/** Đưa fixture về chưa có Enrollment, chưa có bản sao, chưa Locked. */
+/** Reset Learning rows and restore explicit Course response fixtures. */
 async function resetToNoEnrollment(): Promise<void> {
-  await resetEnrollFixture(learningDb, courseDb);
+  await resetEnrollFixture(learningDb);
   assert.deepEqual(await snapshotCounts(ENROLL_IT_PUBLIC_COURSE), {
     courses: 0,
     materials: 0,
@@ -132,22 +133,10 @@ async function resetToNoEnrollment(): Promise<void> {
   });
 }
 
-/** locked_at, updated_at dạng text (giữ micro giây). */
-async function readLockedState(courseId: string) {
-  const { rows } = await courseDb.query<{
-    locked_at: string | null;
-    updated_at: string;
-  }>('SELECT locked_at::text, updated_at::text FROM courses WHERE id = $1', [
-    courseId,
-  ]);
-  return rows[0];
-}
-
 before(async () => {
   await learningDb.connect();
-  await courseDb.connect();
   connected = true;
-  await resetEnrollFixture(learningDb, courseDb);
+  await resetEnrollFixture(learningDb);
 
   app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error'],
@@ -161,12 +150,13 @@ before(async () => {
 after(async () => {
   try {
     if (connected) {
-      await resetEnrollFixture(learningDb, courseDb);
+      await resetEnrollFixture(learningDb);
     }
   } finally {
-    await app?.close();
-    await learningDb.end().catch(() => undefined);
-    await courseDb.end().catch(() => undefined);
+    await closeAll(
+      () => closeApp(app),
+      () => learningDb.end(),
+    );
   }
 });
 
@@ -215,7 +205,11 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
     });
 
     assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_1), [
-      { courseId: ENROLL_IT_PUBLIC_COURSE, enrollmentId: data.id },
+      {
+        courseId: ENROLL_IT_PUBLIC_COURSE,
+        enrollmentId: data.id,
+        status: 'NotStarted',
+      },
     ]);
     // Learner thứ hai cùng tổ chức không thấy Enrollment của Learner thứ nhất
     assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_2), []);
@@ -227,7 +221,7 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
     assert.equal(created.status, 201, JSON.stringify(created.body));
     const enrollmentId = (created.body.data as Record<string, unknown>).id;
     assert.deepEqual(await courseIdsOf(ENROLL_IT_LEARNER_2), [
-      { courseId: ENROLL_IT_PUBLIC_COURSE, enrollmentId },
+      { courseId: ENROLL_IT_PUBLIC_COURSE, enrollmentId, status: 'NotStarted' },
     ]);
 
     await learningDb.query(
@@ -310,39 +304,64 @@ void describe('UC25.3 POST /enrollments + D20 GET /enrollments/me/course-ids (th
       {
         courseId: ENROLL_IT_PUBLIC_COURSE,
         enrollmentId: (results[1].body.data as Record<string, unknown>).id,
+        status: 'NotStarted',
       },
     ]);
   });
 
-  void test('Course test Private → 404 COURSE_NOT_AVAILABLE, locked_at vẫn NULL', async () => {
-    await resetEnrollFixture(learningDb, courseDb);
-    assert.equal(
-      (await readLockedState(ENROLL_IT_PRIVATE_COURSE)).locked_at,
-      null,
-    );
-
-    const result = await enroll(ENROLL_IT_LEARNER_1, ENROLL_IT_PRIVATE_COURSE);
-    assert.equal(result.status, 404);
-    assert.equal(result.body.error?.code, 'COURSE_NOT_AVAILABLE');
-    assert.equal(result.body.error?.message, 'Course không còn trong danh mục');
-    assert.equal(
-      (await readLockedState(ENROLL_IT_PRIVATE_COURSE)).locked_at,
-      null,
-    );
-  });
-
-  void test('0e…06 (org B) → 404 COURSE_NOT_AVAILABLE, locked_at và updated_at của 0e…06 không đổi', async () => {
-    const before = await readLockedState(COURSE_NHAP_MON_ORG_B);
-    assert.ok(
-      before,
-      `course_db không có Course ${COURSE_NHAP_MON_ORG_B} (org B); chạy npm run db:seed của course-service.`,
-    );
-
-    const result = await enroll(ENROLL_IT_LEARNER_1, COURSE_NHAP_MON_ORG_B);
-    assert.equal(result.status, 404);
-    assert.equal(result.body.error?.code, 'COURSE_NOT_AVAILABLE');
-    assert.deepEqual(await readLockedState(COURSE_NHAP_MON_ORG_B), before);
-  });
+  for (const [courseId, selfEnroll, response] of [
+    [
+      ENROLL_IT_PRIVATE_COURSE,
+      true,
+      {
+        status: 409,
+        error: { code: 'COURSE_NOT_AVAILABLE', message: 'Private fixture' },
+      },
+    ],
+    [
+      COURSE_NHAP_MON_ORG_B,
+      true,
+      {
+        status: 404,
+        error: {
+          code: 'COURSE_NOT_FOUND',
+          message: 'Other organization fixture',
+        },
+      },
+    ],
+  ] as const) {
+    void test(`configured unavailable response for ${courseId} produces 404 without Learning writes`, async () => {
+      await resetToNoEnrollment();
+      courseStub.lock(courseId, ENROLL_IT_ORG, selfEnroll, response);
+      const result = await enroll(ENROLL_IT_LEARNER_1, courseId);
+      assert.equal(result.status, 404);
+      assert.equal(result.body.error?.code, 'COURSE_NOT_AVAILABLE');
+      assert.equal(
+        result.body.error?.message,
+        'Course không còn trong danh mục',
+      );
+      assert.equal(
+        await count(
+          'SELECT count(*) AS n FROM enrollments WHERE organization_id=$1',
+          [ENROLL_IT_ORG],
+        ),
+        0,
+      );
+      assert.deepEqual(await snapshotCounts(courseId), {
+        courses: 0,
+        materials: 0,
+        lessons: 0,
+      });
+      assert.deepEqual(
+        courseStub.calls.map(({ method, path, body }) => ({
+          method,
+          path,
+          body,
+        })),
+        [{ method: 'POST', path: `/${courseId}/lock`, body: { selfEnroll } }],
+      );
+    });
+  }
 
   void test('courseId không phải UUID → 400', async () => {
     const result = await call(ENROLL_IT_LEARNER_1, 'POST', '/enrollments', {

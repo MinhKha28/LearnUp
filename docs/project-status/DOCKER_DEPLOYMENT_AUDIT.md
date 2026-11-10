@@ -461,12 +461,12 @@ sequenceDiagram
 | Variable Name | Component | Default Development Value | Sensitive? | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
 | `DB_USERNAME` | Platform / Compose | `postgres` | No | PostgreSQL master user |
-| `DB_PASSWORD` | Platform / Compose | `postgres` | Dev only | PostgreSQL master password |
+| `DB_PASSWORD` | Platform / Compose | none (required) | Yes | PostgreSQL master password; Compose refuses to start without it. It is placed in the `DATABASE_URL` of the NestJS services, so use URL-safe characters only (letters, digits, `-`, `_`). Do not percent-encode it: the same value is passed raw to PostgreSQL and the JDBC services |
 | `POSTGRES_PORT` | Platform / Host | `5433` | No | Host port for PostgreSQL |
 | `GATEWAY_HOST_PORT` | Gateway / Host | `8088` | No | Host port for API Gateway |
 | `JWT_SECRET` | Gateway, Identity | `devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong` | Dev only | HMAC-SHA256 signing secret for JWT |
-| `INTERNAL_GATEWAY_KEY` | Gateway | `learnup-internal-secret` | Dev only | Internal header `x-internal-key` |
-| `INTERNAL_SERVICE_KEY` | All 5 NestJS services | `learnup-internal-secret` | Dev only | Verified by `InternalAuthGuard` |
+| `INTERNAL_SERVICE_KEY` | Gateway and all 5 NestJS services | none (required) | Yes | Sent by the Gateway as `x-internal-key` and verified by `InternalAuthGuard`; Compose refuses to start without it, and the Gateway refuses `learnup-internal-secret` at startup |
+| `EMAIL_OTP_SECRET` | Tenant | none (required by tenant) | Yes | HMAC key for the 6-digit email verification codes (BR-13). Compose passes it through and does not require it, so commands that do not start tenant keep working. tenant refuses to start when it is missing, blank or shorter than 32 bytes. Changing it invalidates the codes already sent; a Guest asks for a new code. Setup: `services/tenant-service/README.md` |
 | `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | Java services | `http://eureka-server:8761/eureka/` | No | Eureka discovery URL |
 | `LEARNUP_MAIL_ENABLED` | Notification | `false` | No | Disable physical SMTP in dev |
 | `SPRING_MAIL_HOST` | Notification | `smtp.gmail.com` | No | SMTP host |

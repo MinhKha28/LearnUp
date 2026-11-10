@@ -11,7 +11,7 @@ const LayoutLearnerCourse = () => (
     <Layout.Header className="learner-course-topbar">
       <Link className="learner-course-back" to={LEARNER_ROUTES.myCourses()}>
         <ArrowLeftOutlined aria-hidden="true" />
-        <span>Course của tôi</span>
+        <span>Khóa học của tôi</span>
       </Link>
       <DevIdentitySwitcher />
     </Layout.Header>

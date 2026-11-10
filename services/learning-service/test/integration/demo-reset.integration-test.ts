@@ -1,18 +1,20 @@
+import { closeAll, closeApp } from './deadlines';
+import { testFetch as fetch } from './test-io';
 /**
  * Test tích hợp demo:reset (D47): tạo Enrollment Course 03 của LEARNER_1 bằng UC25.3 thật, ghi thêm
  * một dòng tiến độ, rồi reset hai lần liên tiếp. Enrollment của Course khác (E-demo-1, E-demo-2) phải còn nguyên.
  *
- * Chạy: npm run test:integration (cần course-service chạy tại COURSE_SERVICE_URL, cả hai DB đã seed)
+ * Chạy: npm run test:integration (isolated PostgreSQL and local HTTP stub)
  */
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import { after, before, describe, test } from 'node:test';
+import { after, before, describe, test } from './test-runner';
 import { HEADER_NAMES } from '@learnup/ts-common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Client } from 'pg';
+import { TestClient as Client } from './test-io';
 import {
   DEMO_RESET_COURSE,
   DEMO_RESET_LEARNERS,
@@ -34,7 +36,7 @@ import { createAssessmentClient } from '../../src/infrastructure/clients/assessm
 
 const [LEARNER_1, ORG_A] = DEMO_RESET_LEARNERS[0];
 
-const learningDb = new Client({ connectionString: databaseUrl('learning_db') });
+const learningDb = new Client({ connectionString: databaseUrl() });
 let app: NestExpressApplication | null = null;
 let baseUrl = '';
 let connected = false;
@@ -82,8 +84,7 @@ after(async () => {
       await resetDemoSelfEnrollments(learningDb);
     }
   } finally {
-    await app?.close();
-    await learningDb.end().catch(() => undefined);
+    await closeAll(() => closeApp(app), () => learningDb.end());
   }
 });
 

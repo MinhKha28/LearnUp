@@ -8,6 +8,9 @@ param(
   [switch]$ObservePools
 )
 $ErrorActionPreference = 'Stop'
+# Keep UC25.3 synthetic identities independent of Tenant rows.
+$env:LEARNING_TENANT_CLIENT_MODE = 'fake'
+$env:LEARNING_TENANT_FAKE_TIMEZONE = 'Asia/Ho_Chi_Minh'
 if ($env:NODE_ENV -eq 'production') { throw 'Refusing perf: NODE_ENV=production.' }
 if ($Label -notmatch '^[a-zA-Z0-9-]+$') { throw 'Invalid result label.' }
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -21,6 +24,10 @@ function Read-Observer([string]$Service, [string]$Method = 'GET') {
   return ($output | ConvertFrom-Json)
 }
 try {
+  $runningTenantMode = (& docker compose exec -T learning-service node -p 'process.env.TENANT_CLIENT_MODE').Trim()
+  if ($LASTEXITCODE -ne 0 -or $runningTenantMode -ne 'fake') {
+    throw 'UC25.3 perf requires fake Tenant access. Set LEARNING_TENANT_CLIENT_MODE=fake and recreate learning-service as documented.'
+  }
   if (!$env:INTERNAL_SERVICE_KEY) {
     $env:INTERNAL_SERVICE_KEY = (& docker compose exec -T learning-service node -p 'process.env.INTERNAL_SERVICE_KEY').Trim()
   }

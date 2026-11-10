@@ -12,10 +12,14 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   TENANT_CLIENT,
   TenantUnavailableError,
+  TenantOrganizationNotFoundError,
   type TenantClient,
 } from '../../infrastructure/clients/tenant/tenant.client';
 import { serviceUnavailable } from '../../infrastructure/clients/course/service-unavailable';
-import { BaseDueAtRepository } from '../enrollments/base-due-at.repository';
+import {
+  BaseDueAtRepository,
+  InvalidBaseDueAtInputError,
+} from '../enrollments/base-due-at.repository';
 import { AssignmentChangesRepository } from './assignment-changes.repository';
 import { AssignmentReadsService } from './assignment-reads.service';
 import {
@@ -47,6 +51,8 @@ export class AssignmentChangesService {
       );
     try {
       const access = await this.tenant.getOrganizationAccess(user);
+      if (access.organizationStatus !== 'Active')
+        throw this.organizationNotActive();
       if (access.subscriptionStatus !== 'Active')
         throw new ForbiddenException(
           createApiError(
@@ -56,6 +62,8 @@ export class AssignmentChangesService {
         );
       return { organizationId: user.organizationId, timezone: access.timezone };
     } catch (error) {
+      if (error instanceof TenantOrganizationNotFoundError)
+        throw this.organizationNotActive();
       if (error instanceof TenantUnavailableError) {
         this.logger.warn(error.message);
         throw serviceUnavailable();
@@ -65,8 +73,20 @@ export class AssignmentChangesService {
   }
 
   async extend(user: CurrentUser, id: string, dto: ExtendAssignmentDto) {
-    const { organizationId, timezone } = await this.access(user);
-    await this.deadlines.validateTimezone(timezone);
+    const { organizationId, timezone: tenantTimezone } =
+      await this.access(user);
+    let timezone: string;
+    try {
+      timezone = await this.deadlines.resolveTimezoneName(tenantTimezone);
+    } catch (error) {
+      if (error instanceof InvalidBaseDueAtInputError) {
+        this.logger.error(
+          `Tenant timezone contract violation: organizationId=${organizationId}, timezone=${tenantTimezone}`,
+        );
+        throw serviceUnavailable();
+      }
+      throw error;
+    }
     await this.prisma.$transaction(async (tx) => {
       const row = await this.changes.lock(tx, organizationId, id);
       if (!row) throw this.notFound();
@@ -82,8 +102,16 @@ export class AssignmentChangesService {
         newDueAt,
         dto.newDueDate,
         today,
+        row.dueAtHasSubMillisecond,
       );
-      await this.changes.extend(tx, organizationId, id, newDueAt, seconds);
+      await this.changes.extend(
+        tx,
+        organizationId,
+        id,
+        newDueAt,
+        seconds,
+        timezone,
+      );
       await this.changes.event(
         tx,
         organizationId,
@@ -99,7 +127,7 @@ export class AssignmentChangesService {
         },
       );
     });
-    return this.reads.detail(user, id, timezone);
+    return this.reads.detail(user, id);
   }
 
   async exempt(user: CurrentUser, id: string, dto: ExemptAssignmentDto) {
@@ -138,12 +166,21 @@ export class AssignmentChangesService {
         );
       throw error;
     }
-    return this.reads.detail(user, id, timezone);
+    return this.reads.detail(user, id);
   }
 
   private notFound() {
     return new NotFoundException(
       createApiError('ASSIGNMENT_NOT_FOUND', 'Không tìm thấy phân công.'),
+    );
+  }
+
+  private organizationNotActive(): ForbiddenException {
+    return new ForbiddenException(
+      createApiError(
+        'ORGANIZATION_NOT_ACTIVE',
+        'Tổ chức hiện không hoạt động. Vui lòng liên hệ quản trị viên nền tảng.',
+      ),
     );
   }
 }

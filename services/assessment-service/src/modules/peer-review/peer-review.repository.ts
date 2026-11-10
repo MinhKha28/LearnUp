@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from 'generated/prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { assignmentInclude } from '../assessments/assessments.repository';
+import type { AssignmentFacts } from '../completion-snapshot/completion-snapshot';
+import {
+  emitCompletionSignal,
+  type CompletionSignal,
+} from '../outbox/completion-signal';
 import type { PeerReviewUpdateData } from './interfaces/peer-review-update-data.interface';
 
 /** Database access of UC19.5; the Peer Review settings live on the Assignment row. */
@@ -38,5 +44,404 @@ export class PeerReviewRepository {
       if (row.cycleId) counts.set(row.cycleId, row._count._all);
     }
     return counts;
+  }
+
+  /** UC33.1: the current submissions of a cycle with the peer reviews handed out for each (the Instructor's own are not peer reviews). */
+  cycleSubmissionRows(cycleId: string) {
+    return this.prisma.$queryRaw<
+      {
+        id: string;
+        learnerId: string;
+        submittedAt: Date;
+        assigned: number;
+        completed: number;
+        scores: string[];
+        finalized: boolean;
+      }[]
+    >(Prisma.sql`
+      SELECT s.id, s.learner_id AS "learnerId", s.submitted_at AS "submittedAt",
+             count(r.id)::int AS assigned,
+             (count(r.id) FILTER (WHERE r.status = 'Completed'))::int AS completed,
+             coalesce(array_agg(r.score::text) FILTER (WHERE r.status = 'Completed' AND r.score IS NOT NULL), '{}') AS scores,
+             (s.grading_status = 'Finalized') AS finalized
+      FROM submissions s
+      LEFT JOIN submission_reviews r ON r.submission_id = s.id AND lower(r.reviewer_role) <> 'instructor'
+      WHERE s.cycle_id = ${cycleId}::uuid AND s.superseded_at IS NULL
+      GROUP BY s.id
+      ORDER BY s.submitted_at, s.id
+    `);
+  }
+
+  /** UC33.1: the Learners who have peer reviews to give in a cycle, with how many were handed out and how many are done. */
+  cycleReviewerRows(cycleId: string) {
+    return this.prisma.$queryRaw<
+      { learnerId: string; assigned: number; completed: number }[]
+    >(Prisma.sql`
+      SELECT r.reviewer_id AS "learnerId", count(*)::int AS assigned,
+             (count(*) FILTER (WHERE r.status = 'Completed'))::int AS completed
+      FROM submission_reviews r
+      WHERE r.cycle_id = ${cycleId}::uuid AND lower(r.reviewer_role) <> 'instructor'
+      GROUP BY r.reviewer_id
+      ORDER BY r.reviewer_id
+    `);
+  }
+
+  /** UC33.1: every peer review of the given Learners on the Assignment (all cycles): the duty is read from the latest cycle. */
+  async peerReviewsOf(
+    assessmentId: string,
+    learnerIds: string[],
+  ): Promise<Map<string, AssignmentFacts['reviews']>> {
+    const byLearner = new Map<string, AssignmentFacts['reviews']>();
+    if (learnerIds.length === 0) return byLearner;
+    const rows = await this.prisma.$queryRaw<
+      {
+        reviewerId: string;
+        status: string;
+        reviewDueAt: Date | null;
+        cycleId: string | null;
+        cycleClosesAt: Date | null;
+      }[]
+    >(Prisma.sql`
+      SELECT r.reviewer_id AS "reviewerId", r.status, c.review_due_at AS "reviewDueAt",
+             r.cycle_id AS "cycleId", c.closes_at AS "cycleClosesAt"
+      FROM submission_reviews r
+      JOIN submissions rs ON rs.id = r.submission_id
+      LEFT JOIN peer_review_cycles c ON c.id = r.cycle_id
+      WHERE rs.assessment_id = ${assessmentId}::uuid AND r.reviewer_id = ANY(${learnerIds}::uuid[])
+        AND lower(r.reviewer_role) <> 'instructor'
+    `);
+    for (const { reviewerId, ...review } of rows) {
+      const list = byLearner.get(reviewerId) ?? [];
+      list.push(review);
+      byLearner.set(reviewerId, list);
+    }
+    return byLearner;
+  }
+
+  /** UC33.1: the states (with the waiver date) of the given Learners on the Assignment. */
+  findLearnerStates(assessmentId: string, learnerIds: string[]) {
+    return this.prisma.learnerAssessmentState.findMany({
+      where: { assessmentId, learnerId: { in: learnerIds } },
+      select: { learnerId: true, exemptedAt: true },
+    });
+  }
+
+  /** UC33.2: the state of one Learner on one Assignment (BR-176 counters, and when the duty was waived). */
+  findLearnerState(
+    tx: Prisma.TransactionClient,
+    assessmentId: string,
+    learnerId: string,
+  ) {
+    return tx.learnerAssessmentState.findUnique({
+      where: { assessmentId_learnerId: { assessmentId, learnerId } },
+    });
+  }
+
+  /**
+   * UC33.2: the reviews the Learner owes or gave as a peer on one Assignment (never the Instructor's own), each with its
+   * cycle: the facts the completion snapshot reads, so "owes a peer review" is decided with peerReviewOf everywhere (D10).
+   */
+  async findLearnerPeerReviews(
+    tx: Prisma.TransactionClient,
+    assessmentId: string,
+    learnerId: string,
+  ): Promise<AssignmentFacts['reviews']> {
+    return tx.$queryRaw<AssignmentFacts['reviews']>(Prisma.sql`
+      SELECT r.status, c.review_due_at AS "reviewDueAt", r.cycle_id AS "cycleId", c.closes_at AS "cycleClosesAt"
+      FROM submission_reviews r
+      JOIN submissions rs ON rs.id = r.submission_id
+      LEFT JOIN peer_review_cycles c ON c.id = r.cycle_id
+      WHERE rs.assessment_id = ${assessmentId}::uuid AND r.reviewer_id = ${learnerId}::uuid
+        AND lower(r.reviewer_role) <> 'instructor'
+    `);
+  }
+
+  /**
+   * UC33.2: records the waiver. The update only takes a row that is not waived yet, so of two requests at the same
+   * moment exactly one gets true, whatever the locks around it do; the other writes nothing and sends no event.
+   */
+  async waive(
+    tx: Prisma.TransactionClient,
+    state: { id: string },
+    by: string,
+    now: Date,
+  ): Promise<boolean> {
+    const taken = await tx.learnerAssessmentState.updateMany({
+      where: { id: state.id, exemptedAt: null },
+      data: { exemptedAt: now, exemptedBy: by },
+    });
+    return taken.count > 0;
+  }
+
+  /** The status-changed event of the Learner, written in the transaction of the change (see emitCompletionSignal). */
+  emitSignal(tx: Prisma.TransactionClient, signal: CompletionSignal) {
+    return emitCompletionSignal(tx, signal);
+  }
+
+  transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return this.prisma.$transaction(fn);
+  }
+
+  /** Transaction-wide lock on a text key (see cycleLockKey): callers with the same key take turns. */
+  async lock(tx: Prisma.TransactionClient, key: string): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
+  }
+
+  findCycle(assessmentId: string, cycleId: string) {
+    return this.prisma.peerReviewCycle.findFirst({
+      where: { id: cycleId, assessmentId },
+    });
+  }
+
+  /**
+   * Takes the cycle for closing: only one caller sees count 1 while the cycle is Open, so a second click or a
+   * second job run finds it closed already. The row lock holds a concurrent caller until the first one commits.
+   */
+  claimOpenCycle(
+    tx: Prisma.TransactionClient,
+    cycleId: string,
+    data: Prisma.PeerReviewCycleUpdateManyMutationInput,
+  ) {
+    return tx.peerReviewCycle.updateMany({
+      where: { id: cycleId, status: 'Open' },
+      data,
+    });
+  }
+
+  /** The current submission of each Learner in the cycle (a replaced one is not counted, BR-213). */
+  currentSubmissions(tx: Prisma.TransactionClient, cycleId: string) {
+    return tx.submission.findMany({
+      where: { cycleId, supersededAt: null },
+      select: { id: true, learnerId: true, organizationId: true },
+      orderBy: { submittedAt: 'asc' },
+    });
+  }
+
+  finishCycle(
+    tx: Prisma.TransactionClient,
+    cycleId: string,
+    data: Prisma.PeerReviewCycleUpdateInput,
+  ) {
+    return tx.peerReviewCycle.update({ where: { id: cycleId }, data });
+  }
+
+  createReviews(
+    tx: Prisma.TransactionClient,
+    data: Prisma.SubmissionReviewCreateManyInput[],
+  ) {
+    return tx.submissionReview.createMany({ data });
+  }
+
+  sendToInstructor(
+    tx: Prisma.TransactionClient,
+    cycleId: string,
+    interventionReason: string,
+  ) {
+    return tx.submission.updateMany({
+      where: { cycleId, supersededAt: null },
+      data: { gradingStatus: 'AwaitingInstructor', interventionReason },
+    });
+  }
+
+  async countForCycle(cycleId: string): Promise<[number, number]> {
+    return Promise.all([
+      this.prisma.submission.count({ where: { cycleId, supersededAt: null } }),
+      this.prisma.submissionReview.count({ where: { cycleId } }),
+    ]);
+  }
+
+  // ---- the schedule (BR-230, BR-232, BR-237) ----
+
+  /** Cycles whose closing line has passed and that nobody has closed yet; the title is for the notification. */
+  findCyclesToClose(now: Date) {
+    return this.prisma.peerReviewCycle.findMany({
+      where: { status: 'Open', closesAt: { lte: now } },
+      include: { assessment: { select: { title: true } } },
+      orderBy: { closesAt: 'asc' },
+    });
+  }
+
+  /** Assigned cycles that have not been reminded; the caller keeps the ones inside the reminder window. */
+  findCyclesToRemind(now: Date) {
+    return this.prisma.peerReviewCycle.findMany({
+      where: {
+        status: 'Assigned',
+        remindedAt: null,
+        reviewDueAt: { gt: now },
+      },
+      include: { assessment: { select: { title: true } } },
+    });
+  }
+
+  /** Takes the reminder of a cycle: only one caller gets count 1, so the reminder is sent once. */
+  claimReminder(cycleId: string, now: Date) {
+    return this.prisma.peerReviewCycle.updateMany({
+      where: { id: cycleId, status: 'Assigned', remindedAt: null },
+      data: { remindedAt: now },
+    });
+  }
+
+  /** The Learners who still owe reviews in a cycle, with how many (BR-232). */
+  async pendingReviewCounts(cycleId: string): Promise<Map<string, number>> {
+    const rows = await this.prisma.submissionReview.groupBy({
+      by: ['reviewerId'],
+      where: { cycleId, status: 'Pending' },
+      _count: { _all: true },
+    });
+    return new Map(rows.map((row) => [row.reviewerId, row._count._all]));
+  }
+
+  /** Assigned cycles whose review deadline has passed (BR-237). */
+  findCyclesPastDeadline(now: Date) {
+    return this.prisma.peerReviewCycle.findMany({
+      where: { status: 'Assigned', reviewDueAt: { lte: now } },
+      orderBy: { reviewDueAt: 'asc' },
+    });
+  }
+
+  /** Takes the cycle for the end of its review period: only one caller gets count 1. */
+  claimExpiredCycle(tx: Prisma.TransactionClient, cycleId: string, now: Date) {
+    return tx.peerReviewCycle.updateMany({
+      where: { id: cycleId, status: 'Assigned' },
+      data: { status: 'Completed', completedAt: now },
+    });
+  }
+
+  /**
+   * Reviews that were not done in time stop being Pending (BR-236). Answers the reviewer of each review that was marked,
+   * from the same statement, so a review given at this very moment is neither marked nor counted.
+   */
+  async expirePendingReviews(
+    tx: Prisma.TransactionClient,
+    cycleId: string,
+  ): Promise<string[]> {
+    const rows = await tx.$queryRaw<{ reviewer_id: string }[]>`
+      UPDATE submission_reviews SET status = 'Missed', updated_at = now()
+      WHERE cycle_id = ${cycleId}::uuid AND status = 'Pending'
+      RETURNING reviewer_id`;
+    return rows.map((row) => row.reviewer_id);
+  }
+
+  /**
+   * The status-changed events of the Learners of a cycle (`PeerReviewAssigned` when it closes, `PeerReviewMissed` when
+   * the deadline passes): one for each Learner, written in the transaction of the change so learning looks at the Course
+   * again if and only if the change is there. `counts` is how many reviews each Learner got or missed.
+   * A Learner without a state row on the Assignment is a broken invariant (every Learner who submitted has one). The state
+   * is the aggregate of the event, and without the event learning never looks at the Course again, so the row is made here,
+   * in the same transaction, with the time of the first submission of the Learner as the first activity; `repaired` answers
+   * who got one so the caller can say so.
+   * ponytail: one snapshot reading per Learner inside the transaction; batch it if a cycle ever has thousands of reviewers.
+   */
+  async emitReviewerSignals(
+    tx: Prisma.TransactionClient,
+    cycle: { organizationId: string; assessmentId: string; id: string },
+    kind: 'Assigned' | 'Missed',
+    counts: Map<string, number>,
+    now: Date,
+  ): Promise<{ sent: number; repaired: string[] }> {
+    if (counts.size === 0) return { sent: 0, repaired: [] };
+    const assessment = await tx.assessment.findUniqueOrThrow({
+      where: { id: cycle.assessmentId },
+      select: { courseId: true },
+    });
+    const states = await tx.learnerAssessmentState.findMany({
+      where: {
+        assessmentId: cycle.assessmentId,
+        learnerId: { in: [...counts.keys()] },
+      },
+      select: { id: true, learnerId: true },
+    });
+    const stateOf = new Map(states.map((s) => [s.learnerId, s.id]));
+    const repaired = [...counts.keys()].filter((id) => !stateOf.has(id));
+    if (repaired.length > 0) {
+      const firsts = await tx.submission.groupBy({
+        by: ['learnerId'],
+        where: {
+          assessmentId: cycle.assessmentId,
+          learnerId: { in: repaired },
+        },
+        _min: { submittedAt: true },
+      });
+      const firstOf = new Map(
+        firsts.map((r) => [r.learnerId, r._min.submittedAt]),
+      );
+      for (const learnerId of repaired) {
+        const row = await tx.learnerAssessmentState.upsert({
+          where: {
+            assessmentId_learnerId: {
+              assessmentId: cycle.assessmentId,
+              learnerId,
+            },
+          },
+          create: {
+            organizationId: cycle.organizationId,
+            assessmentId: cycle.assessmentId,
+            learnerId,
+            firstActivityAt: firstOf.get(learnerId) ?? now,
+          },
+          update: {},
+          select: { id: true },
+        });
+        stateOf.set(learnerId, row.id);
+      }
+    }
+    let sent = 0;
+    for (const [learnerId, count] of counts) {
+      const stateId = stateOf.get(learnerId);
+      // cannot happen: the rows were made above; failing here undoes the whole change instead of losing the event
+      if (!stateId) throw new Error(`No state row for ${learnerId}`);
+      await emitCompletionSignal(tx, {
+        stateId,
+        organizationId: cycle.organizationId,
+        assessmentId: cycle.assessmentId,
+        courseId: assessment.courseId,
+        learnerId,
+        kind: 'ASSIGNMENT',
+        reason:
+          kind === 'Assigned' ? 'PEER_REVIEW_ASSIGNED' : 'PEER_REVIEW_MISSED',
+        status: kind === 'Assigned' ? 'PeerReviewAssigned' : 'PeerReviewMissed',
+        extra:
+          kind === 'Assigned'
+            ? { cycleId: cycle.id, reviewCount: count }
+            : { cycleId: cycle.id, missedCount: count },
+        now,
+      });
+      sent += 1;
+    }
+    return { sent, repaired };
+  }
+
+  /**
+   * The submissions of the cycle that did not get all N valid reviews go to the Instructor (BR-243, BR-252).
+   * A submission already moved on (graded, replaced) is left alone.
+   */
+  async sendUnderReviewedToInstructor(
+    tx: Prisma.TransactionClient,
+    cycleId: string,
+    reviewersPerSubmission: number,
+  ): Promise<number> {
+    const submissions = await tx.submission.findMany({
+      where: {
+        cycleId,
+        supersededAt: null,
+        gradingStatus: 'AwaitingPeerReview',
+      },
+      select: {
+        id: true,
+        _count: { select: { reviews: { where: { status: 'Completed' } } } },
+      },
+    });
+    const short = submissions
+      .filter((s) => s._count.reviews < reviewersPerSubmission)
+      .map((s) => s.id);
+    if (short.length === 0) return 0;
+    await tx.submission.updateMany({
+      where: { id: { in: short } },
+      data: {
+        gradingStatus: 'AwaitingInstructor',
+        interventionReason: 'REVIEW_MISSED',
+      },
+    });
+    return short.length;
   }
 }

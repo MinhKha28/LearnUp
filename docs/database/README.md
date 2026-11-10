@@ -23,7 +23,7 @@ For a cross-service comparison, see [supporting-services-database-design.md](fil
 > [!IMPORTANT]
 > **Current Database Implementation**:
 > - Reflects the physical tables, columns, indexes, constraints, and Flyway migrations that **actually exist** in the repository today.
-> - The 5 business databases (`tenant_db`, `course_db`, `learning_db`, `assessment_db`, `achievement_reporting_db`) are provisioned in PostgreSQL via `infrastructure/postgres/init-databases.sh` but remain intentionally empty (free of Java domain tables), awaiting implementation by the NestJS team.
+> - Business services (tenant, course, learning, assessment, achievement-reporting) own their schemas via Prisma migrations under `services/<service>/prisma/`; this folder documents the supporting Java services (identity, notification, audit) plus the learning design.
 >
 > **Future Tenant / User Ownership Migration**:
 > - In the current implementation, `identity_db.users` owns user credentials and authentication attributes.

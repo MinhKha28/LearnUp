@@ -235,6 +235,7 @@ async function main(): Promise<void> {
             status: plan.status, enrolledAt: plan.enrolledAt, assignedAt: plan.assignedAt,
             expectedCompletionDays: required ? course.expected_completion_days : null,
             baseDueAt, dueAt: baseDueAt, extensionSeconds: BigInt(0),
+            dueTimezone: required ? 'Asia/Ho_Chi_Minh' : null,
             videoCompletionPercent: VIDEO_PERCENT,
             firstActivityAt: plan.firstActivityAt ?? null,
             completedAt: plan.completedAt ?? null,

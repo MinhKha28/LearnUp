@@ -12,6 +12,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -29,8 +30,17 @@ export class CourseListQueryDto {
   @Max(100)
   pageSize: number = 10;
 
+  // UC14.4 - chuẩn hóa NFC + trim + gộp khoảng trắng; rỗng sau chuẩn hóa = không lọc.
+  // Giới hạn 200 bằng CreateCourseDto.name.
+  @Transform(({ value }) => {
+    const raw: unknown = value;
+    if (typeof raw !== 'string') return raw;
+    const normalized = raw.normalize('NFC').trim().replace(/\s+/g, ' ');
+    return normalized === '' ? undefined : normalized;
+  })
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   search?: string;
 
   @IsOptional()
