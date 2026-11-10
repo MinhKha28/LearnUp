@@ -244,4 +244,174 @@ describe('UC21.2 - Organizer Assessment Review', () => {
     assert.equal(storageRead, false);
   });
 
+
+  test('denies Instructor access to Organizer assessment review', async () => {
+    const fixture = build();
+
+    await assert.rejects(
+      () => fixture.service.getOrganizerAssessmentReview(
+        { ...organizer, role: 'INSTRUCTOR' } as CurrentUser,
+        courseId,
+      ),
+      (error: any) => error.getStatus() === 403,
+    );
+
+    assert.equal(fixture.verified, false);
+    assert.equal(fixture.queried, false);
+  });
+
+  test('denies Instructor attachment download before Course verification or storage', async () => {
+    let verified = false;
+    let queried = false;
+    let storageRead = false;
+    const service = new AssessmentsService(
+      {
+        findOrganizerAssignmentPrompt: async () => {
+          queried = true;
+          return { promptFileKey: 'secret' };
+        },
+      } as unknown as AssessmentsRepository,
+      {
+        verifyOrganizerReviewAccess: async () => {
+          verified = true;
+        },
+      } as unknown as CourseServiceClient,
+      {} as RubricsService,
+      {
+        readPromptFile: async () => {
+          storageRead = true;
+          return Buffer.from('secret');
+        },
+      } as unknown as AssignmentMediaService,
+    );
+
+    await assert.rejects(
+      () => service.downloadOrganizerAssignmentPrompt(
+        { ...organizer, role: 'INSTRUCTOR' } as CurrentUser,
+        courseId,
+        '019a0000-0000-7000-8000-000000000020',
+      ),
+      (error: any) => error.getStatus() === 403,
+    );
+
+    assert.equal(verified, false);
+    assert.equal(queried, false);
+    assert.equal(storageRead, false);
+  });
+
+  test('does not query assignment or storage when Course verification denies download', async () => {
+    let queried = false;
+    let storageRead = false;
+    const service = new AssessmentsService(
+      {
+        findOrganizerAssignmentPrompt: async () => {
+          queried = true;
+          return { promptFileKey: 'secret' };
+        },
+      } as unknown as AssessmentsRepository,
+      {
+        verifyOrganizerReviewAccess: async () => {
+          throw new Error('Course not available');
+        },
+      } as unknown as CourseServiceClient,
+      {} as RubricsService,
+      {
+        readPromptFile: async () => {
+          storageRead = true;
+          return Buffer.from('secret');
+        },
+      } as unknown as AssignmentMediaService,
+    );
+
+    await assert.rejects(
+      () => service.downloadOrganizerAssignmentPrompt(
+        organizer,
+        courseId,
+        '019a0000-0000-7000-8000-000000000020',
+      ),
+      /Course not available/,
+    );
+
+    assert.equal(queried, false);
+    assert.equal(storageRead, false);
+  });
+
+  test('downloads an Organizer attachment only after Course verification', async () => {
+    const calls: string[] = [];
+    const content = Buffer.from('sample-pdf');
+    const service = new AssessmentsService(
+      {
+        findOrganizerAssignmentPrompt: async () => {
+          calls.push('query');
+          return {
+            promptFileKey: 'prompt-key',
+            promptFileName: 'instructions.pdf',
+            promptFileMime: 'application/pdf',
+          };
+        },
+      } as unknown as AssessmentsRepository,
+      {
+        verifyOrganizerReviewAccess: async () => {
+          calls.push('verify');
+        },
+      } as unknown as CourseServiceClient,
+      {} as RubricsService,
+      {
+        readPromptFile: async (key: string) => {
+          calls.push('storage:' + key);
+          return content;
+        },
+      } as unknown as AssignmentMediaService,
+    );
+
+    const result = await service.downloadOrganizerAssignmentPrompt(
+      organizer,
+      courseId,
+      '019a0000-0000-7000-8000-000000000020',
+    );
+
+    assert.deepEqual(calls, ['verify', 'query', 'storage:prompt-key']);
+    assert.equal(result.fileName, 'instructions.pdf');
+    assert.equal(result.mimeType, 'application/pdf');
+    assert.deepEqual(result.content, content);
+  });
+
+  test('returns PROMPT_FILE_NOT_FOUND without reading storage', async () => {
+    let storageRead = false;
+    let verified = false;
+    const service = new AssessmentsService(
+      {
+        findOrganizerAssignmentPrompt: async () => ({
+          promptFileKey: null,
+        }),
+      } as unknown as AssessmentsRepository,
+      {
+        verifyOrganizerReviewAccess: async () => {
+          verified = true;
+        },
+      } as unknown as CourseServiceClient,
+      {} as RubricsService,
+      {
+        readPromptFile: async () => {
+          storageRead = true;
+          return Buffer.from('secret');
+        },
+      } as unknown as AssignmentMediaService,
+    );
+
+    await assert.rejects(
+      () => service.downloadOrganizerAssignmentPrompt(
+        organizer,
+        courseId,
+        '019a0000-0000-7000-8000-000000000020',
+      ),
+      (error: any) =>
+        error.getStatus() === 404 &&
+        error.getResponse().code === 'PROMPT_FILE_NOT_FOUND',
+    );
+
+    assert.equal(verified, true);
+    assert.equal(storageRead, false);
+  });
+
 });
