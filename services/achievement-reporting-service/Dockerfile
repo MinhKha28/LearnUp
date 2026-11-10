@@ -38,4 +38,4 @@ COPY --from=builder /app/services/achievement-reporting-service/generated ./serv
 WORKDIR /app/services/achievement-reporting-service
 
 EXPOSE 8087
-CMD ["sh", "-c", "if [ -f dist/src/main.js ]; then node dist/src/main.js; else node dist/main.js; fi"]
+CMD ["sh", "-c", "if [ \"${DB_PASSWORD+x}\" = x ]; then : \"${DB_PASSWORD:?Set DB_PASSWORD}\" || exit 1; fi; : \"${DATABASE_URL:?Set DATABASE_URL}\" && npx prisma migrate deploy --config prisma7.config.ts && if [ -f dist/src/main.js ]; then node dist/src/main.js; else node dist/main.js; fi"]
