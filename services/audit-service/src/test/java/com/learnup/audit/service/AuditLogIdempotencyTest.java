@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Instant;
@@ -20,10 +21,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class AuditLogIdempotencyTest {
     @Autowired private AuditLogService service;
     @Autowired private AuditLogRepository repository;
+    @Autowired private JdbcTemplate jdbc;
 
     @BeforeEach
     void clear() {
         repository.deleteAll();
+        // H2 unit profile disables Flyway. Reproduce the V3 uniqueness invariant.
+        jdbc.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_audit_test_action_correlation "
+                + "ON audit_logs(action_type, correlation_id)");
     }
 
     private static CreateAuditLogRequest newRequest(String correlationId) {
