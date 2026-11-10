@@ -9,7 +9,7 @@ import type { MyEnrollmentFilters } from './my-enrollment-filters';
 export type MyEnrollmentCriteria = Pick<
   MyEnrollmentFilters,
   'type' | 'status'
-> & { now: Date };
+> & { now: Prisma.Sql };
 
 /** Kết quả trả về sau khi tạo Enrollment. */
 export interface CreatedEnrollment {
@@ -127,19 +127,32 @@ export class EnrollmentsRepository extends BaseRepository {
     }));
   }
 
-  async countMine(
+  countMine(
     learnerId: string,
     organizationId: string,
-    criteria: MyEnrollmentCriteria = { now: new Date() },
-  ): Promise<number> {
-    const displayStatus = enrollmentDisplayStatusSql(
-      'e',
-      Prisma.sql`${criteria.now.toISOString()}::timestamptz`,
-    );
-    const rows = await this.db().$queryRaw<{ n: bigint }[]>`
+    criteria: MyEnrollmentCriteria,
+  ): Prisma.PrismaPromise<{ n: bigint }[]> {
+    const displayStatus = enrollmentDisplayStatusSql('e', criteria.now);
+    return this.db().$queryRaw<{ n: bigint }[]>`
       SELECT count(*) AS n FROM enrollments e
        WHERE ${myEnrollmentsWhere(learnerId, organizationId, criteria, displayStatus)}`;
-    return toSafeNumber(rows[0].n);
+  }
+
+  async hasEverEnrollment(
+    organizationId: string,
+    courseId: string,
+  ): Promise<boolean> {
+    const enrollment = await this.db().enrollment.findFirst({
+      where: {
+        organizationId,
+        courseId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return enrollment !== null;
   }
 
   /**
@@ -151,13 +164,13 @@ export class EnrollmentsRepository extends BaseRepository {
     organizationId: string,
     limit: number,
     offset: number,
-    criteria: MyEnrollmentCriteria = { now: new Date() },
-  ): Promise<MyEnrollmentRow[]> {
+    criteria: MyEnrollmentCriteria = { now: Prisma.sql`now()` },
+  ): Prisma.PrismaPromise<MyEnrollmentRow[]> {
     return this.findMine(
       learnerId,
       organizationId,
       criteria,
-      Prisma.sql`LIMIT ${limit}::bigint OFFSET ${offset}::bigint`,
+      Prisma.sql`LIMIT ${limit}::bigint OFFSET ${BigInt(Math.min(offset, Number.MAX_SAFE_INTEGER))}::bigint`,
     );
   }
 
@@ -174,11 +187,8 @@ export class EnrollmentsRepository extends BaseRepository {
     organizationId: string,
     criteria: MyEnrollmentCriteria,
     pagination: Prisma.Sql,
-  ): Promise<MyEnrollmentRow[]> {
-    const displayStatus = enrollmentDisplayStatusSql(
-      'e',
-      Prisma.sql`${criteria.now.toISOString()}::timestamptz`,
-    );
+  ): Prisma.PrismaPromise<MyEnrollmentRow[]> {
+    const displayStatus = enrollmentDisplayStatusSql('e', criteria.now);
     return this.db().$queryRaw<MyEnrollmentRow[]>`
       SELECT e.id::text AS "id",
              e.course_id::text AS "courseId",

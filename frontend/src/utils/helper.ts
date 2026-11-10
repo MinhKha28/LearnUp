@@ -62,6 +62,10 @@ export const formatDateVN = (value: string) =>
     year: "numeric",
   }).format(new Date(value));
 
+/** Display an instant in the learner's device timezone. */
+export const formatLocalDateTime = (value: string) =>
+  dayjs(value).format("HH:mm, DD/MM/YYYY");
+
 // UC12.2 (sau này UC13.2): lý do không tạo được tài khoản, theo thứ tự kiểm của backend.
 // null = tạo được. seats null = chưa tải được số chỗ.
 export const seatBlockReason = (

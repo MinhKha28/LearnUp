@@ -75,7 +75,8 @@ import { CourseServiceClient } from 'src/infrastructure/clients/course/course-se
 import { UsersRepository } from './users.repository';
 
 // Role do Organizer tạo và bị giới hạn số chỗ theo Subscription (BR-23).
-type SeatRole = typeof UserRoleValue.Instructor | typeof UserRoleValue.Learner;
+export type SeatRole =
+  typeof UserRoleValue.Instructor | typeof UserRoleValue.Learner;
 
 // Subscription "hiện hành" (khớp partial unique subscriptions_one_current_per_org_key).
 const CURRENT_SUBSCRIPTION_STATUSES = [
@@ -90,7 +91,7 @@ const INVITATION_TEMPLATE: Record<SeatRole, string> = {
 };
 
 // UC12.2: chỉ Subscription Active mới tạo tài khoản (BR-15, BR-17).
-const CREATE_SUBSCRIPTION_STATUSES = [SubscriptionStatus.Active];
+export const CREATE_SUBSCRIPTION_STATUSES = [SubscriptionStatus.Active];
 // UC12.3: ân hạn vẫn sửa được (BR-15 chỉ cấm tạo); Suspended chỉ xem (BR-17).
 const UPDATE_SUBSCRIPTION_STATUSES = [
   SubscriptionStatus.Active,
@@ -1875,7 +1876,7 @@ export class UsersService {
    * BR-45: tổ chức phải Active. Subscription hiện hành phải thuộc subscriptionStatuses.
    * lockOrganization: khóa dòng tổ chức FOR UPDATE (cần khi kiểm số chỗ lúc tạo tài khoản).
    */
-  private async assertCanManageAccounts(
+  async assertCanManageAccounts(
     tx: Prisma.TransactionClient,
     organizationId: string,
     options: {
@@ -1912,7 +1913,7 @@ export class UsersService {
   }
 
   /** Thư mời kích hoạt qua outbox (UC12.2, UC12.3, UC13.2, UC13.3). Relay xóa liên kết khỏi payload sau khi gửi. */
-  private enqueueInvitationEmail(
+  enqueueInvitationEmail(
     tx: Prisma.TransactionClient,
     params: {
       organizationId: string;
@@ -1964,7 +1965,7 @@ export class UsersService {
     });
   }
 
-  private seatLimitOf(
+  seatLimitOf(
     subscription: { maxInstructors: number; maxLearners: number },
     role: SeatRole,
   ): number {
@@ -1973,7 +1974,7 @@ export class UsersService {
       : subscription.maxLearners;
   }
 
-  private emailAlreadyUsed(): ConflictException {
+  emailAlreadyUsed(): ConflictException {
     return new ConflictException({
       code: 'EMAIL_ALREADY_USED',
       message: 'Email đã được sử dụng cho một tài khoản khác.',

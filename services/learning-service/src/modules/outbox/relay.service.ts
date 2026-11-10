@@ -106,9 +106,13 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
     });
   }
   private async batch(): Promise<boolean> {
-    if (!(await this.producer.ready())) {
+    const readiness = await this.producer.ready();
+    if (this.stopped) return false;
+    if (readiness !== true) {
       if (!this.brokerUnavailable)
-        this.logger.warn('OUTBOX_BROKER_UNAVAILABLE: relay will retry');
+        this.logger.warn(
+          `OUTBOX_BROKER_UNAVAILABLE: relay will retry code=${readiness}`,
+        );
       this.brokerUnavailable = true;
       return false;
     }
@@ -150,7 +154,11 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
     this.resumeDrain?.();
     clearTimeout(this.timer);
     clearTimeout(this.cleanupTimer);
-    await Promise.all([this.running, this.cleaning]);
+    await Promise.allSettled([
+      this.producer.cancelConnect(),
+      this.running,
+      this.cleaning,
+    ]);
     await this.producer.close();
   }
 }

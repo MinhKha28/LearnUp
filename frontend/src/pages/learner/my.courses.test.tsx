@@ -49,6 +49,32 @@ afterEach(() => {
 });
 
 describe("My Courses filters", () => {
+  it("drops invalid URL filters before requesting courses and limits the keyword input", async () => {
+    fetchPage.mockResolvedValue(page());
+    const params = new URLSearchParams({ q: " 😀".trim().repeat(201), type: "Unknown", status: "Withdrawn" });
+    renderCourses([`/?${params}`]);
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(1));
+    expect(fetchPage).toHaveBeenNthCalledWith(1, 1, {
+      q: undefined, type: undefined, status: undefined,
+    }, expect.any(AbortSignal));
+    expect(input().value).toBe("");
+    expect(input().maxLength).toBe(200);
+    expect(screen.getByText("Tất cả loại Khóa học")).toBeTruthy();
+    expect(screen.getByText("Tất cả trạng thái")).toBeTruthy();
+  });
+
+  it("keeps a trimmed URL keyword of 200 Unicode code points", async () => {
+    fetchPage.mockResolvedValue(page());
+    const q = "😀".repeat(200);
+    const params = new URLSearchParams({ q: ` ${q} `, type: "Optional", status: "Halted" });
+    renderCourses([`/?${params}`]);
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(1));
+    expect(fetchPage).toHaveBeenNthCalledWith(1, 1, {
+      q, type: "Optional", status: "Halted",
+    }, expect.any(AbortSignal));
+    expect(input().value).toBe(q);
+  });
+
   it("restores URL filters and page on back and forward and debounces only text for 400 ms", async () => {
     fetchPage.mockImplementation(async (current) => page("Khóa học", current));
     vi.useFakeTimers();
