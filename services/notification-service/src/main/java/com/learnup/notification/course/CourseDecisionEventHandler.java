@@ -57,10 +57,11 @@ public class CourseDecisionEventHandler {
         return event.approved() ? "Khóa học đã được phê duyệt" : "Khóa học bị từ chối";
     }
 
+    /** The Organizer is "quản lý đào tạo" in the team glossary (docs/frontend/ui-glossary-vi.md). */
     static String message(CourseDecisionEvent event) {
         String course = "khóa học «" + event.courseName() + "» (phiên bản " + event.versionNumber() + ")";
         return event.approved()
-                ? "Quản trị viên tổ chức đã phê duyệt " + course + ". Khóa học đã được công bố."
-                : "Quản trị viên tổ chức đã từ chối " + course + ". Lý do: " + event.rejectionReason();
+                ? "Quản lý đào tạo đã phê duyệt " + course + ". Khóa học đã được công bố."
+                : "Quản lý đào tạo đã từ chối " + course + ". Lý do: " + event.rejectionReason();
     }
 }

@@ -51,7 +51,9 @@ class CourseDecisionEventHandlerTest {
         assertThat(notice.getChannel()).isEqualTo("IN_APP");
         assertThat(notice.getType()).isEqualTo("COURSE_APPROVAL");
         assertThat(notice.getTitle()).isEqualTo("Khóa học bị từ chối");
-        assertThat(notice.getMessage()).contains("«Workplace Safety»").contains("phiên bản 2")
+        assertThat(notice.getMessage()).startsWith("Quản lý đào tạo đã từ chối khóa học «Workplace Safety»")
+                .doesNotContain("Quản trị viên")
+                .contains("«Workplace Safety»").contains("phiên bản 2")
                 .contains("Lý do: Please revise the Assignment rubric.");
         assertThat(notice.getMetadata()).contains(COURSE.toString());
     }
@@ -60,7 +62,9 @@ class CourseDecisionEventHandlerTest {
     void tellsTheInstructorTheCourseWasApproved() {
         CreateNotificationRequest notice = delivered(decision(true, Instant.now()));
         assertThat(notice.getTitle()).isEqualTo("Khóa học đã được phê duyệt");
-        assertThat(notice.getMessage()).contains("«Workplace Safety»").contains("đã được công bố")
+        assertThat(notice.getMessage()).startsWith("Quản lý đào tạo đã phê duyệt khóa học «Workplace Safety»")
+                .doesNotContain("Quản trị viên")
+                .contains("«Workplace Safety»").contains("đã được công bố")
                 .doesNotContain("Lý do");
     }
 
