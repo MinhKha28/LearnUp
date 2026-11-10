@@ -41,7 +41,7 @@ describe('UC23 transfer Course Chain transaction', () => {
     expect(tx.outboxEvent.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         aggregateType: 'Course',
-        aggregateId: input.courseId,
+        aggregateId: input.chainId,
         eventType: 'CourseOwnershipTransferred',
         organizationId: input.organizationId,
         payload: expect.objectContaining({

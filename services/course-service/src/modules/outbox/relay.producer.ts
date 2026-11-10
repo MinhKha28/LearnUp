@@ -118,7 +118,9 @@ export function message(row: OutboxRow) {
 
   if (
     data.organizationId !== row.organization_id ||
-    data.courseId !== row.aggregate_id ||
+    (row.event_type === 'CourseOwnershipTransferred'
+      ? data.chainId !== row.aggregate_id
+      : data.courseId !== row.aggregate_id) ||
     data.occurredAt !== row.occurred_at.toISOString()
   ) {
     throw new SerializationFailure();

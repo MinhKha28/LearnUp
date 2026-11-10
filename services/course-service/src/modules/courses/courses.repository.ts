@@ -2644,7 +2644,7 @@ export class CoursesRepository {
       await tx.outboxEvent.create({
         data: {
           aggregateType: 'Course',
-          aggregateId: input.courseId,
+          aggregateId: input.chainId,
           organizationId: input.organizationId,
           eventType: 'CourseOwnershipTransferred',
           occurredAt: transferredAt,
