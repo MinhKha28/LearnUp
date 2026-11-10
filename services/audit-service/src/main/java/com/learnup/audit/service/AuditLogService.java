@@ -11,6 +11,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -23,12 +25,48 @@ public class AuditLogService {
 
     private final AuditLogRepository auditLogRepository;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     public AuditLogService(AuditLogRepository auditLogRepository) {
         this.auditLogRepository = auditLogRepository;
     }
 
     @Transactional
     public AuditLogResponse recordAuditLog(CreateAuditLogRequest request) {
+        // UC23: one durable Audit row per Course ownership-transfer event.
+        // Kafka delivery is at-least-once, so an event may arrive again.
+        if ("COURSE_OWNERSHIP_TRANSFERRED".equals(request.getActionType())
+                && request.getCorrelationId() != null
+                && !request.getCorrelationId().isBlank()) {
+            entityManager.createNativeQuery("""
+                INSERT INTO audit_logs
+                    (id, organization_id, actor_user_id, actor_role, action_type,
+                     target_resource_type, target_resource_id, details, ip_address,
+                     correlation_id, created_at)
+                VALUES (:id, :organizationId, :actorUserId, :actorRole,
+                        :actionType, :resourceType, :resourceId, :details,
+                        :ipAddress, :correlationId, now())
+                ON CONFLICT DO NOTHING
+                """)
+                .setParameter("id", UUID.randomUUID())
+                .setParameter("organizationId", request.getOrganizationId())
+                .setParameter("actorUserId", request.getActorUserId())
+                .setParameter("actorRole", request.getActorRole())
+                .setParameter("actionType", request.getActionType())
+                .setParameter("resourceType", request.getTargetResourceType())
+                .setParameter("resourceId", request.getTargetResourceId())
+                .setParameter("details", request.getDetails())
+                .setParameter("ipAddress", request.getIpAddress())
+                .setParameter("correlationId", request.getCorrelationId())
+                .executeUpdate();
+            return auditLogRepository
+                    .findFirstByActionTypeAndCorrelationId(
+                            request.getActionType(), request.getCorrelationId())
+                    .map(AuditLogResponse::fromEntity)
+                    .orElseThrow(() -> new IllegalStateException("UC23 audit record missing"));
+        }
+
         AuditLog auditLog = new AuditLog(
                 UUID.randomUUID(),
                 request.getOrganizationId(),
