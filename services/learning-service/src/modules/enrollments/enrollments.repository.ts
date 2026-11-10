@@ -138,6 +138,23 @@ export class EnrollmentsRepository extends BaseRepository {
        WHERE ${myEnrollmentsWhere(learnerId, organizationId, criteria, displayStatus)}`;
   }
 
+  async hasEverEnrollment(
+    organizationId: string,
+    courseId: string,
+  ): Promise<boolean> {
+    const enrollment = await this.db().enrollment.findFirst({
+      where: {
+        organizationId,
+        courseId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return enrollment !== null;
+  }
+
   /**
    * Một trang UC26 theo D22: nhóm 1 (Required NotStarted/InProgress) theo due_at tăng dần,
    * nhóm 2 theo COALESCE(assigned_at, enrolled_at) giảm dần (BR-329); cuối cùng id giảm dần để phân trang ổn định.
