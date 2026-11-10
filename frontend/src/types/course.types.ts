@@ -516,3 +516,11 @@ export interface IMaterialPreview {
   mimeType: string;
   expiresAt: string;
 }
+
+export interface IWithdrawCourseResponse {
+  id: string;
+  name: string;
+  versionNumber: number;
+  status: "Draft";
+  submittedAt: null;
+}
