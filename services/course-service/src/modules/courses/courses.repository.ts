@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@infra/prisma/prisma.service';
 import { Prisma } from '@generated/prisma/browser';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { COURSE_STATUS } from './course-values';
 import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
 import {
+  assertCourseNotInTrash,
   COURSE_TRASH_MS,
   getPurgeAt,
   isTrashExpired,
@@ -20,6 +21,26 @@ type PermanentDeleteInput = {
 @Injectable()
 export class CoursesRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async lockOwnedCourseForWrite(
+    tx: Prisma.TransactionClient,
+    courseId: string,
+    organizationId: string,
+    instructorId: string,
+  ): Promise<boolean> {
+    const [course] = await tx.$queryRaw<Array<{ deletedAt: Date | null }>>`
+      SELECT c.deleted_at AS "deletedAt"
+      FROM courses c
+      JOIN course_chains cc ON cc.id = c.chain_id
+      WHERE c.id = ${courseId}::uuid
+        AND c.organization_id = ${organizationId}::uuid
+        AND cc.instructor_id = ${instructorId}::uuid
+      FOR UPDATE OF c
+    `;
+    if (!course) return false;
+    assertCourseNotInTrash(course.deletedAt);
+    return true;
+  }
 
   async findInstructorCourses(
     where: Prisma.CourseWhereInput,
@@ -169,19 +190,34 @@ export class CoursesRepository {
       where: {
         id: courseId,
         organizationId,
-        deletedAt: null,
         chain: { instructorId },
       },
       select: {
         id: true,
         status: true,
         lockedAt: true,
+        deletedAt: true,
       },
     });
   }
 
-  async createModule(organizationId: string, courseId: string, title: string) {
+  async createModule(
+    organizationId: string,
+    courseId: string,
+    instructorId: string,
+    title: string,
+  ) {
     return this.prisma.$transaction(async (tx) => {
+      const ownsCourse = await this.lockOwnedCourseForWrite(
+        tx,
+        courseId,
+        organizationId,
+        instructorId,
+      );
+      if (!ownsCourse) {
+        throw new NotFoundException('Course not found.');
+      }
+
       const lastModule = await tx.courseModule.findFirst({
         where: { courseId, organizationId },
         orderBy: { position: 'desc' },
@@ -220,11 +256,23 @@ export class CoursesRepository {
 
   async createLesson(
     organizationId: string,
+    courseId: string,
+    instructorId: string,
     moduleId: string,
     title: string,
     content: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
+      const ownsCourse = await this.lockOwnedCourseForWrite(
+        tx,
+        courseId,
+        organizationId,
+        instructorId,
+      );
+      if (!ownsCourse) {
+        throw new NotFoundException('Course not found.');
+      }
+
       const lastLesson = await tx.lesson.findFirst({
         where: { moduleId, organizationId },
         orderBy: { position: 'desc' },
@@ -322,6 +370,7 @@ export class CoursesRepository {
         rejectionReason: true,
         createdAt: true,
         updatedAt: true,
+        deletedAt: true,
         coverFile: {
           select: {
             storageKey: true,
@@ -424,6 +473,16 @@ export class CoursesRepository {
     data: UpdateCourseDto,
   ) {
     return this.prisma.$transaction(async (tx) => {
+      const ownsCourse = await this.lockOwnedCourseForWrite(
+        tx,
+        courseId,
+        organizationId,
+        instructorId,
+      );
+      if (!ownsCourse) {
+        return { status: 'NOT_FOUND' as const };
+      }
+
       // 1. Tìm Course thuộc Instructor.
       const current = await tx.course.findFirst({
         where: {
@@ -553,15 +612,15 @@ export class CoursesRepository {
 
     return this.prisma.$transaction(
       async (tx) => {
-        // 1. Khóa hàng Course trong transaction để
-        // tuần tự hóa các request cập nhật cấu trúc.
-        await tx.$queryRaw`
-        SELECT id
-        FROM courses
-        WHERE id = ${courseId}::uuid
-          AND organization_id = ${organizationId}::uuid
-        FOR UPDATE
-      `;
+        const ownsCourse = await this.lockOwnedCourseForWrite(
+          tx,
+          courseId,
+          organizationId,
+          instructorId,
+        );
+        if (!ownsCourse) {
+          return { status: 'NOT_FOUND' as const };
+        }
 
         // 2. Đọc cây thuộc Instructor.
         const course = await tx.course.findFirst({
@@ -840,6 +899,7 @@ export class CoursesRepository {
             course: {
               select: {
                 status: true,
+                deletedAt: true,
               },
             },
           },
@@ -856,32 +916,44 @@ export class CoursesRepository {
     content: string,
     expectedUpdatedAt: Date,
   ): Promise<boolean> {
-    const result = await this.prisma.lesson.updateMany({
-      where: {
-        id: lessonId,
+    return this.prisma.$transaction(async (tx) => {
+      const ownsCourse = await this.lockOwnedCourseForWrite(
+        tx,
+        courseId,
         organizationId,
-        updatedAt: expectedUpdatedAt,
+        instructorId,
+      );
+      if (!ownsCourse) {
+        return false;
+      }
 
-        module: {
-          courseId,
+      const result = await tx.lesson.updateMany({
+        where: {
+          id: lessonId,
           organizationId,
-          course: {
+          updatedAt: expectedUpdatedAt,
+
+          module: {
+            courseId,
             organizationId,
-            chain: {
-              instructorId,
-            },
-            status: {
-              not: COURSE_STATUS.SUBMITTED,
+            course: {
+              organizationId,
+              chain: {
+                instructorId,
+              },
+              status: {
+                not: COURSE_STATUS.SUBMITTED,
+              },
             },
           },
         },
-      },
-      data: {
-        content,
-      },
-    });
+        data: {
+          content,
+        },
+      });
 
-    return result.count === 1;
+      return result.count === 1;
+    });
   }
 
   async getVideoSettings() {
@@ -927,6 +999,7 @@ export class CoursesRepository {
                 status: true,
                 lockedAt: true,
                 disabledAt: true,
+                deletedAt: true,
               },
             },
           },
@@ -991,15 +1064,15 @@ export class CoursesRepository {
         FOR UPDATE
       `;
 
-        // Bước 3: khóa Course để tránh Locked thay đổi
-        // trong lúc đang kiểm tra và ghi Material.
-        await tx.$queryRaw`
-        SELECT id
-        FROM courses
-        WHERE id = ${data.courseId}::uuid
-          AND organization_id = ${data.organizationId}::uuid
-        FOR UPDATE
-      `;
+        const ownsCourse = await this.lockOwnedCourseForWrite(
+          tx,
+          data.courseId,
+          data.organizationId,
+          data.instructorId,
+        );
+        if (!ownsCourse) {
+          return { status: 'NOT_FOUND' as const };
+        }
 
         // Bước 4: kiểm tra lại quyền và trạng thái.
         const lesson = await tx.lesson.findFirst({
@@ -1184,15 +1257,15 @@ export class CoursesRepository {
         FOR UPDATE
       `;
 
-        // 2. Khóa Course để bảo vệ BR-286.
-        await tx.$queryRaw`
-        SELECT id
-        FROM courses
-        WHERE id = ${data.courseId}::uuid
-          AND organization_id =
-            ${data.organizationId}::uuid
-        FOR UPDATE
-      `;
+        const ownsCourse = await this.lockOwnedCourseForWrite(
+          tx,
+          data.courseId,
+          data.organizationId,
+          data.instructorId,
+        );
+        if (!ownsCourse) {
+          return { status: 'NOT_FOUND' as const };
+        }
 
         // 3. Kiểm tra lại quyền sở hữu và trạng thái.
         const lesson = await tx.lesson.findFirst({

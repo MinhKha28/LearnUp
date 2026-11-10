@@ -42,7 +42,7 @@ import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
 import { extractReadingText } from './reading-text-extractor';
 import { AssessmentClient } from '@/infrastructure/clients/assessment/assessment.client';
 import { NotificationClient } from '@/infrastructure/clients/notification/notification.client';
-import { getPurgeAt } from './course-trash.constants';
+import { assertCourseNotInTrash, getPurgeAt } from './course-trash.constants';
 import { Interval } from '@nestjs/schedule';
 
 @Injectable()
@@ -303,6 +303,8 @@ export class CoursesService {
       throw new NotFoundException('Course not found.');
     }
 
+    assertCourseNotInTrash(course.deletedAt);
+
     if (course.status === COURSE_STATUS.SUBMITTED) {
       throw new BadRequestException(
         'Submitted Course cannot be edited. Withdraw the Course before adding a Module.',
@@ -318,6 +320,7 @@ export class CoursesService {
     return this.coursesRepository.createModule(
       user.organizationId,
       courseId,
+      user.userId,
       title,
     );
   }
@@ -356,6 +359,8 @@ export class CoursesService {
       throw new NotFoundException('Course not found.');
     }
 
+    assertCourseNotInTrash(course.deletedAt);
+
     if (course.status === COURSE_STATUS.SUBMITTED) {
       throw new BadRequestException(
         'Submitted Course cannot be edited. Withdraw the Course before adding a Lesson.',
@@ -380,6 +385,8 @@ export class CoursesService {
 
     return this.coursesRepository.createLesson(
       user.organizationId,
+      courseId,
+      user.userId,
       moduleId,
       title,
       content,
@@ -569,7 +576,7 @@ export class CoursesService {
         course.id,
       );
 
-    const { lockedAt, coverFile, ...result } = course;
+    const { lockedAt, coverFile, deletedAt, ...result } = course;
 
     const coverUrl =
       coverFile?.status === 'Ready' && !coverFile.releasedAt
@@ -880,6 +887,7 @@ export class CoursesService {
     user: CurrentUser,
     courseId: string,
     lessonId: string,
+    requireWritable = false,
   ) {
     // 1. Phân quyền.
     if (user.role !== 'INSTRUCTOR') {
@@ -902,6 +910,10 @@ export class CoursesService {
 
     if (!lesson) {
       throw new NotFoundException('Lesson not found.');
+    }
+
+    if (requireWritable) {
+      assertCourseNotInTrash(lesson.module.course.deletedAt);
     }
 
     // 3. Không biên tập trong lúc chờ phê duyệt.
@@ -953,6 +965,7 @@ export class CoursesService {
       user,
       courseId,
       lessonId,
+      true,
     );
 
     if (access.reason === 'SUBMITTED') {
@@ -1141,6 +1154,7 @@ export class CoursesService {
     }
 
     const course = lesson.module.course;
+    assertCourseNotInTrash(course.deletedAt);
 
     if (course.status === COURSE_STATUS.SUBMITTED) {
       throw new ConflictException('Submitted Course cannot be edited.');
@@ -1466,6 +1480,7 @@ export class CoursesService {
     }
 
     const course = lesson.module.course;
+    assertCourseNotInTrash(course.deletedAt);
 
     if (
       !['Draft', 'Rejected', 'Published'].includes(course.status) ||
@@ -1752,6 +1767,8 @@ export class CoursesService {
       throw new NotFoundException('Course not found.');
     }
 
+    assertCourseNotInTrash(course.deletedAt);
+
     // 3. BR-81 và BR-85:
     // Chỉ Draft hoặc Rejected được gửi phê duyệt.
     if (
@@ -1802,6 +1819,13 @@ export class CoursesService {
     });
 
     if (result.status === 'CONFLICT') {
+      const current = await this.coursesRepository.findDetail(
+        courseId,
+        user.organizationId,
+        user.userId,
+      );
+      if (current) assertCourseNotInTrash(current.deletedAt);
+
       throw new ConflictException({
         code: 'COURSE_CHANGED',
         message: 'Course was modified. Please reload and try again.',
