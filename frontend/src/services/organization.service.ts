@@ -9,12 +9,14 @@ import type {
   ICreateRegistrationReq,
   ICreateRegistrationRes,
   IDeleteAccountReq,
+  IDeleteLearnerReq,
   IInstructorDeletion,
   IInstructorDeletionResult,
   IInstructorDetail,
   IInstructorListItem,
   IInstructorStatusChange,
   IInstructorStatusResult,
+  ILearnerDeletionResult,
   ILearnerDetail,
   ILearnerListItem,
   ILearnerStatusResult,
@@ -259,16 +261,6 @@ export const changeInstructorStatusAPI = (
     body,
   );
 
-// UC13.5 - vô hiệu hóa hoặc kích hoạt lại Learner
-export const changeLearnerStatusAPI = (
-  learnerId: string,
-  body: IChangeLearnerStatusReq,
-) =>
-  axios.patch<IBackendRes<ILearnerStatusResult>>(
-    `/api/v1/users/learners/${encodeURIComponent(learnerId)}/status`,
-    body,
-  );
-
 // UC12.6 - chuỗi Course đang phụ trách và Instructor tiếp nhận hợp lệ (cho dialog xóa)
 export const getInstructorDeletionAPI = (instructorId: string) =>
   axios.get<IBackendRes<IInstructorDeletion>>(
@@ -282,6 +274,23 @@ export const deleteInstructorAPI = (
 ) =>
   axios.delete<IBackendRes<IInstructorDeletionResult>>(
     `/api/v1/users/instructors/${encodeURIComponent(instructorId)}`,
+    { data: body },
+  );
+
+// UC13.5 - vô hiệu hóa hoặc kích hoạt lại Learner
+export const changeLearnerStatusAPI = (
+  learnerId: string,
+  body: IChangeLearnerStatusReq,
+) =>
+  axios.patch<IBackendRes<ILearnerStatusResult>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}/status`,
+    body,
+  );
+
+// UC13.6 - xóa Learner (xóa mềm, BR-46). Lý do đi trong body, không lên URL (như UC12.6).
+export const deleteLearnerAPI = (learnerId: string, body: IDeleteLearnerReq) =>
+  axios.delete<IBackendRes<ILearnerDeletionResult>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}`,
     { data: body },
   );
 
