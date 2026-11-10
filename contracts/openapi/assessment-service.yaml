@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: LearnUP Assessment internal API
+  title: LearnUP Assessment Service API
   version: 1.0.0
-  description: Internal endpoints of assessment-service. Documents cross-service endpoints including completion snapshot and Course deletion cleanup; public Learner and Instructor routes are listed in the Swagger UI of the service. The routes below are for other services and are never exposed through Gateway.
+  description: Internal Assessment integration endpoints, Organizer Course review (UC21.2), completion snapshots and Course deletion cleanup. Internal routes require a service key; Organizer review requires JWT.
 security:
   - InternalKey: []
 paths:
@@ -166,9 +166,76 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /api/v1/assessments/organization/courses/{courseId}/review:
+    get:
+      operationId: getOrganizerAssessmentReview
+      summary: UC21.2 - View Course Quiz and Assignment content
+      description: >
+        Organizer-only access to a Submitted Course in the same Organization.
+        Includes Quiz answer keys, Assignment prompts, rubrics, and Peer Review
+        settings. Course Service verifies eligibility before data is read.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Course Assessment review content.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizerAssessmentsResponse" }
+        "400": { description: Invalid Course UUID. }
+        "401": { description: Authentication required. }
+        "403": { description: Organizer role required. }
+        "404": { description: Course not available for review. }
+        "503": { description: Course Service unavailable. }
+
+  /api/v1/assessments/organization/courses/{courseId}/assignments/{assignmentId}/prompt-file:
+    get:
+      operationId: downloadOrganizerAssignmentPrompt
+      summary: UC21.2 - Download protected Assignment prompt attachment
+      description: >
+        Returns the original Assignment prompt file after Organizer authorization,
+        Organization scoping, and Course eligibility verification.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: assignmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Assignment prompt attachment.
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+            application/pdf:
+              schema: { type: string, format: binary }
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema: { type: string, format: binary }
+            application/zip:
+              schema: { type: string, format: binary }
+        "400": { description: Invalid UUID. }
+        "401": { description: Authentication required. }
+        "403": { description: Organizer role required. }
+        "404": { description: Course or attachment not found. }
+        "503": { description: Course Service or storage unavailable. }
+
 components:
   securitySchemes:
     InternalKey: { type: apiKey, in: header, name: x-internal-key }
+    BearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   parameters:
     OrganizationId:
       name: x-organization-id
@@ -300,3 +367,80 @@ components:
             message: {}
             error: { type: string }
             statusCode: { type: integer }
+
+    OrganizerReviewOption:
+      type: object
+      required: [id, position, content, isCorrect]
+      properties:
+        id: { type: string, format: uuid }
+        position: { type: integer }
+        content: { type: string }
+        isCorrect: { type: boolean }
+
+    OrganizerReviewQuestion:
+      type: object
+      required: [id, position, type, content, options]
+      properties:
+        id: { type: string, format: uuid }
+        position: { type: integer }
+        type: { type: string }
+        content: { type: string }
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/OrganizerReviewOption" }
+
+    OrganizerReviewRubric:
+      type: object
+      required: [id, name, description, maxPoints, position]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        maxPoints: { type: integer }
+        position: { type: integer }
+
+    OrganizerReviewAssessment:
+      type: object
+      required: [id, courseId, moduleId, kind, title, position, disabled, passingScore, isRequired, timeLimitMinutes, maxConsecutiveAttempts, lockoutHours, expectedDurationMinutes, prompt, promptFileName, peerReviewEnabled, peerReviewersPerSubmission, peerReviewCycleDays, peerReviewDeadlineDays, peerReviewScoreGap, questions, rubric]
+      properties:
+        id: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        moduleId: { type: string, format: uuid, nullable: true }
+        kind: { type: string, enum: [QUIZ, ASSIGNMENT] }
+        title: { type: string }
+        position: { type: integer }
+        disabled: { type: boolean }
+        passingScore: { type: number }
+        isRequired: { type: boolean }
+        timeLimitMinutes: { type: integer, nullable: true }
+        maxConsecutiveAttempts: { type: integer }
+        lockoutHours: { type: integer }
+        expectedDurationMinutes: { type: integer, nullable: true }
+        prompt: { type: string, nullable: true }
+        promptFileName: { type: string, nullable: true }
+        peerReviewEnabled: { type: boolean }
+        peerReviewersPerSubmission: { type: integer, nullable: true }
+        peerReviewCycleDays: { type: integer, nullable: true }
+        peerReviewDeadlineDays: { type: integer, nullable: true }
+        peerReviewScoreGap: { type: number, nullable: true }
+        questions:
+          type: array
+          items: { $ref: "#/components/schemas/OrganizerReviewQuestion" }
+        rubric:
+          type: array
+          items: { $ref: "#/components/schemas/OrganizerReviewRubric" }
+
+    OrganizerAssessmentsResponse:
+      type: object
+      required: [statusCode, message, data]
+      properties:
+        statusCode: { type: integer, enum: [200] }
+        message: { type: string }
+        data:
+          type: object
+          required: [courseId, items]
+          properties:
+            courseId: { type: string, format: uuid }
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/OrganizerReviewAssessment" }
