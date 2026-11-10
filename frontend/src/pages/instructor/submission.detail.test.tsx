@@ -206,7 +206,7 @@ describe("the detail of a submission", () => {
     expect(screen.getByText("50 / 60")).toBeTruthy();
     expect(screen.getByText("30 / 40")).toBeTruthy();
     // a reviewer whose name is unknown still has a label
-    expect(screen.getByText(/^Learner [0-9A-Z]{2,4}$/)).toBeTruthy();
+    expect(screen.getByText(/^Học viên [0-9A-Z]{2,4}$/)).toBeTruthy();
   });
 
   it("says when there is no written answer, no prompt text or no review", async () => {

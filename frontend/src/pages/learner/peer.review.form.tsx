@@ -1,3 +1,4 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
 import { Input, InputNumber, message } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
@@ -21,8 +22,7 @@ import "./peer.review.form.scss";
 
 const COMMENT_MAX_LENGTH = 2000;
 
-const formatTime = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString("vi-VN") : "-";
+const formatTime = (iso: string | null) => formatDateTimeVN(iso);
 
 const saveBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
