@@ -162,6 +162,8 @@ export class InternalCoursesService {
     if (!organizationId || !isUUID(organizationId, 'all')) {
       throw courseNotFound();
     }
+    // Assessment may finish syncing after the Course moves to Trash.
+    // Preserve the latest estimate for a subsequent restore.
     const rows = await this.prisma.$queryRaw<
       { id: string; assignment_minutes: number; as_of: Date }[]
     >`
@@ -382,7 +384,7 @@ export class InternalCoursesService {
       where: {
         organizationId,
         instructorId: { in: instructorIds },
-        courses: { some: {} },
+        courses: { some: { deletedAt: null } },
       },
       _count: { _all: true },
     });
@@ -580,7 +582,9 @@ export class InternalCoursesService {
       };
     } catch (error) {
       if (error instanceof StorageProviderError) {
-        this.logger.error(`Material signed URL generation failed: ${error.name}`);
+        this.logger.error(
+          `Material signed URL generation failed: ${error.name}`,
+        );
 
         throw new ServiceUnavailableException({
           code: 'MATERIAL_URL_UNAVAILABLE',

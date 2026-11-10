@@ -44,6 +44,8 @@ import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
 import { extractReadingText } from './reading-text-extractor';
 import { AssessmentClient } from '@/infrastructure/clients/assessment/assessment.client';
 import { NotificationClient } from '@/infrastructure/clients/notification/notification.client';
+import { assertCourseNotInTrash, getPurgeAt } from './course-trash.constants';
+import { Interval } from '@nestjs/schedule';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { randomUUID } from 'node:crypto';
 
@@ -58,6 +60,8 @@ export class CoursesService {
     private readonly notificationClient: NotificationClient,
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
   ) {}
+
+  private running = false;
 
   async findAll(user: CurrentUser, query: CourseListQueryDto) {
     if (user.role !== 'INSTRUCTOR') {
@@ -76,6 +80,7 @@ export class CoursesService {
 
     const where = {
       organizationId: user.organizationId,
+      deletedAt: null,
       chain: {
         instructorId: user.userId,
       },
@@ -302,6 +307,8 @@ export class CoursesService {
       throw new NotFoundException('Course not found.');
     }
 
+    assertCourseNotInTrash(course.deletedAt);
+
     if (course.status === COURSE_STATUS.SUBMITTED) {
       throw new BadRequestException(
         'Submitted Course cannot be edited. Withdraw the Course before adding a Module.',
@@ -317,6 +324,7 @@ export class CoursesService {
     return this.coursesRepository.createModule(
       user.organizationId,
       courseId,
+      user.userId,
       title,
     );
   }
@@ -355,6 +363,8 @@ export class CoursesService {
       throw new NotFoundException('Course not found.');
     }
 
+    assertCourseNotInTrash(course.deletedAt);
+
     if (course.status === COURSE_STATUS.SUBMITTED) {
       throw new BadRequestException(
         'Submitted Course cannot be edited. Withdraw the Course before adding a Lesson.',
@@ -379,6 +389,8 @@ export class CoursesService {
 
     return this.coursesRepository.createLesson(
       user.organizationId,
+      courseId,
+      user.userId,
       moduleId,
       title,
       content,
@@ -406,7 +418,7 @@ export class CoursesService {
 
     const where: Prisma.CourseWhereInput = {
       organizationId: user.organizationId,
-
+      deletedAt: null,
       ...(search
         ? {
             name: {
@@ -568,7 +580,7 @@ export class CoursesService {
         course.id,
       );
 
-    const { lockedAt, coverFile, ...result } = course;
+    const { lockedAt, coverFile, deletedAt, ...result } = course;
 
     const coverUrl =
       coverFile?.status === 'Ready' && !coverFile.releasedAt
@@ -879,6 +891,7 @@ export class CoursesService {
     user: CurrentUser,
     courseId: string,
     lessonId: string,
+    requireWritable = false,
   ) {
     // 1. Phân quyền.
     if (user.role !== 'INSTRUCTOR') {
@@ -901,6 +914,10 @@ export class CoursesService {
 
     if (!lesson) {
       throw new NotFoundException('Lesson not found.');
+    }
+
+    if (requireWritable) {
+      assertCourseNotInTrash(lesson.module.course.deletedAt);
     }
 
     // 3. Không biên tập trong lúc chờ phê duyệt.
@@ -952,6 +969,7 @@ export class CoursesService {
       user,
       courseId,
       lessonId,
+      true,
     );
 
     if (access.reason === 'SUBMITTED') {
@@ -1140,6 +1158,7 @@ export class CoursesService {
     }
 
     const course = lesson.module.course;
+    assertCourseNotInTrash(course.deletedAt);
 
     if (course.status === COURSE_STATUS.SUBMITTED) {
       throw new ConflictException('Submitted Course cannot be edited.');
@@ -1465,6 +1484,7 @@ export class CoursesService {
     }
 
     const course = lesson.module.course;
+    assertCourseNotInTrash(course.deletedAt);
 
     if (
       !['Draft', 'Rejected', 'Published'].includes(course.status) ||
@@ -1756,6 +1776,8 @@ export class CoursesService {
       throw new NotFoundException('Course not found.');
     }
 
+    assertCourseNotInTrash(course.deletedAt);
+
     // 3. BR-81 và BR-85:
     // Chỉ Draft hoặc Rejected được gửi phê duyệt.
     if (
@@ -1806,6 +1828,13 @@ export class CoursesService {
     });
 
     if (result.status === 'CONFLICT') {
+      const current = await this.coursesRepository.findDetail(
+        courseId,
+        user.organizationId,
+        user.userId,
+      );
+      if (current) assertCourseNotInTrash(current.deletedAt);
+
       throw new ConflictException({
         code: 'COURSE_CHANGED',
         message: 'Course was modified. Please reload and try again.',
@@ -1816,6 +1845,252 @@ export class CoursesService {
     // and idempotent per-channel delivery. Do not send here as well.
     // 7. Trả trạng thái thực sự từ DB.
     return result.course;
+  }
+
+  private requireInstructor(user: CurrentUser): string {
+    if (user.role !== 'INSTRUCTOR') {
+      throw new ForbiddenException('Only Instructor can manage Course trash.');
+    }
+
+    if (!user.organizationId) {
+      throw new ForbiddenException('Organization context is required.');
+    }
+
+    return user.organizationId;
+  }
+
+  async softDelete(user: CurrentUser, courseId: string) {
+    const organizationId = this.requireInstructor(user);
+
+    const hasEnrollment = await this.learningClient.hasEverEnrolled(
+      user,
+      courseId,
+    );
+
+    if (hasEnrollment) {
+      throw new ConflictException({
+        code: 'COURSE_HAS_ENROLLMENT',
+        message: 'Course đã từng phát sinh Enrollment nên không thể xóa.',
+      });
+    }
+
+    const result = await this.coursesRepository.softDeleteCourse({
+      organizationId,
+      instructorId: user.userId,
+      courseId,
+    });
+
+    switch (result.status) {
+      case 'NOT_FOUND':
+        throw new NotFoundException({
+          code: 'COURSE_NOT_FOUND',
+          message: 'Không tìm thấy Course.',
+        });
+
+      case 'INVALID_STATUS':
+        throw new ConflictException({
+          code: 'COURSE_NOT_DELETABLE',
+          message: 'Chỉ được xóa Course Draft hoặc Rejected.',
+        });
+
+      case 'LOCKED':
+        throw new ConflictException({
+          code: 'COURSE_LOCKED',
+          message: 'Course đã Locked nên không thể xóa.',
+        });
+
+      case 'DELETED':
+        return {
+          courseId: result.courseId,
+          deletedAt: result.deletedAt,
+          purgeAt: result.purgeAt,
+        };
+    }
+  }
+
+  async getTrash(user: CurrentUser) {
+    const organizationId = this.requireInstructor(user);
+
+    const courses = await this.coursesRepository.findCourseTrash(
+      organizationId,
+      user.userId,
+    );
+
+    return courses.map((course) => ({
+      ...course,
+      purgeAt: getPurgeAt(course.deletedAt!),
+    }));
+  }
+
+  async restore(user: CurrentUser, courseId: string) {
+    const organizationId = this.requireInstructor(user);
+
+    const result = await this.coursesRepository.restoreCourse({
+      organizationId,
+      instructorId: user.userId,
+      courseId,
+    });
+
+    switch (result.status) {
+      case 'NOT_FOUND':
+        throw new NotFoundException({
+          code: 'COURSE_NOT_FOUND',
+          message: 'Course không tồn tại trong thùng rác.',
+        });
+
+      case 'EXPIRED':
+        throw new ConflictException({
+          code: 'COURSE_TRASH_EXPIRED',
+          message: 'Course đã hết thời hạn khôi phục.',
+        });
+
+      case 'VERSION_CONFLICT':
+        throw new ConflictException({
+          code: 'COURSE_DRAFT_VERSION_CONFLICT',
+          message:
+            'Chuỗi Course đã có phiên bản đang soạn khác. Không thể khôi phục.',
+        });
+
+      case 'RESTORED':
+        return {
+          courseId: result.courseId,
+          restored: true,
+        };
+    }
+  }
+
+  async permanentDelete(user: CurrentUser, courseId: string) {
+    const organizationId = this.requireInstructor(user);
+
+    const result = await this.coursesRepository.permanentDeleteCourse({
+      organizationId,
+      courseId,
+      instructorId: user.userId,
+      requireExpired: false,
+    });
+
+    switch (result.status) {
+      case 'NOT_FOUND':
+        throw new NotFoundException({
+          code: 'COURSE_NOT_FOUND',
+          message: 'Không tìm thấy Course.',
+        });
+
+      case 'NOT_IN_TRASH':
+        throw new ConflictException({
+          code: 'COURSE_NOT_IN_TRASH',
+          message: 'Cần đưa Course vào thùng rác trước khi xóa vĩnh viễn.',
+        });
+
+      case 'NOT_EXPIRED':
+        throw new ConflictException({
+          code: 'COURSE_NOT_EXPIRED',
+          message: 'Course chưa đến hạn xóa tự động.',
+        });
+
+      case 'DELETED':
+        return {
+          courseId: result.courseId,
+          permanentlyDeleted: true,
+          chainDeleted: result.chainDeleted,
+          releasedFileCount: result.releasedFileIds.length,
+          cleanupPending: true,
+        };
+    }
+  }
+
+  @Interval(60_000)
+  async cleanupExpiredCourses() {
+    if (this.running) return;
+
+    this.running = true;
+
+    try {
+      const expired = await this.coursesRepository.findExpiredTrash(20);
+
+      for (const course of expired) {
+        try {
+          const result = await this.coursesRepository.permanentDeleteCourse({
+            organizationId: course.organizationId,
+            courseId: course.id,
+            requireExpired: true,
+          });
+
+          if (result.status === 'DELETED') {
+            this.logger.log(`Permanently deleted Course ${course.id}`);
+          }
+        } catch (error) {
+          this.logger.error(
+            `Unable to purge Course ${course.id}`,
+            error instanceof Error ? error.stack : undefined,
+          );
+        }
+      }
+    } finally {
+      this.running = false;
+    }
+  }
+
+  @Interval(60_000)
+  async cleanupDeletedCourseResources() {
+    const jobs = await this.coursesRepository.findPendingCourseDeletionJobs();
+
+    for (const job of jobs) {
+      const claimed = await this.coursesRepository.claimCourseDeletionJob(
+        job.id,
+      );
+
+      if (!claimed) continue;
+
+      try {
+        const payload = job.payload as {
+          courseId?: string;
+          organizationId?: string;
+          releasedFiles?: Array<{
+            storageKey: string;
+            resourceType: 'image' | 'video' | 'raw';
+            deliveryType: string;
+          }>;
+        };
+
+        if (
+          !payload.courseId ||
+          !payload.organizationId ||
+          !Array.isArray(payload.releasedFiles)
+        ) {
+          throw new Error('Invalid CourseDeleted payload.');
+        }
+
+        // Step 1: Cleanup Assessment Service.
+        await this.assessmentClient.deleteCourseAssessments(
+          payload.organizationId,
+          payload.courseId,
+        );
+
+        // Step 2: Cleanup files no longer referenced.
+        for (const file of payload.releasedFiles) {
+          await this.storage.delete(file.storageKey, {
+            resourceType: file.resourceType,
+            deliveryType: file.deliveryType as
+              'upload' | 'private' | 'authenticated',
+          });
+        }
+
+        await this.coursesRepository.markCourseDeletionJobCompleted(job.id);
+
+        this.logger.log(`Course cleanup completed: ${payload.courseId}`);
+      } catch (error) {
+        this.logger.error(
+          `Course cleanup failed: ${job.aggregateId}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+
+        await this.coursesRepository.markCourseDeletionJobFailed(
+          job.id,
+          error instanceof Error ? error.message : 'Unknown cleanup error',
+        );
+      }
+    }
   }
 
   async updateMaterial(
@@ -1913,6 +2188,7 @@ export class CoursesService {
     }
 
     const course = material.lesson.module.course;
+    assertCourseNotInTrash(course.deletedAt);
 
     // 3. Kiểm tra trạng thái Course.
     if (course.status === COURSE_STATUS.SUBMITTED) {
