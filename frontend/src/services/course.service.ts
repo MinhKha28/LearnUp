@@ -18,10 +18,12 @@ import type {
   IInstructorCourseListItem,
   IInstructorLessonDetail,
   ILessonContentEditability,
+  IMaterialPreview,
   IOrganizationCourseFilterInstructor,
   IOrganizationCourseListItem,
   IOrganizationCourseListQuery,
   IPermanentDeleteCourseResult,
+  IOrganizerCourseReview,
   IReadingUploadContext,
   IRestoreCourseResult,
   ISubmitCourseResponse,
@@ -290,3 +292,16 @@ export const replaceTechnicalMaterialAPI = (
     },
   );
 };
+
+export const fetchOrganizerCourseReviewAPI = (courseId: string) =>
+  axios.get<IBackendRes<IOrganizerCourseReview>>(
+    `/api/v1/courses/organization/${encodeURIComponent(courseId)}/review`,
+  );
+
+export const fetchOrganizerMaterialPreviewAPI = (
+  courseId: string,
+  materialId: string,
+) =>
+  axios.get<IBackendRes<IMaterialPreview>>(
+    `/api/v1/courses/organization/${encodeURIComponent(courseId)}/materials/${encodeURIComponent(materialId)}/preview`,
+  );

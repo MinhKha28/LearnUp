@@ -174,24 +174,126 @@ paths:
             type: string
             format: uuid
       responses:
-        '201':
+        "201":
           description: Course was submitted, and CourseSubmitted was persisted in the same transaction.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SubmitCourseResponse'
-        '400':
+                $ref: "#/components/schemas/SubmitCourseResponse"
+        "400":
           description: Invalid UUID or INCOMPLETE_COURSE.
-        '401':
+        "401":
           description: Authentication required.
-        '403':
+        "403":
           description: Only the assigned Instructor can submit the Course.
-        '404':
+        "404":
           description: Course not found or not assigned to the Instructor.
-        '409':
+        "409":
           description: INVALID_COURSE_STATUS, QUIZ_WITHOUT_QUESTIONS, COURSE_IN_TRASH, or COURSE_CHANGED.
-        '503':
+        "503":
           description: ASSESSMENT_UNAVAILABLE or INVALID_ASSESSMENT_RESPONSE.
+
+  /api/v1/courses/organization/{courseId}/review:
+    get:
+      operationId: getOrganizerCourseReview
+      summary: UC21.2 - View Course content for Organizer review
+      description: >
+        Returns Course overview, ordered Modules, Lessons
+        and Video/Reading metadata. Only an Organizer of
+        the owning Organization may review a Submitted Course.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Course review content.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseReviewResponse"
+        "400":
+          description: Invalid Course UUID.
+        "401":
+          description: Authentication required.
+        "403":
+          description: Organizer role required.
+        "404":
+          description: Course not found in the Organization.
+        "409":
+          description: Course is not awaiting approval.
+
+  /api/v1/courses/organization/{courseId}/materials/{materialId}/preview:
+    get:
+      operationId: getOrganizerMaterialPreview
+      summary: UC21.2 - Preview protected learning material
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: materialId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Short-lived signed URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaterialPreviewResponse"
+        "400":
+          description: Invalid UUID.
+        "401":
+          description: Authentication required.
+        "403":
+          description: Organizer role required.
+        "404":
+          description: Material or Course not found.
+        "409":
+          description: Material unavailable.
+        "503":
+          description: Storage unavailable.
+  /api/v1/internal/courses/{courseId}/review-access:
+    get:
+      operationId: verifyOrganizerReviewAccess
+      summary: UC21.2 - Verify Course review eligibility
+      description: >
+        Internal service-to-service endpoint. Validates
+        that the Course belongs to the supplied Organization
+        and is Submitted. Caller must authenticate with
+        an internal service key.
+      security:
+        - internalKey: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: x-organization-id
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Course eligible for review.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseReviewAccessResponse"
+        "400":
+          description: Invalid Course or Organization UUID.
+        "401":
+          description: Invalid internal service key.
+        "404":
+          description: Course not available for review.
+
   /api/v1/courses/{courseId}/withdraw:
     post:
       summary: Withdraw a Submitted Course before Organizer approval (UC20.1)
@@ -261,6 +363,7 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/CourseTrashErrorEnvelope' }
+    internalKey: { type: apiKey, in: header, name: x-internal-key }
   schemas:
     CourseTrashSuccessEnvelope:
       type: object
@@ -337,6 +440,100 @@ components:
             submittedAt:
               type: string
               format: date-time
+
+    CourseReviewMaterial:
+      type: object
+      required: [id, title, position, materialType, isRequired, disabled, filename, mimeType, durationSeconds, previewAvailable]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        position: { type: integer }
+        materialType: { type: string, enum: [Video, Reading] }
+        isRequired: { type: boolean }
+        disabled: { type: boolean }
+        filename: { type: string }
+        mimeType: { type: string }
+        durationSeconds: { type: integer, nullable: true }
+        previewAvailable: { type: boolean }
+
+    CourseReviewLesson:
+      type: object
+      required: [id, title, content, position, disabled, materials]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        content: { type: string }
+        position: { type: integer }
+        disabled: { type: boolean }
+        materials:
+          type: array
+          items: { $ref: "#/components/schemas/CourseReviewMaterial" }
+
+    CourseReviewModule:
+      type: object
+      required: [id, title, position, lessons]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        position: { type: integer }
+        lessons:
+          type: array
+          items: { $ref: "#/components/schemas/CourseReviewLesson" }
+
+    CourseReviewResponse:
+      type: object
+      required: [statusCode, message, data]
+      properties:
+        statusCode: { type: integer, enum: [200] }
+        message: { type: string }
+        data:
+          type: object
+          required: [id, name, shortDescription, trainingObjectives, learningOutcomes, versionNumber, courseType, expectedCompletionDays, status, locked, submittedAt, instructorId, modules]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            shortDescription: { type: string, nullable: true }
+            trainingObjectives: { type: string, nullable: true }
+            learningOutcomes:
+              type: array
+              items: { type: string }
+            versionNumber: { type: integer, minimum: 1 }
+            courseType: { type: string, enum: [Public, Private] }
+            expectedCompletionDays: { type: integer }
+            status: { type: string, enum: [Submitted] }
+            locked: { type: boolean }
+            submittedAt: { type: string, format: date-time, nullable: true }
+            instructorId: { type: string, format: uuid }
+            modules:
+              type: array
+              items: { $ref: "#/components/schemas/CourseReviewModule" }
+
+    MaterialPreviewResponse:
+      type: object
+      required: [statusCode, message, data]
+      properties:
+        statusCode: { type: integer, enum: [200] }
+        message: { type: string }
+        data:
+          type: object
+          required: [url, mimeType, expiresAt]
+          properties:
+            url: { type: string, format: uri }
+            mimeType: { type: string }
+            expiresAt: { type: string, format: date-time }
+
+    CourseReviewAccessResponse:
+      type: object
+      required: [statusCode, message, data]
+      properties:
+        statusCode: { type: integer, enum: [200] }
+        message: { type: string }
+        data:
+          type: object
+          required: [courseId, reviewable]
+          properties:
+            courseId: { type: string, format: uuid }
+            reviewable: { type: boolean, enum: [true] }
 
     WithdrawCourseResponse:
       type: object

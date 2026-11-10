@@ -2397,6 +2397,143 @@ export class CoursesRepository {
       },
     );
   }
+
+  /**
+   * UC21.2 – Read Course content for Organizer review.
+   * Database access only; authorization belongs to Service.
+   */
+  findCourseForOrganizerReview(organizationId: string, courseId: string) {
+    return this.prisma.course.findFirst({
+      where: {
+        id: courseId,
+        organizationId,
+        disabledAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        shortDescription: true,
+        trainingObjectives: true,
+        learningOutcomes: true,
+        versionNumber: true,
+        courseType: true,
+        expectedCompletionDays: true,
+        status: true,
+        lockedAt: true,
+        submittedAt: true,
+        chain: {
+          select: { instructorId: true },
+        },
+        modules: {
+          orderBy: { position: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            position: true,
+            lessons: {
+              orderBy: { position: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                content: true,
+                position: true,
+                disabledAt: true,
+                materials: {
+                  orderBy: { position: 'asc' },
+                  select: {
+                    id: true,
+                    title: true,
+                    position: true,
+                    materialType: true,
+                    isRequired: true,
+                    disabledAt: true,
+                    file: {
+                      select: {
+                        originalFilename: true,
+                        mimeType: true,
+                        purpose: true,
+                        status: true,
+                        readyAt: true,
+                        releasedAt: true,
+                        deliveryType: true,
+                        durationSeconds: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Get a Material only when it belongs to the requested
+   * Submitted Course and Organization.
+   */
+  findOrganizerReviewMaterial(
+    organizationId: string,
+    courseId: string,
+    materialId: string,
+  ) {
+    return this.prisma.material.findFirst({
+      where: {
+        id: materialId,
+        organizationId,
+        lesson: {
+          organizationId,
+          module: {
+            organizationId,
+            courseId,
+            course: {
+              organizationId,
+              status: COURSE_STATUS.SUBMITTED,
+              disabledAt: null,
+            },
+          },
+        },
+      },
+      select: {
+        materialType: true,
+        disabledAt: true,
+        lesson: {
+          select: { disabledAt: true },
+        },
+        file: {
+          select: {
+            organizationId: true,
+            purpose: true,
+            status: true,
+            readyAt: true,
+            releasedAt: true,
+            mimeType: true,
+            deliveryType: true,
+            storageKey: true,
+            storageFormat: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Used by Assessment Service through an authenticated
+   * internal Course Service endpoint.
+   */
+  findOrganizerReviewAccess(organizationId: string, courseId: string) {
+    return this.prisma.course.findFirst({
+      where: {
+        id: courseId,
+        organizationId,
+        status: COURSE_STATUS.SUBMITTED,
+        disabledAt: null,
+      },
+      select: { id: true },
+    });
+  }
+
   async withdrawCourseSubmission(data: {
     courseId: string;
     organizationId: string;
@@ -2451,5 +2588,4 @@ export class CoursesRepository {
       };
     });
   }
-
 }

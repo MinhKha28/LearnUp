@@ -419,6 +419,104 @@ export interface ITechnicalReplacementResponse {
   extractionWarning: string | null;
 }
 
+export interface IReviewMaterial {
+  id: string;
+  title: string;
+  position: number;
+  materialType: string;
+  isRequired: boolean;
+  disabled: boolean;
+  filename: string;
+  mimeType: string;
+  durationSeconds: number | null;
+  previewAvailable: boolean;
+}
+
+export interface IReviewLesson {
+  id: string;
+  title: string;
+  position: number;
+  content: string;
+  disabled: boolean;
+  materials: IReviewMaterial[];
+}
+
+export interface IReviewModule {
+  id: string;
+  title: string;
+  position: number;
+  lessons: IReviewLesson[];
+}
+
+export interface IOrganizerCourseReview {
+  id: string;
+  name: string;
+  shortDescription: string | null;
+  trainingObjectives: string | null;
+  learningOutcomes: string[];
+  versionNumber: number;
+  courseType: string;
+  expectedCompletionDays: number;
+  status: string;
+  locked: boolean;
+  submittedAt: string | null;
+  instructorId: string;
+  modules: IReviewModule[];
+}
+
+export interface IReviewAssessment {
+  id: string;
+  courseId: string;
+  moduleId: string | null;
+  kind: "QUIZ" | "ASSIGNMENT";
+  title: string;
+  position: number;
+  disabled: boolean;
+  passingScore: number;
+  isRequired: boolean;
+  timeLimitMinutes: number | null;
+  maxConsecutiveAttempts: number;
+  lockoutHours: number;
+  expectedDurationMinutes: number | null;
+  prompt: string | null;
+  promptFileName: string | null;
+  peerReviewEnabled: boolean;
+  peerReviewersPerSubmission: number | null;
+  peerReviewCycleDays: number | null;
+  peerReviewDeadlineDays: number | null;
+  peerReviewScoreGap: number | null;
+  questions: Array<{
+    id: string;
+    position: number;
+    type: string;
+    content: string;
+    options: Array<{
+      id: string;
+      position: number;
+      content: string;
+      isCorrect: boolean;
+    }>;
+  }>;
+  rubric: Array<{
+    id: string;
+    position: number;
+    name: string;
+    description: string;
+    maxPoints: number;
+  }>;
+}
+
+export interface IReviewAssessmentsResponse {
+  courseId: string;
+  items: IReviewAssessment[];
+}
+
+export interface IMaterialPreview {
+  url: string;
+  mimeType: string;
+  expiresAt: string;
+}
+
 export interface IWithdrawCourseResponse {
   id: string;
   name: string;
