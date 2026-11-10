@@ -87,4 +87,27 @@ export class AssignmentMediaController {
       )
       .send(content);
   }
+
+  @Get('organization/courses/:courseId/assignments/:assignmentId/prompt-file')
+  async downloadOrganizerPromptFile(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const file =
+      await this.assessmentsService.downloadOrganizerAssignmentPrompt(
+        user,
+        courseId,
+        assignmentId,
+      );
+
+    res
+      .type(file.mimeType)
+      .set(
+        'Content-Disposition',
+        `attachment; filename*=UTF-8''${encodeURIComponent(file.fileName)}`,
+      )
+      .send(file.content);
+  }
 }
