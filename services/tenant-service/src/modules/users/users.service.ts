@@ -1843,12 +1843,12 @@ export class UsersService {
 
   // ===========================================================================
   // UC13.6 - Xóa tài khoản Learner
-  // BR-37: thu hồi quyền truy cập và giải phóng chỗ; kết quả đào tạo, Certificate (BR-217) được giữ
+  // BR-46: thu hồi quyền truy cập và giải phóng chỗ; kết quả đào tạo, Certificate (BR-267) được giữ
   //        -> xóa mềm (deleted_at), giữ nguyên status. Không đụng dữ liệu của service khác.
-  // BR-30, BR-31: unique email chỉ xét tài khoản chưa xóa -> email được cấp lại cho tài khoản mới.
-  // BR-304: learning-service chuyển Enrollment chưa Completed sang Withdrawn khi nhận UserDeleted;
-  // BR-39, BR-199: assessment-service cập nhật bản sao thưa learner_accounts từ cùng event.
-  // Không có BR-41 (chuyển quyền phụ trách chỉ dành cho Instructor) -> không gọi service khác.
+  // BR-38, BR-39: unique email chỉ xét tài khoản chưa xóa -> email được cấp lại cho tài khoản mới.
+  // BR-47: learning-service chuyển Enrollment chưa Completed sang Withdrawn khi nhận UserDeleted;
+  // assessment-service cập nhật bản sao thưa learner_accounts từ cùng event.
+  // Không có BR-51 (chuyển quyền phụ trách chỉ dành cho Instructor) -> không gọi service khác.
   // ===========================================================================
   /**
    * Cùng khung với deleteInstructor (UC12.6): kiểm tổ chức / Subscription -> đọc gồm dòng đã xóa
@@ -1864,7 +1864,7 @@ export class UsersService {
     const targetId = learnerId.toLowerCase();
 
     const outcome = await this.prisma.$transaction(async (tx) => {
-      // BR-15: ân hạn vẫn xóa được. BR-17: Suspended / Organization khác Active -> 403.
+      // BR-22: ân hạn vẫn xóa được. BR-24: Suspended / Organization khác Active -> 403.
       const { organization } = await this.assertCanManageAccounts(
         tx,
         organizationId,
@@ -1918,19 +1918,19 @@ export class UsersService {
         role: UserRoleValue.Learner,
         deletedAt,
       });
-      // Như D7 UC12.6: chỉ báo cho tài khoản đã từng kích hoạt, không kèm lý do (BR-271).
+      // Như D7 UC12.6: chỉ báo cho tài khoản đã từng kích hoạt, không kèm lý do (BR-337).
       if (target.activatedAt !== null) {
         await this.enqueueStatusEmail(tx, {
           organizationId,
           userId: target.id,
           to: target.email,
           templateCode: 'LEARNER_DELETED',
-          subject: `LearnUP - Tài khoản Learner tại ${organization.name} đã bị xóa`,
+          subject: `LearnUP - Tài khoản Học viên tại ${organization.name} đã bị xóa`,
           body:
             `Xin chào ${target.fullName},\n` +
-            `${organization.name} đã xóa tài khoản Learner của bạn trên LearnUP.\n` +
+            `${organization.name} đã xóa tài khoản Học viên của bạn trên LearnUP.\n` +
             `Bạn không còn đăng nhập được bằng tài khoản này. ` +
-            `Nếu có thắc mắc, hãy liên hệ Organizer của tổ chức.`,
+            `Nếu có thắc mắc, hãy liên hệ Quản lý đào tạo của tổ chức.`,
         });
       }
       await this.enqueueStatusAudit(tx, user, {
@@ -1944,7 +1944,7 @@ export class UsersService {
       return { id: target.id, changed: true };
     });
 
-    // BR-23, BR-37: số chỗ Learner sau khi xóa để màn hình cập nhật ngay (đọc sau commit).
+    // BR-31, BR-46: số chỗ Learner sau khi xóa để màn hình cập nhật ngay (đọc sau commit).
     return {
       ...outcome,
       seats: await this.getSeatUsage(organizationId, UserRoleValue.Learner),

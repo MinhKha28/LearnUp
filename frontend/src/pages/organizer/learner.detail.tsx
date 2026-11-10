@@ -132,7 +132,7 @@ const LearnerDetail = () => {
     [navigate],
   );
 
-  // UC13.3: sửa được ở mọi trạng thái (đơn vị công tác, BR-34)
+  // UC13.3: sửa được ở mọi trạng thái (đơn vị công tác, BR-42)
   const headerActions: ReactNode = detail ? (
     <>
       {/* UC13.6 - xóa được ở mọi trạng thái; xóa xong về danh sách UC13 */}

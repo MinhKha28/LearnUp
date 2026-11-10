@@ -12,8 +12,8 @@ export const AUDIT_RECORDED_EVENT = 'AuditRecorded';
 // Tenant chưa có relay Kafka nên các dòng này nằm chờ (published_at NULL) tới khi có relay.
 export const USER_DEACTIVATED_EVENT = 'UserDeactivated';
 export const USER_REACTIVATED_EVENT = 'UserReactivated';
-// UC13.6: Learner bị xóa -> learning-service chuyển Enrollment chưa Completed sang Withdrawn (BR-304),
-// assessment-service cập nhật bản sao thưa (BR-39, BR-199). Cũng nằm chờ tới khi có relay Kafka.
+// UC13.6: Learner bị xóa -> learning-service chuyển Enrollment chưa Completed sang Withdrawn (BR-47),
+// assessment-service cập nhật bản sao thưa learner_accounts. Cũng nằm chờ tới khi có relay Kafka.
 export const USER_DELETED_EVENT = 'UserDeleted';
 
 /** (giữ nguyên khối chú thích Transactional Outbox cũ) */

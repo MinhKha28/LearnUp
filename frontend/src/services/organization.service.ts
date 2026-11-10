@@ -258,7 +258,7 @@ export const changeLearnerStatusAPI = (
     body,
   );
 
-// UC13.6 - xóa Learner (xóa mềm, BR-37). Lý do đi trong body, không lên URL (như UC12.6).
+// UC13.6 - xóa Learner (xóa mềm, BR-46). Lý do đi trong body, không lên URL (như UC12.6).
 export const deleteLearnerAPI = (learnerId: string, body: IDeleteLearnerReq) =>
   axios.delete<IBackendRes<ILearnerDeletionResult>>(
     `/api/v1/users/learners/${encodeURIComponent(learnerId)}`,

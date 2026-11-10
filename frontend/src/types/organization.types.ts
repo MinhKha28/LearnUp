@@ -358,7 +358,7 @@ export type IDeleteLearnerReq = Omit<IDeleteAccountReq, "receiverInstructorId">;
 export interface ILearnerDeletionResult {
   id: string;
   changed: boolean; // false: đã bị xóa từ trước (bấm lặp)
-  seats: ISeatUsage; // số chỗ Learner sau khi xóa (BR-23, BR-37)
+  seats: ISeatUsage; // số chỗ Learner sau khi xóa (BR-31, BR-46)
 }
 
 // UC12.2 - số chỗ theo Subscription hiện hành (GET /api/v1/users/instructors/seats)

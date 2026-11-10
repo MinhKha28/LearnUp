@@ -230,7 +230,7 @@ export class UsersController {
     return this.service.changeLearnerStatus(user, id, dto);
   }
 
-  // UC13.6 - xóa mềm Learner (BR-37, BR-304). Đã xóa (cùng tổ chức) -> 200 changed:false.
+  // UC13.6 - xóa mềm Learner (BR-46, BR-47). Đã xóa (cùng tổ chức) -> 200 changed:false.
   // Body JSON { reason? }: không đưa lý do lên query string (lọt vào access log), như UC12.6.
   @Roles('ORGANIZER')
   @Delete('learners/:id')

@@ -21,8 +21,8 @@ interface DeleteForm {
   reason?: string;
 }
 
-// UC13.6 - nút Delete trên trang chi tiết Learner. Mọi trạng thái đều xóa được (BR-37).
-// Learner không có chuyển quyền phụ trách (BR-41 chỉ cho Instructor) nên dialog chỉ là xác nhận + lý do.
+// UC13.6 - nút Delete trên trang chi tiết Learner. Mọi trạng thái đều xóa được (BR-46).
+// Learner không có chuyển quyền phụ trách (BR-51 chỉ cho Instructor) nên dialog chỉ là xác nhận + lý do.
 export const LearnerDeleteButton = ({
   learnerId,
   fullName,

@@ -4,6 +4,6 @@ import type { SeatUsage } from './seat-usage.interface';
 export interface ILearnerDeletionResult {
   id: string;
   changed: boolean;
-  /** Số chỗ Learner sau khi xóa (BR-23, BR-37: xóa giải phóng chỗ). */
+  /** Số chỗ Learner sau khi xóa (BR-31, BR-46: xóa giải phóng chỗ). */
   seats: SeatUsage;
 }
