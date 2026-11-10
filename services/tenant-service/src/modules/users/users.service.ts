@@ -2319,17 +2319,10 @@ export class UsersService {
       });
     }
 
-    const receivers = await this.findValidReceivers(
-      this.prisma,
+    return this.usersRepository.findTransferCandidates(
       user.organizationId,
       excludeInstructorId,
     );
-
-    // Không trả email nếu Frontend chỉ cần ID và tên.
-    return receivers.map(({ id, fullName }) => ({
-      id,
-      fullName,
-    }));
   }
 
   async validateTransferReceiver(user: CurrentUser, instructorId: string) {
@@ -2340,20 +2333,10 @@ export class UsersService {
       });
     }
 
-    const receiver = await this.prisma.user.findFirst({
-      where: {
-        id: instructorId,
-        organizationId: user.organizationId,
-        role: UserRoleValue.Instructor,
-        status: UserStatus.Active,
-        activatedAt: { not: null },
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        fullName: true,
-      },
-    });
+    const receiver = await this.usersRepository.findEligibleTransferReceiver(
+      user.organizationId,
+      instructorId,
+    );
 
     if (!receiver) {
       throw new BadRequestException({
