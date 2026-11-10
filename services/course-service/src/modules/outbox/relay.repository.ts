@@ -26,6 +26,8 @@ export const claimSql = (limit: number) => Prisma.sql`
       'CourseComponentDisabled',
       'CourseComponentReactivated',
       'CourseSubmitted',
+      'CoursePublished',
+      'CourseRejected',
       'CourseOwnershipTransferred'
     )
     AND (
@@ -44,6 +46,8 @@ export const claimSql = (limit: number) => Prisma.sql`
           'CourseComponentDisabled',
           'CourseComponentReactivated',
           'CourseSubmitted',
+          'CoursePublished',
+          'CourseRejected',
       'CourseOwnershipTransferred'
         )
         AND p.id < o.id

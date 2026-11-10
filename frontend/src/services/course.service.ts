@@ -24,13 +24,15 @@ import type {
   IOrganizationCourseListQuery,
   IPermanentDeleteCourseResult,
   IOrganizerCourseReview,
+  ICourseDecisionResponse,
+  IRejectCourseRequest,
+  ITransferCourseContext,
+  ITransferCourseRequest,
+  ITransferCourseResponse,
   IReadingUploadContext,
   IRestoreCourseResult,
   ISubmitCourseResponse,
   IWithdrawCourseResponse,
-  ITransferCourseContext,
-  ITransferCourseRequest,
-  ITransferCourseResponse,
   ISoftDeleteCourseResult,
   ITechnicalReplacementResponse,
   IUpdateCourseRequest,
@@ -307,6 +309,19 @@ export const fetchOrganizerMaterialPreviewAPI = (
 ) =>
   axios.get<IBackendRes<IMaterialPreview>>(
     `/api/v1/courses/organization/${encodeURIComponent(courseId)}/materials/${encodeURIComponent(materialId)}/preview`,
+  );
+
+
+/** UC21.3 - Decisions are authorized by Course Service. */
+export const approveCourseAPI = (courseId: string) =>
+  axios.post<IBackendRes<ICourseDecisionResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/approve`,
+  );
+
+export const rejectCourseAPI = (courseId: string, payload: IRejectCourseRequest) =>
+  axios.post<IBackendRes<ICourseDecisionResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/reject`,
+    payload,
   );
 
 export const fetchTransferContextAPI = (courseId: string) =>

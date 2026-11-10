@@ -36,6 +36,7 @@ import { memoryStorage } from 'multer';
 import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { TransferCourseOwnershipDto } from './dto/transfer-course-ownership.dto';
+import { RejectCourseDto } from './dto/reject-course.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -309,6 +310,25 @@ export class CoursesController {
     @Param('courseId', ParseUUIDPipe) courseId: string,
   ) {
     return this.coursesService.submitCourseForApproval(user, courseId);
+  }
+
+  @Post(':courseId/approve')
+  @ResponseMessage('Course approved successfully')
+  approveCourse(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.approveCourse(user, courseId);
+  }
+
+  @Post(':courseId/reject')
+  @ResponseMessage('Course rejected successfully')
+  rejectCourse(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Body() dto: RejectCourseDto,
+  ) {
+    return this.coursesService.rejectCourse(user, courseId, dto);
   }
 
   @Patch(':courseId/lessons/:lessonId/materials/:materialId')
