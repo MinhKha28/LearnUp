@@ -96,4 +96,38 @@ export class LearningClient {
       );
     }
   }
+
+  async hasEverEnrolled(user: CurrentUser, courseId: string): Promise<boolean> {
+    const baseUrl = this.configService.getOrThrow<string>(
+      'LEARNING_SERVICE_URL',
+    );
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get<
+          LearningApiResponse<{
+            hasEverEnrolled: boolean;
+          }>
+        >(
+          `${baseUrl}/api/v1/enrollments/internal/courses/${courseId}/history`,
+          {
+            headers: this.buildHeaders(user),
+          },
+        ),
+      );
+
+      const value = response.data.data?.hasEverEnrolled;
+
+      if (typeof value !== 'boolean') {
+        throw new Error('Invalid enrollment history response.');
+      }
+
+      return value;
+    } catch {
+      throw new ServiceUnavailableException({
+        code: 'ENROLLMENT_CHECK_UNAVAILABLE',
+        message: 'Không thể kiểm tra lịch sử Enrollment.',
+      });
+    }
+  }
 }

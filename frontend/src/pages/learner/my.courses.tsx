@@ -16,7 +16,7 @@ import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import { buildMyCourseRow, type MyCourseRow } from "@/utils/my.courses.view";
 import { parsePageParam, resolvePageRedirect } from "@/utils/page.param";
 import { canWithdrawEnrollment, resolveWithdrawalOutcome, WITHDRAWAL_CONFIRMATION, WITHDRAWAL_MESSAGES } from "@/utils/withdrawal.outcome";
-import { MyCourseFilters } from "./my.course.filters";
+import { MyCourseFilters, statusOptions, typeOptions } from "./my.course.filters";
 import "./my.courses.scss";
 
 const MY_COURSES_ERROR_MESSAGES: Record<string, string> = {
@@ -125,13 +125,21 @@ const MyCourseListRow = ({ row, item, onReload }: {
   );
 };
 
+const readFilter = (params: URLSearchParams, name: string) => {
+  const values = params.getAll(name);
+  return values.length === 1 ? values[0] : undefined;
+};
+
 const useMyCourseFilters = () => {
   const [params, setParams] = useSearchParams();
   const currentUrl = useRef({ params, setParams });
   currentUrl.current = { params, setParams };
   const { key } = useLocation();
   const navigationType = useNavigationType();
-  const keyword = params.get("q")?.trim() ?? "";
+  const urlKeyword = readFilter(params, "q")?.trim() ?? "";
+  const keyword = [...urlKeyword].length <= 200 ? urlKeyword : "";
+  const type = readFilter(params, "type");
+  const status = readFilter(params, "status");
   const [draft, setDraft] = useState(keyword);
   const [previousLocation, setPreviousLocation] = useState({ key, keyword });
 
@@ -174,8 +182,8 @@ const useMyCourseFilters = () => {
 
   return {
     q: keyword || undefined,
-    type: params.get("type") ?? undefined,
-    status: params.get("status") ?? undefined,
+    type: typeOptions.find(({ value }) => value === type)?.value || undefined,
+    status: statusOptions.find(({ value }) => value === status)?.value || undefined,
     draft,
     setDraft,
     updateFilter,

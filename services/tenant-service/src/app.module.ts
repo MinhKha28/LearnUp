@@ -22,6 +22,9 @@ import { InternalUsersModule } from './modules/internal-users/internal-users.mod
 import { InternalOrganizationsModule } from './modules/internal-organizations/internal-organizations.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { OrganizationsController } from './modules/organizations/organizations.controller';
+import { AdminOrganizationsController } from './modules/organizations/admin-organizations.controller';
+import { MemberImportsModule } from './modules/member-imports/member-imports.module';
+import { MemberImportsController } from './modules/member-imports/member-imports.controller';
 import { validateEnvironment } from './common/utils/otp.util';
 
 @Module({
@@ -42,6 +45,7 @@ import { validateEnvironment } from './common/utils/otp.util';
     ProfileModule,
     SubscriptionsModule,
     OrganizationsModule, // UC11, UC11.1
+    MemberImportsModule, // UC12.8
   ],
   providers: [
     {
@@ -54,13 +58,13 @@ export class AppModule implements NestModule {
   // TẠM THỜI: fake danh tính khi chưa đi qua api-gateway. Chỉ có tác dụng khi
   // DEV_FAKE_AUTH=true và NODE_ENV !== 'production' (xem dev-fake-auth.middleware.ts).
   configure(consumer: MiddlewareConsumer): void {
-    consumer
-      .apply(DevFakeAuthMiddleware)
-      .forRoutes(
-        UsersController,
-        ProfileController,
-        SubscriptionsController,
-        OrganizationsController,
-      );
+    consumer.apply(DevFakeAuthMiddleware).forRoutes(
+      UsersController,
+      ProfileController,
+      SubscriptionsController,
+      OrganizationsController,
+      AdminOrganizationsController, // UC44
+      MemberImportsController, // UC12.8
+    );
   }
 }

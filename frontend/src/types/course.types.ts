@@ -357,10 +357,162 @@ export interface ICreateReadingMaterialResponse {
   extractionWarning: string | null;
 }
 
+/**
+ * UC14.5 - Course Trash
+ * A deleted Course remains in Trash for 7 days.
+ */
+export interface ICourseTrashItem {
+  id: string;
+  chainId: string;
+  name: string;
+  versionNumber: number;
+  status: "Draft" | "Rejected";
+  deletedAt: string;
+  deletedBy: string | null;
+  purgeAt: string;
+}
+
+export interface ISoftDeleteCourseResult {
+  courseId: string;
+  deletedAt: string;
+  purgeAt: string;
+}
+
+export interface IRestoreCourseResult {
+  courseId: string;
+  restored: boolean;
+}
+
+export interface IPermanentDeleteCourseResult {
+  courseId: string;
+  permanentlyDeleted: boolean;
+  chainDeleted: boolean;
+  releasedFileCount: number;
+}
+
 export interface ISubmitCourseResponse {
   id: string;
   name: string;
   versionNumber: number;
   status: CourseStatus;
   submittedAt: string;
+}
+
+export interface IUpdateMaterialRequest {
+  title?: string;
+  isRequired?: boolean;
+}
+
+export interface IUpdateMaterialResponse {
+  id: string;
+  title: string;
+  isRequired: boolean;
+}
+
+export interface ITechnicalReplacementResponse {
+  materialId: string;
+  fileId: string;
+  storageKey: string;
+  sizeBytes: string;
+  durationSeconds: number | null;
+  wordCount: number | null;
+  extractionWarning: string | null;
+}
+
+export interface IReviewMaterial {
+  id: string;
+  title: string;
+  position: number;
+  materialType: string;
+  isRequired: boolean;
+  disabled: boolean;
+  filename: string;
+  mimeType: string;
+  durationSeconds: number | null;
+  previewAvailable: boolean;
+}
+
+export interface IReviewLesson {
+  id: string;
+  title: string;
+  position: number;
+  content: string;
+  disabled: boolean;
+  materials: IReviewMaterial[];
+}
+
+export interface IReviewModule {
+  id: string;
+  title: string;
+  position: number;
+  lessons: IReviewLesson[];
+}
+
+export interface IOrganizerCourseReview {
+  id: string;
+  name: string;
+  shortDescription: string | null;
+  trainingObjectives: string | null;
+  learningOutcomes: string[];
+  versionNumber: number;
+  courseType: string;
+  expectedCompletionDays: number;
+  status: string;
+  locked: boolean;
+  submittedAt: string | null;
+  instructorId: string;
+  modules: IReviewModule[];
+}
+
+export interface IReviewAssessment {
+  id: string;
+  courseId: string;
+  moduleId: string | null;
+  kind: "QUIZ" | "ASSIGNMENT";
+  title: string;
+  position: number;
+  disabled: boolean;
+  passingScore: number;
+  isRequired: boolean;
+  timeLimitMinutes: number | null;
+  maxConsecutiveAttempts: number;
+  lockoutHours: number;
+  expectedDurationMinutes: number | null;
+  prompt: string | null;
+  promptFileName: string | null;
+  peerReviewEnabled: boolean;
+  peerReviewersPerSubmission: number | null;
+  peerReviewCycleDays: number | null;
+  peerReviewDeadlineDays: number | null;
+  peerReviewScoreGap: number | null;
+  questions: Array<{
+    id: string;
+    position: number;
+    type: string;
+    content: string;
+    options: Array<{
+      id: string;
+      position: number;
+      content: string;
+      isCorrect: boolean;
+    }>;
+  }>;
+  rubric: Array<{
+    id: string;
+    position: number;
+    name: string;
+    description: string;
+    maxPoints: number;
+  }>;
+}
+
+export interface IReviewAssessmentsResponse {
+  courseId: string;
+  items: IReviewAssessment[];
+}
+
+export interface IMaterialPreview {
+  url: string;
+  mimeType: string;
+  expiresAt: string;
 }

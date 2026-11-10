@@ -42,6 +42,7 @@ const kafka = new KafkaJS.Kafka({
 const consumer = kafka.consumer({
   kafkaJS: { groupId: `l6-${randomUUID()}`, fromBeginning: true },
 });
+let admin: KafkaJS.Admin | undefined;
 const received: {
   key: string;
   body: {
@@ -82,8 +83,13 @@ async function waitFor(
 before(async () => {
   if (!enabled) return;
   await prisma.$connect();
-  await Promise.all([waitFor(() => p1.ready()), waitFor(() => p2.ready())]);
+  await Promise.all([
+    waitFor(async () => (await p1.ready()) === true),
+    waitFor(async () => (await p2.ready()) === true),
+  ]);
   await consumer.connect();
+  admin = consumer.dependentAdmin();
+  await admin.connect();
   await consumer.subscribe({ topics: [config.topic] });
   await consumer.run({
     eachMessage: async ({ message }) => {
@@ -95,22 +101,18 @@ before(async () => {
 });
 after(async () => {
   if (!enabled) return;
-  const admin = kafka.admin();
   try {
+    if (admin)
+      await deadline(
+        admin.deleteTopics({ topics: [config.topic] }),
+        'relay cleanup delete topic',
+      );
+    await clear();
+  } finally {
     await closeAll(
       () => r1.beforeApplicationShutdown(),
       () => r2.beforeApplicationShutdown(),
       () => consumer.disconnect(),
-    );
-    await deadline(admin.connect(), 'relay cleanup admin connect');
-    await deadline(
-      admin.deleteTopics({ topics: [config.topic] }),
-      'relay cleanup delete topic',
-    );
-    await clear();
-  } finally {
-    await closeAll(
-      () => admin.disconnect(),
       () => prisma.$disconnect(),
     );
   }
@@ -273,7 +275,7 @@ test(
       );
       // Simulate the broker disappearing just after a successful preflight.
       const ready = p1.ready.bind(p1);
-      p1.ready = async () => true;
+      p1.ready = async () => true as const;
       try {
         await relay.tick();
       } finally {
@@ -308,7 +310,7 @@ test(
         await closeAll(() => closeApp(app));
       }
     }
-    await waitFor(() => p1.ready(), 40000);
+    await waitFor(async () => (await p1.ready()) === true, 40000);
     await r1.tick();
     await r1.tick();
     await waitFor(() => received.length >= 2, 30000);
@@ -331,23 +333,26 @@ test(
     if (!container || !/^[a-zA-Z0-9_.-]+$/.test(container))
       throw new Error('Explicit test Kafka container required');
     const topic = `learnup.learning.cold-${randomUUID()}`;
-    let brokerWarned = false;
+    let brokerWarning: string | undefined;
     const originalWarn = Logger.prototype.warn;
     Logger.prototype.warn = (...args: unknown[]) => {
-      if (args[0] === 'OUTBOX_BROKER_UNAVAILABLE: relay will retry')
-        brokerWarned = true;
+      if (
+        typeof args[0] === 'string' &&
+        args[0].startsWith('OUTBOX_BROKER_UNAVAILABLE:')
+      )
+        brokerWarning = args[0];
     };
     const previous = {
       enabled: process.env.OUTBOX_RELAY_ENABLED,
       topic: process.env.OUTBOX_TOPIC,
     };
     let app: NestExpressApplication | undefined;
-    const admin = kafka.admin();
     const reader = kafka.consumer({
       kafkaJS: { groupId: `cold-${randomUUID()}`, fromBeginning: true },
     });
-    let adminConnected = false,
-      readerConnected = false;
+    let readerConnected = false;
+    let topicCreated = false;
+    const topicAdmin = admin!;
     try {
       await clear();
       execFileSync('docker', ['stop', container], {
@@ -378,7 +383,11 @@ test(
       );
       assert.equal(response.status, 200);
       assert.ok(performance.now() - start < 5000);
-      await waitFor(() => brokerWarned, 45000);
+      await waitFor(() => brokerWarning !== undefined, 45000);
+      assert.match(
+        brokerWarning!,
+        /^OUTBOX_BROKER_UNAVAILABLE: relay will retry code=KAFKA_-?\d+$/,
+      );
       const pending = await prisma.$queryRaw<
         { attempts: number; published_at: Date | null }[]
       >`SELECT attempts,published_at FROM outbox_events WHERE id=${id(10000)}::uuid`;
@@ -388,15 +397,16 @@ test(
         stdio: 'ignore',
         timeout: 10000,
       });
-      await admin.connect();
-      adminConnected = true;
       await waitFor(async () => {
         try {
-          return (await admin.listTopics({ timeout: 1000 })).includes(topic);
+          return (await topicAdmin.listTopics({ timeout: 1000 })).includes(
+            topic,
+          );
         } catch {
           return false;
         }
       }, 40000);
+      topicCreated = true;
       let observed: { key: string; eventId: string } | undefined;
       await reader.connect();
       readerConnected = true;
@@ -422,6 +432,12 @@ test(
         'L6 cold start: HTTP 200 without Kafka; scheduled relay created topic and delivered after recovery',
       );
     } finally {
+      Logger.prototype.warn = originalWarn;
+      if (previous.enabled === undefined)
+        delete process.env.OUTBOX_RELAY_ENABLED;
+      else process.env.OUTBOX_RELAY_ENABLED = previous.enabled;
+      if (previous.topic === undefined) delete process.env.OUTBOX_TOPIC;
+      else process.env.OUTBOX_TOPIC = previous.topic;
       try {
         execFileSync('docker', ['start', container], {
           stdio: 'ignore',
@@ -433,24 +449,13 @@ test(
       await closeAll(
         () => (readerConnected ? reader.disconnect() : undefined),
         async () => {
-          if (adminConnected) {
-            try {
-              await deadline(
-                admin.deleteTopics({ topics: [topic] }),
-                'chaos cleanup delete topic',
-              );
-            } finally {
-              await deadline(admin.disconnect(), 'chaos admin disconnect');
-            }
-          }
+          if (topicCreated)
+            await deadline(
+              topicAdmin.deleteTopics({ topics: [topic] }),
+              'chaos cleanup delete topic',
+            );
         },
       );
-      Logger.prototype.warn = originalWarn;
-      if (previous.enabled === undefined)
-        delete process.env.OUTBOX_RELAY_ENABLED;
-      else process.env.OUTBOX_RELAY_ENABLED = previous.enabled;
-      if (previous.topic === undefined) delete process.env.OUTBOX_TOPIC;
-      else process.env.OUTBOX_TOPIC = previous.topic;
       await clear();
     }
   },
