@@ -43,6 +43,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String SERVICE_NAME_HEADER = "X-Service-Name";
 
     private final JwtProperties jwtProperties;
     private final ObjectMapper objectMapper;
@@ -73,6 +74,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                     .headers(headers -> {
                         // Strip any spoofed user identity and internal headers from client
                         headers.remove(HeaderConstants.X_INTERNAL_KEY);
+                        headers.remove(SERVICE_NAME_HEADER);
                         headers.remove(HeaderConstants.X_USER_ID);
                         headers.remove(HeaderConstants.X_ORGANIZATION_ID);
                         headers.remove(HeaderConstants.X_USER_ROLE);
@@ -135,6 +137,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                 .headers(headers -> {
                     // Strip all spoofable headers from client
                     headers.remove(HeaderConstants.X_INTERNAL_KEY);
+                    headers.remove(SERVICE_NAME_HEADER);
                     headers.remove(HeaderConstants.X_USER_ID);
                     headers.remove(HeaderConstants.X_ORGANIZATION_ID);
                     headers.remove(HeaderConstants.X_USER_ROLE);
