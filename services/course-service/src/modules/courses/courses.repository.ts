@@ -2846,6 +2846,31 @@ export class CoursesRepository {
         },
       });
 
+      // UC23 audit belongs to Course Service. A separate relay delivers it
+      // independently of Kafka and notification availability.
+      await tx.outboxEvent.create({
+        data: {
+          aggregateType: 'CourseAudit',
+          aggregateId: input.chainId,
+          organizationId: input.organizationId,
+          eventType: 'AuditRecorded',
+          occurredAt: transferredAt,
+          payload: {
+            organizationId: input.organizationId,
+            actorUserId: input.actorUserId,
+            actorRole: 'ORGANIZER',
+            actionType: 'COURSE_OWNERSHIP_TRANSFERRED',
+            targetResourceType: 'CourseChain',
+            targetResourceId: input.chainId,
+            courseId: input.courseId,
+            fromInstructorId: input.fromInstructorId,
+            toInstructorId: input.toInstructorId,
+            occurredAt: transferredAt.toISOString(),
+            ...(input.reason ? { reason: input.reason } : {}),
+          },
+        },
+      });
+
       return {
         status: 'TRANSFERRED' as const,
         data: {

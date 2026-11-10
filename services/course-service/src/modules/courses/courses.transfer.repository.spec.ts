@@ -38,7 +38,7 @@ describe('UC23 transfer Course Chain transaction', () => {
       fromInstructorId: input.fromInstructorId,
       toInstructorId: input.toInstructorId,
     });
-    expect(tx.outboxEvent.create).toHaveBeenCalledWith({
+    expect(tx.outboxEvent.create).toHaveBeenNthCalledWith(1, {
       data: expect.objectContaining({
         aggregateType: 'Course',
         aggregateId: input.chainId,
@@ -51,6 +51,23 @@ describe('UC23 transfer Course Chain transaction', () => {
         }),
       }),
     });
+    expect(tx.outboxEvent.create).toHaveBeenNthCalledWith(2, {
+      data: expect.objectContaining({
+        aggregateType: 'CourseAudit',
+        aggregateId: input.chainId,
+        eventType: 'AuditRecorded',
+        organizationId: input.organizationId,
+        payload: expect.objectContaining({
+          actorUserId: input.actorUserId,
+          actorRole: 'ORGANIZER',
+          actionType: 'COURSE_OWNERSHIP_TRANSFERRED',
+          targetResourceId: input.chainId,
+          toInstructorId: input.toInstructorId,
+          occurredAt: expect.any(String),
+        }),
+      }),
+    });
+    expect(tx.outboxEvent.create).toHaveBeenCalledTimes(2);
   });
 
   it.each(['NOT_OWNER', 'ALREADY_OWNER'])(
@@ -68,6 +85,15 @@ describe('UC23 transfer Course Chain transaction', () => {
     await expect(repository.transferCourseOwnership(input))
       .resolves.toEqual({ status: 'NOT_FOUND' });
     expect(tx.outboxEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects when inserting the Audit event fails (atomic rollback)', async () => {
+    tx.outboxEvent.create
+      .mockResolvedValueOnce({ id: 'notification-event' })
+      .mockRejectedValueOnce(new Error('audit outbox unavailable'));
+    await expect(repository.transferCourseOwnership(input))
+      .rejects.toThrow('audit outbox unavailable');
+    expect(tx.outboxEvent.create).toHaveBeenCalledTimes(2);
   });
 
   it('propagates Outbox errors so the Prisma transaction rolls back', async () => {

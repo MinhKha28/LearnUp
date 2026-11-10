@@ -218,7 +218,6 @@ services:
       SPRING_MAIL_SMTP_CONNECTION_TIMEOUT: ${SPRING_MAIL_SMTP_CONNECTION_TIMEOUT:-5000}
       SPRING_MAIL_SMTP_TIMEOUT: ${SPRING_MAIL_SMTP_TIMEOUT:-5000}
       SPRING_MAIL_SMTP_WRITE_TIMEOUT: ${SPRING_MAIL_SMTP_WRITE_TIMEOUT:-5000}
-      AUDIT_SERVICE_URL: http://audit-service:8083
       TENANT_SERVICE_URL: http://tenant-service:8084
       COURSE_SERVICE_URL: http://course-service:8083
     depends_on:
@@ -325,6 +324,7 @@ services:
       LEARNING_SERVICE_URL: http://learning-service:8085
       ASSESSMENT_SERVICE_URL: http://assessment-service:8086
       NOTIFICATION_SERVICE_URL: http://notification-service:8082
+      AUDIT_SERVICE_URL: http://audit-service:8083
       KAFKA_BROKERS: kafka:29092
       OUTBOX_RELAY_ENABLED: ${COURSE_OUTBOX_RELAY_ENABLED:-true}
       OUTBOX_TOPIC: learnup.course.course-component-events
