@@ -124,7 +124,10 @@ describe('UC20.1 withdraw Course submission', () => {
     });
     await expect(
       service.withdrawCourseSubmission(instructor, courseId),
-    ).rejects.toMatchObject({ status: 404 });
+    ).rejects.toMatchObject({
+      status: 409,
+      response: expect.objectContaining({ code: 'COURSE_IN_TRASH' }),
+    });
     expect(repository.withdrawCourseSubmission).not.toHaveBeenCalled();
   });
 
