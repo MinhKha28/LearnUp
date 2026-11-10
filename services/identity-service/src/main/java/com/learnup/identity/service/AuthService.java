@@ -208,12 +208,10 @@ public class AuthService {
         }
 
         if (request != null && request.getRefreshToken() != null && !request.getRefreshToken().isBlank()) {
-            String tokenHash = hashToken(request.getRefreshToken().trim());
-            refreshTokenRepository.findByTokenHash(tokenHash).ifPresent(token -> {
-                token.revoke();
-                refreshTokenRepository.save(token);
-                log.info("Refresh token revoked for user [{}]", token.getUserId());
-            });
+            // Only the caller's own session; another user's token is ignored without revealing anything.
+            if (authenticatedUserId != null) {
+                revokeSessionFamily(hashToken(request.getRefreshToken().trim()), authenticatedUserId);
+            }
             return;
         }
 
@@ -221,6 +219,44 @@ public class AuthService {
             refreshTokenRepository.deleteByUserId(authenticatedUserId);
             log.info("Refresh tokens deleted for user [{}]", authenticatedUserId);
         }
+    }
+
+    /**
+     * UC06 single-session logout that does not need a live access token: possession of the refresh
+     * token authorizes ending that one session. Always neutral (unknown, expired or already revoked
+     * tokens are a silent no-op), so the endpoint cannot be used to probe tokens.
+     */
+    @Transactional
+    public void revokeSession(RevokeSessionRequest request) {
+        revokeSessionFamily(hashToken(request.getRefreshToken().trim()), null);
+    }
+
+    /**
+     * Revokes every still-active token of the presented token's rotation family (this device's
+     * session), so a refresh that rotated the token just before logout cannot leave a live successor.
+     * Locks the owner before the tokens, the same order as refresh and password replacement.
+     *
+     * @param requiredOwner when not null, only a token owned by this user is revoked
+     */
+    private void revokeSessionFamily(String tokenHash, UUID requiredOwner) {
+        UUID ownerId = refreshTokenRepository.findUserIdByTokenHash(tokenHash).orElse(null);
+        if (ownerId == null) {
+            log.info("event=session_revoke_ignored reason=UNKNOWN_TOKEN correlation_id={}", AuthenticationDiagnostics.correlationId());
+            return;
+        }
+        if (requiredOwner != null && !requiredOwner.equals(ownerId)) {
+            log.warn("event=session_revoke_ignored reason=FOREIGN_SESSION user_id={} correlation_id={}",
+                    requiredOwner, AuthenticationDiagnostics.correlationId());
+            return;
+        }
+        userRepository.findByIdForUpdate(ownerId);
+        RefreshToken token = refreshTokenRepository.findByTokenHashForUpdate(tokenHash).orElse(null);
+        if (token == null) {
+            return; // removed concurrently (logout-all, password change or reset)
+        }
+        int revoked = refreshTokenRepository.revokeFamily(token.getFamilyId(), Instant.now());
+        log.info("event=session_revoked user_id={} family_id={} revoked={} correlation_id={}",
+                ownerId, token.getFamilyId(), revoked, AuthenticationDiagnostics.correlationId());
     }
 
     @Transactional

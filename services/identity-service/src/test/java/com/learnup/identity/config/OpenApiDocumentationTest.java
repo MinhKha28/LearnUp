@@ -31,9 +31,9 @@ class OpenApiDocumentationTest {
         assertThat(spec.path("servers").get(0).path("url").asText()).isEqualTo("http://localhost:8088");
         assertThat(spec.path("components").path("securitySchemes").path("bearerAuth").path("scheme").asText()).isEqualTo("bearer");
         assertThat(spec.path("security").isMissingNode()).isTrue();
-        assertThat(spec.path("paths").size()).isEqualTo(14);
+        assertThat(spec.path("paths").size()).isEqualTo(16); // 14 + UC06 /revoke under both prefixes
         for (String prefix : new String[] {"/api/v1/auth", "/api/auth"}) {
-            for (String action : new String[] {"login", "refresh", "forgot-password", "reset-password"}) {
+            for (String action : new String[] {"login", "refresh", "revoke", "forgot-password", "reset-password"}) {
                 JsonNode operation = spec.path("paths").path(prefix + "/" + action).path("post");
                 assertThat(operation.isMissingNode()).isFalse();
                 assertThat(operation.path("security").size()).isZero();
