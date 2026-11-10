@@ -357,12 +357,66 @@ export interface ICreateReadingMaterialResponse {
   extractionWarning: string | null;
 }
 
+/**
+ * UC14.5 - Course Trash
+ * A deleted Course remains in Trash for 7 days.
+ */
+export interface ICourseTrashItem {
+  id: string;
+  chainId: string;
+  name: string;
+  versionNumber: number;
+  status: "Draft" | "Rejected";
+  deletedAt: string;
+  deletedBy: string | null;
+  purgeAt: string;
+}
+
+export interface ISoftDeleteCourseResult {
+  courseId: string;
+  deletedAt: string;
+  purgeAt: string;
+}
+
+export interface IRestoreCourseResult {
+  courseId: string;
+  restored: boolean;
+}
+
+export interface IPermanentDeleteCourseResult {
+  courseId: string;
+  permanentlyDeleted: boolean;
+  chainDeleted: boolean;
+  releasedFileCount: number;
+}
+
 export interface ISubmitCourseResponse {
   id: string;
   name: string;
   versionNumber: number;
   status: CourseStatus;
   submittedAt: string;
+}
+
+export interface IUpdateMaterialRequest {
+  title?: string;
+  isRequired?: boolean;
+}
+
+export interface IUpdateMaterialResponse {
+  id: string;
+  title: string;
+  isRequired: boolean;
+}
+
+export interface ITechnicalReplacementResponse {
+  materialId: string;
+  fileId: string;
+  storageKey: string;
+  sizeBytes: string;
+  durationSeconds: number | null;
+  wordCount: number | null;
+  extractionWarning: string | null;
 }
 
 export interface IReviewMaterial {

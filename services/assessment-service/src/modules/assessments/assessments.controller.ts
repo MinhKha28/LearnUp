@@ -13,7 +13,12 @@ import {
 } from '@nestjs/common';
 import { ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { CurrentUser } from '@learnup/ts-common';
-import { ResponseMessage, User } from '../../common/decorator/customize';
+import {
+  ResponseMessage,
+  ServiceCall,
+  ServiceOrganization,
+  User,
+} from '../../common/decorator/customize';
 import { AssessmentsService } from './assessments.service';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
@@ -74,6 +79,21 @@ export class AssessmentsController {
     @Body() dto: CreateAssignmentDto,
   ) {
     return this.service.createAssignment(user, dto);
+  }
+
+  /**
+   * UC14.5.2 / BR-341
+   * Called only by a trusted internal service.
+   */
+  @Delete('internal/courses/:courseId')
+  @ServiceCall()
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Course assessments deleted successfully.')
+  deleteCourseAssessments(
+    @ServiceOrganization() organizationId: string,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.service.deleteCourseAssessments(organizationId, courseId);
   }
 
   @Get('organization/courses/:courseId/review')

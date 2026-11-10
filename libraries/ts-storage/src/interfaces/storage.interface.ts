@@ -79,6 +79,9 @@ export interface IStorageSignedUrlOptions extends IStorageUrlOptions {
   format: string;
   /** Expiration as a future UNIX timestamp in seconds. */
   expiresAt: number;
+
+  /** Ask Cloudinary to download instead of displaying inline. */
+  attachment?: boolean;
 }
 
 export interface IStorageReadOptions extends IStorageSignedUrlOptions {
