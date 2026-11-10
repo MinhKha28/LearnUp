@@ -14,7 +14,6 @@ vi.mock("@/services/course.service", () => ({
   fetchOrganizerCourseReviewAPI: vi.fn(),
   fetchOrganizationCourseInstructorsAPI: vi.fn().mockResolvedValue({ statusCode: 200, data: [] }),
   fetchOrganizerMaterialPreviewAPI: vi.fn(),
-  fetchOrganizerReadingContentAPI: vi.fn(),
 }));
 vi.mock("@/services/assessment.service", () => ({
   fetchOrganizerAssessmentReviewAPI: vi.fn(),

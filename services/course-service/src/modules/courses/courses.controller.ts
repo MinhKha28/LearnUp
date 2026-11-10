@@ -1,4 +1,3 @@
-import type { Response } from 'express';
 import {
   Controller,
   Get,
@@ -14,7 +13,6 @@ import {
   Patch,
   HttpCode,
   HttpStatus,
-  Res,
 } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '@common/decorator/customize';
@@ -403,30 +401,6 @@ export class CoursesController {
       courseId,
       materialId,
     );
-  }
-
-  /**
-   * UC21.2: protected PDF bytes, intentionally returned inline.
-   * Previewing never responds with attachment disposition.
-   */
-  @Get('organization/:courseId/materials/:materialId/reading-content')
-  async readOrganizerReadingPreview(
-    @User() user: CurrentUser,
-    @Param('courseId', ParseUUIDPipe) courseId: string,
-    @Param('materialId', ParseUUIDPipe) materialId: string,
-    @Res() response: Response,
-  ) {
-    const pdf = await this.coursesService.readOrganizerReadingPreview(
-      user,
-      courseId,
-      materialId,
-    );
-
-    response.setHeader('Content-Type', 'application/pdf');
-    response.setHeader('Content-Disposition', 'inline; filename="reading.pdf"');
-    response.setHeader('Cache-Control', 'private, no-store');
-    response.setHeader('X-Content-Type-Options', 'nosniff');
-    response.send(pdf);
   }
 
   @Post(':courseId/withdraw')

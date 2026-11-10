@@ -2803,7 +2803,6 @@ export class CoursesService {
         resourceType: isVideo ? 'video' : 'raw',
         format: isVideo ? file.storageFormat : '',
         deliveryType: 'authenticated',
-        attachment: false,
         expiresAt: expiresAtSeconds,
       });
 
@@ -2820,92 +2819,6 @@ export class CoursesService {
         });
       }
 
-      throw error;
-    }
-  }
-
-  /**
-   * UC21.2: authenticated inline PDF bytes for the Organizer reviewer.
-   * The browser creates a local Blob URL, so Cloudinary download headers
-   * cannot force a download when the user merely selects Preview.
-   */
-  async readOrganizerReadingPreview(
-    user: CurrentUser,
-    courseId: string,
-    materialId: string,
-  ): Promise<Buffer> {
-    const preview = await this.getOrganizerMaterialPreview(
-      user,
-      courseId,
-      materialId,
-    );
-
-    if (preview.mimeType !== 'application/pdf') {
-      throw new ConflictException({
-        code: 'READING_PREVIEW_ONLY',
-        message: 'Only PDF Reading materials can be rendered inline.',
-      });
-    }
-
-    const organizationId = this.requireOrganizerReview(user);
-    const material = await this.coursesRepository.findOrganizerReviewMaterial(
-      organizationId,
-      courseId,
-      materialId,
-    );
-
-    if (!material) {
-      throw new NotFoundException({
-        code: 'MATERIAL_NOT_FOUND',
-        message: 'Material not found.',
-      });
-    }
-
-    // Recheck the file after the signed-URL authorization step, because
-    // another request may have disabled/replaced it between reads.
-    const file = material.file;
-    if (
-      material.materialType !== 'Reading' ||
-      material.disabledAt !== null ||
-      material.lesson.disabledAt !== null ||
-      file.organizationId !== organizationId ||
-      file.mimeType !== 'application/pdf' ||
-      file.purpose !== 'LessonReading' ||
-      file.deliveryType !== 'authenticated' ||
-      file.status !== 'Ready' ||
-      file.readyAt === null ||
-      file.releasedAt !== null
-    ) {
-      throw new ConflictException({
-        code: 'MATERIAL_NOT_AVAILABLE',
-        message: 'Reading Material is no longer available.',
-      });
-    }
-
-    if (file.sizeBytes > BigInt(READING_UPLOAD_BUFFER_MAX_BYTES)) {
-      throw new PayloadTooLargeException({
-        code: 'READING_TOO_LARGE',
-        message: 'The PDF is too large to preview.',
-      });
-    }
-
-    try {
-      return await this.storage.readBytes(material.file.storageKey, {
-        resourceType: 'raw',
-        format: '',
-        deliveryType: 'authenticated',
-        attachment: false,
-        expiresAt: Math.floor(Date.now() / 1000) + 900,
-        timeoutMs: 20000,
-        maxSizeBytes: READING_UPLOAD_BUFFER_MAX_BYTES,
-      });
-    } catch (error) {
-      if (error instanceof StorageProviderError) {
-        throw new ServiceUnavailableException({
-          code: 'READING_PREVIEW_UNAVAILABLE',
-          message: 'Unable to load Reading PDF.',
-        });
-      }
       throw error;
     }
   }

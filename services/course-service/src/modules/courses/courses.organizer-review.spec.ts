@@ -27,7 +27,6 @@ describe('UC21.2 - Organizer Course Review', () => {
 
   const storage = {
     getSignedUrl: jest.fn(),
-    readBytes: jest.fn(),
   };
 
   const service = new CoursesService(
@@ -115,9 +114,8 @@ describe('UC21.2 - Organizer Course Review', () => {
     expect(storage.getSignedUrl).not.toHaveBeenCalled();
   });
 
-  it('returns protected PDF bytes for an inline preview without marking attachment', async () => {
+  it('returns the original signed URL for an available Reading PDF without forcing attachment', async () => {
     const materialId = '019a0000-0000-7000-8000-000000000005';
-    const pdf = Buffer.from('%PDF-1.7 test document');
     repository.findOrganizerReviewMaterial.mockResolvedValue({
       materialType: 'Reading',
       disabledAt: null,
@@ -130,71 +128,30 @@ describe('UC21.2 - Organizer Course Review', () => {
         deliveryType: 'authenticated',
         purpose: 'LessonReading',
         mimeType: 'application/pdf',
-        storageKey: 'secured/test.pdf',
+        storageKey: 'private/safety.pdf',
         storageFormat: '',
-        originalFilename: 'test.pdf',
-        sizeBytes: BigInt(pdf.length),
       },
     });
-    storage.getSignedUrl.mockReturnValue('https://example.invalid/signed');
-    storage.readBytes.mockResolvedValue(pdf);
+    storage.getSignedUrl.mockReturnValue('https://example.test/signed-pdf');
 
-    await expect(service.readOrganizerReadingPreview(
+    const result = await service.getOrganizerMaterialPreview(
       organizer, courseId, materialId,
-    )).resolves.toEqual(pdf);
+    );
 
-    expect(storage.readBytes).toHaveBeenCalledWith(
-      'secured/test.pdf',
+    expect(result).toEqual({
+      url: 'https://example.test/signed-pdf',
+      mimeType: 'application/pdf',
+      expiresAt: expect.any(String),
+    });
+    expect(storage.getSignedUrl).toHaveBeenCalledWith(
+      'private/safety.pdf',
       expect.objectContaining({
         resourceType: 'raw',
-        attachment: false,
+        format: '',
         deliveryType: 'authenticated',
-        maxSizeBytes: 50 * 1024 * 1024,
       }),
     );
-    expect(storage.getSignedUrl).toHaveBeenCalledWith(
-      'secured/test.pdf',
-      expect.objectContaining({ attachment: false }),
-    );
-  });
-
-  it('never fetches bytes when the reviewer cannot access the Material', async () => {
-    repository.findOrganizerReviewMaterial.mockResolvedValue(null);
-    await expect(service.readOrganizerReadingPreview(
-      organizer, courseId, '019a0000-0000-7000-8000-000000000005',
-    )).rejects.toMatchObject({ status: 404 });
-    expect(storage.readBytes).not.toHaveBeenCalled();
-  });
-
-
-  it('does not read PDF bytes after the Material is disabled between authorization and storage access', async () => {
-    const materialId = '019a0000-0000-7000-8000-000000000005';
-    const material = {
-      materialType: 'Reading',
-      disabledAt: null,
-      lesson: { disabledAt: null },
-      file: {
-        organizationId,
-        purpose: 'LessonReading',
-        status: 'Ready',
-        readyAt: new Date(),
-        releasedAt: null,
-        mimeType: 'application/pdf',
-        deliveryType: 'authenticated',
-        storageKey: 'protected/reading.pdf',
-        storageFormat: '',
-        sizeBytes: 15n,
-      },
-    };
-    repository.findOrganizerReviewMaterial
-      .mockResolvedValueOnce(material)
-      .mockResolvedValueOnce({ ...material, disabledAt: new Date() });
-    storage.getSignedUrl.mockReturnValue('https://example.invalid/signed');
-
-    await expect(service.readOrganizerReadingPreview(
-      organizer, courseId, materialId,
-    )).rejects.toMatchObject({ status: 409 });
-    expect(storage.readBytes).not.toHaveBeenCalled();
+    expect(storage.getSignedUrl.mock.calls[0][1]).not.toHaveProperty('attachment');
   });
 
 });
