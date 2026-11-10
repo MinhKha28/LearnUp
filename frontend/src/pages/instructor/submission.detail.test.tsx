@@ -261,6 +261,20 @@ describe("the detail of a submission", () => {
     expect(screen.getByText("Tốt")).toBeTruthy();
   });
 
+  it.each([
+    ["AwaitingFinalization", true, true],
+    ["AwaitingFinalization", false, false],
+    ["AwaitingInstructor", true, false],
+    ["Finalized", true, false],
+  ])("shows the finalize link for status %s and latest=%s only when eligible", async (gradingStatus, isLatest, visible) => {
+    fetchDetail.mockResolvedValue(ok(detail({ gradingStatus, isLatest })));
+    open();
+    await screen.findByText("Nguyễn Văn A");
+    const link = screen.queryByRole("link", { name: "Chốt điểm" });
+    if (visible) expect(link?.getAttribute("href")).toBe("/instructor/submissions/s1/finalize");
+    else expect(link).toBeNull();
+  });
+
   it("a replaced submission says so and cannot be graded", async () => {
     fetchDetail.mockResolvedValue(ok(detail({ isLatest: false })));
     open();
