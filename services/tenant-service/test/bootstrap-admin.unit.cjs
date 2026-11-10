@@ -13,6 +13,7 @@ const {
   BootstrapAdminError,
   BOOTSTRAP_ADMIN_LOCK_NAMESPACE,
   DEFAULT_ADMIN_FULL_NAME,
+  describeBootstrapFailure,
 } = require('../dist/src/bootstrap/bootstrap-admin');
 
 const PASSWORD = 'Bootstrap-Unit-Pass-42';
@@ -256,7 +257,49 @@ test('input: email normalized, default name, flag read only when exactly "true"'
   );
 });
 
+const emailOfLength = (length) => {
+  const domain = `${'x'.repeat(50)}.${'y'.repeat(length - 65)}.vn`;
+  return `admin12345@${domain}`;
+};
+const VIETNAMESE_LONG = `Mật-khẩu-${'ữ'.repeat(22)}`;
+
+test('limits: email up to 100 characters, password up to 72 bytes', () => {
+  assert.equal(emailOfLength(100).length, 100);
+  assert.equal(
+    readBootstrapAdminInput({
+      ADMIN_EMAIL: emailOfLength(100),
+      ADMIN_PASSWORD: PASSWORD,
+    }).email,
+    emailOfLength(100),
+  );
+  const password72 = 'P'.repeat(72);
+  assert.equal(
+    readBootstrapAdminInput({
+      ADMIN_EMAIL: 'a@b.vn',
+      ADMIN_PASSWORD: password72,
+    }).password,
+    password72,
+  );
+  assert.ok(VIETNAMESE_LONG.length < 40);
+  assert.ok(Buffer.byteLength(VIETNAMESE_LONG, 'utf8') > 72);
+});
+
 for (const [label, env, pattern] of [
+  [
+    'email longer than the identity limit',
+    { ADMIN_EMAIL: emailOfLength(101), ADMIN_PASSWORD: PASSWORD },
+    /at most 100 characters \(the identity-service limit\)/,
+  ],
+  [
+    'password of 73 bytes',
+    { ADMIN_EMAIL: 'a@b.vn', ADMIN_PASSWORD: 'P'.repeat(73) },
+    /at most 72 bytes/,
+  ],
+  [
+    'Vietnamese password under 40 characters but over 72 bytes',
+    { ADMIN_EMAIL: 'a@b.vn', ADMIN_PASSWORD: VIETNAMESE_LONG },
+    /at most 72 bytes/,
+  ],
   ['missing email', { ADMIN_PASSWORD: PASSWORD }, /ADMIN_EMAIL/],
   [
     'invalid email',
@@ -267,7 +310,7 @@ for (const [label, env, pattern] of [
   [
     'short password',
     { ADMIN_EMAIL: 'a@b.vn', ADMIN_PASSWORD: 'Short-pass1' },
-    /12 to 128/,
+    /at least 12/,
   ],
   [
     'password with outer spaces',
@@ -317,6 +360,59 @@ for (const key of [
     );
   });
 }
+
+test('an unexpected error is described by its type only, never by its message', () => {
+  const leaky = new TypeError(
+    `connect failed for postgresql://u:db-secret@h/x with ${PASSWORD} and k-secret`,
+  );
+  const text = describeBootstrapFailure(leaky);
+  assert.match(text, /unexpected TypeError/);
+  for (const secret of ['db-secret', PASSWORD, 'k-secret', 'postgresql://']) {
+    assert.ok(!text.includes(secret), secret);
+  }
+  assert.match(
+    describeBootstrapFailure({ password: PASSWORD }),
+    /unexpected error\./,
+  );
+  const odd = new Error('x');
+  odd.name = `Weird ${PASSWORD}`;
+  assert.ok(!describeBootstrapFailure(odd).includes(PASSWORD));
+  assert.equal(
+    describeBootstrapFailure(
+      new BootstrapAdminError('ADMIN_EMAIL is missing.'),
+    ),
+    'Admin bootstrap failed: ADMIN_EMAIL is missing.',
+  );
+});
+
+test('the command prints no database password, Admin password or internal key when the database is unreachable', () => {
+  const script = path.resolve(
+    __dirname,
+    '../dist/src/bootstrap/bootstrap-admin.js',
+  );
+  const dbSecret = 'Db-Secret-Not-Printed-9';
+  const internalKey = `internal-${'k'.repeat(40)}`;
+  const run = spawnSync(process.execPath, [script], {
+    env: {
+      PATH: process.env.PATH,
+      SystemRoot: process.env.SystemRoot,
+      DATABASE_URL: `postgresql://postgres:${dbSecret}@127.0.0.1:1/none`,
+      IDENTITY_SERVICE_URL: 'http://127.0.0.1:1',
+      INTERNAL_SERVICE_KEY: internalKey,
+      ADMIN_EMAIL: 'a@b.vn',
+      ADMIN_PASSWORD: PASSWORD,
+    },
+    encoding: 'utf8',
+    timeout: 60000,
+  });
+  const output = `${run.stdout}${run.stderr}`;
+  assert.equal(run.status, 1, output);
+  assert.match(output, /Admin bootstrap failed: unexpected \w+\./);
+  for (const secret of [dbSecret, PASSWORD, internalKey]) {
+    assert.ok(!output.includes(secret), 'a secret was printed');
+  }
+  assert.ok(!/\n\s+at /.test(output), 'a stack trace was printed');
+});
 
 test('the command exits 1 with the reason and never prints the password', () => {
   const script = path.resolve(

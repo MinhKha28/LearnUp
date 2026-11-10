@@ -11,7 +11,7 @@ The Prisma schema follows `LearnUP_Database_Guide.docx` service ownership and ta
 
 A new stack has no account to sign in with. `dist/src/bootstrap/bootstrap-admin.js` creates only what an Admin needs to start: the default `platform_settings` row (if there is none) and one Active Admin account in tenant (`organization_id` NULL), then sets its password through Identity's authenticated internal channel (`POST /api/internal/credentials` with `x-internal-key`), the same channel tenant uses after an account is activated. It creates no Subscription Plan, Organization or other business data: the Admin creates plans through UC43.1.
 
-The password is read only from `ADMIN_PASSWORD` (12 to 128 characters, no leading or trailing spaces), is never printed and is not stored in tenant. Identity has no public port, so run the command inside the tenant container, which already has `DATABASE_URL`, `IDENTITY_SERVICE_URL` and `INTERNAL_SERVICE_KEY`:
+The password is read only from `ADMIN_PASSWORD` (at least 12 characters and at most 72 bytes in UTF-8, because bcrypt in Identity ignores the rest; no leading or trailing spaces), is never printed and is not stored in tenant. `ADMIN_EMAIL` is at most 100 characters, the Identity limit. On an unexpected failure the command prints only the error type, never its message or stack, which could contain `DATABASE_URL` or a secret. Identity has no public port, so run the command inside the tenant container, which already has `DATABASE_URL`, `IDENTITY_SERVICE_URL` and `INTERNAL_SERVICE_KEY`:
 
 ```powershell
 docker compose up -d --wait tenant-service identity-service

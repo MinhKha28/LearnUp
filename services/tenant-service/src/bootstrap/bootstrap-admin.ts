@@ -13,7 +13,8 @@ import { IBootstrapAdminInput } from './interfaces/bootstrap-admin-input.interfa
 import { IBootstrapAdminResult } from './interfaces/bootstrap-admin-result.interface';
 
 export const ADMIN_PASSWORD_MIN_LENGTH = 12;
-export const ADMIN_PASSWORD_MAX_LENGTH = 128;
+export const ADMIN_PASSWORD_MAX_BYTES = 72;
+export const ADMIN_EMAIL_MAX_LENGTH = 100;
 export const DEFAULT_ADMIN_FULL_NAME = 'Quản trị viên LearnUP';
 export const BOOTSTRAP_ADMIN_LOCK_NAMESPACE = 4301;
 
@@ -39,9 +40,9 @@ export function readBootstrapAdminInput(env: Env): IBootstrapAdminInput {
       'ADMIN_EMAIL is missing or not a valid email.',
     );
   }
-  if (email.length > 254) {
+  if (email.length > ADMIN_EMAIL_MAX_LENGTH) {
     throw new BootstrapAdminError(
-      'ADMIN_EMAIL must be at most 254 characters.',
+      `ADMIN_EMAIL must be at most ${ADMIN_EMAIL_MAX_LENGTH} characters (the identity-service limit).`,
     );
   }
   if (fullName.length > 100) {
@@ -54,12 +55,14 @@ export function readBootstrapAdminInput(env: Env): IBootstrapAdminInput {
       'ADMIN_PASSWORD must not start or end with spaces.',
     );
   }
-  if (
-    password.length < ADMIN_PASSWORD_MIN_LENGTH ||
-    password.length > ADMIN_PASSWORD_MAX_LENGTH
-  ) {
+  if (password.length < ADMIN_PASSWORD_MIN_LENGTH) {
     throw new BootstrapAdminError(
-      `ADMIN_PASSWORD is required and must be ${ADMIN_PASSWORD_MIN_LENGTH} to ${ADMIN_PASSWORD_MAX_LENGTH} characters.`,
+      `ADMIN_PASSWORD is required and must be at least ${ADMIN_PASSWORD_MIN_LENGTH} characters.`,
+    );
+  }
+  if (Buffer.byteLength(password, 'utf8') > ADMIN_PASSWORD_MAX_BYTES) {
+    throw new BootstrapAdminError(
+      `ADMIN_PASSWORD must be at most ${ADMIN_PASSWORD_MAX_BYTES} bytes in UTF-8: bcrypt in identity-service ignores the rest.`,
     );
   }
   return {
@@ -196,6 +199,21 @@ export async function runBootstrapAdmin(
   }
 }
 
+/**
+ * Thông báo lỗi để in ra. Lỗi không lường trước chỉ in tên loại lỗi: message, stack hay chính đối tượng lỗi
+ * có thể chứa DATABASE_URL (kèm mật khẩu DB), mật khẩu Admin hoặc internal key.
+ */
+export function describeBootstrapFailure(error: unknown): string {
+  if (error instanceof BootstrapAdminError) {
+    return `Admin bootstrap failed: ${error.message}`;
+  }
+  const kind =
+    error instanceof Error && /^[A-Za-z]+$/.test(error.name)
+      ? error.name
+      : 'error';
+  return `Admin bootstrap failed: unexpected ${kind}. Check that the database and identity-service are reachable, then run again.`;
+}
+
 if (require.main === module) {
   runBootstrapAdmin(process.env)
     .then((result) => {
@@ -209,10 +227,7 @@ if (require.main === module) {
       );
     })
     .catch((error: unknown) => {
-      console.error(
-        `Admin bootstrap failed: ${error instanceof BootstrapAdminError ? error.message : 'unexpected error, see the stack below.'}`,
-      );
-      if (!(error instanceof BootstrapAdminError)) console.error(error);
+      console.error(describeBootstrapFailure(error));
       process.exitCode = 1;
     });
 }
