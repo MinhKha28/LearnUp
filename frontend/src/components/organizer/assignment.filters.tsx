@@ -65,7 +65,7 @@ export const AssignmentFilterBar = ({
         <small id="assignment-keyword-hint">Nhập đúng dấu tiếng Việt, ví dụ: Hào</small>
       </div>
       <div className="organizer-assignment-filter-field">
-        <label htmlFor="assignment-status">Tình trạng</label>
+        <label htmlFor="assignment-status">Trạng thái</label>
         <Select<AssignmentStatus>
           id="assignment-status"
           placeholder="Tất cả"

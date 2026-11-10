@@ -45,6 +45,7 @@ function show(query = "") {
 it("hydrates URL filters and applies a draft only on submit, resetting the page and preserving history", async () => {
   load.mockResolvedValue({ ...empty, total: 45 });
   show("?page=2&learner=An&status=Overdue&dueFrom=2026-11-01&dueTo=2026-11-03");
+  expect(screen.getByRole("combobox", { name: "Trạng thái" })).toBeTruthy();
   const learner = screen.getByLabelText("Học viên") as HTMLInputElement;
   expect(learner.value).toBe("An");
   expect((screen.getByPlaceholderText("Từ ngày") as HTMLInputElement).value).toBe("01/11/2026");
