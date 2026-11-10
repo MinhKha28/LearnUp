@@ -90,6 +90,22 @@ test('Admin bootstrap on an empty, freshly migrated database', async (t) => {
     };
 
     await t.test(
+      'an email over the identity limit is refused before anything is written',
+      async () => {
+        const longEmail = `admin12345@${'x'.repeat(50)}.${'y'.repeat(36)}.vn`;
+        assert.equal(longEmail.length, 101);
+
+        const run = await runCommand({ ...env, ADMIN_EMAIL: longEmail });
+
+        assert.equal(run.status, 1, run.output);
+        assert.match(run.output, /ADMIN_EMAIL must be at most 100 characters/);
+        assert.equal(await prisma.user.count(), 0);
+        assert.equal(await prisma.platformSetting.count(), 0);
+        assert.equal(identity.requests.length, 0);
+      },
+    );
+
+    await t.test(
       'first run: settings and one Admin only, password sent to identity',
       async () => {
         const run = await runCommand(env);
