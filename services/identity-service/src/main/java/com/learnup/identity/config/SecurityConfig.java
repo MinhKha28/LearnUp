@@ -49,6 +49,7 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/login", "/api/auth/login",
                                 "/api/v1/auth/refresh", "/api/auth/refresh",
+                                "/api/v1/auth/revoke", "/api/auth/revoke",
                                 "/api/v1/auth/forgot-password", "/api/auth/forgot-password",
                                 "/api/v1/auth/reset-password", "/api/auth/reset-password"
                         ).permitAll()
