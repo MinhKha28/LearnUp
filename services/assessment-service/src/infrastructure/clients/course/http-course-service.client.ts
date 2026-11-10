@@ -183,4 +183,66 @@ export class HttpCourseServiceClient extends CourseServiceClient {
       });
     }
   }
+
+  async verifyOrganizerReviewAccess(
+    courseId: string,
+    user: CurrentUser,
+  ): Promise<void> {
+    let response: Response;
+
+    try {
+      response = await fetch(
+        `${this.baseUrl}/api/v1/internal/courses/${encodeURIComponent(courseId)}/review-access`,
+        {
+          headers: {
+            [HEADER_NAMES.INTERNAL_KEY]: this.internalKey,
+            [HEADER_NAMES.USER_ID]: user.userId,
+            [HEADER_NAMES.ORGANIZATION_ID]: user.organizationId ?? '',
+            [HEADER_NAMES.USER_ROLE]: user.role,
+          },
+          signal: AbortSignal.timeout(this.timeoutMs),
+        },
+      );
+    } catch {
+      throw new ServiceUnavailableException({
+        code: 'COURSE_SERVICE_UNAVAILABLE',
+        message: 'Unable to verify Course review access.',
+      });
+    }
+
+    if (response.status === 404) {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course is not available for review.',
+      });
+    }
+
+    if (!response.ok) {
+      throw new ServiceUnavailableException({
+        code: 'COURSE_SERVICE_UNAVAILABLE',
+        message: 'Unable to verify Course review access.',
+      });
+    }
+
+    let body: ApiResponse<{
+      courseId: string;
+      reviewable: boolean;
+    }>;
+
+    try {
+      body = (await response.json()) as typeof body;
+    } catch {
+      throw new ServiceUnavailableException({
+        code: 'INVALID_COURSE_RESPONSE',
+        message: 'Invalid Course review response.',
+      });
+    }
+
+    if (body.data?.courseId !== courseId || body.data?.reviewable !== true) {
+      throw new ServiceUnavailableException({
+        code: 'INVALID_COURSE_RESPONSE',
+        message: 'Invalid Course review response.',
+      });
+    }
+  }
 }
