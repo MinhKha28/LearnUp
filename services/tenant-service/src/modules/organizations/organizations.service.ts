@@ -1,4 +1,5 @@
-import type { CurrentUser } from '@learnup/ts-common';
+import type { CurrentUser, PageResponse } from '@learnup/ts-common';
+import { createPageResponse } from '@learnup/ts-common';
 import {
   StorageProviderError,
   StorageValidationError,
@@ -17,6 +18,7 @@ import {
 import type { Prisma } from '../../../generated/prisma/client';
 import {
   OrganizationStatus,
+  RegistrationStatus,
   SubscriptionStatus,
 } from '../../common/constants/tenant.constants';
 import { isIanaTimezone } from '../../common/utils/timezone.util';
@@ -27,9 +29,14 @@ import {
   imageUploadLimitBytes,
 } from '../../infrastructure/storage/upload-limit';
 import type { IUploadedImage } from '../profile/interfaces/uploaded-image.interface';
+import { ListOrganizationsQueryDto } from './dto/list-organizations-query.dto';
 import { UpdateOrganizationProfileDto } from './dto/update-organization-profile.dto';
+import { IAdminOrganizationListItem } from './interfaces/admin-organization-list-item.interface';
 import { IOrganizationProfile } from './interfaces/organization-profile.interface';
-import { OrganizationsRepository } from './organizations.repository';
+import {
+  AdminOrganizationRow,
+  OrganizationsRepository,
+} from './organizations.repository';
 
 export const LOGO_MAX_SIZE_BYTES = 2 * 1024 * 1024;
 export const LOGO_MIME_TYPES = ['image/png', 'image/jpeg'] as const;
@@ -80,6 +87,69 @@ export class OrganizationsService {
     private readonly repository: OrganizationsRepository,
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
   ) {}
+
+  // ===========================================================================
+  // UC44 - Xem danh sách Organization (Admin; BR-8, BR-12, BR-60)
+  // ===========================================================================
+  async findAllForAdmin(
+    query: ListOrganizationsQueryDto,
+  ): Promise<PageResponse<IAdminOrganizationListItem>> {
+    const { page, pageSize, includeCancelled } = query;
+    const now = new Date();
+    const { rows, total } = await this.repository.findAdminPage({
+      includeCancelled,
+      now,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+    const items = rows.map((row) => this.toAdminListItem(row, now));
+    return createPageResponse(items, page, pageSize, total);
+  }
+
+  /**
+   * Trạng thái Organization và Subscription là hai trường riêng (BR-60).
+   * PendingPayment mà đăng ký mới nhất không còn chờ thanh toán trong hạn thì tính là Cancelled (BR-8).
+   */
+  private toAdminListItem(
+    row: AdminOrganizationRow,
+    now: Date,
+  ): IAdminOrganizationListItem {
+    const subscription = row.subscriptions[0] ?? null;
+    const registration = row.registrations[0] ?? null;
+    let status = row.status;
+    if (status === OrganizationStatus.PendingPayment) {
+      const awaitingPayment =
+        registration?.status === RegistrationStatus.PendingPayment &&
+        registration.expiresAt.getTime() > now.getTime();
+      if (!awaitingPayment) status = OrganizationStatus.Cancelled;
+    }
+    const neverActivated =
+      status === OrganizationStatus.PendingPayment ||
+      status === OrganizationStatus.Cancelled;
+
+    return {
+      id: row.id,
+      name: row.name,
+      contactEmail: row.contactEmail,
+      status,
+      plan:
+        subscription?.plan ??
+        (neverActivated ? (registration?.plan ?? null) : null),
+      subscription: subscription
+        ? {
+            status: subscription.status,
+            startsAt: subscription.startsAt,
+            expiresAt: subscription.expiresAt,
+            graceEndsAt: subscription.graceEndsAt,
+          }
+        : null,
+      paymentDueAt:
+        status === OrganizationStatus.PendingPayment && registration
+          ? registration.expiresAt
+          : null,
+      createdAt: row.createdAt,
+    };
+  }
 
   // ===========================================================================
   // UC11 - Xem thông tin Organization (BR-52)
