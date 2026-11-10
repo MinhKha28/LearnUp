@@ -43,6 +43,7 @@ export class ListSubmissionsQueryDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
+  @Max(100)
   minScore?: number;
 
   @ApiPropertyOptional({ description: 'Highest final score to list' })
@@ -50,6 +51,7 @@ export class ListSubmissionsQueryDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
+  @Max(100)
   maxScore?: number;
 
   @ApiPropertyOptional({ description: 'Search by learner name or email' })

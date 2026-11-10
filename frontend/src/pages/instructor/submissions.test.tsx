@@ -1,13 +1,20 @@
 // @vitest-environment jsdom
 // UC32.4: the Instructor filters the submissions of an Assignment. jsdom is for this file only.
 import {
+  act,
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import {
   afterEach,
   beforeAll,
@@ -69,8 +76,10 @@ const answer = (items = [item()], over: Record<string, unknown> = {}) =>
   }) as never;
 
 let search = "";
+let goTo: (to: string) => void = () => undefined;
 const Where = () => {
   search = useLocation().search;
+  goTo = useNavigate();
   return null;
 };
 const open = (query = "") =>
@@ -87,6 +96,10 @@ const open = (query = "") =>
               <Where />
             </>
           }
+        />
+        <Route
+          path="/instructor/submissions/:id"
+          element={<div>Trang chi tiết bài nộp</div>}
         />
       </Routes>
     </MemoryRouter>,
@@ -204,9 +217,95 @@ describe("UC32.4 filtering the submissions", () => {
   it("the tag of one Learner can be removed", async () => {
     open(`&learnerId=${LEARNER}`);
     expect(
-      await screen.findByText(/Chỉ bài của một Learner: Nguyễn Văn A/),
+      await screen.findByText(/Chỉ bài của một học viên: Nguyễn Văn A/),
     ).toBeTruthy();
     fireEvent.click(document.querySelector(".ant-tag-close-icon")!);
     await waitFor(() => expect(lastQuery().learnerId).toBeUndefined());
+  });
+
+  it("the name of the Learner in a row filters the list to that Learner and does not open the submission", async () => {
+    open();
+    fireEvent.click(await screen.findByTitle("Chỉ xem bài của học viên này"));
+    await waitFor(() => expect(lastQuery().learnerId).toBe(LEARNER));
+    expect(search).toContain(`learnerId=${LEARNER}`);
+    expect(screen.queryByText("Trang chi tiết bài nộp")).toBeNull();
+    // the name is known from the row that was clicked
+    expect(
+      await screen.findByText(/Chỉ bài của một học viên: Nguyễn Văn A/),
+    ).toBeTruthy();
+  });
+
+  it("a row opens its submission with a click, with Enter and with Space", async () => {
+    for (const open_ of [
+      (row: Element) => fireEvent.click(row),
+      (row: Element) => fireEvent.keyDown(row, { key: "Enter" }),
+      (row: Element) => fireEvent.keyDown(row, { key: " " }),
+    ]) {
+      open();
+      await screen.findByText("Nguyễn Văn A");
+      open_(document.querySelector('[role="link"]')!);
+      expect(await screen.findByText("Trang chi tiết bài nộp")).toBeTruthy();
+      cleanup();
+    }
+  });
+
+  it("Enter on the name of the Learner filters; it does not also open the submission", async () => {
+    open();
+    const name = await screen.findByTitle("Chỉ xem bài của học viên này");
+    // a key pressed on the button reaches the row too, and only the row itself reacts to keys
+    fireEvent.keyDown(name, { key: "Enter", bubbles: true });
+    expect(screen.queryByText("Trang chi tiết bài nộp")).toBeNull();
+  });
+
+  it("the tag keeps the name of the Learner when the other filters leave no row", async () => {
+    open(`&learnerId=${LEARNER}`);
+    await screen.findByText(/Chỉ bài của một học viên: Nguyễn Văn A/);
+    fetchList.mockResolvedValue(answer([], { total: 0 }));
+    fireEvent.click(screen.getAllByRole("switch")[0]);
+    expect(
+      await screen.findByText("Không có bài nộp nào khớp với bộ lọc."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/Chỉ bài của một học viên: Nguyễn Văn A/),
+    ).toBeTruthy();
+  });
+
+  it("the tag names the Learner by the end of the id when no row has ever shown the name", async () => {
+    fetchList.mockResolvedValue(answer([], { total: 0 }));
+    open(`&learnerId=${LEARNER}&min=99`);
+    expect(
+      await screen.findByText(/Chỉ bài của một học viên: Học viên 00F0/),
+    ).toBeTruthy();
+  });
+
+  it("the tag does not keep the name of another Learner after the filter changes", async () => {
+    const OTHER = "00000000-0000-4000-8000-0000000000f1";
+    open(`&learnerId=${LEARNER}`);
+    await screen.findByText(/Chỉ bài của một học viên: Nguyễn Văn A/);
+    // the address changes inside the same page (back or forward in the history) to another Learner, who has no row
+    fetchList.mockResolvedValue(answer([], { total: 0 }));
+    act(() =>
+      goTo(`/instructor/submissions?assessmentId=a&learnerId=${OTHER}`),
+    );
+    expect(
+      await screen.findByText(/Chỉ bài của một học viên: Học viên 00F1/),
+    ).toBeTruthy();
+  });
+
+  it("a score is 0 to 100: the boxes stop at 100 and a value outside it in the address is not a filter", async () => {
+    open("&min=-5&max=150");
+    await screen.findByText("Nguyễn Văn A");
+    expect(lastQuery().minScore).toBeUndefined();
+    expect(lastQuery().maxScore).toBeUndefined();
+    expect(
+      screen.getByLabelText("Điểm thấp nhất").getAttribute("aria-valuemax"),
+    ).toBe("100");
+    expect(
+      screen.getByLabelText("Điểm cao nhất").getAttribute("aria-valuemax"),
+    ).toBe("100");
+    cleanup();
+    open("&min=0&max=100");
+    await screen.findByText("Nguyễn Văn A");
+    expect(lastQuery()).toMatchObject({ minScore: 0, maxScore: 100 });
   });
 });

@@ -605,3 +605,20 @@
 .instructor-submissions-active {
   margin-bottom: 12px;
 }
+
+.instructor-submissions-learner-filter {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    color: #b45309;
+    text-decoration: underline;
+  }
+}

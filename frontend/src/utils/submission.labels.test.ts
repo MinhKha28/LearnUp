@@ -74,7 +74,7 @@ describe("the labels of the submission screens", () => {
         email: null,
         status: null,
       }),
-    ).toBe("Learner 00AB");
+    ).toBe("Học viên 00AB");
     expect(
       personName({
         id: "x",

@@ -1,3 +1,4 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -21,7 +22,7 @@ import type {
 } from "@/types/assessment.types";
 import "./peer.cycles.scss";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
+const formatTime = (iso: string) => formatDateTimeVN(iso);
 
 /** Scores have at most two decimals (BR-202): 24.5 is written 24,5. */
 const formatScore = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 });

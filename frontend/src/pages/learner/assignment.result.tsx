@@ -1,3 +1,4 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { DetailItem, InfoPanel, LearnerButton, PageHeader, StatusTag } from "@/components/learner/learner.ui";
@@ -5,7 +6,7 @@ import { assessmentErrorText, fetchLearnerResultAPI } from "@/services/assessmen
 import type { IGradingResult } from "@/types/assessment.types";
 import "./assignment.result.scss";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
+const formatTime = (iso: string) => formatDateTimeVN(iso);
 
 /** UC30.2 - the final score, the score per criterion and the comments of a Finalized submission (BR-208, BR-322). */
 const AssignmentResult = () => {
