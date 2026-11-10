@@ -155,4 +155,88 @@ export class AssessmentsRepository {
       },
     });
   }
+
+  /**
+   * UC14.5.2 — Delete Assessment data of exactly one
+   * Course version within one Organization.
+   */
+  async deleteAssessmentsByCourse(organizationId: string, courseId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      // Serialize cleanup requests for this Course.
+      await tx.$executeRaw`
+        SELECT pg_advisory_xact_lock(hashtext(${courseId}::text))
+      `;
+
+      const assessments = await tx.assessment.findMany({
+        where: {
+          organizationId,
+          courseId,
+        },
+        select: {
+          id: true,
+          kind: true,
+          promptFileKey: true,
+        },
+      });
+
+      const ids = assessments.map((item) => item.id);
+
+      if (ids.length === 0) {
+        return {
+          deletedCount: 0,
+          deletedQuizCount: 0,
+          deletedAssignmentCount: 0,
+          promptFileKeys: [] as string[],
+        };
+      }
+
+      // Remove rows referencing questions or rubric criteria
+      // through non-cascading foreign keys.
+      await tx.quizAttemptAnswer.deleteMany({
+        where: {
+          question: {
+            assessmentId: { in: ids },
+          },
+        },
+      });
+
+      await tx.submissionReviewScore.deleteMany({
+        where: {
+          criterion: {
+            assessmentId: { in: ids },
+          },
+        },
+      });
+
+      // Remaining dependent relations use ON DELETE CASCADE
+      // according to the current Prisma schema.
+      const deleted = await tx.assessment.deleteMany({
+        where: {
+          organizationId,
+          courseId,
+          id: { in: ids },
+        },
+      });
+
+      const promptFileKeys = [
+        ...new Set(
+          assessments
+            .map((item) => item.promptFileKey)
+            .filter(
+              (key): key is string => typeof key === 'string' && key.length > 0,
+            ),
+        ),
+      ];
+
+      return {
+        deletedCount: deleted.count,
+        deletedQuizCount: assessments.filter((item) => item.kind === 'QUIZ')
+          .length,
+        deletedAssignmentCount: assessments.filter(
+          (item) => item.kind === KIND_ASSIGNMENT,
+        ).length,
+        promptFileKeys,
+      };
+    });
+  }
 }
