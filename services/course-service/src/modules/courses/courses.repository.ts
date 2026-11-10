@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { transferCourseChain } from '../internal-courses/course-chain-ownership';
 import { PrismaService } from '@infra/prisma/prisma.service';
 import { Prisma } from '@generated/prisma/browser';
 import { UpdateCourseDto } from './dto/update-course.dto';
@@ -10,7 +11,6 @@ import {
   getPurgeAt,
   isTrashExpired,
 } from './course-trash.constants';
-import { transferCourseChain } from '../internal-courses/course-chain-ownership';
 
 type PermanentDeleteInput = {
   organizationId: string;
@@ -2694,4 +2694,5 @@ export class CoursesRepository {
       },
     });
   }
+
 }

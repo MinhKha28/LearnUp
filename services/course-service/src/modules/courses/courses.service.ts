@@ -47,8 +47,8 @@ import { NotificationClient } from '@/infrastructure/clients/notification/notifi
 import { assertCourseNotInTrash, getPurgeAt } from './course-trash.constants';
 import { Interval } from '@nestjs/schedule';
 import { UpdateMaterialDto } from './dto/update-material.dto';
-import { randomUUID } from 'node:crypto';
 import { TransferCourseOwnershipDto } from './dto/transfer-course-ownership.dto';
+import { randomUUID } from 'node:crypto';
 
 @Injectable()
 export class CoursesService {
@@ -582,7 +582,7 @@ export class CoursesService {
         course.id,
       );
 
-    const { lockedAt, coverFile, ...result } = course;
+    const { lockedAt, coverFile, deletedAt, ...result } = course;
 
     const coverUrl =
       coverFile?.status === 'Ready' && !coverFile.releasedAt
@@ -2962,4 +2962,5 @@ export class CoursesService {
       versions,
     };
   }
+
 }

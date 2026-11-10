@@ -48,10 +48,12 @@ public class JwtProperties {
     private List<String> whitelist = new ArrayList<>(List.of(
             "/api/v1/auth/login",
             "/api/v1/auth/refresh",
+            "/api/v1/auth/revoke",
             "/api/v1/auth/forgot-password",
             "/api/v1/auth/reset-password",
             "/api/auth/login",
             "/api/auth/refresh",
+            "/api/auth/revoke",
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
             "/actuator/health",

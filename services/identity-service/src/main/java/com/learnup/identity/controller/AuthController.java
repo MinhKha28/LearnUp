@@ -47,6 +47,15 @@ public class AuthController {
         return ApiResponse.success(java.util.Map.of("message", "Logged out successfully"));
     }
 
+    @PostMapping("/revoke")
+    @Operation(summary = "End this device's session (UC06)", tags = "Sessions",
+            description = "Revokes the session (rotation family) of the presented refresh token. Needs no access token, "
+                    + "so it works after the access JWT expired. Always neutral; already-issued access JWTs expire on their own.")
+    public ApiResponse<java.util.Map<String, String>> revokeSession(@Valid @RequestBody RevokeSessionRequest request) {
+        authService.revokeSession(request);
+        return ApiResponse.success(java.util.Map.of("message", "Session ended"));
+    }
+
     @PostMapping("/change-password")
     @Operation(summary = "Change own password", tags = "Passwords", description = "Verifies the current password first.")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)

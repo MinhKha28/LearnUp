@@ -1,14 +1,14 @@
 package com.learnup.notification.controller;
 
-import com.learnup.common.context.HeaderConstants;
 import com.learnup.common.exception.BusinessException;
 import com.learnup.common.response.ApiResponse;
 import com.learnup.common.response.PageResponse;
 import com.learnup.notification.dto.CreateNotificationRequest;
 import com.learnup.notification.dto.NotificationResponse;
 import com.learnup.notification.dto.UnreadCountResponse;
-import com.learnup.notification.security.ServiceCallOnly;
+import com.learnup.notification.security.NotificationCaller;
 import com.learnup.notification.service.NotificationService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -19,9 +19,15 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+/**
+ * UC49 in-app notifications. The caller is established by {@code InAppNotificationAuthenticationFilter}
+ * (internal key + Gateway identity); the recipient of every user operation is always the caller.
+ */
 @RestController
 @RequestMapping({"/api/v1/notifications", "/api/notifications"})
 public class NotificationController {
+
+    private static final String USER_ID_PARAMETER = "userId";
 
     private final NotificationService notificationService;
 
@@ -31,72 +37,46 @@ public class NotificationController {
 
     @PostMapping("/send")
     public ResponseEntity<ApiResponse<NotificationResponse>> sendNotification(
-            @RequestHeader(value = HeaderConstants.X_USER_ID, required = false) String headerUserId,
+            HttpServletRequest httpRequest,
             @Valid @RequestBody CreateNotificationRequest request) {
-        ServiceCallOnly.require(headerUserId);
+        NotificationCaller.requireService(httpRequest);
         NotificationResponse response = notificationService.sendNotification(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<NotificationResponse>>> getUserNotifications(
-            @RequestHeader(value = HeaderConstants.X_USER_ID, required = false) String headerUserId,
-            @RequestHeader(value = HeaderConstants.X_ORGANIZATION_ID, required = false) String headerOrganizationId,
-            @RequestParam(required = false) UUID userId,
+            HttpServletRequest httpRequest,
             @RequestParam(required = false, defaultValue = "false") boolean unreadOnly,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-
-        UUID targetUserId = resolveUserId(headerUserId, userId);
-        PageResponse<NotificationResponse> response = notificationService.getUserNotifications(targetUserId, resolveOrganizationId(headerOrganizationId), unreadOnly, pageable);
+        NotificationCaller caller = currentUser(httpRequest);
+        PageResponse<NotificationResponse> response = notificationService.getUserNotifications(
+                caller.userId(), caller.organizationId(), unreadOnly, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @PatchMapping("/{id}/read")
     public ResponseEntity<ApiResponse<NotificationResponse>> markAsRead(
-            @PathVariable UUID id,
-            @RequestHeader(value = HeaderConstants.X_USER_ID, required = false) String headerUserId,
-            @RequestHeader(value = HeaderConstants.X_ORGANIZATION_ID, required = false) String headerOrganizationId,
-            @RequestParam(required = false) UUID userId) {
-
-        UUID targetUserId = resolveUserId(headerUserId, userId);
-        NotificationResponse response = notificationService.markAsRead(id, targetUserId, resolveOrganizationId(headerOrganizationId));
+            HttpServletRequest httpRequest,
+            @PathVariable UUID id) {
+        NotificationCaller caller = currentUser(httpRequest);
+        NotificationResponse response = notificationService.markAsRead(id, caller.userId(), caller.organizationId());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/unread-count")
-    public ResponseEntity<ApiResponse<UnreadCountResponse>> getUnreadCount(
-            @RequestHeader(value = HeaderConstants.X_USER_ID, required = false) String headerUserId,
-            @RequestHeader(value = HeaderConstants.X_ORGANIZATION_ID, required = false) String headerOrganizationId,
-            @RequestParam(required = false) UUID userId) {
-
-        UUID targetUserId = resolveUserId(headerUserId, userId);
-        long count = notificationService.getUnreadCount(targetUserId, resolveOrganizationId(headerOrganizationId));
-        return ResponseEntity.ok(ApiResponse.success(new UnreadCountResponse(targetUserId, count)));
+    public ResponseEntity<ApiResponse<UnreadCountResponse>> getUnreadCount(HttpServletRequest httpRequest) {
+        NotificationCaller caller = currentUser(httpRequest);
+        long count = notificationService.getUnreadCount(caller.userId(), caller.organizationId());
+        return ResponseEntity.ok(ApiResponse.success(new UnreadCountResponse(caller.userId(), count)));
     }
 
-    /** The Organization of the caller (from the Gateway). Without it (a service call) nothing is filtered by Organization. */
-    private UUID resolveOrganizationId(String headerOrganizationId) {
-        if (headerOrganizationId == null || headerOrganizationId.isBlank()) {
-            return null;
+    /** The recipient is never chosen by the client: a caller-supplied userId is refused, not ignored. */
+    private static NotificationCaller currentUser(HttpServletRequest httpRequest) {
+        NotificationCaller caller = NotificationCaller.requireUser(httpRequest);
+        if (httpRequest.getParameter(USER_ID_PARAMETER) != null) {
+            throw BusinessException.badRequest("The recipient is the authenticated user; userId is not accepted");
         }
-        try {
-            return UUID.fromString(headerOrganizationId);
-        } catch (IllegalArgumentException e) {
-            throw BusinessException.badRequest("Organization ID is not valid");
-        }
-    }
-
-    private UUID resolveUserId(String headerUserId, UUID queryUserId) {
-        if (headerUserId != null && !headerUserId.isBlank()) {
-            try {
-                return UUID.fromString(headerUserId);
-            } catch (IllegalArgumentException e) {
-                // Fallback to query param
-            }
-        }
-        if (queryUserId != null) {
-            return queryUserId;
-        }
-        throw BusinessException.badRequest("Target user ID is required via header or query parameter");
+        return caller;
     }
 }

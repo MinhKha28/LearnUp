@@ -44,7 +44,7 @@ export const claimSql = (limit: number) => Prisma.sql`
           'CourseComponentDisabled',
           'CourseComponentReactivated',
           'CourseSubmitted',
-          'CourseOwnershipTransferred'
+      'CourseOwnershipTransferred'
         )
         AND p.id < o.id
     )

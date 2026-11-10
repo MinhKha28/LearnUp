@@ -27,14 +27,15 @@ import {
 } from './dto/change-account-status.dto';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { DeleteAccountDto } from './dto/delete-account.dto';
+import { DeleteLearnerDto } from './dto/delete-learner.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
+import { TransferReceiversQueryDto } from './dto/transfer-receivers-query.dto';
 import { ListDepartmentsQueryDto } from './dto/list-departments-query.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { UsersService } from './users.service';
 import { GetUsersBatchDto } from './dto/get-users-batch.dto';
-import { TransferReceiversQueryDto } from './dto/transfer-receivers-query.dto';
 
-@ApiTags('Users') // UC12, UC12.1, UC12.2, UC12.3, UC12.5, UC12.6, UC12.7, UC13, UC13.1, UC13.2, UC13.3, UC13.5, UC13.7
+@ApiTags('Users') // UC12, UC12.1, UC12.2, UC12.3, UC12.5, UC12.6, UC12.7, UC13, UC13.1, UC13.2, UC13.3, UC13.5, UC13.6, UC13.7
 @ApiSecurity('internal-key')
 @UseGuards(RolesGuard)
 @Controller('users')
@@ -59,6 +60,26 @@ export class UsersController {
   @ResponseMessage('Lấy số chỗ Instructor thành công')
   getInstructorSeats(@User() user: CurrentUser) {
     return this.service.getInstructorSeats(user);
+  }
+
+  @Roles('ORGANIZER')
+  @Get('instructors/transfer-candidates')
+  @ResponseMessage('Transfer candidates fetched successfully')
+  getTransferCandidates(
+    @User() user: CurrentUser,
+    @Query() query: TransferReceiversQueryDto,
+  ) {
+    return this.service.getTransferCandidates(user, query.excludeInstructorId);
+  }
+
+  @Roles('ORGANIZER')
+  @Get('instructors/:id/transfer-eligibility')
+  @ResponseMessage('Instructor eligibility verified successfully')
+  getTransferEligibility(
+    @User() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) instructorId: string,
+  ) {
+    return this.service.validateTransferReceiver(user, instructorId);
   }
 
   // UC12.1 - đặt SAU instructors/seats. id sai định dạng -> 400 (ParseUUIDPipe).
@@ -230,6 +251,19 @@ export class UsersController {
     return this.service.changeLearnerStatus(user, id, dto);
   }
 
+  // UC13.6 - xóa mềm Learner (BR-46, BR-47). Đã xóa (cùng tổ chức) -> 200 changed:false.
+  // Body JSON { reason? }: không đưa lý do lên query string (lọt vào access log), như UC12.6.
+  @Roles('ORGANIZER')
+  @Delete('learners/:id')
+  @ResponseMessage('Xóa Learner thành công')
+  deleteLearner(
+    @User() user: CurrentUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: DeleteLearnerDto,
+  ) {
+    return this.service.deleteLearner(user, id, dto);
+  }
+
   // UC13.7
   @Roles('ORGANIZER')
   @Post('learners/:id/invitations')
@@ -253,25 +287,5 @@ export class UsersController {
       { type: 'custom' },
     );
     return this.service.getOrganizerForNotification(validOrganizationId);
-  }
-
-  @Roles('ORGANIZER')
-  @Get('instructors/transfer-candidates')
-  @ResponseMessage('Transfer candidates fetched successfully')
-  getTransferCandidates(
-    @User() user: CurrentUser,
-    @Query() query: TransferReceiversQueryDto,
-  ) {
-    return this.service.getTransferCandidates(user, query.excludeInstructorId);
-  }
-
-  @Roles('ORGANIZER')
-  @Get('instructors/:id/transfer-eligibility')
-  @ResponseMessage('Instructor eligibility verified successfully')
-  getTransferEligibility(
-    @User() user: CurrentUser,
-    @Param('id', ParseUUIDPipe) instructorId: string,
-  ) {
-    return this.service.validateTransferReceiver(user, instructorId);
   }
 }

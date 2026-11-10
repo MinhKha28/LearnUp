@@ -68,6 +68,8 @@ public class OpenApiConfig {
                 List<String> codes = switch (action) {
                     case "login" -> List.of("400", "401", "403", "429", "503", "500");
                     case "refresh" -> List.of("400", "401", "403", "503", "500");
+                    // UC06: neutral by design; only malformed input or server errors are reported.
+                    case "revoke" -> List.of("400", "500");
                     case "forgot-password" -> List.of("400", "500");
                     case "reset-password" -> List.of("400", "503", "500");
                     case "change-password" -> List.of("400", "401", "500");

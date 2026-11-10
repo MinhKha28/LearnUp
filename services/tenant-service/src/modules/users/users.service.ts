@@ -42,6 +42,7 @@ import {
 } from './dto/change-account-status.dto';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { DeleteAccountDto } from './dto/delete-account.dto';
+import { DeleteLearnerDto } from './dto/delete-learner.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
 import { ListDepartmentsQueryDto } from './dto/list-departments-query.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
@@ -64,6 +65,7 @@ import {
   IInstructorStatusResult,
   IStatusChangeReceiver,
 } from './interfaces/instructor-status.interface';
+import { ILearnerDeletionResult } from './interfaces/learner-deletion.interface';
 import { LearnerDetail } from './interfaces/learner-detail.interface';
 import { ILearnerStatusResult } from './interfaces/learner-status.interface';
 import { IReinvitationResult } from './interfaces/reinvitation-result.interface';
@@ -1612,7 +1614,7 @@ export class UsersService {
       reason: string | undefined;
       /** UC12.6: trạng thái lúc bị xóa (Pending / Active / Deactivated). */
       previousStatus?: string;
-      // Chỉ UC12.5 / UC12.6 (Instructor); UC13.5 (Learner) không gửi -> không có trong details.
+      // Chỉ UC12.5 / UC12.6 (Instructor); UC13.5 / UC13.6 (Learner) không gửi -> không có trong details.
       receiverId?: string | null;
       chainIds?: string[];
     },
@@ -1837,6 +1839,116 @@ export class UsersService {
 
       return { id: target.id, status: toStatus, changed: true };
     });
+  }
+
+  // ===========================================================================
+  // UC13.6 - Xóa tài khoản Learner
+  // BR-46: thu hồi quyền truy cập và giải phóng chỗ; kết quả đào tạo, Certificate (BR-267) được giữ
+  //        -> xóa mềm (deleted_at), giữ nguyên status. Không đụng dữ liệu của service khác.
+  // BR-38, BR-39: unique email chỉ xét tài khoản chưa xóa -> email được cấp lại cho tài khoản mới.
+  // BR-47: learning-service chuyển Enrollment chưa Completed sang Withdrawn khi nhận UserDeleted;
+  // assessment-service cập nhật bản sao thưa learner_accounts từ cùng event.
+  // Không có BR-51 (chuyển quyền phụ trách chỉ dành cho Instructor) -> không gọi service khác.
+  // ===========================================================================
+  /**
+   * Cùng khung với deleteInstructor (UC12.6): kiểm tổ chức / Subscription -> đọc gồm dòng đã xóa
+   * (404 hay changed:false) -> thu hồi lời mời đang mở (khóa account_tokens TRƯỚC users) -> khóa users
+   * -> gán deleted_at -> outbox (UserDeleted, thư, nhật ký). Mọi trạng thái (Pending, Active, Deactivated) đều xóa được.
+   */
+  async deleteLearner(
+    user: CurrentUser,
+    learnerId: string,
+    dto: DeleteLearnerDto,
+  ): Promise<ILearnerDeletionResult> {
+    const organizationId = this.organizationIdOf(user);
+    const targetId = learnerId.toLowerCase();
+
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      // BR-22: ân hạn vẫn xóa được. BR-24: Suspended / Organization khác Active -> 403.
+      const { organization } = await this.assertCanManageAccounts(
+        tx,
+        organizationId,
+        {
+          action: 'xóa',
+          subscriptionStatuses: UPDATE_SUBSCRIPTION_STATUSES,
+          lockOrganization: false,
+        },
+      );
+
+      // Đọc không khóa, gồm cả dòng đã xóa: phân biệt 404 với bấm lặp (changed:false).
+      const existing = await tx.user.findFirst({
+        where: { id: targetId, organizationId, role: UserRoleValue.Learner },
+        select: { id: true, deletedAt: true },
+      });
+      if (!existing) throw this.accountNotFound(UserRoleValue.Learner);
+      if (existing.deletedAt !== null) return { id: targetId, changed: false };
+
+      // Như UC12.6: lời mời còn mở bị thu hồi cùng transaction (rollback nếu bước sau lỗi).
+      await this.accountTokens.revokeOpen(tx, {
+        userId: targetId,
+        purpose: TokenPurpose.Invitation,
+      });
+
+      const locked = await this.lockAccounts(
+        tx,
+        organizationId,
+        UserRoleValue.Learner,
+        [targetId],
+      );
+      const target = locked.get(targetId);
+      // Request khác vừa xóa xong trong lúc chờ khóa.
+      if (!target) return { id: targetId, changed: false };
+
+      const deletedAt = new Date();
+      const { count } = await tx.user.updateMany({
+        where: {
+          id: target.id,
+          organizationId,
+          role: UserRoleValue.Learner,
+          deletedAt: null,
+        },
+        data: { deletedAt },
+      });
+      if (count === 0) throw this.concurrentUpdate();
+
+      // Thứ tự trong outbox như UC13.5: event tài khoản, thư, nhật ký - tất cả cùng transaction.
+      await this.outbox.enqueueUserDeletedEvent(tx, {
+        userId: target.id,
+        organizationId,
+        role: UserRoleValue.Learner,
+        deletedAt,
+      });
+      // Như D7 UC12.6: chỉ báo cho tài khoản đã từng kích hoạt, không kèm lý do (BR-337).
+      if (target.activatedAt !== null) {
+        await this.enqueueStatusEmail(tx, {
+          organizationId,
+          userId: target.id,
+          to: target.email,
+          templateCode: 'LEARNER_DELETED',
+          subject: `LearnUP - Tài khoản Học viên tại ${organization.name} đã bị xóa`,
+          body:
+            `Xin chào ${target.fullName},\n` +
+            `${organization.name} đã xóa tài khoản Học viên của bạn trên LearnUP.\n` +
+            `Bạn không còn đăng nhập được bằng tài khoản này. ` +
+            `Nếu có thắc mắc, hãy liên hệ Quản lý đào tạo của tổ chức.`,
+        });
+      }
+      await this.enqueueStatusAudit(tx, user, {
+        organizationId,
+        actionType: 'LEARNER_DELETED',
+        targetId: target.id,
+        reason: dto.reason,
+        previousStatus: target.status,
+      });
+
+      return { id: target.id, changed: true };
+    });
+
+    // BR-31, BR-46: số chỗ Learner sau khi xóa để màn hình cập nhật ngay (đọc sau commit).
+    return {
+      ...outcome,
+      seats: await this.getSeatUsage(organizationId, UserRoleValue.Learner),
+    };
   }
 
   // ===========================================================================
@@ -2252,4 +2364,5 @@ export class UsersService {
 
     return receiver;
   }
+
 }

@@ -28,6 +28,9 @@ import type {
   IRestoreCourseResult,
   ISubmitCourseResponse,
   IWithdrawCourseResponse,
+  ITransferCourseContext,
+  ITransferCourseRequest,
+  ITransferCourseResponse,
   ISoftDeleteCourseResult,
   ITechnicalReplacementResponse,
   IUpdateCourseRequest,
@@ -40,9 +43,6 @@ import type {
   IUpdateMaterialResponse,
   IUploadCourseCoverResponse,
   IVideoUploadContext,
-  ITransferCourseContext,
-  ITransferCourseRequest,
-  ITransferCourseResponse,
 } from "@/types/course.types";
 import type { AxiosProgressEvent } from "axios";
 

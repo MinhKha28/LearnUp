@@ -1,3 +1,4 @@
+import type { ITransferCandidate } from "@/types/course.types";
 import type {
   IAdminOrganizationListItem,
   IAdminOrganizationListQuery,
@@ -9,12 +10,14 @@ import type {
   ICreateRegistrationReq,
   ICreateRegistrationRes,
   IDeleteAccountReq,
+  IDeleteLearnerReq,
   IInstructorDeletion,
   IInstructorDeletionResult,
   IInstructorDetail,
   IInstructorListItem,
   IInstructorStatusChange,
   IInstructorStatusResult,
+  ILearnerDeletionResult,
   ILearnerDetail,
   ILearnerListItem,
   ILearnerStatusResult,
@@ -34,10 +37,9 @@ import type {
   IAcceptInvitationResult,
   IInvitationInfo,
   IMemberImportPreview,
-  IMemberImportResult,
+  IMemberImportResult
 } from "@/types/organization.types";
 import { tenantAxios as axios } from "@/services/axios.customize";
-import type { ITransferCandidate } from "@/types/course.types";
 
 // UC01 - Xem Subscription Plan (Guest, không cần đăng nhập)
 export const getMyOrganizationAPI = () =>
@@ -133,13 +135,12 @@ export const createInstructorAPI = (body: ICreateAccountReq) =>
 
 // UC12.8 - tệp mẫu .xlsx. Interceptor trả body lỗi (cũng là Blob) thay vì throw,
 // nên chỉ response 200 thật mới là tệp (cùng cách với downloadPromptFileAPI).
-export const downloadInstructorImportTemplateAPI =
-  async (): Promise<Blob | null> => {
-    const res = (await axios.get("/api/v1/users/instructors/imports/template", {
-      responseType: "blob",
-    })) as unknown as { status?: number; data?: unknown };
-    return res.status === 200 && res.data instanceof Blob ? res.data : null;
-  };
+export const downloadInstructorImportTemplateAPI = async (): Promise<Blob | null> => {
+  const res = (await axios.get("/api/v1/users/instructors/imports/template", {
+    responseType: "blob",
+  })) as unknown as { status?: number; data?: unknown };
+  return res.status === 200 && res.data instanceof Blob ? res.data : null;
+};
 
 // UC12.8 - BR-32: xem trước tệp import (không tạo tài khoản)
 export const previewInstructorImportAPI = (file: File) => {
@@ -152,10 +153,7 @@ export const previewInstructorImportAPI = (file: File) => {
 };
 
 // UC12.8 - BR-32, BR-33: xác nhận; gửi lại cùng tệp và previewDigest, server kiểm lại toàn bộ
-export const confirmInstructorImportAPI = (
-  file: File,
-  previewDigest: string,
-) => {
+export const confirmInstructorImportAPI = (file: File, previewDigest: string) => {
   const form = new FormData();
   form.append("previewDigest", previewDigest);
   form.append("file", file);
@@ -212,6 +210,35 @@ export const getLearnerSeatsAPI = () =>
 export const createLearnerAPI = (body: ICreateAccountReq) =>
   axios.post<IBackendRes<IAccountListItem>>("/api/v1/users/learners", body);
 
+// UC13.8 - tệp mẫu .xlsx (cùng cách với UC12.8: chỉ response 200 thật mới là tệp)
+export const downloadLearnerImportTemplateAPI = async (): Promise<Blob | null> => {
+  const res = (await axios.get("/api/v1/users/learners/imports/template", {
+    responseType: "blob",
+  })) as unknown as { status?: number; data?: unknown };
+  return res.status === 200 && res.data instanceof Blob ? res.data : null;
+};
+
+// UC13.8 - BR-32: xem trước tệp import (không tạo tài khoản)
+export const previewLearnerImportAPI = (file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return axios.post<IBackendRes<IMemberImportPreview>>(
+    "/api/v1/users/learners/imports/preview",
+    form,
+  );
+};
+
+// UC13.8 - BR-32, BR-33: xác nhận; gửi lại cùng tệp và previewDigest, server kiểm lại toàn bộ
+export const confirmLearnerImportAPI = (file: File, previewDigest: string) => {
+  const form = new FormData();
+  form.append("previewDigest", previewDigest);
+  form.append("file", file);
+  return axios.post<IBackendRes<IMemberImportResult>>(
+    "/api/v1/users/learners/imports",
+    form,
+  );
+};
+
 // UC13.3 - Cập nhật thông tin Learner (Organizer; đổi email của tài khoản Pending thì gửi lời mời mới)
 export const updateLearnerAPI = (learnerId: string, body: IUpdateAccountReq) =>
   axios.patch<IBackendRes<IUpdateAccountResult>>(
@@ -235,16 +262,6 @@ export const changeInstructorStatusAPI = (
     body,
   );
 
-// UC13.5 - vô hiệu hóa hoặc kích hoạt lại Learner
-export const changeLearnerStatusAPI = (
-  learnerId: string,
-  body: IChangeLearnerStatusReq,
-) =>
-  axios.patch<IBackendRes<ILearnerStatusResult>>(
-    `/api/v1/users/learners/${encodeURIComponent(learnerId)}/status`,
-    body,
-  );
-
 // UC12.6 - chuỗi Course đang phụ trách và Instructor tiếp nhận hợp lệ (cho dialog xóa)
 export const getInstructorDeletionAPI = (instructorId: string) =>
   axios.get<IBackendRes<IInstructorDeletion>>(
@@ -258,6 +275,23 @@ export const deleteInstructorAPI = (
 ) =>
   axios.delete<IBackendRes<IInstructorDeletionResult>>(
     `/api/v1/users/instructors/${encodeURIComponent(instructorId)}`,
+    { data: body },
+  );
+
+// UC13.5 - vô hiệu hóa hoặc kích hoạt lại Learner
+export const changeLearnerStatusAPI = (
+  learnerId: string,
+  body: IChangeLearnerStatusReq,
+) =>
+  axios.patch<IBackendRes<ILearnerStatusResult>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}/status`,
+    body,
+  );
+
+// UC13.6 - xóa Learner (xóa mềm, BR-46). Lý do đi trong body, không lên URL (như UC12.6).
+export const deleteLearnerAPI = (learnerId: string, body: IDeleteLearnerReq) =>
+  axios.delete<IBackendRes<ILearnerDeletionResult>>(
+    `/api/v1/users/learners/${encodeURIComponent(learnerId)}`,
     { data: body },
   );
 
@@ -279,10 +313,7 @@ export const getInvitationAPI = (token: string) =>
 
 // UC04 - Đặt mật khẩu và kích hoạt tài khoản
 export const acceptInvitationAPI = (body: IAcceptInvitationReq) =>
-  axios.post<IBackendRes<IAcceptInvitationResult>>(
-    "/api/v1/invitations/accept",
-    body,
-  );
+  axios.post<IBackendRes<IAcceptInvitationResult>>("/api/v1/invitations/accept", body);
 
 // UC44 - Admin xem danh sách Organization; mặc định backend ẩn Cancelled, chỉ gửi cờ khi cần hiện
 export const getAdminOrganizationsAPI = ({
@@ -298,6 +329,7 @@ export const getAdminOrganizationsAPI = ({
       },
     },
   );
+
 export const getTransferCandidatesAPI = (excludeInstructorId: string) =>
   axios.get<IBackendRes<ITransferCandidate[]>>(
     "/api/v1/users/instructors/transfer-candidates",

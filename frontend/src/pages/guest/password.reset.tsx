@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { AuthCard, AuthResult } from "@/components/guest/auth";
 import { confirmPasswordRules } from "@/hooks/use.change.password";
 import { resetPasswordAPI } from "@/services/identity.service";
+import { hasMinimumPasswordLength, isWithinPasswordByteLimit } from "@/utils/password.policy";
 
 type ResetPasswordFields = { password: string; confirm: string };
 
@@ -115,11 +116,18 @@ export default function ResetPasswordPage() {
           name="password"
           rules={[
             { required: true, whitespace: true, message: "Enter a new password." },
-            { min: 6, message: "Use at least 6 characters." },
+            {
+              validator(_, value?: string) {
+                // Identity stores the trimmed password, so the minimum applies to it.
+                return !value || hasMinimumPasswordLength(value, 6)
+                  ? Promise.resolve()
+                  : Promise.reject(new Error("Use at least 6 characters."));
+              },
+            },
             {
               validator(_, value?: string) {
                 // BCrypt's existing backend limit is bytes, not Unicode characters.
-                return !value || new TextEncoder().encode(value.trim()).length <= 72
+                return !value || isWithinPasswordByteLimit(value)
                   ? Promise.resolve()
                   : Promise.reject(new Error("Password is too long. Use fewer characters."));
               },

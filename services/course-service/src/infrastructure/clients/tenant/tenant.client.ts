@@ -1,16 +1,12 @@
+import { isAxiosError } from 'axios';
 import { HttpService } from '@nestjs/axios';
-import {
-  BadRequestException,
-  Injectable,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { CurrentUser } from '@learnup/ts-common';
 import { firstValueFrom } from 'rxjs';
-import { isAxiosError } from 'axios';
+
 import type {
   TenantApiResponse,
-  TenantErrorResponse,
   TenantInstructor,
   TenantMaterialUploadPolicy,
   TenantOrganizer,
@@ -140,7 +136,7 @@ export class TenantClient {
     }
   }
 
-  async validateTransferReceiver(
+async validateTransferReceiver(
     user: CurrentUser,
     instructorId: string,
   ): Promise<TransferReceiver> {
@@ -188,4 +184,5 @@ export class TenantClient {
       });
     }
   }
+
 }
