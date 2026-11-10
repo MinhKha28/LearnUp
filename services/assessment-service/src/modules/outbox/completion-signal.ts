@@ -16,6 +16,9 @@ export const COMPLETION_SIGNAL_REASONS = [
   'ASSIGNMENT_FINALIZED',
   'PEER_REVIEW_COMPLETED',
   'PEER_REVIEW_WAIVED',
+  // the cycle was closed and the Learner now owes reviews; the review deadline passed and some were not done
+  'PEER_REVIEW_ASSIGNED',
+  'PEER_REVIEW_MISSED',
   'ASSESSMENT_DISABLED',
   'ASSESSMENT_ENABLED',
 ] as const;
