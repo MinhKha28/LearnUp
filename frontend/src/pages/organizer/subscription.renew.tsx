@@ -146,7 +146,7 @@ const SubscriptionRenew = () => {
               </DetailItem>
             </div>
             <p className="organizer-note">
-              MVP không có hóa đơn thật hay cổng thanh toán thật.
+              Bản thử nghiệm chưa có hóa đơn thật hay cổng thanh toán thật.
             </p>
           </SectionCard>
         </div>

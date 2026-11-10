@@ -33,7 +33,28 @@ const STATUS_LABELS: Record<ProfileStatus, string> = {
 };
 
 export const statusLabel = (status?: ProfileStatus) =>
-  status ? STATUS_LABELS[status] : "";
+  status ? (STATUS_LABELS[status] ?? status) : "";
+
+const PROFILE_ERROR_MESSAGES: Record<string, string> = {
+  ACCOUNT_NOT_FOUND: "Không tìm thấy tài khoản của bạn. Hãy đăng nhập lại.",
+  AVATAR_REQUIRED: "Bạn chưa chọn ảnh. Hãy chọn một ảnh để tải lên.",
+  AVATAR_INVALID:
+    "Ảnh không hợp lệ. Hãy chọn ảnh JPG, PNG hoặc WEBP, dung lượng tối đa 2 MB.",
+  STORAGE_UNAVAILABLE:
+    "Chưa lưu được ảnh vì kho lưu trữ đang gián đoạn. Vui lòng thử lại sau ít phút.",
+};
+
+export const profileErrorMessage = (
+  response: unknown,
+  fallback: string,
+): string => {
+  const body = (response ?? {}) as {
+    code?: unknown;
+    error?: { code?: unknown };
+  };
+  const code = body.error?.code ?? body.code;
+  return (typeof code === "string" && PROFILE_ERROR_MESSAGES[code]) || fallback;
+};
 
 export const useMyProfile = () => {
   const { user, setUser } = useCurrentApp();
@@ -84,7 +105,7 @@ export const useMyProfile = () => {
         apply(res.data);
         return true;
       }
-      setError(fallback);
+      setError(profileErrorMessage(res, fallback));
       return false;
     } catch {
       setError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");

@@ -20,20 +20,13 @@ import type {
   IUsageItem,
   SubscriptionStatus,
 } from "@/types/subscription.types";
-import { formatVnd } from "@/utils/helper";
+import { formatDateVN, formatVnd } from "@/utils/helper";
 import "./subscription.scss";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const formatDate = (value?: string | null) =>
-  value
-    ? new Date(value).toLocaleDateString("en-GB", {
-        timeZone: "Asia/Ho_Chi_Minh",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-    : "-";
+  value ? formatDateVN(value) : "-";
 
 const formatBytes = (bytes: number) => {
   if (bytes >= 1024 ** 3) return `${+(bytes / 1024 ** 3).toFixed(1)} GB`;

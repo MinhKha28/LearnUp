@@ -785,7 +785,7 @@ export default function RegisterPage() {
               { max: 254, message: "Email tối đa 254 ký tự." },
             ]}
           >
-            <Input autoComplete="email" placeholder="nguyen.van.an@congty.vn" />
+            <Input autoComplete="email" placeholder="nguyen.van.an@example.com" />
           </Form.Item>
           <Form.Item
             name="password"

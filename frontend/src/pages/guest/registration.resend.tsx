@@ -68,7 +68,7 @@ export default function RegistrationResendPage() {
             },
           ]}
         >
-          <Input autoComplete="email" placeholder="nguyen.van.an@congty.vn" />
+          <Input autoComplete="email" placeholder="nguyen.van.an@example.com" />
         </Form.Item>
         <Button
           type="primary"

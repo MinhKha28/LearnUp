@@ -139,7 +139,7 @@ export default function LoginPage() {
             disabled={loading}
             initialValues={
               params.get("state") === "credentials"
-                ? { email: "nguyen.van.an@congty.vn", password: "password" }
+                ? { email: "nguyen.van.an@example.com", password: "password" }
                 : undefined
             }
             onFinish={submit}
@@ -158,7 +158,7 @@ export default function LoginPage() {
             >
               <Input
                 autoComplete="username"
-                placeholder="nguyen.van.an@congty.vn"
+                placeholder="nguyen.van.an@example.com"
                 status={
                   error && params.get("state") !== "google"
                     ? "error"
