@@ -27,6 +27,7 @@ import type {
   IReadingUploadContext,
   IRestoreCourseResult,
   ISubmitCourseResponse,
+  IWithdrawCourseResponse,
   ISoftDeleteCourseResult,
   ITechnicalReplacementResponse,
   IUpdateCourseRequest,
@@ -249,6 +250,11 @@ export const permanentDeleteCourseAPI = (courseId: string) =>
 export const submitCourseForApprovalAPI = (courseId: string) =>
   axios.post<IBackendRes<ISubmitCourseResponse>>(
     `/api/v1/courses/${encodeURIComponent(courseId)}/submit`,
+  );
+
+export const withdrawCourseSubmissionAPI = (courseId: string) =>
+  axios.post<IBackendRes<IWithdrawCourseResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/withdraw`,
   );
 
 export const updateMaterialAPI = (

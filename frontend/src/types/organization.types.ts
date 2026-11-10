@@ -315,6 +315,18 @@ export interface IInstructorStatusResult {
   receiver: { id: string; fullName: string } | null;
 }
 
+// UC13.5 - PATCH /api/v1/users/learners/:id/status (Learner không có chuyển quyền nên không gửi receiverInstructorId)
+export type IChangeLearnerStatusReq = Omit<
+  IChangeAccountStatusReq,
+  "receiverInstructorId"
+>;
+
+export interface ILearnerStatusResult {
+  id: string;
+  status: AccountStatus;
+  changed: boolean; // false: đã ở trạng thái đích (bấm lặp)
+}
+
 // UC12.6 - GET /api/v1/users/instructors/:id/deletion (mọi trạng thái đều xóa được, BR-46)
 export interface IInstructorDeletion {
   id: string;
