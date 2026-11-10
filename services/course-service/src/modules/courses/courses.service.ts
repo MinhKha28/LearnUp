@@ -48,6 +48,7 @@ import { assertCourseNotInTrash, getPurgeAt } from './course-trash.constants';
 import { Interval } from '@nestjs/schedule';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { randomUUID } from 'node:crypto';
+import { RejectCourseDto } from './dto/reject-course.dto';
 
 @Injectable()
 export class CoursesService {
@@ -2589,6 +2590,80 @@ export class CoursesService {
     }
 
     return user.organizationId;
+  }
+
+  async approveCourse(user: CurrentUser, courseId: string) {
+    const organizationId = this.requireOrganizerReview(user);
+
+    const result = await this.coursesRepository.decideCourse({
+      courseId,
+      organizationId,
+      organizerId: user.userId,
+      decision: 'APPROVE',
+    });
+
+    if (result.status === 'NOT_FOUND') {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    if (result.status === 'CONFLICT') {
+      throw new ConflictException({
+        code: 'COURSE_NOT_SUBMITTED',
+        message: 'Course is no longer awaiting approval.',
+      });
+    }
+
+    return result.course;
+  }
+
+  async rejectCourse(
+    user: CurrentUser,
+    courseId: string,
+    dto: RejectCourseDto,
+  ) {
+    const organizationId = this.requireOrganizerReview(user);
+    const reason = dto.reason?.trim();
+
+    if (!reason) {
+      throw new BadRequestException({
+        code: 'REJECTION_REASON_REQUIRED',
+        message: 'Rejection reason is required.',
+      });
+    }
+
+    if (reason.length > 1000) {
+      throw new BadRequestException({
+        code: 'REJECTION_REASON_TOO_LONG',
+        message: 'Rejection reason exceeds 1000 characters.',
+      });
+    }
+
+    const result = await this.coursesRepository.decideCourse({
+      courseId,
+      organizationId,
+      organizerId: user.userId,
+      decision: 'REJECT',
+      reason,
+    });
+
+    if (result.status === 'NOT_FOUND') {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    if (result.status === 'CONFLICT') {
+      throw new ConflictException({
+        code: 'COURSE_NOT_SUBMITTED',
+        message: 'Course is no longer awaiting approval.',
+      });
+    }
+
+    return result.course;
   }
 
   /**

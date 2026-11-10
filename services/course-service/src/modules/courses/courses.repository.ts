@@ -1490,6 +1490,174 @@ export class CoursesRepository {
     });
   }
 
+  async decideCourse(input: {
+    courseId: string;
+    organizationId: string;
+    organizerId: string;
+    decision: 'APPROVE' | 'REJECT';
+    reason?: string;
+  }) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        // 1. Tìm Course thuộc Organization, chưa bị xóa.
+        const initial = await tx.course.findFirst({
+          where: {
+            id: input.courseId,
+            organizationId: input.organizationId,
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            chainId: true,
+          },
+        });
+
+        if (!initial) {
+          return { status: 'NOT_FOUND' as const };
+        }
+
+        // 2. Khóa Course Chain.
+        const locked = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM course_chains
+      WHERE id = ${initial.chainId}::uuid
+        AND organization_id = ${input.organizationId}::uuid
+      FOR UPDATE
+    `;
+
+        if (locked.length !== 1) {
+          return { status: 'NOT_FOUND' as const };
+        }
+
+        // 3. Đọc lại sau khi khóa.
+        const course = await tx.course.findFirst({
+          where: {
+            id: input.courseId,
+            organizationId: input.organizationId,
+            chainId: initial.chainId,
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            chainId: true,
+            name: true,
+            status: true,
+            versionNumber: true,
+            chain: {
+              select: { instructorId: true },
+            },
+          },
+        });
+
+        if (!course) {
+          return { status: 'NOT_FOUND' as const };
+        }
+
+        if (course.status !== COURSE_STATUS.SUBMITTED) {
+          return { status: 'CONFLICT' as const };
+        }
+
+        const approved = input.decision === 'APPROVE';
+        const decidedAt = new Date();
+
+        // 4. Khi Approve, Archived bản Published cũ trước.
+        // Điều này tránh vi phạm unique index nếu đã có.
+        if (approved) {
+          await tx.course.updateMany({
+            where: {
+              organizationId: input.organizationId,
+              chainId: course.chainId,
+              id: { not: course.id },
+              deletedAt: null,
+              status: COURSE_STATUS.PUBLISHED,
+            },
+            data: {
+              status: COURSE_STATUS.ARCHIVED,
+              archivedAt: decidedAt,
+            },
+          });
+        }
+
+        // 5. Quyết định chỉ thành công nếu còn Submitted.
+        const updated = await tx.course.updateMany({
+          where: {
+            id: course.id,
+            organizationId: input.organizationId,
+            chainId: course.chainId,
+            deletedAt: null,
+            status: COURSE_STATUS.SUBMITTED,
+          },
+          data: approved
+            ? {
+                status: COURSE_STATUS.PUBLISHED,
+                publishedAt: decidedAt,
+                rejectedAt: null,
+                rejectionReason: null,
+              }
+            : {
+                status: COURSE_STATUS.REJECTED,
+                rejectedAt: decidedAt,
+                rejectionReason: input.reason!,
+              },
+        });
+
+        if (updated.count !== 1) {
+          // Throw để rollback cả bước Archived phía trên.
+          throw new Error('COURSE_DECISION_CONCURRENT_CHANGE');
+        }
+
+        // 6. Outbox và trạng thái phải commit cùng nhau.
+        await tx.outboxEvent.create({
+          data: {
+            aggregateType: 'Course',
+            aggregateId: course.id,
+            organizationId: input.organizationId,
+            eventType: approved ? 'CoursePublished' : 'CourseRejected',
+            occurredAt: decidedAt,
+            payload: {
+              organizationId: input.organizationId,
+              courseId: course.id,
+              courseName: course.name,
+              versionNumber: course.versionNumber,
+              instructorId: course.chain.instructorId,
+              organizerId: input.organizerId,
+              occurredAt: decidedAt.toISOString(),
+              decidedAt: decidedAt.toISOString(),
+              ...(approved
+                ? { publishedAt: decidedAt.toISOString() }
+                : {
+                    rejectedAt: decidedAt.toISOString(),
+                    rejectionReason: input.reason,
+                  }),
+            },
+          },
+        });
+
+        const result = await tx.course.findUniqueOrThrow({
+          where: { id: course.id },
+          select: {
+            id: true,
+            name: true,
+            versionNumber: true,
+            status: true,
+            publishedAt: true,
+            rejectedAt: true,
+            rejectionReason: true,
+          },
+        });
+
+        return {
+          status: 'SUCCESS' as const,
+          course: result,
+        };
+      },
+      {
+        maxWait: 5000,
+        timeout: 15000,
+      },
+    );
+  }
+
   async softDeleteCourse(input: {
     organizationId: string;
     instructorId: string;
