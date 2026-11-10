@@ -43,6 +43,7 @@ describe('UC20 submitCourseForApproval DB transaction', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           organizationId: data.organizationId,
+          deletedAt: null,
           status: { in: [COURSE_STATUS.DRAFT, COURSE_STATUS.REJECTED] },
           chain: { instructorId: data.instructorId },
         }),

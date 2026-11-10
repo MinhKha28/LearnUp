@@ -6,6 +6,7 @@ import type {
   ICourseListQuery,
   ICourseModule,
   ICourseStructure,
+  ICourseTrashItem,
   ICreateCourseLessonRequest,
   ICreateCourseModuleRequest,
   ICreateCourseRequest,
@@ -20,17 +21,23 @@ import type {
   IOrganizationCourseFilterInstructor,
   IOrganizationCourseListItem,
   IOrganizationCourseListQuery,
+  IPermanentDeleteCourseResult,
   IReadingUploadContext,
+  IRestoreCourseResult,
   ISubmitCourseResponse,
+  IWithdrawCourseResponse,
+  ISoftDeleteCourseResult,
+  ITechnicalReplacementResponse,
   IUpdateCourseRequest,
   IUpdateCourseResponse,
   IUpdateCourseStructureRequest,
   IUpdateCourseStructureResponse,
   IUpdateLessonContentRequest,
   IUpdateLessonContentResponse,
+  IUpdateMaterialRequest,
+  IUpdateMaterialResponse,
   IUploadCourseCoverResponse,
   IVideoUploadContext,
-  IWithdrawCourseResponse,
 } from "@/types/course.types";
 import type { AxiosProgressEvent } from "axios";
 
@@ -208,6 +215,36 @@ export const createReadingMaterialAPI = (
   );
 };
 
+/**
+ * UC14.5 - Move a Course to Trash.
+ */
+export const softDeleteCourseAPI = (courseId: string) =>
+  axios.delete<IBackendRes<ISoftDeleteCourseResult>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}`,
+  );
+
+/**
+ * UC14.5 - Get the current Instructor's deleted Courses.
+ */
+export const fetchCourseTrashAPI = () =>
+  axios.get<IBackendRes<ICourseTrashItem[]>>("/api/v1/courses/trash");
+
+/**
+ * UC14.5 - Restore a Course from Trash.
+ */
+export const restoreCourseAPI = (courseId: string) =>
+  axios.post<IBackendRes<IRestoreCourseResult>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/restore`,
+  );
+
+/**
+ * UC14.5 - Permanently delete a Course in Trash.
+ */
+export const permanentDeleteCourseAPI = (courseId: string) =>
+  axios.delete<IBackendRes<IPermanentDeleteCourseResult>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/permanent`,
+  );
+
 export const submitCourseForApprovalAPI = (courseId: string) =>
   axios.post<IBackendRes<ISubmitCourseResponse>>(
     `/api/v1/courses/${encodeURIComponent(courseId)}/submit`,
@@ -217,3 +254,39 @@ export const withdrawCourseSubmissionAPI = (courseId: string) =>
   axios.post<IBackendRes<IWithdrawCourseResponse>>(
     `/api/v1/courses/${encodeURIComponent(courseId)}/withdraw`,
   );
+
+export const updateMaterialAPI = (
+  courseId: string,
+  lessonId: string,
+  materialId: string,
+  payload: IUpdateMaterialRequest,
+) =>
+  axios.patch<IBackendRes<IUpdateMaterialResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}` +
+      `/lessons/${encodeURIComponent(lessonId)}` +
+      `/materials/${encodeURIComponent(materialId)}`,
+    payload,
+  );
+
+export const replaceTechnicalMaterialAPI = (
+  courseId: string,
+  lessonId: string,
+  materialId: string,
+  file: File,
+  onUploadProgress?: (event: AxiosProgressEvent) => void,
+) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return axios.post<IBackendRes<ITechnicalReplacementResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}` +
+      `/lessons/${encodeURIComponent(lessonId)}` +
+      `/materials/${encodeURIComponent(materialId)}` +
+      `/technical-replacement`,
+    formData,
+    {
+      onUploadProgress,
+      timeout: 15 * 60 * 1000,
+    },
+  );
+};

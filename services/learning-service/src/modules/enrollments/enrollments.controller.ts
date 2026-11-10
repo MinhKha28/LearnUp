@@ -8,7 +8,14 @@ import {
   UseGuards,
   HttpCode,
   Param,
+  ParseUUIDPipe,
 } from '@nestjs/common';
+import { ApiBadRequestResponse, ApiQuery } from '@nestjs/swagger';
+import {
+  MY_ENROLLMENT_STATUSES,
+  MY_ENROLLMENT_TYPES,
+  parseMyEnrollmentFilters,
+} from './my-enrollment-filters';
 import { EnrollmentWithdrawalService } from './enrollment-withdrawal.service';
 import { EnrollmentRateLimitGuard } from './enrollment-rate-limit.guard';
 import { ResponseMessage, User } from '../../common/decorator/customize';
@@ -58,14 +65,33 @@ export class EnrollmentsController {
     return this.service.getMyCourseIds(user);
   }
 
-  /** UC26: Course của tôi, 20 dòng một trang; mọi tham số query khác page (kể cả size) bị bỏ qua (D36). */
   @Get('me')
   @Roles('LEARNER')
+  @ApiQuery({
+    name: 'q',
+    required: false,
+    schema: { type: 'string' },
+    description:
+      'Course name substring. Trimmed before enforcing the 200-character limit.',
+  })
+  @ApiQuery({ name: 'type', required: false, enum: MY_ENROLLMENT_TYPES })
+  @ApiQuery({ name: 'status', required: false, enum: MY_ENROLLMENT_STATUSES })
+  @ApiBadRequestResponse({
+    description:
+      'VALIDATION_ERROR: invalid page, invalid filter, or repeated filter.',
+  })
   findMine(
     @User() user: CurrentUser,
     @Query('page', ParsePagePipe) page: number,
+    @Query('q') q?: unknown,
+    @Query('type') type?: unknown,
+    @Query('status') status?: unknown,
   ): Promise<MyEnrollmentsPage> {
-    return this.service.findMyEnrollments(user, page);
+    return this.service.findMyEnrollments(
+      user,
+      page,
+      parseMyEnrollmentFilters(q, type, status),
+    );
   }
 
   @Post('learner-counts')
@@ -75,5 +101,15 @@ export class EnrollmentsController {
     @Body() dto: GetCourseLearnerCountsDto,
   ) {
     return this.service.getCourseLearnerCounts(user, dto.courseIds);
+  }
+
+  @Get('internal/courses/:courseId/history')
+  @Roles('INSTRUCTOR')
+  @ResponseMessage('Enrollment history checked successfully')
+  hasEverEnrollment(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.service.hasEverEnrollment(user, courseId);
   }
 }
