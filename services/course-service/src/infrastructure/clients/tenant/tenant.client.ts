@@ -1,14 +1,20 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { CurrentUser } from '@learnup/ts-common';
 import { firstValueFrom } from 'rxjs';
-
+import { isAxiosError } from 'axios';
 import type {
   TenantApiResponse,
+  TenantErrorResponse,
   TenantInstructor,
   TenantMaterialUploadPolicy,
   TenantOrganizer,
+  TransferReceiver,
 } from './tenant.interface';
 
 @Injectable()
@@ -131,6 +137,55 @@ export class TenantClient {
       throw new ServiceUnavailableException(
         'Unable to verify Subscription upload permission.',
       );
+    }
+  }
+
+  async validateTransferReceiver(
+    user: CurrentUser,
+    instructorId: string,
+  ): Promise<TransferReceiver> {
+    const baseUrl = this.configService.getOrThrow<string>('TENANT_SERVICE_URL');
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get<TenantApiResponse<TransferReceiver>>(
+          `${baseUrl}/api/v1/users/instructors/` +
+            `${encodeURIComponent(instructorId)}/transfer-eligibility`,
+          {
+            headers: this.buildHeaders(user),
+          },
+        ),
+      );
+
+      const receiver = response.data?.data;
+
+      if (
+        !receiver ||
+        receiver.id?.toLowerCase() !== instructorId.toLowerCase() ||
+        typeof receiver.fullName !== 'string'
+      ) {
+        throw new Error('Invalid Tenant response');
+      }
+
+      return receiver;
+    } catch (error: unknown) {
+      // Chỉ chuyển 400 INVALID_RECEIVER thành lỗi nghiệp vụ.
+      // Các lỗi còn lại không được xem là Instructor không hợp lệ.
+      if (
+        isAxiosError<TenantErrorResponse>(error) &&
+        error.response?.status === 400 &&
+        error.response.data?.code === 'INVALID_RECEIVER'
+      ) {
+        throw new BadRequestException({
+          code: 'INVALID_RECEIVER',
+          message: 'Receiving Instructor is not eligible.',
+        });
+      }
+
+      throw new ServiceUnavailableException({
+        code: 'TENANT_UNAVAILABLE',
+        message: 'Unable to verify receiving Instructor.',
+      });
     }
   }
 }

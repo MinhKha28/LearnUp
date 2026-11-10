@@ -34,9 +34,10 @@ import type {
   IAcceptInvitationResult,
   IInvitationInfo,
   IMemberImportPreview,
-  IMemberImportResult
+  IMemberImportResult,
 } from "@/types/organization.types";
 import { tenantAxios as axios } from "@/services/axios.customize";
+import type { ITransferCandidate } from "@/types/course.types";
 
 // UC01 - Xem Subscription Plan (Guest, không cần đăng nhập)
 export const getMyOrganizationAPI = () =>
@@ -132,12 +133,13 @@ export const createInstructorAPI = (body: ICreateAccountReq) =>
 
 // UC12.8 - tệp mẫu .xlsx. Interceptor trả body lỗi (cũng là Blob) thay vì throw,
 // nên chỉ response 200 thật mới là tệp (cùng cách với downloadPromptFileAPI).
-export const downloadInstructorImportTemplateAPI = async (): Promise<Blob | null> => {
-  const res = (await axios.get("/api/v1/users/instructors/imports/template", {
-    responseType: "blob",
-  })) as unknown as { status?: number; data?: unknown };
-  return res.status === 200 && res.data instanceof Blob ? res.data : null;
-};
+export const downloadInstructorImportTemplateAPI =
+  async (): Promise<Blob | null> => {
+    const res = (await axios.get("/api/v1/users/instructors/imports/template", {
+      responseType: "blob",
+    })) as unknown as { status?: number; data?: unknown };
+    return res.status === 200 && res.data instanceof Blob ? res.data : null;
+  };
 
 // UC12.8 - BR-32: xem trước tệp import (không tạo tài khoản)
 export const previewInstructorImportAPI = (file: File) => {
@@ -150,7 +152,10 @@ export const previewInstructorImportAPI = (file: File) => {
 };
 
 // UC12.8 - BR-32, BR-33: xác nhận; gửi lại cùng tệp và previewDigest, server kiểm lại toàn bộ
-export const confirmInstructorImportAPI = (file: File, previewDigest: string) => {
+export const confirmInstructorImportAPI = (
+  file: File,
+  previewDigest: string,
+) => {
   const form = new FormData();
   form.append("previewDigest", previewDigest);
   form.append("file", file);
@@ -274,7 +279,10 @@ export const getInvitationAPI = (token: string) =>
 
 // UC04 - Đặt mật khẩu và kích hoạt tài khoản
 export const acceptInvitationAPI = (body: IAcceptInvitationReq) =>
-  axios.post<IBackendRes<IAcceptInvitationResult>>("/api/v1/invitations/accept", body);
+  axios.post<IBackendRes<IAcceptInvitationResult>>(
+    "/api/v1/invitations/accept",
+    body,
+  );
 
 // UC44 - Admin xem danh sách Organization; mặc định backend ẩn Cancelled, chỉ gửi cờ khi cần hiện
 export const getAdminOrganizationsAPI = ({
@@ -288,5 +296,12 @@ export const getAdminOrganizationsAPI = ({
         ...query,
         ...(includeCancelled ? { includeCancelled: true } : {}),
       },
+    },
+  );
+export const getTransferCandidatesAPI = (excludeInstructorId: string) =>
+  axios.get<IBackendRes<ITransferCandidate[]>>(
+    "/api/v1/users/instructors/transfer-candidates",
+    {
+      params: { excludeInstructorId },
     },
   );

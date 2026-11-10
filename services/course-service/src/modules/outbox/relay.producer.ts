@@ -23,6 +23,7 @@ const eventTypes = new Set([
   'CourseComponentDisabled',
   'CourseComponentReactivated',
   'CourseSubmitted',
+  'CourseOwnershipTransferred',
 ]);
 
 const uuidPattern =
@@ -90,6 +91,26 @@ export function message(row: OutboxRow) {
       data.versionNumber < 1 ||
       typeof data.submittedAt !== 'string' ||
       Number.isNaN(Date.parse(data.submittedAt))
+    ) {
+      throw new SerializationFailure();
+    }
+  }
+
+  if (row.event_type === 'CourseOwnershipTransferred') {
+    const ids = [
+      data.chainId,
+      data.fromInstructorId,
+      data.toInstructorId,
+      data.actorUserId,
+    ];
+
+    if (
+      ids.some(
+        (value) => typeof value !== 'string' || !uuidPattern.test(value),
+      ) ||
+      typeof data.courseName !== 'string' ||
+      !data.courseName.trim() ||
+      (data.reason !== undefined && typeof data.reason !== 'string')
     ) {
       throw new SerializationFailure();
     }

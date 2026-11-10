@@ -40,6 +40,9 @@ import type {
   IUpdateMaterialResponse,
   IUploadCourseCoverResponse,
   IVideoUploadContext,
+  ITransferCourseContext,
+  ITransferCourseRequest,
+  ITransferCourseResponse,
 } from "@/types/course.types";
 import type { AxiosProgressEvent } from "axios";
 
@@ -304,4 +307,19 @@ export const fetchOrganizerMaterialPreviewAPI = (
 ) =>
   axios.get<IBackendRes<IMaterialPreview>>(
     `/api/v1/courses/organization/${encodeURIComponent(courseId)}/materials/${encodeURIComponent(materialId)}/preview`,
+  );
+
+export const fetchTransferContextAPI = (courseId: string) =>
+  axios.get<IBackendRes<ITransferCourseContext>>(
+    `/api/v1/courses/organization/` +
+      `${encodeURIComponent(courseId)}/transfer-context`,
+  );
+
+export const transferCourseOwnershipAPI = (
+  courseId: string,
+  payload: ITransferCourseRequest,
+) =>
+  axios.post<IBackendRes<ITransferCourseResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/transfer`,
+    payload,
   );

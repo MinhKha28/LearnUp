@@ -32,6 +32,7 @@ import { ListDepartmentsQueryDto } from './dto/list-departments-query.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { UsersService } from './users.service';
 import { GetUsersBatchDto } from './dto/get-users-batch.dto';
+import { TransferReceiversQueryDto } from './dto/transfer-receivers-query.dto';
 
 @ApiTags('Users') // UC12, UC12.1, UC12.2, UC12.3, UC12.5, UC12.6, UC12.7, UC13, UC13.1, UC13.2, UC13.3, UC13.5, UC13.7
 @ApiSecurity('internal-key')
@@ -252,5 +253,25 @@ export class UsersController {
       { type: 'custom' },
     );
     return this.service.getOrganizerForNotification(validOrganizationId);
+  }
+
+  @Roles('ORGANIZER')
+  @Get('instructors/transfer-candidates')
+  @ResponseMessage('Transfer candidates fetched successfully')
+  getTransferCandidates(
+    @User() user: CurrentUser,
+    @Query() query: TransferReceiversQueryDto,
+  ) {
+    return this.service.getTransferCandidates(user, query.excludeInstructorId);
+  }
+
+  @Roles('ORGANIZER')
+  @Get('instructors/:id/transfer-eligibility')
+  @ResponseMessage('Instructor eligibility verified successfully')
+  getTransferEligibility(
+    @User() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) instructorId: string,
+  ) {
+    return this.service.validateTransferReceiver(user, instructorId);
   }
 }

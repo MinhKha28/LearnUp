@@ -25,7 +25,8 @@ export const claimSql = (limit: number) => Prisma.sql`
       'CourseReactivated',
       'CourseComponentDisabled',
       'CourseComponentReactivated',
-      'CourseSubmitted'
+      'CourseSubmitted',
+      'CourseOwnershipTransferred'
     )
     AND (
       o.next_attempt_at IS NULL
@@ -42,7 +43,8 @@ export const claimSql = (limit: number) => Prisma.sql`
           'CourseReactivated',
           'CourseComponentDisabled',
           'CourseComponentReactivated',
-          'CourseSubmitted'
+          'CourseSubmitted',
+          'CourseOwnershipTransferred'
         )
         AND p.id < o.id
     )

@@ -2198,4 +2198,58 @@ export class UsersService {
 
     return organizer;
   }
+
+  async getTransferCandidates(user: CurrentUser, excludeInstructorId: string) {
+    if (user.role !== 'ORGANIZER' || !user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Organizer permission is required.',
+      });
+    }
+
+    const receivers = await this.findValidReceivers(
+      this.prisma,
+      user.organizationId,
+      excludeInstructorId,
+    );
+
+    // Không trả email nếu Frontend chỉ cần ID và tên.
+    return receivers.map(({ id, fullName }) => ({
+      id,
+      fullName,
+    }));
+  }
+
+  async validateTransferReceiver(user: CurrentUser, instructorId: string) {
+    if (user.role !== 'ORGANIZER' || !user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Organizer permission is required.',
+      });
+    }
+
+    const receiver = await this.prisma.user.findFirst({
+      where: {
+        id: instructorId,
+        organizationId: user.organizationId,
+        role: UserRoleValue.Instructor,
+        status: UserStatus.Active,
+        activatedAt: { not: null },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        fullName: true,
+      },
+    });
+
+    if (!receiver) {
+      throw new BadRequestException({
+        code: 'INVALID_RECEIVER',
+        message: 'Receiving Instructor is not eligible.',
+      });
+    }
+
+    return receiver;
+  }
 }
