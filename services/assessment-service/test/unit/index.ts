@@ -33,3 +33,4 @@ import './review-notice.unit-test';
 import './review-history.unit-test';
 import './peer-review-assigned.unit-test';
 import './relay-outage.unit-test';
+import './organizer-course-review.unit-test';

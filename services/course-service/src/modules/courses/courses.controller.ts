@@ -356,4 +356,27 @@ export class CoursesController {
       file,
     );
   }
+
+  @Get('organization/:courseId/review')
+  @ResponseMessage('Course review content retrieved successfully')
+  getOrganizerCourseReview(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.getOrganizerCourseReview(user, courseId);
+  }
+
+  @Get('organization/:courseId/materials/:materialId/preview')
+  @ResponseMessage('Material preview retrieved successfully')
+  getOrganizerMaterialPreview(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('materialId', ParseUUIDPipe) materialId: string,
+  ) {
+    return this.coursesService.getOrganizerMaterialPreview(
+      user,
+      courseId,
+      materialId,
+    );
+  }
 }

@@ -71,6 +71,10 @@ function detailWithNewestSupersededAt(supersededAt: Date | null) {
     getModuleIds(): never {
       throw new Error('Unexpected module lookup');
     }
+
+    verifyOrganizerReviewAccess(): never {
+      throw new Error('Unexpected Organizer review access check');
+    }
   }
 
   const service = new InstructorSubmissionsService(

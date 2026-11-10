@@ -584,4 +584,110 @@ export class AssessmentsService {
       deletedAssignmentCount: result.deletedAssignmentCount,
     };
   }
+
+  private requireOrganizer(user: CurrentUser): string {
+    if (user.role !== 'ORGANIZER' || !user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Only Organizer can review Course Assessments.',
+      });
+    }
+
+    return user.organizationId;
+  }
+
+  async getOrganizerAssessmentReview(user: CurrentUser, courseId: string) {
+    const organizationId = this.requireOrganizer(user);
+
+    // Check Course ownership and status first.
+    await this.courses.verifyOrganizerReviewAccess(courseId, user);
+
+    const rows = await this.repository.findCourseAssessmentsForOrganizer(
+      organizationId,
+      courseId,
+    );
+
+    return {
+      courseId,
+      items: rows.map((row) => ({
+        id: row.id,
+        courseId: row.courseId,
+        moduleId: row.moduleId,
+        kind: row.kind,
+        title: row.title,
+        position: row.position,
+        disabled: row.disabledAt !== null,
+        passingScore: Number(row.passingScore),
+        isRequired: row.isRequired,
+        timeLimitMinutes: row.timeLimitMinutes,
+        maxConsecutiveAttempts: row.maxConsecutiveAttempts,
+        lockoutHours: row.lockoutHours,
+        expectedDurationMinutes: row.expectedDurationMinutes,
+        prompt: row.kind === 'ASSIGNMENT' ? row.prompt : null,
+        promptFileName: row.kind === 'ASSIGNMENT' ? row.promptFileName : null,
+        peerReviewEnabled: row.peerReviewEnabled,
+        peerReviewersPerSubmission: row.peerReviewersPerSubmission,
+        peerReviewCycleDays: row.peerReviewCycleDays,
+        peerReviewDeadlineDays: row.peerReviewDeadlineDays,
+        peerReviewScoreGap:
+          row.peerReviewScoreGap === null
+            ? null
+            : Number(row.peerReviewScoreGap),
+        questions:
+          row.kind === 'QUIZ'
+            ? row.questions.map((question) => ({
+                id: question.id,
+                position: question.position,
+                type: question.questionType,
+                content: question.content,
+                options: question.options.map((option) => ({
+                  id: option.id,
+                  position: option.position,
+                  content: option.content,
+                  isCorrect: option.isCorrect,
+                })),
+              }))
+            : [],
+        rubric:
+          row.kind === 'ASSIGNMENT'
+            ? row.rubricCriteria.map((criterion) => ({
+                id: criterion.id,
+                name: criterion.name,
+                description: criterion.description,
+                maxPoints: criterion.maxPoints,
+                position: criterion.position,
+              }))
+            : [],
+      })),
+    };
+  }
+
+  async downloadOrganizerAssignmentPrompt(
+    user: CurrentUser,
+    courseId: string,
+    assignmentId: string,
+  ) {
+    const organizationId = this.requireOrganizer(user);
+
+    await this.courses.verifyOrganizerReviewAccess(courseId, user);
+
+    const assignment = await this.repository.findOrganizerAssignmentPrompt(
+      organizationId,
+      courseId,
+      assignmentId,
+    );
+
+    if (!assignment?.promptFileKey) {
+      throw new NotFoundException({
+        code: 'PROMPT_FILE_NOT_FOUND',
+        message: 'Assignment attachment not found.',
+      });
+    }
+
+    return {
+      content: await this.media.readPromptFile(assignment.promptFileKey),
+      fileName: assignment.promptFileName ?? 'assignment-prompt',
+      mimeType: assignment.promptFileMime ?? 'application/octet-stream',
+    };
+  }
 }

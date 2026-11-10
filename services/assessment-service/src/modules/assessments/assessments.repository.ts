@@ -239,4 +239,57 @@ export class AssessmentsRepository {
       };
     });
   }
+
+  /**
+   * UC21.2 - Read Quiz and Assignment content.
+   */
+  findCourseAssessmentsForOrganizer(organizationId: string, courseId: string) {
+    return this.prisma.assessment.findMany({
+      where: {
+        organizationId,
+        courseId,
+        kind: {
+          in: ['QUIZ', 'ASSIGNMENT'],
+        },
+      },
+      orderBy: [{ position: 'asc' }, { id: 'asc' }],
+      include: {
+        questions: {
+          orderBy: { position: 'asc' },
+          include: {
+            options: {
+              orderBy: { position: 'asc' },
+            },
+          },
+        },
+        rubricCriteria: {
+          orderBy: { position: 'asc' },
+        },
+      },
+    });
+  }
+
+  /**
+   * Find an Assignment attachment without exposing
+   * submissions or learner information.
+   */
+  findOrganizerAssignmentPrompt(
+    organizationId: string,
+    courseId: string,
+    assignmentId: string,
+  ) {
+    return this.prisma.assessment.findFirst({
+      where: {
+        id: assignmentId,
+        organizationId,
+        courseId,
+        kind: KIND_ASSIGNMENT,
+      },
+      select: {
+        promptFileKey: true,
+        promptFileName: true,
+        promptFileMime: true,
+      },
+    });
+  }
 }
