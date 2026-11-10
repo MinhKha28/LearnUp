@@ -160,3 +160,26 @@ test('UC23 permits an empty candidate list without inventing receivers', async (
   });
   assert.deepEqual(await service.getTransferCandidates(organizer, existingInstructorId), []);
 });
+
+test('Organizer batch lookup resolves Instructor using the Tenant DB PascalCase role', async () => {
+  const service = createService({});
+  let query;
+  service.prisma = {
+    user: {
+      findMany: async (args) => {
+        query = args;
+        return [{ id: existingInstructorId, fullName: 'Trần Văn Minh' }];
+      },
+    },
+  };
+
+  const instructors = await service.findBatch(organizer, [existingInstructorId]);
+  assert.equal(instructors[0].fullName, 'Trần Văn Minh');
+  assert.deepEqual(query.where, {
+    id: { in: [existingInstructorId] },
+    organizationId,
+    role: UserRoleValue.Instructor,
+    deletedAt: null,
+  });
+});
+
