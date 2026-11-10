@@ -11,6 +11,13 @@ import {
   isTrashExpired,
 } from './course-trash.constants';
 
+/** Roll back the whole approval decision and expose a predictable 409 to the caller. */
+class CourseDecisionConcurrentChange extends Error {
+  constructor() {
+    super('COURSE_DECISION_CONCURRENT_CHANGE');
+  }
+}
+
 type PermanentDeleteInput = {
   organizationId: string;
   courseId: string;
@@ -1497,7 +1504,8 @@ export class CoursesRepository {
     decision: 'APPROVE' | 'REJECT';
     reason?: string;
   }) {
-    return this.prisma.$transaction(
+    try {
+      return await this.prisma.$transaction(
       async (tx) => {
         // 1. Tìm Course thuộc Organization, chưa bị xóa.
         const initial = await tx.course.findFirst({
@@ -1603,7 +1611,7 @@ export class CoursesRepository {
 
         if (updated.count !== 1) {
           // Throw để rollback cả bước Archived phía trên.
-          throw new Error('COURSE_DECISION_CONCURRENT_CHANGE');
+          throw new CourseDecisionConcurrentChange();
         }
 
         // 6. Outbox và trạng thái phải commit cùng nhau.
@@ -1656,6 +1664,14 @@ export class CoursesRepository {
         timeout: 15000,
       },
     );
+    } catch (error) {
+      // A lost conditional update must roll back Archived changes and Outbox.
+      // Do not turn unrelated PostgreSQL or Outbox failures into HTTP 409.
+      if (error instanceof CourseDecisionConcurrentChange) {
+        return { status: 'CONFLICT' as const };
+      }
+      throw error;
+    }
   }
 
   async softDeleteCourse(input: {
