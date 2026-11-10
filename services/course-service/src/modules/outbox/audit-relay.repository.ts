@@ -35,7 +35,7 @@ export class CourseAuditRelayRepository {
         FOR UPDATE SKIP LOCKED
       )
       UPDATE outbox_events o
-      SET next_attempt_at = clock_timestamp() + interval '30 seconds',
+      SET next_attempt_at = date_trunc('milliseconds', clock_timestamp()) + interval '30 seconds',
           updated_at = clock_timestamp()
       FROM next_event
       WHERE o.id = next_event.id
