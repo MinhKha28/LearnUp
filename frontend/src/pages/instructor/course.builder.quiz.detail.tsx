@@ -4,7 +4,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   LockOutlined,
-  UnorderedListOutlined,
+  PlusOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
 import { Skeleton, Tooltip } from "antd";
@@ -338,11 +338,16 @@ const CourseBuilderQuizDetail = () => {
                 </button>
               )}
             </ActionSlot>
-            {/* UC18.3 — Manage Quiz questions */}
-            <ActionSlot ready={false} permission={permissions.editQuestions}>
+            {/* UC18.2.1 — Add a question (BR-117, BR-83) */}
+            <ActionSlot ready permission={permissions.editQuestions}>
               {(disabled) => (
-                <button type="button" className="builder-quiz-action" disabled={disabled}>
-                  <UnorderedListOutlined /> Manage questions
+                <button
+                  type="button"
+                  className="builder-quiz-action"
+                  disabled={disabled}
+                  onClick={() => navigate(`${base}/quizzes/${quiz.id}/questions/new`)}
+                >
+                  <PlusOutlined /> Add question
                 </button>
               )}
             </ActionSlot>

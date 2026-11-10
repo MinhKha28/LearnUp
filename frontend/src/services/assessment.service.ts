@@ -27,6 +27,8 @@ import type {
   IQuizList,
   IQuizDetail,
   ICreateQuizReq,
+  ICreateQuizQuestionReq,
+  IQuizQuestionCreated,
   IQuizSummary,
   IUpdateAssignment,
   IUpdatePeerReview,
@@ -161,6 +163,16 @@ export const updateQuizConfigAPI = (
 ) =>
   axios.patch<IBackendRes<IQuizDetail>>(
     `/api/v1/assessments/quizzes/${quizId}`,
+    payload,
+  );
+
+/** UC18.2.1 — Add a question with its answers at the end of a Quiz. */
+export const createQuizQuestionAPI = (
+  quizId: string,
+  payload: ICreateQuizQuestionReq,
+) =>
+  axios.post<IBackendRes<IQuizQuestionCreated>>(
+    `/api/v1/assessments/quizzes/${quizId}/questions`,
     payload,
   );
 

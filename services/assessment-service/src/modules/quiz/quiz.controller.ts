@@ -15,11 +15,12 @@ import { ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '../../common/decorator/customize';
 import { CreateQuizDto } from './dto/create-quiz.dto';
+import { CreateQuizQuestionDto } from './dto/create-quiz-question.dto';
 import { ListQuizzesQueryDto } from './dto/list-quizzes-query.dto';
 import { UpdateQuizConfigDto } from './dto/update-quiz.dto';
 import { QuizService } from './quiz.service';
 
-@ApiTags('UC18 / UC18.1 / UC18.2 / UC18.4 / UC18.5 - Quizzes')
+@ApiTags('UC18 / UC18.1 / UC18.2 / UC18.2.1 / UC18.4 / UC18.5 - Quizzes')
 @ApiSecurity('internal-key')
 @Controller('assessments')
 export class QuizController {
@@ -61,6 +62,18 @@ export class QuizController {
     @Body() dto: UpdateQuizConfigDto,
   ) {
     return this.service.updateQuizConfig(user, id, dto);
+  }
+
+  /** UC18.2.1 — Add a question with its answers at the end of a Quiz (Instructor only). */
+  @Post('quizzes/:id/questions')
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Question added successfully.')
+  addQuestion(
+    @User() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateQuizQuestionDto,
+  ) {
+    return this.service.addQuestion(user, id, dto);
   }
 
   /** UC18.5 — Delete Quiz */

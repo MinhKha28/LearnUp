@@ -26,6 +26,13 @@ export interface QuizQuestionDetail {
   options: QuizOptionDetail[];
 }
 
+/** UC18.2.1 — the question just added and the new number of questions of its Quiz (UC18 / BR-118). */
+export interface QuizQuestionCreated {
+  quizId: string;
+  questionCount: number;
+  question: QuizQuestionDetail;
+}
+
 /** Whether one change is possible now and, if not, why (BR-99). */
 export interface QuizPermission {
   allowed: boolean;
