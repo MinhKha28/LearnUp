@@ -21,7 +21,7 @@ export class ChangeAccountStatusDto extends DeleteAccountDto {
 }
 
 // UC13.5 - Đổi trạng thái Learner. Cùng action / reason (cùng validate) với UC12.5; Learner không có
-// chuyển quyền phụ trách (BR-41 chỉ cho Instructor) nên gửi receiverInstructorId -> 400 (forbidNonWhitelisted).
+// chuyển quyền phụ trách (BR-51 chỉ cho Instructor) nên gửi receiverInstructorId -> 400 (forbidNonWhitelisted).
 export class ChangeLearnerStatusDto extends PickType(ChangeAccountStatusDto, [
   'action',
   'reason',

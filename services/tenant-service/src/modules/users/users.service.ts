@@ -1601,7 +1601,7 @@ export class UsersService {
   }
 
   /**
-   * BR-270, BR-271: người thực hiện, loại hành động, đối tượng, thời điểm; lý do tùy chọn.
+   * BR-336, BR-337: người thực hiện, loại hành động, đối tượng, thời điểm; lý do tùy chọn.
    * receiverId / chainIds chỉ có ở UC12.5 (Instructor); UC13.5 (Learner) bỏ qua -> details chỉ có reason.
    */
   private enqueueStatusAudit(
@@ -1614,6 +1614,7 @@ export class UsersService {
       reason: string | undefined;
       /** UC12.6: trạng thái lúc bị xóa (Pending / Active / Deactivated). */
       previousStatus?: string;
+      // Chỉ UC12.5 / UC12.6 (Instructor); UC13.5 / UC13.6 (Learner) không gửi -> không có trong details.
       receiverId?: string | null;
       chainIds?: string[];
     },
@@ -1714,11 +1715,11 @@ export class UsersService {
 
   // ===========================================================================
   // UC13.5 - Đổi trạng thái Learner
-  // BR-36: vô hiệu hóa không xóa dữ liệu học tập, không trả lại chỗ -> kích hoạt lại không kiểm số chỗ.
-  // BR-38 / BR-144: learning-service, achievement-reporting-service tự loại khi đọc (tra trạng thái qua tenant).
-  // BR-39 / BR-199 / BR-317: assessment-service giữ bản sao thưa learner_accounts từ event
+  // BR-45: vô hiệu hóa không xóa dữ liệu học tập, không trả lại chỗ -> kích hoạt lại không kiểm số chỗ.
+  // BR-48 / BR-144: learning-service, achievement-reporting-service tự loại khi đọc (tra trạng thái qua tenant).
+  // BR-49 / BR-199 / BR-317: assessment-service giữ bản sao thưa learner_accounts từ event
   //        UserDeactivated / UserReactivated (outbox, cùng transaction - kiến trúc 2.1, 2.3).
-  // BR-41 (chuyển quyền phụ trách) chỉ dành cho Instructor, không áp dụng ở đây.
+  // BR-51 (chuyển quyền phụ trách) chỉ dành cho Instructor, không áp dụng ở đây.
   // ===========================================================================
   changeLearnerStatus(
     user: CurrentUser,
@@ -1730,8 +1731,8 @@ export class UsersService {
     const targetId = learnerId.toLowerCase();
 
     return this.prisma.$transaction(async (tx) => {
-      // BR-15: ân hạn chỉ cấm tạo tài khoản / Course / tải học liệu -> vẫn đổi được.
-      // BR-17: Subscription Suspended (Organizer chỉ xem) hoặc Organization khác Active -> 403.
+      // BR-22: ân hạn chỉ cấm tạo tài khoản / Course / tải học liệu -> vẫn đổi được.
+      // BR-24: Subscription Suspended (Organizer chỉ xem) hoặc Organization khác Active -> 403.
       const { organization } = await this.assertCanManageAccounts(
         tx,
         organizationId,
@@ -1809,23 +1810,23 @@ export class UsersService {
               userId: target.id,
               to: target.email,
               templateCode: 'LEARNER_DEACTIVATED',
-              subject: `LearnUP - Tài khoản Learner tại ${organization.name} đã bị vô hiệu hóa`,
+              subject: `LearnUP - Tài khoản Học viên tại ${organization.name} đã bị vô hiệu hóa`,
               // Không kèm lý do (như UC12.5).
               body:
                 `Xin chào ${target.fullName},\n` +
-                `${organization.name} đã vô hiệu hóa tài khoản Learner của bạn trên LearnUP.\n` +
+                `${organization.name} đã vô hiệu hóa tài khoản Học viên của bạn trên LearnUP.\n` +
                 `Bạn không đăng nhập được cho tới khi tài khoản được kích hoạt lại; dữ liệu học tập của bạn vẫn được giữ. ` +
-                `Nếu có thắc mắc, hãy liên hệ Organizer của tổ chức.`,
+                `Nếu có thắc mắc, hãy liên hệ Quản lý đào tạo của tổ chức.`,
             }
           : {
               organizationId,
               userId: target.id,
               to: target.email,
               templateCode: 'LEARNER_REACTIVATED',
-              subject: `LearnUP - Tài khoản Learner tại ${organization.name} đã được kích hoạt lại`,
+              subject: `LearnUP - Tài khoản Học viên tại ${organization.name} đã được kích hoạt lại`,
               body:
                 `Xin chào ${target.fullName},\n` +
-                `${organization.name} đã kích hoạt lại tài khoản Learner của bạn trên LearnUP.\n` +
+                `${organization.name} đã kích hoạt lại tài khoản Học viên của bạn trên LearnUP.\n` +
                 `Đăng nhập tại: ${this.loginLink()}`,
             },
       );
