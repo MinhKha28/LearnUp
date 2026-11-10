@@ -12,7 +12,7 @@ export class PlatformSettingsService implements OnApplicationBootstrap {
     await this.prisma.$executeRaw`
       INSERT INTO platform_settings
         (id, video_completion_percent, source_as_of, updated_at)
-      VALUES (${randomUUID()}::uuid, ${DEFAULT_VIDEO_COMPLETION_PERCENT}, now(), now())
+      VALUES (${randomUUID()}::uuid, ${DEFAULT_VIDEO_COMPLETION_PERCENT}, TIMESTAMPTZ '1970-01-01T00:00:00Z', now())
       ON CONFLICT DO NOTHING
     `;
   }
