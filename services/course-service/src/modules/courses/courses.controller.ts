@@ -379,4 +379,13 @@ export class CoursesController {
       materialId,
     );
   }
+
+  @Post(':courseId/withdraw')
+  @ResponseMessage('Course withdrawn successfully')
+  withdrawCourseSubmission(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.withdrawCourseSubmission(user, courseId);
+  }
 }
