@@ -88,6 +88,22 @@
  *   ID mới:
  *     Learner ABC                 ...00000000a226
  *     Learner XYZ                 ...00000000b204
+ *
+ * Bổ sung UC44 (Admin xem danh sách Organization), ngày tính theo LÚC CHẠY SEED:
+ *   - Epsilon: PendingPayment, đăng ký còn hạn thanh toán -> hiện mặc định.
+ *   - Zeta: PendingPayment nhưng đăng ký đã quá hạn, chưa ai chạm vào (BR-7 chạy lazy)
+ *     -> API tính là Cancelled, ẩn mặc định.
+ *   - Eta: Cancelled, đăng ký Expired, Organizer đã xóa mềm (BR-7, BR-31) -> ẩn mặc định.
+ *   - Theta: Organization Suspended (BR-45) nhưng Subscription vẫn Active (BR-283).
+ *   - Iota: Organization Active, Subscription Suspended (hết hạn + hết ân hạn, BR-16).
+ *   -> Mặc định danh sách UC44 có 7 dòng (ABC, XYZ, Gamma, Delta, Epsilon, Theta, Iota);
+ *      includeCancelled=true có 9 dòng.
+ *   ID mới:
+ *     Org Epsilon/Zeta/Eta/Theta/Iota       ...00000000e001 – e005
+ *     Organizer tương ứng                   ...00000000e011 – e015
+ *     Registration Epsilon/Zeta/Eta         ...00000000e021 – e023
+ *     Subscription Theta/Iota               ...00000000e034, e035
+ *     OrganizationSuspension Theta          ...00000000e044
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -257,6 +273,311 @@ function extraSubscriptionDates(
     expiresAt: addDays(startsAt, plan.durationDays),
     graceEndsAt: null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// UC44: tổ chức ở các trạng thái Organization / Subscription khác nhau.
+// Tách riêng khỏi organizations / extraOrganizations để không đổi các kiểm tra cũ.
+// ---------------------------------------------------------------------------
+type Uc44Kind =
+  | 'PendingLive' // PendingPayment, đăng ký còn hạn
+  | 'PendingLapsed' // PendingPayment, đăng ký đã quá hạn nhưng chưa được hủy
+  | 'Cancelled' // đã hủy theo BR-7
+  | 'OrgSuspended' // Organization Suspended, Subscription Active
+  | 'SubSuspended'; // Organization Active, Subscription Suspended
+
+interface SeedUc44Org {
+  kind: Uc44Kind;
+  id: string;
+  name: string;
+  taxCode: string;
+  address: string;
+  contactPhone: string;
+  contactEmail: string;
+  planName: string;
+  organizer: { id: string; email: string; fullName: string };
+  registrationId: string | null;
+  subscriptionId: string | null;
+  suspensionId: string | null;
+}
+
+const uc44Organizations: SeedUc44Org[] = [
+  {
+    kind: 'PendingLive',
+    id: id('e001'),
+    name: 'Công ty TNHH Epsilon',
+    taxCode: '0501234567',
+    address: '9 Phan Chu Trinh, TP. Huế',
+    contactPhone: '+842343123456',
+    contactEmail: 'contact@epsilon.vn',
+    planName: STANDARD_PLAN_NAME,
+    organizer: {
+      id: id('e011'),
+      email: 'nhung.dinh@epsilon.vn',
+      fullName: 'Đinh Thị Nhung',
+    },
+    registrationId: id('e021'),
+    subscriptionId: null,
+    suspensionId: null,
+  },
+  {
+    kind: 'PendingLapsed',
+    id: id('e002'),
+    name: 'Công ty CP Zeta',
+    taxCode: '0502345678',
+    address: '15 Trần Hưng Đạo, TP. Quy Nhơn',
+    contactPhone: '+842563123456',
+    contactEmail: 'contact@zeta.vn',
+    planName: BASIC_PLAN_NAME,
+    organizer: {
+      id: id('e012'),
+      email: 'phuc.ly@zeta.vn',
+      fullName: 'Lý Văn Phúc',
+    },
+    registrationId: id('e022'),
+    subscriptionId: null,
+    suspensionId: null,
+  },
+  {
+    kind: 'Cancelled',
+    id: id('e003'),
+    name: 'Công ty TNHH Eta',
+    taxCode: '0503456789',
+    address: '20 Lý Thường Kiệt, TP. Vinh',
+    contactPhone: '+842383123456',
+    contactEmail: 'contact@eta.vn',
+    planName: PREMIUM_PLAN_NAME,
+    organizer: {
+      id: id('e013'),
+      email: 'khoa.mai@eta.vn',
+      fullName: 'Mai Đăng Khoa',
+    },
+    registrationId: id('e023'),
+    subscriptionId: null,
+    suspensionId: null,
+  },
+  {
+    kind: 'OrgSuspended',
+    id: id('e004'),
+    name: 'Công ty CP Theta',
+    taxCode: '0504567890',
+    address: '33 Hai Bà Trưng, TP. Nha Trang',
+    contactPhone: '+842583123456',
+    contactEmail: 'contact@theta.vn',
+    planName: STANDARD_PLAN_NAME,
+    organizer: {
+      id: id('e014'),
+      email: 'son.ha@theta.vn',
+      fullName: 'Hà Thanh Sơn',
+    },
+    registrationId: null,
+    subscriptionId: id('e034'),
+    suspensionId: id('e044'),
+  },
+  {
+    kind: 'SubSuspended',
+    id: id('e005'),
+    name: 'Công ty TNHH Iota',
+    taxCode: '0505678901',
+    address: '7 Nguyễn Văn Cừ, TP. Vũng Tàu',
+    contactPhone: '+842543123456',
+    contactEmail: 'contact@iota.vn',
+    planName: BASIC_PLAN_NAME,
+    organizer: {
+      id: id('e015'),
+      email: 'trang.luu@iota.vn',
+      fullName: 'Lưu Thu Trang',
+    },
+    registrationId: null,
+    subscriptionId: id('e035'),
+    suspensionId: null,
+  },
+];
+
+const UC44_ORG_STATUS: Record<Uc44Kind, string> = {
+  PendingLive: 'PendingPayment',
+  PendingLapsed: 'PendingPayment',
+  Cancelled: 'Cancelled',
+  OrgSuspended: 'Suspended',
+  SubSuspended: 'Active',
+};
+
+interface Uc44Dates {
+  createdAt: Date;
+  registrationExpiresAt?: Date;
+  startsAt?: Date;
+  expiresAt?: Date;
+  graceEndsAt?: Date | null;
+  suspendedAt?: Date | null;
+  orgSuspendedAt?: Date;
+}
+
+/** Mốc thời gian của một tổ chức UC44, tính theo lúc chạy seed. */
+function uc44Dates(
+  org: SeedUc44Org,
+  plan: SeedPlan,
+  now: Date,
+  ttlHours: number,
+  graceDays: number,
+): Uc44Dates {
+  const ttlMs = ttlHours * HOUR_MS;
+  switch (org.kind) {
+    case 'PendingLive': {
+      // Đăng ký 1 ngày trước, còn (ttl - 24) giờ để thanh toán.
+      const createdAt = addDays(now, -1);
+      return {
+        createdAt,
+        registrationExpiresAt: new Date(createdAt.getTime() + ttlMs),
+      };
+    }
+    case 'PendingLapsed': {
+      // Hạn thanh toán đã qua 1 ngày.
+      const createdAt = new Date(now.getTime() - ttlMs - DAY_MS);
+      return {
+        createdAt,
+        registrationExpiresAt: new Date(createdAt.getTime() + ttlMs),
+      };
+    }
+    case 'Cancelled': {
+      const createdAt = addDays(now, -30);
+      return {
+        createdAt,
+        registrationExpiresAt: new Date(createdAt.getTime() + ttlMs),
+      };
+    }
+    case 'OrgSuspended': {
+      const startsAt = addDays(now, -20);
+      return {
+        createdAt: addDays(startsAt, -1),
+        startsAt,
+        expiresAt: addDays(startsAt, plan.durationDays),
+        graceEndsAt: null,
+        suspendedAt: null,
+        orgSuspendedAt: addDays(now, -3),
+      };
+    }
+    case 'SubSuspended': {
+      // Hết hạn 10 ngày trước, hết ân hạn (graceDays) rồi mới Suspended (BR-16).
+      const expiresAt = addDays(now, -10);
+      const startsAt = addDays(expiresAt, -plan.durationDays);
+      const graceEndsAt = addDays(expiresAt, graceDays);
+      return {
+        createdAt: addDays(startsAt, -1),
+        startsAt,
+        expiresAt,
+        graceEndsAt,
+        suspendedAt: graceEndsAt,
+      };
+    }
+  }
+}
+
+function validateUc44Seed(
+  plans: Map<string, SeedPlan>,
+  now: Date,
+  ttlHours: number,
+  graceDays: number,
+): void {
+  const errors: string[] = [];
+  const check = (ok: boolean, message: string) => {
+    if (!ok) errors.push(message);
+  };
+  const uuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  const usedEmails = new Set(
+    users.filter((u) => !u.deletedAt).map((u) => u.email),
+  );
+  const ids = new Set<string>();
+
+  for (const org of uc44Organizations) {
+    for (const value of [
+      org.id,
+      org.organizer.id,
+      org.registrationId,
+      org.subscriptionId,
+      org.suspensionId,
+    ]) {
+      if (value === null) continue;
+      check(uuid.test(value), `UUID sai: ${value}`);
+      check(!ids.has(value), `ID trùng: ${value}`);
+      ids.add(value);
+    }
+    check(
+      /^[0-9]{10}([0-9]{3})?$/.test(org.taxCode),
+      `tax_code sai: ${org.name}`,
+    );
+    check(
+      /^\+[1-9][0-9]{1,14}$/.test(org.contactPhone),
+      `contact_phone sai: ${org.name}`,
+    );
+    for (const email of [org.contactEmail, org.organizer.email]) {
+      check(
+        email === email.trim().toLowerCase(),
+        `email chưa chuẩn hóa: ${email}`,
+      );
+    }
+    // Organizer của Eta đã xóa mềm nên không chiếm email; các Organizer khác phải không trùng.
+    if (org.kind !== 'Cancelled') {
+      check(
+        !usedEmails.has(org.organizer.email),
+        `email trùng: ${org.organizer.email}`,
+      );
+      usedEmails.add(org.organizer.email);
+    }
+    const plan = plans.get(org.planName);
+    check(plan !== undefined, `thiếu gói ${org.planName}: ${org.name}`);
+    if (!plan) continue;
+
+    const dates = uc44Dates(org, plan, now, ttlHours, graceDays);
+    const neverActivated =
+      org.kind === 'PendingLive' ||
+      org.kind === 'PendingLapsed' ||
+      org.kind === 'Cancelled';
+    // Tổ chức chưa từng hoạt động có đăng ký, không có Subscription; tổ chức đã hoạt động thì ngược lại.
+    check(
+      neverActivated === (org.registrationId !== null) &&
+        neverActivated === (org.subscriptionId === null),
+      `registration / subscription sai: ${org.name}`,
+    );
+    if (neverActivated) {
+      const live =
+        dates.registrationExpiresAt !== undefined &&
+        dates.registrationExpiresAt > now;
+      check(
+        live === (org.kind === 'PendingLive'),
+        `hạn đăng ký sai: ${org.name}`,
+      );
+    } else {
+      check(
+        dates.startsAt !== undefined &&
+          dates.expiresAt !== undefined &&
+          dates.startsAt < dates.expiresAt,
+        `subscription sai: ${org.name}`,
+      );
+    }
+    if (org.kind === 'OrgSuspended') {
+      check(
+        dates.expiresAt !== undefined && dates.expiresAt > now,
+        `subscription Active sai: ${org.name}`,
+      );
+      check(
+        org.suspensionId !== null && dates.orgSuspendedAt !== undefined,
+        `thiếu lượt tạm khóa: ${org.name}`,
+      );
+    }
+    if (org.kind === 'SubSuspended') {
+      check(
+        dates.graceEndsAt != null && dates.graceEndsAt <= now,
+        `subscription Suspended phải hết ân hạn: ${org.name}`,
+      );
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(
+      `Dữ liệu seed UC44 vi phạm ràng buộc:\n - ${errors.join('\n - ')}`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -831,10 +1152,13 @@ async function main(): Promise<void> {
   const ttlDays = settings?.invitationLinkTtlDays ?? 7;
   // BR-15: thời gian ân hạn (UC12.2, subscription Grace của Gamma).
   const graceDays = settings?.subscriptionGraceDays ?? 7;
+  // UC44 - BR-7: thời hạn chờ thanh toán của đăng ký (mặc định 168 giờ).
+  const pendingTtlHours = settings?.pendingRegistrationTtlHours ?? 168;
 
   const now = new Date();
   const tokens = buildTokens(now, ttlDays);
   validateSeed(tokens, plans, now, graceDays);
+  validateUc44Seed(plans, now, pendingTtlHours, graceDays);
 
   await prisma.$transaction(async (tx) => {
     // UC12.2: ghi cả tổ chức thêm ở đây (trước users vì khóa ngoại).
@@ -934,6 +1258,108 @@ async function main(): Promise<void> {
         update: data,
       });
     }
+
+    // UC44: tổ chức -> Organizer -> đăng ký / Subscription -> lượt tạm khóa (theo khóa ngoại).
+    for (const org of uc44Organizations) {
+      const plan = plans.get(org.planName)!;
+      const dates = uc44Dates(org, plan, now, pendingTtlHours, graceDays);
+      const orgData = {
+        name: org.name,
+        taxCode: org.taxCode,
+        address: org.address,
+        contactPhone: org.contactPhone,
+        contactEmail: org.contactEmail,
+        timezone: 'Asia/Ho_Chi_Minh',
+        status: UC44_ORG_STATUS[org.kind],
+        createdAt: dates.createdAt,
+      };
+      await tx.organization.upsert({
+        where: { id: org.id },
+        create: { id: org.id, ...orgData },
+        update: orgData,
+      });
+
+      // Organizer chưa kích hoạt khi chưa thanh toán; Eta bị xóa mềm theo BR-31.
+      const neverActivated = org.registrationId !== null;
+      const organizerData = {
+        organizationId: org.id,
+        email: org.organizer.email,
+        fullName: org.organizer.fullName,
+        role: 'Organizer',
+        department: null,
+        status: neverActivated ? 'Pending' : 'Active',
+        activatedAt: neverActivated ? null : dates.createdAt,
+        deletedAt:
+          org.kind === 'Cancelled' ? dates.registrationExpiresAt! : null,
+        createdAt: dates.createdAt,
+      };
+      await tx.user.upsert({
+        where: { id: org.organizer.id },
+        create: { id: org.organizer.id, ...organizerData },
+        update: organizerData,
+      });
+
+      const snapshot = {
+        planId: plan.id,
+        price: plan.price,
+        durationDays: plan.durationDays,
+        maxLearners: plan.maxLearners,
+        maxInstructors: plan.maxInstructors,
+        maxCourseChains: plan.maxCourseChains,
+        maxStorageBytes: plan.maxStorageBytes,
+      };
+      if (org.registrationId && dates.registrationExpiresAt) {
+        const registrationData = {
+          organizationId: org.id,
+          organizerUserId: org.organizer.id,
+          ...snapshot,
+          status: org.kind === 'Cancelled' ? 'Expired' : 'PendingPayment',
+          expiresAt: dates.registrationExpiresAt,
+          emailVerifiedAt: new Date(dates.createdAt.getTime() + HOUR_MS),
+          createdAt: dates.createdAt,
+        };
+        await tx.registration.upsert({
+          where: { id: org.registrationId },
+          create: { id: org.registrationId, ...registrationData },
+          update: registrationData,
+        });
+      }
+
+      if (org.subscriptionId && dates.startsAt && dates.expiresAt) {
+        const subscriptionData = {
+          organizationId: org.id,
+          ...snapshot,
+          source: 'Registration',
+          status: org.kind === 'SubSuspended' ? 'Suspended' : 'Active',
+          startsAt: dates.startsAt,
+          expiresAt: dates.expiresAt,
+          graceEndsAt: dates.graceEndsAt ?? null,
+          suspendedAt: dates.suspendedAt ?? null,
+          createdAt: dates.startsAt,
+        };
+        await tx.subscription.upsert({
+          where: { id: org.subscriptionId },
+          create: { id: org.subscriptionId, ...subscriptionData },
+          update: subscriptionData,
+        });
+      }
+
+      if (org.suspensionId && dates.orgSuspendedAt) {
+        const suspensionData = {
+          organizationId: org.id,
+          startedAt: dates.orgSuspendedAt,
+          endedAt: null,
+          reason:
+            'Seed UC44: tạm khóa để kiểm trạng thái Organization độc lập với Subscription.',
+          createdAt: dates.orgSuspendedAt,
+        };
+        await tx.organizationSuspension.upsert({
+          where: { id: org.suspensionId },
+          create: { id: org.suspensionId, ...suspensionData },
+          update: suspensionData,
+        });
+      }
+    }
   });
 
   const count = (role: Role, organizationId: string) =>
@@ -960,6 +1386,9 @@ async function main(): Promise<void> {
   );
   console.log(
     `  - UC13.2: Công ty TNHH Delta ${countNotDeleted('Learner', ORG_DELTA)}/${plans.get(BASIC_PLAN_NAME)!.maxLearners} Learner (hết chỗ Learner)`,
+  );
+  console.log(
+    `  - UC44: ${uc44Organizations.map((org) => `${org.name} (${org.kind})`).join(', ')}`,
   );
 }
 

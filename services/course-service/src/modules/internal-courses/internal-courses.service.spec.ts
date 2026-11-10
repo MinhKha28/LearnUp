@@ -2,7 +2,9 @@ import { InternalCoursesService } from './internal-courses.service';
 import type { PrismaService } from '@infra/prisma/prisma.service';
 import type { IReadableStorageProvider } from '@learnup/ts-storage';
 
-const storageStub = { getSignedUrl: jest.fn() } as unknown as IReadableStorageProvider;
+const storageStub = {
+  getSignedUrl: jest.fn(),
+} as unknown as IReadableStorageProvider;
 
 jest.mock('@learnup/ts-common', () => ({
   createApiError: (code: string, message: string) => ({ code, message }),
@@ -26,10 +28,13 @@ const row = {
 describe('I1 lock fast path', () => {
   const query = jest.fn();
   const transaction = jest.fn();
-  const service = new InternalCoursesService({
-    $queryRaw: query,
-    $transaction: transaction,
-  } as unknown as PrismaService, storageStub);
+  const service = new InternalCoursesService(
+    {
+      $queryRaw: query,
+      $transaction: transaction,
+    } as unknown as PrismaService,
+    storageStub,
+  );
 
   beforeEach(() => jest.resetAllMocks());
 
@@ -117,9 +122,12 @@ describe('I1 lock fast path', () => {
 
 describe('UC19 assignment minutes (BR-51, BR-172, BR-173)', () => {
   const query = jest.fn();
-  const service = new InternalCoursesService({
-    $queryRaw: query,
-  } as unknown as PrismaService, storageStub);
+  const service = new InternalCoursesService(
+    {
+      $queryRaw: query,
+    } as unknown as PrismaService,
+    storageStub,
+  );
 
   beforeEach(() => jest.resetAllMocks());
 
@@ -158,10 +166,13 @@ describe('UC19 assignment minutes (BR-51, BR-172, BR-173)', () => {
 describe('UC10 organization usage', () => {
   const count = jest.fn();
   const aggregate = jest.fn();
-  const service = new InternalCoursesService({
-    courseChain: { count },
-    mediaFile: { aggregate },
-  } as unknown as PrismaService, storageStub);
+  const service = new InternalCoursesService(
+    {
+      courseChain: { count },
+      mediaFile: { aggregate },
+    } as unknown as PrismaService,
+    storageStub,
+  );
 
   beforeEach(() => jest.resetAllMocks());
 
@@ -206,9 +217,12 @@ describe('UC10 organization usage', () => {
 
 describe('UC12 course chains by Instructor', () => {
   const groupBy = jest.fn();
-  const service = new InternalCoursesService({
-    courseChain: { groupBy },
-  } as unknown as PrismaService, storageStub);
+  const service = new InternalCoursesService(
+    {
+      courseChain: { groupBy },
+    } as unknown as PrismaService,
+    storageStub,
+  );
   const first = '25039003-0000-4000-8000-000000000001';
   const second = '25039003-0000-4000-8000-000000000002';
 
@@ -224,7 +238,7 @@ describe('UC12 course chains by Instructor', () => {
       where: {
         organizationId: org,
         instructorId: { in: [first, second] },
-        courses: { some: {} },
+        courses: { some: { deletedAt: null } },
       },
       _count: { _all: true },
     });
