@@ -129,7 +129,7 @@ const CourseEdit = () => {
         if (cancelled) return;
 
         console.error("Load Course error:", error);
-        setErrorMessage("Unable to load Course information.");
+        setErrorMessage("Không thể tải thông tin khóa học.");
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -264,20 +264,20 @@ const CourseEdit = () => {
     return (
       <InstructorPage className="course-create-page">
         <PageHeader
-          eyebrow="MY COURSES / EDIT"
-          title="Course not found"
-          subtitle="Unable to load Course information."
+          eyebrow="Khóa học của tôi / Chỉnh sửa"
+          title="Không tìm thấy khóa học"
+          subtitle="Không thể tải thông tin khóa học."
           back
         />
 
         <Alert
           type="error"
           showIcon
-          message={errorMessage || "Course not found."}
+          message={errorMessage || "Không tìm thấy khóa học."}
         />
 
         <InstructorButton onClick={() => navigate("/instructor/courses")}>
-          Back to My Courses
+          Quay lại khóa học của tôi
         </InstructorButton>
       </InstructorPage>
     );
@@ -288,8 +288,8 @@ const CourseEdit = () => {
     return (
       <InstructorPage className="course-create-page">
         <PageHeader
-          eyebrow="MY COURSES / EDIT"
-          title="Course cannot be edited"
+          eyebrow="Khóa học của tôi / Chỉnh sửa"
+          title="Không thể chỉnh sửa khóa học"
           subtitle={`Current status: ${course.status}`}
           back
         />
@@ -297,13 +297,13 @@ const CourseEdit = () => {
         <Alert
           showIcon
           type="warning"
-          message="Only Draft or Rejected Course can be edited."
+          message="Chỉ có thể chỉnh sửa khóa học bản nháp hoặc bị từ chối."
         />
 
         <InstructorButton
           onClick={() => navigate(`/instructor/courses/${course.id}`)}
         >
-          Back to Course Detail
+          Quay lại chi tiết khóa học
         </InstructorButton>
       </InstructorPage>
     );
@@ -312,13 +312,13 @@ const CourseEdit = () => {
   return (
     <InstructorPage className="course-create-page">
       <PageHeader
-        eyebrow="MY COURSES / EDIT"
-        title="Edit Course"
-        subtitle="Update the information of your Course."
+        eyebrow="Khóa học của tôi / Chỉnh sửa"
+        title="Chỉnh sửa khóa học"
+        subtitle="Cập nhật thông tin khóa học."
         back
         actions={
           <InstructorButton onClick={handleCancel} disabled={saving}>
-            Cancel
+            Hủy
           </InstructorButton>
         }
       />
@@ -327,15 +327,15 @@ const CourseEdit = () => {
         <div className="course-create-main">
           <Form form={form} layout="vertical" requiredMark="optional">
             {/* COURSE BASICS */}
-            <SectionCard title="Course basics" className="course-create-card">
+            <SectionCard title="Thông tin cơ bản" className="course-create-card">
               <p className="course-create-section-description">
-                Update the basic information of this Course.
+                Cập nhật thông tin cơ bản của khóa học.
               </p>
 
               <Form.Item
                 label={
                   <>
-                    Course name
+                    Tên khóa học
                     <span className="course-create-required">*</span>
                   </>
                 }
@@ -344,25 +344,25 @@ const CourseEdit = () => {
                   {
                     required: true,
                     whitespace: true,
-                    message: "Enter a Course name.",
+                    message: "Vui lòng nhập tên khóa học.",
                   },
                   {
                     max: 200,
-                    message: "Maximum 200 characters.",
+                    message: "Tối đa 200 ký tự.",
                   },
                 ]}
               >
                 <Input
                   size="large"
                   maxLength={200}
-                  placeholder="e.g. Workplace Safety Essentials"
+                  placeholder="Ví dụ: Kiến thức an toàn lao động"
                 />
               </Form.Item>
 
               <Form.Item
                 label={
                   <>
-                    Course type
+                    Loại khóa học
                     <span className="course-create-required">*</span>
                   </>
                 }
@@ -390,8 +390,8 @@ const CourseEdit = () => {
                         <strong>{type}</strong>
                         <small>
                           {type === "Public"
-                            ? "Published Course can appear in the Learner Catalog."
-                            : "Hidden from the self-learning catalog."}
+                            ? "Khóa học đã phát hành có thể xuất hiện trong danh mục tự học."
+                            : "Không hiển thị trong danh mục tự học."}
                         </small>
                       </span>
                     </button>
@@ -402,7 +402,7 @@ const CourseEdit = () => {
               <Form.Item
                 label={
                   <>
-                    Planned completion days
+                    Số ngày hoàn thành dự kiến
                     <span className="course-create-required">*</span>
                   </>
                 }
@@ -410,7 +410,7 @@ const CourseEdit = () => {
                 rules={[
                   {
                     required: true,
-                    message: "Enter planned completion days.",
+                    message: "Vui lòng nhập số ngày hoàn thành dự kiến.",
                   },
                 ]}
               >
@@ -418,7 +418,7 @@ const CourseEdit = () => {
                   min={1}
                   precision={0}
                   size="large"
-                  placeholder="e.g. 14"
+                  placeholder="Ví dụ: 14"
                   addonAfter="days"
                   className="course-create-days"
                 />
@@ -432,7 +432,7 @@ const CourseEdit = () => {
 
             {/* OPTIONAL DETAILS */}
             <SectionCard
-              title="Optional details"
+              title="Thông tin bổ sung"
               className="course-create-card"
             >
               <p className="course-create-section-description">
@@ -443,8 +443,8 @@ const CourseEdit = () => {
               {/* COURSE COVER */}
               <div className="course-cover-field">
                 <div className="course-cover-label">
-                  <strong>Course cover</strong>
-                  <span>Optional. JPEG, PNG or WebP, maximum 5 MB.</span>
+                  <strong>Ảnh bìa khóa học</strong>
+                  <span>Không bắt buộc. Hỗ trợ JPEG, PNG hoặc WebP, tối đa 5 MB.</span>
                 </div>
 
                 {displayedCover ? (
@@ -458,7 +458,7 @@ const CourseEdit = () => {
                       disabled={saving}
                     >
                       <DeleteOutlined />
-                      Remove
+                      Xóa
                     </button>
                   </div>
                 ) : (
@@ -474,7 +474,7 @@ const CourseEdit = () => {
                       <PictureOutlined />
                     </p>
 
-                    <p className="ant-upload-text">Upload Course cover</p>
+                    <p className="ant-upload-text">Tải ảnh bìa lên</p>
 
                     <p className="ant-upload-hint">
                       JPEG, PNG or WebP · Max 5 MB
@@ -488,26 +488,26 @@ const CourseEdit = () => {
                     disabled={saving}
                     style={{ marginTop: 12 }}
                   >
-                    Undo remove
+                    Hoàn tác xóa
                   </InstructorButton>
                 )}
               </div>
 
-              <Form.Item label="Short description" name="shortDescription">
+              <Form.Item label="Mô tả ngắn" name="shortDescription">
                 <Input.TextArea
                   rows={3}
                   maxLength={500}
                   showCount
-                  placeholder="Briefly describe this Course"
+                  placeholder="Nhập mô tả ngắn về khóa học"
                 />
               </Form.Item>
 
-              <Form.Item label="Training objective" name="trainingObjectives">
+              <Form.Item label="Mục tiêu đào tạo" name="trainingObjectives">
                 <Input.TextArea
                   rows={4}
                   maxLength={2000}
                   showCount
-                  placeholder="Describe the main training objective"
+                  placeholder="Nhập mục tiêu đào tạo chính"
                 />
               </Form.Item>
 
@@ -517,8 +517,8 @@ const CourseEdit = () => {
                   <div>
                     <div className="course-outcomes-header">
                       <div>
-                        <strong>Learning Outcomes</strong>
-                        <p>Optional while Draft or Rejected.</p>
+                        <strong>Kết quả học tập mong đợi</strong>
+                        <p>Không bắt buộc khi ở trạng thái bản nháp hoặc bị từ chối.</p>
                       </div>
 
                       <InstructorButton
@@ -526,7 +526,7 @@ const CourseEdit = () => {
                         onClick={() => add("")}
                       >
                         <PlusOutlined />
-                        Add outcome
+                        Thêm kết quả học tập
                       </InstructorButton>
                     </div>
 
@@ -542,7 +542,7 @@ const CourseEdit = () => {
                         <button
                           type="button"
                           className="course-outcome-remove"
-                          aria-label="Remove learning outcome"
+                          aria-label="Xóa kết quả học tập"
                           disabled={saving}
                           onClick={() => remove(field.name)}
                         >
@@ -553,7 +553,7 @@ const CourseEdit = () => {
 
                     {fields.length === 0 && (
                       <div className="course-outcomes-empty">
-                        No Learning Outcomes added.
+                        Chưa thêm kết quả học tập mong đợi.
                       </div>
                     )}
                   </div>
@@ -564,7 +564,7 @@ const CourseEdit = () => {
             {/* ACTION BUTTONS */}
             <div className="course-create-actions">
               <InstructorButton onClick={handleCancel} disabled={saving}>
-                Cancel
+                Hủy
               </InstructorButton>
 
               <InstructorButton
@@ -572,7 +572,7 @@ const CourseEdit = () => {
                 loading={saving}
                 onClick={() => void handleSave()}
               >
-                Save Changes
+                Lưu thay đổi
               </InstructorButton>
             </div>
           </Form>
@@ -580,11 +580,11 @@ const CourseEdit = () => {
 
         {/* COURSE SUMMARY */}
         <aside className="course-create-summary">
-          <SectionCard title="Course summary">
+          <SectionCard title="Tóm tắt khóa học">
             <div className="course-summary-name">{summaryName}</div>
 
             <SummaryRow
-              label="Status"
+              label="Trạng thái"
               value={
                 <StatusTag
                   tone={course.status === "Rejected" ? "error" : "neutral"}
@@ -595,40 +595,40 @@ const CourseEdit = () => {
             />
 
             <SummaryRow
-              label="Version"
+              label="Phiên bản"
               value={`Version ${course.versionNumber}`}
             />
 
-            <SummaryRow label="Course type" value={summaryType} />
+            <SummaryRow label="Loại khóa học" value={summaryType} />
 
             <SummaryRow
-              label="Planned completion"
+              label="Thời gian hoàn thành dự kiến"
               value={summaryDays > 0 ? `${summaryDays} days` : "Not set"}
             />
 
             <div className="course-summary-divider" />
 
             <div className="course-summary-checklist">
-              <span className="course-summary-title">Required to save</span>
+              <span className="course-summary-title">Thông tin bắt buộc khi lưu</span>
 
               <RequirementItem
                 completed={Boolean(watchedName?.trim())}
-                label="Course name"
+                label="Tên khóa học"
               />
 
               <RequirementItem
                 completed={Boolean(watchedCourseType)}
-                label="Course type"
+                label="Loại khóa học"
               />
 
               <RequirementItem
                 completed={Boolean(watchedDays && watchedDays > 0)}
-                label="Planned completion days"
+                label="Số ngày hoàn thành dự kiến"
               />
             </div>
 
             <div className="course-summary-note">
-              Changes will be saved to the current Course version.
+              Các thay đổi sẽ được lưu vào phiên bản khóa học hiện tại.
             </div>
           </SectionCard>
         </aside>

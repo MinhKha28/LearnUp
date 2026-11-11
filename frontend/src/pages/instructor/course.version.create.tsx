@@ -9,10 +9,10 @@ import { InstructorButton, InstructorPage, PageHeader } from "@/components/instr
 import "./course.version.create.scss";
 
 const detailRows = [
-  { label: "Structure", value: "Modules, Lessons, Quizzes and Assignment copied" },
-  { label: "Type", value: "Public or Private carried forward" },
-  { label: "Storage", value: "Source learning files referenced, without duplicate storage" },
-  { label: "Approval", value: "New Draft must be submitted for Organizer review" },
+  { label: "Cấu trúc", value: "Modules, Lessons, Quizzes and Assignment copied" },
+  { label: "Loại", value: "Public or Private carried forward" },
+  { label: "Lưu trữ", value: "Source learning files referenced, without duplicate storage" },
+  { label: "Phê duyệt", value: "New Draft must be submitted for Organizer review" },
 ];
 
 const CourseVersionCreate = () => {
@@ -24,13 +24,13 @@ const CourseVersionCreate = () => {
     return (
       <InstructorPage className="instructor-version-create">
         <PageHeader
-          eyebrow="COURSE / VERSIONS"
-          title="Course not found"
-          subtitle="This Course may have been removed."
+          eyebrow="Khóa học / Phiên bản"
+          title="Không tìm thấy khóa học"
+          subtitle="Khóa học này có thể đã bị xóa."
           back
         />
         <InstructorButton onClick={() => navigate("/instructor/courses")}>
-          Back to My Courses
+          Quay lại khóa học của tôi
         </InstructorButton>
       </InstructorPage>
     );
@@ -40,13 +40,13 @@ const CourseVersionCreate = () => {
     return (
       <InstructorPage className="instructor-version-create">
         <PageHeader
-          eyebrow="COURSE / VERSIONS"
-          title="A new version is already in progress"
-          subtitle="Finish or submit the current Draft version first."
+          eyebrow="Khóa học / Phiên bản"
+          title="Đã có phiên bản mới đang được thực hiện"
+          subtitle="Hãy hoàn tất hoặc gửi phê duyệt phiên bản bản nháp hiện tại trước."
           back
         />
         <InstructorButton onClick={() => navigate(`/instructor/courses/${course.id}/versions`)}>
-          Back to Version Chain
+          Quay lại chuỗi phiên bản
         </InstructorButton>
       </InstructorPage>
     );
@@ -63,13 +63,13 @@ const CourseVersionCreate = () => {
   return (
     <InstructorPage className="instructor-version-create">
       <PageHeader
-        eyebrow="COURSE / VERSIONS"
-        title="Create New Course Version"
-        subtitle="Copy this Locked Course into a new Draft version."
+        eyebrow="Khóa học / Phiên bản"
+        title="Tạo phiên bản khóa học mới"
+        subtitle="Sao chép khóa học đã khóa thành phiên bản bản nháp mới."
         back
       />
       <div className="instructor-version-create-card">
-        <span className="instructor-version-create-label">Source</span>
+        <span className="instructor-version-create-label">Nguồn</span>
         <h2>
           {course.title} · {course.version} · Locked
         </h2>

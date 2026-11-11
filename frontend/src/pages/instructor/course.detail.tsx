@@ -115,20 +115,20 @@ const CourseDetail = () => {
     return (
       <InstructorPage className="instructor-course-detail">
         <PageHeader
-          eyebrow="MY COURSES"
-          title="Course not found"
-          subtitle="The Course does not exist or you do not have access."
+          eyebrow="Khóa học của tôi"
+          title="Không tìm thấy khóa học"
+          subtitle="Khóa học không tồn tại hoặc bạn không có quyền truy cập."
           back
         />
 
         <Alert
           type="error"
           showIcon
-          message={errorMessage || "Course not found."}
+          message={errorMessage || "Không tìm thấy khóa học."}
         />
 
         <InstructorButton onClick={() => navigate("/instructor/courses")}>
-          Back to My Courses
+          Quay lại khóa học của tôi
         </InstructorButton>
       </InstructorPage>
     );
@@ -138,7 +138,7 @@ const CourseDetail = () => {
     if (!course || deleting) return;
 
     Modal.confirm({
-      title: "Move Course to Trash?",
+      title: "Chuyển khóa học vào thùng rác?",
       content: (
         <>
           <p>
@@ -151,8 +151,8 @@ const CourseDetail = () => {
           </p>
         </>
       ),
-      okText: "Move to Trash",
-      cancelText: "Cancel",
+      okText: "Chuyển vào thùng rác",
+      cancelText: "Hủy",
       okButtonProps: { danger: true },
 
       onOk: async () => {
@@ -186,7 +186,7 @@ const CourseDetail = () => {
   return (
     <InstructorPage className="instructor-course-detail">
       <PageHeader
-        eyebrow="MY COURSES / COURSE DETAIL"
+        eyebrow="Khóa học của tôi / Chi tiết"
         title={course.name}
         subtitle={`Version ${course.versionNumber} • ${
           course.courseType === "Public" ? "Public" : "Private"
@@ -196,7 +196,7 @@ const CourseDetail = () => {
           <InstructorButton
             onClick={() => navigate(`/instructor/courses/${course.id}/builder`)}
           >
-            Open Builder
+            Mở trình xây dựng
           </InstructorButton>
         }
       />
@@ -210,7 +210,7 @@ const CourseDetail = () => {
       <div className="instructor-course-detail-grid">
         <SectionCard className="instructor-course-detail-main">
           <div className="instructor-course-detail-block">
-            <h2>Short description</h2>
+            <h2>Mô tả ngắn</h2>
             <p>
               {course.shortDescription ||
                 "No short description has been provided."}
@@ -218,7 +218,7 @@ const CourseDetail = () => {
           </div>
 
           <div className="instructor-course-detail-block">
-            <h2>Training objective</h2>
+            <h2>Mục tiêu đào tạo</h2>
             <p>
               {course.trainingObjectives ||
                 "No training objective has been provided."}
@@ -226,7 +226,7 @@ const CourseDetail = () => {
           </div>
 
           <div className="instructor-course-detail-block">
-            <h2>Learning Outcomes</h2>
+            <h2>Kết quả học tập mong đợi</h2>
 
             {course.learningOutcomes.length > 0 ? (
               <ul className="instructor-course-outcomes">
@@ -235,55 +235,55 @@ const CourseDetail = () => {
                 ))}
               </ul>
             ) : (
-              <p>No Learning Outcomes have been provided.</p>
+              <p>Chưa có kết quả học tập mong đợi.</p>
             )}
           </div>
 
           <div className="instructor-course-detail-block instructor-course-detail-block-last">
-            <h2>Course information</h2>
+            <h2>Thông tin khóa học</h2>
 
             <div className="instructor-course-info-table">
               <div className="instructor-course-info-row">
-                <strong>Planned completion</strong>
+                <strong>Thời gian hoàn thành dự kiến</strong>
                 <span>{course.expectedCompletionDays} days</span>
               </div>
 
               <div className="instructor-course-info-row">
-                <strong>Estimated learning time</strong>
+                <strong>Thời lượng học dự kiến</strong>
                 <span>
                   {formatEstimatedDuration(course.estimatedDurationMinutes)}
                 </span>
               </div>
 
               <div className="instructor-course-info-row">
-                <strong>Course type</strong>
+                <strong>Loại khóa học</strong>
                 <span>
                   {course.courseType === "Public" ? "Public" : "Private"}
                 </span>
               </div>
 
               <div className="instructor-course-info-row">
-                <strong>Approval status</strong>
+                <strong>Trạng thái phê duyệt</strong>
                 <StatusTag tone={getCourseStatusTone(course.status)}>
                   {courseStatusLabel[course.status]}
                 </StatusTag>
               </div>
 
               <div className="instructor-course-info-row">
-                <strong>Structure status</strong>
+                <strong>Trạng thái cấu trúc</strong>
                 <span>{course.locked ? "Locked" : "Unlocked"}</span>
               </div>
             </div>
           </div>
         </SectionCard>
 
-        <SectionCard title="Actions" className="instructor-course-actions-card">
+        <SectionCard title="Thao tác" className="instructor-course-actions-card">
           {(course.status === "Draft" || course.status === "Rejected") && (
             <InstructorButton
               block
               onClick={() => navigate(`/instructor/courses/${course.id}/edit`)}
             >
-              Edit Course Details
+              Chỉnh sửa chi tiết khóa học
             </InstructorButton>
           )}
 
@@ -291,7 +291,7 @@ const CourseDetail = () => {
             block
             onClick={() => navigate(`/instructor/courses/${course.id}/builder`)}
           >
-            Open Builder
+            Mở trình xây dựng
           </InstructorButton>
 
           {(course.status === "Draft" || course.status === "Rejected") && (
@@ -302,7 +302,7 @@ const CourseDetail = () => {
                 navigate(`/instructor/courses/${course.id}/submit`)
               }
             >
-              Submit for Review
+              Gửi phê duyệt
             </InstructorButton>
           )}
 
@@ -313,7 +313,7 @@ const CourseDetail = () => {
                 navigate(`/instructor/courses/${course.id}/withdraw`)
               }
             >
-              Withdraw Submission
+              Thu hồi khóa học đã gửi
             </InstructorButton>
           )}
 
@@ -324,7 +324,7 @@ const CourseDetail = () => {
                 navigate(`/instructor/courses/${course.id}/versions`)
               }
             >
-              View Version Chain
+              Xem chuỗi phiên bản
             </InstructorButton>
           )}
 
@@ -336,7 +336,7 @@ const CourseDetail = () => {
                 loading={deleting}
                 onClick={handleSoftDelete}
               >
-                Move to Trash
+                Chuyển vào thùng rác
               </InstructorButton>
             )}
         </SectionCard>

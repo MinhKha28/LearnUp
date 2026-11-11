@@ -50,13 +50,13 @@ const CourseSubmit = () => {
         Number(response.statusCode) >= 300 ||
         !response.data
       ) {
-        throw new Error("Course not found.");
+        throw new Error("Không tìm thấy khóa học.");
       }
 
       setCourse(response.data);
     } catch {
       setCourse(null);
-      setError("Unable to load Course information.");
+      setError("Không thể tải thông tin khóa học.");
     } finally {
       setLoading(false);
     }
@@ -119,14 +119,14 @@ const CourseSubmit = () => {
     return (
       <InstructorPage className="instructor-course-submit">
         <PageHeader
-          eyebrow="COURSE / APPROVAL"
-          title="Course not found"
+          eyebrow="Khóa học / Phê duyệt"
+          title="Không tìm thấy khóa học"
           back
           subtitle=""
         />
-        <Alert type="error" showIcon message={error || "Course not found."} />
+        <Alert type="error" showIcon message={error || "Không tìm thấy khóa học."} />
         <InstructorButton onClick={() => navigate("/instructor/courses")}>
-          Back to My Courses
+          Quay lại khóa học của tôi
         </InstructorButton>
       </InstructorPage>
     );
@@ -142,9 +142,9 @@ const CourseSubmit = () => {
   return (
     <InstructorPage className="instructor-course-submit">
       <PageHeader
-        eyebrow="COURSE / APPROVAL"
-        title="Review and Submit Course"
-        subtitle="Review your Course before sending it for approval."
+        eyebrow="Khóa học / Phê duyệt"
+        title="Kiểm tra và gửi khóa học phê duyệt"
+        subtitle="Kiểm tra khóa học trước khi gửi phê duyệt."
         back
       />
 
@@ -158,7 +158,7 @@ const CourseSubmit = () => {
             <Alert
               type="warning"
               showIcon
-              message="Previous rejection reason"
+              message="Lý do từ chối trước đó"
               description={course.rejectionReason}
               style={{ marginBottom: 16 }}
             />
@@ -168,7 +168,7 @@ const CourseSubmit = () => {
             <Alert
               type="warning"
               showIcon
-              message="This Course cannot be submitted."
+              message="Không thể gửi khóa học này phê duyệt."
               style={{ marginBottom: 16 }}
             />
           )}
@@ -177,8 +177,8 @@ const CourseSubmit = () => {
             <Alert
               type="warning"
               showIcon
-              message="Course information is incomplete."
-              description="Provide a short description, training objectives and at least one Learning Outcome."
+              message="Thông tin khóa học chưa đầy đủ."
+              description="Cần có mô tả ngắn, mục tiêu đào tạo và ít nhất một kết quả học tập mong đợi."
               style={{ marginBottom: 16 }}
             />
           )}
@@ -186,8 +186,8 @@ const CourseSubmit = () => {
           <div className="instructor-submit-rows">
             <div className="instructor-submit-row">
               <div>
-                <strong>Course details</strong>
-                <p>Review the description, objectives and Learning Outcomes.</p>
+                <strong>Chi tiết khóa học</strong>
+                <p>Kiểm tra mô tả, mục tiêu và kết quả học tập mong đợi.</p>
               </div>
 
               <button
@@ -197,14 +197,14 @@ const CourseSubmit = () => {
                   navigate(`/instructor/courses/${course.id}/edit`)
                 }
               >
-                Review
+                Kiểm tra
               </button>
             </div>
 
             <div className="instructor-submit-row">
               <div>
-                <strong>Course content and assessments</strong>
-                <p>Review Modules, Lessons, resources and Quiz questions.</p>
+                <strong>Nội dung và bài đánh giá của khóa học</strong>
+                <p>Kiểm tra chương, bài học, học liệu và câu hỏi trắc nghiệm.</p>
               </div>
 
               <button
@@ -214,19 +214,19 @@ const CourseSubmit = () => {
                   navigate(`/instructor/courses/${course.id}/builder`)
                 }
               >
-                Review
+                Kiểm tra
               </button>
             </div>
           </div>
 
           <div className="instructor-submit-warning">
-            <strong>Estimated learning duration</strong>
+            <strong>Thời lượng học dự kiến</strong>
             <p>
               {course.estimatedDurationMinutes === null
                 ? "Estimated duration is not available."
                 : `${course.estimatedDurationMinutes} minutes estimated.`}
             </p>
-            <p>Duration warnings do not block submission.</p>
+            <p>Cảnh báo thời lượng không ngăn việc gửi phê duyệt.</p>
           </div>
 
           <div className="instructor-submit-actions">
@@ -234,7 +234,7 @@ const CourseSubmit = () => {
               disabled={submitting}
               onClick={() => navigate(`/instructor/courses/${course.id}`)}
             >
-              Cancel
+              Hủy
             </InstructorButton>
 
             <InstructorButton
@@ -250,10 +250,10 @@ const CourseSubmit = () => {
           </div>
         </SectionCard>
 
-        <SectionCard title="Approval route" className="instructor-submit-side">
-          <p>Draft or Rejected → Submitted</p>
-          <p>Organizer reviews and makes a decision.</p>
-          <p>Submitted does not mean Published.</p>
+        <SectionCard title="Quy trình phê duyệt" className="instructor-submit-side">
+          <p>Bản nháp hoặc bị từ chối → Chờ phê duyệt</p>
+          <p>Quản lý đào tạo thẩm định và đưa ra quyết định.</p>
+          <p>Đã gửi phê duyệt không có nghĩa là đã phát hành.</p>
         </SectionCard>
       </div>
     </InstructorPage>

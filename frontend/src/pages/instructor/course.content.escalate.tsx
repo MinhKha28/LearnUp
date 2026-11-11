@@ -17,7 +17,7 @@ const CourseContentEscalate = () => {
   if (!item) {
     return (
       <InstructorPage className="instructor-content-escalate">
-        <PageHeader eyebrow="CONTENT REVIEW / ESCALATION" title="No content review pending" subtitle="" back />
+        <PageHeader eyebrow="Thẩm định nội dung / Khiếu nại" title="Không có nội dung đang chờ thẩm định" subtitle="" back />
       </InstructorPage>
     );
   }
@@ -31,26 +31,26 @@ const CourseContentEscalate = () => {
   return (
     <InstructorPage className="instructor-content-escalate">
       <PageHeader
-        eyebrow="CONTENT REVIEW / ESCALATION"
-        title="Escalate Content Decision"
-        subtitle="Contest an Organizer decision about content you own."
+        eyebrow="Thẩm định nội dung / Khiếu nại"
+        title="Khiếu nại quyết định xử lý nội dung"
+        subtitle="Khiếu nại quyết định xử lý nội dung của quản lý đào tạo đối với nội dung bạn phụ trách."
         back
       />
       <SectionCard>
-        <InfoPanel title="Appeal route">
-          This is for the content owner to challenge an Organizer decision.
+        <InfoPanel title="Quy trình khiếu nại">
+          Chủ sở hữu nội dung có thể khiếu nại quyết định của quản lý đào tạo.
         </InfoPanel>
         <Form<EscalateFields> layout="vertical" requiredMark={false} onFinish={submit}>
           <Form.Item
-            label="Reason for escalation"
+            label="Lý do khiếu nại"
             name="reason"
-            rules={[{ required: true, message: "Explain why the decision should be reviewed by Admin." }]}
+            rules={[{ required: true, message: "Nêu lý do cần quản trị viên xem xét lại quyết định." }]}
           >
-            <Input.TextArea rows={6} placeholder="Explain why the decision should be reviewed by Admin..." />
+            <Input.TextArea rows={6} placeholder="Nhập lý do đề nghị quản trị viên xem xét lại..." />
           </Form.Item>
           <div className="instructor-content-escalate-actions">
             <InstructorButton type="primary" htmlType="submit">
-              Send to platform Admin
+              Gửi quản trị viên hệ thống
             </InstructorButton>
           </div>
         </Form>

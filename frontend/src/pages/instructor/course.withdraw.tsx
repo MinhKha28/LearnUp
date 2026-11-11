@@ -52,14 +52,14 @@ const CourseWithdraw = () => {
         !response.data
       ) {
         setCourse(null);
-        setError("Unable to load Course information.");
+        setError("Không thể tải thông tin khóa học.");
         return;
       }
 
       setCourse(response.data);
     } catch {
       setCourse(null);
-      setError("Unable to load Course information.");
+      setError("Không thể tải thông tin khóa học.");
     } finally {
       setLoading(false);
     }
@@ -122,16 +122,16 @@ const CourseWithdraw = () => {
     return (
       <InstructorPage className="instructor-course-withdraw">
         <PageHeader
-          eyebrow="COURSE / APPROVAL"
-          title="Course not found"
-          subtitle="Unable to load Course information."
+          eyebrow="Khóa học / Phê duyệt"
+          title="Không tìm thấy khóa học"
+          subtitle="Không thể tải thông tin khóa học."
           back
         />
 
-        <Alert type="error" showIcon message={error || "Course not found."} />
+        <Alert type="error" showIcon message={error || "Không tìm thấy khóa học."} />
 
         <InstructorButton onClick={() => navigate("/instructor/courses")}>
-          Back to My Courses
+          Quay lại khóa học của tôi
         </InstructorButton>
       </InstructorPage>
     );
@@ -141,8 +141,8 @@ const CourseWithdraw = () => {
     return (
       <InstructorPage className="instructor-course-withdraw">
         <PageHeader
-          eyebrow="COURSE / APPROVAL"
-          title="Nothing to withdraw"
+          eyebrow="Khóa học / Phê duyệt"
+          title="Không có khóa học cần thu hồi"
           subtitle={`This Course is currently ${course.status}.`}
           back
         />
@@ -150,7 +150,7 @@ const CourseWithdraw = () => {
         <InstructorButton
           onClick={() => navigate(`/instructor/courses/${course.id}`)}
         >
-          Back to Course
+          Quay lại khóa học
         </InstructorButton>
       </InstructorPage>
     );
@@ -159,25 +159,25 @@ const CourseWithdraw = () => {
   return (
     <InstructorPage className="instructor-course-withdraw">
       <PageHeader
-        eyebrow="COURSE / APPROVAL"
-        title="Withdraw Submitted Course"
-        subtitle="The Organizer has not decided on this Course yet."
+        eyebrow="Khóa học / Phê duyệt"
+        title="Thu hồi khóa học đã gửi phê duyệt"
+        subtitle="Quản lý đào tạo chưa đưa ra quyết định cho khóa học này."
         back
       />
 
-      <WarningPanel title="Submitted state">
-        You can return the Course to Draft before an Organizer decision.
+      <WarningPanel title="Trạng thái chờ phê duyệt">
+        Bạn có thể thu hồi khóa học về bản nháp trước khi quản lý đào tạo đưa ra quyết định.
       </WarningPanel>
 
       <div className="instructor-withdraw-card">
         <h2>{course.name}</h2>
 
         <p>Current status: {course.status}</p>
-        <p>Withdrawal restores Draft editing access.</p>
+        <p>Thu hồi thành công sẽ đưa khóa học về bản nháp để tiếp tục chỉnh sửa.</p>
 
         <div className="instructor-withdraw-actions">
           <InstructorButton disabled={withdrawing} onClick={() => navigate(-1)}>
-            Cancel
+            Hủy
           </InstructorButton>
 
           <InstructorButton
@@ -186,7 +186,7 @@ const CourseWithdraw = () => {
             disabled={withdrawing}
             onClick={() => void handleWithdraw()}
           >
-            Withdraw to Draft
+            Thu hồi về bản nháp
           </InstructorButton>
         </div>
       </div>
