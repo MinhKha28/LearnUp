@@ -33,7 +33,7 @@ type LoadError = { notFound: boolean; message: string };
 const LockReason = ({ permission }: { permission: IQuizPermission }) =>
   permission.allowed ? null : (
     <p className="builder-quiz-detail-why">
-      <LockOutlined aria-label="Locked" /> {permissionReasonTexts(permission).join(" ")}
+      <LockOutlined aria-label="Đã khóa" /> {permissionReasonTexts(permission).join(" ")}
     </p>
   );
 
@@ -86,7 +86,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
       } catch {
         if (active) {
           setQuiz(null);
-          setError({ notFound: false, message: "Unable to reach the Assessment service. Please try again." });
+          setError({ notFound: false, message: "Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại." });
         }
       } finally {
         if (active) setLoading(false);
@@ -104,7 +104,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
   if (loading && !quiz) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Edit Quiz Configuration</span>
+        <span className="builder-crumb">Xây dựng khóa học / Cấu hình bài trắc nghiệm</span>
         <div className="builder-update-card" aria-busy="true">
           <Skeleton active paragraph={{ rows: 6 }} />
         </div>
@@ -115,7 +115,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
   if (error || !quiz) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Edit Quiz Configuration</span>
+        <span className="builder-crumb">Xây dựng khóa học / Cấu hình bài trắc nghiệm</span>
         <div className="builder-update-card">
           <div className="builder-banner builder-banner-error">
             <strong>{error?.notFound ? "Quiz not found" : "The Quiz could not be loaded"}</strong>
@@ -127,11 +127,11 @@ const CourseBuilderQuizConfigurationEdit = () => {
           </div>
           <div className="builder-actions">
             <InstructorButton onClick={() => navigate(`${base}/quizzes`)}>
-              <ArrowLeftOutlined /> Back to Quizzes
+              <ArrowLeftOutlined /> Quay lại bài trắc nghiệm
             </InstructorButton>
             {!error?.notFound && (
               <InstructorButton type="primary" onClick={reload}>
-                Try again
+                Thử lại
               </InstructorButton>
             )}
           </div>
@@ -189,7 +189,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
       message.success("Quiz settings saved.");
       navigate(detailPath);
     } catch {
-      message.error("Unable to reach the Assessment service. Please try again.");
+      message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setSaving(false);
     }
@@ -199,7 +199,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
     <InstructorPage className="builder-page">
       <span className="builder-crumb">Course Builder / Quizzes / {quiz.title} / Edit Configuration</span>
       <div className="builder-hero">
-        <h1>Edit Quiz Configuration</h1>
+        <h1>Chỉnh sửa cấu hình bài trắc nghiệm</h1>
         <p>{quiz.title}</p>
       </div>
       <div className="builder-grid">
@@ -213,7 +213,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
 
           <div className="builder-field-row">
             <div>
-              <label className="instructor-form-label instructor-form-label-spaced">Time limit (minutes, 1-1440)</label>
+              <label className="instructor-form-label instructor-form-label-spaced">Thời gian làm bài (phút, 1–1440)</label>
               <NumberField
                 rule={TIME_LIMIT_RULE}
                 showError={submitted}
@@ -224,7 +224,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
               <LockReason permission={permissions.editTimeLimit} />
             </div>
             <div>
-              <label className="instructor-form-label instructor-form-label-spaced">Passing score (above 0, max 100)</label>
+              <label className="instructor-form-label instructor-form-label-spaced">Điểm đạt (lớn hơn 0, tối đa 100)</label>
               <NumberField
                 rule={QUIZ_PASSING_SCORE_RULE}
                 showError={submitted}
@@ -235,7 +235,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
               <LockReason permission={permissions.editPassingScore} />
             </div>
             <div>
-              <label className="instructor-form-label instructor-form-label-spaced">Consecutive attempts (n)</label>
+              <label className="instructor-form-label instructor-form-label-spaced">Số lượt làm liên tiếp (n)</label>
               <NumberField
                 rule={REQUIRED_ATTEMPTS_RULE}
                 showError={submitted}
@@ -246,7 +246,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
               <LockReason permission={permissions.editAttemptRule} />
             </div>
             <div>
-              <label className="instructor-form-label instructor-form-label-spaced">Temporary lock (m hours)</label>
+              <label className="instructor-form-label instructor-form-label-spaced">Thời gian khóa tạm (m giờ)</label>
               <NumberField
                 rule={REQUIRED_LOCK_HOURS_RULE}
                 showError={submitted}
@@ -258,7 +258,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
             </div>
           </div>
 
-          <label className="instructor-form-label instructor-form-label-spaced">Certificate requirement</label>
+          <label className="instructor-form-label instructor-form-label-spaced">Điều kiện cấp chứng chỉ</label>
           <Radio.Group
             optionType="button"
             buttonStyle="solid"
@@ -266,25 +266,25 @@ const CourseBuilderQuizConfigurationEdit = () => {
             value={isRequired}
             onChange={(event) => setIsRequired(event.target.value as boolean)}
             options={[
-              { label: "Required", value: true },
-              { label: "Optional", value: false },
+              { label: "Bắt buộc", value: true },
+              { label: "Không bắt buộc", value: false },
             ]}
           />
           <LockReason permission={permissions.editRequired} />
 
           <div className="builder-actions">
-            <InstructorButton onClick={() => navigate(detailPath)}>Cancel</InstructorButton>
+            <InstructorButton onClick={() => navigate(detailPath)}>Hủy</InstructorButton>
             <InstructorButton type="primary" loading={saving} disabled={!anyOpen} onClick={handleSave}>
-              Save settings
+              Lưu thiết lập
             </InstructorButton>
           </div>
         </div>
         <div className="builder-side">
-          <InfoPanel title="Edit conditions">
+          <InfoPanel title="Điều kiện chỉnh sửa">
             Time limit, n and m lock as soon as a Learner starts the Quiz, even before submitting. The passing score
             and Required setting lock once the Course is Locked.
           </InfoPanel>
-          <InfoPanel title="Questions">Questions and answers are edited separately and lock with the first attempt.</InfoPanel>
+          <InfoPanel title="Câu hỏi">Câu hỏi và đáp án được chỉnh sửa riêng; việc chỉnh sửa sẽ bị khóa sau lượt làm đầu tiên.</InfoPanel>
         </div>
       </div>
     </InstructorPage>

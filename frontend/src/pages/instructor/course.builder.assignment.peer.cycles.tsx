@@ -19,7 +19,7 @@ const CourseBuilderAssignmentPeerCycles = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Peer Review Cycles</span>
+      <span className="builder-crumb">Xây dựng khóa học / Chu kỳ chấm chéo</span>
       <div className="builder-hero">
         <h1>{title ? `${title} - cycles` : "Peer Review Cycles"}</h1>
         <p>
@@ -29,7 +29,7 @@ const CourseBuilderAssignmentPeerCycles = () => {
       </div>
       <div className="builder-update-card">
         <PeerCycleTable assignmentId={assignmentId} onLoaded={onLoaded} />
-        <InstructorButton onClick={() => navigate(detailPath, { state: location.state })}>Back to Assignment</InstructorButton>
+        <InstructorButton onClick={() => navigate(detailPath, { state: location.state })}>Quay lại bài tập</InstructorButton>
       </div>
     </InstructorPage>
   );

@@ -246,15 +246,15 @@ const CourseBuilderVideoAdd = () => {
         <Alert
           type="error"
           showIcon
-          message="Unable to load Video upload settings"
-          description="Please check your connection or access permissions."
+          message="Không thể tải cấu hình tải video lên"
+          description="Vui lòng kiểm tra kết nối hoặc quyền truy cập."
         />
 
         <div className="builder-actions">
-          <InstructorButton onClick={query.reload}>Try again</InstructorButton>
+          <InstructorButton onClick={query.reload}>Thử lại</InstructorButton>
 
           <InstructorButton onClick={() => navigate(listUrl)}>
-            Back to Materials
+            Quay lại học liệu
           </InstructorButton>
         </div>
       </InstructorPage>
@@ -275,11 +275,11 @@ const CourseBuilderVideoAdd = () => {
   return (
     <InstructorPage className="builder-page uc17-video-page">
       <span className="builder-crumb">
-        Course Builder / Learning Materials / Add Video
+        Xây dựng khóa học / Học liệu / Thêm video
       </span>
 
       <div className="builder-hero">
-        <h1>Add Video Material</h1>
+        <h1>Thêm học liệu video</h1>
         <p>
           {context.courseName} / {context.lessonTitle}
         </p>
@@ -289,7 +289,7 @@ const CourseBuilderVideoAdd = () => {
         <Alert
           type="warning"
           showIcon
-          message="Video upload unavailable"
+          message="Không thể tải video lên"
           description={getBlockMessage(context.blockReason)}
           className="uc17-video-alert"
         />
@@ -299,8 +299,8 @@ const CourseBuilderVideoAdd = () => {
         <Alert
           type="info"
           showIcon
-          message="Course is Locked"
-          description="BR-286: New learning materials must be Optional."
+          message="Khóa học đã khóa"
+          description="Theo BR-286, học liệu mới phải được đặt là không bắt buộc."
           className="uc17-video-alert"
         />
       )}
@@ -310,7 +310,7 @@ const CourseBuilderVideoAdd = () => {
           type="error"
           showIcon
           closable
-          message="Video upload failed"
+          message="Tải video lên thất bại"
           description={uploadError}
           onClose={() => setUploadError(null)}
           className="uc17-video-alert"
@@ -319,10 +319,10 @@ const CourseBuilderVideoAdd = () => {
 
       <div className="builder-grid">
         <div className="builder-update-card">
-          <h2>Video information</h2>
+          <h2>Thông tin video</h2>
 
           <label htmlFor="video-title" className="instructor-form-label">
-            Video title
+            Tên video
           </label>
 
           <Input
@@ -330,14 +330,14 @@ const CourseBuilderVideoAdd = () => {
             size="large"
             maxLength={200}
             showCount
-            placeholder="e.g. Introduction to Workplace Safety"
+            placeholder="Ví dụ: Giới thiệu an toàn lao động"
             value={title}
             disabled={blocked || saving}
             onChange={(event) => setTitle(event.target.value)}
           />
 
           <label className="instructor-form-label instructor-form-label-spaced">
-            Video file
+            Tệp video
           </label>
 
           <div className="uc17-video-upload">
@@ -380,13 +380,13 @@ const CourseBuilderVideoAdd = () => {
                   setUploadError(null);
                 }}
               >
-                Remove
+                Xóa
               </InstructorButton>
             </div>
           )}
 
           <label className="instructor-form-label instructor-form-label-spaced">
-            Requirement
+            Yêu cầu
           </label>
 
           <Radio.Group
@@ -394,8 +394,8 @@ const CourseBuilderVideoAdd = () => {
             disabled={blocked || saving || context.locked}
             onChange={(event) => setIsRequired(event.target.value === true)}
           >
-            <Radio value={true}>Required</Radio>
-            <Radio value={false}>Optional</Radio>
+            <Radio value={true}>Bắt buộc</Radio>
+            <Radio value={false}>Không bắt buộc</Radio>
           </Radio.Group>
 
           {context.locked && (
@@ -423,7 +423,7 @@ const CourseBuilderVideoAdd = () => {
               icon={<ArrowLeftOutlined />}
               onClick={() => navigate(listUrl)}
             >
-              Cancel
+              Hủy
             </InstructorButton>
 
             <InstructorButton
@@ -432,37 +432,37 @@ const CourseBuilderVideoAdd = () => {
               disabled={!canSave}
               onClick={handleSave}
             >
-              Upload Video
+              Tải video lên
             </InstructorButton>
           </div>
         </div>
 
         <div className="builder-side">
           <section className="uc17-video-info-card">
-            <h3>Upload guidelines</h3>
+            <h3>Quy định tải tệp lên</h3>
 
             <div className="uc17-video-info-row">
-              <span>Maximum file size</span>
+              <span>Dung lượng tệp tối đa</span>
               <strong>{maxSize}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Maximum duration</span>
+              <span>Thời lượng tối đa</span>
               <strong>{context.maxVideoDurationMinutes} min</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Remaining storage</span>
+              <span>Dung lượng còn lại</span>
               <strong>{remainingStorage}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Subscription</span>
+              <span>Gói dịch vụ</span>
               <strong>{context.subscriptionStatus ?? "Unavailable"}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Course Locked</span>
+              <span>Khóa học đã khóa</span>
               <strong>{context.locked ? "Yes" : "No"}</strong>
             </div>
 

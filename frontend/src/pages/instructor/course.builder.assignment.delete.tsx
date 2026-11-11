@@ -31,7 +31,7 @@ const CourseBuilderAssignmentDelete = () => {
         if (res.data) setAssignment(res.data);
         else message.error(assessmentErrorText(res, "Unable to load the Assignment."));
       } catch {
-        if (active) message.error("Unable to reach the Assessment service. Please try again.");
+        if (active) message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {
         if (active) setLoading(false);
       }
@@ -48,11 +48,11 @@ const CourseBuilderAssignmentDelete = () => {
   if (!assignment) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Delete Assignment</span>
+        <span className="builder-crumb">Xây dựng khóa học / Xóa bài tập</span>
         <div className="builder-hero">
           <h1>{loading ? "Loading Assignment..." : "Assignment not found"}</h1>
         </div>
-        {!loading && <InstructorButton onClick={() => navigate(`${base}/assignments`)}>Back</InstructorButton>}
+        {!loading && <InstructorButton onClick={() => navigate(`${base}/assignments`)}>Quay lại</InstructorButton>}
       </InstructorPage>
     );
   }
@@ -71,7 +71,7 @@ const CourseBuilderAssignmentDelete = () => {
       message.success("Assignment deleted.");
       navigate(`${base}/assignments`);
     } catch {
-      message.error("Unable to reach the Assessment service. Please try again.");
+      message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setDeleting(false);
     }
@@ -79,9 +79,9 @@ const CourseBuilderAssignmentDelete = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Delete Assignment</span>
+      <span className="builder-crumb">Xây dựng khóa học / Xóa bài tập</span>
       <div className="builder-hero">
-        <h1>Delete Assignment</h1>
+        <h1>Xóa bài tập</h1>
       </div>
       <div className="builder-confirm-card builder-delete-card">
         <div className="builder-delete-head">
@@ -90,15 +90,15 @@ const CourseBuilderAssignmentDelete = () => {
           </span>
           <div>
             <strong>Delete "{assignment.title}"?</strong>
-            <p>This action cannot be undone.</p>
+            <p>Thao tác này không thể hoàn tác.</p>
           </div>
         </div>
 
         <div className="builder-delete-list">
-          <span>This will permanently remove:</span>
+          <span>Thao tác sẽ xóa vĩnh viễn:</span>
           <ul>
             <li>The Assignment and its Rubric ({assignment.rubric.length} criteria)</li>
-            <li>Its Peer Review settings</li>
+            <li>Các thiết lập chấm chéo của bài tập</li>
             {assignment.promptFile && <li>The attached PDF ({assignment.promptFile.fileName})</li>}
             {assignment.expectedDurationMinutes != null && (
               <li>{assignment.expectedDurationMinutes} min from the Course estimated duration</li>
@@ -113,9 +113,9 @@ const CourseBuilderAssignmentDelete = () => {
           </p>
         )}
         <div className="builder-confirm-actions">
-          <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}`, { state: location.state })}>Cancel</InstructorButton>
+          <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}`, { state: location.state })}>Hủy</InstructorButton>
           <InstructorButton type="primary" danger disabled={!canDelete} loading={deleting} onClick={handleDelete}>
-            Delete Assignment
+            Xóa bài tập
           </InstructorButton>
         </div>
       </div>

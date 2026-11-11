@@ -192,13 +192,13 @@ const CourseBuilderReadingAdd = () => {
         <Alert
           type="error"
           showIcon
-          message="Unable to load Reading settings"
+          message="Không thể tải cấu hình tài liệu đọc"
         />
 
         <div className="builder-actions">
-          <InstructorButton onClick={query.reload}>Try again</InstructorButton>
+          <InstructorButton onClick={query.reload}>Thử lại</InstructorButton>
           <InstructorButton onClick={() => navigate(listUrl)}>
-            Back to Materials
+            Quay lại học liệu
           </InstructorButton>
         </div>
       </InstructorPage>
@@ -208,11 +208,11 @@ const CourseBuilderReadingAdd = () => {
   return (
     <InstructorPage className="builder-page">
       <span className="builder-crumb">
-        Course Builder / Learning Materials / Add Reading
+        Xây dựng khóa học / Học liệu / Thêm tài liệu đọc
       </span>
 
       <div className="builder-hero">
-        <h1>Add Reading Material</h1>
+        <h1>Thêm tài liệu đọc</h1>
         <p>
           {context.courseName} / {context.lessonTitle}
         </p>
@@ -222,7 +222,7 @@ const CourseBuilderReadingAdd = () => {
         <Alert
           type="warning"
           showIcon
-          message="Reading upload unavailable"
+          message="Không thể tải tài liệu đọc lên"
           description={
             context.blockReason === "SUBSCRIPTION_GRACE"
               ? "Subscription is in Grace period."
@@ -238,8 +238,8 @@ const CourseBuilderReadingAdd = () => {
         <Alert
           type="info"
           showIcon
-          message="Course is Locked"
-          description="BR-286: New Reading materials must be Optional."
+          message="Khóa học đã khóa"
+          description="Theo BR-286, tài liệu đọc mới phải được đặt là không bắt buộc."
           style={{ marginBottom: 20 }}
         />
       )}
@@ -248,14 +248,14 @@ const CourseBuilderReadingAdd = () => {
         <Alert
           type="warning"
           showIcon
-          message="Reading saved with a warning"
+          message="Đã lưu tài liệu đọc nhưng có cảnh báo"
           description={
             <>
               <p>{warning}</p>
               <InstructorButton
                 onClick={() => navigate(listUrl, { replace: true })}
               >
-                View saved Reading
+                Xem tài liệu đọc đã lưu
               </InstructorButton>
             </>
           }
@@ -265,22 +265,22 @@ const CourseBuilderReadingAdd = () => {
 
       <div className="builder-grid">
         <div className="builder-update-card">
-          <h2>Reading information</h2>
+          <h2>Thông tin tài liệu đọc</h2>
 
-          <label className="instructor-form-label">Reading title</label>
+          <label className="instructor-form-label">Tên tài liệu đọc</label>
 
           <Input
             size="large"
             maxLength={200}
             showCount
-            placeholder="Enter Reading title"
+            placeholder="Nhập tên tài liệu đọc"
             value={title}
             disabled={blocked || saving || !!warning}
             onChange={(event) => setTitle(event.target.value)}
           />
 
           <label className="instructor-form-label instructor-form-label-spaced">
-            Reading document
+            Tệp tài liệu đọc
           </label>
 
           <label className="builder-upload-box">
@@ -308,7 +308,7 @@ const CourseBuilderReadingAdd = () => {
           )}
 
           <label className="instructor-form-label instructor-form-label-spaced">
-            Requirement
+            Yêu cầu
           </label>
 
           <Radio.Group
@@ -316,12 +316,12 @@ const CourseBuilderReadingAdd = () => {
             disabled={blocked || saving || context.locked || !!warning}
             onChange={(event) => setIsRequired(event.target.value === true)}
           >
-            <Radio value={true}>Required</Radio>
-            <Radio value={false}>Optional</Radio>
+            <Radio value={true}>Bắt buộc</Radio>
+            <Radio value={false}>Không bắt buộc</Radio>
           </Radio.Group>
 
           <p className="instructor-form-help">
-            Word count is calculated automatically by the backend after upload.
+            Hệ thống tự tính số từ sau khi tải tệp lên.
           </p>
 
           {saving && (
@@ -340,7 +340,7 @@ const CourseBuilderReadingAdd = () => {
               disabled={saving}
               onClick={() => navigate(listUrl)}
             >
-              Cancel
+              Hủy
             </InstructorButton>
 
             <InstructorButton
@@ -349,14 +349,14 @@ const CourseBuilderReadingAdd = () => {
               disabled={blocked || !file || !title.trim() || !!warning}
               onClick={handleSave}
             >
-              Upload Reading
+              Tải tài liệu đọc lên
             </InstructorButton>
           </div>
         </div>
 
         <div className="builder-side">
           <section className="builder-update-card">
-            <h3>Reading guidelines</h3>
+            <h3>Quy định đối với tài liệu đọc</h3>
 
             <p>
               Remaining storage: {formatBytes(context.remainingStorageBytes)}

@@ -39,7 +39,7 @@ const CourseBuilderAssignmentDetail = () => {
         if (res.data) setAssignment(res.data);
         else message.error(assessmentErrorText(res, "Unable to load the Assignment."));
       } catch {
-        if (active) message.error("Unable to reach the Assessment service. Please try again.");
+        if (active) message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {
         if (active) setLoading(false);
       }
@@ -58,11 +58,11 @@ const CourseBuilderAssignmentDetail = () => {
   if (!assignment) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Assignment Detail</span>
+        <span className="builder-crumb">Xây dựng khóa học / Chi tiết bài tập</span>
         <div className="builder-hero">
           <h1>{loading ? "Loading Assignment..." : "Assignment not found"}</h1>
         </div>
-        {!loading && <InstructorButton onClick={() => navigate(backPath)}>Back</InstructorButton>}
+        {!loading && <InstructorButton onClick={() => navigate(backPath)}>Quay lại</InstructorButton>}
       </InstructorPage>
     );
   }
@@ -83,7 +83,7 @@ const CourseBuilderAssignmentDetail = () => {
       link.click();
       URL.revokeObjectURL(url);
     } catch {
-      message.error("Unable to reach the Assessment service. Please try again.");
+      message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
     }
   };
   const totalPoints = assignment.rubric.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
@@ -102,7 +102,7 @@ const CourseBuilderAssignmentDetail = () => {
 
       {assignment.disabled && (
         <div className="builder-banner builder-banner-error">
-          <strong>Assignment disabled</strong>
+          <strong>Bài tập đã vô hiệu hóa</strong>
           <p>
             This Assignment was disabled after a confirmed violation. It is left out of the Certificate requirements until
             it is re-enabled; scores already recorded are kept.
@@ -113,7 +113,7 @@ const CourseBuilderAssignmentDetail = () => {
       {/* BR-185: the on/off switch is only available until the Course is Locked, so remind while it still can be set. */}
       {!peerReview.enabled && !assignment.courseLocked && (
         <div className="builder-banner">
-          <strong>Peer Review is off</strong>
+          <strong>Chưa bật chấm chéo</strong>
           <p>
             Learners will be graded directly by you. You can turn Peer Review on until the Course is Locked (when the
             first Learner enrolls); after that it can no longer be switched.
@@ -123,7 +123,7 @@ const CourseBuilderAssignmentDetail = () => {
 
       {restricted && (
         <div className="builder-banner">
-          <strong>Submission data exists</strong>
+          <strong>Đã có dữ liệu bài nộp</strong>
           <p>
             Instructions, Rubric, n attempts and m-hour lock cannot be edited. Only the estimated effort can still
             change.
@@ -132,20 +132,20 @@ const CourseBuilderAssignmentDetail = () => {
       )}
 
       <div className="builder-param-grid">
-        <Param label="Passing score" value={`${assignment.passingScore} / 100`} hint="Minimum score to pass" />
+        <Param label="Điểm đạt" value={`${assignment.passingScore} / 100`} hint="Minimum score to pass" />
         <Param
-          label="Estimated effort"
+          label="Thời gian làm bài dự kiến"
           value={formatMinutes(assignment.expectedDurationMinutes)}
           hint="Counts toward Course duration"
         />
         <Param
-          label="Consecutive submissions (n)"
+          label="Số lần nộp liên tiếp (n)"
           value={String(assignment.maxConsecutiveAttempts)}
           hint="Attempts before a lock"
         />
-        <Param label="Temporary lock (m)" value={`${assignment.lockoutHours} h`} hint="Per Learner, then attempts reset" />
+        <Param label="Thời gian khóa tạm (m)" value={`${assignment.lockoutHours} h`} hint="Per Learner, then attempts reset" />
         <Param
-          label="Peer Review"
+          label="Chấm chéo"
           value={peerReview.enabled ? "On" : "Off"}
           hint={
             peerReview.enabled
@@ -155,7 +155,7 @@ const CourseBuilderAssignmentDetail = () => {
           tone={peerReview.enabled ? "on" : "off"}
         />
         <Param
-          label="Rubric"
+          label="Tiêu chí chấm"
           value={`${assignment.rubric.length} ${assignment.rubric.length === 1 ? "criterion" : "criteria"}`}
           hint={`${totalPoints} points in total`}
         />
@@ -163,7 +163,7 @@ const CourseBuilderAssignmentDetail = () => {
 
       <div className="builder-grid">
         <div className="builder-update-card">
-          <h2>Instructions</h2>
+          <h2>Hướng dẫn</h2>
           <p className="builder-lesson-intro builder-prompt">{assignment.prompt || "No Instructions written yet."}</p>
           {assignment.promptFile && (
             <div className="builder-file-row">
@@ -171,12 +171,12 @@ const CourseBuilderAssignmentDetail = () => {
                 {assignment.promptFile.fileName}
                 <small> {formatFileSize(assignment.promptFile.sizeBytes)}</small>
               </span>
-              <InstructorButton onClick={handleDownload}>Download PDF</InstructorButton>
+              <InstructorButton onClick={handleDownload}>Tải PDF</InstructorButton>
             </div>
           )}
 
           <hr className="builder-divider" />
-          <h2>Rubric</h2>
+          <h2>Tiêu chí chấm</h2>
           <div className="builder-rubric-summary">
             {assignment.rubric.map((criterion) => (
               <div className="builder-rubric-line" key={criterion.id}>
@@ -187,24 +187,24 @@ const CourseBuilderAssignmentDetail = () => {
               </div>
             ))}
             <div className="builder-rubric-line builder-rubric-total">
-              <span>Total</span>
+              <span>Tổng số</span>
               <strong>{totalPoints} pts</strong>
             </div>
           </div>
 
           <div className="builder-actions builder-actions-split">
-            <InstructorButton onClick={() => navigate(backPath)}>Back</InstructorButton>
-            <InstructorButton onClick={() => navigate(`/instructor/submissions?assessmentId=${assignment.id}`)}>Submissions</InstructorButton>
+            <InstructorButton onClick={() => navigate(backPath)}>Quay lại</InstructorButton>
+            <InstructorButton onClick={() => navigate(`/instructor/submissions?assessmentId=${assignment.id}`)}>Bài nộp</InstructorButton>
             {restricted ? (
               <InstructorButton type="primary" onClick={() => navigate(editPath, { state: location.state })}>
-                Edit estimated effort
+                Chỉnh sửa thời gian làm bài dự kiến
               </InstructorButton>
             ) : (
               <>
                 <InstructorButton danger onClick={() => navigate(`${base}/assignments/${assignment.id}/delete`, { state: location.state })}>
-                  Delete Assignment
+                  Xóa bài tập
                 </InstructorButton>
-                <InstructorButton onClick={() => navigate(editPath, { state: location.state })}>Edit Assignment</InstructorButton>
+                <InstructorButton onClick={() => navigate(editPath, { state: location.state })}>Chỉnh sửa bài tập</InstructorButton>
               </>
             )}
           </div>
@@ -212,15 +212,15 @@ const CourseBuilderAssignmentDetail = () => {
 
         <div className="builder-side">
           <div className="builder-side-card">
-            <h3>Submission rules</h3>
+            <h3>Quy tắc nộp bài</h3>
             <p>
-              No separate deadline. After <strong>{assignment.maxConsecutiveAttempts}</strong> consecutive submissions
+              Không có hạn nộp riêng. Sau <strong>{assignment.maxConsecutiveAttempts}</strong> consecutive submissions
               the Learner is locked for <strong>{assignment.lockoutHours} h</strong>, then can submit again. The latest
               score is the recorded score.
             </p>
           </div>
           <div className="builder-side-card">
-            <h3>Peer Review</h3>
+            <h3>Chấm chéo</h3>
             {peerReview.enabled ? (
               <ul>
                 <li>{peerReview.reviewersPerSubmission ?? "?"} reviewers per submission</li>
@@ -235,11 +235,11 @@ const CourseBuilderAssignmentDetail = () => {
               </p>
             )}
             <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-review`, { state: location.state })}>
-              Configure Peer Review
+              Thiết lập chấm chéo
             </InstructorButton>
             {peerReview.enabled && (
               <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-cycles`, { state: location.state })}>
-                View cycles
+                Xem chu kỳ
               </InstructorButton>
             )}
           </div>

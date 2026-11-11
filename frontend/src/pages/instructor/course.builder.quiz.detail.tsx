@@ -56,7 +56,7 @@ const ActionSlot = ({
 }) => {
   if (!ready) {
     return (
-      <Tooltip title="Coming soon">
+      <Tooltip title="Sắp ra mắt">
         <span className="builder-quiz-soon">{children(true)}</span>
       </Tooltip>
     );
@@ -85,7 +85,7 @@ const ConfigRow = ({
     <dd>
       <span className="builder-quiz-detail-value">
         {value}
-        {permission && !permission.allowed && <LockOutlined aria-label="Locked" />}
+        {permission && !permission.allowed && <LockOutlined aria-label="Đã khóa" />}
       </span>
       {permission && !permission.allowed && (
         <span className="builder-quiz-detail-why">{permissionReasonTexts(permission).join(" ")}</span>
@@ -128,7 +128,7 @@ const CourseBuilderQuizDetail = () => {
       } catch {
         if (active) {
           setQuiz(null);
-          setError({ notFound: false, message: "Unable to reach the Assessment service. Please try again." });
+          setError({ notFound: false, message: "Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại." });
         }
       } finally {
         if (active) setLoading(false);
@@ -146,7 +146,7 @@ const CourseBuilderQuizDetail = () => {
   if (loading) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Quizzes / Quiz Detail</span>
+        <span className="builder-crumb">Xây dựng khóa học / Bài trắc nghiệm / Chi tiết</span>
         <div className="builder-update-card" aria-busy="true">
           <Skeleton active title paragraph={{ rows: 4 }} />
           <Skeleton active paragraph={{ rows: 6 }} />
@@ -158,7 +158,7 @@ const CourseBuilderQuizDetail = () => {
   if (error || !quiz) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Quizzes / Quiz Detail</span>
+        <span className="builder-crumb">Xây dựng khóa học / Bài trắc nghiệm / Chi tiết</span>
         <div className="builder-update-card">
           <div className="builder-banner builder-banner-error">
             <strong>{error?.notFound ? "Quiz not found" : "The Quiz could not be loaded"}</strong>
@@ -170,11 +170,11 @@ const CourseBuilderQuizDetail = () => {
           </div>
           <div className="builder-actions">
             <InstructorButton onClick={backToList}>
-              <ArrowLeftOutlined /> Back to Quizzes
+              <ArrowLeftOutlined /> Quay lại bài trắc nghiệm
             </InstructorButton>
             {!error?.notFound && (
               <InstructorButton type="primary" onClick={retry}>
-                Try again
+                Thử lại
               </InstructorButton>
             )}
           </div>
@@ -216,14 +216,14 @@ const CourseBuilderQuizDetail = () => {
             >
               <span>
                 <StatusTag tone="warning">
-                  <LockOutlined /> Locked
+                  <LockOutlined /> Đã khóa
                 </StatusTag>
               </span>
             </Tooltip>
           ) : (
-            <StatusTag tone="success">Unlocked</StatusTag>
+            <StatusTag tone="success">Chưa khóa</StatusTag>
           )}
-          {quiz.disabled && <StatusTag tone="error">Disabled</StatusTag>}
+          {quiz.disabled && <StatusTag tone="error">Đã vô hiệu hóa</StatusTag>}
         </div>
       </div>
 
@@ -237,35 +237,35 @@ const CourseBuilderQuizDetail = () => {
           ))}
 
           <section className="builder-quiz-detail-section">
-            <h2>Configuration</h2>
+            <h2>Cấu hình</h2>
             <dl className="builder-quiz-detail-config">
               <ConfigRow
-                label="Time limit"
+                label="Thời gian làm bài"
                 value={quiz.timeLimitMinutes ? `${quiz.timeLimitMinutes} min` : "No time limit"}
                 permission={permissions.editTimeLimit}
               />
               <ConfigRow
-                label="Passing score"
+                label="Điểm đạt"
                 value={`${formatQuizScore(quiz.passingScore)} / 100`}
                 permission={permissions.editPassingScore}
               />
               <ConfigRow
-                label="Required"
+                label="Bắt buộc"
                 value={quiz.isRequired ? "Required" : "Optional"}
                 permission={permissions.editRequired}
               />
               <ConfigRow
-                label="Attempt limit"
+                label="Giới hạn lượt làm"
                 value={`${quiz.maxConsecutiveAttempts} attempts in a row, then ${quiz.lockoutHours} h lockout`}
                 permission={permissions.editAttemptRule}
               />
-              <ConfigRow label="Placement" value={quizPlacementLabel(quiz, structure.modules)} />
+              <ConfigRow label="Vị trí" value={quizPlacementLabel(quiz, structure.modules)} />
             </dl>
           </section>
 
           <section className="builder-quiz-detail-section">
             <h2>
-              Questions and answer keys <span className="builder-quiz-detail-count">{quiz.questions.length}</span>
+              Câu hỏi và đáp án <span className="builder-quiz-detail-count">{quiz.questions.length}</span>
             </h2>
             {!permissions.editQuestions.allowed && (
               <p className="builder-quiz-detail-why">
@@ -275,8 +275,8 @@ const CourseBuilderQuizDetail = () => {
 
             {quiz.questions.length === 0 ? (
               <div className="builder-quiz-empty">
-                <strong>No questions yet</strong>
-                <span>The Course cannot be submitted for review until every Quiz has at least one question.</span>
+                <strong>Chưa có câu hỏi</strong>
+                <span>Không thể gửi khóa học phê duyệt khi còn bài trắc nghiệm chưa có câu hỏi.</span>
               </div>
             ) : (
               <ol className="builder-quiz-detail-questions">
@@ -299,7 +299,7 @@ const CourseBuilderQuizDetail = () => {
                           <span className="builder-quiz-detail-option-text">{option.content}</span>
                           {option.isCorrect && (
                             <span className="builder-quiz-detail-correct">
-                              <CheckCircleFilled /> Correct
+                              <CheckCircleFilled /> Đúng
                             </span>
                           )}
                         </li>
@@ -307,7 +307,7 @@ const CourseBuilderQuizDetail = () => {
                     </ul>
                     {!hasCorrectOption(question) && (
                       <div className="builder-quiz-alert">
-                        <WarningOutlined /> No correct answer is marked for this question.
+                        <WarningOutlined /> Câu hỏi này chưa có đáp án đúng.
                       </div>
                     )}
                   </li>
@@ -323,7 +323,7 @@ const CourseBuilderQuizDetail = () => {
 
           <div className="builder-quiz-actions">
             <InstructorButton onClick={backToList}>
-              <ArrowLeftOutlined /> Back to Quizzes
+              <ArrowLeftOutlined /> Quay lại bài trắc nghiệm
             </InstructorButton>
             {/* UC18.3 — Update Quiz configuration */}
             <ActionSlot ready permission={configPermission}>
@@ -334,7 +334,7 @@ const CourseBuilderQuizDetail = () => {
                   disabled={disabled}
                   onClick={() => navigate(`${base}/quizzes/${quiz.id}/edit`)}
                 >
-                  <EditOutlined /> Edit configuration
+                  <EditOutlined /> Chỉnh sửa cấu hình
                 </button>
               )}
             </ActionSlot>
@@ -347,7 +347,7 @@ const CourseBuilderQuizDetail = () => {
                   disabled={disabled}
                   onClick={() => navigate(`${base}/quizzes/${quiz.id}/questions/new`)}
                 >
-                  <PlusOutlined /> Add question
+                  <PlusOutlined /> Thêm câu hỏi
                 </button>
               )}
             </ActionSlot>
@@ -360,17 +360,17 @@ const CourseBuilderQuizDetail = () => {
                   disabled={disabled}
                   onClick={() => navigate(`${base}/quizzes/${quiz.id}/delete`)}
                 >
-                  <DeleteOutlined /> Delete Quiz
+                  <DeleteOutlined /> Xóa bài trắc nghiệm
                 </button>
               )}
             </ActionSlot>
           </div>
         </div>
         <div className="builder-side">
-          <InfoPanel title="Scoring">
+          <InfoPanel title="Chấm điểm">
             Quizzes are graded automatically on a 0–100 scale. A Learner passes by reaching the passing score.
           </InfoPanel>
-          <InfoPanel title="Quiz placement">
+          <InfoPanel title="Vị trí bài trắc nghiệm">
             Module Quizzes appear after the Lessons of their Module; Course-level Quizzes appear at the end of the
             Course.
           </InfoPanel>

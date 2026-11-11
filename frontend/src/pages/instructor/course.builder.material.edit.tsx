@@ -180,7 +180,7 @@ const CourseBuilderMaterialEdit = () => {
           setError(
             err instanceof Error
               ? err.message
-              : "Unable to load learning material.",
+              : "Không thể tải thông tin học liệu.",
           );
         }
       } finally {
@@ -371,7 +371,7 @@ const CourseBuilderMaterialEdit = () => {
           message.error(
             err instanceof Error
               ? err.message
-              : "Unable to save learning material.",
+              : "Không thể lưu học liệu.",
           );
         }
       } finally {
@@ -384,14 +384,14 @@ const CourseBuilderMaterialEdit = () => {
     // so ask for confirmation before starting.
     if (hasReplacement) {
       Modal.confirm({
-        title: "Confirm Technical Replacement",
+        title: "Xác nhận thay thế tệp kỹ thuật",
         content:
           "This action replaces the shared technical file. " +
           "All Course versions referencing this MediaFile " +
           "may be affected. Please confirm that the learning " +
           "content remains unchanged.",
-        okText: "Confirm and Save",
-        cancelText: "Cancel",
+        okText: "Xác nhận và lưu",
+        cancelText: "Hủy",
         onOk: executeSave,
       });
 
@@ -429,7 +429,7 @@ const CourseBuilderMaterialEdit = () => {
             icon={<ArrowLeftOutlined />}
             onClick={() => navigate(materialsUrl)}
           >
-            Back to Materials
+            Quay lại học liệu
           </InstructorButton>
         </div>
       </InstructorPage>
@@ -469,11 +469,11 @@ const CourseBuilderMaterialEdit = () => {
     <InstructorPage className="builder-page uc17-video-page">
       {/* ================= HEADER ================= */}
       <span className="builder-crumb">
-        Course Builder / Learning Materials / Edit Material
+        Xây dựng khóa học / Học liệu / Chỉnh sửa
       </span>
 
       <div className="builder-hero">
-        <h1>Edit Learning Material</h1>
+        <h1>Chỉnh sửa học liệu</h1>
 
         <p>
           {detail.course.name} / {detail.lesson.title}
@@ -485,7 +485,7 @@ const CourseBuilderMaterialEdit = () => {
         <Alert
           type="info"
           showIcon
-          message="Course is Locked"
+          message="Khóa học đã khóa"
           description={
             "Material title and technical replacement remain " +
             "available. Required/Optional cannot be changed."
@@ -498,8 +498,8 @@ const CourseBuilderMaterialEdit = () => {
         <Alert
           type="warning"
           showIcon
-          message="Material editing unavailable"
-          description="The current Course status does not allow editing this learning material."
+          message="Không thể chỉnh sửa học liệu"
+          description="Trạng thái khóa học hiện tại không cho phép chỉnh sửa học liệu này."
           className="uc17-video-alert"
         />
       )}
@@ -508,14 +508,14 @@ const CourseBuilderMaterialEdit = () => {
       <div className="builder-grid">
         {/* ============ LEFT COLUMN ============ */}
         <div className="builder-update-card">
-          <h2>Material information</h2>
+          <h2>Thông tin học liệu</h2>
 
           {/* TITLE */}
           <label
             htmlFor="edit-material-title"
             className="instructor-form-label"
           >
-            Material title
+            Tên học liệu
           </label>
 
           <Input
@@ -523,7 +523,7 @@ const CourseBuilderMaterialEdit = () => {
             size="large"
             maxLength={200}
             showCount
-            placeholder="Enter learning material title"
+            placeholder="Nhập tên học liệu"
             value={title}
             disabled={!editable || saving}
             onChange={(event) => setTitle(event.target.value)}
@@ -531,7 +531,7 @@ const CourseBuilderMaterialEdit = () => {
 
           {/* REQUIREMENT */}
           <label className="instructor-form-label instructor-form-label-spaced">
-            Requirement
+            Yêu cầu
           </label>
 
           <Radio.Group
@@ -539,27 +539,27 @@ const CourseBuilderMaterialEdit = () => {
             disabled={!editable || locked || saving}
             onChange={(event) => setIsRequired(event.target.value === true)}
           >
-            <Radio value={true}>Required</Radio>
-            <Radio value={false}>Optional</Radio>
+            <Radio value={true}>Bắt buộc</Radio>
+            <Radio value={false}>Không bắt buộc</Radio>
           </Radio.Group>
 
           {locked && (
             <p className="uc17-video-hint">
-              Required/Optional cannot be changed after the Course is Locked.
+              Không thể thay đổi thuộc tính bắt buộc khi khóa học đã khóa.
             </p>
           )}
 
           {/* ============ TECHNICAL FILE ============ */}
           <div className="uc17-edit-replacement">
             <h2>
-              Technical file replacement
-              <span className="uc17-edit-optional"> (Optional)</span>
+              Thay thế tệp để sửa lỗi kỹ thuật
+              <span className="uc17-edit-optional"> (Không bắt buộc)</span>
             </h2>
 
             <Alert
               type="warning"
               showIcon
-              message="Technical repair only"
+              message="Chỉ sửa lỗi kỹ thuật"
               description={
                 "The replacement must preserve the original " +
                 "learning content. All Course versions " +
@@ -569,7 +569,7 @@ const CourseBuilderMaterialEdit = () => {
             />
 
             {/* CURRENT FILE */}
-            <label className="instructor-form-label">Current file</label>
+            <label className="instructor-form-label">Tệp hiện tại</label>
 
             <p className="instructor-form-help">
               {material.file.originalFilename}
@@ -605,7 +605,7 @@ const CourseBuilderMaterialEdit = () => {
               <input
                 type="file"
                 accept={fileAccept}
-                aria-label="Choose replacement file"
+                aria-label="Chọn tệp thay thế"
                 disabled={!editable || saving}
                 onChange={(event) => {
                   handleReplacementFile(event.target.files?.[0] ?? null);
@@ -633,7 +633,7 @@ const CourseBuilderMaterialEdit = () => {
                     setProgress(0);
                   }}
                 >
-                  Remove
+                  Xóa
                 </InstructorButton>
               </div>
             )}
@@ -659,7 +659,7 @@ const CourseBuilderMaterialEdit = () => {
               disabled={saving}
               onClick={() => navigate(materialsUrl)}
             >
-              Cancel
+              Hủy
             </InstructorButton>
 
             <InstructorButton
@@ -668,7 +668,7 @@ const CourseBuilderMaterialEdit = () => {
               disabled={!canSave}
               onClick={() => void handleSaveChanges()}
             >
-              Save Changes
+              Lưu thay đổi
             </InstructorButton>
           </div>
         </div>
@@ -676,41 +676,41 @@ const CourseBuilderMaterialEdit = () => {
         {/* ============ RIGHT COLUMN ============ */}
         <div className="builder-side">
           <section className="uc17-video-info-card">
-            <h3>Material details</h3>
+            <h3>Chi tiết học liệu</h3>
 
             <div className="uc17-video-info-row">
-              <span>Material type</span>
+              <span>Loại học liệu</span>
               <strong>{material.materialType}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Current filename</span>
+              <span>Tên tệp hiện tại</span>
               <strong>{material.file.originalFilename}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Current file size</span>
+              <span>Dung lượng tệp hiện tại</span>
               <strong>{formatBytes(material.file.sizeBytes)}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Requirement</span>
+              <span>Yêu cầu</span>
               <strong>{material.isRequired ? "Required" : "Optional"}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Course Locked</span>
+              <span>Khóa học đã khóa</span>
               <strong>{locked ? "Yes" : "No"}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>File status</span>
+              <span>Trạng thái tệp</span>
               <strong>{material.file.status}</strong>
             </div>
 
             {isVideo && (
               <div className="uc17-video-info-row">
-                <span>Video duration</span>
+                <span>Thời lượng video</span>
                 <strong>
                   {material.file.durationSeconds !== null
                     ? `${Math.ceil(material.file.durationSeconds / 60)} min`
@@ -721,7 +721,7 @@ const CourseBuilderMaterialEdit = () => {
 
             {isReading && (
               <div className="uc17-video-info-row">
-                <span>Word count</span>
+                <span>Số từ</span>
                 <strong>{material.file.wordCount ?? "Unavailable"}</strong>
               </div>
             )}

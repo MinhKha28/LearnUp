@@ -92,31 +92,31 @@ const MaterialStatus = ({
   material: IInstructorLessonMaterial;
 }) => {
   if (material.file.releasedAt) {
-    return <StatusTag tone="error">File released</StatusTag>;
+    return <StatusTag tone="error">Tệp đã được giải phóng</StatusTag>;
   }
 
   if (material.disabledAt) {
-    return <StatusTag tone="error">Disabled</StatusTag>;
+    return <StatusTag tone="error">Đã vô hiệu hóa</StatusTag>;
   }
 
   if (material.file.status !== "Ready") {
     return <StatusTag tone="warning">{material.file.status}</StatusTag>;
   }
 
-  return <StatusTag tone="success">Ready</StatusTag>;
+  return <StatusTag tone="success">Sẵn sàng</StatusTag>;
 };
 
 // Các cột của bảng UC17.
 const columns: ColumnsType<IInstructorLessonMaterial> = [
   {
-    title: "Order",
+    title: "Thứ tự",
     dataIndex: "position",
     key: "position",
     width: 78,
     align: "center",
   },
   {
-    title: "Learning material",
+    title: "Học liệu",
     key: "title",
     width: 330,
     render: (_, material) => (
@@ -137,14 +137,14 @@ const columns: ColumnsType<IInstructorLessonMaterial> = [
     ),
   },
   {
-    title: "Type",
+    title: "Loại",
     dataIndex: "materialType",
     key: "type",
     width: 115,
     render: (type: string) => <StatusTag tone="neutral">{type}</StatusTag>,
   },
   {
-    title: "Requirement",
+    title: "Yêu cầu",
     key: "required",
     width: 135,
     render: (_, material) => (
@@ -154,7 +154,7 @@ const columns: ColumnsType<IInstructorLessonMaterial> = [
     ),
   },
   {
-    title: "File size",
+    title: "Dung lượng tệp",
     key: "size",
     width: 115,
     align: "right",
@@ -165,7 +165,7 @@ const columns: ColumnsType<IInstructorLessonMaterial> = [
     ),
   },
   {
-    title: "Status",
+    title: "Trạng thái",
     key: "status",
     width: 130,
     render: (_, material) => <MaterialStatus material={material} />,
@@ -180,7 +180,7 @@ const MaterialsContent = ({ data }: { data: IInstructorLessonDetail }) => {
   const columnsWithActions: ColumnsType<IInstructorLessonMaterial> = [
     ...columns,
     {
-      title: "Actions",
+      title: "Thao tác",
       key: "actions",
       width: 100,
       render: (_, material) => (
@@ -193,7 +193,7 @@ const MaterialsContent = ({ data }: { data: IInstructorLessonDetail }) => {
             )
           }
         >
-          Edit
+          Chỉnh sửa
         </InstructorButton>
       ),
     },
@@ -226,39 +226,39 @@ const MaterialsContent = ({ data }: { data: IInstructorLessonDetail }) => {
     <>
       <div className="uc17-lesson-context">
         <span>
-          Course: <strong>{data.course.name}</strong>
+          Khóa học: <strong>{data.course.name}</strong>
         </span>
 
         <span>
-          Module: <strong>{data.module.title}</strong>
+          Chương: <strong>{data.module.title}</strong>
         </span>
 
         <span>
-          Lesson: <strong>{data.lesson.title}</strong>
+          Bài học: <strong>{data.lesson.title}</strong>
         </span>
       </div>
 
       {/* Thống kê danh sách học liệu */}
       <div className="uc17-stats">
         <div className="uc17-stat">
-          <span>Total materials</span>
+          <span>Tổng số học liệu</span>
           <strong>{materials.length}</strong>
         </div>
 
         <div className="uc17-stat">
-          <span>Videos / Readings</span>
+          <span>Video / Tài liệu đọc</span>
           <strong>
             {videoCount} / {readingCount}
           </strong>
         </div>
 
         <div className="uc17-stat">
-          <span>Required materials</span>
+          <span>Học liệu bắt buộc</span>
           <strong>{requiredCount}</strong>
         </div>
 
         <div className="uc17-stat">
-          <span>Attached file size</span>
+          <span>Dung lượng tệp đính kèm</span>
           <strong>{formatBytes(totalSizeBytes)}</strong>
         </div>
       </div>
@@ -267,7 +267,7 @@ const MaterialsContent = ({ data }: { data: IInstructorLessonDetail }) => {
       <section className="uc17-table-card">
         <div className="uc17-table-header">
           <div>
-            <h2>Learning materials</h2>
+            <h2>Học liệu</h2>
             <p>
               Videos and readings belonging to this Lesson, ordered by their
               configured position.
@@ -337,18 +337,18 @@ const CourseBuilderMaterials = () => {
       <div className="uc17-page-header">
         <div>
           <span className="uc17-eyebrow">
-            COURSE BUILDER / LESSON / MATERIALS
+            Xây dựng khóa học / Bài học / Học liệu
           </span>
 
-          <h1>Learning Materials</h1>
-          <p>View learning materials, requirements and occupied file sizes.</p>
+          <h1>Học liệu</h1>
+          <p>Xem danh sách học liệu, yêu cầu bắt buộc và dung lượng đã sử dụng.</p>
         </div>
 
         <InstructorButton
           icon={<ArrowLeftOutlined />}
           onClick={() => navigate(detailUrl)}
         >
-          Back to Lesson
+          Quay lại bài học
         </InstructorButton>
       </div>
 
@@ -375,7 +375,7 @@ const CourseBuilderMaterials = () => {
             }
           />
 
-          <InstructorButton onClick={query.reload}>Try again</InstructorButton>
+          <InstructorButton onClick={query.reload}>Thử lại</InstructorButton>
         </div>
       )}
 
@@ -387,10 +387,10 @@ const CourseBuilderMaterials = () => {
               icon={<VideoCameraOutlined />}
               onClick={() => navigate(videoAddUrl)}
             >
-              Add Video
+              Thêm video
             </InstructorButton>
             <InstructorButton onClick={() => navigate(readingAddUrl)}>
-              Add Reading
+              Thêm tài liệu đọc
             </InstructorButton>
           </div>
 

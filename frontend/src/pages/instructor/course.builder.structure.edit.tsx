@@ -204,18 +204,18 @@ const CourseBuilderStructureEdit = () => {
   if (submitted) {
     return (
       <div className="builder-structure-edit-page">
-        <h1>Edit Course Structure</h1>
+        <h1>Chỉnh sửa cấu trúc khóa học</h1>
 
         <Alert
           showIcon
           type="warning"
-          message="Course is awaiting approval."
-          description="Withdraw the Course before editing its structure."
+          message="Khóa học đang chờ phê duyệt."
+          description="Thu hồi khóa học trước khi chỉnh sửa cấu trúc."
         />
 
         <div className="builder-structure-edit-actions">
           <InstructorButton onClick={() => navigate(base)}>
-            Back to Course Structure
+            Quay lại cấu trúc khóa học
           </InstructorButton>
         </div>
       </div>
@@ -226,9 +226,9 @@ const CourseBuilderStructureEdit = () => {
     <div className="builder-structure-edit-page">
       <div className="builder-structure-edit-header">
         <div>
-          <span className="builder-editor-eyebrow">COURSE BUILDER</span>
-          <h1>Edit Course Structure</h1>
-          <p>Rename Modules and Lessons, or adjust their order.</p>
+          <span className="builder-editor-eyebrow">Xây dựng khóa học</span>
+          <h1>Chỉnh sửa cấu trúc khóa học</h1>
+          <p>Đổi tên chương, bài học hoặc sắp xếp lại thứ tự.</p>
         </div>
       </div>
 
@@ -236,23 +236,23 @@ const CourseBuilderStructureEdit = () => {
         <Alert
           type="warning"
           showIcon
-          message="Course structure is Locked"
-          description="You can edit Module and Lesson titles. Reordering is disabled."
+          message="Cấu trúc khóa học đã khóa"
+          description="Bạn có thể chỉnh sửa tên chương và bài học nhưng không được sắp xếp lại."
           className="builder-structure-edit-alert"
         />
       ) : (
         <Alert
           type="info"
           showIcon
-          message="Course structure is Unlocked"
-          description="Use the arrow buttons to reorder Modules and Lessons."
+          message="Cấu trúc khóa học chưa khóa"
+          description="Dùng các nút mũi tên để sắp xếp lại chương và bài học."
           className="builder-structure-edit-alert"
         />
       )}
 
       {modules.length === 0 && (
         <div className="builder-structure-edit-empty">
-          This Course has no Modules yet.
+          Khóa học này chưa có chương.
         </div>
       )}
 
@@ -266,7 +266,7 @@ const CourseBuilderStructureEdit = () => {
                 <span className="builder-module-number">{moduleIndex + 1}</span>
 
                 <div className="builder-structure-edit-field">
-                  <label htmlFor={`module-${module.id}`}>Module title</label>
+                  <label htmlFor={`module-${module.id}`}>Tên chương</label>
 
                   <Input
                     id={`module-${module.id}`}
@@ -312,7 +312,7 @@ const CourseBuilderStructureEdit = () => {
                   </span>
 
                   <div className="builder-structure-edit-field">
-                    <label htmlFor={`lesson-${lesson.id}`}>Lesson title</label>
+                    <label htmlFor={`lesson-${lesson.id}`}>Tên bài học</label>
 
                     <Input
                       id={`lesson-${lesson.id}`}
@@ -355,7 +355,7 @@ const CourseBuilderStructureEdit = () => {
 
               {module.lessons.length === 0 && (
                 <p className="builder-structure-edit-empty-lessons">
-                  This Module has no Lessons.
+                  Chương này chưa có bài học.
                 </p>
               )}
             </div>
@@ -365,7 +365,7 @@ const CourseBuilderStructureEdit = () => {
 
       <div className="builder-structure-edit-actions">
         <InstructorButton disabled={saving} onClick={() => navigate(base)}>
-          Cancel
+          Hủy
         </InstructorButton>
 
         <InstructorButton
@@ -373,7 +373,7 @@ const CourseBuilderStructureEdit = () => {
           loading={saving}
           onClick={() => void handleSave()}
         >
-          Save Structure
+          Lưu cấu trúc
         </InstructorButton>
       </div>
     </div>

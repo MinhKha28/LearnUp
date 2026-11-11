@@ -28,19 +28,19 @@ const RubricEditor = ({ rows, onChange, disabled = false, showErrors = false }: 
             <strong className="builder-rubric-title">Criterion {index + 1}</strong>
             <div className="builder-rubric-fields">
               <div className="builder-rubric-field-description">
-                <label className="instructor-form-label">Description</label>
+                <label className="instructor-form-label">Mô tả</label>
                 <Input
                   value={row.description}
                   maxLength={200}
                   disabled={disabled}
                   status={descriptionMissing ? "error" : undefined}
-                  placeholder="Completeness of response"
+                  placeholder="Mức độ đầy đủ của câu trả lời"
                   onChange={(event) => update(row.key, { description: event.target.value })}
                 />
                 <FieldError message={descriptionMissing ? "Enter a description for this criterion." : null} />
               </div>
               <div className="builder-rubric-field-score">
-                <label className="instructor-form-label">Maximum score</label>
+                <label className="instructor-form-label">Điểm tối đa</label>
                 <NumberField
                   rule={RUBRIC_POINTS_RULE}
                   disabled={disabled}

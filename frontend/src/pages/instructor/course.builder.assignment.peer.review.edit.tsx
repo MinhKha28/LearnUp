@@ -51,7 +51,7 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
         setReviewDeadline(loaded.peerReview.deadlineDays);
         setThreshold(loaded.peerReview.scoreGap);
       } catch {
-        if (active) message.error("Unable to reach the Assessment service. Please try again.");
+        if (active) message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {
         if (active) setLoading(false);
       }
@@ -68,11 +68,11 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
   if (!assignment) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Peer Review Settings</span>
+        <span className="builder-crumb">Xây dựng khóa học / Thiết lập chấm chéo</span>
         <div className="builder-hero">
           <h1>{loading ? "Loading Peer Review settings..." : "Assignment not found"}</h1>
         </div>
-        {!loading && <InstructorButton onClick={() => navigate(`${base}/assignments`)}>Back</InstructorButton>}
+        {!loading && <InstructorButton onClick={() => navigate(`${base}/assignments`)}>Quay lại</InstructorButton>}
       </InstructorPage>
     );
   }
@@ -123,7 +123,7 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
       message.success("Peer Review settings saved.");
       navigate(detailPath, { state: location.state });
     } catch {
-      message.error("Unable to reach the Assessment service. Please try again.");
+      message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setSaving(false);
     }
@@ -131,20 +131,20 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Peer Review Settings</span>
+      <span className="builder-crumb">Xây dựng khóa học / Thiết lập chấm chéo</span>
       <div className="builder-hero">
-        <h1>Peer Review Settings</h1>
+        <h1>Thiết lập chấm chéo</h1>
       </div>
       <div className="builder-grid">
         <div className="builder-update-card">
           <div className="builder-actions-split" style={{ display: "flex", alignItems: "center" }}>
-            <h2 style={{ margin: 0 }}>Enable Peer Review</h2>
+            <h2 style={{ margin: 0 }}>Bật chấm chéo</h2>
             <Switch checked={enabled} disabled={toggleLocked} onChange={setEnabled} />
           </div>
 
           <div className="builder-field-row">
             <div>
-              <label className="instructor-form-label">Reviewers per submission</label>
+              <label className="instructor-form-label">Số người chấm cho mỗi bài nộp</label>
               <NumberField
                 rule={PEER_REVIEWERS_RULE}
                 disabled={!enabled}
@@ -154,10 +154,10 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
               />
             </div>
             <div>
-              <label className="instructor-form-label">Cycle length (days)</label>
+              <label className="instructor-form-label">Độ dài chu kỳ (ngày)</label>
               <NumberField
                 rule={PEER_DAYS_RULE}
-                placeholder="Platform default"
+                placeholder="Mặc định hệ thống"
                 disabled={!enabled}
                 showError={submitted}
                 value={cycleLength}
@@ -165,10 +165,10 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
               />
             </div>
             <div>
-              <label className="instructor-form-label">Review deadline after cycle closes (days)</label>
+              <label className="instructor-form-label">Hạn chấm sau khi đóng chu kỳ (ngày)</label>
               <NumberField
                 rule={PEER_DAYS_RULE}
-                placeholder="Platform default"
+                placeholder="Mặc định hệ thống"
                 disabled={!enabled}
                 showError={submitted}
                 value={reviewDeadline}
@@ -176,7 +176,7 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
               />
             </div>
             <div>
-              <label className="instructor-form-label">Score discrepancy threshold (0-100)</label>
+              <label className="instructor-form-label">Ngưỡng chênh lệch điểm (0–100)</label>
               <NumberField
                 rule={PEER_SCORE_GAP_RULE}
                 disabled={!enabled}
@@ -187,13 +187,13 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
             </div>
           </div>
 
-          <InfoPanel title="Cycle timing">
+          <InfoPanel title="Lịch chu kỳ">
             The review deadline starts when the cycle closes and work is assigned. Choose a cycle long enough to
             collect at least {reviewers && Number.isFinite(reviewers) ? reviewers + 1 : "reviewers + 1"} submissions;
             otherwise you grade that cycle yourself.
           </InfoPanel>
 
-          <InfoPanel title="Platform defaults">
+          <InfoPanel title="Giá trị mặc định hệ thống">
             Leave Cycle length or Review deadline empty to use the platform default: {PLATFORM_DEFAULT_CYCLE_DAYS} days
             for the cycle and {PLATFORM_DEFAULT_DEADLINE_DAYS} days for the review deadline. The Admin manages these
             values, and a change only applies to cycles created afterwards, never to cycles already running. Once you
@@ -201,15 +201,15 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
           </InfoPanel>
 
           <div className="builder-actions">
-            <InstructorButton onClick={() => navigate(detailPath, { state: location.state })}>Cancel</InstructorButton>
+            <InstructorButton onClick={() => navigate(detailPath, { state: location.state })}>Hủy</InstructorButton>
             <InstructorButton type="primary" loading={saving} onClick={handleSave}>
-              Save settings
+              Lưu thiết lập
             </InstructorButton>
           </div>
         </div>
         <div className="builder-side">
           <div className="builder-banner" style={{ marginBottom: 0 }}>
-            <strong>Locked rule</strong>
+            <strong>Quy tắc khi đã khóa</strong>
             <p>
               {toggleLocked
                 ? "The Course is Locked, so Peer Review cannot be turned on or off. You can still change its parameters; they apply to new cycles only."

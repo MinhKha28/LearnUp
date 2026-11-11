@@ -36,10 +36,10 @@ const CourseBuilderQuizDelete = () => {
           setCourseLocked(res.data.courseLocked);
           setCourseStatus(res.data.courseStatus);
         } else {
-          message.error(assessmentErrorText(res, "Unable to load the Quiz."));
+          message.error(assessmentErrorText(res, "Không thể tải bài trắc nghiệm."));
         }
       } catch {
-        if (active) message.error("Unable to reach the Assessment service. Please try again.");
+        if (active) message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {
         if (active) setLoading(false);
       }
@@ -53,11 +53,11 @@ const CourseBuilderQuizDelete = () => {
   if (!quiz) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Delete Quiz</span>
+        <span className="builder-crumb">Xây dựng khóa học / Xóa bài trắc nghiệm</span>
         <div className="builder-hero">
           <h1>{loading ? "Loading Quiz..." : "Quiz not found"}</h1>
         </div>
-        {!loading && <InstructorButton onClick={() => navigate(`${base}/quizzes`)}>Back</InstructorButton>}
+        {!loading && <InstructorButton onClick={() => navigate(`${base}/quizzes`)}>Quay lại</InstructorButton>}
       </InstructorPage>
     );
   }
@@ -73,13 +73,13 @@ const CourseBuilderQuizDelete = () => {
     try {
       const res = await deleteQuizAPI(quiz.id);
       if (!res.data) {
-        message.error(assessmentErrorText(res, "Unable to delete the Quiz."));
+        message.error(assessmentErrorText(res, "Không thể xóa bài trắc nghiệm."));
         return;
       }
       message.success("Quiz deleted.");
       navigate(`${base}/quizzes`);
     } catch {
-      message.error("Unable to reach the Assessment service. Please try again.");
+      message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setDeleting(false);
     }
@@ -87,9 +87,9 @@ const CourseBuilderQuizDelete = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Delete Quiz</span>
+      <span className="builder-crumb">Xây dựng khóa học / Xóa bài trắc nghiệm</span>
       <div className="builder-hero">
-        <h1>Delete Quiz</h1>
+        <h1>Xóa bài trắc nghiệm</h1>
       </div>
       <div className="builder-confirm-card builder-delete-card">
         <div className="builder-delete-head">
@@ -98,17 +98,17 @@ const CourseBuilderQuizDelete = () => {
           </span>
           <div>
             <strong>Delete "{quiz.title}"?</strong>
-            <p>This action cannot be undone.</p>
+            <p>Thao tác này không thể hoàn tác.</p>
           </div>
         </div>
 
         <div className="builder-delete-list">
-          <span>This will permanently remove:</span>
+          <span>Thao tác sẽ xóa vĩnh viễn:</span>
           <ul>
             <li>
               The Quiz and its {quiz.questionCount} question{quiz.questionCount === 1 ? "" : "s"}
             </li>
-            {quiz.hasAttempts && <li>All Learner attempts and answers recorded for this Quiz</li>}
+            {quiz.hasAttempts && <li>Toàn bộ lượt làm và câu trả lời của học viên trong bài trắc nghiệm này</li>}
           </ul>
         </div>
 
@@ -120,13 +120,13 @@ const CourseBuilderQuizDelete = () => {
         )}
         {submitted && (
           <p className="builder-delete-blocked">
-            <WarningOutlined /> The Course is Submitted for review, so nothing can be changed until it is withdrawn.
+            <WarningOutlined /> Khóa học đang chờ thẩm định nên không thể chỉnh sửa cho đến khi thu hồi.
           </p>
         )}
         <div className="builder-confirm-actions">
-          <InstructorButton onClick={() => navigate(`${base}/quizzes`)}>Cancel</InstructorButton>
+          <InstructorButton onClick={() => navigate(`${base}/quizzes`)}>Hủy</InstructorButton>
           <InstructorButton type="primary" danger disabled={!canDelete} loading={deleting} onClick={handleDelete}>
-            Delete Quiz
+            Xóa bài trắc nghiệm
           </InstructorButton>
         </div>
       </div>

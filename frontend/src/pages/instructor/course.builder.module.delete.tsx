@@ -29,22 +29,22 @@ const CourseBuilderModuleDelete = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Delete Module</span>
+      <span className="builder-crumb">Xây dựng khóa học / Xóa chương</span>
       <div className="builder-hero">
-        <h1>Delete Module</h1>
+        <h1>Xóa chương</h1>
       </div>
       <div className="builder-confirm-card">
         <div className="builder-confirm-warning">
-          <strong>Delete Module?</strong>
-          <p>This deletes the Module and every Lesson, resource and Module Quiz inside it.</p>
+          <strong>Xóa chương này?</strong>
+          <p>Thao tác sẽ xóa chương, các bài học, học liệu và bài trắc nghiệm thuộc chương đó.</p>
         </div>
         <p className="builder-confirm-note">
-          Available only while the relevant Course and content rules allow deletion.
+          Chỉ có thể xóa khi quy tắc của khóa học và nội dung liên quan cho phép.
         </p>
         <div className="builder-confirm-actions">
-          <InstructorButton onClick={() => navigate(-1)}>Cancel</InstructorButton>
+          <InstructorButton onClick={() => navigate(-1)}>Hủy</InstructorButton>
           <InstructorButton type="primary" disabled={!canDelete} onClick={handleDelete}>
-            Delete Module
+            Xóa chương
           </InstructorButton>
         </div>
       </div>

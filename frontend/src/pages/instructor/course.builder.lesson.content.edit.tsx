@@ -195,7 +195,7 @@ const CourseBuilderLessonContentEdit = () => {
   if (!lesson || !editability) {
     return (
       <InstructorPage className="builder-page">
-        <h1>Unable to load Lesson content</h1>
+        <h1>Không thể tải nội dung bài học</h1>
 
         <Alert
           type="error"
@@ -229,7 +229,7 @@ const CourseBuilderLessonContentEdit = () => {
       </span>
 
       <div className="builder-hero">
-        <h1>Edit Lesson Content</h1>
+        <h1>Chỉnh sửa nội dung bài học</h1>
         <p>
           {lesson.module.title} / {lesson.lesson.title}
         </p>
@@ -239,7 +239,7 @@ const CourseBuilderLessonContentEdit = () => {
         <Alert
           type="warning"
           showIcon
-          message="Lesson content is locked for editing"
+          message="Nội dung bài học hiện không thể chỉnh sửa"
           description={lockedMessage}
           style={{ marginBottom: 20 }}
         />
@@ -248,7 +248,7 @@ const CourseBuilderLessonContentEdit = () => {
       <div className="builder-grid">
         {/* Form nhập nội dung */}
         <div className="builder-update-card">
-          <h2>Lesson introduction</h2>
+          <h2>Giới thiệu bài học</h2>
 
           <p className="builder-lesson-intro">
             Edit the introductory text of this Lesson. Markdown is supported.
@@ -262,7 +262,7 @@ const CourseBuilderLessonContentEdit = () => {
             maxLength={20000}
             showCount
             disabled={cannotEdit || saving}
-            placeholder="Write the Lesson introduction..."
+            placeholder="Nhập nội dung giới thiệu bài học..."
           />
 
           <div className="builder-actions">
@@ -286,7 +286,7 @@ const CourseBuilderLessonContentEdit = () => {
 
         {/* Cột bên phải */}
         <div className="builder-side">
-          <InfoPanel title="Edit rule">
+          <InfoPanel title="Quy tắc chỉnh sửa">
             Lesson content can be updated only when no Learner has completed the
             Lesson.
           </InfoPanel>
@@ -300,12 +300,12 @@ const CourseBuilderLessonContentEdit = () => {
 
       {/* Preview Markdown */}
       <div className="builder-update-card" style={{ marginTop: 20 }}>
-        <h2>Content preview</h2>
+        <h2>Xem trước nội dung</h2>
 
         {content.trim() ? (
           <LessonMarkdown content={content} />
         ) : (
-          <p className="builder-lesson-intro">No content to preview.</p>
+          <p className="builder-lesson-intro">Chưa có nội dung để xem trước.</p>
         )}
       </div>
     </InstructorPage>

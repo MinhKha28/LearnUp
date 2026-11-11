@@ -28,11 +28,11 @@ const CourseBuilderLessonAdd = () => {
     return (
       <div className="builder-create-page">
         <div className="builder-create-card">
-          <p>Module not found.</p>
+          <p>Không tìm thấy chương.</p>
 
           <div className="builder-create-actions">
             <InstructorButton onClick={() => navigate(base)}>
-              Back to Course Structure
+              Quay lại cấu trúc khóa học
             </InstructorButton>
           </div>
         </div>
@@ -92,11 +92,11 @@ const CourseBuilderLessonAdd = () => {
   return (
     <div className="builder-create-page">
       <div className="builder-create-header">
-        <span className="builder-editor-eyebrow">COURSE STRUCTURE</span>
-        <h1>Add Lesson</h1>
+        <span className="builder-editor-eyebrow">Cấu trúc khóa học</span>
+        <h1>Thêm bài học</h1>
 
         <p>
-          Add a new Lesson to <strong>{module.title}</strong>.
+          Thêm bài học mới vào <strong>{module.title}</strong>.
         </p>
       </div>
 
@@ -107,13 +107,13 @@ const CourseBuilderLessonAdd = () => {
           </div>
 
           <div>
-            <h2>Lesson information</h2>
-            <p>Enter the Lesson title and introductory content.</p>
+            <h2>Thông tin bài học</h2>
+            <p>Nhập tên và nội dung giới thiệu bài học.</p>
           </div>
         </div>
 
         <div className="builder-create-form">
-          <label htmlFor="lesson-title">Lesson title</label>
+          <label htmlFor="lesson-title">Tên bài học</label>
 
           <Input
             id="lesson-title"
@@ -121,7 +121,7 @@ const CourseBuilderLessonAdd = () => {
             maxLength={200}
             showCount
             autoFocus
-            placeholder="e.g. Introduction to Spring Boot"
+            placeholder="Ví dụ: Giới thiệu Spring Boot"
             value={title}
             disabled={saving || structure.structureLocked}
             onChange={(event) => setTitle(event.target.value)}
@@ -131,7 +131,7 @@ const CourseBuilderLessonAdd = () => {
             htmlFor="lesson-content"
             className="builder-create-label-spaced"
           >
-            Lesson content
+            Nội dung bài học
           </label>
 
           <Input.TextArea
@@ -139,20 +139,20 @@ const CourseBuilderLessonAdd = () => {
             rows={7}
             maxLength={20000}
             showCount
-            placeholder="Write the Lesson introduction..."
+            placeholder="Nhập nội dung giới thiệu bài học..."
             value={content}
             disabled={saving || structure.structureLocked}
             onChange={(event) => setContent(event.target.value)}
           />
 
           <p className="builder-create-help">
-            The new Lesson will be placed at the end of this Module.
+            Bài học mới sẽ được thêm vào cuối chương.
           </p>
         </div>
 
         <div className="builder-create-actions">
           <InstructorButton onClick={() => navigate(base)} disabled={saving}>
-            Cancel
+            Hủy
           </InstructorButton>
 
           <InstructorButton

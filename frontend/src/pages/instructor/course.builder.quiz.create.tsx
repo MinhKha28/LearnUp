@@ -123,7 +123,7 @@ const CourseBuilderQuizCreate = () => {
       message.success("Quiz created.");
       navigate(listPath);
     } catch {
-      message.error("Unable to reach the Assessment service. Please try again.");
+      message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setSaving(false);
     }
@@ -131,36 +131,36 @@ const CourseBuilderQuizCreate = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Create Quiz</span>
+      <span className="builder-crumb">Xây dựng khóa học / Tạo bài trắc nghiệm</span>
       <div className="builder-hero">
-        <h1>Create Quiz</h1>
+        <h1>Tạo bài trắc nghiệm</h1>
       </div>
       <div className="builder-grid">
         <div className="builder-update-card">
           {formLocked && (
-            <WarningPanel title="This Course cannot be edited">
+            <WarningPanel title="Không thể chỉnh sửa khóa học này">
               {structure.lockReason ?? `The Course is ${course.status}, so no Quiz can be added.`}
             </WarningPanel>
           )}
           {onlyOptional && (
-            <WarningPanel title="Course Locked">
+            <WarningPanel title="Khóa học đã khóa">
               A Learner has enrolled in this Course, so only an optional Quiz can be added. It is placed at the end of
               where it is attached.
             </WarningPanel>
           )}
 
-          <label className="instructor-form-label">Quiz title</label>
+          <label className="instructor-form-label">Tên bài trắc nghiệm</label>
           <Input
             value={title}
             maxLength={200}
             disabled={formLocked}
             status={submitted && errors.title ? "error" : undefined}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="Module 2 Quiz"
+            placeholder="Bài trắc nghiệm chương 2"
           />
           <FieldError message={submitted ? errors.title : null} />
 
-          <label className="instructor-form-label instructor-form-label-spaced">Attach to</label>
+          <label className="instructor-form-label instructor-form-label-spaced">Áp dụng cho</label>
           <Select
             style={{ width: "100%" }}
             value={attachTo}
@@ -171,7 +171,7 @@ const CourseBuilderQuizCreate = () => {
 
           <div className="builder-field-row">
             <div>
-              <label className="instructor-form-label instructor-form-label-spaced">Time limit (minutes, 1-1440)</label>
+              <label className="instructor-form-label instructor-form-label-spaced">Thời gian làm bài (phút, 1–1440)</label>
               <NumberField
                 rule={TIME_LIMIT_RULE}
                 showError={submitted}
@@ -181,7 +181,7 @@ const CourseBuilderQuizCreate = () => {
               />
             </div>
             <div>
-              <label className="instructor-form-label instructor-form-label-spaced">Passing score (above 0, max 100)</label>
+              <label className="instructor-form-label instructor-form-label-spaced">Điểm đạt (lớn hơn 0, tối đa 100)</label>
               <NumberField
                 rule={QUIZ_PASSING_SCORE_RULE}
                 showError={submitted}
@@ -191,30 +191,30 @@ const CourseBuilderQuizCreate = () => {
               />
             </div>
             <div>
-              <label className="instructor-form-label instructor-form-label-spaced">Consecutive attempts (n)</label>
+              <label className="instructor-form-label instructor-form-label-spaced">Số lượt làm liên tiếp (n)</label>
               <NumberField
                 rule={ATTEMPTS_RULE}
                 showError={submitted}
                 disabled={formLocked}
-                placeholder="Platform default"
+                placeholder="Mặc định hệ thống"
                 value={attempts}
                 onChange={setAttempts}
               />
             </div>
             <div>
-              <label className="instructor-form-label instructor-form-label-spaced">Temporary lock (m hours)</label>
+              <label className="instructor-form-label instructor-form-label-spaced">Thời gian khóa tạm (m giờ)</label>
               <NumberField
                 rule={LOCK_HOURS_RULE}
                 showError={submitted}
                 disabled={formLocked}
-                placeholder="Platform default"
+                placeholder="Mặc định hệ thống"
                 value={lockHours}
                 onChange={setLockHours}
               />
             </div>
           </div>
 
-          <label className="instructor-form-label instructor-form-label-spaced">Certificate requirement</label>
+          <label className="instructor-form-label instructor-form-label-spaced">Điều kiện cấp chứng chỉ</label>
           <Radio.Group
             optionType="button"
             buttonStyle="solid"
@@ -222,27 +222,27 @@ const CourseBuilderQuizCreate = () => {
             value={isRequired === null ? undefined : isRequired}
             onChange={(event) => setIsRequired(event.target.value as boolean)}
             options={[
-              { label: "Required", value: true, disabled: onlyOptional },
-              { label: "Optional", value: false },
+              { label: "Bắt buộc", value: true, disabled: onlyOptional },
+              { label: "Không bắt buộc", value: false },
             ]}
           />
           <FieldError message={submitted ? errors.isRequired : null} />
 
           <div className="builder-actions">
-            <InstructorButton onClick={() => navigate(listPath)}>Cancel</InstructorButton>
+            <InstructorButton onClick={() => navigate(listPath)}>Hủy</InstructorButton>
             <InstructorButton type="primary" loading={saving} disabled={formLocked} onClick={handleCreate}>
-              Create Quiz
+              Tạo bài trắc nghiệm
             </InstructorButton>
           </div>
         </div>
         <div className="builder-side">
-          <InfoPanel title="Certificate requirement">
-            A Quiz can be Optional for practice. Required Quizzes count toward the Certificate.
+          <InfoPanel title="Điều kiện cấp chứng chỉ">
+            Bài trắc nghiệm có thể không bắt buộc để luyện tập; bài bắt buộc được tính vào điều kiện cấp chứng chỉ.
           </InfoPanel>
-          <InfoPanel title="Attempts and lock">
-            Leave n and m empty to use the platform defaults. The values are copied into the Quiz when it is created.
+          <InfoPanel title="Lượt làm và thời gian khóa">
+            Để trống n và m nếu dùng giá trị mặc định hệ thống. Giá trị sẽ được lưu vào bài trắc nghiệm khi tạo.
           </InfoPanel>
-          <InfoPanel title="Questions">
+          <InfoPanel title="Câu hỏi">
             A new Quiz has no questions yet. The Course cannot be submitted for review until every Quiz has at least one
             question.
           </InfoPanel>

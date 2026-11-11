@@ -29,22 +29,22 @@ const CourseBuilderLessonDelete = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Delete Lesson</span>
+      <span className="builder-crumb">Xây dựng khóa học / Xóa bài học</span>
       <div className="builder-hero">
-        <h1>Delete Lesson</h1>
+        <h1>Xóa bài học</h1>
       </div>
       <div className="builder-confirm-card">
         <div className="builder-confirm-warning">
-          <strong>Delete Lesson?</strong>
-          <p>This deletes the Lesson and all of its Video and Reading materials.</p>
+          <strong>Xóa bài học này?</strong>
+          <p>Thao tác sẽ xóa bài học cùng toàn bộ video và tài liệu đọc liên quan.</p>
         </div>
         <p className="builder-confirm-note">
-          Available only while the relevant Course and content rules allow deletion.
+          Chỉ có thể xóa khi quy tắc của khóa học và nội dung liên quan cho phép.
         </p>
         <div className="builder-confirm-actions">
-          <InstructorButton onClick={() => navigate(-1)}>Cancel</InstructorButton>
+          <InstructorButton onClick={() => navigate(-1)}>Hủy</InstructorButton>
           <InstructorButton type="primary" disabled={!canDelete} onClick={handleDelete}>
-            Delete Lesson
+            Xóa bài học
           </InstructorButton>
         </div>
       </div>
