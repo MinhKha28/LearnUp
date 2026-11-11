@@ -31,10 +31,10 @@ const CourseBuilderAssignments = () => {
           setAssignments(res.data.items);
           setCourseLocked(res.data.courseLocked);
         } else {
-          message.error(assessmentErrorText(res, "Unable to load Assignments."));
+          message.error(assessmentErrorText(res, "Không thể tải danh sách bài tập."));
         }
       } catch {
-        if (active) message.error("Unable to reach the Assessment service. Please try again.");
+        if (active) message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {
         if (active) setLoading(false);
       }
@@ -55,11 +55,11 @@ const CourseBuilderAssignments = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Assignments</span>
+      <span className="builder-crumb">Xây dựng khóa học / Bài tập</span>
       <div className="builder-hero">
-        <h1>Assignments</h1>
+        <h1>Bài tập</h1>
         <p>
-          {loading ? "Loading..." : `${assignments.length} Assignment${assignments.length === 1 ? "" : "s"} in ${course.name}`}
+          {loading ? "Đang tải..." : `${assignments.length} bài tập trong ${course.name}`}
         </p>
       </div>
       <div className="builder-grid">
@@ -67,15 +67,15 @@ const CourseBuilderAssignments = () => {
           <div className="builder-assign-stats">
             <div>
               <strong>{assignments.length}</strong>
-              <span>Total</span>
+              <span>Tổng số</span>
             </div>
             <div>
               <strong>{withPeerReview}</strong>
-              <span>Peer Review on</span>
+              <span>Đã bật chấm chéo</span>
             </div>
             <div>
               <strong>{withSubmissions}</strong>
-              <span>With submissions</span>
+              <span>Có bài nộp</span>
             </div>
           </div>
 
@@ -90,55 +90,55 @@ const CourseBuilderAssignments = () => {
                 <div className="builder-assign-main">
                   <strong>
                     {assignment.title}
-                    {assignment.disabled && " (Disabled)"}
+                    {assignment.disabled && " (Đã vô hiệu hóa)"}
                   </strong>
                   <small>
-                    Passing score {assignment.passingScore}% · about {formatMinutes(assignment.expectedDurationMinutes)}
+                    Điểm đạt {assignment.passingScore}% · khoảng {formatMinutes(assignment.expectedDurationMinutes).replaceAll("min", "phút").replaceAll(" h", " giờ")}
                   </small>
                   <small>
-                    {assignment.maxConsecutiveAttempts} attempts, then a {assignment.lockoutHours} h lock
+                    {assignment.maxConsecutiveAttempts} lượt nộp liên tiếp, sau đó khóa {assignment.lockoutHours} giờ
                   </small>
                 </div>
                 <div className="builder-assign-tags">
                   <em className={`builder-pill${assignment.peerReviewEnabled ? " builder-pill-on" : ""}`}>
-                    Peer Review {assignment.peerReviewEnabled ? "on" : "off"}
+                    Chấm chéo: {assignment.peerReviewEnabled ? "Bật" : "Tắt"}
                   </em>
                   {/* BR-99: say why an item cannot be edited instead of only showing a state. */}
                   <em className={`builder-pill${assignment.locked ? " builder-pill-warn" : ""}`}>
-                    {assignment.locked ? "Has submissions" : "Unlocked"}
+                    {assignment.locked ? "Đã có bài nộp" : "Chưa khóa"}
                   </em>
                 </div>
                 <span className="builder-assign-chevron">&rsaquo;</span>
               </div>
             ))}
             {!loading && assignments.length === 0 && (
-              <div className="builder-assign-empty">No Assignments yet. Add the first one to get started.</div>
+              <div className="builder-assign-empty">Chưa có bài tập. Hãy thêm bài tập đầu tiên để bắt đầu.</div>
             )}
-            {loading && <div className="builder-assign-empty">Loading Assignments...</div>}
+            {loading && <div className="builder-assign-empty">Đang tải bài tập...</div>}
           </div>
 
           {courseLocked && (
             <div className="builder-banner">
-              <strong>Course Locked</strong>
+              <strong>Khóa học đã khóa</strong>
               <p>
-                A Learner has enrolled, so no new Assignment can be added. Create a new Course version to add one.
+                Đã có học viên đăng ký nên không thể thêm bài tập. Hãy tạo phiên bản khóa học mới.
               </p>
             </div>
           )}
           <div className="builder-actions builder-actions-split">
-            <InstructorButton onClick={() => navigate(base)}>Back to Course outline</InstructorButton>
+            <InstructorButton onClick={() => navigate(base)}>Quay lại cấu trúc khóa học</InstructorButton>
             <InstructorButton
               type="primary"
               disabled={addBlocked}
               onClick={() => navigate(`${base}/assignments/new`, { state: { from: pathname } })}
             >
-              + Add Assignment
+              + Thêm bài tập
             </InstructorButton>
           </div>
         </div>
         <div className="builder-side">
-          <InfoPanel title="Course-level Assessment">
-            Every Assignment is Required for Certificate completion.
+          <InfoPanel title="Bài đánh giá cấp khóa học">
+            Mọi bài tập đều là điều kiện bắt buộc để hoàn thành chứng chỉ.
           </InfoPanel>
         </div>
       </div>

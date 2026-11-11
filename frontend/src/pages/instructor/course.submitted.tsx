@@ -62,10 +62,10 @@ const CourseSubmitted = () => {
         <Alert
           type="warning"
           showIcon
-          message="Course is not currently Submitted."
+          message="Khóa học hiện không ở trạng thái chờ phê duyệt."
         />
         <InstructorButton onClick={() => navigate("/instructor/courses")}>
-          Back to My Courses
+          Quay lại khóa học của tôi
         </InstructorButton>
       </InstructorPage>
     );
@@ -74,23 +74,23 @@ const CourseSubmitted = () => {
   return (
     <InstructorPage className="instructor-course-create">
       <PageHeader
-        eyebrow="COURSE / APPROVAL"
-        title="Course Submitted"
-        subtitle="The Course is awaiting Organizer review."
+        eyebrow="Khóa học / Phê duyệt"
+        title="Đã gửi khóa học phê duyệt"
+        subtitle="Khóa học đang chờ quản lý đào tạo thẩm định."
       />
 
       <SuccessScreen
         tone="success"
-        title="Awaiting Organizer review"
+        title="Đang chờ quản lý đào tạo thẩm định"
         secondary={{
-          label: "View submitted Course",
+          label: "Xem khóa học đã gửi",
           onClick: () => navigate(`/instructor/courses/${course.id}`),
         }}
       >
         <p>
           {course.name} • Version {course.versionNumber}
         </p>
-        <p>Status: Submitted. The Course is not yet Published.</p>
+        <p>Trạng thái: Chờ phê duyệt. Khóa học chưa được phát hành.</p>
       </SuccessScreen>
     </InstructorPage>
   );
