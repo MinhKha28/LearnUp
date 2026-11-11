@@ -2,6 +2,7 @@ package com.learnup.audit.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import java.util.UUID;
+import java.time.Instant;
 
 public class CreateAuditLogRequest {
 
@@ -17,6 +18,7 @@ public class CreateAuditLogRequest {
     private String details;
     private String ipAddress;
     private String correlationId;
+    private Instant occurredAt;
 
     public CreateAuditLogRequest() {
     }
@@ -98,6 +100,9 @@ public class CreateAuditLogRequest {
     public void setIpAddress(String ipAddress) {
         this.ipAddress = ipAddress;
     }
+
+    public Instant getOccurredAt() { return occurredAt; }
+    public void setOccurredAt(Instant occurredAt) { this.occurredAt = occurredAt; }
 
     public String getCorrelationId() {
         return correlationId;

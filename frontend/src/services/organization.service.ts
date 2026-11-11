@@ -1,3 +1,4 @@
+import type { ITransferCandidate } from "@/types/course.types";
 import type {
   IAdminOrganizationListItem,
   IAdminOrganizationListQuery,
@@ -326,5 +327,13 @@ export const getAdminOrganizationsAPI = ({
         ...query,
         ...(includeCancelled ? { includeCancelled: true } : {}),
       },
+    },
+  );
+
+export const getTransferCandidatesAPI = (excludeInstructorId: string) =>
+  axios.get<IBackendRes<ITransferCandidate[]>>(
+    "/api/v1/users/instructors/transfer-candidates",
+    {
+      params: { excludeInstructorId },
     },
   );
