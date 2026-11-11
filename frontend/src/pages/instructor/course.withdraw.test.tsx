@@ -92,7 +92,7 @@ it("shows an API failure, reloads the Course, and does not navigate", async () =
   expect(await screen.findByRole("button", { name: "Thu hồi về bản nháp" })).toBeTruthy();
   expect(screen.queryByText("Course Detail")).toBeNull();
   expect(notifications.error).toHaveBeenCalledWith(
-    "Course status has changed. Please reload and try again.",
+    "Trạng thái khóa học đã thay đổi. Vui lòng tải lại trang và thử lại.",
   );
 });
 
