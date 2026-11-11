@@ -29,7 +29,7 @@ const CourseBuilderAssignmentDelete = () => {
         const res = await fetchAssignmentAPI(assignmentId);
         if (!active) return;
         if (res.data) setAssignment(res.data);
-        else message.error(assessmentErrorText(res, "Unable to load the Assignment."));
+        else message.error(assessmentErrorText(res, "Không thể tải thông tin bài tập."));
       } catch {
         if (active) message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {
@@ -50,7 +50,7 @@ const CourseBuilderAssignmentDelete = () => {
       <InstructorPage className="builder-page">
         <span className="builder-crumb">Xây dựng khóa học / Xóa bài tập</span>
         <div className="builder-hero">
-          <h1>{loading ? "Loading Assignment..." : "Assignment not found"}</h1>
+          <h1>{loading ? "Đang tải bài tập..." : "Không tìm thấy bài tập"}</h1>
         </div>
         {!loading && <InstructorButton onClick={() => navigate(`${base}/assignments`)}>Quay lại</InstructorButton>}
       </InstructorPage>
@@ -65,10 +65,10 @@ const CourseBuilderAssignmentDelete = () => {
     try {
       const res = await deleteAssignmentAPI(assignment.id);
       if (!res.data) {
-        message.error(assessmentErrorText(res, "Unable to delete the Assignment."));
+        message.error(assessmentErrorText(res, "Không thể xóa bài tập."));
         return;
       }
-      message.success("Assignment deleted.");
+      message.success("Đã xóa bài tập.");
       navigate(`${base}/assignments`);
     } catch {
       message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
@@ -89,7 +89,7 @@ const CourseBuilderAssignmentDelete = () => {
             <DeleteOutlined />
           </span>
           <div>
-            <strong>Delete "{assignment.title}"?</strong>
+            <strong>Xóa "{assignment.title}"?</strong>
             <p>Thao tác này không thể hoàn tác.</p>
           </div>
         </div>
@@ -97,19 +97,19 @@ const CourseBuilderAssignmentDelete = () => {
         <div className="builder-delete-list">
           <span>Thao tác sẽ xóa vĩnh viễn:</span>
           <ul>
-            <li>The Assignment and its Rubric ({assignment.rubric.length} criteria)</li>
+            <li>Bài tập và các tiêu chí chấm ({assignment.rubric.length} criteria)</li>
             <li>Các thiết lập chấm chéo của bài tập</li>
-            {assignment.promptFile && <li>The attached PDF ({assignment.promptFile.fileName})</li>}
+            {assignment.promptFile && <li>Tệp PDF đính kèm ({assignment.promptFile.fileName})</li>}
             {assignment.expectedDurationMinutes != null && (
-              <li>{assignment.expectedDurationMinutes} min from the Course estimated duration</li>
+              <li>{assignment.expectedDurationMinutes} phút trong thời lượng ước tính của khóa học</li>
             )}
           </ul>
         </div>
 
         {!canDelete && (
           <p className="builder-delete-blocked">
-            <WarningOutlined /> This Assignment already has submissions and the Course is Locked, so it cannot be
-            deleted. Create a new Course version to remove it.
+            <WarningOutlined /> Bài tập đã có bài nộp và khóa học đã khóa nên không thể
+            xóa. Hãy tạo phiên bản khóa học mới để xóa bài tập.
           </p>
         )}
         <div className="builder-confirm-actions">

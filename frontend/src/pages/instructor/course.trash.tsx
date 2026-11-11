@@ -67,7 +67,7 @@ const CourseTrash = () => {
 
         if (!Array.isArray(response.data)) {
           setCourses([]);
-          setLoadError("Unable to load Course Trash.");
+          setLoadError("Không thể tải thùng rác khóa học.");
           return;
         }
 
@@ -76,7 +76,7 @@ const CourseTrash = () => {
       } catch {
         if (!ignore) {
           setCourses([]);
-          setLoadError("Unable to connect to the server. Please try again.");
+          setLoadError("Không thể kết nối máy chủ. Vui lòng thử lại.");
         }
       } finally {
         if (!ignore) {
@@ -107,7 +107,7 @@ const CourseTrash = () => {
         return;
       }
 
-      message.success(`"${course.name}" restored successfully.`);
+      message.success(`"${course.name}" đã được khôi phục.`);
       refresh();
     } catch (error) {
       const code = getCourseApiErrorCode(error);
@@ -125,12 +125,12 @@ const CourseTrash = () => {
       content: (
         <>
           <p>
-            Are you sure you want to permanently delete{" "}
+            Bạn có chắc muốn xóa vĩnh viễn{" "}
             <strong>{course.name}</strong>?
           </p>
           <p>
-            This action cannot be undone. Course content and files that are no
-            longer used by other versions will be removed.
+            Thao tác này không thể hoàn tác. Nội dung khóa học và các tệp không còn
+            được phiên bản khác sử dụng sẽ bị xóa.
           </p>
         </>
       ),
@@ -153,7 +153,7 @@ const CourseTrash = () => {
             return;
           }
 
-          message.success(`"${course.name}" permanently deleted.`);
+          message.success(`"${course.name}" đã được xóa vĩnh viễn.`);
 
           refresh();
         } catch (error) {
@@ -175,7 +175,7 @@ const CourseTrash = () => {
       render: (name: string, course) => (
         <div className="course-trash-name">
           <strong>{name}</strong>
-          <span>Version {course.versionNumber}</span>
+          <span>Phiên bản {course.versionNumber}</span>
         </div>
       ),
     },
@@ -297,7 +297,7 @@ const CourseTrash = () => {
         pagination={{
           pageSize: 10,
           showSizeChanger: false,
-          showTotal: (total) => `${total} deleted Courses`,
+          showTotal: (total) => `${total} khóa học đã xóa`,
         }}
         locale={{
           emptyText: <Empty description="Thùng rác khóa học đang trống." />,

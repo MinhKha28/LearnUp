@@ -37,7 +37,7 @@ const RubricEditor = ({ rows, onChange, disabled = false, showErrors = false }: 
                   placeholder="Mức độ đầy đủ của câu trả lời"
                   onChange={(event) => update(row.key, { description: event.target.value })}
                 />
-                <FieldError message={descriptionMissing ? "Enter a description for this criterion." : null} />
+                <FieldError message={descriptionMissing ? "Nhập mô tả cho tiêu chí này." : null} />
               </div>
               <div className="builder-rubric-field-score">
                 <label className="instructor-form-label">Điểm tối đa</label>

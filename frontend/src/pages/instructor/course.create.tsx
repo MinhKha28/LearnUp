@@ -85,7 +85,7 @@ const CourseCreate = () => {
 
         if (!uploadResponse.data) {
           message.error(
-            uploadResponse.message || "Unable to upload Course cover.",
+            uploadResponse.message || "Không thể tải ảnh bìa khóa học lên.",
           );
           return;
         }
@@ -108,15 +108,15 @@ const CourseCreate = () => {
       const response = await createCourseAPI(payload);
 
       if (!response.data) {
-        message.error(response.message || "Unable to create Course.");
+        message.error(response.message || "Không thể tạo khóa học.");
         return;
       }
 
-      message.success("Draft Course created.");
+      message.success("Đã tạo bản nháp khóa học.");
       navigate(`/instructor/courses/${response.data.id}/builder`);
     } catch (error) {
       console.error("Create Course error:", error);
-      message.error("Unable to create Course.");
+      message.error("Không thể tạo khóa học.");
     } finally {
       setCreating(false);
     }
@@ -234,7 +234,7 @@ const CourseCreate = () => {
               </Form.Item>
 
               <p className="course-create-help">
-                This value is used later when calculating deadlines for Required
+                Giá trị này được dùng khi tính hạn hoàn thành cho các lượt học bắt buộc
                 Enrollments.
               </p>
             </SectionCard>
@@ -255,7 +255,7 @@ const CourseCreate = () => {
 
                 {coverPreview ? (
                   <div className="course-cover-preview">
-                    <img src={coverPreview} alt="Course cover preview" />
+                    <img src={coverPreview} alt="Xem trước ảnh bìa khóa học" />
 
                     <button
                       type="button"
@@ -374,7 +374,7 @@ const CourseCreate = () => {
               value={<StatusTag tone="neutral">Bản nháp</StatusTag>}
             />
 
-            <SummaryRow label="Phiên bản" value="Version 1" />
+            <SummaryRow label="Phiên bản" value="Phiên bản 1" />
 
             <SummaryRow
               label="Loại khóa học"
@@ -408,7 +408,7 @@ const CourseCreate = () => {
             </div>
 
             <div className="course-summary-note">
-              After creating the Draft, you will continue in the Course Builder
+              Sau khi tạo bản nháp, bạn tiếp tục trong trình biên soạn khóa học
               to add Modules, Lessons and learning content.
             </div>
           </SectionCard>

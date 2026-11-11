@@ -47,7 +47,7 @@ const CourseBuilderNewVersion = () => {
           <div className="instructor-info-panel">
             <strong>Phiên bản trước</strong>
             <p>
-              {course.publishedVersion} remains Published until this version is approved.
+              {course.publishedVersion} vẫn được phát hành cho đến khi phiên bản này được phê duyệt.
             </p>
           </div>
         </div>

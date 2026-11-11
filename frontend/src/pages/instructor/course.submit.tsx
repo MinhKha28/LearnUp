@@ -34,7 +34,7 @@ const CourseSubmit = () => {
 
   const loadCourse = useCallback(async () => {
     if (!courseId) {
-      setError("Course ID is missing.");
+      setError("Thiếu mã khóa học.");
       setLoading(false);
       return;
     }
@@ -70,7 +70,7 @@ const CourseSubmit = () => {
     if (!course || submitInProgress.current) return;
 
     if (course.status !== "Draft" && course.status !== "Rejected") {
-      message.warning("Course cannot be submitted.");
+      message.warning("Không thể gửi khóa học phê duyệt.");
       return;
     }
 
@@ -94,7 +94,7 @@ const CourseSubmit = () => {
         return;
       }
 
-      message.success("Course submitted successfully.");
+      message.success("Đã gửi khóa học phê duyệt.");
 
       navigate(`/instructor/courses/${course.id}/submitted`, { replace: true });
     } catch (error: unknown) {
@@ -244,8 +244,8 @@ const CourseSubmit = () => {
               onClick={() => void handleSubmit()}
             >
               {course.status === "Rejected"
-                ? "Resubmit Course"
-                : "Submit Course"}
+                ? "Gửi duyệt lại khóa học"
+                : "Gửi khóa học phê duyệt"}
             </InstructorButton>
           </div>
         </SectionCard>

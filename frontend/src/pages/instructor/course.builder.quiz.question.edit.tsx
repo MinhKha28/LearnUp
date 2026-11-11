@@ -120,7 +120,7 @@ const CourseBuilderQuizQuestionEdit = () => {
 
   const handleSave = () => {
     if (!text.trim()) {
-      message.warning("Enter the Question text.");
+      message.warning("Nhập nội dung câu hỏi.");
       return;
     }
     if (options.some((option) => !option.text.trim())) {

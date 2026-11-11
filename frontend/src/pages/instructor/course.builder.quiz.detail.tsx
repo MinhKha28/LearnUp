@@ -123,7 +123,7 @@ const CourseBuilderQuizDetail = () => {
           const notFound =
             assessmentErrorCode(res).code === "QUIZ_NOT_FOUND" || statusCode === 404 || statusCode === 400;
           setQuiz(null);
-          setError({ notFound, message: assessmentErrorText(res, "Unable to load the Quiz.") });
+          setError({ notFound, message: assessmentErrorText(res, "Không thể tải bài trắc nghiệm.") });
         }
       } catch {
         if (active) {
@@ -161,11 +161,11 @@ const CourseBuilderQuizDetail = () => {
         <span className="builder-crumb">Xây dựng khóa học / Bài trắc nghiệm / Chi tiết</span>
         <div className="builder-update-card">
           <div className="builder-banner builder-banner-error">
-            <strong>{error?.notFound ? "Quiz not found" : "The Quiz could not be loaded"}</strong>
+            <strong>{error?.notFound ? "Không tìm thấy bài trắc nghiệm" : "Không thể tải bài trắc nghiệm"}</strong>
             <p>
               {error?.notFound
-                ? "This Quiz does not exist or is not in a Course you are in charge of."
-                : (error?.message ?? "Unable to load the Quiz.")}
+                ? "Bài trắc nghiệm không tồn tại hoặc không thuộc khóa học bạn phụ trách."
+                : (error?.message ?? "Không thể tải bài trắc nghiệm.")}
             </p>
           </div>
           <div className="builder-actions">
@@ -196,14 +196,14 @@ const CourseBuilderQuizDetail = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Quizzes / {quiz.title}</span>
+      <span className="builder-crumb">Biên soạn khóa học / Bài trắc nghiệm / {quiz.title}</span>
       <div className="builder-hero builder-quiz-detail-hero">
         <div>
           <h1>{quiz.title}</h1>
           <p>{quizPlacementLabel(quiz, structure.modules)}</p>
         </div>
         <div className="builder-quiz-tags">
-          <StatusTag tone={quiz.isRequired ? "info" : "neutral"}>{quiz.isRequired ? "Required" : "Optional"}</StatusTag>
+          <StatusTag tone={quiz.isRequired ? "info" : "neutral"}>{quiz.isRequired ? "Bắt buộc" : "Không bắt buộc"}</StatusTag>
           {quiz.locked ? (
             <Tooltip
               title={
@@ -251,7 +251,7 @@ const CourseBuilderQuizDetail = () => {
               />
               <ConfigRow
                 label="Bắt buộc"
-                value={quiz.isRequired ? "Required" : "Optional"}
+                value={quiz.isRequired ? "Bắt buộc" : "Không bắt buộc"}
                 permission={permissions.editRequired}
               />
               <ConfigRow

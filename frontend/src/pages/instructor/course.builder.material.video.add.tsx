@@ -24,7 +24,7 @@ const formatBytes = (value: string | number): string => {
   const bytes = Number(value);
 
   if (!Number.isFinite(bytes) || bytes < 0) {
-    return "Unknown";
+    return "Không xác định";
   }
 
   if (bytes < 1024) return `${bytes} B`;
@@ -49,10 +49,10 @@ const getBlockMessage = (reason: string | null): string => {
       return "Subscription is Suspended. Instructors cannot upload learning materials.";
 
     case "COURSE_NOT_EDITABLE":
-      return "This Course or Lesson is not editable.";
+      return "Không thể chỉnh sửa khóa học hoặc bài học này.";
 
     default:
-      return "Video upload is currently unavailable. Contact your Organizer if the problem continues.";
+      return "Hiện không thể tải video lên. Hãy liên hệ quản lý đào tạo nếu lỗi tiếp diễn.";
   }
 };
 
@@ -61,28 +61,28 @@ const getUploadErrorMessage = (error: unknown): string => {
     const apiError = toApiError(error);
 
     if (apiError.status === 403) {
-      return "Upload denied. Your Subscription or Instructor permissions may have changed.";
+      return "Không được phép tải tệp. Gói dịch vụ hoặc quyền giảng viên có thể đã thay đổi.";
     }
 
     if (apiError.status === 409) {
-      return "The Course state or available storage has changed. Please refresh and try again.";
+      return "Trạng thái khóa học hoặc dung lượng lưu trữ đã thay đổi. Hãy tải lại và thử lại.";
     }
 
     if (apiError.status === 413) {
-      return "Video exceeds the maximum allowed upload size.";
+      return "Video vượt quá dung lượng tải lên cho phép.";
     }
 
     if (apiError.status === 400) {
-      return apiError.message || "Invalid Video file.";
+      return apiError.message || "Tệp video không hợp lệ.";
     }
 
     if (apiError.status === 503) {
-      return "The upload service is temporarily unavailable.";
+      return "Dịch vụ tải tệp lên đang tạm thời không khả dụng.";
     }
 
-    return apiError.message || "Unable to upload Video.";
+    return apiError.message || "Không thể tải video lên.";
   } catch {
-    return "Unable to upload Video. Please try again.";
+    return "Không thể tải video lên. Please try again.";
   }
 };
 
@@ -106,7 +106,7 @@ const CourseBuilderVideoAdd = () => {
   const query = useApiQuery(
     async (signal) => {
       if (!courseId || !lessonId) {
-        throw new Error("Course ID or Lesson ID is missing.");
+        throw new Error("Thiếu mã khóa học hoặc bài học.");
       }
 
       const response = await fetchVideoUploadContextAPI(
@@ -116,7 +116,7 @@ const CourseBuilderVideoAdd = () => {
       );
 
       if (!response.data) {
-        throw new Error("Unable to load Video upload settings.");
+        throw new Error("Không thể tải cấu hình tải video lên.");
       }
 
       return response.data;
@@ -138,18 +138,18 @@ const CourseBuilderVideoAdd = () => {
     }
 
     if (selected.size <= 0) {
-      message.error("Video file is empty.");
+      message.error("Tệp video không có nội dung.");
       return;
     }
 
     if (!context.allowedVideoMimeTypes.includes(selected.type)) {
-      message.error("Unsupported Video format.");
+      message.error("Định dạng video không được hỗ trợ.");
       return;
     }
 
     if (BigInt(selected.size) > BigInt(context.maxVideoSizeBytes)) {
       message.error(
-        `Maximum Video size is ${formatBytes(context.maxVideoSizeBytes)}.`,
+        `Dung lượng video tối đa là ${formatBytes(context.maxVideoSizeBytes)}.`,
       );
       return;
     }
@@ -174,7 +174,7 @@ const CourseBuilderVideoAdd = () => {
     const normalizedTitle = title.trim();
 
     if (!normalizedTitle || normalizedTitle.length > 200) {
-      message.warning("Enter a Video title (maximum 200 characters).");
+      message.warning("Nhập tên video (tối đa 200 ký tự).");
       return;
     }
 
@@ -185,7 +185,7 @@ const CourseBuilderVideoAdd = () => {
       BigInt(file.size) > BigInt(context.maxVideoSizeBytes) ||
       BigInt(file.size) > BigInt(context.remainingStorageBytes)
     ) {
-      message.error("Selected Video does not satisfy upload limits.");
+      message.error("Video đã chọn không đáp ứng giới hạn tải lên.");
       return;
     }
 
@@ -213,10 +213,10 @@ const CourseBuilderVideoAdd = () => {
       );
 
       if (!response.data?.id) {
-        throw new Error("Backend did not confirm Video creation.");
+        throw new Error("Máy chủ chưa xác nhận tạo video.");
       }
 
-      message.success("Video material added successfully.");
+      message.success("Đã thêm học liệu video.");
 
       navigate(listUrl, { replace: true });
     } catch (error) {
@@ -345,11 +345,11 @@ const CourseBuilderVideoAdd = () => {
               <VideoCameraOutlined />
             </div>
 
-            <strong>{file ? file.name : "Choose a Video file"}</strong>
+            <strong>{file ? file.name : "Chọn tệp video"}</strong>
 
             <p>Allowed formats: {context.allowedVideoMimeTypes.join(", ")}</p>
 
-            <p>Maximum size: {maxSize}</p>
+            <p>Dung lượng tối đa: {maxSize}</p>
 
             <input
               ref={fileInputRef}
@@ -411,8 +411,8 @@ const CourseBuilderVideoAdd = () => {
 
               <p>
                 {progress < 100
-                  ? "Uploading Video..."
-                  : "Upload sent. Cloudinary validation and database saving may still be in progress..."}
+                  ? "Đang tải video lên..."
+                  : "Đã tải video lên. Hệ thống đang xác minh và lưu dữ liệu..."}
               </p>
             </div>
           )}

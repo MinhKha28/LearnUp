@@ -129,23 +129,23 @@ const CourseBuilderStructureEdit = () => {
     // Kiểm tra tiêu đề trước khi gọi API.
     for (const module of normalizedModules) {
       if (!module.title) {
-        message.warning("Module title cannot be empty.");
+        message.warning("Tiêu đề chương không được để trống.");
         return;
       }
 
       if (module.title.length > 200) {
-        message.warning("Module title cannot exceed 200 characters.");
+        message.warning("Tiêu đề chương không được vượt quá 200 ký tự.");
         return;
       }
 
       for (const lesson of module.lessons) {
         if (!lesson.title) {
-          message.warning("Lesson title cannot be empty.");
+          message.warning("Tiêu đề bài học không được để trống.");
           return;
         }
 
         if (lesson.title.length > 200) {
-          message.warning("Lesson title cannot exceed 200 characters.");
+          message.warning("Tiêu đề bài học không được vượt quá 200 ký tự.");
           return;
         }
       }
@@ -161,19 +161,19 @@ const CourseBuilderStructureEdit = () => {
       const response = await updateCourseStructureAPI(courseId, payload);
 
       if (!response.data?.updated) {
-        throw new Error("Unable to save Course structure.");
+        throw new Error("Không thể lưu cấu trúc khóa học.");
       }
 
       // Đồng bộ lại dữ liệu cây thật sau khi lưu.
       await refetchStructure();
 
-      message.success("Course structure updated successfully.");
+      message.success("Đã cập nhật cấu trúc khóa học.");
 
       navigate(base);
     } catch (error) {
       console.error("Update structure error:", error);
 
-      let errorText = "Unable to update Course structure.";
+      let errorText = "Không thể cập nhật cấu trúc khóa học.";
 
       if (axios.isAxiosError(error)) {
         const body = error.response?.data as
@@ -282,7 +282,7 @@ const CourseBuilderStructureEdit = () => {
 
               <div className="builder-structure-edit-controls">
                 <InstructorButton
-                  aria-label={`Move Module ${moduleIndex + 1} up`}
+                  aria-label={`Chuyển chương ${moduleIndex + 1} lên`}
                   disabled={saving || reorderDisabled || moduleIndex === 0}
                   onClick={() => moveModule(moduleIndex, -1)}
                 >
@@ -290,7 +290,7 @@ const CourseBuilderStructureEdit = () => {
                 </InstructorButton>
 
                 <InstructorButton
-                  aria-label={`Move Module ${moduleIndex + 1} down`}
+                  aria-label={`Chuyển chương ${moduleIndex + 1} xuống`}
                   disabled={
                     saving ||
                     reorderDisabled ||
@@ -331,7 +331,7 @@ const CourseBuilderStructureEdit = () => {
 
                   <div className="builder-structure-edit-controls">
                     <InstructorButton
-                      aria-label={`Move Lesson ${lessonIndex + 1} up`}
+                      aria-label={`Chuyển bài học ${lessonIndex + 1} lên`}
                       disabled={saving || reorderDisabled || lessonIndex === 0}
                       onClick={() => moveLesson(module.id, lessonIndex, -1)}
                     >
@@ -339,7 +339,7 @@ const CourseBuilderStructureEdit = () => {
                     </InstructorButton>
 
                     <InstructorButton
-                      aria-label={`Move Lesson ${lessonIndex + 1} down`}
+                      aria-label={`Chuyển bài học ${lessonIndex + 1} xuống`}
                       disabled={
                         saving ||
                         reorderDisabled ||

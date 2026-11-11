@@ -9,10 +9,10 @@ import { InstructorButton, InstructorPage, PageHeader } from "@/components/instr
 import "./course.version.create.scss";
 
 const detailRows = [
-  { label: "Cấu trúc", value: "Modules, Lessons, Quizzes and Assignment copied" },
-  { label: "Loại", value: "Public or Private carried forward" },
-  { label: "Lưu trữ", value: "Source learning files referenced, without duplicate storage" },
-  { label: "Phê duyệt", value: "New Draft must be submitted for Organizer review" },
+  { label: "Cấu trúc", value: "Sao chép chương, bài học, bài trắc nghiệm và bài tập" },
+  { label: "Loại", value: "Giữ nguyên loại công khai hoặc nội bộ" },
+  { label: "Lưu trữ", value: "Dùng lại học liệu gốc, không nhân đôi dung lượng" },
+  { label: "Phê duyệt", value: "Phải gửi bản nháp mới để quản lý đào tạo phê duyệt" },
 ];
 
 const CourseVersionCreate = () => {
@@ -56,7 +56,7 @@ const CourseVersionCreate = () => {
 
   const handleCreate = () => {
     createNewCourseVersion(course);
-    message.success(`Draft ${course.version} created.`);
+    message.success(`Đã tạo bản nháp ${course.version}.`);
     navigate(`/instructor/courses/${course.id}/builder/new-version`);
   };
 

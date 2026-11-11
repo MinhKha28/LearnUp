@@ -55,7 +55,7 @@ const CourseBuilderQuizDelete = () => {
       <InstructorPage className="builder-page">
         <span className="builder-crumb">Xây dựng khóa học / Xóa bài trắc nghiệm</span>
         <div className="builder-hero">
-          <h1>{loading ? "Loading Quiz..." : "Quiz not found"}</h1>
+          <h1>{loading ? "Đang tải bài trắc nghiệm..." : "Không tìm thấy bài trắc nghiệm"}</h1>
         </div>
         {!loading && <InstructorButton onClick={() => navigate(`${base}/quizzes`)}>Quay lại</InstructorButton>}
       </InstructorPage>
@@ -76,7 +76,7 @@ const CourseBuilderQuizDelete = () => {
         message.error(assessmentErrorText(res, "Không thể xóa bài trắc nghiệm."));
         return;
       }
-      message.success("Quiz deleted.");
+      message.success("Đã xóa bài trắc nghiệm.");
       navigate(`${base}/quizzes`);
     } catch {
       message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
@@ -114,8 +114,8 @@ const CourseBuilderQuizDelete = () => {
 
         {blockedByData && (
           <p className="builder-delete-blocked">
-            <WarningOutlined /> This Quiz already has attempts and the Course is Locked, so it cannot be deleted.
-            Create a new Course version to remove it.
+            <WarningOutlined /> Bài trắc nghiệm đã có lượt làm và khóa học đã khóa nên không thể xóa.
+            Hãy tạo phiên bản khóa học mới để xóa bài trắc nghiệm.
           </p>
         )}
         {submitted && (

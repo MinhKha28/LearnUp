@@ -21,7 +21,7 @@ const CourseBuilderAssignmentPeerCycles = () => {
     <InstructorPage className="builder-page">
       <span className="builder-crumb">Xây dựng khóa học / Chu kỳ chấm chéo</span>
       <div className="builder-hero">
-        <h1>{title ? `${title} - cycles` : "Peer Review Cycles"}</h1>
+        <h1>{title ? `${title} - chu kỳ` : "Chu kỳ chấm chéo"}</h1>
         <p>
           Cycles run on a schedule, whenever Learners submit. Each has three dates: it opens, it closes and the work is
           assigned, and the reviews are due.

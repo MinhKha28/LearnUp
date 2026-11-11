@@ -49,7 +49,7 @@ const getErrorMessage = (error: unknown): string => {
     return error.message;
   }
 
-  return "Unable to update Lesson content.";
+  return "Không thể cập nhật nội dung bài học.";
 };
 
 const CourseBuilderLessonContentEdit = () => {
@@ -80,7 +80,7 @@ const CourseBuilderLessonContentEdit = () => {
       setEditability(null);
 
       if (!courseId || !lessonId) {
-        setErrorMessage("Course ID or Lesson ID is missing.");
+        setErrorMessage("Thiếu mã khóa học hoặc bài học.");
         setLoading(false);
         return;
       }
@@ -96,7 +96,7 @@ const CourseBuilderLessonContentEdit = () => {
         ]);
 
         if (!lessonResponse.data || !editabilityResponse.data) {
-          throw new Error("Unable to load Lesson content.");
+          throw new Error("Không thể tải nội dung bài học.");
         }
 
         if (controller.signal.aborted) return;
@@ -130,17 +130,17 @@ const CourseBuilderLessonContentEdit = () => {
     }
 
     if (!content.trim()) {
-      message.error("Lesson content cannot be empty.");
+      message.error("Nội dung bài học không được để trống.");
       return;
     }
 
     if (content.length > 20000) {
-      message.error("Lesson content cannot exceed 20000 characters.");
+      message.error("Nội dung bài học không được vượt quá 20.000 ký tự.");
       return;
     }
 
     if (content === lesson.lesson.content) {
-      message.info("No changes to save.");
+      message.info("Không có thay đổi để lưu.");
       return;
     }
 
@@ -152,10 +152,10 @@ const CourseBuilderLessonContentEdit = () => {
       });
 
       if (!response.data) {
-        throw new Error(response.message || "Unable to update Lesson content.");
+        throw new Error(response.message || "Không thể cập nhật nội dung bài học.");
       }
 
-      message.success("Lesson content updated successfully.");
+      message.success("Đã cập nhật nội dung bài học.");
       navigate(detailUrl);
     } catch (error) {
       console.error("Save Lesson content error:", error);
@@ -200,7 +200,7 @@ const CourseBuilderLessonContentEdit = () => {
         <Alert
           type="error"
           showIcon
-          message={errorMessage || "Unable to load Lesson."}
+          message={errorMessage || "Không thể tải bài học."}
         />
 
         <div className="builder-actions">
@@ -217,9 +217,9 @@ const CourseBuilderLessonContentEdit = () => {
 
   const lockedMessage =
     editability.reason === "COMPLETED"
-      ? "At least one Learner has completed this Lesson. Its content can no longer be changed."
+      ? "Đã có ít nhất một học viên hoàn thành bài học nên không thể thay đổi nội dung."
       : editability.reason === "SUBMITTED"
-        ? "This Course is awaiting approval. Withdraw it before editing."
+        ? "Khóa học đang chờ phê duyệt. Hãy thu hồi trước khi chỉnh sửa."
         : "";
 
   return (

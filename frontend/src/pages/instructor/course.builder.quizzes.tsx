@@ -63,7 +63,7 @@ const CourseBuilderQuizzes = () => {
           setCourseLocked(res.data.courseLocked);
           setCourseStatus(res.data.courseStatus);
         } else {
-          setErrorMessage(assessmentErrorText(res, "Unable to load Quizzes."));
+          setErrorMessage(assessmentErrorText(res, "Không thể tải danh sách bài trắc nghiệm."));
         }
       } catch {
         if (active) setErrorMessage("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
@@ -83,7 +83,7 @@ const CourseBuilderQuizzes = () => {
   const groups: IQuizGroup[] = structure.modules
     .map((module, index) => ({
       key: module.id,
-      title: `Module ${index + 1}: ${module.title}`,
+      title: `Chương ${index + 1}: ${module.title}`,
       quizzes: quizzes.filter((quiz) => quiz.moduleId === module.id),
     }))
     .filter((group) => group.quizzes.length > 0);
@@ -108,7 +108,7 @@ const CourseBuilderQuizzes = () => {
         <h1>Bài trắc nghiệm</h1>
         <p>
           {loading
-            ? "Loading..."
+            ? "Đang tải..."
             : errorMessage
               ? course.name
               : `${quizzes.length} Quiz${quizzes.length === 1 ? "" : "zes"} in ${course.name}`}
@@ -199,7 +199,7 @@ const CourseBuilderQuizzes = () => {
                             </div>
                             <div className="builder-quiz-tags">
                               <StatusTag tone={quiz.isRequired ? "info" : "neutral"}>
-                                {quiz.isRequired ? "Required" : "Optional"}
+                                {quiz.isRequired ? "Bắt buộc" : "Không bắt buộc"}
                               </StatusTag>
                               {quiz.locked ? (
                                 <Tooltip
@@ -275,7 +275,7 @@ const CourseBuilderQuizzes = () => {
                 + Tạo bài trắc nghiệm
               </InstructorButton>
             ) : (
-              <Tooltip title={structure.lockReason ?? `The Course is ${course.status}, so no Quiz can be added.`}>
+              <Tooltip title={structure.lockReason ?? `Khóa học có trạng thái ${course.status} nên không thể thêm bài trắc nghiệm.`}>
                 <span className="builder-quiz-soon">
                   <InstructorButton type="primary" disabled>
                     + Tạo bài trắc nghiệm

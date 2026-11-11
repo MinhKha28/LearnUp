@@ -27,7 +27,7 @@ const formatFileSize = (sizeBytes: string): string => {
   const bytes = Number(sizeBytes);
 
   if (!Number.isFinite(bytes) || bytes < 0) {
-    return "Unknown size";
+    return "Không xác định dung lượng";
   }
 
   if (bytes < 1024) {
@@ -79,7 +79,7 @@ const MaterialRow = ({ material }: { material: IInstructorLessonMaterial }) => {
           <StatusTag tone="neutral">{material.materialType}</StatusTag>
 
           <StatusTag tone={material.isRequired ? "warning" : "neutral"}>
-            {material.isRequired ? "Required" : "Optional"}
+            {material.isRequired ? "Bắt buộc" : "Không bắt buộc"}
           </StatusTag>
 
           {material.disabledAt && <StatusTag tone="error">Đã vô hiệu hóa</StatusTag>}
@@ -140,14 +140,14 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
           <h1>{lesson.title}</h1>
 
           <p>
-            Module {module.position}: {module.title}
+            Chương {module.position}: {module.title}
             {" · "}
-            Lesson {lesson.position}
+            Bài học {lesson.position}
           </p>
 
           <div className="instructor-lesson-tags">
             <StatusTag tone={lesson.required ? "warning" : "neutral"}>
-              {lesson.required ? "Required" : "Optional"}
+              {lesson.required ? "Bắt buộc" : "Không bắt buộc"}
             </StatusTag>
 
             <StatusTag tone="neutral">{materials.length} materials</StatusTag>
@@ -164,7 +164,7 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
               navigate(`${base}/lessons/${lesson.id}/content/edit`)
             }
           >
-            Edit Lesson Content
+            Chỉnh sửa nội dung bài học
           </InstructorButton>
 
           <InstructorButton
@@ -186,7 +186,7 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
               <LessonMarkdown content={lesson.content} />
             ) : (
               <p className="instructor-lesson-empty">
-                No Lesson content has been added yet.
+                Chưa có nội dung bài học.
               </p>
             )}
           </section>
@@ -206,7 +206,7 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
 
             {materials.length === 0 ? (
               <p className="instructor-lesson-empty">
-                No learning materials have been added to this Lesson yet.
+                Bài học này chưa có học liệu.
               </p>
             ) : (
               <div className="instructor-lesson-materials">
@@ -246,7 +246,7 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
 
               <div>
                 <span>Cấu trúc khóa học</span>
-                <strong>{course.locked ? "Locked" : "Unlocked"}</strong>
+                <strong>{course.locked ? "Đã khóa" : "Chưa khóa"}</strong>
               </div>
 
               <div>
@@ -284,7 +284,7 @@ const CourseBuilderLessonDetail = () => {
       );
 
       if (!response.data) {
-        throw new Error(response.message || "Unable to load Lesson details.");
+        throw new Error(response.message || "Không thể tải chi tiết bài học.");
       }
 
       return response.data;
@@ -308,13 +308,13 @@ const CourseBuilderLessonDetail = () => {
             showIcon
             message={
               query.error.status === 404
-                ? "Lesson not found"
-                : "Unable to load Lesson details"
+                ? "Không tìm thấy bài học"
+                : "Không thể tải chi tiết bài học"
             }
             description={
               query.error.status === 404
-                ? "This Lesson does not exist or you do not have access."
-                : "Please check your connection and try again."
+                ? "Bài học không tồn tại hoặc bạn không có quyền truy cập."
+                : "Vui lòng kiểm tra kết nối và thử lại."
             }
           />
 

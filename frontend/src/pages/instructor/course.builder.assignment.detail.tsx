@@ -37,7 +37,7 @@ const CourseBuilderAssignmentDetail = () => {
         const res = await fetchAssignmentAPI(assignmentId);
         if (!active) return;
         if (res.data) setAssignment(res.data);
-        else message.error(assessmentErrorText(res, "Unable to load the Assignment."));
+        else message.error(assessmentErrorText(res, "Không thể tải thông tin bài tập."));
       } catch {
         if (active) message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {
@@ -60,7 +60,7 @@ const CourseBuilderAssignmentDetail = () => {
       <InstructorPage className="builder-page">
         <span className="builder-crumb">Xây dựng khóa học / Chi tiết bài tập</span>
         <div className="builder-hero">
-          <h1>{loading ? "Loading Assignment..." : "Assignment not found"}</h1>
+          <h1>{loading ? "Đang tải bài tập..." : "Không tìm thấy bài tập"}</h1>
         </div>
         {!loading && <InstructorButton onClick={() => navigate(backPath)}>Quay lại</InstructorButton>}
       </InstructorPage>
@@ -73,7 +73,7 @@ const CourseBuilderAssignmentDetail = () => {
     try {
       const blob = await downloadPromptFileAPI(assignment.id);
       if (!blob) {
-        message.error("Unable to download the file.");
+        message.error("Không thể tải tệp xuống.");
         return;
       }
       const url = URL.createObjectURL(blob);
@@ -94,7 +94,7 @@ const CourseBuilderAssignmentDetail = () => {
   return (
     <InstructorPage className="builder-page">
       <span className="builder-crumb">
-        Course Builder / {restricted ? "Assignment Editing Restricted" : "Assignment Detail"}
+        Biên soạn khóa học / {restricted ? "Không thể chỉnh sửa bài tập" : "Chi tiết bài tập"}
       </span>
       <div className="builder-hero">
         <h1>{assignment.title}</h1>
@@ -132,31 +132,31 @@ const CourseBuilderAssignmentDetail = () => {
       )}
 
       <div className="builder-param-grid">
-        <Param label="Điểm đạt" value={`${assignment.passingScore} / 100`} hint="Minimum score to pass" />
+        <Param label="Điểm đạt" value={`${assignment.passingScore} / 100`} hint="Điểm tối thiểu để đạt" />
         <Param
           label="Thời gian làm bài dự kiến"
           value={formatMinutes(assignment.expectedDurationMinutes)}
-          hint="Counts toward Course duration"
+          hint="Tính vào thời lượng khóa học"
         />
         <Param
           label="Số lần nộp liên tiếp (n)"
           value={String(assignment.maxConsecutiveAttempts)}
-          hint="Attempts before a lock"
+          hint="Số lần nộp trước khi tạm khóa"
         />
-        <Param label="Thời gian khóa tạm (m)" value={`${assignment.lockoutHours} h`} hint="Per Learner, then attempts reset" />
+        <Param label="Thời gian khóa tạm (giờ)" value={`${assignment.lockoutHours} h`} hint="Áp dụng cho từng học viên, sau đó đặt lại lượt nộp" />
         <Param
           label="Chấm chéo"
           value={peerReview.enabled ? "On" : "Off"}
           hint={
             peerReview.enabled
               ? `${peerReview.reviewersPerSubmission ?? "?"} reviewers per submission`
-              : "Instructor grades directly"
+              : "Giảng viên chấm trực tiếp"
           }
           tone={peerReview.enabled ? "on" : "off"}
         />
         <Param
           label="Tiêu chí chấm"
-          value={`${assignment.rubric.length} ${assignment.rubric.length === 1 ? "criterion" : "criteria"}`}
+          value={`${assignment.rubric.length} ${assignment.rubric.length === 1 ? "tiêu chí" : "tiêu chí"}`}
           hint={`${totalPoints} points in total`}
         />
       </div>
@@ -226,7 +226,7 @@ const CourseBuilderAssignmentDetail = () => {
                 <li>{peerReview.reviewersPerSubmission ?? "?"} reviewers per submission</li>
                 <li>{peerReview.cycleDays ?? "?"}-day cycle</li>
                 <li>{peerReview.deadlineDays ?? "?"}-day review deadline after the cycle closes</li>
-                <li>Score gap threshold: {peerReview.scoreGap ?? "?"}</li>
+                <li>Ngưỡng chênh lệch điểm: {peerReview.scoreGap ?? "?"}</li>
               </ul>
             ) : (
               <p>

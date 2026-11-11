@@ -58,7 +58,7 @@ const CourseBuilderAssignmentEdit = () => {
         if (!active) return;
         const loaded = res.data;
         if (!loaded) {
-          message.error(assessmentErrorText(res, "Unable to load the Assignment."));
+          message.error(assessmentErrorText(res, "Không thể tải thông tin bài tập."));
           return;
         }
         setAssignment(loaded);
@@ -90,7 +90,7 @@ const CourseBuilderAssignmentEdit = () => {
       <InstructorPage className="builder-page">
         <span className="builder-crumb">Xây dựng khóa học / Chỉnh sửa bài tập</span>
         <div className="builder-hero">
-          <h1>{loading ? "Loading Assignment..." : "Assignment not found"}</h1>
+          <h1>{loading ? "Đang tải bài tập..." : "Không tìm thấy bài tập"}</h1>
         </div>
         {!loading && <InstructorButton onClick={() => navigate(`${base}/assignments`)}>Quay lại</InstructorButton>}
       </InstructorPage>
@@ -113,9 +113,9 @@ const CourseBuilderAssignmentEdit = () => {
 
   // Frozen fields are not checked: the user cannot change them, so they cannot be wrong.
   const errors = {
-    title: title.trim() ? null : "Enter an Assignment title.",
+    title: title.trim() ? null : "Nhập tên bài tập.",
     instructions:
-      submissionLocked || instructions.trim() || promptFile ? null : "Write the Assignment instructions or attach a PDF.",
+      submissionLocked || instructions.trim() || promptFile ? null : "Nhập hướng dẫn hoặc đính kèm tệp PDF.",
     passingScore: scoreLocked ? null : validateNumber(passingScore, PASSING_SCORE_RULE),
     estimatedEffort: validateNumber(estimatedEffort, EFFORT_RULE),
     consecutiveSubmissions: submissionLocked
@@ -125,14 +125,14 @@ const CourseBuilderAssignmentEdit = () => {
     rubric:
       !submissionLocked &&
       rubric.some((row) => !row.description.trim() || validateNumber(row.maxPoints, RUBRIC_POINTS_RULE))
-        ? "Fix the Rubric criteria."
+        ? "Kiểm tra và sửa các tiêu chí chấm."
         : null,
   };
 
   const handleSave = async () => {
     setSubmitted(true);
     if (Object.values(errors).some(Boolean)) {
-      message.warning("Please fix the highlighted fields.");
+      message.warning("Vui lòng kiểm tra các trường được đánh dấu.");
       requestAnimationFrame(() =>
         document
           .querySelector(".builder-field-error, .ant-input-status-error, .ant-input-number-status-error")
@@ -155,7 +155,7 @@ const CourseBuilderAssignmentEdit = () => {
     if (rubricChanged) payload.rubric = rubricPayload;
 
     if (Object.keys(payload).length === 0) {
-      message.info("No changes to save.");
+      message.info("Không có thay đổi để lưu.");
       return;
     }
 
@@ -163,10 +163,10 @@ const CourseBuilderAssignmentEdit = () => {
     try {
       const res = await updateAssignmentAPI(assignment.id, payload);
       if (!res.data) {
-        message.error(assessmentErrorText(res, "Unable to save the Assignment."));
+        message.error(assessmentErrorText(res, "Không thể lưu bài tập."));
         return;
       }
-      message.success("Assignment saved.");
+      message.success("Đã lưu bài tập.");
       navigate(detailPath, { state: location.state });
     } catch {
       message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");

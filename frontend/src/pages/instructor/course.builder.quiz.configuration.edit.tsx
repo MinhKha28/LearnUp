@@ -81,7 +81,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
           const notFound =
             assessmentErrorCode(res).code === "QUIZ_NOT_FOUND" || statusCode === 404 || statusCode === 400;
           setQuiz(null);
-          setError({ notFound, message: assessmentErrorText(res, "Unable to load the Quiz.") });
+          setError({ notFound, message: assessmentErrorText(res, "Không thể tải bài trắc nghiệm.") });
         }
       } catch {
         if (active) {
@@ -118,11 +118,11 @@ const CourseBuilderQuizConfigurationEdit = () => {
         <span className="builder-crumb">Xây dựng khóa học / Cấu hình bài trắc nghiệm</span>
         <div className="builder-update-card">
           <div className="builder-banner builder-banner-error">
-            <strong>{error?.notFound ? "Quiz not found" : "The Quiz could not be loaded"}</strong>
+            <strong>{error?.notFound ? "Không tìm thấy bài trắc nghiệm" : "Không thể tải bài trắc nghiệm"}</strong>
             <p>
               {error?.notFound
-                ? "This Quiz does not exist or is not in a Course you are in charge of."
-                : (error?.message ?? "Unable to load the Quiz.")}
+                ? "Bài trắc nghiệm không tồn tại hoặc không thuộc khóa học bạn phụ trách."
+                : (error?.message ?? "Không thể tải bài trắc nghiệm.")}
             </p>
           </div>
           <div className="builder-actions">
@@ -160,7 +160,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
   const handleSave = async () => {
     setSubmitted(true);
     if (Object.values(errors).some(Boolean)) {
-      message.warning("Please fix the highlighted fields.");
+      message.warning("Vui lòng kiểm tra các trường được đánh dấu.");
       return;
     }
 
@@ -173,7 +173,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
     if (requiredOpen && isRequired !== quiz.isRequired) payload.isRequired = isRequired;
 
     if (Object.keys(payload).length === 0) {
-      message.info("No changes to save.");
+      message.info("Không có thay đổi để lưu.");
       return;
     }
 
@@ -181,12 +181,12 @@ const CourseBuilderQuizConfigurationEdit = () => {
     try {
       const res = await updateQuizConfigAPI(quiz.id, payload);
       if (!res.data) {
-        message.error(assessmentErrorText(res, "Unable to save the Quiz settings."));
+        message.error(assessmentErrorText(res, "Không thể lưu thiết lập bài trắc nghiệm."));
         // Someone started the Quiz or the Course changed meanwhile: show the fields as they are now (BR-99).
         if (RELOAD_CODES.includes(assessmentErrorCode(res).code ?? "")) reload();
         return;
       }
-      message.success("Quiz settings saved.");
+      message.success("Đã lưu thiết lập bài trắc nghiệm.");
       navigate(detailPath);
     } catch {
       message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
@@ -197,7 +197,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Quizzes / {quiz.title} / Edit Configuration</span>
+      <span className="builder-crumb">Biên soạn khóa học / Bài trắc nghiệm / {quiz.title} / Chỉnh sửa thiết lập</span>
       <div className="builder-hero">
         <h1>Chỉnh sửa cấu hình bài trắc nghiệm</h1>
         <p>{quiz.title}</p>

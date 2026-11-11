@@ -48,7 +48,7 @@ const CourseBuilderReadingAdd = () => {
       );
 
       if (!response.data) {
-        throw new Error("Unable to load Reading upload settings.");
+        throw new Error("Không thể tải cấu hình tải tài liệu đọc.");
       }
 
       return response.data;
@@ -65,7 +65,7 @@ const CourseBuilderReadingAdd = () => {
     if (!selected || !context || blocked) return;
 
     if (!context.allowedReadingMimeTypes.includes(selected.type)) {
-      message.error("Unsupported Reading format.");
+      message.error("Định dạng tài liệu đọc không được hỗ trợ.");
       return;
     }
 
@@ -73,7 +73,7 @@ const CourseBuilderReadingAdd = () => {
       selected.size <= 0 ||
       BigInt(selected.size) > BigInt(context.maxReadingSizeBytes)
     ) {
-      message.error("Reading file exceeds size limit.");
+      message.error("Tài liệu đọc vượt quá dung lượng cho phép.");
       return;
     }
 
@@ -96,7 +96,7 @@ const CourseBuilderReadingAdd = () => {
     const normalizedTitle = title.trim();
 
     if (!normalizedTitle || normalizedTitle.length > 200) {
-      message.warning("Enter a valid Reading title.");
+      message.warning("Nhập tên tài liệu đọc hợp lệ.");
       return;
     }
 
@@ -134,7 +134,7 @@ const CourseBuilderReadingAdd = () => {
       );
 
       if (!response.data?.id) {
-        throw new Error("Reading was not saved.");
+        throw new Error("Không thể lưu tài liệu đọc.");
       }
 
       // BR-293: upload thành công nhưng không trích được chữ.
@@ -142,26 +142,26 @@ const CourseBuilderReadingAdd = () => {
         setWarning(response.data.extractionWarning);
         setFile(null);
         query.reload();
-        message.warning("Reading saved with 0 extracted words.");
+        message.warning("Đã lưu tài liệu nhưng không trích xuất được từ nào.");
         return;
       }
 
-      message.success(`Reading saved: ${response.data.wordCount} words.`);
+      message.success(`Đã lưu tài liệu đọc: ${response.data.wordCount} từ.`);
 
       navigate(listUrl, { replace: true });
     } catch (error) {
-      let errorMessage = "Unable to upload Reading.";
+      let errorMessage = "Không thể tải tài liệu đọc lên.";
 
       try {
         const apiError = toApiError(error);
 
         if (apiError.status === 403) {
           errorMessage =
-            "Subscription or Instructor permissions do not allow this upload.";
+            "Gói dịch vụ hoặc quyền giảng viên không cho phép tải tệp lên.";
         } else if (apiError.status === 409) {
-          errorMessage = "Course status or available storage has changed.";
+          errorMessage = "Trạng thái khóa học hoặc dung lượng lưu trữ đã thay đổi.";
         } else if (apiError.status === 413) {
-          errorMessage = "Reading exceeds the maximum allowed size.";
+          errorMessage = "Tài liệu đọc vượt quá dung lượng cho phép.";
         } else {
           errorMessage = apiError.message || errorMessage;
         }
@@ -228,7 +228,7 @@ const CourseBuilderReadingAdd = () => {
               ? "Subscription is in Grace period."
               : context.blockReason === "SUBSCRIPTION_SUSPENDED"
                 ? "Subscription is Suspended."
-                : "Course or Subscription does not allow uploads."
+                : "Khóa học hoặc gói dịch vụ không cho phép tải tệp lên."
           }
           style={{ marginBottom: 20 }}
         />
@@ -284,11 +284,11 @@ const CourseBuilderReadingAdd = () => {
           </label>
 
           <label className="builder-upload-box">
-            <strong>{file ? file.name : "Choose PDF document"}</strong>
+            <strong>{file ? file.name : "Chọn tài liệu PDF"}</strong>
 
             <p>Supported: {context.allowedReadingMimeTypes.join(", ")}</p>
 
-            <p>Maximum size: {formatBytes(context.maxReadingSizeBytes)}</p>
+            <p>Dung lượng tối đa: {formatBytes(context.maxReadingSizeBytes)}</p>
 
             <input
               type="file"
@@ -329,8 +329,8 @@ const CourseBuilderReadingAdd = () => {
               <Progress percent={progress} status="active" />
               <p>
                 {progress < 100
-                  ? "Uploading Reading..."
-                  : "Extracting text and saving Reading..."}
+                  ? "Đang tải tài liệu đọc lên..."
+                  : "Đang trích xuất văn bản và lưu tài liệu đọc..."}
               </p>
             </div>
           )}
@@ -362,7 +362,7 @@ const CourseBuilderReadingAdd = () => {
               Remaining storage: {formatBytes(context.remainingStorageBytes)}
             </p>
 
-            <p>Reading speed: {context.readingSpeedWordsPerMinute} words/min</p>
+            <p>Tốc độ đọc: {context.readingSpeedWordsPerMinute} từ/phút</p>
 
             <p>
               Scanned documents without extractable text are saved with 0 words

@@ -149,7 +149,7 @@ const columns: ColumnsType<IInstructorLessonMaterial> = [
     width: 135,
     render: (_, material) => (
       <StatusTag tone={material.isRequired ? "warning" : "neutral"}>
-        {material.isRequired ? "Required" : "Optional"}
+        {material.isRequired ? "Bắt buộc" : "Không bắt buộc"}
       </StatusTag>
     ),
   },
@@ -285,7 +285,7 @@ const MaterialsContent = ({ data }: { data: IInstructorLessonDetail }) => {
           size="middle"
           scroll={{ x: 940 }}
           locale={{
-            emptyText: "No learning materials have been added to this Lesson.",
+            emptyText: "Bài học này chưa có học liệu.",
           }}
         />
       </section>
@@ -312,7 +312,7 @@ const CourseBuilderMaterials = () => {
   const query = useApiQuery(
     async (signal) => {
       if (!courseId || !lessonId) {
-        throw new Error("Course ID or Lesson ID is missing.");
+        throw new Error("Thiếu mã khóa học hoặc bài học.");
       }
 
       const response = await fetchCourseLessonDetailAPI(
@@ -323,7 +323,7 @@ const CourseBuilderMaterials = () => {
 
       if (!response.data) {
         throw new Error(
-          response.message || "Unable to load learning materials.",
+          response.message || "Không thể tải danh sách học liệu.",
         );
       }
 
@@ -365,13 +365,13 @@ const CourseBuilderMaterials = () => {
             showIcon
             message={
               query.error.status === 404
-                ? "Lesson not found"
-                : "Unable to load learning materials"
+                ? "Không tìm thấy bài học"
+                : "Không thể tải học liệu"
             }
             description={
               query.error.status === 404
-                ? "The Lesson does not exist or you do not have access."
-                : "Please check your connection and try again."
+                ? "Bài học không tồn tại hoặc bạn không có quyền truy cập."
+                : "Vui lòng kiểm tra kết nối và thử lại."
             }
           />
 

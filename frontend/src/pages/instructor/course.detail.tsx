@@ -73,7 +73,7 @@ const CourseDetail = () => {
   const fetchCourse = useCallback(async () => {
     if (!courseId) {
       setLoading(false);
-      setErrorMessage("Course ID is missing.");
+      setErrorMessage("Thiếu mã khóa học.");
       return;
     }
 
@@ -85,7 +85,7 @@ const CourseDetail = () => {
 
       if (!response.data) {
         setCourse(null);
-        setErrorMessage(response.message || "Unable to load Course details.");
+        setErrorMessage(response.message || "Không thể tải chi tiết khóa học.");
         return;
       }
 
@@ -93,7 +93,7 @@ const CourseDetail = () => {
     } catch (error) {
       console.error("Fetch Course detail error:", error);
       setCourse(null);
-      setErrorMessage("Unable to load Course details.");
+      setErrorMessage("Không thể tải chi tiết khóa học.");
     } finally {
       setLoading(false);
     }
@@ -146,7 +146,7 @@ const CourseDetail = () => {
             permanently deleted.
           </p>
           <p>
-            The Course and its files will continue to count toward your Course
+            Khóa học và các tệp vẫn được tính vào giới hạn số khóa học
             and Storage limits during this period.
           </p>
         </>
@@ -167,7 +167,7 @@ const CourseDetail = () => {
             throw new Error(courseTrashErrorMessage(code, "delete"));
           }
 
-          message.success("Course moved to Trash successfully.");
+          message.success("Đã chuyển khóa học vào thùng rác.");
           navigate("/instructor/courses");
         } catch (error) {
           const errorMessage =
@@ -188,7 +188,7 @@ const CourseDetail = () => {
       <PageHeader
         eyebrow="Khóa học của tôi / Chi tiết"
         title={course.name}
-        subtitle={`Version ${course.versionNumber} • ${
+        subtitle={`Phiên bản ${course.versionNumber} • ${
           course.courseType === "Public" ? "Public" : "Private"
         }`}
         back
@@ -271,7 +271,7 @@ const CourseDetail = () => {
 
               <div className="instructor-course-info-row">
                 <strong>Trạng thái cấu trúc</strong>
-                <span>{course.locked ? "Locked" : "Unlocked"}</span>
+                <span>{course.locked ? "Đã khóa" : "Chưa khóa"}</span>
               </div>
             </div>
           </div>

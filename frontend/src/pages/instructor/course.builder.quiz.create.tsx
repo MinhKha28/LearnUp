@@ -22,13 +22,13 @@ const AUTHORABLE_STATUSES = ["Draft", "Rejected", "Published"];
 const COURSE_LEVEL = "course";
 
 const ERROR_TEXT: Record<string, string> = {
-  MODULE_NOT_IN_COURSE: "The selected Module no longer belongs to this Course. Reload the page and choose again.",
+  MODULE_NOT_IN_COURSE: "Chương đã chọn không còn thuộc khóa học này. Hãy tải lại trang và chọn lại.",
   REQUIRED_QUIZ_ON_LOCKED_COURSE:
-    "The Course is Locked because a Learner has enrolled, so only an optional Quiz can be added.",
-  COURSE_NOT_EDITABLE: "This Course cannot be edited right now, so no Quiz can be added.",
-  COURSE_NOT_FOUND: "This Course was not found or is not one of your Courses.",
-  FORBIDDEN: "Only an Instructor can create Quizzes.",
-  COURSE_SERVICE_UNAVAILABLE: "The Course service is unavailable. Please try again later.",
+    "Khóa học đã khóa vì có học viên tham gia. Chỉ được thêm bài trắc nghiệm không bắt buộc.",
+  COURSE_NOT_EDITABLE: "Hiện không thể chỉnh sửa khóa học nên không thể thêm bài trắc nghiệm.",
+  COURSE_NOT_FOUND: "Không tìm thấy khóa học hoặc khóa học không thuộc quyền phụ trách của bạn.",
+  FORBIDDEN: "Chỉ giảng viên được tạo bài trắc nghiệm.",
+  COURSE_SERVICE_UNAVAILABLE: "Dịch vụ khóa học không khả dụng. Vui lòng thử lại sau.",
 };
 
 /** Same normalisation as the API: trim and collapse inner whitespace. */
@@ -52,9 +52,9 @@ const CourseBuilderQuizCreate = () => {
   const attachOptions = [
     ...structure.modules.map((module, index) => ({
       value: module.id,
-      label: `Module ${index + 1}: ${module.title}`,
+      label: `Chương ${index + 1}: ${module.title}`,
     })),
-    { value: COURSE_LEVEL, label: `${course.name} (Course level)` },
+    { value: COURSE_LEVEL, label: `${course.name} (cấp khóa học)` },
   ];
 
   const [title, setTitle] = useState("");
@@ -74,7 +74,7 @@ const CourseBuilderQuizCreate = () => {
 
   const errors = {
     title: !normalizedTitle
-      ? "Enter a Quiz title."
+      ? "Nhập tên bài trắc nghiệm."
       : normalizedTitle.length > 200
         ? "Use at most 200 characters."
         : null,
@@ -84,9 +84,9 @@ const CourseBuilderQuizCreate = () => {
     lockHours: validateNumber(lockHours, LOCK_HOURS_RULE),
     isRequired:
       isRequired === null
-        ? "Choose Required or Optional."
+        ? "Chọn bắt buộc hoặc không bắt buộc."
         : onlyOptional && isRequired
-          ? "Only an optional Quiz can be added to a Locked Course."
+          ? "Khóa học đã khóa chỉ được thêm bài trắc nghiệm không bắt buộc."
           : null,
   };
 
@@ -94,7 +94,7 @@ const CourseBuilderQuizCreate = () => {
     if (saving || formLocked) return;
     setSubmitted(true);
     if (Object.values(errors).some(Boolean)) {
-      message.warning("Please fix the highlighted fields.");
+      message.warning("Vui lòng kiểm tra các trường được đánh dấu.");
       requestAnimationFrame(() =>
         document
           .querySelector(".builder-field-error, .ant-input-status-error, .ant-input-number-status-error")
@@ -117,10 +117,10 @@ const CourseBuilderQuizCreate = () => {
       // The axios interceptor resolves HTTP errors too, so only res.data tells success apart.
       if (!res.data) {
         const code = errorCodeOf(res);
-        message.error((code && ERROR_TEXT[code]) || assessmentErrorText(res, "Unable to create the Quiz."));
+        message.error((code && ERROR_TEXT[code]) || assessmentErrorText(res, "Không thể tạo bài trắc nghiệm."));
         return;
       }
-      message.success("Quiz created.");
+      message.success("Đã tạo bài trắc nghiệm.");
       navigate(listPath);
     } catch {
       message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
@@ -139,7 +139,7 @@ const CourseBuilderQuizCreate = () => {
         <div className="builder-update-card">
           {formLocked && (
             <WarningPanel title="Không thể chỉnh sửa khóa học này">
-              {structure.lockReason ?? `The Course is ${course.status}, so no Quiz can be added.`}
+              {structure.lockReason ?? `Khóa học đang ở trạng thái ${course.status} nên không thể thêm bài trắc nghiệm.`}
             </WarningPanel>
           )}
           {onlyOptional && (

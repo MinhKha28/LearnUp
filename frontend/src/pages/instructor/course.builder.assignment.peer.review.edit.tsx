@@ -41,7 +41,7 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
         if (!active) return;
         const loaded = res.data;
         if (!loaded) {
-          message.error(assessmentErrorText(res, "Unable to load the Assignment."));
+          message.error(assessmentErrorText(res, "Không thể tải thông tin bài tập."));
           return;
         }
         setAssignment(loaded);
@@ -70,7 +70,7 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
       <InstructorPage className="builder-page">
         <span className="builder-crumb">Xây dựng khóa học / Thiết lập chấm chéo</span>
         <div className="builder-hero">
-          <h1>{loading ? "Loading Peer Review settings..." : "Assignment not found"}</h1>
+          <h1>{loading ? "Đang tải thiết lập chấm chéo..." : "Không tìm thấy bài tập"}</h1>
         </div>
         {!loading && <InstructorButton onClick={() => navigate(`${base}/assignments`)}>Quay lại</InstructorButton>}
       </InstructorPage>
@@ -94,7 +94,7 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
   const handleSave = async () => {
     setSubmitted(true);
     if (errors.some(Boolean)) {
-      message.warning("Please fix the highlighted fields.");
+      message.warning("Vui lòng kiểm tra các trường được đánh dấu.");
       requestAnimationFrame(() =>
         document
           .querySelector(".builder-field-error, .ant-input-number-status-error")
@@ -117,10 +117,10 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
           : { enabled },
       );
       if (!res.data) {
-        message.error(assessmentErrorText(res, "Unable to save Peer Review settings."));
+        message.error(assessmentErrorText(res, "Không thể lưu thiết lập chấm chéo."));
         return;
       }
-      message.success("Peer Review settings saved.");
+      message.success("Đã lưu thiết lập chấm chéo.");
       navigate(detailPath, { state: location.state });
     } catch {
       message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
@@ -189,7 +189,7 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
 
           <InfoPanel title="Lịch chu kỳ">
             The review deadline starts when the cycle closes and work is assigned. Choose a cycle long enough to
-            collect at least {reviewers && Number.isFinite(reviewers) ? reviewers + 1 : "reviewers + 1"} submissions;
+            thu thập ít nhất {reviewers && Number.isFinite(reviewers) ? reviewers + 1 : "số người chấm + 1"} bài nộp;
             otherwise you grade that cycle yourself.
           </InfoPanel>
 
@@ -212,8 +212,8 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
             <strong>Quy tắc khi đã khóa</strong>
             <p>
               {toggleLocked
-                ? "The Course is Locked, so Peer Review cannot be turned on or off. You can still change its parameters; they apply to new cycles only."
-                : "Turning Peer Review on or off is blocked after Course Locked."}
+                ? "Khóa học đã khóa nên không thể bật hoặc tắt chấm chéo. Có thể thay đổi tham số nhưng chỉ áp dụng cho chu kỳ mới."
+                : "Không thể bật hoặc tắt chấm chéo khi khóa học đã khóa."}
             </p>
           </div>
         </div>

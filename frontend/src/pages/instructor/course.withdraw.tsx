@@ -33,7 +33,7 @@ const CourseWithdraw = () => {
   const loadCourse = useCallback(async () => {
     if (!courseId) {
       setCourse(null);
-      setError("Course ID is missing.");
+      setError("Thiếu mã khóa học.");
       setLoading(false);
       return;
     }
@@ -73,7 +73,7 @@ const CourseWithdraw = () => {
     if (!course || withdrawInProgress.current) return;
 
     if (course.status !== "Submitted") {
-      message.warning("Only a Submitted Course can be withdrawn.");
+      message.warning("Chỉ có thể thu hồi khóa học đang chờ phê duyệt.");
       return;
     }
 
@@ -96,7 +96,7 @@ const CourseWithdraw = () => {
         return;
       }
 
-      message.success("Course withdrawn to Draft.");
+      message.success("Đã thu hồi khóa học về bản nháp.");
 
       navigate(`/instructor/courses/${course.id}`, {
         replace: true,
@@ -143,7 +143,7 @@ const CourseWithdraw = () => {
         <PageHeader
           eyebrow="Khóa học / Phê duyệt"
           title="Không có khóa học cần thu hồi"
-          subtitle={`This Course is currently ${course.status}.`}
+          subtitle={`Khóa học hiện có trạng thái ${course.status}.`}
           back
         />
 

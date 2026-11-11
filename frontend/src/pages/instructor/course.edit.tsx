@@ -91,7 +91,7 @@ const CourseEdit = () => {
 
     const loadCourse = async () => {
       if (!courseId) {
-        setErrorMessage("Course ID is missing.");
+        setErrorMessage("Thiếu mã khóa học.");
         setLoading(false);
         return;
       }
@@ -107,7 +107,7 @@ const CourseEdit = () => {
         const response = await fetchCourseDetailAPI(courseId);
 
         if (!response.data) {
-          throw new Error(response.message || "Unable to load Course.");
+          throw new Error(response.message || "Không thể tải khóa học.");
         }
 
         if (cancelled) return;
@@ -154,7 +154,7 @@ const CourseEdit = () => {
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      message.error("Course cover must not exceed 5 MB.");
+      message.error("Ảnh bìa khóa học không được vượt quá 5 MB.");
       return Upload.LIST_IGNORE;
     }
 
@@ -197,7 +197,7 @@ const CourseEdit = () => {
 
         if (!uploadResponse.data) {
           throw new Error(
-            uploadResponse.message || "Unable to upload Course cover.",
+            uploadResponse.message || "Không thể tải ảnh bìa khóa học lên.",
           );
         }
 
@@ -221,10 +221,10 @@ const CourseEdit = () => {
       const response = await updateCourseAPI(courseId, payload);
 
       if (!response.data) {
-        throw new Error(response.message || "Unable to update Course.");
+        throw new Error(response.message || "Không thể cập nhật khóa học.");
       }
 
-      message.success("Course updated successfully.");
+      message.success("Đã cập nhật khóa học.");
       navigate(`/instructor/courses/${courseId}`);
     } catch (error) {
       // Lỗi validation của Ant Design.
@@ -234,7 +234,7 @@ const CourseEdit = () => {
 
       console.error("Update Course error:", error);
 
-      let errorText = "Unable to update Course.";
+      let errorText = "Không thể cập nhật khóa học.";
 
       if (axios.isAxiosError(error)) {
         const body = error.response?.data as
@@ -425,7 +425,7 @@ const CourseEdit = () => {
               </Form.Item>
 
               <p className="course-create-help">
-                This value is used when calculating deadlines for Required
+                Giá trị này được dùng khi tính hạn hoàn thành cho các lượt học bắt buộc
                 Enrollments.
               </p>
             </SectionCard>
@@ -436,7 +436,7 @@ const CourseEdit = () => {
               className="course-create-card"
             >
               <p className="course-create-section-description">
-                Update the Course description, learning outcomes and cover
+                Cập nhật mô tả, kết quả học tập và ảnh bìa khóa học
                 image.
               </p>
 
@@ -449,7 +449,7 @@ const CourseEdit = () => {
 
                 {displayedCover ? (
                   <div className="course-cover-preview">
-                    <img src={displayedCover} alt="Course cover preview" />
+                    <img src={displayedCover} alt="Xem trước ảnh bìa khóa học" />
 
                     <button
                       type="button"
@@ -596,7 +596,7 @@ const CourseEdit = () => {
 
             <SummaryRow
               label="Phiên bản"
-              value={`Version ${course.versionNumber}`}
+              value={`Phiên bản ${course.versionNumber}`}
             />
 
             <SummaryRow label="Loại khóa học" value={summaryType} />

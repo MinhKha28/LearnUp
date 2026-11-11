@@ -44,23 +44,23 @@ const CourseBuilderAssignmentCreate = () => {
   const cancelPath = (location.state as { from?: string } | null)?.from ?? `${base}/assignments`;
 
   const errors = {
-    title: title.trim() ? null : "Enter an Assignment title.",
+    title: title.trim() ? null : "Nhập tên bài tập.",
     // BR-320: the prompt is text, one PDF, or both.
-    instructions: instructions.trim() || promptFile ? null : "Write the Assignment instructions or attach a PDF.",
+    instructions: instructions.trim() || promptFile ? null : "Nhập hướng dẫn hoặc đính kèm tệp PDF.",
     passingScore: validateNumber(passingScore, PASSING_SCORE_RULE),
     estimatedEffort: validateNumber(estimatedEffort, EFFORT_RULE),
     consecutiveSubmissions: validateNumber(consecutiveSubmissions, ATTEMPTS_RULE),
     lockHours: validateNumber(lockHours, LOCK_HOURS_RULE),
     // BR-164: a Rubric is mandatory; every criterion needs a description and a positive whole maximum score.
     rubric: rubric.some((row) => !row.description.trim() || validateNumber(row.maxPoints, RUBRIC_POINTS_RULE))
-      ? "Fix the Rubric criteria."
+      ? "Kiểm tra và sửa các tiêu chí chấm."
       : null,
   };
 
   const handleCreate = async () => {
     setSubmitted(true);
     if (Object.values(errors).some(Boolean)) {
-      message.warning("Please fix the highlighted fields.");
+      message.warning("Vui lòng kiểm tra các trường được đánh dấu.");
       requestAnimationFrame(() =>
         document
           .querySelector(".builder-field-error, .ant-input-status-error, .ant-input-number-status-error")
@@ -87,10 +87,10 @@ const CourseBuilderAssignmentCreate = () => {
       });
       const created = res.data;
       if (!created) {
-        message.error(assessmentErrorText(res, "Unable to create the Assignment."));
+        message.error(assessmentErrorText(res, "Không thể tạo bài tập."));
         return;
       }
-      message.success("Assignment created.");
+      message.success("Đã tạo bài tập.");
       navigate(`${base}/assignments/${created.id}`, { state: { from: cancelPath } });
     } catch {
       message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");

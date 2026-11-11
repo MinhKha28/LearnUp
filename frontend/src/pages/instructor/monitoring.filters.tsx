@@ -66,7 +66,7 @@ const MonitoringFilters = () => {
                 ]}
               />
             </Form.Item>
-            <Form.Item label="Completion status" name="completionStatus">
+            <Form.Item label="Trạng thái hoàn thành" name="completionStatus">
               <Select
                 allowClear
                 placeholder="Tất cả trạng thái"

@@ -87,7 +87,7 @@ const CourseBuilderQuizQuestionCreate = () => {
           const notFound =
             assessmentErrorCode(res).code === "QUIZ_NOT_FOUND" || statusCode === 404 || statusCode === 400;
           setQuiz(null);
-          setError({ notFound, message: assessmentErrorText(res, "Unable to load the Quiz.") });
+          setError({ notFound, message: assessmentErrorText(res, "Không thể tải bài trắc nghiệm.") });
         }
       } catch {
         if (active) {
@@ -123,11 +123,11 @@ const CourseBuilderQuizQuestionCreate = () => {
         <span className="builder-crumb">Xây dựng khóa học / Thêm câu hỏi trắc nghiệm</span>
         <div className="builder-update-card">
           <div className="builder-banner builder-banner-error">
-            <strong>{error?.notFound ? "Quiz not found" : "The Quiz could not be loaded"}</strong>
+            <strong>{error?.notFound ? "Không tìm thấy bài trắc nghiệm" : "Không thể tải bài trắc nghiệm"}</strong>
             <p>
               {error?.notFound
-                ? "This Quiz does not exist or is not in a Course you are in charge of."
-                : (error?.message ?? "Unable to load the Quiz.")}
+                ? "Bài trắc nghiệm không tồn tại hoặc không thuộc khóa học bạn phụ trách."
+                : (error?.message ?? "Không thể tải bài trắc nghiệm.")}
             </p>
           </div>
           <div className="builder-actions">
@@ -157,12 +157,12 @@ const CourseBuilderQuizQuestionCreate = () => {
   const duplicated = new Set(lowered.filter((text, index) => text && lowered.indexOf(text) !== index));
 
   const contentError = !content.trim()
-    ? "Enter the question."
+    ? "Nhập nội dung câu hỏi."
     : content.trim().length > QUESTION_MAX_LENGTH
-      ? `The question can have at most ${QUESTION_MAX_LENGTH} characters.`
+      ? `Câu hỏi không được vượt quá ${QUESTION_MAX_LENGTH} ký tự.`
       : null;
   const optionError = (text: string): string | null => {
-    if (!text) return "Enter the answer text.";
+    if (!text) return "Nhập nội dung đáp án.";
     if (text.length > OPTION_MAX_LENGTH) return `At most ${OPTION_MAX_LENGTH} characters.`;
     if (duplicated.has(text.toLowerCase())) return "Two answers have the same text.";
     return null;
@@ -179,7 +179,7 @@ const CourseBuilderQuizQuestionCreate = () => {
       keyError = "Leave at least one answer incorrect.";
     }
   } else if (correctAnswer === null) {
-    keyError = "Choose whether the statement is True or False.";
+    keyError = "Chọn phát biểu đúng hay sai.";
   }
   const hasErrors =
     !!contentError || !!keyError || (isChoice && trimmed.some((text) => optionError(text) !== null));
@@ -212,7 +212,7 @@ const CourseBuilderQuizQuestionCreate = () => {
   const handleSave = async () => {
     setSubmitted(true);
     if (hasErrors) {
-      message.warning("Please fix the highlighted fields.");
+      message.warning("Vui lòng kiểm tra các trường được đánh dấu.");
       return;
     }
     const payload: ICreateQuizQuestionReq = isChoice
@@ -227,12 +227,12 @@ const CourseBuilderQuizQuestionCreate = () => {
     try {
       const res = await createQuizQuestionAPI(quiz.id, payload);
       if (!res.data) {
-        message.error(assessmentErrorText(res, "Unable to add the question."));
+        message.error(assessmentErrorText(res, "Không thể thêm câu hỏi."));
         // The form stays as typed; only the Quiz state (banners, permission) is loaded again.
         if (RELOAD_CODES.includes(assessmentErrorCode(res).code ?? "")) reload();
         return;
       }
-      message.success(`Question added. This Quiz now has ${res.data.questionCount} question(s).`);
+      message.success(`Đã thêm câu hỏi. Bài trắc nghiệm hiện có ${res.data.questionCount} câu hỏi.`);
       navigate(detailPath);
     } catch {
       message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");

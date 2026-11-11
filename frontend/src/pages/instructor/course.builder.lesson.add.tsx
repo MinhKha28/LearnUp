@@ -47,17 +47,17 @@ const CourseBuilderLessonAdd = () => {
     const normalizedContent = content.trim();
 
     if (!normalizedTitle) {
-      message.warning("Enter a Lesson title.");
+      message.warning("Nhập tiêu đề bài học.");
       return;
     }
 
     if (!normalizedContent) {
-      message.warning("Enter Lesson content.");
+      message.warning("Nhập nội dung bài học.");
       return;
     }
 
     if (structure.structureLocked) {
-      message.error(structure.lockReason || "Course structure is locked.");
+      message.error(structure.lockReason || "Cấu trúc khóa học đã bị khóa.");
       return;
     }
 
@@ -70,11 +70,11 @@ const CourseBuilderLessonAdd = () => {
       });
 
       if (!response.data) {
-        message.error(response.message || "Unable to create Lesson.");
+        message.error(response.message || "Không thể tạo bài học.");
         return;
       }
 
-      message.success("Lesson created.");
+      message.success("Đã tạo bài học.");
 
       await refetchStructure();
 
@@ -83,7 +83,7 @@ const CourseBuilderLessonAdd = () => {
       });
     } catch (error) {
       console.error("Create Lesson error:", error);
-      message.error("Unable to create Lesson.");
+      message.error("Không thể tạo bài học.");
     } finally {
       setSaving(false);
     }
@@ -165,7 +165,7 @@ const CourseBuilderLessonAdd = () => {
               !content.trim()
             }
           >
-            {saving ? "Saving..." : "Add Lesson"}
+            {saving ? "Đang lưu..." : "Thêm bài học"}
           </InstructorButton>
         </div>
       </div>

@@ -71,8 +71,8 @@ const CourseBuilder = () => {
                   <div>
                     <h2>{module.title}</h2>
                     <p>
-                      {module.required ? "Required" : "Optional"} •{" "}
-                      {module.lessons.length} Lesson
+                      {module.required ? "Bắt buộc" : "Không bắt buộc"} •{" "}
+                      {module.lessons.length} bài học
                       {module.lessons.length === 1 ? "" : "s"}
                     </p>
                   </div>
