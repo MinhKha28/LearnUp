@@ -98,7 +98,7 @@ export const AssignmentChange = ({
         extend: "Đã kéo dài hạn.",
         exempt: "Đã đánh dấu Miễn.",
         removeExemption: "Đã gỡ miễn.",
-        cancel: "Đã hủy phân công",
+        cancel: "Đã hủy phân công.",
       }[mode]);
     } catch (cause) {
       const apiError = toApiError(cause);
