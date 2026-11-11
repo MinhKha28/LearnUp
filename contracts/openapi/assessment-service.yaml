@@ -64,6 +64,37 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /api/v1/internal/learners/{learnerId}/courses/{courseId}/assignment-activity/{organizationId}:
+    get:
+      operationId: getAssignmentAssessmentActivity
+      summary: Check Assessment activity before cancelling a Required assignment
+      description: >-
+        Internal service call using x-internal-key and x-organization-id. No user headers are required.
+        Counts any Quiz attempt, including an unsubmitted start, and any Assignment submission
+        for this Learner and Course version in the trusted organization.
+      parameters:
+        - { name: learnerId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: courseId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: organizationId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: x-organization-id, in: header, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Assessment activity flags.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [hasQuizAttempt, hasSubmission]
+                    properties:
+                      hasQuizAttempt: { type: boolean }
+                      hasSubmission: { type: boolean }
+        "400": { description: Invalid UUID in the path. }
+        "401": { description: Missing or invalid internal key or organization context. }
+        "404": { description: Path organization differs from the trusted organization header. }
   /api/v1/internal/learners/{learnerId}/courses/{courseId}/completion-snapshot:
     get:
       summary: What a Learner has done in the Quizzes and Assignments a Course requires (CT-1)

@@ -47,6 +47,21 @@ describe('assessment activity over HTTP (UC25.4)', () => {
       headers,
     );
 
+  const assignmentActivity = (
+    learner = LEARNER,
+    pathOrg = ORG,
+    headers: Record<string, string> = {
+      'x-internal-key': KEY,
+      'x-organization-id': ORG,
+    },
+  ) =>
+    api(
+      'GET',
+      `/../internal/learners/${learner}/courses/${COURSE}/assignment-activity/${pathOrg}`,
+      undefined,
+      headers,
+    );
+
   before(async () => {
     db = await createTestDatabase();
     course = await startCourseStub();
@@ -82,6 +97,21 @@ describe('assessment activity over HTTP (UC25.4)', () => {
     });
   });
 
+  test('trusted activity denies missing key and mismatched organization, then returns two flags', async () => {
+    assert.equal(
+      (await assignmentActivity(LEARNER, ORG, { 'x-organization-id': ORG }))
+        .status,
+      401,
+    );
+    assert.equal((await assignmentActivity(LEARNER, OTHER_ORG)).status, 404);
+    const result = await assignmentActivity();
+    assert.equal(result.status, 200, JSON.stringify(result.json));
+    assert.deepEqual(result.data, {
+      hasQuizAttempt: false,
+      hasSubmission: false,
+    });
+  });
+
   test('a submission makes hasSubmission true, a replaced one still counts', async () => {
     const form = new FormData();
     form.append('content', 'first');
@@ -91,6 +121,10 @@ describe('assessment activity over HTTP (UC25.4)', () => {
     );
     assert.equal(response.status, 201, await response.text());
     assert.equal((await activity()).data.hasSubmission, true);
+    assert.deepEqual((await assignmentActivity()).data, {
+      hasQuizAttempt: false,
+      hasSubmission: true,
+    });
 
     [{ id: submissionId }] = (await db.query(
       'SELECT id FROM submissions WHERE learner_id = $1',
@@ -126,6 +160,10 @@ describe('assessment activity over HTTP (UC25.4)', () => {
     const other = await activity(OTHER_LEARNER);
     assert.equal(other.data.hasQuizAttempt, true);
     assert.equal(other.data.hasSubmission, false);
+    assert.deepEqual((await assignmentActivity(OTHER_LEARNER)).data, {
+      hasQuizAttempt: true,
+      hasSubmission: false,
+    });
   });
 
   test('a peer review counts only when completed and not written as the Instructor (BR-131)', async () => {
@@ -137,7 +175,10 @@ describe('assessment activity over HTTP (UC25.4)', () => {
       );
     await review('Learner', OTHER_LEARNER, 'Pending'); // assigned, not given
     await review('Instructor', INSTRUCTOR_ID, 'Completed'); // the Instructor is not a peer
-    assert.equal((await activity(OTHER_LEARNER)).data.hasPeerReviewGiven, false);
+    assert.equal(
+      (await activity(OTHER_LEARNER)).data.hasPeerReviewGiven,
+      false,
+    );
     await review('Learner', OTHER_LEARNER, 'Completed');
     assert.equal((await activity(OTHER_LEARNER)).data.hasPeerReviewGiven, true);
     // what the author LEARNER received does not make LEARNER a reviewer
