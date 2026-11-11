@@ -31,7 +31,7 @@ const CourseBuilderNewVersion = () => {
           <p>Chỉnh sửa cấu trúc của bản nháp trước khi gửi phê duyệt.</p>
           <div className="instructor-info-panel">
             <strong>Sử dụng lại tệp học liệu</strong>
-            <p>Learning files are referenced from {course.publishedVersion} without duplicating storage.</p>
+            <p>Tệp học liệu được dùng lại từ phiên bản {course.publishedVersion} mà không nhân đôi dung lượng lưu trữ.</p>
           </div>
           <div className="new-version-actions">
             <InstructorButton

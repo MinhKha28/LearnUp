@@ -132,8 +132,7 @@ const CourseBuilderQuizzes = () => {
             <div className="builder-banner">
               <strong>Bài trắc nghiệm chưa có câu hỏi</strong>
               <p>
-                {emptyQuizzes} Quiz{emptyQuizzes === 1 ? " has" : "zes have"} no questions yet. The Course cannot be
-                submitted for review until every Quiz has at least one question.
+                {emptyQuizzes} bài trắc nghiệm chưa có câu hỏi. Chỉ có thể gửi khóa học phê duyệt khi mỗi bài trắc nghiệm có ít nhất một câu hỏi.
               </p>
             </div>
           )}
@@ -287,8 +286,7 @@ const CourseBuilderQuizzes = () => {
         </div>
         <div className="builder-side">
           <InfoPanel title="Vị trí bài trắc nghiệm">
-            Attach Quizzes to a Module or directly to the Course. Module Quizzes appear after the Lessons of their
-            Module; Course-level Quizzes appear at the end of the Course.
+            Có thể gắn bài trắc nghiệm vào chương hoặc trực tiếp vào khóa học. Bài trắc nghiệm cấp chương hiển thị sau các bài học của chương; bài trắc nghiệm cấp khóa học hiển thị cuối khóa học.
           </InfoPanel>
         </div>
       </div>

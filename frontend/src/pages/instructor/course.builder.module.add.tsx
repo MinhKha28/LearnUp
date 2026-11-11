@@ -28,12 +28,12 @@ const CourseBuilderModuleAdd = () => {
     const normalizedTitle = title.trim();
 
     if (!normalizedTitle) {
-      message.warning("Enter a Module title.");
+      message.warning("Nhập tiêu đề chương.");
       return;
     }
 
     if (structure.structureLocked) {
-      message.error(structure.lockReason || "Course structure is locked.");
+      message.error(structure.lockReason || "Cấu trúc khóa học đã khóa.");
       return;
     }
 
@@ -49,7 +49,7 @@ const CourseBuilderModuleAdd = () => {
         return;
       }
 
-      message.success("Module created.");
+      message.success("Đã tạo chương.");
       await refetchStructure();
 
       navigate(base, {

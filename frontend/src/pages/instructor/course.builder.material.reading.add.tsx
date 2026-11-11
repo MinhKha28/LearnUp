@@ -78,7 +78,7 @@ const CourseBuilderReadingAdd = () => {
     }
 
     if (BigInt(selected.size) > BigInt(context.remainingStorageBytes)) {
-      message.error("Insufficient Subscription storage.");
+      message.error("Dung lượng lưu trữ của gói dịch vụ không đủ.");
       return;
     }
 
@@ -107,7 +107,7 @@ const CourseBuilderReadingAdd = () => {
       BigInt(file.size) > BigInt(context.maxReadingSizeBytes) ||
       BigInt(file.size) > BigInt(context.remainingStorageBytes)
     ) {
-      message.error("Selected document does not satisfy upload limits.");
+      message.error("Tài liệu đã chọn không đáp ứng giới hạn tải lên.");
       return;
     }
 
@@ -225,7 +225,7 @@ const CourseBuilderReadingAdd = () => {
           message="Không thể tải tài liệu đọc lên"
           description={
             context.blockReason === "SUBSCRIPTION_GRACE"
-              ? "Subscription is in Grace period."
+              ? "Gói dịch vụ đang trong thời gian ân hạn."
               : context.blockReason === "SUBSCRIPTION_SUSPENDED"
                 ? "Subscription is Suspended."
                 : "Khóa học hoặc gói dịch vụ không cho phép tải tệp lên."
@@ -359,14 +359,13 @@ const CourseBuilderReadingAdd = () => {
             <h3>Quy định đối với tài liệu đọc</h3>
 
             <p>
-              Remaining storage: {formatBytes(context.remainingStorageBytes)}
+              Dung lượng còn lại: {formatBytes(context.remainingStorageBytes)}
             </p>
 
             <p>Tốc độ đọc: {context.readingSpeedWordsPerMinute} từ/phút</p>
 
             <p>
-              Scanned documents without extractable text are saved with 0 words
-              and a warning.
+              Tài liệu scan không trích xuất được chữ sẽ được lưu với số từ bằng 0 kèm cảnh báo.
             </p>
           </section>
         </div>

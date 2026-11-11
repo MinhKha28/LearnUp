@@ -188,16 +188,12 @@ const CourseBuilderAssignmentPeerReviewEdit = () => {
           </div>
 
           <InfoPanel title="Lịch chu kỳ">
-            The review deadline starts when the cycle closes and work is assigned. Choose a cycle long enough to
-            thu thập ít nhất {reviewers && Number.isFinite(reviewers) ? reviewers + 1 : "số người chấm + 1"} bài nộp;
-            otherwise you grade that cycle yourself.
+            Hạn chấm bắt đầu từ khi chu kỳ chốt và phân công người chấm. Chọn chu kỳ đủ dài để thu thập ít nhất {reviewers && Number.isFinite(reviewers) ? reviewers + 1 : "số người chấm + 1"} bài nộp;
+            nếu không đủ, giảng viên sẽ chấm trực tiếp bài nộp trong chu kỳ đó.
           </InfoPanel>
 
           <InfoPanel title="Giá trị mặc định hệ thống">
-            Leave Cycle length or Review deadline empty to use the platform default: {PLATFORM_DEFAULT_CYCLE_DAYS} days
-            for the cycle and {PLATFORM_DEFAULT_DEADLINE_DAYS} days for the review deadline. The Admin manages these
-            values, and a change only applies to cycles created afterwards, never to cycles already running. Once you
-            save, the value in use is stored with this Assignment.
+            Để trống độ dài chu kỳ hoặc hạn chấm để sử dụng mặc định của nền tảng: {PLATFORM_DEFAULT_CYCLE_DAYS} ngày cho chu kỳ và {PLATFORM_DEFAULT_DEADLINE_DAYS} ngày cho hạn chấm. Quản trị viên nền tảng quản lý các giá trị này; thay đổi chỉ áp dụng cho chu kỳ tạo mới, không ảnh hưởng chu kỳ đang chạy. Khi lưu, giá trị áp dụng được ghi nhận cho bài tập này.
           </InfoPanel>
 
           <div className="builder-actions">

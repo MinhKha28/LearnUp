@@ -193,8 +193,7 @@ const CourseBuilderAssignmentCreate = () => {
         <div className="builder-side">
           <InfoPanel title="Bắt buộc có tiêu chí chấm">Bắt buộc có tiêu chí chấm dù không bật chấm chéo.</InfoPanel>
           <InfoPanel title="Không giới hạn hạn nộp; luôn được chấm">
-            Assignments have no submission deadline and always count toward the Certificate. Submissions are
-            controlled by n attempts and an m-hour lock.
+            Bài tập không có hạn nộp riêng và luôn được tính vào điều kiện cấp chứng chỉ. Số lượt nộp liên tiếp và thời gian khóa tạm kiểm soát việc nộp bài.
           </InfoPanel>
         </div>
       </div>

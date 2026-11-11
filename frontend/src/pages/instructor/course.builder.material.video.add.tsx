@@ -43,10 +43,10 @@ const formatBytes = (value: string | number): string => {
 const getBlockMessage = (reason: string | null): string => {
   switch (reason) {
     case "SUBSCRIPTION_GRACE":
-      return "Subscription is in Grace period. Instructors cannot upload new learning materials.";
+      return "Gói dịch vụ đang trong thời gian ân hạn. Giảng viên không thể tải học liệu mới lên.";
 
     case "SUBSCRIPTION_SUSPENDED":
-      return "Subscription is Suspended. Instructors cannot upload learning materials.";
+      return "Gói dịch vụ đang bị tạm ngừng. Giảng viên không thể tải học liệu lên.";
 
     case "COURSE_NOT_EDITABLE":
       return "Không thể chỉnh sửa khóa học hoặc bài học này.";
@@ -82,7 +82,7 @@ const getUploadErrorMessage = (error: unknown): string => {
 
     return apiError.message || "Không thể tải video lên.";
   } catch {
-    return "Không thể tải video lên. Please try again.";
+    return "Không thể tải video lên. Vui lòng thử lại.";
   }
 };
 
@@ -155,7 +155,7 @@ const CourseBuilderVideoAdd = () => {
     }
 
     if (BigInt(selected.size) > BigInt(context.remainingStorageBytes)) {
-      message.error("Insufficient Subscription storage.");
+      message.error("Dung lượng lưu trữ của gói dịch vụ không đủ.");
       return;
     }
 
@@ -347,7 +347,7 @@ const CourseBuilderVideoAdd = () => {
 
             <strong>{file ? file.name : "Chọn tệp video"}</strong>
 
-            <p>Allowed formats: {context.allowedVideoMimeTypes.join(", ")}</p>
+            <p>Định dạng cho phép: {context.allowedVideoMimeTypes.join(", ")}</p>
 
             <p>Dung lượng tối đa: {maxSize}</p>
 
@@ -400,8 +400,7 @@ const CourseBuilderVideoAdd = () => {
 
           {context.locked && (
             <p className="uc17-video-hint">
-              Required materials cannot be added after the Course becomes
-              Locked.
+              Không thể thêm học liệu bắt buộc sau khi khóa học đã khóa.
             </p>
           )}
 
@@ -463,12 +462,11 @@ const CourseBuilderVideoAdd = () => {
 
             <div className="uc17-video-info-row">
               <span>Khóa học đã khóa</span>
-              <strong>{context.locked ? "Yes" : "No"}</strong>
+              <strong>{context.locked ? "Có" : "Không"}</strong>
             </div>
 
             <p className="uc17-video-hint">
-              Video format, duration and storage availability are verified by
-              the backend before the material is saved.
+              Máy chủ kiểm tra định dạng, thời lượng video và dung lượng lưu trữ trước khi lưu học liệu.
             </p>
           </section>
         </div>

@@ -23,8 +23,7 @@ const CourseBuilderAssignmentPeerCycles = () => {
       <div className="builder-hero">
         <h1>{title ? `${title} - chu kỳ` : "Chu kỳ chấm chéo"}</h1>
         <p>
-          Cycles run on a schedule, whenever Learners submit. Each has three dates: it opens, it closes and the work is
-          assigned, and the reviews are due.
+          Chu kỳ chấm chéo chạy theo lịch và tiếp nhận bài nộp của học viên. Mỗi chu kỳ có ba mốc: mở chu kỳ, chốt và phân công chấm, hạn hoàn thành đánh giá.
         </p>
       </div>
       <div className="builder-update-card">

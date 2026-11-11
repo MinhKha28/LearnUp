@@ -244,8 +244,7 @@ const CourseCreate = () => {
               className="course-create-card"
             >
               <p className="course-create-section-description">
-                These fields can be completed now or while the Course remains
-                Draft.
+                Bạn có thể bổ sung các trường này ngay hoặc khi khóa học còn ở trạng thái bản nháp.
               </p>
               <div className="course-cover-field">
                 <div className="course-cover-label">

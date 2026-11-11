@@ -200,7 +200,7 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
                   navigate(`${base}/lessons/${lesson.id}/materials`)
                 }
               >
-                View all materials ({materials.length})
+                Xem tất cả học liệu ({materials.length})
               </InstructorButton>
             </div>
 

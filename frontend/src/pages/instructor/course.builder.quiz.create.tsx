@@ -144,8 +144,7 @@ const CourseBuilderQuizCreate = () => {
           )}
           {onlyOptional && (
             <WarningPanel title="Khóa học đã khóa">
-              A Learner has enrolled in this Course, so only an optional Quiz can be added. It is placed at the end of
-              where it is attached.
+              Đã có học viên tham gia khóa học nên chỉ được thêm bài trắc nghiệm không bắt buộc. Bài trắc nghiệm được đặt ở cuối vị trí gắn.
             </WarningPanel>
           )}
 
@@ -243,8 +242,7 @@ const CourseBuilderQuizCreate = () => {
             Để trống n và m nếu dùng giá trị mặc định hệ thống. Giá trị sẽ được lưu vào bài trắc nghiệm khi tạo.
           </InfoPanel>
           <InfoPanel title="Câu hỏi">
-            A new Quiz has no questions yet. The Course cannot be submitted for review until every Quiz has at least one
-            question.
+            Bài trắc nghiệm mới chưa có câu hỏi. Chỉ có thể gửi khóa học phê duyệt khi mỗi bài trắc nghiệm có ít nhất một câu hỏi.
           </InfoPanel>
         </div>
       </div>

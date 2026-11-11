@@ -23,7 +23,7 @@ const CourseBuilderMaterialDelete = () => {
   const handleDelete = () => {
     if (!materialId) return;
     removeBuilderResource(structure, materialId);
-    message.success("Learning material deleted.");
+    message.success("Đã xóa học liệu.");
     navigate(materialsBase);
   };
 

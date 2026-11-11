@@ -23,7 +23,7 @@ const CourseBuilderModuleDelete = () => {
   const handleDelete = () => {
     if (!moduleId) return;
     removeBuilderModule(structure, moduleId);
-    message.success("Module deleted.");
+    message.success("Đã xóa chương.");
     navigate(base);
   };
 

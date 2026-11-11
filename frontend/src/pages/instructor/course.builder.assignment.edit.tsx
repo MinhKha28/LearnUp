@@ -281,8 +281,7 @@ const CourseBuilderAssignmentEdit = () => {
         </div>
         <div className="builder-side">
           <InfoPanel title="Điều kiện chỉnh sửa">
-            Instructions, Rubric and n/m lock after the first submission. The passing score locks once the Course is
-            Locked. Estimated effort stays editable.
+            Hướng dẫn, tiêu chí chấm, số lượt nộp và thời gian khóa tạm không thể sửa sau bài nộp đầu tiên. Điểm đạt bị khóa khi khóa học đã khóa. Thời lượng dự kiến vẫn có thể sửa.
           </InfoPanel>
           {scoreLocked && (
             <div className="builder-banner" style={{ marginTop: 16, marginBottom: 0 }}>

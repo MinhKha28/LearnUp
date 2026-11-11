@@ -269,8 +269,7 @@ const MaterialsContent = ({ data }: { data: IInstructorLessonDetail }) => {
           <div>
             <h2>Học liệu</h2>
             <p>
-              Videos and readings belonging to this Lesson, ordered by their
-              configured position.
+              Danh sách video và tài liệu đọc của bài học, được sắp xếp theo thứ tự đã thiết lập.
             </p>
           </div>
 
@@ -293,8 +292,7 @@ const MaterialsContent = ({ data }: { data: IInstructorLessonDetail }) => {
       <div className="uc17-storage-note">
         <FileTextOutlined />
         <p>
-          Attached file size is calculated from the distinct files referenced by
-          this Lesson. It is not the organization's Subscription storage usage.
+          Dung lượng đính kèm được tính từ các tệp riêng biệt mà bài học tham chiếu, không phải tổng dung lượng gói dịch vụ của tổ chức.
         </p>
       </div>
     </>

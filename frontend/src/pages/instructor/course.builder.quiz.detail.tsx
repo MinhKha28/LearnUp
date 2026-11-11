@@ -368,11 +368,10 @@ const CourseBuilderQuizDetail = () => {
         </div>
         <div className="builder-side">
           <InfoPanel title="Chấm điểm">
-            Quizzes are graded automatically on a 0–100 scale. A Learner passes by reaching the passing score.
+            Bài trắc nghiệm được chấm tự động theo thang điểm 0–100. Học viên đạt khi điểm số bằng hoặc cao hơn điểm đạt.
           </InfoPanel>
           <InfoPanel title="Vị trí bài trắc nghiệm">
-            Module Quizzes appear after the Lessons of their Module; Course-level Quizzes appear at the end of the
-            Course.
+            Bài trắc nghiệm cấp chương hiển thị sau các bài học trong chương; bài trắc nghiệm cấp khóa học hiển thị cuối khóa học.
           </InfoPanel>
         </div>
       </div>

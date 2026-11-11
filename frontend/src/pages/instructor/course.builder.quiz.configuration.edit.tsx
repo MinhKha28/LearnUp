@@ -281,8 +281,7 @@ const CourseBuilderQuizConfigurationEdit = () => {
         </div>
         <div className="builder-side">
           <InfoPanel title="Điều kiện chỉnh sửa">
-            Time limit, n and m lock as soon as a Learner starts the Quiz, even before submitting. The passing score
-            and Required setting lock once the Course is Locked.
+            Thời gian làm bài, số lượt liên tiếp và thời gian khóa tạm không thể sửa khi học viên bắt đầu làm bài trắc nghiệm, kể cả trước khi nộp. Điểm đạt và cờ bắt buộc bị khóa khi khóa học đã khóa.
           </InfoPanel>
           <InfoPanel title="Câu hỏi">Câu hỏi và đáp án được chỉnh sửa riêng; việc chỉnh sửa sẽ bị khóa sau lượt làm đầu tiên.</InfoPanel>
         </div>

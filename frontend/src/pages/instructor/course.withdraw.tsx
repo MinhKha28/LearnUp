@@ -172,7 +172,7 @@ const CourseWithdraw = () => {
       <div className="instructor-withdraw-card">
         <h2>{course.name}</h2>
 
-        <p>Current status: {course.status}</p>
+        <p>Trạng thái hiện tại: {course.status}</p>
         <p>Thu hồi thành công sẽ đưa khóa học về bản nháp để tiếp tục chỉnh sửa.</p>
 
         <div className="instructor-withdraw-actions">

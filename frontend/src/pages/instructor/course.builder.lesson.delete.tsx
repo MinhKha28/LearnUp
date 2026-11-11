@@ -23,7 +23,7 @@ const CourseBuilderLessonDelete = () => {
   const handleDelete = () => {
     if (!lessonId) return;
     removeBuilderLesson(structure, lessonId);
-    message.success("Lesson deleted.");
+    message.success("Đã xóa bài học.");
     navigate(base);
   };
 

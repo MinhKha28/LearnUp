@@ -225,7 +225,7 @@ const CourseBuilderMaterialEdit = () => {
 
     if (selected.size > maxBytes) {
       message.error(
-        `File exceeds the upload transport limit of ${formatBytes(maxBytes)}.`,
+        `Tệp vượt quá giới hạn truyền tải ${formatBytes(maxBytes)}.`,
       );
       return;
     }
@@ -594,9 +594,9 @@ const CourseBuilderMaterialEdit = () => {
               </strong>
 
               <p>
-                Allowed formats:{" "}
+                Định dạng cho phép:{" "}
                 {isVideo
-                  ? "MP4, WebM, MOV (subject to Platform Settings)"
+                  ? "MP4, WebM, MOV (theo cấu hình nền tảng)"
                   : "PDF"}
               </p>
 
@@ -727,8 +727,7 @@ const CourseBuilderMaterialEdit = () => {
             )}
 
             <p className="uc17-video-hint">
-              Technical replacement updates the shared MediaFile without
-              creating a new Material or changing its Required setting.
+              Thay thế tệp kỹ thuật cập nhật tệp học liệu dùng chung mà không tạo học liệu mới hoặc thay đổi trạng thái bắt buộc.
             </p>
           </section>
         </div>

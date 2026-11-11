@@ -104,8 +104,7 @@ const CourseBuilderAssignmentDetail = () => {
         <div className="builder-banner builder-banner-error">
           <strong>Bài tập đã vô hiệu hóa</strong>
           <p>
-            This Assignment was disabled after a confirmed violation. It is left out of the Certificate requirements until
-            it is re-enabled; scores already recorded are kept.
+            Bài tập bị vô hiệu hóa sau khi xác nhận vi phạm. Bài tập tạm thời không được tính vào điều kiện cấp chứng chỉ cho đến khi được kích hoạt lại; điểm đã ghi nhận vẫn được giữ nguyên.
           </p>
         </div>
       )}
@@ -115,8 +114,7 @@ const CourseBuilderAssignmentDetail = () => {
         <div className="builder-banner">
           <strong>Chưa bật chấm chéo</strong>
           <p>
-            Learners will be graded directly by you. You can turn Peer Review on until the Course is Locked (when the
-            first Learner enrolls); after that it can no longer be switched.
+            Giảng viên sẽ chấm trực tiếp bài nộp. Bạn có thể bật chấm chéo trước khi khóa học bị khóa (khi học viên đầu tiên tham gia); sau đó không thể bật hoặc tắt.
           </p>
         </div>
       )}
@@ -125,8 +123,7 @@ const CourseBuilderAssignmentDetail = () => {
         <div className="builder-banner">
           <strong>Đã có dữ liệu bài nộp</strong>
           <p>
-            Instructions, Rubric, n attempts and m-hour lock cannot be edited. Only the estimated effort can still
-            change.
+            Không thể sửa hướng dẫn, tiêu chí chấm, số lượt nộp liên tiếp và thời gian khóa tạm. Chỉ có thể sửa thời lượng dự kiến thực hiện.
           </p>
         </div>
       )}
@@ -149,7 +146,7 @@ const CourseBuilderAssignmentDetail = () => {
           value={peerReview.enabled ? "On" : "Off"}
           hint={
             peerReview.enabled
-              ? `${peerReview.reviewersPerSubmission ?? "?"} reviewers per submission`
+              ? `${peerReview.reviewersPerSubmission ?? "?"} người chấm cho mỗi bài nộp`
               : "Giảng viên chấm trực tiếp"
           }
           tone={peerReview.enabled ? "on" : "off"}
@@ -214,18 +211,16 @@ const CourseBuilderAssignmentDetail = () => {
           <div className="builder-side-card">
             <h3>Quy tắc nộp bài</h3>
             <p>
-              Không có hạn nộp riêng. Sau <strong>{assignment.maxConsecutiveAttempts}</strong> consecutive submissions
-              the Learner is locked for <strong>{assignment.lockoutHours} h</strong>, then can submit again. The latest
-              score is the recorded score.
+              Không có hạn nộp riêng. Sau <strong>{assignment.maxConsecutiveAttempts}</strong> lượt nộp liên tiếp, học viên bị tạm khóa trong <strong>{assignment.lockoutHours} h</strong>, sau đó có thể tiếp tục nộp bài. Điểm của bài nộp mới nhất là điểm được ghi nhận.
             </p>
           </div>
           <div className="builder-side-card">
             <h3>Chấm chéo</h3>
             {peerReview.enabled ? (
               <ul>
-                <li>{peerReview.reviewersPerSubmission ?? "?"} reviewers per submission</li>
-                <li>{peerReview.cycleDays ?? "?"}-day cycle</li>
-                <li>{peerReview.deadlineDays ?? "?"}-day review deadline after the cycle closes</li>
+                <li>{peerReview.reviewersPerSubmission ?? "?"} người chấm cho mỗi bài nộp</li>
+                <li>{peerReview.cycleDays ?? "?"} ngày/chu kỳ</li>
+                <li>{peerReview.deadlineDays ?? "?"} ngày để hoàn thành chấm sau khi chốt chu kỳ</li>
                 <li>Ngưỡng chênh lệch điểm: {peerReview.scoreGap ?? "?"}</li>
               </ul>
             ) : (

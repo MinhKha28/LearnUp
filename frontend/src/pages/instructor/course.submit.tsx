@@ -223,8 +223,8 @@ const CourseSubmit = () => {
             <strong>Thời lượng học dự kiến</strong>
             <p>
               {course.estimatedDurationMinutes === null
-                ? "Estimated duration is not available."
-                : `${course.estimatedDurationMinutes} minutes estimated.`}
+                ? "Chưa có thông tin thời lượng dự kiến."
+                : `${course.estimatedDurationMinutes} phút dự kiến.`}
             </p>
             <p>Cảnh báo thời lượng không ngăn việc gửi phê duyệt.</p>
           </div>

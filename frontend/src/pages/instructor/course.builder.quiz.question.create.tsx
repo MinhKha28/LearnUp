@@ -163,8 +163,8 @@ const CourseBuilderQuizQuestionCreate = () => {
       : null;
   const optionError = (text: string): string | null => {
     if (!text) return "Nhập nội dung đáp án.";
-    if (text.length > OPTION_MAX_LENGTH) return `At most ${OPTION_MAX_LENGTH} characters.`;
-    if (duplicated.has(text.toLowerCase())) return "Two answers have the same text.";
+    if (text.length > OPTION_MAX_LENGTH) return `Tối đa ${OPTION_MAX_LENGTH} ký tự.`;
+    if (duplicated.has(text.toLowerCase())) return "Hai đáp án có nội dung trùng nhau.";
     return null;
   };
   let keyError: string | null = null;
@@ -172,7 +172,7 @@ const CourseBuilderQuizQuestionCreate = () => {
     if (options.length < OPTIONS_MIN || options.length > OPTIONS_MAX) {
       keyError = `A choice question needs ${OPTIONS_MIN} to ${OPTIONS_MAX} answers.`;
     } else if (type === "SingleChoice" && correctCount !== 1) {
-      keyError = "Mark exactly one correct answer.";
+      keyError = "Chọn đúng một đáp án đúng.";
     } else if (type === "MultipleChoice" && correctCount < 1) {
       keyError = "Mark at least one correct answer.";
     } else if (type === "MultipleChoice" && correctCount === options.length) {
@@ -280,16 +280,16 @@ const CourseBuilderQuizQuestionCreate = () => {
             autoSize={{ minRows: 2, maxRows: 8 }}
             count={{ show: true, max: QUESTION_MAX_LENGTH }}
             status={submitted && contentError ? "error" : undefined}
-            placeholder={type === "TrueFalse" ? "Write a statement the Learner marks True or False" : "Write the question"}
+            placeholder={type === "TrueFalse" ? "Nhập một phát biểu để học viên chọn đúng hoặc sai" : "Nhập nội dung câu hỏi"}
             onChange={(event) => setContent(event.target.value)}
           />
           {submitted && <FieldError message={contentError} />}
 
           <label className="instructor-form-label instructor-form-label-spaced">
             {type === "TrueFalse"
-              ? "Correct answer"
+              ? "Đáp án đúng"
               : type === "SingleChoice"
-                ? "Answers (select the one correct answer)"
+                ? "Các đáp án (chọn một đáp án đúng)"
                 : "Answers (tick every correct answer)"}
           </label>
 
@@ -374,12 +374,10 @@ const CourseBuilderQuizQuestionCreate = () => {
         </div>
         <div className="builder-side">
           <InfoPanel title="Các loại câu hỏi">
-            Single answer: exactly one correct answer. Multiple answers: at least one correct and one incorrect
-            answer. True / False: choose which one is correct. Every type is graded automatically.
+            Một đáp án: chọn đúng một đáp án. Nhiều đáp án: phải có ít nhất một đáp án đúng và một đáp án sai. Đúng/sai: chọn phương án đúng. Tất cả đều được chấm tự động.
           </InfoPanel>
           <InfoPanel title="Chấm điểm">
-            Every question weighs the same. A question counts as correct only when the Learner picks exactly the
-            correct answers; there is no partial credit.
+            Mọi câu hỏi có trọng số như nhau. Chỉ tính đúng khi học viên chọn chính xác tất cả đáp án đúng; không có điểm từng phần.
           </InfoPanel>
           <InfoPanel title="Khóa chỉnh sửa câu hỏi">
             Chỉ có thể thêm câu hỏi khi chưa có học viên bắt đầu làm bài và khóa học chưa được gửi phê duyệt.

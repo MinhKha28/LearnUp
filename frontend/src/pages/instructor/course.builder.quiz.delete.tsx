@@ -106,7 +106,7 @@ const CourseBuilderQuizDelete = () => {
           <span>Thao tác sẽ xóa vĩnh viễn:</span>
           <ul>
             <li>
-              The Quiz and its {quiz.questionCount} question{quiz.questionCount === 1 ? "" : "s"}
+              Bài trắc nghiệm và {quiz.questionCount} câu hỏi của bài
             </li>
             {quiz.hasAttempts && <li>Toàn bộ lượt làm và câu trả lời của học viên trong bài trắc nghiệm này</li>}
           </ul>

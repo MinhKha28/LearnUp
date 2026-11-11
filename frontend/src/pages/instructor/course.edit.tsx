@@ -436,8 +436,7 @@ const CourseEdit = () => {
               className="course-create-card"
             >
               <p className="course-create-section-description">
-                Cập nhật mô tả, kết quả học tập và ảnh bìa khóa học
-                image.
+                Cập nhật mô tả, kết quả học tập và ảnh bìa khóa học.
               </p>
 
               {/* COURSE COVER */}

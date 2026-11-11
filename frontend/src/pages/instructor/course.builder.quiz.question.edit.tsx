@@ -124,11 +124,11 @@ const CourseBuilderQuizQuestionEdit = () => {
       return;
     }
     if (options.some((option) => !option.text.trim())) {
-      message.warning("Every Answer option needs text.");
+      message.warning("Mỗi đáp án phải có nội dung.");
       return;
     }
     if (!options.some((option) => option.correct)) {
-      message.warning("Mark at least one correct Answer.");
+      message.warning("Chọn ít nhất một đáp án đúng.");
       return;
     }
     saveBuilderQuizQuestion(quiz, {
@@ -137,14 +137,14 @@ const CourseBuilderQuizQuestionEdit = () => {
       text: text.trim(),
       options,
     });
-    message.success("Question saved.");
+    message.success("Đã lưu câu hỏi.");
     navigate(`${base}/quizzes/${quiz.id}`);
   };
 
   const handleDelete = () => {
     if (!existing) return;
     removeBuilderQuizQuestion(quiz, existing.id);
-    message.success("Question removed.");
+    message.success("Đã xóa câu hỏi.");
     navigate(`${base}/quizzes/${quiz.id}`);
   };
 
