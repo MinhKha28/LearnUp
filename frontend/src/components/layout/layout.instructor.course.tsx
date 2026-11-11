@@ -43,7 +43,7 @@ const LayoutInstructorCourse = () => {
 
       if (!response.data) {
         setStructure(null);
-        setErrorMessage(response.message || "Unable to load Course structure.");
+        setErrorMessage(response.message || "Không thể tải cấu trúc khóa học.");
         return;
       }
 
@@ -51,7 +51,7 @@ const LayoutInstructorCourse = () => {
     } catch (error) {
       console.error("Fetch Course structure error:", error);
       setStructure(null);
-      setErrorMessage("Unable to load Course structure.");
+      setErrorMessage("Không thể tải cấu trúc khóa học.");
     } finally {
       setLoading(false);
     }
@@ -82,8 +82,8 @@ const LayoutInstructorCourse = () => {
     return (
       <InstructorPage>
         <PageHeader
-          eyebrow="MY COURSES / COURSE BUILDER"
-          title="Course structure"
+          eyebrow="Khóa học của tôi / Xây dựng khóa học"
+          title="Cấu trúc khóa học"
           subtitle=""
           back
         />
@@ -91,7 +91,7 @@ const LayoutInstructorCourse = () => {
         <Alert
           type="error"
           showIcon
-          message={errorMessage || "Course not found."}
+          message={errorMessage || "Không tìm thấy khóa học."}
         />
 
         <div style={{ marginTop: 16 }}>
@@ -126,9 +126,9 @@ const LayoutInstructorCourse = () => {
             </Link>
 
             <div className="builder-topbar-meta">
-              <span>{course.status === "Draft" ? "Draft" : course.status}</span>
+              <span>{course.status === "Draft" ? "Bản nháp" : course.status}</span>
               <span className="builder-topbar-meta-dot">•</span>
-              <span>Last saved just now</span>
+              <span>Vừa lưu gần đây</span>
             </div>
           </div>
         </div>
@@ -137,7 +137,7 @@ const LayoutInstructorCourse = () => {
           <button
             type="button"
             className="builder-topbar-action"
-            onClick={() => message.info("Preview arrives in a later batch.")}
+            onClick={() => message.info("Tính năng xem trước chưa được hỗ trợ.")}
           >
             Preview
           </button>
