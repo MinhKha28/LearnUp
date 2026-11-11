@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { courseStatusLabel, gradingHighlights } from "./instructor.data";
+import { courseStatusLabel, gradingHighlights, dueStatusMessage, monitoringCompletionLabel, monitoringDueLabel, monitoringEnrollmentLabel } from "./instructor.data";
 
 describe("Instructor Vietnamese display labels", () => {
   it("shows localized course statuses without changing status keys", () => {
@@ -9,6 +9,13 @@ describe("Instructor Vietnamese display labels", () => {
       rejected: "Bị từ chối",
       published: "Đã phát hành",
     });
+  });
+
+  it("keeps monitoring status keys while localizing display values", () => {
+    expect(monitoringEnrollmentLabel.Required).toBe("Bắt buộc");
+    expect(monitoringCompletionLabel["In progress"]).toBe("Đang học");
+    expect(monitoringDueLabel.Overdue).toBe("Quá hạn");
+    expect(dueStatusMessage["No deadline"]).toContain("Học viên vẫn có thể tiếp tục học");
   });
 
   it("shows Vietnamese grading action labels", () => {
