@@ -2287,7 +2287,7 @@ export class UsersService {
           in: userIds,
         },
         organizationId: user.organizationId,
-        role: 'INSTRUCTOR',
+        role: UserRoleValue.Instructor,
         deletedAt: null,
       },
       select: {
