@@ -211,7 +211,25 @@ export interface ICreateQuizReq {
   lockoutHours?: number;
 }
 
-/** UC18.4 payload: the five configuration fields (BR-195); send only what changed. */
+/**
+ * UC18.1.1 payload (BR-194). SingleChoice / MultipleChoice send `options` in display order;
+ * TrueFalse sends `correctAnswer` only (the server writes the True / False options itself).
+ */
+export interface ICreateQuizQuestionReq {
+  type: QuizQuestionType;
+  content: string;
+  options?: { content: string; isCorrect: boolean }[];
+  correctAnswer?: boolean;
+}
+
+/** UC18.1.1 response: the question added and the new number of questions of the Quiz. */
+export interface IQuizQuestionCreated {
+  quizId: string;
+  questionCount: number;
+  question: IQuizQuestion;
+}
+
+/** UC18.3 payload: the five configuration fields (BR-195); send only what changed. */
 export type IUpdateQuizConfigReq = Partial<
   Pick<
     ICreateQuizReq,
