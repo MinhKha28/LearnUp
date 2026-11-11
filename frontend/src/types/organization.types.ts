@@ -46,6 +46,38 @@ export interface IAdminPlan extends ISubscriptionPlan {
 
 export type ICreatePlanReq = Omit<ISubscriptionPlan, "id">;
 
+// UC44 - Admin xem danh sách Organization (khớp IAdminOrganizationListItem ở tenant-service)
+export type AdminOrganizationStatus =
+  | "PendingPayment"
+  | "Active"
+  | "Suspended"
+  | "Cancelled";
+export type AdminSubscriptionStatus = "Active" | "Grace" | "Suspended";
+
+export interface IAdminOrganizationListItem {
+  id: string;
+  name: string;
+  contactEmail: string | null;
+  // Trạng thái hiệu lực: PendingPayment quá hạn thanh toán đã được tính là Cancelled (BR-8)
+  status: AdminOrganizationStatus;
+  plan: { id: string; name: string } | null;
+  // Độc lập với trạng thái Organization (BR-60); null khi chưa có hoặc đã kết thúc
+  subscription: {
+    status: AdminSubscriptionStatus;
+    startsAt: string;
+    expiresAt: string;
+    graceEndsAt: string | null;
+  } | null;
+  paymentDueAt: string | null;
+  createdAt: string;
+}
+
+export interface IAdminOrganizationListQuery {
+  page: number;
+  pageSize: number;
+  includeCancelled: boolean;
+}
+
 // UC02 - body gửi lên POST /api/v1/registrations (khớp CreateRegistrationDto ở backend)
 export interface ICreateRegistrationReq {
   planId: string;
@@ -308,6 +340,27 @@ export interface IInstructorDeletionResult {
   seats: ISeatUsage; // số chỗ sau khi xóa (BR-31, BR-46)
 }
 
+// UC13.5 - PATCH /api/v1/users/learners/:id/status (Learner không có chuyển quyền nên không gửi receiverInstructorId)
+export type IChangeLearnerStatusReq = Omit<
+  IChangeAccountStatusReq,
+  "receiverInstructorId"
+>;
+
+export interface ILearnerStatusResult {
+  id: string;
+  status: AccountStatus;
+  changed: boolean; // false: đã ở trạng thái đích (bấm lặp)
+}
+
+// UC13.6 - DELETE /api/v1/users/learners/:id (body JSON; Learner không có chuyển quyền)
+export type IDeleteLearnerReq = Omit<IDeleteAccountReq, "receiverInstructorId">;
+
+export interface ILearnerDeletionResult {
+  id: string;
+  changed: boolean; // false: đã bị xóa từ trước (bấm lặp)
+  seats: ISeatUsage; // số chỗ Learner sau khi xóa (BR-31, BR-46)
+}
+
 // UC12.2 - số chỗ theo Subscription hiện hành (GET /api/v1/users/instructors/seats)
 export interface ISeatUsage {
   used: number;
@@ -315,4 +368,72 @@ export interface ISeatUsage {
   remaining: number;
   subscriptionStatus: "Active" | "Grace" | "Suspended" | null;
   canCreate: boolean;
+}
+
+// UC12.8 - Import Instructor hàng loạt (dùng lại cho UC13.8). Khớp tenant-service member-imports.
+export type ImportField = "fullName" | "email" | "department" | "role";
+
+export type ImportRowErrorCode =
+  | "MISSING_REQUIRED_FIELD"
+  | "INVALID_EMAIL"
+  | "DUPLICATE_EMAIL_IN_FILE"
+  | "EMAIL_ALREADY_USED"
+  | "INVALID_ROLE"
+  | "INVALID_VALUE";
+
+export interface IImportRowError {
+  field: ImportField;
+  code: ImportRowErrorCode;
+  message: string;
+  relatedRows?: number[];
+}
+
+export interface IValidImportRow {
+  rowNumber: number;
+  fullName: string;
+  email: string;
+  department: string | null;
+}
+
+export interface IInvalidImportRow {
+  rowNumber: number;
+  values: Record<ImportField, string>;
+  errors: IImportRowError[];
+}
+
+export interface IMemberImportPreview {
+  role: string;
+  totalRows: number;
+  validRows: IValidImportRow[];
+  invalidRows: IInvalidImportRow[];
+  seats: ISeatUsage;
+  exceedsSeats: boolean;
+  canConfirm: boolean;
+  previewDigest: string;
+}
+
+export interface IImportedAccount {
+  id: string;
+  rowNumber: number;
+  fullName: string;
+  email: string;
+  department: string | null;
+  status: AccountStatus;
+}
+
+export interface IMemberImportResult {
+  role: string;
+  createdCount: number;
+  skippedCount: number;
+  accounts: IImportedAccount[];
+}
+
+// Lỗi của API import: ngoài code/message còn có trường riêng (IMPORT_CHANGED kèm preview mới, ...)
+export interface IImportApiError extends IApiError {
+  preview?: IMemberImportPreview;
+  validCount?: number;
+  remaining?: number;
+  maxRows?: number;
+  maxSizeBytes?: number;
+  missingColumns?: string[];
 }

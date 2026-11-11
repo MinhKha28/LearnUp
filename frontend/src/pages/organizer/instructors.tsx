@@ -22,7 +22,6 @@ import type {
 import { seatBlockReason } from "@/utils/helper";
 import "./instructors.scss";
 
-const COMING_SOON = "Coming soon";
 const SEARCH_DEBOUNCE_MS = 400;
 
 // UC12.4 - "all" = không gửi status; nhãn trạng thái lấy chung với cột Status
@@ -136,12 +135,18 @@ const Instructors = () => {
         subtitle="Manage instructor accounts in your organization."
         actions={
           <>
-            {/* UC12.8 */}
-            <Tooltip title={COMING_SOON}>
-              <span>
-                <OrganizerButton disabled>Import Excel</OrganizerButton>
-              </span>
-            </Tooltip>
+            {/* UC12.8 - cùng điều kiện với Add Instructor (BR-31); trang import kiểm lại số chỗ */}
+            {addBlockedReason ? (
+              <Tooltip title={addBlockedReason}>
+                <span>
+                  <OrganizerButton disabled>Import Excel</OrganizerButton>
+                </span>
+              </Tooltip>
+            ) : (
+              <Link to="/organizer/instructors/import">
+                <OrganizerButton>Import Excel</OrganizerButton>
+              </Link>
+            )}
             {/* UC12.2 */}
             {addBlockedReason ? (
               <Tooltip title={addBlockedReason}>

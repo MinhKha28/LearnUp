@@ -14,7 +14,7 @@ import { fetchCurriculum, fetchEnrollmentProgress } from "@/services/learning.se
 import { fetchLearnerAssessmentsAPI } from "@/services/assessment.service";
 import { isRetryableError } from "@/types/api.types";
 import type { EnrollmentProgress } from "@/types/learning.types";
-import { formatLocalDateTime } from "@/utils/helper";
+import { formatDateTimeVN } from "@/utils/helper";
 import { ENROLLMENT_STATUS_LABELS, ENROLLMENT_TYPE_LABELS } from "@/utils/learner.labels";
 import { formatDueAt } from "@/utils/due.format";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
@@ -84,7 +84,7 @@ const ProgressDetails = ({
             <p>
               Ngày hoàn thành:{" "}
               {enrollment.completedAt
-                ? formatLocalDateTime(enrollment.completedAt)
+                ? formatDateTimeVN(enrollment.completedAt)
                 : "Chưa có thông tin"}
             </p>
             {enrollment.completedLate && <p>Hoàn thành sau hạn</p>}
