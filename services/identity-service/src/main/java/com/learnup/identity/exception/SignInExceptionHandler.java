@@ -24,6 +24,15 @@ public class SignInExceptionHandler {
                 .body(ApiResponse.error(ex.getReason(), ex.getMessage()));
     }
 
+    @ExceptionHandler(GoogleSignInException.class)
+    public ResponseEntity<ApiResponse<Void>> handleGoogleSignIn(GoogleSignInException ex) {
+        if (ex.getCause() != null) {
+            log.warn("event=google_credential_check_failed code={} exception_type={} correlation_id={}",
+                    ex.getCode(), AuthenticationDiagnostics.exceptionType(ex.getCause()), AuthenticationDiagnostics.correlationId());
+        }
+        return ResponseEntity.status(ex.getStatus()).body(ApiResponse.error(ex.getCode(), ex.getMessage()));
+    }
+
     @ExceptionHandler(RefreshTokenReusedException.class)
     public ResponseEntity<ApiResponse<Void>> handleRefreshTokenReused(RefreshTokenReusedException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

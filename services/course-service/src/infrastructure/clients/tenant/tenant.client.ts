@@ -4,6 +4,7 @@ import { BadRequestException, Injectable, ServiceUnavailableException } from '@n
 import { ConfigService } from '@nestjs/config';
 import type { CurrentUser } from '@learnup/ts-common';
 import { firstValueFrom } from 'rxjs';
+import { logHttpClientError } from '../log-http-client-error';
 
 import type {
   TenantApiResponse,
@@ -41,10 +42,11 @@ export class TenantClient {
 
     const baseUrl = this.configService.getOrThrow<string>('TENANT_SERVICE_URL');
 
+    const path = '/api/v1/users/batch';
     try {
       const response = await firstValueFrom(
         this.httpService.post<TenantApiResponse<TenantInstructor[]>>(
-          `${baseUrl}/api/v1/users/batch`,
+          `${baseUrl}${path}`,
           {
             userIds: instructorIds,
           },
@@ -56,7 +58,7 @@ export class TenantClient {
 
       return response.data.data ?? [];
     } catch (error) {
-      console.error('Tenant Service request failed:', error);
+      logHttpClientError(error, 'POST', path);
 
       throw new ServiceUnavailableException(
         'Unable to retrieve Instructor information.',
@@ -100,10 +102,12 @@ export class TenantClient {
   ): Promise<TenantMaterialUploadPolicy> {
     const baseUrl = this.configService.getOrThrow<string>('TENANT_SERVICE_URL');
 
+    const path =
+      '/api/v1/subscriptions/internal/instructor-material-upload-policy';
     try {
       const response = await firstValueFrom(
         this.httpService.get<TenantApiResponse<TenantMaterialUploadPolicy>>(
-          `${baseUrl}/api/v1/subscriptions/internal/instructor-material-upload-policy`,
+          `${baseUrl}${path}`,
           {
             headers: this.buildHeaders(user),
           },
@@ -124,10 +128,7 @@ export class TenantClient {
 
       return policy;
     } catch (error) {
-      console.error(
-        'Unable to check Instructor material upload policy:',
-        error,
-      );
+      logHttpClientError(error, 'GET', path);
 
       // Fail closed: lỗi Tenant Service thì không upload.
       throw new ServiceUnavailableException(
