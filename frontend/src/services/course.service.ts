@@ -26,6 +26,9 @@ import type {
   IOrganizerCourseReview,
   ICourseDecisionResponse,
   IRejectCourseRequest,
+  ITransferCourseContext,
+  ITransferCourseRequest,
+  ITransferCourseResponse,
   IReadingUploadContext,
   IRestoreCourseResult,
   ISubmitCourseResponse,
@@ -318,5 +321,20 @@ export const approveCourseAPI = (courseId: string) =>
 export const rejectCourseAPI = (courseId: string, payload: IRejectCourseRequest) =>
   axios.post<IBackendRes<ICourseDecisionResponse>>(
     `/api/v1/courses/${encodeURIComponent(courseId)}/reject`,
+    payload,
+  );
+
+export const fetchTransferContextAPI = (courseId: string) =>
+  axios.get<IBackendRes<ITransferCourseContext>>(
+    `/api/v1/courses/organization/` +
+      `${encodeURIComponent(courseId)}/transfer-context`,
+  );
+
+export const transferCourseOwnershipAPI = (
+  courseId: string,
+  payload: ITransferCourseRequest,
+) =>
+  axios.post<IBackendRes<ITransferCourseResponse>>(
+    `/api/v1/courses/${encodeURIComponent(courseId)}/transfer`,
     payload,
   );
