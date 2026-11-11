@@ -28,10 +28,10 @@ export interface ICourse {
 }
 
 export const courseStatusLabel: Record<CourseStatus, string> = {
-  draft: "Draft",
-  submitted: "Submitted",
-  rejected: "Rejected",
-  published: "Published",
+  draft: "Bản nháp",
+  submitted: "Chờ phê duyệt",
+  rejected: "Bị từ chối",
+  published: "Đã phát hành",
 };
 
 export const courseStatusTone: Record<
@@ -176,7 +176,7 @@ export const courseVersionRecords = (
   if (course.publishedVersion && course.version !== course.publishedVersion) {
     records.push({
       version: course.version,
-      statusLabel: "Draft",
+      statusLabel: "Bản nháp",
       createdDate: "[Date]",
       publishedDate: "—",
       learners: "—",
@@ -187,7 +187,7 @@ export const courseVersionRecords = (
   if (course.publishedVersion) {
     records.push({
       version: course.publishedVersion,
-      statusLabel: "Published · Current",
+      statusLabel: "Đã phát hành · Hiện hành",
       createdDate: "[Date]",
       publishedDate: "[Date]",
       learners: "[Count]",
@@ -329,7 +329,7 @@ export const instructorSubmissions: ISubmission[] = [
     learnerName: "Taylor Kim",
     reviewState: "insufficient-reviews",
     scoreLabel: "—",
-    interventionLabel: "Grade directly",
+    interventionLabel: "Chấm trực tiếp",
     reviewers: [],
     criteriaComparison: [],
     isResubmission: false,
@@ -343,7 +343,7 @@ export const instructorSubmissions: ISubmission[] = [
     learnerName: "Sam Lee",
     reviewState: "ready-to-publish",
     scoreLabel: "[Score]",
-    interventionLabel: "Finalize",
+    interventionLabel: "Chốt điểm",
     reviewers: [
       {
         reviewerName: "Alex Morgan",
@@ -368,7 +368,7 @@ export const instructorSubmissions: ISubmission[] = [
     learnerName: "Alex Morgan",
     reviewState: "insufficient-reviews",
     scoreLabel: "—",
-    interventionLabel: "Resubmission — grade directly",
+    interventionLabel: "Bài nộp lại — chấm trực tiếp",
     reviewers: [],
     criteriaComparison: [],
     isResubmission: true,
@@ -425,14 +425,14 @@ export interface IGradingHighlight {
 
 export const gradingHighlights: IGradingHighlight[] = [
   {
-    label: "Submissions requiring direct grading",
+    label: "Bài nộp cần chấm trực tiếp",
     to: "/instructor/submissions",
   },
   {
-    label: "Peer review cycles approaching deadline",
+    label: "Chu kỳ chấm chéo sắp đến hạn",
     to: "/instructor/peer-cycles",
   },
-  { label: "Review score discrepancies", to: "/instructor/submissions" },
+  { label: "Xem các bài có điểm chênh lệch", to: "/instructor/submissions" },
 ];
 
 // ---- Course quota (demo flag driving the Course Quota Blocked screen) ----
@@ -1018,7 +1018,7 @@ export const quizLocationLabel = (
   structure: ICourseStructure,
   quiz: IBuilderQuiz,
 ) => {
-  if (quiz.location === "course") return "Course";
+  if (quiz.location === "course") return "Khóa học";
   const module = findBuilderModule(structure, quiz.moduleId);
   return module?.title.split("·")[0]?.trim() || module?.title || "Module";
 };
