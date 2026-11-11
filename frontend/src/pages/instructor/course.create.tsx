@@ -39,7 +39,7 @@ const CourseCreate = () => {
   const watchedName = Form.useWatch("name", form);
   const watchedCourseType = Form.useWatch("courseType", form);
   const watchedDays = Form.useWatch("expectedCompletionDays", form);
-  const summaryName = watchedName?.trim() || "Untitled Course";
+  const summaryName = watchedName?.trim() || "Khóa học chưa đặt tên";
   const summaryType = watchedCourseType ?? "Public";
   const summaryDays = watchedDays ?? 0;
   const canCreate = useMemo(
@@ -358,7 +358,7 @@ const CourseCreate = () => {
                 onClick={() => void handleCreate()}
                 disabled={creating || !canCreate}
               >
-                {creating ? "Creating..." : "Create Draft"}
+                {creating ? "Đang tạo..." : "Tạo bản nháp"}
               </InstructorButton>
             </div>
           </Form>

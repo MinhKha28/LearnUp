@@ -227,7 +227,7 @@ const CourseBuilderReadingAdd = () => {
             context.blockReason === "SUBSCRIPTION_GRACE"
               ? "Gói dịch vụ đang trong thời gian ân hạn."
               : context.blockReason === "SUBSCRIPTION_SUSPENDED"
-                ? "Subscription is Suspended."
+                ? "Gói dịch vụ đang bị tạm ngừng."
                 : "Khóa học hoặc gói dịch vụ không cho phép tải tệp lên."
           }
           style={{ marginBottom: 20 }}

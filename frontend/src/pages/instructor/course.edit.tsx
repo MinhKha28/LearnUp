@@ -66,7 +66,7 @@ const CourseEdit = () => {
   const watchedCourseType = Form.useWatch("courseType", form);
   const watchedDays = Form.useWatch("expectedCompletionDays", form);
 
-  const summaryName = watchedName?.trim() || course?.name || "Untitled Course";
+  const summaryName = watchedName?.trim() || course?.name || "Khóa học chưa đặt tên";
   const summaryType = watchedCourseType ?? course?.courseType ?? "Public";
   const summaryDays = watchedDays ?? course?.expectedCompletionDays ?? 0;
 
@@ -149,7 +149,7 @@ const CourseEdit = () => {
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
     if (!allowedTypes.includes(file.type)) {
-      message.error("Only JPEG, PNG or WebP images are allowed.");
+      message.error("Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP.");
       return Upload.LIST_IGNORE;
     }
 

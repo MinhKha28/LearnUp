@@ -174,9 +174,9 @@ const CourseBuilderQuizQuestionCreate = () => {
     } else if (type === "SingleChoice" && correctCount !== 1) {
       keyError = "Chọn đúng một đáp án đúng.";
     } else if (type === "MultipleChoice" && correctCount < 1) {
-      keyError = "Mark at least one correct answer.";
+      keyError = "Chọn ít nhất một đáp án đúng.";
     } else if (type === "MultipleChoice" && correctCount === options.length) {
-      keyError = "Leave at least one answer incorrect.";
+      keyError = "Phải có ít nhất một đáp án sai.";
     }
   } else if (correctAnswer === null) {
     keyError = "Chọn phát biểu đúng hay sai.";

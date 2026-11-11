@@ -25,14 +25,14 @@ const typeOptions: { value: QuizQuestionType; label: string }[] = [
 const defaultOptionsFor = (type: QuizQuestionType): IBuilderQuizOption[] => {
   if (type === "true-false") {
     return [
-      { id: slugify("true"), text: "True", correct: true },
-      { id: slugify("false"), text: "False", correct: false },
+      { id: slugify("true"), text: "Đúng", correct: true },
+      { id: slugify("false"), text: "Sai", correct: false },
     ];
   }
   return [
-    { id: slugify("option-a"), text: "Follow the procedure", correct: true },
-    { id: slugify("option-b"), text: "Skip required checks", correct: false },
-    { id: slugify("option-c"), text: "Ignore instructions", correct: false },
+    { id: slugify("option-a"), text: "Thực hiện đúng quy trình", correct: true },
+    { id: slugify("option-b"), text: "Bỏ qua các bước kiểm tra bắt buộc", correct: false },
+    { id: slugify("option-c"), text: "Không làm theo hướng dẫn", correct: false },
   ];
 };
 
@@ -45,7 +45,7 @@ const CourseBuilderQuizQuestionEdit = () => {
   const existing = quiz ? findBuilderQuizQuestion(quiz, questionId) : undefined;
 
   const [type, setType] = useState<QuizQuestionType>(existing?.type ?? "single");
-  const [text, setText] = useState(existing?.text ?? "Which actions follow the required process?");
+  const [text, setText] = useState(existing?.text ?? "Những hành động nào tuân thủ đúng quy trình?");
   const [options, setOptions] = useState<IBuilderQuizOption[]>(
     existing?.options ?? defaultOptionsFor("single"),
   );

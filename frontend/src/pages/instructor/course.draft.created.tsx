@@ -15,7 +15,7 @@ const CourseDraftCreated = () => {
         title="Khóa học bản nháp đã sẵn sàng"
         primary={{
           label: "Mở trình xây dựng khóa học",
-          onClick: () => message.info("Course Builder arrives in a later batch."),
+          onClick: () => message.info("Trình biên soạn khóa học sẽ được bổ sung trong phiên bản tiếp theo."),
         }}
       >
         <p>Thêm nội dung học tập trước khi gửi phê duyệt.</p>
