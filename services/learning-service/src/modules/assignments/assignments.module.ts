@@ -8,6 +8,7 @@ import { AssignmentsController } from './assignments.controller';
 import { AssignmentsService } from './assignments.service';
 import { AssignmentsRepository } from './assignments.repository';
 import { AssignmentReadsRepository } from './assignment-reads.repository';
+import { AssignmentKeywordSearch } from './assignment-keyword-search.service';
 import { AssignmentReadsService } from './assignment-reads.service';
 import { AssignmentChangesService } from './assignment-changes.service';
 import { AssignmentChangesRepository } from './assignment-changes.repository';
@@ -26,6 +27,7 @@ import { AssignmentChangesRepository } from './assignment-changes.repository';
     AssignmentsRepository,
     AssignmentReadsRepository,
     AssignmentReadsService,
+    AssignmentKeywordSearch,
     AssignmentChangesService,
     AssignmentChangesRepository,
   ],

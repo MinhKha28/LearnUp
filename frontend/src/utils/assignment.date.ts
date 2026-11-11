@@ -41,7 +41,7 @@ export const assignmentTimestamp = (value: string | null, timezone: string | nul
 
 // Reuse the shared midnight boundary without changing the learner's deadline wording.
 export const assignmentDueDate = (value: string | null, timezone: string | null): string =>
-  value ? (formatDueAt(value, timezone).text.match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? "—") : "—";
+  value ? (formatDueAt(value, timezone, { exactMidnight: true }).text.match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? "—") : "—";
 
 export const assignmentDueNote = (timezone: string | null, instant: string | null = null): string => {
   if (timezone) {

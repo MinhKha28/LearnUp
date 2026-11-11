@@ -540,3 +540,43 @@ export interface ICourseDecisionResponse {
   rejectedAt: string | null;
   rejectionReason: string | null;
 }
+
+export interface ITransferCourseVersion {
+  id: string;
+  versionNumber: number;
+  name: string;
+  status: CourseStatus;
+  createdAt: string;
+  publishedAt: string | null;
+}
+
+export interface ITransferCourseContext {
+  courseId: string;
+  chainId: string;
+  courseName: string;
+  currentInstructor: {
+    id: string;
+    fullName: string | null;
+    resolved?: boolean;
+  };
+  versions: ITransferCourseVersion[];
+}
+
+export interface ITransferCourseRequest {
+  toInstructorId: string;
+  expectedInstructorId: string;
+  reason?: string;
+}
+
+export interface ITransferCourseResponse {
+  courseId: string;
+  chainId: string;
+  fromInstructorId: string;
+  toInstructorId: string;
+  transferredAt: string;
+}
+
+export interface ITransferCandidate {
+  id: string;
+  fullName: string;
+}

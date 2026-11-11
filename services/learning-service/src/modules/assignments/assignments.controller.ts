@@ -10,7 +10,7 @@ import {
   HttpCode,
   Query,
 } from '@nestjs/common';
-import { ParsePagePipe } from '../../common/pipes/parse-page.pipe';
+import { AssignmentListQueryDto } from './assignment-list-query.dto';
 import { AssignmentReadsService } from './assignment-reads.service';
 import { User, ResponseMessage } from '../../common/decorator/customize';
 import { Roles } from '../../common/decorator/roles.decorator';
@@ -32,8 +32,8 @@ export class AssignmentsController {
 
   @Get()
   @Roles('ORGANIZER')
-  list(@User() user: CurrentUser, @Query('page', ParsePagePipe) page: number) {
-    return this.reads.list(user, page);
+  list(@User() user: CurrentUser, @Query() query: AssignmentListQueryDto) {
+    return this.reads.list(user, query);
   }
 
   @Get(':enrollmentId')

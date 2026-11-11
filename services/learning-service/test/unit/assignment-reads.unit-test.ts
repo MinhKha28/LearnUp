@@ -47,6 +47,7 @@ function setup(
       },
     },
     { getCoursesBatch: () => Promise.resolve([]) } as never,
+    {} as never,
   );
   return { service, calls: () => accessCalls };
 }
@@ -54,7 +55,7 @@ void describe('UC24 frozen deadline timezone', () => {
   for (const zone of ['Asia/Ho_Chi_Minh', 'Pacific/Auckland', null]) {
     void test(`list and detail return stored zone ${zone} with graceful Tenant access`, async () => {
       const { service, calls } = setup(false, zone);
-      const page = await service.list(user, 1);
+      const page = await service.list(user, { page: 1 });
       assert.equal(calls(), 0);
       const detail = await service.detail(user, 'enrollment');
       assert.equal(page.items[0].dueTimezone, zone);
@@ -67,7 +68,7 @@ void describe('UC24 frozen deadline timezone', () => {
   void test('empty and overflow pages omit the response timezone', async () => {
     const { service, calls } = setup(true);
     for (const page of [1, 2]) {
-      assert.deepEqual(await service.list(user, page), {
+      assert.deepEqual(await service.list(user, { page }), {
         items: [],
         page,
         pageSize: 20,
@@ -97,4 +98,22 @@ void test('detail warns and degrades to null on tenant failure', async () => {
   } finally {
     warn.mock.restore();
   }
+});
+
+void test('empty keyword matches skip all assignment database reads', async () => {
+  const ids = mock.fn(async () => []);
+  const service = new AssignmentReadsService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { ids } as never,
+  );
+  assert.deepEqual(await service.list(user, { page: 2, learner: 'Hào' }), {
+    items: [],
+    page: 2,
+    pageSize: 20,
+    total: 0,
+  });
+  assert.equal(ids.mock.callCount(), 1);
 });

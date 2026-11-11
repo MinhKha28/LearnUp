@@ -4,6 +4,10 @@ import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { ConfigService } from '@nestjs/config';
+import { AssignmentKeywordSearch } from '../../src/modules/assignments/assignment-keyword-search.service';
 import type { AddressInfo } from 'node:net';
 import { before, after, beforeEach, describe, test } from './test-runner';
 import { HEADER_NAMES, type CurrentUser } from '@learnup/ts-common';
@@ -20,6 +24,7 @@ import {
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
 import {
   AssignmentReadsRepository,
+  type AssignmentFilters,
   assignmentCountSql,
   assignmentDetailSql,
   assignmentPageSql,
@@ -50,6 +55,55 @@ let tenantFails = false;
 let courseFails = false;
 let accessCalls = 0;
 let timezoneFails = false;
+const searches = {
+  learner: {
+    ids: [] as string[],
+    calls: [] as URLSearchParams[],
+    failed: false,
+  },
+  course: {
+    ids: [] as string[],
+    calls: [] as URLSearchParams[],
+    failed: false,
+  },
+};
+const searchServer = createServer((request, response) => {
+  const url = new URL(request.url!, 'http://localhost');
+  const learner = url.pathname === '/api/v1/users/learners';
+  if (
+    (!learner && url.pathname !== '/api/v1/courses/organization') ||
+    request.headers[HEADER_NAMES.INTERNAL_KEY] !==
+      process.env.INTERNAL_SERVICE_KEY ||
+    request.headers[HEADER_NAMES.USER_ID] !== user.userId ||
+    request.headers[HEADER_NAMES.USER_ROLE] !== user.role ||
+    request.headers[HEADER_NAMES.ORGANIZATION_ID] !== ORG
+  ) {
+    response.writeHead(403).end('{}');
+    return;
+  }
+  const search = searches[learner ? 'learner' : 'course'];
+  search.calls.push(url.searchParams);
+  const size = learner ? 50 : 100;
+  const page = Number(url.searchParams.get(learner ? 'page' : 'current'));
+  const items = search.ids
+    .slice((page - 1) * size, page * size)
+    .map((id) => ({ id }));
+  response.writeHead(search.failed ? 500 : 200, {
+    'content-type': 'application/json',
+  });
+  response.end(
+    JSON.stringify(
+      search.failed
+        ? { error: { code: 'STUB_FAILURE' } }
+        : {
+            data: {
+              [learner ? 'items' : 'result']: items,
+              meta: { total: search.ids.length },
+            },
+          },
+    ),
+  );
+});
 type Item = {
   enrollmentId: string;
   status: string;
@@ -173,6 +227,18 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
       logger: ['error'],
     });
     configureApp(app);
+    await new Promise<void>((resolve) =>
+      searchServer.listen(0, '127.0.0.1', resolve),
+    );
+    const searchUrl =
+      'http://127.0.0.1:' + (searchServer.address() as AddressInfo).port;
+    const searchClient = new AssignmentKeywordSearch(
+      new ConfigService({
+        TENANT_SERVICE_URL: searchUrl,
+        COURSE_SERVICE_URL: searchUrl,
+      }),
+    );
+    app.get(AssignmentKeywordSearch).ids = searchClient.ids.bind(searchClient);
     app.get<TenantClient>(TENANT_CLIENT).getOrganizationAccess = async () => {
       accessCalls++;
       if (timezoneFails) throw new Error('Timezone timeout');
@@ -222,6 +288,11 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     tenantFails = courseFails = false;
     accessCalls = 0;
     timezoneFails = false;
+    for (const search of Object.values(searches)) {
+      search.ids = [];
+      search.calls = [];
+      search.failed = false;
+    }
   });
   after(async () => {
     try {
@@ -229,6 +300,11 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     } finally {
       await closeAll(
         () => closeApp(app),
+        () =>
+          new Promise<void>((resolve, reject) => {
+            if (!searchServer.listening) return resolve();
+            searchServer.close((error) => (error ? reject(error) : resolve()));
+          }),
         () => db.end(),
       );
     }
@@ -427,6 +503,260 @@ describe('UC24 / UC24.1 assignment reads, isolated fixture', () => {
     for (const role of ['LEARNER', 'INSTRUCTOR', 'ADMIN']) {
       assert.equal((await call('', role)).status, 403);
       assert.equal((await call(`/${id}`, role)).status, 403);
+    }
+  });
+
+  test('searches both keyword endpoints with scoped identity and combines filters before pagination', async () => {
+    const matching = await enrollment();
+    const completed = await enrollment('Completed');
+    await enrollment('Halted');
+    await enrollment('NotStarted', -1, true);
+    const other = await enrollment('NotStarted', -1, false, OTHER);
+    const learnerFor = async (id: string) =>
+      (await db.query('SELECT learner_id FROM enrollments WHERE id=$1', [id]))
+        .rows[0].learner_id as string;
+    const learner = await learnerFor(matching);
+    await db.query('UPDATE enrollments SET learner_id=$1 WHERE id=$2', [
+      learner,
+      other,
+    ]);
+    searches.learner.ids = [
+      ...Array.from({ length: 50 }, () => randomUUID()),
+      learner,
+      await learnerFor(completed),
+    ];
+    searches.course.ids = [
+      ...Array.from({ length: 100 }, () => randomUUID()),
+      COURSE,
+      OTHER_COURSE,
+    ];
+    const byLearner = await page('?learner=%20Ha%CC%80o%20');
+    assert.equal(byLearner.total, 2);
+    assert.deepEqual(
+      byLearner.items.map((item) => item.enrollmentId),
+      [matching, completed],
+    );
+    assert.deepEqual(
+      searches.learner.calls.map((q) => q.toString()),
+      [
+        'keyword=H%C3%A0o&pageSize=50&page=1',
+        'keyword=H%C3%A0o&pageSize=50&page=2',
+      ],
+    );
+    assert.equal(searches.course.calls.length, 0);
+    assert.equal((await page('?course=Fixture')).total, 3);
+    assert.deepEqual(
+      searches.course.calls.map((q) => q.toString()),
+      [
+        'search=Fixture&pageSize=100&current=1',
+        'search=Fixture&pageSize=100&current=2',
+      ],
+    );
+    assert.equal(
+      (await page('?status=Completed')).items[0].enrollmentId,
+      completed,
+    );
+    const combined =
+      '&learner=H%C3%A0o&course=Fixture&status=Overdue&dueFrom=2026-01-09&dueTo=2026-01-09';
+    const result = await page('?' + combined.slice(1));
+    assert.equal(result.total, 1);
+    assert.deepEqual(
+      result.items.map((item) => item.enrollmentId),
+      [matching],
+    );
+    assert.deepEqual(await page('?page=2' + combined), {
+      items: [],
+      page: 2,
+      pageSize: 20,
+      total: 1,
+    });
+  });
+
+  test('returns a filtered total and preserves order across pages', async () => {
+    const ids = [];
+    for (let i = 0; i < 23; i++) ids.push(await enrollment('Halted', i));
+    await enrollment('Completed');
+    await enrollment('Halted', -1, false, OTHER);
+    const first = await page('?status=Halted');
+    const second = await page('?status=Halted&page=2');
+    assert.equal(first.total, 23);
+    assert.equal(second.total, 23);
+    assert.equal(first.items.length, 20);
+    assert.deepEqual(
+      [...first.items, ...second.items].map((item) => item.enrollmentId),
+      ids,
+    );
+  });
+
+  test('shared deadline fixture matches inclusive SQL filters on the displayed date', async () => {
+    const cases = JSON.parse(
+      readFileSync(
+        '../../tests/fixtures/assignment-displayed-dates.json',
+        'utf8',
+      ),
+    ) as { timezone: string; dueAt: string; date: string }[];
+    const ids = new Map<string, string[]>();
+    for (const { timezone, dueAt, date } of cases) {
+      const id = await enrollment();
+      await db.query(
+        'UPDATE enrollments SET due_at=$1, base_due_at=$1, due_timezone=$2 WHERE id=$3',
+        [dueAt, timezone, id],
+      );
+      ids.set(date, [...(ids.get(date) ?? []), id]);
+    }
+    for (const [date, expected] of ids) {
+      const result = await page('?dueFrom=' + date + '&dueTo=' + date);
+      assert.equal(result.total, expected.length);
+      assert.deepEqual(
+        result.items.map((item) => item.enrollmentId).sort(),
+        expected.sort(),
+      );
+    }
+    assert.equal((await page('?dueFrom=2026-03-07')).total, 5);
+    assert.equal((await page('?dueTo=2026-01-01')).total, 4);
+  });
+
+  test('status filter switches to Overdue at the exact database deadline', async () => {
+    const id = await enrollment();
+    await db.query('BEGIN');
+    try {
+      for (const [offset, expected] of [
+        ['1 millisecond', 'NotStarted'],
+        ['0 milliseconds', 'Overdue'],
+        ['-1 millisecond', 'Overdue'],
+      ] as const) {
+        await db.query(
+          'UPDATE enrollments SET due_at=now()+$1::interval, base_due_at=now()+$1::interval WHERE id=$2',
+          [offset, id],
+        );
+        for (const status of ['NotStarted', 'Overdue'] as const) {
+          const sql = assignmentPageSql(ORG, 0, { status });
+          const { rows } = await db.query(sql.text, sql.values);
+          assert.equal(rows.length, status === expected ? 1 : 0);
+          if (rows.length) assert.equal(rows[0].status, expected);
+        }
+      }
+    } finally {
+      await db.query('ROLLBACK');
+    }
+  });
+
+  test('empty matches return an empty page; the cap permits 1000 and rejects the 1001st ID', async () => {
+    await enrollment();
+    assert.deepEqual(await page('?learner=missing&page=3'), {
+      items: [],
+      page: 3,
+      pageSize: 20,
+      total: 0,
+    });
+    assert.equal(tenantCalls + courseCalls, 0);
+    for (const [kind, lastPage] of [
+      ['learner', 21],
+      ['course', 11],
+    ] as const) {
+      const search = searches[kind];
+      search.ids = Array.from({ length: 1000 }, () => randomUUID());
+      assert.equal((await page('?' + kind + '=limit')).total, 0);
+      search.ids.push(randomUUID(), randomUUID());
+      search.calls = [];
+      const response = await call('?' + kind + '=limit');
+      assert.equal(response.status, 422);
+      assert.equal(response.body.error.code, 'SEARCH_TOO_BROAD');
+      assert.equal(search.calls.length, lastPage);
+    }
+  });
+
+  test('upstream failures affect only requests using the corresponding keyword', async () => {
+    const id = await enrollment();
+    searches.learner.failed = searches.course.failed = true;
+    tenantFails = courseFails = true;
+    const result = await page();
+    assert.equal(result.items[0].enrollmentId, id);
+    assert.equal(result.items[0].learner, null);
+    assert.equal(result.items[0].course, null);
+    assert.equal(
+      searches.learner.calls.length + searches.course.calls.length,
+      0,
+    );
+    const learner = await call('?learner=H%C3%A0o');
+    assert.equal(learner.status, 503);
+    assert.equal(learner.body.error.code, 'LEARNER_SEARCH_UNAVAILABLE');
+    assert.equal(searches.course.calls.length, 0);
+    const course = await call('?course=Fixture');
+    assert.equal(course.status, 503);
+    assert.equal(course.body.error.code, 'COURSE_SEARCH_UNAVAILABLE');
+    assert.equal(searches.learner.calls.length, 1);
+  });
+
+  test('rejects invalid dates, statuses and keyword shapes before upstream work', async () => {
+    for (const query of [
+      'dueFrom=2026-02-29',
+      'dueTo=2026-01-01T00%3A00%3A00Z',
+      'dueFrom=0000-01-01',
+      'status=overdue',
+      'status=Completed&status=Halted',
+      'learner=%20',
+      'course=a&course=b',
+      'learner=' + 'a'.repeat(101),
+    ])
+      assert.equal((await call('?' + query)).status, 400, query);
+    const reversed = await call(
+      '?dueFrom=2026-03-09&dueTo=2026-03-08&learner=Fixture',
+    );
+    assert.equal(reversed.status, 400);
+    assert.equal(reversed.body.error.code, 'INVALID_DUE_DATE_RANGE');
+    assert.equal(searches.learner.calls.length, 0);
+  });
+
+  test('UC24.7 EXPLAIN ANALYZE for 50,000 Required assignments', async () => {
+    const ids = Array.from({ length: 1000 }, () => randomUUID());
+    await db.query(
+      `INSERT INTO enrollments (id, organization_id, learner_id, course_id, enrollment_type, status,
+        assigned_at, expected_completion_days, base_due_at, due_at, video_completion_percent, due_timezone)
+      SELECT gen_random_uuid(), $1, CASE WHEN g <= 1000 THEN ($3::uuid[])[g] ELSE gen_random_uuid() END,
+        $2, 'Required', 'NotStarted', '2025-01-01Z', 30,
+        deadline, deadline, 80, 'Asia/Ho_Chi_Minh'
+      FROM generate_series(1,50000) g
+      CROSS JOIN LATERAL (SELECT '2025-01-01 17:00Z'::timestamptz + (g % 365) * interval '1 day' AS deadline) d`,
+      [ORG, COURSE, ids],
+    );
+    await db.query('ANALYZE enrollments');
+    const cases: [string, AssignmentFilters][] = [
+      ['none', {}],
+      ['status', { status: 'Overdue' }],
+      ['learner-1000', { learnerIds: ids }],
+      ['date-range', { dueFrom: '2025-07-01', dueTo: '2025-07-07' }],
+    ];
+    for (const [label, filters] of cases) {
+      const measurements = [];
+      for (let run = 0; run < 3; run++) {
+        const results = [];
+        for (const sql of [
+          assignmentCountSql(ORG, filters),
+          assignmentPageSql(ORG, 0, filters),
+        ]) {
+          const result = await db.query(
+            'EXPLAIN (ANALYZE, FORMAT JSON) ' + sql.text,
+            sql.values,
+          );
+          const plan = result.rows[0]['QUERY PLAN'][0];
+          results.push({ ms: plan['Execution Time'], plan: plan.Plan });
+        }
+        measurements.push(results);
+      }
+      const median = (values: number[]) => values.sort((a, b) => a - b)[1];
+      console.log(
+        'UC24.7 EXPLAIN',
+        label,
+        JSON.stringify({
+          countMs: median(measurements.map(([count]) => count.ms)),
+          pageMs: median(measurements.map(([, page]) => page.ms)),
+          totalMs: median(
+            measurements.map(([count, page]) => count.ms + page.ms),
+          ),
+          plans: measurements[0].map((entry) => entry.plan),
+        }),
+      );
     }
   });
 
