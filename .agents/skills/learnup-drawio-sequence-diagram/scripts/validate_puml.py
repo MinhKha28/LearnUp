@@ -22,7 +22,7 @@ ACTIVATION = re.compile(rf"^(activate|deactivate)\s+({ALIAS})\s*$", re.I)
 BRANCH_OUTCOME = re.compile(r"\b(?:successfully|failed)\b", re.I)
 FILENAME = re.compile(r"UC\d+(?:[._-]\d+)*_SequenceDiagram\.puml")
 HEADERS = (
-    'autonumber "<b>0.</b> "', "hide footbox", "skinparam backgroundColor white",
+    'autonumber "<b>0.</b> "', "skinparam backgroundColor white",
     "skinparam ParticipantBackgroundColor white", "skinparam ActorBackgroundColor white",
     "skinparam BoundaryBackgroundColor white", "skinparam DatabaseBackgroundColor white",
     "skinparam LifeLineBackgroundColor white", "skinparam LifeLineBorderColor black",
@@ -31,6 +31,7 @@ HEADERS = (
     "skinparam BoxPadding 10",
     "skinparam MaxMessageSize 200",
 )
+OPTIONAL_HEADERS = ("hide footbox",)
 
 
 @dataclass
@@ -79,6 +80,9 @@ def validate_text(text: str) -> list[str]:
     for required in HEADERS:
         if statements.count(required) != 1:
             errors.append(f"Required exactly once: {required}")
+    for optional in OPTIONAL_HEADERS:
+        if statements.count(optional) > 1:
+            errors.append(f"Allowed at most once: {optional}")
     if re.search(r"\[[A-Z][A-Z0-9_]*\]", "\n".join(statements)):
         errors.append("Unreplaced template placeholder")
 
@@ -128,7 +132,7 @@ def validate_text(text: str) -> list[str]:
         if low.startswith(("show footbox", "box", "!", "autoactivate")):
             fail(number, "Footboxes, layer boxes, preprocessing, and automatic activation are unsupported")
             continue
-        if line in HEADERS:
+        if line in HEADERS or line in OPTIONAL_HEADERS:
             if first_message:
                 fail(number, "Header must precede messages")
             continue
@@ -202,6 +206,9 @@ def validate_text(text: str) -> list[str]:
                 depths[alias] = depth - 1
             continue
         opening = re.match(r"^(alt|opt|loop|group|par)\b", low)
+        fragment_label = re.match(r"^(?:alt|else|opt|loop|par|and)\b(.*)", line, re.I)
+        if fragment_label and any(char in fragment_label.group(1) for char in "[]"):
+            fail(number, "Use plain fragment labels without square brackets; draw.io may interpret them as links")
         if opening:
             kind = opening.group(1)
             if kind in {"alt", "opt"} and not any(frame.kind in {"alt", "opt"} for frame in fragments):

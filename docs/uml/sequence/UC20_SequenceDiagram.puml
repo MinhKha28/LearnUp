@@ -1,0 +1,201 @@
+@startuml
+' UC20 - Gửi Course phê duyệt
+autonumber "<b>0.</b> "
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' Scope: UC20 in docs/source-of-truth/LearnUP_UseCase.docx, row 71.
+' BR-63/79/81/83/85/118 checked against LearnUP_QuyTacNghiepVu.docx.
+' Precondition: authenticated Instructor has loaded the CourseSubmit review page.
+' course.submit.tsx:35 loads fetchCourseDetailAPI; initial review read is preparation.
+' handleSubmit:69 blocks double clicks and non-Draft/Rejected state locally.
+' The button also requires shortDescription, trainingObjectives and a nonblank LO.
+' No second confirmation dialog or submit-readiness endpoint exists in this UI.
+' courseAxios -> env.backendUrl.course -> frontend/.env.development:10 localhost:8080.
+' No process VITE_COURSE_BACKEND_URL override was present at inspection time.
+' Gateway application.yml:45 routes /api/v1/courses/**; main.ts:41 enables api/v1.
+' The diagram describes this development configuration, not an observed deployment.
+' AssessmentClient and HttpCourseServiceClient are HTTP adapters, intentionally hidden.
+' Their REST targets and propagated user/organization/role are retained below.
+' COURSE_CLIENT_MODE=http in the local Assessment configuration.
+
+actor "Instructor" as Instructor
+boundary "Submit Course Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+participant ":QuizController" as QuizController
+participant ":QuizService" as QuizService
+database "course_db" as CourseDB
+database "assessment_db" as AssessmentDB
+
+activate Instructor
+Instructor -> Screen : Submit or resubmit Course
+activate Screen
+Screen -> Gateway : POST /api/v1/courses/:courseId/submit
+activate Gateway
+Gateway -> Controller : POST /api/v1/courses/:courseId/submit\nTrusted user and organization context
+activate Controller
+Controller -> Service : submitCourseForApproval(user, courseId)
+activate Service
+
+' Outcome-level operands: guards execute in source order, not speculative writes.
+' Service:1761 checks role/org, owned Course, trash, Draft/Rejected and required info.
+' The success operand includes every prerequisite before its guarded transaction.
+alt Course submitted successfully
+  Service -> Repository : findDetail(courseId, organizationId, userId)
+  activate Repository
+  Repository -> CourseDB : Read Course and chain owner\nScope by Course, organization and Instructor
+  activate CourseDB
+  CourseDB -->> Repository : Course, status, required information, updatedAt
+  deactivate CourseDB
+  Repository -->> Service : Owned Course
+  deactivate Repository
+
+  ' Service:1781-1806: not in trash; Draft/Rejected; complete description/objectives/LO.
+  ' No independent Locked guard, mandatory Module/Lesson count or required Quiz count.
+  ' AssessmentClient.getCourseQuizzes:22; 5 s timeout; strict complete-page contract.
+  Service -> QuizController : GET /api/v1/assessments/quizzes?courseId=:courseId\nInternal key and same user context
+  activate QuizController
+  QuizController -> QuizService : listQuizzes(user, query)
+  activate QuizService
+
+  ' QuizService:84/474 requires Instructor/org and independently verifies chain owner.
+  ' This is a real callback, not the original submission invocation calling itself.
+  QuizService -> Controller : GET /api/v1/courses/:courseId/authoring-context\nInternal key and same user context
+  activate Controller
+  Controller -> Service : getAuthoringContext(courseId, organizationId)
+  activate Service
+  Service -> Repository : findAuthoringContext(courseId, organizationId)
+  activate Repository
+  Repository -> CourseDB : Read non-trashed Course and chain\nScope by organization
+  activate CourseDB
+  CourseDB -->> Repository : Course authoring context
+  deactivate CourseDB
+  Repository -->> Service : Course and chain owner
+  deactivate Repository
+  Service -->> Controller : Authoring context
+  deactivate Service
+  Controller -->> QuizService : 200 OK; Course owner and organization
+  deactivate Controller
+
+  ' QuizService uses Prisma directly; no QuizRepository class exists on this path.
+  ' listQuizzes:88 filters organizationId, courseId and kind=Quiz; no module filter.
+  ' _count.questions is returned as questionCount at toSummary:448.
+  QuizService -> AssessmentDB : Read all Course Quizzes\nInclude question and attempt counts
+  activate AssessmentDB
+  AssessmentDB -->> QuizService : Quiz rows and counts
+  deactivate AssessmentDB
+  QuizService -->> QuizController : Complete Quiz list
+  deactivate QuizService
+  QuizController -->> Service : 200 OK; Quizzes with questionCount
+  deactivate QuizController
+
+  ' Service:1816 rejects any questionCount < 1; an empty Quiz list is accepted.
+  ' Malformed/incomplete Assessment payload or transport failure fails closed (503).
+  Service -> Repository : submitCourseForApproval(courseId, organizationId,\nuserId, expectedUpdatedAt)
+  activate Repository
+  ' Repository:1423-1497 uses one Prisma transaction; no external REST inside it.
+  ' updateMany guards id/org/chain owner/deletedAt=null/status in Draft,Rejected.
+  ' updatedAt must remain within [expectedMs, expectedMs + 1 ms).
+  Repository -> CourseDB : Guarded update: status = Submitted\nSet submittedAt inside transaction
+  activate CourseDB
+  CourseDB -->> Repository : Exactly one Course updated
+  deactivate CourseDB
+  Repository -> CourseDB : Read submitted Course and insert CourseSubmitted\nCommit Course and outbox together
+  activate CourseDB
+  CourseDB -->> Repository : Committed Course and pending outbox event
+  deactivate CourseDB
+  ' Outbox creation failure rolls back the status update; no HTTP success then.
+  Repository -->> Service : SUBMITTED; persisted Course
+  deactivate Repository
+  Service -->> Controller : Course with status Submitted and submittedAt
+  deactivate Service
+  Controller -->> Gateway : 201 Created; submitted Course
+  deactivate Controller
+  Gateway -->> Screen : 201 Created; status = Submitted
+  deactivate Gateway
+  Screen -->> Instructor : Show submission success\nOpen awaiting-review page
+  ' course.submit.tsx:85-99 requires both a 2xx envelope and status=Submitted.
+  ' Navigation is to /instructor/courses/:id/submitted (replace history).
+  ' course.submitted.tsx performs a separate detail read and verifies Submitted.
+  ' That display-only reread, including duration/cover projection, is not expanded.
+  ' The UI says awaiting review, never that an email was delivered or read.
+  deactivate Screen
+  deactivate Instructor
+
+  ' Background relay/publish/ACK/retry is intentionally omitted from this UC diagram.
+  ' CourseSubmitted remains persisted atomically with Submitted above.
+  ' HTTP success confirms the Course transaction, not notification/email delivery.
+
+  ' Verified downstream: CourseSubmittedEventListener -> CourseSubmittedEventHandler.
+  ' Handler resolves current active Organizer via GET /api/v1/users/internal/organizer.
+  ' It tracks eventId/recipient/channel in notification_db, then IN_APP and EMAIL.
+  ' Consumer is enabled by Compose default; standalone default is disabled.
+  ' Handler ignores events older than 72 h; SMTP may be SENT, FAILED or SIMULATED.
+  ' Downstream recipient lookup, channel delivery/retry and SMTP are not expanded:
+  ' they are independent consumer processing, not a condition of UC20 HTTP success.
+
+else Submission failed: validation, dependency or concurrent change
+  activate Instructor
+  activate Screen
+  activate Gateway
+  activate Controller
+  activate Service
+  ' Service rejects at the first failing prerequisite, before the successful write.
+  ' 403 FORBIDDEN: not Instructor / missing organization context.
+  ' 404: Course absent, wrong tenant or wrong chain owner (findDetail scopes all).
+  ' 409 COURSE_IN_TRASH / INVALID_COURSE_STATUS; 400 INCOMPLETE_COURSE.
+  ' 409 QUIZ_WITHOUT_QUESTIONS; 503 ASSESSMENT_UNAVAILABLE/INVALID_ASSESSMENT_RESPONSE.
+  ' The successful operand's reads/Assessment callback are not replayed here.
+  opt All checks passed but guarded update matched no Course
+    Service -> Repository : submitCourseForApproval(..., expectedUpdatedAt)
+    activate Repository
+    Repository -> CourseDB : Attempt guarded Submitted update
+    activate CourseDB
+    CourseDB -->> Repository : Zero rows updated; no outbox inserted
+    deactivate CourseDB
+    Repository -->> Service : CONFLICT
+    deactivate Repository
+    Service -> Repository : findDetail(courseId, organizationId, userId)
+    activate Repository
+    Repository -> CourseDB : Reread current scoped Course
+    activate CourseDB
+    CourseDB -->> Repository : Current Course or none
+    deactivate CourseDB
+    Repository -->> Service : Current Course or none
+    deactivate Repository
+    ' Service:1832-1843 distinguishes trash, otherwise returns COURSE_CHANGED (409).
+  end
+  Service -->> Controller : Reject submission\n400 / 403 / 404 / 409 / 503
+  deactivate Service
+  Controller -->> Gateway : Submission error
+  deactivate Controller
+  Gateway -->> Screen : Submission error
+  deactivate Gateway
+  Screen -->> Instructor : Show error and reload Course information
+  ' course.submit.tsx:93/103 actually awaits loadCourse on rejected envelope or throw.
+  ' Repeat GET /api/v1/courses/:courseId uses the same detail-read pipeline as setup;
+  ' its display-only internals are omitted, not a retry of POST /submit.
+  ' No successful transition or new CourseSubmitted event is asserted on failure.
+  deactivate Screen
+  deactivate Instructor
+end
+
+' Excluded: UC20.1 withdrawal, Organizer review/decision, unrelated editing flows.
+' No submit-time NotificationClient call: the legacy private helper is not invoked.
+' No Audit producer, Learning call, direct SMTP or invented notification REST call.
+' This is source/config evidence, not runtime or deployed integration verification.
+@enduml

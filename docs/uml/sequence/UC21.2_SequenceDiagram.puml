@@ -1,0 +1,284 @@
+@startuml
+' UC21.2 - Xem nội dung Course
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' Scope: docs/source-of-truth/LearnUP_UseCase.docx, UC21.2, row 74.
+' BR-79/81/83/84/95 read from LearnUP_QuyTacNghiepVu.docx.
+' BR-95 scopes Instructor viewing; do not impose Instructor ownership on Organizer.
+' Precondition: authenticated Organizer with organization context.
+' UI: frontend/src/pages/organizer/course.review.tsx:251, loadReview.
+' Browser wrappers: course.service.ts:298/303; assessment.service.ts:415/427.
+' Both Axios instances use config/env.ts; frontend/.env.development:10/12 = localhost:8080.
+' No local file/process override supplied another Course or Assessment base URL.
+' Gateway application.yml:45/57 routes both public API prefixes without a rewrite.
+' Course main.ts:41 and Assessment main.ts:39 configure api with URI v1.
+' Course controller/service/repository: courses.controller.ts:380,
+' courses.service.ts:2672, courses.repository.ts:2589.
+' Assessment controller/service/repository: assessments.controller.ts:99,
+' assessments.service.ts:599, assessments.repository.ts:246.
+' Assessment -> Course uses HttpCourseServiceClient.verifyOrganizerReviewAccess:187.
+' It is a forwarding HTTP adapter, intentionally omitted as a lifeline.
+' COURSE_CLIENT_MODE=http locally; internal REST bypasses the browser Gateway.
+' Local Cloudinary settings are populated for both services; remote validity is unverified.
+' The two storage participants are separate service instances of the same library class.
+' hide footbox is included as explicitly requested in this prompt; the known draw.io
+' converter may warn that it ignores this directive. Plain fragment labels avoid links.
+
+actor "Organizer" as Organizer
+boundary "Review Course Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as CourseController
+participant ":CoursesService" as CourseService
+participant ":CoursesRepository" as CourseRepository
+participant ":InternalCoursesController" as InternalController
+participant ":AssessmentsController" as AssessmentController
+participant ":AssessmentsService" as AssessmentService
+participant ":AssessmentsRepository" as AssessmentRepository
+participant ":AssignmentMediaController" as MediaController
+participant ":AssignmentMediaService" as MediaService
+participant "courseStorage:CloudinaryStorageProvider" as CourseStorage
+participant "assessmentStorage:CloudinaryStorageProvider" as AssessmentStorage
+participant "Cloudinary" as Cloudinary
+database "course_db" as CourseDB
+database "assessment_db" as AssessmentDB
+
+activate Organizer
+Organizer -> Screen : Open /organizer/courses/:courseId/review
+activate Screen
+Screen -> Gateway : GET /api/v1/courses/organization/:courseId/review
+activate Gateway
+Gateway -> CourseController : GET /api/v1/courses/organization/:courseId/review\nTrusted user and organization context
+activate CourseController
+CourseController -> CourseService : getOrganizerCourseReview(user, courseId)
+activate CourseService
+
+' Outcome-level outer frame: role/org, existence and Submitted checks run in source order.
+' Failure internals stop at the failing guard; no successful read is asserted in that operand.
+alt Course review loaded successfully
+  CourseService -> CourseRepository : findCourseForOrganizerReview(organizationId, courseId)
+  activate CourseRepository
+  CourseRepository -> CourseDB : Read Course, ordered Modules, Lessons and Materials\nCurrent organization; Course not disabled
+  activate CourseDB
+  CourseDB -->> CourseRepository : Course tree and file metadata
+  deactivate CourseDB
+  CourseRepository -->> CourseService : Course review data
+  deactivate CourseRepository
+  ' requireOrganizerReview:2584 requires ORGANIZER + organizationId.
+  ' Missing/wrong tenant/disabled => 404; status other than Submitted => 409.
+  ' Tree includes disabled Lesson/Material flags, required flags and preview availability.
+  ' No Instructor ownership predicate; lockedAt is display data, not a read prohibition.
+  CourseService -->> CourseController : Submitted Course with content and preview flags
+  deactivate CourseService
+  CourseController -->> Gateway : 200 OK; Course review
+  deactivate CourseController
+  Gateway -->> Screen : 200 OK; Course review
+  deactivate Gateway
+
+  ' UI verifies 2xx/id/modules and status=Submitted before making the second request.
+  ' These two browser requests are sequential, not Promise.all or Course -> Assessment.
+  Screen -> Gateway : GET /api/v1/assessments/organization/courses/:courseId/review
+  activate Gateway
+  Gateway -> AssessmentController : GET /api/v1/assessments/organization/courses/:courseId/review\nTrusted Organizer context
+  activate AssessmentController
+  AssessmentController -> AssessmentService : getOrganizerAssessmentReview(user, courseId)
+  activate AssessmentService
+
+  alt Assessments loaded successfully
+    ' AssessmentsService independently requires ORGANIZER/org before the access check.
+    AssessmentService -> InternalController : GET /api/v1/internal/courses/:courseId/review-access\nInternal key and same user context
+    activate InternalController
+    InternalController -> CourseService : verifyOrganizerCourseReviewAccess(organizationId, courseId)
+    activate CourseService
+    CourseService -> CourseRepository : findOrganizerReviewAccess(organizationId, courseId)
+    activate CourseRepository
+    CourseRepository -> CourseDB : Verify Course in organization\nSubmitted and not disabled
+    activate CourseDB
+    CourseDB -->> CourseRepository : Accessible Course ID
+    deactivate CourseDB
+    CourseRepository -->> CourseService : Accessible Course
+    deactivate CourseRepository
+    CourseService -->> InternalController : courseId; reviewable = true
+    deactivate CourseService
+    InternalController -->> AssessmentService : 200 OK; review access confirmed
+    deactivate InternalController
+    AssessmentService -> AssessmentRepository : findCourseAssessmentsForOrganizer(organizationId, courseId)
+    activate AssessmentRepository
+    AssessmentRepository -> AssessmentDB : Read Quizzes and Assignments\nInclude ordered questions, options and rubric
+    activate AssessmentDB
+    AssessmentDB -->> AssessmentRepository : Assessment content
+    deactivate AssessmentDB
+    AssessmentRepository -->> AssessmentService : Assessment rows
+    deactivate AssessmentRepository
+    ' Includes correct answers for review, Assignment prompt/configuration and disabled flags.
+    ' No learner attempts/submissions are loaded; empty items is a valid successful result.
+    AssessmentService -->> AssessmentController : courseId and Assessment items
+    deactivate AssessmentService
+    AssessmentController -->> Gateway : 200 OK; Assessment review
+    deactivate AssessmentController
+    Gateway -->> Screen : 200 OK; Assessment review
+    deactivate Gateway
+    Screen -->> Organizer : Show Course tree, materials and Assessments
+  else Assessment loading failed
+    activate Gateway
+    activate AssessmentController
+    activate AssessmentService
+    ' Grouped role denial, internal Course 404/status change, invalid response and transport errors.
+    ' Adapter timeout is 5 s by default; failure stops before the Assessment DB read.
+    ' Later Assessment persistence/transport failures are grouped into the same UI outcome.
+    AssessmentService -->> AssessmentController : Assessment review error
+    deactivate AssessmentService
+    AssessmentController -->> Gateway : Error response
+    deactivate AssessmentController
+    Gateway -->> Screen : Assessment review error
+    deactivate Gateway
+    ' This exchange expands an HTTP error response. A transport timeout has no reply
+    ' and converges on the same UI error outcome, without assuming a successful DB read.
+    ' Axios error bodies can resolve; loadReview checks envelope and data shape.
+    Screen -->> Organizer : Keep Course content visible\nShow Assessment error and Retry
+    ' Resolved error/invalid payload: "Unable to load Course Assessments."
+    ' Thrown transport error: "Assessment Service is unavailable."
+  end
+
+  ' Optional successful media interactions remain available after the Course is loaded.
+  ' Technical failures are documented rather than adding an alt for each file error.
+  opt Organizer opens an available material preview successfully
+    Organizer -> Screen : Preview Video or Reading
+    Screen -> Gateway : GET /api/v1/courses/organization/:courseId/materials/:materialId/preview
+    activate Gateway
+    Gateway -> CourseController : GET /api/v1/courses/organization/:courseId/materials/:materialId/preview
+    activate CourseController
+    CourseController -> CourseService : getOrganizerMaterialPreview(user, courseId, materialId)
+    activate CourseService
+    CourseService -> CourseRepository : findOrganizerReviewMaterial(organizationId, courseId, materialId)
+    activate CourseRepository
+    CourseRepository -> CourseDB : Read Material and file within Course\nSame tenant; Submitted Course
+    activate CourseDB
+    CourseDB -->> CourseRepository : Material, Lesson flags and file metadata
+    deactivate CourseDB
+    CourseRepository -->> CourseService : Preview candidate
+    deactivate CourseRepository
+    ' Source also requires non-disabled Course/Lesson/Material, Ready/readyAt,
+    ' non-released authenticated file, matching tenant/purpose and Video/PDF MIME.
+    CourseService -> CourseStorage : getSignedUrl(storageKey, options)\nAuthenticated download URL; expires in 15 minutes
+    activate CourseStorage
+    ' Cloudinary SDK signs locally; no outbound provider request occurs during URL signing.
+    CourseStorage -->> CourseService : Signed URL
+    deactivate CourseStorage
+    CourseService -->> CourseController : URL, mimeType and expiresAt
+    deactivate CourseService
+    CourseController -->> Gateway : 200 OK; protected preview URL
+    deactivate CourseController
+    Gateway -->> Screen : Protected preview URL
+    deactivate Gateway
+    ' UI validates url/mimeType/expiresAt and refuses an already expired URL.
+    Screen -> Cloudinary : Load protected Video or PDF URL
+    activate Cloudinary
+    Cloudinary -->> Screen : Video/PDF content
+    deactivate Cloudinary
+    Screen -->> Organizer : Show Video player or PDF iframe
+    ' Actual browser delivery may use range requests/redirects, abstracted here.
+    ' Failed optional attempt: no success content is asserted; UI shows preview error,
+    ' "Preview URL has expired.", or "Unable to reach Course Service."
+    ' Backend failures: 403/404/409, signing StorageProviderError mapped to 503.
+  end
+
+  opt Organizer downloads an available Assignment attachment successfully
+    Organizer -> Screen : Download Assignment attachment
+    Screen -> Gateway : GET /api/v1/assessments/organization/courses/:courseId/assignments/:assignmentId/prompt-file
+    activate Gateway
+    Gateway -> MediaController : GET /api/v1/assessments/organization/courses/:courseId/assignments/:assignmentId/prompt-file
+    activate MediaController
+    MediaController -> AssessmentService : downloadOrganizerAssignmentPrompt(user, courseId, assignmentId)
+    activate AssessmentService
+    ' This independent request repeats the live access check; it is not a cached permission.
+    AssessmentService -> InternalController : GET /api/v1/internal/courses/:courseId/review-access\nInternal key and same user context
+    activate InternalController
+    InternalController -> CourseService : verifyOrganizerCourseReviewAccess(organizationId, courseId)
+    activate CourseService
+    CourseService -> CourseRepository : findOrganizerReviewAccess(organizationId, courseId)
+    activate CourseRepository
+    CourseRepository -> CourseDB : Verify tenant and Submitted Course
+    activate CourseDB
+    CourseDB -->> CourseRepository : Accessible Course ID
+    deactivate CourseDB
+    CourseRepository -->> CourseService : Accessible Course
+    deactivate CourseRepository
+    CourseService -->> InternalController : courseId; reviewable = true
+    deactivate CourseService
+    InternalController -->> AssessmentService : 200 OK; review access confirmed
+    deactivate InternalController
+    AssessmentService -> AssessmentRepository : findOrganizerAssignmentPrompt(organizationId, courseId, assignmentId)
+    activate AssessmentRepository
+    AssessmentRepository -> AssessmentDB : Read Assignment attachment metadata\nScope by organization, Course and kind
+    activate AssessmentDB
+    AssessmentDB -->> AssessmentRepository : File key, name and MIME type
+    deactivate AssessmentDB
+    AssessmentRepository -->> AssessmentService : Assignment attachment
+    deactivate AssessmentRepository
+    AssessmentService -> MediaService : readPromptFile(fileKey)
+    activate MediaService
+    MediaService -> AssessmentStorage : getUrl(fileKey, raw)
+    activate AssessmentStorage
+    AssessmentStorage -->> MediaService : Attachment URL
+    deactivate AssessmentStorage
+    MediaService -> Cloudinary : GET attachment bytes
+    activate Cloudinary
+    Cloudinary -->> MediaService : File content
+    deactivate Cloudinary
+    MediaService -->> AssessmentService : Buffer
+    deactivate MediaService
+    AssessmentService -->> MediaController : Content, filename and MIME type
+    deactivate AssessmentService
+    MediaController -->> Gateway : 200 OK; attachment bytes
+    deactivate MediaController
+    Gateway -->> Screen : 200 OK; Blob
+    deactivate Gateway
+    Screen -->> Organizer : Download attachment with its filename
+    ' Wrapper requires HTTP 200 and Blob; UI uses an object URL then revokes it.
+    ' Failed optional attempt: missing/changed access, absent file, storage or HTTP error
+    ' produces "Unable to download Assignment attachment."; no successful file read assumed.
+  end
+
+else Course review loading failed
+  activate Gateway
+  activate CourseController
+  activate CourseService
+  ' 403 wrong role/missing org; 404 wrong tenant/absent/disabled; 409 non-Submitted.
+  ' Persistence/transport/payload failures are grouped; do not issue Assessment request.
+  CourseService -->> CourseController : Course review error
+  deactivate CourseService
+  CourseController -->> Gateway : Error response
+  deactivate CourseController
+  Gateway -->> Screen : Course review error
+  deactivate Gateway
+  Screen -->> Organizer : Show Course error and Retry\nDo not load Assessments
+  ' Resolved error/invalid id/modules: "Course is not available for review."
+  ' A 2xx payload with non-Submitted status: "Course is no longer awaiting approval."
+  ' Thrown transport error: "Course Service is unavailable."
+end
+deactivate Screen
+deactivate Organizer
+
+' AS-IS limits: reads are not one cross-service transaction or immutable review snapshot.
+' Status is rechecked by each protected file request, but can change after the check.
+' findCourseForOrganizerReview/findOrganizerReviewAccess do not filter deletedAt;
+' do not invent an additional trash guard. Preview's nested Course predicate also omits it.
+' No Instructor owner restriction on Organizer: tenant scope is the relevant boundary.
+' Excluded: approvals list/filter, approve/reject, editing, learner progress or submissions.
+' No mutations, outbox, notification, audit producer or Kafka call on these read paths.
+' Local configuration/source evidence only; no deployed traffic or provider delivery verified.
+@enduml

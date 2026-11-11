@@ -37,7 +37,6 @@ Start with the following header, once. Do not add a visible `title` to the diagr
 ```plantuml
 @startuml
 autonumber "<b>0.</b> "
-hide footbox
 skinparam backgroundColor white
 skinparam ParticipantBackgroundColor white
 skinparam ActorBackgroundColor white
@@ -52,6 +51,8 @@ skinparam responseMessageBelowArrow true
 skinparam BoxPadding 10
 skinparam MaxMessageSize 200
 ```
+
+Omit `hide footbox` for the draw.io converter that reports it as unsupported. The validator accepts it as an optional legacy header for renderers that support it; it is not required for new output. Static acceptance does not mean a converter applies it.
 
 Declare every participant once before any message, end with one `@enduml`, and leave no placeholders. No layer `box` groups, colored themes, repeated participant boxes at the bottom, or rendered `note`, `hnote`, or `rnote` annotations. Keep source evidence, assumptions, preconditions, and implementation gaps in apostrophe comments or the delivery summary; these must not create visible note boxes.
 
@@ -70,6 +71,8 @@ Use the formatted `autonumber` directive above for bold numbers followed by a pe
 - Use plain fragment labels compatible with draw.io's PlantUML importer. Do not use `<space:...>` padding, `group ... alt` headers or invisible formatting tricks; these can appear literally in draw.io even when a newer local renderer accepts them. Keep guards short, with at most two explicit lines, and use normal renderer spacing. Preserve actor/screen and branch activations; do not remove bars to make room for text. Inspect labels in the actual target renderer when available.
 - Keep the diagram compact with normal spacing, readable fonts, short labels and only meaningful calls/self-calls. Preserve service-owned databases, source-backed cross-service calls, optional behavior, cleanup and nested self-call activations. Group technical failures into one failed operation outcome when they lead to the same UI behavior; retain distinct business outcomes the user needs to understand. An outcome-level `alt` may expand the successful operation trace while summarizing failed attempts in one operand: do not depict successful DB/provider work as unconditional after a failed check. Explain omitted failure internals in comments. The legacy `ParticipantPadding` directive stays omitted because newer PlantUML versions ignore it and may show a warning banner.
 - Follow the concise business-message style of `docs/uml/sequence/UC11_SequenceDiagram.puml` when available; its classes, domain, title, and old numbering conventions are not LearnUP requirements. Prefer one short action or result per arrow, such as `Load managed courses`, `Count InProgress learners by course`, `Return learner counts`, or `Save Draft Course`. Use one line, or at most two explicit lines when the exact HTTP endpoint and essential context need separation. Move detailed predicates, ORM calls, environment URLs, framework behavior, field lists, and explanatory caveats to source comments. Preserve business-critical meaning such as organization scope, InProgress-only counts, atomic creation, and cleanup on failure. Include main method names only where useful for traceability.
+
+Use fragment labels without square brackets: `alt Course withdrawn successfully`, not `alt [Course withdrawn successfully]`. Apply the same plain-label rule to `else`, `opt`, `loop`, `par` and `and`; the draw.io converter may parse bracketed text as a link, dropping words and adding blue underlining.
 
 See the reference for safe branch and asynchronous examples. They illustrate notation, not evidence that a specific UC or Kafka integration exists.
 

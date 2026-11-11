@@ -1,0 +1,262 @@
+@startuml
+' UC23 - Chuyển quyền phụ trách
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' UC23 from docs/source-of-truth/LearnUP_UseCase.docx, row 80.
+' BR-51/92/93/94/95/96/336 read from LearnUP_QuyTacNghiepVu.docx.
+' UI: frontend/src/pages/organizer/course.detail.tsx:100/133/168.
+' Course APIs: frontend/src/services/course.service.ts:327/333.
+' Candidates: frontend/src/services/organization.service.ts:333 (tenantAxios).
+' Transport: services/axios.customize.ts:63-64 -> config/env.ts.
+' frontend/.env.development:8/10: Tenant localhost:8084 DIRECT; Course localhost:8080 Gateway.
+' No local file/process overrides were present. Do not send the candidate GET through Gateway.
+' Gateway application.yml:45 routes Courses; Course main.ts:41-44 enables api/v1.
+' Tenant main.ts:35-38 enables api/v1; UsersController serves users.
+' Course entrypoint: courses.controller.ts:415/426; service:2916/3001; repository:2777/2799.
+' Tenant receiver contract is implemented: users.controller.ts:76, users.service.ts:2328,
+' users.repository.ts:46. Do not treat older proposed-contract comments as a blocker.
+' TenantClient forwarding adapter is hidden; its actual REST calls remain below.
+' Precondition: authenticated Organizer has selected a Course; no default list UC is expanded.
+' hide footbox follows the explicit prompt; the known draw.io converter may ignore it.
+
+actor "Organizer" as Organizer
+boundary "Course Detail Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+participant ":UsersController" as UsersController
+participant ":UsersService" as UsersService
+participant ":UsersRepository" as UsersRepository
+database "course_db" as CourseDB
+database "tenant_db" as TenantDB
+
+activate Organizer
+Organizer -> Screen : Open Course ownership details
+activate Screen
+
+' Outcome-level outer frame expands preparation with an available receiver.
+' Preparation/empty/error operands below summarize their ordered attempts, not new guards.
+alt Transfer preparation completed successfully - receiver available
+  Screen -> Gateway : GET /api/v1/courses/organization/:courseId/transfer-context
+  activate Gateway
+  Gateway -> Controller : GET /api/v1/courses/organization/:courseId/transfer-context\nTrusted Organizer context
+  activate Controller
+  Controller -> Service : getTransferContext(user, courseId)
+  activate Service
+  Service -> Repository : findCourseForOwnershipTransfer(courseId, organizationId)
+  activate Repository
+  Repository -> CourseDB : Read non-trashed Course and chain owner\nCurrent organization
+  activate CourseDB
+  CourseDB -->> Repository : Course, chain ID and current Instructor ID
+  deactivate CourseDB
+  Repository -->> Service : Transfer subject
+  deactivate Repository
+  par Load chain versions
+    Service -> Repository : findTransferVersions(chainId, organizationId)
+    activate Repository
+    Repository -> CourseDB : Read versions in the chain
+    activate CourseDB
+    CourseDB -->> Repository : Versions ordered newest first
+    deactivate CourseDB
+    Repository -->> Service : Chain versions
+    deactivate Repository
+  and Resolve current Instructor
+    Service -> UsersController : POST /api/v1/users/batch\nCurrent Instructor ID; internal key and user context
+    activate UsersController
+    UsersController -> UsersService : findBatch(user, userIds)
+    activate UsersService
+    UsersService -> TenantDB : Read Instructor name in organization\nNon-deleted account
+    activate TenantDB
+    TenantDB -->> UsersService : Instructor ID and full name
+    deactivate TenantDB
+    UsersService -->> UsersController : Instructor information
+    deactivate UsersService
+    UsersController -->> Service : Instructor information
+    deactivate UsersController
+  end
+  Service -->> Controller : Chain, versions and resolved current Instructor
+  deactivate Service
+  Controller -->> Gateway : 200 OK; transfer context
+  deactivate Controller
+  Gateway -->> Screen : Transfer context
+  deactivate Gateway
+  Organizer -> Screen : Open transfer dialog
+  ' openTransfer refuses an unresolved current Instructor; a name resolution failure
+  ' is not silently replaced with a different source owner.
+  Screen -> UsersController : GET /api/v1/users/instructors/transfer-candidates\nexcludeInstructorId = current owner
+  activate UsersController
+  UsersController -> UsersService : getTransferCandidates(user, excludeInstructorId)
+  activate UsersService
+  UsersService -> UsersRepository : findTransferCandidates(organizationId, excludeInstructorId)
+  activate UsersRepository
+  UsersRepository -> TenantDB : Read other eligible Instructors\nSame organization; Active, activated, not deleted
+  activate TenantDB
+  TenantDB -->> UsersRepository : Eligible Instructor choices
+  deactivate TenantDB
+  UsersRepository -->> UsersService : Candidate IDs and names
+  deactivate UsersRepository
+  UsersService -->> UsersController : Candidates
+  deactivate UsersService
+  UsersController -->> Screen : 200 OK; candidates
+  deactivate UsersController
+  Screen -->> Organizer : Show transfer dialog and chain-wide scope
+  Organizer -> Screen : Select receiving Instructor and confirm\nOptional reason
+  Screen -> Screen : form.validateFields()
+  activate Screen
+  deactivate Screen
+  ' UI requires receiver, excludes current owner again, gates duplicates with inFlight.
+  ' It sends expectedInstructorId from the loaded context; blank reason is omitted.
+  Screen -> Gateway : POST /api/v1/courses/:courseId/transfer\ntoInstructorId, expectedInstructorId, optional reason
+  activate Gateway
+  Gateway -> Controller : POST /api/v1/courses/:courseId/transfer\nTransfer payload and trusted Organizer context
+  activate Controller
+  Controller -> Service : transferCourseOwnership(user, courseId, dto)
+  activate Service
+
+  alt Chain ownership transferred successfully
+    ' Service requires ORGANIZER/org; receiver differs from expected owner.
+    Service -> Repository : findCourseForOwnershipTransfer(courseId, organizationId)
+    activate Repository
+    Repository -> CourseDB : Read scoped Course and current chain owner
+    activate CourseDB
+    CourseDB -->> Repository : Course and chain owner
+    deactivate CourseDB
+    Repository -->> Service : Transfer subject
+    deactivate Repository
+    ' Compare actual owner with expectedInstructorId before calling Tenant.
+    Service -> UsersController : GET /api/v1/users/instructors/:toInstructorId/transfer-eligibility\nInternal key and same Organizer context
+    activate UsersController
+    UsersController -> UsersService : validateTransferReceiver(user, instructorId)
+    activate UsersService
+    UsersService -> UsersRepository : findEligibleTransferReceiver(organizationId, instructorId)
+    activate UsersRepository
+    UsersRepository -> TenantDB : Recheck destination Instructor\nSame organization; Active, activated, not deleted
+    activate TenantDB
+    TenantDB -->> UsersRepository : Eligible receiving Instructor
+    deactivate TenantDB
+    UsersRepository -->> UsersService : Receiver ID and name
+    deactivate UsersRepository
+    UsersService -->> UsersController : Valid receiver
+    deactivate UsersService
+    UsersController -->> Service : 200 OK; valid receiver
+    deactivate UsersController
+    Service -> Repository : transferCourseOwnership(transfer input)
+    activate Repository
+    ' courses.repository.ts:2809 invokes transferCourseChain(tx, input) in one transaction.
+    ' This exported helper is not a class or extra HTTP endpoint/lifeline.
+    Repository -> CourseDB : Lock CourseChain FOR UPDATE\nRecheck tenant and expected source owner
+    activate CourseDB
+    CourseDB -->> Repository : Matching chain owner
+    deactivate CourseDB
+    Repository -> CourseDB : Update chain Instructor; insert two outbox events\nCommit all changes together
+    activate CourseDB
+    CourseDB -->> Repository : Committed ownership and durable pending events
+    deactivate CourseDB
+    ' One course_chains.instructor_id update covers every version; no per-version HTTP loop.
+    ' Event 1: CourseOwnershipTransferred, aggregateType=Course, aggregateId=chainId.
+    ' Event 2: AuditRecorded, aggregateType=CourseAudit, targetResourceType=CourseChain,
+    ' actionType=COURSE_OWNERSHIP_TRANSFERRED; includes actor, time, old/new owner and reason.
+    ' Any outbox insert failure rolls back the owner update and the other outbox insert.
+    Repository -->> Service : TRANSFERRED; chain and owner IDs, transferredAt
+    deactivate Repository
+    Service -->> Controller : Persisted transfer result
+    deactivate Service
+    Controller -->> Gateway : 200 OK; transfer result
+    deactivate Controller
+    Gateway -->> Screen : Transfer result
+    deactivate Gateway
+    Screen -->> Organizer : Show transfer success; close dialog\nRefresh ownership context
+    ' UI requires statusCode=200 and chainId; awaits loadContext after success.
+    ' The same GET transfer-context pipeline refreshes owner/versions; not repeated here.
+    deactivate Screen
+    deactivate Organizer
+
+    ' Background Kafka publication and audit delivery are intentionally omitted here.
+    ' CourseOwnershipTransferred and AuditRecorded stay atomic with the owner update.
+    ' HTTP success does not confirm notification/email delivery or audit_db persistence.
+
+  else Ownership transfer failed
+    activate Organizer
+    activate Screen
+    activate Gateway
+    activate Controller
+    activate Service
+    ' Grouped failures stop at their actual guard; success-only DB/REST work is not replayed.
+    ' DTO 400: UUID fields/optional reason <=1000; role/org 403; Course/chain 404.
+    ' SAME_INSTRUCTOR / stale expected owner / locked-helper NOT_OWNER or ALREADY_OWNER => 409.
+    ' Tenant 400 INVALID_RECEIVER is preserved; other Tenant/config/5 s transport errors =>503.
+    ' A failed locked owner check changes no owner and creates no outbox events.
+    ' A persistence/outbox exception rolls the entire Course transaction back.
+    Service -->> Controller : Transfer error
+    deactivate Service
+    Controller -->> Gateway : 400 / 403 / 404 / 409 / 503 or server error
+    deactivate Controller
+    Gateway -->> Screen : Transfer error
+    deactivate Gateway
+    Screen -->> Organizer : Show transfer error\nRefresh ownership context
+    ' UI distinguishes INVALID_RECEIVER, COURSE_CHANGED/SAME_INSTRUCTOR, TENANT_UNAVAILABLE.
+    ' Other errors use generic failure. It sets modalError and awaits loadContext on error.
+    ' Form validation failure issues no POST; transport failure has no HTTP reply.
+    deactivate Screen
+    deactivate Organizer
+  end
+
+else Preparation completed successfully - no eligible Instructor
+  activate Organizer
+  activate Screen
+  ' The context/candidate-read pipeline above completed with an empty candidate list.
+  ' This is a valid empty result, not a backend failure; confirmation is disabled.
+  Screen -->> Organizer : Show no eligible receiving Instructor\nDisable transfer confirmation
+  deactivate Screen
+  deactivate Organizer
+
+else Transfer preparation failed
+  activate Organizer
+  activate Screen
+  ' Missing/foreign/trashed Course, forbidden access, unresolved current owner or
+  ' context/candidate transport/payload errors stop before POST /transfer.
+  Screen -->> Organizer : Show context or candidate error\nDo not submit transfer
+  deactivate Screen
+  deactivate Organizer
+end
+
+' Verified deferred notification: CourseSubmittedEventListener.onMessage invokes
+' CourseOwnershipTransferredEventHandler.handle, with per-recipient/channel ledger.
+' It targets the receiving Instructor, resolves current recipient state, then IN_APP/EMAIL;
+' deleted/unwritable recipients or absent email may be skipped. SMTP can be SIMULATED.
+' Recipient resolution, channel persistence and delivery/retry are not expanded here.
+' No email delivered/read or notification row is asserted by the HTTP success.
+'
+' Verified independent audit: CourseAuditRelayService claims CourseAudit/AuditRecorded,
+' then AuditClient.record POSTs /api/v1/audit/logs using an internal key and outbox ID
+' as correlationId. AuditLogController -> AuditLogService records/deduplicates in audit_db.
+' It completes or retries its own lease; Kafka failure cannot block this audit relay.
+' Local Course .env/process has no AUDIT_SERVICE_URL, so local audit remains pending.
+' Compose supplies the Audit URL. The configured deployment's audit HTTP execution,
+' audit_db persistence and Notification consumer are not expanded or claimed complete.
+'
+' No distributed lock covers Tenant eligibility plus Course commit: receiver state may
+' change after the live validation. The CourseChain lock protects concurrent owner changes.
+' No status/Locked prohibition is added: this UC updates owner, not Course content/status.
+' Context versions include all chain versions; selected Course itself must not be trashed.
+' BR-93/94 downstream editing/grading/version creation follow current chain owner;
+' those separate operations are not executed or fully audited by this diagram.
+' Not used: Tenant -> internal/course-chains/transfer for account disable/delete (UC12.5/12.6).
+' Excluded: default Course list, Instructor account changes, new versions and grading actions.
+' Source/configuration evidence only; no deployed concurrency/provider/render verification.
+@enduml

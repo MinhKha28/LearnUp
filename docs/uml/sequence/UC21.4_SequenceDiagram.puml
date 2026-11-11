@@ -1,0 +1,187 @@
+@startuml
+' UC21.4 - Tìm Course tổ chức
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' Scope: docs/source-of-truth/LearnUP_UseCase.docx, UC21.4, row 76.
+' BR-79/80/95 read from LearnUP_QuyTacNghiepVu.docx.
+' BR-95 is an Instructor visibility rule; do not impose it on Organizer searches.
+' UI: frontend/src/pages/organizer/courses.tsx:109/126/196, updateParams/loadCourses/debounce.
+' Request: frontend/src/services/course.service.ts:95, fetchOrganizationCoursesAPI.
+' courseAxios: services/axios.customize.ts:64 -> config/env.ts:13.
+' frontend/.env.development:10 sets Course URL http://localhost:8080.
+' No local file/process override supplied a different active Course API URL.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:45.
+' Course bootstrap: services/course-service/src/main.ts:23/41/44, ValidationPipe + api/v1.
+' Controller/service/repository: courses.controller.ts:119, courses.service.ts:403,
+' courses.repository.ts:311. DTO: dto/organization-course-list-query.dto.ts.
+' Cross-service adapters: infrastructure/clients/tenant/tenant.client.ts:35 and
+' infrastructure/clients/learning/learning.client.ts:31; hidden forwarding lifelines.
+' They propagate internal key, user, organization and role; HttpModule timeout is 5000 ms.
+' Precondition: authenticated Organizer is on OrganizationCourses with filter controls loaded.
+' Instructor options are fetched once on mount by GET /api/v1/courses/organization/instructors.
+' That preparation uses getOrganizationCourseInstructors -> findOrganizationInstructorIds
+' -> Tenant batch lookup; it is not triggered again by changing a Course filter.
+' The Instructor Select showSearch/optionFilterProp=label filters options locally only.
+' The separate course.approvals.tsx fixes status=Submitted; its initial list is outside UC21.4.
+' hide footbox is retained as explicitly requested; the known draw.io converter may ignore it.
+
+actor "Organizer" as Organizer
+boundary "Organization Courses Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+participant ":UsersController" as UsersController
+participant ":UsersService" as UsersService
+participant ":EnrollmentsController" as EnrollmentsController
+participant ":EnrollmentsService" as EnrollmentsService
+database "course_db" as CourseDB
+database "tenant_db" as TenantDB
+database "learning_db" as LearningDB
+
+activate Organizer
+Organizer -> Screen : Enter Course name or change filters
+activate Screen
+' Name input is trimmed/debounced 400 ms; unchanged normalized search issues no update.
+' Type/status/Instructor/date changes update immediately; reset clears filters.
+' Filter changes reset current to 1. RangePicker sends YYYY-MM-DD date strings.
+' This interaction starts when a changed filter is committed, not on every keystroke.
+Screen -> Screen : updateParams(filter values)
+activate Screen
+deactivate Screen
+Screen -> Gateway : GET /api/v1/courses/organization\nFilter query and pagination
+activate Gateway
+Gateway -> Controller : GET /api/v1/courses/organization\nQuery and trusted Organizer context
+activate Controller
+Controller -> Service : findOrganizationCourses(user, query)
+activate Service
+
+' Exact query keys: search, courseType, status, instructorId, submittedFrom,
+' submittedTo, current, pageSize. No new /search endpoint and no client-side Course filtering.
+' Service requires ORGANIZER and organizationId; organization is trusted user context,
+' not a user-selected tenant query. No current-Instructor owner restriction is applied.
+' Outcome-level frame expands success; failed guard/DTO/dependency attempts are summarized.
+alt Organization Course search completed successfully
+  Service -> Repository : findOrganizationCourses(where, skip, pageSize)
+  activate Repository
+  ' where always includes organizationId and deletedAt=null.
+  ' Optional name contains is case-insensitive; courseType/status are exact matches.
+  ' Instructor predicate uses chain.instructorId, not a field on individual versions.
+  ' Submitted dates use inclusive UTC bounds 00:00:00.000Z / 23:59:59.999Z.
+  Repository -> CourseDB : Read matching Course page and count\nSame predicates in one read transaction
+  activate CourseDB
+  CourseDB -->> Repository : Course versions, chain Instructor IDs and total
+  deactivate CourseDB
+  Repository -->> Service : courses and total
+  deactivate Repository
+  ' findMany sorts updatedAt descending and applies skip/take; count has the same where.
+  ' There is no default Published-only status, latest-version selection or chain grouping.
+
+  alt Matching Course page returned successfully
+    ' courses.length > 0. Promise.all at courses.service.ts:498 is real concurrency.
+    par Load Instructor names
+      Service -> UsersController : POST /api/v1/users/batch\nDistinct Instructor IDs and same user context
+      activate UsersController
+      UsersController -> UsersService : findBatch(user, userIds)
+      activate UsersService
+      ' UsersService:2273 checks ORGANIZER/org and uses Prisma directly, not UsersRepository.
+      UsersService -> TenantDB : Read Instructor names in organization\nRequested IDs; non-deleted Instructor accounts
+      activate TenantDB
+      TenantDB -->> UsersService : Instructor IDs and full names
+      deactivate TenantDB
+      UsersService -->> UsersController : Instructor names
+      deactivate UsersService
+      UsersController -->> Service : 201 Created; Instructor names
+      deactivate UsersController
+    and Count current Learners
+      Service -> EnrollmentsController : POST /api/v1/enrollments/learner-counts\nPage Course IDs and same user context
+      activate EnrollmentsController
+      EnrollmentsController -> EnrollmentsService : getCourseLearnerCounts(user, courseIds)
+      activate EnrollmentsService
+      ' EnrollmentsService:446 checks ORGANIZER/INSTRUCTOR + org and uses Prisma directly.
+      EnrollmentsService -> LearningDB : Count InProgress Enrollments per Course\nCurrent organization and page Course IDs
+      activate LearningDB
+      LearningDB -->> EnrollmentsService : Counts grouped by Course
+      deactivate LearningDB
+      EnrollmentsService -->> EnrollmentsController : Learner counts; missing groups = 0
+      deactivate EnrollmentsService
+      EnrollmentsController -->> Service : 201 Created; Learner counts
+      deactivate EnrollmentsController
+    end
+    ' Tenant/learning service prefixes verified in main.ts:35 and app.setup.ts:30.
+    ' These internal REST requests bypass the browser Gateway.
+    ' Missing name defaults to Unknown Instructor; missing count defaults to 0.
+    ' A rejected REST call instead fails the whole search (503), without partial results.
+    Service -->> Controller : Filtered Course page with names and counts
+    deactivate Service
+    Controller -->> Gateway : 200 OK; result and pagination metadata
+    deactivate Controller
+    Gateway -->> Screen : Matching Course page
+    deactivate Gateway
+    Screen -->> Organizer : Show matching Courses and total
+
+  else Empty Course page returned successfully
+    activate Gateway
+    activate Controller
+    activate Service
+    ' courses.length == 0 returns before both REST requests.
+    ' AS-IS response resets meta.total/pages to 0 even if the count query was positive
+    ' for an out-of-range page. Do not silently substitute the original total here.
+    Service -->> Controller : Empty result; total = 0; pages = 0
+    deactivate Service
+    Controller -->> Gateway : 200 OK; empty page
+    deactivate Controller
+    Gateway -->> Screen : Empty Course page
+    deactivate Gateway
+    Screen -->> Organizer : Show "No Courses found"
+  end
+
+else Course search failed
+  activate Gateway
+  activate Controller
+  activate Service
+  ' Grouped failures: 403 wrong role/missing org; DTO 400 invalid filters/pagination;
+  ' Course persistence/server error; Tenant or Learning error/timeout mapped to 503.
+  ' DTO/middleware rejections precede Service; their technical internals are not expanded.
+  ' The representative error exchange below does not imply a DB read or a successful
+  ' downstream reply on every failed path. Browser transport failure has no HTTP reply.
+  Service -->> Controller : Search error
+  deactivate Service
+  Controller -->> Gateway : 400 / 403 / 503 or server error
+  deactivate Controller
+  Gateway -->> Screen : Search error
+  deactivate Gateway
+  Screen -->> Organizer : Clear results and total\nShow "Could not load Courses" and Retry
+  ' loadCourses:140 checks missing response.data, using response.message or generic text.
+  ' catch also clears results/total and uses Unable to load Organization Courses.
+  ' The table can show No Courses found alongside the separate error alert.
+end
+deactivate Screen
+deactivate Organizer
+
+' DTO: current integer >=1; pageSize integer 1-100; search string <=200 chars;
+' courseType/status enums, instructorId UUID, submittedFrom/submittedTo ISO date strings.
+' UI emits date-only strings; Service appends UTC day bounds, without range-order validation.
+' An Instructor ID outside the tenant cannot broaden scope: Course.organizationId stays fixed.
+' Course content/visibility is Organizer-wide, unlike Instructor UC14.4 or Learner catalog.
+' No mutation, notification, audit producer, storage operation, outbox or Kafka on this path.
+' No request cancellation/latest-response guard is present in this component; do not claim
+' that a 400 ms debounce by itself prevents old responses overwriting newer results.
+' Read transaction isolation is not explicitly elevated; cross-service data is not one snapshot.
+' Excluded: default list load, separate approvals list, review/approve/reject, transfer actions.
+' Source and configuration evidence only; no deployed traffic/integration/render verification.
+@enduml

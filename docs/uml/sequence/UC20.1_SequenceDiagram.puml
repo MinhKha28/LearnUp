@@ -1,0 +1,157 @@
+@startuml
+' UC20.1 - Thu hồi Course
+autonumber "<b>0.</b> "
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS evidence; paths are relative to the workspace root.
+' Scope: docs/source-of-truth/LearnUP_UseCase.docx, UC20.1, table row 71.
+' BR-79/82/83/84/85/95/96 read from LearnUP_QuyTacNghiepVu.docx.
+' UI: frontend/src/pages/instructor/course.withdraw.tsx:72, handleWithdraw.
+' API: frontend/src/services/course.service.ts:257, withdrawCourseSubmissionAPI.
+' Transport: frontend/src/services/axios.customize.ts:61-64; config/env.ts:13.
+' Local development: frontend/.env.development:10, Course URL http://localhost:8080.
+' No local environment file or process override supplied a different Course URL.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:42-45.
+' Bootstrap: services/course-service/src/main.ts:41-44, api prefix + URI v1.
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:403.
+' Service: services/course-service/src/modules/courses/courses.service.ts:2861.
+' Repository: services/course-service/src/modules/courses/courses.repository.ts:2721.
+' Models: services/course-service/prisma/schema.prisma:18/31, CourseChain/Course.
+' Course database name verified from the local Course configuration (no secrets shown).
+' Precondition: authenticated Instructor has loaded the CourseWithdraw review page.
+' loadCourse:33 uses GET /api/v1/courses/:courseId for initial display.
+' UI permits the withdrawal button only for a loaded Submitted Course.
+' handleWithdraw prevents duplicate clicks with withdrawInProgress.current.
+' Initial detail-read internals are preparation, not expanded as UC14.1 here.
+
+actor "Instructor" as Instructor
+boundary "Withdraw Course Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+database "course_db" as CourseDB
+
+activate Instructor
+Instructor -> Screen : Click Withdraw to Draft
+activate Screen
+Screen -> Gateway : POST /api/v1/courses/:courseId/withdraw
+activate Gateway
+Gateway -> Controller : POST /api/v1/courses/:courseId/withdraw\nTrusted userId, organizationId, role
+activate Controller
+Controller -> Service : withdrawCourseSubmission(user, courseId)
+activate Service
+
+' Outcome-level eligibility operand expands the successful checks in source order.
+' Service first requires INSTRUCTOR and organizationId; then reads the owned Course.
+' No successful read or write is asserted for the grouped failed eligibility paths.
+alt Withdrawal eligibility checked successfully
+  Service -> Repository : findDetail(courseId, organizationId, userId)
+  activate Repository
+  Repository -> CourseDB : Read Course under organization and chain owner
+  activate CourseDB
+  CourseDB -->> Repository : Scoped Course, status and updatedAt
+  deactivate CourseDB
+  Repository -->> Service : Owned Course
+  deactivate Repository
+  ' Service:2878-2892 rejects absent Course, trash and every status except Submitted.
+  ' No separate decision flag or decision-table read: Submitted is the eligibility state.
+  ' BR-85 does not permit withdrawal of Rejected; resubmission is a different UC.
+  Service -> Repository : withdrawCourseSubmission(..., expectedUpdatedAt)
+  activate Repository
+  ' Repository:2727 runs updateMany and the success reread in one Prisma transaction.
+  ' Atomic predicate: id, organizationId, deletedAt=null, chain.instructorId,
+  ' status=Submitted, updatedAt in [expectedMs, expectedMs + 1 millisecond).
+  ' The statement sets status=Draft and submittedAt=null only on a matching row.
+  Repository -> CourseDB : Conditionally change Submitted to Draft\nClear submittedAt
+  activate CourseDB
+  CourseDB -->> Repository : Matched row count
+  deactivate CourseDB
+
+  alt Course withdrawn successfully
+    ' updated.count == 1. The transaction rereads the actual stored response fields.
+    Repository -> CourseDB : Read withdrawn Course
+    activate CourseDB
+    CourseDB -->> Repository : Course with status Draft and submittedAt = null
+    deactivate CourseDB
+    ' The Prisma transaction commits before this repository result reaches the service.
+    Repository -->> Service : WITHDRAWN; committed Draft Course
+    deactivate Repository
+    Service -->> Controller : Persisted Draft Course
+    deactivate Service
+    Controller -->> Gateway : 201 Created; Draft Course
+    deactivate Controller
+    Gateway -->> Screen : 201 Created; Draft Course
+    deactivate Gateway
+    ' Default NestJS POST status is 201; confirmed by the OpenAPI withdrawal contract.
+    ' UI accepts only a 2xx envelope with status=Draft AND submittedAt=null.
+    Screen -->> Instructor : Show "Course withdrawn to Draft."\nOpen Course detail page
+    ' course.withdraw.tsx:99-103 navigates /instructor/courses/:id with replace=true.
+    ' The destination's display read and subsequent editing are outside UC20.1.
+  else Withdrawal failed: Course changed concurrently
+    ' Restore exactly the incoming bars closed in the successful operand.
+    activate Gateway
+    activate Controller
+    activate Service
+    activate Repository
+    ' updated.count != 1: no Draft transition and no success reread.
+    Repository -->> Service : CONFLICT
+    deactivate Repository
+    Service -->> Controller : 409 Conflict; COURSE_CHANGED
+    deactivate Service
+    Controller -->> Gateway : 409 Conflict
+    deactivate Controller
+    Gateway -->> Screen : COURSE_CHANGED
+    deactivate Gateway
+    Screen -->> Instructor : Show status-changed error\nReload Course information
+    ' UI:95/106 awaits loadCourse via GET /api/v1/courses/:courseId after failure.
+    ' This display refresh is not an automatic retry of POST /withdraw.
+  end
+else Withdrawal eligibility check failed
+  ' Restore the incoming executions; Instructor and Screen remain active throughout.
+  activate Gateway
+  activate Controller
+  activate Service
+  ' Service:2863 rejects wrong role/missing organization (403 FORBIDDEN), before DB.
+  ' findDetail:350 scopes tenant and chain owner; absent/wrong scope => 404 COURSE_NOT_FOUND.
+  ' Trash => 409 COURSE_IN_TRASH; non-Submitted => 409 INVALID_COURSE_STATUS.
+  ' Ordered failed-check internals are summarized; no withdrawal transaction is called.
+  Service -->> Controller : Withdrawal rejected\n403 / 404 / 409
+  deactivate Service
+  Controller -->> Gateway : Withdrawal error
+  deactivate Controller
+  Gateway -->> Screen : Withdrawal error
+  deactivate Gateway
+  Screen -->> Instructor : Show withdrawal error\nReload Course information
+  ' The same loadCourse GET refresh follows a resolved error envelope or thrown error.
+  ' COURSE_IN_TRASH uses the generic UI message; named codes use course.withdraw.errors.ts.
+end
+deactivate Screen
+deactivate Instructor
+
+' Concurrency evidence, not an additional Organizer flow:
+' courses.repository.ts:1590 decideCourse also uses a status=Submitted guarded update.
+' If a decision wins first, withdrawal cannot overwrite Published/Rejected.
+' If withdrawal wins first, the decision update cannot match; its transaction rolls back.
+' Withdrawal does not acquire decideCourse's explicit chain FOR UPDATE lock.
+' These are source-backed guards, not a claimed real-database concurrency test result.
+' Locked is not a withdrawal guard; no learning data or Enrollment is modified.
+' No notification/HTTP integration, outbox write, Kafka event or audit call in this method.
+' UC20.1's DOCX row lists Email Service, but current source implements no withdrawal email.
+' Earlier CourseSubmitted outbox events are not cancelled by this withdrawal transaction.
+' Excluded: editing after withdrawal, resubmission, Organizer review and approve/reject UI.
+' Unexpected persistence/transport failures enter the existing generic UI error + refresh path.
+' Local development routing was verified from configuration, not deployed runtime traffic.
+@enduml

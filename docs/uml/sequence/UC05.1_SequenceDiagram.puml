@@ -1,0 +1,61 @@
+@startuml
+' UC05.1 - Đăng nhập bằng Google
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' UC05.1 from docs/source-of-truth/LearnUP_UseCase.docx, row 8.
+' BR-35/36/37/38/39 read from LearnUP_QuyTacNghiepVu.docx.
+' Scope: the unavailable fallback selected by the inspected local frontend configuration.
+' UI page: frontend/src/pages/guest/login.tsx:157/241-244 (LoginPage).
+' Button: frontend/src/components/guest/google.sign.in.tsx:53-61 (GoogleSignIn).
+' Config: frontend/src/services/google.identity.ts:33-34 (googleClientId).
+' Message: frontend/src/utils/google.sign.in.ts:9-13 (GOOGLE_UNAVAILABLE_MESSAGE).
+' No nonblank VITE_GOOGLE_CLIENT_ID in frontend/.env files or the current process.
+' frontend/.env.example:38 also has an empty value; vite.config.ts supplies no replacement ID.
+' Precondition: Guest is on /login, ordinary form loading=false, Google client ID absent.
+' Intended permitted account roles are Organizer/Instructor/Learner; the caller is still Guest.
+' !clientId causes the Google loader effect to return without loading the GIS script.
+' GoogleSignIn renders a fallback button; click calls onError(GOOGLE_UNAVAILABLE_MESSAGE).
+' LoginPage supplies onError=setError; its existing Alert renders the error description.
+' This deterministic fallback needs no alt/opt, Google lifeline, API Gateway or database.
+' hide footbox is retained as explicitly requested; the known draw.io converter may ignore it.
+
+actor "Guest" as Guest
+boundary "Login Page" as Screen
+
+activate Guest
+Guest -> Screen : Click Continue with Google
+activate Screen
+Screen -->> Guest : Google sign-in is currently unavailable.\nPlease sign in with your email and password.
+deactivate Screen
+deactivate Guest
+
+' Google authentication IS implemented elsewhere in current source; it is not reached here.
+' Configured branch: GoogleSignIn initializes GIS in popup mode and receives a credential.
+' LoginPage.googleSubmit:71 -> identity.service.ts:32 googleLoginAPI -> POST /api/v1/auth/google.
+' AuthController invokes GoogleSignInService.signIn; GoogleIdTokenVerifier validates the ID token.
+' GoogleSignInService:47 looks up the verified email with UserRepository.findByEmailForUpdate.
+' It rejects absent accounts, ADMIN, disabled credentials and denied Tenant sign-in access.
+' Tenant access includes non-deleted/active account, Organization and Subscription checks.
+' Allowed credentials lead to AuthService.issueSession, without automatic account creation.
+' These implemented branches, and their API/DB/role errors, are not executed by this local UI path.
+' Therefore the AS-IS gap is Google sign-in not configured/available in the inspected build,
+' not Google authentication not implemented. Other deployed build configuration is unverified.
+' No redirect, callback, token exchange/verification, account lookup, session creation,
+' role/tenant check or DB/cross-service request is asserted for the fallback click.
+' Excluded: password login execution, registration, activation, recovery and enterprise SSO.
+' The password suggestion is displayed text only; no UC05 password request is initiated.
+@enduml

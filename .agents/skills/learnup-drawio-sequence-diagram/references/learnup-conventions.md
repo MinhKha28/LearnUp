@@ -22,6 +22,10 @@ Avoid assuming a class exists merely because another service has that layer. Nes
 
 ## Display conventions
 
+For the draw.io converter that warns that `hide footbox` is not applied, omit the directive. It remains an optional legacy header in static validation for other renderers. Check bottom participant boxes in the actual renderer rather than inferring their absence from a validator pass.
+
+Write fragment labels as plain text without square brackets, for example `alt Course withdrawn successfully` and `else Withdrawal failed`. Bracketed labels can become hyperlinks in the converter, losing the first word and appearing blue and underlined. Use plain labels for `opt`, `loop`, `par` and `and` too.
+
 Do not add a rendered `title`. Identify the UC through its `[UC_CODE]_SequenceDiagram.puml` filename; optionally preserve the code and name in a non-rendering comment such as `' UC14 - View Managed Courses`. The validator accepts diagrams without UC comments and does not require a title.
 
 Do not render note boxes. Put preconditions, source references, environment details, known implementation gaps, and longer explanations in apostrophe comments or the response. This applies to `note`, `hnote`, and `rnote` syntax.

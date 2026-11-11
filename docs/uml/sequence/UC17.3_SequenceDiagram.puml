@@ -1,0 +1,382 @@
+@startuml
+' UC17.3 - Cập nhật học liệu
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS evidence; paths are workspace-relative.
+' UC/BR: docs/source-of-truth/LearnUP_UseCase.docx (UC17.3) and
+' docs/source-of-truth/LearnUP_QuyTacNghiepVu.docx
+' (BR-83/99/104/105/109/125/126/178/187/188; BR-336 referenced by BR-126).
+' Architecture: docs/source-of-truth/LearnUP_Service_Architecture.docx sections 3.3, 3.8, 5, 6.5.
+' No separate named Database Guide found; use docs/architecture/database-ownership.md
+' and actual service-owned Prisma schemas for the database cross-check.
+' UI: frontend/src/pages/instructor/course.builder.material.edit.tsx:107;
+' load :155, ensureApiSuccess :89, handleSaveChanges :253, replacement confirmation :386.
+' Router: frontend/src/router.tsx:529, Instructor-protected Course Builder child.
+' API wrappers: frontend/src/services/course.service.ts:115 (Lesson detail), :262 (PATCH),
+' :275 (POST multipart technical-replacement, timeout=15 min).
+' Axios/config: frontend/src/services/axios.customize.ts:47/:61/:64; frontend/src/config/env.ts:13.
+' Local development: frontend/.env.development:10 = http://localhost:8080.
+' No frontend .env/.env.local/.env.development.local or process Course URL overrides found.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:42 and :45.
+' Course prefix/version: services/course-service/src/main.ts:41 (api, URI v1).
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:154, :331, :349.
+' Service: services/course-service/src/modules/courses/courses.service.ts:829, :2098, :2151.
+' Repository: services/course-service/src/modules/courses/courses.repository.ts:805, :2160, :2293, :2331.
+' Write locking/trash check: same repository :32 (lockOwnedCourseForWrite).
+' Metadata DTO: services/course-service/src/modules/courses/dto/update-material.dto.ts:10.
+' PDF extraction: services/course-service/src/modules/courses/reading-text-extractor.ts:20.
+' Tenant adapter: services/course-service/src/infrastructure/clients/tenant/tenant.client.ts:96;
+' interface: same directory tenant.interface.ts (TenantMaterialUploadPolicy).
+' Target controller: services/tenant-service/src/modules/subscriptions/subscriptions.controller.ts:68;
+' service: same module subscriptions.service.ts:128; repository subscriptions.repository.ts:28.
+' No matching routes were found in contracts/ for UC17.3 or this upload policy;
+' request/response shape is verified from wrappers, DTO/interface and receiving source.
+' Adapter timeout: services/course-service/src/modules/courses/courses.module.ts:17 (5000 ms).
+' Direct Tenant base URL: services/course-service/.env:6 = http://localhost:8084.
+' Tenant bootstrap prefix/version: services/tenant-service/src/main.ts:35.
+' Storage wiring: services/course-service/src/infrastructure/storage/storage.provider.ts:52.
+' Provider: libraries/ts-storage/src/providers/cloudinary/cloudinary.provider.ts:56 (upload),
+' :95 (delete), :314 (uploadBuffer), :395 (mapUploadResult).
+' Effective size ceiling: libraries/ts-storage/src/storage-plan-limits.ts.
+' Models: services/course-service/prisma/schema.prisma:107 (Material), :129 (MediaFile);
+' services/tenant-service/prisma/schema.prisma:133 (Subscription).
+' Local DATABASE_URL names are course_db and tenant_db; each PrismaService owns its connection.
+' Cloudinary configuration is present; credential values are omitted and remote access untested.
+' All STORAGE_MAX_* overrides are absent locally/in this process: library defaults are
+' 100 MiB Video and 10 MiB raw, further lowered by product settings/transport ceilings.
+' Live PlatformSetting rows and deployed runtime overrides have not been verified.
+
+actor Instructor
+boundary "Edit Learning Material Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+participant ":SubscriptionsController" as SubscriptionsController
+participant ":SubscriptionsService" as SubscriptionsService
+participant ":SubscriptionsRepository" as SubscriptionsRepository
+participant ":CloudinaryStorageProvider" as Storage
+participant "Cloudinary" as Cloudinary
+database "course_db" as CourseDB
+database "tenant_db" as TenantDB
+
+' Preconditions: authenticated Instructor; Course Builder shell already loaded.
+' Shared outline/structure preparation is not replayed; JWT middleware is omitted.
+activate Instructor
+Instructor -> Screen: Open material editor
+activate Screen
+Screen -> Gateway: GET /api/v1/courses/{courseId}/lessons/{lessonId}
+activate Gateway
+Gateway -> Controller: GET /api/v1/courses/{courseId}/lessons/{lessonId}\nTrusted user context
+activate Controller
+Controller -> Service: findLessonDetail(user, courseId, lessonId)
+activate Service
+
+' Outcome-level load alternative expands only successful request internals.
+alt Lesson details loaded successfully
+  Service -> Repository: findLessonDetail\nCurrent organization and instructor
+  activate Repository
+  Repository -> CourseDB: Read scoped Lesson and material/file metadata
+  activate CourseDB
+  CourseDB -->> Repository: Lesson and attached materials
+  deactivate CourseDB
+  Repository -->> Service: Scoped Lesson details
+  deactivate Repository
+  Service -->> Controller: Lesson details and Course status/locked
+  deactivate Service
+  Controller -->> Gateway: 200 OK - Lesson details
+  deactivate Controller
+  Gateway -->> Screen: Lesson details
+  deactivate Gateway
+  Screen -> Screen: Select materialId from returned materials
+  activate Screen
+  deactivate Screen
+
+  alt Material selected successfully
+    Screen -->> Instructor: Show editor and status restrictions\nLocked disables Required changes
+    ' No editability/upload-context API is called by this screen.
+    ' Save is enabled only for Draft/Rejected/Published, valid title and requested changes.
+    opt Save enabled and changes requested
+      Instructor -> Screen: Enter changes and click Save Changes
+
+      opt Replacement file selected
+        Screen -->> Instructor: Confirm shared technical repair\nAll referencing versions may be affected
+        Instructor -> Screen: Confirm and Save
+        ' Cancel sends neither POST nor PATCH; follow the confirmed save here.
+        Screen -> Gateway: POST /api/v1/courses/{courseId}/lessons/{lessonId}/materials/{materialId}/technical-replacement\nMultipart file only
+        activate Gateway
+        Gateway -> Controller: POST /api/v1/courses/{courseId}/lessons/{lessonId}/materials/{materialId}/technical-replacement\nMultipart file and trusted user context
+        activate Controller
+        ' FileInterceptor buffers one file, no fields, one part; transport cap=500 MiB.
+        ' DTO/UUID/multipart short-circuits can reject before Service and are not expanded.
+        Controller -> Service: replaceTechnicalFile(user, courseId, lessonId, materialId, file)
+        activate Service
+
+        alt Technical file replaced successfully
+          Service -> Repository: findMaterialForUpdate\nCurrent tenant, owner, Course and Lesson
+          activate Repository
+          Repository -> CourseDB: Read Material, shared MediaFile and Course state
+          activate CourseDB
+          CourseDB -->> Repository: Scoped Material and current file
+          deactivate CourseDB
+          Repository -->> Service: Material and current file
+          deactivate Repository
+          Service -> Repository: Load Video or Reading Platform Settings
+          activate Repository
+          Repository -> CourseDB: Read latest settings for material type
+          activate CourseDB
+          CourseDB -->> Repository: Technical file limits
+          deactivate CourseDB
+          Repository -->> Service: Technical file limits
+          deactivate Repository
+          Service -> Service: Validate replacement type, size and signature
+          activate Service
+          ' INSTRUCTOR/org, non-trash, Draft/Rejected/Published, non-disabled Course/Lesson;
+          ' current file must be Ready and unreleased. Locked does NOT block this operation.
+          ' Video: configured MIME plus MP4/MOV ftyp or WebM EBML signature.
+          ' Reading: configured application/pdf and %PDF- header; local pdf-parse extracts words.
+          ' PDF parse exception ->400; zero words are accepted with extractionWarning.
+          ' maxBytes=min(PlatformSetting, transport 500/50 MiB, storage-plan Video/raw limit).
+          deactivate Service
+
+          ' TenantClient is hidden: actual direct REST, internal key and trusted identity headers.
+          Service -> SubscriptionsController: GET /api/v1/subscriptions/internal/instructor-material-upload-policy
+          activate SubscriptionsController
+          SubscriptionsController -> SubscriptionsService: getInstructorMaterialUploadPolicy(user)
+          activate SubscriptionsService
+          SubscriptionsService -> SubscriptionsRepository: findCurrent(organizationId)
+          activate SubscriptionsRepository
+          SubscriptionsRepository -> TenantDB: Read current organization Subscription
+          activate TenantDB
+          TenantDB -->> SubscriptionsRepository: Subscription or none
+          deactivate TenantDB
+          SubscriptionsRepository -->> SubscriptionsService: Subscription or none
+          deactivate SubscriptionsRepository
+          ' Upload requires Active with startsAt <= now < expiresAt; return current storage limit.
+          SubscriptionsService -->> SubscriptionsController: Upload permission and storage limit
+          deactivate SubscriptionsService
+          SubscriptionsController -->> Service: 200 OK - upload policy
+          deactivate SubscriptionsController
+          Service -> Repository: getOrganizationStoredBytes(organizationId)
+          activate Repository
+          Repository -> CourseDB: Sum Ready, unreleased MediaFile bytes
+          activate CourseDB
+          CourseDB -->> Repository: Used bytes
+          deactivate CourseDB
+          Repository -->> Service: Used bytes
+          deactivate Repository
+          ' Preliminary quota: usedBytes - old file size + incoming file size <= policy limit.
+
+          Service -> Storage: Upload new authenticated resource\nNew storage key; overwrite=false
+          activate Storage
+          Storage -> Cloudinary: Upload Video or Reading file
+          activate Cloudinary
+          ' Video uses 20 MiB chunks; Reading uses raw upload_stream with a .pdf public ID.
+          Cloudinary -->> Storage: Stored-file metadata
+          deactivate Cloudinary
+          Storage -->> Service: New key, size and type metadata
+          deactivate Storage
+          Service -> Service: Validate stored metadata and integrity
+          activate Service
+          ' Require correct resourceType/authenticated delivery, positive bounded size and a new key.
+          ' Video also requires matching format, positive whole-second duration and duration limit.
+          deactivate Service
+
+          ' Read the current Subscription policy again after upload, before finalization.
+          Service -> SubscriptionsController: GET /api/v1/subscriptions/internal/instructor-material-upload-policy
+          activate SubscriptionsController
+          SubscriptionsController -> SubscriptionsService: getInstructorMaterialUploadPolicy(user)
+          activate SubscriptionsService
+          SubscriptionsService -> SubscriptionsRepository: findCurrent(organizationId)
+          activate SubscriptionsRepository
+          SubscriptionsRepository -> TenantDB: Read current organization Subscription
+          activate TenantDB
+          TenantDB -->> SubscriptionsRepository: Subscription or none
+          deactivate TenantDB
+          SubscriptionsRepository -->> SubscriptionsService: Subscription or none
+          deactivate SubscriptionsRepository
+          ' Upload requires Active with startsAt <= now < expiresAt; return current storage limit.
+          SubscriptionsService -->> SubscriptionsController: Upload permission and storage limit
+          deactivate SubscriptionsService
+          SubscriptionsController -->> Service: 200 OK - upload policy
+          deactivate SubscriptionsController
+          Service -> Repository: commitTechnicalReplacement\nExpected fileId and old storageKey
+          activate Repository
+          Repository -> CourseDB: Lock quota, Course and shared MediaFile\nRecheck ownership, state, stale key and net quota
+          activate CourseDB
+          ' Transaction timeout=20 s; lockOwnedCourseForWrite also rejects Trash.
+          ' Recheck current Material.fileId and old storageKey, Ready/unreleased file and metadata.
+          CourseDB -->> Repository: Replacement eligible; locks held
+          Repository -> CourseDB: Update existing shared MediaFile\nKeep MediaFile.id and Material.fileId
+          ' Updates key, filename, MIME, size, deliveryType, format, duration/wordCount and readyAt.
+          ' Does not create Material/MediaFile rows or change title/isRequired/position.
+          CourseDB -->> Repository: Replacement committed
+          deactivate CourseDB
+          Repository -->> Service: REPLACED, same fileId and old resource details
+          deactivate Repository
+
+          ' Commit is already durable; old-object cleanup cannot roll it back.
+          Service -> Storage: Delete old physical resource after commit
+          activate Storage
+          Storage -> Cloudinary: Delete old key using its delivery/resource type
+          activate Cloudinary
+          Cloudinary -->> Storage: Deleted, not found or cleanup error
+          deactivate Cloudinary
+          Storage -->> Service: Cleanup result or error
+          deactivate Storage
+          ' Cleanup is awaited and best-effort; errors are logged, response remains successful.
+          Service -->> Controller: Same materialId/fileId and new metadata
+          deactivate Service
+          Controller -->> Gateway: 201 Created - technical replacement result
+          deactivate Controller
+          Gateway -->> Screen: Confirmed replacement result
+          deactivate Gateway
+          ' UI verifies matching materialId/fileId before setting fileReplaced=true.
+        else Technical replacement failed
+          activate Gateway
+          activate Controller
+          activate Service
+          ' 403 wrong role/org or Subscription disallowed; 404 foreign/mismatched Material.
+          ' 409 Submitted/trash/disabled/disallowed Course, unavailable/stale file or net quota.
+          ' 400 invalid file, signature, PDF extraction or provider metadata; 413 size/plan limit.
+          ' Tenant non-2xx/malformed response/transport/5000 ms timeout ->503, no false fallback.
+          ' StorageProviderError TOO_LARGE ->413; other provider failures ->503; DB failures ->500.
+          ' No successful remote reply after timeout, successful UPDATE or rollback of committed work is assumed.
+          opt New distinct key returned and replacement not committed
+            Service -> Storage: Delete uncommitted new resource
+            activate Storage
+            Storage -> Cloudinary: Delete new key only
+            activate Cloudinary
+            Cloudinary -->> Storage: Cleanup result or error
+            deactivate Cloudinary
+            Storage -->> Service: Cleanup result or error
+            deactivate Storage
+            ' Never delete the old key in compensation. Cleanup failure is logged.
+          end
+          Service -->> Controller: Replacement validation, state or storage error
+          deactivate Service
+          Controller -->> Gateway: 400 / 403 / 404 / 409 / 413 / 503 or 500
+          deactivate Controller
+          Gateway -->> Screen: Replacement error
+          deactivate Gateway
+          Screen -->> Instructor: Show size error or unconfirmed-replacement warning
+        end
+      end
+
+      ' Readiness means no replacement selected OR its response was confirmed.
+      ' The real UI returns/catches on replacement failure; PATCH cannot follow that failure.
+      alt Replacement stage completed successfully
+        opt Metadata changed
+          Screen -> Gateway: PATCH /api/v1/courses/{courseId}/lessons/{lessonId}/materials/{materialId}\nTitle and optional isRequired
+          activate Gateway
+          Gateway -> Controller: PATCH /api/v1/courses/{courseId}/lessons/{lessonId}/materials/{materialId}\nTrusted user context
+          activate Controller
+          Controller -> Service: updateMaterial(user, courseId, lessonId, materialId, dto)
+          activate Service
+          ' UI omits isRequired when its loaded Course is Locked; server checks actual current state.
+          alt Metadata updated successfully
+            Service -> Repository: updateMaterialMetadata(...)
+            activate Repository
+            Repository -> CourseDB: Lock Course and validate tenant/owner/state\nUpdate title and permitted Required setting
+            activate CourseDB
+            ' One transaction; Trash/Submitted or disallowed/disabled Course/Lesson is rejected.
+            ' Locked rejects an ACTUAL isRequired change, not title-only or an unchanged value.
+            ' No-op returns UPDATED without UPDATE. Material/file references are unchanged.
+            CourseDB -->> Repository: Committed Material metadata
+            deactivate CourseDB
+            Repository -->> Service: UPDATED and Material
+            deactivate Repository
+            Service -->> Controller: Updated Material
+            deactivate Service
+          else Metadata update failed
+            activate Service
+            ' No successful write assumed: 400 DTO/empty changes, 403 role/org, 404 scope,
+            ' 409 Submitted/trash/disabled/disallowed state or Locked Required change, 500 DB.
+            ' Submitted rejects both endpoints even though title/technical repair work on Locked.
+            Service -->> Controller: Metadata update error
+            deactivate Service
+          end
+          Controller -->> Gateway: 200 OK or metadata update error
+          deactivate Controller
+          Gateway -->> Screen: Metadata operation result
+          deactivate Gateway
+          ' ensureApiSuccess requires a 2xx statusCode and data; UI also verifies returned Material ID.
+        end
+
+        alt All requested changes saved successfully
+          Screen -->> Instructor: Show success and open material list
+        else Metadata save failed
+          Screen -->> Instructor: Show save error\nWarn if technical file was already replaced
+          ' If fileReplaced && metadataChanged: preserve committed replacement, clear selected file,
+          ' reset progress and explicitly tell the user not to upload the replacement again.
+          ' Otherwise show the metadata error. No automatic reload or compensating file rollback.
+        end
+      else Replacement preparation failed
+        ' Metadata-only/no-file saves do not enter this operand.
+        Screen -->> Instructor: Keep editor after replacement error
+      end
+    end
+  else Material selection failed
+    ' The Lesson request succeeded, but the requested materialId is absent from its materials.
+    Screen -->> Instructor: Show learning material not found
+  end
+else Lesson detail loading failed
+  activate Gateway
+  activate Controller
+  activate Service
+  ' Scoped Lesson read rejects wrong role/org or missing/foreign Course/Lesson; technical
+  ' load errors are grouped. No save request is sent if initial data cannot be verified.
+  Service -->> Controller: Lesson access or load error
+  deactivate Service
+  Controller -->> Gateway: 403 / 404 or load error
+  deactivate Controller
+  Gateway -->> Screen: Load error
+  deactivate Gateway
+  Screen -->> Instructor: Show load error and Back to Materials
+end
+deactivate Screen
+deactivate Instructor
+
+' BR-83/99/104/105/109: title repair and technical replacement can run on Locked Courses;
+' changing isRequired cannot. Both writes reject Submitted and non-writable/trash state.
+' BR-178: isRequired is stored only on Material; the detail API derives Lesson.required.
+' No Module/Lesson flag or Learner completion/progress write is introduced.
+' BR-126: physical resource key changes inside the SAME shared MediaFile; every referencing
+' version sees it. Only selected Course eligibility is checked, not every referencing Course.
+' BR-125 GAP: commitTechnicalReplacement has an explicit TODO at courses.repository.ts:2538.
+' No version-specific content replacement endpoint is implemented by this editor; never draw
+' a new MediaFile or a version-only Material.fileId reassignment as if that TODO executed.
+' BR-126/336 GAP: Service logs JSON action COURSE_MATERIAL_TECHNICAL_REPLACEMENT after commit;
+' there is no Audit Service call, durable audit row, Outbox insert or Kafka producer here.
+' Architecture describes browser-to-MinIO presigned transfers; current code instead forwards
+' multipart via Course Service to Cloudinary. No MinIO/presigned path is invented.
+' BR-187/188: replacement checks technical limits plus Active Subscription; net quota uses
+' used Ready/unreleased MediaFile bytes - old size + new size, under an organization quota lock.
+' Shared references are not joined into that sum; there is no purpose whitelist in it.
+' Cross-service policy fetch and Course DB commit are separate transactions.
+' Concurrent replacements use MediaFile row locking and expected old key; metadata and file
+' replacement are TWO HTTP operations and TWO independent transactions. A later PATCH failure
+' cannot undo an earlier successful technical replacement.
+' Old/new resource cleanup is best-effort, logged, without durable retry in this execution.
+' A failed upload before a key is returned may leave an unknown remote resource; browser timeout
+' does not prove backend cancellation/rollback. A mismatched/unconfirmed success response stops PATCH.
+' PDF wordCount/extractionWarning are returned by replacement; this UI does not display that warning.
+' Progress reaches 100% when browser transfer ends, not when provider validation/DB commit finishes.
+' No dedicated editability or upload-context request, storage file read, LearningClient,
+' notification, Assessment, OCR, new-material creation or user-triggered deletion is called.
+' Normal list loading after success is UC17 and is outside this diagram.
+@enduml

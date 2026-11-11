@@ -31,6 +31,29 @@ def self_call(alias: str, action: str) -> str:
 
 
 class ValidatorTests(unittest.TestCase):
+    def test_footbox_directive_is_optional_but_still_header_only(self):
+        text = diagram(CLOSE)
+        self.assertEqual(validate_text(text), [])
+        legacy = text.replace('@startuml', '@startuml\nhide footbox')
+        self.assertEqual(validate_text(legacy), [])
+        duplicate = legacy.replace('hide footbox', 'hide footbox\nhide footbox')
+        self.assertTrue(any('Allowed at most once' in error for error in validate_text(duplicate)))
+        late = text.replace(CLOSE, 'hide footbox\n' + CLOSE)
+        self.assertTrue(any('Header must precede messages' in error for error in validate_text(late)))
+
+    def test_bracketed_fragment_labels_are_rejected(self):
+        body = f'alt Lookup completed successfully\n{CLOSE}\nelse Lookup failed\nactivate EnrollmentHandler\n{CLOSE}\nend'
+        plain = diagram(body)
+        self.assertEqual(validate_text(plain), [])
+        for label in ('Lookup completed successfully', 'Lookup failed'):
+            with self.subTest(label=label):
+                bracketed = plain.replace(label, f'[{label}]')
+                self.assertTrue(any('without square brackets' in error for error in validate_text(bracketed)))
+        for kind in ('opt', 'loop', 'par'):
+            with self.subTest(kind=kind):
+                text = diagram(f'{kind} [Records available]\nend\n{CLOSE}')
+                self.assertTrue(any('without square brackets' in error for error in validate_text(text)))
+
     def test_balanced_paths_can_still_be_missing_rendered_else_activations(self):
         body = f'alt Lookup completed successfully\n{CLOSE}\nelse Lookup failed\n{CLOSE}\nend'
         self.assertTrue(any('Restore incoming activations' in error for error in validate_text(diagram(body))))
@@ -256,8 +279,8 @@ class ValidatorTests(unittest.TestCase):
         self.assertTrue(validate_text(diagram(CLOSE).replace('skinparam backgroundColor white', 'skinparam backgroundColor red')))
 
     def test_comment_does_not_satisfy_required_header(self):
-        text = diagram(CLOSE).replace('hide footbox', "' hide footbox")
-        self.assertTrue(any('hide footbox' in e for e in validate_text(text)))
+        text = diagram(CLOSE).replace('skinparam backgroundColor white', "' skinparam backgroundColor white")
+        self.assertTrue(any('Required exactly once: skinparam backgroundColor white' in e for e in validate_text(text)))
 
     def test_numbering_requires_bold_period_and_trailing_space(self):
         text = diagram(CLOSE)

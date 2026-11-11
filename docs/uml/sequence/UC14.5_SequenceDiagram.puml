@@ -1,0 +1,207 @@
+@startuml
+' UC14.5 - Xóa Course
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' AS-IS evidence; paths are relative to the workspace root.
+' Scope: confirmed soft deletion from an already loaded Instructor Course Detail page.
+' Authoritative UC/BR: docs/source-of-truth/LearnUP_UseCase.docx (UC14.5) and
+' docs/source-of-truth/LearnUP_QuyTacNghiepVu.docx (BR-89/90/340/341/95/96).
+' Architecture: docs/source-of-truth/LearnUP_Service_Architecture.docx sections 3.3, 3.4, 6.7.
+' No separate Database Guide was found; ownership checked against
+' docs/architecture/database-ownership.md, docs/database/LearningService_Database_Design.md
+' and the actual Prisma schemas. Specifications do not substitute for executed source.
+' UI: frontend/src/pages/instructor/course.detail.tsx:137 (handleSoftDelete), :140 (Modal.confirm),
+' :162 (DELETE), :170 (success/navigation), :329 (Draft/Rejected and !locked visibility).
+' Entry list: frontend/src/pages/instructor/my.courses.tsx:220 (View Details action).
+' The static course.delete.blocked.tsx page is not called by handleSoftDelete.
+' Wrapper: frontend/src/services/course.service.ts:225 (softDeleteCourseAPI).
+' Axios: frontend/src/services/axios.customize.ts:47, :61 and :64;
+' URL: frontend/src/config/env.ts:13; frontend/.env.development:10 = http://localhost:8080.
+' No frontend .env/.env.local/.env.development.local or process URL overrides found.
+' Local dev mode: frontend/package.json:7; frontend/vite.config.ts:11 loads env.
+' Gateway: gateway/api-gateway/src/main/resources/application.yml:42 (courses route), :45 (predicate).
+' Course prefix/version: services/course-service/src/main.ts:41 (api, URI v1).
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:276.
+' Service: services/course-service/src/modules/courses/courses.service.ts:1852 and :1864.
+' Repository: services/course-service/src/modules/courses/courses.repository.ts:1677.
+' Retention calculation: services/course-service/src/modules/courses/course-trash.constants.ts:28.
+' Hidden Learning adapter: services/course-service/src/infrastructure/clients/learning/learning.client.ts:100.
+' HTTP timeout: services/course-service/src/modules/courses/courses.module.ts:16 (5000 ms).
+' Direct Learning URL: services/course-service/.env:7 = http://localhost:8085.
+' Learning controller: services/learning-service/src/modules/enrollments/enrollments.controller.ts:106;
+' service: services/learning-service/src/modules/enrollments/enrollments.service.ts:481;
+' repository: services/learning-service/src/modules/enrollments/enrollments.repository.ts:141.
+' Learning bootstrap: services/learning-service/src/main.ts:12 -> src/app.setup.ts:30.
+' HTTP contracts: contracts/openapi/course-service.yaml:6; contracts/openapi/learning-service.yaml:9.
+' Models: services/course-service/prisma/schema.prisma:18 (CourseChain), :31 (Course);
+' services/learning-service/prisma/schema.prisma:10 (Enrollment).
+' Each PrismaService uses its own DATABASE_URL; local course_db and learning_db were verified.
+' Error UI: frontend/src/utils/course-trash.ts:45 and :91 handles resolved Axios error bodies.
+' Running servers and non-development deployment URLs have not been verified.
+
+actor Instructor
+boundary "Course Detail Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+participant ":EnrollmentsController" as EnrollmentsController
+participant ":EnrollmentsService" as EnrollmentsService
+participant ":EnrollmentsRepository" as EnrollmentsRepository
+database "course_db" as CourseDB
+database "learning_db" as LearningDB
+
+' Precondition: authenticated Instructor; Course details are already loaded.
+' My Courses selects View Details; that separate read operation is not replayed here.
+' UI shows Move to Trash only for Draft/Rejected and unlocked Courses.
+' Stale/direct requests can still reach backend business rejection outcomes.
+' JWT middleware and token refresh are preconditions, not the main deletion flow.
+activate Instructor
+Instructor -> Screen: Click Move to Trash
+activate Screen
+Screen -->> Instructor: Show confirmation\n7-day retention; quota remains in use
+Instructor -> Screen: Confirm Move to Trash
+' Cancel sends no DELETE; this diagram follows the confirmed interaction.
+Screen -> Gateway: DELETE /api/v1/courses/{courseId}
+activate Gateway
+Gateway -> Controller: DELETE /api/v1/courses/{courseId}\nTrusted userId, organizationId, role
+activate Controller
+Controller -> Service: softDelete(user, courseId)
+activate Service
+
+' Outcome-level alternative: success expands the actual guards, REST and transaction.
+' Failed attempts are summarized below without claiming successful writes or a
+' successful downstream HTTP reply after a timeout. This is not an extra future check.
+alt Course moved to Trash successfully
+  Service -> Service: requireInstructor(user)
+  activate Service
+  ' Requires role INSTRUCTOR and nonempty organizationId before asking Learning.
+  deactivate Service
+
+  ' LearningClient is a forwarding adapter, deliberately omitted as a lifeline.
+  ' Direct REST uses internal key and trusted user/organization/role headers.
+  ' Actual order: Enrollment history is checked BEFORE Course ownership/status lookup.
+  Service -> EnrollmentsController: GET /api/v1/enrollments/internal/courses/{courseId}/history
+  activate EnrollmentsController
+  EnrollmentsController -> EnrollmentsService: hasEverEnrollment(user, courseId)
+  activate EnrollmentsService
+  ' Controller requires INSTRUCTOR; service requires organizationId.
+  EnrollmentsService -> EnrollmentsRepository: hasEverEnrollment(organizationId, courseId)
+  activate EnrollmentsRepository
+  EnrollmentsRepository -> LearningDB: Find any Enrollment for this Course version\nCurrent organization; any lifecycle status
+  activate LearningDB
+  ' enrollment.findFirst selects id only. Completed/Withdrawn and all other statuses count.
+  ' This is a Course-version check, not a whole-chain check or an InProgress learner count.
+  LearningDB -->> EnrollmentsRepository: No Enrollment found
+  deactivate LearningDB
+  EnrollmentsRepository -->> EnrollmentsService: false
+  deactivate EnrollmentsRepository
+  EnrollmentsService -->> EnrollmentsController: hasEverEnrolled = false
+  deactivate EnrollmentsService
+  EnrollmentsController -->> Service: 200 OK - hasEverEnrolled = false
+  deactivate EnrollmentsController
+
+  Service -> Repository: softDeleteCourse(organizationId, instructorId, courseId)
+  activate Repository
+  Repository -> CourseDB: Begin transaction and lock owned Course\nCheck trash, Draft/Rejected and unlocked
+  activate CourseDB
+  ' SELECT joins courses to course_chains; filters c.id, c.organization_id,
+  ' cc.instructor_id and applies FOR UPDATE OF c. No lock on the chain row is taken here.
+  ' Under that lock, read status, lockedAt and deletedAt; reject missing/already trashed,
+  ' non-Draft/Rejected, or locked Course. Learning REST is not repeated inside this transaction.
+  CourseDB -->> Repository: Eligible Course; row lock held
+  Repository -> CourseDB: Set deletedAt and deletedBy\nPreserve status, structure and file references
+  ' Only soft-delete fields are explicitly changed; Prisma also maintains updatedAt.
+  CourseDB -->> Repository: Soft delete committed
+  deactivate CourseDB
+  Repository -->> Service: courseId, deletedAt and calculated purgeAt
+  deactivate Repository
+  ' getPurgeAt adds exactly 7*24 hours; purgeAt is computed, not a persisted Course column.
+  Service -->> Controller: Soft-delete result
+  deactivate Service
+  Controller -->> Gateway: 200 OK - Course moved to Trash
+  deactivate Controller
+  Gateway -->> Screen: courseId, deletedAt and purgeAt
+  deactivate Gateway
+  Screen -->> Instructor: Show success and open My Courses
+else Deletion eligibility failed
+  ' Restore the incoming executions closed by the preceding alternative.
+  activate Gateway
+  activate Controller
+  activate Service
+  ' Wrong role/missing organization:403 before REST.
+  ' History=true:409 COURSE_HAS_ENROLLMENT before any Course repository invocation.
+  ' With history=false, transaction rejects wrong owner/tenant/missing/already trashed:404
+  ' COURSE_NOT_FOUND; wrong status:409 COURSE_NOT_DELETABLE; locked:409 COURSE_LOCKED.
+  ' These failed transaction attempts may read/lock a Course, but do not update deletedAt.
+  ' Existing enrollment history can take precedence over a later ownership/404 check.
+  Service -->> Controller: Access, Course or Enrollment conflict
+  deactivate Service
+  Controller -->> Gateway: 403 / 404 / 409 with business error
+  deactivate Controller
+  Gateway -->> Screen: Deletion error
+  deactivate Gateway
+  Screen -->> Instructor: Show mapped error and keep Course detail
+else Enrollment verification failed
+  activate Gateway
+  activate Controller
+  activate Service
+  ' Same REST attempt: non-2xx, invalid hasEverEnrolled boolean, transport failure,
+  ' or 5000 ms timeout. LearningClient fails closed; no retry and no false fallback.
+  ' No successful downstream execution, cancellation or reply after timeout is assumed.
+  ' Repository.softDeleteCourse is never called on this path.
+  Service -->> Controller: ENROLLMENT_CHECK_UNAVAILABLE
+  deactivate Service
+  Controller -->> Gateway: 503 Service Unavailable
+  deactivate Controller
+  Gateway -->> Screen: Enrollment verification error
+  deactivate Gateway
+  Screen -->> Instructor: Show verification error and keep Course detail
+end
+deactivate Screen
+deactivate Instructor
+
+' UI success navigates to /instructor/courses; it does not optimistically remove a row.
+' The following My Courses load is UC14, outside this diagram. Its actual findAll
+' predicate includes deletedAt:null (courses.service.ts:83); its successful result
+' therefore excludes this Course. A later list-load failure is not a failed DELETE.
+' On failure the modal onOk catches the error rather than rethrowing it; there is no
+' navigation to course.delete.blocked.tsx and no automatic Course/detail reload.
+' getCourseApiErrorCode understands error.code in resolved Axios bodies and maps the
+' deletion error to a user message; the finally block resets deleting in all cases.
+' BR-89/95/96: Draft/Rejected and chain owner/organization are enforced; any retained
+' Enrollment row in the current organization/version blocks deletion. Code also rejects Locked.
+' Enrollment REST precedes the Course transaction; it is not a cross-database transaction.
+' FOR UPDATE OF c serializes changes using that Course row lock; the ownership read
+' is through the chain join, not a separate lock on course_chains.
+' BR-340: status/rejectionReason remain unchanged; deletedAt marks Trash, deletedBy is stored,
+' and purgeAt represents the 7-day recovery deadline. Repeating DELETE is not idempotent
+' success: with history=false an already trashed Course maps to COURSE_NOT_FOUND (404).
+' BR-90: no CourseChain or MediaFile is deleted/released by this operation. Actual usage
+' at internal-courses/internal-courses.service.ts:344 counts chains with any Course,
+' including trashed ones, and Ready/unreleased MediaFile bytes, retaining quota/storage.
+' Architecture section 6.7 broadly names CourseDeleted under UC14.5. Actual softDeleteCourse
+' writes no Outbox or event; CourseDeleted is created in the separate permanent-delete
+' transaction (courses.repository.ts:2063), consistent with the UC/BR trash-versus-purge split.
+' No audit/notification call or Outbox insert exists in this soft-delete execution.
+' Missing named Database Guide limits document cross-checking; service-owned Prisma
+' schemas, the Learning database design and the checked REST contracts are the DB evidence.
+' UUID validation (400), ordinary auth rejection and unexpected DB/transport failures
+' are technical errors omitted from the expanded business alternatives; no write success assumed.
+' Restore, permanent deletion, 7-day purge scheduler, storage/quota release, Quiz/Assignment
+' deletion and all Assessment/storage/Kafka work are outside UC14.5 and are not drawn.
+@enduml

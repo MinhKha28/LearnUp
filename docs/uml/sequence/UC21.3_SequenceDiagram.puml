@@ -1,0 +1,177 @@
+@startuml
+' UC21.3 - Phê duyệt Course
+autonumber "<b>0.</b> "
+hide footbox
+skinparam backgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam BoundaryBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam LifeLineBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam ArrowColor black
+skinparam ParticipantBorderColor black
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam MaxMessageSize 200
+
+' Scope: docs/source-of-truth/LearnUP_UseCase.docx, UC21.3, row 75.
+' BR-79/80/83/84/86/87/128/134/135 read from LearnUP_QuyTacNghiepVu.docx.
+' Precondition: authenticated Organizer has loaded a Submitted Course review.
+' UI: frontend/src/pages/organizer/course.review.tsx:333/340, canDecide/handleDecision.
+' Decision requires loaded Course, no Assessment error and no decision in flight.
+' Approve/Reject confirmation modals are in the same React screen, not new boundaries.
+' API wrappers: frontend/src/services/course.service.ts:313/318.
+' Transport: services/axios.customize.ts:64 -> config/env.ts:13.
+' frontend/.env.development:10 sets Course URL http://localhost:8080.
+' No active local file/process Course URL override was present at inspection time.
+' Gateway application.yml:45 routes /api/v1/courses/**; main.ts:41-44 enables api/v1.
+' Controller: services/course-service/src/modules/courses/courses.controller.ts:312/321.
+' Service: courses.service.ts:2595/2622; Repository: courses.repository.ts:1500.
+' Persistence: CourseChain/Course/OutboxEvent in services/course-service/prisma/schema.prisma.
+' Source/config AS-IS only: deployed migration state, broker health and delivery unverified.
+' hide footbox is retained as explicitly requested; the known draw.io converter may ignore it.
+
+actor "Organizer" as Organizer
+boundary "Review Course Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":CoursesController" as Controller
+participant ":CoursesService" as Service
+participant ":CoursesRepository" as Repository
+database "course_db" as CourseDB
+
+activate Organizer
+Organizer -> Screen : Choose Approve or Reject
+activate Screen
+Screen -->> Organizer : Show confirmation\nRequest a reason for Reject
+Organizer -> Screen : Confirm decision
+
+' Outcome-level frame: success expands actual requests/transaction; failures stop at
+' their real UI, DTO, Service or guarded DB check, summarized in the failed operand.
+alt Decision completed successfully
+  alt Approval completed successfully
+    Screen -> Gateway : POST /api/v1/courses/:courseId/approve
+    activate Gateway
+    Gateway -> Controller : POST /api/v1/courses/:courseId/approve\nTrusted Organizer and organization context
+    activate Controller
+    Controller -> Service : approveCourse(user, courseId)
+    activate Service
+    ' requireOrganizerReview:2584 checks ORGANIZER and nonempty organizationId.
+    Service -> Repository : decideCourse(courseId, organizationId, organizerId, APPROVE)
+    activate Repository
+    ' One Prisma transaction: find non-trashed Course in tenant, lock its chain FOR UPDATE,
+    ' reread Course after lock, require Submitted, then mutate and insert Outbox.
+    Repository -> CourseDB : Find Course, lock its chain and reread status\nSame organization; Course not in trash
+    activate CourseDB
+    CourseDB -->> Repository : Submitted Course and current chain Instructor
+    deactivate CourseDB
+    ' BR-128: update only OTHER non-trashed Published versions in the same chain.
+    ' No Published predecessor is valid (updateMany matches zero). Disabled stays Disabled.
+    ' Archive first, then guarded update of current Course where status=Submitted.
+    ' Set publishedAt; clear rejectedAt/rejectionReason. Do not invent status Approved.
+    Repository -> CourseDB : Archive prior Published; publish current Course\nInsert CoursePublished in the same transaction
+    activate CourseDB
+    CourseDB -->> Repository : Updated status and pending outbox event
+    deactivate CourseDB
+    Repository -> CourseDB : Read persisted decision result
+    activate CourseDB
+    CourseDB -->> Repository : Course with status Published
+    deactivate CourseDB
+    ' Transaction commits before this reply. The event includes current chain Instructor ID.
+    Repository -->> Service : SUCCESS; committed Published Course
+    deactivate Repository
+    Service -->> Controller : Published Course
+    deactivate Service
+    Controller -->> Gateway : 201 Created; Published Course
+    deactivate Controller
+    Gateway -->> Screen : Published Course
+    deactivate Gateway
+    Screen -->> Organizer : Show "Course approved successfully."
+
+  else Rejection completed successfully
+    ' The first operand closed all backend bars; only Organizer/Screen remain active.
+    ' UI and Service trim reason and require 1-1000 characters; DTO also validates it.
+    Screen -> Gateway : POST /api/v1/courses/:courseId/reject\nRejection reason
+    activate Gateway
+    Gateway -> Controller : POST /api/v1/courses/:courseId/reject\nReason and trusted Organizer context
+    activate Controller
+    Controller -> Service : rejectCourse(user, courseId, dto)
+    activate Service
+    Service -> Repository : decideCourse(courseId, organizationId, organizerId,\nREJECT, trimmed reason)
+    activate Repository
+    Repository -> CourseDB : Find Course, lock its chain and reread status\nSame organization; Course not in trash
+    activate CourseDB
+    CourseDB -->> Repository : Submitted Course and current chain Instructor
+    deactivate CourseDB
+    ' Guarded update where status=Submitted; set rejectedAt/rejectionReason.
+    ' Reject does not archive an existing Published version.
+    Repository -> CourseDB : Set Rejected and rejection reason\nInsert CourseRejected in the same transaction
+    activate CourseDB
+    CourseDB -->> Repository : Updated status and pending outbox event
+    deactivate CourseDB
+    Repository -> CourseDB : Read persisted decision result
+    activate CourseDB
+    CourseDB -->> Repository : Course with status Rejected and reason
+    deactivate CourseDB
+    Repository -->> Service : SUCCESS; committed Rejected Course
+    deactivate Repository
+    Service -->> Controller : Rejected Course with reason
+    deactivate Service
+    Controller -->> Gateway : 201 Created; Rejected Course
+    deactivate Controller
+    Gateway -->> Screen : Rejected Course
+    deactivate Gateway
+    Screen -->> Organizer : Show "Course rejected successfully."
+  end
+
+  ' UI verifies 2xx + matching id + expected Published/Rejected before success.
+  ' It clears decisionOpen/rejectionReason and navigates with replace=true.
+  Screen -->> Organizer : Open /organizer/courses/approvals
+  deactivate Screen
+  deactivate Organizer
+
+  ' Background relay/publish/ACK/retry is intentionally omitted from this UC diagram.
+  ' CoursePublished/CourseRejected remains in the same transaction as the decision.
+  ' HTTP success does not confirm notification/email delivery.
+
+else Decision failed: invalid input, access or concurrent change
+  ' Restore the same Organizer/Screen executions closed in the successful operand.
+  activate Organizer
+  activate Screen
+  ' Invalid Reject input: UI warning and no HTTP request; button is disabled for bad reason.
+  ' handleDecision additionally shows "Please enter a rejection reason (up to 1,000 characters)."
+  ' Direct requests are also checked by RejectCourseDto and Service (400).
+  ' 403 FORBIDDEN: not Organizer / no organization context; no repository write.
+  ' 404 COURSE_NOT_FOUND: absent Course, wrong tenant, trash or absent scoped chain.
+  ' 409 COURSE_NOT_SUBMITTED: non-Submitted or lost conditional update after a race.
+  ' Failed-request internals are summarized instead of replaying successful DB writes.
+  ' If guarded current update matches zero, CourseDecisionConcurrentChange is thrown.
+  ' Transaction rollback includes any predecessor archive and Outbox; Service returns 409.
+  ' Other PostgreSQL/Outbox errors propagate as server errors, not a fabricated 409.
+  Screen -->> Organizer : Show validation, status or access error\nKeep review page open
+  ' UI 409: "This Course has changed status. Refresh the review list."
+  ' UI 401/403: "You do not have access to make this decision."
+  ' Other HTTP/invalid payload: "Unable to process this Course. Please try again."
+  ' Thrown transport: "Unable to reach Course Service. Please try again."
+  ' Failure does not navigate, auto-reload review or claim a successful decision.
+  deactivate Screen
+  deactivate Organizer
+end
+
+' GAP BR-84 / UC21.3: no implemented Instructor notification delivery found.
+' NotificationClient is not called by approveCourse/rejectCourse.
+' Notification Service CourseSubmittedEventParser:30 ignores event types other than
+' CourseSubmitted; no CoursePublished/CourseRejected handler/consumer was found there.
+' Persisted != broker-acknowledged != notified; do not draw email/in-app delivered.
+' PostgreSQL and Kafka publication are separate commits; delivery is at least once.
+' BR-134 migration 20261110193000_one_published_course_per_chain adds a partial unique
+' index on chain_id for non-trashed Published versions; deployed application is unverified.
+' BR-135 is an authoring/version-creation invariant; this UC does not create a version
+' and its decision code alone does not prove enforcement across all authoring paths.
+' Approval mutates only Course lifecycle fields, prior Published rows and Outbox.
+' No Locked mutation, Enrollment migration, Assessment copy, Tenant lookup or audit call.
+' No additional CourseArchived event is inserted for the predecessor in this transaction.
+' Excluded: UC21.2 review load, UC20 submit, UC20.1 withdraw, assignment/transfer actions.
+' Concurrency conclusions are from code and migration evidence, not live integration tests.
+@enduml
