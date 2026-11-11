@@ -36,18 +36,15 @@ export const planErrorMessage = (
   status: number,
   code: string | undefined,
 ): string => {
-  if (code === "PLAN_NAME_TAKEN")
-    return "A plan with this name already exists.";
+  if (code === "PLAN_NAME_TAKEN") return "Đã có gói trùng tên này.";
   if (status === 400)
-    return "Some values are not valid. Please check the form.";
+    return "Một số giá trị chưa hợp lệ. Hãy kiểm tra lại biểu mẫu.";
   if (status === 401 || status === 403)
-    return "Only platform Admins can manage Subscription Plans.";
-  return "Could not save the plan. Please try again later.";
+    return "Chỉ Quản trị viên nền tảng mới quản lý được các gói.";
+  return "Chưa lưu được gói. Vui lòng thử lại sau.";
 };
 
 export const organizationsUsingLabel = (count: number): string =>
   count === 0
-    ? "No Organization is using this plan"
-    : count === 1
-      ? "1 Organization currently using"
-      : `${count} Organizations currently using`;
+    ? "Chưa có tổ chức nào dùng gói này"
+    : `${count} tổ chức đang dùng`;

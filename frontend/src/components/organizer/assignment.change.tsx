@@ -8,6 +8,7 @@ import { toApiError } from "@/services/api.client";
 import {
   exemptAssignment,
   extendAssignment,
+  removeAssignmentExemption,
 } from "@/services/assignment.service";
 import type { ApiError } from "@/types/api.types";
 import type { AssignmentDetail } from "@/types/assignment.types";
@@ -22,6 +23,14 @@ import { assignmentDueDate, assignmentExtensionDeadline } from "@/utils/assignme
 import { formatTimezone, isSameZone } from "@/utils/timezone.format";
 import "./assignment.change.scss";
 
+const actionLabels = {
+  extend: "Kéo dài hạn",
+  exempt: "Đánh dấu Miễn",
+  removeExemption: "Gỡ Miễn",
+};
+
+type Mode = keyof typeof actionLabels;
+
 export const AssignmentChange = ({
   item,
   onChanged,
@@ -33,7 +42,7 @@ export const AssignmentChange = ({
   onConflict: (error: ApiError) => void;
   onReload: () => void;
 }) => {
-  const [mode, setMode] = useState<"extend" | "exempt" | null>(null);
+  const [mode, setMode] = useState<Mode | null>(null);
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -47,7 +56,7 @@ export const AssignmentChange = ({
     : new Date();
   const showSummaryZones = Boolean(item.organizationTimezone && item.dueTimezone &&
     !isSameZone(item.organizationTimezone, item.dueTimezone));
-  const open = (value: "extend" | "exempt") => {
+  const open = (value: Mode) => {
     setError(null);
     form.resetFields();
     setMode(value);
@@ -55,30 +64,35 @@ export const AssignmentChange = ({
   const submit = async () => {
     if (submitting.current || !mode) return;
     submitting.current = true;
-    let values;
-    try {
-      values = await form.validateFields();
-    } catch {
+    const values = mode === "removeExemption" ? null : await form.validateFields().catch(() => null);
+    if (mode !== "removeExemption" && !values) {
       submitting.current = false;
       return;
     }
     setPending(true);
     setError(null);
     try {
-      const reason = (values.reason ?? "").normalize("NFC").trim();
-      const result =
-        mode === "extend"
+      let result: AssignmentDetail;
+      if (mode === "removeExemption") {
+        result = await removeAssignmentExemption(item.enrollmentId);
+      } else {
+        if (!values) return;
+        const reason = (values.reason ?? "").normalize("NFC").trim();
+        result = mode === "extend"
           ? await extendAssignment(
               item.enrollmentId,
               values.newDueDate.format("YYYY-MM-DD"),
               reason,
             )
           : await exemptAssignment(item.enrollmentId, reason);
+      }
       onChanged(result);
       setMode(null);
-      void notice.success(
-        mode === "extend" ? "Đã kéo dài hạn." : "Đã đánh dấu Miễn.",
-      );
+      void notice.success({
+        extend: "Đã kéo dài hạn.",
+        exempt: "Đã đánh dấu Miễn.",
+        removeExemption: "Đã gỡ miễn.",
+      }[mode]);
     } catch (cause) {
       const apiError = toApiError(cause);
       if (
@@ -94,6 +108,7 @@ export const AssignmentChange = ({
           },
         ]);
       } else if (
+        (mode === "removeExemption" && apiError.status === 409) ||
         ["ENROLLMENT_NOT_EXTENDABLE", "ENROLLMENT_NOT_EXEMPTIBLE"].includes(
           apiError.code,
         )
@@ -119,8 +134,13 @@ export const AssignmentChange = ({
           Đánh dấu Miễn
         </Button>
       )}
+      {item.status === "Exempted" && (
+        <Button disabled={pending} onClick={() => open("removeExemption")}>
+          Gỡ Miễn
+        </Button>
+      )}
       <Modal
-        title={mode === "extend" ? "Kéo dài hạn" : "Đánh dấu Miễn"}
+        title={mode ? actionLabels[mode] : undefined}
         open={mode !== null}
         onCancel={() => {
           if (!submitting.current) setMode(null);
@@ -135,14 +155,20 @@ export const AssignmentChange = ({
             <Button
               type="primary"
               loading={pending}
+              disabled={pending}
               onClick={submit}
             >
-              {mode === "extend" ? "Kéo dài hạn" : "Đánh dấu Miễn"}
+              {mode && actionLabels[mode]}
             </Button>
           </>
         }
       >
         {error && <AssignmentError error={error} retry={submit} />}
+        {mode === "removeExemption" && (
+          <p>
+            Gỡ miễn cho học viên này? Hạn hoàn thành sẽ được dời thêm theo thời gian được miễn.
+          </p>
+        )}
         {mode === "exempt" && (
           <Alert
             type="info"
@@ -212,30 +238,32 @@ export const AssignmentChange = ({
               />
             </Form.Item>
           )}
-          <Form.Item
-            name="reason"
-            label={
-              mode === "exempt" ? "Lý do (bắt buộc)" : "Lý do (không bắt buộc)"
-            }
-            rules={[
-              {
-                validator: (_, value: string | undefined) => {
-                  const reason = (value ?? "").normalize("NFC").trim();
-                  if (mode === "exempt" && reason.length === 0)
-                    return Promise.reject(
-                      new Error(
-                        "Hãy nhập lý do từ 1 đến 1000 ký tự sau khi cắt khoảng trắng hai đầu.",
-                      ),
-                    );
-                  return reason.length > 1000
-                    ? Promise.reject(new Error("Lý do tối đa 1000 ký tự."))
-                    : Promise.resolve();
+          {mode !== "removeExemption" && (
+            <Form.Item
+              name="reason"
+              label={
+                mode === "exempt" ? "Lý do (bắt buộc)" : "Lý do (không bắt buộc)"
+              }
+              rules={[
+                {
+                  validator: (_, value: string | undefined) => {
+                    const reason = (value ?? "").normalize("NFC").trim();
+                    if (mode === "exempt" && reason.length === 0)
+                      return Promise.reject(
+                        new Error(
+                          "Hãy nhập lý do từ 1 đến 1000 ký tự sau khi cắt khoảng trắng hai đầu.",
+                        ),
+                      );
+                    return reason.length > 1000
+                      ? Promise.reject(new Error("Lý do tối đa 1000 ký tự."))
+                      : Promise.resolve();
+                  },
                 },
-              },
-            ]}
-          >
-            <Input.TextArea rows={4} maxLength={1000} showCount />
-          </Form.Item>
+              ]}
+            >
+              <Input.TextArea rows={4} maxLength={1000} showCount />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
     </>

@@ -17,26 +17,26 @@ describe("UC10.1 renewal view", () => {
         },
       ]),
     ).toEqual([
-      "Learners: using 120, new limit 100",
-      "Storage: using 60 GB, new limit 50 GB",
+      "Số học viên: đang dùng 120, giới hạn mới 100",
+      "Dung lượng lưu trữ: đang dùng 60 GB, giới hạn mới 50 GB",
     ]);
     expect(exceededLimitLines([])).toEqual([]);
   });
 
   it("explains when the new term starts for each status", () => {
-    expect(renewalTermNote("Active")).toContain("starts when it expires");
-    expect(renewalTermNote("Grace")).toContain("old expiry date");
-    expect(renewalTermNote("Suspended")).toContain("payment date");
+    expect(renewalTermNote("Active")).toContain("khi kỳ hiện tại hết hạn");
+    expect(renewalTermNote("Grace")).toContain("ngày hết hạn cũ");
+    expect(renewalTermNote("Suspended")).toContain("ngày thanh toán");
   });
 
   it("maps backend errors without raw codes", () => {
     expect(renewalErrorMessage("RENEWAL_ALREADY_SCHEDULED")).toContain(
-      "already paid",
+      "được thanh toán",
     );
     expect(renewalErrorMessage("SOMETHING_NEW")).not.toContain("SOMETHING_NEW");
-    expect(renewalErrorMessage(undefined)).toContain("try again later");
+    expect(renewalErrorMessage(undefined)).toContain("thử lại sau");
     expect(renewalErrorMessage("RENEWAL_NOT_APPLIED")).toContain(
-      "Do not pay again",
+      "Đừng thanh toán lần nữa",
     );
   });
 });

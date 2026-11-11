@@ -22,12 +22,12 @@ const ChangePassword = () => {
   return (
     <OrganizerPage className="organizer-change-password">
       <PageHeader
-        title="Change Password"
-        subtitle="Verify your current password before setting a new one."
+        title="Đổi mật khẩu"
+        subtitle="Xác minh mật khẩu hiện tại trước khi đặt mật khẩu mới."
         back
       />
       <div className="organizer-password-grid">
-        <SectionCard title="Password settings">
+        <SectionCard title="Thiết lập mật khẩu">
           {error && <Alert type="error" showIcon message={error} role="alert" />}
           <Form<ChangePasswordFields>
             className="organizer-form"
@@ -36,14 +36,14 @@ const ChangePassword = () => {
             onFinish={submit}
             onValuesChange={clearError}
           >
-            <Form.Item label="Current password" name="current" rules={currentPasswordRules}>
+            <Form.Item label="Mật khẩu hiện tại" name="current" rules={currentPasswordRules}>
               <Input.Password />
             </Form.Item>
-            <Form.Item label="New password" name="password" dependencies={["current"]} rules={newPasswordRules}>
+            <Form.Item label="Mật khẩu mới" name="password" dependencies={["current"]} rules={newPasswordRules}>
               <Input.Password />
             </Form.Item>
             <Form.Item
-              label="Confirm new password"
+              label="Nhập lại mật khẩu mới"
               name="confirm"
               dependencies={["password"]}
               rules={confirmPasswordRules}
@@ -51,26 +51,26 @@ const ChangePassword = () => {
               <Input.Password />
             </Form.Item>
             <div className="organizer-form-actions">
-              <OrganizerButton onClick={() => navigate(-1)}>Cancel</OrganizerButton>
+              <OrganizerButton onClick={() => navigate(-1)}>Hủy</OrganizerButton>
               <OrganizerButton type="primary" htmlType="submit" loading={submitting}>
-                Update password
+                Cập nhật mật khẩu
               </OrganizerButton>
             </div>
           </Form>
         </SectionCard>
         <aside className="organizer-password-rules">
-          <h2>Account access</h2>
+          <h2>Truy cập tài khoản</h2>
           <p>
-            <CheckCircleOutlined /> Organizer uses email + password
+            <CheckCircleOutlined /> Quản lý đào tạo đăng nhập bằng email và mật khẩu
           </p>
           <p>
-            <CheckCircleOutlined /> Google login does not apply to Organizer
+            <CheckCircleOutlined /> Có thể đăng nhập bằng Google nếu email Google trùng email tài khoản
           </p>
           <p>
-            <CheckCircleOutlined /> Password recovery uses the registered email
+            <CheckCircleOutlined /> Khôi phục mật khẩu qua email đã đăng ký
           </p>
           <p>
-            <CheckCircleOutlined /> After the change you sign in again on every device
+            <CheckCircleOutlined /> Sau khi đổi, bạn cần đăng nhập lại trên mọi thiết bị
           </p>
         </aside>
       </div>

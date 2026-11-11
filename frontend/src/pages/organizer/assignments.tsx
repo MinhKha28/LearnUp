@@ -5,6 +5,7 @@ import { InfoCircleOutlined } from "@ant-design/icons";
 import { assignmentDateOnly, assignmentDueDate, assignmentDueNote } from "@/utils/assignment.date";
 import { useEffect } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { AssignmentFilterBar } from "@/components/organizer/assignment.filters";
 import { AssignmentError } from "@/components/organizer/assignment.error";
 import {
   OrganizerPage,
@@ -14,7 +15,7 @@ import {
 } from "@/components/organizer/organizer.ui";
 import { useApiQuery } from "@/hooks/use.api.query";
 import { fetchAssignments } from "@/services/assignment.service";
-import type { Assignment } from "@/types/assignment.types";
+import type { Assignment, AssignmentFilters } from "@/types/assignment.types";
 import {
   assignmentStatus,
 } from "@/utils/assignments.view";
@@ -27,9 +28,27 @@ const Assignments = () => {
   const summary = (location.state as { assignmentSummary?: string } | null)
     ?.assignmentSummary;
   const page = parsePageParam(params.get("page")) ?? 1;
+  const filters: AssignmentFilters = {
+    learner: params.get("learner") ?? undefined,
+    course: params.get("course") ?? undefined,
+    status: (params.get("status") as AssignmentFilters["status"]) ?? undefined,
+    dueFrom: params.get("dueFrom") ?? undefined,
+    dueTo: params.get("dueTo") ?? undefined,
+  };
+  const filterKey = JSON.stringify(filters);
+  const hasFilters = Object.values(filters).some((value) => value !== undefined);
+  const applyFilters = (next: AssignmentFilters) => {
+    const search = new URLSearchParams({ page: "1" });
+    for (const [name, value] of Object.entries(next)) {
+      if (value) search.set(name, value);
+    }
+    if (search.toString() === params.toString()) query.reload();
+    else setParams(search);
+  };
+  const clearFilters = () => applyFilters({});
   const query = useApiQuery(
-    (signal) => fetchAssignments(page, signal),
-    [page],
+    (signal) => fetchAssignments(page, filters, signal),
+    [page, filterKey],
     true,
   );
   const lastPage =
@@ -38,7 +57,11 @@ const Assignments = () => {
       : null;
   useEffect(() => {
     if (lastPage !== null && page > lastPage)
-      setParams({ page: String(lastPage) }, { replace: true });
+      setParams((current) => {
+        const next = new URLSearchParams(current);
+        next.set("page", String(lastPage));
+        return next;
+      }, { replace: true });
   }, [lastPage, page, setParams]);
   const columns: ColumnsType<Assignment> = [
     {
@@ -107,7 +130,7 @@ const Assignments = () => {
       className: "organizer-assignment-nowrap",
       width: "1%",
       render: (_, row) => (
-        <Link to={`/organizer/assignments/${row.enrollmentId}?page=${page}`}>
+        <Link to={`/organizer/assignments/${row.enrollmentId}?page=${page}`} state={{ assignmentListSearch: params.toString() }}>
           Xem chi tiết
         </Link>
       ),
@@ -126,11 +149,23 @@ const Assignments = () => {
         }
       />
       <SectionCard>
+        <AssignmentFilterBar key={filterKey} filters={filters} apply={applyFilters} clear={clearFilters} />
         {query.status === "error" ? (
-          <AssignmentError error={query.error} retry={query.reload} />
+          query.error.status === 400 && query.error.code !== "INVALID_DUE_DATE_RANGE" ? (
+            <Alert type="error" showIcon message="Bộ lọc không hợp lệ. Vui lòng kiểm tra từ khóa, tình trạng và ngày." />
+          ) : (
+            <AssignmentError
+              error={query.error}
+              retry={query.error.status === 400 || query.error.code === "SEARCH_TOO_BROAD" ? undefined : query.reload}
+            />
+          )
         ) : !query.data ? (
           <Skeleton active />
-        ) : query.data.total === 0 ? (
+        ) : query.status === "success" && query.data.total === 0 && hasFilters ? (
+          <Empty description="Không có phân công phù hợp với bộ lọc">
+            <Button onClick={clearFilters}>Xóa bộ lọc</Button>
+          </Empty>
+        ) : query.status === "success" && query.data.total === 0 ? (
           <Empty description="Chưa có phân công Khóa học nào">
             <Link to="/organizer/assignments/assign">
               <Button type="primary">Phân công Khóa học</Button>
@@ -142,13 +177,17 @@ const Assignments = () => {
             columns={columns}
             dataSource={query.data.items}
             loading={query.status === "loading"}
-            scroll={{ x: true }}
+            scroll={{ x: 760 }}
             pagination={{
               current: page,
               pageSize: 20,
               total: query.data.total,
               showSizeChanger: false,
-              onChange: (value) => setParams({ page: String(value) }),
+              onChange: (value) => {
+                const next = new URLSearchParams(params);
+                next.set("page", String(value));
+                setParams(next);
+              },
               locale: {
                 ...viVN.Pagination,
                 items_per_page: "/ trang",

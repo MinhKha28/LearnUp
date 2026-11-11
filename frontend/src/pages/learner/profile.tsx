@@ -7,7 +7,13 @@ import {
   SectionCard,
   StatusTag,
 } from "@/components/learner/learner.ui";
-import { initialsOf, statusTone, useMyProfile } from "@/hooks/use.my.profile";
+import {
+  initialsOf,
+  statusLabel,
+  statusTone,
+  useMyProfile,
+} from "@/hooks/use.my.profile";
+import { roleLabel } from "@/utils/helper";
 import "./profile.scss";
 
 const Profile = () => {
@@ -17,12 +23,12 @@ const Profile = () => {
   return (
     <LearnerPage className="learner-profile">
       <PageHeader
-        eyebrow="ACCOUNT / PROFILE"
-        title="My Profile"
-        subtitle="View and manage your account information."
+        eyebrow="Tài khoản / Hồ sơ"
+        title="Hồ sơ của tôi"
+        subtitle="Xem và quản lý thông tin tài khoản của bạn."
         actions={
           <LearnerButton type="primary" onClick={() => navigate("edit")}>
-            Edit profile
+            Sửa hồ sơ
           </LearnerButton>
         }
       />
@@ -35,45 +41,45 @@ const Profile = () => {
           <div>
             <h2>{profile?.fullName}</h2>
             <StatusTag tone={statusTone(profile?.status)}>
-              {profile?.status}
+              {statusLabel(profile?.status)}
             </StatusTag>
           </div>
         </div>
         <div className="learner-profile-table">
           <div className="learner-profile-row learner-profile-head">
-            <span>Field</span>
-            <span>Value</span>
+            <span>Thông tin</span>
+            <span>Giá trị</span>
           </div>
           <div className="learner-profile-row">
-            <span>Email address</span>
+            <span>Địa chỉ email</span>
             <span>{profile?.email}</span>
           </div>
           <div className="learner-profile-row">
-            <span>Role</span>
-            <span>{profile?.role}</span>
+            <span>Vai trò</span>
+            <span>{profile?.role ? roleLabel(profile.role) : ""}</span>
           </div>
           <div className="learner-profile-row">
-            <span>Organization</span>
+            <span>Tổ chức</span>
             <span>{profile?.organizationName}</span>
           </div>
           <div className="learner-profile-row">
-            <span>Department</span>
-            <span>{profile?.department ?? "Not set"}</span>
+            <span>Đơn vị công tác</span>
+            <span>{profile?.department ?? "Chưa có"}</span>
           </div>
         </div>
       </SectionCard>
       <SectionCard className="learner-profile-security">
         <div className="learner-profile-security-row">
           <div>
-            <h2>Security</h2>
-            <strong>Change your password</strong>
+            <h2>Bảo mật</h2>
+            <strong>Đổi mật khẩu của bạn</strong>
           </div>
           <LearnerButton onClick={() => navigate("change-password")}>
-            Change password
+            Đổi mật khẩu
           </LearnerButton>
         </div>
         <p className="learner-profile-note">
-          Your login email cannot be changed in your own profile.
+          Bạn không tự đổi được email đăng nhập trong hồ sơ.
         </p>
       </SectionCard>
       <button
@@ -81,7 +87,7 @@ const Profile = () => {
         type="button"
         onClick={() => navigate("/learner/subscription-suspended")}
       >
-        Preview: Organization subscription suspended state
+        Xem trước: trạng thái gói dịch vụ của tổ chức đang tạm ngưng
       </button>
     </LearnerPage>
   );

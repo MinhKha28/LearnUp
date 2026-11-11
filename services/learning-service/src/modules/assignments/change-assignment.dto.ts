@@ -1,3 +1,4 @@
+import { HttpException, Injectable, type PipeTransform } from '@nestjs/common';
 import { Transform } from 'class-transformer';
 import {
   IsDateString,
@@ -22,6 +23,27 @@ export class ExtendAssignmentDto {
   @IsString()
   @MaxLength(1000)
   reason?: string;
+}
+
+@Injectable()
+export class RemoveExemptionBodyPipe implements PipeTransform<unknown, void> {
+  transform(body: unknown): void {
+    if (
+      body !== undefined &&
+      (body === null ||
+        typeof body !== 'object' ||
+        Array.isArray(body) ||
+        Object.keys(body).length)
+    ) {
+      throw new HttpException(
+        {
+          code: 'VALIDATION_ERROR',
+          message: 'Gỡ miễn không nhận dữ liệu bổ sung.',
+        },
+        422,
+      );
+    }
+  }
 }
 
 export class ExemptAssignmentDto {

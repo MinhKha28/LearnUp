@@ -15,6 +15,9 @@ import {
   TenantOrganizationNotFoundError,
   type TenantClient,
 } from '../../infrastructure/clients/tenant/tenant.client';
+import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
+import { CourseServiceError } from '../../infrastructure/clients/course/course-service.errors';
+import { requestCompletion } from '../course-completion/completion-request';
 import { serviceUnavailable } from '../../infrastructure/clients/course/service-unavailable';
 import {
   BaseDueAtRepository,
@@ -24,6 +27,7 @@ import { AssignmentChangesRepository } from './assignment-changes.repository';
 import { AssignmentReadsService } from './assignment-reads.service';
 import {
   assertExemptible,
+  assertExemptionRemovable,
   assertExtendable,
   validateExtension,
 } from './assignment-change-rules';
@@ -42,6 +46,7 @@ export class AssignmentChangesService {
     private readonly reads: AssignmentReadsService,
     private readonly deadlines: BaseDueAtRepository,
     @Inject(TENANT_CLIENT) private readonly tenant: TenantClient,
+    private readonly courses: CourseServiceClient,
   ) {}
 
   private async access(user: CurrentUser) {
@@ -167,6 +172,34 @@ export class AssignmentChangesService {
       throw error;
     }
     return this.reads.detail(user, id);
+  }
+
+  async removeExemption(user: CurrentUser, id: string) {
+    const { organizationId } = await this.access(user);
+    const candidate = await this.changes.find(organizationId, id);
+    if (!candidate) throw this.notFound();
+    assertExemptionRemovable(candidate.status);
+
+    let disabled: boolean;
+    try {
+      const tree = await this.courses.getCourseTree(user, candidate.courseId);
+      disabled = tree.disabledAt !== null;
+    } catch (error) {
+      if (error instanceof CourseServiceError) throw serviceUnavailable();
+      throw error;
+    }
+
+    const snapshot = await this.prisma.$transaction(async (tx) => {
+      const row = await this.changes.lock(tx, organizationId, id);
+      if (!row) throw this.notFound();
+      assertExemptionRemovable(row.status);
+      await this.changes.removeExemption(tx, organizationId, id, disabled);
+      if (!disabled)
+        await requestCompletion(tx, organizationId, id, 'ASSIGNMENT_RESTORE');
+      // Read the mutation's result before the completion worker can change it.
+      return this.reads.detailSnapshot(organizationId, id, tx);
+    });
+    return this.reads.detail(user, id, snapshot);
   }
 
   private notFound() {

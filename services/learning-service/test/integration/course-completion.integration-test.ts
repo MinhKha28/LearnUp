@@ -1095,7 +1095,7 @@ for (const fraction of ['572527', '000527'])
     await prisma.$executeRaw`UPDATE enrollments SET due_timezone='Asia/Ho_Chi_Minh',base_due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz,
     due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz WHERE id=${f.id}::uuid`;
     await prisma.$transaction(async (tx) => {
-      const changes = new AssignmentChangesRepository();
+      const changes = new AssignmentChangesRepository(prisma);
       const row = await changes.lock(tx, org, f.id);
       const boundary = await new BaseDueAtRepository(
         prisma,

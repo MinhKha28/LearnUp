@@ -12,11 +12,17 @@ public class CourseSubmittedEventListener {
 
     private final CourseSubmittedEventParser parser;
     private final CourseSubmittedEventHandler handler;
+    private final CourseOwnershipTransferredEventParser transferParser;
+    private final CourseOwnershipTransferredEventHandler transferHandler;
 
     public CourseSubmittedEventListener(CourseSubmittedEventParser parser,
-                                        CourseSubmittedEventHandler handler) {
+                                        CourseSubmittedEventHandler handler,
+                                        CourseOwnershipTransferredEventParser transferParser,
+                                        CourseOwnershipTransferredEventHandler transferHandler) {
         this.parser = parser;
         this.handler = handler;
+        this.transferParser = transferParser;
+        this.transferHandler = transferHandler;
     }
 
     @KafkaListener(
@@ -27,5 +33,6 @@ public class CourseSubmittedEventListener {
             containerFactory = "courseKafkaListenerContainerFactory")
     public void onMessage(ConsumerRecord<String, String> record) {
         parser.parse(record.value()).ifPresent(handler::handle);
+        transferParser.parse(record.value()).ifPresent(transferHandler::handle);
     }
 }

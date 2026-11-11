@@ -16,9 +16,9 @@ const ChangePassword = () => {
   const { submit, submitting, error, clearError } = useChangePassword();
   return (
     <AdminPage className="admin-change-password">
-      <PageHeader title="Change Password" subtitle="Verify your current password before setting a new one." />
+      <PageHeader title="Đổi mật khẩu" subtitle="Xác minh mật khẩu hiện tại trước khi đặt mật khẩu mới." />
       <div className="admin-password-grid">
-        <SectionCard title="Password settings">
+        <SectionCard title="Thiết lập mật khẩu">
           {error && <Alert type="error" showIcon message={error} role="alert" />}
           <Form<ChangePasswordFields>
             className="admin-form"
@@ -27,36 +27,36 @@ const ChangePassword = () => {
             onFinish={submit}
             onValuesChange={clearError}
           >
-            <Form.Item label="Current password" name="current" rules={currentPasswordRules}>
+            <Form.Item label="Mật khẩu hiện tại" name="current" rules={currentPasswordRules}>
               <Input.Password autoComplete="current-password" />
             </Form.Item>
-            <Form.Item label="New password" name="password" dependencies={["current"]} rules={newPasswordRules}>
+            <Form.Item label="Mật khẩu mới" name="password" dependencies={["current"]} rules={newPasswordRules}>
               <Input.Password autoComplete="new-password" />
             </Form.Item>
-            <Form.Item label="Confirm new password" name="confirm" dependencies={["password"]} rules={confirmPasswordRules}>
+            <Form.Item label="Nhập lại mật khẩu mới" name="confirm" dependencies={["password"]} rules={confirmPasswordRules}>
               <Input.Password autoComplete="new-password" />
             </Form.Item>
             <div className="admin-form-actions">
-              <AdminButton onClick={() => navigate(-1)}>Cancel</AdminButton>
+              <AdminButton onClick={() => navigate(-1)}>Hủy</AdminButton>
               <AdminButton type="primary" htmlType="submit" loading={submitting}>
-                Update password
+                Cập nhật mật khẩu
               </AdminButton>
             </div>
           </Form>
         </SectionCard>
         <aside className="admin-password-rules">
-          <h2>Account access</h2>
+          <h2>Truy cập tài khoản</h2>
           <p>
-            <CheckCircleOutlined /> Admin uses email + password
+            <CheckCircleOutlined /> Quản trị viên đăng nhập bằng email và mật khẩu
           </p>
           <p>
-            <CheckCircleOutlined /> Google login does not apply to Admin
+            <CheckCircleOutlined /> Quản trị viên không đăng nhập được bằng Google
           </p>
           <p>
-            <CheckCircleOutlined /> Password recovery uses the registered email
+            <CheckCircleOutlined /> Khôi phục mật khẩu qua email đã đăng ký
           </p>
           <p>
-            <CheckCircleOutlined /> After the change you sign in again on every device
+            <CheckCircleOutlined /> Sau khi đổi, bạn cần đăng nhập lại trên mọi thiết bị
           </p>
         </aside>
       </div>

@@ -9,6 +9,10 @@ import {
   UseInterceptors,
   UploadedFile,
   Put,
+  Delete,
+  Patch,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '@common/decorator/customize';
@@ -30,10 +34,19 @@ import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
 import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
 import { memoryStorage } from 'multer';
 import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
+import { UpdateMaterialDto } from './dto/update-material.dto';
+import { TransferCourseOwnershipDto } from './dto/transfer-course-ownership.dto';
+import { RejectCourseDto } from './dto/reject-course.dto';
 
 @Controller('courses')
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
+
+  @Get('trash')
+  @ResponseMessage('Course trash fetched successfully')
+  getTrash(@User() user: CurrentUser) {
+    return this.coursesService.getTrash(user);
+  }
 
   @Get()
   @ResponseMessage('Courses fetched successfully')
@@ -263,6 +276,33 @@ export class CoursesController {
     );
   }
 
+  @Delete(':courseId')
+  @ResponseMessage('Course moved to trash successfully')
+  softDelete(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.softDelete(user, courseId);
+  }
+
+  @Post(':courseId/restore')
+  @ResponseMessage('Course restored successfully')
+  restore(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.restore(user, courseId);
+  }
+
+  @Delete(':courseId/permanent')
+  @ResponseMessage('Course permanently deleted successfully')
+  permanentDelete(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.permanentDelete(user, courseId);
+  }
+
   @Post(':courseId/submit')
   @ResponseMessage('Course submitted for approval successfully')
   submitCourseForApproval(
@@ -271,4 +311,125 @@ export class CoursesController {
   ) {
     return this.coursesService.submitCourseForApproval(user, courseId);
   }
+
+  @Post(':courseId/approve')
+  @ResponseMessage('Course approved successfully')
+  approveCourse(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.approveCourse(user, courseId);
+  }
+
+  @Post(':courseId/reject')
+  @ResponseMessage('Course rejected successfully')
+  rejectCourse(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Body() dto: RejectCourseDto,
+  ) {
+    return this.coursesService.rejectCourse(user, courseId, dto);
+  }
+
+  @Patch(':courseId/lessons/:lessonId/materials/:materialId')
+  @ResponseMessage('Learning material updated successfully')
+  updateMaterial(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+    @Param('materialId', ParseUUIDPipe) materialId: string,
+    @Body() dto: UpdateMaterialDto,
+  ) {
+    return this.coursesService.updateMaterial(
+      user,
+      courseId,
+      lessonId,
+      materialId,
+      dto,
+    );
+  }
+
+  @Post(
+    ':courseId/lessons/:lessonId/materials/:materialId/technical-replacement',
+  )
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: VIDEO_UPLOAD_BUFFER_MAX_BYTES,
+        files: 1,
+        fields: 0,
+        parts: 1,
+      },
+    }),
+  )
+  @ResponseMessage('Learning material file replaced successfully')
+  replaceTechnicalFile(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('lessonId', ParseUUIDPipe) lessonId: string,
+    @Param('materialId', ParseUUIDPipe) materialId: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.coursesService.replaceTechnicalFile(
+      user,
+      courseId,
+      lessonId,
+      materialId,
+      file,
+    );
+  }
+
+  @Get('organization/:courseId/review')
+  @ResponseMessage('Course review content retrieved successfully')
+  getOrganizerCourseReview(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.getOrganizerCourseReview(user, courseId);
+  }
+
+  @Get('organization/:courseId/materials/:materialId/preview')
+  @ResponseMessage('Material preview retrieved successfully')
+  getOrganizerMaterialPreview(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('materialId', ParseUUIDPipe) materialId: string,
+  ) {
+    return this.coursesService.getOrganizerMaterialPreview(
+      user,
+      courseId,
+      materialId,
+    );
+  }
+
+  @Post(':courseId/withdraw')
+  @ResponseMessage('Course withdrawn successfully')
+  withdrawCourseSubmission(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.withdrawCourseSubmission(user, courseId);
+  }
+
+  @Post(':courseId/transfer')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Course ownership transferred successfully')
+  transferCourseOwnership(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Body() dto: TransferCourseOwnershipDto,
+  ) {
+    return this.coursesService.transferCourseOwnership(user, courseId, dto);
+  }
+
+  @Get('organization/:courseId/transfer-context')
+  @ResponseMessage('Transfer context retrieved successfully')
+  getTransferContext(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.getTransferContext(user, courseId);
+  }
+
 }

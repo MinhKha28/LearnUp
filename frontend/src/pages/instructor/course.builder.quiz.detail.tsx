@@ -4,7 +4,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   LockOutlined,
-  UnorderedListOutlined,
+  PlusOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
 import { Skeleton, Tooltip } from "antd";
@@ -184,7 +184,7 @@ const CourseBuilderQuizDetail = () => {
   }
 
   const { permissions } = quiz;
-  // UC18.4 edits the five configuration fields; the button opens as soon as one of them can change.
+  // UC18.3 edits the five configuration fields; the button opens as soon as one of them can change.
   const configPermission = combinePermissions([
     permissions.editTimeLimit,
     permissions.editAttemptRule,
@@ -325,7 +325,7 @@ const CourseBuilderQuizDetail = () => {
             <InstructorButton onClick={backToList}>
               <ArrowLeftOutlined /> Back to Quizzes
             </InstructorButton>
-            {/* UC18.4 — Update Quiz configuration */}
+            {/* UC18.3 — Update Quiz configuration */}
             <ActionSlot ready permission={configPermission}>
               {(disabled) => (
                 <button
@@ -338,15 +338,20 @@ const CourseBuilderQuizDetail = () => {
                 </button>
               )}
             </ActionSlot>
-            {/* UC18.3 — Manage Quiz questions */}
-            <ActionSlot ready={false} permission={permissions.editQuestions}>
+            {/* UC18.1.1 — Add a question (BR-117, BR-83) */}
+            <ActionSlot ready permission={permissions.editQuestions}>
               {(disabled) => (
-                <button type="button" className="builder-quiz-action" disabled={disabled}>
-                  <UnorderedListOutlined /> Manage questions
+                <button
+                  type="button"
+                  className="builder-quiz-action"
+                  disabled={disabled}
+                  onClick={() => navigate(`${base}/quizzes/${quiz.id}/questions/new`)}
+                >
+                  <PlusOutlined /> Add question
                 </button>
               )}
             </ActionSlot>
-            {/* UC18.5 — Delete Quiz */}
+            {/* UC18.4 — Delete Quiz */}
             <ActionSlot ready permission={permissions.deleteQuiz}>
               {(disabled) => (
                 <button

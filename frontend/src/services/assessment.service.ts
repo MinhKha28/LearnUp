@@ -27,11 +27,14 @@ import type {
   IQuizList,
   IQuizDetail,
   ICreateQuizReq,
+  ICreateQuizQuestionReq,
+  IQuizQuestionCreated,
   IQuizSummary,
   IUpdateAssignment,
   IUpdatePeerReview,
   IUpdateQuizConfigReq,
 } from "@/types/assessment.types";
+import type { IReviewAssessmentsResponse } from "@/types/course.types";
 
 // The identity headers (x-internal-key, x-user-id, x-organization-id, x-user-role) are set by the gateway from the JWT.
 // The browser sends none of them: a build must never carry an internal key, even a default one.
@@ -153,7 +156,7 @@ export const fetchQuizAPI = (quizId: string) =>
 export const createQuizAPI = (payload: ICreateQuizReq) =>
   axios.post<IBackendRes<IQuizSummary>>("/api/v1/assessments/quizzes", payload);
 
-/** UC18.4 — Update Quiz configuration; answers with the Quiz detail and its new permissions. */
+/** UC18.3 — Update Quiz configuration; answers with the Quiz detail and its new permissions. */
 export const updateQuizConfigAPI = (
   quizId: string,
   payload: IUpdateQuizConfigReq,
@@ -163,14 +166,27 @@ export const updateQuizConfigAPI = (
     payload,
   );
 
-/** UC18.5 — Delete Quiz. */
+/** UC18.1.1 — Add a question with its answers at the end of a Quiz. */
+export const createQuizQuestionAPI = (
+  quizId: string,
+  payload: ICreateQuizQuestionReq,
+) =>
+  axios.post<IBackendRes<IQuizQuestionCreated>>(
+    `/api/v1/assessments/quizzes/${quizId}/questions`,
+    payload,
+  );
+
+/** UC18.4 — Delete Quiz. */
 export const deleteQuizAPI = (quizId: string) =>
   axios.delete<IBackendRes<{ id: string }>>(
     `/api/v1/assessments/quizzes/${quizId}`,
   );
 
 /** UC29 — the Quizzes and Assignments of an enrolled Course with status, score and tries left. */
-export const fetchLearnerAssessmentsAPI = (courseId: string, signal?: AbortSignal) =>
+export const fetchLearnerAssessmentsAPI = (
+  courseId: string,
+  signal?: AbortSignal,
+) =>
   axios.get<IBackendRes<ILearnerAssessmentList>>(
     `/api/v1/assessments/learner/courses/${courseId}/assessments`,
     { signal },
@@ -407,3 +423,36 @@ export const fetchQuizHistoryAPI = (quizId: string) =>
   axios.get<IBackendRes<IQuizHistory>>(
     `${QUIZ_BASE}/${encodeURIComponent(quizId)}/history`,
   );
+
+export const fetchOrganizerAssessmentReviewAPI = (courseId: string) =>
+  axios.get<IBackendRes<IReviewAssessmentsResponse>>(
+    `/api/v1/assessments/organization/courses/${encodeURIComponent(courseId)}/review`,
+  );
+
+/**
+ * UC21.2 - Download an Assignment attachment
+ * for Organizer review.
+ *
+ * The existing Axios interceptor may resolve an error
+ * response instead of throwing it.
+ */
+export const downloadOrganizerAssignmentPromptAPI = async (
+  courseId: string,
+  assignmentId: string,
+): Promise<Blob | null> => {
+  const response = (await axios.get(
+    `/api/v1/assessments/organization/courses/${encodeURIComponent(courseId)}/assignments/${encodeURIComponent(assignmentId)}/prompt-file`,
+    {
+      responseType: "blob",
+    },
+  )) as unknown as {
+    status?: number;
+    data?: unknown;
+  };
+
+  if (response.status !== 200 || !(response.data instanceof Blob)) {
+    return null;
+  }
+
+  return response.data;
+};

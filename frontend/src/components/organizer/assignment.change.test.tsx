@@ -12,7 +12,7 @@ import * as api from "@/services/assignment.service";
 
 vi.mock("@/services/assignment.service", () => ({
   fetchAssignment: vi.fn(), fetchAssignments: vi.fn(),
-  extendAssignment: vi.fn(), exemptAssignment: vi.fn(),
+  extendAssignment: vi.fn(), exemptAssignment: vi.fn(), removeAssignmentExemption: vi.fn(),
 }));
 beforeAll(() => {
   const computedStyle = window.getComputedStyle.bind(window);
@@ -41,6 +41,57 @@ it("UC24.3 passes the live organization zone to the picker range despite a chang
   render(<AssignmentChange item={item} onChanged={() => undefined} onConflict={() => undefined} onReload={() => undefined} />);
   expect(range).toHaveBeenCalledWith(item.dueAt, item.organizationTimezone);
   expect(range.mock.results[0].value).toEqual({ min: "2026-10-30" });
+});
+
+const showDetail = () => render(
+  <MemoryRouter initialEntries={["/organizer/assignments/enrollment"]}>
+    <Routes>
+      <Route path="/organizer/assignments/:assignmentId" element={<AssignmentDetailPage />} />
+    </Routes>
+  </MemoryRouter>,
+);
+
+it("UC24.6 requires confirmation and shows the returned status", async () => {
+  vi.mocked(api.fetchAssignment).mockResolvedValue({ ...detail, status: "Exempted" });
+  vi.mocked(api.fetchAssignments).mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
+  let finish!: (value: AssignmentDetail) => void;
+  vi.mocked(api.removeAssignmentExemption).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  showDetail();
+
+  const action = await screen.findByRole("button", { name: "Gỡ Miễn" });
+  fireEvent.click(action);
+  const initialDialog = await screen.findByRole("dialog", { name: "Gỡ Miễn" });
+  expect(within(initialDialog).queryByRole("textbox")).toBeNull();
+  fireEvent.click(within(initialDialog).getByRole("button", { name: "Hủy" }));
+  expect(api.removeAssignmentExemption).not.toHaveBeenCalled();
+
+  fireEvent.click(action);
+  const dialog = await screen.findByRole("dialog", { name: "Gỡ Miễn" });
+  const confirm = within(dialog).getByRole("button", { name: "Gỡ Miễn" });
+  fireEvent.click(confirm);
+  expect((action as HTMLButtonElement).disabled).toBe(true);
+  expect((confirm as HTMLButtonElement).disabled).toBe(true);
+  expect(api.removeAssignmentExemption).toHaveBeenCalledTimes(1);
+  expect(api.removeAssignmentExemption).toHaveBeenCalledWith("enrollment");
+  finish({ ...detail, status: "InProgress" });
+  expect(await screen.findByText("Đang học")).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Gỡ Miễn" })).toBeNull());
+});
+
+it("UC24.6 reloads detail on 409 and hides the action when the status changed", async () => {
+  vi.mocked(api.fetchAssignment)
+    .mockResolvedValueOnce({ ...detail, status: "Exempted" })
+    .mockResolvedValue({ ...detail, status: "Halted" });
+  vi.mocked(api.removeAssignmentExemption).mockRejectedValue(new ApiError(409, "ENROLLMENT_NOT_EXEMPTED", ""));
+  showDetail();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Gỡ Miễn" }));
+  const dialog = await screen.findByRole("dialog", { name: "Gỡ Miễn" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Gỡ Miễn" }));
+  expect(await screen.findByText("Tạm dừng")).toBeTruthy();
+  expect(screen.getByText("Phân công không còn ở trạng thái Miễn. Đang tải lại chi tiết.")).toBeTruthy();
+  expect(api.fetchAssignment).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("button", { name: "Gỡ Miễn" })).toBeNull();
 });
 
 const detail: AssignmentDetail = {

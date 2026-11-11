@@ -1,7 +1,8 @@
 import { Avatar, Spin } from "antd";
 import { Link } from "react-router-dom";
 import { AdminButton, AdminPage, DetailItem, PageHeader, SectionCard, StatusTag } from "@/components/admin/admin.ui";
-import { initialsOf, statusTone, useMyProfile } from "@/hooks/use.my.profile";
+import { initialsOf, statusLabel, statusTone, useMyProfile } from "@/hooks/use.my.profile";
+import { roleLabel } from "@/utils/helper";
 import "./profile.scss";
 
 const Profile = () => {
@@ -9,11 +10,11 @@ const Profile = () => {
   return (
     <AdminPage className="admin-profile">
       <PageHeader
-        title="Profile"
-        subtitle="Manage your personal account information."
+        title="Hồ sơ"
+        subtitle="Quản lý thông tin tài khoản cá nhân."
         actions={
           <Link to="edit">
-            <AdminButton type="primary">Edit profile</AdminButton>
+            <AdminButton type="primary">Sửa hồ sơ</AdminButton>
           </Link>
         }
       />
@@ -28,31 +29,31 @@ const Profile = () => {
               </Avatar>
               <div>
                 <h2>{profile?.fullName}</h2>
-                <span>Platform Admin</span>
-                <StatusTag tone={statusTone(profile?.status)}>{profile?.status}</StatusTag>
+                <span>Quản trị viên nền tảng</span>
+                <StatusTag tone={statusTone(profile?.status)}>{statusLabel(profile?.status)}</StatusTag>
               </div>
             </div>
             <div className="admin-divider" />
             <div className="admin-detail-grid">
-              <DetailItem label="Full name">{profile?.fullName}</DetailItem>
-              <DetailItem label="Login email">{profile?.email}</DetailItem>
-              <DetailItem label="Role">{profile?.role}</DetailItem>
+              <DetailItem label="Họ và tên">{profile?.fullName}</DetailItem>
+              <DetailItem label="Email đăng nhập">{profile?.email}</DetailItem>
+              <DetailItem label="Vai trò">{profile?.role ? roleLabel(profile.role) : ""}</DetailItem>
             </div>
-            <p className="admin-note">Email is not editable from profile settings.</p>
+            <p className="admin-note">Không sửa được email trong phần hồ sơ.</p>
           </>
         )}
       </SectionCard>
-      <SectionCard title="Security">
+      <SectionCard title="Bảo mật">
         <div className="admin-security-row">
           <div>
-            <strong>Password</strong>
-            <span>Change your password after verifying the current password.</span>
+            <strong>Mật khẩu</strong>
+            <span>Đổi mật khẩu sau khi xác minh mật khẩu hiện tại.</span>
           </div>
           <Link to="change-password">
-            <AdminButton>Change password</AdminButton>
+            <AdminButton>Đổi mật khẩu</AdminButton>
           </Link>
         </div>
-        <p className="admin-note">Admin sign-in uses email and password. Single sign-on is not available for Platform Admin.</p>
+        <p className="admin-note">Quản trị viên đăng nhập bằng email và mật khẩu. Quản trị viên nền tảng không đăng nhập được bằng Google.</p>
       </SectionCard>
     </AdminPage>
   );
