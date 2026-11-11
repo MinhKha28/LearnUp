@@ -216,6 +216,35 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/assignments/{enrollmentId}/cancellation:
+    post:
+      operationId: cancelAssignment
+      summary: Cancel a Required Course assignment (UC24.4)
+      description: >-
+        ORGANIZER only. Requires an active organization and subscription. The stored
+        status must be NotStarted, including an untouched assignment displayed as Overdue.
+        Checks for completed material, a Quiz attempt or an Assignment submission.
+        Retains the Enrollment as Withdrawn with reason OrganizerCancelled.
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/UserRole"
+      requestBody:
+        required: false
+        description: An empty object is accepted.
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "200": { $ref: "#/components/responses/AssignmentDetail" }
+        "400": { description: Invalid enrollment UUID or malformed JSON. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: FORBIDDEN, ORGANIZATION_NOT_ACTIVE or SUBSCRIPTION_NOT_ACTIVE. }
+        "404": { description: ASSIGNMENT_NOT_FOUND for missing, Optional or foreign Enrollment. }
+        "409": { description: ENROLLMENT_NOT_CANCELLABLE for a changed or ineligible Enrollment, or ASSIGNMENT_HAS_LEARNING_DATA when activity exists. }
+        "422": { description: VALIDATION_ERROR for an unexpected request payload. }
+        "503": { description: SERVICE_UNAVAILABLE when Tenant access or Assessment activity cannot be checked. }
   /api/v1/assignments/{enrollmentId}/exemption:
     parameters:
       - $ref: "#/components/parameters/EnrollmentId"

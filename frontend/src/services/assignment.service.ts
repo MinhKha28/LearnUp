@@ -35,6 +35,9 @@ export const exemptAssignment = (id: string, reason: string) =>
 export const removeAssignmentExemption = (id: string) =>
   apiDelete<AssignmentDetail>(`${path}/${encodeURIComponent(id)}/exemption`);
 
+export const cancelAssignment = (id: string) =>
+  apiPost<AssignmentDetail>(`${path}/${encodeURIComponent(id)}/cancellation`, {});
+
 export const assignCourse = (courseId: string, learnerIds: string[]) =>
   apiPost<AssignmentResult>(path, { courseId, learnerIds });
 export const fetchAssignmentLearners = (page: number, signal?: AbortSignal) =>

@@ -47,6 +47,11 @@ export const canExemptAssignment = (
 ) =>
   ["InProgress", "Overdue"].includes(item.status) &&
   item.firstActivityAt !== null;
+export const canCancelAssignment = (
+  item: Pick<AssignmentDetail, "status" | "firstActivityAt">,
+) => item.status === "NotStarted" ||
+  (item.status === "Overdue" && item.firstActivityAt === null);
+
 export const canExtendAssignment = (status: AssignmentStatus) =>
   !["Completed", "Withdrawn"].includes(status);
 
@@ -115,6 +120,10 @@ const messages: Record<string, string> = {
   DUE_DATE_IN_PAST: "Ngày hết hạn không được trước hôm nay.",
   ENROLLMENT_NOT_EXTENDABLE:
     "Trạng thái phân công đã thay đổi; không thể kéo dài hạn. Đang tải lại chi tiết.",
+  ENROLLMENT_NOT_CANCELLABLE:
+    "Không thể hủy phân công ở trạng thái hiện tại. Thông tin phân công đã được cập nhật.",
+  ASSIGNMENT_HAS_LEARNING_DATA:
+    "Học viên đã có dữ liệu học tập. Hãy dùng “Đánh dấu Miễn” nếu muốn bỏ nghĩa vụ học.",
   ENROLLMENT_NOT_EXEMPTED:
     "Phân công không còn ở trạng thái Miễn. Đang tải lại chi tiết.",
   ENROLLMENT_NOT_EXEMPTIBLE:

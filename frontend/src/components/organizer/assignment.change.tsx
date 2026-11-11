@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { AssignmentError } from "@/components/organizer/assignment.error";
 import { toApiError } from "@/services/api.client";
 import {
+  cancelAssignment,
   exemptAssignment,
   extendAssignment,
   removeAssignmentExemption,
@@ -15,6 +16,7 @@ import type { AssignmentDetail } from "@/types/assignment.types";
 import {
   assignmentErrorMessage,
   assignmentExtensionRange,
+  canCancelAssignment,
   canExemptAssignment,
   canExtendAssignment,
   extensionDateError,
@@ -27,6 +29,7 @@ const actionLabels = {
   extend: "Kéo dài hạn",
   exempt: "Đánh dấu Miễn",
   removeExemption: "Gỡ Miễn",
+  cancel: "Hủy phân công",
 };
 
 type Mode = keyof typeof actionLabels;
@@ -64,8 +67,9 @@ export const AssignmentChange = ({
   const submit = async () => {
     if (submitting.current || !mode) return;
     submitting.current = true;
-    const values = mode === "removeExemption" ? null : await form.validateFields().catch(() => null);
-    if (mode !== "removeExemption" && !values) {
+    const usesForm = mode === "extend" || mode === "exempt";
+    const values = usesForm ? await form.validateFields().catch(() => null) : null;
+    if (usesForm && !values) {
       submitting.current = false;
       return;
     }
@@ -75,6 +79,8 @@ export const AssignmentChange = ({
       let result: AssignmentDetail;
       if (mode === "removeExemption") {
         result = await removeAssignmentExemption(item.enrollmentId);
+      } else if (mode === "cancel") {
+        result = await cancelAssignment(item.enrollmentId);
       } else {
         if (!values) return;
         const reason = (values.reason ?? "").normalize("NFC").trim();
@@ -92,6 +98,7 @@ export const AssignmentChange = ({
         extend: "Đã kéo dài hạn.",
         exempt: "Đã đánh dấu Miễn.",
         removeExemption: "Đã gỡ miễn.",
+        cancel: "Đã hủy phân công.",
       }[mode]);
     } catch (cause) {
       const apiError = toApiError(cause);
@@ -108,7 +115,7 @@ export const AssignmentChange = ({
           },
         ]);
       } else if (
-        (mode === "removeExemption" && apiError.status === 409) ||
+        ((mode === "removeExemption" || mode === "cancel") && apiError.status === 409) ||
         ["ENROLLMENT_NOT_EXTENDABLE", "ENROLLMENT_NOT_EXEMPTIBLE"].includes(
           apiError.code,
         )
@@ -139,6 +146,11 @@ export const AssignmentChange = ({
           Gỡ Miễn
         </Button>
       )}
+      {canCancelAssignment(item) && (
+        <Button disabled={pending} danger onClick={() => open("cancel")}>
+          Hủy phân công
+        </Button>
+      )}
       <Modal
         title={mode ? actionLabels[mode] : undefined}
         open={mode !== null}
@@ -150,10 +162,11 @@ export const AssignmentChange = ({
         footer={
           <>
             <Button disabled={pending} onClick={() => setMode(null)}>
-              Hủy
+              {mode === "cancel" ? "Quay lại" : "Hủy"}
             </Button>
             <Button
               type="primary"
+              danger={mode === "cancel"}
               loading={pending}
               disabled={pending}
               onClick={submit}
@@ -163,7 +176,22 @@ export const AssignmentChange = ({
           </>
         }
       >
-        {error && <AssignmentError error={error} retry={submit} />}
+        {error && (
+          mode === "cancel" && error.status === 503 ? (
+            <Alert
+              type="error"
+              showIcon
+              message="Dịch vụ tạm thời không khả dụng. Vui lòng bấm Hủy phân công để thử lại."
+            />
+          ) : (
+            <AssignmentError error={error} retry={mode === "cancel" ? undefined : submit} />
+          )
+        )}
+        {mode === "cancel" && (
+          <p>
+            Học viên sẽ mất quyền truy cập khóa học qua phân công này và có thể được phân công lại sau.
+          </p>
+        )}
         {mode === "removeExemption" && (
           <p>
             Gỡ miễn cho học viên này? Hạn hoàn thành sẽ được dời thêm theo thời gian được miễn.
@@ -238,7 +266,7 @@ export const AssignmentChange = ({
               />
             </Form.Item>
           )}
-          {mode !== "removeExemption" && (
+          {(mode === "extend" || mode === "exempt") && (
             <Form.Item
               name="reason"
               label={

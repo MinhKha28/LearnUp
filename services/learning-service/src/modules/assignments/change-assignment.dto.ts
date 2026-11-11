@@ -25,8 +25,8 @@ export class ExtendAssignmentDto {
   reason?: string;
 }
 
-@Injectable()
-export class RemoveExemptionBodyPipe implements PipeTransform<unknown, void> {
+abstract class EmptyAssignmentBodyPipe implements PipeTransform<unknown, void> {
+  protected abstract readonly action: string;
   transform(body: unknown): void {
     if (
       body !== undefined &&
@@ -38,12 +38,22 @@ export class RemoveExemptionBodyPipe implements PipeTransform<unknown, void> {
       throw new HttpException(
         {
           code: 'VALIDATION_ERROR',
-          message: 'Gỡ miễn không nhận dữ liệu bổ sung.',
+          message: `${this.action} không nhận dữ liệu bổ sung.`,
         },
         422,
       );
     }
   }
+}
+
+@Injectable()
+export class RemoveExemptionBodyPipe extends EmptyAssignmentBodyPipe {
+  protected readonly action = 'Gỡ miễn';
+}
+
+@Injectable()
+export class CancelAssignmentBodyPipe extends EmptyAssignmentBodyPipe {
+  protected readonly action = 'Hủy phân công';
 }
 
 export class ExemptAssignmentDto {

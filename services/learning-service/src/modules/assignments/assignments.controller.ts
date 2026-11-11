@@ -22,6 +22,7 @@ import {
   ExtendAssignmentDto,
   ExemptAssignmentDto,
   RemoveExemptionBodyPipe,
+  CancelAssignmentBodyPipe,
 } from './change-assignment.dto';
 
 @Controller('assignments')
@@ -73,6 +74,17 @@ export class AssignmentsController {
     @Body() dto: ExemptAssignmentDto,
   ) {
     return this.changes.exempt(user, id, dto);
+  }
+
+  @Post(':enrollmentId/cancellation')
+  @HttpCode(200)
+  @Roles('ORGANIZER')
+  cancel(
+    @User() user: CurrentUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) id: string,
+    @Body(CancelAssignmentBodyPipe) _body: void,
+  ) {
+    return this.changes.cancel(user, id);
   }
 
   @Delete(':enrollmentId/exemption')
