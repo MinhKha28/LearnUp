@@ -460,6 +460,51 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
     assert.ok(restored.due_at > new Date('2025-02-02Z'));
   });
 
+  test('UC24.4 Learner self-enrols after cancellation and the row becomes Optional', async () => {
+    const learnerId = addUser();
+    assert.equal((await assign([learnerId])).status, 201);
+    const [first] = await rows();
+    await app.get(AssignmentChangesService).cancel(ORGANIZER, first.id);
+    const result = await call(
+      'enrollments',
+      { courseId: COURSE },
+      learner(learnerId),
+    );
+    assert.equal(result.status, 201, JSON.stringify(result.body));
+    assert.equal(result.body.data.restored, true);
+    assert.equal(result.body.data.id, first.id);
+    const [restored] = await rows();
+    assert.equal(restored.id, first.id);
+    assert.equal(restored.enrollment_type, 'Optional');
+    assert.equal(restored.status, 'NotStarted');
+    assert.equal(restored.withdrawn_reason, null);
+    assert.equal(restored.withdrawn_at, null);
+    assert.equal(restored.assigned_at, null);
+    assert.equal(restored.expected_completion_days, null);
+    assert.equal(restored.base_due_at, null);
+    assert.equal(restored.due_at, null);
+    assert.equal(restored.due_timezone, null);
+    assert.equal(BigInt(restored.extension_seconds), 0n);
+  });
+
+  test('UC24.4 cancelled Private assignment cannot be self-restored', async () => {
+    const learnerId = addUser();
+    assert.equal((await assign([learnerId], PRIVATE)).status, 201);
+    const [first] = await rows();
+    await app.get(AssignmentChangesService).cancel(ORGANIZER, first.id);
+    const result = await call(
+      'enrollments',
+      { courseId: PRIVATE },
+      learner(learnerId),
+    );
+    assert.equal(result.status, 404, JSON.stringify(result.body));
+    assert.equal(result.body.error.code, 'COURSE_NOT_AVAILABLE');
+    const [after] = await rows();
+    assert.equal(after.status, 'Withdrawn');
+    assert.equal(after.enrollment_type, 'Required');
+    assert.equal(after.withdrawn_reason, 'OrganizerCancelled');
+  });
+
   for (const withdrawnReason of ['AccountDeleted', 'HaltedClosed']) {
     for (const enrollmentType of ['Required', 'Optional']) {
       test(`${enrollmentType} Withdrawn ${withdrawnReason} retains assignment behavior`, async () => {
