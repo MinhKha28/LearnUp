@@ -225,8 +225,8 @@ const CourseBuilderAssignmentDetail = () => {
               </ul>
             ) : (
               <p>
-                Disabled for this Assignment.
-                {assignment.courseLocked && " It can no longer be turned on because the Course is Locked."}
+                Chưa bật chấm chéo cho bài tập này.
+                {assignment.courseLocked && " Không thể bật lại vì khóa học đã khóa."}
               </p>
             )}
             <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-review`, { state: location.state })}>

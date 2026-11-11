@@ -24,7 +24,7 @@ const CourseContentReconsider = () => {
 
   const submit = (values: ReconsiderFields) => {
     submitReconsideration(item, values.summary);
-    message.success("Reconsideration request sent.");
+    message.success("Đã gửi yêu cầu xem xét lại.");
     navigate(`/instructor/courses/${courseId}/content-review`);
   };
 

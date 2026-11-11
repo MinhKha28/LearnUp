@@ -24,7 +24,7 @@ const CourseContentEscalate = () => {
 
   const submit = (values: EscalateFields) => {
     escalateContentDecision(item, values.reason);
-    message.success("Escalation sent to the platform Admin.");
+    message.success("Đã chuyển báo cáo lên quản trị viên nền tảng.");
     navigate(`/instructor/courses/${courseId}/content-review`);
   };
 

@@ -71,20 +71,20 @@ const MonitoringFilters = () => {
                 allowClear
                 placeholder="Tất cả trạng thái"
                 options={[
-                  { value: "Not started", label: "Not started" },
-                  { value: "In progress", label: "In progress" },
-                  { value: "Completed", label: "Completed" },
+                  { value: "Not started", label: "Chưa bắt đầu" },
+                  { value: "In progress", label: "Đang học" },
+                  { value: "Completed", label: "Hoàn thành" },
                 ]}
               />
             </Form.Item>
           </div>
-          <InfoPanel title="Scope">
-            Reports do not include Courses assigned to other Instructors.
+          <InfoPanel title="Phạm vi">
+            Báo cáo không bao gồm khóa học do giảng viên khác phụ trách.
           </InfoPanel>
           <div className="instructor-monitoring-filters-actions">
             <InstructorButton onClick={reset}>Đặt lại</InstructorButton>
             <InstructorButton type="primary" htmlType="submit">
-              Apply filters
+              Áp dụng bộ lọc
             </InstructorButton>
           </div>
         </Form>

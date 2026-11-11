@@ -36,9 +36,9 @@ const CourseContentReview = () => {
       />
       <SectionCard>
         {item.contentDisabled && <StatusTag tone="error">Nội dung đã bị vô hiệu hóa</StatusTag>}
-        <h2>Reported item: {item.reportedItemTitle}</h2>
+        <h2>Nội dung bị báo cáo: {item.reportedItemTitle}</h2>
         <p className="instructor-content-review-decision">
-          Decision: {item.decisionLabel} • Severity: {item.severityLabel}
+          Quyết định: {item.decisionLabel} • Mức độ vi phạm: {item.severityLabel}
         </p>
         <div className="instructor-content-review-correction">
           <strong>Đã yêu cầu chỉnh sửa</strong>
@@ -50,8 +50,7 @@ const CourseContentReview = () => {
           </p>
         ) : (
           <p className="instructor-content-review-note">
-            Edit the permitted content and submit a reconsideration request after the correction is
-            complete.
+            Chỉnh sửa nội dung trong phạm vi cho phép, sau đó gửi yêu cầu xem xét lại khi đã hoàn tất khắc phục.
           </p>
         )}
         <div className="instructor-content-review-actions">

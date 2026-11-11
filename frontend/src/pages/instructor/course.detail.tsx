@@ -22,12 +22,12 @@ import {
 } from "@/utils/course-trash";
 
 const courseStatusLabel: Record<CourseStatus, string> = {
-  Draft: "Draft",
-  Submitted: "Submitted",
-  Published: "Published",
-  Rejected: "Rejected",
-  Archived: "Archived",
-  Disabled: "Disabled",
+  Draft: "Bản nháp",
+  Submitted: "Chờ phê duyệt",
+  Published: "Đã phát hành",
+  Rejected: "Bị từ chối",
+  Archived: "Đã lưu trữ",
+  Disabled: "Đã vô hiệu hóa",
 };
 
 const getCourseStatusTone = (

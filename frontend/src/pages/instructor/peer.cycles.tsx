@@ -31,7 +31,7 @@ const PeerCycles = () => {
           setError(res.message || "Unable to load your Courses.");
         }
       } catch {
-        if (active) setError("Unable to load your Courses. Please try again.");
+        if (active) setError("Không thể tải danh sách khóa học bạn phụ trách. Vui lòng thử lại.");
       } finally {
         if (active) setLoadingCourses(false);
       }

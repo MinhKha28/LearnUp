@@ -577,7 +577,7 @@ const CourseBuilderMaterialEdit = () => {
 
             {/* FILE SELECT */}
             <label className="instructor-form-label instructor-form-label-spaced">
-              Tệp thay thế {isVideo ? "Video" : "Reading"} file
+              Tệp thay thế {isVideo ? "video" : "tài liệu đọc"}
             </label>
 
             <div className="uc17-video-upload">

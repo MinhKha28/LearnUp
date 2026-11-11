@@ -38,10 +38,10 @@ const Monitoring = () => {
   ];
 
   const filterSummary = [
-    monitoringFilters.courseTitle ?? "Course",
-    monitoringFilters.learnerName ?? "Learner",
+    monitoringFilters.courseTitle ?? "Khóa học",
+    monitoringFilters.learnerName ?? "Học viên",
     monitoringFilters.enrollmentType ?? "Hình thức đăng ký học",
-    monitoringFilters.completionStatus ?? "Completion status",
+    monitoringFilters.completionStatus ?? "Trạng thái hoàn thành",
   ];
 
   return (
@@ -76,7 +76,7 @@ const Monitoring = () => {
           dataSource={rows}
           pagination={false}
           rowKey={(row) => `${row.courseId}__${row.learnerId}`}
-          locale={{ emptyText: "No Learners match the current filters." }}
+          locale={{ emptyText: "Không tìm thấy học viên phù hợp với bộ lọc hiện tại." }}
           onRow={(row) => ({
             onClick: () =>
               navigate(`/instructor/monitoring/courses/${row.courseId}/learners/${row.learnerId}`),

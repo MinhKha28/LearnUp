@@ -185,7 +185,7 @@ const CourseTrash = () => {
       key: "status",
       width: 130,
       render: (status: ICourseTrashItem["status"]) => (
-        <Tag color={status === "Rejected" ? "red" : "default"}>{status}</Tag>
+        <Tag color={status === "Rejected" ? "red" : "default"}>{status === "Rejected" ? "Bị từ chối" : "Bản nháp"}</Tag>
       ),
     },
     {

@@ -14,7 +14,7 @@ const EvaluationComments = () => (
     <SectionCard className="instructor-evaluation-comments-card">
       {anonymousEvaluationComments.map((comment, index) => (
         <div className="instructor-evaluation-comment" key={index}>
-          <span>Anonymous comment</span>
+          <span>Nhận xét ẩn danh</span>
           <p>{comment}</p>
         </div>
       ))}

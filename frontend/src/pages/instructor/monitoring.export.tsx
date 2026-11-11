@@ -26,9 +26,9 @@ const MonitoringExport = () => {
       />
       <SectionCard className="instructor-export-card">
         <h2>Phạm vi báo cáo</h2>
-        <p>Selected Course: {monitoringFilters.courseTitle ?? "All Courses"}</p>
+        <p>Khóa học đã chọn: {monitoringFilters.courseTitle ?? "Tất cả khóa học"}</p>
         <p>
-          Enrollment type: {monitoringFilters.enrollmentType ?? "[Filter]"} • Status:{" "}
+          Hình thức đăng ký học: {monitoringFilters.enrollmentType ?? "[Filter]"} • Trạng thái:{" "}
           {monitoringFilters.completionStatus ?? "[Filter]"}
         </p>
         <hr />

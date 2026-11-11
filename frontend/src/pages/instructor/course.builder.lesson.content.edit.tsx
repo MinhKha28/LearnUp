@@ -251,7 +251,7 @@ const CourseBuilderLessonContentEdit = () => {
           <h2>Giới thiệu bài học</h2>
 
           <p className="builder-lesson-intro">
-            Edit the introductory text of this Lesson. Markdown is supported.
+            Chỉnh sửa nội dung giới thiệu bài học. Hỗ trợ định dạng Markdown.
           </p>
 
           <Input.TextArea
@@ -287,13 +287,11 @@ const CourseBuilderLessonContentEdit = () => {
         {/* Cột bên phải */}
         <div className="builder-side">
           <InfoPanel title="Quy tắc chỉnh sửa">
-            Lesson content can be updated only when no Learner has completed the
-            Lesson.
+            Chỉ có thể cập nhật nội dung khi chưa có học viên hoàn thành bài học.
           </InfoPanel>
 
           <InfoPanel title="BR-292">
-            The introduction is not a Required learning material and does not
-            contribute to estimated learning duration.
+            Nội dung giới thiệu không phải học liệu bắt buộc và không được cộng vào thời lượng học dự kiến.
           </InfoPanel>
         </div>
       </div>
