@@ -181,18 +181,17 @@ const CourseBuilderQuizzes = () => {
                               <strong>{quiz.title}</strong>
                               <div className="builder-quiz-meta">
                                 <span>
-                                  <QuestionCircleOutlined /> {quiz.questionCount} question
-                                  {quiz.questionCount === 1 ? "" : "s"}
+                                  <QuestionCircleOutlined /> {quiz.questionCount} câu hỏi
                                 </span>
                                 <span>
                                   <ClockCircleOutlined />{" "}
-                                  {quiz.timeLimitMinutes ? `${quiz.timeLimitMinutes} min` : "No time limit"}
+                                  {quiz.timeLimitMinutes ? `${quiz.timeLimitMinutes} phút` : "Không giới hạn thời gian"}
                                 </span>
                                 <span>
-                                  <CheckCircleOutlined /> Pass at {quiz.passingScore}%
+                                  <CheckCircleOutlined /> Điểm đạt: {quiz.passingScore}%
                                 </span>
                                 <span>
-                                  {quiz.maxConsecutiveAttempts} attempts, then {quiz.lockoutHours} h lock
+                                  {quiz.maxConsecutiveAttempts} lượt làm liên tiếp, sau đó khóa {quiz.lockoutHours} giờ
                                 </span>
                               </div>
                             </div>

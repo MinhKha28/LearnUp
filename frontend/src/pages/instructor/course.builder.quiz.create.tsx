@@ -76,7 +76,7 @@ const CourseBuilderQuizCreate = () => {
     title: !normalizedTitle
       ? "Nhập tên bài trắc nghiệm."
       : normalizedTitle.length > 200
-        ? "Use at most 200 characters."
+        ? "Tối đa 200 ký tự."
         : null,
     timeLimit: validateNumber(timeLimit, TIME_LIMIT_RULE),
     passingScore: validateNumber(passingScore, QUIZ_PASSING_SCORE_RULE),

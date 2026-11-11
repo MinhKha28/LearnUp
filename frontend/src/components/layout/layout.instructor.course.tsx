@@ -96,7 +96,7 @@ const LayoutInstructorCourse = () => {
 
         <div style={{ marginTop: 16 }}>
           <InstructorButton onClick={() => navigate("/instructor/courses")}>
-            Back to My Courses
+            Quay lại khóa học của tôi
           </InstructorButton>
         </div>
       </InstructorPage>

@@ -12,7 +12,7 @@ const MonitoringExport = () => {
   const [format, setFormat] = useState<ExportFormat>("Excel");
 
   const exportReport = () => {
-    message.success(`Course report exported as ${format}.`);
+    message.success(`Đã xuất báo cáo khóa học định dạng ${format}.`);
     navigate("/instructor/monitoring");
   };
 

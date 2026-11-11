@@ -408,7 +408,7 @@ const CourseCreate = () => {
 
             <div className="course-summary-note">
               Sau khi tạo bản nháp, bạn tiếp tục trong trình biên soạn khóa học
-              to add Modules, Lessons and learning content.
+              để thêm chương, bài học và nội dung học tập.
             </div>
           </SectionCard>
         </aside>

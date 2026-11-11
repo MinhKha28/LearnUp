@@ -45,7 +45,7 @@ const CourseBuilderModuleAdd = () => {
       });
 
       if (!response.data) {
-        message.error(response.message || "Unable to create Module.");
+        message.error(response.message || "Không thể tạo chương.");
         return;
       }
 
@@ -57,7 +57,7 @@ const CourseBuilderModuleAdd = () => {
       });
     } catch (error) {
       console.error("Create Module error:", error);
-      message.error("Unable to create Module.");
+      message.error("Không thể tạo chương.");
     } finally {
       setSaving(false);
     }

@@ -241,7 +241,7 @@ const CourseBuilderQuizDetail = () => {
             <dl className="builder-quiz-detail-config">
               <ConfigRow
                 label="Thời gian làm bài"
-                value={quiz.timeLimitMinutes ? `${quiz.timeLimitMinutes} min` : "No time limit"}
+                value={quiz.timeLimitMinutes ? `${quiz.timeLimitMinutes} phút` : "Không giới hạn thời gian"}
                 permission={permissions.editTimeLimit}
               />
               <ConfigRow

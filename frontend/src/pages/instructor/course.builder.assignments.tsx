@@ -31,7 +31,7 @@ const CourseBuilderAssignments = () => {
           setAssignments(res.data.items);
           setCourseLocked(res.data.courseLocked);
         } else {
-          message.error(assessmentErrorText(res, "Unable to load Assignments."));
+          message.error(assessmentErrorText(res, "Không thể tải danh sách bài tập."));
         }
       } catch {
         if (active) message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
@@ -90,22 +90,22 @@ const CourseBuilderAssignments = () => {
                 <div className="builder-assign-main">
                   <strong>
                     {assignment.title}
-                    {assignment.disabled && " (Disabled)"}
+                    {assignment.disabled && " (Đã vô hiệu hóa)"}
                   </strong>
                   <small>
-                    Passing score {assignment.passingScore}% · about {formatMinutes(assignment.expectedDurationMinutes)}
+                    Điểm đạt {assignment.passingScore}% · khoảng {formatMinutes(assignment.expectedDurationMinutes).replaceAll("min", "phút").replaceAll(" h", " giờ")}
                   </small>
                   <small>
-                    {assignment.maxConsecutiveAttempts} attempts, then a {assignment.lockoutHours} h lock
+                    {assignment.maxConsecutiveAttempts} lượt nộp liên tiếp, sau đó khóa {assignment.lockoutHours} giờ
                   </small>
                 </div>
                 <div className="builder-assign-tags">
                   <em className={`builder-pill${assignment.peerReviewEnabled ? " builder-pill-on" : ""}`}>
-                    Peer Review {assignment.peerReviewEnabled ? "on" : "off"}
+                    Chấm chéo: {assignment.peerReviewEnabled ? "Bật" : "Tắt"}
                   </em>
                   {/* BR-99: say why an item cannot be edited instead of only showing a state. */}
                   <em className={`builder-pill${assignment.locked ? " builder-pill-warn" : ""}`}>
-                    {assignment.locked ? "Has submissions" : "Unlocked"}
+                    {assignment.locked ? "Đã có bài nộp" : "Chưa khóa"}
                   </em>
                 </div>
                 <span className="builder-assign-chevron">&rsaquo;</span>

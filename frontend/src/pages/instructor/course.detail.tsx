@@ -49,15 +49,15 @@ const getCourseStatusTone = (
 };
 
 const formatEstimatedDuration = (minutes: number | null) => {
-  if (minutes === null) return "Not available";
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes === null) return "Chưa có thông tin";
+  if (minutes < 60) return `${minutes} phút`;
 
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
 
   return remainingMinutes > 0
-    ? `${hours} hr ${remainingMinutes} min`
-    : `${hours} hr`;
+    ? `${hours} giờ ${remainingMinutes} phút`
+    : `${hours} giờ`;
 };
 
 const CourseDetail = () => {
@@ -142,12 +142,12 @@ const CourseDetail = () => {
       content: (
         <>
           <p>
-            "{course.name}" will be kept in Trash for 7 days before it is
-            permanently deleted.
+            Khóa học "{course.name}" sẽ được giữ trong thùng rác 7 ngày
+            trước khi bị xóa vĩnh viễn.
           </p>
           <p>
             Khóa học và các tệp vẫn được tính vào giới hạn số khóa học
-            and Storage limits during this period.
+            và dung lượng lưu trữ trong thời gian này.
           </p>
         </>
       ),
@@ -213,7 +213,7 @@ const CourseDetail = () => {
             <h2>Mô tả ngắn</h2>
             <p>
               {course.shortDescription ||
-                "No short description has been provided."}
+                "Chưa có mô tả ngắn cho khóa học."}
             </p>
           </div>
 
@@ -221,7 +221,7 @@ const CourseDetail = () => {
             <h2>Mục tiêu đào tạo</h2>
             <p>
               {course.trainingObjectives ||
-                "No training objective has been provided."}
+                "Chưa có mục tiêu đào tạo cho khóa học."}
             </p>
           </div>
 
