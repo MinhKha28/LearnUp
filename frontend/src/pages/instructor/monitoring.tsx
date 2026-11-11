@@ -23,13 +23,13 @@ const Monitoring = () => {
   const rows = filteredMonitoringRows();
 
   const columns: ColumnsType<IMonitoringRow> = [
-    { title: "Learner", dataIndex: "learnerName", render: (value) => <strong>{value}</strong> },
-    { title: "Course", dataIndex: "courseTitle" },
-    { title: "Enrollment", dataIndex: "enrollmentType" },
-    { title: "Progress", dataIndex: "progressLabel" },
-    { title: "Assessment", dataIndex: "resultLabel" },
+    { title: "Học viên", dataIndex: "learnerName", render: (value) => <strong>{value}</strong> },
+    { title: "Khóa học", dataIndex: "courseTitle" },
+    { title: "Đăng ký học", dataIndex: "enrollmentType" },
+    { title: "Tiến độ", dataIndex: "progressLabel" },
+    { title: "Bài đánh giá", dataIndex: "resultLabel" },
     {
-      title: "Due status",
+      title: "Trạng thái hạn học",
       dataIndex: "dueStatus",
       render: (value: IMonitoringRow["dueStatus"]) => (
         <StatusTag tone={dueStatusTone[value]}>{value}</StatusTag>
@@ -40,19 +40,19 @@ const Monitoring = () => {
   const filterSummary = [
     monitoringFilters.courseTitle ?? "Course",
     monitoringFilters.learnerName ?? "Learner",
-    monitoringFilters.enrollmentType ?? "Enrollment type",
+    monitoringFilters.enrollmentType ?? "Hình thức đăng ký học",
     monitoringFilters.completionStatus ?? "Completion status",
   ];
 
   return (
     <InstructorPage className="instructor-monitoring">
       <PageHeader
-        eyebrow="INSTRUCTOR"
-        title="Course Monitoring"
-        subtitle="Learning progress in Courses you currently own."
+        eyebrow="Giảng viên"
+        title="Theo dõi học tập"
+        subtitle="Theo dõi tiến độ học tập tại các khóa học bạn đang phụ trách."
         actions={
           <InstructorButton type="primary" onClick={() => navigate("/instructor/monitoring/export")}>
-            Export report
+            Xuất báo cáo
           </InstructorButton>
         }
       />
@@ -67,7 +67,7 @@ const Monitoring = () => {
             {index < filterSummary.length - 1 && <em>›</em>}
           </span>
         ))}
-        {hasActiveMonitoringFilters() && <span className="instructor-monitoring-filter-active">Filtered</span>}
+        {hasActiveMonitoringFilters() && <span className="instructor-monitoring-filter-active">Đã lọc</span>}
       </button>
       <SectionCard className="instructor-monitoring-card">
         <Table
@@ -82,8 +82,8 @@ const Monitoring = () => {
               navigate(`/instructor/monitoring/courses/${row.courseId}/learners/${row.learnerId}`),
           })}
         />
-        <InfoPanel title="Instructor scope">
-          Only Courses currently under your responsibility appear here.
+        <InfoPanel title="Phạm vi giảng viên">
+          Chỉ hiển thị các khóa học bạn đang phụ trách.
         </InfoPanel>
       </SectionCard>
     </InstructorPage>

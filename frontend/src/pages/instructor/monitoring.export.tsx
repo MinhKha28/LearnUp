@@ -19,20 +19,20 @@ const MonitoringExport = () => {
   return (
     <InstructorPage className="instructor-monitoring-export">
       <PageHeader
-        eyebrow="INSTRUCTOR"
-        title="Export Course Report"
-        subtitle="Export only the filtered data from Courses you own."
+        eyebrow="Giảng viên"
+        title="Xuất báo cáo khóa học"
+        subtitle="Chỉ xuất dữ liệu đã lọc từ các khóa học bạn phụ trách."
         back
       />
       <SectionCard className="instructor-export-card">
-        <h2>Report scope</h2>
+        <h2>Phạm vi báo cáo</h2>
         <p>Selected Course: {monitoringFilters.courseTitle ?? "All Courses"}</p>
         <p>
           Enrollment type: {monitoringFilters.enrollmentType ?? "[Filter]"} • Status:{" "}
           {monitoringFilters.completionStatus ?? "[Filter]"}
         </p>
         <hr />
-        <h3>File format</h3>
+        <h3>Định dạng tệp</h3>
         <div className="instructor-export-formats">
           {(["Excel", "PDF"] as ExportFormat[]).map((option) => (
             <button
@@ -47,7 +47,7 @@ const MonitoringExport = () => {
         </div>
         <div className="instructor-export-actions">
           <InstructorButton type="primary" onClick={exportReport}>
-            Export report
+            Xuất báo cáo
           </InstructorButton>
         </div>
       </SectionCard>
