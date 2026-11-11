@@ -11,7 +11,7 @@ import { ApiError } from "@/types/api.types";
 import * as api from "@/services/assignment.service";
 
 vi.mock("@/services/assignment.service", () => ({
-  fetchAssignment: vi.fn(), fetchAssignments: vi.fn(),
+  fetchAssignment: vi.fn(), fetchAssignments: vi.fn(), cancelAssignment: vi.fn(),
   extendAssignment: vi.fn(), exemptAssignment: vi.fn(), removeAssignmentExemption: vi.fn(),
 }));
 beforeAll(() => {
@@ -102,6 +102,53 @@ const detail: AssignmentDetail = {
   extensionSeconds: 0, firstActivityAt: null, completedAt: null, completedLate: null,
   withdrawnAt: null, withdrawnReason: null, intervals: [],
 };
+it("UC24.4 confirms, submits once, and reloads the withdrawn detail", async () => {
+  const withdrawn = { ...detail, status: "Withdrawn", withdrawnReason: "OrganizerCancelled" } as const;
+  vi.mocked(api.fetchAssignment).mockResolvedValueOnce(detail).mockResolvedValue(withdrawn);
+  vi.mocked(api.fetchAssignments).mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
+  let finish!: (value: AssignmentDetail) => void;
+  vi.mocked(api.cancelAssignment).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  showDetail();
+  const action = await screen.findByRole("button", { name: "Hủy phân công" });
+  fireEvent.click(action);
+  let modal = await screen.findByRole("dialog");
+  expect(within(modal).getByText(/có thể được phân công lại sau/)).toBeTruthy();
+  fireEvent.click(within(modal).getByRole("button", { name: "Quay lại" }));
+  expect(api.cancelAssignment).not.toHaveBeenCalled();
+  fireEvent.click(action);
+  modal = await screen.findByRole("dialog");
+  const confirm = within(modal).getByRole("button", { name: "Hủy phân công" });
+  fireEvent.click(confirm);
+  fireEvent.click(confirm);
+  expect(api.cancelAssignment).toHaveBeenCalledTimes(1);
+  finish(withdrawn);
+  expect(await screen.findByText("Đã rút")).toBeTruthy();
+  await waitFor(() => expect(api.fetchAssignment).toHaveBeenCalledTimes(2));
+});
+
+it.each(["ENROLLMENT_NOT_CANCELLABLE", "ASSIGNMENT_HAS_LEARNING_DATA"])("UC24.4 reloads detail on %s", async (code) => {
+  vi.mocked(api.fetchAssignment).mockResolvedValueOnce(detail).mockResolvedValue({ ...detail, status: "InProgress", firstActivityAt: detail.dueAt });
+  vi.mocked(api.cancelAssignment).mockRejectedValue(new ApiError(409, code, ""));
+  showDetail();
+  fireEvent.click(await screen.findByRole("button", { name: "Hủy phân công" }));
+  const modal = await screen.findByRole("dialog");
+  fireEvent.click(within(modal).getByRole("button", { name: "Hủy phân công" }));
+  expect(await screen.findByText(views.assignmentErrorMessage(code))).toBeTruthy();
+  expect(await screen.findByText("Đang học")).toBeTruthy();
+  expect(api.fetchAssignment).toHaveBeenCalledTimes(2);
+});
+
+it("UC24.4 offers cancellation for untouched Overdue and retains confirmation on 503", async () => {
+  vi.mocked(api.fetchAssignment).mockResolvedValue({ ...detail, status: "Overdue" });
+  vi.mocked(api.cancelAssignment).mockRejectedValue(new ApiError(503, "SERVICE_UNAVAILABLE", ""));
+  showDetail();
+  fireEvent.click(await screen.findByRole("button", { name: "Hủy phân công" }));
+  const modal = await screen.findByRole("dialog");
+  fireEvent.click(within(modal).getByRole("button", { name: "Hủy phân công" }));
+  expect(await within(modal).findByText(views.assignmentErrorMessage("SERVICE_UNAVAILABLE"))).toBeTruthy();
+  expect(api.fetchAssignment).toHaveBeenCalledTimes(1);
+});
+
 it.each(["DUE_DATE_IN_PAST", "DUE_DATE_NOT_LATER"])("%s keeps the inline error while reloading detail and its picker zone", async (code) => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-29T12:00:00Z"));

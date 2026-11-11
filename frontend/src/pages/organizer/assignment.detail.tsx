@@ -66,6 +66,7 @@ const AssignmentDetail = () => {
                 onChanged={(value) => {
                   setConflictError(null);
                   setUpdated(value);
+                  if (value.withdrawnReason === "OrganizerCancelled") query.reload();
                   refreshList();
                 }}
                 onReload={() => {
@@ -193,6 +194,7 @@ const AssignmentDetail = () => {
                     ? ((
                         {
                           LearnerWithdrew: "Học viên tự rút",
+                          OrganizerCancelled: "Quản lý đào tạo đã hủy phân công",
                           AccountDeleted: "Tài khoản đã bị xóa",
                         } as Record<string, string>
                       )[item.withdrawnReason] ?? "Lý do khác")
