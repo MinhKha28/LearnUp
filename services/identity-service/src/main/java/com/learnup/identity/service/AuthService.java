@@ -114,6 +114,14 @@ public class AuthService {
 
         log.info("event=login_succeeded user_id={} correlation_id={}", user.getId(), AuthenticationDiagnostics.correlationId());
 
+        return issueSession(user, access);
+    }
+
+    /**
+     * Issues the standard access/refresh token pair for a user whose credentials and Tenant
+     * eligibility were already verified (UC05 password login, UC05.1 Google sign-in).
+     */
+    public AuthResponse issueSession(User user, SignInAccess access) {
         String accessToken = jwtTokenService.generateAccessToken(user);
         String rawRefreshToken = createAndPersistRefreshToken(user.getId());
         UserResponse userResponse = userMapper.toResponse(user);
