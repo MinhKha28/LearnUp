@@ -1,10 +1,16 @@
-import { closeAll, closeApp } from './deadlines';
+import {
+  BARRIER_TIMEOUT_MS,
+  IO_TIMEOUT_MS,
+  closeAll,
+  closeApp,
+} from './deadlines';
 import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
+import { setTimeout as delay } from 'node:timers/promises';
 import { AssignmentChangesRepository } from '../../src/modules/assignments/assignment-changes.repository';
 import { TenantAccessHttp } from '../../src/infrastructure/clients/tenant/tenant-access.http';
 import type { AddressInfo } from 'node:net';
@@ -29,6 +35,7 @@ import {
   type AssessmentClient,
 } from '../../src/infrastructure/clients/assessment/assessment.client';
 import { LearnerEnrollmentSummaryRepository } from '../../src/modules/enrollments/learner-enrollment-summary.repository';
+import { MaterialProgressRepository } from '../../src/modules/material-progress/material-progress.repository';
 import { MaterialProgressService } from '../../src/modules/material-progress/material-progress.service';
 import { BaseDueAtRepository } from '../../src/modules/enrollments/base-due-at.repository';
 import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
@@ -969,6 +976,82 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
       results.find((r) => r.status === 409)?.body.error.code,
       'ENROLLMENT_NOT_CANCELLABLE',
     );
+  });
+
+  test('UC24.4 waits for an in-flight reading completion before cancelling', async () => {
+    const id = await seed('NotStarted');
+    const material = randomUUID();
+    await db.query(
+      `INSERT INTO material_snapshots (material_id,organization_id,course_id,lesson_id,material_type,is_required,disabled_as_of)
+       VALUES ($1,$2,$3,$4,'Reading',true,now())`,
+      [material, ORG, COURSE, randomUUID()],
+    );
+
+    let cancellation: ReturnType<typeof call> | undefined;
+    try {
+      await app.get(PrismaService).$transaction(
+        async (writer) => {
+          const [{ pid }] = await writer.$queryRaw<{ pid: number }[]>`
+          SELECT pg_backend_pid() AS pid`;
+          assert.equal(
+            await app
+              .get(MaterialProgressRepository)
+              .completeReading(id, material, ORG, writer),
+            true,
+          );
+
+          cancellation = call(id, 'cancellation');
+          void cancellation.catch(() => undefined);
+          const stop = performance.now() + BARRIER_TIMEOUT_MS;
+          // The waiter may be the candidate SELECT or the final UPDATE.
+          // Commit only once PostgreSQL confirms that cancellation is blocked.
+          for (;;) {
+            const {
+              rows: [{ blocked }],
+            } = await db.query<{ blocked: boolean }>(
+              `SELECT EXISTS (
+               SELECT 1 FROM pg_stat_activity
+               WHERE datname = current_database()
+                 AND $1::int = ANY(pg_blocking_pids(pid))
+             ) AS blocked`,
+              [pid],
+            );
+            if (blocked) break;
+            assert.ok(
+              performance.now() < stop,
+              'cancellation did not wait for the reading transaction',
+            );
+            await delay(10);
+          }
+        },
+        { timeout: BARRIER_TIMEOUT_MS + IO_TIMEOUT_MS },
+      );
+
+      assert.ok(cancellation);
+      const result = await cancellation;
+      assert.equal(result.status, 409);
+      assert.equal(result.body.error.code, 'ENROLLMENT_NOT_CANCELLABLE');
+
+      const {
+        rows: [enrollment],
+      } = await db.query(
+        'SELECT status, first_activity_at, withdrawn_at, withdrawn_reason FROM enrollments WHERE id=$1',
+        [id],
+      );
+      assert.equal(enrollment.status, 'InProgress');
+      assert.ok(enrollment.first_activity_at);
+      assert.equal(enrollment.withdrawn_at, null);
+      assert.equal(enrollment.withdrawn_reason, null);
+      const {
+        rows: [progress],
+      } = await db.query(
+        'SELECT completed_at FROM material_progress WHERE enrollment_id=$1 AND material_id=$2',
+        [id, material],
+      );
+      assert.ok(progress?.completed_at);
+    } finally {
+      await Promise.allSettled([cancellation]);
+    }
   });
 
   test('UC24.4 rechecks a local progress write made during the remote lookup', async () => {
