@@ -2,10 +2,10 @@ import type { IRenewalQuote } from "@/types/subscription.types";
 import { formatStorage } from "@/utils/helper";
 
 const LIMIT_LABELS: Record<string, string> = {
-  learners: "Learners",
-  instructors: "Instructors",
-  courses: "Courses",
-  storageBytes: "Storage",
+  learners: "Số học viên",
+  instructors: "Số giảng viên",
+  courses: "Số khóa học",
+  storageBytes: "Dung lượng lưu trữ",
 };
 
 export const exceededLimitLines = (
@@ -14,18 +14,18 @@ export const exceededLimitLines = (
   exceeded.map(({ limit, used, newLimit }) => {
     const label = LIMIT_LABELS[limit] ?? limit;
     return limit === "storageBytes"
-      ? `${label}: using ${formatStorage(used)}, new limit ${formatStorage(newLimit)}`
-      : `${label}: using ${used}, new limit ${newLimit}`;
+      ? `${label}: đang dùng ${formatStorage(used)}, giới hạn mới ${formatStorage(newLimit)}`
+      : `${label}: đang dùng ${used}, giới hạn mới ${newLimit}`;
   });
 
 export const renewalTermNote = (status: IRenewalQuote["currentStatus"]) => {
   switch (status) {
     case "Grace":
-      return "You are in the grace period: the new term counts from the old expiry date, so the grace days already used are part of it.";
+      return "Gói dịch vụ đang trong thời gian ân hạn: kỳ mới tính từ ngày hết hạn cũ, nên những ngày ân hạn đã dùng được trừ vào kỳ mới.";
     case "Suspended":
-      return "Your Subscription is suspended: the new term starts on the payment date and full access returns right away.";
+      return "Gói dịch vụ đang tạm ngưng: kỳ mới bắt đầu từ ngày thanh toán và toàn bộ quyền truy cập được khôi phục ngay.";
     default:
-      return "Your current term keeps running: the new term starts when it expires.";
+      return "Kỳ hiện tại vẫn tiếp tục: kỳ mới bắt đầu khi kỳ hiện tại hết hạn.";
   }
 };
 
@@ -34,16 +34,16 @@ export const RENEWAL_NOT_APPLIED = "RENEWAL_NOT_APPLIED";
 export const renewalErrorMessage = (code: string | undefined) => {
   switch (code) {
     case RENEWAL_NOT_APPLIED:
-      return "Your payment was recorded, but the renewal could not be applied. Do not pay again. Please contact support.";
+      return "Thanh toán của bạn đã được ghi nhận nhưng chưa gia hạn được. Đừng thanh toán lần nữa, hãy liên hệ bộ phận hỗ trợ.";
     case "RENEWAL_ALREADY_SCHEDULED":
-      return "A renewal is already paid and waiting to start. You can renew again after it starts.";
+      return "Đã có một kỳ gia hạn được thanh toán và đang chờ bắt đầu. Bạn có thể gia hạn tiếp sau khi kỳ đó bắt đầu.";
     case "RENEWAL_IN_PROGRESS":
-      return "Another renewal is being processed. Please wait a moment and try again.";
+      return "Một yêu cầu gia hạn khác đang được xử lý. Vui lòng đợi một chút rồi thử lại.";
     case "ORGANIZATION_NOT_ACTIVE":
-      return "Your Organization is not active, so the Subscription cannot be renewed.";
+      return "Tổ chức của bạn không ở trạng thái hoạt động nên không gia hạn được gói dịch vụ.";
     case "SUBSCRIPTION_NOT_FOUND":
-      return "Your Organization has no Subscription to renew.";
+      return "Tổ chức của bạn chưa có gói dịch vụ để gia hạn.";
     default:
-      return "Could not process the renewal. Please try again later.";
+      return "Chưa xử lý được yêu cầu gia hạn. Vui lòng thử lại sau.";
   }
 };

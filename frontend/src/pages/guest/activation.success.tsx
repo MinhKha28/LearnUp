@@ -2,6 +2,7 @@ import { CheckOutlined } from "@ant-design/icons";
 import { Button } from "antd";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthCard, AuthResult } from "@/components/guest/auth";
+import { roleLabel } from "@/utils/helper";
 
 export default function ActivationSuccess() {
   const navigate = useNavigate();
@@ -13,14 +14,17 @@ export default function ActivationSuccess() {
       <AuthResult
         icon={<CheckOutlined />}
         tone="success"
-        title="Account activated"
+        title="Đã kích hoạt tài khoản"
         action={
           <Button type="primary" onClick={() => navigate("/login")}>
-            Continue to sign in
+            Tiếp tục đăng nhập
           </Button>
         }
       >
-        <p>Your {role ?? "LearnUP"} account is ready to use.</p>
+        <p>
+          Tài khoản {role ? roleLabel(role).toLowerCase() : "LearnUP"} của bạn
+          đã sẵn sàng sử dụng.
+        </p>
       </AuthResult>
     </AuthCard>
   );
