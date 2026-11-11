@@ -56,7 +56,8 @@ describe("the result of an Assignment", () => {
     expect(screen.getByText("Giảng viên")).toBeTruthy();
     expect(screen.getByText("Người chấm chéo")).toBeTruthy();
     expect(screen.getByText("Ẩn")).toBeTruthy();
-    expect(screen.getByText(/Lần nộp thứ 2, nộp lúc \d{1,2}:\d{2}:\d{2} \d{1,2}\/\d{1,2}\/2026/)).toBeTruthy();
+    // 2026-11-02T08:30:00Z is 15:30 in Vietnam; the date comes first
+    expect(screen.getByText("Lần nộp thứ 2, nộp lúc 02/11/2026 15:30.")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/Final score|Passed|Comments|Back to|pts/);
   });
 

@@ -516,3 +516,67 @@ export interface IMaterialPreview {
   mimeType: string;
   expiresAt: string;
 }
+
+export interface IWithdrawCourseResponse {
+  id: string;
+  name: string;
+  versionNumber: number;
+  status: "Draft";
+  submittedAt: null;
+}
+
+
+/** UC21.3 - Organizer approval or rejection result. */
+export interface IRejectCourseRequest {
+  reason: string;
+}
+
+export interface ICourseDecisionResponse {
+  id: string;
+  name: string;
+  versionNumber: number;
+  status: CourseStatus;
+  publishedAt: string | null;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
+}
+
+export interface ITransferCourseVersion {
+  id: string;
+  versionNumber: number;
+  name: string;
+  status: CourseStatus;
+  createdAt: string;
+  publishedAt: string | null;
+}
+
+export interface ITransferCourseContext {
+  courseId: string;
+  chainId: string;
+  courseName: string;
+  currentInstructor: {
+    id: string;
+    fullName: string | null;
+    resolved?: boolean;
+  };
+  versions: ITransferCourseVersion[];
+}
+
+export interface ITransferCourseRequest {
+  toInstructorId: string;
+  expectedInstructorId: string;
+  reason?: string;
+}
+
+export interface ITransferCourseResponse {
+  courseId: string;
+  chainId: string;
+  fromInstructorId: string;
+  toInstructorId: string;
+  transferredAt: string;
+}
+
+export interface ITransferCandidate {
+  id: string;
+  fullName: string;
+}

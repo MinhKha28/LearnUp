@@ -11,6 +11,8 @@ import {
   Put,
   Delete,
   Patch,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '@common/decorator/customize';
@@ -33,6 +35,8 @@ import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
 import { memoryStorage } from 'multer';
 import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
+import { TransferCourseOwnershipDto } from './dto/transfer-course-ownership.dto';
+import { RejectCourseDto } from './dto/reject-course.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -308,6 +312,25 @@ export class CoursesController {
     return this.coursesService.submitCourseForApproval(user, courseId);
   }
 
+  @Post(':courseId/approve')
+  @ResponseMessage('Course approved successfully')
+  approveCourse(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.approveCourse(user, courseId);
+  }
+
+  @Post(':courseId/reject')
+  @ResponseMessage('Course rejected successfully')
+  rejectCourse(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Body() dto: RejectCourseDto,
+  ) {
+    return this.coursesService.rejectCourse(user, courseId, dto);
+  }
+
   @Patch(':courseId/lessons/:lessonId/materials/:materialId')
   @ResponseMessage('Learning material updated successfully')
   updateMaterial(
@@ -379,4 +402,34 @@ export class CoursesController {
       materialId,
     );
   }
+
+  @Post(':courseId/withdraw')
+  @ResponseMessage('Course withdrawn successfully')
+  withdrawCourseSubmission(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.withdrawCourseSubmission(user, courseId);
+  }
+
+  @Post(':courseId/transfer')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Course ownership transferred successfully')
+  transferCourseOwnership(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Body() dto: TransferCourseOwnershipDto,
+  ) {
+    return this.coursesService.transferCourseOwnership(user, courseId, dto);
+  }
+
+  @Get('organization/:courseId/transfer-context')
+  @ResponseMessage('Transfer context retrieved successfully')
+  getTransferContext(
+    @User() user: CurrentUser,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    return this.coursesService.getTransferContext(user, courseId);
+  }
+
 }

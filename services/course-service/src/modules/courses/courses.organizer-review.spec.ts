@@ -113,4 +113,45 @@ describe('UC21.2 - Organizer Course Review', () => {
 
     expect(storage.getSignedUrl).not.toHaveBeenCalled();
   });
+
+  it('returns the original signed URL for an available Reading PDF without forcing attachment', async () => {
+    const materialId = '019a0000-0000-7000-8000-000000000005';
+    repository.findOrganizerReviewMaterial.mockResolvedValue({
+      materialType: 'Reading',
+      disabledAt: null,
+      lesson: { disabledAt: null },
+      file: {
+        organizationId,
+        status: 'Ready',
+        readyAt: new Date(),
+        releasedAt: null,
+        deliveryType: 'authenticated',
+        purpose: 'LessonReading',
+        mimeType: 'application/pdf',
+        storageKey: 'private/safety.pdf',
+        storageFormat: '',
+      },
+    });
+    storage.getSignedUrl.mockReturnValue('https://example.test/signed-pdf');
+
+    const result = await service.getOrganizerMaterialPreview(
+      organizer, courseId, materialId,
+    );
+
+    expect(result).toEqual({
+      url: 'https://example.test/signed-pdf',
+      mimeType: 'application/pdf',
+      expiresAt: expect.any(String),
+    });
+    expect(storage.getSignedUrl).toHaveBeenCalledWith(
+      'private/safety.pdf',
+      expect.objectContaining({
+        resourceType: 'raw',
+        format: '',
+        deliveryType: 'authenticated',
+      }),
+    );
+    expect(storage.getSignedUrl.mock.calls[0][1]).not.toHaveProperty('attachment');
+  });
+
 });

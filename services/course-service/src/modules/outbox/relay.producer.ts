@@ -23,6 +23,9 @@ const eventTypes = new Set([
   'CourseComponentDisabled',
   'CourseComponentReactivated',
   'CourseSubmitted',
+  'CourseOwnershipTransferred',
+  'CoursePublished',
+  'CourseRejected',
 ]);
 
 const uuidPattern =
@@ -95,9 +98,73 @@ export function message(row: OutboxRow) {
     }
   }
 
+  if (row.event_type === 'CourseOwnershipTransferred') {
+    const ids = [
+      data.chainId,
+      data.fromInstructorId,
+      data.toInstructorId,
+      data.actorUserId,
+    ];
+
+    if (
+      ids.some(
+        (value) => typeof value !== 'string' || !uuidPattern.test(value),
+      ) ||
+      typeof data.courseName !== 'string' ||
+      !data.courseName.trim() ||
+      (data.reason !== undefined && typeof data.reason !== 'string')
+    ) {
+      throw new SerializationFailure();
+    }
+  }
+
+
+  if (
+    row.event_type === 'CoursePublished' ||
+    row.event_type === 'CourseRejected'
+  ) {
+    if (
+      typeof data.instructorId !== 'string' ||
+      !uuidPattern.test(data.instructorId) ||
+      typeof data.organizerId !== 'string' ||
+      !uuidPattern.test(data.organizerId) ||
+      typeof data.courseName !== 'string' ||
+      !data.courseName.trim() ||
+      !Number.isSafeInteger(data.versionNumber) ||
+      (data.versionNumber as number) < 1 ||
+      typeof data.decidedAt !== 'string' ||
+      Number.isNaN(Date.parse(data.decidedAt))
+    ) {
+      throw new SerializationFailure();
+    }
+
+    const decisionTime =
+      row.event_type === 'CoursePublished' ? data.publishedAt : data.rejectedAt;
+
+    if (
+      typeof decisionTime !== 'string' ||
+      decisionTime !== data.decidedAt ||
+      decisionTime !== data.occurredAt
+    ) {
+      throw new SerializationFailure();
+    }
+
+    if (row.event_type === 'CourseRejected') {
+      if (
+        typeof data.rejectionReason !== 'string' ||
+        !data.rejectionReason.trim() ||
+        data.rejectionReason.length > 1000
+      ) {
+        throw new SerializationFailure();
+      }
+    }
+  }
+
   if (
     data.organizationId !== row.organization_id ||
-    data.courseId !== row.aggregate_id ||
+    (row.event_type === 'CourseOwnershipTransferred'
+      ? data.chainId !== row.aggregate_id
+      : data.courseId !== row.aggregate_id) ||
     data.occurredAt !== row.occurred_at.toISOString()
   ) {
     throw new SerializationFailure();

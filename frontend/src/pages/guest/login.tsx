@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Alert, Button, Form, Input } from "antd";
 import { BookOutlined, CheckOutlined, FlagOutlined } from "@ant-design/icons";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { loginAPI } from "@/services/identity.service";
+import { googleLoginAPI, loginAPI } from "@/services/identity.service";
+import GoogleSignIn from "@/components/guest/google.sign.in";
+import { googleSignInMessage } from "@/utils/google.sign.in";
 import { loadUserWithProfile } from "@/services/profile.service";
 import { useCurrentApp } from "@/components/context/app.context";
 import "@/pages/guest/login.scss";
@@ -65,6 +67,34 @@ export default function LoginPage() {
     }
   }
 
+  // UC05.1: existing Organizer/Instructor/Learner accounts only; Identity never creates an account.
+  async function googleSubmit(credential: string) {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await googleLoginAPI(credential);
+      const result = response.data;
+      if (result?.accessToken && result.refreshToken && result.user) {
+        saveTokens(result.accessToken, result.refreshToken);
+        setUser(await loadUserWithProfile(result.user));
+        setIsAuthenticated(true);
+        navigate(
+          safeRedirect(params.get("redirect")) ??
+            homePathForRole(result.user.role),
+          { replace: true },
+        );
+        return;
+      }
+      const code = (response as unknown as { error?: { code?: string } })
+        .error?.code;
+      setError(googleSignInMessage(code));
+    } catch {
+      setError("Unable to sign in right now. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <main className="login" id="guest-main">
       <aside className="login-brand">
@@ -112,6 +142,15 @@ export default function LoginPage() {
               type="success"
               message="Password changed"
               description="Sign in with your new password."
+              role="status"
+            />
+          )}
+          {params.get("state") === "signed-out-unconfirmed" && !error && (
+            <Alert
+              className="login-alert"
+              type="warning"
+              message="Signed out on this device"
+              description="LearnUP could not confirm that your session ended on the server. Sign in again and sign out once you are back online."
               role="status"
             />
           )}
@@ -199,18 +238,11 @@ export default function LoginPage() {
             </Button>
           </Form>
           <div className="login-divider">or</div>
-          <Button
-            className="login-google"
-            block
+          <GoogleSignIn
             disabled={loading}
-            onClick={() =>
-              setError(
-                "Google sign-in is currently unavailable. Please sign in with your email and password.",
-              )
-            }
-          >
-            <span aria-hidden="true">G</span>Continue with Google
-          </Button>
+            onCredential={googleSubmit}
+            onError={setError}
+          />
           <p className="login-help">
             Google sign-in is available for existing Organizer, Instructor and
             Learner accounts.

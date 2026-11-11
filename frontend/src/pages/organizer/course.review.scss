@@ -216,3 +216,27 @@
         padding: 12px;
     }
 }
+
+/* UC21.3 - Decisions remain usable in narrow Organizer layouts. */
+.review-decision-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .review-decision-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+.review-instructor-id {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}

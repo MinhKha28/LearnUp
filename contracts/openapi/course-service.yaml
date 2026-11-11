@@ -294,6 +294,88 @@ paths:
         "404":
           description: Course not available for review.
 
+  /api/v1/courses/{courseId}/withdraw:
+    post:
+      summary: Withdraw a Submitted Course before Organizer approval (UC20.1)
+      operationId: withdrawCourseSubmission
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Course withdrawn successfully and returned to Draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WithdrawCourseResponse"
+        "400":
+          description: Invalid Course UUID.
+        "401":
+          description: Authentication required.
+        "403":
+          description: Only the assigned Instructor can withdraw.
+        "404":
+          description: Course not found or not assigned to the Instructor.
+        "409":
+          description: INVALID_COURSE_STATUS or COURSE_CHANGED.
+  /api/v1/courses/{courseId}/transfer:
+    post:
+      summary: UC23 - Transfer the ownership of a complete Course Chain
+      operationId: transferCourseOwnership
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferCourseOwnershipRequest'
+      responses:
+        '200':
+          description: Ownership transferred and durable outbox event committed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferCourseOwnershipResponse'
+        '400': { description: Invalid Instructor or request }
+        '401': { description: Authentication required }
+        '403': { description: Organizer permission required }
+        '404': { description: Course not found in Organization }
+        '409': { description: Ownership changed since client snapshot }
+        '503': { description: Tenant Service unavailable }
+
+  /api/v1/courses/organization/{courseId}/transfer-context:
+    get:
+      summary: UC23 - Fetch current chain Instructor and version history
+      operationId: getTransferContext
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Transfer context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferContextResponse'
+        '403': { description: Organizer permission required }
+        '404': { description: Course not found }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -504,3 +586,76 @@ components:
           properties:
             courseId: { type: string, format: uuid }
             reviewable: { type: boolean, enum: [true] }
+
+    WithdrawCourseResponse:
+      type: object
+      required: [statusCode, message, data]
+      properties:
+        statusCode: { type: integer, enum: [201] }
+        message: { type: string }
+        data:
+          type: object
+          required: [id, name, versionNumber, status, submittedAt]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            versionNumber: { type: integer, minimum: 1 }
+            status: { type: string, enum: [Draft] }
+            submittedAt: { type: string, nullable: true }
+
+    TransferCourseOwnershipRequest:
+      type: object
+      required: [toInstructorId, expectedInstructorId]
+      properties:
+        toInstructorId: { type: string, format: uuid }
+        expectedInstructorId: { type: string, format: uuid }
+        reason: { type: string, maxLength: 1000 }
+
+    TransferCourseOwnershipResponse:
+      type: object
+      required: [statusCode, message, data]
+      properties:
+        statusCode: { type: integer, enum: [200] }
+        message: { type: string }
+        data:
+          type: object
+          required: [courseId, chainId, fromInstructorId, toInstructorId, transferredAt]
+          properties:
+            courseId: { type: string, format: uuid }
+            chainId: { type: string, format: uuid }
+            fromInstructorId: { type: string, format: uuid }
+            toInstructorId: { type: string, format: uuid }
+            transferredAt: { type: string, format: date-time }
+
+    TransferContextResponse:
+      type: object
+      required: [statusCode, message, data]
+      properties:
+        statusCode: { type: integer, enum: [200] }
+        message: { type: string }
+        data:
+          type: object
+          required: [courseId, chainId, courseName, currentInstructor, versions]
+          properties:
+            courseId: { type: string, format: uuid }
+            chainId: { type: string, format: uuid }
+            courseName: { type: string }
+            currentInstructor:
+              type: object
+              required: [id, fullName]
+              properties:
+                id: { type: string, format: uuid }
+                fullName: { type: string, nullable: true }
+                resolved: { type: boolean }
+            versions:
+              type: array
+              items:
+                type: object
+                required: [id, versionNumber, name, status, createdAt]
+                properties:
+                  id: { type: string, format: uuid }
+                  versionNumber: { type: integer }
+                  name: { type: string }
+                  status: { type: string }
+                  createdAt: { type: string, format: date-time }
+                  publishedAt: { type: string, format: date-time, nullable: true }

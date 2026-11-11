@@ -1,4 +1,4 @@
-import { Alert, Collapse, Empty, Modal, Skeleton, message } from "antd";
+import { Alert, Collapse, Empty, Input, Modal, Skeleton, message } from "antd";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -14,6 +14,9 @@ import {
 
 import {
   fetchOrganizerCourseReviewAPI,
+  fetchOrganizationCourseInstructorsAPI,
+  approveCourseAPI,
+  rejectCourseAPI,
   fetchOrganizerMaterialPreviewAPI,
 } from "@/services/course.service";
 
@@ -216,6 +219,7 @@ const CourseReview = () => {
   const navigate = useNavigate();
 
   const [course, setCourse] = useState<IOrganizerCourseReview | null>(null);
+  const [instructorName, setInstructorName] = useState<string | null>(null);
 
   const [assessments, setAssessments] = useState<IReviewAssessment[]>([]);
 
@@ -226,7 +230,6 @@ const CourseReview = () => {
   const [reloadKey, setReloadKey] = useState(0);
 
   const [preview, setPreview] = useState<IMaterialPreview | null>(null);
-
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
 
@@ -235,6 +238,12 @@ const CourseReview = () => {
   // Prevent duplicate attachment downloads immediately,
   // without waiting for the next React render.
   const downloadingRef = useRef(false);
+
+  const [decisionOpen, setDecisionOpen] = useState<"APPROVE" | "REJECT" | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [decisionLoading, setDecisionLoading] = useState(false);
+  // Ref closes the gap before React's next render: one request per decision.
+  const decisionInFlightRef = useRef(false);
 
   // Load real Course and Assessment data.
   useEffect(() => {
@@ -248,6 +257,8 @@ const CourseReview = () => {
       setAssessmentError("");
       setPreview(null);
       setPreviewOpen(false);
+      setDecisionOpen(null);
+      setRejectionReason("");
 
       if (!courseId) {
         setCourseError("Course ID is missing.");
@@ -318,6 +329,62 @@ const CourseReview = () => {
 
   const refreshReview = () => {
     setReloadKey((current) => current + 1);
+  };
+
+  const canDecide =
+    !loading &&
+    course?.status === "Submitted" &&
+    !assessmentError &&
+    !decisionLoading &&
+    !decisionInFlightRef.current;
+
+  const handleDecision = async (decision: "APPROVE" | "REJECT") => {
+    if (!courseId || !course || !canDecide || decisionOpen !== decision) return;
+    const reason = rejectionReason.trim();
+
+    if (decision === "REJECT" && (!reason || reason.length > 1000)) {
+      message.error("Please enter a rejection reason (up to 1,000 characters).");
+      return;
+    }
+
+    decisionInFlightRef.current = true;
+    setDecisionLoading(true);
+
+    try {
+      const response = decision === "APPROVE"
+        ? await approveCourseAPI(courseId)
+        : await rejectCourseAPI(courseId, { reason });
+      const expectedStatus = decision === "APPROVE" ? "Published" : "Rejected";
+
+      // LearnUP interceptor may resolve HTTP 4xx/5xx with an error body.
+      if (
+        !isSuccess(response.statusCode) ||
+        !response.data ||
+        response.data.id !== courseId ||
+        response.data.status !== expectedStatus
+      ) {
+        if (Number(response.statusCode) === 409) {
+          message.warning("This Course has changed status. Refresh the review list.");
+        } else if (Number(response.statusCode) === 401 || Number(response.statusCode) === 403) {
+          message.error("You do not have access to make this decision.");
+        } else {
+          message.error("Unable to process this Course. Please try again.");
+        }
+        return;
+      }
+
+      message.success(decision === "APPROVE"
+        ? "Course approved successfully."
+        : "Course rejected successfully.");
+      setDecisionOpen(null);
+      setRejectionReason("");
+      navigate("/organizer/courses/approvals", { replace: true });
+    } catch {
+      message.error("Unable to reach Course Service. Please try again.");
+    } finally {
+      decisionInFlightRef.current = false;
+      setDecisionLoading(false);
+    }
   };
 
   // Obtain a protected Video / PDF URL.
@@ -408,6 +475,34 @@ const CourseReview = () => {
     />
   );
 
+  // Display a real Instructor name; failure here must never block UC21 review.
+  useEffect(() => {
+    const instructorId = course?.instructorId;
+    if (!instructorId) {
+      setInstructorName(null);
+      return;
+    }
+    let active = true;
+    void fetchOrganizationCourseInstructorsAPI()
+      .then((response) => {
+        if (!active) return;
+        // The project's response interceptor unwraps successful JSON envelopes.
+        const result = response as unknown as {
+          statusCode: number;
+          data?: Array<{ id: string; fullName: string }>;
+        };
+        setInstructorName(
+          isSuccess(result.statusCode)
+            ? result.data?.find((item) => item.id === instructorId)?.fullName ?? null
+            : null,
+        );
+      })
+      .catch(() => {
+        if (active) setInstructorName(null);
+      });
+    return () => { active = false; };
+  }, [course?.instructorId]);
+
   // Initial loading.
   if (loading) {
     return (
@@ -480,11 +575,27 @@ const CourseReview = () => {
         subtitle={`${course.name} • Version ${course.versionNumber}`}
         back
         actions={
-          <OrganizerButton
-            onClick={() => navigate("/organizer/courses/approvals")}
-          >
-            Back to approvals
-          </OrganizerButton>
+          <div className="review-decision-actions">
+            <OrganizerButton
+              disabled={decisionLoading}
+              onClick={() => navigate("/organizer/courses/approvals")}
+            >
+              Back to approvals
+            </OrganizerButton>
+            <OrganizerButton
+              disabled={!canDecide || decisionOpen !== null}
+              onClick={() => setDecisionOpen("REJECT")}
+            >
+              Reject Course
+            </OrganizerButton>
+            <OrganizerButton
+              type="primary"
+              disabled={!canDecide || decisionOpen !== null}
+              onClick={() => setDecisionOpen("APPROVE")}
+            >
+              Approve Course
+            </OrganizerButton>
+          </div>
         }
       />
 
@@ -497,8 +608,9 @@ const CourseReview = () => {
 
         <div className="organizer-detail-grid">
           <div className="organizer-detail-item">
-            <span>Instructor ID</span>
-            <strong>{course.instructorId}</strong>
+            <span>Instructor phụ trách</span>
+            <strong>{instructorName || "Chưa xác định"}</strong>
+            <small className="review-instructor-id">{course.instructorId}</small>
           </div>
 
           <div className="organizer-detail-item">
@@ -694,6 +806,57 @@ const CourseReview = () => {
         ) : (
           <Empty description="Preview unavailable" />
         )}
+      </Modal>
+
+      <Modal
+        title="Approve Course"
+        open={decisionOpen === "APPROVE"}
+        okText="Confirm Approval"
+        confirmLoading={decisionLoading}
+        okButtonProps={{ disabled: !canDecide }}
+        cancelButtonProps={{ disabled: decisionLoading }}
+        closable={!decisionLoading}
+        maskClosable={!decisionLoading}
+        onOk={() => void handleDecision("APPROVE")}
+        onCancel={() => { if (!decisionLoading) setDecisionOpen(null); }}
+      >
+        <p>Approve <strong>{course.name}</strong> (Version {course.versionNumber})?</p>
+        {course.versionNumber > 1 && (
+          <Alert
+            type="warning"
+            showIcon
+            message="Version replacement"
+            description="If an older version is Published, it will be Archived."
+          />
+        )}
+      </Modal>
+
+      <Modal
+        title="Reject Course"
+        open={decisionOpen === "REJECT"}
+        okText="Confirm Rejection"
+        okButtonProps={{
+          danger: true,
+          loading: decisionLoading,
+          disabled: !canDecide || !rejectionReason.trim() || rejectionReason.trim().length > 1000,
+        }}
+        cancelButtonProps={{ disabled: decisionLoading }}
+        closable={!decisionLoading}
+        maskClosable={!decisionLoading}
+        onOk={() => void handleDecision("REJECT")}
+        onCancel={() => { if (!decisionLoading) setDecisionOpen(null); }}
+      >
+        <p>Explain why <strong>{course.name}</strong> cannot be approved.</p>
+        <Input.TextArea
+          aria-label="Rejection reason"
+          rows={5}
+          maxLength={1000}
+          showCount
+          value={rejectionReason}
+          disabled={decisionLoading}
+          onChange={(event) => setRejectionReason(event.target.value)}
+          placeholder="Enter the rejection reason..."
+        />
       </Modal>
     </OrganizerPage>
   );
