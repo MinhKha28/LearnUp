@@ -109,17 +109,17 @@ export const InstructorStatusButton = ({
         if (!result.changed) {
           message.info(
             action === "DEACTIVATE"
-              ? `${fullName} is already deactivated.`
-              : `${fullName} is already active.`,
+              ? `Tài khoản của ${fullName} đã bị vô hiệu hóa trước đó.`
+              : `Tài khoản của ${fullName} đang hoạt động.`,
           );
         } else if (action === "REACTIVATE") {
-          message.success(`${fullName} can sign in again.`);
+          message.success(`${fullName} có thể đăng nhập trở lại.`);
         } else if (result.receiver && result.transferredCourses.length > 0) {
           message.success(
-            `${fullName} was deactivated. ${result.transferredCourses.length} course(s) moved to ${result.receiver.fullName}.`,
+            `Đã vô hiệu hóa tài khoản của ${fullName}. Đã chuyển ${result.transferredCourses.length} Khóa học cho ${result.receiver.fullName}.`,
           );
         } else {
-          message.success(`${fullName} was deactivated.`);
+          message.success(`Đã vô hiệu hóa tài khoản của ${fullName}.`);
         }
         close();
         onChanged();
@@ -133,7 +133,7 @@ export const InstructorStatusButton = ({
       }
       if (instructorStatusShouldReloadPage(code)) onChanged();
     } catch {
-      setSubmitError("Could not connect to the server. Please try again later.");
+      setSubmitError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setSubmitting(false);
     }
@@ -152,8 +152,8 @@ export const InstructorStatusButton = ({
         <Alert
           type="error"
           showIcon
-          message="Could not load the courses this instructor manages."
-          action={<Button onClick={loadPreview}>Try again</Button>}
+          message="Không thể tải các Khóa học do Giảng viên này phụ trách."
+          action={<Button onClick={loadPreview}>Thử lại</Button>}
         />
       );
     }
@@ -165,7 +165,7 @@ export const InstructorStatusButton = ({
             blockReason={preview.blockReason}
             fullName={fullName}
             courses={courses}
-            actionPast="deactivated"
+            actionPast="vô hiệu hóa"
             onRetry={loadPreview}
           />
         );
@@ -181,7 +181,7 @@ export const InstructorStatusButton = ({
                     "DEACTIVATE",
                     "ACCOUNT_NOT_ACTIVATED",
                   )
-                : `${fullName} is already deactivated.`
+                : `Tài khoản của ${fullName} đã bị vô hiệu hóa trước đó.`
             }
           />
         );
@@ -191,8 +191,8 @@ export const InstructorStatusButton = ({
     return (
       <>
         <p>
-          {fullName} will no longer be able to sign in. Learning data is kept
-          and the seat is not released.
+          {fullName} sẽ không thể đăng nhập. Dữ liệu học tập vẫn được giữ lại
+          và suất tài khoản không được giải phóng.
         </p>
         {needsReceiver && (
           <HandOverReceiverFields
@@ -211,22 +211,22 @@ export const InstructorStatusButton = ({
         danger={action === "DEACTIVATE"}
         onClick={() => setOpen(true)}
       >
-        {action === "DEACTIVATE" ? "Deactivate" : "Reactivate"}
+        {action === "DEACTIVATE" ? "Vô hiệu hóa" : "Kích hoạt lại"}
       </OrganizerButton>
       <Modal
         open={open}
         title={
           action === "DEACTIVATE"
-            ? "Deactivate instructor?"
-            : "Reactivate instructor?"
+            ? "Vô hiệu hóa Giảng viên?"
+            : "Kích hoạt lại Giảng viên?"
         }
-        okText={action === "DEACTIVATE" ? "Deactivate" : "Reactivate"}
+        okText={action === "DEACTIVATE" ? "Vô hiệu hóa" : "Kích hoạt lại"}
         okButtonProps={{
           danger: action === "DEACTIVATE",
           disabled: !canSubmit,
           loading: submitting,
         }}
-        cancelText="Cancel"
+        cancelText="Hủy"
         onOk={() => form.submit()}
         onCancel={close}
         destroyOnClose
@@ -236,12 +236,12 @@ export const InstructorStatusButton = ({
             renderDeactivateBody()
           ) : (
             <p>
-              {fullName} will be able to sign in again. Courses moved to other
-              instructors stay with them.
+              {fullName} sẽ có thể đăng nhập lại. Các Khóa học đã chuyển cho Giảng viên
+              khác vẫn thuộc về họ.
             </p>
           )}
           {canSubmit && (
-            <Form.Item name="reason" label="Reason (optional)">
+            <Form.Item name="reason" label="Lý do (không bắt buộc)">
               <Input.TextArea rows={3} maxLength={1000} showCount />
             </Form.Item>
           )}

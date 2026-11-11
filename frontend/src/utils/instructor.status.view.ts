@@ -8,30 +8,30 @@ export const instructorStatusErrorMessage = (
   switch (code) {
     case "ACCOUNT_NOT_ACTIVATED":
       return action === "DEACTIVATE"
-        ? "This instructor has not activated the account yet, so it cannot be deactivated. Delete the account instead if it is no longer needed."
-        : "This instructor never activated the account, so it cannot be reactivated. Delete the account instead if it is no longer needed.";
+        ? "Giảng viên này chưa kích hoạt tài khoản nên chưa thể vô hiệu hóa. Bạn có thể xóa tài khoản nếu không còn cần đến."
+        : "Giảng viên này chưa từng kích hoạt tài khoản nên chưa thể kích hoạt lại. Bạn có thể xóa tài khoản nếu không còn cần đến.";
     case "ACCOUNT_NOT_DEACTIVATED":
-      return "Only a deactivated account can be reactivated.";
+      return "Chỉ có thể kích hoạt lại tài khoản đã bị vô hiệu hóa.";
     case "RECEIVER_REQUIRED":
-      return "This instructor still manages courses. Choose an instructor to take them over.";
+      return "Giảng viên này vẫn phụ trách Khóa học. Hãy chọn Giảng viên tiếp nhận.";
     case "INVALID_RECEIVER":
-      return "The selected instructor can no longer take over these courses. Choose another instructor.";
+      return "Giảng viên đã chọn không còn có thể tiếp nhận các Khóa học này. Hãy chọn Giảng viên khác.";
     case "NO_VALID_RECEIVER":
-      return "No other active instructor in your organization can take over these courses.";
+      return "Không có Giảng viên đang hoạt động nào khác trong tổ chức có thể tiếp nhận các Khóa học này.";
     case "MANAGED_COURSES_REMAINING":
-      return "This instructor has just been given more courses. Review the list and try again.";
+      return "Giảng viên này vừa được giao thêm Khóa học. Hãy kiểm tra lại danh sách và thử lại.";
     case "COURSE_SERVICE_UNAVAILABLE":
-      return "Course information is temporarily unavailable. Please try again later.";
+      return "Tạm thời không xem được thông tin Khóa học. Vui lòng thử lại sau.";
     case "INSTRUCTOR_NOT_FOUND":
-      return "This instructor no longer exists in your organization.";
+      return "Giảng viên này không còn thuộc tổ chức của bạn.";
     case "CONCURRENT_UPDATE":
-      return "This instructor was just updated. Please reload and try again.";
+      return "Thông tin Giảng viên vừa được cập nhật. Vui lòng tải lại và thử lại.";
     case "ORGANIZATION_NOT_ACTIVE":
-      return "Your Organization is suspended. Account status cannot be changed.";
+      return "Tổ chức đang bị tạm ngưng. Không thể đổi trạng thái tài khoản.";
     case "SUBSCRIPTION_NOT_ACTIVE":
-      return "Your Subscription is suspended. Account status cannot be changed until it is renewed.";
+      return "Gói dịch vụ đang bị tạm ngưng. Hãy gia hạn gói để đổi trạng thái tài khoản.";
     default:
-      return "Could not change the account status. Please try again later.";
+      return "Không thể đổi trạng thái tài khoản. Vui lòng thử lại sau.";
   }
 };
 

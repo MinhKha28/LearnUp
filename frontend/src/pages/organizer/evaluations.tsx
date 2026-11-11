@@ -25,60 +25,60 @@ const versionRows: VersionRow[] = [
 ];
 
 const comments = [
-  { key: "1", text: "The examples were practical and easy to connect to daily work.", date: "27 Sep 2026" },
-  { key: "2", text: "The final Assignment was useful but Module 3 felt slightly dense.", date: "23 Sep 2026" },
-  { key: "3", text: "Video quality was clear and the safety checklist was helpful.", date: "19 Sep 2026" },
-  { key: "4", text: "I would like more scenario-based examples in the next version.", date: "15 Sep 2026" },
+  { key: "1", text: "Các ví dụ thiết thực và dễ áp dụng vào công việc hằng ngày.", date: "27/09/2026" },
+  { key: "2", text: "Bài tập cuối khóa hữu ích, nhưng nội dung Chương 3 hơi dày.", date: "23/09/2026" },
+  { key: "3", text: "Video rõ nét và danh sách kiểm tra an toàn rất hữu ích.", date: "19/09/2026" },
+  { key: "4", text: "Tôi mong phiên bản sau có thêm ví dụ theo tình huống thực tế.", date: "15/09/2026" },
 ];
 
 const Evaluations = () => {
   const columns: ColumnsType<VersionRow> = [
-    { title: "Version", dataIndex: "version" },
-    { title: "Responses", dataIndex: "responses" },
-    { title: "Usefulness", dataIndex: "usefulness" },
-    { title: "Difficulty", dataIndex: "difficulty" },
-    { title: "Materials", dataIndex: "materials" },
-    { title: "Comments", dataIndex: "comments" },
+    { title: "Phiên bản", dataIndex: "version" },
+    { title: "Phản hồi", dataIndex: "responses" },
+    { title: "Mức độ hữu ích", dataIndex: "usefulness" },
+    { title: "Độ khó", dataIndex: "difficulty" },
+    { title: "Học liệu", dataIndex: "materials" },
+    { title: "Nhận xét", dataIndex: "comments" },
   ];
   return (
     <OrganizerPage className="organizer-evaluations">
       <PageHeader
-        title="Course Evaluations"
-        subtitle="Anonymous post-completion feedback across the Organization."
-        actions={<OrganizerButton type="primary">Export results</OrganizerButton>}
+        title="Đánh giá Khóa học"
+        subtitle="Phản hồi ẩn danh của Học viên trong tổ chức sau khi hoàn thành Khóa học."
+        actions={<OrganizerButton type="primary">Xuất kết quả</OrganizerButton>}
       />
       <SectionCard className="organizer-evaluations-header">
         <div className="organizer-detail-grid">
           <div className="organizer-detail-item">
-            <span>Course</span>
-            <strong>Workplace Safety Essentials</strong>
+            <span>Khóa học</span>
+            <strong>Kiến thức cơ bản về an toàn lao động</strong>
           </div>
           <div className="organizer-detail-item">
-            <span>Version</span>
-            <strong>v2 · Published</strong>
+            <span>Phiên bản</span>
+            <strong>Phiên bản 2 · Đã phát hành</strong>
           </div>
           <div className="organizer-detail-item">
-            <span>Responses</span>
-            <strong>39 of 54 completed Learners</strong>
+            <span>Phản hồi</span>
+            <strong>39 trên 54 Học viên đã hoàn thành</strong>
           </div>
         </div>
       </SectionCard>
       <div className="organizer-stat-grid organizer-evaluations-stats">
-        <StatCard label="Content usefulness" value="4.4 / 5" />
-        <StatCard label="Difficulty fit" value="4.1 / 5" />
-        <StatCard label="Learning material quality" value="4.3 / 5" />
-        <StatCard label="Response rate" value="70%" tone="success" />
+        <StatCard label="Mức độ hữu ích của nội dung" value="4.4 / 5" />
+        <StatCard label="Mức độ phù hợp của độ khó" value="4.1 / 5" />
+        <StatCard label="Chất lượng học liệu" value="4.3 / 5" />
+        <StatCard label="Tỷ lệ phản hồi" value="70%" tone="success" />
       </div>
-      <SectionCard title="Version comparison">
+      <SectionCard title="So sánh phiên bản">
         <Table className="organizer-table" columns={columns} dataSource={versionRows} pagination={false} />
         <p className="organizer-note organizer-evaluations-note">
-          Free-text comments are anonymized; Learner identity is not
-          available on this version-by-version display.
+          Nhận xét tự do được ẩn danh; không hiển thị danh tính Học viên
+          trong bảng so sánh theo phiên bản này.
         </p>
       </SectionCard>
       <SectionCard
-        title="Anonymous Comments"
-        extra={<span className="organizer-note">31 anonymous comments</span>}
+        title="Nhận xét ẩn danh"
+        extra={<span className="organizer-note">31 nhận xét ẩn danh</span>}
       >
         <div className="organizer-comments-list">
           {comments.map((comment) => (
@@ -87,12 +87,12 @@ const Evaluations = () => {
                 <p>{comment.text}</p>
                 <span>{comment.date}</span>
               </div>
-              <small>Anonymous</small>
+              <small>Ẩn danh</small>
             </div>
           ))}
         </div>
         <p className="organizer-note organizer-evaluations-note">
-          Learner identity is not available on this version by design.
+          Danh tính Học viên được ẩn trong phiên bản này.
         </p>
       </SectionCard>
     </OrganizerPage>

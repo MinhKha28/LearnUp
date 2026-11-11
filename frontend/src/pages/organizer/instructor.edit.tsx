@@ -119,7 +119,7 @@ const InstructorEdit = () => {
       ...(department !== detail.department && { department }),
     };
     if (Object.keys(body).length === 0) {
-      message.info("No changes to save.");
+      message.info("Không có thay đổi để lưu.");
       return;
     }
 
@@ -130,8 +130,8 @@ const InstructorEdit = () => {
       if (res.data?.id) {
         message.success(
           res.data.invitationResent
-            ? `Instructor updated. A new invitation will be sent to ${res.data.email}.`
-            : "Instructor updated.",
+            ? `Đã cập nhật thông tin Giảng viên. Lời mời mới sẽ được gửi đến ${res.data.email}.`
+            : "Đã cập nhật thông tin Giảng viên.",
         );
         navigate(detailPath);
       } else {
@@ -141,7 +141,7 @@ const InstructorEdit = () => {
         );
       }
     } catch {
-      setSubmitError("Could not connect to the server. Please try again later.");
+      setSubmitError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setSubmitting(false);
     }
@@ -154,19 +154,19 @@ const InstructorEdit = () => {
         form.setFields([
           {
             name: "email",
-            errors: ["This email is already used by another account."],
+            errors: ["Email này đã được tài khoản khác sử dụng."],
           },
         ]);
         return;
       case "ACCOUNT_ALREADY_ACTIVATED":
         setSubmitError(
-          "This account has just been activated. Name and email are now managed by the Instructor.",
+          "Tài khoản vừa được kích hoạt. Tên và email hiện do Giảng viên quản lý.",
         );
         setReloadKey((key) => key + 1);
         return;
       case "CONCURRENT_UPDATE":
         setSubmitError(
-          "This instructor was just updated. Please reload and try again.",
+          "Thông tin Giảng viên vừa được cập nhật. Vui lòng tải lại và thử lại.",
         );
         setReloadKey((key) => key + 1);
         return;
@@ -176,22 +176,22 @@ const InstructorEdit = () => {
         return;
       case "ORGANIZATION_NOT_ACTIVE":
         setSubmitError(
-          "Your Organization is suspended. Instructor details cannot be updated.",
+          "Tổ chức đang bị tạm ngưng. Không thể cập nhật thông tin Giảng viên.",
         );
         return;
       case "SUBSCRIPTION_NOT_ACTIVE":
         setSubmitError(
-          "Your Subscription is not active. Instructor details cannot be updated.",
+          "Gói dịch vụ chưa hoạt động. Không thể cập nhật thông tin Giảng viên.",
         );
         return;
       case "FORBIDDEN":
-        setSubmitError("You do not have permission to update Instructors.");
+        setSubmitError("Bạn không có quyền cập nhật thông tin Giảng viên.");
         return;
       default:
         setSubmitError(
           status >= 500
-            ? "Something went wrong. Please try again later."
-            : "Some details are invalid. Please review them and try again.",
+            ? "Đã xảy ra lỗi. Vui lòng thử lại sau."
+            : "Một số thông tin chưa hợp lệ. Vui lòng kiểm tra và thử lại.",
         );
     }
   }
@@ -209,11 +209,11 @@ const InstructorEdit = () => {
         <Alert
           type="warning"
           showIcon
-          message="Instructor not found"
-          description="This instructor does not exist or is no longer available in your organization."
+          message="Không tìm thấy Giảng viên"
+          description="Giảng viên này không tồn tại hoặc không còn thuộc tổ chức của bạn."
           action={
             <Link to="/organizer/instructors">
-              <Button>Back</Button>
+              <Button>Quay lại</Button>
             </Link>
           }
         />
@@ -224,11 +224,11 @@ const InstructorEdit = () => {
         <Alert
           type="error"
           showIcon
-          message="Could not load instructor."
-          description="Please check your connection and try again."
+          message="Không thể tải thông tin Giảng viên."
+          description="Vui lòng kiểm tra kết nối và thử lại."
           action={
             <Button onClick={() => setReloadKey((key) => key + 1)}>
-              Try again
+              Thử lại
             </Button>
           }
         />
@@ -236,10 +236,10 @@ const InstructorEdit = () => {
     }
 
     const lockedHint = activated
-      ? "Managed by the Instructor since activation."
+      ? "Do Giảng viên quản lý sau khi kích hoạt."
       : undefined;
     return (
-      <SectionCard title="Instructor information">
+      <SectionCard title="Thông tin Giảng viên">
         <Form<InstructorFields>
           // Tải lại thì dựng lại form theo dữ liệu mới
           key={reloadKey}
@@ -259,21 +259,21 @@ const InstructorEdit = () => {
             <Alert
               type="info"
               showIcon
-              message="This account is activated. The Instructor manages their own name, and the sign-in email cannot be changed. You can still update the work unit."
+              message="Tài khoản đã được kích hoạt. Giảng viên tự quản lý tên và địa chỉ email đăng nhập được giữ cố định. Bạn vẫn có thể cập nhật đơn vị công tác."
             />
           )}
           <div className="organizer-form-grid">
             <Form.Item
-              label="Full name"
+              label="Họ và tên"
               name="fullName"
               extra={lockedHint}
               rules={[
                 {
                   required: true,
                   whitespace: true,
-                  message: "Enter the full name.",
+                  message: "Nhập họ và tên.",
                 },
-                { validator: textRule("Full name", 100) },
+                { validator: textRule("Họ và tên", 100) },
               ]}
             >
               <Input maxLength={100} disabled={activated} />
@@ -284,17 +284,17 @@ const InstructorEdit = () => {
               extra={lockedHint}
               normalize={(value: string) => value.trimStart()}
               rules={[
-                { required: true, message: "Enter the email address." },
-                { type: "email", message: "Enter a valid email address." },
-                { max: 254, message: "Email must be at most 254 characters." },
+                { required: true, message: "Nhập địa chỉ email." },
+                { type: "email", message: "Nhập địa chỉ email hợp lệ." },
+                { max: 254, message: "Email có tối đa 254 ký tự." },
               ]}
             >
               <Input maxLength={254} autoComplete="off" disabled={activated} />
             </Form.Item>
             <Form.Item
-              label="Work unit (optional)"
+              label="Đơn vị công tác (Không bắt buộc)"
               name="department"
-              rules={[{ validator: textRule("Work unit", 100) }]}
+              rules={[{ validator: textRule("Đơn vị công tác", 100) }]}
             >
               <AutoComplete
                 options={departmentOptions.map((value) => ({ value }))}
@@ -305,7 +305,7 @@ const InstructorEdit = () => {
                   )
                 }
               >
-                <Input placeholder="Engineering" maxLength={100} />
+                <Input placeholder="Kỹ thuật" maxLength={100} />
               </AutoComplete>
             </Form.Item>
           </div>
@@ -315,13 +315,13 @@ const InstructorEdit = () => {
               <Alert
                 type="warning"
                 showIcon
-                message="Changing the email invalidates the current invitation link and sends a new invitation to the new address."
+                message="Khi đổi email, liên kết mời hiện tại sẽ hết hiệu lực và lời mời mới sẽ được gửi đến địa chỉ mới."
               />
             ) : (
               <Alert
                 type="warning"
                 showIcon
-                message="Changing the email invalidates the current invitation link. No new invitation is sent while the account is deactivated."
+                message="Khi đổi email, liên kết mời hiện tại sẽ hết hiệu lực. Hệ thống chỉ gửi lời mời mới khi tài khoản hoạt động."
               />
             ))}
           {submitError && <Alert type="error" showIcon message={submitError} />}
@@ -333,13 +333,13 @@ const InstructorEdit = () => {
   return (
     <OrganizerPage className="organizer-instructor-edit">
       <PageHeader
-        title="Edit Instructor"
-        subtitle="Name and email can be changed until the account is activated. Work unit can be changed at any time."
+        title="Chỉnh sửa Giảng viên"
+        subtitle="Bạn có thể đổi tên và email trước khi tài khoản được kích hoạt, và cập nhật đơn vị công tác bất cứ lúc nào."
         back
         actions={
           <>
             <OrganizerButton onClick={() => navigate(detailPath)}>
-              Cancel
+              Hủy
             </OrganizerButton>
             <OrganizerButton
               type="primary"
@@ -348,7 +348,7 @@ const InstructorEdit = () => {
               loading={submitting}
               disabled={loading || !detail}
             >
-              Save changes
+              Lưu thay đổi
             </OrganizerButton>
           </>
         }

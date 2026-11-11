@@ -40,21 +40,21 @@ export const HandOverBlockAlert = ({
     <Alert
       type="warning"
       showIcon
-      message="Course information is temporarily unavailable"
-      description={`The instructor cannot be ${actionPast} until we can check the courses they manage.`}
-      action={<Button onClick={onRetry}>Try again</Button>}
+      message="Tạm thời không xem được thông tin Khóa học"
+      description={`Chưa thể ${actionPast} Giảng viên này cho đến khi kiểm tra được các Khóa học họ phụ trách.`}
+      action={<Button onClick={onRetry}>Thử lại</Button>}
     />
   ) : (
     <Alert
       type="error"
       showIcon
-      message="No instructor can take over these courses"
+      message="Không có Giảng viên nào có thể tiếp nhận các Khóa học này"
       description={
         <>
           <p>
-            {fullName} still manages the courses below and no other active
-            instructor in your organization can take them over. Add or
-            reactivate an instructor first.
+            {fullName} vẫn đang phụ trách các Khóa học bên dưới và chưa có
+            Giảng viên đang hoạt động nào khác trong tổ chức có thể tiếp nhận. Hãy
+            thêm hoặc kích hoạt lại một Giảng viên trước.
           </p>
           <CourseList courses={courses} />
         </>
@@ -78,18 +78,18 @@ export const HandOverReceiverFields = ({
     <Alert
       type="info"
       showIcon
-      message={`${fullName} manages ${courses.length} course(s). They will be moved, with all their versions, to the instructor you choose.`}
+      message={`${fullName} đang phụ trách ${courses.length} Khóa học. Các Khóa học này, cùng mọi phiên bản, sẽ được chuyển cho Giảng viên bạn chọn.`}
       description={<CourseList courses={courses} />}
     />
     <Form.Item
       className="instructor-status-receiver"
       name="receiverInstructorId"
-      label="Take over by"
-      rules={[{ required: true, message: "Choose an instructor." }]}
+      label="Giảng viên tiếp nhận"
+      rules={[{ required: true, message: "Chọn một Giảng viên." }]}
     >
       <Select
         showSearch
-        placeholder="Choose an active instructor"
+        placeholder="Chọn Giảng viên đang hoạt động"
         optionFilterProp="label"
         options={receivers.map((receiver) => ({
           value: receiver.id,
