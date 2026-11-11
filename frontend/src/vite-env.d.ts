@@ -15,6 +15,8 @@ interface ImportMetaEnv {
   readonly VITE_DEV_IDENTITY_PROXY?: string;
   /** Dev: id user giả gửi kèm header x-dev-user-id tới tenant-service. */
   readonly VITE_DEV_FAKE_USER_ID?: string;
+  /** UC05.1: public Google OAuth web client ID; empty keeps Google sign-in unavailable. */
+  readonly VITE_GOOGLE_CLIENT_ID?: string;
 }
 
 interface ImportMeta {
