@@ -23,6 +23,13 @@ import {
 } from '../../src/infrastructure/clients/tenant/tenant.client';
 import { CourseServiceUnavailableError } from '../../src/infrastructure/clients/course/course-service.errors';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
+import {
+  ASSESSMENT_CLIENT,
+  AssessmentUnavailableError,
+  type AssessmentClient,
+} from '../../src/infrastructure/clients/assessment/assessment.client';
+import { LearnerEnrollmentSummaryRepository } from '../../src/modules/enrollments/learner-enrollment-summary.repository';
+import { MaterialProgressService } from '../../src/modules/material-progress/material-progress.service';
 import { BaseDueAtRepository } from '../../src/modules/enrollments/base-due-at.repository';
 import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { databaseUrl } from './enroll-it-fixture';
@@ -45,6 +52,9 @@ let accessCalls = 0;
 let treeCalls = 0;
 let courseDisabled = false;
 let courseDown = false;
+let assessment: AssessmentClient;
+let checkAssessment: AssessmentClient['getAssignmentActivity'];
+let assessmentCalls = 0;
 async function cleanup() {
   for (const table of [
     'outbox_events',
@@ -157,6 +167,13 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
       logger: ['error'],
     });
     configureApp(app);
+    assessment = app.get<AssessmentClient>(ASSESSMENT_CLIENT);
+    assessment.getAssignmentActivity = (org, learner, course) => {
+      assessmentCalls++;
+      assert.equal(org, ORG);
+      assert.equal(course, COURSE);
+      return checkAssessment(org, learner, course);
+    };
     const tenant = app.get<TenantClient>(TENANT_CLIENT);
     tenant.getOrganizationAccess = async () => {
       accessCalls++;
@@ -242,6 +259,11 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
     treeCalls = 0;
     courseDisabled = false;
     courseDown = false;
+    assessmentCalls = 0;
+    checkAssessment = async () => ({
+      hasQuizAttempt: false,
+      hasSubmission: false,
+    });
     await db.query(
       'INSERT INTO course_version_snapshots (course_id,organization_id,chain_id,tree_fetched_at,disabled_as_of) VALUES ($1,$2,$1,now(),now())',
       [COURSE, ORG],
@@ -823,6 +845,163 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
     );
     assert.equal(rows.length, 1);
     assert.ok(rows[0].ended_at);
+  });
+
+  test('UC24.4 retains an overdue untouched assignment and clears overdue counts', async () => {
+    const id = await seed('NotStarted');
+    assert.equal((await call(id)).body.data.status, 'Overdue');
+    const [{ learner_id: learner }] = (
+      await db.query('SELECT learner_id FROM enrollments WHERE id=$1', [id])
+    ).rows;
+    const summary = app.get(LearnerEnrollmentSummaryRepository);
+    assert.equal(
+      (await summary.summarize(ORG, [learner]))[0].overdueCourseCount,
+      1,
+    );
+    const result = await call(id, 'cancellation');
+    assert.equal(result.status, 200);
+    assert.equal(result.body.data.enrollmentId, id);
+    assert.equal(result.body.data.status, 'Withdrawn');
+    assert.equal(result.body.data.withdrawnReason, 'OrganizerCancelled');
+    assert.ok(result.body.data.withdrawnAt);
+    assert.equal(
+      (await summary.summarize(ORG, [learner]))[0].overdueCourseCount,
+      0,
+    );
+    assert.equal(await eventCount(), 0);
+  });
+
+  test('UC24.4 checks access and scope before Assessment', async () => {
+    const id = await seed('NotStarted');
+    const missing = randomUUID();
+    subscriptionStatus = 'Suspended';
+    assert.equal(
+      (await call(missing, 'cancellation')).body.error.code,
+      'SUBSCRIPTION_NOT_ACTIVE',
+    );
+    subscriptionStatus = 'Active';
+    for (const result of [
+      await call(missing, 'cancellation'),
+      await call(id, 'cancellation', {}, OTHER),
+      await call(await seed('NotStarted', true), 'cancellation'),
+    ]) {
+      assert.equal(result.status, 404);
+      assert.equal(result.body.error.code, 'ASSIGNMENT_NOT_FOUND');
+    }
+    assert.equal(
+      (await call(id, 'cancellation', { reason: 'unexpected' })).status,
+      422,
+    );
+    assert.equal(
+      (await call(id, 'cancellation', {}, ORG, 'LEARNER')).status,
+      403,
+    );
+    assert.equal(assessmentCalls, 0);
+  });
+
+  test('UC24.4 rejects ineligible stored statuses before checking activity', async () => {
+    for (const status of [
+      'InProgress',
+      'Exempted',
+      'Halted',
+      'Completed',
+      'Withdrawn',
+    ]) {
+      const result = await call(await seed(status), 'cancellation');
+      assert.equal(result.status, 409);
+      assert.equal(result.body.error.code, 'ENROLLMENT_NOT_CANCELLABLE');
+    }
+    assert.equal(assessmentCalls, 0);
+  });
+
+  test('UC24.4 any completed material counts, even if optional and the marker is absent', async () => {
+    const id = await seed('NotStarted');
+    const material = randomUUID();
+    await db.query(
+      `INSERT INTO material_snapshots (material_id,organization_id,course_id,lesson_id,material_type,is_required,disabled_as_of)
+       VALUES ($1,$2,$3,$4,'Reading',false,now())`,
+      [material, ORG, COURSE, randomUUID()],
+    );
+    await db.query(
+      `INSERT INTO material_progress (id,organization_id,enrollment_id,material_id,completed_at)
+       VALUES ($1,$2,$3,$4,now())`,
+      [randomUUID(), ORG, id, material],
+    );
+    const result = await call(id, 'cancellation');
+    assert.equal(result.status, 409);
+    assert.equal(result.body.error.code, 'ASSIGNMENT_HAS_LEARNING_DATA');
+    assert.equal(assessmentCalls, 0);
+  });
+
+  test('UC24.4 rejects Assessment activity before the Learning status changes', async () => {
+    const id = await seed('NotStarted');
+    for (const attempt of [true, false]) {
+      checkAssessment = async () => ({
+        hasQuizAttempt: attempt,
+        hasSubmission: !attempt,
+      });
+      const result = await call(id, 'cancellation');
+      assert.equal(result.status, 409);
+      assert.equal(result.body.error.code, 'ASSIGNMENT_HAS_LEARNING_DATA');
+      assert.equal((await call(id)).body.data.status, 'Overdue');
+    }
+  });
+
+  test('UC24.4 upstream failure returns 503 without mutation', async () => {
+    const id = await seed('NotStarted');
+    checkAssessment = async () => {
+      throw new AssessmentUnavailableError('test outage');
+    };
+    const result = await call(id, 'cancellation');
+    assert.equal(result.status, 503);
+    assert.equal(result.body.error.code, 'SERVICE_UNAVAILABLE');
+    assert.equal((await call(id)).body.data.withdrawnAt, null);
+  });
+
+  test('UC24.4 simultaneous cancellations have one winner', async () => {
+    const id = await seed('NotStarted');
+    const results = await Promise.all([
+      call(id, 'cancellation'),
+      call(id, 'cancellation'),
+    ]);
+    assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
+    assert.equal(
+      results.find((r) => r.status === 409)?.body.error.code,
+      'ENROLLMENT_NOT_CANCELLABLE',
+    );
+  });
+
+  test('UC24.4 rechecks a local progress write made during the remote lookup', async () => {
+    const id = await seed('NotStarted');
+    const material = randomUUID();
+    await db.query(
+      `INSERT INTO material_snapshots (material_id,organization_id,course_id,lesson_id,material_type,is_required,disabled_as_of)
+       VALUES ($1,$2,$3,$4,'Reading',true,now())`,
+      [material, ORG, COURSE, randomUUID()],
+    );
+    const [{ learner_id: userId }] = (
+      await db.query('SELECT learner_id FROM enrollments WHERE id=$1', [id])
+    ).rows;
+    checkAssessment = async () => {
+      const progress = await app
+        .get(MaterialProgressService)
+        .completeReading(
+          {
+            userId,
+            organizationId: ORG,
+            role: 'LEARNER',
+            isAuthenticated: true,
+          },
+          id,
+          material,
+        );
+      assert.ok(progress.completedAt);
+      return { hasQuizAttempt: false, hasSubmission: false };
+    };
+    const result = await call(id, 'cancellation');
+    assert.equal(result.status, 409);
+    assert.equal(result.body.error.code, 'ENROLLMENT_NOT_CANCELLABLE');
+    assert.equal((await call(id)).body.data.withdrawnAt, null);
   });
 
   test('invalid exemption reasons 400', async () => {

@@ -89,6 +89,7 @@ for (const action of ['assign', 'extend', 'exempt'] as const) {
         { resolveTimezoneName: downstream } as never,
         tenant,
         {} as never,
+        {} as never,
       );
       const warn = mock.method(Logger.prototype, 'warn', () => undefined);
       try {

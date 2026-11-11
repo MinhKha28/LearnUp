@@ -92,7 +92,7 @@ Ký hiệu: **B** = `NOT NULL`. Mọi bảng có `created_at`, `updated_at` theo
 | `completion_snapshot` | jsonb | | NULL | Response assessment object schemaVersion 1 đã validate, chốt bất biến khi Completed (BR-269); dữ liệu Completed cũ có thể NULL |
 | `completed_late` | boolean | | — | **Chốt lúc hoàn thành** (BR-174, BR-265). NULL với Optional; khi phát `EnrollmentCompleted` gửi `COALESCE(completed_late, false)` |
 | `withdrawn_at` | timestamptz | | — | — |
-| `withdrawn_reason` | text | | — | LearnerWithdrew (BR-160, GĐ2) / AccountDeleted (BR-47, GĐ1) / HaltedClosed (BR-310, GĐ2) |
+| `withdrawn_reason` | text | | — | LearnerWithdrew (BR-160, GĐ2) / AccountDeleted (BR-47, GĐ1) / HaltedClosed (BR-310, GĐ2) / OrganizerCancelled (UC24.4) |
 
 | Ràng buộc hoặc chỉ mục | Định nghĩa | Căn cứ |
 |---|---|---|
@@ -105,7 +105,7 @@ Ký hiệu: **B** = `NOT NULL`. Mọi bảng có `created_at`, `updated_at` theo
 | `ck_enrollments_completed` | `(status = 'Completed') = (completed_at IS NOT NULL)` | — |
 | `ck_enrollments_late` | `(completed_late IS NOT NULL) = (Completed AND Required)` | BR-174 |
 | `ck_enrollments_exempted` | Exempted ⇒ Required | BR-146, BR-148 |
-| `ck_enrollments_withdrawn` | Withdrawn ⇔ có `withdrawn_at` ⇔ có `withdrawn_reason` (3 giá trị) | BR-160, BR-310, BR-47 |
+| `ck_enrollments_withdrawn` | Withdrawn ⇔ có `withdrawn_at` ⇔ có `withdrawn_reason` (4 giá trị) | BR-160, BR-310, BR-47 |
 | UNIQUE `(learner_id, course_id)` | Một Enrollment mỗi phiên bản; UC26; báo cáo theo Learner | BR-163, BR-281 |
 | UNIQUE `(id, organization_id)` | Khóa ngoại kép từ bảng con | Quy ước mục 4 |
 | INDEX `(course_id, status)` | BR-91, BR-116, số Learner theo phiên bản, chuyển Halted hàng loạt | Mục 6A |

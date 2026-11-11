@@ -175,6 +175,9 @@ void describe('UC25.4 withdrawal rules and assessment factory', () => {
           },
         } as never,
         {
+          getAssignmentActivity: async () => {
+            throw new Error('Unexpected assignment lookup');
+          },
           getActivity: async () => {
             assert.equal(inTransaction, false);
             calls.push('assessment');

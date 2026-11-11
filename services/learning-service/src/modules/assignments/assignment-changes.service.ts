@@ -15,6 +15,11 @@ import {
   TenantOrganizationNotFoundError,
   type TenantClient,
 } from '../../infrastructure/clients/tenant/tenant.client';
+import {
+  ASSESSMENT_CLIENT,
+  AssessmentUnavailableError,
+  type AssessmentClient,
+} from '../../infrastructure/clients/assessment/assessment.client';
 import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
 import { CourseServiceError } from '../../infrastructure/clients/course/course-service.errors';
 import { requestCompletion } from '../course-completion/completion-request';
@@ -26,6 +31,8 @@ import {
 import { AssignmentChangesRepository } from './assignment-changes.repository';
 import { AssignmentReadsService } from './assignment-reads.service';
 import {
+  assertCancellable,
+  assertNoLearningData,
   assertExemptible,
   assertExemptionRemovable,
   assertExtendable,
@@ -47,6 +54,7 @@ export class AssignmentChangesService {
     private readonly deadlines: BaseDueAtRepository,
     @Inject(TENANT_CLIENT) private readonly tenant: TenantClient,
     private readonly courses: CourseServiceClient,
+    @Inject(ASSESSMENT_CLIENT) private readonly assessment: AssessmentClient,
   ) {}
 
   private async access(user: CurrentUser) {
@@ -200,6 +208,56 @@ export class AssignmentChangesService {
       return this.reads.detailSnapshot(organizationId, id, tx);
     });
     return this.reads.detail(user, id, snapshot);
+  }
+
+  async cancel(user: CurrentUser, id: string) {
+    const { organizationId } = await this.access(user);
+    const candidate = await this.checkCancellation(organizationId, id);
+    try {
+      const activity = await this.assessment.getAssignmentActivity(
+        organizationId,
+        candidate.learnerId,
+        candidate.courseId,
+      );
+      assertNoLearningData(activity.hasQuizAttempt || activity.hasSubmission);
+    } catch (error) {
+      if (error instanceof AssessmentUnavailableError)
+        throw serviceUnavailable();
+      throw error;
+    }
+
+    const snapshot = await this.prisma.$transaction(async (tx) => {
+      const current = await this.checkCancellation(organizationId, id, tx);
+      if (current.assignedAtKey !== candidate.assignedAtKey)
+        throw new ConflictException(
+          createApiError(
+            'ENROLLMENT_NOT_CANCELLABLE',
+            'Phân công đã thay đổi. Vui lòng tải lại chi tiết.',
+          ),
+        );
+      await this.changes.cancel(tx, organizationId, id);
+      return this.reads.detailSnapshot(organizationId, id, tx);
+    });
+    return this.reads.detail(user, id, snapshot);
+  }
+
+  private async checkCancellation(
+    organizationId: string,
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const row = await this.changes.cancellationCandidate(
+      organizationId,
+      id,
+      tx,
+    );
+    if (!row) throw this.notFound();
+    assertCancellable(row.status);
+    assertNoLearningData(
+      row.firstActivityAt !== null ||
+        (await this.changes.hasCompletedMaterial(organizationId, id, tx)),
+    );
+    return row;
   }
 
   private notFound() {

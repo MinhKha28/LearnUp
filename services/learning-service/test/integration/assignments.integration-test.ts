@@ -436,6 +436,30 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
     }
   });
 
+  test('UC24.4 cancellation restores the same Required Enrollment with a fresh deadline', async () => {
+    const learnerId = addUser();
+    assert.equal((await assign([learnerId])).status, 201);
+    const [first] = await rows();
+    await learningDb.query(
+      `UPDATE enrollments SET assigned_at='2025-01-01Z', base_due_at='2025-02-01Z',
+         due_at='2025-02-02Z', extension_seconds=86400 WHERE id=$1`,
+      [first.id],
+    );
+    const cancelled = await app.get(AssignmentChangesService).cancel(ORGANIZER, first.id);
+    assert.equal(cancelled.status, 'Withdrawn');
+    assert.equal(cancelled.withdrawnReason, 'OrganizerCancelled');
+    assert.equal((await assign([learnerId])).body.data.restored, 1);
+    const [restored] = await rows();
+    assert.equal(restored.id, first.id);
+    assert.equal(restored.enrollment_type, 'Required');
+    assert.equal(restored.status, 'NotStarted');
+    assert.equal(restored.withdrawn_reason, null);
+    assert.equal(restored.withdrawn_at, null);
+    assert.equal(BigInt(restored.extension_seconds), 0n);
+    assert.deepEqual(restored.due_at, restored.base_due_at);
+    assert.ok(restored.due_at > new Date('2025-02-02Z'));
+  });
+
   for (const withdrawnReason of ['AccountDeleted', 'HaltedClosed']) {
     for (const enrollmentType of ['Required', 'Optional']) {
       test(`${enrollmentType} Withdrawn ${withdrawnReason} retains assignment behavior`, async () => {
