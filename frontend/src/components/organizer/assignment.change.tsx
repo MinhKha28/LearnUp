@@ -176,7 +176,17 @@ export const AssignmentChange = ({
           </>
         }
       >
-        {error && <AssignmentError error={error} retry={submit} />}
+        {error && (
+          mode === "cancel" && error.status === 503 ? (
+            <Alert
+              type="error"
+              showIcon
+              message="Dịch vụ tạm thời không khả dụng. Vui lòng bấm Hủy phân công để thử lại."
+            />
+          ) : (
+            <AssignmentError error={error} retry={mode === "cancel" ? undefined : submit} />
+          )
+        )}
         {mode === "cancel" && (
           <p>
             Học viên sẽ mất quyền truy cập khóa học qua phân công này và có thể được phân công lại sau.

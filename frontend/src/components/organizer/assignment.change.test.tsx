@@ -133,8 +133,11 @@ it.each(["ENROLLMENT_NOT_CANCELLABLE", "ASSIGNMENT_HAS_LEARNING_DATA"])("UC24.4 
   fireEvent.click(await screen.findByRole("button", { name: "Hủy phân công" }));
   const modal = await screen.findByRole("dialog");
   fireEvent.click(within(modal).getByRole("button", { name: "Hủy phân công" }));
-  expect(await screen.findByText(views.assignmentErrorMessage(code))).toBeTruthy();
   expect(await screen.findByText("Đang học")).toBeTruthy();
+  const expectedMessage = code === "ENROLLMENT_NOT_CANCELLABLE"
+    ? "Không thể hủy phân công ở trạng thái hiện tại. Thông tin phân công đã được cập nhật."
+    : views.assignmentErrorMessage(code);
+  expect(screen.getByText(expectedMessage)).toBeTruthy();
   expect(api.fetchAssignment).toHaveBeenCalledTimes(2);
 });
 
@@ -145,7 +148,18 @@ it("UC24.4 offers cancellation for untouched Overdue and retains confirmation on
   fireEvent.click(await screen.findByRole("button", { name: "Hủy phân công" }));
   const modal = await screen.findByRole("dialog");
   fireEvent.click(within(modal).getByRole("button", { name: "Hủy phân công" }));
-  expect(await within(modal).findByText(views.assignmentErrorMessage("SERVICE_UNAVAILABLE"))).toBeTruthy();
+  const alert = await within(modal).findByRole("alert");
+  expect(within(alert).getByText(
+    "Dịch vụ tạm thời không khả dụng. Vui lòng bấm Hủy phân công để thử lại.",
+  )).toBeTruthy();
+  expect(within(alert).queryByRole("button")).toBeNull();
+  expect(within(modal).queryByRole("button", { name: "Thử lại" })).toBeNull();
+  expect(api.cancelAssignment).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(within(modal).getByRole("button", { name: "Hủy phân công" }));
+  await within(modal).findByRole("alert");
+  expect(api.cancelAssignment).toHaveBeenCalledTimes(2);
+  expect(api.cancelAssignment).toHaveBeenNthCalledWith(2, "enrollment");
   expect(api.fetchAssignment).toHaveBeenCalledTimes(1);
 });
 

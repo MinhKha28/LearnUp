@@ -121,7 +121,7 @@ const messages: Record<string, string> = {
   ENROLLMENT_NOT_EXTENDABLE:
     "Trạng thái phân công đã thay đổi; không thể kéo dài hạn. Đang tải lại chi tiết.",
   ENROLLMENT_NOT_CANCELLABLE:
-    "Không thể hủy phân công ở trạng thái hiện tại. Đang tải lại chi tiết.",
+    "Không thể hủy phân công ở trạng thái hiện tại. Thông tin phân công đã được cập nhật.",
   ASSIGNMENT_HAS_LEARNING_DATA:
     "Học viên đã có dữ liệu học tập. Hãy dùng “Đánh dấu Miễn” nếu muốn bỏ nghĩa vụ học.",
   ENROLLMENT_NOT_EXEMPTED:
