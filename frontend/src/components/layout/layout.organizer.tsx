@@ -6,6 +6,7 @@ import {
   CarryOutOutlined,
   CreditCardOutlined,
   DashboardOutlined,
+  FileSearchOutlined,
   FlagOutlined,
   LockOutlined,
   LogoutOutlined,
@@ -121,6 +122,11 @@ const organizerMenuItems: MenuItem[] = [
         icon: <AuditOutlined />,
         label: "Lịch sử vi phạm",
       },
+      {
+        key: "/organizer/audit-logs",
+        icon: <FileSearchOutlined />,
+        label: "Nhật ký tổ chức",
+      },
     ],
   },
   {
@@ -166,6 +172,8 @@ const getPageMeta = (pathname: string) => {
   if (pathname.includes("/organizer/learners/"))
     return ["Quản lý đào tạo", "Chi tiết học viên"];
   if (pathname === "/organizer/learners") return ["Quản lý đào tạo", "Học viên"];
+  if (pathname === "/organizer/audit-logs")
+    return ["Quản lý đào tạo", "Nhật ký tổ chức"];
   if (pathname === "/organizer/courses/approvals")
     return ["Quản lý đào tạo", "Khóa học chờ duyệt"];
   if (pathname.includes("/review"))
