@@ -39,19 +39,19 @@ const renderPage = (state?: object) =>
 describe("UC30 the page of a submission received, in Vietnamese and Vietnam time", () => {
   it("confirms a new submission that went into a peer review cycle", () => {
     renderPage({ receipt: receipt(), title: "Kế hoạch ứng phó" });
-    expect(screen.getByText("Đã nộp Bài tập")).toBeTruthy();
+    expect(screen.getByText("Đã nộp bài tập")).toBeTruthy();
     expect(screen.getByText("Đã nhận bài nộp")).toBeTruthy();
     expect(screen.getByText("Kế hoạch ứng phó đang chờ được chấm.")).toBeTruthy();
     expect(screen.getByText("Nộp lúc 02/11/2026 10:04.")).toBeTruthy();
     expect(screen.getByText(/Bài này nằm trong chu kỳ chấm chéo đóng lúc 05\/11\/2026 17:00\. Hạn chấm bài là 08\/11\/2026 17:00\./)).toBeTruthy();
     expect(screen.getByText("Số lần nộp còn lại trước khi phải tạm dừng: 2/3.")).toBeTruthy();
-    expect(screen.getByText("Bài nộp mới nhất của bạn sẽ được dùng làm kết quả của Bài tập.")).toBeTruthy();
+    expect(screen.getByText("Bài nộp mới nhất của bạn sẽ được dùng làm kết quả của bài tập.")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(ENGLISH);
   });
 
   it("says a resubmission replaces the previous one in the cycle", () => {
     renderPage({ receipt: receipt({ placement: "REPLACES_IN_CYCLE", replacedSubmissionId: "s0" }) });
-    expect(screen.getByText("Đã nộp lại Bài tập")).toBeTruthy();
+    expect(screen.getByText("Đã nộp lại bài tập")).toBeTruthy();
     expect(screen.getByText("Đã nhận bài nộp lại")).toBeTruthy();
     expect(screen.getByText("Bài làm của bạn đang chờ được chấm.")).toBeTruthy();
     expect(screen.getByText(/Bài này thay bài nộp trước của bạn trong chu kỳ chấm chéo đóng lúc/)).toBeTruthy();
@@ -63,7 +63,7 @@ describe("UC30 the page of a submission received, in Vietnamese and Vietnam time
     expect(screen.getByText("Giảng viên sẽ chấm bài này.")).toBeTruthy();
     unmount();
     renderPage({ receipt: receipt({ cycle: null, placement: "INSTRUCTOR", replacedSubmissionId: "s0" }) });
-    expect(screen.getByText(/Chu kỳ chấm chéo của bài nộp trước đã đóng, hoặc Bài tập không chấm chéo/)).toBeTruthy();
+    expect(screen.getByText(/Chu kỳ chấm chéo của bài nộp trước đã đóng, hoặc bài tập không chấm chéo/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(ENGLISH);
   });
 
@@ -78,11 +78,11 @@ describe("UC30 the page of a submission received, in Vietnamese and Vietnam time
 
   it("goes back to the list of the Course, or to the Assignment", () => {
     renderPage({ receipt: receipt() });
-    fireEvent.click(screen.getByText("Xem Bài tập"));
+    fireEvent.click(screen.getByText("Xem bài tập"));
     expect(screen.getByText("đường dẫn: /learner/courses/e1/assignments/a1")).toBeTruthy();
     cleanup();
     renderPage({ receipt: receipt() });
-    fireEvent.click(screen.getByText("Quay lại Bài trắc nghiệm và Bài tập"));
+    fireEvent.click(screen.getByText("Quay lại Bài đánh giá"));
     expect(screen.getByText("đường dẫn: /learner/courses/e1/assessments")).toBeTruthy();
   });
 

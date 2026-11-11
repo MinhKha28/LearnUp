@@ -27,19 +27,19 @@ const AssignmentSubmitted = () => {
   return (
     <>
       <PageHeader
-        eyebrow="Bài trắc nghiệm và Bài tập / Đã nộp"
-        title={resubmitted ? "Đã nộp lại Bài tập" : "Đã nộp Bài tập"}
+        eyebrow="Bài đánh giá / Đã nộp"
+        title={resubmitted ? "Đã nộp lại bài tập" : "Đã nộp bài tập"}
         subtitle={title ? `${title} đang chờ được chấm.` : "Bài làm của bạn đang chờ được chấm."}
       />
       <SuccessScreen
         tone="success"
         title={resubmitted ? "Đã nhận bài nộp lại" : "Đã nhận bài nộp"}
         primary={{
-          label: "Quay lại Bài trắc nghiệm và Bài tập",
+          label: "Quay lại Bài đánh giá",
           onClick: () => navigate(`/learner/courses/${courseId}/assessments`),
         }}
         secondary={{
-          label: "Xem Bài tập",
+          label: "Xem bài tập",
           onClick: () => navigate(`/learner/courses/${courseId}/assignments/${assignmentId}`),
         }}
       >
@@ -54,7 +54,7 @@ const AssignmentSubmitted = () => {
         ) : (
           <p>
             {resubmitted
-              ? "Chu kỳ chấm chéo của bài nộp trước đã đóng, hoặc Bài tập không chấm chéo, nên giảng viên sẽ chấm trực tiếp bài này."
+              ? "Chu kỳ chấm chéo của bài nộp trước đã đóng, hoặc bài tập không chấm chéo, nên giảng viên sẽ chấm trực tiếp bài này."
               : "Giảng viên sẽ chấm bài này."}
           </p>
         )}
@@ -68,7 +68,7 @@ const AssignmentSubmitted = () => {
             Số lần nộp còn lại trước khi phải tạm dừng: {attempts.remainingAttempts}/{attempts.maxConsecutiveAttempts}.
           </p>
         )}
-        <p>Bài nộp mới nhất của bạn sẽ được dùng làm kết quả của Bài tập.</p>
+        <p>Bài nộp mới nhất của bạn sẽ được dùng làm kết quả của bài tập.</p>
       </SuccessScreen>
     </>
   );
