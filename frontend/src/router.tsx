@@ -64,6 +64,8 @@ import OrganizerEvaluations from "./pages/organizer/evaluations";
 import OrganizerContentReports from "./pages/organizer/content.reports";
 import OrganizerContentReportDetail from "./pages/organizer/content.report.detail";
 import OrganizerViolationHistory from "./pages/organizer/violation.history";
+import OrganizerAuditLogs from "./pages/organizer/audit.logs";
+import AdminAuditLogs from "./pages/admin/audit.logs";
 import OrganizerProfile from "./pages/organizer/profile";
 import OrganizerProfileEdit from "./pages/organizer/profile.edit";
 import OrganizerChangePassword from "./pages/organizer/password.change";
@@ -136,6 +138,7 @@ import InstructorCourseBuilderQuizCreate from "./pages/instructor/course.builder
 import InstructorCourseBuilderQuizDetail from "./pages/instructor/course.builder.quiz.detail";
 import InstructorCourseBuilderQuizConfigurationEdit from "./pages/instructor/course.builder.quiz.configuration.edit";
 import InstructorCourseBuilderQuizQuestionEdit from "./pages/instructor/course.builder.quiz.question.edit";
+import InstructorCourseBuilderQuizQuestionCreate from "./pages/instructor/course.builder.quiz.question.create";
 import InstructorCourseBuilderQuizDelete from "./pages/instructor/course.builder.quiz.delete";
 import InstructorCourseBuilderAssignments from "./pages/instructor/course.builder.assignments";
 import InstructorCourseBuilderAssignmentCreate from "./pages/instructor/course.builder.assignment.create";
@@ -211,6 +214,7 @@ export const router = createBrowserRouter([
       { path: "reports/:reportId", element: <ReportDetail /> },
       { path: "configuration", element: <Configuration /> },
       { path: "statistics", element: <Statistics /> },
+      { path: "audit-logs", element: <AdminAuditLogs /> },
       { path: "suspended-organizations", element: <SuspendedOrganizations /> },
       { path: "profile", element: <Profile /> },
       { path: "profile/edit", element: <AdminProfileEdit /> },
@@ -283,6 +287,7 @@ export const router = createBrowserRouter([
         element: <OrganizerContentReportDetail />,
       },
       { path: "violation-history", element: <OrganizerViolationHistory /> },
+      { path: "audit-logs", element: <OrganizerAuditLogs /> },
       { path: "profile", element: <OrganizerProfile /> },
       { path: "profile/edit", element: <OrganizerProfileEdit /> },
       { path: "profile/change-password", element: <OrganizerChangePassword /> },
@@ -553,7 +558,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "quizzes/:quizId/questions/new",
-        element: <InstructorCourseBuilderQuizQuestionEdit />,
+        element: <InstructorCourseBuilderQuizQuestionCreate />,
       },
       {
         path: "quizzes/:quizId/questions/:questionId/edit",

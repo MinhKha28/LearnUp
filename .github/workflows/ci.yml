@@ -240,6 +240,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Typecheck frontend
+        if: matrix.name == 'frontend'
+        run: npm run typecheck
+
       - name: Typecheck (default tsconfig)
         if: matrix.name != 'frontend'
         continue-on-error: ${{ !matrix.tsc_blocking }}
@@ -360,12 +364,22 @@ jobs:
           timing="$(grep -h '^it-timing ' "$RUNNER_TEMP/learning-it.log" | tr '\n' ' ' || true)"
           echo "::notice title=it-timing::$timing"
 
+  frontend-image:
+    name: Frontend Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build frontend image
+        run: docker build -f frontend/Dockerfile ./frontend
+
   # Single stable check name for branch protection; passes when every
   # job that ran succeeded and fails if any job failed or was cancelled.
   ci-result:
     name: CI result
     if: always()
-    needs: [changes, ts-libraries, node, java]
+    needs: [changes, ts-libraries, node, java, frontend-image]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

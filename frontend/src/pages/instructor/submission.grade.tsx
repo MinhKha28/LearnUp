@@ -125,7 +125,7 @@ const SubmissionGrade = () => {
     return (
       <InstructorPage className="instructor-submissions">
         <PageHeader
-          eyebrow="BÀI NỘP / CHẤM ĐIỂM"
+          eyebrow="Bài nộp / Chấm điểm"
           title="Không tìm thấy bài nộp"
           subtitle={error ?? "Bài nộp này có thể đã bị xóa."}
           back
@@ -145,7 +145,7 @@ const SubmissionGrade = () => {
 
   const handleSubmit = async () => {
     if (!complete) {
-      message.warning("Hãy cho điểm mọi tiêu chí của Rubric.");
+      message.warning("Hãy cho điểm mọi tiêu chí chấm.");
       return;
     }
     if (!hasComment) {
@@ -183,7 +183,7 @@ const SubmissionGrade = () => {
   return (
     <InstructorPage className="instructor-submissions">
       <PageHeader
-        eyebrow="BÀI NỘP / CHẤM ĐIỂM"
+        eyebrow="Bài nộp / Chấm điểm"
         title={`Chấm bài của ${personName(detail.learner)}`}
         subtitle={`${detail.assignment.title} / Lần nộp #${detail.submissionNumber}`}
         back
@@ -248,10 +248,10 @@ const SubmissionGrade = () => {
         </div>
 
         <div className="instructor-submission-column">
-          <SectionCard title="Chấm theo Rubric">
+          <SectionCard title="Chấm theo tiêu chí">
             {rubric.length === 0 ? (
               <p className="instructor-submission-empty-text">
-                Assignment này chưa có tiêu chí Rubric để chấm.
+                Bài tập này chưa có tiêu chí chấm.
               </p>
             ) : (
               <div className="instructor-submission-grade-form">
@@ -308,7 +308,7 @@ const SubmissionGrade = () => {
 
                 <div className="instructor-grade-summary">
                   <div>
-                    <span>Tổng điểm Rubric</span>
+                    <span>Tổng điểm theo tiêu chí</span>
                     <strong>
                       {earned} / {possible} điểm
                     </strong>

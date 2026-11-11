@@ -1,3 +1,4 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import type { ISubmissionPerson } from "@/types/submission.types";
 
 export type LabelTone = "neutral" | "success" | "warning" | "error" | "info";
@@ -11,7 +12,7 @@ const GRADING_STATUS: Record<string, { label: string; tone: LabelTone }> = {
 };
 
 const INTERVENTION_REASON: Record<string, string> = {
-  PEER_REVIEW_DISABLED: "Assignment không bật chấm chéo",
+  PEER_REVIEW_DISABLED: "Bài tập không bật chấm chéo",
   NOT_ENOUGH_SUBMISSIONS: "Không đủ bài nộp để chấm chéo",
   REVIEWER_MISSED_DEADLINE: "Có người chấm không hoàn thành đúng hạn",
   REVIEW_MISSED: "Có người chấm không hoàn thành đúng hạn",
@@ -40,18 +41,9 @@ export const interventionLabel = (reason: string | null) =>
   reason ? (INTERVENTION_REASON[reason] ?? reason) : null;
 
 export const personName = (person: ISubmissionPerson) =>
-  person.fullName ?? `Learner ${person.id.slice(-4).toUpperCase()}`;
+  person.fullName ?? `Học viên ${person.id.slice(-4).toUpperCase()}`;
 
-export const formatDateTime = (value?: string | null) =>
-  value
-    ? new Date(value).toLocaleString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "-";
+export const formatDateTime = formatDateTimeVN;
 
 export const formatFileSize = (bytes?: number | null) => {
   if (!bytes) return "";

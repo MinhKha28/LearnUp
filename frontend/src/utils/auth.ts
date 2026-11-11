@@ -23,29 +23,29 @@ export const saveTokens = (accessToken: string, refreshToken: string) => {
 };
 
 const SIGN_IN_MESSAGES: Record<string, string> = {
-  UNAUTHORIZED: "Check your email and password, then try again.",
-  ACCOUNT_NOT_FOUND: "Check your email and password, then try again.",
+  UNAUTHORIZED: "Hãy kiểm tra email và mật khẩu rồi thử lại.",
+  ACCOUNT_NOT_FOUND: "Hãy kiểm tra email và mật khẩu rồi thử lại.",
   ACCOUNT_NOT_ACTIVE:
-    "Your account is not active yet. Organizers: complete payment for your registration. Invited members: open the invitation email to set your password.",
+    "Tài khoản của bạn chưa được kích hoạt. Quản lý đào tạo: hãy hoàn tất thanh toán cho đăng ký. Thành viên được mời: hãy mở email mời để đặt mật khẩu.",
   ACCOUNT_DEACTIVATED:
-    "Your account has been deactivated. Contact your organization's Organizer.",
+    "Tài khoản của bạn đã bị vô hiệu hóa. Hãy liên hệ Quản lý đào tạo của tổ chức.",
   ORGANIZATION_SUSPENDED:
-    "Your organization has been suspended by LearnUP. Contact your Organizer.",
-  ORGANIZATION_NOT_ACTIVE: "Your organization is not active.",
+    "Tổ chức của bạn đã bị LearnUP tạm khóa. Hãy liên hệ Quản lý đào tạo.",
+  ORGANIZATION_NOT_ACTIVE: "Tổ chức của bạn không ở trạng thái hoạt động.",
   SUBSCRIPTION_SUSPENDED:
-    "Your organization's subscription is suspended. Contact your Organizer to renew.",
-  SUBSCRIPTION_ENDED: "Your organization has no active subscription.",
+    "Gói dịch vụ của tổ chức đang tạm ngưng. Hãy liên hệ Quản lý đào tạo để gia hạn.",
+  SUBSCRIPTION_ENDED: "Tổ chức của bạn không có gói dịch vụ đang hoạt động.",
   REFRESH_TOKEN_REUSED:
-    "Your session was ended for security reasons. Please sign in again.",
+    "Phiên đăng nhập đã kết thúc vì lý do bảo mật. Vui lòng đăng nhập lại.",
   TOO_MANY_ATTEMPTS:
-    "Too many failed sign-in attempts. Try again in 15 minutes or reset your password.",
+    "Bạn đã đăng nhập sai quá nhiều lần. Hãy thử lại sau 15 phút hoặc đặt lại mật khẩu.",
   TENANT_UNAVAILABLE:
-    "Sign-in is temporarily unavailable. Please try again in a moment.",
+    "Tạm thời chưa đăng nhập được. Vui lòng thử lại sau ít phút.",
 };
 
 export const signInMessage = (code?: string | null): string =>
   (code && SIGN_IN_MESSAGES[code]) ||
-  "Check your email and password, then try again.";
+  "Hãy kiểm tra email và mật khẩu rồi thử lại.";
 
 export const isSignInReason = (code: string | null): code is string =>
   Boolean(code && SIGN_IN_MESSAGES[code]);

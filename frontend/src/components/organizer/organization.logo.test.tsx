@@ -31,7 +31,7 @@ beforeAll(() => {
 afterEach(cleanup);
 
 const logoButton = () =>
-  screen.getByRole("button", { name: "View a larger logo of ABC" });
+  screen.getByRole("button", { name: "Xem logo lớn của ABC" });
 
 describe("UC11 organization logo", () => {
   it("is a real button, so Tab reaches it and Enter or Space activates it", () => {

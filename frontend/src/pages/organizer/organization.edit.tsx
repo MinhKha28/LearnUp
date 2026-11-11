@@ -88,16 +88,16 @@ const OrganizationEdit = () => {
     if (!profile) return;
     const body = changedFields(profile, values);
     if (Object.keys(body).length === 0) {
-      message.info("No changes to save.");
+      message.info("Chưa có thay đổi nào để lưu.");
       return;
     }
     if (body.timezone) {
       const confirmed = await modal.confirm({
-        title: `Change timezone to ${body.timezone}?`,
+        title: `Đổi múi giờ sang ${body.timezone}?`,
         content:
-          "Only deadlines set after this change use the new timezone. Deadlines and certificate dates that already exist keep their current timezone.",
-        okText: "Change timezone",
-        cancelText: "Cancel",
+          "Chỉ các hạn được xác định sau lần đổi này mới dùng múi giờ mới. Các hạn và ngày trên chứng chỉ đã có vẫn giữ múi giờ hiện tại.",
+        okText: "Đổi múi giờ",
+        cancelText: "Hủy",
       });
       if (!confirmed) return;
     }
@@ -106,7 +106,7 @@ const OrganizationEdit = () => {
     try {
       const res = await updateMyOrganizationAPI(body);
       if (res.data?.id) {
-        message.success("Organization updated.");
+        message.success("Đã cập nhật thông tin tổ chức.");
         navigate("/organizer/organization");
         return;
       }
@@ -119,9 +119,7 @@ const OrganizationEdit = () => {
         setSubmitError(organizationErrorMessage(Number(res.statusCode), code));
       }
     } catch {
-      setSubmitError(
-        "Could not connect to the server. Please try again later.",
-      );
+      setSubmitError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setSaving(false);
     }
@@ -138,14 +136,14 @@ const OrganizationEdit = () => {
       const res = await uploadOrganizationLogoAPI(file);
       if (res.data?.id) {
         setProfile(res.data);
-        message.success("Logo updated.");
+        message.success("Đã cập nhật logo.");
       } else {
         message.error(
           organizationErrorMessage(Number(res.statusCode), errorCodeOf(res)),
         );
       }
     } catch {
-      message.error("Could not connect to the server. Please try again later.");
+      message.error("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setLogoBusy(false);
     }
@@ -157,14 +155,14 @@ const OrganizationEdit = () => {
       const res = await removeOrganizationLogoAPI();
       if (res.data?.id) {
         setProfile(res.data);
-        message.success("Logo removed.");
+        message.success("Đã gỡ logo.");
       } else {
         message.error(
           organizationErrorMessage(Number(res.statusCode), errorCodeOf(res)),
         );
       }
     } catch {
-      message.error("Could not connect to the server. Please try again later.");
+      message.error("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setLogoBusy(false);
     }
@@ -176,9 +174,9 @@ const OrganizationEdit = () => {
         <Alert
           type="error"
           showIcon
-          message="Could not load organization details."
-          description="Please check your connection and try again."
-          action={<Button onClick={() => navigate(0)}>Try again</Button>}
+          message="Không tải được thông tin tổ chức."
+          description="Hãy kiểm tra kết nối rồi thử lại."
+          action={<Button onClick={() => navigate(0)}>Thử lại</Button>}
         />
       );
     }
@@ -191,7 +189,7 @@ const OrganizationEdit = () => {
     }
     return (
       <>
-        <SectionCard title="Organization logo">
+        <SectionCard title="Logo tổ chức">
           <div className="organizer-org-identity">
             <OrganizationLogo name={profile.name} logoUrl={profile.logoUrl} />
             <div>
@@ -204,19 +202,21 @@ const OrganizationEdit = () => {
                 }}
               >
                 <OrganizerButton icon={<UploadOutlined />} loading={logoBusy}>
-                  {profile.logoUrl ? "Replace logo" : "Upload logo"}
+                  {profile.logoUrl ? "Thay logo" : "Tải logo lên"}
                 </OrganizerButton>
               </Upload>
               {profile.logoUrl && (
                 <OrganizerButton disabled={logoBusy} onClick={removeLogo}>
-                  Remove logo
+                  Gỡ logo
                 </OrganizerButton>
               )}
-              <span>PNG or JPEG, at most 2 MB. Used on new certificates.</span>
+              <span>
+                PNG hoặc JPEG, tối đa 2 MB. Dùng trên các chứng chỉ cấp mới.
+              </span>
             </div>
           </div>
         </SectionCard>
-        <SectionCard title="Organization settings">
+        <SectionCard title="Thông tin tổ chức">
           {submitError && (
             <Alert type="error" showIcon message={submitError} role="alert" />
           )}
@@ -231,76 +231,76 @@ const OrganizationEdit = () => {
           >
             <div className="organizer-form-grid">
               <Form.Item
-                label="Organization name"
+                label="Tên tổ chức"
                 name="name"
                 rules={[
                   {
                     required: true,
                     whitespace: true,
-                    message: "Enter the organization name.",
+                    message: "Hãy nhập tên tổ chức.",
                   },
-                  { max: 200, message: "At most 200 characters." },
+                  { max: 200, message: "Tối đa 200 ký tự." },
                 ]}
               >
                 <Input />
               </Form.Item>
               <Form.Item
-                label="Tax code"
+                label="Mã số thuế"
                 name="taxCode"
                 rules={[
-                  { required: true, message: "Enter the tax code." },
+                  { required: true, message: "Hãy nhập mã số thuế." },
                   {
                     pattern: /^\s*(\d\s*){10}((\d\s*){3})?$/,
-                    message: "The tax code has 10 or 13 digits.",
+                    message: "Mã số thuế gồm 10 hoặc 13 chữ số.",
                   },
                 ]}
               >
                 <Input />
               </Form.Item>
               <Form.Item
-                label="Address"
+                label="Địa chỉ"
                 name="address"
                 rules={[
                   {
                     required: true,
                     whitespace: true,
-                    message: "Enter the address.",
+                    message: "Hãy nhập địa chỉ.",
                   },
-                  { max: 300, message: "At most 300 characters." },
+                  { max: 300, message: "Tối đa 300 ký tự." },
                 ]}
               >
                 <Input />
               </Form.Item>
               <Form.Item
-                label="Contact phone"
+                label="Số điện thoại liên hệ"
                 name="contactPhone"
                 rules={[
                   {
                     required: true,
                     whitespace: true,
-                    message: "Enter a contact phone.",
+                    message: "Hãy nhập số điện thoại liên hệ.",
                   },
                 ]}
               >
                 <Input />
               </Form.Item>
               <Form.Item
-                label="Contact email (optional)"
+                label="Email liên hệ (không bắt buộc)"
                 name="contactEmail"
                 rules={[
                   {
                     type: "email",
                     transform: (value: string) => value?.trim() || undefined,
-                    message: "Enter a valid email address.",
+                    message: "Địa chỉ email không hợp lệ.",
                   },
                 ]}
               >
                 <Input />
               </Form.Item>
               <Form.Item
-                label="Timezone"
+                label="Múi giờ"
                 name="timezone"
-                rules={[{ required: true, message: "Choose a timezone." }]}
+                rules={[{ required: true, message: "Hãy chọn múi giờ." }]}
               >
                 <Select showSearch options={zones} />
               </Form.Item>
@@ -314,13 +314,11 @@ const OrganizationEdit = () => {
   return (
     <OrganizerPage className="organizer-organization-edit">
       <PageHeader
-        title="Edit Organization"
-        subtitle="Update legal identity, contact, logo, and timezone."
+        title="Sửa thông tin tổ chức"
+        subtitle="Cập nhật thông tin định danh, liên hệ, logo và múi giờ."
         actions={
           <>
-            <OrganizerButton onClick={() => navigate(-1)}>
-              Cancel
-            </OrganizerButton>
+            <OrganizerButton onClick={() => navigate(-1)}>Hủy</OrganizerButton>
             <OrganizerButton
               type="primary"
               htmlType="submit"
@@ -328,15 +326,15 @@ const OrganizationEdit = () => {
               loading={saving}
               disabled={!profile}
             >
-              Save changes
+              Lưu thay đổi
             </OrganizerButton>
           </>
         }
       />
       {renderBody()}
-      <WarningPanel title="Changing timezone impacts future deadlines">
-        Already-computed deadlines and issued certificates keep their timezone;
-        only deadlines set after the change use the new one.
+      <WarningPanel title="Đổi múi giờ ảnh hưởng tới các hạn sau này">
+        Các hạn đã xác định và chứng chỉ đã cấp giữ nguyên múi giờ; chỉ các hạn
+        được xác định sau lần đổi mới dùng múi giờ mới.
       </WarningPanel>
     </OrganizerPage>
   );

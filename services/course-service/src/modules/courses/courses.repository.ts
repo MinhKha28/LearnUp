@@ -1,3 +1,4 @@
+import { transferCourseChain } from '../internal-courses/course-chain-ownership';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@infra/prisma/prisma.service';
 import { Prisma } from '@generated/prisma/browser';
@@ -10,6 +11,13 @@ import {
   getPurgeAt,
   isTrashExpired,
 } from './course-trash.constants';
+
+/** Roll back the whole approval decision and expose a predictable 409 to the caller. */
+class CourseDecisionConcurrentChange extends Error {
+  constructor() {
+    super('COURSE_DECISION_CONCURRENT_CHANGE');
+  }
+}
 
 type PermanentDeleteInput = {
   organizationId: string;
@@ -1490,6 +1498,183 @@ export class CoursesRepository {
     });
   }
 
+  async decideCourse(input: {
+    courseId: string;
+    organizationId: string;
+    organizerId: string;
+    decision: 'APPROVE' | 'REJECT';
+    reason?: string;
+  }) {
+    try {
+      return await this.prisma.$transaction(
+      async (tx) => {
+        // 1. Tìm Course thuộc Organization, chưa bị xóa.
+        const initial = await tx.course.findFirst({
+          where: {
+            id: input.courseId,
+            organizationId: input.organizationId,
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            chainId: true,
+          },
+        });
+
+        if (!initial) {
+          return { status: 'NOT_FOUND' as const };
+        }
+
+        // 2. Khóa Course Chain.
+        const locked = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM course_chains
+      WHERE id = ${initial.chainId}::uuid
+        AND organization_id = ${input.organizationId}::uuid
+      FOR UPDATE
+    `;
+
+        if (locked.length !== 1) {
+          return { status: 'NOT_FOUND' as const };
+        }
+
+        // 3. Đọc lại sau khi khóa.
+        const course = await tx.course.findFirst({
+          where: {
+            id: input.courseId,
+            organizationId: input.organizationId,
+            chainId: initial.chainId,
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            chainId: true,
+            name: true,
+            status: true,
+            versionNumber: true,
+            chain: {
+              select: { instructorId: true },
+            },
+          },
+        });
+
+        if (!course) {
+          return { status: 'NOT_FOUND' as const };
+        }
+
+        if (course.status !== COURSE_STATUS.SUBMITTED) {
+          return { status: 'CONFLICT' as const };
+        }
+
+        const approved = input.decision === 'APPROVE';
+        const decidedAt = new Date();
+
+        // 4. Khi Approve, Archived bản Published cũ trước.
+        // Điều này tránh vi phạm unique index nếu đã có.
+        if (approved) {
+          await tx.course.updateMany({
+            where: {
+              organizationId: input.organizationId,
+              chainId: course.chainId,
+              id: { not: course.id },
+              deletedAt: null,
+              status: COURSE_STATUS.PUBLISHED,
+            },
+            data: {
+              status: COURSE_STATUS.ARCHIVED,
+              archivedAt: decidedAt,
+            },
+          });
+        }
+
+        // 5. Quyết định chỉ thành công nếu còn Submitted.
+        const updated = await tx.course.updateMany({
+          where: {
+            id: course.id,
+            organizationId: input.organizationId,
+            chainId: course.chainId,
+            deletedAt: null,
+            status: COURSE_STATUS.SUBMITTED,
+          },
+          data: approved
+            ? {
+                status: COURSE_STATUS.PUBLISHED,
+                publishedAt: decidedAt,
+                rejectedAt: null,
+                rejectionReason: null,
+              }
+            : {
+                status: COURSE_STATUS.REJECTED,
+                rejectedAt: decidedAt,
+                rejectionReason: input.reason!,
+              },
+        });
+
+        if (updated.count !== 1) {
+          // Throw để rollback cả bước Archived phía trên.
+          throw new CourseDecisionConcurrentChange();
+        }
+
+        // 6. Outbox và trạng thái phải commit cùng nhau.
+        await tx.outboxEvent.create({
+          data: {
+            aggregateType: 'Course',
+            aggregateId: course.id,
+            organizationId: input.organizationId,
+            eventType: approved ? 'CoursePublished' : 'CourseRejected',
+            occurredAt: decidedAt,
+            payload: {
+              organizationId: input.organizationId,
+              courseId: course.id,
+              courseName: course.name,
+              versionNumber: course.versionNumber,
+              instructorId: course.chain.instructorId,
+              organizerId: input.organizerId,
+              occurredAt: decidedAt.toISOString(),
+              decidedAt: decidedAt.toISOString(),
+              ...(approved
+                ? { publishedAt: decidedAt.toISOString() }
+                : {
+                    rejectedAt: decidedAt.toISOString(),
+                    rejectionReason: input.reason,
+                  }),
+            },
+          },
+        });
+
+        const result = await tx.course.findUniqueOrThrow({
+          where: { id: course.id },
+          select: {
+            id: true,
+            name: true,
+            versionNumber: true,
+            status: true,
+            publishedAt: true,
+            rejectedAt: true,
+            rejectionReason: true,
+          },
+        });
+
+        return {
+          status: 'SUCCESS' as const,
+          course: result,
+        };
+      },
+      {
+        maxWait: 5000,
+        timeout: 15000,
+      },
+    );
+    } catch (error) {
+      // A lost conditional update must roll back Archived changes and Outbox.
+      // Do not turn unrelated PostgreSQL or Outbox failures into HTTP 409.
+      if (error instanceof CourseDecisionConcurrentChange) {
+        return { status: 'CONFLICT' as const };
+      }
+      throw error;
+    }
+  }
+
   async softDeleteCourse(input: {
     organizationId: string;
     instructorId: string;
@@ -2533,4 +2718,190 @@ export class CoursesRepository {
       select: { id: true },
     });
   }
+
+  async withdrawCourseSubmission(data: {
+    courseId: string;
+    organizationId: string;
+    instructorId: string;
+    expectedUpdatedAt: Date;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      const expectedMs = data.expectedUpdatedAt.getTime();
+
+      const updated = await tx.course.updateMany({
+        where: {
+          id: data.courseId,
+          organizationId: data.organizationId,
+          deletedAt: null,
+          chain: {
+            instructorId: data.instructorId,
+          },
+          status: COURSE_STATUS.SUBMITTED,
+          updatedAt: {
+            gte: new Date(expectedMs),
+            lt: new Date(expectedMs + 1),
+          },
+        },
+        data: {
+          status: COURSE_STATUS.DRAFT,
+          submittedAt: null,
+        },
+      });
+
+      if (updated.count !== 1) {
+        return {
+          status: 'CONFLICT' as const,
+        };
+      }
+
+      const course = await tx.course.findUniqueOrThrow({
+        where: {
+          id: data.courseId,
+        },
+        select: {
+          id: true,
+          name: true,
+          versionNumber: true,
+          status: true,
+          submittedAt: true,
+        },
+      });
+
+      return {
+        status: 'WITHDRAWN' as const,
+        course,
+      };
+    });
+  }
+
+  findCourseForOwnershipTransfer(courseId: string, organizationId: string) {
+    return this.prisma.course.findFirst({
+      where: {
+        id: courseId,
+        organizationId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        chainId: true,
+        name: true,
+        versionNumber: true,
+        status: true,
+        chain: {
+          select: {
+            instructorId: true,
+          },
+        },
+      },
+    });
+  }
+
+  async transferCourseOwnership(input: {
+    courseId: string;
+    chainId: string;
+    organizationId: string;
+    fromInstructorId: string;
+    toInstructorId: string;
+    actorUserId: string;
+    reason?: string;
+    courseName: string;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      const result = await transferCourseChain(tx, {
+        organizationId: input.organizationId,
+        chainId: input.chainId,
+        fromInstructorId: input.fromInstructorId,
+        toInstructorId: input.toInstructorId,
+      });
+
+      if (result === 'NOT_FOUND') {
+        return { status: 'NOT_FOUND' as const };
+      }
+
+      if (result !== 'TRANSFERRED') {
+        return { status: 'CONFLICT' as const };
+      }
+
+      const transferredAt = new Date();
+
+      // Ghi sự kiện trong cùng transaction.
+      await tx.outboxEvent.create({
+        data: {
+          aggregateType: 'Course',
+          aggregateId: input.chainId,
+          organizationId: input.organizationId,
+          eventType: 'CourseOwnershipTransferred',
+          occurredAt: transferredAt,
+          payload: {
+            organizationId: input.organizationId,
+            courseId: input.courseId,
+            chainId: input.chainId,
+            courseName: input.courseName,
+            fromInstructorId: input.fromInstructorId,
+            toInstructorId: input.toInstructorId,
+            actorUserId: input.actorUserId,
+            occurredAt: transferredAt.toISOString(),
+            ...(input.reason ? { reason: input.reason } : {}),
+          },
+        },
+      });
+
+      // UC23 audit belongs to Course Service. A separate relay delivers it
+      // independently of Kafka and notification availability.
+      await tx.outboxEvent.create({
+        data: {
+          aggregateType: 'CourseAudit',
+          aggregateId: input.chainId,
+          organizationId: input.organizationId,
+          eventType: 'AuditRecorded',
+          occurredAt: transferredAt,
+          payload: {
+            organizationId: input.organizationId,
+            actorUserId: input.actorUserId,
+            actorRole: 'ORGANIZER',
+            actionType: 'COURSE_OWNERSHIP_TRANSFERRED',
+            targetResourceType: 'CourseChain',
+            targetResourceId: input.chainId,
+            courseId: input.courseId,
+            fromInstructorId: input.fromInstructorId,
+            toInstructorId: input.toInstructorId,
+            occurredAt: transferredAt.toISOString(),
+            ...(input.reason ? { reason: input.reason } : {}),
+          },
+        },
+      });
+
+      return {
+        status: 'TRANSFERRED' as const,
+        data: {
+          courseId: input.courseId,
+          chainId: input.chainId,
+          fromInstructorId: input.fromInstructorId,
+          toInstructorId: input.toInstructorId,
+          transferredAt,
+        },
+      };
+    });
+  }
+
+  async findTransferVersions(chainId: string, organizationId: string) {
+    return this.prisma.course.findMany({
+      where: {
+        chainId,
+        organizationId,
+      },
+      select: {
+        id: true,
+        versionNumber: true,
+        name: true,
+        status: true,
+        createdAt: true,
+        publishedAt: true,
+      },
+      orderBy: {
+        versionNumber: 'desc',
+      },
+    });
+  }
+
 }

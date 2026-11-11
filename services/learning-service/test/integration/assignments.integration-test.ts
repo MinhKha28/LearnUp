@@ -201,7 +201,7 @@ void describe('UC24.2 assignments (isolated Learning database and HTTP Course st
     assert.deepEqual(detail.dueAt, original.dueAt);
     assert.equal(detail.dueTimezone, 'Asia/Ho_Chi_Minh');
     assert.equal(
-      (await reads.list(ORGANIZER, 1)).items[0].dueTimezone,
+      (await reads.list(ORGANIZER, { page: 1 })).items[0].dueTimezone,
       'Asia/Ho_Chi_Minh',
     );
     const mine = await app

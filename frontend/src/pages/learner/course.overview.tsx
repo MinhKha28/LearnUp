@@ -104,7 +104,7 @@ const CourseContent = ({ course }: { course: CourseIntroduction }) => {
   );
 };
 
-const EnrollmentPanel = ({ courseId, fromPage }: { courseId: string; fromPage?: number }) => {
+const EnrollmentPanel = ({ courseId, catalogPath }: { courseId: string; catalogPath: string }) => {
   const navigate = useNavigate();
   const { modal, message } = App.useApp();
   const links = useApiQuery((signal) => fetchEnrolledCourseLinks(signal), [courseId]);
@@ -182,7 +182,7 @@ const EnrollmentPanel = ({ courseId, fromPage }: { courseId: string; fromPage?: 
           <WarningPanel title={ENROLL_OUTCOME_MESSAGES.unavailable}>
             Khóa học đã thay đổi trong lúc bạn đang xem.
           </WarningPanel>
-          <LearnerButton block onClick={() => navigate(LEARNER_ROUTES.catalog(fromPage))}>
+          <LearnerButton block onClick={() => navigate(catalogPath)}>
             Về danh mục Khóa học
           </LearnerButton>
         </>
@@ -222,10 +222,10 @@ const EnrollmentPanel = ({ courseId, fromPage }: { courseId: string; fromPage?: 
   );
 };
 
-const CourseOverviewContent = ({ courseId, fromPage }: { courseId: string; fromPage?: number }) => {
+const CourseOverviewContent = ({ courseId, catalogPath }: { courseId: string; catalogPath: string }) => {
   const navigate = useNavigate();
   const intro = useApiQuery((signal) => fetchCourseIntroduction(courseId, signal), [courseId]);
-  const backToCatalog = () => navigate(LEARNER_ROUTES.catalog(fromPage));
+  const backToCatalog = () => navigate(catalogPath);
 
   if (intro.status === "loading") {
     return <LearnerSkeleton variant="detail" />;
@@ -254,7 +254,7 @@ const CourseOverviewContent = ({ courseId, fromPage }: { courseId: string; fromP
       <PageHeader title={intro.data.name} subtitle={intro.data.shortDescription ?? ""} />
       <div className="course-overview-body">
         <CourseContent course={intro.data} />
-        <EnrollmentPanel courseId={courseId} fromPage={fromPage} />
+        <EnrollmentPanel courseId={courseId} catalogPath={catalogPath} />
       </div>
     </>
   );
@@ -265,6 +265,8 @@ const CourseOverview = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const fromPage = readFromPage(location.state);
+  const fromKeyword = (location.state as { fromKeyword?: unknown } | null)?.fromKeyword;
+  const catalogPath = LEARNER_ROUTES.catalog(fromPage, typeof fromKeyword === "string" ? fromKeyword : undefined);
 
   return (
     <LearnerPage className="course-overview">
@@ -272,12 +274,12 @@ const CourseOverview = () => {
         className="learner-back"
         type="text"
         icon={<ArrowLeftOutlined />}
-        onClick={() => navigate(LEARNER_ROUTES.catalog(fromPage))}
+        onClick={() => navigate(catalogPath)}
       >
         Danh mục Khóa học
       </Button>
       {/* key: đổi Course thì trạng thái đăng ký cục bộ bắt đầu lại */}
-      <CourseOverviewContent key={courseId} courseId={courseId} fromPage={fromPage} />
+      <CourseOverviewContent key={courseId} courseId={courseId} catalogPath={catalogPath} />
     </LearnerPage>
   );
 };

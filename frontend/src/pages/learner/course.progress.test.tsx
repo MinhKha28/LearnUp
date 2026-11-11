@@ -194,7 +194,7 @@ describe("UC28 real progress page", () => {
     });
     mount();
     await screen.findByText("Đã hoàn thành");
-    expect(screen.getByText("Ngày hoàn thành: 07:00, 03/11/2026")).toBeTruthy();
+    expect(screen.getByText("Ngày hoàn thành: 03/11/2026 07:00")).toBeTruthy();
     expect(screen.getByText("Hoàn thành sau hạn")).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "Xem chứng chỉ" }).getAttribute("href"),

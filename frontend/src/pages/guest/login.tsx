@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Alert, Button, Form, Input } from "antd";
 import { BookOutlined, CheckOutlined, FlagOutlined } from "@ant-design/icons";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { loginAPI } from "@/services/identity.service";
+import { googleLoginAPI, loginAPI } from "@/services/identity.service";
+import GoogleSignIn from "@/components/guest/google.sign.in";
+import { googleSignInMessage } from "@/utils/google.sign.in";
 import { loadUserWithProfile } from "@/services/profile.service";
 import { useCurrentApp } from "@/components/context/app.context";
 import "@/pages/guest/login.scss";
@@ -17,9 +19,9 @@ import {
 type LoginFields = { email: string; password: string };
 
 const workspace = [
-  { icon: <BookOutlined />, text: "Build and approve courses" },
-  { icon: <CheckOutlined />, text: "Assign required learning" },
-  { icon: <FlagOutlined />, text: "Track completion and results" },
+  { icon: <BookOutlined />, text: "Xây dựng và phê duyệt khóa học" },
+  { icon: <CheckOutlined />, text: "Phân công đào tạo bắt buộc" },
+  { icon: <FlagOutlined />, text: "Theo dõi mức hoàn thành và kết quả" },
 ];
 
 export default function LoginPage() {
@@ -29,9 +31,9 @@ export default function LoginPage() {
     const reason = params.get("reason");
     if (isSignInReason(reason)) return signInMessage(reason);
     return params.get("state") === "google"
-      ? "This Google email is not linked to an existing LearnUP account."
+      ? "Email Google này chưa gắn với tài khoản LearnUP nào."
       : params.get("state") === "credentials"
-        ? "Check your email and password, then try again."
+        ? "Hãy kiểm tra email và mật khẩu rồi thử lại."
         : "";
   });
   const [loading, setLoading] = useState(false);
@@ -59,6 +61,34 @@ export default function LoginPage() {
         .error?.code;
       setError(signInMessage(code));
     } catch {
+      setError("Hiện chưa đăng nhập được. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // UC05.1: existing Organizer/Instructor/Learner accounts only; Identity never creates an account.
+  async function googleSubmit(credential: string) {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await googleLoginAPI(credential);
+      const result = response.data;
+      if (result?.accessToken && result.refreshToken && result.user) {
+        saveTokens(result.accessToken, result.refreshToken);
+        setUser(await loadUserWithProfile(result.user));
+        setIsAuthenticated(true);
+        navigate(
+          safeRedirect(params.get("redirect")) ??
+            homePathForRole(result.user.role),
+          { replace: true },
+        );
+        return;
+      }
+      const code = (response as unknown as { error?: { code?: string } })
+        .error?.code;
+      setError(googleSignInMessage(code));
+    } catch {
       setError("Unable to sign in right now. Please try again.");
     } finally {
       setLoading(false);
@@ -72,17 +102,17 @@ export default function LoginPage() {
           <img src="/logo/learnup-logo-light.png" alt="LearnUP" />
         </Link>
         <div className="login-brand-content">
-          <span>ORGANIZATIONAL TRAINING</span>
+          <span>Đào tạo trong tổ chức</span>
           <h2>
-            Make learning
+            Đo lường được
             <br />
-            measurable for
+            việc học của
             <br />
-            every team.
+            mọi nhóm.
           </h2>
           <p>
-            Bring courses, assignments and progress into one clear workspace for
-            your organization.
+            Đưa khóa học, phân công đào tạo và tiến độ vào một không gian làm
+            việc rõ ràng cho tổ chức của bạn.
           </p>
           <div className="login-workspace">
             {workspace.map((item) => (
@@ -94,24 +124,33 @@ export default function LoginPage() {
           </div>
         </div>
         <small className="login-brand-footer">
-          LearnUP • Organization training management
+          LearnUP • Quản lý đào tạo cho tổ chức
         </small>
       </aside>
 
       <section className="login-panel">
         <Link className="login-back" to="/">
-          ←&nbsp;&nbsp; Back to Home
+          ←&nbsp;&nbsp; Về trang chủ
         </Link>
         <div className="login-form">
-          <span className="guest-eyebrow">WELCOME BACK</span>
-          <h1>Sign in to LearnUP</h1>
-          <p>Enter your account details to access your workspace.</p>
+          <span className="guest-eyebrow">Chào mừng trở lại</span>
+          <h1>Đăng nhập LearnUP</h1>
+          <p>Nhập thông tin tài khoản để vào không gian làm việc.</p>
           {params.get("state") === "password-changed" && !error && (
             <Alert
               className="login-alert"
               type="success"
-              message="Password changed"
-              description="Sign in with your new password."
+              message="Đã đổi mật khẩu"
+              description="Hãy đăng nhập bằng mật khẩu mới."
+              role="status"
+            />
+          )}
+          {params.get("state") === "signed-out-unconfirmed" && !error && (
+            <Alert
+              className="login-alert"
+              type="warning"
+              message="Signed out on this device"
+              description="LearnUP could not confirm that your session ended on the server. Sign in again and sign out once you are back online."
               role="status"
             />
           )}
@@ -119,7 +158,7 @@ export default function LoginPage() {
             <Alert
               className="login-alert"
               type="error"
-              message="Sign-in unsuccessful"
+              message="Đăng nhập không thành công"
               description={error}
               role="alert"
             />
@@ -130,26 +169,26 @@ export default function LoginPage() {
             disabled={loading}
             initialValues={
               params.get("state") === "credentials"
-                ? { email: "alex.morgan@acme.example", password: "password" }
+                ? { email: "nguyen.van.an@example.com", password: "password" }
                 : undefined
             }
             onFinish={submit}
             onValuesChange={() => setError("")}
             onFinishFailed={() =>
-              setError("Check your email and password, then try again.")
+              setError("Hãy kiểm tra email và mật khẩu rồi thử lại.")
             }
           >
             <Form.Item
               name="email"
-              label="Email address"
+              label="Địa chỉ email"
               rules={[
-                { required: true, message: "Enter your email address." },
-                { type: "email", message: "Enter a valid email address." },
+                { required: true, message: "Hãy nhập địa chỉ email." },
+                { type: "email", message: "Địa chỉ email không hợp lệ." },
               ]}
             >
               <Input
                 autoComplete="username"
-                placeholder="alex.morgan@acme.example"
+                placeholder="nguyen.van.an@example.com"
                 status={
                   error && params.get("state") !== "google"
                     ? "error"
@@ -160,13 +199,13 @@ export default function LoginPage() {
             <div className="login-password">
               <Form.Item
                 name="password"
-                label="Password"
-                rules={[{ required: true, message: "Enter your password." }]}
+                label="Mật khẩu"
+                rules={[{ required: true, message: "Hãy nhập mật khẩu." }]}
               >
                 <Input
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
-                  placeholder="Enter your password"
+                  placeholder="Nhập mật khẩu"
                   status={
                     error && params.get("state") !== "google"
                       ? "error"
@@ -179,13 +218,13 @@ export default function LoginPage() {
                       disabled={loading}
                       onClick={() => setShowPassword((value) => !value)}
                     >
-                      {showPassword ? "Hide" : "Show"}
+                      {showPassword ? "Ẩn" : "Hiện"}
                     </button>
                   }
                 />
               </Form.Item>
               <Link className="login-forgot" to="/forgot-password">
-                Forgot password?
+                Quên mật khẩu?
               </Link>
             </div>
             <Button
@@ -195,39 +234,32 @@ export default function LoginPage() {
               loading={loading}
               disabled={loading}
             >
-              Sign in
+              Đăng nhập
             </Button>
           </Form>
-          <div className="login-divider">or</div>
-          <Button
-            className="login-google"
-            block
+          <div className="login-divider">hoặc</div>
+          <GoogleSignIn
             disabled={loading}
-            onClick={() =>
-              setError(
-                "Google sign-in is currently unavailable. Please sign in with your email and password.",
-              )
-            }
-          >
-            <span aria-hidden="true">G</span>Continue with Google
-          </Button>
+            onCredential={googleSubmit}
+            onError={setError}
+          />
           <p className="login-help">
-            Google sign-in is available for existing Organizer, Instructor and
-            Learner accounts.
+            Tài khoản Quản lý đào tạo, giảng viên và học viên đã có có thể đăng
+            nhập bằng Google.
           </p>
         </div>
         <div className="login-panel-footer login-panel-footer-stacked">
           <div>
-            <span>New organization?</span>
-            <Link to="/register">Explore subscription plans →</Link>
+            <span>Tổ chức mới?</span>
+            <Link to="/register">Xem các gói →</Link>
           </div>
           <div>
-            <span>Registration not finished?</span>
-            <Link to="/resend-registration">Resend registration email →</Link>
+            <span>Chưa hoàn tất đăng ký?</span>
+            <Link to="/resend-registration">Gửi lại thư đăng ký →</Link>
           </div>
           <div>
-            <span>Invited by your organization?</span>
-            <Link to="/activate/demo-token">Activate your account →</Link>
+            <span>Được tổ chức mời?</span>
+            <Link to="/activate/demo-token">Kích hoạt tài khoản →</Link>
           </div>
         </div>
       </section>

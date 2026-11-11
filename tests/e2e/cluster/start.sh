@@ -95,6 +95,7 @@ DATABASE_URL=$PG/tenant_db?schema=public
 FRONTEND_URL=http://localhost:3000
 IDENTITY_SERVICE_URL=http://localhost:8081
 NOTIFICATION_SERVICE_URL=http://localhost:8082
+AUDIT_SERVICE_URL=http://localhost:8093
 DEV_FAKE_AUTH=false
 COURSE_CLIENT_MODE=http
 COURSE_SERVICE_URL=http://localhost:8083
@@ -223,7 +224,7 @@ start_proc gateway 8080 "$ROOT/gateway/api-gateway" env "${JAVA_COMMON[@]}" JWT_
   java -jar target/api-gateway-1.0.0-SNAPSHOT.jar
 
 for svc in "${NODE_SERVICES[@]}"; do
-  # Same entry resolution as the Dockerfiles; package.json start:prod still points at dist/main.
+  # Same entry resolution as the Dockerfiles (dist/src/main.js, the path start:prod uses).
   main=dist/src/main.js; [[ -f "$ROOT/services/$svc/$main" ]] || main=dist/main.js
   port="$(grep '^PORT=' "$STATE/$svc.env" | cut -d= -f2)"
   start_proc "$svc" "$port" "$ROOT/services/$svc" bash -c "set -a; . '$STATE/$svc.env'; set +a; exec node $main"

@@ -33,17 +33,26 @@ export const formatStorage = (bytes: number) => {
 // UC01: chuyển dữ liệu gói từ API sang dạng PlanCard hiển thị (dùng ở trang chủ và trang đăng ký)
 export const toPlanDetails = (plan: ISubscriptionPlan) => ({
   name: plan.name,
-  description: `${plan.durationDays} days of access`,
+  description: `Sử dụng ${plan.durationDays} ngày`,
   price: formatVnd(plan.price),
-  priceNote: `for ${plan.durationDays} days`,
+  priceNote: `cho ${plan.durationDays} ngày`,
   limits: [
-    ["Learner seats", String(plan.maxLearners)],
-    ["Instructor seats", String(plan.maxInstructors)],
-    ["Courses", String(plan.maxCourseChains)],
-    ["Storage", formatStorage(plan.maxStorageBytes)],
+    ["Số học viên", String(plan.maxLearners)],
+    ["Số giảng viên", String(plan.maxInstructors)],
+    ["Số khóa học", String(plan.maxCourseChains)],
+    ["Dung lượng lưu trữ", formatStorage(plan.maxStorageBytes)],
   ] as Array<[string, string]>,
-  footer: "The price is locked in when you register.",
+  footer: "Giá được giữ nguyên từ lúc bạn đăng ký.",
 });
+
+export const ROLE_LABELS: Record<string, string> = {
+  Admin: "Quản trị viên",
+  Organizer: "Quản lý đào tạo",
+  Instructor: "Giảng viên",
+  Learner: "Học viên",
+};
+
+export const roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
 
 export const newRubricRow = (
   description = "",
@@ -62,9 +71,25 @@ export const formatDateVN = (value: string) =>
     year: "numeric",
   }).format(new Date(value));
 
-/** Display an instant in the learner's device timezone. */
-export const formatLocalDateTime = (value: string) =>
-  dayjs(value).format("HH:mm, DD/MM/YYYY");
+// Ngày giờ theo giờ Việt Nam, ngày trước giờ sau, giống formatDateVN: "2026-11-07T07:03:00Z" -> "07/11/2026 14:03".
+// Không có giá trị hoặc giá trị không phải ngày giờ thì trả "-". Dùng hàm này thay cho toLocaleString("vi-VN"), vốn
+// ra "14:03:18 7/11/2026" theo múi giờ của trình duyệt.
+export const formatDateTimeVN = (value?: string | null) => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "-";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("day")}/${part("month")}/${part("year")} ${part("hour")}:${part("minute")}`;
+};
+
 
 // UC12.2 (sau này UC13.2): lý do không tạo được tài khoản, theo thứ tự kiểm của backend.
 // null = tạo được. seats null = chưa tải được số chỗ.
