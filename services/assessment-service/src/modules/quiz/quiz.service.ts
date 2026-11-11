@@ -57,7 +57,7 @@ type QuizDetailRow = Prisma.AssessmentGetPayload<{
   include: typeof quizDetailInclude;
 }>;
 
-/** UC18.4: the configuration fields of BR-156 and the UC18.1 permission that guards each one. */
+/** UC18.3: the configuration fields of BR-156 and the UC18.1 permission that guards each one. */
 type QuizConfigField = keyof UpdateQuizConfigDto;
 
 const CONFIG_PERMISSION: Record<QuizConfigField, keyof QuizPermissions> = {
@@ -224,7 +224,7 @@ export class QuizService {
   }
 
   /**
-   * UC18.4 — change the configuration of a Quiz (BR-156). Only the fields that really change are checked:
+   * UC18.3 — change the configuration of a Quiz (BR-156). Only the fields that really change are checked:
    * BR-97 (time limit, n, m) while the Quiz has no attempt, BR-94 (passing score, required flag) while the
    * Course is not Locked. One blocked field blocks the whole request, so nothing is ever half saved.
    */
@@ -316,7 +316,7 @@ export class QuizService {
   }
 
   /**
-   * UC18.2.1 — add one question with its answers at the end of a Quiz (BR-194).
+   * UC18.1.1 — add one question with its answers at the end of a Quiz (BR-194).
    * Checks, in order: answer key per type (BR-202), Instructor in charge now (BR-94), Course not Submitted,
    * Archived or Disabled (BR-83), no attempt on the Quiz yet (BR-117). A Locked Course does not block it.
    */
@@ -460,7 +460,7 @@ export class QuizService {
     });
   }
 
-  /** UC18.1 / UC18.4: the full Instructor view of one Quiz, with what may be changed now (BR-99). */
+  /** UC18.1 / UC18.3: the full Instructor view of one Quiz, with what may be changed now (BR-99). */
   private toDetail(
     quiz: QuizDetailRow,
     course: CourseAuthoringContext,
@@ -500,7 +500,7 @@ export class QuizService {
   }
 
   /**
-   * UC18.5 — delete a Quiz.
+   * UC18.4 — delete a Quiz.
    * BR-92: blocked only when the Course is Locked AND the Quiz already has attempts.
    */
   async deleteQuiz(user: CurrentUser, id: string): Promise<{ id: string }> {

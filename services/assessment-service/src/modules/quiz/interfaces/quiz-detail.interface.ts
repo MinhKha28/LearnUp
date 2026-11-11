@@ -26,7 +26,7 @@ export interface QuizQuestionDetail {
   options: QuizOptionDetail[];
 }
 
-/** UC18.2.1 — the question just added and the new number of questions of its Quiz (UC18 / BR-118). */
+/** UC18.1.1 — the question just added and the new number of questions of its Quiz (UC18 / BR-118). */
 export interface QuizQuestionCreated {
   quizId: string;
   questionCount: number;
@@ -40,19 +40,19 @@ export interface QuizPermission {
 }
 
 export interface QuizPermissions {
-  /** UC18.3: add, edit or delete questions and answers (BR-96, BR-285). */
+  /** UC18.1.1–UC18.1.3: add, edit or delete questions and answers (BR-96, BR-285). */
   editQuestions: QuizPermission;
-  /** UC18.4: time limit (BR-97, BR-285). */
+  /** UC18.3: time limit (BR-97, BR-285). */
   editTimeLimit: QuizPermission;
-  /** UC18.4: n consecutive attempts and m hours lockout (BR-97, BR-285). */
+  /** UC18.3: n consecutive attempts and m hours lockout (BR-97, BR-285). */
   editAttemptRule: QuizPermission;
-  /** UC18.4: passing score (BR-94, BR-285). */
+  /** UC18.3: passing score (BR-94, BR-285). */
   editPassingScore: QuizPermission;
-  /** UC18.4: required flag (BR-94, BR-157, BR-285). */
+  /** UC18.3: required flag (BR-94, BR-157, BR-285). */
   editRequired: QuizPermission;
-  /** UC18.5: delete the Quiz (BR-92, BR-285). */
+  /** UC18.4: delete the Quiz (BR-92, BR-285). */
   deleteQuiz: QuizPermission;
-  /** UC18.3: delete the only remaining question (BR-96, BR-285, BR-323). */
+  /** UC18.1.3: delete the only remaining question (BR-96, BR-285, BR-323). */
   deleteLastQuestion: QuizPermission;
 }
 

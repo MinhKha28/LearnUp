@@ -4,7 +4,7 @@ import type { QuizQuestionType } from './interfaces/quiz-detail.interface';
 export const QUESTION_CONTENT_MAX_LENGTH = 2000;
 /** quiz_question_options.content VARCHAR(500). */
 export const OPTION_CONTENT_MAX_LENGTH = 500;
-/** UC18.2.1 (agreed with the team, no BR): a choice question has 2 to 10 options. */
+/** UC18.1.1 (agreed with the team, no BR): a choice question has 2 to 10 options. */
 export const QUESTION_OPTIONS_MIN = 2;
 export const QUESTION_OPTIONS_MAX = 10;
 

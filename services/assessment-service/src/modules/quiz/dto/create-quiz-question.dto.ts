@@ -37,7 +37,7 @@ export class CreateQuizOptionDto {
 }
 
 /**
- * UC18.2.1 — add one question with its answers to a Quiz (BR-194).
+ * UC18.1.1 — add one question with its answers to a Quiz (BR-194).
  * - SingleChoice / MultipleChoice: send `options` (2–10, in display order), never `correctAnswer`.
  * - TrueFalse: send `correctAnswer`, never `options`; the service writes the two options True / False itself.
  * The rules that depend on the type (how many options, how many correct) are in quiz-question-rules.ts.

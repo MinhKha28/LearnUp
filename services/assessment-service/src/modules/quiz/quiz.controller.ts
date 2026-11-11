@@ -20,7 +20,7 @@ import { ListQuizzesQueryDto } from './dto/list-quizzes-query.dto';
 import { UpdateQuizConfigDto } from './dto/update-quiz.dto';
 import { QuizService } from './quiz.service';
 
-@ApiTags('UC18 / UC18.1 / UC18.2 / UC18.2.1 / UC18.4 / UC18.5 - Quizzes')
+@ApiTags('UC18 / UC18.1 / UC18.1.1 / UC18.2 / UC18.3 / UC18.4 - Quizzes')
 @ApiSecurity('internal-key')
 @Controller('assessments')
 export class QuizController {
@@ -53,7 +53,7 @@ export class QuizController {
     return this.service.getQuiz(user, id);
   }
 
-  /** UC18.4 — Update Quiz configuration; answers like UC18.1 with the new permissions. */
+  /** UC18.3 — Update Quiz configuration; answers like UC18.1 with the new permissions. */
   @Patch('quizzes/:id')
   @ResponseMessage('Quiz configuration updated successfully.')
   updateQuizConfig(
@@ -64,7 +64,7 @@ export class QuizController {
     return this.service.updateQuizConfig(user, id, dto);
   }
 
-  /** UC18.2.1 — Add a question with its answers at the end of a Quiz (Instructor only). */
+  /** UC18.1.1 — Add a question with its answers at the end of a Quiz (Instructor only). */
   @Post('quizzes/:id/questions')
   @HttpCode(HttpStatus.CREATED)
   @ResponseMessage('Question added successfully.')
@@ -76,7 +76,7 @@ export class QuizController {
     return this.service.addQuestion(user, id, dto);
   }
 
-  /** UC18.5 — Delete Quiz */
+  /** UC18.4 — Delete Quiz */
   @Delete('quizzes/:id')
   @ResponseMessage('Quiz deleted successfully.')
   deleteQuiz(
