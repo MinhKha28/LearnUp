@@ -45,7 +45,7 @@ const LayoutInstructor = () => {
     return "/instructor";
   }, [location.pathname]);
 
-  const displayName = user?.fullName || "Jordan Chen";
+  const displayName = user?.fullName || "Giảng viên";
   const initials = displayName
     .split(" ")
     .map((part) => part[0])
@@ -125,7 +125,9 @@ const LayoutInstructor = () => {
               onClick={() => setMobileOpen(true)}
               aria-label="Mở menu điều hướng"
             />
-            <span className="instructor-org-name">Demo Organization</span>
+            {user?.organizationName && (
+              <span className="instructor-org-name">{user.organizationName}</span>
+            )}
           </div>
           <div className="instructor-topbar-actions">
             <NotificationBell basePath="/instructor" />
