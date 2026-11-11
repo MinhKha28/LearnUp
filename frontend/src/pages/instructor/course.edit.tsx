@@ -602,7 +602,7 @@ const CourseEdit = () => {
 
             <SummaryRow
               label="Thời gian hoàn thành dự kiến"
-              value={summaryDays > 0 ? `${summaryDays} days` : "Not set"}
+              value={summaryDays > 0 ? `${summaryDays} ngày` : "Chưa thiết lập"}
             />
 
             <div className="course-summary-divider" />

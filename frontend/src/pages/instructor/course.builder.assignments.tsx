@@ -59,7 +59,7 @@ const CourseBuilderAssignments = () => {
       <div className="builder-hero">
         <h1>Bài tập</h1>
         <p>
-          {loading ? "Loading..." : `${assignments.length} Assignment${assignments.length === 1 ? "" : "s"} in ${course.name}`}
+          {loading ? "Đang tải..." : `${assignments.length} bài tập trong ${course.name}`}
         </p>
       </div>
       <div className="builder-grid">

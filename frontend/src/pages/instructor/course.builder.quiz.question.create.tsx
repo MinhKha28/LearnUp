@@ -259,7 +259,7 @@ const CourseBuilderQuizQuestionCreate = () => {
             </div>
           ))}
           {!open && (
-            <p className="builder-quiz-detail-why">Questions cannot be added: {permissionReasonTexts(permission).join(" ")}</p>
+            <p className="builder-quiz-detail-why">Không thể thêm câu hỏi: {permissionReasonTexts(permission).join(" ")}</p>
           )}
 
           <label className="instructor-form-label instructor-form-label-spaced">Loại câu hỏi</label>

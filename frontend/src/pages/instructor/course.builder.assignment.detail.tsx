@@ -161,7 +161,7 @@ const CourseBuilderAssignmentDetail = () => {
       <div className="builder-grid">
         <div className="builder-update-card">
           <h2>Hướng dẫn</h2>
-          <p className="builder-lesson-intro builder-prompt">{assignment.prompt || "No Instructions written yet."}</p>
+          <p className="builder-lesson-intro builder-prompt">{assignment.prompt || "Chưa có hướng dẫn làm bài."}</p>
           {assignment.promptFile && (
             <div className="builder-file-row">
               <span className="builder-file-name">

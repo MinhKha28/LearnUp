@@ -145,7 +145,7 @@ const LayoutInstructorCourse = () => {
           <button
             type="button"
             className="builder-topbar-action"
-            onClick={() => message.success("Draft saved.")}
+            onClick={() => message.success("Đã lưu bản nháp.")}
           >
             Save Draft
           </button>
