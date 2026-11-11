@@ -111,8 +111,6 @@ model Registration {
   expiresAt               DateTime  @map("expires_at") @db.Timestamptz
   paidAt                  DateTime? @map("paid_at") @db.Timestamptz
   reopenTokenHash         Bytes?    @unique @map("reopen_token_hash")
-  resendCount             Int       @default(0) @map("resend_count")
-  resendWindowStartedAt   DateTime? @map("resend_window_started_at") @db.Timestamptz
   emailVerifiedAt         DateTime? @map("email_verified_at") @db.Timestamptz
   otpHash                 Bytes?    @map("otp_hash")
   otpExpiresAt            DateTime? @map("otp_expires_at") @db.Timestamptz
