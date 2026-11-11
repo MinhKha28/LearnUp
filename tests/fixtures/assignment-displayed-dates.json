@@ -9,5 +9,5 @@
   { "timezone": "America/New_York", "dueAt": "2026-03-08T07:00:00.000Z", "date": "2026-03-08" },
   { "timezone": "America/New_York", "dueAt": "2026-03-09T04:00:00.000Z", "date": "2026-03-08" },
   { "timezone": "America/New_York", "dueAt": "2026-03-09T04:00:01.000Z", "date": "2026-03-09" },
-  { "timezone": "America/Havana", "dueAt": "2026-11-01T05:00:00.000Z", "date": "2026-10-31" }
+  { "timezone": "America/Phoenix", "dueAt": "2026-11-01T07:00:00.000Z", "date": "2026-10-31" }
 ]
