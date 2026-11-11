@@ -121,12 +121,12 @@ Hàm **tính lại theo tiến độ** (BR-149, BR-309, BR-160, BR-161): chưa c
 
 | Trạng thái | Ai đưa vào | Ai đưa ra → về đâu |
 |---|---|---|
-| NotStarted | Tạo Enrollment; hàm tính lại | Hệ thống (hoạt động đầu tiên) → InProgress; `CourseDisabled` → Halted; Organizer hủy phân công → xóa dòng; Learner rút → xóa dòng (BR-159); tài khoản bị xóa → Withdrawn |
+| NotStarted | Tạo Enrollment; hàm tính lại | Hệ thống (hoạt động đầu tiên) → InProgress; `CourseDisabled` → Halted; Organizer hủy phân công → Withdrawn (`OrganizerCancelled`); Learner rút → xóa dòng (BR-159); tài khoản bị xóa → Withdrawn |
 | InProgress | Hệ thống; hàm tính lại | Hệ thống → Completed; Organizer → Exempted; `CourseDisabled` → Halted; Learner rút (Optional): có kết quả đánh giá → Withdrawn, chưa có → xóa dòng; tài khoản bị xóa → Withdrawn |
 | Overdue (tính lúc đọc) | Thời gian qua `due_at` | Kéo dài hạn, dời hạn, đổi trạng thái → tự hết; các đường ra như trạng thái lưu bên dưới |
 | Completed | Hệ thống | **Không có** (BR-141). Chỉ đổi loại Optional → Required và đặt `completed_late = false` (BR-165) |
 | Exempted | Organizer, Required đã có dữ liệu học tập (BR-146) | Organizer gỡ → hàm tính lại, hoặc Halted nếu Course đang Disabled (BR-308); hệ thống → Completed (BR-150, đóng khoảng Exempted tại `completed_at`); tài khoản bị xóa → Withdrawn |
-| Withdrawn | Learner (BR-160); hệ thống khi xóa tài khoản (BR-47); Organizer đóng Halted (BR-310) | Learner đăng ký lại hoặc Organizer phân công cùng phiên bản → hàm tính lại (BR-161). `AccountDeleted` và `HaltedClosed`: không có đường ra, có chủ đích |
+| Withdrawn | Learner (BR-160); hệ thống khi xóa tài khoản (BR-47); Organizer hủy phân công (UC24.4) hoặc đóng Halted (BR-310) | Learner đăng ký lại hoặc Organizer phân công cùng phiên bản → hàm tính lại (BR-161). `AccountDeleted` và `HaltedClosed`: không có đường ra, có chủ đích |
 | Halted | Hệ thống khi nhận `CourseDisabled`, từ NotStarted/InProgress; gỡ Exempted khi Course Disabled (BR-308) | Organizer khôi phục khi phiên bản Published trở lại → hàm tính lại (UC24.8, BR-309); Organizer đóng → Withdrawn (BR-310); tài khoản bị xóa → Withdrawn |
 
 Chuyển Optional → Required được từ NotStarted, InProgress, Completed, Withdrawn; không xảy ra khi Halted vì Course đang Disabled (BR-86).
@@ -300,7 +300,7 @@ Nguồn kích hoạt đã có ở Bước 1: Video hoàn thành lần đầu, UC
 
 | Thao tác | Điều kiện hỏi assessment-service | Kết quả |
 |---|---|---|
-| Hủy phân công | Chưa có dữ liệu học tập: không học liệu hoàn thành (cục bộ), không lượt Quiz, không bài nộp (REST) — BR-145 | Xóa dòng; CASCADE xóa tiến độ và khoảng tạm dừng |
+| Hủy phân công | Chưa có dữ liệu học tập: không học liệu hoàn thành (cục bộ), không lượt Quiz, không bài nộp (REST) — BR-145 | Giữ dòng Enrollment với trạng thái `Withdrawn`, lý do `OrganizerCancelled` và thời điểm `withdrawn_at` |
 | Rút, chưa có kết quả đánh giá | Không lượt Quiz, không bài nộp, không chấm chéo (REST) — BR-159 | Xóa dòng (kể cả tiến độ học liệu) |
 | Rút, đã có kết quả đánh giá | — | Withdrawn, `LearnerWithdrew`; giữ dữ liệu (BR-160) |
 
