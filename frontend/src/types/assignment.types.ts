@@ -24,6 +24,14 @@ export interface Assignment {
   requiredCompleted: number;
   requiredTotal: number;
 }
+export interface AssignmentFilters {
+  learner?: string;
+  course?: string;
+  status?: AssignmentStatus;
+  dueFrom?: string;
+  dueTo?: string;
+}
+
 export interface AssignmentPage {
   items: Assignment[];
   page: number;

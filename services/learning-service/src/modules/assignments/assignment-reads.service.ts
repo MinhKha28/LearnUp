@@ -1,5 +1,6 @@
 import { createApiError, type CurrentUser } from '@learnup/ts-common';
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -12,6 +13,8 @@ import {
 } from '../../infrastructure/clients/tenant/tenant.client';
 import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
 import { EnrollmentsRepository } from '../enrollments/enrollments.repository';
+import { AssignmentKeywordSearch } from './assignment-keyword-search.service';
+import type { AssignmentListQueryDto } from './assignment-list-query.dto';
 import { toSafeNumber } from '../../common/utils/to-safe-number';
 import {
   AssignmentReadsRepository,
@@ -26,6 +29,7 @@ export class AssignmentReadsService {
     private readonly enrollments: EnrollmentsRepository,
     @Inject(TENANT_CLIENT) private readonly tenant: TenantClient,
     private readonly courses: CourseServiceClient,
+    private readonly keywords: AssignmentKeywordSearch,
   ) {}
 
   private organization(user: CurrentUser) {
@@ -36,16 +40,56 @@ export class AssignmentReadsService {
     return user.organizationId;
   }
 
-  async list(user: CurrentUser, page: number) {
+  async list(user: CurrentUser, query: AssignmentListQueryDto) {
     const organizationId = this.organization(user);
-    const total = await this.assignments.count(organizationId);
+    const { page, status, dueFrom, dueTo } = query;
+    if (dueFrom && dueTo && dueFrom > dueTo) {
+      throw new BadRequestException(
+        createApiError(
+          'INVALID_DUE_DATE_RANGE',
+          'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.',
+        ),
+      );
+    }
+
+    const [learnerIds, courseIds] = await Promise.all([
+      query.learner
+        ? this.keywords.ids(user, 'learner', query.learner)
+        : undefined,
+      query.course
+        ? this.keywords.ids(user, 'course', query.course)
+        : undefined,
+    ]);
+    if (learnerIds?.length === 0 || courseIds?.length === 0)
+      return { items: [], page, pageSize: 20, total: 0 };
+
     const offset = (page - 1) * 20;
+    if (learnerIds || courseIds || status || dueFrom || dueTo) {
+      const { total, rows } = await this.assignments.filteredPage(
+        organizationId,
+        offset,
+        {
+          learnerIds,
+          courseIds,
+          status,
+          dueFrom,
+          dueTo,
+        },
+      );
+      return {
+        items: await this.enrich(user, rows),
+        page,
+        pageSize: 20,
+        total,
+      };
+    }
+
+    const total = await this.assignments.count(organizationId);
     const rows =
       offset >= total
         ? []
         : await this.assignments.page(organizationId, offset);
-    const items = await this.enrich(user, rows);
-    return { items, page, pageSize: 20, total };
+    return { items: await this.enrich(user, rows), page, pageSize: 20, total };
   }
 
   async detail(user: CurrentUser, id: string) {

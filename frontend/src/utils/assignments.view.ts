@@ -101,6 +101,10 @@ const messages: Record<string, string> = {
     "Khóa học không còn ở trạng thái có thể phân công. Vui lòng chọn lại.",
   ASSIGNMENT_INVALID_LEARNERS:
     "Không ai được phân công vì danh sách Học viên có lỗi. Hãy kiểm tra bên dưới.",
+  SEARCH_TOO_BROAD: "Từ khóa quá rộng, hãy nhập cụ thể hơn",
+  LEARNER_SEARCH_UNAVAILABLE: "Tạm thời không thể tìm Học viên. Vui lòng thử lại.",
+  COURSE_SEARCH_UNAVAILABLE: "Tạm thời không thể tìm Khóa học. Vui lòng thử lại.",
+  INVALID_DUE_DATE_RANGE: "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.",
   CONCURRENT_CHANGE: "Dữ liệu vừa thay đổi. Vui lòng thử gửi lại.",
   NOT_IN_ORGANIZATION: "Học viên không thuộc tổ chức.",
   NOT_A_LEARNER: "Tài khoản không có vai trò Học viên.",
