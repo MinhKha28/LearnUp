@@ -21,6 +21,7 @@ import {
   TenantUnavailableError,
   type TenantClient,
 } from '../../src/infrastructure/clients/tenant/tenant.client';
+import { CourseServiceUnavailableError } from '../../src/infrastructure/clients/course/course-service.errors';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
 import { BaseDueAtRepository } from '../../src/modules/enrollments/base-due-at.repository';
 import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
@@ -41,11 +42,16 @@ let organizationStatus = 'Active';
 let tenantDown = false;
 let timezone = 'Asia/Ho_Chi_Minh';
 let accessCalls = 0;
+let treeCalls = 0;
+let courseDisabled = false;
+let courseDown = false;
 async function cleanup() {
   for (const table of [
     'outbox_events',
     'enrollments',
+    'material_snapshots',
     'course_version_snapshots',
+    'organization_suspensions',
   ])
     await db.query(`DELETE FROM ${table} WHERE organization_id=$1`, [ORG]);
 }
@@ -81,11 +87,12 @@ async function call(
   body?: unknown,
   org = ORG,
   role = 'ORGANIZER',
+  method = action === 'due-date' ? 'PATCH' : action ? 'POST' : 'GET',
 ) {
   const response = await fetch(
     `${url}/api/v1/assignments/${id}${action ? '/' + action : ''}`,
     {
-      method: action === 'due-date' ? 'PATCH' : action ? 'POST' : 'GET',
+      method,
       headers: {
         [HEADER_NAMES.INTERNAL_KEY]: process.env.INTERNAL_SERVICE_KEY!,
         [HEADER_NAMES.USER_ID]: ACTOR,
@@ -104,6 +111,32 @@ async function call(
     },
   };
 }
+const removeExemption = (id: string, org = ORG, body?: unknown) =>
+  call(id, 'exemption', body, org, 'ORGANIZER', 'DELETE');
+
+async function seedExemption(hasActivity = true) {
+  const id = await seed('Exempted');
+  if (!hasActivity)
+    await db.query(
+      'UPDATE enrollments SET first_activity_at=NULL WHERE id=$1',
+      [id],
+    );
+  await db.query(
+    `INSERT INTO enrollment_status_intervals (id,organization_id,enrollment_id,kind,started_at,reason)
+     VALUES ($1,$2,$3,'Exempted','2025-01-05 00:00:00.123456Z','Approved by previous Organizer')`,
+    [randomUUID(), ORG, id],
+  );
+  return id;
+}
+
+async function completionRequests(id: string) {
+  const result = await db.query(
+    'SELECT source FROM completion_evaluation_requests WHERE enrollment_id=$1',
+    [id],
+  );
+  return result.rows;
+}
+
 async function eventCount() {
   return (
     await db.query(
@@ -145,7 +178,21 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
         activatedAt: null,
         deletedAt: null,
       }));
-    app.get(CourseServiceClient).getCoursesBatch = async () => [];
+    const courses = app.get(CourseServiceClient);
+    courses.getCoursesBatch = async () => [];
+    courses.getCourseTree = async (_user, courseId) => {
+      treeCalls++;
+      assert.equal(courseId, COURSE);
+      if (courseDown) throw new CourseServiceUnavailableError('test outage');
+      return {
+        courseId,
+        chainId: courseId,
+        versionNumber: 1,
+        disabledAt: courseDisabled ? new Date() : null,
+        asOf: new Date(),
+        modules: [],
+      };
+    };
     tenantDown = true; // Startup must not require Tenant access.
     await app.listen(0, '127.0.0.1');
     url = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
@@ -192,6 +239,9 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
     tenantDown = false;
     timezone = 'Asia/Ho_Chi_Minh';
     accessCalls = 0;
+    treeCalls = 0;
+    courseDisabled = false;
+    courseDown = false;
     await db.query(
       'INSERT INTO course_version_snapshots (course_id,organization_id,chain_id,tree_fetched_at,disabled_as_of) VALUES ($1,$2,$1,now(),now())',
       [COURSE, ORG],
@@ -607,6 +657,174 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
       assert.equal(r.body.error.code, 'ENROLLMENT_NOT_EXEMPTIBLE');
       assert.equal(await eventCount(), 0);
     });
+  test('UC24.6 restores NotStarted and adds the exact union of pauses', async () => {
+    const id = await seedExemption(false);
+    await db.query(
+      `UPDATE enrollments SET extension_seconds=3600, due_at=base_due_at+interval '1 hour' WHERE id=$1`,
+      [id],
+    );
+    await db.query(
+      `INSERT INTO enrollment_status_intervals (id,organization_id,enrollment_id,kind,started_at,ended_at)
+       VALUES ($1,$2,$3,'Halted','2024-12-31 23:00:00Z','2025-01-03 00:00:00Z')`,
+      [randomUUID(), ORG, id],
+    );
+    await db.query(
+      `INSERT INTO organization_suspensions (id,organization_id,started_at,ended_at)
+       VALUES ($1,$2,'2025-01-02 00:00:00Z','2025-01-06 00:00:00Z')`,
+      [randomUUID(), ORG],
+    );
+    const result = await removeExemption(id);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.data.status, 'NotStarted');
+    assert.equal(result.body.data.firstActivityAt, null);
+    const {
+      rows: [saved],
+    } = await db.query(
+      `SELECT i.ended_at IS NOT NULL AS closed,
+              e.due_at=e.base_due_at+interval '1 hour'+(i.ended_at-e.assigned_at) AS exact
+       FROM enrollments e JOIN enrollment_status_intervals i ON i.enrollment_id=e.id
+       WHERE e.id=$1 AND i.kind='Exempted'`,
+      [id],
+    );
+    assert.deepEqual(saved, { closed: true, exact: true });
+    assert.equal(result.body.data.extensionSeconds, 3600);
+    assert.equal(await eventCount(), 0);
+  });
+
+  test('UC24.6 restores InProgress from the existing activity marker', async () => {
+    const id = await seedExemption();
+    const result = await removeExemption(id);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.data.status, 'InProgress');
+    assert.equal(result.body.data.firstActivityAt, '2025-01-02T00:00:00.000Z');
+  });
+
+  test('UC24.6 restores missing first activity from material and queues completion', async () => {
+    const id = await seedExemption(false);
+    const materialId = randomUUID();
+    await db.query(
+      `INSERT INTO material_snapshots
+         (material_id,organization_id,course_id,lesson_id,material_type,is_required,disabled_as_of)
+       VALUES ($1,$2,$3,$4,'Reading',true,now())`,
+      [materialId, ORG, COURSE, randomUUID()],
+    );
+    await db.query(
+      `INSERT INTO material_progress (id,organization_id,enrollment_id,material_id,completed_at)
+       VALUES ($1,$2,$3,$4,'2025-01-03 00:00:00.123456Z')`,
+      [randomUUID(), ORG, id, materialId],
+    );
+    const result = await removeExemption(id);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.data.status, 'InProgress');
+    assert.equal(result.body.data.requiredCompleted, 1);
+    assert.equal(result.body.data.requiredTotal, 1);
+    assert.equal(result.body.data.completedAt, null);
+    const {
+      rows: [saved],
+    } = await db.query(
+      `SELECT first_activity_at='2025-01-03 00:00:00.123456Z'::timestamptz AS exact FROM enrollments WHERE id=$1`,
+      [id],
+    );
+    assert.equal(saved.exact, true);
+    assert.deepEqual(await completionRequests(id), [
+      { source: 'ASSIGNMENT_RESTORE' },
+    ]);
+    assert.equal(await eventCount(), 0);
+  });
+
+  test('UC24.6 uses fresh Disabled state and starts Halted at the exact exemption end', async () => {
+    const id = await seedExemption();
+    courseDisabled = true;
+    const result = await removeExemption(id);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.data.status, 'Halted');
+    const {
+      rows: [saved],
+    } = await db.query(
+      `SELECT h.started_at=x.ended_at AND h.ended_at IS NULL AS seamless,
+              e.due_at=e.base_due_at+(x.ended_at-x.started_at) AS exact
+       FROM enrollments e
+       JOIN enrollment_status_intervals x ON x.enrollment_id=e.id AND x.kind='Exempted'
+       JOIN enrollment_status_intervals h ON h.enrollment_id=e.id AND h.kind='Halted'
+       WHERE e.id=$1`,
+      [id],
+    );
+    assert.deepEqual(saved, { seamless: true, exact: true });
+    assert.deepEqual(await completionRequests(id), []);
+    assert.equal(await eventCount(), 0);
+  });
+
+  test('UC24.6 checks subscription first and protects scoped and ineligible rows', async () => {
+    const missing = randomUUID();
+    subscriptionStatus = 'Suspended';
+    const blocked = await removeExemption(missing);
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.error.code, 'SUBSCRIPTION_NOT_ACTIVE');
+    subscriptionStatus = 'Active';
+    const exempted = await seedExemption();
+    const optional = await seed('NotStarted', true);
+    for (const [id, org] of [
+      [missing, ORG],
+      [exempted, OTHER],
+      [optional, ORG],
+    ]) {
+      const result = await removeExemption(id, org);
+      assert.equal(result.status, 404);
+      assert.equal(result.body.error.code, 'ASSIGNMENT_NOT_FOUND');
+    }
+    const conflict = await removeExemption(await seed('Halted'));
+    assert.equal(conflict.status, 409);
+    assert.equal(conflict.body.error.code, 'ENROLLMENT_NOT_EXEMPTED');
+    assert.equal(treeCalls, 0);
+  });
+
+  test('UC24.6 validates route input and rejects a Learner', async () => {
+    const id = await seedExemption();
+    assert.equal((await removeExemption('bad-id')).status, 400);
+    const payload = await removeExemption(id, ORG, { reason: 'not accepted' });
+    assert.equal(payload.status, 422);
+    assert.equal(payload.body.error.code, 'VALIDATION_ERROR');
+    assert.equal(
+      (await call(id, 'exemption', undefined, ORG, 'LEARNER', 'DELETE')).status,
+      403,
+    );
+    assert.equal(treeCalls, 0);
+  });
+
+  test('UC24.6 returns 503 on Course outage and preserves the exemption', async () => {
+    const id = await seedExemption();
+    courseDown = true;
+    const result = await removeExemption(id);
+    assert.equal(result.status, 503);
+    assert.equal(result.body.error.code, 'SERVICE_UNAVAILABLE');
+    const detail = (await call(id)).body.data;
+    assert.equal(detail.status, 'Exempted');
+    assert.equal(detail.intervals[0].endedAt, null);
+    assert.deepEqual(await completionRequests(id), []);
+  });
+
+  test('UC24.6 serializes two simultaneous removals', async () => {
+    const id = await seedExemption();
+    const results = await Promise.all([
+      removeExemption(id),
+      removeExemption(id),
+    ]);
+    assert.deepEqual(results.map(({ status }) => status).sort(), [200, 409]);
+    assert.equal(
+      results.find(({ status }) => status === 409)?.body.error.code,
+      'ENROLLMENT_NOT_EXEMPTED',
+    );
+    assert.deepEqual(await completionRequests(id), [
+      { source: 'ASSIGNMENT_RESTORE' },
+    ]);
+    const { rows } = await db.query(
+      'SELECT ended_at FROM enrollment_status_intervals WHERE enrollment_id=$1',
+      [id],
+    );
+    assert.equal(rows.length, 1);
+    assert.ok(rows[0].ended_at);
+  });
+
   test('invalid exemption reasons 400', async () => {
     const id = await seed();
     for (const reason of [null, ' \n ', 'x'.repeat(1001)])

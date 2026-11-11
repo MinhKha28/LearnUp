@@ -31,17 +31,23 @@ export interface AssignmentRow {
   withdrawnReason: string | null;
 }
 
-const columns = Prisma.sql`e.id AS "enrollmentId", e.learner_id AS "learnerId",
+const columns = (
+  status: Prisma.Sql,
+) => Prisma.sql`e.id AS "enrollmentId", e.learner_id AS "learnerId",
   e.course_id AS "courseId", e.assigned_at AS "assignedAt", e.due_at AS "dueAt", e.due_timezone AS "dueTimezone",
-  ${enrollmentDisplayStatusSql('e')} AS status, e.base_due_at AS "baseDueAt",
+  ${status} AS status, e.base_due_at AS "baseDueAt",
   e.extension_seconds AS "extensionSeconds", e.first_activity_at AS "firstActivityAt",
   e.completed_at AS "completedAt", e.completed_late AS "completedLate",
   e.withdrawn_at AS "withdrawnAt", e.withdrawn_reason AS "withdrawnReason"`;
 const scope = (organizationId: string) =>
   Prisma.sql`e.organization_id = ${organizationId}::uuid AND e.enrollment_type = 'Required'`;
 
-export const assignmentDetailSql = (organizationId: string, id: string) =>
-  Prisma.sql`SELECT ${columns} FROM enrollments e WHERE ${scope(organizationId)} AND e.id = ${id}::uuid`;
+export const assignmentDetailSql = (
+  organizationId: string,
+  id: string,
+  status = enrollmentDisplayStatusSql('e'),
+) =>
+  Prisma.sql`SELECT ${columns(status)} FROM enrollments e WHERE ${scope(organizationId)} AND e.id = ${id}::uuid`;
 
 // Only local midnight crosses a calendar boundary when shifted back by one
 // millisecond, the precision of the timestamp sent to the browser.
@@ -77,7 +83,7 @@ export const assignmentPageSql = (
   offset: number,
   filters: AssignmentFilters = {},
 ) =>
-  Prisma.sql`SELECT ${columns} FROM enrollments e WHERE ${assignmentWhere(organizationId, filters)}
+  Prisma.sql`SELECT ${columns(enrollmentDisplayStatusSql('e'))} FROM enrollments e WHERE ${assignmentWhere(organizationId, filters)}
     ORDER BY CASE WHEN e.status = 'Completed' THEN 1 ELSE 0 END,
       CASE WHEN e.status <> 'Completed' THEN e.due_at END ASC,
       CASE WHEN e.status = 'Completed' THEN e.completed_at END DESC,
@@ -123,15 +129,27 @@ export class AssignmentReadsRepository {
     );
   }
 
-  async detail(organizationId: string, id: string) {
-    const [row] = await this.prisma.$queryRaw<AssignmentRow[]>(
-      assignmentDetailSql(organizationId, id),
+  async detail(
+    organizationId: string,
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const [row] = await (tx ?? this.prisma).$queryRaw<AssignmentRow[]>(
+      assignmentDetailSql(
+        organizationId,
+        id,
+        tx ? Prisma.sql`e.status` : undefined,
+      ),
     );
     return row ?? null;
   }
 
-  intervals(organizationId: string, enrollmentId: string) {
-    return this.prisma.enrollmentStatusInterval.findMany({
+  intervals(
+    organizationId: string,
+    enrollmentId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    return (tx ?? this.prisma).enrollmentStatusInterval.findMany({
       where: { organizationId, enrollmentId },
       select: { kind: true, startedAt: true, endedAt: true, reason: true },
       orderBy: [{ startedAt: 'asc' }, { id: 'asc' }],

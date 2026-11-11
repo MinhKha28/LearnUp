@@ -1,3 +1,4 @@
+import type { Prisma } from '../../../generated/prisma/client';
 import { createApiError, type CurrentUser } from '@learnup/ts-common';
 import {
   BadRequestException,
@@ -92,16 +93,30 @@ export class AssignmentReadsService {
     return { items: await this.enrich(user, rows), page, pageSize: 20, total };
   }
 
-  async detail(user: CurrentUser, id: string) {
-    const organizationId = this.organization(user);
-    const row = await this.assignments.detail(organizationId, id);
+  async detailSnapshot(
+    organizationId: string,
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const row = await this.assignments.detail(organizationId, id, tx);
     if (!row)
       throw new NotFoundException(
         createApiError('ASSIGNMENT_NOT_FOUND', 'Không tìm thấy phân công.'),
       );
-    const [items, intervals, organizationTimezone] = await Promise.all([
+    const intervals = await this.assignments.intervals(organizationId, id, tx);
+    return { row, intervals };
+  }
+
+  async detail(
+    user: CurrentUser,
+    id: string,
+    snapshot?: Awaited<ReturnType<AssignmentReadsService['detailSnapshot']>>,
+  ) {
+    const organizationId = this.organization(user);
+    const { row, intervals } =
+      snapshot ?? (await this.detailSnapshot(organizationId, id));
+    const [items, organizationTimezone] = await Promise.all([
       this.enrich(user, [row]),
-      this.assignments.intervals(organizationId, id),
       this.fallback<string | null>(
         'tenant access',
         async () => (await this.tenant.getOrganizationAccess(user)).timezone,

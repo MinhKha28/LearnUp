@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from "@/services/api.client";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/services/api.client";
 import type { PageResponse, PageMeta } from "@/types/api.types";
 import type { ILearnerListItem } from "@/types/organization.types";
 import type { IOrganizationCourseListItem } from "@/types/course.types";
@@ -31,6 +31,9 @@ export const exemptAssignment = (id: string, reason: string) =>
   apiPost<AssignmentDetail>(`${path}/${encodeURIComponent(id)}/exemption`, {
     reason,
   });
+
+export const removeAssignmentExemption = (id: string) =>
+  apiDelete<AssignmentDetail>(`${path}/${encodeURIComponent(id)}/exemption`);
 
 export const assignCourse = (courseId: string, learnerIds: string[]) =>
   apiPost<AssignmentResult>(path, { courseId, learnerIds });

@@ -216,6 +216,65 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+  /api/v1/assignments/{enrollmentId}/exemption:
+    parameters:
+      - $ref: "#/components/parameters/EnrollmentId"
+      - $ref: "#/components/parameters/UserId"
+      - $ref: "#/components/parameters/OrganizationId"
+      - $ref: "#/components/parameters/UserRole"
+    post:
+      operationId: exemptAssignment
+      summary: Exempt a required Course assignment (UC24.5)
+      description: >-
+        ORGANIZER only. Requires an Active organization and subscription. The stored status
+        must be InProgress, including assignments displayed as Overdue. Opens an Exempted
+        interval and emits EnrollmentExempted in the same transaction.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                  description: Validated after NFC normalization and trimming.
+      responses:
+        "200": { $ref: "#/components/responses/AssignmentDetail" }
+        "400": { description: Invalid enrollment UUID or request body. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: FORBIDDEN, ORGANIZATION_NOT_ACTIVE or SUBSCRIPTION_NOT_ACTIVE. }
+        "404": { description: ASSIGNMENT_NOT_FOUND for missing, Optional or foreign Enrollment. }
+        "409": { description: ENROLLMENT_NOT_EXEMPTIBLE for an ineligible status or concurrent exemption. }
+        "503": { description: SERVICE_UNAVAILABLE when Tenant access cannot be checked. }
+    delete:
+      operationId: removeAssignmentExemption
+      summary: Remove an exemption from a required Course assignment (UC24.6)
+      description: >-
+        ORGANIZER only. Requires an Active organization and subscription. The current Organizer
+        can remove an exemption set by any Organizer. Closes the Exempted interval and rebuilds
+        the deadline. Returns the restored stored status (NotStarted or InProgress) and queues
+        completion evaluation, or returns Halted and opens a Halted interval if the Course
+        version is Disabled.
+      requestBody:
+        required: false
+        description: No business payload. An empty object is accepted.
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        "200": { $ref: "#/components/responses/AssignmentDetail" }
+        "400": { description: Invalid enrollment UUID or malformed JSON. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { description: FORBIDDEN, ORGANIZATION_NOT_ACTIVE or SUBSCRIPTION_NOT_ACTIVE. }
+        "404": { description: ASSIGNMENT_NOT_FOUND for missing, Optional or foreign Enrollment. }
+        "409": { description: ENROLLMENT_NOT_EXEMPTED when the assignment is no longer Exempted. }
+        "422": { description: VALIDATION_ERROR for an unexpected request payload. }
+        "503": { description: SERVICE_UNAVAILABLE when Tenant access or Course version state cannot be checked. }
   /api/v1/enrollments/{enrollmentId}/materials/{materialId}/complete-reading:
     post:
       summary: Irreversibly mark Reading complete (UC27.3)
