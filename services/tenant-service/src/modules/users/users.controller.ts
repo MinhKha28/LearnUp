@@ -29,6 +29,7 @@ import { CreateAccountDto } from './dto/create-account.dto';
 import { DeleteAccountDto } from './dto/delete-account.dto';
 import { DeleteLearnerDto } from './dto/delete-learner.dto';
 import { ListAccountsQueryDto } from './dto/list-accounts-query.dto';
+import { TransferReceiversQueryDto } from './dto/transfer-receivers-query.dto';
 import { ListDepartmentsQueryDto } from './dto/list-departments-query.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { UsersService } from './users.service';
@@ -59,6 +60,26 @@ export class UsersController {
   @ResponseMessage('Lấy số chỗ Instructor thành công')
   getInstructorSeats(@User() user: CurrentUser) {
     return this.service.getInstructorSeats(user);
+  }
+
+  @Roles('ORGANIZER')
+  @Get('instructors/transfer-candidates')
+  @ResponseMessage('Transfer candidates fetched successfully')
+  getTransferCandidates(
+    @User() user: CurrentUser,
+    @Query() query: TransferReceiversQueryDto,
+  ) {
+    return this.service.getTransferCandidates(user, query.excludeInstructorId);
+  }
+
+  @Roles('ORGANIZER')
+  @Get('instructors/:id/transfer-eligibility')
+  @ResponseMessage('Instructor eligibility verified successfully')
+  getTransferEligibility(
+    @User() user: CurrentUser,
+    @Param('id', ParseUUIDPipe) instructorId: string,
+  ) {
+    return this.service.validateTransferReceiver(user, instructorId);
   }
 
   // UC12.1 - đặt SAU instructors/seats. id sai định dạng -> 400 (ParseUUIDPipe).

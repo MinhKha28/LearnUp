@@ -9,7 +9,6 @@ export interface INotification {
   channel: string;
   isRead: boolean;
   readAt: string | null;
-  metadata: string | null;
   createdAt: string;
 }
 
