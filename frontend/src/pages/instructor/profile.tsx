@@ -1,6 +1,7 @@
 import { Avatar, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
-import { initialsOf, statusTone, useMyProfile } from "@/hooks/use.my.profile";
+import { initialsOf, statusLabel, statusTone, useMyProfile } from "@/hooks/use.my.profile";
+import { roleLabel } from "@/utils/helper";
 import {
   InstructorButton,
   InstructorPage,
@@ -17,12 +18,12 @@ const Profile = () => {
   return (
     <InstructorPage className="instructor-profile">
       <PageHeader
-        eyebrow="ACCOUNT / PROFILE"
-        title="My Profile"
-        subtitle="Manage your Instructor account."
+        eyebrow="Tài khoản / Hồ sơ"
+        title="Hồ sơ của tôi"
+        subtitle="Quản lý tài khoản giảng viên của bạn."
         actions={
           <InstructorButton type="primary" onClick={() => navigate("edit")}>
-            Edit profile
+            Sửa hồ sơ
           </InstructorButton>
         }
       />
@@ -35,41 +36,41 @@ const Profile = () => {
           <div>
             <h2>{profile?.fullName}</h2>
             <StatusTag tone={statusTone(profile?.status)}>
-              {profile?.status}
+              {statusLabel(profile?.status)}
             </StatusTag>
           </div>
         </div>
         <div className="instructor-profile-table">
           <div className="instructor-profile-row instructor-profile-head">
-            <span>Field</span>
-            <span>Value</span>
+            <span>Thông tin</span>
+            <span>Giá trị</span>
           </div>
           <div className="instructor-profile-row">
-            <span>Email address</span>
+            <span>Địa chỉ email</span>
             <span>{profile?.email}</span>
           </div>
           <div className="instructor-profile-row">
-            <span>Role</span>
-            <span>{profile?.role}</span>
+            <span>Vai trò</span>
+            <span>{profile?.role ? roleLabel(profile.role) : ""}</span>
           </div>
           <div className="instructor-profile-row">
-            <span>Organization</span>
+            <span>Tổ chức</span>
             <span>{profile?.organizationName}</span>
           </div>
           <div className="instructor-profile-row">
-            <span>Department</span>
-            <span>{profile?.department ?? "Not set"}</span>
+            <span>Đơn vị công tác</span>
+            <span>{profile?.department ?? "Chưa có"}</span>
           </div>
         </div>
       </SectionCard>
       <SectionCard className="instructor-profile-security">
         <div className="instructor-profile-security-row">
-          <h2>Security</h2>
+          <h2>Bảo mật</h2>
           <InstructorButton onClick={() => navigate("change-password")}>
-            Change password
+            Đổi mật khẩu
           </InstructorButton>
         </div>
-        <p className="instructor-profile-note">The account email cannot be changed in self-service.</p>
+        <p className="instructor-profile-note">Bạn không tự đổi được email của tài khoản.</p>
       </SectionCard>
     </InstructorPage>
   );

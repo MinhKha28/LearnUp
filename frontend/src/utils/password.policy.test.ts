@@ -29,13 +29,13 @@ describe("UC08 password policy helpers", () => {
   });
 
   it("maps the change-password throttle and known backend errors", () => {
-    expect(changePasswordErrorMessage({ code: "TOO_MANY_ATTEMPTS", message: "x" })).toMatch(/Too many incorrect/);
+    expect(changePasswordErrorMessage({ code: "TOO_MANY_ATTEMPTS", message: "x" })).toMatch(/quá nhiều lần/);
     expect(changePasswordErrorMessage({ message: "Current password is incorrect" })).toBe(
-      "Current password is incorrect.",
+      "Mật khẩu hiện tại không đúng.",
     );
     expect(changePasswordErrorMessage({ message: "New password cannot be the same as the current password" })).toMatch(
-      /different from the current one/,
+      /khác mật khẩu hiện tại/,
     );
-    expect(changePasswordErrorMessage(undefined)).toBe("The password could not be changed. Please try again.");
+    expect(changePasswordErrorMessage(undefined)).toBe("Chưa đổi được mật khẩu. Vui lòng thử lại.");
   });
 });
