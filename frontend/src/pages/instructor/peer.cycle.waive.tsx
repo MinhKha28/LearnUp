@@ -91,7 +91,7 @@ const PeerCycleWaive = () => {
     return (
       <InstructorPage className="instructor-peer-cycles">
         <PageHeader
-          eyebrow="CHU KỲ / NGHĨA VỤ"
+          eyebrow="Chu kỳ chấm chéo / Nghĩa vụ"
           title="Miễn nghĩa vụ chấm chéo"
           subtitle="Đang tải..."
           back
@@ -105,7 +105,7 @@ const PeerCycleWaive = () => {
     return (
       <InstructorPage className="instructor-peer-cycles">
         <PageHeader
-          eyebrow="CHU KỲ / NGHĨA VỤ"
+          eyebrow="Chu kỳ chấm chéo / Nghĩa vụ"
           title="Không tìm thấy người chấm"
           subtitle={notice || "Nghĩa vụ chấm chéo này có thể đã bị xóa."}
           back
@@ -121,7 +121,7 @@ const PeerCycleWaive = () => {
   return (
     <InstructorPage className="instructor-peer-cycles">
       <PageHeader
-        eyebrow="CHU KỲ / NGHĨA VỤ"
+        eyebrow="Chu kỳ chấm chéo / Nghĩa vụ"
         title="Miễn nghĩa vụ chấm chéo"
         subtitle="Dùng khi không thể yêu cầu học viên chấm bù."
         back

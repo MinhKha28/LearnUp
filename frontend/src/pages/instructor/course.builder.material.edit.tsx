@@ -37,7 +37,7 @@ const formatBytes = (value: number | string): string => {
   const bytes = Number(value);
 
   if (!Number.isFinite(bytes) || bytes < 0) {
-    return "Unknown size";
+    return "Không xác định dung lượng";
   }
 
   if (bytes < 1024) {
@@ -94,11 +94,11 @@ const ensureApiSuccess = <T,>(response: IBackendRes<T>): T => {
       ? response.error.join(", ")
       : response.message || response.error;
 
-    throw new Error(message || "The request could not be completed.");
+    throw new Error(message || "Không thể hoàn tất yêu cầu.");
   }
 
   if (response.data === undefined || response.data === null) {
-    throw new Error("The server response could not be verified.");
+    throw new Error("Không thể xác minh phản hồi từ máy chủ.");
   }
 
   return response.data;
@@ -141,7 +141,7 @@ const CourseBuilderMaterialEdit = () => {
   useEffect(() => {
     if (!courseId || !lessonId || !materialId) {
       setLoading(false);
-      setError("Invalid Course, Lesson or Material ID.");
+      setError("Mã khóa học, bài học hoặc học liệu không hợp lệ.");
       return;
     }
 
@@ -155,7 +155,7 @@ const CourseBuilderMaterialEdit = () => {
         const response = await fetchCourseLessonDetailAPI(courseId, lessonId);
 
         if (!response.data) {
-          throw new Error("Lesson details not found.");
+          throw new Error("Không tìm thấy thông tin bài học.");
         }
 
         const lessonDetail = ensureApiSuccess(response);
@@ -165,7 +165,7 @@ const CourseBuilderMaterialEdit = () => {
         );
 
         if (!found) {
-          throw new Error("Learning material not found.");
+          throw new Error("Không tìm thấy học liệu.");
         }
 
         if (cancelled) return;
@@ -180,7 +180,7 @@ const CourseBuilderMaterialEdit = () => {
           setError(
             err instanceof Error
               ? err.message
-              : "Unable to load learning material.",
+              : "Không thể tải thông tin học liệu.",
           );
         }
       } finally {
@@ -212,12 +212,12 @@ const CourseBuilderMaterialEdit = () => {
     const isReading = material.materialType === "Reading";
 
     if (!isVideo && !isReading) {
-      message.error("Unsupported learning material type.");
+      message.error("Loại học liệu không được hỗ trợ.");
       return;
     }
 
     if (selected.size <= 0) {
-      message.error("Selected file is empty.");
+      message.error("Tệp đã chọn không có nội dung.");
       return;
     }
 
@@ -225,13 +225,13 @@ const CourseBuilderMaterialEdit = () => {
 
     if (selected.size > maxBytes) {
       message.error(
-        `File exceeds the upload transport limit of ${formatBytes(maxBytes)}.`,
+        `Tệp vượt quá giới hạn truyền tải ${formatBytes(maxBytes)}.`,
       );
       return;
     }
 
     if (isReading && selected.type !== "application/pdf") {
-      message.error("Only PDF Reading files are supported.");
+      message.error("Chỉ hỗ trợ tài liệu đọc định dạng PDF.");
       return;
     }
 
@@ -239,7 +239,7 @@ const CourseBuilderMaterialEdit = () => {
       isVideo &&
       !["video/mp4", "video/webm", "video/quicktime"].includes(selected.type)
     ) {
-      message.error("Unsupported Video format.");
+      message.error("Định dạng video không được hỗ trợ.");
       return;
     }
 
@@ -256,7 +256,7 @@ const CourseBuilderMaterialEdit = () => {
     const normalizedTitle = title.trim();
 
     if (!normalizedTitle || normalizedTitle.length > 200) {
-      message.warning("Material title must be between 1 and 200 characters.");
+      message.warning("Tên học liệu phải có từ 1 đến 200 ký tự.");
       return;
     }
 
@@ -267,7 +267,7 @@ const CourseBuilderMaterialEdit = () => {
     const hasReplacement = replacementFile !== null;
 
     if (!metadataChanged && !hasReplacement) {
-      message.info("No changes to save.");
+      message.info("Không có thay đổi để lưu.");
       return;
     }
 
@@ -313,7 +313,7 @@ const CourseBuilderMaterialEdit = () => {
             replaced.fileId !== material.fileId
           ) {
             throw new Error(
-              "File replacement response does not match the current material.",
+              "Phản hồi thay tệp không khớp với học liệu hiện tại.",
             );
           }
 
@@ -338,12 +338,12 @@ const CourseBuilderMaterialEdit = () => {
 
           if (updated.id !== materialId) {
             throw new Error(
-              "Updated material response does not match the current material.",
+              "Phản hồi cập nhật không khớp với học liệu hiện tại.",
             );
           }
         }
 
-        message.success("Learning material saved successfully.");
+        message.success("Đã lưu học liệu.");
 
         navigate(materialsUrl, {
           replace: true,
@@ -351,10 +351,10 @@ const CourseBuilderMaterialEdit = () => {
       } catch (err) {
         if (fileReplaced && metadataChanged) {
           message.error(
-            "The technical file was replaced successfully, " +
-              "but the material information was not saved. " +
-              "Reload and update the information again. " +
-              "Do not upload the replacement file again.",
+            "Đã thay thế tệp kỹ thuật thành công, " +
+              "nhưng chưa lưu được thông tin học liệu. " +
+              "Hãy tải lại trang và cập nhật thông tin. " +
+              "Không tải lại tệp thay thế.",
             8,
           );
 
@@ -363,15 +363,15 @@ const CourseBuilderMaterialEdit = () => {
         } else if (replacementFile && !fileReplaced) {
           message.error(
             getReplacementSizeError(err) ??
-              "File replacement was not confirmed. " +
-                "Reload and check the current file before retrying.",
+              "Chưa xác nhận được việc thay thế tệp. " +
+                "Tải lại trang và kiểm tra tệp hiện tại trước khi thử lại.",
             8,
           );
         } else {
           message.error(
             err instanceof Error
               ? err.message
-              : "Unable to save learning material.",
+              : "Không thể lưu học liệu.",
           );
         }
       } finally {
@@ -384,14 +384,14 @@ const CourseBuilderMaterialEdit = () => {
     // so ask for confirmation before starting.
     if (hasReplacement) {
       Modal.confirm({
-        title: "Confirm Technical Replacement",
+        title: "Xác nhận thay thế tệp kỹ thuật",
         content:
-          "This action replaces the shared technical file. " +
-          "All Course versions referencing this MediaFile " +
-          "may be affected. Please confirm that the learning " +
-          "content remains unchanged.",
-        okText: "Confirm and Save",
-        cancelText: "Cancel",
+          "Thao tác này thay thế tệp kỹ thuật dùng chung. " +
+          "Mọi phiên bản khóa học tham chiếu đến tệp này " +
+          "có thể bị ảnh hưởng. Hãy xác nhận nội dung " +
+          "học tập không thay đổi.",
+        okText: "Xác nhận và lưu",
+        cancelText: "Hủy",
         onOk: executeSave,
       });
 
@@ -421,7 +421,7 @@ const CourseBuilderMaterialEdit = () => {
         <Alert
           type="error"
           showIcon
-          message={error || "Learning material not found."}
+          message={error || "Không tìm thấy học liệu."}
         />
 
         <div className="builder-actions">
@@ -429,7 +429,7 @@ const CourseBuilderMaterialEdit = () => {
             icon={<ArrowLeftOutlined />}
             onClick={() => navigate(materialsUrl)}
           >
-            Back to Materials
+            Quay lại học liệu
           </InstructorButton>
         </div>
       </InstructorPage>
@@ -469,11 +469,11 @@ const CourseBuilderMaterialEdit = () => {
     <InstructorPage className="builder-page uc17-video-page">
       {/* ================= HEADER ================= */}
       <span className="builder-crumb">
-        Course Builder / Learning Materials / Edit Material
+        Xây dựng khóa học / Học liệu / Chỉnh sửa
       </span>
 
       <div className="builder-hero">
-        <h1>Edit Learning Material</h1>
+        <h1>Chỉnh sửa học liệu</h1>
 
         <p>
           {detail.course.name} / {detail.lesson.title}
@@ -485,10 +485,10 @@ const CourseBuilderMaterialEdit = () => {
         <Alert
           type="info"
           showIcon
-          message="Course is Locked"
+          message="Khóa học đã khóa"
           description={
-            "Material title and technical replacement remain " +
-            "available. Required/Optional cannot be changed."
+            "Vẫn có thể sửa tên học liệu và thay tệp lỗi kỹ thuật. " +
+            "Không thể thay đổi trạng thái bắt buộc."
           }
           className="uc17-video-alert"
         />
@@ -498,8 +498,8 @@ const CourseBuilderMaterialEdit = () => {
         <Alert
           type="warning"
           showIcon
-          message="Material editing unavailable"
-          description="The current Course status does not allow editing this learning material."
+          message="Không thể chỉnh sửa học liệu"
+          description="Trạng thái khóa học hiện tại không cho phép chỉnh sửa học liệu này."
           className="uc17-video-alert"
         />
       )}
@@ -508,14 +508,14 @@ const CourseBuilderMaterialEdit = () => {
       <div className="builder-grid">
         {/* ============ LEFT COLUMN ============ */}
         <div className="builder-update-card">
-          <h2>Material information</h2>
+          <h2>Thông tin học liệu</h2>
 
           {/* TITLE */}
           <label
             htmlFor="edit-material-title"
             className="instructor-form-label"
           >
-            Material title
+            Tên học liệu
           </label>
 
           <Input
@@ -523,7 +523,7 @@ const CourseBuilderMaterialEdit = () => {
             size="large"
             maxLength={200}
             showCount
-            placeholder="Enter learning material title"
+            placeholder="Nhập tên học liệu"
             value={title}
             disabled={!editable || saving}
             onChange={(event) => setTitle(event.target.value)}
@@ -531,7 +531,7 @@ const CourseBuilderMaterialEdit = () => {
 
           {/* REQUIREMENT */}
           <label className="instructor-form-label instructor-form-label-spaced">
-            Requirement
+            Yêu cầu
           </label>
 
           <Radio.Group
@@ -539,37 +539,37 @@ const CourseBuilderMaterialEdit = () => {
             disabled={!editable || locked || saving}
             onChange={(event) => setIsRequired(event.target.value === true)}
           >
-            <Radio value={true}>Required</Radio>
-            <Radio value={false}>Optional</Radio>
+            <Radio value={true}>Bắt buộc</Radio>
+            <Radio value={false}>Không bắt buộc</Radio>
           </Radio.Group>
 
           {locked && (
             <p className="uc17-video-hint">
-              Required/Optional cannot be changed after the Course is Locked.
+              Không thể thay đổi thuộc tính bắt buộc khi khóa học đã khóa.
             </p>
           )}
 
           {/* ============ TECHNICAL FILE ============ */}
           <div className="uc17-edit-replacement">
             <h2>
-              Technical file replacement
-              <span className="uc17-edit-optional"> (Optional)</span>
+              Thay thế tệp để sửa lỗi kỹ thuật
+              <span className="uc17-edit-optional"> (Không bắt buộc)</span>
             </h2>
 
             <Alert
               type="warning"
               showIcon
-              message="Technical repair only"
+              message="Chỉ sửa lỗi kỹ thuật"
               description={
-                "The replacement must preserve the original " +
-                "learning content. All Course versions " +
-                "referencing this shared file may be affected."
+                "Tệp thay thế phải giữ nguyên " +
+                "nội dung học tập. Các phiên bản khóa học " +
+                "tham chiếu đến tệp dùng chung này có thể bị ảnh hưởng."
               }
               className="uc17-video-alert"
             />
 
             {/* CURRENT FILE */}
-            <label className="instructor-form-label">Current file</label>
+            <label className="instructor-form-label">Tệp hiện tại</label>
 
             <p className="instructor-form-help">
               {material.file.originalFilename}
@@ -577,7 +577,7 @@ const CourseBuilderMaterialEdit = () => {
 
             {/* FILE SELECT */}
             <label className="instructor-form-label instructor-form-label-spaced">
-              Replacement {isVideo ? "Video" : "Reading"} file
+              Tệp thay thế {isVideo ? "video" : "tài liệu đọc"}
             </label>
 
             <div className="uc17-video-upload">
@@ -589,23 +589,23 @@ const CourseBuilderMaterialEdit = () => {
                 {replacementFile
                   ? replacementFile.name
                   : isVideo
-                    ? "Choose a replacement Video file"
-                    : "Choose a replacement PDF document"}
+                    ? "Chọn video thay thế"
+                    : "Chọn tài liệu PDF thay thế"}
               </strong>
 
               <p>
-                Allowed formats:{" "}
+                Định dạng cho phép:{" "}
                 {isVideo
-                  ? "MP4, WebM, MOV (subject to Platform Settings)"
+                  ? "MP4, WebM, MOV (theo cấu hình nền tảng)"
                   : "PDF"}
               </p>
 
-              <p>Upload transport limit: {formatBytes(maxUploadBytes)}</p>
+              <p>Giới hạn dung lượng truyền tải: {formatBytes(maxUploadBytes)}</p>
 
               <input
                 type="file"
                 accept={fileAccept}
-                aria-label="Choose replacement file"
+                aria-label="Chọn tệp thay thế"
                 disabled={!editable || saving}
                 onChange={(event) => {
                   handleReplacementFile(event.target.files?.[0] ?? null);
@@ -633,7 +633,7 @@ const CourseBuilderMaterialEdit = () => {
                     setProgress(0);
                   }}
                 >
-                  Remove
+                  Xóa
                 </InstructorButton>
               </div>
             )}
@@ -645,8 +645,8 @@ const CourseBuilderMaterialEdit = () => {
 
                 <p>
                   {progress < 100
-                    ? "Uploading replacement file..."
-                    : "Upload sent. Validating and saving replacement..."}
+                    ? "Đang tải tệp thay thế lên..."
+                    : "Đã tải tệp lên. Đang xác minh và lưu tệp thay thế..."}
                 </p>
               </div>
             )}
@@ -659,7 +659,7 @@ const CourseBuilderMaterialEdit = () => {
               disabled={saving}
               onClick={() => navigate(materialsUrl)}
             >
-              Cancel
+              Hủy
             </InstructorButton>
 
             <InstructorButton
@@ -668,7 +668,7 @@ const CourseBuilderMaterialEdit = () => {
               disabled={!canSave}
               onClick={() => void handleSaveChanges()}
             >
-              Save Changes
+              Lưu thay đổi
             </InstructorButton>
           </div>
         </div>
@@ -676,59 +676,58 @@ const CourseBuilderMaterialEdit = () => {
         {/* ============ RIGHT COLUMN ============ */}
         <div className="builder-side">
           <section className="uc17-video-info-card">
-            <h3>Material details</h3>
+            <h3>Chi tiết học liệu</h3>
 
             <div className="uc17-video-info-row">
-              <span>Material type</span>
+              <span>Loại học liệu</span>
               <strong>{material.materialType}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Current filename</span>
+              <span>Tên tệp hiện tại</span>
               <strong>{material.file.originalFilename}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Current file size</span>
+              <span>Dung lượng tệp hiện tại</span>
               <strong>{formatBytes(material.file.sizeBytes)}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Requirement</span>
-              <strong>{material.isRequired ? "Required" : "Optional"}</strong>
+              <span>Yêu cầu</span>
+              <strong>{material.isRequired ? "Bắt buộc" : "Không bắt buộc"}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Course Locked</span>
+              <span>Khóa học đã khóa</span>
               <strong>{locked ? "Yes" : "No"}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>File status</span>
+              <span>Trạng thái tệp</span>
               <strong>{material.file.status}</strong>
             </div>
 
             {isVideo && (
               <div className="uc17-video-info-row">
-                <span>Video duration</span>
+                <span>Thời lượng video</span>
                 <strong>
                   {material.file.durationSeconds !== null
                     ? `${Math.ceil(material.file.durationSeconds / 60)} min`
-                    : "Unavailable"}
+                    : "Không có thông tin"}
                 </strong>
               </div>
             )}
 
             {isReading && (
               <div className="uc17-video-info-row">
-                <span>Word count</span>
-                <strong>{material.file.wordCount ?? "Unavailable"}</strong>
+                <span>Số từ</span>
+                <strong>{material.file.wordCount ?? "Không có thông tin"}</strong>
               </div>
             )}
 
             <p className="uc17-video-hint">
-              Technical replacement updates the shared MediaFile without
-              creating a new Material or changing its Required setting.
+              Thay thế tệp kỹ thuật cập nhật tệp học liệu dùng chung mà không tạo học liệu mới hoặc thay đổi trạng thái bắt buộc.
             </p>
           </section>
         </div>

@@ -27,7 +27,7 @@ interface IQuizGroup {
 }
 
 const ComingSoon = ({ children }: { children: ReactNode }) => (
-  <Tooltip title="Coming soon">
+  <Tooltip title="Sắp ra mắt">
     <span className="builder-quiz-soon">{children}</span>
   </Tooltip>
 );
@@ -63,10 +63,10 @@ const CourseBuilderQuizzes = () => {
           setCourseLocked(res.data.courseLocked);
           setCourseStatus(res.data.courseStatus);
         } else {
-          setErrorMessage(assessmentErrorText(res, "Unable to load Quizzes."));
+          setErrorMessage(assessmentErrorText(res, "Không thể tải danh sách bài trắc nghiệm."));
         }
       } catch {
-        if (active) setErrorMessage("Unable to reach the Assessment service. Please try again.");
+        if (active) setErrorMessage("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {
         if (active) setLoading(false);
       }
@@ -83,7 +83,7 @@ const CourseBuilderQuizzes = () => {
   const groups: IQuizGroup[] = structure.modules
     .map((module, index) => ({
       key: module.id,
-      title: `Module ${index + 1}: ${module.title}`,
+      title: `Chương ${index + 1}: ${module.title}`,
       quizzes: quizzes.filter((quiz) => quiz.moduleId === module.id),
     }))
     .filter((group) => group.quizzes.length > 0);
@@ -91,10 +91,10 @@ const CourseBuilderQuizzes = () => {
   const courseLevel = quizzes.filter((quiz) => quiz.moduleId === null);
   const unknownModule = quizzes.filter((quiz) => quiz.moduleId !== null && !knownModuleIds.has(quiz.moduleId));
   if (courseLevel.length > 0) {
-    groups.push({ key: "course", title: "Course-level Quizzes", quizzes: courseLevel });
+    groups.push({ key: "course", title: "Bài trắc nghiệm cấp khóa học", quizzes: courseLevel });
   }
   if (unknownModule.length > 0) {
-    groups.push({ key: "other", title: "Other Quizzes", quizzes: unknownModule });
+    groups.push({ key: "other", title: "Bài trắc nghiệm khác", quizzes: unknownModule });
   }
 
   const submitted = courseStatus === "Submitted";
@@ -103,12 +103,12 @@ const CourseBuilderQuizzes = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Quizzes</span>
+      <span className="builder-crumb">Xây dựng khóa học / Bài trắc nghiệm</span>
       <div className="builder-hero">
-        <h1>Quizzes</h1>
+        <h1>Bài trắc nghiệm</h1>
         <p>
           {loading
-            ? "Loading..."
+            ? "Đang tải..."
             : errorMessage
               ? course.name
               : `${quizzes.length} Quiz${quizzes.length === 1 ? "" : "zes"} in ${course.name}`}
@@ -118,32 +118,31 @@ const CourseBuilderQuizzes = () => {
         <div className="builder-update-card">
           {!loading && !errorMessage && submitted && (
             <div className="builder-banner">
-              <strong>Course Submitted</strong>
+              <strong>Khóa học đã gửi phê duyệt</strong>
               <p>{LOCK_REASON_TEXT.COURSE_SUBMITTED}</p>
             </div>
           )}
           {!loading && !errorMessage && courseLocked && (
             <div className="builder-banner">
-              <strong>Course Locked</strong>
+              <strong>Khóa học đã khóa</strong>
               <p>{LOCK_REASON_TEXT.COURSE_LOCKED}</p>
             </div>
           )}
           {!loading && !errorMessage && emptyQuizzes > 0 && (
             <div className="builder-banner">
-              <strong>Quizzes without questions</strong>
+              <strong>Bài trắc nghiệm chưa có câu hỏi</strong>
               <p>
-                {emptyQuizzes} Quiz{emptyQuizzes === 1 ? " has" : "zes have"} no questions yet. The Course cannot be
-                submitted for review until every Quiz has at least one question.
+                {emptyQuizzes} bài trắc nghiệm chưa có câu hỏi. Chỉ có thể gửi khóa học phê duyệt khi mỗi bài trắc nghiệm có ít nhất một câu hỏi.
               </p>
             </div>
           )}
 
           {errorMessage ? (
             <div className="builder-banner builder-banner-error">
-              <strong>Quizzes could not be loaded</strong>
+              <strong>Không thể tải danh sách bài trắc nghiệm</strong>
               <p>{errorMessage}</p>
               <InstructorButton className="builder-quiz-retry" onClick={retry}>
-                Try again
+                Thử lại
               </InstructorButton>
             </div>
           ) : (
@@ -151,23 +150,23 @@ const CourseBuilderQuizzes = () => {
               <div className="builder-assign-stats">
                 <div>
                   <strong>{quizzes.length}</strong>
-                  <span>Total</span>
+                  <span>Tổng số</span>
                 </div>
                 <div>
                   <strong>{requiredQuizzes}</strong>
-                  <span>Required</span>
+                  <span>Bắt buộc</span>
                 </div>
                 <div>
                   <strong>{emptyQuizzes}</strong>
-                  <span>Without questions</span>
+                  <span>Chưa có câu hỏi</span>
                 </div>
               </div>
 
-              {loading && <div className="builder-quiz-empty">Loading Quizzes...</div>}
+              {loading && <div className="builder-quiz-empty">Đang tải bài trắc nghiệm...</div>}
               {!loading && quizzes.length === 0 && (
                 <div className="builder-quiz-empty">
-                  <strong>No Quizzes yet</strong>
-                  <span>Create the first Quiz to check what Learners have understood.</span>
+                  <strong>Chưa có bài trắc nghiệm</strong>
+                  <span>Tạo bài trắc nghiệm đầu tiên để đánh giá mức độ tiếp thu của học viên.</span>
                 </div>
               )}
               {!loading &&
@@ -182,24 +181,23 @@ const CourseBuilderQuizzes = () => {
                               <strong>{quiz.title}</strong>
                               <div className="builder-quiz-meta">
                                 <span>
-                                  <QuestionCircleOutlined /> {quiz.questionCount} question
-                                  {quiz.questionCount === 1 ? "" : "s"}
+                                  <QuestionCircleOutlined /> {quiz.questionCount} câu hỏi
                                 </span>
                                 <span>
                                   <ClockCircleOutlined />{" "}
-                                  {quiz.timeLimitMinutes ? `${quiz.timeLimitMinutes} min` : "No time limit"}
+                                  {quiz.timeLimitMinutes ? `${quiz.timeLimitMinutes} phút` : "Không giới hạn thời gian"}
                                 </span>
                                 <span>
-                                  <CheckCircleOutlined /> Pass at {quiz.passingScore}%
+                                  <CheckCircleOutlined /> Điểm đạt: {quiz.passingScore}%
                                 </span>
                                 <span>
-                                  {quiz.maxConsecutiveAttempts} attempts, then {quiz.lockoutHours} h lock
+                                  {quiz.maxConsecutiveAttempts} lượt làm liên tiếp, sau đó khóa {quiz.lockoutHours} giờ
                                 </span>
                               </div>
                             </div>
                             <div className="builder-quiz-tags">
                               <StatusTag tone={quiz.isRequired ? "info" : "neutral"}>
-                                {quiz.isRequired ? "Required" : "Optional"}
+                                {quiz.isRequired ? "Bắt buộc" : "Không bắt buộc"}
                               </StatusTag>
                               {quiz.locked ? (
                                 <Tooltip
@@ -213,20 +211,20 @@ const CourseBuilderQuizzes = () => {
                                 >
                                   <span>
                                     <StatusTag tone="warning">
-                                      <LockOutlined /> Locked
+                                      <LockOutlined /> Đã khóa
                                     </StatusTag>
                                   </span>
                                 </Tooltip>
                               ) : (
-                                <StatusTag tone="success">Unlocked</StatusTag>
+                                <StatusTag tone="success">Chưa khóa</StatusTag>
                               )}
-                              {quiz.disabled && <StatusTag tone="error">Disabled</StatusTag>}
+                              {quiz.disabled && <StatusTag tone="error">Đã vô hiệu hóa</StatusTag>}
                             </div>
                           </div>
 
                           {quiz.questionCount === 0 && (
                             <div className="builder-quiz-alert">
-                              <WarningOutlined /> No questions yet: the Course cannot be submitted for review.
+                              <WarningOutlined /> Chưa có câu hỏi nên không thể gửi khóa học phê duyệt.
                             </div>
                           )}
 
@@ -236,18 +234,18 @@ const CourseBuilderQuizzes = () => {
                               className="builder-quiz-action"
                               onClick={() => navigate(`${base}/quizzes/${quiz.id}`)}
                             >
-                              <EyeOutlined /> View details
+                              <EyeOutlined /> Xem chi tiết
                             </button>
                             <ComingSoon>
                               <button type="button" className="builder-quiz-action" disabled>
-                                <UnorderedListOutlined /> Manage questions
+                                <UnorderedListOutlined /> Quản lý câu hỏi
                               </button>
                             </ComingSoon>
                             {submitted ? (
                               <Tooltip title={LOCK_REASON_TEXT.COURSE_SUBMITTED}>
                                 <span className="builder-quiz-soon">
                                   <button type="button" className="builder-quiz-action danger" disabled>
-                                    <DeleteOutlined /> Delete
+                                    <DeleteOutlined /> Xóa
                                   </button>
                                 </span>
                               </Tooltip>
@@ -257,7 +255,7 @@ const CourseBuilderQuizzes = () => {
                                 className="builder-quiz-action danger"
                                 onClick={() => navigate(`${base}/quizzes/${quiz.id}/delete`)}
                               >
-                                <DeleteOutlined /> Delete
+                                <DeleteOutlined /> Xóa
                               </button>
                             )}
                           </div>
@@ -272,13 +270,13 @@ const CourseBuilderQuizzes = () => {
           <div className="builder-actions">
             {canAdd ? (
               <InstructorButton type="primary" onClick={() => navigate(`${base}/quizzes/new`)}>
-                + Create Quiz
+                + Tạo bài trắc nghiệm
               </InstructorButton>
             ) : (
-              <Tooltip title={structure.lockReason ?? `The Course is ${course.status}, so no Quiz can be added.`}>
+              <Tooltip title={structure.lockReason ?? `Khóa học có trạng thái ${course.status} nên không thể thêm bài trắc nghiệm.`}>
                 <span className="builder-quiz-soon">
                   <InstructorButton type="primary" disabled>
-                    + Create Quiz
+                    + Tạo bài trắc nghiệm
                   </InstructorButton>
                 </span>
               </Tooltip>
@@ -286,9 +284,8 @@ const CourseBuilderQuizzes = () => {
           </div>
         </div>
         <div className="builder-side">
-          <InfoPanel title="Quiz placement">
-            Attach Quizzes to a Module or directly to the Course. Module Quizzes appear after the Lessons of their
-            Module; Course-level Quizzes appear at the end of the Course.
+          <InfoPanel title="Vị trí bài trắc nghiệm">
+            Có thể gắn bài trắc nghiệm vào chương hoặc trực tiếp vào khóa học. Bài trắc nghiệm cấp chương hiển thị sau các bài học của chương; bài trắc nghiệm cấp khóa học hiển thị cuối khóa học.
           </InfoPanel>
         </div>
       </div>

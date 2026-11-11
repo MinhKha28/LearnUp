@@ -87,12 +87,12 @@ const CourseBuilderQuizQuestionCreate = () => {
           const notFound =
             assessmentErrorCode(res).code === "QUIZ_NOT_FOUND" || statusCode === 404 || statusCode === 400;
           setQuiz(null);
-          setError({ notFound, message: assessmentErrorText(res, "Unable to load the Quiz.") });
+          setError({ notFound, message: assessmentErrorText(res, "Không thể tải bài trắc nghiệm.") });
         }
       } catch {
         if (active) {
           setQuiz(null);
-          setError({ notFound: false, message: "Unable to reach the Assessment service. Please try again." });
+          setError({ notFound: false, message: "Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại." });
         }
       } finally {
         if (active) setLoading(false);
@@ -109,7 +109,7 @@ const CourseBuilderQuizQuestionCreate = () => {
   if (loading && !quiz) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Add Quiz Question</span>
+        <span className="builder-crumb">Xây dựng khóa học / Thêm câu hỏi trắc nghiệm</span>
         <div className="builder-update-card" aria-busy="true">
           <Skeleton active paragraph={{ rows: 6 }} />
         </div>
@@ -120,23 +120,23 @@ const CourseBuilderQuizQuestionCreate = () => {
   if (error || !quiz) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Add Quiz Question</span>
+        <span className="builder-crumb">Xây dựng khóa học / Thêm câu hỏi trắc nghiệm</span>
         <div className="builder-update-card">
           <div className="builder-banner builder-banner-error">
-            <strong>{error?.notFound ? "Quiz not found" : "The Quiz could not be loaded"}</strong>
+            <strong>{error?.notFound ? "Không tìm thấy bài trắc nghiệm" : "Không thể tải bài trắc nghiệm"}</strong>
             <p>
               {error?.notFound
-                ? "This Quiz does not exist or is not in a Course you are in charge of."
-                : (error?.message ?? "Unable to load the Quiz.")}
+                ? "Bài trắc nghiệm không tồn tại hoặc không thuộc khóa học bạn phụ trách."
+                : (error?.message ?? "Không thể tải bài trắc nghiệm.")}
             </p>
           </div>
           <div className="builder-actions">
             <InstructorButton onClick={() => navigate(`${base}/quizzes`)}>
-              <ArrowLeftOutlined /> Back to Quizzes
+              <ArrowLeftOutlined /> Quay lại bài trắc nghiệm
             </InstructorButton>
             {!error?.notFound && (
               <InstructorButton type="primary" onClick={reload}>
-                Try again
+                Thử lại
               </InstructorButton>
             )}
           </div>
@@ -157,14 +157,14 @@ const CourseBuilderQuizQuestionCreate = () => {
   const duplicated = new Set(lowered.filter((text, index) => text && lowered.indexOf(text) !== index));
 
   const contentError = !content.trim()
-    ? "Enter the question."
+    ? "Nhập nội dung câu hỏi."
     : content.trim().length > QUESTION_MAX_LENGTH
-      ? `The question can have at most ${QUESTION_MAX_LENGTH} characters.`
+      ? `Câu hỏi không được vượt quá ${QUESTION_MAX_LENGTH} ký tự.`
       : null;
   const optionError = (text: string): string | null => {
-    if (!text) return "Enter the answer text.";
-    if (text.length > OPTION_MAX_LENGTH) return `At most ${OPTION_MAX_LENGTH} characters.`;
-    if (duplicated.has(text.toLowerCase())) return "Two answers have the same text.";
+    if (!text) return "Nhập nội dung đáp án.";
+    if (text.length > OPTION_MAX_LENGTH) return `Tối đa ${OPTION_MAX_LENGTH} ký tự.`;
+    if (duplicated.has(text.toLowerCase())) return "Hai đáp án có nội dung trùng nhau.";
     return null;
   };
   let keyError: string | null = null;
@@ -172,14 +172,14 @@ const CourseBuilderQuizQuestionCreate = () => {
     if (options.length < OPTIONS_MIN || options.length > OPTIONS_MAX) {
       keyError = `A choice question needs ${OPTIONS_MIN} to ${OPTIONS_MAX} answers.`;
     } else if (type === "SingleChoice" && correctCount !== 1) {
-      keyError = "Mark exactly one correct answer.";
+      keyError = "Chọn đúng một đáp án đúng.";
     } else if (type === "MultipleChoice" && correctCount < 1) {
-      keyError = "Mark at least one correct answer.";
+      keyError = "Chọn ít nhất một đáp án đúng.";
     } else if (type === "MultipleChoice" && correctCount === options.length) {
-      keyError = "Leave at least one answer incorrect.";
+      keyError = "Phải có ít nhất một đáp án sai.";
     }
   } else if (correctAnswer === null) {
-    keyError = "Choose whether the statement is True or False.";
+    keyError = "Chọn phát biểu đúng hay sai.";
   }
   const hasErrors =
     !!contentError || !!keyError || (isChoice && trimmed.some((text) => optionError(text) !== null));
@@ -212,7 +212,7 @@ const CourseBuilderQuizQuestionCreate = () => {
   const handleSave = async () => {
     setSubmitted(true);
     if (hasErrors) {
-      message.warning("Please fix the highlighted fields.");
+      message.warning("Vui lòng kiểm tra các trường được đánh dấu.");
       return;
     }
     const payload: ICreateQuizQuestionReq = isChoice
@@ -227,15 +227,15 @@ const CourseBuilderQuizQuestionCreate = () => {
     try {
       const res = await createQuizQuestionAPI(quiz.id, payload);
       if (!res.data) {
-        message.error(assessmentErrorText(res, "Unable to add the question."));
+        message.error(assessmentErrorText(res, "Không thể thêm câu hỏi."));
         // The form stays as typed; only the Quiz state (banners, permission) is loaded again.
         if (RELOAD_CODES.includes(assessmentErrorCode(res).code ?? "")) reload();
         return;
       }
-      message.success(`Question added. This Quiz now has ${res.data.questionCount} question(s).`);
+      message.success(`Đã thêm câu hỏi. Bài trắc nghiệm hiện có ${res.data.questionCount} câu hỏi.`);
       navigate(detailPath);
     } catch {
-      message.error("Unable to reach the Assessment service. Please try again.");
+      message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setSaving(false);
     }
@@ -245,7 +245,7 @@ const CourseBuilderQuizQuestionCreate = () => {
     <InstructorPage className="builder-page">
       <span className="builder-crumb">Course Builder / Quizzes / {quiz.title} / Add Question</span>
       <div className="builder-hero">
-        <h1>Add Quiz Question</h1>
+        <h1>Thêm câu hỏi trắc nghiệm</h1>
         <p>
           {quiz.title} · {quiz.questions.length} question(s) so far
         </p>
@@ -259,10 +259,10 @@ const CourseBuilderQuizQuestionCreate = () => {
             </div>
           ))}
           {!open && (
-            <p className="builder-quiz-detail-why">Questions cannot be added: {permissionReasonTexts(permission).join(" ")}</p>
+            <p className="builder-quiz-detail-why">Không thể thêm câu hỏi: {permissionReasonTexts(permission).join(" ")}</p>
           )}
 
-          <label className="instructor-form-label instructor-form-label-spaced">Question type</label>
+          <label className="instructor-form-label instructor-form-label-spaced">Loại câu hỏi</label>
           <Radio.Group
             className="builder-question-type-toggle"
             optionType="button"
@@ -273,23 +273,23 @@ const CourseBuilderQuizQuestionCreate = () => {
             options={QUESTION_TYPES.map((value) => ({ label: quizQuestionTypeLabel(value), value }))}
           />
 
-          <label className="instructor-form-label instructor-form-label-spaced">Question</label>
+          <label className="instructor-form-label instructor-form-label-spaced">Câu hỏi</label>
           <Input.TextArea
             disabled={!open}
             value={content}
             autoSize={{ minRows: 2, maxRows: 8 }}
             count={{ show: true, max: QUESTION_MAX_LENGTH }}
             status={submitted && contentError ? "error" : undefined}
-            placeholder={type === "TrueFalse" ? "Write a statement the Learner marks True or False" : "Write the question"}
+            placeholder={type === "TrueFalse" ? "Nhập một phát biểu để học viên chọn đúng hoặc sai" : "Nhập nội dung câu hỏi"}
             onChange={(event) => setContent(event.target.value)}
           />
           {submitted && <FieldError message={contentError} />}
 
           <label className="instructor-form-label instructor-form-label-spaced">
             {type === "TrueFalse"
-              ? "Correct answer"
+              ? "Đáp án đúng"
               : type === "SingleChoice"
-                ? "Answers (select the one correct answer)"
+                ? "Các đáp án (chọn một đáp án đúng)"
                 : "Answers (tick every correct answer)"}
           </label>
 
@@ -322,7 +322,7 @@ const CourseBuilderQuizQuestionCreate = () => {
                         value={option.content}
                         prefix={`${optionLetter(index)}.`}
                         count={{ show: option.content.length > OPTION_MAX_LENGTH - 50, max: OPTION_MAX_LENGTH }}
-                        placeholder="Answer text"
+                        placeholder="Nội dung đáp án"
                         onChange={(event) => changeOptionText(option.key, event.target.value)}
                       />
                       {option.isCorrect && <CheckOutlined className="builder-quiz-option-check" />}
@@ -350,8 +350,8 @@ const CourseBuilderQuizQuestionCreate = () => {
               value={correctAnswer}
               onChange={(event) => setCorrectAnswer(event.target.value as boolean)}
               options={[
-                { label: "True", value: true },
-                { label: "False", value: false },
+                { label: "Đúng", value: true },
+                { label: "Sai", value: false },
               ]}
             />
           )}
@@ -360,29 +360,27 @@ const CourseBuilderQuizQuestionCreate = () => {
           {isChoice && open && options.length < OPTIONS_MAX && (
             <div className="builder-actions builder-actions-split">
               <InstructorButton onClick={addOption}>
-                <PlusOutlined /> Add answer
+                <PlusOutlined /> Thêm đáp án
               </InstructorButton>
             </div>
           )}
 
           <div className="builder-actions">
-            <InstructorButton onClick={() => navigate(detailPath)}>Cancel</InstructorButton>
+            <InstructorButton onClick={() => navigate(detailPath)}>Hủy</InstructorButton>
             <InstructorButton type="primary" loading={saving} disabled={!open} onClick={handleSave}>
-              Add question
+              Thêm câu hỏi
             </InstructorButton>
           </div>
         </div>
         <div className="builder-side">
-          <InfoPanel title="Question types">
-            Single answer: exactly one correct answer. Multiple answers: at least one correct and one incorrect
-            answer. True / False: choose which one is correct. Every type is graded automatically.
+          <InfoPanel title="Các loại câu hỏi">
+            Một đáp án: chọn đúng một đáp án. Nhiều đáp án: phải có ít nhất một đáp án đúng và một đáp án sai. Đúng/sai: chọn phương án đúng. Tất cả đều được chấm tự động.
           </InfoPanel>
-          <InfoPanel title="Scoring">
-            Every question weighs the same. A question counts as correct only when the Learner picks exactly the
-            correct answers; there is no partial credit.
+          <InfoPanel title="Chấm điểm">
+            Mọi câu hỏi có trọng số như nhau. Chỉ tính đúng khi học viên chọn chính xác tất cả đáp án đúng; không có điểm từng phần.
           </InfoPanel>
-          <InfoPanel title="Question lock">
-            Questions can only be added while no Learner has started this Quiz and the Course is not Submitted.
+          <InfoPanel title="Khóa chỉnh sửa câu hỏi">
+            Chỉ có thể thêm câu hỏi khi chưa có học viên bắt đầu làm bài và khóa học chưa được gửi phê duyệt.
           </InfoPanel>
         </div>
       </div>

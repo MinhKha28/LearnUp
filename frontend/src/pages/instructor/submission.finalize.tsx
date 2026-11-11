@@ -203,7 +203,7 @@ const FinalizePage = ({ submissionId }: { submissionId: string }) => {
   return (
     <InstructorPage className="instructor-submissions">
       <PageHeader
-        eyebrow="BÀI NỘP / CHỐT ĐIỂM"
+        eyebrow="Bài nộp / Chốt điểm"
         title="Chốt điểm bài tập"
         subtitle={detail && !loadError ? detail.assignment.title : "Kiểm tra và công bố kết quả bài nộp."}
       />

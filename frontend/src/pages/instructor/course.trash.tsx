@@ -67,7 +67,7 @@ const CourseTrash = () => {
 
         if (!Array.isArray(response.data)) {
           setCourses([]);
-          setLoadError("Unable to load Course Trash.");
+          setLoadError("Không thể tải thùng rác khóa học.");
           return;
         }
 
@@ -76,7 +76,7 @@ const CourseTrash = () => {
       } catch {
         if (!ignore) {
           setCourses([]);
-          setLoadError("Unable to connect to the server. Please try again.");
+          setLoadError("Không thể kết nối máy chủ. Vui lòng thử lại.");
         }
       } finally {
         if (!ignore) {
@@ -107,7 +107,7 @@ const CourseTrash = () => {
         return;
       }
 
-      message.success(`"${course.name}" restored successfully.`);
+      message.success(`"${course.name}" đã được khôi phục.`);
       refresh();
     } catch (error) {
       const code = getCourseApiErrorCode(error);
@@ -121,21 +121,21 @@ const CourseTrash = () => {
     if (processingId) return;
 
     Modal.confirm({
-      title: "Permanently Delete Course?",
+      title: "Xóa vĩnh viễn khóa học?",
       content: (
         <>
           <p>
-            Are you sure you want to permanently delete{" "}
+            Bạn có chắc muốn xóa vĩnh viễn{" "}
             <strong>{course.name}</strong>?
           </p>
           <p>
-            This action cannot be undone. Course content and files that are no
-            longer used by other versions will be removed.
+            Thao tác này không thể hoàn tác. Nội dung khóa học và các tệp không còn
+            được phiên bản khác sử dụng sẽ bị xóa.
           </p>
         </>
       ),
-      okText: "Delete Forever",
-      cancelText: "Cancel",
+      okText: "Xóa vĩnh viễn",
+      cancelText: "Hủy",
       okButtonProps: {
         danger: true,
       },
@@ -153,7 +153,7 @@ const CourseTrash = () => {
             return;
           }
 
-          message.success(`"${course.name}" permanently deleted.`);
+          message.success(`"${course.name}" đã được xóa vĩnh viễn.`);
 
           refresh();
         } catch (error) {
@@ -169,34 +169,34 @@ const CourseTrash = () => {
 
   const columns: ColumnsType<ICourseTrashItem> = [
     {
-      title: "Course",
+      title: "Khóa học",
       dataIndex: "name",
       key: "name",
       render: (name: string, course) => (
         <div className="course-trash-name">
           <strong>{name}</strong>
-          <span>Version {course.versionNumber}</span>
+          <span>Phiên bản {course.versionNumber}</span>
         </div>
       ),
     },
     {
-      title: "Status",
+      title: "Trạng thái",
       dataIndex: "status",
       key: "status",
       width: 130,
       render: (status: ICourseTrashItem["status"]) => (
-        <Tag color={status === "Rejected" ? "red" : "default"}>{status}</Tag>
+        <Tag color={status === "Rejected" ? "red" : "default"}>{status === "Rejected" ? "Bị từ chối" : "Bản nháp"}</Tag>
       ),
     },
     {
-      title: "Deleted On",
+      title: "Ngày xóa",
       dataIndex: "deletedAt",
       key: "deletedAt",
       width: 145,
       render: (date: string) => formatTrashDate(date),
     },
     {
-      title: "Recovery Period",
+      title: "Thời hạn khôi phục",
       dataIndex: "purgeAt",
       key: "purgeAt",
       width: 170,
@@ -211,7 +211,7 @@ const CourseTrash = () => {
       },
     },
     {
-      title: "Actions",
+      title: "Thao tác",
       key: "actions",
       width: 245,
       render: (_, course) => {
@@ -226,7 +226,7 @@ const CourseTrash = () => {
               loading={isProcessing}
               onClick={() => void handleRestore(course)}
             >
-              Restore
+              Khôi phục
             </Button>
 
             <Button
@@ -236,7 +236,7 @@ const CourseTrash = () => {
               icon={<DeleteOutlined />}
               onClick={() => handlePermanentDelete(course)}
             >
-              Delete Forever
+              Xóa vĩnh viễn
             </Button>
           </div>
         );
@@ -247,9 +247,9 @@ const CourseTrash = () => {
   return (
     <InstructorPage className="course-trash">
       <PageHeader
-        eyebrow="INSTRUCTOR / MY COURSES"
-        title="Course Trash"
-        subtitle="Deleted Courses are kept for 7 days before permanent deletion."
+        eyebrow="Giảng viên / Khóa học của tôi"
+        title="Thùng rác khóa học"
+        subtitle="Khóa học đã xóa được giữ trong 7 ngày trước khi xóa vĩnh viễn."
         back
         actions={
           <>
@@ -258,11 +258,11 @@ const CourseTrash = () => {
               onClick={refresh}
               loading={loading}
             >
-              Refresh
+              Làm mới
             </InstructorButton>
 
             <InstructorButton onClick={() => navigate("/instructor/courses")}>
-              Back to My Courses
+              Quay lại khóa học của tôi
             </InstructorButton>
           </>
         }
@@ -272,8 +272,8 @@ const CourseTrash = () => {
         className="course-trash-notice"
         type="info"
         showIcon
-        message="Course and Storage limits"
-        description="Courses in Trash still count toward your Course and Storage limits. Use Delete Forever to release eligible resources immediately."
+        message="Giới hạn khóa học và dung lượng lưu trữ"
+        description="Khóa học trong thùng rác vẫn tính vào giới hạn số khóa học và dung lượng lưu trữ. Xóa vĩnh viễn để giải phóng tài nguyên đủ điều kiện."
       />
 
       {loadError && (
@@ -281,9 +281,9 @@ const CourseTrash = () => {
           className="course-trash-error"
           type="error"
           showIcon
-          message="Unable to load Course Trash"
+          message="Không thể tải thùng rác khóa học"
           description={loadError}
-          action={<Button onClick={refresh}>Try Again</Button>}
+          action={<Button onClick={refresh}>Thử lại</Button>}
         />
       )}
 
@@ -297,10 +297,10 @@ const CourseTrash = () => {
         pagination={{
           pageSize: 10,
           showSizeChanger: false,
-          showTotal: (total) => `${total} deleted Courses`,
+          showTotal: (total) => `${total} khóa học đã xóa`,
         }}
         locale={{
-          emptyText: <Empty description="Your Course Trash is empty." />,
+          emptyText: <Empty description="Thùng rác khóa học đang trống." />,
         }}
       />
     </InstructorPage>
