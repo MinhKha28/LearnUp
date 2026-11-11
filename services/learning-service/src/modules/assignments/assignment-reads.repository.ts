@@ -4,6 +4,16 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { toSafeNumber } from '../../common/utils/to-safe-number';
 import { enrollmentDisplayStatusSql } from '../enrollments/enrollment-display-status.sql';
 
+import type { AssignmentStatus } from './assignment-list-query.dto';
+
+export interface AssignmentFilters {
+  learnerIds?: string[];
+  courseIds?: string[];
+  status?: AssignmentStatus;
+  dueFrom?: string;
+  dueTo?: string;
+}
+
 export interface AssignmentRow {
   enrollmentId: string;
   learnerId: string;
@@ -33,11 +43,41 @@ const scope = (organizationId: string) =>
 export const assignmentDetailSql = (organizationId: string, id: string) =>
   Prisma.sql`SELECT ${columns} FROM enrollments e WHERE ${scope(organizationId)} AND e.id = ${id}::uuid`;
 
-export const assignmentCountSql = (organizationId: string) =>
-  Prisma.sql`SELECT count(*) AS n FROM enrollments e WHERE ${scope(organizationId)}`;
+// Only local midnight crosses a calendar boundary when shifted back by one
+// millisecond, the precision of the timestamp sent to the browser.
+const displayedDate = Prisma.sql`(
+  (e.due_at AT TIME ZONE e.due_timezone) - INTERVAL '1 millisecond'
+)::date`;
 
-export const assignmentPageSql = (organizationId: string, offset: number) =>
-  Prisma.sql`SELECT ${columns} FROM enrollments e WHERE ${scope(organizationId)}
+function assignmentWhere(organizationId: string, filters: AssignmentFilters) {
+  const where = [scope(organizationId)];
+  if (filters.learnerIds)
+    where.push(Prisma.sql`e.learner_id = ANY(${filters.learnerIds}::uuid[])`);
+  if (filters.courseIds)
+    where.push(Prisma.sql`e.course_id = ANY(${filters.courseIds}::uuid[])`);
+  if (filters.status)
+    where.push(
+      Prisma.sql`${enrollmentDisplayStatusSql('e')} = ${filters.status}`,
+    );
+  if (filters.dueFrom || filters.dueTo)
+    where.push(
+      Prisma.sql`${displayedDate} <@ daterange(${filters.dueFrom ?? null}::date, ${filters.dueTo ?? null}::date, '[]')`,
+    );
+  return Prisma.join(where, ' AND ');
+}
+
+export const assignmentCountSql = (
+  organizationId: string,
+  filters: AssignmentFilters = {},
+) =>
+  Prisma.sql`SELECT count(*) AS n FROM enrollments e WHERE ${assignmentWhere(organizationId, filters)}`;
+
+export const assignmentPageSql = (
+  organizationId: string,
+  offset: number,
+  filters: AssignmentFilters = {},
+) =>
+  Prisma.sql`SELECT ${columns} FROM enrollments e WHERE ${assignmentWhere(organizationId, filters)}
     ORDER BY CASE WHEN e.status = 'Completed' THEN 1 ELSE 0 END,
       CASE WHEN e.status <> 'Completed' THEN e.due_at END ASC,
       CASE WHEN e.status = 'Completed' THEN e.completed_at END DESC,
@@ -57,6 +97,29 @@ export class AssignmentReadsRepository {
   page(organizationId: string, offset: number) {
     return this.prisma.$queryRaw<AssignmentRow[]>(
       assignmentPageSql(organizationId, offset),
+    );
+  }
+
+  filteredPage(
+    organizationId: string,
+    offset: number,
+    filters: AssignmentFilters,
+  ) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const [row] = await tx.$queryRaw<{ n: bigint }[]>(
+          assignmentCountSql(organizationId, filters),
+        );
+        const total = toSafeNumber(row.n);
+        const rows =
+          offset >= total
+            ? []
+            : await tx.$queryRaw<AssignmentRow[]>(
+                assignmentPageSql(organizationId, offset, filters),
+              );
+        return { total, rows };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }
 
