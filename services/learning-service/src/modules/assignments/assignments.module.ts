@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AssessmentModule } from '../../infrastructure/clients/assessment/assessment.module';
 import { CourseServiceModule } from '../../infrastructure/clients/course/course-service.module';
 import { TenantModule } from '../../infrastructure/clients/tenant/tenant.module';
 import { CourseSnapshotsModule } from '../course-snapshots/course-snapshots.module';
@@ -15,6 +16,7 @@ import { AssignmentChangesRepository } from './assignment-changes.repository';
 
 @Module({
   imports: [
+    AssessmentModule,
     CourseServiceModule,
     TenantModule,
     CourseSnapshotsModule,

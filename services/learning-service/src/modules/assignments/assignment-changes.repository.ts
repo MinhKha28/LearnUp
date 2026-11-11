@@ -33,6 +33,50 @@ export class AssignmentChangesRepository {
     return row;
   }
 
+  async cancellationCandidate(
+    organizationId: string,
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const [row] = await (tx ?? this.prisma).$queryRaw<
+      {
+        learnerId: string;
+        courseId: string;
+        status: string;
+        firstActivityAt: Date | null;
+        assignedAtKey: string;
+      }[]
+    >(Prisma.sql`
+      SELECT learner_id AS "learnerId", course_id AS "courseId", status,
+        first_activity_at AS "firstActivityAt",
+        extract(epoch FROM assigned_at)::text AS "assignedAtKey"
+      FROM enrollments
+      WHERE id=${id}::uuid AND organization_id=${organizationId}::uuid
+        AND enrollment_type='Required' ${tx ? Prisma.sql`FOR UPDATE` : Prisma.empty}`);
+    return row;
+  }
+
+  async hasCompletedMaterial(
+    organizationId: string,
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const [row] = await (tx ?? this.prisma).$queryRaw<{ completed: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM material_progress
+        WHERE enrollment_id=${id}::uuid AND organization_id=${organizationId}::uuid
+          AND completed_at IS NOT NULL
+      ) AS completed`;
+    return row.completed;
+  }
+
+  cancel(tx: Prisma.TransactionClient, organizationId: string, id: string) {
+    return tx.$executeRaw`
+      UPDATE enrollments SET status='Withdrawn', withdrawn_reason='OrganizerCancelled',
+        withdrawn_at=clock_timestamp(), updated_at=clock_timestamp()
+      WHERE id=${id}::uuid AND organization_id=${organizationId}::uuid`;
+  }
+
   async clock(tx: Prisma.TransactionClient, timezone: string) {
     const [row] = await tx.$queryRaw<{ now: Date; today: string }[]>`
       SELECT now() AS now, to_char(now() AT TIME ZONE ${timezone}, 'YYYY-MM-DD') AS today`;

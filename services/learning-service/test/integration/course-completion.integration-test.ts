@@ -715,6 +715,18 @@ for (const status of [
       ['Halted', 'Withdrawn', 'Completed'].includes(status) ? 0 : 1,
     );
   });
+void test('UC24.4 drains an OrganizerCancelled completion request without completing', async () => {
+  const f = await fixture('NotStarted', 'Required');
+  const request = await take(f.id);
+  await prisma.$executeRaw`UPDATE enrollments
+    SET status='Withdrawn', withdrawn_reason='OrganizerCancelled', withdrawn_at=clock_timestamp()
+    WHERE id=${f.id}::uuid`;
+  await service.evaluate(request);
+  assert.equal((await state(f.id)).status, 'Withdrawn');
+  assert.equal(await eventCount(f.id), 0);
+  assert.equal(await prisma.completionEvaluationRequest.count({ where: { enrollmentId: f.id } }), 0);
+});
+
 void test('lease abandoned after claim can be reclaimed; old generation cannot complete twice', async () => {
   const f = await fixture();
   const abandoned = await take(f.id);

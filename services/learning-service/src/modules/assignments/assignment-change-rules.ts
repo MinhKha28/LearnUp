@@ -34,6 +34,26 @@ export function assertExemptionRemovable(status: string) {
     );
 }
 
+export function assertCancellable(status: string) {
+  if (status !== 'NotStarted')
+    throw new ConflictException(
+      createApiError(
+        'ENROLLMENT_NOT_CANCELLABLE',
+        'Không thể hủy phân công ở trạng thái hiện tại.',
+      ),
+    );
+}
+
+export function assertNoLearningData(hasLearningData: boolean) {
+  if (hasLearningData)
+    throw new ConflictException(
+      createApiError(
+        'ASSIGNMENT_HAS_LEARNING_DATA',
+        'Học viên đã có dữ liệu học tập. Hãy dùng “Đánh dấu Miễn”.',
+      ),
+    );
+}
+
 /** BR-171: hạn mới phải sau hạn hiện tại và không trước hôm nay. */
 export function validateExtension(
   previousDueAt: Date,

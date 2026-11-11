@@ -8,6 +8,8 @@ import {
   assertExtendable,
   assertExemptible,
   assertExemptionRemovable,
+  assertCancellable,
+  assertNoLearningData,
   validateExtension,
 } from '../../src/modules/assignments/assignment-change-rules';
 import {
@@ -112,6 +114,26 @@ describe('UC24.3 / UC24.5 rules and DTOs', () => {
           plainToInstance(ExtendAssignmentDto, { newDueDate: today, reason }),
         ).length,
       );
+  });
+});
+
+describe('UC24.4 cancellation rules', () => {
+  test('only stored NotStarted is eligible', () => {
+    assert.doesNotThrow(() => assertCancellable('NotStarted'));
+    for (const status of [
+      'InProgress',
+      'Overdue',
+      'Exempted',
+      'Halted',
+      'Completed',
+      'Withdrawn',
+    ])
+      assert.throws(() => assertCancellable(status), { status: 409 });
+  });
+
+  test('rejects positive learning data and allows an empty record', () => {
+    assert.doesNotThrow(() => assertNoLearningData(false));
+    assert.throws(() => assertNoLearningData(true), { status: 409 });
   });
 });
 
@@ -223,6 +245,7 @@ for (const { scenario, status, disabled } of [
           return { disabledAt: disabled ? new Date(0) : null };
         },
       } as never,
+      {} as never,
     );
     assert.equal(await service.removeExemption(user, 'enrollment'), result);
     assert.deepEqual(steps, [
