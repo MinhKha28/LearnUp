@@ -27,6 +27,8 @@ import type {
   IQuizList,
   IQuizDetail,
   ICreateQuizReq,
+  ICreateQuizQuestionReq,
+  IQuizQuestionCreated,
   IQuizSummary,
   IUpdateAssignment,
   IUpdatePeerReview,
@@ -154,7 +156,7 @@ export const fetchQuizAPI = (quizId: string) =>
 export const createQuizAPI = (payload: ICreateQuizReq) =>
   axios.post<IBackendRes<IQuizSummary>>("/api/v1/assessments/quizzes", payload);
 
-/** UC18.4 — Update Quiz configuration; answers with the Quiz detail and its new permissions. */
+/** UC18.3 — Update Quiz configuration; answers with the Quiz detail and its new permissions. */
 export const updateQuizConfigAPI = (
   quizId: string,
   payload: IUpdateQuizConfigReq,
@@ -164,7 +166,17 @@ export const updateQuizConfigAPI = (
     payload,
   );
 
-/** UC18.5 — Delete Quiz. */
+/** UC18.1.1 — Add a question with its answers at the end of a Quiz. */
+export const createQuizQuestionAPI = (
+  quizId: string,
+  payload: ICreateQuizQuestionReq,
+) =>
+  axios.post<IBackendRes<IQuizQuestionCreated>>(
+    `/api/v1/assessments/quizzes/${quizId}/questions`,
+    payload,
+  );
+
+/** UC18.4 — Delete Quiz. */
 export const deleteQuizAPI = (quizId: string) =>
   axios.delete<IBackendRes<{ id: string }>>(
     `/api/v1/assessments/quizzes/${quizId}`,
