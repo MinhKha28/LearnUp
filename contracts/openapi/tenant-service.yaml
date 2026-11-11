@@ -45,8 +45,60 @@ paths:
           description: Internal service authentication required.
         '404':
           description: No active Organizer for this Organization.
+  /api/v1/users/instructors/transfer-candidates:
+    get:
+      summary: UC23 - List eligible active Instructor receivers
+      operationId: getTransferCandidates
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: excludeInstructorId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Eligible Instructors within Organizer Organization
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, message, data]
+                properties:
+                  statusCode: { type: integer, enum: [200] }
+                  message: { type: string }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, fullName]
+                      properties:
+                        id: { type: string, format: uuid }
+                        fullName: { type: string }
+        '403': { description: Organizer role required }
+
+  /api/v1/users/instructors/{id}/transfer-eligibility:
+    get:
+      summary: UC23 - Validate receiving Instructor's current eligibility
+      operationId: getTransferEligibility
+      security:
+        - internalKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Instructor Active, activated, in Organization, and not deleted }
+        '400': { description: INVALID_RECEIVER }
+        '403': { description: Organizer role required }
+
 components:
   securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
     internalKey:
       type: apiKey
       in: header

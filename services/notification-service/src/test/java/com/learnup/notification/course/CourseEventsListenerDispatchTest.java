@@ -2,6 +2,7 @@ package com.learnup.notification.course;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -11,16 +12,24 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-/** The Course topic carries submissions and decisions; each reaches exactly its own handler. */
+/** The Course topic carries submissions, ownership transfers and decisions; each reaches exactly its own handler. */
 class CourseEventsListenerDispatchTest {
     private static final String ORG = "019a0000-0000-7000-8000-000000000002";
     private static final String AT = "2026-11-10T08:00:00.000Z";
 
     private final CourseSubmittedEventHandler submitted = mock(CourseSubmittedEventHandler.class);
     private final CourseDecisionEventHandler decided = mock(CourseDecisionEventHandler.class);
+    private final CourseOwnershipTransferredEventHandler transferred = mock(CourseOwnershipTransferredEventHandler.class);
     private final ObjectMapper mapper = new ObjectMapper();
     private final CourseSubmittedEventListener listener = new CourseSubmittedEventListener(
-            new CourseSubmittedEventParser(mapper), submitted, new CourseDecisionEventParser(mapper), decided);
+            new CourseSubmittedEventParser(mapper), submitted,
+            new CourseOwnershipTransferredEventParser(mapper), transferred,
+            new CourseDecisionEventParser(mapper), decided);
+
+    @AfterEach
+    void noOwnershipTransferIsHandledForTheseEvents() {
+        verify(transferred, never()).handle(any());
+    }
 
     private static ConsumerRecord<String, String> record(String type, String extra) {
         String json = """
