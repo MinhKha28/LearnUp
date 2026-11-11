@@ -17,11 +17,18 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from '../../../generated/prisma/client';
 import {
+  DAY_MS,
   OrganizationStatus,
   RegistrationStatus,
   SubscriptionStatus,
+  UserRoleValue,
 } from '../../common/constants/tenant.constants';
 import { isIanaTimezone } from '../../common/utils/timezone.util';
+import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
+import type { IOrganizationCourseUsage } from '../../infrastructure/clients/course/interfaces/organization-course-usage.interface';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
+import type { IUsageItem } from '../subscriptions/interfaces/subscription-overview.interface';
+import { IAdminOrganizationDetail } from './interfaces/admin-organization-detail.interface';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
 import {
@@ -52,6 +59,23 @@ const PROFILE_FIELDS = [
   'contactEmail',
   'timezone',
 ] as const;
+
+// UC44.1 - BR-54: số Organization trùng mã số thuế liệt kê tối đa.
+const DUPLICATE_TAX_CODE_LIMIT = 10;
+
+/** Cùng cách tính với UC15 (subscriptions.service.ts): used = null khi không đếm được. */
+function usageItem(
+  used: number | null,
+  limit: number,
+  threshold: number,
+): IUsageItem {
+  if (used === null) {
+    return { used: null, limit, percent: null, warning: false };
+  }
+  const percent =
+    limit > 0 ? Math.round((used / limit) * 100) : used > 0 ? 100 : 0;
+  return { used, limit, percent, warning: percent >= threshold };
+}
 
 type ProfileRow = NonNullable<
   Awaited<ReturnType<OrganizationsRepository['findProfile']>>
@@ -86,6 +110,8 @@ export class OrganizationsService {
     private readonly prisma: PrismaService,
     private readonly repository: OrganizationsRepository,
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
+    private readonly settingsService: PlatformSettingsService,
+    private readonly courseService: CourseServiceClient,
   ) {}
 
   // ===========================================================================
@@ -116,13 +142,7 @@ export class OrganizationsService {
   ): IAdminOrganizationListItem {
     const subscription = row.subscriptions[0] ?? null;
     const registration = row.registrations[0] ?? null;
-    let status = row.status;
-    if (status === OrganizationStatus.PendingPayment) {
-      const awaitingPayment =
-        registration?.status === RegistrationStatus.PendingPayment &&
-        registration.expiresAt.getTime() > now.getTime();
-      if (!awaitingPayment) status = OrganizationStatus.Cancelled;
-    }
+    const status = this.effectiveStatus(row.status, registration, now);
     const neverActivated =
       status === OrganizationStatus.PendingPayment ||
       status === OrganizationStatus.Cancelled;
@@ -149,6 +169,167 @@ export class OrganizationsService {
           : null,
       createdAt: row.createdAt,
     };
+  }
+
+  /** BR-8: PendingPayment mà đăng ký mới nhất không còn chờ thanh toán trong hạn thì tính là Cancelled. */
+  private effectiveStatus(
+    status: string,
+    registration: { status: string; expiresAt: Date } | null,
+    now: Date,
+  ): string {
+    if (status !== OrganizationStatus.PendingPayment) return status;
+    const awaitingPayment =
+      registration?.status === RegistrationStatus.PendingPayment &&
+      registration.expiresAt.getTime() > now.getTime();
+    return awaitingPayment ? status : OrganizationStatus.Cancelled;
+  }
+
+  // ===========================================================================
+  // UC44.1 - Xem chi tiết Organization (Admin; BR-1, BR-50, BR-52, BR-56, BR-54, BR-188)
+  // ===========================================================================
+  /**
+   * Chỉ đọc: không ghi DB, không phát event, không ghi audit.
+   * Số Course và dung lượng do course-service đếm (BR-1, BR-188); hỏi không được thì vẫn trả các phần
+   * khác, đánh dấu courseUsageAvailable = false.
+   */
+  async findOneForAdmin(
+    organizationId: string,
+  ): Promise<IAdminOrganizationDetail> {
+    const row = await this.repository.findAdminDetail(organizationId);
+    if (!row) throw this.notFound();
+
+    const now = new Date();
+    const current = row.subscriptions[0] ?? null;
+    const registration = row.registrations[0] ?? null;
+    const status = this.effectiveStatus(row.status, registration, now);
+    const neverActivated =
+      status === OrganizationStatus.PendingPayment ||
+      status === OrganizationStatus.Cancelled;
+
+    const [duplicates, settings, usage] = await Promise.all([
+      this.repository.findDuplicateTaxCodes(
+        row.id,
+        row.taxCode,
+        DUPLICATE_TAX_CODE_LIMIT,
+      ),
+      this.settingsService.get(),
+      // D5: chưa có Subscription hiện hành thì không có giới hạn để so -> không đếm.
+      current ? this.loadUsage(row.id) : Promise.resolve(null),
+    ]);
+    const threshold = settings.usageWarningThresholdPercent;
+    const organizer = row.users[0] ?? null;
+    const invitation = organizer?.accountTokens[0] ?? null;
+
+    return {
+      id: row.id,
+      name: row.name,
+      taxCode: row.taxCode,
+      address: row.address,
+      contactPhone: row.contactPhone,
+      contactEmail: row.contactEmail,
+      logoUrl: this.logoUrl(row.logoFileKey),
+      timezone: row.timezone,
+      status,
+      createdAt: row.createdAt,
+      organizer: organizer
+        ? {
+            id: organizer.id,
+            fullName: organizer.fullName,
+            email: organizer.email,
+            status: organizer.status,
+            activatedAt: organizer.activatedAt,
+            invitation: invitation
+              ? {
+                  sentAt: invitation.createdAt,
+                  expiresAt: invitation.expiresAt,
+                  expired: invitation.expiresAt.getTime() <= now.getTime(),
+                }
+              : null,
+          }
+        : null,
+      plan:
+        current?.plan ?? (neverActivated ? (registration?.plan ?? null) : null),
+      subscription: current
+        ? {
+            plan: current.plan,
+            status: current.status,
+            startsAt: current.startsAt,
+            expiresAt: current.expiresAt,
+            graceEndsAt: current.graceEndsAt,
+            readOnlyEndsAt: current.readOnlyEndsAt,
+            daysRemaining: Math.max(
+              0,
+              Math.ceil((current.expiresAt.getTime() - now.getTime()) / DAY_MS),
+            ),
+          }
+        : null,
+      paymentDueAt:
+        status === OrganizationStatus.PendingPayment && registration
+          ? registration.expiresAt
+          : null,
+      usageWarningThresholdPercent: threshold,
+      usage:
+        current && usage
+          ? {
+              courseUsageAvailable: usage.course !== null,
+              learners: usageItem(
+                usage.learners,
+                current.maxLearners,
+                threshold,
+              ),
+              instructors: usageItem(
+                usage.instructors,
+                current.maxInstructors,
+                threshold,
+              ),
+              courses: usageItem(
+                usage.course?.courseChains ?? null,
+                current.maxCourseChains,
+                threshold,
+              ),
+              storageBytes: usageItem(
+                usage.course?.storageBytes ?? null,
+                Number(current.maxStorageBytes),
+                threshold,
+              ),
+            }
+          : null,
+      suspensions: row.suspensions,
+      duplicateTaxCode: {
+        count: duplicates.total,
+        organizations: duplicates.rows.map((dup) => ({
+          id: dup.id,
+          name: dup.name,
+          status: this.effectiveStatus(
+            dup.status,
+            dup.registrations[0] ?? null,
+            now,
+          ),
+        })),
+      },
+    };
+  }
+
+  /** Learner / Instructor do tenant đếm; Course và dung lượng hỏi course-service (lỗi -> null). */
+  private async loadUsage(organizationId: string): Promise<{
+    learners: number;
+    instructors: number;
+    course: IOrganizationCourseUsage | null;
+  }> {
+    const [learners, instructors, course] = await Promise.all([
+      this.repository.countSeats(organizationId, UserRoleValue.Learner),
+      this.repository.countSeats(organizationId, UserRoleValue.Instructor),
+      this.courseService
+        .getOrganizationUsageById(organizationId)
+        .catch((error: unknown) => {
+          const reason = error instanceof Error ? error.message : String(error);
+          this.logger.warn(
+            `Không lấy được mức dùng Course/dung lượng của ${organizationId}: ${reason}`,
+          );
+          return null;
+        }),
+    ]);
+    return { learners, instructors, course };
   }
 
   // ===========================================================================

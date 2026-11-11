@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const tenant = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock("@/services/axios.customize", () => ({ tenantAxios: tenant }));
 
-import { getAdminOrganizationsAPI } from "./organization.service";
+import {
+  getAdminOrganizationDetailAPI,
+  getAdminOrganizationsAPI,
+} from "./organization.service";
 
 afterEach(() => vi.clearAllMocks());
 
@@ -29,5 +32,15 @@ describe("UC44 Admin organization list request", () => {
     expect(tenant.get).toHaveBeenCalledWith("/api/v1/admin/organizations", {
       params: { page: 1, pageSize: 10, includeCancelled: true },
     });
+  });
+});
+
+// UC44.1 - chi tiết cũng nằm dưới /admin/organizations, id được mã hóa trong path
+describe("UC44.1 Admin organization detail request", () => {
+  it("calls the Admin detail route with the encoded id", async () => {
+    await getAdminOrganizationDetailAPI("a/b");
+    expect(tenant.get).toHaveBeenCalledWith(
+      "/api/v1/admin/organizations/a%2Fb",
+    );
   });
 });
