@@ -66,11 +66,11 @@ describe("UC43 / UC43.1 plan view", () => {
 
   it("maps backend errors without showing raw codes", () => {
     expect(planErrorMessage(409, "PLAN_NAME_TAKEN")).toBe(
-      "A plan with this name already exists.",
+      "Đã có gói trùng tên này.",
     );
-    expect(planErrorMessage(400, undefined)).toContain("not valid");
+    expect(planErrorMessage(400, undefined)).toContain("chưa hợp lệ");
     expect(planErrorMessage(403, "FORBIDDEN")).toContain(
-      "Only platform Admins",
+      "Chỉ Quản trị viên nền tảng",
     );
     expect(planErrorMessage(500, "INTERNAL_SERVER_ERROR")).not.toContain(
       "INTERNAL",
@@ -78,10 +78,8 @@ describe("UC43 / UC43.1 plan view", () => {
   });
 
   it("describes how many Organizations use a plan", () => {
-    expect(organizationsUsingLabel(0)).toBe(
-      "No Organization is using this plan",
-    );
-    expect(organizationsUsingLabel(1)).toBe("1 Organization currently using");
-    expect(organizationsUsingLabel(7)).toBe("7 Organizations currently using");
+    expect(organizationsUsingLabel(0)).toBe("Chưa có tổ chức nào dùng gói này");
+    expect(organizationsUsingLabel(1)).toBe("1 tổ chức đang dùng");
+    expect(organizationsUsingLabel(7)).toBe("7 tổ chức đang dùng");
   });
 });

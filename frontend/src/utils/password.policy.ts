@@ -20,11 +20,11 @@ export const isSameStoredPassword = (a?: string, b?: string): boolean =>
   a !== undefined && b !== undefined && storedPassword(a) === storedPassword(b);
 
 const CHANGE_PASSWORD_MESSAGES: Record<string, string> = {
-  "Current password is incorrect": "Current password is incorrect.",
+  "Current password is incorrect": "Mật khẩu hiện tại không đúng.",
   "New password cannot be the same as the current password":
-    "Choose a new password that is different from the current one.",
+    "Hãy chọn mật khẩu mới khác mật khẩu hiện tại.",
   "New password and confirmation password do not match":
-    "Passwords do not match.",
+    "Mật khẩu nhập lại không khớp.",
 };
 
 /** UC08: maps an Identity error envelope to the message shown on the change-password pages. */
@@ -33,10 +33,10 @@ export const changePasswordErrorMessage = (error?: {
   message?: string;
 }): string => {
   if (error?.code === "TOO_MANY_ATTEMPTS") {
-    return "Too many incorrect current-password attempts. Try again in 15 minutes, or sign out and reset your password.";
+    return "Bạn đã nhập sai mật khẩu hiện tại quá nhiều lần. Hãy thử lại sau 15 phút, hoặc đăng xuất rồi đặt lại mật khẩu.";
   }
   return (
     CHANGE_PASSWORD_MESSAGES[error?.message ?? ""] ??
-    "The password could not be changed. Please try again."
+    "Chưa đổi được mật khẩu. Vui lòng thử lại."
   );
 };

@@ -38,7 +38,7 @@ export const ResendInvitationButton = ({
           : await resendLearnerInvitationAPI(accountId);
       if (res.data?.invitation) {
         message.success(
-          `A new invitation will be sent to ${email}. It expires on ${formatDateVN(res.data.invitation.expiresAt)}.`,
+          `Lời mời mới sẽ được gửi tới ${email}, có hiệu lực tới ngày ${formatDateVN(res.data.invitation.expiresAt)}.`,
         );
         onChanged();
         return;
@@ -47,7 +47,7 @@ export const ResendInvitationButton = ({
       message.error(reinvitationErrorMessage(role, code));
       if (reinvitationShouldReload(code)) onChanged();
     } catch {
-      message.error("Could not connect to the server. Please try again later.");
+      message.error("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setSending(false);
     }
@@ -55,13 +55,13 @@ export const ResendInvitationButton = ({
 
   return (
     <Popconfirm
-      title="Resend invitation?"
-      description="A new link will be emailed and the previous link will stop working."
-      okText="Resend"
-      cancelText="Cancel"
+      title="Gửi lại lời mời?"
+      description="Liên kết mới sẽ được gửi qua email và liên kết trước đó không còn dùng được."
+      okText="Gửi lại"
+      cancelText="Hủy"
       onConfirm={resend}
     >
-      <OrganizerButton loading={sending}>Resend invitation</OrganizerButton>
+      <OrganizerButton loading={sending}>Gửi lại lời mời</OrganizerButton>
     </Popconfirm>
   );
 };

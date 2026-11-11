@@ -26,12 +26,10 @@ export default function RegistrationResendPage() {
       if (res.data) {
         setSent(true);
       } else {
-        setError(
-          "Unable to send the registration email right now. Please try again later.",
-        );
+        setError("Hiện chưa gửi được thư đăng ký. Vui lòng thử lại sau.");
       }
     } catch {
-      setError("Could not connect to the server. Please try again later.");
+      setError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       pending.current = false;
       setSubmitting(false);
@@ -40,12 +38,12 @@ export default function RegistrationResendPage() {
 
   return (
     <AuthCard>
-      <h1>Resend registration email</h1>
+      <h1>Gửi lại thư đăng ký</h1>
       <p>
-        Enter the email you used to register your Organization.
+        Nhập email bạn đã dùng để đăng ký Tổ chức.
         <br />
-        If a registration is still waiting for payment, we will send a new link
-        and, if your email is not verified yet, a new verification code.
+        Nếu đăng ký vẫn đang chờ thanh toán, chúng tôi sẽ gửi liên kết mới, kèm
+        mã xác thực mới nếu email của bạn chưa được xác thực.
       </p>
       {error && <Alert type="error" showIcon message={error} role="alert" />}
       <Form<ResendFields>
@@ -59,18 +57,18 @@ export default function RegistrationResendPage() {
         }}
       >
         <Form.Item
-          label="Email address"
+          label="Địa chỉ email"
           name="email"
           rules={[
-            { required: true, message: "Enter your email address." },
+            { required: true, message: "Hãy nhập địa chỉ email." },
             {
               type: "email",
               transform: (value: string) => value?.trim(),
-              message: "Enter a valid email address.",
+              message: "Địa chỉ email không hợp lệ.",
             },
           ]}
         >
-          <Input autoComplete="email" placeholder="alex.morgan@example.com" />
+          <Input autoComplete="email" placeholder="nguyen.van.an@example.com" />
         </Form.Item>
         <Button
           type="primary"
@@ -79,24 +77,24 @@ export default function RegistrationResendPage() {
           loading={submitting}
           disabled={submitting}
         >
-          Resend email
+          Gửi lại thư
         </Button>
       </Form>
       {sent && (
         <div className="auth-confirmation" role="status">
-          <b>Request received</b>
+          <b>Đã nhận yêu cầu</b>
           <p>
-            If this email belongs to a registration waiting for payment, a new
-            email is on its way. Previous links and codes no longer work. Check
-            your inbox and spam folder.
+            Nếu email này thuộc một đăng ký đang chờ thanh toán, thư mới đang
+            được gửi tới bạn. Liên kết và mã trước đó không còn dùng được. Hãy
+            kiểm tra hộp thư đến và thư mục spam.
           </p>
         </div>
       )}
       <Link className="auth-link" to="/forgot-password">
-        Already paid? Reset your password instead
+        Đã thanh toán? Hãy đặt lại mật khẩu
       </Link>
       <Link className="auth-link" to="/login">
-        Back to sign in
+        Quay lại đăng nhập
       </Link>
     </AuthCard>
   );
