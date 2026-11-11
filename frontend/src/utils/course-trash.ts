@@ -1,3 +1,5 @@
+import { formatDateVN } from "@/utils/helper";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function getRemainingTrashDays(
@@ -22,12 +24,12 @@ export function formatTrashRemaining(
   now = Date.now(),
 ): string {
   if (isTrashExpired(purgeAt, now)) {
-    return "Expired";
+    return "Đã hết hạn";
   }
 
   const days = getRemainingTrashDays(purgeAt, now);
 
-  return days === 1 ? "1 day remaining" : `${days} days remaining`;
+  return days === 1 ? "Còn 1 ngày" : `Còn ${days} ngày`;
 }
 
 export function formatTrashDate(value: string): string {
@@ -35,11 +37,7 @@ export function formatTrashDate(value: string): string {
 
   if (Number.isNaN(date.getTime())) return "—";
 
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(date);
+  return formatDateVN(value);
 }
 
 export function courseTrashErrorMessage(
@@ -48,39 +46,39 @@ export function courseTrashErrorMessage(
 ): string {
   switch (code) {
     case "COURSE_NOT_FOUND":
-      return "Course not found or you do not have access.";
+      return "Không tìm thấy khóa học hoặc bạn không có quyền truy cập.";
 
     case "COURSE_NOT_DELETABLE":
-      return "Only Draft or Rejected Courses can be deleted.";
+      return "Chỉ có thể xóa khóa học ở trạng thái bản nháp hoặc bị từ chối.";
 
     case "COURSE_LOCKED":
-      return "This Course is locked and cannot be deleted.";
+      return "Khóa học đã khóa nên không thể xóa.";
 
     case "COURSE_HAS_ENROLLMENT":
-      return "This Course has enrollment history and cannot be deleted.";
+      return "Khóa học đã có lịch sử đăng ký học nên không thể xóa.";
 
     case "ENROLLMENT_CHECK_UNAVAILABLE":
-      return "Enrollment history could not be verified. Please try again later.";
+      return "Không thể xác minh lịch sử đăng ký học. Vui lòng thử lại sau.";
 
     case "COURSE_DRAFT_VERSION_CONFLICT":
-      return "This Course cannot be restored because another Draft, Submitted, or Rejected version exists in the same chain.";
+      return "Không thể khôi phục khóa học vì đã tồn tại phiên bản bản nháp, chờ phê duyệt hoặc bị từ chối trong cùng chuỗi phiên bản.";
 
     case "COURSE_TRASH_EXPIRED":
-      return "The 7-day recovery period has expired.";
+      return "Đã hết thời hạn khôi phục 7 ngày.";
 
     case "COURSE_NOT_IN_TRASH":
-      return "This Course is not in Trash.";
+      return "Khóa học không nằm trong thùng rác.";
 
     default:
       if (action === "restore") {
-        return "Unable to restore this Course. Please try again.";
+        return "Không thể khôi phục khóa học. Vui lòng thử lại.";
       }
 
       if (action === "permanent") {
-        return "Unable to permanently delete this Course. Please try again.";
+        return "Không thể xóa vĩnh viễn khóa học. Vui lòng thử lại.";
       }
 
-      return "Unable to move this Course to Trash. Please try again.";
+      return "Không thể chuyển khóa học vào thùng rác. Vui lòng thử lại.";
   }
 }
 

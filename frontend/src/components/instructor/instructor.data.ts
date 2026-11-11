@@ -1078,6 +1078,23 @@ export type MonitoringCompletionStatus =
   "Not started" | "In progress" | "Completed";
 export type MonitoringDueStatus = "Overdue" | "No deadline" | "In progress";
 
+export const monitoringEnrollmentLabel: Record<MonitoringEnrollmentType, string> = {
+  Required: "Bắt buộc",
+  Optional: "Không bắt buộc",
+};
+
+export const monitoringCompletionLabel: Record<MonitoringCompletionStatus, string> = {
+  "Not started": "Chưa bắt đầu",
+  "In progress": "Đang học",
+  Completed: "Hoàn thành",
+};
+
+export const monitoringDueLabel: Record<MonitoringDueStatus, string> = {
+  Overdue: "Quá hạn",
+  "No deadline": "Không có hạn",
+  "In progress": "Đang diễn ra",
+};
+
 export interface IMonitoringRow {
   learnerId: string;
   learnerName: string;
@@ -1251,9 +1268,9 @@ export const learnerProgressComponents = (
   ];
 
 export const dueStatusMessage: Record<MonitoringDueStatus, string> = {
-  Overdue: "Overdue • Learner can continue learning",
-  "No deadline": "No deadline • Learner can continue learning",
-  "In progress": "In progress • Learner can continue learning",
+  Overdue: "Quá hạn • Học viên vẫn có thể tiếp tục học",
+  "No deadline": "Không có hạn • Học viên vẫn có thể tiếp tục học",
+  "In progress": "Đang học • Học viên vẫn có thể tiếp tục học",
 };
 
 export const dueStatusTone: Record<
@@ -1291,19 +1308,19 @@ export const courseEvaluationSummary: ICourseEvaluationSummary = {
   eligibleLabel: "[Eligible]",
   criteria: [
     {
-      label: "Usefulness of content",
+      label: "Tính hữu ích của nội dung",
       averageLabel: "[Average]",
       previousVersionLabel: "[v0 average]",
       participationLabel: "[Rate]",
     },
     {
-      label: "Appropriateness of difficulty",
+      label: "Mức độ phù hợp của độ khó",
       averageLabel: "[Average]",
       previousVersionLabel: "[v0 average]",
       participationLabel: "[Rate]",
     },
     {
-      label: "Quality of learning materials",
+      label: "Chất lượng học liệu",
       averageLabel: "[Average]",
       previousVersionLabel: "[v0 average]",
       participationLabel: "[Rate]",
@@ -1339,7 +1356,7 @@ export const contentModerationCases: Record<string, IContentModerationCase> = {
     courseId: "workplace-safety",
     reportedItemTitle: "Safety procedures Lesson",
     lessonId: "m2-l1",
-    decisionLabel: "Confirmed violation",
+    decisionLabel: "Đã xác nhận vi phạm",
     severityLabel: "[Decision]",
     correctionReason: "[Organizer-provided reason and required correction]",
     contentDisabled: true,

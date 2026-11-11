@@ -3,6 +3,9 @@ import type { ColumnsType } from "antd/es/table";
 import { useNavigate } from "react-router-dom";
 import {
   dueStatusTone,
+  monitoringDueLabel,
+  monitoringEnrollmentLabel,
+  monitoringCompletionLabel,
   filteredMonitoringRows,
   hasActiveMonitoringFilters,
   monitoringFilters,
@@ -25,14 +28,14 @@ const Monitoring = () => {
   const columns: ColumnsType<IMonitoringRow> = [
     { title: "Học viên", dataIndex: "learnerName", render: (value) => <strong>{value}</strong> },
     { title: "Khóa học", dataIndex: "courseTitle" },
-    { title: "Đăng ký học", dataIndex: "enrollmentType" },
+    { title: "Đăng ký học", dataIndex: "enrollmentType", render: (value: IMonitoringRow["enrollmentType"]) => monitoringEnrollmentLabel[value] },
     { title: "Tiến độ", dataIndex: "progressLabel" },
     { title: "Bài đánh giá", dataIndex: "resultLabel" },
     {
       title: "Trạng thái hạn học",
       dataIndex: "dueStatus",
       render: (value: IMonitoringRow["dueStatus"]) => (
-        <StatusTag tone={dueStatusTone[value]}>{value}</StatusTag>
+        <StatusTag tone={dueStatusTone[value]}>{monitoringDueLabel[value]}</StatusTag>
       ),
     },
   ];
@@ -40,8 +43,8 @@ const Monitoring = () => {
   const filterSummary = [
     monitoringFilters.courseTitle ?? "Khóa học",
     monitoringFilters.learnerName ?? "Học viên",
-    monitoringFilters.enrollmentType ?? "Hình thức đăng ký học",
-    monitoringFilters.completionStatus ?? "Trạng thái hoàn thành",
+    monitoringFilters.enrollmentType ? monitoringEnrollmentLabel[monitoringFilters.enrollmentType] : "Hình thức đăng ký học",
+    monitoringFilters.completionStatus ? monitoringCompletionLabel[monitoringFilters.completionStatus] : "Trạng thái hoàn thành",
   ];
 
   return (

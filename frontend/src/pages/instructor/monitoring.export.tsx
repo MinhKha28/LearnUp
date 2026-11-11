@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { message } from "antd";
 import { useNavigate } from "react-router-dom";
-import { monitoringFilters } from "@/components/instructor/instructor.data";
+import { monitoringCompletionLabel, monitoringEnrollmentLabel, monitoringFilters } from "@/components/instructor/instructor.data";
 import { InstructorButton, InstructorPage, PageHeader, SectionCard } from "@/components/instructor/instructor.ui";
 import "./monitoring.export.scss";
 
@@ -28,8 +28,8 @@ const MonitoringExport = () => {
         <h2>Phạm vi báo cáo</h2>
         <p>Khóa học đã chọn: {monitoringFilters.courseTitle ?? "Tất cả khóa học"}</p>
         <p>
-          Hình thức đăng ký học: {monitoringFilters.enrollmentType ?? "[Filter]"} • Trạng thái:{" "}
-          {monitoringFilters.completionStatus ?? "[Filter]"}
+          Hình thức đăng ký học: {monitoringFilters.enrollmentType ? monitoringEnrollmentLabel[monitoringFilters.enrollmentType] : "Tất cả"} • Trạng thái:{" "}
+          {monitoringFilters.completionStatus ? monitoringCompletionLabel[monitoringFilters.completionStatus] : "Tất cả"}
         </p>
         <hr />
         <h3>Định dạng tệp</h3>
