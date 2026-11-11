@@ -3,6 +3,7 @@ package com.learnup.identity.controller;
 import com.learnup.common.response.ApiResponse;
 import com.learnup.identity.dto.*;
 import com.learnup.identity.service.AuthService;
+import com.learnup.identity.service.GoogleSignInService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 public class AuthController {
 
     private final AuthService authService;
+    private final GoogleSignInService googleSignInService;
 
     @PostMapping("/login")
     @Operation(summary = "Sign in with existing credentials", tags = "Authentication",
@@ -26,6 +28,14 @@ public class AuthController {
     public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
         return ApiResponse.success(response);
+    }
+
+    @PostMapping("/google")
+    @Operation(summary = "Sign in with Google (UC05.1)", tags = "Authentication",
+            description = "Verifies a Google ID token and signs in an existing Organizer, Instructor or Learner. "
+                    + "Never creates an account and is not available to the platform Admin.")
+    public ApiResponse<AuthResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        return ApiResponse.success(googleSignInService.signIn(request.credential()));
     }
 
     @PostMapping("/refresh")
