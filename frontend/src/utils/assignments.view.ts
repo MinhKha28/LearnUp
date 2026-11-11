@@ -115,6 +115,8 @@ const messages: Record<string, string> = {
   DUE_DATE_IN_PAST: "Ngày hết hạn không được trước hôm nay.",
   ENROLLMENT_NOT_EXTENDABLE:
     "Trạng thái phân công đã thay đổi; không thể kéo dài hạn. Đang tải lại chi tiết.",
+  ENROLLMENT_NOT_EXEMPTED:
+    "Phân công không còn ở trạng thái Miễn. Đang tải lại chi tiết.",
   ENROLLMENT_NOT_EXEMPTIBLE:
     "Trạng thái phân công đã thay đổi, có thể người khác vừa thao tác; không thể đánh dấu Miễn. Đang tải lại chi tiết.",
   VALIDATION_ERROR:

@@ -163,7 +163,7 @@ export const toApiErrorAsync = async (error: unknown): Promise<ApiError> => {
 };
 
 const requestWithHeaders = async <T>(
-  method: "get" | "post" | "patch" | "put",
+  method: "get" | "post" | "patch" | "put" | "delete",
   path: string,
   body: unknown,
   options: ApiOptions = {},
@@ -217,6 +217,12 @@ export const apiPatch = async <T>(
   options: ApiOptions = {},
 ): Promise<T> =>
   (await requestWithHeaders<T>("patch", path, body, options)).data;
+
+export const apiDelete = async <T>(
+  path: string,
+  options: ApiOptions = {},
+): Promise<T> =>
+  (await requestWithHeaders<T>("delete", path, undefined, options)).data;
 
 export const apiPut = async <T>(
   path: string,
