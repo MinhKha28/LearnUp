@@ -106,10 +106,10 @@
  *     OrganizationSuspension Theta          ...00000000e044
  *
  * Bổ sung UC44.1 (Admin xem chi tiết Organization):
- *   - BR-280: Eta (Cancelled) dùng mã số thuế của ABC; Iota dùng mã số thuế của Theta
+ *   - BR-54: Eta (Cancelled) dùng mã số thuế của ABC; Iota dùng mã số thuế của Theta
  *     -> chi tiết ABC, Eta, Theta, Iota đều có cảnh báo trùng mã số thuế.
  *   - BR-58: Theta có thêm một lượt tạm khóa đã gỡ (15 -> 10 ngày trước), trước lượt đang mở.
- *   - BR-40: Iota đã thay Organizer: Lưu Thu Trang (e015) Deactivated, Organizer mới
+ *   - BR-50: Iota đã thay Organizer: Lưu Thu Trang (e015) Deactivated, Organizer mới
  *     Quách Minh Tú (e016) Pending, lời mời còn hạn (phát 1 ngày trước).
  *   ID mới:
  *     Organizer mới Iota                    ...00000000e016
@@ -353,7 +353,7 @@ const uc44Organizations: SeedUc44Org[] = [
     kind: 'Cancelled',
     id: id('e003'),
     name: 'Công ty TNHH Eta',
-    taxCode: '0312345678', // UC44.1 - BR-280: trùng mã số thuế của ABC
+    taxCode: '0312345678', // UC44.1 - BR-54: trùng mã số thuế của ABC
     address: '20 Lý Thường Kiệt, TP. Vinh',
     contactPhone: '+842383123456',
     contactEmail: 'contact@eta.vn',
@@ -389,7 +389,7 @@ const uc44Organizations: SeedUc44Org[] = [
     kind: 'SubSuspended',
     id: id('e005'),
     name: 'Công ty TNHH Iota',
-    taxCode: '0504567890', // UC44.1 - BR-280: trùng mã số thuế của Theta
+    taxCode: '0504567890', // UC44.1 - BR-54: trùng mã số thuế của Theta
     address: '7 Nguyễn Văn Cừ, TP. Vũng Tàu',
     contactPhone: '+842543123456',
     contactEmail: 'contact@iota.vn',
@@ -405,7 +405,7 @@ const uc44Organizations: SeedUc44Org[] = [
   },
 ];
 
-// UC44.1 - BR-40: Iota đã được Admin thay Organizer; Organizer mới đang chờ nhận lời mời.
+// UC44.1 - BR-50: Iota đã được Admin thay Organizer; Organizer mới đang chờ nhận lời mời.
 const UC441_INVITED_ORGANIZER = {
   organizationId: id('e005'),
   replacedOrganizerId: id('e015'),

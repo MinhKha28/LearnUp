@@ -1,5 +1,9 @@
 // UC44.1 - chi tiết Organization của Admin trên PostgreSQL thật: các trạng thái, lịch sử tạm khóa,
 // Organizer hiện tại sau khi thay (BR-50), course-service lỗi, trùng mã số thuế (BR-54).
+// Cần chạy trước: `npm run prisma:seed` để có dòng platform_settings (ngưỡng cảnh báo mức dùng);
+// thiếu dòng này mọi test chi tiết trả 500 "platform_settings chưa có dữ liệu".
+// Các file *.integration.cjs dùng chung một DATABASE_URL và `node --test` chạy song song theo file;
+// nếu một test đếm/phân trang lỗi lúc chạy song song, chạy lại riêng file đó để loại trừ ảnh hưởng chéo.
 const assert = require('node:assert/strict');
 const { randomBytes, randomUUID } = require('node:crypto');
 const { test } = require('node:test');
