@@ -1,14 +1,17 @@
+import { isAxiosError } from 'axios';
 import { HttpService } from '@nestjs/axios';
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { CurrentUser } from '@learnup/ts-common';
 import { firstValueFrom } from 'rxjs';
+import { logHttpClientError } from '../log-http-client-error';
 
 import type {
   TenantApiResponse,
   TenantInstructor,
   TenantMaterialUploadPolicy,
   TenantOrganizer,
+  TransferReceiver,
 } from './tenant.interface';
 
 @Injectable()
@@ -39,10 +42,11 @@ export class TenantClient {
 
     const baseUrl = this.configService.getOrThrow<string>('TENANT_SERVICE_URL');
 
+    const path = '/api/v1/users/batch';
     try {
       const response = await firstValueFrom(
         this.httpService.post<TenantApiResponse<TenantInstructor[]>>(
-          `${baseUrl}/api/v1/users/batch`,
+          `${baseUrl}${path}`,
           {
             userIds: instructorIds,
           },
@@ -54,7 +58,7 @@ export class TenantClient {
 
       return response.data.data ?? [];
     } catch (error) {
-      console.error('Tenant Service request failed:', error);
+      logHttpClientError(error, 'POST', path);
 
       throw new ServiceUnavailableException(
         'Unable to retrieve Instructor information.',
@@ -98,10 +102,12 @@ export class TenantClient {
   ): Promise<TenantMaterialUploadPolicy> {
     const baseUrl = this.configService.getOrThrow<string>('TENANT_SERVICE_URL');
 
+    const path =
+      '/api/v1/subscriptions/internal/instructor-material-upload-policy';
     try {
       const response = await firstValueFrom(
         this.httpService.get<TenantApiResponse<TenantMaterialUploadPolicy>>(
-          `${baseUrl}/api/v1/subscriptions/internal/instructor-material-upload-policy`,
+          `${baseUrl}${path}`,
           {
             headers: this.buildHeaders(user),
           },
@@ -122,10 +128,7 @@ export class TenantClient {
 
       return policy;
     } catch (error) {
-      console.error(
-        'Unable to check Instructor material upload policy:',
-        error,
-      );
+      logHttpClientError(error, 'GET', path);
 
       // Fail closed: lỗi Tenant Service thì không upload.
       throw new ServiceUnavailableException(
@@ -133,4 +136,55 @@ export class TenantClient {
       );
     }
   }
+
+async validateTransferReceiver(
+    user: CurrentUser,
+    instructorId: string,
+  ): Promise<TransferReceiver> {
+    const baseUrl = this.configService.getOrThrow<string>('TENANT_SERVICE_URL');
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get<TenantApiResponse<TransferReceiver>>(
+          `${baseUrl}/api/v1/users/instructors/` +
+            `${encodeURIComponent(instructorId)}/transfer-eligibility`,
+          {
+            headers: this.buildHeaders(user),
+          },
+        ),
+      );
+
+      const receiver = response.data?.data;
+
+      if (
+        !receiver ||
+        receiver.id?.toLowerCase() !== instructorId.toLowerCase() ||
+        typeof receiver.fullName !== 'string'
+      ) {
+        throw new Error('Invalid Tenant response');
+      }
+
+      return receiver;
+    } catch (error: unknown) {
+      // Chỉ chuyển 400 INVALID_RECEIVER thành lỗi nghiệp vụ.
+      // Các lỗi còn lại không được xem là Instructor không hợp lệ.
+      if (
+        isAxiosError<{ code?: string; error?: { code?: string } }>(error) &&
+        error.response?.status === 400 &&
+        (error.response.data?.code === 'INVALID_RECEIVER' ||
+          error.response.data?.error?.code === 'INVALID_RECEIVER')
+      ) {
+        throw new BadRequestException({
+          code: 'INVALID_RECEIVER',
+          message: 'Receiving Instructor is not eligible.',
+        });
+      }
+
+      throw new ServiceUnavailableException({
+        code: 'TENANT_UNAVAILABLE',
+        message: 'Unable to verify receiving Instructor.',
+      });
+    }
+  }
+
 }

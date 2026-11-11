@@ -23,6 +23,7 @@ const eventTypes = new Set([
   'CourseComponentDisabled',
   'CourseComponentReactivated',
   'CourseSubmitted',
+  'CourseOwnershipTransferred',
   'CoursePublished',
   'CourseRejected',
 ]);
@@ -97,6 +98,27 @@ export function message(row: OutboxRow) {
     }
   }
 
+  if (row.event_type === 'CourseOwnershipTransferred') {
+    const ids = [
+      data.chainId,
+      data.fromInstructorId,
+      data.toInstructorId,
+      data.actorUserId,
+    ];
+
+    if (
+      ids.some(
+        (value) => typeof value !== 'string' || !uuidPattern.test(value),
+      ) ||
+      typeof data.courseName !== 'string' ||
+      !data.courseName.trim() ||
+      (data.reason !== undefined && typeof data.reason !== 'string')
+    ) {
+      throw new SerializationFailure();
+    }
+  }
+
+
   if (
     row.event_type === 'CoursePublished' ||
     row.event_type === 'CourseRejected'
@@ -140,7 +162,9 @@ export function message(row: OutboxRow) {
 
   if (
     data.organizationId !== row.organization_id ||
-    data.courseId !== row.aggregate_id ||
+    (row.event_type === 'CourseOwnershipTransferred'
+      ? data.chainId !== row.aggregate_id
+      : data.courseId !== row.aggregate_id) ||
     data.occurredAt !== row.occurred_at.toISOString()
   ) {
     throw new SerializationFailure();

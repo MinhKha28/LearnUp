@@ -151,6 +151,8 @@ services:
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
       TENANT_SERVICE_URL: http://tenant-service:8084
       NOTIFICATION_SERVICE_URL: http://notification-service:8082
+      # UC05.1: Google OAuth web client ID (public, not a secret); empty keeps Google sign-in disabled.
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
       PASSWORD_RECOVERY_FRONTEND_BASE_URL: ${PASSWORD_RECOVERY_FRONTEND_BASE_URL:-}
       # Automatic Identity-only demo accounts are retired; Tenant owns account provisioning.
       LEARNUP_SEED_ENABLED: "false"
@@ -324,6 +326,7 @@ services:
       LEARNING_SERVICE_URL: http://learning-service:8085
       ASSESSMENT_SERVICE_URL: http://assessment-service:8086
       NOTIFICATION_SERVICE_URL: http://notification-service:8082
+      AUDIT_SERVICE_URL: http://audit-service:8083
       KAFKA_BROKERS: kafka:29092
       OUTBOX_RELAY_ENABLED: ${COURSE_OUTBOX_RELAY_ENABLED:-true}
       OUTBOX_TOPIC: learnup.course.course-component-events
@@ -495,6 +498,8 @@ services:
         VITE_TENANT_BACKEND_URL: http://localhost:${GATEWAY_HOST_PORT:-8088}
         VITE_COURSE_BACKEND_URL: http://localhost:${GATEWAY_HOST_PORT:-8088}
         VITE_ASSESSMENT_BACKEND_URL: http://localhost:${GATEWAY_HOST_PORT:-8088}
+        # UC05.1: must equal identity-service GOOGLE_OAUTH_CLIENT_ID (token audience).
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
     container_name: learnup-web
     ports:
       - "127.0.0.1:3000:3000"

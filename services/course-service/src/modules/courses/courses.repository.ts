@@ -1,3 +1,4 @@
+import { transferCourseChain } from '../internal-courses/course-chain-ownership';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@infra/prisma/prisma.service';
 import { Prisma } from '@generated/prisma/browser';
@@ -2772,4 +2773,135 @@ export class CoursesRepository {
       };
     });
   }
+
+  findCourseForOwnershipTransfer(courseId: string, organizationId: string) {
+    return this.prisma.course.findFirst({
+      where: {
+        id: courseId,
+        organizationId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        chainId: true,
+        name: true,
+        versionNumber: true,
+        status: true,
+        chain: {
+          select: {
+            instructorId: true,
+          },
+        },
+      },
+    });
+  }
+
+  async transferCourseOwnership(input: {
+    courseId: string;
+    chainId: string;
+    organizationId: string;
+    fromInstructorId: string;
+    toInstructorId: string;
+    actorUserId: string;
+    reason?: string;
+    courseName: string;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      const result = await transferCourseChain(tx, {
+        organizationId: input.organizationId,
+        chainId: input.chainId,
+        fromInstructorId: input.fromInstructorId,
+        toInstructorId: input.toInstructorId,
+      });
+
+      if (result === 'NOT_FOUND') {
+        return { status: 'NOT_FOUND' as const };
+      }
+
+      if (result !== 'TRANSFERRED') {
+        return { status: 'CONFLICT' as const };
+      }
+
+      const transferredAt = new Date();
+
+      // Ghi sự kiện trong cùng transaction.
+      await tx.outboxEvent.create({
+        data: {
+          aggregateType: 'Course',
+          aggregateId: input.chainId,
+          organizationId: input.organizationId,
+          eventType: 'CourseOwnershipTransferred',
+          occurredAt: transferredAt,
+          payload: {
+            organizationId: input.organizationId,
+            courseId: input.courseId,
+            chainId: input.chainId,
+            courseName: input.courseName,
+            fromInstructorId: input.fromInstructorId,
+            toInstructorId: input.toInstructorId,
+            actorUserId: input.actorUserId,
+            occurredAt: transferredAt.toISOString(),
+            ...(input.reason ? { reason: input.reason } : {}),
+          },
+        },
+      });
+
+      // UC23 audit belongs to Course Service. A separate relay delivers it
+      // independently of Kafka and notification availability.
+      await tx.outboxEvent.create({
+        data: {
+          aggregateType: 'CourseAudit',
+          aggregateId: input.chainId,
+          organizationId: input.organizationId,
+          eventType: 'AuditRecorded',
+          occurredAt: transferredAt,
+          payload: {
+            organizationId: input.organizationId,
+            actorUserId: input.actorUserId,
+            actorRole: 'ORGANIZER',
+            actionType: 'COURSE_OWNERSHIP_TRANSFERRED',
+            targetResourceType: 'CourseChain',
+            targetResourceId: input.chainId,
+            courseId: input.courseId,
+            fromInstructorId: input.fromInstructorId,
+            toInstructorId: input.toInstructorId,
+            occurredAt: transferredAt.toISOString(),
+            ...(input.reason ? { reason: input.reason } : {}),
+          },
+        },
+      });
+
+      return {
+        status: 'TRANSFERRED' as const,
+        data: {
+          courseId: input.courseId,
+          chainId: input.chainId,
+          fromInstructorId: input.fromInstructorId,
+          toInstructorId: input.toInstructorId,
+          transferredAt,
+        },
+      };
+    });
+  }
+
+  async findTransferVersions(chainId: string, organizationId: string) {
+    return this.prisma.course.findMany({
+      where: {
+        chainId,
+        organizationId,
+      },
+      select: {
+        id: true,
+        versionNumber: true,
+        name: true,
+        status: true,
+        createdAt: true,
+        publishedAt: true,
+      },
+      orderBy: {
+        versionNumber: 'desc',
+      },
+    });
+  }
+
 }
