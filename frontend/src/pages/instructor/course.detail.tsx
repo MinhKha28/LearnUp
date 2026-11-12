@@ -15,20 +15,13 @@ import {
 } from "@/services/course.service";
 import type { CourseStatus, ICourseDetail } from "@/types/course.types";
 
+import { courseStatusLabel } from "@/utils/course.status.labels";
 import "./course.detail.scss";
 import {
   courseTrashErrorMessage,
   getCourseApiErrorCode,
 } from "@/utils/course-trash";
 
-const courseStatusLabel: Record<CourseStatus, string> = {
-  Draft: "Bản nháp",
-  Submitted: "Chờ phê duyệt",
-  Published: "Đã phát hành",
-  Rejected: "Bị từ chối",
-  Archived: "Đã lưu trữ",
-  Disabled: "Đã vô hiệu hóa",
-};
 
 const getCourseStatusTone = (
   status: CourseStatus,

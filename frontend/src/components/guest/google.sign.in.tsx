@@ -37,6 +37,7 @@ export default function GoogleSignIn({ disabled, onCredential, onError }: Props)
           theme: "outline",
           size: "large",
           text: "continue_with",
+          locale: "vi",
           shape: "rectangular",
           logo_alignment: "center",
           width: Math.min(400, container.current.offsetWidth || 400),
@@ -58,7 +59,7 @@ export default function GoogleSignIn({ disabled, onCredential, onError }: Props)
         disabled={disabled}
         onClick={() => onError(GOOGLE_UNAVAILABLE_MESSAGE)}
       >
-        <span aria-hidden="true">G</span>Continue with Google
+        <span aria-hidden="true">G</span>Tiếp tục với Google
       </Button>
     );
   }

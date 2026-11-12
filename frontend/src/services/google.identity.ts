@@ -1,7 +1,7 @@
 // UC05.1 - Sign in with Google: loads Google Identity Services (GIS) and returns its ID API.
 // The ID token (credential) is handed to Identity, which verifies it; the browser never trusts it.
 
-export const GOOGLE_IDENTITY_SCRIPT = "https://accounts.google.com/gsi/client";
+export const GOOGLE_IDENTITY_SCRIPT = "https://accounts.google.com/gsi/client?hl=vi";
 
 export type GoogleCredentialResponse = { credential?: string };
 
@@ -22,6 +22,7 @@ export type GoogleAccountsId = {
       text?: "signin_with" | "continue_with" | "signin";
       shape?: "rectangular" | "pill";
       width?: number;
+      locale?: string;
       logo_alignment?: "left" | "center";
     },
   ): void;
