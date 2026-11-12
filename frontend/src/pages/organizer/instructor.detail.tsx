@@ -1,4 +1,4 @@
-import { Alert, Avatar, Button, Empty, Skeleton, Table } from "antd";
+import { Avatar, Button, Empty, Skeleton, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -23,7 +23,9 @@ import type {
   IManagedCourseChain,
 } from "@/types/organization.types";
 import { formatDateVN } from "@/utils/helper";
+import { courseStatusText, courseTypeText } from "@/utils/organizer.labels";
 import "./instructor.detail.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type Tone = "neutral" | "success" | "warning" | "error" | "info";
 
@@ -47,25 +49,29 @@ const courseTone: Record<CourseStatus, Tone> = {
 
 const courseColumns: ColumnsType<IManagedCourseChain> = [
   {
-    title: "Course",
+    title: "Khóa học",
     dataIndex: "name",
     render: (name: string) => <strong>{name}</strong>,
   },
   {
-    title: "Version",
+    title: "Phiên bản",
     dataIndex: "versionNumber",
     render: (versionNumber: number) => `v${versionNumber}`,
   },
   {
-    title: "Status",
+    title: "Trạng thái",
     dataIndex: "status",
     render: (status: CourseStatus) => (
-      <StatusTag tone={courseTone[status] ?? "neutral"}>{status}</StatusTag>
+      <StatusTag tone={courseTone[status] ?? "neutral"}>{courseStatusText(status)}</StatusTag>
     ),
   },
-  { title: "Type", dataIndex: "courseType" },
   {
-    title: "Approved",
+    title: "Loại",
+    dataIndex: "courseType",
+    render: (type: string) => courseTypeText(type),
+  },
+  {
+    title: "Đã phê duyệt",
     dataIndex: "approvedAt",
     render: (approvedAt: string | null) =>
       approvedAt ? formatDateVN(approvedAt) : "—",
@@ -147,7 +153,7 @@ const InstructorDetail = () => {
         />
       )}
       <Link to={`/organizer/instructors/${detail.id}/edit`}>
-        <OrganizerButton type="primary">Edit</OrganizerButton>
+        <OrganizerButton type="primary">Chỉnh sửa</OrganizerButton>
       </Link>
     </>
   ) : null;
@@ -162,14 +168,14 @@ const InstructorDetail = () => {
     }
     if (loadError === "notFound") {
       return (
-        <Alert
+        <VietnameseAlert
           type="warning"
           showIcon
-          message="Instructor not found"
-          description="This instructor does not exist or is no longer available in your organization."
+          message="Không tìm thấy giảng viên"
+          description="Giảng viên này không tồn tại hoặc không còn thuộc tổ chức của bạn."
           action={
             <Link to="/organizer/instructors">
-              <Button>Back</Button>
+              <Button>Quay lại</Button>
             </Link>
           }
         />
@@ -177,14 +183,14 @@ const InstructorDetail = () => {
     }
     if (loadError || !detail) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
-          message="Could not load instructor."
-          description="Please check your connection and try again."
+          message="Không thể tải thông tin giảng viên."
+          description="Vui lòng kiểm tra kết nối và thử lại."
           action={
             <Button onClick={() => setReloadKey((key) => key + 1)}>
-              Try again
+              Thử lại
             </Button>
           }
         />
@@ -204,29 +210,29 @@ const InstructorDetail = () => {
               {statusLabel[detail.status]}
             </StatusTag>
             {isPending && detail.invitationExpired && (
-              <StatusTag tone="error">Invitation expired</StatusTag>
+              <StatusTag tone="error">Lời mời đã hết hạn</StatusTag>
             )}
           </div>
           <div className="organizer-detail-grid">
             <DetailItem label="Email">{detail.email}</DetailItem>
-            <DetailItem label="Work unit">{detail.department || "—"}</DetailItem>
-            <DetailItem label="Created">
+            <DetailItem label="Đơn vị công tác">{detail.department || "—"}</DetailItem>
+            <DetailItem label="Ngày tạo">
               {formatDateVN(detail.createdAt)}
             </DetailItem>
-            <DetailItem label="Activated">
+            <DetailItem label="Đã kích hoạt">
               {detail.activatedAt ? formatDateVN(detail.activatedAt) : "—"}
             </DetailItem>
             {isPending && (
               <>
-                <DetailItem label="Invitation sent">
+                <DetailItem label="Đã gửi lời mời">
                   {detail.invitation
                     ? formatDateVN(detail.invitation.sentAt)
                     : "—"}
                 </DetailItem>
-                <DetailItem label="Invitation expires">
+                <DetailItem label="Lời mời hết hạn vào">
                   {detail.invitation
                     ? formatDateVN(detail.invitation.expiresAt)
-                    : "No active invitation"}
+                    : "Không có lời mời còn hiệu lực"}
                 </DetailItem>
               </>
             )}
@@ -234,15 +240,15 @@ const InstructorDetail = () => {
         </SectionCard>
 
         <SectionCard
-          title="Courses managed"
+          title="Khóa học phụ trách"
           className="organizer-instructor-courses"
         >
           {detail.courses === null ? (
-            <Alert
+            <VietnameseAlert
               type="warning"
               showIcon
-              message="Couldn't load managed courses"
-              description="Course information is temporarily unavailable. Please try again later."
+              message="Không thể tải khóa học phụ trách"
+              description="Tạm thời không xem được thông tin khóa học. Vui lòng thử lại sau."
             />
           ) : (
             <Table<IManagedCourseChain>
@@ -256,7 +262,7 @@ const InstructorDetail = () => {
                 emptyText: (
                   <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="No courses managed"
+                    description="Chưa phụ trách khóa học nào"
                   />
                 ),
               }}
@@ -265,9 +271,9 @@ const InstructorDetail = () => {
         </SectionCard>
 
         {/* BR-251, BR-252: GĐ2 điền detail.violations từ course-service */}
-        <SectionCard title="Confirmed violations">
+        <SectionCard title="Vi phạm đã xác nhận">
           <p className="organizer-note">
-            No data yet — content moderation will be available in phase 2.
+            Chưa có dữ liệu. Tính năng kiểm duyệt nội dung sẽ có trong giai đoạn 2.
           </p>
         </SectionCard>
       </>
@@ -277,8 +283,8 @@ const InstructorDetail = () => {
   return (
     <OrganizerPage className="organizer-instructor-detail">
       <PageHeader
-        title="Instructor detail"
-        subtitle="Account, assigned Courses, and confirmed violation history."
+        title="Chi tiết giảng viên"
+        subtitle="Tài khoản, khóa học phụ trách và lịch sử vi phạm đã xác nhận."
         back
         actions={headerActions}
       />

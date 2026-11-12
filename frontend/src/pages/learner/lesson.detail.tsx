@@ -42,7 +42,7 @@ const LessonBody = ({
 
       {/* Lesson không có nội dung: bỏ hẳn phần nội dung (luồng 3a) */}
       {hasContent && (
-        <section className="lesson-detail-card" aria-label="Nội dung Bài học">
+        <section className="lesson-detail-card" aria-label="Nội dung bài học">
           <LessonMarkdown content={lesson.content ?? ""} />
         </section>
       )}
@@ -98,7 +98,7 @@ const LessonBody = ({
         >
           {previousLesson ? (
             <LearnerButton
-              icon={<ArrowLeftOutlined />}
+              icon={<ArrowLeftOutlined aria-hidden="true" />}
               onClick={() =>
                 navigate(
                   LEARNER_ROUTES.lesson(enrollmentId, previousLesson.lessonId),
@@ -113,7 +113,7 @@ const LessonBody = ({
           {nextLesson && (
             <LearnerButton
               type="primary"
-              icon={<ArrowRightOutlined />}
+              icon={<ArrowRightOutlined aria-hidden="true" />}
               iconPosition="end"
               onClick={() =>
                 navigate(

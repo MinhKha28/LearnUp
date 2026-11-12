@@ -1,3 +1,5 @@
+import { formatDateTimeVN } from "@/utils/helper";
+import { formatNumberVN } from "@/utils/number.format";
 // UC31.2: how the history of reviews and the duty of peer review are put into words. Apart from the page so it can be tested.
 import type {
   IReviewHistoryItem,
@@ -59,23 +61,14 @@ export const progressText = (obligation: IReviewObligation): string =>
 export const scoreText = (score: number | null): string =>
   score === null
     ? "-"
-    : score.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
+    : formatNumberVN(score);
 
 /** What the Learner calls a review without knowing the author: the end of its id, like the queue. */
 export const reviewLabel = (item: Pick<IReviewHistoryItem, "id">): string =>
   `Bài nộp ${item.id.slice(-4).toUpperCase()}`;
 
-export const formatReviewTime = (iso: string | null): string =>
-  iso
-    ? new Date(iso).toLocaleString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "-";
+export const formatReviewTime = formatDateTimeVN;
 
 /** "Nội dung 55/60 · Trình bày 35/40" */
 export const criteriaLine = (item: IReviewHistoryItem): string =>
-  item.criteria.map((c) => `${c.name} ${c.points}/${c.maxPoints}`).join(" · ");
+  item.criteria.map((c) => `${c.name} ${formatNumberVN(c.points)}/${formatNumberVN(c.maxPoints)}`).join(" · ");

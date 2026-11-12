@@ -8,20 +8,20 @@ export const learnerStatusErrorMessage = (
   switch (code) {
     case "ACCOUNT_NOT_ACTIVATED":
       return action === "DEACTIVATE"
-        ? "This learner has not activated the account yet, so it cannot be deactivated. Delete the account instead if it is no longer needed."
-        : "This learner never activated the account, so it cannot be reactivated. Delete the account instead if it is no longer needed.";
+        ? "Học viên này chưa kích hoạt tài khoản nên chưa thể vô hiệu hóa. Bạn có thể xóa tài khoản nếu không còn cần đến."
+        : "Học viên này chưa từng kích hoạt tài khoản nên chưa thể kích hoạt lại. Bạn có thể xóa tài khoản nếu không còn cần đến.";
     case "ACCOUNT_NOT_DEACTIVATED":
-      return "Only a deactivated account can be reactivated.";
+      return "Chỉ có thể kích hoạt lại tài khoản đã bị vô hiệu hóa.";
     case "LEARNER_NOT_FOUND":
-      return "This learner no longer exists in your organization.";
+      return "Học viên này không còn thuộc tổ chức của bạn.";
     case "CONCURRENT_UPDATE":
-      return "This learner was just updated. Please reload and try again.";
+      return "Thông tin học viên vừa được cập nhật. Vui lòng tải lại và thử lại.";
     case "ORGANIZATION_NOT_ACTIVE":
-      return "Your Organization is suspended. Account status cannot be changed.";
+      return "Tổ chức đang bị tạm ngưng. Không thể đổi trạng thái tài khoản.";
     case "SUBSCRIPTION_NOT_ACTIVE":
-      return "Your Subscription is suspended. Account status cannot be changed until it is renewed.";
+      return "Gói dịch vụ đang bị tạm ngưng. Hãy gia hạn gói để đổi trạng thái tài khoản.";
     default:
-      return "Could not change the account status. Please try again later.";
+      return "Không thể đổi trạng thái tài khoản. Vui lòng thử lại sau.";
   }
 };
 

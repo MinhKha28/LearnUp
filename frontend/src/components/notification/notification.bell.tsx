@@ -113,7 +113,7 @@ const NotificationBell = ({ basePath }: { basePath: string }) => {
       overlayClassName="notification-bell-popover"
     >
       <Badge count={unread} size="small" overflowCount={99}>
-        <Button className="notification-bell-button" type="text" icon={<BellOutlined />} aria-label="Thông báo" />
+        <Button className="notification-bell-button" type="text" icon={<BellOutlined aria-hidden="true" />} aria-label="Thông báo" />
       </Badge>
     </Popover>
   );

@@ -73,10 +73,12 @@ const payWith = async (response: unknown) => {
       </App>
     </MemoryRouter>,
   );
-  const button = await screen.findByRole("button", { name: /mock payment/i });
+  const button = await screen.findByRole("button", {
+    name: /thanh toán mô phỏng/i,
+  });
   fireEvent.click(button);
   await screen.findByRole("alert");
-  return () => screen.getByRole("button", { name: /mock payment/i });
+  return () => screen.getByRole("button", { name: /thanh toán mô phỏng/i });
 };
 
 describe("UC10.1 renewal page after a payment error", () => {
@@ -85,8 +87,8 @@ describe("UC10.1 renewal page after a payment error", () => {
       error: { code: "RENEWAL_NOT_APPLIED" },
     });
     const alert = screen.getByRole("alert");
-    expect(alert.textContent).toContain("Do not pay again");
-    expect(alert.textContent).not.toContain("try again");
+    expect(alert.textContent).toContain("Đừng thanh toán lần nữa");
+    expect(alert.textContent).not.toContain("thử lại");
     expect((button() as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(button());
     expect(renewSubscriptionAPI).toHaveBeenCalledTimes(1);
@@ -95,7 +97,9 @@ describe("UC10.1 renewal page after a payment error", () => {
 
   it("a declined payment can still be retried", async () => {
     const button = await payWith({ data: { paymentStatus: "Failed" } });
-    expect(screen.getByRole("alert").textContent).toContain("You can try again");
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Bạn có thể thử lại",
+    );
     expect((button() as HTMLButtonElement).disabled).toBe(false);
   });
 });

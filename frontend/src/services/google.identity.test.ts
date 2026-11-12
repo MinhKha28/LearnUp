@@ -42,7 +42,7 @@ describe("UC05.1 Google Identity Services loader", () => {
     const second = loadGoogleIdentity(doc, win);
     expect(appended).toHaveLength(1);
     expect(appended[0]).toMatchObject({ src: GOOGLE_IDENTITY_SCRIPT, async: true, defer: true });
-    expect(GOOGLE_IDENTITY_SCRIPT).toBe("https://accounts.google.com/gsi/client");
+    expect(GOOGLE_IDENTITY_SCRIPT).toBe("https://accounts.google.com/gsi/client?hl=vi");
     win.google = { accounts: { id: api } };
     appended[0].onload?.();
     await expect(first).resolves.toBe(api);

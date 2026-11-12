@@ -1,4 +1,4 @@
-import { Alert, Avatar, Button, Empty, Skeleton, Table } from "antd";
+import { Avatar, Button, Empty, Skeleton, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -23,7 +23,9 @@ import type {
 } from "@/types/organization.types";
 import { assignmentStatus } from "@/utils/assignments.view";
 import { formatDateVN } from "@/utils/helper";
+import { UNKNOWN_LABEL, enrollmentKindText } from "@/utils/organizer.labels";
 import "./learner.detail.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type Tone = "neutral" | "success" | "warning" | "error" | "info";
 
@@ -38,7 +40,7 @@ const accountTone = (status: AccountStatus): Tone =>
 // Nhãn trạng thái Enrollment (BR-115) dùng chung bảng assignmentStatus của UC24
 const courseColumns: ColumnsType<ILearnerEnrollment> = [
   {
-    title: "Course",
+    title: "Khóa học",
     key: "course",
     render: (_, row) =>
       row.course ? (
@@ -46,31 +48,31 @@ const courseColumns: ColumnsType<ILearnerEnrollment> = [
           {row.course.name} · v{row.course.versionNumber}
         </strong>
       ) : (
-        <span className="organizer-note">Course unavailable</span>
+        <span className="organizer-note">Khóa học không khả dụng</span>
       ),
   },
   {
-    title: "Type",
+    title: "Loại",
     dataIndex: "enrollmentType",
     render: (type: ILearnerEnrollment["enrollmentType"]) => (
-      <StatusTag tone={type === "Required" ? "info" : "neutral"}>{type}</StatusTag>
+      <StatusTag tone={type === "Required" ? "info" : "neutral"}>{enrollmentKindText(type)}</StatusTag>
     ),
   },
   {
-    title: "Status",
+    title: "Trạng thái",
     dataIndex: "status",
     render: (status: ILearnerEnrollment["status"]) => {
       const view = assignmentStatus[status];
       return view ? (
         <StatusTag tone={view.tone}>{view.label}</StatusTag>
       ) : (
-        <StatusTag tone="neutral">{status}</StatusTag>
+        <StatusTag tone="neutral">{UNKNOWN_LABEL}</StatusTag>
       );
     },
   },
   {
     // Chỉ đếm học liệu bắt buộc, không gồm Quiz / Assignment
-    title: "Required materials",
+    title: "Học liệu bắt buộc",
     key: "requiredMaterials",
     render: (_, row) =>
       row.requiredMaterials.total > 0
@@ -79,7 +81,7 @@ const courseColumns: ColumnsType<ILearnerEnrollment> = [
   },
   {
     // Optional không có hạn (BR-129)
-    title: "Due",
+    title: "Hạn hoàn thành",
     dataIndex: "dueAt",
     render: (dueAt: string | null) => (dueAt ? formatDateVN(dueAt) : "—"),
   },
@@ -159,7 +161,7 @@ const LearnerDetail = () => {
         />
       )}
       <Link to={`/organizer/learners/${detail.id}/edit`}>
-        <OrganizerButton type="primary">Edit</OrganizerButton>
+        <OrganizerButton type="primary">Chỉnh sửa</OrganizerButton>
       </Link>
     </>
   ) : null;
@@ -174,14 +176,14 @@ const LearnerDetail = () => {
     }
     if (loadError === "notFound") {
       return (
-        <Alert
+        <VietnameseAlert
           type="warning"
           showIcon
-          message="Learner not found"
-          description="This learner does not exist or is no longer available in your organization."
+          message="Không tìm thấy học viên"
+          description="Học viên này không tồn tại hoặc không còn thuộc tổ chức của bạn."
           action={
             <Link to="/organizer/learners">
-              <Button>Back</Button>
+              <Button>Quay lại</Button>
             </Link>
           }
         />
@@ -189,14 +191,14 @@ const LearnerDetail = () => {
     }
     if (loadError || !detail) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
-          message="Could not load learner."
-          description="Please check your connection and try again."
+          message="Không thể tải thông tin học viên."
+          description="Vui lòng kiểm tra kết nối và thử lại."
           action={
             <Button onClick={() => setReloadKey((key) => key + 1)}>
-              Try again
+              Thử lại
             </Button>
           }
         />
@@ -220,68 +222,68 @@ const LearnerDetail = () => {
                 {statusLabel[detail.status]}
               </StatusTag>
               {isPending && detail.invitationExpired && (
-                <StatusTag tone="error">Invitation expired</StatusTag>
+                <StatusTag tone="error">Lời mời đã hết hạn</StatusTag>
               )}
             </div>
             <div className="organizer-detail-grid">
               <DetailItem label="Email">{detail.email}</DetailItem>
-              <DetailItem label="Work unit">
+              <DetailItem label="Đơn vị công tác">
                 {detail.department || "—"}
               </DetailItem>
-              <DetailItem label="Created">
+              <DetailItem label="Ngày tạo">
                 {formatDateVN(detail.createdAt)}
               </DetailItem>
-              <DetailItem label="Activated">
+              <DetailItem label="Đã kích hoạt">
                 {detail.activatedAt ? formatDateVN(detail.activatedAt) : "—"}
               </DetailItem>
               {isPending && (
                 <>
-                  <DetailItem label="Invitation sent">
+                  <DetailItem label="Đã gửi lời mời">
                     {detail.invitation
                       ? formatDateVN(detail.invitation.sentAt)
                       : "—"}
                   </DetailItem>
-                  <DetailItem label="Invitation expires">
+                  <DetailItem label="Lời mời hết hạn vào">
                     {detail.invitation
                       ? formatDateVN(detail.invitation.expiresAt)
-                      : "No active invitation"}
+                      : "Không có lời mời còn hiệu lực"}
                   </DetailItem>
                 </>
               )}
             </div>
           </SectionCard>
-          <SectionCard title="Who can edit">
+          <SectionCard title="Người có thể chỉnh sửa">
             <div className="organizer-detail-grid">
-              <DetailItem label="Full name">
-                {activated ? "Learner" : "Organizer (until activated)"}
+              <DetailItem label="Họ và tên">
+                {activated ? "Học viên" : "Quản lý đào tạo (trước khi kích hoạt)"}
               </DetailItem>
               <DetailItem label="Email">
-                {activated ? "Not editable" : "Organizer (until activated)"}
+                {activated ? "Không thể chỉnh sửa" : "Quản lý đào tạo (trước khi kích hoạt)"}
               </DetailItem>
-              <DetailItem label="Avatar">
-                {activated ? "Learner" : "Learner (after activation)"}
+              <DetailItem label="Ảnh đại diện">
+                {activated ? "Học viên" : "Học viên (sau khi kích hoạt)"}
               </DetailItem>
-              <DetailItem label="Work unit">Organizer</DetailItem>
+              <DetailItem label="Đơn vị công tác">Quản lý đào tạo</DetailItem>
             </div>
           </SectionCard>
         </div>
 
         <SectionCard
-          title="Course participation"
+          title="Các khóa học đã tham gia"
           className="organizer-learner-courses"
         >
           {detail.status === "Deactivated" && (
             <p className="organizer-note">
-              This account is deactivated. Its enrollments are kept but not
-              counted in overdue statistics.
+              Tài khoản này đã bị vô hiệu hóa. Các lượt ghi danh vẫn được giữ lại
+              nhưng không được tính vào thống kê quá hạn.
             </p>
           )}
           {detail.enrollments === null ? (
-            <Alert
+            <VietnameseAlert
               type="warning"
               showIcon
-              message="Couldn't load courses"
-              description="Course participation is temporarily unavailable. Please try again later."
+              message="Không thể tải khóa học"
+              description="Tạm thời không xem được thông tin tham gia khóa học. Vui lòng thử lại sau."
             />
           ) : (
             <Table<ILearnerEnrollment>
@@ -295,7 +297,7 @@ const LearnerDetail = () => {
                 emptyText: (
                   <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="Not enrolled in any course"
+                    description="Chưa tham gia khóa học nào"
                   />
                 ),
               }}
@@ -309,8 +311,8 @@ const LearnerDetail = () => {
   return (
     <OrganizerPage className="organizer-learner-detail">
       <PageHeader
-        title="Learner detail"
-        subtitle="Account state and Course participation."
+        title="Chi tiết học viên"
+        subtitle="Trạng thái tài khoản và các khóa học đã tham gia."
         back
         actions={headerActions}
       />

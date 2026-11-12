@@ -2,6 +2,7 @@ import type { CurrentUser } from '@learnup/ts-common';
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -10,7 +11,7 @@ import {
   HttpCode,
   Query,
 } from '@nestjs/common';
-import { ParsePagePipe } from '../../common/pipes/parse-page.pipe';
+import { AssignmentListQueryDto } from './assignment-list-query.dto';
 import { AssignmentReadsService } from './assignment-reads.service';
 import { User, ResponseMessage } from '../../common/decorator/customize';
 import { Roles } from '../../common/decorator/roles.decorator';
@@ -20,6 +21,8 @@ import { AssignmentChangesService } from './assignment-changes.service';
 import {
   ExtendAssignmentDto,
   ExemptAssignmentDto,
+  RemoveExemptionBodyPipe,
+  CancelAssignmentBodyPipe,
 } from './change-assignment.dto';
 
 @Controller('assignments')
@@ -32,8 +35,8 @@ export class AssignmentsController {
 
   @Get()
   @Roles('ORGANIZER')
-  list(@User() user: CurrentUser, @Query('page', ParsePagePipe) page: number) {
-    return this.reads.list(user, page);
+  list(@User() user: CurrentUser, @Query() query: AssignmentListQueryDto) {
+    return this.reads.list(user, query);
   }
 
   @Get(':enrollmentId')
@@ -71,5 +74,26 @@ export class AssignmentsController {
     @Body() dto: ExemptAssignmentDto,
   ) {
     return this.changes.exempt(user, id, dto);
+  }
+
+  @Post(':enrollmentId/cancellation')
+  @HttpCode(200)
+  @Roles('ORGANIZER')
+  cancel(
+    @User() user: CurrentUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) id: string,
+    @Body(CancelAssignmentBodyPipe) _body: void,
+  ) {
+    return this.changes.cancel(user, id);
+  }
+
+  @Delete(':enrollmentId/exemption')
+  @Roles('ORGANIZER')
+  removeExemption(
+    @User() user: CurrentUser,
+    @Param('enrollmentId', new ParseUUIDPipe()) id: string,
+    @Body(RemoveExemptionBodyPipe) _body: void,
+  ) {
+    return this.changes.removeExemption(user, id);
   }
 }

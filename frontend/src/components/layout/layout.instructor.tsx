@@ -20,12 +20,12 @@ import "./layout.instructor.scss";
 type MenuItem = Required<MenuProps>["items"][number];
 
 const instructorMenuItems: MenuItem[] = [
-  { key: "/instructor", icon: <TableOutlined />, label: "Overview" },
-  { key: "/instructor/courses", icon: <UnorderedListOutlined />, label: "My Courses" },
-  { key: "/instructor/submissions", icon: <FileDoneOutlined />, label: "Submissions" },
-  { key: "/instructor/peer-cycles", icon: <SwapOutlined />, label: "Peer Cycles" },
-  { key: "/instructor/monitoring", icon: <CompassOutlined />, label: "Monitoring" },
-  { key: "/instructor/evaluations", icon: <StarOutlined />, label: "Evaluations" },
+  { key: "/instructor", icon: <TableOutlined />, label: "Tổng quan" },
+  { key: "/instructor/courses", icon: <UnorderedListOutlined />, label: "Khóa học của tôi" },
+  { key: "/instructor/submissions", icon: <FileDoneOutlined />, label: "Bài nộp" },
+  { key: "/instructor/peer-cycles", icon: <SwapOutlined />, label: "Chu kỳ chấm chéo" },
+  { key: "/instructor/monitoring", icon: <CompassOutlined />, label: "Theo dõi học tập" },
+  { key: "/instructor/evaluations", icon: <StarOutlined />, label: "Đánh giá khóa học" },
 ];
 
 const LayoutInstructor = () => {
@@ -45,7 +45,7 @@ const LayoutInstructor = () => {
     return "/instructor";
   }, [location.pathname]);
 
-  const displayName = user?.fullName || "Jordan Chen";
+  const displayName = user?.fullName || "Giảng viên";
   const initials = displayName
     .split(" ")
     .map((part) => part[0])
@@ -67,10 +67,10 @@ const LayoutInstructor = () => {
 
   const navigation = (
     <>
-      <Link className="instructor-brand" to="/instructor" aria-label="LearnUP Instructor home">
+      <Link className="instructor-brand" to="/instructor" aria-label="Trang chủ giảng viên LearnUP">
         <img src="/logo/learnup-logo-dark.png" alt="LearnUP" />
       </Link>
-      <span className="instructor-nav-caption">INSTRUCTOR WORKSPACE</span>
+      <span className="instructor-nav-caption">Không gian giảng viên</span>
       <Menu
         className="instructor-navigation"
         mode="inline"
@@ -83,18 +83,18 @@ const LayoutInstructor = () => {
           <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
           <div className="instructor-user-info">
             <strong>{displayName}</strong>
-            <small>Instructor</small>
+            <small>Giảng viên</small>
           </div>
           <Button
             className="instructor-signout-trigger"
             type="text"
             icon={<LogoutOutlined />}
-            aria-label="Sign out"
+            aria-label="Đăng xuất"
             onClick={() => setSignOutOpen(true)}
           />
         </div>
         <Link className="instructor-account-settings" to="/instructor/profile">
-          Account settings
+          Cài đặt tài khoản
         </Link>
       </div>
     </>
@@ -123,9 +123,11 @@ const LayoutInstructor = () => {
               type="text"
               icon={<MenuOutlined />}
               onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
+              aria-label="Mở menu điều hướng"
             />
-            <span className="instructor-org-name">Demo Organization</span>
+            {user?.organizationName && (
+              <span className="instructor-org-name">{user.organizationName}</span>
+            )}
           </div>
           <div className="instructor-topbar-actions">
             <NotificationBell basePath="/instructor" />
@@ -147,12 +149,12 @@ const LayoutInstructor = () => {
         centered
         width={420}
       >
-        <h3>Sign out of LearnUP?</h3>
-        <p>Your Instructor session will end on this device.</p>
+        <h3>Đăng xuất khỏi LearnUP?</h3>
+        <p>Phiên đăng nhập giảng viên trên thiết bị này sẽ kết thúc.</p>
         <div className="instructor-signout-actions">
-          <Button onClick={() => setSignOutOpen(false)}>Stay signed in</Button>
+          <Button onClick={() => setSignOutOpen(false)}>Tiếp tục đăng nhập</Button>
           <Button type="primary" onClick={signOut}>
-            Sign out
+            Đăng xuất
           </Button>
         </div>
       </Modal>

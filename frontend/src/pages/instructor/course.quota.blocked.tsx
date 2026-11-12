@@ -7,19 +7,19 @@ const CourseQuotaBlocked = () => {
   return (
     <InstructorPage className="instructor-course-quota-blocked">
       <PageHeader
-        eyebrow="MY COURSES / CREATE"
-        title="Course Limit Reached"
-        subtitle="Your Organization has reached the Course limit of its Subscription."
+        eyebrow="Khóa học của tôi / Tạo mới"
+        title="Đã đạt giới hạn khóa học"
+        subtitle="Tổ chức đã đạt giới hạn số khóa học theo gói dịch vụ."
       />
       <SuccessScreen
         tone="warning"
-        title="Cannot create another Course"
+        title="Không thể tạo thêm khóa học"
         secondary={{
-          label: "Back to My Courses",
+          label: "Quay lại khóa học của tôi",
           onClick: () => navigate("/instructor/courses"),
         }}
       >
-        <p>Contact the Organizer about the Subscription Course limit.</p>
+        <p>Hãy liên hệ quản lý đào tạo về giới hạn khóa học của gói dịch vụ.</p>
       </SuccessScreen>
     </InstructorPage>
   );

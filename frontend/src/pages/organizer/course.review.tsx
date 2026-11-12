@@ -1,4 +1,4 @@
-import { Alert, Collapse, Empty, Input, Modal, Skeleton, message } from "antd";
+import { Collapse, Empty, Input, Modal, Skeleton, message } from "antd";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -32,7 +32,14 @@ import type {
   IMaterialPreview,
 } from "@/types/course.types";
 
+import {
+  courseStatusText,
+  courseTypeText,
+  materialTypeText,
+  questionTypeText,
+} from "@/utils/organizer.labels";
 import "./course.review.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 // The project's Axios interceptor can return error
 // bodies without rejecting the Promise.
@@ -43,7 +50,7 @@ const isSuccess = (statusCode: unknown) => {
 };
 
 const showValue = (value: number | null) =>
-  value === null ? "Not configured" : String(value);
+  value === null ? "Chưa cấu hình" : String(value);
 
 /**
  * Read-only Quiz / Assignment presentation.
@@ -69,45 +76,45 @@ const AssessmentContent = ({
     <article className="review-assessment">
       <div className="review-heading">
         <h4>
-          {isQuiz ? "Quiz" : "Assignment"}: {assessment.title}
+          {isQuiz ? "Bài trắc nghiệm" : "Bài tập"}: {assessment.title}
         </h4>
 
         <StatusTag tone="neutral">
-          {assessment.isRequired ? "Required" : "Optional"}
+          {assessment.isRequired ? "Bắt buộc" : "Tự chọn"}
         </StatusTag>
 
-        {assessment.disabled && <StatusTag tone="error">Disabled</StatusTag>}
+        {assessment.disabled && <StatusTag tone="error">Đã vô hiệu hóa</StatusTag>}
       </div>
 
       <div className="review-meta">
-        <span>Passing score: {assessment.passingScore}</span>
-        <span>Maximum attempts: {assessment.maxConsecutiveAttempts}</span>
-        <span>Lockout: {assessment.lockoutHours} hours</span>
+        <span>Điểm đạt: {assessment.passingScore}</span>
+        <span>Số lần làm tối đa: {assessment.maxConsecutiveAttempts}</span>
+        <span>Thời gian chờ: {assessment.lockoutHours} giờ</span>
+        {isQuiz && (
+          <>
+            <span>
+              Thời gian làm bài:{" "}
+              {assessment.timeLimitMinutes === null
+                ? "Chưa cấu hình"
+                : `${assessment.timeLimitMinutes} phút`}
+            </span>
+            <span>Số câu hỏi: {assessment.questions.length}</span>
+          </>
+        )}
       </div>
 
       {isQuiz ? (
         <div>
-          <p>
-            <strong>Time limit:</strong>{" "}
-            {assessment.timeLimitMinutes === null
-              ? "Not configured"
-              : `${assessment.timeLimitMinutes} minutes`}
-          </p>
-
-          <p>
-            <strong>Question count:</strong> {assessment.questions.length}
-          </p>
-
           {assessment.questions.length === 0 ? (
-            <Empty description="No questions" />
+            <Empty description="Chưa có câu hỏi" />
           ) : (
             assessment.questions.map((question) => (
               <div key={question.id} className="review-question">
                 <h5>
-                  Question {question.position}: {question.content}
+                  Câu hỏi {question.position}: {question.content}
                 </h5>
 
-                <p>Type: {question.type}</p>
+                <p>Loại: {questionTypeText(question.type)}</p>
 
                 <ul>
                   {question.options.map((option) => (
@@ -117,7 +124,7 @@ const AssessmentContent = ({
                       {option.isCorrect && (
                         <strong className="review-correct">
                           {" "}
-                          — Correct answer
+                          — Đáp án đúng
                         </strong>
                       )}
                     </li>
@@ -129,17 +136,17 @@ const AssessmentContent = ({
         </div>
       ) : (
         <div>
-          <h5>Assignment prompt</h5>
+          <h5>Đề bài</h5>
 
           <p className="review-content">
-            {assessment.prompt || "No text prompt provided."}
+            {assessment.prompt || "Chưa có đề bài dạng văn bản."}
           </p>
 
           {assessment.promptFileName && (
             <div className="review-material">
               <div>
                 <strong>{assessment.promptFileName}</strong>
-                <small>Assignment attachment</small>
+                <small>Tệp đính kèm bài tập</small>
               </div>
 
               <OrganizerButton
@@ -148,51 +155,51 @@ const AssessmentContent = ({
                 disabled={downloading}
                 onClick={() => onDownload(assessment)}
               >
-                Download attachment
+                Tải tệp đính kèm
               </OrganizerButton>
             </div>
           )}
 
           <p>
-            <strong>Expected duration:</strong>{" "}
+            <strong>Thời lượng dự kiến:</strong>{" "}
             {assessment.expectedDurationMinutes === null
-              ? "Not configured"
-              : `${assessment.expectedDurationMinutes} minutes`}
+              ? "Chưa cấu hình"
+              : `${assessment.expectedDurationMinutes} phút`}
           </p>
 
-          <h5>Peer Review configuration</h5>
+          <h5>Cấu hình chấm chéo</h5>
 
           <div className="review-meta">
-            <span>Enabled: {assessment.peerReviewEnabled ? "Yes" : "No"}</span>
+            <span>Đã bật: {assessment.peerReviewEnabled ? "Có" : "Không"}</span>
 
             {assessment.peerReviewEnabled && (
               <>
                 <span>
-                  Reviewers per submission:{" "}
+                  Số người chấm mỗi bài nộp:{" "}
                   {showValue(assessment.peerReviewersPerSubmission)}
                 </span>
 
                 <span>
-                  Cycle: {showValue(assessment.peerReviewCycleDays)} days
+                  Đợt: {showValue(assessment.peerReviewCycleDays)} ngày
                 </span>
 
                 <span>
-                  Deadline: {showValue(assessment.peerReviewDeadlineDays)} days
+                  Hạn chót: {showValue(assessment.peerReviewDeadlineDays)} ngày
                 </span>
 
                 <span>
-                  Score gap: {showValue(assessment.peerReviewScoreGap)}
+                  Chênh lệch điểm: {showValue(assessment.peerReviewScoreGap)}
                 </span>
               </>
             )}
           </div>
 
-          <h5>Grading rubric</h5>
+          <h5>Tiêu chí chấm điểm</h5>
 
-          <p>Total points: {rubricTotal}</p>
+          <p>Tổng điểm: {rubricTotal}</p>
 
           {assessment.rubric.length === 0 ? (
-            <Empty description="No rubric criteria" />
+            <Empty description="Chưa có tiêu chí chấm điểm" />
           ) : (
             <div className="review-rubric">
               {assessment.rubric.map((criterion) => (
@@ -203,7 +210,7 @@ const AssessmentContent = ({
 
                   <p>{criterion.description}</p>
 
-                  <small>{criterion.maxPoints} points</small>
+                  <small>{criterion.maxPoints} điểm</small>
                 </div>
               ))}
             </div>
@@ -261,7 +268,7 @@ const CourseReview = () => {
       setRejectionReason("");
 
       if (!courseId) {
-        setCourseError("Course ID is missing.");
+        setCourseError("Thiếu mã khóa học.");
         setLoading(false);
         return;
       }
@@ -278,12 +285,12 @@ const CourseReview = () => {
           response.data.id !== courseId ||
           !Array.isArray(response.data.modules)
         ) {
-          setCourseError("Course is not available for review.");
+          setCourseError("Không thể xem xét khóa học này.");
           return;
         }
 
         if (response.data.status !== "Submitted") {
-          setCourseError("Course is no longer awaiting approval.");
+          setCourseError("Khóa học đã rời trạng thái chờ phê duyệt.");
           return;
         }
 
@@ -302,18 +309,18 @@ const CourseReview = () => {
             result.data.courseId !== courseId ||
             !Array.isArray(result.data.items)
           ) {
-            setAssessmentError("Unable to load Course Assessments.");
+            setAssessmentError("Không thể tải các bài đánh giá của khóa học.");
           } else {
             setAssessments(result.data.items);
           }
         } catch {
           if (active) {
-            setAssessmentError("Assessment Service is unavailable.");
+            setAssessmentError("Tạm thời không thể truy cập thông tin bài đánh giá.");
           }
         }
       } catch {
         if (active) {
-          setCourseError("Course Service is unavailable.");
+          setCourseError("Tạm thời không thể truy cập thông tin khóa học.");
         }
       } finally {
         if (active) setLoading(false);
@@ -343,7 +350,7 @@ const CourseReview = () => {
     const reason = rejectionReason.trim();
 
     if (decision === "REJECT" && (!reason || reason.length > 1000)) {
-      message.error("Please enter a rejection reason (up to 1,000 characters).");
+      message.error("Nhập lý do từ chối (tối đa 1.000 ký tự).");
       return;
     }
 
@@ -364,23 +371,23 @@ const CourseReview = () => {
         response.data.status !== expectedStatus
       ) {
         if (Number(response.statusCode) === 409) {
-          message.warning("This Course has changed status. Refresh the review list.");
+          message.warning("Trạng thái khóa học đã thay đổi. Hãy tải lại danh sách chờ phê duyệt.");
         } else if (Number(response.statusCode) === 401 || Number(response.statusCode) === 403) {
-          message.error("You do not have access to make this decision.");
+          message.error("Bạn không có quyền thực hiện thao tác này.");
         } else {
-          message.error("Unable to process this Course. Please try again.");
+          message.error("Không thể xử lý khóa học này. Vui lòng thử lại.");
         }
         return;
       }
 
       message.success(decision === "APPROVE"
-        ? "Course approved successfully."
-        : "Course rejected successfully.");
+        ? "Đã phê duyệt khóa học."
+        : "Đã từ chối khóa học.");
       setDecisionOpen(null);
       setRejectionReason("");
       navigate("/organizer/courses/approvals", { replace: true });
     } catch {
-      message.error("Unable to reach Course Service. Please try again.");
+      message.error("Không thể kết nối để tải thông tin khóa học. Vui lòng thử lại.");
     } finally {
       decisionInFlightRef.current = false;
       setDecisionLoading(false);
@@ -409,19 +416,19 @@ const CourseReview = () => {
         !result.data.mimeType ||
         !result.data.expiresAt
       ) {
-        message.error("Unable to open material preview.");
+        message.error("Không thể mở bản xem trước học liệu.");
         return;
       }
 
       if (new Date(result.data.expiresAt).getTime() <= Date.now()) {
-        message.error("Preview URL has expired.");
+        message.error("Liên kết xem trước đã hết hạn.");
         return;
       }
 
       setPreview(result.data);
       setPreviewOpen(true);
     } catch {
-      message.error("Unable to reach Course Service.");
+      message.error("Không thể kết nối để tải thông tin khóa học.");
     } finally {
       setPreviewLoadingId(null);
     }
@@ -443,7 +450,7 @@ const CourseReview = () => {
       );
 
       if (!blob) {
-        message.error("Unable to download Assignment attachment.");
+        message.error("Không thể tải tệp đính kèm bài tập.");
         return;
       }
 
@@ -459,7 +466,7 @@ const CourseReview = () => {
 
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
-      message.error("Unable to download Assignment attachment.");
+      message.error("Không thể tải tệp đính kèm bài tập.");
     } finally {
       downloadingRef.current = false;
       setDownloadingId(null);
@@ -508,8 +515,8 @@ const CourseReview = () => {
     return (
       <OrganizerPage className="organizer-course-review">
         <PageHeader
-          title="Review Course"
-          subtitle="Loading Course content..."
+          title="Xem xét khóa học"
+          subtitle="Đang tải nội dung khóa học…"
           back
         />
 
@@ -523,24 +530,24 @@ const CourseReview = () => {
     return (
       <OrganizerPage className="organizer-course-review">
         <PageHeader
-          title="Course Review"
-          subtitle="Unable to display Course content."
+          title="Xem xét khóa học"
+          subtitle="Không thể hiển thị nội dung khóa học."
           back
         />
 
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
-          message={courseError || "Course is not available for review."}
+          message={courseError || "Khóa học không còn khả dụng để xem xét."}
         />
 
         <div className="review-actions">
-          <OrganizerButton onClick={refreshReview}>Retry</OrganizerButton>
+          <OrganizerButton onClick={refreshReview}>Thử lại</OrganizerButton>
 
           <OrganizerButton
             onClick={() => navigate("/organizer/courses/approvals")}
           >
-            Back to approvals
+            Về danh sách chờ phê duyệt
           </OrganizerButton>
         </div>
       </OrganizerPage>
@@ -571,8 +578,8 @@ const CourseReview = () => {
   return (
     <OrganizerPage className="organizer-course-review">
       <PageHeader
-        title="Review Course"
-        subtitle={`${course.name} • Version ${course.versionNumber}`}
+        title="Xem xét khóa học"
+        subtitle={`${course.name} • Phiên bản ${course.versionNumber}`}
         back
         actions={
           <div className="review-decision-actions">
@@ -580,87 +587,87 @@ const CourseReview = () => {
               disabled={decisionLoading}
               onClick={() => navigate("/organizer/courses/approvals")}
             >
-              Back to approvals
+              Về danh sách chờ phê duyệt
             </OrganizerButton>
             <OrganizerButton
               disabled={!canDecide || decisionOpen !== null}
               onClick={() => setDecisionOpen("REJECT")}
             >
-              Reject Course
+              Từ chối khóa học
             </OrganizerButton>
             <OrganizerButton
               type="primary"
               disabled={!canDecide || decisionOpen !== null}
               onClick={() => setDecisionOpen("APPROVE")}
             >
-              Approve Course
+              Phê duyệt khóa học
             </OrganizerButton>
           </div>
         }
       />
 
-      <SectionCard title="Course governance">
+      <SectionCard title="Thông tin quản lý khóa học">
         <div className="organizer-course-tags">
-          <StatusTag tone="warning">{course.status}</StatusTag>
+          <StatusTag tone="warning">{courseStatusText(course.status)}</StatusTag>
 
-          <StatusTag tone="neutral">{course.courseType}</StatusTag>
+          <StatusTag tone="neutral">{courseTypeText(course.courseType)}</StatusTag>
         </div>
 
         <div className="organizer-detail-grid">
           <div className="organizer-detail-item">
-            <span>Instructor phụ trách</span>
+            <span>Giảng viên phụ trách</span>
             <strong>{instructorName || "Chưa xác định"}</strong>
             <small className="review-instructor-id">{course.instructorId}</small>
           </div>
 
           <div className="organizer-detail-item">
-            <span>Expected completion</span>
-            <strong>{course.expectedCompletionDays} days</strong>
+            <span>Thời hạn hoàn thành dự kiến</span>
+            <strong>{course.expectedCompletionDays} ngày</strong>
           </div>
 
           <div className="organizer-detail-item">
-            <span>Version</span>
+            <span>Phiên bản</span>
             <strong>{course.versionNumber}</strong>
           </div>
 
           <div className="organizer-detail-item">
-            <span>Locked</span>
-            <strong>{course.locked ? "Yes" : "No"}</strong>
+            <span>Đã khóa</span>
+            <strong>{course.locked ? "Có" : "Không"}</strong>
           </div>
         </div>
       </SectionCard>
 
       <div className="organizer-content-grid organizer-course-review-grid">
-        <SectionCard title="Course overview">
+        <SectionCard title="Tổng quan khóa học">
           <div className="organizer-detail-grid">
             <div className="organizer-detail-item">
-              <span>Description</span>
-              <strong>{course.shortDescription || "Not provided"}</strong>
+              <span>Mô tả</span>
+              <strong>{course.shortDescription || "Chưa cung cấp"}</strong>
             </div>
 
             <div className="organizer-detail-item">
-              <span>Training objectives</span>
-              <strong>{course.trainingObjectives || "Not provided"}</strong>
+              <span>Mục tiêu đào tạo</span>
+              <strong>{course.trainingObjectives || "Chưa cung cấp"}</strong>
             </div>
 
             <div className="organizer-detail-item">
-              <span>Learning structure</span>
+              <span>Cấu trúc khóa học</span>
               <strong>
-                {course.modules.length} Modules · {lessonCount} Lessons
+                {course.modules.length} chương · {lessonCount} bài học
                 {!assessmentError && (
                   <>
                     {" "}
-                    · {quizCount} Quizzes · {assignmentCount} Assignments
+                    · {quizCount} bài trắc nghiệm · {assignmentCount} bài tập
                   </>
                 )}
               </strong>
             </div>
           </div>
 
-          <h3>Learning outcomes</h3>
+          <h3>Kết quả học tập mong đợi</h3>
 
           {course.learningOutcomes.length === 0 ? (
-            <Empty description="No Learning Outcomes" />
+            <Empty description="Chưa có kết quả học tập mong đợi" />
           ) : (
             <ul>
               {course.learningOutcomes.map((outcome, index) => (
@@ -671,44 +678,44 @@ const CourseReview = () => {
         </SectionCard>
 
         <SectionCard
-          title="Curriculum review"
+          title="Xem xét chương trình học"
           extra={
             <OrganizerButton size="small" onClick={refreshReview}>
-              Refresh
+              Tải lại
             </OrganizerButton>
           }
         >
           {assessmentError && (
-            <Alert
+            <VietnameseAlert
               className="review-alert"
               type="warning"
               showIcon
               message={assessmentError}
-              description="Assessment details are not verified. Refresh before completing your review."
+              description="Chưa xác minh được thông tin bài đánh giá. Hãy tải lại trước khi hoàn tất xem xét."
             />
           )}
 
           {course.modules.length === 0 ? (
-            <Empty description="No Modules" />
+            <Empty description="Chưa có chương" />
           ) : (
             <Collapse
               items={course.modules.map((module) => ({
                 key: module.id,
-                label: `Module ${module.position}: ${module.title}`,
+                label: `Chương ${module.position}: ${module.title}`,
                 children: (
                   <div className="review-module">
                     {module.lessons.map((lesson) => (
                       <section key={lesson.id} className="review-lesson">
                         <h4>
-                          Lesson {lesson.position}: {lesson.title}
+                          Bài học {lesson.position}: {lesson.title}
                         </h4>
 
                         {lesson.disabled && (
-                          <StatusTag tone="error">Disabled</StatusTag>
+                          <StatusTag tone="error">Đã vô hiệu hóa</StatusTag>
                         )}
 
                         <p className="review-content">
-                          {lesson.content || "No Lesson content"}
+                          {lesson.content || "Bài học chưa có nội dung"}
                         </p>
 
                         {lesson.materials.map((material) => (
@@ -717,10 +724,10 @@ const CourseReview = () => {
                               <strong>{material.title}</strong>
 
                               <small>
-                                {material.materialType}
+                                {materialTypeText(material.materialType)}
                                 {" · "}
-                                {material.isRequired ? "Required" : "Optional"}
-                                {material.disabled ? " · Disabled" : ""}
+                                {material.isRequired ? "Bắt buộc" : "Tự chọn"}
+                                {material.disabled ? " · Đã vô hiệu hóa" : ""}
                               </small>
 
                               <small>{material.filename}</small>
@@ -735,7 +742,7 @@ const CourseReview = () => {
                               }
                               onClick={() => void openMaterialPreview(material)}
                             >
-                              Preview
+                              Xem trước
                             </OrganizerButton>
                           </div>
                         ))}
@@ -752,14 +759,14 @@ const CourseReview = () => {
             />
           )}
 
-          <h3 className="review-section-title">Course-level Assessments</h3>
+          <h3 className="review-section-title">Bài đánh giá cấp khóa học</h3>
 
           {courseLevelAssessments.length === 0 ? (
             <Empty
               description={
                 assessmentError
-                  ? "Assessment information unavailable"
-                  : "No Course-level Assessments"
+                  ? "Không xem được thông tin bài đánh giá"
+                  : "Chưa có bài đánh giá cấp khóa học"
               }
             />
           ) : (
@@ -769,17 +776,17 @@ const CourseReview = () => {
           )}
 
           {unknownModuleAssessments.length > 0 && (
-            <Alert
+            <VietnameseAlert
               type="warning"
               showIcon
-              message="Some Assessments reference unknown Modules."
+              message="Một số bài đánh giá tham chiếu đến chương không xác định."
             />
           )}
         </SectionCard>
       </div>
 
       <Modal
-        title="Material preview"
+        title="Xem trước học liệu"
         open={previewOpen}
         footer={null}
         width={960}
@@ -800,18 +807,18 @@ const CourseReview = () => {
         ) : preview?.mimeType === "application/pdf" ? (
           <iframe
             className="review-pdf"
-            title="Reading material preview"
+            title="Xem trước tài liệu đọc"
             src={preview.url}
           />
         ) : (
-          <Empty description="Preview unavailable" />
+          <Empty description="Không thể xem trước" />
         )}
       </Modal>
 
       <Modal
-        title="Approve Course"
+        title="Phê duyệt khóa học"
         open={decisionOpen === "APPROVE"}
-        okText="Confirm Approval"
+        okText="Xác nhận phê duyệt"
         confirmLoading={decisionLoading}
         okButtonProps={{ disabled: !canDecide }}
         cancelButtonProps={{ disabled: decisionLoading }}
@@ -820,21 +827,21 @@ const CourseReview = () => {
         onOk={() => void handleDecision("APPROVE")}
         onCancel={() => { if (!decisionLoading) setDecisionOpen(null); }}
       >
-        <p>Approve <strong>{course.name}</strong> (Version {course.versionNumber})?</p>
+        <p>Phê duyệt <strong>{course.name}</strong> (Phiên bản {course.versionNumber})?</p>
         {course.versionNumber > 1 && (
-          <Alert
+          <VietnameseAlert
             type="warning"
             showIcon
-            message="Version replacement"
-            description="If an older version is Published, it will be Archived."
+            message="Thay thế phiên bản"
+            description="Phiên bản đã phát hành trước đó sẽ được lưu trữ."
           />
         )}
       </Modal>
 
       <Modal
-        title="Reject Course"
+        title="Từ chối khóa học"
         open={decisionOpen === "REJECT"}
-        okText="Confirm Rejection"
+        okText="Xác nhận từ chối"
         okButtonProps={{
           danger: true,
           loading: decisionLoading,
@@ -846,16 +853,16 @@ const CourseReview = () => {
         onOk={() => void handleDecision("REJECT")}
         onCancel={() => { if (!decisionLoading) setDecisionOpen(null); }}
       >
-        <p>Explain why <strong>{course.name}</strong> cannot be approved.</p>
+        <p>Nêu lý do <strong>{course.name}</strong> không thể được phê duyệt.</p>
         <Input.TextArea
-          aria-label="Rejection reason"
+          aria-label="Lý do từ chối"
           rows={5}
           maxLength={1000}
           showCount
           value={rejectionReason}
           disabled={decisionLoading}
           onChange={(event) => setRejectionReason(event.target.value)}
-          placeholder="Enter the rejection reason..."
+          placeholder="Nhập lý do từ chối…"
         />
       </Modal>
     </OrganizerPage>

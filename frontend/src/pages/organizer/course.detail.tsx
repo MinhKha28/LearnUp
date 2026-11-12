@@ -1,4 +1,4 @@
-import { Alert, Form, Input, Modal, Select, Spin, Table, message } from "antd";
+import { Form, Input, Modal, Select, Spin, Table, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -21,7 +21,9 @@ import type {
   ITransferCourseRequest,
   ITransferCourseVersion,
 } from "@/types/course.types";
+import { courseStatusText } from "@/utils/organizer.labels";
 import "./course.detail.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type ApiResult<T> = {
   statusCode?: number;
@@ -72,7 +74,7 @@ const columns: ColumnsType<ITransferCourseVersion> = [
     render: (value: number) => "v" + value },
   { title: "Trạng thái", dataIndex: "status", key: "status",
     render: (status: CourseStatus) => (
-      <StatusTag tone={statusTone(status)}>{status}</StatusTag>
+      <StatusTag tone={statusTone(status)}>{courseStatusText(status)}</StatusTag>
     ) },
   { title: "Ngày tạo", dataIndex: "createdAt", key: "createdAt",
     render: (value: string) => formatDate(value) },
@@ -100,7 +102,7 @@ const CourseDetail = () => {
   const loadContext = useCallback(async () => {
     const sequence = ++loadSequence.current;
     if (!courseId) {
-      setError("Không tìm thấy mã Course.");
+      setError("Không tìm thấy mã khóa học.");
       setContext(null);
       setLoading(false);
       return;
@@ -119,7 +121,7 @@ const CourseDetail = () => {
     } catch {
       if (sequence !== loadSequence.current) return;
       setContext(null);
-      setError("Không thể tải thông tin Course. Vui lòng thử lại.");
+      setError("Không thể tải thông tin khóa học. Vui lòng thử lại.");
     } finally {
       if (sequence === loadSequence.current) setLoading(false);
     }
@@ -133,7 +135,7 @@ const CourseDetail = () => {
   const openTransfer = async () => {
     if (!context || candidatesLoading || inFlight.current) return;
     if (!instructorResolved) {
-      message.warning("Không xác định được Instructor hiện tại. Vui lòng kiểm tra dữ liệu Tenant.");
+      message.warning("Không xác định được giảng viên đang phụ trách. Vui lòng kiểm tra thông tin tài khoản.");
       return;
     }
     setCandidatesLoading(true);
@@ -152,7 +154,7 @@ const CourseDetail = () => {
       form.resetFields();
       setTransferOpen(true);
     } catch {
-      message.error("Không lấy được danh sách Instructor tiếp nhận.");
+      message.error("Không lấy được danh sách giảng viên tiếp nhận.");
     } finally {
       setCandidatesLoading(false);
     }
@@ -189,16 +191,16 @@ const CourseDetail = () => {
       }
       setTransferOpen(false);
       form.resetFields();
-      message.success("Chuyển quyền phụ trách Course thành công.");
+      message.success("Chuyển quyền phụ trách khóa học thành công.");
       await loadContext();
     } catch (failure) {
       const code = apiErrorCode(failure);
       const text = code === "INVALID_RECEIVER"
-        ? "Instructor tiếp nhận không hợp lệ hoặc không còn hoạt động."
+        ? "Giảng viên tiếp nhận không hợp lệ hoặc không còn hoạt động."
         : code === "COURSE_CHANGED" || code === "SAME_INSTRUCTOR"
           ? "Quyền phụ trách đã thay đổi. Vui lòng tải lại dữ liệu."
           : code === "TENANT_UNAVAILABLE"
-            ? "Tenant Service tạm thời không khả dụng."
+            ? "Dịch vụ tổ chức tạm thời gián đoạn. Vui lòng thử lại."
             : "Chuyển quyền thất bại. Vui lòng thử lại.";
       setModalError(text);
       message.error(text);
@@ -212,8 +214,8 @@ const CourseDetail = () => {
   return (
     <OrganizerPage className="organizer-course-detail">
       <PageHeader
-        title="Chuỗi phiên bản Course"
-        subtitle={context?.courseName ?? "Thông tin Course"}
+        title="Chuỗi phiên bản khóa học"
+        subtitle={context?.courseName ?? "Thông tin khóa học"}
         back
         actions={
           <>
@@ -235,7 +237,7 @@ const CourseDetail = () => {
       />
 
       {error && (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={error}
@@ -249,15 +251,15 @@ const CourseDetail = () => {
         ) : context ? (
           <>
             <div className="organizer-course-detail-owner">
-              <span>Instructor hiện tại</span>
+              <span>Giảng viên hiện tại</span>
               <strong>{context.currentInstructor.fullName || "Chưa xác định"}</strong>
             </div>
             {!instructorResolved && (
-              <Alert
+              <VietnameseAlert
                 type="warning"
                 showIcon
-                message="Không tìm thấy Instructor phụ trách trong Tenant Service."
-                description={`Instructor ID: ${context.currentInstructor.id}. Hãy kiểm tra dữ liệu tài khoản và Organization trước khi chuyển quyền.`}
+                message="Không tìm thấy giảng viên phụ trách trong tổ chức."
+                description={`Mã giảng viên: ${context.currentInstructor.id}. Hãy kiểm tra dữ liệu tài khoản và tổ chức trước khi chuyển quyền.`}
                 className="organizer-course-detail-warning"
               />
             )}
@@ -267,11 +269,10 @@ const CourseDetail = () => {
               columns={columns}
               dataSource={context.versions}
               pagination={false}
-              locale={{ emptyText: "Course chưa có phiên bản." }}
+              locale={{ emptyText: "Khóa học chưa có phiên bản." }}
             />
             <p className="organizer-note organizer-course-detail-note">
-              Khi phiên bản mới được phê duyệt, phiên bản Published trước đó trở thành Archived.
-              Người học đã ghi danh vẫn tiếp tục học và có thể được cấp Certificate.
+              Khi phiên bản mới được phê duyệt, phiên bản đã phát hành trước đó sẽ được lưu trữ. Học viên đã ghi danh vẫn tiếp tục học và có thể được cấp chứng chỉ.
             </p>
           </>
         ) : null}
@@ -281,7 +282,7 @@ const CourseDetail = () => {
         className="organizer-transfer-modal"
         open={transferOpen}
         centered
-        title="Chuyển quyền phụ trách Course"
+        title="Chuyển quyền phụ trách khóa học"
         onCancel={closeTransfer}
         maskClosable={!transferring}
         closable={!transferring}
@@ -300,25 +301,25 @@ const CourseDetail = () => {
         }
       >
         <p>Chuyển toàn bộ chuỗi phiên bản của <strong>{context?.courseName}</strong>.</p>
-        {modalError && <Alert showIcon type="error" message={modalError} />}
+        {modalError && <VietnameseAlert showIcon type="error" message={modalError} />}
         <Form<ITransferCourseRequest> form={form} layout="vertical" className="organizer-form">
-          <Form.Item label="Instructor hiện tại">
+          <Form.Item label="Giảng viên hiện tại">
             <strong>{context?.currentInstructor.fullName || "Chưa xác định"}</strong>
           </Form.Item>
           <Form.Item
-            label="Instructor tiếp nhận"
+            label="Giảng viên tiếp nhận"
             name="toInstructorId"
-            rules={[{ required: true, message: "Vui lòng chọn Instructor tiếp nhận." }]}
+            rules={[{ required: true, message: "Vui lòng chọn giảng viên tiếp nhận." }]}
           >
             <Select
               showSearch
               optionFilterProp="label"
-              placeholder="Chọn Instructor"
+              placeholder="Chọn giảng viên"
               options={candidates.map((item) => ({
                 value: item.id,
                 label: item.fullName,
               }))}
-              notFoundContent="Không có Instructor phù hợp"
+              notFoundContent="Không có giảng viên phù hợp"
               disabled={transferring}
             />
           </Form.Item>
@@ -329,9 +330,7 @@ const CourseDetail = () => {
         <div className="organizer-approval-note">
           <strong>Lưu ý khi chuyển quyền</strong>
           <span>
-            Instructor mới tiếp nhận quyền phụ trách tất cả phiên bản Course, gồm quyền
-            chỉnh sửa trong phạm vi cho phép, chấm điểm và tạo phiên bản mới.
-            Instructor cũ không còn quyền phụ trách sau khi chuyển.
+            Giảng viên mới tiếp nhận quyền phụ trách tất cả phiên bản khóa học, gồm quyền chỉnh sửa trong phạm vi cho phép, chấm điểm và tạo phiên bản mới. Giảng viên cũ không còn quyền phụ trách sau khi chuyển.
           </span>
         </div>
       </Modal>

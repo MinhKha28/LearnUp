@@ -1,4 +1,4 @@
-import { Alert, Button } from "antd";
+import { Button } from "antd";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { LearnerSkeleton } from "@/components/learner/learner.states";
@@ -19,6 +19,7 @@ import { ENROLLMENT_STATUS_LABELS, ENROLLMENT_TYPE_LABELS } from "@/utils/learne
 import { formatDueAt } from "@/utils/due.format";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import "./course.progress.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const peerLabels = {
   NotApplicable: "Không áp dụng",
@@ -55,11 +56,11 @@ const ProgressDetails = ({
     <>
       <header className="course-progress-heading">
         <Link to={base}>Về chương trình học</Link>
-        <h1>Tiến độ hoàn thành Khóa học</h1>
+        <h1>Tiến độ hoàn thành khóa học</h1>
         {courseName && <p className="course-progress-course-name">{courseName}</p>}
       </header>
       {refreshFailed && (
-        <Alert
+        <VietnameseAlert
           className="course-progress-refresh-notice"
           type="warning"
           showIcon
@@ -93,7 +94,7 @@ const ProgressDetails = ({
               aria-label="Sau khi hoàn thành"
             >
               <Link to={LEARNER_ROUTES.certificates()}>Xem chứng chỉ</Link>
-              <Link to={LEARNER_ROUTES.evaluation(enrollment.id)}>Đánh giá Khóa học</Link>
+              <Link to={LEARNER_ROUTES.evaluation(enrollment.id)}>Đánh giá khóa học</Link>
             </nav>
           </>
         ) : (
@@ -108,7 +109,7 @@ const ProgressDetails = ({
         <>
           {assessment?.state === "unavailable" && (
             <section className="course-progress-unavailable" role="alert">
-              <p>Chưa tải được thông tin Bài trắc nghiệm và Bài tập</p>
+              <p>Chưa tải được thông tin bài trắc nghiệm và bài tập</p>
               <LearnerButton onClick={reload}>Thử lại</LearnerButton>
             </section>
           )}
@@ -148,7 +149,7 @@ const ProgressDetails = ({
                   ? conditions?.total === 0
                     ? "Khóa học chưa có điều kiện hoàn thành."
                     : "Đã đạt các điều kiện hiện có. Hệ thống đang ghi nhận kết quả hoàn thành."
-                  : "Các học liệu bắt buộc đã hoàn thành. Chưa có thông tin về Bài trắc nghiệm và Bài tập."}
+                  : "Các học liệu bắt buộc đã hoàn thành. Chưa có thông tin về bài trắc nghiệm và bài tập."}
               </p>
             )}
           </section>
@@ -185,11 +186,11 @@ const ProgressDetails = ({
           {assessment?.state === "ok" && (
             <section
               className="course-progress-remains"
-              aria-label="Bài trắc nghiệm và Bài tập"
+              aria-label="Bài trắc nghiệm và bài tập"
             >
-              <h2>Bài trắc nghiệm và Bài tập</h2>
+              <h2>Bài trắc nghiệm và bài tập</h2>
               {assessment.items.length === 0 ? (
-                <p>Không có Bài trắc nghiệm hoặc Bài tập bắt buộc.</p>
+                <p>Không có bài trắc nghiệm hoặc bài tập bắt buộc.</p>
               ) : (
                 <ul>
                   {assessment.items.map((item) => (

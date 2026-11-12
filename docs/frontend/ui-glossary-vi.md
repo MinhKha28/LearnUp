@@ -12,6 +12,8 @@ what a user reads on the screen. Code, API fields, status values and comments st
 | Instructor | giảng viên | |
 | Organizer | quản lý đào tạo | the name the pages already use |
 | Course | khóa học | "Khóa học của tôi" is the name of the menu, so it keeps its capital letter |
+| Module (of a Course) | chương | a Course reads "Khóa học → Chương → Bài học": "Chương 01", not "Module 01" |
+| Lesson | bài học | |
 | Assignment | bài tập | |
 | Quiz | bài trắc nghiệm | |
 | Assessment (Quiz or Assignment) | bài đánh giá | |

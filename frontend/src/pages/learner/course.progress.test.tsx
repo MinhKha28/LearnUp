@@ -28,7 +28,7 @@ const progress = vi.mocked(fetchEnrollmentProgress);
 const assessments = vi.mocked(fetchLearnerAssessmentsAPI);
 const deviceTimezone = process.env.TZ;
 const refreshNotice = "Chưa cập nhật được tiến độ mới nhất. Đang hiển thị dữ liệu lần tải trước.";
-const heading = "Tiến độ hoàn thành Khóa học";
+const heading = "Tiến độ hoàn thành khóa học";
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -133,7 +133,7 @@ describe("UC28 real progress page", () => {
     mount();
     await screen.findByText("Điều kiện hoàn thành: 1/4 đã đạt");
     await waitFor(() => expect(curriculum).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole("heading", { name: "Tiến độ hoàn thành Khóa học" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Tiến độ hoàn thành khóa học" })).toBeTruthy();
     expect(screen.queryByText("An toàn lao động")).toBeNull();
   });
 
@@ -141,8 +141,8 @@ describe("UC28 real progress page", () => {
     const { container } = mount();
     await screen.findByText("Điều kiện hoàn thành: 1/4 đã đạt");
     await screen.findByText("Đạt điểm yêu cầu: Kiểm tra an toàn");
-    const assessmentSection = screen.getByRole("region", { name: "Bài trắc nghiệm và Bài tập" });
-    expect(within(assessmentSection).getByRole("heading", { name: "Bài trắc nghiệm và Bài tập" })).toBeTruthy();
+    const assessmentSection = screen.getByRole("region", { name: "Bài trắc nghiệm và bài tập" });
+    expect(within(assessmentSection).getByRole("heading", { name: "Bài trắc nghiệm và bài tập" })).toBeTruthy();
     const missing = screen.getByRole("region", { name: "Điều kiện còn thiếu" });
     expect(within(missing).getAllByRole("listitem")).toHaveLength(3);
     expect(
@@ -173,7 +173,7 @@ describe("UC28 real progress page", () => {
     };
     progress.mockResolvedValueOnce(degraded).mockResolvedValue(fixture());
     mount();
-    await screen.findByText("Chưa tải được thông tin Bài trắc nghiệm và Bài tập");
+    await screen.findByText("Chưa tải được thông tin bài trắc nghiệm và bài tập");
     expect(
       screen.getByRole("region", { name: "Học liệu" }).textContent,
     ).toContain("Đọc tài liệu an toàn");
@@ -201,7 +201,7 @@ describe("UC28 real progress page", () => {
     ).toBe("/learner/certificates");
     expect(
       screen
-        .getByRole("link", { name: "Đánh giá Khóa học" })
+        .getByRole("link", { name: "Đánh giá khóa học" })
         .getAttribute("href"),
     ).toBe("/learner/courses/enrollment/evaluation");
     expect(
@@ -216,7 +216,7 @@ describe("UC28 real progress page", () => {
       403,
       "Khóa học đang tạm dừng, bạn chưa thể truy cập nội dung",
     ],
-    ["ENROLLMENT_NOT_FOUND", 404, "Không tìm thấy Khóa học"],
+    ["ENROLLMENT_NOT_FOUND", 404, "Không tìm thấy khóa học"],
   ] as const) {
     it(`reuses curriculum error mapping for ${code}`, async () => {
       progress.mockRejectedValue(new ApiError(status, code, ""));
@@ -276,7 +276,7 @@ describe("UC28 real progress page", () => {
 
   it.each([
     [403, "CONTENT_UNAVAILABLE", "Khóa học đang tạm dừng, bạn chưa thể truy cập nội dung"],
-    [404, "ENROLLMENT_NOT_FOUND", "Không tìm thấy Khóa học"],
+    [404, "ENROLLMENT_NOT_FOUND", "Không tìm thấy khóa học"],
   ] as const)("replaces an existing snapshot when refresh returns %s", async (status, code, text) => {
     const pending = deferred<EnrollmentProgress>();
     progress.mockResolvedValueOnce(fixture())

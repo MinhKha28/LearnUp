@@ -35,9 +35,9 @@ describe("PromptFileField", () => {
   it("shows the limit of the API and refuses a file one byte over it, in Vietnamese, without uploading", async () => {
     vi.mocked(api.getPromptFileLimitAPI).mockResolvedValue({ statusCode: 200, data: { maxFileBytes: 10 * MiB } } as never);
     render(<PromptFileField value={null} onChange={vi.fn()} />);
-    await screen.findByText(/tối đa 10.0 MB/);
+    await screen.findByText(/tối đa 10 MB/);
     pick("big.pdf", 10 * MiB + 1);
-    await screen.findByText("Tệp quá lớn. Dung lượng tối đa là 10.0 MB.");
+    await screen.findByText("Tệp quá lớn. Dung lượng tối đa là 10 MB.");
     expect(api.uploadPromptFileAPI).not.toHaveBeenCalled();
   });
 
@@ -49,7 +49,7 @@ describe("PromptFileField", () => {
     } as never);
     const onChange = vi.fn();
     render(<PromptFileField value={null} onChange={onChange} />);
-    await screen.findByText(/tối đa 10.0 MB/);
+    await screen.findByText(/tối đa 10 MB/);
     pick("edge.pdf", 10 * MiB);
     await waitFor(() => expect(api.uploadPromptFileAPI).toHaveBeenCalledTimes(1));
   });
@@ -57,7 +57,7 @@ describe("PromptFileField", () => {
   it("refuses another type with a Vietnamese message", async () => {
     vi.mocked(api.getPromptFileLimitAPI).mockResolvedValue({ statusCode: 200, data: { maxFileBytes: 10 * MiB } } as never);
     render(<PromptFileField value={null} onChange={vi.fn()} />);
-    await screen.findByText(/tối đa 10.0 MB/);
+    await screen.findByText(/tối đa 10 MB/);
     pick("virus.exe", 1000);
     await screen.findByText("Chỉ nhận tệp PDF, DOCX hoặc ZIP.");
     expect(api.uploadPromptFileAPI).not.toHaveBeenCalled();

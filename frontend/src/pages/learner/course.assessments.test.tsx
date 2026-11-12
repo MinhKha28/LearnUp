@@ -202,13 +202,13 @@ describe("the list of assessments", () => {
           status: "Completed",
           attempts: attempts({
             remainingAttempts: 0,
-            lockedUntil: "2026-11-05T12:00:00.000Z",
+            lockedUntil: "2026-11-05T23:45:00.000Z",
           }),
         }),
       ]),
     );
     open();
-    expect(await screen.findByText(/Mở lại/)).toBeTruthy();
+    expect(await screen.findByText("Mở lại 06/11/2026 06:45")).toBeTruthy();
     const button = screen
       .getByText("Đang tạm khóa")
       .closest("button") as HTMLButtonElement;
@@ -279,4 +279,15 @@ describe("the list of assessments", () => {
       await screen.findByText("Khóa học này chưa có bài đánh giá nào."),
     ).toBeTruthy();
   });
+});
+
+it.each([
+  ["NOT_ENROLLED", "Bạn chưa đăng ký khóa học này."],
+  ["NEW_CODE", "Không tải được danh sách bài đánh giá."],
+  [undefined, "Không tải được danh sách bài đánh giá."],
+])("shows a Vietnamese assessment load error for %s", async (code, expected) => {
+  list.mockResolvedValueOnce({ error: { code, message: "Internal English text" } } as never);
+  open();
+  await screen.findByText(expected);
+  expect(screen.queryByText("Internal English text")).toBeNull();
 });

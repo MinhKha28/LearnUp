@@ -1,4 +1,3 @@
-import { Alert } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   LearnerEmptyState,
@@ -13,10 +12,10 @@ import {
 } from "@/components/learner/learner.ui";
 import { LearningError } from "@/components/learner/learning.error";
 import { useApiQuery } from "@/hooks/use.api.query";
+import { formatPercentageVN } from "@/utils/number.format";
 import { fetchAssessmentResults } from "@/services/learning.service";
 import {
   attemptsLine,
-  formatResultScore,
   formatResultTime,
   gapText,
   kindLabel,
@@ -28,6 +27,7 @@ import {
 } from "@/utils/assessment.results";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import "./course.results.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 /** UC28.1 — the scores of the Quizzes and Assignments done in a Course, set against the passing scores. */
 const CourseResults = () => {
@@ -66,7 +66,7 @@ const CourseResults = () => {
     return (
       <>
         {header}
-        <Alert
+        <VietnameseAlert
           type="warning"
           showIcon
           message="Chưa lấy được kết quả bài đánh giá"
@@ -77,7 +77,7 @@ const CourseResults = () => {
             Thử lại
           </LearnerButton>
           <LearnerButton onClick={toAssessments}>
-            Về danh sách bài đánh giá
+            Quay lại danh sách bài đánh giá
           </LearnerButton>
         </div>
       </>
@@ -145,11 +145,10 @@ const CourseResults = () => {
                   <span className="course-results-number">
                     {item.recordedScore === null
                       ? "-"
-                      : formatResultScore(item.recordedScore)}
-                    <small> / 100</small>
+                      : formatPercentageVN(item.recordedScore)}
                   </span>
                   <span className="course-results-passing">
-                    Điểm đạt: {formatResultScore(item.passingScore)}
+                    Điểm đạt: {formatPercentageVN(item.passingScore)}
                   </span>
                 </div>
                 <div
@@ -157,8 +156,8 @@ const CourseResults = () => {
                   role="img"
                   aria-label={
                     item.recordedScore === null
-                      ? `Chưa có điểm, điểm đạt ${formatResultScore(item.passingScore)}`
-                      : `Điểm ${formatResultScore(item.recordedScore)}, điểm đạt ${formatResultScore(item.passingScore)}`
+                      ? `Chưa có điểm, điểm đạt ${formatPercentageVN(item.passingScore)}`
+                      : `Điểm ${formatPercentageVN(item.recordedScore)}, điểm đạt ${formatPercentageVN(item.passingScore)}`
                   }
                 >
                   <span
@@ -189,13 +188,13 @@ const CourseResults = () => {
         </div>
 
         <InfoPanel title="Cách tính điểm">
-          Bài trắc nghiệm lấy điểm của lượt làm cao nhất; bài tập lấy điểm của lần
+          Bài trắc nghiệm lấy điểm từ lượt có điểm cao nhất; bài tập lấy điểm của lần
           nộp gần nhất sau khi giảng viên chốt. Bài chưa có điểm là "chờ kết
           quả", không phải "chưa đạt".
         </InfoPanel>
         <div className="course-results-actions">
           <LearnerButton onClick={toAssessments}>
-            Về danh sách bài đánh giá
+            Quay lại danh sách bài đánh giá
           </LearnerButton>
         </div>
       </div>

@@ -39,7 +39,7 @@ const ErrorPage = ({
   return (
     <div className="error-page">
       <header className="error-page-header">
-        <Link className="error-page-logo" to="/" aria-label="LearnUP home">
+        <Link className="error-page-logo" to="/" aria-label="Trang chủ LearnUP">
           <img src="/logo/learnup-logo-dark.png" alt="LearnUP" />
         </Link>
         <div className="error-page-header-right">{headerRight}</div>
@@ -69,7 +69,7 @@ const ErrorPage = ({
       </main>
       <footer className="error-page-footer">
         <span>© {new Date().getFullYear()} LearnUP</span>
-        <span>Organization training management</span>
+        <span>Quản lý đào tạo cho tổ chức</span>
       </footer>
     </div>
   );

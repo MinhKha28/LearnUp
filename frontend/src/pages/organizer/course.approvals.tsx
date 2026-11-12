@@ -1,4 +1,4 @@
-import { Alert, Table } from "antd";
+import { Table } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -11,6 +11,9 @@ import {
 } from "@/components/organizer/organizer.ui";
 import { fetchOrganizationCoursesAPI } from "@/services/course.service";
 import type { IOrganizationCourseListItem } from "@/types/course.types";
+import { courseTypeText } from "@/utils/organizer.labels";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const isSuccess = (statusCode: unknown) => {
   const status = Number(statusCode);
@@ -45,7 +48,7 @@ const CourseApprovals = () => {
       ) {
         setCourses([]);
         setTotal(0);
-        setErrorMessage("Unable to load pending approval Courses.");
+        setErrorMessage("Không thể tải danh sách khóa học chờ phê duyệt.");
         return;
       }
 
@@ -55,7 +58,7 @@ const CourseApprovals = () => {
     } catch {
       setCourses([]);
       setTotal(0);
-      setErrorMessage("Course Service is unavailable.");
+      setErrorMessage("Tạm thời không thể truy cập thông tin khóa học.");
     } finally {
       setLoading(false);
     }
@@ -67,38 +70,38 @@ const CourseApprovals = () => {
 
   const columns: ColumnsType<IOrganizationCourseListItem> = [
     {
-      title: "Course",
+      title: "Khóa học",
       dataIndex: "name",
       render: (name: string, item) => (
         <div>
           <strong>{name}</strong>
-          <div>Version {item.versionNumber}</div>
+          <div>Phiên bản {item.versionNumber}</div>
         </div>
       ),
     },
     {
-      title: "Instructor",
+      title: "Giảng viên",
       dataIndex: "instructor",
       render: (value: IOrganizationCourseListItem["instructor"]) =>
         value?.fullName ?? "—",
     },
     {
-      title: "Submitted",
+      title: "Ngày gửi phê duyệt",
       dataIndex: "submittedAt",
       render: (value: string | null) =>
-        value ? new Date(value).toLocaleDateString("en-GB") : "—",
+        value ? new Date(value).toLocaleDateString("vi-VN") : "—",
     },
     {
-      title: "Type",
+      title: "Loại",
       dataIndex: "courseType",
       render: (type: IOrganizationCourseListItem["courseType"]) => (
         <StatusTag tone={type === "Public" ? "info" : "neutral"}>
-          {type}
+          {courseTypeText(type)}
         </StatusTag>
       ),
     },
     {
-      title: "Action",
+      title: "Thao tác",
       align: "right",
       render: (_, item) => (
         <button
@@ -108,7 +111,7 @@ const CourseApprovals = () => {
             navigate(`/organizer/courses/${encodeURIComponent(item.id)}/review`)
           }
         >
-          Review
+          Xem xét
         </button>
       ),
     },
@@ -123,37 +126,38 @@ const CourseApprovals = () => {
   return (
     <OrganizerPage className="organizer-course-approvals">
       <PageHeader
-        title="Courses Awaiting Approval"
-        subtitle="Review Courses currently in Submitted status."
+        title="Khóa học chờ phê duyệt"
+        subtitle="Xem xét các khóa học đang chờ phê duyệt."
         actions={
           <Link to="/organizer/courses">
-            <OrganizerButton>All Courses</OrganizerButton>
+            <OrganizerButton>Tất cả khóa học</OrganizerButton>
           </Link>
         }
       />
 
       {errorMessage && (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={errorMessage}
           action={
             <OrganizerButton size="small" onClick={() => void loadCourses()}>
-              Retry
+              Thử lại
             </OrganizerButton>
           }
         />
       )}
 
-      <SectionCard title={`${total} submitted Courses`}>
+      <SectionCard title={`${total} khóa học chờ phê duyệt`}>
         <Table
           rowKey="id"
           className="organizer-table"
           columns={columns}
           dataSource={courses}
           loading={loading}
-          locale={{ emptyText: "No Courses awaiting approval." }}
+          locale={{ emptyText: "Không có khóa học nào chờ phê duyệt." }}
           pagination={{
+            itemRender: vietnamesePageItem,
             current,
             pageSize,
             total,

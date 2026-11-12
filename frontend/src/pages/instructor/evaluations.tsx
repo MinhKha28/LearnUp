@@ -13,41 +13,41 @@ const Evaluations = () => {
   const summary = courseEvaluationSummary;
 
   const columns: ColumnsType<IEvaluationCriterionSummary> = [
-    { title: "Criterion", dataIndex: "label", render: (value) => <strong>{value}</strong> },
-    { title: "Average rating", dataIndex: "averageLabel" },
-    { title: "Previous version", dataIndex: "previousVersionLabel" },
-    { title: "Participation", dataIndex: "participationLabel" },
+    { title: "Tiêu chí", dataIndex: "label", render: (value) => <strong>{value}</strong> },
+    { title: "Điểm đánh giá trung bình", dataIndex: "averageLabel" },
+    { title: "Phiên bản trước", dataIndex: "previousVersionLabel" },
+    { title: "Tỷ lệ tham gia", dataIndex: "participationLabel" },
   ];
 
   return (
     <InstructorPage className="instructor-evaluations">
       <PageHeader
-        eyebrow="INSTRUCTOR"
-        title="Course Evaluation Results"
-        subtitle="Anonymous feedback for your own Course versions."
+        eyebrow="Giảng viên"
+        title="Kết quả đánh giá khóa học"
+        subtitle="Phản hồi ẩn danh về các phiên bản khóa học bạn phụ trách."
         actions={
           <InstructorButton type="primary" onClick={() => navigate("/instructor/evaluations/export")}>
-            Export evaluation
+            Xuất kết quả đánh giá
           </InstructorButton>
         }
       />
       <SectionCard className="instructor-evaluation-summary">
         <div>
-          <span>Course</span>
+          <span>Khóa học</span>
           <strong>{summary.courseTitle}</strong>
         </div>
         <div>
-          <span>Version</span>
+          <span>Phiên bản</span>
           <strong>{summary.version}</strong>
         </div>
         <div>
-          <span>Completed evaluations</span>
+          <span>Lượt đánh giá đã hoàn tất</span>
           <strong>
             {summary.completedLabel} / {summary.eligibleLabel}
           </strong>
         </div>
       </SectionCard>
-      <SectionCard title="Fixed evaluation criteria">
+      <SectionCard title="Bộ tiêu chí đánh giá cố định">
         <Table
           className="instructor-table"
           columns={columns}
@@ -57,7 +57,7 @@ const Evaluations = () => {
         />
         <div className="instructor-evaluation-comments-link">
           <InstructorButton onClick={() => navigate("/instructor/evaluations/comments")}>
-            View anonymous comments
+            Xem nhận xét ẩn danh
           </InstructorButton>
         </div>
       </SectionCard>

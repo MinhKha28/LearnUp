@@ -1,4 +1,4 @@
-import { Alert, Button, Table } from "antd";
+import { Button, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { ReactNode } from "react";
 import { StatusTag } from "@/components/organizer/organizer.ui";
@@ -8,13 +8,15 @@ import type {
 } from "@/types/organization.types";
 import { formatDateVN } from "@/utils/helper";
 import "./account.table.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const ACCOUNT_PAGE_SIZES = [10, 20, 50];
 
 export const statusLabel: Record<AccountStatus, string> = {
-  Active: "Active",
-  Pending: "Pending activation",
-  Deactivated: "Deactivated",
+  Active: "Đang hoạt động",
+  Pending: "Chờ kích hoạt",
+  Deactivated: "Đã vô hiệu hóa",
 };
 
 const statusTone = (status: AccountStatus) =>
@@ -56,31 +58,31 @@ const AccountTable = <T extends IAccountListItem>({
 }) => {
   if (error) {
     return (
-      <Alert
+      <VietnameseAlert
         className="account-table-error"
         type="error"
         showIcon
-        message={`Could not load ${itemLabel}.`}
-        description="Please check your connection and try again."
-        action={<Button onClick={onRetry}>Try again</Button>}
+        message={`Không thể tải danh sách ${itemLabel.toLowerCase()}.`}
+        description="Vui lòng kiểm tra kết nối và thử lại."
+        action={<Button onClick={onRetry}>Thử lại</Button>}
       />
     );
   }
 
   const columns: ColumnsType<T> = [
     {
-      title: "Full name",
+      title: "Họ và tên",
       dataIndex: "fullName",
       render: (fullName: string) => <strong>{fullName}</strong>,
     },
     { title: "Email", dataIndex: "email" },
     {
-      title: "Work unit",
+      title: "Đơn vị công tác",
       dataIndex: "department",
       render: (department: string | null) => department || "—",
     },
     {
-      title: "Status",
+      title: "Trạng thái",
       dataIndex: "status",
       render: (_, item) => (
         <div className="account-table-status">
@@ -88,19 +90,19 @@ const AccountTable = <T extends IAccountListItem>({
             {statusLabel[item.status]}
           </StatusTag>
           {item.status === "Pending" && item.invitationExpired && (
-            <StatusTag tone="error">Invitation expired</StatusTag>
+            <StatusTag tone="error">Lời mời đã hết hạn</StatusTag>
           )}
         </div>
       ),
     },
     ...extraColumns,
     {
-      title: "Created",
+      title: "Ngày tạo",
       dataIndex: "createdAt",
       render: (createdAt: string) => formatDateVN(createdAt),
     },
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       align: "right",
       render: (_, item) => renderActions?.(item) ?? null,
@@ -117,12 +119,13 @@ const AccountTable = <T extends IAccountListItem>({
       locale={{ emptyText }}
       scroll={{ x: "max-content" }}
       pagination={{
+        itemRender: vietnamesePageItem,
         current: page,
         pageSize,
         total,
         showSizeChanger: true,
         pageSizeOptions: ACCOUNT_PAGE_SIZES.map(String),
-        showTotal: (count) => `${count} ${itemLabel}`,
+        showTotal: (count) => `${count} ${itemLabel.toLowerCase()}`,
         position: ["bottomRight"],
         onChange: (nextPage, nextPageSize) =>
           // Đổi số dòng mỗi trang thì quay về trang 1.

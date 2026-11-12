@@ -28,9 +28,9 @@ const MonitoringFilters = () => {
   return (
     <InstructorPage className="instructor-monitoring-filters">
       <PageHeader
-        eyebrow="INSTRUCTOR"
-        title="Filter Course Monitoring"
-        subtitle="Narrow results to the people and Courses you own."
+        eyebrow="Giảng viên"
+        title="Lọc thông tin theo dõi học tập"
+        subtitle="Lọc kết quả theo học viên và khóa học bạn phụ trách."
         back
       />
       <SectionCard>
@@ -42,21 +42,21 @@ const MonitoringFilters = () => {
           onFinish={submit}
         >
           <div className="instructor-monitoring-filters-grid">
-            <Form.Item label="Course" name="courseTitle">
+            <Form.Item label="Khóa học" name="courseTitle">
               <Select
                 allowClear
-                placeholder="All Courses"
+                placeholder="Tất cả khóa học"
                 options={monitoringCourseOptions().map((title) => ({ value: title, label: title }))}
               />
             </Form.Item>
-            <Form.Item label="Learner" name="learnerName">
+            <Form.Item label="Học viên" name="learnerName">
               <Select
                 allowClear
-                placeholder="All Learners"
+                placeholder="Tất cả học viên"
                 options={monitoringLearnerOptions().map((name) => ({ value: name, label: name }))}
               />
             </Form.Item>
-            <Form.Item label="Enrollment type" name="enrollmentType">
+            <Form.Item label="Hình thức đăng ký học" name="enrollmentType">
               <Select
                 allowClear
                 placeholder="Required / Optional"
@@ -66,25 +66,25 @@ const MonitoringFilters = () => {
                 ]}
               />
             </Form.Item>
-            <Form.Item label="Completion status" name="completionStatus">
+            <Form.Item label="Trạng thái hoàn thành" name="completionStatus">
               <Select
                 allowClear
-                placeholder="All statuses"
+                placeholder="Tất cả trạng thái"
                 options={[
-                  { value: "Not started", label: "Not started" },
-                  { value: "In progress", label: "In progress" },
-                  { value: "Completed", label: "Completed" },
+                  { value: "Not started", label: "Chưa bắt đầu" },
+                  { value: "In progress", label: "Đang học" },
+                  { value: "Completed", label: "Hoàn thành" },
                 ]}
               />
             </Form.Item>
           </div>
-          <InfoPanel title="Scope">
-            Reports do not include Courses assigned to other Instructors.
+          <InfoPanel title="Phạm vi">
+            Báo cáo không bao gồm khóa học do giảng viên khác phụ trách.
           </InfoPanel>
           <div className="instructor-monitoring-filters-actions">
-            <InstructorButton onClick={reset}>Reset</InstructorButton>
+            <InstructorButton onClick={reset}>Đặt lại</InstructorButton>
             <InstructorButton type="primary" htmlType="submit">
-              Apply filters
+              Áp dụng bộ lọc
             </InstructorButton>
           </div>
         </Form>

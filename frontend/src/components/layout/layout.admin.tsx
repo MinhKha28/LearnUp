@@ -3,6 +3,7 @@ import {
   CreditCardOutlined,
   DashboardOutlined,
   ExclamationCircleOutlined,
+  FileSearchOutlined,
   LockOutlined,
   LogoutOutlined,
   MenuOutlined,
@@ -35,43 +36,48 @@ type MenuItem = Required<MenuProps>["items"][number];
 const adminMenuItems: MenuItem[] = [
   {
     type: "group",
-    label: "OVERVIEW",
+    label: "Tổng quan",
     children: [
-      { key: "/admin", icon: <DashboardOutlined />, label: "Dashboard" },
+      { key: "/admin", icon: <DashboardOutlined />, label: "Tổng quan" },
     ],
   },
   {
     type: "group",
-    label: "PLATFORM",
+    label: "Nền tảng",
     children: [
       {
         key: "/admin/organizations",
         icon: <TeamOutlined />,
-        label: "Organizations",
+        label: "Tổ chức",
       },
-      { key: "/admin/plans", icon: <CreditCardOutlined />, label: "Plans" },
+      { key: "/admin/plans", icon: <CreditCardOutlined />, label: "Gói dịch vụ" },
       {
         key: "/admin/configuration",
         icon: <SettingOutlined />,
-        label: "Configuration",
+        label: "Cấu hình",
       },
       {
         key: "/admin/statistics",
         icon: <BarChartOutlined />,
-        label: "Platform statistics",
+        label: "Thống kê nền tảng",
+      },
+      {
+        key: "/admin/audit-logs",
+        icon: <FileSearchOutlined />,
+        label: "Nhật ký nền tảng",
       },
     ],
   },
   {
     type: "group",
-    label: "MODERATION",
+    label: "Kiểm duyệt",
     children: [
       {
         key: "/admin/reports",
         icon: <ExclamationCircleOutlined />,
         label: (
           <span className="admin-menu-label">
-            Escalated Reports <Badge count={2} />
+            Báo cáo đã chuyển cấp <Badge count={2} />
           </span>
         ),
       },
@@ -80,7 +86,7 @@ const adminMenuItems: MenuItem[] = [
         icon: <StopOutlined />,
         label: (
           <span className="admin-menu-label">
-            Suspended Organizations <Badge count={2} />
+            Tổ chức bị tạm ngưng <Badge count={2} />
           </span>
         ),
       },
@@ -88,37 +94,40 @@ const adminMenuItems: MenuItem[] = [
   },
   {
     type: "group",
-    label: "ACCOUNT",
+    label: "Tài khoản",
     children: [
-      { key: "/admin/profile", icon: <UserOutlined />, label: "Profile" },
+      { key: "/admin/profile", icon: <UserOutlined />, label: "Hồ sơ" },
     ],
   },
 ];
 
 const getPageMeta = (pathname: string) => {
-  if (pathname === "/admin") return ["PLATFORM ADMIN", "Overview"];
+  if (pathname === "/admin") return ["Quản trị nền tảng", "Tổng quan"];
   if (pathname.includes("replace-organizer"))
-    return ["PLATFORM ADMIN", "Replace Organizer"];
+    return ["Quản trị nền tảng", "Thay Quản lý đào tạo"];
   if (pathname.includes("organizations/") && !pathname.includes("suspended"))
-    return ["PLATFORM ADMIN", "Organization detail"];
+    return ["Quản trị nền tảng", "Chi tiết tổ chức"];
   if (pathname.endsWith("plans/create"))
-    return ["PLATFORM ADMIN", "Create plan"];
+    return ["Quản trị nền tảng", "Tạo Gói dịch vụ"];
   if (pathname.includes("plans/") && pathname.endsWith("edit"))
-    return ["PLATFORM ADMIN", "Edit plan"];
-  if (pathname === "/admin/plans") return ["PLATFORM ADMIN", "Plans"];
-  if (pathname.includes("reports/")) return ["PLATFORM ADMIN", "Report detail"];
+    return ["Quản trị nền tảng", "Sửa Gói dịch vụ"];
+  if (pathname === "/admin/plans") return ["Quản trị nền tảng", "Gói dịch vụ"];
+  if (pathname.includes("reports/")) return ["Quản trị nền tảng", "Chi tiết báo cáo"];
   if (pathname === "/admin/reports")
-    return ["PLATFORM ADMIN", "Escalated Reports"];
+    return ["Quản trị nền tảng", "Báo cáo đã chuyển cấp"];
   if (pathname === "/admin/configuration")
-    return ["PLATFORM ADMIN", "Configuration"];
+    return ["Quản trị nền tảng", "Cấu hình"];
   if (pathname === "/admin/statistics")
-    return ["PLATFORM ADMIN", "Platform statistics"];
+    return ["Quản trị nền tảng", "Thống kê nền tảng"];
+  if (pathname === "/admin/audit-logs")
+    return ["Quản trị nền tảng", "Nhật ký nền tảng"];
   if (pathname === "/admin/suspended-organizations")
-    return ["PLATFORM ADMIN", "Suspended Organizations"];
+    return ["Quản trị nền tảng", "Tổ chức bị tạm ngưng"];
   if (pathname === "/admin/profile/change-password")
-    return ["PLATFORM ADMIN", "Change password"];
-  if (pathname === "/admin/profile") return ["PLATFORM ADMIN", "Profile"];
-  return ["PLATFORM ADMIN", "Organizations"];
+    return ["Quản trị nền tảng", "Đổi mật khẩu"];
+  if (pathname === "/admin/profile/edit") return ["Quản trị nền tảng", "Chỉnh sửa hồ sơ"];
+  if (pathname === "/admin/profile") return ["Quản trị nền tảng", "Hồ sơ"];
+  return ["Quản trị nền tảng", "Tổ chức"];
 };
 
 const LayoutAdmin = () => {
@@ -136,7 +145,7 @@ const LayoutAdmin = () => {
     return location.pathname;
   }, [location.pathname]);
 
-  const displayName = user?.fullName || "Rufus Lee";
+  const displayName = user?.fullName || "Quản trị viên";
   const initials = displayName
     .split(" ")
     .map((part) => part[0])
@@ -153,18 +162,18 @@ const LayoutAdmin = () => {
     {
       key: "profile",
       icon: <UserOutlined />,
-      label: <Link to="/admin/profile">Profile</Link>,
+      label: <Link to="/admin/profile">Hồ sơ</Link>,
     },
     {
       key: "password",
       icon: <LockOutlined />,
-      label: <Link to="/admin/profile/change-password">Change password</Link>,
+      label: <Link to="/admin/profile/change-password">Đổi mật khẩu</Link>,
     },
     { type: "divider" },
     {
       key: "logout",
       icon: <LogoutOutlined />,
-      label: "Sign out",
+      label: "Đăng xuất",
       danger: true,
       onClick: logout,
     },
@@ -172,7 +181,7 @@ const LayoutAdmin = () => {
 
   const navigation = (
     <>
-      <Link className="admin-brand" to="/admin" aria-label="LearnUP Admin home">
+      <Link className="admin-brand" to="/admin" aria-label="Trang chủ Quản trị viên LearnUP">
         <span className="admin-brand-mark">
           <SafetyCertificateOutlined />
         </span>
@@ -211,7 +220,7 @@ const LayoutAdmin = () => {
               type="text"
               icon={<MenuOutlined />}
               onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
+              aria-label="Mở menu điều hướng"
             />
             <div>
               <span className="admin-topbar-eyebrow">{eyebrow}</span>
@@ -219,7 +228,7 @@ const LayoutAdmin = () => {
             </div>
           </div>
           <div className="admin-topbar-actions">
-            <span className="admin-demo-badge">Demo data</span>
+            <span className="admin-demo-badge">Dữ liệu minh họa</span>
             <NotificationBell basePath="/admin" />
             <Dropdown
               menu={{ items: profileItems }}
@@ -230,7 +239,7 @@ const LayoutAdmin = () => {
                 <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
                 <span>
                   <strong>{displayName}</strong>
-                  <small>Platform Admin</small>
+                  <small>Quản trị viên</small>
                 </span>
               </button>
             </Dropdown>
@@ -241,7 +250,7 @@ const LayoutAdmin = () => {
         </Layout.Content>
         <Layout.Footer className="admin-footer">
           <span>LearnUP</span>
-          <span>Platform Administration</span>
+          <span>Quản trị nền tảng</span>
         </Layout.Footer>
       </Layout>
     </Layout>

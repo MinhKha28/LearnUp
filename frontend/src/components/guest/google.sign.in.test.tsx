@@ -19,7 +19,7 @@ describe("UC05.1 Google sign-in button", () => {
     vi.stubEnv("VITE_GOOGLE_CLIENT_ID", "");
     const html = renderToStaticMarkup(<GoogleSignIn onCredential={() => {}} onError={() => {}} />);
     expect(html).toContain("login-google");
-    expect(html).toContain("Continue with Google");
+    expect(html).toContain("Tiếp tục với Google");
     expect(html).not.toContain("login-google-gis");
   });
 
@@ -32,11 +32,11 @@ describe("UC05.1 Google sign-in button", () => {
 
   it("maps every UC05.1 error code to a user message without exposing technical detail", () => {
     expect(googleSignInMessage("GOOGLE_ACCOUNT_NOT_LINKED")).toBe(
-      "This Google email is not linked to an existing LearnUP account.",
+      "Email Google này chưa được liên kết với tài khoản LearnUP.",
     );
-    expect(googleSignInMessage("GOOGLE_SIGN_IN_NOT_ALLOWED")).toContain("email and password");
+    expect(googleSignInMessage("GOOGLE_SIGN_IN_NOT_ALLOWED")).toContain("email và mật khẩu");
     expect(googleSignInMessage("GOOGLE_CREDENTIAL_INVALID")).toBe(
-      "Google sign-in could not be verified. Please try again.",
+      "Không xác minh được đăng nhập bằng Google. Vui lòng thử lại.",
     );
     expect(googleSignInMessage("GOOGLE_SIGN_IN_UNAVAILABLE")).toBe(GOOGLE_UNAVAILABLE_MESSAGE);
   });

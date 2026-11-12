@@ -281,6 +281,21 @@ describe("UC31.1 giving a review", () => {
     );
   });
 
+  it("an unknown code on sending the review says the review was not sent", async () => {
+    vi.mocked(api.giveLearnerPeerReviewAPI).mockResolvedValue({
+      statusCode: 400,
+      error: { code: "NEW_CODE", message: "Internal English text" },
+    } as never);
+    renderPage();
+    await screen.findByText("Chấm bài: Essay");
+    fill("Argument", "7");
+    fill("Style", "4");
+    writeComment("Fine.");
+    submit();
+    await screen.findByText("Không gửi được bài chấm.");
+    expect(screen.queryByText("Internal English text")).toBeNull();
+  });
+
   it("shows what the server refused in a review it did not accept", async () => {
     vi.mocked(api.giveLearnerPeerReviewAPI).mockResolvedValue({
       statusCode: 400,
@@ -365,7 +380,7 @@ describe("UC31 reading a review that is done or closed", () => {
       detail({ state: "Closed", status: "Missed" }) as never,
     );
     renderPage();
-    await screen.findByText(/Instructor sẽ chấm bài nộp\./);
+    await screen.findByText(/Giảng viên sẽ chấm bài nộp\./);
     expect(screen.queryByRole("button", { name: "Gửi nhận xét" })).toBeNull();
   });
 
@@ -448,8 +463,9 @@ describe("UC31 reading a review that is done or closed", () => {
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => {});
     vi.mocked(api.downloadLearnerReviewFileAPI)
-      .mockResolvedValueOnce(new Blob(["x"]))
-      .mockResolvedValueOnce(null);
+      .mockResolvedValueOnce({ blob: new Blob(["x"]) })
+      .mockResolvedValueOnce({ blob: null })
+      .mockResolvedValueOnce({ blob: null, code: "REVIEW_FILE_NOT_FOUND" });
     renderPage();
     const button = await screen.findByText(/Tải bài làm đã nộp/);
     fireEvent.click(button);
@@ -457,6 +473,19 @@ describe("UC31 reading a review that is done or closed", () => {
     expect(api.downloadLearnerReviewFileAPI).toHaveBeenCalledWith("review-1");
     fireEvent.click(button);
     await screen.findByText("Không tải được tệp.");
+    fireEvent.click(button);
+    await screen.findByText("Bài nộp này không có tệp hoặc tệp không còn trên hệ thống.");
+    expect(click).toHaveBeenCalledTimes(1);
     click.mockRestore();
   });
+});
+
+it("uses its own Vietnamese message for an unknown review load error", async () => {
+  vi.mocked(api.fetchLearnerPeerReviewAPI).mockResolvedValueOnce({
+    statusCode: 400,
+    error: { code: "NEW_CODE", message: "Internal English text" },
+  } as never);
+  renderPage();
+  await screen.findByText("Không thể tải bài chấm này.");
+  expect(screen.queryByText("Internal English text")).toBeNull();
 });

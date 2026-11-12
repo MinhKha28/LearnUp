@@ -48,7 +48,7 @@ const CourseBuilderReadingAdd = () => {
       );
 
       if (!response.data) {
-        throw new Error("Unable to load Reading upload settings.");
+        throw new Error("Không thể tải cấu hình tải tài liệu đọc.");
       }
 
       return response.data;
@@ -65,7 +65,7 @@ const CourseBuilderReadingAdd = () => {
     if (!selected || !context || blocked) return;
 
     if (!context.allowedReadingMimeTypes.includes(selected.type)) {
-      message.error("Unsupported Reading format.");
+      message.error("Định dạng tài liệu đọc không được hỗ trợ.");
       return;
     }
 
@@ -73,12 +73,12 @@ const CourseBuilderReadingAdd = () => {
       selected.size <= 0 ||
       BigInt(selected.size) > BigInt(context.maxReadingSizeBytes)
     ) {
-      message.error("Reading file exceeds size limit.");
+      message.error("Tài liệu đọc vượt quá dung lượng cho phép.");
       return;
     }
 
     if (BigInt(selected.size) > BigInt(context.remainingStorageBytes)) {
-      message.error("Insufficient Subscription storage.");
+      message.error("Dung lượng lưu trữ của gói dịch vụ không đủ.");
       return;
     }
 
@@ -96,7 +96,7 @@ const CourseBuilderReadingAdd = () => {
     const normalizedTitle = title.trim();
 
     if (!normalizedTitle || normalizedTitle.length > 200) {
-      message.warning("Enter a valid Reading title.");
+      message.warning("Nhập tên tài liệu đọc hợp lệ.");
       return;
     }
 
@@ -107,7 +107,7 @@ const CourseBuilderReadingAdd = () => {
       BigInt(file.size) > BigInt(context.maxReadingSizeBytes) ||
       BigInt(file.size) > BigInt(context.remainingStorageBytes)
     ) {
-      message.error("Selected document does not satisfy upload limits.");
+      message.error("Tài liệu đã chọn không đáp ứng giới hạn tải lên.");
       return;
     }
 
@@ -134,7 +134,7 @@ const CourseBuilderReadingAdd = () => {
       );
 
       if (!response.data?.id) {
-        throw new Error("Reading was not saved.");
+        throw new Error("Không thể lưu tài liệu đọc.");
       }
 
       // BR-293: upload thành công nhưng không trích được chữ.
@@ -142,26 +142,26 @@ const CourseBuilderReadingAdd = () => {
         setWarning(response.data.extractionWarning);
         setFile(null);
         query.reload();
-        message.warning("Reading saved with 0 extracted words.");
+        message.warning("Đã lưu tài liệu nhưng không trích xuất được từ nào.");
         return;
       }
 
-      message.success(`Reading saved: ${response.data.wordCount} words.`);
+      message.success(`Đã lưu tài liệu đọc: ${response.data.wordCount} từ.`);
 
       navigate(listUrl, { replace: true });
     } catch (error) {
-      let errorMessage = "Unable to upload Reading.";
+      let errorMessage = "Không thể tải tài liệu đọc lên.";
 
       try {
         const apiError = toApiError(error);
 
         if (apiError.status === 403) {
           errorMessage =
-            "Subscription or Instructor permissions do not allow this upload.";
+            "Gói dịch vụ hoặc quyền giảng viên không cho phép tải tệp lên.";
         } else if (apiError.status === 409) {
-          errorMessage = "Course status or available storage has changed.";
+          errorMessage = "Trạng thái khóa học hoặc dung lượng lưu trữ đã thay đổi.";
         } else if (apiError.status === 413) {
-          errorMessage = "Reading exceeds the maximum allowed size.";
+          errorMessage = "Tài liệu đọc vượt quá dung lượng cho phép.";
         } else {
           errorMessage = apiError.message || errorMessage;
         }
@@ -192,13 +192,13 @@ const CourseBuilderReadingAdd = () => {
         <Alert
           type="error"
           showIcon
-          message="Unable to load Reading settings"
+          message="Không thể tải cấu hình tài liệu đọc"
         />
 
         <div className="builder-actions">
-          <InstructorButton onClick={query.reload}>Try again</InstructorButton>
+          <InstructorButton onClick={query.reload}>Thử lại</InstructorButton>
           <InstructorButton onClick={() => navigate(listUrl)}>
-            Back to Materials
+            Quay lại học liệu
           </InstructorButton>
         </div>
       </InstructorPage>
@@ -208,11 +208,11 @@ const CourseBuilderReadingAdd = () => {
   return (
     <InstructorPage className="builder-page">
       <span className="builder-crumb">
-        Course Builder / Learning Materials / Add Reading
+        Xây dựng khóa học / Học liệu / Thêm tài liệu đọc
       </span>
 
       <div className="builder-hero">
-        <h1>Add Reading Material</h1>
+        <h1>Thêm tài liệu đọc</h1>
         <p>
           {context.courseName} / {context.lessonTitle}
         </p>
@@ -222,13 +222,13 @@ const CourseBuilderReadingAdd = () => {
         <Alert
           type="warning"
           showIcon
-          message="Reading upload unavailable"
+          message="Không thể tải tài liệu đọc lên"
           description={
             context.blockReason === "SUBSCRIPTION_GRACE"
-              ? "Subscription is in Grace period."
+              ? "Gói dịch vụ đang trong thời gian ân hạn."
               : context.blockReason === "SUBSCRIPTION_SUSPENDED"
-                ? "Subscription is Suspended."
-                : "Course or Subscription does not allow uploads."
+                ? "Gói dịch vụ đang bị tạm ngừng."
+                : "Khóa học hoặc gói dịch vụ không cho phép tải tệp lên."
           }
           style={{ marginBottom: 20 }}
         />
@@ -238,8 +238,8 @@ const CourseBuilderReadingAdd = () => {
         <Alert
           type="info"
           showIcon
-          message="Course is Locked"
-          description="BR-286: New Reading materials must be Optional."
+          message="Khóa học đã khóa"
+          description="Theo BR-286, tài liệu đọc mới phải được đặt là không bắt buộc."
           style={{ marginBottom: 20 }}
         />
       )}
@@ -248,14 +248,14 @@ const CourseBuilderReadingAdd = () => {
         <Alert
           type="warning"
           showIcon
-          message="Reading saved with a warning"
+          message="Đã lưu tài liệu đọc nhưng có cảnh báo"
           description={
             <>
               <p>{warning}</p>
               <InstructorButton
                 onClick={() => navigate(listUrl, { replace: true })}
               >
-                View saved Reading
+                Xem tài liệu đọc đã lưu
               </InstructorButton>
             </>
           }
@@ -265,30 +265,30 @@ const CourseBuilderReadingAdd = () => {
 
       <div className="builder-grid">
         <div className="builder-update-card">
-          <h2>Reading information</h2>
+          <h2>Thông tin tài liệu đọc</h2>
 
-          <label className="instructor-form-label">Reading title</label>
+          <label className="instructor-form-label">Tên tài liệu đọc</label>
 
           <Input
             size="large"
             maxLength={200}
             showCount
-            placeholder="Enter Reading title"
+            placeholder="Nhập tên tài liệu đọc"
             value={title}
             disabled={blocked || saving || !!warning}
             onChange={(event) => setTitle(event.target.value)}
           />
 
           <label className="instructor-form-label instructor-form-label-spaced">
-            Reading document
+            Tệp tài liệu đọc
           </label>
 
           <label className="builder-upload-box">
-            <strong>{file ? file.name : "Choose PDF document"}</strong>
+            <strong>{file ? file.name : "Chọn tài liệu PDF"}</strong>
 
             <p>Supported: {context.allowedReadingMimeTypes.join(", ")}</p>
 
-            <p>Maximum size: {formatBytes(context.maxReadingSizeBytes)}</p>
+            <p>Dung lượng tối đa: {formatBytes(context.maxReadingSizeBytes)}</p>
 
             <input
               type="file"
@@ -308,7 +308,7 @@ const CourseBuilderReadingAdd = () => {
           )}
 
           <label className="instructor-form-label instructor-form-label-spaced">
-            Requirement
+            Yêu cầu
           </label>
 
           <Radio.Group
@@ -316,12 +316,12 @@ const CourseBuilderReadingAdd = () => {
             disabled={blocked || saving || context.locked || !!warning}
             onChange={(event) => setIsRequired(event.target.value === true)}
           >
-            <Radio value={true}>Required</Radio>
-            <Radio value={false}>Optional</Radio>
+            <Radio value={true}>Bắt buộc</Radio>
+            <Radio value={false}>Không bắt buộc</Radio>
           </Radio.Group>
 
           <p className="instructor-form-help">
-            Word count is calculated automatically by the backend after upload.
+            Hệ thống tự tính số từ sau khi tải tệp lên.
           </p>
 
           {saving && (
@@ -329,8 +329,8 @@ const CourseBuilderReadingAdd = () => {
               <Progress percent={progress} status="active" />
               <p>
                 {progress < 100
-                  ? "Uploading Reading..."
-                  : "Extracting text and saving Reading..."}
+                  ? "Đang tải tài liệu đọc lên..."
+                  : "Đang trích xuất văn bản và lưu tài liệu đọc..."}
               </p>
             </div>
           )}
@@ -340,7 +340,7 @@ const CourseBuilderReadingAdd = () => {
               disabled={saving}
               onClick={() => navigate(listUrl)}
             >
-              Cancel
+              Hủy
             </InstructorButton>
 
             <InstructorButton
@@ -349,24 +349,23 @@ const CourseBuilderReadingAdd = () => {
               disabled={blocked || !file || !title.trim() || !!warning}
               onClick={handleSave}
             >
-              Upload Reading
+              Tải tài liệu đọc lên
             </InstructorButton>
           </div>
         </div>
 
         <div className="builder-side">
           <section className="builder-update-card">
-            <h3>Reading guidelines</h3>
+            <h3>Quy định đối với tài liệu đọc</h3>
 
             <p>
-              Remaining storage: {formatBytes(context.remainingStorageBytes)}
+              Dung lượng còn lại: {formatBytes(context.remainingStorageBytes)}
             </p>
 
-            <p>Reading speed: {context.readingSpeedWordsPerMinute} words/min</p>
+            <p>Tốc độ đọc: {context.readingSpeedWordsPerMinute} từ/phút</p>
 
             <p>
-              Scanned documents without extractable text are saved with 0 words
-              and a warning.
+              Tài liệu scan không trích xuất được chữ sẽ được lưu với số từ bằng 0 kèm cảnh báo.
             </p>
           </section>
         </div>

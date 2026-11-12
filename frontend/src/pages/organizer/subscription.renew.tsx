@@ -1,4 +1,4 @@
-import { Alert, App, Button, Checkbox, Skeleton } from "antd";
+import { App, Button, Checkbox, Skeleton } from "antd";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -24,6 +24,7 @@ import {
   renewalTermNote,
 } from "@/utils/renewal.view";
 import "./subscription.renew.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const SubscriptionRenew = () => {
   const navigate = useNavigate();
@@ -52,9 +53,7 @@ const SubscriptionRenew = () => {
         }
       } catch {
         if (!ignore) {
-          setLoadError(
-            "Could not connect to the server. Please try again later.",
-          );
+          setLoadError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
         }
       }
     };
@@ -70,13 +69,13 @@ const SubscriptionRenew = () => {
     try {
       const res = await renewSubscriptionAPI(simulateFailure);
       if (res.data?.paymentStatus === "Succeeded") {
-        message.success("Payment succeeded. Your Subscription is renewed.");
+        message.success("Thanh toán thành công. Gói dịch vụ đã được gia hạn.");
         navigate("/organizer/subscription");
         return;
       }
       if (res.data?.paymentStatus === "Failed") {
         setPayError(
-          "The payment was declined and nothing changed. You can try again.",
+          "Thanh toán bị từ chối và chưa có gì thay đổi. Bạn có thể thử lại.",
         );
         return;
       }
@@ -88,7 +87,7 @@ const SubscriptionRenew = () => {
       }
       setReloadKey((key) => key + 1);
     } catch {
-      setPayError("Could not connect to the server. Please try again later.");
+      setPayError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setPaying(false);
     }
@@ -97,13 +96,13 @@ const SubscriptionRenew = () => {
   const renderBody = () => {
     if (loadError) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={loadError}
           action={
             <Button onClick={() => setReloadKey((key) => key + 1)}>
-              Try again
+              Thử lại
             </Button>
           }
         />
@@ -122,52 +121,53 @@ const SubscriptionRenew = () => {
     return (
       <>
         <div className="organizer-content-grid">
-          <SectionCard title="Renewal summary">
+          <SectionCard title="Tóm tắt gia hạn">
             <div className="organizer-detail-grid">
-              <DetailItem label="Current plan">
+              <DetailItem label="Gói hiện tại">
                 {quote.planName}
-                {!quote.planOffered && " (no longer offered to new customers)"}
+                {!quote.planOffered &&
+                  " (không còn cung cấp cho khách hàng mới)"}
               </DetailItem>
-              <DetailItem label="Renewal duration">
-                {quote.durationDays} days
+              <DetailItem label="Thời hạn gia hạn">
+                {quote.durationDays} ngày
               </DetailItem>
-              <DetailItem label="New term">
+              <DetailItem label="Kỳ mới">
                 {formatDateVN(quote.startsAt)} - {formatDateVN(quote.expiresAt)}
               </DetailItem>
-              <DetailItem label="Plan limits">
+              <DetailItem label="Giới hạn của gói">
                 {planLimitsLine(quote)}
               </DetailItem>
             </div>
           </SectionCard>
-          <SectionCard title="Payment">
+          <SectionCard title="Thanh toán">
             <div className="organizer-detail-grid">
-              <DetailItem label="Amount">{formatVnd(quote.price)}</DetailItem>
-              <DetailItem label="Payment service">
-                Mock Payment Service
+              <DetailItem label="Số tiền">{formatVnd(quote.price)}</DetailItem>
+              <DetailItem label="Dịch vụ thanh toán">
+                Dịch vụ thanh toán mô phỏng
               </DetailItem>
             </div>
             <p className="organizer-note">
-              No real invoice or real payment gateway is part of MVP.
+              Bản thử nghiệm chưa có hóa đơn thật hay cổng thanh toán thật.
             </p>
           </SectionCard>
         </div>
         {blocked ? (
-          <Alert
+          <VietnameseAlert
             type="info"
             showIcon
-            message="A renewal is already paid"
-            description={`The next term runs ${formatDateVN(quote.scheduledRenewal!.startsAt)} - ${formatDateVN(quote.scheduledRenewal!.expiresAt)}. You can renew again after it starts.`}
+            message="Đã có kỳ gia hạn được thanh toán"
+            description={`Kỳ tiếp theo từ ${formatDateVN(quote.scheduledRenewal!.startsAt)} đến ${formatDateVN(quote.scheduledRenewal!.expiresAt)}. Bạn có thể gia hạn tiếp sau khi kỳ đó bắt đầu.`}
           />
         ) : (
-          <WarningPanel title="When the new term starts">
+          <WarningPanel title="Khi nào kỳ mới bắt đầu">
             {renewalTermNote(quote.currentStatus)}
           </WarningPanel>
         )}
         {exceeded.length > 0 && (
-          <Alert
+          <VietnameseAlert
             type="warning"
             showIcon
-            message="Some new limits are below what you currently use"
+            message="Một số giới hạn mới thấp hơn mức bạn đang dùng"
             description={
               <>
                 <ul>
@@ -175,28 +175,29 @@ const SubscriptionRenew = () => {
                     <li key={line}>{line}</li>
                   ))}
                 </ul>
-                You can still renew and nothing is disabled or deleted, but you
-                cannot add more in these areas until usage is below the limit.
+                Bạn vẫn gia hạn được và không có gì bị vô hiệu hóa hay xóa,
+                nhưng bạn không thêm được ở các mục này cho tới khi mức dùng
+                thấp hơn giới hạn.
               </>
             }
           />
         )}
         {!quote.usageAvailable && (
-          <Alert
+          <VietnameseAlert
             type="info"
             showIcon
-            message="Course and storage usage could not be checked right now."
+            message="Hiện chưa kiểm tra được số khóa học và dung lượng đang dùng."
           />
         )}
         {payError && (
-          <Alert type="error" showIcon message={payError} role="alert" />
+          <VietnameseAlert type="error" showIcon message={payError} role="alert" />
         )}
         {import.meta.env.DEV && !blocked && (
           <Checkbox
             checked={simulateFailure}
             onChange={(event) => setSimulateFailure(event.target.checked)}
           >
-            Simulate a failed payment (development only)
+            Giả lập thanh toán thất bại (chỉ khi phát triển)
           </Checkbox>
         )}
         <div className="organizer-form-actions">
@@ -206,7 +207,7 @@ const SubscriptionRenew = () => {
             disabled={blocked || chargedNotApplied}
             onClick={pay}
           >
-            Pay {formatVnd(quote.price)} with mock payment
+            Thanh toán mô phỏng {formatVnd(quote.price)}
           </OrganizerButton>
         </div>
       </>
@@ -216,10 +217,12 @@ const SubscriptionRenew = () => {
   return (
     <OrganizerPage className="organizer-subscription-renew">
       <PageHeader
-        title="Renew Subscription"
-        subtitle="Renew the current plan through Mock Payment."
+        title="Gia hạn gói dịch vụ"
+        subtitle="Gia hạn gói hiện tại qua dịch vụ thanh toán mô phỏng."
         actions={
-          <OrganizerButton onClick={() => navigate(-1)}>Back</OrganizerButton>
+          <OrganizerButton onClick={() => navigate(-1)}>
+            Quay lại
+          </OrganizerButton>
         }
       />
       {renderBody()}

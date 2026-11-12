@@ -1,4 +1,4 @@
-import { Alert, App, Form, Input, Modal } from "antd";
+import { App, Form, Input, Modal } from "antd";
 import { useState } from "react";
 import { OrganizerButton } from "@/components/organizer/organizer.ui";
 import { deleteLearnerAPI } from "@/services/organization.service";
@@ -8,6 +8,7 @@ import {
   learnerDeleteShouldLeavePage,
 } from "@/utils/learner.delete.view";
 import "./learner.delete.button.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 interface LearnerDeleteButtonProps {
   learnerId: string;
@@ -51,10 +52,10 @@ export const LearnerDeleteButton = ({
       const result = res.data;
       if (result) {
         if (!result.changed) {
-          message.info(`${fullName} was already deleted.`);
+          message.info(`${fullName} đã bị xóa trước đó.`);
         } else {
           message.success(
-            `${fullName} was deleted. ${result.seats.remaining} of ${result.seats.max} learner seat(s) available.`,
+            `Đã xóa ${fullName}. Còn ${result.seats.remaining} trên ${result.seats.max} suất học viên.`,
           );
         }
         close();
@@ -70,7 +71,7 @@ export const LearnerDeleteButton = ({
       }
       setSubmitError(learnerDeleteErrorMessage(code));
     } catch {
-      setSubmitError("Could not connect to the server. Please try again later.");
+      setSubmitError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setSubmitting(false);
     }
@@ -79,14 +80,14 @@ export const LearnerDeleteButton = ({
   return (
     <>
       <OrganizerButton danger onClick={() => setOpen(true)}>
-        Delete
+        Xóa
       </OrganizerButton>
       <Modal
         open={open}
-        title="Delete learner?"
-        okText="Delete"
+        title="Xóa học viên?"
+        okText="Xóa"
         okButtonProps={{ danger: true, loading: submitting }}
-        cancelText="Cancel"
+        cancelText="Hủy"
         onOk={() => form.submit()}
         onCancel={close}
         destroyOnClose
@@ -94,16 +95,16 @@ export const LearnerDeleteButton = ({
         <Form<DeleteForm> form={form} layout="vertical" onFinish={submit}>
           <p>
             {status === "Pending"
-              ? `${fullName} has not activated the account yet. The invitation link stops working and the seat is released.`
-              : `${fullName} will no longer be able to sign in and the seat is released.`}{" "}
-            Training records and issued certificates are kept. This cannot be
-            undone; the email can be used for a new account afterwards.
+              ? `${fullName} chưa kích hoạt tài khoản. Liên kết mời sẽ hết hiệu lực và suất tài khoản sẽ được giải phóng.`
+              : `${fullName} sẽ không thể đăng nhập và suất tài khoản sẽ được giải phóng.`}{" "}
+            Dữ liệu đào tạo và chứng chỉ đã cấp vẫn được giữ lại. Thao tác này không
+            thể hoàn tác; sau đó email có thể dùng cho tài khoản mới.
           </p>
-          <Form.Item name="reason" label="Reason (optional)">
+          <Form.Item name="reason" label="Lý do (không bắt buộc)">
             <Input.TextArea rows={3} maxLength={1000} showCount />
           </Form.Item>
           {submitError && (
-            <Alert
+            <VietnameseAlert
               className="learner-delete-error"
               type="error"
               showIcon

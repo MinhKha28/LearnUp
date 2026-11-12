@@ -3,12 +3,13 @@ import { Modal } from "antd";
 import { useNavigate } from "react-router-dom";
 import { contentReports, type IContentReport } from "@/components/learner/learner.data";
 import { LearnerButton, LearnerPage, PageHeader } from "@/components/learner/learner.ui";
+import { reportContentTypeLabel, reportDecisionLabel } from "@/components/learner/report.labels";
 import "./reports.scss";
 
 const statusLabel: Record<IContentReport["status"], string> = {
-  pending: "Pending",
-  dismissed: "Dismissed",
-  resolved: "Resolved",
+  pending: "Chờ xem xét",
+  dismissed: "Đã bác bỏ",
+  resolved: "Đã xử lý",
 };
 
 const Reports = () => {
@@ -18,19 +19,18 @@ const Reports = () => {
   return (
     <LearnerPage className="learner-reports">
       <PageHeader
-        eyebrow="LEARNER"
-        title="My Reports"
-        subtitle="Track the reports you submitted and their decisions."
+        title="Báo cáo của tôi"
+        subtitle="Theo dõi các báo cáo đã gửi và quyết định xử lý."
       />
       <div className="learner-reports-card">
         <table className="learner-reports-table">
           <thead>
             <tr>
-              <th>Reported item</th>
-              <th>Submitted</th>
-              <th>Status</th>
-              <th>Decision</th>
-              <th>Action</th>
+              <th>Nội dung được báo cáo</th>
+              <th>Ngày gửi</th>
+              <th>Trạng thái</th>
+              <th>Quyết định</th>
+              <th>Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -41,15 +41,15 @@ const Reports = () => {
                 </td>
                 <td>{report.submittedDate}</td>
                 <td>{statusLabel[report.status]}</td>
-                <td>{report.decision ?? "—"}</td>
+                <td>{report.decision ? reportDecisionLabel[report.decision] : "—"}</td>
                 <td>
                   <div className="learner-reports-actions">
-                    <LearnerButton onClick={() => setViewing(report)}>View report</LearnerButton>
+                    <LearnerButton onClick={() => setViewing(report)}>Xem báo cáo</LearnerButton>
                     {report.status === "dismissed" && (
                       <LearnerButton
                         onClick={() => navigate(`/learner/reports/${report.id}/escalate`)}
                       >
-                        Escalate
+                        Chuyển cấp xử lý
                       </LearnerButton>
                     )}
                   </div>
@@ -58,7 +58,7 @@ const Reports = () => {
             ))}
             {contentReports.length === 0 && (
               <tr>
-                <td colSpan={5}>You have not submitted any content reports yet.</td>
+                <td colSpan={5}>Bạn chưa gửi báo cáo nội dung nào.</td>
               </tr>
             )}
           </tbody>
@@ -68,28 +68,28 @@ const Reports = () => {
         open={Boolean(viewing)}
         onCancel={() => setViewing(undefined)}
         footer={null}
-        title="Report details"
+        title="Chi tiết báo cáo"
       >
         {viewing && (
           <div className="learner-reports-modal">
             <p>
-              Reported item: <strong>{viewing.reportedItem}</strong>
+              Nội dung được báo cáo: <strong>{viewing.reportedItem}</strong>
             </p>
             <p>
-              Content type: <strong>{viewing.contentType}</strong>
+              Loại nội dung: <strong>{reportContentTypeLabel[viewing.contentType]}</strong>
             </p>
             <p>
-              Course: <strong>{viewing.courseTitle}</strong>
+              Khóa học: <strong>{viewing.courseTitle}</strong>
             </p>
             <p>
-              Status: <strong>{statusLabel[viewing.status]}</strong>
+              Trạng thái: <strong>{statusLabel[viewing.status]}</strong>
             </p>
             {viewing.decision && (
               <p>
-                Organizer decision: <strong>{viewing.decision}</strong>
+                Quyết định của quản lý đào tạo: <strong>{reportDecisionLabel[viewing.decision]}</strong>
               </p>
             )}
-            <p>Reason: {viewing.reason}</p>
+            <p>Lý do: {viewing.reason}</p>
           </div>
         )}
       </Modal>
