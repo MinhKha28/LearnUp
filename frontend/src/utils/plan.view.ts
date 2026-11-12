@@ -40,7 +40,7 @@ export const planErrorMessage = (
   if (status === 400)
     return "Một số giá trị chưa hợp lệ. Hãy kiểm tra lại biểu mẫu.";
   if (status === 401 || status === 403)
-    return "Chỉ Quản trị viên nền tảng mới quản lý được các gói.";
+    return "Chỉ quản trị viên nền tảng mới quản lý được các gói.";
   return "Chưa lưu được gói. Vui lòng thử lại sau.";
 };
 

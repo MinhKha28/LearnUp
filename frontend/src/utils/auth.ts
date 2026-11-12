@@ -28,12 +28,12 @@ const SIGN_IN_MESSAGES: Record<string, string> = {
   ACCOUNT_NOT_ACTIVE:
     "Tài khoản của bạn chưa được kích hoạt. Quản lý đào tạo: hãy hoàn tất thanh toán cho đăng ký. Thành viên được mời: hãy mở email mời để đặt mật khẩu.",
   ACCOUNT_DEACTIVATED:
-    "Tài khoản của bạn đã bị vô hiệu hóa. Hãy liên hệ Quản lý đào tạo của tổ chức.",
+    "Tài khoản của bạn đã bị vô hiệu hóa. Hãy liên hệ quản lý đào tạo của tổ chức.",
   ORGANIZATION_SUSPENDED:
-    "Tổ chức của bạn đã bị LearnUP tạm khóa. Hãy liên hệ Quản lý đào tạo.",
+    "Tổ chức của bạn đã bị LearnUP tạm khóa. Hãy liên hệ quản lý đào tạo.",
   ORGANIZATION_NOT_ACTIVE: "Tổ chức của bạn không ở trạng thái hoạt động.",
   SUBSCRIPTION_SUSPENDED:
-    "Gói dịch vụ của tổ chức đang tạm ngưng. Hãy liên hệ Quản lý đào tạo để gia hạn.",
+    "Gói dịch vụ của tổ chức đang tạm ngưng. Hãy liên hệ quản lý đào tạo để gia hạn.",
   SUBSCRIPTION_ENDED: "Tổ chức của bạn không có gói dịch vụ đang hoạt động.",
   REFRESH_TOKEN_REUSED:
     "Phiên đăng nhập đã kết thúc vì lý do bảo mật. Vui lòng đăng nhập lại.",

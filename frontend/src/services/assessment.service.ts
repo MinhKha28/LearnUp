@@ -335,12 +335,12 @@ export const assessmentErrorCode = (
  */
 const LEARNER_LOCK_TEXT: Record<string, string> = {
   ENROLLMENT_NOT_ACTIVE:
-    "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể xem hoặc nộp bài tập. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.",
+    "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể xem hoặc nộp bài tập. Hãy liên hệ quản lý đào tạo nếu cần hỗ trợ.",
 };
 
 /** The same lock on the form, when the Learner has typed something: the draft stays on the page (BR-210). */
 export const ENROLLMENT_NOT_ACTIVE_FORM_TEXT =
-  "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể nộp bài nữa. Nội dung bạn đã nhập vẫn được giữ trên trang này. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.";
+  "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể nộp bài nữa. Nội dung bạn đã nhập vẫn được giữ trên trang này. Hãy liên hệ quản lý đào tạo nếu cần hỗ trợ.";
 
 /** The codes a Learner can meet on the peer review screens, in Vietnamese: the server message is English. */
 const REVIEW_ERROR_TEXT: Record<string, string> = {

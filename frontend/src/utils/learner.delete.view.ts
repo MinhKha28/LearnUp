@@ -4,7 +4,7 @@ export const learnerDeleteErrorMessage = (code: string | undefined): string => {
     case "LEARNER_NOT_FOUND":
       return "Học viên này không còn thuộc tổ chức của bạn.";
     case "CONCURRENT_UPDATE":
-      return "Thông tin Học viên vừa được cập nhật. Vui lòng thử lại.";
+      return "Thông tin học viên vừa được cập nhật. Vui lòng thử lại.";
     case "ORGANIZATION_NOT_ACTIVE":
       return "Tổ chức đang bị tạm ngưng. Không thể xóa tài khoản.";
     case "SUBSCRIPTION_NOT_ACTIVE":

@@ -61,7 +61,7 @@ const QUIZ_ERRORS: Record<string, string> = {
   ENROLLMENT_COMPLETED:
     "Bạn đã hoàn thành khóa học nên không thể bắt đầu lượt làm bài mới.",
   ENROLLMENT_NOT_ACTIVE:
-    "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể làm bài trắc nghiệm. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.",
+    "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể làm bài trắc nghiệm. Hãy liên hệ quản lý đào tạo nếu cần hỗ trợ.",
   NOT_ENROLLED: "Bạn chưa ghi danh vào khóa học có bài trắc nghiệm này.",
   QUIZ_NOT_FOUND: "Không tìm thấy bài trắc nghiệm.",
   ATTEMPT_NOT_CLOSED: "Không nộp được bài. Vui lòng thử lại.",

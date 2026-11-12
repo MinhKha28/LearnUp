@@ -13,19 +13,19 @@ export const instructorStatusErrorMessage = (
     case "ACCOUNT_NOT_DEACTIVATED":
       return "Chỉ có thể kích hoạt lại tài khoản đã bị vô hiệu hóa.";
     case "RECEIVER_REQUIRED":
-      return "Giảng viên này vẫn phụ trách Khóa học. Hãy chọn Giảng viên tiếp nhận.";
+      return "Giảng viên này vẫn phụ trách khóa học. Hãy chọn giảng viên tiếp nhận.";
     case "INVALID_RECEIVER":
-      return "Giảng viên đã chọn không còn có thể tiếp nhận các Khóa học này. Hãy chọn Giảng viên khác.";
+      return "Giảng viên đã chọn không còn có thể tiếp nhận các khóa học này. Hãy chọn giảng viên khác.";
     case "NO_VALID_RECEIVER":
-      return "Không có Giảng viên đang hoạt động nào khác trong tổ chức có thể tiếp nhận các Khóa học này.";
+      return "Không có giảng viên đang hoạt động nào khác trong tổ chức có thể tiếp nhận các khóa học này.";
     case "MANAGED_COURSES_REMAINING":
-      return "Giảng viên này vừa được giao thêm Khóa học. Hãy kiểm tra lại danh sách và thử lại.";
+      return "Giảng viên này vừa được giao thêm khóa học. Hãy kiểm tra lại danh sách và thử lại.";
     case "COURSE_SERVICE_UNAVAILABLE":
-      return "Tạm thời không xem được thông tin Khóa học. Vui lòng thử lại sau.";
+      return "Tạm thời không xem được thông tin khóa học. Vui lòng thử lại sau.";
     case "INSTRUCTOR_NOT_FOUND":
       return "Giảng viên này không còn thuộc tổ chức của bạn.";
     case "CONCURRENT_UPDATE":
-      return "Thông tin Giảng viên vừa được cập nhật. Vui lòng tải lại và thử lại.";
+      return "Thông tin giảng viên vừa được cập nhật. Vui lòng tải lại và thử lại.";
     case "ORGANIZATION_NOT_ACTIVE":
       return "Tổ chức đang bị tạm ngưng. Không thể đổi trạng thái tài khoản.";
     case "SUBSCRIPTION_NOT_ACTIVE":

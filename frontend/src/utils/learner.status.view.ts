@@ -15,7 +15,7 @@ export const learnerStatusErrorMessage = (
     case "LEARNER_NOT_FOUND":
       return "Học viên này không còn thuộc tổ chức của bạn.";
     case "CONCURRENT_UPDATE":
-      return "Thông tin Học viên vừa được cập nhật. Vui lòng tải lại và thử lại.";
+      return "Thông tin học viên vừa được cập nhật. Vui lòng tải lại và thử lại.";
     case "ORGANIZATION_NOT_ACTIVE":
       return "Tổ chức đang bị tạm ngưng. Không thể đổi trạng thái tài khoản.";
     case "SUBSCRIPTION_NOT_ACTIVE":
