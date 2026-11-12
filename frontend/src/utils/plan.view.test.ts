@@ -70,7 +70,7 @@ describe("UC43 / UC43.1 plan view", () => {
     );
     expect(planErrorMessage(400, undefined)).toContain("chưa hợp lệ");
     expect(planErrorMessage(403, "FORBIDDEN")).toContain(
-      "Chỉ Quản trị viên nền tảng",
+      "Chỉ quản trị viên nền tảng",
     );
     expect(planErrorMessage(500, "INTERNAL_SERVER_ERROR")).not.toContain(
       "INTERNAL",

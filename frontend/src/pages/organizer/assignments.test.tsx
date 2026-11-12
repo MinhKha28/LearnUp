@@ -70,7 +70,7 @@ it("clears the URL and draft from the filtered empty state", async () => {
   await screen.findByText("Không có phân công phù hợp với bộ lọc");
   const buttons = screen.getAllByRole("button", { name: "Xóa bộ lọc" });
   fireEvent.click(buttons[1]);
-  await screen.findByText("Chưa có phân công Khóa học nào");
+  await screen.findByText("Chưa có phân công khóa học nào");
   expect(screen.getByLabelText("URL").textContent).toBe("?page=1");
   expect((screen.getByLabelText("Khóa học") as HTMLInputElement).value).toBe("");
   expect(load).toHaveBeenLastCalledWith(1, expect.objectContaining({ course: undefined }), expect.any(AbortSignal));
@@ -78,8 +78,8 @@ it("clears the URL and draft from the filtered empty state", async () => {
 
 it.each([
   [422, "SEARCH_TOO_BROAD", "Từ khóa quá rộng, hãy nhập cụ thể hơn", false],
-  [503, "LEARNER_SEARCH_UNAVAILABLE", "Tạm thời không thể tìm Học viên. Vui lòng thử lại.", true],
-  [503, "COURSE_SEARCH_UNAVAILABLE", "Tạm thời không thể tìm Khóa học. Vui lòng thử lại.", true],
+  [503, "LEARNER_SEARCH_UNAVAILABLE", "Tạm thời không thể tìm học viên. Vui lòng thử lại.", true],
+  [503, "COURSE_SEARCH_UNAVAILABLE", "Tạm thời không thể tìm khóa học. Vui lòng thử lại.", true],
   [400, "INVALID_DUE_DATE_RANGE", "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.", false],
   [400, "VALIDATION_FAILED", "Bộ lọc không hợp lệ. Vui lòng kiểm tra từ khóa, tình trạng và ngày.", false],
 ] as const)("shows the message and retry affordance for %s %s", async (status, code, message, retry) => {

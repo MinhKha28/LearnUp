@@ -94,7 +94,7 @@ describe("the form when the Enrollment stops being active while it is open", () 
 
     await screen.findByText("Không thể nộp bài");
     expect(screen.getAllByText(/Nội dung bạn đã nhập vẫn được giữ trên trang này/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Hãy liên hệ Quản lý đào tạo/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Hãy liên hệ quản lý đào tạo/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/An English message/)).toBeNull();
     // the draft is kept
     expect(box.value).toBe("my draft");
@@ -189,7 +189,7 @@ it.each(["submit", "resubmit"] as const)("maps known and unknown assignment erro
   cleanup();
   request.mockResolvedValueOnce(refused("NEW_CODE") as never);
   mount(mode);
-  await screen.findByText("Không thực hiện được thao tác. Vui lòng thử lại.");
+  await screen.findByText("Không tải được bài tập.");
   expect(screen.queryByText("An English message.")).toBeNull();
 });
 

@@ -395,6 +395,16 @@ describe("during the attempt", () => {
   const pressed = (text: string) =>
     screen.getByText(text).closest("button")!.getAttribute("aria-pressed");
 
+  it("an unknown code on saving an answer asks the Learner to choose again", async () => {
+    await begin();
+    save.mockResolvedValueOnce(refused("NEW_CODE"));
+    fireEvent.click(screen.getByText("Phương án A"));
+    expect(
+      await screen.findByText("Chưa lưu được câu trả lời. Hãy chọn lại."),
+    ).toBeTruthy();
+    expect(screen.queryByText("English message from the server")).toBeNull();
+  });
+
   it("a failed save is not forgotten when another question is answered: the choice goes back, the question stays marked and the page does not say 'Đã lưu'", async () => {
     await begin();
     save.mockRejectedValueOnce(new Error("offline"));
@@ -865,9 +875,9 @@ describe("the words of the glossary", () => {
   });
 });
 
-it("uses the generic Vietnamese message for an unknown quiz load error", async () => {
+it("uses its own Vietnamese message for an unknown quiz load error", async () => {
   quiz.mockResolvedValueOnce(refused("NEW_CODE"));
   open();
-  await screen.findByText("Không thực hiện được thao tác. Vui lòng thử lại.");
+  await screen.findByText("Không tải được bài trắc nghiệm.");
   expect(screen.queryByText("English message from the server")).toBeNull();
 });

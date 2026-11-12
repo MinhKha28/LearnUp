@@ -75,7 +75,7 @@ describe("the result of an Assignment", () => {
 
 it.each([
   ["SUBMISSION_NOT_FINALIZED", "Bài nộp đang được chấm. Chưa có kết quả."],
-  ["NEW_CODE", "Không thực hiện được thao tác. Vui lòng thử lại."],
+  ["NEW_CODE", "Không tải được kết quả."],
 ])("shows a Vietnamese result error for %s", async (code, expected) => {
   vi.mocked(api.fetchLearnerResultAPI).mockResolvedValueOnce({
     error: { code, message: "Internal English text" },

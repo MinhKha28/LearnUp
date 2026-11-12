@@ -284,7 +284,7 @@ describe("the results of a Course", () => {
   it("an Enrollment that is not the Learner's, or is halted, is told like the other Course screens", async () => {
     load.mockRejectedValueOnce(new ApiError(404, "ENROLLMENT_NOT_FOUND", "x"));
     open();
-    expect(await screen.findByText("Về Khóa học của tôi")).toBeTruthy();
+    expect(await screen.findByText("Về khóa học của tôi")).toBeTruthy();
     cleanup();
     load.mockRejectedValueOnce(new ApiError(403, "CONTENT_UNAVAILABLE", "x"));
     open();

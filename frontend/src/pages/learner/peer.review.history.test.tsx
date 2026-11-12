@@ -365,12 +365,12 @@ describe("the history of the reviews", () => {
   });
 });
 
-it("uses the generic Vietnamese message for an unknown review history error", async () => {
+it("uses its own Vietnamese message for an unknown review history error", async () => {
   load.mockResolvedValueOnce({
     statusCode: 400,
     error: { code: "NEW_CODE", message: "Internal English text" },
   } as never);
   open();
-  await screen.findByText("Không thực hiện được thao tác. Vui lòng thử lại.");
+  await screen.findByText("Không tải được lịch sử chấm. Vui lòng thử lại.");
   expect(screen.queryByText("Internal English text")).toBeNull();
 });

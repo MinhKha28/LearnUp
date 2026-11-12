@@ -66,7 +66,7 @@ describe("buildCurriculumHeader", () => {
 
   it("course null (D26)", () => {
     const header = buildCurriculumHeader(curriculum({ course: null }));
-    expect(header.title).toBe("Không tải được thông tin Khóa học");
+    expect(header.title).toBe("Không tải được thông tin khóa học");
     expect(header.versionLabel).toBeNull();
   });
 
@@ -114,14 +114,14 @@ describe("buildMaterialRow", () => {
 });
 
 describe("mapLearningError", () => {
-  it("ENROLLMENT_NOT_FOUND → về Khóa học của tôi", () => {
+  it("ENROLLMENT_NOT_FOUND → về khóa học của tôi", () => {
     expect(mapLearningError(new ApiError(404, "ENROLLMENT_NOT_FOUND", "x"), "curriculum")).toMatchObject({
-      title: "Không tìm thấy Khóa học",
+      title: "Không tìm thấy khóa học",
       action: "myCourses",
     });
   });
 
-  it("CONTENT_UNAVAILABLE → về Khóa học của tôi", () => {
+  it("CONTENT_UNAVAILABLE → về khóa học của tôi", () => {
     expect(mapLearningError(new ApiError(403, "CONTENT_UNAVAILABLE", "x"), "lesson")).toEqual({
       title: "Khóa học đang tạm dừng, bạn chưa thể truy cập nội dung",
       description: null,
@@ -131,7 +131,7 @@ describe("mapLearningError", () => {
 
   it("LESSON_NOT_FOUND → về chương trình học", () => {
     expect(mapLearningError(new ApiError(404, "LESSON_NOT_FOUND", "x"), "lesson")).toMatchObject({
-      title: "Không tìm thấy Bài học",
+      title: "Không tìm thấy bài học",
       action: "curriculum",
     });
   });
@@ -165,7 +165,7 @@ describe("mapLearningError", () => {
     [400, "VALIDATION_FAILED"],
   ])("%i %s → không Thử lại", (status, code) => {
     expect(mapLearningError(new ApiError(status, code, "x"), "lesson")).toEqual({
-      title: "Không tải được Bài học",
+      title: "Không tải được bài học",
       description: "Đã có lỗi xảy ra.",
       action: null,
     });

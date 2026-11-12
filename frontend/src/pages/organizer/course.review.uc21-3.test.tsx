@@ -63,8 +63,8 @@ function open() {
 describe("UC21.3 review decisions", () => {
   it("cancels approval without sending a request", async () => {
     open();
-    fireEvent.click(await screen.findByRole("button", { name: "Phê duyệt Khóa học" }));
-    expect(await screen.findByText("Phê duyệt Khóa học", { selector: ".ant-modal-title" })).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Phê duyệt khóa học" }));
+    expect(await screen.findByText("Phê duyệt khóa học", { selector: ".ant-modal-title" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(approveCourseAPI).not.toHaveBeenCalled();
   });
@@ -74,7 +74,7 @@ describe("UC21.3 review decisions", () => {
       statusCode: 200, data: { id: courseId, status: "Published" },
     } as never);
     open();
-    fireEvent.click(await screen.findByRole("button", { name: "Phê duyệt Khóa học" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Phê duyệt khóa học" }));
     fireEvent.click(screen.getByRole("button", { name: "Xác nhận phê duyệt" }));
     expect(await screen.findByText("Pending destination")).toBeTruthy();
     expect(approveCourseAPI).toHaveBeenCalledTimes(1);
@@ -84,7 +84,7 @@ describe("UC21.3 review decisions", () => {
   it("requires rejection reason and preserves it on a conflict", async () => {
     vi.mocked(rejectCourseAPI).mockResolvedValue({ statusCode: 409 } as never);
     open();
-    fireEvent.click(await screen.findByRole("button", { name: "Từ chối Khóa học" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Từ chối khóa học" }));
     const confirm = screen.getByRole("button", { name: "Xác nhận từ chối" }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
     fireEvent.change(screen.getByRole("textbox", { name: "Lý do từ chối" }), {
@@ -106,7 +106,7 @@ describe("UC21.3 review decisions", () => {
       statusCode: 503, data: null,
     } as never);
     open();
-    const button = await screen.findByRole("button", { name: "Phê duyệt Khóa học" }) as HTMLButtonElement;
+    const button = await screen.findByRole("button", { name: "Phê duyệt khóa học" }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
   });
 });

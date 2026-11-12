@@ -30,7 +30,7 @@ const pageResult = (current = 1, total = 13) => ({
 const Location = () => <output data-testid="query">{useLocation().search}</output>;
 const query = () => screen.getByTestId("query").textContent;
 const clearButton = () => screen.queryByRole("button", { name: "Xóa tìm kiếm" });
-const input = () => screen.getByRole("textbox", { name: "Tìm kiếm Khóa học" }) as HTMLInputElement;
+const input = () => screen.getByRole("textbox", { name: "Tìm kiếm khóa học" }) as HTMLInputElement;
 const renderCatalog = (search = "") => render(
   <MemoryRouter initialEntries={["/learner/catalog" + search]}>
     <Location />
@@ -69,7 +69,7 @@ it("submits only when requested, resets the page, preserves q through pagination
   expect(new URLSearchParams(query() ?? "").get("page")).toBe("2");
   await waitFor(() => expect(catalog).toHaveBeenLastCalledWith(2, expect.any(AbortSignal), "Đào tạo"));
   fireEvent.click(await screen.findByRole("link", { name: course.name }));
-  fireEvent.click(await screen.findByRole("button", { name: /Danh mục Khóa học/ }));
+  fireEvent.click(await screen.findByRole("button", { name: /Danh mục khóa học/ }));
   expect(new URLSearchParams(query() ?? "").get("q")).toBe("Đào tạo");
   expect(new URLSearchParams(query() ?? "").get("page")).toBe("2");
   expect(input().value).toBe("Đào tạo");
@@ -87,16 +87,16 @@ it("keeps the form visible while loading and distinguishes zero matches from an 
     keyword === "đang tải" ? new Promise(() => {}) : Promise.resolve(pageResult(page, 0)),
   );
   renderCatalog();
-  await screen.findByText("Hiện chưa có Khóa học nào để tự đăng ký");
+  await screen.findByText("Hiện chưa có khóa học nào để tự đăng ký");
   fireEvent.change(input(), { target: { value: "không khớp" } });
   // A browser's implicit Enter submission triggers the same form submit event.
   fireEvent.submit(screen.getByRole("search"));
-  await screen.findByText("Không tìm thấy Khóa học nào phù hợp với từ khóa này");
+  await screen.findByText("Không tìm thấy khóa học nào phù hợp với từ khóa này");
   expect(screen.queryByText(/Tìm thấy .* Khóa học/)).toBeNull();
   fireEvent.change(input(), { target: { value: "đang tải" } });
   fireEvent.submit(screen.getByRole("search"));
   expect(input().value).toBe("đang tải");
-  expect(screen.queryByText("Không tìm thấy Khóa học nào phù hợp với từ khóa này")).toBeNull();
+  expect(screen.queryByText("Không tìm thấy khóa học nào phù hợp với từ khóa này")).toBeNull();
 });
 
 it("announces the localized API total above the grid only for an active search", async () => {
@@ -108,7 +108,7 @@ it("announces the localized API total above the grid only for an active search",
 
   fireEvent.change(input(), { target: { value: "dao tao" } });
   fireEvent.submit(screen.getByRole("search"));
-  const count = await screen.findByText("Tìm thấy 12.345 Khóa học");
+  const count = await screen.findByText("Tìm thấy 12.345 khóa học");
   expect(count).toBe(liveRegion);
   expect(count.nextElementSibling?.classList.contains("learner-catalog-grid")).toBe(true);
   expect(screen.getAllByRole("article")).toHaveLength(1);
