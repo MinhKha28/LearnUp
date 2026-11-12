@@ -15,6 +15,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -292,10 +293,17 @@ describe('extractReadingText with pdf-parse 2', () => {
   });
 });
 
+// Module thật (không qua wrapper) để test có thể bọc Worker mà extractor dùng.
+const threads = createRequire(__filename)('node:worker_threads') as {
+  Worker: typeof import('node:worker_threads').Worker;
+};
+
 describe('extractReadingText concurrency cap', () => {
   let root: string;
   let markers: string;
   let slow: { workerFile: string };
+  // Dọn dẹp chạy cả khi test fail, tránh timer còn chạy làm hỏng cả lượt Jest.
+  const cleanups: Array<() => void> = [];
 
   // Worker giả: đánh dấu đang chạy trong thư mục markers ~400 ms rồi trả 2 từ.
   beforeEach(() => {
@@ -320,6 +328,7 @@ describe('extractReadingText concurrency cap', () => {
   });
 
   afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -329,12 +338,69 @@ describe('extractReadingText concurrency cap', () => {
     const timer = setInterval(() => {
       peak = Math.max(peak, readdirSync(markers).length);
     }, 5);
+    const stop = () => clearInterval(timer);
+
+    cleanups.push(stop);
 
     return () => {
-      clearInterval(timer);
+      stop();
       return peak;
     };
   };
+
+  // Ghi lại thời điểm mỗi worker thread được tạo và thực sự thoát.
+  const trackWorkerLifecycles = () => {
+    const Real = threads.Worker;
+    const events: string[] = [];
+    let created = 0;
+    let live = 0;
+    let peak = 0;
+
+    class TrackedWorker extends Real {
+      private readonly label: number;
+
+      constructor(...args: ConstructorParameters<typeof Real>) {
+        super(...args);
+        created += 1;
+        this.label = created;
+        live += 1;
+        peak = Math.max(peak, live);
+        events.push(`start ${this.label}`);
+      }
+
+      // Extractor gỡ listener khi xong, nên đếm 'exit' qua emit.
+      emit(event: string | symbol, ...args: unknown[]): boolean {
+        if (event === 'exit') {
+          live -= 1;
+          events.push(`exit ${this.label}`);
+        }
+
+        return super.emit(event, ...args);
+      }
+    }
+
+    threads.Worker = TrackedWorker;
+    cleanups.push(() => {
+      threads.Worker = Real;
+    });
+
+    return { events, peak: () => peak };
+  };
+
+  it('keeps the slot until the previous worker thread has exited', async () => {
+    const tracked = trackWorkerLifecycles();
+    const capped = { ...limits, maxConcurrentParses: 1 };
+    // Worker đầu trả kết quả ngay nhưng chỉ thoát sau ~1 s.
+    const first = extractReadingText(fixture('chromium'), capped, {
+      workerFile: join(workers, 'late-exit.js'),
+    });
+    const queued = extractReadingText(fixture('chromium'), capped, slow);
+
+    await expect(first).resolves.toMatchObject({ wordCount: 2 });
+    await expect(queued).resolves.toMatchObject({ wordCount: 2 });
+    expect(tracked.events).toEqual(['start 1', 'exit 1', 'start 2', 'exit 2']);
+    expect(tracked.peak()).toBe(1);
+  });
 
   it.each([1, 2, 3])(
     'runs at most %i worker(s) for one more parse than the cap and finishes all',

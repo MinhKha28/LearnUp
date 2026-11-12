@@ -23,16 +23,17 @@ export interface ReadingParseLimits {
   maxConcurrentParses: number;
 }
 
-// Đo C29: mẫu hợp lệ chậm nhất 230 ms (host) / 202 ms (Alpine) -> deadline ~130x.
+// Mẫu hợp lệ chậm nhất đo được: 230 ms (Windows) / 202 ms (Alpine).
 export const DEFAULT_READING_PARSE_TIMEOUT_MS = 30_000;
-// Đo C29: mẫu 10 MiB cần tối thiểu 16 MiB heap -> 16x.
+// Đo được: PDF 10 MiB chứa ảnh cần 16 MiB heap; PDF 10 MiB dày chữ (~1 triệu
+// từ) cần ~108 MiB. PDF hợp lệ trên ~2,3 triệu từ vượt 256 MiB và nhận 400.
 export const DEFAULT_READING_PARSE_MAX_OLD_GENERATION_MB = 256;
-// Đo C29: ~100 MiB RSS mỗi parse 10 MiB trên Alpine; compose không đặt
-// memory limit cho course-service nên giữ mức nhỏ.
+// Đo được: ~100 MiB trên baseline cho một PDF 10 MiB chứa ảnh (Alpine);
+// course-service không đặt memory limit trong compose.
 export const DEFAULT_READING_PARSE_MAX_CONCURRENCY = 2;
 
-// Dưới các mức này worker có thể không khởi động được (8 MiB làm crash cả
-// process trên Windows) hoặc deadline ngắn hơn thời gian khởi động worker.
+// Mức tối thiểu: heap nhỏ hơn có thể làm worker không khởi động được,
+// deadline nhỏ hơn có thể ngắn hơn thời gian khởi động worker.
 export const MIN_READING_PARSE_TIMEOUT_MS = 1_000;
 export const MIN_READING_PARSE_MAX_OLD_GENERATION_MB = 32;
 export const MIN_READING_PARSE_MAX_CONCURRENCY = 1;
