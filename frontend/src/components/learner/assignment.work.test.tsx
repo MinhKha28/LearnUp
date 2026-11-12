@@ -203,6 +203,7 @@ it("formats fractional upload limits with the Vietnamese decimal separator", asy
   expect(screen.getByText("Số lượt còn lại trước khi tạm khóa")).toBeTruthy();
   expect(screen.getByText("2/3")).toBeTruthy();
   expect(screen.getByText("Nộp 3 lượt liên tiếp thì tạm khóa 4 giờ")).toBeTruthy();
+  expect(screen.getByText(/Được nộp lại nhiều lần; nộp 3 lượt liên tiếp thì tạm khóa 4 giờ\./)).toBeTruthy();
 });
 
 it("maps a server-side upload limit rejection without showing the server message", async () => {

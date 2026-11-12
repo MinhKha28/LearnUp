@@ -148,16 +148,16 @@ describe("the results of a Course", () => {
     expect(await screen.findByText("Quiz an toàn")).toBeTruthy();
     expect(load).toHaveBeenCalledWith("enr-1", expect.anything());
     expect(screen.getByText("Kết quả bài đánh giá")).toBeTruthy();
-    expect(screen.getByText("85")).toBeTruthy();
-    expect(screen.getAllByText(/Điểm đạt: 70/).length).toBe(1);
+    expect(screen.getByText("85%")).toBeTruthy();
+    expect(screen.getAllByText("Điểm đạt: 70%").length).toBe(1);
     expect(screen.getByText("Cao hơn điểm đạt 15 điểm")).toBeTruthy();
     const quizCard = within(screen.getByLabelText("Quiz an toàn"));
     expect(quizCard.getByText("Đạt")).toBeTruthy();
     expect(screen.getByText("Đang chờ chấm điểm")).toBeTruthy();
     expect(screen.getByText("Chờ chấm")).toBeTruthy();
-    expect(screen.getByText("Lượt 1: 50 · Lượt 2: 85 (hết giờ)")).toBeTruthy();
-    expect(screen.getByLabelText("Điểm 85, điểm đạt 70")).toBeTruthy();
-    expect(screen.getByLabelText("Chưa có điểm, điểm đạt 60")).toBeTruthy();
+    expect(screen.getByText("Lượt 1: 50% · Lượt 2: 85% (hết giờ)")).toBeTruthy();
+    expect(screen.getByLabelText("Điểm 85%, điểm đạt 70%")).toBeTruthy();
+    expect(screen.getByLabelText("Chưa có điểm, điểm đạt 60%")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(
       /Score|Passing|Passed|Awaiting|Quiz result|Back/,
     );
@@ -211,7 +211,7 @@ describe("the results of a Course", () => {
     expect(
       screen.getByText(/không tính vào điều kiện cấp chứng chỉ/),
     ).toBeTruthy();
-    expect(screen.getByText("85")).toBeTruthy();
+    expect(screen.getByText("85%")).toBeTruthy();
   });
 
   it("an optional Quiz is told as such", async () => {
