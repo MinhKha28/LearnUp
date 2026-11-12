@@ -306,7 +306,6 @@ export const giveLearnerPeerReviewAPI = (
     body,
   );
 
-/** UC31 — the file of the work under review, with a neutral name; like the prompt file, only a real 200 response yields it. */
 /** The file of the work to review, or the error code when the download failed. */
 export type LearnerReviewFile = { blob: Blob; code?: undefined } | { blob: null; code?: string };
 
@@ -320,6 +319,7 @@ const blobErrorCode = async (res: unknown): Promise<string | undefined> => {
   }
 };
 
+/** UC31 — the file of the work under review, with a neutral name; like the prompt file, only a real 200 response yields it. */
 export const downloadLearnerReviewFileAPI = async (
   reviewId: string,
 ): Promise<LearnerReviewFile> => {
