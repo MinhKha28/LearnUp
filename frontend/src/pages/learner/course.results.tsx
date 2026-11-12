@@ -77,7 +77,7 @@ const CourseResults = () => {
             Thử lại
           </LearnerButton>
           <LearnerButton onClick={toAssessments}>
-            Về danh sách bài đánh giá
+            Quay lại danh sách bài đánh giá
           </LearnerButton>
         </div>
       </>
@@ -189,13 +189,13 @@ const CourseResults = () => {
         </div>
 
         <InfoPanel title="Cách tính điểm">
-          Bài trắc nghiệm lấy điểm của lượt làm cao nhất; bài tập lấy điểm của lần
+          Bài trắc nghiệm lấy điểm từ lượt có điểm cao nhất; bài tập lấy điểm của lần
           nộp gần nhất sau khi giảng viên chốt. Bài chưa có điểm là "chờ kết
           quả", không phải "chưa đạt".
         </InfoPanel>
         <div className="course-results-actions">
           <LearnerButton onClick={toAssessments}>
-            Về danh sách bài đánh giá
+            Quay lại danh sách bài đánh giá
           </LearnerButton>
         </div>
       </div>

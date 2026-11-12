@@ -243,7 +243,7 @@ describe("the results of a Course", () => {
     cleanup();
     open();
     fireEvent.click(
-      (await screen.findAllByText("Về danh sách bài đánh giá"))[0],
+      (await screen.findAllByText("Quay lại danh sách bài đánh giá"))[0],
     );
     expect(path).toBe("/learner/courses/enr-1/assessments");
   });

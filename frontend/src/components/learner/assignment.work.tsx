@@ -1,3 +1,4 @@
+import { formatNumberVN } from "@/utils/number.format";
 import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
 import { Input, Upload, message } from "antd";
@@ -241,7 +242,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
                   <strong>{criterion.name}</strong>
                   <span>{criterion.description}</span>
                 </div>
-                <em>{criterion.maxPoints} điểm</em>
+                <em>{formatNumberVN(criterion.maxPoints)} điểm</em>
               </li>
             ))}
           </ul>
@@ -285,12 +286,12 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
             <DetailItem label="Thời gian dự kiến">
               {assignment.expectedDurationMinutes ? `${assignment.expectedDurationMinutes} phút` : "Chưa đặt"}
             </DetailItem>
-            <DetailItem label="Điểm đạt tối thiểu">{assignment.passingScore}%</DetailItem>
+            <DetailItem label="Điểm đạt tối thiểu">{formatNumberVN(assignment.passingScore)}%</DetailItem>
             <DetailItem label="Số lượt còn lại trước khi tạm khóa">
-              {attempts.remainingAttempts} trên {attempts.maxConsecutiveAttempts}
+              {attempts.remainingAttempts}/{attempts.maxConsecutiveAttempts}
             </DetailItem>
             <DetailItem label="Quy tắc khóa">
-              {attempts.maxConsecutiveAttempts} lần liên tiếp thì tạm dừng nộp bài trong {attempts.lockoutHours} giờ
+              Nộp {attempts.maxConsecutiveAttempts} lượt liên tiếp thì tạm khóa {attempts.lockoutHours} giờ
             </DetailItem>
             <DetailItem label="Cách chấm">
               {assignment.peerReviewEnabled ? "Chấm chéo, rồi giảng viên chấm" : "Giảng viên chấm"}

@@ -111,6 +111,7 @@ export interface IAssignment {
   estimatedEffort: string;
   status: AssignmentStatus;
   attemptsRemaining: number;
+  maxConsecutiveAttempts: number;
   lockedUntil?: string;
   instructions: string[];
   rubric: string;
@@ -350,6 +351,7 @@ export const courseDetails: Record<string, ICourseDetail> = {
         minScore: 70,
         estimatedEffort: "45 phút",
         status: "not-submitted",
+        maxConsecutiveAttempts: 3,
         attemptsRemaining: 2,
         instructions: [
           "Soạn câu trả lời dựa trên các quy trình an toàn đã được ghi lại.",
@@ -449,6 +451,7 @@ export const courseDetails: Record<string, ICourseDetail> = {
         minScore: 70,
         estimatedEffort: "30 phút",
         status: "returned",
+        maxConsecutiveAttempts: 3,
         attemptsRemaining: 1,
         instructions: [
           "Mô tả cách áp dụng các quy trình cốt lõi vào tình huống mẫu.",
@@ -563,6 +566,7 @@ export const courseDetails: Record<string, ICourseDetail> = {
         minScore: 70,
         estimatedEffort: "30 phút",
         status: "locked",
+        maxConsecutiveAttempts: 3,
         attemptsRemaining: 0,
         lockedUntil: "05/10/2026 09:00",
         instructions: [
@@ -625,6 +629,7 @@ export const courseDetails: Record<string, ICourseDetail> = {
         minScore: 70,
         estimatedEffort: "30 phút",
         status: "graded",
+        maxConsecutiveAttempts: 3,
         attemptsRemaining: 1,
         instructions: [
           "Viết một câu trả lời ngắn cho tình huống khách hàng mẫu.",

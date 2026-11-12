@@ -82,7 +82,7 @@ describe("UC30 the page of a submission received, in Vietnamese and Vietnam time
     expect(screen.getByText("đường dẫn: /learner/courses/e1/assignments/a1")).toBeTruthy();
     cleanup();
     renderPage({ receipt: receipt() });
-    fireEvent.click(screen.getByText("Quay lại Bài đánh giá"));
+    fireEvent.click(screen.getByText("Quay lại danh sách bài đánh giá"));
     expect(screen.getByText("đường dẫn: /learner/courses/e1/assessments")).toBeTruthy();
   });
 

@@ -1,3 +1,4 @@
+import { formatNumberVN } from "@/utils/number.format";
 import { formatDateTimeVN } from "@/utils/helper";
 import type { ISubmissionPerson } from "@/types/submission.types";
 
@@ -47,6 +48,6 @@ export const formatDateTime = formatDateTimeVN;
 
 export const formatFileSize = (bytes?: number | null) => {
   if (!bytes) return "";
-  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} MB`;
-  return `${(bytes / 1024).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} KB`;
+  if (bytes >= 1024 ** 2) return `${formatNumberVN(bytes / 1024 ** 2, 1)} MB`;
+  return `${formatNumberVN(bytes / 1024, 1)} KB`;
 };

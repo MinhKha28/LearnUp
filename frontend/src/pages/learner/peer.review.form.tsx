@@ -1,3 +1,4 @@
+import { formatNumberVN } from "@/utils/number.format";
 import { LEARNER_API_ERROR_FALLBACK } from "@/utils/learner.api.errors";
 import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
@@ -232,7 +233,7 @@ const PeerReviewForm = () => {
           {rubric.map((criterion) => (
             <div className="peer-review-criterion" key={criterion.id}>
               <span>
-                {criterion.name} (0 đến {criterion.maxPoints})
+                {criterion.name} (0 đến {formatNumberVN(criterion.maxPoints)})
               </span>
               {criterion.description && <small>{criterion.description}</small>}
               <InputNumber
@@ -268,7 +269,7 @@ const PeerReviewForm = () => {
           {detail.state === "Done" ? (
             <p className="peer-review-completed-note">
               Đã chấm lúc {formatTime(detail.completedAt)}
-              {detail.score !== null ? ` (điểm ${detail.score}/100)` : ""}.
+              {detail.score !== null ? ` (điểm ${formatNumberVN(detail.score)}/100)` : ""}.
               Không thể sửa nhận xét này nữa.
             </p>
           ) : (

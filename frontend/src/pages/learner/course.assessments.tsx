@@ -1,3 +1,4 @@
+import { formatNumberVN } from "@/utils/number.format";
 import { useEffect, useState } from "react";
 import { Tooltip } from "antd";
 import { LockOutlined } from "@ant-design/icons";
@@ -193,7 +194,7 @@ const CourseAssessments = () => {
         }
       />
       <InfoPanel title="Cách ghi nhận kết quả">
-        Bài trắc nghiệm lấy điểm của lượt làm cao nhất; bài tập lấy điểm của lần
+        Bài trắc nghiệm lấy điểm từ lượt có điểm cao nhất; bài tập lấy điểm của lần
         nộp gần nhất. Làm hoặc nộp nhiều lần liên tiếp thì bài đó tạm khóa một
         thời gian.
       </InfoPanel>
@@ -257,14 +258,14 @@ const CourseAssessments = () => {
                         <td>
                           {item.isRequired ? "Bắt buộc" : "Không bắt buộc"}
                         </td>
-                        <td>{item.passingScore}%</td>
+                        <td>{formatNumberVN(item.passingScore)}%</td>
                         <td>
                           <StatusTag tone={view.tone}>{view.label}</StatusTag>
                         </td>
                         <td>
                           {item.recordedScore === null
                             ? "-"
-                            : `${item.recordedScore}%`}
+                            : `${formatNumberVN(item.recordedScore)}%`}
                         </td>
                         <td>
                           {locked ? (

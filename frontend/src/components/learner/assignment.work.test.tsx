@@ -26,7 +26,7 @@ const assignment = {
   expectedDurationMinutes: 30,
   peerReviewEnabled: false,
   rubric: [{ id: "r1", name: "Content", description: "d", maxPoints: 10 }],
-  attempts: { maxConsecutiveAttempts: 3, remaining: 3, lockedUntil: null },
+  attempts: { maxConsecutiveAttempts: 3, remainingAttempts: 2, lockoutHours: 4, lockedUntil: null },
   readOnly: false,
   maxFileBytes: 10 * 1024 * 1024, // the default storage plan, lower than the 50 MB ceiling
   latestSubmission: {
@@ -200,6 +200,9 @@ it("formats fractional upload limits with the Vietnamese decimal separator", asy
   } as never);
   mount("resubmit");
   await screen.findByText("PDF, DOCX hoặc ZIP, tối đa 10,5 MB. Một tệp.");
+  expect(screen.getByText("Số lượt còn lại trước khi tạm khóa")).toBeTruthy();
+  expect(screen.getByText("2/3")).toBeTruthy();
+  expect(screen.getByText("Nộp 3 lượt liên tiếp thì tạm khóa 4 giờ")).toBeTruthy();
 });
 
 it("maps a server-side upload limit rejection without showing the server message", async () => {

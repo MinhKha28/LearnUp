@@ -19,7 +19,6 @@ const Reports = () => {
   return (
     <LearnerPage className="learner-reports">
       <PageHeader
-        eyebrow="Học viên"
         title="Báo cáo của tôi"
         subtitle="Theo dõi các báo cáo đã gửi và quyết định xử lý."
       />

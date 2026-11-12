@@ -1,3 +1,4 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import { LEARNER_API_ERROR_FALLBACK } from "@/utils/learner.api.errors";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Modal, Spin } from "antd";
@@ -28,7 +29,6 @@ import type {
 import {
   clockOffsetMs,
   formatCountdown,
-  formatDateTime,
   formatScore,
   questionTypeLabel,
   QUIZ_STALE_CODES,
@@ -317,7 +317,7 @@ const QuizTake = () => {
     return (
       <LearnerPage className="quiz-take">
         <PageHeader
-          eyebrow="Bài trắc nghiệm"
+          eyebrow="Bài đánh giá / Bài trắc nghiệm"
           title="Bài trắc nghiệm"
           subtitle=""
           back
@@ -352,7 +352,7 @@ const QuizTake = () => {
     return (
       <>
         <PageHeader
-          eyebrow="Bài trắc nghiệm / Đang làm"
+          eyebrow="Bài đánh giá / Bài trắc nghiệm"
           title={running.title}
           subtitle={`Lượt ${running.attemptNumber}. Mỗi lựa chọn được lưu ngay khi bạn chọn.`}
         />
@@ -490,7 +490,7 @@ const QuizTake = () => {
   return (
     <>
       <PageHeader
-        eyebrow="Bài trắc nghiệm"
+        eyebrow="Bài đánh giá / Bài trắc nghiệm"
         title={quiz.title}
         subtitle={
           quiz.isRequired
@@ -505,7 +505,7 @@ const QuizTake = () => {
           <WarningPanel title="Bài trắc nghiệm đang tạm khóa">
             Bạn đã làm đủ {quiz.attempts.maxConsecutiveAttempts} lượt liên tiếp.
             Bạn làm lại được từ{" "}
-            <strong>{formatDateTime(quiz.attempts.lockedUntil!)}</strong>. Sau
+            <strong>{formatDateTimeVN(quiz.attempts.lockedUntil!)}</strong>. Sau
             đó số lượt được đếm lại từ đầu, không giới hạn tổng số lượt.
           </WarningPanel>
         )}
@@ -525,17 +525,16 @@ const QuizTake = () => {
           />
           <StatCard
             label="Điểm đạt"
-            value={`${formatScore(quiz.passingScore)}`}
+            value={`${formatScore(quiz.passingScore)}%`}
           />
           <StatCard
-            label="Số lượt còn lại"
+            label="Số lượt còn lại trước khi tạm khóa"
             value={`${quiz.attempts.remainingAttempts}/${quiz.attempts.maxConsecutiveAttempts}`}
           />
         </div>
         {quiz.recordedScore !== null && (
           <InfoPanel title="Điểm hiện được ghi nhận">
-            <strong>{formatScore(quiz.recordedScore)}</strong> điểm, lấy từ lượt
-            làm tốt nhất.{" "}
+            {formatScore(quiz.recordedScore)}%, lấy từ lượt có điểm cao nhất.{" "}
             {quiz.passed
               ? "Bạn đã đạt."
               : "Bạn chưa đạt, có thể làm lại để cải thiện."}
@@ -598,7 +597,7 @@ const Result = ({
   return (
     <>
       <PageHeader
-        eyebrow="Bài trắc nghiệm / Kết quả"
+        eyebrow="Bài đánh giá / Bài trắc nghiệm"
         title="Kết quả bài trắc nghiệm"
         subtitle={`${result.title} • Chấm tự động`}
       />
@@ -618,18 +617,18 @@ const Result = ({
             {result.passed ? "Đạt" : "Chưa đạt"}
           </StatusTag>
           <div className="quiz-result-stats">
-            <StatCard label="Điểm lượt này" value={formatScore(result.score)} />
+            <StatCard label="Điểm lượt này" value={`${formatScore(result.score)}%`} />
             <StatCard
               label="Điểm được ghi nhận"
               value={
                 result.recordedScore === null
                   ? "-"
-                  : formatScore(result.recordedScore)
+                  : `${formatScore(result.recordedScore)}%`
               }
             />
             <StatCard
               label="Điểm đạt"
-              value={formatScore(result.passingScore)}
+              value={`${formatScore(result.passingScore)}%`}
             />
             <StatCard
               label="Số câu đúng"
@@ -637,7 +636,7 @@ const Result = ({
             />
           </div>
           <InfoPanel title="Cách tính điểm">
-            Điểm ghi nhận của bài trắc nghiệm là điểm của lượt làm cao nhất. Mỗi
+            Điểm ghi nhận của bài trắc nghiệm là điểm của lượt có điểm cao nhất. Mỗi
             câu có điểm như nhau và chỉ đúng khi chọn đúng toàn bộ đáp án.
           </InfoPanel>
         </div>
@@ -647,12 +646,11 @@ const Result = ({
             <p>
               Bạn đã làm đủ {result.attempts.maxConsecutiveAttempts} lượt liên
               tiếp nên bài trắc nghiệm tạm khóa. Bạn làm lại được từ{" "}
-              <strong>{formatDateTime(result.attempts.lockedUntil!)}</strong>.
+              <strong>{formatDateTimeVN(result.attempts.lockedUntil!)}</strong>.
             </p>
           ) : (
             <p>
-              Bạn còn {result.attempts.remainingAttempts} lượt trước khi bài
-              trắc nghiệm tạm khóa.
+              Số lượt còn lại trước khi tạm khóa: {result.attempts.remainingAttempts}/{result.attempts.maxConsecutiveAttempts}.
             </p>
           )}
           <div className="quiz-result-actions">
@@ -663,7 +661,7 @@ const Result = ({
             )}
             <LearnerButton onClick={onHistory}>Lịch sử làm bài</LearnerButton>
             <LearnerButton onClick={onCourse}>
-              Về danh sách bài đánh giá
+              Quay lại danh sách bài đánh giá
             </LearnerButton>
           </div>
         </div>

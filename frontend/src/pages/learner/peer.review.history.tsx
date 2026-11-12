@@ -77,7 +77,7 @@ const PeerReviewHistory = () => {
 
   const header = (
     <PageHeader
-      eyebrow="Học viên"
+      eyebrow="Chấm chéo / Lịch sử chấm"
       title="Lịch sử chấm của tôi"
       subtitle="Các bài chấm chéo bạn đã hoàn thành và tình trạng nghĩa vụ chấm."
       back

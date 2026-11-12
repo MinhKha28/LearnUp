@@ -35,7 +35,7 @@ const AssignmentSubmitted = () => {
         tone="success"
         title={resubmitted ? "Đã nhận bài nộp lại" : "Đã nhận bài nộp"}
         primary={{
-          label: "Quay lại Bài đánh giá",
+          label: "Quay lại danh sách bài đánh giá",
           onClick: () => navigate(`/learner/courses/${courseId}/assessments`),
         }}
         secondary={{

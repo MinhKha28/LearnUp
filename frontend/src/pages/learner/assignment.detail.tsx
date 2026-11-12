@@ -1,3 +1,4 @@
+import { formatNumberVN } from "@/utils/number.format";
 import { useState } from "react";
 import { Modal } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
@@ -59,8 +60,8 @@ const AssignmentDetail = () => {
         >
           {assignment.grading ? (
             <p>
-              Điểm cuối cùng: <strong>{assignment.grading.finalScore}%</strong> (điểm đạt tối thiểu{" "}
-              {assignment.grading.passThreshold}%)
+              Điểm cuối cùng: <strong>{formatNumberVN(assignment.grading.finalScore)}%</strong> (điểm đạt tối thiểu{" "}
+              {formatNumberVN(assignment.grading.passThreshold)}%)
             </p>
           ) : (
             <p>Chưa có kết quả chấm trước đó.</p>
@@ -83,8 +84,8 @@ const AssignmentDetail = () => {
           <div className="assignment-result-card">
             <StatusTag tone="success">{grading.published ? "Đã công bố" : "Đang chờ"}</StatusTag>
             <div className="assignment-result-stats">
-              <StatCard label="Điểm cuối cùng" value={`${grading.finalScore}%`} />
-              <StatCard label="Điểm đạt tối thiểu" value={`${grading.passThreshold}%`} />
+              <StatCard label="Điểm cuối cùng" value={`${formatNumberVN(grading.finalScore)}%`} />
+              <StatCard label="Điểm đạt tối thiểu" value={`${formatNumberVN(grading.passThreshold)}%`} />
             </div>
           </div>
           <div className="assignment-rubric-card">
@@ -104,7 +105,7 @@ const AssignmentDetail = () => {
                       <strong>{criterion.name}</strong>
                     </td>
                     <td>
-                      {criterion.score}/{criterion.maxScore}
+                      {formatNumberVN(criterion.score)}/{formatNumberVN(criterion.maxScore)}
                     </td>
                     <td>{criterion.feedback}</td>
                   </tr>
@@ -139,7 +140,7 @@ const AssignmentDetail = () => {
             <hr />
             <h3>Yêu cầu</h3>
             <p>Tiêu chí chấm điểm: {assignment.rubric}</p>
-            <p>Điểm đạt tối thiểu: {assignment.minScore}%</p>
+            <p>Điểm đạt tối thiểu: {formatNumberVN(assignment.minScore)}%</p>
             <p>Thời gian dự kiến: {assignment.estimatedEffort}</p>
             <InfoPanel title="Quy định nộp bài">
               Bài tập không có hạn nộp riêng. Hệ thống ghi nhận bài nộp gần nhất.
@@ -178,7 +179,7 @@ const AssignmentDetail = () => {
                 {assignmentStatusLabel(assignment.status)}
               </StatusTag>
               <DetailItem label="Số lượt còn lại trước khi tạm khóa">
-                {assignment.attemptsRemaining}
+                {assignment.attemptsRemaining}/{assignment.maxConsecutiveAttempts}
               </DetailItem>
               {assignment.submission && (
                 <DetailItem label="Lần nộp gần nhất">{assignment.submission.submittedAt}</DetailItem>

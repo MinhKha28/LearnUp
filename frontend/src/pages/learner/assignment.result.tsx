@@ -1,3 +1,4 @@
+import { formatNumberVN } from "@/utils/number.format";
 import { formatDateTimeVN } from "@/utils/helper";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -50,7 +51,7 @@ const AssignmentResult = () => {
           subtitle={loading ? "Vui lòng đợi." : notice}
           back
         />
-        {!loading && <LearnerButton onClick={back}>Quay lại bài đánh giá</LearnerButton>}
+        {!loading && <LearnerButton onClick={back}>Quay lại danh sách bài đánh giá</LearnerButton>}
       </>
     );
   }
@@ -59,7 +60,7 @@ const AssignmentResult = () => {
     <>
       <PageHeader
         eyebrow="Bài đánh giá / Kết quả"
-        title={`${result.assignment.title} - kết quả`}
+        title={`Kết quả: ${result.assignment.title}`}
         subtitle={`Lần nộp thứ ${result.submission.submissionNumber}, nộp lúc ${formatTime(result.submission.submittedAt)}.`}
         back
       />
@@ -67,7 +68,7 @@ const AssignmentResult = () => {
         <div className="course-learning-content assignment-result-card">
           <div className="assignment-result-score">
             <span>Điểm cuối cùng</span>
-            <strong>{result.finalScore}%</strong>
+            <strong>{formatNumberVN(result.finalScore)}%</strong>
             <StatusTag tone={result.passed ? "success" : "error"}>{result.passed ? "Đạt" : "Chưa đạt"}</StatusTag>
           </div>
           {result.finalizationComment && (
@@ -80,7 +81,7 @@ const AssignmentResult = () => {
               <li key={criterion.id}>
                 <span>{criterion.name}</span>
                 <em>
-                  {criterion.averagePoints === null ? "-" : criterion.averagePoints} / {criterion.maxPoints} điểm
+                  {criterion.averagePoints === null ? "-" : formatNumberVN(criterion.averagePoints)} / {formatNumberVN(criterion.maxPoints)} điểm
                 </em>
               </li>
             ))}
@@ -101,14 +102,14 @@ const AssignmentResult = () => {
           )}
           <div className="assignment-result-actions">
             <LearnerButton type="primary" onClick={back}>
-              Quay lại bài đánh giá
+              Quay lại danh sách bài đánh giá
             </LearnerButton>
           </div>
         </div>
         <div className="course-learning-side">
           <div className="assignment-result-info">
             <h3>Thông tin kết quả</h3>
-            <DetailItem label="Điểm tối thiểu">{result.assignment.passingScore}%</DetailItem>
+            <DetailItem label="Điểm đạt tối thiểu">{formatNumberVN(result.assignment.passingScore)}%</DetailItem>
             <DetailItem label="Chấm lúc">{formatTime(result.finalizedAt)}</DetailItem>
             <DetailItem label="Người chấm">Ẩn</DetailItem>
           </div>
