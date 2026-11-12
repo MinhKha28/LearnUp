@@ -232,7 +232,7 @@ export default function HomePage() {
           {[
             [
               "Một nơi để điều phối",
-              "Khóa học, thành viên và đào tạo bắt buộc nằm chung một quy trình.",
+              "khóa học, thành viên và đào tạo bắt buộc nằm chung một quy trình.",
             ],
             [
               "Trách nhiệm rõ ràng",

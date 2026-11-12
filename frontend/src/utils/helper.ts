@@ -106,7 +106,7 @@ export const seatBlockReason = (
   if (seats.subscriptionStatus === null)
     return "Tổ chức chưa có gói dịch vụ đang hoạt động.";
   if (seats.remaining <= 0)
-    return `Đã dùng hết suất ${roleLabel} (${seats.used} / ${seats.max}).`;
+    return `Đã dùng hết suất ${roleLabel.toLowerCase()} (${seats.used} / ${seats.max}).`;
   return "Tổ chức đang bị tạm ngưng. Không thể tạo tài khoản mới.";
 };
 

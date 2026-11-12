@@ -728,7 +728,7 @@ export default function RegisterPage() {
               <>
                 Email này đã thuộc một tài khoản LearnUP đang hoạt động. Hãy{" "}
                 <Link to="/login">đăng nhập</Link>, hoặc nhập email khác cho
-                Quản lý đào tạo mới.
+                quản lý đào tạo mới.
               </>
             }
             role="alert"

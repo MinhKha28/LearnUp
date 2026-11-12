@@ -200,7 +200,7 @@ export default function ActivatePage() {
   const { invitation } = state;
   return (
     <AuthCard>
-      <span className="auth-badge">Lời mời {roleLabel(invitation.role)}</span>
+      <span className="auth-badge">Lời mời {roleLabel(invitation.role).toLowerCase()}</span>
       <h1>Kích hoạt tài khoản LearnUP</h1>
       <p>
         {invitation.organizationName} mời bạn tham gia không gian đào tạo của tổ

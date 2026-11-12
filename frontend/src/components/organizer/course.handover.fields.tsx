@@ -54,7 +54,7 @@ export const HandOverBlockAlert = ({
         <>
           <p>
             {fullName} vẫn đang phụ trách các khóa học bên dưới và chưa có
-            Giảng viên đang hoạt động nào khác trong tổ chức có thể tiếp nhận. Hãy
+            giảng viên đang hoạt động nào khác trong tổ chức có thể tiếp nhận. Hãy
             thêm hoặc kích hoạt lại một giảng viên trước.
           </p>
           <CourseList courses={courses} />

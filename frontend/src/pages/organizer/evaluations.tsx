@@ -72,7 +72,7 @@ const Evaluations = () => {
       <SectionCard title="So sánh phiên bản">
         <Table className="organizer-table" columns={columns} dataSource={versionRows} pagination={false} />
         <p className="organizer-note organizer-evaluations-note">
-          Nhận xét tự do được ẩn danh; không hiển thị danh tính Học viên
+          Nhận xét tự do được ẩn danh; không hiển thị danh tính học viên
           trong bảng so sánh theo phiên bản này.
         </p>
       </SectionCard>

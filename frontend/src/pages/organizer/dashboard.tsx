@@ -86,7 +86,7 @@ const Dashboard = () => (
     </div>
     <WarningPanel title="Thông báo gói dịch vụ">
       Gói Growth sẽ hết hạn vào ngày 18/12/2026 nếu chưa gia hạn. Học viên có
-      Chứng chỉ nên tải bản PDF trước khi dịch vụ hết hạn.
+      chứng chỉ nên tải bản PDF trước khi dịch vụ hết hạn.
     </WarningPanel>
     <div className="organizer-dashboard-actions">
       <Link to="/organizer/subscription">

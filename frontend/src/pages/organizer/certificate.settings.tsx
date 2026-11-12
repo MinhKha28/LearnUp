@@ -269,8 +269,8 @@ const CertificateSettings = () => {
             disabled={locked || refreshing || !baseline || !dirty || !baseline.etag || requiredReload || !!reloadError && !uncertain}>Lưu</OrganizerButton>
         </>} />
       <Alert type="info" showIcon message="Lưu ý về chứng chỉ" description={<ul>
-        <li>Thay đổi chỉ áp dụng cho Chứng chỉ cấp sau này; Chứng chỉ đã cấp giữ nguyên.</li>
-        <li>Chưa cấu hình người ký vẫn cấp Chứng chỉ (không có chữ ký).</li>
+        <li>Thay đổi chỉ áp dụng cho chứng chỉ cấp sau này; chứng chỉ đã cấp giữ nguyên.</li>
+        <li>Chưa cấu hình người ký vẫn cấp chứng chỉ (không có chữ ký).</li>
         <li>Nên dùng ảnh PNG nền trong suốt, ví dụ 450 × 150 px. Chấp nhận PNG hoặc JPEG, tối đa 2 MiB.</li>
       </ul>} />
       {readOnly && <Alert type="warning" showIcon message="Tổ chức đang ở chế độ chỉ đọc. Thay đổi của bạn được giữ lại, nhưng chưa thể lưu." />}

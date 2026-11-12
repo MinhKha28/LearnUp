@@ -260,7 +260,7 @@ const AssignmentCreate = () => {
         }
       >
         <p>
-          Chưa hỗ trợ tìm Học viên theo tên hoặc email. Chuyển trang để chọn
+          Chưa hỗ trợ tìm học viên theo tên hoặc email. Chuyển trang để chọn
           thêm; lựa chọn được giữ nguyên.
         </p>
         {selectionError && (

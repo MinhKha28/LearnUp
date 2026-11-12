@@ -33,8 +33,8 @@ import { seatBlockReason } from "@/utils/helper";
 export type MemberImportRole = "Instructor" | "Learner";
 
 const roleLabel: Record<MemberImportRole, string> = {
-  Instructor: "Giảng viên",
-  Learner: "Học viên",
+  Instructor: "giảng viên",
+  Learner: "học viên",
 };
 
 export interface MemberImportProps {
