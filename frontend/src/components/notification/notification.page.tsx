@@ -108,7 +108,7 @@ const NotificationPage = () => {
         {failed && (
           <div className="notification-page-state notification-page-state-error" role="alert">
             <span className="notification-page-state-icon">
-              <ExclamationCircleOutlined />
+              <ExclamationCircleOutlined aria-hidden="true" />
             </span>
             <strong>Không tải được thông báo</strong>
             <p>Đã có lỗi xảy ra. Vui lòng thử lại.</p>
@@ -119,7 +119,7 @@ const NotificationPage = () => {
         {empty && (
           <div className="notification-page-state">
             <span className="notification-page-state-icon">
-              <BellOutlined />
+              <BellOutlined aria-hidden="true" />
             </span>
             <strong>{filter === "unread" ? "Bạn đã xem hết thông báo" : "Chưa có thông báo nào"}</strong>
             <p>

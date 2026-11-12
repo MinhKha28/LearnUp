@@ -61,16 +61,16 @@ const ChangePassword = () => {
         <aside className="organizer-password-rules">
           <h2>Truy cập tài khoản</h2>
           <p>
-            <CheckCircleOutlined /> Quản lý đào tạo đăng nhập bằng email và mật khẩu
+            <CheckCircleOutlined aria-hidden="true" /> Quản lý đào tạo đăng nhập bằng email và mật khẩu
           </p>
           <p>
-            <CheckCircleOutlined /> Có thể đăng nhập bằng Google nếu email Google trùng email tài khoản
+            <CheckCircleOutlined aria-hidden="true" /> Có thể đăng nhập bằng Google nếu email Google trùng email tài khoản
           </p>
           <p>
-            <CheckCircleOutlined /> Khôi phục mật khẩu qua email đã đăng ký
+            <CheckCircleOutlined aria-hidden="true" /> Khôi phục mật khẩu qua email đã đăng ký
           </p>
           <p>
-            <CheckCircleOutlined /> Sau khi đổi, bạn cần đăng nhập lại trên mọi thiết bị
+            <CheckCircleOutlined aria-hidden="true" /> Sau khi đổi, bạn cần đăng nhập lại trên mọi thiết bị
           </p>
         </aside>
       </div>

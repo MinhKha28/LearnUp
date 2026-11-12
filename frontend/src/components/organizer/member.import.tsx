@@ -261,7 +261,7 @@ const MemberImport = ({
         back
         actions={
           <OrganizerButton
-            icon={<DownloadOutlined />}
+            icon={<DownloadOutlined aria-hidden="true" />}
             loading={downloading}
             onClick={saveTemplate}
           >
@@ -291,7 +291,7 @@ const MemberImport = ({
           }}
         >
           <p className="ant-upload-drag-icon">
-            <InboxOutlined />
+            <InboxOutlined aria-hidden="true" />
           </p>
           <p className="ant-upload-text">
             {checking

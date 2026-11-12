@@ -315,9 +315,9 @@ const CertificateSettings = () => {
               </div>
               <Space wrap>
                 <Upload accept="image/png,image/jpeg" maxCount={1} showUploadList={false} beforeUpload={selectFile} disabled={locked}>
-                  <OrganizerButton icon={<UploadOutlined />} disabled={locked} loading={validating}>Chọn ảnh</OrganizerButton>
+                  <OrganizerButton icon={<UploadOutlined aria-hidden="true" />} disabled={locked} loading={validating}>Chọn ảnh</OrganizerButton>
                 </Upload>
-                <OrganizerButton icon={<DeleteOutlined />} disabled={locked || draft.signatureAction === "remove" ||
+                <OrganizerButton icon={<DeleteOutlined aria-hidden="true" />} disabled={locked || draft.signatureAction === "remove" ||
                   !draft.file && !baseline.settings.signature} onClick={() => {
                     fileId.current++;
                     setDraft(value => ({ ...value, signatureAction: "remove", file: undefined }));

@@ -201,7 +201,7 @@ const OrganizationEdit = () => {
                   return false;
                 }}
               >
-                <OrganizerButton icon={<UploadOutlined />} loading={logoBusy}>
+                <OrganizerButton icon={<UploadOutlined aria-hidden="true" />} loading={logoBusy}>
                   {profile.logoUrl ? "Thay logo" : "Tải logo lên"}
                 </OrganizerButton>
               </Upload>

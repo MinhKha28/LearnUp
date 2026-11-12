@@ -154,7 +154,7 @@ export default function ActivatePage() {
       return (
         <AuthCard>
           <AuthResult
-            icon={<CheckOutlined />}
+            icon={<CheckOutlined aria-hidden="true" />}
             tone="success"
             title="Tài khoản đã được kích hoạt"
             action={
@@ -175,7 +175,7 @@ export default function ActivatePage() {
     return (
       <AuthCard>
         <AuthResult
-          icon={<ExclamationCircleFilled />}
+          icon={<ExclamationCircleFilled aria-hidden="true" />}
           title={content.title}
           action={
             state.problem === "network" ? (

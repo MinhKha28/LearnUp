@@ -20,10 +20,10 @@ const NotFoundPage = () => {
           Đường dẫn có thể đã hết hiệu lực hoặc được nhập sai. Hãy kiểm tra địa chỉ hoặc về trang chủ LearnUP.
         </>
       }
-      primaryAction={{ label: "Về trang chủ", icon: <HomeOutlined />, onClick: () => navigate("/") }}
+      primaryAction={{ label: "Về trang chủ", icon: <HomeOutlined aria-hidden="true" />, onClick: () => navigate("/") }}
       secondaryAction={{
         label: "Quay lại",
-        icon: <ArrowLeftOutlined />,
+        icon: <ArrowLeftOutlined aria-hidden="true" />,
         onClick: () => navigate(-1),
       }}
       footnote="Bạn cũng có thể dùng nút Quay lại của trình duyệt."
@@ -41,7 +41,7 @@ const NotFoundPage = () => {
                 /…
               </div>
               <div className="error-page-illustration-card">
-                <FileSearchOutlined style={{ color: "var(--color-accent)" }} />
+                <FileSearchOutlined aria-hidden="true" style={{ color: "var(--color-accent)" }} />
                 <span className="error-page-illustration-card-label">Không tìm thấy trang</span>
               </div>
             </div>

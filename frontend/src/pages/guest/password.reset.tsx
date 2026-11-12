@@ -81,7 +81,7 @@ export default function ResetPasswordPage() {
     return (
       <AuthCard>
         <AuthResult
-          icon={<CheckOutlined />}
+          icon={<CheckOutlined aria-hidden="true" />}
           tone="success"
           title="Đã đặt lại mật khẩu"
           action={

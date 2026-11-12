@@ -22,12 +22,12 @@ import "./layout.learner.scss";
 type MenuItem = Required<MenuProps>["items"][number];
 
 const learnerMenuItems: MenuItem[] = [
-  { key: "/learner", icon: <TableOutlined />, label: "Tổng quan" },
-  { key: "/learner/courses", icon: <UnorderedListOutlined />, label: "Khóa học của tôi" },
-  { key: "/learner/catalog", icon: <AppstoreOutlined />, label: "Danh mục khóa học" },
-  { key: "/learner/peer-review", icon: <SwapOutlined />, label: "Chấm chéo" },
-  { key: "/learner/certificates", icon: <GoldOutlined />, label: "Chứng chỉ" },
-  { key: "/learner/reports", icon: <FlagOutlined />, label: "Báo cáo của tôi" },
+  { key: "/learner", icon: <TableOutlined aria-hidden="true" />, label: "Tổng quan" },
+  { key: "/learner/courses", icon: <UnorderedListOutlined aria-hidden="true" />, label: "Khóa học của tôi" },
+  { key: "/learner/catalog", icon: <AppstoreOutlined aria-hidden="true" />, label: "Danh mục khóa học" },
+  { key: "/learner/peer-review", icon: <SwapOutlined aria-hidden="true" />, label: "Chấm chéo" },
+  { key: "/learner/certificates", icon: <GoldOutlined aria-hidden="true" />, label: "Chứng chỉ" },
+  { key: "/learner/reports", icon: <FlagOutlined aria-hidden="true" />, label: "Báo cáo của tôi" },
 ];
 
 const LayoutLearner = () => {
@@ -91,7 +91,7 @@ const LayoutLearner = () => {
           <Button
             className="learner-signout-trigger"
             type="text"
-            icon={<LogoutOutlined />}
+            icon={<LogoutOutlined aria-hidden="true" />}
             aria-label="Đăng xuất"
             onClick={() => setSignOutOpen(true)}
           />
@@ -124,7 +124,7 @@ const LayoutLearner = () => {
             <Button
               className="learner-menu-trigger"
               type="text"
-              icon={<MenuOutlined />}
+              icon={<MenuOutlined aria-hidden="true" />}
               onClick={() => setMobileOpen(true)}
               aria-label="Mở điều hướng"
             />

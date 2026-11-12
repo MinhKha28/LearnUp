@@ -72,7 +72,7 @@ const UsageCard = ({
       <div className="sub-usage-head">
         <span className="sub-usage-icon">{icon}</span>
         <span className="sub-usage-label">{label}</span>
-        {level !== "ok" && <WarningFilled className="sub-usage-alert" />}
+        {level !== "ok" && <WarningFilled role="img" aria-label={level === "full" ? "Đã chạm giới hạn sử dụng" : "Sắp chạm giới hạn sử dụng"} className="sub-usage-alert" />}
       </div>
       {item.used === null ? (
         <>
@@ -257,22 +257,22 @@ const Subscription = () => {
           )}
           <div className="sub-usage-grid">
             <UsageCard
-              icon={<TeamOutlined />}
+              icon={<TeamOutlined aria-hidden="true" />}
               label="Học viên"
               item={usage.learners}
             />
             <UsageCard
-              icon={<SolutionOutlined />}
+              icon={<SolutionOutlined aria-hidden="true" />}
               label="Giảng viên"
               item={usage.instructors}
             />
             <UsageCard
-              icon={<BookOutlined />}
+              icon={<BookOutlined aria-hidden="true" />}
               label="Khóa học"
               item={usage.courses}
             />
             <UsageCard
-              icon={<CloudOutlined />}
+              icon={<CloudOutlined aria-hidden="true" />}
               label="Dung lượng lưu trữ"
               item={usage.storageBytes}
               format={formatBytes}

@@ -91,7 +91,7 @@ export default function Header() {
       </nav>
       <Button
         className="header-menu"
-        icon={<MenuOutlined />}
+        icon={<MenuOutlined aria-hidden="true" />}
         aria-label="Mở menu điều hướng"
         onClick={() => setOpen(true)}
       />

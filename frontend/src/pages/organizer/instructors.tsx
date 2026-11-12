@@ -177,7 +177,7 @@ const Instructors = () => {
         {/* UC12.4 */}
         <div className="organizer-filters organizer-instructors-filters">
           <Input
-            prefix={<SearchOutlined />}
+            prefix={<SearchOutlined aria-hidden="true" />}
             placeholder="Tìm theo tên hoặc email"
             allowClear
             maxLength={100}

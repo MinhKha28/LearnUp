@@ -22,10 +22,10 @@ const ServerErrorPage = () => {
       }
       primaryAction={{
         label: "Thử lại",
-        icon: <ReloadOutlined />,
+        icon: <ReloadOutlined aria-hidden="true" />,
         onClick: () => window.location.reload(),
       }}
-      secondaryAction={{ label: "Về trang chủ", icon: <HomeOutlined />, onClick: () => navigate("/") }}
+      secondaryAction={{ label: "Về trang chủ", icon: <HomeOutlined aria-hidden="true" />, onClick: () => navigate("/") }}
       footnote="Bạn có thể cần gửi lại yêu cầu."
       errorCode="LearnUP / Lỗi 500"
       illustration={
@@ -53,7 +53,7 @@ const ServerErrorPage = () => {
                 ))}
               </div>
               <div className="error-page-illustration-warning">
-                <WarningOutlined />
+                <WarningOutlined aria-hidden="true" />
               </div>
             </div>
           </div>

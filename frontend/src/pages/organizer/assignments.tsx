@@ -118,7 +118,7 @@ const Assignments = () => {
       ),
     },
     {
-      title: <span className="organizer-assignment-column-title">Tiến độ <Tooltip title="Số học liệu bắt buộc đã hoàn thành"><InfoCircleOutlined aria-label="Số học liệu bắt buộc đã hoàn thành" tabIndex={0} /></Tooltip></span>,
+      title: <span className="organizer-assignment-column-title">Tiến độ <Tooltip title="Số học liệu bắt buộc đã hoàn thành"><InfoCircleOutlined role="img" aria-label="Số học liệu bắt buộc đã hoàn thành" tabIndex={0} /></Tooltip></span>,
       key: "progress",
       className: "organizer-assignment-nowrap",
       width: "1%",
