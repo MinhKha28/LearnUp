@@ -23,6 +23,7 @@ import type {
   SubscriptionStatus,
 } from "@/types/subscription.types";
 import { formatDateVN, formatVnd } from "@/utils/helper";
+import { subscriptionUsage } from "@/utils/subscription.usage";
 import "./subscription.scss";
 import { VietnameseAlert } from "@/components/vietnamese.controls";
 
@@ -52,21 +53,20 @@ const STATUS_VIEW: Record<
   Suspended: { tone: "suspended", access: "Chỉ xem" },
 };
 
-const usageLevel = (item: IUsageItem) =>
-  (item.percent ?? 0) >= 100 ? "full" : item.warning ? "warning" : "ok";
-
 const UsageCard = ({
   icon,
   label,
   item,
+  warningThreshold,
   format = (value: number) => value.toLocaleString("vi-VN"),
 }: {
   icon: ReactNode;
   label: string;
   item: IUsageItem;
+  warningThreshold: number;
   format?: (value: number) => string;
 }) => {
-  const level = usageLevel(item);
+  const { label: percentLabel, barWidth, level } = subscriptionUsage(item.used, item.limit, warningThreshold);
   return (
     <div className={`sub-usage-card sub-usage-${level}`}>
       <div className="sub-usage-head">
@@ -83,19 +83,21 @@ const UsageCard = ({
         <>
           <strong className="sub-usage-value">
             {format(item.used)}
-            <span> / {format(item.limit)}</span>
+            <span> / {item.limit == null ? "—" : format(item.limit)}</span>
           </strong>
           <div className="sub-usage-bar">
-            <span style={{ width: `${Math.min(item.percent ?? 0, 100)}%` }} />
+            <span style={{ width: `${barWidth}%` }} />
           </div>
-          <small className="sub-usage-caption">
-            Đã dùng {item.percent?.toLocaleString("vi-VN")}%
-            {level === "full"
-              ? " - đã đạt giới hạn"
-              : level === "warning"
-                ? " - sắp đạt giới hạn"
-                : ""}
-          </small>
+          {percentLabel !== null && (
+            <small className="sub-usage-caption">
+              {percentLabel === "Dưới 1%" ? percentLabel : `Đã dùng ${percentLabel}`}
+              {level === "full"
+                ? " - đã đạt giới hạn"
+                : level === "warning"
+                  ? " - sắp đạt giới hạn"
+                  : ""}
+            </small>
+          )}
         </>
       )}
     </div>
@@ -130,8 +132,9 @@ const Subscription = () => {
   const subscription = overview?.subscription ?? null;
   const status = subscription ? STATUS_VIEW[subscription.status] : null;
   const usage = overview?.usage;
+  const warningThreshold = overview?.usageWarningThresholdPercent ?? 80;
   const warnings = usage
-    ? Object.values(usage).filter((item) => item.warning).length
+    ? Object.values(usage).filter((item) => subscriptionUsage(item.used, item.limit, warningThreshold).level !== "ok").length
     : 0;
   const totalDays = subscription
     ? Math.max(
@@ -260,21 +263,25 @@ const Subscription = () => {
               icon={<TeamOutlined aria-hidden="true" />}
               label="Học viên"
               item={usage.learners}
+              warningThreshold={warningThreshold}
             />
             <UsageCard
               icon={<SolutionOutlined aria-hidden="true" />}
               label="Giảng viên"
               item={usage.instructors}
+              warningThreshold={warningThreshold}
             />
             <UsageCard
               icon={<BookOutlined aria-hidden="true" />}
               label="Khóa học"
               item={usage.courses}
+              warningThreshold={warningThreshold}
             />
             <UsageCard
               icon={<CloudOutlined aria-hidden="true" />}
               label="Dung lượng lưu trữ"
               item={usage.storageBytes}
+              warningThreshold={warningThreshold}
               format={formatBytes}
             />
           </div>
