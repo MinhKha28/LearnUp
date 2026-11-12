@@ -8,39 +8,36 @@ const ForbiddenPage = () => {
   return (
     <ErrorPage
       tone="blue"
-      badgeLabel="Access restricted"
+      badgeLabel="Hạn chế truy cập"
       headerRight={
         <span className="error-page-header-signed-in">
           <span className="error-page-header-avatar">U</span>
-          Signed in
+          Đã đăng nhập
         </span>
       }
       title={
         <>
-          You don&apos;t have
-          <br />
-          access to this page.
+          Bạn không có quyền<br />truy cập trang này.
         </>
       }
       description={
         <>
-          Your account is signed in, but this page isn&apos;t available to your role. Go back or
-          contact your workspace administrator if you believe you should have access.
+          Vai trò của bạn chưa được cấp quyền truy cập trang này. Hãy quay lại hoặc liên hệ Quản trị viên để được hỗ trợ.
         </>
       }
       primaryAction={{
-        label: "Go back",
+        label: "Quay lại",
         icon: <ArrowLeftOutlined />,
         onClick: () => navigate(-1),
       }}
-      secondaryAction={{ label: "Go to Home", icon: <HomeOutlined />, onClick: () => navigate("/") }}
-      footnote="Access depends on your assigned role and organization."
-      errorCode="LearnUP / Error 403"
+      secondaryAction={{ label: "Về trang chủ", icon: <HomeOutlined />, onClick: () => navigate("/") }}
+      footnote="Quyền truy cập phụ thuộc vào vai trò và tổ chức của bạn."
+      errorCode="LearnUP / Lỗi 403"
       illustration={
         <>
           <span className="error-page-illustration-circle error-page-illustration-circle-a" />
           <span className="error-page-illustration-tag error-page-illustration-tag-blue">
-            Restricted
+            Hạn chế truy cập
           </span>
           <div className="error-page-illustration-body">
             <div className="error-page-illustration-panel">
@@ -51,7 +48,7 @@ const ForbiddenPage = () => {
                 <span className="error-page-illustration-lock">
                   <LockOutlined />
                 </span>
-                <span className="error-page-illustration-card-label">Role access required</span>
+                <span className="error-page-illustration-card-label">Cần có quyền truy cập</span>
               </div>
             </div>
           </div>

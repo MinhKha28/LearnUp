@@ -217,7 +217,7 @@ const CertificateSettings = () => {
       setUncertain(false);
       setRequiredReload(!result.etag);
       await load("saved", result);
-      if (active.current) void message.success("Đã lưu cấu hình người ký Certificate.");
+      if (active.current) void message.success("Đã lưu cấu hình người ký Chứng chỉ.");
     } catch (error) {
       if (!active.current) return;
       if (!(error instanceof ApiError)) { setSubmitError(failureMessage(error)); return; }
@@ -262,19 +262,19 @@ const CertificateSettings = () => {
 
   return (
     <OrganizerPage className="certificate-settings">
-      <PageHeader title="Cấu hình người ký Certificate" subtitle="Quản lý tên, chức danh và ảnh chữ ký dùng cho Certificate cấp sau này."
+      <PageHeader title="Cấu hình người ký Chứng chỉ" subtitle="Quản lý tên, chức danh và ảnh chữ ký dùng cho Chứng chỉ cấp sau này."
         actions={<>
           <OrganizerButton disabled={loading || saving || validating || refreshing || !baseline} onClick={useLatest}>Hủy thay đổi</OrganizerButton>
           <OrganizerButton type="primary" htmlType="submit" form="certificate-signer-form" loading={saving}
             disabled={locked || refreshing || !baseline || !dirty || !baseline.etag || requiredReload || !!reloadError && !uncertain}>Lưu</OrganizerButton>
         </>} />
-      <Alert type="info" showIcon message="Lưu ý về Certificate" description={<ul>
-        <li>Thay đổi chỉ áp dụng cho Certificate cấp sau này; Certificate đã cấp giữ nguyên.</li>
-        <li>Chưa cấu hình người ký vẫn cấp Certificate (không có chữ ký).</li>
+      <Alert type="info" showIcon message="Lưu ý về Chứng chỉ" description={<ul>
+        <li>Thay đổi chỉ áp dụng cho Chứng chỉ cấp sau này; Chứng chỉ đã cấp giữ nguyên.</li>
+        <li>Chưa cấu hình người ký vẫn cấp Chứng chỉ (không có chữ ký).</li>
         <li>Nên dùng ảnh PNG nền trong suốt, ví dụ 450 × 150 px. Chấp nhận PNG hoặc JPEG, tối đa 2 MiB.</li>
       </ul>} />
       {readOnly && <Alert type="warning" showIcon message="Tổ chức đang ở chế độ chỉ đọc. Thay đổi của bạn được giữ lại, nhưng chưa thể lưu." />}
-      {forbidden && <Alert type="error" showIcon message="Bạn không có quyền cấu hình người ký Certificate." />}
+      {forbidden && <Alert type="error" showIcon message="Bạn không có quyền cấu hình người ký Chứng chỉ." />}
       {(requiredReload || baseline && !baseline.etag) && <Alert type="warning" showIcon
         message="Cần tải lại cấu hình trước khi lưu." description={reloadError} action={<Button disabled={refreshing || saving} onClick={() => void load("required")}>Tải lại cấu hình</Button>} />}
       {reloadError && !uncertain && !conflict && !requiredReload && <Alert type="error" showIcon message={reloadError}

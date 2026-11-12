@@ -99,7 +99,7 @@ const Organization = () => {
           <div className="organizer-detail-item">
             <span>Lưu ý pháp lý</span>
             <strong>
-              Mã số thuế chỉ để định danh, MVP không có nghiệp vụ xuất hóa đơn.
+              Mã số thuế dùng để định danh tổ chức.
             </strong>
           </div>
         </div>

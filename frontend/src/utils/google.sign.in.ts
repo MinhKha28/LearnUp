@@ -2,12 +2,12 @@ import { signInMessage } from "@/utils/auth";
 
 // UC05.1 error codes returned by Identity (POST /api/v1/auth/google).
 const GOOGLE_MESSAGES: Record<string, string> = {
-  GOOGLE_ACCOUNT_NOT_LINKED: "This Google email is not linked to an existing LearnUP account.",
+  GOOGLE_ACCOUNT_NOT_LINKED: "Email Google này chưa được liên kết với tài khoản LearnUP.",
   GOOGLE_SIGN_IN_NOT_ALLOWED:
-    "Google sign-in is not available for this account. Please sign in with your email and password.",
-  GOOGLE_CREDENTIAL_INVALID: "Google sign-in could not be verified. Please try again.",
+    "Tài khoản này chưa thể đăng nhập bằng Google. Vui lòng đăng nhập bằng email và mật khẩu.",
+  GOOGLE_CREDENTIAL_INVALID: "Không xác minh được đăng nhập bằng Google. Vui lòng thử lại.",
   GOOGLE_SIGN_IN_UNAVAILABLE:
-    "Google sign-in is currently unavailable. Please sign in with your email and password.",
+    "Tính năng đăng nhập bằng Google đang gián đoạn. Vui lòng đăng nhập bằng email và mật khẩu.",
 };
 
 export const GOOGLE_UNAVAILABLE_MESSAGE = GOOGLE_MESSAGES.GOOGLE_SIGN_IN_UNAVAILABLE;

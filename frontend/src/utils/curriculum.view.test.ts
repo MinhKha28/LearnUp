@@ -102,11 +102,11 @@ describe("buildMaterialRow", () => {
     expect(buildMaterialRow(material({ durationSeconds: null })).duration).toBeNull();
   });
 
-  it("Bài đọc không hiện thời lượng", () => {
+  it("Tài liệu đọc không hiện thời lượng", () => {
     const row = buildMaterialRow(
       material({ materialType: "Reading", title: "Đọc thêm", durationSeconds: 300, isRequired: false, completed: true }),
     );
-    expect(row.typeLabel).toBe("Bài đọc");
+    expect(row.typeLabel).toBe("Tài liệu đọc");
     expect(row.duration).toBeNull();
     expect(row.isRequired).toBe(false);
     expect(row.mark).toEqual({ label: "Đã hoàn thành", tone: "success" });

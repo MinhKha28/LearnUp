@@ -12,9 +12,9 @@ import "./account.table.scss";
 const ACCOUNT_PAGE_SIZES = [10, 20, 50];
 
 export const statusLabel: Record<AccountStatus, string> = {
-  Active: "Active",
-  Pending: "Pending activation",
-  Deactivated: "Deactivated",
+  Active: "Đang hoạt động",
+  Pending: "Chờ kích hoạt",
+  Deactivated: "Đã vô hiệu hóa",
 };
 
 const statusTone = (status: AccountStatus) =>
@@ -60,27 +60,27 @@ const AccountTable = <T extends IAccountListItem>({
         className="account-table-error"
         type="error"
         showIcon
-        message={`Could not load ${itemLabel}.`}
-        description="Please check your connection and try again."
-        action={<Button onClick={onRetry}>Try again</Button>}
+        message={`Không thể tải danh sách ${itemLabel}.`}
+        description="Vui lòng kiểm tra kết nối và thử lại."
+        action={<Button onClick={onRetry}>Thử lại</Button>}
       />
     );
   }
 
   const columns: ColumnsType<T> = [
     {
-      title: "Full name",
+      title: "Họ và tên",
       dataIndex: "fullName",
       render: (fullName: string) => <strong>{fullName}</strong>,
     },
     { title: "Email", dataIndex: "email" },
     {
-      title: "Work unit",
+      title: "Đơn vị công tác",
       dataIndex: "department",
       render: (department: string | null) => department || "—",
     },
     {
-      title: "Status",
+      title: "Trạng thái",
       dataIndex: "status",
       render: (_, item) => (
         <div className="account-table-status">
@@ -88,19 +88,19 @@ const AccountTable = <T extends IAccountListItem>({
             {statusLabel[item.status]}
           </StatusTag>
           {item.status === "Pending" && item.invitationExpired && (
-            <StatusTag tone="error">Invitation expired</StatusTag>
+            <StatusTag tone="error">Lời mời đã hết hạn</StatusTag>
           )}
         </div>
       ),
     },
     ...extraColumns,
     {
-      title: "Created",
+      title: "Ngày tạo",
       dataIndex: "createdAt",
       render: (createdAt: string) => formatDateVN(createdAt),
     },
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       align: "right",
       render: (_, item) => renderActions?.(item) ?? null,
