@@ -128,7 +128,9 @@ const LayoutLearner = () => {
               onClick={() => setMobileOpen(true)}
               aria-label="Mở điều hướng"
             />
-            <span className="learner-org-name">{demoIdentity?.current.organizationLabel ?? "Demo Organization"}</span>
+            {user?.organizationName && (
+              <span className="learner-org-name">{user.organizationName}</span>
+            )}
           </div>
           <div className="learner-topbar-actions">
             <DevIdentitySelect identity={demoIdentity} />

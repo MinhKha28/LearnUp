@@ -214,7 +214,7 @@ const Catalog = () => {
 
   return (
     <LearnerPage className="learner-catalog">
-      <PageHeader title="Danh mục Khóa học" subtitle="Các Khóa học tổ chức của bạn mở cho Học viên tự đăng ký." />
+      <PageHeader title="Danh mục Khóa học" subtitle="Học viên có thể tự đăng ký các Khóa học dưới đây do tổ chức của bạn cung cấp." />
       <CatalogSearch keyword={keyword} onSearch={search} />
       {page === null ? <CatalogSkeleton /> : <CatalogContent page={page} keyword={keyword} />}
     </LearnerPage>

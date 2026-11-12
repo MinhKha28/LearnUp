@@ -329,7 +329,9 @@ const LayoutOrganizer = () => {
             </div>
           </div>
           <div className="organizer-topbar-actions">
-            <span className="organizer-org-badge">{demoIdentity?.current.organizationLabel ?? "Demo Organization"}</span>
+            {user?.organizationName && (
+              <span className="organizer-org-badge">{user.organizationName}</span>
+            )}
             <DevIdentitySelect identity={demoIdentity} />
             <NotificationBell basePath="/organizer" />
             <Dropdown

@@ -30,13 +30,16 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
           className={`builder-nav-link${pathname === base ? " active" : ""}`}
           onClick={() => navigate(base)}
         >
-          View Course Structure
+          Xem cấu trúc Khóa học
         </button>
       </div>
 
-      {structure.structureLocked && structure.lockReason && (
+      {structure.structureLocked && (
         <p className="builder-nav-hint">
-          <LockOutlined /> {structure.lockReason}
+          <LockOutlined />{" "}
+          {course.status === "Submitted"
+            ? "Khóa học đang chờ phê duyệt. Hãy rút yêu cầu phê duyệt để chỉnh sửa."
+            : "Cấu trúc Khóa học đã khóa vì đã có Học viên đăng ký."}
         </p>
       )}
 
@@ -70,7 +73,7 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
                   navigate(`${base}/modules/${module.id}/lessons/new`)
                 }
               >
-                + Add Lesson
+                + Thêm Bài học
               </button>
             )}
           </div>
@@ -81,7 +84,7 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
               <span className="builder-nav-module-index">
                 <FileTextOutlined />
               </span>
-              <strong>Bài đánh giá của khóa học</strong>
+              <strong>Bài đánh giá của Khóa học</strong>
             </div>
             <button
               type="button"
@@ -106,7 +109,7 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
               className="builder-nav-add-lesson"
               onClick={() => navigate(`${base}/assignments/new`, { state: { from: pathname } })}
             >
-              + Add Assignment
+              + Thêm Bài tập
             </button>
           </div>
         )}
@@ -118,7 +121,7 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
           className="builder-nav-add"
           onClick={() => navigate(`${base}/modules/new`)}
         >
-          + Add Module
+          + Thêm Chương
         </button>
       )}
 

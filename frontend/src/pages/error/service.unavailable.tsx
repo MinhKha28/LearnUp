@@ -8,28 +8,26 @@ const ServiceUnavailablePage = () => {
   return (
     <ErrorPage
       tone="amber"
-      badgeLabel="Service unavailable"
-      headerRight="LearnUP platform"
+      badgeLabel="Dịch vụ gián đoạn"
+      headerRight="Nền tảng LearnUP"
       title={
         <>
-          LearnUP is
-          <br />
-          temporarily unavailable.
+          LearnUP đang<br />tạm thời gián đoạn.
         </>
       }
       description={
         <>
-          The service isn&apos;t available right now. Please try again in a little while.
+          Hiện chưa thể sử dụng dịch vụ. Vui lòng thử lại sau ít phút.
         </>
       }
       primaryAction={{
-        label: "Try again",
+        label: "Thử lại",
         icon: <ReloadOutlined />,
         onClick: () => window.location.reload(),
       }}
-      secondaryAction={{ label: "Go to Home", icon: <HomeOutlined />, onClick: () => navigate("/") }}
-      footnote="Please wait a moment before retrying."
-      errorCode="LearnUP / Error 503"
+      secondaryAction={{ label: "Về trang chủ", icon: <HomeOutlined />, onClick: () => navigate("/") }}
+      footnote="Vui lòng đợi một lúc rồi thử lại."
+      errorCode="LearnUP / Lỗi 503"
       illustration={
         <>
           <span className="error-page-illustration-circle error-page-illustration-circle-a" />
@@ -40,8 +38,8 @@ const ServiceUnavailablePage = () => {
               <div className="error-page-illustration-status-row">
                 <span className="error-page-illustration-status-dot" />
                 <div>
-                  <strong>Service temporarily offline</strong>
-                  <p>Please try again shortly</p>
+                  <strong>Dịch vụ đang tạm ngưng</strong>
+                  <p>Vui lòng thử lại sau ít phút</p>
                 </div>
               </div>
             </div>
