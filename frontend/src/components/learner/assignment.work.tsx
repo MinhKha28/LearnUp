@@ -74,7 +74,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
         setAssignment(res.data);
         setLoadError("");
       } else {
-        setLoadError(learnerAssessmentErrorText(res));
+        setLoadError(learnerAssessmentErrorText(res, "Không tải được bài tập."));
       }
     } catch {
       setLoadError("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
@@ -155,7 +155,9 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
         setNotActive(ENROLLMENT_NOT_ACTIVE_FORM_TEXT);
         return;
       }
-      message.error(learnerAssessmentErrorText(res));
+      message.error(
+        learnerAssessmentErrorText(res, resubmitting ? "Không nộp lại được bài tập." : "Không nộp được bài tập."),
+      );
       if (STALE_CODES.includes(code)) {
         await load();
       }

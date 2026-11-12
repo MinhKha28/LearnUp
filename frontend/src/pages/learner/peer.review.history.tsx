@@ -1,4 +1,3 @@
-import { LEARNER_API_ERROR_FALLBACK } from "@/utils/learner.api.errors";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Pagination, Select } from "antd";
 import { useNavigate } from "react-router-dom";
@@ -59,7 +58,7 @@ const PeerReviewHistory = () => {
         setNotice(
           vietnameseErrorText(
             res,
-            LEARNER_API_ERROR_FALLBACK,
+            "Không tải được lịch sử chấm. Vui lòng thử lại.",
           ),
         );
       }

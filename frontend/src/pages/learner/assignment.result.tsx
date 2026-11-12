@@ -27,7 +27,7 @@ const AssignmentResult = () => {
         const res = await fetchLearnerResultAPI(assignmentId);
         if (!active) return;
         if (res.data) setResult(res.data);
-        else setNotice(learnerAssessmentErrorText(res));
+        else setNotice(learnerAssessmentErrorText(res, "Không tải được kết quả."));
       } catch {
         if (active) setNotice("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {

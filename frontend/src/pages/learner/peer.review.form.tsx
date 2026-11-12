@@ -1,5 +1,4 @@
 import { formatNumberVN } from "@/utils/number.format";
-import { LEARNER_API_ERROR_FALLBACK } from "@/utils/learner.api.errors";
 import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
 import { Input, InputNumber, message } from "antd";
@@ -15,6 +14,7 @@ import {
   assessmentErrorCode,
   downloadLearnerPromptFileAPI,
   downloadLearnerReviewFileAPI,
+  learnerReviewFileErrorText,
   fetchLearnerPeerReviewAPI,
   giveLearnerPeerReviewAPI,
   vietnameseErrorText,
@@ -73,7 +73,7 @@ const PeerReviewForm = () => {
         setNotice(
           assessmentErrorCode(res).code === "REVIEW_NOT_FOUND"
             ? "Bài chấm này có thể đã bị xóa hoặc không phải của bạn."
-            : vietnameseErrorText(res, LEARNER_API_ERROR_FALLBACK),
+            : vietnameseErrorText(res, "Không thể tải bài chấm này."),
         );
       }
     } catch {
@@ -122,9 +122,9 @@ const PeerReviewForm = () => {
   const rubric = detail.assignment.rubric;
 
   const downloadWork = async () => {
-    const blob = await downloadLearnerReviewFileAPI(detail.id);
+    const { blob, code } = await downloadLearnerReviewFileAPI(detail.id);
     if (!blob || !detail.submission.file) {
-      message.error("Không tải được tệp.");
+      message.error(learnerReviewFileErrorText(code));
       return;
     }
     saveBlob(blob, detail.submission.file.fileName);
@@ -171,7 +171,7 @@ const PeerReviewForm = () => {
         message.warning("Đã quá hạn chấm bài này nên không thể gửi nữa.");
         await load();
       } else {
-        message.error(vietnameseErrorText(res, LEARNER_API_ERROR_FALLBACK));
+        message.error(vietnameseErrorText(res, "Không gửi được bài chấm."));
       }
     } catch {
       message.error("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
