@@ -244,7 +244,7 @@ export default function LoginPage() {
             onError={setError}
           />
           <p className="login-help">
-            Tài khoản Quản lý đào tạo, giảng viên và học viên đã có có thể đăng
+            Tài khoản quản lý đào tạo, giảng viên và học viên đã có có thể đăng
             nhập bằng Google.
           </p>
         </div>

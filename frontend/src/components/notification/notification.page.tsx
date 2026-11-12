@@ -82,7 +82,7 @@ const NotificationPage = () => {
         <div className="notification-page-title">
           <h1>Thông báo</h1>
           <p>
-            Cập nhật về Khóa học, bài tập và bài chấm của bạn.
+            Cập nhật về khóa học, bài tập và bài chấm của bạn.
             {unread !== null && unread > 0 && <span className="notification-page-count">{unread} chưa đọc</span>}
           </p>
         </div>

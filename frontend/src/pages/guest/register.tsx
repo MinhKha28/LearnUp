@@ -67,7 +67,7 @@ const titles: Record<
   },
   organizer: {
     eyebrow: "Bước 3/5",
-    title: "Tài khoản Quản lý đào tạo",
+    title: "Tài khoản quản lý đào tạo",
     description: "Tạo tài khoản cho người sẽ quản lý đào tạo của tổ chức.",
   },
   "account-review": {
@@ -79,7 +79,7 @@ const titles: Record<
     eyebrow: "Bước 4/5",
     title: "Xác thực email",
     description:
-      "Nhập mã 6 chữ số chúng tôi đã gửi để xác thực email của Quản lý đào tạo trước khi thanh toán.",
+      "Nhập mã 6 chữ số chúng tôi đã gửi để xác thực email của quản lý đào tạo trước khi thanh toán.",
   },
   payment: {
     eyebrow: "Bước 5/5",
@@ -102,7 +102,7 @@ const titles: Record<
     eyebrow: "Đã hoàn tất đăng ký",
     title: "Đã thanh toán",
     description:
-      "Tổ chức và tài khoản Quản lý đào tạo của bạn đã được kích hoạt.",
+      "Tổ chức và tài khoản quản lý đào tạo của bạn đã được kích hoạt.",
   },
   "no-plans": {
     eyebrow: "Các gói",
@@ -132,7 +132,7 @@ const resultContent = {
     icon: "✓",
     tone: "success",
     title: "Không gian làm việc đã sẵn sàng",
-    text: "Gói dịch vụ đã bắt đầu và tài khoản Quản lý đào tạo đã được kích hoạt.",
+    text: "Gói dịch vụ đã bắt đầu và tài khoản quản lý đào tạo đã được kích hoạt.",
     action: "Đăng nhập",
     to: "/login",
   },
@@ -222,7 +222,7 @@ export default function RegisterPage() {
   const email =
     summary?.organizerEmail ||
     draft.organizer.email ||
-    "[Email Quản lý đào tạo]";
+    "[Email quản lý đào tạo]";
   // Gói hiển thị bên phải: ở màn thanh toán dùng gói đã chốt trong đăng ký, trước đó dùng gói vừa chọn
   const displayPlan: ISubscriptionPlan | null = summary
     ? { id: summary.registrationId, ...summary.plan }
@@ -501,7 +501,7 @@ export default function RegisterPage() {
         } else if (error?.code === "EMAIL_NOT_VERIFIED") {
           // BR-6: backend tự kiểm lại, phòng khi gọi thẳng API bỏ qua bước xác thực
           setPayError(
-            "Hãy xác thực email của Quản lý đào tạo trước khi thanh toán. Mở liên kết trong thư đăng ký của bạn.",
+            "Hãy xác thực email của quản lý đào tạo trước khi thanh toán. Mở liên kết trong thư đăng ký của bạn.",
           );
         } else {
           setPayError("Chưa xử lý được thanh toán. Vui lòng thử lại.");
@@ -533,7 +533,7 @@ export default function RegisterPage() {
         )}
         {resultScreen === "payment-completed" && (
           <div className="register-notice register-notice-success">
-            <b>Đã kích hoạt tài khoản Quản lý đào tạo</b>
+            <b>Đã kích hoạt tài khoản quản lý đào tạo</b>
             <p>
               Thư xác nhận đã được gửi tới {email}. Hãy đăng nhập bằng mật khẩu
               bạn đã tạo khi đăng ký.

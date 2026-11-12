@@ -42,8 +42,8 @@ const capabilities = [
 
 const gettingStarted = [
   ["01", "Chọn gói", "So sánh giới hạn và thời hạn sử dụng."],
-  ["02", "Đăng ký", "Khai thông tin tổ chức và Quản lý đào tạo."],
-  ["03", "Xác thực email", "Nhập mã gửi tới email của Quản lý đào tạo."],
+  ["02", "Đăng ký", "Khai thông tin tổ chức và quản lý đào tạo."],
+  ["03", "Xác thực email", "Nhập mã gửi tới email của quản lý đào tạo."],
   ["04", "Thanh toán", "Thanh toán mô phỏng để kích hoạt tài khoản."],
 ];
 
@@ -388,7 +388,7 @@ export default function HomePage() {
           {[
             [
               "Ai có thể đăng ký?",
-              "Người đại diện đăng ký tổ chức và trở thành Quản lý đào tạo sau khi thanh toán.",
+              "Người đại diện đăng ký tổ chức và trở thành quản lý đào tạo sau khi thanh toán.",
             ],
             [
               "Thanh toán thế nào?",
@@ -396,7 +396,7 @@ export default function HomePage() {
             ],
             [
               "Thành viên có đăng nhập bằng Google được không?",
-              "Tài khoản Quản lý đào tạo, giảng viên và học viên đã có có thể đăng nhập bằng Google.",
+              "Tài khoản quản lý đào tạo, giảng viên và học viên đã có có thể đăng nhập bằng Google.",
             ],
           ].map(([title, text]) => (
             <article key={title}>

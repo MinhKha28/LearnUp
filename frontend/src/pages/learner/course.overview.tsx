@@ -32,7 +32,7 @@ import "./course.overview.scss";
 type BlockedReason = "inGrace" | "forbidden" | "unavailable";
 
 const INTRO_ERROR_MESSAGES: Record<string, string> = {
-  FORBIDDEN: "Bạn không có quyền xem giới thiệu Khóa học.",
+  FORBIDDEN: "Bạn không có quyền xem giới thiệu khóa học.",
 };
 
 const readFromPage = (state: unknown): number | undefined => {
@@ -69,7 +69,7 @@ const CourseContent = ({ course }: { course: CourseIntroduction }) => {
       <section className="course-overview-section">
         <h3>Chương trình học</h3>
         {modules.length === 0 ? (
-          <p>Khóa học chưa có Chương nào.</p>
+          <p>Khóa học chưa có chương nào.</p>
         ) : (
           <ol className="course-overview-modules">
             {modules.map((module) => (
@@ -96,7 +96,7 @@ const CourseContent = ({ course }: { course: CourseIntroduction }) => {
       </section>
       {course.requiredMaterialCount > 0 && (
         <section className="course-overview-section">
-          <h3>Điều kiện cấp Chứng chỉ</h3>
+          <h3>Điều kiện cấp chứng chỉ</h3>
           <p>Hoàn thành toàn bộ {course.requiredMaterialCount} học liệu bắt buộc</p>
         </section>
       )}
@@ -159,7 +159,7 @@ const EnrollmentPanel = ({ courseId, catalogPath }: { courseId: string; catalogP
   const confirmEnroll = () => {
     if (enrolling) return;
     modal.confirm({
-      title: "Đăng ký Khóa học này?",
+      title: "Đăng ký khóa học này?",
       content: "Bạn có thể rút bất cứ lúc nào.",
       okText: "Đăng ký",
       cancelText: "Hủy",
@@ -183,7 +183,7 @@ const EnrollmentPanel = ({ courseId, catalogPath }: { courseId: string; catalogP
             Khóa học đã thay đổi trong lúc bạn đang xem.
           </WarningPanel>
           <LearnerButton block onClick={() => navigate(catalogPath)}>
-            Về danh mục Khóa học
+            Về danh mục khóa học
           </LearnerButton>
         </>
       );
@@ -235,15 +235,15 @@ const CourseOverviewContent = ({ courseId, catalogPath }: { courseId: string; ca
       return (
         <LearnerEmptyState
           title="Khóa học không tồn tại hoặc không còn trong danh mục"
-          action={<LearnerButton onClick={backToCatalog}>Về danh mục Khóa học</LearnerButton>}
+          action={<LearnerButton onClick={backToCatalog}>Về danh mục khóa học</LearnerButton>}
         />
       );
     }
     return (
       <LearnerErrorState
         error={intro.error}
-        title="Không tải được giới thiệu Khóa học"
-        message={INTRO_ERROR_MESSAGES[intro.error.code] ?? "Đã có lỗi xảy ra khi tải giới thiệu Khóa học."}
+        title="Không tải được giới thiệu khóa học"
+        message={INTRO_ERROR_MESSAGES[intro.error.code] ?? "Đã có lỗi xảy ra khi tải giới thiệu khóa học."}
         onRetry={intro.reload}
       />
     );
@@ -276,7 +276,7 @@ const CourseOverview = () => {
         icon={<ArrowLeftOutlined />}
         onClick={() => navigate(catalogPath)}
       >
-        Danh mục Khóa học
+        Danh mục khóa học
       </Button>
       {/* key: đổi Course thì trạng thái đăng ký cục bộ bắt đầu lại */}
       <CourseOverviewContent key={courseId} courseId={courseId} catalogPath={catalogPath} />

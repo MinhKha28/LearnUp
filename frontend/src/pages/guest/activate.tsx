@@ -43,7 +43,7 @@ const problemContent: Record<
     title: "Lời mời đã hết hạn",
     lines: [
       "Liên kết mời này đã hết hạn và không còn dùng được.",
-      "Hãy liên hệ Quản lý đào tạo để được gửi lời mời mới.",
+      "Hãy liên hệ quản lý đào tạo để được gửi lời mời mới.",
     ],
   },
   revoked: {
@@ -57,7 +57,7 @@ const problemContent: Record<
     title: "Không thể kích hoạt tài khoản này",
     lines: [
       "Tài khoản này không còn ở trạng thái chờ kích hoạt.",
-      "Hãy liên hệ Quản lý đào tạo để được hỗ trợ.",
+      "Hãy liên hệ quản lý đào tạo để được hỗ trợ.",
     ],
   },
   invalid: {

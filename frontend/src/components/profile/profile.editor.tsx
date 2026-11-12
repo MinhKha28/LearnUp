@@ -113,7 +113,7 @@ const ProfileEditor = ({ button: RoleButton, onSaved }: IProps) => {
         {profile?.organizationId && (
           <Form.Item
             label="Đơn vị công tác (chỉ xem)"
-            extra="Do Quản lý đào tạo quản lý."
+            extra="Do quản lý đào tạo quản lý."
           >
             <Input value={profile.department ?? "Chưa có"} disabled />
           </Form.Item>

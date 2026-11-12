@@ -29,7 +29,7 @@ export default function Footer() {
             <img src="/logo/learnup-logo-light.png" alt="LearnUP" />
           </Link>
           <p>
-            Quản lý hoạt động đào tạo, Khóa học và tiến độ
+            Quản lý hoạt động đào tạo, khóa học và tiến độ
             <br />
             trên một trang làm việc chung của tổ chức.
           </p>
