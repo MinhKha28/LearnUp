@@ -42,6 +42,7 @@ import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
 import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
 import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
 import {
+  ReadingTextExtractionError,
   extractReadingText,
   resolveReadingParseLimits,
 } from './reading-text-extractor';
@@ -71,6 +72,28 @@ export class CoursesService {
   private readonly readingParseLimits = resolveReadingParseLimits(process.env);
 
   private running = false;
+
+  // Chỉ log tên lớp lỗi và id; không log nội dung file hay text của PDF.
+  private logReadingParseFailure(
+    error: unknown,
+    context: Record<string, string>,
+  ): void {
+    const failure =
+      error instanceof ReadingTextExtractionError
+        ? { reason: error.reason, errorClass: error.errorClass }
+        : {
+            reason: 'UNKNOWN',
+            errorClass: error instanceof Error ? error.name : typeof error,
+          };
+
+    this.logger.warn(
+      JSON.stringify({
+        action: 'READING_PDF_PARSE_FAILED',
+        ...context,
+        ...failure,
+      }),
+    );
+  }
 
   async findAll(user: CurrentUser, query: CourseListQueryDto) {
     if (user.role !== 'INSTRUCTOR') {
@@ -1575,7 +1598,15 @@ export class CoursesService {
         file.buffer,
         this.readingParseLimits,
       );
-    } catch {
+    } catch (error) {
+      this.logReadingParseFailure(error, {
+        path: 'create',
+        organizationId,
+        actorId: user.userId,
+        courseId,
+        lessonId,
+      });
+
       throw new BadRequestException(
         'Unable to read PDF. The file may be corrupted or password-protected.',
       );
@@ -2331,7 +2362,16 @@ export class CoursesService {
 
         wordCount = extraction.wordCount;
         extractionWarning = extraction.extractionWarning;
-      } catch {
+      } catch (error) {
+        this.logReadingParseFailure(error, {
+          path: 'replacement',
+          organizationId,
+          actorId: user.userId,
+          courseId,
+          lessonId,
+          materialId,
+        });
+
         throw new BadRequestException('Unable to read replacement PDF.');
       }
     }

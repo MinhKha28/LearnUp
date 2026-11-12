@@ -1,10 +1,26 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { memoryStorage } from 'multer';
 import {
+  DEFAULT_READING_PARSE_MAX_CONCURRENCY,
   DEFAULT_READING_PARSE_MAX_OLD_GENERATION_MB,
   DEFAULT_READING_PARSE_TIMEOUT_MS,
   DEFAULT_READING_TEXT_WORKER,
@@ -160,6 +176,7 @@ describe('extractReadingText with pdf-parse 2', () => {
     );
 
     expect(error.detail).toBe(detail);
+    expect(error.errorClass).toBe(detail);
   });
 
   it('parses a Buffer that sits at a nonzero byteOffset of a larger backing store', async () => {
@@ -226,13 +243,14 @@ describe('extractReadingText with pdf-parse 2', () => {
     );
 
     expect(error.detail).toBe('exceeded 300 ms');
+    expect(error.errorClass).toBe('Deadline');
     expect(Date.now() - started).toBeLessThan(10_000);
   });
 
   it.each([
-    ['crash.js', 'reading worker crashed'],
-    ['exit-silently.js', 'worker exited with code 3'],
-  ])('rejects when the worker fails (%s)', async (file, detail) => {
+    ['crash.js', 'reading worker crashed', 'Error'],
+    ['exit-silently.js', 'worker exited with code 3', 'WorkerExit'],
+  ])('rejects when the worker fails (%s)', async (file, detail, errorClass) => {
     const error = await expectFailure(
       extractReadingText(fixture('chromium'), limits, {
         workerFile: join(workers, file),
@@ -241,6 +259,7 @@ describe('extractReadingText with pdf-parse 2', () => {
     );
 
     expect(error.detail).toBe(detail);
+    expect(error.errorClass).toBe(errorClass);
   });
 
   it('rejects when the worker reaches its heap limit', async () => {
@@ -254,6 +273,7 @@ describe('extractReadingText with pdf-parse 2', () => {
     );
 
     expect(error.detail).toMatch(/memory limit/);
+    expect(error.errorClass).toBe('ERR_WORKER_OUT_OF_MEMORY');
   });
 
   it('rejects when the worker file cannot be loaded', async () => {
@@ -272,42 +292,171 @@ describe('extractReadingText with pdf-parse 2', () => {
   });
 });
 
-describe('resolveReadingParseLimits', () => {
-  it('uses the defaults when the variables are unset or empty', () => {
-    const expected = {
-      timeoutMs: DEFAULT_READING_PARSE_TIMEOUT_MS,
-      maxOldGenerationSizeMb: DEFAULT_READING_PARSE_MAX_OLD_GENERATION_MB,
-    };
+describe('extractReadingText concurrency cap', () => {
+  let root: string;
+  let markers: string;
+  let slow: { workerFile: string };
 
+  // Worker giả: đánh dấu đang chạy trong thư mục markers ~400 ms rồi trả 2 từ.
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'reading-parse-'));
+    markers = join(root, 'live');
+    mkdirSync(markers);
+    slow = { workerFile: join(root, 'slow-worker.js') };
+    writeFileSync(
+      slow.workerFile,
+      [
+        "const { rmSync, writeFileSync } = require('node:fs');",
+        "const { join } = require('node:path');",
+        "const { parentPort, threadId } = require('node:worker_threads');",
+        `const marker = join(${JSON.stringify(markers)}, String(threadId));`,
+        "writeFileSync(marker, '');",
+        'setTimeout(() => {',
+        '  rmSync(marker, { force: true });',
+        "  parentPort.postMessage({ ok: true, text: 'slow worker' });",
+        '}, 400);',
+      ].join('\n'),
+    );
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  // Đếm số worker đang chạy trong lúc các parse diễn ra.
+  const watchLiveWorkers = () => {
+    let peak = 0;
+    const timer = setInterval(() => {
+      peak = Math.max(peak, readdirSync(markers).length);
+    }, 5);
+
+    return () => {
+      clearInterval(timer);
+      return peak;
+    };
+  };
+
+  it.each([1, 2, 3])(
+    'runs at most %i worker(s) for one more parse than the cap and finishes all',
+    async (cap) => {
+      const stop = watchLiveWorkers();
+      // Deadline ngắn hơn tổng thời gian chờ: chỉ tính từ lúc worker bắt đầu.
+      const results = await Promise.all(
+        Array.from({ length: cap + 1 }, () =>
+          extractReadingText(
+            fixture('chromium'),
+            {
+              timeoutMs: 1_500,
+              maxOldGenerationSizeMb: 64,
+              maxConcurrentParses: cap,
+            },
+            slow,
+          ),
+        ),
+      );
+      const peak = stop();
+
+      expect(results).toEqual(
+        Array.from({ length: cap + 1 }, () => ({
+          wordCount: 2,
+          extractionWarning: null,
+        })),
+      );
+      expect(peak).toBeGreaterThanOrEqual(1);
+      expect(peak).toBeLessThanOrEqual(cap);
+      expect(readdirSync(markers)).toEqual([]);
+    },
+  );
+
+  it('frees the slot of a worker killed at the deadline', async () => {
+    const stop = watchLiveWorkers();
+    const capped = { ...limits, maxConcurrentParses: 1 };
+    const hanging = extractReadingText(
+      fixture('chromium'),
+      { ...capped, timeoutMs: 300 },
+      { workerFile: join(workers, 'hang.js') },
+    );
+    const queued = extractReadingText(fixture('chromium'), capped, slow);
+
+    await expectFailure(hanging, 'TIMEOUT');
+    await expect(queued).resolves.toEqual({
+      wordCount: 2,
+      extractionWarning: null,
+    });
+    expect(stop()).toBeLessThanOrEqual(1);
+  });
+
+  it('frees the slot of a crashed worker', async () => {
+    const capped = { ...limits, maxConcurrentParses: 1 };
+    const crashed = extractReadingText(fixture('chromium'), capped, {
+      workerFile: join(workers, 'crash.js'),
+    });
+    const queued = extractReadingText(fixture('chromium'), capped, slow);
+
+    await expectFailure(crashed, 'WORKER_FAILED');
+    await expect(queued).resolves.toMatchObject({ wordCount: 2 });
+  });
+});
+
+describe('resolveReadingParseLimits', () => {
+  const expected = {
+    timeoutMs: DEFAULT_READING_PARSE_TIMEOUT_MS,
+    maxOldGenerationSizeMb: DEFAULT_READING_PARSE_MAX_OLD_GENERATION_MB,
+    maxConcurrentParses: DEFAULT_READING_PARSE_MAX_CONCURRENCY,
+  };
+
+  it('uses the measured defaults when the variables are unset or empty', () => {
+    expect(expected).toEqual({
+      timeoutMs: 30_000,
+      maxOldGenerationSizeMb: 256,
+      maxConcurrentParses: 2,
+    });
     expect(resolveReadingParseLimits({})).toEqual(expected);
     expect(
       resolveReadingParseLimits({
         READING_PDF_PARSE_TIMEOUT_MS: '',
         READING_PDF_PARSE_MAX_OLD_GENERATION_MB: '',
+        READING_PDF_PARSE_MAX_CONCURRENCY: '',
       }),
     ).toEqual(expected);
   });
 
-  it('reads positive integer overrides', () => {
+  it('accepts the lowest allowed values', () => {
     expect(
       resolveReadingParseLimits({
-        READING_PDF_PARSE_TIMEOUT_MS: '5000',
-        READING_PDF_PARSE_MAX_OLD_GENERATION_MB: '128',
+        READING_PDF_PARSE_TIMEOUT_MS: '1000',
+        READING_PDF_PARSE_MAX_OLD_GENERATION_MB: '32',
+        READING_PDF_PARSE_MAX_CONCURRENCY: '1',
       }),
-    ).toEqual({ timeoutMs: 5000, maxOldGenerationSizeMb: 128 });
+    ).toEqual({
+      timeoutMs: 1000,
+      maxOldGenerationSizeMb: 32,
+      maxConcurrentParses: 1,
+    });
   });
 
-  it.each(['0', '-1', '1.5', 'abc', '9007199254740993'])(
-    'rejects the invalid value %s',
+  it.each([
+    ['READING_PDF_PARSE_TIMEOUT_MS', '999', 1000],
+    ['READING_PDF_PARSE_MAX_OLD_GENERATION_MB', '31', 32],
+    ['READING_PDF_PARSE_MAX_CONCURRENCY', '0', 1],
+  ])('rejects %s=%s below the minimum', (name, value, min) => {
+    expect(() => resolveReadingParseLimits({ [name]: value })).toThrow(
+      `Invalid ${name}: expected a safe integer of at least ${min}.`,
+    );
+  });
+
+  it.each(['-1', '1.5', 'abc', '9007199254740993'])(
+    'rejects the malformed value %s',
     (value) => {
-      expect(() =>
-        resolveReadingParseLimits({ READING_PDF_PARSE_TIMEOUT_MS: value }),
-      ).toThrow('Invalid READING_PDF_PARSE_TIMEOUT_MS');
-      expect(() =>
-        resolveReadingParseLimits({
-          READING_PDF_PARSE_MAX_OLD_GENERATION_MB: value,
-        }),
-      ).toThrow('Invalid READING_PDF_PARSE_MAX_OLD_GENERATION_MB');
+      for (const name of [
+        'READING_PDF_PARSE_TIMEOUT_MS',
+        'READING_PDF_PARSE_MAX_OLD_GENERATION_MB',
+        'READING_PDF_PARSE_MAX_CONCURRENCY',
+      ]) {
+        expect(() => resolveReadingParseLimits({ [name]: value })).toThrow(
+          `Invalid ${name}`,
+        );
+      }
     },
   );
 });

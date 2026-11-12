@@ -10,6 +10,7 @@ import {
 import {
   BadRequestException,
   type INestApplication,
+  Logger,
   PayloadTooLargeException,
   ValidationPipe,
 } from '@nestjs/common';
@@ -76,6 +77,14 @@ const service = new CoursesService(
 );
 
 const extractSpy = jest.spyOn(extractor, 'extractReadingText');
+const warnSpy = jest
+  .spyOn(Logger.prototype, 'warn')
+  .mockImplementation(() => undefined);
+
+const parseFailureLogs = () =>
+  warnSpy.mock.calls
+    .map(([message]) => String(message))
+    .filter((message) => message.includes('READING_PDF_PARSE_FAILED'));
 
 const asUpload = (bytes: Buffer): Express.Multer.File =>
   ({
@@ -222,7 +231,11 @@ describe('UC17.2 Reading upload parses the PDF', () => {
 
   it('returns the existing 400 when the parse worker fails', async () => {
     extractSpy.mockRejectedValueOnce(
-      new extractor.ReadingTextExtractionError('TIMEOUT', 'exceeded 1 ms'),
+      new extractor.ReadingTextExtractionError(
+        'TIMEOUT',
+        'Deadline',
+        'exceeded 1 ms',
+      ),
     );
 
     await expect(upload(fixture('chromium'))).rejects.toThrow(
@@ -290,7 +303,11 @@ describe('UC17.3 technical replacement parses the PDF', () => {
 
   it('returns the existing 400 when the parse worker fails', async () => {
     extractSpy.mockRejectedValueOnce(
-      new extractor.ReadingTextExtractionError('WORKER_FAILED', 'crashed'),
+      new extractor.ReadingTextExtractionError(
+        'WORKER_FAILED',
+        'ERR_WORKER_OUT_OF_MEMORY',
+        'crashed',
+      ),
     );
 
     await expect(replace(fixture('chromium'))).rejects.toThrow(
@@ -439,5 +456,111 @@ describe('Reading upload HTTP contract', () => {
       message: 'Replacement exceeds the allowed size.',
     });
     expect(extractSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('Reading parse failure logging', () => {
+  it('logs the parser error class with the create ids, without file content', async () => {
+    await service
+      .uploadReadingMaterial(
+        instructor,
+        courseId,
+        lessonId,
+        { title: 'Reading', isRequired: false },
+        asUpload(fixture('password-protected')),
+      )
+      .catch(() => undefined);
+
+    const logs = parseFailureLogs();
+
+    expect(logs).toHaveLength(1);
+    expect(JSON.parse(logs[0])).toEqual({
+      action: 'READING_PDF_PARSE_FAILED',
+      path: 'create',
+      organizationId,
+      actorId: instructorId,
+      courseId,
+      lessonId,
+      reason: 'UNREADABLE',
+      errorClass: 'PasswordException',
+    });
+    expect(logs[0]).not.toMatch(/%PDF|password protected fixture/i);
+  });
+
+  it('logs the corrupt PDF class with the replacement material id', async () => {
+    await service
+      .replaceTechnicalFile(
+        instructor,
+        courseId,
+        lessonId,
+        materialId,
+        asUpload(fixture('corrupt')),
+      )
+      .catch(() => undefined);
+
+    expect(JSON.parse(parseFailureLogs()[0])).toEqual({
+      action: 'READING_PDF_PARSE_FAILED',
+      path: 'replacement',
+      organizationId,
+      actorId: instructorId,
+      courseId,
+      lessonId,
+      materialId,
+      reason: 'UNREADABLE',
+      errorClass: 'InvalidPDFException',
+    });
+  });
+
+  it.each([
+    ['TIMEOUT', 'Deadline'],
+    ['WORKER_FAILED', 'ERR_WORKER_OUT_OF_MEMORY'],
+    ['WORKER_FAILED', 'WorkerExit'],
+  ] as const)('logs %s (%s) at warn level', async (reason, errorClass) => {
+    extractSpy.mockRejectedValueOnce(
+      new extractor.ReadingTextExtractionError(reason, errorClass, 'detail'),
+    );
+
+    await expect(
+      service.replaceTechnicalFile(
+        instructor,
+        courseId,
+        lessonId,
+        materialId,
+        asUpload(fixture('chromium')),
+      ),
+    ).rejects.toThrow(REPLACE_UNREADABLE);
+    expect(JSON.parse(parseFailureLogs()[0])).toMatchObject({
+      materialId,
+      reason,
+      errorClass,
+    });
+  });
+});
+
+describe('Reading parse limits at startup', () => {
+  const create = () =>
+    new CoursesService(
+      repository as unknown as CoursesRepository,
+      tenant as unknown as TenantClient,
+      {} as LearningClient,
+      {} as AssessmentClient,
+      {} as NotificationClient,
+      storage as unknown as IReadableStorageProvider,
+    );
+
+  it.each([
+    ['READING_PDF_PARSE_TIMEOUT_MS', '999'],
+    ['READING_PDF_PARSE_MAX_OLD_GENERATION_MB', '31'],
+    ['READING_PDF_PARSE_MAX_CONCURRENCY', '0'],
+  ])('refuses to construct the service with %s=%s', (name, value) => {
+    const previous = process.env[name];
+    process.env[name] = value;
+
+    try {
+      expect(create).toThrow(`Invalid ${name}`);
+    } finally {
+      if (previous === undefined) delete process.env[name];
+      else process.env[name] = previous;
+    }
   });
 });

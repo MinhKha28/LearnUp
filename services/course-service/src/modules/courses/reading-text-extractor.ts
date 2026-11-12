@@ -19,10 +19,23 @@ export interface ReadingParseLimits {
   timeoutMs: number;
   // Giới hạn old-generation heap của worker (MiB).
   maxOldGenerationSizeMb: number;
+  // Số worker parse chạy đồng thời; parse dư phải chờ slot.
+  maxConcurrentParses: number;
 }
 
+// Đo C29: mẫu hợp lệ chậm nhất 230 ms (host) / 202 ms (Alpine) -> deadline ~130x.
 export const DEFAULT_READING_PARSE_TIMEOUT_MS = 30_000;
+// Đo C29: mẫu 10 MiB cần tối thiểu 16 MiB heap -> 16x.
 export const DEFAULT_READING_PARSE_MAX_OLD_GENERATION_MB = 256;
+// Đo C29: ~100 MiB RSS mỗi parse 10 MiB trên Alpine; compose không đặt
+// memory limit cho course-service nên giữ mức nhỏ.
+export const DEFAULT_READING_PARSE_MAX_CONCURRENCY = 2;
+
+// Dưới các mức này worker có thể không khởi động được (8 MiB làm crash cả
+// process trên Windows) hoặc deadline ngắn hơn thời gian khởi động worker.
+export const MIN_READING_PARSE_TIMEOUT_MS = 1_000;
+export const MIN_READING_PARSE_MAX_OLD_GENERATION_MB = 32;
+export const MIN_READING_PARSE_MAX_CONCURRENCY = 1;
 
 export type ReadingTextExtractionFailure =
   'UNREADABLE' | 'TIMEOUT' | 'WORKER_FAILED';
@@ -30,6 +43,8 @@ export type ReadingTextExtractionFailure =
 export class ReadingTextExtractionError extends Error {
   constructor(
     readonly reason: ReadingTextExtractionFailure,
+    // Tên lớp lỗi an toàn để log (vd. PasswordException, Deadline).
+    readonly errorClass: string,
     readonly detail?: string,
   ) {
     super(
@@ -42,15 +57,17 @@ export class ReadingTextExtractionError extends Error {
 export const resolveReadingParseLimits = (
   env: Record<string, string | undefined>,
 ): ReadingParseLimits => {
-  const read = (name: string, fallback: number): number => {
+  const read = (name: string, fallback: number, min: number): number => {
     const value = env[name];
 
     if (value === undefined || value === '') return fallback;
 
     const parsed = Number(value);
 
-    if (!/^\d+$/.test(value) || !Number.isSafeInteger(parsed) || parsed <= 0) {
-      throw new Error(`Invalid ${name}: expected a positive safe integer.`);
+    if (!/^\d+$/.test(value) || !Number.isSafeInteger(parsed) || parsed < min) {
+      throw new Error(
+        `Invalid ${name}: expected a safe integer of at least ${min}.`,
+      );
     }
 
     return parsed;
@@ -60,10 +77,17 @@ export const resolveReadingParseLimits = (
     timeoutMs: read(
       'READING_PDF_PARSE_TIMEOUT_MS',
       DEFAULT_READING_PARSE_TIMEOUT_MS,
+      MIN_READING_PARSE_TIMEOUT_MS,
     ),
     maxOldGenerationSizeMb: read(
       'READING_PDF_PARSE_MAX_OLD_GENERATION_MB',
       DEFAULT_READING_PARSE_MAX_OLD_GENERATION_MB,
+      MIN_READING_PARSE_MAX_OLD_GENERATION_MB,
+    ),
+    maxConcurrentParses: read(
+      'READING_PDF_PARSE_MAX_CONCURRENCY',
+      DEFAULT_READING_PARSE_MAX_CONCURRENCY,
+      MIN_READING_PARSE_MAX_CONCURRENCY,
     ),
   };
 };
@@ -113,6 +137,43 @@ const keepNativeCanvasLoaded = (): void => {
   nativeCanvasLoaded = true;
 };
 
+// Semaphore FIFO: release chuyển slot trực tiếp cho parse đang chờ.
+class ParseSlots {
+  private active = 0;
+  private readonly waiting: Array<() => void> = [];
+
+  constructor(private readonly capacity: number) {}
+
+  async acquire(): Promise<void> {
+    if (this.active < this.capacity) {
+      this.active += 1;
+      return;
+    }
+
+    await new Promise<void>((resolve) => this.waiting.push(resolve));
+  }
+
+  release(): void {
+    const next = this.waiting.shift();
+
+    if (next) next();
+    else this.active -= 1;
+  }
+}
+
+const parseSlots = new Map<number, ParseSlots>();
+
+const slotsFor = (capacity: number): ParseSlots => {
+  let slots = parseSlots.get(capacity);
+
+  if (!slots) {
+    slots = new ParseSlots(capacity);
+    parseSlots.set(capacity, slots);
+  }
+
+  return slots;
+};
+
 const parseInWorker = (
   buffer: Buffer,
   limits: ReadingParseLimits,
@@ -141,6 +202,7 @@ const parseInWorker = (
       reject(
         new ReadingTextExtractionError(
           'WORKER_FAILED',
+          'WorkerStartFailed',
           error instanceof Error ? error.message : String(error),
         ),
       );
@@ -152,10 +214,14 @@ const parseInWorker = (
       settled = true;
       clearTimeout(timer);
       worker.removeAllListeners();
-      // Không chờ terminate; lỗi terminate không đổi kết quả parse.
+      // Chỉ trả kết quả (và nhả slot) khi worker đã thực sự dừng, để số
+      // worker sống không vượt quá giới hạn đồng thời. Lỗi terminate không
+      // đổi kết quả parse.
       worker.on('error', () => undefined);
-      void worker.terminate().catch(() => undefined);
-      outcome();
+      void worker
+        .terminate()
+        .catch(() => undefined)
+        .then(outcome);
     };
 
     // Callback chỉ chạy sau khi timer đã được khởi tạo.
@@ -164,6 +230,7 @@ const parseInWorker = (
         reject(
           new ReadingTextExtractionError(
             'TIMEOUT',
+            'Deadline',
             `exceeded ${limits.timeoutMs} ms`,
           ),
         ),
@@ -175,14 +242,24 @@ const parseInWorker = (
         message.ok
           ? resolve(message.text)
           : reject(
-              new ReadingTextExtractionError('UNREADABLE', message.errorName),
+              new ReadingTextExtractionError(
+                'UNREADABLE',
+                message.errorName,
+                message.errorName,
+              ),
             ),
       );
     });
 
     worker.on('error', (error: Error) => {
       finish(() =>
-        reject(new ReadingTextExtractionError('WORKER_FAILED', error.message)),
+        reject(
+          new ReadingTextExtractionError(
+            'WORKER_FAILED',
+            (error as NodeJS.ErrnoException).code ?? error.name,
+            error.message,
+          ),
+        ),
       );
     });
 
@@ -191,6 +268,7 @@ const parseInWorker = (
         reject(
           new ReadingTextExtractionError(
             'WORKER_FAILED',
+            'WorkerExit',
             `worker exited with code ${code}`,
           ),
         ),
@@ -205,7 +283,18 @@ export const extractReadingText = async (
 ): Promise<ReadingTextResult> => {
   // Không cho tài liệu PDF bị hỏng được coi
   // là tài liệu scan hợp lệ.
-  const text = await parseInWorker(buffer, limits, workerOptions);
+  // Deadline chỉ bắt đầu khi đã có slot và worker được tạo.
+  const slots = slotsFor(limits.maxConcurrentParses);
+  await slots.acquire();
+
+  let text: string;
+
+  try {
+    text = await parseInWorker(buffer, limits, workerOptions);
+  } finally {
+    slots.release();
+  }
+
   const wordCount = countWords(text);
 
   if (wordCount === 0) {
