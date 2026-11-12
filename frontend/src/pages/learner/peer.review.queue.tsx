@@ -19,7 +19,7 @@ import type {
   TLearnerReviewState,
 } from "@/types/assessment.types";
 import "./peer.review.queue.scss";
-import { vietnamesePageItem } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const STATE_VIEW: Record<
   TLearnerReviewState,

@@ -9,17 +9,9 @@ import {
   InfoCircleFilled,
   SwapRightOutlined,
 } from "@ant-design/icons";
-import { Alert, DatePicker, Input, type AlertProps, type DatePickerProps, type GetProps, type GetRef, type PaginationProps } from "antd";
-import { cloneElement, forwardRef, isValidElement, type ReactNode } from "react";
-
-export const vietnameseClear = {
-  clearIcon: (
-    <CloseCircleFilled
-      aria-hidden="true"
-      ref={(icon) => icon?.closest('[role="button"]')?.setAttribute("aria-label", "Xóa giá trị")}
-    />
-  ),
-};
+import { Alert, DatePicker, Input, type AlertProps, type DatePickerProps, type GetProps, type GetRef } from "antd";
+import { forwardRef } from "react";
+import { vietnameseClear } from "./vietnamese.control.props";
 
 const alertIcons = {
   success: <CheckCircleFilled aria-hidden="true" />,
@@ -87,14 +79,3 @@ export const VietnameseRangePicker = forwardRef<GetRef<typeof DatePicker.RangePi
     );
   },
 );
-
-export const vietnamesePageItem: NonNullable<PaginationProps["itemRender"]> = (_, type, original) => {
-  if ((type !== "prev" && type !== "next") || !isValidElement<{ children?: ReactNode; "aria-label"?: string }>(original)) {
-    return original;
-  }
-  return cloneElement(
-    original,
-    { "aria-label": type === "prev" ? "Trang trước" : "Trang sau" },
-    <span aria-hidden="true">{original.props.children}</span>,
-  );
-};

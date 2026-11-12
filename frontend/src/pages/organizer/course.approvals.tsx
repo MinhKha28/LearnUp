@@ -12,7 +12,8 @@ import {
 import { fetchOrganizationCoursesAPI } from "@/services/course.service";
 import type { IOrganizationCourseListItem } from "@/types/course.types";
 import { courseTypeText } from "@/utils/organizer.labels";
-import { VietnameseAlert, vietnamesePageItem } from "@/components/vietnamese.controls";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const isSuccess = (statusCode: unknown) => {
   const status = Number(statusCode);

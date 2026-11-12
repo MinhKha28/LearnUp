@@ -21,7 +21,8 @@ import {
 } from "@/utils/assignments.view";
 import { parsePageParam } from "@/utils/page.param";
 import "./assignments.scss";
-import { VietnameseAlert, vietnamesePageItem } from "@/components/vietnamese.controls";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const Assignments = () => {
   const [params, setParams] = useSearchParams();

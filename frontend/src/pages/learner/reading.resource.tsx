@@ -1,6 +1,5 @@
 import { Button, Space, Tag } from "antd";
 import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { useCurrentApp } from "@/components/context/app.context";
 import { useApiQuery } from "@/hooks/use.api.query";
 import {
@@ -13,10 +12,10 @@ import {
   fetchReadingAccess,
 } from "@/services/learning.service";
 import type { LessonMaterial, ReadingCompletion } from "@/types/learning.types";
-import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import { ENROLLMENT_STATUS_LABELS } from "@/utils/learner.labels";
-import "./reading.resource.scss";
 import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { LessonResourceCard } from "./lesson.resource.card";
+import "./reading.resource.scss";
 
 export function ReadingResource({
   enrollmentId,
@@ -85,36 +84,36 @@ export function ReadingResource({
     }
   };
   return (
-    <section className="reading-resource">
-      <Link to={LEARNER_ROUTES.lesson(enrollmentId, lessonId)}>Về bài học</Link>
-      <h1>{material.title}</h1>
-      <Space wrap>
-        <Tag color={completed ? "success" : "default"}>
-          Tài liệu: {completed ? "Đã hoàn thành" : "Chưa hoàn thành"}
-        </Tag>
-        {status && <Tag>Khóa học: {ENROLLMENT_STATUS_LABELS[status].label}</Tag>}
-      </Space>
-      {accessError && <VietnameseAlert type="error" message={accessError} showIcon />}
-      <Button loading={opening} onClick={() => void openReading()}>Mở tài liệu đọc</Button>
-      <Button
-        type="primary"
-        loading={sending}
-        disabled={completed || readonly}
-        onClick={() => void mark()}
-      >
-        {completed ? "Đã hoàn thành" : "Đánh dấu đã hoàn thành"}
-      </Button>
-      {readonly && !completed && (
-        <p>Bạn đã hoàn thành khóa học. Tiến độ học liệu được giữ nguyên.</p>
-      )}
-      {error && (
-        <VietnameseAlert
-          role="alert"
-          type="error"
-          showIcon
-          message="Chưa xác nhận được hoàn thành. Hãy bấm lại để kiểm tra và lưu."
-        />
-      )}
-    </section>
+    <LessonResourceCard title={material.title} enrollmentId={enrollmentId} lessonId={lessonId}>
+      <div className="reading-resource">
+        <Space wrap>
+          <Tag color={completed ? "success" : "default"}>
+            Tài liệu: {completed ? "Đã hoàn thành" : "Chưa hoàn thành"}
+          </Tag>
+          {status && <Tag>Khóa học: {ENROLLMENT_STATUS_LABELS[status].label}</Tag>}
+        </Space>
+        {accessError && <VietnameseAlert type="error" message={accessError} showIcon />}
+        <Button loading={opening} onClick={() => void openReading()}>Mở tài liệu đọc</Button>
+        <Button
+          type="primary"
+          loading={sending}
+          disabled={completed || readonly}
+          onClick={() => void mark()}
+        >
+          {completed ? "Đã hoàn thành" : "Đánh dấu đã hoàn thành"}
+        </Button>
+        {readonly && !completed && (
+          <p>Bạn đã hoàn thành khóa học. Tiến độ học liệu được giữ nguyên.</p>
+        )}
+        {error && (
+          <VietnameseAlert
+            role="alert"
+            type="error"
+            showIcon
+            message="Chưa xác nhận được hoàn thành. Hãy bấm lại để kiểm tra và lưu."
+          />
+        )}
+      </div>
+    </LessonResourceCard>
   );
 }

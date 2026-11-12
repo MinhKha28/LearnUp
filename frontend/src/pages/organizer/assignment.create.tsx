@@ -34,7 +34,8 @@ import {
 } from "@/utils/assignments.view";
 import "./assignment.create.scss";
 import { retainAssignmentSelection } from "@/utils/assignment.selection";
-import { VietnameseAlert, vietnamesePageItem } from "@/components/vietnamese.controls";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const labelSelectAll = (checkbox: ReactNode) =>
   isValidElement<{ "aria-label"?: string }>(checkbox)

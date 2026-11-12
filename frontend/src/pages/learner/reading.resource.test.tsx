@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ReadingResource } from './reading.resource';
 import { fetchReadingAccess } from '@/services/learning.service';
@@ -10,7 +10,8 @@ vi.mock('@/hooks/use.api.query', () => ({ useApiQuery: () => ({ data: enrollment
 vi.mock('@/hooks/use.learning.refresh', () => ({ useLearningRefresh: vi.fn(), notifyLearningProgress: vi.fn() }));
 vi.mock('@/services/learning.service', () => ({ fetchReadingAccess: vi.fn(), fetchCurriculum: vi.fn(), completeReading: vi.fn() }));
 afterEach(() => { enrollment.status = 'InProgress'; cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
-const mount = () => render(<MemoryRouter><ReadingResource enrollmentId="e" lessonId="l" material={{ materialId: 'm', title: 'PDF', materialType: 'Reading', isRequired: false, completed: false, durationSeconds: null }} /></MemoryRouter>);
+const CurrentPath = () => <output>{useLocation().pathname}</output>;
+const mount = () => render(<MemoryRouter><CurrentPath /><ReadingResource enrollmentId="e" lessonId="l" material={{ materialId: 'm', title: 'PDF', materialType: 'Reading', isRequired: false, completed: false, durationSeconds: null }} /></MemoryRouter>);
 it('requests a fresh URL on each click and starts a same-page download without a popup', async () => {
   const open = vi.spyOn(window, 'open');
   const downloads: { href: string; target: string; download: string }[] = [];
@@ -45,4 +46,13 @@ it('names the reading and course states separately when the course is complete',
   mount();
   expect(screen.getByText('Tài liệu: Chưa hoàn thành')).toBeTruthy();
   expect(screen.getByText('Khóa học: Đã hoàn thành')).toBeTruthy();
+});
+
+it('places the lesson button at the top of the resource card and opens the lesson', async () => {
+  mount();
+  const back = screen.getByRole('button', { name: 'Về bài học' });
+  const card = screen.getByRole('heading', { name: 'PDF' }).closest('section');
+  expect(card?.firstElementChild).toBe(back);
+  fireEvent.click(back);
+  expect(await screen.findByText('/learner/courses/e/lessons/l')).toBeTruthy();
 });

@@ -26,7 +26,8 @@ import type {
   ImportField,
 } from "@/types/organization.types";
 import { seatBlockReason } from "@/utils/helper";
-import { VietnameseAlert, vietnamesePageItem } from "@/components/vietnamese.controls";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 // UC12.8 (Instructor), UC13.8 (Learner): cùng luồng tải tệp -> xem trước -> xác nhận.
 // Trang của từng role truyền role, đường dẫn danh sách và các API tương ứng

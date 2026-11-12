@@ -8,7 +8,8 @@ import type {
 } from "@/types/organization.types";
 import { formatDateVN } from "@/utils/helper";
 import "./account.table.scss";
-import { VietnameseAlert, vietnamesePageItem } from "@/components/vietnamese.controls";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const ACCOUNT_PAGE_SIZES = [10, 20, 50];
 

@@ -23,7 +23,14 @@ import {
   targetTypeLabel,
 } from "@/utils/audit.log";
 import "./audit.log.view.scss";
-import { VietnameseAlert, VietnameseDatePicker, vietnameseClear, vietnamesePageItem } from "@/components/vietnamese.controls";
+import { VietnameseAlert, VietnameseDatePicker } from "@/components/vietnamese.controls";
+import { vietnameseClear, vietnamesePageItem } from "@/components/vietnamese.control.props";
+
+const normalizeTargetSearch = (text: string) =>
+  text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replaceAll("đ", "d");
+
+const matchesTargetType = (text: string, search: string) =>
+  normalizeTargetSearch(text).includes(normalizeTargetSearch(search.trim()));
 
 interface Props {
   /** UC51: the Admin also sees which Organization an action belongs to. */
@@ -190,13 +197,16 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
           className="audit-log-target-type"
           label="Loại đối tượng"
           htmlFor="audit-target-type"
-          extra={<span id="audit-target-type-help">Chọn gợi ý hoặc nhập mã. User là tài khoản người dùng.</span>}
+          extra={<span id="audit-target-type-help">Chọn gợi ý hoặc nhập mã loại đối tượng.</span>}
         >
           <AutoComplete
             id="audit-target-type"
             aria-describedby="audit-target-type-help"
             allowClear
             options={TARGET_TYPE_OPTIONS}
+            filterOption={(input, option) =>
+              !!option && (matchesTargetType(option.label, input) || matchesTargetType(option.value, input))
+            }
             value={draft.type}
             onChange={(value) => setDraft((current) => ({ ...current, type: value ?? "" }))}
             placeholder="Ví dụ: User"

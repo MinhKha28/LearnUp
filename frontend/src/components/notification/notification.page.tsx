@@ -10,7 +10,7 @@ import {
 } from "@/services/notification.service";
 import type { INotification, INotificationPage } from "@/types/notification.types";
 import "./notification.page.scss";
-import { vietnamesePageItem } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const PAGE_SIZE = 10;
 

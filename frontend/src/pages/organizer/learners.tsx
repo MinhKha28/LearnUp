@@ -24,7 +24,7 @@ import type {
 } from "@/types/organization.types";
 import { seatBlockReason } from "@/utils/helper";
 import "./learners.scss";
-import { vietnameseClear } from "@/components/vietnamese.controls";
+import { vietnameseClear } from "@/components/vietnamese.control.props";
 
 const SEARCH_DEBOUNCE_MS = 400;
 

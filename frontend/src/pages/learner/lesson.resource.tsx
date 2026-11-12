@@ -1,6 +1,6 @@
 import { Alert, Button, Progress, Spin, Tag } from "antd";
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useApiQuery } from "@/hooks/use.api.query";
 import { useVideoProgress } from "@/hooks/useVideoProgress";
 import { fetchVideoPlayback, fetchLessonDetail } from "@/services/learning.service";
@@ -10,7 +10,7 @@ import { LearningError } from "@/components/learner/learning.error";
 import type { VideoPlayback } from "@/types/learning.types";
 import { videoThresholdPercent } from "@/utils/video.threshold";
 import { videoOutcome } from "@/utils/video.outcome";
-import "./lesson.resource.scss";
+import { LessonResourceCard } from "./lesson.resource.card";
 import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 function VideoPlayer({
@@ -22,22 +22,19 @@ function VideoPlayer({
   enrollmentId: string;
   lessonId: string;
 }) {
-  const navigate = useNavigate();
   const { video, videoRef, progress, warning, events, flush, mediaError, retryMedia } =
     useVideoProgress(enrollmentId, playback);
   const [rate, setRate] = useState(1);
   return (
-    <section className="lesson-resource">
-      <Button
-        onClick={async () => {
-          video.current?.pause();
-          await flush();
-          navigate(`/learner/courses/${enrollmentId}/lessons/${lessonId}`);
-        }}
-      >
-        Về bài học
-      </Button>
-      <h1>{playback.title}</h1>
+    <LessonResourceCard
+      title={playback.title}
+      enrollmentId={enrollmentId}
+      lessonId={lessonId}
+      beforeBack={async () => {
+        video.current?.pause();
+        await flush();
+      }}
+    >
       <video
         ref={videoRef}
         {...events}
@@ -92,7 +89,7 @@ function VideoPlayer({
       <p>
         Tiến độ được lưu mỗi {progress.heartbeatSeconds} giây.
       </p>
-    </section>
+    </LessonResourceCard>
   );
 }
 function VideoResource() {

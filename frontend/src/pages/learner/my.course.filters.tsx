@@ -1,7 +1,7 @@
 import { Input, Select } from "antd";
 
 import { ENROLLMENT_STATUS_LABELS, ENROLLMENT_TYPE_LABELS } from "@/utils/learner.labels";
-import { vietnameseClear } from "@/components/vietnamese.controls";
+import { vietnameseClear } from "@/components/vietnamese.control.props";
 
 export const typeOptions = [
   { value: "", label: "Tất cả loại khóa học" },

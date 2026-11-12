@@ -2,13 +2,8 @@
 import { Button, Input, Pagination } from "antd";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import {
-  VietnameseAlert,
-  VietnamesePassword,
-  VietnameseRangePicker,
-  vietnameseClear,
-  vietnamesePageItem,
-} from "./vietnamese.controls";
+import { VietnameseAlert, VietnamesePassword, VietnameseRangePicker } from "./vietnamese.controls";
+import { vietnameseClear, vietnamesePageItem } from "./vietnamese.control.props";
 
 beforeEach(() => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({

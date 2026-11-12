@@ -26,7 +26,8 @@ import type {
 
 import { courseStatusText, courseTypeText } from "@/utils/organizer.labels";
 import "./courses.scss";
-import { VietnameseAlert, VietnameseRangePicker, vietnameseClear, vietnamesePageItem } from "@/components/vietnamese.controls";
+import { VietnameseAlert, VietnameseRangePicker } from "@/components/vietnamese.controls";
+import { vietnameseClear, vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const statusTone = (
   status: CourseStatus,

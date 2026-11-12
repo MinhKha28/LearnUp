@@ -23,7 +23,8 @@ import {
   scoreText,
 } from "@/utils/review.history";
 import "./peer.review.history.scss";
-import { VietnameseAlert, vietnamesePageItem } from "@/components/vietnamese.controls";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const PAGE_SIZE = 20;
 
