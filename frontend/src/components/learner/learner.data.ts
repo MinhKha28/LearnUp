@@ -357,7 +357,7 @@ export const courseDetails: Record<string, ICourseDetail> = {
           "Soạn câu trả lời dựa trên các quy trình an toàn đã được ghi lại.",
           "Giải thích các bước bạn sẽ thực hiện trong tình huống mẫu.",
         ],
-        rubric: "Mức độ tuân thủ quy trình, sự rõ ràng và đầy đủ của phần giải thích.",
+        rubric: "Nội dung – Mức độ tuân thủ quy trình, sự rõ ràng và đầy đủ của phần giải thích.",
       },
     ],
   },
