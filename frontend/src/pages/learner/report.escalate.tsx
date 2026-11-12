@@ -18,7 +18,7 @@ const ReportEscalate = () => {
         <PageHeader
           eyebrow="Báo cáo của tôi / Chuyển cấp xử lý"
           title="Không thể chuyển cấp xử lý báo cáo này"
-          subtitle="Chỉ báo cáo đã bị bác bỏ mới có thể gửi đến Quản trị viên nền tảng."
+          subtitle="Chỉ báo cáo đã bị bác bỏ mới có thể gửi đến quản trị viên nền tảng."
           back
         />
         <LearnerButton onClick={() => navigate("/learner/reports")}>Quay lại báo cáo của tôi</LearnerButton>
@@ -40,14 +40,14 @@ const ReportEscalate = () => {
       <PageHeader
         eyebrow="Báo cáo của tôi / Chuyển cấp xử lý"
         title="Chuyển cấp xử lý báo cáo"
-        subtitle="Đề nghị Quản trị viên nền tảng xem xét lại quyết định."
+        subtitle="Đề nghị quản trị viên nền tảng xem xét lại quyết định."
         back
       />
       <div className="report-escalate-body">
         <div className="report-escalate-card">
           <StatusTag tone="neutral">Đã bác bỏ</StatusTag>
           <h3>{report.reportedItem}</h3>
-          <p>Quyết định của Quản lý đào tạo: {report.decision ? reportDecisionLabel[report.decision] : "—"}</p>
+          <p>Quyết định của quản lý đào tạo: {report.decision ? reportDecisionLabel[report.decision] : "—"}</p>
           <hr />
           <span>Lý do chuyển cấp xử lý</span>
           <Input.TextArea

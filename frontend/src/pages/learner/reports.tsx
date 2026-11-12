@@ -86,7 +86,7 @@ const Reports = () => {
             </p>
             {viewing.decision && (
               <p>
-                Quyết định của Quản lý đào tạo: <strong>{reportDecisionLabel[viewing.decision]}</strong>
+                Quyết định của quản lý đào tạo: <strong>{reportDecisionLabel[viewing.decision]}</strong>
               </p>
             )}
             <p>Lý do: {viewing.reason}</p>

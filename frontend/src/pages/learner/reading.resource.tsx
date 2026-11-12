@@ -85,7 +85,7 @@ export function ReadingResource({
   };
   return (
     <section className="reading-resource">
-      <Link to={LEARNER_ROUTES.lesson(enrollmentId, lessonId)}>Về Bài học</Link>
+      <Link to={LEARNER_ROUTES.lesson(enrollmentId, lessonId)}>Về bài học</Link>
       <h1>{material.title}</h1>
       <Space wrap>
         <Tag color={completed ? "success" : "default"}>

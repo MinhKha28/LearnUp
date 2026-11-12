@@ -20,7 +20,7 @@ import { MyCourseFilters, statusOptions, typeOptions } from "./my.course.filters
 import "./my.courses.scss";
 
 const MY_COURSES_ERROR_MESSAGES: Record<string, string> = {
-  FORBIDDEN: "Bạn không có quyền xem danh sách Khóa học này.",
+  FORBIDDEN: "Bạn không có quyền xem danh sách khóa học này.",
 };
 
 const MyCourseListRow = ({ row, item, onReload }: {
@@ -100,15 +100,15 @@ const MyCourseListRow = ({ row, item, onReload }: {
           </LearnerButton>}
           {canWithdrawEnrollment(item) && (
             <LearnerButton loading={sending} onClick={() => { setErrorText(null); setConfirming(true); }}>
-              Rút khỏi Khóa học
+              Rút khỏi khóa học
             </LearnerButton>
           )}
         </div>
       )}
       <Modal
-        title="Rút khỏi Khóa học?"
+        title="Rút khỏi khóa học?"
         open={confirming}
-        okText={errorText ? "Thử lại" : "Rút khỏi Khóa học"}
+        okText={errorText ? "Thử lại" : "Rút khỏi khóa học"}
         cancelText="Hủy"
         confirmLoading={sending}
         cancelButtonProps={{ disabled: sending }}
@@ -218,30 +218,30 @@ const MyCoursesContent = ({
     return (
       <LearnerErrorState
         error={query.error}
-        title="Không tải được danh sách Khóa học"
-        message={MY_COURSES_ERROR_MESSAGES[query.error.code] ?? "Đã có lỗi xảy ra khi tải danh sách Khóa học."}
+        title="Không tải được danh sách khóa học"
+        message={MY_COURSES_ERROR_MESSAGES[query.error.code] ?? "Đã có lỗi xảy ra khi tải danh sách khóa học."}
         onRetry={query.reload}
       />
     );
   }
   if (!query.data || typeof redirect === "number") {
     return hasSettled
-      ? <Spin size="small" aria-label="Đang tải Khóa học" />
+      ? <Spin size="small" aria-label="Đang tải khóa học" />
       : <LearnerSkeleton variant="list" />;
   }
   if (redirect === "empty") {
     if (q || type || status) {
       return (
         <LearnerEmptyState
-          title="Không tìm thấy Khóa học phù hợp"
+          title="Không tìm thấy khóa học phù hợp"
           action={<LearnerButton onClick={clear}>Xóa bộ lọc</LearnerButton>}
         />
       );
     }
     return (
       <LearnerEmptyState
-        title="Bạn chưa có Khóa học nào"
-        action={<LearnerButton onClick={() => navigate(LEARNER_ROUTES.catalog())}>Xem danh mục Khóa học</LearnerButton>}
+        title="Bạn chưa có khóa học nào"
+        action={<LearnerButton onClick={() => navigate(LEARNER_ROUTES.catalog())}>Xem danh mục khóa học</LearnerButton>}
       />
     );
   }
@@ -249,7 +249,7 @@ const MyCoursesContent = ({
   const { items, meta } = query.data;
   return (
     <div aria-busy={query.status === "loading"}>
-      {query.status === "loading" && <Spin size="small" aria-label="Đang tải Khóa học" />}
+      {query.status === "loading" && <Spin size="small" aria-label="Đang tải khóa học" />}
       <ul className="learner-my-course-list">
         {items.map((item) => (
           <MyCourseListRow key={item.enrollmentId} item={item} row={buildMyCourseRow(item)} onReload={query.reload} />
@@ -273,7 +273,7 @@ const MyCourses = () => {
 
   return (
     <LearnerPage className="learner-courses">
-      <PageHeader title="Khóa học của tôi" subtitle="Các Khóa học bạn được phân công và đã tự đăng ký." />
+      <PageHeader title="Khóa học của tôi" subtitle="Các khóa học bạn được phân công và đã tự đăng ký." />
       <MyCourseFilters {...filters} />
       {page === null ? <LearnerSkeleton variant="list" /> : <MyCoursesContent page={page} filters={filters} />}
     </LearnerPage>

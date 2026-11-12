@@ -24,7 +24,7 @@ type MenuItem = Required<MenuProps>["items"][number];
 const learnerMenuItems: MenuItem[] = [
   { key: "/learner", icon: <TableOutlined />, label: "Tổng quan" },
   { key: "/learner/courses", icon: <UnorderedListOutlined />, label: "Khóa học của tôi" },
-  { key: "/learner/catalog", icon: <AppstoreOutlined />, label: "Danh mục Khóa học" },
+  { key: "/learner/catalog", icon: <AppstoreOutlined />, label: "Danh mục khóa học" },
   { key: "/learner/peer-review", icon: <SwapOutlined />, label: "Chấm chéo" },
   { key: "/learner/certificates", icon: <GoldOutlined />, label: "Chứng chỉ" },
   { key: "/learner/reports", icon: <FlagOutlined />, label: "Báo cáo của tôi" },

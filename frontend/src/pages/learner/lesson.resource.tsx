@@ -34,7 +34,7 @@ function VideoPlayer({
           navigate(`/learner/courses/${enrollmentId}/lessons/${lessonId}`);
         }}
       >
-        Về Bài học
+        Về bài học
       </Button>
       <h1>{playback.title}</h1>
       <video
