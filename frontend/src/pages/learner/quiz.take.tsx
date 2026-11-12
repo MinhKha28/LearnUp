@@ -1,3 +1,4 @@
+import { formatPercentageVN } from "@/utils/number.format";
 import { formatDateTimeVN } from "@/utils/helper";
 import { LEARNER_API_ERROR_FALLBACK } from "@/utils/learner.api.errors";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -29,7 +30,6 @@ import type {
 import {
   clockOffsetMs,
   formatCountdown,
-  formatScore,
   questionTypeLabel,
   QUIZ_STALE_CODES,
   quizErrorText,
@@ -525,7 +525,7 @@ const QuizTake = () => {
           />
           <StatCard
             label="Điểm đạt"
-            value={`${formatScore(quiz.passingScore)}%`}
+            value={`${formatPercentageVN(quiz.passingScore)}`}
           />
           <StatCard
             label="Số lượt còn lại trước khi tạm khóa"
@@ -534,7 +534,7 @@ const QuizTake = () => {
         </div>
         {quiz.recordedScore !== null && (
           <InfoPanel title="Điểm hiện được ghi nhận">
-            {formatScore(quiz.recordedScore)}%, lấy từ lượt có điểm cao nhất.{" "}
+            {formatPercentageVN(quiz.recordedScore)}, lấy từ lượt có điểm cao nhất.{" "}
             {quiz.passed
               ? "Bạn đã đạt."
               : "Bạn chưa đạt, có thể làm lại để cải thiện."}
@@ -600,6 +600,7 @@ const Result = ({
         eyebrow="Bài đánh giá / Bài trắc nghiệm"
         title="Kết quả bài trắc nghiệm"
         subtitle={`${result.title} • Chấm tự động`}
+        back
       />
       <div className="course-learning-content">
         {result.submissionKind === "TimedOut" && (
@@ -617,18 +618,18 @@ const Result = ({
             {result.passed ? "Đạt" : "Chưa đạt"}
           </StatusTag>
           <div className="quiz-result-stats">
-            <StatCard label="Điểm lượt này" value={`${formatScore(result.score)}%`} />
+            <StatCard label="Điểm lượt này" value={`${formatPercentageVN(result.score)}`} />
             <StatCard
               label="Điểm được ghi nhận"
               value={
                 result.recordedScore === null
                   ? "-"
-                  : `${formatScore(result.recordedScore)}%`
+                  : `${formatPercentageVN(result.recordedScore)}`
               }
             />
             <StatCard
               label="Điểm đạt"
-              value={`${formatScore(result.passingScore)}%`}
+              value={`${formatPercentageVN(result.passingScore)}`}
             />
             <StatCard
               label="Số câu đúng"

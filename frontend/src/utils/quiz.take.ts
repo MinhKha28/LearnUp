@@ -1,6 +1,5 @@
 // UC29.1: the small rules of the Quiz screen, apart from the page so that they can be tested without a browser.
 
-import { formatNumberVN } from "./number.format";
 import { learnerPlatformErrorText } from "./learner.api.errors";
 
 const MULTIPLE = "MultipleChoice";
@@ -54,9 +53,6 @@ export const formatCountdown = (seconds: number): string => {
   const two = (n: number) => String(n).padStart(2, "0");
   return h > 0 ? `${h}:${two(m)}:${two(s)}` : `${m}:${two(s)}`;
 };
-
-/** The score as the Learner reads it: 66.67 → "66,67", 50 → "50". */
-export const formatScore = (score: number): string => formatNumberVN(score);
 
 const QUIZ_ERRORS: Record<string, string> = {
   ASSESSMENT_LOCKED:

@@ -1,4 +1,4 @@
-import { formatNumberVN } from "@/utils/number.format";
+import { formatPercentageVN } from "@/utils/number.format";
 import { useEffect, useState } from "react";
 import { Tooltip } from "antd";
 import { LockOutlined } from "@ant-design/icons";
@@ -258,14 +258,14 @@ const CourseAssessments = () => {
                         <td>
                           {item.isRequired ? "Bắt buộc" : "Không bắt buộc"}
                         </td>
-                        <td>{formatNumberVN(item.passingScore)}%</td>
+                        <td>{formatPercentageVN(item.passingScore)}</td>
                         <td>
                           <StatusTag tone={view.tone}>{view.label}</StatusTag>
                         </td>
                         <td>
                           {item.recordedScore === null
                             ? "-"
-                            : `${formatNumberVN(item.recordedScore)}%`}
+                            : `${formatPercentageVN(item.recordedScore)}`}
                         </td>
                         <td>
                           {locked ? (

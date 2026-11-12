@@ -13,10 +13,10 @@ import {
 } from "@/components/learner/learner.ui";
 import { LearningError } from "@/components/learner/learning.error";
 import { useApiQuery } from "@/hooks/use.api.query";
+import { formatPercentageVN } from "@/utils/number.format";
 import { fetchAssessmentResults } from "@/services/learning.service";
 import {
   attemptsLine,
-  formatResultScore,
   formatResultTime,
   gapText,
   kindLabel,
@@ -145,11 +145,10 @@ const CourseResults = () => {
                   <span className="course-results-number">
                     {item.recordedScore === null
                       ? "-"
-                      : formatResultScore(item.recordedScore)}
-                    <small> / 100</small>
+                      : formatPercentageVN(item.recordedScore)}
                   </span>
                   <span className="course-results-passing">
-                    Điểm đạt: {formatResultScore(item.passingScore)}
+                    Điểm đạt: {formatPercentageVN(item.passingScore)}
                   </span>
                 </div>
                 <div
@@ -157,8 +156,8 @@ const CourseResults = () => {
                   role="img"
                   aria-label={
                     item.recordedScore === null
-                      ? `Chưa có điểm, điểm đạt ${formatResultScore(item.passingScore)}`
-                      : `Điểm ${formatResultScore(item.recordedScore)}, điểm đạt ${formatResultScore(item.passingScore)}`
+                      ? `Chưa có điểm, điểm đạt ${formatPercentageVN(item.passingScore)}`
+                      : `Điểm ${formatPercentageVN(item.recordedScore)}, điểm đạt ${formatPercentageVN(item.passingScore)}`
                   }
                 >
                   <span

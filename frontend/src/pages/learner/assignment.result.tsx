@@ -1,4 +1,4 @@
-import { formatNumberVN } from "@/utils/number.format";
+import { formatNumberVN, formatPercentageVN } from "@/utils/number.format";
 import { formatDateTimeVN } from "@/utils/helper";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -68,7 +68,7 @@ const AssignmentResult = () => {
         <div className="course-learning-content assignment-result-card">
           <div className="assignment-result-score">
             <span>Điểm cuối cùng</span>
-            <strong>{formatNumberVN(result.finalScore)}%</strong>
+            <strong>{formatPercentageVN(result.finalScore)}</strong>
             <StatusTag tone={result.passed ? "success" : "error"}>{result.passed ? "Đạt" : "Chưa đạt"}</StatusTag>
           </div>
           {result.finalizationComment && (
@@ -109,7 +109,7 @@ const AssignmentResult = () => {
         <div className="course-learning-side">
           <div className="assignment-result-info">
             <h3>Thông tin kết quả</h3>
-            <DetailItem label="Điểm đạt tối thiểu">{formatNumberVN(result.assignment.passingScore)}%</DetailItem>
+            <DetailItem label="Điểm đạt tối thiểu">{formatPercentageVN(result.assignment.passingScore)}</DetailItem>
             <DetailItem label="Chấm lúc">{formatTime(result.finalizedAt)}</DetailItem>
             <DetailItem label="Người chấm">Ẩn</DetailItem>
           </div>

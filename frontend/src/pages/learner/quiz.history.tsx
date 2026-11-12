@@ -1,3 +1,4 @@
+import { formatPercentageVN } from "@/utils/number.format";
 import { formatDateTimeVN } from "@/utils/helper";
 import { LEARNER_API_ERROR_FALLBACK } from "@/utils/learner.api.errors";
 import { useCallback, useEffect, useState } from "react";
@@ -16,7 +17,7 @@ import {
   fetchQuizHistoryAPI,
 } from "@/services/assessment.service";
 import type { IQuizHistory, IQuizHistoryItem } from "@/types/assessment.types";
-import { formatScore, quizErrorText } from "@/utils/quiz.take";
+import { quizErrorText } from "@/utils/quiz.take";
 import "./quiz.history.scss";
 
 /** How the attempt was submitted, in words the Learner uses. */
@@ -105,7 +106,7 @@ const QuizHistory = () => {
             value={
               history.recordedScore === null
                 ? "Chưa có lượt nào được nộp"
-                : `${formatScore(history.recordedScore)}% (lượt có điểm cao nhất) · ${history.passed ? "Đạt" : "Chưa đạt"}`
+                : `${formatPercentageVN(history.recordedScore)} (lượt có điểm cao nhất) · ${history.passed ? "Đạt" : "Chưa đạt"}`
             }
           />
           <StatCard
@@ -145,7 +146,7 @@ const QuizHistory = () => {
                     {item.submittedAt ? formatDateTimeVN(item.submittedAt) : "-"}
                   </td>
                   <td>{submissionKindLabel(item)}</td>
-                  <td>{item.score === null ? "-" : `${formatScore(item.score)}%`}</td>
+                  <td>{item.score === null ? "-" : `${formatPercentageVN(item.score)}`}</td>
                   <td>
                     {item.correctCount === null
                       ? "-"

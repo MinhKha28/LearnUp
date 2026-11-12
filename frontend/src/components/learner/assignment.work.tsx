@@ -1,4 +1,4 @@
-import { formatNumberVN } from "@/utils/number.format";
+import { formatNumberVN, formatPercentageVN } from "@/utils/number.format";
 import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
 import { Input, Upload, message } from "antd";
@@ -271,8 +271,8 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
             <p className="ant-upload-hint">PDF, DOCX hoặc ZIP, tối đa {formatFileSize(assignment.maxFileBytes)}. Một tệp.</p>
           </Upload.Dragger>
           <InfoPanel title="Kết quả đánh giá">
-            Bài nộp mới nhất quyết định điểm bài tập được ghi nhận. Số lần nộp lại không bị giới hạn cho đến khi
-            khóa học hoàn thành.
+            Bài nộp mới nhất quyết định điểm bài tập được ghi nhận. Được nộp lại nhiều lần; nộp{" "}
+            {attempts.maxConsecutiveAttempts} lượt liên tiếp thì tạm khóa {attempts.lockoutHours} giờ.
           </InfoPanel>
           <div className="assignment-work-actions">
             <LearnerButton type="primary" loading={submitting} disabled={blocked} onClick={send}>
@@ -286,7 +286,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
             <DetailItem label="Thời gian dự kiến">
               {assignment.expectedDurationMinutes ? `${assignment.expectedDurationMinutes} phút` : "Chưa đặt"}
             </DetailItem>
-            <DetailItem label="Điểm đạt tối thiểu">{formatNumberVN(assignment.passingScore)}%</DetailItem>
+            <DetailItem label="Điểm đạt tối thiểu">{formatPercentageVN(assignment.passingScore)}</DetailItem>
             <DetailItem label="Số lượt còn lại trước khi tạm khóa">
               {attempts.remainingAttempts}/{attempts.maxConsecutiveAttempts}
             </DetailItem>

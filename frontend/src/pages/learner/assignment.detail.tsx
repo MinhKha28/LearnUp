@@ -1,4 +1,4 @@
-import { formatNumberVN } from "@/utils/number.format";
+import { formatNumberVN, formatPercentageVN } from "@/utils/number.format";
 import { useState } from "react";
 import { Modal } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
@@ -37,6 +37,7 @@ const AssignmentDetail = () => {
         <PageHeader
           eyebrow="Bài đánh giá / Bài tập"
           title={assignment.title}
+          back
           subtitle="Tài khoản của bạn đang bị tạm khóa nộp bài tập này."
         />
         <div className="course-learning-content">
@@ -60,8 +61,8 @@ const AssignmentDetail = () => {
         >
           {assignment.grading ? (
             <p>
-              Điểm cuối cùng: <strong>{formatNumberVN(assignment.grading.finalScore)}%</strong> (điểm đạt tối thiểu{" "}
-              {formatNumberVN(assignment.grading.passThreshold)}%)
+              Điểm cuối cùng: <strong>{formatPercentageVN(assignment.grading.finalScore)}</strong> (điểm đạt tối thiểu{" "}
+              {formatPercentageVN(assignment.grading.passThreshold)})
             </p>
           ) : (
             <p>Chưa có kết quả chấm trước đó.</p>
@@ -78,14 +79,15 @@ const AssignmentDetail = () => {
         <PageHeader
           eyebrow="Bài đánh giá / Kết quả"
           title="Kết quả bài tập"
+          back
           subtitle={`${assignment.title} / Bài nộp gần nhất`}
         />
         <div className="course-learning-content">
           <div className="assignment-result-card">
             <StatusTag tone="success">{grading.published ? "Đã công bố" : "Đang chờ"}</StatusTag>
             <div className="assignment-result-stats">
-              <StatCard label="Điểm cuối cùng" value={`${formatNumberVN(grading.finalScore)}%`} />
-              <StatCard label="Điểm đạt tối thiểu" value={`${formatNumberVN(grading.passThreshold)}%`} />
+              <StatCard label="Điểm cuối cùng" value={`${formatPercentageVN(grading.finalScore)}`} />
+              <StatCard label="Điểm đạt tối thiểu" value={`${formatPercentageVN(grading.passThreshold)}`} />
             </div>
           </div>
           <div className="assignment-rubric-card">
@@ -126,6 +128,7 @@ const AssignmentDetail = () => {
       <PageHeader
         eyebrow="Bài đánh giá / Bài tập"
         title={assignment.title}
+        back
         subtitle={`${course.title} / Bài tập (${audienceLabel})`}
       />
       <div className="course-learning-main">
@@ -140,7 +143,7 @@ const AssignmentDetail = () => {
             <hr />
             <h3>Yêu cầu</h3>
             <p>Tiêu chí chấm điểm: {assignment.rubric}</p>
-            <p>Điểm đạt tối thiểu: {formatNumberVN(assignment.minScore)}%</p>
+            <p>Điểm đạt tối thiểu: {formatPercentageVN(assignment.minScore)}</p>
             <p>Thời gian dự kiến: {assignment.estimatedEffort}</p>
             <InfoPanel title="Quy định nộp bài">
               Bài tập không có hạn nộp riêng. Hệ thống ghi nhận bài nộp gần nhất.
