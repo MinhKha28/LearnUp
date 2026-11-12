@@ -352,7 +352,7 @@ export const courseDetails: Record<string, ICourseDetail> = {
         estimatedEffort: "45 phút",
         status: "not-submitted",
         maxConsecutiveAttempts: 3,
-        attemptsRemaining: 2,
+        attemptsRemaining: 3,
         instructions: [
           "Soạn câu trả lời dựa trên các quy trình an toàn đã được ghi lại.",
           "Giải thích các bước bạn sẽ thực hiện trong tình huống mẫu.",
