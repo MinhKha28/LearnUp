@@ -231,8 +231,8 @@ export default function HomePage() {
           </h2>
           {[
             [
-              "Một nơi để điều phối",
-              "khóa học, thành viên và đào tạo bắt buộc nằm chung một quy trình.",
+              "Một nơi điều phối chung",
+              "Khóa học, thành viên và đào tạo bắt buộc nằm chung một quy trình.",
             ],
             [
               "Trách nhiệm rõ ràng",
