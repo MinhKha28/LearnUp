@@ -193,7 +193,7 @@ export const CourseListItem = ({
   pills,
   meta,
   progress,
-  actionLabel = "Continue",
+  actionLabel = "Tiếp tục học",
   to,
   secondary,
 }: {

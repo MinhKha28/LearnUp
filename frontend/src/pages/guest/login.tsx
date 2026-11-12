@@ -89,7 +89,7 @@ export default function LoginPage() {
         .error?.code;
       setError(googleSignInMessage(code));
     } catch {
-      setError("Unable to sign in right now. Please try again.");
+      setError("Hiện chưa đăng nhập được. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -149,8 +149,8 @@ export default function LoginPage() {
             <Alert
               className="login-alert"
               type="warning"
-              message="Signed out on this device"
-              description="LearnUP could not confirm that your session ended on the server. Sign in again and sign out once you are back online."
+              message="Đã đăng xuất trên thiết bị này"
+              description="LearnUP chưa xác nhận được phiên đăng nhập đã kết thúc trên máy chủ. Hãy đăng nhập lại rồi đăng xuất khi có kết nối mạng."
               role="status"
             />
           )}

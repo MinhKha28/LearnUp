@@ -199,7 +199,7 @@ const CourseDetail = () => {
         : code === "COURSE_CHANGED" || code === "SAME_INSTRUCTOR"
           ? "Quyền phụ trách đã thay đổi. Vui lòng tải lại dữ liệu."
           : code === "TENANT_UNAVAILABLE"
-            ? "Tenant Service tạm thời không khả dụng."
+            ? "Dịch vụ tổ chức tạm thời gián đoạn. Vui lòng thử lại."
             : "Chuyển quyền thất bại. Vui lòng thử lại.";
       setModalError(text);
       message.error(text);
@@ -214,7 +214,7 @@ const CourseDetail = () => {
     <OrganizerPage className="organizer-course-detail">
       <PageHeader
         title="Chuỗi phiên bản khóa học"
-        subtitle={context?.courseName ?? "Thông tin Course"}
+        subtitle={context?.courseName ?? "Thông tin khóa học"}
         back
         actions={
           <>
@@ -258,7 +258,7 @@ const CourseDetail = () => {
                 type="warning"
                 showIcon
                 message="Không tìm thấy giảng viên phụ trách trong tổ chức."
-                description={`Instructor ID: ${context.currentInstructor.id}. Hãy kiểm tra dữ liệu tài khoản và Organization trước khi chuyển quyền.`}
+                description={`Mã giảng viên: ${context.currentInstructor.id}. Hãy kiểm tra dữ liệu tài khoản và tổ chức trước khi chuyển quyền.`}
                 className="organizer-course-detail-warning"
               />
             )}

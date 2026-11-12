@@ -685,7 +685,7 @@ export default function RegisterPage() {
           </p>
           <b className="register-notice-next">Không nhận được email?</b>
           <p>
-            Hãy kiểm tra thư mục spam hoặc yêu cầu mã mới. Mỗi lần yêu cầu sẽ
+            Hãy kiểm tra thư mục thư rác hoặc yêu cầu mã mới. Mỗi lần yêu cầu sẽ
             gửi mã mới và mã trước đó không còn dùng được.
           </p>
         </div>

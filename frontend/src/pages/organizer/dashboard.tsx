@@ -64,7 +64,7 @@ const Dashboard = () => (
             <strong>7 báo cáo nội dung đang chờ xử lý</strong>
             <span>1 báo cáo sắp đến hạn xử lý</span>
             <Link className="organizer-link" to="/organizer/content-reports">
-              Moderate →
+              Xem xét →
             </Link>
           </div>
           <div>
@@ -78,7 +78,7 @@ const Dashboard = () => (
             <strong>3 lời mời đã hết hạn</strong>
             <span>Lời mời giảng viên và học viên</span>
             <Link className="organizer-link" to="/organizer/instructors">
-              Resend →
+              Gửi lại →
             </Link>
           </div>
         </div>
