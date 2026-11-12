@@ -89,9 +89,9 @@ export function ReadingResource({
       <h1>{material.title}</h1>
       <Space wrap>
         <Tag color={completed ? "success" : "default"}>
-          {completed ? "Đã hoàn thành" : "Chưa hoàn thành"}
+          Tài liệu: {completed ? "Đã hoàn thành" : "Chưa hoàn thành"}
         </Tag>
-        {status && <Tag aria-label="Trạng thái học tập">{ENROLLMENT_STATUS_LABELS[status].label}</Tag>}
+        {status && <Tag>Khóa học: {ENROLLMENT_STATUS_LABELS[status].label}</Tag>}
       </Space>
       {accessError && <Alert type="error" message={accessError} showIcon />}
       <Button loading={opening} onClick={() => void openReading()}>Mở tài liệu đọc</Button>

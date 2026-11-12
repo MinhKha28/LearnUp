@@ -135,10 +135,13 @@ describe("UC50, UC51 list of the audit trail", () => {
     fetchLogs.mockResolvedValue(answer([log()]));
     const router = renderView();
     await screen.findByText("Ngừng hoạt động tài khoản giảng viên");
-    fireEvent.change(screen.getByRole("combobox", { name: /Loại đối tượng/ }), { target: { value: "Course" } });
+    const filter = screen.getByRole("combobox", { name: "Loại đối tượng" });
+    expect(screen.getByText("Ví dụ: User")).toBeTruthy();
+    expect(screen.getByText(/User là tài khoản người dùng/).id).toBe(filter.getAttribute("aria-describedby"));
+    fireEvent.change(filter, { target: { value: "FutureTarget" } });
     fireEvent.click(screen.getByRole("button", { name: "Lọc" }));
-    await waitFor(() => expect(lastQuery().targetResourceType).toBe("Course"));
-    expect(search(router).get("type")).toBe("Course");
+    await waitFor(() => expect(lastQuery().targetResourceType).toBe("FutureTarget"));
+    expect(search(router).get("type")).toBe("FutureTarget");
   });
 
   it("restores the filter and the page from the URL, and the form shows them", async () => {

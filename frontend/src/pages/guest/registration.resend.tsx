@@ -93,6 +93,7 @@ export default function RegistrationResendPage() {
       <Link className="auth-link" to="/forgot-password">
         Đã thanh toán? Hãy đặt lại mật khẩu
       </Link>
+      <br />
       <Link className="auth-link" to="/login">
         Quay lại đăng nhập
       </Link>

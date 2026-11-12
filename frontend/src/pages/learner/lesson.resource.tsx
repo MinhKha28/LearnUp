@@ -80,7 +80,7 @@ function VideoPlayer({
       </div>
       <div className="lesson-resource-summary" role="status">
         <Tag color={progress.completed ? "success" : "warning"}>
-          {progress.completed ? "Đã hoàn thành" : "Chưa đủ thời lượng"}
+          Video: {progress.completed ? "Đã hoàn thành" : "Chưa đủ thời lượng"}
         </Tag>
         <strong>Đã xem {progress.watchedSeconds} / {progress.requiredSeconds} giây cần
         thiết</strong>

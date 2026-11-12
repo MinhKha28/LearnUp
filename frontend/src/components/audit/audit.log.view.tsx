@@ -1,4 +1,4 @@
-import { Alert, AutoComplete, Button, DatePicker, Input, Table } from "antd";
+import { Alert, AutoComplete, Button, DatePicker, Form, Input, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { type FormEvent, useEffect, useState } from "react";
@@ -185,17 +185,22 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
   return (
     <div className="audit-log-view">
       <form className="audit-log-filters" onSubmit={apply} aria-label="Bộ lọc nhật ký">
-        <label htmlFor="audit-target-type">
-          <span>Loại đối tượng</span>
+        <Form.Item
+          className="audit-log-target-type"
+          label="Loại đối tượng"
+          htmlFor="audit-target-type"
+          extra={<span id="audit-target-type-help">Chọn gợi ý hoặc nhập mã. User là tài khoản người dùng.</span>}
+        >
           <AutoComplete
             id="audit-target-type"
+            aria-describedby="audit-target-type-help"
             allowClear
             options={TARGET_TYPE_OPTIONS}
             value={draft.type}
             onChange={(value) => setDraft((current) => ({ ...current, type: value ?? "" }))}
-            placeholder="Ví dụ: User (tài khoản người dùng)"
+            placeholder="Ví dụ: User"
           />
-        </label>
+        </Form.Item>
         <label>
           <span>Mã đối tượng</span>
           <Input

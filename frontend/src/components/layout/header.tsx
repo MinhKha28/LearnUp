@@ -22,6 +22,7 @@ export default function Header() {
   const bareAuthFlow =
     pathname.startsWith("/activate") ||
     pathname.startsWith("/forgot-password") ||
+    pathname === "/resend-registration" ||
     pathname.startsWith("/reset-password");
   const plansActive = registration;
   const [activeKey, setActiveKey] = useState("platform");

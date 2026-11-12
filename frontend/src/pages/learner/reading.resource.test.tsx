@@ -5,10 +5,11 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { ReadingResource } from './reading.resource';
 import { fetchReadingAccess } from '@/services/learning.service';
 vi.mock('@/components/context/app.context', () => ({ useCurrentApp: () => ({ user: { id: 'u', organizationId: 'o' } }) }));
-vi.mock('@/hooks/use.api.query', () => ({ useApiQuery: () => ({ data: { status: 'InProgress' }, reload: vi.fn() }) }));
+const enrollment = vi.hoisted(() => ({ status: 'InProgress' }));
+vi.mock('@/hooks/use.api.query', () => ({ useApiQuery: () => ({ data: enrollment, reload: vi.fn() }) }));
 vi.mock('@/hooks/use.learning.refresh', () => ({ useLearningRefresh: vi.fn(), notifyLearningProgress: vi.fn() }));
 vi.mock('@/services/learning.service', () => ({ fetchReadingAccess: vi.fn(), fetchCurriculum: vi.fn(), completeReading: vi.fn() }));
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
+afterEach(() => { enrollment.status = 'InProgress'; cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 const mount = () => render(<MemoryRouter><ReadingResource enrollmentId="e" lessonId="l" material={{ materialId: 'm', title: 'PDF', materialType: 'Reading', isRequired: false, completed: false, durationSeconds: null }} /></MemoryRouter>);
 it('requests a fresh URL on each click and starts a same-page download without a popup', async () => {
   const open = vi.spyOn(window, 'open');
@@ -37,4 +38,11 @@ it('does not navigate and shows the Vietnamese error if fresh access fails; a la
   fireEvent.click(screen.getByRole('button', { name: 'Mở tài liệu đọc' }));
   await waitFor(() => expect(click).toHaveBeenCalledOnce());
   expect(screen.queryByText('Chưa thể mở tài liệu. Vui lòng thử lại.')).toBeNull();
+});
+
+it('names the reading and course states separately when the course is complete', () => {
+  enrollment.status = 'Completed';
+  mount();
+  expect(screen.getByText('Tài liệu: Chưa hoàn thành')).toBeTruthy();
+  expect(screen.getByText('Khóa học: Đã hoàn thành')).toBeTruthy();
 });

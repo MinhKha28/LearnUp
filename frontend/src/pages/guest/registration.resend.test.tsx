@@ -6,9 +6,11 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import Layout from "@/layout";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/components/context/app.context", () => ({ useCurrentApp: () => ({ isAuthenticated: false, user: null }) }));
 vi.mock("@/services/axios.customize", () => ({ tenantAxios: {}, default: {} }));
 vi.mock("@/services/organization.service", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/organization.service")>()),
@@ -50,6 +52,23 @@ const submit = (email: string) => {
 };
 
 describe("UC03.1 resend registration email", () => {
+  it("uses one logo and separates the footer links in the guest router", () => {
+    render(
+      <MemoryRouter initialEntries={["/resend-registration"]}>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/resend-registration" element={<RegistrationResendPage />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getAllByRole("img", { name: "LearnUP" })).toHaveLength(1);
+    const reset = screen.getByRole("link", { name: /đặt lại mật khẩu/ });
+    const login = screen.getByRole("link", { name: "Quay lại đăng nhập" });
+    expect(reset.nextElementSibling?.tagName).toBe("BR");
+    expect(reset.nextElementSibling?.nextElementSibling).toBe(login);
+  });
+
   it("sends the normalised email and shows the neutral confirmation", async () => {
     vi.mocked(api.resendRegistrationEmailAPI).mockResolvedValue({
       statusCode: 202,

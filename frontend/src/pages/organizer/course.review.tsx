@@ -89,21 +89,21 @@ const AssessmentContent = ({
         <span>Điểm đạt: {assessment.passingScore}</span>
         <span>Số lần làm tối đa: {assessment.maxConsecutiveAttempts}</span>
         <span>Thời gian chờ: {assessment.lockoutHours} giờ</span>
+        {isQuiz && (
+          <>
+            <span>
+              Thời gian làm bài:{" "}
+              {assessment.timeLimitMinutes === null
+                ? "Chưa cấu hình"
+                : `${assessment.timeLimitMinutes} phút`}
+            </span>
+            <span>Số câu hỏi: {assessment.questions.length}</span>
+          </>
+        )}
       </div>
 
       {isQuiz ? (
         <div>
-          <p>
-            <strong>Thời gian làm bài:</strong>{" "}
-            {assessment.timeLimitMinutes === null
-              ? "Chưa cấu hình"
-              : `${assessment.timeLimitMinutes} phút`}
-          </p>
-
-          <p>
-            <strong>Số câu hỏi:</strong> {assessment.questions.length}
-          </p>
-
           {assessment.questions.length === 0 ? (
             <Empty description="Chưa có câu hỏi" />
           ) : (
