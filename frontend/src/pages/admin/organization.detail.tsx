@@ -1,4 +1,5 @@
-import { Alert, Avatar, Button, Empty, Spin } from "antd";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { Avatar, Button, Empty, Spin } from "antd";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -42,7 +43,7 @@ const UsageMetric = ({
         <div className={`admin-usage ${item.warning ? "admin-usage-warning" : ""}`.trim()}>
           <span style={{ width: usageWidth(item) }} />
         </div>
-        <small>Đã dùng {item.percent}%</small>
+        <small>Đã dùng {item.percent?.toLocaleString("vi-VN") ?? "—"}%</small>
       </>
     )}
   </div>
@@ -111,7 +112,7 @@ const OrganizationDetail = () => {
             </Empty>
           </SectionCard>
         ) : (
-          <Alert
+          <VietnameseAlert
             type="error"
             showIcon
             message="Chưa tải được tổ chức này."
@@ -123,7 +124,7 @@ const OrganizationDetail = () => {
     );
   }
 
-  const orgStatus = organizationStatusViewVi[detail.status];
+  const orgStatus = organizationStatusViewVi(detail.status);
   const { organizer, subscription, usage, duplicateTaxCode } = detail;
 
   return (
@@ -156,7 +157,7 @@ const OrganizationDetail = () => {
             </WarningPanel>
             <ul>
               {duplicateTaxCode.organizations.map((dup) => {
-                const view = organizationStatusViewVi[dup.status];
+                const view = organizationStatusViewVi(dup.status);
                 return (
                   <li key={dup.id}>
                     <Link className="admin-link" to={`/admin/organizations/${encodeURIComponent(dup.id)}`}>
@@ -205,8 +206,8 @@ const OrganizationDetail = () => {
               title="Gói dịch vụ và mức dùng"
               extra={
                 subscription ? (
-                  <StatusTag tone={subscriptionStatusViewVi[subscription.status].tone}>
-                    {subscriptionStatusViewVi[subscription.status].label}
+                  <StatusTag tone={subscriptionStatusViewVi(subscription.status).tone}>
+                    {subscriptionStatusViewVi(subscription.status).label}
                   </StatusTag>
                 ) : (
                   <StatusTag tone="neutral">

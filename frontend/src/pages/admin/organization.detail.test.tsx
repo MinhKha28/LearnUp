@@ -110,7 +110,7 @@ describe("UC44.1 Admin organization detail page", () => {
     expect(screen.getByRole("heading", { name: "Gói dịch vụ và mức dùng" })).toBeTruthy();
     expect(screen.getByText("Còn 295 ngày")).toBeTruthy();
     expect(screen.getByText("24 / 500")).toBeTruthy();
-    expect(screen.getByText("Đã dùng 4.8%")).toBeTruthy();
+    expect(screen.getByText("Đã dùng 4,8%")).toBeTruthy();
     expect(screen.getByText("1 GB / 10 GB")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Quản lý đào tạo hiện tại" })).toBeTruthy();
     expect(screen.getByText("Nguyễn Văn An")).toBeTruthy();

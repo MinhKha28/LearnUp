@@ -1,5 +1,6 @@
+import { VietnameseAlert, VietnamesePassword } from "@/components/vietnamese.controls";
 import { CheckCircleOutlined } from "@ant-design/icons";
-import { Alert, Form, Input } from "antd";
+import { Form } from "antd";
 import { useNavigate } from "react-router-dom";
 import { AdminButton, AdminPage, PageHeader, SectionCard } from "@/components/admin/admin.ui";
 import {
@@ -19,7 +20,7 @@ const ChangePassword = () => {
       <PageHeader title="Đổi mật khẩu" subtitle="Xác minh mật khẩu hiện tại trước khi đặt mật khẩu mới." />
       <div className="admin-password-grid">
         <SectionCard title="Thiết lập mật khẩu">
-          {error && <Alert type="error" showIcon message={error} role="alert" />}
+          {error && <VietnameseAlert type="error" showIcon message={error} role="alert" />}
           <Form<ChangePasswordFields>
             className="admin-form"
             layout="vertical"
@@ -28,13 +29,13 @@ const ChangePassword = () => {
             onValuesChange={clearError}
           >
             <Form.Item label="Mật khẩu hiện tại" name="current" rules={currentPasswordRules}>
-              <Input.Password autoComplete="current-password" />
+              <VietnamesePassword autoComplete="current-password" />
             </Form.Item>
             <Form.Item label="Mật khẩu mới" name="password" dependencies={["current"]} rules={newPasswordRules}>
-              <Input.Password autoComplete="new-password" />
+              <VietnamesePassword autoComplete="new-password" />
             </Form.Item>
             <Form.Item label="Nhập lại mật khẩu mới" name="confirm" dependencies={["password"]} rules={confirmPasswordRules}>
-              <Input.Password autoComplete="new-password" />
+              <VietnamesePassword autoComplete="new-password" />
             </Form.Item>
             <div className="admin-form-actions">
               <AdminButton onClick={() => navigate(-1)}>Hủy</AdminButton>
@@ -47,16 +48,16 @@ const ChangePassword = () => {
         <aside className="admin-password-rules">
           <h2>Truy cập tài khoản</h2>
           <p>
-            <CheckCircleOutlined /> Quản trị viên đăng nhập bằng email và mật khẩu
+            <CheckCircleOutlined aria-hidden="true" /> Quản trị viên đăng nhập bằng email và mật khẩu
           </p>
           <p>
-            <CheckCircleOutlined /> Quản trị viên không đăng nhập được bằng Google
+            <CheckCircleOutlined aria-hidden="true" /> Quản trị viên không đăng nhập được bằng Google
           </p>
           <p>
-            <CheckCircleOutlined /> Khôi phục mật khẩu qua email đã đăng ký
+            <CheckCircleOutlined aria-hidden="true" /> Khôi phục mật khẩu qua email đã đăng ký
           </p>
           <p>
-            <CheckCircleOutlined /> Sau khi đổi, bạn cần đăng nhập lại trên mọi thiết bị
+            <CheckCircleOutlined aria-hidden="true" /> Sau khi đổi, bạn cần đăng nhập lại trên mọi thiết bị
           </p>
         </aside>
       </div>

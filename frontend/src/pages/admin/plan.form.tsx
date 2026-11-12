@@ -1,4 +1,6 @@
-import { Alert, App, Form, Input, InputNumber, Select } from "antd";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { VietnameseInputNumber } from "@/components/vietnamese.input.number";
+import { App, Form, Input, Select } from "antd";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminButton, AdminPage, PageHeader, SectionCard, StatusTag, WarningPanel } from "@/components/admin/admin.ui";
@@ -54,7 +56,7 @@ const PlanCreate = () => {
         }
       />
       <SectionCard title="Thông tin gói">
-        {submitError && <Alert type="error" showIcon message={submitError} role="alert" />}
+        {submitError && <VietnameseAlert type="error" showIcon message={submitError} role="alert" />}
         <Form<PlanFormValues>
           id="plan-form"
           form={form}
@@ -73,25 +75,25 @@ const PlanCreate = () => {
                 { max: 100, message: "Tối đa 100 ký tự." },
               ]}
             >
-              <Input placeholder="Professional" />
+              <Input placeholder="Gói Chuyên nghiệp" />
             </Form.Item>
             <Form.Item label="Giá (VND)" name="price" rules={[{ required: true, message: "Hãy nhập giá." }]}>
-              <InputNumber {...wholeNumber} min={0} max={PLAN_LIMITS.price} placeholder="4990000" />
+              <VietnameseInputNumber {...wholeNumber} min={0} max={PLAN_LIMITS.price} placeholder="4.990.000" />
             </Form.Item>
             <Form.Item label="Thời hạn (ngày)" name="durationDays" rules={[{ required: true, message: "Hãy nhập thời hạn." }]}>
-              <InputNumber {...wholeNumber} min={1} max={PLAN_LIMITS.durationDays} placeholder="180" />
+              <VietnameseInputNumber {...wholeNumber} min={1} max={PLAN_LIMITS.durationDays} placeholder="180" />
             </Form.Item>
             <Form.Item label="Số học viên" name="maxLearners" rules={[{ required: true, message: "Hãy nhập giới hạn." }]}>
-              <InputNumber {...wholeNumber} min={1} max={PLAN_LIMITS.maxLearners} placeholder="1000" />
+              <VietnameseInputNumber {...wholeNumber} min={1} max={PLAN_LIMITS.maxLearners} placeholder="1.000" />
             </Form.Item>
             <Form.Item label="Số giảng viên" name="maxInstructors" rules={[{ required: true, message: "Hãy nhập giới hạn." }]}>
-              <InputNumber {...wholeNumber} min={1} max={PLAN_LIMITS.maxInstructors} placeholder="50" />
+              <VietnameseInputNumber {...wholeNumber} min={1} max={PLAN_LIMITS.maxInstructors} placeholder="50" />
             </Form.Item>
             <Form.Item label="Số khóa học" name="maxCourseChains" rules={[{ required: true, message: "Hãy nhập giới hạn." }]}>
-              <InputNumber {...wholeNumber} min={1} max={PLAN_LIMITS.maxCourseChains} placeholder="100" />
+              <VietnameseInputNumber {...wholeNumber} min={1} max={PLAN_LIMITS.maxCourseChains} placeholder="100" />
             </Form.Item>
             <Form.Item label="Dung lượng lưu trữ (GB)" name="storageGb" rules={[{ required: true, message: "Hãy nhập giới hạn dung lượng." }]}>
-              <InputNumber min={PLAN_LIMITS.minStorageGb} max={PLAN_LIMITS.maxStorageGb} step={1} precision={1} style={{ width: "100%" }} placeholder="250" />
+              <VietnameseInputNumber min={PLAN_LIMITS.minStorageGb} max={PLAN_LIMITS.maxStorageGb} step={1} precision={1} style={{ width: "100%" }} placeholder="250" />
             </Form.Item>
           </div>
           <div className="admin-plan-form-note">
@@ -109,13 +111,13 @@ const PlanCreate = () => {
 
 const PlanEditPreview = () => {
   const navigate = useNavigate();
-  const initialValues = { name: "Growth", duration: 6, learners: 500, instructors: 25, courses: 50, storage: 120 };
+  const initialValues = { name: "Gói Tăng trưởng", duration: 6, learners: 500, instructors: 25, courses: 50, storage: 120 };
   return (
     <AdminPage className="admin-plan-form">
       <PageHeader title="Sửa gói (xem trước)" subtitle="Chưa sửa được gói (UC43.2). Trang xem trước này dùng dữ liệu mẫu và không lưu gì." actions={<><AdminButton disabled>Ngừng cung cấp gói</AdminButton><AdminButton onClick={() => navigate(-1)}>Quay lại</AdminButton><AdminButton type="primary" disabled>Lưu thay đổi</AdminButton></>} />
       <SectionCard title={<>Cấu hình hiện tại <StatusTag tone="success">Đang cung cấp</StatusTag></>}>
         <Form className="admin-form" layout="vertical" initialValues={initialValues} disabled>
-          <div className="admin-form-grid"><Form.Item label="Tên gói" name="name" rules={[{ required: true }]}><Input placeholder="Professional" /></Form.Item><Form.Item label="Thời hạn" name="duration" rules={[{ required: true }]}><Select placeholder="Chọn thời hạn" options={[3,6,12].map((value) => ({ value, label: `${value} tháng` }))} /></Form.Item><Form.Item label="Số học viên" name="learners" rules={[{ required: true }]}><InputNumber min={1} placeholder="1.000" /></Form.Item><Form.Item label="Số giảng viên" name="instructors" rules={[{ required: true }]}><InputNumber min={1} placeholder="50" /></Form.Item><Form.Item label="Số khóa học" name="courses" rules={[{ required: true }]}><InputNumber min={1} placeholder="100" /></Form.Item><Form.Item label="Dung lượng lưu trữ (GB)" name="storage" rules={[{ required: true }]}><InputNumber min={1} placeholder="250" /></Form.Item></div>
+          <div className="admin-form-grid"><Form.Item label="Tên gói" name="name" rules={[{ required: true }]}><Input placeholder="Gói Chuyên nghiệp" /></Form.Item><Form.Item label="Thời hạn" name="duration" rules={[{ required: true }]}><Select placeholder="Chọn thời hạn" options={[3,6,12].map((value) => ({ value, label: `${value} tháng` }))} /></Form.Item><Form.Item label="Số học viên" name="learners" rules={[{ required: true }]}><VietnameseInputNumber min={1} placeholder="1.000" /></Form.Item><Form.Item label="Số giảng viên" name="instructors" rules={[{ required: true }]}><VietnameseInputNumber min={1} placeholder="50" /></Form.Item><Form.Item label="Số khóa học" name="courses" rules={[{ required: true }]}><VietnameseInputNumber min={1} placeholder="100" /></Form.Item><Form.Item label="Dung lượng lưu trữ (GB)" name="storage" rules={[{ required: true }]}><VietnameseInputNumber min={1} placeholder="250" /></Form.Item></div>
         </Form>
       </SectionCard>
       <WarningPanel title="Lưu ý">Tổ chức đang dùng gói giữ nguyên giới hạn đã chốt cho tới hết kỳ hiện tại. Nếu gói này ngừng cung cấp, gói sẽ không còn trong danh sách lựa chọn và không nhận thêm tổ chức mới.</WarningPanel>

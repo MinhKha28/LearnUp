@@ -7,22 +7,33 @@ import type {
 import { formatFileSize, formatStorage } from "@/utils/helper";
 
 type Tone = "neutral" | "success" | "warning" | "error" | "info";
+const statusFallback = (value?: string | null): { label: string; tone: Tone } => ({
+  label: value ? "Không xác định" : "—",
+  tone: "neutral",
+});
+
 type Organizer = NonNullable<IAdminOrganizationDetail["organizer"]>;
 
 // UC44.1 - trạng thái Organization (BR-8, BR-56) và Subscription (BR-22, BR-23, BR-60) trên trang chi tiết.
-// Trang danh sách UC44 vẫn dùng nhãn của organization.list.view.ts.
-export const organizationStatusViewVi: Record<AdminOrganizationStatus, { label: string; tone: Tone }> = {
+// Dùng chung cho danh sách và chi tiết tổ chức.
+const organizationStatuses: Record<AdminOrganizationStatus, { label: string; tone: Tone }> = {
   PendingPayment: { label: "Chờ thanh toán", tone: "warning" },
   Active: { label: "Đang hoạt động", tone: "success" },
   Suspended: { label: "Tạm khóa", tone: "error" },
   Cancelled: { label: "Đã hủy", tone: "neutral" },
 };
 
-export const subscriptionStatusViewVi: Record<AdminSubscriptionStatus, { label: string; tone: Tone }> = {
+const subscriptionStatuses: Record<AdminSubscriptionStatus, { label: string; tone: Tone }> = {
   Active: { label: "Đang hoạt động", tone: "info" },
   Grace: { label: "Trong thời gian ân hạn", tone: "warning" },
   Suspended: { label: "Tạm ngưng", tone: "error" },
 };
+
+export const organizationStatusViewVi = (status?: AdminOrganizationStatus | null) =>
+  status && Object.hasOwn(organizationStatuses, status) ? organizationStatuses[status] : statusFallback(status);
+
+export const subscriptionStatusViewVi = (status?: AdminSubscriptionStatus | null) =>
+  status && Object.hasOwn(subscriptionStatuses, status) ? subscriptionStatuses[status] : statusFallback(status);
 
 // UC44.1 - BR-50: Organizer Pending là Organizer đang chờ nhận lời mời (hoặc chờ thanh toán lúc đăng ký)
 export const organizerStatusView = (organizer: Organizer): { label: string; tone: Tone } => {
@@ -40,5 +51,5 @@ export const formatBytes = (bytes: number) =>
 export const usageWidth = (item: IAdminUsageItem) => `${Math.min(100, item.percent ?? 0)}%`;
 
 /** "84 / 200" hoặc "Chưa có số liệu" khi course-service không trả lời. */
-export const usageLabel = (item: IAdminUsageItem, format: (value: number) => string = String) =>
+export const usageLabel = (item: IAdminUsageItem, format: (value: number) => string = (value) => value.toLocaleString("vi-VN")) =>
   item.used === null ? "Chưa có số liệu" : `${format(item.used)} / ${format(item.limit)}`;

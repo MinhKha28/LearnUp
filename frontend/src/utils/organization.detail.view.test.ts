@@ -41,17 +41,22 @@ describe("UC44.1 organization detail view helpers", () => {
   });
 
   it("labels every Organization and Subscription status in Vietnamese", () => {
-    expect(Object.values(organizationStatusViewVi).map((view) => view.label)).toEqual([
+    expect((["PendingPayment", "Active", "Suspended", "Cancelled"] as const).map((status) => organizationStatusViewVi(status).label)).toEqual([
       "Chờ thanh toán",
       "Đang hoạt động",
       "Tạm khóa",
       "Đã hủy",
     ]);
-    expect(Object.values(subscriptionStatusViewVi).map((view) => view.label)).toEqual([
+    expect((["Active", "Grace", "Suspended"] as const).map((status) => subscriptionStatusViewVi(status).label)).toEqual([
       "Đang hoạt động",
       "Trong thời gian ân hạn",
       "Tạm ngưng",
     ]);
+  });
+
+  it("provides neutral labels for missing and unknown statuses", () => {
+    expect(organizationStatusViewVi()).toEqual({ label: "—", tone: "neutral" });
+    expect(subscriptionStatusViewVi(null)).toEqual({ label: "—", tone: "neutral" });
   });
 
   it("shows bytes in GB from 1 GB up, and in MB or KB below", () => {

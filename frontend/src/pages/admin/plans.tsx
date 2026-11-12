@@ -1,4 +1,5 @@
-import { Alert, Button, Empty, Skeleton } from "antd";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { Button, Empty, Skeleton } from "antd";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -43,7 +44,7 @@ const Plans = () => {
   const renderBody = () => {
     if (failed) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message="Không tải được danh sách gói."
