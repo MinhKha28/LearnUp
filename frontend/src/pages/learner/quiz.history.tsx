@@ -88,7 +88,7 @@ const QuizHistory = () => {
       <PageHeader
         eyebrow="Bài đánh giá / Lịch sử làm bài"
         title="Lịch sử làm bài"
-        subtitle={`Tất cả các lượt làm của ${history.title}.`}
+        subtitle={`Các lượt làm: “${history.title}”`}
         back
       />
       <div className="course-learning-content">

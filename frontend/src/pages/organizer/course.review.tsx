@@ -123,7 +123,7 @@ const AssessmentContent = ({
                       {option.isCorrect && (
                         <strong className="review-correct">
                           {" "}
-                          — Correct answer
+                          — Đáp án đúng
                         </strong>
                       )}
                     </li>

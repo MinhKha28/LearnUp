@@ -86,7 +86,7 @@ export default function RegistrationResendPage() {
           <p>
             Nếu email này thuộc một đăng ký đang chờ thanh toán, thư mới đang
             được gửi tới bạn. Liên kết và mã trước đó không còn dùng được. Hãy
-            kiểm tra hộp thư đến và thư mục spam.
+            kiểm tra hộp thư đến và thư mục thư rác.
           </p>
         </div>
       )}

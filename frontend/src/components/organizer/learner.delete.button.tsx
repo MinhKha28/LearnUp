@@ -96,7 +96,7 @@ export const LearnerDeleteButton = ({
             {status === "Pending"
               ? `${fullName} chưa kích hoạt tài khoản. Liên kết mời sẽ hết hiệu lực và suất tài khoản sẽ được giải phóng.`
               : `${fullName} sẽ không thể đăng nhập và suất tài khoản sẽ được giải phóng.`}{" "}
-            Dữ liệu đào tạo và Chứng chỉ đã cấp vẫn được giữ lại. Thao tác này không
+            Dữ liệu đào tạo và chứng chỉ đã cấp vẫn được giữ lại. Thao tác này không
             thể hoàn tác; sau đó email có thể dùng cho tài khoản mới.
           </p>
           <Form.Item name="reason" label="Lý do (không bắt buộc)">

@@ -94,7 +94,7 @@ export function ReadingResource({
         {status && <Tag aria-label="Trạng thái học tập">{ENROLLMENT_STATUS_LABELS[status].label}</Tag>}
       </Space>
       {accessError && <Alert type="error" message={accessError} showIcon />}
-      <Button loading={opening} onClick={() => void openReading()}>Mở tệp Reading</Button>
+      <Button loading={opening} onClick={() => void openReading()}>Mở tài liệu đọc</Button>
       <Button
         type="primary"
         loading={sending}
@@ -104,7 +104,7 @@ export function ReadingResource({
         {completed ? "Đã hoàn thành" : "Đánh dấu đã hoàn thành"}
       </Button>
       {readonly && !completed && (
-        <p>Enrollment đã hoàn thành; tiến trình học liệu được giữ nguyên.</p>
+        <p>Bạn đã hoàn thành khóa học. Tiến độ học liệu được giữ nguyên.</p>
       )}
       {error && (
         <Alert

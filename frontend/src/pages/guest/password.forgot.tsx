@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
           <b>Đã nhận yêu cầu</b>
           <p>
             Nếu email này đủ điều kiện khôi phục, chúng tôi sẽ gửi hướng dẫn. Hãy
-            kiểm tra hộp thư đến và thư mục spam; thư có thể đến chậm.
+            kiểm tra hộp thư đến và thư mục thư rác; thư có thể đến chậm.
           </p>
         </div>
       )}

@@ -59,7 +59,7 @@ describe("UC03.1 resend registration email", () => {
     await screen.findByText("Đã nhận yêu cầu");
     expect(api.resendRegistrationEmailAPI).toHaveBeenCalledWith("lan@abc.vn");
     expect(screen.getByRole("status").textContent).toContain(
-      "Liên kết và mã trước đó không còn dùng được",
+      "Liên kết và mã trước đó không còn dùng được. Hãy kiểm tra hộp thư đến và thư mục thư rác.",
     );
   });
 

@@ -114,8 +114,7 @@ export const LearnerStatusButton = ({
             </p>
           ) : (
             <p>
-              {fullName} will be able to sign in again and continue their
-              courses.
+              {fullName} sẽ có thể đăng nhập lại và tiếp tục các khóa học của mình.
             </p>
           )}
           <Form.Item name="reason" label="Lý do (không bắt buộc)">

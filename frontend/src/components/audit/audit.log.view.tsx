@@ -193,7 +193,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
             options={TARGET_TYPE_OPTIONS}
             value={draft.type}
             onChange={(value) => setDraft((current) => ({ ...current, type: value ?? "" }))}
-            placeholder="Ví dụ: User"
+            placeholder="Ví dụ: User (tài khoản người dùng)"
           />
         </label>
         <label>

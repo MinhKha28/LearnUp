@@ -20,7 +20,7 @@ it('requests a fresh URL on each click and starts a same-page download without a
   mount();
   expect(fetchReadingAccess).not.toHaveBeenCalled();
   for (let i = 1; i <= 2; i++) {
-    fireEvent.click(screen.getByRole('button', { name: 'Mở tệp Reading' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mở tài liệu đọc' }));
     await waitFor(() => expect(downloads).toHaveLength(i));
     expect(fetchReadingAccess).toHaveBeenCalledTimes(i);
   }
@@ -31,10 +31,10 @@ it('requests a fresh URL on each click and starts a same-page download without a
 it('does not navigate and shows the Vietnamese error if fresh access fails; a later click can recover', async () => {
   const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   vi.mocked(fetchReadingAccess).mockRejectedValueOnce(new Error('unavailable')).mockResolvedValueOnce({ accessUrl: 'https://example.test/new.pdf', materialId: 'm', title: 'PDF', expiresAt: new Date().toISOString(), mimeType: 'application/pdf', fixture: false });
-  mount(); fireEvent.click(screen.getByRole('button', { name: 'Mở tệp Reading' }));
+  mount(); fireEvent.click(screen.getByRole('button', { name: 'Mở tài liệu đọc' }));
   await screen.findByText('Chưa thể mở tài liệu. Vui lòng thử lại.');
   expect(click).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: 'Mở tệp Reading' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Mở tài liệu đọc' }));
   await waitFor(() => expect(click).toHaveBeenCalledOnce());
   expect(screen.queryByText('Chưa thể mở tài liệu. Vui lòng thử lại.')).toBeNull();
 });
