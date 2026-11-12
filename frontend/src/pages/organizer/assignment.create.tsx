@@ -10,7 +10,7 @@ import {
   Table,
   message,
 } from "antd";
-import { useEffect, useRef, useState } from "react";
+import { cloneElement, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { AssignmentError } from "@/components/organizer/assignment.error";
 import {
@@ -35,6 +35,11 @@ import {
 } from "@/utils/assignments.view";
 import "./assignment.create.scss";
 import { retainAssignmentSelection } from "@/utils/assignment.selection";
+
+const labelSelectAll = (checkbox: ReactNode) =>
+  isValidElement<{ "aria-label"?: string }>(checkbox)
+    ? cloneElement(checkbox, { "aria-label": "Chọn tất cả học viên trên trang này" })
+    : checkbox;
 
 const AssignmentCreate = () => {
   const navigate = useNavigate();
@@ -279,9 +284,11 @@ const AssignmentCreate = () => {
             scroll={{ x: true }}
             locale={{ ...viVN.Table, emptyText: "Không có học viên trong tổ chức" }}
             rowSelection={{
+              columnTitle: labelSelectAll,
               selectedRowKeys: Object.keys(selected),
               preserveSelectedRowKeys: true,
               getCheckboxProps: (row) => ({
+                "aria-label": "Chọn học viên: " + row.fullName,
                 disabled:
                   pending || (!selected[row.id] && selectedRows.length >= 500),
               }),
