@@ -1,3 +1,4 @@
+import { subscriptionStatusViewVi } from "@/utils/organization.detail.view";
 import { formatNumberVN } from "@/utils/number.format";
 import { useEffect, useState, type ReactNode } from "react";
 import { Spin } from "antd";
@@ -38,19 +39,17 @@ const formatBytes = (bytes: number) => {
 
 const STATUS_VIEW: Record<
   SubscriptionStatus,
-  { label: string; tone: string; access: string }
+  { tone: string; access: string }
 > = {
   Active: {
-    label: "Đang hoạt động",
     tone: "active",
     access: "Toàn quyền truy cập",
   },
   Grace: {
-    label: "Trong thời gian ân hạn",
     tone: "grace",
     access: "Truy cập có giới hạn",
   },
-  Suspended: { label: "Tạm ngưng", tone: "suspended", access: "Chỉ xem" },
+  Suspended: { tone: "suspended", access: "Chỉ xem" },
 };
 
 const usageLevel = (item: IUsageItem) =>
@@ -60,7 +59,7 @@ const UsageCard = ({
   icon,
   label,
   item,
-  format = (value: number) => String(value),
+  format = (value: number) => value.toLocaleString("vi-VN"),
 }: {
   icon: ReactNode;
   label: string;
@@ -90,7 +89,7 @@ const UsageCard = ({
             <span style={{ width: `${Math.min(item.percent ?? 0, 100)}%` }} />
           </div>
           <small className="sub-usage-caption">
-            Đã dùng {item.percent}%
+            Đã dùng {item.percent?.toLocaleString("vi-VN")}%
             {level === "full"
               ? " - đã đạt giới hạn"
               : level === "warning"
@@ -188,7 +187,7 @@ const Subscription = () => {
             <div className="sub-hero-side">
               <span className={`sub-status sub-status-${status.tone}`}>
                 <i />
-                {status.label}
+                {subscriptionStatusViewVi(subscription.status).label}
               </span>
               <span className="sub-hero-access">{status.access}</span>
             </div>
@@ -211,7 +210,7 @@ const Subscription = () => {
             <div className="sub-hero-period-bar">
               <span style={{ width: `${periodLeft}%` }} />
             </div>
-            <small>Còn {periodLeft}% thời hạn của kỳ này</small>
+            <small>Còn {periodLeft.toLocaleString("vi-VN")}% thời hạn của kỳ này</small>
           </div>
           {overview?.scheduledRenewal && (
             <div className="sub-hero-next">
