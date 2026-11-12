@@ -13,10 +13,10 @@ import {
   vietnameseErrorText,
 } from "@/services/assessment.service";
 import type { IReviewHistory } from "@/types/assessment.types";
+import { formatDateTimeVN } from "@/utils/helper";
 import {
   criteriaLine,
   dutyLine,
-  formatReviewTime,
   obligationView,
   progressText,
   reviewLabel,
@@ -179,7 +179,7 @@ const PeerReviewHistory = () => {
                     </small>
                   )}
                 </td>
-                <td>{formatReviewTime(item.completedAt)}</td>
+                <td>{formatDateTimeVN(item.completedAt)}</td>
                 <td>
                   <LearnerButton
                     onClick={() => navigate(`/learner/peer-review/${item.id}`)}

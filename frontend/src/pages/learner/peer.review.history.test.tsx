@@ -56,7 +56,7 @@ const item = (over: Partial<IReviewHistoryItem> = {}): IReviewHistoryItem => ({
   assignmentTitle: "Bài luận",
   courseId: "c-1",
   score: 90,
-  completedAt: "2026-11-05T10:00:00.000Z",
+  completedAt: "2026-11-05T23:45:00.000Z",
   comment: "Tốt",
   criteria: [
     { criterionId: "r1", name: "Nội dung", points: 55, maxPoints: 60 },
@@ -124,7 +124,7 @@ describe("the history of the reviews", () => {
     expect(screen.getAllByText("Đang thực hiện").length).toBeGreaterThan(0);
     expect(screen.getByText(/Số bài được giao: 2. Đã chấm: 1./)).toBeTruthy();
     expect(screen.getByText("Nội dung 55/60 · Trình bày 35/40")).toBeTruthy();
-    expect(screen.getByText(/05\/11\/2026/)).toBeTruthy();
+    expect(screen.getByText("06/11/2026 06:45")).toBeTruthy();
     for (const text of [
       "Bài nộp",
       "Bài tập",

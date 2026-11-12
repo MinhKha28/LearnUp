@@ -28,26 +28,26 @@ const AssignmentDetail = () => {
     return null;
   }
 
-  const audienceLabel = course.audience === "required" ? "Required" : "Optional";
+  const audienceLabel = course.audience === "required" ? "Bắt buộc" : "Tự chọn";
 
   if (assignment.status === "locked") {
     return (
       <>
         <PageHeader
-          eyebrow="ASSESSMENTS / ASSIGNMENT"
+          eyebrow="Bài đánh giá / Bài tập"
           title={assignment.title}
-          subtitle="This Assignment is temporarily locked for your account."
+          subtitle="Tài khoản của bạn đang bị tạm khóa nộp bài tập này."
         />
         <div className="course-learning-content">
-          <WarningPanel title="Temporary lock">
-            You reached the consecutive submission limit without meeting the pass score.
+          <WarningPanel title="Tạm khóa nộp bài">
+            Bạn đã dùng hết lượt nộp liên tiếp mà chưa đạt điểm tối thiểu.
           </WarningPanel>
           <div className="assignment-locked-card">
-            <span>You can submit again at</span>
+            <span>Bạn có thể nộp lại từ</span>
             <strong>{assignment.lockedUntil}</strong>
-            <p>The consecutive submission counter resets when this lock ends.</p>
+            <p>Số lượt nộp liên tiếp được đặt lại khi hết thời gian khóa.</p>
             {assignment.grading && (
-              <LearnerButton onClick={() => setResultModalOpen(true)}>View latest result</LearnerButton>
+              <LearnerButton onClick={() => setResultModalOpen(true)}>Xem kết quả gần nhất</LearnerButton>
             )}
           </div>
         </div>
@@ -55,15 +55,15 @@ const AssignmentDetail = () => {
           open={resultModalOpen}
           onCancel={() => setResultModalOpen(false)}
           footer={null}
-          title="Latest result"
+          title="Kết quả gần nhất"
         >
           {assignment.grading ? (
             <p>
-              Final score: <strong>{assignment.grading.finalScore}%</strong> (minimum{" "}
+              Điểm cuối cùng: <strong>{assignment.grading.finalScore}%</strong> (tối thiểu{" "}
               {assignment.grading.passThreshold}%)
             </p>
           ) : (
-            <p>No prior graded result is available yet.</p>
+            <p>Chưa có kết quả chấm trước đó.</p>
           )}
         </Modal>
       </>
@@ -75,26 +75,26 @@ const AssignmentDetail = () => {
     return (
       <>
         <PageHeader
-          eyebrow="ASSESSMENTS / RESULT"
-          title="Assignment Result"
-          subtitle={`${assignment.title} / Latest submission`}
+          eyebrow="Bài đánh giá / Kết quả"
+          title="Kết quả bài tập"
+          subtitle={`${assignment.title} / Bài nộp gần nhất`}
         />
         <div className="course-learning-content">
           <div className="assignment-result-card">
-            <StatusTag tone="success">{grading.published ? "Published" : "Pending"}</StatusTag>
+            <StatusTag tone="success">{grading.published ? "Đã công bố" : "Đang chờ"}</StatusTag>
             <div className="assignment-result-stats">
-              <StatCard label="Final score" value={`${grading.finalScore}%`} />
-              <StatCard label="Minimum score" value={`${grading.passThreshold}%`} />
+              <StatCard label="Điểm cuối cùng" value={`${grading.finalScore}%`} />
+              <StatCard label="Điểm tối thiểu" value={`${grading.passThreshold}%`} />
             </div>
           </div>
           <div className="assignment-rubric-card">
-            <h3>Rubric and feedback</h3>
+            <h3>Tiêu chí chấm điểm và nhận xét</h3>
             <table className="assignment-rubric-table">
               <thead>
                 <tr>
-                  <th>Criterion</th>
-                  <th>Score</th>
-                  <th>Feedback</th>
+                  <th>Tiêu chí</th>
+                  <th>Điểm</th>
+                  <th>Nhận xét</th>
                 </tr>
               </thead>
               <tbody>
@@ -111,8 +111,8 @@ const AssignmentDetail = () => {
                 ))}
               </tbody>
             </table>
-            <InfoPanel title="Reviewer privacy">
-              Peer reviewers are anonymous to the submission author.
+            <InfoPanel title="Ẩn danh người chấm">
+              Người nộp bài không thấy danh tính người chấm chéo.
             </InfoPanel>
           </div>
         </div>
@@ -123,26 +123,26 @@ const AssignmentDetail = () => {
   return (
     <>
       <PageHeader
-        eyebrow="ASSESSMENTS / ASSIGNMENT"
+        eyebrow="Bài đánh giá / Bài tập"
         title={assignment.title}
-        subtitle={`${course.title} / ${audienceLabel} Assignment`}
+        subtitle={`${course.title} / Bài tập (${audienceLabel})`}
       />
       <div className="course-learning-main">
           <div className="course-learning-content assignment-instructions-card">
             <StatusTag tone={course.audience === "required" ? "warning" : "info"}>
               {audienceLabel}
             </StatusTag>
-            <h3>Instructions</h3>
+            <h3>Hướng dẫn</h3>
             {assignment.instructions.map((line) => (
               <p key={line}>{line}</p>
             ))}
             <hr />
-            <h3>Assessment criteria</h3>
-            <p>Rubric: {assignment.rubric}</p>
-            <p>Minimum score: {assignment.minScore}%</p>
-            <p>Estimated effort: {assignment.estimatedEffort}</p>
-            <InfoPanel title="Submission policy">
-              No separate Assignment deadline. The latest submission is recorded.
+            <h3>Tiêu chí đánh giá</h3>
+            <p>Tiêu chí chấm điểm: {assignment.rubric}</p>
+            <p>Điểm tối thiểu: {assignment.minScore}%</p>
+            <p>Thời gian dự kiến: {assignment.estimatedEffort}</p>
+            <InfoPanel title="Quy định nộp bài">
+              Bài tập không có hạn nộp riêng. Hệ thống ghi nhận bài nộp gần nhất.
             </InfoPanel>
             <div className="assignment-instructions-actions">
               {assignment.status === "not-submitted" && (
@@ -150,7 +150,7 @@ const AssignmentDetail = () => {
                   type="primary"
                   onClick={() => navigate(`/learner/courses/${course.id}/assignments/${assignment.id}/submit`)}
                 >
-                  Submit Assignment
+                  Nộp bài tập
                 </LearnerButton>
               )}
               {assignment.status === "returned" && (
@@ -158,14 +158,14 @@ const AssignmentDetail = () => {
                   type="primary"
                   onClick={() => navigate(`/learner/courses/${course.id}/assignments/${assignment.id}/resubmit`)}
                 >
-                  Resubmit Assignment
+                  Nộp lại bài tập
                 </LearnerButton>
               )}
             </div>
           </div>
           <div className="course-learning-side">
             <div className="assignment-status-panel">
-              <h3>Your status</h3>
+              <h3>Trạng thái của bạn</h3>
               <StatusTag
                 tone={
                   assignment.status === "returned"
@@ -177,11 +177,11 @@ const AssignmentDetail = () => {
               >
                 {assignmentStatusLabel(assignment.status)}
               </StatusTag>
-              <DetailItem label="Attempts left in current consecutive sequence">
+              <DetailItem label="Số lượt nộp liên tiếp còn lại">
                 {assignment.attemptsRemaining}
               </DetailItem>
               {assignment.submission && (
-                <DetailItem label="Last submitted">{assignment.submission.submittedAt}</DetailItem>
+                <DetailItem label="Lần nộp gần nhất">{assignment.submission.submittedAt}</DetailItem>
               )}
             </div>
           </div>

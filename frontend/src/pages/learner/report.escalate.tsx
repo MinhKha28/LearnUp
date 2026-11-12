@@ -3,6 +3,7 @@ import { Input, message } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import { findContentReport } from "@/components/learner/learner.data";
 import { LearnerButton, LearnerPage, PageHeader, SectionCard, StatusTag } from "@/components/learner/learner.ui";
+import { reportDecisionLabel } from "@/components/learner/report.labels";
 import "./report.escalate.scss";
 
 const ReportEscalate = () => {
@@ -15,55 +16,55 @@ const ReportEscalate = () => {
     return (
       <LearnerPage className="report-escalate">
         <PageHeader
-          eyebrow="MY REPORTS / ESCALATE"
-          title="This report cannot be escalated"
-          subtitle="Only dismissed reports can be sent to the platform Admin."
+          eyebrow="Báo cáo của tôi / Chuyển cấp xử lý"
+          title="Không thể chuyển cấp xử lý báo cáo này"
+          subtitle="Chỉ báo cáo đã bị bác bỏ mới có thể gửi đến Quản trị viên nền tảng."
           back
         />
-        <LearnerButton onClick={() => navigate("/learner/reports")}>Back to My Reports</LearnerButton>
+        <LearnerButton onClick={() => navigate("/learner/reports")}>Quay lại báo cáo của tôi</LearnerButton>
       </LearnerPage>
     );
   }
 
   const submit = () => {
     if (!reason.trim()) {
-      message.warning("Explain why this decision should be reviewed.");
+      message.warning("Hãy nêu lý do cần xem xét lại quyết định này.");
       return;
     }
-    message.success("Escalation sent to the platform Admin.");
+    message.success("Đã chuyển cấp xử lý. Quản trị viên nền tảng sẽ xem xét báo cáo.");
     navigate("/learner/reports");
   };
 
   return (
     <LearnerPage className="report-escalate">
       <PageHeader
-        eyebrow="MY REPORTS / ESCALATE"
-        title="Escalate Report"
-        subtitle="Ask the platform Admin to review a decision you disagree with."
+        eyebrow="Báo cáo của tôi / Chuyển cấp xử lý"
+        title="Chuyển cấp xử lý báo cáo"
+        subtitle="Đề nghị Quản trị viên nền tảng xem xét lại quyết định."
         back
       />
       <div className="report-escalate-body">
         <div className="report-escalate-card">
-          <StatusTag tone="neutral">Dismissed</StatusTag>
+          <StatusTag tone="neutral">Đã bác bỏ</StatusTag>
           <h3>{report.reportedItem}</h3>
-          <p>Organizer decision: {report.decision}</p>
+          <p>Quyết định của Quản lý đào tạo: {report.decision ? reportDecisionLabel[report.decision] : "—"}</p>
           <hr />
-          <span>Reason for escalation</span>
+          <span>Lý do chuyển cấp xử lý</span>
           <Input.TextArea
             rows={6}
-            placeholder="Explain why this decision should be reviewed..."
+            placeholder="Nêu lý do cần xem xét lại quyết định này…"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           />
           <div className="report-escalate-actions">
             <LearnerButton type="primary" onClick={submit}>
-              Send to platform Admin
+              Chuyển cấp xử lý
             </LearnerButton>
           </div>
         </div>
-        <SectionCard title="Escalation" className="report-escalate-side">
-          <p>Admin makes the final decision.</p>
-          <p>You will see the result in My Reports when it is resolved.</p>
+        <SectionCard title="Chuyển cấp xử lý" className="report-escalate-side">
+          <p>Quản trị viên nền tảng đưa ra quyết định cuối cùng.</p>
+          <p>Bạn sẽ thấy kết quả trong Báo cáo của tôi sau khi báo cáo được xử lý.</p>
         </SectionCard>
       </div>
     </LearnerPage>

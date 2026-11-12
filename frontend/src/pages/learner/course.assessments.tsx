@@ -10,6 +10,7 @@ import {
   StatusTag,
 } from "@/components/learner/learner.ui";
 import { LearningError } from "@/components/learner/learning.error";
+import { formatDateTimeVN } from "@/utils/helper";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import { useApiQuery } from "@/hooks/use.api.query";
 import {
@@ -22,8 +23,6 @@ import type {
   ILearnerAssessmentList,
 } from "@/types/assessment.types";
 import "./course.assessments.scss";
-
-const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
 
 const statusView = (item: ILearnerAssessmentItem) => {
   switch (item.status) {
@@ -273,11 +272,11 @@ const CourseAssessments = () => {
                         <td>
                           {locked ? (
                             <Tooltip
-                              title={`Bạn làm lại được từ ${formatTime(item.attempts.lockedUntil!)}`}
+                              title={`Bạn làm lại được từ ${formatDateTimeVN(item.attempts.lockedUntil)}`}
                             >
                               <span className="course-assessments-locked">
                                 <LockOutlined /> Mở lại{" "}
-                                {formatTime(item.attempts.lockedUntil!)}
+                                {formatDateTimeVN(item.attempts.lockedUntil)}
                               </span>
                             </Tooltip>
                           ) : (

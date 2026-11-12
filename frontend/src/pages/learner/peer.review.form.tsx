@@ -92,7 +92,7 @@ const PeerReviewForm = () => {
     return (
       <LearnerPage className="peer-review-form">
         <PageHeader
-          eyebrow="CHẤM CHÉO / BÀI ĐƯỢC GIAO"
+          eyebrow="Chấm chéo / Bài được giao"
           title="Đang tải bài chấm..."
           subtitle=""
           back
@@ -105,7 +105,7 @@ const PeerReviewForm = () => {
     return (
       <LearnerPage className="peer-review-form">
         <PageHeader
-          eyebrow="CHẤM CHÉO / BÀI ĐƯỢC GIAO"
+          eyebrow="Chấm chéo / Bài được giao"
           title="Không xem được bài chấm"
           subtitle={notice}
           back
@@ -181,7 +181,7 @@ const PeerReviewForm = () => {
   return (
     <LearnerPage className="peer-review-form">
       <PageHeader
-        eyebrow="CHẤM CHÉO / BÀI ĐƯỢC GIAO"
+        eyebrow="Chấm chéo / Bài được giao"
         title={`Chấm bài: ${detail.assignmentTitle}`}
         subtitle={`Hạn ${formatTime(detail.reviewDueAt)}`}
         back
@@ -221,10 +221,10 @@ const PeerReviewForm = () => {
           )}
         </div>
         <div className="peer-review-score-card">
-          <h3>Chấm điểm theo Rubric</h3>
+          <h3>Chấm theo tiêu chí chấm điểm</h3>
           {detail.state === "Closed" && (
             <InfoPanel title="Đã đóng">
-              Đã quá hạn chấm bài này nên không thể gửi nữa. Instructor sẽ chấm
+              Đã quá hạn chấm bài này nên không thể gửi nữa. Giảng viên sẽ chấm
               bài nộp.
             </InfoPanel>
           )}

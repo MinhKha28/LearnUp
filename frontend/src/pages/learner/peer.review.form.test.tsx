@@ -365,7 +365,7 @@ describe("UC31 reading a review that is done or closed", () => {
       detail({ state: "Closed", status: "Missed" }) as never,
     );
     renderPage();
-    await screen.findByText(/Instructor sẽ chấm bài nộp\./);
+    await screen.findByText(/Giảng viên sẽ chấm bài nộp\./);
     expect(screen.queryByRole("button", { name: "Gửi nhận xét" })).toBeNull();
   });
 

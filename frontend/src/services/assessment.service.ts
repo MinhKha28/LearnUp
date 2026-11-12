@@ -344,8 +344,8 @@ export const ENROLLMENT_NOT_ACTIVE_FORM_TEXT =
 /** The codes a Learner can meet on the peer review screens, in Vietnamese: the server message is English. */
 const REVIEW_ERROR_TEXT: Record<string, string> = {
   ...LEARNER_LOCK_TEXT,
-  RUBRIC_MISSING: "Bài tập này chưa có tiêu chí Rubric để chấm.",
-  RUBRIC_SCORES_INCOMPLETE: "Hãy chấm đúng một điểm cho mỗi tiêu chí Rubric.",
+  RUBRIC_MISSING: "Bài tập này chưa có tiêu chí chấm điểm.",
+  RUBRIC_SCORES_INCOMPLETE: "Hãy nhập đúng một điểm cho mỗi tiêu chí chấm điểm.",
   RUBRIC_SCORE_OUT_OF_RANGE:
     "Điểm của một tiêu chí không được vượt quá điểm tối đa của tiêu chí đó.",
 };

@@ -202,13 +202,13 @@ describe("the list of assessments", () => {
           status: "Completed",
           attempts: attempts({
             remainingAttempts: 0,
-            lockedUntil: "2026-11-05T12:00:00.000Z",
+            lockedUntil: "2026-11-05T23:45:00.000Z",
           }),
         }),
       ]),
     );
     open();
-    expect(await screen.findByText(/Mở lại/)).toBeTruthy();
+    expect(await screen.findByText("Mở lại 06/11/2026 06:45")).toBeTruthy();
     const button = screen
       .getByText("Đang tạm khóa")
       .closest("button") as HTMLButtonElement;

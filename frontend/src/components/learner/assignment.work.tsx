@@ -235,7 +235,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
             )}
           </div>
 
-          <h3>Rubric</h3>
+          <h3>Tiêu chí chấm điểm</h3>
           <ul className="assignment-work-rubric">
             {assignment.rubric.map((criterion) => (
               <li key={criterion.id}>
