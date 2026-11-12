@@ -57,8 +57,8 @@ describe("UC44.1 organization detail view helpers", () => {
   it("shows bytes in GB from 1 GB up, and in MB or KB below", () => {
     expect(formatBytes(0)).toBe("0 GB");
     expect(formatBytes(1024 ** 3)).toBe("1 GB");
-    expect(formatBytes(8.1 * 1024 ** 3)).toBe("8.1 GB");
-    expect(formatBytes(512 * 1024 * 1024)).toBe("512.0 MB");
+    expect(formatBytes(8.1 * 1024 ** 3)).toBe("8,1 GB");
+    expect(formatBytes(512 * 1024 * 1024)).toBe("512 MB");
     expect(formatBytes(2048)).toBe("2 KB");
   });
 

@@ -1,3 +1,4 @@
+import { formatNumberVN } from "@/utils/number.format";
 import { Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import {
@@ -13,15 +14,15 @@ type VersionRow = {
   key: string;
   version: string;
   responses: string;
-  usefulness: string;
-  difficulty: string;
-  materials: string;
+  usefulness: number;
+  difficulty: number;
+  materials: number;
   comments: number;
 };
 
 const versionRows: VersionRow[] = [
-  { key: "v2", version: "v2", responses: "39 / 54", usefulness: "4.4", difficulty: "4.1", materials: "4.3", comments: 31 },
-  { key: "v1", version: "v1", responses: "26 / 42", usefulness: "4.2", difficulty: "4.0", materials: "4.1", comments: 20 },
+  { key: "v2", version: "v2", responses: "39 / 54", usefulness: 4.4, difficulty: 4.1, materials: 4.3, comments: 31 },
+  { key: "v1", version: "v1", responses: "26 / 42", usefulness: 4.2, difficulty: 4.0, materials: 4.1, comments: 20 },
 ];
 
 const comments = [
@@ -31,13 +32,16 @@ const comments = [
   { key: "4", text: "Tôi mong phiên bản sau có thêm ví dụ theo tình huống thực tế.", date: "15/09/2026" },
 ];
 
+/** A 1-5 rating with one decimal and the Vietnamese comma: 4 -> "4,0". */
+const rating = (value: number) => formatNumberVN(value, 1, 1);
+
 const Evaluations = () => {
   const columns: ColumnsType<VersionRow> = [
     { title: "Phiên bản", dataIndex: "version" },
     { title: "Phản hồi", dataIndex: "responses" },
-    { title: "Mức độ hữu ích", dataIndex: "usefulness" },
-    { title: "Độ khó", dataIndex: "difficulty" },
-    { title: "Học liệu", dataIndex: "materials" },
+    { title: "Mức độ hữu ích", dataIndex: "usefulness", render: rating },
+    { title: "Độ khó", dataIndex: "difficulty", render: rating },
+    { title: "Học liệu", dataIndex: "materials", render: rating },
     { title: "Nhận xét", dataIndex: "comments" },
   ];
   return (
@@ -64,9 +68,9 @@ const Evaluations = () => {
         </div>
       </SectionCard>
       <div className="organizer-stat-grid organizer-evaluations-stats">
-        <StatCard label="Mức độ hữu ích của nội dung" value="4.4 / 5" />
-        <StatCard label="Mức độ phù hợp của độ khó" value="4.1 / 5" />
-        <StatCard label="Chất lượng học liệu" value="4.3 / 5" />
+        <StatCard label="Mức độ hữu ích của nội dung" value={`${rating(4.4)} / 5`} />
+        <StatCard label="Mức độ phù hợp của độ khó" value={`${rating(4.1)} / 5`} />
+        <StatCard label="Chất lượng học liệu" value={`${rating(4.3)} / 5`} />
         <StatCard label="Tỷ lệ phản hồi" value="70%" tone="success" />
       </div>
       <SectionCard title="So sánh phiên bản">
