@@ -1,8 +1,9 @@
+import { formatNumberVN, formatPercentageVN } from "@/utils/number.format";
 import { formatDateTimeVN } from "@/utils/helper";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { DetailItem, InfoPanel, LearnerButton, PageHeader, StatusTag } from "@/components/learner/learner.ui";
-import { assessmentErrorText, fetchLearnerResultAPI } from "@/services/assessment.service";
+import { learnerAssessmentErrorText, fetchLearnerResultAPI } from "@/services/assessment.service";
 import type { IGradingResult } from "@/types/assessment.types";
 import "./assignment.result.scss";
 
@@ -26,7 +27,7 @@ const AssignmentResult = () => {
         const res = await fetchLearnerResultAPI(assignmentId);
         if (!active) return;
         if (res.data) setResult(res.data);
-        else setNotice(assessmentErrorText(res, "Không tải được kết quả."));
+        else setNotice(learnerAssessmentErrorText(res));
       } catch {
         if (active) setNotice("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {
@@ -45,12 +46,12 @@ const AssignmentResult = () => {
     return (
       <>
         <PageHeader
-          eyebrow="Bài trắc nghiệm và Bài tập / Kết quả"
+          eyebrow="Bài đánh giá / Kết quả"
           title={loading ? "Đang tải kết quả..." : "Chưa có kết quả"}
           subtitle={loading ? "Vui lòng đợi." : notice}
           back
         />
-        {!loading && <LearnerButton onClick={back}>Quay lại Bài trắc nghiệm và Bài tập</LearnerButton>}
+        {!loading && <LearnerButton onClick={back}>Quay lại danh sách bài đánh giá</LearnerButton>}
       </>
     );
   }
@@ -58,8 +59,8 @@ const AssignmentResult = () => {
   return (
     <>
       <PageHeader
-        eyebrow="Bài trắc nghiệm và Bài tập / Kết quả"
-        title={`${result.assignment.title} - kết quả`}
+        eyebrow="Bài đánh giá / Kết quả"
+        title={`Kết quả: ${result.assignment.title}`}
         subtitle={`Lần nộp thứ ${result.submission.submissionNumber}, nộp lúc ${formatTime(result.submission.submittedAt)}.`}
         back
       />
@@ -67,7 +68,7 @@ const AssignmentResult = () => {
         <div className="course-learning-content assignment-result-card">
           <div className="assignment-result-score">
             <span>Điểm cuối cùng</span>
-            <strong>{result.finalScore}%</strong>
+            <strong>{formatPercentageVN(result.finalScore)}</strong>
             <StatusTag tone={result.passed ? "success" : "error"}>{result.passed ? "Đạt" : "Chưa đạt"}</StatusTag>
           </div>
           {result.finalizationComment && (
@@ -80,7 +81,7 @@ const AssignmentResult = () => {
               <li key={criterion.id}>
                 <span>{criterion.name}</span>
                 <em>
-                  {criterion.averagePoints === null ? "-" : criterion.averagePoints} / {criterion.maxPoints} điểm
+                  {criterion.averagePoints === null ? "-" : formatNumberVN(criterion.averagePoints)} / {formatNumberVN(criterion.maxPoints)} điểm
                 </em>
               </li>
             ))}
@@ -101,14 +102,14 @@ const AssignmentResult = () => {
           )}
           <div className="assignment-result-actions">
             <LearnerButton type="primary" onClick={back}>
-              Quay lại Bài trắc nghiệm và Bài tập
+              Quay lại danh sách bài đánh giá
             </LearnerButton>
           </div>
         </div>
         <div className="course-learning-side">
           <div className="assignment-result-info">
             <h3>Thông tin kết quả</h3>
-            <DetailItem label="Điểm tối thiểu">{result.assignment.passingScore}%</DetailItem>
+            <DetailItem label="Điểm đạt tối thiểu">{formatPercentageVN(result.assignment.passingScore)}</DetailItem>
             <DetailItem label="Chấm lúc">{formatTime(result.finalizedAt)}</DetailItem>
             <DetailItem label="Người chấm">Ẩn</DetailItem>
           </div>

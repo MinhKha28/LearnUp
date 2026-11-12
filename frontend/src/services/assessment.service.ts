@@ -1,3 +1,4 @@
+import { LEARNER_API_ERROR_FALLBACK, learnerPlatformErrorText } from "@/utils/learner.api.errors";
 import { assessmentAxios as axios } from "@/services/axios.customize";
 import type {
   IAssessmentError,
@@ -322,7 +323,7 @@ export const downloadLearnerReviewFileAPI = async (
 export const assessmentErrorCode = (
   res: unknown,
 ): { code?: string; lockedUntil?: string } => {
-  const { error } = res as IAssessmentError;
+  const error = (res as IAssessmentError | null | undefined)?.error;
   return typeof error === "object"
     ? { code: error?.code, lockedUntil: error?.lockedUntil }
     : {};
@@ -344,8 +345,11 @@ export const ENROLLMENT_NOT_ACTIVE_FORM_TEXT =
 /** The codes a Learner can meet on the peer review screens, in Vietnamese: the server message is English. */
 const REVIEW_ERROR_TEXT: Record<string, string> = {
   ...LEARNER_LOCK_TEXT,
-  RUBRIC_MISSING: "Bài tập này chưa có tiêu chí Rubric để chấm.",
-  RUBRIC_SCORES_INCOMPLETE: "Hãy chấm đúng một điểm cho mỗi tiêu chí Rubric.",
+  REVIEW_NOT_FOUND: "Không tìm thấy bài chấm này.",
+  REVIEW_ALREADY_GIVEN: "Bài chấm này đã được gửi trước đó.",
+  REVIEW_CLOSED: "Đã quá hạn chấm bài này nên không thể gửi nữa.",
+  RUBRIC_MISSING: "Bài tập này chưa có tiêu chí chấm điểm.",
+  RUBRIC_SCORES_INCOMPLETE: "Hãy nhập đúng một điểm cho mỗi tiêu chí chấm điểm.",
   RUBRIC_SCORE_OUT_OF_RANGE:
     "Điểm của một tiêu chí không được vượt quá điểm tối đa của tiêu chí đó.",
 };
@@ -354,7 +358,35 @@ const REVIEW_ERROR_TEXT: Record<string, string> = {
 export const vietnameseErrorText = (res: unknown, fallback: string): string => {
   const { error } = res as IAssessmentError;
   const code = typeof error === "object" ? error?.code : undefined;
-  return (code && REVIEW_ERROR_TEXT[code]) || fallback;
+  if (code && Object.hasOwn(REVIEW_ERROR_TEXT, code)) return REVIEW_ERROR_TEXT[code];
+  return learnerPlatformErrorText(code) ?? fallback;
+};
+
+const learnerAssessmentErrorMessages = new Map<string, string>([
+  ["NOT_ENROLLED", "Bạn chưa đăng ký khóa học này."],
+  ["ENROLLMENT_NOT_ACTIVE", LEARNER_LOCK_TEXT.ENROLLMENT_NOT_ACTIVE],
+  ["ENROLLMENT_COMPLETED", "Bạn đã hoàn thành khóa học. Bài đánh giá chỉ để xem."],
+  ["ASSIGNMENT_NOT_FOUND", "Không tìm thấy bài tập."],
+  ["ASSESSMENT_LOCKED", "Bài đánh giá đang tạm khóa."],
+  ["SUBMISSION_EXISTS", "Bạn đã nộp bài tập này."],
+  ["NO_PREVIOUS_SUBMISSION", "Bạn chưa có bài nộp để nộp lại."],
+  ["SUBMISSION_NOT_FOUND", "Không tìm thấy bài nộp."],
+  ["SUBMISSION_NOT_FINALIZED", "Bài nộp đang được chấm. Chưa có kết quả."],
+  ["SUBMISSION_EMPTY", "Hãy nhập câu trả lời hoặc đính kèm tệp."],
+  ["FILE_TOO_LARGE", "Tệp vượt quá dung lượng cho phép."],
+  ["SUBMISSION_FILE_TOO_LARGE", "Tệp vượt quá dung lượng cho phép."],
+  ["SUBMISSION_FILE_INVALID", "Tệp bài nộp không hợp lệ."],
+  ["PROMPT_FILE_NOT_FOUND", "Không tìm thấy tệp đề bài."],
+  ["STORAGE_UNAVAILABLE", "Dịch vụ lưu trữ tạm thời gián đoạn. Vui lòng thử lại."],
+  ["LEARNING_SERVICE_UNAVAILABLE", "Dịch vụ học tập tạm thời gián đoạn. Vui lòng thử lại."],
+  ["COURSE_NOT_FOUND", "Không tìm thấy khóa học."],
+  ["COURSE_SERVICE_UNAVAILABLE", "Dịch vụ khóa học tạm thời gián đoạn. Vui lòng thử lại."],
+]);
+
+export const learnerAssessmentErrorText = (response: unknown): string => {
+  const { code } = assessmentErrorCode(response);
+  const message = code ? learnerAssessmentErrorMessages.get(code) : undefined;
+  return message ?? learnerPlatformErrorText(code) ?? LEARNER_API_ERROR_FALLBACK;
 };
 
 /** The axios interceptor resolves error responses instead of rejecting; pull the message out of them. */

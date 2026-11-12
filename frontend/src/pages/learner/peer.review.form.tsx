@@ -1,3 +1,5 @@
+import { formatNumberVN } from "@/utils/number.format";
+import { LEARNER_API_ERROR_FALLBACK } from "@/utils/learner.api.errors";
 import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
 import { Input, InputNumber, message } from "antd";
@@ -71,7 +73,7 @@ const PeerReviewForm = () => {
         setNotice(
           assessmentErrorCode(res).code === "REVIEW_NOT_FOUND"
             ? "Bài chấm này có thể đã bị xóa hoặc không phải của bạn."
-            : vietnameseErrorText(res, "Không thể tải bài chấm này."),
+            : vietnameseErrorText(res, LEARNER_API_ERROR_FALLBACK),
         );
       }
     } catch {
@@ -92,7 +94,7 @@ const PeerReviewForm = () => {
     return (
       <LearnerPage className="peer-review-form">
         <PageHeader
-          eyebrow="CHẤM CHÉO / BÀI ĐƯỢC GIAO"
+          eyebrow="Chấm chéo / Bài được giao"
           title="Đang tải bài chấm..."
           subtitle=""
           back
@@ -105,7 +107,7 @@ const PeerReviewForm = () => {
     return (
       <LearnerPage className="peer-review-form">
         <PageHeader
-          eyebrow="CHẤM CHÉO / BÀI ĐƯỢC GIAO"
+          eyebrow="Chấm chéo / Bài được giao"
           title="Không xem được bài chấm"
           subtitle={notice}
           back
@@ -169,7 +171,7 @@ const PeerReviewForm = () => {
         message.warning("Đã quá hạn chấm bài này nên không thể gửi nữa.");
         await load();
       } else {
-        message.error(vietnameseErrorText(res, "Không thể gửi nhận xét."));
+        message.error(vietnameseErrorText(res, LEARNER_API_ERROR_FALLBACK));
       }
     } catch {
       message.error("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
@@ -181,7 +183,7 @@ const PeerReviewForm = () => {
   return (
     <LearnerPage className="peer-review-form">
       <PageHeader
-        eyebrow="CHẤM CHÉO / BÀI ĐƯỢC GIAO"
+        eyebrow="Chấm chéo / Bài được giao"
         title={`Chấm bài: ${detail.assignmentTitle}`}
         subtitle={`Hạn ${formatTime(detail.reviewDueAt)}`}
         back
@@ -221,17 +223,17 @@ const PeerReviewForm = () => {
           )}
         </div>
         <div className="peer-review-score-card">
-          <h3>Chấm điểm theo Rubric</h3>
+          <h3>Chấm theo tiêu chí</h3>
           {detail.state === "Closed" && (
             <InfoPanel title="Đã đóng">
-              Đã quá hạn chấm bài này nên không thể gửi nữa. Instructor sẽ chấm
+              Đã quá hạn chấm bài này nên không thể gửi nữa. Giảng viên sẽ chấm
               bài nộp.
             </InfoPanel>
           )}
           {rubric.map((criterion) => (
             <div className="peer-review-criterion" key={criterion.id}>
               <span>
-                {criterion.name} (0 đến {criterion.maxPoints})
+                {criterion.name} (0 đến {formatNumberVN(criterion.maxPoints)})
               </span>
               {criterion.description && <small>{criterion.description}</small>}
               <InputNumber
@@ -267,7 +269,7 @@ const PeerReviewForm = () => {
           {detail.state === "Done" ? (
             <p className="peer-review-completed-note">
               Đã chấm lúc {formatTime(detail.completedAt)}
-              {detail.score !== null ? ` (điểm ${detail.score}/100)` : ""}.
+              {detail.score !== null ? ` (điểm ${formatNumberVN(detail.score)}/100)` : ""}.
               Không thể sửa nhận xét này nữa.
             </p>
           ) : (

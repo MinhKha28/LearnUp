@@ -28,6 +28,7 @@ const AssignmentSubmitted = () => {
     <>
       <PageHeader
         eyebrow="Bài đánh giá / Đã nộp"
+        back
         title={resubmitted ? "Đã nộp lại bài tập" : "Đã nộp bài tập"}
         subtitle={title ? `${title} đang chờ được chấm.` : "Bài làm của bạn đang chờ được chấm."}
       />
@@ -35,7 +36,7 @@ const AssignmentSubmitted = () => {
         tone="success"
         title={resubmitted ? "Đã nhận bài nộp lại" : "Đã nhận bài nộp"}
         primary={{
-          label: "Quay lại Bài đánh giá",
+          label: "Quay lại danh sách bài đánh giá",
           onClick: () => navigate(`/learner/courses/${courseId}/assessments`),
         }}
         secondary={{
@@ -65,7 +66,7 @@ const AssignmentSubmitted = () => {
           </p>
         ) : (
           <p>
-            Số lần nộp còn lại trước khi phải tạm dừng: {attempts.remainingAttempts}/{attempts.maxConsecutiveAttempts}.
+            Số lượt còn lại trước khi tạm khóa: {attempts.remainingAttempts}/{attempts.maxConsecutiveAttempts}.
           </p>
         )}
         <p>Bài nộp mới nhất của bạn sẽ được dùng làm kết quả của bài tập.</p>

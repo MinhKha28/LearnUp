@@ -16,11 +16,11 @@ const SubscriptionSuspended = () => (
       <div className="subscription-suspended-icon">
         <ExclamationCircleFilled />
       </div>
-      <h1>Learning access unavailable</h1>
-      <p>Your Organization&apos;s Subscription is currently Suspended.</p>
-      <p>Contact your Organizer for information about access.</p>
+      <h1>Không thể truy cập nội dung học tập</h1>
+      <p>Gói dịch vụ của tổ chức bạn đang bị tạm ngưng.</p>
+      <p>Liên hệ Quản lý đào tạo để biết thêm về quyền truy cập.</p>
       <Link to="/login">
-        <Button>Back to sign in</Button>
+        <Button>Quay lại trang đăng nhập</Button>
       </Link>
     </section>
   </main>

@@ -44,7 +44,7 @@ describe("UC30 the page of a submission received, in Vietnamese and Vietnam time
     expect(screen.getByText("Kế hoạch ứng phó đang chờ được chấm.")).toBeTruthy();
     expect(screen.getByText("Nộp lúc 02/11/2026 10:04.")).toBeTruthy();
     expect(screen.getByText(/Bài này nằm trong chu kỳ chấm chéo đóng lúc 05\/11\/2026 17:00\. Hạn chấm bài là 08\/11\/2026 17:00\./)).toBeTruthy();
-    expect(screen.getByText("Số lần nộp còn lại trước khi phải tạm dừng: 2/3.")).toBeTruthy();
+    expect(screen.getByText("Số lượt còn lại trước khi tạm khóa: 2/3.")).toBeTruthy();
     expect(screen.getByText("Bài nộp mới nhất của bạn sẽ được dùng làm kết quả của bài tập.")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(ENGLISH);
   });
@@ -72,7 +72,7 @@ describe("UC30 the page of a submission received, in Vietnamese and Vietnam time
       receipt: receipt({ attempts: { maxConsecutiveAttempts: 3, remainingAttempts: 0, lockoutHours: 24, lockedUntil: "2026-11-03T03:00:00Z" } }),
     });
     expect(screen.getByText(/Bạn đã dùng hết 3 lần nộp liên tiếp\. Bạn nộp lại được từ\s+03\/11\/2026 10:00\./)).toBeTruthy();
-    expect(screen.queryByText(/Số lần nộp còn lại/)).toBeNull();
+    expect(screen.queryByText(/Số lượt còn lại trước khi tạm khóa/)).toBeNull();
     expect(document.body.textContent).not.toMatch(ENGLISH);
   });
 
@@ -82,7 +82,7 @@ describe("UC30 the page of a submission received, in Vietnamese and Vietnam time
     expect(screen.getByText("đường dẫn: /learner/courses/e1/assignments/a1")).toBeTruthy();
     cleanup();
     renderPage({ receipt: receipt() });
-    fireEvent.click(screen.getByText("Quay lại Bài đánh giá"));
+    fireEvent.click(screen.getByText("Quay lại danh sách bài đánh giá"));
     expect(screen.getByText("đường dẫn: /learner/courses/e1/assessments")).toBeTruthy();
   });
 

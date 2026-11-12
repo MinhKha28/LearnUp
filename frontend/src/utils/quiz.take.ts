@@ -1,5 +1,7 @@
 // UC29.1: the small rules of the Quiz screen, apart from the page so that they can be tested without a browser.
 
+import { learnerPlatformErrorText } from "./learner.api.errors";
+
 const MULTIPLE = "MultipleChoice";
 
 export const questionTypeLabel = (type: string) => {
@@ -52,19 +54,6 @@ export const formatCountdown = (seconds: number): string => {
   return h > 0 ? `${h}:${two(m)}:${two(s)}` : `${m}:${two(s)}`;
 };
 
-export const formatDateTime = (iso: string): string =>
-  new Date(iso).toLocaleString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-/** The score as the Learner reads it: 66.67 → "66,67", 50 → "50". */
-export const formatScore = (score: number): string =>
-  score.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
-
 const QUIZ_ERRORS: Record<string, string> = {
   ASSESSMENT_LOCKED:
     "Bạn đã làm đủ số lượt liên tiếp nên bài trắc nghiệm đang tạm khóa.",
@@ -75,6 +64,8 @@ const QUIZ_ERRORS: Record<string, string> = {
     "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể làm bài trắc nghiệm. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.",
   NOT_ENROLLED: "Bạn chưa ghi danh vào khóa học có bài trắc nghiệm này.",
   QUIZ_NOT_FOUND: "Không tìm thấy bài trắc nghiệm.",
+  ATTEMPT_NOT_CLOSED: "Không nộp được bài. Vui lòng thử lại.",
+  LEARNING_SERVICE_UNAVAILABLE: "Dịch vụ học tập tạm thời gián đoạn. Vui lòng thử lại.",
   ATTEMPT_NOT_FOUND: "Không tìm thấy lượt làm bài.",
   QUIZ_HAS_NO_QUESTIONS:
     "Bài trắc nghiệm này chưa có câu hỏi nào nên chưa thể làm.",
@@ -95,4 +86,7 @@ export const QUIZ_STALE_CODES = ["ATTEMPT_EXPIRED", "ATTEMPT_SUBMITTED"];
 export const quizErrorText = (
   code: string | undefined,
   fallback: string,
-): string => (code && QUIZ_ERRORS[code]) || fallback;
+): string => {
+  if (code && Object.hasOwn(QUIZ_ERRORS, code)) return QUIZ_ERRORS[code];
+  return learnerPlatformErrorText(code) ?? fallback;
+};

@@ -1,3 +1,4 @@
+import { LEARNER_API_ERROR_FALLBACK } from "@/utils/learner.api.errors";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Pagination, Select } from "antd";
 import { useNavigate } from "react-router-dom";
@@ -13,10 +14,10 @@ import {
   vietnameseErrorText,
 } from "@/services/assessment.service";
 import type { IReviewHistory } from "@/types/assessment.types";
+import { formatDateTimeVN } from "@/utils/helper";
 import {
   criteriaLine,
   dutyLine,
-  formatReviewTime,
   obligationView,
   progressText,
   reviewLabel,
@@ -58,7 +59,7 @@ const PeerReviewHistory = () => {
         setNotice(
           vietnameseErrorText(
             res,
-            "Không tải được lịch sử chấm. Vui lòng thử lại.",
+            LEARNER_API_ERROR_FALLBACK,
           ),
         );
       }
@@ -76,7 +77,7 @@ const PeerReviewHistory = () => {
 
   const header = (
     <PageHeader
-      eyebrow="Học viên"
+      eyebrow="Chấm chéo / Lịch sử chấm"
       title="Lịch sử chấm của tôi"
       subtitle="Các bài chấm chéo bạn đã hoàn thành và tình trạng nghĩa vụ chấm."
       back
@@ -179,7 +180,7 @@ const PeerReviewHistory = () => {
                     </small>
                   )}
                 </td>
-                <td>{formatReviewTime(item.completedAt)}</td>
+                <td>{formatDateTimeVN(item.completedAt)}</td>
                 <td>
                   <LearnerButton
                     onClick={() => navigate(`/learner/peer-review/${item.id}`)}

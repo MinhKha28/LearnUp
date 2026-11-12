@@ -1,3 +1,4 @@
+import { formatPercentageVN } from "@/utils/number.format";
 import { useEffect, useState } from "react";
 import { Tooltip } from "antd";
 import { LockOutlined } from "@ant-design/icons";
@@ -10,10 +11,11 @@ import {
   StatusTag,
 } from "@/components/learner/learner.ui";
 import { LearningError } from "@/components/learner/learning.error";
+import { formatDateTimeVN } from "@/utils/helper";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import { useApiQuery } from "@/hooks/use.api.query";
 import {
-  assessmentErrorText,
+  learnerAssessmentErrorText,
   fetchLearnerAssessmentsAPI,
 } from "@/services/assessment.service";
 import { fetchCurriculum } from "@/services/learning.service";
@@ -22,8 +24,6 @@ import type {
   ILearnerAssessmentList,
 } from "@/types/assessment.types";
 import "./course.assessments.scss";
-
-const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
 
 const statusView = (item: ILearnerAssessmentItem) => {
   switch (item.status) {
@@ -67,10 +67,7 @@ const CourseAssessments = () => {
         if (!active) return;
         // The axios interceptor resolves HTTP errors too, so only res.data tells success apart.
         if (res.data) setList(res.data);
-        else
-          setErrorMessage(
-            assessmentErrorText(res, "Không tải được danh sách bài đánh giá."),
-          );
+        else setErrorMessage(learnerAssessmentErrorText(res));
       } catch {
         if (active)
           setErrorMessage("Không kết nối được với máy chủ. Vui lòng thử lại.");
@@ -197,7 +194,7 @@ const CourseAssessments = () => {
         }
       />
       <InfoPanel title="Cách ghi nhận kết quả">
-        Bài trắc nghiệm lấy điểm của lượt làm cao nhất; bài tập lấy điểm của lần
+        Bài trắc nghiệm lấy điểm từ lượt có điểm cao nhất; bài tập lấy điểm của lần
         nộp gần nhất. Làm hoặc nộp nhiều lần liên tiếp thì bài đó tạm khóa một
         thời gian.
       </InfoPanel>
@@ -261,23 +258,23 @@ const CourseAssessments = () => {
                         <td>
                           {item.isRequired ? "Bắt buộc" : "Không bắt buộc"}
                         </td>
-                        <td>{item.passingScore}%</td>
+                        <td>{formatPercentageVN(item.passingScore)}</td>
                         <td>
                           <StatusTag tone={view.tone}>{view.label}</StatusTag>
                         </td>
                         <td>
                           {item.recordedScore === null
                             ? "-"
-                            : `${item.recordedScore}%`}
+                            : `${formatPercentageVN(item.recordedScore)}`}
                         </td>
                         <td>
                           {locked ? (
                             <Tooltip
-                              title={`Bạn làm lại được từ ${formatTime(item.attempts.lockedUntil!)}`}
+                              title={`Bạn làm lại được từ ${formatDateTimeVN(item.attempts.lockedUntil)}`}
                             >
                               <span className="course-assessments-locked">
                                 <LockOutlined /> Mở lại{" "}
-                                {formatTime(item.attempts.lockedUntil!)}
+                                {formatDateTimeVN(item.attempts.lockedUntil)}
                               </span>
                             </Tooltip>
                           ) : (
@@ -292,7 +289,7 @@ const CourseAssessments = () => {
             </table>
           )}
           <p className="course-assessments-footnote">
-            Sau một số lần làm hoặc nộp liên tiếp, bài đánh giá tạm khóa vài giờ
+            Sau một số lần làm hoặc nộp liên tiếp, bài đánh giá tạm khóa trong thời gian giảng viên đã cấu hình
             rồi mở lại và đếm lại từ đầu.
           </p>
         </div>
