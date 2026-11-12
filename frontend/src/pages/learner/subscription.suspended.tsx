@@ -18,7 +18,7 @@ const SubscriptionSuspended = () => (
       </div>
       <h1>Không thể truy cập nội dung học tập</h1>
       <p>Gói dịch vụ của tổ chức bạn đang bị tạm ngưng.</p>
-      <p>Liên hệ Quản lý đào tạo để biết thêm về quyền truy cập.</p>
+      <p>Liên hệ quản lý đào tạo để biết thêm về quyền truy cập.</p>
       <Link to="/login">
         <Button>Quay lại trang đăng nhập</Button>
       </Link>

@@ -71,7 +71,7 @@ describe("UC21.3 Pending Approvals", () => {
       statusCode: 403, message: "Forbidden",
     } as never);
     open();
-    expect(await screen.findByText("Không thể tải danh sách Khóa học chờ phê duyệt.")).toBeTruthy();
+    expect(await screen.findByText("Không thể tải danh sách khóa học chờ phê duyệt.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
     await waitFor(() => expect(fetchOrganizationCoursesAPI).toHaveBeenCalledTimes(2));
   });

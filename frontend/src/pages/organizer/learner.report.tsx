@@ -65,8 +65,8 @@ const LearnerReport = () => {
   return (
     <OrganizerPage className="organizer-learner-report">
       <PageHeader
-        title="Báo cáo Học viên"
-        subtitle="Khóa học đã tham gia, tiến độ, kết quả Bài đánh giá và Chứng chỉ."
+        title="Báo cáo học viên"
+        subtitle="Khóa học đã tham gia, tiến độ, kết quả bài đánh giá và chứng chỉ."
         back
         actions={<OrganizerButton type="primary">Xuất báo cáo</OrganizerButton>}
       />
@@ -77,14 +77,14 @@ const LearnerReport = () => {
         </div>
         <div className="organizer-learner-report-metrics">
           <div>
-            <strong>{summary.courses} Khóa học</strong>
+            <strong>{summary.courses} khóa học</strong>
           </div>
           <div>
-            <strong>{summary.certificates} Chứng chỉ</strong>
+            <strong>{summary.certificates} chứng chỉ</strong>
           </div>
           {summary.overdueCourses > 0 && (
             <div className="organizer-learner-report-overdue">
-              <strong>{summary.overdueCourses} Khóa học bắt buộc đã quá hạn</strong>
+              <strong>{summary.overdueCourses} khóa học bắt buộc đã quá hạn</strong>
             </div>
           )}
         </div>

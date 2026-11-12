@@ -49,7 +49,7 @@ const ContentReportDetail = () => {
           </div>
         </SectionCard>
       </div>
-      <SectionCard title="Quyết định của Quản lý đào tạo" className="organizer-decision-card">
+      <SectionCard title="Quyết định của quản lý đào tạo" className="organizer-decision-card">
         <Form
           className="organizer-form"
           layout="vertical"

@@ -1,3 +1,4 @@
+import { formatNumberVN } from "@/utils/number.format";
 import { useEffect, useState, type ReactNode } from "react";
 import { Alert, Spin } from "antd";
 import {
@@ -29,9 +30,9 @@ const formatDate = (value?: string | null) =>
   value ? formatDateVN(value) : "-";
 
 const formatBytes = (bytes: number) => {
-  if (bytes >= 1024 ** 3) return `${+(bytes / 1024 ** 3).toFixed(1)} GB`;
-  if (bytes >= 1024 ** 2) return `${+(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return `${+(bytes / 1024).toFixed(1)} KB`;
+  if (bytes >= 1024 ** 3) return `${formatNumberVN(bytes / 1024 ** 3, 1)} GB`;
+  if (bytes >= 1024 ** 2) return `${formatNumberVN(bytes / 1024 ** 2, 1)} MB`;
+  return `${formatNumberVN(bytes / 1024, 1)} KB`;
 };
 
 const STATUS_VIEW: Record<

@@ -17,7 +17,7 @@ import { parsePageParam, resolvePageRedirect } from "@/utils/page.param";
 import "./catalog.scss";
 
 const CATALOG_ERROR_MESSAGES: Record<string, string> = {
-  FORBIDDEN: "Bạn không có quyền xem danh mục Khóa học.",
+  FORBIDDEN: "Bạn không có quyền xem danh mục khóa học.",
 };
 
 const CATALOG_PAGE_SIZE = 12;
@@ -116,15 +116,15 @@ const CatalogContent = ({ page, keyword }: { page: number; keyword: string }) =>
     content = (
       <LearnerErrorState
         error={catalog.error}
-        title="Không tải được danh mục Khóa học"
-        message={CATALOG_ERROR_MESSAGES[catalog.error.code] ?? "Đã có lỗi xảy ra khi tải danh mục Khóa học."}
+        title="Không tải được danh mục khóa học"
+        message={CATALOG_ERROR_MESSAGES[catalog.error.code] ?? "Đã có lỗi xảy ra khi tải danh mục khóa học."}
         onRetry={catalog.reload}
       />
     );
   } else if (redirect === "empty") {
     content = <LearnerEmptyState title={keyword
-      ? "Không tìm thấy Khóa học nào phù hợp với từ khóa này"
-      : "Hiện chưa có Khóa học nào để tự đăng ký"} />;
+      ? "Không tìm thấy khóa học nào phù hợp với từ khóa này"
+      : "Hiện chưa có khóa học nào để tự đăng ký"} />;
   } else {
     content = (
       <>
@@ -145,7 +145,7 @@ const CatalogContent = ({ page, keyword }: { page: number; keyword: string }) =>
         aria-atomic="true"
         className={keyword && (loading || total > 0) ? "learner-catalog-result-count" : undefined}
       >
-        {keyword && total > 0 ? "Tìm thấy " + resultCountFormat.format(total) + " Khóa học" : null}
+        {keyword && total > 0 ? "Tìm thấy " + resultCountFormat.format(total) + " khóa học" : null}
       </div>
       {content}
     </>
@@ -169,13 +169,13 @@ const CatalogSearch = ({ keyword, onSearch }: { keyword: string; onSearch: (valu
         onSearch(value);
       }}
     >
-      <label htmlFor="catalog-keyword">Tìm kiếm Khóa học</label>
+      <label htmlFor="catalog-keyword">Tìm kiếm khóa học</label>
       <div className="learner-catalog-search-controls">
         <Input
           id="catalog-keyword"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="Nhập tên Khóa học hoặc mục tiêu đào tạo"
+          placeholder="Nhập tên khóa học hoặc mục tiêu đào tạo"
           status={tooLong ? "error" : undefined}
           aria-invalid={tooLong}
           aria-describedby={tooLong ? "catalog-keyword-error" : undefined}
@@ -214,7 +214,7 @@ const Catalog = () => {
 
   return (
     <LearnerPage className="learner-catalog">
-      <PageHeader title="Danh mục Khóa học" subtitle="Học viên có thể tự đăng ký các Khóa học dưới đây do tổ chức của bạn cung cấp." />
+      <PageHeader title="Danh mục khóa học" subtitle="Học viên có thể tự đăng ký các khóa học dưới đây do tổ chức của bạn cung cấp." />
       <CatalogSearch keyword={keyword} onSearch={search} />
       {page === null ? <CatalogSkeleton /> : <CatalogContent page={page} keyword={keyword} />}
     </LearnerPage>

@@ -115,7 +115,7 @@ const Reports = () => {
           />
           <Select
             variant="borderless"
-            placeholder="Mã Chứng chỉ"
+            placeholder="Mã chứng chỉ"
             popupMatchSelectWidth={false}
             options={[]}
           />
@@ -144,15 +144,15 @@ const Reports = () => {
           </p>
           <div className="organizer-metric-row organizer-optional-metrics">
             <div className="organizer-metric">
-              <span>Lượt tham gia Khóa học tự chọn đang học</span>
+              <span>Lượt tham gia khóa học tự chọn đang học</span>
               <strong>74</strong>
             </div>
             <div className="organizer-metric">
-              <span>Lượt hoàn thành Khóa học tự chọn</span>
+              <span>Lượt hoàn thành khóa học tự chọn</span>
               <strong>41</strong>
             </div>
             <div className="organizer-metric">
-              <span>Lượt rút khỏi Khóa học tự chọn</span>
+              <span>Lượt rút khỏi khóa học tự chọn</span>
               <strong>9</strong>
             </div>
           </div>

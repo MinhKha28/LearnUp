@@ -22,7 +22,7 @@ describe("resolveEnrollOutcome", () => {
   it.each(["AccountDeleted", "HaltedClosed"])("not restorable %s selects the error toast", (reason) => {
     const outcome = resolveEnrollOutcome(new ApiError(409, "ENROLLMENT_NOT_RESTORABLE", "", { reason }));
     expect(outcome).toEqual({ kind: "notRestorable" });
-    expect(getEnrollOutcomeMessage(outcome)).toBe("Không thể đăng ký lại Khóa học này");
+    expect(getEnrollOutcomeMessage(outcome)).toBe("Không thể đăng ký lại khóa học này");
   });
   it("201 → enrolled với id vừa tạo", () => {
     expect(resolveEnrollOutcome(created)).toEqual({ kind: "enrolled", enrollmentId: "e-new" });
@@ -97,7 +97,7 @@ describe("resolveEnrollOutcome", () => {
 
   it("thông báo tiếng Việt theo từng kết quả", () => {
     expect(ENROLL_OUTCOME_MESSAGES.enrolled).toBe("Đăng ký thành công");
-    expect(ENROLL_OUTCOME_MESSAGES.alreadyEnrolled).toBe("Bạn đã đăng ký Khóa học này");
+    expect(ENROLL_OUTCOME_MESSAGES.alreadyEnrolled).toBe("Bạn đã đăng ký khóa học này");
     expect(ENROLL_OUTCOME_MESSAGES.unavailable).toBe("Khóa học không còn trong danh mục");
     expect(ENROLL_OUTCOME_MESSAGES.retry).toBe("Chưa đăng ký được. Vui lòng thử lại.");
   });

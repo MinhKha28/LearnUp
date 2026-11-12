@@ -132,7 +132,7 @@ const Instructors = () => {
     <OrganizerPage className="organizer-instructors">
       <PageHeader
         title="Giảng viên"
-        subtitle="Quản lý tài khoản Giảng viên trong tổ chức."
+        subtitle="Quản lý tài khoản giảng viên trong tổ chức."
         actions={
           <>
             {/* UC12.8 - cùng điều kiện với Add Instructor (BR-31); trang import kiểm lại số chỗ */}
@@ -152,20 +152,20 @@ const Instructors = () => {
               <Tooltip title={addBlockedReason}>
                 <span>
                   <OrganizerButton type="primary" disabled>
-                    Thêm Giảng viên
+                    Thêm giảng viên
                   </OrganizerButton>
                 </span>
               </Tooltip>
             ) : (
               <Link to="/organizer/instructors/add">
-                <OrganizerButton type="primary">Thêm Giảng viên</OrganizerButton>
+                <OrganizerButton type="primary">Thêm giảng viên</OrganizerButton>
               </Link>
             )}
           </>
         }
       />
       <SectionCard
-        title="Tài khoản Giảng viên"
+        title="Tài khoản giảng viên"
         extra={
           seats && (
             <span className="organizer-note">
@@ -206,8 +206,8 @@ const Instructors = () => {
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               description={
                 hasFilter
-                  ? "Không tìm thấy Giảng viên phù hợp."
-                  : "Chưa có Giảng viên nào."
+                  ? "Không tìm thấy giảng viên phù hợp."
+                  : "Chưa có giảng viên nào."
               }
             />
           }

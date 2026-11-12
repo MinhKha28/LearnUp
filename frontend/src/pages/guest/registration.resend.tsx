@@ -40,7 +40,7 @@ export default function RegistrationResendPage() {
     <AuthCard>
       <h1>Gửi lại thư đăng ký</h1>
       <p>
-        Nhập email bạn đã dùng để đăng ký Tổ chức.
+        Nhập email bạn đã dùng để đăng ký tổ chức.
         <br />
         Nếu đăng ký vẫn đang chờ thanh toán, chúng tôi sẽ gửi liên kết mới, kèm
         mã xác thực mới nếu email của bạn chưa được xác thực.

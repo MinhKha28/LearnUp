@@ -11,7 +11,7 @@ export const instructorDeleteErrorMessage = (
     case "INSTRUCTOR_NOT_FOUND":
       return "Giảng viên này không còn thuộc tổ chức của bạn.";
     case "CONCURRENT_UPDATE":
-      return "Thông tin Giảng viên vừa được cập nhật. Vui lòng kiểm tra và thử lại.";
+      return "Thông tin giảng viên vừa được cập nhật. Vui lòng kiểm tra và thử lại.";
     case "ORGANIZATION_NOT_ACTIVE":
       return "Tổ chức đang bị tạm ngưng. Không thể xóa tài khoản.";
     case "SUBSCRIPTION_NOT_ACTIVE":

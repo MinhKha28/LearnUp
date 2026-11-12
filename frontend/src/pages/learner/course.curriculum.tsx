@@ -84,7 +84,7 @@ const CourseCurriculum = () => {
         <>
           <CurriculumHeader data={query.data} />
           <Link className="course-curriculum-assessments-link" to={`${LEARNER_ROUTES.curriculum(enrollmentId)}/assessments`}>
-            Bài trắc nghiệm và Bài tập của Khóa học →
+            Bài trắc nghiệm và bài tập của khóa học →
           </Link>
           <Link className="course-curriculum-assessments-link" to={LEARNER_ROUTES.progress(enrollmentId)}>
             Theo dõi tiến độ hoàn thành →
@@ -92,7 +92,7 @@ const CourseCurriculum = () => {
           <section className="course-curriculum-tree" aria-label="Chương trình học">
             <h2 className="course-curriculum-title">Chương trình học</h2>
             {modules.length === 0 ? (
-              <p className="course-curriculum-empty">Khóa học chưa có Bài học nào.</p>
+              <p className="course-curriculum-empty">Khóa học chưa có bài học nào.</p>
             ) : (
               <ol className="course-curriculum-modules">
                 {modules.map((module) => (

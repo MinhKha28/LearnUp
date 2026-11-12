@@ -17,7 +17,7 @@ const ServerErrorPage = () => {
       }
       description={
         <>
-          Đã xảy ra lỗi khi xử lý yêu cầu. Hãy thử lại. Nếu lỗi vẫn tiếp diễn, vui lòng liên hệ Quản trị viên.
+          Đã xảy ra lỗi khi xử lý yêu cầu. Hãy thử lại. Nếu lỗi vẫn tiếp diễn, vui lòng liên hệ quản trị viên.
         </>
       }
       primaryAction={{

@@ -101,12 +101,12 @@ export const InstructorDeleteButton = ({
       });
       const result = res.data;
       if (result) {
-        const seats = `Còn ${result.seats.remaining} trên ${result.seats.max} suất Giảng viên.`;
+        const seats = `Còn ${result.seats.remaining} trên ${result.seats.max} suất giảng viên.`;
         if (!result.changed) {
           message.info(`${fullName} đã bị xóa trước đó.`);
         } else if (result.receiver && result.transferredCourses.length > 0) {
           message.success(
-            `Đã xóa ${fullName}. Đã chuyển ${result.transferredCourses.length} Khóa học cho ${result.receiver.fullName}. ${seats}`,
+            `Đã xóa ${fullName}. Đã chuyển ${result.transferredCourses.length} khóa học cho ${result.receiver.fullName}. ${seats}`,
           );
         } else {
           message.success(`Đã xóa ${fullName}. ${seats}`);
@@ -153,7 +153,7 @@ export const InstructorDeleteButton = ({
         <Alert
           type="error"
           showIcon
-          message="Không thể tải các Khóa học do Giảng viên này phụ trách."
+          message="Không thể tải các khóa học do giảng viên này phụ trách."
           action={<Button onClick={loadPreview}>Thử lại</Button>}
         />
       );
@@ -196,7 +196,7 @@ export const InstructorDeleteButton = ({
       </OrganizerButton>
       <Modal
         open={open}
-        title="Xóa Giảng viên?"
+        title="Xóa giảng viên?"
         okText="Xóa"
         okButtonProps={{
           danger: true,

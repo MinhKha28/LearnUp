@@ -60,7 +60,7 @@ const AccountTable = <T extends IAccountListItem>({
         className="account-table-error"
         type="error"
         showIcon
-        message={`Không thể tải danh sách ${itemLabel}.`}
+        message={`Không thể tải danh sách ${itemLabel.toLowerCase()}.`}
         description="Vui lòng kiểm tra kết nối và thử lại."
         action={<Button onClick={onRetry}>Thử lại</Button>}
       />
@@ -122,7 +122,7 @@ const AccountTable = <T extends IAccountListItem>({
         total,
         showSizeChanger: true,
         pageSizeOptions: ACCOUNT_PAGE_SIZES.map(String),
-        showTotal: (count) => `${count} ${itemLabel}`,
+        showTotal: (count) => `${count} ${itemLabel.toLowerCase()}`,
         position: ["bottomRight"],
         onChange: (nextPage, nextPageSize) =>
           // Đổi số dòng mỗi trang thì quay về trang 1.

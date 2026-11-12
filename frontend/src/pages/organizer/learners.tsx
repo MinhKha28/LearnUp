@@ -147,7 +147,7 @@ const Learners = () => {
     <OrganizerPage className="organizer-learners">
       <PageHeader
         title="Học viên"
-        subtitle="Quản lý tài khoản Học viên trong tổ chức."
+        subtitle="Quản lý tài khoản học viên trong tổ chức."
         actions={
           <>
             {/* UC13.8 - cùng điều kiện với Add Learner (BR-31, BR-22); trang import kiểm lại số chỗ */}
@@ -167,20 +167,20 @@ const Learners = () => {
               <Tooltip title={addBlockedReason}>
                 <span>
                   <OrganizerButton type="primary" disabled>
-                    Thêm Học viên
+                    Thêm học viên
                   </OrganizerButton>
                 </span>
               </Tooltip>
             ) : (
               <Link to="/organizer/learners/add">
-                <OrganizerButton type="primary">Thêm Học viên</OrganizerButton>
+                <OrganizerButton type="primary">Thêm học viên</OrganizerButton>
               </Link>
             )}
           </>
         }
       />
       <SectionCard
-        title="Tài khoản Học viên"
+        title="Tài khoản học viên"
         extra={
           seats && (
             <span className="organizer-note">
@@ -220,7 +220,7 @@ const Learners = () => {
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               description={
-                hasFilter ? "Không tìm thấy Học viên phù hợp." : "Chưa có Học viên nào."
+                hasFilter ? "Không tìm thấy học viên phù hợp." : "Chưa có học viên nào."
               }
             />
           }

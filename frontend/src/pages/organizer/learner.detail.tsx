@@ -178,7 +178,7 @@ const LearnerDetail = () => {
         <Alert
           type="warning"
           showIcon
-          message="Không tìm thấy Học viên"
+          message="Không tìm thấy học viên"
           description="Học viên này không tồn tại hoặc không còn thuộc tổ chức của bạn."
           action={
             <Link to="/organizer/learners">
@@ -193,7 +193,7 @@ const LearnerDetail = () => {
         <Alert
           type="error"
           showIcon
-          message="Không thể tải thông tin Học viên."
+          message="Không thể tải thông tin học viên."
           description="Vui lòng kiểm tra kết nối và thử lại."
           action={
             <Button onClick={() => setReloadKey((key) => key + 1)}>
@@ -268,7 +268,7 @@ const LearnerDetail = () => {
         </div>
 
         <SectionCard
-          title="Các Khóa học đã tham gia"
+          title="Các khóa học đã tham gia"
           className="organizer-learner-courses"
         >
           {detail.status === "Deactivated" && (
@@ -281,8 +281,8 @@ const LearnerDetail = () => {
             <Alert
               type="warning"
               showIcon
-              message="Không thể tải Khóa học"
-              description="Tạm thời không xem được thông tin tham gia Khóa học. Vui lòng thử lại sau."
+              message="Không thể tải khóa học"
+              description="Tạm thời không xem được thông tin tham gia khóa học. Vui lòng thử lại sau."
             />
           ) : (
             <Table<ILearnerEnrollment>
@@ -296,7 +296,7 @@ const LearnerDetail = () => {
                 emptyText: (
                   <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="Chưa tham gia Khóa học nào"
+                    description="Chưa tham gia khóa học nào"
                   />
                 ),
               }}
@@ -310,8 +310,8 @@ const LearnerDetail = () => {
   return (
     <OrganizerPage className="organizer-learner-detail">
       <PageHeader
-        title="Chi tiết Học viên"
-        subtitle="Trạng thái tài khoản và các Khóa học đã tham gia."
+        title="Chi tiết học viên"
+        subtitle="Trạng thái tài khoản và các khóa học đã tham gia."
         back
         actions={headerActions}
       />

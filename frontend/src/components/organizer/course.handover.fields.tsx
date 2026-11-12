@@ -41,21 +41,21 @@ export const HandOverBlockAlert = ({
     <Alert
       type="warning"
       showIcon
-      message="Tạm thời không xem được thông tin Khóa học"
-      description={`Chưa thể ${actionPast} Giảng viên này cho đến khi kiểm tra được các Khóa học họ phụ trách.`}
+      message="Tạm thời không xem được thông tin khóa học"
+      description={`Chưa thể ${actionPast} giảng viên này cho đến khi kiểm tra được các khóa học họ phụ trách.`}
       action={<Button onClick={onRetry}>Thử lại</Button>}
     />
   ) : (
     <Alert
       type="error"
       showIcon
-      message="Không có Giảng viên nào có thể tiếp nhận các Khóa học này"
+      message="Không có giảng viên nào có thể tiếp nhận các khóa học này"
       description={
         <>
           <p>
-            {fullName} vẫn đang phụ trách các Khóa học bên dưới và chưa có
-            Giảng viên đang hoạt động nào khác trong tổ chức có thể tiếp nhận. Hãy
-            thêm hoặc kích hoạt lại một Giảng viên trước.
+            {fullName} vẫn đang phụ trách các khóa học bên dưới và chưa có
+            giảng viên đang hoạt động nào khác trong tổ chức có thể tiếp nhận. Hãy
+            thêm hoặc kích hoạt lại một giảng viên trước.
           </p>
           <CourseList courses={courses} />
         </>
@@ -79,18 +79,18 @@ export const HandOverReceiverFields = ({
     <Alert
       type="info"
       showIcon
-      message={`${fullName} đang phụ trách ${courses.length} Khóa học. Các Khóa học này, cùng mọi phiên bản, sẽ được chuyển cho Giảng viên bạn chọn.`}
+      message={`${fullName} đang phụ trách ${courses.length} khóa học. Các khóa học này, cùng mọi phiên bản, sẽ được chuyển cho giảng viên bạn chọn.`}
       description={<CourseList courses={courses} />}
     />
     <Form.Item
       className="instructor-status-receiver"
       name="receiverInstructorId"
       label="Giảng viên tiếp nhận"
-      rules={[{ required: true, message: "Chọn một Giảng viên." }]}
+      rules={[{ required: true, message: "Chọn một giảng viên." }]}
     >
       <Select
         showSearch
-        placeholder="Chọn Giảng viên đang hoạt động"
+        placeholder="Chọn giảng viên đang hoạt động"
         optionFilterProp="label"
         options={receivers.map((receiver) => ({
           value: receiver.id,

@@ -131,7 +131,7 @@ const OrganizationCourses = () => {
         setTotal(0);
 
         setErrorMessage(
-          response.message || "Không thể tải danh sách Khóa học của tổ chức.",
+          response.message || "Không thể tải danh sách khóa học của tổ chức.",
         );
 
         return;
@@ -146,7 +146,7 @@ const OrganizationCourses = () => {
       setCourses([]);
       setTotal(0);
 
-      setErrorMessage("Không thể tải danh sách Khóa học của tổ chức.");
+      setErrorMessage("Không thể tải danh sách khóa học của tổ chức.");
     } finally {
       setLoading(false);
     }
@@ -350,7 +350,7 @@ const OrganizationCourses = () => {
     <OrganizerPage className="organizer-courses">
       <PageHeader
         title="Khóa học của tổ chức"
-        subtitle="Xem và lọc các Khóa học do tổ chức quản lý."
+        subtitle="Xem và lọc các khóa học do tổ chức quản lý."
       />
 
       <div className="organizer-course-view-tabs">
@@ -363,7 +363,7 @@ const OrganizationCourses = () => {
           }
           onClick={handleAllCourses}
         >
-          Tất cả Khóa học
+          Tất cả khóa học
         </button>
 
         <button
@@ -384,7 +384,7 @@ const OrganizationCourses = () => {
           className="organizer-courses-alert"
           type="error"
           showIcon
-          message="Không thể tải danh sách Khóa học"
+          message="Không thể tải danh sách khóa học"
           description={errorMessage}
           action={
             <OrganizerButton size="small" onClick={() => void loadCourses()}>
@@ -395,17 +395,17 @@ const OrganizationCourses = () => {
       )}
 
       <SectionCard
-        title={status === "Submitted" ? "Chờ phê duyệt" : "Tất cả Khóa học"}
+        title={status === "Submitted" ? "Chờ phê duyệt" : "Tất cả khóa học"}
         extra={
           <span className="organizer-course-count">
-            {total} Khóa học
+            {total} khóa học
           </span>
         }
       >
         <div className="organizer-courses-filters">
           <Input
             allowClear
-            placeholder="Tìm Khóa học"
+            placeholder="Tìm khóa học"
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
           />
@@ -478,7 +478,7 @@ const OrganizationCourses = () => {
             allowClear
             showSearch
             optionFilterProp="label"
-            placeholder="Tất cả Giảng viên"
+            placeholder="Tất cả giảng viên"
             value={instructorParam || undefined}
             onChange={(value) => {
               setCurrent(1);
@@ -521,7 +521,7 @@ const OrganizationCourses = () => {
             emptyText: (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="Không tìm thấy Khóa học"
+                description="Không tìm thấy khóa học"
               />
             ),
           }}
@@ -531,7 +531,7 @@ const OrganizationCourses = () => {
             total,
             showSizeChanger: true,
             pageSizeOptions: ["10", "20", "50"],
-            showTotal: (count) => `${count} Khóa học`,
+            showTotal: (count) => `${count} khóa học`,
             position: ["bottomRight"],
           }}
           onChange={handleTableChange}

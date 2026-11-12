@@ -29,6 +29,8 @@ it("requires a 1–5 rating in all three groups and allows an empty comment", as
   fireEvent.click(within(groups[2]).getByRole("button", { name: "5 sao" }));
   fireEvent.click(submit);
   await screen.findByRole("heading", { name: "Sửa đánh giá khóa học" });
+  // Both forms cap the optional comment at 2000 characters; the input itself enforces it.
+  expect(screen.getByRole("textbox").getAttribute("maxlength")).toBe("2000");
   expect(screen.getAllByRole("button", { pressed: true }).map((button) => button.getAttribute("aria-label")))
     .toEqual(["1 sao", "3 sao", "5 sao"]);
 });

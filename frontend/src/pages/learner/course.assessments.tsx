@@ -67,7 +67,7 @@ const CourseAssessments = () => {
         if (!active) return;
         // The axios interceptor resolves HTTP errors too, so only res.data tells success apart.
         if (res.data) setList(res.data);
-        else setErrorMessage(learnerAssessmentErrorText(res));
+        else setErrorMessage(learnerAssessmentErrorText(res, "Không tải được danh sách bài đánh giá."));
       } catch {
         if (active)
           setErrorMessage("Không kết nối được với máy chủ. Vui lòng thử lại.");

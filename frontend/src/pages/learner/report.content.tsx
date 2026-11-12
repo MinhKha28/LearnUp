@@ -71,7 +71,7 @@ const ReportContent = () => {
             onChange={(event) => setReason(event.target.value)}
           />
           <InfoPanel title="Quy trình xem xét">
-            Báo cáo đã gửi sẽ chờ Quản lý đào tạo xem xét.
+            Báo cáo đã gửi sẽ chờ quản lý đào tạo xem xét.
           </InfoPanel>
           <div className="report-content-actions">
             <LearnerButton type="primary" onClick={submit}>

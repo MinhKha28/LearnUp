@@ -14,14 +14,14 @@ const Dashboard = () => (
   <OrganizerPage className="organizer-dashboard">
     <PageHeader
       title="Tổng quan đào tạo"
-      subtitle="Theo dõi việc hoàn thành đào tạo, hoạt động Khóa học, trạng thái Gói dịch vụ và việc đang chờ xử lý."
+      subtitle="Theo dõi việc hoàn thành đào tạo, hoạt động khóa học, trạng thái gói dịch vụ và việc đang chờ xử lý."
     />
     <div className="organizer-stat-grid organizer-dashboard-stats">
       <StatCard label="Học viên" value="318" note="12 tài khoản ngừng hoạt động" />
       <StatCard
         label="Khóa học đang triển khai"
         value="14"
-        note="4 Khóa học chờ phê duyệt"
+        note="4 khóa học chờ phê duyệt"
         tone="warning"
       />
       <StatCard
@@ -33,7 +33,7 @@ const Dashboard = () => (
       <StatCard
         label="Trường hợp quá hạn"
         value="23"
-        note="Chỉ tính Khóa học bắt buộc"
+        note="Chỉ tính khóa học bắt buộc"
         tone="error"
       />
     </div>
@@ -54,8 +54,8 @@ const Dashboard = () => (
       <SectionCard title="Việc cần xử lý">
         <div className="organizer-action-queue">
           <div>
-            <strong>4 Khóa học chờ phê duyệt</strong>
-            <span>Khóa học Giảng viên đã gửi</span>
+            <strong>4 khóa học chờ phê duyệt</strong>
+            <span>Khóa học giảng viên đã gửi</span>
             <Link className="organizer-link" to="/organizer/courses/approvals">
               Xem xét →
             </Link>
@@ -64,11 +64,11 @@ const Dashboard = () => (
             <strong>7 báo cáo nội dung đang chờ xử lý</strong>
             <span>1 báo cáo sắp đến hạn xử lý</span>
             <Link className="organizer-link" to="/organizer/content-reports">
-              Moderate →
+              Xem xét →
             </Link>
           </div>
           <div>
-            <strong>Đã dùng 76% dung lượng Gói dịch vụ</strong>
+            <strong>Đã dùng 76% dung lượng gói dịch vụ</strong>
             <span>Theo dõi mức sử dụng và giới hạn</span>
             <Link className="organizer-link" to="/organizer/subscription">
               Xem →
@@ -76,21 +76,21 @@ const Dashboard = () => (
           </div>
           <div>
             <strong>3 lời mời đã hết hạn</strong>
-            <span>Lời mời Giảng viên và Học viên</span>
+            <span>Lời mời giảng viên và học viên</span>
             <Link className="organizer-link" to="/organizer/instructors">
-              Resend →
+              Gửi lại →
             </Link>
           </div>
         </div>
       </SectionCard>
     </div>
-    <WarningPanel title="Thông báo Gói dịch vụ">
+    <WarningPanel title="Thông báo gói dịch vụ">
       Gói Growth sẽ hết hạn vào ngày 18/12/2026 nếu chưa gia hạn. Học viên có
-      Chứng chỉ nên tải bản PDF trước khi dịch vụ hết hạn.
+      chứng chỉ nên tải bản PDF trước khi dịch vụ hết hạn.
     </WarningPanel>
     <div className="organizer-dashboard-actions">
       <Link to="/organizer/subscription">
-        <OrganizerButton type="primary">Xem Gói dịch vụ</OrganizerButton>
+        <OrganizerButton type="primary">Xem gói dịch vụ</OrganizerButton>
       </Link>
     </div>
   </OrganizerPage>

@@ -1,3 +1,4 @@
+import { formatNumberVN } from "@/utils/number.format";
 import type { IRubricRow } from "@/types/assessment.types";
 import dayjs from "dayjs";
 import type {
@@ -27,7 +28,7 @@ export const formatVnd = (amount: number) =>
 // Đổi byte sang GB cho dễ đọc: 53687091200 -> "50 GB"
 export const formatStorage = (bytes: number) => {
   const gb = bytes / 1024 ** 3;
-  return `${Number.isInteger(gb) ? gb : gb.toFixed(1)} GB`;
+  return `${formatNumberVN(gb, 1)} GB`;
 };
 
 // UC01: chuyển dữ liệu gói từ API sang dạng PlanCard hiển thị (dùng ở trang chủ và trang đăng ký)
@@ -104,9 +105,9 @@ export const seatBlockReason = (
   if (seats.subscriptionStatus === "Suspended")
     return "Gói dịch vụ đang bị tạm ngưng. Không thể tạo tài khoản mới.";
   if (seats.subscriptionStatus === null)
-    return "Tổ chức chưa có Gói dịch vụ đang hoạt động.";
+    return "Tổ chức chưa có gói dịch vụ đang hoạt động.";
   if (seats.remaining <= 0)
-    return `Đã dùng hết suất ${roleLabel} (${seats.used} / ${seats.max}).`;
+    return `Đã dùng hết suất ${roleLabel.toLowerCase()} (${seats.used} / ${seats.max}).`;
   return "Tổ chức đang bị tạm ngưng. Không thể tạo tài khoản mới.";
 };
 
@@ -136,7 +137,7 @@ export const textRule =
 
 /** 1.5 MB / 320 KB style size for file lists. */
 export const formatFileSize = (bytes: number) =>
-  bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  bytes >= 1024 * 1024 ? `${formatNumberVN(bytes / 1024 / 1024, 1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
 /** BR-174: stored in minutes, shown converted to hours once it reaches an hour. */
 export const formatMinutes = (minutes: number | null) => {

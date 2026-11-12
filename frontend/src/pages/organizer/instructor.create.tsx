@@ -76,7 +76,7 @@ const InstructorCreate = () => {
       });
       if (res.data?.id) {
         message.success(
-          `Đã tạo tài khoản Giảng viên. Email mời sẽ được gửi đến ${res.data.email}.`,
+          `Đã tạo tài khoản giảng viên. Email mời sẽ được gửi đến ${res.data.email}.`,
         );
         navigate(LIST_PATH);
       } else {
@@ -102,7 +102,7 @@ const InstructorCreate = () => {
         return;
       case "SEAT_LIMIT_REACHED":
         setSubmitError(
-          "Đã dùng hết suất Giảng viên. Hãy giải phóng một suất hoặc nâng cấp Gói dịch vụ để thêm Giảng viên.",
+          "Đã dùng hết suất giảng viên. Hãy giải phóng một suất hoặc nâng cấp gói dịch vụ để thêm giảng viên.",
         );
         setSeatsKey((key) => key + 1);
         return;
@@ -119,7 +119,7 @@ const InstructorCreate = () => {
         setSeatsKey((key) => key + 1);
         return;
       case "FORBIDDEN":
-        setSubmitError("Bạn không có quyền thêm Giảng viên.");
+        setSubmitError("Bạn không có quyền thêm giảng viên.");
         return;
       default:
         setSubmitError(
@@ -131,8 +131,8 @@ const InstructorCreate = () => {
   return (
     <OrganizerPage className="organizer-instructor-create">
       <PageHeader
-        title="Thêm Giảng viên"
-        subtitle="Tạo lời mời để Giảng viên tự đặt mật khẩu."
+        title="Thêm giảng viên"
+        subtitle="Tạo lời mời để giảng viên tự đặt mật khẩu."
         actions={
           <>
             <OrganizerButton onClick={() => navigate(LIST_PATH)}>
@@ -207,7 +207,7 @@ const InstructorCreate = () => {
                   {seatsLoading
                     ? "Đang kiểm tra số suất còn lại…"
                     : seats
-                      ? `Còn ${seats.remaining} suất Giảng viên (đã dùng ${seats.used}/${seats.max})`
+                      ? `Còn ${seats.remaining} suất giảng viên (đã dùng ${seats.used}/${seats.max})`
                       : "Chưa có thông tin về số suất tài khoản"}
                 </strong>
               </div>
@@ -217,7 +217,7 @@ const InstructorCreate = () => {
             <Alert
               type="warning"
               showIcon
-              message="Hiện không thể thêm Giảng viên."
+              message="Hiện không thể thêm giảng viên."
               description={blockedReason}
             />
           ) : (

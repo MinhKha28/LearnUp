@@ -100,7 +100,7 @@ const AssignmentCreate = () => {
       return;
     }
     if (!selectedRows.length) {
-      setSelectionError("Hãy chọn ít nhất một Học viên.");
+      setSelectionError("Hãy chọn ít nhất một học viên.");
       submitting.current = false;
       return;
     }
@@ -138,8 +138,8 @@ const AssignmentCreate = () => {
     <OrganizerPage className="organizer-assignment-create">
       {contextHolder}
       <PageHeader
-        title="Phân công Khóa học"
-        subtitle="Chọn một Khóa học đã xuất bản và tối đa 500 Học viên."
+        title="Phân công khóa học"
+        subtitle="Chọn một khóa học đã xuất bản và tối đa 500 học viên."
         actions={
           <>
             <Button
@@ -167,7 +167,7 @@ const AssignmentCreate = () => {
                 setError(null);
               }}
             >
-              Bỏ chọn các Học viên lỗi
+              Bỏ chọn các học viên lỗi
             </Button>
           }
         >
@@ -211,7 +211,7 @@ const AssignmentCreate = () => {
                 name="courseId"
                 label="Khóa học"
                 rules={[
-                  { required: true, message: "Hãy chọn một Khóa học đã xuất bản." },
+                  { required: true, message: "Hãy chọn một khóa học đã xuất bản." },
                 ]}
               >
                 <Select
@@ -221,8 +221,8 @@ const AssignmentCreate = () => {
                   onSearch={setRawSearch}
                   loading={courses.status === "loading"}
                   options={courseOptions}
-                  placeholder="Tìm Khóa học theo tên"
-                  notFoundContent="Không có Khóa học đã xuất bản phù hợp"
+                  placeholder="Tìm khóa học theo tên"
+                  notFoundContent="Không có khóa học đã xuất bản phù hợp"
                   onChange={(value) =>
                     setChosenCourse(
                       courseOptions.find((option) => option.value === value) ??
@@ -241,8 +241,8 @@ const AssignmentCreate = () => {
               onChange={setCoursePage}
               locale={{
                 ...viVN.Pagination,
-                prev_page: "Trang Khóa học trước",
-                next_page: "Trang Khóa học sau",
+                prev_page: "Trang khóa học trước",
+                next_page: "Trang khóa học sau",
               }}
             />
           </>
@@ -260,7 +260,7 @@ const AssignmentCreate = () => {
         }
       >
         <p>
-          Chưa hỗ trợ tìm Học viên theo tên hoặc email. Chuyển trang để chọn
+          Chưa hỗ trợ tìm học viên theo tên hoặc email. Chuyển trang để chọn
           thêm; lựa chọn được giữ nguyên.
         </p>
         {selectionError && (
@@ -277,7 +277,7 @@ const AssignmentCreate = () => {
             columns={learnerColumns}
             loading={learners.status === "loading"}
             scroll={{ x: true }}
-            locale={{ ...viVN.Table, emptyText: "Không có Học viên trong tổ chức" }}
+            locale={{ ...viVN.Table, emptyText: "Không có học viên trong tổ chức" }}
             rowSelection={{
               selectedRowKeys: Object.keys(selected),
               preserveSelectedRowKeys: true,
@@ -287,7 +287,7 @@ const AssignmentCreate = () => {
               }),
               onChange: (keys, rows) => {
                 if (keys.length > 500) {
-                  void notice.warning("Chỉ được chọn tối đa 500 Học viên.");
+                  void notice.warning("Chỉ được chọn tối đa 500 học viên.");
                   return;
                 }
                 setSelected((current) =>
@@ -305,14 +305,14 @@ const AssignmentCreate = () => {
               onChange: setLearnerPage,
               locale: {
                 ...viVN.Pagination,
-                prev_page: "Trang Học viên trước",
-                next_page: "Trang Học viên sau",
+                prev_page: "Trang học viên trước",
+                next_page: "Trang học viên sau",
               },
             }}
           />
         )}
         <p>
-          Hạn hoàn thành được tính cho từng Học viên. Tiến độ và kết quả
+          Hạn hoàn thành được tính cho từng học viên. Tiến độ và kết quả
           tự chọn được giữ lại khi chuyển thành bắt buộc.
         </p>
       </SectionCard>
@@ -339,7 +339,7 @@ const AssignmentCreate = () => {
           ]}
           pagination={{ pageSize: 10, showSizeChanger: false, locale: viVN.Pagination }}
           scroll={{ x: true }}
-          locale={{ ...viVN.Table, emptyText: "Chưa chọn Học viên" }}
+          locale={{ ...viVN.Table, emptyText: "Chưa chọn học viên" }}
         />
       </Modal>
     </OrganizerPage>

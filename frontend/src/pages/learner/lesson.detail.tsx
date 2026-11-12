@@ -42,7 +42,7 @@ const LessonBody = ({
 
       {/* Lesson không có nội dung: bỏ hẳn phần nội dung (luồng 3a) */}
       {hasContent && (
-        <section className="lesson-detail-card" aria-label="Nội dung Bài học">
+        <section className="lesson-detail-card" aria-label="Nội dung bài học">
           <LessonMarkdown content={lesson.content ?? ""} />
         </section>
       )}

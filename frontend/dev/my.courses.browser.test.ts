@@ -177,7 +177,7 @@ it.skipIf(process.env.LEARNUP_RECOVERY_BROWSER_TESTS !== "1")(
         [applied, courseName],
         [{ q: applied.q, status: applied.status }, courseName],
         [{ q: applied.q, type: applied.type }, courseName],
-        [{ ...applied, q: "không khớp" }, "Không tìm thấy Khóa học phù hợp"],
+        [{ ...applied, q: "không khớp" }, "Không tìm thấy khóa học phù hợp"],
         [{ ...applied, q: "thử lại" }, "Thử lại"],
       ] as const) {
         expect((await layout(filters, 1280, expected)).rects, JSON.stringify(filters)).toEqual(defaultState.rects);

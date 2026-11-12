@@ -23,7 +23,7 @@ describe("assessmentErrorText", () => {
   it("shows the Learner a Vietnamese text when the Enrollment is not active, whatever the server wrote", () => {
     const text = assessmentErrorText(refused("ENROLLMENT_NOT_ACTIVE"), "fallback");
     expect(text).toContain("Khóa học đã tạm dừng");
-    expect(text).toContain("Quản lý đào tạo");
+    expect(text).toContain("quản lý đào tạo");
     expect(text).not.toContain("English");
   });
 
@@ -33,7 +33,7 @@ describe("assessmentErrorText", () => {
 
   it("has its own text for the form, which promises that what the Learner typed is kept", () => {
     expect(ENROLLMENT_NOT_ACTIVE_FORM_TEXT).toContain("Nội dung bạn đã nhập vẫn được giữ trên trang này");
-    expect(ENROLLMENT_NOT_ACTIVE_FORM_TEXT).toContain("Hãy liên hệ Quản lý đào tạo");
+    expect(ENROLLMENT_NOT_ACTIVE_FORM_TEXT).toContain("Hãy liên hệ quản lý đào tạo");
   });
 
   it("leaves every other answer as it was: the server message, then the fallback", () => {
@@ -122,13 +122,43 @@ describe("the peer review calls of the Learner (UC31, UC31.1)", () => {
     expect(http.post).toHaveBeenCalledWith("/api/v1/assessments/learner/peer-reviews/review-1", body);
   });
 
-  it("downloads the work as a file, and gives nothing when the answer is not a real file", async () => {
+  it("downloads the work as a file, and gives no file when the answer is not a real file", async () => {
     http.get.mockReset().mockResolvedValue({ status: 200, data: new Blob(["x"]) });
-    expect(await service.downloadLearnerReviewFileAPI("review-1")).toBeInstanceOf(Blob);
+    const ok = await service.downloadLearnerReviewFileAPI("review-1");
+    expect(ok.blob).toBeInstanceOf(Blob);
     expect(http.get).toHaveBeenCalledWith("/api/v1/assessments/learner/peer-reviews/review-1/file", {
       responseType: "blob",
     });
     http.get.mockResolvedValue({ status: 404, data: { error: "no" } });
-    expect(await service.downloadLearnerReviewFileAPI("review-1")).toBeNull();
+    expect(await service.downloadLearnerReviewFileAPI("review-1")).toEqual({ blob: null, code: undefined });
+  });
+
+  it("reads the error code out of a failed file download", async () => {
+    // A failed blob request resolves to the error body itself, still a Blob.
+    const body = JSON.stringify({ statusCode: 404, error: { code: "REVIEW_FILE_NOT_FOUND", message: "x" } });
+    http.get.mockReset().mockResolvedValue(new Blob([body], { type: "application/json" }));
+    expect(await service.downloadLearnerReviewFileAPI("review-1")).toEqual({
+      blob: null,
+      code: "REVIEW_FILE_NOT_FOUND",
+    });
+    http.get.mockResolvedValue(new Blob(["not json"]));
+    expect(await service.downloadLearnerReviewFileAPI("review-1")).toEqual({ blob: null, code: undefined });
+  });
+
+  it("says why the work file cannot be downloaded", () => {
+    expect(service.learnerReviewFileErrorText("REVIEW_FILE_NOT_FOUND")).toBe(
+      "Bài nộp này không có tệp hoặc tệp không còn trên hệ thống.",
+    );
+    expect(service.learnerReviewFileErrorText("STORAGE_UNAVAILABLE")).toBe("Không tải được tệp.");
+    expect(service.learnerReviewFileErrorText(undefined)).toBe("Không tải được tệp.");
+  });
+
+  it("an unknown assessment code shows the operation's own message, else the generic one", () => {
+    const unknown = { error: { code: "NEW_CODE", message: "English" } };
+    expect(service.learnerAssessmentErrorText(unknown, "Không tải được bài tập.")).toBe("Không tải được bài tập.");
+    expect(service.learnerAssessmentErrorText(unknown)).toBe("Không thực hiện được thao tác. Vui lòng thử lại.");
+    expect(service.learnerAssessmentErrorText({ error: { code: "NOT_ENROLLED" } }, "Không tải được bài tập.")).toBe(
+      "Bạn chưa đăng ký khóa học này.",
+    );
   });
 });

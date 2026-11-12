@@ -145,7 +145,7 @@ const AssessmentContent = ({
             <div className="review-material">
               <div>
                 <strong>{assessment.promptFileName}</strong>
-                <small>Tệp đính kèm Bài tập</small>
+                <small>Tệp đính kèm bài tập</small>
               </div>
 
               <OrganizerButton
@@ -166,7 +166,7 @@ const AssessmentContent = ({
               : `${assessment.expectedDurationMinutes} phút`}
           </p>
 
-          <h5>Cấu hình Chấm chéo</h5>
+          <h5>Cấu hình chấm chéo</h5>
 
           <div className="review-meta">
             <span>Đã bật: {assessment.peerReviewEnabled ? "Có" : "Không"}</span>
@@ -267,7 +267,7 @@ const CourseReview = () => {
       setRejectionReason("");
 
       if (!courseId) {
-        setCourseError("Thiếu mã Khóa học.");
+        setCourseError("Thiếu mã khóa học.");
         setLoading(false);
         return;
       }
@@ -284,7 +284,7 @@ const CourseReview = () => {
           response.data.id !== courseId ||
           !Array.isArray(response.data.modules)
         ) {
-          setCourseError("Không thể xem xét Khóa học này.");
+          setCourseError("Không thể xem xét khóa học này.");
           return;
         }
 
@@ -308,18 +308,18 @@ const CourseReview = () => {
             result.data.courseId !== courseId ||
             !Array.isArray(result.data.items)
           ) {
-            setAssessmentError("Không thể tải các Bài đánh giá của Khóa học.");
+            setAssessmentError("Không thể tải các bài đánh giá của khóa học.");
           } else {
             setAssessments(result.data.items);
           }
         } catch {
           if (active) {
-            setAssessmentError("Tạm thời không thể truy cập thông tin Bài đánh giá.");
+            setAssessmentError("Tạm thời không thể truy cập thông tin bài đánh giá.");
           }
         }
       } catch {
         if (active) {
-          setCourseError("Tạm thời không thể truy cập thông tin Khóa học.");
+          setCourseError("Tạm thời không thể truy cập thông tin khóa học.");
         }
       } finally {
         if (active) setLoading(false);
@@ -370,23 +370,23 @@ const CourseReview = () => {
         response.data.status !== expectedStatus
       ) {
         if (Number(response.statusCode) === 409) {
-          message.warning("Trạng thái Khóa học đã thay đổi. Hãy tải lại danh sách chờ phê duyệt.");
+          message.warning("Trạng thái khóa học đã thay đổi. Hãy tải lại danh sách chờ phê duyệt.");
         } else if (Number(response.statusCode) === 401 || Number(response.statusCode) === 403) {
           message.error("Bạn không có quyền thực hiện thao tác này.");
         } else {
-          message.error("Không thể xử lý Khóa học này. Vui lòng thử lại.");
+          message.error("Không thể xử lý khóa học này. Vui lòng thử lại.");
         }
         return;
       }
 
       message.success(decision === "APPROVE"
-        ? "Đã phê duyệt Khóa học."
-        : "Đã từ chối Khóa học.");
+        ? "Đã phê duyệt khóa học."
+        : "Đã từ chối khóa học.");
       setDecisionOpen(null);
       setRejectionReason("");
       navigate("/organizer/courses/approvals", { replace: true });
     } catch {
-      message.error("Không thể kết nối để tải thông tin Khóa học. Vui lòng thử lại.");
+      message.error("Không thể kết nối để tải thông tin khóa học. Vui lòng thử lại.");
     } finally {
       decisionInFlightRef.current = false;
       setDecisionLoading(false);
@@ -427,7 +427,7 @@ const CourseReview = () => {
       setPreview(result.data);
       setPreviewOpen(true);
     } catch {
-      message.error("Không thể kết nối để tải thông tin Khóa học.");
+      message.error("Không thể kết nối để tải thông tin khóa học.");
     } finally {
       setPreviewLoadingId(null);
     }
@@ -449,7 +449,7 @@ const CourseReview = () => {
       );
 
       if (!blob) {
-        message.error("Không thể tải tệp đính kèm Bài tập.");
+        message.error("Không thể tải tệp đính kèm bài tập.");
         return;
       }
 
@@ -465,7 +465,7 @@ const CourseReview = () => {
 
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
-      message.error("Không thể tải tệp đính kèm Bài tập.");
+      message.error("Không thể tải tệp đính kèm bài tập.");
     } finally {
       downloadingRef.current = false;
       setDownloadingId(null);
@@ -514,8 +514,8 @@ const CourseReview = () => {
     return (
       <OrganizerPage className="organizer-course-review">
         <PageHeader
-          title="Xem xét Khóa học"
-          subtitle="Đang tải nội dung Khóa học…"
+          title="Xem xét khóa học"
+          subtitle="Đang tải nội dung khóa học…"
           back
         />
 
@@ -529,8 +529,8 @@ const CourseReview = () => {
     return (
       <OrganizerPage className="organizer-course-review">
         <PageHeader
-          title="Xem xét Khóa học"
-          subtitle="Không thể hiển thị nội dung Khóa học."
+          title="Xem xét khóa học"
+          subtitle="Không thể hiển thị nội dung khóa học."
           back
         />
 
@@ -577,7 +577,7 @@ const CourseReview = () => {
   return (
     <OrganizerPage className="organizer-course-review">
       <PageHeader
-        title="Xem xét Khóa học"
+        title="Xem xét khóa học"
         subtitle={`${course.name} • Phiên bản ${course.versionNumber}`}
         back
         actions={
@@ -592,20 +592,20 @@ const CourseReview = () => {
               disabled={!canDecide || decisionOpen !== null}
               onClick={() => setDecisionOpen("REJECT")}
             >
-              Từ chối Khóa học
+              Từ chối khóa học
             </OrganizerButton>
             <OrganizerButton
               type="primary"
               disabled={!canDecide || decisionOpen !== null}
               onClick={() => setDecisionOpen("APPROVE")}
             >
-              Phê duyệt Khóa học
+              Phê duyệt khóa học
             </OrganizerButton>
           </div>
         }
       />
 
-      <SectionCard title="Thông tin quản lý Khóa học">
+      <SectionCard title="Thông tin quản lý khóa học">
         <div className="organizer-course-tags">
           <StatusTag tone="warning">{courseStatusText(course.status)}</StatusTag>
 
@@ -637,7 +637,7 @@ const CourseReview = () => {
       </SectionCard>
 
       <div className="organizer-content-grid organizer-course-review-grid">
-        <SectionCard title="Tổng quan Khóa học">
+        <SectionCard title="Tổng quan khóa học">
           <div className="organizer-detail-grid">
             <div className="organizer-detail-item">
               <span>Mô tả</span>
@@ -650,13 +650,13 @@ const CourseReview = () => {
             </div>
 
             <div className="organizer-detail-item">
-              <span>Cấu trúc Khóa học</span>
+              <span>Cấu trúc khóa học</span>
               <strong>
-                {course.modules.length} Chương · {lessonCount} Bài học
+                {course.modules.length} chương · {lessonCount} bài học
                 {!assessmentError && (
                   <>
                     {" "}
-                    · {quizCount} Bài trắc nghiệm · {assignmentCount} Bài tập
+                    · {quizCount} bài trắc nghiệm · {assignmentCount} bài tập
                   </>
                 )}
               </strong>
@@ -690,12 +690,12 @@ const CourseReview = () => {
               type="warning"
               showIcon
               message={assessmentError}
-              description="Chưa xác minh được thông tin Bài đánh giá. Hãy tải lại trước khi hoàn tất xem xét."
+              description="Chưa xác minh được thông tin bài đánh giá. Hãy tải lại trước khi hoàn tất xem xét."
             />
           )}
 
           {course.modules.length === 0 ? (
-            <Empty description="Chưa có Chương" />
+            <Empty description="Chưa có chương" />
           ) : (
             <Collapse
               items={course.modules.map((module) => ({
@@ -758,14 +758,14 @@ const CourseReview = () => {
             />
           )}
 
-          <h3 className="review-section-title">Bài đánh giá cấp Khóa học</h3>
+          <h3 className="review-section-title">Bài đánh giá cấp khóa học</h3>
 
           {courseLevelAssessments.length === 0 ? (
             <Empty
               description={
                 assessmentError
-                  ? "Không xem được thông tin Bài đánh giá"
-                  : "Chưa có Bài đánh giá cấp Khóa học"
+                  ? "Không xem được thông tin bài đánh giá"
+                  : "Chưa có bài đánh giá cấp khóa học"
               }
             />
           ) : (
@@ -778,7 +778,7 @@ const CourseReview = () => {
             <Alert
               type="warning"
               showIcon
-              message="Một số Bài đánh giá tham chiếu đến Chương không xác định."
+              message="Một số bài đánh giá tham chiếu đến chương không xác định."
             />
           )}
         </SectionCard>
@@ -806,7 +806,7 @@ const CourseReview = () => {
         ) : preview?.mimeType === "application/pdf" ? (
           <iframe
             className="review-pdf"
-            title="Xem trước Tài liệu đọc"
+            title="Xem trước tài liệu đọc"
             src={preview.url}
           />
         ) : (
@@ -815,7 +815,7 @@ const CourseReview = () => {
       </Modal>
 
       <Modal
-        title="Phê duyệt Khóa học"
+        title="Phê duyệt khóa học"
         open={decisionOpen === "APPROVE"}
         okText="Xác nhận phê duyệt"
         confirmLoading={decisionLoading}
@@ -838,7 +838,7 @@ const CourseReview = () => {
       </Modal>
 
       <Modal
-        title="Từ chối Khóa học"
+        title="Từ chối khóa học"
         open={decisionOpen === "REJECT"}
         okText="Xác nhận từ chối"
         okButtonProps={{

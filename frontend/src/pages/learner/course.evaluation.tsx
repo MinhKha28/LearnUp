@@ -95,10 +95,6 @@ const CourseEvaluation = () => {
       message.warning("Hãy chấm điểm cho từng tiêu chí trước khi gửi.");
       return;
     }
-    if (comments.length > maxCommentLength) {
-      message.warning("Nhận xét tối đa 2.000 ký tự.");
-      return;
-    }
     message.success(submitted ? "Đã cập nhật đánh giá." : "Cảm ơn bạn đã gửi đánh giá.");
     setSubmitted(true);
   };
@@ -162,7 +158,7 @@ const CourseEvaluation = () => {
         <span className="course-evaluation-comments-label">Nhận xét bổ sung (không bắt buộc)</span>
         <Input.TextArea
           rows={4}
-            maxLength={maxCommentLength}
+          maxLength={maxCommentLength}
           placeholder="Nhập nhận xét…"
           value={comments}
           onChange={(event) => setComments(event.target.value)}

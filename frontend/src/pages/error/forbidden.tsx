@@ -22,7 +22,7 @@ const ForbiddenPage = () => {
       }
       description={
         <>
-          Vai trò của bạn chưa được cấp quyền truy cập trang này. Hãy quay lại hoặc liên hệ Quản trị viên để được hỗ trợ.
+          Vai trò của bạn chưa được cấp quyền truy cập trang này. Hãy quay lại hoặc liên hệ quản trị viên để được hỗ trợ.
         </>
       }
       primaryAction={{

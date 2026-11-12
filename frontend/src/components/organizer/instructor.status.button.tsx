@@ -116,7 +116,7 @@ export const InstructorStatusButton = ({
           message.success(`${fullName} có thể đăng nhập trở lại.`);
         } else if (result.receiver && result.transferredCourses.length > 0) {
           message.success(
-            `Đã vô hiệu hóa tài khoản của ${fullName}. Đã chuyển ${result.transferredCourses.length} Khóa học cho ${result.receiver.fullName}.`,
+            `Đã vô hiệu hóa tài khoản của ${fullName}. Đã chuyển ${result.transferredCourses.length} khóa học cho ${result.receiver.fullName}.`,
           );
         } else {
           message.success(`Đã vô hiệu hóa tài khoản của ${fullName}.`);
@@ -152,7 +152,7 @@ export const InstructorStatusButton = ({
         <Alert
           type="error"
           showIcon
-          message="Không thể tải các Khóa học do Giảng viên này phụ trách."
+          message="Không thể tải các khóa học do giảng viên này phụ trách."
           action={<Button onClick={loadPreview}>Thử lại</Button>}
         />
       );
@@ -217,8 +217,8 @@ export const InstructorStatusButton = ({
         open={open}
         title={
           action === "DEACTIVATE"
-            ? "Vô hiệu hóa Giảng viên?"
-            : "Kích hoạt lại Giảng viên?"
+            ? "Vô hiệu hóa giảng viên?"
+            : "Kích hoạt lại giảng viên?"
         }
         okText={action === "DEACTIVATE" ? "Vô hiệu hóa" : "Kích hoạt lại"}
         okButtonProps={{
@@ -236,7 +236,7 @@ export const InstructorStatusButton = ({
             renderDeactivateBody()
           ) : (
             <p>
-              {fullName} sẽ có thể đăng nhập lại. Các Khóa học đã chuyển cho Giảng viên
+              {fullName} sẽ có thể đăng nhập lại. Các khóa học đã chuyển cho giảng viên
               khác vẫn thuộc về họ.
             </p>
           )}
