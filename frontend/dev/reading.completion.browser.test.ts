@@ -391,7 +391,7 @@ describe.skipIf(!enabled)("UC27.3 Reading browser", { timeout: 45000 }, () => {
       "window.dispatchEvent(new Event('focus')); document.dispatchEvent(new Event('visibilitychange'));",
     );
     await waitFor(
-      "document.querySelector('.reading-resource button.ant-btn-primary').disabled && document.querySelector('[aria-label=\"Trạng thái Enrollment\"]').textContent.includes('Đã hoàn thành')",
+      "document.querySelector('.reading-resource button.ant-btn-primary').disabled && document.querySelector('[aria-label=\"Trạng thái học tập\"]').textContent.includes('Đã hoàn thành')",
     );
     expect(lessonReads).toBeGreaterThan(before);
     expect(posts).toBe(0);
