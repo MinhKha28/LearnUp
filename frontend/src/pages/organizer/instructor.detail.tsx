@@ -1,4 +1,4 @@
-import { Alert, Avatar, Button, Empty, Skeleton, Table } from "antd";
+import { Avatar, Button, Empty, Skeleton, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -25,6 +25,7 @@ import type {
 import { formatDateVN } from "@/utils/helper";
 import { courseStatusText, courseTypeText } from "@/utils/organizer.labels";
 import "./instructor.detail.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type Tone = "neutral" | "success" | "warning" | "error" | "info";
 
@@ -167,7 +168,7 @@ const InstructorDetail = () => {
     }
     if (loadError === "notFound") {
       return (
-        <Alert
+        <VietnameseAlert
           type="warning"
           showIcon
           message="Không tìm thấy giảng viên"
@@ -182,7 +183,7 @@ const InstructorDetail = () => {
     }
     if (loadError || !detail) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message="Không thể tải thông tin giảng viên."
@@ -243,7 +244,7 @@ const InstructorDetail = () => {
           className="organizer-instructor-courses"
         >
           {detail.courses === null ? (
-            <Alert
+            <VietnameseAlert
               type="warning"
               showIcon
               message="Không thể tải khóa học phụ trách"

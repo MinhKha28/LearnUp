@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Alert, Spin } from "antd";
+import { Spin } from "antd";
 import {
   ArrowRightOutlined,
   BookOutlined,
@@ -16,6 +16,7 @@ import type { ISubscriptionPlan } from "@/types/organization.types";
 import { toPlanDetails } from "@/utils/helper";
 
 import "@/pages/guest/home.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const capabilities = [
   {
@@ -348,7 +349,7 @@ export default function HomePage() {
         </p>
         {loadingPlans && <Spin size="large" />}
         {planError && (
-          <Alert
+          <VietnameseAlert
             type="error"
             showIcon
             message="Không tải được danh sách gói. Vui lòng thử lại sau."

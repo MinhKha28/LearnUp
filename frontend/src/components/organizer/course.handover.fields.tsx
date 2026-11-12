@@ -1,10 +1,11 @@
-import { Alert, Button, Form, Select } from "antd";
+import { Button, Form, Select } from "antd";
 import type {
   IManagedCourseChain,
   IStatusChangeReceiver,
 } from "@/types/organization.types";
 import { courseStatusText } from "@/utils/organizer.labels";
 import "./course.handover.fields.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 // BR-51 / BR-96 - phần chung của modal vô hiệu hóa (UC12.5) và dialog xóa (UC12.6):
 // danh sách chuỗi Course còn phụ trách, Alert khi bị chặn và ô chọn Instructor tiếp nhận.
@@ -38,7 +39,7 @@ export const HandOverBlockAlert = ({
   onRetry,
 }: HandOverBlockAlertProps) =>
   blockReason === "COURSE_SERVICE_UNAVAILABLE" ? (
-    <Alert
+    <VietnameseAlert
       type="warning"
       showIcon
       message="Tạm thời không xem được thông tin khóa học"
@@ -46,7 +47,7 @@ export const HandOverBlockAlert = ({
       action={<Button onClick={onRetry}>Thử lại</Button>}
     />
   ) : (
-    <Alert
+    <VietnameseAlert
       type="error"
       showIcon
       message="Không có giảng viên nào có thể tiếp nhận các khóa học này"
@@ -76,7 +77,7 @@ export const HandOverReceiverFields = ({
   receivers,
 }: ReceiverFieldsProps) => (
   <>
-    <Alert
+    <VietnameseAlert
       type="info"
       showIcon
       message={`${fullName} đang phụ trách ${courses.length} khóa học. Các khóa học này, cùng mọi phiên bản, sẽ được chuyển cho giảng viên bạn chọn.`}

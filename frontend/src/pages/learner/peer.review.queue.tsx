@@ -19,6 +19,7 @@ import type {
   TLearnerReviewState,
 } from "@/types/assessment.types";
 import "./peer.review.queue.scss";
+import { vietnamesePageItem } from "@/components/vietnamese.controls";
 
 const STATE_VIEW: Record<
   TLearnerReviewState,
@@ -150,7 +151,7 @@ const PeerReviewQueue = () => {
               </tbody>
             </table>
             {list.total > list.pageSize && (
-              <Pagination
+              <Pagination itemRender={vietnamesePageItem}
                 className="peer-review-queue-pagination"
                 current={list.page}
                 pageSize={list.pageSize}

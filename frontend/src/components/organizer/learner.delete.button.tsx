@@ -1,4 +1,4 @@
-import { Alert, App, Form, Input, Modal } from "antd";
+import { App, Form, Input, Modal } from "antd";
 import { useState } from "react";
 import { OrganizerButton } from "@/components/organizer/organizer.ui";
 import { deleteLearnerAPI } from "@/services/organization.service";
@@ -8,6 +8,7 @@ import {
   learnerDeleteShouldLeavePage,
 } from "@/utils/learner.delete.view";
 import "./learner.delete.button.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 interface LearnerDeleteButtonProps {
   learnerId: string;
@@ -103,7 +104,7 @@ export const LearnerDeleteButton = ({
             <Input.TextArea rows={3} maxLength={1000} showCount />
           </Form.Item>
           {submitError && (
-            <Alert
+            <VietnameseAlert
               className="learner-delete-error"
               type="error"
               showIcon

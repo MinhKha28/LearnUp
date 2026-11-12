@@ -1,4 +1,4 @@
-import { Alert, Avatar, Button, Descriptions, Empty, Skeleton, Table } from "antd";
+import { Avatar, Button, Descriptions, Empty, Skeleton, Table } from "antd";
 import { useState } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { AssignmentError } from "@/components/organizer/assignment.error";
@@ -26,6 +26,7 @@ import {
 import { assignmentDateOnly, assignmentTimestamp, assignmentDueDate, assignmentDueNote } from "@/utils/assignment.date";
 import { parsePageParam } from "@/utils/page.param";
 import "./assignment.detail.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const AssignmentDetail = () => {
   const { assignmentId = "" } = useParams();
@@ -88,7 +89,7 @@ const AssignmentDetail = () => {
       />
       {listError && <AssignmentError error={listError} retry={refreshList} />}
       {conflictError && (
-        <Alert
+        <VietnameseAlert
           type="warning"
           showIcon
           message={assignmentErrorMessage(conflictError.code)}

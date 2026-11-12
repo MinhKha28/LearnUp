@@ -1,4 +1,4 @@
-import { Alert, Button, Skeleton } from "antd";
+import { Button, Skeleton } from "antd";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -12,6 +12,7 @@ import { OrganizationLogo } from "@/components/organizer/organization.logo";
 import { getMyOrganizationAPI } from "@/services/organization.service";
 import type { IOrganizationProfile } from "@/types/organization.types";
 import "./organization.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const Organization = () => {
   const [profile, setProfile] = useState<IOrganizationProfile | null>(null);
@@ -41,7 +42,7 @@ const Organization = () => {
   const renderBody = () => {
     if (failed) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message="Không tải được thông tin tổ chức."

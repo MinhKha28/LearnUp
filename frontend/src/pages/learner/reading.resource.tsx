@@ -1,4 +1,4 @@
-import { Alert, Button, Space, Tag } from "antd";
+import { Button, Space, Tag } from "antd";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCurrentApp } from "@/components/context/app.context";
@@ -16,6 +16,7 @@ import type { LessonMaterial, ReadingCompletion } from "@/types/learning.types";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import { ENROLLMENT_STATUS_LABELS } from "@/utils/learner.labels";
 import "./reading.resource.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 export function ReadingResource({
   enrollmentId,
@@ -93,7 +94,7 @@ export function ReadingResource({
         </Tag>
         {status && <Tag>Khóa học: {ENROLLMENT_STATUS_LABELS[status].label}</Tag>}
       </Space>
-      {accessError && <Alert type="error" message={accessError} showIcon />}
+      {accessError && <VietnameseAlert type="error" message={accessError} showIcon />}
       <Button loading={opening} onClick={() => void openReading()}>Mở tài liệu đọc</Button>
       <Button
         type="primary"
@@ -107,7 +108,7 @@ export function ReadingResource({
         <p>Bạn đã hoàn thành khóa học. Tiến độ học liệu được giữ nguyên.</p>
       )}
       {error && (
-        <Alert
+        <VietnameseAlert
           role="alert"
           type="error"
           showIcon

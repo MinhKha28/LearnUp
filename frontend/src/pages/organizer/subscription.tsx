@@ -1,6 +1,6 @@
 import { formatNumberVN } from "@/utils/number.format";
 import { useEffect, useState, type ReactNode } from "react";
-import { Alert, Spin } from "antd";
+import { Spin } from "antd";
 import {
   BookOutlined,
   CloudOutlined,
@@ -23,6 +23,7 @@ import type {
 } from "@/types/subscription.types";
 import { formatDateVN, formatVnd } from "@/utils/helper";
 import "./subscription.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -164,9 +165,9 @@ const Subscription = () => {
         }
       />
       {loading && <Spin />}
-      {error && <Alert type="error" showIcon message={error} />}
+      {error && <VietnameseAlert type="error" showIcon message={error} />}
       {overview && !subscription && (
-        <Alert
+        <VietnameseAlert
           type="warning"
           showIcon
           message="Tổ chức của bạn chưa có gói dịch vụ hiện hành."
@@ -223,7 +224,7 @@ const Subscription = () => {
       )}
 
       {subscription?.status === "Grace" && (
-        <Alert
+        <VietnameseAlert
           type="warning"
           showIcon
           message={`Gói dịch vụ đã hết hạn ngày ${formatDate(subscription.expiresAt)}. Thời gian ân hạn kết thúc ngày ${formatDate(subscription.graceEndsAt)}.`}
@@ -231,7 +232,7 @@ const Subscription = () => {
         />
       )}
       {subscription?.status === "Suspended" && (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message="Gói dịch vụ của bạn đang tạm ngưng."
@@ -242,7 +243,7 @@ const Subscription = () => {
       {overview && usage && (
         <SectionCard title="Mức sử dụng gói">
           {warnings > 0 ? (
-            <Alert
+            <VietnameseAlert
               className="sub-usage-banner"
               type="warning"
               showIcon

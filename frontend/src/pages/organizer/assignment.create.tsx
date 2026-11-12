@@ -1,6 +1,5 @@
 import viVN from "antd/locale/vi_VN";
 import {
-  Alert,
   Button,
   Form,
   Modal,
@@ -35,6 +34,7 @@ import {
 } from "@/utils/assignments.view";
 import "./assignment.create.scss";
 import { retainAssignmentSelection } from "@/utils/assignment.selection";
+import { VietnameseAlert, vietnamesePageItem } from "@/components/vietnamese.controls";
 
 const labelSelectAll = (checkbox: ReactNode) =>
   isValidElement<{ "aria-label"?: string }>(checkbox)
@@ -176,7 +176,7 @@ const AssignmentCreate = () => {
             </Button>
           }
         >
-          <Alert
+          <VietnameseAlert
             type="error"
             showIcon
             message="Không ai được phân công khi có lỗi. Lựa chọn của bạn vẫn được giữ nguyên."
@@ -237,7 +237,7 @@ const AssignmentCreate = () => {
                 />
               </Form.Item>
             </Form>
-            <Pagination
+            <Pagination itemRender={vietnamesePageItem}
               current={coursePage}
               pageSize={20}
               total={courses.data.meta.total}
@@ -269,7 +269,7 @@ const AssignmentCreate = () => {
           thêm; lựa chọn được giữ nguyên.
         </p>
         {selectionError && (
-          <Alert type="error" message={selectionError} showIcon />
+          <VietnameseAlert type="error" message={selectionError} showIcon />
         )}
         {learners.status === "error" ? (
           <AssignmentError error={learners.error} retry={learners.reload} />
@@ -304,6 +304,7 @@ const AssignmentCreate = () => {
               },
             }}
             pagination={{
+              itemRender: vietnamesePageItem,
               current: learnerPage,
               pageSize: 50,
               total: learners.data.meta.total,
@@ -344,7 +345,7 @@ const AssignmentCreate = () => {
               ),
             },
           ]}
-          pagination={{ pageSize: 10, showSizeChanger: false, locale: viVN.Pagination }}
+          pagination={{ itemRender: vietnamesePageItem, pageSize: 10, showSizeChanger: false, locale: viVN.Pagination }}
           scroll={{ x: true }}
           locale={{ ...viVN.Table, emptyText: "Chưa chọn học viên" }}
         />

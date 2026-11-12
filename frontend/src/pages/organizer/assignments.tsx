@@ -1,5 +1,5 @@
 import viVN from "antd/locale/vi_VN";
-import { Alert, Button, Empty, Skeleton, Table, Tooltip } from "antd";
+import { Button, Empty, Skeleton, Table, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { InfoCircleOutlined } from "@ant-design/icons";
 import { assignmentDateOnly, assignmentDueDate, assignmentDueNote } from "@/utils/assignment.date";
@@ -21,6 +21,7 @@ import {
 } from "@/utils/assignments.view";
 import { parsePageParam } from "@/utils/page.param";
 import "./assignments.scss";
+import { VietnameseAlert, vietnamesePageItem } from "@/components/vietnamese.controls";
 
 const Assignments = () => {
   const [params, setParams] = useSearchParams();
@@ -138,7 +139,7 @@ const Assignments = () => {
   ];
   return (
     <OrganizerPage className="organizer-assignments">
-      {summary && <Alert type="success" showIcon message={summary} closable />}
+      {summary && <VietnameseAlert type="success" showIcon message={summary} closable />}
       <PageHeader
         title="Phân công đào tạo"
         subtitle="Theo dõi các khóa học bắt buộc trong tổ chức."
@@ -152,7 +153,7 @@ const Assignments = () => {
         <AssignmentFilterBar key={filterKey} filters={filters} apply={applyFilters} clear={clearFilters} />
         {query.status === "error" ? (
           query.error.status === 400 && query.error.code !== "INVALID_DUE_DATE_RANGE" ? (
-            <Alert type="error" showIcon message="Bộ lọc không hợp lệ. Vui lòng kiểm tra từ khóa, tình trạng và ngày." />
+            <VietnameseAlert type="error" showIcon message="Bộ lọc không hợp lệ. Vui lòng kiểm tra từ khóa, tình trạng và ngày." />
           ) : (
             <AssignmentError
               error={query.error}
@@ -179,6 +180,7 @@ const Assignments = () => {
             loading={query.status === "loading"}
             scroll={{ x: 760 }}
             pagination={{
+              itemRender: vietnamesePageItem,
               current: page,
               pageSize: 20,
               total: query.data.total,

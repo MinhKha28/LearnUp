@@ -1,4 +1,4 @@
-import { Alert, DatePicker, Empty, Input, Select, Table } from "antd";
+import { Empty, Input, Select, Table } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
@@ -26,6 +26,7 @@ import type {
 
 import { courseStatusText, courseTypeText } from "@/utils/organizer.labels";
 import "./courses.scss";
+import { VietnameseAlert, VietnameseRangePicker, vietnameseClear, vietnamesePageItem } from "@/components/vietnamese.controls";
 
 const statusTone = (
   status: CourseStatus,
@@ -380,7 +381,7 @@ const OrganizationCourses = () => {
       </div>
 
       {errorMessage && (
-        <Alert
+        <VietnameseAlert
           className="organizer-courses-alert"
           type="error"
           showIcon
@@ -404,7 +405,7 @@ const OrganizationCourses = () => {
       >
         <div className="organizer-courses-filters">
           <Input
-            allowClear
+            allowClear={vietnameseClear}
             placeholder="Tìm khóa học"
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
@@ -494,7 +495,7 @@ const OrganizationCourses = () => {
             }))}
           />
 
-          <DatePicker.RangePicker
+          <VietnameseRangePicker
             value={submittedRange}
             placeholder={["Gửi phê duyệt từ ngày", "Gửi phê duyệt đến ngày"]}
             onChange={(range) => {
@@ -526,6 +527,7 @@ const OrganizationCourses = () => {
             ),
           }}
           pagination={{
+            itemRender: vietnamesePageItem,
             current,
             pageSize,
             total,

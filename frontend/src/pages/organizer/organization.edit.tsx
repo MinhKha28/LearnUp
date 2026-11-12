@@ -1,5 +1,4 @@
 import {
-  Alert,
   App,
   Button,
   Form,
@@ -39,6 +38,7 @@ import {
   type OrganizationFormValues,
 } from "@/utils/organization.profile.view";
 import "./organization.edit.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const errorCodeOf = (res: unknown) =>
   (res as { error?: IApiError }).error?.code;
@@ -171,7 +171,7 @@ const OrganizationEdit = () => {
   const renderBody = () => {
     if (loadFailed) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message="Không tải được thông tin tổ chức."
@@ -218,7 +218,7 @@ const OrganizationEdit = () => {
         </SectionCard>
         <SectionCard title="Thông tin tổ chức">
           {submitError && (
-            <Alert type="error" showIcon message={submitError} role="alert" />
+            <VietnameseAlert type="error" showIcon message={submitError} role="alert" />
           )}
           <Form<OrganizationFormValues>
             id="organization-edit-form"

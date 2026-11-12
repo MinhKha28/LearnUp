@@ -26,6 +26,7 @@ import type {
 } from "@/types/organization.types";
 
 import { formatVnd, toPlanDetails } from "@/utils/helper";
+import { VietnameseAlert, VietnamesePassword } from "@/components/vietnamese.controls";
 
 type OrganizationFields = {
   name: string;
@@ -564,7 +565,7 @@ export default function RegisterPage() {
         <h2>Tóm tắt đăng ký</h2>
         {loadingSummary && <Spin />}
         {summaryError && (
-          <Alert
+          <VietnameseAlert
             type="error"
             showIcon
             message={summaryError}
@@ -599,7 +600,7 @@ export default function RegisterPage() {
               : "Không dùng cổng thanh toán hay giao dịch thật."}
           </p>
         </div>
-        {payError && <Alert type="error" showIcon message={payError} />}
+        {payError && <VietnameseAlert type="error" showIcon message={payError} />}
         {/* Chỉ khi chạy dev: công tắc demo nhánh thanh toán thất bại (UC02.1) */}
         {import.meta.env.DEV && !pending && (
           <Checkbox
@@ -643,13 +644,13 @@ export default function RegisterPage() {
           đó để tiếp tục.
         </p>
         {resentNotice && (
-          <Alert
+          <VietnameseAlert
             type="info"
             showIcon
             message="Đã yêu cầu mã mới. Hãy dùng mã trong email gần nhất."
           />
         )}
-        {otpError && <Alert type="error" showIcon message={otpError} />}
+        {otpError && <VietnameseAlert type="error" showIcon message={otpError} />}
         {/* antd chỉ gọi onChange khi đủ 6 ô; xóa bớt 1 ô thì bắt sự kiện input để khóa nút */}
         <div
           className="register-otp"
@@ -749,7 +750,7 @@ export default function RegisterPage() {
             </p>
           </>
         )}
-        {submitError && <Alert type="error" showIcon message={submitError} />}
+        {submitError && <VietnameseAlert type="error" showIcon message={submitError} />}
 
         <Form<OrganizerFields>
           form={organizerForm}
@@ -796,7 +797,7 @@ export default function RegisterPage() {
               { max: 72, message: "Mật khẩu tối đa 72 ký tự." },
             ]}
           >
-            <Input.Password
+            <VietnamesePassword
               autoComplete="new-password"
               placeholder="Tạo mật khẩu an toàn"
             />
@@ -945,7 +946,7 @@ export default function RegisterPage() {
           </div>
           {/* UC01: đang tải thì hiện vòng xoay, lỗi thì hiện khung đỏ, xong thì vẽ các thẻ gói thật */}
           {loadingPlans && <Spin size="large" />}
-          {planError && <Alert type="error" message={planError} showIcon />}
+          {planError && <VietnameseAlert type="error" message={planError} showIcon />}
           {!loadingPlans && !planError && (
             <div className="guest-plan-grid">
               {plans.map((plan, index) => (

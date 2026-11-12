@@ -10,6 +10,7 @@ import {
 } from "@/services/notification.service";
 import type { INotification, INotificationPage } from "@/types/notification.types";
 import "./notification.page.scss";
+import { vietnamesePageItem } from "@/components/vietnamese.controls";
 
 const PAGE_SIZE = 10;
 
@@ -86,7 +87,7 @@ const NotificationPage = () => {
             {unread !== null && unread > 0 && <span className="notification-page-count">{unread} chưa đọc</span>}
           </p>
         </div>
-        <Segmented
+        <Segmented aria-label="Lọc thông báo"
           value={filter}
           onChange={(value) => changeFilter(value as Filter)}
           options={[
@@ -138,7 +139,7 @@ const NotificationPage = () => {
       </div>
 
       {data && data.totalElements > PAGE_SIZE && (
-        <Pagination
+        <Pagination itemRender={vietnamesePageItem}
           className="notification-page-pagination"
           current={page + 1}
           pageSize={PAGE_SIZE}

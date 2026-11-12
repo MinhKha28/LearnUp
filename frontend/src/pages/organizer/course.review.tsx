@@ -1,4 +1,4 @@
-import { Alert, Collapse, Empty, Input, Modal, Skeleton, message } from "antd";
+import { Collapse, Empty, Input, Modal, Skeleton, message } from "antd";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -39,6 +39,7 @@ import {
   questionTypeText,
 } from "@/utils/organizer.labels";
 import "./course.review.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 // The project's Axios interceptor can return error
 // bodies without rejecting the Promise.
@@ -534,7 +535,7 @@ const CourseReview = () => {
           back
         />
 
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={courseError || "Khóa học không còn khả dụng để xem xét."}
@@ -685,7 +686,7 @@ const CourseReview = () => {
           }
         >
           {assessmentError && (
-            <Alert
+            <VietnameseAlert
               className="review-alert"
               type="warning"
               showIcon
@@ -775,7 +776,7 @@ const CourseReview = () => {
           )}
 
           {unknownModuleAssessments.length > 0 && (
-            <Alert
+            <VietnameseAlert
               type="warning"
               showIcon
               message="Một số bài đánh giá tham chiếu đến chương không xác định."
@@ -828,7 +829,7 @@ const CourseReview = () => {
       >
         <p>Phê duyệt <strong>{course.name}</strong> (Phiên bản {course.versionNumber})?</p>
         {course.versionNumber > 1 && (
-          <Alert
+          <VietnameseAlert
             type="warning"
             showIcon
             message="Thay thế phiên bản"

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CheckOutlined, ExclamationCircleFilled } from "@ant-design/icons";
-import { Alert, Button, Form, Input, Spin } from "antd";
+import { Button, Form, Input, Spin } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import { AuthCard, AuthResult } from "@/components/guest/auth";
 import "@/pages/guest/activate.scss";
@@ -10,6 +10,7 @@ import {
 } from "@/services/organization.service";
 import type { IApiError, IInvitationInfo } from "@/types/organization.types";
 import { roleLabel } from "@/utils/helper";
+import { VietnameseAlert, VietnamesePassword } from "@/components/vietnamese.controls";
 
 type ActivateFields = { password: string; confirm: string };
 
@@ -210,7 +211,7 @@ export default function ActivatePage() {
         {roleLabel(invitation.role).toLowerCase()} này.
       </p>
       {submitError && (
-        <Alert
+        <VietnameseAlert
           className="activate-alert"
           type="error"
           showIcon
@@ -239,7 +240,7 @@ export default function ActivatePage() {
             { max: 72, message: "Mật khẩu tối đa 72 ký tự." },
           ]}
         >
-          <Input.Password autoComplete="new-password" />
+          <VietnamesePassword autoComplete="new-password" />
         </Form.Item>
         <Form.Item
           label="Nhập lại mật khẩu"
@@ -256,7 +257,7 @@ export default function ActivatePage() {
             }),
           ]}
         >
-          <Input.Password autoComplete="new-password" />
+          <VietnamesePassword autoComplete="new-password" />
         </Form.Item>
         <Button type="primary" htmlType="submit" block loading={submitting}>
           Kích hoạt tài khoản

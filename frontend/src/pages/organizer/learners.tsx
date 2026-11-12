@@ -24,6 +24,7 @@ import type {
 } from "@/types/organization.types";
 import { seatBlockReason } from "@/utils/helper";
 import "./learners.scss";
+import { vietnameseClear } from "@/components/vietnamese.controls";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -194,7 +195,7 @@ const Learners = () => {
           <Input
             prefix={<SearchOutlined aria-hidden="true" />}
             placeholder="Tìm theo tên hoặc email"
-            allowClear
+            allowClear={vietnameseClear}
             maxLength={100}
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}

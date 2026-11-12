@@ -1,5 +1,5 @@
 import { DownloadOutlined, InboxOutlined } from "@ant-design/icons";
-import { Alert, App, Empty, Table, Upload } from "antd";
+import { App, Empty, Table, Upload } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -26,6 +26,7 @@ import type {
   ImportField,
 } from "@/types/organization.types";
 import { seatBlockReason } from "@/utils/helper";
+import { VietnameseAlert, vietnamesePageItem } from "@/components/vietnamese.controls";
 
 // UC12.8 (Instructor), UC13.8 (Learner): cùng luồng tải tệp -> xem trước -> xác nhận.
 // Trang của từng role truyền role, đường dẫn danh sách và các API tương ứng
@@ -309,7 +310,7 @@ const MemberImport = ({
           </p>
         )}
         {fileError && (
-          <Alert
+          <VietnameseAlert
             className="organizer-import-alert"
             type="error"
             showIcon
@@ -368,7 +369,7 @@ const MemberImport = ({
                 rowKey="rowNumber"
                 columns={invalidColumnsOf(role)}
                 dataSource={preview.invalidRows}
-                pagination={{ pageSize: 10, hideOnSinglePage: true }}
+                pagination={{ itemRender: vietnamesePageItem, pageSize: 10, hideOnSinglePage: true }}
                 scroll={{ x: "max-content" }}
               />
             </>
@@ -382,7 +383,7 @@ const MemberImport = ({
             rowKey="rowNumber"
             columns={validColumns}
             dataSource={preview.validRows}
-            pagination={{ pageSize: 10, hideOnSinglePage: true }}
+            pagination={{ itemRender: vietnamesePageItem, pageSize: 10, hideOnSinglePage: true }}
             scroll={{ x: "max-content" }}
             locale={{
               emptyText: (
@@ -399,7 +400,7 @@ const MemberImport = ({
             {roleLabel[role]} mới sẽ nhận email mời để đặt mật khẩu và kích hoạt tài khoản.
           </p>
           {submitError && (
-            <Alert
+            <VietnameseAlert
               className="organizer-import-alert"
               type="error"
               showIcon

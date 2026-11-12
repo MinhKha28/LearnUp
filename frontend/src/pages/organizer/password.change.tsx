@@ -1,5 +1,5 @@
 import { CheckCircleOutlined } from "@ant-design/icons";
-import { Alert, Form, Input } from "antd";
+import { Form } from "antd";
 import { useNavigate } from "react-router-dom";
 import {
   OrganizerButton,
@@ -15,6 +15,7 @@ import {
   type ChangePasswordFields,
 } from "@/hooks/use.change.password";
 import "./password.change.scss";
+import { VietnameseAlert, VietnamesePassword } from "@/components/vietnamese.controls";
 
 const ChangePassword = () => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ const ChangePassword = () => {
       />
       <div className="organizer-password-grid">
         <SectionCard title="Thiết lập mật khẩu">
-          {error && <Alert type="error" showIcon message={error} role="alert" />}
+          {error && <VietnameseAlert type="error" showIcon message={error} role="alert" />}
           <Form<ChangePasswordFields>
             className="organizer-form"
             layout="vertical"
@@ -37,10 +38,10 @@ const ChangePassword = () => {
             onValuesChange={clearError}
           >
             <Form.Item label="Mật khẩu hiện tại" name="current" rules={currentPasswordRules}>
-              <Input.Password />
+              <VietnamesePassword />
             </Form.Item>
             <Form.Item label="Mật khẩu mới" name="password" dependencies={["current"]} rules={newPasswordRules}>
-              <Input.Password />
+              <VietnamesePassword />
             </Form.Item>
             <Form.Item
               label="Nhập lại mật khẩu mới"
@@ -48,7 +49,7 @@ const ChangePassword = () => {
               dependencies={["password"]}
               rules={confirmPasswordRules}
             >
-              <Input.Password />
+              <VietnamesePassword />
             </Form.Item>
             <div className="organizer-form-actions">
               <OrganizerButton onClick={() => navigate(-1)}>Hủy</OrganizerButton>

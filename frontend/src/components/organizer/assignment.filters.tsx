@@ -1,4 +1,4 @@
-import { Button, DatePicker, Input, Select } from "antd";
+import { Button, Input, Select } from "antd";
 import viVN from "antd/es/date-picker/locale/vi_VN";
 import dayjs from "dayjs";
 import "dayjs/locale/vi";
@@ -7,6 +7,7 @@ import { useState } from "react";
 import type { AssignmentFilters, AssignmentStatus } from "@/types/assignment.types";
 import { assignmentStatus } from "@/utils/assignments.view";
 import "./assignment.filters.scss";
+import { VietnameseRangePicker } from "@/components/vietnamese.controls";
 
 dayjs.extend(customParseFormat);
 const apiDate = "YYYY-MM-DD";
@@ -77,7 +78,7 @@ export const AssignmentFilterBar = ({
       </div>
       <div className="organizer-assignment-filter-field" role="group" aria-labelledby="assignment-date-label">
         <span id="assignment-date-label">Hạn hoàn thành</span>
-        <DatePicker.RangePicker
+        <VietnameseRangePicker
           locale={viVN}
           format="DD/MM/YYYY"
           placeholder={["Từ ngày", "Đến ngày"]}

@@ -1,4 +1,3 @@
-import { Alert } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   LearnerEmptyState,
@@ -28,6 +27,7 @@ import {
 } from "@/utils/assessment.results";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import "./course.results.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 /** UC28.1 — the scores of the Quizzes and Assignments done in a Course, set against the passing scores. */
 const CourseResults = () => {
@@ -66,7 +66,7 @@ const CourseResults = () => {
     return (
       <>
         {header}
-        <Alert
+        <VietnameseAlert
           type="warning"
           showIcon
           message="Chưa lấy được kết quả bài đánh giá"

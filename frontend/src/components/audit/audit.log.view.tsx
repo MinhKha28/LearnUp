@@ -1,4 +1,4 @@
-import { Alert, AutoComplete, Button, DatePicker, Form, Input, Table } from "antd";
+import { AutoComplete, Button, Form, Input, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { type FormEvent, useEffect, useState } from "react";
@@ -23,6 +23,7 @@ import {
   targetTypeLabel,
 } from "@/utils/audit.log";
 import "./audit.log.view.scss";
+import { VietnameseAlert, VietnameseDatePicker, vietnameseClear, vietnamesePageItem } from "@/components/vietnamese.controls";
 
 interface Props {
   /** UC51: the Admin also sees which Organization an action belongs to. */
@@ -205,7 +206,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
           <span>Mã đối tượng</span>
           <Input
             aria-label="Mã đối tượng"
-            allowClear
+            allowClear={vietnameseClear}
             maxLength={AUDIT_TARGET_ID_MAX_LENGTH}
             value={draft.target}
             onChange={(event) => setDraft((current) => ({ ...current, target: event.target.value }))}
@@ -213,7 +214,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
         </label>
         <label htmlFor="audit-from">
           <span>Từ ngày</span>
-          <DatePicker
+          <VietnameseDatePicker
             id="audit-from"
             allowClear
             format="DD/MM/YYYY"
@@ -225,7 +226,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
         </label>
         <label htmlFor="audit-to">
           <span>Đến ngày</span>
-          <DatePicker
+          <VietnameseDatePicker
             id="audit-to"
             allowClear
             format="DD/MM/YYYY"
@@ -246,7 +247,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
       </form>
 
       {(formError || reversed) && (
-        <Alert
+        <VietnameseAlert
           className="audit-log-alert"
           type="warning"
           showIcon
@@ -255,7 +256,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
       )}
 
       {error && !reversed ? (
-        <Alert
+        <VietnameseAlert
           className="audit-log-alert"
           type="error"
           showIcon
@@ -276,6 +277,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
             scroll={{ x: "max-content" }}
             locale={{ emptyText: filtered ? "Không có bản ghi nào phù hợp với bộ lọc." : "Chưa có hành động nào được ghi nhận." }}
             pagination={{
+              itemRender: vietnamesePageItem,
               current: page,
               pageSize: AUDIT_PAGE_SIZE,
               total: data?.totalElements ?? 0,

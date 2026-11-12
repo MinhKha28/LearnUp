@@ -11,6 +11,7 @@ import type { VideoPlayback } from "@/types/learning.types";
 import { videoThresholdPercent } from "@/utils/video.threshold";
 import { videoOutcome } from "@/utils/video.outcome";
 import "./lesson.resource.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 function VideoPlayer({
   playback,
@@ -87,7 +88,7 @@ function VideoPlayer({
         <span>Thời lượng video: {progress.durationSeconds} giây. Mốc cần đạt: {progress.requiredSeconds} giây (≈ {videoThresholdPercent(progress.durationSeconds, progress.requiredSeconds)}% thời lượng video).</span>
         <span>Mọi tốc độ phát đều được tính; không cộng trùng hoặc cộng khoảng tua qua.</span>
       </div>
-      {warning && <Alert type="warning" message={warning} showIcon />}
+      {warning && <VietnameseAlert type="warning" message={warning} showIcon />}
       <p>
         Tiến độ được lưu mỗi {progress.heartbeatSeconds} giây.
       </p>
