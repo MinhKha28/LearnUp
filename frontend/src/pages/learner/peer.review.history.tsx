@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Pagination, Select } from "antd";
+import { Pagination, Select } from "antd";
 import { useNavigate } from "react-router-dom";
 import {
   InfoPanel,
@@ -23,6 +23,8 @@ import {
   scoreText,
 } from "@/utils/review.history";
 import "./peer.review.history.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const PAGE_SIZE = 20;
 
@@ -89,7 +91,7 @@ const PeerReviewHistory = () => {
         {header}
         {notice ? (
           <>
-            <Alert type="error" showIcon message={notice} />
+            <VietnameseAlert type="error" showIcon message={notice} />
             <LearnerButton onClick={() => void load()}>Thử lại</LearnerButton>
           </>
         ) : (
@@ -201,7 +203,7 @@ const PeerReviewHistory = () => {
           </tbody>
         </table>
         {history.total > PAGE_SIZE && (
-          <Pagination
+          <Pagination itemRender={vietnamesePageItem}
             current={page}
             pageSize={PAGE_SIZE}
             total={history.total}

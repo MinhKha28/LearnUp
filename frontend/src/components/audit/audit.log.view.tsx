@@ -1,4 +1,4 @@
-import { Alert, AutoComplete, Button, DatePicker, Input, Table } from "antd";
+import { AutoComplete, Button, Form, Input, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { type FormEvent, useEffect, useState } from "react";
@@ -23,6 +23,14 @@ import {
   targetTypeLabel,
 } from "@/utils/audit.log";
 import "./audit.log.view.scss";
+import { VietnameseAlert, VietnameseDatePicker } from "@/components/vietnamese.controls";
+import { vietnameseClear, vietnamesePageItem } from "@/components/vietnamese.control.props";
+
+const normalizeTargetSearch = (text: string) =>
+  text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replaceAll("đ", "d");
+
+const matchesTargetType = (text: string, search: string) =>
+  normalizeTargetSearch(text).includes(normalizeTargetSearch(search.trim()));
 
 interface Props {
   /** UC51: the Admin also sees which Organization an action belongs to. */
@@ -185,22 +193,30 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
   return (
     <div className="audit-log-view">
       <form className="audit-log-filters" onSubmit={apply} aria-label="Bộ lọc nhật ký">
-        <label htmlFor="audit-target-type">
-          <span>Loại đối tượng</span>
+        <Form.Item
+          className="audit-log-target-type"
+          label="Loại đối tượng"
+          htmlFor="audit-target-type"
+          extra={<span id="audit-target-type-help">Chọn gợi ý hoặc nhập mã loại đối tượng.</span>}
+        >
           <AutoComplete
             id="audit-target-type"
+            aria-describedby="audit-target-type-help"
             allowClear
             options={TARGET_TYPE_OPTIONS}
+            filterOption={(input, option) =>
+              !!option && (matchesTargetType(option.label, input) || matchesTargetType(option.value, input))
+            }
             value={draft.type}
             onChange={(value) => setDraft((current) => ({ ...current, type: value ?? "" }))}
             placeholder="Ví dụ: User"
           />
-        </label>
+        </Form.Item>
         <label>
           <span>Mã đối tượng</span>
           <Input
             aria-label="Mã đối tượng"
-            allowClear
+            allowClear={vietnameseClear}
             maxLength={AUDIT_TARGET_ID_MAX_LENGTH}
             value={draft.target}
             onChange={(event) => setDraft((current) => ({ ...current, target: event.target.value }))}
@@ -208,7 +224,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
         </label>
         <label htmlFor="audit-from">
           <span>Từ ngày</span>
-          <DatePicker
+          <VietnameseDatePicker
             id="audit-from"
             allowClear
             format="DD/MM/YYYY"
@@ -220,7 +236,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
         </label>
         <label htmlFor="audit-to">
           <span>Đến ngày</span>
-          <DatePicker
+          <VietnameseDatePicker
             id="audit-to"
             allowClear
             format="DD/MM/YYYY"
@@ -241,7 +257,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
       </form>
 
       {(formError || reversed) && (
-        <Alert
+        <VietnameseAlert
           className="audit-log-alert"
           type="warning"
           showIcon
@@ -250,7 +266,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
       )}
 
       {error && !reversed ? (
-        <Alert
+        <VietnameseAlert
           className="audit-log-alert"
           type="error"
           showIcon
@@ -271,6 +287,7 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
             scroll={{ x: "max-content" }}
             locale={{ emptyText: filtered ? "Không có bản ghi nào phù hợp với bộ lọc." : "Chưa có hành động nào được ghi nhận." }}
             pagination={{
+              itemRender: vietnamesePageItem,
               current: page,
               pageSize: AUDIT_PAGE_SIZE,
               total: data?.totalElements ?? 0,

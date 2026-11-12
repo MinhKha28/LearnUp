@@ -23,7 +23,7 @@ export default function RegistrationSteps({ current }: { current: number }) {
             }
             aria-current={active ? "step" : undefined}
           >
-            <span>{complete ? <CheckOutlined /> : index + 1}</span>
+            <span>{complete ? <CheckOutlined role="img" aria-label="Bước đã hoàn thành" /> : index + 1}</span>
             <small>{label}</small>
           </li>
         );

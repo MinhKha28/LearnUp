@@ -1,4 +1,4 @@
-import { Alert, Form, Input } from "antd";
+import { Form } from "antd";
 import {
   LearnerButton,
   LearnerPage,
@@ -13,6 +13,7 @@ import {
   type ChangePasswordFields,
 } from "@/hooks/use.change.password";
 import "./password.change.scss";
+import { VietnameseAlert, VietnamesePassword } from "@/components/vietnamese.controls";
 
 const ChangePassword = () => {
   const { submit, submitting, error, clearError } = useChangePassword();
@@ -26,7 +27,7 @@ const ChangePassword = () => {
         back
       />
       <SectionCard>
-        {error && <Alert type="error" showIcon message={error} role="alert" />}
+        {error && <VietnameseAlert type="error" showIcon message={error} role="alert" />}
         <Form<ChangePasswordFields>
           className="learner-password-form"
           layout="vertical"
@@ -40,7 +41,7 @@ const ChangePassword = () => {
             name="current"
             rules={currentPasswordRules}
           >
-            <Input.Password />
+            <VietnamesePassword />
           </Form.Item>
           <Form.Item
             label="Mật khẩu mới"
@@ -48,7 +49,7 @@ const ChangePassword = () => {
             dependencies={["current"]}
             rules={newPasswordRules}
           >
-            <Input.Password placeholder="Nhập mật khẩu mới" />
+            <VietnamesePassword placeholder="Nhập mật khẩu mới" />
           </Form.Item>
           <Form.Item
             label="Nhập lại mật khẩu mới"
@@ -56,7 +57,7 @@ const ChangePassword = () => {
             dependencies={["password"]}
             rules={confirmPasswordRules}
           >
-            <Input.Password placeholder="Nhập lại mật khẩu mới" />
+            <VietnamesePassword placeholder="Nhập lại mật khẩu mới" />
           </Form.Item>
           <div className="learner-password-actions">
             <LearnerButton type="primary" htmlType="submit" loading={submitting}>

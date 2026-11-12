@@ -14,7 +14,7 @@ const SubscriptionSuspended = () => (
     </Link>
     <section className="subscription-suspended-card">
       <div className="subscription-suspended-icon">
-        <ExclamationCircleFilled />
+        <ExclamationCircleFilled aria-hidden="true" />
       </div>
       <h1>Không thể truy cập nội dung học tập</h1>
       <p>Gói dịch vụ của tổ chức bạn đang bị tạm ngưng.</p>

@@ -1,4 +1,4 @@
-import { Alert, Avatar, Button, Empty, Skeleton, Table } from "antd";
+import { Avatar, Button, Empty, Skeleton, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -25,6 +25,7 @@ import { assignmentStatus } from "@/utils/assignments.view";
 import { formatDateVN } from "@/utils/helper";
 import { UNKNOWN_LABEL, enrollmentKindText } from "@/utils/organizer.labels";
 import "./learner.detail.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type Tone = "neutral" | "success" | "warning" | "error" | "info";
 
@@ -175,7 +176,7 @@ const LearnerDetail = () => {
     }
     if (loadError === "notFound") {
       return (
-        <Alert
+        <VietnameseAlert
           type="warning"
           showIcon
           message="Không tìm thấy học viên"
@@ -190,7 +191,7 @@ const LearnerDetail = () => {
     }
     if (loadError || !detail) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message="Không thể tải thông tin học viên."
@@ -278,7 +279,7 @@ const LearnerDetail = () => {
             </p>
           )}
           {detail.enrollments === null ? (
-            <Alert
+            <VietnameseAlert
               type="warning"
               showIcon
               message="Không thể tải khóa học"

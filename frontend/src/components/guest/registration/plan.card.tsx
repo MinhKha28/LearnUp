@@ -62,7 +62,7 @@ export default function PlanCard({
         {limits.map(([label, value]) => (
           <div key={label}>
             <dt>
-              <CheckOutlined /> {label}
+              <CheckOutlined aria-hidden="true" /> {label}
             </dt>
             <dd>{value}</dd>
           </div>

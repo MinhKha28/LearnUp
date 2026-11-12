@@ -1,4 +1,4 @@
-import { Alert, Button } from "antd";
+import { Button } from "antd";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { LearnerSkeleton } from "@/components/learner/learner.states";
@@ -19,6 +19,7 @@ import { ENROLLMENT_STATUS_LABELS, ENROLLMENT_TYPE_LABELS } from "@/utils/learne
 import { formatDueAt } from "@/utils/due.format";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import "./course.progress.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const peerLabels = {
   NotApplicable: "Không áp dụng",
@@ -59,7 +60,7 @@ const ProgressDetails = ({
         {courseName && <p className="course-progress-course-name">{courseName}</p>}
       </header>
       {refreshFailed && (
-        <Alert
+        <VietnameseAlert
           className="course-progress-refresh-notice"
           type="warning"
           showIcon

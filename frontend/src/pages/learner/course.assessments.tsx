@@ -273,7 +273,7 @@ const CourseAssessments = () => {
                               title={`Bạn làm lại được từ ${formatDateTimeVN(item.attempts.lockedUntil)}`}
                             >
                               <span className="course-assessments-locked">
-                                <LockOutlined /> Mở lại{" "}
+                                <LockOutlined aria-hidden="true" /> Mở lại{" "}
                                 {formatDateTimeVN(item.attempts.lockedUntil)}
                               </span>
                             </Tooltip>

@@ -1,6 +1,5 @@
 import viVN from "antd/locale/vi_VN";
 import {
-  Alert,
   Button,
   Form,
   Modal,
@@ -10,7 +9,7 @@ import {
   Table,
   message,
 } from "antd";
-import { useEffect, useRef, useState } from "react";
+import { cloneElement, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { AssignmentError } from "@/components/organizer/assignment.error";
 import {
@@ -35,6 +34,13 @@ import {
 } from "@/utils/assignments.view";
 import "./assignment.create.scss";
 import { retainAssignmentSelection } from "@/utils/assignment.selection";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
+
+const labelSelectAll = (checkbox: ReactNode) =>
+  isValidElement<{ "aria-label"?: string }>(checkbox)
+    ? cloneElement(checkbox, { "aria-label": "Chọn tất cả học viên trên trang này" })
+    : checkbox;
 
 const AssignmentCreate = () => {
   const navigate = useNavigate();
@@ -171,7 +177,7 @@ const AssignmentCreate = () => {
             </Button>
           }
         >
-          <Alert
+          <VietnameseAlert
             type="error"
             showIcon
             message="Không ai được phân công khi có lỗi. Lựa chọn của bạn vẫn được giữ nguyên."
@@ -232,7 +238,7 @@ const AssignmentCreate = () => {
                 />
               </Form.Item>
             </Form>
-            <Pagination
+            <Pagination itemRender={vietnamesePageItem}
               current={coursePage}
               pageSize={20}
               total={courses.data.meta.total}
@@ -264,7 +270,7 @@ const AssignmentCreate = () => {
           thêm; lựa chọn được giữ nguyên.
         </p>
         {selectionError && (
-          <Alert type="error" message={selectionError} showIcon />
+          <VietnameseAlert type="error" message={selectionError} showIcon />
         )}
         {learners.status === "error" ? (
           <AssignmentError error={learners.error} retry={learners.reload} />
@@ -279,9 +285,11 @@ const AssignmentCreate = () => {
             scroll={{ x: true }}
             locale={{ ...viVN.Table, emptyText: "Không có học viên trong tổ chức" }}
             rowSelection={{
+              columnTitle: labelSelectAll,
               selectedRowKeys: Object.keys(selected),
               preserveSelectedRowKeys: true,
               getCheckboxProps: (row) => ({
+                "aria-label": "Chọn học viên: " + row.fullName,
                 disabled:
                   pending || (!selected[row.id] && selectedRows.length >= 500),
               }),
@@ -297,6 +305,7 @@ const AssignmentCreate = () => {
               },
             }}
             pagination={{
+              itemRender: vietnamesePageItem,
               current: learnerPage,
               pageSize: 50,
               total: learners.data.meta.total,
@@ -337,7 +346,7 @@ const AssignmentCreate = () => {
               ),
             },
           ]}
-          pagination={{ pageSize: 10, showSizeChanger: false, locale: viVN.Pagination }}
+          pagination={{ itemRender: vietnamesePageItem, pageSize: 10, showSizeChanger: false, locale: viVN.Pagination }}
           scroll={{ x: true }}
           locale={{ ...viVN.Table, emptyText: "Chưa chọn học viên" }}
         />

@@ -1,4 +1,4 @@
-import { Alert, Button, Table } from "antd";
+import { Button, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { ReactNode } from "react";
 import { StatusTag } from "@/components/organizer/organizer.ui";
@@ -8,6 +8,8 @@ import type {
 } from "@/types/organization.types";
 import { formatDateVN } from "@/utils/helper";
 import "./account.table.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const ACCOUNT_PAGE_SIZES = [10, 20, 50];
 
@@ -56,7 +58,7 @@ const AccountTable = <T extends IAccountListItem>({
 }) => {
   if (error) {
     return (
-      <Alert
+      <VietnameseAlert
         className="account-table-error"
         type="error"
         showIcon
@@ -117,6 +119,7 @@ const AccountTable = <T extends IAccountListItem>({
       locale={{ emptyText }}
       scroll={{ x: "max-content" }}
       pagination={{
+        itemRender: vietnamesePageItem,
         current: page,
         pageSize,
         total,

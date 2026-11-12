@@ -66,7 +66,7 @@ export const AUDIT_ACTION_CODES = Object.keys(ACTION_LABELS);
 /** Suggestions for the "target type" field (the field also takes any other value). */
 export const TARGET_TYPE_OPTIONS = Object.entries(TARGET_LABELS).map(([value, label]) => ({
   value,
-  label: `${label} (${value})`,
+  label: `${value === "User" ? "Tài khoản người dùng" : label} (${value})`,
 }));
 
 /** A code the screen has no word for is called "other"; the view writes the code itself next to it so nothing is hidden. */

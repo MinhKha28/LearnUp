@@ -1,4 +1,4 @@
-import { Alert, Table } from "antd";
+import { Table } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -12,6 +12,8 @@ import {
 import { fetchOrganizationCoursesAPI } from "@/services/course.service";
 import type { IOrganizationCourseListItem } from "@/types/course.types";
 import { courseTypeText } from "@/utils/organizer.labels";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const isSuccess = (statusCode: unknown) => {
   const status = Number(statusCode);
@@ -134,7 +136,7 @@ const CourseApprovals = () => {
       />
 
       {errorMessage && (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={errorMessage}
@@ -155,6 +157,7 @@ const CourseApprovals = () => {
           loading={loading}
           locale={{ emptyText: "Không có khóa học nào chờ phê duyệt." }}
           pagination={{
+            itemRender: vietnamesePageItem,
             current,
             pageSize,
             total,

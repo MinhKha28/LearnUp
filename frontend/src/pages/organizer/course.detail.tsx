@@ -1,4 +1,4 @@
-import { Alert, Form, Input, Modal, Select, Spin, Table, message } from "antd";
+import { Form, Input, Modal, Select, Spin, Table, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -23,6 +23,7 @@ import type {
 } from "@/types/course.types";
 import { courseStatusText } from "@/utils/organizer.labels";
 import "./course.detail.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type ApiResult<T> = {
   statusCode?: number;
@@ -236,7 +237,7 @@ const CourseDetail = () => {
       />
 
       {error && (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={error}
@@ -254,7 +255,7 @@ const CourseDetail = () => {
               <strong>{context.currentInstructor.fullName || "Chưa xác định"}</strong>
             </div>
             {!instructorResolved && (
-              <Alert
+              <VietnameseAlert
                 type="warning"
                 showIcon
                 message="Không tìm thấy giảng viên phụ trách trong tổ chức."
@@ -300,7 +301,7 @@ const CourseDetail = () => {
         }
       >
         <p>Chuyển toàn bộ chuỗi phiên bản của <strong>{context?.courseName}</strong>.</p>
-        {modalError && <Alert showIcon type="error" message={modalError} />}
+        {modalError && <VietnameseAlert showIcon type="error" message={modalError} />}
         <Form<ITransferCourseRequest> form={form} layout="vertical" className="organizer-form">
           <Form.Item label="Giảng viên hiện tại">
             <strong>{context?.currentInstructor.fullName || "Chưa xác định"}</strong>

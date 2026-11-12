@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
-import { Alert, Button, Form, Input } from "antd";
+import { Button, Form, Input } from "antd";
 import { Link } from "react-router-dom";
 import { AuthCard } from "@/components/guest/auth";
 import { resendRegistrationEmailAPI } from "@/services/organization.service";
 import { normalizeEmail } from "@/utils/helper";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type ResendFields = { email: string };
 
@@ -45,7 +46,7 @@ export default function RegistrationResendPage() {
         Nếu đăng ký vẫn đang chờ thanh toán, chúng tôi sẽ gửi liên kết mới, kèm
         mã xác thực mới nếu email của bạn chưa được xác thực.
       </p>
-      {error && <Alert type="error" showIcon message={error} role="alert" />}
+      {error && <VietnameseAlert type="error" showIcon message={error} role="alert" />}
       <Form<ResendFields>
         layout="vertical"
         requiredMark={false}
@@ -86,13 +87,14 @@ export default function RegistrationResendPage() {
           <p>
             Nếu email này thuộc một đăng ký đang chờ thanh toán, thư mới đang
             được gửi tới bạn. Liên kết và mã trước đó không còn dùng được. Hãy
-            kiểm tra hộp thư đến và thư mục spam.
+            kiểm tra hộp thư đến và thư mục thư rác.
           </p>
         </div>
       )}
       <Link className="auth-link" to="/forgot-password">
         Đã thanh toán? Hãy đặt lại mật khẩu
       </Link>
+      <br />
       <Link className="auth-link" to="/login">
         Quay lại đăng nhập
       </Link>
