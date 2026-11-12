@@ -22,7 +22,7 @@ const ReportContent = () => {
 
   const defaultContentType: ReportContentType = found?.resource.type === "video" ? "Video" : "Reading";
   const [reportedItem, setReportedItem] = useState(
-    found ? `Bài học: ${found.resource.title}` : "",
+    found?.resource.title ?? "",
   );
   const [contentType, setContentType] = useState<ReportContentType>(defaultContentType);
   const [reason, setReason] = useState("");

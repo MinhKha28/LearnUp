@@ -16,22 +16,28 @@ const criteria: { key: keyof ICourseEvaluationRatings; label: string }[] = [
   { key: "quality", label: "Chất lượng học liệu" },
 ];
 
+const ratingOptions = [1, 2, 3, 4, 5];
+const maxCommentLength = 2000;
+
 const StarRating = ({
+  label,
   value,
   onChange,
   disabled,
 }: {
+  label: string;
   value: number;
   onChange?: (value: number) => void;
   disabled?: boolean;
 }) => (
-  <div className="course-evaluation-stars">
-    {[1, 2, 3, 4].map((star) => (
+  <div className="course-evaluation-stars" role="group" aria-label={label}>
+    {ratingOptions.map((star) => (
       <button
         key={star}
         type="button"
         disabled={disabled}
         aria-label={`${star} sao`}
+        aria-pressed={star === value}
         onClick={() => onChange?.(star)}
       >
         {star <= value ? <StarFilled /> : <StarOutlined />}
@@ -84,9 +90,13 @@ const CourseEvaluation = () => {
     setRatings((prev) => ({ ...prev, [key]: value }));
 
   const submit = () => {
-    const missing = criteria.some((criterion) => ratings[criterion.key] === 0);
-    if (missing) {
+    const invalidRating = criteria.some(({ key }) => !ratingOptions.includes(ratings[key]));
+    if (invalidRating) {
       message.warning("Hãy chấm điểm cho từng tiêu chí trước khi gửi.");
+      return;
+    }
+    if (comments.length > maxCommentLength) {
+      message.warning("Nhận xét tối đa 2.000 ký tự.");
       return;
     }
     message.success(submitted ? "Đã cập nhật đánh giá." : "Cảm ơn bạn đã gửi đánh giá.");
@@ -110,12 +120,13 @@ const CourseEvaluation = () => {
           {criteria.map((criterion) => (
             <div className="course-evaluation-row" key={criterion.key}>
               <span>{criterion.label}</span>
-              <StarRating value={ratings[criterion.key]} onChange={(value) => rate(criterion.key, value)} />
+              <StarRating label={criterion.label} value={ratings[criterion.key]} onChange={(value) => rate(criterion.key, value)} />
             </div>
           ))}
           <span className="course-evaluation-comments-label">Nhận xét</span>
           <Input.TextArea
             rows={4}
+            maxLength={maxCommentLength}
             value={comments}
             onChange={(event) => setComments(event.target.value)}
           />
@@ -145,12 +156,13 @@ const CourseEvaluation = () => {
         {criteria.map((criterion) => (
           <div className="course-evaluation-row" key={criterion.key}>
             <span>{criterion.label}</span>
-            <StarRating value={ratings[criterion.key]} onChange={(value) => rate(criterion.key, value)} />
+            <StarRating label={criterion.label} value={ratings[criterion.key]} onChange={(value) => rate(criterion.key, value)} />
           </div>
         ))}
         <span className="course-evaluation-comments-label">Nhận xét bổ sung (không bắt buộc)</span>
         <Input.TextArea
           rows={4}
+            maxLength={maxCommentLength}
           placeholder="Nhập nhận xét…"
           value={comments}
           onChange={(event) => setComments(event.target.value)}

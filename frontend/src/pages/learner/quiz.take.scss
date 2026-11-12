@@ -108,7 +108,7 @@
   font-size: 14px;
 }
 
-.quiz-footer span {
+.quiz-footer > div:first-child > span {
   color: #64748b;
   font-size: 12px;
 }

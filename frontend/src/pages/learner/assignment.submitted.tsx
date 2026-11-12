@@ -28,6 +28,7 @@ const AssignmentSubmitted = () => {
     <>
       <PageHeader
         eyebrow="Bài đánh giá / Đã nộp"
+        back
         title={resubmitted ? "Đã nộp lại bài tập" : "Đã nộp bài tập"}
         subtitle={title ? `${title} đang chờ được chấm.` : "Bài làm của bạn đang chờ được chấm."}
       />
