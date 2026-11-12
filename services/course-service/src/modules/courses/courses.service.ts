@@ -2309,8 +2309,20 @@ export class CoursesService {
       ) {
         throw new BadRequestException('Invalid PDF file signature.');
       }
+    } else {
+      throw new BadRequestException('Unsupported replacement type.');
+    }
 
-      // Trích xuất word count.
+    if (BigInt(file.size) > maxBytes) {
+      throw new PayloadTooLargeException({
+        statusCode: 413,
+        code: 'FILE_TOO_LARGE',
+        message: 'Replacement exceeds the allowed size.',
+      });
+    }
+
+    // Chỉ parse PDF sau khi đã kiểm tra giới hạn dung lượng hiệu lực.
+    if (isReading) {
       try {
         const extraction = await extractReadingText(
           file.buffer,
@@ -2322,16 +2334,6 @@ export class CoursesService {
       } catch {
         throw new BadRequestException('Unable to read replacement PDF.');
       }
-    } else {
-      throw new BadRequestException('Unsupported replacement type.');
-    }
-
-    if (BigInt(file.size) > maxBytes) {
-      throw new PayloadTooLargeException({
-        statusCode: 413,
-        code: 'FILE_TOO_LARGE',
-        message: 'Replacement exceeds the allowed size.',
-      });
     }
 
     // 7. Kiểm tra Subscription theo cơ chế upload hiện có.
