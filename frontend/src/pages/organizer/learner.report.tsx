@@ -8,7 +8,7 @@ import {
   SectionCard,
   StatusTag,
 } from "@/components/organizer/organizer.ui";
-import { enrollmentKindText } from "@/utils/organizer.labels";
+import { accountStatusText, enrollmentKindText } from "@/utils/organizer.labels";
 import "./learner.report.scss";
 
 type TrainingHistoryRow = {
@@ -34,7 +34,7 @@ const learnerReports: Record<string, LearnerReportSummary> = {
   "minh-le": {
     name: "Lê Minh",
     workUnit: "Kỹ thuật",
-    status: "Học viên đang hoạt động",
+    status: "Active",
     courses: 3,
     certificates: 1,
     overdueCourses: 1,
@@ -73,7 +73,7 @@ const LearnerReport = () => {
       <SectionCard className="organizer-learner-report-summary">
         <div className="organizer-learner-report-identity">
           <strong>{summary.name}</strong>
-          <span>{summary.workUnit} • {summary.status}</span>
+          <span>{summary.workUnit} • {accountStatusText(summary.status)}</span>
         </div>
         <div className="organizer-learner-report-metrics">
           <div>

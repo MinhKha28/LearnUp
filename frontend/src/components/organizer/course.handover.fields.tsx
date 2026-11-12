@@ -3,6 +3,7 @@ import type {
   IManagedCourseChain,
   IStatusChangeReceiver,
 } from "@/types/organization.types";
+import { courseStatusText } from "@/utils/organizer.labels";
 import "./course.handover.fields.scss";
 
 // BR-51 / BR-96 - phần chung của modal vô hiệu hóa (UC12.5) và dialog xóa (UC12.6):
@@ -13,7 +14,7 @@ export const CourseList = ({ courses }: { courses: IManagedCourseChain[] }) => (
     {courses.map((course) => (
       <li key={course.chainId}>
         <strong>{course.name}</strong> · v{course.versionNumber} ·{" "}
-        {course.status}
+        {courseStatusText(course.status)}
       </li>
     ))}
   </ul>

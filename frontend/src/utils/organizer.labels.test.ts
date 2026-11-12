@@ -18,10 +18,11 @@ describe("organizer display labels", () => {
     expect(accountStatusText("Deactivated")).toBe("Đã vô hiệu hóa");
     expect(questionTypeText("TrueFalse")).toBe("Đúng/Sai");
     expect(materialTypeText("Reading")).toBe("Tài liệu đọc");
+    expect(materialTypeText("Video")).toBe("Video");
   });
 
-  it("falls back to the raw value for unknown codes and a dash for empty", () => {
-    expect(courseStatusText("Something")).toBe("Something");
+  it("falls back to Không xác định for unknown codes and a dash for empty", () => {
+    expect(courseStatusText("Something")).toBe("Không xác định");
     expect(courseStatusText(null)).toBe("—");
   });
 });
@@ -33,5 +34,14 @@ describe("assignments.view keeps API enum values", () => {
     expect(canExemptAssignment({ status: "Overdue", firstActivityAt: "2026-11-01T00:00:00Z" } as never)).toBe(true);
     expect(canExtendAssignment("Completed")).toBe(false);
     expect(canExtendAssignment("InProgress")).toBe(true);
+  });
+});
+
+describe("organizer labels fallback", () => {
+  it("never leaks an unknown raw value", () => {
+    expect(accountStatusText("Weird")).toBe("Không xác định");
+    expect(enrollmentKindText("Weird")).toBe("Không xác định");
+    expect(questionTypeText("Weird")).toBe("Không xác định");
+    expect(materialTypeText("Weird")).toBe("Không xác định");
   });
 });

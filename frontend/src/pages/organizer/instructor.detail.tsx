@@ -23,6 +23,7 @@ import type {
   IManagedCourseChain,
 } from "@/types/organization.types";
 import { formatDateVN } from "@/utils/helper";
+import { courseStatusText, courseTypeText } from "@/utils/organizer.labels";
 import "./instructor.detail.scss";
 
 type Tone = "neutral" | "success" | "warning" | "error" | "info";
@@ -60,10 +61,14 @@ const courseColumns: ColumnsType<IManagedCourseChain> = [
     title: "Trạng thái",
     dataIndex: "status",
     render: (status: CourseStatus) => (
-      <StatusTag tone={courseTone[status] ?? "neutral"}>{status}</StatusTag>
+      <StatusTag tone={courseTone[status] ?? "neutral"}>{courseStatusText(status)}</StatusTag>
     ),
   },
-  { title: "Loại", dataIndex: "courseType" },
+  {
+    title: "Loại",
+    dataIndex: "courseType",
+    render: (type: string) => courseTypeText(type),
+  },
   {
     title: "Đã phê duyệt",
     dataIndex: "approvedAt",

@@ -24,21 +24,8 @@ import type {
   IOrganizationCourseListItem,
 } from "@/types/course.types";
 
+import { courseStatusText, courseTypeText } from "@/utils/organizer.labels";
 import "./courses.scss";
-
-const courseTypeLabel: Record<CourseType, string> = {
-  Public: "Công khai",
-  Private: "Riêng tư",
-};
-
-const courseStatusLabel: Record<CourseStatus, string> = {
-  Draft: "Bản nháp",
-  Submitted: "Chờ phê duyệt",
-  Published: "Đã phát hành",
-  Rejected: "Bị từ chối",
-  Archived: "Đã lưu trữ",
-  Disabled: "Đã vô hiệu hóa",
-};
 
 const statusTone = (
   status: CourseStatus,
@@ -280,7 +267,7 @@ const OrganizationCourses = () => {
       key: "courseType",
       width: 110,
       render: (type: CourseType) => (
-        <span className="organizer-course-type">{courseTypeLabel[type]}</span>
+        <span className="organizer-course-type">{courseTypeText(type)}</span>
       ),
     },
 
@@ -291,7 +278,7 @@ const OrganizationCourses = () => {
       width: 130,
       render: (value: CourseStatus) => (
         <StatusTag tone={statusTone(value)}>
-          {courseStatusLabel[value]}
+          {courseStatusText(value)}
         </StatusTag>
       ),
     },
@@ -438,11 +425,11 @@ const OrganizationCourses = () => {
             options={[
               {
                 value: "Public",
-                label: "Công khai",
+                label: courseTypeText("Public"),
               },
               {
                 value: "Private",
-                label: "Riêng tư",
+                label: courseTypeText("Private"),
               },
             ]}
           />
@@ -462,27 +449,27 @@ const OrganizationCourses = () => {
             options={[
               {
                 value: "Draft",
-                label: "Bản nháp",
+                label: courseStatusText("Draft"),
               },
               {
                 value: "Submitted",
-                label: "Chờ phê duyệt",
+                label: courseStatusText("Submitted"),
               },
               {
                 value: "Published",
-                label: "Đã phát hành",
+                label: courseStatusText("Published"),
               },
               {
                 value: "Rejected",
-                label: "Bị từ chối",
+                label: courseStatusText("Rejected"),
               },
               {
                 value: "Archived",
-                label: "Đã lưu trữ",
+                label: courseStatusText("Archived"),
               },
               {
                 value: "Disabled",
-                label: "Đã vô hiệu hóa",
+                label: courseStatusText("Disabled"),
               },
             ]}
           />

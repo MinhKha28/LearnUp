@@ -23,7 +23,7 @@ import type {
 } from "@/types/organization.types";
 import { assignmentStatus } from "@/utils/assignments.view";
 import { formatDateVN } from "@/utils/helper";
-import { enrollmentKindText } from "@/utils/organizer.labels";
+import { UNKNOWN_LABEL, enrollmentKindText } from "@/utils/organizer.labels";
 import "./learner.detail.scss";
 
 type Tone = "neutral" | "success" | "warning" | "error" | "info";
@@ -65,7 +65,7 @@ const courseColumns: ColumnsType<ILearnerEnrollment> = [
       return view ? (
         <StatusTag tone={view.tone}>{view.label}</StatusTag>
       ) : (
-        <StatusTag tone="neutral">{status}</StatusTag>
+        <StatusTag tone="neutral">{UNKNOWN_LABEL}</StatusTag>
       );
     },
   },

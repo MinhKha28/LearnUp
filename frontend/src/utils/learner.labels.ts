@@ -32,7 +32,7 @@ export const ENROLLMENT_STATUS_LABELS: Record<EnrollmentStatus, { label: string;
 
 export const MATERIAL_TYPE_LABELS: Record<MaterialType, string> = {
   Video: "Video",
-  Reading: "Bài đọc",
+  Reading: "Tài liệu đọc",
 };
 
 const EMPTY = "—";
