@@ -37,7 +37,7 @@ const Profile = () => {
             <div className="admin-detail-grid">
               <DetailItem label="Họ và tên">{profile?.fullName}</DetailItem>
               <DetailItem label="Email đăng nhập">{profile?.email}</DetailItem>
-              <DetailItem label="Vai trò">{profile?.role ? roleLabel(profile.role) : ""}</DetailItem>
+              <DetailItem label="Vai trò">{profile?.role === "Admin" ? "Quản trị viên nền tảng" : profile?.role ? roleLabel(profile.role) : ""}</DetailItem>
             </div>
             <p className="admin-note">Không sửa được email trong phần hồ sơ.</p>
           </>

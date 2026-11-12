@@ -137,10 +137,10 @@ const OrganizationDetail = () => {
           subtitle={`Chi tiết tổ chức · đăng ký ngày ${formatDateVN(detail.createdAt)}`}
           actions={
             <>
-              <AdminButton disabled title="Có ở UC44.5">
+              <AdminButton disabled title="Tính năng thay quản lý đào tạo chưa hoạt động.">
                 Thay quản lý đào tạo
               </AdminButton>
-              <AdminButton danger disabled title="Có ở UC44.3">
+              <AdminButton danger disabled title="Tính năng tạm khóa tổ chức chưa hoạt động.">
                 Tạm khóa
               </AdminButton>
             </>

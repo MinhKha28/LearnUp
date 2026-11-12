@@ -354,7 +354,7 @@ const LayoutOrganizer = () => {
         </Layout.Content>
         <Layout.Footer className="organizer-footer">
           <span>LearnUP</span>
-          <span>Quản lý tổ chức</span>
+          <span>Quản lý đào tạo</span>
         </Layout.Footer>
       </Layout>
     </Layout>

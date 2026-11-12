@@ -77,7 +77,7 @@ const adminMenuItems: MenuItem[] = [
         icon: <ExclamationCircleOutlined aria-hidden="true" />,
         label: (
           <span className="admin-menu-label">
-            Báo cáo đã chuyển cấp xử lý <Badge count={2} />
+            Báo cáo chuyển cấp <Badge count={2} />
           </span>
         ),
       },
@@ -111,6 +111,7 @@ const getPageMeta = (pathname: string) => {
     return ["Quản trị nền tảng", "Tạo gói dịch vụ"];
   if (pathname.includes("plans/") && pathname.endsWith("edit"))
     return ["Quản trị nền tảng", "Sửa gói dịch vụ"];
+  if (pathname === "/admin/notifications") return ["Quản trị nền tảng", "Thông báo"];
   if (pathname === "/admin/plans") return ["Quản trị nền tảng", "Gói dịch vụ"];
   if (pathname.includes("reports/")) return ["Quản trị nền tảng", "Chi tiết báo cáo"];
   if (pathname === "/admin/reports")
@@ -125,7 +126,7 @@ const getPageMeta = (pathname: string) => {
     return ["Quản trị nền tảng", "Tổ chức bị tạm khóa"];
   if (pathname === "/admin/profile/change-password")
     return ["Quản trị nền tảng", "Đổi mật khẩu"];
-  if (pathname === "/admin/profile/edit") return ["Quản trị nền tảng", "Chỉnh sửa hồ sơ"];
+  if (pathname === "/admin/profile/edit") return ["Quản trị nền tảng", "Sửa hồ sơ"];
   if (pathname === "/admin/profile") return ["Quản trị nền tảng", "Hồ sơ"];
   return ["Quản trị nền tảng", "Tổ chức"];
 };
@@ -239,7 +240,7 @@ const LayoutAdmin = () => {
                 <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
                 <span>
                   <strong>{displayName}</strong>
-                  <small>Quản trị viên</small>
+                  <small>Quản trị viên nền tảng</small>
                 </span>
               </button>
             </Dropdown>

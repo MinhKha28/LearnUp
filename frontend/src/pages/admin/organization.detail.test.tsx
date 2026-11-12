@@ -127,6 +127,8 @@ describe("UC44.1 Admin organization detail page", () => {
 
     expect((screen.getByRole("button", { name: "Thay quản lý đào tạo" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Tạm khóa" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Thay quản lý đào tạo" }).title).toBe("Tính năng thay quản lý đào tạo chưa hoạt động.");
+    expect(screen.getByRole("button", { name: "Tạm khóa" }).title).toBe("Tính năng tạm khóa tổ chức chưa hoạt động.");
   });
 
   it.each([400, 404])("answers %i as not found, with the way back to the list", async (statusCode) => {
