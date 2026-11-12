@@ -264,10 +264,10 @@ export default function HomePage() {
             </span>
           </div>
           {[
-            ["Chương 01 \u2022 Nền tảng an toàn", "chương"],
-            ["Bài học \u2022 An toàn khi làm việc", "bài học"],
-            ["Bài trắc nghiệm \u2022 Kiểm tra hiểu biết", "bài trắc nghiệm"],
-            ["Bài tập \u2022 Áp dụng quy trình", "bài tập"],
+            ["Chương 01 \u2022 Nền tảng an toàn", "Chương"],
+            ["Bài học \u2022 An toàn khi làm việc", "Bài học"],
+            ["Bài trắc nghiệm \u2022 Kiểm tra hiểu biết", "Bài trắc nghiệm"],
+            ["Bài tập \u2022 Áp dụng quy trình", "Bài tập"],
           ].map(([item, type], index) => (
             <div className="home-course-row" key={item}>
               <i className={`home-course-dot home-course-dot-${index}`} />

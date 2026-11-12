@@ -68,6 +68,14 @@
     background: #dc2626;
 }
 
+/* The dark primary background above would also apply to a disabled button and hide its text; disabled buttons use the
+   same neutral look as the other disabled buttons instead. */
+.organizer-button.ant-btn-primary:disabled {
+    border-color: var(--color-border);
+    background: var(--color-surface-secondary);
+    color: var(--color-text-secondary);
+}
+
 .organizer-section-card {
     overflow: hidden;
     padding: 20px;
