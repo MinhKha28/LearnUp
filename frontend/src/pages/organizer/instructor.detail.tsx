@@ -170,7 +170,7 @@ const InstructorDetail = () => {
         <Alert
           type="warning"
           showIcon
-          message="Không tìm thấy Giảng viên"
+          message="Không tìm thấy giảng viên"
           description="Giảng viên này không tồn tại hoặc không còn thuộc tổ chức của bạn."
           action={
             <Link to="/organizer/instructors">
@@ -185,7 +185,7 @@ const InstructorDetail = () => {
         <Alert
           type="error"
           showIcon
-          message="Không thể tải thông tin Giảng viên."
+          message="Không thể tải thông tin giảng viên."
           description="Vui lòng kiểm tra kết nối và thử lại."
           action={
             <Button onClick={() => setReloadKey((key) => key + 1)}>
@@ -246,8 +246,8 @@ const InstructorDetail = () => {
             <Alert
               type="warning"
               showIcon
-              message="Không thể tải Khóa học phụ trách"
-              description="Tạm thời không xem được thông tin Khóa học. Vui lòng thử lại sau."
+              message="Không thể tải khóa học phụ trách"
+              description="Tạm thời không xem được thông tin khóa học. Vui lòng thử lại sau."
             />
           ) : (
             <Table<IManagedCourseChain>
@@ -261,7 +261,7 @@ const InstructorDetail = () => {
                 emptyText: (
                   <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="Chưa phụ trách Khóa học nào"
+                    description="Chưa phụ trách khóa học nào"
                   />
                 ),
               }}
@@ -282,8 +282,8 @@ const InstructorDetail = () => {
   return (
     <OrganizerPage className="organizer-instructor-detail">
       <PageHeader
-        title="Chi tiết Giảng viên"
-        subtitle="Tài khoản, Khóa học phụ trách và lịch sử vi phạm đã xác nhận."
+        title="Chi tiết giảng viên"
+        subtitle="Tài khoản, khóa học phụ trách và lịch sử vi phạm đã xác nhận."
         back
         actions={headerActions}
       />

@@ -131,8 +131,8 @@ const LearnerEdit = () => {
       if (res.data?.id) {
         message.success(
           res.data.invitationResent
-            ? `Đã cập nhật thông tin Học viên. Lời mời mới sẽ được gửi đến ${res.data.email}.`
-            : "Đã cập nhật thông tin Học viên.",
+            ? `Đã cập nhật thông tin học viên. Lời mời mới sẽ được gửi đến ${res.data.email}.`
+            : "Đã cập nhật thông tin học viên.",
         );
         navigate(detailPath);
       } else {
@@ -161,13 +161,13 @@ const LearnerEdit = () => {
         return;
       case "ACCOUNT_ALREADY_ACTIVATED":
         setSubmitError(
-          "Tài khoản vừa được kích hoạt. Tên và email hiện do Học viên quản lý.",
+          "Tài khoản vừa được kích hoạt. Tên và email hiện do học viên quản lý.",
         );
         setReloadKey((key) => key + 1);
         return;
       case "CONCURRENT_UPDATE":
         setSubmitError(
-          "Thông tin Học viên vừa được cập nhật. Vui lòng tải lại và thử lại.",
+          "Thông tin học viên vừa được cập nhật. Vui lòng tải lại và thử lại.",
         );
         setReloadKey((key) => key + 1);
         return;
@@ -177,16 +177,16 @@ const LearnerEdit = () => {
         return;
       case "ORGANIZATION_NOT_ACTIVE":
         setSubmitError(
-          "Tổ chức đang bị tạm ngưng. Không thể cập nhật thông tin Học viên.",
+          "Tổ chức đang bị tạm ngưng. Không thể cập nhật thông tin học viên.",
         );
         return;
       case "SUBSCRIPTION_NOT_ACTIVE":
         setSubmitError(
-          "Gói dịch vụ chưa hoạt động. Không thể cập nhật thông tin Học viên.",
+          "Gói dịch vụ chưa hoạt động. Không thể cập nhật thông tin học viên.",
         );
         return;
       case "FORBIDDEN":
-        setSubmitError("Bạn không có quyền cập nhật thông tin Học viên.");
+        setSubmitError("Bạn không có quyền cập nhật thông tin học viên.");
         return;
       default:
         setSubmitError(
@@ -210,7 +210,7 @@ const LearnerEdit = () => {
         <Alert
           type="warning"
           showIcon
-          message="Không tìm thấy Học viên"
+          message="Không tìm thấy học viên"
           description="Học viên này không tồn tại hoặc không còn thuộc tổ chức của bạn."
           action={
             <Link to="/organizer/learners">
@@ -225,7 +225,7 @@ const LearnerEdit = () => {
         <Alert
           type="error"
           showIcon
-          message="Không thể tải thông tin Học viên."
+          message="Không thể tải thông tin học viên."
           description="Vui lòng kiểm tra kết nối và thử lại."
           action={
             <Button onClick={() => setReloadKey((key) => key + 1)}>
@@ -237,10 +237,10 @@ const LearnerEdit = () => {
     }
 
     const lockedHint = activated
-      ? "Do Học viên quản lý sau khi kích hoạt."
+      ? "Do học viên quản lý sau khi kích hoạt."
       : undefined;
     return (
-      <SectionCard title="Thông tin Học viên">
+      <SectionCard title="Thông tin học viên">
         <Form<LearnerFields>
           // Tải lại thì dựng lại form theo dữ liệu mới
           key={reloadKey}
@@ -334,7 +334,7 @@ const LearnerEdit = () => {
   return (
     <OrganizerPage className="organizer-learner-edit">
       <PageHeader
-        title="Chỉnh sửa Học viên"
+        title="Chỉnh sửa học viên"
         subtitle="Bạn có thể đổi tên và email trước khi tài khoản được kích hoạt, và cập nhật đơn vị công tác bất cứ lúc nào."
         back
         actions={

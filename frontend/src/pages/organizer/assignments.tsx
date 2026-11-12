@@ -141,10 +141,10 @@ const Assignments = () => {
       {summary && <Alert type="success" showIcon message={summary} closable />}
       <PageHeader
         title="Phân công đào tạo"
-        subtitle="Theo dõi các Khóa học bắt buộc trong tổ chức."
+        subtitle="Theo dõi các khóa học bắt buộc trong tổ chức."
         actions={
           <Link to="/organizer/assignments/assign">
-            <Button type="primary">Phân công Khóa học</Button>
+            <Button type="primary">Phân công khóa học</Button>
           </Link>
         }
       />
@@ -166,9 +166,9 @@ const Assignments = () => {
             <Button onClick={clearFilters}>Xóa bộ lọc</Button>
           </Empty>
         ) : query.status === "success" && query.data.total === 0 ? (
-          <Empty description="Chưa có phân công Khóa học nào">
+          <Empty description="Chưa có phân công khóa học nào">
             <Link to="/organizer/assignments/assign">
-              <Button type="primary">Phân công Khóa học</Button>
+              <Button type="primary">Phân công khóa học</Button>
             </Link>
           </Empty>
         ) : (

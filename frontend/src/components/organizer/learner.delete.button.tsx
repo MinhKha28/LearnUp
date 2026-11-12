@@ -54,7 +54,7 @@ export const LearnerDeleteButton = ({
           message.info(`${fullName} đã bị xóa trước đó.`);
         } else {
           message.success(
-            `Đã xóa ${fullName}. Còn ${result.seats.remaining} trên ${result.seats.max} suất Học viên.`,
+            `Đã xóa ${fullName}. Còn ${result.seats.remaining} trên ${result.seats.max} suất học viên.`,
           );
         }
         close();
@@ -83,7 +83,7 @@ export const LearnerDeleteButton = ({
       </OrganizerButton>
       <Modal
         open={open}
-        title="Xóa Học viên?"
+        title="Xóa học viên?"
         okText="Xóa"
         okButtonProps={{ danger: true, loading: submitting }}
         cancelText="Hủy"

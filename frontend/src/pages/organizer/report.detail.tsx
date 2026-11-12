@@ -73,8 +73,8 @@ const ReportDetail = () => {
   return (
     <OrganizerPage className="organizer-report-detail">
       <PageHeader
-        title="Báo cáo Khóa học"
-        subtitle="Trạng thái đào tạo bắt buộc theo Khóa học."
+        title="Báo cáo khóa học"
+        subtitle="Trạng thái đào tạo bắt buộc theo khóa học."
         back
         actions={<OrganizerButton type="primary">Xuất báo cáo</OrganizerButton>}
       />

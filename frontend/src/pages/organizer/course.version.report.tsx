@@ -50,7 +50,7 @@ const CourseVersionReport = () => {
     },
     { title: "Chứng chỉ", dataIndex: "certificates" },
     { title: "Học viên hiện tại", dataIndex: "currentLearners" },
-    { title: "Người có Chứng chỉ phiên bản cũ", dataIndex: "holdersOfOldCert" },
+    { title: "Người có chứng chỉ phiên bản cũ", dataIndex: "holdersOfOldCert" },
   ];
   const holderColumns: ColumnsType<CertificateHolderRow> = [
     { title: "Học viên", dataIndex: "learner" },
@@ -68,7 +68,7 @@ const CourseVersionReport = () => {
     <OrganizerPage className="organizer-course-version-report">
       <PageHeader
         title="Báo cáo phiên bản"
-        subtitle="Theo dõi Chứng chỉ và Học viên qua các phiên bản Khóa học."
+        subtitle="Theo dõi chứng chỉ và học viên qua các phiên bản khóa học."
         back
         actions={<OrganizerButton type="primary">Xuất báo cáo</OrganizerButton>}
       />
@@ -76,10 +76,10 @@ const CourseVersionReport = () => {
         <span className="organizer-note organizer-course-version-report-label">Chuỗi phiên bản</span>
         <Table className="organizer-table" columns={versionColumns} dataSource={versions} pagination={false} />
         <WarningPanel title="Chứng chỉ của phiên bản đã lưu trữ">
-          42 Học viên có Chứng chỉ của phiên bản 1 đã lưu trữ. Quản lý đào tạo có thể quyết định phân công học phiên bản 2.
+          42 học viên có chứng chỉ của phiên bản 1 đã lưu trữ. Quản lý đào tạo có thể quyết định phân công học phiên bản 2.
         </WarningPanel>
       </SectionCard>
-      <SectionCard title="Học viên có Chứng chỉ của phiên bản cũ">
+      <SectionCard title="Học viên có chứng chỉ của phiên bản cũ">
         <Table className="organizer-table" columns={holderColumns} dataSource={certificateHolders} pagination={false} />
       </SectionCard>
     </OrganizerPage>

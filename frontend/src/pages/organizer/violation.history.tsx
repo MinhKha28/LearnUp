@@ -43,18 +43,18 @@ const ViolationHistory = () => {
     <OrganizerPage className="organizer-violation-history">
       <PageHeader
         title="Lịch sử vi phạm"
-        subtitle="Vi phạm đã xác nhận theo Giảng viên. Dữ liệu dùng để hỗ trợ ra quyết định xử lý."
+        subtitle="Vi phạm đã xác nhận theo giảng viên. Dữ liệu dùng để hỗ trợ ra quyết định xử lý."
         actions={
           <Link to="/organizer/content-reports">
             <OrganizerButton>Báo cáo nội dung</OrganizerButton>
           </Link>
         }
       />
-      <SectionCard title="Vi phạm của Giảng viên">
+      <SectionCard title="Vi phạm của giảng viên">
         <Table className="organizer-table" columns={columns} dataSource={rows} pagination={false} />
       </SectionCard>
       <WarningPanel title="Trần An đã chạm ngưỡng cảnh báo">
-        Cảnh báo này không tự động dừng hoạt động của Giảng viên hay bất kỳ Khóa học nào.
+        Cảnh báo này không tự động dừng hoạt động của giảng viên hay bất kỳ khóa học nào.
       </WarningPanel>
     </OrganizerPage>
   );

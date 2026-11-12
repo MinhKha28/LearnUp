@@ -46,7 +46,7 @@ const CourseApprovals = () => {
       ) {
         setCourses([]);
         setTotal(0);
-        setErrorMessage("Không thể tải danh sách Khóa học chờ phê duyệt.");
+        setErrorMessage("Không thể tải danh sách khóa học chờ phê duyệt.");
         return;
       }
 
@@ -56,7 +56,7 @@ const CourseApprovals = () => {
     } catch {
       setCourses([]);
       setTotal(0);
-      setErrorMessage("Tạm thời không thể truy cập thông tin Khóa học.");
+      setErrorMessage("Tạm thời không thể truy cập thông tin khóa học.");
     } finally {
       setLoading(false);
     }
@@ -125,10 +125,10 @@ const CourseApprovals = () => {
     <OrganizerPage className="organizer-course-approvals">
       <PageHeader
         title="Khóa học chờ phê duyệt"
-        subtitle="Xem xét các Khóa học đang chờ phê duyệt."
+        subtitle="Xem xét các khóa học đang chờ phê duyệt."
         actions={
           <Link to="/organizer/courses">
-            <OrganizerButton>Tất cả Khóa học</OrganizerButton>
+            <OrganizerButton>Tất cả khóa học</OrganizerButton>
           </Link>
         }
       />
@@ -146,14 +146,14 @@ const CourseApprovals = () => {
         />
       )}
 
-      <SectionCard title={`${total} Khóa học chờ phê duyệt`}>
+      <SectionCard title={`${total} khóa học chờ phê duyệt`}>
         <Table
           rowKey="id"
           className="organizer-table"
           columns={columns}
           dataSource={courses}
           loading={loading}
-          locale={{ emptyText: "Không có Khóa học nào chờ phê duyệt." }}
+          locale={{ emptyText: "Không có khóa học nào chờ phê duyệt." }}
           pagination={{
             current,
             pageSize,

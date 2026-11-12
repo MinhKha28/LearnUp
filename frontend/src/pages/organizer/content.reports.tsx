@@ -24,9 +24,9 @@ type Report = {
 
 const reports: Report[] = [
   { key: "rep-220", id: "REP-220", content: "Tài liệu đọc: Các bước bị khóa", instructor: "Trần An", status: "Pending", deadline: "8 giờ", mine: false },
-  { key: "rep-217", id: "REP-217", content: "Câu 6 của Bài trắc nghiệm", instructor: "Linh Phan", status: "Pending", deadline: "1 ngày", mine: false },
-  { key: "rep-216", id: "REP-216", content: "Yêu cầu Bài tập", instructor: "Giao Lê", status: "Resolved", deadline: "Đã đóng", mine: true, result: "Đã xác nhận vi phạm" },
-  { key: "rep-164", id: "REP-164", content: "Video Bài học", instructor: "Vy Nguyễn", status: "Resolved", deadline: "Đã đóng", mine: true, result: "Không có vi phạm" },
+  { key: "rep-217", id: "REP-217", content: "Câu 6 của bài trắc nghiệm", instructor: "Linh Phan", status: "Pending", deadline: "1 ngày", mine: false },
+  { key: "rep-216", id: "REP-216", content: "Yêu cầu bài tập", instructor: "Giao Lê", status: "Resolved", deadline: "Đã đóng", mine: true, result: "Đã xác nhận vi phạm" },
+  { key: "rep-164", id: "REP-164", content: "Video bài học", instructor: "Vy Nguyễn", status: "Resolved", deadline: "Đã đóng", mine: true, result: "Không có vi phạm" },
 ];
 
 const reportStatusText: Record<Report["status"], string> = {

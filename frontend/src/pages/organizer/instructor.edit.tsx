@@ -130,8 +130,8 @@ const InstructorEdit = () => {
       if (res.data?.id) {
         message.success(
           res.data.invitationResent
-            ? `Đã cập nhật thông tin Giảng viên. Lời mời mới sẽ được gửi đến ${res.data.email}.`
-            : "Đã cập nhật thông tin Giảng viên.",
+            ? `Đã cập nhật thông tin giảng viên. Lời mời mới sẽ được gửi đến ${res.data.email}.`
+            : "Đã cập nhật thông tin giảng viên.",
         );
         navigate(detailPath);
       } else {
@@ -160,13 +160,13 @@ const InstructorEdit = () => {
         return;
       case "ACCOUNT_ALREADY_ACTIVATED":
         setSubmitError(
-          "Tài khoản vừa được kích hoạt. Tên và email hiện do Giảng viên quản lý.",
+          "Tài khoản vừa được kích hoạt. Tên và email hiện do giảng viên quản lý.",
         );
         setReloadKey((key) => key + 1);
         return;
       case "CONCURRENT_UPDATE":
         setSubmitError(
-          "Thông tin Giảng viên vừa được cập nhật. Vui lòng tải lại và thử lại.",
+          "Thông tin giảng viên vừa được cập nhật. Vui lòng tải lại và thử lại.",
         );
         setReloadKey((key) => key + 1);
         return;
@@ -176,16 +176,16 @@ const InstructorEdit = () => {
         return;
       case "ORGANIZATION_NOT_ACTIVE":
         setSubmitError(
-          "Tổ chức đang bị tạm ngưng. Không thể cập nhật thông tin Giảng viên.",
+          "Tổ chức đang bị tạm ngưng. Không thể cập nhật thông tin giảng viên.",
         );
         return;
       case "SUBSCRIPTION_NOT_ACTIVE":
         setSubmitError(
-          "Gói dịch vụ chưa hoạt động. Không thể cập nhật thông tin Giảng viên.",
+          "Gói dịch vụ chưa hoạt động. Không thể cập nhật thông tin giảng viên.",
         );
         return;
       case "FORBIDDEN":
-        setSubmitError("Bạn không có quyền cập nhật thông tin Giảng viên.");
+        setSubmitError("Bạn không có quyền cập nhật thông tin giảng viên.");
         return;
       default:
         setSubmitError(
@@ -209,7 +209,7 @@ const InstructorEdit = () => {
         <Alert
           type="warning"
           showIcon
-          message="Không tìm thấy Giảng viên"
+          message="Không tìm thấy giảng viên"
           description="Giảng viên này không tồn tại hoặc không còn thuộc tổ chức của bạn."
           action={
             <Link to="/organizer/instructors">
@@ -224,7 +224,7 @@ const InstructorEdit = () => {
         <Alert
           type="error"
           showIcon
-          message="Không thể tải thông tin Giảng viên."
+          message="Không thể tải thông tin giảng viên."
           description="Vui lòng kiểm tra kết nối và thử lại."
           action={
             <Button onClick={() => setReloadKey((key) => key + 1)}>
@@ -236,10 +236,10 @@ const InstructorEdit = () => {
     }
 
     const lockedHint = activated
-      ? "Do Giảng viên quản lý sau khi kích hoạt."
+      ? "Do giảng viên quản lý sau khi kích hoạt."
       : undefined;
     return (
-      <SectionCard title="Thông tin Giảng viên">
+      <SectionCard title="Thông tin giảng viên">
         <Form<InstructorFields>
           // Tải lại thì dựng lại form theo dữ liệu mới
           key={reloadKey}
@@ -333,7 +333,7 @@ const InstructorEdit = () => {
   return (
     <OrganizerPage className="organizer-instructor-edit">
       <PageHeader
-        title="Chỉnh sửa Giảng viên"
+        title="Chỉnh sửa giảng viên"
         subtitle="Bạn có thể đổi tên và email trước khi tài khoản được kích hoạt, và cập nhật đơn vị công tác bất cứ lúc nào."
         back
         actions={

@@ -92,7 +92,7 @@ const LearnerCreate = () => {
       });
       if (res.data?.id) {
         message.success(
-          `Đã tạo tài khoản Học viên. Email mời sẽ được gửi đến ${res.data.email}.`,
+          `Đã tạo tài khoản học viên. Email mời sẽ được gửi đến ${res.data.email}.`,
         );
         navigate(LIST_PATH);
       } else {
@@ -118,7 +118,7 @@ const LearnerCreate = () => {
         return;
       case "SEAT_LIMIT_REACHED":
         setSubmitError(
-          "Đã dùng hết suất Học viên. Hãy giải phóng một suất hoặc nâng cấp Gói dịch vụ để thêm Học viên.",
+          "Đã dùng hết suất học viên. Hãy giải phóng một suất hoặc nâng cấp gói dịch vụ để thêm học viên.",
         );
         setSeatsKey((key) => key + 1);
         return;
@@ -135,7 +135,7 @@ const LearnerCreate = () => {
         setSeatsKey((key) => key + 1);
         return;
       case "FORBIDDEN":
-        setSubmitError("Bạn không có quyền thêm Học viên.");
+        setSubmitError("Bạn không có quyền thêm học viên.");
         return;
       default:
         setSubmitError(
@@ -147,8 +147,8 @@ const LearnerCreate = () => {
   return (
     <OrganizerPage className="organizer-instructor-create">
       <PageHeader
-        title="Thêm Học viên"
-        subtitle="Tạo lời mời để Học viên tự đặt mật khẩu."
+        title="Thêm học viên"
+        subtitle="Tạo lời mời để học viên tự đặt mật khẩu."
         actions={
           <>
             <OrganizerButton onClick={() => navigate(LIST_PATH)}>
@@ -223,7 +223,7 @@ const LearnerCreate = () => {
                   {seatsLoading
                     ? "Đang kiểm tra số suất còn lại…"
                     : seats
-                      ? `Còn ${seats.remaining} suất Học viên (đã dùng ${seats.used}/${seats.max})`
+                      ? `Còn ${seats.remaining} suất học viên (đã dùng ${seats.used}/${seats.max})`
                       : "Chưa có thông tin về số suất tài khoản"}
                 </strong>
               </div>
@@ -233,7 +233,7 @@ const LearnerCreate = () => {
             <Alert
               type="warning"
               showIcon
-              message="Hiện không thể thêm Học viên."
+              message="Hiện không thể thêm học viên."
               description={blockedReason}
             />
           ) : (

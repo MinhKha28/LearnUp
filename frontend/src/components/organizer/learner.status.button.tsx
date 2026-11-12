@@ -97,7 +97,7 @@ export const LearnerStatusButton = ({
       </OrganizerButton>
       <Modal
         open={open}
-        title={isDeactivate ? "Vô hiệu hóa Học viên?" : "Kích hoạt lại Học viên?"}
+        title={isDeactivate ? "Vô hiệu hóa học viên?" : "Kích hoạt lại học viên?"}
         okText={isDeactivate ? "Vô hiệu hóa" : "Kích hoạt lại"}
         okButtonProps={{ danger: isDeactivate, loading: submitting }}
         cancelText="Hủy"
