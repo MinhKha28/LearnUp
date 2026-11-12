@@ -41,7 +41,10 @@ import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
 import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
 import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
 import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
-import { extractReadingText } from './reading-text-extractor';
+import {
+  extractReadingText,
+  resolveReadingParseLimits,
+} from './reading-text-extractor';
 import { AssessmentClient } from '@/infrastructure/clients/assessment/assessment.client';
 import { NotificationClient } from '@/infrastructure/clients/notification/notification.client';
 import { assertCourseNotInTrash, getPurgeAt } from './course-trash.constants';
@@ -63,6 +66,9 @@ export class CoursesService {
     @Inject(STORAGE_PROVIDER)
     private readonly storage: IReadableStorageProvider,
   ) {}
+
+  // Đọc một lần khi khởi tạo; cấu hình sai thì service không khởi động.
+  private readonly readingParseLimits = resolveReadingParseLimits(process.env);
 
   private running = false;
 
@@ -1565,7 +1571,10 @@ export class CoursesService {
     let extraction: Awaited<ReturnType<typeof extractReadingText>>;
 
     try {
-      extraction = await extractReadingText(file.buffer);
+      extraction = await extractReadingText(
+        file.buffer,
+        this.readingParseLimits,
+      );
     } catch {
       throw new BadRequestException(
         'Unable to read PDF. The file may be corrupted or password-protected.',
@@ -2303,7 +2312,10 @@ export class CoursesService {
 
       // Trích xuất word count.
       try {
-        const extraction = await extractReadingText(file.buffer);
+        const extraction = await extractReadingText(
+          file.buffer,
+          this.readingParseLimits,
+        );
 
         wordCount = extraction.wordCount;
         extractionWarning = extraction.extractionWarning;
