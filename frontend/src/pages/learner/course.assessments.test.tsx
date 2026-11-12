@@ -280,3 +280,14 @@ describe("the list of assessments", () => {
     ).toBeTruthy();
   });
 });
+
+it.each([
+  ["NOT_ENROLLED", "Bạn chưa đăng ký khóa học này."],
+  ["NEW_CODE", "Không thực hiện được thao tác. Vui lòng thử lại."],
+  [undefined, "Không thực hiện được thao tác. Vui lòng thử lại."],
+])("shows a Vietnamese assessment load error for %s", async (code, expected) => {
+  list.mockResolvedValueOnce({ error: { code, message: "Internal English text" } } as never);
+  open();
+  await screen.findByText(expected);
+  expect(screen.queryByText("Internal English text")).toBeNull();
+});

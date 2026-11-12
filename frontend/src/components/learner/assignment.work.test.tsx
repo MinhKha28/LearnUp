@@ -156,10 +156,10 @@ describe("the size limit of the file comes from the API (maxFileBytes)", () => {
     it(`${mode}: a file one byte over the limit is refused on selection, in Vietnamese`, async () => {
       mount(mode);
       await screen.findByPlaceholderText("Viết câu trả lời của bạn tại đây...");
-      expect(screen.getByText(/tối đa 10.0 MB/)).toBeTruthy(); // the hint shows the limit of the API, not 50 MB
+      expect(screen.getByText(/tối đa 10 MB/)).toBeTruthy(); // the hint shows the limit of the API, not 50 MB
       pick("big.pdf", 10 * 1024 * 1024 + 1);
       // antd keeps the message of the previous test in the page, so there can be more than one
-      expect((await screen.findAllByText("Tệp quá lớn. Dung lượng tối đa là 10.0 MB.")).length).toBeGreaterThan(0);
+      expect((await screen.findAllByText("Tệp quá lớn. Dung lượng tối đa là 10 MB.")).length).toBeGreaterThan(0);
       expect(screen.queryByText("big.pdf")).toBeNull();
     });
 
@@ -176,6 +176,37 @@ describe("the size limit of the file comes from the API (maxFileBytes)", () => {
     await screen.findByPlaceholderText("Viết câu trả lời của bạn tại đây...");
     const file = new File(["MZ"], "virus.exe");
     fireEvent.change(fileInput(), { target: { files: [file] } });
-    await screen.findByText("Tệp phải là PDF, DOCX hoặc ZIP, tối đa 10.0 MB.");
+    await screen.findByText("Tệp phải là PDF, DOCX hoặc ZIP, tối đa 10 MB.");
   });
+});
+
+it.each(["submit", "resubmit"] as const)("maps known and unknown assignment errors on %s", async (mode) => {
+  const request = vi.mocked(api.fetchLearnerAssignmentAPI);
+  request.mockResolvedValueOnce(refused("ASSIGNMENT_NOT_FOUND") as never);
+  mount(mode);
+  await screen.findByText("Không tìm thấy bài tập.");
+  expect(screen.queryByText("An English message.")).toBeNull();
+  cleanup();
+  request.mockResolvedValueOnce(refused("NEW_CODE") as never);
+  mount(mode);
+  await screen.findByText("Không thực hiện được thao tác. Vui lòng thử lại.");
+  expect(screen.queryByText("An English message.")).toBeNull();
+});
+
+it("formats fractional upload limits with the Vietnamese decimal separator", async () => {
+  vi.mocked(api.fetchLearnerAssignmentAPI).mockResolvedValueOnce({
+    statusCode: 200,
+    data: { ...assignment, maxFileBytes: 10.5 * 1024 ** 2 },
+  } as never);
+  mount("resubmit");
+  await screen.findByText("PDF, DOCX hoặc ZIP, tối đa 10,5 MB. Một tệp.");
+});
+
+it("maps a server-side upload limit rejection without showing the server message", async () => {
+  vi.mocked(api.resubmitAssignmentAPI).mockResolvedValueOnce(refused("FILE_TOO_LARGE") as never);
+  mount("resubmit");
+  await typeDraft();
+  fireEvent.click(sendButton());
+  await screen.findByText("Tệp vượt quá dung lượng cho phép.");
+  expect(screen.queryByText("An English message.")).toBeNull();
 });

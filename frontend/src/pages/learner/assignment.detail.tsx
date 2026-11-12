@@ -59,7 +59,7 @@ const AssignmentDetail = () => {
         >
           {assignment.grading ? (
             <p>
-              Điểm cuối cùng: <strong>{assignment.grading.finalScore}%</strong> (tối thiểu{" "}
+              Điểm cuối cùng: <strong>{assignment.grading.finalScore}%</strong> (điểm đạt tối thiểu{" "}
               {assignment.grading.passThreshold}%)
             </p>
           ) : (
@@ -84,7 +84,7 @@ const AssignmentDetail = () => {
             <StatusTag tone="success">{grading.published ? "Đã công bố" : "Đang chờ"}</StatusTag>
             <div className="assignment-result-stats">
               <StatCard label="Điểm cuối cùng" value={`${grading.finalScore}%`} />
-              <StatCard label="Điểm tối thiểu" value={`${grading.passThreshold}%`} />
+              <StatCard label="Điểm đạt tối thiểu" value={`${grading.passThreshold}%`} />
             </div>
           </div>
           <div className="assignment-rubric-card">
@@ -137,9 +137,9 @@ const AssignmentDetail = () => {
               <p key={line}>{line}</p>
             ))}
             <hr />
-            <h3>Tiêu chí đánh giá</h3>
+            <h3>Yêu cầu</h3>
             <p>Tiêu chí chấm điểm: {assignment.rubric}</p>
-            <p>Điểm tối thiểu: {assignment.minScore}%</p>
+            <p>Điểm đạt tối thiểu: {assignment.minScore}%</p>
             <p>Thời gian dự kiến: {assignment.estimatedEffort}</p>
             <InfoPanel title="Quy định nộp bài">
               Bài tập không có hạn nộp riêng. Hệ thống ghi nhận bài nộp gần nhất.
@@ -177,7 +177,7 @@ const AssignmentDetail = () => {
               >
                 {assignmentStatusLabel(assignment.status)}
               </StatusTag>
-              <DetailItem label="Số lượt nộp liên tiếp còn lại">
+              <DetailItem label="Số lượt còn lại trước khi tạm khóa">
                 {assignment.attemptsRemaining}
               </DetailItem>
               {assignment.submission && (

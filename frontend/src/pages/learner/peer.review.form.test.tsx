@@ -460,3 +460,13 @@ describe("UC31 reading a review that is done or closed", () => {
     click.mockRestore();
   });
 });
+
+it("uses the generic Vietnamese message for an unknown review load error", async () => {
+  vi.mocked(api.fetchLearnerPeerReviewAPI).mockResolvedValueOnce({
+    statusCode: 400,
+    error: { code: "NEW_CODE", message: "Internal English text" },
+  } as never);
+  renderPage();
+  await screen.findByText("Không thực hiện được thao tác. Vui lòng thử lại.");
+  expect(screen.queryByText("Internal English text")).toBeNull();
+});

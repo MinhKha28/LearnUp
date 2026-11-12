@@ -66,6 +66,18 @@ describe("the result of an Assignment", () => {
     renderPage();
     await screen.findByText("Chưa có kết quả");
     expect(screen.getByText("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Quay lại Bài trắc nghiệm và Bài tập" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Quay lại bài đánh giá" })).toBeTruthy();
   });
+});
+
+it.each([
+  ["SUBMISSION_NOT_FINALIZED", "Bài nộp đang được chấm. Chưa có kết quả."],
+  ["NEW_CODE", "Không thực hiện được thao tác. Vui lòng thử lại."],
+])("shows a Vietnamese result error for %s", async (code, expected) => {
+  vi.mocked(api.fetchLearnerResultAPI).mockResolvedValueOnce({
+    error: { code, message: "Internal English text" },
+  } as never);
+  renderPage();
+  await screen.findByText(expected);
+  expect(screen.queryByText("Internal English text")).toBeNull();
 });

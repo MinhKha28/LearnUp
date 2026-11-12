@@ -1,3 +1,4 @@
+import { LEARNER_API_ERROR_FALLBACK } from "@/utils/learner.api.errors";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Modal, Spin } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
@@ -86,7 +87,7 @@ const QuizTake = () => {
         setLoadError(
           quizErrorText(
             assessmentErrorCode(res).code,
-            "Không tải được bài trắc nghiệm.",
+            LEARNER_API_ERROR_FALLBACK,
           ),
         );
     } catch {
@@ -129,7 +130,7 @@ const QuizTake = () => {
         setNotice(
           quizErrorText(
             assessmentErrorCode(res).code,
-            "Không tải được lượt làm bài.",
+            LEARNER_API_ERROR_FALLBACK,
           ),
         );
       } catch {
@@ -177,7 +178,7 @@ const QuizTake = () => {
         setNotice(
           quizErrorText(
             assessmentErrorCode(res).code,
-            "Không bắt đầu được lượt làm bài.",
+            LEARNER_API_ERROR_FALLBACK,
           ),
         );
         await loadQuiz();
@@ -252,7 +253,7 @@ const QuizTake = () => {
       setNotice(
         offline
           ? "Chưa lưu được câu trả lời vì mất kết nối. Hãy chọn lại khi có mạng."
-          : quizErrorText(code, "Chưa lưu được câu trả lời. Hãy chọn lại."),
+          : quizErrorText(code, LEARNER_API_ERROR_FALLBACK),
       );
       if (code && QUIZ_STALE_CODES.includes(code)) await reload(view.attemptId);
     });
@@ -268,7 +269,7 @@ const QuizTake = () => {
       if (res.data) show(res.data);
       else {
         const { code } = assessmentErrorCode(res);
-        setNotice(quizErrorText(code, "Không nộp được bài. Vui lòng thử lại."));
+        setNotice(quizErrorText(code, LEARNER_API_ERROR_FALLBACK));
         if (code === "ENROLLMENT_NOT_ACTIVE") setAttempt(null);
       }
     } catch {

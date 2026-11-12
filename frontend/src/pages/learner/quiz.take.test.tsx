@@ -864,3 +864,10 @@ describe("the words of the glossary", () => {
     expect(document.body.textContent).not.toMatch(/kiểm tra/i);
   });
 });
+
+it("uses the generic Vietnamese message for an unknown quiz load error", async () => {
+  quiz.mockResolvedValueOnce(refused("NEW_CODE"));
+  open();
+  await screen.findByText("Không thực hiện được thao tác. Vui lòng thử lại.");
+  expect(screen.queryByText("English message from the server")).toBeNull();
+});

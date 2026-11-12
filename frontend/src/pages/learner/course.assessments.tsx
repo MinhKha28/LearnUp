@@ -14,7 +14,7 @@ import { formatDateTimeVN } from "@/utils/helper";
 import { LEARNER_ROUTES } from "@/utils/learner.routes";
 import { useApiQuery } from "@/hooks/use.api.query";
 import {
-  assessmentErrorText,
+  learnerAssessmentErrorText,
   fetchLearnerAssessmentsAPI,
 } from "@/services/assessment.service";
 import { fetchCurriculum } from "@/services/learning.service";
@@ -66,10 +66,7 @@ const CourseAssessments = () => {
         if (!active) return;
         // The axios interceptor resolves HTTP errors too, so only res.data tells success apart.
         if (res.data) setList(res.data);
-        else
-          setErrorMessage(
-            assessmentErrorText(res, "Không tải được danh sách bài đánh giá."),
-          );
+        else setErrorMessage(learnerAssessmentErrorText(res));
       } catch {
         if (active)
           setErrorMessage("Không kết nối được với máy chủ. Vui lòng thử lại.");
@@ -291,7 +288,7 @@ const CourseAssessments = () => {
             </table>
           )}
           <p className="course-assessments-footnote">
-            Sau một số lần làm hoặc nộp liên tiếp, bài đánh giá tạm khóa vài giờ
+            Sau một số lần làm hoặc nộp liên tiếp, bài đánh giá tạm khóa trong thời gian giảng viên đã cấu hình
             rồi mở lại và đếm lại từ đầu.
           </p>
         </div>

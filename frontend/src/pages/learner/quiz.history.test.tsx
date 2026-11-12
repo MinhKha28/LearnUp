@@ -288,3 +288,13 @@ describe("the history of a Quiz", () => {
     expect(await screen.findByText("Lượt 2")).toBeTruthy();
   });
 });
+
+it("uses the generic Vietnamese message for an unknown quiz history error", async () => {
+  fetchHistory.mockResolvedValueOnce({
+    statusCode: 400,
+    error: { code: "NEW_CODE", message: "Internal English text" },
+  } as never);
+  open();
+  await screen.findByText("Không thực hiện được thao tác. Vui lòng thử lại.");
+  expect(screen.queryByText("Internal English text")).toBeNull();
+});

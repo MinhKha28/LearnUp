@@ -350,7 +350,7 @@ describe("the history of the reviews", () => {
     } as never);
     open();
     expect(
-      await screen.findByText("Không tải được lịch sử chấm. Vui lòng thử lại."),
+      await screen.findByText("Bạn không có quyền thực hiện thao tác này."),
     ).toBeTruthy();
     load.mockRejectedValueOnce(new Error("offline"));
     fireEvent.click(screen.getByText("Thử lại"));
@@ -363,4 +363,14 @@ describe("the history of the reviews", () => {
     fireEvent.click(screen.getByText("Thử lại"));
     expect(await screen.findByText("Bài nộp 00AB")).toBeTruthy();
   });
+});
+
+it("uses the generic Vietnamese message for an unknown review history error", async () => {
+  load.mockResolvedValueOnce({
+    statusCode: 400,
+    error: { code: "NEW_CODE", message: "Internal English text" },
+  } as never);
+  open();
+  await screen.findByText("Không thực hiện được thao tác. Vui lòng thử lại.");
+  expect(screen.queryByText("Internal English text")).toBeNull();
 });

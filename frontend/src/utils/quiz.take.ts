@@ -1,5 +1,7 @@
 // UC29.1: the small rules of the Quiz screen, apart from the page so that they can be tested without a browser.
 
+import { learnerPlatformErrorText } from "./learner.api.errors";
+
 const MULTIPLE = "MultipleChoice";
 
 export const questionTypeLabel = (type: string) => {
@@ -75,6 +77,8 @@ const QUIZ_ERRORS: Record<string, string> = {
     "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể làm bài trắc nghiệm. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.",
   NOT_ENROLLED: "Bạn chưa ghi danh vào khóa học có bài trắc nghiệm này.",
   QUIZ_NOT_FOUND: "Không tìm thấy bài trắc nghiệm.",
+  ATTEMPT_NOT_CLOSED: "Không nộp được bài. Vui lòng thử lại.",
+  LEARNING_SERVICE_UNAVAILABLE: "Dịch vụ học tập tạm thời gián đoạn. Vui lòng thử lại.",
   ATTEMPT_NOT_FOUND: "Không tìm thấy lượt làm bài.",
   QUIZ_HAS_NO_QUESTIONS:
     "Bài trắc nghiệm này chưa có câu hỏi nào nên chưa thể làm.",
@@ -95,4 +99,7 @@ export const QUIZ_STALE_CODES = ["ATTEMPT_EXPIRED", "ATTEMPT_SUBMITTED"];
 export const quizErrorText = (
   code: string | undefined,
   fallback: string,
-): string => (code && QUIZ_ERRORS[code]) || fallback;
+): string => {
+  if (code && Object.hasOwn(QUIZ_ERRORS, code)) return QUIZ_ERRORS[code];
+  return learnerPlatformErrorText(code) ?? fallback;
+};

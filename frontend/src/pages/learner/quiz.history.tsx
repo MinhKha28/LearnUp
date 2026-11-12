@@ -1,3 +1,4 @@
+import { LEARNER_API_ERROR_FALLBACK } from "@/utils/learner.api.errors";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Spin } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
@@ -43,7 +44,7 @@ const QuizHistory = () => {
         setError(
           quizErrorText(
             assessmentErrorCode(res).code,
-            "Không tải được lịch sử làm bài.",
+            LEARNER_API_ERROR_FALLBACK,
           ),
         );
     } catch {

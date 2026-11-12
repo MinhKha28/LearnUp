@@ -65,7 +65,7 @@ const AssignmentSubmitted = () => {
           </p>
         ) : (
           <p>
-            Số lần nộp còn lại trước khi phải tạm dừng: {attempts.remainingAttempts}/{attempts.maxConsecutiveAttempts}.
+            Số lượt còn lại trước khi tạm khóa: {attempts.remainingAttempts}/{attempts.maxConsecutiveAttempts}.
           </p>
         )}
         <p>Bài nộp mới nhất của bạn sẽ được dùng làm kết quả của bài tập.</p>

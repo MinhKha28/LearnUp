@@ -28,7 +28,7 @@ const Reports = () => {
           <thead>
             <tr>
               <th>Nội dung được báo cáo</th>
-              <th>Đã nộp</th>
+              <th>Ngày gửi</th>
               <th>Trạng thái</th>
               <th>Quyết định</th>
               <th>Thao tác</th>

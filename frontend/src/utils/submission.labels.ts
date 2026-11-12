@@ -47,6 +47,6 @@ export const formatDateTime = formatDateTimeVN;
 
 export const formatFileSize = (bytes?: number | null) => {
   if (!bytes) return "";
-  if (bytes >= 1024 ** 2) return `${+(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return `${+(bytes / 1024).toFixed(1)} KB`;
+  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} MB`;
+  return `${(bytes / 1024).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} KB`;
 };
