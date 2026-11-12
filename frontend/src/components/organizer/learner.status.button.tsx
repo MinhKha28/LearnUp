@@ -66,13 +66,13 @@ export const LearnerStatusButton = ({
         if (!result.changed) {
           message.info(
             action === "DEACTIVATE"
-              ? `${fullName} is already deactivated.`
-              : `${fullName} is already active.`,
+              ? `Tài khoản của ${fullName} đã bị vô hiệu hóa trước đó.`
+              : `Tài khoản của ${fullName} đang hoạt động.`,
           );
         } else if (action === "DEACTIVATE") {
-          message.success(`${fullName} was deactivated.`);
+          message.success(`Đã vô hiệu hóa tài khoản của ${fullName}.`);
         } else {
-          message.success(`${fullName} can sign in again.`);
+          message.success(`${fullName} có thể đăng nhập trở lại.`);
         }
         close();
         onChanged();
@@ -82,7 +82,7 @@ export const LearnerStatusButton = ({
       setSubmitError(learnerStatusErrorMessage(action, code));
       if (learnerStatusShouldReloadPage(code)) onChanged();
     } catch {
-      setSubmitError("Could not connect to the server. Please try again later.");
+      setSubmitError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setSubmitting(false);
     }
@@ -93,14 +93,14 @@ export const LearnerStatusButton = ({
   return (
     <>
       <OrganizerButton danger={isDeactivate} onClick={() => setOpen(true)}>
-        {isDeactivate ? "Deactivate" : "Reactivate"}
+        {isDeactivate ? "Vô hiệu hóa" : "Kích hoạt lại"}
       </OrganizerButton>
       <Modal
         open={open}
-        title={isDeactivate ? "Deactivate learner?" : "Reactivate learner?"}
-        okText={isDeactivate ? "Deactivate" : "Reactivate"}
+        title={isDeactivate ? "Vô hiệu hóa Học viên?" : "Kích hoạt lại Học viên?"}
+        okText={isDeactivate ? "Vô hiệu hóa" : "Kích hoạt lại"}
         okButtonProps={{ danger: isDeactivate, loading: submitting }}
-        cancelText="Cancel"
+        cancelText="Hủy"
         onOk={() => form.submit()}
         onCancel={close}
         destroyOnClose
@@ -108,9 +108,9 @@ export const LearnerStatusButton = ({
         <Form<StatusForm> form={form} layout="vertical" onFinish={submit}>
           {isDeactivate ? (
             <p>
-              {fullName} will no longer be able to sign in. Learning data is
-              kept, enrollments are not counted as overdue, and the seat is not
-              released.
+              {fullName} sẽ không thể đăng nhập. Dữ liệu học tập vẫn được giữ lại,
+              các lượt ghi danh không bị tính là quá hạn và suất tài khoản không
+              được giải phóng.
             </p>
           ) : (
             <p>
@@ -118,7 +118,7 @@ export const LearnerStatusButton = ({
               courses.
             </p>
           )}
-          <Form.Item name="reason" label="Reason (optional)">
+          <Form.Item name="reason" label="Lý do (không bắt buộc)">
             <Input.TextArea rows={3} maxLength={1000} showCount />
           </Form.Item>
           {submitError && (

@@ -63,8 +63,8 @@ function open() {
 describe("UC21.3 review decisions", () => {
   it("cancels approval without sending a request", async () => {
     open();
-    fireEvent.click(await screen.findByRole("button", { name: "Approve Course" }));
-    expect(await screen.findByText("Approve Course", { selector: ".ant-modal-title" })).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Phê duyệt Khóa học" }));
+    expect(await screen.findByText("Phê duyệt Khóa học", { selector: ".ant-modal-title" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(approveCourseAPI).not.toHaveBeenCalled();
   });
@@ -74,8 +74,8 @@ describe("UC21.3 review decisions", () => {
       statusCode: 200, data: { id: courseId, status: "Published" },
     } as never);
     open();
-    fireEvent.click(await screen.findByRole("button", { name: "Approve Course" }));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Approval" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Phê duyệt Khóa học" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận phê duyệt" }));
     expect(await screen.findByText("Pending destination")).toBeTruthy();
     expect(approveCourseAPI).toHaveBeenCalledTimes(1);
     expect(approveCourseAPI).toHaveBeenCalledWith(courseId);
@@ -84,10 +84,10 @@ describe("UC21.3 review decisions", () => {
   it("requires rejection reason and preserves it on a conflict", async () => {
     vi.mocked(rejectCourseAPI).mockResolvedValue({ statusCode: 409 } as never);
     open();
-    fireEvent.click(await screen.findByRole("button", { name: "Reject Course" }));
-    const confirm = screen.getByRole("button", { name: "Confirm Rejection" }) as HTMLButtonElement;
+    fireEvent.click(await screen.findByRole("button", { name: "Từ chối Khóa học" }));
+    const confirm = screen.getByRole("button", { name: "Xác nhận từ chối" }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
-    fireEvent.change(screen.getByRole("textbox", { name: "Rejection reason" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Lý do từ chối" }), {
       target: { value: "  Improve the Assignment rubric  " },
     });
     await waitFor(() => expect(confirm.disabled).toBe(false));
@@ -95,7 +95,7 @@ describe("UC21.3 review decisions", () => {
     await waitFor(() => expect(rejectCourseAPI).toHaveBeenCalledWith(courseId, {
       reason: "Improve the Assignment rubric",
     }));
-    expect(screen.getByRole("textbox", { name: "Rejection reason" })).toHaveProperty(
+    expect(screen.getByRole("textbox", { name: "Lý do từ chối" })).toHaveProperty(
       "value", "  Improve the Assignment rubric  ",
     );
     expect(screen.queryByText("Pending destination")).toBeNull();
@@ -106,7 +106,7 @@ describe("UC21.3 review decisions", () => {
       statusCode: 503, data: null,
     } as never);
     open();
-    const button = await screen.findByRole("button", { name: "Approve Course" }) as HTMLButtonElement;
+    const button = await screen.findByRole("button", { name: "Phê duyệt Khóa học" }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
   });
 });

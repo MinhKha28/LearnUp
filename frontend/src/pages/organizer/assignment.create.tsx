@@ -129,7 +129,7 @@ const AssignmentCreate = () => {
     { title: "Họ tên", dataIndex: "fullName" },
     { title: "Email", dataIndex: "email" },
     {
-      title: "Phòng ban",
+      title: "Đơn vị công tác",
       dataIndex: "department",
       render: (value: string | null) => value ?? "—",
     },

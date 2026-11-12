@@ -8,6 +8,7 @@ import {
   SectionCard,
   StatusTag,
 } from "@/components/organizer/organizer.ui";
+import { accountStatusText, enrollmentKindText } from "@/utils/organizer.labels";
 import "./learner.report.scss";
 
 type TrainingHistoryRow = {
@@ -31,16 +32,16 @@ type LearnerReportSummary = {
 
 const learnerReports: Record<string, LearnerReportSummary> = {
   "minh-le": {
-    name: "Minh Le",
-    workUnit: "Engineering",
-    status: "Active Learner",
+    name: "Lê Minh",
+    workUnit: "Kỹ thuật",
+    status: "Active",
     courses: 3,
     certificates: 1,
     overdueCourses: 1,
     history: [
-      { key: "wse", course: "Workplace Safety Essentials", type: "Required", progress: "68%", assessment: "Quiz 2/3 • Assignment 1/2", certificate: "—" },
-      { key: "ir", course: "Incident Reporting", type: "Required", progress: "100%", assessment: "Passed", certificate: "CERT-2026-0192" },
-      { key: "lb", course: "Leadership Basics", type: "Optional", progress: "42%", assessment: "Quiz 1/2", certificate: "—" },
+      { key: "wse", course: "Kiến thức cơ bản về an toàn lao động", type: "Required", progress: "68%", assessment: "Bài trắc nghiệm 2/3 • Bài tập 1/2", certificate: "—" },
+      { key: "ir", course: "Báo cáo sự cố", type: "Required", progress: "100%", assessment: "Đạt", certificate: "CERT-2026-0192" },
+      { key: "lb", course: "Kiến thức cơ bản về lãnh đạo", type: "Optional", progress: "42%", assessment: "Bài trắc nghiệm 1/2", certificate: "—" },
     ],
   },
 };
@@ -49,46 +50,46 @@ const LearnerReport = () => {
   const { learnerId } = useParams();
   const summary = (learnerId && learnerReports[learnerId]) || learnerReports["minh-le"];
   const columns: ColumnsType<TrainingHistoryRow> = [
-    { title: "Course", dataIndex: "course" },
+    { title: "Khóa học", dataIndex: "course" },
     {
-      title: "Type",
+      title: "Loại",
       dataIndex: "type",
       render: (type: TrainingHistoryRow["type"]) => (
-        <StatusTag tone={type === "Required" ? "info" : "neutral"}>{type}</StatusTag>
+        <StatusTag tone={type === "Required" ? "info" : "neutral"}>{enrollmentKindText(type)}</StatusTag>
       ),
     },
-    { title: "Progress", dataIndex: "progress" },
-    { title: "Assessment", dataIndex: "assessment" },
-    { title: "Certificate", dataIndex: "certificate" },
+    { title: "Tiến độ", dataIndex: "progress" },
+    { title: "Bài đánh giá", dataIndex: "assessment" },
+    { title: "Chứng chỉ", dataIndex: "certificate" },
   ];
   return (
     <OrganizerPage className="organizer-learner-report">
       <PageHeader
-        title="Learner Report"
-        subtitle="Course participation, progress, Assessment results, and Certificates."
+        title="Báo cáo Học viên"
+        subtitle="Khóa học đã tham gia, tiến độ, kết quả Bài đánh giá và Chứng chỉ."
         back
-        actions={<OrganizerButton type="primary">Export report</OrganizerButton>}
+        actions={<OrganizerButton type="primary">Xuất báo cáo</OrganizerButton>}
       />
       <SectionCard className="organizer-learner-report-summary">
         <div className="organizer-learner-report-identity">
           <strong>{summary.name}</strong>
-          <span>{summary.workUnit} • {summary.status}</span>
+          <span>{summary.workUnit} • {accountStatusText(summary.status)}</span>
         </div>
         <div className="organizer-learner-report-metrics">
           <div>
-            <strong>{summary.courses} Courses</strong>
+            <strong>{summary.courses} Khóa học</strong>
           </div>
           <div>
-            <strong>{summary.certificates} Certificate</strong>
+            <strong>{summary.certificates} Chứng chỉ</strong>
           </div>
           {summary.overdueCourses > 0 && (
             <div className="organizer-learner-report-overdue">
-              <strong>{summary.overdueCourses} Required Course overdue</strong>
+              <strong>{summary.overdueCourses} Khóa học bắt buộc đã quá hạn</strong>
             </div>
           )}
         </div>
       </SectionCard>
-      <SectionCard title="Training history">
+      <SectionCard title="Lịch sử đào tạo">
         <Table className="organizer-table" columns={columns} dataSource={summary.history} pagination={false} />
       </SectionCard>
     </OrganizerPage>

@@ -38,11 +38,11 @@ const textRule =
   (_: unknown, value?: string) => {
     const normalized = normalizeText(value);
     if (normalized.length > max)
-      return Promise.reject(new Error(`${label} must be at most ${max} characters.`));
+      return Promise.reject(new Error(`${label} tối đa ${max} ký tự.`));
     if (CONTROL_CHARS.test(normalized))
-      return Promise.reject(new Error(`${label} contains invalid characters.`));
+      return Promise.reject(new Error(`${label} chứa ký tự không hợp lệ.`));
     if (ANGLE_BRACKETS.test(normalized))
-      return Promise.reject(new Error(`${label} cannot contain < or >.`));
+      return Promise.reject(new Error(`${label} không được chứa < hoặc >.`));
     return Promise.resolve();
   };
 
@@ -76,7 +76,7 @@ const LearnerCreate = () => {
     };
   }, [seatsKey]);
 
-  const blockedReason = seatsLoading ? null : seatBlockReason(seats, "Learner");
+  const blockedReason = seatsLoading ? null : seatBlockReason(seats, "Học viên");
   const locked = seatsLoading || blockedReason !== null;
 
   async function submit(values: LearnerFields) {
@@ -92,14 +92,14 @@ const LearnerCreate = () => {
       });
       if (res.data?.id) {
         message.success(
-          `Learner account created. An invitation email will be sent to ${res.data.email}.`,
+          `Đã tạo tài khoản Học viên. Email mời sẽ được gửi đến ${res.data.email}.`,
         );
         navigate(LIST_PATH);
       } else {
         showCreateError((res as unknown as { error?: IApiError }).error);
       }
     } catch {
-      setSubmitError("Could not connect to the server. Please try again later.");
+      setSubmitError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setSubmitting(false);
     }
@@ -112,34 +112,34 @@ const LearnerCreate = () => {
         form.setFields([
           {
             name: "email",
-            errors: ["This email is already used by another account."],
+            errors: ["Email này đã được tài khoản khác sử dụng."],
           },
         ]);
         return;
       case "SEAT_LIMIT_REACHED":
         setSubmitError(
-          "All Learner seats are in use. Free a seat or upgrade your Subscription to add more Learners.",
+          "Đã dùng hết suất Học viên. Hãy giải phóng một suất hoặc nâng cấp Gói dịch vụ để thêm Học viên.",
         );
         setSeatsKey((key) => key + 1);
         return;
       case "SUBSCRIPTION_NOT_ACTIVE":
         setSubmitError(
-          "Your Subscription is not active. New accounts cannot be created.",
+          "Gói dịch vụ chưa hoạt động. Không thể tạo tài khoản mới.",
         );
         setSeatsKey((key) => key + 1);
         return;
       case "ORGANIZATION_NOT_ACTIVE":
         setSubmitError(
-          "Your Organization is suspended. New accounts cannot be created.",
+          "Tổ chức đang bị tạm ngưng. Không thể tạo tài khoản mới.",
         );
         setSeatsKey((key) => key + 1);
         return;
       case "FORBIDDEN":
-        setSubmitError("You do not have permission to add Learners.");
+        setSubmitError("Bạn không có quyền thêm Học viên.");
         return;
       default:
         setSubmitError(
-          "Some details are invalid. Please review them and try again.",
+          "Một số thông tin chưa hợp lệ. Vui lòng kiểm tra và thử lại.",
         );
     }
   }
@@ -147,12 +147,12 @@ const LearnerCreate = () => {
   return (
     <OrganizerPage className="organizer-instructor-create">
       <PageHeader
-        title="Add Learner"
-        subtitle="Create an invitation. Learner sets their own password."
+        title="Thêm Học viên"
+        subtitle="Tạo lời mời để Học viên tự đặt mật khẩu."
         actions={
           <>
             <OrganizerButton onClick={() => navigate(LIST_PATH)}>
-              Cancel
+              Hủy
             </OrganizerButton>
             <OrganizerButton
               type="primary"
@@ -161,12 +161,12 @@ const LearnerCreate = () => {
               loading={submitting}
               disabled={locked}
             >
-              Send invitation
+              Gửi lời mời
             </OrganizerButton>
           </>
         }
       />
-      <SectionCard title="New Learner">
+      <SectionCard title="Học viên mới">
         <Form<LearnerFields>
           form={form}
           id="learner-create-form"
@@ -177,27 +177,27 @@ const LearnerCreate = () => {
         >
           <div className="organizer-form-grid">
             <Form.Item
-              label="Full name"
+              label="Họ và tên"
               name="fullName"
               rules={[
                 {
                   required: true,
                   whitespace: true,
-                  message: "Enter the full name.",
+                  message: "Nhập họ và tên.",
                 },
-                { validator: textRule("Full name", 100) },
+                { validator: textRule("Họ và tên", 100) },
               ]}
             >
-              <Input placeholder="Bao Tran" maxLength={100} />
+              <Input placeholder="Bảo Trần" maxLength={100} />
             </Form.Item>
             <Form.Item
               label="Email"
               name="email"
               normalize={(value: string) => value.trimStart()}
               rules={[
-                { required: true, message: "Enter the email address." },
-                { type: "email", message: "Enter a valid email address." },
-                { max: 254, message: "Email must be at most 254 characters." },
+                { required: true, message: "Nhập địa chỉ email." },
+                { type: "email", message: "Nhập địa chỉ email hợp lệ." },
+                { max: 254, message: "Email có tối đa 254 ký tự." },
               ]}
             >
               <Input
@@ -207,24 +207,24 @@ const LearnerCreate = () => {
               />
             </Form.Item>
             <Form.Item
-              label="Department (optional)"
+              label="Đơn vị công tác (Không bắt buộc)"
               name="department"
-              rules={[{ validator: textRule("Department", 100) }]}
+              rules={[{ validator: textRule("Đơn vị công tác", 100) }]}
             >
-              <Input placeholder="Operations" maxLength={100} />
+              <Input placeholder="Vận hành" maxLength={100} />
             </Form.Item>
             <Form.Item
-              label={<span style={{ visibility: "hidden" }}>Seat check</span>}
+              label={<span style={{ visibility: "hidden" }}>Kiểm tra số chỗ còn lại</span>}
               colon={false}
             >
               <div className="organizer-seat-check">
-                <span>Seat check</span>
+                <span>Kiểm tra số chỗ còn lại</span>
                 <strong>
                   {seatsLoading
-                    ? "Checking available seats…"
+                    ? "Đang kiểm tra số suất còn lại…"
                     : seats
-                      ? `${seats.remaining} Learner ${seats.remaining === 1 ? "seat" : "seats"} remaining (${seats.used} / ${seats.max} used)`
-                      : "Seat information unavailable"}
+                      ? `Còn ${seats.remaining} suất Học viên (đã dùng ${seats.used}/${seats.max})`
+                      : "Chưa có thông tin về số suất tài khoản"}
                 </strong>
               </div>
             </Form.Item>
@@ -233,14 +233,14 @@ const LearnerCreate = () => {
             <Alert
               type="warning"
               showIcon
-              message="You cannot add Learners right now."
+              message="Hiện không thể thêm Học viên."
               description={blockedReason}
             />
           ) : (
             <Alert
               type="success"
               showIcon
-              message="The Learner will receive an email and set their own password through the invitation link."
+              message="Học viên sẽ nhận được email và tự đặt mật khẩu qua liên kết mời."
             />
           )}
           {submitError && (
