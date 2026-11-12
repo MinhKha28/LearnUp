@@ -27,10 +27,10 @@ const ForbiddenPage = () => {
       }
       primaryAction={{
         label: "Quay lại",
-        icon: <ArrowLeftOutlined />,
+        icon: <ArrowLeftOutlined aria-hidden="true" />,
         onClick: () => navigate(-1),
       }}
-      secondaryAction={{ label: "Về trang chủ", icon: <HomeOutlined />, onClick: () => navigate("/") }}
+      secondaryAction={{ label: "Về trang chủ", icon: <HomeOutlined aria-hidden="true" />, onClick: () => navigate("/") }}
       footnote="Quyền truy cập phụ thuộc vào vai trò và tổ chức của bạn."
       errorCode="LearnUP / Lỗi 403"
       illustration={
@@ -46,7 +46,7 @@ const ForbiddenPage = () => {
               <div className="error-page-illustration-skeleton-row" style={{ width: "60%", marginBottom: 20 }} />
               <div className="error-page-illustration-card">
                 <span className="error-page-illustration-lock">
-                  <LockOutlined />
+                  <LockOutlined aria-hidden="true" />
                 </span>
                 <span className="error-page-illustration-card-label">Cần có quyền truy cập</span>
               </div>

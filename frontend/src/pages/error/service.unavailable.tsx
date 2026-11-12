@@ -22,10 +22,10 @@ const ServiceUnavailablePage = () => {
       }
       primaryAction={{
         label: "Thử lại",
-        icon: <ReloadOutlined />,
+        icon: <ReloadOutlined aria-hidden="true" />,
         onClick: () => window.location.reload(),
       }}
-      secondaryAction={{ label: "Về trang chủ", icon: <HomeOutlined />, onClick: () => navigate("/") }}
+      secondaryAction={{ label: "Về trang chủ", icon: <HomeOutlined aria-hidden="true" />, onClick: () => navigate("/") }}
       footnote="Vui lòng đợi một lúc rồi thử lại."
       errorCode="LearnUP / Lỗi 503"
       illustration={
@@ -33,7 +33,7 @@ const ServiceUnavailablePage = () => {
           <span className="error-page-illustration-circle error-page-illustration-circle-a" />
           <span className="error-page-illustration-circle error-page-illustration-circle-b" />
           <div className="error-page-illustration-body">
-            <CloudOutlined className="error-page-illustration-cloud" />
+            <CloudOutlined aria-hidden="true" className="error-page-illustration-cloud" />
             <div className="error-page-illustration-status">
               <div className="error-page-illustration-status-row">
                 <span className="error-page-illustration-status-dot" />

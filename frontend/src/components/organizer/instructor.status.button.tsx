@@ -1,4 +1,4 @@
-import { Alert, App, Button, Form, Input, Modal, Skeleton } from "antd";
+import { App, Button, Form, Input, Modal, Skeleton } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import {
   HandOverBlockAlert,
@@ -21,6 +21,7 @@ import {
   type StatusAction,
 } from "@/utils/instructor.status.view";
 import "./instructor.status.button.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 interface InstructorStatusButtonProps {
   instructorId: string;
@@ -149,7 +150,7 @@ export const InstructorStatusButton = ({
     if (loading) return <Skeleton active />;
     if (loadFailed || !preview) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message="Không thể tải các khóa học do giảng viên này phụ trách."
@@ -172,7 +173,7 @@ export const InstructorStatusButton = ({
       case "ACCOUNT_NOT_ACTIVATED":
       case "ALREADY_DEACTIVATED":
         return (
-          <Alert
+          <VietnameseAlert
             type="info"
             showIcon
             message={
@@ -246,7 +247,7 @@ export const InstructorStatusButton = ({
             </Form.Item>
           )}
           {submitError && (
-            <Alert
+            <VietnameseAlert
               className="instructor-status-error"
               type="error"
               showIcon

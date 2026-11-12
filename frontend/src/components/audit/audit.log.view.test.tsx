@@ -135,7 +135,31 @@ describe("UC50, UC51 list of the audit trail", () => {
     fetchLogs.mockResolvedValue(answer([log()]));
     const router = renderView();
     await screen.findByText("Ngừng hoạt động tài khoản giảng viên");
-    fireEvent.change(screen.getByRole("combobox", { name: /Loại đối tượng/ }), { target: { value: "Course" } });
+    const filter = screen.getByRole("combobox", { name: "Loại đối tượng" });
+    expect(screen.getByText("Ví dụ: User")).toBeTruthy();
+    expect(screen.getByText("Chọn gợi ý hoặc nhập mã loại đối tượng.").id).toBe(filter.getAttribute("aria-describedby"));
+    fireEvent.change(filter, { target: { value: "FutureTarget" } });
+    fireEvent.click(screen.getByRole("button", { name: "Lọc" }));
+    await waitFor(() => expect(lastQuery().targetResourceType).toBe("FutureTarget"));
+    expect(search(router).get("type")).toBe("FutureTarget");
+  });
+
+  it("shows Vietnamese suggestions with wire codes and filters by Vietnamese text", async () => {
+    fetchLogs.mockResolvedValue(answer([log()]));
+    const router = renderView();
+    await screen.findByText("Ngừng hoạt động tài khoản giảng viên");
+    const filter = screen.getByRole("combobox", { name: "Loại đối tượng" });
+    fireEvent.mouseDown(filter);
+    for (const label of [
+      "Tài khoản người dùng (User)", "Tổ chức (Organization)", "Gói dịch vụ (Plan)",
+      "Khóa học (Course)", "Học liệu (Material)", "Báo cáo (Report)", "Bài nộp (Submission)",
+    ]) {
+      expect(await screen.findByText(label)).toBeTruthy();
+    }
+    fireEvent.change(filter, { target: { value: "khóa" } });
+    expect(screen.queryByText("Tổ chức (Organization)")).toBeNull();
+    fireEvent.click(await screen.findByText("Khóa học (Course)"));
+    expect((filter as HTMLInputElement).value).toBe("Course");
     fireEvent.click(screen.getByRole("button", { name: "Lọc" }));
     await waitFor(() => expect(lastQuery().targetResourceType).toBe("Course"));
     expect(search(router).get("type")).toBe("Course");

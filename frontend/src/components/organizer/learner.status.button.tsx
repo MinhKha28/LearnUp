@@ -1,4 +1,4 @@
-import { Alert, App, Form, Input, Modal } from "antd";
+import { App, Form, Input, Modal } from "antd";
 import { useState } from "react";
 import { OrganizerButton } from "@/components/organizer/organizer.ui";
 import { changeLearnerStatusAPI } from "@/services/organization.service";
@@ -9,6 +9,7 @@ import {
   type LearnerStatusAction,
 } from "@/utils/learner.status.view";
 import "./learner.status.button.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 interface LearnerStatusButtonProps {
   learnerId: string;
@@ -114,15 +115,14 @@ export const LearnerStatusButton = ({
             </p>
           ) : (
             <p>
-              {fullName} will be able to sign in again and continue their
-              courses.
+              {fullName} sẽ có thể đăng nhập lại và tiếp tục các khóa học của mình.
             </p>
           )}
           <Form.Item name="reason" label="Lý do (không bắt buộc)">
             <Input.TextArea rows={3} maxLength={1000} showCount />
           </Form.Item>
           {submitError && (
-            <Alert
+            <VietnameseAlert
               className="learner-status-error"
               type="error"
               showIcon

@@ -80,7 +80,7 @@ const Reports = () => {
       <SectionCard className="organizer-reports-filters">
         <div className="organizer-reports-filter-bar">
           <span className="organizer-reports-filter-label">
-            <FilterOutlined />
+            <FilterOutlined aria-hidden="true" />
             Bộ lọc
           </span>
           <Select

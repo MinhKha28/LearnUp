@@ -19,9 +19,9 @@ import {
 type LoginFields = { email: string; password: string };
 
 const workspace = [
-  { icon: <BookOutlined />, text: "Xây dựng và phê duyệt khóa học" },
-  { icon: <CheckOutlined />, text: "Phân công đào tạo bắt buộc" },
-  { icon: <FlagOutlined />, text: "Theo dõi mức hoàn thành và kết quả" },
+  { icon: <BookOutlined aria-hidden="true" />, text: "Xây dựng và phê duyệt khóa học" },
+  { icon: <CheckOutlined aria-hidden="true" />, text: "Phân công đào tạo bắt buộc" },
+  { icon: <FlagOutlined aria-hidden="true" />, text: "Theo dõi mức hoàn thành và kết quả" },
 ];
 
 export default function LoginPage() {

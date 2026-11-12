@@ -1,4 +1,4 @@
-import { Alert, App, Form, Input, Modal } from "antd";
+import { App, Form, Input, Modal } from "antd";
 import { useState } from "react";
 import { OrganizerButton } from "@/components/organizer/organizer.ui";
 import { deleteLearnerAPI } from "@/services/organization.service";
@@ -8,6 +8,7 @@ import {
   learnerDeleteShouldLeavePage,
 } from "@/utils/learner.delete.view";
 import "./learner.delete.button.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 interface LearnerDeleteButtonProps {
   learnerId: string;
@@ -96,14 +97,14 @@ export const LearnerDeleteButton = ({
             {status === "Pending"
               ? `${fullName} chưa kích hoạt tài khoản. Liên kết mời sẽ hết hiệu lực và suất tài khoản sẽ được giải phóng.`
               : `${fullName} sẽ không thể đăng nhập và suất tài khoản sẽ được giải phóng.`}{" "}
-            Dữ liệu đào tạo và Chứng chỉ đã cấp vẫn được giữ lại. Thao tác này không
+            Dữ liệu đào tạo và chứng chỉ đã cấp vẫn được giữ lại. Thao tác này không
             thể hoàn tác; sau đó email có thể dùng cho tài khoản mới.
           </p>
           <Form.Item name="reason" label="Lý do (không bắt buộc)">
             <Input.TextArea rows={3} maxLength={1000} showCount />
           </Form.Item>
           {submitError && (
-            <Alert
+            <VietnameseAlert
               className="learner-delete-error"
               type="error"
               showIcon

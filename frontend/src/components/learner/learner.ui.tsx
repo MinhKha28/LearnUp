@@ -33,7 +33,7 @@ export const PageHeader = ({
           <Button
             className="learner-back"
             type="text"
-            icon={<ArrowLeftOutlined />}
+            icon={<ArrowLeftOutlined aria-hidden="true" />}
             onClick={() => navigate(-1)}
           >
             Quay lại
@@ -122,7 +122,7 @@ export const WarningPanel = ({
   children: ReactNode;
 }) => (
   <div className="learner-warning">
-    <ExclamationCircleFilled />
+    <ExclamationCircleFilled aria-hidden="true" />
     <div>
       <strong>{title}</strong>
       <p>{children}</p>
@@ -158,7 +158,7 @@ export const SuccessScreen = ({
 }) => (
   <div className="learner-success-card">
     <div className={`learner-success-icon learner-success-icon-${tone}`}>
-      {tone === "error" ? <ExclamationCircleFilled /> : <CheckOutlined />}
+      {tone === "error" ? <ExclamationCircleFilled aria-hidden="true" /> : <CheckOutlined aria-hidden="true" />}
     </div>
     <h2>{title}</h2>
     <div className="learner-success-body">{children}</div>

@@ -1,7 +1,8 @@
 import { formatNumberVN } from "@/utils/number.format";
 import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
-import { Input, InputNumber, message } from "antd";
+import { Input, message } from "antd";
+import { VietnameseInputNumber } from "@/components/vietnamese.input.number";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   InfoPanel,
@@ -236,7 +237,7 @@ const PeerReviewForm = () => {
                 {criterion.name} (0 đến {formatNumberVN(criterion.maxPoints)})
               </span>
               {criterion.description && <small>{criterion.description}</small>}
-              <InputNumber
+              <VietnameseInputNumber
                 aria-label={`Điểm cho ${criterion.name}`}
                 min={0}
                 max={criterion.maxPoints}

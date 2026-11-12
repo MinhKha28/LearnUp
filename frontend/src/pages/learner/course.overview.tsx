@@ -273,7 +273,7 @@ const CourseOverview = () => {
       <Button
         className="learner-back"
         type="text"
-        icon={<ArrowLeftOutlined />}
+        icon={<ArrowLeftOutlined aria-hidden="true" />}
         onClick={() => navigate(catalogPath)}
       >
         Danh mục khóa học

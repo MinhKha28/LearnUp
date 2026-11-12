@@ -24,6 +24,7 @@ import type {
 } from "@/types/organization.types";
 import { seatBlockReason } from "@/utils/helper";
 import "./learners.scss";
+import { vietnameseClear } from "@/components/vietnamese.control.props";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -192,9 +193,9 @@ const Learners = () => {
         {/* UC13.4 */}
         <div className="organizer-filters organizer-instructors-filters">
           <Input
-            prefix={<SearchOutlined />}
+            prefix={<SearchOutlined aria-hidden="true" />}
             placeholder="Tìm theo tên hoặc email"
-            allowClear
+            allowClear={vietnameseClear}
             maxLength={100}
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}

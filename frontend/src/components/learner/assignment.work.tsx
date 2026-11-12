@@ -230,7 +230,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
           <div className="assignment-work-prompt">
             {assignment.prompt ? <p>{assignment.prompt}</p> : <p>Đọc tệp đính kèm và trả lời.</p>}
             {assignment.promptFile && (
-              <LearnerButton icon={<DownloadOutlined />} onClick={downloadPrompt}>
+              <LearnerButton icon={<DownloadOutlined aria-hidden="true" />} onClick={downloadPrompt}>
                 {assignment.promptFile.fileName}
               </LearnerButton>
             )}
@@ -267,7 +267,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
             showUploadList={false}
           >
             <p className="ant-upload-drag-icon">
-              <InboxOutlined />
+              <InboxOutlined aria-hidden="true" />
             </p>
             <p className="ant-upload-text">{file ? file.name : "Tải bài làm của bạn lên"}</p>
             <p className="ant-upload-hint">PDF, DOCX hoặc ZIP, tối đa {formatFileSize(assignment.maxFileBytes)}. Một tệp.</p>

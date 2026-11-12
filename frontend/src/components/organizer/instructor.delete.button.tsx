@@ -1,4 +1,4 @@
-import { Alert, App, Button, Form, Input, Modal, Skeleton } from "antd";
+import { App, Button, Form, Input, Modal, Skeleton } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import {
   HandOverBlockAlert,
@@ -20,6 +20,7 @@ import {
   instructorDeleteShouldReloadPreview,
 } from "@/utils/instructor.delete.view";
 import "./instructor.delete.button.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 interface InstructorDeleteButtonProps {
   instructorId: string;
@@ -141,7 +142,7 @@ export const InstructorDeleteButton = ({
     if (loading) return <Skeleton active />;
     if (gone) {
       return (
-        <Alert
+        <VietnameseAlert
           type="info"
           showIcon
           message={instructorDeleteErrorMessage("INSTRUCTOR_NOT_FOUND")}
@@ -150,7 +151,7 @@ export const InstructorDeleteButton = ({
     }
     if (loadFailed || !preview) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message="Không thể tải các khóa học do giảng viên này phụ trách."
@@ -216,7 +217,7 @@ export const InstructorDeleteButton = ({
             </Form.Item>
           )}
           {submitError && (
-            <Alert
+            <VietnameseAlert
               className="instructor-delete-error"
               type="error"
               showIcon

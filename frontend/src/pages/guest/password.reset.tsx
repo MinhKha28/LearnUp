@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckOutlined } from "@ant-design/icons";
-import { Alert, Button, Form, Input } from "antd";
+import { Button, Form } from "antd";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { AuthCard, AuthResult } from "@/components/guest/auth";
 import { confirmPasswordRules } from "@/hooks/use.change.password";
 import { resetPasswordAPI } from "@/services/identity.service";
 import { hasMinimumPasswordLength, isWithinPasswordByteLimit } from "@/utils/password.policy";
+import { VietnameseAlert, VietnamesePassword } from "@/components/vietnamese.controls";
 
 type ResetPasswordFields = { password: string; confirm: string };
 
@@ -81,7 +82,7 @@ export default function ResetPasswordPage() {
     return (
       <AuthCard>
         <AuthResult
-          icon={<CheckOutlined />}
+          icon={<CheckOutlined aria-hidden="true" />}
           tone="success"
           title="Đã đặt lại mật khẩu"
           action={
@@ -101,7 +102,7 @@ export default function ResetPasswordPage() {
       <h1>Đặt mật khẩu mới</h1>
       <p>Dùng liên kết khôi phục đã gửi tới email đăng ký của bạn.</p>
       {(error || !token?.trim()) && (
-        <Alert type="error" showIcon message={error ?? invalidLink} role="alert" />
+        <VietnameseAlert type="error" showIcon message={error ?? invalidLink} role="alert" />
       )}
       <Form<ResetPasswordFields>
         layout="vertical"
@@ -134,7 +135,7 @@ export default function ResetPasswordPage() {
             },
           ]}
         >
-          <Input.Password autoComplete="new-password" placeholder="Nhập mật khẩu mới" />
+          <VietnamesePassword autoComplete="new-password" placeholder="Nhập mật khẩu mới" />
         </Form.Item>
         <Form.Item
           label="Nhập lại mật khẩu mới"
@@ -142,7 +143,7 @@ export default function ResetPasswordPage() {
           dependencies={["password"]}
           rules={confirmPasswordRules}
         >
-          <Input.Password autoComplete="new-password" placeholder="Nhập lại mật khẩu mới" />
+          <VietnamesePassword autoComplete="new-password" placeholder="Nhập lại mật khẩu mới" />
         </Form.Item>
         <Button type="primary" htmlType="submit" block loading={submitting} disabled={submitting || !token?.trim()}>
           Đặt lại mật khẩu

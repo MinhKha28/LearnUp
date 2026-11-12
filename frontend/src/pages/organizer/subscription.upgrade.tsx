@@ -1,4 +1,4 @@
-import { Alert, App, Button, Checkbox, Empty, Skeleton } from "antd";
+import { App, Button, Checkbox, Empty, Skeleton } from "antd";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -25,6 +25,7 @@ import {
   upgradeFormulaLine,
 } from "@/utils/upgrade.view";
 import "./subscription.upgrade.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const SubscriptionUpgrade = () => {
   const navigate = useNavigate();
@@ -105,7 +106,7 @@ const SubscriptionUpgrade = () => {
   const renderBody = () => {
     if (loadError) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={loadError}
@@ -133,10 +134,10 @@ const SubscriptionUpgrade = () => {
           giá cho {view.remainingDays} ngày còn lại.
         </p>
         {blockedMessage && (
-          <Alert type="info" showIcon message={blockedMessage} />
+          <VietnameseAlert type="info" showIcon message={blockedMessage} />
         )}
         {!view.usageAvailable && (
-          <Alert
+          <VietnameseAlert
             type="warning"
             showIcon
             message="Hiện chưa kiểm tra được số khóa học và dung lượng đang dùng nên yêu cầu nâng cấp có thể bị từ chối. Vui lòng thử lại sau."
@@ -194,7 +195,7 @@ const SubscriptionUpgrade = () => {
           </div>
         )}
         {payError && (
-          <Alert type="error" showIcon message={payError} role="alert" />
+          <VietnameseAlert type="error" showIcon message={payError} role="alert" />
         )}
         {import.meta.env.DEV && !blockedMessage && (
           <Checkbox

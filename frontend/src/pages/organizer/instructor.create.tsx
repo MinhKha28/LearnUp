@@ -1,4 +1,4 @@
-import { Alert, App, Form, Input } from "antd";
+import { App, Form, Input } from "antd";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -19,6 +19,7 @@ import {
   textRule,
 } from "@/utils/helper";
 import "./instructor.create.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type InstructorFields = {
   fullName: string;
@@ -214,21 +215,21 @@ const InstructorCreate = () => {
             </Form.Item>
           </div>
           {blockedReason ? (
-            <Alert
+            <VietnameseAlert
               type="warning"
               showIcon
               message="Hiện không thể thêm giảng viên."
               description={blockedReason}
             />
           ) : (
-            <Alert
+            <VietnameseAlert
               type="success"
               showIcon
               message="Giảng viên sẽ nhận được email và tự đặt mật khẩu qua liên kết mời."
             />
           )}
           {submitError && (
-            <Alert type="error" showIcon message={submitError} />
+            <VietnameseAlert type="error" showIcon message={submitError} />
           )}
         </Form>
       </SectionCard>

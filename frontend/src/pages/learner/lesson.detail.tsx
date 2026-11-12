@@ -98,7 +98,7 @@ const LessonBody = ({
         >
           {previousLesson ? (
             <LearnerButton
-              icon={<ArrowLeftOutlined />}
+              icon={<ArrowLeftOutlined aria-hidden="true" />}
               onClick={() =>
                 navigate(
                   LEARNER_ROUTES.lesson(enrollmentId, previousLesson.lessonId),
@@ -113,7 +113,7 @@ const LessonBody = ({
           {nextLesson && (
             <LearnerButton
               type="primary"
-              icon={<ArrowRightOutlined />}
+              icon={<ArrowRightOutlined aria-hidden="true" />}
               iconPosition="end"
               onClick={() =>
                 navigate(

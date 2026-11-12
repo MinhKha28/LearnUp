@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
-import { Alert, Button, Form, Input } from "antd";
+import { Button, Form, Input } from "antd";
 import { Link } from "react-router-dom";
 import { AuthCard } from "@/components/guest/auth";
 import { forgotPasswordAPI } from "@/services/identity.service";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type ForgotPasswordFields = { email: string };
 
@@ -41,7 +42,7 @@ export default function ForgotPasswordPage() {
         <br />
         Nếu tài khoản đủ điều kiện, chúng tôi sẽ gửi hướng dẫn khôi phục mật khẩu.
       </p>
-      {error && <Alert type="error" showIcon message={error} role="alert" />}
+      {error && <VietnameseAlert type="error" showIcon message={error} role="alert" />}
       <Form<ForgotPasswordFields>
         layout="vertical"
         requiredMark={false}
@@ -68,7 +69,7 @@ export default function ForgotPasswordPage() {
           <b>Đã nhận yêu cầu</b>
           <p>
             Nếu email này đủ điều kiện khôi phục, chúng tôi sẽ gửi hướng dẫn. Hãy
-            kiểm tra hộp thư đến và thư mục spam; thư có thể đến chậm.
+            kiểm tra hộp thư đến và thư mục thư rác; thư có thể đến chậm.
           </p>
         </div>
       )}

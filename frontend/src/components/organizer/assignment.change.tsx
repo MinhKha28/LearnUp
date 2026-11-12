@@ -1,4 +1,4 @@
-import { Alert, Button, DatePicker, Form, Input, Modal, message } from "antd";
+import { Button, Form, Input, Modal, message } from "antd";
 import viVN from "antd/locale/vi_VN";
 import "dayjs/locale/vi";
 import dayjs, { type Dayjs } from "dayjs";
@@ -24,6 +24,7 @@ import {
 import { assignmentDueDate, assignmentExtensionDeadline } from "@/utils/assignment.date";
 import { formatTimezone, isSameZone } from "@/utils/timezone.format";
 import "./assignment.change.scss";
+import { VietnameseAlert, VietnameseDatePicker } from "@/components/vietnamese.controls";
 
 const actionLabels = {
   extend: "Kéo dài hạn",
@@ -178,7 +179,7 @@ export const AssignmentChange = ({
       >
         {error && (
           mode === "cancel" && error.status === 503 ? (
-            <Alert
+            <VietnameseAlert
               type="error"
               showIcon
               message="Dịch vụ tạm thời không khả dụng. Vui lòng bấm Hủy phân công để thử lại."
@@ -198,7 +199,7 @@ export const AssignmentChange = ({
           </p>
         )}
         {mode === "exempt" && (
-          <Alert
+          <VietnameseAlert
             type="info"
             showIcon
             message="Học viên không còn bị tính quá hạn và vẫn có thể học tiếp. Khóa học vẫn là bắt buộc, không chuyển về tự chọn."
@@ -220,7 +221,7 @@ export const AssignmentChange = ({
               <p>Hạn mới được tính theo múi giờ hiện tại của tổ chức: {formatTimezone(item.organizationTimezone, newDeadline)}</p>
             )}
             {!pickerTimezone && (
-              <Alert
+              <VietnameseAlert
                 type="info"
                 showIcon
                 message="Giới hạn ngày tính theo giờ trên máy bạn vì chưa lấy được múi giờ tổ chức. Hạn sẽ được kiểm tra khi gửi."
@@ -255,7 +256,7 @@ export const AssignmentChange = ({
                 },
               ]}
             >
-              <DatePicker
+              <VietnameseDatePicker
                 locale={viVN.DatePicker}
                 format="DD/MM/YYYY"
                 placeholder="Chọn ngày"

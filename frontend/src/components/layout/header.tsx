@@ -22,6 +22,7 @@ export default function Header() {
   const bareAuthFlow =
     pathname.startsWith("/activate") ||
     pathname.startsWith("/forgot-password") ||
+    pathname === "/resend-registration" ||
     pathname.startsWith("/reset-password");
   const plansActive = registration;
   const [activeKey, setActiveKey] = useState("platform");
@@ -91,7 +92,7 @@ export default function Header() {
       </nav>
       <Button
         className="header-menu"
-        icon={<MenuOutlined />}
+        icon={<MenuOutlined aria-hidden="true" />}
         aria-label="Mở menu điều hướng"
         onClick={() => setOpen(true)}
       />

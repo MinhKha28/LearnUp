@@ -1,7 +1,7 @@
 import { formatPercentageVN } from "@/utils/number.format";
 import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Modal, Spin } from "antd";
+import { Modal, Spin } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   InfoPanel,
@@ -36,6 +36,7 @@ import {
   selectionAfterClick,
 } from "@/utils/quiz.take";
 import "./quiz.take.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type SaveState = "idle" | "saving" | "saved" | "failed";
 
@@ -321,7 +322,7 @@ const QuizTake = () => {
           subtitle=""
           back
         />
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={loadError || "Không tìm thấy bài trắc nghiệm."}
@@ -370,7 +371,7 @@ const QuizTake = () => {
             </small>
           </div>
           {notice && (
-            <Alert
+            <VietnameseAlert
               type={saveState === "failed" ? "error" : "warning"}
               showIcon
               message={notice}
@@ -454,7 +455,7 @@ const QuizTake = () => {
                 " Câu chưa trả lời sẽ được tính là sai."}
             </p>
             {unsavedLabel && (
-              <Alert
+              <VietnameseAlert
                 type="error"
                 showIcon
                 message={`${unsavedLabel} chưa được lưu lên máy chủ nên sẽ không được chấm. Bấm "Xem lại bài" để chọn lại đáp án.`}
@@ -499,7 +500,7 @@ const QuizTake = () => {
         back
       />
       <div className="course-learning-content">
-        {notice && <Alert type="warning" showIcon message={notice} />}
+        {notice && <VietnameseAlert type="warning" showIcon message={notice} />}
         {locked && (
           <WarningPanel title="Bài trắc nghiệm đang tạm khóa">
             Bạn đã làm đủ {quiz.attempts.maxConsecutiveAttempts} lượt liên tiếp.
@@ -603,14 +604,14 @@ const Result = ({
       />
       <div className="course-learning-content">
         {result.submissionKind === "TimedOut" && (
-          <Alert
+          <VietnameseAlert
             type="warning"
             showIcon
             message="Hết giờ nên bài được nộp tự động với các câu bạn đã trả lời."
           />
         )}
         {notice && result.submissionKind !== "TimedOut" && (
-          <Alert type="info" showIcon message={notice} />
+          <VietnameseAlert type="info" showIcon message={notice} />
         )}
         <div className="quiz-result-card">
           <StatusTag tone={result.passed ? "success" : "warning"}>

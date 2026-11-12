@@ -12,7 +12,7 @@ export default function ActivationSuccess() {
   return (
     <AuthCard>
       <AuthResult
-        icon={<CheckOutlined />}
+        icon={<CheckOutlined aria-hidden="true" />}
         tone="success"
         title="Đã kích hoạt tài khoản"
         action={

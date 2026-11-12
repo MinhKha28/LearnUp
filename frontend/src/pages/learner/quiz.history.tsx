@@ -1,7 +1,7 @@
 import { formatPercentageVN } from "@/utils/number.format";
 import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Spin } from "antd";
+import { Spin } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   LearnerButton,
@@ -18,6 +18,7 @@ import {
 import type { IQuizHistory, IQuizHistoryItem } from "@/types/assessment.types";
 import { quizErrorText } from "@/utils/quiz.take";
 import "./quiz.history.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 /** How the attempt was submitted, in words the Learner uses. */
 export const submissionKindLabel = (item: IQuizHistoryItem) => {
@@ -75,7 +76,7 @@ const QuizHistory = () => {
           subtitle=""
           back
         />
-        <Alert type="error" showIcon message={error} />
+        <VietnameseAlert type="error" showIcon message={error} />
         <LearnerButton onClick={() => void load()}>Thử lại</LearnerButton>
       </LearnerPage>
     );
@@ -88,7 +89,7 @@ const QuizHistory = () => {
       <PageHeader
         eyebrow="Bài đánh giá / Lịch sử làm bài"
         title="Lịch sử làm bài"
-        subtitle={`Tất cả các lượt làm của ${history.title}.`}
+        subtitle={`Các lượt làm: “${history.title}”`}
         back
       />
       <div className="course-learning-content">

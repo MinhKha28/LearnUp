@@ -1,4 +1,4 @@
-import { Alert, App, AutoComplete, Button, Form, Input, Skeleton } from "antd";
+import { App, AutoComplete, Button, Form, Input, Skeleton } from "antd";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -19,6 +19,7 @@ import type {
 } from "@/types/organization.types";
 import { normalizeEmail, normalizeText, textRule } from "@/utils/helper";
 import "./instructor.edit.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type InstructorFields = {
   fullName: string;
@@ -206,7 +207,7 @@ const InstructorEdit = () => {
     }
     if (loadError === "notFound") {
       return (
-        <Alert
+        <VietnameseAlert
           type="warning"
           showIcon
           message="Không tìm thấy giảng viên"
@@ -221,7 +222,7 @@ const InstructorEdit = () => {
     }
     if (loadError || !detail) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message="Không thể tải thông tin giảng viên."
@@ -256,7 +257,7 @@ const InstructorEdit = () => {
           onFinish={submit}
         >
           {activated && (
-            <Alert
+            <VietnameseAlert
               type="info"
               showIcon
               message="Tài khoản đã được kích hoạt. Giảng viên tự quản lý tên và địa chỉ email đăng nhập được giữ cố định. Bạn vẫn có thể cập nhật đơn vị công tác."
@@ -312,19 +313,19 @@ const InstructorEdit = () => {
           {/* BR-35: đổi email làm lời mời cũ mất hiệu lực */}
           {emailChanged &&
             (detail.status === "Pending" ? (
-              <Alert
+              <VietnameseAlert
                 type="warning"
                 showIcon
                 message="Khi đổi email, liên kết mời hiện tại sẽ hết hiệu lực và lời mời mới sẽ được gửi đến địa chỉ mới."
               />
             ) : (
-              <Alert
+              <VietnameseAlert
                 type="warning"
                 showIcon
                 message="Khi đổi email, liên kết mời hiện tại sẽ hết hiệu lực. Hệ thống chỉ gửi lời mời mới khi tài khoản hoạt động."
               />
             ))}
-          {submitError && <Alert type="error" showIcon message={submitError} />}
+          {submitError && <VietnameseAlert type="error" showIcon message={submitError} />}
         </Form>
       </SectionCard>
     );

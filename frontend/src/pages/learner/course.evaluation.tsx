@@ -40,7 +40,7 @@ const StarRating = ({
         aria-pressed={star === value}
         onClick={() => onChange?.(star)}
       >
-        {star <= value ? <StarFilled /> : <StarOutlined />}
+        {star <= value ? <StarFilled aria-hidden="true" /> : <StarOutlined aria-hidden="true" />}
       </button>
     ))}
   </div>

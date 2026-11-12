@@ -1,7 +1,8 @@
 import { useEffect, useRef, type ComponentType } from "react";
-import { Alert, Avatar, Form, Input, Spin, message, type ButtonProps } from "antd";
+import { Avatar, Form, Input, Spin, message, type ButtonProps } from "antd";
 import { initialsOf, useMyProfile } from "@/hooks/use.my.profile";
 import "./profile.editor.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type ProfileFields = { fullName: string };
 
@@ -47,7 +48,7 @@ const ProfileEditor = ({ button: RoleButton, onSaved }: IProps) => {
   return (
     <div className="profile-editor">
       {error && (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={error}

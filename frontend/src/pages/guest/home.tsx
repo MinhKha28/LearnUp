@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Alert, Spin } from "antd";
+import { Spin } from "antd";
 import {
   ArrowRightOutlined,
   BookOutlined,
@@ -16,26 +16,27 @@ import type { ISubscriptionPlan } from "@/types/organization.types";
 import { toPlanDetails } from "@/utils/helper";
 
 import "@/pages/guest/home.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const capabilities = [
   {
     title: "Quản lý khóa học",
-    icon: <BookOutlined />,
+    icon: <BookOutlined aria-hidden="true" />,
     text: "Soạn, duyệt và xuất bản các phiên bản khóa học với người phụ trách rõ ràng.",
   },
   {
     title: "Thành viên và phân công đào tạo",
-    icon: <TeamOutlined />,
+    icon: <TeamOutlined aria-hidden="true" />,
     text: "Mời thành viên và phân công khóa học bắt buộc cho từng học viên.",
   },
   {
     title: "Đánh giá và chấm điểm",
-    icon: <FileDoneOutlined />,
+    icon: <FileDoneOutlined aria-hidden="true" />,
     text: "Tổ chức bài trắc nghiệm, bài tập và chấm chéo với các bước chấm rõ ràng.",
   },
   {
     title: "Tiến độ và chứng chỉ",
-    icon: <SafetyCertificateOutlined />,
+    icon: <SafetyCertificateOutlined aria-hidden="true" />,
     text: "Theo dõi mức hoàn thành và cấp chứng chỉ khi đủ điều kiện.",
   },
 ];
@@ -88,17 +89,17 @@ export default function HomePage() {
           </p>
           <div className="home-actions">
             <Link className="guest-link guest-link-primary" to="/register">
-              Xem các gói <ArrowRightOutlined />
+              Xem các gói <ArrowRightOutlined aria-hidden="true" />
             </Link>
             <a className="guest-link" href="#how-it-works">
-              Xem cách hoạt động <ArrowRightOutlined />
+              Xem cách hoạt động <ArrowRightOutlined aria-hidden="true" />
             </a>
           </div>
           <div className="home-lifecycle" aria-label="Vòng đời đào tạo">
             <span>Khóa học</span>
-            <ArrowRightOutlined />
+            <ArrowRightOutlined aria-hidden="true" />
             <span>Phân công đào tạo</span>
-            <ArrowRightOutlined />
+            <ArrowRightOutlined aria-hidden="true" />
             <span>Kết quả</span>
           </div>
         </div>
@@ -244,7 +245,7 @@ export default function HomePage() {
             ],
           ].map(([title, text]) => (
             <div className="home-reason" key={title}>
-              <CheckOutlined />
+              <CheckOutlined aria-hidden="true" />
               <div>
                 <h3>{title}</h3>
                 <p>{text}</p>
@@ -257,7 +258,7 @@ export default function HomePage() {
           <span className="guest-eyebrow">Không gian học tập</span>
           <h3>Lộ trình rõ ràng cho mọi khóa học</h3>
           <div className="home-course-card">
-            <BookOutlined />
+            <BookOutlined aria-hidden="true" />
             <span>
               <b>An toàn lao động cơ bản</b>
               <small>{"Chương trình khóa học \u2022 minh họa"}</small>
@@ -310,14 +311,14 @@ export default function HomePage() {
           </div>
           <div className="home-certificate-card">
             <div>
-              <FlagOutlined />
+              <FlagOutlined aria-hidden="true" />
               <span>
                 <b>Tiến độ đào tạo</b>
                 <small>An toàn lao động cơ bản</small>
               </span>
             </div>
             <div>
-              <TeamOutlined />
+              <TeamOutlined aria-hidden="true" />
               <span>
                 <b>Đào tạo bắt buộc</b>
                 <small>
@@ -326,7 +327,7 @@ export default function HomePage() {
               </span>
             </div>
             <div className="home-certificate-award">
-              <SafetyCertificateOutlined />
+              <SafetyCertificateOutlined aria-hidden="true" />
               <span>
                 <b>Chứng chỉ hoàn thành</b>
                 <small>Cấp khi đủ điều kiện hoàn thành khóa học</small>
@@ -348,7 +349,7 @@ export default function HomePage() {
         </p>
         {loadingPlans && <Spin size="large" />}
         {planError && (
-          <Alert
+          <VietnameseAlert
             type="error"
             showIcon
             message="Không tải được danh sách gói. Vui lòng thử lại sau."
@@ -377,7 +378,7 @@ export default function HomePage() {
           <p>Chọn gói và tạo không gian làm việc cho tổ chức của bạn.</p>
         </div>
         <Link className="guest-link guest-link-primary" to="/register">
-          Xem các gói <ArrowRightOutlined />
+          Xem các gói <ArrowRightOutlined aria-hidden="true" />
         </Link>
       </section>
 

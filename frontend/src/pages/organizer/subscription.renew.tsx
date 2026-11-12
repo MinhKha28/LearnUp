@@ -1,4 +1,4 @@
-import { Alert, App, Button, Checkbox, Skeleton } from "antd";
+import { App, Button, Checkbox, Skeleton } from "antd";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -24,6 +24,7 @@ import {
   renewalTermNote,
 } from "@/utils/renewal.view";
 import "./subscription.renew.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const SubscriptionRenew = () => {
   const navigate = useNavigate();
@@ -95,7 +96,7 @@ const SubscriptionRenew = () => {
   const renderBody = () => {
     if (loadError) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={loadError}
@@ -151,7 +152,7 @@ const SubscriptionRenew = () => {
           </SectionCard>
         </div>
         {blocked ? (
-          <Alert
+          <VietnameseAlert
             type="info"
             showIcon
             message="Đã có kỳ gia hạn được thanh toán"
@@ -163,7 +164,7 @@ const SubscriptionRenew = () => {
           </WarningPanel>
         )}
         {exceeded.length > 0 && (
-          <Alert
+          <VietnameseAlert
             type="warning"
             showIcon
             message="Một số giới hạn mới thấp hơn mức bạn đang dùng"
@@ -182,14 +183,14 @@ const SubscriptionRenew = () => {
           />
         )}
         {!quote.usageAvailable && (
-          <Alert
+          <VietnameseAlert
             type="info"
             showIcon
             message="Hiện chưa kiểm tra được số khóa học và dung lượng đang dùng."
           />
         )}
         {payError && (
-          <Alert type="error" showIcon message={payError} role="alert" />
+          <VietnameseAlert type="error" showIcon message={payError} role="alert" />
         )}
         {import.meta.env.DEV && !blocked && (
           <Checkbox
