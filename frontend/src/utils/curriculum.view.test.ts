@@ -102,7 +102,7 @@ describe("buildMaterialRow", () => {
     expect(buildMaterialRow(material({ durationSeconds: null })).duration).toBeNull();
   });
 
-  it("Bài đọc không hiện thời lượng", () => {
+  it("Tài liệu đọc không hiện thời lượng", () => {
     const row = buildMaterialRow(
       material({ materialType: "Reading", title: "Đọc thêm", durationSeconds: 300, isRequired: false, completed: true }),
     );
