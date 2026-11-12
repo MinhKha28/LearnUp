@@ -1,15 +1,21 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import type { CurrentUser } from '@learnup/ts-common';
+import { AssignmentChangesService } from '../../src/modules/assignments/assignment-changes.service';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import {
   assertExtendable,
   assertExemptible,
+  assertExemptionRemovable,
+  assertCancellable,
+  assertNoLearningData,
   validateExtension,
 } from '../../src/modules/assignments/assignment-change-rules';
 import {
   ExtendAssignmentDto,
   ExemptAssignmentDto,
+  RemoveExemptionBodyPipe,
 } from '../../src/modules/assignments/change-assignment.dto';
 
 describe('UC24.3 / UC24.5 rules and DTOs', () => {
@@ -110,6 +116,150 @@ describe('UC24.3 / UC24.5 rules and DTOs', () => {
       );
   });
 });
+
+describe('UC24.4 cancellation rules', () => {
+  test('only stored NotStarted is eligible', () => {
+    assert.doesNotThrow(() => assertCancellable('NotStarted'));
+    for (const status of [
+      'InProgress',
+      'Overdue',
+      'Exempted',
+      'Halted',
+      'Completed',
+      'Withdrawn',
+    ])
+      assert.throws(() => assertCancellable(status), { status: 409 });
+  });
+
+  test('rejects positive learning data and allows an empty record', () => {
+    assert.doesNotThrow(() => assertNoLearningData(false));
+    assert.throws(() => assertNoLearningData(true), { status: 409 });
+  });
+});
+
+describe('UC24.6 removal validation', () => {
+  test('only Exempted can be removed', () => {
+    assert.doesNotThrow(() => assertExemptionRemovable('Exempted'));
+    for (const status of [
+      'NotStarted',
+      'InProgress',
+      'Completed',
+      'Halted',
+      'Withdrawn',
+    ]) {
+      assert.throws(() => assertExemptionRemovable(status), { status: 409 });
+    }
+  });
+
+  test('accepts no payload or an empty object', () => {
+    const pipe = new RemoveExemptionBodyPipe();
+    assert.doesNotThrow(() => pipe.transform(undefined));
+    assert.doesNotThrow(() => pipe.transform({}));
+    for (const body of [null, [], 'reason', { reason: 'text' }])
+      assert.throws(() => pipe.transform(body), { status: 422 });
+  });
+});
+
+for (const { scenario, status, disabled } of [
+  { scenario: 'no activity', status: 'NotStarted', disabled: false },
+  { scenario: 'partial activity', status: 'InProgress', disabled: false },
+  {
+    scenario: 'eligible for completion',
+    status: 'InProgress',
+    disabled: false,
+  },
+  { scenario: 'disabled version', status: 'Halted', disabled: true },
+]) {
+  test(`UC24.6 returns the saved result for ${scenario}`, async () => {
+    const user = {
+      userId: 'organizer',
+      organizationId: 'org',
+      role: 'ORGANIZER',
+    } as CurrentUser;
+    const saved = { row: { status }, intervals: [] };
+    const result = { status };
+    const steps: string[] = [];
+    const tx = {
+      $executeRaw: (strings: TemplateStringsArray, ...values: unknown[]) => {
+        assert.match(strings.join(''), /completion_evaluation_requests/);
+        assert.equal(values.at(-1), 'ASSIGNMENT_RESTORE');
+        steps.push('queue');
+        return Promise.resolve(1);
+      },
+    };
+    const candidate = { courseId: 'course', status: 'Exempted' };
+    const service = new AssignmentChangesService(
+      {
+        $transaction: async (run: (client: typeof tx) => unknown) => {
+          steps.push('transaction');
+          const value = await run(tx);
+          steps.push('commit');
+          return value;
+        },
+      } as never,
+      {
+        find: async () => candidate,
+        lock: async () => {
+          steps.push('lock');
+          return candidate;
+        },
+        removeExemption: async (
+          client: typeof tx,
+          org: string,
+          id: string,
+          disabledCourse: boolean,
+        ) => {
+          assert.equal(client, tx);
+          assert.deepEqual(
+            [org, id, disabledCourse],
+            ['org', 'enrollment', disabled],
+          );
+          steps.push('remove');
+        },
+      } as never,
+      {
+        detailSnapshot: async (org: string, id: string, client: typeof tx) => {
+          assert.deepEqual([org, id, client], ['org', 'enrollment', tx]);
+          steps.push('snapshot');
+          return saved;
+        },
+        detail: async (_user: CurrentUser, id: string, snapshot: unknown) => {
+          assert.equal(id, 'enrollment');
+          assert.equal(snapshot, saved);
+          steps.push('detail');
+          return result;
+        },
+      } as never,
+      {} as never,
+      {
+        getOrganizationAccess: async () => ({
+          organizationStatus: 'Active',
+          subscriptionStatus: 'Active',
+          timezone: 'UTC',
+        }),
+      } as never,
+      {
+        getCourseTree: async (_user: CurrentUser, courseId: string) => {
+          assert.equal(courseId, 'course');
+          steps.push('course');
+          return { disabledAt: disabled ? new Date(0) : null };
+        },
+      } as never,
+      {} as never,
+    );
+    assert.equal(await service.removeExemption(user, 'enrollment'), result);
+    assert.deepEqual(steps, [
+      'course',
+      'transaction',
+      'lock',
+      'remove',
+      ...(disabled ? [] : ['queue']),
+      'snapshot',
+      'commit',
+      'detail',
+    ]);
+  });
+}
 
 test('fractional extension 112500.428 is floored to whole seconds', () => {
   assert.equal(

@@ -94,7 +94,7 @@
  *   - Zeta: PendingPayment nhưng đăng ký đã quá hạn, chưa ai chạm vào (BR-7 chạy lazy)
  *     -> API tính là Cancelled, ẩn mặc định.
  *   - Eta: Cancelled, đăng ký Expired, Organizer đã xóa mềm (BR-7, BR-31) -> ẩn mặc định.
- *   - Theta: Organization Suspended (BR-45) nhưng Subscription vẫn Active (BR-283).
+ *   - Theta: Organization Suspended (BR-56) nhưng Subscription vẫn Active (BR-60).
  *   - Iota: Organization Active, Subscription Suspended (hết hạn + hết ân hạn, BR-16).
  *   -> Mặc định danh sách UC44 có 7 dòng (ABC, XYZ, Gamma, Delta, Epsilon, Theta, Iota);
  *      includeCancelled=true có 9 dòng.
@@ -104,6 +104,17 @@
  *     Registration Epsilon/Zeta/Eta         ...00000000e021 – e023
  *     Subscription Theta/Iota               ...00000000e034, e035
  *     OrganizationSuspension Theta          ...00000000e044
+ *
+ * Bổ sung UC44.1 (Admin xem chi tiết Organization):
+ *   - BR-54: Eta (Cancelled) dùng mã số thuế của ABC; Iota dùng mã số thuế của Theta
+ *     -> chi tiết ABC, Eta, Theta, Iota đều có cảnh báo trùng mã số thuế.
+ *   - BR-58: Theta có thêm một lượt tạm khóa đã gỡ (15 -> 10 ngày trước), trước lượt đang mở.
+ *   - BR-50: Iota đã thay Organizer: Lưu Thu Trang (e015) Deactivated, Organizer mới
+ *     Quách Minh Tú (e016) Pending, lời mời còn hạn (phát 1 ngày trước).
+ *   ID mới:
+ *     Organizer mới Iota                    ...00000000e016
+ *     OrganizationSuspension Theta đã gỡ    ...00000000e045
+ *     Token lời mời Organizer Iota          ...00000000e046
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -342,7 +353,7 @@ const uc44Organizations: SeedUc44Org[] = [
     kind: 'Cancelled',
     id: id('e003'),
     name: 'Công ty TNHH Eta',
-    taxCode: '0503456789',
+    taxCode: '0312345678', // UC44.1 - BR-54: trùng mã số thuế của ABC
     address: '20 Lý Thường Kiệt, TP. Vinh',
     contactPhone: '+842383123456',
     contactEmail: 'contact@eta.vn',
@@ -378,7 +389,7 @@ const uc44Organizations: SeedUc44Org[] = [
     kind: 'SubSuspended',
     id: id('e005'),
     name: 'Công ty TNHH Iota',
-    taxCode: '0505678901',
+    taxCode: '0504567890', // UC44.1 - BR-54: trùng mã số thuế của Theta
     address: '7 Nguyễn Văn Cừ, TP. Vũng Tàu',
     contactPhone: '+842543123456',
     contactEmail: 'contact@iota.vn',
@@ -393,6 +404,23 @@ const uc44Organizations: SeedUc44Org[] = [
     suspensionId: null,
   },
 ];
+
+// UC44.1 - BR-50: Iota đã được Admin thay Organizer; Organizer mới đang chờ nhận lời mời.
+const UC441_INVITED_ORGANIZER = {
+  organizationId: id('e005'),
+  replacedOrganizerId: id('e015'),
+  id: id('e016'),
+  email: 'tu.quach@iota.vn',
+  fullName: 'Quách Minh Tú',
+  tokenId: id('e046'),
+};
+// UC44.1 - BR-58: lượt tạm khóa Theta đã gỡ, trước lượt đang mở (e044).
+const UC441_ENDED_SUSPENSION = {
+  id: id('e045'),
+  organizationId: id('e004'),
+  startedDaysAgo: 15,
+  endedDaysAgo: 10,
+};
 
 const UC44_ORG_STATUS: Record<Uc44Kind, string> = {
   PendingLive: 'PendingPayment',
@@ -1280,14 +1308,22 @@ async function main(): Promise<void> {
       });
 
       // Organizer chưa kích hoạt khi chưa thanh toán; Eta bị xóa mềm theo BR-31.
+      // UC44.1: Organizer cũ của Iota đã bị thay (BR-40) -> Deactivated, ghi trước Organizer mới
+      // để chạy lại seed không vướng users_one_organizer_per_org_key.
       const neverActivated = org.registrationId !== null;
+      const replaced =
+        org.organizer.id === UC441_INVITED_ORGANIZER.replacedOrganizerId;
       const organizerData = {
         organizationId: org.id,
         email: org.organizer.email,
         fullName: org.organizer.fullName,
         role: 'Organizer',
         department: null,
-        status: neverActivated ? 'Pending' : 'Active',
+        status: replaced
+          ? 'Deactivated'
+          : neverActivated
+            ? 'Pending'
+            : 'Active',
         activatedAt: neverActivated ? null : dates.createdAt,
         deletedAt:
           org.kind === 'Cancelled' ? dates.registrationExpiresAt! : null,
@@ -1360,6 +1396,56 @@ async function main(): Promise<void> {
         });
       }
     }
+
+    // UC44.1 - BR-58: lượt tạm khóa đã gỡ (ended_at có giá trị nên không vướng index một lượt đang mở).
+    const endedSuspensionData = {
+      organizationId: UC441_ENDED_SUSPENSION.organizationId,
+      startedAt: addDays(now, -UC441_ENDED_SUSPENSION.startedDaysAgo),
+      endedAt: addDays(now, -UC441_ENDED_SUSPENSION.endedDaysAgo),
+      reason:
+        'Seed UC44.1: nhiều lần để report quá thời hạn xử lý; đã gỡ sau khi tổ chức xử lý xong.',
+      createdAt: addDays(now, -UC441_ENDED_SUSPENSION.startedDaysAgo),
+    };
+    await tx.organizationSuspension.upsert({
+      where: { id: UC441_ENDED_SUSPENSION.id },
+      create: { id: UC441_ENDED_SUSPENSION.id, ...endedSuspensionData },
+      update: endedSuspensionData,
+    });
+
+    // UC44.1 - BR-40: Organizer mới của Iota đang chờ nhận lời mời (Pending + token Invitation còn hạn).
+    const invited = UC441_INVITED_ORGANIZER;
+    const invitedCreatedAt = new Date(now.getTime() - DAY_MS);
+    const invitedData = {
+      organizationId: invited.organizationId,
+      email: invited.email,
+      fullName: invited.fullName,
+      role: 'Organizer',
+      department: null,
+      status: 'Pending',
+      activatedAt: null,
+      deletedAt: null,
+      createdAt: invitedCreatedAt,
+    };
+    await tx.user.upsert({
+      where: { id: invited.id },
+      create: { id: invited.id, ...invitedData },
+      update: invitedData,
+    });
+    const invitedTokenData = {
+      organizationId: invited.organizationId,
+      userId: invited.id,
+      purpose: 'Invitation',
+      tokenHash: hashToken(`learnup-seed-invitation-${invited.id}`),
+      expiresAt: addDays(invitedCreatedAt, ttlDays),
+      consumedAt: null,
+      revokedAt: null,
+      createdAt: invitedCreatedAt,
+    };
+    await tx.accountToken.upsert({
+      where: { id: invited.tokenId },
+      create: { id: invited.tokenId, ...invitedTokenData },
+      update: invitedTokenData,
+    });
   });
 
   const count = (role: Role, organizationId: string) =>
@@ -1389,6 +1475,9 @@ async function main(): Promise<void> {
   );
   console.log(
     `  - UC44: ${uc44Organizations.map((org) => `${org.name} (${org.kind})`).join(', ')}`,
+  );
+  console.log(
+    '  - UC44.1: trùng mã số thuế ABC/Eta và Theta/Iota, Theta có 1 lượt khóa đã gỡ, Iota có Organizer mới chờ nhận lời mời',
   );
 }
 

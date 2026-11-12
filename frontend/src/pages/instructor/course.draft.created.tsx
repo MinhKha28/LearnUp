@@ -6,19 +6,19 @@ const CourseDraftCreated = () => {
   return (
     <InstructorPage className="instructor-course-create">
       <PageHeader
-        eyebrow="INSTRUCTOR"
-        title="Draft Course created"
-        subtitle="Continue building Modules, Lessons and Assessments."
+        eyebrow="Giảng viên"
+        title="Đã tạo khóa học bản nháp"
+        subtitle="Tiếp tục xây dựng chương, bài học và bài đánh giá."
       />
       <SuccessScreen
         tone="success"
-        title="Course Draft is ready"
+        title="Khóa học bản nháp đã sẵn sàng"
         primary={{
-          label: "Open Course Builder",
-          onClick: () => message.info("Course Builder arrives in a later batch."),
+          label: "Mở trình xây dựng khóa học",
+          onClick: () => message.info("Trình biên soạn khóa học sẽ được bổ sung trong phiên bản tiếp theo."),
         }}
       >
-        <p>Add learning content before submitting it for approval.</p>
+        <p>Thêm nội dung học tập trước khi gửi phê duyệt.</p>
       </SuccessScreen>
     </InstructorPage>
   );

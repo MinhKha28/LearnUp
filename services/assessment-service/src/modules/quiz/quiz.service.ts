@@ -16,10 +16,17 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { ListQuizzesQueryDto } from './dto/list-quizzes-query.dto';
 import { UpdateQuizConfigDto } from './dto/update-quiz.dto';
+import { CreateQuizQuestionDto } from './dto/create-quiz-question.dto';
 import {
   QuizDetail,
   QuizPermissions,
+  QuizQuestionCreated,
 } from './interfaces/quiz-detail.interface';
+import {
+  checkQuestionRules,
+  optionsToStore,
+  QUESTION_RULE_MESSAGE,
+} from './quiz-question-rules';
 import {
   QUIZ_KIND,
   QuizListPage,
@@ -50,7 +57,7 @@ type QuizDetailRow = Prisma.AssessmentGetPayload<{
   include: typeof quizDetailInclude;
 }>;
 
-/** UC18.4: the configuration fields of BR-156 and the UC18.1 permission that guards each one. */
+/** UC18.3: the configuration fields of BR-156 and the UC18.1 permission that guards each one. */
 type QuizConfigField = keyof UpdateQuizConfigDto;
 
 const CONFIG_PERMISSION: Record<QuizConfigField, keyof QuizPermissions> = {
@@ -121,10 +128,7 @@ export class QuizService {
     const course = await this.requireOwnCourse(user, dto.courseId);
 
     // BR-285 / BR-69 / BR-284: only Draft, Rejected and not-yet-Locked Published Courses are authorable.
-    if (
-      course.disabled ||
-      !AUTHORABLE_STATUSES.includes(course.status)
-    ) {
+    if (course.disabled || !AUTHORABLE_STATUSES.includes(course.status)) {
       throw new ConflictException({
         code: 'COURSE_NOT_EDITABLE',
         message: `Quizzes cannot be added while the Course is ${course.status}.`,
@@ -220,7 +224,7 @@ export class QuizService {
   }
 
   /**
-   * UC18.4 — change the configuration of a Quiz (BR-156). Only the fields that really change are checked:
+   * UC18.3 — change the configuration of a Quiz (BR-156). Only the fields that really change are checked:
    * BR-97 (time limit, n, m) while the Quiz has no attempt, BR-94 (passing score, required flag) while the
    * Course is not Locked. One blocked field blocks the whole request, so nothing is ever half saved.
    */
@@ -311,6 +315,126 @@ export class QuizService {
     return this.toDetail(updated, course);
   }
 
+  /**
+   * UC18.1.1 — add one question with its answers at the end of a Quiz (BR-194).
+   * Checks, in order: answer key per type (BR-202), Instructor in charge now (BR-94), Course not Submitted,
+   * Archived or Disabled (BR-83), no attempt on the Quiz yet (BR-117). A Locked Course does not block it.
+   */
+  async addQuestion(
+    user: CurrentUser,
+    quizId: string,
+    dto: CreateQuizQuestionDto,
+  ): Promise<QuizQuestionCreated> {
+    const ruleErrors = checkQuestionRules(dto);
+    if (ruleErrors.length > 0) {
+      throw new BadRequestException({
+        code: 'QUIZ_QUESTION_INVALID',
+        message: ruleErrors
+          .map((error) => QUESTION_RULE_MESSAGE[error])
+          .join(' '),
+        errors: ruleErrors,
+      });
+    }
+    const organizationId = this.requireInstructor(user);
+
+    const quiz = await this.prisma.assessment.findFirst({
+      where: { id: quizId, organizationId, kind: QUIZ_KIND },
+      include: quizSummaryInclude,
+    });
+    if (!quiz) throw this.quizNotFound();
+
+    // Same hiding as UC18.1: a Quiz of a Course someone else is in charge of looks missing. Course Service down = 503.
+    let course: CourseAuthoringContext;
+    try {
+      course = await this.requireOwnCourse(user, quiz.courseId);
+    } catch (error) {
+      if (error instanceof NotFoundException) throw this.quizNotFound();
+      throw error;
+    }
+
+    // BR-83: nothing changes while the Course is Submitted; Archived or Disabled Courses are not authorable either.
+    if (course.disabled || !AUTHORABLE_STATUSES.includes(course.status)) {
+      throw new ConflictException({
+        code: 'COURSE_NOT_EDITABLE',
+        reason:
+          course.status === 'Submitted'
+            ? 'COURSE_SUBMITTED'
+            : 'COURSE_NOT_EDITABLE',
+        message: `Questions cannot be added while the Course is ${course.status}.`,
+      });
+    }
+    if (quiz._count.quizAttempts > 0) throw this.hasAttemptsError();
+
+    const options = optionsToStore(dto);
+    const created = await this.prisma.$transaction(async (tx) => {
+      // Row lock: a Learner starting the Quiz right now must not slip past BR-117 (inserting a quiz_attempts row
+      // takes FOR KEY SHARE on this row), and two adds on one Quiz cannot take the same position.
+      const rows = await tx.$queryRaw<
+        { id: string }[]
+      >`SELECT id FROM assessments WHERE id = ${quiz.id}::uuid FOR UPDATE`;
+      if (rows.length === 0) throw this.quizNotFound();
+      // An attempt counts as soon as it is started, finished or not.
+      const attempts = await tx.quizAttempt.count({
+        where: { assessmentId: quiz.id },
+      });
+      if (attempts > 0) throw this.hasAttemptsError();
+
+      const last = await tx.quizQuestion.aggregate({
+        where: { assessmentId: quiz.id },
+        _max: { position: true },
+      });
+      const question = await tx.quizQuestion.create({
+        data: {
+          organizationId,
+          assessmentId: quiz.id,
+          questionType: dto.type,
+          content: dto.content,
+          position: (last._max.position ?? 0) + 1,
+          options: {
+            create: options.map((option, index) => ({
+              organizationId,
+              content: option.content,
+              isCorrect: option.isCorrect,
+              position: index + 1,
+            })),
+          },
+        },
+        include: { options: { orderBy: { position: 'asc' } } },
+      });
+      const questionCount = await tx.quizQuestion.count({
+        where: { assessmentId: quiz.id },
+      });
+      return { question, questionCount };
+    });
+    // BR-118 is checked by Course Service on submission through the UC18 list (questionCount): no outbox event.
+
+    const { question } = created;
+    return {
+      quizId: quiz.id,
+      questionCount: created.questionCount,
+      question: {
+        id: question.id,
+        position: question.position,
+        type: question.questionType,
+        content: question.content,
+        options: question.options.map((option) => ({
+          id: option.id,
+          position: option.position,
+          content: option.content,
+          isCorrect: option.isCorrect,
+        })),
+      },
+    };
+  }
+
+  private hasAttemptsError() {
+    return new ConflictException({
+      code: 'QUIZ_HAS_ATTEMPTS',
+      message:
+        'A Learner has already started this Quiz, so its questions can no longer be changed.',
+    });
+  }
+
   /** BR-94 / BR-97 for the fields being changed; lists every blocked field with its reasons (BR-99). */
   private assertConfigEditable(
     changed: QuizConfigField[],
@@ -336,7 +460,7 @@ export class QuizService {
     });
   }
 
-  /** UC18.1 / UC18.4: the full Instructor view of one Quiz, with what may be changed now (BR-99). */
+  /** UC18.1 / UC18.3: the full Instructor view of one Quiz, with what may be changed now (BR-99). */
   private toDetail(
     quiz: QuizDetailRow,
     course: CourseAuthoringContext,
@@ -376,7 +500,7 @@ export class QuizService {
   }
 
   /**
-   * UC18.5 — delete a Quiz.
+   * UC18.4 — delete a Quiz.
    * BR-92: blocked only when the Course is Locked AND the Quiz already has attempts.
    */
   async deleteQuiz(user: CurrentUser, id: string): Promise<{ id: string }> {
@@ -389,10 +513,7 @@ export class QuizService {
     const course = await this.requireOwnCourse(user, quiz.courseId);
 
     // BR-285: a Submitted, Archived or Disabled Course accepts no edit at all.
-    if (
-      course.disabled ||
-      !AUTHORABLE_STATUSES.includes(course.status)
-    ) {
+    if (course.disabled || !AUTHORABLE_STATUSES.includes(course.status)) {
       throw new ConflictException({
         code: 'COURSE_NOT_EDITABLE',
         message: `Quizzes cannot be deleted while the Course is ${course.status}.`,

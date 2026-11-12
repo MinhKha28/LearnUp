@@ -35,28 +35,28 @@ export default function PlanCard({
     .filter(Boolean)
     .join(" ");
   const limits = details?.limits ?? [
-    ["Learner seats", "[Limit]"],
-    ["Instructor seats", "[Limit]"],
-    ["Courses", "[Limit]"],
-    ["Storage", "[Limit]"],
+    ["Số học viên", "[Giới hạn]"],
+    ["Số giảng viên", "[Giới hạn]"],
+    ["Số khóa học", "[Giới hạn]"],
+    ["Dung lượng lưu trữ", "[Giới hạn]"],
   ];
 
   return (
     <article className={className}>
       <div className="plan-card-heading">
-        {selected && <h2>Your selection</h2>}
+        {selected && <h2>Gói bạn chọn</h2>}
         {details && featured && (
-          <span className="plan-card-badge">Popular</span>
+          <span className="plan-card-badge">Phổ biến</span>
         )}
-        {!details && <span className="plan-card-badge">Available</span>}
+        {!details && <span className="plan-card-badge">Đang cung cấp</span>}
       </div>
-      <h3>{details?.name ?? "[Configured plan name]"}</h3>
-      <p className="plan-card-term">{details?.description ?? "[Plan term]"}</p>
-      <p className="plan-card-price">
-        {details?.price ?? "[Configured price]"}
+      <h3>{details?.name ?? "[Tên gói]"}</h3>
+      <p className="plan-card-term">
+        {details?.description ?? "[Thời hạn gói]"}
       </p>
+      <p className="plan-card-price">{details?.price ?? "[Giá gói]"}</p>
       <span className="plan-card-caption">
-        {details?.priceNote ?? "per organization"}
+        {details?.priceNote ?? "cho mỗi tổ chức"}
       </span>
       <dl className="plan-card-limits">
         {limits.map(([label, value]) => (
@@ -72,17 +72,16 @@ export default function PlanCard({
       {selected && (
         <dl className="plan-card-payment">
           <div>
-            <dt>Plan total</dt>
-            <dd>{details?.price ?? "[Configured price]"}</dd>
+            <dt>Tổng tiền</dt>
+            <dd>{details?.price ?? "[Giá gói]"}</dd>
           </div>
         </dl>
       )}
       {onSelect && (
-        <Button
-          block
-          onClick={onSelect}
-        >
-          {home ? `Choose ${details?.name ?? "plan"}` : "Continue with plan"}
+        <Button block onClick={onSelect}>
+          {home
+            ? `Chọn gói ${details?.name ?? ""}`.trim()
+            : "Tiếp tục với gói này"}
           <span aria-hidden="true">{"\u2192"}</span>
         </Button>
       )}

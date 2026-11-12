@@ -81,12 +81,12 @@ it("keeps submission and moves a Draft Course to Trash after confirmation", asyn
   );
   open("/instructor/courses/course-1");
 
-  expect(await screen.findByRole("button", { name: "Submit for Review" })).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Move to Trash" }));
+  expect(await screen.findByRole("button", { name: "Gửi phê duyệt" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Chuyển vào thùng rác" }));
   expect(remove).not.toHaveBeenCalled();
   await act(async () => { await confirm.mock.calls[0][0].onOk?.(); });
   expect(remove).toHaveBeenCalledWith("/api/v1/courses/course-1");
-  expect(await screen.findByRole("heading", { name: "My Courses" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Khóa học của tôi" })).toBeTruthy();
 
   await submitCourseForApprovalAPI("another/course");
   expect(post).toHaveBeenCalledWith("/api/v1/courses/another%2Fcourse/submit");
@@ -110,11 +110,11 @@ it("opens Trash from My Courses, restores a Course, and refreshes the listing", 
   post.mockResolvedValue({ data: { courseId: course.id, restored: true } });
   open("/instructor/courses");
 
-  fireEvent.click(screen.getByRole("button", { name: "Trash" }));
+  fireEvent.click(screen.getByRole("button", { name: "Thùng rác" }));
   expect(await screen.findByText(course.name)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+  fireEvent.click(screen.getByRole("button", { name: "Khôi phục" }));
 
-  await screen.findByText("Your Course Trash is empty.");
+  await screen.findByText("Thùng rác khóa học đang trống.");
   expect(post).toHaveBeenCalledWith("/api/v1/courses/course-1/restore");
   await waitFor(() =>
     expect(get.mock.calls.filter(([path]) => path === "/api/v1/courses/trash")).toHaveLength(2),

@@ -2310,4 +2310,42 @@ export class UsersService {
 
     return organizer;
   }
+
+  async getTransferCandidates(user: CurrentUser, excludeInstructorId: string) {
+    if (user.role !== 'ORGANIZER' || !user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Organizer permission is required.',
+      });
+    }
+
+    return this.usersRepository.findTransferCandidates(
+      user.organizationId,
+      excludeInstructorId,
+    );
+  }
+
+  async validateTransferReceiver(user: CurrentUser, instructorId: string) {
+    if (user.role !== 'ORGANIZER' || !user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Organizer permission is required.',
+      });
+    }
+
+    const receiver = await this.usersRepository.findEligibleTransferReceiver(
+      user.organizationId,
+      instructorId,
+    );
+
+    if (!receiver) {
+      throw new BadRequestException({
+        code: 'INVALID_RECEIVER',
+        message: 'Receiving Instructor is not eligible.',
+      });
+    }
+
+    return receiver;
+  }
+
 }

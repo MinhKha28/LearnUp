@@ -144,9 +144,9 @@ describe("UC33.1 the detail of a cycle", () => {
       "assignment-1",
       "cycle-1",
     );
-    expect(screen.getByText("MỞ")).toBeTruthy();
-    expect(screen.getByText("ĐÓNG VÀ PHÂN CÔNG")).toBeTruthy();
-    expect(screen.getByText("HẠN CHẤM")).toBeTruthy();
+    expect(screen.getByText("Mở")).toBeTruthy();
+    expect(screen.getByText("Đóng và phân công")).toBeTruthy();
+    expect(screen.getByText("Hạn chấm")).toBeTruthy();
   });
 
   it("shows the dates in the Vietnamese format whatever the language of the browser: day first, no AM or PM", async () => {

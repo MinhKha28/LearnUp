@@ -8,12 +8,14 @@ import { InternalCoursesModule } from './modules/internal-courses/internal-cours
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { OutboxModule } from './modules/outbox/outbox.module';
+import { PlatformSettingsModule } from './modules/platform-settings/platform-settings.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    PlatformSettingsModule,
     CatalogModule,
     CoursesModule,
     InternalCoursesModule,

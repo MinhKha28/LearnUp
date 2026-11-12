@@ -18,16 +18,16 @@ export type ChangePasswordFields = {
 };
 
 export const currentPasswordRules: Rule[] = [
-  { required: true, message: "Enter your current password." },
+  { required: true, message: "Hãy nhập mật khẩu hiện tại." },
 ];
 
 export const newPasswordRules: Rule[] = [
-  { required: true, whitespace: true, message: "Enter a new password." },
+  { required: true, whitespace: true, message: "Hãy nhập mật khẩu mới." },
   {
     validator(_, value?: string) {
       return !value || hasMinimumPasswordLength(value, 8)
         ? Promise.resolve()
-        : Promise.reject(new Error("Use at least 8 characters."));
+        : Promise.reject(new Error("Mật khẩu cần ít nhất 8 ký tự."));
     },
   },
   {
@@ -35,7 +35,7 @@ export const newPasswordRules: Rule[] = [
       // The stored limit is BCrypt's 72 bytes, not 72 Unicode characters.
       return !value || isWithinPasswordByteLimit(value)
         ? Promise.resolve()
-        : Promise.reject(new Error("Password is too long. Use fewer characters."));
+        : Promise.reject(new Error("Mật khẩu quá dài. Hãy dùng ít ký tự hơn."));
     },
   },
   ({ getFieldValue }) => ({
@@ -43,19 +43,19 @@ export const newPasswordRules: Rule[] = [
       return !value || !isSameStoredPassword(value, getFieldValue("current"))
         ? Promise.resolve()
         : Promise.reject(
-            new Error("Choose a password different from the current one."),
+            new Error("Hãy chọn mật khẩu khác mật khẩu hiện tại."),
           );
     },
   }),
 ];
 
 export const confirmPasswordRules: Rule[] = [
-  { required: true, message: "Confirm your new password." },
+  { required: true, message: "Hãy nhập lại mật khẩu mới." },
   ({ getFieldValue }) => ({
     validator(_, value?: string) {
       return !value || getFieldValue("password") === value
         ? Promise.resolve()
-        : Promise.reject(new Error("Passwords do not match"));
+        : Promise.reject(new Error("Mật khẩu nhập lại không khớp."));
     },
   }),
 ];
@@ -89,7 +89,7 @@ export const useChangePassword = () => {
         ),
       );
     } catch {
-      setError("Could not connect to the server. Please try again later.");
+      setError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setSubmitting(false);
     }

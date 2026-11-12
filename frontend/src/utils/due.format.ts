@@ -4,6 +4,7 @@ interface LocalParts {
   year: string;
   hour: string;
   minute: string;
+  second: string;
 }
 
 const createFormatter = (timeZone?: string) =>
@@ -14,12 +15,13 @@ const createFormatter = (timeZone?: string) =>
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
     hourCycle: "h23",
   });
 
 const toParts = (formatter: Intl.DateTimeFormat, date: Date): LocalParts => {
   const parts = Object.fromEntries(formatter.formatToParts(date).map((part) => [part.type, part.value]));
-  return { day: parts.day, month: parts.month, year: parts.year, hour: parts.hour, minute: parts.minute };
+  return { day: parts.day, month: parts.month, year: parts.year, hour: parts.hour, minute: parts.minute, second: parts.second };
 };
 
 const formatDate = ({ day, month, year }: LocalParts) => `${day}/${month}/${year}`;
@@ -49,7 +51,11 @@ const tryCreateFormatter = (timeZone: string | null): Intl.DateTimeFormat | null
  * Hạn hoàn thành theo múi giờ Organization (D24, D44). Đúng 00:00 địa phương là hết ngày hôm trước,
  * nên lấy ngày của (dueAt − 1 ms). Múi giờ null hoặc không hợp lệ thì hiện theo giờ máy.
  */
-export const formatDueAt = (dueAtIso: string, timezone: string | null): { text: string; isDeviceTime: boolean } => {
+export const formatDueAt = (
+  dueAtIso: string,
+  timezone: string | null,
+  { exactMidnight = false }: { exactMidnight?: boolean } = {},
+): { text: string; isDeviceTime: boolean } => {
   const dueAt = new Date(dueAtIso);
   if (Number.isNaN(dueAt.getTime())) {
     return { text: "—", isDeviceTime: false };
@@ -58,7 +64,14 @@ export const formatDueAt = (dueAtIso: string, timezone: string | null): { text: 
   const formatter = tryCreateFormatter(timezone);
   if (formatter) {
     const parts = toParts(formatter, dueAt);
-    if (parts.hour === "00" && parts.minute === "00") {
+    const midnight = parts.hour === "00" && parts.minute === "00";
+    const exact = parts.second === "00" && dueAt.getUTCMilliseconds() === 0;
+    if (midnight && exactMidnight && exact) {
+      const previousDate = new Date(0);
+      previousDate.setUTCFullYear(Number(parts.year), Number(parts.month) - 1, Number(parts.day) - 1);
+      return { text: `Hết ngày ${formatDate(toParts(createFormatter("UTC"), previousDate))}`, isDeviceTime: false };
+    }
+    if (midnight && !exactMidnight) {
       return { text: `Hết ngày ${formatDate(toParts(formatter, new Date(dueAt.getTime() - 1)))}`, isDeviceTime: false };
     }
     return { text: formatTimeDate(parts), isDeviceTime: false };
