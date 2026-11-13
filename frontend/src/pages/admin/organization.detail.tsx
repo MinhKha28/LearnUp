@@ -1,4 +1,5 @@
-import { Alert, Avatar, Button, Empty, Spin } from "antd";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { Avatar, Button, Empty, Spin } from "antd";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -19,8 +20,8 @@ import {
   organizerStatusView,
   subscriptionStatusViewVi,
   usageLabel,
-  usageWidth,
 } from "@/utils/organization.detail.view";
+import { subscriptionUsage } from "@/utils/subscription.usage";
 import "./organization.detail.scss";
 
 type LoadError = "notFound" | "failed";
@@ -33,20 +34,24 @@ const UsageMetric = ({
   label: string;
   item: IAdminUsageItem;
   format?: (value: number) => string;
-}) => (
-  <div className="admin-metric">
-    <span>{label}</span>
-    <strong>{usageLabel(item, format)}</strong>
-    {item.used !== null && (
-      <>
-        <div className={`admin-usage ${item.warning ? "admin-usage-warning" : ""}`.trim()}>
-          <span style={{ width: usageWidth(item) }} />
-        </div>
-        <small>Đã dùng {item.percent}%</small>
-      </>
-    )}
-  </div>
-);
+}) => {
+  const usage = subscriptionUsage(item);
+  const hasValues = item.used != null && item.limit != null;
+  const caption = usage.label?.endsWith("%") && /^\d/.test(usage.label)
+    ? `Đã dùng ${usage.label}`
+    : usage.label;
+
+  return (
+    <div className="admin-metric">
+      <span>{label}</span>
+      <strong>{usageLabel(item, format)}</strong>
+      <div className={`admin-usage admin-usage-${usage.level}`}>
+        {hasValues && <span style={{ width: `${usage.barWidth}%` }} />}
+      </div>
+      {hasValues && caption && <small>{caption}</small>}
+    </div>
+  );
+};
 
 // UC44.1 - Admin xem chi tiết Organization. Chỉ đọc; tạm khóa (UC44.3) và thay Organizer (UC44.5) làm sau.
 const OrganizationDetail = () => {
@@ -111,7 +116,7 @@ const OrganizationDetail = () => {
             </Empty>
           </SectionCard>
         ) : (
-          <Alert
+          <VietnameseAlert
             type="error"
             showIcon
             message="Chưa tải được tổ chức này."
@@ -123,7 +128,7 @@ const OrganizationDetail = () => {
     );
   }
 
-  const orgStatus = organizationStatusViewVi[detail.status];
+  const orgStatus = organizationStatusViewVi(detail.status);
   const { organizer, subscription, usage, duplicateTaxCode } = detail;
 
   return (
@@ -136,10 +141,10 @@ const OrganizationDetail = () => {
           subtitle={`Chi tiết tổ chức · đăng ký ngày ${formatDateVN(detail.createdAt)}`}
           actions={
             <>
-              <AdminButton disabled title="Có ở UC44.5">
+              <AdminButton disabled title="Tính năng thay quản lý đào tạo chưa hoạt động.">
                 Thay quản lý đào tạo
               </AdminButton>
-              <AdminButton danger disabled title="Có ở UC44.3">
+              <AdminButton danger disabled title="Tính năng tạm khóa tổ chức chưa hoạt động.">
                 Tạm khóa
               </AdminButton>
             </>
@@ -156,7 +161,7 @@ const OrganizationDetail = () => {
             </WarningPanel>
             <ul>
               {duplicateTaxCode.organizations.map((dup) => {
-                const view = organizationStatusViewVi[dup.status];
+                const view = organizationStatusViewVi(dup.status);
                 return (
                   <li key={dup.id}>
                     <Link className="admin-link" to={`/admin/organizations/${encodeURIComponent(dup.id)}`}>
@@ -205,8 +210,8 @@ const OrganizationDetail = () => {
               title="Gói dịch vụ và mức dùng"
               extra={
                 subscription ? (
-                  <StatusTag tone={subscriptionStatusViewVi[subscription.status].tone}>
-                    {subscriptionStatusViewVi[subscription.status].label}
+                  <StatusTag tone={subscriptionStatusViewVi(subscription.status).tone}>
+                    {subscriptionStatusViewVi(subscription.status).label}
                   </StatusTag>
                 ) : (
                   <StatusTag tone="neutral">

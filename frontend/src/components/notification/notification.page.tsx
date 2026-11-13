@@ -17,7 +17,7 @@ const PAGE_SIZE = 10;
 type Filter = "all" | "unread";
 
 /** UC49: the full list of the notifications of the signed-in user, newest first, for every role. */
-const NotificationPage = () => {
+const NotificationPage = ({ subtitle = "Cập nhật về khóa học, bài tập và bài chấm của bạn." }: { subtitle?: string }) => {
   const [filter, setFilter] = useState<Filter>("all");
   const [page, setPage] = useState(0);
   const [data, setData] = useState<INotificationPage | null>(null);
@@ -83,7 +83,7 @@ const NotificationPage = () => {
         <div className="notification-page-title">
           <h1>Thông báo</h1>
           <p>
-            Cập nhật về khóa học, bài tập và bài chấm của bạn.
+            {subtitle}
             {unread !== null && unread > 0 && <span className="notification-page-count">{unread} chưa đọc</span>}
           </p>
         </div>

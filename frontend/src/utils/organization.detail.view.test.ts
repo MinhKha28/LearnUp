@@ -7,7 +7,6 @@ import {
   organizerStatusView,
   subscriptionStatusViewVi,
   usageLabel,
-  usageWidth,
 } from "./organization.detail.view";
 
 type Organizer = NonNullable<IAdminOrganizationDetail["organizer"]>;
@@ -41,17 +40,22 @@ describe("UC44.1 organization detail view helpers", () => {
   });
 
   it("labels every Organization and Subscription status in Vietnamese", () => {
-    expect(Object.values(organizationStatusViewVi).map((view) => view.label)).toEqual([
+    expect((["PendingPayment", "Active", "Suspended", "Cancelled"] as const).map((status) => organizationStatusViewVi(status).label)).toEqual([
       "Chờ thanh toán",
       "Đang hoạt động",
       "Tạm khóa",
       "Đã hủy",
     ]);
-    expect(Object.values(subscriptionStatusViewVi).map((view) => view.label)).toEqual([
+    expect((["Active", "Grace", "Suspended"] as const).map((status) => subscriptionStatusViewVi(status).label)).toEqual([
       "Đang hoạt động",
       "Trong thời gian ân hạn",
       "Tạm ngưng",
     ]);
+  });
+
+  it("provides neutral labels for missing and unknown statuses", () => {
+    expect(organizationStatusViewVi()).toEqual({ label: "—", tone: "neutral" });
+    expect(subscriptionStatusViewVi(null)).toEqual({ label: "—", tone: "neutral" });
   });
 
   it("shows bytes in GB from 1 GB up, and in MB or KB below", () => {
@@ -60,12 +64,6 @@ describe("UC44.1 organization detail view helpers", () => {
     expect(formatBytes(8.1 * 1024 ** 3)).toBe("8,1 GB");
     expect(formatBytes(512 * 1024 * 1024)).toBe("512 MB");
     expect(formatBytes(2048)).toBe("2 KB");
-  });
-
-  it("caps the usage bar at 100% and treats a missing percent as 0%", () => {
-    expect(usageWidth({ used: 30, limit: 100, percent: 30, warning: false })).toBe("30%");
-    expect(usageWidth({ used: 130, limit: 100, percent: 130, warning: true })).toBe("100%");
-    expect(usageWidth({ used: null, limit: 100, percent: null, warning: false })).toBe("0%");
   });
 
   it("says the usage is not available when course-service did not answer", () => {

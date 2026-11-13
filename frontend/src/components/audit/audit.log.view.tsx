@@ -39,6 +39,7 @@ interface Props {
 
 const MESSAGES: Record<string, string> = {
   FORBIDDEN: "Bạn không có quyền xem nhật ký.",
+  BAD_REQUEST: "Bộ lọc nhật ký không hợp lệ. Hãy kiểm tra rồi thử lại.",
 };
 /** The days of the filter travel as yyyy-MM-dd in the URL and show as dd/MM/yyyy in the field. */
 const DAY_FORMAT = "YYYY-MM-DD";
@@ -156,10 +157,9 @@ const AuditLogView = ({ showOrganization = false }: Props) => {
       title: "Hành động",
       key: "action",
       render: (_, log) => (
-        <>
+        <span title={log.actionType && !isKnownAction(log.actionType) ? log.actionType : undefined}>
           {actionLabel(log.actionType)}
-          {isKnownAction(log.actionType) ? null : <span className="audit-log-id"> ({log.actionType})</span>}
-        </>
+        </span>
       ),
     },
     {

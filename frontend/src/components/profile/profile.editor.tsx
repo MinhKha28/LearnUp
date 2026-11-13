@@ -111,7 +111,7 @@ const ProfileEditor = ({ button: RoleButton, onSaved }: IProps) => {
         <Form.Item label="Địa chỉ email (chỉ xem)">
           <Input value={profile?.email} disabled />
         </Form.Item>
-        {profile?.organizationId && (
+        {profile?.organizationId && profile.role !== "Admin" && (
           <Form.Item
             label="Đơn vị công tác (chỉ xem)"
             extra="Do quản lý đào tạo quản lý."
