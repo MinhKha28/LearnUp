@@ -24,34 +24,6 @@ import type {
 
 import "./course.builder.scss";
 
-// Đọc thông báo lỗi từ Backend.
-const getErrorMessage = (error: unknown): string => {
-  if (axios.isAxiosError(error)) {
-    const body = error.response?.data as
-      | {
-          error?: { message?: string | string[] };
-          message?: string | string[];
-        }
-      | undefined;
-
-    const detail = body?.error?.message ?? body?.message;
-
-    if (typeof detail === "string") {
-      return detail;
-    }
-
-    if (Array.isArray(detail)) {
-      return detail.join(", ");
-    }
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Không thể cập nhật nội dung bài học.";
-};
-
 const CourseBuilderLessonContentEdit = () => {
   const { courseId, lessonId } = useParams();
   const navigate = useNavigate();
@@ -108,7 +80,7 @@ const CourseBuilderLessonContentEdit = () => {
         if (controller.signal.aborted) return;
 
         console.error("Load Lesson content error:", error);
-        setErrorMessage(getErrorMessage(error));
+        setErrorMessage("Không thể tải nội dung bài học.");
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -152,14 +124,14 @@ const CourseBuilderLessonContentEdit = () => {
       });
 
       if (!response.data) {
-        throw new Error(response.message || "Không thể cập nhật nội dung bài học.");
+        throw new Error("Không thể cập nhật nội dung bài học.");
       }
 
       message.success("Đã cập nhật nội dung bài học.");
       navigate(detailUrl);
     } catch (error) {
       console.error("Save Lesson content error:", error);
-      message.error(getErrorMessage(error));
+      message.error("Không thể cập nhật nội dung bài học.");
 
       // Nếu Backend trả 409, kiểm tra lại quyền chỉnh sửa.
       if (axios.isAxiosError(error) && error.response?.status === 409) {
@@ -290,7 +262,7 @@ const CourseBuilderLessonContentEdit = () => {
             Chỉ có thể cập nhật nội dung khi chưa có học viên hoàn thành bài học.
           </InfoPanel>
 
-          <InfoPanel title="BR-292">
+          <InfoPanel title="Thời lượng dự kiến">
             Nội dung giới thiệu không phải học liệu bắt buộc và không được cộng vào thời lượng học dự kiến.
           </InfoPanel>
         </div>

@@ -23,6 +23,7 @@ import {
   QUIZ_BANNER_TITLE,
   QUIZ_LOCK_REASON_TEXT,
   quizBannerReasons,
+  quizAttemptLimitLabel,
   quizPlacementLabel,
   quizQuestionTypeLabel,
 } from "@/utils/quiz.view";
@@ -123,7 +124,7 @@ const CourseBuilderQuizDetail = () => {
           const notFound =
             assessmentErrorCode(res).code === "QUIZ_NOT_FOUND" || statusCode === 404 || statusCode === 400;
           setQuiz(null);
-          setError({ notFound, message: assessmentErrorText(res, "Không thể tải bài trắc nghiệm.") });
+          setError({ notFound, message: assessmentErrorText({ error: assessmentErrorCode(res) }, "Không thể tải bài trắc nghiệm.") });
         }
       } catch {
         if (active) {
@@ -256,7 +257,7 @@ const CourseBuilderQuizDetail = () => {
               />
               <ConfigRow
                 label="Giới hạn lượt làm"
-                value={`${quiz.maxConsecutiveAttempts} attempts in a row, then ${quiz.lockoutHours} h lockout`}
+                value={quizAttemptLimitLabel(quiz.maxConsecutiveAttempts, quiz.lockoutHours)}
                 permission={permissions.editAttemptRule}
               />
               <ConfigRow label="Vị trí" value={quizPlacementLabel(quiz, structure.modules)} />

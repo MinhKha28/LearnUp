@@ -87,7 +87,7 @@ const CourseBuilderQuizQuestionCreate = () => {
           const notFound =
             assessmentErrorCode(res).code === "QUIZ_NOT_FOUND" || statusCode === 404 || statusCode === 400;
           setQuiz(null);
-          setError({ notFound, message: assessmentErrorText(res, "Không thể tải bài trắc nghiệm.") });
+          setError({ notFound, message: assessmentErrorText({ error: assessmentErrorCode(res) }, "Không thể tải bài trắc nghiệm.") });
         }
       } catch {
         if (active) {
@@ -227,7 +227,7 @@ const CourseBuilderQuizQuestionCreate = () => {
     try {
       const res = await createQuizQuestionAPI(quiz.id, payload);
       if (!res.data) {
-        message.error(assessmentErrorText(res, "Không thể thêm câu hỏi."));
+        message.error(assessmentErrorText({ error: assessmentErrorCode(res) }, "Không thể thêm câu hỏi."));
         // The form stays as typed; only the Quiz state (banners, permission) is loaded again.
         if (RELOAD_CODES.includes(assessmentErrorCode(res).code ?? "")) reload();
         return;
@@ -243,7 +243,7 @@ const CourseBuilderQuizQuestionCreate = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Quizzes / {quiz.title} / Add Question</span>
+      <span className="builder-crumb">Xây dựng khóa học / Bài trắc nghiệm / {quiz.title} / Thêm câu hỏi</span>
       <div className="builder-hero">
         <h1>Thêm câu hỏi trắc nghiệm</h1>
         <p>
@@ -290,7 +290,7 @@ const CourseBuilderQuizQuestionCreate = () => {
               ? "Đáp án đúng"
               : type === "SingleChoice"
                 ? "Các đáp án (chọn một đáp án đúng)"
-                : "Answers (tick every correct answer)"}
+                : "Các đáp án (chọn tất cả đáp án đúng)"}
           </label>
 
           {isChoice ? (
@@ -303,14 +303,14 @@ const CourseBuilderQuizQuestionCreate = () => {
                     <div className={`builder-quiz-option${option.isCorrect ? " builder-quiz-option-correct" : ""}`}>
                       {type === "SingleChoice" ? (
                         <Radio
-                          aria-label={`Answer ${optionLetter(index)} is correct`}
+                          aria-label={`Đáp án ${optionLetter(index)} đúng`}
                           disabled={!open}
                           checked={option.isCorrect}
                           onChange={() => markCorrect(option.key, true)}
                         />
                       ) : (
                         <Checkbox
-                          aria-label={`Answer ${optionLetter(index)} is correct`}
+                          aria-label={`Đáp án ${optionLetter(index)} đúng`}
                           disabled={!open}
                           checked={option.isCorrect}
                           onChange={(event) => markCorrect(option.key, event.target.checked)}
@@ -330,7 +330,7 @@ const CourseBuilderQuizQuestionCreate = () => {
                         <button
                           type="button"
                           className="builder-table-link builder-table-link-danger"
-                          aria-label={`Remove answer ${optionLetter(index)}`}
+                          aria-label={`Xóa đáp án ${optionLetter(index)}`}
                           onClick={() => removeOption(option.key)}
                         >
                           <DeleteOutlined />

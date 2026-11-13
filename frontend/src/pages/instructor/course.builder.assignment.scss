@@ -587,6 +587,10 @@
 }
 
 @media (max-width: 560px) {
+  .builder-actions.builder-assignment-detail-actions {
+    justify-content: flex-start;
+  }
+
   .builder-param-grid {
     grid-template-columns: 1fr;
   }

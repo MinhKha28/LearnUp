@@ -4,6 +4,7 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 import { FieldError, NumberField } from "@/components/instructor/form.field";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage, WarningPanel } from "@/components/instructor/instructor.ui";
+import { courseStatusLabel } from "@/utils/course.status.labels";
 import { assessmentErrorText, createQuizAPI, toApiCourseId } from "@/services/assessment.service";
 import type { IAssessmentError } from "@/types/assessment.types";
 import {
@@ -117,7 +118,7 @@ const CourseBuilderQuizCreate = () => {
       // The axios interceptor resolves HTTP errors too, so only res.data tells success apart.
       if (!res.data) {
         const code = errorCodeOf(res);
-        message.error((code && ERROR_TEXT[code]) || assessmentErrorText(res, "Không thể tạo bài trắc nghiệm."));
+        message.error((code && ERROR_TEXT[code]) || assessmentErrorText({ error: { code } }, "Không thể tạo bài trắc nghiệm."));
         return;
       }
       message.success("Đã tạo bài trắc nghiệm.");
@@ -139,7 +140,7 @@ const CourseBuilderQuizCreate = () => {
         <div className="builder-update-card">
           {formLocked && (
             <WarningPanel title="Không thể chỉnh sửa khóa học này">
-              {structure.lockReason ?? `Khóa học đang ở trạng thái ${course.status} nên không thể thêm bài trắc nghiệm.`}
+              {structure.lockReason ?? `Khóa học đang ở trạng thái ${courseStatusLabel[course.status]} nên không thể thêm bài trắc nghiệm.`}
             </WarningPanel>
           )}
           {onlyOptional && (

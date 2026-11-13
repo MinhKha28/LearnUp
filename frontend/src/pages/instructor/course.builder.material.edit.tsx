@@ -1,3 +1,5 @@
+import { materialFileStatusText, materialTypeText } from "@/utils/builder.material.labels";
+import { formatMinutes } from "@/utils/helper";
 import {
   ArrowLeftOutlined,
   FilePdfOutlined,
@@ -87,15 +89,11 @@ const getReplacementSizeError = (failure: unknown): string | undefined => {
   return `Tệp vượt quá kích thước cho phép${limit}. Vui lòng chọn tệp nhỏ hơn.`;
 };
 
-const ensureApiSuccess = <T,>(response: IBackendRes<T>): T => {
+const ensureApiSuccess = <T,>(response: IBackendRes<T>, fallback = "Không thể lưu học liệu."): T => {
   const statusCode = Number(response.statusCode);
 
   if (!Number.isInteger(statusCode) || statusCode < 200 || statusCode >= 300) {
-    const message = Array.isArray(response.error)
-      ? response.error.join(", ")
-      : response.message || response.error;
-
-    throw new Error(message || "Không thể hoàn tất yêu cầu.");
+    throw new Error(fallback);
   }
 
   if (response.data === undefined || response.data === null) {
@@ -159,7 +157,7 @@ const CourseBuilderMaterialEdit = () => {
           throw new Error("Không tìm thấy thông tin bài học.");
         }
 
-        const lessonDetail = ensureApiSuccess(response);
+        const lessonDetail = ensureApiSuccess(response, "Không thể tải thông tin học liệu.");
 
         const found = lessonDetail.materials.find(
           (item) => item.id === materialId,
@@ -176,13 +174,9 @@ const CourseBuilderMaterialEdit = () => {
         setIsRequired(found.isRequired);
         setReplacementFile(null);
         setProgress(0);
-      } catch (err) {
+      } catch {
         if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Không thể tải thông tin học liệu.",
-          );
+          setError("Không thể tải thông tin học liệu.");
         }
       } finally {
         if (!cancelled) {
@@ -376,11 +370,7 @@ const CourseBuilderMaterialEdit = () => {
             8,
           );
         } else {
-          message.error(
-            err instanceof Error
-              ? err.message
-              : "Không thể lưu học liệu.",
-          );
+          message.error("Không thể lưu học liệu.");
         }
       } finally {
         setUploadingFile(false);
@@ -688,7 +678,7 @@ const CourseBuilderMaterialEdit = () => {
 
             <div className="uc17-video-info-row">
               <span>Loại học liệu</span>
-              <strong>{material.materialType}</strong>
+              <strong>{materialTypeText(material.materialType)}</strong>
             </div>
 
             <div className="uc17-video-info-row">
@@ -708,12 +698,12 @@ const CourseBuilderMaterialEdit = () => {
 
             <div className="uc17-video-info-row">
               <span>Khóa học đã khóa</span>
-              <strong>{locked ? "Yes" : "No"}</strong>
+              <strong>{locked ? "Có" : "Không"}</strong>
             </div>
 
             <div className="uc17-video-info-row">
               <span>Trạng thái tệp</span>
-              <strong>{material.file.status}</strong>
+              <strong>{materialFileStatusText(material.file.status)}</strong>
             </div>
 
             {isVideo && (
@@ -721,7 +711,7 @@ const CourseBuilderMaterialEdit = () => {
                 <span>Thời lượng video</span>
                 <strong>
                   {material.file.durationSeconds !== null
-                    ? `${Math.ceil(material.file.durationSeconds / 60)} min`
+                    ? formatMinutes(Math.ceil(material.file.durationSeconds / 60))
                     : "Không có thông tin"}
                 </strong>
               </div>

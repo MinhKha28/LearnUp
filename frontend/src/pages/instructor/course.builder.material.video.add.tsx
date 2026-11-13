@@ -1,3 +1,5 @@
+import { uploadSubscriptionStatusText } from "@/utils/builder.material.labels";
+import { formatMinutes } from "@/utils/helper";
 import { ArrowLeftOutlined, VideoCameraOutlined } from "@ant-design/icons";
 import { Alert, Input, message, Progress, Radio, Skeleton } from "antd";
 import { useRef, useState } from "react";
@@ -73,14 +75,14 @@ const getUploadErrorMessage = (error: unknown): string => {
     }
 
     if (apiError.status === 400) {
-      return apiError.message || "Tệp video không hợp lệ.";
+      return "Tệp video không hợp lệ.";
     }
 
     if (apiError.status === 503) {
       return "Dịch vụ tải tệp lên đang tạm thời không khả dụng.";
     }
 
-    return apiError.message || "Không thể tải video lên.";
+    return "Không thể tải video lên.";
   } catch {
     return "Không thể tải video lên. Vui lòng thử lại.";
   }
@@ -447,7 +449,7 @@ const CourseBuilderVideoAdd = () => {
 
             <div className="uc17-video-info-row">
               <span>Thời lượng tối đa</span>
-              <strong>{context.maxVideoDurationMinutes} min</strong>
+              <strong>{formatMinutes(context.maxVideoDurationMinutes)}</strong>
             </div>
 
             <div className="uc17-video-info-row">
@@ -457,7 +459,7 @@ const CourseBuilderVideoAdd = () => {
 
             <div className="uc17-video-info-row">
               <span>Gói dịch vụ</span>
-              <strong>{context.subscriptionStatus ?? "Unavailable"}</strong>
+              <strong>{uploadSubscriptionStatusText(context.subscriptionStatus)}</strong>
             </div>
 
             <div className="uc17-video-info-row">
