@@ -22,14 +22,24 @@ public class CourseSubmissionDeliveryLedger {
     }
 
     public boolean claim(CourseSubmittedEvent event, UUID recipient, String channel) {
+        return claim(event.eventId(), event.organizationId(), event.courseId(), event.occurredAt(), recipient, channel);
+    }
+
+    /** UC21.3 decisions share the ledger: event ids are unique across the Course outbox. */
+    public boolean claim(CourseDecisionEvent event, UUID recipient, String channel) {
+        return claim(event.eventId(), event.organizationId(), event.courseId(), event.occurredAt(), recipient, channel);
+    }
+
+    private boolean claim(UUID eventId, UUID organizationId, UUID courseId, Instant occurredAt,
+                          UUID recipient, String channel) {
         jdbc.update("""
             INSERT INTO course_submission_deliveries
                 (id, event_id, organization_id, course_id, recipient_user_id,
                  channel, status, occurred_at, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?, now(), now())
             ON CONFLICT (event_id, recipient_user_id, channel) DO NOTHING
-            """, UUID.randomUUID(), event.eventId(), event.organizationId(), event.courseId(),
-                recipient, channel, Timestamp.from(event.occurredAt()));
+            """, UUID.randomUUID(), eventId, organizationId, courseId,
+                recipient, channel, Timestamp.from(occurredAt));
 
         int affected = jdbc.update("""
             UPDATE course_submission_deliveries
@@ -38,14 +48,14 @@ public class CourseSubmissionDeliveryLedger {
             WHERE event_id = ? AND recipient_user_id = ? AND channel = ?
               AND (status IN ('PENDING', 'FAILED')
                    OR (status = 'PROCESSING' AND claimed_at < ?))
-            """, event.eventId(), recipient, channel,
+            """, eventId, recipient, channel,
                 Timestamp.from(Instant.now().minusSeconds(120)));
 
         if (affected == 1) return true;
         String status = jdbc.queryForObject("""
             SELECT status FROM course_submission_deliveries
             WHERE event_id = ? AND recipient_user_id = ? AND channel = ?
-            """, String.class, event.eventId(), recipient, channel);
+            """, String.class, eventId, recipient, channel);
 
         if ("SENT".equals(status) || "SKIPPED".equals(status)) return false;
         throw new DependencyUnavailableException("COURSE_DELIVERY_CLAIMED");
