@@ -197,7 +197,7 @@ export const router = createBrowserRouter([
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <ManageDashboard /> },
-      { path: "notifications", element: <NotificationPage /> },
+      { path: "notifications", element: <NotificationPage subtitle="Các cập nhật cần bạn chú ý trên nền tảng." /> },
       { path: "organizations", element: <Organizations /> },
       {
         path: "organizations/:organizationId",

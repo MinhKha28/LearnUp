@@ -15,100 +15,99 @@ import "./dashboard.scss";
 const Dashboard = () => (
   <AdminPage className="admin-dashboard">
     <PageHeader
-      title="Platform overview"
-      subtitle="Monitor organizations, subscriptions, moderation workload, and platform risks."
+      title="Tổng quan nền tảng"
+      subtitle="Theo dõi tổ chức, gói dịch vụ, khối lượng kiểm duyệt và rủi ro của nền tảng."
       actions={
         <>
-          <AdminButton>Review reports</AdminButton>
+          <AdminButton>Xem xét báo cáo</AdminButton>
           <Link to="/admin/plans/create">
-            <AdminButton type="primary">Add plan</AdminButton>
+            <AdminButton type="primary">Thêm gói dịch vụ</AdminButton>
           </Link>
         </>
       }
     />
-    <WarningPanel title="Escalated reports require review">
-      2 unresolved escalations are waiting for a platform decision.
+    <WarningPanel title="Báo cáo chuyển cấp cần xem xét">
+      Có 2 báo cáo đã chuyển cấp đang chờ quyết định của quản trị nền tảng.
     </WarningPanel>
     <div className="admin-stat-grid admin-dashboard-stats">
-      <StatCard label="Organizations" value="24" note="Active" tone="neutral" />
+      <StatCard label="Tổ chức" value="24" note="Đang hoạt động" tone="neutral" />
       <StatCard
-        label="Active subscriptions"
+        label="Gói dịch vụ đang hoạt động"
         value="18"
-        note="Current"
+        note="Hiện hành"
         tone="success"
       />
       <StatCard
-        label="Escalated reports"
+        label="Báo cáo đã chuyển cấp xử lý"
         value="6"
-        note="Review"
+        note="Cần xem xét"
         tone="warning"
       />
       <StatCard
-        label="Suspended organizations"
+        label="Tổ chức bị tạm khóa"
         value="2"
-        note="Restricted"
+        note="Hạn chế"
         tone="error"
       />
     </div>
     <div className="admin-content-grid">
       <SectionCard
-        title="Organizations by status"
+        title="Tổ chức theo trạng thái"
         extra={
           <Button type="link" size="small">
-            View all
+            Xem tất cả
           </Button>
         }
       >
         <div className="admin-dashboard-progress">
-          <ProgressLine label="Active" count="18" value={75} />
+          <ProgressLine label="Đang hoạt động" count="18" value={75} />
           <ProgressLine
-            label="Pending payment"
+            label="Chờ thanh toán"
             count="3"
             value={38}
             tone="amber"
           />
           <ProgressLine
-            label="Grace period"
+            label="Trong thời gian ân hạn"
             count="1"
             value={18}
             tone="amber"
           />
-          <ProgressLine label="Suspended" count="2" value={28} tone="red" />
+          <ProgressLine label="Tạm khóa" count="2" value={28} tone="red" />
         </div>
         <p className="admin-note">
-          Platform health summary
+          Tổng quan tình trạng nền tảng
           <br />
-          Most organizations are active; review grace-period and suspended
-          accounts.
+          Hầu hết tổ chức đang hoạt động. Hãy xem các tài khoản đang trong thời gian ân hạn hoặc bị tạm khóa.
         </p>
       </SectionCard>
       <SectionCard
-        title="Escalated reports"
+        title="Báo cáo đã chuyển cấp xử lý"
         extra={
           <Link className="admin-link" to="/admin/reports">
-            View all →
+            Xem tất cả →
           </Link>
         }
       >
         <div className="admin-report-list">
           <div>
-            <strong>Course content complaint</strong>
+            <strong>Khiếu nại về nội dung khóa học</strong>
             <span>Northstar Academy</span>
-            <StatusTag tone="error">3 days</StatusTag>
+            <StatusTag tone="error">3 ngày</StatusTag>
           </div>
           <div>
-            <strong>Organizer response disputed</strong>
+            <strong>Phản hồi của quản lý đào tạo bị khiếu nại</strong>
             <span>Apex Learning</span>
-            <StatusTag tone="warning">Due tomorrow</StatusTag>
+            <StatusTag tone="warning">Đến hạn ngày mai</StatusTag>
           </div>
           <div>
-            <strong>Report status review</strong>
+            <strong>Xem xét trạng thái báo cáo</strong>
             <span>BlueRiver Institute</span>
-            <StatusTag tone="warning">Overdue</StatusTag>
+            <StatusTag tone="warning">Quá hạn</StatusTag>
           </div>
         </div>
         <p className="admin-note">
-          Review highlights only; reports escalated to Platform Admin.
+          Tóm tắt các báo cáo nổi bật đã chuyển đến quản trị nền tảng.
         </p>
       </SectionCard>
     </div>

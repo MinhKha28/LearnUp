@@ -20,21 +20,21 @@ const data: Suspended[] = [
     key: "greenfield",
     organization: "Greenfield Services",
     id: "ORG-004",
-    date: "12 Sep 2026",
-    reason: "Repeated overdue report handling",
+    date: "12/09/2026",
+    reason: "Nhiều lần xử lý báo cáo quá hạn",
   },
   {
     key: "metro",
     organization: "Metro Skills Center",
     id: "ORG-017",
-    date: "03 Sep 2026",
-    reason: "System-wide violation",
+    date: "03/09/2026",
+    reason: "Vi phạm trên toàn hệ thống",
   },
 ];
 const SuspendedOrganizations = () => {
   const columns: ColumnsType<Suspended> = [
     {
-      title: "Organization",
+      title: "Tổ chức",
       dataIndex: "organization",
       render: (_, item) => (
         <div className="admin-report-id">
@@ -43,27 +43,24 @@ const SuspendedOrganizations = () => {
         </div>
       ),
     },
-    { title: "Suspended since", dataIndex: "date" },
-    { title: "Reason", dataIndex: "reason" },
+    { title: "Bị tạm khóa từ", dataIndex: "date" },
+    { title: "Lý do", dataIndex: "reason" },
     {
-      title: "Action",
+      title: "Thao tác",
       align: "right",
-      render: () => <button className="admin-link">Review →</button>,
+      render: () => <button className="admin-link">Xem xét →</button>,
     },
   ];
   return (
     <AdminPage className="admin-suspended">
       <PageHeader
-        title="Suspended Organizations"
-        subtitle="Organizations currently suspended at platform level."
+        title="Tổ chức bị tạm khóa"
+        subtitle="Các tổ chức đang bị tạm khóa ở cấp nền tảng."
       />
-      <WarningPanel title="Platform-level suspension">
-        Do not suspend isolated report handling or single-user violations.
-        Suspension blocks the Organization across LearnUP. After corrective
-        action, authorized Organizer members are notified by the investigation
-        decision.
+      <WarningPanel title="Tạm khóa cấp nền tảng">
+        Chỉ tạm khóa tổ chức khi có căn cứ ở cấp tổ chức. Quyết định tạm khóa chặn quyền truy cập của tổ chức trên LearnUP. Sau khi khắc phục, quản lý đào tạo có thẩm quyền sẽ nhận được quyết định xử lý.
       </WarningPanel>
-      <SectionCard title="2 suspended organizations">
+      <SectionCard title="2 tổ chức bị tạm khóa">
         <Table
           className="admin-table"
           columns={columns}
@@ -72,7 +69,7 @@ const SuspendedOrganizations = () => {
         />
       </SectionCard>
       <p className="admin-note">
-        Restoration is performed after the violation is corrected.
+        Khôi phục sau khi vi phạm được khắc phục.
       </p>
     </AdminPage>
   );
