@@ -18,44 +18,193 @@ skinparam MaxMessageSize 200
 
 ' UC05.1 from docs/source-of-truth/LearnUP_UseCase.docx, row 8.
 ' BR-35/36/37/38/39 read from LearnUP_QuyTacNghiepVu.docx.
-' Scope: the unavailable fallback selected by the inspected local frontend configuration.
-' UI page: frontend/src/pages/guest/login.tsx:157/241-244 (LoginPage).
-' Button: frontend/src/components/guest/google.sign.in.tsx:53-61 (GoogleSignIn).
-' Config: frontend/src/services/google.identity.ts:33-34 (googleClientId).
-' Message: frontend/src/utils/google.sign.in.ts:9-13 (GOOGLE_UNAVAILABLE_MESSAGE).
-' No nonblank VITE_GOOGLE_CLIENT_ID in frontend/.env files or the current process.
-' frontend/.env.example:38 also has an empty value; vite.config.ts supplies no replacement ID.
-' Precondition: Guest is on /login, ordinary form loading=false, Google client ID absent.
-' Intended permitted account roles are Organizer/Instructor/Learner; the caller is still Guest.
-' !clientId causes the Google loader effect to return without loading the GIS script.
-' GoogleSignIn renders a fallback button; click calls onError(GOOGLE_UNAVAILABLE_MESSAGE).
-' LoginPage supplies onError=setError; its existing Alert renders the error description.
-' This deterministic fallback needs no alt/opt, Google lifeline, API Gateway or database.
-' hide footbox is retained as explicitly requested; the known draw.io converter may ignore it.
+' UI: frontend/src/pages/guest/login.tsx:71/241; components/guest/google.sign.in.tsx:20.
+' GIS loader/config: frontend/src/services/google.identity.ts:3/34/40.
+' Browser API: frontend/src/services/identity.service.ts:32, googleLoginAPI.
+' axios.customize.ts:68 uses VITE_BACKEND_URL, not env.backendUrl.course.
+' Current frontend/.env.development has a nonblank VITE_GOOGLE_CLIENT_ID and
+' VITE_BACKEND_URL=http://localhost:8080. Client ID matches root .env GOOGLE_OAUTH_CLIENT_ID.
+' No nonblank process overrides were present. No IDs, tokens or secrets reproduced.
+' Compose injects the Google ID into Identity and the frontend build; effective deployed
+' configuration and Google authorized origins are not verified by these source checks.
+' Gateway application.yml:16-19 forwards auth; :79 allowlists /api/v1/auth/google.
+' AuthController.java:19/33 owns /api/v1/auth/google; Identity has no NestJS prefix.
+' GoogleSignInService.java:42/47/52/63/74 verifies, locks account, checks Admin/Tenant and issues session.
+' TenantAccessClient.check is a hidden forwarding adapter: internal key, 3 s timeout, no redirects.
+' Tenant access: modules/sign-in-access/controller:12, service:34, repository:13/20.
+' Session: AuthService.java:124/432; repository/domain tables are users and refresh_tokens.
+' Profile: frontend/src/services/profile.service.ts:38, best-effort GET after saving tokens.
+' VITE_TENANT_BACKEND_URL=http://localhost:8084: profile GET goes directly to Tenant.
+' Actor is Guest until login; allowed resulting roles are Organizer/Instructor/Learner.
+' hide footbox follows the prompt; the known draw.io converter may ignore it.
 
 actor "Guest" as Guest
 boundary "Login Page" as Screen
+participant ":ApiGateway" as Gateway
+participant ":AuthController" as Controller
+participant ":GoogleSignInService" as SignIn
+participant ":GoogleIdTokenVerifier" as Verifier
+participant ":UserRepository" as Users
+participant ":AuthService" as Sessions
+participant ":RefreshTokenRepository" as RefreshTokens
+participant ":SignInAccessController" as AccessController
+participant ":SignInAccessService" as AccessService
+participant ":SignInAccessRepository" as AccessRepository
+participant ":ProfileController" as ProfileController
+participant ":ProfileService" as ProfileService
+participant ":ProfileRepository" as ProfileRepository
+participant "Google Identity Services" as Google
+database "identity_db" as IdentityDB
+database "tenant_db" as TenantDB
 
 activate Guest
-Guest -> Screen : Click Continue with Google
+Guest -> Screen : Select Continue with Google
 activate Screen
-Screen -->> Guest : Google sign-in is currently unavailable.\nPlease sign in with your email and password.
+' English labels translate current Vietnamese UI text. GIS uses popup mode, not an
+' authorization-code redirect/token exchange. Failure stops before credential submission.
+alt Google credential received successfully
+  Screen -> Google : Open Google sign-in popup
+  activate Google
+  Google ->> Screen : Return Google ID token through GIS callback
+  deactivate Google
+  Screen -> Gateway : POST /api/v1/auth/google\nGoogle credential only
+  activate Gateway
+  Gateway -> Controller : POST /api/v1/auth/google\nGoogle credential
+  activate Controller
+  Controller -> SignIn : signIn(credential)
+  activate SignIn
+  ' Outcome-level frame expands success; rejected guards do not run successful DB/session work.
+  alt Google sign-in completed successfully
+    SignIn -> Verifier : verify(credential)
+    activate Verifier
+    opt Decoder needs Google signing keys
+      Verifier -> Google : GET Google JWKS\nDefault: https://www.googleapis.com/oauth2/v3/certs
+      activate Google
+      Google -->> Verifier : Public signing keys
+      deactivate Google
+    end
+    ' Nimbus verifies RS256 signature, issuer, audience/client ID and timestamps.
+    ' Also require subject, email, email_verified=true; trim/lowercase verified email.
+    ' Key-source errors ->503; invalid credential ->401, before account lookup.
+    Verifier -->> SignIn : Verified Google identity and email
+    deactivate Verifier
+    SignIn -> Users : findByEmailForUpdate(verifiedEmail)
+    activate Users
+    Users -> IdentityDB : Read and lock existing credential owner by email
+    activate IdentityDB
+    IdentityDB -->> Users : Existing credential account
+    deactivate IdentityDB
+    Users -->> SignIn : Credential owner
+    deactivate Users
+    ' PESSIMISTIC_WRITE serializes credential mutation and session issuance.
+    ' No account -> GOOGLE_ACCOUNT_NOT_LINKED; ADMIN -> GOOGLE_SIGN_IN_NOT_ALLOWED.
+    ' Disabled Identity credential is rejected before Tenant. No User row is created.
+    ' Released credentials have email=NULL; Tenant also checks canonical deletedAt.
+    SignIn -> AccessController : GET /api/v1/internal/users/:userId/sign-in-access\nInternal key; credential owner ID
+    activate AccessController
+    AccessController -> AccessService : check(userId)
+    activate AccessService
+    AccessService -> AccessRepository : findUserWithOrganization(userId)
+    activate AccessRepository
+    AccessRepository -> TenantDB : Read canonical account and Organization
+    activate TenantDB
+    TenantDB -->> AccessRepository : Account and Organization state
+    deactivate TenantDB
+    AccessRepository -->> AccessService : Account and Organization
+    deactivate AccessRepository
+    ' Deny missing/deleted/Pending/non-Active account and inactive/suspended Organization.
+    ' Identity blocks ADMIN before this call; do not use Tenant's Admin bypass for Google.
+    AccessService -> AccessRepository : findCurrentSubscription(organizationId)
+    activate AccessRepository
+    AccessRepository -> TenantDB : Read latest Active, Grace or Suspended Subscription
+    activate TenantDB
+    TenantDB -->> AccessRepository : Current Subscription or none
+    deactivate TenantDB
+    AccessRepository -->> AccessService : Subscription state
+    deactivate AccessRepository
+    ' Active/Grace -> Full; missing -> denied. Suspended may allow Organizer ReadOnly
+    ' within organizerReadOnlyEndsAt; Instructor/Learner are denied.
+    AccessService -->> AccessController : allowed; Full or ReadOnly access mode
+    deactivate AccessService
+    AccessController -->> SignIn : 200 OK; eligibility
+    deactivate AccessController
+    ' Tenant errors fail closed; ACCOUNT_NOT_FOUND maps to GOOGLE_ACCOUNT_NOT_LINKED.
+    SignIn -> Sessions : issueSession(user, access)
+    activate Sessions
+    ' JwtTokenService signs the access token locally; cryptographic utilities omitted.
+    Sessions -> RefreshTokens : save(refreshToken)
+    activate RefreshTokens
+    RefreshTokens -> IdentityDB : Persist refresh token hash, owner and expiry
+    activate IdentityDB
+    IdentityDB -->> RefreshTokens : Refresh token row
+    deactivate IdentityDB
+    RefreshTokens -->> Sessions : Saved refresh token
+    deactivate RefreshTokens
+    Sessions -->> SignIn : Tokens, user and access mode
+    deactivate Sessions
+    ' GoogleSignInService transaction commits account lock/session state before HTTP reply.
+    SignIn -->> Controller : LearnUP session
+    deactivate SignIn
+    Controller -->> Gateway : 200 OK; LearnUP session
+    deactivate Controller
+    Gateway -->> Screen : Tokens and authenticated user
+    deactivate Gateway
+    ' UI requires both tokens and user, then saves tokens to localStorage.
+    ' auth.session.ts:23 excludes auth/google from automatic refresh-on-401 retry.
+    opt Best-effort profile enrichment completes successfully
+      Screen -> ProfileController : GET /api/v1/users/me\nNew access token; direct Tenant URL
+      activate ProfileController
+      ProfileController -> ProfileService : getMine(userId)
+      activate ProfileService
+      ProfileService -> ProfileRepository : findActiveUser(userId)
+      activate ProfileRepository
+      ProfileRepository -> TenantDB : Read non-deleted user and Organization
+      activate TenantDB
+      TenantDB -->> ProfileRepository : Profile data
+      deactivate TenantDB
+      ProfileRepository -->> ProfileService : User and Organization
+      deactivate ProfileRepository
+      ' Avatar URL projection uses local provider formatting, not a remote file read.
+      ProfileService -->> ProfileController : Profile projection
+      deactivate ProfileService
+      ProfileController -->> Screen : 200 OK; profile
+      deactivate ProfileController
+      ' The wrapper always attempts this request; only successful enrichment is expanded.
+      ' On error it returns the Identity user; profile failure does not block login.
+    end
+    Screen -->> Guest : Set authenticated user\nOpen safe redirect or role home
+  else Google sign-in failed
+    activate Gateway
+    activate Controller
+    activate SignIn
+    ' Actual grouped errors: bad Google token (401), missing account (401), Admin (403),
+    ' disabled credential, Tenant policy denial or dependency unavailable (503).
+    ' DTO failures precede Service; transaction errors roll back session persistence.
+    ' Failed verifier/account/policy internals are summarized; no successful session assumed.
+    SignIn -->> Controller : Sign-in error code
+    deactivate SignIn
+    Controller -->> Gateway : 400 / 401 / 403 / 503 or server error
+    deactivate Controller
+    Gateway -->> Screen : Google sign-in error
+    deactivate Gateway
+    Screen -->> Guest : Show mapped sign-in error\nRemain on Login Page
+    ' Axios may resolve HTTP error bodies; UI maps error.code when session fields are absent.
+    ' Transport failure has no HTTP reply and uses the generic unable-to-sign-in message.
+  end
+else Google initiation failed or sign-in unavailable
+  ' Missing client ID OR failed GIS script renders the fallback button; click shows unavailable.
+  ' GIS callback without credential shows GOOGLE_CREDENTIAL_INVALID; no googleSubmit/API call.
+  Screen -->> Guest : Show Google unavailable or verification error\nRemain on Login Page
+end
 deactivate Screen
 deactivate Guest
 
-' Google authentication IS implemented elsewhere in current source; it is not reached here.
-' Configured branch: GoogleSignIn initializes GIS in popup mode and receives a credential.
-' LoginPage.googleSubmit:71 -> identity.service.ts:32 googleLoginAPI -> POST /api/v1/auth/google.
-' AuthController invokes GoogleSignInService.signIn; GoogleIdTokenVerifier validates the ID token.
-' GoogleSignInService:47 looks up the verified email with UserRepository.findByEmailForUpdate.
-' It rejects absent accounts, ADMIN, disabled credentials and denied Tenant sign-in access.
-' Tenant access includes non-deleted/active account, Organization and Subscription checks.
-' Allowed credentials lead to AuthService.issueSession, without automatic account creation.
-' These implemented branches, and their API/DB/role errors, are not executed by this local UI path.
-' Therefore the AS-IS gap is Google sign-in not configured/available in the inspected build,
-' not Google authentication not implemented. Other deployed build configuration is unverified.
-' No redirect, callback, token exchange/verification, account lookup, session creation,
-' role/tenant check or DB/cross-service request is asserted for the fallback click.
-' Excluded: password login execution, registration, activation, recovery and enterprise SSO.
-' The password suggestion is displayed text only; no UC05 password request is initiated.
+' Google authentication is implemented and configured in the inspected sources/env files.
+' Configured IDs do not prove authorized origin registration, JWKS retrieval or live login.
+' BR-38/39: Identity V1 makes email unique; V5 allows released credential email=NULL.
+' Canonical Tenant deletedAt is checked separately before granting the Google session.
+' Tenant reads are not one distributed transaction with Identity session persistence.
+' No password-login throttling/checks, registration, activation, recovery or enterprise SSO.
+' No account provisioning, notification, outbox or Kafka is invoked by this sign-in method.
+' Source/config evidence only; no Google/DB integration test, secret exposure or remote render.
 @enduml
