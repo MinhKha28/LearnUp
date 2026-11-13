@@ -7,7 +7,7 @@ vi.mock("@/services/axios.customize", () => ({ default: { post, get: vi.fn() } }
 import GoogleSignIn from "@/components/guest/google.sign.in";
 import { GOOGLE_UNAVAILABLE_MESSAGE, googleSignInMessage } from "@/utils/google.sign.in";
 import { googleLoginAPI } from "@/services/identity.service";
-import { signInMessage } from "@/utils/auth";
+import { isSignInReason, signInMessage } from "@/utils/auth";
 
 describe("UC05.1 Google sign-in button", () => {
   afterEach(() => {
@@ -38,6 +38,16 @@ describe("UC05.1 Google sign-in button", () => {
     );
     expect(googleSignInMessage("GOOGLE_SIGN_IN_UNAVAILABLE")).toBe(GOOGLE_UNAVAILABLE_MESSAGE);
   });
+
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty"])(
+    "falls back to the default wording for the inherited key %s",
+    (code) => {
+      const fallback = "Hãy kiểm tra email và mật khẩu rồi thử lại.";
+      expect(signInMessage(code)).toBe(fallback);
+      expect(googleSignInMessage(code)).toBe(fallback);
+      expect(isSignInReason(code)).toBe(false);
+    },
+  );
 
   it("reuses the UC05 wording for Tenant eligibility denials", () => {
     for (const code of ["ORGANIZATION_NOT_ACTIVE", "SUBSCRIPTION_ENDED", "TENANT_UNAVAILABLE", undefined]) {

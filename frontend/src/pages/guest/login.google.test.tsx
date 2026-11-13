@@ -39,12 +39,25 @@ afterEach(() => {
   loadGoogleIdentity.mockReset();
 });
 
-const showLogin = () =>
+const showLogin = (path = "/login") =>
   render(
-    <MemoryRouter initialEntries={["/login"]}>
+    <MemoryRouter initialEntries={[path]}>
       <LoginPage />
     </MemoryRouter>,
   );
+
+describe("UC05 sign-in reason in the address", () => {
+  it("shows the message of a known reason", () => {
+    showLogin("/login?reason=ACCOUNT_DEACTIVATED");
+    expect(screen.getByText(/Tài khoản của bạn đã bị vô hiệu hóa/)).toBeTruthy();
+  });
+
+  it.each(["constructor", "toString", "__proto__"])("shows no error for the inherited key %s", (reason) => {
+    const { container } = showLogin(`/login?reason=${reason}`);
+    expect(screen.queryByText("Đăng nhập không thành công")).toBeNull();
+    expect(container.querySelector(".ant-alert-error")).toBeNull();
+  });
+});
 
 describe("UC05.1 Google sign-in on the login page", () => {
   it("hides the divider, the Google button and its help text without a client ID", () => {

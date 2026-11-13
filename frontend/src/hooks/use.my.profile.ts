@@ -33,7 +33,7 @@ const STATUS_LABELS: Record<ProfileStatus, string> = {
 };
 
 export const statusLabel = (status?: ProfileStatus) =>
-  status ? (STATUS_LABELS[status] ?? status) : "";
+  status ? (Object.hasOwn(STATUS_LABELS, status) ? STATUS_LABELS[status] : status) : "";
 
 const PROFILE_ERROR_MESSAGES: Record<string, string> = {
   ACCOUNT_NOT_FOUND: "Không tìm thấy tài khoản của bạn. Hãy đăng nhập lại.",
@@ -53,7 +53,9 @@ export const profileErrorMessage = (
     error?: { code?: unknown };
   };
   const code = body.error?.code ?? body.code;
-  return (typeof code === "string" && PROFILE_ERROR_MESSAGES[code]) || fallback;
+  return typeof code === "string" && Object.hasOwn(PROFILE_ERROR_MESSAGES, code)
+    ? PROFILE_ERROR_MESSAGES[code]
+    : fallback;
 };
 
 export const useMyProfile = () => {
@@ -71,7 +73,7 @@ export const useMyProfile = () => {
         const res = await getMyProfileAPI();
         if (!active) return;
         if (res.data) setProfile(res.data);
-        else setError("Không tải được hồ sơ của bạn.");
+        else setError(profileErrorMessage(res, "Không tải được hồ sơ của bạn."));
       } catch {
         if (active) setError("Không kết nối được với máy chủ.");
       } finally {
