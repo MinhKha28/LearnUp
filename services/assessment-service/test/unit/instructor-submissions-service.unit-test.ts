@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
+import { FakeNotificationClient } from '../../src/infrastructure/clients/notification/fake-notification.client';
 import { FakeTenantDirectoryClient } from '../../src/infrastructure/clients/tenant/fake-tenant-directory.client';
 import { AWAITING_FINALIZATION } from '../../src/modules/instructor-submissions/instructor-submissions.constants';
 import {
@@ -82,6 +83,7 @@ function detailWithNewestSupersededAt(supersededAt: Date | null) {
     new StubCourses(),
     new FakeTenantDirectoryClient(),
     new MemoryStorage(),
+    new FakeNotificationClient(),
   );
   return {
     newest: () => service.detail(instructor, newest.id),
