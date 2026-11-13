@@ -35,6 +35,7 @@ describe("the labels of the submission screens", () => {
     for (const reason of [
       "PEER_REVIEW_DISABLED",
       "NOT_ENOUGH_SUBMISSIONS",
+      "TOO_FEW_SUBMISSIONS",
       "REVIEWER_MISSED_DEADLINE",
       "REVIEW_MISSED",
       "REVIEWER_DEACTIVATED",
@@ -49,7 +50,8 @@ describe("the labels of the submission screens", () => {
       );
     }
     expect(interventionLabel(null)).toBeNull();
-    expect(interventionLabel("NEW_REASON")).toBe("NEW_REASON");
+    // a code the page does not know is never shown as it is
+    expect(interventionLabel("NEW_REASON")).toBe("Cần giảng viên xử lý");
   });
 
   it("a review has a state and a role in Vietnamese", () => {

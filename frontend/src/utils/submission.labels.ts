@@ -15,6 +15,7 @@ const GRADING_STATUS: Record<string, { label: string; tone: LabelTone }> = {
 const INTERVENTION_REASON: Record<string, string> = {
   PEER_REVIEW_DISABLED: "Bài tập không bật chấm chéo",
   NOT_ENOUGH_SUBMISSIONS: "Không đủ bài nộp để chấm chéo",
+  TOO_FEW_SUBMISSIONS: "Không đủ bài nộp để chấm chéo",
   REVIEWER_MISSED_DEADLINE: "Có người chấm không hoàn thành đúng hạn",
   REVIEW_MISSED: "Có người chấm không hoàn thành đúng hạn",
   REVIEWER_DEACTIVATED: "Có người chấm đã bị vô hiệu hóa",
@@ -39,7 +40,7 @@ export const gradingStatusView = (status: string) =>
   GRADING_STATUS[status] ?? { label: status, tone: "neutral" as LabelTone };
 
 export const interventionLabel = (reason: string | null) =>
-  reason ? (INTERVENTION_REASON[reason] ?? reason) : null;
+  reason ? (INTERVENTION_REASON[reason] ?? "Cần giảng viên xử lý") : null;
 
 export const personName = (person: ISubmissionPerson) =>
   person.fullName ?? `Học viên ${person.id.slice(-4).toUpperCase()}`;
