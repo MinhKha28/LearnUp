@@ -7,7 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from "react-router-dom";
 import {
   afterEach,
   beforeAll,
@@ -41,19 +41,24 @@ const courses = vi.mocked(fetchManagedCoursesAPI);
 const assignments = vi.mocked(fetchAssignmentsAPI);
 const submissions = vi.mocked(getAssignmentSubmissionsAPI);
 
+const assignmentPath = "/instructor/courses/course-1/builder/assignments/as-1";
 let search = "";
+let navigationType: ReturnType<typeof useNavigationType>;
 const Where = () => {
   search = useLocation().search;
+  navigationType = useNavigationType();
   return null;
 };
-const open = (query = "", state?: unknown) =>
+const open = (query = "", state?: unknown, previous?: string) =>
   render(
     <MemoryRouter
       initialEntries={[
+        ...(previous ? [previous] : []),
         { pathname: "/instructor/submissions", search: query, state },
       ]}
     >
       <Routes>
+        <Route path={assignmentPath} element={<h1>Chi tiết bài tập</h1>} />
         <Route
           path="/instructor/submissions"
           element={
@@ -70,6 +75,7 @@ const open = (query = "", state?: unknown) =>
 const COURSES = [
   { id: "course-1", name: "Khóa Toán" },
   { id: "course-2", name: "Khóa Văn" },
+  { id: "empty-course", name: "Khóa chưa có bài tập" },
 ];
 const ASSIGNMENTS: Record<string, { id: string; title: string }[]> = {
   "course-1": [
@@ -98,7 +104,7 @@ const listAnswer = (id: string, courseId: string) =>
 
 // antd Select: open the list of the select that shows `current`, then click the option by its title
 const choose = async (current: string, option: string) => {
-  const box = screen.getByText(current).closest(".ant-select")!;
+  const box = (await screen.findByText(current)).closest(".ant-select")!;
   fireEvent.mouseDown(box.querySelector(".ant-select-selector")!);
   fireEvent.click(await screen.findByTitle(option));
 };
@@ -161,6 +167,41 @@ describe("Submissions page: Course and Assignment on top", () => {
     await waitFor(() =>
       expect(submissions).toHaveBeenCalledWith("as-3", expect.anything()),
     );
+  });
+
+  it("clears the previous assignment heading when the new Course has no Assignments", async () => {
+    open("?assessmentId=as-1");
+    expect(await screen.findByRole("heading", { name: "Tiêu đề as-1" })).toBeTruthy();
+    await choose("Khóa Toán", "Khóa chưa có bài tập");
+    expect(await screen.findByText("Khóa học này chưa có bài tập nào.")).toBeTruthy();
+    expect(search).toBe("");
+    expect(screen.queryByRole("heading", { name: "Tiêu đề as-1" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Bài nộp của bài tập" })).toBeTruthy();
+  });
+
+  it("replaces the filter URL and keeps Back hidden on the sidebar entry", async () => {
+    open();
+    await screen.findByRole("heading", { name: "Tiêu đề as-1" });
+    fireEvent.click(screen.getAllByRole("switch")[0]);
+    await waitFor(() => expect(search).toContain("needs=1"));
+    expect(navigationType).toBe("REPLACE");
+    expect(screen.queryByRole("button", { name: /Quay lại/ })).toBeNull();
+  });
+
+  it("returns to the Assignment in one click after applying a filter", async () => {
+    // MemoryRouter supplies the entries while the browser index drives the shared Back hook.
+    const historyState = window.history.state;
+    window.history.replaceState({ idx: 1 }, "");
+    try {
+      open("?assessmentId=as-1", { fromAssignment: true }, assignmentPath);
+      await screen.findByRole("heading", { name: "Tiêu đề as-1" });
+      fireEvent.click(screen.getAllByRole("switch")[0]);
+      await waitFor(() => expect(search).toContain("needs=1"));
+      fireEvent.click(screen.getByRole("button", { name: /Quay lại/ }));
+      expect(await screen.findByRole("heading", { name: "Chi tiết bài tập" })).toBeTruthy();
+    } finally {
+      window.history.replaceState(historyState, "");
+    }
   });
 
   it("an address with an Assignment keeps it and shows its Course", async () => {

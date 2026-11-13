@@ -57,7 +57,8 @@ const Submissions = () => {
   const scoreRangeInvalid =
     minScore !== undefined && maxScore !== undefined && minScore > maxScore;
 
-  const [data, setData] = useState<ISubmissionList | null>(null);
+  const [response, setResponse] = useState<ISubmissionList | null>(null);
+  const data = response?.assignment.id === assessmentId ? response : null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState(q ?? "");
@@ -95,7 +96,7 @@ const Submissions = () => {
           pageSize: PAGE_SIZE,
         });
         if (!active) return;
-        if (res.data) setData(res.data);
+        if (res.data) setResponse(res.data);
         else setError("Bạn không có quyền xem bài nộp của bài tập này.");
       } catch {
         if (active) setError("Không kết nối được với máy chủ.");
@@ -126,7 +127,7 @@ const Submissions = () => {
       value === null ? next.delete(key) : next.set(key, value),
     );
     if (!("page" in changes)) next.delete("page");
-    setParams(next, { state: keepState });
+    setParams(next, { replace: true, state: keepState });
   };
 
   const applyScore = () =>
