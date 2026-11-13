@@ -171,7 +171,7 @@ const MyCourses = () => {
     {
       title: "Phiên bản",
       dataIndex: "versionNumber",
-      render: (versionNumber: number) => `Version ${versionNumber}`,
+      render: (versionNumber: number) => `Phiên bản ${versionNumber}`,
     },
     {
       title: "Loại",
@@ -357,7 +357,7 @@ const MyCourses = () => {
           total,
           showSizeChanger: true,
           pageSizeOptions: ["10", "20", "50"],
-          showTotal: (value) => `${value} Courses`,
+          showTotal: (value) => `${value} khóa học`,
           position: ["bottomRight"],
         }}
         onChange={handleTableChange}
