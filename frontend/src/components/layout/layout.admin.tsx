@@ -1,3 +1,4 @@
+import { previewPagesEnabled, visibleRoleMenu } from "@/utils/preview.pages";
 import {
   BarChartOutlined,
   CreditCardOutlined,
@@ -101,6 +102,8 @@ const adminMenuItems: MenuItem[] = [
   },
 ];
 
+const visibleAdminMenuItems = visibleRoleMenu(adminMenuItems);
+
 const getPageMeta = (pathname: string) => {
   if (pathname === "/admin") return ["Quản trị nền tảng", "Tổng quan nền tảng"];
   if (pathname.includes("replace-organizer"))
@@ -192,7 +195,7 @@ const LayoutAdmin = () => {
         className="admin-navigation"
         mode="inline"
         selectedKeys={[selectedKey]}
-        items={adminMenuItems}
+        items={visibleAdminMenuItems}
         onClick={goTo}
       />
     </>
@@ -229,7 +232,7 @@ const LayoutAdmin = () => {
             </div>
           </div>
           <div className="admin-topbar-actions">
-            <span className="admin-demo-badge">Dữ liệu minh họa</span>
+            {previewPagesEnabled && <span className="admin-demo-badge">Dữ liệu minh họa</span>}
             <NotificationBell basePath="/admin" />
             <Dropdown
               menu={{ items: profileItems }}

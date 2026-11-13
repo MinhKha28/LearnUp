@@ -1,3 +1,4 @@
+import { canOpenPage } from "@/utils/preview.pages";
 import { VietnameseAlert } from "@/components/vietnamese.controls";
 import { Avatar, Button, Checkbox, Empty, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
@@ -119,9 +120,11 @@ const Organizations = () => {
         title="Tổ chức"
         subtitle="Xem danh sách tổ chức, gói dịch vụ hiện tại, trạng thái tổ chức và vòng đời gói dịch vụ."
         actions={
-          <Link to="/admin/suspended-organizations">
-            <AdminButton>Xem tổ chức bị tạm khóa</AdminButton>
-          </Link>
+          canOpenPage("/admin/suspended-organizations") && (
+            <Link to="/admin/suspended-organizations">
+              <AdminButton>Xem tổ chức bị tạm khóa</AdminButton>
+            </Link>
+          )
         }
       />
       <SectionCard

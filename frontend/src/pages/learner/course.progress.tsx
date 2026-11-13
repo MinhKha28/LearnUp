@@ -1,3 +1,4 @@
+import { canOpenPage } from "@/utils/preview.pages";
 import { Button } from "antd";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -94,7 +95,9 @@ const ProgressDetails = ({
               aria-label="Sau khi hoàn thành"
             >
               <Link to={LEARNER_ROUTES.certificates()}>Xem chứng chỉ</Link>
-              <Link to={LEARNER_ROUTES.evaluation(enrollment.id)}>Đánh giá khóa học</Link>
+              {canOpenPage(LEARNER_ROUTES.evaluation(enrollment.id)) && (
+                <Link to={LEARNER_ROUTES.evaluation(enrollment.id)}>Đánh giá khóa học</Link>
+              )}
             </nav>
           </>
         ) : (

@@ -1,4 +1,5 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, type RouteObject } from "react-router-dom";
+import { isPreviewRoute, previewLandings, previewPagesEnabled } from "@/utils/preview.pages";
 
 import Layout from "@/layout";
 
@@ -169,7 +170,7 @@ import InstructorProfile from "./pages/instructor/profile";
 import InstructorProfileEdit from "./pages/instructor/profile.edit";
 import InstructorChangePassword from "./pages/instructor/password.change";
 
-export const router = createBrowserRouter([
+const routes: RouteObject[] = [
   {
     path: "/",
     element: <Layout />,
@@ -608,4 +609,28 @@ export const router = createBrowserRouter([
   { path: "/500", element: <ServerErrorPage /> },
   { path: "/503", element: <ServiceUnavailablePage /> },
   { path: "*", element: <NotFoundPage /> },
-]);
+];
+
+function withoutPreviewRoutes(entries: RouteObject[], parent = ""): RouteObject[] {
+  return entries.flatMap((route) => {
+    const segment = route.path ?? "";
+    const path = segment.startsWith("/") ? segment : [parent.replace(/\/$/, ""), segment].filter(Boolean).join("/");
+    if (route.children) {
+      return [{ ...route, children: withoutPreviewRoutes(route.children, path) }];
+    }
+    if (!isPreviewRoute(path)) return [route];
+
+    const landing = route.index ? previewLandings[path] : undefined;
+    return landing ? [{ index: true, element: <Navigate to={landing} replace /> }] : [];
+  });
+}
+
+export const appRoutes: RouteObject[] = previewPagesEnabled
+  ? routes
+  : [
+      // Giữ URL cũ ở trang 404, tránh khớp nhầm với courses/:courseId.
+      { path: "/instructor/courses/draft-created", element: <NotFoundPage /> },
+      ...withoutPreviewRoutes(routes),
+    ];
+
+export const router = createBrowserRouter(appRoutes);
