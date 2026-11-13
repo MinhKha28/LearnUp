@@ -8,7 +8,15 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 vi.mock("@/services/axios.customize", () => ({
   assessmentAxios: {},
@@ -38,9 +46,13 @@ const Where = () => {
   search = useLocation().search;
   return null;
 };
-const open = (query = "") =>
+const open = (query = "", state?: unknown) =>
   render(
-    <MemoryRouter initialEntries={[`/instructor/submissions${query}`]}>
+    <MemoryRouter
+      initialEntries={[
+        { pathname: "/instructor/submissions", search: query, state },
+      ]}
+    >
       <Routes>
         <Route
           path="/instructor/submissions"
@@ -69,7 +81,12 @@ const ASSIGNMENTS: Record<string, { id: string; title: string }[]> = {
 const listAnswer = (id: string, courseId: string) =>
   ({
     data: {
-      assignment: { id, courseId, title: "Tiêu đề " + id, peerReviewEnabled: false },
+      assignment: {
+        id,
+        courseId,
+        title: "Tiêu đề " + id,
+        peerReviewEnabled: false,
+      },
       statusCounts: {},
       learnerNamesAvailable: true,
       items: [],
@@ -103,7 +120,9 @@ beforeEach(() => {
   courses.mockResolvedValue({ data: { result: COURSES } } as never);
   assignments.mockImplementation(
     (courseId: string) =>
-      Promise.resolve({ data: { items: ASSIGNMENTS[courseId] ?? [] } }) as never,
+      Promise.resolve({
+        data: { items: ASSIGNMENTS[courseId] ?? [] },
+      }) as never,
   );
   submissions.mockImplementation(((id: string) =>
     Promise.resolve(
@@ -164,5 +183,18 @@ describe("Submissions page: Course and Assignment on top", () => {
     expect(
       await screen.findByText(/Không thể tải danh sách bài tập/),
     ).toBeTruthy();
+  });
+
+  it("shows Back only when the Instructor came from the Assignment, and keeps it while the Assignment changes", async () => {
+    open("?assessmentId=as-1");
+    await screen.findByText("Bài luận số 1");
+    expect(screen.queryByText("Quay lại")).toBeNull();
+    cleanup();
+
+    open("?assessmentId=as-1", { fromAssignment: true });
+    expect(await screen.findByText("Quay lại")).toBeTruthy();
+    await choose("Bài luận số 1", "Bài luận số 2");
+    await waitFor(() => expect(search).toBe("?assessmentId=as-2"));
+    expect(screen.getByText("Quay lại")).toBeTruthy();
   });
 });

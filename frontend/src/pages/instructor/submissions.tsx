@@ -9,7 +9,7 @@ import {
   Switch,
   Tag,
 } from "antd";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   InfoPanel,
   InstructorPage,
@@ -41,6 +41,10 @@ const numberParam = (value: string | null) => {
 const Submissions = () => {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
+  // Back is shown only when the Instructor came from the Assignment (its Bài nộp button says so); the filters keep it
+  const location = useLocation();
+  const keepState = location.state as { fromAssignment?: boolean } | null;
+  const cameFromAssignment = keepState?.fromAssignment === true;
   const assessmentId = params.get("assessmentId");
   const status = params.get("status") ?? undefined;
   const q = params.get("q") ?? undefined;
@@ -122,7 +126,7 @@ const Submissions = () => {
       value === null ? next.delete(key) : next.set(key, value),
     );
     if (!("page" in changes)) next.delete("page");
-    setParams(next);
+    setParams(next, { state: keepState });
   };
 
   const applyScore = () =>
@@ -170,13 +174,16 @@ const Submissions = () => {
               ? "Bài tập này có bật chấm chéo."
               : "Bài tập này không bật chấm chéo: bạn chấm mọi bài nộp."
         }
-        back
+        back={cameFromAssignment}
       />
       <SubmissionAssignmentPicker
         assignmentId={assessmentId}
         courseIdOfAssignment={data?.assignment.courseId}
         onPick={(id) =>
-          setParams(id ? { assessmentId: id } : {}, { replace: true })
+          setParams(id ? { assessmentId: id } : {}, {
+            replace: true,
+            state: keepState,
+          })
         }
       />
       {assessmentId && (
