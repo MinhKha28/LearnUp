@@ -13,7 +13,9 @@ import {
   Patch,
   HttpCode,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import type { CurrentUser } from '@learnup/ts-common';
 import { ResponseMessage, User } from '@common/decorator/customize';
 import { CoursesService } from '@courses/courses.service';
@@ -37,6 +39,10 @@ import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { TransferCourseOwnershipDto } from './dto/transfer-course-ownership.dto';
 import { RejectCourseDto } from './dto/reject-course.dto';
+import {
+  ReadingUploadAdmissionInterceptor,
+  clientAbortSignal,
+} from './reading-upload-admission';
 
 @Controller('courses')
 export class CoursesController {
@@ -248,7 +254,9 @@ export class CoursesController {
   }
 
   @Post(':courseId/lessons/:lessonId/materials/readings')
+  // Admission chạy trước Multer: request bị từ chối không đọc body vào bộ nhớ.
   @UseInterceptors(
+    ReadingUploadAdmissionInterceptor,
     FileInterceptor('file', {
       storage: memoryStorage(),
       limits: {
@@ -265,6 +273,7 @@ export class CoursesController {
     @Param('courseId', ParseUUIDPipe) courseId: string,
     @Param('lessonId', ParseUUIDPipe) lessonId: string,
     @Body() dto: CreateReadingMaterialDto,
+    @Res({ passthrough: true }) res: Response,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.coursesService.uploadReadingMaterial(
@@ -273,6 +282,7 @@ export class CoursesController {
       lessonId,
       dto,
       file,
+      clientAbortSignal(res),
     );
   }
 
@@ -369,6 +379,7 @@ export class CoursesController {
     @Param('courseId', ParseUUIDPipe) courseId: string,
     @Param('lessonId', ParseUUIDPipe) lessonId: string,
     @Param('materialId', ParseUUIDPipe) materialId: string,
+    @Res({ passthrough: true }) res: Response,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.coursesService.replaceTechnicalFile(
@@ -377,6 +388,7 @@ export class CoursesController {
       lessonId,
       materialId,
       file,
+      clientAbortSignal(res),
     );
   }
 
@@ -431,5 +443,4 @@ export class CoursesController {
   ) {
     return this.coursesService.getTransferContext(user, courseId);
   }
-
 }
