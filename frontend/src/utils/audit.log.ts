@@ -20,7 +20,7 @@ const ACTION_LABELS: Record<string, string> = {
   INSTRUCTOR_DELETED: "Xóa tài khoản giảng viên",
   LEARNER_DEACTIVATED: "Ngừng hoạt động tài khoản học viên",
   LEARNER_REACTIVATED: "Kích hoạt lại tài khoản học viên",
-  MEMBER_IMPORTED: "Nhập danh sách thành viên",
+  MEMBER_IMPORTED: "Nhập từ Excel",
   LEARNER_DELETED: "Xóa tài khoản học viên",
   ACCOUNT_DELETED: "Xóa tài khoản",
   PLAN_UPDATED: "Chỉnh sửa gói dịch vụ",
