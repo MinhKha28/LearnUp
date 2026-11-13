@@ -20,8 +20,8 @@ import {
   organizerStatusView,
   subscriptionStatusViewVi,
   usageLabel,
-  usageWidth,
 } from "@/utils/organization.detail.view";
+import { subscriptionUsage } from "@/utils/subscription.usage";
 import "./organization.detail.scss";
 
 type LoadError = "notFound" | "failed";
@@ -34,20 +34,24 @@ const UsageMetric = ({
   label: string;
   item: IAdminUsageItem;
   format?: (value: number) => string;
-}) => (
-  <div className="admin-metric">
-    <span>{label}</span>
-    <strong>{usageLabel(item, format)}</strong>
-    {item.used !== null && (
-      <>
-        <div className={`admin-usage ${item.warning ? "admin-usage-warning" : ""}`.trim()}>
-          <span style={{ width: usageWidth(item) }} />
-        </div>
-        <small>Đã dùng {item.percent?.toLocaleString("vi-VN") ?? "—"}%</small>
-      </>
-    )}
-  </div>
-);
+}) => {
+  const usage = subscriptionUsage(item);
+  const hasValues = item.used != null && item.limit != null;
+  const caption = usage.label?.endsWith("%") && /^\d/.test(usage.label)
+    ? `Đã dùng ${usage.label}`
+    : usage.label;
+
+  return (
+    <div className="admin-metric">
+      <span>{label}</span>
+      <strong>{usageLabel(item, format)}</strong>
+      <div className={`admin-usage admin-usage-${usage.level}`}>
+        {hasValues && <span style={{ width: `${usage.barWidth}%` }} />}
+      </div>
+      {hasValues && caption && <small>{caption}</small>}
+    </div>
+  );
+};
 
 // UC44.1 - Admin xem chi tiết Organization. Chỉ đọc; tạm khóa (UC44.3) và thay Organizer (UC44.5) làm sau.
 const OrganizationDetail = () => {

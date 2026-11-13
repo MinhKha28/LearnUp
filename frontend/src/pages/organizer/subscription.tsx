@@ -57,16 +57,14 @@ const UsageCard = ({
   icon,
   label,
   item,
-  warningThreshold,
   format = (value: number) => value.toLocaleString("vi-VN"),
 }: {
   icon: ReactNode;
   label: string;
   item: IUsageItem;
-  warningThreshold: number;
   format?: (value: number) => string;
 }) => {
-  const { label: percentLabel, barWidth, level } = subscriptionUsage(item.used, item.limit, warningThreshold);
+  const { label: percentLabel, barWidth, level } = subscriptionUsage(item);
   return (
     <div className={`sub-usage-card sub-usage-${level}`}>
       <div className="sub-usage-head">
@@ -90,7 +88,7 @@ const UsageCard = ({
           </div>
           {percentLabel !== null && (
             <small className="sub-usage-caption">
-              {percentLabel === "Dưới 1%" ? percentLabel : `Đã dùng ${percentLabel}`}
+              {percentLabel === "Dưới 1%" || percentLabel === "Trên 99%" ? percentLabel : `Đã dùng ${percentLabel}`}
               {level === "full"
                 ? " - đã đạt giới hạn"
                 : level === "warning"
@@ -132,9 +130,8 @@ const Subscription = () => {
   const subscription = overview?.subscription ?? null;
   const status = subscription ? STATUS_VIEW[subscription.status] : null;
   const usage = overview?.usage;
-  const warningThreshold = overview?.usageWarningThresholdPercent ?? 80;
   const warnings = usage
-    ? Object.values(usage).filter((item) => subscriptionUsage(item.used, item.limit, warningThreshold).level !== "ok").length
+    ? Object.values(usage).filter((item) => item.warning).length
     : 0;
   const totalDays = subscription
     ? Math.max(
@@ -263,25 +260,21 @@ const Subscription = () => {
               icon={<TeamOutlined aria-hidden="true" />}
               label="Học viên"
               item={usage.learners}
-              warningThreshold={warningThreshold}
             />
             <UsageCard
               icon={<SolutionOutlined aria-hidden="true" />}
               label="Giảng viên"
               item={usage.instructors}
-              warningThreshold={warningThreshold}
             />
             <UsageCard
               icon={<BookOutlined aria-hidden="true" />}
               label="Khóa học"
               item={usage.courses}
-              warningThreshold={warningThreshold}
             />
             <UsageCard
               icon={<CloudOutlined aria-hidden="true" />}
               label="Dung lượng lưu trữ"
               item={usage.storageBytes}
-              warningThreshold={warningThreshold}
               format={formatBytes}
             />
           </div>

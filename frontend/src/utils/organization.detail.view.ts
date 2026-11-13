@@ -47,9 +47,6 @@ export const organizerStatusView = (organizer: Organizer): { label: string; tone
 export const formatBytes = (bytes: number) =>
   bytes === 0 || bytes >= 1024 ** 3 ? formatStorage(bytes) : formatFileSize(bytes);
 
-/** Thanh mức dùng: tối đa 100% bề rộng, kể cả khi vượt giới hạn. */
-export const usageWidth = (item: IAdminUsageItem) => `${Math.min(100, item.percent ?? 0)}%`;
-
 /** "84 / 200" hoặc "Chưa có số liệu" khi course-service không trả lời. */
 export const usageLabel = (item: IAdminUsageItem, format: (value: number) => string = (value) => value.toLocaleString("vi-VN")) =>
-  item.used === null ? "Chưa có số liệu" : `${format(item.used)} / ${format(item.limit)}`;
+  item.used == null || item.limit == null ? "Chưa có số liệu" : `${format(item.used)} / ${format(item.limit)}`;

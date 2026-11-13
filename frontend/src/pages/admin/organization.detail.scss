@@ -79,6 +79,10 @@
     background: #d97706;
 }
 
+.admin-usage.admin-usage-full span {
+    background: var(--color-error);
+}
+
 .admin-usage-row {
     margin-top: 16px;
 }

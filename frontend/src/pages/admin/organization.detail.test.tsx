@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getAdminOrganizationDetailAPI } from "@/services/organization.service";
 import type { IAdminOrganizationDetail } from "@/types/organization.types";
+import { subscriptionUsage } from "@/utils/subscription.usage";
 import OrganizationDetail from "./organization.detail";
 
 vi.mock("@/services/organization.service", () => ({ getAdminOrganizationDetailAPI: vi.fn() }));
@@ -110,7 +111,7 @@ describe("UC44.1 Admin organization detail page", () => {
     expect(screen.getByRole("heading", { name: "Gói dịch vụ và mức dùng" })).toBeTruthy();
     expect(screen.getByText("Còn 295 ngày")).toBeTruthy();
     expect(screen.getByText("24 / 500")).toBeTruthy();
-    expect(screen.getByText("Đã dùng 4,8%")).toBeTruthy();
+    expect(screen.getByText("Đã dùng 5%")).toBeTruthy();
     expect(screen.getByText("1 GB / 10 GB")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Quản lý đào tạo hiện tại" })).toBeTruthy();
     expect(screen.getByText("Nguyễn Văn An")).toBeTruthy();
@@ -118,6 +119,40 @@ describe("UC44.1 Admin organization detail page", () => {
     expect(screen.getByText("Đã gỡ")).toBeTruthy();
     expect(screen.getByText("Đang hiệu lực")).toBeTruthy();
     expect(screen.getByText("Mã số thuế 0312345678 cũng được 1 tổ chức khác sử dụng")).toBeTruthy();
+  });
+
+  it.each([159, 199])("matches Organizer labels for %s of 200", async (used) => {
+    const learners = { used, limit: 200, percent: null, warning: true };
+    vi.mocked(getAdminOrganizationDetailAPI).mockResolvedValue(ok({
+      ...abc,
+      usage: {
+        ...abc.usage!,
+        learners,
+        storageBytes: { used: 1_234_567, limit: 3_758_096_384, percent: 0, warning: false },
+      },
+    }));
+    renderPage(ABC_ID);
+    await screen.findByRole("heading", { name: "Công ty ABC" });
+
+    const learnerCard = screen.getByText(`${used} / 200`).closest(".admin-metric") as HTMLElement;
+    const { label, barWidth } = subscriptionUsage(learners);
+    expect(within(learnerCard).getByText(used === 199 ? label! : `Đã dùng ${label}`)).toBeTruthy();
+    expect(learnerCard.querySelector<HTMLElement>(".admin-usage-warning span")?.style.width).toBe(`${barWidth}%`);
+    const storageCard = screen.getByText("Dung lượng lưu trữ").closest(".admin-metric") as HTMLElement;
+    expect(within(storageCard).getByText("Dưới 1%")).toBeTruthy();
+    expect(storageCard.querySelector<HTMLElement>(".admin-usage span")?.style.width).toBe(`${subscriptionUsage({ used: 1_234_567, limit: 3_758_096_384, warning: false }).barWidth}%`);
+  });
+
+  it("shows an empty usage bar without values when used is null", async () => {
+    vi.mocked(getAdminOrganizationDetailAPI).mockResolvedValue(ok({
+      ...abc,
+      usage: { ...abc.usage!, learners: { used: null, limit: 500, percent: null, warning: false } },
+    }));
+    renderPage(ABC_ID);
+    const card = (await screen.findByText("Chưa có số liệu")).closest(".admin-metric") as HTMLElement;
+    expect(within(card).queryByText(/\d+ \/ \d+/)).toBeNull();
+    expect(card.querySelector(".admin-usage")).toBeTruthy();
+    expect(card.querySelector(".admin-usage span")).toBeNull();
   });
 
   it("keeps Replace Organizer (UC44.5) and Suspend (UC44.3) disabled", async () => {
