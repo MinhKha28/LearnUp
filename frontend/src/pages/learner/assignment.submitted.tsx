@@ -1,3 +1,4 @@
+import { canOpenPage } from "@/utils/preview.pages";
 import { formatDateTimeVN } from "@/utils/helper";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { PageHeader, SuccessScreen } from "@/components/learner/learner.ui";
@@ -14,6 +15,7 @@ const AssignmentSubmitted = () => {
   const { enrollmentId: courseId, assignmentId } = useParams();
   const navigate = useNavigate();
   const { state } = useLocation();
+  const assignmentPath = `/learner/courses/${courseId}/assignments/${assignmentId}`;
   const { receipt, title } = (state ?? {}) as ISubmittedState;
 
   // Opened without having just submitted (a reload, a bookmark): nothing to confirm.
@@ -39,10 +41,10 @@ const AssignmentSubmitted = () => {
           label: "Quay lại danh sách bài đánh giá",
           onClick: () => navigate(`/learner/courses/${courseId}/assessments`),
         }}
-        secondary={{
+        secondary={canOpenPage(assignmentPath) ? {
           label: "Xem bài tập",
-          onClick: () => navigate(`/learner/courses/${courseId}/assignments/${assignmentId}`),
-        }}
+          onClick: () => navigate(assignmentPath),
+        } : undefined}
       >
         <p>Nộp lúc {formatTime(receipt.submittedAt)}.</p>
         {cycle ? (

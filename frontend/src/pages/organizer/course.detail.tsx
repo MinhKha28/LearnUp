@@ -1,3 +1,4 @@
+import { canOpenPage } from "@/utils/preview.pages";
 import { Form, Input, Modal, Select, Spin, Table, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -84,6 +85,7 @@ const columns: ColumnsType<ITransferCourseVersion> = [
 
 const CourseDetail = () => {
   const { courseId } = useParams<{ courseId: string }>();
+  const versionReportPath = `/organizer/courses/${courseId}/version-report`;
   const [form] = Form.useForm<ITransferCourseRequest>();
   const [context, setContext] = useState<ITransferCourseContext | null>(null);
   const [candidates, setCandidates] = useState<ITransferCandidate[]>([]);
@@ -219,8 +221,8 @@ const CourseDetail = () => {
         back
         actions={
           <>
-            {courseId && (
-              <Link to={"/organizer/courses/" + courseId + "/version-report"}>
+            {courseId && canOpenPage(versionReportPath) && (
+              <Link to={versionReportPath}>
                 <OrganizerButton>Báo cáo phiên bản</OrganizerButton>
               </Link>
             )}

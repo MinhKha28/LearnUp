@@ -1,0 +1,673 @@
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
+import { randomBytes } from 'node:crypto';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Readable } from 'node:stream';
+import { memoryStorage } from 'multer';
+import {
+  DEFAULT_READING_PARSE_MAX_CONCURRENCY,
+  DEFAULT_READING_PARSE_MAX_QUEUE,
+  DEFAULT_READING_PARSE_MAX_OLD_GENERATION_MB,
+  DEFAULT_READING_PARSE_TIMEOUT_MS,
+  DEFAULT_READING_TEXT_WORKER,
+  ReadingTextExtractionError,
+  extractReadingText,
+  resolveReadingParseLimits,
+} from './reading-text-extractor';
+
+jest.setTimeout(60_000);
+
+const fixtures = join(__dirname, '../../../test/fixtures/reading-pdf');
+const workers = join(fixtures, 'workers');
+const fixture = (name: string) => readFileSync(join(fixtures, `${name}.pdf`));
+const limits = resolveReadingParseLimits({});
+const BR_293_WARNING =
+  'No readable text was extracted from this document. Estimated reading time will be 0 minutes (BR-293).';
+
+// Buffer nằm giữa một backing store lớn hơn (byteOffset khác 0), giống pool 8 KiB của Node.
+const offsetCopy = (bytes: Buffer, offset = 37): Buffer => {
+  const backing = Buffer.alloc(bytes.length + offset + 64, 0x20);
+  bytes.copy(backing, offset);
+  return backing.subarray(offset, offset + bytes.length);
+};
+
+// Đi qua Multer memory storage thật như request upload.
+const multerUpload = (bytes: Buffer): Promise<Buffer> =>
+  new Promise((resolve, reject) => {
+    const stream = Readable.from([bytes.subarray(0, 100), bytes.subarray(100)]);
+    const storage = memoryStorage() as unknown as {
+      _handleFile: (
+        req: unknown,
+        file: { stream: Readable },
+        cb: (error: Error | null, info: { buffer: Buffer }) => void,
+      ) => void;
+    };
+
+    storage._handleFile({}, { stream }, (error, info) =>
+      error ? reject(error) : resolve(info.buffer),
+    );
+  });
+
+// PDF classic xref nhiều trang + một stream đệm lớn, sinh trong test.
+const buildLargePdf = (pages: number, fillerBytes: number): Buffer => {
+  const parts: Buffer[] = [];
+  const offsets: number[] = [];
+  let length = 0;
+  const push = (chunk: Buffer | string) => {
+    const buffer = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
+    parts.push(buffer);
+    length += buffer.length;
+  };
+  const object = (id: number, body: Buffer | string) => {
+    offsets[id] = length;
+    push(`${id} 0 obj\n`);
+    push(body);
+    push('\nendobj\n');
+  };
+
+  const firstPage = 4;
+  const fillerId = firstPage + pages * 2;
+  const kids = Array.from(
+    { length: pages },
+    (_, index) => `${firstPage + index * 2} 0 R`,
+  ).join(' ');
+
+  push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+  object(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  object(2, `<< /Type /Pages /Kids [${kids}] /Count ${pages} >>`);
+  object(3, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+
+  for (let index = 0; index < pages; index += 1) {
+    const pageId = firstPage + index * 2;
+    const content = `BT /F1 12 Tf 72 720 Td (Reading page number ${index + 1}) Tj ET`;
+
+    object(
+      pageId,
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${pageId + 1} 0 R >>`,
+    );
+    object(
+      pageId + 1,
+      `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+    );
+  }
+
+  const filler = randomBytes(fillerBytes);
+  object(
+    fillerId,
+    Buffer.concat([
+      Buffer.from(`<< /Length ${filler.length} >>\nstream\n`),
+      filler,
+      Buffer.from('\nendstream'),
+    ]),
+  );
+
+  const xrefOffset = length;
+  push(`xref\n0 ${fillerId + 1}\n0000000000 65535 f \n`);
+
+  for (let id = 1; id <= fillerId; id += 1) {
+    push(`${String(offsets[id]).padStart(10, '0')} 00000 n \n`);
+  }
+
+  push(
+    `trailer\n<< /Size ${fillerId + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`,
+  );
+
+  return Buffer.concat(parts);
+};
+
+const expectFailure = async (
+  promise: Promise<unknown>,
+  reason: ReadingTextExtractionError['reason'],
+) => {
+  const error = await promise.then(
+    () => {
+      throw new Error('Expected the extraction to fail.');
+    },
+    (failure: unknown) => failure,
+  );
+
+  expect(error).toBeInstanceOf(ReadingTextExtractionError);
+  expect((error as ReadingTextExtractionError).reason).toBe(reason);
+
+  return error as ReadingTextExtractionError;
+};
+
+describe('extractReadingText with pdf-parse 2', () => {
+  it.each([
+    ['chromium', 5],
+    ['word', 6],
+    ['xref-stream', 4],
+    ['vietnamese', 9],
+    ['small-classic-xref', 4],
+  ])('counts the words of the %s fixture', async (name, words) => {
+    await expect(extractReadingText(fixture(name), limits)).resolves.toEqual({
+      wordCount: words,
+      extractionWarning: null,
+    });
+  });
+
+  it('returns the BR-293 warning for an image-only PDF without counting page labels', async () => {
+    await expect(
+      extractReadingText(fixture('image-only'), limits),
+    ).resolves.toEqual({ wordCount: 0, extractionWarning: BR_293_WARNING });
+  });
+
+  it.each([
+    ['corrupt', 'InvalidPDFException'],
+    ['password-protected', 'PasswordException'],
+  ])('rejects the %s fixture as unreadable', async (name, detail) => {
+    const error = await expectFailure(
+      extractReadingText(fixture(name), limits),
+      'UNREADABLE',
+    );
+
+    expect(error.detail).toBe(detail);
+    expect(error.errorClass).toBe(detail);
+  });
+
+  it('parses a Buffer that sits at a nonzero byteOffset of a larger backing store', async () => {
+    for (const name of ['xref-stream', 'small-classic-xref', 'vietnamese']) {
+      const bytes = fixture(name);
+      const upload = offsetCopy(bytes);
+
+      expect(upload.byteOffset).toBe(37);
+      expect(upload.buffer.byteLength).toBeGreaterThan(upload.length);
+
+      const result = await extractReadingText(upload, limits);
+
+      expect(result.wordCount).toBe(
+        { 'xref-stream': 4, 'small-classic-xref': 4, vietnamese: 9 }[name],
+      );
+      // Buffer upload gốc giữ nguyên byte và không bị detach.
+      expect(upload.byteLength).toBe(bytes.length);
+      expect(Buffer.compare(upload, bytes)).toBe(0);
+    }
+  });
+
+  it('parses the pooled Buffer that Multer memory storage produces', async () => {
+    const bytes = fixture('xref-stream');
+    const upload = await multerUpload(bytes);
+
+    expect(upload.buffer.byteLength).toBeGreaterThan(upload.length);
+    await expect(extractReadingText(upload, limits)).resolves.toEqual({
+      wordCount: 4,
+      extractionWarning: null,
+    });
+    expect(Buffer.compare(upload, bytes)).toBe(0);
+  });
+
+  it('parses a generated 10 MiB, 12-page PDF', async () => {
+    const bytes = buildLargePdf(12, 10 * 1024 * 1024);
+    const before = Buffer.from(bytes);
+
+    expect(bytes.length).toBeGreaterThan(10 * 1024 * 1024);
+    await expect(extractReadingText(bytes, limits)).resolves.toEqual({
+      wordCount: 48,
+      extractionWarning: null,
+    });
+    expect(bytes.equals(before)).toBe(true);
+  });
+
+  it('stops a real parse that exceeds the deadline', async () => {
+    const bytes = buildLargePdf(12, 10 * 1024 * 1024);
+
+    await expectFailure(
+      extractReadingText(bytes, { ...limits, timeoutMs: 1 }),
+      'TIMEOUT',
+    );
+  });
+
+  it('terminates a hanging worker at the deadline', async () => {
+    const started = Date.now();
+    const error = await expectFailure(
+      extractReadingText(
+        fixture('chromium'),
+        { ...limits, timeoutMs: 300 },
+        { workerFile: join(workers, 'hang.js') },
+      ),
+      'TIMEOUT',
+    );
+
+    expect(error.detail).toBe('exceeded 300 ms');
+    expect(error.errorClass).toBe('Deadline');
+    expect(Date.now() - started).toBeLessThan(10_000);
+  });
+
+  it.each([
+    ['crash.js', 'reading worker crashed', 'Error'],
+    ['exit-silently.js', 'worker exited with code 3', 'WorkerExit'],
+  ])('rejects when the worker fails (%s)', async (file, detail, errorClass) => {
+    const error = await expectFailure(
+      extractReadingText(fixture('chromium'), limits, {
+        workerFile: join(workers, file),
+      }),
+      'WORKER_FAILED',
+    );
+
+    expect(error.detail).toBe(detail);
+    expect(error.errorClass).toBe(errorClass);
+  });
+
+  it('rejects when the worker reaches its heap limit', async () => {
+    const error = await expectFailure(
+      extractReadingText(
+        fixture('chromium'),
+        { ...limits, maxOldGenerationSizeMb: 32 },
+        { workerFile: join(workers, 'out-of-memory.js') },
+      ),
+      'WORKER_FAILED',
+    );
+
+    expect(error.detail).toMatch(/memory limit/);
+    expect(error.errorClass).toBe('ERR_WORKER_OUT_OF_MEMORY');
+  });
+
+  it('rejects when the worker file cannot be loaded', async () => {
+    await expectFailure(
+      extractReadingText(fixture('chromium'), limits, {
+        workerFile: join(workers, 'missing.js'),
+      }),
+      'WORKER_FAILED',
+    );
+  });
+
+  it('runs the TypeScript worker source under Jest', () => {
+    expect(DEFAULT_READING_TEXT_WORKER.workerFile).toMatch(
+      /reading-text\.worker\.ts$/,
+    );
+  });
+});
+
+// Module thật (không qua wrapper) để test có thể bọc Worker mà extractor dùng.
+const threads = createRequire(__filename)('node:worker_threads') as {
+  Worker: typeof import('node:worker_threads').Worker;
+};
+
+describe('extractReadingText concurrency cap', () => {
+  let root: string;
+  let markers: string;
+  let slow: { workerFile: string };
+  // Dọn dẹp chạy cả khi test fail, tránh timer còn chạy làm hỏng cả lượt Jest.
+  const cleanups: Array<() => void> = [];
+
+  // Worker giả: đánh dấu đang chạy trong thư mục markers ~400 ms rồi trả 2 từ.
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'reading-parse-'));
+    markers = join(root, 'live');
+    mkdirSync(markers);
+    slow = { workerFile: join(root, 'slow-worker.js') };
+    writeFileSync(
+      slow.workerFile,
+      [
+        "const { rmSync, writeFileSync } = require('node:fs');",
+        "const { join } = require('node:path');",
+        "const { parentPort, threadId } = require('node:worker_threads');",
+        `const marker = join(${JSON.stringify(markers)}, String(threadId));`,
+        "writeFileSync(marker, '');",
+        'setTimeout(() => {',
+        '  rmSync(marker, { force: true });',
+        "  parentPort.postMessage({ ok: true, text: 'slow worker' });",
+        '}, 400);',
+      ].join('\n'),
+    );
+  });
+
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  // Đếm số worker đang chạy trong lúc các parse diễn ra.
+  const watchLiveWorkers = () => {
+    let peak = 0;
+    const timer = setInterval(() => {
+      peak = Math.max(peak, readdirSync(markers).length);
+    }, 5);
+    const stop = () => clearInterval(timer);
+
+    cleanups.push(stop);
+
+    return () => {
+      stop();
+      return peak;
+    };
+  };
+
+  // Ghi lại thời điểm mỗi worker thread được tạo và thực sự thoát.
+  const trackWorkerLifecycles = () => {
+    const Real = threads.Worker;
+    const events: string[] = [];
+    let created = 0;
+    let live = 0;
+    let peak = 0;
+
+    class TrackedWorker extends Real {
+      private readonly label: number;
+
+      constructor(...args: ConstructorParameters<typeof Real>) {
+        super(...args);
+        created += 1;
+        this.label = created;
+        live += 1;
+        peak = Math.max(peak, live);
+        events.push(`start ${this.label}`);
+      }
+
+      // Extractor gỡ listener khi xong, nên đếm 'exit' qua emit.
+      emit(event: string | symbol, ...args: unknown[]): boolean {
+        if (event === 'exit') {
+          live -= 1;
+          events.push(`exit ${this.label}`);
+        }
+
+        return super.emit(event, ...args);
+      }
+    }
+
+    threads.Worker = TrackedWorker;
+    cleanups.push(() => {
+      threads.Worker = Real;
+    });
+
+    return { events, peak: () => peak };
+  };
+
+  it('keeps the slot until the previous worker thread has exited', async () => {
+    const tracked = trackWorkerLifecycles();
+    const capped = { ...limits, maxConcurrentParses: 1 };
+    // Worker đầu trả kết quả ngay nhưng chỉ thoát sau ~1 s.
+    const first = extractReadingText(fixture('chromium'), capped, {
+      workerFile: join(workers, 'late-exit.js'),
+    });
+    const queued = extractReadingText(fixture('chromium'), capped, slow);
+
+    await expect(first).resolves.toMatchObject({ wordCount: 2 });
+    await expect(queued).resolves.toMatchObject({ wordCount: 2 });
+    expect(tracked.events).toEqual(['start 1', 'exit 1', 'start 2', 'exit 2']);
+    expect(tracked.peak()).toBe(1);
+  });
+
+  it.each([1, 2, 3])(
+    'runs at most %i worker(s) for one more parse than the cap and finishes all',
+    async (cap) => {
+      const stop = watchLiveWorkers();
+      // Deadline ngắn hơn tổng thời gian chờ: chỉ tính từ lúc worker bắt đầu.
+      const results = await Promise.all(
+        Array.from({ length: cap + 1 }, () =>
+          extractReadingText(
+            fixture('chromium'),
+            {
+              timeoutMs: 1_500,
+              maxOldGenerationSizeMb: 64,
+              maxConcurrentParses: cap,
+              maxQueuedParses: 1,
+            },
+            slow,
+          ),
+        ),
+      );
+      const peak = stop();
+
+      expect(results).toEqual(
+        Array.from({ length: cap + 1 }, () => ({
+          wordCount: 2,
+          extractionWarning: null,
+        })),
+      );
+      expect(peak).toBeGreaterThanOrEqual(1);
+      expect(peak).toBeLessThanOrEqual(cap);
+      expect(readdirSync(markers)).toEqual([]);
+    },
+  );
+
+  it('frees the slot of a worker killed at the deadline', async () => {
+    const stop = watchLiveWorkers();
+    const capped = { ...limits, maxConcurrentParses: 1 };
+    const hanging = extractReadingText(
+      fixture('chromium'),
+      { ...capped, timeoutMs: 300 },
+      { workerFile: join(workers, 'hang.js') },
+    );
+    const queued = extractReadingText(fixture('chromium'), capped, slow);
+
+    await expectFailure(hanging, 'TIMEOUT');
+    await expect(queued).resolves.toEqual({
+      wordCount: 2,
+      extractionWarning: null,
+    });
+    expect(stop()).toBeLessThanOrEqual(1);
+  });
+
+  it('frees the slot of a crashed worker', async () => {
+    const capped = { ...limits, maxConcurrentParses: 1 };
+    const crashed = extractReadingText(fixture('chromium'), capped, {
+      workerFile: join(workers, 'crash.js'),
+    });
+    const queued = extractReadingText(fixture('chromium'), capped, slow);
+
+    await expectFailure(crashed, 'WORKER_FAILED');
+    await expect(queued).resolves.toMatchObject({ wordCount: 2 });
+  });
+  describe('bounded wait queue', () => {
+    const hang = { workerFile: join(workers, 'hang.js') };
+    const queueLimits = (maxQueuedParses: number, timeoutMs = 1_500) => ({
+      ...limits,
+      timeoutMs,
+      maxConcurrentParses: 1,
+      maxQueuedParses,
+    });
+
+    it('rejects with BUSY at once when the wait queue is full, without a worker', async () => {
+      const tracked = trackWorkerLifecycles();
+      const running = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1),
+        hang,
+      );
+      const waiting = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1),
+        slow,
+      );
+      const started = Date.now();
+      const rejected = await expectFailure(
+        extractReadingText(fixture('chromium'), queueLimits(1), slow),
+        'BUSY',
+      );
+
+      expect(rejected.errorClass).toBe('ParseQueueFull');
+      expect(Date.now() - started).toBeLessThan(200);
+      expect(tracked.events).toEqual(['start 1']);
+
+      await expectFailure(running, 'TIMEOUT');
+      await expect(waiting).resolves.toMatchObject({ wordCount: 2 });
+      expect(tracked.events).toEqual([
+        'start 1',
+        'exit 1',
+        'start 2',
+        'exit 2',
+      ]);
+    });
+
+    it('rejects with BUSY when the queue size is 0 and every slot is taken', async () => {
+      const running = extractReadingText(
+        fixture('chromium'),
+        queueLimits(0, 500),
+        hang,
+      );
+
+      await expectFailure(
+        extractReadingText(fixture('chromium'), queueLimits(0, 500), slow),
+        'BUSY',
+      );
+      await expectFailure(running, 'TIMEOUT');
+    });
+
+    it('removes a waiting request from the queue when the client aborts', async () => {
+      const tracked = trackWorkerLifecycles();
+      const running = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1),
+        hang,
+      );
+      const client = new AbortController();
+      const aborted = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1),
+        slow,
+        client.signal,
+      );
+
+      client.abort();
+      const error = await expectFailure(aborted, 'ABORTED');
+
+      expect(error.errorClass).toBe('ClientAborted');
+      // Chỗ trong hàng đợi đã được trả lại: request mới vẫn vào hàng được.
+      const next = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1),
+        slow,
+      );
+
+      await expectFailure(running, 'TIMEOUT');
+      await expect(next).resolves.toMatchObject({ wordCount: 2 });
+      expect(tracked.events).toEqual([
+        'start 1',
+        'exit 1',
+        'start 2',
+        'exit 2',
+      ]);
+    });
+
+    it('terminates the worker of a parse whose client aborts and frees the slot', async () => {
+      const tracked = trackWorkerLifecycles();
+      const client = new AbortController();
+      const parsing = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1, 30_000),
+        hang,
+        client.signal,
+      );
+      const queued = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1),
+        slow,
+      );
+
+      setTimeout(() => client.abort(), 300);
+      const started = Date.now();
+
+      await expectFailure(parsing, 'ABORTED');
+      expect(Date.now() - started).toBeLessThan(5_000);
+      await expect(queued).resolves.toMatchObject({ wordCount: 2 });
+      expect(tracked.events).toEqual([
+        'start 1',
+        'exit 1',
+        'start 2',
+        'exit 2',
+      ]);
+    });
+
+    it('does not start a worker for a request aborted before it gets a slot', async () => {
+      const tracked = trackWorkerLifecycles();
+      const client = new AbortController();
+
+      client.abort();
+      await expectFailure(
+        extractReadingText(
+          fixture('chromium'),
+          queueLimits(1),
+          slow,
+          client.signal,
+        ),
+        'ABORTED',
+      );
+      expect(tracked.events).toEqual([]);
+    });
+  });
+});
+
+describe('resolveReadingParseLimits', () => {
+  const expected = {
+    timeoutMs: DEFAULT_READING_PARSE_TIMEOUT_MS,
+    maxOldGenerationSizeMb: DEFAULT_READING_PARSE_MAX_OLD_GENERATION_MB,
+    maxConcurrentParses: DEFAULT_READING_PARSE_MAX_CONCURRENCY,
+    maxQueuedParses: DEFAULT_READING_PARSE_MAX_QUEUE,
+  };
+
+  it('uses the measured defaults when the variables are unset or empty', () => {
+    expect(expected).toEqual({
+      timeoutMs: 30_000,
+      maxOldGenerationSizeMb: 256,
+      maxConcurrentParses: 2,
+      maxQueuedParses: 4,
+    });
+    expect(resolveReadingParseLimits({})).toEqual(expected);
+    expect(
+      resolveReadingParseLimits({
+        READING_PDF_PARSE_TIMEOUT_MS: '',
+        READING_PDF_PARSE_MAX_OLD_GENERATION_MB: '',
+        READING_PDF_PARSE_MAX_CONCURRENCY: '',
+        READING_PDF_PARSE_MAX_QUEUE: '',
+      }),
+    ).toEqual(expected);
+  });
+
+  it('accepts the lowest allowed values', () => {
+    expect(
+      resolveReadingParseLimits({
+        READING_PDF_PARSE_TIMEOUT_MS: '1000',
+        READING_PDF_PARSE_MAX_OLD_GENERATION_MB: '32',
+        READING_PDF_PARSE_MAX_CONCURRENCY: '1',
+        READING_PDF_PARSE_MAX_QUEUE: '0',
+      }),
+    ).toEqual({
+      timeoutMs: 1000,
+      maxOldGenerationSizeMb: 32,
+      maxConcurrentParses: 1,
+      maxQueuedParses: 0,
+    });
+  });
+
+  it.each([
+    ['READING_PDF_PARSE_TIMEOUT_MS', '999', 1000],
+    ['READING_PDF_PARSE_MAX_OLD_GENERATION_MB', '31', 32],
+    ['READING_PDF_PARSE_MAX_CONCURRENCY', '0', 1],
+  ])('rejects %s=%s below the minimum', (name, value, min) => {
+    expect(() => resolveReadingParseLimits({ [name]: value })).toThrow(
+      `Invalid ${name}: expected a safe integer of at least ${min}.`,
+    );
+  });
+
+  it.each(['-1', '1.5', 'abc', '9007199254740993'])(
+    'rejects the malformed value %s',
+    (value) => {
+      for (const name of [
+        'READING_PDF_PARSE_TIMEOUT_MS',
+        'READING_PDF_PARSE_MAX_OLD_GENERATION_MB',
+        'READING_PDF_PARSE_MAX_CONCURRENCY',
+        'READING_PDF_PARSE_MAX_QUEUE',
+      ]) {
+        expect(() => resolveReadingParseLimits({ [name]: value })).toThrow(
+          `Invalid ${name}`,
+        );
+      }
+    },
+  );
+});

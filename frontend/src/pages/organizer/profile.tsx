@@ -1,3 +1,4 @@
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 import { Avatar, Spin } from "antd";
 import { Link } from "react-router-dom";
 import {
@@ -13,7 +14,7 @@ import { roleLabel } from "@/utils/helper";
 import "./profile.scss";
 
 const Profile = () => {
-  const { profile, loading } = useMyProfile();
+  const { profile, loading, error, clearError } = useMyProfile();
   return (
     <OrganizerPage className="organizer-profile">
       <PageHeader
@@ -26,6 +27,9 @@ const Profile = () => {
         }
       />
       <SectionCard>
+        {error && (
+          <VietnameseAlert type="error" showIcon message={error} closable onClose={clearError} />
+        )}
         {loading ? (
           <Spin />
         ) : (

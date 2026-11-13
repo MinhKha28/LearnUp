@@ -1,9 +1,11 @@
+import { canOpenPage } from "@/utils/preview.pages";
 import { useState } from "react";
 import { Alert, Button, Form, Input } from "antd";
 import { BookOutlined, CheckOutlined, FlagOutlined } from "@ant-design/icons";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { googleLoginAPI, loginAPI } from "@/services/identity.service";
 import GoogleSignIn from "@/components/guest/google.sign.in";
+import { googleClientId } from "@/services/google.identity";
 import { googleSignInMessage } from "@/utils/google.sign.in";
 import { loadUserWithProfile } from "@/services/profile.service";
 import { useCurrentApp } from "@/components/context/app.context";
@@ -38,7 +40,11 @@ export default function LoginPage() {
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const googleEnabled = googleClientId() !== "";
   const { setUser, setIsAuthenticated } = useCurrentApp();
+
+  const redirect = safeRedirect(params.get("redirect"));
+  const availableRedirect = redirect && canOpenPage(redirect) ? redirect : null;
 
   async function submit(values: LoginFields) {
     setLoading(true);
@@ -51,8 +57,7 @@ export default function LoginPage() {
         setUser(await loadUserWithProfile(result.user));
         setIsAuthenticated(true);
         navigate(
-          safeRedirect(params.get("redirect")) ??
-            homePathForRole(result.user.role),
+          availableRedirect ?? homePathForRole(result.user.role),
           { replace: true },
         );
         return;
@@ -79,8 +84,7 @@ export default function LoginPage() {
         setUser(await loadUserWithProfile(result.user));
         setIsAuthenticated(true);
         navigate(
-          safeRedirect(params.get("redirect")) ??
-            homePathForRole(result.user.role),
+          availableRedirect ?? homePathForRole(result.user.role),
           { replace: true },
         );
         return;
@@ -237,16 +241,20 @@ export default function LoginPage() {
               Đăng nhập
             </Button>
           </Form>
-          <div className="login-divider">hoặc</div>
-          <GoogleSignIn
-            disabled={loading}
-            onCredential={googleSubmit}
-            onError={setError}
-          />
-          <p className="login-help">
-            Tài khoản quản lý đào tạo, giảng viên và học viên đã có có thể đăng
-            nhập bằng Google.
-          </p>
+          {googleEnabled && (
+            <>
+              <div className="login-divider">hoặc</div>
+              <GoogleSignIn
+                disabled={loading}
+                onCredential={googleSubmit}
+                onError={setError}
+              />
+              <p className="login-help">
+                Tài khoản quản lý đào tạo, giảng viên và học viên đã có có thể
+                đăng nhập bằng Google.
+              </p>
+            </>
+          )}
         </div>
         <div className="login-panel-footer login-panel-footer-stacked">
           <div>

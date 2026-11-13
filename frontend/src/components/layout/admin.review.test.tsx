@@ -54,10 +54,10 @@ afterEach(() => {
 });
 
 describe("Admin screenshot review wording", () => {
-  it("shortens the reports menu label while preserving the breadcrumb", () => {
+  it("hides the reports menu entry with preview off and preserves the report breadcrumb", () => {
     const { container } = renderAdmin("/admin/reports");
     const menu = screen.getByRole("menu");
-    expect(within(menu).getByText("Báo cáo chuyển cấp")).toBeTruthy();
+    expect(within(menu).queryByText("Báo cáo chuyển cấp")).toBeNull();
     expect(within(menu).queryByText("Báo cáo đã chuyển cấp xử lý")).toBeNull();
     expect(container.querySelector(".admin-topbar-left strong")?.textContent).toBe("Báo cáo đã chuyển cấp xử lý");
   });

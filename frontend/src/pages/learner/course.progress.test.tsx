@@ -199,11 +199,7 @@ describe("UC28 real progress page", () => {
     expect(
       screen.getByRole("link", { name: "Xem chứng chỉ" }).getAttribute("href"),
     ).toBe("/learner/certificates");
-    expect(
-      screen
-        .getByRole("link", { name: "Đánh giá khóa học" })
-        .getAttribute("href"),
-    ).toBe("/learner/courses/enrollment/evaluation");
+    expect(screen.queryByRole("link", { name: "Đánh giá khóa học" })).toBeNull();
     expect(
       screen.queryByRole("region", { name: "Điều kiện còn thiếu" }),
     ).toBeNull();

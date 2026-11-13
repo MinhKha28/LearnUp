@@ -1,4 +1,5 @@
 import { Alert, Input, message, Progress, Radio, Skeleton } from "antd";
+import { isAxiosError } from "axios";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -7,11 +8,14 @@ import {
   InstructorPage,
 } from "@/components/instructor/instructor.ui";
 import { useApiQuery } from "@/hooks/use.api.query";
-import { toApiError } from "@/services/api.client";
 import {
   createReadingMaterialAPI,
   fetchReadingUploadContextAPI,
 } from "@/services/course.service";
+import {
+  getReadingParseBusyMessage,
+  readReadingUploadFailure,
+} from "@/utils/reading.upload.error";
 
 import "./course.create.scss";
 import "./course.builder.scss";
@@ -24,6 +28,39 @@ const formatBytes = (value: string | number) => {
   }
 
   return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+};
+
+const DEFAULT_UPLOAD_ERROR = "Không thể tải tài liệu đọc lên.";
+const NO_RESPONSE_ERROR = "Không gửi được tệp. Vui lòng kiểm tra kết nối rồi thử lại.";
+
+// courseAxios trả body lỗi như response thường, nên đọc cả body lẫn lỗi Axios.
+const getCreateReadingErrorMessage = (error: unknown): string => {
+  const busy = getReadingParseBusyMessage(error);
+
+  if (busy) return busy;
+
+  const failure = readReadingUploadFailure(error);
+
+  if (failure?.status === 403) {
+    return "Gói dịch vụ hoặc quyền giảng viên không cho phép tải tệp lên.";
+  }
+
+  if (failure?.status === 409) {
+    return "Trạng thái khóa học hoặc dung lượng lưu trữ đã thay đổi.";
+  }
+
+  if (failure?.status === 413) {
+    return "Tài liệu đọc vượt quá dung lượng cho phép.";
+  }
+
+  if (failure) return failure.message || DEFAULT_UPLOAD_ERROR;
+
+  // Không có response HTTP: lỗi mạng, hết thời gian chờ hoặc request bị hủy.
+  if (isAxiosError(error) && !error.response) return NO_RESPONSE_ERROR;
+
+  return error instanceof Error && error.message
+    ? error.message
+    : DEFAULT_UPLOAD_ERROR;
 };
 
 const CourseBuilderReadingAdd = () => {
@@ -133,6 +170,10 @@ const CourseBuilderReadingAdd = () => {
         },
       );
 
+      if (readReadingUploadFailure(response)) {
+        throw response;
+      }
+
       if (!response.data?.id) {
         throw new Error("Không thể lưu tài liệu đọc.");
       }
@@ -150,28 +191,7 @@ const CourseBuilderReadingAdd = () => {
 
       navigate(listUrl, { replace: true });
     } catch (error) {
-      let errorMessage = "Không thể tải tài liệu đọc lên.";
-
-      try {
-        const apiError = toApiError(error);
-
-        if (apiError.status === 403) {
-          errorMessage =
-            "Gói dịch vụ hoặc quyền giảng viên không cho phép tải tệp lên.";
-        } else if (apiError.status === 409) {
-          errorMessage = "Trạng thái khóa học hoặc dung lượng lưu trữ đã thay đổi.";
-        } else if (apiError.status === 413) {
-          errorMessage = "Tài liệu đọc vượt quá dung lượng cho phép.";
-        } else {
-          errorMessage = apiError.message || errorMessage;
-        }
-      } catch {
-        if (error instanceof Error) {
-          errorMessage = error.message;
-        }
-      }
-
-      message.error(errorMessage);
+      message.error(getCreateReadingErrorMessage(error));
       query.reload();
     } finally {
       setSaving(false);
@@ -286,9 +306,12 @@ const CourseBuilderReadingAdd = () => {
           <label className="builder-upload-box">
             <strong>{file ? file.name : "Chọn tài liệu PDF"}</strong>
 
-            <p>Supported: {context.allowedReadingMimeTypes.join(", ")}</p>
+            <p>Định dạng cho phép: PDF</p>
 
-            <p>Dung lượng tối đa: {formatBytes(context.maxReadingSizeBytes)}</p>
+            <p>
+              Giới hạn dung lượng truyền tải:{" "}
+              {formatBytes(context.maxReadingSizeBytes)}
+            </p>
 
             <input
               type="file"
@@ -303,7 +326,7 @@ const CourseBuilderReadingAdd = () => {
 
           {file && (
             <p className="instructor-form-help">
-              Selected: {file.name} ({formatBytes(file.size)})
+              Tệp đã chọn: {file.name} ({formatBytes(file.size)})
             </p>
           )}
 

@@ -16,6 +16,7 @@ import {
   NotFoundException,
   PayloadTooLargeException,
   ServiceUnavailableException,
+  HttpException,
 } from '@nestjs/common';
 import { CourseListQueryDto } from './dto/course-list-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -41,7 +42,12 @@ import { UpdateCourseStructureDto } from './dto/update-course-structure.dto';
 import { UpdateLessonContentDto } from './dto/update-lesson-content.dto';
 import { CreateVideoMaterialDto } from './dto/create-video-material.dto';
 import { CreateReadingMaterialDto } from './dto/create-reading-material.dto';
-import { extractReadingText } from './reading-text-extractor';
+import {
+  ReadingTextExtractionError,
+  extractReadingText,
+  resolveReadingParseLimits,
+} from './reading-text-extractor';
+import { readingParseBusyException } from './reading-upload-busy';
 import { AssessmentClient } from '@/infrastructure/clients/assessment/assessment.client';
 import { NotificationClient } from '@/infrastructure/clients/notification/notification.client';
 import { assertCourseNotInTrash, getPurgeAt } from './course-trash.constants';
@@ -64,7 +70,53 @@ export class CoursesService {
     private readonly storage: IReadableStorageProvider,
   ) {}
 
+  // Đọc một lần khi khởi tạo; cấu hình sai thì service không khởi động.
+  private readonly readingParseLimits = resolveReadingParseLimits(process.env);
+
   private running = false;
+
+  // Hàng đợi parse đầy -> 503 có thể thử lại; client đã ngắt kết nối -> dừng
+  // trước Cloudinary/DB, chỉ log debug. Các lỗi khác giữ nguyên xử lý cũ.
+  private throwIfParseInterrupted(
+    error: unknown,
+    context: Record<string, string>,
+  ): void {
+    if (!(error instanceof ReadingTextExtractionError)) return;
+
+    if (error.reason === 'BUSY') throw readingParseBusyException();
+
+    if (error.reason === 'ABORTED') this.stopAbortedUpload(context);
+  }
+
+  private stopAbortedUpload(context: Record<string, string>): never {
+    this.logger.debug(
+      JSON.stringify({ action: 'READING_UPLOAD_ABORTED', ...context }),
+    );
+
+    throw new HttpException('Client closed the request.', 499);
+  }
+
+  // Chỉ log tên lớp lỗi và id; không log nội dung file hay text của PDF.
+  private logReadingParseFailure(
+    error: unknown,
+    context: Record<string, string>,
+  ): void {
+    const failure =
+      error instanceof ReadingTextExtractionError
+        ? { reason: error.reason, errorClass: error.errorClass }
+        : {
+            reason: 'UNKNOWN',
+            errorClass: error instanceof Error ? error.name : typeof error,
+          };
+
+    this.logger.warn(
+      JSON.stringify({
+        action: 'READING_PDF_PARSE_FAILED',
+        ...context,
+        ...failure,
+      }),
+    );
+  }
 
   async findAll(user: CurrentUser, query: CourseListQueryDto) {
     if (user.role !== 'INSTRUCTOR') {
@@ -1452,6 +1504,7 @@ export class CoursesService {
     lessonId: string,
     dto: CreateReadingMaterialDto,
     file?: Express.Multer.File,
+    signal?: AbortSignal,
   ) {
     if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
       throw new ForbiddenException(
@@ -1565,11 +1618,37 @@ export class CoursesService {
     let extraction: Awaited<ReturnType<typeof extractReadingText>>;
 
     try {
-      extraction = await extractReadingText(file.buffer);
-    } catch {
+      extraction = await extractReadingText(
+        file.buffer,
+        this.readingParseLimits,
+        undefined,
+        signal,
+      );
+    } catch (error) {
+      const context = {
+        path: 'create',
+        organizationId,
+        actorId: user.userId,
+        courseId,
+        lessonId,
+      };
+
+      this.throwIfParseInterrupted(error, context);
+      this.logReadingParseFailure(error, context);
+
       throw new BadRequestException(
         'Unable to read PDF. The file may be corrupted or password-protected.',
       );
+    }
+
+    if (signal?.aborted) {
+      this.stopAbortedUpload({
+        path: 'create',
+        organizationId,
+        actorId: user.userId,
+        courseId,
+        lessonId,
+      });
     }
 
     // 5. Upload Cloudinary.
@@ -2155,6 +2234,7 @@ export class CoursesService {
     lessonId: string,
     materialId: string,
     file?: Express.Multer.File,
+    signal?: AbortSignal,
   ) {
     // 1. Phân quyền Instructor.
     if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
@@ -2300,16 +2380,6 @@ export class CoursesService {
       ) {
         throw new BadRequestException('Invalid PDF file signature.');
       }
-
-      // Trích xuất word count.
-      try {
-        const extraction = await extractReadingText(file.buffer);
-
-        wordCount = extraction.wordCount;
-        extractionWarning = extraction.extractionWarning;
-      } catch {
-        throw new BadRequestException('Unable to read replacement PDF.');
-      }
     } else {
       throw new BadRequestException('Unsupported replacement type.');
     }
@@ -2320,6 +2390,46 @@ export class CoursesService {
         code: 'FILE_TOO_LARGE',
         message: 'Replacement exceeds the allowed size.',
       });
+    }
+
+    // Chỉ parse PDF sau khi đã kiểm tra giới hạn dung lượng hiệu lực.
+    if (isReading) {
+      try {
+        const extraction = await extractReadingText(
+          file.buffer,
+          this.readingParseLimits,
+          undefined,
+          signal,
+        );
+
+        wordCount = extraction.wordCount;
+        extractionWarning = extraction.extractionWarning;
+      } catch (error) {
+        const context = {
+          path: 'replacement',
+          organizationId,
+          actorId: user.userId,
+          courseId,
+          lessonId,
+          materialId,
+        };
+
+        this.throwIfParseInterrupted(error, context);
+        this.logReadingParseFailure(error, context);
+
+        throw new BadRequestException('Unable to read replacement PDF.');
+      }
+
+      if (signal?.aborted) {
+        this.stopAbortedUpload({
+          path: 'replacement',
+          organizationId,
+          actorId: user.userId,
+          courseId,
+          lessonId,
+          materialId,
+        });
+      }
     }
 
     // 7. Kiểm tra Subscription theo cơ chế upload hiện có.
