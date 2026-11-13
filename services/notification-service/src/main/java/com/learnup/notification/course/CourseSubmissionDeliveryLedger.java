@@ -80,4 +80,14 @@ public class CourseSubmissionDeliveryLedger {
               AND status = 'PROCESSING'
             """, code, eventId, recipient, channel);
     }
+
+    /** Nothing to deliver to this recipient on this channel (for example a missing e-mail address). */
+    public void skipped(UUID eventId, UUID recipient, String channel) {
+        jdbc.update("""
+            UPDATE course_submission_deliveries
+            SET status = 'SKIPPED', claimed_at = NULL, updated_at = now()
+            WHERE event_id = ? AND recipient_user_id = ? AND channel = ?
+              AND status = 'PROCESSING'
+            """, eventId, recipient, channel);
+    }
 }
