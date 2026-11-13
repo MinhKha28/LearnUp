@@ -273,12 +273,12 @@ const MemberImport = ({
       />
       <SectionCard title="Tải tệp lên">
         <div className="organizer-note organizer-import-columns">
-          <p>Tệp mẫu gồm 4 cột. Không đổi tên cột (tiêu đề giữ nguyên tiếng Anh):</p>
+          <p>Tệp mẫu gồm 4 cột. Giữ nguyên tên cột như trong tệp mẫu:</p>
           <ul>
-            <li><strong>Full name</strong>: họ và tên đầy đủ.</li>
+            <li><strong>Họ tên</strong>: họ và tên đầy đủ.</li>
             <li><strong>Email</strong>: địa chỉ email dùng để đăng nhập, không trùng với tài khoản khác.</li>
-            <li><strong>Department</strong>: đơn vị công tác (có thể để trống).</li>
-            <li><strong>Role</strong>: vai trò, điền đúng giá trị "{role}".</li>
+            <li><strong>Đơn vị công tác</strong>: có thể để trống.</li>
+            <li><strong>Vai trò</strong>: điền đúng giá trị "{role}".</li>
           </ul>
         </div>
         <Upload.Dragger
@@ -397,8 +397,8 @@ const MemberImport = ({
           />
 
           <p className="organizer-note">
-            Các dòng lỗi sẽ bị bỏ qua; hãy sửa trong tệp và nhập lại sau. Mỗi
-            {roleLabel[role]} mới sẽ nhận email mời để đặt mật khẩu và kích hoạt tài khoản.
+            Các dòng lỗi sẽ bị bỏ qua; hãy sửa trong tệp và nhập lại sau.{" "}
+            {`Mỗi ${roleLabel[role]} mới sẽ nhận email mời để đặt mật khẩu và kích hoạt tài khoản.`}
           </p>
           {submitError && (
             <VietnameseAlert

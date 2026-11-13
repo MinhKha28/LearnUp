@@ -14,4 +14,6 @@ export const GOOGLE_UNAVAILABLE_MESSAGE = GOOGLE_MESSAGES.GOOGLE_SIGN_IN_UNAVAIL
 
 /** Google-specific codes first; account/Organization/Subscription denials reuse the UC05 wording. */
 export const googleSignInMessage = (code?: string | null): string =>
-  (code && GOOGLE_MESSAGES[code]) || signInMessage(code);
+  typeof code === "string" && Object.hasOwn(GOOGLE_MESSAGES, code)
+    ? GOOGLE_MESSAGES[code]
+    : signInMessage(code);
