@@ -52,7 +52,7 @@ describe("UC05 sign-in reason in the address", () => {
     expect(screen.getByText(/Tài khoản của bạn đã bị vô hiệu hóa/)).toBeTruthy();
   });
 
-  it.each(["constructor", "toString", "__proto__"])("shows no error for the inherited key %s", (reason) => {
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty", "", "NOT_A_SIGN_IN_REASON"])("shows no error for the reason %j", (reason) => {
     const { container } = showLogin(`/login?reason=${reason}`);
     expect(screen.queryByText("Đăng nhập không thành công")).toBeNull();
     expect(container.querySelector(".ant-alert-error")).toBeNull();

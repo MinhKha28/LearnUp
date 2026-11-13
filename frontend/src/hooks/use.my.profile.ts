@@ -44,19 +44,30 @@ const PROFILE_ERROR_MESSAGES: Record<string, string> = {
     "Chưa lưu được ảnh vì kho lưu trữ đang gián đoạn. Vui lòng thử lại sau ít phút.",
 };
 
-export const profileErrorMessage = (
-  response: unknown,
-  fallback: string,
-): string => {
+const errorCodeOf = (response: unknown): unknown => {
   const body = (response ?? {}) as {
     code?: unknown;
     error?: { code?: unknown };
   };
-  const code = body.error?.code ?? body.code;
+  return body.error?.code ?? body.code;
+};
+
+export const profileErrorMessage = (
+  response: unknown,
+  fallback: string,
+): string => {
+  const code = errorCodeOf(response);
   return typeof code === "string" && Object.hasOwn(PROFILE_ERROR_MESSAGES, code)
     ? PROFILE_ERROR_MESSAGES[code]
     : fallback;
 };
+
+export const PROFILE_LOAD_ERROR = "Không tải được hồ sơ của bạn.";
+
+export const profileLoadErrorMessage = (response: unknown): string =>
+  errorCodeOf(response) === "ACCOUNT_NOT_FOUND"
+    ? PROFILE_ERROR_MESSAGES.ACCOUNT_NOT_FOUND
+    : PROFILE_LOAD_ERROR;
 
 export const useMyProfile = () => {
   const { user, setUser } = useCurrentApp();
@@ -73,7 +84,7 @@ export const useMyProfile = () => {
         const res = await getMyProfileAPI();
         if (!active) return;
         if (res.data) setProfile(res.data);
-        else setError(profileErrorMessage(res, "Không tải được hồ sơ của bạn."));
+        else setError(profileLoadErrorMessage(res));
       } catch {
         if (active) setError("Không kết nối được với máy chủ.");
       } finally {

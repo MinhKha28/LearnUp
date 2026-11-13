@@ -44,6 +44,13 @@ describe("UC09 first profile load", () => {
     );
   });
 
+  it.each(["AVATAR_REQUIRED", "AVATAR_INVALID", "STORAGE_UNAVAILABLE"])(
+    "keeps the generic load message for the avatar code %s, which belongs to the avatar actions",
+    async (code) => {
+      expect(await loadError({ statusCode: 400, error: { code } })).toBe("Không tải được hồ sơ của bạn.");
+    },
+  );
+
   it("shows the connection message when the request fails", async () => {
     getMyProfileAPI.mockRejectedValue(new Error("network"));
     const { result } = renderHook(() => useMyProfile());
