@@ -111,14 +111,6 @@ const LayoutInstructorCourse = () => {
 
   return (
     <div className="builder-layout">
-      {isSubmitted && (
-        <Alert
-          type="warning"
-          showIcon
-          message="Khóa học đang chờ phê duyệt"
-          description="Bạn chỉ có thể xem nội dung. Hãy thu hồi khóa học trước khi chỉnh sửa."
-        />
-      )}
       <header className="builder-topbar">
         <div className="builder-topbar-left">
           <button
