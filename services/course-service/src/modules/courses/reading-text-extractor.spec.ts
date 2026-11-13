@@ -22,6 +22,7 @@ import { Readable } from 'node:stream';
 import { memoryStorage } from 'multer';
 import {
   DEFAULT_READING_PARSE_MAX_CONCURRENCY,
+  DEFAULT_READING_PARSE_MAX_QUEUE,
   DEFAULT_READING_PARSE_MAX_OLD_GENERATION_MB,
   DEFAULT_READING_PARSE_TIMEOUT_MS,
   DEFAULT_READING_TEXT_WORKER,
@@ -415,6 +416,7 @@ describe('extractReadingText concurrency cap', () => {
               timeoutMs: 1_500,
               maxOldGenerationSizeMb: 64,
               maxConcurrentParses: cap,
+              maxQueuedParses: 1,
             },
             slow,
           ),
@@ -462,6 +464,143 @@ describe('extractReadingText concurrency cap', () => {
     await expectFailure(crashed, 'WORKER_FAILED');
     await expect(queued).resolves.toMatchObject({ wordCount: 2 });
   });
+  describe('bounded wait queue', () => {
+    const hang = { workerFile: join(workers, 'hang.js') };
+    const queueLimits = (maxQueuedParses: number, timeoutMs = 1_500) => ({
+      ...limits,
+      timeoutMs,
+      maxConcurrentParses: 1,
+      maxQueuedParses,
+    });
+
+    it('rejects with BUSY at once when the wait queue is full, without a worker', async () => {
+      const tracked = trackWorkerLifecycles();
+      const running = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1),
+        hang,
+      );
+      const waiting = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1),
+        slow,
+      );
+      const started = Date.now();
+      const rejected = await expectFailure(
+        extractReadingText(fixture('chromium'), queueLimits(1), slow),
+        'BUSY',
+      );
+
+      expect(rejected.errorClass).toBe('ParseQueueFull');
+      expect(Date.now() - started).toBeLessThan(200);
+      expect(tracked.events).toEqual(['start 1']);
+
+      await expectFailure(running, 'TIMEOUT');
+      await expect(waiting).resolves.toMatchObject({ wordCount: 2 });
+      expect(tracked.events).toEqual([
+        'start 1',
+        'exit 1',
+        'start 2',
+        'exit 2',
+      ]);
+    });
+
+    it('rejects with BUSY when the queue size is 0 and every slot is taken', async () => {
+      const running = extractReadingText(
+        fixture('chromium'),
+        queueLimits(0, 500),
+        hang,
+      );
+
+      await expectFailure(
+        extractReadingText(fixture('chromium'), queueLimits(0, 500), slow),
+        'BUSY',
+      );
+      await expectFailure(running, 'TIMEOUT');
+    });
+
+    it('removes a waiting request from the queue when the client aborts', async () => {
+      const tracked = trackWorkerLifecycles();
+      const running = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1),
+        hang,
+      );
+      const client = new AbortController();
+      const aborted = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1),
+        slow,
+        client.signal,
+      );
+
+      client.abort();
+      const error = await expectFailure(aborted, 'ABORTED');
+
+      expect(error.errorClass).toBe('ClientAborted');
+      // Chỗ trong hàng đợi đã được trả lại: request mới vẫn vào hàng được.
+      const next = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1),
+        slow,
+      );
+
+      await expectFailure(running, 'TIMEOUT');
+      await expect(next).resolves.toMatchObject({ wordCount: 2 });
+      expect(tracked.events).toEqual([
+        'start 1',
+        'exit 1',
+        'start 2',
+        'exit 2',
+      ]);
+    });
+
+    it('terminates the worker of a parse whose client aborts and frees the slot', async () => {
+      const tracked = trackWorkerLifecycles();
+      const client = new AbortController();
+      const parsing = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1, 30_000),
+        hang,
+        client.signal,
+      );
+      const queued = extractReadingText(
+        fixture('chromium'),
+        queueLimits(1),
+        slow,
+      );
+
+      setTimeout(() => client.abort(), 300);
+      const started = Date.now();
+
+      await expectFailure(parsing, 'ABORTED');
+      expect(Date.now() - started).toBeLessThan(5_000);
+      await expect(queued).resolves.toMatchObject({ wordCount: 2 });
+      expect(tracked.events).toEqual([
+        'start 1',
+        'exit 1',
+        'start 2',
+        'exit 2',
+      ]);
+    });
+
+    it('does not start a worker for a request aborted before it gets a slot', async () => {
+      const tracked = trackWorkerLifecycles();
+      const client = new AbortController();
+
+      client.abort();
+      await expectFailure(
+        extractReadingText(
+          fixture('chromium'),
+          queueLimits(1),
+          slow,
+          client.signal,
+        ),
+        'ABORTED',
+      );
+      expect(tracked.events).toEqual([]);
+    });
+  });
 });
 
 describe('resolveReadingParseLimits', () => {
@@ -469,6 +608,7 @@ describe('resolveReadingParseLimits', () => {
     timeoutMs: DEFAULT_READING_PARSE_TIMEOUT_MS,
     maxOldGenerationSizeMb: DEFAULT_READING_PARSE_MAX_OLD_GENERATION_MB,
     maxConcurrentParses: DEFAULT_READING_PARSE_MAX_CONCURRENCY,
+    maxQueuedParses: DEFAULT_READING_PARSE_MAX_QUEUE,
   };
 
   it('uses the measured defaults when the variables are unset or empty', () => {
@@ -476,6 +616,7 @@ describe('resolveReadingParseLimits', () => {
       timeoutMs: 30_000,
       maxOldGenerationSizeMb: 256,
       maxConcurrentParses: 2,
+      maxQueuedParses: 4,
     });
     expect(resolveReadingParseLimits({})).toEqual(expected);
     expect(
@@ -483,6 +624,7 @@ describe('resolveReadingParseLimits', () => {
         READING_PDF_PARSE_TIMEOUT_MS: '',
         READING_PDF_PARSE_MAX_OLD_GENERATION_MB: '',
         READING_PDF_PARSE_MAX_CONCURRENCY: '',
+        READING_PDF_PARSE_MAX_QUEUE: '',
       }),
     ).toEqual(expected);
   });
@@ -493,11 +635,13 @@ describe('resolveReadingParseLimits', () => {
         READING_PDF_PARSE_TIMEOUT_MS: '1000',
         READING_PDF_PARSE_MAX_OLD_GENERATION_MB: '32',
         READING_PDF_PARSE_MAX_CONCURRENCY: '1',
+        READING_PDF_PARSE_MAX_QUEUE: '0',
       }),
     ).toEqual({
       timeoutMs: 1000,
       maxOldGenerationSizeMb: 32,
       maxConcurrentParses: 1,
+      maxQueuedParses: 0,
     });
   });
 
@@ -518,6 +662,7 @@ describe('resolveReadingParseLimits', () => {
         'READING_PDF_PARSE_TIMEOUT_MS',
         'READING_PDF_PARSE_MAX_OLD_GENERATION_MB',
         'READING_PDF_PARSE_MAX_CONCURRENCY',
+        'READING_PDF_PARSE_MAX_QUEUE',
       ]) {
         expect(() => resolveReadingParseLimits({ [name]: value })).toThrow(
           `Invalid ${name}`,

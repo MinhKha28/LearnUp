@@ -16,6 +16,7 @@ import {
   NotFoundException,
   PayloadTooLargeException,
   ServiceUnavailableException,
+  HttpException,
 } from '@nestjs/common';
 import { CourseListQueryDto } from './dto/course-list-query.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -46,6 +47,7 @@ import {
   extractReadingText,
   resolveReadingParseLimits,
 } from './reading-text-extractor';
+import { readingParseBusyException } from './reading-upload-busy';
 import { AssessmentClient } from '@/infrastructure/clients/assessment/assessment.client';
 import { NotificationClient } from '@/infrastructure/clients/notification/notification.client';
 import { assertCourseNotInTrash, getPurgeAt } from './course-trash.constants';
@@ -72,6 +74,27 @@ export class CoursesService {
   private readonly readingParseLimits = resolveReadingParseLimits(process.env);
 
   private running = false;
+
+  // Hàng đợi parse đầy -> 503 có thể thử lại; client đã ngắt kết nối -> dừng
+  // trước Cloudinary/DB, chỉ log debug. Các lỗi khác giữ nguyên xử lý cũ.
+  private throwIfParseInterrupted(
+    error: unknown,
+    context: Record<string, string>,
+  ): void {
+    if (!(error instanceof ReadingTextExtractionError)) return;
+
+    if (error.reason === 'BUSY') throw readingParseBusyException();
+
+    if (error.reason === 'ABORTED') this.stopAbortedUpload(context);
+  }
+
+  private stopAbortedUpload(context: Record<string, string>): never {
+    this.logger.debug(
+      JSON.stringify({ action: 'READING_UPLOAD_ABORTED', ...context }),
+    );
+
+    throw new HttpException('Client closed the request.', 499);
+  }
 
   // Chỉ log tên lớp lỗi và id; không log nội dung file hay text của PDF.
   private logReadingParseFailure(
@@ -1481,6 +1504,7 @@ export class CoursesService {
     lessonId: string,
     dto: CreateReadingMaterialDto,
     file?: Express.Multer.File,
+    signal?: AbortSignal,
   ) {
     if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
       throw new ForbiddenException(
@@ -1597,19 +1621,34 @@ export class CoursesService {
       extraction = await extractReadingText(
         file.buffer,
         this.readingParseLimits,
+        undefined,
+        signal,
       );
     } catch (error) {
-      this.logReadingParseFailure(error, {
+      const context = {
+        path: 'create',
+        organizationId,
+        actorId: user.userId,
+        courseId,
+        lessonId,
+      };
+
+      this.throwIfParseInterrupted(error, context);
+      this.logReadingParseFailure(error, context);
+
+      throw new BadRequestException(
+        'Unable to read PDF. The file may be corrupted or password-protected.',
+      );
+    }
+
+    if (signal?.aborted) {
+      this.stopAbortedUpload({
         path: 'create',
         organizationId,
         actorId: user.userId,
         courseId,
         lessonId,
       });
-
-      throw new BadRequestException(
-        'Unable to read PDF. The file may be corrupted or password-protected.',
-      );
     }
 
     // 5. Upload Cloudinary.
@@ -2195,6 +2234,7 @@ export class CoursesService {
     lessonId: string,
     materialId: string,
     file?: Express.Multer.File,
+    signal?: AbortSignal,
   ) {
     // 1. Phân quyền Instructor.
     if (user.role !== 'INSTRUCTOR' || !user.organizationId) {
@@ -2358,12 +2398,30 @@ export class CoursesService {
         const extraction = await extractReadingText(
           file.buffer,
           this.readingParseLimits,
+          undefined,
+          signal,
         );
 
         wordCount = extraction.wordCount;
         extractionWarning = extraction.extractionWarning;
       } catch (error) {
-        this.logReadingParseFailure(error, {
+        const context = {
+          path: 'replacement',
+          organizationId,
+          actorId: user.userId,
+          courseId,
+          lessonId,
+          materialId,
+        };
+
+        this.throwIfParseInterrupted(error, context);
+        this.logReadingParseFailure(error, context);
+
+        throw new BadRequestException('Unable to read replacement PDF.');
+      }
+
+      if (signal?.aborted) {
+        this.stopAbortedUpload({
           path: 'replacement',
           organizationId,
           actorId: user.userId,
@@ -2371,8 +2429,6 @@ export class CoursesService {
           lessonId,
           materialId,
         });
-
-        throw new BadRequestException('Unable to read replacement PDF.');
       }
     }
 
