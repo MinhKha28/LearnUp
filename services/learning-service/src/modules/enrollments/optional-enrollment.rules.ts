@@ -25,6 +25,13 @@ export function assertWithdrawable(
     });
 }
 
+/** UC25.3 self-enrolment may restore these; AccountDeleted and HaltedClosed stay blocked. */
+const SELF_RESTORABLE_REASONS: readonly string[] = [
+  'LearnerWithdrew',
+  // UC24.4: an Organizer-cancelled assignment is restored as Optional.
+  'OrganizerCancelled',
+];
+
 export function assertRestorable(row: OptionalEnrollmentRow | null): void {
   if (!row) return;
   if (row.status !== 'Withdrawn')
@@ -32,7 +39,7 @@ export function assertRestorable(row: OptionalEnrollmentRow | null): void {
       ...createApiError('ALREADY_ENROLLED', 'Bạn đã đăng ký Course này'),
       enrollmentId: row.id,
     });
-  if (row.withdrawnReason !== 'LearnerWithdrew')
+  if (!SELF_RESTORABLE_REASONS.includes(row.withdrawnReason ?? ''))
     throw new ConflictException({
       ...createApiError(
         'ENROLLMENT_NOT_RESTORABLE',

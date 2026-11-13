@@ -36,57 +36,57 @@ type MenuItem = Required<MenuProps>["items"][number];
 const adminMenuItems: MenuItem[] = [
   {
     type: "group",
-    label: "OVERVIEW",
+    label: "Điều hành",
     children: [
-      { key: "/admin", icon: <DashboardOutlined />, label: "Dashboard" },
+      { key: "/admin", icon: <DashboardOutlined aria-hidden="true" />, label: "Tổng quan nền tảng" },
     ],
   },
   {
     type: "group",
-    label: "PLATFORM",
+    label: "Nền tảng",
     children: [
       {
         key: "/admin/organizations",
-        icon: <TeamOutlined />,
-        label: "Organizations",
+        icon: <TeamOutlined aria-hidden="true" />,
+        label: "Tổ chức",
       },
-      { key: "/admin/plans", icon: <CreditCardOutlined />, label: "Plans" },
+      { key: "/admin/plans", icon: <CreditCardOutlined aria-hidden="true" />, label: "Gói dịch vụ" },
       {
         key: "/admin/configuration",
-        icon: <SettingOutlined />,
-        label: "Configuration",
+        icon: <SettingOutlined aria-hidden="true" />,
+        label: "Cấu hình",
       },
       {
         key: "/admin/statistics",
-        icon: <BarChartOutlined />,
-        label: "Platform statistics",
+        icon: <BarChartOutlined aria-hidden="true" />,
+        label: "Thống kê nền tảng",
       },
       {
         key: "/admin/audit-logs",
-        icon: <FileSearchOutlined />,
+        icon: <FileSearchOutlined aria-hidden="true" />,
         label: "Nhật ký nền tảng",
       },
     ],
   },
   {
     type: "group",
-    label: "MODERATION",
+    label: "Kiểm duyệt",
     children: [
       {
         key: "/admin/reports",
-        icon: <ExclamationCircleOutlined />,
+        icon: <ExclamationCircleOutlined aria-hidden="true" />,
         label: (
           <span className="admin-menu-label">
-            Escalated Reports <Badge count={2} />
+            Báo cáo chuyển cấp <Badge count={2} />
           </span>
         ),
       },
       {
         key: "/admin/suspended-organizations",
-        icon: <StopOutlined />,
+        icon: <StopOutlined aria-hidden="true" />,
         label: (
           <span className="admin-menu-label">
-            Suspended Organizations <Badge count={2} />
+            Tổ chức bị tạm khóa <Badge count={2} />
           </span>
         ),
       },
@@ -94,39 +94,41 @@ const adminMenuItems: MenuItem[] = [
   },
   {
     type: "group",
-    label: "ACCOUNT",
+    label: "Tài khoản",
     children: [
-      { key: "/admin/profile", icon: <UserOutlined />, label: "Profile" },
+      { key: "/admin/profile", icon: <UserOutlined aria-hidden="true" />, label: "Hồ sơ" },
     ],
   },
 ];
 
 const getPageMeta = (pathname: string) => {
-  if (pathname === "/admin") return ["PLATFORM ADMIN", "Overview"];
+  if (pathname === "/admin") return ["Quản trị nền tảng", "Tổng quan nền tảng"];
   if (pathname.includes("replace-organizer"))
-    return ["PLATFORM ADMIN", "Replace Organizer"];
+    return ["Quản trị nền tảng", "Thay quản lý đào tạo"];
   if (pathname.includes("organizations/") && !pathname.includes("suspended"))
-    return ["PLATFORM ADMIN", "Organization detail"];
+    return ["Quản trị nền tảng", "Chi tiết tổ chức"];
   if (pathname.endsWith("plans/create"))
-    return ["PLATFORM ADMIN", "Create plan"];
+    return ["Quản trị nền tảng", "Tạo gói dịch vụ"];
   if (pathname.includes("plans/") && pathname.endsWith("edit"))
-    return ["PLATFORM ADMIN", "Edit plan"];
-  if (pathname === "/admin/plans") return ["PLATFORM ADMIN", "Plans"];
-  if (pathname.includes("reports/")) return ["PLATFORM ADMIN", "Report detail"];
+    return ["Quản trị nền tảng", "Sửa gói dịch vụ"];
+  if (pathname === "/admin/notifications") return ["Quản trị nền tảng", "Thông báo"];
+  if (pathname === "/admin/plans") return ["Quản trị nền tảng", "Gói dịch vụ"];
+  if (pathname.includes("reports/")) return ["Quản trị nền tảng", "Chi tiết báo cáo"];
   if (pathname === "/admin/reports")
-    return ["PLATFORM ADMIN", "Escalated Reports"];
+    return ["Quản trị nền tảng", "Báo cáo đã chuyển cấp xử lý"];
   if (pathname === "/admin/configuration")
-    return ["PLATFORM ADMIN", "Configuration"];
+    return ["Quản trị nền tảng", "Cấu hình"];
   if (pathname === "/admin/statistics")
-    return ["PLATFORM ADMIN", "Platform statistics"];
+    return ["Quản trị nền tảng", "Thống kê nền tảng"];
   if (pathname === "/admin/audit-logs")
-    return ["QUẢN TRỊ NỀN TẢNG", "Nhật ký nền tảng"];
+    return ["Quản trị nền tảng", "Nhật ký nền tảng"];
   if (pathname === "/admin/suspended-organizations")
-    return ["PLATFORM ADMIN", "Suspended Organizations"];
+    return ["Quản trị nền tảng", "Tổ chức bị tạm khóa"];
   if (pathname === "/admin/profile/change-password")
-    return ["PLATFORM ADMIN", "Change password"];
-  if (pathname === "/admin/profile") return ["PLATFORM ADMIN", "Profile"];
-  return ["PLATFORM ADMIN", "Organizations"];
+    return ["Quản trị nền tảng", "Đổi mật khẩu"];
+  if (pathname === "/admin/profile/edit") return ["Quản trị nền tảng", "Sửa hồ sơ"];
+  if (pathname === "/admin/profile") return ["Quản trị nền tảng", "Hồ sơ"];
+  return ["Quản trị nền tảng", "Tổ chức"];
 };
 
 const LayoutAdmin = () => {
@@ -144,7 +146,7 @@ const LayoutAdmin = () => {
     return location.pathname;
   }, [location.pathname]);
 
-  const displayName = user?.fullName || "Rufus Lee";
+  const displayName = user?.fullName || "Quản trị viên";
   const initials = displayName
     .split(" ")
     .map((part) => part[0])
@@ -160,19 +162,19 @@ const LayoutAdmin = () => {
   const profileItems: MenuProps["items"] = [
     {
       key: "profile",
-      icon: <UserOutlined />,
-      label: <Link to="/admin/profile">Profile</Link>,
+      icon: <UserOutlined aria-hidden="true" />,
+      label: <Link to="/admin/profile">Hồ sơ</Link>,
     },
     {
       key: "password",
-      icon: <LockOutlined />,
-      label: <Link to="/admin/profile/change-password">Change password</Link>,
+      icon: <LockOutlined aria-hidden="true" />,
+      label: <Link to="/admin/profile/change-password">Đổi mật khẩu</Link>,
     },
     { type: "divider" },
     {
       key: "logout",
-      icon: <LogoutOutlined />,
-      label: "Sign out",
+      icon: <LogoutOutlined aria-hidden="true" />,
+      label: "Đăng xuất",
       danger: true,
       onClick: logout,
     },
@@ -180,9 +182,9 @@ const LayoutAdmin = () => {
 
   const navigation = (
     <>
-      <Link className="admin-brand" to="/admin" aria-label="LearnUP Admin home">
+      <Link className="admin-brand" to="/admin" aria-label="Trang chủ Quản trị viên LearnUP">
         <span className="admin-brand-mark">
-          <SafetyCertificateOutlined />
+          <SafetyCertificateOutlined aria-hidden="true" />
         </span>
         <img src="/logo/learnup-logo-dark.png" alt="LearnUP" />
       </Link>
@@ -217,9 +219,9 @@ const LayoutAdmin = () => {
             <Button
               className="admin-menu-trigger"
               type="text"
-              icon={<MenuOutlined />}
+              icon={<MenuOutlined aria-hidden="true" />}
               onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
+              aria-label="Mở menu điều hướng"
             />
             <div>
               <span className="admin-topbar-eyebrow">{eyebrow}</span>
@@ -227,7 +229,7 @@ const LayoutAdmin = () => {
             </div>
           </div>
           <div className="admin-topbar-actions">
-            <span className="admin-demo-badge">Demo data</span>
+            <span className="admin-demo-badge">Dữ liệu minh họa</span>
             <NotificationBell basePath="/admin" />
             <Dropdown
               menu={{ items: profileItems }}
@@ -238,7 +240,7 @@ const LayoutAdmin = () => {
                 <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
                 <span>
                   <strong>{displayName}</strong>
-                  <small>Platform Admin</small>
+                  <small>Quản trị viên nền tảng</small>
                 </span>
               </button>
             </Dropdown>
@@ -249,7 +251,7 @@ const LayoutAdmin = () => {
         </Layout.Content>
         <Layout.Footer className="admin-footer">
           <span>LearnUP</span>
-          <span>Platform Administration</span>
+          <span>Quản trị nền tảng</span>
         </Layout.Footer>
       </Layout>
     </Layout>

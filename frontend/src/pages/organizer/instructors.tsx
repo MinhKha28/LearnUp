@@ -21,13 +21,14 @@ import type {
 } from "@/types/organization.types";
 import { seatBlockReason } from "@/utils/helper";
 import "./instructors.scss";
+import { vietnameseClear } from "@/components/vietnamese.control.props";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
 // UC12.4 - "all" = không gửi status; nhãn trạng thái lấy chung với cột Status
 type StatusFilter = AccountStatus | "all";
 const statusOptions: { value: StatusFilter; label: string }[] = [
-  { value: "all", label: "All statuses" },
+  { value: "all", label: "Tất cả trạng thái" },
   ...(Object.keys(statusLabel) as AccountStatus[]).map((status) => ({
     value: status,
     label: statusLabel[status],
@@ -37,7 +38,7 @@ const statusOptions: { value: StatusFilter; label: string }[] = [
 // UC12 - cột riêng của Instructor: số Course đang phụ trách (null: chưa lấy được)
 const courseColumns: ColumnsType<IInstructorListItem> = [
   {
-    title: "Courses",
+    title: "Khóa học",
     dataIndex: "managedCourseCount",
     render: (count: number | null) => count ?? "—",
   },
@@ -125,26 +126,26 @@ const Instructors = () => {
   }, [reloadKey]);
 
   const addBlockedReason = seatsLoading
-    ? "Checking available seats…"
-    : seatBlockReason(seats, "Instructor");
+    ? "Đang kiểm tra số suất còn lại…"
+    : seatBlockReason(seats, "Giảng viên");
 
   return (
     <OrganizerPage className="organizer-instructors">
       <PageHeader
-        title="Instructors"
-        subtitle="Manage instructor accounts in your organization."
+        title="Giảng viên"
+        subtitle="Quản lý tài khoản giảng viên trong tổ chức."
         actions={
           <>
             {/* UC12.8 - cùng điều kiện với Add Instructor (BR-31); trang import kiểm lại số chỗ */}
             {addBlockedReason ? (
               <Tooltip title={addBlockedReason}>
                 <span>
-                  <OrganizerButton disabled>Import Excel</OrganizerButton>
+                  <OrganizerButton disabled>Nhập từ Excel</OrganizerButton>
                 </span>
               </Tooltip>
             ) : (
               <Link to="/organizer/instructors/import">
-                <OrganizerButton>Import Excel</OrganizerButton>
+                <OrganizerButton>Nhập từ Excel</OrganizerButton>
               </Link>
             )}
             {/* UC12.2 */}
@@ -152,24 +153,24 @@ const Instructors = () => {
               <Tooltip title={addBlockedReason}>
                 <span>
                   <OrganizerButton type="primary" disabled>
-                    Add Instructor
+                    Thêm giảng viên
                   </OrganizerButton>
                 </span>
               </Tooltip>
             ) : (
               <Link to="/organizer/instructors/add">
-                <OrganizerButton type="primary">Add Instructor</OrganizerButton>
+                <OrganizerButton type="primary">Thêm giảng viên</OrganizerButton>
               </Link>
             )}
           </>
         }
       />
       <SectionCard
-        title="Instructor accounts"
+        title="Tài khoản giảng viên"
         extra={
           seats && (
             <span className="organizer-note">
-              {seats.used} / {seats.max} seats used
+              {seats.used} / {seats.max} suất đã sử dụng
             </span>
           )
         }
@@ -177,9 +178,9 @@ const Instructors = () => {
         {/* UC12.4 */}
         <div className="organizer-filters organizer-instructors-filters">
           <Input
-            prefix={<SearchOutlined />}
-            placeholder="Search by name or email"
-            allowClear
+            prefix={<SearchOutlined aria-hidden="true" />}
+            placeholder="Tìm theo tên hoặc email"
+            allowClear={vietnameseClear}
             maxLength={100}
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
@@ -200,14 +201,14 @@ const Instructors = () => {
           pageSize={pageSize}
           loading={loading}
           error={error}
-          itemLabel="instructors"
+          itemLabel="Giảng viên"
           emptyText={
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               description={
                 hasFilter
-                  ? "No matching instructors found."
-                  : "No instructors yet."
+                  ? "Không tìm thấy giảng viên phù hợp."
+                  : "Chưa có giảng viên nào."
               }
             />
           }
@@ -218,7 +219,7 @@ const Instructors = () => {
               className="organizer-link"
               to={`/organizer/instructors/${item.id}`}
             >
-              View details →
+              Xem chi tiết →
             </Link>
           )}
           onPageChange={(nextPage, nextPageSize) => {

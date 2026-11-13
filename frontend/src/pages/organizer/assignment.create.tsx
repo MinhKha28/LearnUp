@@ -1,6 +1,5 @@
 import viVN from "antd/locale/vi_VN";
 import {
-  Alert,
   Button,
   Form,
   Modal,
@@ -10,7 +9,7 @@ import {
   Table,
   message,
 } from "antd";
-import { useEffect, useRef, useState } from "react";
+import { cloneElement, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { AssignmentError } from "@/components/organizer/assignment.error";
 import {
@@ -35,6 +34,13 @@ import {
 } from "@/utils/assignments.view";
 import "./assignment.create.scss";
 import { retainAssignmentSelection } from "@/utils/assignment.selection";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
+
+const labelSelectAll = (checkbox: ReactNode) =>
+  isValidElement<{ "aria-label"?: string }>(checkbox)
+    ? cloneElement(checkbox, { "aria-label": "Chọn tất cả học viên trên trang này" })
+    : checkbox;
 
 const AssignmentCreate = () => {
   const navigate = useNavigate();
@@ -100,7 +106,7 @@ const AssignmentCreate = () => {
       return;
     }
     if (!selectedRows.length) {
-      setSelectionError("Hãy chọn ít nhất một Học viên.");
+      setSelectionError("Hãy chọn ít nhất một học viên.");
       submitting.current = false;
       return;
     }
@@ -129,7 +135,7 @@ const AssignmentCreate = () => {
     { title: "Họ tên", dataIndex: "fullName" },
     { title: "Email", dataIndex: "email" },
     {
-      title: "Phòng ban",
+      title: "Đơn vị công tác",
       dataIndex: "department",
       render: (value: string | null) => value ?? "—",
     },
@@ -138,8 +144,8 @@ const AssignmentCreate = () => {
     <OrganizerPage className="organizer-assignment-create">
       {contextHolder}
       <PageHeader
-        title="Phân công Khóa học"
-        subtitle="Chọn một Khóa học đã xuất bản và tối đa 500 Học viên."
+        title="Phân công khóa học"
+        subtitle="Chọn một khóa học đã xuất bản và tối đa 500 học viên."
         actions={
           <>
             <Button
@@ -167,11 +173,11 @@ const AssignmentCreate = () => {
                 setError(null);
               }}
             >
-              Bỏ chọn các Học viên lỗi
+              Bỏ chọn các học viên lỗi
             </Button>
           }
         >
-          <Alert
+          <VietnameseAlert
             type="error"
             showIcon
             message="Không ai được phân công khi có lỗi. Lựa chọn của bạn vẫn được giữ nguyên."
@@ -211,7 +217,7 @@ const AssignmentCreate = () => {
                 name="courseId"
                 label="Khóa học"
                 rules={[
-                  { required: true, message: "Hãy chọn một Khóa học đã xuất bản." },
+                  { required: true, message: "Hãy chọn một khóa học đã xuất bản." },
                 ]}
               >
                 <Select
@@ -221,8 +227,8 @@ const AssignmentCreate = () => {
                   onSearch={setRawSearch}
                   loading={courses.status === "loading"}
                   options={courseOptions}
-                  placeholder="Tìm Khóa học theo tên"
-                  notFoundContent="Không có Khóa học đã xuất bản phù hợp"
+                  placeholder="Tìm khóa học theo tên"
+                  notFoundContent="Không có khóa học đã xuất bản phù hợp"
                   onChange={(value) =>
                     setChosenCourse(
                       courseOptions.find((option) => option.value === value) ??
@@ -232,7 +238,7 @@ const AssignmentCreate = () => {
                 />
               </Form.Item>
             </Form>
-            <Pagination
+            <Pagination itemRender={vietnamesePageItem}
               current={coursePage}
               pageSize={20}
               total={courses.data.meta.total}
@@ -241,8 +247,8 @@ const AssignmentCreate = () => {
               onChange={setCoursePage}
               locale={{
                 ...viVN.Pagination,
-                prev_page: "Trang Khóa học trước",
-                next_page: "Trang Khóa học sau",
+                prev_page: "Trang khóa học trước",
+                next_page: "Trang khóa học sau",
               }}
             />
           </>
@@ -260,11 +266,11 @@ const AssignmentCreate = () => {
         }
       >
         <p>
-          Chưa hỗ trợ tìm Học viên theo tên hoặc email. Chuyển trang để chọn
+          Chưa hỗ trợ tìm học viên theo tên hoặc email. Chuyển trang để chọn
           thêm; lựa chọn được giữ nguyên.
         </p>
         {selectionError && (
-          <Alert type="error" message={selectionError} showIcon />
+          <VietnameseAlert type="error" message={selectionError} showIcon />
         )}
         {learners.status === "error" ? (
           <AssignmentError error={learners.error} retry={learners.reload} />
@@ -277,17 +283,19 @@ const AssignmentCreate = () => {
             columns={learnerColumns}
             loading={learners.status === "loading"}
             scroll={{ x: true }}
-            locale={{ ...viVN.Table, emptyText: "Không có Học viên trong tổ chức" }}
+            locale={{ ...viVN.Table, emptyText: "Không có học viên trong tổ chức" }}
             rowSelection={{
+              columnTitle: labelSelectAll,
               selectedRowKeys: Object.keys(selected),
               preserveSelectedRowKeys: true,
               getCheckboxProps: (row) => ({
+                "aria-label": "Chọn học viên: " + row.fullName,
                 disabled:
                   pending || (!selected[row.id] && selectedRows.length >= 500),
               }),
               onChange: (keys, rows) => {
                 if (keys.length > 500) {
-                  void notice.warning("Chỉ được chọn tối đa 500 Học viên.");
+                  void notice.warning("Chỉ được chọn tối đa 500 học viên.");
                   return;
                 }
                 setSelected((current) =>
@@ -297,6 +305,7 @@ const AssignmentCreate = () => {
               },
             }}
             pagination={{
+              itemRender: vietnamesePageItem,
               current: learnerPage,
               pageSize: 50,
               total: learners.data.meta.total,
@@ -305,14 +314,14 @@ const AssignmentCreate = () => {
               onChange: setLearnerPage,
               locale: {
                 ...viVN.Pagination,
-                prev_page: "Trang Học viên trước",
-                next_page: "Trang Học viên sau",
+                prev_page: "Trang học viên trước",
+                next_page: "Trang học viên sau",
               },
             }}
           />
         )}
         <p>
-          Hạn hoàn thành được tính cho từng Học viên. Tiến độ và kết quả
+          Hạn hoàn thành được tính cho từng học viên. Tiến độ và kết quả
           tự chọn được giữ lại khi chuyển thành bắt buộc.
         </p>
       </SectionCard>
@@ -337,9 +346,9 @@ const AssignmentCreate = () => {
               ),
             },
           ]}
-          pagination={{ pageSize: 10, showSizeChanger: false, locale: viVN.Pagination }}
+          pagination={{ itemRender: vietnamesePageItem, pageSize: 10, showSizeChanger: false, locale: viVN.Pagination }}
           scroll={{ x: true }}
-          locale={{ ...viVN.Table, emptyText: "Chưa chọn Học viên" }}
+          locale={{ ...viVN.Table, emptyText: "Chưa chọn học viên" }}
         />
       </Modal>
     </OrganizerPage>

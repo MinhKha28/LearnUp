@@ -148,16 +148,16 @@ describe("the results of a Course", () => {
     expect(await screen.findByText("Quiz an toàn")).toBeTruthy();
     expect(load).toHaveBeenCalledWith("enr-1", expect.anything());
     expect(screen.getByText("Kết quả bài đánh giá")).toBeTruthy();
-    expect(screen.getByText("85")).toBeTruthy();
-    expect(screen.getAllByText(/Điểm đạt: 70/).length).toBe(1);
+    expect(screen.getByText("85%")).toBeTruthy();
+    expect(screen.getAllByText("Điểm đạt: 70%").length).toBe(1);
     expect(screen.getByText("Cao hơn điểm đạt 15 điểm")).toBeTruthy();
     const quizCard = within(screen.getByLabelText("Quiz an toàn"));
     expect(quizCard.getByText("Đạt")).toBeTruthy();
     expect(screen.getByText("Đang chờ chấm điểm")).toBeTruthy();
     expect(screen.getByText("Chờ chấm")).toBeTruthy();
-    expect(screen.getByText("Lượt 1: 50 · Lượt 2: 85 (hết giờ)")).toBeTruthy();
-    expect(screen.getByLabelText("Điểm 85, điểm đạt 70")).toBeTruthy();
-    expect(screen.getByLabelText("Chưa có điểm, điểm đạt 60")).toBeTruthy();
+    expect(screen.getByText("Lượt 1: 50% · Lượt 2: 85% (hết giờ)")).toBeTruthy();
+    expect(screen.getByLabelText("Điểm 85%, điểm đạt 70%")).toBeTruthy();
+    expect(screen.getByLabelText("Chưa có điểm, điểm đạt 60%")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(
       /Score|Passing|Passed|Awaiting|Quiz result|Back/,
     );
@@ -211,7 +211,7 @@ describe("the results of a Course", () => {
     expect(
       screen.getByText(/không tính vào điều kiện cấp chứng chỉ/),
     ).toBeTruthy();
-    expect(screen.getByText("85")).toBeTruthy();
+    expect(screen.getByText("85%")).toBeTruthy();
   });
 
   it("an optional Quiz is told as such", async () => {
@@ -243,7 +243,7 @@ describe("the results of a Course", () => {
     cleanup();
     open();
     fireEvent.click(
-      (await screen.findAllByText("Về danh sách bài đánh giá"))[0],
+      (await screen.findAllByText("Quay lại danh sách bài đánh giá"))[0],
     );
     expect(path).toBe("/learner/courses/enr-1/assessments");
   });
@@ -284,7 +284,7 @@ describe("the results of a Course", () => {
   it("an Enrollment that is not the Learner's, or is halted, is told like the other Course screens", async () => {
     load.mockRejectedValueOnce(new ApiError(404, "ENROLLMENT_NOT_FOUND", "x"));
     open();
-    expect(await screen.findByText("Về Khóa học của tôi")).toBeTruthy();
+    expect(await screen.findByText("Về khóa học của tôi")).toBeTruthy();
     cleanup();
     load.mockRejectedValueOnce(new ApiError(403, "CONTENT_UNAVAILABLE", "x"));
     open();

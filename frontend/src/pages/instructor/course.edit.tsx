@@ -66,7 +66,7 @@ const CourseEdit = () => {
   const watchedCourseType = Form.useWatch("courseType", form);
   const watchedDays = Form.useWatch("expectedCompletionDays", form);
 
-  const summaryName = watchedName?.trim() || course?.name || "Untitled Course";
+  const summaryName = watchedName?.trim() || course?.name || "Khóa học chưa đặt tên";
   const summaryType = watchedCourseType ?? course?.courseType ?? "Public";
   const summaryDays = watchedDays ?? course?.expectedCompletionDays ?? 0;
 
@@ -91,7 +91,7 @@ const CourseEdit = () => {
 
     const loadCourse = async () => {
       if (!courseId) {
-        setErrorMessage("Course ID is missing.");
+        setErrorMessage("Thiếu mã khóa học.");
         setLoading(false);
         return;
       }
@@ -107,7 +107,7 @@ const CourseEdit = () => {
         const response = await fetchCourseDetailAPI(courseId);
 
         if (!response.data) {
-          throw new Error(response.message || "Unable to load Course.");
+          throw new Error(response.message || "Không thể tải khóa học.");
         }
 
         if (cancelled) return;
@@ -129,7 +129,7 @@ const CourseEdit = () => {
         if (cancelled) return;
 
         console.error("Load Course error:", error);
-        setErrorMessage("Unable to load Course information.");
+        setErrorMessage("Không thể tải thông tin khóa học.");
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -149,12 +149,12 @@ const CourseEdit = () => {
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
     if (!allowedTypes.includes(file.type)) {
-      message.error("Only JPEG, PNG or WebP images are allowed.");
+      message.error("Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP.");
       return Upload.LIST_IGNORE;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      message.error("Course cover must not exceed 5 MB.");
+      message.error("Ảnh bìa khóa học không được vượt quá 5 MB.");
       return Upload.LIST_IGNORE;
     }
 
@@ -197,7 +197,7 @@ const CourseEdit = () => {
 
         if (!uploadResponse.data) {
           throw new Error(
-            uploadResponse.message || "Unable to upload Course cover.",
+            uploadResponse.message || "Không thể tải ảnh bìa khóa học lên.",
           );
         }
 
@@ -221,10 +221,10 @@ const CourseEdit = () => {
       const response = await updateCourseAPI(courseId, payload);
 
       if (!response.data) {
-        throw new Error(response.message || "Unable to update Course.");
+        throw new Error(response.message || "Không thể cập nhật khóa học.");
       }
 
-      message.success("Course updated successfully.");
+      message.success("Đã cập nhật khóa học.");
       navigate(`/instructor/courses/${courseId}`);
     } catch (error) {
       // Lỗi validation của Ant Design.
@@ -234,7 +234,7 @@ const CourseEdit = () => {
 
       console.error("Update Course error:", error);
 
-      let errorText = "Unable to update Course.";
+      let errorText = "Không thể cập nhật khóa học.";
 
       if (axios.isAxiosError(error)) {
         const body = error.response?.data as
@@ -264,20 +264,20 @@ const CourseEdit = () => {
     return (
       <InstructorPage className="course-create-page">
         <PageHeader
-          eyebrow="MY COURSES / EDIT"
-          title="Course not found"
-          subtitle="Unable to load Course information."
+          eyebrow="Khóa học của tôi / Chỉnh sửa"
+          title="Không tìm thấy khóa học"
+          subtitle="Không thể tải thông tin khóa học."
           back
         />
 
         <Alert
           type="error"
           showIcon
-          message={errorMessage || "Course not found."}
+          message={errorMessage || "Không tìm thấy khóa học."}
         />
 
         <InstructorButton onClick={() => navigate("/instructor/courses")}>
-          Back to My Courses
+          Quay lại khóa học của tôi
         </InstructorButton>
       </InstructorPage>
     );
@@ -288,8 +288,8 @@ const CourseEdit = () => {
     return (
       <InstructorPage className="course-create-page">
         <PageHeader
-          eyebrow="MY COURSES / EDIT"
-          title="Course cannot be edited"
+          eyebrow="Khóa học của tôi / Chỉnh sửa"
+          title="Không thể chỉnh sửa khóa học"
           subtitle={`Current status: ${course.status}`}
           back
         />
@@ -297,13 +297,13 @@ const CourseEdit = () => {
         <Alert
           showIcon
           type="warning"
-          message="Only Draft or Rejected Course can be edited."
+          message="Chỉ có thể chỉnh sửa khóa học bản nháp hoặc bị từ chối."
         />
 
         <InstructorButton
           onClick={() => navigate(`/instructor/courses/${course.id}`)}
         >
-          Back to Course Detail
+          Quay lại chi tiết khóa học
         </InstructorButton>
       </InstructorPage>
     );
@@ -312,13 +312,13 @@ const CourseEdit = () => {
   return (
     <InstructorPage className="course-create-page">
       <PageHeader
-        eyebrow="MY COURSES / EDIT"
-        title="Edit Course"
-        subtitle="Update the information of your Course."
+        eyebrow="Khóa học của tôi / Chỉnh sửa"
+        title="Chỉnh sửa khóa học"
+        subtitle="Cập nhật thông tin khóa học."
         back
         actions={
           <InstructorButton onClick={handleCancel} disabled={saving}>
-            Cancel
+            Hủy
           </InstructorButton>
         }
       />
@@ -327,15 +327,15 @@ const CourseEdit = () => {
         <div className="course-create-main">
           <Form form={form} layout="vertical" requiredMark="optional">
             {/* COURSE BASICS */}
-            <SectionCard title="Course basics" className="course-create-card">
+            <SectionCard title="Thông tin cơ bản" className="course-create-card">
               <p className="course-create-section-description">
-                Update the basic information of this Course.
+                Cập nhật thông tin cơ bản của khóa học.
               </p>
 
               <Form.Item
                 label={
                   <>
-                    Course name
+                    Tên khóa học
                     <span className="course-create-required">*</span>
                   </>
                 }
@@ -344,25 +344,25 @@ const CourseEdit = () => {
                   {
                     required: true,
                     whitespace: true,
-                    message: "Enter a Course name.",
+                    message: "Vui lòng nhập tên khóa học.",
                   },
                   {
                     max: 200,
-                    message: "Maximum 200 characters.",
+                    message: "Tối đa 200 ký tự.",
                   },
                 ]}
               >
                 <Input
                   size="large"
                   maxLength={200}
-                  placeholder="e.g. Workplace Safety Essentials"
+                  placeholder="Ví dụ: Kiến thức an toàn lao động"
                 />
               </Form.Item>
 
               <Form.Item
                 label={
                   <>
-                    Course type
+                    Loại khóa học
                     <span className="course-create-required">*</span>
                   </>
                 }
@@ -390,8 +390,8 @@ const CourseEdit = () => {
                         <strong>{type}</strong>
                         <small>
                           {type === "Public"
-                            ? "Published Course can appear in the Learner Catalog."
-                            : "Hidden from the self-learning catalog."}
+                            ? "Khóa học đã phát hành có thể xuất hiện trong danh mục tự học."
+                            : "Không hiển thị trong danh mục tự học."}
                         </small>
                       </span>
                     </button>
@@ -402,7 +402,7 @@ const CourseEdit = () => {
               <Form.Item
                 label={
                   <>
-                    Planned completion days
+                    Số ngày hoàn thành dự kiến
                     <span className="course-create-required">*</span>
                   </>
                 }
@@ -410,7 +410,7 @@ const CourseEdit = () => {
                 rules={[
                   {
                     required: true,
-                    message: "Enter planned completion days.",
+                    message: "Vui lòng nhập số ngày hoàn thành dự kiến.",
                   },
                 ]}
               >
@@ -418,38 +418,37 @@ const CourseEdit = () => {
                   min={1}
                   precision={0}
                   size="large"
-                  placeholder="e.g. 14"
+                  placeholder="Ví dụ: 14"
                   addonAfter="days"
                   className="course-create-days"
                 />
               </Form.Item>
 
               <p className="course-create-help">
-                This value is used when calculating deadlines for Required
+                Giá trị này được dùng khi tính hạn hoàn thành cho các lượt học bắt buộc
                 Enrollments.
               </p>
             </SectionCard>
 
             {/* OPTIONAL DETAILS */}
             <SectionCard
-              title="Optional details"
+              title="Thông tin bổ sung"
               className="course-create-card"
             >
               <p className="course-create-section-description">
-                Update the Course description, learning outcomes and cover
-                image.
+                Cập nhật mô tả, kết quả học tập và ảnh bìa khóa học.
               </p>
 
               {/* COURSE COVER */}
               <div className="course-cover-field">
                 <div className="course-cover-label">
-                  <strong>Course cover</strong>
-                  <span>Optional. JPEG, PNG or WebP, maximum 5 MB.</span>
+                  <strong>Ảnh bìa khóa học</strong>
+                  <span>Không bắt buộc. Hỗ trợ JPEG, PNG hoặc WebP, tối đa 5 MB.</span>
                 </div>
 
                 {displayedCover ? (
                   <div className="course-cover-preview">
-                    <img src={displayedCover} alt="Course cover preview" />
+                    <img src={displayedCover} alt="Xem trước ảnh bìa khóa học" />
 
                     <button
                       type="button"
@@ -458,7 +457,7 @@ const CourseEdit = () => {
                       disabled={saving}
                     >
                       <DeleteOutlined />
-                      Remove
+                      Xóa
                     </button>
                   </div>
                 ) : (
@@ -474,7 +473,7 @@ const CourseEdit = () => {
                       <PictureOutlined />
                     </p>
 
-                    <p className="ant-upload-text">Upload Course cover</p>
+                    <p className="ant-upload-text">Tải ảnh bìa lên</p>
 
                     <p className="ant-upload-hint">
                       JPEG, PNG or WebP · Max 5 MB
@@ -488,26 +487,26 @@ const CourseEdit = () => {
                     disabled={saving}
                     style={{ marginTop: 12 }}
                   >
-                    Undo remove
+                    Hoàn tác xóa
                   </InstructorButton>
                 )}
               </div>
 
-              <Form.Item label="Short description" name="shortDescription">
+              <Form.Item label="Mô tả ngắn" name="shortDescription">
                 <Input.TextArea
                   rows={3}
                   maxLength={500}
                   showCount
-                  placeholder="Briefly describe this Course"
+                  placeholder="Nhập mô tả ngắn về khóa học"
                 />
               </Form.Item>
 
-              <Form.Item label="Training objective" name="trainingObjectives">
+              <Form.Item label="Mục tiêu đào tạo" name="trainingObjectives">
                 <Input.TextArea
                   rows={4}
                   maxLength={2000}
                   showCount
-                  placeholder="Describe the main training objective"
+                  placeholder="Nhập mục tiêu đào tạo chính"
                 />
               </Form.Item>
 
@@ -517,8 +516,8 @@ const CourseEdit = () => {
                   <div>
                     <div className="course-outcomes-header">
                       <div>
-                        <strong>Learning Outcomes</strong>
-                        <p>Optional while Draft or Rejected.</p>
+                        <strong>Kết quả học tập mong đợi</strong>
+                        <p>Không bắt buộc khi ở trạng thái bản nháp hoặc bị từ chối.</p>
                       </div>
 
                       <InstructorButton
@@ -526,7 +525,7 @@ const CourseEdit = () => {
                         onClick={() => add("")}
                       >
                         <PlusOutlined />
-                        Add outcome
+                        Thêm kết quả học tập
                       </InstructorButton>
                     </div>
 
@@ -542,7 +541,7 @@ const CourseEdit = () => {
                         <button
                           type="button"
                           className="course-outcome-remove"
-                          aria-label="Remove learning outcome"
+                          aria-label="Xóa kết quả học tập"
                           disabled={saving}
                           onClick={() => remove(field.name)}
                         >
@@ -553,7 +552,7 @@ const CourseEdit = () => {
 
                     {fields.length === 0 && (
                       <div className="course-outcomes-empty">
-                        No Learning Outcomes added.
+                        Chưa thêm kết quả học tập mong đợi.
                       </div>
                     )}
                   </div>
@@ -564,7 +563,7 @@ const CourseEdit = () => {
             {/* ACTION BUTTONS */}
             <div className="course-create-actions">
               <InstructorButton onClick={handleCancel} disabled={saving}>
-                Cancel
+                Hủy
               </InstructorButton>
 
               <InstructorButton
@@ -572,7 +571,7 @@ const CourseEdit = () => {
                 loading={saving}
                 onClick={() => void handleSave()}
               >
-                Save Changes
+                Lưu thay đổi
               </InstructorButton>
             </div>
           </Form>
@@ -580,11 +579,11 @@ const CourseEdit = () => {
 
         {/* COURSE SUMMARY */}
         <aside className="course-create-summary">
-          <SectionCard title="Course summary">
+          <SectionCard title="Tóm tắt khóa học">
             <div className="course-summary-name">{summaryName}</div>
 
             <SummaryRow
-              label="Status"
+              label="Trạng thái"
               value={
                 <StatusTag
                   tone={course.status === "Rejected" ? "error" : "neutral"}
@@ -595,40 +594,40 @@ const CourseEdit = () => {
             />
 
             <SummaryRow
-              label="Version"
-              value={`Version ${course.versionNumber}`}
+              label="Phiên bản"
+              value={`Phiên bản ${course.versionNumber}`}
             />
 
-            <SummaryRow label="Course type" value={summaryType} />
+            <SummaryRow label="Loại khóa học" value={summaryType} />
 
             <SummaryRow
-              label="Planned completion"
-              value={summaryDays > 0 ? `${summaryDays} days` : "Not set"}
+              label="Thời gian hoàn thành dự kiến"
+              value={summaryDays > 0 ? `${summaryDays} ngày` : "Chưa thiết lập"}
             />
 
             <div className="course-summary-divider" />
 
             <div className="course-summary-checklist">
-              <span className="course-summary-title">Required to save</span>
+              <span className="course-summary-title">Thông tin bắt buộc khi lưu</span>
 
               <RequirementItem
                 completed={Boolean(watchedName?.trim())}
-                label="Course name"
+                label="Tên khóa học"
               />
 
               <RequirementItem
                 completed={Boolean(watchedCourseType)}
-                label="Course type"
+                label="Loại khóa học"
               />
 
               <RequirementItem
                 completed={Boolean(watchedDays && watchedDays > 0)}
-                label="Planned completion days"
+                label="Số ngày hoàn thành dự kiến"
               />
             </div>
 
             <div className="course-summary-note">
-              Changes will be saved to the current Course version.
+              Các thay đổi sẽ được lưu vào phiên bản khóa học hiện tại.
             </div>
           </SectionCard>
         </aside>

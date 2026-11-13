@@ -20,13 +20,13 @@ const CourseBuilderMaterialDeleteBlocked = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Material Removal Unavailable</span>
+      <span className="builder-crumb">Xây dựng khóa học / Không thể xóa học liệu</span>
       <div className="builder-hero">
-        <h1>Material Removal Unavailable</h1>
+        <h1>Không thể xóa học liệu</h1>
       </div>
       <div className="builder-banner">
-        <strong>Removal blocked</strong>
-        <p>This Course is Locked; deleting learning material can change completion.</p>
+        <strong>Không được phép xóa</strong>
+        <p>Khóa học đã khóa; xóa học liệu có thể ảnh hưởng đến điều kiện hoàn thành.</p>
       </div>
       <div className="builder-update-card">
         <h2>{resource.title}</h2>
@@ -34,16 +34,16 @@ const CourseBuilderMaterialDeleteBlocked = () => {
           {resource.required ? "Required" : "Optional"} • {resource.type === "video" ? "Video" : "Reading"}{" "}
           • {resource.sizeLabel}
         </p>
-        <p className="builder-lesson-intro">To change Course structure, create a new version.</p>
+        <p className="builder-lesson-intro">Để thay đổi cấu trúc khóa học, hãy tạo phiên bản mới.</p>
         <div className="builder-actions">
-          <InstructorButton onClick={() => navigate(-1)}>Back</InstructorButton>
+          <InstructorButton onClick={() => navigate(-1)}>Quay lại</InstructorButton>
           <InstructorButton
             type="primary"
             onClick={() =>
               navigate(`/instructor/courses/${course.id}/edit`, { state: { newVersion: true } })
             }
           >
-            Create new version
+            Tạo phiên bản mới
           </InstructorButton>
         </div>
       </div>

@@ -11,8 +11,7 @@ export const AUDIT_TARGET_ID_MAX_LENGTH = 255;
 
 /**
  * BR-336 lists what is recorded. The first three are written by tenant today; the others are the codes proposed for the actions of the list
- * (ENTITY_PAST_TENSE, like the first two) so that the screen has words ready when a service starts to write them: a service that picks another
- * code adds it here. Any code not in the table is called "Hành động khác" and the code is written next to it.
+ * (ENTITY_PAST_TENSE, like the first two) so that the screen has words ready when a service starts to write them.
  * Not in the table on purpose: the actions on an Enrollment (BR-146, BR-149, BR-170), until the word for Enrollment is chosen.
  */
 const ACTION_LABELS: Record<string, string> = {
@@ -21,7 +20,8 @@ const ACTION_LABELS: Record<string, string> = {
   INSTRUCTOR_DELETED: "Xóa tài khoản giảng viên",
   LEARNER_DEACTIVATED: "Ngừng hoạt động tài khoản học viên",
   LEARNER_REACTIVATED: "Kích hoạt lại tài khoản học viên",
-  MEMBER_IMPORTED: "Nhập tài khoản thành viên hàng loạt",
+  MEMBER_IMPORTED: "Nhập danh sách thành viên",
+  LEARNER_DELETED: "Xóa tài khoản học viên",
   ACCOUNT_DELETED: "Xóa tài khoản",
   PLAN_UPDATED: "Chỉnh sửa gói dịch vụ",
   PLAN_DISCONTINUED: "Ngừng cung cấp gói dịch vụ",
@@ -67,19 +67,19 @@ export const AUDIT_ACTION_CODES = Object.keys(ACTION_LABELS);
 /** Suggestions for the "target type" field (the field also takes any other value). */
 export const TARGET_TYPE_OPTIONS = Object.entries(TARGET_LABELS).map(([value, label]) => ({
   value,
-  label: `${label} (${value})`,
+  label: `${value === "User" ? "Tài khoản người dùng" : label} (${value})`,
 }));
 
-/** A code the screen has no word for is called "other"; the view writes the code itself next to it so nothing is hidden. */
 export const isKnownAction = (code: string) => Object.hasOwn(ACTION_LABELS, code);
 export const isKnownTargetType = (code: string) => Object.hasOwn(TARGET_LABELS, code);
 
-export const actionLabel = (code: string) => (isKnownAction(code) ? ACTION_LABELS[code] : "Hành động khác");
+export const actionLabel = (code?: string | null) =>
+  code ? (isKnownAction(code) ? ACTION_LABELS[code] : "Không xác định") : "—";
 
 export const targetTypeLabel = (code: string | null) =>
-  code ? (isKnownTargetType(code) ? TARGET_LABELS[code] : "Đối tượng khác") : "—";
+  code ? (isKnownTargetType(code) ? TARGET_LABELS[code] : "Không xác định") : "—";
 
-export const actorRoleLabel = (role: string | null) => (role ? (ROLE_LABELS[role] ?? role) : "Hệ thống");
+export const actorRoleLabel = (role: string | null) => (role ? (Object.hasOwn(ROLE_LABELS, role) ? ROLE_LABELS[role] : "Không xác định") : "Hệ thống");
 
 /** The first and the last characters of an id are enough to tell two people apart on a list; the full id is in the tooltip. */
 export const shortId = (id: string | null) => (id ? `…${id.slice(-8)}` : "—");

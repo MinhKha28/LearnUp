@@ -6,6 +6,7 @@ export interface IUser {
   fullName: string;
   role: UserRole;
   organizationId?: string | null;
+  organizationName?: string | null;
   avatar?: string;
 }
 

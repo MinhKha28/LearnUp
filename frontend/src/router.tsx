@@ -138,6 +138,7 @@ import InstructorCourseBuilderQuizCreate from "./pages/instructor/course.builder
 import InstructorCourseBuilderQuizDetail from "./pages/instructor/course.builder.quiz.detail";
 import InstructorCourseBuilderQuizConfigurationEdit from "./pages/instructor/course.builder.quiz.configuration.edit";
 import InstructorCourseBuilderQuizQuestionEdit from "./pages/instructor/course.builder.quiz.question.edit";
+import InstructorCourseBuilderQuizQuestionCreate from "./pages/instructor/course.builder.quiz.question.create";
 import InstructorCourseBuilderQuizDelete from "./pages/instructor/course.builder.quiz.delete";
 import InstructorCourseBuilderAssignments from "./pages/instructor/course.builder.assignments";
 import InstructorCourseBuilderAssignmentCreate from "./pages/instructor/course.builder.assignment.create";
@@ -196,7 +197,7 @@ export const router = createBrowserRouter([
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <ManageDashboard /> },
-      { path: "notifications", element: <NotificationPage /> },
+      { path: "notifications", element: <NotificationPage subtitle="Các cập nhật cần bạn chú ý trên nền tảng." /> },
       { path: "organizations", element: <Organizations /> },
       {
         path: "organizations/:organizationId",
@@ -557,7 +558,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "quizzes/:quizId/questions/new",
-        element: <InstructorCourseBuilderQuizQuestionEdit />,
+        element: <InstructorCourseBuilderQuizQuestionCreate />,
       },
       {
         path: "quizzes/:quizId/questions/:questionId/edit",

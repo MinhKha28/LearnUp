@@ -17,6 +17,8 @@ public class NotificationResponse {
     @com.fasterxml.jackson.annotation.JsonProperty("isRead")
     private boolean isRead;
     private Instant readAt;
+    // UC49: producer-internal JSON (record IDs) is not part of the recipient-facing contract.
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String metadata;
     private Instant createdAt;
 

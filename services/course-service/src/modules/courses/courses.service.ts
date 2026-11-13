@@ -48,6 +48,8 @@ import { assertCourseNotInTrash, getPurgeAt } from './course-trash.constants';
 import { Interval } from '@nestjs/schedule';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { randomUUID } from 'node:crypto';
+import { TransferCourseOwnershipDto } from './dto/transfer-course-ownership.dto';
+import { RejectCourseDto } from './dto/reject-course.dto';
 
 @Injectable()
 export class CoursesService {
@@ -2591,6 +2593,80 @@ export class CoursesService {
     return user.organizationId;
   }
 
+  async approveCourse(user: CurrentUser, courseId: string) {
+    const organizationId = this.requireOrganizerReview(user);
+
+    const result = await this.coursesRepository.decideCourse({
+      courseId,
+      organizationId,
+      organizerId: user.userId,
+      decision: 'APPROVE',
+    });
+
+    if (result.status === 'NOT_FOUND') {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    if (result.status === 'CONFLICT') {
+      throw new ConflictException({
+        code: 'COURSE_NOT_SUBMITTED',
+        message: 'Course is no longer awaiting approval.',
+      });
+    }
+
+    return result.course;
+  }
+
+  async rejectCourse(
+    user: CurrentUser,
+    courseId: string,
+    dto: RejectCourseDto,
+  ) {
+    const organizationId = this.requireOrganizerReview(user);
+    const reason = dto.reason?.trim();
+
+    if (!reason) {
+      throw new BadRequestException({
+        code: 'REJECTION_REASON_REQUIRED',
+        message: 'Rejection reason is required.',
+      });
+    }
+
+    if (reason.length > 1000) {
+      throw new BadRequestException({
+        code: 'REJECTION_REASON_TOO_LONG',
+        message: 'Rejection reason exceeds 1000 characters.',
+      });
+    }
+
+    const result = await this.coursesRepository.decideCourse({
+      courseId,
+      organizationId,
+      organizerId: user.userId,
+      decision: 'REJECT',
+      reason,
+    });
+
+    if (result.status === 'NOT_FOUND') {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    if (result.status === 'CONFLICT') {
+      throw new ConflictException({
+        code: 'COURSE_NOT_SUBMITTED',
+        message: 'Course is no longer awaiting approval.',
+      });
+    }
+
+    return result.course;
+  }
+
   /**
    * UC21.2 – Read full Course content.
    */
@@ -2836,4 +2912,131 @@ export class CoursesService {
     // 5. Return the persisted Draft status.
     return result.course;
   }
+
+  async transferCourseOwnership(
+    user: CurrentUser,
+    courseId: string,
+    dto: TransferCourseOwnershipDto,
+  ) {
+    // 1. BR-92: chỉ Organizer.
+    if (user.role !== 'ORGANIZER' || !user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Only Organizer can transfer Course ownership.',
+      });
+    }
+
+    const organizationId = user.organizationId;
+
+    // 2. Không chuyển lại cho chính Instructor hiện tại.
+    if (
+      dto.expectedInstructorId.toLowerCase() ===
+      dto.toInstructorId.toLowerCase()
+    ) {
+      throw new ConflictException({
+        code: 'SAME_INSTRUCTOR',
+        message: 'The receiving Instructor must be different.',
+      });
+    }
+
+    // 3. Đọc Course và Chain trong Organization.
+    const course = await this.coursesRepository.findCourseForOwnershipTransfer(
+      courseId,
+      organizationId,
+    );
+
+    if (!course) {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    // 4. Ngăn thao tác dựa trên dữ liệu cũ.
+    if (
+      course.chain.instructorId.toLowerCase() !==
+      dto.expectedInstructorId.toLowerCase()
+    ) {
+      throw new ConflictException({
+        code: 'COURSE_CHANGED',
+        message: 'Course ownership has changed. Please reload.',
+      });
+    }
+
+    // 5. Tenant Service xác minh Instructor tiếp nhận.
+    const receiver = await this.tenantClient.validateTransferReceiver(
+      user,
+      dto.toInstructorId,
+    );
+
+    // 6. Repository khóa Chain và cập nhật transaction.
+    const result = await this.coursesRepository.transferCourseOwnership({
+      courseId,
+      chainId: course.chainId,
+      organizationId,
+      fromInstructorId: dto.expectedInstructorId,
+      toInstructorId: receiver.id,
+      actorUserId: user.userId,
+      reason: dto.reason,
+      courseName: course.name,
+    });
+
+    if (result.status === 'NOT_FOUND') {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    if (result.status === 'CONFLICT') {
+      throw new ConflictException({
+        code: 'COURSE_CHANGED',
+        message: 'Course ownership has changed. Please reload.',
+      });
+    }
+
+    return result.data;
+  }
+
+  async getTransferContext(user: CurrentUser, courseId: string) {
+    if (user.role !== 'ORGANIZER' || !user.organizationId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Only Organizer can view transfer context.',
+      });
+    }
+
+    const course = await this.coursesRepository.findCourseForOwnershipTransfer(
+      courseId,
+      user.organizationId,
+    );
+
+    if (!course) {
+      throw new NotFoundException({
+        code: 'COURSE_NOT_FOUND',
+        message: 'Course not found.',
+      });
+    }
+
+    const [versions, instructors] = await Promise.all([
+      this.coursesRepository.findTransferVersions(
+        course.chainId,
+        user.organizationId,
+      ),
+      this.tenantClient.getInstructors(user, [course.chain.instructorId]),
+    ]);
+
+    return {
+      courseId: course.id,
+      chainId: course.chainId,
+      courseName: course.name,
+      currentInstructor: {
+        id: course.chain.instructorId,
+        fullName: instructors.find((item) => item.id === course.chain.instructorId)?.fullName ?? null,
+        resolved: instructors.some((item) => item.id === course.chain.instructorId),
+      },
+      versions,
+    };
+  }
+
 }

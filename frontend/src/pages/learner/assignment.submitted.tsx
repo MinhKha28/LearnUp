@@ -27,48 +27,49 @@ const AssignmentSubmitted = () => {
   return (
     <>
       <PageHeader
-        eyebrow="ASSESSMENTS / SUBMITTED"
-        title={resubmitted ? "Assignment resubmitted" : "Assignment submitted"}
-        subtitle={title ? `${title} is now awaiting the grading process.` : "Your work is now awaiting the grading process."}
+        eyebrow="Bài đánh giá / Đã nộp"
+        back
+        title={resubmitted ? "Đã nộp lại bài tập" : "Đã nộp bài tập"}
+        subtitle={title ? `${title} đang chờ được chấm.` : "Bài làm của bạn đang chờ được chấm."}
       />
       <SuccessScreen
         tone="success"
-        title={resubmitted ? "Resubmission received" : "Submission received"}
+        title={resubmitted ? "Đã nhận bài nộp lại" : "Đã nhận bài nộp"}
         primary={{
-          label: "Back to Assessments",
+          label: "Quay lại danh sách bài đánh giá",
           onClick: () => navigate(`/learner/courses/${courseId}/assessments`),
         }}
         secondary={{
-          label: "View Assignment",
+          label: "Xem bài tập",
           onClick: () => navigate(`/learner/courses/${courseId}/assignments/${assignmentId}`),
         }}
       >
-        <p>Submitted on {formatTime(receipt.submittedAt)}.</p>
+        <p>Nộp lúc {formatTime(receipt.submittedAt)}.</p>
         {cycle ? (
           <p>
             {receipt.placement === "REPLACES_IN_CYCLE"
-              ? "It replaces your previous submission in the peer review cycle that closes on "
-              : "It is in the peer review cycle that closes on "}
-            {formatTime(cycle.closesAt)}. Reviews are due by {formatTime(cycle.reviewDueAt)}.
+              ? "Bài này thay bài nộp trước của bạn trong chu kỳ chấm chéo đóng lúc "
+              : "Bài này nằm trong chu kỳ chấm chéo đóng lúc "}
+            {formatTime(cycle.closesAt)}. Hạn chấm bài là {formatTime(cycle.reviewDueAt)}.
           </p>
         ) : (
           <p>
             {resubmitted
-              ? "The peer review cycle of your previous submission is closed, or peer review is off, so your Instructor will grade it directly."
-              : "Your Instructor will grade it."}
+              ? "Chu kỳ chấm chéo của bài nộp trước đã đóng, hoặc bài tập không chấm chéo, nên giảng viên sẽ chấm trực tiếp bài này."
+              : "Giảng viên sẽ chấm bài này."}
           </p>
         )}
         {attempts.lockedUntil ? (
           <p>
-            You have used all {attempts.maxConsecutiveAttempts} submissions in a row. You can submit again at{" "}
+            Bạn đã dùng hết {attempts.maxConsecutiveAttempts} lần nộp liên tiếp. Bạn nộp lại được từ{" "}
             {formatTime(attempts.lockedUntil)}.
           </p>
         ) : (
           <p>
-            Submissions left before a pause: {attempts.remainingAttempts} of {attempts.maxConsecutiveAttempts}.
+            Số lượt còn lại trước khi tạm khóa: {attempts.remainingAttempts}/{attempts.maxConsecutiveAttempts}.
           </p>
         )}
-        <p>Your latest submission will be used for the Assignment result.</p>
+        <p>Bài nộp mới nhất của bạn sẽ được dùng làm kết quả của bài tập.</p>
       </SuccessScreen>
     </>
   );

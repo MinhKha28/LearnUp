@@ -11,8 +11,8 @@ import { ApiError } from "@/types/api.types";
 import * as api from "@/services/assignment.service";
 
 vi.mock("@/services/assignment.service", () => ({
-  fetchAssignment: vi.fn(), fetchAssignments: vi.fn(),
-  extendAssignment: vi.fn(), exemptAssignment: vi.fn(),
+  fetchAssignment: vi.fn(), fetchAssignments: vi.fn(), cancelAssignment: vi.fn(),
+  extendAssignment: vi.fn(), exemptAssignment: vi.fn(), removeAssignmentExemption: vi.fn(),
 }));
 beforeAll(() => {
   const computedStyle = window.getComputedStyle.bind(window);
@@ -43,6 +43,57 @@ it("UC24.3 passes the live organization zone to the picker range despite a chang
   expect(range.mock.results[0].value).toEqual({ min: "2026-10-30" });
 });
 
+const showDetail = () => render(
+  <MemoryRouter initialEntries={["/organizer/assignments/enrollment"]}>
+    <Routes>
+      <Route path="/organizer/assignments/:assignmentId" element={<AssignmentDetailPage />} />
+    </Routes>
+  </MemoryRouter>,
+);
+
+it("UC24.6 requires confirmation and shows the returned status", async () => {
+  vi.mocked(api.fetchAssignment).mockResolvedValue({ ...detail, status: "Exempted" });
+  vi.mocked(api.fetchAssignments).mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
+  let finish!: (value: AssignmentDetail) => void;
+  vi.mocked(api.removeAssignmentExemption).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  showDetail();
+
+  const action = await screen.findByRole("button", { name: "Gỡ Miễn" });
+  fireEvent.click(action);
+  const initialDialog = await screen.findByRole("dialog", { name: "Gỡ Miễn" });
+  expect(within(initialDialog).queryByRole("textbox")).toBeNull();
+  fireEvent.click(within(initialDialog).getByRole("button", { name: "Hủy" }));
+  expect(api.removeAssignmentExemption).not.toHaveBeenCalled();
+
+  fireEvent.click(action);
+  const dialog = await screen.findByRole("dialog", { name: "Gỡ Miễn" });
+  const confirm = within(dialog).getByRole("button", { name: "Gỡ Miễn" });
+  fireEvent.click(confirm);
+  expect((action as HTMLButtonElement).disabled).toBe(true);
+  expect((confirm as HTMLButtonElement).disabled).toBe(true);
+  expect(api.removeAssignmentExemption).toHaveBeenCalledTimes(1);
+  expect(api.removeAssignmentExemption).toHaveBeenCalledWith("enrollment");
+  finish({ ...detail, status: "InProgress" });
+  expect(await screen.findByText("Đang học")).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Gỡ Miễn" })).toBeNull());
+});
+
+it("UC24.6 reloads detail on 409 and hides the action when the status changed", async () => {
+  vi.mocked(api.fetchAssignment)
+    .mockResolvedValueOnce({ ...detail, status: "Exempted" })
+    .mockResolvedValue({ ...detail, status: "Halted" });
+  vi.mocked(api.removeAssignmentExemption).mockRejectedValue(new ApiError(409, "ENROLLMENT_NOT_EXEMPTED", ""));
+  showDetail();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Gỡ Miễn" }));
+  const dialog = await screen.findByRole("dialog", { name: "Gỡ Miễn" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Gỡ Miễn" }));
+  expect(await screen.findByText("Tạm dừng")).toBeTruthy();
+  expect(screen.getByText("Phân công không còn ở trạng thái Miễn. Đang tải lại chi tiết.")).toBeTruthy();
+  expect(api.fetchAssignment).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("button", { name: "Gỡ Miễn" })).toBeNull();
+});
+
 const detail: AssignmentDetail = {
   enrollmentId: "enrollment", learner: null, course: null, assignedAt: null,
   dueAt: "2026-10-29T17:00:00Z", dueTimezone: "Asia/Ho_Chi_Minh",
@@ -51,6 +102,67 @@ const detail: AssignmentDetail = {
   extensionSeconds: 0, firstActivityAt: null, completedAt: null, completedLate: null,
   withdrawnAt: null, withdrawnReason: null, intervals: [],
 };
+it("UC24.4 confirms, submits once, and reloads the withdrawn detail", async () => {
+  const withdrawn = { ...detail, status: "Withdrawn", withdrawnReason: "OrganizerCancelled" } as const;
+  vi.mocked(api.fetchAssignment).mockResolvedValueOnce(detail).mockResolvedValue(withdrawn);
+  vi.mocked(api.fetchAssignments).mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 });
+  let finish!: (value: AssignmentDetail) => void;
+  vi.mocked(api.cancelAssignment).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  showDetail();
+  const action = await screen.findByRole("button", { name: "Hủy phân công" });
+  fireEvent.click(action);
+  let modal = await screen.findByRole("dialog");
+  expect(within(modal).getByText(/có thể được phân công lại sau/)).toBeTruthy();
+  fireEvent.click(within(modal).getByRole("button", { name: "Quay lại" }));
+  expect(api.cancelAssignment).not.toHaveBeenCalled();
+  fireEvent.click(action);
+  modal = await screen.findByRole("dialog");
+  const confirm = within(modal).getByRole("button", { name: "Hủy phân công" });
+  fireEvent.click(confirm);
+  fireEvent.click(confirm);
+  expect(api.cancelAssignment).toHaveBeenCalledTimes(1);
+  finish(withdrawn);
+  expect(await screen.findByText("Đã rút")).toBeTruthy();
+  await waitFor(() => expect(api.fetchAssignment).toHaveBeenCalledTimes(2));
+});
+
+it.each(["ENROLLMENT_NOT_CANCELLABLE", "ASSIGNMENT_HAS_LEARNING_DATA"])("UC24.4 reloads detail on %s", async (code) => {
+  vi.mocked(api.fetchAssignment).mockResolvedValueOnce(detail).mockResolvedValue({ ...detail, status: "InProgress", firstActivityAt: detail.dueAt });
+  vi.mocked(api.cancelAssignment).mockRejectedValue(new ApiError(409, code, ""));
+  showDetail();
+  fireEvent.click(await screen.findByRole("button", { name: "Hủy phân công" }));
+  const modal = await screen.findByRole("dialog");
+  fireEvent.click(within(modal).getByRole("button", { name: "Hủy phân công" }));
+  expect(await screen.findByText("Đang học")).toBeTruthy();
+  const expectedMessage = code === "ENROLLMENT_NOT_CANCELLABLE"
+    ? "Không thể hủy phân công ở trạng thái hiện tại. Thông tin phân công đã được cập nhật."
+    : views.assignmentErrorMessage(code);
+  expect(screen.getByText(expectedMessage)).toBeTruthy();
+  expect(api.fetchAssignment).toHaveBeenCalledTimes(2);
+});
+
+it("UC24.4 offers cancellation for untouched Overdue and retains confirmation on 503", async () => {
+  vi.mocked(api.fetchAssignment).mockResolvedValue({ ...detail, status: "Overdue" });
+  vi.mocked(api.cancelAssignment).mockRejectedValue(new ApiError(503, "SERVICE_UNAVAILABLE", ""));
+  showDetail();
+  fireEvent.click(await screen.findByRole("button", { name: "Hủy phân công" }));
+  const modal = await screen.findByRole("dialog");
+  fireEvent.click(within(modal).getByRole("button", { name: "Hủy phân công" }));
+  const alert = await within(modal).findByRole("alert");
+  expect(within(alert).getByText(
+    "Dịch vụ tạm thời không khả dụng. Vui lòng bấm Hủy phân công để thử lại.",
+  )).toBeTruthy();
+  expect(within(alert).queryByRole("button")).toBeNull();
+  expect(within(modal).queryByRole("button", { name: "Thử lại" })).toBeNull();
+  expect(api.cancelAssignment).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(within(modal).getByRole("button", { name: "Hủy phân công" }));
+  await within(modal).findByRole("alert");
+  expect(api.cancelAssignment).toHaveBeenCalledTimes(2);
+  expect(api.cancelAssignment).toHaveBeenNthCalledWith(2, "enrollment");
+  expect(api.fetchAssignment).toHaveBeenCalledTimes(1);
+});
+
 it.each(["DUE_DATE_IN_PAST", "DUE_DATE_NOT_LATER"])("%s keeps the inline error while reloading detail and its picker zone", async (code) => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-29T12:00:00Z"));

@@ -10,13 +10,14 @@ import {
 } from "@/services/notification.service";
 import type { INotification, INotificationPage } from "@/types/notification.types";
 import "./notification.page.scss";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const PAGE_SIZE = 10;
 
 type Filter = "all" | "unread";
 
 /** UC49: the full list of the notifications of the signed-in user, newest first, for every role. */
-const NotificationPage = () => {
+const NotificationPage = ({ subtitle = "Cập nhật về khóa học, bài tập và bài chấm của bạn." }: { subtitle?: string }) => {
   const [filter, setFilter] = useState<Filter>("all");
   const [page, setPage] = useState(0);
   const [data, setData] = useState<INotificationPage | null>(null);
@@ -82,11 +83,11 @@ const NotificationPage = () => {
         <div className="notification-page-title">
           <h1>Thông báo</h1>
           <p>
-            Cập nhật về Khóa học, bài tập và bài chấm của bạn.
+            {subtitle}
             {unread !== null && unread > 0 && <span className="notification-page-count">{unread} chưa đọc</span>}
           </p>
         </div>
-        <Segmented
+        <Segmented aria-label="Lọc thông báo"
           value={filter}
           onChange={(value) => changeFilter(value as Filter)}
           options={[
@@ -108,7 +109,7 @@ const NotificationPage = () => {
         {failed && (
           <div className="notification-page-state notification-page-state-error" role="alert">
             <span className="notification-page-state-icon">
-              <ExclamationCircleOutlined />
+              <ExclamationCircleOutlined aria-hidden="true" />
             </span>
             <strong>Không tải được thông báo</strong>
             <p>Đã có lỗi xảy ra. Vui lòng thử lại.</p>
@@ -119,7 +120,7 @@ const NotificationPage = () => {
         {empty && (
           <div className="notification-page-state">
             <span className="notification-page-state-icon">
-              <BellOutlined />
+              <BellOutlined aria-hidden="true" />
             </span>
             <strong>{filter === "unread" ? "Bạn đã xem hết thông báo" : "Chưa có thông báo nào"}</strong>
             <p>
@@ -138,7 +139,7 @@ const NotificationPage = () => {
       </div>
 
       {data && data.totalElements > PAGE_SIZE && (
-        <Pagination
+        <Pagination itemRender={vietnamesePageItem}
           className="notification-page-pagination"
           current={page + 1}
           pageSize={PAGE_SIZE}

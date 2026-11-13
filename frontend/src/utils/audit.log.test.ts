@@ -18,14 +18,17 @@ import {
 } from "./audit.log";
 
 describe("labels", () => {
-  it("names the action types the services write and shows any other code as it is", () => {
+  it("labels known, unknown, and empty audit actions", () => {
     expect(actionLabel("INSTRUCTOR_DEACTIVATED")).toBe("Ngừng hoạt động tài khoản giảng viên");
     expect(actionLabel("INSTRUCTOR_REACTIVATED")).toBe("Kích hoạt lại tài khoản giảng viên");
-    expect(actionLabel("SOMETHING_NEW")).toBe("Hành động khác");
-    expect(actionLabel("constructor")).toBe("Hành động khác"); // not a word of the table
+    expect(actionLabel("SOMETHING_NEW")).toBe("Không xác định");
+    expect(actionLabel("constructor")).toBe("Không xác định"); // not a word of the table
     expect(isKnownAction("INSTRUCTOR_DEACTIVATED")).toBe(true);
     expect(actionLabel("INSTRUCTOR_DELETED")).toBe("Xóa tài khoản giảng viên");
     expect(isKnownAction("INSTRUCTOR_DELETED")).toBe(true);
+    expect(actionLabel("MEMBER_IMPORTED")).toBe("Nhập danh sách thành viên");
+    expect(actionLabel("LEARNER_DELETED")).toBe("Xóa tài khoản học viên");
+    expect(actionLabel("")).toBe("—");
     expect(isKnownAction("toString")).toBe(false);
   });
 
@@ -35,12 +38,12 @@ describe("labels", () => {
     expect(actorRoleLabel("INSTRUCTOR")).toBe("Giảng viên");
     expect(actorRoleLabel("LEARNER")).toBe("Học viên");
     expect(actorRoleLabel(null)).toBe("Hệ thống");
-    expect(actorRoleLabel("SOMETHING")).toBe("SOMETHING");
+    expect(actorRoleLabel("SOMETHING")).toBe("Không xác định");
   });
 
   it("names the target types", () => {
     expect(targetTypeLabel("User")).toBe("Tài khoản");
-    expect(targetTypeLabel("Gadget")).toBe("Đối tượng khác");
+    expect(targetTypeLabel("Gadget")).toBe("Không xác định");
     expect(isKnownTargetType("User")).toBe(true);
     expect(isKnownTargetType("Gadget")).toBe(false);
     expect(targetTypeLabel(null)).toBe("—");
@@ -58,7 +61,7 @@ describe("the words of the action types (BR-336)", () => {
     for (const code of AUDIT_ACTION_CODES) {
       const label = actionLabel(code);
       expect(label, code).not.toBe(code);
-      expect(label, code).not.toBe("Hành động khác");
+      expect(label, code).not.toBe("Không xác định");
       expect(label, code).toMatch(/^\p{Lu}/u); // starts with a capital
       expect(label, code).not.toBe(label.toUpperCase()); // but is not all capitals
       expect(label, code).not.toMatch(/[_]/);

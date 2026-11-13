@@ -23,28 +23,28 @@ const CourseBuilderMaterialDelete = () => {
   const handleDelete = () => {
     if (!materialId) return;
     removeBuilderResource(structure, materialId);
-    message.success("Learning material deleted.");
+    message.success("Đã xóa học liệu.");
     navigate(materialsBase);
   };
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Delete Material</span>
+      <span className="builder-crumb">Xây dựng khóa học / Xóa học liệu</span>
       <div className="builder-hero">
-        <h1>Delete Learning Material</h1>
+        <h1>Xóa học liệu</h1>
       </div>
       <div className="builder-confirm-card">
         <div className="builder-confirm-warning">
-          <strong>Delete Learning Material?</strong>
-          <p>This removes the file from the Lesson and frees its storage usage.</p>
+          <strong>Xóa học liệu này?</strong>
+          <p>Thao tác sẽ xóa tệp khỏi bài học và giải phóng dung lượng lưu trữ.</p>
         </div>
         <p className="builder-confirm-note">
-          Available only while the relevant Course and content rules allow deletion.
+          Chỉ có thể xóa khi quy tắc của khóa học và nội dung liên quan cho phép.
         </p>
         <div className="builder-confirm-actions">
-          <InstructorButton onClick={() => navigate(-1)}>Cancel</InstructorButton>
+          <InstructorButton onClick={() => navigate(-1)}>Hủy</InstructorButton>
           <InstructorButton type="primary" disabled={!canDelete} onClick={handleDelete}>
-            Delete Learning Material
+            Xóa học liệu
           </InstructorButton>
         </div>
       </div>

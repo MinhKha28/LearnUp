@@ -20,7 +20,7 @@ const result = {
   finalizationComment: "Làm tốt.",
   finalizedAt: "2026-11-03T09:00:00Z",
   criteria: [
-    { id: "k1", name: "Nhận diện mối nguy", maxPoints: 25, averagePoints: 20 },
+    { id: "k1", name: "Nhận diện mối nguy", maxPoints: 25, averagePoints: 8.5 },
     { id: "k2", name: "Trình bày", maxPoints: 20, averagePoints: null },
   ],
   comments: [
@@ -49,8 +49,11 @@ afterEach(() => {
 describe("the result of an Assignment", () => {
   it("is written in Vietnamese, with the dates in the Vietnamese format", async () => {
     renderPage();
-    await screen.findByText("Kế hoạch ứng phó - kết quả");
+    await screen.findByText("Kết quả: Kế hoạch ứng phó");
     expect(screen.getByText("Điểm cuối cùng")).toBeTruthy();
+    expect(screen.getByText("82,5%")).toBeTruthy();
+    expect(screen.getByText("8,5 / 25 điểm")).toBeTruthy();
+    expect(screen.getByText("Điểm đạt tối thiểu")).toBeTruthy();
     expect(screen.getByText("Đạt")).toBeTruthy();
     expect(screen.getByText("Điểm theo tiêu chí")).toBeTruthy();
     expect(screen.getByText("Giảng viên")).toBeTruthy();
@@ -66,6 +69,18 @@ describe("the result of an Assignment", () => {
     renderPage();
     await screen.findByText("Chưa có kết quả");
     expect(screen.getByText("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Quay lại Bài trắc nghiệm và Bài tập" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Quay lại danh sách bài đánh giá" })).toBeTruthy();
   });
+});
+
+it.each([
+  ["SUBMISSION_NOT_FINALIZED", "Bài nộp đang được chấm. Chưa có kết quả."],
+  ["NEW_CODE", "Không tải được kết quả."],
+])("shows a Vietnamese result error for %s", async (code, expected) => {
+  vi.mocked(api.fetchLearnerResultAPI).mockResolvedValueOnce({
+    error: { code, message: "Internal English text" },
+  } as never);
+  renderPage();
+  await screen.findByText(expected);
+  expect(screen.queryByText("Internal English text")).toBeNull();
 });

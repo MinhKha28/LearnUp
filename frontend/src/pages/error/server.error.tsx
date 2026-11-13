@@ -8,34 +8,31 @@ const ServerErrorPage = () => {
   return (
     <ErrorPage
       tone="red"
-      badgeLabel="System error"
-      headerRight="LearnUP platform"
+      badgeLabel="Lỗi hệ thống"
+      headerRight="Nền tảng LearnUP"
       title={
         <>
-          We couldn&apos;t load
-          <br />
-          this page.
+          Không tải được<br />trang này.
         </>
       }
       description={
         <>
-          An unexpected error interrupted your request. Try again. If it continues, contact your
-          workspace administrator.
+          Đã xảy ra lỗi khi xử lý yêu cầu. Hãy thử lại. Nếu lỗi vẫn tiếp diễn, vui lòng liên hệ quản trị viên.
         </>
       }
       primaryAction={{
-        label: "Try again",
-        icon: <ReloadOutlined />,
+        label: "Thử lại",
+        icon: <ReloadOutlined aria-hidden="true" />,
         onClick: () => window.location.reload(),
       }}
-      secondaryAction={{ label: "Go to Home", icon: <HomeOutlined />, onClick: () => navigate("/") }}
-      footnote="Your current request may need to be submitted again."
-      errorCode="LearnUP / Error 500"
+      secondaryAction={{ label: "Về trang chủ", icon: <HomeOutlined aria-hidden="true" />, onClick: () => navigate("/") }}
+      footnote="Bạn có thể cần gửi lại yêu cầu."
+      errorCode="LearnUP / Lỗi 500"
       illustration={
         <>
           <span className="error-page-illustration-circle error-page-illustration-circle-a" />
           <span className="error-page-illustration-tag error-page-illustration-tag-red">
-            Request interrupted
+            Yêu cầu bị gián đoạn
           </span>
           <div className="error-page-illustration-body">
             <div className="error-page-illustration-panel">
@@ -56,7 +53,7 @@ const ServerErrorPage = () => {
                 ))}
               </div>
               <div className="error-page-illustration-warning">
-                <WarningOutlined />
+                <WarningOutlined aria-hidden="true" />
               </div>
             </div>
           </div>

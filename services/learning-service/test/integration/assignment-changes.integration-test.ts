@@ -1,10 +1,16 @@
-import { closeAll, closeApp } from './deadlines';
+import {
+  BARRIER_TIMEOUT_MS,
+  IO_TIMEOUT_MS,
+  closeAll,
+  closeApp,
+} from './deadlines';
 import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
+import { setTimeout as delay } from 'node:timers/promises';
 import { AssignmentChangesRepository } from '../../src/modules/assignments/assignment-changes.repository';
 import { TenantAccessHttp } from '../../src/infrastructure/clients/tenant/tenant-access.http';
 import type { AddressInfo } from 'node:net';
@@ -21,7 +27,16 @@ import {
   TenantUnavailableError,
   type TenantClient,
 } from '../../src/infrastructure/clients/tenant/tenant.client';
+import { CourseServiceUnavailableError } from '../../src/infrastructure/clients/course/course-service.errors';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
+import {
+  ASSESSMENT_CLIENT,
+  AssessmentUnavailableError,
+  type AssessmentClient,
+} from '../../src/infrastructure/clients/assessment/assessment.client';
+import { LearnerEnrollmentSummaryRepository } from '../../src/modules/enrollments/learner-enrollment-summary.repository';
+import { MaterialProgressRepository } from '../../src/modules/material-progress/material-progress.repository';
+import { MaterialProgressService } from '../../src/modules/material-progress/material-progress.service';
 import { BaseDueAtRepository } from '../../src/modules/enrollments/base-due-at.repository';
 import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { databaseUrl } from './enroll-it-fixture';
@@ -41,11 +56,19 @@ let organizationStatus = 'Active';
 let tenantDown = false;
 let timezone = 'Asia/Ho_Chi_Minh';
 let accessCalls = 0;
+let treeCalls = 0;
+let courseDisabled = false;
+let courseDown = false;
+let assessment: AssessmentClient;
+let checkAssessment: AssessmentClient['getAssignmentActivity'];
+let assessmentCalls = 0;
 async function cleanup() {
   for (const table of [
     'outbox_events',
     'enrollments',
+    'material_snapshots',
     'course_version_snapshots',
+    'organization_suspensions',
   ])
     await db.query(`DELETE FROM ${table} WHERE organization_id=$1`, [ORG]);
 }
@@ -81,11 +104,12 @@ async function call(
   body?: unknown,
   org = ORG,
   role = 'ORGANIZER',
+  method = action === 'due-date' ? 'PATCH' : action ? 'POST' : 'GET',
 ) {
   const response = await fetch(
     `${url}/api/v1/assignments/${id}${action ? '/' + action : ''}`,
     {
-      method: action === 'due-date' ? 'PATCH' : action ? 'POST' : 'GET',
+      method,
       headers: {
         [HEADER_NAMES.INTERNAL_KEY]: process.env.INTERNAL_SERVICE_KEY!,
         [HEADER_NAMES.USER_ID]: ACTOR,
@@ -104,6 +128,32 @@ async function call(
     },
   };
 }
+const removeExemption = (id: string, org = ORG, body?: unknown) =>
+  call(id, 'exemption', body, org, 'ORGANIZER', 'DELETE');
+
+async function seedExemption(hasActivity = true) {
+  const id = await seed('Exempted');
+  if (!hasActivity)
+    await db.query(
+      'UPDATE enrollments SET first_activity_at=NULL WHERE id=$1',
+      [id],
+    );
+  await db.query(
+    `INSERT INTO enrollment_status_intervals (id,organization_id,enrollment_id,kind,started_at,reason)
+     VALUES ($1,$2,$3,'Exempted','2025-01-05 00:00:00.123456Z','Approved by previous Organizer')`,
+    [randomUUID(), ORG, id],
+  );
+  return id;
+}
+
+async function completionRequests(id: string) {
+  const result = await db.query(
+    'SELECT source FROM completion_evaluation_requests WHERE enrollment_id=$1',
+    [id],
+  );
+  return result.rows;
+}
+
 async function eventCount() {
   return (
     await db.query(
@@ -124,6 +174,13 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
       logger: ['error'],
     });
     configureApp(app);
+    assessment = app.get<AssessmentClient>(ASSESSMENT_CLIENT);
+    assessment.getAssignmentActivity = (org, learner, course) => {
+      assessmentCalls++;
+      assert.equal(org, ORG);
+      assert.equal(course, COURSE);
+      return checkAssessment(org, learner, course);
+    };
     const tenant = app.get<TenantClient>(TENANT_CLIENT);
     tenant.getOrganizationAccess = async () => {
       accessCalls++;
@@ -145,7 +202,21 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
         activatedAt: null,
         deletedAt: null,
       }));
-    app.get(CourseServiceClient).getCoursesBatch = async () => [];
+    const courses = app.get(CourseServiceClient);
+    courses.getCoursesBatch = async () => [];
+    courses.getCourseTree = async (_user, courseId) => {
+      treeCalls++;
+      assert.equal(courseId, COURSE);
+      if (courseDown) throw new CourseServiceUnavailableError('test outage');
+      return {
+        courseId,
+        chainId: courseId,
+        versionNumber: 1,
+        disabledAt: courseDisabled ? new Date() : null,
+        asOf: new Date(),
+        modules: [],
+      };
+    };
     tenantDown = true; // Startup must not require Tenant access.
     await app.listen(0, '127.0.0.1');
     url = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
@@ -192,6 +263,14 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
     tenantDown = false;
     timezone = 'Asia/Ho_Chi_Minh';
     accessCalls = 0;
+    treeCalls = 0;
+    courseDisabled = false;
+    courseDown = false;
+    assessmentCalls = 0;
+    checkAssessment = async () => ({
+      hasQuizAttempt: false,
+      hasSubmission: false,
+    });
     await db.query(
       'INSERT INTO course_version_snapshots (course_id,organization_id,chain_id,tree_fetched_at,disabled_as_of) VALUES ($1,$2,$1,now(),now())',
       [COURSE, ORG],
@@ -607,6 +686,407 @@ describe('UC24.3 / UC24.5 real DB, stub tenant, isolated organization', () => {
       assert.equal(r.body.error.code, 'ENROLLMENT_NOT_EXEMPTIBLE');
       assert.equal(await eventCount(), 0);
     });
+  test('UC24.6 restores NotStarted and adds the exact union of pauses', async () => {
+    const id = await seedExemption(false);
+    await db.query(
+      `UPDATE enrollments SET extension_seconds=3600, due_at=base_due_at+interval '1 hour' WHERE id=$1`,
+      [id],
+    );
+    await db.query(
+      `INSERT INTO enrollment_status_intervals (id,organization_id,enrollment_id,kind,started_at,ended_at)
+       VALUES ($1,$2,$3,'Halted','2024-12-31 23:00:00Z','2025-01-03 00:00:00Z')`,
+      [randomUUID(), ORG, id],
+    );
+    await db.query(
+      `INSERT INTO organization_suspensions (id,organization_id,started_at,ended_at)
+       VALUES ($1,$2,'2025-01-02 00:00:00Z','2025-01-06 00:00:00Z')`,
+      [randomUUID(), ORG],
+    );
+    const result = await removeExemption(id);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.data.status, 'NotStarted');
+    assert.equal(result.body.data.firstActivityAt, null);
+    const {
+      rows: [saved],
+    } = await db.query(
+      `SELECT i.ended_at IS NOT NULL AS closed,
+              e.due_at=e.base_due_at+interval '1 hour'+(i.ended_at-e.assigned_at) AS exact
+       FROM enrollments e JOIN enrollment_status_intervals i ON i.enrollment_id=e.id
+       WHERE e.id=$1 AND i.kind='Exempted'`,
+      [id],
+    );
+    assert.deepEqual(saved, { closed: true, exact: true });
+    assert.equal(result.body.data.extensionSeconds, 3600);
+    assert.equal(await eventCount(), 0);
+  });
+
+  test('UC24.6 restores InProgress from the existing activity marker', async () => {
+    const id = await seedExemption();
+    const result = await removeExemption(id);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.data.status, 'InProgress');
+    assert.equal(result.body.data.firstActivityAt, '2025-01-02T00:00:00.000Z');
+  });
+
+  test('UC24.6 restores missing first activity from material and queues completion', async () => {
+    const id = await seedExemption(false);
+    const materialId = randomUUID();
+    await db.query(
+      `INSERT INTO material_snapshots
+         (material_id,organization_id,course_id,lesson_id,material_type,is_required,disabled_as_of)
+       VALUES ($1,$2,$3,$4,'Reading',true,now())`,
+      [materialId, ORG, COURSE, randomUUID()],
+    );
+    await db.query(
+      `INSERT INTO material_progress (id,organization_id,enrollment_id,material_id,completed_at)
+       VALUES ($1,$2,$3,$4,'2025-01-03 00:00:00.123456Z')`,
+      [randomUUID(), ORG, id, materialId],
+    );
+    const result = await removeExemption(id);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.data.status, 'InProgress');
+    assert.equal(result.body.data.requiredCompleted, 1);
+    assert.equal(result.body.data.requiredTotal, 1);
+    assert.equal(result.body.data.completedAt, null);
+    const {
+      rows: [saved],
+    } = await db.query(
+      `SELECT first_activity_at='2025-01-03 00:00:00.123456Z'::timestamptz AS exact FROM enrollments WHERE id=$1`,
+      [id],
+    );
+    assert.equal(saved.exact, true);
+    assert.deepEqual(await completionRequests(id), [
+      { source: 'ASSIGNMENT_RESTORE' },
+    ]);
+    assert.equal(await eventCount(), 0);
+  });
+
+  test('UC24.6 uses fresh Disabled state and starts Halted at the exact exemption end', async () => {
+    const id = await seedExemption();
+    courseDisabled = true;
+    const result = await removeExemption(id);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.data.status, 'Halted');
+    const {
+      rows: [saved],
+    } = await db.query(
+      `SELECT h.started_at=x.ended_at AND h.ended_at IS NULL AS seamless,
+              e.due_at=e.base_due_at+(x.ended_at-x.started_at) AS exact
+       FROM enrollments e
+       JOIN enrollment_status_intervals x ON x.enrollment_id=e.id AND x.kind='Exempted'
+       JOIN enrollment_status_intervals h ON h.enrollment_id=e.id AND h.kind='Halted'
+       WHERE e.id=$1`,
+      [id],
+    );
+    assert.deepEqual(saved, { seamless: true, exact: true });
+    assert.deepEqual(await completionRequests(id), []);
+    assert.equal(await eventCount(), 0);
+  });
+
+  test('UC24.6 checks subscription first and protects scoped and ineligible rows', async () => {
+    const missing = randomUUID();
+    subscriptionStatus = 'Suspended';
+    const blocked = await removeExemption(missing);
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.error.code, 'SUBSCRIPTION_NOT_ACTIVE');
+    subscriptionStatus = 'Active';
+    const exempted = await seedExemption();
+    const optional = await seed('NotStarted', true);
+    for (const [id, org] of [
+      [missing, ORG],
+      [exempted, OTHER],
+      [optional, ORG],
+    ]) {
+      const result = await removeExemption(id, org);
+      assert.equal(result.status, 404);
+      assert.equal(result.body.error.code, 'ASSIGNMENT_NOT_FOUND');
+    }
+    const conflict = await removeExemption(await seed('Halted'));
+    assert.equal(conflict.status, 409);
+    assert.equal(conflict.body.error.code, 'ENROLLMENT_NOT_EXEMPTED');
+    assert.equal(treeCalls, 0);
+  });
+
+  test('UC24.6 validates route input and rejects a Learner', async () => {
+    const id = await seedExemption();
+    assert.equal((await removeExemption('bad-id')).status, 400);
+    const payload = await removeExemption(id, ORG, { reason: 'not accepted' });
+    assert.equal(payload.status, 422);
+    assert.equal(payload.body.error.code, 'VALIDATION_ERROR');
+    assert.equal(
+      (await call(id, 'exemption', undefined, ORG, 'LEARNER', 'DELETE')).status,
+      403,
+    );
+    assert.equal(treeCalls, 0);
+  });
+
+  test('UC24.6 returns 503 on Course outage and preserves the exemption', async () => {
+    const id = await seedExemption();
+    courseDown = true;
+    const result = await removeExemption(id);
+    assert.equal(result.status, 503);
+    assert.equal(result.body.error.code, 'SERVICE_UNAVAILABLE');
+    const detail = (await call(id)).body.data;
+    assert.equal(detail.status, 'Exempted');
+    assert.equal(detail.intervals[0].endedAt, null);
+    assert.deepEqual(await completionRequests(id), []);
+  });
+
+  test('UC24.6 serializes two simultaneous removals', async () => {
+    const id = await seedExemption();
+    const results = await Promise.all([
+      removeExemption(id),
+      removeExemption(id),
+    ]);
+    assert.deepEqual(results.map(({ status }) => status).sort(), [200, 409]);
+    assert.equal(
+      results.find(({ status }) => status === 409)?.body.error.code,
+      'ENROLLMENT_NOT_EXEMPTED',
+    );
+    assert.deepEqual(await completionRequests(id), [
+      { source: 'ASSIGNMENT_RESTORE' },
+    ]);
+    const { rows } = await db.query(
+      'SELECT ended_at FROM enrollment_status_intervals WHERE enrollment_id=$1',
+      [id],
+    );
+    assert.equal(rows.length, 1);
+    assert.ok(rows[0].ended_at);
+  });
+
+  test('UC24.4 retains an overdue untouched assignment and clears overdue counts', async () => {
+    const id = await seed('NotStarted');
+    assert.equal((await call(id)).body.data.status, 'Overdue');
+    const [{ learner_id: learner }] = (
+      await db.query('SELECT learner_id FROM enrollments WHERE id=$1', [id])
+    ).rows;
+    const summary = app.get(LearnerEnrollmentSummaryRepository);
+    assert.equal(
+      (await summary.summarize(ORG, [learner]))[0].overdueCourseCount,
+      1,
+    );
+    const result = await call(id, 'cancellation');
+    assert.equal(result.status, 200);
+    assert.equal(result.body.data.enrollmentId, id);
+    assert.equal(result.body.data.status, 'Withdrawn');
+    assert.equal(result.body.data.withdrawnReason, 'OrganizerCancelled');
+    assert.ok(result.body.data.withdrawnAt);
+    assert.equal(
+      (await summary.summarize(ORG, [learner]))[0].overdueCourseCount,
+      0,
+    );
+    assert.equal(await eventCount(), 0);
+  });
+
+  test('UC24.4 checks access and scope before Assessment', async () => {
+    const id = await seed('NotStarted');
+    const missing = randomUUID();
+    subscriptionStatus = 'Suspended';
+    assert.equal(
+      (await call(missing, 'cancellation')).body.error.code,
+      'SUBSCRIPTION_NOT_ACTIVE',
+    );
+    subscriptionStatus = 'Active';
+    for (const result of [
+      await call(missing, 'cancellation'),
+      await call(id, 'cancellation', {}, OTHER),
+      await call(await seed('NotStarted', true), 'cancellation'),
+    ]) {
+      assert.equal(result.status, 404);
+      assert.equal(result.body.error.code, 'ASSIGNMENT_NOT_FOUND');
+    }
+    assert.equal(
+      (await call(id, 'cancellation', { reason: 'unexpected' })).status,
+      422,
+    );
+    assert.equal(
+      (await call(id, 'cancellation', {}, ORG, 'LEARNER')).status,
+      403,
+    );
+    assert.equal(assessmentCalls, 0);
+  });
+
+  test('UC24.4 rejects ineligible stored statuses before checking activity', async () => {
+    for (const status of [
+      'InProgress',
+      'Exempted',
+      'Halted',
+      'Completed',
+      'Withdrawn',
+    ]) {
+      const result = await call(await seed(status), 'cancellation');
+      assert.equal(result.status, 409);
+      assert.equal(result.body.error.code, 'ENROLLMENT_NOT_CANCELLABLE');
+    }
+    assert.equal(assessmentCalls, 0);
+  });
+
+  test('UC24.4 any completed material counts, even if optional and the marker is absent', async () => {
+    const id = await seed('NotStarted');
+    const material = randomUUID();
+    await db.query(
+      `INSERT INTO material_snapshots (material_id,organization_id,course_id,lesson_id,material_type,is_required,disabled_as_of)
+       VALUES ($1,$2,$3,$4,'Reading',false,now())`,
+      [material, ORG, COURSE, randomUUID()],
+    );
+    await db.query(
+      `INSERT INTO material_progress (id,organization_id,enrollment_id,material_id,completed_at)
+       VALUES ($1,$2,$3,$4,now())`,
+      [randomUUID(), ORG, id, material],
+    );
+    const result = await call(id, 'cancellation');
+    assert.equal(result.status, 409);
+    assert.equal(result.body.error.code, 'ASSIGNMENT_HAS_LEARNING_DATA');
+    assert.equal(assessmentCalls, 0);
+  });
+
+  test('UC24.4 rejects Assessment activity before the Learning status changes', async () => {
+    const id = await seed('NotStarted');
+    for (const attempt of [true, false]) {
+      checkAssessment = async () => ({
+        hasQuizAttempt: attempt,
+        hasSubmission: !attempt,
+      });
+      const result = await call(id, 'cancellation');
+      assert.equal(result.status, 409);
+      assert.equal(result.body.error.code, 'ASSIGNMENT_HAS_LEARNING_DATA');
+      assert.equal((await call(id)).body.data.status, 'Overdue');
+    }
+  });
+
+  test('UC24.4 upstream failure returns 503 without mutation', async () => {
+    const id = await seed('NotStarted');
+    checkAssessment = async () => {
+      throw new AssessmentUnavailableError('test outage');
+    };
+    const result = await call(id, 'cancellation');
+    assert.equal(result.status, 503);
+    assert.equal(result.body.error.code, 'SERVICE_UNAVAILABLE');
+    assert.equal((await call(id)).body.data.withdrawnAt, null);
+  });
+
+  test('UC24.4 simultaneous cancellations have one winner', async () => {
+    const id = await seed('NotStarted');
+    const results = await Promise.all([
+      call(id, 'cancellation'),
+      call(id, 'cancellation'),
+    ]);
+    assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
+    assert.equal(
+      results.find((r) => r.status === 409)?.body.error.code,
+      'ENROLLMENT_NOT_CANCELLABLE',
+    );
+  });
+
+  test('UC24.4 waits for an in-flight reading completion before cancelling', async () => {
+    const id = await seed('NotStarted');
+    const material = randomUUID();
+    await db.query(
+      `INSERT INTO material_snapshots (material_id,organization_id,course_id,lesson_id,material_type,is_required,disabled_as_of)
+       VALUES ($1,$2,$3,$4,'Reading',true,now())`,
+      [material, ORG, COURSE, randomUUID()],
+    );
+
+    let cancellation: ReturnType<typeof call> | undefined;
+    try {
+      await app.get(PrismaService).$transaction(
+        async (writer) => {
+          const [{ pid }] = await writer.$queryRaw<{ pid: number }[]>`
+          SELECT pg_backend_pid() AS pid`;
+          assert.equal(
+            await app
+              .get(MaterialProgressRepository)
+              .completeReading(id, material, ORG, writer),
+            true,
+          );
+
+          cancellation = call(id, 'cancellation');
+          void cancellation.catch(() => undefined);
+          const stop = performance.now() + BARRIER_TIMEOUT_MS;
+          // The waiter may be the candidate SELECT or the final UPDATE.
+          // Commit only once PostgreSQL confirms that cancellation is blocked.
+          for (;;) {
+            const {
+              rows: [{ blocked }],
+            } = await db.query<{ blocked: boolean }>(
+              `SELECT EXISTS (
+               SELECT 1 FROM pg_stat_activity
+               WHERE datname = current_database()
+                 AND $1::int = ANY(pg_blocking_pids(pid))
+             ) AS blocked`,
+              [pid],
+            );
+            if (blocked) break;
+            assert.ok(
+              performance.now() < stop,
+              'cancellation did not wait for the reading transaction',
+            );
+            await delay(10);
+          }
+        },
+        { timeout: BARRIER_TIMEOUT_MS + IO_TIMEOUT_MS },
+      );
+
+      assert.ok(cancellation);
+      const result = await cancellation;
+      assert.equal(result.status, 409);
+      assert.equal(result.body.error.code, 'ENROLLMENT_NOT_CANCELLABLE');
+
+      const {
+        rows: [enrollment],
+      } = await db.query(
+        'SELECT status, first_activity_at, withdrawn_at, withdrawn_reason FROM enrollments WHERE id=$1',
+        [id],
+      );
+      assert.equal(enrollment.status, 'InProgress');
+      assert.ok(enrollment.first_activity_at);
+      assert.equal(enrollment.withdrawn_at, null);
+      assert.equal(enrollment.withdrawn_reason, null);
+      const {
+        rows: [progress],
+      } = await db.query(
+        'SELECT completed_at FROM material_progress WHERE enrollment_id=$1 AND material_id=$2',
+        [id, material],
+      );
+      assert.ok(progress?.completed_at);
+    } finally {
+      await Promise.allSettled([cancellation]);
+    }
+  });
+
+  test('UC24.4 rechecks a local progress write made during the remote lookup', async () => {
+    const id = await seed('NotStarted');
+    const material = randomUUID();
+    await db.query(
+      `INSERT INTO material_snapshots (material_id,organization_id,course_id,lesson_id,material_type,is_required,disabled_as_of)
+       VALUES ($1,$2,$3,$4,'Reading',true,now())`,
+      [material, ORG, COURSE, randomUUID()],
+    );
+    const [{ learner_id: userId }] = (
+      await db.query('SELECT learner_id FROM enrollments WHERE id=$1', [id])
+    ).rows;
+    checkAssessment = async () => {
+      const progress = await app
+        .get(MaterialProgressService)
+        .completeReading(
+          {
+            userId,
+            organizationId: ORG,
+            role: 'LEARNER',
+            isAuthenticated: true,
+          },
+          id,
+          material,
+        );
+      assert.ok(progress.completedAt);
+      return { hasQuizAttempt: false, hasSubmission: false };
+    };
+    const result = await call(id, 'cancellation');
+    assert.equal(result.status, 409);
+    assert.equal(result.body.error.code, 'ENROLLMENT_NOT_CANCELLABLE');
+    assert.equal((await call(id)).body.data.withdrawnAt, null);
+  });
+
   test('invalid exemption reasons 400', async () => {
     const id = await seed();
     for (const reason of [null, ' \n ', 'x'.repeat(1001)])

@@ -4,7 +4,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   LockOutlined,
-  UnorderedListOutlined,
+  PlusOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
 import { Skeleton, Tooltip } from "antd";
@@ -56,7 +56,7 @@ const ActionSlot = ({
 }) => {
   if (!ready) {
     return (
-      <Tooltip title="Coming soon">
+      <Tooltip title="Sắp ra mắt">
         <span className="builder-quiz-soon">{children(true)}</span>
       </Tooltip>
     );
@@ -85,7 +85,7 @@ const ConfigRow = ({
     <dd>
       <span className="builder-quiz-detail-value">
         {value}
-        {permission && !permission.allowed && <LockOutlined aria-label="Locked" />}
+        {permission && !permission.allowed && <LockOutlined aria-label="Đã khóa" />}
       </span>
       {permission && !permission.allowed && (
         <span className="builder-quiz-detail-why">{permissionReasonTexts(permission).join(" ")}</span>
@@ -123,12 +123,12 @@ const CourseBuilderQuizDetail = () => {
           const notFound =
             assessmentErrorCode(res).code === "QUIZ_NOT_FOUND" || statusCode === 404 || statusCode === 400;
           setQuiz(null);
-          setError({ notFound, message: assessmentErrorText(res, "Unable to load the Quiz.") });
+          setError({ notFound, message: assessmentErrorText(res, "Không thể tải bài trắc nghiệm.") });
         }
       } catch {
         if (active) {
           setQuiz(null);
-          setError({ notFound: false, message: "Unable to reach the Assessment service. Please try again." });
+          setError({ notFound: false, message: "Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại." });
         }
       } finally {
         if (active) setLoading(false);
@@ -146,7 +146,7 @@ const CourseBuilderQuizDetail = () => {
   if (loading) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Quizzes / Quiz Detail</span>
+        <span className="builder-crumb">Xây dựng khóa học / Bài trắc nghiệm / Chi tiết</span>
         <div className="builder-update-card" aria-busy="true">
           <Skeleton active title paragraph={{ rows: 4 }} />
           <Skeleton active paragraph={{ rows: 6 }} />
@@ -158,23 +158,23 @@ const CourseBuilderQuizDetail = () => {
   if (error || !quiz) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Quizzes / Quiz Detail</span>
+        <span className="builder-crumb">Xây dựng khóa học / Bài trắc nghiệm / Chi tiết</span>
         <div className="builder-update-card">
           <div className="builder-banner builder-banner-error">
-            <strong>{error?.notFound ? "Quiz not found" : "The Quiz could not be loaded"}</strong>
+            <strong>{error?.notFound ? "Không tìm thấy bài trắc nghiệm" : "Không thể tải bài trắc nghiệm"}</strong>
             <p>
               {error?.notFound
-                ? "This Quiz does not exist or is not in a Course you are in charge of."
-                : (error?.message ?? "Unable to load the Quiz.")}
+                ? "Bài trắc nghiệm không tồn tại hoặc không thuộc khóa học bạn phụ trách."
+                : (error?.message ?? "Không thể tải bài trắc nghiệm.")}
             </p>
           </div>
           <div className="builder-actions">
             <InstructorButton onClick={backToList}>
-              <ArrowLeftOutlined /> Back to Quizzes
+              <ArrowLeftOutlined /> Quay lại bài trắc nghiệm
             </InstructorButton>
             {!error?.notFound && (
               <InstructorButton type="primary" onClick={retry}>
-                Try again
+                Thử lại
               </InstructorButton>
             )}
           </div>
@@ -184,7 +184,7 @@ const CourseBuilderQuizDetail = () => {
   }
 
   const { permissions } = quiz;
-  // UC18.4 edits the five configuration fields; the button opens as soon as one of them can change.
+  // UC18.3 edits the five configuration fields; the button opens as soon as one of them can change.
   const configPermission = combinePermissions([
     permissions.editTimeLimit,
     permissions.editAttemptRule,
@@ -196,14 +196,14 @@ const CourseBuilderQuizDetail = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Quizzes / {quiz.title}</span>
+      <span className="builder-crumb">Biên soạn khóa học / Bài trắc nghiệm / {quiz.title}</span>
       <div className="builder-hero builder-quiz-detail-hero">
         <div>
           <h1>{quiz.title}</h1>
           <p>{quizPlacementLabel(quiz, structure.modules)}</p>
         </div>
         <div className="builder-quiz-tags">
-          <StatusTag tone={quiz.isRequired ? "info" : "neutral"}>{quiz.isRequired ? "Required" : "Optional"}</StatusTag>
+          <StatusTag tone={quiz.isRequired ? "info" : "neutral"}>{quiz.isRequired ? "Bắt buộc" : "Không bắt buộc"}</StatusTag>
           {quiz.locked ? (
             <Tooltip
               title={
@@ -216,14 +216,14 @@ const CourseBuilderQuizDetail = () => {
             >
               <span>
                 <StatusTag tone="warning">
-                  <LockOutlined /> Locked
+                  <LockOutlined /> Đã khóa
                 </StatusTag>
               </span>
             </Tooltip>
           ) : (
-            <StatusTag tone="success">Unlocked</StatusTag>
+            <StatusTag tone="success">Chưa khóa</StatusTag>
           )}
-          {quiz.disabled && <StatusTag tone="error">Disabled</StatusTag>}
+          {quiz.disabled && <StatusTag tone="error">Đã vô hiệu hóa</StatusTag>}
         </div>
       </div>
 
@@ -237,35 +237,35 @@ const CourseBuilderQuizDetail = () => {
           ))}
 
           <section className="builder-quiz-detail-section">
-            <h2>Configuration</h2>
+            <h2>Cấu hình</h2>
             <dl className="builder-quiz-detail-config">
               <ConfigRow
-                label="Time limit"
-                value={quiz.timeLimitMinutes ? `${quiz.timeLimitMinutes} min` : "No time limit"}
+                label="Thời gian làm bài"
+                value={quiz.timeLimitMinutes ? `${quiz.timeLimitMinutes} phút` : "Không giới hạn thời gian"}
                 permission={permissions.editTimeLimit}
               />
               <ConfigRow
-                label="Passing score"
+                label="Điểm đạt"
                 value={`${formatQuizScore(quiz.passingScore)} / 100`}
                 permission={permissions.editPassingScore}
               />
               <ConfigRow
-                label="Required"
-                value={quiz.isRequired ? "Required" : "Optional"}
+                label="Bắt buộc"
+                value={quiz.isRequired ? "Bắt buộc" : "Không bắt buộc"}
                 permission={permissions.editRequired}
               />
               <ConfigRow
-                label="Attempt limit"
+                label="Giới hạn lượt làm"
                 value={`${quiz.maxConsecutiveAttempts} attempts in a row, then ${quiz.lockoutHours} h lockout`}
                 permission={permissions.editAttemptRule}
               />
-              <ConfigRow label="Placement" value={quizPlacementLabel(quiz, structure.modules)} />
+              <ConfigRow label="Vị trí" value={quizPlacementLabel(quiz, structure.modules)} />
             </dl>
           </section>
 
           <section className="builder-quiz-detail-section">
             <h2>
-              Questions and answer keys <span className="builder-quiz-detail-count">{quiz.questions.length}</span>
+              Câu hỏi và đáp án <span className="builder-quiz-detail-count">{quiz.questions.length}</span>
             </h2>
             {!permissions.editQuestions.allowed && (
               <p className="builder-quiz-detail-why">
@@ -275,8 +275,8 @@ const CourseBuilderQuizDetail = () => {
 
             {quiz.questions.length === 0 ? (
               <div className="builder-quiz-empty">
-                <strong>No questions yet</strong>
-                <span>The Course cannot be submitted for review until every Quiz has at least one question.</span>
+                <strong>Chưa có câu hỏi</strong>
+                <span>Không thể gửi khóa học phê duyệt khi còn bài trắc nghiệm chưa có câu hỏi.</span>
               </div>
             ) : (
               <ol className="builder-quiz-detail-questions">
@@ -299,7 +299,7 @@ const CourseBuilderQuizDetail = () => {
                           <span className="builder-quiz-detail-option-text">{option.content}</span>
                           {option.isCorrect && (
                             <span className="builder-quiz-detail-correct">
-                              <CheckCircleFilled /> Correct
+                              <CheckCircleFilled /> Đúng
                             </span>
                           )}
                         </li>
@@ -307,7 +307,7 @@ const CourseBuilderQuizDetail = () => {
                     </ul>
                     {!hasCorrectOption(question) && (
                       <div className="builder-quiz-alert">
-                        <WarningOutlined /> No correct answer is marked for this question.
+                        <WarningOutlined /> Câu hỏi này chưa có đáp án đúng.
                       </div>
                     )}
                   </li>
@@ -323,9 +323,9 @@ const CourseBuilderQuizDetail = () => {
 
           <div className="builder-quiz-actions">
             <InstructorButton onClick={backToList}>
-              <ArrowLeftOutlined /> Back to Quizzes
+              <ArrowLeftOutlined /> Quay lại bài trắc nghiệm
             </InstructorButton>
-            {/* UC18.4 — Update Quiz configuration */}
+            {/* UC18.3 — Update Quiz configuration */}
             <ActionSlot ready permission={configPermission}>
               {(disabled) => (
                 <button
@@ -334,19 +334,24 @@ const CourseBuilderQuizDetail = () => {
                   disabled={disabled}
                   onClick={() => navigate(`${base}/quizzes/${quiz.id}/edit`)}
                 >
-                  <EditOutlined /> Edit configuration
+                  <EditOutlined /> Chỉnh sửa cấu hình
                 </button>
               )}
             </ActionSlot>
-            {/* UC18.3 — Manage Quiz questions */}
-            <ActionSlot ready={false} permission={permissions.editQuestions}>
+            {/* UC18.1.1 — Add a question (BR-117, BR-83) */}
+            <ActionSlot ready permission={permissions.editQuestions}>
               {(disabled) => (
-                <button type="button" className="builder-quiz-action" disabled={disabled}>
-                  <UnorderedListOutlined /> Manage questions
+                <button
+                  type="button"
+                  className="builder-quiz-action"
+                  disabled={disabled}
+                  onClick={() => navigate(`${base}/quizzes/${quiz.id}/questions/new`)}
+                >
+                  <PlusOutlined /> Thêm câu hỏi
                 </button>
               )}
             </ActionSlot>
-            {/* UC18.5 — Delete Quiz */}
+            {/* UC18.4 — Delete Quiz */}
             <ActionSlot ready permission={permissions.deleteQuiz}>
               {(disabled) => (
                 <button
@@ -355,19 +360,18 @@ const CourseBuilderQuizDetail = () => {
                   disabled={disabled}
                   onClick={() => navigate(`${base}/quizzes/${quiz.id}/delete`)}
                 >
-                  <DeleteOutlined /> Delete Quiz
+                  <DeleteOutlined /> Xóa bài trắc nghiệm
                 </button>
               )}
             </ActionSlot>
           </div>
         </div>
         <div className="builder-side">
-          <InfoPanel title="Scoring">
-            Quizzes are graded automatically on a 0–100 scale. A Learner passes by reaching the passing score.
+          <InfoPanel title="Chấm điểm">
+            Bài trắc nghiệm được chấm tự động theo thang điểm 0–100. Học viên đạt khi điểm số bằng hoặc cao hơn điểm đạt.
           </InfoPanel>
-          <InfoPanel title="Quiz placement">
-            Module Quizzes appear after the Lessons of their Module; Course-level Quizzes appear at the end of the
-            Course.
+          <InfoPanel title="Vị trí bài trắc nghiệm">
+            Bài trắc nghiệm cấp chương hiển thị sau các bài học trong chương; bài trắc nghiệm cấp khóa học hiển thị cuối khóa học.
           </InfoPanel>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CheckOutlined, ExclamationCircleFilled } from "@ant-design/icons";
-import { Alert, Button, Form, Input, Spin } from "antd";
+import { Button, Form, Input, Spin } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import { AuthCard, AuthResult } from "@/components/guest/auth";
 import "@/pages/guest/activate.scss";
@@ -9,6 +9,8 @@ import {
   getInvitationAPI,
 } from "@/services/organization.service";
 import type { IApiError, IInvitationInfo } from "@/types/organization.types";
+import { roleLabel } from "@/utils/helper";
+import { VietnameseAlert, VietnamesePassword } from "@/components/vietnamese.controls";
 
 type ActivateFields = { password: string; confirm: string };
 
@@ -39,36 +41,36 @@ const problemContent: Record<
   { title: string; lines: string[] }
 > = {
   expired: {
-    title: "Invitation link expired",
+    title: "Lời mời đã hết hạn",
     lines: [
-      "This invitation link has expired and can no longer be used.",
-      "Contact your Organizer to receive a new invitation.",
+      "Liên kết mời này đã hết hạn và không còn dùng được.",
+      "Hãy liên hệ quản lý đào tạo để được gửi lời mời mới.",
     ],
   },
   revoked: {
-    title: "A newer invitation was sent",
+    title: "Đã có lời mời mới hơn",
     lines: [
-      "This link was replaced by a newer invitation.",
-      "Please open the most recent invitation email.",
+      "Liên kết này đã được thay bằng một lời mời mới hơn.",
+      "Hãy mở email mời gần nhất.",
     ],
   },
   "not-pending": {
-    title: "This account cannot be activated",
+    title: "Không thể kích hoạt tài khoản này",
     lines: [
-      "The account is no longer waiting for activation.",
-      "Contact your Organizer for help.",
+      "Tài khoản này không còn ở trạng thái chờ kích hoạt.",
+      "Hãy liên hệ quản lý đào tạo để được hỗ trợ.",
     ],
   },
   invalid: {
-    title: "Invitation link unavailable",
+    title: "Liên kết mời không dùng được",
     lines: [
-      "This invitation link is not valid.",
-      "Check that you opened the complete link from your email.",
+      "Liên kết mời này không hợp lệ.",
+      "Hãy kiểm tra bạn đã mở đủ liên kết trong email.",
     ],
   },
   network: {
-    title: "Could not load the invitation",
-    lines: ["Could not connect to the server. Please try again in a moment."],
+    title: "Không tải được lời mời",
+    lines: ["Không kết nối được với máy chủ. Vui lòng thử lại sau ít phút."],
   },
 };
 
@@ -121,19 +123,17 @@ export default function ActivatePage() {
       const code = readErrorCode(res);
       if (code === "IDENTITY_UNAVAILABLE") {
         setSubmitError(
-          "The account service is temporarily unavailable. Please try again later.",
+          "Dịch vụ tài khoản đang tạm thời gián đoạn. Vui lòng thử lại sau.",
         );
       } else if (problemByCode[code]) {
         setState({ kind: "problem", problem: problemByCode[code] }); // liên kết hỏng giữa chừng
       } else {
         setSubmitError(
-          "The password could not be saved. Please review it and try again.",
+          "Không lưu được mật khẩu. Vui lòng kiểm tra lại rồi thử lại.",
         );
       }
     } catch {
-      setSubmitError(
-        "Could not connect to the server. Please try again later.",
-      );
+      setSubmitError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setSubmitting(false);
     }
@@ -144,7 +144,7 @@ export default function ActivatePage() {
       <AuthCard>
         <div className="activate-loading" role="status">
           <Spin size="large" />
-          <p>Loading your invitation…</p>
+          <p>Đang tải lời mời…</p>
         </div>
       </AuthCard>
     );
@@ -155,18 +155,18 @@ export default function ActivatePage() {
       return (
         <AuthCard>
           <AuthResult
-            icon={<CheckOutlined />}
+            icon={<CheckOutlined aria-hidden="true" />}
             tone="success"
-            title="Account already activated"
+            title="Tài khoản đã được kích hoạt"
             action={
               <Button type="primary" onClick={() => navigate("/login")}>
-                Continue to sign in
+                Tiếp tục đăng nhập
               </Button>
             }
           >
             <p>
-              This invitation has already been used. You can sign in with your
-              account.
+              Lời mời này đã được sử dụng. Bạn có thể đăng nhập bằng tài khoản
+              của mình.
             </p>
           </AuthResult>
         </AuthCard>
@@ -176,16 +176,16 @@ export default function ActivatePage() {
     return (
       <AuthCard>
         <AuthResult
-          icon={<ExclamationCircleFilled />}
+          icon={<ExclamationCircleFilled aria-hidden="true" />}
           title={content.title}
           action={
             state.problem === "network" ? (
               <Button type="primary" onClick={() => window.location.reload()}>
-                Try again
+                Thử lại
               </Button>
             ) : (
               <Button onClick={() => navigate("/login")}>
-                Back to sign in
+                Quay lại đăng nhập
               </Button>
             )
           }
@@ -201,18 +201,17 @@ export default function ActivatePage() {
   const { invitation } = state;
   return (
     <AuthCard>
-      <span className="auth-badge">
-        INVITED {invitation.role.toUpperCase()}
-      </span>
-      <h1>Activate your LearnUP account</h1>
+      <span className="auth-badge">Lời mời {roleLabel(invitation.role).toLowerCase()}</span>
+      <h1>Kích hoạt tài khoản LearnUP</h1>
       <p>
-        {invitation.organizationName} invited you to join its training
-        workspace.
+        {invitation.organizationName} mời bạn tham gia không gian đào tạo của tổ
+        chức.
         <br />
-        Set your password to activate this {invitation.role} account.
+        Hãy đặt mật khẩu để kích hoạt tài khoản{" "}
+        {roleLabel(invitation.role).toLowerCase()} này.
       </p>
       {submitError && (
-        <Alert
+        <VietnameseAlert
           className="activate-alert"
           type="error"
           showIcon
@@ -226,47 +225,45 @@ export default function ActivatePage() {
         initialValues={{ password: "", confirm: "" }}
         onFinish={submit}
       >
-        <Form.Item label="Organization">
+        <Form.Item label="Tổ chức">
           <Input value={invitation.organizationName} disabled />
         </Form.Item>
-        <Form.Item label="Email address">
+        <Form.Item label="Địa chỉ email">
           <Input value={invitation.email} disabled />
         </Form.Item>
         <Form.Item
-          label="Password"
+          label="Mật khẩu"
           name="password"
           rules={[
-            { required: true, message: "Enter a password." },
-            { min: 8, message: "Use at least 8 characters." },
-            { max: 72, message: "Use at most 72 characters." },
+            { required: true, message: "Hãy nhập mật khẩu." },
+            { min: 8, message: "Mật khẩu cần ít nhất 8 ký tự." },
+            { max: 72, message: "Mật khẩu tối đa 72 ký tự." },
           ]}
         >
-          <Input.Password autoComplete="new-password" />
+          <VietnamesePassword autoComplete="new-password" />
         </Form.Item>
         <Form.Item
-          label="Confirm password"
+          label="Nhập lại mật khẩu"
           name="confirm"
           dependencies={["password"]}
           rules={[
-            { required: true, message: "Confirm your password." },
+            { required: true, message: "Hãy nhập lại mật khẩu." },
             ({ getFieldValue }) => ({
               validator(_, value) {
                 return !value || getFieldValue("password") === value
                   ? Promise.resolve()
-                  : Promise.reject(new Error("Passwords do not match"));
+                  : Promise.reject(new Error("Mật khẩu nhập lại không khớp."));
               },
             }),
           ]}
         >
-          <Input.Password autoComplete="new-password" />
+          <VietnamesePassword autoComplete="new-password" />
         </Form.Item>
         <Button type="primary" htmlType="submit" block loading={submitting}>
-          Activate account
+          Kích hoạt tài khoản
         </Button>
       </Form>
-      <p className="auth-hint">
-        The invitation link is associated with this email address.
-      </p>
+      <p className="auth-hint">Liên kết mời gắn với địa chỉ email này.</p>
     </AuthCard>
   );
 }

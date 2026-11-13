@@ -4,6 +4,18 @@
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  font-family: var(--font-family-app);
+  font-size: var(--font-size-body);
+  line-height: var(--status-line-height);
+
+  .ant-alert,
+  .ant-btn,
+  .ant-progress,
+  .ant-tag,
+  select {
+    font-family: inherit;
+  }
+
   video {
     display: block;
     width: 100%;
@@ -12,12 +24,19 @@
     background: var(--color-brand-dark);
   }
   select {
+    font-size: inherit;
     margin-left: var(--space-2);
     padding: var(--space-1);
     color: var(--color-text-primary);
     background: var(--color-surface);
     border: 1px solid var(--color-border);
   }
+}
+
+.lesson-resource-title {
+  margin: var(--space-4) 0;
+  font-size: var(--font-size-title);
+  overflow-wrap: anywhere;
 }
 
 .lesson-resource-progress {
@@ -41,7 +60,7 @@
   font-size: var(--font-size-body);
   line-height: var(--status-line-height);
 }
-.lesson-resource-summary .ant-tag {
+.lesson-resource .ant-tag {
   font-size: var(--status-font-size);
   padding: var(--status-padding-block) var(--status-padding-inline);
 }

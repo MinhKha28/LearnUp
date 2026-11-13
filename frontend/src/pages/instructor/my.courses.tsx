@@ -23,17 +23,17 @@ import "./my.courses.scss";
 const SEARCH_DEBOUNCE_MS = 400;
 
 const courseTypeLabel: Record<CourseType, string> = {
-  Public: "Public",
-  Private: "Private",
+  Public: "Công khai",
+  Private: "Nội bộ",
 };
 
 const courseStatusLabel: Record<CourseStatus, string> = {
-  Draft: "Draft",
-  Submitted: "Submitted",
-  Published: "Published",
-  Rejected: "Rejected",
-  Archived: "Archived",
-  Disabled: "Disabled",
+  Draft: "Bản nháp",
+  Submitted: "Chờ phê duyệt",
+  Published: "Đã phát hành",
+  Rejected: "Bị từ chối",
+  Archived: "Đã lưu trữ",
+  Disabled: "Đã vô hiệu hóa",
 };
 
 const courseStatusTone = (
@@ -109,7 +109,7 @@ const MyCourses = () => {
         if (!response.data) {
           setCourses([]);
           setTotal(0);
-          setErrorMessage(response.message || "Unable to load Courses.");
+          setErrorMessage(response.message || "Không thể tải danh sách khóa học.");
           return;
         }
 
@@ -120,7 +120,7 @@ const MyCourses = () => {
         console.error("Fetch managed courses error:", error);
         setCourses([]);
         setTotal(0);
-        setErrorMessage("Unable to load Courses. Please try again.");
+        setErrorMessage("Không thể tải danh sách khóa học. Vui lòng thử lại.");
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -160,7 +160,7 @@ const MyCourses = () => {
 
   const columns: ColumnsType<IInstructorCourseListItem> = [
     {
-      title: "Course",
+      title: "Khóa học",
       dataIndex: "name",
       render: (name: string) => (
         <div className="instructor-courses-name">
@@ -169,18 +169,18 @@ const MyCourses = () => {
       ),
     },
     {
-      title: "Version",
+      title: "Phiên bản",
       dataIndex: "versionNumber",
       render: (versionNumber: number) => `Version ${versionNumber}`,
     },
     {
-      title: "Type",
+      title: "Loại",
       dataIndex: "courseType",
       width: 120,
       render: (courseType: CourseType) => courseTypeLabel[courseType],
     },
     {
-      title: "Status",
+      title: "Trạng thái",
       dataIndex: "status",
       width: 140,
       render: (status: CourseStatus) => (
@@ -190,24 +190,24 @@ const MyCourses = () => {
       ),
     },
     {
-      title: "Locked",
+      title: "Đã khóa",
       dataIndex: "locked",
       width: 110,
       render: (locked: boolean) => (
         <StatusTag tone={locked ? "warning" : "neutral"}>
-          {locked ? "Locked" : "Unlocked"}
+          {locked ? "Đã khóa" : "Chưa khóa"}
         </StatusTag>
       ),
     },
     {
-      title: "Learners",
+      title: "Học viên",
       dataIndex: "learnerCount",
       width: 110,
       align: "right",
       render: (learnerCount?: number) => learnerCount ?? "—",
     },
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       width: 160,
       render: (_, course) => (
@@ -217,7 +217,7 @@ const MyCourses = () => {
           onClick={() => navigate(`/instructor/courses/${course.id}`)}
         >
           <ApartmentOutlined />
-          <span>View Details</span>
+          <span>Xem chi tiết</span>
         </button>
       ),
     },
@@ -226,19 +226,19 @@ const MyCourses = () => {
   return (
     <InstructorPage className="instructor-courses">
       <PageHeader
-        eyebrow="INSTRUCTOR"
-        title="My Courses"
-        subtitle="Courses currently under your responsibility."
+        eyebrow="Giảng viên"
+        title="Khóa học của tôi"
+        subtitle="Danh sách khóa học bạn đang phụ trách."
         actions={
           <>
             <InstructorButton
               onClick={() => navigate("/instructor/courses/trash")}
             >
-              Trash
+              Thùng rác
             </InstructorButton>
 
             <InstructorButton type="primary" onClick={handleCreateCourse}>
-              + Create Course
+              + Tạo khóa học
             </InstructorButton>
           </>
         }
@@ -249,14 +249,14 @@ const MyCourses = () => {
           className="instructor-courses-alert"
           type="error"
           showIcon
-          message="Could not load Courses"
+          message="Không thể tải danh sách khóa học"
           description={errorMessage}
           action={
             <InstructorButton
               size="small"
               onClick={() => setReloadKey((key) => key + 1)}
             >
-              Retry
+              Thử lại
             </InstructorButton>
           }
         />
@@ -266,7 +266,7 @@ const MyCourses = () => {
       <div className="my-courses__filters">
         <Input
           className="my-courses__search"
-          placeholder="Search Course name"
+          placeholder="Tìm theo tên khóa học"
           prefix={<SearchOutlined />}
           value={searchInput}
           allowClear
@@ -282,9 +282,9 @@ const MyCourses = () => {
             setCourseType(value);
           }}
           options={[
-            { value: "ALL", label: "All types" },
-            { value: "Public", label: "Public" },
-            { value: "Private", label: "Private" },
+            { value: "ALL", label: "Tất cả loại khóa học" },
+            { value: "Public", label: "Công khai" },
+            { value: "Private", label: "Nội bộ" },
           ]}
         />
 
@@ -296,13 +296,13 @@ const MyCourses = () => {
             setStatus(value);
           }}
           options={[
-            { value: "ALL", label: "All statuses" },
-            { value: "Draft", label: "Draft" },
-            { value: "Submitted", label: "Submitted" },
-            { value: "Published", label: "Published" },
-            { value: "Rejected", label: "Rejected" },
-            { value: "Archived", label: "Archived" },
-            { value: "Disabled", label: "Disabled" },
+            { value: "ALL", label: "Tất cả trạng thái" },
+            { value: "Draft", label: "Bản nháp" },
+            { value: "Submitted", label: "Chờ phê duyệt" },
+            { value: "Published", label: "Đã phát hành" },
+            { value: "Rejected", label: "Bị từ chối" },
+            { value: "Archived", label: "Đã lưu trữ" },
+            { value: "Disabled", label: "Đã vô hiệu hóa" },
           ]}
         />
 
@@ -314,13 +314,13 @@ const MyCourses = () => {
             setLocked(value);
           }}
           options={[
-            { value: "ALL", label: "All lock statuses" },
-            { value: "LOCKED", label: "Locked" },
-            { value: "UNLOCKED", label: "Unlocked" },
+            { value: "ALL", label: "Tất cả trạng thái khóa" },
+            { value: "LOCKED", label: "Đã khóa" },
+            { value: "UNLOCKED", label: "Chưa khóa" },
           ]}
         />
 
-        <Button onClick={handleResetFilters}>Reset</Button>
+        <Button onClick={handleResetFilters}>Đặt lại</Button>
       </div>
 
       <Table<IInstructorCourseListItem>
@@ -335,10 +335,10 @@ const MyCourses = () => {
               <div className="instructor-courses-empty-icon">
                 <SearchOutlined />
               </div>
-              <h2>No matching Courses found.</h2>
-              <p>Try a different Course name or clear the filters.</p>
+              <h2>Không tìm thấy khóa học phù hợp.</h2>
+              <p>Thử tên khóa học khác hoặc xóa bộ lọc.</p>
               <InstructorButton onClick={handleResetFilters}>
-                Clear filters
+                Xóa bộ lọc
               </InstructorButton>
             </div>
           ) : (
@@ -346,8 +346,8 @@ const MyCourses = () => {
               <div className="instructor-courses-empty-icon">
                 <SearchOutlined />
               </div>
-              <h2>No Courses yet</h2>
-              <p>Courses assigned to you will appear here.</p>
+              <h2>Chưa có khóa học</h2>
+              <p>Các khóa học được phân công sẽ hiển thị tại đây.</p>
             </div>
           ),
         }}

@@ -44,7 +44,7 @@ const Dashboard = () => {
         subtitle="Khóa học bắt buộc được ưu tiên. Tiếp tục từ chỗ bạn đã dừng."
       />
       <WarningPanel title="Khóa học bắt buộc đã quá hạn">
-        Bạn vẫn có thể tiếp tục và hoàn thành Khóa học này.
+        Bạn vẫn có thể tiếp tục và hoàn thành khóa học này.
       </WarningPanel>
       <h2 className="learner-dashboard-section-title">Đào tạo bắt buộc</h2>
       <div className="learner-course-list learner-dashboard-required">
@@ -73,7 +73,7 @@ const Dashboard = () => {
         </SectionCard>
         <SectionCard className="learner-upnext-card">
           <h3>Chứng chỉ của bạn</h3>
-          <p>Lưu bản sao các Chứng chỉ đã cấp.</p>
+          <p>Lưu bản sao các chứng chỉ đã cấp.</p>
           <div className="learner-upnext-footer">
             <span />
             <LearnerButton onClick={() => navigate("/learner/certificates")}>

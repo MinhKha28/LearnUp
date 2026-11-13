@@ -135,7 +135,7 @@ describe("the words of the results", () => {
   });
 
   it("the attempts of a Quiz are one line, a time-out is marked; an Assignment has none", () => {
-    expect(attemptsLine(quiz())).toBe("Lượt 1: 50 · Lượt 2: 85,5 (hết giờ)");
+    expect(attemptsLine(quiz())).toBe("Lượt 1: 50% · Lượt 2: 85,5% (hết giờ)");
     expect(attemptsLine(assignment())).toBe("");
     expect(
       attemptsLine(quiz({ quiz: { bestAttemptNumber: null, attempts: [] } })),
@@ -155,9 +155,7 @@ describe("the words of the results", () => {
   });
 
   it("times are in the Vietnamese order", () => {
-    expect(formatResultTime("2026-11-05T10:00:00.000Z")).toMatch(
-      /05\/11\/2026/,
-    );
+    expect(formatResultTime("2026-11-05T23:45:00.000Z")).toBe("06/11/2026 06:45");
   });
 });
 

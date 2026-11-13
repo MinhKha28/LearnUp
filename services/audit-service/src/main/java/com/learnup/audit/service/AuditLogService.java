@@ -14,6 +14,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -27,6 +29,9 @@ import java.util.UUID;
 public class AuditLogService {
 
     private final AuditLogRepository auditLogRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public AuditLogService(AuditLogRepository auditLogRepository) {
         this.auditLogRepository = auditLogRepository;
@@ -72,6 +77,42 @@ public class AuditLogService {
         if (occurredAt != null && occurredAt.isBefore(EARLIEST_ACTION)) {
             throw BusinessException.badRequest("occurredAt is before the platform existed");
         }
+        // the time of the action when the writer says it, else the time of the delivery
+        final Instant eventTime = occurredAt != null ? occurredAt : now;
+
+        // General idempotency for all Outbox writers, not an UC23 special case.
+        // A unique index on (action_type, correlation_id) resolves concurrent retries.
+        if (request.getCorrelationId() != null && !request.getCorrelationId().isBlank()) {
+            entityManager.createNativeQuery("""
+                INSERT INTO audit_logs
+                    (id, organization_id, actor_user_id, actor_role, action_type,
+                     target_resource_type, target_resource_id, details, ip_address,
+                     correlation_id, created_at)
+                VALUES (:id, :organizationId, :actorUserId, :actorRole,
+                        :actionType, :resourceType, :resourceId, :details,
+                        :ipAddress, :correlationId, :createdAt)
+                ON CONFLICT DO NOTHING
+                """)
+                .setParameter("id", UUID.randomUUID())
+                .setParameter("organizationId", request.getOrganizationId())
+                .setParameter("actorUserId", request.getActorUserId())
+                .setParameter("actorRole", request.getActorRole())
+                .setParameter("actionType", request.getActionType())
+                .setParameter("resourceType", request.getTargetResourceType())
+                .setParameter("resourceId", request.getTargetResourceId())
+                .setParameter("details", request.getDetails())
+                .setParameter("ipAddress", request.getIpAddress())
+                .setParameter("correlationId", request.getCorrelationId())
+                .setParameter("createdAt", eventTime)
+                .executeUpdate();
+
+            return auditLogRepository
+                    .findFirstByActionTypeAndCorrelationId(
+                            request.getActionType(), request.getCorrelationId())
+                    .map(AuditLogResponse::fromEntity)
+                    .orElseThrow(() -> new IllegalStateException("Audit record missing"));
+        }
+
         AuditLog auditLog = new AuditLog(
                 UUID.randomUUID(),
                 request.getOrganizationId(),
@@ -83,8 +124,7 @@ public class AuditLogService {
                 request.getDetails(),
                 request.getIpAddress(),
                 request.getCorrelationId(),
-                // the time of the action when the writer says it, else the time of the delivery
-                occurredAt != null ? occurredAt : now
+                eventTime
         );
 
         AuditLog saved = auditLogRepository.save(auditLog);

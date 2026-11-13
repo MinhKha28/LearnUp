@@ -9,10 +9,11 @@ describe("audit codes written by Tenant", () => {
     "INSTRUCTOR_DELETED",
     "LEARNER_DEACTIVATED",
     "LEARNER_REACTIVATED",
+    "LEARNER_DELETED",
     "MEMBER_IMPORTED",
   ])("%s is labelled", (code) => {
     expect(isKnownAction(code)).toBe(true);
-    expect(actionLabel(code)).not.toBe("Hành động khác");
+    expect(actionLabel(code)).not.toBe(actionLabel("NOT_AN_AUDIT_CODE"));
   });
 
   it("reads the BR-337 reason the way audit-service requires it", () => {

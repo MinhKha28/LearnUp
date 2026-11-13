@@ -24,14 +24,14 @@ import type {
 } from "@/types/organization.types";
 import { seatBlockReason } from "@/utils/helper";
 import "./learners.scss";
+import { vietnameseClear } from "@/components/vietnamese.control.props";
 
-const COMING_SOON = "Coming soon";
 const SEARCH_DEBOUNCE_MS = 400;
 
 // UC13.4 - "all" = không gửi status; nhãn trạng thái lấy chung với cột Status
 type StatusFilter = AccountStatus | "all";
 const statusOptions: { value: StatusFilter; label: string }[] = [
-  { value: "all", label: "All statuses" },
+  { value: "all", label: "Tất cả trạng thái" },
   ...(Object.keys(statusLabel) as AccountStatus[]).map((status) => ({
     value: status,
     label: statusLabel[status],
@@ -41,12 +41,12 @@ const statusOptions: { value: StatusFilter; label: string }[] = [
 // UC13 - cột riêng của Learner: tình trạng tham gia đào tạo (null: chưa lấy được)
 const trainingColumns: ColumnsType<ILearnerListItem> = [
   {
-    title: "Courses",
+    title: "Khóa học",
     dataIndex: "activeCourseCount",
     render: (count: number | null) => count ?? "—",
   },
   {
-    title: "Overdue",
+    title: "Quá hạn",
     dataIndex: "overdueCourseCount",
     render: (count: number | null) =>
       count === null ? (
@@ -141,45 +141,51 @@ const Learners = () => {
   }, [reloadKey]);
 
   const addBlockedReason = seatsLoading
-    ? "Checking available seats…"
-    : seatBlockReason(seats, "Learner");
+    ? "Đang kiểm tra số suất còn lại…"
+    : seatBlockReason(seats, "Học viên");
 
   return (
     <OrganizerPage className="organizer-learners">
       <PageHeader
-        title="Learners"
-        subtitle="Manage learner accounts in your organization."
+        title="Học viên"
+        subtitle="Quản lý tài khoản học viên trong tổ chức."
         actions={
           <>
-            {/* UC13.8 */}
-            <Tooltip title={COMING_SOON}>
-              <span>
-                <OrganizerButton disabled>Import Excel</OrganizerButton>
-              </span>
-            </Tooltip>
+            {/* UC13.8 - cùng điều kiện với Add Learner (BR-31, BR-22); trang import kiểm lại số chỗ */}
+            {addBlockedReason ? (
+              <Tooltip title={addBlockedReason}>
+                <span>
+                  <OrganizerButton disabled>Nhập từ Excel</OrganizerButton>
+                </span>
+              </Tooltip>
+            ) : (
+              <Link to="/organizer/learners/import">
+                <OrganizerButton>Nhập từ Excel</OrganizerButton>
+              </Link>
+            )}
             {/* UC13.2 */}
             {addBlockedReason ? (
               <Tooltip title={addBlockedReason}>
                 <span>
                   <OrganizerButton type="primary" disabled>
-                    Add Learner
+                    Thêm học viên
                   </OrganizerButton>
                 </span>
               </Tooltip>
             ) : (
               <Link to="/organizer/learners/add">
-                <OrganizerButton type="primary">Add Learner</OrganizerButton>
+                <OrganizerButton type="primary">Thêm học viên</OrganizerButton>
               </Link>
             )}
           </>
         }
       />
       <SectionCard
-        title="Learner accounts"
+        title="Tài khoản học viên"
         extra={
           seats && (
             <span className="organizer-note">
-              {seats.used} / {seats.max} seats used
+              {seats.used} / {seats.max} suất đã sử dụng
             </span>
           )
         }
@@ -187,9 +193,9 @@ const Learners = () => {
         {/* UC13.4 */}
         <div className="organizer-filters organizer-instructors-filters">
           <Input
-            prefix={<SearchOutlined />}
-            placeholder="Search by name or email"
-            allowClear
+            prefix={<SearchOutlined aria-hidden="true" />}
+            placeholder="Tìm theo tên hoặc email"
+            allowClear={vietnameseClear}
             maxLength={100}
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
@@ -210,12 +216,12 @@ const Learners = () => {
           pageSize={pageSize}
           loading={loading}
           error={error}
-          itemLabel="learners"
+          itemLabel="Học viên"
           emptyText={
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               description={
-                hasFilter ? "No matching learners found." : "No learners yet."
+                hasFilter ? "Không tìm thấy học viên phù hợp." : "Chưa có học viên nào."
               }
             />
           }
@@ -226,7 +232,7 @@ const Learners = () => {
               className="organizer-link"
               to={`/organizer/learners/${item.id}`}
             >
-              View details →
+              Xem chi tiết →
             </Link>
           )}
           onPageChange={(nextPage, nextPageSize) => {

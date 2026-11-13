@@ -15,9 +15,9 @@ const CourseBuilderNewVersion = () => {
     <InstructorPage className="builder-page">
       <div className="new-version-header">
         <div>
-          <span className="builder-crumb">Course Builder / New Version Draft</span>
+          <span className="builder-crumb">Xây dựng khóa học / Phiên bản nháp mới</span>
           <div className="builder-hero">
-            <h1>New Version Draft</h1>
+            <h1>Phiên bản nháp mới</h1>
           </div>
         </div>
         <span className="new-version-pill">{course.version} Draft</span>
@@ -27,27 +27,27 @@ const CourseBuilderNewVersion = () => {
           <h2>
             {course.title} · {course.version}
           </h2>
-          <p>Curriculum copied from the Locked version.</p>
-          <p>Edit structural elements in this Draft, then submit it for approval.</p>
+          <p>Nội dung đào tạo được sao chép từ phiên bản đã khóa.</p>
+          <p>Chỉnh sửa cấu trúc của bản nháp trước khi gửi phê duyệt.</p>
           <div className="instructor-info-panel">
-            <strong>File references reused</strong>
-            <p>Learning files are referenced from {course.publishedVersion} without duplicating storage.</p>
+            <strong>Sử dụng lại tệp học liệu</strong>
+            <p>Tệp học liệu được dùng lại từ phiên bản {course.publishedVersion} mà không nhân đôi dung lượng lưu trữ.</p>
           </div>
           <div className="new-version-actions">
             <InstructorButton
               type="primary"
               onClick={() => navigate(`/instructor/courses/${course.id}/builder`)}
             >
-              Review new version
+              Kiểm tra phiên bản mới
             </InstructorButton>
           </div>
         </div>
         <div className="new-version-side">
-          <span className="new-version-side-eyebrow">Properties</span>
+          <span className="new-version-side-eyebrow">Thuộc tính</span>
           <div className="instructor-info-panel">
-            <strong>Previous version</strong>
+            <strong>Phiên bản trước</strong>
             <p>
-              {course.publishedVersion} remains Published until this version is approved.
+              {course.publishedVersion} vẫn được phát hành cho đến khi phiên bản này được phê duyệt.
             </p>
           </div>
         </div>

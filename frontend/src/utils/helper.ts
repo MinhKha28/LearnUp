@@ -1,3 +1,4 @@
+import { formatNumberVN } from "@/utils/number.format";
 import type { IRubricRow } from "@/types/assessment.types";
 import dayjs from "dayjs";
 import type {
@@ -27,23 +28,32 @@ export const formatVnd = (amount: number) =>
 // Đổi byte sang GB cho dễ đọc: 53687091200 -> "50 GB"
 export const formatStorage = (bytes: number) => {
   const gb = bytes / 1024 ** 3;
-  return `${Number.isInteger(gb) ? gb : gb.toFixed(1)} GB`;
+  return `${formatNumberVN(gb, 1)} GB`;
 };
 
 // UC01: chuyển dữ liệu gói từ API sang dạng PlanCard hiển thị (dùng ở trang chủ và trang đăng ký)
 export const toPlanDetails = (plan: ISubscriptionPlan) => ({
   name: plan.name,
-  description: `${plan.durationDays} days of access`,
+  description: `Sử dụng ${plan.durationDays} ngày`,
   price: formatVnd(plan.price),
-  priceNote: `for ${plan.durationDays} days`,
+  priceNote: `cho ${plan.durationDays} ngày`,
   limits: [
-    ["Learner seats", String(plan.maxLearners)],
-    ["Instructor seats", String(plan.maxInstructors)],
-    ["Courses", String(plan.maxCourseChains)],
-    ["Storage", formatStorage(plan.maxStorageBytes)],
+    ["Số học viên", String(plan.maxLearners)],
+    ["Số giảng viên", String(plan.maxInstructors)],
+    ["Số khóa học", String(plan.maxCourseChains)],
+    ["Dung lượng lưu trữ", formatStorage(plan.maxStorageBytes)],
   ] as Array<[string, string]>,
-  footer: "The price is locked in when you register.",
+  footer: "Giá được giữ nguyên từ lúc bạn đăng ký.",
 });
+
+export const ROLE_LABELS: Record<string, string> = {
+  Admin: "Quản trị viên",
+  Organizer: "Quản lý đào tạo",
+  Instructor: "Giảng viên",
+  Learner: "Học viên",
+};
+
+export const roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
 
 export const newRubricRow = (
   description = "",
@@ -88,17 +98,17 @@ export const seatBlockReason = (
   seats: ISeatUsage | null,
   roleLabel: string,
 ): string | null => {
-  if (!seats) return "Seat information could not be loaded.";
+  if (!seats) return "Không tải được thông tin số suất tài khoản.";
   if (seats.canCreate) return null;
   if (seats.subscriptionStatus === "Grace")
-    return "Your Subscription is in its grace period. New accounts cannot be created until it is renewed.";
+    return "Gói dịch vụ đang trong thời gian gia hạn. Không thể tạo tài khoản mới cho đến khi gia hạn.";
   if (seats.subscriptionStatus === "Suspended")
-    return "Your Subscription is suspended. New accounts cannot be created.";
+    return "Gói dịch vụ đang bị tạm ngưng. Không thể tạo tài khoản mới.";
   if (seats.subscriptionStatus === null)
-    return "Your Organization has no active Subscription.";
+    return "Tổ chức chưa có gói dịch vụ đang hoạt động.";
   if (seats.remaining <= 0)
-    return `All ${roleLabel} seats are in use (${seats.used} / ${seats.max}).`;
-  return "Your Organization is suspended. New accounts cannot be created.";
+    return `Đã dùng hết suất ${roleLabel.toLowerCase()} (${seats.used} / ${seats.max}).`;
+  return "Tổ chức đang bị tạm ngưng. Không thể tạo tài khoản mới.";
 };
 
 // UC12.2, UC12.3: chuẩn hóa giống backend (CreateAccountDto / UpdateAccountDto): NFC, trim,
@@ -117,17 +127,17 @@ export const textRule =
   (_: unknown, value?: string) => {
     const normalized = normalizeText(value);
     if (normalized.length > max)
-      return Promise.reject(new Error(`${label} must be at most ${max} characters.`));
+      return Promise.reject(new Error(`${label} tối đa ${max} ký tự.`));
     if (CONTROL_CHARS.test(normalized))
-      return Promise.reject(new Error(`${label} contains invalid characters.`));
+      return Promise.reject(new Error(`${label} chứa ký tự không hợp lệ.`));
     if (ANGLE_BRACKETS.test(normalized))
-      return Promise.reject(new Error(`${label} cannot contain < or >.`));
+      return Promise.reject(new Error(`${label} không được chứa < hoặc >.`));
     return Promise.resolve();
   };
 
 /** 1.5 MB / 320 KB style size for file lists. */
 export const formatFileSize = (bytes: number) =>
-  bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  bytes >= 1024 * 1024 ? `${formatNumberVN(bytes / 1024 / 1024, 1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
 /** BR-174: stored in minutes, shown converted to hours once it reaches an hour. */
 export const formatMinutes = (minutes: number | null) => {

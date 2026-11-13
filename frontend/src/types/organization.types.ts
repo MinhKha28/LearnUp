@@ -72,6 +72,64 @@ export interface IAdminOrganizationListItem {
   createdAt: string;
 }
 
+// UC44.1 - một giới hạn của Subscription; used = null khi không đếm được (course-service lỗi)
+export interface IAdminUsageItem {
+  used: number | null;
+  limit: number;
+  percent: number | null;
+  warning: boolean;
+}
+
+// UC44.1 - Admin xem chi tiết Organization (khớp IAdminOrganizationDetail ở tenant-service)
+export interface IAdminOrganizationDetail {
+  id: string;
+  name: string;
+  taxCode: string;
+  address: string;
+  contactPhone: string;
+  contactEmail: string | null;
+  logoUrl: string | null;
+  timezone: string;
+  status: AdminOrganizationStatus;
+  createdAt: string;
+  // BR-50: Organizer đang chờ nhận lời mời cũng là Organizer hiện tại
+  organizer: {
+    id: string;
+    fullName: string;
+    email: string;
+    status: "Pending" | "Active";
+    activatedAt: string | null;
+    invitation: { sentAt: string; expiresAt: string; expired: boolean } | null;
+  } | null;
+  plan: { id: string; name: string } | null;
+  subscription: {
+    plan: { id: string; name: string };
+    status: AdminSubscriptionStatus;
+    startsAt: string;
+    expiresAt: string;
+    graceEndsAt: string | null;
+    readOnlyEndsAt: string | null;
+    daysRemaining: number;
+  } | null;
+  paymentDueAt: string | null;
+  usageWarningThresholdPercent: number;
+  // null: chưa có Subscription hiện hành
+  usage: {
+    courseUsageAvailable: boolean;
+    learners: IAdminUsageItem;
+    instructors: IAdminUsageItem;
+    courses: IAdminUsageItem;
+    storageBytes: IAdminUsageItem;
+  } | null;
+  // BR-56, BR-58: mới nhất trước; endedAt = null là đang khóa, có endedAt là đã gỡ
+  suspensions: { id: string; startedAt: string; endedAt: string | null; reason: string }[];
+  // BR-54: chỉ cảnh báo
+  duplicateTaxCode: {
+    count: number;
+    organizations: { id: string; name: string; status: AdminOrganizationStatus }[];
+  };
+}
+
 export interface IAdminOrganizationListQuery {
   page: number;
   pageSize: number;
@@ -315,18 +373,6 @@ export interface IInstructorStatusResult {
   receiver: { id: string; fullName: string } | null;
 }
 
-// UC13.5 - PATCH /api/v1/users/learners/:id/status (Learner không có chuyển quyền nên không gửi receiverInstructorId)
-export type IChangeLearnerStatusReq = Omit<
-  IChangeAccountStatusReq,
-  "receiverInstructorId"
->;
-
-export interface ILearnerStatusResult {
-  id: string;
-  status: AccountStatus;
-  changed: boolean; // false: đã ở trạng thái đích (bấm lặp)
-}
-
 // UC12.6 - GET /api/v1/users/instructors/:id/deletion (mọi trạng thái đều xóa được, BR-46)
 export interface IInstructorDeletion {
   id: string;
@@ -350,6 +396,27 @@ export interface IInstructorDeletionResult {
   transferredCourses: IManagedCourseChain[];
   receiver: { id: string; fullName: string } | null;
   seats: ISeatUsage; // số chỗ sau khi xóa (BR-31, BR-46)
+}
+
+// UC13.5 - PATCH /api/v1/users/learners/:id/status (Learner không có chuyển quyền nên không gửi receiverInstructorId)
+export type IChangeLearnerStatusReq = Omit<
+  IChangeAccountStatusReq,
+  "receiverInstructorId"
+>;
+
+export interface ILearnerStatusResult {
+  id: string;
+  status: AccountStatus;
+  changed: boolean; // false: đã ở trạng thái đích (bấm lặp)
+}
+
+// UC13.6 - DELETE /api/v1/users/learners/:id (body JSON; Learner không có chuyển quyền)
+export type IDeleteLearnerReq = Omit<IDeleteAccountReq, "receiverInstructorId">;
+
+export interface ILearnerDeletionResult {
+  id: string;
+  changed: boolean; // false: đã bị xóa từ trước (bấm lặp)
+  seats: ISeatUsage; // số chỗ Learner sau khi xóa (BR-31, BR-46)
 }
 
 // UC12.2 - số chỗ theo Subscription hiện hành (GET /api/v1/users/instructors/seats)

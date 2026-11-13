@@ -104,7 +104,7 @@ export class InstructorSubmissionsRepository {
       select: {
         assessmentId: true,
         learnerId: true,
-        assessment: { select: { kind: true, courseId: true } },
+        assessment: { select: { kind: true, courseId: true, title: true } },
       },
     });
   }

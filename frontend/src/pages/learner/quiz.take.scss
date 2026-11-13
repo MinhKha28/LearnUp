@@ -108,7 +108,7 @@
   font-size: 14px;
 }
 
-.quiz-footer span {
+.quiz-footer > div:first-child > span {
   color: #64748b;
   font-size: 12px;
 }
@@ -178,13 +178,19 @@
 
 .quiz-result-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
+  gap: var(--space-3);
   margin-top: 20px;
 }
 
 @media (max-width: 700px) {
   .quiz-result-stats {
     grid-template-columns: 1fr;
+  }
+
+  .quiz-result-actions {
+    flex-direction: column;
   }
 }
 

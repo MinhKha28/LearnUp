@@ -24,7 +24,7 @@ const formatBytes = (value: string | number): string => {
   const bytes = Number(value);
 
   if (!Number.isFinite(bytes) || bytes < 0) {
-    return "Unknown";
+    return "Không xác định";
   }
 
   if (bytes < 1024) return `${bytes} B`;
@@ -43,16 +43,16 @@ const formatBytes = (value: string | number): string => {
 const getBlockMessage = (reason: string | null): string => {
   switch (reason) {
     case "SUBSCRIPTION_GRACE":
-      return "Subscription is in Grace period. Instructors cannot upload new learning materials.";
+      return "Gói dịch vụ đang trong thời gian ân hạn. Giảng viên không thể tải học liệu mới lên.";
 
     case "SUBSCRIPTION_SUSPENDED":
-      return "Subscription is Suspended. Instructors cannot upload learning materials.";
+      return "Gói dịch vụ đang bị tạm ngừng. Giảng viên không thể tải học liệu lên.";
 
     case "COURSE_NOT_EDITABLE":
-      return "This Course or Lesson is not editable.";
+      return "Không thể chỉnh sửa khóa học hoặc bài học này.";
 
     default:
-      return "Video upload is currently unavailable. Contact your Organizer if the problem continues.";
+      return "Hiện không thể tải video lên. Hãy liên hệ quản lý đào tạo nếu lỗi tiếp diễn.";
   }
 };
 
@@ -61,28 +61,28 @@ const getUploadErrorMessage = (error: unknown): string => {
     const apiError = toApiError(error);
 
     if (apiError.status === 403) {
-      return "Upload denied. Your Subscription or Instructor permissions may have changed.";
+      return "Không được phép tải tệp. Gói dịch vụ hoặc quyền giảng viên có thể đã thay đổi.";
     }
 
     if (apiError.status === 409) {
-      return "The Course state or available storage has changed. Please refresh and try again.";
+      return "Trạng thái khóa học hoặc dung lượng lưu trữ đã thay đổi. Hãy tải lại và thử lại.";
     }
 
     if (apiError.status === 413) {
-      return "Video exceeds the maximum allowed upload size.";
+      return "Video vượt quá dung lượng tải lên cho phép.";
     }
 
     if (apiError.status === 400) {
-      return apiError.message || "Invalid Video file.";
+      return apiError.message || "Tệp video không hợp lệ.";
     }
 
     if (apiError.status === 503) {
-      return "The upload service is temporarily unavailable.";
+      return "Dịch vụ tải tệp lên đang tạm thời không khả dụng.";
     }
 
-    return apiError.message || "Unable to upload Video.";
+    return apiError.message || "Không thể tải video lên.";
   } catch {
-    return "Unable to upload Video. Please try again.";
+    return "Không thể tải video lên. Vui lòng thử lại.";
   }
 };
 
@@ -106,7 +106,7 @@ const CourseBuilderVideoAdd = () => {
   const query = useApiQuery(
     async (signal) => {
       if (!courseId || !lessonId) {
-        throw new Error("Course ID or Lesson ID is missing.");
+        throw new Error("Thiếu mã khóa học hoặc bài học.");
       }
 
       const response = await fetchVideoUploadContextAPI(
@@ -116,7 +116,7 @@ const CourseBuilderVideoAdd = () => {
       );
 
       if (!response.data) {
-        throw new Error("Unable to load Video upload settings.");
+        throw new Error("Không thể tải cấu hình tải video lên.");
       }
 
       return response.data;
@@ -138,24 +138,24 @@ const CourseBuilderVideoAdd = () => {
     }
 
     if (selected.size <= 0) {
-      message.error("Video file is empty.");
+      message.error("Tệp video không có nội dung.");
       return;
     }
 
     if (!context.allowedVideoMimeTypes.includes(selected.type)) {
-      message.error("Unsupported Video format.");
+      message.error("Định dạng video không được hỗ trợ.");
       return;
     }
 
     if (BigInt(selected.size) > BigInt(context.maxVideoSizeBytes)) {
       message.error(
-        `Maximum Video size is ${formatBytes(context.maxVideoSizeBytes)}.`,
+        `Dung lượng video tối đa là ${formatBytes(context.maxVideoSizeBytes)}.`,
       );
       return;
     }
 
     if (BigInt(selected.size) > BigInt(context.remainingStorageBytes)) {
-      message.error("Insufficient Subscription storage.");
+      message.error("Dung lượng lưu trữ của gói dịch vụ không đủ.");
       return;
     }
 
@@ -174,7 +174,7 @@ const CourseBuilderVideoAdd = () => {
     const normalizedTitle = title.trim();
 
     if (!normalizedTitle || normalizedTitle.length > 200) {
-      message.warning("Enter a Video title (maximum 200 characters).");
+      message.warning("Nhập tên video (tối đa 200 ký tự).");
       return;
     }
 
@@ -185,7 +185,7 @@ const CourseBuilderVideoAdd = () => {
       BigInt(file.size) > BigInt(context.maxVideoSizeBytes) ||
       BigInt(file.size) > BigInt(context.remainingStorageBytes)
     ) {
-      message.error("Selected Video does not satisfy upload limits.");
+      message.error("Video đã chọn không đáp ứng giới hạn tải lên.");
       return;
     }
 
@@ -213,10 +213,10 @@ const CourseBuilderVideoAdd = () => {
       );
 
       if (!response.data?.id) {
-        throw new Error("Backend did not confirm Video creation.");
+        throw new Error("Máy chủ chưa xác nhận tạo video.");
       }
 
-      message.success("Video material added successfully.");
+      message.success("Đã thêm học liệu video.");
 
       navigate(listUrl, { replace: true });
     } catch (error) {
@@ -246,15 +246,15 @@ const CourseBuilderVideoAdd = () => {
         <Alert
           type="error"
           showIcon
-          message="Unable to load Video upload settings"
-          description="Please check your connection or access permissions."
+          message="Không thể tải cấu hình tải video lên"
+          description="Vui lòng kiểm tra kết nối hoặc quyền truy cập."
         />
 
         <div className="builder-actions">
-          <InstructorButton onClick={query.reload}>Try again</InstructorButton>
+          <InstructorButton onClick={query.reload}>Thử lại</InstructorButton>
 
           <InstructorButton onClick={() => navigate(listUrl)}>
-            Back to Materials
+            Quay lại học liệu
           </InstructorButton>
         </div>
       </InstructorPage>
@@ -275,11 +275,11 @@ const CourseBuilderVideoAdd = () => {
   return (
     <InstructorPage className="builder-page uc17-video-page">
       <span className="builder-crumb">
-        Course Builder / Learning Materials / Add Video
+        Xây dựng khóa học / Học liệu / Thêm video
       </span>
 
       <div className="builder-hero">
-        <h1>Add Video Material</h1>
+        <h1>Thêm học liệu video</h1>
         <p>
           {context.courseName} / {context.lessonTitle}
         </p>
@@ -289,7 +289,7 @@ const CourseBuilderVideoAdd = () => {
         <Alert
           type="warning"
           showIcon
-          message="Video upload unavailable"
+          message="Không thể tải video lên"
           description={getBlockMessage(context.blockReason)}
           className="uc17-video-alert"
         />
@@ -299,8 +299,8 @@ const CourseBuilderVideoAdd = () => {
         <Alert
           type="info"
           showIcon
-          message="Course is Locked"
-          description="BR-286: New learning materials must be Optional."
+          message="Khóa học đã khóa"
+          description="Theo BR-286, học liệu mới phải được đặt là không bắt buộc."
           className="uc17-video-alert"
         />
       )}
@@ -310,7 +310,7 @@ const CourseBuilderVideoAdd = () => {
           type="error"
           showIcon
           closable
-          message="Video upload failed"
+          message="Tải video lên thất bại"
           description={uploadError}
           onClose={() => setUploadError(null)}
           className="uc17-video-alert"
@@ -319,10 +319,10 @@ const CourseBuilderVideoAdd = () => {
 
       <div className="builder-grid">
         <div className="builder-update-card">
-          <h2>Video information</h2>
+          <h2>Thông tin video</h2>
 
           <label htmlFor="video-title" className="instructor-form-label">
-            Video title
+            Tên video
           </label>
 
           <Input
@@ -330,14 +330,14 @@ const CourseBuilderVideoAdd = () => {
             size="large"
             maxLength={200}
             showCount
-            placeholder="e.g. Introduction to Workplace Safety"
+            placeholder="Ví dụ: Giới thiệu an toàn lao động"
             value={title}
             disabled={blocked || saving}
             onChange={(event) => setTitle(event.target.value)}
           />
 
           <label className="instructor-form-label instructor-form-label-spaced">
-            Video file
+            Tệp video
           </label>
 
           <div className="uc17-video-upload">
@@ -345,11 +345,11 @@ const CourseBuilderVideoAdd = () => {
               <VideoCameraOutlined />
             </div>
 
-            <strong>{file ? file.name : "Choose a Video file"}</strong>
+            <strong>{file ? file.name : "Chọn tệp video"}</strong>
 
-            <p>Allowed formats: {context.allowedVideoMimeTypes.join(", ")}</p>
+            <p>Định dạng cho phép: {context.allowedVideoMimeTypes.join(", ")}</p>
 
-            <p>Maximum size: {maxSize}</p>
+            <p>Dung lượng tối đa: {maxSize}</p>
 
             <input
               ref={fileInputRef}
@@ -380,13 +380,13 @@ const CourseBuilderVideoAdd = () => {
                   setUploadError(null);
                 }}
               >
-                Remove
+                Xóa
               </InstructorButton>
             </div>
           )}
 
           <label className="instructor-form-label instructor-form-label-spaced">
-            Requirement
+            Yêu cầu
           </label>
 
           <Radio.Group
@@ -394,14 +394,13 @@ const CourseBuilderVideoAdd = () => {
             disabled={blocked || saving || context.locked}
             onChange={(event) => setIsRequired(event.target.value === true)}
           >
-            <Radio value={true}>Required</Radio>
-            <Radio value={false}>Optional</Radio>
+            <Radio value={true}>Bắt buộc</Radio>
+            <Radio value={false}>Không bắt buộc</Radio>
           </Radio.Group>
 
           {context.locked && (
             <p className="uc17-video-hint">
-              Required materials cannot be added after the Course becomes
-              Locked.
+              Không thể thêm học liệu bắt buộc sau khi khóa học đã khóa.
             </p>
           )}
 
@@ -411,8 +410,8 @@ const CourseBuilderVideoAdd = () => {
 
               <p>
                 {progress < 100
-                  ? "Uploading Video..."
-                  : "Upload sent. Cloudinary validation and database saving may still be in progress..."}
+                  ? "Đang tải video lên..."
+                  : "Đã tải video lên. Hệ thống đang xác minh và lưu dữ liệu..."}
               </p>
             </div>
           )}
@@ -423,7 +422,7 @@ const CourseBuilderVideoAdd = () => {
               icon={<ArrowLeftOutlined />}
               onClick={() => navigate(listUrl)}
             >
-              Cancel
+              Hủy
             </InstructorButton>
 
             <InstructorButton
@@ -432,43 +431,42 @@ const CourseBuilderVideoAdd = () => {
               disabled={!canSave}
               onClick={handleSave}
             >
-              Upload Video
+              Tải video lên
             </InstructorButton>
           </div>
         </div>
 
         <div className="builder-side">
           <section className="uc17-video-info-card">
-            <h3>Upload guidelines</h3>
+            <h3>Quy định tải tệp lên</h3>
 
             <div className="uc17-video-info-row">
-              <span>Maximum file size</span>
+              <span>Dung lượng tệp tối đa</span>
               <strong>{maxSize}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Maximum duration</span>
+              <span>Thời lượng tối đa</span>
               <strong>{context.maxVideoDurationMinutes} min</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Remaining storage</span>
+              <span>Dung lượng còn lại</span>
               <strong>{remainingStorage}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Subscription</span>
+              <span>Gói dịch vụ</span>
               <strong>{context.subscriptionStatus ?? "Unavailable"}</strong>
             </div>
 
             <div className="uc17-video-info-row">
-              <span>Course Locked</span>
-              <strong>{context.locked ? "Yes" : "No"}</strong>
+              <span>Khóa học đã khóa</span>
+              <strong>{context.locked ? "Có" : "Không"}</strong>
             </div>
 
             <p className="uc17-video-hint">
-              Video format, duration and storage availability are verified by
-              the backend before the material is saved.
+              Máy chủ kiểm tra định dạng, thời lượng video và dung lượng lưu trữ trước khi lưu học liệu.
             </p>
           </section>
         </div>

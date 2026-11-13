@@ -28,10 +28,10 @@ const PeerCycles = () => {
           setCourses(res.data.result);
           setCourseId(res.data.result[0]?.id);
         } else {
-          setError(res.message || "Unable to load your Courses.");
+          setError(res.message || "Không thể tải danh sách khóa học bạn phụ trách.");
         }
       } catch {
-        if (active) setError("Unable to load your Courses. Please try again.");
+        if (active) setError("Không thể tải danh sách khóa học bạn phụ trách. Vui lòng thử lại.");
       } finally {
         if (active) setLoadingCourses(false);
       }
@@ -70,49 +70,49 @@ const PeerCycles = () => {
   return (
     <InstructorPage className="instructor-peer-cycles">
       <PageHeader
-        eyebrow="INSTRUCTOR"
-        title="Peer Review Cycles"
-        subtitle="Periodic submission and review cycles of an Assignment."
+        eyebrow="Giảng viên"
+        title="Chu kỳ chấm chéo"
+        subtitle="Quản lý các chu kỳ nộp bài và chấm chéo của bài tập."
       />
       <div className="instructor-cycles-filters">
         <label>
-          <span>Course</span>
+          <span>Khóa học</span>
           <Select
             value={courseId}
             loading={loadingCourses}
-            placeholder="Select a Course"
+            placeholder="Chọn khóa học"
             onChange={setCourseId}
             options={courses.map((course) => ({ value: course.id, label: course.name }))}
             style={{ minWidth: 280 }}
           />
         </label>
         <label>
-          <span>Assignment</span>
+          <span>Bài tập</span>
           <Select
             value={assignmentId}
             loading={loadingAssignments}
-            placeholder="Select an Assignment"
+            placeholder="Chọn bài tập"
             onChange={setAssignmentId}
             options={assignments.map((item) => ({ value: item.id, label: item.title }))}
             style={{ minWidth: 280 }}
-            notFoundContent="No Assignment with Peer Review"
+            notFoundContent="Không có bài tập bật chấm chéo"
           />
         </label>
       </div>
       {error && <p className="instructor-cycles-message">{error}</p>}
       {!error && !loadingCourses && courses.length === 0 && (
-        <p className="instructor-cycles-message">You do not have a Course yet.</p>
+        <p className="instructor-cycles-message">Bạn chưa có khóa học nào.</p>
       )}
       {!error && courseId && !loadingAssignments && assignments.length === 0 && (
-        <p className="instructor-cycles-message">This Course has no Assignment with Peer Review turned on.</p>
+        <p className="instructor-cycles-message">Khóa học này chưa có bài tập nào bật chấm chéo.</p>
       )}
       {assignmentId && (
         <div className="instructor-cycles-table">
           <PeerCycleTable assignmentId={assignmentId} />
         </div>
       )}
-      <InfoPanel title="Cycle rule">
-        New cycle opens on schedule; review deadline starts from close and assignment.
+      <InfoPanel title="Quy tắc chu kỳ">
+        Chu kỳ mới mở theo lịch; hạn chấm được tính từ thời điểm đóng chu kỳ theo cấu hình bài tập.
       </InfoPanel>
     </InstructorPage>
   );
