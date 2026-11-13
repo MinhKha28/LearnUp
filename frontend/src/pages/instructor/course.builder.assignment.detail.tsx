@@ -25,6 +25,7 @@ const CourseBuilderAssignmentDetail = () => {
   const location = useLocation();
   const { structure } = useOutletContext<ICourseBuilderOutletContext>();
   const course = structure.course;
+  const isSubmitted = course.status === "Submitted";
 
   const [assignment, setAssignment] = useState<IAssignment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -192,7 +193,7 @@ const CourseBuilderAssignmentDetail = () => {
           <div className="builder-actions builder-actions-split">
             <InstructorButton onClick={() => navigate(backPath)}>Quay lại</InstructorButton>
             <InstructorButton onClick={() => navigate(`/instructor/submissions?assessmentId=${assignment.id}`)}>Bài nộp</InstructorButton>
-            {restricted ? (
+            {isSubmitted ? null : restricted ? (
               <InstructorButton type="primary" onClick={() => navigate(editPath, { state: location.state })}>
                 Chỉnh sửa thời gian làm bài dự kiến
               </InstructorButton>
@@ -229,7 +230,7 @@ const CourseBuilderAssignmentDetail = () => {
                 {assignment.courseLocked && " Không thể bật lại vì khóa học đã khóa."}
               </p>
             )}
-            <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-review`, { state: location.state })}>
+            <InstructorButton disabled={isSubmitted} onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-review`, { state: location.state })}>
               Thiết lập chấm chéo
             </InstructorButton>
             {peerReview.enabled && (

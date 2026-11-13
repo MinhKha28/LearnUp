@@ -22,6 +22,8 @@ const CourseBuilderLessonAdd = () => {
   if (!courseId || !moduleId) return null;
 
   const base = `/instructor/courses/${courseId}/builder`;
+  const isSubmitted = structure.course.status === "Submitted";
+  const cannotEdit = structure.structureLocked || isSubmitted;
   const module = structure.modules.find((item) => item.id === moduleId);
 
   if (!module) {
@@ -41,7 +43,7 @@ const CourseBuilderLessonAdd = () => {
   }
 
   const handleSave = async () => {
-    if (saving) return;
+    if (saving || cannotEdit) return;
 
     const normalizedTitle = title.trim();
     const normalizedContent = content.trim();
@@ -56,7 +58,7 @@ const CourseBuilderLessonAdd = () => {
       return;
     }
 
-    if (structure.structureLocked) {
+    if (cannotEdit) {
       message.error(structure.lockReason || "Cấu trúc khóa học đã bị khóa.");
       return;
     }
@@ -123,7 +125,7 @@ const CourseBuilderLessonAdd = () => {
             autoFocus
             placeholder="Ví dụ: Giới thiệu Spring Boot"
             value={title}
-            disabled={saving || structure.structureLocked}
+            disabled={saving || cannotEdit}
             onChange={(event) => setTitle(event.target.value)}
           />
 
@@ -141,7 +143,7 @@ const CourseBuilderLessonAdd = () => {
             showCount
             placeholder="Nhập nội dung giới thiệu bài học..."
             value={content}
-            disabled={saving || structure.structureLocked}
+            disabled={saving || cannotEdit}
             onChange={(event) => setContent(event.target.value)}
           />
 
@@ -160,7 +162,7 @@ const CourseBuilderLessonAdd = () => {
             onClick={() => void handleSave()}
             disabled={
               saving ||
-              structure.structureLocked ||
+              cannotEdit ||
               !title.trim() ||
               !content.trim()
             }

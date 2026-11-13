@@ -14,6 +14,8 @@ const CourseBuilder = () => {
     useOutletContext<ICourseBuilderOutletContext>();
 
   const course = structure.course;
+  const isSubmitted = course.status === "Submitted";
+  const canEditStructure = !structure.structureLocked && !isSubmitted;
   const base = `/instructor/courses/${course.id}/builder`;
 
   return (
@@ -25,7 +27,7 @@ const CourseBuilder = () => {
           <p>Sắp xếp nội dung khóa học thành các chương và bài học.</p>
         </div>
       </div>
-      {course.status !== "Submitted" && (
+      {!isSubmitted && (
         <div
           style={{
             display: "flex",
@@ -51,7 +53,7 @@ const CourseBuilder = () => {
         <div className="builder-empty">
           <Empty description="Chưa có chương nào" />
 
-          {!structure.structureLocked && (
+          {canEditStructure && (
             <InstructorButton
               type="primary"
               onClick={() => navigate(`${base}/modules/new`)}
@@ -127,6 +129,7 @@ const CourseBuilder = () => {
                   Xem tất cả bài tập
                 </InstructorButton>
                 <InstructorButton
+                  disabled={isSubmitted || course.locked}
                   onClick={() =>
                     navigate(`${base}/assignments/new`, {
                       state: { from: pathname },
