@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  readonly VITE_ENABLE_PREVIEW_PAGES?: string;
   /** "0" tắt sessionStorage cho kiểm thử race lưu vị trí video. */
   readonly VITE_VIDEO_POSITION_SESSION_CACHE?: string;
   /** Base URL dùng chung cho các service chưa có biến riêng (identity, learner: catalog/learning). */

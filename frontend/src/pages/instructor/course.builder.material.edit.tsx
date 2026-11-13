@@ -25,6 +25,7 @@ import type {
   IInstructorLessonDetail,
   IInstructorLessonMaterial,
 } from "@/types/course.types";
+import { getReadingParseBusyMessage } from "@/utils/reading.upload.error";
 
 import "./course.create.scss";
 import "./course.builder.scss";
@@ -306,6 +307,12 @@ const CourseBuilderMaterialEdit = () => {
             return;
           }
 
+          const busyError = getReadingParseBusyMessage(response);
+          if (busyError) {
+            message.error(busyError, 8);
+            return;
+          }
+
           const replaced = ensureApiSuccess(response);
 
           if (
@@ -363,6 +370,7 @@ const CourseBuilderMaterialEdit = () => {
         } else if (replacementFile && !fileReplaced) {
           message.error(
             getReplacementSizeError(err) ??
+              getReadingParseBusyMessage(err) ??
               "Chưa xác nhận được việc thay thế tệp. " +
                 "Tải lại trang và kiểm tra tệp hiện tại trước khi thử lại.",
             8,

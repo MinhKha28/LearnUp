@@ -1,3 +1,4 @@
+import { canOpenPage } from "@/utils/preview.pages";
 import { VietnameseAlert } from "@/components/vietnamese.controls";
 import { Avatar, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
@@ -86,13 +87,15 @@ const Profile = () => {
           Bạn không tự đổi được email đăng nhập trong hồ sơ.
         </p>
       </SectionCard>
-      <button
-        className="learner-profile-demo-link"
-        type="button"
-        onClick={() => navigate("/learner/subscription-suspended")}
-      >
-        Xem trước: trạng thái gói dịch vụ của tổ chức đang tạm ngưng
-      </button>
+      {canOpenPage("/learner/subscription-suspended") && (
+        <button
+          className="learner-profile-demo-link"
+          type="button"
+          onClick={() => navigate("/learner/subscription-suspended")}
+        >
+          Xem trước: trạng thái gói dịch vụ của tổ chức đang tạm ngưng
+        </button>
+      )}
     </LearnerPage>
   );
 };
