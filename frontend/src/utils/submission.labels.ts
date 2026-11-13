@@ -30,17 +30,23 @@ const REVIEW_STATUS: Record<string, { label: string; tone: LabelTone }> = {
   Waived: { label: "Được miễn", tone: "info" },
 };
 
+const unknownStatus = { label: "Trạng thái không xác định", tone: "neutral" as const };
+
 export const reviewStatusView = (status: string) =>
-  REVIEW_STATUS[status] ?? { label: status, tone: "neutral" as LabelTone };
+  Object.hasOwn(REVIEW_STATUS, status) ? REVIEW_STATUS[status] : unknownStatus;
 
 export const reviewerRoleLabel = (role: string) =>
   role === "Instructor" ? "Giảng viên" : role === "Learner" ? "Học viên" : role;
 
 export const gradingStatusView = (status: string) =>
-  GRADING_STATUS[status] ?? { label: status, tone: "neutral" as LabelTone };
+  Object.hasOwn(GRADING_STATUS, status) ? GRADING_STATUS[status] : unknownStatus;
 
-export const interventionLabel = (reason: string | null) =>
-  reason ? (INTERVENTION_REASON[reason] ?? "Cần giảng viên xử lý") : null;
+export const interventionLabel = (reason: string | null) => {
+  if (reason === null) return null;
+  return Object.hasOwn(INTERVENTION_REASON, reason)
+    ? INTERVENTION_REASON[reason]
+    : "Cần giảng viên xử lý";
+};
 
 export const personName = (person: ISubmissionPerson) =>
   person.fullName ?? `Học viên ${person.id.slice(-4).toUpperCase()}`;
