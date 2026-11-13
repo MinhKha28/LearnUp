@@ -39,7 +39,7 @@ export class HttpNotificationClient extends NotificationClient {
           recipientUserId: item.recipientUserId,
           title: item.title,
           message: item.message,
-          type: 'PEER_REVIEW',
+          type: item.type ?? 'PEER_REVIEW',
           channel: 'IN_APP',
           metadata: item.metadata ? JSON.stringify(item.metadata) : undefined,
         }),

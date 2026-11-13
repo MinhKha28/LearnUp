@@ -1,7 +1,8 @@
 /**
  * BR-254 / UC32.3: when the Instructor publishes the final score, the Learner is told by the bell and by e-mail.
  * The real HttpNotificationClient talks to a stub of notification-service, so the paths, the headers and the bodies
- * are the ones notification-service would receive. The notice is a side effect: it never undoes the score.
+ * are the ones notification-service would receive. The notice is a side effect: it never undoes the score, it goes out in
+ * the background (the Instructor does not wait for it) and each channel is tried again when notification-service fails.
  */
 import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
@@ -15,6 +16,7 @@ import {
   KEY,
   LEARNER,
   ORG,
+  sleep,
   startCourseStub,
   startService,
   type CourseStub,
@@ -24,10 +26,18 @@ import {
 
 interface Sent {
   path: string;
+  status: number;
   body: Record<string, unknown>;
   hasInternalKey: boolean;
   hasUserId: boolean;
 }
+
+const BELL = '/notifications/send';
+const MAIL = '/notifications/email/send';
+
+// one try and three more, as in production but in tenths of a second
+const RETRY_DELAYS = '50,100,200';
+const ATTEMPTS = 4;
 
 describe('BR-254 the Learner is told when the final score is published', () => {
   let db: TestDatabase;
@@ -38,6 +48,22 @@ describe('BR-254 the Learner is told when the final score is published', () => {
   let sent: Sent[] = [];
   let notifierStatus = 201;
   let notifierUrl = '';
+  // how many calls of each path still fail with 503 before the stub answers normally
+  let failFirst: Record<string, number> = {};
+
+  const reached = (path: string) =>
+    sent.filter((s) => s.path.endsWith(path) && s.status < 300);
+
+  async function until(what: string, done: () => boolean, ms = 8000) {
+    const stop = Date.now() + ms;
+    while (!done()) {
+      assert.ok(
+        Date.now() < stop,
+        `timeout waiting for ${what}: ${JSON.stringify(sent)}`,
+      );
+      await sleep(25);
+    }
+  }
 
   async function createSubmission(title: string) {
     const created = await api('POST', '/assignments', {
@@ -96,15 +122,20 @@ describe('BR-254 the Learner is told when the final score is published', () => {
       let raw = '';
       request.on('data', (chunk: Buffer) => (raw += chunk.toString()));
       request.on('end', () => {
+        const path = request.url ?? '';
+        const failing = Object.entries(failFirst).find(
+          ([suffix, left]) => path.endsWith(suffix) && left > 0,
+        );
+        if (failing) failFirst[failing[0]] -= 1;
+        const status = failing ? 503 : notifierStatus;
         sent.push({
-          path: request.url ?? '',
+          path,
+          status,
           body: JSON.parse(raw) as Record<string, unknown>,
           hasInternalKey: request.headers['x-internal-key'] === KEY,
           hasUserId: request.headers['x-user-id'] !== undefined,
         });
-        response.writeHead(notifierStatus, {
-          'content-type': 'application/json',
-        });
+        response.writeHead(status, { 'content-type': 'application/json' });
         response.end('{}');
       });
     });
@@ -117,6 +148,7 @@ describe('BR-254 the Learner is told when the final score is published', () => {
       OUTBOX_RELAY_ENABLED: 'false',
       NOTIFICATION_CLIENT_MODE: 'http',
       NOTIFICATION_SERVICE_URL: notifierUrl,
+      NOTICE_RETRY_DELAYS_MS: RETRY_DELAYS,
     });
     api = apiFor(service.baseUrl);
   });
@@ -138,13 +170,15 @@ describe('BR-254 the Learner is told when the final score is published', () => {
     sent = [];
     const result = await finalize(submissionId, { finalScore: 80 });
     assert.equal(result.status, 200, JSON.stringify(result.json));
+    await until('the bell and the e-mail', () => sent.length >= 2);
 
     assert.equal(sent.length, 2, JSON.stringify(sent));
-    const bell = sent.find((s) => s.path.endsWith('/notifications/send'));
+    const bell = sent.find((s) => s.path.endsWith(BELL));
     assert.ok(bell, JSON.stringify(sent));
     assert.equal(bell.body.recipientUserId, LEARNER);
     assert.equal(bell.body.organizationId, ORG);
     assert.equal(bell.body.title, 'Điểm bài tập đã được công bố');
+    assert.equal(bell.body.type, 'ASSIGNMENT_RESULT');
     assert.match(String(bell.body.message), /"Final <b>exercise<\/b>"/);
     assert.match(String(bell.body.message), /Điểm cuối cùng của bạn là 80%\./);
     // notification-service keeps the metadata as text, so the client sends it as a JSON string
@@ -155,7 +189,7 @@ describe('BR-254 the Learner is told when the final score is published', () => {
     assert.equal(bell.hasInternalKey, true);
     assert.equal(bell.hasUserId, false);
 
-    const mail = sent.find((s) => s.path.endsWith('/notifications/email/send'));
+    const mail = sent.find((s) => s.path.endsWith(MAIL));
     assert.ok(mail, JSON.stringify(sent));
     assert.match(String(mail.body.recipientEmail), /@demo\.local$/);
     assert.equal(mail.body.subject, 'Điểm bài tập đã được công bố');
@@ -174,9 +208,27 @@ describe('BR-254 the Learner is told when the final score is published', () => {
       comment: 'Adjusted for the presentation.',
     });
     assert.equal(result.status, 200, JSON.stringify(result.json));
-    const bell = sent.find((s) => s.path.endsWith('/notifications/send'));
-    assert.ok(bell, JSON.stringify(sent));
-    assert.match(String(bell.body.message), /là 79,5%\./);
+    await until('the bell', () => reached(BELL).length === 1);
+    assert.match(String(reached(BELL)[0].body.message), /là 79,5%\./);
+  });
+
+  test('the answer does not wait for the notices, even when they keep failing', async () => {
+    const { submissionId } = await gradedSubmission('Slow notifier');
+    sent = [];
+    // every attempt fails, so the notices keep trying for a while after the answer
+    notifierStatus = 503;
+    try {
+      const result = await finalize(submissionId, { finalScore: 80 });
+      assert.equal(result.status, 200, JSON.stringify(result.json));
+      // the retries alone take 350 ms (50 + 100 + 200): the answer came before they were over
+      assert.ok(
+        sent.length < ATTEMPTS * 2,
+        `the answer waited for the retries: ${sent.length} calls were done`,
+      );
+      await until('all the attempts', () => sent.length === ATTEMPTS * 2);
+    } finally {
+      notifierStatus = 201;
+    }
   });
 
   test('a refused finalization sends nothing', async () => {
@@ -189,16 +241,43 @@ describe('BR-254 the Learner is told when the final score is published', () => {
 
     const first = await finalize(submissionId, { finalScore: 80 });
     assert.equal(first.status, 200, JSON.stringify(first.json));
-    const afterFirst = sent.length;
-    assert.equal(afterFirst, 2, JSON.stringify(sent));
+    await until('the two notices', () => sent.length === 2);
 
     const again = await finalize(submissionId, { finalScore: 80 });
     assert.equal(again.status, 409, JSON.stringify(again.json));
     assert.equal(again.code, 'SUBMISSION_ALREADY_FINALIZED');
-    assert.equal(sent.length, afterFirst, 'the repeated request tells nobody');
+    await sleep(500); // longer than every retry of a notice
+    assert.equal(
+      sent.length,
+      2,
+      'neither the refused requests nor the repeated one tell anybody',
+    );
   });
 
-  test('the score stays published when notification-service refuses both messages', async () => {
+  test('a notification-service that is down for a moment still gets both notices', async () => {
+    const { submissionId } = await gradedSubmission('Down for a moment');
+    sent = [];
+    failFirst = { [BELL]: 2, [MAIL]: 2 };
+    try {
+      const result = await finalize(submissionId, { finalScore: 80 });
+      assert.equal(result.status, 200, JSON.stringify(result.json));
+      await until(
+        'both notices delivered',
+        () => reached(BELL).length === 1 && reached(MAIL).length === 1,
+      );
+    } finally {
+      failFirst = {};
+    }
+    assert.equal(
+      sent.length,
+      6,
+      'two failures and then one success for each channel: ' +
+        JSON.stringify(sent.map((s) => [s.path, s.status])),
+    );
+    assert.equal(sent.filter((s) => s.status === 503).length, 4);
+  });
+
+  test('the score stays published when notification-service refuses every attempt', async () => {
     const { submissionId } = await gradedSubmission('Notifier down');
     sent = [];
     notifierStatus = 500;
@@ -206,10 +285,19 @@ describe('BR-254 the Learner is told when the final score is published', () => {
       const result = await finalize(submissionId, { finalScore: 80 });
       assert.equal(result.status, 200, JSON.stringify(result.json));
       assert.equal(result.data.gradingStatus, 'Finalized');
+      await until(
+        'every attempt of both channels',
+        () => sent.length === ATTEMPTS * 2,
+      );
+      await sleep(400);
+      assert.equal(
+        sent.length,
+        ATTEMPTS * 2,
+        'it gives up after the last delay',
+      );
     } finally {
       notifierStatus = 201;
     }
-    assert.equal(sent.length, 2, 'both channels were tried, each on its own');
     const [row] = await db.query(
       'SELECT grading_status, final_score FROM submissions WHERE id = $1',
       [submissionId],
@@ -237,6 +325,7 @@ describe('BR-254 the Learner is told when the final score is published', () => {
       OUTBOX_DELIVERY_TIMEOUT_MS: '1000', // the first probe of an unreachable broker ends in about a second
       NOTIFICATION_CLIENT_MODE: 'http',
       NOTIFICATION_SERVICE_URL: notifierUrl,
+      NOTICE_RETRY_DELAYS_MS: RETRY_DELAYS,
     });
     try {
       sent = [];
@@ -246,6 +335,7 @@ describe('BR-254 the Learner is told when the final score is published', () => {
         { finalScore: 80 },
       );
       assert.equal(result.status, 200, JSON.stringify(result.json));
+      await until('the bell and the e-mail', () => sent.length >= 2);
       assert.equal(sent.length, 2, 'the bell and the e-mail were sent');
       const events = await db.query(
         `SELECT published_at FROM outbox_events WHERE payload->>'submissionId' = $1
