@@ -36,9 +36,9 @@ type MenuItem = Required<MenuProps>["items"][number];
 const adminMenuItems: MenuItem[] = [
   {
     type: "group",
-    label: "Tổng quan",
+    label: "Điều hành",
     children: [
-      { key: "/admin", icon: <DashboardOutlined />, label: "Tổng quan" },
+      { key: "/admin", icon: <DashboardOutlined aria-hidden="true" />, label: "Tổng quan nền tảng" },
     ],
   },
   {
@@ -47,23 +47,23 @@ const adminMenuItems: MenuItem[] = [
     children: [
       {
         key: "/admin/organizations",
-        icon: <TeamOutlined />,
+        icon: <TeamOutlined aria-hidden="true" />,
         label: "Tổ chức",
       },
-      { key: "/admin/plans", icon: <CreditCardOutlined />, label: "Gói dịch vụ" },
+      { key: "/admin/plans", icon: <CreditCardOutlined aria-hidden="true" />, label: "Gói dịch vụ" },
       {
         key: "/admin/configuration",
-        icon: <SettingOutlined />,
+        icon: <SettingOutlined aria-hidden="true" />,
         label: "Cấu hình",
       },
       {
         key: "/admin/statistics",
-        icon: <BarChartOutlined />,
+        icon: <BarChartOutlined aria-hidden="true" />,
         label: "Thống kê nền tảng",
       },
       {
         key: "/admin/audit-logs",
-        icon: <FileSearchOutlined />,
+        icon: <FileSearchOutlined aria-hidden="true" />,
         label: "Nhật ký nền tảng",
       },
     ],
@@ -74,19 +74,19 @@ const adminMenuItems: MenuItem[] = [
     children: [
       {
         key: "/admin/reports",
-        icon: <ExclamationCircleOutlined />,
+        icon: <ExclamationCircleOutlined aria-hidden="true" />,
         label: (
           <span className="admin-menu-label">
-            Báo cáo đã chuyển cấp <Badge count={2} />
+            Báo cáo chuyển cấp <Badge count={2} />
           </span>
         ),
       },
       {
         key: "/admin/suspended-organizations",
-        icon: <StopOutlined />,
+        icon: <StopOutlined aria-hidden="true" />,
         label: (
           <span className="admin-menu-label">
-            Tổ chức bị tạm ngưng <Badge count={2} />
+            Tổ chức bị tạm khóa <Badge count={2} />
           </span>
         ),
       },
@@ -96,25 +96,26 @@ const adminMenuItems: MenuItem[] = [
     type: "group",
     label: "Tài khoản",
     children: [
-      { key: "/admin/profile", icon: <UserOutlined />, label: "Hồ sơ" },
+      { key: "/admin/profile", icon: <UserOutlined aria-hidden="true" />, label: "Hồ sơ" },
     ],
   },
 ];
 
 const getPageMeta = (pathname: string) => {
-  if (pathname === "/admin") return ["Quản trị nền tảng", "Tổng quan"];
+  if (pathname === "/admin") return ["Quản trị nền tảng", "Tổng quan nền tảng"];
   if (pathname.includes("replace-organizer"))
-    return ["Quản trị nền tảng", "Thay Quản lý đào tạo"];
+    return ["Quản trị nền tảng", "Thay quản lý đào tạo"];
   if (pathname.includes("organizations/") && !pathname.includes("suspended"))
     return ["Quản trị nền tảng", "Chi tiết tổ chức"];
   if (pathname.endsWith("plans/create"))
-    return ["Quản trị nền tảng", "Tạo Gói dịch vụ"];
+    return ["Quản trị nền tảng", "Tạo gói dịch vụ"];
   if (pathname.includes("plans/") && pathname.endsWith("edit"))
-    return ["Quản trị nền tảng", "Sửa Gói dịch vụ"];
+    return ["Quản trị nền tảng", "Sửa gói dịch vụ"];
+  if (pathname === "/admin/notifications") return ["Quản trị nền tảng", "Thông báo"];
   if (pathname === "/admin/plans") return ["Quản trị nền tảng", "Gói dịch vụ"];
   if (pathname.includes("reports/")) return ["Quản trị nền tảng", "Chi tiết báo cáo"];
   if (pathname === "/admin/reports")
-    return ["Quản trị nền tảng", "Báo cáo đã chuyển cấp"];
+    return ["Quản trị nền tảng", "Báo cáo đã chuyển cấp xử lý"];
   if (pathname === "/admin/configuration")
     return ["Quản trị nền tảng", "Cấu hình"];
   if (pathname === "/admin/statistics")
@@ -122,10 +123,10 @@ const getPageMeta = (pathname: string) => {
   if (pathname === "/admin/audit-logs")
     return ["Quản trị nền tảng", "Nhật ký nền tảng"];
   if (pathname === "/admin/suspended-organizations")
-    return ["Quản trị nền tảng", "Tổ chức bị tạm ngưng"];
+    return ["Quản trị nền tảng", "Tổ chức bị tạm khóa"];
   if (pathname === "/admin/profile/change-password")
     return ["Quản trị nền tảng", "Đổi mật khẩu"];
-  if (pathname === "/admin/profile/edit") return ["Quản trị nền tảng", "Chỉnh sửa hồ sơ"];
+  if (pathname === "/admin/profile/edit") return ["Quản trị nền tảng", "Sửa hồ sơ"];
   if (pathname === "/admin/profile") return ["Quản trị nền tảng", "Hồ sơ"];
   return ["Quản trị nền tảng", "Tổ chức"];
 };
@@ -161,18 +162,18 @@ const LayoutAdmin = () => {
   const profileItems: MenuProps["items"] = [
     {
       key: "profile",
-      icon: <UserOutlined />,
+      icon: <UserOutlined aria-hidden="true" />,
       label: <Link to="/admin/profile">Hồ sơ</Link>,
     },
     {
       key: "password",
-      icon: <LockOutlined />,
+      icon: <LockOutlined aria-hidden="true" />,
       label: <Link to="/admin/profile/change-password">Đổi mật khẩu</Link>,
     },
     { type: "divider" },
     {
       key: "logout",
-      icon: <LogoutOutlined />,
+      icon: <LogoutOutlined aria-hidden="true" />,
       label: "Đăng xuất",
       danger: true,
       onClick: logout,
@@ -183,7 +184,7 @@ const LayoutAdmin = () => {
     <>
       <Link className="admin-brand" to="/admin" aria-label="Trang chủ Quản trị viên LearnUP">
         <span className="admin-brand-mark">
-          <SafetyCertificateOutlined />
+          <SafetyCertificateOutlined aria-hidden="true" />
         </span>
         <img src="/logo/learnup-logo-dark.png" alt="LearnUP" />
       </Link>
@@ -218,7 +219,7 @@ const LayoutAdmin = () => {
             <Button
               className="admin-menu-trigger"
               type="text"
-              icon={<MenuOutlined />}
+              icon={<MenuOutlined aria-hidden="true" />}
               onClick={() => setMobileOpen(true)}
               aria-label="Mở menu điều hướng"
             />
@@ -239,7 +240,7 @@ const LayoutAdmin = () => {
                 <Avatar size={34} src={user?.avatar}>{initials}</Avatar>
                 <span>
                   <strong>{displayName}</strong>
-                  <small>Quản trị viên</small>
+                  <small>Quản trị viên nền tảng</small>
                 </span>
               </button>
             </Dropdown>

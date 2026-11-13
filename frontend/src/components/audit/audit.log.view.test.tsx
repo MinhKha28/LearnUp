@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { App } from "antd";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import dayjs from "dayjs";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +10,24 @@ import type { IAuditLog, IAuditLogPage } from "@/types/audit.types";
 import AuditLogView from "./audit.log.view";
 
 vi.mock("@/services/audit.service", () => ({ fetchAuditLogsAPI: vi.fn() }));
+
+const { useSimpleDatePicker } = vi.hoisted(() => ({ useSimpleDatePicker: { current: false } }));
+
+vi.mock("@/components/vietnamese.controls", async (importOriginal) => {
+  const controls = await importOriginal<typeof import("@/components/vietnamese.controls")>();
+  return {
+    ...controls,
+    VietnameseDatePicker: (props: React.ComponentProps<typeof controls.VietnameseDatePicker>) =>
+      useSimpleDatePicker.current ? (
+        <input
+          id={props.id}
+          type="date"
+          value={props.value?.format("YYYY-MM-DD") ?? ""}
+          onChange={(event) => props.onChange?.(dayjs(event.target.value), event.target.value)}
+        />
+      ) : <controls.VietnameseDatePicker {...props} />,
+  };
+});
 
 const fetchLogs = vi.mocked(fetchAuditLogsAPI);
 
@@ -21,7 +40,7 @@ const log = (over: Partial<IAuditLog> = {}): IAuditLog => ({
   targetResourceType: "User",
   targetResourceId: "0199a000-0000-7000-8000-0c00000000bb",
   details: JSON.stringify({ reason: "Vi phạm nội quy", occurredAt: "2026-11-02T03:04:00.000Z" }),
-  createdAt: "2026-11-02T03:04:30.000Z",
+  createdAt: "2026-11-02T03:04:00.000Z",
   ...over,
 });
 
@@ -54,6 +73,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  useSimpleDatePicker.current = false;
   vi.unstubAllGlobals();
 });
 
@@ -63,7 +83,7 @@ describe("UC50, UC51 list of the audit trail", () => {
     renderView();
     await screen.findByText("Ngừng hoạt động tài khoản giảng viên");
     const row = screen.getByText("Ngừng hoạt động tài khoản giảng viên").closest("tr")!;
-    expect(within(row).getByText("02/11/2026 10:04")).toBeTruthy(); // 03:04Z is 10:04 in Vietnam: the time of the action, not of the arrival
+    expect(within(row).getByText("02/11/2026 10:04")).toBeTruthy(); // 03:04Z is 10:04 in Vietnam
     expect(within(row).getByText(/Quản lý đào tạo/)).toBeTruthy();
     expect(within(row).getByText(/Tài khoản/)).toBeTruthy();
     expect(within(row).getByText(/…000000bb/)).toBeTruthy();
@@ -85,14 +105,15 @@ describe("UC50, UC51 list of the audit trail", () => {
     expect(within(row).queryByText("01/11/2026 10:00")).toBeNull();
   });
 
-  it("shows a dash when there is no reason and falls back to the arrival time and to the raw code of an unknown action", async () => {
+  it("shows a dash when there is no reason and shows the recorded time and retains unknown action codes in a tooltip", async () => {
     fetchLogs.mockResolvedValue(answer([log({ details: null, actionType: "SOMETHING_NEW", actorRole: null, actorUserId: null, targetResourceType: "Gadget" })]));
     renderView();
-    await screen.findByText(/SOMETHING_NEW/);
-    const row = screen.getByText(/SOMETHING_NEW/).closest("tr")!;
+    const action = await screen.findByTitle("SOMETHING_NEW");
+    expect(action.textContent).toBe("Không xác định");
+    expect(screen.queryByText(/SOMETHING_NEW/)).toBeNull();
+    const row = action.closest("tr")!;
+    expect(within(row).getAllByText("Không xác định")).toHaveLength(2);
     expect(within(row).getByText(/(Gadget)/)).toBeTruthy(); // the same for a type of target the screen has no word for
-    expect(within(row).getByText("Đối tượng khác", { exact: false })).toBeTruthy();
-    expect(within(row).getByText("Hành động khác")).toBeTruthy(); // a code with no word is called "other" and the code is written next to it
     expect(within(row).getByText("02/11/2026 10:04")).toBeTruthy();
     expect(within(row).getByText("Hệ thống")).toBeTruthy();
     expect(within(row).getAllByText("—").length).toBeGreaterThan(0);
@@ -184,19 +205,20 @@ describe("UC50, UC51 list of the audit trail", () => {
 
   it("a reversed range is refused in the form and never asked of the server", async () => {
     fetchLogs.mockResolvedValue(answer([log()]));
-    renderView();
-    await screen.findByText("Ngừng hoạt động tài khoản giảng viên");
+    useSimpleDatePicker.current = true;
+    const router = await act(async () => renderView());
     const calls = fetchLogs.mock.calls.length;
-    pickDay("Từ ngày", "08/11/2026");
-    pickDay("Đến ngày", "01/11/2026");
+    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "2026-11-08" } });
+    fireEvent.change(screen.getByLabelText("Đến ngày"), { target: { value: "2026-11-01" } });
     fireEvent.click(screen.getByRole("button", { name: "Lọc" }));
-    await screen.findByText("Ngày bắt đầu phải trước hoặc cùng ngày với ngày kết thúc.");
+    expect(screen.getByText("Ngày bắt đầu phải trước hoặc cùng ngày với ngày kết thúc.")).toBeTruthy();
     expect(fetchLogs.mock.calls.length).toBe(calls);
+    expect(router.state.location.search).toBe("");
   });
 
-  it("a reversed range that arrives in a link is explained and not asked of the server either", async () => {
+  it("a reversed range that arrives in a link is explained and not asked of the server either", () => {
     renderView("/?from=2026-11-08&to=2026-11-01");
-    await screen.findByText("Ngày bắt đầu phải trước hoặc cùng ngày với ngày kết thúc.");
+    expect(screen.getByText("Ngày bắt đầu phải trước hoặc cùng ngày với ngày kết thúc.")).toBeTruthy();
     expect(fetchLogs).not.toHaveBeenCalled();
   });
 

@@ -107,6 +107,7 @@ describe("the page", () => {
     render(<NotificationPage />);
     await screen.findByText("Bạn có bài cần chấm chéo");
     expect(screen.getByRole("heading", { name: "Thông báo" })).toBeTruthy();
+    expect(screen.getByText("Cập nhật về khóa học, bài tập và bài chấm của bạn.")).toBeTruthy();
     expect(screen.getByText("Tất cả")).toBeTruthy();
     expect(screen.getAllByText("Chưa đọc").length).toBeGreaterThan(0);
     expect(screen.getByText("1 chưa đọc")).toBeTruthy();

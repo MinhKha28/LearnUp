@@ -1,3 +1,4 @@
+import { subscriptionStatusViewVi } from "@/utils/organization.detail.view";
 import { formatNumberVN } from "@/utils/number.format";
 import { useEffect, useState, type ReactNode } from "react";
 import { Spin } from "antd";
@@ -22,6 +23,7 @@ import type {
   SubscriptionStatus,
 } from "@/types/subscription.types";
 import { formatDateVN, formatVnd } from "@/utils/helper";
+import { subscriptionUsage } from "@/utils/subscription.usage";
 import "./subscription.scss";
 import { VietnameseAlert } from "@/components/vietnamese.controls";
 
@@ -38,36 +40,31 @@ const formatBytes = (bytes: number) => {
 
 const STATUS_VIEW: Record<
   SubscriptionStatus,
-  { label: string; tone: string; access: string }
+  { tone: string; access: string }
 > = {
   Active: {
-    label: "Đang hoạt động",
     tone: "active",
     access: "Toàn quyền truy cập",
   },
   Grace: {
-    label: "Trong thời gian ân hạn",
     tone: "grace",
     access: "Truy cập có giới hạn",
   },
-  Suspended: { label: "Tạm ngưng", tone: "suspended", access: "Chỉ xem" },
+  Suspended: { tone: "suspended", access: "Chỉ xem" },
 };
-
-const usageLevel = (item: IUsageItem) =>
-  (item.percent ?? 0) >= 100 ? "full" : item.warning ? "warning" : "ok";
 
 const UsageCard = ({
   icon,
   label,
   item,
-  format = (value: number) => String(value),
+  format = (value: number) => value.toLocaleString("vi-VN"),
 }: {
   icon: ReactNode;
   label: string;
   item: IUsageItem;
   format?: (value: number) => string;
 }) => {
-  const level = usageLevel(item);
+  const { label: percentLabel, barWidth, level } = subscriptionUsage(item);
   return (
     <div className={`sub-usage-card sub-usage-${level}`}>
       <div className="sub-usage-head">
@@ -84,19 +81,21 @@ const UsageCard = ({
         <>
           <strong className="sub-usage-value">
             {format(item.used)}
-            <span> / {format(item.limit)}</span>
+            <span> / {item.limit == null ? "—" : format(item.limit)}</span>
           </strong>
           <div className="sub-usage-bar">
-            <span style={{ width: `${Math.min(item.percent ?? 0, 100)}%` }} />
+            <span style={{ width: `${barWidth}%` }} />
           </div>
-          <small className="sub-usage-caption">
-            Đã dùng {item.percent}%
-            {level === "full"
-              ? " - đã đạt giới hạn"
-              : level === "warning"
-                ? " - sắp đạt giới hạn"
-                : ""}
-          </small>
+          {percentLabel !== null && (
+            <small className="sub-usage-caption">
+              {percentLabel === "Dưới 1%" || percentLabel === "Trên 99%" ? percentLabel : `Đã dùng ${percentLabel}`}
+              {level === "full"
+                ? " - đã đạt giới hạn"
+                : level === "warning"
+                  ? " - sắp đạt giới hạn"
+                  : ""}
+            </small>
+          )}
         </>
       )}
     </div>
@@ -188,7 +187,7 @@ const Subscription = () => {
             <div className="sub-hero-side">
               <span className={`sub-status sub-status-${status.tone}`}>
                 <i />
-                {status.label}
+                {subscriptionStatusViewVi(subscription.status).label}
               </span>
               <span className="sub-hero-access">{status.access}</span>
             </div>
@@ -211,7 +210,7 @@ const Subscription = () => {
             <div className="sub-hero-period-bar">
               <span style={{ width: `${periodLeft}%` }} />
             </div>
-            <small>Còn {periodLeft}% thời hạn của kỳ này</small>
+            <small>Còn {periodLeft.toLocaleString("vi-VN")}% thời hạn của kỳ này</small>
           </div>
           {overview?.scheduledRenewal && (
             <div className="sub-hero-next">

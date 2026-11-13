@@ -1,4 +1,5 @@
-import { Alert, Avatar, Button, Checkbox, Empty, Table } from "antd";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { Avatar, Button, Checkbox, Empty, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -57,7 +58,7 @@ const Organizations = () => {
 
   const columns: ColumnsType<IAdminOrganizationListItem> = [
     {
-      title: "Organization",
+      title: "Tổ chức",
       dataIndex: "name",
       render: (_, record) => (
         <div className="admin-avatar-name">
@@ -69,26 +70,26 @@ const Organizations = () => {
         </div>
       ),
     },
-    { title: "Plan", key: "plan", render: (_, record) => record.plan?.name ?? "—" },
+    { title: "Gói dịch vụ", key: "plan", render: (_, record) => record.plan?.name ?? "—" },
     {
-      title: "Org status",
+      title: "Trạng thái tổ chức",
       dataIndex: "status",
       render: (_, record) => {
-        const view = organizationStatusView[record.status];
+        const view = organizationStatusView(record.status);
         return <StatusTag tone={view.tone}>{view.label}</StatusTag>;
       },
     },
     {
-      title: "Subscription",
+      title: "Trạng thái gói dịch vụ",
       key: "subscription",
       render: (_, record) => {
         if (!record.subscription) return <StatusTag tone="neutral">{noSubscriptionLabel(record)}</StatusTag>;
-        const view = subscriptionStatusView[record.subscription.status];
+        const view = subscriptionStatusView(record.subscription.status);
         return <StatusTag tone={view.tone}>{view.label}</StatusTag>;
       },
     },
     {
-      title: "Term",
+      title: "Thời hạn",
       key: "term",
       render: (_, record) => {
         const term = subscriptionTermLabel(record);
@@ -101,12 +102,12 @@ const Organizations = () => {
       },
     },
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       align: "right",
       render: (_, record) => (
         <button className="admin-link" onClick={() => navigate(`/admin/organizations/${encodeURIComponent(record.id)}`)}>
-          View details
+          Xem chi tiết
         </button>
       ),
     },
@@ -115,17 +116,17 @@ const Organizations = () => {
   return (
     <AdminPage className="admin-organizations">
       <PageHeader
-        title="Organizations"
-        subtitle="View every organization, its current plan, organization status, and subscription lifecycle."
+        title="Tổ chức"
+        subtitle="Xem danh sách tổ chức, gói dịch vụ hiện tại, trạng thái tổ chức và vòng đời gói dịch vụ."
         actions={
           <Link to="/admin/suspended-organizations">
-            <AdminButton>View suspended</AdminButton>
+            <AdminButton>Xem tổ chức bị tạm khóa</AdminButton>
           </Link>
         }
       />
       <SectionCard
-        title="All organizations"
-        extra={<span className="admin-note">{loading ? "Loading…" : `${total} organizations`}</span>}
+        title="Tất cả tổ chức"
+        extra={<span className="admin-note">{loading ? "Đang tải…" : `${total.toLocaleString("vi-VN")} tổ chức`}</span>}
       >
         <div className="admin-filters">
           <Checkbox
@@ -135,17 +136,17 @@ const Organizations = () => {
               setPage(1);
             }}
           >
-            Show cancelled organizations
+            Hiện tổ chức đã hủy
           </Checkbox>
         </div>
         {error ? (
-          <Alert
+          <VietnameseAlert
             className="admin-filters"
             type="error"
             showIcon
-            message="Could not load organizations."
-            description="Please check your connection and try again."
-            action={<Button onClick={() => setReloadKey((key) => key + 1)}>Try again</Button>}
+            message="Không thể tải danh sách tổ chức."
+            description="Vui lòng kiểm tra kết nối và thử lại."
+            action={<Button onClick={() => setReloadKey((key) => key + 1)}>Thử lại</Button>}
           />
         ) : (
           <Table
@@ -154,7 +155,7 @@ const Organizations = () => {
             columns={columns}
             dataSource={rows}
             loading={loading}
-            locale={{ emptyText: <Empty description="No organization yet" /> }}
+            locale={{ emptyText: <Empty description="Chưa có tổ chức" /> }}
             pagination={{
               current: page,
               pageSize,

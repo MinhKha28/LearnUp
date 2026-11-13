@@ -73,11 +73,14 @@
     color: #94a3b8;
     font-size: 8px;
     font-weight: 700;
-    text-transform: uppercase;
 }
 
 .admin-usage.admin-usage-warning span {
     background: #d97706;
+}
+
+.admin-usage.admin-usage-full span {
+    background: var(--color-error);
 }
 
 .admin-usage-row {
