@@ -312,6 +312,7 @@ class CourseDecisionEventHandlerTest {
     void theApprovalEmailIsACardWithABadgeTheCourseDetailsAndAFooter() {
         String body = CourseDecisionEventHandler.emailHtml(decision(true, Instant.now()), "Trần Văn Minh");
         assertThat(body).startsWith("<!DOCTYPE html>").contains("lang=\"vi\"").contains("charset=\"UTF-8\"")
+                .contains("src=\"cid:learnup-logo\"").contains("alt=\"LearnUP\"")
                 .contains("ĐÃ PHÊ DUYỆT").contains("Khóa học đã được công bố")
                 .contains("Phiên bản").contains(">Đã phê duyệt<")
                 .contains("không trả lời thư này")

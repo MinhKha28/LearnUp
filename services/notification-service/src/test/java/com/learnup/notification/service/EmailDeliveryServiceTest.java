@@ -158,4 +158,34 @@ class EmailDeliveryServiceTest {
         verify(emailLogRepository).save(metadata.capture());
         assertThat(metadata.getValue().getSubject()).doesNotContain("synthetic-recovery-token");
     }
+
+    private String sentMime(String body) throws Exception {
+        mailProperties.setEnabled(true);
+        when(mailSenderProvider.getIfAvailable()).thenReturn(javaMailSender);
+        when(javaMailSender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
+        when(emailLogRepository.save(any(EmailLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        emailDeliveryService.sendEmail(new SendEmailRequest("a@example.test", "Subject", body, "LOGO_TEST"));
+
+        ArgumentCaptor<MimeMessage> sent = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(javaMailSender).send(sent.capture());
+        sent.getValue().saveChanges();
+        ByteArrayOutputStream raw = new ByteArrayOutputStream();
+        sent.getValue().writeTo(raw);
+        return raw.toString(StandardCharsets.ISO_8859_1);
+    }
+
+    @Test
+    @DisplayName("A body that shows cid:learnup-logo gets the logo attached inline")
+    void aBodyThatNamesTheLogoGetsItAttachedInline() throws Exception {
+        String mime = sentMime("<p><img src=\"cid:learnup-logo\" alt=\"LearnUP\"/></p>");
+        assertThat(mime).contains("Content-Type: image/png").contains("Content-ID: <learnup-logo>")
+                .contains("Content-Disposition: inline");
+    }
+
+    @Test
+    @DisplayName("A body that does not name the logo carries no image")
+    void aBodyThatDoesNotNameTheLogoCarriesNoImage() throws Exception {
+        assertThat(sentMime("<p>Plain mail</p>")).doesNotContain("image/png").doesNotContain("learnup-logo");
+    }
 }

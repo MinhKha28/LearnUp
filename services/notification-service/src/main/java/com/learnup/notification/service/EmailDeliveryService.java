@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -29,6 +30,9 @@ public class EmailDeliveryService {
     private static final Logger log = LoggerFactory.getLogger(EmailDeliveryService.class);
     public static final String RECOVERY_TEMPLATE = "IDENTITY_PASSWORD_RECOVERY";
     public static final String RECOVERY_SUBJECT = "LearnUP password recovery";
+    /** A body that shows {@code <img src="cid:learnup-logo">} gets the LearnUP logo attached inline to the message. */
+    public static final String LOGO_CID = "learnup-logo";
+    private static final String LOGO_RESOURCE = "mail/learnup-logo-light.png";
 
     private final EmailLogRepository emailLogRepository;
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
@@ -65,6 +69,9 @@ public class EmailDeliveryService {
 
                 boolean isHtml = request.getBody() != null && request.getBody().contains("<") && request.getBody().contains(">");
                 helper.setText(request.getBody(), isHtml);
+                if (isHtml && request.getBody().contains("cid:" + LOGO_CID)) {
+                    attachLogo(helper);
+                }
 
                 mailSender.send(message);
                 status = "SENT";
@@ -113,5 +120,15 @@ public class EmailDeliveryService {
                 .toList();
 
         return PageResponse.of(items, pageResult.getNumber(), pageResult.getSize(), pageResult.getTotalElements());
+    }
+
+    /** A missing logo costs the picture, not the mail: the body still reads (its alt text says LearnUP). */
+    private void attachLogo(MimeMessageHelper helper) throws jakarta.mail.MessagingException {
+        ClassPathResource logo = new ClassPathResource(LOGO_RESOURCE);
+        if (!logo.exists()) {
+            log.warn("event=email_logo_missing resource={}", LOGO_RESOURCE);
+            return;
+        }
+        helper.addInline(LOGO_CID, logo, "image/png");
     }
 }

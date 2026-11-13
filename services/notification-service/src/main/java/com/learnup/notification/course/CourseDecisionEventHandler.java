@@ -139,7 +139,7 @@ public class CourseDecisionEventHandler {
             <!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
             <body style="margin:0;padding:24px 12px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif">
             <table role="presentation" width="100%%" style="max-width:600px;margin:0 auto;border-collapse:collapse">
-            <tr><td style="padding:20px 28px;background:#172554;border-radius:12px 12px 0 0;color:#ffffff;font-size:24px;font-weight:bold">LearnUP</td></tr>
+            <tr><td style="padding:18px 28px;background:#172554;border-radius:12px 12px 0 0;color:#ffffff;font-size:24px;font-weight:bold"><img src="cid:learnup-logo" alt="LearnUP" width="140" style="display:block;border:0;height:auto;color:#ffffff;font-size:24px;font-weight:bold"/></td></tr>
             <tr><td style="padding:32px 28px;background:#ffffff;color:#0f172a">
               <span style="display:inline-block;padding:4px 12px;border-radius:999px;background:%s;color:%s;font-size:12px;font-weight:bold">%s</span>
               <h1 style="margin:14px 0 8px;font-size:22px;line-height:1.3">%s</h1>
