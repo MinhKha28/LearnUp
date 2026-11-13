@@ -25,6 +25,14 @@ describe("profile error messages", () => {
     expect(profileErrorMessage({ message: "Avatar is too large" }, FALLBACK)).toBe(FALLBACK);
     expect(profileErrorMessage(undefined, FALLBACK)).toBe(FALLBACK);
   });
+
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty"])(
+    "keeps the generic message for the inherited key %s",
+    (code) => {
+      expect(profileErrorMessage({ error: { code } }, FALLBACK)).toBe(FALLBACK);
+      expect(profileErrorMessage({ code }, FALLBACK)).toBe(FALLBACK);
+    },
+  );
 });
 
 describe("status label", () => {
@@ -32,6 +40,11 @@ describe("status label", () => {
     expect(statusLabel("Active")).toBe("Đang hoạt động");
     expect(statusLabel("Suspended" as never)).toBe("Suspended");
     expect(statusLabel(undefined)).toBe("");
+  });
+
+  it("shows an inherited key as it is instead of a function", () => {
+    expect(statusLabel("constructor" as never)).toBe("constructor");
+    expect(statusLabel("toString" as never)).toBe("toString");
   });
 });
 

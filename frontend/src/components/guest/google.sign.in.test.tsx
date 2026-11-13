@@ -7,7 +7,7 @@ vi.mock("@/services/axios.customize", () => ({ default: { post, get: vi.fn() } }
 import GoogleSignIn from "@/components/guest/google.sign.in";
 import { GOOGLE_UNAVAILABLE_MESSAGE, googleSignInMessage } from "@/utils/google.sign.in";
 import { googleLoginAPI } from "@/services/identity.service";
-import { signInMessage } from "@/utils/auth";
+import { isSignInReason, signInMessage } from "@/utils/auth";
 
 describe("UC05.1 Google sign-in button", () => {
   afterEach(() => {
@@ -15,12 +15,10 @@ describe("UC05.1 Google sign-in button", () => {
     post.mockReset();
   });
 
-  it("keeps the unavailable fallback button when no Google client ID is configured", () => {
-    vi.stubEnv("VITE_GOOGLE_CLIENT_ID", "");
+  it.each(["", "   "])("renders nothing when the Google client ID is %j", (clientId) => {
+    vi.stubEnv("VITE_GOOGLE_CLIENT_ID", clientId);
     const html = renderToStaticMarkup(<GoogleSignIn onCredential={() => {}} onError={() => {}} />);
-    expect(html).toContain("login-google");
-    expect(html).toContain("Tiếp tục với Google");
-    expect(html).not.toContain("login-google-gis");
+    expect(html).toBe("");
   });
 
   it("renders the container for Google's official button when a client ID is configured", () => {
@@ -40,6 +38,16 @@ describe("UC05.1 Google sign-in button", () => {
     );
     expect(googleSignInMessage("GOOGLE_SIGN_IN_UNAVAILABLE")).toBe(GOOGLE_UNAVAILABLE_MESSAGE);
   });
+
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty"])(
+    "falls back to the default wording for the inherited key %s",
+    (code) => {
+      const fallback = "Hãy kiểm tra email và mật khẩu rồi thử lại.";
+      expect(signInMessage(code)).toBe(fallback);
+      expect(googleSignInMessage(code)).toBe(fallback);
+      expect(isSignInReason(code)).toBe(false);
+    },
+  );
 
   it("reuses the UC05 wording for Tenant eligibility denials", () => {
     for (const code of ["ORGANIZATION_NOT_ACTIVE", "SUBSCRIPTION_ENDED", "TENANT_UNAVAILABLE", undefined]) {

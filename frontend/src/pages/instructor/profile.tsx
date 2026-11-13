@@ -1,3 +1,4 @@
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 import { Avatar, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
 import { initialsOf, statusLabel, statusTone, useMyProfile } from "@/hooks/use.my.profile";
@@ -12,7 +13,7 @@ import {
 import "./profile.scss";
 
 const Profile = () => {
-  const { profile, loading } = useMyProfile();
+  const { profile, loading, error, clearError } = useMyProfile();
   const navigate = useNavigate();
 
   return (
@@ -28,6 +29,9 @@ const Profile = () => {
         }
       />
       <SectionCard>
+        {error && (
+          <VietnameseAlert type="error" showIcon message={error} closable onClose={clearError} />
+        )}
         {loading && <Spin />}
         <div className="instructor-profile-identity">
           <Avatar size={64} src={profile?.avatarUrl ?? undefined}>

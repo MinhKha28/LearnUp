@@ -5,6 +5,7 @@ import { BookOutlined, CheckOutlined, FlagOutlined } from "@ant-design/icons";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { googleLoginAPI, loginAPI } from "@/services/identity.service";
 import GoogleSignIn from "@/components/guest/google.sign.in";
+import { googleClientId } from "@/services/google.identity";
 import { googleSignInMessage } from "@/utils/google.sign.in";
 import { loadUserWithProfile } from "@/services/profile.service";
 import { useCurrentApp } from "@/components/context/app.context";
@@ -39,6 +40,7 @@ export default function LoginPage() {
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const googleEnabled = googleClientId() !== "";
   const { setUser, setIsAuthenticated } = useCurrentApp();
 
   const redirect = safeRedirect(params.get("redirect"));
@@ -239,16 +241,20 @@ export default function LoginPage() {
               Đăng nhập
             </Button>
           </Form>
-          <div className="login-divider">hoặc</div>
-          <GoogleSignIn
-            disabled={loading}
-            onCredential={googleSubmit}
-            onError={setError}
-          />
-          <p className="login-help">
-            Tài khoản quản lý đào tạo, giảng viên và học viên đã có có thể đăng
-            nhập bằng Google.
-          </p>
+          {googleEnabled && (
+            <>
+              <div className="login-divider">hoặc</div>
+              <GoogleSignIn
+                disabled={loading}
+                onCredential={googleSubmit}
+                onError={setError}
+              />
+              <p className="login-help">
+                Tài khoản quản lý đào tạo, giảng viên và học viên đã có có thể
+                đăng nhập bằng Google.
+              </p>
+            </>
+          )}
         </div>
         <div className="login-panel-footer login-panel-footer-stacked">
           <div>
