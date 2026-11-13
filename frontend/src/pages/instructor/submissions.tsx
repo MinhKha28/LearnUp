@@ -16,6 +16,7 @@ import {
   PageHeader,
   StatusTag,
 } from "@/components/instructor/instructor.ui";
+import SubmissionAssignmentPicker from "@/components/instructor/submission.assignment.picker";
 import { getAssignmentSubmissionsAPI } from "@/services/instructor.submission.service";
 import type { ISubmissionList } from "@/types/submission.types";
 import {
@@ -159,10 +160,14 @@ const Submissions = () => {
         <PageHeader
           eyebrow="Bài nộp"
           title="Bài nộp của bài tập"
-          subtitle="Hãy chọn một bài tập trước."
+          subtitle="Chọn khóa học và bài tập để xem bài nộp."
+        />
+        <SubmissionAssignmentPicker
+          onPick={(id) => update({ assessmentId: id })}
         />
         <InfoPanel title="Cách mở danh sách bài nộp">
-          Vào Khóa học của tôi, chọn một bài tập rồi chọn Bài nộp.
+          Chọn khóa học, rồi chọn bài tập. Bạn cũng có thể mở từ trang chi tiết
+          bài tập bằng nút Bài nộp.
         </InfoPanel>
       </InstructorPage>
     );

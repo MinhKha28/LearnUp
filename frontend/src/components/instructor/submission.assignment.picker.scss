@@ -1,0 +1,26 @@
+.instructor-submission-picker {
+  margin-bottom: 20px;
+}
+
+.instructor-submission-picker-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.instructor-submission-picker-fields label {
+  display: flex;
+  min-width: 280px;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.instructor-submission-picker-error {
+  margin: 12px 0 0;
+  color: #b91c1c;
+  font-size: 13px;
+}
