@@ -33,7 +33,7 @@ const renderCourses = (entries: string[]) => {
   return router;
 };
 
-const input = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Tìm theo tên Khóa học" });
+const input = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Tìm theo tên khóa học" });
 
 beforeEach(() => {
   fetchPage.mockReset();
@@ -59,7 +59,7 @@ describe("My Courses filters", () => {
     }, expect.any(AbortSignal));
     expect(input().value).toBe("");
     expect(input().maxLength).toBe(200);
-    expect(screen.getByText("Tất cả loại Khóa học")).toBeTruthy();
+    expect(screen.getByText("Tất cả loại khóa học")).toBeTruthy();
     expect(screen.getByText("Tất cả trạng thái")).toBeTruthy();
   });
 
@@ -113,7 +113,7 @@ describe("My Courses filters", () => {
 
     fireEvent.change(input(), { target: { value: "lập" } });
     await act(async () => { vi.advanceTimersByTime(200); });
-    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Loại Khóa học" }));
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Loại khóa học" }));
     fireEvent.click(screen.getByText("Tự chọn"));
     await act(async () => {});
     expect(fetchPage).toHaveBeenLastCalledWith(1, {
@@ -145,7 +145,7 @@ describe("My Courses filters", () => {
 
     await act(async () => { await router.navigate("/?q=cũ&page=1"); });
     expect(screen.getByText("Danh sách hiện tại")).toBeTruthy();
-    expect(screen.getByLabelText("Đang tải Khóa học")).toBeTruthy();
+    expect(screen.getByLabelText("Đang tải khóa học")).toBeTruthy();
     await act(async () => { await router.navigate("/?q=mới&page=1"); });
     expect(fetchPage.mock.calls[1][2]?.aborted).toBe(true);
 
@@ -158,9 +158,9 @@ describe("My Courses filters", () => {
   it("clears all filters and shows the distinct unfiltered empty state", async () => {
     fetchPage.mockImplementation(async () => page());
     const router = renderCourses(["/?q=lap&type=Optional&status=Halted&page=2"]);
-    await screen.findByText("Không tìm thấy Khóa học phù hợp");
+    await screen.findByText("Không tìm thấy khóa học phù hợp");
     fireEvent.click(screen.getByRole("button", { name: "Xóa bộ lọc" }));
-    await screen.findByText("Bạn chưa có Khóa học nào");
+    await screen.findByText("Bạn chưa có khóa học nào");
     expect(input().value).toBe("");
     expect(router.state.location.search).toBe("?page=1");
   });

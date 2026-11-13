@@ -5,6 +5,8 @@ export interface INotificationItem {
   message: string;
   /** Free text the screen can use to link to the item, e.g. {"assignmentId": "...", "cycleId": "..."}. */
   metadata?: Record<string, string>;
+  /** What the notice is about, for the filters and the icon of notification-service; the peer review notices when not given. */
+  type?: string;
 }
 
 export interface IEmailItem {

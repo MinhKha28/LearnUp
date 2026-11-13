@@ -1,4 +1,4 @@
-import { Alert, Button, DatePicker, Form, Input, Modal, message } from "antd";
+import { Button, Form, Input, Modal, message } from "antd";
 import viVN from "antd/locale/vi_VN";
 import "dayjs/locale/vi";
 import dayjs, { type Dayjs } from "dayjs";
@@ -6,14 +6,17 @@ import { useRef, useState } from "react";
 import { AssignmentError } from "@/components/organizer/assignment.error";
 import { toApiError } from "@/services/api.client";
 import {
+  cancelAssignment,
   exemptAssignment,
   extendAssignment,
+  removeAssignmentExemption,
 } from "@/services/assignment.service";
 import type { ApiError } from "@/types/api.types";
 import type { AssignmentDetail } from "@/types/assignment.types";
 import {
   assignmentErrorMessage,
   assignmentExtensionRange,
+  canCancelAssignment,
   canExemptAssignment,
   canExtendAssignment,
   extensionDateError,
@@ -21,6 +24,16 @@ import {
 import { assignmentDueDate, assignmentExtensionDeadline } from "@/utils/assignment.date";
 import { formatTimezone, isSameZone } from "@/utils/timezone.format";
 import "./assignment.change.scss";
+import { VietnameseAlert, VietnameseDatePicker } from "@/components/vietnamese.controls";
+
+const actionLabels = {
+  extend: "Kéo dài hạn",
+  exempt: "Đánh dấu Miễn",
+  removeExemption: "Gỡ Miễn",
+  cancel: "Hủy phân công",
+};
+
+type Mode = keyof typeof actionLabels;
 
 export const AssignmentChange = ({
   item,
@@ -33,7 +46,7 @@ export const AssignmentChange = ({
   onConflict: (error: ApiError) => void;
   onReload: () => void;
 }) => {
-  const [mode, setMode] = useState<"extend" | "exempt" | null>(null);
+  const [mode, setMode] = useState<Mode | null>(null);
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -47,7 +60,7 @@ export const AssignmentChange = ({
     : new Date();
   const showSummaryZones = Boolean(item.organizationTimezone && item.dueTimezone &&
     !isSameZone(item.organizationTimezone, item.dueTimezone));
-  const open = (value: "extend" | "exempt") => {
+  const open = (value: Mode) => {
     setError(null);
     form.resetFields();
     setMode(value);
@@ -55,30 +68,39 @@ export const AssignmentChange = ({
   const submit = async () => {
     if (submitting.current || !mode) return;
     submitting.current = true;
-    let values;
-    try {
-      values = await form.validateFields();
-    } catch {
+    const usesForm = mode === "extend" || mode === "exempt";
+    const values = usesForm ? await form.validateFields().catch(() => null) : null;
+    if (usesForm && !values) {
       submitting.current = false;
       return;
     }
     setPending(true);
     setError(null);
     try {
-      const reason = (values.reason ?? "").normalize("NFC").trim();
-      const result =
-        mode === "extend"
+      let result: AssignmentDetail;
+      if (mode === "removeExemption") {
+        result = await removeAssignmentExemption(item.enrollmentId);
+      } else if (mode === "cancel") {
+        result = await cancelAssignment(item.enrollmentId);
+      } else {
+        if (!values) return;
+        const reason = (values.reason ?? "").normalize("NFC").trim();
+        result = mode === "extend"
           ? await extendAssignment(
               item.enrollmentId,
               values.newDueDate.format("YYYY-MM-DD"),
               reason,
             )
           : await exemptAssignment(item.enrollmentId, reason);
+      }
       onChanged(result);
       setMode(null);
-      void notice.success(
-        mode === "extend" ? "Đã kéo dài hạn." : "Đã đánh dấu Miễn.",
-      );
+      void notice.success({
+        extend: "Đã kéo dài hạn.",
+        exempt: "Đã đánh dấu Miễn.",
+        removeExemption: "Đã gỡ miễn.",
+        cancel: "Đã hủy phân công.",
+      }[mode]);
     } catch (cause) {
       const apiError = toApiError(cause);
       if (
@@ -94,6 +116,7 @@ export const AssignmentChange = ({
           },
         ]);
       } else if (
+        ((mode === "removeExemption" || mode === "cancel") && apiError.status === 409) ||
         ["ENROLLMENT_NOT_EXTENDABLE", "ENROLLMENT_NOT_EXEMPTIBLE"].includes(
           apiError.code,
         )
@@ -119,8 +142,18 @@ export const AssignmentChange = ({
           Đánh dấu Miễn
         </Button>
       )}
+      {item.status === "Exempted" && (
+        <Button disabled={pending} onClick={() => open("removeExemption")}>
+          Gỡ Miễn
+        </Button>
+      )}
+      {canCancelAssignment(item) && (
+        <Button disabled={pending} danger onClick={() => open("cancel")}>
+          Hủy phân công
+        </Button>
+      )}
       <Modal
-        title={mode === "extend" ? "Kéo dài hạn" : "Đánh dấu Miễn"}
+        title={mode ? actionLabels[mode] : undefined}
         open={mode !== null}
         onCancel={() => {
           if (!submitting.current) setMode(null);
@@ -130,21 +163,43 @@ export const AssignmentChange = ({
         footer={
           <>
             <Button disabled={pending} onClick={() => setMode(null)}>
-              Hủy
+              {mode === "cancel" ? "Quay lại" : "Hủy"}
             </Button>
             <Button
               type="primary"
+              danger={mode === "cancel"}
               loading={pending}
+              disabled={pending}
               onClick={submit}
             >
-              {mode === "extend" ? "Kéo dài hạn" : "Đánh dấu Miễn"}
+              {mode && actionLabels[mode]}
             </Button>
           </>
         }
       >
-        {error && <AssignmentError error={error} retry={submit} />}
+        {error && (
+          mode === "cancel" && error.status === 503 ? (
+            <VietnameseAlert
+              type="error"
+              showIcon
+              message="Dịch vụ tạm thời không khả dụng. Vui lòng bấm Hủy phân công để thử lại."
+            />
+          ) : (
+            <AssignmentError error={error} retry={mode === "cancel" ? undefined : submit} />
+          )
+        )}
+        {mode === "cancel" && (
+          <p>
+            Học viên sẽ mất quyền truy cập khóa học qua phân công này và có thể được phân công lại sau.
+          </p>
+        )}
+        {mode === "removeExemption" && (
+          <p>
+            Gỡ miễn cho học viên này? Hạn hoàn thành sẽ được dời thêm theo thời gian được miễn.
+          </p>
+        )}
         {mode === "exempt" && (
-          <Alert
+          <VietnameseAlert
             type="info"
             showIcon
             message="Học viên không còn bị tính quá hạn và vẫn có thể học tiếp. Khóa học vẫn là bắt buộc, không chuyển về tự chọn."
@@ -166,7 +221,7 @@ export const AssignmentChange = ({
               <p>Hạn mới được tính theo múi giờ hiện tại của tổ chức: {formatTimezone(item.organizationTimezone, newDeadline)}</p>
             )}
             {!pickerTimezone && (
-              <Alert
+              <VietnameseAlert
                 type="info"
                 showIcon
                 message="Giới hạn ngày tính theo giờ trên máy bạn vì chưa lấy được múi giờ tổ chức. Hạn sẽ được kiểm tra khi gửi."
@@ -201,7 +256,7 @@ export const AssignmentChange = ({
                 },
               ]}
             >
-              <DatePicker
+              <VietnameseDatePicker
                 locale={viVN.DatePicker}
                 format="DD/MM/YYYY"
                 placeholder="Chọn ngày"
@@ -212,30 +267,32 @@ export const AssignmentChange = ({
               />
             </Form.Item>
           )}
-          <Form.Item
-            name="reason"
-            label={
-              mode === "exempt" ? "Lý do (bắt buộc)" : "Lý do (không bắt buộc)"
-            }
-            rules={[
-              {
-                validator: (_, value: string | undefined) => {
-                  const reason = (value ?? "").normalize("NFC").trim();
-                  if (mode === "exempt" && reason.length === 0)
-                    return Promise.reject(
-                      new Error(
-                        "Hãy nhập lý do từ 1 đến 1000 ký tự sau khi cắt khoảng trắng hai đầu.",
-                      ),
-                    );
-                  return reason.length > 1000
-                    ? Promise.reject(new Error("Lý do tối đa 1000 ký tự."))
-                    : Promise.resolve();
+          {(mode === "extend" || mode === "exempt") && (
+            <Form.Item
+              name="reason"
+              label={
+                mode === "exempt" ? "Lý do (bắt buộc)" : "Lý do (không bắt buộc)"
+              }
+              rules={[
+                {
+                  validator: (_, value: string | undefined) => {
+                    const reason = (value ?? "").normalize("NFC").trim();
+                    if (mode === "exempt" && reason.length === 0)
+                      return Promise.reject(
+                        new Error(
+                          "Hãy nhập lý do từ 1 đến 1000 ký tự sau khi cắt khoảng trắng hai đầu.",
+                        ),
+                      );
+                    return reason.length > 1000
+                      ? Promise.reject(new Error("Lý do tối đa 1000 ký tự."))
+                      : Promise.resolve();
+                  },
                 },
-              },
-            ]}
-          >
-            <Input.TextArea rows={4} maxLength={1000} showCount />
-          </Form.Item>
+              ]}
+            >
+              <Input.TextArea rows={4} maxLength={1000} showCount />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
     </>

@@ -148,9 +148,22 @@ describe("the history of a Quiz", () => {
     );
   });
 
+  it("shows start and submission timestamps date-first in Vietnam time", async () => {
+    fetchHistory.mockResolvedValue(ok(history({
+      items: [item({
+        startedAt: "2026-11-05T23:40:00Z",
+        submittedAt: "2026-11-05T23:45:00Z",
+      })],
+    })));
+    open();
+    expect(await screen.findByText("06/11/2026 06:40")).toBeTruthy();
+    expect(screen.getByText("06/11/2026 06:45")).toBeTruthy();
+    expect(screen.getByText("50%", { selector: "td" })).toBeTruthy();
+  });
+
   it("shows the recorded score and the tries left before the lock", async () => {
     open();
-    expect(await screen.findByText(/100 \(lượt cao nhất\) · Đạt/)).toBeTruthy();
+    expect(await screen.findByText("100% (lượt có điểm cao nhất) · Đạt")).toBeTruthy();
     expect(screen.getByText("1/3")).toBeTruthy();
   });
 
@@ -203,16 +216,16 @@ describe("the history of a Quiz", () => {
     );
     open();
     expect(await screen.findByText("Bài trắc nghiệm đang tạm khóa")).toBeTruthy();
-    expect(screen.getByText(/0 · mở lại/)).toBeTruthy();
-    expect(screen.queryByText("Làm bài")).toBeNull();
+    expect(screen.getByText(/0\/3 · mở lại/)).toBeTruthy();
+    expect(screen.queryByText("Bắt đầu làm bài")).toBeNull();
   });
 
   it("a Completed Course shows the history and offers no new attempt", async () => {
     fetchHistory.mockResolvedValue(ok(history({ readOnly: true })));
     open();
     await screen.findByText("Lượt 2");
-    expect(screen.queryByText("Làm bài")).toBeNull();
-    expect(screen.getByText("Về danh sách bài đánh giá")).toBeTruthy();
+    expect(screen.queryByText("Bắt đầu làm bài")).toBeNull();
+    expect(screen.getByText("Quay lại danh sách bài đánh giá")).toBeTruthy();
   });
 
   it("no attempt yet: says so, and there is no recorded score", async () => {
@@ -234,11 +247,11 @@ describe("the history of a Quiz", () => {
 
   it("the buttons go to the Quiz and to the list of the Course", async () => {
     open();
-    fireEvent.click(await screen.findByText("Làm bài"));
+    fireEvent.click(await screen.findByText("Bắt đầu làm bài"));
     expect(path).toBe("/learner/courses/enr-1/quizzes/quiz-1");
     cleanup();
     open();
-    fireEvent.click(await screen.findByText("Về danh sách bài đánh giá"));
+    fireEvent.click(await screen.findByText("Quay lại danh sách bài đánh giá"));
     expect(path).toBe("/learner/courses/enr-1/assessments");
   });
 
@@ -287,4 +300,14 @@ describe("the history of a Quiz", () => {
     fireEvent.click(screen.getByText("Thử lại"));
     expect(await screen.findByText("Lượt 2")).toBeTruthy();
   });
+});
+
+it("uses its own Vietnamese message for an unknown quiz history error", async () => {
+  fetchHistory.mockResolvedValueOnce({
+    statusCode: 400,
+    error: { code: "NEW_CODE", message: "Internal English text" },
+  } as never);
+  open();
+  await screen.findByText("Không tải được lịch sử làm bài.");
+  expect(screen.queryByText("Internal English text")).toBeNull();
 });

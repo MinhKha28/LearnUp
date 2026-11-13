@@ -26,11 +26,11 @@ export const getWithdrawErrorCode = (response: unknown): string | null => {
 };
 
 const errorMessages: Record<string, string> = {
-  FORBIDDEN: "You do not have permission to withdraw this Course.",
-  COURSE_NOT_FOUND: "Course not found.",
+  FORBIDDEN: "Bạn không có quyền thu hồi khóa học này.",
+  COURSE_NOT_FOUND: "Không tìm thấy khóa học.",
   INVALID_COURSE_STATUS:
-    "Only a Submitted Course awaiting approval can be withdrawn.",
-  COURSE_CHANGED: "Course status has changed. Please reload and try again.",
+    "Chỉ có thể thu hồi khóa học đang chờ phê duyệt.",
+  COURSE_CHANGED: "Trạng thái khóa học đã thay đổi. Vui lòng tải lại trang và thử lại.",
 };
 
 export const getWithdrawErrorMessage = (response: unknown): string => {
@@ -38,6 +38,6 @@ export const getWithdrawErrorMessage = (response: unknown): string => {
 
   return (
     (code && errorMessages[code]) ||
-    "Unable to withdraw Course. Please try again."
+    "Không thể thu hồi khóa học. Vui lòng thử lại."
   );
 };

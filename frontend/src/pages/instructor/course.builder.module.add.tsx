@@ -28,12 +28,12 @@ const CourseBuilderModuleAdd = () => {
     const normalizedTitle = title.trim();
 
     if (!normalizedTitle) {
-      message.warning("Enter a Module title.");
+      message.warning("Nhập tiêu đề chương.");
       return;
     }
 
     if (structure.structureLocked) {
-      message.error(structure.lockReason || "Course structure is locked.");
+      message.error(structure.lockReason || "Cấu trúc khóa học đã khóa.");
       return;
     }
 
@@ -45,11 +45,11 @@ const CourseBuilderModuleAdd = () => {
       });
 
       if (!response.data) {
-        message.error(response.message || "Unable to create Module.");
+        message.error(response.message || "Không thể tạo chương.");
         return;
       }
 
-      message.success("Module created.");
+      message.success("Đã tạo chương.");
       await refetchStructure();
 
       navigate(base, {
@@ -57,7 +57,7 @@ const CourseBuilderModuleAdd = () => {
       });
     } catch (error) {
       console.error("Create Module error:", error);
-      message.error("Unable to create Module.");
+      message.error("Không thể tạo chương.");
     } finally {
       setSaving(false);
     }
@@ -66,9 +66,9 @@ const CourseBuilderModuleAdd = () => {
   return (
     <div className="builder-module-add-page">
       <div className="builder-module-add-header">
-        <span className="builder-editor-eyebrow">COURSE STRUCTURE</span>
-        <h1>Add Module</h1>
-        <p>Create a new Module and add it to the end of this Course.</p>
+        <span className="builder-editor-eyebrow">Cấu trúc khóa học</span>
+        <h1>Thêm chương</h1>
+        <p>Tạo chương mới ở cuối khóa học.</p>
       </div>
 
       <div className="builder-module-add-card">
@@ -78,15 +78,15 @@ const CourseBuilderModuleAdd = () => {
           </div>
 
           <div>
-            <h2>Module information</h2>
+            <h2>Thông tin chương</h2>
             <p>
-              Enter a clear title that describes this section of the Course.
+              Nhập tên rõ ràng, mô tả nội dung chính của chương.
             </p>
           </div>
         </div>
 
         <div className="builder-module-add-form">
-          <label htmlFor="module-title">Module title</label>
+          <label htmlFor="module-title">Tên chương</label>
 
           <Input
             id="module-title"
@@ -94,7 +94,7 @@ const CourseBuilderModuleAdd = () => {
             maxLength={200}
             showCount
             autoFocus
-            placeholder="e.g. Communication Fundamentals"
+            placeholder="Ví dụ: Kiến thức giao tiếp cơ bản"
             value={title}
             disabled={saving || structure.structureLocked}
             onChange={(event) => setTitle(event.target.value)}
@@ -106,13 +106,13 @@ const CourseBuilderModuleAdd = () => {
           />
 
           <p className="builder-module-add-help">
-            The new Module will be placed at the end of the Course structure.
+            Chương mới sẽ được thêm vào cuối cấu trúc khóa học.
           </p>
         </div>
 
         <div className="builder-module-add-actions">
           <InstructorButton onClick={() => navigate(base)} disabled={saving}>
-            Cancel
+            Hủy
           </InstructorButton>
 
           <InstructorButton

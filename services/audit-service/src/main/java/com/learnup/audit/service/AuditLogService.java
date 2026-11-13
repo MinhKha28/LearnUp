@@ -15,8 +15,8 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -33,17 +33,22 @@ public class AuditLogService {
         this.auditLogRepository = auditLogRepository;
     }
 
+    /** A little clock difference between two services is normal; an action dated further in the future than this is refused. */
+    private static final Duration CLOCK_SKEW = Duration.ofMinutes(5);
+    /** The platform did not exist before this: a date earlier than it (an epoch of 0, a number out of range) is a writer's mistake. */
+    private static final Instant EARLIEST_ACTION = Instant.parse("2020-01-01T00:00:00Z");
+
     @Transactional
     public AuditLogResponse recordAuditLog(CreateAuditLogRequest request) {
-        // Match PR #258: keep the action timestamp, not the relay delivery time.
-        final Instant now = Instant.now();
-        final Instant occurredAt = request.getOccurredAt();
-        if (occurredAt != null && occurredAt.isAfter(now.plus(Duration.ofMinutes(5)))) {
+        Instant now = Instant.now();
+        Instant occurredAt = request.getOccurredAt();
+        if (occurredAt != null && occurredAt.isAfter(now.plus(CLOCK_SKEW))) {
             throw BusinessException.badRequest("occurredAt cannot be in the future");
         }
-        if (occurredAt != null && occurredAt.isBefore(Instant.parse("2020-01-01T00:00:00Z"))) {
+        if (occurredAt != null && occurredAt.isBefore(EARLIEST_ACTION)) {
             throw BusinessException.badRequest("occurredAt is before the platform existed");
         }
+        // the time of the action when the writer says it, else the time of the delivery
         final Instant eventTime = occurredAt != null ? occurredAt : now;
 
         // General idempotency for all Outbox writers, not an UC23 special case.
@@ -104,6 +109,8 @@ public class AuditLogService {
             String targetResourceType,
             String targetResourceId,
             UUID actorUserId,
+            Instant from,
+            Instant to,
             Pageable pageable) {
 
         Specification<AuditLog> spec = (root, query, criteriaBuilder) -> {
@@ -123,6 +130,13 @@ public class AuditLogService {
             }
             if (actorUserId != null) {
                 predicates.add(criteriaBuilder.equal(root.get("actorUserId"), actorUserId));
+            }
+            // UC50, UC51: a time range, from included to excluded (so "a whole day" is [00:00 of the day, 00:00 of the next day)).
+            if (from != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), from));
+            }
+            if (to != null) {
+                predicates.add(criteriaBuilder.lessThan(root.get("createdAt"), to));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

@@ -72,7 +72,7 @@ const PeerCycleDetail = () => {
     return (
       <InstructorPage className="instructor-peer-cycles">
         <PageHeader
-          eyebrow="CHU KỲ CHẤM CHÉO / CHI TIẾT"
+          eyebrow="Chu kỳ chấm chéo / Chi tiết"
           title="Chi tiết chu kỳ chấm chéo"
           subtitle="Đang tải..."
           back
@@ -86,7 +86,7 @@ const PeerCycleDetail = () => {
     return (
       <InstructorPage className="instructor-peer-cycles">
         <PageHeader
-          eyebrow="CHU KỲ CHẤM CHÉO / CHI TIẾT"
+          eyebrow="Chu kỳ chấm chéo / Chi tiết"
           title="Không xem được chu kỳ"
           subtitle={notice}
           back
@@ -106,18 +106,18 @@ const PeerCycleDetail = () => {
   return (
     <InstructorPage className="instructor-peer-cycles">
       <PageHeader
-        eyebrow="CHU KỲ CHẤM CHÉO / CHI TIẾT"
+        eyebrow="Chu kỳ chấm chéo / Chi tiết"
         title="Chi tiết chu kỳ chấm chéo"
         subtitle={detail.title}
         back
       />
       <SectionCard className="instructor-cycle-meta-card">
         <div className="instructor-cycle-meta-grid">
-          <DetailItem label="MỞ">{formatTime(cycle.opensAt)}</DetailItem>
-          <DetailItem label="ĐÓNG VÀ PHÂN CÔNG">
+          <DetailItem label="Mở">{formatTime(cycle.opensAt)}</DetailItem>
+          <DetailItem label="Đóng và phân công">
             {formatTime(cycle.closesAt)}
           </DetailItem>
-          <DetailItem label="HẠN CHẤM">
+          <DetailItem label="Hạn chấm">
             {formatTime(cycle.reviewDueAt)}
           </DetailItem>
         </div>

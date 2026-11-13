@@ -79,13 +79,13 @@ async function openEditor() {
       </Routes>
     </MemoryRouter>,
   );
-  return screen.findByLabelText("Material title");
+  return screen.findByLabelText("Tên học liệu");
 }
 
-const save = () => fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+const save = () => fireEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
 
 async function replaceFile(file: File) {
-  fireEvent.change(screen.getByLabelText("Choose replacement file"), {
+  fireEvent.change(screen.getByLabelText("Chọn tệp thay thế"), {
     target: { files: [file] },
   });
   save();
@@ -116,7 +116,7 @@ it("loads the lesson material and patches its title and required flag", async ()
   expect(screen.getAllByText("current.pdf")).toHaveLength(2);
 
   fireEvent.change(title, { target: { value: " Revised reading " } });
-  fireEvent.click(screen.getByRole("radio", { name: "Optional" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Không bắt buộc" }));
   save();
 
   await screen.findByText("Material list");
@@ -219,7 +219,7 @@ it("keeps the generic message for another replacement HTTP error", async () => {
   await replaceFile(new File(["%PDF-1.7"], "replacement.pdf", { type: "application/pdf" }));
 
   expect(error).toHaveBeenCalledWith(
-    "File replacement was not confirmed. Reload and check the current file before retrying.",
+    "Chưa xác nhận được việc thay thế tệp. Tải lại trang và kiểm tra tệp hiện tại trước khi thử lại.",
     8,
   );
   expect(courseAxios.patch).not.toHaveBeenCalled();

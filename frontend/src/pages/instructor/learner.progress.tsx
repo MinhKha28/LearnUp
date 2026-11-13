@@ -17,16 +17,16 @@ const LearnerProgress = () => {
   const components = learnerProgressComponents(courseId ?? "", learnerId ?? "");
 
   const columns: ColumnsType<ILearnerProgressComponent> = [
-    { title: "Component", dataIndex: "component", render: (value) => <strong>{value}</strong> },
-    { title: "Completion", dataIndex: "completion" },
-    { title: "Result", dataIndex: "result" },
-    { title: "Attention", dataIndex: "attention" },
+    { title: "Thành phần", dataIndex: "component", render: (value) => <strong>{value}</strong> },
+    { title: "Mức độ hoàn thành", dataIndex: "completion" },
+    { title: "Kết quả", dataIndex: "result" },
+    { title: "Cần lưu ý", dataIndex: "attention" },
   ];
 
   if (!row) {
     return (
       <InstructorPage className="instructor-learner-progress">
-        <PageHeader eyebrow="MONITORING / LEARNER" title="Learner Progress not found" subtitle="" back />
+        <PageHeader eyebrow="Theo dõi học tập / Học viên" title="Không tìm thấy tiến độ học viên" subtitle="" back />
       </InstructorPage>
     );
   }
@@ -34,8 +34,8 @@ const LearnerProgress = () => {
   return (
     <InstructorPage className="instructor-learner-progress">
       <PageHeader
-        eyebrow="MONITORING / LEARNER"
-        title="Learner Progress"
+        eyebrow="Theo dõi học tập / Học viên"
+        title="Tiến độ học tập của học viên"
         subtitle={`Course: ${row.courseTitle} / Learner: ${row.learnerName}`}
         back
       />
@@ -46,7 +46,7 @@ const LearnerProgress = () => {
             {dueStatusMessage[row.dueStatus]}
           </span>
         </div>
-        <h2>Course component progress</h2>
+        <h2>Tiến độ từng thành phần khóa học</h2>
         <Table
           className="instructor-table"
           columns={columns}

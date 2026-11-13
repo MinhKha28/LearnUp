@@ -1,5 +1,5 @@
 import { DownloadOutlined, InboxOutlined } from "@ant-design/icons";
-import { Alert, App, Empty, Table, Upload } from "antd";
+import { App, Empty, Table, Upload } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -26,11 +26,18 @@ import type {
   ImportField,
 } from "@/types/organization.types";
 import { seatBlockReason } from "@/utils/helper";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 // UC12.8 (Instructor), UC13.8 (Learner): cùng luồng tải tệp -> xem trước -> xác nhận.
 // Trang của từng role truyền role, đường dẫn danh sách và các API tương ứng
 // (API Learner có cùng chữ ký với API Instructor).
 export type MemberImportRole = "Instructor" | "Learner";
+
+const roleLabel: Record<MemberImportRole, string> = {
+  Instructor: "giảng viên",
+  Learner: "học viên",
+};
 
 export interface MemberImportProps {
   role: MemberImportRole;
@@ -42,32 +49,32 @@ export interface MemberImportProps {
   confirmImport: typeof confirmInstructorImportAPI;
 }
 
-const CONNECTION_ERROR = "Could not connect to the server. Please try again later.";
+const CONNECTION_ERROR = "Không kết nối được với máy chủ. Vui lòng thử lại sau.";
 
 const fieldLabel: Record<ImportField, string> = {
-  fullName: "Full name",
+  fullName: "Họ và tên",
   email: "Email",
-  department: "Department",
-  role: "Role",
+  department: "Đơn vị công tác",
+  role: "Vai trò",
 };
 
 // BR-34: lý do lỗi theo từng dòng (mã từ backend -> câu tiếng Anh)
 const rowErrorText = (error: IImportRowError, role: MemberImportRole): string => {
   switch (error.code) {
     case "MISSING_REQUIRED_FIELD":
-      return `${fieldLabel[error.field]} is required.`;
+      return `Cần điền ${fieldLabel[error.field]}.`;
     case "INVALID_EMAIL":
-      return "Email format is invalid.";
+      return "Định dạng email không hợp lệ.";
     case "DUPLICATE_EMAIL_IN_FILE":
       return error.relatedRows?.length
-        ? `Email is duplicated in row ${error.relatedRows.join(", ")} of this file.`
-        : "Email is duplicated in this file.";
+        ? `Email trùng với dòng ${error.relatedRows.join(", ")} trong tệp.`
+        : "Email bị trùng trong tệp.";
     case "EMAIL_ALREADY_USED":
-      return "Email is already used by another account.";
+      return "Email đã được tài khoản khác sử dụng.";
     case "INVALID_ROLE":
-      return `Role is invalid. Only "${role}" is accepted.`;
+      return `Vai trò không hợp lệ. Cột "Role" chỉ chấp nhận giá trị "${role}".`;
     default:
-      return `${fieldLabel[error.field]} is invalid.`;
+      return `${fieldLabel[error.field]} không hợp lệ.`;
   }
 };
 
@@ -75,28 +82,28 @@ const withDash = (value: string | null | undefined) =>
   value && value.trim() !== "" ? value : "—";
 
 const validColumns: ColumnsType<IValidImportRow> = [
-  { title: "Row", dataIndex: "rowNumber", width: 64 },
-  { title: "Full name", dataIndex: "fullName" },
+  { title: "Dòng", dataIndex: "rowNumber", width: 64 },
+  { title: "Họ và tên", dataIndex: "fullName" },
   { title: "Email", dataIndex: "email" },
-  { title: "Department", dataIndex: "department", render: withDash },
+  { title: "Đơn vị công tác", dataIndex: "department", render: withDash },
 ];
 
 const invalidColumnsOf = (
   role: MemberImportRole,
 ): ColumnsType<IInvalidImportRow> => [
-  { title: "Row", dataIndex: "rowNumber", width: 64 },
+  { title: "Dòng", dataIndex: "rowNumber", width: 64 },
   {
-    title: "Full name",
+    title: "Họ và tên",
     render: (_, row) => withDash(row.values.fullName),
   },
   { title: "Email", render: (_, row) => withDash(row.values.email) },
   {
-    title: "Department",
+    title: "Đơn vị công tác",
     render: (_, row) => withDash(row.values.department),
   },
-  { title: "Role", render: (_, row) => withDash(row.values.role) },
+  { title: "Vai trò", render: (_, row) => withDash(row.values.role) },
   {
-    title: "Reason",
+    title: "Lý do",
     render: (_, row) => (
       <ul className="organizer-import-reasons">
         {row.errors.map((error, index) => (
@@ -116,39 +123,39 @@ const importErrorText = (
 ): string => {
   switch (error?.code) {
     case "INVALID_IMPORT_FILE":
-      return "The file could not be read. Upload an Excel file (.xlsx) based on the template.";
+      return "Không thể đọc tệp. Hãy tải lên tệp Excel (.xlsx) theo mẫu.";
     case "INVALID_IMPORT_TEMPLATE":
       return error.missingColumns?.length
-        ? `The file is missing required columns: ${error.missingColumns.join(", ")}. Use the template.`
-        : "The file does not match the template.";
+        ? `Tệp thiếu cột bắt buộc: ${error.missingColumns.join(", ")}. Hãy dùng tệp mẫu.`
+        : "Tệp không đúng mẫu.";
     case "TOO_MANY_ROWS":
-      return `The file has too many rows. Up to ${error.maxRows ?? 500} rows can be imported at a time.`;
+      return `Tệp có quá nhiều dòng. Mỗi lần chỉ có thể nhập tối đa ${error.maxRows ?? 500} dòng.`;
     case "EMPTY_IMPORT_FILE":
-      return "The file has no data rows.";
+      return "Tệp không có dòng dữ liệu.";
     case "FILE_TOO_LARGE":
       return error.maxSizeBytes
-        ? `The file is too large. The maximum size is ${(error.maxSizeBytes / 1024 / 1024).toFixed(1)} MB.`
-        : "The file is too large.";
+        ? `Tệp quá lớn. Dung lượng tối đa là ${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(error.maxSizeBytes / 1024 / 1024)} MB.`
+        : "Tệp quá lớn.";
     case "IMPORT_FILE_REQUIRED":
-      return "Choose an Excel file to import.";
+      return "Chọn tệp Excel để nhập.";
     case "NO_VALID_ROWS":
-      return "The file has no valid rows to import.";
+      return "Tệp không có dòng hợp lệ để nhập.";
     case "IMPORT_EXCEEDS_SEATS":
-      return `The file has ${error.validCount ?? "more"} valid rows but only ${error.remaining ?? 0} ${role} seats are left. Nothing was imported.`;
+      return `Số dòng hợp lệ vượt quá ${error.remaining ?? 0} suất ${roleLabel[role]} còn lại. Hệ thống chưa nhập dữ liệu.`;
     case "IMPORT_CHANGED":
-      return "The data changed since the preview (for example, an email was just used). Review the updated preview and confirm again.";
+      return "Dữ liệu đã thay đổi từ lúc xem trước (ví dụ: một email vừa được sử dụng). Hãy kiểm tra kết quả mới và xác nhận lại.";
     case "EMAIL_ALREADY_USED":
-      return "An email in the file was just used by another account. Nothing was imported. Upload the file again to review.";
+      return "Một email trong tệp vừa được tài khoản khác sử dụng. Hệ thống chưa nhập dữ liệu. Hãy tải lại tệp để kiểm tra.";
     case "SEAT_LIMIT_REACHED":
-      return `All ${role} seats are in use. Nothing was imported.`;
+      return `Đã dùng hết suất ${roleLabel[role]}. Hệ thống chưa nhập dữ liệu.`;
     case "SUBSCRIPTION_NOT_ACTIVE":
-      return "Your Subscription is not active. New accounts cannot be created.";
+      return "Gói dịch vụ chưa hoạt động. Không thể tạo tài khoản mới.";
     case "ORGANIZATION_NOT_ACTIVE":
-      return "Your Organization is suspended. New accounts cannot be created.";
+      return "Tổ chức đang bị tạm ngưng. Không thể tạo tài khoản mới.";
     case "FORBIDDEN":
-      return `You do not have permission to import ${role}s.`;
+      return `Bạn không có quyền nhập tài khoản ${roleLabel[role]}.`;
     default:
-      return "The file could not be processed. Please try again.";
+      return "Không thể xử lý tệp. Vui lòng thử lại.";
   }
 };
 
@@ -202,7 +209,7 @@ const MemberImport = ({
       const res = await confirmImport(file, preview.previewDigest);
       if (res.data && typeof res.data.createdCount === "number") {
         message.success(
-          `${res.data.createdCount} ${role} account(s) created. Invitation emails will be sent.`,
+          `Đã tạo ${res.data.createdCount} tài khoản ${roleLabel[role]}. Email mời sẽ được gửi.`,
         );
         navigate(listPath);
         return;
@@ -225,7 +232,7 @@ const MemberImport = ({
     try {
       const blob = await downloadTemplate();
       if (!blob) {
-        message.error("Could not download the template. Please try again.");
+        message.error("Không thể tải tệp mẫu. Vui lòng thử lại.");
         return;
       }
       const url = URL.createObjectURL(blob);
@@ -243,7 +250,7 @@ const MemberImport = ({
 
   const blockedReason =
     preview && !preview.seats.canCreate
-      ? seatBlockReason(preview.seats, role)
+      ? seatBlockReason(preview.seats, roleLabel[role])
       : null;
   const validCount = preview?.validRows.length ?? 0;
   const invalidCount = preview?.invalidRows.length ?? 0;
@@ -251,20 +258,29 @@ const MemberImport = ({
   return (
     <OrganizerPage className={className}>
       <PageHeader
-        title={`Import ${role}s`}
-        subtitle="Upload an Excel file, review the rows, then confirm to create accounts and send invitations."
+        title={`Nhập tài khoản ${roleLabel[role]}`}
+        subtitle="Tải tệp Excel lên, kiểm tra dữ liệu rồi xác nhận để tạo tài khoản và gửi lời mời."
         back
         actions={
           <OrganizerButton
-            icon={<DownloadOutlined />}
+            icon={<DownloadOutlined aria-hidden="true" />}
             loading={downloading}
             onClick={saveTemplate}
           >
-            Download template
+            Tải tệp mẫu
           </OrganizerButton>
         }
       />
-      <SectionCard title="Upload file">
+      <SectionCard title="Tải tệp lên">
+        <div className="organizer-note organizer-import-columns">
+          <p>Tệp mẫu gồm 4 cột. Không đổi tên cột (tiêu đề giữ nguyên tiếng Anh):</p>
+          <ul>
+            <li><strong>Full name</strong>: họ và tên đầy đủ.</li>
+            <li><strong>Email</strong>: địa chỉ email dùng để đăng nhập, không trùng với tài khoản khác.</li>
+            <li><strong>Department</strong>: đơn vị công tác (có thể để trống).</li>
+            <li><strong>Role</strong>: vai trò, điền đúng giá trị "{role}".</li>
+          </ul>
+        </div>
         <Upload.Dragger
           accept=".xlsx"
           multiple={false}
@@ -277,25 +293,25 @@ const MemberImport = ({
           }}
         >
           <p className="ant-upload-drag-icon">
-            <InboxOutlined />
+            <InboxOutlined aria-hidden="true" />
           </p>
           <p className="ant-upload-text">
             {checking
-              ? "Checking file…"
-              : "Drag and drop file to import, or click to browse"}
+              ? "Đang kiểm tra tệp…"
+              : "Kéo thả tệp vào đây hoặc bấm để chọn tệp"}
           </p>
           <p className="ant-upload-hint">
-            Accepted format: .xlsx (use the template). Columns: Full name, Email,
-            Department, Role.
+            Định dạng chấp nhận: .xlsx (dùng tệp mẫu). Giữ nguyên tên các cột
+            trong tệp mẫu.
           </p>
         </Upload.Dragger>
         {file && !checking && (
           <p className="organizer-note organizer-import-file">
-            Selected file: <strong>{file.name}</strong>
+            Tệp đã chọn: <strong>{file.name}</strong>
           </p>
         )}
         {fileError && (
-          <Alert
+          <VietnameseAlert
             className="organizer-import-alert"
             type="error"
             showIcon
@@ -305,41 +321,40 @@ const MemberImport = ({
       </SectionCard>
 
       {preview && (
-        <SectionCard title="Import preview" className="organizer-import-preview">
+        <SectionCard title="Xem trước dữ liệu nhập" className="organizer-import-preview">
           <div className="organizer-stat-grid organizer-import-stats">
-            <StatCard label="Rows in file" value={preview.totalRows} />
+            <StatCard label="Số dòng trong tệp" value={preview.totalRows} />
             <StatCard
-              label="Valid rows"
+              label="Dòng hợp lệ"
               value={validCount}
               tone="success"
-              note="Will be created"
+              note="Sẽ tạo tài khoản"
             />
             <StatCard
-              label="Rows with errors"
+              label="Dòng có lỗi"
               value={invalidCount}
               tone={invalidCount > 0 ? "error" : "neutral"}
-              note={invalidCount > 0 ? "Will be skipped" : undefined}
+              note={invalidCount > 0 ? "Sẽ bỏ qua" : undefined}
             />
             <StatCard
-              label="Seats left"
+              label="Suất còn lại"
               value={preview.seats.remaining}
               tone={preview.exceedsSeats ? "error" : "neutral"}
-              note={`${preview.seats.used} / ${preview.seats.max} used`}
+              note={`Đã dùng ${preview.seats.used}/${preview.seats.max} suất`}
             />
           </div>
 
           {blockedReason ? (
-            <WarningPanel title="Accounts cannot be created">
+            <WarningPanel title="Không thể tạo tài khoản">
               {blockedReason}
             </WarningPanel>
           ) : (
             preview.exceedsSeats && (
               // BR-33: chặn toàn bộ lần import, không import một phần
-              <WarningPanel title={`Not enough ${role} seats`}>
-                The file has {validCount} valid rows but only{" "}
-                {preview.seats.remaining} seats are left. Nothing will be
-                imported. Remove rows or free seats, then upload the file
-                again.
+              <WarningPanel title={`Không đủ suất ${roleLabel[role]}`}>
+                Tệp có {validCount} dòng hợp lệ nhưng chỉ còn{" "}
+                {preview.seats.remaining} suất. Hệ thống sẽ không nhập dòng nào.
+                Hãy bớt dòng hoặc giải phóng suất, rồi tải lại tệp.
               </WarningPanel>
             )
           )}
@@ -347,7 +362,7 @@ const MemberImport = ({
           {invalidCount > 0 && (
             <>
               <h3 className="organizer-import-heading">
-                Rows with errors{" "}
+                Dòng có lỗi{" "}
                 <StatusTag tone="error">{invalidCount}</StatusTag>
               </h3>
               <Table<IInvalidImportRow>
@@ -355,39 +370,38 @@ const MemberImport = ({
                 rowKey="rowNumber"
                 columns={invalidColumnsOf(role)}
                 dataSource={preview.invalidRows}
-                pagination={{ pageSize: 10, hideOnSinglePage: true }}
+                pagination={{ itemRender: vietnamesePageItem, pageSize: 10, hideOnSinglePage: true }}
                 scroll={{ x: "max-content" }}
               />
             </>
           )}
 
           <h3 className="organizer-import-heading">
-            Valid rows <StatusTag tone="success">{validCount}</StatusTag>
+            Dòng hợp lệ <StatusTag tone="success">{validCount}</StatusTag>
           </h3>
           <Table<IValidImportRow>
             className="organizer-table"
             rowKey="rowNumber"
             columns={validColumns}
             dataSource={preview.validRows}
-            pagination={{ pageSize: 10, hideOnSinglePage: true }}
+            pagination={{ itemRender: vietnamesePageItem, pageSize: 10, hideOnSinglePage: true }}
             scroll={{ x: "max-content" }}
             locale={{
               emptyText: (
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="No valid rows."
+                  description="Không có dòng hợp lệ."
                 />
               ),
             }}
           />
 
           <p className="organizer-note">
-            Rows with errors are skipped; correct them in the file and import
-            them again later. Each new {role} receives an invitation email to
-            set a password and activate the account.
+            Các dòng lỗi sẽ bị bỏ qua; hãy sửa trong tệp và nhập lại sau. Mỗi
+            {roleLabel[role]} mới sẽ nhận email mời để đặt mật khẩu và kích hoạt tài khoản.
           </p>
           {submitError && (
-            <Alert
+            <VietnameseAlert
               className="organizer-import-alert"
               type="error"
               showIcon
@@ -396,7 +410,7 @@ const MemberImport = ({
           )}
           <div className="organizer-form-actions">
             <OrganizerButton onClick={() => navigate(listPath)}>
-              Cancel
+              Hủy
             </OrganizerButton>
             <OrganizerButton
               type="primary"
@@ -405,8 +419,8 @@ const MemberImport = ({
               onClick={submitImport}
             >
               {validCount > 0
-                ? `Create ${validCount} account${validCount > 1 ? "s" : ""} and send invitations`
-                : "Create accounts"}
+                ? `Tạo ${validCount} tài khoản và gửi lời mời`
+                : "Tạo tài khoản"}
             </OrganizerButton>
           </div>
         </SectionCard>

@@ -1,3 +1,5 @@
+import { formatDateTimeVN } from "@/utils/helper";
+import { formatNumberVN, formatPercentageVN } from "@/utils/number.format";
 // UC28.1: how the results of a Learner are put into words. Apart from the page so that it can be tested without a browser.
 import type {
   AssessmentResultItem,
@@ -9,7 +11,7 @@ export type ResultTone = "success" | "warning" | "error" | "info" | "neutral";
 
 /** The score as the Learner reads it: 66.67 → "66,67", 50 → "50". */
 export const formatResultScore = (score: number): string =>
-  score.toLocaleString("vi-VN", { maximumFractionDigits: 2 });
+  formatNumberVN(score);
 
 export const kindLabel = (item: AssessmentResultItem): string =>
   item.kind === "QUIZ" ? "Bài trắc nghiệm" : "Bài tập";
@@ -50,13 +52,13 @@ export const scoreBar = (
   passing: Math.min(100, Math.max(0, item.passingScore)),
 });
 
-/** One line for the attempts of a Quiz: "Lượt 1: 50 · Lượt 2: 85 (hết giờ)". */
+/** One line for the attempts of a Quiz: "Lượt 1: 50% · Lượt 2: 85% (hết giờ)". */
 export const attemptsLine = (item: AssessmentResultItem): string => {
   if (!item.quiz || item.quiz.attempts.length === 0) return "";
   return item.quiz.attempts
     .map(
       (a) =>
-        `Lượt ${a.attemptNumber}: ${formatResultScore(a.score)}${a.submissionKind === "TimedOut" ? " (hết giờ)" : ""}`,
+        `Lượt ${a.attemptNumber}: ${formatPercentageVN(a.score)}${a.submissionKind === "TimedOut" ? " (hết giờ)" : ""}`,
     )
     .join(" · ");
 };
@@ -71,14 +73,7 @@ export const summaryLine = (summary: AssessmentResultsSummary): string => {
   return `${parts.join(", ")}.`;
 };
 
-export const formatResultTime = (iso: string): string =>
-  new Date(iso).toLocaleString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+export const formatResultTime = formatDateTimeVN;
 
 /** Where a row leads to read more or to continue. */
 export const resultTarget = (

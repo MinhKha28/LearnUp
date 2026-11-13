@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AssessmentModule } from '../../infrastructure/clients/assessment/assessment.module';
 import { CourseServiceModule } from '../../infrastructure/clients/course/course-service.module';
 import { TenantModule } from '../../infrastructure/clients/tenant/tenant.module';
 import { CourseSnapshotsModule } from '../course-snapshots/course-snapshots.module';
@@ -8,12 +9,14 @@ import { AssignmentsController } from './assignments.controller';
 import { AssignmentsService } from './assignments.service';
 import { AssignmentsRepository } from './assignments.repository';
 import { AssignmentReadsRepository } from './assignment-reads.repository';
+import { AssignmentKeywordSearch } from './assignment-keyword-search.service';
 import { AssignmentReadsService } from './assignment-reads.service';
 import { AssignmentChangesService } from './assignment-changes.service';
 import { AssignmentChangesRepository } from './assignment-changes.repository';
 
 @Module({
   imports: [
+    AssessmentModule,
     CourseServiceModule,
     TenantModule,
     CourseSnapshotsModule,
@@ -26,6 +29,7 @@ import { AssignmentChangesRepository } from './assignment-changes.repository';
     AssignmentsRepository,
     AssignmentReadsRepository,
     AssignmentReadsService,
+    AssignmentKeywordSearch,
     AssignmentChangesService,
     AssignmentChangesRepository,
   ],

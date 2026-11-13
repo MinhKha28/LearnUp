@@ -2,15 +2,15 @@
 export const learnerDeleteErrorMessage = (code: string | undefined): string => {
   switch (code) {
     case "LEARNER_NOT_FOUND":
-      return "This learner no longer exists in your organization.";
+      return "Học viên này không còn thuộc tổ chức của bạn.";
     case "CONCURRENT_UPDATE":
-      return "This learner was just updated. Please try again.";
+      return "Thông tin học viên vừa được cập nhật. Vui lòng thử lại.";
     case "ORGANIZATION_NOT_ACTIVE":
-      return "Your Organization is suspended. Accounts cannot be deleted.";
+      return "Tổ chức đang bị tạm ngưng. Không thể xóa tài khoản.";
     case "SUBSCRIPTION_NOT_ACTIVE":
-      return "Your Subscription is suspended. Accounts cannot be deleted until it is renewed.";
+      return "Gói dịch vụ đang bị tạm ngưng. Hãy gia hạn gói để xóa tài khoản.";
     default:
-      return "Could not delete the account. Please try again later.";
+      return "Không thể xóa tài khoản. Vui lòng thử lại sau.";
   }
 };
 

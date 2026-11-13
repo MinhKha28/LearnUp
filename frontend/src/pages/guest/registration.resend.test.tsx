@@ -6,9 +6,11 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import Layout from "@/layout";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/components/context/app.context", () => ({ useCurrentApp: () => ({ isAuthenticated: false, user: null }) }));
 vi.mock("@/services/axios.customize", () => ({ tenantAxios: {}, default: {} }));
 vi.mock("@/services/organization.service", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/organization.service")>()),
@@ -43,23 +45,40 @@ const submit = (email: string) => {
       <RegistrationResendPage />
     </MemoryRouter>,
   );
-  fireEvent.change(screen.getByLabelText("Email address"), {
+  fireEvent.change(screen.getByLabelText("Địa chỉ email"), {
     target: { value: email },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Resend email" }));
+  fireEvent.click(screen.getByRole("button", { name: "Gửi lại thư" }));
 };
 
 describe("UC03.1 resend registration email", () => {
+  it("uses one logo and separates the footer links in the guest router", () => {
+    render(
+      <MemoryRouter initialEntries={["/resend-registration"]}>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/resend-registration" element={<RegistrationResendPage />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getAllByRole("img", { name: "LearnUP" })).toHaveLength(1);
+    const reset = screen.getByRole("link", { name: /đặt lại mật khẩu/ });
+    const login = screen.getByRole("link", { name: "Quay lại đăng nhập" });
+    expect(reset.nextElementSibling?.tagName).toBe("BR");
+    expect(reset.nextElementSibling?.nextElementSibling).toBe(login);
+  });
+
   it("sends the normalised email and shows the neutral confirmation", async () => {
     vi.mocked(api.resendRegistrationEmailAPI).mockResolvedValue({
       statusCode: 202,
       data: { email: "lan@abc.vn", otpTtlMinutes: 10, message: "ok" },
     } as never);
     submit("  Lan@ABC.vn ");
-    await screen.findByText("Request received");
+    await screen.findByText("Đã nhận yêu cầu");
     expect(api.resendRegistrationEmailAPI).toHaveBeenCalledWith("lan@abc.vn");
     expect(screen.getByRole("status").textContent).toContain(
-      "Previous links and codes no longer work",
+      "Liên kết và mã trước đó không còn dùng được. Hãy kiểm tra hộp thư đến và thư mục thư rác.",
     );
   });
 
@@ -71,10 +90,10 @@ describe("UC03.1 resend registration email", () => {
     submit("lan@abc.vn");
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toContain(
-        "Unable to send the registration email right now",
+        "Hiện chưa gửi được thư đăng ký",
       ),
     );
-    expect(screen.queryByText("Request received")).toBeNull();
+    expect(screen.queryByText("Đã nhận yêu cầu")).toBeNull();
     expect(screen.queryByText("Email không hợp lệ")).toBeNull();
   });
 
@@ -85,7 +104,7 @@ describe("UC03.1 resend registration email", () => {
     submit("lan@abc.vn");
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toContain(
-        "Could not connect to the server",
+        "Không kết nối được với máy chủ",
       ),
     );
   });

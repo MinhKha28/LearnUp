@@ -1,4 +1,4 @@
-import { Alert, App, Button, Form, Input, Modal, Skeleton, Space, Spin, Upload } from "antd";
+import { App, Button, Form, Input, Modal, Skeleton, Space, Spin, Upload } from "antd";
 import { DeleteOutlined, UploadOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlocker } from "react-router-dom";
@@ -10,6 +10,7 @@ import type { ISubscriptionOverview } from "@/types/subscription.types";
 import type { SignerDraft, SignerSettings } from "@/types/certificate-signer.types";
 import { draftFromSettings, signerDirty, signerTextError, validateSignature } from "@/utils/certificate.signer";
 import "./certificate.settings.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type Baseline = { settings: SignerSettings; etag: string | null };
 type ReloadMode = "normal" | "conflict" | "uncertain" | "required" | "saved";
@@ -217,7 +218,7 @@ const CertificateSettings = () => {
       setUncertain(false);
       setRequiredReload(!result.etag);
       await load("saved", result);
-      if (active.current) void message.success("Đã lưu cấu hình người ký Certificate.");
+      if (active.current) void message.success("Đã lưu cấu hình người ký chứng chỉ.");
     } catch (error) {
       if (!active.current) return;
       if (!(error instanceof ApiError)) { setSubmitError(failureMessage(error)); return; }
@@ -256,34 +257,34 @@ const CertificateSettings = () => {
 
   const locked = loading || saving || validating || readOnly || forbidden;
   const renderSavedImage = () => image.loading ? <Spin size="small" /> :
-    image.error ? <Alert type="error" showIcon message={image.error} action={<Button onClick={image.retry}>Thử tải lại ảnh</Button>} /> :
+    image.error ? <VietnameseAlert type="error" showIcon message={image.error} action={<Button onClick={image.retry}>Thử tải lại ảnh</Button>} /> :
       image.url ? <img className="certificate-settings-image" src={image.url} alt="Chữ ký đã lưu trên hệ thống" /> :
         baseline?.settings.signature ? <Spin size="small" /> : <p>Chưa có ảnh chữ ký.</p>;
 
   return (
     <OrganizerPage className="certificate-settings">
-      <PageHeader title="Cấu hình người ký Certificate" subtitle="Quản lý tên, chức danh và ảnh chữ ký dùng cho Certificate cấp sau này."
+      <PageHeader title="Cấu hình người ký chứng chỉ" subtitle="Quản lý tên, chức danh và ảnh chữ ký dùng cho chứng chỉ cấp sau này."
         actions={<>
           <OrganizerButton disabled={loading || saving || validating || refreshing || !baseline} onClick={useLatest}>Hủy thay đổi</OrganizerButton>
           <OrganizerButton type="primary" htmlType="submit" form="certificate-signer-form" loading={saving}
             disabled={locked || refreshing || !baseline || !dirty || !baseline.etag || requiredReload || !!reloadError && !uncertain}>Lưu</OrganizerButton>
         </>} />
-      <Alert type="info" showIcon message="Lưu ý về Certificate" description={<ul>
-        <li>Thay đổi chỉ áp dụng cho Certificate cấp sau này; Certificate đã cấp giữ nguyên.</li>
-        <li>Chưa cấu hình người ký vẫn cấp Certificate (không có chữ ký).</li>
+      <VietnameseAlert type="info" showIcon message="Lưu ý về chứng chỉ" description={<ul>
+        <li>Thay đổi chỉ áp dụng cho chứng chỉ cấp sau này; chứng chỉ đã cấp giữ nguyên.</li>
+        <li>Chưa cấu hình người ký vẫn cấp chứng chỉ (không có chữ ký).</li>
         <li>Nên dùng ảnh PNG nền trong suốt, ví dụ 450 × 150 px. Chấp nhận PNG hoặc JPEG, tối đa 2 MiB.</li>
       </ul>} />
-      {readOnly && <Alert type="warning" showIcon message="Tổ chức đang ở chế độ chỉ đọc. Thay đổi của bạn được giữ lại, nhưng chưa thể lưu." />}
-      {forbidden && <Alert type="error" showIcon message="Bạn không có quyền cấu hình người ký Certificate." />}
-      {(requiredReload || baseline && !baseline.etag) && <Alert type="warning" showIcon
+      {readOnly && <VietnameseAlert type="warning" showIcon message="Tổ chức đang ở chế độ chỉ đọc. Thay đổi của bạn được giữ lại, nhưng chưa thể lưu." />}
+      {forbidden && <VietnameseAlert type="error" showIcon message="Bạn không có quyền cấu hình người ký chứng chỉ." />}
+      {(requiredReload || baseline && !baseline.etag) && <VietnameseAlert type="warning" showIcon
         message="Cần tải lại cấu hình trước khi lưu." description={reloadError} action={<Button disabled={refreshing || saving} onClick={() => void load("required")}>Tải lại cấu hình</Button>} />}
-      {reloadError && !uncertain && !conflict && !requiredReload && <Alert type="error" showIcon message={reloadError}
+      {reloadError && !uncertain && !conflict && !requiredReload && <VietnameseAlert type="error" showIcon message={reloadError}
         action={<Button loading={refreshing} onClick={() => void load(retryMode.current)}>Thử tải lại cấu hình</Button>} />}
-      {uncertain && <Alert type="warning" showIcon
+      {uncertain && <VietnameseAlert type="warning" showIcon
         message="Mất kết nối khi lưu, chưa rõ thay đổi đã được lưu hay chưa. Bản nháp vẫn được giữ. Bạn có thể tải lại cấu hình để đối chiếu, hoặc bấm Lưu lại – nếu lần trước đã lưu, hệ thống sẽ báo để bạn chọn."
         description={refreshing ? "Đang tải lại cấu hình…" : reloadError ? "Chưa tải lại được cấu hình. Bạn vẫn có thể thử tải lại hoặc bấm Lưu." : undefined}
         action={<Button loading={refreshing} disabled={saving} onClick={() => void load("uncertain")}>Tải lại cấu hình</Button>} />}
-      {loading ? <SectionCard><Skeleton active /></SectionCard> : loadError ? <Alert type="error" showIcon message={loadError}
+      {loading ? <SectionCard><Skeleton active /></SectionCard> : loadError ? <VietnameseAlert type="error" showIcon message={loadError}
         action={<Button onClick={() => void load()}>Thử lại</Button>} /> : baseline && <>
         {conflict && !uncertain && <SectionCard title="Cấu hình vừa được lưu ở nơi khác – thay đổi của bạn chưa được lưu">
           {refreshing ? <p><Spin size="small" /> Đang tải cấu hình mới để đối chiếu…</p> : reloadError
@@ -298,7 +299,7 @@ const CertificateSettings = () => {
           <Form name="certificate-signer-form" id="certificate-signer-form" form={form} layout="vertical" className="organizer-form"
             disabled={locked} onFinish={() => void save()} onValuesChange={(_, values: { name: string; title: string }) =>
               setDraft(value => ({ ...value, ...values }))}>
-            {submitError && <Alert type="error" showIcon message={submitError} />}
+            {submitError && <VietnameseAlert type="error" showIcon message={submitError} />}
             <div className="organizer-form-grid">
               <Form.Item name="name" label="Tên người ký" rules={[{ validator: (_, value: string = "") => {
                 const error = signerTextError(value, 100); return error ? Promise.reject(new Error(error)) : Promise.resolve();
@@ -315,9 +316,9 @@ const CertificateSettings = () => {
               </div>
               <Space wrap>
                 <Upload accept="image/png,image/jpeg" maxCount={1} showUploadList={false} beforeUpload={selectFile} disabled={locked}>
-                  <OrganizerButton icon={<UploadOutlined />} disabled={locked} loading={validating}>Chọn ảnh</OrganizerButton>
+                  <OrganizerButton icon={<UploadOutlined aria-hidden="true" />} disabled={locked} loading={validating}>Chọn ảnh</OrganizerButton>
                 </Upload>
-                <OrganizerButton icon={<DeleteOutlined />} disabled={locked || draft.signatureAction === "remove" ||
+                <OrganizerButton icon={<DeleteOutlined aria-hidden="true" />} disabled={locked || draft.signatureAction === "remove" ||
                   !draft.file && !baseline.settings.signature} onClick={() => {
                     fileId.current++;
                     setDraft(value => ({ ...value, signatureAction: "remove", file: undefined }));

@@ -1,4 +1,4 @@
-import { Alert, DatePicker, Empty, Input, Select, Table } from "antd";
+import { Empty, Input, Select, Table } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
@@ -24,21 +24,10 @@ import type {
   IOrganizationCourseListItem,
 } from "@/types/course.types";
 
+import { courseStatusText, courseTypeText } from "@/utils/organizer.labels";
 import "./courses.scss";
-
-const courseTypeLabel: Record<CourseType, string> = {
-  Public: "Public",
-  Private: "Private",
-};
-
-const courseStatusLabel: Record<CourseStatus, string> = {
-  Draft: "Draft",
-  Submitted: "Submitted",
-  Published: "Published",
-  Rejected: "Rejected",
-  Archived: "Archived",
-  Disabled: "Disabled",
-};
+import { VietnameseAlert, VietnameseRangePicker } from "@/components/vietnamese.controls";
+import { vietnameseClear, vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const statusTone = (
   status: CourseStatus,
@@ -144,7 +133,7 @@ const OrganizationCourses = () => {
         setTotal(0);
 
         setErrorMessage(
-          response.message || "Unable to load Organization Courses.",
+          response.message || "Không thể tải danh sách khóa học của tổ chức.",
         );
 
         return;
@@ -159,7 +148,7 @@ const OrganizationCourses = () => {
       setCourses([]);
       setTotal(0);
 
-      setErrorMessage("Unable to load Organization Courses.");
+      setErrorMessage("Không thể tải danh sách khóa học của tổ chức.");
     } finally {
       setLoading(false);
     }
@@ -263,41 +252,41 @@ const OrganizationCourses = () => {
 
   const columns: ColumnsType<IOrganizationCourseListItem> = [
     {
-      title: "Course",
+      title: "Khóa học",
       dataIndex: "name",
       key: "name",
       render: (name: string, course) => (
         <div className="organizer-course-name">
           <strong>{name}</strong>
-          <span>Version {course.versionNumber}</span>
+          <span>Phiên bản {course.versionNumber}</span>
         </div>
       ),
     },
 
     {
-      title: "Type",
+      title: "Loại",
       dataIndex: "courseType",
       key: "courseType",
       width: 110,
       render: (type: CourseType) => (
-        <span className="organizer-course-type">{courseTypeLabel[type]}</span>
+        <span className="organizer-course-type">{courseTypeText(type)}</span>
       ),
     },
 
     {
-      title: "Status",
+      title: "Trạng thái",
       dataIndex: "status",
       key: "status",
       width: 130,
       render: (value: CourseStatus) => (
         <StatusTag tone={statusTone(value)}>
-          {courseStatusLabel[value]}
+          {courseStatusText(value)}
         </StatusTag>
       ),
     },
 
     {
-      title: "Instructor",
+      title: "Giảng viên",
       dataIndex: "instructor",
       key: "instructor",
       width: 180,
@@ -309,7 +298,7 @@ const OrganizationCourses = () => {
     },
 
     {
-      title: "Learners",
+      title: "Học viên",
       dataIndex: "learnerCount",
       key: "learnerCount",
       width: 100,
@@ -320,16 +309,16 @@ const OrganizationCourses = () => {
     },
 
     {
-      title: "Submitted",
+      title: "Ngày gửi phê duyệt",
       dataIndex: "submittedAt",
       key: "submittedAt",
       width: 145,
       render: (value: string | null) =>
-        value ? dayjs(value).format("DD MMM YYYY") : "—",
+        value ? dayjs(value).format("DD/MM/YYYY") : "—",
     },
 
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       width: 100,
       align: "right",
@@ -352,7 +341,7 @@ const OrganizationCourses = () => {
             className="organizer-course-action"
             onClick={handleViewCourse}
           >
-            {isPendingApproval ? "Review" : "View"}
+            {isPendingApproval ? "Xem xét" : "Xem"}
           </button>
         );
       },
@@ -362,8 +351,8 @@ const OrganizationCourses = () => {
   return (
     <OrganizerPage className="organizer-courses">
       <PageHeader
-        title="Organization Courses"
-        subtitle="View and filter all Courses managed by your Organization."
+        title="Khóa học của tổ chức"
+        subtitle="Xem và lọc các khóa học do tổ chức quản lý."
       />
 
       <div className="organizer-course-view-tabs">
@@ -376,7 +365,7 @@ const OrganizationCourses = () => {
           }
           onClick={handleAllCourses}
         >
-          All Courses
+          Tất cả khóa học
         </button>
 
         <button
@@ -388,44 +377,44 @@ const OrganizationCourses = () => {
           }
           onClick={handlePendingApproval}
         >
-          Pending Approval
+          Chờ phê duyệt
         </button>
       </div>
 
       {errorMessage && (
-        <Alert
+        <VietnameseAlert
           className="organizer-courses-alert"
           type="error"
           showIcon
-          message="Could not load Courses"
+          message="Không thể tải danh sách khóa học"
           description={errorMessage}
           action={
             <OrganizerButton size="small" onClick={() => void loadCourses()}>
-              Retry
+              Thử lại
             </OrganizerButton>
           }
         />
       )}
 
       <SectionCard
-        title={status === "Submitted" ? "Pending Approval" : "All Courses"}
+        title={status === "Submitted" ? "Chờ phê duyệt" : "Tất cả khóa học"}
         extra={
           <span className="organizer-course-count">
-            {total} {total === 1 ? "Course" : "Courses"}
+            {total} khóa học
           </span>
         }
       >
         <div className="organizer-courses-filters">
           <Input
-            allowClear
-            placeholder="Search Course"
+            allowClear={vietnameseClear}
+            placeholder="Tìm khóa học"
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
           />
 
           <Select
             allowClear
-            placeholder="All types"
+            placeholder="Tất cả loại khóa học"
             value={courseType}
             onChange={(value) => {
               setCurrent(1);
@@ -438,18 +427,18 @@ const OrganizationCourses = () => {
             options={[
               {
                 value: "Public",
-                label: "Public",
+                label: courseTypeText("Public"),
               },
               {
                 value: "Private",
-                label: "Private",
+                label: courseTypeText("Private"),
               },
             ]}
           />
 
           <Select
             allowClear
-            placeholder="All statuses"
+            placeholder="Tất cả trạng thái"
             value={status}
             onChange={(value) => {
               setCurrent(1);
@@ -462,27 +451,27 @@ const OrganizationCourses = () => {
             options={[
               {
                 value: "Draft",
-                label: "Draft",
+                label: courseStatusText("Draft"),
               },
               {
                 value: "Submitted",
-                label: "Submitted",
+                label: courseStatusText("Submitted"),
               },
               {
                 value: "Published",
-                label: "Published",
+                label: courseStatusText("Published"),
               },
               {
                 value: "Rejected",
-                label: "Rejected",
+                label: courseStatusText("Rejected"),
               },
               {
                 value: "Archived",
-                label: "Archived",
+                label: courseStatusText("Archived"),
               },
               {
                 value: "Disabled",
-                label: "Disabled",
+                label: courseStatusText("Disabled"),
               },
             ]}
           />
@@ -491,7 +480,7 @@ const OrganizationCourses = () => {
             allowClear
             showSearch
             optionFilterProp="label"
-            placeholder="All instructors"
+            placeholder="Tất cả giảng viên"
             value={instructorParam || undefined}
             onChange={(value) => {
               setCurrent(1);
@@ -507,9 +496,9 @@ const OrganizationCourses = () => {
             }))}
           />
 
-          <DatePicker.RangePicker
+          <VietnameseRangePicker
             value={submittedRange}
-            placeholder={["Submitted from", "Submitted to"]}
+            placeholder={["Gửi phê duyệt từ ngày", "Gửi phê duyệt đến ngày"]}
             onChange={(range) => {
               setCurrent(1);
 
@@ -521,7 +510,7 @@ const OrganizationCourses = () => {
             }}
           />
 
-          <OrganizerButton onClick={handleReset}>Reset</OrganizerButton>
+          <OrganizerButton onClick={handleReset}>Đặt lại</OrganizerButton>
         </div>
 
         <Table<IOrganizationCourseListItem>
@@ -534,17 +523,18 @@ const OrganizationCourses = () => {
             emptyText: (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="No Courses found"
+                description="Không tìm thấy khóa học"
               />
             ),
           }}
           pagination={{
+            itemRender: vietnamesePageItem,
             current,
             pageSize,
             total,
             showSizeChanger: true,
             pageSizeOptions: ["10", "20", "50"],
-            showTotal: (count) => `${count} Courses`,
+            showTotal: (count) => `${count} khóa học`,
             position: ["bottomRight"],
           }}
           onChange={handleTableChange}

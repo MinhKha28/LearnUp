@@ -203,8 +203,8 @@ describe("before the attempt", () => {
     );
     open();
     expect(await screen.findByText("Điểm hiện được ghi nhận")).toBeTruthy();
-    expect(screen.getByText("85,5")).toBeTruthy();
-    expect(screen.getByText(/Bạn đã đạt/)).toBeTruthy();
+    expect(screen.getByText("85,5%, lấy từ lượt có điểm cao nhất. Bạn đã đạt.")).toBeTruthy();
+    expect(screen.getByText("70%")).toBeTruthy();
     expect(screen.getByText("Lịch sử làm bài")).toBeTruthy();
   });
 
@@ -394,6 +394,16 @@ describe("during the attempt", () => {
 
   const pressed = (text: string) =>
     screen.getByText(text).closest("button")!.getAttribute("aria-pressed");
+
+  it("an unknown code on saving an answer asks the Learner to choose again", async () => {
+    await begin();
+    save.mockResolvedValueOnce(refused("NEW_CODE"));
+    fireEvent.click(screen.getByText("Phương án A"));
+    expect(
+      await screen.findByText("Chưa lưu được câu trả lời. Hãy chọn lại."),
+    ).toBeTruthy();
+    expect(screen.queryByText("English message from the server")).toBeNull();
+  });
 
   it("a failed save is not forgotten when another question is answered: the choice goes back, the question stays marked and the page does not say 'Đã lưu'", async () => {
     await begin();
@@ -587,7 +597,7 @@ describe("during the attempt", () => {
     expect(await screen.findByText("Kết quả bài trắc nghiệm")).toBeTruthy();
     expect(attemptOf).toHaveBeenCalledWith("att-1");
     expect(screen.getByText(/Hết giờ nên bài được nộp tự động/)).toBeTruthy();
-    expect(screen.getByText("33,33")).toBeTruthy();
+    expect(screen.getByText("33,33%")).toBeTruthy();
   });
 
   it("the countdown runs, and at zero the attempt is read so the server submits it with the answers saved", async () => {
@@ -761,12 +771,12 @@ describe("the result", () => {
   it("shows the score of the attempt, the recorded score, the passing score and the questions right, in Vietnamese", async () => {
     await submitted({ score: 66.67, recordedScore: 90, passed: false });
     expect(screen.getByText("Điểm lượt này")).toBeTruthy();
-    expect(screen.getByText("66,67")).toBeTruthy();
-    expect(screen.getByText("90")).toBeTruthy();
+    expect(screen.getByText("66,67%")).toBeTruthy();
+    expect(screen.getByText("90%")).toBeTruthy();
     expect(screen.getByText("2/3")).toBeTruthy();
     expect(screen.getByText("Chưa đạt")).toBeTruthy();
     expect(
-      screen.getByText(/Bạn còn 1 lượt trước khi bài trắc nghiệm tạm khóa/),
+      screen.getByText("Số lượt còn lại trước khi tạm khóa: 1/2."),
     ).toBeTruthy();
     expect(document.body.textContent).not.toMatch(
       /Quiz result|Recorded|Attempt score/,
@@ -818,7 +828,7 @@ describe("the result", () => {
     expect(path).toBe("/learner/courses/enr-1/quizzes/quiz-1/history");
     cleanup();
     await submitted();
-    fireEvent.click(screen.getByText("Về danh sách bài đánh giá"));
+    fireEvent.click(screen.getByText("Quay lại danh sách bài đánh giá"));
     expect(path).toBe("/learner/courses/enr-1/assessments");
   });
 });
@@ -863,4 +873,11 @@ describe("the words of the glossary", () => {
     ).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/kiểm tra/i);
   });
+});
+
+it("uses its own Vietnamese message for an unknown quiz load error", async () => {
+  quiz.mockResolvedValueOnce(refused("NEW_CODE"));
+  open();
+  await screen.findByText("Không tải được bài trắc nghiệm.");
+  expect(screen.queryByText("English message from the server")).toBeNull();
 });

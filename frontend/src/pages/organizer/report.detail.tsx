@@ -9,6 +9,7 @@ import {
   StatCard,
   StatusTag,
 } from "@/components/organizer/organizer.ui";
+import { enrollmentKindText } from "@/utils/organizer.labels";
 import "./report.detail.scss";
 
 type CourseReportSummary = {
@@ -23,10 +24,10 @@ type CourseReportSummary = {
 };
 
 const courseReports: Record<string, CourseReportSummary> = {
-  wse: { course: "Workplace Safety Essentials", enrollmentType: "Required", learning: "86", completedOnTime: "54", completedLate: "9", overdue: "8", exempt: "6", withdrawn: "0" },
-  dsc: { course: "Data Security Compliance", enrollmentType: "Required", learning: "142", completedOnTime: "125", completedLate: "5", overdue: "6", exempt: "4", withdrawn: "2" },
-  hrp: { course: "Harassment Prevention", enrollmentType: "Required", learning: "90", completedOnTime: "71", completedLate: "4", overdue: "9", exempt: "3", withdrawn: "3" },
-  lft: { course: "Leadership Fundamentals", enrollmentType: "Optional", learning: "41", completedOnTime: "22", completedLate: "3", overdue: "0", exempt: "0", withdrawn: "1" },
+  wse: { course: "Kiến thức cơ bản về an toàn lao động", enrollmentType: "Required", learning: "86", completedOnTime: "54", completedLate: "9", overdue: "8", exempt: "6", withdrawn: "0" },
+  dsc: { course: "Tuân thủ bảo mật dữ liệu", enrollmentType: "Required", learning: "142", completedOnTime: "125", completedLate: "5", overdue: "6", exempt: "4", withdrawn: "2" },
+  hrp: { course: "Phòng chống quấy rối", enrollmentType: "Required", learning: "90", completedOnTime: "71", completedLate: "4", overdue: "9", exempt: "3", withdrawn: "3" },
+  lft: { course: "Kiến thức nền tảng về lãnh đạo", enrollmentType: "Optional", learning: "41", completedOnTime: "22", completedLate: "3", overdue: "0", exempt: "0", withdrawn: "1" },
 };
 
 type LearnerRow = {
@@ -35,63 +36,69 @@ type LearnerRow = {
   required: string;
   due: string;
   completed: string;
-  status: "In progress" | "On time" | "Completed late";
+  status: "InProgress" | "OnTime" | "CompletedLate";
 };
 
 const rows: LearnerRow[] = [
-  { key: "minh-le", learner: "Minh Le", required: "68%", due: "30 Sep", completed: "—", status: "In progress" },
-  { key: "trang-nguyen", learner: "Trang Nguyen", required: "100%", due: "20 Sep", completed: "18 Sep", status: "On time" },
-  { key: "bao-tran", learner: "Bao Tran", required: "100%", due: "18 Sep", completed: "21 Sep", status: "Completed late" },
+  { key: "minh-le", learner: "Lê Minh", required: "68%", due: "30/09", completed: "—", status: "InProgress" },
+  { key: "trang-nguyen", learner: "Trang Nguyễn", required: "100%", due: "20/09", completed: "18/09", status: "OnTime" },
+  { key: "bao-tran", learner: "Bảo Trần", required: "100%", due: "18/09", completed: "21/09", status: "CompletedLate" },
 ];
 
+const learnerProgressText: Record<LearnerRow["status"], string> = {
+  InProgress: "Đang học",
+  OnTime: "Hoàn thành đúng hạn",
+  CompletedLate: "Hoàn thành trễ hạn",
+};
+
 const statusTone = (status: LearnerRow["status"]) =>
-  status === "On time" ? "success" : status === "Completed late" ? "warning" : "info";
+  status === "OnTime" ? "success" : status === "CompletedLate" ? "warning" : "info";
 
 const ReportDetail = () => {
   const { reportId } = useParams();
   const summary = (reportId && courseReports[reportId]) || courseReports.wse;
   const columns: ColumnsType<LearnerRow> = [
-    { title: "Learner", dataIndex: "learner" },
-    { title: "Required", dataIndex: "required" },
-    { title: "Due", dataIndex: "due" },
-    { title: "Completed", dataIndex: "completed" },
+    { title: "Học viên", dataIndex: "learner" },
+    { title: "Bắt buộc", dataIndex: "required" },
+    { title: "Hạn hoàn thành", dataIndex: "due" },
+    { title: "Đã hoàn thành", dataIndex: "completed" },
     {
-      title: "Status",
+      title: "Trạng thái",
       dataIndex: "status",
       render: (status: LearnerRow["status"]) => (
-        <StatusTag tone={statusTone(status)}>{status}</StatusTag>
+        <StatusTag tone={statusTone(status)}>{learnerProgressText[status]}</StatusTag>
       ),
     },
   ];
   return (
     <OrganizerPage className="organizer-report-detail">
       <PageHeader
-        title="Course Report"
-        subtitle="Required training status by Course."
+        title="Báo cáo khóa học"
+        subtitle="Trạng thái đào tạo bắt buộc theo khóa học."
         back
-        actions={<OrganizerButton type="primary">Export report</OrganizerButton>}
+        actions={<OrganizerButton type="primary">Xuất báo cáo</OrganizerButton>}
       />
       <SectionCard className="organizer-report-header-card">
         <div className="organizer-detail-grid">
           <div className="organizer-detail-item">
-            <span>Course</span>
+            <span>Khóa học</span>
             <strong>{summary.course}</strong>
           </div>
           <div className="organizer-detail-item">
-            <span>Enrollment type</span>
-            <strong>{summary.enrollmentType}</strong>
+            <span>Hình thức tham gia</span>
+            <strong>{enrollmentKindText(summary.enrollmentType)}</strong>
           </div>
         </div>
       </SectionCard>
       <div className="organizer-stat-grid organizer-report-stats">
-        <StatCard label="Learning" value={summary.learning} />
-        <StatCard label="Completed on time" value={summary.completedOnTime} tone="success" />
-        <StatCard label="Completed late" value={summary.completedLate} tone="warning" />
-        <StatCard label="Overdue" value={summary.overdue} tone="error" />
-        <StatCard label="Exempt" value={summary.exempt} />
-        <StatCard label="Withdrawn" value={summary.withdrawn} />
+        <StatCard label="Đang học" value={summary.learning} />
+        <StatCard label="Hoàn thành đúng hạn" value={summary.completedOnTime} tone="success" />
+        <StatCard label="Hoàn thành trễ hạn" value={summary.completedLate} tone="warning" />
+        <StatCard label="Quá hạn" value={summary.overdue} tone="error" />
+        <StatCard label="Được miễn" value={summary.exempt} />
+        <StatCard label="Đã rút" value={summary.withdrawn} />
       </div>
-      <SectionCard title="Learners">
+      <SectionCard title="Học viên">
         <Table className="organizer-table" columns={columns} dataSource={rows} pagination={false} />
       </SectionCard>
     </OrganizerPage>

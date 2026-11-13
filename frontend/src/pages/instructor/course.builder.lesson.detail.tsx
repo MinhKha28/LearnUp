@@ -27,7 +27,7 @@ const formatFileSize = (sizeBytes: string): string => {
   const bytes = Number(sizeBytes);
 
   if (!Number.isFinite(bytes) || bytes < 0) {
-    return "Unknown size";
+    return "Không xác định dung lượng";
   }
 
   if (bytes < 1024) {
@@ -79,17 +79,17 @@ const MaterialRow = ({ material }: { material: IInstructorLessonMaterial }) => {
           <StatusTag tone="neutral">{material.materialType}</StatusTag>
 
           <StatusTag tone={material.isRequired ? "warning" : "neutral"}>
-            {material.isRequired ? "Required" : "Optional"}
+            {material.isRequired ? "Bắt buộc" : "Không bắt buộc"}
           </StatusTag>
 
-          {material.disabledAt && <StatusTag tone="error">Disabled</StatusTag>}
+          {material.disabledAt && <StatusTag tone="error">Đã vô hiệu hóa</StatusTag>}
 
           {material.file.status !== "Ready" && (
             <StatusTag tone="warning">{material.file.status}</StatusTag>
           )}
 
           {material.file.releasedAt && (
-            <StatusTag tone="error">File released</StatusTag>
+            <StatusTag tone="error">Tệp đã được giải phóng</StatusTag>
           )}
         </div>
 
@@ -140,20 +140,20 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
           <h1>{lesson.title}</h1>
 
           <p>
-            Module {module.position}: {module.title}
+            Chương {module.position}: {module.title}
             {" · "}
-            Lesson {lesson.position}
+            Bài học {lesson.position}
           </p>
 
           <div className="instructor-lesson-tags">
             <StatusTag tone={lesson.required ? "warning" : "neutral"}>
-              {lesson.required ? "Required" : "Optional"}
+              {lesson.required ? "Bắt buộc" : "Không bắt buộc"}
             </StatusTag>
 
             <StatusTag tone="neutral">{materials.length} materials</StatusTag>
 
             {lesson.disabledAt && (
-              <StatusTag tone="error">Lesson Disabled</StatusTag>
+              <StatusTag tone="error">Bài học đã vô hiệu hóa</StatusTag>
             )}
           </div>
         </div>
@@ -164,7 +164,7 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
               navigate(`${base}/lessons/${lesson.id}/content/edit`)
             }
           >
-            Edit Lesson Content
+            Chỉnh sửa nội dung bài học
           </InstructorButton>
 
           <InstructorButton
@@ -180,13 +180,13 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
         <div className="instructor-lesson-main">
           {/* Lesson Content */}
           <section className="instructor-lesson-card">
-            <h2>Lesson content</h2>
+            <h2>Nội dung bài học</h2>
 
             {hasContent ? (
               <LessonMarkdown content={lesson.content} />
             ) : (
               <p className="instructor-lesson-empty">
-                No Lesson content has been added yet.
+                Chưa có nội dung bài học.
               </p>
             )}
           </section>
@@ -194,19 +194,19 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
           {/* Learning Materials */}
           <section className="instructor-lesson-card">
             <div className="instructor-lesson-card-heading">
-              <h2>Learning materials</h2>
+              <h2>Học liệu</h2>
               <InstructorButton
                 onClick={() =>
                   navigate(`${base}/lessons/${lesson.id}/materials`)
                 }
               >
-                View all materials ({materials.length})
+                Xem tất cả học liệu ({materials.length})
               </InstructorButton>
             </div>
 
             {materials.length === 0 ? (
               <p className="instructor-lesson-empty">
-                No learning materials have been added to this Lesson yet.
+                Bài học này chưa có học liệu.
               </p>
             ) : (
               <div className="instructor-lesson-materials">
@@ -221,16 +221,16 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
         {/* Information sidebar */}
         <aside className="instructor-lesson-sidebar">
           <section className="instructor-lesson-card">
-            <h2>Lesson overview</h2>
+            <h2>Tổng quan bài học</h2>
 
             <div className="instructor-lesson-info">
               <div>
-                <span>Course</span>
+                <span>Khóa học</span>
                 <strong>{course.name}</strong>
               </div>
 
               <div>
-                <span>Course status</span>
+                <span>Trạng thái khóa học</span>
                 <StatusTag
                   tone={
                     course.status === "Published"
@@ -245,22 +245,22 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
               </div>
 
               <div>
-                <span>Course structure</span>
-                <strong>{course.locked ? "Locked" : "Unlocked"}</strong>
+                <span>Cấu trúc khóa học</span>
+                <strong>{course.locked ? "Đã khóa" : "Chưa khóa"}</strong>
               </div>
 
               <div>
-                <span>Required materials</span>
+                <span>Học liệu bắt buộc</span>
                 <strong>{requiredCount}</strong>
               </div>
 
               <div>
-                <span>Videos</span>
+                <span>Video</span>
                 <strong>{videoCount}</strong>
               </div>
 
               <div>
-                <span>Readings</span>
+                <span>Tài liệu đọc</span>
                 <strong>{readingCount}</strong>
               </div>
             </div>
@@ -284,7 +284,7 @@ const CourseBuilderLessonDetail = () => {
       );
 
       if (!response.data) {
-        throw new Error(response.message || "Unable to load Lesson details.");
+        throw new Error(response.message || "Không thể tải chi tiết bài học.");
       }
 
       return response.data;
@@ -297,7 +297,7 @@ const CourseBuilderLessonDetail = () => {
       {query.status === "loading" && (
         <div className="instructor-lesson-loading">
           <Spin size="large" />
-          <span>Loading Lesson details...</span>
+          <span>Đang tải chi tiết bài học...</span>
         </div>
       )}
 
@@ -308,17 +308,17 @@ const CourseBuilderLessonDetail = () => {
             showIcon
             message={
               query.error.status === 404
-                ? "Lesson not found"
-                : "Unable to load Lesson details"
+                ? "Không tìm thấy bài học"
+                : "Không thể tải chi tiết bài học"
             }
             description={
               query.error.status === 404
-                ? "This Lesson does not exist or you do not have access."
-                : "Please check your connection and try again."
+                ? "Bài học không tồn tại hoặc bạn không có quyền truy cập."
+                : "Vui lòng kiểm tra kết nối và thử lại."
             }
           />
 
-          <InstructorButton onClick={query.reload}>Try again</InstructorButton>
+          <InstructorButton onClick={query.reload}>Thử lại</InstructorButton>
         </div>
       )}
 

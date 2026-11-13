@@ -1,9 +1,11 @@
-import { Alert, Button, Form, Select } from "antd";
+import { Button, Form, Select } from "antd";
 import type {
   IManagedCourseChain,
   IStatusChangeReceiver,
 } from "@/types/organization.types";
+import { courseStatusText } from "@/utils/organizer.labels";
 import "./course.handover.fields.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 // BR-51 / BR-96 - phần chung của modal vô hiệu hóa (UC12.5) và dialog xóa (UC12.6):
 // danh sách chuỗi Course còn phụ trách, Alert khi bị chặn và ô chọn Instructor tiếp nhận.
@@ -13,7 +15,7 @@ export const CourseList = ({ courses }: { courses: IManagedCourseChain[] }) => (
     {courses.map((course) => (
       <li key={course.chainId}>
         <strong>{course.name}</strong> · v{course.versionNumber} ·{" "}
-        {course.status}
+        {courseStatusText(course.status)}
       </li>
     ))}
   </ul>
@@ -37,24 +39,24 @@ export const HandOverBlockAlert = ({
   onRetry,
 }: HandOverBlockAlertProps) =>
   blockReason === "COURSE_SERVICE_UNAVAILABLE" ? (
-    <Alert
+    <VietnameseAlert
       type="warning"
       showIcon
-      message="Course information is temporarily unavailable"
-      description={`The instructor cannot be ${actionPast} until we can check the courses they manage.`}
-      action={<Button onClick={onRetry}>Try again</Button>}
+      message="Tạm thời không xem được thông tin khóa học"
+      description={`Chưa thể ${actionPast} giảng viên này cho đến khi kiểm tra được các khóa học họ phụ trách.`}
+      action={<Button onClick={onRetry}>Thử lại</Button>}
     />
   ) : (
-    <Alert
+    <VietnameseAlert
       type="error"
       showIcon
-      message="No instructor can take over these courses"
+      message="Không có giảng viên nào có thể tiếp nhận các khóa học này"
       description={
         <>
           <p>
-            {fullName} still manages the courses below and no other active
-            instructor in your organization can take them over. Add or
-            reactivate an instructor first.
+            {fullName} vẫn đang phụ trách các khóa học bên dưới và chưa có
+            giảng viên đang hoạt động nào khác trong tổ chức có thể tiếp nhận. Hãy
+            thêm hoặc kích hoạt lại một giảng viên trước.
           </p>
           <CourseList courses={courses} />
         </>
@@ -75,21 +77,21 @@ export const HandOverReceiverFields = ({
   receivers,
 }: ReceiverFieldsProps) => (
   <>
-    <Alert
+    <VietnameseAlert
       type="info"
       showIcon
-      message={`${fullName} manages ${courses.length} course(s). They will be moved, with all their versions, to the instructor you choose.`}
+      message={`${fullName} đang phụ trách ${courses.length} khóa học. Các khóa học này, cùng mọi phiên bản, sẽ được chuyển cho giảng viên bạn chọn.`}
       description={<CourseList courses={courses} />}
     />
     <Form.Item
       className="instructor-status-receiver"
       name="receiverInstructorId"
-      label="Take over by"
-      rules={[{ required: true, message: "Choose an instructor." }]}
+      label="Giảng viên tiếp nhận"
+      rules={[{ required: true, message: "Chọn một giảng viên." }]}
     >
       <Select
         showSearch
-        placeholder="Choose an active instructor"
+        placeholder="Chọn giảng viên đang hoạt động"
         optionFilterProp="label"
         options={receivers.map((receiver) => ({
           value: receiver.id,

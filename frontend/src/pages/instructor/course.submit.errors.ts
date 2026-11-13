@@ -24,24 +24,24 @@ export const getSubmitErrorCode = (response: unknown): string | null => {
 
 const submitErrorMessages: Record<string, string> = {
   INCOMPLETE_COURSE:
-    "Please complete all required Course information before submission.",
+    "Vui lòng hoàn thiện thông tin khóa học bắt buộc trước khi gửi phê duyệt.",
   QUIZ_WITHOUT_QUESTIONS:
-    "One or more Quizzes have no questions. Please review them before submitting.",
+    "Một hoặc nhiều bài trắc nghiệm chưa có câu hỏi. Vui lòng kiểm tra trước khi gửi phê duyệt.",
   COURSE_CHANGED:
-    "This Course has been modified. Please reload and try again.",
+    "Khóa học đã có thay đổi. Vui lòng tải lại trang và thử lại.",
   ASSESSMENT_UNAVAILABLE:
-    "Unable to validate Course Quizzes. Please try again later.",
+    "Không thể xác minh bài trắc nghiệm của khóa học. Vui lòng thử lại sau.",
   INVALID_ASSESSMENT_RESPONSE:
-    "Unable to validate Course Quizzes. Please try again later.",
+    "Không thể xác minh bài trắc nghiệm của khóa học. Vui lòng thử lại sau.",
   INVALID_COURSE_STATUS:
-    "Only Draft or Rejected Courses can be submitted.",
+    "Chỉ có thể gửi phê duyệt khóa học ở trạng thái bản nháp hoặc bị từ chối.",
   FORBIDDEN:
-    "You do not have permission to submit this Course.",
+    "Bạn không có quyền gửi phê duyệt khóa học này.",
 };
 
 export const getSubmitErrorMessage = (response: unknown): string => {
   const code = getSubmitErrorCode(response);
   return (code && submitErrorMessages[code]) ||
-    "Unable to submit Course. Please try again.";
+    "Không thể gửi khóa học phê duyệt. Vui lòng thử lại.";
 };
 

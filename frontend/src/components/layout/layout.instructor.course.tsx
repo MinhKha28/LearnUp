@@ -13,6 +13,7 @@ import { fetchCourseStructureAPI } from "@/services/course.service";
 import type { IAssignmentSummary } from "@/types/assessment.types";
 import type { ICourseStructure } from "@/types/course.types";
 
+import { courseStatusLabel } from "@/utils/course.status.labels";
 import "./layout.instructor.course.scss";
 
 export interface ICourseBuilderOutletContext {
@@ -43,7 +44,7 @@ const LayoutInstructorCourse = () => {
 
       if (!response.data) {
         setStructure(null);
-        setErrorMessage(response.message || "Unable to load Course structure.");
+        setErrorMessage("Không tải được cấu trúc Khóa học.");
         return;
       }
 
@@ -51,7 +52,7 @@ const LayoutInstructorCourse = () => {
     } catch (error) {
       console.error("Fetch Course structure error:", error);
       setStructure(null);
-      setErrorMessage("Unable to load Course structure.");
+      setErrorMessage("Không tải được cấu trúc Khóa học.");
     } finally {
       setLoading(false);
     }
@@ -82,8 +83,8 @@ const LayoutInstructorCourse = () => {
     return (
       <InstructorPage>
         <PageHeader
-          eyebrow="MY COURSES / COURSE BUILDER"
-          title="Course structure"
+          eyebrow="Khóa học của tôi / Trình soạn Khóa học"
+          title="Cấu trúc Khóa học"
           subtitle=""
           back
         />
@@ -91,12 +92,12 @@ const LayoutInstructorCourse = () => {
         <Alert
           type="error"
           showIcon
-          message={errorMessage || "Course not found."}
+          message={errorMessage || "Không tìm thấy Khóa học."}
         />
 
         <div style={{ marginTop: 16 }}>
           <InstructorButton onClick={() => navigate("/instructor/courses")}>
-            Back to My Courses
+            Quay lại khóa học của tôi
           </InstructorButton>
         </div>
       </InstructorPage>
@@ -126,9 +127,9 @@ const LayoutInstructorCourse = () => {
             </Link>
 
             <div className="builder-topbar-meta">
-              <span>{course.status === "Draft" ? "Draft" : course.status}</span>
+              <span>{courseStatusLabel[course.status]}</span>
               <span className="builder-topbar-meta-dot">•</span>
-              <span>Last saved just now</span>
+              <span>Vừa lưu gần đây</span>
             </div>
           </div>
         </div>
@@ -137,17 +138,17 @@ const LayoutInstructorCourse = () => {
           <button
             type="button"
             className="builder-topbar-action"
-            onClick={() => message.info("Preview arrives in a later batch.")}
+            onClick={() => message.info("Tính năng xem trước chưa được hỗ trợ.")}
           >
-            Preview
+            Xem trước
           </button>
 
           <button
             type="button"
             className="builder-topbar-action"
-            onClick={() => message.success("Draft saved.")}
+            onClick={() => message.success("Đã lưu bản nháp.")}
           >
-            Save Draft
+            Lưu bản nháp
           </button>
 
           <button
@@ -155,7 +156,7 @@ const LayoutInstructorCourse = () => {
             className="builder-topbar-publish"
             onClick={() => navigate(`/instructor/courses/${course.id}/submit`)}
           >
-            Submit Course
+            Gửi Khóa học để phê duyệt
           </button>
         </div>
       </header>

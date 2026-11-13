@@ -3,6 +3,7 @@ import { isUUID } from 'class-validator';
 import {
   AssessmentUnavailableError,
   type AssessmentActivity,
+  type AssignmentAssessmentActivity,
   type AssessmentClient,
 } from './assessment.client';
 
@@ -23,6 +24,10 @@ export function createAssessmentClient(
       );
     const courses = new Set(ids.map((id) => id.toLowerCase()));
     return {
+      getAssignmentActivity: async (_org, _learner, courseId) => {
+        const value = courses.has(courseId.toLowerCase());
+        return { hasQuizAttempt: value, hasSubmission: value };
+      },
       getActivity: (_user, courseId) => {
         const value = courses.has(courseId.toLowerCase());
         return Promise.resolve({
@@ -70,6 +75,43 @@ export class HttpAssessmentClient implements AssessmentClient {
     private readonly key: string,
     private readonly timeoutMs: number,
   ) {}
+
+  async getAssignmentActivity(
+    organizationId: string,
+    learnerId: string,
+    courseId: string,
+  ): Promise<AssignmentAssessmentActivity> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/api/v1/internal/learners/${encodeURIComponent(learnerId)}/courses/${encodeURIComponent(courseId)}/assignment-activity/${encodeURIComponent(organizationId)}`,
+        {
+          headers: {
+            [HEADER_NAMES.INTERNAL_KEY]: this.key,
+            [HEADER_NAMES.ORGANIZATION_ID]: organizationId,
+          },
+          signal: AbortSignal.timeout(this.timeoutMs),
+        },
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const body = (await response.json()) as {
+        data?: Partial<AssignmentAssessmentActivity>;
+      } | null;
+      const data = body?.data;
+      if (
+        typeof data?.hasQuizAttempt !== 'boolean' ||
+        typeof data.hasSubmission !== 'boolean'
+      )
+        throw new Error('Assessment trả sai hợp đồng.');
+      return {
+        hasQuizAttempt: data.hasQuizAttempt,
+        hasSubmission: data.hasSubmission,
+      };
+    } catch {
+      throw new AssessmentUnavailableError(
+        'Không thể kiểm tra hoạt động đánh giá.',
+      );
+    }
+  }
 
   async getActivity(
     user: CurrentUser,

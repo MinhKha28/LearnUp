@@ -11,30 +11,36 @@ import { InfoPanel, LearnerButton, LearnerPage, PageHeader, StatusTag } from "@/
 import "./course.evaluation.scss";
 
 const criteria: { key: keyof ICourseEvaluationRatings; label: string }[] = [
-  { key: "usefulness", label: "Usefulness of the content" },
-  { key: "difficulty", label: "Appropriateness of the difficulty" },
-  { key: "quality", label: "Quality of the learning materials" },
+  { key: "usefulness", label: "Mức độ hữu ích của nội dung" },
+  { key: "difficulty", label: "Mức độ phù hợp của độ khó" },
+  { key: "quality", label: "Chất lượng học liệu" },
 ];
 
+const ratingOptions = [1, 2, 3, 4, 5];
+const maxCommentLength = 2000;
+
 const StarRating = ({
+  label,
   value,
   onChange,
   disabled,
 }: {
+  label: string;
   value: number;
   onChange?: (value: number) => void;
   disabled?: boolean;
 }) => (
-  <div className="course-evaluation-stars">
-    {[1, 2, 3, 4].map((star) => (
+  <div className="course-evaluation-stars" role="group" aria-label={label}>
+    {ratingOptions.map((star) => (
       <button
         key={star}
         type="button"
         disabled={disabled}
-        aria-label={`${star} star`}
+        aria-label={`${star} sao`}
+        aria-pressed={star === value}
         onClick={() => onChange?.(star)}
       >
-        {star <= value ? <StarFilled /> : <StarOutlined />}
+        {star <= value ? <StarFilled aria-hidden="true" /> : <StarOutlined aria-hidden="true" />}
       </button>
     ))}
   </div>
@@ -55,8 +61,8 @@ const CourseEvaluation = () => {
   if (!course || !evaluation) {
     return (
       <LearnerPage className="course-evaluation">
-        <PageHeader eyebrow="COMPLETED COURSE / EVALUATION" title="Evaluation not available" subtitle="" back />
-        <LearnerButton onClick={() => navigate("/learner/courses")}>Back to My Courses</LearnerButton>
+        <PageHeader eyebrow="Khóa học đã hoàn thành / Đánh giá" title="Chưa thể đánh giá" subtitle="" back />
+        <LearnerButton onClick={() => navigate("/learner/courses")}>Quay lại khóa học của tôi</LearnerButton>
       </LearnerPage>
     );
   }
@@ -65,16 +71,16 @@ const CourseEvaluation = () => {
     return (
       <LearnerPage className="course-evaluation">
         <PageHeader
-          eyebrow="COMPLETED COURSE / EVALUATION"
-          title="Course Evaluation"
-          subtitle="The evaluation window is closed."
+          eyebrow="Khóa học đã hoàn thành / Đánh giá"
+          title="Đánh giá khóa học"
+          subtitle="Đã hết thời hạn đánh giá."
           back
         />
         <div className="course-evaluation-closed-card">
-          <StatusTag tone="neutral">Closed</StatusTag>
-          <h3>Your submitted evaluation can no longer be edited.</h3>
-          <p>Evaluation completion does not affect your Certificate.</p>
-          <InfoPanel title="Privacy">Evaluation content remains anonymous.</InfoPanel>
+          <StatusTag tone="neutral">Đã đóng</StatusTag>
+          <h3>Bạn không thể sửa đánh giá đã gửi.</h3>
+          <p>Việc đánh giá không ảnh hưởng đến chứng chỉ của bạn.</p>
+          <InfoPanel title="Quyền riêng tư">Nội dung đánh giá vẫn được ẩn danh.</InfoPanel>
         </div>
       </LearnerPage>
     );
@@ -84,12 +90,12 @@ const CourseEvaluation = () => {
     setRatings((prev) => ({ ...prev, [key]: value }));
 
   const submit = () => {
-    const missing = criteria.some((criterion) => ratings[criterion.key] === 0);
-    if (missing) {
-      message.warning("Rate every criterion before submitting.");
+    const invalidRating = criteria.some(({ key }) => !ratingOptions.includes(ratings[key]));
+    if (invalidRating) {
+      message.warning("Hãy chấm điểm cho từng tiêu chí trước khi gửi.");
       return;
     }
-    message.success(submitted ? "Evaluation updated." : "Feedback submitted. Thank you.");
+    message.success(submitted ? "Đã cập nhật đánh giá." : "Cảm ơn bạn đã gửi đánh giá.");
     setSubmitted(true);
   };
 
@@ -97,31 +103,32 @@ const CourseEvaluation = () => {
     return (
       <LearnerPage className="course-evaluation">
         <PageHeader
-          eyebrow="COMPLETED COURSE / EVALUATION"
-          title="Edit Course Evaluation"
-          subtitle="This evaluation is editable while the configured window is open."
+          eyebrow="Khóa học đã hoàn thành / Đánh giá"
+          title="Sửa đánh giá khóa học"
+          subtitle="Bạn có thể sửa đánh giá trong thời hạn quy định."
           back
         />
-        <InfoPanel title="Evaluation window open">
-          You can update your feedback until {evaluation.windowCloseDate ?? "the configured closing date"}.
+        <InfoPanel title="Đang trong thời hạn đánh giá">
+          Bạn có thể cập nhật đánh giá đến {evaluation.windowCloseDate ?? "ngày kết thúc theo quy định"}.
         </InfoPanel>
         <div className="course-evaluation-card">
-          <h3>Your anonymous ratings</h3>
+          <h3>Điểm đánh giá ẩn danh của bạn</h3>
           {criteria.map((criterion) => (
             <div className="course-evaluation-row" key={criterion.key}>
               <span>{criterion.label}</span>
-              <StarRating value={ratings[criterion.key]} onChange={(value) => rate(criterion.key, value)} />
+              <StarRating label={criterion.label} value={ratings[criterion.key]} onChange={(value) => rate(criterion.key, value)} />
             </div>
           ))}
-          <span className="course-evaluation-comments-label">Comments</span>
+          <span className="course-evaluation-comments-label">Nhận xét</span>
           <Input.TextArea
             rows={4}
+            maxLength={maxCommentLength}
             value={comments}
             onChange={(event) => setComments(event.target.value)}
           />
           <div className="course-evaluation-actions">
             <LearnerButton type="primary" onClick={submit}>
-              Save changes
+              Lưu thay đổi
             </LearnerButton>
           </div>
         </div>
@@ -132,35 +139,36 @@ const CourseEvaluation = () => {
   return (
     <LearnerPage className="course-evaluation">
       <PageHeader
-        eyebrow="COMPLETED COURSE / EVALUATION"
-        title="Course Evaluation"
-        subtitle="Share anonymous feedback after Course completion."
+        eyebrow="Khóa học đã hoàn thành / Đánh giá"
+        title="Đánh giá khóa học"
+        subtitle="Gửi nhận xét ẩn danh sau khi hoàn thành khóa học."
         back
       />
-      <InfoPanel title="Anonymous evaluation">
-        Your identity is not linked to the content of this evaluation.
+      <InfoPanel title="Đánh giá ẩn danh">
+        Danh tính của bạn được giữ kín khi gửi đánh giá này.
       </InfoPanel>
       <div className="course-evaluation-card">
-        <h3>Rate each criterion</h3>
+        <h3>Chấm điểm từng tiêu chí</h3>
         {criteria.map((criterion) => (
           <div className="course-evaluation-row" key={criterion.key}>
             <span>{criterion.label}</span>
-            <StarRating value={ratings[criterion.key]} onChange={(value) => rate(criterion.key, value)} />
+            <StarRating label={criterion.label} value={ratings[criterion.key]} onChange={(value) => rate(criterion.key, value)} />
           </div>
         ))}
-        <span className="course-evaluation-comments-label">Additional comments (optional)</span>
+        <span className="course-evaluation-comments-label">Nhận xét bổ sung (không bắt buộc)</span>
         <Input.TextArea
           rows={4}
-          placeholder="Your feedback..."
+          maxLength={maxCommentLength}
+          placeholder="Nhập nhận xét…"
           value={comments}
           onChange={(event) => setComments(event.target.value)}
         />
         <div className="course-evaluation-actions course-evaluation-actions-split">
           <LearnerButton onClick={() => navigate(`/learner/courses/${course.id}/progress`)}>
-            Skip
+            Bỏ qua
           </LearnerButton>
           <LearnerButton type="primary" onClick={submit}>
-            Submit feedback
+            Gửi đánh giá
           </LearnerButton>
         </div>
       </div>

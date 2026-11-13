@@ -56,7 +56,7 @@ const item = (over: Partial<IReviewHistoryItem> = {}): IReviewHistoryItem => ({
   assignmentTitle: "Bài luận",
   courseId: "c-1",
   score: 90,
-  completedAt: "2026-11-05T10:00:00.000Z",
+  completedAt: "2026-11-05T23:45:00.000Z",
   comment: "Tốt",
   criteria: [
     { criterionId: "r1", name: "Nội dung", points: 55, maxPoints: 60 },
@@ -124,7 +124,7 @@ describe("the history of the reviews", () => {
     expect(screen.getAllByText("Đang thực hiện").length).toBeGreaterThan(0);
     expect(screen.getByText(/Số bài được giao: 2. Đã chấm: 1./)).toBeTruthy();
     expect(screen.getByText("Nội dung 55/60 · Trình bày 35/40")).toBeTruthy();
-    expect(screen.getByText(/05\/11\/2026/)).toBeTruthy();
+    expect(screen.getByText("06/11/2026 06:45")).toBeTruthy();
     for (const text of [
       "Bài nộp",
       "Bài tập",
@@ -350,7 +350,7 @@ describe("the history of the reviews", () => {
     } as never);
     open();
     expect(
-      await screen.findByText("Không tải được lịch sử chấm. Vui lòng thử lại."),
+      await screen.findByText("Bạn không có quyền thực hiện thao tác này."),
     ).toBeTruthy();
     load.mockRejectedValueOnce(new Error("offline"));
     fireEvent.click(screen.getByText("Thử lại"));
@@ -363,4 +363,14 @@ describe("the history of the reviews", () => {
     fireEvent.click(screen.getByText("Thử lại"));
     expect(await screen.findByText("Bài nộp 00AB")).toBeTruthy();
   });
+});
+
+it("uses its own Vietnamese message for an unknown review history error", async () => {
+  load.mockResolvedValueOnce({
+    statusCode: 400,
+    error: { code: "NEW_CODE", message: "Internal English text" },
+  } as never);
+  open();
+  await screen.findByText("Không tải được lịch sử chấm. Vui lòng thử lại.");
+  expect(screen.queryByText("Internal English text")).toBeNull();
 });

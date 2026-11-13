@@ -5,6 +5,7 @@ import { ResponseMessage, User } from '@common/decorator/customize';
 import { CatalogService } from './catalog.service';
 import { CatalogPageDto } from './dto/catalog-page.dto';
 import { CourseIntroductionDto } from './dto/course-introduction.dto';
+import { ParseCatalogKeywordPipe } from './pipes/parse-catalog-keyword.pipe';
 import { ParsePagePipe } from './pipes/parse-page.pipe';
 
 @ApiTags('catalog')
@@ -13,16 +14,18 @@ import { ParsePagePipe } from './pipes/parse-page.pipe';
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
-  // Đọc riêng tham số page: các tham số query khác (kể cả size) bị bỏ qua, trang luôn 12 Course
+  // Các tham số query ngoài page và q (kể cả size) bị bỏ qua.
   @Get('catalog')
   @ResponseMessage('Course catalog fetched successfully')
   @ApiQuery({ name: 'page', required: false, type: Number, minimum: 1 })
+  @ApiQuery({ name: 'q', required: false, type: String, maxLength: 200 })
   @ApiOkResponse({ type: CatalogPageDto })
   findCatalog(
     @User() user: CurrentUser,
     @Query('page', ParsePagePipe) page: number,
+    @Query('q', ParseCatalogKeywordPipe) keyword: unknown,
   ) {
-    return this.catalogService.findCatalog(user, page);
+    return this.catalogService.findCatalog(user, page, keyword as string | undefined);
   }
 
   // Không dùng ParseUUIDPipe: courseId sai định dạng phải trả 404 giống mọi trường hợp khác

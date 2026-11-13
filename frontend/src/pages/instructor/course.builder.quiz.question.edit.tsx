@@ -17,22 +17,22 @@ import { InstructorButton, InstructorPage, WarningPanel } from "@/components/ins
 import "./course.builder.scss";
 
 const typeOptions: { value: QuizQuestionType; label: string }[] = [
-  { value: "single", label: "Single answer" },
-  { value: "multiple", label: "Multiple answers" },
-  { value: "true-false", label: "True / False" },
+  { value: "single", label: "Một đáp án đúng" },
+  { value: "multiple", label: "Nhiều đáp án đúng" },
+  { value: "true-false", label: "Đúng / Sai" },
 ];
 
 const defaultOptionsFor = (type: QuizQuestionType): IBuilderQuizOption[] => {
   if (type === "true-false") {
     return [
-      { id: slugify("true"), text: "True", correct: true },
-      { id: slugify("false"), text: "False", correct: false },
+      { id: slugify("true"), text: "Đúng", correct: true },
+      { id: slugify("false"), text: "Sai", correct: false },
     ];
   }
   return [
-    { id: slugify("option-a"), text: "Follow the procedure", correct: true },
-    { id: slugify("option-b"), text: "Skip required checks", correct: false },
-    { id: slugify("option-c"), text: "Ignore instructions", correct: false },
+    { id: slugify("option-a"), text: "Thực hiện đúng quy trình", correct: true },
+    { id: slugify("option-b"), text: "Bỏ qua các bước kiểm tra bắt buộc", correct: false },
+    { id: slugify("option-c"), text: "Không làm theo hướng dẫn", correct: false },
   ];
 };
 
@@ -45,7 +45,7 @@ const CourseBuilderQuizQuestionEdit = () => {
   const existing = quiz ? findBuilderQuizQuestion(quiz, questionId) : undefined;
 
   const [type, setType] = useState<QuizQuestionType>(existing?.type ?? "single");
-  const [text, setText] = useState(existing?.text ?? "Which actions follow the required process?");
+  const [text, setText] = useState(existing?.text ?? "Những hành động nào tuân thủ đúng quy trình?");
   const [options, setOptions] = useState<IBuilderQuizOption[]>(
     existing?.options ?? defaultOptionsFor("single"),
   );
@@ -57,30 +57,30 @@ const CourseBuilderQuizQuestionEdit = () => {
   if (quiz.locked) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Quiz Question Editing Locked</span>
+        <span className="builder-crumb">Xây dựng khóa học / Câu hỏi bị khóa</span>
         <div className="builder-hero">
-          <h1>Quiz Question Editing Locked</h1>
+          <h1>Không thể chỉnh sửa câu hỏi trắc nghiệm</h1>
         </div>
         <div className="builder-banner">
-          <strong>Questions and answer keys locked</strong>
-          <p>At least one Learner has attempted this Quiz.</p>
+          <strong>Câu hỏi và đáp án đã bị khóa</strong>
+          <p>Đã có ít nhất một học viên làm bài trắc nghiệm này.</p>
         </div>
         <div className="builder-update-card">
-          <h2>Quiz configuration</h2>
-          <p className="builder-lesson-intro">Question and answer editing is unavailable.</p>
-          <p className="builder-lesson-intro">Time limit, n attempts and m-hour lock are also fixed.</p>
+          <h2>Cấu hình bài trắc nghiệm</h2>
+          <p className="builder-lesson-intro">Không thể chỉnh sửa câu hỏi hoặc đáp án.</p>
+          <p className="builder-lesson-intro">Thời gian làm bài, số lượt làm n và thời gian khóa m giờ cũng không thể thay đổi.</p>
           <p className="builder-lesson-intro">
-            Passing score and Required status are locked by Course Locked.
+            Điểm đạt và trạng thái bắt buộc không thể thay đổi khi khóa học đã khóa.
           </p>
           <div className="builder-actions">
-            <InstructorButton onClick={() => navigate(`${base}/quizzes/${quiz.id}`)}>Back</InstructorButton>
+            <InstructorButton onClick={() => navigate(`${base}/quizzes/${quiz.id}`)}>Quay lại</InstructorButton>
             <InstructorButton
               type="primary"
               onClick={() =>
                 navigate(`/instructor/courses/${course.id}/edit`, { state: { newVersion: true } })
               }
             >
-              Create new Course version
+              Tạo phiên bản khóa học mới
             </InstructorButton>
           </div>
         </div>
@@ -120,15 +120,15 @@ const CourseBuilderQuizQuestionEdit = () => {
 
   const handleSave = () => {
     if (!text.trim()) {
-      message.warning("Enter the Question text.");
+      message.warning("Nhập nội dung câu hỏi.");
       return;
     }
     if (options.some((option) => !option.text.trim())) {
-      message.warning("Every Answer option needs text.");
+      message.warning("Mỗi đáp án phải có nội dung.");
       return;
     }
     if (!options.some((option) => option.correct)) {
-      message.warning("Mark at least one correct Answer.");
+      message.warning("Chọn ít nhất một đáp án đúng.");
       return;
     }
     saveBuilderQuizQuestion(quiz, {
@@ -137,22 +137,22 @@ const CourseBuilderQuizQuestionEdit = () => {
       text: text.trim(),
       options,
     });
-    message.success("Question saved.");
+    message.success("Đã lưu câu hỏi.");
     navigate(`${base}/quizzes/${quiz.id}`);
   };
 
   const handleDelete = () => {
     if (!existing) return;
     removeBuilderQuizQuestion(quiz, existing.id);
-    message.success("Question removed.");
+    message.success("Đã xóa câu hỏi.");
     navigate(`${base}/quizzes/${quiz.id}`);
   };
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Edit Quiz Question</span>
+      <span className="builder-crumb">Xây dựng khóa học / Chỉnh sửa câu hỏi</span>
       <div className="builder-hero">
-        <h1>Edit Quiz Question</h1>
+        <h1>Chỉnh sửa câu hỏi trắc nghiệm</h1>
       </div>
       <div className="builder-grid">
         <div className="builder-update-card">
@@ -169,10 +169,10 @@ const CourseBuilderQuizQuestionEdit = () => {
             ))}
           </div>
 
-          <label className="instructor-form-label instructor-form-label-spaced">Question</label>
+          <label className="instructor-form-label instructor-form-label-spaced">Câu hỏi</label>
           <Input value={text} onChange={(event) => setText(event.target.value)} />
 
-          <label className="instructor-form-label instructor-form-label-spaced">Answer options</label>
+          <label className="instructor-form-label instructor-form-label-spaced">Các phương án trả lời</label>
           <div className="builder-quiz-options">
             {options.map((option, index) => (
               <button
@@ -198,10 +198,10 @@ const CourseBuilderQuizQuestionEdit = () => {
           </div>
           {type !== "true-false" && (
             <div className="builder-actions builder-actions-split">
-              <InstructorButton onClick={addOption}>+ Add option</InstructorButton>
+              <InstructorButton onClick={addOption}>+ Thêm phương án</InstructorButton>
               {existing && (
                 <button type="button" className="builder-table-link builder-table-link-danger" onClick={handleDelete}>
-                  Delete question
+                  Xóa câu hỏi
                 </button>
               )}
             </div>
@@ -214,18 +214,18 @@ const CourseBuilderQuizQuestionEdit = () => {
                 onClick={handleDelete}
                 style={{ marginRight: "auto" }}
               >
-                Delete question
+                Xóa câu hỏi
               </button>
             )}
-            <InstructorButton onClick={() => navigate(`${base}/quizzes/${quiz.id}`)}>Cancel</InstructorButton>
+            <InstructorButton onClick={() => navigate(`${base}/quizzes/${quiz.id}`)}>Hủy</InstructorButton>
             <InstructorButton type="primary" onClick={handleSave}>
-              Save question
+              Lưu câu hỏi
             </InstructorButton>
           </div>
         </div>
         <div className="builder-side">
-          <WarningPanel title="Question lock">
-            Questions and answer keys lock after the first Quiz attempt.
+          <WarningPanel title="Khóa chỉnh sửa câu hỏi">
+            Câu hỏi và đáp án sẽ bị khóa sau lượt làm bài trắc nghiệm đầu tiên.
           </WarningPanel>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Pagination, Select } from "antd";
+import { Pagination, Select } from "antd";
 import { useNavigate } from "react-router-dom";
 import {
   InfoPanel,
@@ -13,16 +13,18 @@ import {
   vietnameseErrorText,
 } from "@/services/assessment.service";
 import type { IReviewHistory } from "@/types/assessment.types";
+import { formatDateTimeVN } from "@/utils/helper";
 import {
   criteriaLine,
   dutyLine,
-  formatReviewTime,
   obligationView,
   progressText,
   reviewLabel,
   scoreText,
 } from "@/utils/review.history";
 import "./peer.review.history.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const PAGE_SIZE = 20;
 
@@ -76,7 +78,7 @@ const PeerReviewHistory = () => {
 
   const header = (
     <PageHeader
-      eyebrow="Học viên"
+      eyebrow="Chấm chéo / Lịch sử chấm"
       title="Lịch sử chấm của tôi"
       subtitle="Các bài chấm chéo bạn đã hoàn thành và tình trạng nghĩa vụ chấm."
       back
@@ -89,7 +91,7 @@ const PeerReviewHistory = () => {
         {header}
         {notice ? (
           <>
-            <Alert type="error" showIcon message={notice} />
+            <VietnameseAlert type="error" showIcon message={notice} />
             <LearnerButton onClick={() => void load()}>Thử lại</LearnerButton>
           </>
         ) : (
@@ -179,7 +181,7 @@ const PeerReviewHistory = () => {
                     </small>
                   )}
                 </td>
-                <td>{formatReviewTime(item.completedAt)}</td>
+                <td>{formatDateTimeVN(item.completedAt)}</td>
                 <td>
                   <LearnerButton
                     onClick={() => navigate(`/learner/peer-review/${item.id}`)}
@@ -201,7 +203,7 @@ const PeerReviewHistory = () => {
           </tbody>
         </table>
         {history.total > PAGE_SIZE && (
-          <Pagination
+          <Pagination itemRender={vietnamesePageItem}
             current={page}
             pageSize={PAGE_SIZE}
             total={history.total}

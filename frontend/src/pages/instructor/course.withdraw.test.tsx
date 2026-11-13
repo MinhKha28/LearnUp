@@ -76,7 +76,7 @@ it("loads the Submitted Course and navigates only on successful withdrawal", asy
     data: { ...course, status: "Draft", submittedAt: null },
   } as Awaited<ReturnType<typeof withdrawCourseSubmissionAPI>>);
   open();
-  fireEvent.click(await screen.findByRole("button", { name: "Withdraw to Draft" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Thu hồi về bản nháp" }));
   expect(await screen.findByText("Course Detail")).toBeTruthy();
   expect(withdraw).toHaveBeenCalledWith("course-1");
   expect(notifications.success).toHaveBeenCalledTimes(1);
@@ -87,12 +87,12 @@ it("shows an API failure, reloads the Course, and does not navigate", async () =
     response: { data: { code: "COURSE_CHANGED" } },
   });
   open();
-  fireEvent.click(await screen.findByRole("button", { name: "Withdraw to Draft" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Thu hồi về bản nháp" }));
   await waitFor(() => expect(fetchCourse).toHaveBeenCalledTimes(2));
-  expect(await screen.findByRole("button", { name: "Withdraw to Draft" })).toBeTruthy();
+  expect(await screen.findByRole("button", { name: "Thu hồi về bản nháp" })).toBeTruthy();
   expect(screen.queryByText("Course Detail")).toBeNull();
   expect(notifications.error).toHaveBeenCalledWith(
-    "Course status has changed. Please reload and try again.",
+    "Trạng thái khóa học đã thay đổi. Vui lòng tải lại trang và thử lại.",
   );
 });
 
@@ -103,7 +103,7 @@ it("does not navigate after a non-successful API response", async () => {
     error: { code: "INVALID_COURSE_STATUS" },
   } as unknown as Awaited<ReturnType<typeof withdrawCourseSubmissionAPI>>);
   open();
-  fireEvent.click(await screen.findByRole("button", { name: "Withdraw to Draft" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Thu hồi về bản nháp" }));
   await waitFor(() => expect(fetchCourse).toHaveBeenCalledTimes(2));
   expect(screen.queryByText("Course Detail")).toBeNull();
   expect(notifications.success).not.toHaveBeenCalled();
@@ -115,7 +115,7 @@ it("ignores duplicate submission while request is pending", async () => {
     resolveRequest = resolve;
   }) as unknown as ReturnType<typeof withdrawCourseSubmissionAPI>);
   open();
-  const button = await screen.findByRole("button", { name: "Withdraw to Draft" });
+  const button = await screen.findByRole("button", { name: "Thu hồi về bản nháp" });
   fireEvent.click(button);
   fireEvent.click(button);
   expect(withdraw).toHaveBeenCalledTimes(1);

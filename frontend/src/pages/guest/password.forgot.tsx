@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
-import { Alert, Button, Form, Input } from "antd";
+import { Button, Form, Input } from "antd";
 import { Link } from "react-router-dom";
 import { AuthCard } from "@/components/guest/auth";
 import { forgotPasswordAPI } from "@/services/identity.service";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type ForgotPasswordFields = { email: string };
 
@@ -23,10 +24,10 @@ export default function ForgotPasswordPage() {
       if (result.success) {
         setSent(true);
       } else {
-        setError("Unable to request password recovery right now. Please try again later.");
+        setError("Hiện chưa gửi được yêu cầu khôi phục mật khẩu. Vui lòng thử lại sau.");
       }
     } catch {
-      setError("Unable to request password recovery right now. Please try again later.");
+      setError("Hiện chưa gửi được yêu cầu khôi phục mật khẩu. Vui lòng thử lại sau.");
     } finally {
       pending.current = false;
       setSubmitting(false);
@@ -35,13 +36,13 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthCard>
-      <h1>Reset your password</h1>
+      <h1>Đặt lại mật khẩu</h1>
       <p>
-        Enter the email address associated with your account.
+        Nhập địa chỉ email của tài khoản.
         <br />
-        If your account is eligible, we will attempt to send recovery instructions.
+        Nếu tài khoản đủ điều kiện, chúng tôi sẽ gửi hướng dẫn khôi phục mật khẩu.
       </p>
-      {error && <Alert type="error" showIcon message={error} role="alert" />}
+      {error && <VietnameseAlert type="error" showIcon message={error} role="alert" />}
       <Form<ForgotPasswordFields>
         layout="vertical"
         requiredMark={false}
@@ -50,30 +51,30 @@ export default function ForgotPasswordPage() {
         onValuesChange={() => { setSent(false); setError(null); }}
       >
         <Form.Item
-          label="Email address"
+          label="Địa chỉ email"
           name="email"
           rules={[
-            { required: true, message: "Enter your email address." },
-            { type: "email", message: "Enter a valid email address." },
+            { required: true, message: "Hãy nhập địa chỉ email." },
+            { type: "email", message: "Địa chỉ email không hợp lệ." },
           ]}
         >
-          <Input autoComplete="email" placeholder="alex.morgan@example.com" />
+          <Input autoComplete="email" placeholder="nguyen.van.an@congty.vn" />
         </Form.Item>
         <Button type="primary" htmlType="submit" block loading={submitting} disabled={submitting}>
-          Send reset link
+          Gửi liên kết đặt lại
         </Button>
       </Form>
       {sent && (
         <div className="auth-confirmation" role="status">
-          <b>Request received</b>
+          <b>Đã nhận yêu cầu</b>
           <p>
-            If this email is eligible for recovery, we will attempt to send instructions.
-            Check your inbox and spam folder; delivery is not guaranteed.
+            Nếu email này đủ điều kiện khôi phục, chúng tôi sẽ gửi hướng dẫn. Hãy
+            kiểm tra hộp thư đến và thư mục thư rác; thư có thể đến chậm.
           </p>
         </div>
       )}
       <Link className="auth-link" to="/login">
-        Already have access? Sign in
+        Đã có quyền truy cập? Đăng nhập
       </Link>
     </AuthCard>
   );

@@ -1,3 +1,4 @@
+import { formatNumberVN, formatPercentageVN } from "@/utils/number.format";
 import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
 import { Input, Upload, message } from "antd";
@@ -6,7 +7,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { DetailItem, InfoPanel, LearnerButton, PageHeader, WarningPanel } from "@/components/learner/learner.ui";
 import {
   assessmentErrorCode,
-  assessmentErrorText,
+  learnerAssessmentErrorText,
   ENROLLMENT_NOT_ACTIVE_FORM_TEXT,
   downloadLearnerPromptFileAPI,
   fetchLearnerAssignmentAPI,
@@ -14,7 +15,7 @@ import {
   submitAssignmentAPI,
 } from "@/services/assessment.service";
 import type { ILearnerAssignment } from "@/types/assessment.types";
-import { formatFileSize } from "@/utils/helper";
+import { formatFileSize } from "@/utils/submission.labels";
 import "./assignment.work.scss";
 
 // UC30 step 2: one PDF, DOCX or ZIP. The size limit comes with the Assignment (`maxFileBytes`: the 50 MB ceiling lowered
@@ -73,7 +74,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
         setAssignment(res.data);
         setLoadError("");
       } else {
-        setLoadError(assessmentErrorText(res, "Không tải được Bài tập."));
+        setLoadError(learnerAssessmentErrorText(res, "Không tải được bài tập."));
       }
     } catch {
       setLoadError("Không kết nối được dịch vụ Đánh giá. Vui lòng thử lại.");
@@ -86,12 +87,12 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
     void load();
   }, [load]);
 
-  const eyebrow = resubmitting ? "Bài trắc nghiệm và Bài tập / Nộp lại" : "Bài trắc nghiệm và Bài tập / Nộp bài";
+  const eyebrow = resubmitting ? "Bài đánh giá / Nộp lại" : "Bài đánh giá / Nộp bài";
   if (!assignment) {
     return (
       <PageHeader
         eyebrow={eyebrow}
-        title={loading ? "Đang tải Bài tập..." : "Chưa mở được Bài tập"}
+        title={loading ? "Đang tải bài tập..." : "Chưa mở được bài tập"}
         subtitle={loadError || "Vui lòng đợi."}
         back
       />
@@ -155,7 +156,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
         return;
       }
       message.error(
-        assessmentErrorText(res, resubmitting ? "Không nộp lại được Bài tập." : "Không nộp được Bài tập."),
+        learnerAssessmentErrorText(res, resubmitting ? "Không nộp lại được bài tập." : "Không nộp được bài tập."),
       );
       if (STALE_CODES.includes(code)) {
         await load();
@@ -190,12 +191,12 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
           {notActive && <WarningPanel title="Không thể nộp bài">{notActive}</WarningPanel>}
           {assignment.readOnly && (
             <WarningPanel title="Khóa học đã hoàn thành">
-              Khóa học này đã hoàn thành nên Bài tập chỉ để xem.
+              Khóa học này đã hoàn thành nên bài tập chỉ để xem.
             </WarningPanel>
           )}
           {!resubmitting && submitted && !assignment.readOnly && (
             <WarningPanel title="Đã nộp bài">
-              Bạn đã nộp Bài tập này lúc {formatTime(previous.submittedAt)}. Bạn có thể thay nó bằng một bài nộp
+              Bạn đã nộp bài tập này lúc {formatTime(previous.submittedAt)}. Bạn có thể thay nó bằng một bài nộp
               mới.
               <span className="assignment-work-action">
                 <LearnerButton type="primary" onClick={() => navigate(`${base}/resubmit`)}>
@@ -206,7 +207,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
           )}
           {resubmitting && !submitted && (
             <WarningPanel title="Chưa có gì để nộp lại">
-              Bạn chưa nộp Bài tập này.
+              Bạn chưa nộp bài tập này.
               <span className="assignment-work-action">
                 <LearnerButton type="primary" onClick={() => navigate(`${base}/submit`)}>
                   Nộp bài
@@ -229,13 +230,13 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
           <div className="assignment-work-prompt">
             {assignment.prompt ? <p>{assignment.prompt}</p> : <p>Đọc tệp đính kèm và trả lời.</p>}
             {assignment.promptFile && (
-              <LearnerButton icon={<DownloadOutlined />} onClick={downloadPrompt}>
+              <LearnerButton icon={<DownloadOutlined aria-hidden="true" />} onClick={downloadPrompt}>
                 {assignment.promptFile.fileName}
               </LearnerButton>
             )}
           </div>
 
-          <h3>Rubric</h3>
+          <h3>Tiêu chí chấm điểm</h3>
           <ul className="assignment-work-rubric">
             {assignment.rubric.map((criterion) => (
               <li key={criterion.id}>
@@ -243,7 +244,7 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
                   <strong>{criterion.name}</strong>
                   <span>{criterion.description}</span>
                 </div>
-                <em>{criterion.maxPoints} điểm</em>
+                <em>{formatNumberVN(criterion.maxPoints)} điểm</em>
               </li>
             ))}
           </ul>
@@ -266,14 +267,14 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
             showUploadList={false}
           >
             <p className="ant-upload-drag-icon">
-              <InboxOutlined />
+              <InboxOutlined aria-hidden="true" />
             </p>
             <p className="ant-upload-text">{file ? file.name : "Tải bài làm của bạn lên"}</p>
             <p className="ant-upload-hint">PDF, DOCX hoặc ZIP, tối đa {formatFileSize(assignment.maxFileBytes)}. Một tệp.</p>
           </Upload.Dragger>
           <InfoPanel title="Kết quả đánh giá">
-            Bài nộp mới nhất quyết định điểm Bài tập được ghi nhận. Số lần nộp lại không bị giới hạn cho đến khi
-            Khóa học hoàn thành.
+            Bài nộp mới nhất quyết định điểm bài tập được ghi nhận. Được nộp lại nhiều lần; nộp{" "}
+            {attempts.maxConsecutiveAttempts} lượt liên tiếp thì tạm khóa {attempts.lockoutHours} giờ.
           </InfoPanel>
           <div className="assignment-work-actions">
             <LearnerButton type="primary" loading={submitting} disabled={blocked} onClick={send}>
@@ -287,12 +288,12 @@ const AssignmentWork = ({ mode }: { mode: "submit" | "resubmit" }) => {
             <DetailItem label="Thời gian dự kiến">
               {assignment.expectedDurationMinutes ? `${assignment.expectedDurationMinutes} phút` : "Chưa đặt"}
             </DetailItem>
-            <DetailItem label="Điểm tối thiểu">{assignment.passingScore}%</DetailItem>
-            <DetailItem label="Số lần nộp còn lại">
-              {attempts.remainingAttempts} trên {attempts.maxConsecutiveAttempts}
+            <DetailItem label="Điểm đạt tối thiểu">{formatPercentageVN(assignment.passingScore)}</DetailItem>
+            <DetailItem label="Số lượt còn lại trước khi tạm khóa">
+              {attempts.remainingAttempts}/{attempts.maxConsecutiveAttempts}
             </DetailItem>
             <DetailItem label="Quy tắc khóa">
-              {attempts.maxConsecutiveAttempts} lần liên tiếp thì tạm dừng nộp bài trong {attempts.lockoutHours} giờ
+              Nộp {attempts.maxConsecutiveAttempts} lượt liên tiếp thì tạm khóa {attempts.lockoutHours} giờ
             </DetailItem>
             <DetailItem label="Cách chấm">
               {assignment.peerReviewEnabled ? "Chấm chéo, rồi giảng viên chấm" : "Giảng viên chấm"}

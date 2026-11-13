@@ -1,3 +1,4 @@
+import { LEARNER_API_ERROR_FALLBACK, learnerPlatformErrorText } from "@/utils/learner.api.errors";
 import { assessmentAxios as axios } from "@/services/axios.customize";
 import type {
   IAssessmentError,
@@ -27,6 +28,8 @@ import type {
   IQuizList,
   IQuizDetail,
   ICreateQuizReq,
+  ICreateQuizQuestionReq,
+  IQuizQuestionCreated,
   IQuizSummary,
   IUpdateAssignment,
   IUpdatePeerReview,
@@ -154,7 +157,7 @@ export const fetchQuizAPI = (quizId: string) =>
 export const createQuizAPI = (payload: ICreateQuizReq) =>
   axios.post<IBackendRes<IQuizSummary>>("/api/v1/assessments/quizzes", payload);
 
-/** UC18.4 — Update Quiz configuration; answers with the Quiz detail and its new permissions. */
+/** UC18.3 — Update Quiz configuration; answers with the Quiz detail and its new permissions. */
 export const updateQuizConfigAPI = (
   quizId: string,
   payload: IUpdateQuizConfigReq,
@@ -164,7 +167,17 @@ export const updateQuizConfigAPI = (
     payload,
   );
 
-/** UC18.5 — Delete Quiz. */
+/** UC18.1.1 — Add a question with its answers at the end of a Quiz. */
+export const createQuizQuestionAPI = (
+  quizId: string,
+  payload: ICreateQuizQuestionReq,
+) =>
+  axios.post<IBackendRes<IQuizQuestionCreated>>(
+    `/api/v1/assessments/quizzes/${quizId}/questions`,
+    payload,
+  );
+
+/** UC18.4 — Delete Quiz. */
 export const deleteQuizAPI = (quizId: string) =>
   axios.delete<IBackendRes<{ id: string }>>(
     `/api/v1/assessments/quizzes/${quizId}`,
@@ -293,24 +306,45 @@ export const giveLearnerPeerReviewAPI = (
     body,
   );
 
+/** The file of the work to review, or the error code when the download failed. */
+export type LearnerReviewFile = { blob: Blob; code?: undefined } | { blob: null; code?: string };
+
+/** A failed blob request resolves to a Blob that holds the JSON error envelope; read its code. */
+const blobErrorCode = async (res: unknown): Promise<string | undefined> => {
+  if (!(res instanceof Blob)) return assessmentErrorCode(res).code;
+  try {
+    return assessmentErrorCode(JSON.parse(await res.text())).code;
+  } catch {
+    return undefined;
+  }
+};
+
 /** UC31 — the file of the work under review, with a neutral name; like the prompt file, only a real 200 response yields it. */
 export const downloadLearnerReviewFileAPI = async (
   reviewId: string,
-): Promise<Blob | null> => {
+): Promise<LearnerReviewFile> => {
   const res = (await axios.get(
     `/api/v1/assessments/learner/peer-reviews/${reviewId}/file`,
     {
       responseType: "blob",
     },
-  )) as unknown as { status?: number; data?: unknown };
-  return res.status === 200 && res.data instanceof Blob ? res.data : null;
+  )) as unknown;
+  const { status, data } = (res ?? {}) as { status?: number; data?: unknown };
+  if (status === 200 && data instanceof Blob) return { blob: data };
+  return { blob: null, code: await blobErrorCode(res) };
 };
+
+/** What the Learner reads when the work file cannot be downloaded. */
+export const learnerReviewFileErrorText = (code?: string): string =>
+  code === "REVIEW_FILE_NOT_FOUND"
+    ? "Bài nộp này không có tệp hoặc tệp không còn trên hệ thống."
+    : "Không tải được tệp.";
 
 /** Code of a failed answer and, for ASSESSMENT_LOCKED, the time the Assignment opens again. */
 export const assessmentErrorCode = (
   res: unknown,
 ): { code?: string; lockedUntil?: string } => {
-  const { error } = res as IAssessmentError;
+  const error = (res as IAssessmentError | null | undefined)?.error;
   return typeof error === "object"
     ? { code: error?.code, lockedUntil: error?.lockedUntil }
     : {};
@@ -322,18 +356,21 @@ export const assessmentErrorCode = (
  */
 const LEARNER_LOCK_TEXT: Record<string, string> = {
   ENROLLMENT_NOT_ACTIVE:
-    "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể xem hoặc nộp bài tập. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.",
+    "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể xem hoặc nộp bài tập. Hãy liên hệ quản lý đào tạo nếu cần hỗ trợ.",
 };
 
 /** The same lock on the form, when the Learner has typed something: the draft stays on the page (BR-210). */
 export const ENROLLMENT_NOT_ACTIVE_FORM_TEXT =
-  "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể nộp bài nữa. Nội dung bạn đã nhập vẫn được giữ trên trang này. Hãy liên hệ Quản lý đào tạo nếu cần hỗ trợ.";
+  "Khóa học đã tạm dừng hoặc bạn đã rút khỏi khóa học nên không thể nộp bài nữa. Nội dung bạn đã nhập vẫn được giữ trên trang này. Hãy liên hệ quản lý đào tạo nếu cần hỗ trợ.";
 
 /** The codes a Learner can meet on the peer review screens, in Vietnamese: the server message is English. */
 const REVIEW_ERROR_TEXT: Record<string, string> = {
   ...LEARNER_LOCK_TEXT,
-  RUBRIC_MISSING: "Bài tập này chưa có tiêu chí Rubric để chấm.",
-  RUBRIC_SCORES_INCOMPLETE: "Hãy chấm đúng một điểm cho mỗi tiêu chí Rubric.",
+  REVIEW_NOT_FOUND: "Không tìm thấy bài chấm này.",
+  REVIEW_ALREADY_GIVEN: "Bài chấm này đã được gửi trước đó.",
+  REVIEW_CLOSED: "Đã quá hạn chấm bài này nên không thể gửi nữa.",
+  RUBRIC_MISSING: "Bài tập này chưa có tiêu chí chấm điểm.",
+  RUBRIC_SCORES_INCOMPLETE: "Hãy nhập đúng một điểm cho mỗi tiêu chí chấm điểm.",
   RUBRIC_SCORE_OUT_OF_RANGE:
     "Điểm của một tiêu chí không được vượt quá điểm tối đa của tiêu chí đó.",
 };
@@ -342,7 +379,39 @@ const REVIEW_ERROR_TEXT: Record<string, string> = {
 export const vietnameseErrorText = (res: unknown, fallback: string): string => {
   const { error } = res as IAssessmentError;
   const code = typeof error === "object" ? error?.code : undefined;
-  return (code && REVIEW_ERROR_TEXT[code]) || fallback;
+  if (code && Object.hasOwn(REVIEW_ERROR_TEXT, code)) return REVIEW_ERROR_TEXT[code];
+  return learnerPlatformErrorText(code) ?? fallback;
+};
+
+const learnerAssessmentErrorMessages = new Map<string, string>([
+  ["NOT_ENROLLED", "Bạn chưa đăng ký khóa học này."],
+  ["ENROLLMENT_NOT_ACTIVE", LEARNER_LOCK_TEXT.ENROLLMENT_NOT_ACTIVE],
+  ["ENROLLMENT_COMPLETED", "Bạn đã hoàn thành khóa học. Bài đánh giá chỉ để xem."],
+  ["ASSIGNMENT_NOT_FOUND", "Không tìm thấy bài tập."],
+  ["ASSESSMENT_LOCKED", "Bài đánh giá đang tạm khóa."],
+  ["SUBMISSION_EXISTS", "Bạn đã nộp bài tập này."],
+  ["NO_PREVIOUS_SUBMISSION", "Bạn chưa có bài nộp để nộp lại."],
+  ["SUBMISSION_NOT_FOUND", "Không tìm thấy bài nộp."],
+  ["SUBMISSION_NOT_FINALIZED", "Bài nộp đang được chấm. Chưa có kết quả."],
+  ["SUBMISSION_EMPTY", "Hãy nhập câu trả lời hoặc đính kèm tệp."],
+  ["FILE_TOO_LARGE", "Tệp vượt quá dung lượng cho phép."],
+  ["SUBMISSION_FILE_TOO_LARGE", "Tệp vượt quá dung lượng cho phép."],
+  ["SUBMISSION_FILE_INVALID", "Tệp bài nộp không hợp lệ."],
+  ["PROMPT_FILE_NOT_FOUND", "Không tìm thấy tệp đề bài."],
+  ["STORAGE_UNAVAILABLE", "Dịch vụ lưu trữ tạm thời gián đoạn. Vui lòng thử lại."],
+  ["LEARNING_SERVICE_UNAVAILABLE", "Dịch vụ học tập tạm thời gián đoạn. Vui lòng thử lại."],
+  ["COURSE_NOT_FOUND", "Không tìm thấy khóa học."],
+  ["COURSE_SERVICE_UNAVAILABLE", "Dịch vụ khóa học tạm thời gián đoạn. Vui lòng thử lại."],
+]);
+
+/** Known codes are mapped; an unknown code shows the operation's own message, else the generic one. */
+export const learnerAssessmentErrorText = (
+  response: unknown,
+  fallback: string = LEARNER_API_ERROR_FALLBACK,
+): string => {
+  const { code } = assessmentErrorCode(response);
+  const message = code ? learnerAssessmentErrorMessages.get(code) : undefined;
+  return message ?? learnerPlatformErrorText(code) ?? fallback;
 };
 
 /** The axios interceptor resolves error responses instead of rejecting; pull the message out of them. */

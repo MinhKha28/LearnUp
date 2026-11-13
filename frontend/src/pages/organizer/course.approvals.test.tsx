@@ -52,7 +52,7 @@ describe("UC21.3 Pending Approvals", () => {
     expect(fetchOrganizationCoursesAPI).toHaveBeenCalledWith({
       current: 1, pageSize: 10, status: "Submitted",
     });
-    fireEvent.click(screen.getByRole("button", { name: "Review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xem xét" }));
     expect(await screen.findByText("Review destination")).toBeTruthy();
   });
 
@@ -63,7 +63,7 @@ describe("UC21.3 Pending Approvals", () => {
     } as never);
     open();
     await waitFor(() => expect(fetchOrganizationCoursesAPI).toHaveBeenCalledTimes(1));
-    expect(screen.queryByRole("button", { name: "Review" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Xem xét" })).toBeNull();
   });
 
   it("shows a retry action on an HTTP error response", async () => {
@@ -71,8 +71,8 @@ describe("UC21.3 Pending Approvals", () => {
       statusCode: 403, message: "Forbidden",
     } as never);
     open();
-    expect(await screen.findByText("Unable to load pending approval Courses.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Không thể tải danh sách khóa học chờ phê duyệt.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
     await waitFor(() => expect(fetchOrganizationCoursesAPI).toHaveBeenCalledTimes(2));
   });
 });
