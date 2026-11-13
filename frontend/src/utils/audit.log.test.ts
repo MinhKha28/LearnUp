@@ -26,7 +26,7 @@ describe("labels", () => {
     expect(isKnownAction("INSTRUCTOR_DEACTIVATED")).toBe(true);
     expect(actionLabel("INSTRUCTOR_DELETED")).toBe("Xóa tài khoản giảng viên");
     expect(isKnownAction("INSTRUCTOR_DELETED")).toBe(true);
-    expect(actionLabel("MEMBER_IMPORTED")).toBe("Nhập danh sách thành viên");
+    expect(actionLabel("MEMBER_IMPORTED")).toBe("Nhập từ Excel");
     expect(actionLabel("LEARNER_DELETED")).toBe("Xóa tài khoản học viên");
     expect(actionLabel("")).toBe("—");
     expect(isKnownAction("toString")).toBe(false);
