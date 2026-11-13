@@ -15,6 +15,7 @@ import './learner-assessments.integration-test';
 import './learner-resubmissions.integration-test';
 import './learner-results.integration-test';
 import './instructor-finalization.integration-test';
+import './instructor-finalization-notice.integration-test';
 import './peer-review-cycles.integration-test';
 import './assessment-activity.integration-test';
 import './assignment-minutes.integration-test';
