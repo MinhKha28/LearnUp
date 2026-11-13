@@ -37,6 +37,7 @@ describe('BR-254 the Learner is told when the final score is published', () => {
   let api: ReturnType<typeof apiFor>;
   let sent: Sent[] = [];
   let notifierStatus = 201;
+  let notifierUrl = '';
 
   async function createSubmission(title: string) {
     const created = await api('POST', '/assignments', {
@@ -108,13 +109,14 @@ describe('BR-254 the Learner is told when the final score is published', () => {
       });
     });
     await new Promise<void>((resolve) => notifier.listen(0, resolve));
+    notifierUrl = `http://127.0.0.1:${(notifier.address() as AddressInfo).port}`;
     service = await startService(db.url, {
       COURSE_SERVICE_URL: course.url,
       ENROLLMENT_CLIENT_MODE: 'fake',
       TENANT_CLIENT_MODE: 'fake',
       OUTBOX_RELAY_ENABLED: 'false',
       NOTIFICATION_CLIENT_MODE: 'http',
-      NOTIFICATION_SERVICE_URL: `http://127.0.0.1:${(notifier.address() as AddressInfo).port}`,
+      NOTIFICATION_SERVICE_URL: notifierUrl,
     });
     api = apiFor(service.baseUrl);
   });
@@ -220,5 +222,40 @@ describe('BR-254 the Learner is told when the final score is published', () => {
       [submissionId],
     );
     assert.equal(events.length, 1, 'the event for Learning is still written');
+  });
+
+  test('a Kafka that cannot be reached stops neither the service nor the finalization nor its notice', async () => {
+    const { submissionId } = await gradedSubmission('Kafka is down');
+    // The relay is on and the only broker is a closed port: the service must start and work all the same.
+    const down = await startService(db.url, {
+      COURSE_SERVICE_URL: course.url,
+      ENROLLMENT_CLIENT_MODE: 'fake',
+      TENANT_CLIENT_MODE: 'fake',
+      OUTBOX_RELAY_ENABLED: 'true',
+      KAFKA_BROKERS: '127.0.0.1:1',
+      OUTBOX_PROBE_TIMEOUT_MS: '200',
+      OUTBOX_DELIVERY_TIMEOUT_MS: '1000', // the first probe of an unreachable broker ends in about a second
+      NOTIFICATION_CLIENT_MODE: 'http',
+      NOTIFICATION_SERVICE_URL: notifierUrl,
+    });
+    try {
+      sent = [];
+      const result = await apiFor(down.baseUrl)(
+        'POST',
+        `/submissions/${submissionId}/finalize`,
+        { finalScore: 80 },
+      );
+      assert.equal(result.status, 200, JSON.stringify(result.json));
+      assert.equal(sent.length, 2, 'the bell and the e-mail were sent');
+      const events = await db.query(
+        `SELECT published_at FROM outbox_events WHERE payload->>'submissionId' = $1
+           AND payload->>'reason' = 'ASSIGNMENT_FINALIZED'`,
+        [submissionId],
+      );
+      assert.equal(events.length, 1);
+      assert.equal(events[0].published_at, null, 'the event waits for Kafka');
+    } finally {
+      await down.stop();
+    }
   });
 });
