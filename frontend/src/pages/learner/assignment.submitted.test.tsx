@@ -76,12 +76,9 @@ describe("UC30 the page of a submission received, in Vietnamese and Vietnam time
     expect(document.body.textContent).not.toMatch(ENGLISH);
   });
 
-  it("goes back to the list of the Course, or to the Assignment", () => {
+  it("returns to the assessments list without linking to the sample assignment detail", () => {
     renderPage({ receipt: receipt() });
-    fireEvent.click(screen.getByText("Xem bài tập"));
-    expect(screen.getByText("đường dẫn: /learner/courses/e1/assignments/a1")).toBeTruthy();
-    cleanup();
-    renderPage({ receipt: receipt() });
+    expect(screen.queryByRole("button", { name: "Xem bài tập" })).toBeNull();
     fireEvent.click(screen.getByText("Quay lại danh sách bài đánh giá"));
     expect(screen.getByText("đường dẫn: /learner/courses/e1/assessments")).toBeTruthy();
   });

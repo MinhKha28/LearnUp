@@ -1,3 +1,4 @@
+import { visibleRoleMenu } from "@/utils/preview.pages";
 import {
   AuditOutlined,
   BankOutlined,
@@ -137,6 +138,8 @@ const organizerMenuItems: MenuItem[] = [
     ],
   },
 ];
+
+const visibleOrganizerMenuItems = visibleRoleMenu(organizerMenuItems);
 
 const getPageMeta = (pathname: string) => {
   if (pathname === "/organizer/certificate-settings") return ["Quản lý đào tạo", "Chứng chỉ"];
@@ -292,7 +295,7 @@ const LayoutOrganizer = () => {
         className="organizer-navigation"
         mode="inline"
         selectedKeys={[selectedKey]}
-        items={organizerMenuItems}
+        items={visibleOrganizerMenuItems}
         onClick={goTo}
       />
     </>

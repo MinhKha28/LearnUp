@@ -1,3 +1,4 @@
+import { canOpenPage } from "@/utils/preview.pages";
 import { Alert, App, Modal, Skeleton } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -310,12 +311,10 @@ const CourseDetail = () => {
             </InstructorButton>
           )}
 
-          {course.status === "Published" && (
+          {course.status === "Published" && canOpenPage(`/instructor/courses/${course.id}/versions`) && (
             <InstructorButton
               block
-              onClick={() =>
-                navigate(`/instructor/courses/${course.id}/versions`)
-              }
+              onClick={() => navigate(`/instructor/courses/${course.id}/versions`)}
             >
               Xem chuỗi phiên bản
             </InstructorButton>

@@ -1,3 +1,4 @@
+import { canOpenPage } from "@/utils/preview.pages";
 import { useState } from "react";
 import { Alert, Button, Form, Input } from "antd";
 import { BookOutlined, CheckOutlined, FlagOutlined } from "@ant-design/icons";
@@ -42,6 +43,9 @@ export default function LoginPage() {
   const googleEnabled = googleClientId() !== "";
   const { setUser, setIsAuthenticated } = useCurrentApp();
 
+  const redirect = safeRedirect(params.get("redirect"));
+  const availableRedirect = redirect && canOpenPage(redirect) ? redirect : null;
+
   async function submit(values: LoginFields) {
     setLoading(true);
     setError("");
@@ -53,8 +57,7 @@ export default function LoginPage() {
         setUser(await loadUserWithProfile(result.user));
         setIsAuthenticated(true);
         navigate(
-          safeRedirect(params.get("redirect")) ??
-            homePathForRole(result.user.role),
+          availableRedirect ?? homePathForRole(result.user.role),
           { replace: true },
         );
         return;
@@ -81,8 +84,7 @@ export default function LoginPage() {
         setUser(await loadUserWithProfile(result.user));
         setIsAuthenticated(true);
         navigate(
-          safeRedirect(params.get("redirect")) ??
-            homePathForRole(result.user.role),
+          availableRedirect ?? homePathForRole(result.user.role),
           { replace: true },
         );
         return;

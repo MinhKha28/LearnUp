@@ -1,3 +1,4 @@
+import { visibleRoleMenu } from "@/utils/preview.pages";
 import {
   CompassOutlined,
   FileDoneOutlined,
@@ -27,6 +28,8 @@ const instructorMenuItems: MenuItem[] = [
   { key: "/instructor/monitoring", icon: <CompassOutlined />, label: "Theo dõi học tập" },
   { key: "/instructor/evaluations", icon: <StarOutlined />, label: "Đánh giá khóa học" },
 ];
+
+const visibleInstructorMenuItems = visibleRoleMenu(instructorMenuItems);
 
 const LayoutInstructor = () => {
   const { user } = useCurrentApp();
@@ -75,7 +78,7 @@ const LayoutInstructor = () => {
         className="instructor-navigation"
         mode="inline"
         selectedKeys={[selectedKey]}
-        items={instructorMenuItems}
+        items={visibleInstructorMenuItems}
         onClick={goTo}
       />
       <div className="instructor-sidebar-user">
