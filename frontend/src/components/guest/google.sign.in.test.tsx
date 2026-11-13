@@ -15,12 +15,10 @@ describe("UC05.1 Google sign-in button", () => {
     post.mockReset();
   });
 
-  it("keeps the unavailable fallback button when no Google client ID is configured", () => {
-    vi.stubEnv("VITE_GOOGLE_CLIENT_ID", "");
+  it.each(["", "   "])("renders nothing when the Google client ID is %j", (clientId) => {
+    vi.stubEnv("VITE_GOOGLE_CLIENT_ID", clientId);
     const html = renderToStaticMarkup(<GoogleSignIn onCredential={() => {}} onError={() => {}} />);
-    expect(html).toContain("login-google");
-    expect(html).toContain("Tiếp tục với Google");
-    expect(html).not.toContain("login-google-gis");
+    expect(html).toBe("");
   });
 
   it("renders the container for Google's official button when a client ID is configured", () => {

@@ -51,7 +51,9 @@ export default function GoogleSignIn({ disabled, onCredential, onError }: Props)
     };
   }, [clientId]);
 
-  if (!clientId || failed) {
+  if (!clientId) return null;
+
+  if (failed) {
     return (
       <Button
         className="login-google"
