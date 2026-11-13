@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Input, InputNumber, Spin, message } from "antd";
+import { Alert, Input, InputNumber, Progress, Spin, message } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   InfoPanel,
@@ -10,6 +10,7 @@ import {
   StatusTag,
   WarningPanel,
 } from "@/components/instructor/instructor.ui";
+import { useGoBack } from "@/components/instructor/use.go.back";
 import FileLink from "@/components/instructor/submission.file.link";
 import {
   getSubmissionDetailAPI,
@@ -38,6 +39,7 @@ const reasonGuide = (reason: string | null, peerScores: number[]) => {
   }
   if (
     reason === "REVIEWER_MISSED_DEADLINE" ||
+    reason === "REVIEW_MISSED" ||
     reason === "REVIEWER_DEACTIVATED"
   ) {
     return "Điểm bạn chấm thay cho lượt chấm chéo còn thiếu và được lấy trung bình cùng các lượt đã chấm.";
@@ -51,6 +53,7 @@ const reasonGuide = (reason: string | null, peerScores: number[]) => {
 const SubmissionGrade = () => {
   const { submissionId } = useParams();
   const navigate = useNavigate();
+  const goBack = useGoBack();
   const [detail, setDetail] = useState<ISubmissionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +144,9 @@ const SubmissionGrade = () => {
   const reason = interventionLabel(detail.interventionReason);
   const gradable =
     detail.isLatest && detail.gradingStatus === "AwaitingInstructor";
-  const backToDetail = () => navigate(`/instructor/submissions/${detail.id}`);
+  const detailPath = `/instructor/submissions/${detail.id}`;
+  // the form came from the submission: going back lands on it again, and Back does not return to this form
+  const backToDetail = () => goBack(detailPath);
 
   const handleSubmit = async () => {
     if (!complete) {
@@ -199,7 +204,7 @@ const SubmissionGrade = () => {
               : "Bài nộp này đã được thay bằng một bài mới hơn. Chỉ chấm được bài nộp mới nhất."
           }
           action={
-            <InstructorButton onClick={backToDetail}>
+            <InstructorButton onClick={() => navigate(detailPath)}>
               Xem bài nộp
             </InstructorButton>
           }
@@ -307,19 +312,23 @@ const SubmissionGrade = () => {
                 </div>
 
                 <div className="instructor-grade-summary">
-                  <div>
+                  <div className="instructor-grade-total">
                     <span>Tổng điểm theo tiêu chí</span>
-                    <strong>
-                      {earned} / {possible} điểm
-                    </strong>
+                    <strong>{`${earned} / ${possible} điểm`}</strong>
+                    <Progress
+                      percent={possible > 0 ? Math.round((earned / possible) * 100) : 0}
+                      showInfo={false}
+                      strokeColor="#f59e0b"
+                      size="small"
+                    />
                   </div>
                   <div>
                     <span>Điểm bạn chấm</span>
-                    <strong>{complete ? score : "-"} / 100</strong>
+                    <strong>{`${complete ? score : "-"} / 100`}</strong>
                   </div>
-                  <div>
+                  <div className="instructor-grade-final">
                     <span>Điểm cuối cùng gợi ý</span>
-                    <strong>{complete ? suggested : "-"} / 100</strong>
+                    <strong>{`${complete ? suggested : "-"} / 100`}</strong>
                   </div>
                 </div>
 
