@@ -35,6 +35,7 @@ import './review-assignment.unit-test';
 import './reminder-due.unit-test';
 import './peer-review-reminder.unit-test';
 import './deliver-notice.unit-test';
+import './http-notification-email-status.unit-test';
 import './review-notice.unit-test';
 import './review-history.unit-test';
 import './peer-review-assigned.unit-test';
