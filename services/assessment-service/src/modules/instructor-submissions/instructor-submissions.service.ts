@@ -11,10 +11,7 @@ import {
 } from '@nestjs/common';
 import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
 import { NotificationClient } from '../../infrastructure/clients/notification/notification.client';
-import {
-  noticeRetryDelaysMs,
-  withRetries,
-} from '../../infrastructure/clients/notification/retry';
+import { deliverNotice } from '../../infrastructure/clients/notification/deliver-notice';
 import type { IUserDisplayName } from '../../infrastructure/clients/tenant/interfaces/user-display-name.interface';
 import { TenantDirectoryClient } from '../../infrastructure/clients/tenant/tenant-directory.client';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
@@ -490,62 +487,27 @@ export class InstructorSubmissionsService {
     },
   ): Promise<void> {
     const notice = finalizedNotice(assignment.title, assignment.finalScore);
-    const delays = noticeRetryDelaysMs();
-    const failed = (what: string) => (error: unknown, attempt: number) =>
-      this.logger.warn(
-        `${what} of Learner ${learnerId} failed, attempt ${attempt} follows: ${String(error)}`,
-      );
-    const bell = async () => {
-      try {
-        await withRetries(
-          () =>
-            this.notifications.send({
-              organizationId: assignment.organizationId,
-              recipientUserId: learnerId,
-              title: notice.title,
-              message: notice.message,
-              type: 'ASSIGNMENT_RESULT',
-              metadata: {
-                assignmentId: assignment.assignmentId,
-                courseId: assignment.courseId,
-              },
-            }),
-          delays,
-          failed('The bell'),
-        );
-      } catch (error) {
-        this.logger.warn(
-          `The bell of Learner ${learnerId} was not told about the final score of ${assignment.assignmentId}: ${String(error)}`,
-        );
-      }
-    };
-    const mail = async () => {
-      try {
-        await withRetries(
-          async () => {
-            const learner = (
-              await this.tenant.getDisplayNames(user, [learnerId])
-            ).get(learnerId);
-            if (!learner?.email) return;
-            // The text goes out as plain text: a title with angle brackets would turn the whole mail into HTML.
-            const plain = (text: string) => text.replace(/[<>]/g, '');
-            await this.notifications.sendEmail({
-              recipientEmail: learner.email,
-              subject: notice.title,
-              body: `Xin chào ${plain(learner.fullName)},\n\n${plain(notice.message)}`,
-              templateCode: 'ASSIGNMENT_FINALIZED',
-            });
-          },
-          delays,
-          failed('The e-mail'),
-        );
-      } catch (error) {
-        this.logger.warn(
-          `The e-mail of Learner ${learnerId} about the final score of ${assignment.assignmentId} was not sent: ${String(error)}`,
-        );
-      }
-    };
-    await Promise.all([bell(), mail()]);
+    await deliverNotice(
+      {
+        notifications: this.notifications,
+        tenant: this.tenant,
+        logger: this.logger,
+      },
+      {
+        organizationId: assignment.organizationId,
+        recipientUserId: learnerId,
+        title: notice.title,
+        message: notice.message,
+        type: 'ASSIGNMENT_RESULT',
+        metadata: {
+          assignmentId: assignment.assignmentId,
+          courseId: assignment.courseId,
+        },
+        templateCode: 'ASSIGNMENT_FINALIZED',
+        about: `the final score of ${assignment.assignmentId}`,
+        lookupAs: user,
+      },
+    );
   }
 
   private notAwaitingInstructor() {

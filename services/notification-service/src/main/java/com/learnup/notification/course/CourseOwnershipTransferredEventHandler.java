@@ -6,6 +6,7 @@ import com.learnup.notification.dto.CreateNotificationRequest;
 import com.learnup.notification.dto.EmailLogResponse;
 import com.learnup.notification.dto.SendEmailRequest;
 import com.learnup.notification.enrollment.DependencyUnavailableException;
+import com.learnup.notification.mail.EmailLayout;
 import com.learnup.notification.service.EmailDeliveryService;
 import com.learnup.notification.service.NotificationService;
 import org.slf4j.Logger;
@@ -80,16 +81,13 @@ public class CourseOwnershipTransferredEventHandler {
         if (retry) throw new DependencyUnavailableException("OWNERSHIP_DELIVERY_FAILED");
     }
 
-    private static String emailHtml(CourseOwnershipTransferredEvent event) {
-        return "<html><body><h1>LearnUP</h1><p>Bạn đã được chuyển quyền phụ trách Course: <strong>"
-                + escapeHtml(event.courseName()) + "</strong>.</p>"
-                + "<p>Việc chuyển quyền áp dụng cho toàn bộ phiên bản Course."
-                + " Vui lòng đăng nhập LearnUP để xem chi tiết.</p>"
-                + "</body></html>";
-    }
-
-    private static String escapeHtml(String value) {
-        return value.replace("&", "&amp;").replace("<", "&lt;")
-                .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+    static String emailHtml(CourseOwnershipTransferredEvent event) {
+        return EmailLayout.render(EmailLayout.Card.of("Chuyển quyền phụ trách khóa học")
+                .badge("Phụ trách khóa học", EmailLayout.Tone.INFO)
+                .greeting(null)
+                .paragraph("Bạn đã được chuyển quyền phụ trách khóa học «" + event.courseName() + "».")
+                .detail("Khóa học", event.courseName())
+                .paragraph("Việc chuyển quyền áp dụng cho toàn bộ phiên bản khóa học.")
+                .closing("Vui lòng đăng nhập LearnUP để xem chi tiết."));
     }
 }

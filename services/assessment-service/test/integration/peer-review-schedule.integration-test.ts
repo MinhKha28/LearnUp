@@ -26,6 +26,8 @@ const id = (n: number) =>
   `00000000-0000-4000-8000-${(0xd0 + n).toString(16).padStart(12, '0')}`;
 
 interface Sent {
+  /** /api/v1/notifications/send is the bell, /api/v1/notifications/email/send the e-mail. */
+  path: string;
   body: Record<string, string>;
   hasInternalKey: boolean;
   hasUserId: boolean;
@@ -49,6 +51,10 @@ describe('UC33 schedule over HTTP', () => {
     }
     assert.fail(`timed out waiting for: ${what}`);
   };
+  const emailsOf = (subject: string) =>
+    sent.filter(
+      (s) => s.path.endsWith('/email/send') && s.body.subject === subject,
+    );
   const cycle = async (cycleId: string) =>
     (
       await db.query(
@@ -157,6 +163,7 @@ describe('UC33 schedule over HTTP', () => {
       request.on('data', (chunk: Buffer) => (raw += chunk.toString()));
       request.on('end', () => {
         sent.push({
+          path: request.url ?? '',
           body: JSON.parse(raw) as Record<string, string>,
           hasInternalKey: request.headers['x-internal-key'] === KEY,
           hasUserId: request.headers['x-user-id'] !== undefined,
@@ -171,6 +178,8 @@ describe('UC33 schedule over HTTP', () => {
       ENROLLMENT_CLIENT_MODE: 'fake',
       PEER_REVIEW_TICK_MS: '200',
       NOTIFICATION_CLIENT_MODE: 'http',
+      TENANT_CLIENT_MODE: 'fake', // the e-mail address of a reviewer: learner.<last 4 of the id>@demo.local
+      NOTICE_RETRY_DELAYS_MS: '50,100',
       NOTIFICATION_SERVICE_URL: `http://127.0.0.1:${(notifier.address() as AddressInfo).port}`,
     });
     const api = apiFor(service.baseUrl);
@@ -348,6 +357,24 @@ describe('UC33 schedule over HTTP', () => {
       [...learners].sort(),
     );
     assert.match(reminders[0].body.message, /Bạn còn 2 bài nộp chưa chấm/);
+
+    // the same reminder by e-mail, once per Learner (the fake tenant-service knows an address for each)
+    await until(
+      () => emailsOf('Sắp đến hạn chấm chéo').length >= 3,
+      'three e-mails',
+    );
+    await sleep(500);
+    const mails = emailsOf('Sắp đến hạn chấm chéo');
+    assert.equal(mails.length, 3, 'once per Learner, not once per run');
+    assert.deepEqual(
+      mails.map((m) => m.body.recipientEmail).sort(),
+      learners.map((l) => `learner.${l.slice(-4)}@demo.local`).sort(),
+    );
+    assert.equal(mails[0].hasInternalKey, true);
+    assert.equal(mails[0].hasUserId, false, 'a service call, not a user call');
+    assert.equal(mails[0].body.templateCode, 'PEER_REVIEW_REMINDER');
+    assert.match(mails[0].body.body, /^Xin chào Learner [0-9A-F]{4},/);
+    assert.match(mails[0].body.body, /Bạn còn 2 bài nộp chưa chấm/);
   });
 
   test('outside the reminder window nobody is reminded', async () => {
@@ -361,7 +388,7 @@ describe('UC33 schedule over HTTP', () => {
     });
     await makeReviews(cycleId, submissionIds, learners, new Set());
     await release();
-    const before = sent.length;
+    const before = sent.length; // bells and e-mails together
     await sleep(1000);
     assert.equal((await cycle(cycleId)).reminded_at, null);
     assert.equal(sent.length, before);

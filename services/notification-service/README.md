@@ -80,14 +80,32 @@ existing relay already supplies the internal key and uses the supported legacy
 route. Its current mock-mode behavior treats `SIMULATED` as non-failed; operators
 must explicitly enable mail for real delivery.
 
+### The look of the e-mails
+
+Every e-mail this service writes (Course submitted, Course decision, ownership transfer, enrollment events, peer
+review hand-out) is one card built by `mail/EmailLayout`: the LearnUP logo, a badge, the heading, the greeting, optional
+details, a marked box, a button and a footer. Tables and inline styles only, so mail clients draw it alike. Every text
+handed to it is plain text and is escaped there; a link becomes a button only when it is `http` or `https`.
+
+The logo travels inside the message: a body that shows `<img src="cid:learnup-logo">` gets
+`resources/mail/learnup-logo-light.png` attached inline by `EmailDeliveryService` (a missing file costs the picture,
+not the mail).
+
+Other services send plain text to `/email/send`. For the template codes listed in `mail/PlainEmailFraming`
+(`ASSIGNMENT_FINALIZED`, `PEER_REVIEW_REMINDER`, `PEER_REVIEW_WAIVED`, `IDENTITY_PASSWORD_RECOVERY`) the text is set in
+the same card: the subject becomes the heading, a first line `Xin chào {name},` the greeting, blank-line separated
+paragraphs the text, and a line that is only an `http(s)` link a button. Another template code, and a body that already
+is HTML, go out as they came. To give a new plain-text e-mail the card, add its code to `PlainEmailFraming`.
+
 ### Password recovery confidentiality
 
 Identity owns reset-token generation, hashing, eligibility and lifecycle.
 Notification only sends the supplied message. Template code
-`IDENTITY_PASSWORD_RECOVERY` forces the fixed subject `LearnUP password recovery`
+`IDENTITY_PASSWORD_RECOVERY` forces the fixed subject `LearnUP - Đặt lại mật khẩu`
 for SMTP and persisted/API metadata. Email bodies are never stored in `email_logs`;
 SMTP error details, recipient addresses, subjects and bodies are not written to
-application dispatch logs. Other templates keep their original subjects/bodies.
+application dispatch logs. Other templates keep their original subjects; their bodies
+are set in the e-mail card when they are listed in "The look of the e-mails" below.
 Email logging endpoints return metadata only, through the authenticated channel.
 Do not enable JavaMail debug, HTTP body/header tracing or proxy request capture:
 recovery bodies contain bearer-style reset links. JavaMail debug is off by default.

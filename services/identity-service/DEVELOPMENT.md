@@ -309,7 +309,7 @@ not DNS pinning or a substitute for trusted deployment DNS/network policy.
 Identity posts `{recipientEmail, subject, body, templateCode}` to the real private
 `/api/v1/notifications/email/send`, using `X-Internal-Key` and a sanitized UUID
 correlation ID, never user-context/Authorization headers. The plaintext email uses
-`IDENTITY_PASSWORD_RECOVERY`, fixed subject `LearnUP password recovery`, the
+`IDENTITY_PASSWORD_RECOVERY`, fixed subject `LearnUP - Đặt lại mật khẩu`, the
 configured link, UTC expiration and single-use/newest-link guidance. Notification
 stores only delivery metadata, not the body; recovery subjects and SMTP errors
 are sanitized so bearer links do not enter its metadata, responses or logs.
