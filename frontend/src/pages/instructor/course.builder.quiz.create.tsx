@@ -1,9 +1,11 @@
+import { DownOutlined } from "@ant-design/icons";
 import { Input, Radio, Select, message } from "antd";
 import { useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { FieldError, NumberField } from "@/components/instructor/form.field";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InfoPanel, InstructorButton, InstructorPage, WarningPanel } from "@/components/instructor/instructor.ui";
+import { courseStatusLabel } from "@/utils/course.status.labels";
 import { assessmentErrorText, createQuizAPI, toApiCourseId } from "@/services/assessment.service";
 import type { IAssessmentError } from "@/types/assessment.types";
 import {
@@ -117,7 +119,7 @@ const CourseBuilderQuizCreate = () => {
       // The axios interceptor resolves HTTP errors too, so only res.data tells success apart.
       if (!res.data) {
         const code = errorCodeOf(res);
-        message.error((code && ERROR_TEXT[code]) || assessmentErrorText(res, "Không thể tạo bài trắc nghiệm."));
+        message.error((code && ERROR_TEXT[code]) || assessmentErrorText({ error: { code } }, "Không thể tạo bài trắc nghiệm."));
         return;
       }
       message.success("Đã tạo bài trắc nghiệm.");
@@ -139,7 +141,7 @@ const CourseBuilderQuizCreate = () => {
         <div className="builder-update-card">
           {formLocked && (
             <WarningPanel title="Không thể chỉnh sửa khóa học này">
-              {structure.lockReason ?? `Khóa học đang ở trạng thái ${course.status} nên không thể thêm bài trắc nghiệm.`}
+              {structure.lockReason ?? `Khóa học đang ở trạng thái ${courseStatusLabel[course.status]} nên không thể thêm bài trắc nghiệm.`}
             </WarningPanel>
           )}
           {onlyOptional && (
@@ -161,6 +163,7 @@ const CourseBuilderQuizCreate = () => {
 
           <label className="instructor-form-label instructor-form-label-spaced">Áp dụng cho</label>
           <Select
+            suffixIcon={<DownOutlined aria-hidden="true" />}
             style={{ width: "100%" }}
             value={attachTo}
             disabled={formLocked}
@@ -215,6 +218,8 @@ const CourseBuilderQuizCreate = () => {
 
           <label className="instructor-form-label instructor-form-label-spaced">Điều kiện cấp chứng chỉ</label>
           <Radio.Group
+            className="builder-question-type-toggle"
+            aria-label="Điều kiện cấp chứng chỉ"
             optionType="button"
             buttonStyle="solid"
             disabled={formLocked}

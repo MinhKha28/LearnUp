@@ -114,6 +114,9 @@ it("loads the lesson material and patches its title and required flag", async ()
   });
   expect((title as HTMLInputElement).value).toBe("Current reading");
   expect(screen.getAllByText("current.pdf")).toHaveLength(2);
+  expect(screen.getByText("Sẵn sàng")).toBeTruthy();
+  expect(screen.getByText("Không")).toBeTruthy();
+  expect(screen.getByText("Tài liệu đọc", { selector: "strong" })).toBeTruthy();
 
   fireEvent.change(title, { target: { value: " Revised reading " } });
   fireEvent.click(screen.getByRole("radio", { name: "Không bắt buộc" }));
@@ -160,7 +163,7 @@ it("reports a rejected metadata response and stays on the editor", async () => {
   fireEvent.change(title, { target: { value: "Revised reading" } });
   save();
 
-  await waitFor(() => expect(error).toHaveBeenCalledWith("Material changed."));
+  await waitFor(() => expect(error).toHaveBeenCalledWith("Không thể lưu học liệu."));
   expect(success).not.toHaveBeenCalled();
   expect(screen.queryByText("Material list")).toBeNull();
 });

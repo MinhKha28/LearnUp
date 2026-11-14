@@ -129,7 +129,7 @@ export const WarningPanel = ({
   children: ReactNode;
 }) => (
   <div className="instructor-warning">
-    <ExclamationCircleFilled />
+    <ExclamationCircleFilled aria-hidden="true" />
     <div>
       <strong>{title}</strong>
       <p>{children}</p>
@@ -166,7 +166,7 @@ export const SuccessScreen = ({
   <div className="instructor-success-card">
     <div className={`instructor-success-icon instructor-success-icon-${tone}`}>
       {tone === "error" || tone === "warning" ? (
-        <ExclamationCircleFilled />
+        <ExclamationCircleFilled aria-hidden="true" />
       ) : (
         <CheckOutlined />
       )}

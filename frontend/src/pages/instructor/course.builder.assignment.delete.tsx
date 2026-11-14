@@ -86,7 +86,7 @@ const CourseBuilderAssignmentDelete = () => {
       <div className="builder-confirm-card builder-delete-card">
         <div className="builder-delete-head">
           <span className="builder-delete-icon">
-            <DeleteOutlined />
+            <DeleteOutlined aria-hidden="true" />
           </span>
           <div>
             <strong>Xóa "{assignment.title}"?</strong>
@@ -97,7 +97,7 @@ const CourseBuilderAssignmentDelete = () => {
         <div className="builder-delete-list">
           <span>Thao tác sẽ xóa vĩnh viễn:</span>
           <ul>
-            <li>Bài tập và các tiêu chí chấm ({assignment.rubric.length} criteria)</li>
+            <li>Bài tập và các tiêu chí chấm ({assignment.rubric.length} tiêu chí)</li>
             <li>Các thiết lập chấm chéo của bài tập</li>
             {assignment.promptFile && <li>Tệp PDF đính kèm ({assignment.promptFile.fileName})</li>}
             {assignment.expectedDurationMinutes != null && (
