@@ -1,5 +1,6 @@
 import { Select } from "antd";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { InfoPanel, InstructorPage, PageHeader } from "@/components/instructor/instructor.ui";
 import PeerCycleTable from "@/components/instructor/peer.cycle.table";
 import { fetchAssignmentsAPI } from "@/services/assessment.service";
@@ -8,12 +9,22 @@ import type { IInstructorCourseListItem } from "@/types/course.types";
 import type { IAssignmentSummary } from "@/types/assessment.types";
 import "./peer.cycles.scss";
 
-/** UC33 from the sidebar: pick a Course and one of its Assignments that has Peer Review on, then read its cycles. */
+/**
+ * UC33 from the sidebar: pick a Course and one of its Assignments that has Peer Review on, then read its cycles.
+ * The choice lives in the address (?courseId=&assignmentId=), so coming back from the detail of a cycle shows the same Assignment.
+ */
 const PeerCycles = () => {
   const [courses, setCourses] = useState<IInstructorCourseListItem[]>([]);
-  const [courseId, setCourseId] = useState<string>();
+  const [params, setParams] = useSearchParams();
+  const courseId = params.get("courseId") ?? undefined;
+  const assignmentId = params.get("assignmentId") ?? undefined;
   const [assignments, setAssignments] = useState<IAssignmentSummary[]>([]);
-  const [assignmentId, setAssignmentId] = useState<string>();
+  // replace: picking the first Course or Assignment by default is not a step the Back button should stop at
+  const choose = (next: { courseId?: string; assignmentId?: string }) =>
+    setParams(
+      Object.fromEntries(Object.entries(next).filter(([, value]) => value)) as Record<string, string>,
+      { replace: true },
+    );
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [error, setError] = useState("");
@@ -26,7 +37,10 @@ const PeerCycles = () => {
         if (!active) return;
         if (res.data) {
           setCourses(res.data.result);
-          setCourseId(res.data.result[0]?.id);
+          // an address without a Course (or with one the Instructor no longer has) starts at the first one
+          if (!res.data.result.some((course) => course.id === courseId)) {
+            choose({ courseId: res.data.result[0]?.id });
+          }
         } else {
           setError(res.message || "Không thể tải danh sách khóa học bạn phụ trách.");
         }
@@ -40,6 +54,7 @@ const PeerCycles = () => {
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the first load only
   }, []);
 
   useEffect(() => {
@@ -47,14 +62,16 @@ const PeerCycles = () => {
     let active = true;
     const load = async () => {
       setLoadingAssignments(true);
-      setAssignmentId(undefined);
       try {
         const res = await fetchAssignmentsAPI(courseId);
         if (!active) return;
         // PRE-1 of UC33: only the Assignments with Peer Review on have cycles.
         const withPeerReview = (res.data?.items ?? []).filter((item) => item.peerReviewEnabled);
         setAssignments(withPeerReview);
-        setAssignmentId(withPeerReview[0]?.id);
+        // the Assignment of the address stays; otherwise the first one
+        if (!withPeerReview.some((item) => item.id === assignmentId)) {
+          choose({ courseId, assignmentId: withPeerReview[0]?.id });
+        }
       } catch {
         if (active) setAssignments([]);
       } finally {
@@ -65,6 +82,7 @@ const PeerCycles = () => {
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on a Course; the Assignment of the address is read once loaded
   }, [courseId]);
 
   return (
@@ -81,7 +99,10 @@ const PeerCycles = () => {
             value={courseId}
             loading={loadingCourses}
             placeholder="Chọn khóa học"
-            onChange={setCourseId}
+            onChange={(value) => {
+              setAssignments([]);
+              choose({ courseId: value });
+            }}
             options={courses.map((course) => ({ value: course.id, label: course.name }))}
             style={{ minWidth: 280 }}
           />
@@ -92,7 +113,7 @@ const PeerCycles = () => {
             value={assignmentId}
             loading={loadingAssignments}
             placeholder="Chọn bài tập"
-            onChange={setAssignmentId}
+            onChange={(value) => choose({ courseId, assignmentId: value })}
             options={assignments.map((item) => ({ value: item.id, label: item.title }))}
             style={{ minWidth: 280 }}
             notFoundContent="Không có bài tập bật chấm chéo"
