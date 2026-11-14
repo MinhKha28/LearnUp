@@ -84,7 +84,7 @@ must explicitly enable mail for real delivery.
 
 Identity owns reset-token generation, hashing, eligibility and lifecycle.
 Notification only sends the supplied message. Template code
-`IDENTITY_PASSWORD_RECOVERY` forces the fixed subject `LearnUP password recovery`
+`IDENTITY_PASSWORD_RECOVERY` forces the fixed subject `LearnUP - Đặt lại mật khẩu`
 for SMTP and persisted/API metadata. Email bodies are never stored in `email_logs`;
 SMTP error details, recipient addresses, subjects and bodies are not written to
 application dispatch logs. Other templates keep their original subjects/bodies.

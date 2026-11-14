@@ -22,8 +22,7 @@ public final class PlainEmailFraming {
             "ASSIGNMENT_FINALIZED", new Look("ĐÃ CÓ ĐIỂM", Tone.SUCCESS, null),
             "PEER_REVIEW_REMINDER", new Look("SẮP ĐẾN HẠN", Tone.WARNING, null),
             "PEER_REVIEW_WAIVED", new Look("ĐƯỢC MIỄN", Tone.INFO, null),
-            // identity-service writes this one in English; the card keeps its words
-            "IDENTITY_PASSWORD_RECOVERY", new Look("PASSWORD RECOVERY", Tone.INFO, "Choose a new password"));
+            "IDENTITY_PASSWORD_RECOVERY", new Look("KHÔI PHỤC MẬT KHẨU", Tone.INFO, "Đặt mật khẩu mới"));
 
     private static final String GREETING_PREFIX = "Xin chào";
 

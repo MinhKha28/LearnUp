@@ -24,7 +24,7 @@ class PlainEmailFramingTest {
     void eachKnownKindHasItsOwnBadge() {
         assertThat(frame("PEER_REVIEW_REMINDER", "S", "Xin chào A,\n\nB")).contains(">SẮP ĐẾN HẠN</span>");
         assertThat(frame("PEER_REVIEW_WAIVED", "S", "Xin chào A,\n\nB")).contains(">ĐƯỢC MIỄN</span>");
-        assertThat(frame("IDENTITY_PASSWORD_RECOVERY", "S", "Xin chào A,\n\nB")).contains(">PASSWORD RECOVERY</span>");
+        assertThat(frame("IDENTITY_PASSWORD_RECOVERY", "S", "Xin chào A,\n\nB")).contains(">KHÔI PHỤC MẬT KHẨU</span>");
     }
 
     @Test
@@ -42,13 +42,13 @@ class PlainEmailFramingTest {
     @Test
     void aLineThatIsOnlyALinkBecomesAButtonWhereItStands() {
         String link = "https://frontend.example.test/reset-password?token=abc&x=1";
-        String html = frame("IDENTITY_PASSWORD_RECOVERY", "LearnUP password recovery",
-                "A LearnUP password recovery was requested.\n\nOpen this link to choose a new password:\n" + link
-                        + "\n\nThis link can be used only once.");
+        String html = frame("IDENTITY_PASSWORD_RECOVERY", "LearnUP - Đặt lại mật khẩu",
+                "Hệ thống nhận được yêu cầu đặt lại mật khẩu.\n\nMở liên kết sau để chọn mật khẩu mới:\n" + link
+                        + "\n\nLiên kết chỉ dùng được một lần.");
         assertThat(html).contains("href=\"https://frontend.example.test/reset-password?token=abc&amp;x=1\"")
-                .contains(">Choose a new password</a>");
-        assertThat(html.indexOf("Open this link to choose a new password:")).isLessThan(html.indexOf("href="));
-        assertThat(html.indexOf("href=")).isLessThan(html.indexOf("This link can be used only once."));
+                .contains(">Đặt mật khẩu mới</a>");
+        assertThat(html.indexOf("Mở liên kết sau để chọn mật khẩu mới:")).isLessThan(html.indexOf("href="));
+        assertThat(html.indexOf("href=")).isLessThan(html.indexOf("Liên kết chỉ dùng được một lần."));
         // the link is a button, not repeated as text
         assertThat(html.split("reset-password", -1).length - 1).isEqualTo(1);
     }

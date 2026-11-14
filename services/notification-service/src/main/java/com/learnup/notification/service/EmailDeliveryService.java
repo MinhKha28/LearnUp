@@ -30,7 +30,7 @@ public class EmailDeliveryService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailDeliveryService.class);
     public static final String RECOVERY_TEMPLATE = "IDENTITY_PASSWORD_RECOVERY";
-    public static final String RECOVERY_SUBJECT = "LearnUP password recovery";
+    public static final String RECOVERY_SUBJECT = "LearnUP - Đặt lại mật khẩu";
     /** A body that shows {@code <img src="cid:learnup-logo">} gets the LearnUP logo attached inline to the message. */
     public static final String LOGO_CID = "learnup-logo";
     private static final String LOGO_RESOURCE = "mail/learnup-logo-light.png";

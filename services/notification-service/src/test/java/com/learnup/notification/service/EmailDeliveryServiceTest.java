@@ -143,16 +143,16 @@ class EmailDeliveryServiceTest {
 
         EmailLogResponse response = emailDeliveryService.sendEmail(
                 new SendEmailRequest("recipient@example.test", resetLink,
-                        String.join(System.lineSeparator(), "A LearnUP password recovery was requested for your account.", "",
-                                "Open this link to choose a new password:", resetLink, "", "This link can be used only once."),
+                        String.join(System.lineSeparator(), "Hệ thống nhận được yêu cầu đặt lại mật khẩu cho tài khoản LearnUP của bạn.", "",
+                                "Mở liên kết sau để chọn mật khẩu mới:", resetLink, "", "Liên kết chỉ dùng được một lần."),
                         "IDENTITY_PASSWORD_RECOVERY"));
 
         ArgumentCaptor<MimeMessage> message = ArgumentCaptor.forClass(MimeMessage.class);
         verify(javaMailSender).send(message.capture());
-        assertThat(message.getValue().getSubject()).isEqualTo("LearnUP password recovery");
+        assertThat(message.getValue().getSubject()).isEqualTo("LearnUP - Đặt lại mật khẩu");
         // set in the card of the e-mails: the link is the button, whole (the wire form wraps long lines)
-        assertThat(htmlOf(message.getValue())).contains("href=\"" + resetLink + "\"").contains("Choose a new password");
-        assertThat(response.getSubject()).isEqualTo("LearnUP password recovery");
+        assertThat(htmlOf(message.getValue())).contains("href=\"" + resetLink + "\"").contains("Đặt mật khẩu mới");
+        assertThat(response.getSubject()).isEqualTo("LearnUP - Đặt lại mật khẩu");
         assertThat(response.getErrorMessage()).isNull();
         assertThat(response.getStatus()).isEqualTo("SENT");
         ArgumentCaptor<EmailLog> metadata = ArgumentCaptor.forClass(EmailLog.class);

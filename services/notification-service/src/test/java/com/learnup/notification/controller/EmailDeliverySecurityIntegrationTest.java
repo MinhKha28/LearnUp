@@ -126,12 +126,12 @@ class EmailDeliverySecurityIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(request()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.status").value("SIMULATED"))
-                .andExpect(jsonPath("$.data.subject").value("LearnUP password recovery"))
+                .andExpect(jsonPath("$.data.subject").value("LearnUP - Đặt lại mật khẩu"))
                 .andReturn().getResponse();
         assertThat(response.getHeader("X-Correlation-ID")).isEqualTo(correlationId);
         assertThat(response.getContentAsString()).doesNotContain(SECRET, LINK, KEY);
         assertThat(emailLogs.findAll()).singleElement().satisfies(log -> {
-            assertThat(log.getSubject()).isEqualTo("LearnUP password recovery");
+            assertThat(log.getSubject()).isEqualTo("LearnUP - Đặt lại mật khẩu");
             assertThat(log.getStatus()).isEqualTo("SIMULATED");
             assertThat(log.getErrorMessage()).isNull();
         });
