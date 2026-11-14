@@ -132,7 +132,7 @@ const CourseBuilderQuizQuestionCreate = () => {
           </div>
           <div className="builder-actions">
             <InstructorButton onClick={() => navigate(`${base}/quizzes`)}>
-              <ArrowLeftOutlined /> Quay lại bài trắc nghiệm
+              <ArrowLeftOutlined aria-hidden="true" /> Quay lại bài trắc nghiệm
             </InstructorButton>
             {!error?.notFound && (
               <InstructorButton type="primary" onClick={reload}>
@@ -247,7 +247,7 @@ const CourseBuilderQuizQuestionCreate = () => {
       <div className="builder-hero">
         <h1>Thêm câu hỏi trắc nghiệm</h1>
         <p>
-          {quiz.title} · {quiz.questions.length} question(s) so far
+          {quiz.title} · {quiz.questions.length === 0 ? "Chưa có câu hỏi nào" : `Đã có ${quiz.questions.length} câu hỏi`}
         </p>
       </div>
       <div className="builder-grid">
@@ -325,7 +325,7 @@ const CourseBuilderQuizQuestionCreate = () => {
                         placeholder="Nội dung đáp án"
                         onChange={(event) => changeOptionText(option.key, event.target.value)}
                       />
-                      {option.isCorrect && <CheckOutlined className="builder-quiz-option-check" />}
+                      {option.isCorrect && <CheckOutlined aria-label="Đáp án đúng" className="builder-quiz-option-check" />}
                       {open && options.length > OPTIONS_MIN && (
                         <button
                           type="button"
@@ -333,7 +333,7 @@ const CourseBuilderQuizQuestionCreate = () => {
                           aria-label={`Xóa đáp án ${optionLetter(index)}`}
                           onClick={() => removeOption(option.key)}
                         >
-                          <DeleteOutlined />
+                          <DeleteOutlined aria-hidden="true" />
                         </button>
                       )}
                     </div>
@@ -360,7 +360,7 @@ const CourseBuilderQuizQuestionCreate = () => {
           {isChoice && open && options.length < OPTIONS_MAX && (
             <div className="builder-actions builder-actions-split">
               <InstructorButton onClick={addOption}>
-                <PlusOutlined /> Thêm đáp án
+                <PlusOutlined aria-hidden="true" /> Thêm đáp án
               </InstructorButton>
             </div>
           )}

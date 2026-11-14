@@ -181,7 +181,7 @@ const CourseBuilderQuizQuestionEdit = () => {
                 className={`builder-quiz-option${option.correct ? " builder-quiz-option-correct" : ""}`}
                 onClick={() => toggleCorrect(option.id)}
               >
-                {option.correct && <CheckOutlined className="builder-quiz-option-check" />}
+                {option.correct && <CheckOutlined aria-label="Đáp án đúng" className="builder-quiz-option-check" />}
                 {type === "true-false" ? (
                   <span>{option.text}</span>
                 ) : (

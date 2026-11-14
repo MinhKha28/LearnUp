@@ -20,7 +20,7 @@ const CourseBuilderNewVersion = () => {
             <h1>Phiên bản nháp mới</h1>
           </div>
         </div>
-        <span className="new-version-pill">{course.version} Draft</span>
+        <span className="new-version-pill">{course.version} · Bản nháp</span>
       </div>
       <div className="new-version-grid">
         <div className="new-version-card">

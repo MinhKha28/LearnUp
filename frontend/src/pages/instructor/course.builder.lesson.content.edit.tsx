@@ -197,7 +197,7 @@ const CourseBuilderLessonContentEdit = () => {
   return (
     <InstructorPage className="builder-page">
       <span className="builder-crumb">
-        Course Builder / Lesson / Edit Content
+        Biên soạn khóa học / Bài học / Chỉnh sửa nội dung
       </span>
 
       <div className="builder-hero">
@@ -242,7 +242,7 @@ const CourseBuilderLessonContentEdit = () => {
               disabled={saving}
               onClick={() => navigate(detailUrl)}
             >
-              Cancel
+              Hủy
             </InstructorButton>
 
             <InstructorButton
@@ -251,7 +251,7 @@ const CourseBuilderLessonContentEdit = () => {
               disabled={cannotEdit || !hasChanges || !content.trim()}
               onClick={() => void handleSave()}
             >
-              Save Content
+              Lưu nội dung
             </InstructorButton>
           </div>
         </div>

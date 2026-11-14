@@ -171,7 +171,7 @@ const CourseBuilderQuizDetail = () => {
           </div>
           <div className="builder-actions">
             <InstructorButton onClick={backToList}>
-              <ArrowLeftOutlined /> Quay lại bài trắc nghiệm
+              <ArrowLeftOutlined aria-hidden="true" /> Quay lại bài trắc nghiệm
             </InstructorButton>
             {!error?.notFound && (
               <InstructorButton type="primary" onClick={retry}>
@@ -217,7 +217,7 @@ const CourseBuilderQuizDetail = () => {
             >
               <span>
                 <StatusTag tone="warning">
-                  <LockOutlined /> Đã khóa
+                  <LockOutlined aria-hidden="true" /> Đã khóa
                 </StatusTag>
               </span>
             </Tooltip>
@@ -270,7 +270,7 @@ const CourseBuilderQuizDetail = () => {
             </h2>
             {!permissions.editQuestions.allowed && (
               <p className="builder-quiz-detail-why">
-                <LockOutlined /> {permissionReasonTexts(permissions.editQuestions).join(" ")}
+                <LockOutlined aria-hidden="true" /> {permissionReasonTexts(permissions.editQuestions).join(" ")}
               </p>
             )}
 
@@ -300,7 +300,7 @@ const CourseBuilderQuizDetail = () => {
                           <span className="builder-quiz-detail-option-text">{option.content}</span>
                           {option.isCorrect && (
                             <span className="builder-quiz-detail-correct">
-                              <CheckCircleFilled /> Đúng
+                              <CheckCircleFilled aria-hidden="true" /> Đúng
                             </span>
                           )}
                         </li>
@@ -308,7 +308,7 @@ const CourseBuilderQuizDetail = () => {
                     </ul>
                     {!hasCorrectOption(question) && (
                       <div className="builder-quiz-alert">
-                        <WarningOutlined /> Câu hỏi này chưa có đáp án đúng.
+                        <WarningOutlined aria-hidden="true" /> Câu hỏi này chưa có đáp án đúng.
                       </div>
                     )}
                   </li>
@@ -317,14 +317,14 @@ const CourseBuilderQuizDetail = () => {
             )}
             {onlyQuestionLocked && (
               <p className="builder-quiz-detail-why">
-                <LockOutlined /> {permissionReasonTexts(permissions.deleteLastQuestion).join(" ")}
+                <LockOutlined aria-hidden="true" /> {permissionReasonTexts(permissions.deleteLastQuestion).join(" ")}
               </p>
             )}
           </section>
 
           <div className="builder-quiz-actions">
             <InstructorButton onClick={backToList}>
-              <ArrowLeftOutlined /> Quay lại bài trắc nghiệm
+              <ArrowLeftOutlined aria-hidden="true" /> Quay lại bài trắc nghiệm
             </InstructorButton>
             {/* UC18.3 — Update Quiz configuration */}
             <ActionSlot ready permission={configPermission}>
@@ -335,7 +335,7 @@ const CourseBuilderQuizDetail = () => {
                   disabled={disabled}
                   onClick={() => navigate(`${base}/quizzes/${quiz.id}/edit`)}
                 >
-                  <EditOutlined /> Chỉnh sửa cấu hình
+                  <EditOutlined aria-hidden="true" /> Chỉnh sửa cấu hình
                 </button>
               )}
             </ActionSlot>
@@ -348,7 +348,7 @@ const CourseBuilderQuizDetail = () => {
                   disabled={disabled}
                   onClick={() => navigate(`${base}/quizzes/${quiz.id}/questions/new`)}
                 >
-                  <PlusOutlined /> Thêm câu hỏi
+                  <PlusOutlined aria-hidden="true" /> Thêm câu hỏi
                 </button>
               )}
             </ActionSlot>
@@ -361,7 +361,7 @@ const CourseBuilderQuizDetail = () => {
                   disabled={disabled}
                   onClick={() => navigate(`${base}/quizzes/${quiz.id}/delete`)}
                 >
-                  <DeleteOutlined /> Xóa bài trắc nghiệm
+                  <DeleteOutlined aria-hidden="true" /> Xóa bài trắc nghiệm
                 </button>
               )}
             </ActionSlot>

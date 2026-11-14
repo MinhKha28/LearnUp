@@ -82,10 +82,23 @@ it("localizes the question form and its answer controls", async () => {
   quizResponse(quiz);
   renderPage("/quizzes/q/questions/new", "/quizzes/:quizId/questions/new", <QuestionCreate />);
   expect(await screen.findByText("Xây dựng khóa học / Bài trắc nghiệm / Ôn tập / Thêm câu hỏi")).toBeTruthy();
+  expect(screen.getByText(/Chưa có câu hỏi nào/)).toBeTruthy();
+  expect(screen.getByText("Các đáp án (chọn một đáp án đúng)")).toBeTruthy();
+  expect((screen.getByRole("radio", { name: "Một đáp án đúng" }) as HTMLInputElement).checked).toBe(true);
   fireEvent.click(screen.getByText("Nhiều đáp án đúng"));
+  expect(screen.getAllByRole("radio", { checked: true })).toHaveLength(1);
   expect(screen.getByText("Các đáp án (chọn tất cả đáp án đúng)")).toBeTruthy();
   expect(screen.getByLabelText("Đáp án A đúng")).toBeTruthy();
   expect(screen.getByLabelText("Xóa đáp án A")).toBeTruthy();
+  fireEvent.click(screen.getByText("Đúng / Sai"));
+  expect(screen.getByText("Đáp án đúng", { selector: "label.instructor-form-label" })).toBeTruthy();
+  expect(screen.getAllByRole("radio", { checked: true })).toHaveLength(1);
+});
+
+it("shows the existing quiz question count in Vietnamese", async () => {
+  quizResponse({ ...quiz, questions: [{ id: "one", type: "TrueFalse", position: 1, content: "Đúng hay sai?", options: [] }] });
+  renderPage("/quizzes/q/questions/new", "/quizzes/:quizId/questions/new", <QuestionCreate />);
+  expect(await screen.findByText(/Đã có 1 câu hỏi/)).toBeTruthy();
 });
 
 it("labels the course status when quiz creation is blocked", () => {
@@ -108,6 +121,9 @@ it("uses a Vietnamese heading for the lesson duration note", async () => {
   });
   renderPage("/c/l", "/:courseId/:lessonId", <LessonContentEdit />);
   expect(await screen.findByText("Thời lượng dự kiến")).toBeTruthy();
+  expect(screen.getByText("Biên soạn khóa học / Bài học / Chỉnh sửa nội dung")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Hủy" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Lưu nội dung" })).toBeTruthy();
 });
 
 it("localizes the video upload duration and subscription", async () => {

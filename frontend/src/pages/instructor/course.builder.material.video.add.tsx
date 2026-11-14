@@ -344,7 +344,7 @@ const CourseBuilderVideoAdd = () => {
 
           <div className="uc17-video-upload">
             <div className="uc17-video-upload-icon">
-              <VideoCameraOutlined />
+              <VideoCameraOutlined aria-hidden="true" />
             </div>
 
             <strong>{file ? file.name : "Chọn tệp video"}</strong>
@@ -421,7 +421,7 @@ const CourseBuilderVideoAdd = () => {
           <div className="builder-actions">
             <InstructorButton
               disabled={saving}
-              icon={<ArrowLeftOutlined />}
+              icon={<ArrowLeftOutlined aria-hidden="true" />}
               onClick={() => navigate(listUrl)}
             >
               Hủy

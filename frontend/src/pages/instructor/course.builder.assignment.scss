@@ -386,6 +386,17 @@
   margin-bottom: 4px;
 }
 
+.builder-question-type-toggle.ant-radio-group-solid
+  .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+  color: var(--color-surface);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+
+  &::before {
+    background: var(--color-primary);
+  }
+}
+
 .builder-quiz-options {
   display: flex;
   flex-direction: column;

@@ -6,7 +6,8 @@ import {
   VideoCameraOutlined,
 } from "@ant-design/icons";
 
-import { Alert, Input, message, Modal, Progress, Radio, Skeleton } from "antd";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { Input, message, Modal, Progress, Radio, Skeleton } from "antd";
 
 import { isAxiosError } from "axios";
 import { useEffect, useState } from "react";
@@ -416,7 +417,7 @@ const CourseBuilderMaterialEdit = () => {
   if (error || !detail || !material) {
     return (
       <InstructorPage className="builder-page">
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={error || "Không tìm thấy học liệu."}
@@ -424,7 +425,7 @@ const CourseBuilderMaterialEdit = () => {
 
         <div className="builder-actions">
           <InstructorButton
-            icon={<ArrowLeftOutlined />}
+            icon={<ArrowLeftOutlined aria-hidden="true" />}
             onClick={() => navigate(materialsUrl)}
           >
             Quay lại học liệu
@@ -480,7 +481,7 @@ const CourseBuilderMaterialEdit = () => {
 
       {/* ================= ALERTS ================= */}
       {locked && (
-        <Alert
+        <VietnameseAlert
           type="info"
           showIcon
           message="Khóa học đã khóa"
@@ -493,7 +494,7 @@ const CourseBuilderMaterialEdit = () => {
       )}
 
       {!editable && (
-        <Alert
+        <VietnameseAlert
           type="warning"
           showIcon
           message="Không thể chỉnh sửa học liệu"
@@ -554,7 +555,7 @@ const CourseBuilderMaterialEdit = () => {
               <span className="uc17-edit-optional"> (Không bắt buộc)</span>
             </h2>
 
-            <Alert
+            <VietnameseAlert
               type="warning"
               showIcon
               message="Chỉ sửa lỗi kỹ thuật"
@@ -580,7 +581,7 @@ const CourseBuilderMaterialEdit = () => {
 
             <div className="uc17-video-upload">
               <div className="uc17-video-upload-icon">
-                {isVideo ? <VideoCameraOutlined /> : <FilePdfOutlined />}
+                {isVideo ? <VideoCameraOutlined aria-hidden="true" /> : <FilePdfOutlined aria-hidden="true" />}
               </div>
 
               <strong>
@@ -653,7 +654,7 @@ const CourseBuilderMaterialEdit = () => {
           {/* ================= ONE ACTION BAR ================= */}
           <div className="builder-actions">
             <InstructorButton
-              icon={<ArrowLeftOutlined />}
+              icon={<ArrowLeftOutlined aria-hidden="true" />}
               disabled={saving}
               onClick={() => navigate(materialsUrl)}
             >

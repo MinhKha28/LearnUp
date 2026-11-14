@@ -1,3 +1,4 @@
+import { DownOutlined } from "@ant-design/icons";
 import { Input, Radio, Select, message } from "antd";
 import { useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
@@ -162,6 +163,7 @@ const CourseBuilderQuizCreate = () => {
 
           <label className="instructor-form-label instructor-form-label-spaced">Áp dụng cho</label>
           <Select
+            suffixIcon={<DownOutlined aria-hidden="true" />}
             style={{ width: "100%" }}
             value={attachTo}
             disabled={formLocked}

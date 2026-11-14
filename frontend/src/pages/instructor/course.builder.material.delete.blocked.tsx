@@ -33,7 +33,7 @@ const CourseBuilderMaterialDeleteBlocked = () => {
         <h2>{resource.title}</h2>
         <p className="builder-lesson-intro">
           {resource.required ? "Bắt buộc" : "Không bắt buộc"} • {materialTypeText(resource.type === "video" ? "Video" : "Reading")}{" "}
-          • {resource.sizeLabel}
+          • {resource.sizeLabel === "[Size]" ? "Chưa xác định dung lượng" : resource.sizeLabel}
         </p>
         <p className="builder-lesson-intro">Để thay đổi cấu trúc khóa học, hãy tạo phiên bản mới.</p>
         <div className="builder-actions">
