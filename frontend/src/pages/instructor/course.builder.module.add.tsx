@@ -21,6 +21,8 @@ const CourseBuilderModuleAdd = () => {
   if (!courseId) return null;
 
   const base = `/instructor/courses/${courseId}/builder`;
+  const isSubmitted = structure.course.status === "Submitted";
+  const cannotEdit = structure.structureLocked || isSubmitted;
 
   const handleSave = async () => {
     if (saving) return;
@@ -32,8 +34,8 @@ const CourseBuilderModuleAdd = () => {
       return;
     }
 
-    if (structure.structureLocked) {
-      message.error(structure.lockReason || "Cấu trúc khóa học đã khóa.");
+    if (cannotEdit) {
+      message.error(isSubmitted ? "Thu hồi khóa học trước khi chỉnh sửa." : structure.lockReason || "Cấu trúc khóa học đã khóa.");
       return;
     }
 
@@ -96,10 +98,10 @@ const CourseBuilderModuleAdd = () => {
             autoFocus
             placeholder="Ví dụ: Kiến thức giao tiếp cơ bản"
             value={title}
-            disabled={saving || structure.structureLocked}
+            disabled={saving || cannotEdit}
             onChange={(event) => setTitle(event.target.value)}
             onPressEnter={() => {
-              if (!saving && !structure.structureLocked) {
+              if (!saving && !cannotEdit) {
                 void handleSave();
               }
             }}
@@ -118,7 +120,7 @@ const CourseBuilderModuleAdd = () => {
           <InstructorButton
             type="primary"
             onClick={() => void handleSave()}
-            disabled={saving || structure.structureLocked || !title.trim()}
+            disabled={saving || cannotEdit || !title.trim()}
           >
             {saving ? "Saving..." : "Add Module"}
           </InstructorButton>

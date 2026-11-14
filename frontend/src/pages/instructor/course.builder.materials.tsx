@@ -185,6 +185,7 @@ const MaterialsContent = ({ data }: { data: IInstructorLessonDetail }) => {
       width: 100,
       render: (_, material) => (
         <InstructorButton
+          disabled={data.course.status === "Submitted"}
           onClick={() =>
             navigate(
               `/instructor/courses/${data.course.id}` +
@@ -382,12 +383,13 @@ const CourseBuilderMaterials = () => {
           <div className="uc17-material-actions">
             <InstructorButton
               type="primary"
+              disabled={query.data.course.status === "Submitted"}
               icon={<VideoCameraOutlined />}
               onClick={() => navigate(videoAddUrl)}
             >
               Thêm video
             </InstructorButton>
-            <InstructorButton onClick={() => navigate(readingAddUrl)}>
+            <InstructorButton disabled={query.data.course.status === "Submitted"} onClick={() => navigate(readingAddUrl)}>
               Thêm tài liệu đọc
             </InstructorButton>
           </div>

@@ -253,6 +253,7 @@ const CourseBuilderQuizzes = () => {
                               <button
                                 type="button"
                                 className="builder-quiz-action danger"
+                                disabled={course.status === "Submitted"}
                                 onClick={() => navigate(`${base}/quizzes/${quiz.id}/delete`)}
                               >
                                 <DeleteOutlined /> Xóa

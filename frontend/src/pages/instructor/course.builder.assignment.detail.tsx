@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams, useOutletContext } from "react-router-dom";
 import type { ICourseBuilderOutletContext } from "@/components/layout/layout.instructor.course";
 import { InstructorButton, InstructorPage } from "@/components/instructor/instructor.ui";
-import { assessmentErrorText, downloadPromptFileAPI, fetchAssignmentAPI } from "@/services/assessment.service";
+import { assessmentErrorCode, assessmentErrorText, downloadPromptFileAPI, fetchAssignmentAPI } from "@/services/assessment.service";
 import type { IAssignment } from "@/types/assessment.types";
 import { formatFileSize, formatMinutes } from "@/utils/helper";
 import "./course.builder.scss";
@@ -25,6 +25,7 @@ const CourseBuilderAssignmentDetail = () => {
   const location = useLocation();
   const { structure } = useOutletContext<ICourseBuilderOutletContext>();
   const course = structure.course;
+  const isSubmitted = course.status === "Submitted";
 
   const [assignment, setAssignment] = useState<IAssignment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,7 +38,10 @@ const CourseBuilderAssignmentDetail = () => {
         const res = await fetchAssignmentAPI(assignmentId);
         if (!active) return;
         if (res.data) setAssignment(res.data);
-        else message.error(assessmentErrorText(res, "Không thể tải thông tin bài tập."));
+        else {
+          const { code } = assessmentErrorCode(res);
+          message.error(assessmentErrorText({ error: { code } }, "Không thể tải thông tin bài tập."));
+        }
       } catch {
         if (active) message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {
@@ -86,7 +90,11 @@ const CourseBuilderAssignmentDetail = () => {
       message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
     }
   };
-  const totalPoints = assignment.rubric.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
+  const criteria = [...assignment.rubric].sort(
+    (left, right) =>
+      (left.position ?? Number.MAX_SAFE_INTEGER) - (right.position ?? Number.MAX_SAFE_INTEGER),
+  );
+  const totalPoints = criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
   // BR-98: once a submission exists only the estimated effort can change (BR-173, UC19.3).
   const restricted = assignment.locked;
   const editPath = `${base}/assignments/${assignment.id}/edit`;
@@ -140,13 +148,13 @@ const CourseBuilderAssignmentDetail = () => {
           value={String(assignment.maxConsecutiveAttempts)}
           hint="Số lần nộp trước khi tạm khóa"
         />
-        <Param label="Thời gian khóa tạm (giờ)" value={`${assignment.lockoutHours} h`} hint="Áp dụng cho từng học viên, sau đó đặt lại lượt nộp" />
+        <Param label="Thời gian khóa tạm (giờ)" value={`${assignment.lockoutHours} giờ`} hint="Áp dụng cho từng học viên, sau đó đặt lại lượt nộp" />
         <Param
           label="Chấm chéo"
-          value={peerReview.enabled ? "On" : "Off"}
+          value={peerReview.enabled ? "Bật" : "Tắt"}
           hint={
             peerReview.enabled
-              ? `${peerReview.reviewersPerSubmission ?? "?"} người chấm cho mỗi bài nộp`
+              ? `${peerReview.reviewersPerSubmission ?? "Chưa xác định"} người chấm cho mỗi bài nộp`
               : "Giảng viên chấm trực tiếp"
           }
           tone={peerReview.enabled ? "on" : "off"}
@@ -154,7 +162,7 @@ const CourseBuilderAssignmentDetail = () => {
         <Param
           label="Tiêu chí chấm"
           value={`${assignment.rubric.length} ${assignment.rubric.length === 1 ? "tiêu chí" : "tiêu chí"}`}
-          hint={`${totalPoints} points in total`}
+          hint={`Tổng ${totalPoints} điểm`}
         />
       </div>
 
@@ -175,28 +183,24 @@ const CourseBuilderAssignmentDetail = () => {
           <hr className="builder-divider" />
           <h2>Tiêu chí chấm</h2>
           <div className="builder-rubric-summary">
-            {assignment.rubric.map((criterion) => (
+            {criteria.map((criterion, index) => (
               <div className="builder-rubric-line" key={criterion.id}>
                 <span>
-                  {criterion.position}. {criterion.description}
+                  {index + 1}. {criterion.description}
                 </span>
-                <strong>{criterion.maxPoints} pts</strong>
+                <strong>{criterion.maxPoints} điểm</strong>
               </div>
             ))}
             <div className="builder-rubric-line builder-rubric-total">
-              <span>Tổng số</span>
-              <strong>{totalPoints} pts</strong>
+              <span>Tổng điểm</span>
+              <strong>{totalPoints} điểm</strong>
             </div>
           </div>
 
-          <div className="builder-actions builder-actions-split">
+          <div className="builder-actions builder-actions-split builder-assignment-detail-actions">
             <InstructorButton onClick={() => navigate(backPath)}>Quay lại</InstructorButton>
-            <InstructorButton onClick={() =>
-              navigate(`/instructor/submissions?assessmentId=${assignment.id}`, {
-                state: { fromAssignment: true },
-              })
-            }>Bài nộp</InstructorButton>
-            {restricted ? (
+            <InstructorButton onClick={() => navigate(`/instructor/submissions?assessmentId=${assignment.id}`, { state: { fromAssignment: true } })}>Bài nộp</InstructorButton>
+            {isSubmitted ? null : restricted ? (
               <InstructorButton type="primary" onClick={() => navigate(editPath, { state: location.state })}>
                 Chỉnh sửa thời gian làm bài dự kiến
               </InstructorButton>
@@ -215,17 +219,17 @@ const CourseBuilderAssignmentDetail = () => {
           <div className="builder-side-card">
             <h3>Quy tắc nộp bài</h3>
             <p>
-              Không có hạn nộp riêng. Sau <strong>{assignment.maxConsecutiveAttempts}</strong> lượt nộp liên tiếp, học viên bị tạm khóa trong <strong>{assignment.lockoutHours} h</strong>, sau đó có thể tiếp tục nộp bài. Điểm của bài nộp mới nhất là điểm được ghi nhận.
+              Không có hạn nộp riêng. Sau <strong>{assignment.maxConsecutiveAttempts}</strong> lượt nộp liên tiếp, học viên bị tạm khóa trong <strong>{assignment.lockoutHours} giờ</strong>, sau đó có thể tiếp tục nộp bài. Điểm của bài nộp mới nhất là điểm được ghi nhận.
             </p>
           </div>
           <div className="builder-side-card">
             <h3>Chấm chéo</h3>
             {peerReview.enabled ? (
               <ul>
-                <li>{peerReview.reviewersPerSubmission ?? "?"} người chấm cho mỗi bài nộp</li>
-                <li>{peerReview.cycleDays ?? "?"} ngày/chu kỳ</li>
-                <li>{peerReview.deadlineDays ?? "?"} ngày để hoàn thành chấm sau khi chốt chu kỳ</li>
-                <li>Ngưỡng chênh lệch điểm: {peerReview.scoreGap ?? "?"}</li>
+                <li>{peerReview.reviewersPerSubmission ?? "Chưa xác định"} người chấm cho mỗi bài nộp</li>
+                <li>{peerReview.cycleDays ?? "Chưa xác định"} ngày/chu kỳ</li>
+                <li>{peerReview.deadlineDays ?? "Chưa xác định"} ngày để hoàn thành chấm sau khi chốt chu kỳ</li>
+                <li>Ngưỡng chênh lệch điểm: {peerReview.scoreGap ?? "Chưa xác định"}</li>
               </ul>
             ) : (
               <p>
@@ -233,7 +237,7 @@ const CourseBuilderAssignmentDetail = () => {
                 {assignment.courseLocked && " Không thể bật lại vì khóa học đã khóa."}
               </p>
             )}
-            <InstructorButton onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-review`, { state: location.state })}>
+            <InstructorButton disabled={isSubmitted} onClick={() => navigate(`${base}/assignments/${assignment.id}/peer-review`, { state: location.state })}>
               Thiết lập chấm chéo
             </InstructorButton>
             {peerReview.enabled && (

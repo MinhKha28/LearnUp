@@ -14,6 +14,7 @@ import type { IAssignmentSummary } from "@/types/assessment.types";
 import type { ICourseStructure } from "@/types/course.types";
 
 import { courseStatusLabel } from "@/utils/course.status.labels";
+import { isBuilderMutationPath } from "@/utils/submitted.course.builder";
 import "./layout.instructor.course.scss";
 
 export interface ICourseBuilderOutletContext {
@@ -105,6 +106,8 @@ const LayoutInstructorCourse = () => {
   }
 
   const course = structure.course;
+  const isSubmitted = course.status === "Submitted";
+  const editingRouteBlocked = isSubmitted && isBuilderMutationPath(pathname);
 
   return (
     <div className="builder-layout">
@@ -146,6 +149,7 @@ const LayoutInstructorCourse = () => {
           <button
             type="button"
             className="builder-topbar-action"
+            disabled={isSubmitted}
             onClick={() => message.success("Đã lưu bản nháp.")}
           >
             Lưu bản nháp
@@ -154,6 +158,7 @@ const LayoutInstructorCourse = () => {
           <button
             type="button"
             className="builder-topbar-publish"
+            disabled={isSubmitted}
             onClick={() => navigate(`/instructor/courses/${course.id}/submit`)}
           >
             Gửi Khóa học để phê duyệt
@@ -165,13 +170,21 @@ const LayoutInstructorCourse = () => {
         <CourseBuilderNav structure={structure} assignments={assignments} />
 
         <main className="builder-main">
-          <Outlet
+          {editingRouteBlocked ? (
+            <div className="builder-banner" role="alert">
+              <strong>Không thể chỉnh sửa khóa học đang chờ phê duyệt</strong>
+              <p>Thu hồi khóa học về bản nháp trước khi chỉnh sửa.</p>
+              <InstructorButton onClick={() => navigate(`/instructor/courses/${course.id}/builder`)}>
+                Quay lại cấu trúc khóa học
+              </InstructorButton>
+            </div>
+          ) : <Outlet
             context={{
               structure,
               refetchStructure: loadStructure,
               assignments,
             }}
-          />
+          />}
         </main>
       </div>
     </div>

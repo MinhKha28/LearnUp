@@ -160,6 +160,7 @@ const InstructorLessonBody = ({ data }: { data: IInstructorLessonDetail }) => {
 
         <div className="instructor-lesson-header-actions">
           <InstructorButton
+            disabled={course.status === "Submitted"}
             onClick={() =>
               navigate(`${base}/lessons/${lesson.id}/content/edit`)
             }

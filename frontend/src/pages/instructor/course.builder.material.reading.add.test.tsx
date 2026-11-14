@@ -56,6 +56,7 @@ async function uploadReading() {
   );
 
   await screen.findByText("Thêm tài liệu đọc");
+  expect(screen.getByText(/Tài liệu được quét mà không trích xuất được chữ/)).toBeTruthy();
   const input = container.querySelector<HTMLInputElement>('input[type="file"]');
   fireEvent.change(input!, {
     target: {

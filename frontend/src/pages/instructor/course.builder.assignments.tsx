@@ -48,7 +48,7 @@ const CourseBuilderAssignments = () => {
 
   const base = `/instructor/courses/${course.id}/builder`;
   // BR-318: no new Assignment once the Course is Locked. Stay disabled until the real Course state is known.
-  const addBlocked = courseLocked !== false;
+  const addBlocked = courseLocked !== false || course.status === "Submitted" || course.locked;
 
   const withPeerReview = assignments.filter((a) => a.peerReviewEnabled).length;
   const withSubmissions = assignments.filter((a) => a.locked).length;
@@ -117,6 +117,12 @@ const CourseBuilderAssignments = () => {
             {loading && <div className="builder-assign-empty">Đang tải bài tập...</div>}
           </div>
 
+          {course.status === "Submitted" && (
+            <div className="builder-banner">
+              <strong>Khóa học đang chờ phê duyệt</strong>
+              <p>Thu hồi khóa học trước khi thêm bài tập.</p>
+            </div>
+          )}
           {courseLocked && (
             <div className="builder-banner">
               <strong>Khóa học đã khóa</strong>
