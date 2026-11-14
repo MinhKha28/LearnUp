@@ -1,3 +1,5 @@
+import { canOpenPage } from "@/utils/preview.pages";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 import { Avatar, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
 import {
@@ -17,7 +19,7 @@ import { roleLabel } from "@/utils/helper";
 import "./profile.scss";
 
 const Profile = () => {
-  const { profile, loading } = useMyProfile();
+  const { profile, loading, error, clearError } = useMyProfile();
   const navigate = useNavigate();
 
   return (
@@ -33,6 +35,9 @@ const Profile = () => {
         }
       />
       <SectionCard>
+        {error && (
+          <VietnameseAlert type="error" showIcon message={error} closable onClose={clearError} />
+        )}
         {loading && <Spin />}
         <div className="learner-profile-identity">
           <Avatar size={64} src={profile?.avatarUrl ?? undefined}>
@@ -82,13 +87,15 @@ const Profile = () => {
           Bạn không tự đổi được email đăng nhập trong hồ sơ.
         </p>
       </SectionCard>
-      <button
-        className="learner-profile-demo-link"
-        type="button"
-        onClick={() => navigate("/learner/subscription-suspended")}
-      >
-        Xem trước: trạng thái gói dịch vụ của tổ chức đang tạm ngưng
-      </button>
+      {canOpenPage("/learner/subscription-suspended") && (
+        <button
+          className="learner-profile-demo-link"
+          type="button"
+          onClick={() => navigate("/learner/subscription-suspended")}
+        >
+          Xem trước: trạng thái gói dịch vụ của tổ chức đang tạm ngưng
+        </button>
+      )}
     </LearnerPage>
   );
 };

@@ -43,12 +43,13 @@ const SIGN_IN_MESSAGES: Record<string, string> = {
     "Tạm thời chưa đăng nhập được. Vui lòng thử lại sau ít phút.",
 };
 
-export const signInMessage = (code?: string | null): string =>
-  (code && SIGN_IN_MESSAGES[code]) ||
-  "Hãy kiểm tra email và mật khẩu rồi thử lại.";
+export const isSignInReason = (code?: string | null): code is string =>
+  typeof code === "string" && Object.hasOwn(SIGN_IN_MESSAGES, code);
 
-export const isSignInReason = (code: string | null): code is string =>
-  Boolean(code && SIGN_IN_MESSAGES[code]);
+export const signInMessage = (code?: string | null): string =>
+  isSignInReason(code)
+    ? SIGN_IN_MESSAGES[code]
+    : "Hãy kiểm tra email và mật khẩu rồi thử lại.";
 
 export const clearTokens = () => {
   clearVideoPositionSession();

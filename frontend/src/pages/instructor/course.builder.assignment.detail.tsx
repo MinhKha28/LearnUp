@@ -191,7 +191,11 @@ const CourseBuilderAssignmentDetail = () => {
 
           <div className="builder-actions builder-actions-split">
             <InstructorButton onClick={() => navigate(backPath)}>Quay lại</InstructorButton>
-            <InstructorButton onClick={() => navigate(`/instructor/submissions?assessmentId=${assignment.id}`)}>Bài nộp</InstructorButton>
+            <InstructorButton onClick={() =>
+              navigate(`/instructor/submissions?assessmentId=${assignment.id}`, {
+                state: { fromAssignment: true },
+              })
+            }>Bài nộp</InstructorButton>
             {restricted ? (
               <InstructorButton type="primary" onClick={() => navigate(editPath, { state: location.state })}>
                 Chỉnh sửa thời gian làm bài dự kiến

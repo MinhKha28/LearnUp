@@ -209,6 +209,37 @@ it("reports the size error when Axios rejects with HTTP 413 and no body", async 
   expect(screen.queryByText("Material list")).toBeNull();
 });
 
+it.each([
+  {
+    name: "a resolved 503 body with retryAfterSeconds",
+    arrange: () =>
+      courseAxios.post.mockResolvedValueOnce({
+        statusCode: 503,
+        error: { statusCode: 503, code: "READING_PARSE_BUSY", retryAfterSeconds: 10 },
+      }),
+    expected: "Hệ thống đang bận xử lý tài liệu đọc. Vui lòng thử lại sau 10 giây.",
+  },
+  {
+    name: "a rejected Axios 503 without retryAfterSeconds",
+    arrange: () =>
+      courseAxios.post.mockRejectedValueOnce({
+        isAxiosError: true,
+        response: { status: 503, data: { statusCode: 503, error: { code: "READING_PARSE_BUSY" } } },
+      }),
+    expected: "Hệ thống đang bận xử lý tài liệu đọc. Vui lòng thử lại sau ít phút.",
+  },
+])("reports the busy message for $name", async ({ arrange, expected }) => {
+  arrange();
+  const title = await openEditor();
+  fireEvent.change(title, { target: { value: "Revised reading" } });
+  await replaceFile(new File(["%PDF-1.7"], "replacement.pdf", { type: "application/pdf" }));
+
+  expect(error).toHaveBeenCalledWith(expected, 8);
+  expect(courseAxios.patch).not.toHaveBeenCalled();
+  expect(success).not.toHaveBeenCalled();
+  expect(screen.queryByText("Material list")).toBeNull();
+});
+
 it("keeps the generic message for another replacement HTTP error", async () => {
   courseAxios.post.mockResolvedValueOnce({
     statusCode: 503,

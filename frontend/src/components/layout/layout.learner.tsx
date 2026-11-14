@@ -1,3 +1,4 @@
+import { visibleRoleMenu } from "@/utils/preview.pages";
 import {
   AppstoreOutlined,
   FlagOutlined,
@@ -29,6 +30,8 @@ const learnerMenuItems: MenuItem[] = [
   { key: "/learner/certificates", icon: <GoldOutlined aria-hidden="true" />, label: "Chứng chỉ" },
   { key: "/learner/reports", icon: <FlagOutlined aria-hidden="true" />, label: "Báo cáo của tôi" },
 ];
+
+const visibleLearnerMenuItems = visibleRoleMenu(learnerMenuItems);
 
 const LayoutLearner = () => {
   const { user } = useCurrentApp();
@@ -78,7 +81,7 @@ const LayoutLearner = () => {
         className="learner-navigation"
         mode="inline"
         selectedKeys={[selectedKey]}
-        items={learnerMenuItems}
+        items={visibleLearnerMenuItems}
         onClick={goTo}
       />
       <div className="learner-sidebar-user">
