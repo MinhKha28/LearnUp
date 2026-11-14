@@ -7,6 +7,7 @@ import com.learnup.notification.dto.EmailLogResponse;
 import com.learnup.notification.dto.SendEmailRequest;
 import com.learnup.notification.enrollment.DependencyUnavailableException;
 import com.learnup.notification.enrollment.PermanentDeliveryException;
+import com.learnup.notification.mail.EmailLayout;
 import com.learnup.notification.service.EmailDeliveryService;
 import com.learnup.notification.service.NotificationService;
 import org.slf4j.Logger;
@@ -117,57 +118,25 @@ public class CourseDecisionEventHandler {
         return "LearnUP - " + title(event);
     }
 
-    /**
-     * The same facts as the notice, in a card that mail clients draw alike (tables and inline styles only). The course name,
-     * the reason and the name are escaped (people type them).
-     */
+    /** The same facts as the notice, in the card all e-mails of this service share; every text is escaped there. */
     static String emailHtml(CourseDecisionEvent event, String fullName) {
         boolean approved = event.approved();
-        String accent = approved ? "#15803d" : "#b91c1c";
-        String tint = approved ? "#f0fdf4" : "#fef2f2";
-        String greeting = fullName == null || fullName.isBlank() ? "Xin chào," : "Xin chào " + escapeHtml(fullName) + ",";
-        String course = escapeHtml(event.courseName());
-        String sentence = (approved ? "Quản lý đào tạo đã phê duyệt " : "Quản lý đào tạo đã từ chối ")
-                + "khóa học <strong>«" + course + "»</strong> (phiên bản " + event.versionNumber() + ")."
-                + (approved ? " Khóa học đã được công bố." : "");
-        String callout = approved
-                ? box(tint, accent, "Khóa học đã được công bố", "Học viên có thể được phân công khóa học này.")
-                : box(tint, accent, "Lý do từ chối", escapeHtml(event.rejectionReason()))
-                        + "<p style=\"margin:16px 0 0;color:#475569;font-size:14px;line-height:1.6\">"
-                        + "Bạn có thể chỉnh sửa khóa học rồi gửi duyệt lại.</p>";
-        return """
-            <!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
-            <body style="margin:0;padding:24px 12px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif">
-            <table role="presentation" width="100%%" style="max-width:600px;margin:0 auto;border-collapse:collapse">
-            <tr><td style="padding:18px 28px;background:#172554;border-radius:12px 12px 0 0;color:#ffffff;font-size:24px;font-weight:bold"><img src="cid:learnup-logo" alt="LearnUP" width="140" style="display:block;border:0;height:auto;color:#ffffff;font-size:24px;font-weight:bold"/></td></tr>
-            <tr><td style="padding:32px 28px;background:#ffffff;color:#0f172a">
-              <span style="display:inline-block;padding:4px 12px;border-radius:999px;background:%s;color:%s;font-size:12px;font-weight:bold">%s</span>
-              <h1 style="margin:14px 0 8px;font-size:22px;line-height:1.3">%s</h1>
-              <p style="margin:0 0 16px;color:#334155;font-size:15px">%s</p>
-              <p style="margin:0 0 20px;color:#334155;font-size:15px;line-height:1.6">%s</p>
-              <table role="presentation" width="100%%" style="margin:0 0 20px;border:1px solid #e2e8f0;border-radius:8px;border-collapse:separate;font-size:14px">
-                <tr><td style="padding:10px 14px;color:#64748b;width:110px">Khóa học</td><td style="padding:10px 14px;font-weight:bold">%s</td></tr>
-                <tr><td style="padding:10px 14px;color:#64748b;border-top:1px solid #e2e8f0">Phiên bản</td><td style="padding:10px 14px;border-top:1px solid #e2e8f0">%d</td></tr>
-                <tr><td style="padding:10px 14px;color:#64748b;border-top:1px solid #e2e8f0">Kết quả</td><td style="padding:10px 14px;border-top:1px solid #e2e8f0;color:%s;font-weight:bold">%s</td></tr>
-              </table>
-              %s
-              <p style="margin:24px 0 0;color:#334155;font-size:14px">Vui lòng đăng nhập LearnUP để xem chi tiết.</p>
-            </td></tr>
-            <tr><td style="padding:16px 28px;background:#f8fafc;border-radius:0 0 12px 12px;color:#94a3b8;font-size:12px;text-align:center">
-              Email tự động từ LearnUP, vui lòng không trả lời thư này.
-            </td></tr></table></body></html>
-            """.formatted(tint, accent, approved ? "ĐÃ PHÊ DUYỆT" : "BỊ TỪ CHỐI", title(event), greeting, sentence,
-                course, event.versionNumber(), accent, approved ? "Đã phê duyệt" : "Bị từ chối", callout);
-    }
-
-    private static String box(String tint, String accent, String heading, String text) {
-        return "<div style=\"padding:14px 16px;background:" + tint + ";border-left:4px solid " + accent
-                + ";border-radius:4px\"><div style=\"color:" + accent + ";font-size:13px;font-weight:bold;margin-bottom:4px\">"
-                + heading + "</div><div style=\"color:#0f172a;font-size:14px;line-height:1.6\">" + text + "</div></div>";
-    }
-
-    private static String escapeHtml(String value) {
-        return value.replace("&", "&amp;").replace("<", "&lt;")
-                .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+        EmailLayout.Tone tone = approved ? EmailLayout.Tone.SUCCESS : EmailLayout.Tone.DANGER;
+        EmailLayout.Card card = EmailLayout.Card.of(title(event))
+                .badge(approved ? "ĐÃ PHÊ DUYỆT" : "BỊ TỪ CHỐI", tone)
+                .greeting(fullName)
+                .paragraph((approved ? "Quản lý đào tạo đã phê duyệt " : "Quản lý đào tạo đã từ chối ")
+                        + "khóa học «" + event.courseName() + "» (phiên bản " + event.versionNumber() + ")."
+                        + (approved ? " Khóa học đã được công bố." : ""))
+                .detail("Khóa học", event.courseName())
+                .detail("Phiên bản", String.valueOf(event.versionNumber()))
+                .detail("Kết quả", approved ? "Đã phê duyệt" : "Bị từ chối", tone);
+        if (approved) {
+            card.callout("Khóa học đã được công bố", "Học viên có thể được phân công khóa học này.", tone);
+        } else {
+            card.callout("Lý do từ chối", event.rejectionReason(), tone)
+                    .paragraph("Bạn có thể chỉnh sửa khóa học rồi gửi duyệt lại.");
+        }
+        return EmailLayout.render(card.closing("Vui lòng đăng nhập LearnUP để xem chi tiết."));
     }
 }

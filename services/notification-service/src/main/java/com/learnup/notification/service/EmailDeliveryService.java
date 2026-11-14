@@ -5,6 +5,7 @@ import com.learnup.notification.config.MailProperties;
 import com.learnup.notification.dto.EmailLogResponse;
 import com.learnup.notification.dto.SendEmailRequest;
 import com.learnup.notification.entity.EmailLog;
+import com.learnup.notification.mail.PlainEmailFraming;
 import com.learnup.notification.repository.EmailLogRepository;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
@@ -68,8 +69,11 @@ public class EmailDeliveryService {
                 helper.setSubject(subject);
 
                 boolean isHtml = request.getBody() != null && request.getBody().contains("<") && request.getBody().contains(">");
-                helper.setText(request.getBody(), isHtml);
-                if (isHtml && request.getBody().contains("cid:" + LOGO_CID)) {
+                String body = PlainEmailFraming.frame(request.getTemplateCode(), subject, request.getBody())
+                        .orElse(request.getBody());
+                isHtml = isHtml || !body.equals(request.getBody());
+                helper.setText(body, isHtml);
+                if (isHtml && body.contains("cid:" + LOGO_CID)) {
                     attachLogo(helper);
                 }
 

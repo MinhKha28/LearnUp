@@ -142,15 +142,16 @@ class EmailDeliveryServiceTest {
         String resetLink = "https://frontend.example.test/reset-password?token=synthetic-recovery-token";
 
         EmailLogResponse response = emailDeliveryService.sendEmail(
-                new SendEmailRequest("recipient@example.test", resetLink, "Recovery link: " + resetLink,
+                new SendEmailRequest("recipient@example.test", resetLink,
+                        String.join(System.lineSeparator(), "A LearnUP password recovery was requested for your account.", "",
+                                "Open this link to choose a new password:", resetLink, "", "This link can be used only once."),
                         "IDENTITY_PASSWORD_RECOVERY"));
 
         ArgumentCaptor<MimeMessage> message = ArgumentCaptor.forClass(MimeMessage.class);
         verify(javaMailSender).send(message.capture());
         assertThat(message.getValue().getSubject()).isEqualTo("LearnUP password recovery");
-        ByteArrayOutputStream wireMessage = new ByteArrayOutputStream();
-        message.getValue().writeTo(wireMessage);
-        assertThat(wireMessage.toString(StandardCharsets.UTF_8)).contains("synthetic-recovery-token");
+        // set in the card of the e-mails: the link is the button, whole (the wire form wraps long lines)
+        assertThat(htmlOf(message.getValue())).contains("href=\"" + resetLink + "\"").contains("Choose a new password");
         assertThat(response.getSubject()).isEqualTo("LearnUP password recovery");
         assertThat(response.getErrorMessage()).isNull();
         assertThat(response.getStatus()).isEqualTo("SENT");
@@ -187,5 +188,66 @@ class EmailDeliveryServiceTest {
     @DisplayName("A body that does not name the logo carries no image")
     void aBodyThatDoesNotNameTheLogoCarriesNoImage() throws Exception {
         assertThat(sentMime("<p>Plain mail</p>")).doesNotContain("image/png").doesNotContain("learnup-logo");
+    }
+
+    /** The text/html part of what was sent, decoded. */
+    private static String htmlOf(MimeMessage message) throws Exception {
+        message.saveChanges();
+        return htmlIn(message.getContent());
+    }
+
+    private static String htmlIn(Object content) throws Exception {
+        if (content instanceof String text) return text;
+        if (content instanceof jakarta.mail.Multipart multipart) {
+            StringBuilder all = new StringBuilder();
+            for (int i = 0; i < multipart.getCount(); i++) {
+                jakarta.mail.BodyPart part = multipart.getBodyPart(i);
+                if (part.isMimeType("text/html") || part.isMimeType("multipart/*")) {
+                    all.append(htmlIn(part.getContent()));
+                }
+            }
+            return all.toString();
+        }
+        return "";
+    }
+
+    @Test
+    @DisplayName("The plain text of assessment-service (final score, reminder, waiver) is set in the card, with the logo inline")
+    void theTextOfAssessmentServiceIsSetInTheCard() throws Exception {
+        for (String code : new String[] { "ASSIGNMENT_FINALIZED", "PEER_REVIEW_REMINDER", "PEER_REVIEW_WAIVED" }) {
+            org.mockito.Mockito.reset(javaMailSender, emailLogRepository, mailSenderProvider);
+            mailProperties.setEnabled(true);
+            when(mailSenderProvider.getIfAvailable()).thenReturn(javaMailSender);
+            when(javaMailSender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
+            when(emailLogRepository.save(any(EmailLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            emailDeliveryService.sendEmail(new SendEmailRequest("a@example.test", "Sắp đến hạn chấm chéo",
+                    String.join("\n", "Xin chào Học viên Mẫu,", "",
+                            "Bạn còn 2 bài nộp chưa chấm. Hạn chấm là 14/11/2026 18:15."), code));
+
+            ArgumentCaptor<MimeMessage> sent = ArgumentCaptor.forClass(MimeMessage.class);
+            verify(javaMailSender).send(sent.capture());
+            String html = htmlOf(sent.getValue());
+            assertThat(html).startsWith("<!DOCTYPE html>").contains("Sắp đến hạn chấm chéo").contains("Xin chào Học viên Mẫu,")
+                    .contains("Bạn còn 2 bài nộp chưa chấm. Hạn chấm là 14/11/2026 18:15.").contains("cid:learnup-logo");
+            ByteArrayOutputStream raw = new ByteArrayOutputStream();
+            sent.getValue().writeTo(raw);
+            assertThat(raw.toString(StandardCharsets.ISO_8859_1)).contains("Content-ID: <learnup-logo>");
+        }
+    }
+
+    @Test
+    @DisplayName("A kind that is not listed, and a body that already is HTML, go out as they came")
+    void otherBodiesAreNotFramed() throws Exception {
+        assertThat(sentMime("Plain text of another kind")).doesNotContain("image/png").doesNotContain("DOCTYPE");
+        mailProperties.setEnabled(true);
+        when(mailSenderProvider.getIfAvailable()).thenReturn(javaMailSender);
+        when(javaMailSender.createMimeMessage()).thenReturn(new MimeMessage(Session.getInstance(new Properties())));
+        when(emailLogRepository.save(any(EmailLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        emailDeliveryService.sendEmail(new SendEmailRequest("a@example.test", "S",
+                "<p>Already HTML</p>", "ASSIGNMENT_FINALIZED"));
+        ArgumentCaptor<MimeMessage> sent = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(javaMailSender, times(2)).send(sent.capture());
+        assertThat(htmlOf(sent.getAllValues().get(1))).isEqualTo("<p>Already HTML</p>");
     }
 }
