@@ -1,5 +1,5 @@
 import { CheckOutlined } from "@ant-design/icons";
-import { Input, message } from "antd";
+import { Input, Radio, message } from "antd";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -15,6 +15,7 @@ import {
 } from "@/components/instructor/instructor.data";
 import { InstructorButton, InstructorPage, WarningPanel } from "@/components/instructor/instructor.ui";
 import "./course.builder.scss";
+import "./course.builder.assignment.scss";
 
 const typeOptions: { value: QuizQuestionType; label: string }[] = [
   { value: "single", label: "Một đáp án đúng" },
@@ -156,18 +157,16 @@ const CourseBuilderQuizQuestionEdit = () => {
       </div>
       <div className="builder-grid">
         <div className="builder-update-card">
-          <div className="instructor-pill-toggle builder-question-type-toggle">
-            {typeOptions.map((option) => (
-              <button
-                type="button"
-                key={option.value}
-                className={type === option.value ? "instructor-pill-active" : ""}
-                onClick={() => changeType(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <label className="instructor-form-label instructor-form-label-spaced">Loại câu hỏi</label>
+          <Radio.Group
+            className="builder-question-type-toggle"
+            aria-label="Loại câu hỏi"
+            optionType="button"
+            buttonStyle="solid"
+            value={type}
+            onChange={(event) => changeType(event.target.value as QuizQuestionType)}
+            options={typeOptions}
+          />
 
           <label className="instructor-form-label instructor-form-label-spaced">Câu hỏi</label>
           <Input value={text} onChange={(event) => setText(event.target.value)} />

@@ -387,7 +387,7 @@
 }
 
 .builder-question-type-toggle.ant-radio-group-solid
-  .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+  .ant-radio-button-wrapper.ant-radio-button-wrapper-checked {
   color: var(--color-surface);
   background: var(--color-primary);
   border-color: var(--color-primary);

@@ -218,6 +218,8 @@ const CourseBuilderQuizCreate = () => {
 
           <label className="instructor-form-label instructor-form-label-spaced">Điều kiện cấp chứng chỉ</label>
           <Radio.Group
+            className="builder-question-type-toggle"
+            aria-label="Điều kiện cấp chứng chỉ"
             optionType="button"
             buttonStyle="solid"
             disabled={formLocked}

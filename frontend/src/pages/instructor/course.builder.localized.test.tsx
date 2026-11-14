@@ -8,6 +8,8 @@ import { fetchCourseLessonDetailAPI, fetchLessonContentEditabilityAPI, fetchVide
 import type { IQuizDetail } from "@/types/assessment.types";
 import QuizDetail from "./course.builder.quiz.detail";
 import QuestionCreate from "./course.builder.quiz.question.create";
+import QuizConfigurationEdit from "./course.builder.quiz.configuration.edit";
+import QuestionEdit from "./course.builder.quiz.question.edit";
 import QuizCreate from "./course.builder.quiz.create";
 import LessonContentEdit from "./course.builder.lesson.content.edit";
 import VideoAdd from "./course.builder.material.video.add";
@@ -24,9 +26,10 @@ vi.mock("@/services/course.service", () => ({
   fetchVideoUploadContextAPI: vi.fn(),
   updateLessonContentAPI: vi.fn(),
 }));
-vi.mock("@/components/instructor/instructor.data", () => ({
+vi.mock("@/components/instructor/instructor.data", async (original) => ({
+  ...await original<typeof import("@/components/instructor/instructor.data")>(),
   findInstructorCourse: () => ({ id: "c" }),
-  findCourseStructure: () => ({}),
+
   findBuilderResource: () => ({ resource: { title: "Tài liệu", type: "reading", required: false } }),
 }));
 
@@ -42,11 +45,11 @@ const quiz = {
   },
 } satisfies Partial<IQuizDetail>;
 
-function renderPage(path: string, pattern: string, page: ReactNode) {
+function renderPage(path: string, pattern: string, page: ReactNode, status: "Submitted" | "Draft" = "Submitted") {
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route element={<Outlet context={{ structure }} />}>
+        <Route element={<Outlet context={{ structure: { ...structure, course: { ...course, status } } }} />}>
           <Route path={pattern} element={page} />
         </Route>
       </Routes>
@@ -107,7 +110,7 @@ it("labels the course status when quiz creation is blocked", () => {
 });
 
 it("labels an optional reading on the blocked deletion page", () => {
-  renderPage("/c/l/r", "/:courseId/:lessonId/:materialId", <MaterialDeleteBlocked />);
+  renderPage("/workplace-safety/l/r", "/:courseId/:lessonId/:materialId", <MaterialDeleteBlocked />);
   expect(screen.getByText(/Không bắt buộc • Tài liệu đọc/)).toBeTruthy();
 });
 
@@ -139,4 +142,38 @@ it("localizes the video upload duration and subscription", async () => {
   renderPage("/c/l", "/:courseId/:lessonId", <VideoAdd />);
   expect(await screen.findByText("45 phút")).toBeTruthy();
   expect(screen.getByText("Trong thời gian ân hạn")).toBeTruthy();
+});
+
+it.each([
+  [true, "Bắt buộc"],
+  [false, "Không bắt buộc"],
+] as const)("checks the stored certificate choice %s", async (isRequired, name) => {
+  quizResponse({ ...quiz, isRequired });
+  renderPage("/quizzes/q/edit", "/quizzes/:quizId/edit", <QuizConfigurationEdit />, "Draft");
+  expect(await screen.findByRole("radio", { name, checked: true })).toBeTruthy();
+  expect(screen.getAllByRole("radio", { checked: true })).toHaveLength(1);
+});
+
+it("checks each certificate option when selected during quiz creation", () => {
+  renderPage("/quizzes/new", "/quizzes/new", <QuizCreate />, "Draft");
+  for (const name of ["Không bắt buộc", "Bắt buộc"]) {
+    fireEvent.click(screen.getByRole("radio", { name }));
+    expect(screen.getByRole("radio", { name, checked: true })).toBeTruthy();
+    expect(screen.getAllByRole("radio", { checked: true })).toHaveLength(1);
+  }
+});
+
+it("exposes the existing and changed question types as radio selections", () => {
+  renderPage(
+    "/workplace-safety/quizzes/m2-quiz/questions/m2-quiz-q1/edit",
+    "/:courseId/quizzes/:quizId/questions/:questionId/edit",
+    <QuestionEdit />,
+  );
+  expect(screen.getByText("Loại câu hỏi")).toBeTruthy();
+  expect(screen.getByRole("radio", { name: "Một đáp án đúng", checked: true })).toBeTruthy();
+  for (const name of ["Nhiều đáp án đúng", "Đúng / Sai", "Một đáp án đúng"]) {
+    fireEvent.click(screen.getByRole("radio", { name }));
+    expect(screen.getByRole("radio", { name, checked: true })).toBeTruthy();
+    expect(screen.getAllByRole("radio", { checked: true })).toHaveLength(1);
+  }
 });
