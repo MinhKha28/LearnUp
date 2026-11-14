@@ -142,8 +142,8 @@ export const formatFileSize = (bytes: number) =>
 /** BR-174: stored in minutes, shown converted to hours once it reaches an hour. */
 export const formatMinutes = (minutes: number | null) => {
   if (minutes === null) return "-";
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 60) return `${minutes} phút`;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
+  return rest === 0 ? `${hours} giờ` : `${hours} giờ ${rest} phút`;
 };

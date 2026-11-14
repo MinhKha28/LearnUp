@@ -1,3 +1,4 @@
+import { materialTypeText } from "@/utils/builder.material.labels";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   findBuilderResource,
@@ -31,8 +32,8 @@ const CourseBuilderMaterialDeleteBlocked = () => {
       <div className="builder-update-card">
         <h2>{resource.title}</h2>
         <p className="builder-lesson-intro">
-          {resource.required ? "Required" : "Optional"} • {resource.type === "video" ? "Video" : "Reading"}{" "}
-          • {resource.sizeLabel}
+          {resource.required ? "Bắt buộc" : "Không bắt buộc"} • {materialTypeText(resource.type === "video" ? "Video" : "Reading")}{" "}
+          • {resource.sizeLabel === "[Size]" ? "Chưa xác định dung lượng" : resource.sizeLabel}
         </p>
         <p className="builder-lesson-intro">Để thay đổi cấu trúc khóa học, hãy tạo phiên bản mới.</p>
         <div className="builder-actions">

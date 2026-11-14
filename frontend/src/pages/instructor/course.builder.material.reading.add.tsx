@@ -388,7 +388,7 @@ const CourseBuilderReadingAdd = () => {
             <p>Tốc độ đọc: {context.readingSpeedWordsPerMinute} từ/phút</p>
 
             <p>
-              Tài liệu scan không trích xuất được chữ sẽ được lưu với số từ bằng 0 kèm cảnh báo.
+              Tài liệu được quét mà không trích xuất được chữ sẽ được lưu với số từ bằng 0 kèm cảnh báo.
             </p>
           </section>
         </div>

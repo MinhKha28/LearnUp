@@ -94,10 +94,10 @@ const CourseBuilderQuizDelete = () => {
       <div className="builder-confirm-card builder-delete-card">
         <div className="builder-delete-head">
           <span className="builder-delete-icon">
-            <DeleteOutlined />
+            <DeleteOutlined aria-hidden="true" />
           </span>
           <div>
-            <strong>Delete "{quiz.title}"?</strong>
+            <strong>Xóa “{quiz.title}”?</strong>
             <p>Thao tác này không thể hoàn tác.</p>
           </div>
         </div>

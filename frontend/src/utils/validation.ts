@@ -13,15 +13,15 @@ export interface INumberRule {
  * Returns the message to show, or null when the value is acceptable.
  */
 export const validateNumber = (value: number | null, rule: INumberRule): string | null => {
-  if (value === null) return rule.required ? "Enter a number." : null;
-  if (!Number.isFinite(value)) return "Enter a valid number (digits only).";
-  if (rule.integer && !Number.isInteger(value)) return "Must be a whole number.";
+  if (value === null) return rule.required ? "Nhập một số." : null;
+  if (!Number.isFinite(value)) return "Nhập một số hợp lệ.";
+  if (rule.integer && !Number.isInteger(value)) return "Nhập số nguyên.";
   if (!rule.integer && rule.decimals !== undefined) {
     const factor = 10 ** rule.decimals;
-    if (Math.round(value * factor) / factor !== value) return `Use at most ${rule.decimals} decimal places.`;
+    if (Math.round(value * factor) / factor !== value) return `Nhập tối đa ${rule.decimals} chữ số thập phân.`;
   }
-  if (rule.min !== undefined && value < rule.min) return `Must be at least ${rule.min}.`;
-  if (rule.max !== undefined && value > rule.max) return `Must be at most ${rule.max}.`;
+  if (rule.min !== undefined && value < rule.min) return `Nhập số từ ${rule.min} trở lên.`;
+  if (rule.max !== undefined && value > rule.max) return `Nhập số không vượt quá ${rule.max}.`;
   return null;
 };
 
