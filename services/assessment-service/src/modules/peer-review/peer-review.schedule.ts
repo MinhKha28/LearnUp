@@ -5,7 +5,9 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { deliverNotice } from '../../infrastructure/clients/notification/deliver-notice';
 import { NotificationClient } from '../../infrastructure/clients/notification/notification.client';
+import { TenantDirectoryClient } from '../../infrastructure/clients/tenant/tenant-directory.client';
 import { reviewCounts } from '../outbox/peer-review-assigned';
 import { PeerReviewRepository } from './peer-review.repository';
 import { reminderNotice } from './review-notice';
@@ -46,11 +48,14 @@ export class PeerReviewSchedule
   private readonly logger = new Logger(PeerReviewSchedule.name);
   private timer?: NodeJS.Timeout;
   private running = false;
+  /** The notices handed over and not yet delivered: a notification-service that is slow never holds the timer. */
+  private readonly delivering = new Set<Promise<void>>();
 
   constructor(
     private readonly repository: PeerReviewRepository,
     private readonly service: PeerReviewService,
     private readonly notifications: NotificationClient,
+    private readonly tenant: TenantDirectoryClient,
     private readonly config: ConfigService,
   ) {}
 
@@ -117,10 +122,7 @@ export class PeerReviewSchedule
         reminded += 1;
         const owed = await this.repository.pendingReviewCounts(cycle.id);
         for (const [reviewerId, total] of owed) {
-          await this.notifyOne(cycle.organizationId, reviewerId, {
-            ...reminderNotice(total, cycle.assessment.title, cycle.reviewDueAt),
-            metadata: { assignmentId: cycle.assessmentId, cycleId: cycle.id },
-          });
+          this.remindOne(cycle, reviewerId, total);
         }
       } catch (error) {
         this.logger.error(`Reminder of ${cycle.id} failed: ${String(error)}`);
@@ -173,19 +175,61 @@ export class PeerReviewSchedule
     return expired;
   }
 
-  private async notifyOne(
-    organizationId: string,
-    recipientUserId: string,
-    item: { title: string; message: string; metadata: Record<string, string> },
-  ): Promise<void> {
-    try {
-      await this.notifications.send({
-        organizationId,
-        recipientUserId,
-        ...item,
-      });
-    } catch (error) {
-      this.logger.warn(`Could not notify ${recipientUserId}: ${String(error)}`);
-    }
+  /**
+   * BR-232: the bell and the e-mail of the reminder of one reviewer. They are handed over without waiting: each channel is
+   * tried again for about a minute (see `deliverNotice`), which must not hold the other reviewers or the next tick.
+   * The reminder was claimed before, so a notice lost with the process is not sent twice.
+   */
+  private remindOne(
+    cycle: {
+      id: string;
+      organizationId: string;
+      assessmentId: string;
+      reviewDueAt: Date;
+      assessment: { title: string };
+    },
+    reviewerId: string,
+    total: number,
+  ): void {
+    const notice = reminderNotice(
+      total,
+      cycle.assessment.title,
+      cycle.reviewDueAt,
+    );
+    const delivery: Promise<void> = deliverNotice(
+      {
+        notifications: this.notifications,
+        tenant: this.tenant,
+        logger: this.logger,
+      },
+      {
+        organizationId: cycle.organizationId,
+        recipientUserId: reviewerId,
+        title: notice.title,
+        message: notice.message,
+        metadata: { assignmentId: cycle.assessmentId, cycleId: cycle.id },
+        templateCode: 'PEER_REVIEW_REMINDER',
+        about: `the reminder of cycle ${cycle.id}`,
+        // nobody is asking: the reviewer is the one looked up, in the Organization of the cycle
+        lookupAs: {
+          userId: reviewerId,
+          role: 'LEARNER',
+          organizationId: cycle.organizationId,
+          isAuthenticated: true,
+        },
+      },
+    )
+      .catch((error) =>
+        this.logger.error(
+          `The reminder of ${reviewerId} for ${cycle.id} failed: ${String(error)}`,
+        ),
+      )
+      .finally(() => this.delivering.delete(delivery));
+    this.delivering.add(delivery);
+  }
+
+  /** Resolves when every notice handed over so far was delivered or given up (the tests wait for it). */
+  async delivered(): Promise<void> {
+    await Promise.allSettled([...this.delivering]);
   }
 }
