@@ -26,6 +26,8 @@ const CourseBuilderAssignmentCreate = () => {
   const location = useLocation();
   const { structure } = useOutletContext<ICourseBuilderOutletContext>();
   const course = structure.course;
+  const isSubmitted = course.status === "Submitted";
+  const cannotCreate = isSubmitted || course.locked;
 
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
@@ -58,6 +60,7 @@ const CourseBuilderAssignmentCreate = () => {
   };
 
   const handleCreate = async () => {
+    if (saving || cannotCreate) return;
     setSubmitted(true);
     if (Object.values(errors).some(Boolean)) {
       message.warning("Vui lòng kiểm tra các trường được đánh dấu.");
@@ -105,10 +108,17 @@ const CourseBuilderAssignmentCreate = () => {
       <div className="builder-hero">
         <h1>Tạo bài tập</h1>
       </div>
+      {isSubmitted && (
+        <div className="builder-banner">
+          <strong>Khóa học đang chờ phê duyệt</strong>
+          <p>Hãy thu hồi khóa học trước khi thêm bài tập.</p>
+        </div>
+      )}
       <div className="builder-grid">
         <div className="builder-update-card">
           <label className="instructor-form-label">Tên bài tập</label>
           <Input
+            disabled={cannotCreate}
             value={title}
             maxLength={200}
             status={submitted && errors.title ? "error" : undefined}
@@ -119,6 +129,7 @@ const CourseBuilderAssignmentCreate = () => {
 
           <label className="instructor-form-label instructor-form-label-spaced">Hướng dẫn</label>
           <Input.TextArea
+            disabled={cannotCreate}
             className="builder-textarea"
             placeholder="Nhập hướng dẫn làm bài tập..."
             maxLength={8000}
@@ -128,7 +139,7 @@ const CourseBuilderAssignmentCreate = () => {
           />
           <FieldError message={submitted ? errors.instructions : null} />
 
-          <PromptFileField value={promptFile} onChange={setPromptFile} />
+          <PromptFileField value={promptFile} onChange={setPromptFile} disabled={cannotCreate} />
 
           <div className="builder-field-row">
             <div>
@@ -173,7 +184,7 @@ const CourseBuilderAssignmentCreate = () => {
           </div>
 
           <h2 className="instructor-form-label-spaced">Tiêu chí chấm</h2>
-          <RubricEditor rows={rubric} onChange={setRubric} showErrors={submitted} />
+          <RubricEditor rows={rubric} onChange={setRubric} showErrors={submitted} disabled={cannotCreate} />
 
           <div className="builder-actions builder-actions-split">
             <InstructorButton
@@ -185,7 +196,7 @@ const CourseBuilderAssignmentCreate = () => {
             >
               Hủy
             </InstructorButton>
-            <InstructorButton type="primary" loading={saving} onClick={handleCreate}>
+            <InstructorButton type="primary" disabled={cannotCreate || saving} loading={saving} onClick={handleCreate}>
               Tạo bài tập
             </InstructorButton>
           </div>

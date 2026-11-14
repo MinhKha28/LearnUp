@@ -16,6 +16,8 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const course = structure.course;
+  const isSubmitted = course.status === "Submitted";
+  const canEditStructure = !structure.structureLocked && !isSubmitted;
   const base = `/instructor/courses/${course.id}/builder`;
 
   return (
@@ -65,7 +67,7 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
               </button>
             ))}
 
-            {!structure.structureLocked && (
+            {canEditStructure && (
               <button
                 type="button"
                 className="builder-nav-add-lesson"
@@ -104,13 +106,13 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
                 {assignment.disabled && <small>Đã vô hiệu hóa</small>}
               </button>
             ))}
-            <button
+            {!isSubmitted && !course.locked && <button
               type="button"
               className="builder-nav-add-lesson"
               onClick={() => navigate(`${base}/assignments/new`, { state: { from: pathname } })}
             >
               + Thêm Bài tập
-            </button>
+            </button>}
           </div>
         )}
       </div>
