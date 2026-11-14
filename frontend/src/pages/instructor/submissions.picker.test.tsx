@@ -7,7 +7,13 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from "react-router-dom";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigationType,
+} from "react-router-dom";
 import {
   afterEach,
   beforeAll,
@@ -171,12 +177,18 @@ describe("Submissions page: Course and Assignment on top", () => {
 
   it("clears the previous assignment heading when the new Course has no Assignments", async () => {
     open("?assessmentId=as-1");
-    expect(await screen.findByRole("heading", { name: "Tiêu đề as-1" })).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { name: "Tiêu đề as-1" }),
+    ).toBeTruthy();
     await choose("Khóa Toán", "Khóa chưa có bài tập");
-    expect(await screen.findByText("Khóa học này chưa có bài tập nào.")).toBeTruthy();
+    expect(
+      await screen.findByText("Khóa học này chưa có bài tập nào."),
+    ).toBeTruthy();
     expect(search).toBe("");
     expect(screen.queryByRole("heading", { name: "Tiêu đề as-1" })).toBeNull();
-    expect(screen.getByRole("heading", { name: "Bài nộp của bài tập" })).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Bài nộp của bài tập" }),
+    ).toBeTruthy();
   });
 
   it("replaces the filter URL and keeps Back hidden on the sidebar entry", async () => {
@@ -198,7 +210,9 @@ describe("Submissions page: Course and Assignment on top", () => {
       fireEvent.click(screen.getAllByRole("switch")[0]);
       await waitFor(() => expect(search).toContain("needs=1"));
       fireEvent.click(screen.getByRole("button", { name: /Quay lại/ }));
-      expect(await screen.findByRole("heading", { name: "Chi tiết bài tập" })).toBeTruthy();
+      expect(
+        await screen.findByRole("heading", { name: "Chi tiết bài tập" }),
+      ).toBeTruthy();
     } finally {
       window.history.replaceState(historyState, "");
     }
@@ -226,16 +240,39 @@ describe("Submissions page: Course and Assignment on top", () => {
     ).toBeTruthy();
   });
 
-  it("shows Back only when the Instructor came from the Assignment, and keeps it while the Assignment changes", async () => {
+  it("from the sidebar the Instructor chooses the Course and the Assignment, and there is no Back", async () => {
     open("?assessmentId=as-1");
     await screen.findByText("Bài luận số 1");
+    expect(screen.getByText("Khóa học")).toBeTruthy();
+    expect(screen.getByText("Khóa Toán")).toBeTruthy();
     expect(screen.queryByText("Quay lại")).toBeNull();
-    cleanup();
+  });
 
+  it("from the Assignment the page is that Assignment's submissions: its title, no selects, and Back", async () => {
     open("?assessmentId=as-1", { fromAssignment: true });
-    expect(await screen.findByText("Quay lại")).toBeTruthy();
-    await choose("Bài luận số 1", "Bài luận số 2");
-    await waitFor(() => expect(search).toBe("?assessmentId=as-2"));
+    expect(
+      await screen.findByRole("heading", { name: "Tiêu đề as-1" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Bài tập này không bật chấm chéo: bạn chấm mọi bài nộp.",
+      ),
+    ).toBeTruthy();
     expect(screen.getByText("Quay lại")).toBeTruthy();
+    // nothing to choose: the Course and Assignment selects are not there, and the lists behind them are not asked for
+    expect(screen.queryByText("Khóa học")).toBeNull();
+    expect(screen.queryByText("Khóa Toán")).toBeNull();
+    expect(courses).not.toHaveBeenCalled();
+    expect(assignments).not.toHaveBeenCalled();
+    expect(submissions).toHaveBeenCalledWith("as-1", expect.anything());
+  });
+
+  it("from the Assignment, filtering keeps the page as it is: still no selects, Back still there", async () => {
+    open("?assessmentId=as-1", { fromAssignment: true });
+    await screen.findByRole("heading", { name: "Tiêu đề as-1" });
+    fireEvent.click(screen.getAllByRole("switch")[0]);
+    await waitFor(() => expect(search).toContain("needs=1"));
+    expect(screen.getByText("Quay lại")).toBeTruthy();
+    expect(screen.queryByText("Khóa học")).toBeNull();
   });
 });

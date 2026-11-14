@@ -120,3 +120,30 @@ it("opens Trash from My Courses, restores a Course, and refreshes the listing", 
     expect(get.mock.calls.filter(([path]) => path === "/api/v1/courses/trash")).toHaveLength(2),
   );
 });
+
+it("shows the Instructor Course version and pagination total in Vietnamese", async () => {
+  get.mockResolvedValueOnce({
+    data: {
+      result: [{
+        id: course.id,
+        chainId: course.chainId,
+        name: course.name,
+        versionNumber: 1,
+        courseType: "Private",
+        status: "Draft",
+        locked: false,
+        learnerCount: 0,
+        createdAt: course.createdAt,
+        updatedAt: course.updatedAt,
+      }],
+      meta: { total: 1 },
+    },
+  });
+
+  open("/instructor/courses");
+
+  expect(await screen.findByText("Phiên bản 1")).toBeTruthy();
+  expect(await screen.findByText("1 khóa học")).toBeTruthy();
+  expect(screen.queryByText("Version 1")).toBeNull();
+  expect(screen.queryByText("1 Courses")).toBeNull();
+});

@@ -46,6 +46,9 @@ const Submissions = () => {
   const keepState = location.state as { fromAssignment?: boolean } | null;
   const cameFromAssignment = keepState?.fromAssignment === true;
   const assessmentId = params.get("assessmentId");
+  // Coming from the Assignment, the page is that Assignment's submissions and nothing to choose: no Course and Assignment
+  // selects, and Back. From the sidebar the Instructor chooses them, and there is nothing to go back to.
+  const fromAssignmentPage = cameFromAssignment && Boolean(assessmentId);
   const status = params.get("status") ?? undefined;
   const q = params.get("q") ?? undefined;
   const learnerId = params.get("learnerId") ?? undefined;
@@ -175,18 +178,17 @@ const Submissions = () => {
               ? "Bài tập này có bật chấm chéo."
               : "Bài tập này không bật chấm chéo: bạn chấm mọi bài nộp."
         }
-        back={cameFromAssignment}
+        back={fromAssignmentPage}
       />
-      <SubmissionAssignmentPicker
-        assignmentId={assessmentId}
-        courseIdOfAssignment={data?.assignment.courseId}
-        onPick={(id) =>
-          setParams(id ? { assessmentId: id } : {}, {
-            replace: true,
-            state: keepState,
-          })
-        }
-      />
+      {!fromAssignmentPage && (
+        <SubmissionAssignmentPicker
+          assignmentId={assessmentId}
+          courseIdOfAssignment={data?.assignment.courseId}
+          onPick={(id) =>
+            setParams(id ? { assessmentId: id } : {}, { replace: true })
+          }
+        />
+      )}
       {assessmentId && (
         <>
           {error && <Alert type="error" showIcon message={error} />}
