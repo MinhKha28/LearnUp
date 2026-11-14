@@ -1,7 +1,7 @@
 import { ArrowLeftOutlined, CheckOutlined, ExclamationCircleFilled } from "@ant-design/icons";
 import { Button, type ButtonProps } from "antd";
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useGoBack } from "./use.go.back";
 import "./instructor.ui.scss";
 
 export const InstructorPage = ({
@@ -25,7 +25,7 @@ export const PageHeader = ({
   back?: boolean;
   eyebrow?: string;
 }) => {
-  const navigate = useNavigate();
+  const goBack = useGoBack();
   return (
     <div className="instructor-page-header">
       <div className="instructor-page-heading">
@@ -34,7 +34,7 @@ export const PageHeader = ({
             className="instructor-back"
             type="text"
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate(-1)}
+            onClick={() => goBack()}
           >
             Quay lại
           </Button>

@@ -1,6 +1,7 @@
 /** Editing routes must not render while a Course awaits approval (BR-83). */
 export const isBuilderMutationPath = (pathname: string): boolean => {
-  const route = pathname.split("/builder/")[1] ?? "";
+  const normalizedPath = pathname.toLowerCase().replace(/\/+$/, "");
+  const route = normalizedPath.split("/builder/")[1] ?? "";
   return (
     route === "new-version" ||
     route === "structure/edit" ||

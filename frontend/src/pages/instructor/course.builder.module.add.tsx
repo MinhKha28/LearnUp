@@ -25,7 +25,7 @@ const CourseBuilderModuleAdd = () => {
   const cannotEdit = structure.structureLocked || isSubmitted;
 
   const handleSave = async () => {
-    if (saving || cannotEdit) return;
+    if (saving) return;
 
     const normalizedTitle = title.trim();
 
@@ -35,7 +35,7 @@ const CourseBuilderModuleAdd = () => {
     }
 
     if (cannotEdit) {
-      message.error(structure.lockReason || "Cấu trúc khóa học đã khóa.");
+      message.error(isSubmitted ? "Thu hồi khóa học trước khi chỉnh sửa." : structure.lockReason || "Cấu trúc khóa học đã khóa.");
       return;
     }
 

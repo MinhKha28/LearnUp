@@ -32,6 +32,10 @@ vi.mock("@/services/axios.customize", () => ({
 vi.mock("@/services/instructor.submission.service", () => ({
   getAssignmentSubmissionsAPI: vi.fn(),
 }));
+// the Course / Assignment picker on top of the page has its own test (submissions.picker.test.tsx)
+vi.mock("@/components/instructor/submission.assignment.picker", () => ({
+  default: () => null,
+}));
 
 import { getAssignmentSubmissionsAPI } from "@/services/instructor.submission.service";
 import Submissions from "./submissions";

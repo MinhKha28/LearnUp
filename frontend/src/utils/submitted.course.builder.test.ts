@@ -31,6 +31,14 @@ describe("BR-83 submitted Course Builder route guard", () => {
   });
 
   it.each([
+    "/instructor/courses/course-1/BUILDER/ASSIGNMENTS/NEW",
+    "/instructor/courses/course-1/builder/assignments/a/edit/",
+    "/INSTRUCTOR/COURSES/COURSE-1/BUILDER/MODULES/NEW/",
+  ])("blocks normalized mutation URL %s", (path) => {
+    expect(isBuilderMutationPath(path)).toBe(true);
+  });
+
+  it.each([
     "",
     "quizzes",
     "quizzes/quiz-1",
@@ -41,5 +49,13 @@ describe("BR-83 submitted Course Builder route guard", () => {
     "lessons/lesson-1/materials",
   ])("keeps the read route %s accessible", (route) => {
     expect(isBuilderMutationPath(route ? `${base}/${route}` : base)).toBe(false);
+  });
+
+  it.each([
+    `${base}/assignments/assignment-1/`,
+    `${base}/assignments/assignment-1/peer-cycles/`,
+    "/INSTRUCTOR/COURSES/COURSE-1/BUILDER/LESSONS/LESSON-1/",
+  ])("keeps normalized read URL %s accessible", (path) => {
+    expect(isBuilderMutationPath(path)).toBe(false);
   });
 });

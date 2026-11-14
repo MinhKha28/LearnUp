@@ -10,7 +10,7 @@ import {
 } from "./submission.labels";
 
 describe("the labels of the submission screens", () => {
-  it("every grading status has a Vietnamese label and a tone; an unknown one is shown as it is", () => {
+  it("every grading status has a Vietnamese label and a tone", () => {
     expect(gradingStatusView("AwaitingPeerReview")).toEqual({
       label: "Đang chấm chéo",
       tone: "info",
@@ -28,13 +28,13 @@ describe("the labels of the submission screens", () => {
       tone: "success",
     });
     expect(gradingStatusView("Pending").label).toBe("Chưa xử lý");
-    expect(gradingStatusView("Something").label).toBe("Something");
   });
 
   it("every reason for intervention the server writes has a Vietnamese text", () => {
     for (const reason of [
       "PEER_REVIEW_DISABLED",
       "NOT_ENOUGH_SUBMISSIONS",
+      "TOO_FEW_SUBMISSIONS",
       "REVIEWER_MISSED_DEADLINE",
       "REVIEW_MISSED",
       "REVIEWER_DEACTIVATED",
@@ -49,7 +49,8 @@ describe("the labels of the submission screens", () => {
       );
     }
     expect(interventionLabel(null)).toBeNull();
-    expect(interventionLabel("NEW_REASON")).toBe("NEW_REASON");
+    // a code the page does not know is never shown as it is
+    expect(interventionLabel("NEW_REASON")).toBe("Cần giảng viên xử lý");
   });
 
   it("a review has a state and a role in Vietnamese", () => {
@@ -60,11 +61,20 @@ describe("the labels of the submission screens", () => {
     expect(reviewStatusView("Pending").label).toBe("Chưa chấm");
     expect(reviewStatusView("Missed").label).toBe("Bỏ lỡ");
     expect(reviewStatusView("Waived").label).toBe("Được miễn");
-    expect(reviewStatusView("Other").label).toBe("Other");
     expect(reviewerRoleLabel("Instructor")).toBe("Giảng viên");
     expect(reviewerRoleLabel("Learner")).toBe("Học viên");
     expect(reviewerRoleLabel("Robot")).toBe("Robot");
   });
+
+  it.each(["toString", "__proto__", "constructor", "hasOwnProperty", "", "UNKNOWN_CODE"])(
+    "uses Vietnamese fallbacks for unmapped code %j",
+    (code) => {
+      expect(interventionLabel(code)).toBe("Cần giảng viên xử lý");
+      const unknown = { label: "Trạng thái không xác định", tone: "neutral" };
+      expect(gradingStatusView(code)).toEqual(unknown);
+      expect(reviewStatusView(code)).toEqual(unknown);
+    },
+  );
 
   it("a person without a name is a short code, never an empty text", () => {
     expect(
