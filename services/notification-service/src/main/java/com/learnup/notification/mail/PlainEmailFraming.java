@@ -19,10 +19,10 @@ public final class PlainEmailFraming {
     private record Look(String badge, Tone tone, String buttonLabel) {}
 
     private static final Map<String, Look> LOOKS = Map.of(
-            "ASSIGNMENT_FINALIZED", new Look("ĐÃ CÓ ĐIỂM", Tone.SUCCESS, null),
-            "PEER_REVIEW_REMINDER", new Look("SẮP ĐẾN HẠN", Tone.WARNING, null),
-            "PEER_REVIEW_WAIVED", new Look("ĐƯỢC MIỄN", Tone.INFO, null),
-            "IDENTITY_PASSWORD_RECOVERY", new Look("KHÔI PHỤC MẬT KHẨU", Tone.INFO, "Đặt mật khẩu mới"));
+            "ASSIGNMENT_FINALIZED", new Look("Đã có điểm", Tone.SUCCESS, null),
+            "PEER_REVIEW_REMINDER", new Look("Sắp đến hạn", Tone.WARNING, null),
+            "PEER_REVIEW_WAIVED", new Look("Được miễn", Tone.INFO, null),
+            "IDENTITY_PASSWORD_RECOVERY", new Look("Khôi phục mật khẩu", Tone.INFO, "Đặt mật khẩu mới"));
 
     private static final String GREETING_PREFIX = "Xin chào";
 

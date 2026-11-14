@@ -78,7 +78,7 @@ public class EnrollmentMessageTemplates {
         }
 
         EmailLayout.Card card = EmailLayout.Card.of(title)
-                .badge("KHÓA HỌC", EmailLayout.Tone.INFO)
+                .badge("Khóa học", EmailLayout.Tone.INFO)
                 .greeting(learnerName)
                 .paragraph(text);
         if (course != null) {

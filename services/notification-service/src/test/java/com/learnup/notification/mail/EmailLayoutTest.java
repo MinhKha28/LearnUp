@@ -24,10 +24,10 @@ class EmailLayoutTest {
 
     @Test
     void theBadgeTakesTheColorOfItsTone() {
-        String success = EmailLayout.render(Card.of("A").badge("ĐÃ PHÊ DUYỆT", Tone.SUCCESS));
-        String danger = EmailLayout.render(Card.of("A").badge("BỊ TỪ CHỐI", Tone.DANGER));
-        assertThat(success).contains(">ĐÃ PHÊ DUYỆT</span>").contains("color:#15803d").contains("background:#f0fdf4");
-        assertThat(danger).contains(">BỊ TỪ CHỐI</span>").contains("color:#b91c1c").contains("background:#fef2f2");
+        String success = EmailLayout.render(Card.of("A").badge("Đã phê duyệt", Tone.SUCCESS));
+        String danger = EmailLayout.render(Card.of("A").badge("Bị từ chối", Tone.DANGER));
+        assertThat(success).contains(">Đã phê duyệt</span>").contains("color:#15803d").contains("background:#f0fdf4");
+        assertThat(danger).contains(">Bị từ chối</span>").contains("color:#b91c1c").contains("background:#fef2f2");
         assertThat(EmailLayout.render(Card.of("A"))).doesNotContain("border-radius:999px");
     }
 

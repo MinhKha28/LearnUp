@@ -83,7 +83,7 @@ public class CourseOwnershipTransferredEventHandler {
 
     static String emailHtml(CourseOwnershipTransferredEvent event) {
         return EmailLayout.render(EmailLayout.Card.of("Chuyển quyền phụ trách khóa học")
-                .badge("PHỤ TRÁCH KHÓA HỌC", EmailLayout.Tone.INFO)
+                .badge("Phụ trách khóa học", EmailLayout.Tone.INFO)
                 .greeting(null)
                 .paragraph("Bạn đã được chuyển quyền phụ trách khóa học «" + event.courseName() + "».")
                 .detail("Khóa học", event.courseName())

@@ -16,15 +16,15 @@ class PlainEmailFramingTest {
                 "Xin chào Trần Văn Minh,\n\nGiảng viên đã chốt điểm cho \"Bài 1\". Điểm của bạn là 79,5%.");
         assertThat(html).contains("<h1 style=\"margin:14px 0 8px;font-size:22px;line-height:1.3\">Điểm bài tập đã được công bố</h1>")
                 .contains(">Xin chào Trần Văn Minh,</p>").contains("Điểm của bạn là 79,5%.")
-                .contains(">ĐÃ CÓ ĐIỂM</span>").contains("cid:learnup-logo");
+                .contains(">Đã có điểm</span>").contains("cid:learnup-logo");
         assertThat(html.indexOf("Xin chào")).isEqualTo(html.lastIndexOf("Xin chào"));
     }
 
     @Test
     void eachKnownKindHasItsOwnBadge() {
-        assertThat(frame("PEER_REVIEW_REMINDER", "S", "Xin chào A,\n\nB")).contains(">SẮP ĐẾN HẠN</span>");
-        assertThat(frame("PEER_REVIEW_WAIVED", "S", "Xin chào A,\n\nB")).contains(">ĐƯỢC MIỄN</span>");
-        assertThat(frame("IDENTITY_PASSWORD_RECOVERY", "S", "Xin chào A,\n\nB")).contains(">KHÔI PHỤC MẬT KHẨU</span>");
+        assertThat(frame("PEER_REVIEW_REMINDER", "S", "Xin chào A,\n\nB")).contains(">Sắp đến hạn</span>");
+        assertThat(frame("PEER_REVIEW_WAIVED", "S", "Xin chào A,\n\nB")).contains(">Được miễn</span>");
+        assertThat(frame("IDENTITY_PASSWORD_RECOVERY", "S", "Xin chào A,\n\nB")).contains(">Khôi phục mật khẩu</span>");
     }
 
     @Test

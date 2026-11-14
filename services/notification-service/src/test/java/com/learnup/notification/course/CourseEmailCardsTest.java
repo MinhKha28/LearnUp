@@ -21,7 +21,7 @@ class CourseEmailCardsTest {
         String html = CourseSubmittedEventHandler.emailHtml(
                 new CourseSubmittedEvent(id(), id(), id(), id(), NAME, 3, Instant.now(), Instant.now()));
         assertThat(html).startsWith("<!DOCTYPE html>").contains("cid:learnup-logo")
-                .contains(">CHỜ PHÊ DUYỆT</span>").contains(">Khóa học đang chờ phê duyệt</h1>")
+                .contains(">Chờ phê duyệt</span>").contains(">Khóa học đang chờ phê duyệt</h1>")
                 .contains("Giảng viên đã gửi một khóa học để bạn xem xét và phê duyệt.")
                 .contains(">Khóa học</td>").contains(">Phiên bản</td>").contains(">3</td>")
                 .contains(">Chờ phê duyệt</td>").contains("Khóa học chưa được công bố")
@@ -36,7 +36,7 @@ class CourseEmailCardsTest {
         String html = CourseOwnershipTransferredEventHandler.emailHtml(new CourseOwnershipTransferredEvent(
                 id(), id(), id(), id(), id(), id(), id(), NAME, null, Instant.now()));
         assertThat(html).startsWith("<!DOCTYPE html>").contains("cid:learnup-logo")
-                .contains(">PHỤ TRÁCH KHÓA HỌC</span>").contains(">Chuyển quyền phụ trách khóa học</h1>")
+                .contains(">Phụ trách khóa học</span>").contains(">Chuyển quyền phụ trách khóa học</h1>")
                 .contains("Bạn đã được chuyển quyền phụ trách khóa học «" + ESCAPED + "».")
                 .contains("Việc chuyển quyền áp dụng cho toàn bộ phiên bản khóa học.")
                 .contains(">Khóa học</td>").contains(ESCAPED)

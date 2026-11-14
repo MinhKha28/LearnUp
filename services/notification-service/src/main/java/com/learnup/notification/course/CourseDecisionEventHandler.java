@@ -123,7 +123,7 @@ public class CourseDecisionEventHandler {
         boolean approved = event.approved();
         EmailLayout.Tone tone = approved ? EmailLayout.Tone.SUCCESS : EmailLayout.Tone.DANGER;
         EmailLayout.Card card = EmailLayout.Card.of(title(event))
-                .badge(approved ? "ĐÃ PHÊ DUYỆT" : "BỊ TỪ CHỐI", tone)
+                .badge(approved ? "Đã phê duyệt" : "Bị từ chối", tone)
                 .greeting(fullName)
                 .paragraph((approved ? "Quản lý đào tạo đã phê duyệt " : "Quản lý đào tạo đã từ chối ")
                         + "khóa học «" + event.courseName() + "» (phiên bản " + event.versionNumber() + ")."

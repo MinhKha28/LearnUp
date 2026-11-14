@@ -313,19 +313,19 @@ class CourseDecisionEventHandlerTest {
         String body = CourseDecisionEventHandler.emailHtml(decision(true, Instant.now()), "Trần Văn Minh");
         assertThat(body).startsWith("<!DOCTYPE html>").contains("lang=\"vi\"").contains("charset=\"UTF-8\"")
                 .contains("src=\"cid:learnup-logo\"").contains("alt=\"LearnUP\"")
-                .contains("ĐÃ PHÊ DUYỆT").contains("Khóa học đã được công bố")
+                .contains("Đã phê duyệt").contains("Khóa học đã được công bố")
                 .contains("Phiên bản").contains(">Đã phê duyệt<")
                 .contains("không trả lời thư này")
-                .doesNotContain("BỊ TỪ CHỐI").doesNotContain("Lý do từ chối")
+                .doesNotContain("Bị từ chối").doesNotContain("Lý do từ chối")
                 .doesNotContain("%s").doesNotContain("%d").doesNotContain("null");
     }
 
     @Test
     void theRejectionEmailPutsTheReasonInAMarkedBox() {
         String body = CourseDecisionEventHandler.emailHtml(decision(false, Instant.now()), "Trần Văn Minh");
-        assertThat(body).contains("BỊ TỪ CHỐI").contains(">Bị từ chối<").contains("Lý do từ chối")
+        assertThat(body).contains("Bị từ chối").contains(">Bị từ chối<").contains("Lý do từ chối")
                 .contains("Please revise the Assignment rubric.").contains("gửi duyệt lại")
-                .doesNotContain("ĐÃ PHÊ DUYỆT").doesNotContain("Khóa học đã được công bố")
+                .doesNotContain("Đã phê duyệt").doesNotContain("Khóa học đã được công bố")
                 .doesNotContain("%s").doesNotContain("%d").doesNotContain("null");
     }
 }

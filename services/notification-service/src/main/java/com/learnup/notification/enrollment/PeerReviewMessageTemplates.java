@@ -24,7 +24,7 @@ public class PeerReviewMessageTemplates {
                 + "». Vui lòng hoàn thành trước " + DATE_TIME.format(event.reviewDueAt().atZone(zone)) + ".";
         String deadline = DATE_TIME.format(event.reviewDueAt().atZone(zone));
         String html = EmailLayout.render(EmailLayout.Card.of(TITLE)
-                .badge("CHẤM CHÉO", EmailLayout.Tone.WARNING)
+                .badge("Chấm chéo", EmailLayout.Tone.WARNING)
                 .greeting(reviewerName)
                 .paragraph(text)
                 .detail("Bài tập", event.assignmentTitle())

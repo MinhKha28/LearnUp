@@ -107,7 +107,7 @@ public class CourseSubmittedEventHandler {
 
     static String emailHtml(CourseSubmittedEvent event) {
         return EmailLayout.render(EmailLayout.Card.of("Khóa học đang chờ phê duyệt")
-                .badge("CHỜ PHÊ DUYỆT", EmailLayout.Tone.WARNING)
+                .badge("Chờ phê duyệt", EmailLayout.Tone.WARNING)
                 .greeting(null)
                 .paragraph("Giảng viên đã gửi một khóa học để bạn xem xét và phê duyệt.")
                 .detail("Khóa học", event.courseName())
