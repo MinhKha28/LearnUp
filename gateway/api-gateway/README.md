@@ -9,7 +9,7 @@ Central reverse proxy, perimeter security gateway, and dynamic router for the Le
 The API Gateway is the single public entry point for all frontend client requests.
 
 ### Core Gateway Responsibilities:
-* **Dynamic Routing**: Dispatches incoming `/api/**` HTTP requests to microservices using Eureka service discovery (`lb://<SERVICE-NAME>`).
+* **Dynamic Routing**: Dispatches incoming `/api/**` HTTP requests through explicit routes, using Eureka (`lb://`) for Java supporting services and configured service URLs for NestJS business services.
 * **Perimeter JWT Authentication**: Validates JWT cryptographic signatures, expiration times, and mandatory claims.
 * **Header Sanitization & Spoofing Prevention**: Strips all client-supplied identity headers (`X-User-ID`, `X-Organization-ID`, `X-User-Role`, `X-Correlation-ID`).
 * **Trusted Header Injection**: Injects verified identity claims from the validated JWT downstream.
@@ -31,21 +31,20 @@ The Gateway checks the JWT signature and expiration and requires a subject and r
 
 ## 4. Route Configuration Catalog
 
-All routes map to dynamic Eureka service identifiers (`lb://<SERVICE-NAME>`):
+The gateway uses Eureka `lb://` routing for Java supporting services and configured service URLs for NestJS business services, as described in [ADR 0008](../../docs/adr/0008-docker-dns-for-business-services.md) and [service discovery](../../docs/architecture/service-discovery.md).
 
-| Route ID | Path Predicate | Target Service | Type |
+| Route ID | Path predicate(s) | Target | Notable filters |
 | :--- | :--- | :--- | :--- |
-| `identity-service-auth` | `/api/auth/**` | `lb://IDENTITY-SERVICE` | Supporting |
-| `notification-service` | `/api/notifications/**` | `lb://NOTIFICATION-SERVICE` | Supporting |
-| `audit-service` | `/api/audit/**` | `lb://AUDIT-SERVICE` | Supporting |
-| `tenant-service` | `/api/users/**`, `/api/organizations/**`, `/api/subscriptions/**`, `/api/payments/**` | `lb://TENANT-SERVICE` | Business |
-| `course-service` | `/api/courses/**` | `lb://COURSE-SERVICE` | Business |
-| `learning-service` | `/api/learning/**` | `lb://LEARNING-SERVICE` | Business |
-| `assessment-service` | `/api/assessments/**` | `lb://ASSESSMENT-SERVICE` | Business |
-| `achievement-reporting-service` | `/api/certificates/**`, `/api/reports/**`, `/api/governance/**` | `lb://ACHIEVEMENT-REPORTING-SERVICE` | Business |
+| `identity-service-auth` | `/api/v1/auth/**`, `/api/auth/**` | `lb://IDENTITY-SERVICE` | Global JWT filter; configured public-path whitelist applies |
+| `notification-service` | `/api/v1/notifications/**`, `/api/notifications/**` | `lb://NOTIFICATION-SERVICE` | Global JWT filter; configured public-path whitelist applies |
+| `audit-service` | `/api/v1/audit/**`, `/api/audit/**` | `lb://AUDIT-SERVICE` | `GET` only; global JWT filter |
+| `tenant-service` | `/api/v1/users/**`, `/api/v1/organizations/**`, `/api/v1/subscriptions/**`, `/api/v1/subscription-plans/**`, `/api/v1/registrations/**`, `/api/v1/invitations/**`, `/api/v1/payments/**`, `/api/v1/admin/subscription-plans/**`, `/api/v1/admin/organizations/**`, `/api/users/**`, `/api/organizations/**`, `/api/subscriptions/**`, `/api/subscription-plans/**`, `/api/registrations/**`, `/api/invitations/**`, `/api/payments/**`, `/api/admin/subscription-plans/**`, `/api/admin/organizations/**` | `TENANT_SERVICE_URL` | Global JWT filter; configured public-path whitelist applies |
+| `course-service` | `/api/v1/courses/**`, `/api/courses/**` | `COURSE_SERVICE_URL` | Global JWT filter |
+| `learning-service` | `/api/v1/learning/**`, `/api/v1/enrollments/**`, `/api/v1/assignments/**`, `/api/learning/**`, `/api/enrollments/**`, `/api/assignments/**` | `LEARNING_SERVICE_URL` | Global JWT filter |
+| `assessment-service` | `/api/v1/assessments/**`, `/api/assessments/**` | `ASSESSMENT_SERVICE_URL` | Global JWT filter |
+| `achievement-reporting-service` | `/api/v1/certificates/**`, `/api/v1/reports/**`, `/api/v1/governance/**`, `/api/certificates/**`, `/api/reports/**`, `/api/governance/**` | `ACHIEVEMENT_REPORTING_SERVICE_URL` | Global JWT filter |
 
-
----
+No route defines a `StripPrefix` filter.
 
 ## 5. Configuration & Environment Variables
 
