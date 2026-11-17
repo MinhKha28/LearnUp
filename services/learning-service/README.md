@@ -213,3 +213,9 @@ and tree parser, without asserting fixed seed names, counts or timestamps.
 A failed check prints a request to raise a `[learning → course]` issue.
 This read-only check cannot verify write behavior such as lock idempotence,
 Draft-lock rejection or unchanged database timestamps.
+
+## Invariants
+
+- Enrollment access for assessment follows the stored lifecycle. Overdue is a derived read state. Optional withdrawal deletes the enrollment when Assessment confirms there is no assessment activity. When that activity exists, Learning retains the record as Withdrawn. See the [enrollment logic](src/modules/enrollments).
+- Watch coverage merges overlapping intervals. Resume position is a separate value, and reporting a position alone cannot complete the material. Reading completion is idempotent and uses the enrollment and course material access checks.
+- A transition that can make an enrollment eligible writes its completion evaluation request in the business transaction. The completion worker persists the snapshot and emits one completion event for the enrollment. See [relay checks](../../docs/how-to/outbox-relay-checks.md), [demo fixtures](../../docs/how-to/demo-fixtures.md) and [benchmarks](../../perf/learning/README.md).

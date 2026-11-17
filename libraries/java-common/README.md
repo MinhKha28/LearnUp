@@ -55,19 +55,8 @@ To enforce clean service boundaries and prevent domain coupling, this library st
 ## 4. Usage Guide
 
 ### 4.1 Authentication & Multi-Tenant Context
-Services include `UserContextFilter` in their filter chain (or rely on Spring Boot component scanning). In controllers/services:
 
-```java
-// Access authenticated context anywhere in the request thread
-UUID userId = CurrentUser.getUserIdAsUuid();
-UserRole role = CurrentUser.getRole();
-UUID organizationId = OrganizationContext.getOrganizationIdAsUuid();
-String correlationId = CorrelationContext.getCorrelationId();
-
-if (CurrentUser.hasRole(UserRole.ORGANIZER)) {
-    // Perform organizer-specific logic
-}
-```
+Downstream services establish their own authenticated request context. `UserContextFilter` parses header values and manages request-local storage. It does not authenticate a request. Read `CurrentUser` and `OrganizationContext` only after the service authentication boundary has established the principal. See [request authentication](../../docs/architecture/security.md).
 
 ### 4.2 Standard API Responses
 ```java

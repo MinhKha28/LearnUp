@@ -1,120 +1,126 @@
-# Database: `identity_db`
+# Identity database reference
 
-## 1. Owner & Classification
-* **Owning Service**: `identity-service`
-* **Service Classification**: Supporting Service
-* **Current Status**: IMPLEMENTED SUPPORTING-SERVICE DATABASE
-* **Port / Runtime**: Port 8081 (Spring Boot 3.3.5 / Java 21)
+Database `identity_db`. See [conventions](conventions.md) and [Flyway migrations](../../services/identity-service/src/main/resources/db/migration).
 
----
+## Invariants
 
-## 2. Schema Sources & Verification Method
-The documentation below reflects the actual database design verified against:
-1. **Live PostgreSQL 16 Schema**: Verified via `information_schema` and `pg_catalog` on `identity_db`.
-2. **Flyway Migration**: `V1__init_identity_schema.sql` located at `services/identity-service/src/main/resources/db/migration/`.
-3. **JPA Entity Definitions**: `com.learnup.identity.domain.User` and `com.learnup.identity.domain.RefreshToken`.
+- The credential ID is the canonical Tenant user ID. Credential email is nullable and remains unique when set, allowing release while retaining the credential record.
+- Refresh and password-reset tokens are stored as hashes. Refresh token families and replacement IDs support rotation and family revocation.
+- Login throttles keep attempts scoped to a credential lookup key rather than to an enrollment or an organization profile.
 
----
+## Tables
 
-## 3. Migration Traceability
+### `users`
 
-| Migration Version | Description | Creates / Modifies | Current Status |
-|---|---|---|---|
-| `V1__init_identity_schema.sql` | Initial Identity Schema | Tables: `users`, `refresh_tokens`<br>Indexes & Foreign Keys | Applied & Verified |
+| Column | PostgreSQL definition |
+| --- | --- |
+| `id` | `UUID PRIMARY KEY` |
+| `username` | `VARCHAR(50) NOT NULL UNIQUE` |
+| `email` | `VARCHAR(100) UNIQUE` |
+| `password_hash` | `VARCHAR(255) NOT NULL` |
+| `full_name` | `VARCHAR(100)` |
+| `role` | `VARCHAR(20) NOT NULL` |
+| `organization_id` | `UUID` |
+| `enabled` | `BOOLEAN NOT NULL DEFAULT TRUE` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE NOT NULL` |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE NOT NULL` |
 
----
+```sql
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_organization_id ON users(organization_id);
+```
 
-## 4. Tables Specification
+### `refresh_tokens`
 
-### 4.1 Table: `users`
-* **Purpose**: Stores user credentials, authentication attributes, assigned platform role, and organization association for JWT token issuance.
+| Column | PostgreSQL definition |
+| --- | --- |
+| `id` | `UUID PRIMARY KEY` |
+| `user_id` | `UUID NOT NULL` |
+| `token_hash` | `VARCHAR(255) NOT NULL UNIQUE` |
+| `expires_at` | `TIMESTAMP WITH TIME ZONE NOT NULL` |
+| `revoked_at` | `TIMESTAMP WITH TIME ZONE` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE NOT NULL` |
+| `family_id` | `UUID NOT NULL` |
+| `replaced_by` | `UUID` |
 
-#### Columns:
-| Column | SQL Type | Nullable | Default | Key | Notes / Application Mapping |
-|---|---|---|---|---|---|
-| `id` | `uuid` | `NOT NULL` | *None* | **PK** | Generated client/app-side (`UUID.randomUUID()`) |
-| `username` | `varchar(50)` | `NOT NULL` | *None* | **UQ** | Unique login identifier (lowercase alphanumeric) |
-| `email` | `varchar(100)` | `NOT NULL` | *None* | **UQ** | Unique user email address |
-| `password_hash` | `varchar(255)` | `NOT NULL` | *None* | | BCrypt encrypted hash (`$2a$...`); never plaintext |
-| `full_name` | `varchar(100)` | `YES` | *None* | | User display name |
-| `role` | `varchar(20)` | `NOT NULL` | *None* | | Authenticated role (`ADMIN`, `ORGANIZER`, `INSTRUCTOR`, `LEARNER`) |
-| `organization_id` | `uuid` | `YES` | *None* | | Logical tenant reference (nullable for platform ADMIN) |
-| `enabled` | `boolean` | `NOT NULL` | `true` | | Account status flag (disabled accounts rejected at login) |
-| `created_at` | `timestamptz` | `NOT NULL` | *None* | | Record creation timestamp (UTC) |
-| `updated_at` | `timestamptz` | `NOT NULL` | *None* | | Record last update timestamp (UTC) |
+```sql
+ALTER TABLE refresh_tokens ADD CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+CREATE INDEX idx_refresh_tokens_token_hash ON refresh_tokens(token_hash);
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_family_id ON refresh_tokens(family_id);
+```
 
-#### Constraints & Indexes:
-* **Primary Key**: `users_pkey` on `(id)`
-* **Unique Constraints**:
-  - `users_username_key` on `(username)`
-  - `users_email_key` on `(email)`
-* **Indexes**:
-  - `idx_users_username` on `(username)` (B-Tree)
-  - `idx_users_email` on `(email)` (B-Tree)
-  - `idx_users_organization_id` on `(organization_id)` (B-Tree)
+### `password_reset_tokens`
 
----
+| Column | PostgreSQL definition |
+| --- | --- |
+| `id` | `UUID PRIMARY KEY` |
+| `user_id` | `UUID NOT NULL` |
+| `token_hash` | `VARCHAR(255) NOT NULL UNIQUE` |
+| `expires_at` | `TIMESTAMP WITH TIME ZONE NOT NULL` |
+| `used_at` | `TIMESTAMP WITH TIME ZONE` |
+| `created_at` | `TIMESTAMP WITH TIME ZONE NOT NULL` |
 
-### 4.2 Table: `refresh_tokens`
-* **Purpose**: Stores hashed refresh tokens for session prolongation and secure token rotation.
+```sql
+ALTER TABLE password_reset_tokens ADD CONSTRAINT fk_password_reset_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+CREATE INDEX idx_password_reset_tokens_token_hash ON password_reset_tokens(token_hash);
+CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+```
 
-#### Columns:
-| Column | SQL Type | Nullable | Default | Key | Notes / Application Mapping |
-|---|---|---|---|---|---|
-| `id` | `uuid` | `NOT NULL` | *None* | **PK** | Generated token record ID (`UUID.randomUUID()`) |
-| `user_id` | `uuid` | `NOT NULL` | *None* | **FK** | Foreign key referencing `users(id)` |
-| `token_hash` | `varchar(255)` | `NOT NULL` | *None* | **UQ** | SHA-256 hex hash of the raw refresh token |
-| `expires_at` | `timestamptz` | `NOT NULL` | *None* | | Expiration timestamp (default: 7 days) |
-| `revoked_at` | `timestamptz` | `YES` | *None* | | Revocation timestamp (set during rotation/logout) |
-| `created_at` | `timestamptz` | `NOT NULL` | *None* | | Token creation timestamp (UTC) |
+### `login_throttles`
 
-#### Constraints & Indexes:
-* **Primary Key**: `refresh_tokens_pkey` on `(id)`
-* **Foreign Key**: `fk_refresh_tokens_user` FOREIGN KEY (`user_id`) REFERENCES `users(id)` ON DELETE CASCADE
-* **Unique Constraint**: `refresh_tokens_token_hash_key` on `(token_hash)`
-* **Indexes**:
-  - `idx_refresh_tokens_token_hash` on `(token_hash)` (B-Tree)
-  - `idx_refresh_tokens_user_id` on `(user_id)` (B-Tree)
+| Column | PostgreSQL definition |
+| --- | --- |
+| `identifier` | `VARCHAR(254) PRIMARY KEY` |
+| `failed_count` | `INTEGER NOT NULL` |
+| `window_started_at` | `TIMESTAMP WITH TIME ZONE NOT NULL` |
+| `locked_until` | `TIMESTAMP WITH TIME ZONE` |
 
----
-
-## 5. Relationships
+## Entity relationships
 
 ```mermaid
 erDiagram
-    users ||--o{ refresh_tokens : "owns (1:N)"
     users {
         uuid id PK
-        varchar username UK
-        varchar email UK
+        varchar username
+        varchar email
         varchar password_hash
         varchar full_name
         varchar role
         uuid organization_id
         boolean enabled
-        timestamptz created_at
-        timestamptz updated_at
+        timestamp created_at
+        timestamp updated_at
     }
     refresh_tokens {
         uuid id PK
         uuid user_id FK
-        varchar token_hash UK
-        timestamptz expires_at
-        timestamptz revoked_at
-        timestamptz created_at
+        varchar token_hash
+        timestamp expires_at
+        timestamp revoked_at
+        timestamp created_at
+        uuid family_id
+        uuid replaced_by
     }
+    password_reset_tokens {
+        uuid id PK
+        uuid user_id FK
+        varchar token_hash
+        timestamp expires_at
+        timestamp used_at
+        timestamp created_at
+    }
+    login_throttles {
+        varchar identifier PK
+        integer failed_count
+        timestamp window_started_at
+        timestamp locked_until
+    }
+    users ||--o{ refresh_tokens : owns
+    users ||--o{ password_reset_tokens : owns
 ```
 
-* **`users` $\rightarrow$ `refresh_tokens`**: One-to-Many (`1:N`) enforced via database Foreign Key (`fk_refresh_tokens_user`) with `ON DELETE CASCADE`.
+## Provided to other services
 
----
-
-## 6. Schema Observations & Notes
-1. **Future Tenant / User Ownership Migration**:
-   * In the current implementation, `identity_db.users` acts as the authentication foundation and credential store.
-   * According to the finalized architecture documents, canonical user/account master profiles and organization memberships will be mastered by `tenant-service` (`tenant_db`) once the NestJS team implements that service.
-   * This migration is intentionally deferred to avoid dual-write instability during Phase 2.
-2. **Security & Cryptographic Isolation**:
-   * Raw passwords and raw refresh tokens are never persisted in plaintext.
-   * Passwords use BCrypt hashing (`password_hash`).
-   * Refresh tokens use SHA-256 hashing (`token_hash`) to enable secure server-side revocation and token rotation without storing sensitive secret material in plaintext.
+- [Identity authentication](../../docs/architecture/security.md#downstream-authentication) covers bearer validation and internal provisioning.

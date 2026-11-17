@@ -154,3 +154,8 @@ Supply the required database and private authentication environment variables
 before running. This command does not create a usable demo account. Keep the
 normal Compose Identity port private; use Gateway for application requests and
 the documented loopback-only mode for local Swagger.
+
+## Invariants
+
+- Reusing another credential record's email requires authenticated Tenant proof that the previous owner is deleted. Identity locks and revalidates the affected records before changing ownership. The previous record keeps its canonical ID and token history while its email becomes null.
+- The local credential release and new claim share a transaction. Active ownership returns an email conflict, and an unavailable or untrustworthy Tenant response prevents the claim. A failed claim rolls back the release. See the [credential migration reference](../../docs/database/identity-db.md) and [disposable PostgreSQL checks](DEVELOPMENT.md#existing-user-metadata-synchronization-internal-only).

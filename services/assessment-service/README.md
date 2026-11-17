@@ -129,3 +129,8 @@ They use `node:test` through `ts-node`, like `learning-service`, so nothing extr
 The integration tests create and drop their own database (`assessment_it_<pid>_<time>`) on the server in
 `DATABASE_URL`, so they never touch `assessment_db`. They start the service from `dist/` and fake Course Service
 themselves, and refuse to run when `NODE_ENV=production`.
+
+## Invariants
+
+- Enrollment access determines whether a learner can start or submit assessments. Completed enrollment grants read-only access, and an unavailable Learning service fails the access check. See the [Learning access contract](../../contracts/openapi/learning-service.yaml).
+- Assignment and assessment changes publish through the outbox with the same learner key for related events. Publication is at least once, and relay diagnostics use fixed error codes. See the [Assessment event contracts](../../contracts/events/README.md) and [relay checks](../../docs/how-to/outbox-relay-checks.md).

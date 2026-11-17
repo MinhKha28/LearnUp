@@ -106,7 +106,7 @@ credential files. Raw keys retain their extension. Raw downloads also accept an
 empty `format` to omit that SDK parameter; the raw format convention still needs
 test-account verification.
 
-See [verification and Cloudinary sources](../../docs/architecture/storage-private-delivery-verification.md).
+See [protected delivery invariants](#invariants).
 
 ## Storage plan upload limits
 
@@ -115,3 +115,8 @@ D-049 / #186: resolveStoragePlanLimits(env) reads an explicitly supplied environ
 Pass the result as planLimits in Cloudinary configuration. maxUploadBytesFor(limits, resourceType) returns the matching limit, or undefined for auto. Explicit raw/image/video uploads above their limit reject before SDK upload using Buffer length with StorageProviderError code TOO_LARGE; the boundary is inclusive. Auto uploads rely on provider classification. HTTP 413 and HTTP 400 messages beginning with File size too large also classify as TOO_LARGE without exposing provider messages.
 
 Services must expose min(product ceiling, plan limit) and map TOO_LARGE to HTTP 413 FILE_TOO_LARGE. Existing service HTTP mappings are unchanged here; owners update them under #186.
+
+## Invariants
+
+- Store the provider's delivery type with the asset metadata. For protected assets, authorize the service request before signing a time-limited read URL or streaming bytes.
+- Pass the stored resource and delivery types to read, sign and delete operations. Preserve raw key extensions. Provider failures map to safe codes without exposing signed URLs or provider responses. See the [Cloudinary provider](src/providers/cloudinary/cloudinary.provider.ts).

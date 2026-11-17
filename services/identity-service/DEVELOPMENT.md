@@ -130,7 +130,7 @@ the authenticated Tenant existence lookup and retains the old canonical user
 with a NULL email through forward Flyway V5. The unique constraint and the old
 credential/session/recovery records remain. Active owners yield `409 EMAIL_IN_USE`,
 untrustworthy Tenant results yield 503, and database races roll back with 409.
-See [BR39-INTEGRATION.md](BR39-INTEGRATION.md) for transaction semantics, required
+See [credential provisioning invariants](README.md#invariants) for transaction semantics, required
 Tenant visibility/locking contracts and disposable integration steps. Provisioning
 is not a metadata repair operation; use the existing-ID-only PUT for metadata.
 

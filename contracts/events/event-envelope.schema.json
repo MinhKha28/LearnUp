@@ -20,7 +20,7 @@
     },
     "eventType": {
       "type": "string",
-      "description": "PascalCase name of the domain event (e.g., CourseCompleted, RequiredAssignmentCreated)."
+      "description": "PascalCase name of the domain event (e.g., EnrollmentCompleted, CourseSubmitted)."
     },
     "version": {
       "type": "integer",
