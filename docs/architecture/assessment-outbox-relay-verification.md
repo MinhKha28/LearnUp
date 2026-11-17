@@ -79,7 +79,7 @@ An outage of Kafka claims no row, so no row counts an attempt and that alert can
 - `docker-compose.yml`
 - `docs/architecture/assessment-outbox-relay-verification.md`
 - `docs/architecture/event-driven.md`
-- `docs/database/AssessmentService_Database_Design.md`
+- `docs/database/assessment-db.md`
 - `services/assessment-service/.env.example`
 - `services/assessment-service/Dockerfile`
 - `services/assessment-service/Dockerfile.dockerignore`
