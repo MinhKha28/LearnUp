@@ -1,5 +1,7 @@
 # ADR 0003: API Gateway Security and Authentication Context Propagation
 
+Amended by ADR 0009
+
 ## Status
 Accepted
 

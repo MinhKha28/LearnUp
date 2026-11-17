@@ -1,23 +1,11 @@
-# OpenAPI Contracts & Specifications
+# OpenAPI contracts
 
-This directory holds hand-written OpenAPI 3.0 / Swagger contracts for LearnUP integrations.
+These hand-written contracts describe selected integration endpoints.
 
----
+- [Achievement & Reporting](achievement-reporting-service.yaml)
+- [Assessment](assessment-service.yaml)
+- [Course](course-service.yaml)
+- [Learning](learning-service.yaml)
+- [Tenant](tenant-service.yaml)
 
-## Service Contracts Organization
-
-### Available Specifications
-
-* `learning-service.yaml`
-* `assessment-service.yaml`
-* `course-service.yaml` — UC20 Course submit contract
-* `tenant-service.yaml` — UC20 internal Organizer lookup contract
-* `achievement-reporting-service.yaml`
-
-## Scope
-
-This folder holds cross-service (internal) contracts and the endpoints other teams integrate against. Every other endpoint is documented by each NestJS service's runtime Swagger UI at `/docs` (JSON at `/docs-json`, the framework default) when the service runs.
-
-Contracts here are hand-written and must be updated in the same PR as the code change. Removing, renaming or retyping a field that another service or the frontend reads is a breaking contract change: add the `contract` label and complete the PR template's "Breaking contract changes" section.
-
-All APIs follow the conventions defined in [`docs/api/conventions.md`](../../docs/api/conventions.md).
+Use each NestJS service's runtime Swagger UI at `/docs` for the rest. Update this contract alongside a change to a documented endpoint. Record changes to fields used by another service or the frontend in the pull request's breaking-contract section. See the [API conventions](../../docs/api/conventions.md).

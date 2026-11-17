@@ -6,15 +6,15 @@ This document establishes the uniform REST API conventions, URL patterns, envelo
 
 ## 1. URL Path & Resource Naming Conventions
 
-* All API paths exposed via the API Gateway begin with `/api/`.
-* Resource names use lowercase plural nouns with hyphens for multi-word segments:
-  * `/api/organizations`
-  * `/api/course-assignments`
-  * `/api/peer-reviews`
+* Use `/api/v1` for versioned Gateway API paths. The [Gateway route configuration](../../gateway/api-gateway/src/main/resources/application.yml) also lists compatibility predicates.
+* Use lowercase plural nouns with hyphens for multi-word resource names. The paths below illustrate naming and nesting.
+  * `/api/v1/organizations`
+  * `/api/v1/course-assignments`
+  * `/api/v1/peer-reviews`
 * Sub-resources denote relationships:
-  * `GET /api/organizations/{organizationId}/learners`
-  * `POST /api/organizations/{organizationId}/tags`
-  * `GET /api/courses/{courseId}/modules`
+  * `GET /api/v1/organizations/{organizationId}/learners`
+  * `POST /api/v1/organizations/{organizationId}/tags`
+  * `GET /api/v1/courses/{courseId}/modules`
 
 ### HTTP Verb Semantics:
 * `GET`: Safe, idempotent retrieval of resource(s).
@@ -27,7 +27,7 @@ This document establishes the uniform REST API conventions, URL patterns, envelo
 
 ## 2. Standard Response Envelopes
 
-Every JSON response returned by any LearnUP microservice follows a standard top-level envelope.
+Use the standard top-level envelope for JSON API responses. Binary responses stream the asset directly. Examples include [certificate PDFs](../../services/achievement-reporting-service/src/modules/certificates/certificates.controller.ts) and [signer signature assets](../../services/achievement-reporting-service/src/modules/certificates/signer.controller.ts).
 
 ### 2.1 Success Response
 

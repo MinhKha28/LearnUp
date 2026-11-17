@@ -21,63 +21,11 @@ The API Gateway is the single public entry point for all frontend client request
 
 ## 2. Security Boundaries
 
-> **Client-supplied identity headers are not trusted.**
-
-> **Gateway authenticates requests, while business services enforce fine-grained authorization.**
-
-```text
- Client (ReactJS)
-       │
-       │ Authorization: Bearer <JWT>
-       ▼
- ┌─────────────────────────────────────────────────────────────┐
- │                    Spring Cloud Gateway                     │
- │  1. Strip incoming client-spoofed X-User-*, X-Org-* headers │
- │  2. Validate JWT signature, expiration, and issuer          │
- │  3. Extract sub (userId), role, organizationId              │
- │  4. Inject trusted headers & forward:                       │
- │     - X-User-ID: <sub (user-id)>                            │
- │     - X-Organization-ID: <organization-id>                  │
- │     - X-User-Role: <ADMIN | ORGANIZER | INSTRUCTOR | LEARNER>│
- │     - X-Correlation-ID: <uuid>                              │
- └──────────────────────────────┬──────────────────────────────┘
-                                │
-               ┌────────────────┼────────────────┐
-               │ (Direct REST)  │ (Direct REST)  │ (Direct REST)
-               ▼                ▼                ▼
-        Identity Service   Org Service    Business Services
-        (Business Auth)  (Business Auth)  (Business Auth)
-```
-
-The Gateway does **NOT** enforce business authorization (e.g. whether an `ORGANIZER` can assign a course or an `INSTRUCTOR` can grade an exam). Fine-grained authorization logic resides strictly inside the respective downstream business services.
-
----
+The Gateway removes client-supplied identity and internal headers. On protected routes it validates the bearer token, then forwards the verified identity and configured internal key. Downstream services authenticate requests and enforce role and tenant authorization. Identity requires a valid bearer token for its protected user endpoints. See [request authentication](../../docs/architecture/security.md).
 
 ## 3. JWT & Required Claims
 
-The Gateway validates HMAC-SHA256 tokens signed with a shared secret (`JWT_SECRET`).
-
-### Expected JWT Payload:
-```json
-{
-  "sub": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "role": "ORGANIZER",
-  "organizationId": "d8e3b970-13f5-4c07-b2e8-4934a3621415",
-  "iat": 1726310000,
-  "exp": 1726317200
-}
-```
-
-* `sub` (Required): Canonical User UUID string.
-* `role` (Required): Must be exactly one of `ADMIN`, `ORGANIZER`, `INSTRUCTOR`, `LEARNER`. Unapproved or misspelled roles are rejected with 401 Unauthorized.
-* `organizationId` (Optional/Contextual): Canonical organization UUID string.
-
-### Whitelisted Public Routes (No JWT Required):
-* `POST /api/auth/login`
-* `POST /api/auth/register`
-* `POST /api/auth/refresh`
-* Certificate routes require JWT authentication; BR-264 excludes public certificate verification from the MVP.
-* `GET /actuator/health`
+The Gateway checks the JWT signature and expiration and requires a subject and recognized role. It propagates the organization claim when present. See the [configured public route whitelist](src/main/resources/application.yml).
 
 ---
 
@@ -105,7 +53,8 @@ All routes map to dynamic Eureka service identifiers (`lb://<SERVICE-NAME>`):
 | :--- | :--- | :--- |
 | `SERVER_PORT` | `8080` | External Gateway port |
 | `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | `http://localhost:8761/eureka/` | Eureka registration endpoint |
-| `JWT_SECRET` | `devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong` | 256-bit HMAC secret key |
+| `JWT_SECRET` | Required | JWT signing key |
+| `INTERNAL_SERVICE_KEY` | Required | Key used to authenticate internal calls |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Comma-separated allowed CORS origins |
 
 ---

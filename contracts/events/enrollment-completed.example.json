@@ -1,0 +1,40 @@
+{
+  "eventId": "00000000-0000-4000-8000-000000000001",
+  "eventType": "EnrollmentCompleted",
+  "version": 1,
+  "occurredAt": "2026-01-15T09:00:00.000Z",
+  "organizationId": "00000000-0000-4000-8000-000000000002",
+  "producer": "learning-service",
+  "data": {
+    "enrollmentId": "00000000-0000-4000-8000-000000000003",
+    "organizationId": "00000000-0000-4000-8000-000000000002",
+    "learnerId": "00000000-0000-4000-8000-000000000004",
+    "courseId": "00000000-0000-4000-8000-000000000005",
+    "enrollmentType": "Required",
+    "completedAt": "2026-01-15T09:00:00.000Z",
+    "dueAt": "2026-01-16T00:00:00.000Z",
+    "completedLate": false,
+    "scoreSnapshot": {
+      "schemaVersion": 1,
+      "snapshotId": "00000000-0000-4000-8000-000000000006",
+      "asOf": "2026-01-15T09:00:00.000Z",
+      "revision": "example-v1",
+      "organizationId": "00000000-0000-4000-8000-000000000002",
+      "learnerId": "00000000-0000-4000-8000-000000000004",
+      "courseId": "00000000-0000-4000-8000-000000000005",
+      "eligible": true,
+      "requiredComponentCount": 1,
+      "quizzes": [
+        {
+          "assessmentId": "00000000-0000-4000-8000-000000000007",
+          "attemptId": "00000000-0000-4000-8000-000000000008",
+          "recordedScore": "90.25",
+          "passingScore": "50",
+          "passed": true
+        }
+      ],
+      "assignments": []
+    },
+    "occurredAt": "2026-01-15T09:00:00.000Z"
+  }
+}
