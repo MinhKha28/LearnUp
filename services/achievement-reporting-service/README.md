@@ -6,7 +6,7 @@ Database: `achievement_reporting_db`
 Port: `8087`
 
 Certificate persistence and the approved database-design differences are recorded
-in [the issuance verification report](../../docs/architecture/achievement-certificate-issuance-verification.md).
+in [the database reference](../../docs/database/achievement-reporting-db.md).
 
 ## Automatic certificate issuance (PR1)
 
@@ -83,7 +83,7 @@ From the repository root, after building, a synthetic measurement can be run wit
 `node perf/achievement/certificate-issuance.cjs` and a non-production DATABASE_URL.
 It uses real PostgreSQL and fake directory/storage/Kafka transport, recording
 technical issuance delay and counts rather than an HTTP SLA.
-See [verification report](../../docs/architecture/achievement-certificate-issuance-verification.md).
+See [issuance invariants](#invariants).
 
 ### Learner certificates
 
@@ -100,3 +100,8 @@ Noto Sans static Regular and Bold, release v2.015, are bundled under the SIL Ope
 Verification uses the complete service suite (including isolated PostgreSQL schemas), default TypeScript configuration, and scoped ESLint. The frontend browser suite is enabled with `LEARNUP_RECOVERY_BROWSER_TESTS=1`; run Vitest with `--fileParallelism=false --hookTimeout=60000` to avoid browser harness port collisions.
 
 The repository-root load harness is `node perf/achievement/certificate-read.cjs`. It requires a non-production `DATABASE_URL` and `CERTIFICATE_PERF_OUTPUT` pointing outside the repository. `CERTIFICATE_PERF_STAGE_MS` controls each stage (default 5000 ms). It ramps to 1, 2, 100 and 200 VUs for PDF and list, using a separate service process and verified in-memory PNG storage. The generated schema is intentionally retained; the script prints its exact name and a manual DROP SCHEMA command.
+
+## Invariants
+
+- Certificate intake stores the Pending certificate and event receipt in the same transaction before acknowledging the offset. Issued certificates preserve the completed enrollment snapshot and its completion time. See the [enrollment event contract](../../contracts/events/learning-enrollment-events.md).
+- Signer settings are organization-scoped and require the current version in If-Match on writes. Issued certificates retain their signer snapshot. See the [signer smoke checks](../../docs/how-to/certificate-signer-smoke.md).
