@@ -1,3 +1,4 @@
+import { validateRuntimeConfig } from './runtime.config';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
@@ -12,7 +13,7 @@ import { PlatformSettingsModule } from './modules/platform-settings/platform-set
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateRuntimeConfig }),
     ScheduleModule.forRoot(),
     PrismaModule,
     PlatformSettingsModule,

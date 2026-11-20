@@ -311,6 +311,11 @@ export async function startService(
       CLOUDINARY_API_KEY: 'test-key',
       CLOUDINARY_API_SECRET: 'test-secret',
       ...env,
+      NODE_ENV: ['development', 'test'].includes(
+        env.NODE_ENV ?? process.env.NODE_ENV ?? '',
+      )
+        ? (env.NODE_ENV ?? process.env.NODE_ENV)
+        : 'test',
     },
   });
   let output = '';
