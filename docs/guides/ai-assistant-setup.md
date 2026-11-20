@@ -125,6 +125,14 @@ headSha=$(git rev-parse HEAD)
 node scripts/check-ai-signatures.mjs "$baseSha" "$headSha"
 ```
 
+These steps are for the PR author to run by hand on their own unmerged PR branch
+only. This manual repair is the single exception to the AGENTS.md no-force-push /
+no-history-rewrite rule, which applies to AI assistants and shared branches.
+Never ask an AI assistant to run these steps. Never use them on develop, main or
+another member's branch; develop rulesets block force pushes. Use
+`--force-with-lease`, never `--force`. After the push, existing approvals are
+dismissed automatically; tell your reviewers to re-approve the new head.
+
 To fix the last commit, use `git commit --amend`. For older messages, use
 `git rebase -i <base-sha>` and mark affected commits `reword`; also correct any
 flagged author/committer identity. Rerun the scanner, then
