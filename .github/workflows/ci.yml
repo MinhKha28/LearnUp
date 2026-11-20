@@ -181,10 +181,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # ts-common has failing tests on develop; ts-storage tests are blocking.
+      # Both TypeScript libraries have blocking unit tests.
       - name: Unit tests
         id: unit
-        continue-on-error: ${{ matrix.lib == 'ts-common' }}
         run: |
           set +e
           npx vitest run 2>&1 | tee "$RUNNER_TEMP/vitest.log"
