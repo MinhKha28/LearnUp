@@ -22,7 +22,9 @@ General rules:
 - Do not invent unsupported business rules, permissions, prices, statuses,
   features, AI capabilities, integrations, customers, statistics, or legal claims.
 - Approved LearnUP Figma is the visual source of truth when accessible.
-- Keep production UI English unless explicitly requested otherwise.
+- Write all user-facing UI text in Vietnamese with full diacritics. Use English code
+  identifiers. Write comments and log text in plain English or Vietnamese with
+  diacritics; never use all-caps text.
 - Do not create a `constants/` folder or `routes.ts` at the current stage.
 - Keep route definitions directly in `src/router.tsx`.
 - Use regular `.scss`, never `.module.scss`.
@@ -38,6 +40,22 @@ General rules:
 - Never make Guest layout classes the shared styling contract for Admin/Organizer/Instructor/Learner.
 - Use the project's installed Ant Design version **5.21.6**. Do not write code against APIs from a newer Ant Design version unless the dependency is explicitly upgraded first.
 - Prefer matching TSX/SCSS base names: `registration.tsx` ↔ `registration.scss`, `plan.card.tsx` ↔ `plan.card.scss`.
+
+## UI terminology
+
+| English term | Vietnamese UI text |
+| --- | --- |
+| Course | Khóa học |
+| Lesson | Bài học |
+| Learner | Học viên |
+| Organizer | Quản lý đào tạo |
+| Instructor | Giảng viên |
+| Quiz | Bài trắc nghiệm |
+| Assignment | Bài tập |
+| Certificate | Chứng chỉ |
+| Subscription | Gói dịch vụ |
+| Peer Review | Chấm chéo |
+| Organizer assignment area | Phân công đào tạo |
 
 ## Commands and entry points
 

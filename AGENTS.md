@@ -57,6 +57,17 @@ before their consumers. Read package.json for prerequisites and additional suite
 - Never expose credentials, raw bearer tokens, hashes or internal keys in logs,
   examples or unintended responses. Preserve authenticated internal calls and tenant
   isolation. Do not return JPA entities as public responses.
+- Frontend language and UI terminology: follow frontend/AGENTS.md.
+- In Course, Assessment and Tenant, mark endpoints intended for other services with
+  @ServiceCall(); the guard authenticates the incoming request. Definitions are in
+  services/course-service/src/common/decorator/customize.ts,
+  services/assessment-service/src/common/decorator/customize.ts and
+  services/tenant-service/src/common/decorator/customize.ts. The decorator sets
+  metadata; callers must explicitly send the required internal headers. The marked
+  endpoints use x-internal-key; Course and Assessment also require x-organization-id.
+  User-context caller methods additionally send x-user-id and x-user-role as needed.
+  These names are defined in libraries/ts-common/src/context/headers.ts; preserve
+  each endpoint's actual guard contract rather than assuming identical requirements.
 - Enforce the effective product/provider upload limit; map provider size rejection
   to HTTP 413 FILE_TOO_LARGE. Configure Cloudinary privately; keep Compose defaults
   empty for CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.

@@ -534,13 +534,13 @@ Maintain:
 
 ## UI language
 
-Production UI is English unless explicitly requested otherwise.
-
-Do not mix English and Vietnamese in the same production interface.
+Follow the language rule and Vietnamese UI glossary in
+[frontend/AGENTS.md](../../../frontend/AGENTS.md#ui-terminology). Keep code identifiers
+in English; use the frontend instructions for comment and log language.
 
 ## Terminology
 
-Use:
+Use these English domain names in code; UI labels follow the frontend glossary:
 
 ```text
 Admin
