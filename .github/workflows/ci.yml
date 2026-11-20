@@ -181,6 +181,10 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Typecheck ts-common tests
+        if: matrix.lib == 'ts-common'
+        run: npm run typecheck:tests
+
       # Both TypeScript libraries have blocking unit tests.
       - name: Unit tests
         id: unit
