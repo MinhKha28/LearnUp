@@ -107,12 +107,6 @@ recorded in the [technology ADR](docs/adr/0007-technology-exclusions.md).
 
 ## AI tools
 
-[AGENTS.md](AGENTS.md) indexes shared instructions and component guides. Codex reads
-AGENTS.md from the repository root toward its working directory. Claude Code reads
-[CLAUDE.md](CLAUDE.md), whose single import loads AGENTS.md. Open the relevant nested
-instruction file explicitly in tools that do not auto-load it. Personal rules belong
-in ignored CLAUDE.local.md or the tool's global instruction file.
-
-Frontend work uses the shared [architecture skill](.agents/skills/learnup-frontend/SKILL.md)
-and, for UI/Figma work, the [design skill](.agents/skills/learnup-ui-design/SKILL.md).
-The PR commit-metadata policy is checked by the required AI signature job in CI.
+Shared standards, personal instruction files and migration steps are documented in the
+[AI assistant setup guide](docs/guides/ai-assistant-setup.md). Use it to configure your
+tool and verify instruction loading and commit-policy checks.
