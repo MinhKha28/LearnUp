@@ -1,79 +1,89 @@
-# LearnUP repository instructions
+# LearnUP repository guide
 
-## Supporting-service development scope
+LearnUP is an organizational training platform with a React frontend, a Spring Gateway,
+five NestJS business services, and three Spring supporting services. All paths below
+are relative to the repository root. Before working in a part, read its scoped
+AGENTS.md and README.md; do this explicitly even if your tool does not discover
+nested instructions automatically. A link is a routing instruction, not an import.
 
-This section governs authorized work in `services/identity-service/`,
-`services/notification-service/`, `services/audit-service/`, and directly necessary
-Gateway, Compose, contract, test or documentation integration files. It does not
-authorize changes to another team's business services. Honor more specific local
-instructions and the user's task boundaries; do not change frontend conventions.
-An audit, explanation or review request does not authorize implementation or commits.
+## Map and scoped instructions
 
-## Safe automatic Git workflow
+| Part | Path / instructions | Ownership |
+| --- | --- | --- |
+| Frontend | frontend/AGENTS.md | React, TypeScript, Vite, role UI |
+| Identity | services/identity-service/AGENTS.md | Credentials and authentication |
+| Notification | services/notification-service/AGENTS.md | Message delivery |
+| Audit | services/audit-service/AGENTS.md | Its own audit records |
+| Tenant | services/tenant-service/AGENTS.md | Canonical accounts, Organizations, memberships, subscriptions |
+| Course | services/course-service/AGENTS.md | Course content and versions |
+| Learning | services/learning-service/AGENTS.md | Enrollment and progress |
+| Assessment | services/assessment-service/AGENTS.md | Exercises, grading, peer review |
+| Achievement & Reporting | services/achievement-reporting-service/AGENTS.md | Certificates and reporting |
+| Gateway | gateway/api-gateway/AGENTS.md | Routing and authenticated request context |
+| Discovery | infrastructure/eureka-server/ | Java service discovery; read README.md |
+| Java common | libraries/java-common/ | Shared Java technical utilities; read README.md |
+| TypeScript common | libraries/ts-common/AGENTS.md | Framework-neutral shared contracts/utilities |
+| Storage | libraries/ts-storage/ | Provider library; read README.md |
 
-For each independently completed implementation or documentation task:
+## Build and verification entry points
 
-1. Record HEAD, `git status --short`, unstaged/staged diffs and untracked files.
-2. Define the exact task/file scope. Preserve unrelated work, including deletions.
-   If overlapping changes cannot be safely attributed, stop and explain the conflict.
-3. Implement one coherent change and add/update relevant regression tests.
-4. Run appropriate verification, review the complete final diff, and check for
-   real credentials, sensitive examples and generated build artifacts.
-5. Stage only explicit task paths. Never use `git add .` or `git add -A`.
-6. Inspect `git diff --cached`, its exact file list, and `git diff --cached --check`.
-   Do not commit an index containing unrelated work; never silently unstage user work.
-7. Automatically create one Conventional Commit without asking for confirmation
-   when the task is complete, verified and safely isolated. A user's explicit
-   no-commit instruction overrides this default. Do not push unless requested.
-8. Report the commit hash/message, changed files, actual verification results and
-   final status. Split independent tasks into separate commits.
+Use Node 22 for the current CI workflow and Java 21 with each Java component's POM.
+Run commands from the named component directory. Install/build file-linked libraries
+before their consumers. Read package.json for prerequisites and additional suites.
 
-Do not commit if relevant tests fail, required verification is blocked without a
-reliable alternative, correctness/security concerns remain in the proposed change,
-the change is incomplete, unrelated staged work cannot be excluded safely, or real
-secrets/credentials/generated artifacts are included. Clearly synthetic isolated-test
-fixtures are not deployment secrets; never reuse them in deployment configuration.
-Preserve completed commits if a later task is blocked and report the blocker.
+- Java common: mvn install; Java services, Gateway and Eureka: mvn test and mvn clean verify.
+  Install libraries/java-common first for components depending on it.
+- TypeScript libraries: npm ci, npm run build, npx tsc --noEmit, npm test.
+- NestJS services: npm ci, npx prisma generate --config prisma7.config.ts, npm run build.
+  For Learning, Tenant, Assessment and Achievement run npm run test:unit; Course uses
+  npm test -- --ci. Integration prerequisites and commands live in each service README.
+- Frontend: npm ci, npm run build, npm run typecheck, npm test, npm run lint.
+- Backend lint: use the CI ESLint command without --fix; several package lint scripts
+  mutate files. Report nonblocking CI checks accurately; do not equate skipped suites
+  or mocked dependencies with PostgreSQL or deployed integration coverage.
+- Shared TypeScript contract changes: search all consumers, build the library fresh,
+  and typecheck both build and default configurations of every consumer.
+- Compose edits: docker compose config --quiet with privately supplied configuration.
+  Never print rendered secrets. Run git diff --check before committing.
 
-Use `feat(identity): ...`, `fix(identity): ...`, `refactor(identity): ...`,
-`test(identity): ...`, `docs(identity): ...`, or `chore(identity): ...` for Identity;
-use an appropriate service/integration scope for other authorized work. Do not
-amend unless explicitly requested. Never use destructive Git cleanup (`git reset`,
-`git restore`, `git clean`), force push or history rewriting. Do not silently change
-Git author identity or global configuration. If needed, use command-scoped
-`git -c safe.directory=D:/Study/learnup ...` rather than global configuration.
+## Shared constraints
 
-## Engineering standards
+- Honor the requested scope and service ownership; review-only work does not authorize
+  implementation or commits. Authoritative business requirements are the readable
+  DOCX files in docs/source-of-truth/. Audits and comments are evidence, not new rules.
+- Keep one database per service. Use API/event contracts for cross-service access.
+  Update tracked database documentation with its migration. Compute values compared
+  by database CHECK constraints in SQL instead of round-tripping through JavaScript.
+- Never expose credentials, raw bearer tokens, hashes or internal keys in logs,
+  examples or unintended responses. Preserve authenticated internal calls and tenant
+  isolation. Do not return JPA entities as public responses.
+- Enforce the effective product/provider upload limit; map provider size rejection
+  to HTTP 413 FILE_TOO_LARGE. Configure Cloudinary privately; keep Compose defaults
+  empty for CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.
+  Signed provider API requests use api.cloudinary.com.
+- Use isolated resources for live external-account probes, with a dedicated asset
+  prefix and a throwaway script outside the repo; remove only probe-created assets
+  and verify that prefix is empty afterwards.
+- Legacy business-rule exports may use old BR numbers. Use the supplied new-to-old
+  crosswalk; do not infer a renumbering from matching numeric IDs.
+- Keep changes incremental. Preserve unrelated edits/deletions and staged work.
+  Record HEAD/status/diffs before implementation; stage explicit task paths only.
+  Inspect the staged diff and its file list. Never use destructive cleanup, force
+  push, history rewriting, or silently change Git identity/global configuration.
+- After a complete, safely isolated implementation/documentation task passes required
+  verification, make one Conventional Commit unless the user says not to commit.
+  Do not commit failures, incomplete work, secrets, generated outputs or unrelated work.
+  Do not amend or push without explicit authorization. Report real results and status.
+- Concurrent implementation sessions use separate worktrees. Install Node dependencies
+  with npm ci and preserve lockfiles unless dependency changes are the task.
+- Keep personal instructions and workstation paths out of public content. Keep
+  docs/uml/ sequence diagrams, docs/spec/ extracts, local diagram tooling and ignored working documents
+  local. Do not publish ignored files merely because a task reads them.
 
-- Treat readable DOCX files in `docs/source-of-truth/` as authoritative business
-  requirements. Current filenames may omit `(2)`. Audits and code comments are
-  evidence, not new business rules.
-- Preserve ownership: Identity owns credentials/authentication; Tenant owns canonical
-  accounts, Organization membership and business lifecycle. Notification delivers
-  messages; Audit owns its own records. Do not expand scope implicitly.
-- Prefer small reviewable changes, existing `com.learnup.identity` package conventions,
-  constructor injection, thin controllers, service-level business rules, validated
-  request DTOs and explicit public response DTOs. Never return JPA entities publicly.
-- Do not expose credentials, raw tokens, password hashes or internal secrets in logs,
-  documentation examples, exceptions or unintended API responses. Report existing
-  out-of-scope security findings rather than silently expanding the task.
-- Preserve ID-H1/ID-H2: no public registration/token-creation bypass, no raw-header
-  principal fallback, authenticated internal provisioning, and no public Identity
-  container port. Documentation must not weaken the trust boundary.
-- Preserve PostgreSQL/Flyway compatibility. Do not alter migrations for tooling work.
-  Avoid broad refactors and never create directories from parsed document/table text.
-- Use Lombok selectively for accessors/constructor boilerplate, not `@Data` or unsafe
-  equality/`toString()` on entities or secret-bearing objects. Keep meaningful invariants.
-- Use Spring MapStruct mappers with explicit safe response fields; keep processor
-  configuration reproducible alongside Lombok. Do not commit generated sources.
+## References and reusable workflows
 
-## Verification
-
-Use Java 21 and each service's Maven POM. Run the complete Identity suite for Identity
-behavior changes, Gateway tests for affected routing/security, and a clean compile/
-package when changing annotation processors or dependencies. Run Compose configuration
-validation for Compose changes and `git diff --check` before committing. Standard
-commands are `mvn test` and `mvn clean verify` from the relevant service directory.
-Use the owner's existing Maven cache when necessary without changing global settings.
-Distinguish H2/mocked-Tenant tests from real PostgreSQL/deployed integration tests.
-Never fabricate successful test results or weaken assertions merely to pass a build.
+Read CONTRIBUTING.md, contracts/openapi/README.md, contracts/events/README.md,
+docs/database/README.md and the relevant docs/adr/ decisions when their subject applies.
+Frontend work uses frontend/.agents/skills/learnup-frontend/SKILL.md; Figma/UI work also uses
+frontend/.agents/skills/learnup-ui-design/SKILL.md. Read these workflows explicitly when needed.
+They contain detailed workflows, not automatically concatenated project instructions.

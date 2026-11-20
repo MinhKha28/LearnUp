@@ -1,4 +1,4 @@
-# LearnUP Codex Instructions
+# LearnUP frontend instructions
 
 Use the repository skills under `.agents/skills/`.
 
@@ -38,3 +38,13 @@ General rules:
 - Never make Guest layout classes the shared styling contract for Admin/Organizer/Instructor/Learner.
 - Use the project's installed Ant Design version **5.21.6**. Do not write code against APIs from a newer Ant Design version unless the dependency is explicitly upgraded first.
 - Prefer matching TSX/SCSS base names: `registration.tsx` ↔ `registration.scss`, `plan.card.tsx` ↔ `plan.card.scss`.
+
+## Commands and entry points
+
+Run npm ci, npm run build, npm run typecheck, npm test and npm run lint here.
+Use package.json as the script source. The app entry is src/main.tsx and routing is
+src/router.tsx. For UC27.2 inspect src/pages/learner/lesson.resource.tsx,
+src/utils/video.segments.ts and src/hooks/useVideoProgress.ts.
+Browser suites under dev/ opt in with LEARNUP_RECOVERY_BROWSER_TESTS=1 and need their
+own browser/backend prerequisites; report skips and actual failures. A passing unit
+suite does not establish browser coverage. Read README.md for environment setup.

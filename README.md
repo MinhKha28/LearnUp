@@ -128,3 +128,12 @@ LearnUP intentionally maintains clean, robust boundaries without unnecessary tec
 * **Synchronous REST + Asynchronous Kafka**: REST for direct queries/commands; Kafka for decoupled domain event broadcasts.
 * **Zero AI / ML / LLM Functionality**: AI grading, AI tutors, LLM APIs, and vector embeddings are completely excluded.
 * **Explicitly Excluded Technologies**: Redis, RabbitMQ, Kubernetes, OpenTelemetry, Prometheus, Grafana, CQRS, Event Sourcing, 2PC Distributed Transactions, Database RLS, Service Mesh, Config Server, Elasticsearch, Next.js, Azure Blob / Azurite.
+
+
+## AI tools
+
+[AGENTS.md](AGENTS.md) indexes shared instructions and component guides. Codex reads
+AGENTS.md from the repository root toward its working directory. Claude Code reads
+CLAUDE.md, whose single import loads AGENTS.md. Open the relevant nested instruction
+file explicitly in tools that do not auto-load it. Personal rules belong in ignored
+CLAUDE.local.md or the tool's global instruction file, outside shared repository guidance.
