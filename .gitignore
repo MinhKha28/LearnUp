@@ -56,3 +56,13 @@ coverage/
 /perf/achievement/results/
 /frontend/public/dev-media/
 /frontend/dev/uc27.2-results/
+
+# Personal AI-tool instructions and settings
+CLAUDE.local.md
+**/.claude/settings.local.json
+**/.claude/settings.json
+# Local-only diagrams, extracted specifications and working prompts
+/.claude/skills/learnup-drawio-sequence-diagram/
+/prompt-codex-sequence.md
+/docs/uml/
+/docs/spec/

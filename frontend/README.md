@@ -713,20 +713,13 @@ unless the project has a real requirement for them.
 
 ## AI / Codex Skills
 
-Repository-specific implementation rules are stored under:
+Repository-wide skills live under the root `.agents/skills/` directory:
 
-```text
-.agents/
-└── skills/
-    ├── learnup-frontend/
-    │   └── SKILL.md
-    └── learnup-ui-design/
-        └── SKILL.md
-```
+- [Frontend architecture](../.agents/skills/learnup-frontend/SKILL.md)
+- [UI and Figma design](../.agents/skills/learnup-ui-design/SKILL.md)
 
-`AGENTS.md` provides the entry-level instructions for AI-assisted development.
-
-When using Codex or another coding agent for Figma-to-code work, both LearnUP skills should be followed.
+[AGENTS.md](AGENTS.md) provides frontend entry instructions. Follow both skills for
+Figma-to-code work. Their source paths are relative to frontend/ unless stated otherwise.
 
 ---
 

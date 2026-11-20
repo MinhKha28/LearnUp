@@ -374,12 +374,30 @@ jobs:
       - name: Build frontend image
         run: docker build -f frontend/Dockerfile ./frontend
 
+  ai-signature:
+    name: AI signature
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check PR commit metadata
+        run: node scripts/check-ai-signatures.mjs
+
   # Single stable check name for branch protection; passes when every
   # job that ran succeeded and fails if any job failed or was cancelled.
   ci-result:
     name: CI result
     if: always()
-    needs: [changes, ts-libraries, node, java, frontend-image]
+    needs: [changes, ts-libraries, node, java, frontend-image, ai-signature]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

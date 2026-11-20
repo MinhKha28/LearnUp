@@ -1,388 +1,65 @@
-# LearnUP Course Service
+# @learnup/ts-common
 
-Course Service là microservice NestJS phụ trách nhóm chức năng liên quan đến Course và Curriculum trong hệ thống LearnUP.
+Framework-neutral TypeScript types and helpers shared by LearnUP components. This
+package contains technical contracts, not Course business logic or a NestJS server.
+For Course database setup and startup, use the [Course README](../../services/course-service/README.md).
 
-> Hiện tại đây là base kỹ thuật để team tiếp tục phát triển feature. Một số code Course/Curriculum và Prisma model hiện chỉ mang tính scaffold/demo, chưa phải nghiệp vụ hoàn chỉnh.
+## Public surface
 
-## 1. Tech Stack
+The package entry point is [src/index.ts](src/index.ts). Its modules expose:
 
-- Node.js 22+
-- NestJS 11
-- TypeScript
-- Prisma 7
-- PostgreSQL
-- `@prisma/adapter-pg`
-- `class-validator`
-- Swagger
-- Jest
-- Shared package: `@learnup/ts-common`
+| Module | Examples |
+| --- | --- |
+| API | ApiResponse, ApiErrorResponse, PageResponse, createPageResponse, error helpers |
+| Auth | UserRole, USER_ROLES, parseUserRole and role validation |
+| Context | HEADER_NAMES, CurrentUser, RequestContext and context factories |
+| Events | EventEnvelope and createEventEnvelope |
 
-## 2. Cấu trúc chính
+Import from the package entry point; package.json maps the ESM entry and declaration
+files to dist/. Do not import a consumer's guards, interceptors, controllers, Prisma
+models or framework-specific decorators into this library.
 
-```text
-services/course-service/
-├── prisma/
-│   ├── migrations/
-│   └── schema.prisma
-├── src/
-│   ├── common/
-│   │   ├── decorator/
-│   │   ├── filters/
-│   │   ├── guards/
-│   │   └── interceptors/
-│   ├── courses/
-│   ├── curriculum/
-│   ├── prisma/
-│   ├── app.module.ts
-│   └── main.ts
-├── .env.example
-├── package.json
-└── README.md
+```ts
+import { createPageResponse, parseUserRole } from '@learnup/ts-common';
+import type { ApiResponse } from '@learnup/ts-common';
+
+const role = parseUserRole('LEARNER');
+const page = createPageResponse([{ id: 'example-item' }], 1, 20, 1);
+const response: ApiResponse<typeof page> = {
+  statusCode: 200,
+  message: 'Items retrieved',
+  data: page,
+};
 ```
 
-## 3. Setup lần đầu
+Role parsing and context factories transform data; they do not authenticate an
+untrusted request. The consuming service supplies its authenticated context.
+Event-specific contracts remain in [contracts/events/](../../contracts/events/README.md).
 
-### Bước 1: Build `ts-common`
+## Local development
 
-Từ root repository:
+Use the Node version selected by the current CI workflow. From libraries/ts-common/:
 
-```bash
-cd libraries/ts-common
-npm install
+```sh
+npm ci
 npm run build
+npm run typecheck
+npm test
 ```
 
-### Bước 2: Cài dependencies cho Course Service
-
-```bash
-cd ../../services/course-service
-npm install
-```
-
-### Bước 3: Tạo file `.env`
-
-Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-macOS/Linux:
-
-```bash
-cp .env.example .env
-```
-
-Mẫu cấu hình:
-
-```env
-PORT=8083
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/course_db"
-INTERNAL_SERVICE_KEY=<private random key, at least 32 bytes>
-```
-
-> Không commit file `.env`.
-
-### Bước 4: Chuẩn bị database
-
-Đảm bảo PostgreSQL đang chạy và database `course_db` đã tồn tại.
-
-Validate Prisma schema:
-
-```bash
-npx prisma validate
-```
-
-Generate Prisma Client:
-
-```bash
-npm run prisma:generate
-```
-
-Nếu cần chạy migration development:
-
-```bash
-npm run prisma:migrate
-```
-
-### Bước 5: Chạy service
-
-```bash
-npm run start:dev
-```
-
-Service mặc định:
-
-```text
-http://localhost:8083
-```
-
-API prefix:
-
-```text
-/api/v1
-```
-
-Swagger:
-
-```text
-http://localhost:8083/docs
-```
-
-## 4. Internal Authentication
-
-Course Service không tự verify JWT từ client.
-
-Luồng hiện tại:
-
-```text
-Client
-  ↓
-API Gateway
-  ↓ verify JWT
-  ↓ truyền trusted headers
-Course Service
-```
-
-Protected endpoint cần các header:
-
-```text
-x-internal-key
-x-user-id
-x-organization-id
-x-user-role
-```
-
-Ví dụ:
-
-```http
-x-internal-key: <INTERNAL_SERVICE_KEY>
-x-user-id: user-001
-x-organization-id: org-001
-x-user-role: INSTRUCTOR
-```
-
-Các role dùng chung được định nghĩa trong `@learnup/ts-common`:
-
-```text
-ADMIN
-ORGANIZER
-INSTRUCTOR
-LEARNER
-```
-
-Endpoint public có thể dùng:
-
-```ts
-@Public()
-```
-
-## 5. Shared Library `@learnup/ts-common`
-
-Course Service đang dùng:
-
-```json
-"@learnup/ts-common": "file:../../libraries/ts-common"
-```
-
-`ts-common` dùng cho các contract kỹ thuật dùng chung như:
-
-- `UserRole`
-- `CurrentUser`
-- `HEADER_NAMES`
-- `ApiResponse`
-- `PageResponse`
-- Error codes
-- Event envelope
-
-Không đưa business logic hoặc code phụ thuộc NestJS vào `ts-common`.
-
-Giữ trong Course Service:
-
-- Guard
-- Interceptor
-- Exception Filter
-- NestJS Decorator
-- DTO
-- Prisma model
-- Course/Curriculum business logic
-
-## 6. Quy ước code
-
-Luồng chuẩn:
-
-```text
-Controller
-  ↓
-Service
-  ↓
-Prisma
-  ↓
-PostgreSQL
-```
-
-Trách nhiệm:
-
-```text
-Controller  → route, DTO, request context
-Service     → business logic
-Prisma      → database access
-DTO         → validate input
-```
-
-Không viết business logic trực tiếp trong controller.
-
-Feature nên theo cấu trúc:
-
-```text
-feature/
-├── dto/
-├── feature.controller.ts
-├── feature.service.ts
-└── feature.module.ts
-```
-
-## 7. API Response
-
-Response thành công được normalize bởi `TransformInterceptor` theo contract:
-
-```ts
-export interface ApiResponse<T> {
-  statusCode: number;
-  message: string;
-  data: T;
-}
-```
-
-Ví dụ:
-
-```json
-{
-  "statusCode": 200,
-  "message": "Courses fetched successfully",
-  "data": []
-}
-```
-
-Dùng:
-
-```ts
-@ResponseMessage('Courses fetched successfully')
-```
-
-để khai báo message cho endpoint.
-
-## 8. Validation
-
-Global `ValidationPipe` đang bật:
-
-```ts
-whitelist: true;
-transform: true;
-forbidNonWhitelisted: true;
-```
-
-DTO phải khai báo validation bằng `class-validator`.
-
-Ví dụ:
-
-```ts
-export class CreateCourseDto {
-  @IsString()
-  title!: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
-}
-```
-
-## 9. Prisma
-
-Inject Prisma bằng:
-
-```ts
-constructor(
-  private readonly prisma: PrismaService,
-) {}
-```
-
-Khi thay đổi Prisma schema:
-
-```bash
-npx prisma validate
-npx prisma migrate dev --name <migration_name>
-npx prisma generate
-```
-
-Không sửa migration cũ đã được dùng chung nếu chưa thống nhất với team.
-
-## 10. Lưu ý cho team
-
-- `courses` và `curriculum` hiện có thể chứa code demo/scaffold.
-- Không xem Prisma `Course` model hiện tại là schema nghiệp vụ cuối cùng.
-- Business fields, relations, status và rules sẽ bổ sung theo Use Case/Business Rule khi implement feature thật.
-- Không duplicate role, header hoặc API response type nếu `ts-common` đã có.
-- Không đưa business logic vào `ts-common`.
-- Không commit `.env`.
-- Hạn chế sửa file/module không liên quan đến feature đang làm.
-- Nếu nhiều người cùng sửa Prisma schema, cần thống nhất trước để tránh migration conflict.
-
-## 11. Trước khi tạo Pull Request
-
-Chạy:
-
-```bash
-npm run build
-npm run lint
-npm run test
-npx prisma validate
-```
-
-Nếu có thay đổi Prisma:
-
-```bash
-npx prisma generate
-```
-
-Nếu thay đổi database:
-
-```bash
-npx prisma migrate dev --name <meaningful_migration_name>
-```
-
-## 12. Git Convention
-
-Branch gợi ý:
-
-```text
-feature/course-create
-feature/curriculum-module
-fix/course-validation
-refactor/course-service-base
-```
-
-Commit gợi ý:
-
-```text
-feat(course): implement course creation
-feat(curriculum): add module management
-fix(auth): validate internal user context
-refactor(common): reuse shared response contract
-```
-
-## 13. Checklist khi clone project
-
-```text
-[ ] Node.js 22+ đã cài
-[ ] PostgreSQL đang chạy
-[ ] ts-common đã npm install + build
-[ ] course-service đã npm install
-[ ] đã tạo .env
-[ ] Prisma schema validate thành công
-[ ] Prisma Client generate thành công
-[ ] service chạy được bằng npm run start:dev
-[ ] Swagger mở được tại /docs
-[ ] protected API trả 401 khi thiếu internal headers
-[ ] protected API hoạt động khi header hợp lệ
-```
+The prepare hook also builds on installation. The scripts and exports in
+[package.json](package.json) are authoritative. There is no library lint, Prisma or
+server-start script. dist/ is generated output and must not be committed.
+
+## File-linked consumers
+
+Services reference this library through a file: dependency, for example
+file:../../libraries/ts-common. Build the library before installing/building those
+consumers so declarations and ESM output exist. Search all package manifests rather
+than assuming a fixed consumer list.
+
+When changing a public type or helper, rebuild the library fresh, then check every
+consumer with both its build and default TypeScript configuration and its relevant
+regression tests. Report advisory checks or known failures explicitly; do not treat
+a successful service build as proof that its default test configuration typechecks.
+No root npm install or workspace package is required.

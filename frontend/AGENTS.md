@@ -1,16 +1,16 @@
-# LearnUP Codex Instructions
+# LearnUP frontend instructions
 
-Use the repository skills under `.agents/skills/`.
+Use the repository skills under `../.agents/skills/`.
 
 For frontend architecture, React/TypeScript structure, routing, services, types,
 imports, naming, SCSS conventions, provider placement, and folder organization:
 
-`.agents/skills/learnup-frontend/SKILL.md`
+`../.agents/skills/learnup-frontend/SKILL.md`
 
 For Figma-to-code, branding, layout, typography, spacing, responsive behavior,
 Ant Design UI, visual states, accessibility, and role-specific UX:
 
-`.agents/skills/learnup-ui-design/SKILL.md`
+`../.agents/skills/learnup-ui-design/SKILL.md`
 
 When implementing UI from Figma, use BOTH skills.
 
@@ -22,7 +22,9 @@ General rules:
 - Do not invent unsupported business rules, permissions, prices, statuses,
   features, AI capabilities, integrations, customers, statistics, or legal claims.
 - Approved LearnUP Figma is the visual source of truth when accessible.
-- Keep production UI English unless explicitly requested otherwise.
+- Write all user-facing UI text in Vietnamese with full diacritics. Use English code
+  identifiers. Write comments and log text in plain English or Vietnamese with
+  diacritics; never use all-caps text.
 - Do not create a `constants/` folder or `routes.ts` at the current stage.
 - Keep route definitions directly in `src/router.tsx`.
 - Use regular `.scss`, never `.module.scss`.
@@ -38,3 +40,29 @@ General rules:
 - Never make Guest layout classes the shared styling contract for Admin/Organizer/Instructor/Learner.
 - Use the project's installed Ant Design version **5.21.6**. Do not write code against APIs from a newer Ant Design version unless the dependency is explicitly upgraded first.
 - Prefer matching TSX/SCSS base names: `registration.tsx` ↔ `registration.scss`, `plan.card.tsx` ↔ `plan.card.scss`.
+
+## UI terminology
+
+| English term | Vietnamese UI text |
+| --- | --- |
+| Course | Khóa học |
+| Lesson | Bài học |
+| Learner | Học viên |
+| Organizer | Quản lý đào tạo |
+| Instructor | Giảng viên |
+| Quiz | Bài trắc nghiệm |
+| Assignment | Bài tập |
+| Certificate | Chứng chỉ |
+| Subscription | Gói dịch vụ |
+| Peer Review | Chấm chéo |
+| Organizer assignment area | Phân công đào tạo |
+
+## Commands and entry points
+
+Run npm ci, npm run build, npm run typecheck, npm test and npm run lint here.
+Use package.json as the script source. The app entry is src/main.tsx and routing is
+src/router.tsx. For UC27.2 inspect src/pages/learner/lesson.resource.tsx,
+src/utils/video.segments.ts and src/hooks/useVideoProgress.ts.
+Browser suites under dev/ opt in with LEARNUP_RECOVERY_BROWSER_TESTS=1 and need their
+own browser/backend prerequisites; report skips and actual failures. A passing unit
+suite does not establish browser coverage. Read README.md for environment setup.
