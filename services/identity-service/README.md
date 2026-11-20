@@ -115,6 +115,8 @@ for the actual validated DTOs and response schema.
 | `SPRING_DATASOURCE_USERNAME`| `postgres` | Database username |
 | `SPRING_DATASOURCE_PASSWORD`| Required; no default | Database password supplied privately for standalone Identity; Compose uses required `DB_PASSWORD` |
 | `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | `http://localhost:8761/eureka/` | Eureka Discovery URL |
+| `TENANT_SERVICE_URL` | `http://localhost:8084` | Optional override for the Tenant base URL used for login, refresh and password-recovery access decisions |
+| `GOOGLE_OAUTH_CLIENT_ID` | Empty | Optional Google OAuth web client ID; empty or blank disables Google sign-in |
 | `JWT_SECRET` | Required; no default | Private HMAC secret, at least 32 bytes; must match Gateway |
 | `INTERNAL_SERVICE_KEY` | Required; no default | Private internal-channel secret, at least 32 bytes; matches Gateway/Tenant/Notification |
 | `SECURITY_JWT_ACCESS_TOKEN_EXPIRATION_MINUTES` | `15` | Access token lifespan in minutes |
@@ -133,7 +135,8 @@ Notification and the existing Tenant relay. Deploy the authenticated Notificatio
 email boundary before enabling Identity delivery. Enable/configure Notification
 SMTP explicitly; its default mock mode is `SIMULATED`, not real delivery. See
 [recovery delivery and isolated SMTP verification](DEVELOPMENT.md#password-recovery-email-id-p3)
-for ordering, failure behavior, limits and remaining frontend work.
+for ordering, failure behavior, limits and existing frontend recovery implementation;
+deployed browser/email behavior is not established by those backend checks.
 
 ---
 

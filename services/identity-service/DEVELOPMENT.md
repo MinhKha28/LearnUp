@@ -177,8 +177,11 @@ documentation and UI. Spring Security additionally denies their routes unless
    into issue reports, examples or shared screenshots.
 
 The specification covers both auth aliases (`/api/v1/auth/*`, `/api/auth/*`):
-login, refresh, logout, change-password, forgot-password, reset-password and me.
-Public login/refresh/recovery operations do not declare Bearer authentication.
+login, google, refresh, logout, change-password, forgot-password, reset-password and me.
+Google sign-in is `POST /api/v1/auth/google`, which the frontend calls.
+`POST /api/auth/google` is the deliberate legacy alias declared alongside the v1
+prefix in `AuthController`; both expose the same Google sign-in handler in Swagger.
+Public login/Google sign-in/refresh/recovery operations do not declare Bearer authentication.
 Requests and successful response envelopes come from the actual validated DTOs;
 major error responses use the common error envelope. No working secret examples
 are supplied. Internal credential provisioning is hidden and excluded by path.
