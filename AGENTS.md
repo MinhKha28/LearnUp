@@ -84,6 +84,6 @@ before their consumers. Read package.json for prerequisites and additional suite
 
 Read CONTRIBUTING.md, contracts/openapi/README.md, contracts/events/README.md,
 docs/database/README.md and the relevant docs/adr/ decisions when their subject applies.
-Frontend work uses frontend/.agents/skills/learnup-frontend/SKILL.md; Figma/UI work also uses
-frontend/.agents/skills/learnup-ui-design/SKILL.md. Read these workflows explicitly when needed.
+Frontend work uses .agents/skills/learnup-frontend/SKILL.md; Figma/UI work also uses
+.agents/skills/learnup-ui-design/SKILL.md. Read these workflows explicitly when needed.
 They contain detailed workflows, not automatically concatenated project instructions.

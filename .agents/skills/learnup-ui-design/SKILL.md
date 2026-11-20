@@ -10,7 +10,12 @@ description: >
 
 Use this skill whenever creating, implementing, reviewing, or refining LearnUP UI.
 
-## 1. Visual source of truth
+
+All source paths below are relative to frontend/. Read the
+[frontend architecture skill](../learnup-frontend/SKILL.md) for placement, naming,
+SCSS and providers. Those conventions are defined there and remain required here.
+
+## Visual source of truth
 
 Primary Figma reference:
 
@@ -27,7 +32,7 @@ When Figma is accessible:
 
 Do not redesign approved screens from personal preference.
 
-## 2. Product identity
+## Product identity
 
 LearnUP is a professional B2B organizational training management platform.
 
@@ -52,7 +57,7 @@ It must NOT look like:
 - crypto/finance software
 - an AI-first product
 
-## 3. Brand colors
+## Brand colors
 
 Deep Navy:
 
@@ -90,7 +95,7 @@ Amber                  5–10%
 
 Amber is an accent, not a dominant background.
 
-## 4. Logo
+## Logo
 
 Preserve:
 
@@ -103,7 +108,7 @@ UP            #F59E0B
 
 Never recolor randomly, distort, apply gradients, or add heavy glow/shadow.
 
-## 5. Core color tokens
+## Core color tokens
 
 ```text
 Primary Navy       #1E293B
@@ -125,7 +130,7 @@ Keep these in `src/styles/global.scss`.
 
 Do not duplicate them in `ConfigProvider` at the current stage.
 
-## 6. Typography
+## Typography
 
 Use Inter.
 
@@ -146,7 +151,7 @@ Label            500
 Button           500–600
 ```
 
-## 7. Spacing
+## Spacing
 
 Use an 8px-based system:
 
@@ -171,7 +176,7 @@ Typical:
 - large section: 40–48px
 - desktop page padding: 24–32px
 
-## 8. Layout
+## Layout
 
 Primary desktop reference:
 
@@ -203,7 +208,7 @@ Top Header / Topbar
 Main Content
 ```
 
-## 9. Responsive
+## Responsive
 
 Target:
 
@@ -225,7 +230,7 @@ On smaller screens:
 - reduce secondary information;
 - avoid overflow.
 
-## 10. Surfaces
+## Surfaces
 
 Page background:
 
@@ -255,7 +260,7 @@ border-radius: 8px;
 
 Prefer borders over heavy shadows.
 
-## 11. Radius and shadows
+## Radius and shadows
 
 Radius:
 
@@ -276,7 +281,7 @@ Use shadows sparingly for dropdowns, popovers, modals and floating menus.
 
 Avoid glassmorphism, glow and decorative heavy shadows.
 
-## 12. Buttons
+## Buttons
 
 Hierarchy:
 
@@ -291,7 +296,7 @@ Danger uses Error red, not Amber.
 
 Avoid competing primary CTAs.
 
-## 13. Forms
+## Forms
 
 Every field has a visible label.
 
@@ -301,7 +306,7 @@ Use sections/steps for long forms.
 
 Validation must be clear and not color-only.
 
-## 14. Tables
+## Tables
 
 Use for enterprise operational data.
 
@@ -314,7 +319,7 @@ Support when appropriate:
 - compact row actions
 - overflow menus
 
-## 15. Statuses
+## Statuses
 
 ```text
 Success → active/completed/approved/published
@@ -325,7 +330,7 @@ Info    → neutral informational
 
 Always include readable status text.
 
-## 16. UI states
+## UI states
 
 Every data-driven screen should consider:
 
@@ -339,7 +344,7 @@ Confirmation
 
 Do not implement only the happy path.
 
-## 17. Navigation
+## Navigation
 
 Navigation reflects role permissions.
 
@@ -349,7 +354,7 @@ Active item must be clear.
 
 Avoid coloring every icon Amber.
 
-## 18. Guest UI
+## Guest UI
 
 Guest UI should be clean, light, professional and B2B-oriented.
 
@@ -373,7 +378,7 @@ Payment Result
 
 Do not make it look like a public Course marketplace.
 
-## 19. Guest Home
+## Guest Home
 
 Placement:
 
@@ -395,7 +400,7 @@ Preserve approved Figma section order, hierarchy and CTA emphasis.
 
 Do not invent marketing sections, customers, prices, statistics or claims.
 
-## 20. Login
+## Login
 
 Placement:
 
@@ -416,7 +421,7 @@ Consider:
 
 Do not redesign the approved layout.
 
-## 21. Register
+## Register
 
 Placement:
 
@@ -429,7 +434,7 @@ Follow the actual LearnUP/Figma registration workflow.
 
 Do not assume generic consumer registration if the approved flow is organization/service registration.
 
-## 22. Role UX
+## Role UX
 
 Admin prioritizes platform overview, organizations, plans, configuration, moderation and suspended organizations.
 
@@ -443,7 +448,7 @@ submissions, Peer Review, grading, learner progress and reports.
 Learner prioritizes Required Training, deadlines, progress, assessments,
 certificates and Optional Courses.
 
-## 23. Course Builder
+## Course Builder
 
 Desktop:
 
@@ -463,7 +468,7 @@ Course
         └── Reading
 ```
 
-## 24. Dashboard
+## Dashboard
 
 Dashboards should answer:
 
@@ -477,172 +482,13 @@ Prefer KPI summary, alerts, pending work and operational lists/tables.
 
 Avoid decorative charts without business value.
 
-## 25. Ant Design
+## Ant Design
 
-The frontend currently uses **Ant Design 5.21.6**.
+Use the Ant Design version installed in frontend/package.json. Preserve the
+compatibility and provider rules in the architecture skill instead of assuming
+newer APIs or copying LearnUP tokens into ConfigProvider.
 
-All UI implementation must remain compatible with Ant Design 5.21.6.
-Do not use APIs from newer Ant Design releases unless the dependency is explicitly upgraded.
-
-Prefer:
-
-```text
-Button
-Form
-Input
-Select
-Table
-Modal
-Drawer
-Dropdown
-Tooltip
-Pagination
-DatePicker
-Upload
-Tag
-```
-
-Do not rebuild standard primitives without a design reason.
-
-At the current stage:
-
-- `ConfigProvider` stays in `main.tsx`;
-- use it primarily for locale/global Ant Design configuration;
-- do not duplicate LearnUP color tokens in `ConfigProvider`;
-- visual tokens stay in `global.scss`;
-- only introduce Ant Design theme overrides later when explicitly needed.
-
-## 26. Component grouping and SCSS convention
-
-Use role/domain subfolders only when multiple reusable UI components belong to the same clear flow.
-
-Preferred Guest registration grouping:
-
-```text
-components/guest/registration/
-├── plan.card.tsx
-├── plan.card.scss
-├── registration.tsx
-└── registration.scss
-```
-
-Do not create subfolders for isolated one-file components.
-
-Use dot-separated filenames for multi-part files such as:
-
-```text
-plan.card.tsx
-registration.tsx
-course.card.tsx
-layout.admin.tsx
-```
-
-Folder names remain lowercase or kebab-case, never dot-separated.
-
-Use regular SCSS only.
-
-Do NOT use `.module.scss`.
-
-Preferred:
-
-```text
-header.tsx
-header.scss
-footer.tsx
-footer.scss
-home.tsx
-home.scss
-login.tsx
-login.scss
-register.tsx
-register.scss
-```
-
-Use simple prefixed kebab-case class names.
-
-Preferred:
-
-```text
-.header
-.header-title
-.header-logo
-.header-nav
-.header-actions
-
-.footer
-.footer-title
-.footer-links
-
-.home
-.home-hero
-.home-section
-
-.login
-.login-title
-.login-form
-.login-submit
-
-.register
-.register-title
-.register-form
-.register-section
-```
-
-Do NOT use BEM `__`.
-
-Do NOT use generic names such as:
-
-```text
-.title
-.wrapper
-.content
-.item
-.button
-```
-
-unless intentionally global.
-
-## 27. Global and role-specific layout styling
-
-`src/styles/global.scss` contains global foundations and design tokens only.
-
-Global layout foundations such as `html`, `body`, `#root`, base `main`, reset,
-fonts, tokens and accessibility defaults belong in `global.scss`.
-
-Role-specific layout rules stay outside `global.scss`.
-
-Examples:
-
-```text
-components/guest/guest.scss
-components/layout/layout.admin.scss
-components/layout/layout.organizer.scss
-components/layout/layout.instructor.scss
-components/layout/layout.learner.scss
-```
-
-Do not reuse `.guest-layout` as the layout styling contract for Admin, Organizer,
-Instructor or Learner.
-
-Only create a role layout SCSS file when that role actually needs its own layout rules.
-
-## 29. global.scss standard
-
-`src/styles/global.scss` contains global foundations and design tokens only.
-
-Do not place page-specific styles in `global.scss`.
-
-Keep:
-
-- LearnUP color variables
-- base typography
-- reset
-- body/root defaults
-- form font inheritance
-- accessibility focus rules
-- global utility rules only when truly shared
-
-## 29. Figma-to-code workflow
+## Figma-to-code workflow
 
 For each screen:
 
@@ -661,7 +507,7 @@ For each screen:
 13. fix meaningful visual differences;
 14. do not modify unrelated screens.
 
-## 30. Decision priority
+## Decision priority
 
 ```text
 Approved LearnUP Figma
@@ -675,7 +521,7 @@ Ant Design convention
 Simplest professional B2B SaaS solution
 ```
 
-## 31. Accessibility
+## Accessibility
 
 Maintain:
 
@@ -686,13 +532,13 @@ Maintain:
 - touch-friendly controls
 - non-color-only status communication
 
-## 32. UI language
+## UI language
 
 Production UI is English unless explicitly requested otherwise.
 
 Do not mix English and Vietnamese in the same production interface.
 
-## 33. Terminology
+## Terminology
 
 Use:
 
@@ -715,7 +561,7 @@ Subscription
 Plan
 ```
 
-## 34. Do not invent
+## Do not invent
 
 Do not invent:
 
@@ -730,7 +576,7 @@ Do not invent:
 - AI capabilities
 - integrations
 
-## 35. Visual restraint
+## Visual restraint
 
 Avoid:
 
@@ -744,7 +590,7 @@ Avoid:
 - meaningless charts
 - excessive animation
 
-## 36. Final UI checklist
+## Final UI checklist
 
 Verify:
 
@@ -771,7 +617,7 @@ Verify:
 - no unrelated refactor
 - visible Figma differences fixed when accessible
 
-## 37. Practical rule
+## Practical rule
 
 Choose the simplest implementation that:
 
@@ -780,23 +626,3 @@ Choose the simplest implementation that:
 - is easy for the team to understand
 - satisfies the task
 - avoids over-engineering
-
-## TSX/SCSS file pairing
-
-For UI pages/components, prefer matching TSX and SCSS base names.
-
-Examples:
-
-```text
-registration.tsx
-registration.scss
-
-plan.card.tsx
-plan.card.scss
-
-login.tsx
-login.scss
-```
-
-Do not make filenames more verbose than necessary when the folder context is already clear.
-If dot-separated naming is used, the SCSS file must use the same base name.

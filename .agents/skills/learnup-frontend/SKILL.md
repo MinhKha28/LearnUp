@@ -12,7 +12,12 @@ description: >
 Use this skill whenever creating, modifying, refactoring, or reviewing frontend
 code in the LearnUP repository.
 
-## 1. Core principles
+
+Paths such as src/router.tsx below are relative to frontend/. Start with
+[frontend instructions](../../../frontend/AGENTS.md) and the current package.json.
+For visual/Figma work also read [UI design](../learnup-ui-design/SKILL.md).
+
+## Core principles
 
 - Keep architecture simple, readable, and consistent with the existing repository.
 - Extend the current structure instead of redesigning the whole project.
@@ -24,7 +29,7 @@ code in the LearnUP repository.
   schemas, feature folders, atomic design, or similar layers unless explicitly required.
 - Do not create a `constants/` folder or `routes.ts` at the current stage.
 
-## 2. Technology stack
+## Technology stack
 
 Use the existing stack:
 
@@ -56,86 +61,15 @@ Rules:
 - Only change the Ant Design version when the team explicitly requests a dependency upgrade.
 - Prefer existing Ant Design 5.21.6 components before adding another UI library.
 
-## 3. Canonical source structure
 
-```text
-src/
-├── assets/
-│   ├── images/
-│   ├── icons/
-│   └── template/
-│
-├── components/
-│   ├── admin/
-│   ├── context/
-│   ├── guest/
-│   │   ├── registration/
-│   │   │   ├── plan.card.tsx
-│   │   │   ├── plan.card.scss
-│   │   │   ├── registration.tsx
-│   │   │   └── registration.scss
-│   │   └── guest.scss
-│   ├── identity/
-│   ├── instructor/
-│   ├── layout/
-│   │   ├── header.tsx
-│   │   ├── header.scss
-│   │   ├── footer.tsx
-│   │   ├── footer.scss
-│   │   ├── layout.admin.tsx
-│   │   ├── layout.admin.scss
-│   │   ├── layout.organizer.tsx
-│   │   ├── layout.organizer.scss
-│   │   ├── layout.instructor.tsx
-│   │   ├── layout.instructor.scss
-│   │   ├── layout.learner.tsx
-│   │   └── layout.learner.scss
-│   ├── learner/
-│   └── organizer/
-│
-├── pages/
-│   ├── admin/
-│   ├── guest/
-│   ├── instructor/
-│   ├── learner/
-│   └── organizer/
-│
-├── services/
-│   ├── achievement.service.ts
-│   ├── assessment.service.ts
-│   ├── axios.customize.ts
-│   ├── course.service.ts
-│   ├── identity.service.ts
-│   ├── learning.service.ts
-│   ├── notification.service.ts
-│   └── organization.service.ts
-│
-├── styles/
-│   └── global.scss
-│
-├── types/
-│   ├── achievement.types.ts
-│   ├── assessment.types.ts
-│   ├── axios.d.ts
-│   ├── course.types.ts
-│   ├── file.d.ts
-│   ├── global.d.ts
-│   ├── identity.types.ts
-│   ├── learning.types.ts
-│   └── organization.types.ts
-│
-├── utils/
-│   └── helper.ts
-│
-├── layout.tsx
-├── main.tsx
-├── router.tsx
-└── vite-env.d.ts
-```
+## Source entry points
 
-Do not create new top-level folders unless clearly needed.
+Read frontend/src rather than treating a copied tree as an exhaustive inventory.
+Main routing is src/router.tsx; providers are in src/main.tsx. Domain APIs belong in
+src/services, models in src/types, shared styles in src/styles/global.scss.
+Keep the existing Guest/Admin/Organizer/Instructor/Learner separation.
 
-## 4. Role structure
+## Role structure
 
 Use:
 
@@ -149,7 +83,7 @@ Learner
 
 Do not merge authenticated roles into a generic `user` folder.
 
-## 5. Page placement
+## Page placement
 
 Route-level screens belong in:
 
@@ -171,7 +105,7 @@ pages/learner/my-courses.tsx
 
 Do not place complete routed pages inside `components/`.
 
-## 6. Component placement
+## Component placement
 
 Reusable role-specific UI belongs in:
 
@@ -195,7 +129,8 @@ Use `components/identity/` for:
 
 Do not wrap every Ant Design primitive in a custom component.
 
-## 7. File & folder naming convention
+
+## File & folder naming convention
 
 Follow the existing LearnUP naming style exactly.
 
@@ -475,61 +410,11 @@ vite-env.d.ts
 
 Do not use `.d.ts` for ordinary business/domain types.
 
-### SCSS file naming
 
-Match the related TSX file naming.
+When a TSX file has dedicated SCSS, keep the same base filename. Use folder context
+and the shortest clear name; add a dot-separated purpose only when it improves meaning.
 
-Examples:
-
-```text
-plan.card.tsx
-plan.card.scss
-
-layout.admin.tsx
-layout.admin.scss
-
-home.tsx
-home.scss
-```
-
-Do NOT use CSS Modules:
-
-```text
-plan.card.module.scss
-home.module.scss
-```
-
-### Naming decision map
-
-```text
-Simple page
-→ <feature>.tsx
-
-Multi-part page
-→ <feature>.<purpose>.tsx
-
-Simple component
-→ <component>.tsx
-
-Multi-part component
-→ <feature>.<purpose>.tsx
-
-Related style
-→ same base name + .scss
-
-Service
-→ <domain>.service.ts
-
-Types
-→ <domain>.types.ts
-
-Role layout
-→ layout.<role>.tsx
-```
-
-Always follow this repository convention before inventing a new naming pattern.
-
-## 8. Routing
+## Routing
 
 Main route definitions belong in:
 
@@ -565,7 +450,7 @@ yet.
 
 Only introduce route constants later when duplication becomes genuinely hard to maintain or the team explicitly decides to centralize routes.
 
-## 9. Import convention
+## Import convention
 
 Prefer one project-wide alias:
 
@@ -583,7 +468,7 @@ import type { ILogin } from "@/types/identity.types";
 
 Avoid mixing aliases and deep relative imports unnecessarily.
 
-## 10. Main application provider rule
+## Main application provider rule
 
 Global application providers belong in:
 
@@ -591,21 +476,8 @@ Global application providers belong in:
 src/main.tsx
 ```
 
-Current preferred structure:
-
-```tsx
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App>
-      <AppProvider>
-        <ConfigProvider locale={enUS}>
-          <RouterProvider router={router} />
-        </ConfigProvider>
-      </AppProvider>
-    </App>
-  </StrictMode>
-);
-```
+Inspect src/main.tsx for the current locale and provider nesting.
+Do not replace the installed locale from an illustrative snippet.
 
 Rules:
 
@@ -628,7 +500,7 @@ Do not do this in layouts:
 
 when `main.tsx` already owns `ConfigProvider`.
 
-## 11. Layout responsibility and layout styling
+## Layout responsibility and layout styling
 
 `src/layout.tsx` is the public/Guest composition layout and should remain simple.
 
@@ -717,7 +589,7 @@ Rules:
 - If a style is genuinely global to all layouts, place it in `global.scss`.
 - If a style belongs only to one role/layout, keep it in that role/layout SCSS file.
 
-## 12. Services
+## Services
 
 Use:
 
@@ -741,7 +613,7 @@ Course assignment to Learners belongs to Learning, not Course.
 
 Do not confuse Course assignment with Assignment exercise.
 
-## 13. Types
+## Types
 
 Domain types use `.types.ts`.
 
@@ -760,7 +632,7 @@ IModelPaginate<T>
 
 Use `.d.ts` only for actual declaration/module augmentation needs.
 
-## 14. Utilities
+## Utilities
 
 Generic helpers belong under:
 
@@ -771,69 +643,8 @@ utils/
 Keep `utils/helper.ts` simple until a real need exists to split it.
 
 
-## TSX and SCSS pairing rule
 
-The team prefers component/page TSX and SCSS files to use the same base name.
-
-Preferred:
-
-```text
-registration.tsx
-registration.scss
-
-plan.card.tsx
-plan.card.scss
-
-header.tsx
-header.scss
-
-login.tsx
-login.scss
-
-layout.admin.tsx
-layout.admin.scss
-```
-
-Rules:
-
-- When a TSX file has its own dedicated SCSS file, keep the same base filename.
-- Do not rename a clear component such as `registration.tsx` to
-  `registration.tsx` only to describe its internal responsibility if
-  `registration.tsx` is already clear in its folder context.
-- Use dot-separated naming only when the semantic purpose is genuinely useful
-  and keep the SCSS pair identical.
-- Prefer folder context + matching file pair over unnecessarily verbose filenames.
-
-Examples:
-
-```text
-components/guest/registration/
-├── registration.tsx
-├── registration.scss
-├── plan.card.tsx
-└── plan.card.scss
-```
-
-Avoid inconsistent pairs such as:
-
-```text
-registration.tsx
-registration.scss
-
-plan.card.tsx
-plan.scss
-```
-
-Decision priority:
-
-```text
-Clear folder context
-→ matching TSX/SCSS base name
-→ shortest clear filename
-→ add dot-separated purpose only when it improves clarity
-```
-
-## 15. Styling convention
+## Styling convention
 
 Use regular SCSS.
 
@@ -870,7 +681,7 @@ Import directly:
 import "./header.scss";
 ```
 
-## 16. SCSS class naming
+## SCSS class naming
 
 Use simple prefixed kebab-case class names.
 
@@ -917,7 +728,7 @@ Rules:
 - avoid generic global names such as `.title`, `.wrapper`, `.content`, `.item`, `.button`;
 - keep names simple and easy for the team to control.
 
-## 17. global.scss responsibility
+## global.scss responsibility
 
 `src/styles/global.scss` contains only true global foundations and design tokens.
 
@@ -936,95 +747,15 @@ Recommended scope:
 
 Do not put page-specific styles in `global.scss`.
 
-Recommended base:
+See src/styles/global.scss for the maintained token values and reset rules.
 
-```scss
-:root {
-  --color-primary: #1e293b;
-  --color-accent: #f59e0b;
-
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-surface-secondary: #f1f5f9;
-
-  --color-border: #e2e8f0;
-  --color-divider: #cbd5e1;
-
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #475569;
-
-  --color-success: #059669;
-  --color-info: #2563eb;
-  --color-warning: #f59e0b;
-  --color-error: #dc2626;
-
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-
-  color: var(--color-text-primary);
-  background: var(--color-bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-}
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html {
-  min-width: 320px;
-  background: var(--color-bg);
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  background: var(--color-bg);
-  color: var(--color-text-primary);
-}
-
-#root {
-  min-height: 100vh;
-}
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-img,
-svg {
-  max-width: 100%;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-:focus-visible {
-  outline: 2px solid var(--color-info);
-  outline-offset: 2px;
-}
-```
-
-## 18. Legacy code
+## Legacy code
 
 Do not copy bookstore concepts into LearnUP.
 
 Migrate incrementally and avoid unrelated rewrites.
 
-## 19. Dependency rule
+## Dependency rule
 
 Before adding any package:
 
@@ -1032,7 +763,7 @@ Before adding any package:
 2. prefer Ant Design where appropriate;
 3. prefer native React/TypeScript/browser APIs for simple needs.
 
-## 20. Before finishing
+## Before finishing
 
 Verify:
 

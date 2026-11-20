@@ -1,16 +1,16 @@
 # LearnUP frontend instructions
 
-Use the repository skills under `.agents/skills/`.
+Use the repository skills under `../.agents/skills/`.
 
 For frontend architecture, React/TypeScript structure, routing, services, types,
 imports, naming, SCSS conventions, provider placement, and folder organization:
 
-`.agents/skills/learnup-frontend/SKILL.md`
+`../.agents/skills/learnup-frontend/SKILL.md`
 
 For Figma-to-code, branding, layout, typography, spacing, responsive behavior,
 Ant Design UI, visual states, accessibility, and role-specific UX:
 
-`.agents/skills/learnup-ui-design/SKILL.md`
+`../.agents/skills/learnup-ui-design/SKILL.md`
 
 When implementing UI from Figma, use BOTH skills.
 
