@@ -3,63 +3,111 @@
 ## Purpose
 
 Align assistants with LearnUP's shared standards while keeping personal preferences
-private. Use this guide to configure loading, migrate local rules safely and check
-commit metadata.
+private. Use this guide to configure loading, migrate local rules and check commits.
 
 ## Where instructions live
 
 | File | Tracked here? | Who reads it | What belongs here |
 | --- | --- | --- | --- |
-| Root [AGENTS.md](../../AGENTS.md) | Yes | Codex, Antigravity; Claude through import | Repository index, shared rules and component pointers |
-| Per-folder AGENTS.md | Yes | Codex in its directory chain; other tools as described below | Rules for that component only |
+| Root [AGENTS.md](../../AGENTS.md) | Yes | Codex; Claude through import | Shared rules, repository index and component pointers |
+| Per-folder AGENTS.md | Yes | Codex in its directory chain; Claude when explicitly read | Component rules |
 | Root [CLAUDE.md](../../CLAUDE.md) | Yes | Claude Code | Only `@AGENTS.md`, importing shared root guidance |
 | Root CLAUDE.local.md | No; git-ignored | Claude Code | Personal project preferences |
-| ~/.codex/AGENTS.md | Outside this repo | Codex, across repositories | Personal defaults; scope project-specific preferences explicitly |
+| ~/.codex/AGENTS.md | Outside this repo | Codex, across repositories | Personal defaults; scope project preferences explicitly |
 
-On Windows the default Codex path is `%USERPROFILE%\.codex\AGENTS.md`.
+On Windows, the default global Codex file is `%USERPROFILE%\.codex\AGENTS.md`.
 `~/.codex/AGENTS.override.md`, if present, replaces that global AGENTS.md entirely.
-Codex loads root-to-working-directory files, not every child. Antigravity loads
-workspace/ancestor rules, not descendants. Claude imports root guidance through
-CLAUDE.md; explicitly open scoped AGENTS.md files rather than assuming recursive imports.
+Codex loads instructions from the repository root to its working directory, not
+every child. Claude imports root guidance through CLAUDE.md; explicitly read the
+AGENTS.md of the folder you work in rather than assuming recursive imports.
 
-Frontend work uses the shared [architecture skill](../../.agents/skills/learnup-frontend/SKILL.md);
+Frontend work uses the [architecture skill](../../.agents/skills/learnup-frontend/SKILL.md);
 UI/Figma work also uses the [design skill](../../.agents/skills/learnup-ui-design/SKILL.md).
 
 ## One-time migration
 
-1. Back up tracked/local guides and .git/info/exclude outside the checkout; preserve
-   unrelated work.
-2. Save personal rules in private drafts for CLAUDE.local.md and/or the Codex global
-   file. Move untracked personal AGENTS.md files into the backup.
-3. Restore only backed-up personal changes, for example
-   `git restore -- AGENTS.md frontend/AGENTS.md`. Remove AGENTS.md exclusions from
-   .git/info/exclude; preserve unrelated entries.
-4. Run `git pull --ff-only`. On failure, inspect remaining changes; never reset or force.
-5. After the tracked ignore rule and CLAUDE import arrive, write CLAUDE.local.md from
-   its private draft. Verify clean `git status` and that
-   `git check-ignore -v CLAUDE.local.md` points to the tracked .gitignore.
+**Do I need this?** Only if `git status` shows modified AGENTS.md files, your Git
+exclude file contains AGENTS.md patterns, or you keep untracked personal AGENTS.md
+files. Preserve unrelated work; restore only changes you have backed up.
+
+1. Back up outside the checkout. From the repository root, PowerShell:
+
+   ```powershell
+   $backup = Join-Path $env:USERPROFILE ('learnup-instructions-' + (Get-Date -Format yyyyMMddHHmmss))
+   New-Item -ItemType Directory -Path $backup
+   $exclude = git rev-parse --git-path info/exclude
+   Copy-Item AGENTS.md (Join-Path $backup 'root-AGENTS.md')
+   Copy-Item frontend/AGENTS.md (Join-Path $backup 'frontend-AGENTS.md')
+   Copy-Item $exclude (Join-Path $backup 'git-info-exclude')
+   ```
+
+   Git Bash:
+
+   ```bash
+   backup=$(mktemp -d "$HOME/learnup-instructions.XXXXXX")
+   exclude=$(git rev-parse --git-path info/exclude)
+   cp AGENTS.md "$backup/root-AGENTS.md"
+   cp frontend/AGENTS.md "$backup/frontend-AGENTS.md"
+   cp "$exclude" "$backup/git-info-exclude"
+   ```
+
+   Also back up each affected scoped guide and existing private instruction file.
+   Move untracked personal guides into the backup, retaining their relative paths.
+2. Inspect personal changes with `git diff -- AGENTS.md frontend/AGENTS.md`; repeat
+   for affected scoped files. Paste project preferences into a private draft for
+   root CLAUDE.local.md; merge Codex preferences into `~/.codex/AGENTS.md`, keeping
+   existing rules. Keep the Claude draft in the backup until step 4.
+3. Run `git restore -- AGENTS.md frontend/AGENTS.md`; name other backed-up tracked
+   guides explicitly. Open the exclude file with `notepad $exclude` (PowerShell)
+   or `notepad.exe "$exclude"` (Git Bash). Remove AGENTS.md patterns, including
+   broad `AGENTS.md` and `**/AGENTS.md` entries; keep unrelated entries.
+4. Run `git pull --ff-only`. If it fails, inspect the remaining changes; never reset
+   or force. After the tracked CLAUDE import and ignore rule arrive, paste the
+   saved Claude draft into root CLAUDE.local.md.
+5. Run `git status` and `git check-ignore -v CLAUDE.local.md`. Status must be clean;
+   check-ignore must point to the tracked .gitignore.
+
+## Turn off attribution at the source
+
+These settings are personal files; never commit them.
+
+Claude Code: edit `~/.claude/settings.json` (Windows:
+`%USERPROFILE%\.claude\settings.json`), preserving other settings:
+
+```json
+{"attribution": {"commit": "", "pr": ""}}
+```
+
+The older `includeCoAuthoredBy` key is deprecated; see the
+[Claude settings reference](https://code.claude.com/docs/en/settings-reference#attribution).
+
+Codex: user settings live in `~/.codex/config.toml` (Windows:
+`%USERPROFILE%\.codex\config.toml`). The current
+[official config reference](https://developers.openai.com/codex/config-reference/)
+does not document `commit_attribution` or `features.codex_git_commit`; this guide
+does not recommend an unverified setting.
+
+Cursor/Copilot users: disable commit/PR attribution in the tool's settings where
+available. Attribution settings have had bugs, so the local scanner before every
+push remains mandatory.
 
 ## Rules and local check
 
-Keep personal instructions, workstation paths, personal-container ports and secrets
-out of this public repository. Do not add assistant attribution to commits, PR
-titles/bodies, review comments or Issues.
+Never commit personal instructions, workstation paths, personal-container ports or
+secrets. No assistant signatures belong in commits, PR titles/bodies, review
+comments or Issues.
 
-The [scanner](../../scripts/check-ai-signatures.mjs) flags `Co-authored-by` trailers naming AI/bot identities
-(Claude, Codex, Copilot, Cursor, ChatGPT, Gemini), `Generated with` wording, the robot
-emoji (U+1F916), claude.ai/chatgpt.com domain references, and AI/bot author or committer
-identities. Identity matching also covers AI/AI-assistant, github-actions, OpenAI,
-Anthropic, `[bot]` and separated bot/bots markers. The sole exception is exact committer
-`GitHub <noreply@github.com>` with a non-AI/non-bot author. Ordinary product-name
-mentions in message prose are allowed.
+The [scanner](../../scripts/check-ai-signatures.mjs) flags AI/bot coauthor trailers
+and author/committer identities, generation-attribution wording, the robot emoji
+(U+1F916), and claude.ai/chatgpt.com links. This includes Claude, Codex, Copilot,
+Cursor, ChatGPT and Gemini attribution; see the script for exact rules.
 
 **CI enforces commits only:** job **AI signature** is part of required **CI result**;
-a signature-job failure fails that aggregate. PR titles/bodies, review comments and
-Issues are team policy checked by people, not CI. CI scans the PR base-to-head range,
-including authored merges, excluding develop history and the synthetic PR merge.
+its failure fails that aggregate. PR titles/bodies, review comments and Issues are
+team policy checked by people, not CI.
 
-Use a full-history checkout, fetch origin, and resolve both refs to SHAs first.
-From the repository root, PowerShell:
+Use a full-history checkout. Resolve both refs to SHAs before scanning your branch,
+including merge commits, from the repository root. PowerShell:
 
 ```powershell
 git fetch origin
@@ -77,25 +125,26 @@ headSha=$(git rev-parse HEAD)
 node scripts/check-ai-signatures.mjs "$baseSha" "$headSha"
 ```
 
-A later clean commit does not remove an earlier hit. Rewrite only your own branch's
-affected commits, rerun the check, then push with
-`git push --force-with-lease`. Never rewrite develop or another person's branch.
-Changed heads need fresh checks and approval; do not bypass the required gate.
+To fix the last commit, use `git commit --amend`. For older messages, use
+`git rebase -i <base-sha>` and mark affected commits `reword`; also correct any
+flagged author/committer identity. Rerun the scanner, then
+`git push --force-with-lease` on your own branch only. Never rewrite develop or
+another person's branch. Changed heads need fresh checks and approval.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
-| Pull says local AGENTS.md changes would be overwritten | Back up and migrate personal rules; preserve unrelated edits before restoring. |
-| Claude seems to ignore shared rules | Check `/memory`, the root import and explicit reading of the scoped guide. |
+| Pull says local AGENTS.md changes would be overwritten | See One-time migration. |
+| Claude seems to ignore shared rules | Check `/memory`, the root import and explicit reading of scoped guides. |
 | Codex ignores global preferences | Check its home directory and AGENTS.override.md. |
 | An untracked AGENTS.md appears in status | Move personal rules privately; do not hide or accidentally stage them. Shared proposals need review. |
 
 ## Quick self-check
 
-- [ ] Shared and scoped guides are loaded or explicitly read.
+- [ ] Claude Code `/memory` lists AGENTS.md; you have read the AGENTS.md of the folder you work in.
 - [ ] Personal rules are private and overrides are intentional.
 - [ ] CLAUDE.local.md is ignored by the tracked .gitignore.
 - [ ] Status/diff contain no accidental personal files or secrets.
-- [ ] The branch's local signature check reports zero hits.
+- [ ] The branch's local signature check reports zero hits before every push.
 - [ ] Public text has no attribution signatures; required CI passes before merge.
