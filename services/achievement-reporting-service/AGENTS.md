@@ -12,3 +12,8 @@ build and the indicated suites from this directory. Use the CI ESLint command wi
 Verification: npm run test:unit; npm run test:integration.
 
 Database suites require a non-production DATABASE_URL and create isolated ar1_test_* schemas with cleanup; never assume a fixed container or port. Do not run destructive probes against shared databases.
+
+Before starting a database test stack, check published host ports and resource
+ownership. Two PostgreSQL containers cannot bind the same host address and port.
+Choose an unused mapping and configure DATABASE_URL accordingly; never stop an
+unrelated stack to free a port.
