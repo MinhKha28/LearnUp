@@ -205,6 +205,8 @@ const getPageMeta = (pathname: string) => {
     return ["Quản lý đào tạo", "Lịch sử vi phạm"];
   if (pathname === "/organizer/profile/change-password")
     return ["Quản lý đào tạo", "Đổi mật khẩu"];
+  if (pathname === "/organizer/profile/edit")
+    return ["Quản lý đào tạo", "Sửa hồ sơ"];
   if (pathname === "/organizer/profile") return ["Quản lý đào tạo", "Hồ sơ"];
   return ["Quản lý đào tạo", "Tổng quan"];
 };
