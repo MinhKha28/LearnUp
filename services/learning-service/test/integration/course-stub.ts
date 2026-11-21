@@ -1,3 +1,4 @@
+import { constantTimeSecretEqual } from '@learnup/ts-common/security';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type {
@@ -284,7 +285,10 @@ export class CourseStub {
       req.on('end', () => {
         res.setHeader('content-type', 'application/json');
         if (
-          req.headers['x-internal-key'] !== process.env.INTERNAL_SERVICE_KEY
+          !constantTimeSecretEqual(
+            req.headers['x-internal-key'],
+            process.env.INTERNAL_SERVICE_KEY,
+          )
         ) {
           res.writeHead(401).end('{}');
           return;

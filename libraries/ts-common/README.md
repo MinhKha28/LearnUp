@@ -36,6 +36,15 @@ Role parsing and context factories transform data; they do not authenticate an
 untrusted request. The consuming service supplies its authenticated context.
 Event-specific contracts remain in [contracts/events/](../../contracts/events/README.md).
 
+## Node-only security helper
+
+Server code can import `constantTimeSecretEqual` from
+`@learnup/ts-common/security` to authenticate an internal service credential.
+It compares SHA-256 digests with Node crypto, preserves whitespace in valid
+credentials, and rejects empty or invalid inputs and blank configured keys.
+Keep this subpath out of browser code; the root entry does not export it.
+Build the library before installing or building its file-linked consumers.
+
 ## Local development
 
 Use the Node version selected by the current CI workflow. From libraries/ts-common/:
