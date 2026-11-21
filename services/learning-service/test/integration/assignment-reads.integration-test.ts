@@ -1,3 +1,4 @@
+import { constantTimeSecretEqual } from '@learnup/ts-common/security';
 import { closeAll, closeApp } from './deadlines';
 import { testFetch as fetch } from './test-io';
 import './tenant-lookup-config';
@@ -72,8 +73,10 @@ const searchServer = createServer((request, response) => {
   const learner = url.pathname === '/api/v1/users/learners';
   if (
     (!learner && url.pathname !== '/api/v1/courses/organization') ||
-    request.headers[HEADER_NAMES.INTERNAL_KEY] !==
-      process.env.INTERNAL_SERVICE_KEY ||
+    !constantTimeSecretEqual(
+      request.headers[HEADER_NAMES.INTERNAL_KEY],
+      process.env.INTERNAL_SERVICE_KEY,
+    ) ||
     request.headers[HEADER_NAMES.USER_ID] !== user.userId ||
     request.headers[HEADER_NAMES.USER_ROLE] !== user.role ||
     request.headers[HEADER_NAMES.ORGANIZATION_ID] !== ORG

@@ -10,6 +10,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./security": {
+      "types": "./dist/security/index.d.ts",
+      "import": "./dist/security/index.js",
+      "default": "./dist/security/index.js"
     }
   },
   "files": [
@@ -24,7 +29,8 @@
   },
   "devDependencies": {
     "typescript": "^5.4.5",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "@types/node": "^22.0.0"
   },
   "engines": {
     "node": ">=20.0.0"
