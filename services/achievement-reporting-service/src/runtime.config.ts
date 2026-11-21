@@ -1,3 +1,5 @@
+import { validateInternalServiceKey } from '@learnup/ts-common';
+
 /** Missing NODE_ENV is production-like, as with the fake-client guards. */
 export function validateRuntimeConfig(
   environment: Record<string, unknown>,
@@ -5,15 +7,10 @@ export function validateRuntimeConfig(
   if (environment.NODE_ENV === 'development' || environment.NODE_ENV === 'test')
     return environment;
 
-  if (
-    typeof environment.INTERNAL_SERVICE_KEY !== 'string' ||
-    !environment.INTERNAL_SERVICE_KEY.trim() ||
-    Buffer.byteLength(environment.INTERNAL_SERVICE_KEY, 'utf8') < 32 ||
-    environment.INTERNAL_SERVICE_KEY.trim() === 'learnup-internal-secret'
-  )
-    throw new Error(
-      'INTERNAL_SERVICE_KEY must be explicitly configured, non-default and at least 32 UTF-8 bytes outside development/test',
-    );
+  validateInternalServiceKey(
+    environment.INTERNAL_SERVICE_KEY,
+    environment.NODE_ENV,
+  );
 
   try {
     if (typeof environment.DATABASE_URL !== 'string') throw new Error();
