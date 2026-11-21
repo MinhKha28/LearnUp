@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC29 / UC29.1: the list of Quizzes and Assignments of a Course, in Vietnamese, with the way into each Quiz. jsdom is for this file only.
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";

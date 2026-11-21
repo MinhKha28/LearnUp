@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC49: the bell and the page of the notifications, in Vietnamese (BR-232: the notice of the reviews handed out is one of them).
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";

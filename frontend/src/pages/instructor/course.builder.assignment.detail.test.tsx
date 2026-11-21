@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { message } from "antd";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";

@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { App } from "antd";
 import { MemoryRouter } from "react-router-dom";

@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC29.1: the Learner takes a Quiz, by interaction. jsdom is for this file only.
 import {
   act,

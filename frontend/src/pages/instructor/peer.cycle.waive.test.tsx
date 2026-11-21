@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC33.2: the Instructor confirms the waiver of one duty, by interaction. jsdom is for this file only.
 import {
   cleanup,

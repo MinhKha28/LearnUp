@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // The Learner dashboard still uses sample data, but its text is Vietnamese like the rest of the UI. (The review history now has real data and its own test.)
 import {
   cleanup,
