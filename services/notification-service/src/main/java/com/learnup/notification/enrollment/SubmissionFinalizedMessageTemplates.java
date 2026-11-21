@@ -13,7 +13,7 @@ import java.util.Map;
 
 @Component
 public class SubmissionFinalizedMessageTemplates {
-    public static final String TITLE = "Kết quả Bài tập đã được công bố";
+    public static final String TITLE = "Kết quả bài tập đã được công bố";
     public static final String TYPE = "ASSIGNMENT_RESULT";
     public static final String TEMPLATE = "ASSIGNMENT_FINALIZED";
     private final ObjectMapper mapper;
@@ -26,15 +26,15 @@ public class SubmissionFinalizedMessageTemplates {
 
     public String text(SubmissionFinalizedEvent event) {
         return "Bài tập «" + event.assessmentTitle() + "» đã được chốt điểm. Điểm của bạn: "
-                + score(event) + ". Xem chi tiết trong kết quả Khóa học.";
+                + score(event) + ". Xem chi tiết trong kết quả khóa học.";
     }
 
     public String email(SubmissionFinalizedEvent event, String fullName) {
-        String name = fullName == null || fullName.isBlank() ? "Học viên" : fullName;
+        String name = fullName == null || fullName.isBlank() ? "học viên" : fullName;
         return EmailLayout.render(EmailLayout.Card.of(TITLE).greeting(name)
-                .paragraph("Kết quả Bài tập «" + event.assessmentTitle() + "» đã được công bố.")
+                .paragraph("Kết quả bài tập «" + event.assessmentTitle() + "» đã được công bố.")
                 .paragraph("Điểm của bạn: " + score(event) + ".")
-                .paragraph("Bạn có thể xem chi tiết trong kết quả Khóa học trên LearnUP.")
+                .paragraph("Bạn có thể xem chi tiết trong kết quả khóa học trên LearnUP.")
                 .button("Xem kết quả", properties.resultUrl(event.courseId())));
     }
 

@@ -135,4 +135,81 @@ class SubmissionFinalizedEventHandlerTest {
         assertThat(rows.get(DeliveryChannel.EMAIL).getStatus()).isEqualTo(DeliveryStatus.SENT);
         assertThat(rows.get(DeliveryChannel.IN_APP).getLastError()).isEqualTo("IN_APP_FAILED");
     }
-}
+
+    @Test void transientInAppAndPermanentEmailKeepsTheRecordRetryable() {
+        when(notifications.sendNotification(any())).thenThrow(new IllegalStateException("TEST_TRANSIENT"));
+        when(recipients.find(any(), any())).thenThrow(new PermanentDeliveryException("TENANT_REJECTED"));
+
+        assertThatThrownBy(() -> handler.handle(event)).isInstanceOf(DependencyUnavailableException.class);
+        assertThat(rows.get(DeliveryChannel.IN_APP).getStatus()).isEqualTo(DeliveryStatus.FAILED);
+        assertThat(rows.get(DeliveryChannel.EMAIL).getStatus()).isEqualTo(DeliveryStatus.FAILED);
+        assertThat(rows.get(DeliveryChannel.EMAIL).getLastError()).isEqualTo("TENANT_REJECTED");
+    }
+    @Test void recoveryRetriesOnlyInAppThenReportsThePermanentEmailOutcome() {
+        when(notifications.sendNotification(any())).thenThrow(new IllegalStateException("TEST_TRANSIENT"));
+        when(recipients.find(any(), any())).thenThrow(new PermanentDeliveryException("TENANT_REJECTED"));
+        assertThatThrownBy(() -> handler.handle(event)).isInstanceOf(DependencyUnavailableException.class);
+        reset(notifications);
+
+        assertThatThrownBy(() -> handler.handle(event, 2)).isInstanceOf(PermanentDeliveryException.class);
+        assertThat(rows.get(DeliveryChannel.IN_APP).getStatus()).isEqualTo(DeliveryStatus.SENT);
+        assertThat(rows.get(DeliveryChannel.EMAIL).getStatus()).isEqualTo(DeliveryStatus.FAILED);
+        assertThat(rows.get(DeliveryChannel.EMAIL).getAttempts()).isEqualTo(1);
+        verify(notifications).sendNotification(any());
+        verify(recipients).find(any(), any());
+        verifyNoInteractions(emails);
+    }
+
+    @Test void permanentInAppAndTransientEmailRetriesOnlyEmail() {
+        // Inject the same supported permanent classification into the other channel to test aggregation symmetry.
+        when(notifications.sendNotification(any())).thenThrow(new PermanentDeliveryException("TENANT_REJECTED"));
+        when(emails.sendEmail(any())).thenReturn(result("FAILED"), result("SENT"));
+
+        assertThatThrownBy(() -> handler.handle(event)).isInstanceOf(DependencyUnavailableException.class);
+        assertThatThrownBy(() -> handler.handle(event, 2)).isInstanceOf(PermanentDeliveryException.class);
+        verify(notifications).sendNotification(any());
+        verify(emails, times(2)).sendEmail(any());
+        assertThat(rows.get(DeliveryChannel.IN_APP).getLastError()).isEqualTo("TENANT_REJECTED");
+        assertThat(rows.get(DeliveryChannel.EMAIL).getStatus()).isEqualTo(DeliveryStatus.SENT);
+    }
+
+    @Test void bothTransientChannelsRetryAndEventuallyComplete() {
+        when(notifications.sendNotification(any())).thenThrow(new IllegalStateException("TEST_TRANSIENT")).thenReturn(null);
+        when(emails.sendEmail(any())).thenReturn(result("FAILED"), result("SENT"));
+
+        assertThatThrownBy(() -> handler.handle(event)).isInstanceOf(DependencyUnavailableException.class);
+        handler.handle(event, 2);
+        verify(notifications, times(2)).sendNotification(any());
+        verify(emails, times(2)).sendEmail(any());
+        assertThat(rows.values()).allSatisfy(row -> assertThat(row.getStatus()).isEqualTo(DeliveryStatus.SENT));
+    }
+
+    @Test void bothPermanentChannelsHaveAnImmediatePermanentOutcomeAndAreNotRepeated() {
+        when(notifications.sendNotification(any())).thenThrow(new PermanentDeliveryException("TENANT_REJECTED"));
+        when(recipients.find(any(), any())).thenThrow(new PermanentDeliveryException("TENANT_REJECTED"));
+
+        assertThatThrownBy(() -> handler.handle(event)).isInstanceOf(PermanentDeliveryException.class);
+        assertThatThrownBy(() -> handler.handle(event, 2)).isInstanceOf(PermanentDeliveryException.class);
+        assertThat(rows.values()).allSatisfy(row -> {
+            assertThat(row.getStatus()).isEqualTo(DeliveryStatus.FAILED);
+            assertThat(row.getLastError()).isEqualTo("TENANT_REJECTED");
+            assertThat(row.getAttempts()).isEqualTo(1);
+        });
+        verify(notifications).sendNotification(any());
+        verify(recipients).find(any(), any());
+    }
+
+    @Test void firstDeliveryReclaimsPermanentEmailAfterAutomaticRetrySuppressedIt() {
+        when(notifications.sendNotification(any())).thenThrow(new IllegalStateException("TEST_TRANSIENT"));
+        when(recipients.find(any(), any())).thenThrow(new PermanentDeliveryException("TENANT_REJECTED"))
+                .thenReturn(Optional.of(new Recipient(event.learnerId(), "Hà", "learner@example.test", "Active")));
+        assertThatThrownBy(() -> handler.handle(event)).isInstanceOf(DependencyUnavailableException.class);
+        reset(notifications);
+        assertThatThrownBy(() -> handler.handle(event, 2)).isInstanceOf(PermanentDeliveryException.class);
+
+        handler.handle(event, 1);
+        assertThat(rows.values()).allSatisfy(row -> assertThat(row.getStatus()).isEqualTo(DeliveryStatus.SENT));
+        verify(notifications).sendNotification(any());
+        verify(recipients, times(2)).find(any(), any());
+        verify(emails).sendEmail(any());
+    }}

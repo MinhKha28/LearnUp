@@ -38,11 +38,13 @@ public class SubmissionFinalizedEventsKafkaConfig {
         backoff.setMaxInterval(properties.getRetryMaxMs());
         backoff.setMaxAttempts(properties.getRetryAttempts() - 1);
         DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, backoff);
+        handler.setResetStateOnRecoveryFailure(false);
         handler.addNotRetryableExceptions(InvalidEventException.class, PermanentDeliveryException.class);
         ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumers);
         factory.setCommonErrorHandler(handler);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.BATCH);
+        factory.getContainerProperties().setDeliveryAttemptHeader(true);
         return factory;
     }
 }

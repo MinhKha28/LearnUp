@@ -26,6 +26,7 @@ import java.util.UUID;
 
 @Component
 public class SubmissionFinalizedEventHandler {
+    private static final String PERMANENT_TENANT_REFUSAL = "TENANT_REJECTED";
     private static final Logger log = LoggerFactory.getLogger(SubmissionFinalizedEventHandler.class);
     private final DeliveryLedger ledger;
     private final EnrollmentEventDeliveryRepository repository;
@@ -53,6 +54,10 @@ public class SubmissionFinalizedEventHandler {
     }
 
     public void handle(SubmissionFinalizedEvent event) {
+        handle(event, 1);
+    }
+
+    public void handle(SubmissionFinalizedEvent event, int blockingDeliveryAttempt) {
         for (EnrollmentEventDelivery row : repository.findByEventId(event.eventId())) {
             if (!event.organizationId().equals(row.getOrganizationId())
                     || !event.learnerId().equals(row.getRecipientUserId())
@@ -60,23 +65,28 @@ public class SubmissionFinalizedEventHandler {
                 throw new InvalidEventException("DELIVERY_SCOPE_MISMATCH");
             }
         }
-        RuntimeException failure = null;
+        RuntimeException transientFailure = null;
+        PermanentDeliveryException permanentFailure = null;
         for (DeliveryChannel channel : new DeliveryChannel[] {DeliveryChannel.IN_APP, DeliveryChannel.EMAIL}) {
             try {
-                deliver(event, channel);
-            } catch (RuntimeException error) {
-                // Both channels run, even if the other needs a retry or a dead-letter decision.
-                if (failure == null || error instanceof PermanentDeliveryException
-                        || error instanceof InvalidEventException) failure = error;
+                deliver(event, channel, blockingDeliveryAttempt > 1);
+            } catch (InvalidEventException invalid) {
+                throw invalid;
+            } catch (PermanentDeliveryException permanent) {
+                permanentFailure = permanent;
+            } catch (RuntimeException transientError) {
+                transientFailure = transientError;
             }
         }
-        if (failure != null) throw failure;
+        // A permanent channel failure must not shortcut the other channel's transient retries.
+        if (transientFailure != null) throw transientFailure;
+        if (permanentFailure != null) throw permanentFailure;
     }
 
-    private void deliver(SubmissionFinalizedEvent event, DeliveryChannel channel) {
+    private void deliver(SubmissionFinalizedEvent event, DeliveryChannel channel, boolean automaticRetry) {
         EnrollmentEventDelivery row = ledger.open(event.eventId(), SubmissionFinalizedEvent.WIRE_NAME,
                 event.organizationId(), null, event.learnerId(), channel, event.occurredAt(), now());
-        Claim claim = claim(event, row.getId());
+        Claim claim = claim(event, row.getId(), automaticRetry);
         if (claim == null) return;
         try {
             if (channel == DeliveryChannel.IN_APP) sendInApp(event, claim);
@@ -96,6 +106,10 @@ public class SubmissionFinalizedEventHandler {
     record Claim(UUID id, Instant claimedAt, int attempt) {}
 
     Claim claim(SubmissionFinalizedEvent event, UUID id) {
+        return claim(event, id, false);
+    }
+
+    private Claim claim(SubmissionFinalizedEvent event, UUID id, boolean automaticRetry) {
         return transaction.execute(status -> {
             EnrollmentEventDelivery row = locked(id);
             if (!event.organizationId().equals(row.getOrganizationId())
@@ -104,6 +118,12 @@ public class SubmissionFinalizedEventHandler {
                 throw new InvalidEventException("DELIVERY_SCOPE_MISMATCH");
             }
             if (row.getStatus().isFinal()) return null;
+            // Only Tenant currently supplies permanent channel refusals for this event.
+            // First deliveries (including operator re-publication) retain the ability to retry them.
+            if (automaticRetry && row.getStatus() == DeliveryStatus.FAILED
+                    && PERMANENT_TENANT_REFUSAL.equals(row.getLastError())) {
+                throw new PermanentDeliveryException(row.getLastError());
+            }
             Instant now = now();
             if (!row.claimableAt(now, ledgerProperties.getClaimLease())) {
                 throw new DependencyUnavailableException("DELIVERY_CLAIMED");
