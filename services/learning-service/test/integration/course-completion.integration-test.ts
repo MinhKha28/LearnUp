@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { AssessmentStatusConsumer } from '../../src/modules/assessment-status/assessment-status.consumer';
 import { AssessmentStatusRepository } from '../../src/modules/assessment-status/assessment-status.repository';
 import { readAssessmentStatusConfig } from '../../src/modules/assessment-status/assessment-status.config';
@@ -20,7 +20,7 @@ import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, test } from './test-runner';
-import { ConfigService } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Prisma } from '../../generated/prisma/client';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -975,7 +975,25 @@ void test('API starts with Kafka and course-service unreachable and retains asse
   process.env.OUTBOX_RELAY_ENABLED = 'true';
   process.env.KAFKA_BROKERS = '127.0.0.1:1';
   process.env.COURSE_SERVICE_URL = 'http://127.0.0.1:1';
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+  // AppModule validation snapshots the environment at import time. Supply this
+  // scenario's later outage/recovery overrides explicitly to the test app.
+  class RecoveryAppModule {}
+  Module({
+    imports: [
+      AppModule,
+      ConfigModule.forRoot({
+        load: [
+          () => ({
+            COMPLETION_WORKER_ENABLED: process.env.COMPLETION_WORKER_ENABLED,
+            OUTBOX_RELAY_ENABLED: process.env.OUTBOX_RELAY_ENABLED,
+            KAFKA_BROKERS: process.env.KAFKA_BROKERS,
+            COURSE_SERVICE_URL: process.env.COURSE_SERVICE_URL,
+          }),
+        ],
+      }),
+    ],
+  })(RecoveryAppModule);
+  const app = await NestFactory.create<NestExpressApplication>(RecoveryAppModule, {
     logger: false,
   });
   try {

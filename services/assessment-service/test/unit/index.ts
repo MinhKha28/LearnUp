@@ -41,3 +41,5 @@ import './review-history.unit-test';
 import './peer-review-assigned.unit-test';
 import './relay-outage.unit-test';
 import './organizer-course-review.unit-test';
+
+import './runtime-config.unit-test';
