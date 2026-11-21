@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC28.1: the Learner reads the scores of the Course against the passing scores. jsdom is for this file only.
 import {
   cleanup,

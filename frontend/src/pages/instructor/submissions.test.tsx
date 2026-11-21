@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC32.4: the Instructor filters the submissions of an Assignment. jsdom is for this file only.
 import {
   act,

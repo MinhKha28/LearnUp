@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 import { isValidElement } from "react";
 import { matchRoutes, Navigate, type RouteObject } from "react-router-dom";
 import { afterAll, describe, expect, it, vi } from "vitest";

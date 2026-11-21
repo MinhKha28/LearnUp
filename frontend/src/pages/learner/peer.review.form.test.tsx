@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC31.1: the Learner gives a review against the Rubric, by interaction. jsdom is for this file only.
 import {
   cleanup,

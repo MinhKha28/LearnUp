@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // What the browser really sends from the assessment service: the real Axios client with its interceptors, and the network
 // replaced by a recorder. assessment.service.test.ts mocks the client, so it cannot see what the interceptor adds.
 import { AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
