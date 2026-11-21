@@ -44,6 +44,18 @@ const renderAdmin = (path: string) =>
     </MemoryRouter>,
   );
 
+const renderOrganizer = (path: string) =>
+  render(
+    <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Routes>
+        <Route path="/organizer" element={<LayoutOrganizer />}>
+          <Route path="profile" element={<h1>Hồ sơ</h1>} />
+          <Route path="profile/edit" element={<h1>Sửa hồ sơ</h1>} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  );
+
 beforeEach(() => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addListener: vi.fn(), removeListener: vi.fn() })));
 });
@@ -88,6 +100,17 @@ describe("Admin screenshot review wording", () => {
     const { container } = renderAdmin("/admin/profile/edit");
     expect(container.querySelector(".admin-topbar-left strong")?.textContent).toBe("Sửa hồ sơ");
     expect(screen.getByRole("heading", { name: "Sửa hồ sơ" })).toBeTruthy();
+  });
+});
+
+describe("Organizer profile topbar labels", () => {
+  it.each([
+    ["/organizer/profile", "Hồ sơ"],
+    ["/organizer/profile/edit", "Sửa hồ sơ"],
+  ])("matches the page heading at %s", (path, label) => {
+    const { container } = renderOrganizer(path);
+    expect(container.querySelector(".organizer-topbar-left strong")?.textContent).toBe(label);
+    expect(screen.getByRole("heading", { name: label })).toBeTruthy();
   });
 });
 
