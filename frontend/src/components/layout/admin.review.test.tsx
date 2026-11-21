@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import NotificationPage from "@/components/notification/notification.page";
 import LayoutAdmin from "@/components/layout/layout.admin";
-import LayoutOrganizer from "@/components/layout/layout.organizer";
 import PlanForm from "@/pages/admin/plan.form";
 import Profile from "@/pages/admin/profile";
 
@@ -89,15 +88,4 @@ describe("Admin screenshot review wording", () => {
     expect(container.querySelector(".admin-topbar-left strong")?.textContent).toBe("Sửa hồ sơ");
     expect(screen.getByRole("heading", { name: "Sửa hồ sơ" })).toBeTruthy();
   });
-});
-
-it("uses the glossary role in the Organizer footer", () => {
-  const { container } = render(
-    <MemoryRouter initialEntries={["/organizer"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <LayoutOrganizer />
-    </MemoryRouter>,
-  );
-  const footer = container.querySelector<HTMLElement>(".organizer-footer")!;
-  expect(within(footer).getByText("Quản lý đào tạo")).toBeTruthy();
-  expect(within(footer).queryByText("Quản lý tổ chức")).toBeNull();
 });

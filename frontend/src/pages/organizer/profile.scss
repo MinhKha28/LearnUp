@@ -17,7 +17,7 @@
     font-weight: 700;
 }
 
-.organizer-profile-identity span {
+.organizer-profile-identity > div > span:not(.organizer-status) {
     display: inline-block;
     margin-right: 8px;
     color: #94a3b8;
