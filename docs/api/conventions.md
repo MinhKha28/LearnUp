@@ -33,7 +33,8 @@ Use the standard top-level envelope for JSON API responses. Binary responses str
 
 ```json
 {
-  "success": true,
+  "statusCode": 200,
+  "message": "Request completed",
   "data": {
     "id": "e0b83e44-d890-411a-96ea-994c5e3d7491",
     "name": "Advanced Microservice Patterns",
@@ -44,16 +45,20 @@ Use the standard top-level envelope for JSON API responses. Binary responses str
 
 ### 2.2 Error Response
 
+The shared `ApiErrorResponse` type describes the following envelope; `error` and `errorCode` are optional.
+
 ```json
 {
-  "success": false,
-  "error": {
-    "code": "RESOURCE_NOT_FOUND",
-    "message": "Course with ID e0b83e44-d890-411a-96ea-994c5e3d7491 does not exist.",
-    "details": null
-  }
+  "statusCode": 404,
+  "message": "Course with ID e0b83e44-d890-411a-96ea-994c5e3d7491 does not exist.",
+  "error": "Not Found",
+  "errorCode": "RESOURCE_NOT_FOUND",
+  "timestamp": "2026-09-30T01:35:51.000Z",
+  "path": "/api/v1/courses/e0b83e44-d890-411a-96ea-994c5e3d7491"
 }
 ```
+
+The `createApiError(code, message, details?)` helper returns an error payload `{code, message, details?}`; it omits absent or empty details. It does not create an HTTP response envelope. The services' HTTP exception filters currently serialize `{statusCode, timestamp, path, error}`, where `error` contains the exception payload. Follow the endpoint's filter for its wire format; the shared type alone does not transform responses.
 
 ### Common Error Codes:
 * `UNAUTHORIZED`: Missing or invalid authentication token.
@@ -68,8 +73,8 @@ Use the standard top-level envelope for JSON API responses. Binary responses str
 ## 3. Standard Pagination Format
 
 Paginated endpoints accept standard query parameters:
-* `page`: 0-indexed page number (default: `0`).
-* `size`: Number of items per page (default: `20`, max: `100`).
+* `page`: 1-indexed page number (default: `1`). The helper preserves the supplied page number.
+* Page size is endpoint-specific; some lists use a fixed size. The response reports it as `meta.pageSize`.
 * `sort`: Property and direction, e.g. `createdAt,desc` or `name,asc`.
 
 **Rule**: Cursor-based pagination is explicitly prohibited to avoid unnecessary complexity. Simple offset/limit pagination is standard.
@@ -78,7 +83,8 @@ Paginated endpoints accept standard query parameters:
 
 ```json
 {
-  "success": true,
+  "statusCode": 200,
+  "message": "Request completed",
   "data": {
     "items": [
       {
@@ -88,12 +94,18 @@ Paginated endpoints accept standard query parameters:
         "tags": ["Sinh viên IT kỳ 4"]
       }
     ],
-    "page": 0,
-    "size": 20,
-    "totalElements": 142,
-    "totalPages": 8,
-    "first": true,
-    "last": false
+    "meta": {
+      "current": 1,
+      "pageSize": 20,
+      "pages": 8,
+      "total": 142
+    }
   }
 }
 ```
+
+`createPageResponse(items, page, size, totalElements)` returns `{meta, items}`. `meta.pages` is `Math.ceil(totalElements / size)` when size is positive, otherwise zero. An empty result has `items: []`, `meta.total: 0` and `meta.pages: 0`. There are no `first` or `last` fields.
+
+## 4. Trusted Context Header Names
+
+Use the lowercase names exported by `HEADER_NAMES`: `x-internal-key`, `x-user-id`, `x-organization-id`, `x-user-role`, and `x-correlation-id`. Node normalizes incoming header names to lowercase, so direct `request.headers` lookups use these exact keys. Callers must still meet each endpoint's authentication and organization-context requirements.
