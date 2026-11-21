@@ -25,11 +25,11 @@ import { OrganizationsController } from './modules/organizations/organizations.c
 import { AdminOrganizationsController } from './modules/organizations/admin-organizations.controller';
 import { MemberImportsModule } from './modules/member-imports/member-imports.module';
 import { MemberImportsController } from './modules/member-imports/member-imports.controller';
-import { validateEnvironment } from './common/utils/otp.util';
+import { validateRuntimeConfig } from './runtime.config';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateRuntimeConfig }),
     ScheduleModule.forRoot(), // bật @Interval / @Cron (EmailRelayService)
     PrismaModule,
     OutboxModule, // @Global: OutboxService + relay gửi email

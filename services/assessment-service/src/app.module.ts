@@ -1,3 +1,4 @@
+import { validateRuntimeConfig } from './runtime.config';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -19,7 +20,7 @@ import { QuizModule } from './modules/quiz/quiz.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateRuntimeConfig }),
     PrismaModule,
     IntegrationsModule,
     AssessmentActivityModule,

@@ -91,6 +91,16 @@ before their consumers. Read package.json for prerequisites and additional suite
   docs/uml/ sequence diagrams, docs/spec/ extracts, local diagram tooling and ignored working documents
   local. Do not publish ignored files merely because a task reads them.
 
+- Preserve local working documents and test assets: do not commit ignored or untracked
+  working notes, or delete local notes, smoke/E2E/performance scripts or assets without
+  explicit authorization. This does not block explicitly requested edits to tracked
+  documentation or cleanup of assets created by an external-account probe.
+- Write clean, efficient code that is easy to maintain and extend and, above all, easy for a junior developer to understand. Prefer longer, clearer code over clever shortcuts: use clear
+  names, small single-purpose functions, early returns, shallow nesting and named
+  constants instead of magic numbers. Avoid clever one-liners and unnecessary
+  abstractions or generics; follow existing patterns. Apply the same standard in
+  reviews and preserve component-specific conventions.
+
 ## References and reusable workflows
 
 Read CONTRIBUTING.md, contracts/openapi/README.md, contracts/events/README.md,
@@ -98,3 +108,4 @@ docs/database/README.md and the relevant docs/adr/ decisions when their subject 
 Frontend work uses .agents/skills/learnup-frontend/SKILL.md; Figma/UI work also uses
 .agents/skills/learnup-ui-design/SKILL.md. Read these workflows explicitly when needed.
 They contain detailed workflows, not automatically concatenated project instructions.
+For performance work, read perf/README.md and the relevant service benchmark guide.
