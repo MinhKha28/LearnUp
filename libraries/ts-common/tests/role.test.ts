@@ -12,13 +12,13 @@ describe('UserRole Utilities', () => {
     expect(USER_ROLES).toEqual(['ADMIN', 'ORGANIZER', 'INSTRUCTOR', 'LEARNER']);
   });
 
-  it('should validate valid roles with isValidUserRole', () => {
+  it('should validate only canonical roles with isValidUserRole', () => {
     expect(isValidUserRole('ADMIN')).toBe(true);
     expect(isValidUserRole('ORGANIZER')).toBe(true);
     expect(isValidUserRole('INSTRUCTOR')).toBe(true);
     expect(isValidUserRole('LEARNER')).toBe(true);
-    expect(isValidUserRole('admin')).toBe(true);
-    expect(isValidUserRole(' organizer ')).toBe(true);
+    expect(isValidUserRole('admin')).toBe(false);
+    expect(isValidUserRole(' organizer ')).toBe(false);
   });
 
   it('should reject invalid roles with isValidUserRole', () => {
