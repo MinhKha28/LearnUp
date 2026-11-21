@@ -145,13 +145,16 @@ Assessment producer and keeps generic notification/email REST APIs.
 | `SUBMISSION_FINALIZED_START_RETRY_MS` | `10000` | Retry starting the listener while unavailable. |
 | `SUBMISSION_FINALIZED_DLT_PARTITIONS` | `3` | DLT partition count. |
 | `SUBMISSION_FINALIZED_DLT_REPLICAS` | `1` | DLT replication factor. |
-| `LEARNUP_FRONTEND_BASE_URL` | Empty | Required when enabled; absolute http(s), no credentials/query/fragment. |
+| `LEARNUP_FRONTEND_BASE_URL` | Empty in application; Compose: `http://localhost:3000` | Required when enabled; absolute http(s), no credentials/query/fragment. |
 
 `learnup.frontend-base-url` backs the frontend base URL. A deployment subpath and
 trailing slash are supported. The proposed result URL is
 `{base}/learner/courses/by-course/{courseId}/results`. Deployment order is
-**consumer PR-1 → frontend resolver PR-3 → producer PR-2**. Configure the base URL
-before enabling the consumer; no implicit localhost destination is used.
+**consumer PR-1 → frontend resolver PR-3 → producer PR-2**. Compose defaults the
+base URL to `http://localhost:3000` for local development, matching its published
+frontend port. Production deployments must explicitly set the public frontend URL.
+Outside Compose, the application has no default and requires the URL when this
+consumer is enabled.
 
 The historical `enrollment_event_deliveries` table is reused with null
 `enrollment_id`, one row per event/learner/channel. There is no migration, age-based
