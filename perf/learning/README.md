@@ -1,8 +1,8 @@
 # UC25.3 enrollment benchmarks (D74–D76)
 
-Run from the repository root in Windows PowerShell with Node 22, Docker Desktop,
+Run from the repository root in Windows PowerShell with Node 24, Docker Desktop,
 and migrated/seeded local PostgreSQL. Fixture commands reject NODE_ENV=production.
-Both services run through compose using node:22-alpine. k6 runs as grafana/k6 in
+Both services run through compose using the pinned Node 24 Alpine images. k6 runs as grafana/k6 in
 learnup_learnup-network and calls http://learning-service:8085; learning calls
 http://course-service:8083. Docker-to-Windows-host HTTP measurements are excluded.
 

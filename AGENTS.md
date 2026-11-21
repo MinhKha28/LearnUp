@@ -27,7 +27,7 @@ nested instructions automatically. A link is a routing instruction, not an impor
 
 ## Build and verification entry points
 
-Use Node 22 for the current CI workflow and Java 21 with each Java component's POM.
+Use Node 24 for the current CI workflow and Java 21 with each Java component's POM.
 Run commands from the named component directory. Install/build file-linked libraries
 before their consumers. Read package.json for prerequisites and additional suites.
 
