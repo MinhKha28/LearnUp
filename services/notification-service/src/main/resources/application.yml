@@ -53,6 +53,17 @@ spring:
           writetimeout: ${SPRING_MAIL_SMTP_WRITE_TIMEOUT:5000}
 
 learnup:
+  frontend-base-url: ${LEARNUP_FRONTEND_BASE_URL:}
+  submission-finalized:
+    enabled: ${SUBMISSION_FINALIZED_CONSUMER_ENABLED:false}
+    topic: ${SUBMISSION_FINALIZED_TOPIC:learnup.assessment.submission-finalized}
+    group-id: ${SUBMISSION_FINALIZED_GROUP_ID:notification-submission-finalized-v1}
+    retry-attempts: ${SUBMISSION_FINALIZED_RETRY_ATTEMPTS:10}
+    retry-initial-ms: ${SUBMISSION_FINALIZED_RETRY_INITIAL_MS:1000}
+    retry-max-ms: ${SUBMISSION_FINALIZED_RETRY_MAX_MS:30000}
+    start-retry-ms: ${SUBMISSION_FINALIZED_START_RETRY_MS:10000}
+    dlt-partitions: ${SUBMISSION_FINALIZED_DLT_PARTITIONS:3}
+    dlt-replicas: ${SUBMISSION_FINALIZED_DLT_REPLICAS:1}
   # UC20: durable Organizer approval notices from CourseSubmitted Outbox events.
   course-events:
     enabled: ${COURSE_EVENTS_CONSUMER_ENABLED:false}

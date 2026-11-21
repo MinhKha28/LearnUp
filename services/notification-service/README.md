@@ -124,3 +124,58 @@ be configured with `SPRING_MAIL_SMTP_CONNECTION_TIMEOUT`,
 
 Run `mvn test` / `mvn clean verify` with Java 21. Tests use synthetic credentials
 and an isolated H2 database; mocked JavaMailSender tests do not prove inbox delivery.
+
+## Finalized submission result notices (NEW BR-254, UC32.3)
+
+The independent `SubmissionFinalized` v1 consumer reads
+`learnup.assessment.submission-finalized` with group
+`notification-submission-finalized-v1`. Its
+[contract](../../contracts/events/assessment-submission-finalized.md) describes the
+required decimal-string payload, Vietnamese content and rollout. This PR adds no
+Assessment producer and keeps generic notification/email REST APIs.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SUBMISSION_FINALIZED_CONSUMER_ENABLED` | `false` (Compose: `true`) | Enable this independent consumer. |
+| `SUBMISSION_FINALIZED_TOPIC` | `learnup.assessment.submission-finalized` | Source; DLT is source plus `.DLT`. |
+| `SUBMISSION_FINALIZED_GROUP_ID` | `notification-submission-finalized-v1` | Consumer group. |
+| `SUBMISSION_FINALIZED_RETRY_ATTEMPTS` | `10` | Total attempts including the first. |
+| `SUBMISSION_FINALIZED_RETRY_INITIAL_MS` | `1000` | Initial exponential retry delay. |
+| `SUBMISSION_FINALIZED_RETRY_MAX_MS` | `30000` | Maximum retry delay. |
+| `SUBMISSION_FINALIZED_START_RETRY_MS` | `10000` | Retry starting the listener while unavailable. |
+| `SUBMISSION_FINALIZED_DLT_PARTITIONS` | `3` | DLT partition count. |
+| `SUBMISSION_FINALIZED_DLT_REPLICAS` | `1` | DLT replication factor. |
+| `LEARNUP_FRONTEND_BASE_URL` | Empty | Required when enabled; absolute http(s), no credentials/query/fragment. |
+
+`learnup.frontend-base-url` backs the frontend base URL. A deployment subpath and
+trailing slash are supported. The proposed result URL is
+`{base}/learner/courses/by-course/{courseId}/results`. Deployment order is
+**consumer PR-1 → frontend resolver PR-3 → producer PR-2**. Configure the base URL
+before enabling the consumer; no implicit localhost destination is used.
+
+The historical `enrollment_event_deliveries` table is reused with null
+`enrollment_id`, one row per event/learner/channel. There is no migration, age-based
+discard or ledger deletion. In-app persistence is independent of Tenant and commits
+with its ledger `SENT` state after a locked ownership recheck. Tenant eligibility
+and email-address lookup gate email only. Fresh unfinished claims remain retryable;
+stale workers cannot overwrite newer completion. The existing
+`ENROLLMENT_EVENTS_CLAIM_LEASE` (2m) and `ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS` (3000)
+also apply to this reused ledger/Tenant client.
+
+Disabled mail returns **SIMULATED**, recorded as terminal ledger **SENT**; enabling
+mail later does not resend it. SMTP stays at least once: a crash after acceptance
+but before email-log/ledger completion can resend. Sender acceptance is not inbox
+arrival. Missing/deleted/deactivated recipients and missing addresses skip email;
+transient Tenant/SMTP failures retry email while preserving in-app delivery.
+Permanent refusals and poison events go to the DLT; DLT publication must succeed
+before recovery advances the source offset. Replay must preserve the original
+`eventId`; retain ledger rows throughout the supported replay horizon.
+
+No grader or finalization comments enter either channel or metadata. Titles and
+names are escaped by `EmailLayout`. This consumer does not call Learning or Course.
+Existing consumers' DLT settings and Course delivery transactions are unchanged.
+
+Verification uses Java 21, H2 with Flyway, and EmbeddedKafka without Docker. Coverage
+includes replay, channel failures, stale claims, atomic in-app delivery, failed DLT
+publication without offset commit, and API startup before Kafka is available followed
+by recovery. These tests do not prove real PostgreSQL locking or real inbox delivery.

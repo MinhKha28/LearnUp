@@ -6,6 +6,7 @@ Database `notification_db`. See [conventions](conventions.md) and [Flyway migrat
 
 - Delivery ledgers claim work before sending it. Their uniqueness constraints scope deduplication by event, recipient and channel.
 - `enrollment_event_deliveries.enrollment_id` is nullable to support deliveries whose subject is a peer review rather than an enrollment.
+- `SubmissionFinalized` reuses `enrollment_event_deliveries` with `enrollment_id = NULL` and recipient `learnerId`. The table name is historical and misleading: it also holds Assessment notice deliveries. No migration is required; the existing unique (event_id, recipient_user_id, channel) key gives one obligation per channel. In-app insertion and ledger SENT are atomic after a locked claim-ownership recheck; email completion follows external SMTP acceptance and may be repeated after a crash. These result notices have no age discard or ledger deletion; retain deduplication rows through the replay horizon.
 - Course submission and ownership delivery have separate ledgers. In-app notices and email logs record their own channel-specific state.
 
 ## Tables
