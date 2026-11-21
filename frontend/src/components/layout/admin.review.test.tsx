@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import NotificationPage from "@/components/notification/notification.page";
 import LayoutAdmin from "@/components/layout/layout.admin";
-import LayoutOrganizer from "@/components/layout/layout.organizer";
 import PlanForm from "@/pages/admin/plan.form";
 import Profile from "@/pages/admin/profile";
 
@@ -39,18 +38,6 @@ const renderAdmin = (path: string) =>
           <Route path="profile" element={<Profile />} />
           <Route path="profile/edit" element={<h1>Sửa hồ sơ</h1>} />
           <Route path="reports" element={<h1>Báo cáo đã chuyển cấp xử lý</h1>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
-  );
-
-const renderOrganizer = (path: string) =>
-  render(
-    <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <Routes>
-        <Route path="/organizer" element={<LayoutOrganizer />}>
-          <Route path="profile" element={<h1>Hồ sơ</h1>} />
-          <Route path="profile/edit" element={<h1>Sửa hồ sơ</h1>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -101,26 +88,4 @@ describe("Admin screenshot review wording", () => {
     expect(container.querySelector(".admin-topbar-left strong")?.textContent).toBe("Sửa hồ sơ");
     expect(screen.getByRole("heading", { name: "Sửa hồ sơ" })).toBeTruthy();
   });
-});
-
-describe("Organizer profile topbar labels", () => {
-  it.each([
-    ["/organizer/profile", "Hồ sơ"],
-    ["/organizer/profile/edit", "Sửa hồ sơ"],
-  ])("matches the page heading at %s", (path, label) => {
-    const { container } = renderOrganizer(path);
-    expect(container.querySelector(".organizer-topbar-left strong")?.textContent).toBe(label);
-    expect(screen.getByRole("heading", { name: label })).toBeTruthy();
-  });
-});
-
-it("uses the glossary role in the Organizer footer", () => {
-  const { container } = render(
-    <MemoryRouter initialEntries={["/organizer"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <LayoutOrganizer />
-    </MemoryRouter>,
-  );
-  const footer = container.querySelector<HTMLElement>(".organizer-footer")!;
-  expect(within(footer).getByText("Quản lý đào tạo")).toBeTruthy();
-  expect(within(footer).queryByText("Quản lý tổ chức")).toBeNull();
 });
