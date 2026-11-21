@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SubmissionFinalized v1",
+  "allOf": [
+    {
+      "$ref": "event-envelope.schema.json"
+    },
+    {
+      "properties": {
+        "eventType": {
+          "const": "SubmissionFinalized"
+        },
+        "version": {
+          "const": 1
+        },
+        "producer": {
+          "const": "assessment-service"
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "learnerId",
+            "submissionId",
+            "assessmentId",
+            "assessmentTitle",
+            "finalScore",
+            "maxScore",
+            "courseId",
+            "finalizedAt"
+          ],
+          "properties": {
+            "learnerId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "submissionId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "assessmentId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "assessmentTitle": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "\\S"
+            },
+            "finalScore": {
+              "type": "string",
+              "pattern": "^(?:100(?:\\.0{1,2})?|(?:0|[1-9][0-9]?)(?:\\.[0-9]{1,2})?)$"
+            },
+            "maxScore": {
+              "const": "100.00"
+            },
+            "courseId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "finalizedAt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            }
+          },
+          "additionalProperties": true
+        }
+      }
+    }
+  ]
+}
