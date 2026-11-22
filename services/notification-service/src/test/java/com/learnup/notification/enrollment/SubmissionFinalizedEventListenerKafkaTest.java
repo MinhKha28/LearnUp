@@ -71,6 +71,9 @@ class SubmissionFinalizedEventListenerKafkaTest {
     @Autowired KafkaTemplate<String, String> kafka;
     @MockBean RecipientDirectory recipients;
     @MockBean EmailDeliveryService emails;
+    @org.springframework.boot.test.mock.mockito.SpyBean SubmissionFinalizedEventListener eventListener;
+    @org.springframework.boot.test.mock.mockito.SpyBean com.learnup.notification.service.NotificationService notificationSender;
+    private final java.util.List<Integer> blockingAttempts = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final AtomicBoolean rejectDlt = new AtomicBoolean();
     private final AtomicInteger failedDltSends = new AtomicInteger();
 
@@ -83,7 +86,14 @@ class SubmissionFinalizedEventListenerKafkaTest {
     }
     @BeforeEach void setup() {
         rejectDlt.set(false); failedDltSends.set(0);
-        reset(kafka, recipients, emails);
+        reset(kafka, recipients, emails, eventListener, notificationSender);
+        blockingAttempts.clear();
+        doAnswer(invocation -> {
+            org.apache.kafka.clients.consumer.ConsumerRecord<String, String> record = invocation.getArgument(0);
+            var header = record.headers().lastHeader(org.springframework.kafka.support.KafkaHeaders.DELIVERY_ATTEMPT);
+            blockingAttempts.add(header == null ? 0 : java.nio.ByteBuffer.wrap(header.value()).getInt());
+            return invocation.callRealMethod();
+        }).when(eventListener).onMessage(any());
         when(recipients.find(any(), any())).thenAnswer(invocation -> Optional.of(
                 new Recipient(invocation.getArgument(1), "Hà", "learner@example.test", "Active")));
         when(emails.sendEmail(any())).thenReturn(result("SENT"));
@@ -182,4 +192,205 @@ class SubmissionFinalizedEventListenerKafkaTest {
             }
         });
     }
-}
+
+    private org.apache.kafka.clients.consumer.Consumer<String, String> dltReader() {
+        Map<String, Object> properties = Map.of(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, broker.getBrokersAsString(),
+                ConsumerConfig.GROUP_ID_CONFIG, "mixed-dlt-" + UUID.randomUUID(),
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        var consumer = new DefaultKafkaConsumerFactory<>(properties, new StringDeserializer(), new StringDeserializer())
+                .createConsumer();
+        consumer.subscribe(java.util.List.of(TOPIC + ".DLT"));
+        return consumer;
+    }
+
+    private void awaitDlt(org.apache.kafka.clients.consumer.Consumer<String, String> consumer,
+            SubmissionFinalizedEvent event) {
+        await().atMost(Duration.ofSeconds(20)).until(() -> {
+            var records = consumer.poll(Duration.ofMillis(100));
+            for (var record : records) {
+                if (record.value().contains(event.eventId().toString())) return true;
+            }
+            return false;
+        });
+    }
+
+    @Test void mixedFailureRetriesInAppThenDeadLettersAndOperatorReplayReclaimsEmail() throws Exception {
+        var event = SubmissionFinalizedEventParserTest.event();
+        doThrow(new IllegalStateException("TEST_IN_APP_TRANSIENT")).doCallRealMethod()
+                .when(notificationSender).sendNotification(any());
+        when(recipients.find(any(), any())).thenThrow(new PermanentDeliveryException("TENANT_REJECTED"));
+        try (var consumer = dltReader()) {
+            send(event);
+            awaitDlt(consumer, event);
+            assertThat(notices(event)).isEqualTo(1);
+            verify(notificationSender, times(2)).sendNotification(any());
+            verify(recipients).find(any(), any());
+            assertThat(blockingAttempts).containsExactly(1, 2);
+            assertThat(deliveries.findByEventId(event.eventId()))
+                    .filteredOn(row -> row.getChannel() == com.learnup.notification.entity.DeliveryChannel.EMAIL)
+                    .singleElement().satisfies(row -> {
+                        assertThat(row.getStatus()).isEqualTo(DeliveryStatus.FAILED);
+                        assertThat(row.getLastError()).isEqualTo("TENANT_REJECTED");
+                        assertThat(row.getAttempts()).isEqualTo(1);
+                    });
+            doReturn(Optional.of(new Recipient(event.learnerId(), "Hà", "learner@example.test", "Active")))
+                    .when(recipients).find(any(), any());
+            var replay = send(event);
+            await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
+                    assertThat(deliveries.findByEventId(event.eventId())).allSatisfy(row ->
+                            assertThat(row.getStatus()).isEqualTo(DeliveryStatus.SENT)));
+            assertThat(notices(event)).isEqualTo(1);
+            assertThat(blockingAttempts).containsExactly(1, 2, 1);
+            verify(recipients, times(2)).find(any(), any());
+            verify(emails).sendEmail(any());
+            assertThat(replay.offset()).isPositive();
+        }
+    }
+
+    @Test void mixedFailureExhaustsRetriesWithoutRepeatingPermanentEmailAttempt() throws Exception {
+        var event = SubmissionFinalizedEventParserTest.event();
+        doThrow(new IllegalStateException("TEST_IN_APP_TRANSIENT"))
+                .when(notificationSender).sendNotification(any());
+        when(emails.sendEmail(any())).thenThrow(new PermanentDeliveryException("TENANT_REJECTED"));
+        try (var consumer = dltReader()) {
+            send(event);
+            awaitDlt(consumer, event);
+            verify(notificationSender, times(3)).sendNotification(any());
+            verify(recipients).find(any(), any());
+            verify(emails).sendEmail(any());
+            assertThat(notices(event)).isZero();
+            assertThat(blockingAttempts).containsExactly(1, 2, 3);
+        }
+    }
+
+    @Test void restartingAnUncommittedRecordRetriesPermanentEmailOnceAndDoesNotDuplicateInApp() throws Exception {
+        var event = SubmissionFinalizedEventParserTest.event();
+        var holdSecondAttempt = new java.util.concurrent.CountDownLatch(1);
+        var releaseSecondAttempt = new java.util.concurrent.CountDownLatch(1);
+        var inAppAttempts = new AtomicInteger();
+        doAnswer(invocation -> {
+            int attempt = inAppAttempts.incrementAndGet();
+            if (attempt == 2) {
+                holdSecondAttempt.countDown();
+                if (!releaseSecondAttempt.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("TEST_WAIT_TIMEOUT");
+            }
+            if (attempt <= 2) throw new IllegalStateException("TEST_IN_APP_TRANSIENT");
+            return invocation.callRealMethod();
+        }).when(notificationSender).sendNotification(any());
+        when(recipients.find(any(), any())).thenThrow(new PermanentDeliveryException("TENANT_REJECTED"));
+        var container = registry.getListenerContainer(SubmissionFinalizedEventListener.LISTENER_ID);
+        try (var consumer = dltReader()) {
+            send(event);
+            try {
+                assertThat(holdSecondAttempt.await(15, TimeUnit.SECONDS)).isTrue();
+                var stopped = new java.util.concurrent.CountDownLatch(1);
+                container.stop(stopped::countDown);
+                releaseSecondAttempt.countDown();
+                assertThat(stopped.await(15, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                releaseSecondAttempt.countDown();
+            }
+            container.start();
+            awaitDlt(consumer, event);
+            assertThat(blockingAttempts).containsExactly(1, 2, 1);
+            verify(recipients, times(2)).find(any(), any());
+            assertThat(notices(event)).isEqualTo(1);
+            var permanentEmail = deliveries.findByEventId(event.eventId()).stream()
+                    .filter(row -> row.getChannel() == com.learnup.notification.entity.DeliveryChannel.EMAIL)
+                    .findFirst().orElseThrow();
+            assertThat(permanentEmail.getAttempts()).isEqualTo(2);
+        } finally {
+            if (!container.isRunning()) container.start();
+        }
+    }
+
+    @Test void repeatedDltFailurePreservesSuppressionAndMeasuresRecoveryRate() throws Exception {
+        var event = SubmissionFinalizedEventParserTest.event();
+        when(emails.sendEmail(any())).thenThrow(new PermanentDeliveryException("TENANT_REJECTED"));
+        rejectDlt.set(true);
+        var measure = new AtomicBoolean();
+        var logEvents = new java.util.concurrent.atomic.AtomicLong();
+        var logLines = new java.util.concurrent.atomic.AtomicLong();
+        var root = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+        var appender = new ch.qos.logback.core.AppenderBase<ch.qos.logback.classic.spi.ILoggingEvent>() {
+            @Override protected void append(ch.qos.logback.classic.spi.ILoggingEvent loggingEvent) {
+                if (measure.get() && loggingEvent.getThreadName().contains(SubmissionFinalizedEventListener.LISTENER_ID)) {
+                    logEvents.incrementAndGet();
+                    long lines = loggingEvent.getFormattedMessage().lines().count();
+                    if (loggingEvent.getThrowableProxy() != null) {
+                        lines += ch.qos.logback.classic.spi.ThrowableProxyUtil.asString(loggingEvent.getThrowableProxy())
+                                .lines().count();
+                    }
+                    logLines.addAndGet(lines);
+                }
+            }
+        };
+        appender.setContext(root.getLoggerContext());
+        appender.start();
+        root.addAppender(appender);
+        try {
+            var metadata = send(event);
+            await().atMost(Duration.ofSeconds(15)).until(() -> failedDltSends.get() >= 1);
+            int listenersBefore = blockingAttempts.size();
+            int publishesBefore = failedDltSends.get();
+            long start = System.nanoTime();
+            measure.set(true);
+            Thread.sleep(10000);
+            measure.set(false);
+            double seconds = (System.nanoTime() - start) / 1_000_000_000.0;
+            int listenerCount = blockingAttempts.size() - listenersBefore;
+            int publishCount = failedDltSends.get() - publishesBefore;
+            System.out.printf(java.util.Locale.ROOT,
+                    "DLT_LOOP_METRICS seconds=%.6f listenerInvocations=%d listenerPerSecond=%.3f "
+                    + "dltPublishes=%d dltPerSecond=%.3f logEvents=%d renderedLogLines=%d logLinesPerPublish=%.3f "
+                    + "firstHeader=%d lastHeader=%d%n",
+                    seconds, listenerCount, listenerCount / seconds, publishCount, publishCount / seconds,
+                    logEvents.get(), logLines.get(), logLines.get() / (double) Math.max(1, publishCount),
+                    blockingAttempts.getFirst(), blockingAttempts.getLast());
+            assertThat(listenerCount).isPositive();
+            assertThat(publishCount).isPositive();
+            for (int i = 0; i < blockingAttempts.size(); i++) {
+                assertThat(blockingAttempts.get(i)).isEqualTo(i + 1);
+            }
+            verify(recipients).find(any(), any());
+            verify(emails).sendEmail(any());
+            assertThat(notices(event)).isEqualTo(1);
+            try (var admin = AdminClient.create(Map.of("bootstrap.servers", broker.getBrokersAsString()))) {
+                var committed = admin.listConsumerGroupOffsets(GROUP).partitionsToOffsetAndMetadata()
+                        .get(5, TimeUnit.SECONDS).get(new TopicPartition(TOPIC, 0));
+                assertThat(committed == null || committed.offset() <= metadata.offset()).isTrue();
+            }
+            rejectDlt.set(false);
+            await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> {
+                try (var admin = AdminClient.create(Map.of("bootstrap.servers", broker.getBrokersAsString()))) {
+                    var committed = admin.listConsumerGroupOffsets(GROUP).partitionsToOffsetAndMetadata()
+                            .get(5, TimeUnit.SECONDS).get(new TopicPartition(TOPIC, 0));
+                    assertThat(committed.offset()).isGreaterThan(metadata.offset());
+                }
+            });
+            assertThat(notices(event)).isEqualTo(1);
+            verify(recipients).find(any(), any());
+        } finally {
+            measure.set(false);
+            rejectDlt.set(false);
+            root.detachAppender(appender);
+            appender.stop();
+        }
+    }
+    @Test void bothPermanentChannelsDeadLetterOnTheFirstDelivery() throws Exception {
+        var event = SubmissionFinalizedEventParserTest.event();
+        doThrow(new PermanentDeliveryException("TENANT_REJECTED")).when(notificationSender).sendNotification(any());
+        when(recipients.find(any(), any())).thenThrow(new PermanentDeliveryException("TENANT_REJECTED"));
+        try (var consumer = dltReader()) {
+            send(event);
+            awaitDlt(consumer, event);
+            assertThat(blockingAttempts).containsExactly(1);
+            verify(notificationSender).sendNotification(any());
+            verify(recipients).find(any(), any());
+            assertThat(notices(event)).isZero();
+            assertThat(deliveries.findByEventId(event.eventId())).hasSize(2).allSatisfy(row -> {
+                assertThat(row.getStatus()).isEqualTo(DeliveryStatus.FAILED);
+                assertThat(row.getLastError()).isEqualTo("TENANT_REJECTED");
+            });
+        }
+    }}

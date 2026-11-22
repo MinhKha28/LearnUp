@@ -15,10 +15,11 @@ class SubmissionFinalizedMessageTemplatesTest {
     @Test void usesTheApprovedVietnameseDraftsAndResolverWithoutComments() throws Exception {
         properties.setFrontendBaseUrl("https://learnup.example/app///");
         var event = SubmissionFinalizedEventParserTest.event();
-        assertThat(templates.text(event)).isEqualTo("Bài tập «An toàn» đã được chốt điểm. Điểm của bạn: 66,67/100. Xem chi tiết trong kết quả Khóa học.");
-        assertThat(templates.email(event, null)).contains("Xin chào Học viên,", "Kết quả Bài tập «An toàn» đã được công bố.",
-                "Điểm của bạn: 66,67/100.", "Bạn có thể xem chi tiết trong kết quả Khóa học trên LearnUP.",
+        assertThat(templates.text(event)).isEqualTo("Bài tập «An toàn» đã được chốt điểm. Điểm của bạn: 66,67/100. Xem chi tiết trong kết quả khóa học.");
+        assertThat(templates.email(event, null)).contains("Xin chào học viên,", "Kết quả bài tập «An toàn» đã được công bố.",
+                "Điểm của bạn: 66,67/100.", "Bạn có thể xem chi tiết trong kết quả khóa học trên LearnUP.",
                 "Xem kết quả", "https://learnup.example/app/learner/courses/by-course/" + event.courseId() + "/results");
+        assertThat(SubmissionFinalizedMessageTemplates.TITLE).isEqualTo("Kết quả bài tập đã được công bố");
         var metadata = new ObjectMapper().readTree(templates.metadata(event));
         assertThat(metadata.size()).isEqualTo(6);
         assertThat(metadata.get("assignmentId").asText()).isEqualTo(event.assessmentId().toString());

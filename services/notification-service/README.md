@@ -170,9 +170,28 @@ mail later does not resend it. SMTP stays at least once: a crash after acceptanc
 but before email-log/ledger completion can resend. Sender acceptance is not inbox
 arrival. Missing/deleted/deactivated recipients and missing addresses skip email;
 transient Tenant/SMTP failures retry email while preserving in-app delivery.
-Permanent refusals and poison events go to the DLT; DLT publication must succeed
-before recovery advances the source offset. Replay must preserve the original
-`eventId`; retain ledger rows throughout the supported replay horizon.
+A permanent channel refusal remains `FAILED` with its fixed reason. While another
+channel is transient, the record retries normally; automatic retries skip a channel
+already `SENT`, `SKIPPED` or `FAILED/TENANT_REJECTED`. Once no transient work remains,
+a permanent refusal goes to the DLT. Retry exhaustion still applies. Poison events
+go directly to the DLT. Claim locking and atomic in-app persistence are unchanged.
+
+Only this factory enables the blocking delivery-attempt header. Attempt 1 allows
+reclaiming `FAILED` rows; attempts above 1 suppress stored permanent refusals.
+Operator replay means re-publishing the original key/value to the source topic as
+a new record, preserving `eventId`, not seeking the original offset. No replay
+script is provided. The new record starts at attempt 1 and can retry permanent
+email failures after their cause is repaired; already sent in-app notices stay
+unchanged. A consumer restart or transfer to fresh retry state can also reset the
+attempt to 1 and cause one extra permanent-channel attempt per reset.
+
+DLT publication must succeed before recovery advances the source offset.
+`setResetStateOnRecoveryFailure(false)` preserves retry state after failed DLT
+publication, preventing repeated permanent email attempts. It adds no recovery
+throttle; repeated publication failure can produce substantial exception logs.
+Retain ledger rows throughout the supported replay horizon.
+
+Merge this follow-up before the Assessment SubmissionFinalized producer PR.
 
 No grader or finalization comments enter either channel or metadata. Titles and
 names are escaped by `EmailLayout`. This consumer does not call Learning or Course.

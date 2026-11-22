@@ -75,7 +75,10 @@ In-app persistence is independent of Tenant. Email looks up the recipient throug
 Tenant using organization scope and internal authentication. Missing, deleted or
 deactivated recipients become EMAIL SKIPPED with RECIPIENT_UNAVAILABLE; no address
 becomes SKIPPED with NO_EMAIL. Tenant timeouts, 5xx, 408 and 429 retry; permanent
-refusal goes to the DLT. Failed email does not undo or repeat a committed in-app notice.
+refusal is stored as FAILED with its permanent reason. A transient failure on the
+other channel still retries; automatic retries do not repeat a stored permanent
+channel failure. When no transient work remains, the record goes to the DLT.
+Failed email does not undo or repeat a committed in-app notice.
 
 Email remains at least once: SMTP acceptance can precede a crash before email-log
 or ledger completion, so replay can resend it. Leases cannot fence an external SMTP
@@ -83,28 +86,38 @@ operation. Disabled mail returns SIMULATED and is recorded as ledger SENT, match
 existing service semantics; enabling mail later does not automatically resend it.
 SENT means sender acceptance, not inbox arrival.
 
-Ten total attempts use exponential backoff from 1s to a 30s cap. Poison and permanent
-refusals go directly to the DLT. DLT publication must succeed before recovery;
-a failed publication leaves the source record unrecovered. Offset management is
-container BATCH with automatic commits disabled. Replay is an operator action and
-must preserve eventId. Retain ledger rows through every supported replay horizon.
+Ten total attempts use exponential backoff from 1s to a 30s cap. Retry exhaustion
+still goes to the DLT; a permanent outcome does not shortcut another channel's
+transient retry budget. Poison goes directly to the DLT. DLT publication must
+succeed before recovery; failed publication leaves the source record unrecovered.
+The dedicated error handler preserves blocking retry state on recovery failure;
+no additional recovery throttle is configured. Offset management is container BATCH
+with automatic commits disabled.
+
+The dedicated listener uses the blocking delivery-attempt header. Automatic retries
+(attempt above 1) suppress FAILED/TENANT_REJECTED; first deliveries can reclaim it.
+Operator replay re-publishes the event key/value as a new source-topic record,
+preserving eventId. This starts at attempt 1, retries permanent email failures as
+before, and skips already SENT in-app. No replay script is provided. Restart/new
+consumer retry state can also reset attempt to 1, permitting an extra permanent
+channel attempt per reset. Retain ledger rows through every supported replay horizon.
 Logs use fixed codes and delivery coordinates, never payload or comment text.
 
 ## Result content and resolver
 
 In-app type: ASSIGNMENT_RESULT. Email template code: ASSIGNMENT_FINALIZED.
-Title: Kết quả Bài tập đã được công bố
+Title: Kết quả bài tập đã được công bố
 
 In-app body:
-Bài tập «{assessmentTitle}» đã được chốt điểm. Điểm của bạn: {finalScore}/{maxScore}. Xem chi tiết trong kết quả Khóa học.
+Bài tập «{assessmentTitle}» đã được chốt điểm. Điểm của bạn: {finalScore}/{maxScore}. Xem chi tiết trong kết quả khóa học.
 
-Email subject: LearnUP - Kết quả Bài tập đã được công bố
+Email subject: LearnUP - Kết quả bài tập đã được công bố
 
 Email paragraphs:
-- Xin chào {fullName}, (fallback: Xin chào Học viên,)
-- Kết quả Bài tập «{assessmentTitle}» đã được công bố.
+- Xin chào {fullName}, (fallback: Xin chào học viên,)
+- Kết quả bài tập «{assessmentTitle}» đã được công bố.
 - Điểm của bạn: {finalScore}/{maxScore}.
-- Bạn có thể xem chi tiết trong kết quả Khóa học trên LearnUP.
+- Bạn có thể xem chi tiết trong kết quả khóa học trên LearnUP.
 - Button: Xem kết quả
 - LearnUP footer
 
@@ -124,6 +137,7 @@ enrollment states. Notification does not call Learning.
 ## Rollout
 
 Order: **PR-1 consumer → PR-3 frontend resolver → PR-2 producer**.
+The mixed-channel retry follow-up must also merge before the Assessment producer.
 
 PR-1 retains generic REST notification/email endpoints and changes no Assessment code.
 Before PR-2, no producer emits this event, so the new consumer adds no second notice.
