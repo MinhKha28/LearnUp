@@ -30,7 +30,7 @@ bindings. Frontend source and its package manifest are directly under frontend/.
 
 ## Development entry points
 
-Use Java 21 and Maven for Java components, and Node 22/npm for the current JavaScript
+Use Java 21 and Maven for Java components, and Node 24/npm 11 for the current JavaScript
 CI environment. Each component has its own POM or package.json; there is no root npm
 package. Start with the component README for private configuration and integration
 prerequisites. Do not copy deployment credentials from examples or test fixtures.

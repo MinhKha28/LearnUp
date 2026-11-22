@@ -30,9 +30,9 @@
   "devDependencies": {
     "typescript": "^5.4.5",
     "vitest": "^1.6.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^24.19.2"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.22.3 <25"
   }
 }

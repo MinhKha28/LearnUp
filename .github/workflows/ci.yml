@@ -167,7 +167,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24.22.3
           cache: npm
           cache-dependency-path: libraries/${{ matrix.lib }}/package-lock.json
 
@@ -216,7 +216,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24.22.3
           cache: npm
           cache-dependency-path: |
             ${{ matrix.dir }}/package-lock.json
@@ -335,7 +335,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24.22.3
           cache: npm
           cache-dependency-path: |
             services/learning-service/package-lock.json
@@ -391,7 +391,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24.22.3
       - name: Check PR commit metadata
         run: node scripts/check-ai-signatures.mjs
 
