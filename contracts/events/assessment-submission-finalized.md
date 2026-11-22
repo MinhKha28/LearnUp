@@ -106,18 +106,18 @@ Logs use fixed codes and delivery coordinates, never payload or comment text.
 ## Result content and resolver
 
 In-app type: ASSIGNMENT_RESULT. Email template code: ASSIGNMENT_FINALIZED.
-Title: Kết quả Bài tập đã được công bố
+Title: Kết quả bài tập đã được công bố
 
 In-app body:
-Bài tập «{assessmentTitle}» đã được chốt điểm. Điểm của bạn: {finalScore}/{maxScore}. Xem chi tiết trong kết quả Khóa học.
+Bài tập «{assessmentTitle}» đã được chốt điểm. Điểm của bạn: {finalScore}/{maxScore}. Xem chi tiết trong kết quả khóa học.
 
-Email subject: LearnUP - Kết quả Bài tập đã được công bố
+Email subject: LearnUP - Kết quả bài tập đã được công bố
 
 Email paragraphs:
-- Xin chào {fullName}, (fallback: Xin chào Học viên,)
-- Kết quả Bài tập «{assessmentTitle}» đã được công bố.
+- Xin chào {fullName}, (fallback: Xin chào học viên,)
+- Kết quả bài tập «{assessmentTitle}» đã được công bố.
 - Điểm của bạn: {finalScore}/{maxScore}.
-- Bạn có thể xem chi tiết trong kết quả Khóa học trên LearnUP.
+- Bạn có thể xem chi tiết trong kết quả khóa học trên LearnUP.
 - Button: Xem kết quả
 - LearnUP footer
 
