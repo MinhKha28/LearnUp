@@ -1,7 +1,7 @@
 import { canOpenPage } from "@/utils/preview.pages";
 import { Button } from "antd";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { LearnerSkeleton } from "@/components/learner/learner.states";
 import {
   LearnerButton,
@@ -43,6 +43,7 @@ const ProgressDetails = ({
   refreshFailed: boolean;
   reload: () => void;
 }) => {
+  const navigate = useNavigate();
   const { enrollment, materials = [], assessment, conditions } = data;
   const base = LEARNER_ROUTES.curriculum(enrollment.id);
   const due =
@@ -73,6 +74,7 @@ const ProgressDetails = ({
         className="course-progress-summary"
         aria-label="Tình trạng hoàn thành"
       >
+        <LearnerButton onClick={() => navigate(LEARNER_ROUTES.results(enrollment.id))}>Xem kết quả</LearnerButton>
         <StatusTag tone={statusLabel.tone}>{statusLabel.label}</StatusTag>
         <p>Loại phân công: {ENROLLMENT_TYPE_LABELS[enrollment.enrollmentType]}</p>
         {due && (

@@ -119,6 +119,10 @@ afterEach(() => {
   else process.env.TZ = deviceTimezone;
 });
 describe("UC28 real progress page", () => {
+  it("offers the results route from accessible progress", async () => {
+    mount();
+    expect(await screen.findByRole("button", { name: "Xem kết quả" })).toBeTruthy();
+  });
   it("shows the course name from the existing curriculum endpoint and labels the assignment type", async () => {
     mount();
     await screen.findByText("An toàn lao động");
