@@ -5,19 +5,19 @@ WORKDIR /app
 # 1. Build ts-common
 COPY libraries/ts-common ./libraries/ts-common
 WORKDIR /app/libraries/ts-common
-RUN npm install && npm run build
+RUN npm ci && npm run build
 
 # 2. Build ts-storage
 WORKDIR /app
 COPY libraries/ts-storage ./libraries/ts-storage
 WORKDIR /app/libraries/ts-storage
-RUN npm install && npm run build
+RUN npm ci && npm run build
 
 # 3. Build assessment-service
 WORKDIR /app
 COPY services/assessment-service ./services/assessment-service
 WORKDIR /app/services/assessment-service
-RUN npm install
+RUN npm ci
 RUN npx prisma generate
 RUN npm run build
 
