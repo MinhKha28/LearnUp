@@ -72,6 +72,7 @@ class SubmissionFinalizedKafkaRecoveryTest {
         var broker = new EmbeddedKafkaZKBroker(1, false, 1, "test.submission-recovery", "test.submission-recovery.DLT");
         broker.kafkaPorts(PORT);
         try {
+            broker.brokerProperty("auto.create.topics.enable", "false");
             broker.afterPropertiesSet();
             kafka.send("test.submission-recovery", event.learnerId().toString(),
                     SubmissionFinalizedEventParserTest.envelope(event).toString()).get(15, TimeUnit.SECONDS);
