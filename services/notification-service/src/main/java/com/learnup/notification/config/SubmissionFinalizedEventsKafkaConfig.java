@@ -1,5 +1,7 @@
 package com.learnup.notification.config;
 
+import java.time.Duration;
+
 import com.learnup.notification.enrollment.InvalidEventException;
 import com.learnup.notification.enrollment.PermanentDeliveryException;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -12,7 +14,6 @@ import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
-import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.util.backoff.ExponentialBackOff;
@@ -34,13 +35,20 @@ public class SubmissionFinalizedEventsKafkaConfig {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 template, (record, failure) -> new TopicPartition(properties.getDlt(), -1));
         recoverer.setFailIfSendResultIsError(true);
+        recoverer.setTimeoutBuffer(SubmissionFinalizedRecoveryTiming.DLT_CONFIRMATION_BUFFER_MS);
+        recoverer.setWaitForSendResultTimeout(Duration.ofMillis(
+                SubmissionFinalizedRecoveryTiming.MIN_DLT_CONFIRMATION_TIMEOUT_MS));
         ExponentialBackOff backoff = new ExponentialBackOff(properties.getRetryInitialMs(), 2.0);
         backoff.setMaxInterval(properties.getRetryMaxMs());
         backoff.setMaxAttempts(properties.getRetryAttempts() - 1);
-        DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, backoff);
+        DltFailureBackoffErrorHandler handler = new DltFailureBackoffErrorHandler(
+                recoverer, backoff, properties.getRetryMaxMs());
         handler.setResetStateOnRecoveryFailure(false);
         handler.addNotRetryableExceptions(InvalidEventException.class, PermanentDeliveryException.class);
         ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        SubmissionFinalizedRecoveryTiming.validate(template.getProducerFactory().getConfigurationProperties(),
+                consumers.getConfigurationProperties(), properties.getRetryMaxMs(),
+                factory.getContainerProperties().getPollTimeout());
         factory.setConsumerFactory(consumers);
         factory.setCommonErrorHandler(handler);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.BATCH);

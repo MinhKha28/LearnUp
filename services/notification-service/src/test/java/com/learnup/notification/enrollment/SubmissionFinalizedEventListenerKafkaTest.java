@@ -49,7 +49,7 @@ import static org.mockito.Mockito.*;
         "learnup.submission-finalized.group-id=submission-finalized-kafka-test",
         "learnup.submission-finalized.retry-attempts=3",
         "learnup.submission-finalized.retry-initial-ms=50",
-        "learnup.submission-finalized.retry-max-ms=100",
+        "learnup.submission-finalized.retry-max-ms=${test.submission.recovery-wait-ms:1000}",
         "learnup.submission-finalized.start-retry-ms=100",
         "learnup.frontend-base-url=https://learnup.example",
         "learnup.enrollment-events.enabled=false", "learnup.course-events.enabled=false",
@@ -76,6 +76,8 @@ class SubmissionFinalizedEventListenerKafkaTest {
     private final java.util.List<Integer> blockingAttempts = new java.util.concurrent.CopyOnWriteArrayList<>();
     private final AtomicBoolean rejectDlt = new AtomicBoolean();
     private final AtomicInteger failedDltSends = new AtomicInteger();
+    private final java.util.List<Long> failedPublicationTimes = new java.util.concurrent.CopyOnWriteArrayList<>();
+    @Autowired com.learnup.notification.config.SubmissionFinalizedEventsProperties eventProperties;
 
     @TestConfiguration
     static class KafkaTestConfig {
@@ -88,6 +90,7 @@ class SubmissionFinalizedEventListenerKafkaTest {
         rejectDlt.set(false); failedDltSends.set(0);
         reset(kafka, recipients, emails, eventListener, notificationSender);
         blockingAttempts.clear();
+        failedPublicationTimes.clear();
         doAnswer(invocation -> {
             org.apache.kafka.clients.consumer.ConsumerRecord<String, String> record = invocation.getArgument(0);
             var header = record.headers().lastHeader(org.springframework.kafka.support.KafkaHeaders.DELIVERY_ATTEMPT);
@@ -100,6 +103,7 @@ class SubmissionFinalizedEventListenerKafkaTest {
         doAnswer(invocation -> {
             ProducerRecord<String, String> record = invocation.getArgument(0);
             if (record.topic().equals(TOPIC + ".DLT") && rejectDlt.get()) {
+                failedPublicationTimes.add(System.nanoTime());
                 failedDltSends.incrementAndGet();
                 return CompletableFuture.failedFuture(new IllegalStateException("TEST_DLT_UNAVAILABLE"));
             }
@@ -305,8 +309,27 @@ class SubmissionFinalizedEventListenerKafkaTest {
     }
 
     @Test void repeatedDltFailurePreservesSuppressionAndMeasuresRecoveryRate() throws Exception {
+        measureRecoveryRate(Duration.ofSeconds(10), false);
+    }
+
+    @Test void exhaustedTransientDltFailureWaitsWithoutRepeatingPermanentEmail() throws Exception {
+        measureRecoveryRate(Duration.ofSeconds(5), true);
+    }
+
+    @Test
+    @org.junit.jupiter.api.Tag("dlt-default-delay")
+    void defaultDelayMeasurementAndContainerStop() throws Exception {
+        assertThat(eventProperties.getRetryMaxMs()).isEqualTo(30000);
+        measureRecoveryRate(Duration.ofSeconds(90), true);
+    }
+
+    private void measureRecoveryRate(Duration duration, boolean exhaustedTransient) throws Exception {
         var event = SubmissionFinalizedEventParserTest.event();
         when(emails.sendEmail(any())).thenThrow(new PermanentDeliveryException("TENANT_REJECTED"));
+        if (exhaustedTransient) {
+            doThrow(new IllegalStateException("TEST_IN_APP_TRANSIENT"))
+                    .when(notificationSender).sendNotification(any());
+        }
         rejectDlt.set(true);
         var measure = new AtomicBoolean();
         var logEvents = new java.util.concurrent.atomic.AtomicLong();
@@ -335,7 +358,7 @@ class SubmissionFinalizedEventListenerKafkaTest {
             int publishesBefore = failedDltSends.get();
             long start = System.nanoTime();
             measure.set(true);
-            Thread.sleep(10000);
+            Thread.sleep(duration.toMillis());
             measure.set(false);
             double seconds = (System.nanoTime() - start) / 1_000_000_000.0;
             int listenerCount = blockingAttempts.size() - listenersBefore;
@@ -349,16 +372,35 @@ class SubmissionFinalizedEventListenerKafkaTest {
                     blockingAttempts.getFirst(), blockingAttempts.getLast());
             assertThat(listenerCount).isPositive();
             assertThat(publishCount).isPositive();
+            assertThat(publishCount / seconds).isLessThanOrEqualTo(1000.0 / eventProperties.getRetryMaxMs());
+            long minimumSpacing = Long.MAX_VALUE;
+            for (int i = 1; i < failedPublicationTimes.size(); i++) {
+                long spacing = failedPublicationTimes.get(i) - failedPublicationTimes.get(i - 1);
+                minimumSpacing = Math.min(minimumSpacing, spacing);
+                assertThat(spacing).isGreaterThanOrEqualTo(TimeUnit.MILLISECONDS.toNanos(eventProperties.getRetryMaxMs()));
+            }
+            System.out.printf(java.util.Locale.ROOT, "DLT_SPACING waitMs=%d minimumSpacingMs=%.3f exhaustedTransient=%s%n",
+                    eventProperties.getRetryMaxMs(), minimumSpacing / 1_000_000.0, exhaustedTransient);
             for (int i = 0; i < blockingAttempts.size(); i++) {
                 assertThat(blockingAttempts.get(i)).isEqualTo(i + 1);
             }
             verify(recipients).find(any(), any());
             verify(emails).sendEmail(any());
-            assertThat(notices(event)).isEqualTo(1);
+            assertThat(notices(event)).isEqualTo(exhaustedTransient ? 0 : 1);
             try (var admin = AdminClient.create(Map.of("bootstrap.servers", broker.getBrokersAsString()))) {
                 var committed = admin.listConsumerGroupOffsets(GROUP).partitionsToOffsetAndMetadata()
                         .get(5, TimeUnit.SECONDS).get(new TopicPartition(TOPIC, 0));
                 assertThat(committed == null || committed.offset() <= metadata.offset()).isTrue();
+            }
+            if (duration.equals(Duration.ofSeconds(90))) {
+                var container = registry.getListenerContainer(SubmissionFinalizedEventListener.LISTENER_ID);
+                var stopped = new java.util.concurrent.CountDownLatch(1);
+                long stopStart = System.nanoTime();
+                container.stop(stopped::countDown);
+                assertThat(stopped.await(2, TimeUnit.SECONDS)).isTrue();
+                System.out.printf(java.util.Locale.ROOT, "DLT_CONTAINER_STOP elapsedMs=%.3f%n",
+                        (System.nanoTime() - stopStart) / 1_000_000.0);
+                return;
             }
             rejectDlt.set(false);
             await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> {
@@ -368,7 +410,7 @@ class SubmissionFinalizedEventListenerKafkaTest {
                     assertThat(committed.offset()).isGreaterThan(metadata.offset());
                 }
             });
-            assertThat(notices(event)).isEqualTo(1);
+            assertThat(notices(event)).isEqualTo(exhaustedTransient ? 0 : 1);
             verify(recipients).find(any(), any());
         } finally {
             measure.set(false);

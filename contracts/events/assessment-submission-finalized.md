@@ -90,9 +90,16 @@ Ten total attempts use exponential backoff from 1s to a 30s cap. Retry exhaustio
 still goes to the DLT; a permanent outcome does not shortcut another channel's
 transient retry budget. Poison goes directly to the DLT. DLT publication must
 succeed before recovery; failed publication leaves the source record unrecovered.
-The dedicated error handler preserves blocking retry state on recovery failure;
-no additional recovery throttle is configured. Offset management is container BATCH
-with automatic commits disabled.
+The dedicated error handler preserves blocking retry state on recovery failure.
+After a failed confirmed DLT publication, it waits the configured maximum retry
+back-off (default 30s) before rethrowing the original publication failure. This
+applies to permanent failures and exhausted transient retries. Successful DLT
+publication adds no wait; interruption/container stop ends the wait promptly.
+The wait blocks partitions assigned to that consumer thread. Enabled-consumer
+startup validation checks the recovery timing envelope against max.poll.interval.ms;
+its processing headroom is an allowance, not an enforced total attempt deadline.
+Offset management is container BATCH with automatic commits disabled. Event fields,
+retry counts, channel suppression, ownership safeguards and replay are unchanged.
 
 The dedicated listener uses the blocking delivery-attempt header. Automatic retries
 (attempt above 1) suppress FAILED/TENANT_REJECTED; first deliveries can reclaim it.
