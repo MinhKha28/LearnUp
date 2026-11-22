@@ -26,5 +26,7 @@ it("shows loading and aborts on unmount", () => {
 });
 it("offers retry after an API error", async () => {
  load.mockRejectedValueOnce(new Error("network")).mockResolvedValueOnce([]); show();
+ expect(await screen.findByRole("heading", { name: "Không tải được thông tin khóa học" })).toBeTruthy();
+ expect(screen.getByText("Vui lòng thử lại.")).toBeTruthy();
  fireEvent.click(await screen.findByText("Thử lại")); expect(await screen.findByText("Không tìm thấy khóa học")).toBeTruthy();
 });

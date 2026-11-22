@@ -1,3 +1,4 @@
+import "./course.results.resolver.scss";
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { LearnerEmptyState, LearnerSkeleton } from "@/components/learner/learner.states";
@@ -20,8 +21,8 @@ const CourseResultsResolver = () => {
   if (query.status === "loading" || enrollment) return <LearnerSkeleton variant="detail" />;
   const back = <LearnerButton onClick={() => navigate(LEARNER_ROUTES.myCourses())}>Về khóa học của tôi</LearnerButton>;
   if (query.status === "error") return (
-    <LearnerEmptyState title="Không tải được thông tin khóa học. Vui lòng thử lại."
-      action={<><LearnerButton onClick={query.reload}>Thử lại</LearnerButton>{back}</>} />
+    <LearnerEmptyState title="Không tải được thông tin khóa học" description="Vui lòng thử lại."
+      action={<div className="course-results-resolver-actions"><LearnerButton onClick={query.reload}>Thử lại</LearnerButton>{back}</div>} />
   );
   return <LearnerEmptyState title="Không tìm thấy khóa học"
     description="Khóa học không tồn tại hoặc không thuộc danh sách khóa học của bạn." action={back} />;

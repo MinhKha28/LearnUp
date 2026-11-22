@@ -1,7 +1,7 @@
 import { canOpenPage } from "@/utils/preview.pages";
 import { Button } from "antd";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { LearnerSkeleton } from "@/components/learner/learner.states";
 import {
   LearnerButton,
@@ -43,7 +43,6 @@ const ProgressDetails = ({
   refreshFailed: boolean;
   reload: () => void;
 }) => {
-  const navigate = useNavigate();
   const { enrollment, materials = [], assessment, conditions } = data;
   const base = LEARNER_ROUTES.curriculum(enrollment.id);
   const due =
@@ -74,7 +73,6 @@ const ProgressDetails = ({
         className="course-progress-summary"
         aria-label="Tình trạng hoàn thành"
       >
-        <LearnerButton onClick={() => navigate(LEARNER_ROUTES.results(enrollment.id))}>Xem kết quả</LearnerButton>
         <StatusTag tone={statusLabel.tone}>{statusLabel.label}</StatusTag>
         <p>Loại phân công: {ENROLLMENT_TYPE_LABELS[enrollment.enrollmentType]}</p>
         {due && (
@@ -92,15 +90,7 @@ const ProgressDetails = ({
                 : "Chưa có thông tin"}
             </p>
             {enrollment.completedLate && <p>Hoàn thành sau hạn</p>}
-            <nav
-              className="course-progress-links"
-              aria-label="Sau khi hoàn thành"
-            >
-              <Link to={LEARNER_ROUTES.certificates()}>Xem chứng chỉ</Link>
-              {canOpenPage(LEARNER_ROUTES.evaluation(enrollment.id)) && (
-                <Link to={LEARNER_ROUTES.evaluation(enrollment.id)}>Đánh giá khóa học</Link>
-              )}
-            </nav>
+
           </>
         ) : (
           conditions?.state === "ok" && (
@@ -109,6 +99,13 @@ const ProgressDetails = ({
             </p>
           )
         )}
+        <nav className="course-progress-links" aria-label="Thao tác khóa học">
+          <Link to={LEARNER_ROUTES.results(enrollment.id)}>Xem kết quả</Link>
+          {completed && <Link to={LEARNER_ROUTES.certificates()}>Xem chứng chỉ</Link>}
+          {completed && canOpenPage(LEARNER_ROUTES.evaluation(enrollment.id)) && (
+            <Link to={LEARNER_ROUTES.evaluation(enrollment.id)}>Đánh giá khóa học</Link>
+          )}
+        </nav>
       </section>
       {!completed && (
         <>
