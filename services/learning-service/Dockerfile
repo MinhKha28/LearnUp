@@ -5,13 +5,13 @@ WORKDIR /app
 # 1. Build ts-common
 COPY libraries/ts-common ./libraries/ts-common
 WORKDIR /app/libraries/ts-common
-RUN npm install && npm run build
+RUN npm ci && npm run build
 
 # 2. Build learning-service
 WORKDIR /app
 COPY services/learning-service ./services/learning-service
 WORKDIR /app/services/learning-service
-RUN npm install
+RUN npm ci
 RUN npx prisma generate
 RUN npm run build
 
