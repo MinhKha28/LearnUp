@@ -71,6 +71,7 @@ class SubmissionFinalizedUnavailableDependenciesKafkaTest {
         when(emails.sendEmail(any())).thenReturn(result);
         var broker = new EmbeddedKafkaZKBroker(1, false, 1, TOPIC, TOPIC + ".DLT").kafkaPorts(PORT);
         try {
+            broker.brokerProperty("auto.create.topics.enable", "false");
             broker.afterPropertiesSet();
             kafka.send(TOPIC, event.learnerId().toString(), SubmissionFinalizedEventParserTest.envelope(event).toString())
                     .get(15, TimeUnit.SECONDS);
