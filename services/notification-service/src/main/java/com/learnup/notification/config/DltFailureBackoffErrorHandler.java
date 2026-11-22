@@ -21,6 +21,16 @@ class DltFailureBackoffErrorHandler extends DefaultErrorHandler {
         this.recoveryWaitMs = recoveryWaitMs;
     }
 
+    /** Non-seeking recovery bypasses the DLT publication-failure wait. */
+    @Override
+    public void setSeekAfterError(boolean seekAfterError) {
+        if (!seekAfterError) {
+            throw new IllegalArgumentException("DLT recovery back-off requires seekAfterError=true; keep seeking enabled or add recovery-wait support to handleOne before disabling it");
+        }
+        super.setSeekAfterError(true);
+    }
+
+    // Mirrors Spring Kafka 3.2.4 DefaultErrorHandler.handleRemaining; recheck upstream behaviour when upgrading Spring Kafka.
     @Override
     public void handleRemaining(Exception exception, List<ConsumerRecord<?, ?>> records,
             Consumer<?, ?> consumer, MessageListenerContainer container) {
