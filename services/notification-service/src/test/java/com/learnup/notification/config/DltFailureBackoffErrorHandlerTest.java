@@ -35,6 +35,20 @@ class DltFailureBackoffErrorHandlerTest {
         return handler;
     }
 
+    @Test void rejectsNonSeekingRecoveryWithAnActionableMessage() {
+        var handler = handler(mock(ConsumerAwareRecordRecoverer.class), WAIT_MS);
+        assertThatThrownBy(() -> handler.setSeekAfterError(false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("DLT recovery back-off requires seekAfterError=true; keep seeking enabled or add recovery-wait support to handleOne before disabling it");
+        assertThat(handler.seeksAfterHandling()).isTrue();
+    }
+
+    @Test void explicitlyEnablingSeekingRemainsSupported() {
+        var handler = handler(mock(ConsumerAwareRecordRecoverer.class), WAIT_MS);
+        handler.setSeekAfterError(true);
+        assertThat(handler.seeksAfterHandling()).isTrue();
+    }
+
     @Test void publicationFailureWaitsAndRethrowsTheOriginalException() {
         var handler = handler((record, consumer, failure) -> { throw publicationFailure; }, WAIT_MS);
         long start = System.nanoTime();
