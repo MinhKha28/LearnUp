@@ -143,6 +143,8 @@ write no notice event; a finalized resubmission gets a new event. There is no ba
 The former background REST notification call is removed; peer-review reminders keep
 using `deliverNotice`.
 
+When `OUTBOX_RELAY_ENABLED=false` (the default outside Compose), `SubmissionFinalized` events stay in the outbox and result notices wait until the relay is enabled.
+
 `OUTBOX_SUBMISSION_FINALIZED_TOPIC` defaults to
 `learnup.assessment.submission-finalized`. The enabled relay provisions this topic
 with three partitions, keyed by learnerId. Verify existing topics during deployment;
