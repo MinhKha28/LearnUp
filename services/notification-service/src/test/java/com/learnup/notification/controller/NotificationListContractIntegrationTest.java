@@ -21,6 +21,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -161,5 +162,21 @@ class NotificationListContractIntegrationTest {
                 .andExpect(jsonPath("$.data.metadata").doesNotExist());
 
         assertThat(notifications.findById(id).orElseThrow().getMetadata()).contains("courseId");
+    }
+    @Test
+    void submissionFinalizedDestinationIsExposedWithoutProducerMetadata() throws Exception {
+        String link = "/learner/courses/by-course/" + UUID.randomUUID() + "/results";
+        Notification notice = new Notification(null, org, alice, "Finalized result", "Body", "ASSIGNMENT_RESULT",
+                "IN_APP", false, null, objectMapper.writeValueAsString(Map.of(
+                        "link", link, "submissionId", UUID.randomUUID().toString())), BASE);
+        UUID id = notifications.saveAndFlush(notice).getId();
+        mockMvc.perform(get(LIST).with(gateway(alice, org)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].link").value(link))
+                .andExpect(jsonPath("$.data.items[0].metadata").doesNotExist());
+        mockMvc.perform(patch(LIST + "/" + id + "/read").with(gateway(alice, org)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.link").value(link))
+                .andExpect(jsonPath("$.data.metadata").doesNotExist());
     }
 }
