@@ -134,3 +134,21 @@ themselves, and refuse to run when `NODE_ENV=production`.
 
 - Enrollment access determines whether a learner can start or submit assessments. Completed enrollment grants read-only access, and an unavailable Learning service fails the access check. See the [Learning access contract](../../contracts/openapi/learning-service.yaml).
 - Assignment and assessment changes publish through the outbox with the same learner key for related events. Publication is at least once, and relay diagnostics use fixed error codes. See the [Assessment event contracts](../../contracts/events/README.md) and [relay checks](../../docs/how-to/outbox-relay-checks.md).
+
+## Finalized result notices
+
+Successful Assignment finalization writes `SubmissionFinalized` v1 in the same
+transaction as the score and completion signal. Rejected or repeated finalizations
+write no notice event; a finalized resubmission gets a new event. There is no backfill.
+The former background REST notification call is removed; peer-review reminders keep
+using `deliverNotice`.
+
+`OUTBOX_SUBMISSION_FINALIZED_TOPIC` defaults to
+`learnup.assessment.submission-finalized`. The enabled relay provisions this topic
+with three partitions, keyed by learnerId. Verify existing topics during deployment;
+creating an existing topic does not change its partitions. The outbox ID stays the
+eventId on retry. `courseId` identifies the Course version (`courses.id`), not its chain.
+See the [event contract](../../contracts/events/assessment-submission-finalized.md)
+for required fields and the frontend resolver. Merge/deploy the notification link
+response and frontend resolver before enabling the producer. Drain old instances
+with in-flight REST notices; their deliveries have no eventId for ledger deduplication.

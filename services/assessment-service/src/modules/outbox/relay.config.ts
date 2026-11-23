@@ -1,3 +1,4 @@
+import { SUBMISSION_FINALIZED_EVENT } from './submission-finalized';
 import { PEER_REVIEW_ASSIGNED_EVENT } from '../learner-submissions/learner-submissions.constants';
 
 /** What the relay that publishes the outbox events of assessment-service reads from the environment. */
@@ -9,6 +10,7 @@ export interface RelayConfig {
   topic: string;
   /** Where `PeerReviewAssigned` goes (notification-service reads it). */
   peerReviewTopic: string;
+  submissionFinalizedTopic: string;
   replicationFactor: number;
   pollMs: number;
   batchSize: number;
@@ -58,6 +60,9 @@ export function readRelayConfig(
     peerReviewTopic:
       get('OUTBOX_PEER_REVIEW_TOPIC') ??
       'learnup.assessment.peer-review-assigned',
+    submissionFinalizedTopic:
+      get('OUTBOX_SUBMISSION_FINALIZED_TOPIC') ??
+      'learnup.assessment.submission-finalized',
     replicationFactor: integer('OUTBOX_REPLICATION_FACTOR', 1),
     pollMs: integer('OUTBOX_POLL_INTERVAL_MS', 1000),
     batchSize: integer('OUTBOX_BATCH_SIZE', 20),
@@ -77,12 +82,10 @@ export function readRelayConfig(
     config.brokers.some((broker) => !broker)
   )
     throw new Error(
-      'Invalid OUTBOX_TOPIC, OUTBOX_PEER_REVIEW_TOPIC or KAFKA_BROKERS',
+      'Invalid OUTBOX_TOPIC, OUTBOX_PEER_REVIEW_TOPIC, OUTBOX_SUBMISSION_FINALIZED_TOPIC or KAFKA_BROKERS',
     );
-  if (config.topic === config.peerReviewTopic)
-    throw new Error(
-      'OUTBOX_TOPIC and OUTBOX_PEER_REVIEW_TOPIC must be different topics',
-    );
+  if (new Set(topicsOf(config)).size !== topicsOf(config).length)
+    throw new Error('Outbox topics must be different topics');
   // A batch that falls back to one send per row can hold the transaction for two deliveries; it must still fit.
   if (
     config.transactionMs <= 2 * config.deliveryMs + 5000 ||
@@ -103,14 +106,23 @@ export function readRelayConfig(
 
 /** The topic an event goes to: each kind of event has its own, so its consumer reads only what it acts on. */
 export const topicOf = (eventType: string, config: RelayConfig): string =>
-  eventType === PEER_REVIEW_ASSIGNED_EVENT
-    ? config.peerReviewTopic
-    : config.topic;
+  eventType === SUBMISSION_FINALIZED_EVENT
+    ? config.submissionFinalizedTopic
+    : eventType === PEER_REVIEW_ASSIGNED_EVENT
+      ? config.peerReviewTopic
+      : config.topic;
 
 /** Every topic the relay writes to. */
 export const topicsOf = (
-  config: Pick<RelayConfig, 'topic' | 'peerReviewTopic'>,
-): string[] => [config.topic, config.peerReviewTopic];
+  config: Pick<
+    RelayConfig,
+    'topic' | 'peerReviewTopic' | 'submissionFinalizedTopic'
+  >,
+): string[] => [
+  config.topic,
+  config.peerReviewTopic,
+  config.submissionFinalizedTopic,
+];
 
 /** Milliseconds to wait after the given number of failed attempts: doubles each time, up to a ceiling. */
 export const retryDelay = (attempts: number, config: RelayConfig): number =>

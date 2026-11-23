@@ -26,6 +26,7 @@ describe('the topic of each event', () => {
     assert.deepEqual(topicsOf(config), [
       'learnup.assessment.learner-assessment-events',
       'learnup.assessment.peer-review-assigned',
+      'learnup.assessment.submission-finalized',
     ]);
   });
 
