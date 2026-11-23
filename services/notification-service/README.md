@@ -259,3 +259,5 @@ production throughput guarantee. Local results after recovery back-off:
 The default-delay run stopped the container during its wait in 54 ms. These rates
 include consumer polling overhead and fixed-window effects; they are not precise
 scheduling guarantees. Deployment monitoring should alert on DLT publication failure.
+
+Notification Kafka consumers never auto-create topics, even if external consumer properties request it. Source topics must be provisioned by their producer relays; Notification's existing `NewTopic` beans provision the DLTs. A missing source topic is waited for, not created, and consumption resumes when it is provisioned.
