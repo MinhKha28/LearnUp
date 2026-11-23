@@ -1,7 +1,7 @@
 // @vitest-environment jsdom-native
 // UC49 step 4: opening a notification marks it as read — once, with the count kept in step, and recovered on failure.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/services/notification.service", () => ({
@@ -62,14 +62,14 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  vi.clearAllMocks();
+  vi.resetAllMocks();
 });
 
 describe("UC49 mark as read on the page", () => {
   it("marks an unread notification once, shows it read and lowers the count", async () => {
     const changed = vi.fn();
     window.addEventListener("learnup:notifications-changed", changed);
-    render(<NotificationPage />);
+    render(<MemoryRouter><NotificationPage /></MemoryRouter>);
     fireEvent.click(await screen.findByText("Khóa học đã được phê duyệt"));
 
     await waitFor(() => expect(api.markNotificationRead).toHaveBeenCalledWith("n1"));
@@ -85,14 +85,14 @@ describe("UC49 mark as read on the page", () => {
   it("does not call the server for a notification that is already read", async () => {
     vi.mocked(api.fetchNotifications).mockResolvedValue(page([notice({ isRead: true })]) as never);
     vi.mocked(api.fetchUnreadCount).mockResolvedValue({ userId: "u1", unreadCount: 0 } as never);
-    render(<NotificationPage />);
+    render(<MemoryRouter><NotificationPage /></MemoryRouter>);
     fireEvent.click(await screen.findByText("Khóa học đã được phê duyệt"));
     expect(api.markNotificationRead).not.toHaveBeenCalled();
   });
 
   it("reloads the real state when the server refuses", async () => {
     vi.mocked(api.markNotificationRead).mockRejectedValueOnce(new Error("404"));
-    render(<NotificationPage />);
+    render(<MemoryRouter><NotificationPage /></MemoryRouter>);
     fireEvent.click(await screen.findByText("Khóa học đã được phê duyệt"));
 
     await waitFor(() => expect(api.fetchNotifications).toHaveBeenCalledTimes(2));
@@ -117,4 +117,22 @@ describe("UC49 mark as read in the bell", () => {
     await waitFor(() => expect(api.markNotificationRead).toHaveBeenCalledWith("n1"));
     await waitFor(() => expect(screen.queryByText("1 chưa đọc")).toBeNull());
   });
+});
+
+const CurrentPath = () => <p data-testid="current-path">{useLocation().pathname}</p>;
+it.each(["page", "bell"])("navigates a read linked notice from %s without marking again", async (surface) => {
+ vi.mocked(api.fetchNotifications).mockResolvedValue(page([notice({isRead:true, link:"/learner/destination"})]) as never);
+ render(<MemoryRouter>{surface === "bell" ? <NotificationBell basePath="/learner" /> : <NotificationPage />}<CurrentPath /></MemoryRouter>);
+ if(surface === "bell") fireEvent.click(await screen.findByRole("button", {name:"Thông báo"}));
+ fireEvent.click(await screen.findByText("Khóa học đã được phê duyệt"));
+ expect(screen.getByTestId("current-path").textContent).toBe("/learner/destination");
+ expect(api.markNotificationRead).not.toHaveBeenCalled();
+});
+it("navigates before an unread mark request resolves", async () => {
+ vi.mocked(api.fetchNotifications).mockResolvedValue(page([notice({link:"/learner/destination"})]) as never);
+ vi.mocked(api.markNotificationRead).mockImplementation(() => new Promise(() => {}));
+ render(<MemoryRouter><NotificationPage /><CurrentPath /></MemoryRouter>);
+ fireEvent.click(await screen.findByText("Khóa học đã được phê duyệt"));
+ expect(screen.getByTestId("current-path").textContent).toBe("/learner/destination");
+ expect(api.markNotificationRead).toHaveBeenCalledTimes(1);
 });

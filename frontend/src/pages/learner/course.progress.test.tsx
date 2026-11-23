@@ -119,6 +119,18 @@ afterEach(() => {
   else process.env.TZ = deviceTimezone;
 });
 describe("UC28 real progress page", () => {
+  it("offers the results route from accessible progress", async () => {
+    mount();
+    expect(await screen.findByRole("link", { name: "Xem kết quả" })).toBeTruthy();
+  });
+  it.each(["InProgress", "Exempted"] as const)("renders result actions without certificates for %s", async (status) => {
+    progress.mockResolvedValue({ ...fixture(), enrollment: { ...fixture().enrollment, status } });
+    mount();
+    const row = await screen.findByRole("navigation", { name: "Thao tác khóa học" });
+    expect(row.textContent).toContain("Xem kết quả");
+    expect(screen.getByRole("link", { name: "Xem kết quả" }).getAttribute("href")).toBe("/learner/courses/enrollment/results");
+    expect(screen.queryByRole("link", { name: "Xem chứng chỉ" })).toBeNull();
+  });
   it("shows the course name from the existing curriculum endpoint and labels the assignment type", async () => {
     mount();
     await screen.findByText("An toàn lao động");

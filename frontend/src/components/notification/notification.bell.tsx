@@ -1,3 +1,4 @@
+import { getSafeNotificationLink } from "@/utils/notification.link";
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Popover } from "antd";
 import { BellOutlined } from "@ant-design/icons";
@@ -64,7 +65,7 @@ const NotificationBell = ({ basePath }: { basePath: string }) => {
     }
   }, [open, loadLatest, refreshCount]);
 
-  const openNotification = async (notification: INotification) => {
+  const markRead = async (notification: INotification) => {
     if (notification.isRead) return;
     // shown as read at once; if the server refuses, the real state is loaded again
     setItems((current) => current.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item)));
@@ -74,6 +75,15 @@ const NotificationBell = ({ basePath }: { basePath: string }) => {
     } catch {
       void loadLatest();
       void refreshCount();
+    }
+  };
+
+  const openNotification = (notification: INotification) => {
+    void markRead(notification);
+    const link = getSafeNotificationLink(notification.link);
+    if (link) {
+      setOpen(false);
+      navigate(link);
     }
   };
 
