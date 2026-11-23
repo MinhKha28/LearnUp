@@ -306,10 +306,9 @@ jobs:
         run: mvn -B -ntp verify
 
   # Self-contained Learning integration suite (disposable database, in-process
-  # Course stub). Deliberately NOT in the needs of "CI result" until it has a
-  # track record on pull requests.
+  # Course stub). Its result feeds the required CI result gate.
   learning-integration:
-    name: learning integration (non-required)
+    name: learning integration
     needs: changes
     if: needs.changes.outputs.learning_it == 'true'
     runs-on: ubuntu-latest
@@ -400,7 +399,7 @@ jobs:
   ci-result:
     name: CI result
     if: always()
-    needs: [changes, ts-libraries, node, java, frontend-image, ai-signature]
+    needs: [changes, ts-libraries, node, java, learning-integration, frontend-image, ai-signature]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
