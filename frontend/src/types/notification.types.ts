@@ -5,6 +5,7 @@ export interface INotification {
   recipientUserId: string;
   title: string;
   message: string;
+  link?: string | null;
   type: string;
   channel: string;
   isRead: boolean;

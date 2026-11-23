@@ -58,3 +58,15 @@
 .notification-bell-all:hover {
   background: #eef2f7;
 }
+
+@media (max-width: 600px) {
+  .notification-bell-popover {
+    left: var(--space-4) !important;
+    right: var(--space-4) !important;
+    max-width: calc(100vw - 2 * var(--space-4));
+  }
+
+  .notification-bell-popover .notification-bell-panel {
+    width: 100%;
+  }
+}

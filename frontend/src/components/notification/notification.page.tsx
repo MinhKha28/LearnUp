@@ -1,3 +1,5 @@
+import { useNavigate } from "react-router-dom";
+import { getSafeNotificationLink } from "@/utils/notification.link";
 import { useCallback, useEffect, useState } from "react";
 import { BellOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { Button, Pagination, Segmented, Skeleton } from "antd";
@@ -18,6 +20,7 @@ type Filter = "all" | "unread";
 
 /** UC49: the full list of the notifications of the signed-in user, newest first, for every role. */
 const NotificationPage = ({ subtitle = "Cập nhật về khóa học, bài tập và bài chấm của bạn." }: { subtitle?: string }) => {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState<Filter>("all");
   const [page, setPage] = useState(0);
   const [data, setData] = useState<INotificationPage | null>(null);
@@ -53,7 +56,7 @@ const NotificationPage = ({ subtitle = "Cập nhật về khóa học, bài tậ
     void loadUnread();
   }, [loadUnread]);
 
-  const openNotification = async (notification: INotification) => {
+  const markRead = async (notification: INotification) => {
     if (notification.isRead) return;
     setData((current) =>
       current
@@ -68,6 +71,14 @@ const NotificationPage = ({ subtitle = "Cập nhật về khóa học, bài tậ
       void loadUnread();
     }
     window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
+  };
+
+  const openNotification = (notification: INotification) => {
+    void markRead(notification);
+    const link = getSafeNotificationLink(notification.link);
+    if (link) {
+      navigate(link);
+    }
   };
 
   const changeFilter = (value: Filter) => {

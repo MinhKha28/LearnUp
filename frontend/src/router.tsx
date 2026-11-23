@@ -1,3 +1,4 @@
+import CourseResultsResolver from "./pages/learner/course.results.resolver";
 import { createBrowserRouter, Navigate, type RouteObject } from "react-router-dom";
 import { isPreviewRoute, previewLandings, previewPagesEnabled } from "@/utils/preview.pages";
 
@@ -303,6 +304,7 @@ const routes: RouteObject[] = [
     ),
     errorElement: <ServerErrorPage />,
     children: [
+      { path: "courses/by-course/:courseId/results", element: <CourseResultsResolver /> },
       { index: true, element: <LearnerDashboard /> },
       { path: "notifications", element: <NotificationPage /> },
       { path: "courses", element: <LearnerMyCourses /> },

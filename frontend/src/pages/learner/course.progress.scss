@@ -80,3 +80,9 @@
     font-size: var(--font-size-title);
   }
 }
+
+.course-progress-links a:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: var(--space-1);
+  border-radius: var(--radius-sm);
+}
