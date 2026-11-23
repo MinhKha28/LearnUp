@@ -25,6 +25,7 @@ import {
   type RunningService,
   type TestDatabase,
 } from './harness';
+import { testTopics } from './test-topics';
 
 const BROKERS = process.env.KAFKA_TEST_BROKERS;
 const as = identity({ user: LEARNER, role: 'LEARNER' });
@@ -90,14 +91,11 @@ describe(
       const admin = kafka.admin();
       await admin.connect();
       try {
-        await require('../../../../infrastructure/kafka/test-topics.cjs').createTestTopics(
-          admin,
-          {
-            'assessment-status': topic,
-            'peer-review-assigned': `${topic}.peer-review`,
-            'submission-finalized': `${topic}.finalized`,
-          },
-        );
+        await testTopics.createTestTopics(admin, {
+          'assessment-status': topic,
+          'peer-review-assigned': `${topic}.peer-review`,
+          'submission-finalized': `${topic}.finalized`,
+        });
       } finally {
         await admin.disconnect();
       }

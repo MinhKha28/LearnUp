@@ -20,12 +20,9 @@ import {
   type TestDatabase,
 } from './harness';
 import { addEvents, aggregate, relayConfig, relayOver } from './outbox-helpers';
+import { testTopics } from './test-topics';
 
-const {
-  createTestTopics,
-  describeTestTopics,
-  shape,
-} = require('../../../../infrastructure/kafka/test-topics.cjs');
+const { createTestTopics, describeTestTopics, shape } = testTopics;
 
 const BROKERS = process.env.KAFKA_TEST_BROKERS;
 const RELAY_PUBLICATION_TIMEOUT_MS = 30000;
