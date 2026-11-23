@@ -83,13 +83,17 @@ async function waitFor(
 before(async () => {
   if (!enabled) return;
   await prisma.$connect();
+  await consumer.connect();
+  admin = consumer.dependentAdmin();
+  await admin.connect();
+  await require('../../../../infrastructure/kafka/test-topics.cjs').createTestTopics(
+    admin,
+    { 'enrollment-events': config.topic },
+  );
   await Promise.all([
     waitFor(async () => (await p1.ready()) === true),
     waitFor(async () => (await p2.ready()) === true),
   ]);
-  await consumer.connect();
-  admin = consumer.dependentAdmin();
-  await admin.connect();
   await consumer.subscribe({ topics: [config.topic] });
   await consumer.run({
     eachMessage: async ({ message }) => {
@@ -323,7 +327,7 @@ test(
 );
 
 test(
-  'API cold-starts without Kafka and its scheduled relay creates the topic after recovery',
+  'API cold-starts without Kafka and its scheduled relay recovers after topic provisioning',
   {
     skip: !enabled || process.env.OUTBOX_KAFKA_CHAOS !== 'true',
     timeout: 90000,
@@ -399,13 +403,16 @@ test(
       });
       await waitFor(async () => {
         try {
-          return (await topicAdmin.listTopics({ timeout: 1000 })).includes(
-            topic,
-          );
+          await topicAdmin.listTopics({ timeout: 1000 });
+          return true;
         } catch {
           return false;
         }
       }, 40000);
+      await require('../../../../infrastructure/kafka/test-topics.cjs').createTestTopics(
+        topicAdmin,
+        { 'enrollment-events': topic },
+      );
       topicCreated = true;
       let observed: { key: string; eventId: string } | undefined;
       await reader.connect();
@@ -429,7 +436,7 @@ test(
           )[0].published_at !== null,
       );
       console.log(
-        'L6 cold start: HTTP 200 without Kafka; scheduled relay created topic and delivered after recovery',
+        'L6 cold start: HTTP 200 without Kafka; test provisioner created topic and scheduled relay delivered after recovery',
       );
     } finally {
       Logger.prototype.warn = originalWarn;

@@ -65,10 +65,10 @@ async function main(): Promise<void> {
   } else {
     mock.method(KafkaJS.Kafka.prototype, 'producer', () => ({
       connect: async () => {},
+      // The provisioner owns the topic: the relay only checks that it is listed.
       dependentAdmin: () => ({
         connect: async () => {},
-        listTopics: async () => [],
-        createTopics: async () => true,
+        listTopics: async () => [config.topic],
       }),
       send: async () => {
         events.push('send pending');

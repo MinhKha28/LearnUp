@@ -3,6 +3,7 @@ export interface IssuanceConfig {
   enabled: boolean;
   brokers: string[];
   topic: string;
+  metadataMaxAgeMs: number;
   groupId: string;
   tenantUrl: string;
   courseUrl: string;
@@ -53,12 +54,17 @@ export function issuanceConfig(
   const enabled = get('CERTIFICATE_CONSUMER_ENABLED') ?? 'false';
   if (!['true', 'false'].includes(enabled))
     throw new Error('Invalid CERTIFICATE_CONSUMER_ENABLED');
+  const topic =
+    get('CERTIFICATE_KAFKA_TOPIC') ?? 'learnup.learning.enrollment-events';
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,248}$/.test(topic))
+    throw new Error('Invalid CERTIFICATE_KAFKA_TOPIC');
   return {
     enabled: enabled === 'true',
     brokers: (get('KAFKA_BROKERS') ?? 'localhost:9092')
       .split(',')
       .map((x) => x.trim()),
-    topic: 'learnup.learning.enrollment-events',
+    topic,
+    metadataMaxAgeMs: number('CERTIFICATE_METADATA_MAX_AGE_MS', 5000, 60000),
     groupId: 'achievement-reporting-certificate-v1',
     tenantUrl: get('TENANT_SERVICE_URL') ?? 'http://tenant-service:8084',
     courseUrl: get('COURSE_SERVICE_URL') ?? 'http://course-service:8083',

@@ -73,3 +73,5 @@ pointing to an existing non-production PostgreSQL course database with the curre
 schema, run `npm run test:e2e -- --runInBand --runTestsByPath test/service-call-batch.e2e-spec.ts`.
 This HTTP integration suite uses the real Prisma/PostgreSQL query and isolated
 random fixtures, removed after the suite; it does not run migrations.
+
+Kafka topic creation and drift handling are owned by the [shared provisioner](../../infrastructure/kafka/README.md). Services wait and retry while topics are unavailable; they never provision them.

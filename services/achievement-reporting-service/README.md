@@ -105,3 +105,6 @@ The repository-root load harness is `node perf/achievement/certificate-read.cjs`
 
 - Certificate intake stores the Pending certificate and event receipt in the same transaction before acknowledging the offset. Issued certificates preserve the completed enrollment snapshot and its completion time. See the [enrollment event contract](../../contracts/events/learning-enrollment-events.md).
 - Signer settings are organization-scoped and require the current version in If-Match on writes. Issued certificates retain their signer snapshot. See the [signer smoke checks](../../docs/how-to/certificate-signer-smoke.md).
+
+Kafka topic creation and drift handling are owned by the [shared provisioner](../../infrastructure/kafka/README.md). Services wait and retry while topics are unavailable; they never provision them.
+`CERTIFICATE_KAFKA_TOPIC` selects the source topic; `CERTIFICATE_METADATA_MAX_AGE_MS` defaults to 5000 ms and accepts integers from 1 to 60000.

@@ -20,8 +20,13 @@ import {
   type TestDatabase,
 } from './harness';
 import { addEvents, aggregate, relayConfig, relayOver } from './outbox-helpers';
+import { testTopics } from './test-topics';
+
+const { createTestTopics, describeTestTopics, shape } = testTopics;
 
 const BROKERS = process.env.KAFKA_TEST_BROKERS;
+const RELAY_PUBLICATION_TIMEOUT_MS = 30000;
+const RELAY_POLL_INTERVAL_MS = 200;
 
 interface Received {
   key: string;
@@ -65,7 +70,7 @@ async function listen(topic: string) {
   };
 }
 
-/** The first probe of a new topic can fail while the broker is still creating it; the relay simply asks again a second later. */
+/** Poll relay readiness after the test harness has provisioned its topics. */
 async function becomesReady(gate: KafkaOutboxGate, ms = 90000) {
   const end = Date.now() + ms;
   while (Date.now() < end) {
@@ -90,8 +95,23 @@ describe(
       OUTBOX_SUBMISSION_FINALIZED_TOPIC: `${name}.finalized`,
       ...over,
     });
-    const gateFor = (name: string, over: Record<string, string> = {}) => {
-      const gate = new KafkaOutboxGate(relayConfig(settings(name, over)));
+    const gateFor = async (name: string, over: Record<string, string> = {}) => {
+      const config = relayConfig(settings(name, over));
+      const kafka = new KafkaJS.Kafka({
+        kafkaJS: { brokers: [BROKERS as string] },
+      });
+      const admin = kafka.admin();
+      await admin.connect();
+      try {
+        await createTestTopics(admin, {
+          'assessment-status': config.topic,
+          'peer-review-assigned': config.peerReviewTopic,
+          'submission-finalized': config.submissionFinalizedTopic,
+        });
+      } finally {
+        await admin.disconnect();
+      }
+      const gate = new KafkaOutboxGate(config);
       gates.push(gate);
       return gate;
     };
@@ -102,6 +122,23 @@ describe(
           [id],
         )
       )[0];
+
+    /** Drive normal relay polls; a temporary readiness failure does not claim a row. */
+    const publishRows = async (
+      relays: ReturnType<typeof relayOver>[],
+      ids: string[],
+    ) => {
+      const deadline = Date.now() + RELAY_PUBLICATION_TIMEOUT_MS;
+      while (Date.now() < deadline) {
+        await Promise.all(relays.map((relay) => relay.tick()));
+        const states = await Promise.all(ids.map(row));
+        if (states.every((state) => state.published_at)) return;
+        await sleep(RELAY_POLL_INTERVAL_MS);
+      }
+      assert.fail(
+        'The real relay did not publish the expected rows within the deadline',
+      );
+    };
 
     before(async () => {
       db = await createTestDatabase();
@@ -116,7 +153,7 @@ describe(
 
     test('an event reaches the topic as the envelope, keyed by the Learner', async () => {
       const name = topic();
-      const gate = gateFor(name);
+      const gate = await gateFor(name);
       assert.equal(await becomesReady(gate), true, 'the topic is created');
       const listener = await listen(name);
       try {
@@ -125,7 +162,7 @@ describe(
           reason: 'PEER_REVIEW_WAIVED',
           status: 'PeerReviewWaived',
         });
-        await relayOver(db, prismas, gate, settings(name)).tick();
+        await publishRows([relayOver(db, prismas, gate, settings(name))], [id]);
         assert.equal(await listener.waitFor(1), 1);
         const [message] = listener.received;
         assert.equal(message.key, aggregate(1), 'the key is the Learner');
@@ -145,7 +182,7 @@ describe(
 
     test('SubmissionFinalized is provisioned with three partitions and published with the learner key', async () => {
       const name = topic();
-      const gate = gateFor(name);
+      const gate = await gateFor(name);
       assert.equal(await becomesReady(gate), true);
       const listener = await listen(`${name}.finalized`);
       try {
@@ -165,7 +202,7 @@ describe(
           "INSERT INTO outbox_events (id, aggregate_type, aggregate_id, event_type, organization_id, payload, occurred_at, updated_at) VALUES ($1, 'Submission', $2, 'SubmissionFinalized', $3, $4::jsonb, now(), now())",
           [id, payload.submissionId, ORG, JSON.stringify(payload)],
         );
-        await relayOver(db, prismas, gate, settings(name)).tick();
+        await publishRows([relayOver(db, prismas, gate, settings(name))], [id]);
         assert.equal(await listener.waitFor(1), 1);
         assert.equal(listener.received[0].key, learnerId);
         assert.equal(listener.received[0].body.eventId, id);
@@ -181,10 +218,13 @@ describe(
         const admin = kafka.admin();
         await admin.connect();
         try {
-          const metadata = await admin.fetchTopicMetadata({
-            topics: [`${name}.finalized`],
-          });
-          assert.equal(metadata[0].partitions.length, 3);
+          const metadata = await describeTestTopics(admin, [
+            `${name}.finalized`,
+          ]);
+          assert.equal(
+            metadata[0].partitions.length,
+            shape('submission-finalized').partitions,
+          );
         } finally {
           await admin.disconnect();
         }
@@ -195,8 +235,12 @@ describe(
 
     test('PeerReviewAssigned goes to its own topic, keyed by the reviewer, and never to the topic of the status events (BR-232)', async () => {
       const name = topic();
-      const gate = gateFor(name);
-      assert.equal(await becomesReady(gate), true, 'both topics are created');
+      const gate = await gateFor(name);
+      assert.equal(
+        await becomesReady(gate),
+        true,
+        'all relay topics are provisioned',
+      );
       const statuses = await listen(name);
       const assigned = await listen(`${name}.peer-review`);
       try {
@@ -218,7 +262,10 @@ describe(
           }),
         ].flat();
         // one batch holds all three events: each goes to the topic of its kind
-        await relayOver(db, prismas, gate, settings(name)).tick();
+        await publishRows(
+          [relayOver(db, prismas, gate, settings(name))],
+          [status, ...ids],
+        );
         assert.equal(await assigned.waitFor(2), 2);
         assert.equal(await statuses.waitFor(1), 1);
         await sleep(500);
@@ -254,8 +301,8 @@ describe(
 
     test('two relays deliver every event once, and the events of a Learner in the order they were written', async () => {
       const name = topic();
-      const first = gateFor(name);
-      const second = gateFor(name);
+      const first = await gateFor(name);
+      const second = await gateFor(name);
       assert.equal(await becomesReady(first), true);
       const listener = await listen(name);
       try {
@@ -274,8 +321,7 @@ describe(
           second,
           settings(name, { OUTBOX_BATCH_SIZE: '8' }),
         );
-        for (let round = 0; round < 12; round += 1)
-          await Promise.all([relayA.tick(), relayB.tick()]);
+        await publishRows([relayA, relayB], [...ids.values()].flat());
         assert.equal(await listener.waitFor(60), 60, 'all 60 arrived');
         const eventIds = listener.received.map((m) => m.body.eventId);
         assert.equal(new Set(eventIds).size, 60, 'each once');
@@ -313,7 +359,7 @@ describe(
 
     test('a row that cannot be a message fails alone, with its code, and the others go out', async () => {
       const name = topic();
-      const gate = gateFor(name);
+      const gate = await gateFor(name);
       assert.equal(await becomesReady(gate), true);
       const listener = await listen(name);
       try {
@@ -326,7 +372,10 @@ describe(
           [bad],
         );
         const [good] = await addEvents(db, aggregate(301));
-        await relayOver(db, prismas, gate, settings(name)).tick();
+        await publishRows(
+          [relayOver(db, prismas, gate, settings(name))],
+          [good],
+        );
         assert.equal(await listener.waitFor(1), 1);
         assert.equal(listener.received[0].body.eventId, good);
         assert.ok((await row(good)).published_at);
@@ -342,16 +391,15 @@ describe(
     test('the running service with the relay on sends an event written to its outbox, by itself', async () => {
       const name = topic();
       const listener = await (async () => {
-        // the topic must exist before it is read; the gate of a helper creates it
-        const gate = gateFor(name);
+        // The harness provisions every configured topic before the consumer or relay starts.
+        const gate = await gateFor(name);
         assert.equal(await becomesReady(gate), true);
         return listen(name);
       })();
       const service = await startService(db.url, {
+        ...settings(name),
         OUTBOX_RELAY_ENABLED: 'true',
         OUTBOX_POLL_INTERVAL_MS: '200',
-        KAFKA_BROKERS: BROKERS as string,
-        OUTBOX_TOPIC: name,
       });
       try {
         const [id] = await addEvents(db, aggregate(400));

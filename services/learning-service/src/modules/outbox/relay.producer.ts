@@ -63,7 +63,6 @@ export class RelayProducer {
   private admin?: KafkaJS.Admin;
   private connecting = false;
   private connected = false;
-  private initialized = false;
   constructor(@Inject(RELAY_CONFIG) private readonly config: RelayConfig) {
     this.producer = this.createProducer();
   }
@@ -111,33 +110,11 @@ export class RelayProducer {
         await admin.connect();
         this.admin = admin;
       }
-      if (this.initialized) {
-        await this.admin.fetchTopicMetadata({
-          topics: [this.config.topic],
-          timeout: this.config.probeMs,
-        });
-      } else {
-        await this.admin.listTopics({ timeout: this.config.probeMs });
-      }
-      if (!this.initialized) {
-        try {
-          await this.admin.createTopics({
-            timeout: this.config.probeMs,
-            topics: [
-              {
-                topic: this.config.topic,
-                numPartitions: 3,
-                replicationFactor: this.config.replicationFactor,
-                configEntries: [{ name: 'retention.ms', value: '2592000000' }],
-              },
-            ],
-          });
-        } catch (e) {
-          if ((e as { code?: number }).code !== errors.ERR_TOPIC_ALREADY_EXISTS)
-            throw e;
-        }
-        this.initialized = true;
-      }
+      const existingTopics = await this.admin.listTopics({
+        timeout: this.config.probeMs,
+      });
+      if (!existingTopics.includes(this.config.topic))
+        return 'OUTBOX_TOPIC_MISSING';
       return true;
     } catch (error) {
       return classifyError(error).code;

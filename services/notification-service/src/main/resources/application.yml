@@ -95,7 +95,7 @@ learnup:
     claim-lease: ${ENROLLMENT_EVENTS_CLAIM_LEASE:2m}
     # While the consumer is not running (for example Kafka was down at start-up) it is started again at this pause.
     start-retry-interval: ${ENROLLMENT_EVENTS_START_RETRY_INTERVAL:10s}
-    # The dead-letter topic is created with these values when the broker does not have it; raise the replicas with several brokers.
+    # Shape expectations checked against the shared deployment topic manifest.
     dead-letter-partitions: ${ENROLLMENT_EVENTS_DLT_PARTITIONS:3}
     dead-letter-replicas: ${ENROLLMENT_EVENTS_DLT_REPLICAS:1}
     default-time-zone: ${ENROLLMENT_EVENTS_DEFAULT_TIME_ZONE:Asia/Ho_Chi_Minh}
