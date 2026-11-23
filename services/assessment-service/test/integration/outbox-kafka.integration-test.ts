@@ -87,6 +87,7 @@ describe(
       KAFKA_BROKERS: BROKERS as string,
       OUTBOX_TOPIC: name,
       OUTBOX_PEER_REVIEW_TOPIC: `${name}.peer-review`,
+      OUTBOX_SUBMISSION_FINALIZED_TOPIC: `${name}.finalized`,
       ...over,
     });
     const gateFor = (name: string, over: Record<string, string> = {}) => {
@@ -137,6 +138,56 @@ describe(
         assert.equal(message.body.data.reason, 'PEER_REVIEW_WAIVED');
         assert.equal(message.body.data.learnerId, aggregate(1));
         assert.ok((await row(id)).published_at, 'and the row is marked sent');
+      } finally {
+        await listener.stop();
+      }
+    });
+
+    test('SubmissionFinalized is provisioned with three partitions and published with the learner key', async () => {
+      const name = topic();
+      const gate = gateFor(name);
+      assert.equal(await becomesReady(gate), true);
+      const listener = await listen(`${name}.finalized`);
+      try {
+        const id = randomUUID();
+        const learnerId = aggregate(1);
+        const payload = {
+          learnerId,
+          submissionId: aggregate(2),
+          assessmentId: aggregate(3),
+          assessmentTitle: 'Assignment',
+          finalScore: '80.00',
+          maxScore: '100.00',
+          courseId: aggregate(4),
+          finalizedAt: new Date().toISOString(),
+        };
+        await db.query(
+          "INSERT INTO outbox_events (id, aggregate_type, aggregate_id, event_type, organization_id, payload, occurred_at, updated_at) VALUES ($1, 'Submission', $2, 'SubmissionFinalized', $3, $4::jsonb, now(), now())",
+          [id, payload.submissionId, ORG, JSON.stringify(payload)],
+        );
+        await relayOver(db, prismas, gate, settings(name)).tick();
+        assert.equal(await listener.waitFor(1), 1);
+        assert.equal(listener.received[0].key, learnerId);
+        assert.equal(listener.received[0].body.eventId, id);
+        assert.deepEqual(listener.received[0].body.data, payload);
+        assert.equal(
+          listener.received[0].body.eventType,
+          'SubmissionFinalized',
+        );
+        assert.ok((await row(id)).published_at);
+        const kafka = new KafkaJS.Kafka({
+          kafkaJS: { brokers: [BROKERS as string] },
+        });
+        const admin = kafka.admin();
+        await admin.connect();
+        try {
+          const metadata = await admin.fetchTopicMetadata({
+            topics: [`${name}.finalized`],
+          });
+          assert.equal(metadata[0].partitions.length, 3);
+        } finally {
+          await admin.disconnect();
+        }
       } finally {
         await listener.stop();
       }

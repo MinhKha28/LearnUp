@@ -44,7 +44,7 @@ Every field below is required; there are no optional v1 fields.
 | data.assessmentTitle | Nonblank title snapshot, at most 200 characters. |
 | data.finalScore | Decimal string, 0–100, at most two fractional digits, no exponent or leading zeros. |
 | data.maxScore | Decimal string exactly "100.00" in v1. |
-| data.courseId | Canonical UUID; resolver route input. |
+| data.courseId | Canonical UUID; immutable Course version identifier (course-service courses.id), not chain_id; resolver route input. |
 | data.finalizedAt | ISO-8601 UTC timestamp ending in Z; stored finalization time. |
 
 The final score is stored as numeric(5,2); decimal strings preserve it exactly.
@@ -137,7 +137,7 @@ Proposed frontend route, supplied by the separate resolver PR:
 The base must be absolute http(s), without user info, query or fragment, and supports
 deployment subpaths/trailing slashes. Metadata contains only link (the relative route),
 courseId, assessmentId, assignmentId (compatibility alias), submissionId and finalizedAt.
-The frontend resolver calls GET /enrollments/me for the signed-in learner and redirects
+The frontend resolver calls GET /enrollments/me/course-ids for the signed-in learner and redirects
 to /learner/courses/:enrollmentId/results; it handles sign-in, unavailable and missing
 enrollment states. Notification does not call Learning.
 
