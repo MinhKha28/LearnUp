@@ -1,9 +1,4 @@
-/**
- * BR-254 / UC32.3: when the Instructor publishes the final score, the Learner is told by the bell and by e-mail.
- * The real HttpNotificationClient talks to a stub of notification-service, so the paths, the headers and the bodies
- * are the ones notification-service would receive. The notice is a side effect: it never undoes the score, it goes out in
- * the background (the Instructor does not wait for it) and each channel is tried again when notification-service fails.
- */
+/** Transactional finalization notices replace the former REST side effect. */
 import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -32,14 +27,7 @@ interface Sent {
   hasUserId: boolean;
 }
 
-const BELL = '/notifications/send';
-const MAIL = '/notifications/email/send';
-
-// one try and three more, as in production but in tenths of a second
-const RETRY_DELAYS = '50,100,200';
-const ATTEMPTS = 4;
-
-describe('BR-254 the Learner is told when the final score is published', () => {
+describe('BR-254 finalized notice events', () => {
   let db: TestDatabase;
   let course: CourseStub;
   let service: RunningService;
@@ -48,23 +36,6 @@ describe('BR-254 the Learner is told when the final score is published', () => {
   let sent: Sent[] = [];
   let notifierStatus = 201;
   let notifierUrl = '';
-  // how many calls of each path still fail with 503 before the stub answers normally
-  let failFirst: Record<string, number> = {};
-
-  const reached = (path: string) =>
-    sent.filter((s) => s.path.endsWith(path) && s.status < 300);
-
-  async function until(what: string, done: () => boolean, ms = 8000) {
-    const stop = Date.now() + ms;
-    while (!done()) {
-      assert.ok(
-        Date.now() < stop,
-        `timeout waiting for ${what}: ${JSON.stringify(sent)}`,
-      );
-      await sleep(25);
-    }
-  }
-
   async function createSubmission(title: string) {
     const created = await api('POST', '/assignments', {
       courseId: COURSE,
@@ -123,11 +94,7 @@ describe('BR-254 the Learner is told when the final score is published', () => {
       request.on('data', (chunk: Buffer) => (raw += chunk.toString()));
       request.on('end', () => {
         const path = request.url ?? '';
-        const failing = Object.entries(failFirst).find(
-          ([suffix, left]) => path.endsWith(suffix) && left > 0,
-        );
-        if (failing) failFirst[failing[0]] -= 1;
-        const status = failing ? 503 : notifierStatus;
+        const status = notifierStatus;
         sent.push({
           path,
           status,
@@ -148,7 +115,6 @@ describe('BR-254 the Learner is told when the final score is published', () => {
       OUTBOX_RELAY_ENABLED: 'false',
       NOTIFICATION_CLIENT_MODE: 'http',
       NOTIFICATION_SERVICE_URL: notifierUrl,
-      NOTICE_RETRY_DELAYS_MS: RETRY_DELAYS,
     });
     api = apiFor(service.baseUrl);
   });
@@ -163,189 +129,109 @@ describe('BR-254 the Learner is told when the final score is published', () => {
     await db?.drop();
   });
 
-  test('the bell and the e-mail go to the Learner of the submission, in Vietnamese and as plain text', async () => {
-    const { assignmentId, submissionId } = await gradedSubmission(
-      'Final <b>exercise</b>',
+  const notices = (submissionId: string) =>
+    db.query(
+      "SELECT * FROM outbox_events WHERE event_type = 'SubmissionFinalized' AND payload->>'submissionId' = $1",
+      [submissionId],
     );
+  test('finalization commits one exact notice and never calls notification REST; repeated finalize emits nothing', async () => {
+    const { assignmentId, submissionId } =
+      await gradedSubmission('Final assignment');
     sent = [];
     const result = await finalize(submissionId, { finalScore: 80 });
-    assert.equal(result.status, 200, JSON.stringify(result.json));
-    await until('the bell and the e-mail', () => sent.length >= 2);
-
-    assert.equal(sent.length, 2, JSON.stringify(sent));
-    const bell = sent.find((s) => s.path.endsWith(BELL));
-    assert.ok(bell, JSON.stringify(sent));
-    assert.equal(bell.body.recipientUserId, LEARNER);
-    assert.equal(bell.body.organizationId, ORG);
-    assert.equal(bell.body.title, 'Điểm bài tập đã được công bố');
-    assert.equal(bell.body.type, 'ASSIGNMENT_RESULT');
-    assert.match(String(bell.body.message), /"Final <b>exercise<\/b>"/);
-    assert.match(String(bell.body.message), /Điểm cuối cùng của bạn là 80%\./);
-    // notification-service keeps the metadata as text, so the client sends it as a JSON string
-    assert.deepEqual(JSON.parse(String(bell.body.metadata)), {
-      assignmentId,
+    assert.equal(result.status, 200);
+    const rows = await notices(submissionId);
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0].payload, {
+      learnerId: LEARNER,
+      submissionId,
+      assessmentId: assignmentId,
+      assessmentTitle: 'Final assignment',
+      finalScore: '80.00',
+      maxScore: '100.00',
       courseId: COURSE,
+      finalizedAt: result.data.finalizedAt,
     });
-    assert.equal(bell.hasInternalKey, true);
-    assert.equal(bell.hasUserId, false);
-
-    const mail = sent.find((s) => s.path.endsWith(MAIL));
-    assert.ok(mail, JSON.stringify(sent));
-    assert.match(String(mail.body.recipientEmail), /@demo\.local$/);
-    assert.equal(mail.body.subject, 'Điểm bài tập đã được công bố');
-    assert.equal(mail.body.templateCode, 'ASSIGNMENT_FINALIZED');
-    assert.match(String(mail.body.body), /^Xin chào /);
-    // plain text: a title with angle brackets must not turn the whole mail into HTML
-    assert.equal(/[<>]/.test(String(mail.body.body)), false);
-    assert.equal(mail.hasInternalKey, true);
-  });
-
-  test('the score reads with the Vietnamese decimal comma', async () => {
-    const { submissionId } = await gradedSubmission('Decimal exercise');
-    sent = [];
-    const result = await finalize(submissionId, {
-      finalScore: 79.5,
-      comment: 'Adjusted for the presentation.',
-    });
-    assert.equal(result.status, 200, JSON.stringify(result.json));
-    await until('the bell', () => reached(BELL).length === 1);
-    assert.match(String(reached(BELL)[0].body.message), /là 79,5%\./);
-  });
-
-  test('the answer does not wait for the notices, even when they keep failing', async () => {
-    const { submissionId } = await gradedSubmission('Slow notifier');
-    sent = [];
-    // every attempt fails, so the notices keep trying for a while after the answer
-    notifierStatus = 503;
-    try {
-      const result = await finalize(submissionId, { finalScore: 80 });
-      assert.equal(result.status, 200, JSON.stringify(result.json));
-      // the retries alone take 350 ms (50 + 100 + 200): the answer came before they were over
-      assert.ok(
-        sent.length < ATTEMPTS * 2,
-        `the answer waited for the retries: ${sent.length} calls were done`,
-      );
-      await until('all the attempts', () => sent.length === ATTEMPTS * 2);
-    } finally {
-      notifierStatus = 201;
-    }
-  });
-
-  test('a refused finalization sends nothing', async () => {
-    const { submissionId } = await gradedSubmission('Refused exercise');
-    // not awaiting finalization yet, then finalized twice
-    const ungraded = await createSubmission('Not graded yet');
-    sent = [];
-    const early = await finalize(ungraded.submissionId, { finalScore: 80 });
-    assert.equal(early.status, 409, JSON.stringify(early.json));
-
-    const first = await finalize(submissionId, { finalScore: 80 });
-    assert.equal(first.status, 200, JSON.stringify(first.json));
-    await until('the two notices', () => sent.length === 2);
-
-    const again = await finalize(submissionId, { finalScore: 80 });
-    assert.equal(again.status, 409, JSON.stringify(again.json));
-    assert.equal(again.code, 'SUBMISSION_ALREADY_FINALIZED');
-    await sleep(500); // longer than every retry of a notice
     assert.equal(
-      sent.length,
-      2,
-      'neither the refused requests nor the repeated one tell anybody',
+      (rows[0].occurred_at as Date).toISOString(),
+      result.data.finalizedAt,
     );
-  });
-
-  test('a notification-service that is down for a moment still gets both notices', async () => {
-    const { submissionId } = await gradedSubmission('Down for a moment');
-    sent = [];
-    failFirst = { [BELL]: 2, [MAIL]: 2 };
-    try {
-      const result = await finalize(submissionId, { finalScore: 80 });
-      assert.equal(result.status, 200, JSON.stringify(result.json));
-      await until(
-        'both notices delivered',
-        () => reached(BELL).length === 1 && reached(MAIL).length === 1,
-      );
-    } finally {
-      failFirst = {};
-    }
+    assert.equal(rows[0].organization_id, ORG);
     assert.equal(
-      sent.length,
-      6,
-      'two failures and then one success for each channel: ' +
-        JSON.stringify(sent.map((s) => [s.path, s.status])),
+      (await finalize(submissionId, { finalScore: 80 })).status,
+      409,
     );
-    assert.equal(sent.filter((s) => s.status === 503).length, 4);
+    assert.equal((await notices(submissionId)).length, 1);
+    await sleep(100);
+    assert.equal(sent.length, 0);
   });
-
-  test('the score stays published when notification-service refuses every attempt', async () => {
-    const { submissionId } = await gradedSubmission('Notifier down');
-    sent = [];
-    notifierStatus = 500;
+  test('a finalized resubmission gets a second notice with a new event id', async () => {
+    const { assignmentId, submissionId, criterionId } =
+      await gradedSubmission('Resubmission');
+    assert.equal(
+      (await finalize(submissionId, { finalScore: 80 })).status,
+      200,
+    );
+    const form = new FormData();
+    form.set('content', 'Replacement work');
+    const response = await fetch(
+      `${service.baseUrl}/api/v1/assessments/learner/assignments/${assignmentId}/resubmissions`,
+      {
+        method: 'POST',
+        headers: identity({ user: LEARNER, role: 'LEARNER' }),
+        body: form,
+      },
+    );
+    assert.equal(response.status, 201);
+    const json = (await response.json()) as { data: { id: string } };
+    await grade(json.data.id, criterionId as string);
+    assert.equal(
+      (await finalize(json.data.id, { finalScore: 80 })).status,
+      200,
+    );
+    const first = await notices(submissionId);
+    const second = await notices(json.data.id);
+    assert.equal(first.length, 1);
+    assert.equal(second.length, 1);
+    assert.notEqual(first[0].id, second[0].id);
+  });
+  test('a rejected finalization never writes a notice', async () => {
+    const { submissionId } = await createSubmission('Not graded');
+    assert.equal(
+      (await finalize(submissionId, { finalScore: 80 })).status,
+      409,
+    );
+    assert.equal((await notices(submissionId)).length, 0);
+  });
+  test('a failed notice insert rolls back finalization and the completion signal', async () => {
+    const { submissionId } = await gradedSubmission('Rollback');
+    await db.query(
+      `CREATE FUNCTION reject_notice() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.event_type = 'SubmissionFinalized' THEN RAISE EXCEPTION 'notice rejected'; END IF; RETURN NEW; END; $$; CREATE TRIGGER reject_notice BEFORE INSERT ON outbox_events FOR EACH ROW EXECUTE FUNCTION reject_notice();`,
+    );
     try {
-      const result = await finalize(submissionId, { finalScore: 80 });
-      assert.equal(result.status, 200, JSON.stringify(result.json));
-      assert.equal(result.data.gradingStatus, 'Finalized');
-      await until(
-        'every attempt of both channels',
-        () => sent.length === ATTEMPTS * 2,
-      );
-      await sleep(400);
       assert.equal(
-        sent.length,
-        ATTEMPTS * 2,
-        'it gives up after the last delay',
+        (await finalize(submissionId, { finalScore: 80 })).status,
+        500,
       );
-    } finally {
-      notifierStatus = 201;
-    }
-    const [row] = await db.query(
-      'SELECT grading_status, final_score FROM submissions WHERE id = $1',
-      [submissionId],
-    );
-    assert.equal(row.grading_status, 'Finalized');
-    assert.equal(Number(row.final_score), 80);
-    const events = await db.query(
-      `SELECT 1 FROM outbox_events WHERE payload->>'submissionId' = $1
-         AND payload->>'reason' = 'ASSIGNMENT_FINALIZED'`,
-      [submissionId],
-    );
-    assert.equal(events.length, 1, 'the event for Learning is still written');
-  });
-
-  test('a Kafka that cannot be reached stops neither the service nor the finalization nor its notice', async () => {
-    const { submissionId } = await gradedSubmission('Kafka is down');
-    // The relay is on and the only broker is a closed port: the service must start and work all the same.
-    const down = await startService(db.url, {
-      COURSE_SERVICE_URL: course.url,
-      ENROLLMENT_CLIENT_MODE: 'fake',
-      TENANT_CLIENT_MODE: 'fake',
-      OUTBOX_RELAY_ENABLED: 'true',
-      KAFKA_BROKERS: '127.0.0.1:1',
-      OUTBOX_PROBE_TIMEOUT_MS: '200',
-      OUTBOX_DELIVERY_TIMEOUT_MS: '1000', // the first probe of an unreachable broker ends in about a second
-      NOTIFICATION_CLIENT_MODE: 'http',
-      NOTIFICATION_SERVICE_URL: notifierUrl,
-      NOTICE_RETRY_DELAYS_MS: RETRY_DELAYS,
-    });
-    try {
-      sent = [];
-      const result = await apiFor(down.baseUrl)(
-        'POST',
-        `/submissions/${submissionId}/finalize`,
-        { finalScore: 80 },
-      );
-      assert.equal(result.status, 200, JSON.stringify(result.json));
-      await until('the bell and the e-mail', () => sent.length >= 2);
-      assert.equal(sent.length, 2, 'the bell and the e-mail were sent');
-      const events = await db.query(
-        `SELECT published_at FROM outbox_events WHERE payload->>'submissionId' = $1
-           AND payload->>'reason' = 'ASSIGNMENT_FINALIZED'`,
+      const [row] = await db.query(
+        'SELECT grading_status, finalized_at FROM submissions WHERE id = $1',
         [submissionId],
       );
-      assert.equal(events.length, 1);
-      assert.equal(events[0].published_at, null, 'the event waits for Kafka');
+      assert.equal(row.grading_status, 'AwaitingFinalization');
+      assert.equal(row.finalized_at, null);
+      assert.equal(
+        (
+          await db.query(
+            "SELECT id FROM outbox_events WHERE payload->>'submissionId' = $1 AND (event_type = 'SubmissionFinalized' OR payload->>'reason' = 'ASSIGNMENT_FINALIZED')",
+            [submissionId],
+          )
+        ).length,
+        0,
+      );
     } finally {
-      await down.stop();
+      await db.query(
+        'DROP TRIGGER reject_notice ON outbox_events; DROP FUNCTION reject_notice()',
+      );
     }
   });
 });

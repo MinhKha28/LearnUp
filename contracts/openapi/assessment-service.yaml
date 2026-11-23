@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: LearnUP Assessment Service API
   version: 1.0.0
-  description: Internal Assessment integration endpoints, Organizer Course review (UC21.2), completion snapshots and Course deletion cleanup. Internal routes require a service key; Organizer review requires JWT.
+  description: Internal Assessment integration endpoints, Organizer Course review (UC21.2), completion snapshots and Course deletion cleanup. Internal routes require a service key; Organizer review requires JWT. Successful Assignment finalization atomically writes SubmissionFinalized v1 to the outbox (see contracts/events/assessment-submission-finalized.md); it no longer sends a REST notification. The event courseId identifies courses.id (a Course version, not chain_id). The frontend resolves the learner enrollment through GET /enrollments/me/course-ids.
 security:
   - InternalKey: []
 paths:
