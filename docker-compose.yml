@@ -40,6 +40,8 @@ services:
     entrypoint: ["sh", "/topics/scripts/provision-topics.sh"]
     environment:
       BOOTSTRAP_SERVER: kafka:29092
+      COMMAND_TIMEOUT_SECONDS: 15
+      READINESS_TIMEOUT_SECONDS: 90
       COURSE_EVENTS_TOPIC: ${COURSE_EVENTS_TOPIC:-learnup.course.course-component-events}
       ENROLLMENT_EVENTS_TOPIC: ${ENROLLMENT_EVENTS_TOPIC:-${OUTBOX_TOPIC:-learnup.learning.enrollment-events}}
       ASSESSMENT_OUTBOX_TOPIC: ${ASSESSMENT_OUTBOX_TOPIC:-learnup.assessment.learner-assessment-events}
@@ -50,7 +52,7 @@ services:
       - ./infrastructure/kafka:/topics:ro
     depends_on:
       kafka:
-        condition: service_started
+        condition: service_healthy
     networks:
       - learnup-network
 
@@ -82,6 +84,7 @@ services:
       - learnup-network
     healthcheck:
       test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:29092 --list"]
+      start_period: 60s
       interval: 15s
       timeout: 10s
       retries: 5
