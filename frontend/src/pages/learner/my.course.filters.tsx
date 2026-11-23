@@ -1,13 +1,14 @@
 import { Input, Select } from "antd";
 
 import { ENROLLMENT_STATUS_LABELS, ENROLLMENT_TYPE_LABELS } from "@/utils/learner.labels";
+import { vietnameseClear } from "@/components/vietnamese.control.props";
 
-const typeOptions = [
-  { value: "", label: "Tất cả loại Khóa học" },
+export const typeOptions = [
+  { value: "", label: "Tất cả loại khóa học" },
   ...Object.entries(ENROLLMENT_TYPE_LABELS).map(([value, label]) => ({ value, label })),
 ];
 
-const statusOptions = [
+export const statusOptions = [
   { value: "", label: "Tất cả trạng thái" },
   ...Object.entries(ENROLLMENT_STATUS_LABELS)
     .filter(([value]) => value !== "Withdrawn")
@@ -27,14 +28,15 @@ export const MyCourseFilters = ({
 }: MyCourseFilterProps) => (
   <div className="learner-my-course-filters">
     <Input
-      aria-label="Tìm theo tên Khóa học"
-      placeholder="Tìm theo tên Khóa học"
+      aria-label="Tìm theo tên khóa học"
+      placeholder="Tìm theo tên khóa học"
       value={draft}
+      maxLength={200}
       onChange={(event) => setDraft(event.target.value)}
-      allowClear
+      allowClear={vietnameseClear}
     />
     <Select
-      aria-label="Loại Khóa học"
+      aria-label="Loại khóa học"
       options={typeOptions}
       value={type ?? ""}
       onChange={(value) => updateFilter("type", value)}

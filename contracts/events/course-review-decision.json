@@ -1,0 +1,20 @@
+{
+  "eventId": "019a0000-0000-7000-8000-000000000010",
+  "eventType": "CourseRejected",
+  "version": 1,
+  "producer": "course-service",
+  "organizationId": "019a0000-0000-7000-8000-000000000002",
+  "occurredAt": "2026-11-10T08:00:00.000Z",
+  "data": {
+    "organizationId": "019a0000-0000-7000-8000-000000000002",
+    "courseId": "019a0000-0000-7000-8000-000000000001",
+    "courseName": "Workplace Safety",
+    "versionNumber": 2,
+    "instructorId": "019a0000-0000-7000-8000-000000000003",
+    "organizerId": "019a0000-0000-7000-8000-000000000004",
+    "occurredAt": "2026-11-10T08:00:00.000Z",
+    "decidedAt": "2026-11-10T08:00:00.000Z",
+    "rejectedAt": "2026-11-10T08:00:00.000Z",
+    "rejectionReason": "Please revise the Assignment rubric."
+  }
+}

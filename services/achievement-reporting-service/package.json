@@ -11,7 +11,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/src/main",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "lint": "eslint \"src/**/*.ts\" --fix"
@@ -44,7 +44,7 @@
     "@nestjs/cli": "^11.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.19.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
@@ -54,5 +54,8 @@
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0",
     "pdfjs-dist": "6.4.299"
+  },
+  "engines": {
+    "node": ">=24.22.3 <25"
   }
 }

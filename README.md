@@ -1,130 +1,112 @@
-# LearnUP — Minimal but Complete Microservice Platform
+# LearnUP
 
-LearnUP is a non-AI B2B multi-tenant online learning and corporate training platform built on a clean, decoupled microservice architecture. It demonstrates strict business boundaries, database-per-service isolation, role-based access control, multi-tenant organization boundaries, and balanced synchronous/asynchronous communication.
+LearnUP is an organizational training platform. Organizations manage members,
+subscriptions, Courses and Assessments; Learners track progress and receive
+Certificates. The frontend communicates through the API Gateway, while services
+own their data and integrate through HTTP APIs and Kafka events.
 
----
+## Repository map
 
-## 1. Architectural Highlights
+| Component | Location | Responsibility |
+| --- | --- | --- |
+| Frontend | [frontend/](frontend/README.md) | React, TypeScript and Vite role interfaces |
+| Gateway | [gateway/api-gateway/](gateway/api-gateway/README.md) | Routing and authenticated request context |
+| Identity | [services/identity-service/](services/identity-service/README.md) | Credentials and authentication |
+| Notification | [services/notification-service/](services/notification-service/README.md) | Email and in-app message delivery |
+| Audit | [services/audit-service/](services/audit-service/README.md) | Audit records |
+| Tenant | [services/tenant-service/](services/tenant-service/README.md) | Canonical accounts, Organizations, subscriptions and payments |
+| Course | [services/course-service/](services/course-service/README.md) | Course versions, curriculum and materials |
+| Learning | [services/learning-service/](services/learning-service/README.md) | Enrollments, progress and completion |
+| Assessment | [services/assessment-service/](services/assessment-service/README.md) | Quizzes, submissions, grading and peer reviews |
+| Achievement & Reporting | [services/achievement-reporting-service/](services/achievement-reporting-service/README.md) | Certificates and reporting |
+| Shared libraries | [java-common](libraries/java-common/README.md), [ts-common](libraries/ts-common/README.md), [ts-storage](libraries/ts-storage/README.md) | Technical utilities, shared types and storage providers |
+| Infrastructure | [Eureka](infrastructure/eureka-server/README.md), [Kafka](infrastructure/kafka/README.md), infrastructure/postgres/ | Discovery, messaging and database initialization |
 
-* **Architecture Pattern**: Microservices with Database-per-Service.
-* **Frontend**: ReactJS, TypeScript, Vite, React Router, Axios (No Next.js).
-* **API Gateway**: Spring Cloud Gateway (Routing, JWT validation, Security context propagation, CORS, Correlation IDs).
-* **Service Discovery**: Netflix Eureka Server (Infrastructure service discovery without business logic).
-* **Identity & Authentication**: Identity Service (JWT access token issuance, Spring Security, BCrypt hashing).
-* **Multi-Tenancy Model**: Single `organizationId` identifier enforced across all tenant-aware services.
-* **Service Framework Agnosticism**: Business services implemented independently using **Spring Boot (Java 21)** or **NestJS (TypeScript)**.
-* **Synchronous Communication**: REST over HTTP via Eureka discovery.
-* **Asynchronous Messaging**: Apache Kafka for domain/business event broadcasting (standard event envelope).
-* **Containerization**: Docker & Docker Compose for local development.
+The Gateway, supporting services and Eureka use Java/Spring. The five business
+services use NestJS/TypeScript with Prisma. Each of the eight services owns its
+logical PostgreSQL database; consumers use APIs/events rather than another service's
+tables. The [Compose file](docker-compose.yml) records the local topology and port
+bindings. Frontend source and its package manifest are directly under frontend/.
 
----
+## Development entry points
 
-## 2. Monorepo Directory Structure
+Use Java 21 and Maven for Java components, and Node 24/npm 11 for the current JavaScript
+CI environment. Each component has its own POM or package.json; there is no root npm
+package. Start with the component README for private configuration and integration
+prerequisites. Do not copy deployment credentials from examples or test fixtures.
 
-```text
-learnup/
-│
-├── frontend/
-│   └── web/                               # ReactJS + Vite + TypeScript frontend foundation
-│
-├── infrastructure/
-│   ├── eureka-server/                     # Spring Cloud Netflix Eureka discovery server
-│   ├── kafka/                             # Kafka configuration and topic definitions
-│   └── postgres/                          # Multi-database init script (8 isolated service DBs)
-│
-├── gateway/
-│   └── api-gateway/                       # Spring Cloud Gateway (JWT validation & header propagation)
-│
-├── services/
-│   ├── identity-service/                  # Supporting: Credentials, authentication, JWT tokens (identity_db)
-│   ├── notification-service/              # Supporting: In-app notifications & email dispatch (notification_db)
-│   ├── audit-service/                     # Supporting: Append-only governance and action logs (audit_db)
-│   ├── tenant-service/                    # Business: Orgs, user accounts, subscriptions, payments (tenant_db)
-│   ├── course-service/                    # Business: Courses, versions, syllabus, lessons (course_db)
-│   ├── learning-service/                  # Business: Enrollments, learning progress, required assignments (learning_db)
-│   ├── assessment-service/                # Business: Quizzes, submissions, grading, peer reviews (assessment_db)
-│   └── achievement-reporting-service/     # Business: Certificates, analytics, reports, governance (achievement_reporting_db)
-│
-├── libraries/
-│   ├── java-common/                       # Shared Java technical utilities (security, response, exception)
-│   └── ts-common/                         # Shared TS utilities (HTTP client, context, shared types)
-│
-├── contracts/
-│   ├── openapi/                           # OpenAPI 3.0 API specifications
-│   └── events/                            # JSON schemas and examples for Kafka domain events
-│
-├── docs/
-│   ├── architecture/                      # Architectural specifications and diagrams
-│   ├── business/                          # Business requirements and domain rules
-│   ├── api/                               # REST API standards and conventions
-│   └── adr/                               # Architecture Decision Records (ADRs)
-│
-├── docker-compose.yml                     # Local orchestration of PostgreSQL, Kafka, Eureka, and platform components
-└── README.md
+For the frontend, from frontend/:
+
+```sh
+npm ci
+npm run dev
 ```
 
----
+Configure the frontend variables described in its README to point at the Gateway.
+The default Compose Gateway URL is http://localhost:8088; standalone configuration
+can use another port. Backend credentials must never be bundled into browser code.
+Browser verification has separate opt-in prerequisites from unit tests.
 
-## 3. Technology Stack & Boundaries
+For a TypeScript service, first install/build its file-linked libraries from each
+library directory with npm ci and npm run build. Then, from the service directory:
 
-### Platform & Supporting Components
-| Component | Technology | Database | Key Responsibilities |
-| :--- | :--- | :--- | :--- |
-| **Frontend** | ReactJS + TS + Vite | N/A | Auth state, protected routes, role UI, Org context |
-| **API Gateway** | Spring Cloud Gateway | None | Reverse proxy, JWT verify, `X-*` header propagation |
-| **Service Discovery** | Spring Cloud Eureka | None | Service registry & health monitoring |
-| **Event Bus** | Apache Kafka | None | Asynchronous business event broadcast |
-| **Identity Service** | Spring Boot (Java 21) | `identity_db` (Postgres) | Credentials, password hashing, JWT issuing, login |
-| **Notification Service** | Spring Boot (Java 21) | `notification_db` (Postgres) | In-app notifications, email dispatch, alert templates |
-| **Audit Service** | Spring Boot | `audit_db` (Postgres) | Append-only governance audit logs, actor/resource action history |
-
-### 5 Finalized Business Services
-| Business Service | Database | Key Responsibilities |
-| :--- | :--- | :--- |
-| **Tenant Service** | `tenant_db` | Master User/Account records, Organizations, members, tags, plans, subscriptions, payments |
-| **Course Service** | `course_db` | Course catalog, course versioning, syllabus, modules, lessons, material links |
-| **Learning Service** | `learning_db` | Course enrollments, lesson progress tracking, required course assignments |
-| **Assessment Service** | `assessment_db` | Quizzes, assignments, submissions, auto-grading, instructor/peer reviews |
-| **Achievement & Reporting Service** | `achievement_reporting_db` | Certificates, learning analytics, organization compliance reports, governance |
-
----
-
-## 4. Security & Context Propagation Flow
-
-```text
- Client (ReactJS)
-       │
-       │ HTTP Request with Authorization: Bearer <JWT>
-       ▼
- ┌─────────────────────────────────────────────────────────────┐
- │                    Spring API Gateway                       │
- │  1. Strip incoming client-spoofed X-User-*, X-Org-* headers │
- │  2. Validate JWT signature, expiration, and issuer          │
- │  3. Extract sub (userId), role, organizationId              │
- │  4. Inject trusted headers & forward:                       │
- │     - X-User-ID: <sub (user-id)>                            │
- │     - X-Organization-ID: <organization-id>                  │
- │     - X-User-Role: <ADMIN | ORGANIZER | INSTRUCTOR | LEARNER>│
- │     - X-Correlation-ID: <uuid>                              │
-     - x-internal-key: <INTERNAL_SERVICE_KEY>                │
- └──────────────────────────────┬──────────────────────────────┘
-                                │
-               ┌────────────────┼────────────────┐
-               │                │                │
-               ▼                ▼                ▼
-        Identity Service   Supporting       5 Business
-                           Services          Services
+```sh
+npm ci
+npx prisma generate --config prisma7.config.ts
+npm run build
 ```
 
----
+Provide the service's private environment and database configuration before running
+its documented startup or integration procedure. Prisma generation does not apply
+database migrations. Follow the owning service's migration instructions against the
+intended isolated development database.
 
-## 5. System Decisions & Architecture Exclusions
+For Java components that depend on it, first run mvn install from
+libraries/java-common/. From the component directory, use mvn test or mvn clean verify.
+The Identity [development guide](services/identity-service/DEVELOPMENT.md) separates
+default H2 tests from opt-in PostgreSQL and SMTP verification.
 
-LearnUP intentionally maintains clean, robust boundaries without unnecessary technical complexity. See [`docs/adr/`](file:///d:/Study/learnup/docs/adr) for full decision records.
+For the full local topology, read docker-compose.yml and the relevant service
+configuration guides before starting containers. Supply required private environment
+values, then validate with docker compose config --quiet; avoid printing rendered
+configuration into shared logs. Identity has no published host port. A valid Compose
+configuration is not proof that dependencies or all service integrations are healthy.
 
-* **Exactly 4 Authenticated Roles**: `ADMIN`, `ORGANIZER`, `INSTRUCTOR`, `LEARNER` (Guest is unauthenticated, not a role).
-* **Single Tenant Identifier**: `organizationId` is the single canonical tenant key.
-* **Database-per-Service**: 8 independent logical databases with zero cross-service direct DB access or foreign keys.
-* **Synchronous REST + Asynchronous Kafka**: REST for direct queries/commands; Kafka for decoupled domain event broadcasts.
-* **Zero AI / ML / LLM Functionality**: AI grading, AI tutors, LLM APIs, and vector embeddings are completely excluded.
-* **Explicitly Excluded Technologies**: Redis, RabbitMQ, Kubernetes, OpenTelemetry, Prometheus, Grafana, CQRS, Event Sourcing, 2PC Distributed Transactions, Database RLS, Service Mesh, Config Server, Elasticsearch, Next.js, Azure Blob / Azurite.
+## Verification
+
+[CI](.github/workflows/ci.yml) selects affected packages and records blocking versus
+advisory checks. Run commands from their component directories:
+
+| Part | Build / checks |
+| --- | --- |
+| Frontend | npm run build; npm run typecheck; npm test; npm run lint |
+| TypeScript libraries | npm run build; npm run typecheck; npm test |
+| Learning, Tenant, Assessment, Achievement | npm run build; npm run test:unit; service-specific integration suites |
+| Course | npm run build; npm test -- --ci; separate E2E/database suites |
+| Java services, Gateway, Eureka | mvn test; mvn clean verify |
+
+Backend lint scripts commonly include --fix; use the nonmutating ESLint invocation
+from CI for a check. Shared-library contract changes require fresh library builds
+and verification of every consumer. Skipped browser/database tests, mocked Tenant
+access and advisory checks must be reported accurately. Consult the component
+README and manifest rather than treating this table as every suite's prerequisites.
+
+## Contracts and architecture
+
+- [Business source documents](docs/source-of-truth/) define business requirements.
+- [OpenAPI contracts](contracts/openapi/README.md) and [event contracts](contracts/events/README.md) describe checked-in wire contracts.
+- [Database references](docs/database/README.md) describe ownership and physical models.
+- [Architecture decisions](docs/adr/) explain system choices; current manifests and configuration establish implemented wiring.
+- [Contribution guidance](CONTRIBUTING.md) covers database and contract review.
+
+The authentication boundary includes Gateway JWT verification and authenticated
+private service channels. See [Identity](services/identity-service/README.md) and
+[Gateway](gateway/api-gateway/README.md) for current behavior. Raw user/role headers
+are not a substitute for authenticated context. Product technology exclusions are
+recorded in the [technology ADR](docs/adr/0007-technology-exclusions.md).
+
+## AI tools
+
+Shared standards, personal instruction files and migration steps are documented in the
+[AI assistant setup guide](docs/guides/ai-assistant-setup.md). Use it to configure your
+tool and verify instruction loading and commit-policy checks.

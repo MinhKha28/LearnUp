@@ -73,42 +73,67 @@
     color: #94a3b8;
     font-size: 8px;
     font-weight: 700;
-    text-transform: uppercase;
 }
 
-.admin-suspend-modal .ant-modal-content {
-    padding: 22px;
-    border-radius: 10px;
+.admin-usage.admin-usage-warning span {
+    background: #d97706;
 }
 
-.admin-suspend-modal .ant-modal-title {
-    font-size: 17px;
+.admin-usage.admin-usage-full span {
+    background: var(--color-error);
 }
 
-.admin-suspend-modal p {
-    color: #64748b;
-    font-size: 10px;
-    line-height: 1.55;
+.admin-usage-row {
+    margin-top: 16px;
 }
 
-.admin-modal-warning {
+.admin-organization-identity {
+    display: flex;
+    margin-bottom: 16px;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-organization-identity strong {
+    color: #334155;
+    font-size: 14px;
+}
+
+.admin-organizer-meta {
     display: grid;
     gap: 4px;
-    margin: 14px 0 18px;
-    padding: 12px;
-    border: 1px solid #f59e0b;
-    border-radius: 7px;
-    background: #fffbeb;
-    color: #92400e;
-}
-
-.admin-modal-warning strong {
-    font-size: 10px;
-}
-
-.admin-modal-warning span {
+    margin-top: 12px;
+    color: #64748b;
     font-size: 9px;
-    line-height: 1.5;
+}
+
+.admin-duplicate-tax {
+    margin-bottom: 16px;
+}
+
+.admin-duplicate-tax ul {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 8px 0 0;
+    padding: 0;
+    gap: 8px 16px;
+    list-style: none;
+}
+
+.admin-duplicate-tax li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.admin-sanction-empty {
+    padding: 12px 20px 18px;
+}
+
+.admin-detail-loading {
+    display: flex;
+    padding: 80px 0;
+    justify-content: center;
 }
 
 @media (max-width: 700px) {

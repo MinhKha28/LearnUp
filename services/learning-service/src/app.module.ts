@@ -1,3 +1,4 @@
+import { validateRuntimeConfig } from './runtime.config';
 import { AssessmentStatusModule } from './modules/assessment-status/assessment-status.module';
 import { Module } from '@nestjs/common';
 import { CompletionModule } from './modules/course-completion/completion.module';
@@ -24,7 +25,7 @@ import { PrismaModule } from './infrastructure/prisma/prisma.module';
     CompletionModule,
     AssessmentStatusModule,
     AssignmentsModule,
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateRuntimeConfig }),
     PrismaModule,
     EnrollmentsModule,
     CurriculumModule,

@@ -17,42 +17,42 @@ const CourseContentReconsider = () => {
   if (!item) {
     return (
       <InstructorPage className="instructor-content-reconsider">
-        <PageHeader eyebrow="CONTENT REVIEW / RECONSIDERATION" title="No content review pending" subtitle="" back />
+        <PageHeader eyebrow="Thẩm định nội dung / Đề nghị xem xét lại" title="Không có nội dung đang chờ thẩm định" subtitle="" back />
       </InstructorPage>
     );
   }
 
   const submit = (values: ReconsiderFields) => {
     submitReconsideration(item, values.summary);
-    message.success("Reconsideration request sent.");
+    message.success("Đã gửi yêu cầu xem xét lại.");
     navigate(`/instructor/courses/${courseId}/content-review`);
   };
 
   return (
     <InstructorPage className="instructor-content-reconsider">
       <PageHeader
-        eyebrow="CONTENT REVIEW / RECONSIDERATION"
-        title="Request Reconsideration"
-        subtitle="Submit after completing the requested correction."
+        eyebrow="Thẩm định nội dung / Đề nghị xem xét lại"
+        title="Đề nghị xem xét lại"
+        subtitle="Gửi đề nghị sau khi hoàn tất nội dung cần chỉnh sửa."
         back
       />
       <SectionCard>
-        <span className="instructor-content-reconsider-label">Reported content</span>
+        <span className="instructor-content-reconsider-label">Nội dung bị báo cáo</span>
         <h2>{item.reportedItemTitle}</h2>
         <Form<ReconsiderFields> layout="vertical" requiredMark={false} onFinish={submit}>
           <Form.Item
-            label="Correction summary"
+            label="Tóm tắt nội dung đã sửa"
             name="summary"
-            rules={[{ required: true, message: "Describe how the content was corrected." }]}
+            rules={[{ required: true, message: "Mô tả cách bạn đã khắc phục nội dung." }]}
           >
-            <Input.TextArea rows={6} placeholder="Describe how the content was corrected..." />
+            <Input.TextArea rows={6} placeholder="Nhập nội dung đã khắc phục..." />
           </Form.Item>
-          <InfoPanel title="Decision authority">
-            The original decision-maker reviews this reconsideration request.
+          <InfoPanel title="Thẩm quyền quyết định">
+            Người đưa ra quyết định ban đầu sẽ xem xét yêu cầu này.
           </InfoPanel>
           <div className="instructor-content-reconsider-actions">
             <InstructorButton type="primary" htmlType="submit">
-              Send for reconsideration
+              Gửi yêu cầu xem xét lại
             </InstructorButton>
           </div>
         </Form>

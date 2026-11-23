@@ -21,9 +21,9 @@ import {
 import "./dashboard.scss";
 
 const attentionNextAction: Record<string, string> = {
-  draft: "Continue editing",
-  submitted: "View status",
-  rejected: "Review reason",
+  draft: "Tiếp tục chỉnh sửa",
+  submitted: "Xem trạng thái",
+  rejected: "Xem lý do",
 };
 
 interface IAttentionRow {
@@ -40,14 +40,14 @@ const Dashboard = () => {
     key: course.id,
     course: course.title,
     status: courseStatusLabel[course.status],
-    nextAction: attentionNextAction[course.status] ?? "View course",
+    nextAction: attentionNextAction[course.status] ?? "Xem khóa học",
   }));
 
   const columns: ColumnsType<IAttentionRow> = [
-    { title: "Course", dataIndex: "course", render: (value) => <strong>{value}</strong> },
-    { title: "Status", dataIndex: "status" },
+    { title: "Khóa học", dataIndex: "course", render: (value) => <strong>{value}</strong> },
+    { title: "Trạng thái", dataIndex: "status" },
     {
-      title: "Next action",
+      title: "Thao tác tiếp theo",
       dataIndex: "nextAction",
       render: (value, record) => (
         <button
@@ -67,19 +67,19 @@ const Dashboard = () => {
   return (
     <InstructorPage className="instructor-dashboard">
       <PageHeader
-        eyebrow="INSTRUCTOR"
-        title="Instructor Overview"
-        subtitle="Your Courses, reviews and Learner progress in one place."
+        eyebrow="Giảng viên"
+        title="Tổng quan giảng viên"
+        subtitle="Theo dõi khóa học, việc chấm bài và tiến độ học viên tại một nơi."
       />
-      <InfoPanel title="Course approval">
-        A submitted Course is awaiting the Organizer&apos;s decision.
+      <InfoPanel title="Phê duyệt khóa học">
+        Khóa học đã gửi đang chờ quản lý đào tạo phê duyệt.
       </InfoPanel>
       <div className="instructor-dashboard-stats">
         <StatCard
-          label="Draft Courses"
+          label="Khóa học bản nháp"
           value={draftCourseCount()}
           to={{
-            label: "Continue authoring",
+            label: "Tiếp tục biên soạn",
             onClick: () => {
               const draft = instructorCourses.find((course) => course.status === "draft");
               navigate(draft ? `/instructor/courses/${draft.id}/builder` : "/instructor/courses");
@@ -87,26 +87,26 @@ const Dashboard = () => {
           }}
         />
         <StatCard
-          label="Submitted Course"
+          label="Khóa học chờ phê duyệt"
           value={submittedCourseCount()}
-          to={{ label: "Awaiting review", onClick: () => navigate("/instructor/courses") }}
+          to={{ label: "Đang chờ thẩm định", onClick: () => navigate("/instructor/courses") }}
         />
         <StatCard
-          label="Submissions to grade"
+          label="Bài nộp cần chấm"
           value={instructorSubmissions.filter((submission) => !submission.published).length}
           to={{
-            label: "Review now",
+            label: "Xem để chấm",
             onClick: () => navigate("/instructor/submissions"),
           }}
         />
         <StatCard
-          label="At-risk Learners"
+          label="Học viên cần hỗ trợ"
           value="[Count]"
-          to={{ label: "Open report", onClick: () => navigate("/instructor/monitoring") }}
+          to={{ label: "Xem báo cáo", onClick: () => navigate("/instructor/monitoring") }}
         />
       </div>
       <div className="instructor-dashboard-grid">
-        <SectionCard title="Courses requiring attention" className="instructor-attention-card">
+        <SectionCard title="Khóa học cần xử lý" className="instructor-attention-card">
           <Table
             className="instructor-table"
             columns={columns}
@@ -115,8 +115,8 @@ const Dashboard = () => {
             rowKey="key"
           />
         </SectionCard>
-        <SectionCard title="Grading and peer review" className="instructor-grading-card">
-          <p className="instructor-grading-assignment">Safety Assignment</p>
+        <SectionCard title="Chấm điểm và chấm chéo" className="instructor-grading-card">
+          <p className="instructor-grading-assignment">Bài tập an toàn lao động</p>
           <ul className="instructor-grading-list">
             {gradingHighlights.map((item) => (
               <li key={item.label}>
@@ -134,7 +134,7 @@ const Dashboard = () => {
             block
             onClick={() => navigate("/instructor/submissions")}
           >
-            View submissions
+            Xem bài nộp
           </InstructorButton>
         </SectionCard>
       </div>

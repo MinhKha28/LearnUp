@@ -1,23 +1,28 @@
 export type InvitedRole = "Instructor" | "Learner";
 
+const ROLE_WORD: Record<InvitedRole, string> = {
+  Instructor: "Giảng viên",
+  Learner: "Học viên",
+};
+
 export const reinvitationErrorMessage = (
   role: InvitedRole,
   code: string | undefined,
 ): string => {
   switch (code) {
     case "ACCOUNT_NOT_PENDING":
-      return `This ${role.toLowerCase()} is no longer waiting for activation, so no invitation was sent.`;
+      return `${ROLE_WORD[role]} này không còn chờ kích hoạt nên lời mời không được gửi.`;
     case "INSTRUCTOR_NOT_FOUND":
     case "LEARNER_NOT_FOUND":
-      return `This ${role.toLowerCase()} no longer exists in your organization.`;
+      return `${ROLE_WORD[role]} này không còn trong tổ chức của bạn.`;
     case "CONCURRENT_UPDATE":
-      return `This ${role.toLowerCase()} was just updated. Please reload and try again.`;
+      return `${ROLE_WORD[role]} này vừa được cập nhật. Hãy tải lại trang rồi thử lại.`;
     case "ORGANIZATION_NOT_ACTIVE":
-      return "Your Organization is suspended. Invitations cannot be sent.";
+      return "Tổ chức của bạn đang bị tạm khóa nên không gửi được lời mời.";
     case "SUBSCRIPTION_NOT_ACTIVE":
-      return "Your Subscription is suspended. Invitations cannot be sent until it is renewed.";
+      return "Gói dịch vụ đang tạm ngưng nên không gửi được lời mời cho tới khi gia hạn.";
     default:
-      return "Could not resend the invitation. Please try again later.";
+      return "Chưa gửi lại được lời mời. Vui lòng thử lại sau.";
   }
 };
 

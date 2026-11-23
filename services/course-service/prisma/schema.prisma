@@ -53,6 +53,8 @@ model Course {
   assignmentMinutesAsOf  DateTime? @map("assignment_minutes_as_of") @db.Timestamptz
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy              String?   @map("deleted_by") @db.Uuid
 
   chain     CourseChain     @relation(fields: [chainId], references: [id], onDelete: Cascade)
   coverFile MediaFile?      @relation("CourseCover", fields: [coverFileId], references: [id])
@@ -61,6 +63,7 @@ model Course {
 
   @@unique([chainId, versionNumber])
   @@index([organizationId, status])
+  @@index([organizationId, deletedAt])
   @@map("courses")
 }
 

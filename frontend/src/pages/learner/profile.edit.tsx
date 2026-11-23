@@ -13,9 +13,9 @@ const ProfileEdit = () => {
   return (
     <LearnerPage className="learner-profile-edit">
       <PageHeader
-        eyebrow="ACCOUNT / EDIT PROFILE"
-        title="Edit Profile"
-        subtitle="Update your name and avatar."
+        eyebrow="Tài khoản / Sửa hồ sơ"
+        title="Sửa hồ sơ"
+        subtitle="Cập nhật họ tên và ảnh đại diện."
         back
       />
       <SectionCard>

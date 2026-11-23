@@ -20,7 +20,7 @@ const refreshClient = axios.create({
 });
 
 // Các API đăng nhập tự xử lý 401 của mình (sai mật khẩu, refresh token hỏng) -> không làm mới token
-const AUTH_ENDPOINT = /\/auth\/(login|refresh|logout)$/;
+export const AUTH_ENDPOINT = /\/auth\/(login|google|refresh|logout|revoke)$/;
 const PROTECTED_PREFIXES = ["/admin", "/organizer", "/learner", "/instructor"];
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean; progressOwner?: ProgressOwner };

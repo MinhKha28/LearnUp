@@ -27,6 +27,7 @@ export const withProfile = (user: IUser, profile?: IMyProfile | null): IUser =>
     ? {
         ...user,
         fullName: profile.fullName,
+        organizationName: profile.organizationName?.trim() || null,
         avatar: profile.avatarUrl ?? undefined,
       }
     : user;

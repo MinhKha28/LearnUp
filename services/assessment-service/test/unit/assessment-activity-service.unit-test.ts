@@ -17,10 +17,12 @@ const user = {
 
 const build = (flags: [boolean, boolean, boolean]) => {
   const calls: unknown[][] = [];
-  const answer = (value: boolean) => (...args: unknown[]) => {
-    calls.push(args);
-    return Promise.resolve(value);
-  };
+  const answer =
+    (value: boolean) =>
+    (...args: unknown[]) => {
+      calls.push(args);
+      return Promise.resolve(value);
+    };
   const repository = {
     hasQuizAttempt: answer(flags[0]),
     hasSubmission: answer(flags[1]),
@@ -39,6 +41,21 @@ describe('AssessmentActivityService', () => {
     });
     assert.equal(calls.length, 3);
     for (const call of calls) assert.deepEqual(call, [ORG, LEARNER, COURSE]);
+  });
+
+  test('trusted assignment activity queries only Quiz attempts and submissions', async () => {
+    const { service, calls } = build([false, true, true]);
+    assert.deepEqual(
+      await service.getAssignmentActivity(ORG, LEARNER, COURSE),
+      {
+        hasQuizAttempt: false,
+        hasSubmission: true,
+      },
+    );
+    assert.deepEqual(calls, [
+      [ORG, LEARNER, COURSE],
+      [ORG, LEARNER, COURSE],
+    ]);
   });
 
   test('a Learner without any activity gets three false flags', async () => {

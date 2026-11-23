@@ -7,7 +7,6 @@ import {
   requiredSeconds,
 } from '../../src/modules/material-progress/video-progress.rules';
 import { ReportProgressPipe } from '../../src/modules/material-progress/report-progress.dto';
-import { readVideoPlaybackConfig } from '../../src/modules/material-progress/video-playback.config';
 
 test('D86 rounds inward, clips duration and drops empty intervals', () => {
   assert.deepEqual(
@@ -84,36 +83,5 @@ test('BR-182 DTO accepts position-only reports and validates position, timestamp
     pipe.transform({ ranges: Array(20).fill([0, 1]), ...position }).ranges
       .length,
     20,
-  );
-});
-test('D85 fixture is explicit, validates URL, refuses production; course can start in production', () => {
-  const config = (values: Record<string, string>) =>
-    readVideoPlaybackConfig((key) => values[key]);
-  assert.throws(() => config({}));
-  assert.throws(() => config({ VIDEO_PLAYBACK_MODE: 'other' }));
-  assert.throws(() =>
-    config({
-      VIDEO_PLAYBACK_MODE: 'fixture',
-      NODE_ENV: 'production',
-      VIDEO_FIXTURE_URL: 'https://example.test/a.mp4',
-    }),
-  );
-  assert.throws(() => config({ VIDEO_PLAYBACK_MODE: 'fixture' }));
-  assert.throws(() =>
-    config({
-      VIDEO_PLAYBACK_MODE: 'fixture',
-      VIDEO_FIXTURE_URL: 'file:///a.mp4',
-    }),
-  );
-  assert.deepEqual(
-    config({ VIDEO_PLAYBACK_MODE: 'course', NODE_ENV: 'production' }),
-    { mode: 'course' },
-  );
-  assert.equal(
-    config({
-      VIDEO_PLAYBACK_MODE: 'fixture',
-      VIDEO_FIXTURE_URL: 'https://example.test/a.mp4',
-    }).fixtureUrl,
-    'https://example.test/a.mp4',
   );
 });

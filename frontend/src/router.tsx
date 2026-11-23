@@ -1,4 +1,6 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import CourseResultsResolver from "./pages/learner/course.results.resolver";
+import { createBrowserRouter, Navigate, type RouteObject } from "react-router-dom";
+import { isPreviewRoute, previewLandings, previewPagesEnabled } from "@/utils/preview.pages";
 
 import Layout from "@/layout";
 
@@ -64,6 +66,8 @@ import OrganizerEvaluations from "./pages/organizer/evaluations";
 import OrganizerContentReports from "./pages/organizer/content.reports";
 import OrganizerContentReportDetail from "./pages/organizer/content.report.detail";
 import OrganizerViolationHistory from "./pages/organizer/violation.history";
+import OrganizerAuditLogs from "./pages/organizer/audit.logs";
+import AdminAuditLogs from "./pages/admin/audit.logs";
 import OrganizerProfile from "./pages/organizer/profile";
 import OrganizerProfileEdit from "./pages/organizer/profile.edit";
 import OrganizerChangePassword from "./pages/organizer/password.change";
@@ -104,6 +108,7 @@ import LayoutInstructor from "./components/layout/layout.instructor";
 import LayoutInstructorCourse from "./components/layout/layout.instructor.course";
 import InstructorDashboard from "./pages/instructor/dashboard";
 import InstructorMyCourses from "./pages/instructor/my.courses";
+import InstructorCourseTrash from "./pages/instructor/course.trash";
 import InstructorCourseCreate from "./pages/instructor/course.create";
 import InstructorCourseDetail from "./pages/instructor/course.detail";
 import InstructorCourseQuotaBlocked from "./pages/instructor/course.quota.blocked";
@@ -135,6 +140,7 @@ import InstructorCourseBuilderQuizCreate from "./pages/instructor/course.builder
 import InstructorCourseBuilderQuizDetail from "./pages/instructor/course.builder.quiz.detail";
 import InstructorCourseBuilderQuizConfigurationEdit from "./pages/instructor/course.builder.quiz.configuration.edit";
 import InstructorCourseBuilderQuizQuestionEdit from "./pages/instructor/course.builder.quiz.question.edit";
+import InstructorCourseBuilderQuizQuestionCreate from "./pages/instructor/course.builder.quiz.question.create";
 import InstructorCourseBuilderQuizDelete from "./pages/instructor/course.builder.quiz.delete";
 import InstructorCourseBuilderAssignments from "./pages/instructor/course.builder.assignments";
 import InstructorCourseBuilderAssignmentCreate from "./pages/instructor/course.builder.assignment.create";
@@ -165,7 +171,7 @@ import InstructorProfile from "./pages/instructor/profile";
 import InstructorProfileEdit from "./pages/instructor/profile.edit";
 import InstructorChangePassword from "./pages/instructor/password.change";
 
-export const router = createBrowserRouter([
+const routes: RouteObject[] = [
   {
     path: "/",
     element: <Layout />,
@@ -193,7 +199,7 @@ export const router = createBrowserRouter([
     errorElement: <ServerErrorPage />,
     children: [
       { index: true, element: <ManageDashboard /> },
-      { path: "notifications", element: <NotificationPage /> },
+      { path: "notifications", element: <NotificationPage subtitle="Các cập nhật cần bạn chú ý trên nền tảng." /> },
       { path: "organizations", element: <Organizations /> },
       {
         path: "organizations/:organizationId",
@@ -210,6 +216,7 @@ export const router = createBrowserRouter([
       { path: "reports/:reportId", element: <ReportDetail /> },
       { path: "configuration", element: <Configuration /> },
       { path: "statistics", element: <Statistics /> },
+      { path: "audit-logs", element: <AdminAuditLogs /> },
       { path: "suspended-organizations", element: <SuspendedOrganizations /> },
       { path: "profile", element: <Profile /> },
       { path: "profile/edit", element: <AdminProfileEdit /> },
@@ -282,6 +289,7 @@ export const router = createBrowserRouter([
         element: <OrganizerContentReportDetail />,
       },
       { path: "violation-history", element: <OrganizerViolationHistory /> },
+      { path: "audit-logs", element: <OrganizerAuditLogs /> },
       { path: "profile", element: <OrganizerProfile /> },
       { path: "profile/edit", element: <OrganizerProfileEdit /> },
       { path: "profile/change-password", element: <OrganizerChangePassword /> },
@@ -296,6 +304,7 @@ export const router = createBrowserRouter([
     ),
     errorElement: <ServerErrorPage />,
     children: [
+      { path: "courses/by-course/:courseId/results", element: <CourseResultsResolver /> },
       { index: true, element: <LearnerDashboard /> },
       { path: "notifications", element: <NotificationPage /> },
       { path: "courses", element: <LearnerMyCourses /> },
@@ -381,6 +390,10 @@ export const router = createBrowserRouter([
       { index: true, element: <InstructorDashboard /> },
       { path: "notifications", element: <NotificationPage /> },
       { path: "courses", element: <InstructorMyCourses /> },
+      {
+        path: "courses/trash",
+        element: <InstructorCourseTrash />,
+      },
       { path: "courses/create", element: <InstructorCourseCreate /> },
       {
         path: "courses/create/quota-blocked",
@@ -548,7 +561,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "quizzes/:quizId/questions/new",
-        element: <InstructorCourseBuilderQuizQuestionEdit />,
+        element: <InstructorCourseBuilderQuizQuestionCreate />,
       },
       {
         path: "quizzes/:quizId/questions/:questionId/edit",
@@ -598,4 +611,28 @@ export const router = createBrowserRouter([
   { path: "/500", element: <ServerErrorPage /> },
   { path: "/503", element: <ServiceUnavailablePage /> },
   { path: "*", element: <NotFoundPage /> },
-]);
+];
+
+function withoutPreviewRoutes(entries: RouteObject[], parent = ""): RouteObject[] {
+  return entries.flatMap((route) => {
+    const segment = route.path ?? "";
+    const path = segment.startsWith("/") ? segment : [parent.replace(/\/$/, ""), segment].filter(Boolean).join("/");
+    if (route.children) {
+      return [{ ...route, children: withoutPreviewRoutes(route.children, path) }];
+    }
+    if (!isPreviewRoute(path)) return [route];
+
+    const landing = route.index ? previewLandings[path] : undefined;
+    return landing ? [{ index: true, element: <Navigate to={landing} replace /> }] : [];
+  });
+}
+
+export const appRoutes: RouteObject[] = previewPagesEnabled
+  ? routes
+  : [
+      // Giữ URL cũ ở trang 404, tránh khớp nhầm với courses/:courseId.
+      { path: "/instructor/courses/draft-created", element: <NotFoundPage /> },
+      ...withoutPreviewRoutes(routes),
+    ];
+
+export const router = createBrowserRouter(appRoutes);

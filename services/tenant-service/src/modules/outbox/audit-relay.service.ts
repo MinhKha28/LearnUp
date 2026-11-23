@@ -187,6 +187,8 @@ export class AuditRelayService implements OnModuleDestroy {
             occurredAt: record.occurredAt,
           }),
           correlationId: eventId,
+          // The trail is dated by the time of the action, not by the time of this delivery (a retry can come hours later).
+          occurredAt: record.occurredAt,
         }),
         signal: AbortSignal.timeout(timeoutMs),
       });

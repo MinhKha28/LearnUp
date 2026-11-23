@@ -16,6 +16,8 @@ import type { CourseSnapshotRows } from '../../src/modules/course-snapshots/cour
 import { CreateEnrollmentDto } from '../../src/modules/enrollments/dto/create-enrollments.dto';
 import { EnrollmentsController } from '../../src/modules/enrollments/enrollments.controller';
 import { EnrollmentsService } from '../../src/modules/enrollments/enrollments.service';
+import { EnrollmentsRepository } from '../../src/modules/enrollments/enrollments.repository';
+import type { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import {
   CourseNotAvailableError,
   CourseServiceConfigurationError,
@@ -474,4 +476,30 @@ void test('enrollment blocks recognized organization-not-found with FORBIDDEN', 
     'FORBIDDEN',
   );
   assert.equal(calls.lock, 0);
+});
+
+void describe('Enrollment history for Course trash (UC14.5)', () => {
+  for (const status of ['Withdrawn', 'Completed'] as const) {
+    void test(`counts a ${status} Enrollment for this Organization and Course`, async () => {
+      const findFirst = mock.fn(async (_query: unknown) => ({ id: EXISTING_ID, status }));
+      const repository = new EnrollmentsRepository({
+        enrollment: { findFirst },
+      } as unknown as PrismaService);
+
+      assert.equal(await repository.hasEverEnrollment(ORG_A, COURSE_ID), true);
+      assert.equal(findFirst.mock.callCount(), 1);
+      assert.deepEqual(findFirst.mock.calls[0].arguments[0], {
+        where: { organizationId: ORG_A, courseId: COURSE_ID },
+        select: { id: true },
+      });
+    });
+  }
+
+  void test('returns false when no Enrollment matches the Organization and Course', async () => {
+    const repository = new EnrollmentsRepository({
+      enrollment: { findFirst: async () => null },
+    } as unknown as PrismaService);
+
+    assert.equal(await repository.hasEverEnrollment(ORG_A, COURSE_ID), false);
+  });
 });

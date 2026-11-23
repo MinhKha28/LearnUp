@@ -148,8 +148,10 @@ class EnrollmentMessageTemplatesTest {
         EnrollmentMessage message = templates.render(assigned(AssignmentKind.CREATE, DUE), "An toàn lao động",
                 "Nguyễn Văn An", VN).orElseThrow();
         assertThat(message.emailSubject()).isEqualTo("Bạn được giao một khóa học");
-        assertThat(message.emailHtml()).startsWith("<p>Xin chào Nguyễn Văn An,</p>");
-        assertThat(message.emailHtml()).contains("<p>Bạn được giao khóa học «An toàn lao động». Hạn hoàn thành: hết ngày 30/11/2026.</p>");
+        assertThat(message.emailHtml()).startsWith("<!DOCTYPE html>").contains("cid:learnup-logo")
+                .contains("Xin chào Nguyễn Văn An,")
+                .contains("Bạn được giao khóa học «An toàn lao động». Hạn hoàn thành: hết ngày 30/11/2026.")
+                .contains(">Khóa học</td>").contains("An toàn lao động");
     }
 
     @Test

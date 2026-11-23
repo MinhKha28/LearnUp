@@ -8,29 +8,26 @@ const NotFoundPage = () => {
   return (
     <ErrorPage
       tone="amber"
-      badgeLabel="Page not found"
-      headerRight="LearnUP platform"
+      badgeLabel="Không tìm thấy trang"
+      headerRight="Nền tảng LearnUP"
       title={
         <>
-          This page isn&apos;t
-          <br />
-          on the map.
+          Không tìm thấy<br />trang này.
         </>
       }
       description={
         <>
-          The link may be outdated or the address may have a typo. Check the URL, or return to
-          the LearnUP home page.
+          Đường dẫn có thể đã hết hiệu lực hoặc được nhập sai. Hãy kiểm tra địa chỉ hoặc về trang chủ LearnUP.
         </>
       }
-      primaryAction={{ label: "Go to Home", icon: <HomeOutlined />, onClick: () => navigate("/") }}
+      primaryAction={{ label: "Về trang chủ", icon: <HomeOutlined aria-hidden="true" />, onClick: () => navigate("/") }}
       secondaryAction={{
-        label: "Go back",
-        icon: <ArrowLeftOutlined />,
+        label: "Quay lại",
+        icon: <ArrowLeftOutlined aria-hidden="true" />,
         onClick: () => navigate(-1),
       }}
-      footnote="You can also use your browser's Back button."
-      errorCode="LearnUP / Error 404"
+      footnote="Bạn cũng có thể dùng nút Quay lại của trình duyệt."
+      errorCode="LearnUP / Lỗi 404"
       illustration={
         <>
           <span className="error-page-illustration-circle error-page-illustration-circle-a" />
@@ -41,11 +38,11 @@ const NotFoundPage = () => {
             <div className="error-page-illustration-panel">
               <div className="error-page-illustration-urlbar">
                 <span className="error-page-illustration-urlbar-dot" />
-                /workspace/course/...
+                /…
               </div>
               <div className="error-page-illustration-card">
-                <FileSearchOutlined style={{ color: "var(--color-accent)" }} />
-                <span className="error-page-illustration-card-label">Page not found</span>
+                <FileSearchOutlined aria-hidden="true" style={{ color: "var(--color-accent)" }} />
+                <span className="error-page-illustration-card-label">Không tìm thấy trang</span>
               </div>
             </div>
           </div>

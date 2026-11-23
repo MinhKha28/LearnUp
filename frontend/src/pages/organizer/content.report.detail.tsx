@@ -13,78 +13,78 @@ const ContentReportDetail = () => {
   return (
     <OrganizerPage className="organizer-content-report-detail">
       <PageHeader
-        title="Report REP-220"
-        subtitle="Reading: Locked steps • Pending"
+        title="Báo cáo REP-220"
+        subtitle="Tài liệu đọc: Các bước bị khóa • Đang chờ"
         back
-        actions={<OrganizerButton danger>Escalate</OrganizerButton>}
+        actions={<OrganizerButton danger>Chuyển cấp xử lý</OrganizerButton>}
       />
       <div className="organizer-content-grid">
-        <SectionCard title="Reported content">
+        <SectionCard title="Nội dung bị báo cáo">
           <div className="organizer-detail-grid">
             <div className="organizer-detail-item">
-              <span>Course</span>
-              <strong>Workplace Safety Essentials</strong>
+              <span>Khóa học</span>
+              <strong>Kiến thức cơ bản về an toàn lao động</strong>
             </div>
             <div className="organizer-detail-item">
-              <span>Reason</span>
-              <strong>Unsafe operational instruction is alleged</strong>
+              <span>Lý do</span>
+              <strong>Có báo cáo về hướng dẫn vận hành không an toàn</strong>
             </div>
             <div className="organizer-detail-item">
-              <span>Content owner</span>
-              <strong>An Tran</strong>
+              <span>Người phụ trách nội dung</span>
+              <strong>Trần An</strong>
             </div>
             <div className="organizer-detail-item">
-              <span>Handling deadline</span>
-              <strong>8 hours remaining</strong>
+              <span>Hạn xử lý</span>
+              <strong>Còn 8 giờ</strong>
             </div>
           </div>
         </SectionCard>
-        <SectionCard title="Decision history">
+        <SectionCard title="Lịch sử quyết định">
           <div className="organizer-decision-history">
             <div>
-              <span>21 Sep 2026, 09:14</span>
-              <strong>Report submitted</strong>
+              <span>09:14, 21/09/2026</span>
+              <strong>Đã gửi báo cáo</strong>
             </div>
-            <p className="organizer-note">No decision yet.</p>
+            <p className="organizer-note">Chưa có quyết định.</p>
           </div>
         </SectionCard>
       </div>
-      <SectionCard title="Organizer decision" className="organizer-decision-card">
+      <SectionCard title="Quyết định của quản lý đào tạo" className="organizer-decision-card">
         <Form
           className="organizer-form"
           layout="vertical"
           onFinish={() => navigate("/organizer/content-reports")}
         >
           <div className="organizer-form-grid">
-            <Form.Item label="Decision" name="decision" rules={[{ required: true }]}>
+            <Form.Item label="Quyết định" name="decision" rules={[{ required: true }]}>
               <Select
-                placeholder="Confirm violation"
+                placeholder="Xác nhận vi phạm"
                 options={[
-                  { value: "violation", label: "Confirm violation" },
-                  { value: "no-violation", label: "No violation" },
+                  { value: "violation", label: "Xác nhận vi phạm" },
+                  { value: "no-violation", label: "Không có vi phạm" },
                 ]}
               />
             </Form.Item>
-            <Form.Item label="Severity" name="severity" rules={[{ required: true }]}>
+            <Form.Item label="Mức độ" name="severity" rules={[{ required: true }]}>
               <Select
-                placeholder="Minor"
+                placeholder="Nhẹ"
                 options={[
-                  { value: "minor", label: "Minor" },
-                  { value: "serious", label: "Serious" },
+                  { value: "minor", label: "Nhẹ" },
+                  { value: "serious", label: "Nghiêm trọng" },
                 ]}
               />
             </Form.Item>
           </div>
-          <Form.Item label="Reason / corrective instruction" name="reason">
+          <Form.Item label="Lý do hoặc yêu cầu khắc phục" name="reason">
             <Input.TextArea
               rows={4}
-              placeholder="Provide a clear reason that will be sent to reporter and content owner."
+              placeholder="Nhập lý do rõ ràng để gửi cho người báo cáo và người phụ trách nội dung."
             />
           </Form.Item>
           <div className="organizer-form-actions">
-            <OrganizerButton>Dismiss report</OrganizerButton>
+            <OrganizerButton>Bác bỏ báo cáo</OrganizerButton>
             <OrganizerButton type="primary" htmlType="submit">
-              Resolve report
+              Xử lý báo cáo
             </OrganizerButton>
           </div>
         </Form>

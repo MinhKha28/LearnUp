@@ -58,7 +58,7 @@ const CourseBuilderAssignmentEdit = () => {
         if (!active) return;
         const loaded = res.data;
         if (!loaded) {
-          message.error(assessmentErrorText(res, "Unable to load the Assignment."));
+          message.error(assessmentErrorText(res, "Không thể tải thông tin bài tập."));
           return;
         }
         setAssignment(loaded);
@@ -71,7 +71,7 @@ const CourseBuilderAssignmentEdit = () => {
         setLockHours(loaded.lockoutHours);
         setRubric(toRubricRows(loaded));
       } catch {
-        if (active) message.error("Unable to reach the Assessment service. Please try again.");
+        if (active) message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
       } finally {
         if (active) setLoading(false);
       }
@@ -88,11 +88,11 @@ const CourseBuilderAssignmentEdit = () => {
   if (!assignment) {
     return (
       <InstructorPage className="builder-page">
-        <span className="builder-crumb">Course Builder / Edit Assignment</span>
+        <span className="builder-crumb">Xây dựng khóa học / Chỉnh sửa bài tập</span>
         <div className="builder-hero">
-          <h1>{loading ? "Loading Assignment..." : "Assignment not found"}</h1>
+          <h1>{loading ? "Đang tải bài tập..." : "Không tìm thấy bài tập"}</h1>
         </div>
-        {!loading && <InstructorButton onClick={() => navigate(`${base}/assignments`)}>Back</InstructorButton>}
+        {!loading && <InstructorButton onClick={() => navigate(`${base}/assignments`)}>Quay lại</InstructorButton>}
       </InstructorPage>
     );
   }
@@ -113,9 +113,9 @@ const CourseBuilderAssignmentEdit = () => {
 
   // Frozen fields are not checked: the user cannot change them, so they cannot be wrong.
   const errors = {
-    title: title.trim() ? null : "Enter an Assignment title.",
+    title: title.trim() ? null : "Nhập tên bài tập.",
     instructions:
-      submissionLocked || instructions.trim() || promptFile ? null : "Write the Assignment instructions or attach a PDF.",
+      submissionLocked || instructions.trim() || promptFile ? null : "Nhập hướng dẫn hoặc đính kèm tệp PDF.",
     passingScore: scoreLocked ? null : validateNumber(passingScore, PASSING_SCORE_RULE),
     estimatedEffort: validateNumber(estimatedEffort, EFFORT_RULE),
     consecutiveSubmissions: submissionLocked
@@ -125,14 +125,14 @@ const CourseBuilderAssignmentEdit = () => {
     rubric:
       !submissionLocked &&
       rubric.some((row) => !row.description.trim() || validateNumber(row.maxPoints, RUBRIC_POINTS_RULE))
-        ? "Fix the Rubric criteria."
+        ? "Kiểm tra và sửa các tiêu chí chấm."
         : null,
   };
 
   const handleSave = async () => {
     setSubmitted(true);
     if (Object.values(errors).some(Boolean)) {
-      message.warning("Please fix the highlighted fields.");
+      message.warning("Vui lòng kiểm tra các trường được đánh dấu.");
       requestAnimationFrame(() =>
         document
           .querySelector(".builder-field-error, .ant-input-status-error, .ant-input-number-status-error")
@@ -155,7 +155,7 @@ const CourseBuilderAssignmentEdit = () => {
     if (rubricChanged) payload.rubric = rubricPayload;
 
     if (Object.keys(payload).length === 0) {
-      message.info("No changes to save.");
+      message.info("Không có thay đổi để lưu.");
       return;
     }
 
@@ -163,13 +163,13 @@ const CourseBuilderAssignmentEdit = () => {
     try {
       const res = await updateAssignmentAPI(assignment.id, payload);
       if (!res.data) {
-        message.error(assessmentErrorText(res, "Unable to save the Assignment."));
+        message.error(assessmentErrorText(res, "Không thể lưu bài tập."));
         return;
       }
-      message.success("Assignment saved.");
+      message.success("Đã lưu bài tập.");
       navigate(detailPath, { state: location.state });
     } catch {
-      message.error("Unable to reach the Assessment service. Please try again.");
+      message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setSaving(false);
     }
@@ -177,19 +177,19 @@ const CourseBuilderAssignmentEdit = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Edit Assignment</span>
+      <span className="builder-crumb">Xây dựng khóa học / Chỉnh sửa bài tập</span>
       <div className="builder-hero">
-        <h1>Edit Assignment</h1>
+        <h1>Chỉnh sửa bài tập</h1>
       </div>
       {submissionLocked && (
         <div className="builder-banner">
-          <strong>Submission data exists</strong>
-          <p>Instructions, Rubric, n attempts and m-hour lock can no longer be edited.</p>
+          <strong>Đã có dữ liệu bài nộp</strong>
+          <p>Không thể sửa hướng dẫn, tiêu chí chấm, số lượt nộp n và thời gian khóa m giờ.</p>
         </div>
       )}
       <div className="builder-grid">
         <div className="builder-update-card">
-          <label className="instructor-form-label">Assignment title</label>
+          <label className="instructor-form-label">Tên bài tập</label>
           <Input
             value={title}
             maxLength={200}
@@ -198,7 +198,7 @@ const CourseBuilderAssignmentEdit = () => {
           />
           <FieldError message={submitted ? errors.title : null} />
 
-          <label className="instructor-form-label instructor-form-label-spaced">Instructions</label>
+          <label className="instructor-form-label instructor-form-label-spaced">Hướng dẫn</label>
           <Input.TextArea
             className="builder-textarea"
             maxLength={8000}
@@ -213,7 +213,7 @@ const CourseBuilderAssignmentEdit = () => {
 
           <div className="builder-field-row">
             <div>
-              <label className="instructor-form-label instructor-form-label-spaced">Passing score (0-100)</label>
+              <label className="instructor-form-label instructor-form-label-spaced">Điểm đạt (0–100)</label>
               <NumberField
                 rule={PASSING_SCORE_RULE}
                 disabled={scoreLocked}
@@ -224,7 +224,7 @@ const CourseBuilderAssignmentEdit = () => {
             </div>
             <div>
               <label className="instructor-form-label instructor-form-label-spaced">
-                Estimated effort (minutes)
+                Thời gian làm bài dự kiến (phút)
               </label>
               <NumberField
                 rule={EFFORT_RULE}
@@ -235,7 +235,7 @@ const CourseBuilderAssignmentEdit = () => {
             </div>
             <div>
               <label className="instructor-form-label instructor-form-label-spaced">
-                Consecutive submissions (n)
+                Số lần nộp liên tiếp (n)
               </label>
               <NumberField
                 rule={REQUIRED_ATTEMPTS_RULE}
@@ -247,7 +247,7 @@ const CourseBuilderAssignmentEdit = () => {
             </div>
             <div>
               <label className="instructor-form-label instructor-form-label-spaced">
-                Temporary lock (m hours)
+                Thời gian khóa tạm (m giờ)
               </label>
               <NumberField
                 rule={REQUIRED_LOCK_HOURS_RULE}
@@ -259,7 +259,7 @@ const CourseBuilderAssignmentEdit = () => {
             </div>
           </div>
 
-          <h2 className="instructor-form-label-spaced">Rubric</h2>
+          <h2 className="instructor-form-label-spaced">Tiêu chí chấm</h2>
           <RubricEditor rows={rubric} onChange={setRubric} disabled={submissionLocked} showErrors={submitted} />
 
           <div className="builder-actions builder-actions-split">
@@ -272,22 +272,21 @@ const CourseBuilderAssignmentEdit = () => {
                 navigate(detailPath, { state: location.state });
               }}
             >
-              Cancel
+              Hủy
             </InstructorButton>
             <InstructorButton type="primary" loading={saving} onClick={handleSave}>
-              Save changes
+              Lưu thay đổi
             </InstructorButton>
           </div>
         </div>
         <div className="builder-side">
-          <InfoPanel title="Edit conditions">
-            Instructions, Rubric and n/m lock after the first submission. The passing score locks once the Course is
-            Locked. Estimated effort stays editable.
+          <InfoPanel title="Điều kiện chỉnh sửa">
+            Hướng dẫn, tiêu chí chấm, số lượt nộp và thời gian khóa tạm không thể sửa sau bài nộp đầu tiên. Điểm đạt bị khóa khi khóa học đã khóa. Thời lượng dự kiến vẫn có thể sửa.
           </InfoPanel>
           {scoreLocked && (
             <div className="builder-banner" style={{ marginTop: 16, marginBottom: 0 }}>
-              <strong>Course Locked</strong>
-              <p>The passing score is fixed. Create a new Course version to change it.</p>
+              <strong>Khóa học đã khóa</strong>
+              <p>Điểm đạt đã được cố định. Hãy tạo phiên bản khóa học mới nếu cần thay đổi.</p>
             </div>
           )}
         </div>

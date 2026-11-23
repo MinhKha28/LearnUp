@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 
 import type { PageMeta } from "@/types/api.types";
 import "./url.pagination.scss";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 /** Phân trang theo tham số `page` trên URL, giữ nguyên các tham số khác. */
 export const UrlPagination = ({ meta }: { meta: PageMeta }) => {
@@ -21,7 +22,7 @@ export const UrlPagination = ({ meta }: { meta: PageMeta }) => {
   };
 
   return (
-    <Pagination
+    <Pagination itemRender={vietnamesePageItem}
       locale={viVN.Pagination}
       className="learner-url-pagination"
       align="center"

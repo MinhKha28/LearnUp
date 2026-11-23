@@ -28,10 +28,10 @@ export interface ICourse {
 }
 
 export const courseStatusLabel: Record<CourseStatus, string> = {
-  draft: "Draft",
-  submitted: "Submitted",
-  rejected: "Rejected",
-  published: "Published",
+  draft: "Bản nháp",
+  submitted: "Chờ phê duyệt",
+  rejected: "Bị từ chối",
+  published: "Đã phát hành",
 };
 
 export const courseStatusTone: Record<
@@ -176,7 +176,7 @@ export const courseVersionRecords = (
   if (course.publishedVersion && course.version !== course.publishedVersion) {
     records.push({
       version: course.version,
-      statusLabel: "Draft",
+      statusLabel: "Bản nháp",
       createdDate: "[Date]",
       publishedDate: "—",
       learners: "—",
@@ -187,7 +187,7 @@ export const courseVersionRecords = (
   if (course.publishedVersion) {
     records.push({
       version: course.publishedVersion,
-      statusLabel: "Published · Current",
+      statusLabel: "Đã phát hành · Hiện hành",
       createdDate: "[Date]",
       publishedDate: "[Date]",
       learners: "[Count]",
@@ -329,7 +329,7 @@ export const instructorSubmissions: ISubmission[] = [
     learnerName: "Taylor Kim",
     reviewState: "insufficient-reviews",
     scoreLabel: "—",
-    interventionLabel: "Grade directly",
+    interventionLabel: "Chấm trực tiếp",
     reviewers: [],
     criteriaComparison: [],
     isResubmission: false,
@@ -343,7 +343,7 @@ export const instructorSubmissions: ISubmission[] = [
     learnerName: "Sam Lee",
     reviewState: "ready-to-publish",
     scoreLabel: "[Score]",
-    interventionLabel: "Finalize",
+    interventionLabel: "Chốt điểm",
     reviewers: [
       {
         reviewerName: "Alex Morgan",
@@ -368,7 +368,7 @@ export const instructorSubmissions: ISubmission[] = [
     learnerName: "Alex Morgan",
     reviewState: "insufficient-reviews",
     scoreLabel: "—",
-    interventionLabel: "Resubmission — grade directly",
+    interventionLabel: "Bài nộp lại — chấm trực tiếp",
     reviewers: [],
     criteriaComparison: [],
     isResubmission: true,
@@ -425,14 +425,14 @@ export interface IGradingHighlight {
 
 export const gradingHighlights: IGradingHighlight[] = [
   {
-    label: "Submissions requiring direct grading",
+    label: "Bài nộp cần chấm trực tiếp",
     to: "/instructor/submissions",
   },
   {
-    label: "Peer review cycles approaching deadline",
+    label: "Chu kỳ chấm chéo sắp đến hạn",
     to: "/instructor/peer-cycles",
   },
-  { label: "Review score discrepancies", to: "/instructor/submissions" },
+  { label: "Xem các bài có điểm chênh lệch", to: "/instructor/submissions" },
 ];
 
 // ---- Course quota (demo flag driving the Course Quota Blocked screen) ----
@@ -1018,7 +1018,7 @@ export const quizLocationLabel = (
   structure: ICourseStructure,
   quiz: IBuilderQuiz,
 ) => {
-  if (quiz.location === "course") return "Course";
+  if (quiz.location === "course") return "Khóa học";
   const module = findBuilderModule(structure, quiz.moduleId);
   return module?.title.split("·")[0]?.trim() || module?.title || "Module";
 };
@@ -1077,6 +1077,23 @@ export type MonitoringEnrollmentType = "Required" | "Optional";
 export type MonitoringCompletionStatus =
   "Not started" | "In progress" | "Completed";
 export type MonitoringDueStatus = "Overdue" | "No deadline" | "In progress";
+
+export const monitoringEnrollmentLabel: Record<MonitoringEnrollmentType, string> = {
+  Required: "Bắt buộc",
+  Optional: "Không bắt buộc",
+};
+
+export const monitoringCompletionLabel: Record<MonitoringCompletionStatus, string> = {
+  "Not started": "Chưa bắt đầu",
+  "In progress": "Đang học",
+  Completed: "Hoàn thành",
+};
+
+export const monitoringDueLabel: Record<MonitoringDueStatus, string> = {
+  Overdue: "Quá hạn",
+  "No deadline": "Không có hạn",
+  "In progress": "Đang diễn ra",
+};
 
 export interface IMonitoringRow {
   learnerId: string;
@@ -1251,9 +1268,9 @@ export const learnerProgressComponents = (
   ];
 
 export const dueStatusMessage: Record<MonitoringDueStatus, string> = {
-  Overdue: "Overdue • Learner can continue learning",
-  "No deadline": "No deadline • Learner can continue learning",
-  "In progress": "In progress • Learner can continue learning",
+  Overdue: "Quá hạn • Học viên vẫn có thể tiếp tục học",
+  "No deadline": "Không có hạn • Học viên vẫn có thể tiếp tục học",
+  "In progress": "Đang học • Học viên vẫn có thể tiếp tục học",
 };
 
 export const dueStatusTone: Record<
@@ -1291,19 +1308,19 @@ export const courseEvaluationSummary: ICourseEvaluationSummary = {
   eligibleLabel: "[Eligible]",
   criteria: [
     {
-      label: "Usefulness of content",
+      label: "Tính hữu ích của nội dung",
       averageLabel: "[Average]",
       previousVersionLabel: "[v0 average]",
       participationLabel: "[Rate]",
     },
     {
-      label: "Appropriateness of difficulty",
+      label: "Mức độ phù hợp của độ khó",
       averageLabel: "[Average]",
       previousVersionLabel: "[v0 average]",
       participationLabel: "[Rate]",
     },
     {
-      label: "Quality of learning materials",
+      label: "Chất lượng học liệu",
       averageLabel: "[Average]",
       previousVersionLabel: "[v0 average]",
       participationLabel: "[Rate]",
@@ -1339,7 +1356,7 @@ export const contentModerationCases: Record<string, IContentModerationCase> = {
     courseId: "workplace-safety",
     reportedItemTitle: "Safety procedures Lesson",
     lessonId: "m2-l1",
-    decisionLabel: "Confirmed violation",
+    decisionLabel: "Đã xác nhận vi phạm",
     severityLabel: "[Decision]",
     correctionReason: "[Organizer-provided reason and required correction]",
     contentDisabled: true,

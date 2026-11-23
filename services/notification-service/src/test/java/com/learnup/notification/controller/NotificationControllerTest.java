@@ -28,6 +28,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class NotificationControllerTest {
 
+    /** The Gateway (and every LearnUP service) sends this key; see application-test.yml. */
+    private static final String INTERNAL_KEY = "notification-test-only-internal-key-32bytes";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -63,6 +66,7 @@ class NotificationControllerTest {
         );
 
         String createRes = mockMvc.perform(post("/api/notifications/send")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -76,14 +80,18 @@ class NotificationControllerTest {
 
         // Check unread count
         mockMvc.perform(get("/api/notifications/unread-count")
-                        .header(HeaderConstants.X_USER_ID, userId.toString()))
+                        .header("X-Internal-Key", INTERNAL_KEY)
+                        .header(HeaderConstants.X_USER_ID, userId.toString())
+                        .header(HeaderConstants.X_ORGANIZATION_ID, orgId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.unreadCount").value(1));
 
         // Query user notifications
         mockMvc.perform(get("/api/notifications")
-                        .header(HeaderConstants.X_USER_ID, userId.toString()))
+                        .header("X-Internal-Key", INTERNAL_KEY)
+                        .header(HeaderConstants.X_USER_ID, userId.toString())
+                        .header(HeaderConstants.X_ORGANIZATION_ID, orgId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.items", hasSize(1)))
@@ -91,14 +99,18 @@ class NotificationControllerTest {
 
         // Mark as read
         mockMvc.perform(patch("/api/notifications/" + notificationId + "/read")
-                        .header(HeaderConstants.X_USER_ID, userId.toString()))
+                        .header("X-Internal-Key", INTERNAL_KEY)
+                        .header(HeaderConstants.X_USER_ID, userId.toString())
+                        .header(HeaderConstants.X_ORGANIZATION_ID, orgId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.isRead").value(true));
 
         // Check unread count after read
         mockMvc.perform(get("/api/notifications/unread-count")
-                        .header(HeaderConstants.X_USER_ID, userId.toString()))
+                        .header("X-Internal-Key", INTERNAL_KEY)
+                        .header(HeaderConstants.X_USER_ID, userId.toString())
+                        .header(HeaderConstants.X_ORGANIZATION_ID, orgId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.unreadCount").value(0));
@@ -150,13 +162,16 @@ class NotificationControllerTest {
         );
 
         mockMvc.perform(post("/api/v1/notifications/send")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true));
 
         mockMvc.perform(get("/api/v1/notifications")
-                        .header(HeaderConstants.X_USER_ID, userId.toString()))
+                        .header("X-Internal-Key", INTERNAL_KEY)
+                        .header(HeaderConstants.X_USER_ID, userId.toString())
+                        .header(HeaderConstants.X_ORGANIZATION_ID, orgId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.items", hasSize(1)));
@@ -187,6 +202,7 @@ class NotificationControllerTest {
         CreateNotificationRequest request = new CreateNotificationRequest(
                 orgId, userId, title, "Body of " + title, "INFO", "IN_APP", null);
         String body = mockMvc.perform(post("/api/v1/notifications/send")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -202,6 +218,7 @@ class NotificationControllerTest {
                 null, someone, "Fake", "A fake message", "INFO", "IN_APP", null);
 
         mockMvc.perform(post("/api/v1/notifications/send")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .header(HeaderConstants.X_USER_ID, UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -220,6 +237,7 @@ class NotificationControllerTest {
 
         // nothing was created
         mockMvc.perform(get("/api/v1/notifications")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .header(HeaderConstants.X_USER_ID, someone.toString()))
                 .andExpect(jsonPath("$.data.items", hasSize(0)));
     }
@@ -237,6 +255,7 @@ class NotificationControllerTest {
 
         // in organization A: its own notification and the platform notice, not the one of B
         mockMvc.perform(get("/api/v1/notifications")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .header(HeaderConstants.X_USER_ID, userId.toString())
                         .header(HeaderConstants.X_ORGANIZATION_ID, orgA.toString()))
                 .andExpect(status().isOk())
@@ -244,11 +263,13 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.data.items[*].title", containsInAnyOrder("In organization A", "From the platform")));
 
         mockMvc.perform(get("/api/v1/notifications/unread-count")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .header(HeaderConstants.X_USER_ID, userId.toString())
                         .header(HeaderConstants.X_ORGANIZATION_ID, orgA.toString()))
                 .andExpect(jsonPath("$.data.unreadCount").value(2));
 
         mockMvc.perform(get("/api/v1/notifications")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .param("unreadOnly", "true")
                         .header(HeaderConstants.X_USER_ID, userId.toString())
                         .header(HeaderConstants.X_ORGANIZATION_ID, orgA.toString()))
@@ -256,26 +277,30 @@ class NotificationControllerTest {
 
         // a notification of another Organization cannot be marked as read from this one
         mockMvc.perform(patch("/api/v1/notifications/" + inB + "/read")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .header(HeaderConstants.X_USER_ID, userId.toString())
                         .header(HeaderConstants.X_ORGANIZATION_ID, orgA.toString()))
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(patch("/api/v1/notifications/" + inA + "/read")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .header(HeaderConstants.X_USER_ID, userId.toString())
                         .header(HeaderConstants.X_ORGANIZATION_ID, orgA.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.isRead").value(true));
 
         mockMvc.perform(get("/api/v1/notifications/unread-count")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .header(HeaderConstants.X_USER_ID, userId.toString())
                         .header(HeaderConstants.X_ORGANIZATION_ID, orgA.toString()))
                 .andExpect(jsonPath("$.data.unreadCount").value(1));
 
         // an invalid Organization header is refused
         mockMvc.perform(get("/api/v1/notifications")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .header(HeaderConstants.X_USER_ID, userId.toString())
                         .header(HeaderConstants.X_ORGANIZATION_ID, "not-a-uuid"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -287,15 +312,18 @@ class NotificationControllerTest {
         String second = send(null, userId, "Second");
 
         mockMvc.perform(get("/api/v1/notifications")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .header(HeaderConstants.X_USER_ID, userId.toString()))
                 .andExpect(jsonPath("$.data.items[0].title").value("Second"))
                 .andExpect(jsonPath("$.data.items[1].title").value("First"));
 
         String first = mockMvc.perform(patch("/api/v1/notifications/" + second + "/read")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .header(HeaderConstants.X_USER_ID, userId.toString()))
                 .andReturn().getResponse().getContentAsString();
         Thread.sleep(20);
         String again = mockMvc.perform(patch("/api/v1/notifications/" + second + "/read")
+                        .header("X-Internal-Key", INTERNAL_KEY)
                         .header(HeaderConstants.X_USER_ID, userId.toString()))
                 .andReturn().getResponse().getContentAsString();
 

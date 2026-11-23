@@ -13,10 +13,6 @@ import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { CourseServiceClient } from '../../src/infrastructure/clients/course/course-service.client';
 import type { CourseTree } from '../../src/infrastructure/clients/course/course-service.interface';
-import {
-  VIDEO_PLAYBACK_CONFIG,
-  type VideoPlaybackConfig,
-} from '../../src/modules/material-progress/video-playback.config';
 import { databaseUrl } from './enroll-it-fixture';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client';
@@ -49,8 +45,6 @@ function measuredProgress() {
   const service = new MaterialProgressService(
     repository,
     app.get(CourseServiceClient),
-    { mode: 'course' },
-    { mode: 'course' },
   );
   const send = (ranges: [number, number][]) =>
     service.report(
@@ -126,13 +120,11 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
       logger: ['error'],
     });
     configureApp(app);
-    const config = app.get<VideoPlaybackConfig>(VIDEO_PLAYBACK_CONFIG);
-    config.mode = 'fixture';
-    config.fixtureUrl = 'https://example.test/fixture.mp4';
     app.get(CourseServiceClient).getCourseTree = async () => {
       calls++;
       return tree;
     };
+    app.get(CourseServiceClient).getMaterialSignedUrl = async () => ({ url: 'https://example.test/signed.mp4', expiresAt: new Date(Date.now()+900000).toISOString(), mimeType: 'video/mp4' });
     await app.listen(0, '127.0.0.1');
     url = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
   });
@@ -207,7 +199,9 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
     assert.equal(body.data.title, 'Video title from I2');
     assert.equal(body.data.durationSeconds, 101);
     assert.equal(body.data.requiredSeconds, 91);
-    assert.equal(body.data.playbackUrl, 'https://example.test/fixture.mp4');
+    assert.equal(body.data.playbackUrl, 'https://example.test/signed.mp4');
+    assert.equal(body.data.mimeType, 'video/mp4');
+    assert.ok(Number.isFinite(Date.parse(body.data.expiresAt)));
     assert.equal('learnerId' in body.data, false);
     assert.equal('maxPlaybackRate' in body.data, false);
     assert.equal(body.data.positionSeconds, null);
@@ -654,14 +648,17 @@ describe('UC27.2 video progress HTTP + PostgreSQL', () => {
     }
     assert.equal(calls, 1);
   });
-  test('playback applies I2 disabled flags and course mode returns 503', async () => {
+  test('playback applies disabled flags and dependency failures use SERVICE_UNAVAILABLE', async () => {
     tree.modules[0].lessons[0].materials[0].disabledAt = new Date();
     assert.equal((await request(undefined, {}, 'GET')).status, 403);
     tree.modules[0].lessons[0].materials[0].disabledAt = null;
-    app.get<VideoPlaybackConfig>(VIDEO_PLAYBACK_CONFIG).mode = 'course';
-    const response = await request(undefined, {}, 'GET');
-    assert.equal(response.status, 503);
-    assert.equal((await response.json()).error.code, 'PLAYBACK_UNAVAILABLE');
-    app.get<VideoPlaybackConfig>(VIDEO_PLAYBACK_CONFIG).mode = 'fixture';
+    const client = app.get(CourseServiceClient);
+    const signing = client.getMaterialSignedUrl;
+    client.getMaterialSignedUrl = async () => { throw new Error('unavailable'); };
+    try {
+      const response = await request(undefined, {}, 'GET');
+      assert.equal(response.status, 503);
+      assert.equal((await response.json()).error.code, 'SERVICE_UNAVAILABLE');
+    } finally { client.getMaterialSignedUrl = signing; }
   });
 });

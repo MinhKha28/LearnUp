@@ -9,6 +9,7 @@ import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import type { CurrentUser } from '@learnup/ts-common';
 import { HEADER_NAMES, parseUserRole } from '@learnup/ts-common';
+import { constantTimeSecretEqual } from '@learnup/ts-common/security';
 import { IS_PUBLIC_KEY } from '../decorator/customize';
 
 interface AuthenticatedRequest extends Request {
@@ -32,15 +33,11 @@ export class InternalAuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const internalKey = request.headers[HEADER_NAMES.INTERNAL_KEY];
-    const expectedInternalKey =
-      this.configService.getOrThrow<string>('INTERNAL_SERVICE_KEY');
+    const expectedInternalKey = this.configService.getOrThrow<string>(
+      'INTERNAL_SERVICE_KEY',
+    );
 
-    // Fail closed: a service that was started without a key must not accept a request whose key header is empty too.
-    if (
-      typeof internalKey !== 'string' ||
-      !expectedInternalKey.trim() ||
-      internalKey !== expectedInternalKey
-    ) {
+    if (!constantTimeSecretEqual(internalKey, expectedInternalKey)) {
       throw new UnauthorizedException(
         'Invalid or missing internal service key.',
       );

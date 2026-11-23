@@ -1,125 +1,13 @@
-# Asynchronous Event-Driven Architecture with Apache Kafka
+# Asynchronous event delivery
 
-LearnUP utilizes **Apache Kafka** exclusively for asynchronous domain event broadcasting. Kafka enables loose coupling between microservices when one service needs to announce a significant business occurrence to multiple independent consumers.
+Services use REST for operations that require an immediate response. Kafka distributes business facts to subscribers after the originating change, such as certificate issuance after `EnrollmentCompleted`.
 
----
+## Transactional outbox
 
-## 1. REST vs. Kafka Decision Framework
+The business transaction commits the domain change and its outbox row together. A relay selects pending rows using `FOR UPDATE SKIP LOCKED`, publishes the event, and records publication after the broker acknowledges it. The broker write and the database update cannot commit atomically, so a retry may publish the same event ID. Consumers use event IDs and domain constraints to make repeated deliveries safe.
 
-| Criterion | Synchronous REST | Asynchronous Kafka Event |
-| :--- | :--- | :--- |
-| **Interaction Style** | Request / Response (Immediate answer) | Publish / Subscribe (Fire-and-forget notification) |
-| **Topology** | 1-to-1 direct service call | 1-to-Many broadcast |
-| **Coupling** | Caller depends on receiver's availability | Producer has zero knowledge of consumers |
-| **Use Case Examples** | Fetching learner tags for assignment screen; Verifying user identity during login | `CourseCompleted` triggering Certificate & Email dispatch; `RequiredCourseAssigned` triggering email dispatch |
+See the [Course relay](../../services/course-service/src/modules/outbox/README.md), [Learning relay](../../services/learning-service/src/modules/outbox) and [Assessment relay](../../services/assessment-service/src/modules/outbox).
 
-**Strict Rule**: Do NOT replace direct synchronous queries with Kafka. Kafka is only for event distribution.
+## Streams and contracts
 
----
-
-## 2. Standard Event Envelope
-
-All events published to Kafka MUST wrap payload data inside the canonical LearnUP Event Envelope.
-
-```json
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "eventId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-  "eventType": "CourseCompleted",
-  "version": 1,
-  "occurredAt": "2026-09-14T10:30:00Z",
-  "organizationId": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
-  "producer": "learning-service",
-  "data": {
-    "learnerId": "123e4567-e89b-12d3-a456-426614174000",
-    "courseId": "987fcdeb-51a2-43d7-b890-abcdef123456",
-    "completionDate": "2026-09-14T10:30:00Z",
-    "finalScore": 92.5
-  }
-}
-```
-
-### Envelope Fields Specification:
-* `eventId` (`string`, UUID): Unique event identifier for tracing and deduplication.
-* `eventType` (`string`): PascalCase domain event identifier (e.g. `CourseCompleted`, `RequiredAssignmentCreated`, `PeerReviewSubmitted`).
-* `version` (`integer`): Monotonically increasing schema version number (starts at 1).
-* `occurredAt` (`string`, ISO-8601): UTC timestamp when the domain event occurred.
-* `organizationId` (`string`, UUID): Tenant organization identifier ensuring tenant context propagation.
-* `producer` (`string`): Originating service identifier (e.g., `learning-service`, `assessment-service`).
-* `data` (`object`): Domain-specific payload.
-
----
-
-## 3. Topic Naming Conventions
-
-Topics follow a hierarchical, predictable dot-separated format:
-
-```text
-learnup.<domain>.<event-type-kebab>
-```
-
-Examples:
-* `learnup.learning.course-completed`
-* `learnup.learning.assignment-created`
-* `learnup.assessment.peer-review-submitted`
-* `learnup.organization.member-invited`
-
----
-
-## 4. Architectural Boundaries & Excluded Complexities
-
-To maintain simplicity, clarity, and avoid unnecessary technical failure modes for the graduation thesis, the following distributed messaging patterns are **explicitly excluded**:
-
-* **NO Saga Orchestrators** (Business workflows are partitioned across discrete services with clear completion states).
-* **NO Event Sourcing** (PostgreSQL is the source of truth for all service state).
-* **NO CQRS Frameworks** (Services handle their own reads and writes).
-* **NO Transactional Outbox Engines** (Simple producer abstractions with standard retry configuration).
-
-
-## Assessment outbox relay (step 23)
-
-`learnup.assessment.learner-assessment-events` carries `LearnerAssessmentStatusChanged` (UC30, UC30.1, UC33.2 and later UC29.1, UC31, UC32.3): key = learnerId, so the events of one Learner stay in order on one partition; three partitions, 30-day retention, envelope v1 with producer `assessment-service`. The relay is the same design as the learning one (non-overlapping run, `FOR UPDATE SKIP LOCKED`, a lower unsent row of the same Learner (the Kafka key) blocks its successors, at-least-once, consumers deduplicate `eventId`); its details and the verification are in [assessment-outbox-relay-verification.md](assessment-outbox-relay-verification.md). Off unless `OUTBOX_RELAY_ENABLED=true`; Compose turns it on.
-
-The same relay publishes a second event on its own topic: `learnup.assessment.peer-review-assigned` carries `PeerReviewAssigned`
-(BR-232), one event for each reviewer, written in the transaction that closes a peer review cycle. Key = learnerId (the
-reviewer), three partitions, 30-day retention, environment `OUTBOX_PEER_REVIEW_TOPIC`. notification-service reads it and tells
-the reviewer in the app and by e-mail; the dead-letter topic is `learnup.assessment.peer-review-assigned.DLT`. See
-`contracts/events/assessment-peer-review-events.md`.
-
-## Learning Enrollment outbox relay (L6, BR-143)
-
-`learnup.learning.enrollment-events` intentionally groups EnrollmentAssigned,
-EnrollmentDueDateExtended, EnrollmentExempted and LearnerWithdrew in one topic.
-This is an exception to `learnup.<domain>.<event-type-kebab>`: key = enrollmentId
-(outbox aggregate_id) keeps one Enrollment on one partition. The topic has three
-partitions, 30-day retention, and configurable replication factor (Compose: 1).
-Do not increase partitions without planning the effect on existing key ordering.
-
-The API process hosts a non-overlapping relay; repository and Kafka producer are
-separate providers for a future worker. Each transaction locks at most 20 aggregate
-heads using FOR UPDATE SKIP LOCKED. A lower unpublished id blocks successors even
-while that head is locked or in backoff. Ordering is by outbox id, as specified by
-the existing UUIDv7-based outbox contract, not by a new timestamp generated at send.
-
-Delivery is at-least-once. eventId, occurredAt and organizationId come from the
-outbox row, producer is learning-service, version is 1, and data is the stored
-payload. Consumers must deduplicate by eventId. Kafka acknowledgement precedes
-published_at and payload redaction in the same PostgreSQL transaction. Kafka ACK
-and PostgreSQL commit cannot be made atomic; crash recovery can replay an event.
-
-A live broker metadata probe precedes the database transaction. A failed probe
-opens no transaction and changes no attempts. A broker outage during delivery
-backs off the entire batch without per-message retries. Only explicit record
-errors trigger parallel individual retries. The idempotent producer uses acks=all
-and one in-flight request per broker. Message delivery is bounded to 10 seconds;
-transaction timeout is 30 seconds and must exceed twice delivery timeout plus
-5 seconds of SQL margin. Shutdown stops polling, awaits the active turn and then
-disconnects Kafka before Prisma disconnects during application shutdown.
-
-Retry delay is min(1000 * 2^(attempts-1), 300000) milliseconds. From attempt 10,
-failures produce error alerts. No retry limit marks a row published or skips it.
-Unknown errors are treated as common failures. Only safe error codes are stored
-and logged; payloads and arbitrary exception messages are excluded. Redaction is
-an event-type field allowlist, currently empty for the four supported events.
-An hourly pass deletes at most 1000 published rows older than seven days, never
-unpublished rows. Backlogs are drained by subsequent hourly passes.
+A stream can carry multiple event types. Partition keys preserve ordering for a course, enrollment or learner where the contract specifies it. See the [deployed topic catalog](../../contracts/events/README.md) and the [event envelope schema](../../contracts/events/event-envelope.schema.json).

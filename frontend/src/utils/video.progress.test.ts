@@ -74,7 +74,7 @@ describe("durable video progress", () => {
 });
 
 describe("progress response policy", () => {
-  it.each([[401, "UNAUTHORIZED"], [0, "TIMEOUT"], [0, "NETWORK"], [500, "HTTP_500"], [503, "PLAYBACK_UNAVAILABLE"], [429, "RATE_LIMITED"], [403, "OTHER"]])("retains %i %s", (status, code) => {
+  it.each([[401, "UNAUTHORIZED"], [0, "TIMEOUT"], [0, "NETWORK"], [500, "HTTP_500"], [409, "MATERIAL_NOT_READY"], [503, "SERVICE_UNAVAILABLE"], [429, "RATE_LIMITED"], [403, "OTHER"]])("retains %i %s", (status, code) => {
     expect(progressFailureAction(new ApiError(status, code, ""))).toBe("retain");
   });
   it.each([[404, "ENROLLMENT_NOT_FOUND"], [404, "MATERIAL_NOT_FOUND"], [409, "MATERIAL_NOT_VIDEO"], [422, "VALIDATION_ERROR"]])("deletes %i %s", (status, code) => {

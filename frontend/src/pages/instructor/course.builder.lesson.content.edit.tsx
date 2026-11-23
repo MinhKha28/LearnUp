@@ -24,34 +24,6 @@ import type {
 
 import "./course.builder.scss";
 
-// Đọc thông báo lỗi từ Backend.
-const getErrorMessage = (error: unknown): string => {
-  if (axios.isAxiosError(error)) {
-    const body = error.response?.data as
-      | {
-          error?: { message?: string | string[] };
-          message?: string | string[];
-        }
-      | undefined;
-
-    const detail = body?.error?.message ?? body?.message;
-
-    if (typeof detail === "string") {
-      return detail;
-    }
-
-    if (Array.isArray(detail)) {
-      return detail.join(", ");
-    }
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Unable to update Lesson content.";
-};
-
 const CourseBuilderLessonContentEdit = () => {
   const { courseId, lessonId } = useParams();
   const navigate = useNavigate();
@@ -80,7 +52,7 @@ const CourseBuilderLessonContentEdit = () => {
       setEditability(null);
 
       if (!courseId || !lessonId) {
-        setErrorMessage("Course ID or Lesson ID is missing.");
+        setErrorMessage("Thiếu mã khóa học hoặc bài học.");
         setLoading(false);
         return;
       }
@@ -96,7 +68,7 @@ const CourseBuilderLessonContentEdit = () => {
         ]);
 
         if (!lessonResponse.data || !editabilityResponse.data) {
-          throw new Error("Unable to load Lesson content.");
+          throw new Error("Không thể tải nội dung bài học.");
         }
 
         if (controller.signal.aborted) return;
@@ -108,7 +80,7 @@ const CourseBuilderLessonContentEdit = () => {
         if (controller.signal.aborted) return;
 
         console.error("Load Lesson content error:", error);
-        setErrorMessage(getErrorMessage(error));
+        setErrorMessage("Không thể tải nội dung bài học.");
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -130,17 +102,17 @@ const CourseBuilderLessonContentEdit = () => {
     }
 
     if (!content.trim()) {
-      message.error("Lesson content cannot be empty.");
+      message.error("Nội dung bài học không được để trống.");
       return;
     }
 
     if (content.length > 20000) {
-      message.error("Lesson content cannot exceed 20000 characters.");
+      message.error("Nội dung bài học không được vượt quá 20.000 ký tự.");
       return;
     }
 
     if (content === lesson.lesson.content) {
-      message.info("No changes to save.");
+      message.info("Không có thay đổi để lưu.");
       return;
     }
 
@@ -152,14 +124,14 @@ const CourseBuilderLessonContentEdit = () => {
       });
 
       if (!response.data) {
-        throw new Error(response.message || "Unable to update Lesson content.");
+        throw new Error("Không thể cập nhật nội dung bài học.");
       }
 
-      message.success("Lesson content updated successfully.");
+      message.success("Đã cập nhật nội dung bài học.");
       navigate(detailUrl);
     } catch (error) {
       console.error("Save Lesson content error:", error);
-      message.error(getErrorMessage(error));
+      message.error("Không thể cập nhật nội dung bài học.");
 
       // Nếu Backend trả 409, kiểm tra lại quyền chỉnh sửa.
       if (axios.isAxiosError(error) && error.response?.status === 409) {
@@ -195,12 +167,12 @@ const CourseBuilderLessonContentEdit = () => {
   if (!lesson || !editability) {
     return (
       <InstructorPage className="builder-page">
-        <h1>Unable to load Lesson content</h1>
+        <h1>Không thể tải nội dung bài học</h1>
 
         <Alert
           type="error"
           showIcon
-          message={errorMessage || "Unable to load Lesson."}
+          message={errorMessage || "Không thể tải bài học."}
         />
 
         <div className="builder-actions">
@@ -217,19 +189,19 @@ const CourseBuilderLessonContentEdit = () => {
 
   const lockedMessage =
     editability.reason === "COMPLETED"
-      ? "At least one Learner has completed this Lesson. Its content can no longer be changed."
+      ? "Đã có ít nhất một học viên hoàn thành bài học nên không thể thay đổi nội dung."
       : editability.reason === "SUBMITTED"
-        ? "This Course is awaiting approval. Withdraw it before editing."
+        ? "Khóa học đang chờ phê duyệt. Hãy thu hồi trước khi chỉnh sửa."
         : "";
 
   return (
     <InstructorPage className="builder-page">
       <span className="builder-crumb">
-        Course Builder / Lesson / Edit Content
+        Biên soạn khóa học / Bài học / Chỉnh sửa nội dung
       </span>
 
       <div className="builder-hero">
-        <h1>Edit Lesson Content</h1>
+        <h1>Chỉnh sửa nội dung bài học</h1>
         <p>
           {lesson.module.title} / {lesson.lesson.title}
         </p>
@@ -239,7 +211,7 @@ const CourseBuilderLessonContentEdit = () => {
         <Alert
           type="warning"
           showIcon
-          message="Lesson content is locked for editing"
+          message="Nội dung bài học hiện không thể chỉnh sửa"
           description={lockedMessage}
           style={{ marginBottom: 20 }}
         />
@@ -248,10 +220,10 @@ const CourseBuilderLessonContentEdit = () => {
       <div className="builder-grid">
         {/* Form nhập nội dung */}
         <div className="builder-update-card">
-          <h2>Lesson introduction</h2>
+          <h2>Giới thiệu bài học</h2>
 
           <p className="builder-lesson-intro">
-            Edit the introductory text of this Lesson. Markdown is supported.
+            Chỉnh sửa nội dung giới thiệu bài học. Hỗ trợ định dạng Markdown.
           </p>
 
           <Input.TextArea
@@ -262,7 +234,7 @@ const CourseBuilderLessonContentEdit = () => {
             maxLength={20000}
             showCount
             disabled={cannotEdit || saving}
-            placeholder="Write the Lesson introduction..."
+            placeholder="Nhập nội dung giới thiệu bài học..."
           />
 
           <div className="builder-actions">
@@ -270,7 +242,7 @@ const CourseBuilderLessonContentEdit = () => {
               disabled={saving}
               onClick={() => navigate(detailUrl)}
             >
-              Cancel
+              Hủy
             </InstructorButton>
 
             <InstructorButton
@@ -279,33 +251,31 @@ const CourseBuilderLessonContentEdit = () => {
               disabled={cannotEdit || !hasChanges || !content.trim()}
               onClick={() => void handleSave()}
             >
-              Save Content
+              Lưu nội dung
             </InstructorButton>
           </div>
         </div>
 
         {/* Cột bên phải */}
         <div className="builder-side">
-          <InfoPanel title="Edit rule">
-            Lesson content can be updated only when no Learner has completed the
-            Lesson.
+          <InfoPanel title="Quy tắc chỉnh sửa">
+            Chỉ có thể cập nhật nội dung khi chưa có học viên hoàn thành bài học.
           </InfoPanel>
 
-          <InfoPanel title="BR-292">
-            The introduction is not a Required learning material and does not
-            contribute to estimated learning duration.
+          <InfoPanel title="Thời lượng dự kiến">
+            Nội dung giới thiệu không phải học liệu bắt buộc và không được cộng vào thời lượng học dự kiến.
           </InfoPanel>
         </div>
       </div>
 
       {/* Preview Markdown */}
       <div className="builder-update-card" style={{ marginTop: 20 }}>
-        <h2>Content preview</h2>
+        <h2>Xem trước nội dung</h2>
 
         {content.trim() ? (
           <LessonMarkdown content={content} />
         ) : (
-          <p className="builder-lesson-intro">No content to preview.</p>
+          <p className="builder-lesson-intro">Chưa có nội dung để xem trước.</p>
         )}
       </div>
     </InstructorPage>

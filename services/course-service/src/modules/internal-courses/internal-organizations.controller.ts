@@ -1,16 +1,28 @@
 import type { CurrentUser } from '@learnup/ts-common';
+import { HEADER_NAMES } from '@learnup/ts-common';
 import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
-import { ResponseMessage, Roles, User } from '@common/decorator/customize';
+import {
+  ApiHeader,
+  ApiOkResponse,
+  ApiSecurity,
+  ApiTags,
+} from '@nestjs/swagger';
+import {
+  ResponseMessage,
+  Roles,
+  ServiceCall,
+  User,
+} from '@common/decorator/customize';
 import {
   ManagedCourseChainsDto,
   TransferredCourseChainsDto,
@@ -40,6 +52,27 @@ export class InternalOrganizationsController {
   ) {
     return this.internalCoursesService.getOrganizationUsage(
       user.organizationId,
+      organizationId,
+    );
+  }
+
+  // UC44.1 - tenant-service hỏi thay Admin nền tảng. Internal key là lớp bảo vệ duy nhất:
+  // header tổ chức phải trùng :organizationId nhưng cả hai do tenant đặt, nên đó chỉ là kiểm tra nhất quán.
+  @Get('platform/organizations/:organizationId/usage')
+  @ServiceCall()
+  @ResponseMessage('Organization usage fetched successfully')
+  @ApiHeader({
+    name: HEADER_NAMES.ORGANIZATION_ID,
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiOkResponse({ type: OrganizationUsageDto })
+  getUsageForPlatform(
+    @Headers(HEADER_NAMES.ORGANIZATION_ID) headerOrganizationId: string,
+    @Param('organizationId', uuidPipe) organizationId: string,
+  ) {
+    return this.internalCoursesService.getOrganizationUsageForPlatform(
+      headerOrganizationId,
       organizationId,
     );
   }

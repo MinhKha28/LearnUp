@@ -144,8 +144,10 @@ class AuthServiceLoggingTest {
 
     @Test
     void shouldLogDisabledLoginWithoutEchoingTheSuppliedIdentifier() {
+        // UC05: the disabled state is only reported once the password is verified.
         user.setEnabled(false);
         when(userRepository.findByUsernameOrEmailForUpdate(IDENTIFIER, IDENTIFIER)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).thenReturn(true);
 
         assertThatThrownBy(() -> authService.login(new LoginRequest(IDENTIFIER, PASSWORD)))
                 .isInstanceOf(BusinessException.class);
@@ -153,7 +155,22 @@ class AuthServiceLoggingTest {
         assertSingleSafeEvent("login_rejected", true);
         assertThat(logs.list.getFirst().getFormattedMessage()).contains("reason=ACCOUNT_DISABLED");
         assertSecretsAbsent();
-        verifyNoInteractions(passwordEncoder, tenantAccessClient);
+        verifyNoInteractions(tenantAccessClient);
+    }
+
+    @Test
+    void shouldNotRevealDisabledAccountBeforeThePasswordIsVerified() {
+        user.setEnabled(false);
+        when(userRepository.findByUsernameOrEmailForUpdate(IDENTIFIER, IDENTIFIER)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.login(new LoginRequest(IDENTIFIER, PASSWORD)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Invalid username or password");
+
+        assertSingleSafeEvent("login_rejected", true);
+        assertThat(logs.list.getFirst().getFormattedMessage()).contains("reason=INVALID_PASSWORD");
+        assertSecretsAbsent();
+        verifyNoInteractions(tenantAccessClient);
     }
 
     @Test

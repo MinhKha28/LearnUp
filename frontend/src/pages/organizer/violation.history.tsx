@@ -20,42 +20,41 @@ type InstructorViolations = {
 };
 
 const rows: InstructorViolations[] = [
-  { key: "an-tran", instructor: "An Tran", confirmed: 3, minor: 2, serious: 1, latest: "11 Sep 2026" },
-  { key: "linh-phan", instructor: "Linh Phan", confirmed: 1, minor: 1, serious: 0, latest: "02 Aug 2026" },
-  { key: "giao-le", instructor: "Giao Le", confirmed: 0, minor: 0, serious: 0, latest: "—" },
+  { key: "an-tran", instructor: "Trần An", confirmed: 3, minor: 2, serious: 1, latest: "11/09/2026" },
+  { key: "linh-phan", instructor: "Linh Phan", confirmed: 1, minor: 1, serious: 0, latest: "02/08/2026" },
+  { key: "giao-le", instructor: "Giao Lê", confirmed: 0, minor: 0, serious: 0, latest: "—" },
 ];
 
 const ViolationHistory = () => {
   const columns: ColumnsType<InstructorViolations> = [
-    { title: "Instructor", dataIndex: "instructor" },
-    { title: "Confirmed", dataIndex: "confirmed" },
-    { title: "Minor", dataIndex: "minor" },
-    { title: "Serious", dataIndex: "serious" },
-    { title: "Latest", dataIndex: "latest" },
+    { title: "Giảng viên", dataIndex: "instructor" },
+    { title: "Đã xác nhận", dataIndex: "confirmed" },
+    { title: "Nhẹ", dataIndex: "minor" },
+    { title: "Nghiêm trọng", dataIndex: "serious" },
+    { title: "Mới nhất", dataIndex: "latest" },
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       align: "right",
-      render: () => <button className="organizer-link">View history →</button>,
+      render: () => <button className="organizer-link">Xem lịch sử →</button>,
     },
   ];
   return (
     <OrganizerPage className="organizer-violation-history">
       <PageHeader
-        title="Violation History"
-        subtitle="Confirmed violations by Instructor. Data supports decisions; no automatic sanctions."
+        title="Lịch sử vi phạm"
+        subtitle="Vi phạm đã xác nhận theo giảng viên. Dữ liệu dùng để hỗ trợ ra quyết định xử lý."
         actions={
           <Link to="/organizer/content-reports">
-            <OrganizerButton>Content reports</OrganizerButton>
+            <OrganizerButton>Báo cáo nội dung</OrganizerButton>
           </Link>
         }
       />
-      <SectionCard title="Instructor violations">
+      <SectionCard title="Vi phạm của giảng viên">
         <Table className="organizer-table" columns={columns} dataSource={rows} pagination={false} />
       </SectionCard>
-      <WarningPanel title="Configured warning threshold reached by An Tran">
-        This warning does not automatically stop the Instructor or any
-        Course.
+      <WarningPanel title="Trần An đã chạm ngưỡng cảnh báo">
+        Cảnh báo này không tự động dừng hoạt động của giảng viên hay bất kỳ khóa học nào.
       </WarningPanel>
     </OrganizerPage>
   );

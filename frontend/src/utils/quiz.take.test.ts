@@ -1,8 +1,8 @@
+import { formatPercentageVN } from "./number.format";
 import { describe, expect, it } from "vitest";
 import {
   clockOffsetMs,
   formatCountdown,
-  formatScore,
   questionTypeLabel,
   QUIZ_STALE_CODES,
   quizErrorText,
@@ -73,10 +73,10 @@ describe("the countdown", () => {
 
 describe("what the Learner reads", () => {
   it("scores use a comma and at most two decimals", () => {
-    expect(formatScore(50)).toBe("50");
-    expect(formatScore(66.67)).toBe("66,67");
-    expect(formatScore(100)).toBe("100");
-    expect(formatScore(0)).toBe("0");
+    expect(formatPercentageVN(50)).toBe("50%");
+    expect(formatPercentageVN(66.67)).toBe("66,67%");
+    expect(formatPercentageVN(100)).toBe("100%");
+    expect(formatPercentageVN(0)).toBe("0%");
   });
 
   it("the type of a question is in Vietnamese", () => {

@@ -7,10 +7,10 @@ import { useCurrentApp } from "@/components/context/app.context";
 import { homePathForRole } from "@/utils/auth";
 
 const navItems = [
-  { key: "platform", label: "Platform", hash: "#platform" },
-  { key: "how-it-works", label: "How it works", hash: "#how-it-works" },
-  { key: "plans", label: "Plans", hash: "#plans" },
-  { key: "faq", label: "FAQ", hash: "#before-you-start" },
+  { key: "platform", label: "Nền tảng", hash: "#platform" },
+  { key: "how-it-works", label: "Cách sử dụng", hash: "#how-it-works" },
+  { key: "plans", label: "Gói dịch vụ", hash: "#plans" },
+  { key: "faq", label: "Câu hỏi thường gặp", hash: "#before-you-start" },
 ];
 
 export default function Header() {
@@ -22,6 +22,7 @@ export default function Header() {
   const bareAuthFlow =
     pathname.startsWith("/activate") ||
     pathname.startsWith("/forgot-password") ||
+    pathname === "/resend-registration" ||
     pathname.startsWith("/reset-password");
   const plansActive = registration;
   const [activeKey, setActiveKey] = useState("platform");
@@ -60,17 +61,17 @@ export default function Header() {
           to={homePathForRole(user.role)}
           onClick={closeMenu}
         >
-          Go to workspace
+          Vào trang làm việc
         </Link>
       ) : (
         <Link className="header-signin" to="/login" onClick={closeMenu}>
-          Sign in
+          Đăng nhập
         </Link>
       )}
 
       {!home && (
         <Link className="header-action" to="/register" onClick={closeMenu}>
-          Explore plans <span aria-hidden="true">{"→"}</span>
+          Xem các gói dịch vụ <span aria-hidden="true">{"→"}</span>
         </Link>
       )}
     </>
@@ -81,22 +82,22 @@ export default function Header() {
       className={`header${home ? " header-home" : ""}${registration ? " header-registration" : ""}`}
     >
       <a className="header-skip" href="#guest-main">
-        Skip to content
+        Chuyển đến nội dung chính
       </a>
-      <Link className="header-logo" to="/" aria-label="LearnUP home">
+      <Link className="header-logo" to="/" aria-label="Trang chủ LearnUP">
         <img src="/logo/learnup-logo-dark.png" alt="LearnUP" />
       </Link>
-      <nav className="header-nav" aria-label="Main navigation">
+      <nav className="header-nav" aria-label="Điều hướng chính">
         {navigation}
       </nav>
       <Button
         className="header-menu"
-        icon={<MenuOutlined />}
-        aria-label="Open navigation"
+        icon={<MenuOutlined aria-hidden="true" />}
+        aria-label="Mở menu điều hướng"
         onClick={() => setOpen(true)}
       />
       <Drawer title="LearnUP" open={open} onClose={closeMenu} width={300}>
-        <nav className="header-mobile" aria-label="Mobile navigation">
+        <nav className="header-mobile" aria-label="Điều hướng trên thiết bị di động">
           {navigation}
         </nav>
       </Drawer>

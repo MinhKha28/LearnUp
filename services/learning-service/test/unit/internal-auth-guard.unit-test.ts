@@ -32,10 +32,25 @@ describe('InternalAuthGuard', () => {
   });
 
   test('a wrong or missing key is refused', () => {
-    for (const header of [undefined, '', 'other']) {
+    for (const header of [
+      undefined,
+      '',
+      'other',
+      KEY.slice(0, -1) + 'X',
+      KEY + '-longer',
+      [KEY],
+    ]) {
       assert.throws(
         () => call(KEY, { 'x-internal-key': header, ...user }),
-        UnauthorizedException,
+        (error: unknown) => {
+          assert.ok(error instanceof UnauthorizedException);
+          assert.equal(error.getStatus(), 401);
+          assert.equal(
+            error.message,
+            'Invalid or missing internal service key.',
+          );
+          return true;
+        },
       );
     }
   });

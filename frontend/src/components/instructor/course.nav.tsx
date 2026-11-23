@@ -16,12 +16,14 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const course = structure.course;
+  const isSubmitted = course.status === "Submitted";
+  const canEditStructure = !structure.structureLocked && !isSubmitted;
   const base = `/instructor/courses/${course.id}/builder`;
 
   return (
     <aside className="builder-nav">
       <div className="builder-nav-header">
-        <span className="builder-nav-eyebrow">STRUCTURE</span>
+        <span className="builder-nav-eyebrow">Cấu trúc</span>
       </div>
 
       <div className="builder-nav-shortcuts">
@@ -30,13 +32,16 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
           className={`builder-nav-link${pathname === base ? " active" : ""}`}
           onClick={() => navigate(base)}
         >
-          View Course Structure
+          Xem cấu trúc Khóa học
         </button>
       </div>
 
-      {structure.structureLocked && structure.lockReason && (
+      {structure.structureLocked && (
         <p className="builder-nav-hint">
-          <LockOutlined /> {structure.lockReason}
+          <LockOutlined />{" "}
+          {course.status === "Submitted"
+            ? "Khóa học đang chờ phê duyệt. Hãy rút yêu cầu phê duyệt để chỉnh sửa."
+            : "Cấu trúc Khóa học đã khóa vì đã có Học viên đăng ký."}
         </p>
       )}
 
@@ -58,11 +63,11 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
                 onClick={() => navigate(`${base}/lessons/${lesson.id}`)}
               >
                 <span>{lesson.title}</span>
-                {lesson.required && <small>Required</small>}
+                {lesson.required && <small>Bắt buộc</small>}
               </button>
             ))}
 
-            {!structure.structureLocked && (
+            {canEditStructure && (
               <button
                 type="button"
                 className="builder-nav-add-lesson"
@@ -70,7 +75,7 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
                   navigate(`${base}/modules/${module.id}/lessons/new`)
                 }
               >
-                + Add Lesson
+                + Thêm Bài học
               </button>
             )}
           </div>
@@ -81,14 +86,14 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
               <span className="builder-nav-module-index">
                 <FileTextOutlined />
               </span>
-              <strong>Course Assessments</strong>
+              <strong>Bài đánh giá của Khóa học</strong>
             </div>
             <button
               type="button"
               className={`builder-nav-lesson${pathname.startsWith(`${base}/quizzes`) ? " active" : ""}`}
               onClick={() => navigate(`${base}/quizzes`)}
             >
-              <span>Quizzes</span>
+              <span>Bài trắc nghiệm</span>
             </button>
             {assignments.map((assignment) => (
               <button
@@ -98,16 +103,16 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
                 onClick={() => navigate(`${base}/assignments/${assignment.id}`, { state: { from: pathname } })}
               >
                 <span>{assignment.title}</span>
-                {assignment.disabled && <small>Disabled</small>}
+                {assignment.disabled && <small>Đã vô hiệu hóa</small>}
               </button>
             ))}
-            <button
+            {!isSubmitted && !course.locked && <button
               type="button"
               className="builder-nav-add-lesson"
               onClick={() => navigate(`${base}/assignments/new`, { state: { from: pathname } })}
             >
-              + Add Assignment
-            </button>
+              + Thêm Bài tập
+            </button>}
           </div>
         )}
       </div>
@@ -118,11 +123,11 @@ export const CourseBuilderNav = ({ structure, assignments }: ICourseBuilderNavPr
           className="builder-nav-add"
           onClick={() => navigate(`${base}/modules/new`)}
         >
-          + Add Module
+          + Thêm Chương
         </button>
       )}
 
-      <p className="builder-nav-legend">Course → Module → Lesson</p>
+      <p className="builder-nav-legend">Khóa học → Chương → Bài học</p>
     </aside>
   );
 };

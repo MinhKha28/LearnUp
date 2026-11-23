@@ -107,9 +107,7 @@ describe("a review in the history", () => {
   });
 
   it("the time is in the Vietnamese order; none is a dash", () => {
-    expect(formatReviewTime("2026-11-05T10:00:00.000Z")).toMatch(
-      /05\/11\/2026/,
-    );
+    expect(formatReviewTime("2026-11-05T23:45:00.000Z")).toBe("06/11/2026 06:45");
     expect(formatReviewTime(null)).toBe("-");
   });
 

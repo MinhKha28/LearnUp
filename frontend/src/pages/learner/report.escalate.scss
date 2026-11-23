@@ -41,7 +41,7 @@
   border-top: 1px solid var(--color-border);
 }
 
-.report-escalate-card > span {
+.report-escalate-card > span:not(.learner-status) {
   display: block;
   margin-bottom: 8px;
   color: #0f172a;

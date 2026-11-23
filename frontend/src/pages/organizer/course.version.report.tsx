@@ -8,6 +8,7 @@ import {
   StatusTag,
   WarningPanel,
 } from "@/components/organizer/organizer.ui";
+import { courseStatusText } from "@/utils/organizer.labels";
 import "./course.version.report.scss";
 
 type VersionRow = {
@@ -33,52 +34,52 @@ type CertificateHolderRow = {
 };
 
 const certificateHolders: CertificateHolderRow[] = [
-  { key: "trang-nguyen", learner: "Trang Nguyen", certificate: "CERT-2026-0048", version: "v1", issued: "18 Mar 2026" },
-  { key: "bao-tran", learner: "Bao Tran", certificate: "CERT-2026-0051", version: "v1", issued: "18 Mar 2026" },
+  { key: "trang-nguyen", learner: "Trang Nguyễn", certificate: "CERT-2026-0048", version: "v1", issued: "18/03/2026" },
+  { key: "bao-tran", learner: "Bảo Trần", certificate: "CERT-2026-0051", version: "v1", issued: "18/03/2026" },
 ];
 
 const CourseVersionReport = () => {
   const versionColumns: ColumnsType<VersionRow> = [
-    { title: "Version", dataIndex: "version" },
+    { title: "Phiên bản", dataIndex: "version" },
     {
-      title: "Status",
+      title: "Trạng thái",
       dataIndex: "status",
       render: (status: VersionRow["status"]) => (
-        <StatusTag tone={status === "Published" ? "info" : "neutral"}>{status}</StatusTag>
+        <StatusTag tone={status === "Published" ? "info" : "neutral"}>{courseStatusText(status)}</StatusTag>
       ),
     },
-    { title: "Certificates", dataIndex: "certificates" },
-    { title: "Current learners", dataIndex: "currentLearners" },
-    { title: "Holders of old cert", dataIndex: "holdersOfOldCert" },
+    { title: "Chứng chỉ", dataIndex: "certificates" },
+    { title: "Học viên hiện tại", dataIndex: "currentLearners" },
+    { title: "Người có chứng chỉ phiên bản cũ", dataIndex: "holdersOfOldCert" },
   ];
   const holderColumns: ColumnsType<CertificateHolderRow> = [
-    { title: "Learner", dataIndex: "learner" },
-    { title: "Certificate", dataIndex: "certificate" },
-    { title: "Version", dataIndex: "version" },
-    { title: "Issued", dataIndex: "issued" },
+    { title: "Học viên", dataIndex: "learner" },
+    { title: "Chứng chỉ", dataIndex: "certificate" },
+    { title: "Phiên bản", dataIndex: "version" },
+    { title: "Ngày cấp", dataIndex: "issued" },
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       align: "right",
-      render: () => <button className="organizer-link">Assign v2 →</button>,
+      render: () => <button className="organizer-link">Phân công v2 →</button>,
     },
   ];
   return (
     <OrganizerPage className="organizer-course-version-report">
       <PageHeader
-        title="Version Report"
-        subtitle="Certificates and learners across a Course version chain."
+        title="Báo cáo phiên bản"
+        subtitle="Theo dõi chứng chỉ và học viên qua các phiên bản khóa học."
         back
-        actions={<OrganizerButton type="primary">Export report</OrganizerButton>}
+        actions={<OrganizerButton type="primary">Xuất báo cáo</OrganizerButton>}
       />
-      <SectionCard title="Workplace Safety Essentials" className="organizer-course-version-report-chain">
-        <span className="organizer-note organizer-course-version-report-label">Version chain</span>
+      <SectionCard title="Kiến thức cơ bản về an toàn lao động" className="organizer-course-version-report-chain">
+        <span className="organizer-note organizer-course-version-report-label">Chuỗi phiên bản</span>
         <Table className="organizer-table" columns={versionColumns} dataSource={versions} pagination={false} />
-        <WarningPanel title="Archived certificates in use">
-          42 Learners hold a Certificate from archived v1. Organizer may decide whether to assign v2.
+        <WarningPanel title="Chứng chỉ của phiên bản đã lưu trữ">
+          42 học viên có chứng chỉ của phiên bản 1 đã lưu trữ. Quản lý đào tạo có thể quyết định phân công học phiên bản 2.
         </WarningPanel>
       </SectionCard>
-      <SectionCard title="Learners holding non-current version Certificates">
+      <SectionCard title="Học viên có chứng chỉ của phiên bản cũ">
         <Table className="organizer-table" columns={holderColumns} dataSource={certificateHolders} pagination={false} />
       </SectionCard>
     </OrganizerPage>

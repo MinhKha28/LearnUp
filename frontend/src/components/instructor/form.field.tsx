@@ -1,4 +1,4 @@
-import { InputNumber } from "antd";
+import { VietnameseInputNumber } from "@/components/vietnamese.input.number";
 import { useRef, useState } from "react";
 import { type INumberRule, validateNumber } from "@/utils/validation";
 import "@/pages/instructor/course.builder.scss";
@@ -34,7 +34,8 @@ export const NumberField = ({ value, onChange, rule, showError = false, placehol
 
   return (
     <>
-      <InputNumber
+      <VietnameseInputNumber
+        decimalSeparator="."
         style={{ width: "100%" }}
         placeholder={placeholder}
         disabled={disabled}

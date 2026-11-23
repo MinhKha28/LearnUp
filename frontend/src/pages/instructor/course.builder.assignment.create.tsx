@@ -26,6 +26,8 @@ const CourseBuilderAssignmentCreate = () => {
   const location = useLocation();
   const { structure } = useOutletContext<ICourseBuilderOutletContext>();
   const course = structure.course;
+  const isSubmitted = course.status === "Submitted";
+  const cannotCreate = isSubmitted || course.locked;
 
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
@@ -44,23 +46,24 @@ const CourseBuilderAssignmentCreate = () => {
   const cancelPath = (location.state as { from?: string } | null)?.from ?? `${base}/assignments`;
 
   const errors = {
-    title: title.trim() ? null : "Enter an Assignment title.",
+    title: title.trim() ? null : "Nhập tên bài tập.",
     // BR-320: the prompt is text, one PDF, or both.
-    instructions: instructions.trim() || promptFile ? null : "Write the Assignment instructions or attach a PDF.",
+    instructions: instructions.trim() || promptFile ? null : "Nhập hướng dẫn hoặc đính kèm tệp PDF.",
     passingScore: validateNumber(passingScore, PASSING_SCORE_RULE),
     estimatedEffort: validateNumber(estimatedEffort, EFFORT_RULE),
     consecutiveSubmissions: validateNumber(consecutiveSubmissions, ATTEMPTS_RULE),
     lockHours: validateNumber(lockHours, LOCK_HOURS_RULE),
     // BR-164: a Rubric is mandatory; every criterion needs a description and a positive whole maximum score.
     rubric: rubric.some((row) => !row.description.trim() || validateNumber(row.maxPoints, RUBRIC_POINTS_RULE))
-      ? "Fix the Rubric criteria."
+      ? "Kiểm tra và sửa các tiêu chí chấm."
       : null,
   };
 
   const handleCreate = async () => {
+    if (saving || cannotCreate) return;
     setSubmitted(true);
     if (Object.values(errors).some(Boolean)) {
-      message.warning("Please fix the highlighted fields.");
+      message.warning("Vui lòng kiểm tra các trường được đánh dấu.");
       requestAnimationFrame(() =>
         document
           .querySelector(".builder-field-error, .ant-input-status-error, .ant-input-number-status-error")
@@ -87,13 +90,13 @@ const CourseBuilderAssignmentCreate = () => {
       });
       const created = res.data;
       if (!created) {
-        message.error(assessmentErrorText(res, "Unable to create the Assignment."));
+        message.error(assessmentErrorText(res, "Không thể tạo bài tập."));
         return;
       }
-      message.success("Assignment created.");
+      message.success("Đã tạo bài tập.");
       navigate(`${base}/assignments/${created.id}`, { state: { from: cancelPath } });
     } catch {
-      message.error("Unable to reach the Assessment service. Please try again.");
+      message.error("Không thể kết nối dịch vụ Đánh giá. Vui lòng thử lại.");
     } finally {
       setSaving(false);
     }
@@ -101,26 +104,34 @@ const CourseBuilderAssignmentCreate = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Create Assignment</span>
+      <span className="builder-crumb">Xây dựng khóa học / Tạo bài tập</span>
       <div className="builder-hero">
-        <h1>Create Assignment</h1>
+        <h1>Tạo bài tập</h1>
       </div>
+      {isSubmitted && (
+        <div className="builder-banner">
+          <strong>Khóa học đang chờ phê duyệt</strong>
+          <p>Hãy thu hồi khóa học trước khi thêm bài tập.</p>
+        </div>
+      )}
       <div className="builder-grid">
         <div className="builder-update-card">
-          <label className="instructor-form-label">Assignment title</label>
+          <label className="instructor-form-label">Tên bài tập</label>
           <Input
+            disabled={cannotCreate}
             value={title}
             maxLength={200}
             status={submitted && errors.title ? "error" : undefined}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="Safety Assignment"
+            placeholder="Bài tập an toàn lao động"
           />
           <FieldError message={submitted ? errors.title : null} />
 
-          <label className="instructor-form-label instructor-form-label-spaced">Instructions</label>
+          <label className="instructor-form-label instructor-form-label-spaced">Hướng dẫn</label>
           <Input.TextArea
+            disabled={cannotCreate}
             className="builder-textarea"
-            placeholder="Write the Assignment instructions..."
+            placeholder="Nhập hướng dẫn làm bài tập..."
             maxLength={8000}
             status={submitted && errors.instructions ? "error" : undefined}
             value={instructions}
@@ -128,16 +139,16 @@ const CourseBuilderAssignmentCreate = () => {
           />
           <FieldError message={submitted ? errors.instructions : null} />
 
-          <PromptFileField value={promptFile} onChange={setPromptFile} />
+          <PromptFileField value={promptFile} onChange={setPromptFile} disabled={cannotCreate} />
 
           <div className="builder-field-row">
             <div>
-              <label className="instructor-form-label instructor-form-label-spaced">Passing score (0-100)</label>
+              <label className="instructor-form-label instructor-form-label-spaced">Điểm đạt (0–100)</label>
               <NumberField rule={PASSING_SCORE_RULE} showError={submitted} value={passingScore} onChange={setPassingScore} />
             </div>
             <div>
               <label className="instructor-form-label instructor-form-label-spaced">
-                Estimated effort (minutes)
+                Thời gian làm bài dự kiến (phút)
               </label>
               <NumberField
                 rule={EFFORT_RULE}
@@ -148,32 +159,32 @@ const CourseBuilderAssignmentCreate = () => {
             </div>
             <div>
               <label className="instructor-form-label instructor-form-label-spaced">
-                Consecutive submissions (n)
+                Số lần nộp liên tiếp (n)
               </label>
               <NumberField
                 rule={ATTEMPTS_RULE}
                 showError={submitted}
-                placeholder="Platform default"
+                placeholder="Mặc định hệ thống"
                 value={consecutiveSubmissions}
                 onChange={setConsecutiveSubmissions}
               />
             </div>
             <div>
               <label className="instructor-form-label instructor-form-label-spaced">
-                Temporary lock (m hours)
+                Thời gian khóa tạm (m giờ)
               </label>
               <NumberField
                 rule={LOCK_HOURS_RULE}
                 showError={submitted}
-                placeholder="Platform default"
+                placeholder="Mặc định hệ thống"
                 value={lockHours}
                 onChange={setLockHours}
               />
             </div>
           </div>
 
-          <h2 className="instructor-form-label-spaced">Rubric</h2>
-          <RubricEditor rows={rubric} onChange={setRubric} showErrors={submitted} />
+          <h2 className="instructor-form-label-spaced">Tiêu chí chấm</h2>
+          <RubricEditor rows={rubric} onChange={setRubric} showErrors={submitted} disabled={cannotCreate} />
 
           <div className="builder-actions builder-actions-split">
             <InstructorButton
@@ -183,18 +194,17 @@ const CourseBuilderAssignmentCreate = () => {
                 navigate(cancelPath);
               }}
             >
-              Cancel
+              Hủy
             </InstructorButton>
-            <InstructorButton type="primary" loading={saving} onClick={handleCreate}>
-              Create Assignment
+            <InstructorButton type="primary" disabled={cannotCreate || saving} loading={saving} onClick={handleCreate}>
+              Tạo bài tập
             </InstructorButton>
           </div>
         </div>
         <div className="builder-side">
-          <InfoPanel title="Required Rubric">A Rubric is mandatory even without Peer Review.</InfoPanel>
-          <InfoPanel title="No deadline, always graded">
-            Assignments have no submission deadline and always count toward the Certificate. Submissions are
-            controlled by n attempts and an m-hour lock.
+          <InfoPanel title="Bắt buộc có tiêu chí chấm">Bắt buộc có tiêu chí chấm dù không bật chấm chéo.</InfoPanel>
+          <InfoPanel title="Không giới hạn hạn nộp; luôn được chấm">
+            Bài tập không có hạn nộp riêng và luôn được tính vào điều kiện cấp chứng chỉ. Số lượt nộp liên tiếp và thời gian khóa tạm kiểm soát việc nộp bài.
           </InfoPanel>
         </div>
       </div>

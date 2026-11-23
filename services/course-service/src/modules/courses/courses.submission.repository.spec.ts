@@ -18,8 +18,9 @@ describe('UC20 submitCourseForApproval DB transaction', () => {
     outboxEvent: { create: jest.fn() },
   };
   const prisma = {
-    $transaction: jest.fn(async (callback: (client: typeof tx) => Promise<unknown>) =>
-      callback(tx)),
+    $transaction: jest.fn(
+      async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+    ),
   };
   const repository = new CoursesRepository(prisma as unknown as PrismaService);
 
@@ -43,6 +44,7 @@ describe('UC20 submitCourseForApproval DB transaction', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           organizationId: data.organizationId,
+          deletedAt: null,
           status: { in: [COURSE_STATUS.DRAFT, COURSE_STATUS.REJECTED] },
           chain: { instructorId: data.instructorId },
         }),
@@ -66,14 +68,16 @@ describe('UC20 submitCourseForApproval DB transaction', () => {
 
   it('does not create an event if the optimistic update loses', async () => {
     tx.course.updateMany.mockResolvedValue({ count: 0 });
-    await expect(repository.submitCourseForApproval(data))
-      .resolves.toEqual({ status: 'CONFLICT' });
+    await expect(repository.submitCourseForApproval(data)).resolves.toEqual({
+      status: 'CONFLICT',
+    });
     expect(tx.outboxEvent.create).not.toHaveBeenCalled();
   });
 
   it('propagates Outbox insertion errors so Prisma can roll back the transaction', async () => {
     tx.outboxEvent.create.mockRejectedValue(new Error('Outbox insert failed'));
-    await expect(repository.submitCourseForApproval(data))
-      .rejects.toThrow('Outbox insert failed');
+    await expect(repository.submitCourseForApproval(data)).rejects.toThrow(
+      'Outbox insert failed',
+    );
   });
 });

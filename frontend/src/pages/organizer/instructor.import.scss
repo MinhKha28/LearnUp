@@ -25,3 +25,36 @@
 .organizer-import-preview .organizer-note {
     margin: 12px 0;
 }
+
+/* UC12.8 */
+.organizer-import-file {
+    margin: 12px 0 0;
+}
+
+.organizer-import-alert {
+    margin-top: 12px;
+}
+
+.organizer-import-stats {
+    margin-bottom: 16px;
+}
+
+.organizer-import-preview .organizer-warning {
+    margin-bottom: 16px;
+}
+
+.organizer-import-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0 8px;
+    color: var(--color-text-primary);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.organizer-import-reasons {
+    margin: 0;
+    padding-left: 16px;
+    color: var(--color-error);
+}

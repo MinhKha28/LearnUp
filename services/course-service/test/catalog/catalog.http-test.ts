@@ -1,12 +1,16 @@
 /**
  * Test HTTP cho UC25 (danh mục) và UC25.1 (giới thiệu Course) trên dữ liệu seed.
- * Chỉ gửi GET, không ghi dữ liệu. Cần course-service đang chạy và đã chạy npm run db:seed.
+ * Cần course-service đang chạy và đã chạy npm run prisma:seed.
+ * Ca Unicode dùng DATABASE_URL của service để tạo và dọn dữ liệu riêng.
  *
  * Chạy: npm run test:catalog:http
  */
 import 'dotenv/config';
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { describe, test } from 'node:test';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../../generated/prisma/client';
 import type { CatalogPageDto } from 'src/modules/catalog/dto/catalog-page.dto';
 import type { CourseIntroductionDto } from 'src/modules/catalog/dto/course-introduction.dto';
 
@@ -175,6 +179,72 @@ void describe('GET /courses/catalog (UC25)', () => {
     assert.equal(status, 200);
     assert.equal(body.data.meta.pageSize, 12);
     assert.equal(body.data.items.length, 2);
+  });
+
+  void test('q trống trả đúng danh mục UC25', async () => {
+    const [blank, omitted] = await Promise.all([getCatalog('?q=%20%09'), getCatalog()]);
+    assert.equal(blank.status, 200);
+    assert.deepEqual(blank.body.data, omitted.body.data);
+  });
+
+  void test('q chuẩn hóa Unicode và khoảng trắng trước khi tìm', async () => {
+    assert.notEqual(process.env.NODE_ENV, 'production', 'The Unicode case writes test data.');
+    const connectionString = process.env.DATABASE_URL;
+    assert.ok(connectionString, 'DATABASE_URL must point to the Course test database.');
+
+    const organizationId = `0199a000-0000-7000-8000-${randomBytes(6).toString('hex')}`;
+    const title = 'An toàn lao động';
+    const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+    try {
+      const chain = await prisma.courseChain.create({
+        data: {
+          organizationId,
+          instructorId: INSTRUCTOR_1,
+          courses: {
+            create: {
+              organizationId,
+              versionNumber: 1,
+              name: title,
+              learningOutcomes: [],
+              expectedCompletionDays: 7,
+              courseType: 'Public',
+              status: 'Published',
+              publishedAt: new Date(),
+            },
+          },
+        },
+        select: { id: true, courses: { select: { id: true } } },
+      });
+      try {
+        const [course] = chain.courses;
+        for (const keyword of ['AN   TOAN LAO DONG', title.normalize('NFD')]) {
+          const result = await get<CatalogPageDto>(
+            '/catalog?q=' + encodeURIComponent(keyword),
+            'LEARNER',
+            organizationId,
+          );
+          assert.equal(result.status, 200);
+          assert.deepEqual(result.body.data.items.map(({ id }) => id), [course.id]);
+          assert.equal(result.body.data.meta.total, 1);
+        }
+      } finally {
+        // Deleting the isolated chain also deletes its single fixture course.
+        await prisma.courseChain.delete({ where: { id: chain.id, organizationId } });
+      }
+    } finally {
+      await prisma.$disconnect();
+    }
+  });
+
+  void test('q dài 201 code point hoặc lặp lại trả VALIDATION_ERROR', async () => {
+    const atLimit = await getCatalog('?q=' + encodeURIComponent('😀'.repeat(200)));
+    assert.equal(atLimit.status, 200);
+    assert.equal(atLimit.body.data.meta.total, 0);
+    for (const query of ['?q=' + encodeURIComponent('😀'.repeat(201)), '?q=a&q=b', '?q=%00']) {
+      const result = await getCatalog(query);
+      assert.equal(result.status, 400);
+      assert.equal((result.body.error as { code: string }).code, 'VALIDATION_ERROR');
+    }
   });
 
   void test('INSTRUCTOR_1 bị từ chối 403', async () => {

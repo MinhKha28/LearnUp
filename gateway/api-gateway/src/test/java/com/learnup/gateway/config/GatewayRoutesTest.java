@@ -88,9 +88,12 @@ class GatewayRoutesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/api/v1/admin/subscription-plans", "/api/admin/subscription-plans"})
-    @DisplayName("UC43/UC43.1 Admin plan endpoints go to tenant-service and require a JWT")
-    void routesAdminPlansToTenantWithJwt(String path) {
+    @ValueSource(strings = {
+            "/api/v1/admin/subscription-plans", "/api/admin/subscription-plans",
+            "/api/v1/admin/organizations", "/api/admin/organizations"
+    })
+    @DisplayName("UC43/UC43.1 Admin plan and UC44 Admin organization endpoints go to tenant-service and require a JWT")
+    void routesAdminTenantPathsWithJwt(String path) {
         List<RouteDefinition> routes = routesMatching(path);
         assertThat(routes).as(path).hasSize(1);
         assertThat(routes.get(0).getId()).isEqualTo("tenant-service");
@@ -108,8 +111,8 @@ class GatewayRoutesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/api/v1/admin/organizations", "/api/v1/admin/courses"})
-    @DisplayName("Only the Admin plan branch is claimed by tenant-service")
+    @ValueSource(strings = {"/api/v1/admin/courses", "/api/v1/admin/users", "/api/admin/courses"})
+    @DisplayName("Only the Admin plan and organization branches are claimed by tenant-service")
     void doesNotClaimOtherAdminPaths(String path) {
         assertThat(routesMatching(path)).as(path).isEmpty();
     }

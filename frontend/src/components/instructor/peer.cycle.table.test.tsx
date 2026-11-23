@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC33, the "Đóng chu kỳ" action of the Instructor, by interaction. jsdom is for this file only; the other suites keep node.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { message } from "antd";

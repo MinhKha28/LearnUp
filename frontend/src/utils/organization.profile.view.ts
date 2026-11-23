@@ -70,8 +70,8 @@ export const changedFields = (
 
 export const logoFileError = (file: { type: string; size: number }) => {
   if (!["image/png", "image/jpeg"].includes(file.type))
-    return "The logo must be a PNG or JPEG image.";
-  if (file.size > LOGO_MAX_BYTES) return "The logo must be at most 2 MB.";
+    return "Logo phải là ảnh PNG hoặc JPEG.";
+  if (file.size > LOGO_MAX_BYTES) return "Logo tối đa 2 MB.";
   return null;
 };
 
@@ -81,20 +81,20 @@ export const organizationErrorMessage = (
 ): string => {
   switch (code) {
     case "INVALID_TIMEZONE":
-      return "Choose a timezone from the list.";
+      return "Hãy chọn múi giờ trong danh sách.";
     case "LOGO_INVALID":
-      return "The logo must be a PNG or JPEG image.";
+      return "Logo phải là ảnh PNG hoặc JPEG.";
     case "FILE_TOO_LARGE":
-      return "The logo is too large. It must be at most 2 MB.";
+      return "Logo quá lớn. Logo tối đa 2 MB.";
     case "STORAGE_UNAVAILABLE":
-      return "The logo could not be uploaded right now. Please try again later.";
+      return "Hiện chưa tải logo lên được. Vui lòng thử lại sau.";
     case "SUBSCRIPTION_NOT_ACTIVE":
-      return "Your Subscription is suspended, so organization details are view only.";
+      return "Gói dịch vụ đang tạm ngưng nên thông tin tổ chức chỉ xem được.";
     case "ORGANIZATION_NOT_ACTIVE":
-      return "Your Organization is not active, so its details cannot be changed.";
+      return "Tổ chức của bạn không ở trạng thái hoạt động nên không sửa được thông tin.";
     default:
       return status === 400
-        ? "Some values are not valid. Please check the form."
-        : "Could not save the changes. Please try again later.";
+        ? "Một số giá trị chưa hợp lệ. Hãy kiểm tra lại biểu mẫu."
+        : "Chưa lưu được thay đổi. Vui lòng thử lại sau.";
   }
 };

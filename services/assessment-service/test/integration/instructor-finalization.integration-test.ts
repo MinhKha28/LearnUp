@@ -143,6 +143,51 @@ describe('UC32.3 Assignment finalization over HTTP', () => {
     await db?.drop();
   });
 
+  test('submission detail returns a nullable numeric aggregate and the latest attempt', async () => {
+    const { assignmentId, submissionId, criterionId } = await createSubmission();
+    const path = `/submissions/${submissionId}`;
+    const initial = await api('GET', path);
+    assert.equal(initial.status, 200, JSON.stringify(initial.json));
+    assert.equal(initial.data.aggregateScore, null);
+    assert.equal(initial.data.isLatest, true);
+
+    const replacementId = await submit(assignmentId, true);
+    const old = await api('GET', path);
+    assert.equal(old.data.isLatest, false);
+
+    await grade(replacementId, criterionId, 80);
+    const replacementPath = `/submissions/${replacementId}`;
+    const graded = await api('GET', replacementPath);
+    assert.equal(graded.data.isLatest, true);
+    assert.equal(graded.data.aggregateScore, 80);
+
+    await addReview(replacementId, 'Completed', 80.01);
+    const rounded = await api('GET', replacementPath);
+    assert.equal(rounded.data.aggregateScore, 80.01);
+    const result = await finalize(replacementId, {
+      finalScore: rounded.data.aggregateScore,
+    });
+    assert.equal(result.status, 200, JSON.stringify(result.json));
+    assert.equal(result.data.finalScore, rounded.data.aggregateScore);
+    assert.equal(result.data.finalizationComment, null);
+  });
+
+  test('submission detail keeps Instructor and organization access checks', async () => {
+    const { submissionId } = await createSubmission();
+    const path = `/submissions/${submissionId}`;
+    expectCode(await api('GET', path, undefined, asLearner()), 403, 'FORBIDDEN');
+    expectCode(
+      await api('GET', path, undefined, identity({ org: OTHER_ORG })),
+      404,
+      'SUBMISSION_NOT_FOUND',
+    );
+    expectCode(
+      await api('GET', path, undefined, identity({ user: OTHER_INSTRUCTOR })),
+      404,
+      'ASSIGNMENT_NOT_FOUND',
+    );
+  });
+
   test('BR-250 / BR-254: publish after two completed peer reviews', async () => {
     const { assignmentId, submissionId, criterionId } =
       await createSubmission();

@@ -61,14 +61,14 @@ eureka:
 
 ---
 
-## 3. How Downstream Services Register
+## 3. Java service registration
 
-Future Spring Boot business services and the API Gateway will register with Eureka by adding `spring-cloud-starter-netflix-eureka-client` and configuring:
+This Java-only example uses the Eureka client in a Spring Boot supporting service. See [service discovery and routing](../../docs/architecture/service-discovery.md).
 
 ```yaml
 spring:
   application:
-    name: organization-service
+    name: identity-service
 
 eureka:
   client:

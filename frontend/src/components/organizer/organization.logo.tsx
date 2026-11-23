@@ -27,7 +27,7 @@ export const OrganizationLogo = ({ name, logoUrl }: OrganizationLogoProps) => {
         ref={trigger}
         type="button"
         className="organization-logo-button"
-        aria-label={`View a larger logo of ${name}`}
+        aria-label={`Xem logo lớn của ${name}`}
         onClick={() => setPreviewOpen(true)}
       >
         <img
@@ -41,7 +41,7 @@ export const OrganizationLogo = ({ name, logoUrl }: OrganizationLogoProps) => {
       <Image
         wrapperStyle={{ display: "none" }}
         src={logoUrl}
-        alt={`${name} logo`}
+        alt={`Logo của ${name}`}
         preview={{
           visible: previewOpen,
           onVisibleChange: (visible) => {

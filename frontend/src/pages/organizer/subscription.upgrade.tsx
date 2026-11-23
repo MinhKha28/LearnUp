@@ -1,4 +1,4 @@
-import { Alert, App, Button, Checkbox, Empty, Skeleton } from "antd";
+import { App, Button, Checkbox, Empty, Skeleton } from "antd";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -25,6 +25,7 @@ import {
   upgradeFormulaLine,
 } from "@/utils/upgrade.view";
 import "./subscription.upgrade.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const SubscriptionUpgrade = () => {
   const navigate = useNavigate();
@@ -55,9 +56,7 @@ const SubscriptionUpgrade = () => {
         }
       } catch {
         if (!ignore) {
-          setLoadError(
-            "Could not connect to the server. Please try again later.",
-          );
+          setLoadError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
         }
       }
     };
@@ -78,13 +77,15 @@ const SubscriptionUpgrade = () => {
       const res = await upgradeSubscriptionAPI(selected.id, simulateFailure);
       const status = res.data?.paymentStatus;
       if (status === "Succeeded" || status === "NotRequired") {
-        message.success(`Upgraded to ${selected.name}. New limits apply now.`);
+        message.success(
+          `Đã nâng cấp lên gói ${selected.name}. Giới hạn mới áp dụng ngay.`,
+        );
         navigate("/organizer/subscription");
         return;
       }
       if (status === "Failed") {
         setPayError(
-          "The payment was declined and nothing changed. You can try again.",
+          "Thanh toán bị từ chối và chưa có gì thay đổi. Bạn có thể thử lại.",
         );
         return;
       }
@@ -96,7 +97,7 @@ const SubscriptionUpgrade = () => {
       }
       setReloadKey((key) => key + 1);
     } catch {
-      setPayError("Could not connect to the server. Please try again later.");
+      setPayError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setPaying(false);
     }
@@ -105,13 +106,13 @@ const SubscriptionUpgrade = () => {
   const renderBody = () => {
     if (loadError) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={loadError}
           action={
             <Button onClick={() => setReloadKey((key) => key + 1)}>
-              Try again
+              Thử lại
             </Button>
           }
         />
@@ -128,23 +129,23 @@ const SubscriptionUpgrade = () => {
     return (
       <>
         <p className="organizer-note">
-          Current plan: <strong>{view.currentPlanName}</strong>. The expiry date
-          stays {formatDateVN(view.expiresAt)}; you pay the price difference for
-          the {view.remainingDays} remaining days.
+          Gói hiện tại: <strong>{view.currentPlanName}</strong>. Ngày hết hạn
+          giữ nguyên là {formatDateVN(view.expiresAt)}; bạn trả phần chênh lệch
+          giá cho {view.remainingDays} ngày còn lại.
         </p>
         {blockedMessage && (
-          <Alert type="info" showIcon message={blockedMessage} />
+          <VietnameseAlert type="info" showIcon message={blockedMessage} />
         )}
         {!view.usageAvailable && (
-          <Alert
+          <VietnameseAlert
             type="warning"
             showIcon
-            message="Course and storage usage could not be checked right now, so upgrades may be refused. Please try again later."
+            message="Hiện chưa kiểm tra được số khóa học và dung lượng đang dùng nên yêu cầu nâng cấp có thể bị từ chối. Vui lòng thử lại sau."
           />
         )}
         {view.options.length === 0 ? (
           <SectionCard>
-            <Empty description="No other plan is available" />
+            <Empty description="Không có gói nào khác" />
           </SectionCard>
         ) : (
           <div className="organizer-plan-grid">
@@ -166,12 +167,10 @@ const SubscriptionUpgrade = () => {
                   <div className="organizer-plan-card-heading">
                     <h2>{option.name}</h2>
                     {option.blockedBy.length > 0 && (
-                      <StatusTag tone="neutral">Not available</StatusTag>
+                      <StatusTag tone="neutral">Không chọn được</StatusTag>
                     )}
                     {selectedId === option.id && (
-                      <span className="organizer-plan-card-badge">
-                        Selected
-                      </span>
+                      <span className="organizer-plan-card-badge">Đã chọn</span>
                     )}
                   </div>
                   <p className="organizer-plan-limits">
@@ -182,8 +181,8 @@ const SubscriptionUpgrade = () => {
                   </p>
                   <p className="organizer-note">
                     {option.amount > 0
-                      ? `Pay ${formatVnd(option.amount)} now`
-                      : "No payment needed, applies right away"}
+                      ? `Thanh toán ${formatVnd(option.amount)} ngay`
+                      : "Không cần thanh toán, áp dụng ngay"}
                   </p>
                   {blockedLimitLines(option.blockedBy).map((line) => (
                     <p className="organizer-note" key={line}>
@@ -196,14 +195,14 @@ const SubscriptionUpgrade = () => {
           </div>
         )}
         {payError && (
-          <Alert type="error" showIcon message={payError} role="alert" />
+          <VietnameseAlert type="error" showIcon message={payError} role="alert" />
         )}
         {import.meta.env.DEV && !blockedMessage && (
           <Checkbox
             checked={simulateFailure}
             onChange={(event) => setSimulateFailure(event.target.checked)}
           >
-            Simulate a failed payment (development only)
+            Giả lập thanh toán thất bại (chỉ khi phát triển)
           </Checkbox>
         )}
         {selected && selected.amount > 0 && (
@@ -220,10 +219,10 @@ const SubscriptionUpgrade = () => {
         )}
         <div className="organizer-upgrade-footer">
           <div>
-            <strong>New limits apply immediately</strong>
+            <strong>Giới hạn mới áp dụng ngay</strong>
             <p className="organizer-note">
-              Downgrades are not supported. Plans below your current usage or
-              limits cannot be chosen.
+              Không hỗ trợ hạ cấp. Không chọn được gói có giới hạn thấp hơn mức
+              bạn đang dùng hoặc đang có.
             </p>
           </div>
           <OrganizerButton
@@ -233,8 +232,8 @@ const SubscriptionUpgrade = () => {
             onClick={pay}
           >
             {selected && selected.amount > 0
-              ? `Pay ${formatVnd(selected.amount)} with mock payment`
-              : "Upgrade"}
+              ? `Thanh toán mô phỏng ${formatVnd(selected.amount)}`
+              : "Nâng cấp"}
           </OrganizerButton>
         </div>
       </>
@@ -244,10 +243,12 @@ const SubscriptionUpgrade = () => {
   return (
     <OrganizerPage className="organizer-subscription-upgrade">
       <PageHeader
-        title="Upgrade Subscription"
-        subtitle="Choose a plan whose limits cover your current usage and limits."
+        title="Nâng cấp gói dịch vụ"
+        subtitle="Chọn gói có giới hạn đủ cho mức bạn đang dùng và đang có."
         actions={
-          <OrganizerButton onClick={() => navigate(-1)}>Back</OrganizerButton>
+          <OrganizerButton onClick={() => navigate(-1)}>
+            Quay lại
+          </OrganizerButton>
         }
       />
       {renderBody()}

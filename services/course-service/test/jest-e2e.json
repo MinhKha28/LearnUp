@@ -23,5 +23,5 @@
     "^@generated/(.*)$": "<rootDir>/../generated/$1",
     "^(\\.{1,2}/.*)\\.js$": "$1"
   },
-  "transformIgnorePatterns": ["/node_modules/(?!@nestjs/(config|axios)/)"]
+  "transformIgnorePatterns": ["/node_modules/(?!@nestjs/(config|axios|schedule)/)"]
 }

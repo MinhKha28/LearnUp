@@ -9,9 +9,9 @@ Central reverse proxy, perimeter security gateway, and dynamic router for the Le
 The API Gateway is the single public entry point for all frontend client requests.
 
 ### Core Gateway Responsibilities:
-* **Dynamic Routing**: Dispatches incoming `/api/**` HTTP requests to microservices using Eureka service discovery (`lb://<SERVICE-NAME>`).
+* **Dynamic Routing**: Dispatches incoming `/api/**` HTTP requests through explicit routes, using Eureka (`lb://`) for Java supporting services and configured service URLs for NestJS business services.
 * **Perimeter JWT Authentication**: Validates JWT cryptographic signatures, expiration times, and mandatory claims.
-* **Header Sanitization & Spoofing Prevention**: Strips all client-supplied identity headers (`X-User-ID`, `X-Organization-ID`, `X-User-Role`, `X-Correlation-ID`).
+* **Header Sanitization & Spoofing Prevention**: Removes client-supplied `X-User-ID`, `X-Organization-ID`, `X-User-Role`, `X-Internal-Key` and `X-Service-Name`, and sets `X-Correlation-ID` (kept from the request or generated).
 * **Trusted Header Injection**: Injects verified identity claims from the validated JWT downstream.
 * **Correlation ID Propagation**: Preserves or generates `X-Correlation-ID` and echoes it back in responses.
 * **Global CORS**: Handles pre-flight OPTIONS requests and manages origins for the ReactJS frontend.
@@ -21,83 +21,30 @@ The API Gateway is the single public entry point for all frontend client request
 
 ## 2. Security Boundaries
 
-> **Client-supplied identity headers are not trusted.**
-
-> **Gateway authenticates requests, while business services enforce fine-grained authorization.**
-
-```text
- Client (ReactJS)
-       │
-       │ Authorization: Bearer <JWT>
-       ▼
- ┌─────────────────────────────────────────────────────────────┐
- │                    Spring Cloud Gateway                     │
- │  1. Strip incoming client-spoofed X-User-*, X-Org-* headers │
- │  2. Validate JWT signature, expiration, and issuer          │
- │  3. Extract sub (userId), role, organizationId              │
- │  4. Inject trusted headers & forward:                       │
- │     - X-User-ID: <sub (user-id)>                            │
- │     - X-Organization-ID: <organization-id>                  │
- │     - X-User-Role: <ADMIN | ORGANIZER | INSTRUCTOR | LEARNER>│
- │     - X-Correlation-ID: <uuid>                              │
- └──────────────────────────────┬──────────────────────────────┘
-                                │
-               ┌────────────────┼────────────────┐
-               │ (Direct REST)  │ (Direct REST)  │ (Direct REST)
-               ▼                ▼                ▼
-        Identity Service   Org Service    Business Services
-        (Business Auth)  (Business Auth)  (Business Auth)
-```
-
-The Gateway does **NOT** enforce business authorization (e.g. whether an `ORGANIZER` can assign a course or an `INSTRUCTOR` can grade an exam). Fine-grained authorization logic resides strictly inside the respective downstream business services.
-
----
+The Gateway removes client-supplied identity and internal headers. On protected routes it validates the bearer token, then forwards the verified identity and configured internal key. Downstream services authenticate requests and enforce role and tenant authorization. Identity requires a valid bearer token for its protected user endpoints. See [request authentication](../../docs/architecture/security.md).
 
 ## 3. JWT & Required Claims
 
-The Gateway validates HMAC-SHA256 tokens signed with a shared secret (`JWT_SECRET`).
-
-### Expected JWT Payload:
-```json
-{
-  "sub": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "role": "ORGANIZER",
-  "organizationId": "d8e3b970-13f5-4c07-b2e8-4934a3621415",
-  "iat": 1726310000,
-  "exp": 1726317200
-}
-```
-
-* `sub` (Required): Canonical User UUID string.
-* `role` (Required): Must be exactly one of `ADMIN`, `ORGANIZER`, `INSTRUCTOR`, `LEARNER`. Unapproved or misspelled roles are rejected with 401 Unauthorized.
-* `organizationId` (Optional/Contextual): Canonical organization UUID string.
-
-### Whitelisted Public Routes (No JWT Required):
-* `POST /api/auth/login`
-* `POST /api/auth/register`
-* `POST /api/auth/refresh`
-* Certificate routes require JWT authentication; BR-264 excludes public certificate verification from the MVP.
-* `GET /actuator/health`
+The Gateway checks the JWT signature and expiration and requires a subject and recognized role. It propagates the organization claim when present. See the [configured public route whitelist](src/main/resources/application.yml).
 
 ---
 
 ## 4. Route Configuration Catalog
 
-All routes map to dynamic Eureka service identifiers (`lb://<SERVICE-NAME>`):
+The gateway uses Eureka `lb://` routing for Java supporting services and configured service URLs for NestJS business services, as described in [ADR 0008](../../docs/adr/0008-docker-dns-for-business-services.md) and [service discovery](../../docs/architecture/service-discovery.md).
 
-| Route ID | Path Predicate | Target Service | Type |
+| Route ID | Path predicate(s) | Target | Notable filters |
 | :--- | :--- | :--- | :--- |
-| `identity-service-auth` | `/api/auth/**` | `lb://IDENTITY-SERVICE` | Supporting |
-| `notification-service` | `/api/notifications/**` | `lb://NOTIFICATION-SERVICE` | Supporting |
-| `audit-service` | `/api/audit/**` | `lb://AUDIT-SERVICE` | Supporting |
-| `tenant-service` | `/api/users/**`, `/api/organizations/**`, `/api/subscriptions/**`, `/api/payments/**` | `lb://TENANT-SERVICE` | Business |
-| `course-service` | `/api/courses/**` | `lb://COURSE-SERVICE` | Business |
-| `learning-service` | `/api/learning/**` | `lb://LEARNING-SERVICE` | Business |
-| `assessment-service` | `/api/assessments/**` | `lb://ASSESSMENT-SERVICE` | Business |
-| `achievement-reporting-service` | `/api/certificates/**`, `/api/reports/**`, `/api/governance/**` | `lb://ACHIEVEMENT-REPORTING-SERVICE` | Business |
+| `identity-service-auth` | `/api/v1/auth/**`, `/api/auth/**` | `lb://IDENTITY-SERVICE` | Global JWT filter; configured public-path whitelist applies |
+| `notification-service` | `/api/v1/notifications/**`, `/api/notifications/**` | `lb://NOTIFICATION-SERVICE` | Global JWT filter |
+| `audit-service` | `/api/v1/audit/**`, `/api/audit/**` | `lb://AUDIT-SERVICE` | `GET` only; global JWT filter |
+| `tenant-service` | `/api/v1/users/**`, `/api/v1/organizations/**`, `/api/v1/subscriptions/**`, `/api/v1/subscription-plans/**`, `/api/v1/registrations/**`, `/api/v1/invitations/**`, `/api/v1/payments/**`, `/api/v1/admin/subscription-plans/**`, `/api/v1/admin/organizations/**`, `/api/users/**`, `/api/organizations/**`, `/api/subscriptions/**`, `/api/subscription-plans/**`, `/api/registrations/**`, `/api/invitations/**`, `/api/payments/**`, `/api/admin/subscription-plans/**`, `/api/admin/organizations/**` | `TENANT_SERVICE_URL` | Global JWT filter; configured public-path whitelist applies |
+| `course-service` | `/api/v1/courses/**`, `/api/courses/**` | `COURSE_SERVICE_URL` | Global JWT filter |
+| `learning-service` | `/api/v1/learning/**`, `/api/v1/enrollments/**`, `/api/v1/assignments/**`, `/api/learning/**`, `/api/enrollments/**`, `/api/assignments/**` | `LEARNING_SERVICE_URL` | Global JWT filter |
+| `assessment-service` | `/api/v1/assessments/**`, `/api/assessments/**` | `ASSESSMENT_SERVICE_URL` | Global JWT filter |
+| `achievement-reporting-service` | `/api/v1/certificates/**`, `/api/v1/reports/**`, `/api/v1/governance/**`, `/api/certificates/**`, `/api/reports/**`, `/api/governance/**` | `ACHIEVEMENT_REPORTING_SERVICE_URL` | Global JWT filter |
 
-
----
+No route defines a `StripPrefix` filter.
 
 ## 5. Configuration & Environment Variables
 
@@ -105,7 +52,8 @@ All routes map to dynamic Eureka service identifiers (`lb://<SERVICE-NAME>`):
 | :--- | :--- | :--- |
 | `SERVER_PORT` | `8080` | External Gateway port |
 | `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` | `http://localhost:8761/eureka/` | Eureka registration endpoint |
-| `JWT_SECRET` | `devSecretKeyForLearnUpPlatformMustBeAtLeast32BytesLong` | 256-bit HMAC secret key |
+| `JWT_SECRET` | Required | JWT signing key |
+| `INTERNAL_SERVICE_KEY` | Required | Key used to authenticate internal calls |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Comma-separated allowed CORS origins |
 
 ---

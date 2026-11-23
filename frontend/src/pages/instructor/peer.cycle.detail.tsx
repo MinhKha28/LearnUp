@@ -1,3 +1,4 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -21,7 +22,7 @@ import type {
 } from "@/types/assessment.types";
 import "./peer.cycles.scss";
 
-const formatTime = (iso: string) => new Date(iso).toLocaleString("vi-VN");
+const formatTime = (iso: string) => formatDateTimeVN(iso);
 
 /** Scores have at most two decimals (BR-202): 24.5 is written 24,5. */
 const formatScore = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 });
@@ -71,7 +72,7 @@ const PeerCycleDetail = () => {
     return (
       <InstructorPage className="instructor-peer-cycles">
         <PageHeader
-          eyebrow="CHU KỲ CHẤM CHÉO / CHI TIẾT"
+          eyebrow="Chu kỳ chấm chéo / Chi tiết"
           title="Chi tiết chu kỳ chấm chéo"
           subtitle="Đang tải..."
           back
@@ -85,7 +86,7 @@ const PeerCycleDetail = () => {
     return (
       <InstructorPage className="instructor-peer-cycles">
         <PageHeader
-          eyebrow="CHU KỲ CHẤM CHÉO / CHI TIẾT"
+          eyebrow="Chu kỳ chấm chéo / Chi tiết"
           title="Không xem được chu kỳ"
           subtitle={notice}
           back
@@ -105,18 +106,18 @@ const PeerCycleDetail = () => {
   return (
     <InstructorPage className="instructor-peer-cycles">
       <PageHeader
-        eyebrow="CHU KỲ CHẤM CHÉO / CHI TIẾT"
+        eyebrow="Chu kỳ chấm chéo / Chi tiết"
         title="Chi tiết chu kỳ chấm chéo"
         subtitle={detail.title}
         back
       />
       <SectionCard className="instructor-cycle-meta-card">
         <div className="instructor-cycle-meta-grid">
-          <DetailItem label="MỞ">{formatTime(cycle.opensAt)}</DetailItem>
-          <DetailItem label="ĐÓNG VÀ PHÂN CÔNG">
+          <DetailItem label="Mở">{formatTime(cycle.opensAt)}</DetailItem>
+          <DetailItem label="Đóng và phân công">
             {formatTime(cycle.closesAt)}
           </DetailItem>
-          <DetailItem label="HẠN CHẤM">
+          <DetailItem label="Hạn chấm">
             {formatTime(cycle.reviewDueAt)}
           </DetailItem>
         </div>

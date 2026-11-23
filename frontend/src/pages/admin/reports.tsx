@@ -7,21 +7,21 @@ import "./reports.scss";
 
 type Report = { key: string; id: string; subject: string; organization: string; reason: string; status: string; deadline: string };
 const rows: Report[] = [
-  { key: "rep-1042", id: "REP-1042", subject: "Course content report", organization: "Northstar Learning", reason: "Organizer response disputed", status: "Escalated", deadline: "Due in 4h" },
-  { key: "rep-1038", id: "REP-1038", subject: "Course content report", organization: "Apex Manufacturing", reason: "Report handling overdue", status: "Escalated", deadline: "Due tomorrow" },
-  { key: "rep-1024", id: "REP-1024", subject: "Organization report", organization: "BlueRiver Retail", reason: "System-wide content concern", status: "Under review", deadline: "1 day" },
-  { key: "rep-1021", id: "REP-1021", subject: "Course content report", organization: "Vertex Institute", reason: "Report response escalation", status: "Escalated", deadline: "3 days" },
-  { key: "rep-1019", id: "REP-1019", subject: "Course content report", organization: "Greenfield Services", reason: "Organizer response disputed", status: "Under review", deadline: "4 days" },
+  { key: "rep-1042", id: "REP-1042", subject: "Báo cáo nội dung khóa học", organization: "Northstar Learning", reason: "Phản hồi của quản lý đào tạo bị khiếu nại", status: "Đã chuyển cấp", deadline: "Còn 4 giờ đến hạn" },
+  { key: "rep-1038", id: "REP-1038", subject: "Báo cáo nội dung khóa học", organization: "Apex Manufacturing", reason: "Quá hạn xử lý báo cáo", status: "Đã chuyển cấp", deadline: "Đến hạn ngày mai" },
+  { key: "rep-1024", id: "REP-1024", subject: "Báo cáo về tổ chức", organization: "BlueRiver Retail", reason: "Vấn đề nội dung trên toàn hệ thống", status: "Đang xem xét", deadline: "1 ngày" },
+  { key: "rep-1021", id: "REP-1021", subject: "Báo cáo nội dung khóa học", organization: "Vertex Institute", reason: "Yêu cầu chuyển cấp phản hồi báo cáo", status: "Đã chuyển cấp", deadline: "3 ngày" },
+  { key: "rep-1019", id: "REP-1019", subject: "Báo cáo nội dung khóa học", organization: "Greenfield Services", reason: "Phản hồi của quản lý đào tạo bị khiếu nại", status: "Đang xem xét", deadline: "4 ngày" },
 ];
 const Reports = () => {
   const navigate = useNavigate();
   const columns: ColumnsType<Report> = [
-    { title: "Report", dataIndex: "id", render: (_, item) => <div className="admin-report-id"><strong>{item.id}</strong><span>{item.subject}</span></div> },
-    { title: "Organization", dataIndex: "organization" },{ title: "Reason", dataIndex: "reason" },
-    { title: "Status", dataIndex: "status", render: (value: string) => <StatusTag tone="warning">{value}</StatusTag> },
-    { title: "Deadline", dataIndex: "deadline", render: (value: string) => <span className="admin-deadline">{value}</span> },
-    { title: "", key: "action", align: "right", render: (_, item) => <button className="admin-link" onClick={() => navigate(`/admin/reports/${item.key}`)}>View →</button> },
+    { title: "Báo cáo", dataIndex: "id", render: (_, item) => <div className="admin-report-id"><strong>{item.id}</strong><span>{item.subject}</span></div> },
+    { title: "Tổ chức", dataIndex: "organization" },{ title: "Lý do", dataIndex: "reason" },
+    { title: "Trạng thái", dataIndex: "status", render: (value: string) => <StatusTag tone="warning">{value}</StatusTag> },
+    { title: "Hạn xử lý", dataIndex: "deadline", render: (value: string) => <span className="admin-deadline">{value}</span> },
+    { title: "", key: "action", align: "right", render: (_, item) => <button className="admin-link" onClick={() => navigate(`/admin/reports/${item.key}`)}>Xem →</button> },
   ];
-  return <AdminPage className="admin-reports"><PageHeader title="Escalated Reports" subtitle="Review reports escalated to Platform Admin." /><div className="admin-report-filters"><Input prefix={<SearchOutlined />} placeholder="Search Organization" /><Select defaultValue="all" options={[{ value: "all", label: "All statuses" }]} /><Select defaultValue="all" options={[{ value: "all", label: "All reasons" }]} /><Select defaultValue="all" options={[{ value: "all", label: "Any date" }]} /></div><SectionCard title="Platform report queue" extra={<span className="admin-note">5 reports require action</span>}><Table className="admin-table" dataSource={rows} columns={columns} pagination={false} /></SectionCard></AdminPage>;
+  return <AdminPage className="admin-reports"><PageHeader title="Báo cáo đã chuyển cấp xử lý" subtitle="Xem xét báo cáo đã chuyển đến quản trị nền tảng." /><div className="admin-report-filters"><Input prefix={<SearchOutlined aria-hidden="true" />} placeholder="Tìm tổ chức" /><Select defaultValue="all" options={[{ value: "all", label: "Tất cả trạng thái" }]} /><Select defaultValue="all" options={[{ value: "all", label: "Tất cả lý do" }]} /><Select defaultValue="all" options={[{ value: "all", label: "Mọi ngày" }]} /></div><SectionCard title="Báo cáo đang chờ xử lý ở cấp nền tảng" extra={<span className="admin-note">Có 5 báo cáo cần xử lý</span>}><Table className="admin-table" dataSource={rows} columns={columns} pagination={false} /></SectionCard></AdminPage>;
 };
 export default Reports;

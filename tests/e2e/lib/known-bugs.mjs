@@ -4,5 +4,4 @@
  * Details and curl reproductions: tests/e2e/README.md#known-failures.
  */
 export const KNOWN_BUGS = {
-  "UI-1": "UC28 progress page renders hardcoded learner.data mock (frontend/src/pages/learner/course.progress.tsx:~35); blank for real enrollments, no link from the curriculum (owner Hào)",
 };

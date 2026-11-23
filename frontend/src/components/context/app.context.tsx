@@ -1,5 +1,6 @@
 import { fetchAccountAPI } from "@/services/identity.service";
 import { loadUserWithProfile } from "@/services/profile.service";
+import { useCrossTabSignOut } from "@/hooks/use.cross.tab.sign.out";
 import type { IUser } from "@/types/identity.types";
 import { createContext, useContext, useEffect, useState } from "react";
 import PacmanLoader from "react-spinners/PacmanLoader";
@@ -26,6 +27,12 @@ export const AppProvider = (props: TProps) => {
   const [user, setUser] = useState<IUser | null>(null);
   const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
   const [carts, setCarts] = useState<unknown[]>([]);
+
+  // UC06: a sign-out in another tab ends this tab's session too.
+  useCrossTabSignOut(() => {
+    setUser(null);
+    setIsAuthenticated(false);
+  });
 
   useEffect(() => {
     const fetchAccount = async () => {

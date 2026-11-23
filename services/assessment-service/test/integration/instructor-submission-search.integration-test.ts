@@ -169,6 +169,8 @@ describe('UC32.4 searching the submissions of an Assignment over HTTP', () => {
       learner(2),
     ]);
     assert.equal((await list('?minScore=0')).data.total, 3);
+    assert.equal((await list('?maxScore=100')).data.total, 3);
+    assert.equal((await list('?minScore=100')).data.total, 0);
     assert.equal((await list('?minScore=91')).data.total, 0);
     // the replaced submission of learner(0) scored 40: it counts when the replaced ones are asked for
     assert.deepEqual(
@@ -209,6 +211,8 @@ describe('UC32.4 searching the submissions of an Assignment over HTTP', () => {
     for (const query of [
       '?minScore=abc',
       '?maxScore=-1',
+      '?minScore=100.01',
+      '?maxScore=101',
       '?learnerId=not-a-uuid',
       '?needsIntervention=maybe',
     ]) {

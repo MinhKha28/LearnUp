@@ -1,3 +1,4 @@
+import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
 import { Pagination } from "antd";
 import { useNavigate } from "react-router-dom";
@@ -18,6 +19,7 @@ import type {
   TLearnerReviewState,
 } from "@/types/assessment.types";
 import "./peer.review.queue.scss";
+import { vietnamesePageItem } from "@/components/vietnamese.control.props";
 
 const STATE_VIEW: Record<
   TLearnerReviewState,
@@ -30,8 +32,7 @@ const STATE_VIEW: Record<
 
 const PAGE_SIZE = 20;
 
-const formatTime = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString("vi-VN") : "-";
+const formatTime = (iso: string | null) => formatDateTimeVN(iso);
 
 /** What the Learner calls a review without knowing the author: the end of its id, like the other anonymous labels. */
 const reviewLabel = (item: ILearnerReviewItem) =>
@@ -150,7 +151,7 @@ const PeerReviewQueue = () => {
               </tbody>
             </table>
             {list.total > list.pageSize && (
-              <Pagination
+              <Pagination itemRender={vietnamesePageItem}
                 className="peer-review-queue-pagination"
                 current={list.page}
                 pageSize={list.pageSize}

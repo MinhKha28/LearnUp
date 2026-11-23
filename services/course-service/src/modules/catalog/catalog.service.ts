@@ -29,6 +29,7 @@ export class CatalogService {
   async findCatalog(
     user: CurrentUser,
     page: number,
+    keyword?: string,
   ): Promise<PageResponse<CatalogCourseDto>> {
     this.assertLearner(user);
 
@@ -39,7 +40,8 @@ export class CatalogService {
     }
 
     // Đếm trước: trang vượt tổng trả rỗng ngay, offset quá lớn (page = 1e20) không xuống Prisma
-    const total = await this.catalogRepository.countCatalog(organizationId);
+    const normalizedKeyword = keyword?.normalize('NFC');
+    const total = await this.catalogRepository.countCatalog(organizationId, normalizedKeyword);
     const skip = (page - 1) * CATALOG_PAGE_SIZE;
     if (skip >= total) {
       return createPageResponse([], page, CATALOG_PAGE_SIZE, total);
@@ -49,6 +51,7 @@ export class CatalogService {
       organizationId,
       skip,
       CATALOG_PAGE_SIZE,
+      normalizedKeyword,
     );
     const durations = await this.catalogRepository.estimateDurationMinutes(
       organizationId,

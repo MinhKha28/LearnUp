@@ -1,7 +1,7 @@
 package com.learnup.notification.enrollment;
 
+import com.learnup.notification.mail.EmailLayout;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.HtmlUtils;
 
 import java.time.Instant;
 import java.time.LocalTime;
@@ -77,8 +77,14 @@ public class EnrollmentMessageTemplates {
             }
         }
 
-        String greeting = learnerName == null || learnerName.isBlank() ? "Xin chào," : "Xin chào " + HtmlUtils.htmlEscape(learnerName.strip(), "UTF-8") + ",";
-        String html = "<p>" + greeting + "</p><p>" + HtmlUtils.htmlEscape(text, "UTF-8") + "</p><p>LearnUP</p>";
+        EmailLayout.Card card = EmailLayout.Card.of(title)
+                .badge("Khóa học", EmailLayout.Tone.INFO)
+                .greeting(learnerName)
+                .paragraph(text);
+        if (course != null) {
+            card.detail("Khóa học", course);
+        }
+        String html = EmailLayout.render(card.closing("Vui lòng đăng nhập LearnUP để xem chi tiết."));
         String metadata = "{\"enrollmentId\":\"" + event.enrollmentId() + "\",\"courseId\":\"" + event.courseId()
                 + "\",\"event\":\"" + event.type().wireName() + "\"}";
         return Optional.of(new EnrollmentMessage(title, text, type, title, html, metadata));

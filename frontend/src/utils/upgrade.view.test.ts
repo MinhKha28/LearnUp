@@ -21,8 +21,8 @@ describe("UC10.2 upgrade view", () => {
         },
       ]),
     ).toEqual([
-      "Learners: 100 is below the 120 you need",
-      "Storage: 50 GB is below the 60 GB you need",
+      "Số học viên: 100 thấp hơn mức cần 120",
+      "Dung lượng lưu trữ: 50 GB thấp hơn mức cần 60 GB",
     ]);
   });
 
@@ -41,16 +41,16 @@ describe("UC10.2 upgrade view", () => {
 
   it("shows limits with separators and the plan price with its duration", () => {
     expect(planLimitsLine(plan)).toBe(
-      "100,000 Learners · 10,000 Instructors · 1,000 Courses · 120 GB",
+      "100.000 học viên · 10.000 giảng viên · 1.000 khóa học · 120 GB",
     );
-    expect(planPriceLine(plan)).toBe(`${formatVnd(99_000_000)} / 365 days`);
+    expect(planPriceLine(plan)).toBe(`${formatVnd(99_000_000)} / 365 ngày`);
   });
 
   it("BR-19: shows how the amount is computed", () => {
     expect(
       upgradeFormulaLine(plan, { price: 30_000_000, durationDays: 365 }, 183),
     ).toBe(
-      `(${formatVnd(99_000_000)} ÷ 365 days − ${formatVnd(30_000_000)} ÷ 365 days) × 183 remaining days, rounded up = ${formatVnd(34_594_521)}`,
+      `(${formatVnd(99_000_000)} ÷ 365 ngày − ${formatVnd(30_000_000)} ÷ 365 ngày) × 183 ngày còn lại, làm tròn lên = ${formatVnd(34_594_521)}`,
     );
   });
 
@@ -62,24 +62,26 @@ describe("UC10.2 upgrade view", () => {
         10,
       ),
     ).toBe(
-      `(${formatVnd(1_000_000)} ÷ 30 days − ${formatVnd(200_000)} ÷ 7 days) × 10 remaining days, rounded up = ${formatVnd(47_620)}`,
+      `(${formatVnd(1_000_000)} ÷ 30 ngày − ${formatVnd(200_000)} ÷ 7 ngày) × 10 ngày còn lại, làm tròn lên = ${formatVnd(47_620)}`,
     );
   });
 
   it("explains why an upgrade is not available", () => {
     expect(upgradeBlockedMessage(null)).toBeNull();
-    expect(upgradeBlockedMessage("SUBSCRIPTION_NOT_ACTIVE")).toContain("renew");
+    expect(upgradeBlockedMessage("SUBSCRIPTION_NOT_ACTIVE")).toContain(
+      "gia hạn",
+    );
     expect(upgradeBlockedMessage("RENEWAL_ALREADY_SCHEDULED")).toContain(
-      "after it starts",
+      "sau khi kỳ đó bắt đầu",
     );
   });
 
   it("maps backend errors without raw codes", () => {
-    expect(upgradeErrorMessage("UPGRADE_LIMITS_TOO_LOW")).toContain("below");
-    expect(upgradeErrorMessage("SUBSCRIPTION_NOT_ACTIVE")).toContain("renew");
+    expect(upgradeErrorMessage("UPGRADE_LIMITS_TOO_LOW")).toContain("thấp hơn");
+    expect(upgradeErrorMessage("SUBSCRIPTION_NOT_ACTIVE")).toContain("gia hạn");
     expect(upgradeErrorMessage("NEW_CODE")).not.toContain("NEW_CODE");
     expect(upgradeErrorMessage("UPGRADE_NOT_APPLIED")).toContain(
-      "Do not pay again",
+      "Đừng thanh toán lần nữa",
     );
   });
 });

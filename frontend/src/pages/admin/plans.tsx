@@ -1,4 +1,5 @@
-import { Alert, Button, Empty, Skeleton } from "antd";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
+import { Button, Empty, Skeleton } from "antd";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -43,14 +44,14 @@ const Plans = () => {
   const renderBody = () => {
     if (failed) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
-          message="Could not load Subscription Plans."
-          description="Please check your connection and try again."
+          message="Không tải được danh sách gói."
+          description="Hãy kiểm tra kết nối rồi thử lại."
           action={
             <Button onClick={() => setReloadKey((key) => key + 1)}>
-              Try again
+              Thử lại
             </Button>
           }
         />
@@ -66,7 +67,7 @@ const Plans = () => {
     if (plans.length === 0) {
       return (
         <SectionCard>
-          <Empty description="No Subscription Plan yet" />
+          <Empty description="Chưa có gói nào" />
         </SectionCard>
       );
     }
@@ -79,36 +80,36 @@ const Plans = () => {
             title={plan.name}
             extra={
               plan.isOffered ? (
-                <StatusTag tone="success">Available</StatusTag>
+                <StatusTag tone="success">Đang cung cấp</StatusTag>
               ) : (
-                <StatusTag tone="neutral">Discontinued</StatusTag>
+                <StatusTag tone="neutral">Ngừng cung cấp</StatusTag>
               )
             }
           >
             <p>{organizationsUsingLabel(plan.organizationCount)}</p>
             <dl>
               <div>
-                <dt>Price</dt>
+                <dt>Giá</dt>
                 <dd>{formatVnd(plan.price)}</dd>
               </div>
               <div>
-                <dt>Duration</dt>
-                <dd>{plan.durationDays} days</dd>
+                <dt>Thời hạn</dt>
+                <dd>{plan.durationDays} ngày</dd>
               </div>
               <div>
-                <dt>Learners</dt>
-                <dd>{plan.maxLearners.toLocaleString("en-US")}</dd>
+                <dt>Học viên</dt>
+                <dd>{plan.maxLearners.toLocaleString("vi-VN")}</dd>
               </div>
               <div>
-                <dt>Instructors</dt>
-                <dd>{plan.maxInstructors.toLocaleString("en-US")}</dd>
+                <dt>Giảng viên</dt>
+                <dd>{plan.maxInstructors.toLocaleString("vi-VN")}</dd>
               </div>
               <div>
-                <dt>Courses</dt>
-                <dd>{plan.maxCourseChains.toLocaleString("en-US")}</dd>
+                <dt>Khóa học</dt>
+                <dd>{plan.maxCourseChains.toLocaleString("vi-VN")}</dd>
               </div>
               <div>
-                <dt>Storage</dt>
+                <dt>Dung lượng lưu trữ</dt>
                 <dd>{formatStorage(plan.maxStorageBytes)}</dd>
               </div>
             </dl>
@@ -121,19 +122,19 @@ const Plans = () => {
   return (
     <AdminPage className="admin-plans">
       <PageHeader
-        title="Subscription Plans"
-        subtitle="Manage the plans offered to new registrations and future renewals."
+        title="Danh sách gói"
+        subtitle="Quản lý các gói cung cấp cho lượt đăng ký mới và các lần gia hạn sau này."
         actions={
           <Link to="create">
-            <AdminButton type="primary">Create plan</AdminButton>
+            <AdminButton type="primary">Tạo gói</AdminButton>
           </Link>
         }
       />
       {renderBody()}
-      <WarningPanel title="Plan changes affect future activity only">
-        Editing a Plan applies to new registrations and renewals made afterward.
-        Organizations already using the Plan keep the limits captured at
-        activation until the current term ends.
+      <WarningPanel title="Thay đổi gói chỉ áp dụng về sau">
+        Sửa gói chỉ áp dụng cho lượt đăng ký mới và các lần gia hạn sau đó. Tổ
+        chức đang dùng gói giữ nguyên giới hạn đã chốt lúc kích hoạt cho tới hết
+        kỳ hiện tại.
       </WarningPanel>
     </AdminPage>
   );

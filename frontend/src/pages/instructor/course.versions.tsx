@@ -16,13 +16,13 @@ const CourseVersions = () => {
     return (
       <InstructorPage className="instructor-course-versions">
         <PageHeader
-          eyebrow="COURSE / VERSIONS"
-          title="Course not found"
-          subtitle="This Course may have been removed."
+          eyebrow="Khóa học / Phiên bản"
+          title="Không tìm thấy khóa học"
+          subtitle="Khóa học này có thể đã bị xóa."
           back
         />
         <InstructorButton onClick={() => navigate("/instructor/courses")}>
-          Back to My Courses
+          Quay lại khóa học của tôi
         </InstructorButton>
       </InstructorPage>
     );
@@ -33,9 +33,9 @@ const CourseVersions = () => {
   return (
     <InstructorPage className="instructor-course-versions">
       <PageHeader
-        eyebrow="COURSE / VERSIONS"
-        title="Course Version Chain"
-        subtitle="See every version and the currently Published Course."
+        eyebrow="Khóa học / Phiên bản"
+        title="Chuỗi phiên bản khóa học"
+        subtitle="Xem các phiên bản và khóa học đang được phát hành."
         back
         actions={
           canCreateNewCourseVersion(course) ? (
@@ -43,24 +43,24 @@ const CourseVersions = () => {
               type="primary"
               onClick={() => navigate(`/instructor/courses/${course.id}/versions/new`)}
             >
-              Create new version
+              Tạo phiên bản mới
             </InstructorButton>
           ) : undefined
         }
       />
       <div className="instructor-versions-table">
         <div className="instructor-versions-row instructor-versions-head">
-          <span>Version</span>
-          <span>Status</span>
-          <span>Created</span>
-          <span>Published</span>
-          <span>Learning</span>
-          <span>Completed</span>
-          <span>Certificates</span>
+          <span>Phiên bản</span>
+          <span>Trạng thái</span>
+          <span>Ngày tạo</span>
+          <span>Đã phát hành</span>
+          <span>Đang học</span>
+          <span>Đã hoàn thành</span>
+          <span>Chứng chỉ</span>
         </div>
         {records.length === 0 && (
           <div className="instructor-versions-row">
-            <span>This Course has not been Published yet.</span>
+            <span>Khóa học này chưa được phát hành.</span>
           </div>
         )}
         {records.map((record) => (
@@ -76,11 +76,11 @@ const CourseVersions = () => {
         ))}
       </div>
       <div className="instructor-versions-note">
-        <strong>Version continuity</strong>
-        <p>When a new version is Published, the previous one becomes Archived.</p>
+        <strong>Quy tắc phiên bản</strong>
+        <p>Khi phiên bản mới được phát hành, phiên bản trước chuyển sang trạng thái đã lưu trữ.</p>
       </div>
       <p className="instructor-versions-footnote">
-        Enrolled Learners continue learning on their original Course version.
+        Học viên đã đăng ký vẫn tiếp tục học trên phiên bản khóa học ban đầu.
       </p>
     </InstructorPage>
   );

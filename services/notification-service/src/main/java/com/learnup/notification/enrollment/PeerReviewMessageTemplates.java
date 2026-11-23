@@ -1,7 +1,7 @@
 package com.learnup.notification.enrollment;
 
+import com.learnup.notification.mail.EmailLayout;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.HtmlUtils;
 
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -22,10 +22,15 @@ public class PeerReviewMessageTemplates {
     public EnrollmentMessage render(PeerReviewAssignedEvent event, String reviewerName, ZoneId zone) {
         String text = "Bạn có " + event.reviewCount() + " bài nộp cần chấm cho bài tập «" + event.assignmentTitle()
                 + "». Vui lòng hoàn thành trước " + DATE_TIME.format(event.reviewDueAt().atZone(zone)) + ".";
-        String greeting = reviewerName == null || reviewerName.isBlank()
-                ? "Xin chào,"
-                : "Xin chào " + HtmlUtils.htmlEscape(reviewerName.strip(), "UTF-8") + ",";
-        String html = "<p>" + greeting + "</p><p>" + HtmlUtils.htmlEscape(text, "UTF-8") + "</p><p>LearnUP</p>";
+        String deadline = DATE_TIME.format(event.reviewDueAt().atZone(zone));
+        String html = EmailLayout.render(EmailLayout.Card.of(TITLE)
+                .badge("Chấm chéo", EmailLayout.Tone.WARNING)
+                .greeting(reviewerName)
+                .paragraph(text)
+                .detail("Bài tập", event.assignmentTitle())
+                .detail("Số bài cần chấm", String.valueOf(event.reviewCount()))
+                .detail("Hạn chấm", deadline, EmailLayout.Tone.WARNING)
+                .closing("Vui lòng đăng nhập LearnUP để chấm bài."));
         // The same keys as the notice that assessment-service used to send itself, so the screen links it the same way.
         String metadata = "{\"assignmentId\":\"" + event.assessmentId() + "\",\"cycleId\":\"" + event.cycleId()
                 + "\",\"event\":\"" + PeerReviewAssignedEvent.WIRE_NAME + "\"}";

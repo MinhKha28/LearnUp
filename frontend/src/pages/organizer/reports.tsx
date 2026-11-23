@@ -11,6 +11,7 @@ import {
   StatCard,
   StatusTag,
 } from "@/components/organizer/organizer.ui";
+import { enrollmentKindText } from "@/utils/organizer.labels";
 import "./reports.scss";
 
 type CourseReportRow = {
@@ -23,21 +24,21 @@ type CourseReportRow = {
 };
 
 const courseRows: CourseReportRow[] = [
-  { key: "wse", course: "Workplace Safety Essentials", enrollmentType: "Required", learners: 86, completion: "63%", overdue: 8 },
-  { key: "dsc", course: "Data Security Compliance", enrollmentType: "Required", learners: 142, completion: "88%", overdue: 6 },
-  { key: "hrp", course: "Harassment Prevention", enrollmentType: "Required", learners: 90, completion: "79%", overdue: 9 },
-  { key: "lft", course: "Leadership Fundamentals", enrollmentType: "Optional", learners: 41, completion: "54%", overdue: 0 },
+  { key: "wse", course: "Kiến thức cơ bản về an toàn lao động", enrollmentType: "Required", learners: 86, completion: "63%", overdue: 8 },
+  { key: "dsc", course: "Tuân thủ bảo mật dữ liệu", enrollmentType: "Required", learners: 142, completion: "88%", overdue: 6 },
+  { key: "hrp", course: "Phòng chống quấy rối", enrollmentType: "Required", learners: 90, completion: "79%", overdue: 9 },
+  { key: "lft", course: "Kiến thức nền tảng về lãnh đạo", enrollmentType: "Optional", learners: 41, completion: "54%", overdue: 0 },
 ];
 
 const Reports = () => {
   const navigate = useNavigate();
   const courseColumns: ColumnsType<CourseReportRow> = [
-    { title: "Course", dataIndex: "course" },
-    { title: "Enrollment type", dataIndex: "enrollmentType" },
-    { title: "Learners", dataIndex: "learners" },
-    { title: "Completion", dataIndex: "completion" },
+    { title: "Khóa học", dataIndex: "course" },
+    { title: "Hình thức tham gia", dataIndex: "enrollmentType", render: (value: string) => enrollmentKindText(value) },
+    { title: "Học viên", dataIndex: "learners" },
+    { title: "Mức độ hoàn thành", dataIndex: "completion" },
     {
-      title: "Overdue",
+      title: "Quá hạn",
       dataIndex: "overdue",
       render: (value: number) => (
         <StatusTag tone={value > 0 ? "error" : "success"}>{value}</StatusTag>
@@ -52,7 +53,7 @@ const Reports = () => {
           className="organizer-link"
           onClick={() => navigate(`/organizer/reports/${item.key}`)}
         >
-          View report →
+          Xem báo cáo →
         </button>
       ),
     },
@@ -60,67 +61,67 @@ const Reports = () => {
   return (
     <OrganizerPage className="organizer-reports">
       <PageHeader
-        title="Training Reports"
-        subtitle="Organization-wide training reporting with Required completion separated from Optional learning."
+        title="Báo cáo đào tạo"
+        subtitle="Báo cáo đào tạo toàn tổ chức, gồm kết quả đào tạo bắt buộc và đào tạo tự chọn."
         actions={
           <>
-            <OrganizerButton>Export PDF</OrganizerButton>
-            <OrganizerButton type="primary">Export Excel</OrganizerButton>
+            <OrganizerButton>Xuất PDF</OrganizerButton>
+            <OrganizerButton type="primary">Xuất Excel</OrganizerButton>
           </>
         }
       />
       <div className="organizer-stat-grid organizer-reports-stats">
-        <StatCard label="Learners" value="318" />
-        <StatCard label="Courses in delivery" value="14" />
-        <StatCard label="Required completion" value="82%" tone="success" />
-        <StatCard label="Certificates issued" value="196" />
-        <StatCard label="Overdue" value="23" tone="error" />
+        <StatCard label="Học viên" value="318" />
+        <StatCard label="Khóa học đang triển khai" value="14" />
+        <StatCard label="Hoàn thành đào tạo bắt buộc" value="82%" tone="success" />
+        <StatCard label="Chứng chỉ đã cấp" value="196" />
+        <StatCard label="Quá hạn" value="23" tone="error" />
       </div>
       <SectionCard className="organizer-reports-filters">
         <div className="organizer-reports-filter-bar">
           <span className="organizer-reports-filter-label">
-            <FilterOutlined />
-            Filters
+            <FilterOutlined aria-hidden="true" />
+            Bộ lọc
           </span>
           <Select
             variant="borderless"
-            placeholder="Date range"
+            placeholder="Khoảng thời gian"
             popupMatchSelectWidth={false}
-            options={[{ value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" }]}
+            options={[{ value: "30", label: "30 ngày qua" }, { value: "90", label: "90 ngày qua" }]}
           />
           <Select
             variant="borderless"
-            placeholder="Course"
+            placeholder="Khóa học"
             popupMatchSelectWidth={false}
             options={courseRows.map((item) => ({ value: item.key, label: item.course }))}
           />
           <Select
             variant="borderless"
-            placeholder="Enrollment type"
+            placeholder="Hình thức tham gia"
             popupMatchSelectWidth={false}
-            options={[{ value: "required", label: "Required" }, { value: "optional", label: "Optional" }]}
+            options={[{ value: "required", label: "Bắt buộc" }, { value: "optional", label: "Tự chọn" }]}
           />
           <Select
             variant="borderless"
-            placeholder="Work unit"
+            placeholder="Đơn vị công tác"
             popupMatchSelectWidth={false}
-            options={[{ value: "all", label: "All work units" }]}
+            options={[{ value: "all", label: "Tất cả đơn vị công tác" }]}
           />
           <Select
             variant="borderless"
-            placeholder="Completion status"
+            placeholder="Trạng thái hoàn thành"
             popupMatchSelectWidth={false}
-            options={[{ value: "on-time", label: "Completed on time" }, { value: "overdue", label: "Overdue" }]}
+            options={[{ value: "on-time", label: "Hoàn thành đúng hạn" }, { value: "overdue", label: "Quá hạn" }]}
           />
           <Select
             variant="borderless"
-            placeholder="Certificate ID"
+            placeholder="Mã chứng chỉ"
             popupMatchSelectWidth={false}
             options={[]}
           />
         </div>
       </SectionCard>
-      <SectionCard title="Courses" className="organizer-reports-courses">
+      <SectionCard title="Khóa học" className="organizer-reports-courses">
         <Table
           className="organizer-table"
           columns={courseColumns}
@@ -129,29 +130,29 @@ const Reports = () => {
         />
       </SectionCard>
       <div className="organizer-content-grid">
-        <SectionCard title="Required compliance">
+        <SectionCard title="Tuân thủ đào tạo bắt buộc">
           <div className="organizer-dashboard-progress">
-            <ProgressLine label="Completed on time" count="204" value={64} />
-            <ProgressLine label="Late completion" count="36" value={11} tone="amber" />
-            <ProgressLine label="Overdue" count="23" value={7} tone="red" />
-            <ProgressLine label="Exempt" count="12" value={4} tone="blue" />
+            <ProgressLine label="Hoàn thành đúng hạn" count="204" value={64} />
+            <ProgressLine label="Hoàn thành trễ hạn" count="36" value={11} tone="amber" />
+            <ProgressLine label="Quá hạn" count="23" value={7} tone="red" />
+            <ProgressLine label="Được miễn" count="12" value={4} tone="blue" />
           </div>
         </SectionCard>
-        <SectionCard title="Optional learning">
+        <SectionCard title="Đào tạo tự chọn">
           <p className="organizer-note">
-            Voluntary learning does not affect compliance.
+            Đào tạo tự chọn không ảnh hưởng đến kết quả tuân thủ đào tạo bắt buộc.
           </p>
           <div className="organizer-metric-row organizer-optional-metrics">
             <div className="organizer-metric">
-              <span>Active Optional enrollments</span>
+              <span>Lượt tham gia khóa học tự chọn đang học</span>
               <strong>74</strong>
             </div>
             <div className="organizer-metric">
-              <span>Optional completions</span>
+              <span>Lượt hoàn thành khóa học tự chọn</span>
               <strong>41</strong>
             </div>
             <div className="organizer-metric">
-              <span>Withdrawn Optional</span>
+              <span>Lượt rút khỏi khóa học tự chọn</span>
               <strong>9</strong>
             </div>
           </div>

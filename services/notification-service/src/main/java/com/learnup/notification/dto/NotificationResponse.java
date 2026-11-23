@@ -17,7 +17,10 @@ public class NotificationResponse {
     @com.fasterxml.jackson.annotation.JsonProperty("isRead")
     private boolean isRead;
     private Instant readAt;
+    // UC49: producer-internal JSON (record IDs) is not part of the recipient-facing contract.
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String metadata;
+    private String link;
     private Instant createdAt;
 
     public NotificationResponse() {
@@ -35,6 +38,7 @@ public class NotificationResponse {
         res.isRead = entity.isRead();
         res.readAt = entity.getReadAt();
         res.metadata = entity.getMetadata();
+        res.link = NotificationLinks.fromMetadata(entity.getMetadata());
         res.createdAt = entity.getCreatedAt();
         return res;
     }
@@ -119,6 +123,10 @@ public class NotificationResponse {
 
     public void setMetadata(String metadata) {
         this.metadata = metadata;
+    }
+
+    public String getLink() {
+        return link;
     }
 
     public Instant getCreatedAt() {

@@ -19,8 +19,8 @@ describe("withdrawal eligibility", () => {
 
 describe("withdrawal outcomes", () => {
   it.each([
-    ["DELETED", "deleted", "Đã rút khỏi Khóa học"],
-    ["WITHDRAWN", "withdrawn", "Đã rút khỏi Khóa học. Tiến độ được giữ lại nếu bạn đăng ký lại"],
+    ["DELETED", "deleted", "Đã rút khỏi khóa học"],
+    ["WITHDRAWN", "withdrawn", "Đã rút khỏi khóa học. Tiến độ được giữ lại nếu bạn đăng ký lại"],
   ] as const)("200 %s reloads the list", (outcome, kind, text) => {
     const resolved = resolveWithdrawalOutcome({ outcome });
     expect(resolved).toEqual({ kind, reload: true, retry: false });
@@ -32,9 +32,9 @@ describe("withdrawal outcomes", () => {
     [409, "ENROLLMENT_NOT_WITHDRAWABLE", { reason: "REQUIRED" }, "required", false, false, "Khóa học được phân công không thể tự rút"],
     [409, "ENROLLMENT_NOT_WITHDRAWABLE", { reason: "COMPLETED" }, "completed", false, false, "Khóa học đã hoàn thành không thể rút"],
     [503, "ASSESSMENT_UNAVAILABLE", {}, "unavailable", false, true, "Chưa kiểm tra được kết quả đánh giá, vui lòng thử lại"],
-    [409, "ENROLLMENT_NOT_WITHDRAWABLE", { reason: "UNKNOWN" }, "retry", false, true, "Chưa rút được khỏi Khóa học, vui lòng thử lại"],
-    [0, "NETWORK", {}, "retry", false, true, "Chưa rút được khỏi Khóa học, vui lòng thử lại"],
-    [500, "UNKNOWN", {}, "retry", false, true, "Chưa rút được khỏi Khóa học, vui lòng thử lại"],
+    [409, "ENROLLMENT_NOT_WITHDRAWABLE", { reason: "UNKNOWN" }, "retry", false, true, "Chưa rút được khỏi khóa học, vui lòng thử lại"],
+    [0, "NETWORK", {}, "retry", false, true, "Chưa rút được khỏi khóa học, vui lòng thử lại"],
+    [500, "UNKNOWN", {}, "retry", false, true, "Chưa rút được khỏi khóa học, vui lòng thử lại"],
   ] as const)("%s %s → %s", (status, code, details, kind, reload, retry, text) => {
     const outcome = resolveWithdrawalOutcome(new ApiError(status, code, "server text", details));
     expect(outcome).toEqual({ kind, reload, retry });

@@ -1,3 +1,4 @@
+import { visibleRoleMenu } from "@/utils/preview.pages";
 import {
   AuditOutlined,
   BankOutlined,
@@ -6,6 +7,7 @@ import {
   CarryOutOutlined,
   CreditCardOutlined,
   DashboardOutlined,
+  FileSearchOutlined,
   FlagOutlined,
   LockOutlined,
   LogoutOutlined,
@@ -43,7 +45,7 @@ const organizerMenuItems: MenuItem[] = [
     type: "group",
     label: "Tổng quan",
     children: [
-      { key: "/organizer", icon: <DashboardOutlined />, label: "Tổng quan" },
+      { key: "/organizer", icon: <DashboardOutlined aria-hidden="true" />, label: "Tổng quan" },
     ],
   },
   {
@@ -52,25 +54,25 @@ const organizerMenuItems: MenuItem[] = [
     children: [
       {
         key: "/organizer/subscription",
-        icon: <CreditCardOutlined />,
+        icon: <CreditCardOutlined aria-hidden="true" />,
         label: "Gói dịch vụ",
       },
       {
         key: "/organizer/organization",
-        icon: <BankOutlined />,
+        icon: <BankOutlined aria-hidden="true" />,
         label: "Tổ chức",
       },
       {
-        key: "/organizer/certificate-settings", icon: <SafetyCertificateOutlined />, label: "Chứng chỉ",
+        key: "/organizer/certificate-settings", icon: <SafetyCertificateOutlined aria-hidden="true" />, label: "Chứng chỉ",
       },
       {
         key: "/organizer/instructors",
-        icon: <SolutionOutlined />,
+        icon: <SolutionOutlined aria-hidden="true" />,
         label: "Giảng viên",
       },
       {
         key: "/organizer/learners",
-        icon: <TeamOutlined />,
+        icon: <TeamOutlined aria-hidden="true" />,
         label: "Học viên",
       },
     ],
@@ -79,10 +81,10 @@ const organizerMenuItems: MenuItem[] = [
     type: "group",
     label: "Đào tạo",
     children: [
-      { key: "/organizer/courses", icon: <BookOutlined />, label: "Khóa học" },
+      { key: "/organizer/courses", icon: <BookOutlined aria-hidden="true" />, label: "Khóa học" },
       {
         key: "/organizer/assignments",
-        icon: <CarryOutOutlined />,
+        icon: <CarryOutOutlined aria-hidden="true" />,
         label: "Phân công đào tạo",
       },
     ],
@@ -93,12 +95,12 @@ const organizerMenuItems: MenuItem[] = [
     children: [
       {
         key: "/organizer/reports",
-        icon: <BarChartOutlined />,
+        icon: <BarChartOutlined aria-hidden="true" />,
         label: "Báo cáo",
       },
       {
         key: "/organizer/evaluations",
-        icon: <StarOutlined />,
+        icon: <StarOutlined aria-hidden="true" />,
         label: "Đánh giá",
       },
     ],
@@ -109,7 +111,7 @@ const organizerMenuItems: MenuItem[] = [
     children: [
       {
         key: "/organizer/content-reports",
-        icon: <FlagOutlined />,
+        icon: <FlagOutlined aria-hidden="true" />,
         label: (
           <span className="organizer-menu-label">
             Báo cáo nội dung <Badge count={7} />
@@ -118,8 +120,13 @@ const organizerMenuItems: MenuItem[] = [
       },
       {
         key: "/organizer/violation-history",
-        icon: <AuditOutlined />,
+        icon: <AuditOutlined aria-hidden="true" />,
         label: "Lịch sử vi phạm",
+      },
+      {
+        key: "/organizer/audit-logs",
+        icon: <FileSearchOutlined aria-hidden="true" />,
+        label: "Nhật ký tổ chức",
       },
     ],
   },
@@ -127,10 +134,12 @@ const organizerMenuItems: MenuItem[] = [
     type: "group",
     label: "Tài khoản",
     children: [
-      { key: "/organizer/profile", icon: <UserOutlined />, label: "Hồ sơ" },
+      { key: "/organizer/profile", icon: <UserOutlined aria-hidden="true" />, label: "Hồ sơ" },
     ],
   },
 ];
+
+const visibleOrganizerMenuItems = visibleRoleMenu(organizerMenuItems);
 
 const getPageMeta = (pathname: string) => {
   if (pathname === "/organizer/certificate-settings") return ["Quản lý đào tạo", "Chứng chỉ"];
@@ -166,6 +175,8 @@ const getPageMeta = (pathname: string) => {
   if (pathname.includes("/organizer/learners/"))
     return ["Quản lý đào tạo", "Chi tiết học viên"];
   if (pathname === "/organizer/learners") return ["Quản lý đào tạo", "Học viên"];
+  if (pathname === "/organizer/audit-logs")
+    return ["Quản lý đào tạo", "Nhật ký tổ chức"];
   if (pathname === "/organizer/courses/approvals")
     return ["Quản lý đào tạo", "Khóa học chờ duyệt"];
   if (pathname.includes("/review"))
@@ -194,6 +205,8 @@ const getPageMeta = (pathname: string) => {
     return ["Quản lý đào tạo", "Lịch sử vi phạm"];
   if (pathname === "/organizer/profile/change-password")
     return ["Quản lý đào tạo", "Đổi mật khẩu"];
+  if (pathname === "/organizer/profile/edit")
+    return ["Quản lý đào tạo", "Sửa hồ sơ"];
   if (pathname === "/organizer/profile") return ["Quản lý đào tạo", "Hồ sơ"];
   return ["Quản lý đào tạo", "Tổng quan"];
 };
@@ -248,12 +261,12 @@ const LayoutOrganizer = () => {
   const profileItems: MenuProps["items"] = [
     {
       key: "profile",
-      icon: <UserOutlined />,
+      icon: <UserOutlined aria-hidden="true" />,
       label: <Link to="/organizer/profile">Hồ sơ</Link>,
     },
     {
       key: "password",
-      icon: <LockOutlined />,
+      icon: <LockOutlined aria-hidden="true" />,
       label: (
         <Link to="/organizer/profile/change-password">Đổi mật khẩu</Link>
       ),
@@ -261,7 +274,7 @@ const LayoutOrganizer = () => {
     { type: "divider" },
     {
       key: "logout",
-      icon: <LogoutOutlined />,
+      icon: <LogoutOutlined aria-hidden="true" />,
       label: "Đăng xuất",
       danger: true,
       onClick: logout,
@@ -276,7 +289,7 @@ const LayoutOrganizer = () => {
         aria-label="Trang chủ quản lý đào tạo LearnUP"
       >
         <span className="organizer-brand-mark">
-          <SafetyCertificateOutlined />
+          <SafetyCertificateOutlined aria-hidden="true" />
         </span>
         <img src="/logo/learnup-logo-dark.png" alt="LearnUP" />
       </Link>
@@ -284,7 +297,7 @@ const LayoutOrganizer = () => {
         className="organizer-navigation"
         mode="inline"
         selectedKeys={[selectedKey]}
-        items={organizerMenuItems}
+        items={visibleOrganizerMenuItems}
         onClick={goTo}
       />
     </>
@@ -311,7 +324,7 @@ const LayoutOrganizer = () => {
             <Button
               className="organizer-menu-trigger"
               type="text"
-              icon={<MenuOutlined />}
+              icon={<MenuOutlined aria-hidden="true" />}
               onClick={() => setMobileOpen(true)}
               aria-label="Mở điều hướng"
             />
@@ -321,7 +334,9 @@ const LayoutOrganizer = () => {
             </div>
           </div>
           <div className="organizer-topbar-actions">
-            <span className="organizer-org-badge">{demoIdentity?.current.organizationLabel ?? "Demo Organization"}</span>
+            {user?.organizationName && (
+              <span className="organizer-org-badge">{user.organizationName}</span>
+            )}
             <DevIdentitySelect identity={demoIdentity} />
             <NotificationBell basePath="/organizer" />
             <Dropdown
@@ -344,7 +359,7 @@ const LayoutOrganizer = () => {
         </Layout.Content>
         <Layout.Footer className="organizer-footer">
           <span>LearnUP</span>
-          <span>Quản lý tổ chức</span>
+          <span>Quản lý đào tạo</span>
         </Layout.Footer>
       </Layout>
     </Layout>

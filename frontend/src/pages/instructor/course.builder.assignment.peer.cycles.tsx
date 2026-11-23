@@ -19,17 +19,16 @@ const CourseBuilderAssignmentPeerCycles = () => {
 
   return (
     <InstructorPage className="builder-page">
-      <span className="builder-crumb">Course Builder / Peer Review Cycles</span>
+      <span className="builder-crumb">Xây dựng khóa học / Chu kỳ chấm chéo</span>
       <div className="builder-hero">
-        <h1>{title ? `${title} - cycles` : "Peer Review Cycles"}</h1>
+        <h1>{title ? `${title} - chu kỳ` : "Chu kỳ chấm chéo"}</h1>
         <p>
-          Cycles run on a schedule, whenever Learners submit. Each has three dates: it opens, it closes and the work is
-          assigned, and the reviews are due.
+          Chu kỳ chấm chéo chạy theo lịch và tiếp nhận bài nộp của học viên. Mỗi chu kỳ có ba mốc: mở chu kỳ, chốt và phân công chấm, hạn hoàn thành đánh giá.
         </p>
       </div>
       <div className="builder-update-card">
         <PeerCycleTable assignmentId={assignmentId} onLoaded={onLoaded} />
-        <InstructorButton onClick={() => navigate(detailPath, { state: location.state })}>Back to Assignment</InstructorButton>
+        <InstructorButton onClick={() => navigate(detailPath, { state: location.state })}>Quay lại bài tập</InstructorButton>
       </div>
     </InstructorPage>
   );

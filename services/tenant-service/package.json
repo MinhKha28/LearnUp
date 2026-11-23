@@ -4,14 +4,14 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "test": "npm run build && node --test test/*.unit.cjs test/*.integration.cjs",
+    "test": "npm run build && node --test --test-concurrency=1 test/*.unit.cjs test/*.integration.cjs",
     "test:unit": "npm run build && node --test test/*.unit.cjs",
-    "test:integration": "npm run build && node --test test/*.integration.cjs",
+    "test:integration": "npm run build && node --test --test-concurrency=1 test/*.integration.cjs",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/src/main",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "lint": "eslint \"src/**/*.ts\" --fix",
@@ -32,6 +32,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
+    "exceljs": "^4.4.0",
     "helmet": "^8.3.0",
     "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
@@ -45,7 +46,7 @@
     "@nestjs/cli": "^11.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.19.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
@@ -55,5 +56,8 @@
     "tsx": "^4.23.15",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "engines": {
+    "node": ">=24.22.3 <25"
   }
 }

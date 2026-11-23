@@ -34,10 +34,10 @@ const ProtectedRoute = ({ roles, children }: IProps) => {
       <Result
         status="403"
         title="403"
-        subTitle="You do not have access to this page."
+        subTitle="Bạn không có quyền truy cập trang này."
         extra={
           <Link to={homePathForRole(user.role)}>
-            <Button type="primary">Go to your workspace</Button>
+            <Button type="primary">Về trang làm việc của bạn</Button>
           </Link>
         }
       />

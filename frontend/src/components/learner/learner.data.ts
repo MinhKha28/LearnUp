@@ -111,6 +111,7 @@ export interface IAssignment {
   estimatedEffort: string;
   status: AssignmentStatus;
   attemptsRemaining: number;
+  maxConsecutiveAttempts: number;
   lockedUntil?: string;
   instructions: string[];
   rubric: string;
@@ -121,15 +122,15 @@ export interface IAssignment {
 export const assignmentStatusLabel = (status: AssignmentStatus) => {
   switch (status) {
     case "not-submitted":
-      return "Not submitted";
+      return "Chưa nộp";
     case "submitted":
-      return "Awaiting grade";
+      return "Chờ chấm điểm";
     case "returned":
-      return "Returned";
+      return "Đã trả bài";
     case "graded":
-      return "Reviewed";
+      return "Đã chấm";
     case "locked":
-      return "Temporarily locked";
+      return "Tạm khóa";
     default:
       return status;
   }
@@ -157,11 +158,11 @@ export interface ICourseDetail {
 export const courseDetails: Record<string, ICourseDetail> = {
   "workplace-safety": {
     id: "workplace-safety",
-    title: "Workplace Safety Essentials",
+    title: "Kiến thức cơ bản về an toàn lao động",
     version: "v1",
     audience: "required",
     progress: 65,
-    dueDate: "23 Sep 2026",
+    dueDate: "23/09/2026",
     overdue: true,
     activeLessonId: "m2-l1",
     activeResourceId: "m2-l1-video",
@@ -170,24 +171,24 @@ export const courseDetails: Record<string, ICourseDetail> = {
     modules: [
       {
         id: "m1",
-        title: "Module 1 · Foundations",
-        quizTitle: "Module 1 Quiz",
+        title: "Chương 1 · Kiến thức nền tảng",
+        quizTitle: "Bài trắc nghiệm chương 1",
         quizId: "m1-quiz",
         lessons: [
           {
             id: "m1-l1",
-            title: "Lesson 1 · Introduction",
+            title: "Bài học 1 · Giới thiệu",
             resources: [
               {
                 id: "m1-l1-video",
-                title: "Introduction video",
+                title: "Video giới thiệu",
                 type: "video",
                 required: true,
                 status: "complete",
               },
               {
                 id: "m1-l1-reading",
-                title: "Course handbook",
+                title: "Sổ tay khóa học",
                 type: "reading",
                 required: true,
                 status: "complete",
@@ -198,31 +199,31 @@ export const courseDetails: Record<string, ICourseDetail> = {
       },
       {
         id: "m2",
-        title: "Module 2 · Practice",
-        quizTitle: "Module 2 Quiz",
+        title: "Chương 2 · Thực hành",
+        quizTitle: "Bài trắc nghiệm chương 2",
         quizId: "m2-quiz",
         lessons: [
           {
             id: "m2-l1",
-            title: "Lesson 1 · Safety procedures",
+            title: "Bài học 1 · Quy trình an toàn",
             resources: [
               {
                 id: "m2-l1-video",
-                title: "Safety procedures video",
+                title: "Video về quy trình an toàn",
                 type: "video",
                 required: true,
                 status: "in-progress",
               },
               {
                 id: "m2-l1-reading",
-                title: "Working safely",
+                title: "Làm việc an toàn",
                 type: "reading",
                 required: true,
                 status: "not-started",
               },
               {
                 id: "m2-l1-extra",
-                title: "Additional reference",
+                title: "Tài liệu tham khảo bổ sung",
                 type: "reading",
                 required: false,
                 status: "not-started",
@@ -236,105 +237,105 @@ export const courseDetails: Record<string, ICourseDetail> = {
       "m1-quiz": {
         id: "m1-quiz",
         moduleId: "m1",
-        title: "Module 1 Quiz",
-        requirement: "Required",
+        title: "Bài trắc nghiệm chương 1",
+        requirement: "Bắt buộc",
         minScore: 70,
-        timeLimitLabel: "15 minutes",
+        timeLimitLabel: "15 phút",
         passingScoreLabel: "70%",
         maxConsecutiveAttempts: 3,
         questions: [
           {
             id: "m1-q1",
             type: "single",
-            text: "Where should you check for the documented safety process?",
+            text: "Bạn nên tra cứu quy trình an toàn ở đâu?",
             options: [
-              { id: "a", label: "The Course handbook" },
-              { id: "b", label: "A personal notebook" },
-              { id: "c", label: "An unrelated Course" },
-              { id: "d", label: "Nowhere, it is not documented" },
+              { id: "a", label: "Sổ tay khóa học" },
+              { id: "b", label: "Sổ tay cá nhân" },
+              { id: "c", label: "Một khóa học không liên quan" },
+              { id: "d", label: "Không có nơi nào vì quy trình chưa được ghi lại" },
             ],
             correctOptionIds: ["a"],
           },
           {
             id: "m1-q2",
             type: "true-false",
-            text: "The Introduction video and Course handbook are both required Resources.",
+            text: "Video giới thiệu và sổ tay khóa học đều là học liệu bắt buộc.",
             options: [
-              { id: "true", label: "True" },
-              { id: "false", label: "False" },
+              { id: "true", label: "Đúng" },
+              { id: "false", label: "Sai" },
             ],
             correctOptionIds: ["true"],
           },
         ],
         attempts: [
-          { id: "att-1", submittedAt: "18 Sep 2026, 09:14", score: 92, passed: true },
+          { id: "att-1", submittedAt: "18/09/2026 09:14", score: 92, passed: true },
         ],
       },
       "m2-quiz": {
         id: "m2-quiz",
         moduleId: "m2",
-        title: "Module 2 Quiz",
-        requirement: "Required",
+        title: "Bài trắc nghiệm chương 2",
+        requirement: "Bắt buộc",
         minScore: 70,
-        timeLimitLabel: "20 minutes",
+        timeLimitLabel: "20 phút",
         passingScoreLabel: "70%",
         maxConsecutiveAttempts: 3,
         questions: [
           {
             id: "m2-q1",
             type: "single",
-            text: "Which action follows the documented safety process?",
+            text: "Hành động nào tuân thủ quy trình an toàn đã được ghi lại?",
             options: [
-              { id: "a", label: "Review the assigned procedure" },
-              { id: "b", label: "Skip the documented checks" },
-              { id: "c", label: "Record completion without review" },
-              { id: "d", label: "Ignore the required guidance" },
+              { id: "a", label: "Xem lại quy trình được giao" },
+              { id: "b", label: "Bỏ qua các bước kiểm tra đã quy định" },
+              { id: "c", label: "Ghi nhận hoàn thành mà chưa xem lại" },
+              { id: "d", label: "Bỏ qua hướng dẫn bắt buộc" },
             ],
             correctOptionIds: ["a"],
           },
           {
             id: "m2-q2",
             type: "multiple",
-            text: "Which actions support a safe work process?",
+            text: "Những hành động nào giúp bảo đảm an toàn khi làm việc?",
             options: [
-              { id: "a", label: "Review the guidance" },
-              { id: "b", label: "Complete required checks" },
-              { id: "c", label: "Ignore the process" },
-              { id: "d", label: "Record actions accurately" },
+              { id: "a", label: "Xem lại hướng dẫn" },
+              { id: "b", label: "Hoàn thành các bước kiểm tra bắt buộc" },
+              { id: "c", label: "Bỏ qua quy trình" },
+              { id: "d", label: "Ghi lại các hành động một cách chính xác" },
             ],
             correctOptionIds: ["a", "b"],
           },
           {
             id: "m2-q3",
             type: "true-false",
-            text: "An overdue Required Course can still be completed.",
+            text: "Bạn vẫn có thể hoàn thành khóa học bắt buộc đã quá hạn.",
             options: [
-              { id: "true", label: "True" },
-              { id: "false", label: "False" },
+              { id: "true", label: "Đúng" },
+              { id: "false", label: "Sai" },
             ],
             correctOptionIds: ["true"],
           },
           {
             id: "m2-q4",
             type: "single",
-            text: "What should you do when a step is unclear?",
+            text: "Bạn nên làm gì khi chưa hiểu rõ một bước?",
             options: [
-              { id: "a", label: "Refer to the learning material" },
-              { id: "b", label: "Mark it complete without reading" },
-              { id: "c", label: "Skip the required Lesson" },
-              { id: "d", label: "Ignore the instructions" },
+              { id: "a", label: "Tham khảo học liệu" },
+              { id: "b", label: "Đánh dấu hoàn thành mà chưa đọc" },
+              { id: "c", label: "Bỏ qua bài học bắt buộc" },
+              { id: "d", label: "Bỏ qua hướng dẫn" },
             ],
             correctOptionIds: ["a"],
           },
           {
             id: "m2-q5",
             type: "multiple",
-            text: "Which resources count when they are marked Required?",
+            text: "Học liệu nào được tính khi được đánh dấu bắt buộc?",
             options: [
-              { id: "a", label: "Required Video" },
-              { id: "b", label: "Required Reading" },
-              { id: "c", label: "Optional reference" },
-              { id: "d", label: "Optional extra Reading" },
+              { id: "a", label: "Video bắt buộc" },
+              { id: "b", label: "Tài liệu đọc bắt buộc" },
+              { id: "c", label: "Tài liệu tham khảo tự chọn" },
+              { id: "d", label: "Tài liệu đọc bổ sung tự chọn" },
             ],
             correctOptionIds: ["a", "b"],
           },
@@ -345,27 +346,28 @@ export const courseDetails: Record<string, ICourseDetail> = {
     assessments: [
       {
         id: "safety-assignment",
-        title: "Safety Assignment",
-        requirement: "Always required",
+        title: "Bài tập về an toàn lao động",
+        requirement: "Luôn bắt buộc",
         minScore: 70,
-        estimatedEffort: "45 minutes",
+        estimatedEffort: "45 phút",
         status: "not-submitted",
-        attemptsRemaining: 2,
+        maxConsecutiveAttempts: 3,
+        attemptsRemaining: 3,
         instructions: [
-          "Prepare a response using the documented safety procedures.",
-          "Explain the steps you would take in the example scenario.",
+          "Soạn câu trả lời dựa trên các quy trình an toàn đã được ghi lại.",
+          "Giải thích các bước bạn sẽ thực hiện trong tình huống mẫu.",
         ],
-        rubric: "Procedure adherence, clarity, and completeness of the explanation.",
+        rubric: "Nội dung – Mức độ tuân thủ quy trình, sự rõ ràng và đầy đủ của phần giải thích.",
       },
     ],
   },
   "operational-procedures": {
     id: "operational-procedures",
-    title: "Operational Procedures",
+    title: "Quy trình vận hành",
     version: "v1",
     audience: "required",
     progress: 32,
-    dueDate: "30 Sep 2026",
+    dueDate: "30/09/2026",
     activeLessonId: "m1-l1",
     activeResourceId: "m1-l1-video",
     completionConditionsMet: 2,
@@ -373,24 +375,24 @@ export const courseDetails: Record<string, ICourseDetail> = {
     modules: [
       {
         id: "m1",
-        title: "Module 1 · Core Procedures",
-        quizTitle: "Module 1 Quiz",
+        title: "Chương 1 · Quy trình cốt lõi",
+        quizTitle: "Bài trắc nghiệm chương 1",
         quizId: "m1-quiz",
         lessons: [
           {
             id: "m1-l1",
-            title: "Lesson 1 · Getting started",
+            title: "Bài học 1 · Bắt đầu",
             resources: [
               {
                 id: "m1-l1-video",
-                title: "Getting started video",
+                title: "Video hướng dẫn bắt đầu",
                 type: "video",
                 required: true,
                 status: "in-progress",
               },
               {
                 id: "m1-l1-reading",
-                title: "Procedures overview",
+                title: "Tổng quan quy trình",
                 type: "reading",
                 required: true,
                 status: "not-started",
@@ -404,67 +406,68 @@ export const courseDetails: Record<string, ICourseDetail> = {
       "m1-quiz": {
         id: "m1-quiz",
         moduleId: "m1",
-        title: "Module 1 Quiz",
-        requirement: "Required",
+        title: "Bài trắc nghiệm chương 1",
+        requirement: "Bắt buộc",
         minScore: 70,
-        timeLimitLabel: "15 minutes",
+        timeLimitLabel: "15 phút",
         passingScoreLabel: "70%",
         maxConsecutiveAttempts: 3,
         questions: [
           {
             id: "op-q1",
             type: "single",
-            text: "What should you check before starting a procedure?",
+            text: "Bạn nên kiểm tra gì trước khi thực hiện một quy trình?",
             options: [
-              { id: "a", label: "The procedures overview" },
-              { id: "b", label: "Nothing, procedures are optional" },
-              { id: "c", label: "A different Course" },
-              { id: "d", label: "Your personal preference" },
+              { id: "a", label: "Bản tổng quan quy trình" },
+              { id: "b", label: "Không cần kiểm tra vì quy trình là tự chọn" },
+              { id: "c", label: "Một khóa học khác" },
+              { id: "d", label: "Sở thích cá nhân" },
             ],
             correctOptionIds: ["a"],
           },
           {
             id: "op-q2",
             type: "true-false",
-            text: "Operational procedures can be adapted without approval.",
+            text: "Có thể điều chỉnh quy trình vận hành mà không cần phê duyệt.",
             options: [
-              { id: "true", label: "True" },
-              { id: "false", label: "False" },
+              { id: "true", label: "Đúng" },
+              { id: "false", label: "Sai" },
             ],
             correctOptionIds: ["false"],
           },
         ],
         attempts: [
-          { id: "att-1", submittedAt: "12 Sep 2026, 09:40", score: 60, passed: false },
-          { id: "att-2", submittedAt: "15 Sep 2026, 14:10", score: 82, passed: true },
-          { id: "att-3", submittedAt: "18 Sep 2026, 10:05", score: 58, passed: false },
+          { id: "att-1", submittedAt: "12/09/2026 09:40", score: 60, passed: false },
+          { id: "att-2", submittedAt: "15/09/2026 14:10", score: 82, passed: true },
+          { id: "att-3", submittedAt: "18/09/2026 10:05", score: 58, passed: false },
         ],
       },
     },
     assessments: [
       {
         id: "operational-assignment",
-        title: "Procedures Assignment",
-        requirement: "Always required",
+        title: "Bài tập về quy trình vận hành",
+        requirement: "Luôn bắt buộc",
         minScore: 70,
-        estimatedEffort: "30 minutes",
+        estimatedEffort: "30 phút",
         status: "returned",
+        maxConsecutiveAttempts: 3,
         attemptsRemaining: 1,
         instructions: [
-          "Describe how you would apply the core procedures to the example scenario.",
-          "Reference the specific steps from the procedures overview.",
+          "Mô tả cách áp dụng các quy trình cốt lõi vào tình huống mẫu.",
+          "Dẫn chiếu các bước cụ thể trong bản tổng quan quy trình.",
         ],
-        rubric: "Accuracy of the referenced steps and clarity of the explanation.",
+        rubric: "Độ chính xác của các bước được dẫn chiếu và sự rõ ràng của phần giải thích.",
         submission: {
-          answer: "I would follow the checklist in the procedures overview and confirm each step with my supervisor.",
-          submittedAt: "20 Sep 2026, 11:02",
+          answer: "Tôi sẽ làm theo danh sách kiểm tra trong bản tổng quan quy trình và xác nhận từng bước với người giám sát.",
+          submittedAt: "20/09/2026 11:02",
         },
       },
     ],
   },
   "data-protection": {
     id: "data-protection",
-    title: "Data Protection Basics",
+    title: "Kiến thức cơ bản về bảo vệ dữ liệu",
     version: "v1",
     audience: "optional",
     progress: 48,
@@ -476,24 +479,24 @@ export const courseDetails: Record<string, ICourseDetail> = {
     modules: [
       {
         id: "m1",
-        title: "Module 1 · Information basics",
-        quizTitle: "Module 1 Quiz",
+        title: "Chương 1 · Kiến thức cơ bản về thông tin",
+        quizTitle: "Bài trắc nghiệm chương 1",
         quizId: "m1-quiz",
         lessons: [
           {
             id: "m1-l1",
-            title: "Lesson 1 · Handling data",
+            title: "Bài học 1 · Xử lý dữ liệu",
             resources: [
               {
                 id: "m1-l1-video",
-                title: "Handling data video",
+                title: "Video về xử lý dữ liệu",
                 type: "video",
                 required: true,
                 status: "in-progress",
               },
               {
                 id: "m1-l1-reading",
-                title: "Data protection guide",
+                title: "Hướng dẫn bảo vệ dữ liệu",
                 type: "reading",
                 required: true,
                 status: "not-started",
@@ -504,15 +507,15 @@ export const courseDetails: Record<string, ICourseDetail> = {
       },
       {
         id: "m2",
-        title: "Module 2 · Practical handling",
+        title: "Chương 2 · Thực hành xử lý dữ liệu",
         lessons: [
           {
             id: "m2-l1",
-            title: "Lesson 1 · Applying the rules",
+            title: "Bài học 1 · Áp dụng quy định",
             resources: [
               {
                 id: "m2-l1-video",
-                title: "Applying the rules video",
+                title: "Video về áp dụng quy định",
                 type: "video",
                 required: true,
                 status: "not-started",
@@ -526,60 +529,61 @@ export const courseDetails: Record<string, ICourseDetail> = {
       "m1-quiz": {
         id: "m1-quiz",
         moduleId: "m1",
-        title: "Module 1 Quiz",
-        requirement: "Required",
+        title: "Bài trắc nghiệm chương 1",
+        requirement: "Bắt buộc",
         minScore: 70,
-        timeLimitLabel: "15 minutes",
+        timeLimitLabel: "15 phút",
         passingScoreLabel: "70%",
         maxConsecutiveAttempts: 3,
         locked: true,
-        lockedUntil: "05 Oct 2026, 09:00",
+        lockedUntil: "05/10/2026 09:00",
         questions: [
           {
             id: "dp-q1",
             type: "single",
-            text: "Who should you contact when handling data you are unsure about?",
+            text: "Bạn nên liên hệ với ai khi chưa rõ cách xử lý dữ liệu?",
             options: [
-              { id: "a", label: "Your Organization's data guidance" },
-              { id: "b", label: "A colleague outside the Organization" },
-              { id: "c", label: "No one, guess" },
-              { id: "d", label: "Public forums" },
+              { id: "a", label: "Bộ phận hướng dẫn về dữ liệu của tổ chức bạn" },
+              { id: "b", label: "Một đồng nghiệp ngoài tổ chức" },
+              { id: "c", label: "Không liên hệ ai và tự đoán" },
+              { id: "d", label: "Diễn đàn công khai" },
             ],
             correctOptionIds: ["a"],
           },
         ],
         attempts: [
-          { id: "att-1", submittedAt: "10 Sep 2026, 08:30", score: 40, passed: false },
-          { id: "att-2", submittedAt: "12 Sep 2026, 16:05", score: 55, passed: false },
-          { id: "att-3", submittedAt: "14 Sep 2026, 09:50", score: 50, passed: false },
+          { id: "att-1", submittedAt: "10/09/2026 08:30", score: 40, passed: false },
+          { id: "att-2", submittedAt: "12/09/2026 16:05", score: 55, passed: false },
+          { id: "att-3", submittedAt: "14/09/2026 09:50", score: 50, passed: false },
         ],
       },
     },
     assessments: [
       {
         id: "data-assignment",
-        title: "Data Handling Assignment",
-        requirement: "Always required",
+        title: "Bài tập về xử lý dữ liệu",
+        requirement: "Luôn bắt buộc",
         minScore: 70,
-        estimatedEffort: "30 minutes",
+        estimatedEffort: "30 phút",
         status: "locked",
+        maxConsecutiveAttempts: 3,
         attemptsRemaining: 0,
-        lockedUntil: "05 Oct 2026, 09:00",
+        lockedUntil: "05/10/2026 09:00",
         instructions: [
-          "Describe how you would classify and store a sample data record.",
-          "Reference the Organization's data protection guide.",
+          "Mô tả cách phân loại và lưu trữ một bản ghi dữ liệu mẫu.",
+          "Dẫn chiếu hướng dẫn bảo vệ dữ liệu của tổ chức.",
         ],
-        rubric: "Correct classification and adherence to the data protection guide.",
+        rubric: "Phân loại chính xác và tuân thủ hướng dẫn bảo vệ dữ liệu.",
         submission: {
-          answer: "Draft answer submitted while reviewing the classification rules.",
-          submittedAt: "14 Sep 2026, 10:15",
+          answer: "Bản nháp câu trả lời được gửi trong lúc xem lại quy tắc phân loại.",
+          submittedAt: "14/09/2026 10:15",
         },
       },
     ],
   },
   "service-communication": {
     id: "service-communication",
-    title: "Service Communication",
+    title: "Giao tiếp trong dịch vụ",
     version: "v1",
     audience: "optional",
     progress: 100,
@@ -591,22 +595,22 @@ export const courseDetails: Record<string, ICourseDetail> = {
     modules: [
       {
         id: "m1",
-        title: "Module 1 · Core skills",
+        title: "Chương 1 · Kỹ năng cốt lõi",
         lessons: [
           {
             id: "m1-l1",
-            title: "Lesson 1 · Communication basics",
+            title: "Bài học 1 · Giao tiếp cơ bản",
             resources: [
               {
                 id: "m1-l1-video",
-                title: "Communication basics video",
+                title: "Video về giao tiếp cơ bản",
                 type: "video",
                 required: true,
                 status: "complete",
               },
               {
                 id: "m1-l1-reading",
-                title: "Service handbook",
+                title: "Sổ tay dịch vụ",
                 type: "reading",
                 required: true,
                 status: "complete",
@@ -620,33 +624,34 @@ export const courseDetails: Record<string, ICourseDetail> = {
     assessments: [
       {
         id: "service-assignment",
-        title: "Communication Assignment",
-        requirement: "Always required",
+        title: "Bài tập về giao tiếp",
+        requirement: "Luôn bắt buộc",
         minScore: 70,
-        estimatedEffort: "30 minutes",
+        estimatedEffort: "30 phút",
         status: "graded",
+        maxConsecutiveAttempts: 3,
         attemptsRemaining: 1,
         instructions: [
-          "Write a short response to the example customer scenario.",
-          "Apply the Organization's communication standards.",
+          "Viết một câu trả lời ngắn cho tình huống khách hàng mẫu.",
+          "Áp dụng các chuẩn mực giao tiếp của tổ chức.",
         ],
-        rubric: "Clarity, tone, and adherence to the communication standards.",
+        rubric: "Sự rõ ràng, giọng điệu và mức độ tuân thủ chuẩn mực giao tiếp.",
         submission: {
-          answer: "Thank you for reaching out — here is how we will resolve this together.",
-          submittedAt: "16 Sep 2026, 13:45",
+          answer: "Cảm ơn bạn đã liên hệ. Chúng tôi sẽ cùng bạn giải quyết theo các bước sau.",
+          submittedAt: "16/09/2026 13:45",
         },
         grading: {
           finalScore: 88,
           passThreshold: 70,
           published: true,
           criteria: [
-            { name: "Clarity", score: 9, maxScore: 10, feedback: "Clear and easy to follow." },
-            { name: "Tone", score: 9, maxScore: 10, feedback: "Professional and courteous." },
+            { name: "Sự rõ ràng", score: 9, maxScore: 10, feedback: "Rõ ràng và dễ theo dõi." },
+            { name: "Giọng điệu", score: 9, maxScore: 10, feedback: "Chuyên nghiệp và lịch sự." },
             {
-              name: "Standards adherence",
+              name: "Tuân thủ chuẩn mực",
               score: 8,
               maxScore: 10,
-              feedback: "Followed the communication standards closely.",
+              feedback: "Tuân thủ tốt các chuẩn mực giao tiếp.",
             },
           ],
         },
@@ -655,7 +660,7 @@ export const courseDetails: Record<string, ICourseDetail> = {
   },
   "vendor-compliance": {
     id: "vendor-compliance",
-    title: "Vendor Compliance Training",
+    title: "Đào tạo về tuân thủ cho nhà cung cấp",
     version: "v1",
     audience: "required",
     progress: 40,
@@ -667,15 +672,15 @@ export const courseDetails: Record<string, ICourseDetail> = {
     modules: [
       {
         id: "m1",
-        title: "Module 1 · Compliance basics",
+        title: "Chương 1 · Kiến thức cơ bản về tuân thủ",
         lessons: [
           {
             id: "m1-l1",
-            title: "Lesson 1 · Overview",
+            title: "Bài học 1 · Tổng quan",
             resources: [
               {
                 id: "m1-l1-video",
-                title: "Overview video",
+                title: "Video tổng quan",
                 type: "video",
                 required: true,
                 status: "in-progress",
@@ -835,32 +840,32 @@ export interface IContentReport {
 export const contentReports: IContentReport[] = [
   {
     id: "report-1",
-    reportedItem: "Safety procedures lesson",
+    reportedItem: "Bài học về quy trình an toàn",
     contentType: "Lesson",
-    courseTitle: "Workplace Safety Essentials",
-    submittedDate: "25 Sep 2026",
+    courseTitle: "Kiến thức cơ bản về an toàn lao động",
+    submittedDate: "25/09/2026",
     status: "pending",
-    reason: "The safety steps listed do not match the current documented procedure.",
+    reason: "Các bước an toàn được liệt kê chưa khớp với quy trình hiện hành.",
   },
   {
     id: "report-2",
-    reportedItem: "Module Quiz content",
+    reportedItem: "Nội dung bài trắc nghiệm của chương",
     contentType: "Quiz",
-    courseTitle: "Operational Procedures",
-    submittedDate: "18 Sep 2026",
+    courseTitle: "Quy trình vận hành",
+    submittedDate: "18/09/2026",
     status: "dismissed",
     decision: "No violation",
-    reason: "Quiz question 3 seems to have two correct answers.",
+    reason: "Câu hỏi trắc nghiệm số 3 có vẻ có hai đáp án đúng.",
   },
   {
     id: "report-3",
-    reportedItem: "Working safely Reading",
+    reportedItem: "Tài liệu đọc về cách làm việc an toàn",
     contentType: "Reading",
-    courseTitle: "Workplace Safety Essentials",
-    submittedDate: "14 Sep 2026",
+    courseTitle: "Kiến thức cơ bản về an toàn lao động",
+    submittedDate: "14/09/2026",
     status: "resolved",
     decision: "Confirmed",
-    reason: "The reading references an outdated regulation.",
+    reason: "Tài liệu đọc dẫn chiếu một quy định đã lỗi thời.",
   },
 ];
 
@@ -890,13 +895,13 @@ export const courseEvaluations: Record<string, ICourseEvaluation> = {
     courseId: "service-communication",
     status: "open",
     ratings: { usefulness: 4, difficulty: 4, quality: 4 },
-    comments: "The materials were clear and useful.",
-    windowCloseDate: "05 Oct 2026",
+    comments: "Học liệu rõ ràng và hữu ích.",
+    windowCloseDate: "05/10/2026",
   },
   "operational-procedures": {
     courseId: "operational-procedures",
     status: "not-started",
-    windowCloseDate: "12 Oct 2026",
+    windowCloseDate: "12/10/2026",
   },
   "data-protection": {
     courseId: "data-protection",
@@ -910,53 +915,53 @@ export const findCourseEvaluation = (courseId?: string) =>
 export const catalogCourseDetails: Record<string, ICatalogCourseDetail> = {
   "data-protection": {
     id: "data-protection",
-    title: "Data Protection Basics",
-    description: "Learn the essentials of handling organizational data.",
+    title: "Kiến thức cơ bản về bảo vệ dữ liệu",
+    description: "Học những kiến thức thiết yếu về xử lý dữ liệu của tổ chức.",
     status: "Published",
     objectives: [
-      "Understand how to handle organizational data responsibly.",
-      "Apply internal processes when using shared information.",
+      "Hiểu cách xử lý dữ liệu của tổ chức một cách có trách nhiệm.",
+      "Áp dụng quy trình nội bộ khi sử dụng thông tin dùng chung.",
     ],
     modules: [
-      { label: "Module 1", name: "Information basics" },
-      { label: "Module 2", name: "Practical handling" },
+      { label: "Chương 1", name: "Kiến thức cơ bản về thông tin" },
+      { label: "Chương 2", name: "Thực hành xử lý dữ liệu" },
     ],
     certificateConditions:
-      "Complete required learning materials, required Quizzes and all Assignments. Peer review duties apply when assigned.",
+      "Hoàn thành học liệu bắt buộc, bài trắc nghiệm bắt buộc và tất cả bài tập. Thực hiện nhiệm vụ chấm chéo khi được giao.",
     previouslyWithdrawn: true,
   },
   "service-communication": {
     id: "service-communication",
-    title: "Service Communication",
-    description: "Practice clear communication in everyday work.",
+    title: "Giao tiếp trong dịch vụ",
+    description: "Rèn luyện cách giao tiếp rõ ràng trong công việc hằng ngày.",
     status: "Published",
     objectives: [
-      "Communicate clearly with colleagues and customers.",
-      "Apply the Organization's communication standards.",
+      "Giao tiếp rõ ràng với đồng nghiệp và khách hàng.",
+      "Áp dụng các chuẩn mực giao tiếp của tổ chức.",
     ],
     modules: [
-      { label: "Module 1", name: "Core skills" },
-      { label: "Module 2", name: "Applied practice" },
+      { label: "Chương 1", name: "Kỹ năng cốt lõi" },
+      { label: "Chương 2", name: "Thực hành ứng dụng" },
     ],
     certificateConditions:
-      "Complete required learning materials, required Quizzes and all Assignments. Peer review duties apply when assigned.",
+      "Hoàn thành học liệu bắt buộc, bài trắc nghiệm bắt buộc và tất cả bài tập. Thực hiện nhiệm vụ chấm chéo khi được giao.",
     previouslyWithdrawn: false,
   },
   "time-management": {
     id: "time-management",
-    title: "Effective Time Management",
-    description: "Build habits for prioritizing daily work.",
+    title: "Quản lý thời gian hiệu quả",
+    description: "Hình thành thói quen sắp xếp thứ tự ưu tiên cho công việc hằng ngày.",
     status: "Published",
     objectives: [
-      "Prioritize daily tasks against team goals.",
-      "Apply simple planning techniques to reduce overload.",
+      "Ưu tiên công việc hằng ngày dựa trên mục tiêu của nhóm.",
+      "Áp dụng kỹ thuật lập kế hoạch đơn giản để giảm quá tải.",
     ],
     modules: [
-      { label: "Module 1", name: "Planning fundamentals" },
-      { label: "Module 2", name: "Staying on track" },
+      { label: "Chương 1", name: "Kiến thức nền tảng về lập kế hoạch" },
+      { label: "Chương 2", name: "Bám sát kế hoạch" },
     ],
     certificateConditions:
-      "Complete required learning materials, required Quizzes and all Assignments. Peer review duties apply when assigned.",
+      "Hoàn thành học liệu bắt buộc, bài trắc nghiệm bắt buộc và tất cả bài tập. Thực hiện nhiệm vụ chấm chéo khi được giao.",
     previouslyWithdrawn: false,
   },
 };

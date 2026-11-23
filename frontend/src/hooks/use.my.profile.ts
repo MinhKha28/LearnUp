@@ -26,18 +26,48 @@ export const statusTone = (
 ): "success" | "warning" | "error" =>
   status === "Active" ? "success" : status === "Pending" ? "warning" : "error";
 
-type BackendFailure = {
-  error?: { message?: string | string[] } | string;
-  message?: string | string[];
+const STATUS_LABELS: Record<ProfileStatus, string> = {
+  Pending: "Chưa kích hoạt",
+  Active: "Đang hoạt động",
+  Deactivated: "Đã vô hiệu hóa",
 };
 
-const failureMessage = (res: unknown, fallback: string) => {
-  const body = res as BackendFailure;
-  const raw =
-    typeof body?.error === "object" ? body.error?.message : body?.message;
-  if (Array.isArray(raw)) return raw.join(" ");
-  return raw || fallback;
+export const statusLabel = (status?: ProfileStatus) =>
+  status ? (Object.hasOwn(STATUS_LABELS, status) ? STATUS_LABELS[status] : status) : "";
+
+const PROFILE_ERROR_MESSAGES: Record<string, string> = {
+  ACCOUNT_NOT_FOUND: "Không tìm thấy tài khoản của bạn. Hãy đăng nhập lại.",
+  AVATAR_REQUIRED: "Bạn chưa chọn ảnh. Hãy chọn một ảnh để tải lên.",
+  AVATAR_INVALID:
+    "Ảnh không hợp lệ. Hãy chọn ảnh JPG, PNG hoặc WEBP, dung lượng tối đa 2 MB.",
+  STORAGE_UNAVAILABLE:
+    "Chưa lưu được ảnh vì kho lưu trữ đang gián đoạn. Vui lòng thử lại sau ít phút.",
 };
+
+const errorCodeOf = (response: unknown): unknown => {
+  const body = (response ?? {}) as {
+    code?: unknown;
+    error?: { code?: unknown };
+  };
+  return body.error?.code ?? body.code;
+};
+
+export const profileErrorMessage = (
+  response: unknown,
+  fallback: string,
+): string => {
+  const code = errorCodeOf(response);
+  return typeof code === "string" && Object.hasOwn(PROFILE_ERROR_MESSAGES, code)
+    ? PROFILE_ERROR_MESSAGES[code]
+    : fallback;
+};
+
+export const PROFILE_LOAD_ERROR = "Không tải được hồ sơ của bạn.";
+
+export const profileLoadErrorMessage = (response: unknown): string =>
+  errorCodeOf(response) === "ACCOUNT_NOT_FOUND"
+    ? PROFILE_ERROR_MESSAGES.ACCOUNT_NOT_FOUND
+    : PROFILE_LOAD_ERROR;
 
 export const useMyProfile = () => {
   const { user, setUser } = useCurrentApp();
@@ -54,9 +84,9 @@ export const useMyProfile = () => {
         const res = await getMyProfileAPI();
         if (!active) return;
         if (res.data) setProfile(res.data);
-        else setError(failureMessage(res, "Could not load your profile."));
+        else setError(profileLoadErrorMessage(res));
       } catch {
-        if (active) setError("Could not connect to the server.");
+        if (active) setError("Không kết nối được với máy chủ.");
       } finally {
         if (active) setLoading(false);
       }
@@ -88,10 +118,10 @@ export const useMyProfile = () => {
         apply(res.data);
         return true;
       }
-      setError(failureMessage(res, fallback));
+      setError(profileErrorMessage(res, fallback));
       return false;
     } catch {
-      setError("Could not connect to the server. Please try again later.");
+      setError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
       return false;
     } finally {
       setBusy(false);
@@ -101,28 +131,28 @@ export const useMyProfile = () => {
   const saveName = (fullName: string) =>
     run(
       () => updateMyProfileAPI(fullName),
-      "Could not update your profile.",
+      "Chưa cập nhật được hồ sơ.",
       setSaving,
     );
 
   const uploadAvatar = (file: File) => {
     if (!AVATAR_MIME_TYPES.includes(file.type)) {
-      setError("Choose a JPG, PNG or WEBP image.");
+      setError("Hãy chọn ảnh JPG, PNG hoặc WEBP.");
       return Promise.resolve(false);
     }
     if (file.size > AVATAR_MAX_SIZE_BYTES) {
-      setError("The image must be 2 MB or smaller.");
+      setError("Ảnh tối đa 2 MB.");
       return Promise.resolve(false);
     }
     return run(
       () => uploadAvatarAPI(file),
-      "Could not upload the image.",
+      "Chưa tải ảnh lên được.",
       setUploading,
     );
   };
 
   const removeAvatar = () =>
-    run(removeAvatarAPI, "Could not remove the image.", setUploading);
+    run(removeAvatarAPI, "Chưa gỡ được ảnh.", setUploading);
 
   return {
     profile,

@@ -20,19 +20,19 @@ const EvaluationExport = () => {
   return (
     <InstructorPage className="instructor-evaluation-export">
       <PageHeader
-        eyebrow="INSTRUCTOR"
-        title="Export Evaluation Results"
-        subtitle="Export ratings and anonymous comments for your Course."
+        eyebrow="Giảng viên"
+        title="Xuất kết quả đánh giá khóa học"
+        subtitle="Xuất điểm đánh giá và nhận xét ẩn danh của khóa học."
         back
       />
       <SectionCard className="instructor-export-card">
-        <h2>Scope</h2>
+        <h2>Phạm vi</h2>
         <p>
           {summary.courseTitle} · Version {summary.version}
         </p>
-        <p>Ratings and free-text comments without Learner identity.</p>
+        <p>Điểm đánh giá và nhận xét không gắn danh tính học viên.</p>
         <hr />
-        <h3>Format</h3>
+        <h3>Định dạng</h3>
         <div className="instructor-export-formats">
           {(["Excel", "PDF"] as ExportFormat[]).map((option) => (
             <button
@@ -47,7 +47,7 @@ const EvaluationExport = () => {
         </div>
         <div className="instructor-export-actions">
           <InstructorButton type="primary" onClick={exportEvaluation}>
-            Export evaluation
+            Xuất kết quả đánh giá
           </InstructorButton>
         </div>
       </SectionCard>

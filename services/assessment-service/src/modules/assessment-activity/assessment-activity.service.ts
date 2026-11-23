@@ -23,12 +23,22 @@ export class AssessmentActivityService {
       });
     }
     const organizationId = user.organizationId;
-    const [hasQuizAttempt, hasSubmission, hasPeerReviewGiven] =
-      await Promise.all([
-        this.repository.hasQuizAttempt(organizationId, learnerId, courseId),
-        this.repository.hasSubmission(organizationId, learnerId, courseId),
-        this.repository.hasPeerReviewGiven(organizationId, learnerId, courseId),
-      ]);
-    return { hasQuizAttempt, hasSubmission, hasPeerReviewGiven };
+    const [activity, hasPeerReviewGiven] = await Promise.all([
+      this.getAssignmentActivity(organizationId, learnerId, courseId),
+      this.repository.hasPeerReviewGiven(organizationId, learnerId, courseId),
+    ]);
+    return { ...activity, hasPeerReviewGiven };
+  }
+
+  async getAssignmentActivity(
+    organizationId: string,
+    learnerId: string,
+    courseId: string,
+  ) {
+    const [hasQuizAttempt, hasSubmission] = await Promise.all([
+      this.repository.hasQuizAttempt(organizationId, learnerId, courseId),
+      this.repository.hasSubmission(organizationId, learnerId, courseId),
+    ]);
+    return { hasQuizAttempt, hasSubmission };
   }
 }

@@ -59,6 +59,7 @@ describe('InternalCoursesService.getMaterialSignedUrl', () => {
     expect(expiresAt).toBeLessThanOrEqual(after + 900);
     expect(getSignedUrl).toHaveBeenCalledWith('learnup/test/video', {
       resourceType, format, deliveryType: 'authenticated', expiresAt,
+      ...(type === 'Reading' ? { attachment: true } : {}),
     });
   });
 

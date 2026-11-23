@@ -68,7 +68,7 @@ describe("buildMyCourseRow", () => {
 
   it("course null vẫn hiện dòng (D26)", () => {
     const row = buildMyCourseRow(item({ course: null }));
-    expect(row.title).toBe("Không tải được thông tin Khóa học");
+    expect(row.title).toBe("Không tải được thông tin khóa học");
     expect(row.courseName).toBeNull();
     expect(row.versionLabel).toBeNull();
     expect(row.action.kind).toBe("open");

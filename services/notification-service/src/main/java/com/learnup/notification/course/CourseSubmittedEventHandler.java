@@ -6,6 +6,7 @@ import com.learnup.notification.dto.CreateNotificationRequest;
 import com.learnup.notification.dto.EmailLogResponse;
 import com.learnup.notification.dto.SendEmailRequest;
 import com.learnup.notification.enrollment.DependencyUnavailableException;
+import com.learnup.notification.mail.EmailLayout;
 import com.learnup.notification.service.EmailDeliveryService;
 import com.learnup.notification.service.NotificationService;
 import org.slf4j.Logger;
@@ -57,12 +58,12 @@ public class CourseSubmittedEventHandler {
                 if ("IN_APP".equals(channel)) {
                     String metadata = "{\"courseId\":\"" + event.courseId() + "\"}";
                     notifications.sendNotification(new CreateNotificationRequest(
-                            event.organizationId(), organizer.id(), "Course awaiting approval",
-                            "Course \"" + event.courseName() + "\" has been submitted for approval.",
+                            event.organizationId(), organizer.id(), "Khóa học đang chờ phê duyệt",
+                            "Khóa học «" + event.courseName() + "» đã được gửi để phê duyệt.",
                             "COURSE_APPROVAL", "IN_APP", metadata));
                 } else {
                     EmailLogResponse result = emails.sendEmail(new SendEmailRequest(
-                            organizer.email(), "LearnUP - Course awaiting approval",
+                            organizer.email(), "LearnUP - Khóa học đang chờ phê duyệt",
                             emailHtml(event), "COURSE_APPROVAL_SUBMITTED"));
                     if (!"SENT".equals(result.getStatus()) && !"SIMULATED".equals(result.getStatus())) {
                         throw new DependencyUnavailableException("EMAIL_FAILED");
@@ -104,28 +105,17 @@ public class CourseSubmittedEventHandler {
         }
     }
 
-    private static String emailHtml(CourseSubmittedEvent event) {
-        String courseName = escapeHtml(event.courseName());
-        return """
-            <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/></head>
-            <body style="margin:0;padding:24px;background:#f1f5f9;font-family:Arial,sans-serif">
-            <table role="presentation" style="max-width:600px;margin:auto;background:#fff;width:100%%">
-            <tr><td style="padding:24px;background:#172554;color:white;font-size:26px;font-weight:bold">LearnUP</td></tr>
-            <tr><td style="padding:32px;color:#0f172a">
-              <h1>Course Awaiting Approval</h1>
-              <p>An Instructor has submitted a Course for your review and approval.</p>
-              <p><strong>Course:</strong> %s</p>
-              <p><strong>Version:</strong> %d</p>
-              <p><strong>Status:</strong> Awaiting Approval</p>
-              <p>Please sign in to LearnUP to review this Course.</p>
-              <p>This Course has not been published yet.</p>
-            </td></tr></table></body></html>
-            """.formatted(courseName, event.versionNumber());
-    }
-
-    private static String escapeHtml(String text) {
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                .replace("\"", "&quot;").replace("'", "&#39;");
+    static String emailHtml(CourseSubmittedEvent event) {
+        return EmailLayout.render(EmailLayout.Card.of("Khóa học đang chờ phê duyệt")
+                .badge("Chờ phê duyệt", EmailLayout.Tone.WARNING)
+                .greeting(null)
+                .paragraph("Giảng viên đã gửi một khóa học để bạn xem xét và phê duyệt.")
+                .detail("Khóa học", event.courseName())
+                .detail("Phiên bản", String.valueOf(event.versionNumber()))
+                .detail("Trạng thái", "Chờ phê duyệt", EmailLayout.Tone.WARNING)
+                .callout("Khóa học chưa được công bố", "Khóa học chỉ được công bố sau khi bạn phê duyệt.",
+                        EmailLayout.Tone.WARNING)
+                .closing("Vui lòng đăng nhập LearnUP để xem xét khóa học này."));
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

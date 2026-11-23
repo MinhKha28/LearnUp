@@ -23,7 +23,7 @@ const signal = (over: Partial<CompletionSignal> = {}): CompletionSignal => ({
 });
 
 describe('the reasons of a completion signal', () => {
-  test('are the eight of the decision of #145', () => {
+  test('are the ten of the decision of #145 and #234', () => {
     assert.deepEqual(
       [...COMPLETION_SIGNAL_REASONS],
       [
@@ -33,6 +33,8 @@ describe('the reasons of a completion signal', () => {
         'ASSIGNMENT_FINALIZED',
         'PEER_REVIEW_COMPLETED',
         'PEER_REVIEW_WAIVED',
+        'PEER_REVIEW_ASSIGNED',
+        'PEER_REVIEW_MISSED',
         'ASSESSMENT_DISABLED',
         'ASSESSMENT_ENABLED',
       ],

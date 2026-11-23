@@ -307,12 +307,108 @@ export class PeerReviewRepository {
     });
   }
 
-  /** Reviews that were not done in time stop being Pending (BR-236). */
-  expirePendingReviews(tx: Prisma.TransactionClient, cycleId: string) {
-    return tx.submissionReview.updateMany({
-      where: { cycleId, status: 'Pending' },
-      data: { status: 'Missed' },
+  /**
+   * Reviews that were not done in time stop being Pending (BR-236). Answers the reviewer of each review that was marked,
+   * from the same statement, so a review given at this very moment is neither marked nor counted.
+   */
+  async expirePendingReviews(
+    tx: Prisma.TransactionClient,
+    cycleId: string,
+  ): Promise<string[]> {
+    const rows = await tx.$queryRaw<{ reviewer_id: string }[]>`
+      UPDATE submission_reviews SET status = 'Missed', updated_at = now()
+      WHERE cycle_id = ${cycleId}::uuid AND status = 'Pending'
+      RETURNING reviewer_id`;
+    return rows.map((row) => row.reviewer_id);
+  }
+
+  /**
+   * The status-changed events of the Learners of a cycle (`PeerReviewAssigned` when it closes, `PeerReviewMissed` when
+   * the deadline passes): one for each Learner, written in the transaction of the change so learning looks at the Course
+   * again if and only if the change is there. `counts` is how many reviews each Learner got or missed.
+   * A Learner without a state row on the Assignment is a broken invariant (every Learner who submitted has one). The state
+   * is the aggregate of the event, and without the event learning never looks at the Course again, so the row is made here,
+   * in the same transaction, with the time of the first submission of the Learner as the first activity; `repaired` answers
+   * who got one so the caller can say so.
+   * ponytail: one snapshot reading per Learner inside the transaction; batch it if a cycle ever has thousands of reviewers.
+   */
+  async emitReviewerSignals(
+    tx: Prisma.TransactionClient,
+    cycle: { organizationId: string; assessmentId: string; id: string },
+    kind: 'Assigned' | 'Missed',
+    counts: Map<string, number>,
+    now: Date,
+  ): Promise<{ sent: number; repaired: string[] }> {
+    if (counts.size === 0) return { sent: 0, repaired: [] };
+    const assessment = await tx.assessment.findUniqueOrThrow({
+      where: { id: cycle.assessmentId },
+      select: { courseId: true },
     });
+    const states = await tx.learnerAssessmentState.findMany({
+      where: {
+        assessmentId: cycle.assessmentId,
+        learnerId: { in: [...counts.keys()] },
+      },
+      select: { id: true, learnerId: true },
+    });
+    const stateOf = new Map(states.map((s) => [s.learnerId, s.id]));
+    const repaired = [...counts.keys()].filter((id) => !stateOf.has(id));
+    if (repaired.length > 0) {
+      const firsts = await tx.submission.groupBy({
+        by: ['learnerId'],
+        where: {
+          assessmentId: cycle.assessmentId,
+          learnerId: { in: repaired },
+        },
+        _min: { submittedAt: true },
+      });
+      const firstOf = new Map(
+        firsts.map((r) => [r.learnerId, r._min.submittedAt]),
+      );
+      for (const learnerId of repaired) {
+        const row = await tx.learnerAssessmentState.upsert({
+          where: {
+            assessmentId_learnerId: {
+              assessmentId: cycle.assessmentId,
+              learnerId,
+            },
+          },
+          create: {
+            organizationId: cycle.organizationId,
+            assessmentId: cycle.assessmentId,
+            learnerId,
+            firstActivityAt: firstOf.get(learnerId) ?? now,
+          },
+          update: {},
+          select: { id: true },
+        });
+        stateOf.set(learnerId, row.id);
+      }
+    }
+    let sent = 0;
+    for (const [learnerId, count] of counts) {
+      const stateId = stateOf.get(learnerId);
+      // cannot happen: the rows were made above; failing here undoes the whole change instead of losing the event
+      if (!stateId) throw new Error(`No state row for ${learnerId}`);
+      await emitCompletionSignal(tx, {
+        stateId,
+        organizationId: cycle.organizationId,
+        assessmentId: cycle.assessmentId,
+        courseId: assessment.courseId,
+        learnerId,
+        kind: 'ASSIGNMENT',
+        reason:
+          kind === 'Assigned' ? 'PEER_REVIEW_ASSIGNED' : 'PEER_REVIEW_MISSED',
+        status: kind === 'Assigned' ? 'PeerReviewAssigned' : 'PeerReviewMissed',
+        extra:
+          kind === 'Assigned'
+            ? { cycleId: cycle.id, reviewCount: count }
+            : { cycleId: cycle.id, missedCount: count },
+        now,
+      });
+      sent += 1;
+    }
+    return { sent, repaired };
   }
 
   /**

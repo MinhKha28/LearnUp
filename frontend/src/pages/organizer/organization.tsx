@@ -1,4 +1,4 @@
-import { Alert, Button, Skeleton } from "antd";
+import { Button, Skeleton } from "antd";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -12,6 +12,7 @@ import { OrganizationLogo } from "@/components/organizer/organization.logo";
 import { getMyOrganizationAPI } from "@/services/organization.service";
 import type { IOrganizationProfile } from "@/types/organization.types";
 import "./organization.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 const Organization = () => {
   const [profile, setProfile] = useState<IOrganizationProfile | null>(null);
@@ -41,14 +42,14 @@ const Organization = () => {
   const renderBody = () => {
     if (failed) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
-          message="Could not load organization details."
-          description="Please check your connection and try again."
+          message="Không tải được thông tin tổ chức."
+          description="Hãy kiểm tra kết nối rồi thử lại."
           action={
             <Button onClick={() => setReloadKey((key) => key + 1)}>
-              Try again
+              Thử lại
             </Button>
           }
         />
@@ -67,39 +68,39 @@ const Organization = () => {
           <OrganizationLogo name={profile.name} logoUrl={profile.logoUrl} />
           <div>
             <h2>{profile.name}</h2>
-            <span>Organization profile</span>
+            <span>Hồ sơ tổ chức</span>
           </div>
         </div>
         <div className="organizer-divider" />
         <div className="organizer-detail-grid">
           <div className="organizer-detail-item">
-            <span>Organization name</span>
+            <span>Tên tổ chức</span>
             <strong>{profile.name}</strong>
           </div>
           <div className="organizer-detail-item">
-            <span>Tax code</span>
+            <span>Mã số thuế</span>
             <strong>{profile.taxCode}</strong>
           </div>
           <div className="organizer-detail-item">
-            <span>Contact phone</span>
+            <span>Số điện thoại liên hệ</span>
             <strong>{profile.contactPhone}</strong>
           </div>
           <div className="organizer-detail-item">
-            <span>Contact email</span>
+            <span>Email liên hệ</span>
             <strong>{profile.contactEmail ?? "—"}</strong>
           </div>
           <div className="organizer-detail-item">
-            <span>Address</span>
+            <span>Địa chỉ</span>
             <strong>{profile.address}</strong>
           </div>
           <div className="organizer-detail-item">
-            <span>Timezone</span>
+            <span>Múi giờ</span>
             <strong>{profile.timezone}</strong>
           </div>
           <div className="organizer-detail-item">
-            <span>Legal note</span>
+            <span>Lưu ý pháp lý</span>
             <strong>
-              Tax code is identity information only, invoicing is outside MVP.
+              Mã số thuế dùng để định danh tổ chức.
             </strong>
           </div>
         </div>
@@ -110,18 +111,20 @@ const Organization = () => {
   return (
     <OrganizerPage className="organizer-organization">
       <PageHeader
-        title="Organization"
-        subtitle="View organization identity, contact details, logo, and timezone."
+        title="Tổ chức"
+        subtitle="Xem thông tin định danh, liên hệ, logo và múi giờ của tổ chức."
         actions={
           <Link to="/organizer/organization/edit">
-            <OrganizerButton type="primary">Edit organization</OrganizerButton>
+            <OrganizerButton type="primary">
+              Sửa thông tin tổ chức
+            </OrganizerButton>
           </Link>
         }
       />
       {renderBody()}
-      <WarningPanel title="Timezone affects deadlines">
-        Organization timezone determines Required Course completion deadlines
-        and Peer Review cycle review deadlines.
+      <WarningPanel title="Múi giờ ảnh hưởng tới các hạn">
+        Múi giờ của tổ chức quyết định thời điểm kết thúc hạn hoàn thành khóa
+        học bắt buộc và hạn chấm của các chu kỳ chấm chéo.
       </WarningPanel>
     </OrganizerPage>
   );

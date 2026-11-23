@@ -111,9 +111,9 @@ class NotificationEmailClientTest {
         JsonNode body = capturedBody.get();
         assertThat(body.size()).isEqualTo(4);
         assertThat(body.path("recipientEmail").asText()).isEqualTo(RECIPIENT);
-        assertThat(body.path("subject").asText()).isEqualTo("LearnUP password recovery");
+        assertThat(body.path("subject").asText()).isEqualTo("LearnUP - Đặt lại mật khẩu");
         assertThat(body.path("templateCode").asText()).isEqualTo("IDENTITY_PASSWORD_RECOVERY");
-        assertThat(body.path("body").asText()).contains(RECOVERY_URL, "2035-01-01T00:15:00Z", "UTC", "only once", "newest");
+        assertThat(body.path("body").asText()).contains(RECOVERY_URL, "01/01/2035 07:15", "giờ Việt Nam", "một lần", "mới nhất");
     }
 
     @ParameterizedTest

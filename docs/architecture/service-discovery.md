@@ -1,86 +1,16 @@
-# Service Discovery with Netflix Eureka
+# Service discovery and routing
 
-LearnUP uses **Spring Cloud Netflix Eureka** to provide dynamic service registration and lookup. This decouples microservices from physical IP addresses and ephemeral container ports.
+The [Gateway configuration](../../gateway/api-gateway/src/main/resources/application.yml) declares routes explicitly. Its discovery locator is disabled.
 
----
+| Target | Routing | Compose default |
+| --- | --- | --- |
+| Identity | Eureka | `lb://IDENTITY-SERVICE` |
+| Notification | Eureka | `lb://NOTIFICATION-SERVICE` |
+| Audit | Eureka | `lb://AUDIT-SERVICE` |
+| Tenant | `TENANT_SERVICE_URL` | `http://tenant-service:8084` |
+| Course | `COURSE_SERVICE_URL` | `http://course-service:8083` |
+| Learning | `LEARNING_SERVICE_URL` | `http://learning-service:8085` |
+| Assessment | `ASSESSMENT_SERVICE_URL` | `http://assessment-service:8086` |
+| Achievement & Reporting | `ACHIEVEMENT_REPORTING_SERVICE_URL` | `http://achievement-reporting-service:8087` |
 
-## 1. Eureka Server Responsibilities
-
-### What Eureka Server DOES:
-* Maintains a dynamic registry of active service instances and their endpoints.
-* Monitors service instance health via periodic heartbeats.
-* Resolves service names (e.g. `ORGANIZATION-SERVICE`, `COURSE-SERVICE`) to live network locations.
-* Provides the API Gateway with dynamic routing destinations via `lb://<SERVICE-NAME>`.
-
-### What Eureka Server MUST NOT Do:
-* Eureka contains **no business data**.
-* Eureka contains **no business logic**.
-* Eureka does **not** authenticate users or evaluate security tokens.
-* Eureka does **not** proxy payload data or mediate messaging.
-
----
-
-## 2. Service Registration Conventions
-
-### 2.1 Service Naming Standard
-All services register with a predictable, upper-case service name matching their artifact identity:
-
-**Supporting Services**:
-* `IDENTITY-SERVICE`
-* `NOTIFICATION-SERVICE`
-* `AUDIT-SERVICE`
-
-**Business Services**:
-* `TENANT-SERVICE`
-* `COURSE-SERVICE`
-* `LEARNING-SERVICE`
-* `ASSESSMENT-SERVICE`
-* `ACHIEVEMENT-REPORTING-SERVICE`
-
-> **Important**: Eureka is purely a service registry/lookup directory, **NOT a request-processing hop**. The request flow is strictly: `Client` -> `API Gateway` -> `Target Service`. The Gateway discovers service network instances from Eureka in the background.
-
-### 2.2 Spring Boot Configuration
-In Spring Boot services (`application.yml`):
-```yaml
-spring:
-  application:
-    name: organization-service
-
-eureka:
-  client:
-    service-url:
-      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
-    register-with-eureka: true
-    fetch-registry: true
-  instance:
-    prefer-ip-address: true
-    instance-id: ${spring.application.name}:${random.uuid}
-```
-
-### 2.3 NestJS Service Discovery Strategy
-For business services written in NestJS:
-* Services use a lightweight Eureka client library (e.g., `eureka-js-client`) or environment-configured gateway routing.
-* The registration registers the service with Eureka on startup and sends heartbeats.
-* When calling another service, the NestJS service resolves the target service endpoint either via Eureka registry lookup or delegates via the internal gateway route.
-
----
-
-## 3. Spring Cloud Gateway Dynamic Routing
-
-The Spring Cloud Gateway leverages Eureka service discovery to dynamically route traffic without static host mappings:
-
-```yaml
-spring:
-  cloud:
-    gateway:
-      discovery:
-        locator:
-          enabled: false  # Explicit route definitions are used for security and control
-      routes:
-        - id: organization-service-route
-          uri: lb://ORGANIZATION-SERVICE
-          predicates:
-            - Path=/api/organizations/**
-          filters:
-            - AuthenticationFilter
-```
+Eureka supplies service instances to the load balancer. Docker DNS resolves the business service names in [Compose](../../docker-compose.yml). See [ADR 0008](../adr/0008-docker-dns-for-business-services.md) and the [Eureka setup guide](../../infrastructure/eureka-server/README.md).

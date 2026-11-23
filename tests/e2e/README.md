@@ -16,8 +16,9 @@ state read back through the API, Kafka event observed) and never deletes anythin
 | J8 | Tenant isolation between organization A and B | gateway, tenant, course, learning, achievement-reporting |
 | J9 | Re-registration with the same email: replaced unverified registration, expired registration, active-account email (observation), 10 concurrent same-email registrations | gateway, tenant, identity, notification |
 | J10 | Assessment -> learning chain: a fresh Learner assigned the course submits a text-only Assignment (no peer review); the Enrollment moves NotStarted -> InProgress with the event's `firstActivityAt`; one published outbox row, no quarantine; a byte-identical duplicate event changes nothing | gateway, assessment, learning, kafka |
+| J11 | Audit trail (UC50, UC51): an Organizer deactivates and reactivates an Instructor through the gateway; the entries reach audit-service through the tenant outbox and relay, dated by the time of the action, with who, what, on what, whose and why; the Organizer, the Admin (real logins) read them, another Organization does not and gets 403 for the first one's Organization; time range, order and page size; nothing is written through the gateway; forged identity headers are replaced. Safe to run again (it picks its own entries by their reason) | gateway, identity, tenant, audit |
 
-## Start the cluster (Linux host, Docker, JDK 21, Node 22)
+## Prerequisites and cluster startup (Linux host, Docker, JDK 21, Node 24)
 
 Windows: run everything (build, `cluster/start.sh`, `run.mjs`, `cleanup.mjs`) inside WSL2 with
 Docker Desktop's WSL integration; Git Bash is not supported (no `lsof`, different `/tmp`).
@@ -64,13 +65,14 @@ Fakes and non-default settings used:
 | Setting | Why |
 | :-- | :-- |
 | smtp-sink on `127.0.0.1:2525`, `LEARNUP_MAIL_ENABLED=true` | Read OTP and invitation links; nothing leaves the host |
-| Cloudinary variables empty | Storage stays unconfigured; no journey uploads files |
+| Cloudinary variables empty | The default runner does not provision provider-backed material assets |
 | learning `TENANT_CLIENT_MODE=http` | Not a fake: learning calls the real Tenant organization-access endpoint, as the root Compose does |
-| learning `VIDEO_PLAYBACK_MODE=fixture`, `READING_ACCESS_MODE=fixture` | course-service playback/reading contract not built (CT-3) |
 | achievement signer access uses the default HTTP mode | J7 checks the real Tenant organization-access endpoint |
 | achievement `CERTIFICATE_CLEANUP_ENABLED=false`, `CERTIFICATE_CONSUMER_ENABLED=true` | No storage cleanup; the consumer is on so the enrollment-events group is exercised end to end |
 | assessment `OUTBOX_RELAY_ENABLED=true`, learning `ASSESSMENT_CONSUMER_ENABLED=true` | The assessment -> learning chain runs by default (J10) |
 | tenant `DEV_FAKE_AUTH=false`, `LEARNING_CLIENT_MODE=http`, `COURSE_CLIENT_MODE=http` | Real gateway identity and real calls |
+
+J5 and browser journeys that open material access require Course to be able to deliver the seeded assets. The default cluster starts with no provider-backed assets. See the [material delivery configuration](../../services/course-service/src/modules/internal-courses/internal-materials.controller.ts).
 
 ## Run
 
@@ -79,7 +81,7 @@ node tests/e2e/run.mjs          # all journeys; or e.g. node tests/e2e/run.mjs J
 ```
 
 Exit code 0 means every journey is `PASS` or `KNOWN-FAIL`. A `KNOWN-FAIL` step still asserts the
-correct behaviour; it fails only because of a bug listed below. Fixing a bug turns that step into
+correct behaviour and is tagged with an entry in the known-bug registry. Fixing a bug turns that step into
 `UNEXPECTED-PASS`; then remove the bug ID from `lib/known-bugs.mjs`. The run record
 (`$E2E_STATE_DIR/runs/<runId>.json`) holds every created ID plus per-journey and per-route
 latency (single-user, not a load test).
@@ -105,12 +107,11 @@ screenshot to `$E2E_STATE_DIR/ui-screens/<runId>/` (never committed). Nothing is
 | :-- | :-- |
 | S1 | UC05 Organizer login; records the organization name shown in the header |
 | S2 | UC13 learner list, UC24.2 assign a course; success message and the assignment with its due date |
-| S3 | UC26 My courses, UC27 curriculum, UC27.1 lesson, UC27.3 Reading completion (kept after reload), UC27.2 Video page against the unreachable fixture URL |
-| S4 | UC28 progress page: completed Reading counted, other required materials listed as missing (`KNOWN-FAIL` UI-1 until the real page is on develop) |
+| S3 | UC26 My courses, UC27 curriculum, UC27.1 lesson, UC27.3 Reading completion (kept after reload), UC27.2 Video page |
+| S4 | UC28 progress page: completed Reading counted, other required materials listed as missing |
 
 The assign form has no due-date input; the due date is computed per learner by the backend and
-checked in the assignment list. The video step records what the page shows when the fixture media
-cannot load (no crash; the page does not show a message of its own).
+checked in the assignment list.
 
 ## Cleanup (explicit, never run by the suite)
 
@@ -135,35 +136,9 @@ its volumes. `$E2E_STATE_DIR` (secrets, mailbox, run records) is kept; delete it
 
 ## Known failures
 
-UI-1: UC28 progress uses hardcoded learner data; blank for real enrollments, with no curriculum link.
-
-CT-1 (assessment-service had no `completion-snapshot` endpoint, so no enrollment reached
-Completed) is resolved: J5 now asserts that the enrollment becomes Completed.
-
-- **UI-1 (learner frontend, owner Hào).** The UC28 progress page renders the hardcoded
-  `learner.data` mock (`frontend/src/pages/learner/course.progress.tsx`, `courseDetails[courseId]`),
-  so it is blank for a real enrollment, and the curriculum has no link to it. Reproduce: sign in as
-  a learner with an assigned course, open `/learner/courses/<enrollmentId>/progress`; the page
-  shows only the "Khóa học của tôi" back link. Browser smoke S4 asserts the correct outcome and is
-  reported as `KNOWN-FAIL [UI-1]`.
-
-Tenant CT-2 is resolved: J7 uses the real `GET /api/v1/internal/organizations/:id/access` endpoint with matching internal-key and Organization headers. Tenant unavailability fails closed with `503 TENANT_UNAVAILABLE`.
-
-Remaining contract gaps worked around with documented fakes (not counted as failures):
-
-- **CT-3 (course-service).** No playback or reading contract exists. In course mode (the compose
-  default), `GET /api/v1/enrollments/:id/materials/:mid/playback` returns 503
-  `PLAYBACK_UNAVAILABLE`, and `reading-access` returns 503.
+The runner gets its current known-failure classifications from [the registry](lib/known-bugs.mjs).
 
 ### J10 scope
 
-J10 stops at the first activity. It does not finalize the submission (grading, `AwaitingFinalization`
--> Completed, certificate issuance): Instructor finalization of an Assignment has no working
-end-to-end path yet (Issue #234), and J10 deliberately uses no SQL stand-in. J10 reads SQL only
-to observe (assessment outbox row, learning quarantine; no API exposes them) and never writes.
-Each hop is polled for at most 15 s (relay poll 1 s + consumer transaction is a few seconds on a
-healthy cluster). If learning's `ASSESSMENT_CONSUMER_ENABLED` or assessment's `OUTBOX_RELAY_ENABLED`
-is off, J10 fails at the Kafka-event step or J10a with the last observed state.
-
-Not covered yet: quiz attempts, peer review, Instructor finalization and certificate issuance for
-Assignments (Issue #234). A learner of organization B is not exercised either.
+J10 observes a text submission from Assessment through Kafka to first activity in Learning.
+It uses SQL reads to inspect the outbox row and quarantine. It stops before grading or certificate issuance.

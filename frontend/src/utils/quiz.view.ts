@@ -1,3 +1,4 @@
+import { formatMinutes } from "@/utils/helper";
 import type { ICourseStructureModule } from "@/types/course.types";
 import type {
   IQuizDetail,
@@ -10,13 +11,13 @@ import type {
 // BR-99: say why a Quiz cannot be edited instead of only showing a state.
 export const QUIZ_LOCK_REASON_TEXT: Record<QuizLockReason, string> = {
   QUIZ_HAS_ATTEMPTS:
-    "A Learner has started this Quiz, so its questions, time limit, attempt limit and lockout period can no longer be changed.",
+    "Đã có học viên bắt đầu làm bài trắc nghiệm nên không thể sửa câu hỏi, thời gian làm bài, giới hạn lượt làm hoặc thời gian khóa tạm.",
   COURSE_LOCKED:
-    "The Course is Locked because a Learner has enrolled, so the passing score and Required setting can no longer be changed.",
-  COURSE_SUBMITTED: "The Course is Submitted for review, so nothing can be changed until it is withdrawn.",
-  COURSE_NOT_EDITABLE: "The Course is archived or disabled, so this Quiz can no longer be changed.",
+    "Khóa học đã khóa vì có học viên đăng ký nên không thể sửa điểm đạt hoặc yêu cầu bắt buộc.",
+  COURSE_SUBMITTED: "Khóa học đang chờ phê duyệt. Hãy rút yêu cầu phê duyệt để chỉnh sửa.",
+  COURSE_NOT_EDITABLE: "Khóa học đã lưu trữ hoặc bị vô hiệu hóa nên không thể chỉnh sửa bài trắc nghiệm.",
   COURSE_LEFT_DRAFT:
-    "The Course has left Draft, so the last remaining question of this Quiz cannot be deleted.",
+    "Khóa học đã qua giai đoạn bản nháp nên không thể xóa câu hỏi cuối cùng.",
 };
 
 /** Course-wide or Quiz-wide reasons shown as banners, in this order; COURSE_LEFT_DRAFT only concerns one question. */
@@ -28,21 +29,20 @@ const BANNER_REASONS: QuizLockReason[] = [
 ];
 
 export const QUIZ_BANNER_TITLE: Partial<Record<QuizLockReason, string>> = {
-  COURSE_SUBMITTED: "Course Submitted",
-  COURSE_NOT_EDITABLE: "Course not editable",
-  COURSE_LOCKED: "Course Locked",
-  QUIZ_HAS_ATTEMPTS: "Quiz already attempted",
+  COURSE_SUBMITTED: "Khóa học đang chờ phê duyệt",
+  COURSE_NOT_EDITABLE: "Không thể chỉnh sửa khóa học",
+  COURSE_LOCKED: "Khóa học đã khóa",
+  QUIZ_HAS_ATTEMPTS: "Đã có lượt làm",
 };
 
 const QUESTION_TYPE_LABEL: Record<QuizQuestionType, string> = {
-  SingleChoice: "Single answer",
-  MultipleChoice: "Multiple answers",
-  TrueFalse: "True / False",
+  SingleChoice: "Một đáp án đúng",
+  MultipleChoice: "Nhiều đáp án đúng",
+  TrueFalse: "Đúng / Sai",
 };
 
-/** BR-155 label; an unexpected stored value is shown as it is rather than hidden. */
 export const quizQuestionTypeLabel = (type: string): string =>
-  QUESTION_TYPE_LABEL[type as QuizQuestionType] ?? type;
+  Object.hasOwn(QUESTION_TYPE_LABEL, type) ? QUESTION_TYPE_LABEL[type as QuizQuestionType] : "Không xác định";
 
 /** BR-315: 0–100 scale with at most 2 decimals (72.5 → "72.5", 80 → "80"). */
 export const formatQuizScore = (score: number): string =>
@@ -53,14 +53,23 @@ export const optionLetter = (index: number): string => String.fromCharCode(65 + 
 
 /** BR-154 / BR-291: where the Quiz sits in the Course outline. */
 export const quizPlacementLabel = (
-  quiz: Pick<IQuizDetail, "moduleId">,
+  quiz: Partial<Pick<IQuizDetail, "moduleId" | "placement">>,
   modules: Pick<ICourseStructureModule, "id" | "title">[],
 ): string => {
-  if (quiz.moduleId === null) return "Attached to the Course · shown at the end of the Course";
+  if (quiz.moduleId === null || quiz.placement === "COURSE") return "Cuối khóa học";
+  if (quiz.moduleId === undefined && quiz.placement === undefined) return "Chưa xác định vị trí";
   const index = modules.findIndex((module) => module.id === quiz.moduleId);
-  if (index < 0) return "Attached to a Module that is not in the current outline";
-  return `Module ${index + 1}: ${modules[index].title} · shown after its Lessons`;
+  if (index < 0) return "Không tìm thấy chương trong cấu trúc khóa học";
+  return `Sau các bài học của chương ${index + 1}: ${modules[index].title}`;
 };
+
+export const quizAttemptLimitLabel = (
+  maxConsecutiveAttempts?: number | null,
+  lockoutHours?: number | null,
+): string =>
+  maxConsecutiveAttempts == null || lockoutHours == null
+    ? "Chưa xác định"
+    : `Tạm khóa trong ${formatMinutes(lockoutHours * 60)} sau ${maxConsecutiveAttempts} lượt làm liên tiếp.`;
 
 /** The reasons of a blocked permission as sentences; empty when the change is allowed. */
 export const permissionReasonTexts = (permission: IQuizPermission): string[] =>

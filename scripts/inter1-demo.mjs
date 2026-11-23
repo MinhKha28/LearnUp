@@ -8,7 +8,8 @@
  *
  * Mọi lỗi môi trường phải lộ ra trước dòng "Sẵn sàng demo". Đầu ra của từng tiến trình ghi vào
  * <thư mục tạm>/learnup-demo/*.log. Ctrl+C tắt toàn bộ tiến trình con (không tắt postgres).
- * Chỉ dùng module có sẵn của Node, chạy được trên Windows, Linux và macOS.
+ * Chỉ dùng module có sẵn của Node (riêng .env đọc bằng dotenv của tenant-service, như các service), chạy được trên
+ * Windows, Linux và macOS.
  */
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -16,6 +17,11 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  loadDotenvParse,
+  readEnvFile as readEnvFileWith,
+  tenantDemoEnv as pickTenantDemoEnv,
+} from "./lib/demo-env.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BACKEND_ROOT = process.env.DEMO_BACKEND_ROOT
@@ -272,25 +278,20 @@ function fail(error) {
 }
 
 // ---------------------------------------------------------------------------
-// Đọc .env (KEY=VALUE, bỏ dòng chú thích); không in giá trị
+// Đọc .env bằng dotenv.parse của tenant (scripts/lib/demo-env.mjs); không in giá trị
 // ---------------------------------------------------------------------------
+let dotenvParse;
 function readEnvFile(file) {
-  if (!fs.existsSync(file)) return null;
-  const env = new Map();
-  for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
-    const match =
-      /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/.exec(line);
-    if (!match || line.trimStart().startsWith("#")) continue;
-    let value = match[2].trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    env.set(match[1], value);
-  }
-  return env;
+  dotenvParse ??= loadDotenvParse(DIRS.tenant);
+  return readEnvFileWith(file, dotenvParse);
+}
+
+function tenantDemoEnv(dir) {
+  return pickTenantDemoEnv({
+    processValue: process.env.EMAIL_OTP_SECRET,
+    fileEnv: readEnvFile(path.join(dir, ".env")),
+    onGenerate: detail,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -298,10 +299,10 @@ function readEnvFile(file) {
 // ---------------------------------------------------------------------------
 function checkNode() {
   const major = Number(process.versions.node.split(".")[0]);
-  if (major < 22) {
+  if (major !== 24) {
     throw new DemoError(
-      `Node ${process.versions.node} quá cũ.`,
-      "Hãy cài Node 22 trở lên rồi chạy lại.",
+      `Node ${process.versions.node} không được hỗ trợ.`,
+      "Hãy cài Node 24 rồi chạy lại.",
     );
   }
 }
@@ -814,7 +815,12 @@ async function startService(name, dir, port, probePath, internalKey) {
     [path.join("dist", "src", "main.js")],
     {
       cwd: dir,
-      env: name === "learning-service" ? ASSESSMENT_DEMO_ENV : undefined,
+      env:
+        name === "learning-service"
+          ? ASSESSMENT_DEMO_ENV
+          : name === "tenant-service"
+            ? tenantDemoEnv(dir)
+            : undefined,
       logName: name,
       longRunning: true,
     },

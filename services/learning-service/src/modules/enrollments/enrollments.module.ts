@@ -1,6 +1,8 @@
 import { AssessmentAccessController } from './assessment-access.controller';
 import { AssessmentAccessService } from './assessment-access.service';
 import { Module } from '@nestjs/common';
+import { LearnerEnrollmentDetailsController } from './learner-enrollment-details.controller';
+import { LearnerEnrollmentDetailsService } from './learner-enrollment-details.service';
 import { LearnerEnrollmentSummaryController } from './learner-enrollment-summary.controller';
 import { LearnerEnrollmentSummaryService } from './learner-enrollment-summary.service';
 import { LearnerEnrollmentSummaryRepository } from './learner-enrollment-summary.repository';
@@ -20,7 +22,7 @@ import { PlatformSettingsModule } from '../platform-settings/platform-settings.m
 import { BaseDueAtRepository } from './base-due-at.repository';
 import { EnrollmentsController } from './enrollments.controller';
 import { EnrollmentsRepository } from './enrollments.repository';
-import { EnrollmentsService } from './enrollments.service';
+import { EnrollmentsService, MyEnrollmentClock } from './enrollments.service';
 import { AssessmentModule } from '../../infrastructure/clients/assessment/assessment.module';
 import { OptionalEnrollmentRepository } from './optional-enrollment.repository';
 import { EnrollmentWithdrawalService } from './enrollment-withdrawal.service';
@@ -62,12 +64,15 @@ class EnrollmentRateLimitStorageModule {}
     AssessmentAccessController,
     EnrollmentsController,
     LearnerEnrollmentSummaryController,
+    LearnerEnrollmentDetailsController,
   ],
   providers: [
     AssessmentAccessService,
     LearnerEnrollmentSummaryService,
+    LearnerEnrollmentDetailsService,
     LearnerEnrollmentSummaryRepository,
     EnrollmentsService,
+    MyEnrollmentClock,
     OptionalEnrollmentRepository,
     EnrollmentWithdrawalService,
     EnrollmentsRepository,

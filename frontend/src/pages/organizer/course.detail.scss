@@ -30,3 +30,20 @@
     color: #64748b;
     font-size: 11px;
 }
+/* Consistent Course owner summary and readable empty-state feedback. */
+.organizer-course-detail-owner {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 2px 0 18px;
+  color: #64748b;
+}
+
+.organizer-course-detail-owner strong {
+  color: #142033;
+}
+
+.organizer-course-detail-warning {
+  margin-bottom: 16px;
+}

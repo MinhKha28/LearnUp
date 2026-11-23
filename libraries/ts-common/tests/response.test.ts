@@ -1,41 +1,45 @@
 import { describe, expect, it } from 'vitest';
-import { STANDARD_ERROR_CODES } from '../src/api/errors.js';
-import {
-  createEmptyPageResponse,
-  createEmptySuccessResponse,
-  createErrorResponse,
-  createPageResponse,
-  createSuccessResponse,
-} from '../src/api/response.js';
+import { createApiError, STANDARD_ERROR_CODES } from '../src/api/errors.js';
+import { createPageResponse, type ApiResponse } from '../src/api/response.js';
 
 describe('API Response & Pagination Utilities', () => {
-  it('should create a valid success response', () => {
+  it('should represent a valid success response', () => {
     const data = { id: 'course-1', title: 'Microservices with NestJS' };
-    const res = createSuccessResponse(data);
+    const res: ApiResponse<typeof data> = {
+      statusCode: 200,
+      message: 'Course retrieved',
+      data,
+    };
 
-    expect(res.success).toBe(true);
-    expect(res.data).toEqual(data);
-    expect(res.error).toBeUndefined();
+    expect(res).toEqual({ statusCode: 200, message: 'Course retrieved', data });
+    expect(res).not.toHaveProperty('success');
+    expect(res).not.toHaveProperty('error');
   });
 
-  it('should create an empty success response', () => {
-    const res = createEmptySuccessResponse();
+  it('should represent an empty success response', () => {
+    const res: ApiResponse<void> = {
+      statusCode: 200,
+      message: 'Operation completed',
+      data: undefined,
+    };
 
-    expect(res.success).toBe(true);
-    expect(res.data).toBeUndefined();
-    expect(res.error).toBeUndefined();
+    expect(res).toEqual({
+      statusCode: 200,
+      message: 'Operation completed',
+      data: undefined,
+    });
+    expect(res).not.toHaveProperty('success');
+    expect(res).not.toHaveProperty('error');
   });
 
-  it('should create an error response using code, message, and details', () => {
-    const res = createErrorResponse(
+  it('should create an API error using code, message, and details', () => {
+    const error = createApiError(
       STANDARD_ERROR_CODES.RESOURCE_NOT_FOUND,
       'Learner not found',
       ['Learner ID 123 does not exist in organization']
     );
 
-    expect(res.success).toBe(false);
-    expect(res.data).toBeUndefined();
-    expect(res.error).toEqual({
+    expect(error).toEqual({
       code: 'RESOURCE_NOT_FOUND',
       message: 'Learner not found',
       details: ['Learner ID 123 does not exist in organization'],
@@ -46,31 +50,28 @@ describe('API Response & Pagination Utilities', () => {
     const items = ['Item A', 'Item B'];
     const pageRes = createPageResponse(items, 1, 2, 5);
 
-    expect(pageRes.items).toEqual(items);
-    expect(pageRes.page).toBe(1);
-    expect(pageRes.size).toBe(2);
-    expect(pageRes.totalElements).toBe(5);
-    expect(pageRes.totalPages).toBe(3);
-    expect(pageRes.first).toBe(false);
-    expect(pageRes.last).toBe(false);
+    expect(pageRes).toEqual({
+      meta: { current: 1, pageSize: 2, total: 5, pages: 3 },
+      items,
+    });
   });
 
   it('should compute PageResponse metadata accurately for single page datasets', () => {
     const items = ['Item A'];
-    const pageRes = createPageResponse(items, 0, 10, 1);
+    const pageRes = createPageResponse(items, 1, 10, 1);
 
-    expect(pageRes.totalPages).toBe(1);
-    expect(pageRes.first).toBe(true);
-    expect(pageRes.last).toBe(true);
+    expect(pageRes).toEqual({
+      meta: { current: 1, pageSize: 10, total: 1, pages: 1 },
+      items,
+    });
   });
 
   it('should create empty PageResponse', () => {
-    const emptyPage = createEmptyPageResponse(0, 20);
+    const emptyPage = createPageResponse([], 1, 20, 0);
 
-    expect(emptyPage.items).toEqual([]);
-    expect(emptyPage.totalElements).toBe(0);
-    expect(emptyPage.totalPages).toBe(0);
-    expect(emptyPage.first).toBe(true);
-    expect(emptyPage.last).toBe(true);
+    expect(emptyPage).toEqual({
+      meta: { current: 1, pageSize: 20, total: 0, pages: 0 },
+      items: [],
+    });
   });
 });

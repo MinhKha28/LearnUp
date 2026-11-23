@@ -3,6 +3,7 @@ import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { CurrentUser } from '@learnup/ts-common';
 import { firstValueFrom } from 'rxjs';
+import { logHttpClientError } from '../log-http-client-error';
 
 import type {
   CourseLearnerCount,
@@ -39,10 +40,11 @@ export class LearningClient {
       'LEARNING_SERVICE_URL',
     );
 
+    const path = '/api/v1/enrollments/learner-counts';
     try {
       const response = await firstValueFrom(
         this.httpService.post<LearningApiResponse<CourseLearnerCount[]>>(
-          `${baseUrl}/api/v1/enrollments/learner-counts`,
+          `${baseUrl}${path}`,
           {
             courseIds,
           },
@@ -54,7 +56,7 @@ export class LearningClient {
 
       return response.data.data ?? [];
     } catch (error) {
-      console.error('Learning Service request failed:', error);
+      logHttpClientError(error, 'POST', path);
 
       throw new ServiceUnavailableException(
         'Unable to retrieve Course learner counts.',
@@ -71,10 +73,11 @@ export class LearningClient {
       'LEARNING_SERVICE_URL',
     );
 
+    const path = `/api/v1/enrollments/course/${courseId}/lessons/${lessonId}/completion`;
     try {
       const response = await firstValueFrom(
         this.httpService.get<LearningApiResponse<{ hasCompleted: boolean }>>(
-          `${baseUrl}/api/v1/enrollments/course/${courseId}/lessons/${lessonId}/completion`,
+          `${baseUrl}${path}`,
           {
             headers: this.buildHeaders(user),
           },
@@ -89,11 +92,45 @@ export class LearningClient {
 
       return value;
     } catch (error) {
-      console.error('Unable to check Lesson completion:', error);
+      logHttpClientError(error, 'GET', path);
 
       throw new ServiceUnavailableException(
         'Unable to verify Lesson completion status.',
       );
+    }
+  }
+
+  async hasEverEnrolled(user: CurrentUser, courseId: string): Promise<boolean> {
+    const baseUrl = this.configService.getOrThrow<string>(
+      'LEARNING_SERVICE_URL',
+    );
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get<
+          LearningApiResponse<{
+            hasEverEnrolled: boolean;
+          }>
+        >(
+          `${baseUrl}/api/v1/enrollments/internal/courses/${courseId}/history`,
+          {
+            headers: this.buildHeaders(user),
+          },
+        ),
+      );
+
+      const value = response.data.data?.hasEverEnrolled;
+
+      if (typeof value !== 'boolean') {
+        throw new Error('Invalid enrollment history response.');
+      }
+
+      return value;
+    } catch {
+      throw new ServiceUnavailableException({
+        code: 'ENROLLMENT_CHECK_UNAVAILABLE',
+        message: 'Không thể kiểm tra lịch sử Enrollment.',
+      });
     }
   }
 }

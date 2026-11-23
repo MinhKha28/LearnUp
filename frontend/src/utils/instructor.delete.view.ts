@@ -9,13 +9,13 @@ export const instructorDeleteErrorMessage = (
 ): string => {
   switch (code) {
     case "INSTRUCTOR_NOT_FOUND":
-      return "This instructor no longer exists in your organization.";
+      return "Giảng viên này không còn thuộc tổ chức của bạn.";
     case "CONCURRENT_UPDATE":
-      return "This instructor was just updated. Please review and try again.";
+      return "Thông tin giảng viên vừa được cập nhật. Vui lòng kiểm tra và thử lại.";
     case "ORGANIZATION_NOT_ACTIVE":
-      return "Your Organization is suspended. Accounts cannot be deleted.";
+      return "Tổ chức đang bị tạm ngưng. Không thể xóa tài khoản.";
     case "SUBSCRIPTION_NOT_ACTIVE":
-      return "Your Subscription is suspended. Accounts cannot be deleted until it is renewed.";
+      return "Gói dịch vụ đang bị tạm ngưng. Hãy gia hạn gói để xóa tài khoản.";
     // Mã chuyển quyền BR-51 dùng chung câu với UC12.5.
     case "RECEIVER_REQUIRED":
     case "INVALID_RECEIVER":
@@ -24,7 +24,7 @@ export const instructorDeleteErrorMessage = (
     case "COURSE_SERVICE_UNAVAILABLE":
       return instructorStatusErrorMessage("DEACTIVATE", code);
     default:
-      return "Could not delete the account. Please try again later.";
+      return "Không thể xóa tài khoản. Vui lòng thử lại sau.";
   }
 };
 

@@ -20,6 +20,7 @@ import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
@@ -55,23 +56,27 @@ public class NotificationEmailClient {
                 .build();
     }
 
+    /** dd/MM/yyyy HH:mm in Vietnam time: the person who reads the mail does not read UTC. */
+    private static final DateTimeFormatter EXPIRY_FORMAT =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+
     public DeliveryResult sendRecovery(String recipientEmail, String recoveryUrl, Instant expiresAt, String correlationId) {
         if (recipientEmail == null || recipientEmail.isBlank() || recoveryUrl == null || recoveryUrl.isBlank() || expiresAt == null) {
             return DeliveryResult.FAILED;
         }
         String safeCorrelationId = AuthenticationDiagnostics.isCorrelationId(correlationId)
                 ? correlationId : UUID.randomUUID().toString();
-        String body = "A LearnUP password recovery was requested for your account.\n\n"
-                + "Open this link to choose a new password:\n" + recoveryUrl + "\n\n"
-                + "Expires at " + DateTimeFormatter.ISO_INSTANT.format(expiresAt) + " (UTC).\n"
-                + "This link can be used only once. Only the newest recovery link is valid.\n"
-                + "If you did not request this change, ignore this email.";
+        String body = "Hệ thống nhận được yêu cầu đặt lại mật khẩu cho tài khoản LearnUP của bạn.\n\n"
+                + "Mở liên kết sau để chọn mật khẩu mới:\n" + recoveryUrl + "\n\n"
+                + "Liên kết hết hạn lúc " + EXPIRY_FORMAT.format(expiresAt) + " (giờ Việt Nam).\n"
+                + "Liên kết chỉ dùng được một lần. Chỉ liên kết mới nhất có hiệu lực.\n"
+                + "Nếu bạn không yêu cầu thay đổi này, hãy bỏ qua email.";
         try {
             ResponseEntity<NotificationEnvelope> response = restClient.post()
                     .uri("/api/v1/notifications/email/send")
                     .contentType(MediaType.APPLICATION_JSON)
                     .header(HeaderConstants.X_CORRELATION_ID, safeCorrelationId)
-                    .body(new RecoveryEmail(recipientEmail, "LearnUP password recovery", body, "IDENTITY_PASSWORD_RECOVERY"))
+                    .body(new RecoveryEmail(recipientEmail, "LearnUP - Đặt lại mật khẩu", body, "IDENTITY_PASSWORD_RECOVERY"))
                     .retrieve().toEntity(NotificationEnvelope.class);
             NotificationEnvelope envelope = response.getBody();
             if (response.getStatusCode().value() != HttpStatus.CREATED.value() || envelope == null

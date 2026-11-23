@@ -47,6 +47,11 @@ export const canExemptAssignment = (
 ) =>
   ["InProgress", "Overdue"].includes(item.status) &&
   item.firstActivityAt !== null;
+export const canCancelAssignment = (
+  item: Pick<AssignmentDetail, "status" | "firstActivityAt">,
+) => item.status === "NotStarted" ||
+  (item.status === "Overdue" && item.firstActivityAt === null);
+
 export const canExtendAssignment = (status: AssignmentStatus) =>
   !["Completed", "Withdrawn"].includes(status);
 
@@ -100,17 +105,27 @@ const messages: Record<string, string> = {
   COURSE_NOT_ASSIGNABLE:
     "Khóa học không còn ở trạng thái có thể phân công. Vui lòng chọn lại.",
   ASSIGNMENT_INVALID_LEARNERS:
-    "Không ai được phân công vì danh sách Học viên có lỗi. Hãy kiểm tra bên dưới.",
+    "Không ai được phân công vì danh sách học viên có lỗi. Hãy kiểm tra bên dưới.",
+  SEARCH_TOO_BROAD: "Từ khóa quá rộng, hãy nhập cụ thể hơn",
+  LEARNER_SEARCH_UNAVAILABLE: "Tạm thời không thể tìm học viên. Vui lòng thử lại.",
+  COURSE_SEARCH_UNAVAILABLE: "Tạm thời không thể tìm khóa học. Vui lòng thử lại.",
+  INVALID_DUE_DATE_RANGE: "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.",
   CONCURRENT_CHANGE: "Dữ liệu vừa thay đổi. Vui lòng thử gửi lại.",
   NOT_IN_ORGANIZATION: "Học viên không thuộc tổ chức.",
-  NOT_A_LEARNER: "Tài khoản không có vai trò Học viên.",
+  NOT_A_LEARNER: "Tài khoản không có vai trò học viên.",
   ACCOUNT_DELETED: "Tài khoản đã bị xóa.",
   ACCOUNT_DEACTIVATED: "Tài khoản đã bị vô hiệu hóa.",
-  ALREADY_ASSIGNED: "Học viên đã được phân công Khóa học này.",
+  ALREADY_ASSIGNED: "Học viên đã được phân công khóa học này.",
   DUE_DATE_NOT_LATER: "Hạn mới phải sau hạn hiện tại.",
   DUE_DATE_IN_PAST: "Ngày hết hạn không được trước hôm nay.",
   ENROLLMENT_NOT_EXTENDABLE:
     "Trạng thái phân công đã thay đổi; không thể kéo dài hạn. Đang tải lại chi tiết.",
+  ENROLLMENT_NOT_CANCELLABLE:
+    "Không thể hủy phân công ở trạng thái hiện tại. Thông tin phân công đã được cập nhật.",
+  ASSIGNMENT_HAS_LEARNING_DATA:
+    "Học viên đã có dữ liệu học tập. Hãy dùng “Đánh dấu Miễn” nếu muốn bỏ nghĩa vụ học.",
+  ENROLLMENT_NOT_EXEMPTED:
+    "Phân công không còn ở trạng thái Miễn. Đang tải lại chi tiết.",
   ENROLLMENT_NOT_EXEMPTIBLE:
     "Trạng thái phân công đã thay đổi, có thể người khác vừa thao tác; không thể đánh dấu Miễn. Đang tải lại chi tiết.",
   VALIDATION_ERROR:

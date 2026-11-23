@@ -1,5 +1,7 @@
 # ADR 0005: Service Discovery with Spring Cloud Netflix Eureka
 
+Partially superseded by ADR 0008
+
 ## Status
 Accepted
 

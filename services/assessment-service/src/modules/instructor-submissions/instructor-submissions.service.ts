@@ -10,12 +10,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CourseServiceClient } from '../../infrastructure/clients/course/course-service.client';
+import { NotificationClient } from '../../infrastructure/clients/notification/notification.client';
+import { deliverNotice } from '../../infrastructure/clients/notification/deliver-notice';
 import type { IUserDisplayName } from '../../infrastructure/clients/tenant/interfaces/user-display-name.interface';
 import { TenantDirectoryClient } from '../../infrastructure/clients/tenant/tenant-directory.client';
 import { STORAGE_PROVIDER } from '../../infrastructure/storage/storage.constants';
 import { scoreFromRubric } from '../peer-review/rubric-score';
 import { aggregateReviewScores } from './aggregate-review-scores';
 import { FinalizeSubmissionDto } from './dto/finalize-submission.dto';
+import { finalizedNotice } from './finalized-notice';
 import type { IFinalizeSubmissionResult } from './interfaces/finalize-submission-result.interface';
 import { InstructorReviewDto } from './dto/instructor-review.dto';
 import { ListSubmissionsQueryDto } from './dto/list-submissions-query.dto';
@@ -51,6 +54,7 @@ export class InstructorSubmissionsService {
     private readonly courses: CourseServiceClient,
     private readonly tenant: TenantDirectoryClient,
     @Inject(STORAGE_PROVIDER) private readonly storage: IStorageProvider,
+    private readonly notifications: NotificationClient,
   ) {}
 
   async list(
@@ -185,7 +189,7 @@ export class InstructorSubmissionsService {
       learner: this.learnerOf(submission.learnerId, names.map),
       submissionNumber: submission.submissionNumber,
       submittedAt: submission.submittedAt,
-      isLatest: history[0]?.id === submission.id,
+      isLatest: !submission.supersededAt && history[0]?.id === submission.id,
       content: submission.content,
       file: this.fileOf(
         submission.fileKey,
@@ -196,6 +200,8 @@ export class InstructorSubmissionsService {
       gradingStatus: submission.gradingStatus,
       interventionReason: submission.interventionReason,
       finalScore: toNumber(submission.finalScore),
+      aggregateScore:
+        aggregateReviewScores(submission.reviews)?.suggestedScore ?? null,
       finalizationComment: submission.finalizationComment,
       finalizedAt: submission.finalizedAt,
       assignment: {
@@ -349,7 +355,7 @@ export class InstructorSubmissionsService {
     const { courseId } = target.assessment;
     await this.requireOwnCourse(user, courseId);
 
-    return this.repository.transaction(async (tx) => {
+    const result = await this.repository.transaction(async (tx) => {
       // Match the lock order of UC30.1, which supersedes the previous row.
       await this.repository.lockAssignmentLearner(tx, assessmentId, learnerId);
       await this.repository.lockSubmission(tx, submissionId);
@@ -444,8 +450,64 @@ export class InstructorSubmissionsService {
         finalScore,
         finalizationComment,
         finalizedAt,
-      };
+      } as const;
     });
+
+    // Only a finalization that really committed gets here: every refusal above throws out of the transaction.
+    // The notices go out in the background: the Instructor does not wait for a notification-service that is slow or down.
+    void this.tellLearnerFinalized(user, learnerId, {
+      assignmentId: assessmentId,
+      courseId,
+      organizationId,
+      title: target.assessment.title,
+      finalScore: result.finalScore,
+    }).catch((error) =>
+      this.logger.error(
+        `The notice of the final score of ${assessmentId} failed: ${String(error)}`,
+      ),
+    );
+    return result;
+  }
+
+  /**
+   * BR-254 (UC32.3): the bell and the e-mail of the Learner when the final score is published. Each channel is tried
+   * again a few times (see `withRetries`), on its own: a notification that cannot be sent never undoes the score, and
+   * neither channel stops the other. The e-mail address is looked up inside the retried work, so a tenant-service that
+   * is down for a moment is covered too.
+   */
+  private async tellLearnerFinalized(
+    user: CurrentUser,
+    learnerId: string,
+    assignment: {
+      assignmentId: string;
+      courseId: string;
+      organizationId: string;
+      title: string;
+      finalScore: number;
+    },
+  ): Promise<void> {
+    const notice = finalizedNotice(assignment.title, assignment.finalScore);
+    await deliverNotice(
+      {
+        notifications: this.notifications,
+        tenant: this.tenant,
+        logger: this.logger,
+      },
+      {
+        organizationId: assignment.organizationId,
+        recipientUserId: learnerId,
+        title: notice.title,
+        message: notice.message,
+        type: 'ASSIGNMENT_RESULT',
+        metadata: {
+          assignmentId: assignment.assignmentId,
+          courseId: assignment.courseId,
+        },
+        templateCode: 'ASSIGNMENT_FINALIZED',
+        about: `the final score of ${assignment.assignmentId}`,
+        lookupAs: user,
+      },
+    );
   }
 
   private notAwaitingInstructor() {

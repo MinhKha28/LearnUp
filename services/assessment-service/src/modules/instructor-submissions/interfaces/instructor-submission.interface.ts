@@ -61,6 +61,7 @@ export interface ISubmissionDetail {
   gradingStatus: string;
   interventionReason: string | null;
   finalScore: number | null;
+  aggregateScore: number | null;
   finalizationComment: string | null;
   finalizedAt: Date | null;
   assignment: {

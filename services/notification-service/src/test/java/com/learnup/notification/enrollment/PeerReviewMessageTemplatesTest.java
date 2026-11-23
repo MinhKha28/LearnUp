@@ -62,7 +62,7 @@ class PeerReviewMessageTemplatesTest {
     @Test
     void greetsWithoutANameWhenTheNameIsNotKnown() {
         EnrollmentMessage message = templates.render(event("A", 1, Instant.parse("2026-11-10T17:00:00Z")), " ", ZoneId.of("UTC"));
-        assertThat(message.emailHtml()).startsWith("<p>Xin chào,</p>");
+        assertThat(message.emailHtml()).contains(">Xin chào,</p>").doesNotContain("Xin chào  ").doesNotContain("null");
     }
 
     @Test

@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { AssessmentStatusConsumer } from '../../src/modules/assessment-status/assessment-status.consumer';
 import { AssessmentStatusRepository } from '../../src/modules/assessment-status/assessment-status.repository';
 import { readAssessmentStatusConfig } from '../../src/modules/assessment-status/assessment-status.config';
@@ -20,7 +20,8 @@ import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, test } from './test-runner';
-import { ConfigService } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { Prisma } from '../../generated/prisma/client';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { AddressInfo } from 'node:net';
@@ -655,6 +656,30 @@ async function state(id: string) {
     >`SELECT status,completion_snapshot,completed_late FROM enrollments WHERE id=${id}::uuid`
   )[0];
 }
+test('Persists the precise completion time and classifies the deadline boundary', async () => {
+  const fixed = '2030-01-02T03:04:05.123456Z';
+  const evaluator = new CompletionService(repo, fake, () => Prisma.sql`${fixed}::timestamptz`);
+  for (const [microseconds, expectedLate] of [[0, true], [1, false]] as const) {
+    const f = await fixture('NotStarted', 'Required');
+    await prisma.$executeRaw`
+      UPDATE enrollments SET base_due_at = ${fixed}::timestamptz + ${microseconds}::int * interval '1 microsecond',
+                             due_at = ${fixed}::timestamptz + ${microseconds}::int * interval '1 microsecond'
+      WHERE id = ${f.id}::uuid`;
+    await evaluator.evaluate(await take(f.id));
+    const [stored] = await prisma.$queryRaw<
+      { exactTime: boolean; late: boolean; payload: { completedAt: string; occurredAt: string; completedLate: boolean } }[]
+    >`
+      SELECT e.completed_at = ${fixed}::timestamptz AS "exactTime", e.completed_late AS late, o.payload
+      FROM enrollments e JOIN outbox_events o ON o.aggregate_id = e.id AND o.event_type = 'EnrollmentCompleted'
+      WHERE e.id = ${f.id}::uuid`;
+    assert.equal(stored?.exactTime, true);
+    assert.equal(stored.late, expectedLate);
+    assert.equal(stored.payload.completedLate, expectedLate);
+    assert.equal(stored.payload.completedAt, '2030-01-02T03:04:05.123Z');
+    assert.equal(stored.payload.occurredAt, stored.payload.completedAt);
+  }
+});
+
 async function eventCount(id: string) {
   return Number(
     (
@@ -690,6 +715,18 @@ for (const status of [
       ['Halted', 'Withdrawn', 'Completed'].includes(status) ? 0 : 1,
     );
   });
+void test('UC24.4 drains an OrganizerCancelled completion request without completing', async () => {
+  const f = await fixture('NotStarted', 'Required');
+  const request = await take(f.id);
+  await prisma.$executeRaw`UPDATE enrollments
+    SET status='Withdrawn', withdrawn_reason='OrganizerCancelled', withdrawn_at=clock_timestamp()
+    WHERE id=${f.id}::uuid`;
+  await service.evaluate(request);
+  assert.equal((await state(f.id)).status, 'Withdrawn');
+  assert.equal(await eventCount(f.id), 0);
+  assert.equal(await prisma.completionEvaluationRequest.count({ where: { enrollmentId: f.id } }), 0);
+});
+
 void test('lease abandoned after claim can be reclaimed; old generation cannot complete twice', async () => {
   const f = await fixture();
   const abandoned = await take(f.id);
@@ -938,7 +975,25 @@ void test('API starts with Kafka and course-service unreachable and retains asse
   process.env.OUTBOX_RELAY_ENABLED = 'true';
   process.env.KAFKA_BROKERS = '127.0.0.1:1';
   process.env.COURSE_SERVICE_URL = 'http://127.0.0.1:1';
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+  // AppModule validation snapshots the environment at import time. Supply this
+  // scenario's later outage/recovery overrides explicitly to the test app.
+  class RecoveryAppModule {}
+  Module({
+    imports: [
+      AppModule,
+      ConfigModule.forRoot({
+        load: [
+          () => ({
+            COMPLETION_WORKER_ENABLED: process.env.COMPLETION_WORKER_ENABLED,
+            OUTBOX_RELAY_ENABLED: process.env.OUTBOX_RELAY_ENABLED,
+            KAFKA_BROKERS: process.env.KAFKA_BROKERS,
+            COURSE_SERVICE_URL: process.env.COURSE_SERVICE_URL,
+          }),
+        ],
+      }),
+    ],
+  })(RecoveryAppModule);
+  const app = await NestFactory.create<NestExpressApplication>(RecoveryAppModule, {
     logger: false,
   });
   try {
@@ -1070,7 +1125,7 @@ for (const fraction of ['572527', '000527'])
     await prisma.$executeRaw`UPDATE enrollments SET due_timezone='Asia/Ho_Chi_Minh',base_due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz,
     due_at=${`2026-10-13 16:44:59.${fraction}+00`}::timestamptz WHERE id=${f.id}::uuid`;
     await prisma.$transaction(async (tx) => {
-      const changes = new AssignmentChangesRepository();
+      const changes = new AssignmentChangesRepository(prisma);
       const row = await changes.lock(tx, org, f.id);
       const boundary = await new BaseDueAtRepository(
         prisma,

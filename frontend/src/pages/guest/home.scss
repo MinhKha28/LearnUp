@@ -320,7 +320,7 @@
 .home-course-row { margin: 8px 0 0 43px; padding: 11px 13px; position: relative; display: flex; align-items: center; gap: 9px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 5px; font-size: 8px; font-weight: 600; }
 .home-course-row::before { content: ""; position: absolute; left: -20px; top: -9px; width: 1px; height: calc(100% + 9px); background: var(--color-divider); }
 .home-course-row::after { content: ""; position: absolute; left: -20px; top: 50%; width: 20px; height: 1px; background: var(--color-divider); }
-.home-course-row small { margin-left: auto; color: var(--color-text-muted); font-size: 7px; font-weight: 400; text-transform: capitalize; }
+.home-course-row small { margin-left: auto; color: var(--color-text-muted); font-size: 7px; font-weight: 400; }
 .home-course-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-accent); }
 .home-course-dot-1 { background: var(--color-info); }
 .home-course-dot-2 { background: #7c3aed; }

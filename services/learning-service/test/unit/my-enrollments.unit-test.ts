@@ -100,7 +100,7 @@ function setup(
     ) => {
       calls.criteria.push(criteria);
       calls.count += 1;
-      return Promise.resolve(options.total ?? rows.length);
+      return Promise.resolve([{ n: BigInt(options.total ?? rows.length) }]);
     },
     findMinePage: (
       _learnerId: string,
@@ -150,7 +150,7 @@ function setup(
   };
 
   const service = new EnrollmentsService(
-    {} as never,
+    { $transaction: (queries: Promise<unknown>[]) => Promise.all(queries) } as never,
     enrollments as never,
     {} as never,
     {} as never,
@@ -184,7 +184,7 @@ async function rejectsWithStatus(
 }
 
 void describe('EnrollmentsService.findMyEnrollments (UC26)', () => {
-  void test('chưa có Enrollment → items rỗng, total 0; không đọc trang, không gọi I3, không gọi tenant', async () => {
+  void test('chưa có Enrollment → items rỗng, total 0; không gọi I3, không gọi tenant', async () => {
     const { service, calls } = setup({ rows: [], total: 0 });
     const result = await service.findMyEnrollments(LEARNER, 1);
     assert.deepEqual(result, {
@@ -193,11 +193,11 @@ void describe('EnrollmentsService.findMyEnrollments (UC26)', () => {
     });
     assert.deepEqual(
       [calls.page, calls.materials, calls.batch.length, calls.tenant],
-      [0, 0, 0, 0],
+      [1, 0, 0, 0],
     );
   });
 
-  void test('trang vượt tổng (kể cả page = 1e20) → items rỗng, total đúng; không chạy truy vấn danh sách', async () => {
+  void test('trang vượt tổng (kể cả page = 1e20) → items rỗng, total đúng', async () => {
     for (const page of [2, 1e20]) {
       const { service, calls } = setup();
       const result = await service.findMyEnrollments(LEARNER, page);
@@ -206,7 +206,7 @@ void describe('EnrollmentsService.findMyEnrollments (UC26)', () => {
       assert.equal(result.meta.current, page);
       assert.deepEqual(
         [calls.page, calls.batch.length, calls.tenant],
-        [0, 0, 0],
+        [1, 0, 0],
       );
     }
   });

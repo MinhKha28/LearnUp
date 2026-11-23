@@ -18,3 +18,13 @@ export interface TenantOrganizer {
   id: string;
   email: string;
 }
+
+export interface TransferReceiver {
+  id: string;
+  fullName: string;
+}
+
+export interface TenantErrorResponse {
+  code?: string;
+  message?: string;
+}

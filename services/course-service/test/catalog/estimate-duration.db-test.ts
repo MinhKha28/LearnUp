@@ -12,7 +12,7 @@ import { ConsoleLogger, Logger } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client';
 import { CatalogRepository } from 'src/modules/catalog/catalog.repository';
-import type { PrismaService } from 'src/infrastructure/prisma/prisma.service';
+import { CatalogService } from '../../src/modules/catalog/catalog.service';
 
 if (process.env.NODE_ENV === 'production') {
   throw new Error(
@@ -390,4 +390,70 @@ void describe('estimateDurationMinutes', () => {
       0,
     );
   });
+});
+
+void describe('catalog keyword search', () => {
+  void test('matches either field, accents and case, NFD stored text, and literal wildcards', () =>
+    withRollback(async (tx) => {
+      const byName = await createCourse(tx, []);
+      const byObjectives = await createCourse(tx, []);
+      const unrelated = await createCourse(tx, []);
+      await tx.course.update({ where: { id: byName }, data: {
+        name: 'ĐÀO tạo 100%_\\\\'.normalize('NFD'),
+        trainingObjectives: null,
+      } });
+      await tx.course.update({ where: { id: byObjectives }, data: {
+        trainingObjectives: 'Mục tiêu đào    tạo',
+      } });
+      await tx.course.update({ where: { id: unrelated }, data: { name: 'dao 100xY' } });
+
+      const repository = repositoryFor(tx);
+      for (const keyword of ['dao tao', 'Đào tạo']) {
+        const results = await repository.findCatalogCourses(TEST_ORG, 0, 12, keyword);
+        assert.deepEqual(new Set(results.map(({ id }) => id)), new Set([byName, byObjectives]));
+        assert.equal(await repository.countCatalog(TEST_ORG, keyword), 2);
+      }
+      for (const literal of ['%', '_', '％', '＿', '＼', '\\\\']) {
+        const results = await repository.findCatalogCourses(TEST_ORG, 0, 12, literal);
+        assert.deepEqual(results.map(({ id }) => id), [byName]);
+        assert.equal(await repository.countCatalog(TEST_ORG, literal), 1);
+      }
+      assert.equal(await repository.countCatalog(TEST_ORG, 'dao muc tieu'), 0);
+      await useReadingSpeed(tx, READING_SPEED);
+      const result = await new CatalogService(repository).findCatalog(
+        { userId: randomUUID(), role: 'LEARNER', organizationId: TEST_ORG, isAuthenticated: true },
+        1,
+        'Đào tạo'.normalize('NFD'),
+      );
+      assert.deepEqual(new Set(result.items.map(({ id }) => id)), new Set([byName, byObjectives]));
+    }));
+
+  void test('filters scope before counting or paging and uses the existing stable order', () =>
+    withRollback(async (tx) => {
+      const publishedAt = new Date('2026-09-01T00:00:00Z');
+      const ids: string[] = [];
+      for (let i = 0; i < 13; i += 1) ids.push(await createCourse(tx, []));
+      await tx.course.updateMany({ where: { id: { in: ids } }, data: { name: 'keyword', publishedAt } });
+
+      for (const fields of [
+        { courseType: 'Private' },
+        { status: 'Draft' },
+        { status: 'Archived' },
+        { status: 'Disabled' },
+        { disabledAt: publishedAt },
+        { organizationId: randomUUID() },
+      ]) {
+        const id = await createCourse(tx, []);
+        await tx.course.update({ where: { id }, data: { name: 'keyword', ...fields } });
+      }
+      await createCourse(tx, []);
+
+      const repository = repositoryFor(tx);
+      assert.equal(await repository.countCatalog(TEST_ORG, 'keyword'), 13);
+      const first = await repository.findCatalogCourses(TEST_ORG, 0, 12, 'keyword');
+      const second = await repository.findCatalogCourses(TEST_ORG, 12, 12, 'keyword');
+      assert.equal(first.length, 12);
+      assert.equal(second.length, 1);
+      assert.deepEqual([...first, ...second].map(({ id }) => id), ids.sort().reverse());
+    }));
 });

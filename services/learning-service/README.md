@@ -19,7 +19,7 @@ Both `OUTBOX_DRAIN_GAP_MS` and `OUTBOX_POLL_INTERVAL_MS` must be at most 60000 m
 Enable with OUTBOX_RELAY_ENABLED=true; default false keeps unrelated tests isolated.
 See .env.example for Kafka brokers, topic, replication factor, poll/batch size,
 delivery/probe/transaction timeouts, exponential backoff and alert threshold.
-The Docker stages use node:22-alpine3.24 (verified built image: Alpine 3.24.3, Node 22.23.4).
+The Docker stages use the pinned Node 24 Alpine image defined in Dockerfile.
 The Confluent client is pinned to 1.11.0 and uses native binaries for each platform;
 the Docker build excludes host node_modules and generates Prisma inside Linux.
 
@@ -120,7 +120,7 @@ in seed-enrollments.ts intentionally retain NULL completion_snapshot; they are n
 
 ## Isolated Learning integration tests
 
-Use Node 22.23 or later and PostgreSQL 16. From `services/learning-service` in
+Use Node 24 and PostgreSQL 16. From `services/learning-service` in
 PowerShell, set `$env:NODE_PATH=(Get-Location).Path`, set `DATABASE_URL` to a
 non-production PostgreSQL server, then run `npm run test:integration`.
 The PostgreSQL user needs CREATE/DROP DATABASE privileges and access to `postgres`.
@@ -213,3 +213,9 @@ and tree parser, without asserting fixed seed names, counts or timestamps.
 A failed check prints a request to raise a `[learning → course]` issue.
 This read-only check cannot verify write behavior such as lock idempotence,
 Draft-lock rejection or unchanged database timestamps.
+
+## Invariants
+
+- Enrollment access for assessment follows the stored lifecycle. Overdue is a derived read state. Optional withdrawal deletes the enrollment when Assessment confirms there is no assessment activity. When that activity exists, Learning retains the record as Withdrawn. See the [enrollment logic](src/modules/enrollments).
+- Watch coverage merges overlapping intervals. Resume position is a separate value, and reporting a position alone cannot complete the material. Reading completion is idempotent and uses the enrollment and course material access checks.
+- A transition that can make an enrollment eligible writes its completion evaluation request in the business transaction. The completion worker persists the snapshot and emits one completion event for the enrollment. See [relay checks](../../docs/how-to/outbox-relay-checks.md), [demo fixtures](../../docs/how-to/demo-fixtures.md) and [benchmarks](../../perf/learning/README.md).

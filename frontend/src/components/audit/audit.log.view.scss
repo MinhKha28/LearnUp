@@ -1,0 +1,52 @@
+.audit-log-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .audit-log-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    align-items: start;
+
+    .audit-log-target-type {
+      margin-bottom: 0;
+
+      .ant-form-item-row {
+        flex-direction: column;
+      }
+
+      .ant-form-item-label {
+        padding-bottom: 4px;
+        text-align: start;
+
+        > label {
+          height: auto;
+          align-items: flex-start;
+
+          &::after {
+            display: none;
+          }
+        }
+      }
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+  }
+
+  .audit-log-filter-actions {
+    display: flex;
+    padding-top: calc(1.5715em + 4px);
+    gap: 8px;
+  }
+
+  .audit-log-id {
+    color: var(--color-text-muted);
+    font-size: 12px;
+  }
+}

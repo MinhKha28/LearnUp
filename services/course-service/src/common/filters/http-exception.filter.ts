@@ -16,6 +16,21 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const status = exception.getStatus();
     const exceptionResponse = exception.getResponse();
 
+    // Lỗi quá tải tạm thời mang retryAfterSeconds -> header Retry-After.
+    const retryAfterSeconds =
+      typeof exceptionResponse === 'object' && exceptionResponse !== null
+        ? (exceptionResponse as { retryAfterSeconds?: unknown })
+            .retryAfterSeconds
+        : undefined;
+
+    if (
+      typeof retryAfterSeconds === 'number' &&
+      Number.isInteger(retryAfterSeconds) &&
+      retryAfterSeconds >= 0
+    ) {
+      response.setHeader('Retry-After', String(retryAfterSeconds));
+    }
+
     response.status(status).json({
       statusCode: status,
       timestamp: new Date().toISOString(),

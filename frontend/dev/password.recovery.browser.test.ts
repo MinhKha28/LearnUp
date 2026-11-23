@@ -300,7 +300,7 @@ describe.skipIf(!enabled)("UC07 password recovery (owned Chrome + isolated HTTP 
       "readable recovery failure with submit re-enabled");
     expect(await page().evaluate<string>("document.body.innerText")).not.toContain(BACKEND_SECRET);
     expect(await page().evaluate<boolean>("!!document.querySelector('.auth-confirmation')")).toBe(false);
-    expect(await page().evaluate<boolean>("document.querySelector('h1')?.textContent === 'Password reset'")).toBe(false);
+    expect(await page().evaluate<boolean>("document.querySelector('h1')?.textContent === 'Đã đặt lại mật khẩu'")).toBe(false);
   }
 
   async function fillReset(password = PASSWORD, confirmation = password) {
@@ -311,10 +311,10 @@ describe.skipIf(!enabled)("UC07 password recovery (owned Chrome + isolated HTTP 
   it("validates required/invalid email in the real Ant Design form without an API request", async () => {
     await visit("/forgot-password");
     await page().submit();
-    await page().waitFor("document.body.innerText.includes('Enter your email address')", "required email validation");
+    await page().waitFor("document.body.innerText.includes('Hãy nhập địa chỉ email')", "required email validation");
     await page().fill("input[autocomplete=email]", "not-an-email");
     await page().submit();
-    await page().waitFor("document.body.innerText.includes('valid email')", "email syntax validation");
+    await page().waitFor("document.body.innerText.includes('Địa chỉ email không hợp lệ')", "email syntax validation");
     expect(recoveryRequests()).toHaveLength(0);
     expect(await page().evaluate<boolean>("!!document.querySelector('a[href=\"/login\"]')")).toBe(true);
   });
@@ -327,8 +327,8 @@ describe.skipIf(!enabled)("UC07 password recovery (owned Chrome + isolated HTTP 
     await page().waitFor("!!document.querySelector('.auth-confirmation')", "neutral recovery confirmation");
     const confirmation = await page().evaluate<string>("document.querySelector('.auth-confirmation').textContent");
     expect(confirmation).not.toContain(email);
-    expect(confirmation).toMatch(/if|eligible/i);
-    expect(confirmation).not.toMatch(/was sent|has been sent/i);
+    expect(confirmation).toMatch(/Nếu|đủ điều kiện/i);
+    expect(confirmation).not.toMatch(/đã gửi|đã được gửi/i);
     expect(recoveryRequests()[0]).toMatchObject({ method: "POST", path: FORGOT, body: { email } });
     expect(await page().evaluate<boolean>("!!document.querySelector('a[href*=\"demo-token\"]')")).toBe(false);
   });
@@ -374,12 +374,12 @@ describe.skipIf(!enabled)("UC07 password recovery (owned Chrome + isolated HTTP 
     await visit("/reset-password/" + encodeURIComponent(RAW_TOKEN));
     await fillReset("12345", "different");
     await page().submit();
-    await page().waitFor("document.body.innerText.includes('6 characters') && document.body.innerText.includes('Passwords do not match')",
+    await page().waitFor("document.body.innerText.includes('ít nhất 6 ký tự') && document.body.innerText.includes('Mật khẩu nhập lại không khớp')",
       "password length and confirmation validation");
     expect(recoveryRequests()).toHaveLength(0);
     await fillReset("      ");
     await page().submit();
-    await page().waitFor("document.body.innerText.includes('Enter a new password')", "whitespace-only password validation");
+    await page().waitFor("document.body.innerText.includes('Hãy nhập mật khẩu mới')", "whitespace-only password validation");
     expect(recoveryRequests()).toHaveLength(0);
   });
 
@@ -387,7 +387,7 @@ describe.skipIf(!enabled)("UC07 password recovery (owned Chrome + isolated HTTP 
     await visit("/reset-password/%20");
     await page().waitFor("!!document.querySelector('[role=alert]')", "missing recovery authority feedback");
     expect(await page().evaluate<boolean>("document.querySelector('button[type=submit]').disabled")).toBe(true);
-    expect(await page().evaluate<string>("document.querySelector('[role=alert]').textContent")).toMatch(/invalid|expired|usable/i);
+    expect(await page().evaluate<string>("document.querySelector('[role=alert]').textContent")).toMatch(/không hợp lệ|hết hạn|không còn dùng được/i);
     expect(recoveryRequests()).toHaveLength(0);
     expect(await page().evaluate<boolean>("!!document.querySelector('a[href=\"/forgot-password\"]')")).toBe(true);
   });
@@ -396,7 +396,7 @@ describe.skipIf(!enabled)("UC07 password recovery (owned Chrome + isolated HTTP 
     await visit("/reset-password/" + encodeURIComponent(RAW_TOKEN));
     await fillReset("🔒".repeat(19));
     await page().submit();
-    await page().waitFor("document.body.innerText.includes('Password is too long')", "UTF-8 password byte limit");
+    await page().waitFor("document.body.innerText.includes('Mật khẩu quá dài')", "UTF-8 password byte limit");
     expect(recoveryRequests()).toHaveLength(0);
   });
 
@@ -414,10 +414,10 @@ describe.skipIf(!enabled)("UC07 password recovery (owned Chrome + isolated HTTP 
       body: { token: RAW_TOKEN, newPassword: PASSWORD, confirmPassword: PASSWORD } });
     plan.hold = false;
     heldResponses.splice(0).forEach((response) => sendResponse(response));
-    await page().waitFor("document.querySelector('h1')?.textContent === 'Password reset'", "successful password reset response");
+    await page().waitFor("document.querySelector('h1')?.textContent === 'Đã đặt lại mật khẩu'", "successful password reset response");
     expect(await page().evaluate("localStorage.getItem('access_token')")).toBeNull();
     expect(await page().evaluate("localStorage.getItem('refresh_token')")).toBeNull();
-    await page().evaluate("Array.from(document.querySelectorAll('button,a')).find(node=>node.textContent.includes('sign in')).click()");
+    await page().evaluate("Array.from(document.querySelectorAll('button,a')).find(node=>node.textContent.includes('đăng nhập')).click()");
     await page().waitFor("location.pathname === '/login'", "explicit sign-in navigation");
   });
 
@@ -430,7 +430,7 @@ describe.skipIf(!enabled)("UC07 password recovery (owned Chrome + isolated HTTP 
     await page().submit();
     await waitForRequest();
     await waitForError();
-    expect(await page().evaluate<string>("document.querySelector('[role=alert]').textContent")).toMatch(/invalid|expired|used|no longer valid/i);
+    expect(await page().evaluate<string>("document.querySelector('[role=alert]').textContent")).toMatch(/không hợp lệ|hết hạn|không còn dùng được/i);
     expect(await page().evaluate<boolean>("!!document.querySelector('a[href=\"/forgot-password\"]')")).toBe(true);
   });
 

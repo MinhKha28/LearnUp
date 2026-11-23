@@ -15,6 +15,7 @@ import { InternalAuthGuard } from '../src/common/guards/internal-auth.guard';
 import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
+import { STORAGE_PROVIDER } from '../src/infrastructure/storage/storage.constants';
 import { InternalCoursesController } from '../src/modules/internal-courses/internal-courses.controller';
 import { InternalCoursesService } from '../src/modules/internal-courses/internal-courses.service';
 
@@ -41,6 +42,7 @@ describe('ServiceCall batch (HTTP with real PostgreSQL)', () => {
       providers: [
         InternalCoursesService,
         PrismaService,
+        { provide: STORAGE_PROVIDER, useValue: {} },
         {
           provide: ConfigService,
           useValue: new ConfigService({

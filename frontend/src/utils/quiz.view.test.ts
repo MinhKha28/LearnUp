@@ -8,6 +8,7 @@ import {
   permissionReasonTexts,
   QUIZ_LOCK_REASON_TEXT,
   quizBannerReasons,
+  quizAttemptLimitLabel,
   quizPlacementLabel,
   quizQuestionTypeLabel,
 } from "@/utils/quiz.view";
@@ -25,11 +26,11 @@ const permissions = (over: Partial<IQuizPermissions> = {}): IQuizPermissions => 
 });
 
 describe("UC18.1 view", () => {
-  it("labels the three question types and passes an unknown one through (BR-155)", () => {
-    expect(quizQuestionTypeLabel("SingleChoice")).toBe("Single answer");
-    expect(quizQuestionTypeLabel("MultipleChoice")).toBe("Multiple answers");
-    expect(quizQuestionTypeLabel("TrueFalse")).toBe("True / False");
-    expect(quizQuestionTypeLabel("SINGLE")).toBe("SINGLE");
+  it("labels the three question types and handles an unknown value (BR-155)", () => {
+    expect(quizQuestionTypeLabel("SingleChoice")).toBe("Một đáp án đúng");
+    expect(quizQuestionTypeLabel("MultipleChoice")).toBe("Nhiều đáp án đúng");
+    expect(quizQuestionTypeLabel("TrueFalse")).toBe("Đúng / Sai");
+    expect(quizQuestionTypeLabel("SINGLE")).toBe("Không xác định");
   });
 
   it("shows scores on the 0–100 scale with at most 2 decimals (BR-315)", () => {
@@ -43,18 +44,32 @@ describe("UC18.1 view", () => {
     expect([0, 1, 2].map(optionLetter)).toEqual(["A", "B", "C"]);
   });
 
-  it("places a Quiz after its Module's Lessons or at the end of the Course (BR-154, BR-291)", () => {
-    const modules = [
-      { id: "m1", title: "Basics" },
-      { id: "m2", title: "Fire safety" },
-    ];
-    expect(quizPlacementLabel({ moduleId: "m2" }, modules)).toBe("Module 2: Fire safety · shown after its Lessons");
-    expect(quizPlacementLabel({ moduleId: null }, modules)).toBe(
-      "Attached to the Course · shown at the end of the Course",
-    );
-    expect(quizPlacementLabel({ moduleId: "gone" }, modules)).toBe(
-      "Attached to a Module that is not in the current outline",
-    );
+  const modules = [{ id: "m1", title: "Giới thiệu" }, { id: "m2", title: "An toàn" }];
+
+  it("places a course-level quiz at the end of the course", () => {
+    expect(quizPlacementLabel({ moduleId: null }, modules)).toBe("Cuối khóa học");
+    expect(quizPlacementLabel({ placement: "COURSE" }, modules)).toBe("Cuối khóa học");
+  });
+
+  it("places a chapter-level quiz after that chapter's lessons", () => {
+    expect(quizPlacementLabel({ moduleId: "m2", placement: "MODULE" }, modules))
+      .toBe("Sau các bài học của chương 2: An toàn");
+  });
+
+  it("reports a chapter missing from the outline", () => {
+    expect(quizPlacementLabel({ moduleId: "gone" }, modules))
+      .toBe("Không tìm thấy chương trong cấu trúc khóa học");
+  });
+
+  it("reports missing placement data", () => {
+    expect(quizPlacementLabel({}, modules)).toBe("Chưa xác định vị trí");
+  });
+
+  it("labels the attempt limit and handles either missing setting", () => {
+    expect(quizAttemptLimitLabel(3, 24)).toBe("Tạm khóa trong 24 giờ sau 3 lượt làm liên tiếp.");
+    expect(quizAttemptLimitLabel(null, 24)).toBe("Chưa xác định");
+    expect(quizAttemptLimitLabel(3, null)).toBe("Chưa xác định");
+    expect(quizAttemptLimitLabel(3)).toBe("Chưa xác định");
   });
 
   it("explains a blocked permission and says nothing about an allowed one (BR-99)", () => {

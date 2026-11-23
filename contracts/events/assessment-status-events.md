@@ -20,14 +20,36 @@ Learning does not read, validate, or store these four `Started` extras.
 
 Started/Submitted/Resubmitted use Learning's shared earliest-activity activation helper.
 PeerReviewWaived/PeerReviewCompleted/PeerReviewAssigned/PeerReviewMissed/Finalized never activate.
-The additive status values below are accepted by learning and are planned for
-the Assessment paths listed below (not yet emitted):
+The additive status values below are accepted by learning. Assessment emits them from the paths listed:
 
-| Status | Reason | Assessment path |
-| --- | --- | --- |
-| PeerReviewAssigned | PEER_REVIEW_ASSIGNED | close (`closeOpen`) |
-| PeerReviewMissed | PEER_REVIEW_MISSED | expire |
-| Finalized | ASSIGNMENT_FINALIZED | separate finalization publish action (UC32.3) |
+| Status | Reason | Assessment path | Extra fields |
+| --- | --- | --- | --- |
+| PeerReviewAssigned | PEER_REVIEW_ASSIGNED | a peer review cycle closes (`closeOpen`, by the schedule or by the Instructor) | `cycleId`, `reviewCount` |
+| PeerReviewMissed | PEER_REVIEW_MISSED | the review deadline of a cycle passes and reviews were not done (schedule) | `cycleId`, `missedCount` |
+| Finalized | ASSIGNMENT_FINALIZED | the Instructor finalizes a submission (UC32.3) | `submissionId`, `finalScore`, `finalizedAt` |
+
+`PeerReviewAssigned` and `PeerReviewMissed` are written once for each Learner who got reviews to give, or who left some
+undone, in the same transaction that creates the reviews or marks them Missed (so the event exists if and only if the
+change does), with `kind` `ASSIGNMENT`, `occurredAt` the time of the closing or of the deadline check, and the key
+`learnerId`. A cycle that goes to the Instructor (too few submissions) writes none; a Learner who gave every review of a
+cycle gets no `PeerReviewMissed`. `revision` is the revision of the completion snapshot after the change, so the
+Learner's peer review duty is `Pending` (after `PeerReviewAssigned`) or `Missed` (after `PeerReviewMissed`) in the
+snapshot that learning reads. Learning ignores `cycleId`, `reviewCount` and `missedCount`.
+
+**The `status` of an event is a hint about what happened, not the source of truth.** With waived duties, or with late or
+overlapping cycles, the status an event names can differ from the duty status in the snapshot of that `revision` (for
+example a `PeerReviewMissed` for one cycle while a later cycle is still pending). A consumer must only treat the event as a
+trigger and read the completion snapshot over REST; it must not derive the Learner's status, or write any state, from the
+`status` field.
+
+Assessment does not filter the reviewers by the state of their account or enrollment: a reviewer whose account was deleted,
+or who withdrew from the Course, still has Pending reviews that are marked Missed at the deadline, and gets
+`PeerReviewAssigned` / `PeerReviewMissed` like the others. This is harmless for learning as it is: an Enrollment that is
+Withdrawn, Completed or Halted has its completion request dropped by the worker, and an Enrollment that does not exist
+is quarantined as `ENROLLMENT_NOT_FOUND` without blocking the partition (it only adds a row to triage). Removing these
+duties at the source (BR-244, BR-245: the work goes to the Instructor and does not count as missed) is a separate change.
+This is not the notification event `PeerReviewAssigned` of [assessment-peer-review-events.md](assessment-peer-review-events.md),
+which has its own topic and consumer.
 
 Deploy the accepting Learning consumer before Assessment starts emitting these values.
 `Finalized` requires reason `ASSIGNMENT_FINALIZED`; a missing or wrong reason is

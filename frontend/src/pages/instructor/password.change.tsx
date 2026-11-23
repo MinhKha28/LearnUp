@@ -15,9 +15,9 @@ const ChangePassword = () => {
   return (
     <InstructorPage className="instructor-change-password">
       <PageHeader
-        eyebrow="ACCOUNT / PASSWORD"
-        title="Change Password"
-        subtitle="Confirm the current password and set a new one."
+        eyebrow="Tài khoản / Mật khẩu"
+        title="Đổi mật khẩu"
+        subtitle="Xác minh mật khẩu hiện tại trước khi đặt mật khẩu mới."
         back
       />
       <SectionCard>
@@ -31,31 +31,31 @@ const ChangePassword = () => {
           onValuesChange={clearError}
         >
           <Form.Item
-            label="Current password"
+            label="Mật khẩu hiện tại"
             name="current"
             rules={currentPasswordRules}
           >
             <Input.Password />
           </Form.Item>
           <Form.Item
-            label="New password"
+            label="Mật khẩu mới"
             name="password"
             dependencies={["current"]}
             rules={newPasswordRules}
           >
-            <Input.Password placeholder="Enter new password" />
+            <Input.Password placeholder="Nhập mật khẩu mới" />
           </Form.Item>
           <Form.Item
-            label="Confirm new password"
+            label="Nhập lại mật khẩu mới"
             name="confirm"
             dependencies={["password"]}
             rules={confirmPasswordRules}
           >
-            <Input.Password placeholder="Enter confirm new password" />
+            <Input.Password placeholder="Nhập lại mật khẩu mới" />
           </Form.Item>
           <div className="instructor-password-actions">
             <InstructorButton type="primary" htmlType="submit" loading={submitting}>
-              Update password
+              Cập nhật mật khẩu
             </InstructorButton>
           </div>
         </Form>

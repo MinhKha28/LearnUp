@@ -1,7 +1,8 @@
 import { useEffect, useRef, type ComponentType } from "react";
-import { Alert, Avatar, Form, Input, Spin, message, type ButtonProps } from "antd";
+import { Avatar, Form, Input, Spin, message, type ButtonProps } from "antd";
 import { initialsOf, useMyProfile } from "@/hooks/use.my.profile";
 import "./profile.editor.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 type ProfileFields = { fullName: string };
 
@@ -32,12 +33,12 @@ const ProfileEditor = ({ button: RoleButton, onSaved }: IProps) => {
   async function changePhoto(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (file && (await uploadAvatar(file))) message.success("Photo updated.");
+    if (file && (await uploadAvatar(file))) message.success("Đã cập nhật ảnh đại diện.");
   }
 
   async function submit(values: ProfileFields) {
     if (await saveName(values.fullName)) {
-      message.success("Profile updated.");
+      message.success("Đã cập nhật hồ sơ.");
       onSaved();
     }
   }
@@ -47,7 +48,7 @@ const ProfileEditor = ({ button: RoleButton, onSaved }: IProps) => {
   return (
     <div className="profile-editor">
       {error && (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
           message={error}
@@ -70,20 +71,20 @@ const ProfileEditor = ({ button: RoleButton, onSaved }: IProps) => {
           loading={uploading}
           onClick={() => fileInputRef.current?.click()}
         >
-          Change photo
+          Đổi ảnh
         </RoleButton>
         {profile?.avatarUrl && (
           <RoleButton
             danger
             disabled={uploading}
             onClick={async () => {
-              if (await removeAvatar()) message.success("Photo removed.");
+              if (await removeAvatar()) message.success("Đã gỡ ảnh đại diện.");
             }}
           >
-            Remove photo
+            Gỡ ảnh
           </RoleButton>
         )}
-        <small>JPG, PNG or WEBP, up to 2 MB.</small>
+        <small>JPG, PNG hoặc WEBP, tối đa 2 MB.</small>
       </div>
       <Form<ProfileFields>
         form={form}
@@ -94,36 +95,36 @@ const ProfileEditor = ({ button: RoleButton, onSaved }: IProps) => {
         onValuesChange={clearError}
       >
         <Form.Item
-          label="Full name"
+          label="Họ và tên"
           name="fullName"
           rules={[
-            { required: true, whitespace: true, message: "Enter your full name." },
-            { max: 100, message: "Use at most 100 characters." },
+            { required: true, whitespace: true, message: "Hãy nhập họ và tên." },
+            { max: 100, message: "Tối đa 100 ký tự." },
             {
               pattern: /^[^<>]*$/,
-              message: "The name cannot contain < or >.",
+              message: "Họ và tên không được chứa < hoặc >.",
             },
           ]}
         >
           <Input autoComplete="name" />
         </Form.Item>
-        <Form.Item label="Email address (read only)">
+        <Form.Item label="Địa chỉ email (chỉ xem)">
           <Input value={profile?.email} disabled />
         </Form.Item>
-        {profile?.organizationId && (
+        {profile?.organizationId && profile.role !== "Admin" && (
           <Form.Item
-            label="Department (read only)"
-            extra="Managed by your Organizer."
+            label="Đơn vị công tác (chỉ xem)"
+            extra="Do quản lý đào tạo quản lý."
           >
-            <Input value={profile.department ?? "Not set"} disabled />
+            <Input value={profile.department ?? "Chưa có"} disabled />
           </Form.Item>
         )}
         <p className="profile-editor-note">
-          Your login email cannot be changed from your profile.
+          Bạn không tự đổi được email đăng nhập trong hồ sơ.
         </p>
         <div className="profile-editor-actions">
           <RoleButton type="primary" htmlType="submit" loading={saving}>
-            Save changes
+            Lưu thay đổi
           </RoleButton>
         </div>
       </Form>

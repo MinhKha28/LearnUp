@@ -73,6 +73,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+        <!-- UC05.1: verify Google ID tokens (JWKS signature, iss, aud, exp); version managed by Spring Boot -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-jose</artifactId>
+        </dependency>
 
         <!-- Spring Data JPA & PostgreSQL -->
         <dependency>

@@ -6,6 +6,7 @@ import { validate } from 'class-validator';
 import { CreateAssignmentDto } from '../../src/modules/assessments/dto/create-assignment.dto';
 import { UpdateAssignmentDto } from '../../src/modules/assessments/dto/update-assignment.dto';
 import { FinalizeSubmissionDto } from '../../src/modules/instructor-submissions/dto/finalize-submission.dto';
+import { ListSubmissionsQueryDto } from '../../src/modules/instructor-submissions/dto/list-submissions-query.dto';
 import { UpdatePeerReviewDto } from '../../src/modules/peer-review/dto/update-peer-review.dto';
 
 async function problems(
@@ -338,6 +339,42 @@ describe('UpdatePeerReviewDto', () => {
     assert.deepEqual(
       await problems(UpdatePeerReviewDto, { ...on, deadlineDays: 2.5 }),
       ['deadlineDays'],
+    );
+  });
+});
+
+describe('ListSubmissionsQueryDto (UC32.4)', () => {
+  test('a score filter is a number from 0 to 100, the ends included (BR-202)', async () => {
+    for (const value of ['0', '70.5', '100']) {
+      assert.deepEqual(
+        await problems(ListSubmissionsQueryDto, { minScore: value }),
+        [],
+        value,
+      );
+      assert.deepEqual(
+        await problems(ListSubmissionsQueryDto, { maxScore: value }),
+        [],
+        value,
+      );
+    }
+  });
+
+  test('a score filter below 0 or above 100 can never match, so it is refused', async () => {
+    for (const value of ['-0.01', '100.01', '101', '1000']) {
+      assert.deepEqual(
+        await problems(ListSubmissionsQueryDto, { minScore: value }),
+        ['minScore'],
+        value,
+      );
+      assert.deepEqual(
+        await problems(ListSubmissionsQueryDto, { maxScore: value }),
+        ['maxScore'],
+        value,
+      );
+    }
+    assert.deepEqual(
+      await problems(ListSubmissionsQueryDto, { minScore: 'abc' }),
+      ['minScore'],
     );
   });
 });

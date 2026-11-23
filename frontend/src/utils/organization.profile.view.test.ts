@@ -70,7 +70,7 @@ describe("UC11.1 organization form", () => {
       logoFileError({ type: "image/jpeg", size: 2 * 1024 * 1024 }),
     ).toBeNull();
     expect(logoFileError({ type: "image/webp", size: 1024 })).toContain(
-      "PNG or JPEG",
+      "PNG hoặc JPEG",
     );
     expect(
       logoFileError({ type: "image/png", size: 2 * 1024 * 1024 + 1 }),
@@ -79,10 +79,10 @@ describe("UC11.1 organization form", () => {
 
   it("explains backend errors without raw codes", () => {
     expect(organizationErrorMessage(403, "SUBSCRIPTION_NOT_ACTIVE")).toContain(
-      "view only",
+      "chỉ xem được",
     );
     expect(organizationErrorMessage(400, "INVALID_TIMEZONE")).toBe(
-      "Choose a timezone from the list.",
+      "Hãy chọn múi giờ trong danh sách.",
     );
     expect(organizationErrorMessage(413, "FILE_TOO_LARGE")).toContain("2 MB");
     expect(organizationErrorMessage(500, "WHATEVER")).not.toContain("WHATEVER");

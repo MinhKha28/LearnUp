@@ -167,7 +167,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24.22.3
           cache: npm
           cache-dependency-path: libraries/${{ matrix.lib }}/package-lock.json
 
@@ -181,10 +181,13 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # ts-common has failing tests on develop; ts-storage tests are blocking.
+      - name: Typecheck ts-common tests
+        if: matrix.lib == 'ts-common'
+        run: npm run typecheck:tests
+
+      # Both TypeScript libraries have blocking unit tests.
       - name: Unit tests
         id: unit
-        continue-on-error: ${{ matrix.lib == 'ts-common' }}
         run: |
           set +e
           npx vitest run 2>&1 | tee "$RUNNER_TEMP/vitest.log"
@@ -213,7 +216,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24.22.3
           cache: npm
           cache-dependency-path: |
             ${{ matrix.dir }}/package-lock.json
@@ -239,6 +242,10 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Typecheck frontend
+        if: matrix.name == 'frontend'
+        run: npm run typecheck
 
       - name: Typecheck (default tsconfig)
         if: matrix.name != 'frontend'
@@ -328,7 +335,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24.22.3
           cache: npm
           cache-dependency-path: |
             services/learning-service/package-lock.json
@@ -360,12 +367,40 @@ jobs:
           timing="$(grep -h '^it-timing ' "$RUNNER_TEMP/learning-it.log" | tr '\n' ' ' || true)"
           echo "::notice title=it-timing::$timing"
 
+  frontend-image:
+    name: Frontend Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build frontend image
+        run: docker build -f frontend/Dockerfile ./frontend
+
+  ai-signature:
+    name: AI signature
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.3
+      - name: Check PR commit metadata
+        run: node scripts/check-ai-signatures.mjs
+
   # Single stable check name for branch protection; passes when every
   # job that ran succeeded and fails if any job failed or was cancelled.
   ci-result:
     name: CI result
     if: always()
-    needs: [changes, ts-libraries, node, java]
+    needs: [changes, ts-libraries, node, java, frontend-image, ai-signature]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

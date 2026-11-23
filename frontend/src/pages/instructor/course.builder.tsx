@@ -14,18 +14,20 @@ const CourseBuilder = () => {
     useOutletContext<ICourseBuilderOutletContext>();
 
   const course = structure.course;
+  const isSubmitted = course.status === "Submitted";
+  const canEditStructure = !structure.structureLocked && !isSubmitted;
   const base = `/instructor/courses/${course.id}/builder`;
 
   return (
     <div className="builder-outline-page">
       <div className="builder-editor-header">
         <div>
-          <span className="builder-editor-eyebrow">COURSE BUILDER</span>
-          <h1>Course Structure</h1>
-          <p>Organize this Course into Modules and Lessons.</p>
+          <span className="builder-editor-eyebrow">Xây dựng khóa học</span>
+          <h1>Cấu trúc khóa học</h1>
+          <p>Sắp xếp nội dung khóa học thành các chương và bài học.</p>
         </div>
       </div>
-      {course.status !== "Submitted" && (
+      {!isSubmitted && (
         <div
           style={{
             display: "flex",
@@ -34,14 +36,14 @@ const CourseBuilder = () => {
           }}
         >
           <InstructorButton onClick={() => navigate(`${base}/structure/edit`)}>
-            Edit Structure
+            Chỉnh sửa cấu trúc
           </InstructorButton>
         </div>
       )}
       {structure.structureLocked && structure.lockReason && (
         <div className="builder-banner">
           <strong>
-            <LockOutlined /> Structure locked
+            <LockOutlined /> Cấu trúc đã khóa
           </strong>
           <p>{structure.lockReason}</p>
         </div>
@@ -49,14 +51,14 @@ const CourseBuilder = () => {
 
       {structure.modules.length === 0 ? (
         <div className="builder-empty">
-          <Empty description="No Modules yet" />
+          <Empty description="Chưa có chương nào" />
 
-          {!structure.structureLocked && (
+          {canEditStructure && (
             <InstructorButton
               type="primary"
               onClick={() => navigate(`${base}/modules/new`)}
             >
-              <PlusOutlined /> Add first Module
+              <PlusOutlined /> Thêm chương đầu tiên
             </InstructorButton>
           )}
         </div>
@@ -71,8 +73,8 @@ const CourseBuilder = () => {
                   <div>
                     <h2>{module.title}</h2>
                     <p>
-                      {module.required ? "Required" : "Optional"} •{" "}
-                      {module.lessons.length} Lesson
+                      {module.required ? "Bắt buộc" : "Không bắt buộc"} •{" "}
+                      {module.lessons.length} bài học
                       {module.lessons.length === 1 ? "" : "s"}
                     </p>
                   </div>
@@ -84,7 +86,7 @@ const CourseBuilder = () => {
                       navigate(`${base}/modules/${module.id}/lessons/new`)
                     }
                   >
-                    + Add Lesson
+                    + Thêm bài học
                   </InstructorButton>
                 )}
               </div>
@@ -101,13 +103,13 @@ const CourseBuilder = () => {
                         {lessonIndex + 1}. {lesson.title}
                       </span>
 
-                      {lesson.required && <small>Required</small>}
+                      {lesson.required && <small>Bắt buộc</small>}
                     </button>
                   ))}
                 </div>
               ) : (
                 <p className="builder-structure-empty-lessons">
-                  No Lessons yet.
+                  Chưa có bài học.
                 </p>
               )}
             </div>
@@ -119,28 +121,29 @@ const CourseBuilder = () => {
         <div className="builder-structure-list">
           <div className="builder-structure-module">
             <div className="builder-structure-module-header">
-              <h2>Assignments</h2>
+              <h2>Bài tập</h2>
               <div style={{ display: "flex", gap: 8 }}>
                 <InstructorButton
                   onClick={() => navigate(`${base}/assignments`)}
                 >
-                  View all Assignments
+                  Xem tất cả bài tập
                 </InstructorButton>
                 <InstructorButton
+                  disabled={isSubmitted || course.locked}
                   onClick={() =>
                     navigate(`${base}/assignments/new`, {
                       state: { from: pathname },
                     })
                   }
                 >
-                  + Add Assignment
+                  + Thêm bài tập
                 </InstructorButton>
               </div>
             </div>
             <div className="builder-structure-lessons">
               {assignments.length === 0 && (
                 <p className="builder-structure-empty-lessons">
-                  No Assignments yet.
+                  Chưa có bài tập.
                 </p>
               )}
               {assignments.map((assignment, index) => (
@@ -156,7 +159,7 @@ const CourseBuilder = () => {
                   <span>
                     {index + 1}. {assignment.title}
                   </span>
-                  {assignment.disabled && <small>Disabled</small>}
+                  {assignment.disabled && <small>Đã vô hiệu hóa</small>}
                 </button>
               ))}
             </div>

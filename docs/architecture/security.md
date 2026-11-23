@@ -1,111 +1,13 @@
-# Authentication, Authorization, & Security Architecture
+# Request authentication and authorization
 
-LearnUP implements a centralized authentication and distributed authorization architecture. The API Gateway acts as the secure entry point that validates cryptographic tokens, while downstream microservices enforce fine-grained Role-Based Access Control (RBAC) and multi-tenant isolation.
+## Gateway
 
----
+[JwtAuthenticationFilter](../../gateway/api-gateway/src/main/java/com/learnup/gateway/filter/JwtAuthenticationFilter.java) validates bearer JWTs on protected routes. It removes client-supplied `X-User-ID`, `X-User-Role`, `X-Organization-ID`, `X-Internal-Key` and `X-Service-Name`. It forwards identity claims from the validated token and supplies the configured internal key. Whitelisted routes also receive the configured key, with client identity headers removed. The [route configuration](../../gateway/api-gateway/src/main/resources/application.yml) defines the whitelist.
 
-## 1. Platform Roles
+## Downstream authentication
 
-The system strictly supports **exactly four roles**:
+Protected business endpoints authenticate `X-Internal-Key` against `INTERNAL_SERVICE_KEY` before establishing user context. For example, Learning's [InternalAuthGuard](../../services/learning-service/src/common/guards/internal-auth.guard.ts) verifies the key and creates `request.user`. Its [User decorator](../../services/learning-service/src/common/decorator/customize.ts) supplies that authenticated principal to controllers. Pass that principal to the service and enforce the role and organization against the resource being accessed.
 
-```text
-┌─────────────────┬─────────────────────────────────────────────────────────────┐
-│ Role            │ Primary Responsibilities & Scope                            │
-├─────────────────┼─────────────────────────────────────────────────────────────┤
-│ ADMIN           │ Platform-wide administration, tenant onboarding, system     │
-│                 │ configuration, global oversight.                            │
-├─────────────────┼─────────────────────────────────────────────────────────────┤
-│ ORGANIZER       │ Organization-level administration: managing learners,       │
-│                 │ assigning tags, assigning mandatory courses, tracking KPIs. │
-├─────────────────┼─────────────────────────────────────────────────────────────┤
-│ INSTRUCTOR      │ Authoring courses, managing syllabus, grading assignments,  │
-│                 │ resolving peer review timeouts and grading overrides.       │
-├─────────────────┼─────────────────────────────────────────────────────────────┤
-│ LEARNER         │ Enrolling in courses, viewing assigned learning, submitting │
-│                 │ quizzes/essays, completing peer reviews, earning certs.     │
-└─────────────────┴─────────────────────────────────────────────────────────────┘
-```
+[IdentityRequestAuthenticationFilter](../../services/identity-service/src/main/java/com/learnup/identity/security/IdentityRequestAuthenticationFilter.java) authenticates internal provisioning with the internal key and requires both the internal key and a valid bearer JWT for protected user routes. It installs the principal in Spring Security's context. Public authentication routes follow the Identity security configuration. Identity has no published container port in [Compose](../../docker-compose.yml).
 
-*Rule*: No additional roles shall be introduced without an explicit business justification.
-
----
-
-## 2. JWT Access Token Structure
-
-Identity Service issues HMAC-SHA256 signed JSON Web Tokens (JWT) upon successful authentication.
-
-```json
-{
-  "sub": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "role": "ORGANIZER",
-  "organizationId": "d8e3b970-13f5-4c07-b2e8-4934a3621415",
-  "email": "organizer@techcorp.com",
-  "fullName": "Nguyen Van A",
-  "iat": 1726310000,
-  "exp": 1726317200,
-  "iss": "learnup-identity-service"
-}
-```
-
-* **Multi-Tenancy Key**: `organizationId` is the single canonical tenant identifier. The use of `tenantId` is forbidden to prevent naming ambiguity.
-
----
-
-## 3. Gateway Security & Header Propagation
-
-```text
-                       Client Request
-               (Contains Authorization: Bearer JWT)
-                             │
-                             ▼
-                 ┌───────────────────────┐
-                 │  Spring Cloud Gateway │
-                 └───────────┬───────────┘
-                             │
-            ┌────────────────┴────────────────┐
-            ▼                                 ▼
-   [1. Sanitize Inbound]             [2. Cryptographic Check]
-   Strip any client-sent:            - Validate Signature
-   - X-User-ID                       - Validate Expiration (exp)
-   - X-Organization-ID               - Extract Claims
-   - X-User-Role
-   - X-Correlation-ID
-            │                                 │
-            └────────────────┬────────────────┘
-                             │
-                             ▼
-                 [3. Inject Trusted Headers]
-                 - X-User-ID: 3fa85f64-5717...
-                 - X-Organization-ID: d8e3b970...
-                 - X-User-Role: ORGANIZER
-                 - X-Correlation-ID: a9c25f10...
-                             │
-                             ▼
-              Forward to Downstream Microservices
-```
-
-### Downstream Trust Model:
-1. Microservices sit behind the API Gateway on an internal network.
-2. Downstream services read user and organization context from the trusted `X-*` headers.
-3. Microservices must **never trust** tenant or role IDs sent in request bodies or query parameters when asserting ownership; they must always cross-check against `X-Organization-ID` and `X-User-ID`.
-
----
-
-## 4. Authorization Enforcement (RBAC)
-
-Authorization logic is decentralized into business microservices:
-* **API Gateway**: Validates authentication and token integrity.
-* **Business Services**: Validate permissions and tenant boundaries.
-
-```java
-// Example in Spring Boot business service using Java Common utilities
-@PreAuthorize("hasRole('ORGANIZER') or hasRole('ADMIN')")
-@PostMapping("/courses/{courseId}/assign")
-public ApiResponse<AssignmentResult> assignCourse(
-        @PathVariable UUID courseId,
-        @RequestBody AssignCourseRequest request,
-        @RequestHeader("X-Organization-ID") UUID organizationId) {
-    
-    return ApiResponse.success(learningService.assignCourse(organizationId, courseId, request));
-}
-```
+[Audit's filter](../../services/audit-service/src/main/java/com/learnup/audit/security/AuditServiceAuthenticationFilter.java) and [Notification's in-app filter](../../services/notification-service/src/main/java/com/learnup/notification/security/InAppNotificationAuthenticationFilter.java) establish request authentication at their service boundaries. Correlation IDs are tracing metadata.

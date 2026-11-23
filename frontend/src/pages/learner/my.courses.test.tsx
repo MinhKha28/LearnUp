@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 import { App } from "antd";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
@@ -33,7 +33,7 @@ const renderCourses = (entries: string[]) => {
   return router;
 };
 
-const input = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Tìm theo tên Khóa học" });
+const input = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Tìm theo tên khóa học" });
 
 beforeEach(() => {
   fetchPage.mockReset();
@@ -49,6 +49,32 @@ afterEach(() => {
 });
 
 describe("My Courses filters", () => {
+  it("drops invalid URL filters before requesting courses and limits the keyword input", async () => {
+    fetchPage.mockResolvedValue(page());
+    const params = new URLSearchParams({ q: " 😀".trim().repeat(201), type: "Unknown", status: "Withdrawn" });
+    renderCourses([`/?${params}`]);
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(1));
+    expect(fetchPage).toHaveBeenNthCalledWith(1, 1, {
+      q: undefined, type: undefined, status: undefined,
+    }, expect.any(AbortSignal));
+    expect(input().value).toBe("");
+    expect(input().maxLength).toBe(200);
+    expect(screen.getByText("Tất cả loại khóa học")).toBeTruthy();
+    expect(screen.getByText("Tất cả trạng thái")).toBeTruthy();
+  });
+
+  it("keeps a trimmed URL keyword of 200 Unicode code points", async () => {
+    fetchPage.mockResolvedValue(page());
+    const q = "😀".repeat(200);
+    const params = new URLSearchParams({ q: ` ${q} `, type: "Optional", status: "Halted" });
+    renderCourses([`/?${params}`]);
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(1));
+    expect(fetchPage).toHaveBeenNthCalledWith(1, 1, {
+      q, type: "Optional", status: "Halted",
+    }, expect.any(AbortSignal));
+    expect(input().value).toBe(q);
+  });
+
   it("restores URL filters and page on back and forward and debounces only text for 400 ms", async () => {
     fetchPage.mockImplementation(async (current) => page("Khóa học", current));
     vi.useFakeTimers();
@@ -87,7 +113,7 @@ describe("My Courses filters", () => {
 
     fireEvent.change(input(), { target: { value: "lập" } });
     await act(async () => { vi.advanceTimersByTime(200); });
-    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Loại Khóa học" }));
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Loại khóa học" }));
     fireEvent.click(screen.getByText("Tự chọn"));
     await act(async () => {});
     expect(fetchPage).toHaveBeenLastCalledWith(1, {
@@ -119,7 +145,7 @@ describe("My Courses filters", () => {
 
     await act(async () => { await router.navigate("/?q=cũ&page=1"); });
     expect(screen.getByText("Danh sách hiện tại")).toBeTruthy();
-    expect(screen.getByLabelText("Đang tải Khóa học")).toBeTruthy();
+    expect(screen.getByLabelText("Đang tải khóa học")).toBeTruthy();
     await act(async () => { await router.navigate("/?q=mới&page=1"); });
     expect(fetchPage.mock.calls[1][2]?.aborted).toBe(true);
 
@@ -132,9 +158,9 @@ describe("My Courses filters", () => {
   it("clears all filters and shows the distinct unfiltered empty state", async () => {
     fetchPage.mockImplementation(async () => page());
     const router = renderCourses(["/?q=lap&type=Optional&status=Halted&page=2"]);
-    await screen.findByText("Không tìm thấy Khóa học phù hợp");
+    await screen.findByText("Không tìm thấy khóa học phù hợp");
     fireEvent.click(screen.getByRole("button", { name: "Xóa bộ lọc" }));
-    await screen.findByText("Bạn chưa có Khóa học nào");
+    await screen.findByText("Bạn chưa có khóa học nào");
     expect(input().value).toBe("");
     expect(router.state.location.search).toBe("?page=1");
   });

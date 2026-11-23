@@ -47,4 +47,12 @@ export abstract class CourseServiceClient {
   abstract getOrganizationUsage(
     user: CurrentUser,
   ): Promise<IOrganizationCourseUsage>;
+
+  /**
+   * UC44.1: số chuỗi Course và dung lượng đã dùng của một tổ chức bất kỳ, hỏi thay Admin nền tảng
+   * (Admin không thuộc tổ chức nào nên không dùng được getOrganizationUsage). Lỗi thì ném lỗi.
+   */
+  abstract getOrganizationUsageById(
+    organizationId: string,
+  ): Promise<IOrganizationCourseUsage>;
 }

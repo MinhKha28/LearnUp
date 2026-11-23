@@ -1,5 +1,7 @@
 import { COURSE_STATUS, COURSE_TYPE } from '../courses/course-values';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '../../../generated/prisma/client';
+import type { CatalogCourseDto } from './dto/catalog-course.dto';
 import { PrismaService } from '@infra/prisma/prisma.service';
 
 /** Điều kiện chung của Course hiển thị trong danh mục (UC25, UC25.1). */
@@ -10,21 +12,61 @@ const catalogCourseWhere = (organizationId: string) => ({
   disabledAt: null,
 });
 
+const catalogSearchWhere = (organizationId: string, keyword: string) => {
+  const scope = catalogCourseWhere(organizationId);
+  const escape = '\\';
+  // Escape after folding because unaccent can turn fullwidth characters into wildcards.
+  const pattern = Prisma.sql`
+    '%' || replace(replace(replace(lower(unaccent(${keyword})),
+      ${escape}, ${escape.repeat(2)}), '%', ${escape + '%'}), '_', ${escape + '_'}) || '%'`;
+  return Prisma.sql`
+    organization_id = ${scope.organizationId}::uuid
+    AND status = ${scope.status}
+    AND course_type = ${scope.courseType}
+    AND disabled_at IS NULL
+    AND (
+      regexp_replace(lower(unaccent(name)), '[[:space:]]+', ' ', 'g')
+        LIKE (${pattern}) ESCAPE ${escape}
+      OR regexp_replace(lower(unaccent(training_objectives)), '[[:space:]]+', ' ', 'g')
+        LIKE (${pattern}) ESCAPE ${escape}
+    )`;
+};
+
 @Injectable()
 export class CatalogRepository {
   private readonly logger = new Logger(CatalogRepository.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService)
+    private readonly prisma: Pick<PrismaService, 'course' | '$queryRaw'>,
+  ) {}
 
   /** Tổng số Course trong danh mục của tổ chức. */
-  countCatalog(organizationId: string) {
+  async countCatalog(organizationId: string, keyword?: string) {
+    if (keyword) {
+      const [result] = await this.prisma.$queryRaw<{ total: bigint }[]>`
+        SELECT count(*) AS total FROM courses
+        WHERE ${catalogSearchWhere(organizationId, keyword)}`;
+      return Number(result.total);
+    }
     return this.prisma.course.count({
       where: catalogCourseWhere(organizationId),
     });
   }
 
   /** Một trang danh mục; service chỉ gọi khi skip nhỏ hơn tổng. */
-  findCatalogCourses(organizationId: string, skip: number, take: number) {
+  findCatalogCourses(organizationId: string, skip: number, take: number, keyword?: string) {
+    if (keyword) {
+      return this.prisma.$queryRaw<Omit<CatalogCourseDto, 'estimatedDurationMinutes'>[]>`
+        SELECT id, name, short_description AS "shortDescription",
+               training_objectives AS "trainingObjectives",
+               cover_file_id AS "coverFileId",
+               expected_completion_days AS "expectedCompletionDays"
+        FROM courses
+        WHERE ${catalogSearchWhere(organizationId, keyword)}
+        ORDER BY published_at DESC, id DESC
+        OFFSET ${skip} LIMIT ${take}`;
+    }
     return this.prisma.course.findMany({
       where: catalogCourseWhere(organizationId),
       select: {

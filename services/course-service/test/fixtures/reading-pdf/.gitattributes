@@ -1,0 +1,2 @@
+# PDF fixtures must keep their exact bytes (xref offsets, line endings).
+*.pdf binary

@@ -1,6 +1,7 @@
 package com.learnup.audit.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import java.time.Instant;
 import java.util.UUID;
 
 public class CreateAuditLogRequest {
@@ -18,6 +19,13 @@ public class CreateAuditLogRequest {
     private String ipAddress;
     private String correlationId;
 
+    /**
+     * When the action happened, written by the service that recorded it. Optional: without it the entry is dated when audit-service
+     * receives it. A writer that retries for hours (an outbox) should send it, so that the trail and its time filter show the time of the
+     * action and not the time of the delivery.
+     */
+    private Instant occurredAt;
+
     public CreateAuditLogRequest() {
     }
 
@@ -33,6 +41,14 @@ public class CreateAuditLogRequest {
         this.details = details;
         this.ipAddress = ipAddress;
         this.correlationId = correlationId;
+    }
+
+    public Instant getOccurredAt() {
+        return occurredAt;
+    }
+
+    public void setOccurredAt(Instant occurredAt) {
+        this.occurredAt = occurredAt;
     }
 
     public UUID getOrganizationId() {

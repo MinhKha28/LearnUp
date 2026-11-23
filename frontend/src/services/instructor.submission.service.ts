@@ -1,5 +1,7 @@
 import { assessmentAxios } from "@/services/axios.customize";
 import type {
+  IFinalizeSubmissionPayload,
+  IFinalizeSubmissionResult,
   IInstructorReviewPayload,
   IInstructorReviewResult,
   ISubmissionDetail,
@@ -19,6 +21,15 @@ export const getAssignmentSubmissionsAPI = (
 export const getSubmissionDetailAPI = (submissionId: string) =>
   assessmentAxios.get<IBackendRes<ISubmissionDetail>>(
     `/api/v1/assessments/submissions/${encodeURIComponent(submissionId)}`,
+  );
+
+export const finalizeSubmissionAPI = (
+  submissionId: string,
+  payload: IFinalizeSubmissionPayload,
+) =>
+  assessmentAxios.post<IBackendRes<IFinalizeSubmissionResult>>(
+    `/api/v1/assessments/submissions/${encodeURIComponent(submissionId)}/finalize`,
+    payload,
   );
 
 export const gradeSubmissionAPI = (

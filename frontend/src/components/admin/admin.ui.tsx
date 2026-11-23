@@ -31,7 +31,7 @@ export const PageHeader = ({
           <Button
             className="admin-back"
             type="text"
-            icon={<ArrowLeftOutlined />}
+            icon={<ArrowLeftOutlined aria-hidden="true" />}
             onClick={() => navigate(-1)}
           >
             Quay lại
@@ -135,7 +135,7 @@ export const WarningPanel = ({
   children: ReactNode;
 }) => (
   <div className="admin-warning">
-    <ExclamationCircleFilled />
+    <ExclamationCircleFilled aria-hidden="true" />
     <div>
       <strong>{title}</strong>
       <p>{children}</p>

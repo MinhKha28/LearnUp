@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:24.22.3-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS builder
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ COPY services/achievement-reporting-service ./
 RUN npx prisma generate
 RUN npm run build
 
-FROM node:22-alpine AS runner
+FROM node:24.22.3-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS runner
 ENV NODE_ENV=production
 
 WORKDIR /app
@@ -38,4 +38,4 @@ COPY --from=builder /app/services/achievement-reporting-service/generated ./serv
 WORKDIR /app/services/achievement-reporting-service
 
 EXPOSE 8087
-CMD ["sh", "-c", "if [ -f dist/src/main.js ]; then node dist/src/main.js; else node dist/main.js; fi"]
+CMD ["sh", "-c", "if [ \"${DB_PASSWORD+x}\" = x ]; then : \"${DB_PASSWORD:?Set DB_PASSWORD}\" || exit 1; fi; : \"${DATABASE_URL:?Set DATABASE_URL}\" && npx prisma migrate deploy --config prisma7.config.ts && if [ -f dist/src/main.js ]; then node dist/src/main.js; else node dist/main.js; fi"]

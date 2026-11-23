@@ -1,3 +1,5 @@
+import { formatNumberVN } from "@/utils/number.format";
+import { formatDateTimeVN } from "@/utils/helper";
 import type { ISubmissionPerson } from "@/types/submission.types";
 
 export type LabelTone = "neutral" | "success" | "warning" | "error" | "info";
@@ -11,8 +13,9 @@ const GRADING_STATUS: Record<string, { label: string; tone: LabelTone }> = {
 };
 
 const INTERVENTION_REASON: Record<string, string> = {
-  PEER_REVIEW_DISABLED: "Assignment không bật chấm chéo",
+  PEER_REVIEW_DISABLED: "Bài tập không bật chấm chéo",
   NOT_ENOUGH_SUBMISSIONS: "Không đủ bài nộp để chấm chéo",
+  TOO_FEW_SUBMISSIONS: "Không đủ bài nộp để chấm chéo",
   REVIEWER_MISSED_DEADLINE: "Có người chấm không hoàn thành đúng hạn",
   REVIEW_MISSED: "Có người chấm không hoàn thành đúng hạn",
   REVIEWER_DEACTIVATED: "Có người chấm đã bị vô hiệu hóa",
@@ -27,34 +30,31 @@ const REVIEW_STATUS: Record<string, { label: string; tone: LabelTone }> = {
   Waived: { label: "Được miễn", tone: "info" },
 };
 
+const unknownStatus = { label: "Trạng thái không xác định", tone: "neutral" as const };
+
 export const reviewStatusView = (status: string) =>
-  REVIEW_STATUS[status] ?? { label: status, tone: "neutral" as LabelTone };
+  Object.hasOwn(REVIEW_STATUS, status) ? REVIEW_STATUS[status] : unknownStatus;
 
 export const reviewerRoleLabel = (role: string) =>
   role === "Instructor" ? "Giảng viên" : role === "Learner" ? "Học viên" : role;
 
 export const gradingStatusView = (status: string) =>
-  GRADING_STATUS[status] ?? { label: status, tone: "neutral" as LabelTone };
+  Object.hasOwn(GRADING_STATUS, status) ? GRADING_STATUS[status] : unknownStatus;
 
-export const interventionLabel = (reason: string | null) =>
-  reason ? (INTERVENTION_REASON[reason] ?? reason) : null;
+export const interventionLabel = (reason: string | null) => {
+  if (reason === null) return null;
+  return Object.hasOwn(INTERVENTION_REASON, reason)
+    ? INTERVENTION_REASON[reason]
+    : "Cần giảng viên xử lý";
+};
 
 export const personName = (person: ISubmissionPerson) =>
-  person.fullName ?? `Learner ${person.id.slice(-4).toUpperCase()}`;
+  person.fullName ?? `Học viên ${person.id.slice(-4).toUpperCase()}`;
 
-export const formatDateTime = (value?: string | null) =>
-  value
-    ? new Date(value).toLocaleString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "-";
+export const formatDateTime = formatDateTimeVN;
 
 export const formatFileSize = (bytes?: number | null) => {
   if (!bytes) return "";
-  if (bytes >= 1024 ** 2) return `${+(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return `${+(bytes / 1024).toFixed(1)} KB`;
+  if (bytes >= 1024 ** 2) return `${formatNumberVN(bytes / 1024 ** 2, 1)} MB`;
+  return `${formatNumberVN(bytes / 1024, 1)} KB`;
 };

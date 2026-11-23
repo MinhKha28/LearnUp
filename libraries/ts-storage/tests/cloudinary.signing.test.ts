@@ -31,4 +31,24 @@ describe("Cloudinary 2.7.0 offline signing", () => {
       expect(url.searchParams.has("api_secret")).toBe(false);
     },
   );
+
+  it("signs an authenticated raw PDF as an attachment", () => {
+    const provider = new CloudinaryStorageProvider({
+      cloudName: "fixture-cloud",
+      apiKey: "fixture-key",
+      apiSecret: "fixture-secret",
+    });
+    const url = new URL(
+      provider.getSignedUrl("reading/lesson.pdf", {
+        resourceType: "raw",
+        format: "",
+        deliveryType: "authenticated",
+        expiresAt: Math.floor(Date.now() / 1000) + 60,
+        attachment: true,
+      }),
+    );
+    expect(url.pathname).toBe("/v1_1/fixture-cloud/raw/download");
+    expect(url.searchParams.get("public_id")).toBe("reading/lesson.pdf");
+    expect(url.searchParams.get("attachment")).toBe("true");
+  });
 });

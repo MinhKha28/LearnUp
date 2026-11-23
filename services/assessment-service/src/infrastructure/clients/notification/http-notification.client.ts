@@ -39,7 +39,7 @@ export class HttpNotificationClient extends NotificationClient {
           recipientUserId: item.recipientUserId,
           title: item.title,
           message: item.message,
-          type: 'PEER_REVIEW',
+          type: item.type ?? 'PEER_REVIEW',
           channel: 'IN_APP',
           metadata: item.metadata ? JSON.stringify(item.metadata) : undefined,
         }),
@@ -93,6 +93,17 @@ export class HttpNotificationClient extends NotificationClient {
       throw new ServiceUnavailableException({
         code: 'NOTIFICATION_SERVICE_UNAVAILABLE',
         message: `The notification service answered ${response.status}.`,
+      });
+    }
+    // notification-service answers 201 also when the SMTP send itself failed: the outcome is in data.status. A failed send is
+    // a failed delivery (the callers try again); SENT and SIMULATED (mail switched off) are not.
+    const answer = (await response.json().catch(() => null)) as {
+      data?: { status?: unknown };
+    } | null;
+    if (answer?.data?.status === 'FAILED') {
+      throw new ServiceUnavailableException({
+        code: 'EMAIL_DELIVERY_FAILED',
+        message: 'The notification service could not send the e-mail.',
       });
     }
   }

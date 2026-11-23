@@ -99,6 +99,27 @@ void describe('UC25.4 withdrawal rules and assessment factory', () => {
     );
     assert.throws(() => assertRestorable(row), apiError('ALREADY_ENROLLED'));
   });
+  void test('UC24.4 OrganizerCancelled can be restored by self-enrolment', () =>
+    assert.doesNotThrow(() =>
+      assertRestorable({
+        ...row,
+        enrollmentType: 'Required',
+        status: 'Withdrawn',
+        withdrawnReason: 'OrganizerCancelled',
+      }),
+    ));
+  for (const reason of ['AccountDeleted', 'HaltedClosed'])
+    void test(`UC24.4 ${reason} stays not restorable`, () =>
+      assert.throws(
+        () =>
+          assertRestorable({
+            ...row,
+            enrollmentType: 'Required',
+            status: 'Withdrawn',
+            withdrawnReason: reason,
+          }),
+        apiError('ENROLLMENT_NOT_RESTORABLE', reason),
+      ));
   void test('fake validates configuration and refuses production', async () => {
     const config: Record<string, string> = {
       ASSESSMENT_CLIENT_MODE: 'fake',
@@ -175,6 +196,9 @@ void describe('UC25.4 withdrawal rules and assessment factory', () => {
           },
         } as never,
         {
+          getAssignmentActivity: async () => {
+            throw new Error('Unexpected assignment lookup');
+          },
           getActivity: async () => {
             assert.equal(inTransaction, false);
             calls.push('assessment');

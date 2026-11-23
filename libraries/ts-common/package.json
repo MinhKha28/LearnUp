@@ -10,6 +10,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./security": {
+      "types": "./dist/security/index.d.ts",
+      "import": "./dist/security/index.js",
+      "default": "./dist/security/index.js"
     }
   },
   "files": [
@@ -18,14 +23,16 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.test.json",
     "test": "vitest run",
     "prepare": "npm run build"
   },
   "devDependencies": {
     "typescript": "^5.4.5",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "@types/node": "^24.19.2"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.22.3 <25"
   }
 }

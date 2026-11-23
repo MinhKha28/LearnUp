@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { message } from "antd";
 import { useNavigate } from "react-router-dom";
-import { monitoringFilters } from "@/components/instructor/instructor.data";
+import { monitoringCompletionLabel, monitoringEnrollmentLabel, monitoringFilters } from "@/components/instructor/instructor.data";
 import { InstructorButton, InstructorPage, PageHeader, SectionCard } from "@/components/instructor/instructor.ui";
 import "./monitoring.export.scss";
 
@@ -12,27 +12,27 @@ const MonitoringExport = () => {
   const [format, setFormat] = useState<ExportFormat>("Excel");
 
   const exportReport = () => {
-    message.success(`Course report exported as ${format}.`);
+    message.success(`Đã xuất báo cáo khóa học định dạng ${format}.`);
     navigate("/instructor/monitoring");
   };
 
   return (
     <InstructorPage className="instructor-monitoring-export">
       <PageHeader
-        eyebrow="INSTRUCTOR"
-        title="Export Course Report"
-        subtitle="Export only the filtered data from Courses you own."
+        eyebrow="Giảng viên"
+        title="Xuất báo cáo khóa học"
+        subtitle="Chỉ xuất dữ liệu đã lọc từ các khóa học bạn phụ trách."
         back
       />
       <SectionCard className="instructor-export-card">
-        <h2>Report scope</h2>
-        <p>Selected Course: {monitoringFilters.courseTitle ?? "All Courses"}</p>
+        <h2>Phạm vi báo cáo</h2>
+        <p>Khóa học đã chọn: {monitoringFilters.courseTitle ?? "Tất cả khóa học"}</p>
         <p>
-          Enrollment type: {monitoringFilters.enrollmentType ?? "[Filter]"} • Status:{" "}
-          {monitoringFilters.completionStatus ?? "[Filter]"}
+          Hình thức đăng ký học: {monitoringFilters.enrollmentType ? monitoringEnrollmentLabel[monitoringFilters.enrollmentType] : "Tất cả"} • Trạng thái:{" "}
+          {monitoringFilters.completionStatus ? monitoringCompletionLabel[monitoringFilters.completionStatus] : "Tất cả"}
         </p>
         <hr />
-        <h3>File format</h3>
+        <h3>Định dạng tệp</h3>
         <div className="instructor-export-formats">
           {(["Excel", "PDF"] as ExportFormat[]).map((option) => (
             <button
@@ -47,7 +47,7 @@ const MonitoringExport = () => {
         </div>
         <div className="instructor-export-actions">
           <InstructorButton type="primary" onClick={exportReport}>
-            Export report
+            Xuất báo cáo
           </InstructorButton>
         </div>
       </SectionCard>

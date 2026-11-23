@@ -13,3 +13,11 @@ export interface QuizListResponse {
 export interface ApiResponse<T> {
   data?: T;
 }
+
+export interface AssessmentCleanupResponse {
+  courseId: string;
+  deleted: boolean;
+  deletedCount: number;
+  deletedQuizCount: number;
+  deletedAssignmentCount: number;
+}

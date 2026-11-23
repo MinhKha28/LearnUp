@@ -8,19 +8,19 @@ const CourseDeleteBlocked = () => {
   return (
     <InstructorPage className="instructor-course-delete-blocked">
       <PageHeader
-        eyebrow="INSTRUCTOR"
-        title="Course cannot be deleted"
-        subtitle="This Course has learning history or is not Draft/Rejected."
+        eyebrow="Giảng viên"
+        title="Không thể xóa khóa học"
+        subtitle="Khóa học đã có lịch sử học hoặc không ở trạng thái bản nháp/bị từ chối."
       />
       <SuccessScreen
         tone="error"
-        title="Deletion unavailable"
+        title="Không được phép xóa"
         secondary={{
-          label: "Back to Course",
+          label: "Quay lại khóa học",
           onClick: () => navigate(`/instructor/courses/${courseId}`),
         }}
       >
-        <p>A Course with any past Enrollment cannot be deleted.</p>
+        <p>Không thể xóa khóa học đã từng có người đăng ký học.</p>
       </SuccessScreen>
     </InstructorPage>
   );

@@ -136,6 +136,16 @@ const FAKE_CHAINS: Record<string, IManagedCourseChain[]> = {
   ],
 };
 
+const MB = 1024 * 1024;
+
+// UC44.1: số chuỗi Course và dung lượng đã dùng theo tổ chức. ID tổ chức khớp seed-account-management.ts.
+const FAKE_ORGANIZATION_USAGE: Record<string, IOrganizationCourseUsage> = {
+  [id('a001')]: { courseChains: 8, storageBytes: 3_400 * MB }, // Công ty ABC
+  [id('b001')]: { courseChains: 1, storageBytes: 180 * MB }, // Công ty TNHH XYZ
+  [id('e004')]: { courseChains: 3, storageBytes: 950 * MB }, // Công ty CP Theta
+  [id('e005')]: { courseChains: 2, storageBytes: 420 * MB }, // Công ty TNHH Iota
+};
+
 export class FakeCourseServiceClient extends CourseServiceClient {
   // UC12: số chuỗi đếm trực tiếp từ FAKE_CHAINS để cột Courses luôn khớp trang chi tiết,
   // kể cả sau khi UC12.5 chuyển chuỗi trong bộ nhớ. Instructor không có trong bảng -> 0.
@@ -179,5 +189,17 @@ export class FakeCourseServiceClient extends CourseServiceClient {
 
   getOrganizationUsage(): Promise<IOrganizationCourseUsage> {
     return Promise.resolve({ courseChains: 0, storageBytes: 0 });
+  }
+
+  // UC44.1: mức dùng giả theo tổ chức của seed; ABC và XYZ khớp số chuỗi trong FAKE_CHAINS.
+  getOrganizationUsageById(
+    organizationId: string,
+  ): Promise<IOrganizationCourseUsage> {
+    return Promise.resolve(
+      FAKE_ORGANIZATION_USAGE[organizationId] ?? {
+        courseChains: 0,
+        storageBytes: 0,
+      },
+    );
   }
 }

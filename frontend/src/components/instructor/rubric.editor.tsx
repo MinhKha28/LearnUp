@@ -25,22 +25,22 @@ const RubricEditor = ({ rows, onChange, disabled = false, showErrors = false }: 
         const descriptionMissing = showErrors && !disabled && !row.description.trim();
         return (
           <div className="builder-rubric-card" key={row.key}>
-            <strong className="builder-rubric-title">Criterion {index + 1}</strong>
+            <strong className="builder-rubric-title">Tiêu chí {index + 1}</strong>
             <div className="builder-rubric-fields">
               <div className="builder-rubric-field-description">
-                <label className="instructor-form-label">Description</label>
+                <label className="instructor-form-label">Mô tả</label>
                 <Input
                   value={row.description}
                   maxLength={200}
                   disabled={disabled}
                   status={descriptionMissing ? "error" : undefined}
-                  placeholder="Completeness of response"
+                  placeholder="Mức độ đầy đủ của câu trả lời"
                   onChange={(event) => update(row.key, { description: event.target.value })}
                 />
-                <FieldError message={descriptionMissing ? "Enter a description for this criterion." : null} />
+                <FieldError message={descriptionMissing ? "Nhập mô tả cho tiêu chí này." : null} />
               </div>
               <div className="builder-rubric-field-score">
-                <label className="instructor-form-label">Maximum score</label>
+                <label className="instructor-form-label">Điểm tối đa</label>
                 <NumberField
                   rule={RUBRIC_POINTS_RULE}
                   disabled={disabled}
@@ -52,7 +52,7 @@ const RubricEditor = ({ rows, onChange, disabled = false, showErrors = false }: 
             </div>
             {rows.length > 1 && !disabled && (
               <InstructorButton onClick={() => onChange(rows.filter((r) => r.key !== row.key))}>
-                Remove
+                Xóa tiêu chí
               </InstructorButton>
             )}
           </div>
@@ -60,7 +60,7 @@ const RubricEditor = ({ rows, onChange, disabled = false, showErrors = false }: 
       })}
       {!disabled && (
         <InstructorButton disabled={rows.length >= RUBRIC_MAX_CRITERIA} onClick={() => onChange([...rows, newRubricRow()])}>
-          + Add criterion
+          + Thêm tiêu chí
         </InstructorButton>
       )}
     </>

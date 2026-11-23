@@ -1,4 +1,4 @@
-import { Alert, Form, Input } from "antd";
+import { Form } from "antd";
 import {
   LearnerButton,
   LearnerPage,
@@ -13,6 +13,7 @@ import {
   type ChangePasswordFields,
 } from "@/hooks/use.change.password";
 import "./password.change.scss";
+import { VietnameseAlert, VietnamesePassword } from "@/components/vietnamese.controls";
 
 const ChangePassword = () => {
   const { submit, submitting, error, clearError } = useChangePassword();
@@ -20,13 +21,13 @@ const ChangePassword = () => {
   return (
     <LearnerPage className="learner-change-password">
       <PageHeader
-        eyebrow="ACCOUNT / PASSWORD"
-        title="Change Password"
-        subtitle="Confirm your current password before setting a new one."
+        eyebrow="Tài khoản / Mật khẩu"
+        title="Đổi mật khẩu"
+        subtitle="Xác minh mật khẩu hiện tại trước khi đặt mật khẩu mới."
         back
       />
       <SectionCard>
-        {error && <Alert type="error" showIcon message={error} role="alert" />}
+        {error && <VietnameseAlert type="error" showIcon message={error} role="alert" />}
         <Form<ChangePasswordFields>
           className="learner-password-form"
           layout="vertical"
@@ -36,31 +37,31 @@ const ChangePassword = () => {
           onValuesChange={clearError}
         >
           <Form.Item
-            label="Current password"
+            label="Mật khẩu hiện tại"
             name="current"
             rules={currentPasswordRules}
           >
-            <Input.Password />
+            <VietnamesePassword />
           </Form.Item>
           <Form.Item
-            label="New password"
+            label="Mật khẩu mới"
             name="password"
             dependencies={["current"]}
             rules={newPasswordRules}
           >
-            <Input.Password placeholder="Enter new password" />
+            <VietnamesePassword placeholder="Nhập mật khẩu mới" />
           </Form.Item>
           <Form.Item
-            label="Confirm new password"
+            label="Nhập lại mật khẩu mới"
             name="confirm"
             dependencies={["password"]}
             rules={confirmPasswordRules}
           >
-            <Input.Password placeholder="Enter confirm new password" />
+            <VietnamesePassword placeholder="Nhập lại mật khẩu mới" />
           </Form.Item>
           <div className="learner-password-actions">
             <LearnerButton type="primary" htmlType="submit" loading={submitting}>
-              Update password
+              Cập nhật mật khẩu
             </LearnerButton>
           </div>
         </Form>

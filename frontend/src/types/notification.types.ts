@@ -5,11 +5,11 @@ export interface INotification {
   recipientUserId: string;
   title: string;
   message: string;
+  link?: string | null;
   type: string;
   channel: string;
   isRead: boolean;
   readAt: string | null;
-  metadata: string | null;
   createdAt: string;
 }
 

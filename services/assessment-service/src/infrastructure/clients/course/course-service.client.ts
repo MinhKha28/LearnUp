@@ -48,4 +48,9 @@ export abstract class CourseServiceClient {
     courseId: string,
     user: CurrentUser,
   ): Promise<string[] | null>;
+
+  abstract verifyOrganizerReviewAccess(
+    courseId: string,
+    user: CurrentUser,
+  ): Promise<void>;
 }

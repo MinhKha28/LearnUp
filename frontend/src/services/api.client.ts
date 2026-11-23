@@ -6,7 +6,7 @@ import { ApiError, type ApiEnvelope } from "@/types/api.types";
 
 const API_PREFIX = "/api/v1";
 
-/** Đường dẫn 7 endpoint của 6 UC learner; khi gateway đổi tiền tố chỉ sửa ở đây. */
+/** Đường dẫn endpoint learner; khi gateway đổi tiền tố chỉ sửa ở đây. */
 export const API_PATHS = {
   catalog: `${API_PREFIX}/courses/catalog`,
   courseIntroduction: (courseId: string) =>
@@ -20,6 +20,8 @@ export const API_PATHS = {
     `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/curriculum`,
   assessmentResults: (enrollmentId: string) =>
     `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/assessment-results`,
+  progress: (enrollmentId: string) =>
+    `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/progress`,
   lesson: (enrollmentId: string, lessonId: string) =>
     `${API_PREFIX}/enrollments/${encodeURIComponent(enrollmentId)}/lessons/${encodeURIComponent(lessonId)}`,
 } as const;
@@ -161,7 +163,7 @@ export const toApiErrorAsync = async (error: unknown): Promise<ApiError> => {
 };
 
 const requestWithHeaders = async <T>(
-  method: "get" | "post" | "patch" | "put",
+  method: "get" | "post" | "patch" | "put" | "delete",
   path: string,
   body: unknown,
   options: ApiOptions = {},
@@ -215,6 +217,12 @@ export const apiPatch = async <T>(
   options: ApiOptions = {},
 ): Promise<T> =>
   (await requestWithHeaders<T>("patch", path, body, options)).data;
+
+export const apiDelete = async <T>(
+  path: string,
+  options: ApiOptions = {},
+): Promise<T> =>
+  (await requestWithHeaders<T>("delete", path, undefined, options)).data;
 
 export const apiPut = async <T>(
   path: string,

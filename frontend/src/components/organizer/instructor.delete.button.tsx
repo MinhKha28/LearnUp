@@ -1,4 +1,4 @@
-import { Alert, App, Button, Form, Input, Modal, Skeleton } from "antd";
+import { App, Button, Form, Input, Modal, Skeleton } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import {
   HandOverBlockAlert,
@@ -20,6 +20,7 @@ import {
   instructorDeleteShouldReloadPreview,
 } from "@/utils/instructor.delete.view";
 import "./instructor.delete.button.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 interface InstructorDeleteButtonProps {
   instructorId: string;
@@ -101,15 +102,15 @@ export const InstructorDeleteButton = ({
       });
       const result = res.data;
       if (result) {
-        const seats = `${result.seats.remaining} of ${result.seats.max} instructor seat(s) available.`;
+        const seats = `Còn ${result.seats.remaining} trên ${result.seats.max} suất giảng viên.`;
         if (!result.changed) {
-          message.info(`${fullName} was already deleted.`);
+          message.info(`${fullName} đã bị xóa trước đó.`);
         } else if (result.receiver && result.transferredCourses.length > 0) {
           message.success(
-            `${fullName} was deleted. ${result.transferredCourses.length} course(s) moved to ${result.receiver.fullName}. ${seats}`,
+            `Đã xóa ${fullName}. Đã chuyển ${result.transferredCourses.length} khóa học cho ${result.receiver.fullName}. ${seats}`,
           );
         } else {
-          message.success(`${fullName} was deleted. ${seats}`);
+          message.success(`Đã xóa ${fullName}. ${seats}`);
         }
         close();
         onDeleted();
@@ -128,7 +129,7 @@ export const InstructorDeleteButton = ({
         loadPreview();
       }
     } catch {
-      setSubmitError("Could not connect to the server. Please try again later.");
+      setSubmitError("Không kết nối được với máy chủ. Vui lòng thử lại sau.");
     } finally {
       setSubmitting(false);
     }
@@ -141,7 +142,7 @@ export const InstructorDeleteButton = ({
     if (loading) return <Skeleton active />;
     if (gone) {
       return (
-        <Alert
+        <VietnameseAlert
           type="info"
           showIcon
           message={instructorDeleteErrorMessage("INSTRUCTOR_NOT_FOUND")}
@@ -150,11 +151,11 @@ export const InstructorDeleteButton = ({
     }
     if (loadFailed || !preview) {
       return (
-        <Alert
+        <VietnameseAlert
           type="error"
           showIcon
-          message="Could not load the courses this instructor manages."
-          action={<Button onClick={loadPreview}>Try again</Button>}
+          message="Không thể tải các khóa học do giảng viên này phụ trách."
+          action={<Button onClick={loadPreview}>Thử lại</Button>}
         />
       );
     }
@@ -164,7 +165,7 @@ export const InstructorDeleteButton = ({
           blockReason={preview.blockReason}
           fullName={fullName}
           courses={courses}
-          actionPast="deleted"
+          actionPast="xóa"
           onRetry={loadPreview}
         />
       );
@@ -173,10 +174,10 @@ export const InstructorDeleteButton = ({
       <>
         <p>
           {status === "Pending"
-            ? `${fullName} has not activated the account yet. The invitation link stops working and the seat is released.`
-            : `${fullName} will no longer be able to sign in and the seat is released.`}{" "}
-          Training records are kept. This cannot be undone; the email can be
-          used for a new account afterwards.
+            ? `${fullName} chưa kích hoạt tài khoản. Liên kết mời sẽ hết hiệu lực và suất tài khoản sẽ được giải phóng.`
+            : `${fullName} sẽ không thể đăng nhập và suất tài khoản sẽ được giải phóng.`}{" "}
+          Dữ liệu đào tạo vẫn được giữ lại. Thao tác này không thể hoàn tác; sau đó
+          email có thể dùng cho tài khoản mới.
         </p>
         {courses.length > 0 && (
           <HandOverReceiverFields
@@ -192,18 +193,18 @@ export const InstructorDeleteButton = ({
   return (
     <>
       <OrganizerButton danger onClick={() => setOpen(true)}>
-        Delete
+        Xóa
       </OrganizerButton>
       <Modal
         open={open}
-        title="Delete instructor?"
-        okText="Delete"
+        title="Xóa giảng viên?"
+        okText="Xóa"
         okButtonProps={{
           danger: true,
           disabled: !canSubmit,
           loading: submitting,
         }}
-        cancelText="Cancel"
+        cancelText="Hủy"
         onOk={() => form.submit()}
         onCancel={close}
         destroyOnClose
@@ -211,12 +212,12 @@ export const InstructorDeleteButton = ({
         <Form<DeleteForm> form={form} layout="vertical" onFinish={submit}>
           {renderBody()}
           {canSubmit && (
-            <Form.Item name="reason" label="Reason (optional)">
+            <Form.Item name="reason" label="Lý do (không bắt buộc)">
               <Input.TextArea rows={3} maxLength={1000} showCount />
             </Form.Item>
           )}
           {submitError && (
-            <Alert
+            <VietnameseAlert
               className="instructor-delete-error"
               type="error"
               showIcon

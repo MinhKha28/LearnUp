@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC33.1 and the entry to UC33.2: the cycle the Instructor reads, by interaction. jsdom is for this file only.
 import {
   cleanup,
@@ -144,21 +144,21 @@ describe("UC33.1 the detail of a cycle", () => {
       "assignment-1",
       "cycle-1",
     );
-    expect(screen.getByText("MỞ")).toBeTruthy();
-    expect(screen.getByText("ĐÓNG VÀ PHÂN CÔNG")).toBeTruthy();
-    expect(screen.getByText("HẠN CHẤM")).toBeTruthy();
+    expect(screen.getByText("Mở")).toBeTruthy();
+    expect(screen.getByText("Đóng và phân công")).toBeTruthy();
+    expect(screen.getByText("Hạn chấm")).toBeTruthy();
   });
 
   it("shows the dates in the Vietnamese format whatever the language of the browser: day first, no AM or PM", async () => {
-    // the machine that runs the test may already be Vietnamese, so the locale is also checked where it is chosen
-    const format = vi.spyOn(Date.prototype, "toLocaleString");
     renderPage();
     await screen.findByText("Essay");
-    expect(format).toHaveBeenCalledWith("vi-VN");
-    format.mockRestore();
     const text = document.body.textContent ?? "";
+    // the three dates of the cycle are 00:00 UTC, which is 07:00 in Vietnam
+    expect(text).toContain("01/10/2026 07:00");
+    expect(text).toContain("08/10/2026 07:00");
+    expect(text).toContain("11/10/2026 07:00");
     expect(text).not.toMatch(/\b(AM|PM)\b/);
-    expect(text).toMatch(/\d{1,2}\/\d{1,2}\/2026/);
+    expect(text).not.toMatch(/\d{1,2}:\d{2}:\d{2} \d{1,2}\/\d{1,2}\/2026/);
   });
 
   it("lists the submissions with the reviews done, and a Learner the tenant does not know by the end of the id", async () => {

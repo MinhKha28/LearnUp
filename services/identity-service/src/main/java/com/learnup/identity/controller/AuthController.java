@@ -3,6 +3,7 @@ package com.learnup.identity.controller;
 import com.learnup.common.response.ApiResponse;
 import com.learnup.identity.dto.*;
 import com.learnup.identity.service.AuthService;
+import com.learnup.identity.service.GoogleSignInService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 public class AuthController {
 
     private final AuthService authService;
+    private final GoogleSignInService googleSignInService;
 
     @PostMapping("/login")
     @Operation(summary = "Sign in with existing credentials", tags = "Authentication",
@@ -26,6 +28,14 @@ public class AuthController {
     public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
         return ApiResponse.success(response);
+    }
+
+    @PostMapping("/google")
+    @Operation(summary = "Sign in with Google (UC05.1)", tags = "Authentication",
+            description = "Verifies a Google ID token and signs in an existing Organizer, Instructor or Learner. "
+                    + "Never creates an account and is not available to the platform Admin.")
+    public ApiResponse<AuthResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        return ApiResponse.success(googleSignInService.signIn(request.credential()));
     }
 
     @PostMapping("/refresh")
@@ -45,6 +55,15 @@ public class AuthController {
             @AuthenticationPrincipal UUID userId) {
         authService.logout(request, userId);
         return ApiResponse.success(java.util.Map.of("message", "Logged out successfully"));
+    }
+
+    @PostMapping("/revoke")
+    @Operation(summary = "End this device's session (UC06)", tags = "Sessions",
+            description = "Revokes the session (rotation family) of the presented refresh token. Needs no access token, "
+                    + "so it works after the access JWT expired. Always neutral; already-issued access JWTs expire on their own.")
+    public ApiResponse<java.util.Map<String, String>> revokeSession(@Valid @RequestBody RevokeSessionRequest request) {
+        authService.revokeSession(request);
+        return ApiResponse.success(java.util.Map.of("message", "Session ended"));
     }
 
     @PostMapping("/change-password")

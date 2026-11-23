@@ -1,5 +1,7 @@
+import { formatPercentageVN } from "@/utils/number.format";
+import { formatDateTimeVN } from "@/utils/helper";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Spin } from "antd";
+import { Spin } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   LearnerButton,
@@ -14,8 +16,9 @@ import {
   fetchQuizHistoryAPI,
 } from "@/services/assessment.service";
 import type { IQuizHistory, IQuizHistoryItem } from "@/types/assessment.types";
-import { formatDateTime, formatScore, quizErrorText } from "@/utils/quiz.take";
+import { quizErrorText } from "@/utils/quiz.take";
 import "./quiz.history.scss";
+import { VietnameseAlert } from "@/components/vietnamese.controls";
 
 /** How the attempt was submitted, in words the Learner uses. */
 export const submissionKindLabel = (item: IQuizHistoryItem) => {
@@ -68,12 +71,12 @@ const QuizHistory = () => {
     return (
       <LearnerPage className="quiz-history">
         <PageHeader
-          eyebrow="Bài trắc nghiệm / Lịch sử"
+          eyebrow="Bài đánh giá / Lịch sử làm bài"
           title="Lịch sử làm bài"
           subtitle=""
           back
         />
-        <Alert type="error" showIcon message={error} />
+        <VietnameseAlert type="error" showIcon message={error} />
         <LearnerButton onClick={() => void load()}>Thử lại</LearnerButton>
       </LearnerPage>
     );
@@ -84,9 +87,9 @@ const QuizHistory = () => {
   return (
     <>
       <PageHeader
-        eyebrow="Bài trắc nghiệm / Lịch sử"
+        eyebrow="Bài đánh giá / Lịch sử làm bài"
         title="Lịch sử làm bài"
-        subtitle={`Tất cả các lượt làm của ${history.title}.`}
+        subtitle={`Các lượt làm: “${history.title}”`}
         back
       />
       <div className="course-learning-content">
@@ -94,7 +97,7 @@ const QuizHistory = () => {
           <WarningPanel title="Bài trắc nghiệm đang tạm khóa">
             Bạn đã làm đủ {attempts.maxConsecutiveAttempts} lượt liên tiếp. Bạn
             làm lại được từ{" "}
-            <strong>{formatDateTime(attempts.lockedUntil!)}</strong>.
+            <strong>{formatDateTimeVN(attempts.lockedUntil!)}</strong>.
           </WarningPanel>
         )}
         <div className="quiz-history-summary">
@@ -103,14 +106,14 @@ const QuizHistory = () => {
             value={
               history.recordedScore === null
                 ? "Chưa có lượt nào được nộp"
-                : `${formatScore(history.recordedScore)} (lượt cao nhất) · ${history.passed ? "Đạt" : "Chưa đạt"}`
+                : `${formatPercentageVN(history.recordedScore)} (lượt có điểm cao nhất) · ${history.passed ? "Đạt" : "Chưa đạt"}`
             }
           />
           <StatCard
             label="Số lượt còn lại trước khi tạm khóa"
             value={
               locked
-                ? `0 · mở lại ${formatDateTime(attempts.lockedUntil!)}`
+                ? `${attempts.remainingAttempts}/${attempts.maxConsecutiveAttempts} · mở lại ${formatDateTimeVN(attempts.lockedUntil!)}`
                 : `${attempts.remainingAttempts}/${attempts.maxConsecutiveAttempts}`
             }
           />
@@ -138,12 +141,12 @@ const QuizHistory = () => {
                       <StatusTag tone="success">Được ghi nhận</StatusTag>
                     )}
                   </td>
-                  <td>{formatDateTime(item.startedAt)}</td>
+                  <td>{formatDateTimeVN(item.startedAt)}</td>
                   <td>
-                    {item.submittedAt ? formatDateTime(item.submittedAt) : "-"}
+                    {item.submittedAt ? formatDateTimeVN(item.submittedAt) : "-"}
                   </td>
                   <td>{submissionKindLabel(item)}</td>
-                  <td>{item.score === null ? "-" : formatScore(item.score)}</td>
+                  <td>{item.score === null ? "-" : `${formatPercentageVN(item.score)}`}</td>
                   <td>
                     {item.correctCount === null
                       ? "-"
@@ -174,11 +177,11 @@ const QuizHistory = () => {
             >
               {history.items.some((i) => i.status === "InProgress")
                 ? "Tiếp tục làm bài"
-                : "Làm bài"}
+                : "Bắt đầu làm bài"}
             </LearnerButton>
           )}
           <LearnerButton onClick={() => navigate(`${base}/assessments`)}>
-            Về danh sách bài đánh giá
+            Quay lại danh sách bài đánh giá
           </LearnerButton>
         </div>
       </div>

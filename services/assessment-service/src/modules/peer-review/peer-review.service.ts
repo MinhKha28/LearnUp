@@ -484,6 +484,20 @@ export class PeerReviewService {
         })),
         now,
       );
+      // Learning looks at the Course again: from now on each reviewer owes reviews, which the completion snapshot reports as
+      // Pending. Same transaction, so the event exists if and only if the reviews do.
+      const signals = await this.repository.emitReviewerSignals(
+        tx,
+        cycle,
+        'Assigned',
+        reviewCounts(pairs),
+        now,
+      );
+      if (signals.repaired.length > 0) {
+        this.logger.warn(
+          `Cycle ${cycle.id}: made the missing state row of ${signals.repaired.join(', ')} so learning is told about their reviews.`,
+        );
+      }
       return {
         status: 'Assigned' as const,
         submissions: submissions.length,
