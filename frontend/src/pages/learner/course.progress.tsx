@@ -90,7 +90,6 @@ const ProgressDetails = ({
                 : "Chưa có thông tin"}
             </p>
             {enrollment.completedLate && <p>Hoàn thành sau hạn</p>}
-
           </>
         ) : (
           conditions?.state === "ok" && (

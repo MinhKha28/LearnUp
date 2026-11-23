@@ -51,6 +51,10 @@ The **Notification Service** is one of the 3 finalized LearnUP Supporting/Platfo
   * `learnup.assessment.passed`
   * `learnup.certificate.issued`
 
+## Notification list API
+
+`GET /api/v1/notifications` returns a nullable `link` for each item; `null` means the notice has no valid internal destination.
+
 ## Private transactional email API
 
 `POST /api/v1/notifications/email/send` (legacy `/api/notifications/email/send`)
@@ -255,3 +259,5 @@ production throughput guarantee. Local results after recovery back-off:
 The default-delay run stopped the container during its wait in 54 ms. These rates
 include consumer polling overhead and fixed-window effects; they are not precise
 scheduling guarantees. Deployment monitoring should alert on DLT publication failure.
+
+Notification Kafka consumers never auto-create topics, even if external consumer properties request it. Source topics must be provisioned by their producer relays; Notification's existing `NewTopic` beans provision the DLTs. A missing source topic is waited for, not created, and consumption resumes when it is provisioned.
