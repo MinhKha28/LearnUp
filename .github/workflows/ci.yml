@@ -29,6 +29,7 @@ jobs:
       has_java: ${{ steps.detect.outputs.has_java }}
       ts_libs: ${{ steps.detect.outputs.ts_libs }}
       learning_it: ${{ steps.detect.outputs.learning_it }}
+      assessment_it: ${{ steps.detect.outputs.assessment_it }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -128,6 +129,13 @@ jobs:
           if [ "$run_all" = true ] || touched '^services/learning-service/' \
             || touched '^libraries/ts-common/'; then learning_it=true; fi
 
+          # Assessment also reads the Course seed and consumes both TS libraries.
+          assessment_it=false
+          if [ "$run_all" = true ] || touched '^services/assessment-service/' \
+            || touched '^libraries/(ts-common|ts-storage)/' \
+            || touched '^services/course-service/prisma/seed\.ts$' \
+            || touched '^\.nvmrc$'; then assessment_it=true; fi
+
           has_node=false; [ "$node" != '[]' ] && has_node=true
           has_java=false; [ "$java" != '[]' ] && has_java=true
 
@@ -138,6 +146,7 @@ jobs:
             echo "has_java=$has_java"
             echo "ts_libs=$ts_libs"
             echo "learning_it=$learning_it"
+            echo "assessment_it=$assessment_it"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -147,6 +156,7 @@ jobs:
             echo "- java: $(jq -r '[.[].name] | join(", ")' <<<"$java")"
             echo "- ts libraries: $ts_libs"
             echo "- learning integration: $learning_it"
+            echo "- assessment integration: $assessment_it"
           } >> "$GITHUB_STEP_SUMMARY"
 
   ts-libraries:
@@ -366,6 +376,90 @@ jobs:
           timing="$(grep -h '^it-timing ' "$RUNNER_TEMP/learning-it.log" | tr '\n' ' ' || true)"
           echo "::notice title=it-timing::$timing"
 
+  assessment-integration:
+    name: assessment integration
+    needs: changes
+    if: needs.changes.outputs.assessment_it == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: assessment_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      kafka:
+        image: confluentinc/cp-kafka:7.6.0 # Keep the version in step with docker-compose.yml.
+        env:
+          KAFKA_NODE_ID: '1'
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+          KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+          KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LOG_DIRS: /var/lib/kafka/data
+          CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: '1'
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: '0'
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: '1'
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: '1'
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+        ports:
+          - 9092:9092
+        options: >-
+          --health-cmd "kafka-topics --bootstrap-server localhost:29092 --list"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 12
+    defaults:
+      run:
+        working-directory: services/assessment-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            services/assessment-service/package-lock.json
+            libraries/ts-common/package-lock.json
+            libraries/ts-storage/package-lock.json
+
+      - name: Build ts libraries
+        working-directory: libraries
+        run: |
+          for lib in ts-common ts-storage; do
+            (cd "$lib" && npm ci && npm run build)
+          done
+
+      - name: Install
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate --config prisma7.config.ts
+
+      # Each suite creates, migrates and drops its own assessment_it_* database.
+      - name: Integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/assessment_db
+          KAFKA_TEST_BROKERS: localhost:9092
+          REAL_STORAGE_TEST: '0'
+          NODE_ENV: test
+        run: |
+          set -o pipefail
+          npm run test:integration 2>&1 | tee "$RUNNER_TEMP/assessment-it.log"
+
   frontend-image:
     name: Frontend Docker image
     runs-on: ubuntu-latest
@@ -399,7 +493,7 @@ jobs:
   ci-result:
     name: CI result
     if: always()
-    needs: [changes, ts-libraries, node, java, learning-integration, frontend-image, ai-signature]
+    needs: [changes, ts-libraries, node, java, learning-integration, assessment-integration, frontend-image, ai-signature]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
