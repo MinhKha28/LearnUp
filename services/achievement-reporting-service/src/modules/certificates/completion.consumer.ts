@@ -58,6 +58,7 @@ export class CompletionConsumer implements OnModuleInit, OnModuleDestroy {
           fromBeginning: true,
           autoCommit: false,
           allowAutoTopicCreation: false,
+          metadataMaxAge: this.config.metadataMaxAgeMs,
         },
       });
       await consumer.connect();

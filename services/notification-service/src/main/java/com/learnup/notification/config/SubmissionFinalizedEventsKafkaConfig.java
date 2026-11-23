@@ -4,13 +4,11 @@ import java.time.Duration;
 
 import com.learnup.notification.enrollment.InvalidEventException;
 import com.learnup.notification.enrollment.PermanentDeliveryException;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
-import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
@@ -22,11 +20,6 @@ import org.springframework.util.backoff.ExponentialBackOff;
 @EnableScheduling
 @ConditionalOnProperty(prefix = "learnup.submission-finalized", name = "enabled", havingValue = "true")
 public class SubmissionFinalizedEventsKafkaConfig {
-    @Bean
-    public NewTopic submissionFinalizedDeadLetterTopic(SubmissionFinalizedEventsProperties properties) {
-        return TopicBuilder.name(properties.getDlt()).partitions(properties.getDltPartitions())
-                .replicas(properties.getDltReplicas()).build();
-    }
 
     @Bean("submissionFinalizedKafkaListenerContainerFactory")
     public ConcurrentKafkaListenerContainerFactory<String, String> submissionFinalizedKafkaListenerContainerFactory(

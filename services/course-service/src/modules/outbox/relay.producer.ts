@@ -118,7 +118,6 @@ export function message(row: OutboxRow) {
     }
   }
 
-
   if (
     row.event_type === 'CoursePublished' ||
     row.event_type === 'CourseRejected'
@@ -204,7 +203,6 @@ export class RelayProducer {
   private admin!: KafkaJS.Admin;
 
   private connected = false;
-  private initialized = false;
 
   constructor(
     @Inject(RELAY_CONFIG)
@@ -258,45 +256,11 @@ export class RelayProducer {
         this.connected = true;
       }
 
-      if (this.initialized) {
-        await this.admin.fetchTopicMetadata({
-          topics: [this.config.topic],
-          timeout: this.config.probeMs,
-        });
-      } else {
-        await this.admin.listTopics({
-          timeout: this.config.probeMs,
-        });
-
-        try {
-          await this.admin.createTopics({
-            timeout: this.config.probeMs,
-            topics: [
-              {
-                topic: this.config.topic,
-                numPartitions: 3,
-                replicationFactor: this.config.replicationFactor,
-                configEntries: [
-                  {
-                    name: 'retention.ms',
-                    value: '2592000000',
-                  },
-                ],
-              },
-            ],
-          });
-        } catch (error) {
-          if (
-            (error as { code?: number }).code !==
-            errors.ERR_TOPIC_ALREADY_EXISTS
-          ) {
-            throw error;
-          }
-        }
-
-        this.initialized = true;
-      }
-
+      const existingTopics = await this.admin.listTopics({
+        timeout: this.config.probeMs,
+      });
+      if ([this.config.topic].some((topic) => !existingTopics.includes(topic)))
+        return false;
       return true;
     } catch {
       if (!this.connected) {

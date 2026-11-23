@@ -330,7 +330,7 @@ test('producer replaces a terminal failure and creates its admin only after conn
           },
           listTopics: async () => {
             calls.push('list');
-            return [];
+            return [config.topic];
           },
           createTopics: async () => {
             calls.push('create');
@@ -357,8 +357,7 @@ test('producer replaces a terminal failure and creates its admin only after conn
     'dependentAdmin 2',
     'admin connect',
     'list',
-    'create',
-    'metadata',
+    'list',
     'disconnect 2',
   ]);
 });

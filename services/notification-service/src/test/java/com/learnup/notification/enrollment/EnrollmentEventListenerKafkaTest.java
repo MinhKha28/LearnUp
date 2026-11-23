@@ -56,7 +56,7 @@ import static org.mockito.Mockito.when;
         "learnup.enrollment-events.retry-max-backoff=100ms",
         "spring.kafka.consumer.group-id=notification-listener-test"
 })
-@EmbeddedKafka(partitions = 1, topics = {"test.enrollment-events"}, bootstrapServersProperty = "spring.kafka.bootstrap-servers")
+@EmbeddedKafka(partitions = 3, topics = {"test.enrollment-events", "test.enrollment-events.DLT"}, bootstrapServersProperty = "spring.kafka.bootstrap-servers")
 @ActiveProfiles("test")
 @DirtiesContext
 class EnrollmentEventListenerKafkaTest {

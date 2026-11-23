@@ -84,6 +84,23 @@ describe(
       db = await createTestDatabase();
       course = await startCourseStub();
       learning = await startLearningStub();
+      const kafka = new KafkaJS.Kafka({
+        kafkaJS: { brokers: [BROKERS as string] },
+      });
+      const admin = kafka.admin();
+      await admin.connect();
+      try {
+        await require('../../../../infrastructure/kafka/test-topics.cjs').createTestTopics(
+          admin,
+          {
+            'assessment-status': topic,
+            'peer-review-assigned': `${topic}.peer-review`,
+            'submission-finalized': `${topic}.finalized`,
+          },
+        );
+      } finally {
+        await admin.disconnect();
+      }
       service = await startService(db.url, {
         COURSE_SERVICE_URL: course.url,
         ENROLLMENT_CLIENT_MODE: 'http',
@@ -93,6 +110,8 @@ describe(
         OUTBOX_RELAY_ENABLED: 'true',
         KAFKA_BROKERS: BROKERS as string,
         OUTBOX_TOPIC: topic,
+        OUTBOX_PEER_REVIEW_TOPIC: `${topic}.peer-review`,
+        OUTBOX_SUBMISSION_FINALIZED_TOPIC: `${topic}.finalized`,
         OUTBOX_POLL_INTERVAL_MS: '300',
       });
     });
@@ -170,7 +189,7 @@ describe(
           [second.data.attemptId],
         );
 
-        // the relay creates the topic; the topic is read from its beginning once the rows are published
+        // the test harness provisions the topic; the topic is read from its beginning once the rows are published
         const end = Date.now() + 60000;
         while (Date.now() < end) {
           const [{ count }] = await db.query(

@@ -21,6 +21,11 @@ import {
 } from './harness';
 import { addEvents, aggregate, relayConfig, relayOver } from './outbox-helpers';
 
+const {
+  createTestTopics,
+} = require('../../../../infrastructure/kafka/test-topics.cjs');
+const topicSetups = new WeakMap<KafkaOutboxGate, () => Promise<void>>();
+
 const BROKERS = process.env.KAFKA_TEST_BROKERS;
 
 interface Received {
@@ -67,6 +72,7 @@ async function listen(topic: string) {
 
 /** The first probe of a new topic can fail while the broker is still creating it; the relay simply asks again a second later. */
 async function becomesReady(gate: KafkaOutboxGate, ms = 90000) {
+  await topicSetups.get(gate)?.();
   const end = Date.now() + ms;
   while (Date.now() < end) {
     if (await gate.ready()) return true;
@@ -93,6 +99,22 @@ describe(
     const gateFor = (name: string, over: Record<string, string> = {}) => {
       const gate = new KafkaOutboxGate(relayConfig(settings(name, over)));
       gates.push(gate);
+      topicSetups.set(gate, async () => {
+        const kafka = new KafkaJS.Kafka({
+          kafkaJS: { brokers: [BROKERS as string] },
+        });
+        const admin = kafka.admin();
+        await admin.connect();
+        try {
+          await createTestTopics(admin, {
+            'assessment-status': name,
+            'peer-review-assigned': `${name}.peer-review`,
+            'submission-finalized': `${name}.finalized`,
+          });
+        } finally {
+          await admin.disconnect();
+        }
+      });
       return gate;
     };
     const row = async (id: string) =>

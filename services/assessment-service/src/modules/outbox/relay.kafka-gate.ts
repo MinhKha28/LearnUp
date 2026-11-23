@@ -70,7 +70,6 @@ export class KafkaOutboxGate extends OutboxGate {
   private producer!: KafkaJS.Producer;
   private admin!: KafkaJS.Admin;
   private connected = false;
-  private initialized = false;
   /** Counts the times the clients were replaced, so a probe that was left behind does not touch the new ones. */
   private generation = 0;
   private failedProbes = 0;
@@ -134,7 +133,6 @@ export class KafkaOutboxGate extends OutboxGate {
   private replaceClients(): void {
     this.generation += 1;
     this.connected = false;
-    this.initialized = false;
     this.failedProbes = 0;
     void Promise.allSettled([
       this.producer.disconnect(),
@@ -157,40 +155,13 @@ export class KafkaOutboxGate extends OutboxGate {
         if (generation !== this.generation) return false;
         this.connected = true;
       }
-      if (this.initialized) {
-        await this.admin.fetchTopicMetadata({
-          topics: topicsOf(this.config),
-          timeout: this.config.probeMs,
-        });
-      } else {
-        await this.admin.listTopics({ timeout: this.config.probeMs });
-        // One call for each topic: one that exists already must not stop the other from being made.
-        for (const topic of topicsOf(this.config)) {
-          try {
-            await this.admin.createTopics({
-              timeout: this.config.probeMs,
-              topics: [
-                {
-                  topic,
-                  numPartitions: 3,
-                  replicationFactor: this.config.replicationFactor,
-                  configEntries: [
-                    { name: 'retention.ms', value: '2592000000' },
-                  ],
-                },
-              ],
-            });
-          } catch (error) {
-            if (
-              (error as { code?: number }).code !==
-              errors.ERR_TOPIC_ALREADY_EXISTS
-            )
-              throw error;
-          }
-        }
-        if (generation !== this.generation) return false;
-        this.initialized = true;
-      }
+      const existingTopics = await this.admin.listTopics({
+        timeout: this.config.probeMs,
+      });
+      if (
+        topicsOf(this.config).some((topic) => !existingTopics.includes(topic))
+      )
+        return false;
       return true;
     } catch {
       // The caller decides whether to make the clients again (a Confluent client cannot reconnect after its first connection failed).

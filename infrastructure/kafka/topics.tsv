@@ -1,0 +1,10 @@
+# id	default-name	partitions	replication-factor	key-description	override-env
+course-events	learnup.course.course-component-events	3	1	courseId	COURSE_EVENTS_TOPIC
+enrollment-events	learnup.learning.enrollment-events	3	1	enrollmentId	ENROLLMENT_EVENTS_TOPIC
+assessment-status	learnup.assessment.learner-assessment-events	3	1	learnerId	ASSESSMENT_OUTBOX_TOPIC
+peer-review-assigned	learnup.assessment.peer-review-assigned	3	1	learnerId	PEER_REVIEW_ASSIGNED_TOPIC
+submission-finalized	learnup.assessment.submission-finalized	3	1	learnerId	SUBMISSION_FINALIZED_TOPIC
+enrollment-dlt	learnup.learning.enrollment-events.DLT	3	1	original-key	ENROLLMENT_EVENTS_TOPIC+.DLT
+peer-review-dlt	learnup.assessment.peer-review-assigned.DLT	3	1	original-key	PEER_REVIEW_ASSIGNED_TOPIC+.DLT
+submission-finalized-dlt	learnup.assessment.submission-finalized.DLT	3	1	original-key	SUBMISSION_FINALIZED_TOPIC+.DLT
+course-dlt	learnup.course.course-submission-dlt	3	1	original-key	COURSE_EVENTS_DLT

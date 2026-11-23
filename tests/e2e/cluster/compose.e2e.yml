@@ -19,6 +19,18 @@ services:
       timeout: 5s
       retries: 10
 
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.0
+    restart: "no"
+    entrypoint: ["sh", "/topics/scripts/provision-topics.sh"]
+    environment:
+      BOOTSTRAP_SERVER: kafka:29092
+    volumes:
+      - ../../../infrastructure/kafka:/topics:ro
+    depends_on:
+      kafka:
+        condition: service_started
+
   kafka:
     image: confluentinc/cp-kafka:7.6.0
     ports:
@@ -38,7 +50,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
     volumes:
       - kafka_data:/var/lib/kafka/data
 

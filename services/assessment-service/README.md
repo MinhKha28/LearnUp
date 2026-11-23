@@ -146,11 +146,11 @@ using `deliverNotice`.
 When `OUTBOX_RELAY_ENABLED=false` (the default outside Compose), `SubmissionFinalized` events stay in the outbox and result notices wait until the relay is enabled.
 
 `OUTBOX_SUBMISSION_FINALIZED_TOPIC` defaults to
-`learnup.assessment.submission-finalized`. The enabled relay provisions this topic
-with three partitions, keyed by learnerId. Verify existing topics during deployment;
-creating an existing topic does not change its partitions. The outbox ID stays the
+`learnup.assessment.submission-finalized`. The relay publishes to this topic, keyed by learnerId. The [shared provisioner](../../infrastructure/kafka/README.md) owns its shape and deployment checks. The outbox ID stays the
 eventId on retry. `courseId` identifies the Course version (`courses.id`), not its chain.
 See the [event contract](../../contracts/events/assessment-submission-finalized.md)
 for required fields and the frontend resolver. Merge/deploy the notification link
 response and frontend resolver before enabling the producer. Drain old instances
 with in-flight REST notices; their deliveries have no eventId for ledger deduplication.
+
+Kafka topic creation and drift handling are owned by the [shared provisioner](../../infrastructure/kafka/README.md). Services wait and retry while topics are unavailable; they never provision them.

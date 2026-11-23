@@ -13,3 +13,5 @@ The [Compose configuration](../../docker-compose.yml) supplies the default strea
 Notification's consumer dead-letter handling is specified by the [enrollment contract](learning-enrollment-events.md#notification-service-consumer).
 
 Examples using the [canonical envelope](event-envelope.schema.json) include [CourseSubmitted](course-submitted.example.json) and [EnrollmentCompleted](enrollment-completed.example.json).
+
+Topic names and partition/replica shapes are authoritative in [topics.tsv](../../infrastructure/kafka/topics.tsv). Deployment and drift procedures live in the [Kafka guide](../../infrastructure/kafka/README.md).
