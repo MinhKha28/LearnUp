@@ -26,8 +26,9 @@ test('finalized payload has exactly the contract fields, decimal strings and the
   let data: any;
   const tx = {
     outboxEvent: {
-      create: async (args: any) => {
+      create: (args: any) => {
         data = args.data;
+        return Promise.resolve();
       },
     },
   } as unknown as Prisma.TransactionClient;
@@ -53,9 +54,9 @@ test('finalized payload has exactly the contract fields, decimal strings and the
 test('whole scores retain two decimal places and failed inserts propagate to the transaction', async () => {
   const tx = {
     outboxEvent: {
-      create: async ({ data }: any) => {
+      create: ({ data }: any) => {
         assert.equal(data.payload.finalScore, '80.00');
-        throw new Error('insert rejected');
+        return Promise.reject(new Error('insert rejected'));
       },
     },
   } as unknown as Prisma.TransactionClient;
@@ -93,39 +94,43 @@ function finalizer(status = 'AwaitingFinalization') {
   const rows: any[] = [];
   const tx = {
     outboxEvent: {
-      create: async ({ data }: any) => {
+      create: ({ data }: any) => {
         rows.push(data);
+        return Promise.resolve();
       },
     },
   };
   const repository = {
-    findSubmissionCourse: async () => ({
-      assessmentId: 'assignment',
-      learnerId: 'learner',
-      assessment: {
-        kind: 'ASSIGNMENT',
-        courseId: 'course',
-        title: 'Assignment',
-      },
-    }),
-    transaction: async (work: any) => work(tx),
+    findSubmissionCourse: () =>
+      Promise.resolve({
+        assessmentId: 'assignment',
+        learnerId: 'learner',
+        assessment: {
+          kind: 'ASSIGNMENT',
+          courseId: 'course',
+          title: 'Assignment',
+        },
+      }),
+    transaction: (work: any) => Promise.resolve(work(tx)),
     lockAssignmentLearner: async () => {},
     lockSubmission: async () => {},
-    findSubmissionForGrading: async () => ({
-      gradingStatus: status,
-      submissionNumber: 1,
-      reviews: [{ status: 'Completed', score: 80 }],
-    }),
-    findLatestSubmissionNumber: async () => 1,
-    findLearnerStateId: async () => ({ id: 'state' }),
+    findSubmissionForGrading: () =>
+      Promise.resolve({
+        gradingStatus: status,
+        submissionNumber: 1,
+        reviews: [{ status: 'Completed', score: 80 }],
+      }),
+    findLatestSubmissionNumber: () => Promise.resolve(1),
+    findLearnerStateId: () => Promise.resolve({ id: 'state' }),
     publishFinalization: async () => {},
     emitSignal: async () => {},
   } as unknown as InstructorSubmissionsRepository;
   const courses = {
-    getAuthoringContext: async () => ({
-      organizationId: instructor.organizationId,
-      instructorId: instructor.userId,
-    }),
+    getAuthoringContext: () =>
+      Promise.resolve({
+        organizationId: instructor.organizationId,
+        instructorId: instructor.userId,
+      }),
   } as unknown as CourseServiceClient;
   return {
     rows,

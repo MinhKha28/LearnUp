@@ -34,7 +34,7 @@ describe('BR-254 finalized notice events', () => {
   let notifier: Server;
   let api: ReturnType<typeof apiFor>;
   let sent: Sent[] = [];
-  let notifierStatus = 201;
+  const notifierStatus = 201;
   let notifierUrl = '';
   async function createSubmission(title: string) {
     const created = await api('POST', '/assignments', {
