@@ -1,27 +1,14 @@
-import { useState } from "react";
-import { message } from "antd";
-import { useNavigate } from "react-router-dom";
 import { monitoringCompletionLabel, monitoringEnrollmentLabel, monitoringFilters } from "@/components/instructor/instructor.data";
-import { InstructorButton, InstructorPage, PageHeader, SectionCard } from "@/components/instructor/instructor.ui";
+import { InfoPanel, InstructorButton, InstructorPage, PageHeader, SectionCard } from "@/components/instructor/instructor.ui";
 import "./monitoring.export.scss";
 
-type ExportFormat = "Excel" | "PDF";
-
 const MonitoringExport = () => {
-  const navigate = useNavigate();
-  const [format, setFormat] = useState<ExportFormat>("Excel");
-
-  const exportReport = () => {
-    message.success(`Đã xuất báo cáo khóa học định dạng ${format}.`);
-    navigate("/instructor/monitoring");
-  };
-
   return (
     <InstructorPage className="instructor-monitoring-export">
       <PageHeader
         eyebrow="Giảng viên"
         title="Xuất báo cáo khóa học"
-        subtitle="Chỉ xuất dữ liệu đã lọc từ các khóa học bạn phụ trách."
+        subtitle=""
         back
       />
       <SectionCard className="instructor-export-card">
@@ -34,19 +21,19 @@ const MonitoringExport = () => {
         <hr />
         <h3>Định dạng tệp</h3>
         <div className="instructor-export-formats">
-          {(["Excel", "PDF"] as ExportFormat[]).map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`instructor-export-format ${format === option ? "instructor-export-format-active" : ""}`}
-              onClick={() => setFormat(option)}
-            >
-              {option}
-            </button>
+          {["Excel", "PDF"].map((format) => (
+            <InstructorButton key={format} disabled>
+              {format}
+            </InstructorButton>
           ))}
         </div>
+        <div id="report-export-unavailable">
+          <InfoPanel title="Chưa hỗ trợ xuất báo cáo">
+            Tính năng xuất báo cáo đang được phát triển. Hiện hệ thống chưa tạo được tệp Excel hoặc PDF.
+          </InfoPanel>
+        </div>
         <div className="instructor-export-actions">
-          <InstructorButton type="primary" onClick={exportReport}>
+          <InstructorButton disabled aria-describedby="report-export-unavailable">
             Xuất báo cáo
           </InstructorButton>
         </div>
