@@ -36,3 +36,7 @@ import './progress.unit-test';
 import './internal-auth-guard.unit-test';
 import './assessment-status.unit-test';
 import './assessment-results.unit-test';
+
+import './runtime-config.unit-test';
+
+import './course-stub-auth.unit-test';

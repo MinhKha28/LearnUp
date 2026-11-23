@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC49: the bell and the page of the notifications, in Vietnamese (BR-232: the notice of the reviews handed out is one of them).
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -104,7 +104,7 @@ describe("the bell", () => {
 
 describe("the page", () => {
   it("is in Vietnamese: the title, the filter, the count and the notice", async () => {
-    render(<NotificationPage />);
+    render(<MemoryRouter><NotificationPage /></MemoryRouter>);
     await screen.findByText("Bạn có bài cần chấm chéo");
     expect(screen.getByRole("heading", { name: "Thông báo" })).toBeTruthy();
     expect(screen.getByText("Cập nhật về khóa học, bài tập và bài chấm của bạn.")).toBeTruthy();
@@ -116,7 +116,7 @@ describe("the page", () => {
 
   it("says in Vietnamese when there is nothing, with the way back to the whole list from the unread filter", async () => {
     vi.mocked(api.fetchNotifications).mockResolvedValue(page([]) as never);
-    render(<NotificationPage />);
+    render(<MemoryRouter><NotificationPage /></MemoryRouter>);
     await screen.findByText("Chưa có thông báo nào");
     expect(screen.getByText("Khi có việc cần bạn chú ý, thông báo sẽ hiện ở đây.")).toBeTruthy();
 
@@ -129,7 +129,7 @@ describe("the page", () => {
 
   it("says in Vietnamese when it cannot load, and tries again on the button", async () => {
     vi.mocked(api.fetchNotifications).mockRejectedValueOnce(new Error("network"));
-    render(<NotificationPage />);
+    render(<MemoryRouter><NotificationPage /></MemoryRouter>);
     await screen.findByText("Không tải được thông báo");
     expect(screen.getByText("Đã có lỗi xảy ra. Vui lòng thử lại.")).toBeTruthy();
 

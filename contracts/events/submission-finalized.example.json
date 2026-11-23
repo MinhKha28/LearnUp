@@ -1,0 +1,18 @@
+{
+  "eventId": "019a9eb0-0000-7000-8000-000000000001",
+  "eventType": "SubmissionFinalized",
+  "version": 1,
+  "occurredAt": "2026-11-21T03:00:00Z",
+  "organizationId": "019a9eb0-0000-7000-8000-000000000002",
+  "producer": "assessment-service",
+  "data": {
+    "learnerId": "019a9eb0-0000-7000-8000-000000000003",
+    "submissionId": "019a9eb0-0000-7000-8000-000000000004",
+    "assessmentId": "019a9eb0-0000-7000-8000-000000000005",
+    "assessmentTitle": "An toàn lao động",
+    "finalScore": "66.67",
+    "maxScore": "100.00",
+    "courseId": "019a9eb0-0000-7000-8000-000000000006",
+    "finalizedAt": "2026-11-21T03:00:00Z"
+  }
+}

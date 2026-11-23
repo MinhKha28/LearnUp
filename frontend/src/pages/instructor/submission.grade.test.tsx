@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC32.2: the Instructor grades a submission with the Rubric, in Vietnamese. jsdom is for this file only.
 import {
   cleanup,

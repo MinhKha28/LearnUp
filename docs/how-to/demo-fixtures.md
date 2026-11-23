@@ -1,6 +1,6 @@
 # Prepare local demo fixtures
 
-Use a disposable database and local service configuration. The [PowerShell launcher](../../scripts/inter2-demo.ps1) provisions PostgreSQL 16 on port `15433` by default and runs the [demo setup script](../../scripts/inter1-demo.mjs). Use Node 22 and Docker with the dependencies required by that launcher. Keep storage credentials in the local environment for provider-backed assets.
+Use a disposable database and local service configuration. The [PowerShell launcher](../../scripts/inter2-demo.ps1) provisions PostgreSQL 16 on port `15433` by default and runs the [demo setup script](../../scripts/inter1-demo.mjs). Use Node 24 and Docker with the dependencies required by that launcher. Keep storage credentials in the local environment for provider-backed assets.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/inter2-demo.ps1 -AnyBranch

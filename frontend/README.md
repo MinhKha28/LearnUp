@@ -47,13 +47,13 @@ Additional packages are available for spreadsheet handling, CSV export, image ga
 
 Install:
 
-- Node.js
-- npm
+- Node 24
+- npm 11
 
 ### Install dependencies
 
 ```bash
-npm install
+npm ci
 ```
 
 ### Environment configuration

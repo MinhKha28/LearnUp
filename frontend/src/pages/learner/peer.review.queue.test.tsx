@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC31: the reviews assigned to the Learner, by interaction. jsdom is for this file only.
 import {
   cleanup,

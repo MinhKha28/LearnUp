@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC33.1 and the entry to UC33.2: the cycle the Instructor reads, by interaction. jsdom is for this file only.
 import {
   cleanup,

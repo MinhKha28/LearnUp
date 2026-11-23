@@ -8,6 +8,7 @@ The [Compose configuration](../../docker-compose.yml) supplies the default strea
 | `learnup.learning.enrollment-events` | Learning | `EnrollmentAssigned`, `EnrollmentDueDateExtended`, `EnrollmentExempted`, `LearnerWithdrew`, `EnrollmentCompleted`. See [Learning enrollment events](learning-enrollment-events.md). |
 | `learnup.assessment.learner-assessment-events` | Assessment | [LearnerAssessmentStatusChanged](assessment-status-events.md). |
 | `learnup.assessment.peer-review-assigned` | Assessment | [PeerReviewAssigned](assessment-peer-review-events.md). |
+| `learnup.assessment.submission-finalized` | Assessment | [SubmissionFinalized](assessment-submission-finalized.md), dedicated result notices (consumer before producer). |
 
 Notification's consumer dead-letter handling is specified by the [enrollment contract](learning-enrollment-events.md#notification-service-consumer).
 

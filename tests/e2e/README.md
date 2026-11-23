@@ -18,7 +18,7 @@ state read back through the API, Kafka event observed) and never deletes anythin
 | J10 | Assessment -> learning chain: a fresh Learner assigned the course submits a text-only Assignment (no peer review); the Enrollment moves NotStarted -> InProgress with the event's `firstActivityAt`; one published outbox row, no quarantine; a byte-identical duplicate event changes nothing | gateway, assessment, learning, kafka |
 | J11 | Audit trail (UC50, UC51): an Organizer deactivates and reactivates an Instructor through the gateway; the entries reach audit-service through the tenant outbox and relay, dated by the time of the action, with who, what, on what, whose and why; the Organizer, the Admin (real logins) read them, another Organization does not and gets 403 for the first one's Organization; time range, order and page size; nothing is written through the gateway; forged identity headers are replaced. Safe to run again (it picks its own entries by their reason) | gateway, identity, tenant, audit |
 
-## Prerequisites and cluster startup (Linux host, Docker, JDK 21, Node 22)
+## Prerequisites and cluster startup (Linux host, Docker, JDK 21, Node 24)
 
 Windows: run everything (build, `cluster/start.sh`, `run.mjs`, `cleanup.mjs`) inside WSL2 with
 Docker Desktop's WSL integration; Git Bash is not supported (no `lsof`, different `/tmp`).

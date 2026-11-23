@@ -30,6 +30,8 @@ describe('Context Models & Factories', () => {
     });
 
     const user = createCurrentUser(authenticatedCtx);
+    expect(user).not.toBeNull();
+    if (!user) throw new Error('Expected an authenticated user');
     expect(user.isAuthenticated).toBe(true);
     expect(user.userId).toBe('user-123');
     expect(user.role).toBe('LEARNER');
@@ -39,9 +41,7 @@ describe('Context Models & Factories', () => {
       correlationId: 'corr-2',
     });
     const unauthenticatedUser = createCurrentUser(unauthenticatedCtx);
-    expect(unauthenticatedUser.isAuthenticated).toBe(false);
-    expect(unauthenticatedUser.userId).toBeUndefined();
-    expect(unauthenticatedUser.role).toBeUndefined();
+    expect(unauthenticatedUser).toBeNull();
   });
 
   it('should create OrganizationContext with tenant presence flag', () => {

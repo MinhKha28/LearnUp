@@ -124,3 +124,134 @@ be configured with `SPRING_MAIL_SMTP_CONNECTION_TIMEOUT`,
 
 Run `mvn test` / `mvn clean verify` with Java 21. Tests use synthetic credentials
 and an isolated H2 database; mocked JavaMailSender tests do not prove inbox delivery.
+
+## Finalized submission result notices (NEW BR-254, UC32.3)
+
+The independent `SubmissionFinalized` v1 consumer reads
+`learnup.assessment.submission-finalized` with group
+`notification-submission-finalized-v1`. Its
+[contract](../../contracts/events/assessment-submission-finalized.md) describes the
+required decimal-string payload, Vietnamese content and rollout. This PR adds no
+Assessment producer and keeps generic notification/email REST APIs.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SUBMISSION_FINALIZED_CONSUMER_ENABLED` | `false` (Compose: `true`) | Enable this independent consumer. |
+| `SUBMISSION_FINALIZED_TOPIC` | `learnup.assessment.submission-finalized` | Source; DLT is source plus `.DLT`. |
+| `SUBMISSION_FINALIZED_GROUP_ID` | `notification-submission-finalized-v1` | Consumer group. |
+| `SUBMISSION_FINALIZED_RETRY_ATTEMPTS` | `10` | Total attempts including the first. |
+| `SUBMISSION_FINALIZED_RETRY_INITIAL_MS` | `1000` | Initial exponential retry delay. |
+| `SUBMISSION_FINALIZED_RETRY_MAX_MS` | `30000` | Maximum retry delay; also the wait after a failed confirmed DLT publication. |
+| `SUBMISSION_FINALIZED_START_RETRY_MS` | `10000` | Retry starting the listener while unavailable. |
+| `SUBMISSION_FINALIZED_DLT_PARTITIONS` | `3` | DLT partition count. |
+| `SUBMISSION_FINALIZED_DLT_REPLICAS` | `1` | DLT replication factor. |
+| `LEARNUP_FRONTEND_BASE_URL` | Empty in application; Compose: `http://localhost:3000` | Required when enabled; absolute http(s), no credentials/query/fragment. |
+
+`learnup.frontend-base-url` backs the frontend base URL. A deployment subpath and
+trailing slash are supported. The proposed result URL is
+`{base}/learner/courses/by-course/{courseId}/results`. Deployment order is
+**consumer PR-1 → frontend resolver PR-3 → producer PR-2**. Compose defaults the
+base URL to `http://localhost:3000` for local development, matching its published
+frontend port. Production deployments must explicitly set the public frontend URL.
+Outside Compose, the application has no default and requires the URL when this
+consumer is enabled.
+
+The historical `enrollment_event_deliveries` table is reused with null
+`enrollment_id`, one row per event/learner/channel. There is no migration, age-based
+discard or ledger deletion. In-app persistence is independent of Tenant and commits
+with its ledger `SENT` state after a locked ownership recheck. Tenant eligibility
+and email-address lookup gate email only. Fresh unfinished claims remain retryable;
+stale workers cannot overwrite newer completion. The existing
+`ENROLLMENT_EVENTS_CLAIM_LEASE` (2m) and `ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS` (3000)
+also apply to this reused ledger/Tenant client.
+
+Disabled mail returns **SIMULATED**, recorded as terminal ledger **SENT**; enabling
+mail later does not resend it. SMTP stays at least once: a crash after acceptance
+but before email-log/ledger completion can resend. Sender acceptance is not inbox
+arrival. Missing/deleted/deactivated recipients and missing addresses skip email;
+transient Tenant/SMTP failures retry email while preserving in-app delivery.
+A permanent channel refusal remains `FAILED` with its fixed reason. While another
+channel is transient, the record retries normally; automatic retries skip a channel
+already `SENT`, `SKIPPED` or `FAILED/TENANT_REJECTED`. Once no transient work remains,
+a permanent refusal goes to the DLT. Retry exhaustion still applies. Poison events
+go directly to the DLT. Claim locking and atomic in-app persistence are unchanged.
+
+Only this factory enables the blocking delivery-attempt header. Attempt 1 allows
+reclaiming `FAILED` rows; attempts above 1 suppress stored permanent refusals.
+Operator replay means re-publishing the original key/value to the source topic as
+a new record, preserving `eventId`, not seeking the original offset. No replay
+script is provided. The new record starts at attempt 1 and can retry permanent
+email failures after their cause is repaired; already sent in-app notices stay
+unchanged. A consumer restart or transfer to fresh retry state can also reset the
+attempt to 1 and cause one extra permanent-channel attempt per reset.
+
+DLT publication must succeed before recovery advances the source offset.
+`setResetStateOnRecoveryFailure(false)` preserves retry state after failed DLT
+publication, preventing repeated permanent email attempts. After either a permanent
+failure or exhausted transient retries, a failed confirmed DLT publication waits
+`SUBMISSION_FINALIZED_RETRY_MAX_MS` before rethrowing the original publication
+failure. The wait is interruptible and stops when the container stops. Successful
+DLT publication adds no wait. All partitions handled by this consumer thread remain
+blocked while waiting. Retain ledger rows throughout the supported replay horizon.
+
+Only this consumer validates the recovery timing envelope at startup when enabled:
+
+`max.block.ms + effective DLT confirmation timeout + retryMaxMs + pollTimeout + processing headroom < max.poll.interval.ms`
+
+The confirmation timeout is the larger of producer `delivery.timeout.ms + 5000`
+and 30000 ms. With Kafka/container defaults the budget is
+`60000 + 125000 + 30000 + 5000 + 30000 = 250000 < 300000 ms`.
+Producer/consumer overrides are read from their factories. An unsafe budget fails
+startup with each component named; the recovery delay is never clipped. No new
+environment variable is needed. The named 30-second processing headroom is an
+allowance, not an enforced listener deadline; validation covers the recovery
+envelope only.
+
+Tenant defaults to 3-second connect/read timeouts and SMTP to 5-second
+connect/read/write timeouts. These configured limits apply per operation, not to
+the total attempt. Delivery-row `SELECT ... FOR UPDATE` and handler transactions
+have no configured statement, lock or transaction timeout, so an attempt has no
+enforced total deadline. If processing exceeds `max.poll.interval.ms`, the consumer
+leaves the group and the record is redelivered. The existing ledger skips completed
+deliveries and prevents duplicate committed in-app notices; SMTP retains the
+at-least-once limitation described above. Bounding total notification-handler
+attempt time is a separate follow-up. Enrollment/course factories are unchanged.
+
+Merge this follow-up before the Assessment SubmissionFinalized producer PR.
+
+No grader or finalization comments enter either channel or metadata. Titles and
+names are escaped by `EmailLayout`. This consumer does not call Learning or Course.
+Existing consumers' DLT settings and Course delivery transactions are unchanged.
+
+Verification uses Java 21, H2 with Flyway, and EmbeddedKafka without Docker. Coverage
+includes replay, channel failures, stale claims, atomic in-app delivery, failed DLT
+publication without offset commit, and API startup before Kafka is available followed
+by recovery. These tests do not prove real PostgreSQL locking or real inbox delivery.
+
+Recovery back-off verification uses the normal `mvn test` / `mvn clean verify`
+suite with a 1-second configured wait. It checks publication spacing, uncommitted
+source offsets, permanent-email suppression, stop/interruption, successful recovery
+without an extra wait, and enabled-only startup validation. The optional local
+90-second measurement uses the default 30-second delay and is excluded from normal
+and CI runs:
+
+```sh
+mvn -B -ntp -Pdlt-default-delay-measurement -Dtest=SubmissionFinalizedEventListenerKafkaTest test
+```
+
+The measurement uses listener/publication counters, `System.nanoTime` and a Logback
+appender counting rendered message/stack-trace lines on the listener thread. The
+historical observation before recovery back-off was about 1.9 attempts/s and 126
+log lines per publication (about 240 lines/s). New local measurements are recorded
+in this change's PR description; these are EmbeddedKafka observations, not a
+production throughput guarantee. Local results after recovery back-off:
+
+| Recovery wait / failure | Window | Publications/s | Rendered log lines/s | Shortest adjacent interval |
+| --- | --- | --- | --- | --- |
+| 1s / permanent | 10.000s | 0.900 | 116.90 | 1.012s |
+| 1s / exhausted transient | 5.001s | 0.800 | 102.38 | 1.016s |
+| 30s / exhausted transient | 90.014s | 0.022 | 2.84 | 30.061s |
+
+The default-delay run stopped the container during its wait in 54 ms. These rates
+include consumer polling overhead and fixed-window effects; they are not precise
+scheduling guarantees. Deployment monitoring should alert on DLT publication failure.

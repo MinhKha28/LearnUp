@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { ComponentType } from "react";
@@ -81,5 +81,28 @@ describe("UC09 read-only profile pages", () => {
     );
     expect(await screen.findAllByText("Nguyễn Văn An")).not.toHaveLength(0);
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("renders the Organizer initials inside the Avatar", async () => {
+    getMyProfileAPI.mockResolvedValue({
+      statusCode: 200,
+      data: {
+        id: "u-1",
+        fullName: "Dev Smoke Organizer",
+        email: "organizer@example.com",
+        role: "Organizer",
+        status: "Active",
+        avatarUrl: null,
+      },
+    });
+    const { container } = render(
+      <MemoryRouter>
+        <OrganizerProfile />
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole("heading", { name: "Hồ sơ" });
+    const avatar = container.querySelector(".organizer-profile-identity .ant-avatar");
+    expect(avatar?.querySelector(".ant-avatar-string")?.textContent).toBe("DS");
   });
 });

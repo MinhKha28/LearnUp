@@ -4,9 +4,8 @@ import './storage-provider.unit-test';
 import './assessments-service.unit-test';
 import './peer-review-service.unit-test';
 import './peer-review-waiver.unit-test';
-import './finalized-notice.unit-test';
+import './submission-finalized.unit-test';
 import './notice-retry.unit-test';
-import './finalized-notice-delivery.unit-test';
 import './cycle-score-gap.unit-test';
 import './completion-signal.unit-test';
 import './relay-config.unit-test';
@@ -41,3 +40,5 @@ import './review-history.unit-test';
 import './peer-review-assigned.unit-test';
 import './relay-outage.unit-test';
 import './organizer-course-review.unit-test';
+
+import './runtime-config.unit-test';

@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // The Submissions page starts with a Course and an Assignment, as the peer review cycles do.
 import {
   cleanup,

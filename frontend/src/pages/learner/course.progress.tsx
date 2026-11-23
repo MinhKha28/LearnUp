@@ -90,15 +90,7 @@ const ProgressDetails = ({
                 : "Chưa có thông tin"}
             </p>
             {enrollment.completedLate && <p>Hoàn thành sau hạn</p>}
-            <nav
-              className="course-progress-links"
-              aria-label="Sau khi hoàn thành"
-            >
-              <Link to={LEARNER_ROUTES.certificates()}>Xem chứng chỉ</Link>
-              {canOpenPage(LEARNER_ROUTES.evaluation(enrollment.id)) && (
-                <Link to={LEARNER_ROUTES.evaluation(enrollment.id)}>Đánh giá khóa học</Link>
-              )}
-            </nav>
+
           </>
         ) : (
           conditions?.state === "ok" && (
@@ -107,6 +99,13 @@ const ProgressDetails = ({
             </p>
           )
         )}
+        <nav className="course-progress-links" aria-label="Thao tác khóa học">
+          <Link to={LEARNER_ROUTES.results(enrollment.id)}>Xem kết quả</Link>
+          {completed && <Link to={LEARNER_ROUTES.certificates()}>Xem chứng chỉ</Link>}
+          {completed && canOpenPage(LEARNER_ROUTES.evaluation(enrollment.id)) && (
+            <Link to={LEARNER_ROUTES.evaluation(enrollment.id)}>Đánh giá khóa học</Link>
+          )}
+        </nav>
       </section>
       {!completed && (
         <>

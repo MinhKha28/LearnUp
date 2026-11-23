@@ -299,10 +299,10 @@ function tenantDemoEnv(dir) {
 // ---------------------------------------------------------------------------
 function checkNode() {
   const major = Number(process.versions.node.split(".")[0]);
-  if (major < 22) {
+  if (major !== 24) {
     throw new DemoError(
-      `Node ${process.versions.node} quá cũ.`,
-      "Hãy cài Node 22 trở lên rồi chạy lại.",
+      `Node ${process.versions.node} không được hỗ trợ.`,
+      "Hãy cài Node 24 rồi chạy lại.",
     );
   }
 }

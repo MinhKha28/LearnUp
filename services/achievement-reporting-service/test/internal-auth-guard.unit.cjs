@@ -43,3 +43,28 @@ for (const configured of ['', '   ']) {
     }
   });
 }
+
+const configuredKey = 'achievement-guard-unit-test-key-0123456789abcdef';
+for (const [name, header] of [
+  ['missing', undefined],
+  ['empty', ''],
+  ['wrong same length', configuredKey.slice(0, -1) + 'X'],
+  ['shorter', 'wrong'],
+  ['longer', configuredKey + '-longer'],
+  ['array', [configuredKey]],
+]) {
+  test(`returns the existing 401 response for a ${name} internal key`, () => {
+    assert.throws(
+      () =>
+        guardWith(configuredKey).canActivate(
+          contextWith({ 'x-internal-key': header, ...user }),
+        ),
+      (error) => {
+        assert.ok(error instanceof UnauthorizedException);
+        assert.equal(error.getStatus(), 401);
+        assert.equal(error.message, 'Invalid or missing internal service key.');
+        return true;
+      },
+    );
+  });
+}

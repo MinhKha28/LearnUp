@@ -6,6 +6,7 @@ export default defineConfig({
   esbuild: { jsx: "automatic" },
   resolve: {
     alias: {
+      "vitest-environment-jsdom-native": fileURLToPath(new URL("./dev/jsdom.native.environment.ts", import.meta.url)),
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },

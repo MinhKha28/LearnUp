@@ -19,7 +19,7 @@ Both `OUTBOX_DRAIN_GAP_MS` and `OUTBOX_POLL_INTERVAL_MS` must be at most 60000 m
 Enable with OUTBOX_RELAY_ENABLED=true; default false keeps unrelated tests isolated.
 See .env.example for Kafka brokers, topic, replication factor, poll/batch size,
 delivery/probe/transaction timeouts, exponential backoff and alert threshold.
-The Docker stages use node:22-alpine3.24 (verified built image: Alpine 3.24.3, Node 22.23.4).
+The Docker stages use the pinned Node 24 Alpine image defined in Dockerfile.
 The Confluent client is pinned to 1.11.0 and uses native binaries for each platform;
 the Docker build excludes host node_modules and generates Prisma inside Linux.
 
@@ -120,7 +120,7 @@ in seed-enrollments.ts intentionally retain NULL completion_snapshot; they are n
 
 ## Isolated Learning integration tests
 
-Use Node 22.23 or later and PostgreSQL 16. From `services/learning-service` in
+Use Node 24 and PostgreSQL 16. From `services/learning-service` in
 PowerShell, set `$env:NODE_PATH=(Get-Location).Path`, set `DATABASE_URL` to a
 non-production PostgreSQL server, then run `npm run test:integration`.
 The PostgreSQL user needs CREATE/DROP DATABASE privileges and access to `postgres`.

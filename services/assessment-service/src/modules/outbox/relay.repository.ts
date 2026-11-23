@@ -5,6 +5,7 @@ import {
   LEARNER_STATUS_CHANGED_EVENT,
   PEER_REVIEW_ASSIGNED_EVENT,
 } from '../learner-submissions/learner-submissions.constants';
+import { SUBMISSION_FINALIZED_EVENT } from './submission-finalized';
 import { RELAY_CONFIG, retryDelay, type RelayConfig } from './relay.config';
 
 /**
@@ -14,6 +15,7 @@ import { RELAY_CONFIG, retryDelay, type RelayConfig } from './relay.config';
 export const RELAYED_EVENT_TYPES: readonly string[] = [
   LEARNER_STATUS_CHANGED_EVENT,
   PEER_REVIEW_ASSIGNED_EVENT,
+  SUBMISSION_FINALIZED_EVENT,
 ];
 
 export interface RelayRow {

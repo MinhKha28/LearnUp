@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 import { App } from "antd";
 import dayjs from "dayjs";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";

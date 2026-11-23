@@ -54,7 +54,7 @@ test('AppModule runs the check when it is loaded, so removing the hook fails thi
       ['-e', `require(${JSON.stringify(appModule)})`],
       {
         cwd: os.tmpdir(),
-        env: { ...process.env, EMAIL_OTP_SECRET: secret },
+        env: { ...process.env, NODE_ENV: 'test', EMAIL_OTP_SECRET: secret },
         encoding: 'utf8',
       },
     );

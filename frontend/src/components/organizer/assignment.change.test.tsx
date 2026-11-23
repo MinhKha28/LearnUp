@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { AssignmentChange } from "./assignment.change";
 import type { AssignmentDetail } from "@/types/assignment.types";

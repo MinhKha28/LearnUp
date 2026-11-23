@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment jsdom-native
 // UC31.2: the Learner reads the reviews they gave and where their duty stands. jsdom is for this file only.
 import {
   cleanup,
