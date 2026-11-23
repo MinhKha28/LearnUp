@@ -60,14 +60,14 @@ function detailWithNewestSupersededAt(supersededAt: Date | null) {
   const older = submission(1, submittedAt);
   const history = [newest, older];
   const repository = {
-    findSubmissionDetail: async (_organizationId: string, id: string) =>
-      history.find((attempt) => attempt.id === id) ?? null,
-    findLearnerSubmissions: async () => history,
+    findSubmissionDetail: (_organizationId: string, id: string) =>
+      Promise.resolve(history.find((attempt) => attempt.id === id) ?? null),
+    findLearnerSubmissions: () => Promise.resolve(history),
   } as unknown as InstructorSubmissionsRepository;
 
   class StubCourses extends CourseServiceClient {
-    async getAuthoringContext() {
-      return draftCourse();
+    getAuthoringContext() {
+      return Promise.resolve(draftCourse());
     }
 
     setAssignmentMinutes(): never {

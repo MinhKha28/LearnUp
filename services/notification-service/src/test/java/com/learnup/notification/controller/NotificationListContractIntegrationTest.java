@@ -163,6 +163,7 @@ class NotificationListContractIntegrationTest {
 
         assertThat(notifications.findById(id).orElseThrow().getMetadata()).contains("courseId");
     }
+
     @Test
     void submissionFinalizedDestinationIsExposedWithoutProducerMetadata() throws Exception {
         String link = "/learner/courses/by-course/" + UUID.randomUUID() + "/results";
