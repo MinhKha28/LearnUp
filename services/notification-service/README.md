@@ -51,6 +51,10 @@ The **Notification Service** is one of the 3 finalized LearnUP Supporting/Platfo
   * `learnup.assessment.passed`
   * `learnup.certificate.issued`
 
+## Notification list API
+
+`GET /api/v1/notifications` returns a nullable `link` for each item; `null` means the notice has no valid internal destination.
+
 ## Private transactional email API
 
 `POST /api/v1/notifications/email/send` (legacy `/api/notifications/email/send`)

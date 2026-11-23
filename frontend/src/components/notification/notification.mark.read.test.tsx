@@ -121,18 +121,30 @@ describe("UC49 mark as read in the bell", () => {
 
 const CurrentPath = () => <p data-testid="current-path">{useLocation().pathname}</p>;
 it.each(["page", "bell"])("navigates a read linked notice from %s without marking again", async (surface) => {
- vi.mocked(api.fetchNotifications).mockResolvedValue(page([notice({isRead:true, link:"/learner/destination"})]) as never);
- render(<MemoryRouter>{surface === "bell" ? <NotificationBell basePath="/learner" /> : <NotificationPage />}<CurrentPath /></MemoryRouter>);
- if(surface === "bell") fireEvent.click(await screen.findByRole("button", {name:"Thông báo"}));
- fireEvent.click(await screen.findByText("Khóa học đã được phê duyệt"));
- expect(screen.getByTestId("current-path").textContent).toBe("/learner/destination");
- expect(api.markNotificationRead).not.toHaveBeenCalled();
+  vi.mocked(api.fetchNotifications).mockResolvedValue(
+    page([notice({ isRead: true, link: "/learner/destination" })]) as never,
+  );
+  render(
+    <MemoryRouter>
+      {surface === "bell" ? <NotificationBell basePath="/learner" /> : <NotificationPage />}
+      <CurrentPath />
+    </MemoryRouter>,
+  );
+  if (surface === "bell") fireEvent.click(await screen.findByRole("button", { name: "Thông báo" }));
+  fireEvent.click(await screen.findByText("Khóa học đã được phê duyệt"));
+  expect(screen.getByTestId("current-path").textContent).toBe("/learner/destination");
+  expect(api.markNotificationRead).not.toHaveBeenCalled();
 });
 it("navigates before an unread mark request resolves", async () => {
- vi.mocked(api.fetchNotifications).mockResolvedValue(page([notice({link:"/learner/destination"})]) as never);
- vi.mocked(api.markNotificationRead).mockImplementation(() => new Promise(() => {}));
- render(<MemoryRouter><NotificationPage /><CurrentPath /></MemoryRouter>);
- fireEvent.click(await screen.findByText("Khóa học đã được phê duyệt"));
- expect(screen.getByTestId("current-path").textContent).toBe("/learner/destination");
- expect(api.markNotificationRead).toHaveBeenCalledTimes(1);
+  vi.mocked(api.fetchNotifications).mockResolvedValue(page([notice({ link: "/learner/destination" })]) as never);
+  vi.mocked(api.markNotificationRead).mockImplementation(() => new Promise(() => {}));
+  render(
+    <MemoryRouter>
+      <NotificationPage />
+      <CurrentPath />
+    </MemoryRouter>,
+  );
+  fireEvent.click(await screen.findByText("Khóa học đã được phê duyệt"));
+  expect(screen.getByTestId("current-path").textContent).toBe("/learner/destination");
+  expect(api.markNotificationRead).toHaveBeenCalledTimes(1);
 });
