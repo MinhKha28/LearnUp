@@ -1,0 +1,6 @@
+# Override used only by test-provisioner.sh: the disposable broker publishes no host port,
+# so it never collides with a developer Kafka on 9092. The provisioner and every check in
+# the script reach the broker over the Compose network (kafka:29092).
+services:
+  kafka:
+    ports: !reset []

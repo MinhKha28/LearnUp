@@ -4,8 +4,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 PROJECT="learnup-topics-$$-e2e"
 COMPOSE="$ROOT/tests/e2e/cluster/compose.e2e.yml"
+# Removes the published broker port: a developer Kafka may already use host port 9092.
+NO_HOST_PORTS="$ROOT/infrastructure/kafka/scripts/no-host-ports.compose.yml"
 export DB_USERNAME=postgres DB_PASSWORD=disposable-provisioner-test
-compose() { docker compose -p "$PROJECT" -f "$COMPOSE" "$@"; }
+compose() { docker compose -p "$PROJECT" -f "$COMPOSE" -f "$NO_HOST_PORTS" "$@"; }
 LOG=$(mktemp)
 cleanup() { compose down -v --remove-orphans; rm -f "$LOG"; }
 trap cleanup EXIT
