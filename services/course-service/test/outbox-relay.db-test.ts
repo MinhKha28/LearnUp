@@ -59,7 +59,7 @@ function relay(send: (id: string) => Promise<void>, repository = repo) {
         return [];
       },
     },
-    ready: async () => true,
+    ready: async () => ({ status: 'ready' }),
   });
   return new RelayService(repository, producer, config);
 }

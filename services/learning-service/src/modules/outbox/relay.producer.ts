@@ -1,3 +1,4 @@
+import { isKafkaTopicMissing, OUTBOX_TOPIC_MISSING } from '@learnup/ts-common';
 import { Inject, Injectable } from '@nestjs/common';
 import { KafkaJS, CODES } from '@confluentinc/kafka-javascript';
 import { RELAY_CONFIG, type RelayConfig } from './relay.config';
@@ -24,6 +25,8 @@ export function classifyError(error: unknown): {
     typeof error === 'object' && error !== null && 'code' in error
       ? (error as { code: unknown }).code
       : undefined;
+  if (isKafkaTopicMissing(code))
+    return { individual: false, code: OUTBOX_TOPIC_MISSING };
   return {
     individual: typeof code === 'number' && messageCodes.has(code),
     code:
@@ -114,7 +117,7 @@ export class RelayProducer {
         timeout: this.config.probeMs,
       });
       if (!existingTopics.includes(this.config.topic))
-        return 'OUTBOX_TOPIC_MISSING';
+        return OUTBOX_TOPIC_MISSING;
       return true;
     } catch (error) {
       return classifyError(error).code;

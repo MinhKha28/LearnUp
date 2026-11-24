@@ -5,7 +5,10 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
 import { readRelayConfig } from '../../src/modules/outbox/relay.config';
-import { EmptyOutboxGate } from '../../src/modules/outbox/relay.gate';
+import {
+  EmptyOutboxGate,
+  type GateReadiness,
+} from '../../src/modules/outbox/relay.gate';
 import type { RelayRepository } from '../../src/modules/outbox/relay.repository';
 import { RelayService } from '../../src/modules/outbox/relay.service';
 
@@ -28,7 +31,12 @@ describe('the relay while the destination is down', () => {
     summary = () =>
       Promise.resolve({ count: 3, oldestAt: new Date(START - 2 * MINUTE) });
     const gate = Object.assign(new EmptyOutboxGate(), {
-      ready: () => Promise.resolve(open),
+      ready: (): Promise<GateReadiness> =>
+        Promise.resolve(
+          open
+            ? { status: 'ready' }
+            : { status: 'broker-failure', code: 'TEST_DOWN' },
+        ),
     });
     const repository = {
       transaction: () => {
@@ -163,4 +171,67 @@ describe('the relay while the destination is down', () => {
       1,
     );
   });
+});
+
+test('missing-topic transitions name each topic and timed alerts retain the missing cause', async () => {
+  let readiness: GateReadiness = {
+    status: 'missing-topics',
+    topics: ['test.a', 'test.b'],
+  };
+  const gate = Object.assign(new EmptyOutboxGate(), {
+    ready: () => Promise.resolve(readiness),
+  });
+  let claims = 0;
+  const repository = {
+    transaction: async () => {
+      claims++;
+    },
+    unsentSummary: async () => ({ count: 2, oldestAt: null }),
+  };
+  const config = readRelayConfig(() => undefined);
+  const service = new RelayService(
+    repository as unknown as RelayRepository,
+    gate,
+    config,
+  );
+  let now = START;
+  service.now = () => now;
+  const warnings: string[] = [],
+    alerts: string[] = [];
+  Object.assign(service, {
+    logger: {
+      warn: (message: string) => warnings.push(message),
+      error: (message: string) => alerts.push(message),
+      log: () => {},
+    },
+  });
+  await service.tick();
+  await service.tick();
+  assert.deepEqual(warnings, [
+    'OUTBOX_TOPIC_MISSING topic=test.a hint="run kafka-init"',
+    'OUTBOX_TOPIC_MISSING topic=test.b hint="run kafka-init"',
+  ]);
+  assert.equal(claims, 0);
+  now += config.outageAlertMs - 1;
+  await service.tick();
+  assert.equal(alerts.length, 0);
+  now++;
+  await service.tick();
+  assert.match(
+    alerts[0],
+    /^OUTBOX_RETRY_ALERT code=OUTBOX_TOPIC_MISSING topics=test.a,test.b hint="run kafka-init" /,
+  );
+  await service.tick();
+  assert.equal(alerts.length, 1);
+  readiness = { status: 'missing-topics', topics: ['test.b'] };
+  await service.tick();
+  assert.equal(warnings.length, 3);
+  readiness = { status: 'broker-failure', code: 'KAFKA_-195' };
+  await service.tick();
+  assert.match(warnings[3], /^OUTBOX_GATE_UNAVAILABLE:/);
+  readiness = { status: 'ready' };
+  await service.tick();
+  readiness = { status: 'missing-topics', topics: ['test.a', 'test.b'] };
+  await service.tick();
+  assert.deepEqual(warnings.slice(-2), warnings.slice(0, 2));
 });

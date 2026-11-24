@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, expect, it, jest } from '@jest/globals';
 import { Logger } from '@nestjs/common';
-import { RelayProducer, SerializationFailure, message } from './relay.producer';
+import {
+  RelayProducer,
+  SerializationFailure,
+  message,
+  classifyError,
+} from './relay.producer';
 import { RelayRepository } from './relay.repository';
 import { RelayService } from './relay.service';
 import { readRelayConfig } from './relay.config';
@@ -44,7 +49,7 @@ function harness(rows: OutboxRow[], send: (id: string) => Promise<void>) {
   });
   const producer = new RelayProducer({ ...config, enabled: false });
   Object.assign(producer, { producer: { send: transport } });
-  jest.spyOn(producer, 'ready').mockResolvedValue(true);
+  jest.spyOn(producer, 'ready').mockResolvedValue({ status: 'ready' });
   const published: string[] = [],
     failed: string[] = [];
   let commits = 0,
@@ -68,7 +73,8 @@ function harness(rows: OutboxRow[], send: (id: string) => Promise<void>) {
     published: jest.fn(async (tx, event) => {
       tx.published.push(event.id);
     }),
-    failed: jest.fn(async (tx, event) => {
+    failed: jest.fn(async (tx, event, code: string) => {
+      if (!code) throw new Error('Missing diagnostic code');
       tx.failed.push(event.id);
     }),
   };
@@ -234,4 +240,67 @@ it.each([
         })[key],
     ).transactionMs,
   ).toBe(tx);
+});
+
+it('classifies numeric missing topics and preserves send failure accounting', async () => {
+  for (const code of [3, -188])
+    expect(classifyError({ code })).toEqual({
+      code: 'OUTBOX_TOPIC_MISSING',
+      individual: false,
+    });
+  const h = harness([row(1), row(2)], () =>
+    Promise.reject(
+      Object.assign(new Error('test broker failure'), { code: 3 }),
+    ),
+  );
+  await h.service.tick();
+  expect(h.failed).toHaveLength(2);
+  expect(h.published).toHaveLength(0);
+  expect(h.repository.failed).toHaveBeenCalledWith(
+    expect.anything(),
+    row(1),
+    'OUTBOX_TOPIC_MISSING',
+  );
+});
+
+it('distinguishes missing readiness and logs topic transitions without claiming rows', async () => {
+  const h = harness([], () => Promise.resolve());
+  jest.restoreAllMocks();
+  const warn = jest
+    .spyOn(Logger.prototype, 'warn')
+    .mockImplementation(() => {});
+  let topics: string[] = [];
+  let error: Error | undefined;
+  Object.assign(h.producer, {
+    config,
+    connected: true,
+    admin: {
+      listTopics: () =>
+        error ? Promise.reject(error) : Promise.resolve(topics),
+    },
+  });
+  expect(await h.producer.ready()).toEqual({
+    status: 'missing-topics',
+    topics: [config.topic],
+  });
+  await h.service.tick();
+  await h.service.tick();
+  expect(warn.mock.calls).toEqual([
+    [`OUTBOX_TOPIC_MISSING topic=${config.topic} hint="run kafka-init"`],
+  ]);
+  expect(h.repository.transaction).not.toHaveBeenCalled();
+  error = Object.assign(new Error('test probe failure'), { code: 3 });
+  expect(await h.producer.ready()).toEqual({
+    status: 'missing-topics',
+    topics: [config.topic],
+  });
+  error = Object.assign(new Error('test probe failure'), { code: -195 });
+  await h.service.tick();
+  expect(warn.mock.calls[1][0]).toBe('OUTBOX_BROKER_UNAVAILABLE: will retry');
+  error = undefined;
+  topics = [config.topic];
+  await h.service.tick();
+  topics = [];
+  await h.service.tick();
+  expect(warn.mock.calls[2]).toEqual(warn.mock.calls[0]);
 });

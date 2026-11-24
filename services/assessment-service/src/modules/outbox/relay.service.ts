@@ -1,3 +1,4 @@
+import { OUTBOX_TOPIC_MISSING } from '@learnup/ts-common';
 import {
   BeforeApplicationShutdown,
   Inject,
@@ -7,7 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from 'generated/prisma/client';
 import { RELAY_CONFIG, type RelayConfig } from './relay.config';
-import { GateFailure, OutboxGate } from './relay.gate';
+import { GateFailure, OutboxGate, type GateReadiness } from './relay.gate';
 import { RelayRepository, type RelayRow } from './relay.repository';
 
 const CLEANUP_EVERY_MS = 60 * 60 * 1000;
@@ -31,6 +32,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
   /** When the destination was first found unreachable in this outage; undefined while it answers. */
   private gateDownSince?: number;
   private lastOutageAlertAt?: number;
+  private lastReadinessFailure?: string;
   /** The clock of the outage alert; a test replaces it to travel in time. */
   now: () => number = () => Date.now();
 
@@ -81,8 +83,9 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
 
   private async run(): Promise<void> {
     // Ask the gate before taking any lock: with the destination down nothing is claimed and no transaction is kept open.
-    if (!(await this.gate.ready())) {
-      await this.onGateDown();
+    const readiness = await this.gate.ready();
+    if (readiness.status !== 'ready') {
+      await this.onGateDown(readiness);
       return;
     }
     if (this.gateDownSince !== undefined) {
@@ -93,6 +96,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
       this.gateDownSince = undefined;
       this.lastOutageAlertAt = undefined;
     }
+    this.lastReadinessFailure = undefined;
     await this.repository.transaction(async (tx, rows) => {
       if (rows.length === 0) return;
       try {
@@ -137,11 +141,27 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
    * fire. The first turn logs a warning; once the outage has lasted `outageAlertMs`, and after each further period, an
    * alert says for how long and how many events wait (the oldest one's age is the delay the consumers see).
    */
-  private async onGateDown(): Promise<void> {
+  private async onGateDown(
+    readiness: Exclude<GateReadiness, { status: 'ready' }>,
+  ): Promise<void> {
     const now = this.now();
+    const reason =
+      readiness.status === 'missing-topics'
+        ? JSON.stringify([...readiness.topics].sort())
+        : `broker:${readiness.code}`;
+    if (reason !== this.lastReadinessFailure) {
+      if (readiness.status === 'missing-topics') {
+        for (const topic of readiness.topics)
+          this.logger.warn(
+            `${OUTBOX_TOPIC_MISSING} topic=${topic} hint="run kafka-init"`,
+          );
+      } else {
+        this.logger.warn('OUTBOX_GATE_UNAVAILABLE: the relay will retry');
+      }
+      this.lastReadinessFailure = reason;
+    }
     if (this.gateDownSince === undefined) {
       this.gateDownSince = now;
-      this.logger.warn('OUTBOX_GATE_UNAVAILABLE: the relay will retry');
       return;
     }
     if (
@@ -150,6 +170,10 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
     )
       return;
     this.lastOutageAlertAt = now;
+    const diagnostic =
+      readiness.status === 'missing-topics'
+        ? `${OUTBOX_TOPIC_MISSING} topics=${readiness.topics.join(',')} hint="run kafka-init"`
+        : 'OUTBOX_GATE_UNAVAILABLE';
     const downSeconds = Math.round((now - this.gateDownSince) / 1000);
     try {
       const { count, oldestAt } = await this.repository.unsentSummary();
@@ -157,12 +181,12 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
         ? Math.round((now - oldestAt.getTime()) / 1000)
         : 0;
       this.logger.error(
-        `OUTBOX_RETRY_ALERT code=OUTBOX_GATE_UNAVAILABLE down_for_s=${downSeconds} unsent=${count} oldest_unsent_age_s=${oldestSeconds}`,
+        `OUTBOX_RETRY_ALERT code=${diagnostic} down_for_s=${downSeconds} unsent=${count} oldest_unsent_age_s=${oldestSeconds}`,
       );
     } catch {
       // The database is the other thing that can be down; the alert is still worth sending, without the numbers.
       this.logger.error(
-        `OUTBOX_RETRY_ALERT code=OUTBOX_GATE_UNAVAILABLE down_for_s=${downSeconds} unsent=unknown`,
+        `OUTBOX_RETRY_ALERT code=${diagnostic} down_for_s=${downSeconds} unsent=unknown`,
       );
     }
   }
