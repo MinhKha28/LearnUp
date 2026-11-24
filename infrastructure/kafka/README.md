@@ -25,9 +25,9 @@ keeps existing topics intact and checks every existing shape before creating mis
 ones. Source topics retain the existing 30-day retention policy; DLTs retain broker
 retention defaults. Verification topics are test-only and outside the deployed list.
 
-The script defaults to `BOOTSTRAP_SERVER=kafka:29092`, a 30-second readiness budget
-and a 5-second per-command timeout. A failed readiness attempt can finish at most
-6 seconds after that budget; no readiness failure keeps an application from starting.
+The script defaults to `BOOTSTRAP_SERVER=kafka:29092`, a 90-second readiness budget
+and a 15-second per-command timeout. A failed readiness attempt can finish at most
+16 seconds after that budget; no readiness failure keeps an application from starting.
 Exit codes: 0 success; 2 invalid input; 3 broker readiness exhausted; 4 partition or
 replica-count drift; 5 creation/confirmation failure. It never alters or deletes topics.
 
