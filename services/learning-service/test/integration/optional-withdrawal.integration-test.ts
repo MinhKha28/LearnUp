@@ -1,4 +1,5 @@
-import { closeAll, closeApp } from './deadlines';
+import { closeAll } from './deadlines';
+import { startTestApp, type TestAppProcess } from './app-process';
 import { courseStub } from './course-stub';
 import { deadline, BARRIER_TIMEOUT_MS } from './deadlines';
 import { testFetch as fetch } from './test-io';
@@ -7,20 +8,7 @@ import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, beforeEach, describe, test } from './test-runner';
-import type { AddressInfo } from 'node:net';
-import { NestFactory } from '@nestjs/core';
-import type { NestExpressApplication } from '@nestjs/platform-express';
 import { TestClient as Client } from './test-io';
-import { AppModule } from '../../src/app.module';
-import { configureApp } from '../../src/app.setup';
-import {
-  ASSESSMENT_CLIENT,
-  type AssessmentClient,
-} from '../../src/infrastructure/clients/assessment/assessment.client';
-import {
-  TENANT_CLIENT,
-  type TenantClient,
-} from '../../src/infrastructure/clients/tenant/tenant.client';
 import {
   withdrawalLockSql,
   deleteOptionalEnrollmentSql,
@@ -40,9 +28,8 @@ import {
 if (process.env.NODE_ENV === 'production')
   throw new Error('Refusing withdrawal tests in production.');
 const db = new Client({ connectionString: databaseUrl() });
-let app: NestExpressApplication;
+let app: TestAppProcess | undefined;
 let baseUrl: string;
-let assessment: AssessmentClient;
 let hasResult = false;
 let assessmentError = false;
 let assessmentHook: (() => Promise<void>) | null = null;
@@ -123,38 +110,22 @@ void describe('UC25.4 real database withdrawal and restoration', () => {
   before(async () => {
     await db.connect();
     connected = true;
-    const previousLimit = process.env.ENROLLMENT_RATE_LIMIT_PER_MINUTE;
-    process.env.ENROLLMENT_RATE_LIMIT_PER_MINUTE = '1000';
-    app = await NestFactory.create<NestExpressApplication>(AppModule, {
-      logger: ['error'],
-    });
-    if (previousLimit === undefined)
-      delete process.env.ENROLLMENT_RATE_LIMIT_PER_MINUTE;
-    else process.env.ENROLLMENT_RATE_LIMIT_PER_MINUTE = previousLimit;
-    configureApp(app);
-    assessment = app.get<AssessmentClient>(ASSESSMENT_CLIENT);
-    assessment.getActivity = async () => {
-      await assessmentHook?.();
-      if (assessmentError) throw new Error('assessment timeout');
-      return {
-        hasQuizAttempt: hasResult,
-        hasSubmission: false,
-        hasPeerReviewGiven: false,
-      };
-    };
-    const tenant = app.get<TenantClient>(TENANT_CLIENT);
-    tenant.lookupLearners = async (_user, ids) =>
-      ids.map((userId) => ({
-        userId,
-        role: 'Learner',
-        status: 'Active',
-        deletedAt: null,
-        activatedAt: null,
-        fullName: 'Fixture',
-        email: 'fixture@example.test',
-      }));
-    await app.listen(0, '127.0.0.1');
-    baseUrl = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
+    app = await startTestApp(
+      {
+        ENROLLMENT_RATE_LIMIT_PER_MINUTE: '1000',
+        OUTBOX_RELAY_ENABLED: 'false',
+      },
+      async () => {
+        await assessmentHook?.();
+        if (assessmentError) throw new Error('assessment timeout');
+        return {
+          hasQuizAttempt: hasResult,
+          hasSubmission: false,
+          hasPeerReviewGiven: false,
+        };
+      },
+    );
+    baseUrl = app.url;
   });
   beforeEach(async () => {
     await clear();
@@ -167,7 +138,7 @@ void describe('UC25.4 real database withdrawal and restoration', () => {
       if (connected) await clear();
     } finally {
       await closeAll(
-        () => closeApp(app),
+        () => app?.close(),
         () => db.end(),
       );
     }

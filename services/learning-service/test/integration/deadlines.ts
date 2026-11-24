@@ -18,6 +18,18 @@ export const BARRIER_TIMEOUT_MS = budget(
   5000,
 );
 
+// Measured child startup: 1635-4783 ms, including imports; allow 8 s.
+export const CHILD_APP_START_TIMEOUT_MS = 8000;
+// Measured child shutdown: 20-30 ms; leave 5 s for native cancellation.
+export const CHILD_APP_STOP_TIMEOUT_MS = 5000;
+// Forced process termination measured 90 ms.
+export const CHILD_APP_KILL_TIMEOUT_MS = 1000;
+// Existing chaos recovery allowance; broker metadata requests are bounded by probeMs.
+export const KAFKA_RECOVERY_TIMEOUT_MS = 40000;
+export const KAFKA_READY_POLL_MS = 100;
+export const KAFKA_TOPIC_CLEANUP_TIMEOUT_MS =
+  KAFKA_RECOVERY_TIMEOUT_MS + IO_TIMEOUT_MS;
+
 // With LEARNING_IT_TIMING=1 the longest observed wait per deadline name is
 // printed once at process exit, to size the budgets above from real runs.
 const longestWaitMs = new Map<string, number>();

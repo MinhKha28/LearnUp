@@ -1,7 +1,9 @@
 import { closeAll, closeApp } from './deadlines';
-import { deadline } from './deadlines';
+import { KAFKA_TOPIC_CLEANUP_TIMEOUT_MS } from './deadlines';
+import { cleanupAll } from './cleanup';
+import { deleteTestTopic, waitForBroker } from './kafka-cleanup';
+import { startTestApp, type TestAppProcess } from './app-process';
 import { testFetch as fetch } from './test-io';
-import { Logger } from '@nestjs/common';
 import './tenant-lookup-config';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
@@ -105,21 +107,22 @@ before(async () => {
 });
 after(async () => {
   if (!enabled) return;
-  try {
-    if (admin)
-      await deadline(
-        admin.deleteTopics({ topics: [config.topic] }),
-        'relay cleanup delete topic',
-      );
-    await clear();
-  } finally {
-    await closeAll(
-      () => r1.beforeApplicationShutdown(),
-      () => r2.beforeApplicationShutdown(),
-      () => consumer.disconnect(),
-      () => prisma.$disconnect(),
-    );
-  }
+  await cleanupAll([
+    {
+      name: 'relay test topic',
+      run: () => deleteTestTopic(admin, config.topic),
+      timeoutMs: KAFKA_TOPIC_CLEANUP_TIMEOUT_MS,
+    },
+    { name: 'relay fixture rows', run: clear },
+    { name: 'first relay producer', run: () => r1.beforeApplicationShutdown() },
+    {
+      name: 'second relay producer',
+      run: () => r2.beforeApplicationShutdown(),
+    },
+    { name: 'relay test admin', run: () => admin?.disconnect() },
+    { name: 'relay test consumer', run: () => consumer.disconnect() },
+    { name: 'relay test Prisma', run: () => prisma.$disconnect() },
+  ]);
 });
 test(
   'Postgres claim keeps a backoff head blocking all later aggregate rows',
@@ -234,7 +237,6 @@ test(
     };
     const relay = new RelayService(measured, p1, config);
     try {
-      process.env.OUTBOX_RELAY_ENABLED = 'false';
       app = await NestFactory.create<NestExpressApplication>(AppModule, {
         logger: false,
       });
@@ -337,24 +339,10 @@ test(
     if (!container || !/^[a-zA-Z0-9_.-]+$/.test(container))
       throw new Error('Explicit test Kafka container required');
     const topic = `learnup.learning.cold-${randomUUID()}`;
-    let brokerWarning: string | undefined;
-    const originalWarn = Logger.prototype.warn;
-    Logger.prototype.warn = (...args: unknown[]) => {
-      if (
-        typeof args[0] === 'string' &&
-        args[0].startsWith('OUTBOX_BROKER_UNAVAILABLE:')
-      )
-        brokerWarning = args[0];
-    };
-    const previous = {
-      enabled: process.env.OUTBOX_RELAY_ENABLED,
-      topic: process.env.OUTBOX_TOPIC,
-    };
-    let app: NestExpressApplication | undefined;
+    let app: TestAppProcess | undefined;
     const reader = kafka.consumer({
       kafkaJS: { groupId: `cold-${randomUUID()}`, fromBeginning: true },
     });
-    let readerConnected = false;
     let topicCreated = false;
     const topicAdmin = admin!;
     try {
@@ -363,19 +351,25 @@ test(
         stdio: 'ignore',
         timeout: 10000,
       });
-      process.env.OUTBOX_RELAY_ENABLED = 'true';
-      process.env.OUTBOX_TOPIC = topic;
-      const start = performance.now();
-      app = await NestFactory.create<NestExpressApplication>(AppModule, {
-        logger: false,
-        abortOnError: false,
+      app = await startTestApp({
+        OUTBOX_RELAY_ENABLED: 'true',
+        OUTBOX_TOPIC: topic,
       });
-      configureApp(app);
-      await app.listen(0, '127.0.0.1');
+      assert.equal(
+        app.relay.enabled,
+        true,
+        'OUTBOX_RELAY_ENABLED must enable the running app relay',
+      );
+      assert.equal(
+        app.relay.topic,
+        topic,
+        'OUTBOX_TOPIC must match the running app relay topic',
+      );
+      const start = performance.now();
       const aggregate = randomUUID();
       await insert(10000, aggregate, 7);
       const response = await fetch(
-        `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}/api/v1/enrollments/me/course-ids`,
+        `${app.url}/api/v1/enrollments/me/course-ids`,
         {
           headers: {
             'x-internal-key': process.env.INTERNAL_SERVICE_KEY!,
@@ -386,10 +380,10 @@ test(
         },
       );
       assert.equal(response.status, 200);
-      assert.ok(performance.now() - start < 5000);
-      await waitFor(() => brokerWarning !== undefined, 45000);
+      assert.ok(app.startupMs + performance.now() - start < 5000);
+      await waitFor(() => app!.brokerWarning !== undefined, 45000);
       assert.match(
-        brokerWarning!,
+        app.brokerWarning!,
         /^OUTBOX_BROKER_UNAVAILABLE: relay will retry code=KAFKA_-?\d+$/,
       );
       const pending = await prisma.$queryRaw<
@@ -401,14 +395,7 @@ test(
         stdio: 'ignore',
         timeout: 10000,
       });
-      await waitFor(async () => {
-        try {
-          await topicAdmin.listTopics({ timeout: 1000 });
-          return true;
-        } catch {
-          return false;
-        }
-      }, 40000);
+      await waitForBroker(topicAdmin);
       await require('../../../../infrastructure/kafka/test-topics.cjs').createTestTopics(
         topicAdmin,
         { 'enrollment-events': topic },
@@ -416,7 +403,6 @@ test(
       topicCreated = true;
       let observed: { key: string; eventId: string } | undefined;
       await reader.connect();
-      readerConnected = true;
       await reader.subscribe({ topics: [topic] });
       await reader.run({
         eachMessage: async ({ message }) => {
@@ -439,31 +425,26 @@ test(
         'L6 cold start: HTTP 200 without Kafka; test provisioner created topic and scheduled relay delivered after recovery',
       );
     } finally {
-      Logger.prototype.warn = originalWarn;
-      if (previous.enabled === undefined)
-        delete process.env.OUTBOX_RELAY_ENABLED;
-      else process.env.OUTBOX_RELAY_ENABLED = previous.enabled;
-      if (previous.topic === undefined) delete process.env.OUTBOX_TOPIC;
-      else process.env.OUTBOX_TOPIC = previous.topic;
-      try {
-        execFileSync('docker', ['start', container], {
-          stdio: 'ignore',
-          timeout: 10000,
-        });
-      } finally {
-        await closeAll(() => closeApp(app));
-      }
-      await closeAll(
-        () => (readerConnected ? reader.disconnect() : undefined),
-        async () => {
-          if (topicCreated)
-            await deadline(
-              topicAdmin.deleteTopics({ topics: [topic] }),
-              'chaos cleanup delete topic',
-            );
+      await cleanupAll([
+        {
+          name: 'restart test broker',
+          run: () => {
+            execFileSync('docker', ['start', container], {
+              stdio: 'ignore',
+              timeout: 10000,
+            });
+          },
         },
-      );
-      await clear();
+        { name: 'cold app child', run: () => app?.close() },
+        { name: 'cold reader', run: () => reader.disconnect() },
+        {
+          name: 'cold test topic',
+          run: () =>
+            topicCreated ? deleteTestTopic(topicAdmin, topic) : undefined,
+          timeoutMs: KAFKA_TOPIC_CLEANUP_TIMEOUT_MS,
+        },
+        { name: 'cold fixture rows', run: clear },
+      ]);
     }
   },
 );

@@ -1,13 +1,7 @@
+export { after } from './cleanup';
 import { test as nodeTest } from 'node:test';
 import { TEST_TIMEOUT_MS } from './deadlines';
-export {
-  after,
-  before,
-  beforeEach,
-  afterEach,
-  describe,
-  mock,
-} from 'node:test';
+export { before, beforeEach, afterEach, describe, mock } from 'node:test';
 
 // --test-timeout also covers the enclosing test file. Set individual test budgets
 // explicitly, while the CLI/parent enforce the separately measured suite cap.
