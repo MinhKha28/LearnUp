@@ -34,6 +34,26 @@ services:
   # Message Broker Infrastructure
   # Apache Kafka in KRaft mode (no Zookeeper required)
   # ==============================================================================
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.0
+    restart: "no"
+    entrypoint: ["sh", "/topics/scripts/provision-topics.sh"]
+    environment:
+      BOOTSTRAP_SERVER: kafka:29092
+      COURSE_EVENTS_TOPIC: ${COURSE_EVENTS_TOPIC:-learnup.course.course-component-events}
+      ENROLLMENT_EVENTS_TOPIC: ${ENROLLMENT_EVENTS_TOPIC:-${OUTBOX_TOPIC:-learnup.learning.enrollment-events}}
+      ASSESSMENT_OUTBOX_TOPIC: ${ASSESSMENT_OUTBOX_TOPIC:-learnup.assessment.learner-assessment-events}
+      PEER_REVIEW_ASSIGNED_TOPIC: ${PEER_REVIEW_ASSIGNED_TOPIC:-learnup.assessment.peer-review-assigned}
+      SUBMISSION_FINALIZED_TOPIC: ${SUBMISSION_FINALIZED_TOPIC:-learnup.assessment.submission-finalized}
+      COURSE_EVENTS_DLT: ${COURSE_EVENTS_DLT:-learnup.course.course-submission-dlt}
+    volumes:
+      - ./infrastructure/kafka:/topics:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - learnup-network
+
   kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: learnup-kafka
@@ -55,13 +75,14 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
     volumes:
       - kafka_data:/var/lib/kafka/data
     networks:
       - learnup-network
     healthcheck:
       test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:29092 --list"]
+      start_period: 60s
       interval: 15s
       timeout: 10s
       retries: 5
@@ -208,13 +229,12 @@ services:
       SUBMISSION_FINALIZED_RETRY_INITIAL_MS: ${SUBMISSION_FINALIZED_RETRY_INITIAL_MS:-1000}
       SUBMISSION_FINALIZED_RETRY_MAX_MS: ${SUBMISSION_FINALIZED_RETRY_MAX_MS:-30000}
       SUBMISSION_FINALIZED_START_RETRY_MS: ${SUBMISSION_FINALIZED_START_RETRY_MS:-10000}
-      SUBMISSION_FINALIZED_DLT_PARTITIONS: ${SUBMISSION_FINALIZED_DLT_PARTITIONS:-3}
-      SUBMISSION_FINALIZED_DLT_REPLICAS: ${SUBMISSION_FINALIZED_DLT_REPLICAS:-1}
       COURSE_EVENTS_CONSUMER_ENABLED: ${COURSE_EVENTS_CONSUMER_ENABLED:-true}
       COURSE_EVENTS_TOPIC: ${COURSE_EVENTS_TOPIC:-learnup.course.course-component-events}
+      COURSE_EVENTS_DLT: ${COURSE_EVENTS_DLT:-learnup.course.course-submission-dlt}
       COURSE_EVENTS_GROUP_ID: ${COURSE_EVENTS_GROUP_ID:-notification-course-submission-v1}
       ENROLLMENT_EVENTS_GROUP_ID: ${ENROLLMENT_EVENTS_GROUP_ID:-notification-enrollment-events-v1}
-      ENROLLMENT_EVENTS_TOPIC: ${ENROLLMENT_EVENTS_TOPIC:-learnup.learning.enrollment-events}
+      ENROLLMENT_EVENTS_TOPIC: ${ENROLLMENT_EVENTS_TOPIC:-${OUTBOX_TOPIC:-learnup.learning.enrollment-events}}
       PEER_REVIEW_ASSIGNED_TOPIC: ${PEER_REVIEW_ASSIGNED_TOPIC:-learnup.assessment.peer-review-assigned}
       ENROLLMENT_EVENTS_MAX_AGE: ${ENROLLMENT_EVENTS_MAX_AGE:-72h}
       ENROLLMENT_EVENTS_RETRY_ATTEMPTS: ${ENROLLMENT_EVENTS_RETRY_ATTEMPTS:-5}
@@ -224,9 +244,6 @@ services:
       ENROLLMENT_EVENTS_START_RETRY_INTERVAL: ${ENROLLMENT_EVENTS_START_RETRY_INTERVAL:-10s}
       ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS: ${ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS:-3000}
       ENROLLMENT_EVENTS_DEFAULT_TIME_ZONE: ${ENROLLMENT_EVENTS_DEFAULT_TIME_ZONE:-Asia/Ho_Chi_Minh}
-      # The dead-letter topic is created with these values; raise the replicas when Kafka has more than one broker.
-      ENROLLMENT_EVENTS_DLT_PARTITIONS: ${ENROLLMENT_EVENTS_DLT_PARTITIONS:-3}
-      ENROLLMENT_EVENTS_DLT_REPLICAS: ${ENROLLMENT_EVENTS_DLT_REPLICAS:-1}
       SPRING_MAIL_SMTP_CONNECTION_TIMEOUT: ${SPRING_MAIL_SMTP_CONNECTION_TIMEOUT:-5000}
       SPRING_MAIL_SMTP_TIMEOUT: ${SPRING_MAIL_SMTP_TIMEOUT:-5000}
       SPRING_MAIL_SMTP_WRITE_TIMEOUT: ${SPRING_MAIL_SMTP_WRITE_TIMEOUT:-5000}
@@ -339,7 +356,7 @@ services:
       AUDIT_SERVICE_URL: http://audit-service:8083
       KAFKA_BROKERS: kafka:29092
       OUTBOX_RELAY_ENABLED: ${COURSE_OUTBOX_RELAY_ENABLED:-true}
-      OUTBOX_TOPIC: learnup.course.course-component-events
+      OUTBOX_TOPIC: ${COURSE_EVENTS_TOPIC:-learnup.course.course-component-events}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
@@ -377,10 +394,9 @@ services:
       KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:29092}
       OUTBOX_RELAY_ENABLED: ${OUTBOX_RELAY_ENABLED:-true}
       ASSESSMENT_CONSUMER_ENABLED: ${ASSESSMENT_CONSUMER_ENABLED:-true}
-      ASSESSMENT_CONSUMER_TOPIC: ${ASSESSMENT_CONSUMER_TOPIC:-learnup.assessment.learner-assessment-events}
+      ASSESSMENT_CONSUMER_TOPIC: ${ASSESSMENT_CONSUMER_TOPIC:-${ASSESSMENT_OUTBOX_TOPIC:-learnup.assessment.learner-assessment-events}}
       ASSESSMENT_CONSUMER_GROUP_ID: ${ASSESSMENT_CONSUMER_GROUP_ID:-learning-assessment-status-v1}
-      OUTBOX_TOPIC: ${OUTBOX_TOPIC:-learnup.learning.enrollment-events}
-      OUTBOX_REPLICATION_FACTOR: ${OUTBOX_REPLICATION_FACTOR:-1}
+      OUTBOX_TOPIC: ${ENROLLMENT_EVENTS_TOPIC:-${OUTBOX_TOPIC:-learnup.learning.enrollment-events}}
       OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-1000}
       OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-20}
       OUTBOX_DRAIN_GAP_MS: ${LEARNING_OUTBOX_DRAIN_GAP_MS:-50}
@@ -435,7 +451,7 @@ services:
       OUTBOX_TOPIC: ${ASSESSMENT_OUTBOX_TOPIC:-learnup.assessment.learner-assessment-events}
       # BR-232: the notice of the reviews handed out by a closed cycle; notification-service reads this topic.
       OUTBOX_PEER_REVIEW_TOPIC: ${PEER_REVIEW_ASSIGNED_TOPIC:-learnup.assessment.peer-review-assigned}
-      OUTBOX_REPLICATION_FACTOR: ${ASSESSMENT_OUTBOX_REPLICATION_FACTOR:-1}
+      OUTBOX_SUBMISSION_FINALIZED_TOPIC: ${SUBMISSION_FINALIZED_TOPIC:-learnup.assessment.submission-finalized}
       OUTBOX_POLL_INTERVAL_MS: ${ASSESSMENT_OUTBOX_POLL_INTERVAL_MS:-1000}
       OUTBOX_BATCH_SIZE: ${ASSESSMENT_OUTBOX_BATCH_SIZE:-20}
       OUTBOX_DELIVERY_TIMEOUT_MS: ${ASSESSMENT_OUTBOX_DELIVERY_TIMEOUT_MS:-10000}
@@ -462,6 +478,8 @@ services:
       - "127.0.0.1:8087:8087"
     environment:
       PORT: 8087
+      CERTIFICATE_KAFKA_TOPIC: ${CERTIFICATE_KAFKA_TOPIC:-${ENROLLMENT_EVENTS_TOPIC:-${OUTBOX_TOPIC:-learnup.learning.enrollment-events}}}
+      CERTIFICATE_METADATA_MAX_AGE_MS: ${CERTIFICATE_METADATA_MAX_AGE_MS:-5000}
       CERTIFICATE_CONSUMER_ENABLED: ${CERTIFICATE_CONSUMER_ENABLED:-true}
       CERTIFICATE_CLEANUP_ENABLED: ${CERTIFICATE_CLEANUP_ENABLED:-true}
       CERTIFICATE_SIGNER_ACCESS_CLIENT_MODE: ${CERTIFICATE_SIGNER_ACCESS_CLIENT_MODE:-http}

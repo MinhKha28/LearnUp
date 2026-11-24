@@ -20,8 +20,6 @@ public class SubmissionFinalizedEventsProperties {
     private long retryInitialMs = 1000;
     private long retryMaxMs = 30000;
     private long startRetryMs = 10000;
-    private int dltPartitions = 3;
-    private short dltReplicas = 1;
     @Value("${learnup.frontend-base-url:}")
     private String frontendBaseUrl = "";
 
@@ -30,7 +28,7 @@ public class SubmissionFinalizedEventsProperties {
         if (!enabled) return;
         if (topic == null || topic.isBlank() || groupId == null || groupId.isBlank()
                 || retryAttempts < 1 || retryInitialMs < 1 || retryMaxMs < retryInitialMs
-                || startRetryMs < 1 || dltPartitions < 1 || dltReplicas < 1) {
+                || startRetryMs < 1) {
             throw new IllegalArgumentException("INVALID_SUBMISSION_FINALIZED_CONFIG");
         }
         baseUri();
@@ -77,9 +75,5 @@ public class SubmissionFinalizedEventsProperties {
     public void setRetryMaxMs(long retryMaxMs) { this.retryMaxMs = retryMaxMs; }
     public long getStartRetryMs() { return startRetryMs; }
     public void setStartRetryMs(long startRetryMs) { this.startRetryMs = startRetryMs; }
-    public int getDltPartitions() { return dltPartitions; }
-    public void setDltPartitions(int dltPartitions) { this.dltPartitions = dltPartitions; }
-    public short getDltReplicas() { return dltReplicas; }
-    public void setDltReplicas(short dltReplicas) { this.dltReplicas = dltReplicas; }
     public void setFrontendBaseUrl(String frontendBaseUrl) { this.frontendBaseUrl = frontendBaseUrl; }
 }

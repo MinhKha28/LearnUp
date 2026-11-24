@@ -1,3 +1,4 @@
+import { isKafkaTopicMissing, OUTBOX_TOPIC_MISSING } from '@learnup/ts-common';
 import { Inject, Injectable } from '@nestjs/common';
 import { CODES, KafkaJS } from '@confluentinc/kafka-javascript';
 
@@ -5,7 +6,10 @@ import { RELAY_CONFIG } from './relay.config';
 
 import type { RelayConfig } from './interfaces/relay-config.interface';
 import type { OutboxRow } from './interfaces/outbox-row.interface';
-import type { RelayErrorClassification } from './interfaces/relay-error.interface';
+import type {
+  RelayErrorClassification,
+  RelayReadiness,
+} from './interfaces/relay-error.interface';
 
 const errors = CODES.ERRORS;
 
@@ -52,6 +56,8 @@ export function classifyError(error: unknown): RelayErrorClassification {
       ? error.code
       : undefined;
 
+  if (isKafkaTopicMissing(code))
+    return { individual: false, code: OUTBOX_TOPIC_MISSING };
   return {
     individual: typeof code === 'number' && individualCodes.has(code),
     code:
@@ -117,7 +123,6 @@ export function message(row: OutboxRow) {
       throw new SerializationFailure();
     }
   }
-
 
   if (
     row.event_type === 'CoursePublished' ||
@@ -204,7 +209,6 @@ export class RelayProducer {
   private admin!: KafkaJS.Admin;
 
   private connected = false;
-  private initialized = false;
 
   constructor(
     @Inject(RELAY_CONFIG)
@@ -241,8 +245,9 @@ export class RelayProducer {
     this.admin = kafka.admin();
   }
 
-  async ready(): Promise<boolean> {
-    if (!this.config.enabled) return false;
+  async ready(): Promise<RelayReadiness> {
+    if (!this.config.enabled)
+      return { status: 'broker-failure', code: 'OUTBOX_DISABLED' };
 
     try {
       if (!this.connected) {
@@ -258,47 +263,13 @@ export class RelayProducer {
         this.connected = true;
       }
 
-      if (this.initialized) {
-        await this.admin.fetchTopicMetadata({
-          topics: [this.config.topic],
-          timeout: this.config.probeMs,
-        });
-      } else {
-        await this.admin.listTopics({
-          timeout: this.config.probeMs,
-        });
-
-        try {
-          await this.admin.createTopics({
-            timeout: this.config.probeMs,
-            topics: [
-              {
-                topic: this.config.topic,
-                numPartitions: 3,
-                replicationFactor: this.config.replicationFactor,
-                configEntries: [
-                  {
-                    name: 'retention.ms',
-                    value: '2592000000',
-                  },
-                ],
-              },
-            ],
-          });
-        } catch (error) {
-          if (
-            (error as { code?: number }).code !==
-            errors.ERR_TOPIC_ALREADY_EXISTS
-          ) {
-            throw error;
-          }
-        }
-
-        this.initialized = true;
-      }
-
-      return true;
-    } catch {
+      const existingTopics = await this.admin.listTopics({
+        timeout: this.config.probeMs,
+      });
+      if ([this.config.topic].some((topic) => !existingTopics.includes(topic)))
+        return { status: 'missing-topics', topics: [this.config.topic] };
+      return { status: 'ready' };
+    } catch (error) {
       if (!this.connected) {
         await Promise.allSettled([
           this.producer.disconnect(),
@@ -308,7 +279,10 @@ export class RelayProducer {
         this.createClients();
       }
 
-      return false;
+      const { code } = classifyError(error);
+      return code === OUTBOX_TOPIC_MISSING
+        ? { status: 'missing-topics', topics: [this.config.topic] }
+        : { status: 'broker-failure', code };
     }
   }
 

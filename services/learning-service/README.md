@@ -17,7 +17,7 @@ The prefix avoids collisions in the root `.env` shared by all services; assessme
 Both `OUTBOX_DRAIN_GAP_MS` and `OUTBOX_POLL_INTERVAL_MS` must be at most 60000 ms.
 
 Enable with OUTBOX_RELAY_ENABLED=true; default false keeps unrelated tests isolated.
-See .env.example for Kafka brokers, topic, replication factor, poll/batch size,
+See .env.example for Kafka brokers, topic, poll/batch size,
 delivery/probe/transaction timeouts, exponential backoff and alert threshold.
 The Docker stages use the pinned Node 24 Alpine image defined in Dockerfile.
 The Confluent client is pinned to 1.11.0 and uses native binaries for each platform;
@@ -219,3 +219,7 @@ Draft-lock rejection or unchanged database timestamps.
 - Enrollment access for assessment follows the stored lifecycle. Overdue is a derived read state. Optional withdrawal deletes the enrollment when Assessment confirms there is no assessment activity. When that activity exists, Learning retains the record as Withdrawn. See the [enrollment logic](src/modules/enrollments).
 - Watch coverage merges overlapping intervals. Resume position is a separate value, and reporting a position alone cannot complete the material. Reading completion is idempotent and uses the enrollment and course material access checks.
 - A transition that can make an enrollment eligible writes its completion evaluation request in the business transaction. The completion worker persists the snapshot and emits one completion event for the enrollment. See [relay checks](../../docs/how-to/outbox-relay-checks.md), [demo fixtures](../../docs/how-to/demo-fixtures.md) and [benchmarks](../../perf/learning/README.md).
+
+Kafka topic creation and drift handling are owned by the [shared provisioner](../../infrastructure/kafka/README.md). Services wait and retry while topics are unavailable; they never provision them.
+
+Topic partitions and replicas are owned only by [`infrastructure/kafka/topics.tsv`](../../infrastructure/kafka/topics.tsv), applied by kafka-init.

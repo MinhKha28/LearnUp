@@ -1,3 +1,4 @@
+import { isKafkaTopicMissing, OUTBOX_TOPIC_MISSING } from '@learnup/ts-common';
 import { Inject, Injectable } from '@nestjs/common';
 import { CODES, KafkaJS } from '@confluentinc/kafka-javascript';
 import {
@@ -6,7 +7,7 @@ import {
   topicsOf,
   type RelayConfig,
 } from './relay.config';
-import { GateFailure, OutboxGate } from './relay.gate';
+import { GateFailure, OutboxGate, type GateReadiness } from './relay.gate';
 import type { RelayRow } from './relay.repository';
 
 const errors = CODES.ERRORS;
@@ -30,9 +31,30 @@ export function classifyError(error: unknown): GateFailure {
     typeof error === 'object' && error !== null && 'code' in error
       ? error.code
       : undefined;
+  if (isKafkaTopicMissing(code)) return new GateFailure(OUTBOX_TOPIC_MISSING);
   if (typeof code === 'number' && Number.isInteger(code))
     return new GateFailure(`KAFKA_${code}`, messageCodes.has(code));
   return new GateFailure('OUTBOX_UNKNOWN');
+}
+
+/** Aggregate failures are missing-only only when every cause is missing. */
+export function readinessFailure(
+  error: unknown,
+  topics: string[],
+): GateReadiness {
+  if (error instanceof AggregateError) {
+    if (error.errors.length === 0)
+      return { status: 'broker-failure', code: 'OUTBOX_UNKNOWN' };
+    for (const cause of error.errors) {
+      const result = readinessFailure(cause, topics);
+      if (result.status === 'broker-failure') return result;
+    }
+    return { status: 'missing-topics', topics };
+  }
+  const failure = classifyError(error);
+  return failure.code === OUTBOX_TOPIC_MISSING
+    ? { status: 'missing-topics', topics }
+    : { status: 'broker-failure', code: failure.code };
 }
 
 /**
@@ -70,7 +92,6 @@ export class KafkaOutboxGate extends OutboxGate {
   private producer!: KafkaJS.Producer;
   private admin!: KafkaJS.Admin;
   private connected = false;
-  private initialized = false;
   /** Counts the times the clients were replaced, so a probe that was left behind does not touch the new ones. */
   private generation = 0;
   private failedProbes = 0;
@@ -109,21 +130,26 @@ export class KafkaOutboxGate extends OutboxGate {
   }
 
   /**
-   * Whether Kafka answers now, bounded: a broker that does not answer at all (no refusal, no reply) must not keep the relay
-   * waiting longer than the delivery timeout (or five times the probe timeout, if that is more). A probe that runs out of time is abandoned and the clients are replaced.
+   * Bound readiness by the delivery timeout or five probe timeouts, whichever is longer.
+   * Failed or timed-out probes replace disconnected clients immediately. Connected
+   * clients are replaced after three consecutive broker failures; missing topics do not count.
    */
-  async ready(): Promise<boolean> {
+  async ready(): Promise<GateReadiness> {
     const generation = this.generation;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const timedOut = new Promise<false>((resolve) => {
-      timer = setTimeout(() => resolve(false), this.budgetMs);
+    const timedOut = new Promise<GateReadiness>((resolve) => {
+      timer = setTimeout(
+        () =>
+          resolve({ status: 'broker-failure', code: 'OUTBOX_PROBE_TIMEOUT' }),
+        this.budgetMs,
+      );
     });
     const answered = await Promise.race([this.probe(generation), timedOut]);
     clearTimeout(timer);
-    if (answered) {
+    if (answered.status !== 'broker-failure') {
       this.failedProbes = 0;
     } else if (this.generation === generation) {
-      // A probe that ran out of time, or the third in a row that failed: do not depend on what state the old clients are in.
+      // Missing topics do not damage clients; only broker failures count here.
       this.failedProbes += 1;
       if (!this.connected || this.failedProbes >= PROBES_BEFORE_NEW_CLIENTS)
         this.replaceClients();
@@ -134,7 +160,6 @@ export class KafkaOutboxGate extends OutboxGate {
   private replaceClients(): void {
     this.generation += 1;
     this.connected = false;
-    this.initialized = false;
     this.failedProbes = 0;
     void Promise.allSettled([
       this.producer.disconnect(),
@@ -144,7 +169,7 @@ export class KafkaOutboxGate extends OutboxGate {
   }
 
   /** A fresh metadata request, so a broker that went away is noticed before the relay locks any row. */
-  private async probe(generation: number): Promise<boolean> {
+  private async probe(generation: number): Promise<GateReadiness> {
     try {
       if (!this.connected) {
         await this.admin.connect();
@@ -154,47 +179,23 @@ export class KafkaOutboxGate extends OutboxGate {
           await this.admin.disconnect();
           throw error;
         }
-        if (generation !== this.generation) return false;
+        if (generation !== this.generation)
+          return { status: 'broker-failure', code: 'OUTBOX_STALE_PROBE' };
         this.connected = true;
       }
-      if (this.initialized) {
-        await this.admin.fetchTopicMetadata({
-          topics: topicsOf(this.config),
-          timeout: this.config.probeMs,
-        });
-      } else {
-        await this.admin.listTopics({ timeout: this.config.probeMs });
-        // One call for each topic: one that exists already must not stop the other from being made.
-        for (const topic of topicsOf(this.config)) {
-          try {
-            await this.admin.createTopics({
-              timeout: this.config.probeMs,
-              topics: [
-                {
-                  topic,
-                  numPartitions: 3,
-                  replicationFactor: this.config.replicationFactor,
-                  configEntries: [
-                    { name: 'retention.ms', value: '2592000000' },
-                  ],
-                },
-              ],
-            });
-          } catch (error) {
-            if (
-              (error as { code?: number }).code !==
-              errors.ERR_TOPIC_ALREADY_EXISTS
-            )
-              throw error;
-          }
-        }
-        if (generation !== this.generation) return false;
-        this.initialized = true;
-      }
-      return true;
-    } catch {
-      // The caller decides whether to make the clients again (a Confluent client cannot reconnect after its first connection failed).
-      return false;
+      const existingTopics = await this.admin.listTopics({
+        timeout: this.config.probeMs,
+      });
+      if (generation !== this.generation)
+        return { status: 'broker-failure', code: 'OUTBOX_STALE_PROBE' };
+      const missingTopics = topicsOf(this.config).filter(
+        (topic) => !existingTopics.includes(topic),
+      );
+      return missingTopics.length
+        ? { status: 'missing-topics', topics: missingTopics }
+        : { status: 'ready' };
+    } catch (error) {
+      return readinessFailure(error, topicsOf(this.config));
     }
   }
 

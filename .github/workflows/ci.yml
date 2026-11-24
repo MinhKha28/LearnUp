@@ -30,6 +30,7 @@ jobs:
       ts_libs: ${{ steps.detect.outputs.ts_libs }}
       learning_it: ${{ steps.detect.outputs.learning_it }}
       assessment_it: ${{ steps.detect.outputs.assessment_it }}
+      kafka_topics: ${{ steps.detect.outputs.kafka_topics }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,6 +79,9 @@ jobs:
           libs_changed=false
           if touched '^libraries/(ts-common|ts-storage)/'; then libs_changed=true; fi
 
+          topics_changed=false
+          if touched '^infrastructure/kafka/'; then topics_changed=true; fi
+
           node='[]'
           add_node() { # name dir prisma unit lint_glob tsc_blocking
             node="$(jq -c --arg n "$1" --arg d "$2" --argjson p "$3" --arg u "$4" \
@@ -89,6 +93,11 @@ jobs:
           want() { # dir
             [ "$run_all" = true ] && return 0
             { [ "$libs_changed" = true ] && is_consumer "$1"; } && return 0
+            if [ "$topics_changed" = true ]; then
+              case "$1" in
+                services/course-service|services/learning-service|services/assessment-service|services/achievement-reporting-service) return 0 ;;
+              esac
+            fi
             touched "^$1/"
           }
 
@@ -113,6 +122,7 @@ jobs:
           jwant() { # dir
             [ "$run_all" = true ] && return 0
             touched '^libraries/java-common/' && return 0
+            { [ "$topics_changed" = true ] && [ "$1" = services/notification-service ]; } && return 0
             touched "^$1/"
           }
           jwant gateway/api-gateway && add_java gateway gateway/api-gateway true
@@ -127,14 +137,19 @@ jobs:
           # Learning integration suite: the service itself or its only library.
           learning_it=false
           if [ "$run_all" = true ] || touched '^services/learning-service/' \
-            || touched '^libraries/ts-common/'; then learning_it=true; fi
+            || touched '^libraries/ts-common/' || [ "$topics_changed" = true ]; then learning_it=true; fi
 
           # Assessment also reads the Course seed and consumes both TS libraries.
           assessment_it=false
           if [ "$run_all" = true ] || touched '^services/assessment-service/' \
             || touched '^libraries/(ts-common|ts-storage)/' \
             || touched '^services/course-service/prisma/seed\.ts$' \
-            || touched '^\.nvmrc$'; then assessment_it=true; fi
+            || touched '^\.nvmrc$' || [ "$topics_changed" = true ]; then assessment_it=true; fi
+
+          kafka_topics=false
+          if [ "$run_all" = true ] || [ "$topics_changed" = true ] \
+            || touched '^services/(course|learning|assessment|achievement-reporting)-service/' \
+            || touched '^tests/e2e/cluster/' || touched '^docker-compose\.yml$'; then kafka_topics=true; fi
 
           has_node=false; [ "$node" != '[]' ] && has_node=true
           has_java=false; [ "$java" != '[]' ] && has_java=true
@@ -147,6 +162,7 @@ jobs:
             echo "ts_libs=$ts_libs"
             echo "learning_it=$learning_it"
             echo "assessment_it=$assessment_it"
+            echo "kafka_topics=$kafka_topics"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -157,6 +173,7 @@ jobs:
             echo "- ts libraries: $ts_libs"
             echo "- learning integration: $learning_it"
             echo "- assessment integration: $assessment_it"
+            echo "- Kafka topic verification: $kafka_topics"
           } >> "$GITHUB_STEP_SUMMARY"
 
   ts-libraries:
@@ -449,6 +466,19 @@ jobs:
       - name: Prisma generate
         run: npx prisma generate --config prisma7.config.ts
 
+      - name: Validate isolated Kafka topic shapes
+        working-directory: .
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const {shape} = require('./infrastructure/kafka/test-topics.cjs');
+          for (const id of ['assessment-status', 'peer-review-assigned', 'submission-finalized']) {
+            assert.equal(shape(id).partitions, 3);
+            assert.equal(shape(id).replicationFactor, 1);
+          }
+          NODE
+
+      # The test harness creates isolated topic names using the shared manifest.
       # Each suite creates, migrates and drops its own assessment_it_* database.
       - name: Integration tests
         env:
@@ -459,6 +489,30 @@ jobs:
         run: |
           set -o pipefail
           npm run test:integration 2>&1 | tee "$RUNNER_TEMP/assessment-it.log"
+
+  kafka-topics:
+    name: Kafka topic verification
+    needs: changes
+    if: needs.changes.outputs.kafka_topics == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Build libraries and Kafka client services
+        run: |
+          for lib in ts-common ts-storage; do
+            (cd "libraries/$lib" && npm ci && npm run build)
+          done
+          for service in course learning assessment achievement-reporting; do
+            (cd "services/$service-service" && npm ci && npx prisma generate --config prisma7.config.ts && npm run build)
+          done
+      - name: Check Node defaults against topic manifest
+        run: node --test infrastructure/kafka/topic-manifest.test.cjs
+      - name: Verify fresh, idempotent and drift provisioning
+        run: bash infrastructure/kafka/scripts/test-provisioner.sh
 
   frontend-image:
     name: Frontend Docker image
@@ -493,7 +547,7 @@ jobs:
   ci-result:
     name: CI result
     if: always()
-    needs: [changes, ts-libraries, node, java, learning-integration, assessment-integration, frontend-image, ai-signature]
+    needs: [changes, ts-libraries, node, java, learning-integration, assessment-integration, kafka-topics, frontend-image, ai-signature]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

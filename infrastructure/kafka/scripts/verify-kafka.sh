@@ -20,11 +20,10 @@ echo "\n[1/4] Checking Broker Connectivity & Listing Topics..."
 kafka-topics --bootstrap-server "${BOOTSTRAP_SERVER}" --list
 
 echo "\n[2/4] Creating Temporary Test Topic: ${TEST_TOPIC}..."
-kafka-topics --bootstrap-server "${BOOTSTRAP_SERVER}" \
-  --create --if-not-exists \
-  --topic "${TEST_TOPIC}" \
-  --partitions 1 \
-  --replication-factor 1
+VERIFY_MANIFEST=$(mktemp)
+trap 'rm -f "$VERIFY_MANIFEST"' EXIT
+printf 'verification\t%s\t1\t1\ttest-key\tKAFKA_TEST_TOPIC\n' "$TEST_TOPIC" > "$VERIFY_MANIFEST"
+BOOTSTRAP_SERVER="$BOOTSTRAP_SERVER" sh "$(dirname "$0")/provision-topics.sh" "$VERIFY_MANIFEST"
 
 echo "\n[3/4] Producing Test Event to: ${TEST_TOPIC}..."
 echo "${TEST_MESSAGE}" | kafka-console-producer \

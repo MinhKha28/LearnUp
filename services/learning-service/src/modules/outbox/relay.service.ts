@@ -1,3 +1,4 @@
+import { OUTBOX_TOPIC_MISSING } from '@learnup/ts-common';
 import {
   Inject,
   Injectable,
@@ -17,7 +18,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
   private running?: Promise<void>;
   private stopped = false;
   private resumeDrain?: () => void;
-  private brokerUnavailable = false;
+  private lastReadinessFailure?: string;
   private cleanupTimer?: ReturnType<typeof setTimeout>;
   private cleaning?: Promise<void>;
   constructor(
@@ -77,6 +78,10 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
         ? error.code
         : undefined;
     // Only retain bounded diagnostic codes, never arbitrary error text or payloads.
+    if (classifyError(error).code === OUTBOX_TOPIC_MISSING) {
+      this.logger.error({ message, code: OUTBOX_TOPIC_MISSING });
+      return;
+    }
     const code =
       typeof original === 'number' && Number.isSafeInteger(original)
         ? original
@@ -109,14 +114,17 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
     const readiness = await this.producer.ready();
     if (this.stopped) return false;
     if (readiness !== true) {
-      if (!this.brokerUnavailable)
+      if (readiness !== this.lastReadinessFailure) {
         this.logger.warn(
-          `OUTBOX_BROKER_UNAVAILABLE: relay will retry code=${readiness}`,
+          readiness === OUTBOX_TOPIC_MISSING
+            ? `${OUTBOX_TOPIC_MISSING} topic=${this.config.topic} hint="run kafka-init"`
+            : `OUTBOX_BROKER_UNAVAILABLE: relay will retry code=${readiness}`,
         );
-      this.brokerUnavailable = true;
+      }
+      this.lastReadinessFailure = readiness;
       return false;
     }
-    this.brokerUnavailable = false;
+    this.lastReadinessFailure = undefined;
     let published = false;
     await this.repository.transaction(async (tx, rows) => {
       if (!rows.length) return;

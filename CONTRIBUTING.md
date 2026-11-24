@@ -20,3 +20,8 @@ When it applies, the author:
 
 `gh pr create --body` and `--body-file` replace the template. Use
 `gh pr create --template .github/pull_request_template.md`, or copy both sections into your prepared body.
+
+## Kafka topic changes
+
+New deployed topic → add an entry to `infrastructure/kafka/topics.tsv` and a provisioning test.
+The shared provisioner is the only deployment creator. See [Kafka provisioning](infrastructure/kafka/README.md).

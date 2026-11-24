@@ -1,14 +1,12 @@
 package com.learnup.notification.config;
 
 import com.learnup.notification.enrollment.InvalidEventException;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.CommonErrorHandler;
@@ -28,29 +26,7 @@ public class EnrollmentEventsKafkaConfig {
 
     private static final Logger log = LoggerFactory.getLogger(EnrollmentEventsKafkaConfig.class);
 
-    /**
-     * The dead-letter topic is made here when the broker does not have it yet. Its partitions need not match the source
-     * topic (the recoverer below lets the broker choose the partition); partitions and replicas come from the
-     * settings, so a deployment with more than one broker can raise the replication factor.
-     */
-    @Bean
-    public NewTopic enrollmentEventsDeadLetterTopic(EnrollmentEventsProperties properties) {
-        return TopicBuilder.name(properties.getDeadLetterTopic())
-                .partitions(properties.getDeadLetterPartitions())
-                .replicas(properties.getDeadLetterReplicas())
-                .build();
-    }
-
-    /** The dead-letter topic of the peer review events, made here for the same reason. */
-    @Bean
-    public NewTopic peerReviewDeadLetterTopic(EnrollmentEventsProperties properties) {
-        return TopicBuilder.name(properties.getPeerReviewDeadLetterTopic())
-                .partitions(properties.getDeadLetterPartitions())
-                .replicas(properties.getDeadLetterReplicas())
-                .build();
-    }
-
-    /** Boot puts a CommonErrorHandler bean on the listener container factory. */
+    // Deployment provisions DLTs; this configuration only publishes failed records.
     @Bean
     public CommonErrorHandler enrollmentEventsErrorHandler(KafkaTemplate<String, String> template,
                                                            EnrollmentEventsProperties properties) {

@@ -39,7 +39,7 @@ The **Notification Service** is one of the 3 finalized LearnUP Supporting/Platfo
 
 ## 6. Event Interactions
 * **Learning enrollment events** (`learnup.learning.enrollment-events`): tells the Learner in the app and by e-mail about `EnrollmentAssigned`, `EnrollmentDueDateExtended` and `EnrollmentExempted`; `LearnerWithdrew` writes to nobody. Retry with backoff, then `learnup.learning.enrollment-events.DLT`. Contract and rules: `contracts/events/learning-enrollment-events.md`.
-  * Settings: `ENROLLMENT_EVENTS_CONSUMER_ENABLED` (default `false`; Compose sets `true`), `SPRING_KAFKA_BOOTSTRAP_SERVERS`, `ENROLLMENT_EVENTS_GROUP_ID`, `ENROLLMENT_EVENTS_TOPIC`, `ENROLLMENT_EVENTS_MAX_AGE` (72h), `ENROLLMENT_EVENTS_RETRY_ATTEMPTS` (5), `ENROLLMENT_EVENTS_RETRY_INITIAL_BACKOFF` (1s), `ENROLLMENT_EVENTS_RETRY_MAX_BACKOFF` (30s), `ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS` (3000), `ENROLLMENT_EVENTS_DEFAULT_TIME_ZONE` (Asia/Ho_Chi_Minh), `ENROLLMENT_EVENTS_CLAIM_LEASE` (2m), `ENROLLMENT_EVENTS_START_RETRY_INTERVAL` (10s), `ENROLLMENT_EVENTS_DLT_PARTITIONS` (3), `ENROLLMENT_EVENTS_DLT_REPLICAS` (1), `TENANT_SERVICE_URL`, `COURSE_SERVICE_URL`. Compose forwards all of them.
+  * Settings: `ENROLLMENT_EVENTS_CONSUMER_ENABLED` (default `false`; Compose sets `true`), `SPRING_KAFKA_BOOTSTRAP_SERVERS`, `ENROLLMENT_EVENTS_GROUP_ID`, `ENROLLMENT_EVENTS_TOPIC`, `ENROLLMENT_EVENTS_MAX_AGE` (72h), `ENROLLMENT_EVENTS_RETRY_ATTEMPTS` (5), `ENROLLMENT_EVENTS_RETRY_INITIAL_BACKOFF` (1s), `ENROLLMENT_EVENTS_RETRY_MAX_BACKOFF` (30s), `ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS` (3000), `ENROLLMENT_EVENTS_DEFAULT_TIME_ZONE` (Asia/Ho_Chi_Minh), `ENROLLMENT_EVENTS_CLAIM_LEASE` (2m), `ENROLLMENT_EVENTS_START_RETRY_INTERVAL` (10s), `TENANT_SERVICE_URL`, `COURSE_SERVICE_URL`. Compose forwards all of them.
   * Kafka down at start-up: the service starts anyway (the notification API does not depend on Kafka) and the consumer is started again every `ENROLLMENT_EVENTS_START_RETRY_INTERVAL` until it runs.
   * Two handlers on one event (two instances during a rebalance, or a consumer evicted while it still runs): each delivery is claimed with `SELECT ... FOR UPDATE` before anything is sent (status `PROCESSING`), so only one of them sends; a claim older than `ENROLLMENT_EVENTS_CLAIM_LEASE` is taken over.
 * **Consumed Events**:
@@ -147,8 +147,6 @@ Assessment producer and keeps generic notification/email REST APIs.
 | `SUBMISSION_FINALIZED_RETRY_INITIAL_MS` | `1000` | Initial exponential retry delay. |
 | `SUBMISSION_FINALIZED_RETRY_MAX_MS` | `30000` | Maximum retry delay; also the wait after a failed confirmed DLT publication. |
 | `SUBMISSION_FINALIZED_START_RETRY_MS` | `10000` | Retry starting the listener while unavailable. |
-| `SUBMISSION_FINALIZED_DLT_PARTITIONS` | `3` | DLT partition count. |
-| `SUBMISSION_FINALIZED_DLT_REPLICAS` | `1` | DLT replication factor. |
 | `LEARNUP_FRONTEND_BASE_URL` | Empty in application; Compose: `http://localhost:3000` | Required when enabled; absolute http(s), no credentials/query/fragment. |
 
 `learnup.frontend-base-url` backs the frontend base URL. A deployment subpath and
@@ -260,4 +258,6 @@ The default-delay run stopped the container during its wait in 54 ms. These rate
 include consumer polling overhead and fixed-window effects; they are not precise
 scheduling guarantees. Deployment monitoring should alert on DLT publication failure.
 
-Notification Kafka consumers never auto-create topics, even if external consumer properties request it. Source topics must be provisioned by their producer relays; Notification's existing `NewTopic` beans provision the DLTs. A missing source topic is waited for, not created, and consumption resumes when it is provisioned.
+Notification Kafka consumers never auto-create topics, even if external consumer properties request it. Source and DLT topics must be provisioned by the [shared provisioner](../../infrastructure/kafka/README.md). A missing source topic is waited for, not created, and consumption resumes when it is provisioned.
+
+Topic partitions and replicas are owned only by [`infrastructure/kafka/topics.tsv`](../../infrastructure/kafka/topics.tsv), applied by kafka-init.
