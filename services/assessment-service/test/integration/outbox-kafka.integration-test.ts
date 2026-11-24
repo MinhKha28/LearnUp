@@ -74,7 +74,7 @@ async function listen(topic: string) {
 async function becomesReady(gate: KafkaOutboxGate, ms = 90000) {
   const end = Date.now() + ms;
   while (Date.now() < end) {
-    if (await gate.ready()) return true;
+    if ((await gate.ready()).status === 'ready') return true;
     await sleep(500);
   }
   return false;

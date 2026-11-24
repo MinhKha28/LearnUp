@@ -9,7 +9,11 @@ import { after, before, describe, test } from 'node:test';
 import type { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
 import { LEARNER_STATUS_CHANGED_EVENT } from '../../src/modules/learner-submissions/learner-submissions.constants';
-import { GateFailure, OutboxGate } from '../../src/modules/outbox/relay.gate';
+import {
+  GateFailure,
+  OutboxGate,
+  type GateReadiness,
+} from '../../src/modules/outbox/relay.gate';
 import {
   RelayRepository,
   type RelayRow,
@@ -33,8 +37,12 @@ class RecordingGate extends OutboxGate {
   constructor(private readonly delayMs = 0) {
     super();
   }
-  ready() {
-    return Promise.resolve(this.open);
+  ready(): Promise<GateReadiness> {
+    return Promise.resolve(
+      this.open
+        ? { status: 'ready' }
+        : { status: 'broker-failure', code: 'TEST_DOWN' },
+    );
   }
   async send(rows: RelayRow[]) {
     this.calls += 1;

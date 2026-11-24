@@ -1,3 +1,4 @@
+import { OUTBOX_TOPIC_MISSING } from '@learnup/ts-common';
 import {
   BeforeApplicationShutdown,
   Inject,
@@ -22,7 +23,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
   private running?: Promise<void>;
 
   private stopped = false;
-  private brokerUnavailable = false;
+  private lastReadinessFailure?: string;
 
   constructor(
     private readonly repository: RelayRepository,
@@ -78,16 +79,25 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
   private async run(): Promise<void> {
     const ready = await this.producer.ready();
 
-    if (!ready) {
-      if (!this.brokerUnavailable) {
-        this.logger.warn('OUTBOX_BROKER_UNAVAILABLE: will retry');
+    if (ready.status !== 'ready') {
+      const reason =
+        ready.status === 'missing-topics'
+          ? JSON.stringify([...ready.topics].sort())
+          : `broker:${ready.code}`;
+      if (reason !== this.lastReadinessFailure) {
+        if (ready.status === 'missing-topics') {
+          for (const topic of ready.topics)
+            this.logger.warn(
+              `${OUTBOX_TOPIC_MISSING} topic=${topic} hint="run kafka-init"`,
+            );
+        } else {
+          this.logger.warn('OUTBOX_BROKER_UNAVAILABLE: will retry');
+        }
       }
-
-      this.brokerUnavailable = true;
+      this.lastReadinessFailure = reason;
       return;
     }
-
-    this.brokerUnavailable = false;
+    this.lastReadinessFailure = undefined;
 
     await this.repository.transaction(async (tx, rows) => {
       if (!rows.length) return;

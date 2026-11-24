@@ -657,3 +657,54 @@ test('structured failure logs preserve Prisma and Kafka codes without error cont
     Logger.prototype.error = original;
   }
 });
+
+test('missing-topic classifier normalizes both numeric codes without making them individual', () => {
+  for (const code of [3, -188])
+    assert.deepEqual(classifyError({ code }), {
+      code: 'OUTBOX_TOPIC_MISSING',
+      individual: false,
+    });
+});
+
+test('missing-topic warnings name the topic and kafka-init on transitions only', async (t) => {
+  const warnings: string[] = [];
+  t.mock.method(Logger.prototype, 'warn', (text: string) => {
+    warnings.push(text);
+  });
+  const f = fixture(async () => {});
+  let readiness: true | string = 'OUTBOX_TOPIC_MISSING';
+  f.producer.ready = async () => readiness;
+  await f.relay.tick();
+  await f.relay.tick();
+  assert.deepEqual(warnings, [
+    `OUTBOX_TOPIC_MISSING topic=${config.topic} hint="run kafka-init"`,
+  ]);
+  assert.equal(f.transactions(), 0);
+  readiness = 'KAFKA_-195';
+  await f.relay.tick();
+  assert.match(warnings[1], /^OUTBOX_BROKER_UNAVAILABLE:/);
+  readiness = true;
+  await f.relay.tick();
+  readiness = 'OUTBOX_TOPIC_MISSING';
+  await f.relay.tick();
+  assert.equal(warnings[2], warnings[0]);
+});
+
+test('missing-topic send failure keeps attempted-send accounting', async (t) => {
+  const errors: unknown[] = [];
+  t.mock.method(Logger.prototype, 'error', (value: unknown) => {
+    errors.push(value);
+  });
+  const f = fixture(async () => {
+    throw { code: -188 };
+  });
+  await f.relay.tick();
+  assert.equal(f.published.length, 0);
+  assert.equal(f.failed.length, 2);
+  assert.ok(
+    f.failed.every((failure) => failure.code === 'OUTBOX_TOPIC_MISSING'),
+  );
+  assert.deepEqual(errors, [
+    { message: 'OUTBOX_RELAY_FAILURE', code: 'OUTBOX_TOPIC_MISSING' },
+  ]);
+});
