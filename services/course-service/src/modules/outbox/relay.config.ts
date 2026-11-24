@@ -28,7 +28,6 @@ export function readRelayConfig(
       .split(',')
       .map((item) => item.trim()),
     topic: get('OUTBOX_TOPIC') ?? 'learnup.course.course-component-events',
-    replicationFactor: integer('OUTBOX_REPLICATION_FACTOR', 1),
     pollMs: integer('OUTBOX_POLL_INTERVAL_MS', 1000),
     batchSize: integer('OUTBOX_BATCH_SIZE', 20),
     deliveryMs: integer('OUTBOX_DELIVERY_TIMEOUT_MS', 10000),
@@ -57,10 +56,7 @@ export function readRelayConfig(
     );
   }
 
-  if (
-    config.backoffMaxMs < config.backoffMs ||
-    config.replicationFactor > 32767
-  ) {
+  if (config.backoffMaxMs < config.backoffMs) {
     throw new Error('Invalid outbox retry configuration');
   }
 

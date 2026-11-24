@@ -14,7 +14,6 @@ for (const [service, id] of [
       () => undefined,
     );
     assert.equal(config.topic, shape(id).name);
-    assert.equal(config.replicationFactor, shape(id).replicationFactor);
   });
 }
 test("assessment defaults match all three manifest topics", () => {
@@ -28,7 +27,6 @@ test("assessment defaults match all three manifest topics", () => {
     ["submission-finalized", "submissionFinalizedTopic"],
   ]) {
     assert.equal(config[field], shape(id).name);
-    assert.equal(config.replicationFactor, shape(id).replicationFactor);
   }
 });
 test("achievement defaults and bounded metadata setting", () => {

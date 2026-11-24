@@ -62,8 +62,6 @@ learnup:
     retry-initial-ms: ${SUBMISSION_FINALIZED_RETRY_INITIAL_MS:1000}
     retry-max-ms: ${SUBMISSION_FINALIZED_RETRY_MAX_MS:30000}
     start-retry-ms: ${SUBMISSION_FINALIZED_START_RETRY_MS:10000}
-    dlt-partitions: ${SUBMISSION_FINALIZED_DLT_PARTITIONS:3}
-    dlt-replicas: ${SUBMISSION_FINALIZED_DLT_REPLICAS:1}
   # UC20: durable Organizer approval notices from CourseSubmitted Outbox events.
   course-events:
     enabled: ${COURSE_EVENTS_CONSUMER_ENABLED:false}
@@ -95,9 +93,6 @@ learnup:
     claim-lease: ${ENROLLMENT_EVENTS_CLAIM_LEASE:2m}
     # While the consumer is not running (for example Kafka was down at start-up) it is started again at this pause.
     start-retry-interval: ${ENROLLMENT_EVENTS_START_RETRY_INTERVAL:10s}
-    # Shape expectations checked against the shared deployment topic manifest.
-    dead-letter-partitions: ${ENROLLMENT_EVENTS_DLT_PARTITIONS:3}
-    dead-letter-replicas: ${ENROLLMENT_EVENTS_DLT_REPLICAS:1}
     default-time-zone: ${ENROLLMENT_EVENTS_DEFAULT_TIME_ZONE:Asia/Ho_Chi_Minh}
     # Timeout of the calls to tenant-service and course-service.
     client-timeout-ms: ${ENROLLMENT_EVENTS_CLIENT_TIMEOUT_MS:3000}
