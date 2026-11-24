@@ -126,7 +126,6 @@ ASSESSMENT_COMPLETION_CLIENT_MODE=http
 KAFKA_BROKERS=localhost:9092
 OUTBOX_RELAY_ENABLED=true
 OUTBOX_TOPIC=learnup.learning.enrollment-events
-OUTBOX_REPLICATION_FACTOR=1
 COMPLETION_WORKER_ENABLED=true
 EOF
     ;;
@@ -143,7 +142,6 @@ TENANT_CLIENT_MODE=http
 KAFKA_BROKERS=localhost:9092
 OUTBOX_RELAY_ENABLED=true
 OUTBOX_TOPIC=learnup.assessment.learner-assessment-events
-OUTBOX_REPLICATION_FACTOR=1
 EOF
     ;;
     achievement-reporting-service) cat <<EOF

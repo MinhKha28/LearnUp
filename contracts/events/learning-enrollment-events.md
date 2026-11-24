@@ -1,7 +1,8 @@
 # Learning Enrollment events v1
 
-Topic: `learnup.learning.enrollment-events`; three partitions; key: enrollmentId
-(outbox aggregate_id); retention: 30 days; replication factor: configurable.
+Topic: `learnup.learning.enrollment-events`; key: enrollmentId (outbox aggregate_id);
+retention: 30 days. Topic partitions and replicas are owned only by
+[`infrastructure/kafka/topics.tsv`](../../infrastructure/kafka/topics.tsv), applied by kafka-init.
 This shared topic is an intentional naming exception to preserve per-Enrollment
 ordering across event types. Producer: learning-service. Delivery: at-least-once;
 consumers deduplicate eventId. notification-service consumes EnrollmentAssigned,
@@ -119,6 +120,6 @@ in-app notice and its row are written together and cannot be doubled.
 
 The consumer is started by the service, not by Spring at start-up: when Kafka is down at that moment the
 service still starts (its REST API does not depend on Kafka) and the consumer is started again every
-`ENROLLMENT_EVENTS_START_RETRY_INTERVAL` (10 s) until the broker answers. The dead-letter topic is created with
-`ENROLLMENT_EVENTS_DLT_PARTITIONS` (3) and `ENROLLMENT_EVENTS_DLT_REPLICAS` (1) if the broker does not have it;
-its partitions need not match the source topic. The DLT values keep the original event: treat them as restricted data.
+`ENROLLMENT_EVENTS_START_RETRY_INTERVAL` (10 s) until the broker answers. kafka-init provisions the dead-letter
+topic using [`infrastructure/kafka/topics.tsv`](../../infrastructure/kafka/topics.tsv), the single owner of
+topic partitions and replicas. The DLT values keep the original event: treat them as restricted data.

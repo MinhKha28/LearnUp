@@ -144,7 +144,6 @@ describe('the Kafka settings of the relay', () => {
     const config = read();
     assert.equal(config.topic, 'learnup.assessment.learner-assessment-events');
     assert.deepEqual(config.brokers, ['localhost:9092']);
-    assert.equal(config.replicationFactor, 1);
     assert.equal(config.deliveryMs, 10000);
     assert.equal(config.probeMs, 1000);
   });
