@@ -304,3 +304,41 @@ it('distinguishes missing readiness and logs topic transitions without claiming 
   await h.service.tick();
   expect(warn.mock.calls[2]).toEqual(warn.mock.calls[0]);
 });
+
+it('dedupes alternating broker codes across a minute and warns again after transitions and recovery', async () => {
+  jest.useFakeTimers();
+  const warn = jest
+    .spyOn(Logger.prototype, 'warn')
+    .mockImplementation(() => {});
+  const h = harness([], () => Promise.resolve());
+  const ready = jest.spyOn(h.producer, 'ready');
+  const secondsPerMinute = 60;
+  const pollMs = 1000;
+  const codes = ['KAFKA_-195', 'OUTBOX_PROBE_TIMEOUT'];
+  for (let second = 0; second < secondsPerMinute; second++) {
+    ready.mockResolvedValue({
+      status: 'broker-failure',
+      code: codes[second % codes.length],
+    });
+    await h.service.tick();
+    await jest.advanceTimersByTimeAsync(pollMs);
+  }
+  expect(warn.mock.calls).toEqual([['OUTBOX_BROKER_UNAVAILABLE: will retry']]);
+  expect(h.repository.transaction).not.toHaveBeenCalled();
+  ready.mockResolvedValue({ status: 'missing-topics', topics: [config.topic] });
+  await h.service.tick();
+  ready.mockResolvedValue({ status: 'broker-failure', code: codes[0] });
+  await h.service.tick();
+  expect(warn.mock.calls).toEqual([
+    ['OUTBOX_BROKER_UNAVAILABLE: will retry'],
+    [`OUTBOX_TOPIC_MISSING topic=${config.topic} hint="run kafka-init"`],
+    ['OUTBOX_BROKER_UNAVAILABLE: will retry'],
+  ]);
+  ready.mockResolvedValue({ status: 'ready' });
+  await h.service.tick();
+  expect(h.repository.transaction).toHaveBeenCalledTimes(1);
+  ready.mockResolvedValue({ status: 'broker-failure', code: codes[1] });
+  await h.service.tick();
+  expect(warn.mock.calls[3]).toEqual(warn.mock.calls[0]);
+  expect(warn).toHaveBeenCalledTimes(4);
+});
