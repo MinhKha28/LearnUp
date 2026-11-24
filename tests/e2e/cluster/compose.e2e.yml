@@ -29,7 +29,7 @@ services:
       - ../../../infrastructure/kafka:/topics:ro
     depends_on:
       kafka:
-        condition: service_started
+        condition: service_healthy
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
@@ -53,6 +53,12 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
     volumes:
       - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:29092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
 volumes:
   postgres_data:

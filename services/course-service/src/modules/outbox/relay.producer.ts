@@ -1,3 +1,4 @@
+import { isKafkaTopicMissing, OUTBOX_TOPIC_MISSING } from '@learnup/ts-common';
 import { Inject, Injectable } from '@nestjs/common';
 import { CODES, KafkaJS } from '@confluentinc/kafka-javascript';
 
@@ -5,7 +6,10 @@ import { RELAY_CONFIG } from './relay.config';
 
 import type { RelayConfig } from './interfaces/relay-config.interface';
 import type { OutboxRow } from './interfaces/outbox-row.interface';
-import type { RelayErrorClassification } from './interfaces/relay-error.interface';
+import type {
+  RelayErrorClassification,
+  RelayReadiness,
+} from './interfaces/relay-error.interface';
 
 const errors = CODES.ERRORS;
 
@@ -52,6 +56,8 @@ export function classifyError(error: unknown): RelayErrorClassification {
       ? error.code
       : undefined;
 
+  if (isKafkaTopicMissing(code))
+    return { individual: false, code: OUTBOX_TOPIC_MISSING };
   return {
     individual: typeof code === 'number' && individualCodes.has(code),
     code:
@@ -239,8 +245,9 @@ export class RelayProducer {
     this.admin = kafka.admin();
   }
 
-  async ready(): Promise<boolean> {
-    if (!this.config.enabled) return false;
+  async ready(): Promise<RelayReadiness> {
+    if (!this.config.enabled)
+      return { status: 'broker-failure', code: 'OUTBOX_DISABLED' };
 
     try {
       if (!this.connected) {
@@ -260,9 +267,9 @@ export class RelayProducer {
         timeout: this.config.probeMs,
       });
       if ([this.config.topic].some((topic) => !existingTopics.includes(topic)))
-        return false;
-      return true;
-    } catch {
+        return { status: 'missing-topics', topics: [this.config.topic] };
+      return { status: 'ready' };
+    } catch (error) {
       if (!this.connected) {
         await Promise.allSettled([
           this.producer.disconnect(),
@@ -272,7 +279,10 @@ export class RelayProducer {
         this.createClients();
       }
 
-      return false;
+      const { code } = classifyError(error);
+      return code === OUTBOX_TOPIC_MISSING
+        ? { status: 'missing-topics', topics: [this.config.topic] }
+        : { status: 'broker-failure', code };
     }
   }
 
