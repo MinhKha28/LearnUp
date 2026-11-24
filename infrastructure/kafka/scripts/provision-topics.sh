@@ -65,8 +65,13 @@ read_topic_snapshot() {
 load_topic_description() {
     # Both summary and partition lines begin with Topic:. Compare the complete
     # field as a string: topic names contain dots, so regex matching is unsafe.
+    # sprintf produces strings: AWK otherwise equates numeric names like 1/01.
     awk -v expected_topic="$name" '
-        $1 == "Topic:" && $2 == expected_topic { print }
+        BEGIN { expected_name = sprintf("%s", expected_topic) }
+        $1 == "Topic:" {
+            actual_name = sprintf("%s", $2)
+            if (actual_name == expected_name) print
+        }
     ' "$snapshot" > "$describe"
 }
 

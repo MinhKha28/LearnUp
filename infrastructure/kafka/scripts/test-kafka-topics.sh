@@ -29,7 +29,7 @@ if [ "$operation" = describe ]; then
         "$REAL_KAFKA_TOPICS" "$@" > "$TEST_STATE/real-snapshot"
         # Omit only the requested topic from the final successful response.
         awk -v omitted="$TEST_TARGET" '
-            !($1 == "Topic:" && $2 == omitted) { print }
+            !($1 == "Topic:" && sprintf("%s", $2) == sprintf("%s", omitted)) { print }
         ' "$TEST_STATE/real-snapshot"
         exit 0
     fi
@@ -40,5 +40,10 @@ if [ "$TEST_MODE" = race ] && [ "$operation" = create ]; then
         "$REAL_KAFKA_TOPICS" "$@" >/dev/null
         touch "$TEST_STATE/race-created"
     fi
+fi
+if [ "$TEST_MODE" = create-timeout ] && [ "$operation" = create ] && [ "$topic" = "$TEST_TARGET" ]; then
+    # Model an indeterminate timeout after the broker has committed creation.
+    "$REAL_KAFKA_TOPICS" "$@"
+    exit 124
 fi
 exec "$REAL_KAFKA_TOPICS" "$@"

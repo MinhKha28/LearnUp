@@ -68,7 +68,7 @@ assert_shape() {
     expected_partitions=$2
     expected_replicas=$3
     awk -v topic="$checked_topic" -v partitions="$expected_partitions" -v replicas="$expected_replicas" '
-        $1 == "Topic:" && $2 == topic {
+        $1 == "Topic:" && sprintf("%s", $2) == sprintf("%s", topic) {
             for (field = 1; field <= NF; field++) {
                 if ($field == "PartitionCount:") {
                     found = 1
@@ -94,7 +94,7 @@ read_shapes
 while IFS="$TAB" read -r id name partitions replicas key override; do
     case "$id" in ''|\#*) continue ;; esac
     assert_shape "$name" "$partitions" "$replicas"
-    summary=$(awk -v topic="$name" '$1 == "Topic:" && $2 == topic && /PartitionCount:/ { print }' "$TEST_STATE/shapes")
+    summary=$(awk -v topic="$name" '$1 == "Topic:" && sprintf("%s", $2) == sprintf("%s", topic) && /PartitionCount:/ { print }' "$TEST_STATE/shapes")
     case "$id" in
         *-dlt) case "$summary" in *retention.ms=*) exit 1 ;; esac ;;
         *) case "$summary" in *retention.ms=2592000000*) ;; *) exit 1 ;; esac ;;
@@ -124,6 +124,23 @@ assert_shape learnupXtestXexact 2 1
 assert_shape __provisioner_foreign 1 1
 printf 'EXACT_PREFIX_AND_FOREIGN_PARSING_PASS\n'
 
+# AWK must not treat distinct numeric-looking names as equal numbers.
+real_topics --create --topic 1 --partitions 1 --replication-factor 1
+real_topics --create --topic 01 --partitions 3 --replication-factor 1
+real_topics --create --topic 1.0 --partitions 2 --replication-factor 1
+real_topics --create --topic 1e0 --partitions 1 --replication-factor 1
+write_manifest 01 3 1
+run_provisioner 0 "$TEST_STATE/manifest.tsv"
+assert_calls create 0
+assert_marker_count TOPIC_PRESENT 1
+read_shapes
+assert_shape 1 1 1
+assert_shape 01 3 1
+assert_shape 1.0 2 1
+assert_shape 1e0 1 1
+printf 'NUMERIC_TOPIC_NAMES_ARE_DISTINCT_PASS\n'
+
+
 # A missing row before a drifted row must not be created.
 write_manifest learnup.test.must-not-create 3 1
 printf 'drift\tlearnup.test.exact\t1\t1\ttest\tPROVISIONER_DRIFT_TOPIC\n' >> "$TEST_STATE/manifest.tsv"
@@ -139,11 +156,12 @@ assert_calls create 0
 printf 'REPLICA_DRIFT_PASS\n'
 
 TEST_MODE=missing-confirm
-TEST_TARGET=learnup.test.exact
-write_manifest "$TEST_TARGET" 3 1
-run_provisioner 5 "$TEST_STATE/manifest.tsv"
-grep -F 'TOPIC_DESCRIBE_FAILED topic=learnup.test.exact' "$TEST_STATE/output"
-assert_calls create 0
+for TEST_TARGET in learnup.test.exact 01; do
+    write_manifest "$TEST_TARGET" 3 1
+    run_provisioner 5 "$TEST_STATE/manifest.tsv"
+    grep -F "TOPIC_DESCRIBE_FAILED topic=$TEST_TARGET" "$TEST_STATE/output"
+    assert_calls create 0
+done
 printf 'MISSING_CONFIRMATION_EXIT_5_PASS\n'
 
 for TEST_MODE in snapshot-error confirm-error; do
@@ -167,6 +185,30 @@ run_provisioner 0 "$TEST_STATE/manifest.tsv"
 assert_calls create 0
 assert_marker_count TOPIC_PRESENT 1
 assert_marker_count TOPIC_READY 0
+
+# A timed-out CLI may have created its topic. A later run must complete only
+# the remaining topic, then become a zero-create rerun.
+TEST_MODE=create-timeout
+TEST_TARGET=learnup.test.partial-first
+write_manifest "$TEST_TARGET" 3 1
+printf 'partial-later\tlearnup.test.partial-later\t3\t1\ttest\tPROVISIONER_PARTIAL_LATER\n' >> "$TEST_STATE/manifest.tsv"
+run_provisioner 5 "$TEST_STATE/manifest.tsv"
+assert_calls create 1
+read_shapes
+assert_shape "$TEST_TARGET" 3 1
+if grep -Fq 'learnup.test.partial-later' "$TEST_STATE/shapes"; then exit 1; fi
+TEST_MODE=normal
+run_provisioner 0 "$TEST_STATE/manifest.tsv"
+assert_calls create 1
+assert_marker_count TOPIC_PRESENT 1
+assert_marker_count TOPIC_READY 1
+read_shapes
+assert_shape learnup.test.partial-later 3 1
+run_provisioner 0 "$TEST_STATE/manifest.tsv"
+assert_calls create 0
+assert_marker_count TOPIC_PRESENT 2
+assert_marker_count TOPIC_READY 0
+printf 'PARTIAL_CREATION_TIMEOUT_RECOVERY_PASS\n'
 
 # Empty input must be rejected before touching Kafka.
 : > "$TEST_STATE/manifest.tsv"
