@@ -5,12 +5,7 @@ MANIFEST=${1:-/topics/topics.tsv}
 BOOTSTRAP_SERVER=${BOOTSTRAP_SERVER:-kafka:29092}
 READINESS_TIMEOUT_SECONDS=${READINESS_TIMEOUT_SECONDS:-30}
 COMMAND_TIMEOUT_SECONDS=${COMMAND_TIMEOUT_SECONDS:-5}
-fail() {
-    exit_code=$1
-    shift
-    printf '%s\n' "$*" >&2
-    exit "$exit_code"
-}
+fail() { code=$1; shift; printf '%s\n' "$*" >&2; exit "$code"; }
 case "$READINESS_TIMEOUT_SECONDS:$COMMAND_TIMEOUT_SECONDS" in *[!0-9:]*|0:*|*:0) fail 2 'INVALID_TIMEOUT';; esac
 [ -r "$MANIFEST" ] || fail 2 'MANIFEST_UNREADABLE'
 SOURCE_RETENTION_MS=2592000000

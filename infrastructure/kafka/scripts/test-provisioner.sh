@@ -27,10 +27,19 @@ trap cleanup EXIT
 compose up -d kafka
 compose run --rm --entrypoint sh kafka-init /topics/scripts/test-provisioner-cases.sh
 
+assert_broker_stopped() {
+  broker_id=$(compose ps -a -q kafka)
+  [ -n "$broker_id" ]
+  [ "$(docker inspect --format '{{.State.Running}}' "$broker_id")" = false ]
+}
+
 # A real stopped broker, not a mocked client error. Only the test project stops.
 compose stop kafka
+assert_broker_stopped
 status=0
-compose run --rm -e READINESS_TIMEOUT_SECONDS=2 -e COMMAND_TIMEOUT_SECONDS=1 kafka-init > "$LOG" 2>&1 || status=$?
+compose run --rm --no-deps -e READINESS_TIMEOUT_SECONDS=2 -e COMMAND_TIMEOUT_SECONDS=1 kafka-init > "$LOG" 2>&1 || status=$?
+assert_broker_stopped
+printf 'BROKER_HELD_STOPPED_PASS\n'
 cat "$LOG"
 [ "$status" -eq 3 ]
 grep -F 'BROKER_NOT_READY' "$LOG"
