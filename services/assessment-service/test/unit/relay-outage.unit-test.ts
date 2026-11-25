@@ -11,7 +11,10 @@ import {
 } from '../../src/modules/outbox/relay.gate';
 import type { RelayRepository } from '../../src/modules/outbox/relay.repository';
 import { RelayService } from '../../src/modules/outbox/relay.service';
-import { readinessFailure } from '../../src/modules/outbox/relay.kafka-gate';
+import {
+  classifyError,
+  readinessFailure,
+} from '../../src/modules/outbox/relay.kafka-gate';
 
 const MINUTE = 60_000;
 const START = Date.parse('2026-11-05T08:00:00.000Z');
@@ -453,3 +456,47 @@ for (const summaryAvailable of [true, false]) {
     });
   }
 }
+
+for (const [error, diagnostic] of [
+  [
+    Object.assign(new Error('private broker details'), { code: -195 }),
+    'KAFKA_-195',
+  ],
+  [new Error('private database details'), 'OUTBOX_UNKNOWN'],
+] as const) {
+  test(`logs classified unexpected tick failure ${diagnostic}`, async () => {
+    let failing = true;
+    const gate = Object.assign(new EmptyOutboxGate(), {
+      ready: () =>
+        failing
+          ? Promise.reject(error)
+          : Promise.resolve({ status: 'ready' } as const),
+    });
+    let claims = 0;
+    const repository = {
+      transaction: () => {
+        claims++;
+        return Promise.resolve();
+      },
+    };
+    const service = new RelayService(
+      repository as unknown as RelayRepository,
+      gate,
+      readRelayConfig(() => undefined),
+    );
+    const errors: string[] = [];
+    Object.assign(service, {
+      logger: { error: (message: string) => errors.push(message) },
+    });
+    await service.tick();
+    assert.deepEqual(errors, [`OUTBOX_RELAY_FAILURE code=${diagnostic}`]);
+    failing = false;
+    await service.tick();
+    assert.equal(claims, 1);
+  });
+}
+
+test('classifies non-Error string and undefined inputs directly', () => {
+  assert.equal(classifyError('private broker details').code, 'OUTBOX_UNKNOWN');
+  assert.equal(classifyError(undefined).code, 'OUTBOX_UNKNOWN');
+});

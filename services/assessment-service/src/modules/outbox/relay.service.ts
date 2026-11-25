@@ -10,6 +10,7 @@ import type { Prisma } from 'generated/prisma/client';
 import { RELAY_CONFIG, type RelayConfig } from './relay.config';
 import { GateFailure, OutboxGate, type GateReadiness } from './relay.gate';
 import { RelayRepository, type RelayRow } from './relay.repository';
+import { classifyError } from './relay.kafka-gate';
 
 const BROKER_UNAVAILABLE_KEY = 'broker-unavailable';
 
@@ -76,7 +77,11 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
     if (this.stopped) return Promise.resolve();
     if (this.running) return this.running;
     this.running = this.run()
-      .catch(() => this.logger.error('OUTBOX_RELAY_FAILURE'))
+      .catch((error: unknown) =>
+        this.logger.error(
+          `OUTBOX_RELAY_FAILURE code=${classifyError(error).code}`,
+        ),
+      )
       .finally(() => {
         this.running = undefined;
       });
