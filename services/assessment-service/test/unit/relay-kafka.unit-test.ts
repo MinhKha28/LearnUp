@@ -379,3 +379,49 @@ test('send-time missing topics preserve whole-batch attempted-send accounting', 
   assert.equal(published, 0);
   await f.gate.close();
 });
+
+test('a generation replaced during listTopics rejects stale metadata and recovers', async (t) => {
+  const f = gateFixture(t);
+  const topics = [
+    f.config.topic,
+    f.config.peerReviewTopic,
+    f.config.submissionFinalizedTopic,
+  ];
+  f.list(topics);
+  assert.deepEqual(await f.gate.ready(), { status: 'ready' });
+  const internal = f.gate as unknown as {
+    admin: { listTopics(): Promise<string[]> };
+    replaceClients(): void;
+    connected: boolean;
+  };
+  let finish!: (topics: string[]) => void;
+  const metadata = new Promise<string[]>((resolve) => {
+    finish = resolve;
+  });
+  let entered!: () => void;
+  const listing = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  t.mock.method(internal.admin, 'listTopics', () => {
+    entered();
+    return metadata;
+  });
+  try {
+    const pending = f.gate.ready();
+    await listing;
+    internal.replaceClients();
+    finish(topics);
+    assert.deepEqual(await pending, {
+      status: 'broker-failure',
+      code: 'OUTBOX_STALE_PROBE',
+    });
+    assert.equal(internal.connected, false);
+    assert.equal(f.replacement.mock.callCount(), 1);
+    assert.deepEqual(await f.gate.ready(), { status: 'ready' });
+    assert.equal(internal.connected, true);
+    assert.equal(f.replacement.mock.callCount(), 1);
+  } finally {
+    finish(topics);
+    await f.gate.close();
+  }
+});

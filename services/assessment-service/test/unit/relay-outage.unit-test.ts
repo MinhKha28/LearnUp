@@ -235,3 +235,146 @@ test('missing-topic transitions name each topic and timed alerts retain the miss
   await service.tick();
   assert.deepEqual(warnings.slice(-2), warnings.slice(0, 2));
 });
+
+test('dedupes alternating broker codes across a minute and warns again after transitions and recovery', async () => {
+  const config = readRelayConfig(() => undefined);
+  let readiness: GateReadiness = {
+    status: 'broker-failure',
+    code: 'KAFKA_-195',
+  };
+  const gate = Object.assign(new EmptyOutboxGate(), {
+    ready: () => Promise.resolve(readiness),
+  });
+  let claims = 0;
+  const repository = {
+    transaction: () => {
+      claims++;
+      return Promise.resolve();
+    },
+  };
+  const service = new RelayService(
+    repository as unknown as RelayRepository,
+    gate,
+    config,
+  );
+  let now = START;
+  service.now = () => now;
+  const warnings: string[] = [];
+  Object.assign(service, {
+    logger: {
+      warn: (message: string) => warnings.push(message),
+      error: () => {
+        assert.fail('no alert is due within a minute');
+      },
+      log: () => {},
+    },
+  });
+  const secondsPerMinute = 60;
+  const pollMs = 1000;
+  const codes = ['KAFKA_-195', 'OUTBOX_PROBE_TIMEOUT'];
+  for (let second = 0; second < secondsPerMinute; second++) {
+    readiness = {
+      status: 'broker-failure',
+      code: codes[second % codes.length],
+    };
+    await service.tick();
+    now += pollMs;
+  }
+  assert.deepEqual(warnings, ['OUTBOX_GATE_UNAVAILABLE: the relay will retry']);
+  assert.equal(claims, 0);
+  readiness = { status: 'missing-topics', topics: ['test.topic'] };
+  await service.tick();
+  readiness = { status: 'broker-failure', code: codes[0] };
+  await service.tick();
+  assert.deepEqual(warnings, [
+    'OUTBOX_GATE_UNAVAILABLE: the relay will retry',
+    'OUTBOX_TOPIC_MISSING topic=test.topic hint="run kafka-init"',
+    'OUTBOX_GATE_UNAVAILABLE: the relay will retry',
+  ]);
+  readiness = { status: 'ready' };
+  await service.tick();
+  assert.equal(claims, 1);
+  readiness = { status: 'broker-failure', code: codes[1] };
+  await service.tick();
+  assert.equal(warnings.length, 4);
+  assert.equal(warnings[3], warnings[0]);
+});
+
+test('cause changes preserve the first and repeat alert deadlines until recovery', async () => {
+  const config = readRelayConfig(() => undefined);
+  let readiness: GateReadiness = {
+    status: 'broker-failure',
+    code: 'KAFKA_-195',
+  };
+  const gate = Object.assign(new EmptyOutboxGate(), {
+    ready: () => Promise.resolve(readiness),
+  });
+  let claims = 0;
+  const repository = {
+    transaction: () => {
+      claims++;
+      return Promise.resolve();
+    },
+    unsentSummary: () => Promise.resolve({ count: 2, oldestAt: null }),
+  };
+  const service = new RelayService(
+    repository as unknown as RelayRepository,
+    gate,
+    config,
+  );
+  let now = START;
+  service.now = () => now;
+  const alerts: { at: number; message: string }[] = [];
+  Object.assign(service, {
+    logger: {
+      warn: () => {},
+      log: () => {},
+      error: (message: string) => alerts.push({ at: now - START, message }),
+    },
+  });
+  const period = config.outageAlertMs;
+  await service.tick();
+  now = START + period - 1;
+  readiness = { status: 'broker-failure', code: 'OUTBOX_PROBE_TIMEOUT' };
+  await service.tick();
+  assert.equal(alerts.length, 0);
+  now++;
+  readiness = { status: 'missing-topics', topics: ['test.a'] };
+  await service.tick();
+  assert.equal(alerts.length, 1);
+  assert.match(
+    alerts[0].message,
+    /^OUTBOX_RETRY_ALERT code=OUTBOX_TOPIC_MISSING topics=test.a /,
+  );
+  now = START + 2 * period - 1;
+  readiness = { status: 'missing-topics', topics: ['test.b'] };
+  await service.tick();
+  assert.equal(alerts.length, 1);
+  now++;
+  readiness = { status: 'broker-failure', code: 'KAFKA_-195' };
+  await service.tick();
+  assert.equal(alerts.length, 2);
+  assert.match(
+    alerts[1].message,
+    /^OUTBOX_RETRY_ALERT code=OUTBOX_GATE_UNAVAILABLE down_for_s=600 /,
+  );
+  assert.equal(claims, 0);
+  now++;
+  readiness = { status: 'ready' };
+  await service.tick();
+  assert.equal(claims, 1);
+  now++;
+  const nextOutage = now;
+  readiness = { status: 'broker-failure', code: 'KAFKA_-195' };
+  await service.tick();
+  now = nextOutage + period - 1;
+  await service.tick();
+  assert.equal(alerts.length, 2);
+  now++;
+  await service.tick();
+  assert.deepEqual(
+    alerts.map((alert) => alert.at),
+    [period, 2 * period, nextOutage - START + period],
+  );
+  assert.match(alerts[2].message, /down_for_s=300 /);
+});
