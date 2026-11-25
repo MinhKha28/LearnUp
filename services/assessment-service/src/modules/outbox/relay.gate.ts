@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import type { RelayRow } from './relay.repository';
 
+export type GateReadiness =
+  | { status: 'ready' }
+  | { status: 'missing-topics'; topics: string[] }
+  | { status: 'broker-failure'; code: string };
+
 /**
  * Why a send failed, as the relay needs to know it. `code` is a fixed identifier kept in `last_error` (never a message or
  * a payload). `individual` says the failure belongs to the rows, not to the destination: then one bad row must not hold
@@ -18,12 +23,12 @@ export class GateFailure extends Error {
 
 /**
  * Where the relay hands the events it claimed. The contract the relay relies on:
- *  - `ready()` is false when the destination cannot take events, so the relay does not even open a transaction;
+ *  - `ready()` returns an unavailable result when the destination cannot take events, so the relay does not even open a transaction;
  *  - `send(rows)` resolves only when every row was accepted, and rejects, with a `GateFailure` when it can tell why, when
  *    any was not. The relay then retries later, so the consumer must tolerate a repeated `eventId`.
  */
 export abstract class OutboxGate {
-  abstract ready(): Promise<boolean>;
+  abstract ready(): Promise<GateReadiness>;
   abstract send(rows: RelayRow[]): Promise<void>;
   abstract close(): Promise<void>;
 }
@@ -31,8 +36,8 @@ export abstract class OutboxGate {
 /** A gate that accepts everything and sends nowhere: for tests of the relay and for a run without Kafka. */
 @Injectable()
 export class EmptyOutboxGate extends OutboxGate {
-  ready(): Promise<boolean> {
-    return Promise.resolve(true);
+  ready(): Promise<GateReadiness> {
+    return Promise.resolve({ status: 'ready' });
   }
   send(): Promise<void> {
     return Promise.resolve();

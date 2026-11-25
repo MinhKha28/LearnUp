@@ -11,7 +11,6 @@ export interface RelayConfig {
   /** Where `PeerReviewAssigned` goes (notification-service reads it). */
   peerReviewTopic: string;
   submissionFinalizedTopic: string;
-  replicationFactor: number;
   pollMs: number;
   batchSize: number;
   /** How long Kafka may take to acknowledge a send before it counts as failed. */
@@ -63,7 +62,6 @@ export function readRelayConfig(
     submissionFinalizedTopic:
       get('OUTBOX_SUBMISSION_FINALIZED_TOPIC') ??
       'learnup.assessment.submission-finalized',
-    replicationFactor: integer('OUTBOX_REPLICATION_FACTOR', 1),
     pollMs: integer('OUTBOX_POLL_INTERVAL_MS', 1000),
     batchSize: integer('OUTBOX_BATCH_SIZE', 20),
     deliveryMs: integer('OUTBOX_DELIVERY_TIMEOUT_MS', 10000),
@@ -98,8 +96,6 @@ export function readRelayConfig(
     throw new Error(
       'OUTBOX_BACKOFF_MAX_MS must not be below OUTBOX_BACKOFF_MS',
     );
-  if (config.replicationFactor > 32767)
-    throw new Error('Invalid OUTBOX_REPLICATION_FACTOR');
   if (config.batchSize > 1000) throw new Error('Invalid OUTBOX_BATCH_SIZE');
   return config;
 }

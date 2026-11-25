@@ -2,7 +2,6 @@ export interface RelayConfig {
   enabled: boolean;
   brokers: string[];
   topic: string;
-  replicationFactor: number;
   pollMs: number;
   drainGapMs: number;
   batchSize: number;
@@ -41,7 +40,6 @@ export function readRelayConfig(
       .split(',')
       .map((s) => s.trim()),
     topic: get('OUTBOX_TOPIC') ?? 'learnup.learning.enrollment-events',
-    replicationFactor: integer('OUTBOX_REPLICATION_FACTOR', 1),
     pollMs: integer('OUTBOX_POLL_INTERVAL_MS', 1000, 1, 60000),
     drainGapMs: integer('OUTBOX_DRAIN_GAP_MS', 50, 0, 60000),
     batchSize: integer('OUTBOX_BATCH_SIZE', 20),
@@ -62,8 +60,7 @@ export function readRelayConfig(
     throw new Error(
       'Outbox transaction timeout must exceed 2 * delivery timeout + 5000ms and be <= 30000ms',
     );
-  if (c.backoffMaxMs < c.backoffMs || c.replicationFactor > 32767)
-    throw new Error('Invalid outbox backoff or replication factor');
+  if (c.backoffMaxMs < c.backoffMs) throw new Error('Invalid outbox backoff');
   return c;
 }
 export const RELAY_CONFIG = Symbol('RELAY_CONFIG');

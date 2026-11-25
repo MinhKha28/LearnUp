@@ -12,6 +12,12 @@ Compose `kafka-init` service uses the existing cp-kafka:7.6.0 image. Application
 not depend on its completion: they start independently and retry unavailable topics.
 E2E explicitly waits for this same entry point before starting its applications.
 
+Root Compose waits for Kafka to be healthy and uses a 90-second readiness budget
+and a 15-second per-command timeout for `kafka-init`. After a full `docker compose up`,
+check `docker compose ps -a kafka-init` for its result: exit 0 means provisioning
+succeeded; 3 means the broker readiness deadline was exhausted; 4 means partition
+or replica-count drift; 5 means topic creation or confirmation failed.
+
 Run `docker compose run --rm kafka-init` after Kafka is available. Overrides named
 in the manifest must match producer and consumer configuration. The `+.DLT` suffix
 means the override changes the source prefix and retains its DLT suffix. Provisioning
@@ -19,9 +25,9 @@ keeps existing topics intact and checks every existing shape before creating mis
 ones. Source topics retain the existing 30-day retention policy; DLTs retain broker
 retention defaults. Verification topics are test-only and outside the deployed list.
 
-The script defaults to `BOOTSTRAP_SERVER=kafka:29092`, a 30-second readiness budget
-and a 5-second per-command timeout. A failed readiness attempt can finish at most
-6 seconds after that budget; no readiness failure keeps an application from starting.
+The script defaults to `BOOTSTRAP_SERVER=kafka:29092`, a 90-second readiness budget
+and a 15-second per-command timeout. A failed readiness attempt can finish at most
+16 seconds after that budget; no readiness failure keeps an application from starting.
 Exit codes: 0 success; 2 invalid input; 3 broker readiness exhausted; 4 partition or
 replica-count drift; 5 creation/confirmation failure. It never alters or deletes topics.
 
@@ -33,6 +39,8 @@ Pause publishers and inspect lag of every consumer group. An operator may approv
 `kafka-topics --bootstrap-server <broker> --alter --topic <topic> --partitions 3`
 only with lag zero and accepted ordering impact. The provisioner prints guidance but
 never performs that operation. Replication changes likewise require operator action.
+
+If a DLT is missing, a poison record on that partition is retried until kafka-init has created the DLT; nothing is lost, and the partition waits.
 
 ## Adding topics and tests
 
