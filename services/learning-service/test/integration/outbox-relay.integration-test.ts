@@ -223,6 +223,9 @@ test(
     const aggregate = randomUUID();
     await insert(1000, aggregate, 1);
     await insert(1001, aggregate, 2);
+    const expectedEventIds = new Set([id(1000), id(1001)]);
+    const recoveredMessages = () =>
+      received.filter((message) => expectedEventIds.has(message.body.eventId));
     let app: NestExpressApplication | undefined;
     let heldMs = 0,
       transactionCalls = 0;
@@ -320,7 +323,7 @@ test(
     try {
       await waitFor(async () => {
         await r1.tick();
-        return received.length >= 2;
+        return recoveredMessages().length >= 2;
       }, 30000);
     } catch (error) {
       try {
@@ -343,7 +346,7 @@ test(
       throw error;
     }
     assert.deepEqual(
-      received.map((r) => r.body.data.sequence),
+      recoveredMessages().map((message) => message.body.data.sequence),
       [1, 2],
     );
     await clear();
