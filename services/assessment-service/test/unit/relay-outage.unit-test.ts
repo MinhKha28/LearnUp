@@ -11,6 +11,7 @@ import {
 } from '../../src/modules/outbox/relay.gate';
 import type { RelayRepository } from '../../src/modules/outbox/relay.repository';
 import { RelayService } from '../../src/modules/outbox/relay.service';
+import { readinessFailure } from '../../src/modules/outbox/relay.kafka-gate';
 
 const MINUTE = 60_000;
 const START = Date.parse('2026-11-05T08:00:00.000Z');
@@ -77,7 +78,7 @@ describe('the relay while the destination is down', () => {
     assert.deepEqual(logs, [
       {
         level: 'warn',
-        message: 'OUTBOX_GATE_UNAVAILABLE: the relay will retry',
+        message: 'OUTBOX_GATE_UNAVAILABLE: the relay will retry code=TEST_DOWN',
       },
     ]);
     assert.equal(claimed, 0);
@@ -98,7 +99,7 @@ describe('the relay while the destination is down', () => {
     // down 5 minutes; the oldest event is 2 minutes older than the start of the outage plus the 5 minutes
     assert.equal(
       alerts()[0].message,
-      'OUTBOX_RETRY_ALERT code=OUTBOX_GATE_UNAVAILABLE down_for_s=300 unsent=3 oldest_unsent_age_s=420',
+      'OUTBOX_RETRY_ALERT code=OUTBOX_GATE_UNAVAILABLE down_for_s=300 unsent=3 oldest_unsent_age_s=420 broker_code=TEST_DOWN',
     );
   });
 
@@ -118,7 +119,10 @@ describe('the relay while the destination is down', () => {
     summary = () => Promise.resolve({ count: 0, oldestAt: null });
     await service.tick();
     await turns(5);
-    assert.match(alerts()[0].message, /unsent=0 oldest_unsent_age_s=0$/);
+    assert.match(
+      alerts()[0].message,
+      /unsent=0 oldest_unsent_age_s=0 broker_code=TEST_DOWN$/,
+    );
   });
 
   test('when the database cannot be read either, the alert is still sent, without the numbers', async () => {
@@ -127,7 +131,7 @@ describe('the relay while the destination is down', () => {
     await turns(5);
     assert.equal(
       alerts()[0].message,
-      'OUTBOX_RETRY_ALERT code=OUTBOX_GATE_UNAVAILABLE down_for_s=300 unsent=unknown',
+      'OUTBOX_RETRY_ALERT code=OUTBOX_GATE_UNAVAILABLE down_for_s=300 unsent=unknown broker_code=TEST_DOWN',
     );
   });
 
@@ -151,7 +155,7 @@ describe('the relay while the destination is down', () => {
     assert.deepEqual(logs.slice(before), [
       {
         level: 'warn',
-        message: 'OUTBOX_GATE_UNAVAILABLE: the relay will retry',
+        message: 'OUTBOX_GATE_UNAVAILABLE: the relay will retry code=TEST_DOWN',
       },
     ]);
     await turns(4);
@@ -280,16 +284,18 @@ test('dedupes alternating broker codes across a minute and warns again after tra
     await service.tick();
     now += pollMs;
   }
-  assert.deepEqual(warnings, ['OUTBOX_GATE_UNAVAILABLE: the relay will retry']);
+  assert.deepEqual(warnings, [
+    'OUTBOX_GATE_UNAVAILABLE: the relay will retry code=KAFKA_-195',
+  ]);
   assert.equal(claims, 0);
   readiness = { status: 'missing-topics', topics: ['test.topic'] };
   await service.tick();
   readiness = { status: 'broker-failure', code: codes[0] };
   await service.tick();
   assert.deepEqual(warnings, [
-    'OUTBOX_GATE_UNAVAILABLE: the relay will retry',
+    'OUTBOX_GATE_UNAVAILABLE: the relay will retry code=KAFKA_-195',
     'OUTBOX_TOPIC_MISSING topic=test.topic hint="run kafka-init"',
-    'OUTBOX_GATE_UNAVAILABLE: the relay will retry',
+    'OUTBOX_GATE_UNAVAILABLE: the relay will retry code=KAFKA_-195',
   ]);
   readiness = { status: 'ready' };
   await service.tick();
@@ -297,7 +303,10 @@ test('dedupes alternating broker codes across a minute and warns again after tra
   readiness = { status: 'broker-failure', code: codes[1] };
   await service.tick();
   assert.equal(warnings.length, 4);
-  assert.equal(warnings[3], warnings[0]);
+  assert.equal(
+    warnings[3],
+    'OUTBOX_GATE_UNAVAILABLE: the relay will retry code=OUTBOX_PROBE_TIMEOUT',
+  );
 });
 
 test('cause changes preserve the first and repeat alert deadlines until recovery', async () => {
@@ -378,3 +387,69 @@ test('cause changes preserve the first and repeat alert deadlines until recovery
   );
   assert.match(alerts[2].message, /down_for_s=300 /);
 });
+
+for (const summaryAvailable of [true, false]) {
+  for (const [code, diagnostic] of [
+    [-195, 'KAFKA_-195'],
+    [undefined, 'OUTBOX_UNKNOWN'],
+    ['invalid', 'OUTBOX_UNKNOWN'],
+    [3, 'OUTBOX_TOPIC_MISSING'],
+  ] as const) {
+    test(`logs classified outage ${String(code)} with summary available=${summaryAvailable}`, async () => {
+      const config = readRelayConfig(() => undefined);
+      let readiness = readinessFailure(
+        Object.assign(new Error('private broker details'), { code }),
+        ['test.topic'],
+      );
+      const gate = Object.assign(new EmptyOutboxGate(), {
+        ready: () => Promise.resolve(readiness),
+      });
+      const repository = {
+        unsentSummary: () =>
+          summaryAvailable
+            ? Promise.resolve({ count: 2, oldestAt: null })
+            : Promise.reject(new Error('private database details')),
+      } as unknown as RelayRepository;
+      const service = new RelayService(repository, gate, config);
+      let now = START;
+      service.now = () => now;
+      const warnings: string[] = [],
+        alerts: string[] = [];
+      Object.assign(service, {
+        logger: {
+          warn: (message: string) => warnings.push(message),
+          error: (message: string) => alerts.push(message),
+        },
+      });
+      await service.tick();
+      const missingTopic = code === 3;
+      assert.deepEqual(warnings, [
+        missingTopic
+          ? 'OUTBOX_TOPIC_MISSING topic=test.topic hint="run kafka-init"'
+          : `OUTBOX_GATE_UNAVAILABLE: the relay will retry code=${diagnostic}`,
+      ]);
+      now += config.outageAlertMs;
+      await service.tick();
+      const summary = summaryAvailable
+        ? 'unsent=2 oldest_unsent_age_s=0'
+        : 'unsent=unknown';
+      const cause = missingTopic
+        ? 'OUTBOX_TOPIC_MISSING topics=test.topic hint="run kafka-init"'
+        : 'OUTBOX_GATE_UNAVAILABLE';
+      const brokerCode = missingTopic ? '' : ` broker_code=${diagnostic}`;
+      assert.deepEqual(alerts, [
+        `OUTBOX_RETRY_ALERT code=${cause} down_for_s=300 ${summary}${brokerCode}`,
+      ]);
+      if (missingTopic) {
+        assert.ok(!alerts[0].includes('broker_code='));
+        return;
+      }
+      readiness = { status: 'broker-failure', code: 'KAFKA_-185' };
+      now += config.outageAlertMs;
+      await service.tick();
+      assert.equal(warnings.length, 1);
+      assert.equal(alerts.length, 2);
+      assert.match(alerts[1], / broker_code=KAFKA_-185$/);
+    });
+  }
+}
