@@ -30,6 +30,7 @@ export function after(
 /** Dependencies close in order; every task gets its own attempt and deadline. */
 export async function cleanupAll(tasks: CleanupTask[]): Promise<void> {
   const errors: unknown[] = [];
+  const failures: string[] = [];
   for (const task of tasks) {
     try {
       await deadline(
@@ -41,10 +42,15 @@ export async function cleanupAll(tasks: CleanupTask[]): Promise<void> {
         console.log(`it-cleanup closed ${task.name}`);
     } catch (error) {
       errors.push(error);
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push(`${task.name}: ${message}`);
     }
   }
   if (errors.length)
-    throw new AggregateError(errors, 'Integration cleanup failed');
+    throw new AggregateError(
+      errors,
+      `Integration cleanup failed: ${failures.join('; ')}`,
+    );
 }
 
 export async function finishCleanup(

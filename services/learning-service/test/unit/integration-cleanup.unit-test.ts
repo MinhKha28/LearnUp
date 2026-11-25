@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { finishCleanup } from '../integration/cleanup';
+import { cleanupAll, finishCleanup } from '../integration/cleanup';
 
 function failingCleanup() {
   return {
@@ -105,4 +105,42 @@ void test('integration startup and cleanup errors are both reported', async () =
   } finally {
     process.exitCode = previousExitCode;
   }
+});
+
+void test('integration cleanup names every failed task and preserves its error', async () => {
+  const topicError = new Error('delete denied');
+  const consumerError = new Error('disconnect failed');
+  let laterCleanupRan = false;
+  await assert.rejects(
+    cleanupAll([
+      {
+        name: 'relay test topic',
+        run: () => {
+          throw topicError;
+        },
+      },
+      {
+        name: 'relay test consumer',
+        run: () => {
+          throw consumerError;
+        },
+      },
+      {
+        name: 'later resource',
+        run: () => {
+          laterCleanupRan = true;
+        },
+      },
+    ]),
+    (error: unknown) => {
+      assert.ok(error instanceof AggregateError);
+      assert.equal(
+        error.message,
+        'Integration cleanup failed: relay test topic: delete denied; relay test consumer: disconnect failed',
+      );
+      assert.deepEqual(error.errors, [topicError, consumerError]);
+      return true;
+    },
+  );
+  assert.equal(laterCleanupRan, true);
 });
