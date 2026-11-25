@@ -1,3 +1,4 @@
+import './learning-env';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
@@ -15,11 +16,10 @@ import {
 import { CourseServiceClient } from '../../learning-service/src/infrastructure/clients/course/course-service.client';
 import type { CurrentUser } from '@learnup/ts-common';
 
-// Run from learning-service with NODE_PATH set to that service directory:
-// npx ts-node -r tsconfig-paths/register -P tsconfig.seed.json ../course-service/test/course-values.learning-test.ts
+// Run npm run test:values:learning from course-service; see README prerequisites.
 // Run against freshly migrated disposable Learning and seeded Course databases.
 // DATABASE_URL is Learning; COURSE_DATABASE_URL and COURSE_SERVICE_URL select Course.
-// The runner owns and drops both databases: I1 deliberately locks the seeded Course.
+// The caller owns and drops both databases; the test locks the seeded Course.
 if (process.env.NODE_ENV === 'production')
   throw new Error('Refusing assignment integration test in production.');
 
