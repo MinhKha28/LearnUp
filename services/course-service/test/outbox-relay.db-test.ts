@@ -54,16 +54,22 @@ function relay(send: (id: string) => Promise<void>, repository = repo) {
   const producer = new RelayProducer({ ...config, enabled: false });
   Object.assign(producer, {
     producer: {
-      send: async ({ messages }) => {
-        await send(JSON.parse(messages[0].value).eventId);
+      send: async ({ messages }: { messages: { value: string }[] }) => {
+        const event = JSON.parse(messages[0].value) as { eventId: string };
+        await send(event.eventId);
         return [];
       },
     },
-    ready: async () => ({ status: 'ready' }),
+    ready: () => Promise.resolve({ status: 'ready' }),
   });
   return new RelayService(repository, producer, config);
 }
-const rows = () => prisma.outboxEvent.findMany({ orderBy: { id: 'asc' } });
+const fixtureIds = Array.from({ length: 20 }, (_, index) => uuid(index + 1));
+const rows = () =>
+  prisma.outboxEvent.findMany({
+    where: { id: { in: fixtureIds }, organizationId: org },
+    orderBy: { id: 'asc' },
+  });
 before(async () => {
   await prisma.$connect();
 });
@@ -95,8 +101,9 @@ test('poison head backs off; other courses publish and its successor stays block
   await insert(2, 1);
   await insert(3, 2);
   const acks: string[] = [];
-  const service = relay(async (id) => {
+  const service = relay((id) => {
     acks.push(id);
+    return Promise.resolve();
   });
   await service.tick();
   await service.tick();
@@ -113,9 +120,9 @@ test('poison head backs off; other courses publish and its successor stays block
 test('broker failure commits backoff for all heads, and the next poll does not resend', async () => {
   for (let n = 1; n <= 20; n++) await insert(n);
   let sends = 0;
-  const service = relay(async () => {
+  const service = relay(() => {
     sends++;
-    throw Object.assign(Error('timeout'), { code: -185 });
+    return Promise.reject(Object.assign(Error('timeout'), { code: -185 }));
   });
   await service.tick();
   await service.tick();
@@ -134,20 +141,23 @@ test('rollback after ACK leaves all rows claimable for the next transaction', as
     prisma as unknown as PrismaService,
     config,
   );
-  const published = failing.published.bind(failing);
+  const published = failing.published.bind(
+    failing,
+  ) as RelayRepository['published'];
   failing.published = async (tx, row) => {
     await published(tx, row);
     throw Error('injected marking failure');
   };
-  await relay(async () => {}, failing).tick();
+  await relay(() => Promise.resolve(), failing).tick();
   assert.ok(
     (await rows()).every((row) => !row.publishedAt && row.attempts === 0),
   );
-  await repo.transaction(async (_tx, claimed) => {
+  await repo.transaction((_tx, claimed) => {
     assert.deepEqual(
       claimed.map((row) => row.id),
       [uuid(1), uuid(2)],
     );
+    return Promise.resolve();
   });
 });
 
@@ -159,16 +169,17 @@ test('normal and individual fallback paths publish same-course heads in order', 
     await insert(3, 2);
     const calls: string[] = [],
       acks: string[] = [];
-    const service = relay(async (id) => {
+    const service = relay((id) => {
       calls.push(id);
       if (
         fallback &&
         id === uuid(1) &&
         calls.filter((v) => v === id).length === 1
       ) {
-        throw new SerializationFailure();
+        return Promise.reject(new SerializationFailure());
       }
       acks.push(id);
+      return Promise.resolve();
     });
     await service.tick();
     assert.ok(!calls.includes(uuid(2)));
@@ -188,8 +199,9 @@ test('SKIP LOCKED across workers never exposes the successor of a locked head', 
       claimed.map((row) => row.id),
       [uuid(1), uuid(3)],
     );
-    await repo.transaction(async (_otherTx, otherRows) => {
+    await repo.transaction((_otherTx, otherRows) => {
       assert.equal(otherRows.length, 0);
+      return Promise.resolve();
     });
   });
 });
