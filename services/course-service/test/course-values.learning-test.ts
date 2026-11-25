@@ -13,66 +13,83 @@ import {
   TenantClient,
 } from '../../learning-service/src/infrastructure/clients/tenant/tenant.client';
 import { CourseServiceClient } from '../../learning-service/src/infrastructure/clients/course/course-service.client';
-import {
-  ENROLL_IT_ORG as ORG,
-  ENROLL_IT_PRIVATE_COURSE as PRIVATE,
-  ENROLL_IT_ORGANIZER as ORGANIZER,
-  resetEnrollFixture,
-  courseDatabaseUrl,
-} from '../../learning-service/test/integration/enroll-it-fixture';
+import type { CurrentUser } from '@learnup/ts-common';
 
+// Run from learning-service with NODE_PATH set to that service directory:
+// npx ts-node -r tsconfig-paths/register -P tsconfig.seed.json ../course-service/test/course-values.learning-test.ts
+// Run against freshly migrated disposable Learning and seeded Course databases.
+// DATABASE_URL is Learning; COURSE_DATABASE_URL and COURSE_SERVICE_URL select Course.
+// The runner owns and drops both databases: I1 deliberately locks the seeded Course.
 if (process.env.NODE_ENV === 'production')
   throw new Error('Refusing assignment integration test in production.');
+
+function disposableDatabaseUrl(variable: string): string {
+  const value = process.env[variable];
+  if (!value)
+    throw new Error(variable + ' must select a disposable test database.');
+  const name = new URL(value).pathname.slice(1);
+  if (!/^(learning|course)_[a-z0-9_]+_test$/.test(name)) {
+    throw new Error(variable + ' database name must end in _test.');
+  }
+  return value;
+}
+
+const learningDatabaseUrl = disposableDatabaseUrl('DATABASE_URL');
+const courseDatabaseUrl = disposableDatabaseUrl('COURSE_DATABASE_URL');
+assert.notEqual(
+  new URL(learningDatabaseUrl).pathname,
+  new URL(courseDatabaseUrl).pathname,
+);
+// PUBLISHED_PRIVATE in prisma/seed.ts (81ac5f6a); these are fixture identities.
+const ORG = '01900000-0000-7000-8000-00000000a001';
+const PRIVATE = '01900000-0000-7000-8000-c00200000065';
+const ORGANIZER: CurrentUser = {
+  userId: '01900000-0000-7000-8000-00000000a010',
+  organizationId: ORG,
+  role: 'ORGANIZER',
+  isAuthenticated: true,
+};
 const learningRequire = createRequire(
   require.resolve('../../learning-service/package.json'),
 );
 const { NestFactory } = learningRequire(
   '@nestjs/core',
 ) as typeof import('@nestjs/core');
-const db = new Client({ connectionString: process.env.DATABASE_URL });
-const courseDb = new Client({ connectionString: courseDatabaseUrl() });
+const db = new Client({ connectionString: learningDatabaseUrl });
+const courseDb = new Client({ connectionString: courseDatabaseUrl });
 const learnerId = randomUUID();
 let app: NestExpressApplication;
 let url: string;
-let connected = false;
-async function cleanFixture() {
-  await resetEnrollFixture(db, courseDb);
-  await db.query(
-    "DELETE FROM outbox_events WHERE organization_id=$1 AND event_type='EnrollmentAssigned'",
-    [ORG],
-  );
-}
 before(async () => {
   await db.connect();
   await courseDb.connect();
-  connected = true;
-  await cleanFixture();
   app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error'],
   });
   configureApp(app);
-  app.get<TenantClient>(TENANT_CLIENT).lookupLearners = async (_user, ids) =>
-    ids.map((userId) => ({
-      userId,
-      role: 'Learner',
-      status: 'Active',
-      activatedAt: null,
-      deletedAt: null,
-      fullName: 'Học viên kiểm thử',
-      email: 'learner@example.test',
-    }));
+  app.get<TenantClient>(TENANT_CLIENT).lookupLearners = (_user, ids) =>
+    Promise.resolve(
+      ids.map((userId) => ({
+        userId,
+        role: 'Learner',
+        status: 'Active',
+        activatedAt: null,
+        deletedAt: null,
+        fullName: 'Học viên kiểm thử',
+        email: 'learner@example.test',
+      })),
+    );
   await app.listen(0, '127.0.0.1');
   url = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
 });
 after(async () => {
   try {
-    if (connected) await cleanFixture();
-  } finally {
     if (app) await app.close();
+  } finally {
     await Promise.all([db.end(), courseDb.end()]);
   }
 });
-test('UC24.2: new seed Private Course passes real I1 and creates a Required assignment', async () => {
+void test('UC24.2: new seed Private Course passes real I1 and creates a Required assignment', async () => {
   const seed = await courseDb.query(
     'SELECT status,course_type FROM courses WHERE id=$1 AND organization_id=$2',
     [PRIVATE, ORG],

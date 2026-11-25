@@ -15,6 +15,8 @@ import type { RelayConfig } from './interfaces/relay-config.interface';
 import type { OutboxRow } from './interfaces/outbox-row.interface';
 import type { Prisma } from '../../../generated/prisma/client';
 
+const BROKER_UNAVAILABLE_KEY = 'broker-unavailable';
+
 @Injectable()
 export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
   private readonly logger = new Logger(RelayService.name);
@@ -83,7 +85,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
       const reason =
         ready.status === 'missing-topics'
           ? JSON.stringify([...ready.topics].sort())
-          : `broker:${ready.code}`;
+          : BROKER_UNAVAILABLE_KEY;
       if (reason !== this.lastReadinessFailure) {
         if (ready.status === 'missing-topics') {
           for (const topic of ready.topics)

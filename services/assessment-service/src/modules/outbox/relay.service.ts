@@ -11,6 +11,8 @@ import { RELAY_CONFIG, type RelayConfig } from './relay.config';
 import { GateFailure, OutboxGate, type GateReadiness } from './relay.gate';
 import { RelayRepository, type RelayRow } from './relay.repository';
 
+const BROKER_UNAVAILABLE_KEY = 'broker-unavailable';
+
 const CLEANUP_EVERY_MS = 60 * 60 * 1000;
 
 /**
@@ -148,7 +150,7 @@ export class RelayService implements OnModuleInit, BeforeApplicationShutdown {
     const reason =
       readiness.status === 'missing-topics'
         ? JSON.stringify([...readiness.topics].sort())
-        : `broker:${readiness.code}`;
+        : BROKER_UNAVAILABLE_KEY;
     if (reason !== this.lastReadinessFailure) {
       if (readiness.status === 'missing-topics') {
         for (const topic of readiness.topics)
