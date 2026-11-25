@@ -52,15 +52,25 @@ export async function finishCleanup(
   cause?: unknown,
 ): Promise<void> {
   const errors = fileErrors.splice(0);
-  if (cause !== undefined) errors.push(cause);
   try {
     await cleanupAll(tasks);
   } catch (error) {
     errors.push(error);
   }
-  if (errors.length === 0) return;
+  if (cause === undefined && errors.length === 0) return;
   // Node 24 with --experimental-test-isolation=none prints a failing root
   // `after` hook but still exits 0, so the run must be marked as failed here.
   process.exitCode = 1;
+  if (cause !== undefined) {
+    const startupError =
+      cause instanceof Error
+        ? cause
+        : new Error('Integration startup failed', { cause });
+    if (errors.length === 0) throw startupError;
+    throw new AggregateError(
+      [startupError, ...errors],
+      `${startupError.message}; integration cleanup failed`,
+    );
+  }
   throw new AggregateError(errors, 'Integration teardown failed');
 }
