@@ -296,7 +296,9 @@ it('distinguishes missing readiness and logs topic transitions without claiming 
   });
   error = Object.assign(new Error('test probe failure'), { code: -195 });
   await h.service.tick();
-  expect(warn.mock.calls[1][0]).toBe('OUTBOX_BROKER_UNAVAILABLE: will retry');
+  expect(warn.mock.calls[1][0]).toBe(
+    'OUTBOX_BROKER_UNAVAILABLE: will retry code=KAFKA_-195',
+  );
   error = undefined;
   topics = [config.topic];
   await h.service.tick();
@@ -323,22 +325,76 @@ it('dedupes alternating broker codes across a minute and warns again after trans
     await h.service.tick();
     await jest.advanceTimersByTimeAsync(pollMs);
   }
-  expect(warn.mock.calls).toEqual([['OUTBOX_BROKER_UNAVAILABLE: will retry']]);
+  expect(warn.mock.calls).toEqual([
+    ['OUTBOX_BROKER_UNAVAILABLE: will retry code=KAFKA_-195'],
+  ]);
   expect(h.repository.transaction).not.toHaveBeenCalled();
   ready.mockResolvedValue({ status: 'missing-topics', topics: [config.topic] });
   await h.service.tick();
   ready.mockResolvedValue({ status: 'broker-failure', code: codes[0] });
   await h.service.tick();
   expect(warn.mock.calls).toEqual([
-    ['OUTBOX_BROKER_UNAVAILABLE: will retry'],
+    ['OUTBOX_BROKER_UNAVAILABLE: will retry code=KAFKA_-195'],
     [`OUTBOX_TOPIC_MISSING topic=${config.topic} hint="run kafka-init"`],
-    ['OUTBOX_BROKER_UNAVAILABLE: will retry'],
+    ['OUTBOX_BROKER_UNAVAILABLE: will retry code=KAFKA_-195'],
   ]);
   ready.mockResolvedValue({ status: 'ready' });
   await h.service.tick();
   expect(h.repository.transaction).toHaveBeenCalledTimes(1);
   ready.mockResolvedValue({ status: 'broker-failure', code: codes[1] });
   await h.service.tick();
-  expect(warn.mock.calls[3]).toEqual(warn.mock.calls[0]);
+  expect(warn.mock.calls[3]).toEqual([
+    'OUTBOX_BROKER_UNAVAILABLE: will retry code=OUTBOX_PROBE_TIMEOUT',
+  ]);
   expect(warn).toHaveBeenCalledTimes(4);
 });
+
+it.each([
+  [-195, 'KAFKA_-195'],
+  [undefined, 'OUTBOX_UNKNOWN'],
+  ['invalid', 'OUTBOX_UNKNOWN'],
+])(
+  'logs classified readiness code %s without claiming rows',
+  async (code, diagnostic) => {
+    const h = harness([], () => Promise.resolve());
+    jest.spyOn(h.producer, 'ready').mockRestore();
+    const error = Object.assign(new Error('private broker details'), { code });
+    Object.assign(h.producer, {
+      config,
+      connected: true,
+      admin: { listTopics: () => Promise.reject(error) },
+    });
+    const warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => {});
+    await h.service.tick();
+    expect(warn).toHaveBeenCalledWith(
+      `OUTBOX_BROKER_UNAVAILABLE: will retry code=${diagnostic}`,
+    );
+    expect(h.repository.transaction).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  [
+    Object.assign(new Error('private broker details'), { code: -195 }),
+    'Error',
+    'KAFKA_-195',
+  ],
+  [new Error('private database details'), 'Error', 'OUTBOX_UNKNOWN'],
+  [undefined, 'Unknown', 'OUTBOX_UNKNOWN'],
+  [{ code: 'invalid' }, 'Unknown', 'OUTBOX_UNKNOWN'],
+])(
+  'logs the error name and classified code for an unexpected tick failure %#',
+  async (error, name, diagnostic) => {
+    const h = harness([], () => Promise.resolve());
+    const errorLog = jest.spyOn(Logger.prototype, 'error');
+    jest.spyOn(h.producer, 'ready').mockRejectedValueOnce(error);
+    await h.service.tick();
+    expect(errorLog).toHaveBeenCalledWith(
+      `OUTBOX_RELAY_FAILURE ${name} code=${diagnostic}`,
+    );
+    await h.service.tick();
+    expect(h.repository.transaction).toHaveBeenCalledTimes(1);
+  },
+);
