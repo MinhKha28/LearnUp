@@ -90,6 +90,10 @@ the test setup; never use production credentials. Run from course-service:
 # Required: DATABASE_URL points to the migrated disposable Course database.
 npm run test:e2e -- --runInBand
 
+# DB suites also require OUTBOX_TEST_DATABASE_URL for that disposable Course DB.
+export OUTBOX_TEST_DATABASE_URL="$DATABASE_URL"
+npm run test:db
+
 # Separate terminal: use the same Course DATABASE_URL, seed it and start Course.
 npm run prisma:seed
 npm run build
@@ -100,5 +104,8 @@ node -r ts-node/register -r ./test/setup-env.ts dist/src/main.js
 npm run test:values:learning
 ```
 
+The course integration CI job runs e2e plus relay, catalog duration, enrollment
+lock and migration-value database suites, each against PostgreSQL only.
+The catalog HTTP check needs a seeded running Course service and remains local.
 The real Course-to-Learning check remains a local integration
 check; it is separate from `test:e2e`.
