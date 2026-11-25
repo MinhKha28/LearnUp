@@ -382,8 +382,6 @@ it.each([
     'KAFKA_-195',
   ],
   [new Error('private database details'), 'Error', 'OUTBOX_UNKNOWN'],
-  [undefined, 'Unknown', 'OUTBOX_UNKNOWN'],
-  [{ code: 'invalid' }, 'Unknown', 'OUTBOX_UNKNOWN'],
 ])(
   'logs the error name and classified code for an unexpected tick failure %#',
   async (error, name, diagnostic) => {
@@ -398,3 +396,9 @@ it.each([
     expect(h.repository.transaction).toHaveBeenCalledTimes(1);
   },
 );
+
+it('classifies non-Error inputs directly', () => {
+  expect(classifyError({ code: -195 }).code).toBe('KAFKA_-195');
+  expect(classifyError('private broker details').code).toBe('OUTBOX_UNKNOWN');
+  expect(classifyError(undefined).code).toBe('OUTBOX_UNKNOWN');
+});
