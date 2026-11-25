@@ -25,9 +25,14 @@ const prisma = new PrismaClient({
 });
 prisma.$on('query', (event) => queries.push(event.query));
 const storageStub = {
-  getSignedUrl: () => { throw new Error('Storage should not be used in lock DB tests'); },
+  getSignedUrl: () => {
+    throw new Error('Storage should not be used in lock DB tests');
+  },
 } as unknown as IReadableStorageProvider;
-const service = new InternalCoursesService(prisma as unknown as PrismaService, storageStub);
+const service = new InternalCoursesService(
+  prisma as unknown as PrismaService,
+  storageStub,
+);
 
 async function cleanup() {
   await prisma.course.deleteMany({
@@ -52,7 +57,8 @@ before(async () => {
       name: 'I1 concurrency test',
       learningOutcomes: [],
       expectedCompletionDays: 30,
-      status: 'Published',
+      // Keep planner cardinality while allowing only one active Published version.
+      status: id === courseId ? 'Published' : 'Archived',
       courseType: 'Public',
     })),
   });
