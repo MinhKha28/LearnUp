@@ -7,29 +7,128 @@
  */
 import 'dotenv/config';
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
-import { describe, test } from 'node:test';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { after, before, describe, test } from 'node:test';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client';
-import type { CatalogPageDto } from 'src/modules/catalog/dto/catalog-page.dto';
-import type { CourseIntroductionDto } from 'src/modules/catalog/dto/course-introduction.dto';
+import type { CatalogPageDto } from '../../src/modules/catalog/dto/catalog-page.dto';
+import type { CourseIntroductionDto } from '../../src/modules/catalog/dto/course-introduction.dto';
 
 const BASE_URL = `${process.env.COURSE_SERVICE_URL ?? `http://localhost:${process.env.PORT ?? 8083}`}/api/v1/courses`;
 
-const ORG_A = '0199a000-0000-7000-8000-0a0000000001';
-const LEARNER_1 = '0199a000-0000-7000-8000-0b0000000001';
-const INSTRUCTOR_1 = '0199a000-0000-7000-8000-0c0000000001';
+const ORG_A = '01900000-0000-7000-8000-00000000a001';
+const LEARNER_1 = '01900000-0000-7000-8000-00000000a201';
+const INSTRUCTOR_1 = '01900000-0000-7000-8000-00000000a101';
 /** Tổ chức không có Course nào (dùng chung với test:catalog:db, chỉ tồn tại trong transaction đã rollback). */
 const EMPTY_ORG = '0199a000-0000-7000-8000-0a00000000f1';
 
+// prisma/seed.ts CASES, introduced by test(course): expand seed data (81ac5f6a).
 const COURSE = {
-  anToanV1Archived: '0199a000-0000-7000-8000-0e0000000001',
-  anToanV2: '0199a000-0000-7000-8000-0e0000000002',
-  baoMat: '0199a000-0000-7000-8000-0e0000000003',
-  quyTrinhPrivate: '0199a000-0000-7000-8000-0e0000000004',
-  giaoTiepDraft: '0199a000-0000-7000-8000-0e0000000005',
-  nhapMonOrgB: '0199a000-0000-7000-8000-0e0000000006',
+  archivedVersion: '01900000-0000-7000-8000-c0020000005b',
+  publishedVersion: '01900000-0000-7000-8000-c0020000005c',
+  publishedPrivate: '01900000-0000-7000-8000-c00200000065',
+  publishedLocked: '01900000-0000-7000-8000-c0020000006f',
+  disabledMaterial: '01900000-0000-7000-8000-c00200000079',
+  disabledCourse: '01900000-0000-7000-8000-c00200000083',
+  noAssignment: '01900000-0000-7000-8000-c00200000097',
+  draft: '01900000-0000-7000-8000-c0020000000b',
+  foreign: randomUUID(),
 };
+const CATALOG_IDS = [
+  COURSE.publishedVersion,
+  COURSE.noAssignment,
+  COURSE.disabledMaterial,
+  COURSE.publishedLocked,
+];
+const CATALOG_TOTAL = CATALOG_IDS.length;
+const FOREIGN_ORG = randomUUID();
+const FOREIGN_CHAIN = randomUUID();
+const FOREIGN_FILE = randomUUID();
+const fixturePrisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
+});
+
+before(async () => {
+  assert.notEqual(process.env.NODE_ENV, 'production');
+  // The canonical seed has one organization and no optional-only Published lesson.
+  // Own these missing negative/edge-case fixtures instead of asserting on absent IDs.
+  await fixturePrisma.$transaction(async (tx) => {
+    await tx.mediaFile.create({
+      data: {
+        id: FOREIGN_FILE,
+        organizationId: FOREIGN_ORG,
+        purpose: 'MaterialVideo',
+        status: 'Ready',
+        storageKey: 'catalog-test/' + FOREIGN_FILE,
+        originalFilename: 'optional.mp4',
+        mimeType: 'video/mp4',
+        sizeBytes: 1n,
+        durationSeconds: 600,
+        readyAt: new Date(),
+      },
+    });
+    await tx.courseChain.create({
+      data: {
+        id: FOREIGN_CHAIN,
+        organizationId: FOREIGN_ORG,
+        instructorId: INSTRUCTOR_1,
+        courses: {
+          create: {
+            id: COURSE.foreign,
+            organizationId: FOREIGN_ORG,
+            versionNumber: 1,
+            name: 'Foreign optional-only course',
+            learningOutcomes: [],
+            expectedCompletionDays: 7,
+            courseType: 'Public',
+            status: 'Published',
+            publishedAt: new Date(),
+            modules: {
+              create: {
+                organizationId: FOREIGN_ORG,
+                title: 'Optional module',
+                position: 1,
+                lessons: {
+                  create: {
+                    organizationId: FOREIGN_ORG,
+                    title: 'Optional lesson',
+                    content: 'Hidden content',
+                    position: 1,
+                    materials: {
+                      create: {
+                        organizationId: FOREIGN_ORG,
+                        materialType: 'Video',
+                        title: 'Optional video',
+                        isRequired: false,
+                        fileId: FOREIGN_FILE,
+                        position: 1,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+});
+
+after(async () => {
+  try {
+    await fixturePrisma.$transaction(async (tx) => {
+      await tx.courseChain.deleteMany({
+        where: { id: FOREIGN_CHAIN, organizationId: FOREIGN_ORG },
+      });
+      await tx.mediaFile.deleteMany({
+        where: { id: FOREIGN_FILE, organizationId: FOREIGN_ORG },
+      });
+    });
+  } finally {
+    await fixturePrisma.$disconnect();
+  }
+});
 
 interface ApiBody<T> {
   statusCode: number;
@@ -65,18 +164,18 @@ const getIntroduction = (courseId: string, role?: 'LEARNER' | 'INSTRUCTOR') =>
   get<CourseIntroductionDto>(`/${courseId}/introduction`, role);
 
 void describe('GET /courses/catalog (UC25)', () => {
-  void test('trả đúng 0e…02 rồi 0e…03 theo published_at giảm dần; loại Archived, Private, Draft, org B', async () => {
+  void test('trả đúng 4 Course seed theo published_at giảm dần; loại Archived, Private, Draft, Disabled, org B', async () => {
     const { status, body } = await getCatalog();
     assert.equal(status, 200);
     assert.deepEqual(
       body.data.items.map((course) => course.id),
-      [COURSE.anToanV2, COURSE.baoMat],
+      CATALOG_IDS,
     );
     assert.deepEqual(body.data.meta, {
       current: 1,
       pageSize: 12,
       pages: 1,
-      total: 2,
+      total: CATALOG_TOTAL,
     });
   });
 
@@ -94,9 +193,11 @@ void describe('GET /courses/catalog (UC25)', () => {
   });
 
   void test(
-    'estimatedDurationMinutes khớp phép tính tay từ seed (tốc độ đọc 200, assignment_minutes = 0): ' +
-      '0e…02 = ⌈600/60⌉ 10 + ⌈900/60⌉ 15 + ⌈1080/60⌉ 18 + ⌈1200/200⌉ 6 + ⌈800/200⌉ 4 + ⌈1500/200⌉ 8 = 61; ' +
-      '0e…03 = ⌈480/60⌉ 8 + ⌈720/60⌉ 12 + ⌈900/200⌉ 5 + ⌈1100/200⌉ 6 = 31',
+    // Reading speed 200; mixed lesson 1 = ceil(601/60) + ceil(1001/200) = 17.
+    // Each later mixed lesson = ceil(485/60) + ceil(625/200) = 13.
+    // Optional video is excluded; disabled materials/lessons are excluded.
+    'estimatedDurationMinutes khớp seed: version 2 = 30 + 17 + 13 + 13 = 73; ' +
+      'locked = 17 + 13 + 13 = 43; disabled = 10 + ceil(750/200) = 14; no assignment = 17 + 13 = 30',
     async () => {
       const { body } = await getCatalog();
       const minutes = Object.fromEntries(
@@ -106,8 +207,10 @@ void describe('GET /courses/catalog (UC25)', () => {
         ]),
       );
       assert.deepEqual(minutes, {
-        [COURSE.anToanV2]: 61,
-        [COURSE.baoMat]: 31,
+        [COURSE.publishedVersion]: 73,
+        [COURSE.noAssignment]: 30,
+        [COURSE.disabledMaterial]: 14,
+        [COURSE.publishedLocked]: 43,
       });
     },
   );
@@ -124,7 +227,7 @@ void describe('GET /courses/catalog (UC25)', () => {
     assert.equal(status, 200);
     assert.deepEqual(body.data.items, []);
     assert.equal(body.data.meta.current, 99);
-    assert.equal(body.data.meta.total, 2);
+    assert.equal(body.data.meta.total, CATALOG_TOTAL);
   });
 
   for (const [page, current] of [
@@ -135,7 +238,7 @@ void describe('GET /courses/catalog (UC25)', () => {
       const { status, body } = await getCatalog(`?page=${page}`);
       assert.equal(status, 200);
       assert.deepEqual(body.data, {
-        meta: { current, pageSize: 12, pages: 1, total: 2 },
+        meta: { current, pageSize: 12, pages: 1, total: CATALOG_TOTAL },
         items: [],
       });
     });
@@ -150,13 +253,18 @@ void describe('GET /courses/catalog (UC25)', () => {
     assert.equal(last.status, 200);
     assert.deepEqual(
       last.body.data.items.map((course) => course.id),
-      [COURSE.anToanV2, COURSE.baoMat],
+      CATALOG_IDS,
     );
 
     const beyond = await getCatalog(`?page=${lastPage + 1}`);
     assert.equal(beyond.status, 200);
     assert.deepEqual(beyond.body.data, {
-      meta: { current: lastPage + 1, pageSize: 12, pages: 1, total: 2 },
+      meta: {
+        current: lastPage + 1,
+        pageSize: 12,
+        pages: 1,
+        total: CATALOG_TOTAL,
+      },
       items: [],
     });
   });
@@ -178,23 +286,35 @@ void describe('GET /courses/catalog (UC25)', () => {
     const { status, body } = await getCatalog('?page=1&size=50');
     assert.equal(status, 200);
     assert.equal(body.data.meta.pageSize, 12);
-    assert.equal(body.data.items.length, 2);
+    assert.equal(body.data.items.length, CATALOG_TOTAL);
   });
 
   void test('q trống trả đúng danh mục UC25', async () => {
-    const [blank, omitted] = await Promise.all([getCatalog('?q=%20%09'), getCatalog()]);
+    const [blank, omitted] = await Promise.all([
+      getCatalog('?q=%20%09'),
+      getCatalog(),
+    ]);
     assert.equal(blank.status, 200);
     assert.deepEqual(blank.body.data, omitted.body.data);
   });
 
   void test('q chuẩn hóa Unicode và khoảng trắng trước khi tìm', async () => {
-    assert.notEqual(process.env.NODE_ENV, 'production', 'The Unicode case writes test data.');
+    assert.notEqual(
+      process.env.NODE_ENV,
+      'production',
+      'The Unicode case writes test data.',
+    );
     const connectionString = process.env.DATABASE_URL;
-    assert.ok(connectionString, 'DATABASE_URL must point to the Course test database.');
+    assert.ok(
+      connectionString,
+      'DATABASE_URL must point to the Course test database.',
+    );
 
     const organizationId = `0199a000-0000-7000-8000-${randomBytes(6).toString('hex')}`;
     const title = 'An toàn lao động';
-    const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+    const prisma = new PrismaClient({
+      adapter: new PrismaPg({ connectionString }),
+    });
     try {
       const chain = await prisma.courseChain.create({
         data: {
@@ -224,12 +344,17 @@ void describe('GET /courses/catalog (UC25)', () => {
             organizationId,
           );
           assert.equal(result.status, 200);
-          assert.deepEqual(result.body.data.items.map(({ id }) => id), [course.id]);
+          assert.deepEqual(
+            result.body.data.items.map(({ id }) => id),
+            [course.id],
+          );
           assert.equal(result.body.data.meta.total, 1);
         }
       } finally {
         // Deleting the isolated chain also deletes its single fixture course.
-        await prisma.courseChain.delete({ where: { id: chain.id, organizationId } });
+        await prisma.courseChain.delete({
+          where: { id: chain.id, organizationId },
+        });
       }
     } finally {
       await prisma.$disconnect();
@@ -237,13 +362,22 @@ void describe('GET /courses/catalog (UC25)', () => {
   });
 
   void test('q dài 201 code point hoặc lặp lại trả VALIDATION_ERROR', async () => {
-    const atLimit = await getCatalog('?q=' + encodeURIComponent('😀'.repeat(200)));
+    const atLimit = await getCatalog(
+      '?q=' + encodeURIComponent('😀'.repeat(200)),
+    );
     assert.equal(atLimit.status, 200);
     assert.equal(atLimit.body.data.meta.total, 0);
-    for (const query of ['?q=' + encodeURIComponent('😀'.repeat(201)), '?q=a&q=b', '?q=%00']) {
+    for (const query of [
+      '?q=' + encodeURIComponent('😀'.repeat(201)),
+      '?q=a&q=b',
+      '?q=%00',
+    ]) {
       const result = await getCatalog(query);
       assert.equal(result.status, 400);
-      assert.equal((result.body.error as { code: string }).code, 'VALIDATION_ERROR');
+      assert.equal(
+        (result.body.error as { code: string }).code,
+        'VALIDATION_ERROR',
+      );
     }
   });
 
@@ -254,15 +388,38 @@ void describe('GET /courses/catalog (UC25)', () => {
 });
 
 void describe('GET /courses/:courseId/introduction (UC25.1)', () => {
-  void test('0e…02: cây theo position, cờ bắt buộc và số học liệu tính lúc đọc, không lộ nội dung Lesson hay tệp', async () => {
-    const { status, body } = await getIntroduction(COURSE.anToanV2);
+  void test('Course có học liệu tự chọn: cờ Module/Lesson false, số lượng 1, thời lượng 0', async () => {
+    const { status, body } = await get<CourseIntroductionDto>(
+      '/' + COURSE.foreign + '/introduction',
+      'LEARNER',
+      FOREIGN_ORG,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.data.estimatedDurationMinutes, 0);
+    assert.equal(body.data.requiredMaterialCount, 0);
+    assert.deepEqual(
+      body.data.modules.map((module) => [module.position, module.isRequired]),
+      [[1, false]],
+    );
+    assert.deepEqual(
+      body.data.modules[0].lessons.map((lesson) => [
+        lesson.position,
+        lesson.isRequired,
+        lesson.materialCount,
+      ]),
+      [[1, false, 1]],
+    );
+  });
+
+  void test('version 2: cây theo position, cờ bắt buộc và số học liệu tính lúc đọc, không lộ nội dung Lesson hay tệp', async () => {
+    const { status, body } = await getIntroduction(COURSE.publishedVersion);
     assert.equal(status, 200);
     const course = body.data;
 
-    assert.equal(course.id, COURSE.anToanV2);
-    assert.equal(course.estimatedDurationMinutes, 61);
-    assert.equal(course.learningOutcomes.length, 4);
-    // 6 học liệu bắt buộc: 3 video + 3 reading (xem phép tính 61 phút)
+    assert.equal(course.id, COURSE.publishedVersion);
+    assert.equal(course.estimatedDurationMinutes, 73);
+    assert.equal(course.learningOutcomes.length, 2);
+    // 6 học liệu bắt buộc: 3 video + 3 reading; 3 video tự chọn không tính thời lượng.
     assert.equal(course.requiredMaterialCount, 6);
 
     assert.deepEqual(
@@ -277,12 +434,9 @@ void describe('GET /courses/:courseId/introduction (UC25.1)', () => {
     assert.deepEqual(
       lessons.map((l) => [l.position, l.isRequired, l.materialCount]),
       [
-        [1, true, 2],
-        [2, true, 1],
-        [1, true, 2],
+        [1, true, 3],
         [2, true, 3],
-        // "Tài liệu tham khảo thêm": chỉ có học liệu không bắt buộc
-        [3, false, 1],
+        [1, true, 3],
       ],
     );
 
@@ -299,12 +453,13 @@ void describe('GET /courses/:courseId/introduction (UC25.1)', () => {
     assert.ok(!json.includes('storageKey'));
   });
 
-  void test('Course Archived, Private, Draft, org B và courseId không phải UUID: cùng 404, cùng statusCode và error', async () => {
+  void test('Course Archived, Private, Draft, Disabled, org B và courseId không phải UUID: cùng 404, cùng statusCode và error', async () => {
     const cases = [
-      COURSE.anToanV1Archived,
-      COURSE.quyTrinhPrivate,
-      COURSE.giaoTiepDraft,
-      COURSE.nhapMonOrgB,
+      COURSE.archivedVersion,
+      COURSE.publishedPrivate,
+      COURSE.draft,
+      COURSE.disabledCourse,
+      COURSE.foreign,
       'khong-phai-uuid',
     ];
     const results = await Promise.all(cases.map((id) => getIntroduction(id)));
@@ -327,7 +482,10 @@ void describe('GET /courses/:courseId/introduction (UC25.1)', () => {
   });
 
   void test('INSTRUCTOR_1 bị từ chối 403', async () => {
-    const { status } = await getIntroduction(COURSE.anToanV2, 'INSTRUCTOR');
+    const { status } = await getIntroduction(
+      COURSE.publishedVersion,
+      'INSTRUCTOR',
+    );
     assert.equal(status, 403);
   });
 });

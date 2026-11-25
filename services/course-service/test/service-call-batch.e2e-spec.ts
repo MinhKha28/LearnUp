@@ -8,16 +8,13 @@ import {
   VersioningType,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { APP_GUARD, Reflector } from '@nestjs/core';
+import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { InternalAuthGuard } from '../src/common/guards/internal-auth.guard';
 import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
-import { STORAGE_PROVIDER } from '../src/infrastructure/storage/storage.constants';
-import { InternalCoursesController } from '../src/modules/internal-courses/internal-courses.controller';
-import { InternalCoursesService } from '../src/modules/internal-courses/internal-courses.service';
+import { AppModule } from '../src/app.module';
 
 if (process.env.NODE_ENV === 'production')
   throw new Error('Refusing database tests in production.');
@@ -37,22 +34,15 @@ describe('ServiceCall batch (HTTP with real PostgreSQL)', () => {
   const endpoint = '/api/v1/internal/courses/batch';
 
   beforeAll(async () => {
-    const module = await Test.createTestingModule({
-      controllers: [InternalCoursesController],
-      providers: [
-        InternalCoursesService,
-        PrismaService,
-        { provide: STORAGE_PROVIDER, useValue: {} },
-        {
-          provide: ConfigService,
-          useValue: new ConfigService({
-            DATABASE_URL: process.env.DATABASE_URL,
-            INTERNAL_SERVICE_KEY: headers['x-internal-key'],
-          }),
-        },
-        { provide: APP_GUARD, useClass: InternalAuthGuard },
-      ],
-    }).compile();
+    const module = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(ConfigService)
+      .useValue(
+        new ConfigService({
+          DATABASE_URL: process.env.DATABASE_URL,
+          INTERNAL_SERVICE_KEY: headers['x-internal-key'],
+        }),
+      )
+      .compile();
     app = module.createNestApplication();
     app.setGlobalPrefix('api');
     app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
