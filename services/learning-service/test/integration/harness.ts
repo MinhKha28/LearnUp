@@ -2,6 +2,7 @@ import { after, beforeEach } from 'node:test';
 import { courseStub } from './course-stub';
 import { IO_TIMEOUT_MS } from './deadlines';
 import { boundKafkaAdminConnections } from './kafka-handles';
+import { finishCleanup } from './cleanup';
 
 async function main() {
   const target = new URL(process.env.DATABASE_URL!);
@@ -28,6 +29,16 @@ async function main() {
       });
     }
   };
+  const cleanup = () => [
+    { name: 'Course stub', run: () => stub.close() },
+    { name: 'native Kafka handles', run: closeKafka },
+    {
+      name: 'pg Pool override',
+      run: () => {
+        pg.Pool = OriginalPool;
+      },
+    },
+  ];
   beforeEach(() => courseStub.reset());
   try {
     // Import only after DATABASE_URL and the listening HTTP stub are ready.
@@ -50,18 +61,11 @@ async function main() {
       require('./index');
     }
   } catch (error) {
-    await Promise.allSettled([stub.close(), closeKafka()]);
-    pg.Pool = OriginalPool;
-    throw error;
+    await finishCleanup(cleanup(), error);
   }
+  // File hooks collect failures instead of aborting this final root hook.
   after(async () => {
-    try {
-      const { closeAll } =
-        require('./deadlines') as typeof import('./deadlines');
-      await closeAll(() => stub.close(), closeKafka);
-    } finally {
-      pg.Pool = OriginalPool;
-    }
+    await finishCleanup(cleanup());
   });
 }
 export const ready = main();

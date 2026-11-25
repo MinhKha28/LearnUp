@@ -1,6 +1,7 @@
 import { KafkaJS } from '@confluentinc/kafka-javascript';
 import { readRelayConfig } from '../../src/modules/outbox/relay.config';
-import { closeAll, deadline } from './deadlines';
+import { deadline } from './deadlines';
+import { cleanupAll } from './cleanup';
 
 /** Native connection attempts/retries can outlive the test's shutdown budget.
  * Bound that test boundary and dispose the real native handles.
@@ -9,10 +10,24 @@ export function boundKafkaAdminConnections() {
   const prototype = KafkaJS.Kafka.prototype;
   const original = prototype.admin;
   const originalProducer = prototype.producer;
+  // Restore the exact factory later; the wrapper invokes it with apply(this).
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  const originalConsumer = prototype.consumer;
   const opened = new Set<{
     connect: () => Promise<void>;
     disconnect: () => Promise<void>;
   }>();
+  function rememberDependents<
+    T extends { dependentAdmin: () => KafkaJS.Admin },
+  >(client: T): T {
+    const dependentAdmin = client.dependentAdmin.bind(client);
+    client.dependentAdmin = () => {
+      const admin = dependentAdmin();
+      opened.add(admin);
+      return admin;
+    };
+    return client;
+  }
   const probeMs = readRelayConfig((key) => process.env[key]).probeMs;
   const nativeProducerConnect =
     process.env.OUTBOX_INTEGRATION === 'true' &&
@@ -41,18 +56,31 @@ export function boundKafkaAdminConnections() {
     return bound(original.apply(this, args), 'admin');
   };
   prototype.producer = function (...args: Parameters<typeof originalProducer>) {
-    return bound(
-      originalProducer.apply(this, args),
-      'producer',
-      !nativeProducerConnect,
+    return rememberDependents(
+      bound(
+        originalProducer.apply(this, args),
+        'producer',
+        !nativeProducerConnect,
+      ),
     );
+  };
+  prototype.consumer = function (...args: Parameters<typeof originalConsumer>) {
+    const consumer = originalConsumer.apply(this, args);
+    opened.add(consumer);
+    return rememberDependents(consumer);
   };
   return async () => {
     try {
-      await closeAll(...[...opened].map((admin) => () => admin.disconnect()));
+      await cleanupAll(
+        [...opened].reverse().map((client, index) => ({
+          name: `native Kafka client ${index + 1}`,
+          run: () => client.disconnect(),
+        })),
+      );
     } finally {
       prototype.admin = original;
       prototype.producer = originalProducer;
+      prototype.consumer = originalConsumer;
     }
   };
 }
