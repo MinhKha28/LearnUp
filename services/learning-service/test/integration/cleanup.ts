@@ -58,6 +58,9 @@ export async function finishCleanup(
   } catch (error) {
     errors.push(error);
   }
-  if (errors.length)
-    throw new AggregateError(errors, 'Integration teardown failed');
+  if (errors.length === 0) return;
+  // Node 24 with --experimental-test-isolation=none prints a failing root
+  // `after` hook but still exits 0, so the run must be marked as failed here.
+  process.exitCode = 1;
+  throw new AggregateError(errors, 'Integration teardown failed');
 }

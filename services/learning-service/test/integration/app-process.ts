@@ -2,6 +2,7 @@ import { fork } from 'node:child_process';
 import { join } from 'node:path';
 import {
   deadline,
+  CHILD_APP_START_TIMEOUT_ENV,
   CHILD_APP_START_TIMEOUT_MS,
   CHILD_APP_STOP_TIMEOUT_MS,
   CHILD_APP_KILL_TIMEOUT_MS,
@@ -43,26 +44,60 @@ export async function startTestApp(
   };
   process.once('exit', killOnExit);
   let childFailure: string | undefined;
+  function hasExited(): boolean {
+    return child.exitCode !== null || child.signalCode !== null;
+  }
+  /** Report a child that failed, also when it already exited on its own. */
+  function throwIfChildFailed(): void {
+    if (childFailure) throw new Error(childFailure);
+    if (child.exitCode === 0) return;
+    throw new Error(
+      `Test app child exit code ${String(child.exitCode)}, signal ${String(child.signalCode)}`,
+    );
+  }
+  async function killChild(): Promise<void> {
+    if (hasExited()) return;
+    child.kill('SIGKILL');
+    await deadline(
+      exited,
+      'test app child forced exit',
+      CHILD_APP_KILL_TIMEOUT_MS,
+    );
+  }
   async function close(): Promise<void> {
     try {
-      if (child.exitCode !== null || child.signalCode !== null) {
-        if (childFailure) throw new Error(childFailure);
+      if (hasExited()) {
+        throwIfChildFailed();
         return;
       }
       if (child.connected) child.send({ type: 'stop' } satisfies AppCommand);
       await deadline(exited, 'test app child exit', CHILD_APP_STOP_TIMEOUT_MS);
-      if (childFailure) throw new Error(childFailure);
-      if (child.exitCode !== 0)
-        throw new Error(`Test app child exit code ${String(child.exitCode)}`);
+      throwIfChildFailed();
     } catch (error) {
-      if (child.exitCode === null && child.signalCode === null) {
-        child.kill('SIGKILL');
-        await deadline(
-          exited,
-          'test app child forced exit',
-          CHILD_APP_KILL_TIMEOUT_MS,
-        );
-      }
+      await killChild();
+      throw error;
+    } finally {
+      process.removeListener('exit', killOnExit);
+    }
+  }
+  /** Until its imports finish, the child ignores 'stop'; do not wait for it. */
+  async function killAfterStartTimeout(): Promise<void> {
+    try {
+      await killChild();
+    } finally {
+      process.removeListener('exit', killOnExit);
+    }
+  }
+  /**
+   * A child that reported a startup failure (or exited) runs its own cleanup.
+   * Wait for that exit, but do not report the same failure a second time.
+   */
+  async function waitForFailedChildExit(): Promise<void> {
+    try {
+      if (hasExited()) return;
+      await deadline(exited, 'test app child exit', CHILD_APP_STOP_TIMEOUT_MS);
+    } catch (error) {
+      await killChild();
       throw error;
     } finally {
       process.removeListener('exit', killOnExit);
@@ -85,11 +120,12 @@ export async function startTestApp(
         requestId,
         activity: await assessmentActivity(),
       };
-    } catch {
+    } catch (error) {
       command = {
         type: 'assessment-result',
         requestId,
-        error: 'assessment timeout',
+        error:
+          error instanceof Error ? error.message : 'Assessment fixture failed',
       };
     }
     if (child.connected) child.send(command);
@@ -115,16 +151,23 @@ export async function startTestApp(
       }
     });
   });
+  // Stays false when the start deadline expires before the child answers
+  // with 'ready', 'error' or an exit.
+  let childAnswered = false;
+  const answered = ready.finally(() => {
+    childAnswered = true;
+  });
   try {
     await deadline(
-      ready,
-      'test app startup/configuration',
+      answered,
+      `test app startup/configuration (${CHILD_APP_START_TIMEOUT_ENV})`,
       CHILD_APP_START_TIMEOUT_MS,
     );
     return app;
   } catch (error) {
     try {
-      await close();
+      if (childAnswered) await waitForFailedChildExit();
+      else await killAfterStartTimeout();
     } catch (cleanupError) {
       throw new AggregateError(
         [error, cleanupError],

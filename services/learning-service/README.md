@@ -47,6 +47,8 @@ OUTBOX_TEST_KAFKA_CONTAINER explicitly naming a disposable Compose Kafka contain
 that test stops/restarts it and checks HTTP database reads while Kafka is down.
 Never point chaos tests at a shared broker. Each test run measures publication
 p50/p95 and prints one synthetic envelope consumed from Kafka.
+On a slower machine the five opt-in Kafka tests together can exceed the default
+109 s suite cap; raise `LEARNING_IT_SUITE_TIMEOUT_MS` for that run.
 
 ## Course completion
 
@@ -151,7 +153,9 @@ Harness HTTP uses **3000 ms from the learning-service environment in
 `docker-compose.yml`**. The runner reads that deployed value; only if Compose does
 not set it does it read `.env.example`. No Course HTTP timeout code default is
 introduced. Integration per-test, suite, named barrier, pg connection/statement,
-and teardown budgets are defined in `test/integration/deadlines.ts`. The CLI suite
+and teardown budgets are defined in `test/integration/deadlines.ts`; a
+forked test app must start within `LEARNING_IT_CHILD_START_TIMEOUT_MS`
+(default 20000 ms). The CLI suite
 limit and parent process cap also cover startup/imports and leaked handles. The
 single test process uses Node's no-isolation mode so killing it cannot leave a
 separate test-file process alive. Prisma-created pg pools receive the same bounded

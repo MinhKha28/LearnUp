@@ -18,8 +18,14 @@ export const BARRIER_TIMEOUT_MS = budget(
   5000,
 );
 
-// Measured child startup: 1635-4783 ms, including imports; allow 8 s.
-export const CHILD_APP_START_TIMEOUT_MS = 8000;
+// Measured child startup in full default runs: 2016-3016 ms here and at least
+// 8000 ms on a slower machine (it hit the old 8 s cap). Allow twice the
+// slowest, rounded up to the next multiple of 5 s.
+export const CHILD_APP_START_TIMEOUT_ENV = 'LEARNING_IT_CHILD_START_TIMEOUT_MS';
+export const CHILD_APP_START_TIMEOUT_MS = budget(
+  CHILD_APP_START_TIMEOUT_ENV,
+  20000,
+);
 // Measured child shutdown: 20-30 ms; leave 5 s for native cancellation.
 export const CHILD_APP_STOP_TIMEOUT_MS = 5000;
 // Forced process termination measured 90 ms.
