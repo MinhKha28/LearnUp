@@ -317,9 +317,31 @@ test(
       }
     }
     await waitFor(async () => (await p1.ready()) === true, 40000);
-    await r1.tick();
-    await r1.tick();
-    await waitFor(() => received.length >= 2, 30000);
+    try {
+      await waitFor(async () => {
+        await r1.tick();
+        return received.length >= 2;
+      }, 30000);
+    } catch (error) {
+      try {
+        const rows = await prisma.$queryRaw<
+          {
+            id: string;
+            attempts: number;
+            last_error: string | null;
+            published_at: Date | null;
+          }[]
+        >`SELECT id,attempts,last_error,published_at FROM outbox_events
+          WHERE organization_id=${org}::uuid ORDER BY id`;
+        console.error(
+          'L6 recovery timeout',
+          JSON.stringify({ rows, received }),
+        );
+      } catch {
+        console.error('L6 recovery timeout: row diagnostics unavailable');
+      }
+      throw error;
+    }
     assert.deepEqual(
       received.map((r) => r.body.data.sequence),
       [1, 2],
