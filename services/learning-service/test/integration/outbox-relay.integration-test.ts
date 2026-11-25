@@ -72,6 +72,12 @@ async function insert(
 async function clear() {
   await prisma.$executeRaw`DELETE FROM outbox_events WHERE organization_id=${org}::uuid`;
 }
+function chaosContainer(): string {
+  const container = process.env.OUTBOX_TEST_KAFKA_CONTAINER;
+  if (!container || !/^[a-zA-Z0-9_.-]+$/.test(container))
+    throw new Error('Explicit test Kafka container required');
+  return container;
+}
 async function waitFor(
   check: () => boolean | Promise<boolean>,
   timeout = 20000,
@@ -84,10 +90,26 @@ async function waitFor(
 }
 before(async () => {
   if (!enabled) return;
+  if (process.env.OUTBOX_KAFKA_CHAOS === 'true') {
+    const container = chaosContainer();
+    const running = execFileSync(
+      'docker',
+      ['inspect', '--format', '{{.State.Running}}', container],
+      { encoding: 'utf8', timeout: 10000 },
+    ).trim();
+    if (running === 'false') {
+      console.log('L6 starting stopped chaos broker');
+      execFileSync('docker', ['start', container], {
+        stdio: 'ignore',
+        timeout: 10000,
+      });
+    }
+  }
   await prisma.$connect();
   await consumer.connect();
   admin = consumer.dependentAdmin();
   await admin.connect();
+  await waitForBroker(admin);
   await require('../../../../infrastructure/kafka/test-topics.cjs').createTestTopics(
     admin,
     { 'enrollment-events': config.topic },
@@ -215,9 +237,7 @@ test(
     timeout: 90000,
   },
   async () => {
-    const container = process.env.OUTBOX_TEST_KAFKA_CONTAINER;
-    if (!container || !/^[a-zA-Z0-9_.-]+$/.test(container))
-      throw new Error('Explicit test Kafka container required');
+    const container = chaosContainer();
     await clear();
     received.length = 0;
     const aggregate = randomUUID();
@@ -360,9 +380,7 @@ test(
     timeout: 90000,
   },
   async () => {
-    const container = process.env.OUTBOX_TEST_KAFKA_CONTAINER;
-    if (!container || !/^[a-zA-Z0-9_.-]+$/.test(container))
-      throw new Error('Explicit test Kafka container required');
+    const container = chaosContainer();
     const topic = `learnup.learning.cold-${randomUUID()}`;
     let app: TestAppProcess | undefined;
     const reader = kafka.consumer({
