@@ -244,8 +244,6 @@ test(
     await insert(1000, aggregate, 1);
     await insert(1001, aggregate, 2);
     const expectedEventIds = new Set([id(1000), id(1001)]);
-    const recoveredMessages = () =>
-      received.filter((message) => expectedEventIds.has(message.body.eventId));
     let app: NestExpressApplication | undefined;
     let heldMs = 0,
       transactionCalls = 0;
@@ -340,35 +338,99 @@ test(
       }
     }
     await waitFor(async () => (await p1.ready()) === true, 40000);
+    const readerGroupId = `recovery-${randomUUID()}`;
+    const freshReceived: typeof received = [];
+    const readerDebug: {
+      at: string;
+      level: string;
+      message: string;
+      metadata?: object;
+    }[] = [];
+    const recordReaderLog = (
+      level: string,
+      message: string,
+      metadata?: object,
+    ) => {
+      readerDebug.push({
+        at: new Date().toISOString(),
+        level,
+        message,
+        metadata,
+      });
+    };
+    const readerLogger: KafkaJS.Logger = {
+      info: (message, metadata) => recordReaderLog('info', message, metadata),
+      warn: (message, metadata) => recordReaderLog('warn', message, metadata),
+      error: (message, metadata) => recordReaderLog('error', message, metadata),
+      debug: (message, metadata) => recordReaderLog('debug', message, metadata),
+      namespace: () => readerLogger,
+      setLogLevel: () => undefined,
+    };
+    const reader = kafka.consumer({
+      kafkaJS: {
+        groupId: readerGroupId,
+        fromBeginning: true,
+        logger: readerLogger,
+      },
+      debug: 'cgrp,consumer,fetch',
+    });
     try {
-      await waitFor(async () => {
-        await r1.tick();
-        return recoveredMessages().length >= 2;
-      }, 30000);
-    } catch (error) {
+      await reader.connect();
+      await reader.subscribe({ topics: [config.topic] });
+      await reader.run({
+        eachMessage: ({ message }) => {
+          const body = JSON.parse(
+            message.value!.toString(),
+          ) as (typeof received)[number]['body'];
+          if (expectedEventIds.has(body.eventId))
+            freshReceived.push({ key: message.key!.toString(), body });
+          return Promise.resolve();
+        },
+      });
       try {
-        const rows = await prisma.$queryRaw<
-          {
-            id: string;
-            attempts: number;
-            last_error: string | null;
-            published_at: Date | null;
-          }[]
-        >`SELECT id,attempts,last_error,published_at FROM outbox_events
-          WHERE organization_id=${org}::uuid ORDER BY id`;
+        await waitFor(async () => {
+          await r1.tick();
+          return freshReceived.length >= 2;
+        }, 30000);
+      } catch (error) {
+        try {
+          const rows = await prisma.$queryRaw<
+            {
+              id: string;
+              attempts: number;
+              last_error: string | null;
+              published_at: Date | null;
+            }[]
+          >`SELECT id,attempts,last_error,published_at FROM outbox_events
+            WHERE organization_id=${org}::uuid ORDER BY id`;
+          console.error('L6 recovery timeout rows', JSON.stringify(rows));
+        } catch {
+          console.error('L6 recovery timeout: row diagnostics unavailable');
+        }
         console.error(
-          'L6 recovery timeout',
-          JSON.stringify({ rows, received }),
+          'L6 recovery consumers',
+          JSON.stringify({
+            fresh: {
+              groupId: readerGroupId,
+              count: freshReceived.length,
+              receivedIds: freshReceived.map((message) => message.body.eventId),
+            },
+            shared: {
+              count: received.length,
+              receivedIds: received.map((message) => message.body.eventId),
+            },
+          }),
         );
-      } catch {
-        console.error('L6 recovery timeout: row diagnostics unavailable');
+        console.error('L6 recovery reader debug', JSON.stringify(readerDebug));
+        throw error;
       }
-      throw error;
+      assert.deepEqual(
+        freshReceived.map((message) => message.body.data.sequence),
+        [1, 2],
+      );
+    } finally {
+      await reader.disconnect();
     }
-    assert.deepEqual(
-      recoveredMessages().map((message) => message.body.data.sequence),
-      [1, 2],
-    );
     await clear();
   },
 );
