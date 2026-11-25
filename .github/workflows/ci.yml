@@ -137,7 +137,8 @@ jobs:
           # Learning integration suite: the service itself or its only library.
           learning_it=false
           if [ "$run_all" = true ] || touched '^services/learning-service/' \
-            || touched '^libraries/ts-common/' || [ "$topics_changed" = true ]; then learning_it=true; fi
+            || touched '^libraries/ts-common/' || touched '^\.nvmrc$' \
+            || [ "$topics_changed" = true ]; then learning_it=true; fi
 
           # Assessment also reads the Course seed and consumes both TS libraries.
           assessment_it=false
@@ -194,7 +195,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.22.3
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: libraries/${{ matrix.lib }}/package-lock.json
 
@@ -243,7 +244,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.22.3
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             ${{ matrix.dir }}/package-lock.json
@@ -361,7 +362,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.22.3
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             services/learning-service/package-lock.json
@@ -538,7 +539,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.22.3
+          node-version-file: .nvmrc
       - name: Check PR commit metadata
         run: node scripts/check-ai-signatures.mjs
 
