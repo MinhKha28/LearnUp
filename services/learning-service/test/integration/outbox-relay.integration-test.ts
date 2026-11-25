@@ -114,10 +114,27 @@ before(async () => {
     admin,
     { 'enrollment-events': config.topic },
   );
-  await Promise.all([
-    waitFor(async () => (await p1.ready()) === true),
-    waitFor(async () => (await p2.ready()) === true),
-  ]);
+  let lastP1: true | string = 'not checked';
+  let lastP2: true | string = 'not checked';
+  try {
+    await Promise.all([
+      waitFor(async () => {
+        lastP1 = await p1.ready();
+        return lastP1 === true;
+      }),
+      waitFor(async () => {
+        lastP2 = await p2.ready();
+        return lastP2 === true;
+      }),
+    ]);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Relay readiness check failed';
+    throw new Error(
+      `${message}; p1.ready=${String(lastP1)}; p2.ready=${String(lastP2)}`,
+      { cause: error },
+    );
+  }
   await consumer.subscribe({ topics: [config.topic] });
   await consumer.run({
     eachMessage: async ({ message }) => {
