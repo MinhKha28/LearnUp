@@ -504,5 +504,6 @@ test('the relay service reads error classification from the gate contract, not f
     join(__dirname, '../../src/modules/outbox/relay.service.ts'),
     'utf8',
   );
-  assert.doesNotMatch(source, /from '\.\/relay\.kafka-gate'/);
+  // Any mention (import, re-export, dynamic import, either quote style) counts.
+  assert.doesNotMatch(source, /relay\.kafka-gate/);
 });
